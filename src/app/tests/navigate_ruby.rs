@@ -47,7 +47,8 @@ fn a_call_no_project_declaration_answers_goes_into_the_locked_gems() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #369: the core is read from the `rbs` gem's signatures, `def name: …` in a `class`, and the
+/// #369: the core is read from the `rbs` gem's signatures, `def name: …` in a `class` and
+/// `def self?.name: …` in a module, and the
 /// standard library's hits come before the gems'. A member found by name in the project gets
 /// the ones outside beside it, so the project's one namesake is offered, never jumped to.
 #[test]
@@ -64,8 +65,12 @@ fn the_core_signatures_and_the_standard_library_come_first() {
                 "class Account < ApplicationRecord\nend\n",
             ),
             (
+                "lib/my_gem.rb",
+                "module MyGem\n  mattr_accessor :api_key\nend\n",
+            ),
+            (
                 "app/lib/run.rb",
-                "class Run\n  def call(options)\n    Account.find(1)\n    options.fetch(:limit)\n    Logger.new($stdout).info('x')\n    config.send_email_changed_notification\n  rescue Errno::ENOENT\n    nil\n  end\nend\n",
+                "class Run\n  def call(options)\n    Account.find(1)\n    options.fetch(:limit)\n    Logger.new($stdout).info('x')\n    config.send_email_changed_notification\n    options.name\n    MyGem.api_key\n    puts 'x'\n  rescue Errno::ENOENT\n    nil\n  end\nend\n",
             ),
         ],
     );
@@ -75,6 +80,10 @@ fn the_core_signatures_and_the_standard_library_come_first() {
             (
                 "rbs-3.4.0/core/hash.rbs",
                 "class Hash[unchecked out K, unchecked out V] < Object\n  def fetch: (K arg0) -> V\n           | [X] (K arg0) { (K arg0) -> X } -> (V | X)\nend\n",
+            ),
+            (
+                "rbs-3.4.0/core/kernel.rbs",
+                "module Kernel\n  def self?.puts: (*untyped) -> nil\nend\n",
             ),
             (
                 "rbs-3.4.0/core/errno.rbs",
@@ -94,7 +103,7 @@ fn the_core_signatures_and_the_standard_library_come_first() {
             ),
             (
                 "gems/devise-4.9.4/lib/devise.rb",
-                "module Devise\n  mattr_accessor :send_email_changed_notification\n  @@send_email_changed_notification = false\nend\n",
+                "module Devise\n  mattr_accessor :send_email_changed_notification, :api_key\n  @@send_email_changed_notification = false\n\n  def self.setup\n    name = 'devise'\n  end\nend\n",
             ),
         ],
     );
@@ -152,15 +161,49 @@ fn the_core_signatures_and_the_standard_library_come_first() {
             &at("gems/activerecord-8.0.0/lib/active_record/core.rb:4")
         )
     );
-    // `mattr_accessor` declares its name as `attr_accessor` does.
+    // `mattr_accessor` declares its name as `attr_accessor` does. On a value of no known type
+    // the one row is offered, as without the gems (#390).
     d_on(&mut a, "app/lib/run.rb", ".send_email_changed_notification");
     assert_eq!(
         shown(&mut a),
-        jump(
-            "send_email_changed_notification \u{2192} Devise.send_email_changed_notification (by name, 1 match)",
-            &at("gems/devise-4.9.4/lib/devise.rb:2")
+        picker(
+            "send_email_changed_notification: by name, 1 match",
+            &[(
+                "Devise.send_email_changed_notification",
+                "devise-4.9.4/lib/devise.rb:2"
+            )]
         )
     );
+    // A local of a gem's method declares nothing by name (#383): `name = 'devise'` is no answer.
+    d_on(&mut a, "app/lib/run.rb", "options.name");
+    assert_eq!(
+        shown(&mut a),
+        jump("no definition for name", "app/lib/run.rb:7")
+    );
+    // A class-level accessor is the class's own: the project's `MyGem.api_key`, never Devise's.
+    d_on(&mut a, "app/lib/run.rb", "MyGem.api_key");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "api_key \u{2192} MyGem.api_key (via MyGem)",
+            "lib/my_gem.rb:2"
+        )
+    );
+    // `def self?.puts:` declares Kernel's `puts`.
+    d_on(&mut a, "app/lib/run.rb", "  puts");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "puts \u{2192} Kernel.puts (by name, 1 match)",
+            &at("rbs-3.4.0/core/kernel.rbs:2")
+        )
+    );
+    // Opened, a core signature is named from its root and read as Ruby.
+    assert_eq!(
+        a.rel_path_of(&root.join("rbs-3.4.0/core/kernel.rbs")),
+        "kernel.rbs"
+    );
+    assert_eq!(a.kind(), Some(Kind::Ruby));
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();
 }

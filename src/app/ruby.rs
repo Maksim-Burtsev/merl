@@ -85,19 +85,16 @@ impl App {
 
     /// `x.word` on a Ruby value of no known type, `found` the candidates so far: what Ruby's core
     /// and the gems declare of the name joins them (#369), so the project's one namesake is no
-    /// longer alone. Without the core's signatures `x.each` may be a method nobody read, and the
-    /// project's one namesake proves nothing: it is offered rather than jumped to (#390).
+    /// longer alone. Whatever is read, one candidate proves nothing of a value whose type is not
+    /// known, an ActiveRecord column's reader is declared nowhere: it is offered rather than
+    /// jumped to (#390).
     pub(super) fn ruby_member_outside(
         &mut self,
         word: &str,
         pattern: &str,
         found: &mut Vec<Candidate>,
     ) {
-        let core = self
-            .external_files(Kind::Ruby)
-            .iter()
-            .any(|f| f.extension().is_some_and(|e| e == "rbs"));
-        self.offer_only |= !core;
+        self.offer_only = true;
         for c in self.ruby_outside(word, pattern) {
             if !found
                 .iter()

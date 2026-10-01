@@ -24,7 +24,14 @@ impl App {
         imports: &[(String, Vec<String>)],
         narrow: bool,
     ) -> Option<Vec<Candidate>> {
-        let pattern = &search::def_patterns(kind, word).join("|");
+        let mut patterns = search::def_patterns(kind, word);
+        // A Ruby local is seen from its own method alone, never found by name (#383): outside
+        // the project only a constant's assignment declares.
+        if kind == Kind::Ruby && word.starts_with(|c: char| c.is_ascii_lowercase() || c == '_') {
+            let assignment = search::ruby_assignment(word);
+            patterns.retain(|p| *p != assignment);
+        }
+        let pattern = &patterns.join("|");
         let mut bound_path = bound(imports, chain.first().map_or(word, String::as_str));
         // What a TypeScript import takes (a name, `default`, `*`) is no part of a file's path.
         let taken = match kind {

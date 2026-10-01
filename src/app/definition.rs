@@ -1848,7 +1848,7 @@ impl App {
         if found.is_empty() && self.probe.is_none() {
             found = self.deleted_definitions(kind, &word, &here);
         }
-        // A Ruby value's member: what Ruby's core and the gems declare of the name too (#369).
+        // A Ruby value's member: what Ruby's core and the gems declare too, offered (#369, #390).
         if kind == Kind::Ruby && on_value {
             self.ruby_member_outside(&word, &pattern, &mut found);
         }

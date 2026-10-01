@@ -150,6 +150,30 @@ fn ruby_roots_are_the_locked_gems_of_the_ruby_the_project_names() {
             bundle.join("gems/rack-attack-6.7.0"),
         ]
     );
+    // `GEM_HOME` and `GEM_PATH` come after `BUNDLE_PATH`, before the Ruby's own gem path.
+    let env = tmp.join("env-gems");
+    std::fs::create_dir_all(env.join("gems/rack-3.1.0")).unwrap();
+    let roots = ruby_roots(&root, &home, std::slice::from_ref(&env), || {
+        Some(format!(
+            "{}\n{}\n",
+            tmp.join("lib").display(),
+            path.display()
+        ))
+    });
+    assert_eq!(roots[1], env.join("gems/rack-3.1.0"));
+    // With none of the locked gems installed there are no roots at all, whatever Ruby, standard
+    // library and core signatures are there: `d` stays in the project, as before #369.
+    write(
+        &root.join("Gemfile.lock"),
+        "GEM\n  specs:\n    missing (1.0.0)\n",
+    );
+    std::fs::create_dir_all(path.join("gems/rbs-3.9.1/core")).unwrap();
+    let said = format!("{}\n{}\n", tmp.join("lib").display(), path.display());
+    assert!(ruby_roots(&root, &home, &[], || Some(said)).is_empty());
+    write(
+        &root.join("Gemfile.lock"),
+        "GEM\n  specs:\n    rack-attack (6.7.0)\n",
+    );
     // A `BUNDLE_PATH` beside the project is read without its `..`.
     let beside = tmp.join("bundle/ruby/3.3.0/gems/rack-attack-6.7.0");
     std::fs::create_dir_all(&beside).unwrap();
