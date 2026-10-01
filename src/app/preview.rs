@@ -62,6 +62,11 @@ impl App {
                 .min(self.view_h.saturating_sub(1)),
         };
         self.previewed.insert(path);
+        // The preview shows no deleted line: a cursor on one stands on the line below it, which
+        // the cursor row shows and Enter and Ctrl+C act on (#596).
+        if self.deleted.is_some() {
+            self.go((self.line, 0));
+        }
         // A selection the preview cannot draw would be what Ctrl+C copies.
         self.anchor = None;
         // Back to the row the preview left, when the cursor has not moved since; else the row

@@ -52,6 +52,14 @@ impl App {
                     self.undo_break = true;
                     self.anchor = None;
                     self.preview = None;
+                    // A file of the review opens on its source, where its diff and its fold are,
+                    // whatever an earlier visit rendered: `p` renders it again (#596).
+                    let rel = path.strip_prefix(&self.root).ok();
+                    if rel.is_some_and(|rel| {
+                        self.review.as_ref().is_some_and(|r| r.file(rel).is_some())
+                    }) {
+                        self.previewed.remove(path);
+                    }
                     self.dirty = false;
                     self.conflict = false;
                     if self.mode == Mode::Edit {
