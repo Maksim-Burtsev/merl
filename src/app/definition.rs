@@ -74,6 +74,12 @@ impl App {
             self.definition_at_base(path, line);
             return;
         }
+        // A class or an id of markup, and HTML and the stylesheets, read as #415 says.
+        if let Some(here) = self.rel_current()
+            && self.css_definition(kind, &here)
+        {
+            return;
+        }
         // The path of a GraphQL `#import` is the file it pastes in, `./` and `/` included, and
         // so is a PowerShell dot-source's or `Import-Module`'s (#420).
         if let Some(kind) = kind
@@ -2543,37 +2549,6 @@ impl App {
                 }
                 self.message = status;
             }
-        }
-    }
-
-    /// A Makefile line a declaration pattern matched, as `d` and `u` both count it (#504): `None`
-    /// off a recipe, else whether it still declares `word`. `GO=$(GO) ./build.sh` in a recipe
-    /// sets a variable of one shell command (#477): it declares the word only for a shell
-    /// variable of the command under the cursor, `$${ARCH}`, and never for make's own `$(GO)`.
-    /// The file on screen is read as it is, which is what the grep matched (#505).
-    pub(super) fn make_recipe_rule<'a>(
-        &'a self,
-        here: Option<&Path>,
-        word: &str,
-    ) -> impl FnMut(&Hit) -> Option<bool> + 'a {
-        let line = self.line_str();
-        let shell =
-            search::definition_word(Some(Kind::Make), line, self.col).is_some_and(|(r, w)| {
-                let before = &line[..r.start];
-                let shell_ref = before.ends_with("$$(") || before.ends_with("$${");
-                let make_ref = before.ends_with("$(") || before.ends_with("${");
-                w == word && (shell_ref || !make_ref)
-            });
-        let command = search::make_recipe_command(&self.buf.lines.join("\n"), self.line + 1)
-            .filter(|_| shell);
-        let here = here.map(Path::to_path_buf);
-        let mut texts: HashMap<PathBuf, Option<String>> = HashMap::new();
-        move |h: &Hit| {
-            let text = texts
-                .entry(h.path.clone())
-                .or_insert_with(|| self.text_of(&h.path));
-            let at = search::make_recipe_command(text.as_deref()?, h.line)?;
-            Some(here.as_ref() == Some(&h.path) && Some(at) == command)
         }
     }
 

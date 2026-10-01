@@ -485,7 +485,9 @@ impl App {
             | Kind::Docker
             | Kind::Yaml
             | Kind::Markdown
-            | Kind::Graphql => kind,
+            | Kind::Graphql
+            | Kind::Css
+            | Kind::Html => kind,
         };
         for kind in [
             Kind::Python,
@@ -512,6 +514,8 @@ impl App {
             Kind::Yaml,
             Kind::Markdown,
             Kind::Graphql,
+            Kind::Css,
+            Kind::Html,
         ]
         .map(every)
         {
@@ -680,10 +684,12 @@ impl App {
     /// its candidates: a component's from the text the hit was read from (#413), any other file's
     /// from its text now.
     pub(super) fn hidden_now(&self, kind: Kind, h: &Hit) -> Vec<bool> {
-        match search::component(&h.path) {
+        // A rule of a component's `<style>` block is no script's: it is lexed as a stylesheet
+        // (#415).
+        match search::component(&h.path) && kind != Kind::Css {
             true => self.hidden_of(kind, h),
             false => {
-                (self.text_of(&h.path)).map_or_else(Vec::new, |t| search::literal_lines(kind, &t))
+                (self.file_text(&h.path)).map_or_else(Vec::new, |t| search::literal_lines(kind, &t))
             }
         }
     }
