@@ -1115,7 +1115,7 @@ fn declares_by_kind<'a, S: AsRef<str> + 'a>(
         Kind::Ruby if ruby_column_elsewhere(path, line_text) => false,
         Kind::PowerShell => powershell_declares(lines(), line, line_text),
         Kind::Dart => dart_declares(lines(), line, line_text),
-        Kind::Nix => !nix_let_bound(lines(), line),
+        Kind::Nix => nix_declares(lines(), line, word, false),
         _ => def_block(kind, word).is_none_or(|block| directly_inside(lines(), line, block)),
     }
 }

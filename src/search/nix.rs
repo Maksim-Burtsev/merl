@@ -20,7 +20,7 @@ pub fn nix_patterns(word: &str) -> Vec<String> {
 pub(super) const NIX_FUNCTION_SYMBOL: &str = concat!(
     r"^\s*(?:let\s+)?(?P<name>[A-Za-z_][\w'-]*)\s*=\s*",
     r"(?:[A-Za-z_][\w'-]*\s*:(?:\s|$)",
-    r"|(?:[A-Za-z_][\w'-]*\s*@\s*)?\{[^{}]*\}\s*(?:@\s*[A-Za-z_][\w'-]*\s*)?:(?:\s|$))"
+    r"|(?:[A-Za-z_][\w'-]*\s*@\s*)?\{(?:[^{}]|\{[^{}]*\})*\}\s*(?:@\s*[A-Za-z_][\w'-]*\s*)?:(?:\s|$))"
 );
 
 pub fn nix_name(line: &str, r: Range<usize>) -> Range<usize> {
@@ -28,7 +28,7 @@ pub fn nix_name(line: &str, r: Range<usize>) -> Range<usize> {
         .iter()
         .take_while(|&&c| c == b'\'')
         .count();
-    r.start..r.end + usize::from(primes == 1)
+    r.start..r.end + primes
 }
 
 pub fn nix_path(line: &str, col: usize) -> Option<String> {
@@ -39,8 +39,11 @@ pub fn nix_path(line: &str, col: usize) -> Option<String> {
         .captures_iter(line)
         .filter_map(|c| c.get(1))
         .find(|m| m.start() <= col && col < m.end())?;
-    let quotes = line[..m.start()].matches('"').count() - line[..m.start()].matches("\\\"").count();
-    quotes.is_multiple_of(2).then(|| m.as_str().trim_end_matches('/').to_owned())
+    let before = &line[..m.start()];
+    let quotes = before.matches('"').count() - before.matches("\\\"").count();
+    quotes
+        .is_multiple_of(2)
+        .then(|| m.as_str().trim_end_matches('/').to_owned())
 }
 
 pub fn nix_files(dir: &Path, path: &str, files: &[PathBuf]) -> Vec<PathBuf> {
@@ -54,199 +57,410 @@ pub fn nix_files(dir: &Path, path: &str, files: &[PathBuf]) -> Vec<PathBuf> {
         .collect()
 }
 
-fn code_of(line: &str) -> String {
-    let mut out = String::with_capacity(line.len());
-    let (mut quoted, mut escaped) = (false, false);
-    for c in line.chars() {
-        if quoted {
-            out.push(if c == '"' && !escaped { '"' } else { ' ' });
-            quoted = escaped || c != '"';
-            escaped = !escaped && c == '\\';
-        } else if c == '#' {
-            break;
-        } else {
-            quoted = c == '"';
-            out.push(c);
+enum Ctx {
+    Code(usize),
+    Quoted(usize),
+    Indented,
+}
+
+struct Lexed {
+    code: Vec<u8>,
+    literal: Vec<bool>,
+}
+
+fn name_start(c: u8) -> bool {
+    c.is_ascii_alphabetic() || c == b'_'
+}
+
+fn name_byte(c: u8) -> bool {
+    c.is_ascii_alphanumeric() || b"_'-".contains(&c)
+}
+
+fn lex(text: &str) -> Lexed {
+    let b = text.as_bytes();
+    let mut code = b.to_vec();
+    let mut literal = vec![false];
+    let mut stack = vec![Ctx::Code(0)];
+    let blank = |code: &mut Vec<u8>, r: Range<usize>| {
+        for c in &mut code[r] {
+            if *c != b'\n' {
+                *c = b' ';
+            }
         }
+    };
+    let mut i = 0;
+    while i < b.len() {
+        let c = b[i];
+        if c == b'\n' {
+            literal.push(!matches!(stack.last(), Some(Ctx::Code(_))));
+            i += 1;
+            continue;
+        }
+        let at = |s: &[u8]| b[i..].starts_with(s);
+        let nested = stack.len() > 1;
+        match stack.last_mut() {
+            Some(Ctx::Code(depth)) => {
+                if name_start(c) && (i == 0 || !name_byte(b[i - 1])) {
+                    i += b[i..].iter().take_while(|&&c| name_byte(c)).count();
+                    continue;
+                }
+                if c == b'#' {
+                    let end = b[i..]
+                        .iter()
+                        .position(|&c| c == b'\n')
+                        .map_or(b.len(), |n| i + n);
+                    blank(&mut code, i..end);
+                    i = end;
+                    continue;
+                }
+                if at(b"/*") {
+                    let end = text[i + 2..].find("*/").map_or(b.len(), |n| i + n + 4);
+                    blank(&mut code, i..end);
+                    literal.extend(b[i..end].iter().filter(|&&c| c == b'\n').map(|_| true));
+                    i = end;
+                    continue;
+                }
+                match c {
+                    b'"' => stack.push(Ctx::Quoted(i + 1)),
+                    b'\'' if at(b"''") => {
+                        stack.push(Ctx::Indented);
+                        i += 1;
+                    }
+                    b'{' => *depth += 1,
+                    b'}' if *depth == 0 && nested => {
+                        stack.pop();
+                    }
+                    b'}' => *depth = depth.saturating_sub(1),
+                    _ => {}
+                }
+                i += 1;
+            }
+            Some(Ctx::Quoted(from)) => {
+                let from = *from;
+                if c == b'\\' {
+                    let end = (i + 2).min(b.len()) - usize::from(b.get(i + 1) == Some(&b'\n'));
+                    blank(&mut code, i..end);
+                    i = end;
+                } else if at(b"${") {
+                    stack.push(Ctx::Code(0));
+                    i += 2;
+                } else if c == b'"' {
+                    stack.pop();
+                    let inner = &b[from..i];
+                    let named = inner.first().is_some_and(|&c| name_start(c))
+                        && inner.iter().all(|&c| name_byte(c));
+                    if named {
+                        code[from..i].copy_from_slice(inner);
+                    }
+                    i += 1;
+                } else {
+                    blank(&mut code, i..i + 1);
+                    i += 1;
+                }
+            }
+            Some(Ctx::Indented) => {
+                if at(b"'''") || at(b"''$") {
+                    blank(&mut code, i..i + 3);
+                    i += 3;
+                } else if at(b"''\\") {
+                    let end = (i + 4).min(b.len()) - usize::from(b.get(i + 3) == Some(&b'\n'));
+                    blank(&mut code, i..end);
+                    i = end;
+                } else if at(b"''") {
+                    stack.pop();
+                    i += 2;
+                } else if at(b"${") {
+                    stack.push(Ctx::Code(0));
+                    i += 2;
+                } else {
+                    blank(&mut code, i..i + 1);
+                    i += 1;
+                }
+            }
+            None => break,
+        }
+    }
+    Lexed { code, literal }
+}
+
+pub(super) fn nix_literal_lines(text: &str) -> Vec<bool> {
+    lex(text).literal
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum Tok<'a> {
+    Word(&'a str),
+    Punct(u8),
+    Eq,
+}
+
+fn tokens(code: &str) -> Vec<(Tok<'_>, usize)> {
+    let b = code.as_bytes();
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < b.len() {
+        let c = b[i];
+        if name_start(c) {
+            let n = b[i..].iter().take_while(|&&c| name_byte(c)).count();
+            out.push((Tok::Word(&code[i..i + n]), i));
+            i += n;
+            continue;
+        }
+        let near = |j: usize| b.get(j).is_some_and(|c| b"=!<>".contains(c));
+        match c {
+            b'=' if !near(i + 1) && !(i > 0 && near(i - 1)) => out.push((Tok::Eq, i)),
+            b'$' if b.get(i + 1) == Some(&b'{') => {
+                out.push((Tok::Punct(b'{'), i));
+                i += 1;
+            }
+            b'{' | b'}' | b'[' | b']' | b'(' | b')' | b';' | b':' | b',' | b'@' | b'.' | b'?'
+            | b'/' | b'"' => out.push((Tok::Punct(c), i)),
+            _ => {}
+        }
+        i += 1;
     }
     out
 }
 
-fn opens_let(t: &str) -> bool {
-    t == "let" || t.starts_with("let ") || t.ends_with(" let") || t.ends_with("=let")
-}
-
-fn starts_in(t: &str) -> bool {
-    t == "in" || t.starts_with("in ") || t.starts_with("in{")
-}
-
-fn owner<S: AsRef<str>>(lines: &[S], i: usize) -> Option<usize> {
-    let depth = indent(lines[i].as_ref());
-    (0..i).rev().find(|&j| {
-        let t = lines[j].as_ref().trim();
-        !t.is_empty() && !t.starts_with('#') && indent(lines[j].as_ref()) < depth
-    })
-}
-
-pub fn nix_let_bound<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
-    let Some(i) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
-        return false;
-    };
-    lines[i].as_ref().trim_start().starts_with("let ")
-        || owner(lines, i).is_some_and(|o| opens_let(code_of(lines[o].as_ref()).trim()))
-}
-
 struct Scope<'a> {
-    lines: &'a [&'a str],
-    code: Vec<String>,
-    skip: Vec<bool>,
-    binds: Regex,
-    inherits: Regex,
-    name: &'a str,
+    from: usize,
+    to: usize,
+    binds: Vec<(&'a str, usize)>,
+    is_let: bool,
 }
 
-impl Scope<'_> {
-    fn binds_here(&self, i: usize) -> bool {
-        self.binds.is_match(&self.code[i]) || self.inherits.is_match(&self.code[i])
-    }
+struct Parse<'a> {
+    toks: Vec<(Tok<'a>, usize)>,
+    matched: Vec<Option<usize>>,
+    end: usize,
+}
 
-    fn let_binding(&self, j: usize) -> Option<usize> {
-        let depth = indent(self.lines[j]);
-        let end = (j + 1..self.lines.len())
-            .find(|&k| !self.skip[k] && indent(self.lines[k]) <= depth)
-            .unwrap_or(self.lines.len());
-        let own = self.code[j].trim_start().starts_with("let ") && self.binds_here(j);
-        if own {
-            return Some(j);
-        }
-        (j + 1..end)
-            .find(|&k| !self.skip[k] && owner(self.lines, k) == Some(j) && self.binds_here(k))
-    }
-
-    fn set_pattern(&self, j: usize, from: usize) -> Option<(usize, String, String)> {
-        static END: LazyLock<Regex> =
-            LazyLock::new(|| Regex::new(&format!(r"^\s*(?:@\s*({NAME})\s*)?:(?:\s|$)")).unwrap());
-        let (mut depth, mut inner) = (0usize, String::new());
-        for k in j..self.lines.len().min(j + 200) {
-            let code = &self.code[k][if k == j { from } else { 0 }..];
-            for (n, c) in code.char_indices() {
-                match c {
-                    '{' => depth += 1,
-                    '}' => {
-                        depth -= 1;
-                        if depth == 0 {
-                            let c = END.captures(&code[n + 1..])?;
-                            let alias = c.get(1).map_or("", |a| a.as_str()).to_owned();
-                            return Some((k, inner, alias));
-                        }
+impl<'a> Parse<'a> {
+    fn new(code: &'a str) -> Self {
+        let toks = tokens(code);
+        let mut matched = vec![None; toks.len()];
+        let mut open: Vec<usize> = Vec::new();
+        for (k, (t, _)) in toks.iter().enumerate() {
+            match t {
+                Tok::Punct(b'{' | b'[' | b'(') => open.push(k),
+                Tok::Punct(b'}' | b']' | b')') => {
+                    if let Some(o) = open.pop() {
+                        (matched[o], matched[k]) = (Some(k), Some(o));
                     }
-                    _ => {}
                 }
-                if depth > 1 || (depth == 1 && c != '{') {
-                    inner.push(c);
-                }
+                _ => {}
             }
-            inner.push(',');
+        }
+        Parse {
+            toks,
+            matched,
+            end: code.len(),
+        }
+    }
+
+    fn keyword(&self, k: usize, w: &str) -> bool {
+        self.toks[k].0 == Tok::Word(w)
+            && !(k > 0 && matches!(self.toks[k - 1].0, Tok::Punct(b'.' | b'/' | b'"')))
+    }
+
+    fn body_end(&self, mut k: usize) -> usize {
+        let (mut lets, mut ifs, mut semis) = (0usize, 0usize, 0usize);
+        while k < self.toks.len() {
+            let at = self.toks[k].1;
+            match self.toks[k].0 {
+                Tok::Punct(b'{' | b'[' | b'(') => match self.matched[k] {
+                    Some(m) => k = m,
+                    None => return self.end,
+                },
+                Tok::Punct(b'}' | b']' | b')') => return at,
+                Tok::Punct(b';') if semis > 0 => semis -= 1,
+                Tok::Punct(b';') if lets == 0 => return at,
+                _ if self.keyword(k, "with") || self.keyword(k, "assert") => semis += 1,
+                _ if self.keyword(k, "let") => lets += 1,
+                _ if self.keyword(k, "in") && lets > 0 => lets -= 1,
+                _ if self.keyword(k, "in") => return at,
+                _ if self.keyword(k, "if") => ifs += 1,
+                _ if self.keyword(k, "then") && ifs == 0 => return at,
+                _ if self.keyword(k, "else") && ifs == 0 => return at,
+                _ if self.keyword(k, "else") => ifs -= 1,
+                _ => {}
+            }
+            k += 1;
+        }
+        self.end
+    }
+
+    fn let_scope(&self, at: usize) -> Option<Scope<'a>> {
+        let (mut k, mut lets, mut stmt, mut binds) = (at + 1, 0usize, true, Vec::new());
+        while k < self.toks.len() {
+            let (t, pos) = self.toks[k];
+            if self.keyword(k, "in") && lets == 0 {
+                return Some(Scope {
+                    from: self.toks[at].1,
+                    to: self.body_end(k + 1),
+                    binds,
+                    is_let: true,
+                });
+            }
+            match t {
+                Tok::Punct(b'{' | b'[' | b'(') => {
+                    k = self.matched[k]?;
+                    stmt = false;
+                }
+                Tok::Punct(b';') => stmt = lets == 0,
+                _ if self.keyword(k, "let") => (lets, stmt) = (lets + 1, false),
+                _ if self.keyword(k, "in") => lets -= 1,
+                _ if stmt && self.keyword(k, "inherit") => {
+                    stmt = false;
+                    k += 1;
+                    if self.toks.get(k).is_some_and(|t| t.0 == Tok::Punct(b'(')) {
+                        k = self.matched[k]? + 1;
+                    }
+                    while let Some(&(Tok::Word(w), p)) = self.toks.get(k) {
+                        binds.push((w, p));
+                        k += 1;
+                    }
+                    continue;
+                }
+                Tok::Word(w) if stmt => {
+                    stmt = false;
+                    let next = self.toks.get(k + 1).map(|t| t.0);
+                    if matches!(next, Some(Tok::Eq | Tok::Punct(b'.'))) {
+                        binds.push((w, pos));
+                    }
+                }
+                Tok::Punct(b'"') if stmt => {
+                    if let (Some(&(Tok::Word(w), p)), Some((Tok::Punct(b'"'), _))) =
+                        (self.toks.get(k + 1), self.toks.get(k + 2))
+                    {
+                        binds.push((w, p));
+                    }
+                    stmt = false;
+                }
+                _ => {}
+            }
+            k += 1;
         }
         None
     }
 
-    fn param(&self, j: usize, at_start: bool) -> Option<usize> {
-        static PLAIN: LazyLock<Regex> =
-            LazyLock::new(|| Regex::new(&format!(r"(?:^|[\s(=;:])({NAME})\s*:(?:\s|$)")).unwrap());
-        static ALIAS: LazyLock<Regex> =
-            LazyLock::new(|| Regex::new(&format!(r"({NAME})\s*@\s*$")).unwrap());
-        let code = &self.code[j];
-        let lead = indent(code);
-        let plain = PLAIN.captures_iter(code).filter_map(|c| c.get(1));
-        if plain
-            .filter(|m| !at_start || m.start() == lead)
-            .any(|m| m.as_str() == self.name)
-        {
-            return Some(j);
+    fn lambda(&self, colon: usize, code: &[u8]) -> Option<Scope<'a>> {
+        let after = code.get(self.toks[colon].1 + 1);
+        if !after.is_none_or(|c| c.is_ascii_whitespace() || b"([{\"'".contains(c)) {
+            return None;
         }
-        for (p, _) in code.match_indices('{') {
-            let alias = ALIAS.captures(&code[..p]).and_then(|c| c.get(1));
-            let start = alias.map_or(p, |a| a.start());
-            if at_start && start != lead {
-                continue;
-            }
-            let Some((end, inner, after)) = self.set_pattern(j, p) else {
-                continue;
-            };
-            let named = |n: &str| n.split('?').next().is_some_and(|n| n.trim() == self.name);
-            if alias.is_some_and(|a| a.as_str() == self.name) || after == self.name {
-                return Some(j);
-            }
-            if inner.split(',').any(named) {
-                return (j..=end).find(|&k| names(&self.code[k], self.name));
+        let word = |k: usize| match self.toks.get(k) {
+            Some(&(Tok::Word(w), p)) => Some((w, p)),
+            _ => None,
+        };
+        let punct = |k: usize, c: u8| self.toks.get(k).is_some_and(|t| t.0 == Tok::Punct(c));
+        let mut binds = Vec::new();
+        let mut close = colon.checked_sub(1)?;
+        if let Some(alias) = word(close) {
+            if close >= 2 && punct(close - 1, b'@') && punct(close - 2, b'}') {
+                binds.push(alias);
+                close -= 2;
+            } else {
+                return Some(Scope {
+                    from: alias.1,
+                    to: self.body_end(colon + 1),
+                    binds: vec![alias],
+                    is_let: false,
+                });
             }
         }
-        None
+        if !punct(close, b'}') {
+            return None;
+        }
+        let open = self.matched[close]?;
+        let mut from = self.toks[open].1;
+        if open >= 2 && punct(open - 1, b'@') {
+            let alias = word(open - 2)?;
+            binds.push(alias);
+            from = alias.1;
+        }
+        let (mut k, mut item) = (open + 1, true);
+        while k < close {
+            match self.toks[k].0 {
+                Tok::Punct(b'{' | b'[' | b'(') => k = self.matched[k].unwrap_or(close),
+                Tok::Punct(b',') => item = true,
+                Tok::Word(w) if item => {
+                    binds.push((w, self.toks[k].1));
+                    item = false;
+                }
+                _ => item = false,
+            }
+            k += 1;
+        }
+        Some(Scope {
+            from,
+            to: self.body_end(colon + 1),
+            binds,
+            is_let: false,
+        })
     }
+
+    fn scopes(&self, code: &[u8]) -> Vec<Scope<'a>> {
+        (0..self.toks.len())
+            .filter_map(|k| match self.toks[k].0 {
+                Tok::Punct(b':') => self.lambda(k, code),
+                _ if self.keyword(k, "let") => self.let_scope(k),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
+fn line_of(text: &str, pos: usize) -> usize {
+    text.as_bytes()[..pos]
+        .iter()
+        .filter(|&&c| c == b'\n')
+        .count()
+        + 1
 }
 
 pub(super) fn nix_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
-    let n = regex::escape(name);
-    let literal = literal_lines(Kind::Nix, &lines.join("\n"));
-    let scope = Scope {
-        lines,
-        code: lines.iter().map(|l| code_of(l)).collect(),
-        skip: (0..lines.len())
-            .map(|i| literal[i] || lines[i].trim().is_empty() || lines[i].trim().starts_with('#'))
-            .collect(),
-        binds: Regex::new(&format!(r#"^\s*(?:let\s+)?(?:{n}|"{n}")\s*=(?:[^=]|$)"#)).unwrap(),
-        inherits: Regex::new(&format!(
-            r"^\s*(?:let\s+)?inherit\b(?:\s*\([^)]*\))?(?:\s+[\w'-]+)*?\s+{n}(?:\s+[\w'-]+)*\s*(?:;|$)"
-        ))
-        .unwrap(),
-        name,
-    };
-    let found = |line: usize| {
-        vec![Binding {
-            line: line + 1,
+    let text = lines.join("\n");
+    let lexed = lex(&text);
+    let code = String::from_utf8_lossy(&lexed.code);
+    let parse = Parse::new(&code);
+    let start: usize = lines[..at].iter().map(|l| l.len() + 1).sum();
+    let end = start + lines[at].len();
+    let scopes = parse.scopes(&lexed.code);
+    scopes
+        .iter()
+        .filter(|s| s.from <= end && s.to >= start)
+        .filter_map(|s| Some((s.from, s.binds.iter().find(|b| b.0 == name)?.1)))
+        .max_by_key(|&(from, _)| from)
+        .map(|(_, pos)| Binding {
+            line: line_of(&text, pos),
             value: Value::Unknown,
-        }]
+        })
+        .into_iter()
+        .collect()
+}
+
+pub fn nix_declares<S: AsRef<str>>(lines: &[S], line: usize, word: &str, in_let: bool) -> bool {
+    let text = lines
+        .iter()
+        .map(AsRef::as_ref)
+        .collect::<Vec<_>>()
+        .join("\n");
+    let Some(here) = text.split('\n').nth(line.wrapping_sub(1)) else {
+        return false;
     };
-    if (scope.binds_here(at) && nix_let_bound(lines, at + 1)) || scope.param(at, false).is_some() {
-        return found(scope.param(at, false).unwrap_or(at));
+    let start = here.as_ptr() as usize - text.as_ptr() as usize;
+    let lexed = lex(&text);
+    let code = String::from_utf8_lossy(&lexed.code);
+    let shape = Regex::new(&nix_patterns(word).join("|"))
+        .is_ok_and(|re| re.is_match(&code[start..start + here.len()]));
+    if !shape || in_let {
+        return shape;
     }
-    let mut depth = indent(lines[at]);
-    let mut i = at + 1;
-    while i > 0 {
-        i -= 1;
-        let t = scope.code[i].trim();
-        let ind = indent(lines[i]);
-        if (i != at && scope.skip[i]) || ind > depth {
-            continue;
-        }
-        if starts_in(t) {
-            let Some(j) = (0..i).rev().find(|&j| {
-                !scope.skip[j] && indent(lines[j]) <= ind && opens_let(scope.code[j].trim())
-            }) else {
-                continue;
-            };
-            if let Some(b) = scope.let_binding(j) {
-                return found(b);
-            }
-            (i, depth) = (j + 1, depth.min(indent(lines[j])));
-            continue;
-        }
-        if i == at {
-            continue;
-        }
-        if ind < depth {
-            depth = ind;
-            let hit = match opens_let(t) {
-                true => scope.let_binding(i),
-                false => scope.param(i, false),
-            };
-            if let Some(b) = hit {
-                return found(b);
-            }
-        } else if let Some(b) = scope.param(i, true) {
-            return found(b);
-        }
-    }
-    Vec::new()
+    let parse = Parse::new(&code);
+    !parse.scopes(&lexed.code).iter().any(|s| {
+        s.is_let
+            && (s.binds.iter())
+                .any(|&(w, p)| w == word && (start..=start + here.len()).contains(&p))
+    })
 }

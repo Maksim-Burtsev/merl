@@ -35,7 +35,7 @@ fn nix_refusals() {
         ("  x = pkgs.hello;", "hello"),
         ("  x = with pkgs; [ hello ];", "pkgs"),
         ("  free = rate == 0;", "rate"),
-        ("  free = (rate == 0);", "free_"),
+        ("  rate == 0", "rate"),
         ("  { name, port ? 8080 }:", "port"),
         ("  ${zone} = 3;", "zone"),
         (r#"  "${zone}" = 3;"#, "zone"),
@@ -49,27 +49,43 @@ fn nix_refusals() {
 }
 
 #[test]
-fn nix_let_bindings_declare_only_where_they_are_read() {
+fn nix_let_bindings_declare_only_in_their_own_file() {
     let lines = [
         "let",
         "  api = 1;",
-        "# a comment at the margin",
+        "/* a comment */",
         "  cfg = {",
         "    port = 1;",
         "  };",
+        "  script = ''",
+        "echo hi",
+        "'';",
+        "  key = 2;",
         "in",
         "{",
         "  api = 2;",
-        "  x = let",
-        "    api = 3;",
-        "  in api;",
+        "  x = let xx = 1; in xx;",
+        "  y = let aa = 1;",
+        "          bb = 2;",
+        "      in aa + bb;",
+        "  # z = 3; inherit foo;",
+        "  msg = \"see { foo3 = 1; }\";",
+        "  \"my-attr\" = 4;",
         "}",
-        "let api = 4;",
     ];
-    let bound: Vec<usize> = (1..=lines.len())
-        .filter(|&l| lines[l - 1].contains('=') && nix_let_bound(&lines, l))
-        .collect();
-    assert_eq!(bound, [2, 4, 11, 14]);
+    let over = |line: usize, word: &str| nix_declares(&lines, line, word, false);
+    let here = |line: usize, word: &str| nix_declares(&lines, line, word, true);
+    assert!(!over(2, "api") && here(2, "api"));
+    assert!(!over(4, "cfg") && here(4, "cfg"));
+    assert!(over(5, "port"));
+    assert!(!over(10, "key") && here(10, "key"));
+    assert!(over(13, "api"));
+    assert!(!over(14, "xx") && here(14, "xx"));
+    assert!(!over(15, "aa") && !over(16, "bb"));
+    assert!(over(15, "y"));
+    assert!(!here(18, "z") && !here(18, "foo"));
+    assert!(!here(19, "foo3"));
+    assert!(over(20, "my-attr"));
 }
 
 fn local(text: &str, line: usize, name: &str) -> Vec<usize> {
@@ -133,7 +149,7 @@ fn nix_parameters_of_a_header_over_lines() {
 ";
     assert_eq!(local(text, 8, "pkgs"), [4]);
     assert_eq!(local(text, 4, "pkgs"), [4]);
-    assert_eq!(local(text, 9, "args"), [1]);
+    assert_eq!(local(text, 9, "args"), [6]);
     let old = "{ config\n, pkgs\n, ...\n}:\n{\n  a = pkgs.hello;\n}\n";
     assert_eq!(local(old, 6, "pkgs"), [2]);
     assert!(local(old, 6, "hello").is_empty());
@@ -194,12 +210,12 @@ fn nix_symbols_are_bindings_of_functions() {
 
 #[test]
 fn a_nix_name_holds_its_dashes_and_primes() {
-    let line = "  x = my-package.x' ''a'' b - c;";
+    let line = "  x = my-package.x' f'' b - c;";
     let word = |col| definition_word(Some(Kind::Nix), line, col).map(|(_, w)| w);
     assert_eq!(word(8), Some("my-package"));
     assert_eq!(word(18), Some("x'"));
-    assert_eq!(word(23), Some("a"));
-    assert_eq!(word(30), Some("c"));
+    assert_eq!(word(21), Some("f''"));
+    assert_eq!(word(28), Some("c"));
 }
 
 #[test]
@@ -231,6 +247,8 @@ fn nix_paths_name_files() {
     assert_eq!(nix_path(r#"x = "./nginx.nix";"#, 8), None);
     assert_eq!(nix_path(r#"url = "https://a/b";"#, 16), None);
     assert_eq!(nix_path("x = a / b;", 6), None);
+    assert_eq!(nix_path(r#"x = "see ./nginx.nix";"#, 12), None);
+    assert_eq!(nix_path(r#"x = "\" ./nginx.nix";"#, 12), None);
 }
 
 #[test]
@@ -238,4 +256,82 @@ fn nix_is_told_by_its_extension() {
     assert_eq!(kind_of(Path::new("hosts/web.nix")), Some(Kind::Nix));
     assert_eq!(kind_of(Path::new("flake.lock")), None);
     assert_eq!(word_chars(Some(Kind::Nix), false), "-'");
+}
+
+#[test]
+fn nix_scopes_end_where_their_body_ends() {
+    let sibling = "\
+{ config, ... }:
+let
+  cfg = config.services.a;
+in
+{
+  x = let
+    cfg = config.services.b;
+  in cfg.port;
+  y = cfg.enable;
+}
+";
+    assert_eq!(local(sibling, 9, "cfg"), [3]);
+    assert_eq!(local(sibling, 8, "cfg"), [7]);
+    let closed = "{ p }:\n{\n  xs = builtins.filter (p: p != null) [\n    p\n  ];\n}\n";
+    assert_eq!(local(closed, 4, "p"), [1]);
+    assert_eq!(local(closed, 3, "p"), [3]);
+    let overlay = "final: prev:\n{\n  hello = prev.hello;\n}\n";
+    assert_eq!(local(overlay, 3, "prev"), [1]);
+    assert_eq!(local(overlay, 3, "final"), [1]);
+    let one_line = "let a = 1; b = 2; in\nb + a\n";
+    assert_eq!(local(one_line, 2, "b"), [1]);
+    let with = "let\n  a = 1;\nin\nwith lib; assert a > 0; {\n  b = a;\n}\n";
+    assert_eq!(local(with, 5, "a"), [2]);
+    let branch = "let\n  a = 1;\nin\nif a > 0 then let b = a; in b else a\n";
+    assert_eq!(local(branch, 4, "a"), [2]);
+}
+
+#[test]
+fn nix_parameters_land_on_their_own_line() {
+    let dashed = "{ lib\n, pkgs-unstable\n, pkgs\n}:\n{\n  a = pkgs.hello;\n}\n";
+    assert_eq!(local(dashed, 6, "pkgs"), [3]);
+    let default = "{ bar ? baz\n, baz\n}:\n{\n  a = baz;\n}\n";
+    assert_eq!(local(default, 5, "baz"), [2]);
+    let alias = "args@{ pkgs, ... }:\n{\n  a = args;\n  b = pkgs;\n}\n";
+    assert_eq!(local(alias, 3, "args"), [1]);
+    assert_eq!(local(alias, 4, "pkgs"), [1]);
+    let nested = "{ meta ? { }, name }:\n{\n  a = name;\n}\n";
+    assert_eq!(local(nested, 3, "name"), [1]);
+    let inherits = "let\n  inherit (lib) mkIf;\n  \"my-attr\" = 1;\nin\nmkIf x\n";
+    assert_eq!(local(inherits, 5, "mkIf"), [2]);
+    assert_eq!(local(inherits, 5, "my-attr"), [3]);
+}
+
+#[test]
+fn nix_literals_of_every_form() {
+    let hidden = |text: &str| -> Vec<usize> {
+        (literal_lines(Kind::Nix, text).iter().enumerate())
+            .filter(|(_, h)| **h)
+            .map(|(i, _)| i + 1)
+            .collect()
+    };
+    assert_eq!(
+        hidden("a = ''\n  x = '''\n  b = 1;\n'';\nc = 2;\n"),
+        [2, 3, 4]
+    );
+    assert_eq!(
+        hidden("a = ''\n  ''${x}\n  b = 1;\n'';\nc = 2;\n"),
+        [2, 3, 4]
+    );
+    assert_eq!(hidden("x = \"a \\\" b\n  y = 1;\n\";\nz = 1;\n"), [2, 3]);
+    assert_eq!(hidden("f' = ''\n  a = 1;\n'';\nb = 2;\n"), [2, 3]);
+    assert!(hidden("let\n  f'' = 1;\n  g = 2;\nin\ng\n").is_empty());
+    let nested = "{\n  a = ''\n    ${lib.optionalString x ''\n      dest=$out\n    ''}\n    b = 1\n  '';\n  c = 2;\n}\n";
+    assert_eq!(hidden(nested), [3, 4, 5, 6, 7]);
+}
+
+#[test]
+fn nix_lists_nothing_with_the_shared_pattern() {
+    assert!(listed(Kind::Nix, "    function deploy() {").is_empty());
+    assert_eq!(
+        listed(Kind::Nix, "  mk = { name, meta ? {} }: name;"),
+        ["mk"]
+    );
 }

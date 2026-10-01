@@ -46,6 +46,9 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     if kind == Kind::Html {
         return html_literal_lines(text);
     }
+    if kind == Kind::Nix {
+        return nix_literal_lines(text);
+    }
     if kind == Kind::Css && text.contains("<style") {
         let html = html_literal_lines(text);
         let mut out = scan(kind, &style_blocks(text), usize::MAX).0;
@@ -127,7 +130,6 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             // them; no backtick: a Dart string of one quote ends with its line (#414).
             Kind::Dart => (true, false, false, true, &["//"]),
             Kind::Cmake => (false, true, false, false, &["#"]),
-            Kind::Nix => (false, false, false, true, &["#"]),
             _ => (false, false, true, true, &["//"]),
         };
     // The forms one language each has: C#'s verbatim string, which closes on a `"` that no
@@ -227,7 +229,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
                 && b[i - 1] != b'\\')
         {
             let doubled = verbatim && c == b'"' && b.get(i + 1) == Some(&b'"');
-            let escape = matches!(kind, Kind::Rust | Kind::Cmake | Kind::Nix)
+            let escape = matches!(kind, Kind::Rust | Kind::Cmake)
                 && !raw
                 && end == b"\""
                 && c == b'\\'
@@ -247,15 +249,12 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
                     && !doubled
                     && b[i..].starts_with(end)
                     && (end.len() > 1
-                        || matches!(kind, Kind::Go | Kind::Rust | Kind::Cmake | Kind::Nix)
+                        || matches!(kind, Kind::Go | Kind::Rust | Kind::Cmake)
                         || verbatim
                         || b[i - 1] != b'\\')
             };
             let skip = end.len().saturating_sub(1);
-            let indented = kind == Kind::Nix && end == b"''" && b[i..].starts_with(b"''");
-            if indented && matches!(b.get(i + 2), Some(b'\'' | b'$' | b'\\')) {
-                i += 2;
-            } else if escape {
+            if escape {
                 i += 1;
             } else if closes {
                 block = None;
@@ -384,11 +383,8 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
         } else if kind == Kind::Rust && c == b'"' {
             // `"…"`, `b"…"` and `c"…"` run over lines; a `\` at the end of one continues it.
             (block, raw, string_from) = (Some(b"\"".into()), false, Some(i));
-        } else if matches!(kind, Kind::Cmake | Kind::Nix) && c == b'"' {
+        } else if kind == Kind::Cmake && c == b'"' {
             block = Some(b"\"".into());
-        } else if kind == Kind::Nix && b[i..].starts_with(b"''") {
-            block = Some(b"''".into());
-            i += 1;
         } else if let Some(hashes) = (kind == Kind::Rust && c == b'r' && token_at(i, &[b"b", b"c"]))
             .then(|| b[i + 1..].iter().take_while(|&&c| c == b'#').count())
             .filter(|n| b.get(i + 1 + n) == Some(&b'"'))
@@ -471,7 +467,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             // A regex, `=~ /#/`: its `#` is no comment.
             quote = Some(c);
         } else if c == b'"'
-            || (c == b'\'' && !matches!(kind, Kind::Cmake | Kind::Nix))
+            || (c == b'\'' && kind != Kind::Cmake)
             || (matches!(kind, Kind::Sql | Kind::Ruby) && c == b'`')
         {
             quote = Some(c);
