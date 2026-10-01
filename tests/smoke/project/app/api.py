@@ -29,3 +29,10 @@ def cancel_order(container, order_id: int) -> tuple[int, str]:
         OrderService, container.get("orders")
     )
     return HTTPStatus.OK, order_json(service.cancel(order_id))
+
+
+def page_links(total: int) -> list[str]:
+    def page_url(n):
+        return f"?page={n}"
+
+    return [page_url(n) for n in range(1, total + 1)]

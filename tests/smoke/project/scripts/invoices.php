@@ -46,3 +46,8 @@ final class Invoice extends Document
         return $this->number() . ' ' . $this->render('pdf');
     }
 }
+
+function send_receipt(Receipt $receipt): string
+{
+    return $receipt->number();
+}

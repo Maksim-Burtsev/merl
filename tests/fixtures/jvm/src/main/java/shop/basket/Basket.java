@@ -17,7 +17,7 @@ public class Basket implements Priced {
     static final int WEIGHT_LIMIT = 30;
 
     private final Tariff tariff;
-    //            ^ d: picker src/main/java/shop/legacy/Settings.java:4, src/main/java/shop/pricing/Tariff.java:4; want src/main/java/shop/pricing/Tariff.java:4 (#372)
+    //            ^ d: src/main/java/shop/pricing/Tariff.java:4
     private final Coupon coupon = new Coupon();
     //                                ^ d: src/main/java/shop/pricing/Coupon.java:3
     public String owner = "guest";
@@ -32,12 +32,12 @@ public class Basket implements Priced {
         //     ^ d: src/main/java/shop/pricing/Pricing.java:3
         //             ^ d: src/main/java/shop/pricing/Pricing.java:8
         //                      ^ d: src/main/java/shop/basket/Basket.java:19
-        //                             ^ d: picker src/main/java/shop/pricing/Coupon.java:4, src/main/java/shop/pricing/Tariff.java:5; want src/main/java/shop/pricing/Tariff.java:5 (#388)
+        //                             ^ d: src/main/java/shop/pricing/Tariff.java:5
     }
 
     public int bonus() {
         return coupon.rate() + gross();
-        //            ^ d: picker src/main/java/shop/pricing/Coupon.java:4, src/main/java/shop/pricing/Tariff.java:5; want src/main/java/shop/pricing/Coupon.java:4 (#388)
+        //            ^ d: src/main/java/shop/pricing/Coupon.java:4
         //                     ^ d: src/main/java/shop/basket/Basket.java:30
     }
 
@@ -54,13 +54,13 @@ public class Basket implements Priced {
 
     public String describe(Tariff t, Coupon c) {
         return t.describe() + c.describe();
-        //       ^ d: picker src/main/java/shop/basket/Basket.java:55, src/main/java/shop/pricing/Coupon.java:8, src/main/java/shop/pricing/Tariff.java:9; want src/main/java/shop/pricing/Tariff.java:9 (#388)
-        //                      ^ d: picker src/main/java/shop/basket/Basket.java:55, src/main/java/shop/pricing/Coupon.java:8, src/main/java/shop/pricing/Tariff.java:9; want src/main/java/shop/pricing/Coupon.java:8 (#388)
+        //       ^ d: src/main/java/shop/pricing/Tariff.java:9
+        //                      ^ d: src/main/java/shop/pricing/Coupon.java:8
     }
 
     public String ship() {
         Courier courier = new Courier("post");
-        //                    ^ d: picker src/main/kotlin/shop/warehouse/Warehouse.kt:4, src/main/kotlin/shop/warehouse/Warehouse.kt:8; want src/main/kotlin/shop/warehouse/Warehouse.kt:8 (#367)
+        //                    ^ d: src/main/kotlin/shop/warehouse/Warehouse.kt:8
         return courier.label() + owner;
         //             ^ d: src/main/kotlin/shop/warehouse/Warehouse.kt:9
         //                       ^ d: src/main/java/shop/basket/Basket.java:23
@@ -68,13 +68,13 @@ public class Basket implements Priced {
 
     public int receipt(Receipt r, Offer o) {
         return r.total() + (o == Offer.CUT ? 1 : 0);
-        //       ^ d: none; want src/main/java/shop/pricing/Receipt.java:5 (#367)
+        //       ^ d: src/main/java/shop/pricing/Receipt.java:5
         //                             ^ d: src/main/java/shop/pricing/Offer.java:5
     }
 
     public java.util.function.ToIntFunction<Tariff> rater() {
         return Tariff::rate;
         //             ^ d: src/main/java/shop/pricing/Tariff.java:5
-        // status: rate → Tariff.rate (via Tariff)
+        // status: rate → Tariff.rate (via import src/main/java/shop/pricing/Tariff.java)
     }
 }

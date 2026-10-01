@@ -145,3 +145,35 @@ struct Shelf {
         //                              ^ d: Sources/Shop/Dispatcher.swift:125
     }
 }
+
+// On a function's parameter in its header, `d` answers as on any declaration (#533): the
+// namesake `Tally` declares offered, never jumped to, and the line itself when it has none. A
+// name that a `for`, an `if let` or a closure binds over an outer one of the function answers
+// the same, never jumping to the outer one.
+func probe(_ attempt: Int, palletCount: Int) -> Int {
+//            ^ d: picker Sources/Shop/Tally.swift:7
+//              status: at a declaration
+//                         ^ d: Sources/Shop/Dispatcher.swift:153
+    let shade = palletCount
+    for shade in [shade] {
+    //  ^ d: picker Sources/Shop/Dispatcher.swift:157
+    //    status: at a declaration
+    //            ^ d: Sources/Shop/Dispatcher.swift:157
+        log(shade)
+        //  ^ d: Sources/Shop/Dispatcher.swift:158
+    }
+    if let shade = Optional(shade) {
+    //     ^ d: picker Sources/Shop/Dispatcher.swift:157
+    //       status: at a declaration
+        log(shade)
+        //  ^ d: Sources/Shop/Dispatcher.swift:165
+    }
+    [shade].forEach { shade in
+    //                ^ d: picker Sources/Shop/Dispatcher.swift:157
+    //                  status: at a declaration
+        log(shade)
+        //  ^ d: Sources/Shop/Dispatcher.swift:171
+    }
+    return attempt + shade
+    //     ^ d: Sources/Shop/Dispatcher.swift:153
+}

@@ -27,6 +27,10 @@ jobs:
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test --locked
       - run: cargo build --release --locked
+      # `d`, `u` and `D` at every cursor position of every fixture, failing on a panic (#543):
+      # half an hour in debug, so `cargo test` skips it and one runner plays it here in release.
+      - if: matrix.os == 'ubuntu-latest'
+        run: cargo test --release --locked no_panic -- --ignored
       # The `d` bench's scoring and its no-cursor-worse gate, on made-up rows: no clone needed.
       - run: tools/d-bench/run --selftest
       # The smoke scenarios in tmux on this build, every checkpoint against the screen checked in

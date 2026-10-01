@@ -1,5 +1,6 @@
 /
 Esc
+Picker: Esc
 [
 d
 q

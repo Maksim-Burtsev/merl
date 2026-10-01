@@ -18,7 +18,7 @@ module Shop
     def gross
       Shop.discount(@tariff.rate)
       #    ^ d: lib/shop/pricing.rb:54
-      #                     ^ d: picker lib/shop/pricing.rb:17, lib/shop/pricing.rb:30
+      #                     ^ d: picker lib/shop/order.rb:5, lib/shop/pricing.rb:17, lib/shop/pricing.rb:30
     end
 
     def bonus
@@ -94,8 +94,8 @@ module Shop
 
     def audit(order)
       order.lines.recent
-      #     ^ d: none; want lib/shop/order.rb:3 (#374)
-      #           ^ d: none; want lib/shop/order.rb:4 (#374)
+      #     ^ d: picker lib/shop/order.rb:3
+      #           ^ d: picker lib/shop/order.rb:4
     end
 
     def ledger

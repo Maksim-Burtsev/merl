@@ -81,6 +81,9 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             Kind::Php => (false, false, true, true, &["//", "#"]),
             Kind::Rust => (false, false, false, true, &["//"]),
             Kind::Ruby => (false, false, false, false, &["#"]),
+            // A Kotlin raw string and a Java text block run over lines between `"""`; neither
+            // language has a backtick template: Kotlin's backticks quote a name (#367).
+            Kind::Jvm => (true, false, false, true, &["//"]),
             _ => (false, false, true, true, &["//"]),
         };
     // The forms one language each has: C#'s verbatim string, which closes on a `"` that no
@@ -249,10 +252,10 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             }
         } else if heredoc
             && (b[i..].starts_with(b"\"\"\"")
-                || (!template && kind != Kind::Graphql && b[i..].starts_with(b"'''")))
+                || (matches!(kind, Kind::Python | Kind::Elixir) && b[i..].starts_with(b"'''")))
         {
-            // `'''` is Python's and Elixir's alone; Swift, C# and GraphQL write the block with
-            // `"` only.
+            // `'''` is Python's and Elixir's alone; Swift, C#, GraphQL, Java and Kotlin write the
+            // block with `"` only.
             block = Some(if c == b'"' { b"\"\"\"" } else { b"'''" }.into());
             i += 2;
         } else if verbatim_strings && (b[i..].starts_with(b"@\"") || b[i..].starts_with(b"@$\"")) {

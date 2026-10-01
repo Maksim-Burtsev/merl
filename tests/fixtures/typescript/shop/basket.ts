@@ -84,7 +84,7 @@ export function priceOf(p: Priced): number {
 export function euro(): Currency {
   return Currency.Euro;
   //     ^ d: shop/pricing.ts:37
-  //              ^ d: none; want shop/pricing.ts:38 (#341)
+  //              ^ d: shop/pricing.ts:38
 }
 
 export function heavy(p: Props): number {

@@ -67,184 +67,6 @@ pub struct Candidate {
     pub hit: Hit,
     pub reason: Reason,
 }
-/// Python's builtins (#336), `dir(builtins)` of 3.13 without the module's own dunders and
-/// `super`, which `d` reads as the class above: compiled into the interpreter, with no source on
-/// the machine to land on.
-pub const PYTHON_BUILTINS: &[&str] = &[
-    "ArithmeticError",
-    "AssertionError",
-    "AttributeError",
-    "BaseException",
-    "BaseExceptionGroup",
-    "BlockingIOError",
-    "BrokenPipeError",
-    "BufferError",
-    "BytesWarning",
-    "ChildProcessError",
-    "ConnectionAbortedError",
-    "ConnectionError",
-    "ConnectionRefusedError",
-    "ConnectionResetError",
-    "DeprecationWarning",
-    "EOFError",
-    "Ellipsis",
-    "EncodingWarning",
-    "EnvironmentError",
-    "Exception",
-    "ExceptionGroup",
-    "False",
-    "FileExistsError",
-    "FileNotFoundError",
-    "FloatingPointError",
-    "FutureWarning",
-    "GeneratorExit",
-    "IOError",
-    "ImportError",
-    "ImportWarning",
-    "IndentationError",
-    "IndexError",
-    "InterruptedError",
-    "IsADirectoryError",
-    "KeyError",
-    "KeyboardInterrupt",
-    "LookupError",
-    "MemoryError",
-    "ModuleNotFoundError",
-    "NameError",
-    "None",
-    "NotADirectoryError",
-    "NotImplemented",
-    "NotImplementedError",
-    "OSError",
-    "OverflowError",
-    "PendingDeprecationWarning",
-    "PermissionError",
-    "ProcessLookupError",
-    "PythonFinalizationError",
-    "RecursionError",
-    "ReferenceError",
-    "ResourceWarning",
-    "RuntimeError",
-    "RuntimeWarning",
-    "StopAsyncIteration",
-    "StopIteration",
-    "SyntaxError",
-    "SyntaxWarning",
-    "SystemError",
-    "SystemExit",
-    "TabError",
-    "TimeoutError",
-    "True",
-    "TypeError",
-    "UnboundLocalError",
-    "UnicodeDecodeError",
-    "UnicodeEncodeError",
-    "UnicodeError",
-    "UnicodeTranslateError",
-    "UnicodeWarning",
-    "UserWarning",
-    "ValueError",
-    "Warning",
-    "ZeroDivisionError",
-    "__build_class__",
-    "__debug__",
-    "__import__",
-    "abs",
-    "aiter",
-    "all",
-    "anext",
-    "any",
-    "ascii",
-    "bin",
-    "bool",
-    "breakpoint",
-    "bytearray",
-    "bytes",
-    "callable",
-    "chr",
-    "classmethod",
-    "compile",
-    "complex",
-    "copyright",
-    "credits",
-    "delattr",
-    "dict",
-    "dir",
-    "divmod",
-    "enumerate",
-    "eval",
-    "exec",
-    "exit",
-    "filter",
-    "float",
-    "format",
-    "frozenset",
-    "getattr",
-    "globals",
-    "hasattr",
-    "hash",
-    "help",
-    "hex",
-    "id",
-    "input",
-    "int",
-    "isinstance",
-    "issubclass",
-    "iter",
-    "len",
-    "license",
-    "list",
-    "locals",
-    "map",
-    "max",
-    "memoryview",
-    "min",
-    "next",
-    "object",
-    "oct",
-    "open",
-    "ord",
-    "pow",
-    "print",
-    "property",
-    "quit",
-    "range",
-    "repr",
-    "reversed",
-    "round",
-    "set",
-    "setattr",
-    "slice",
-    "sorted",
-    "staticmethod",
-    "str",
-    "sum",
-    "tuple",
-    "type",
-    "vars",
-    "zip",
-];
-/// The Python builtin types whose members `d` knows have no source (#336), as a type is written:
-/// `list[int]` is `list`, and `typing`'s `List` is not one of them.
-pub const PYTHON_BUILTIN_TYPES: &[&str] = &[
-    "str",
-    "bytes",
-    "bytearray",
-    "int",
-    "float",
-    "complex",
-    "bool",
-    "list",
-    "dict",
-    "set",
-    "frozenset",
-    "tuple",
-    "object",
-    "type",
-    "range",
-    "memoryview",
-    "slice",
-];
 /// Line patterns that declare `word` in a file of `kind`, or an empty list when there is no rule
 /// for it. In Terraform `word` is the dotted address under the cursor.
 pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
@@ -314,6 +136,20 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 // an anonymous class, so a bare name before `(` is never a declaration here; a
                 // method is found by the return type in the rule below, brace or no brace.
                 format!(r"{mods_one}{w}\s*\([^;]*\)\s*(?:throws [\w.,\s]+)?\{{\s*$"),
+                // Java: a constructor whose parameters wrap, `Name(` at the end of the line or
+                // followed by parameters that end in `,` (#367).
+                format!(r"{mods_one}{w}\s*\((?:[^;()]*,)?\s*$"),
+                // Java: a record's component, on a one-line header (#367), or on a line of a
+                // header wrapped over lines, which [`declares_where`] checks.
+                format!(
+                    r"{mods}record\s+\w+\s*(?:<[^>]*>)?\s*\((?:[^)]*,)?\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*{ret}\s+{w}\s*[,)]"
+                ),
+                format!(r"{COMPONENT_HEAD}{ret}\s+{w}\s*(?:,\s*$|\)\s*(?:implements\b[^{{]*)?\{{)"),
+                // Kotlin: a property of a primary constructor on its class's line, `val` or
+                // `var` after the `(` or a `,`; a plain parameter is no property (#367).
+                format!(
+                    r"{mods}(?:enum\s+|data\s+|value\s+)?class\s+\w+[^(]*\((?:.*[(,])?\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*(?:(?:private|public|protected|internal|override|open|final)\s+)*(?:val|var)\s+{w}\s*:"
+                ),
                 // Java: an abstract or interface method, and a field: a return type, the name,
                 // and the `(`, `;` or `=` that follows it.
                 format!(r"{mods}(?:<[^>]*>\s*)?{ret}(?:\.\.\.)?\s+{w}\s*[(;=]"),
@@ -322,15 +158,22 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         // Ruby declares everything on one line. A constant lives indented inside its class, so
         // the assignment rule is not anchored at column zero as Python's is. An instance or class
         // variable is its own word, `@name` or `@@name`, and its assignment declares nothing else
-        // (#383). The Rails-style DSL (`scope`, `has_many`, `define_method`) has no rule.
-        // `name?`, `name!` and the setter `name=` are methods of their own (#387): the word
-        // carries its suffix, and a bare `name` is none of them.
+        // (#383). The Rails DSL declares the name it is given (#374); `define_method` has no
+        // rule. `name?`, `name!` and the setter `name=` are methods of their own (#387): the
+        // word carries its suffix, and a bare `name` is none of them.
         Kind::Ruby => {
             let end = r"(?:[^\w?!=]|$)";
+            // `delegate :a, :b, to: :x` declares `a` and `b`, on a line of its own that closes
+            // it: `prefix:` renames them (`user_email`), and a `delegate` wrapped over lines may
+            // say so on a line below.
+            let option = r"(?:(?:to|allow_nil|private):|prefix:\s*false\b)[^,#]*";
             let method = vec![
                 // A method: `def name`, `def self.name`, `def Klass.name`.
                 format!(r"^\s*def\s+(?:self\.|[A-Z]\w*\.)?{w}{end}"),
                 format!(r"^\s*alias(?:_method)?\s+:?{w}{end}"),
+                format!(
+                    r"^\s*delegate\s*\(?\s*(?::[\w?!]+\s*,\s*)*:{w}\s*,\s*(?::[\w?!]+\s*,\s*)*{option}(?:,\s*{option})*(?:#.*)?$"
+                ),
             ];
             let attr = |which: &str, name: &str| {
                 format!(r"^\s*attr_(?:accessor|{which})\s+(?:[:\w]+\s*,\s*)*:{name}\b")
@@ -348,6 +191,15 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                         format!(r"^\s*(?:class|module)\s+(?:[\w:]+::)?{w}(?:[^\w:]|$)"),
                         ruby_assignment(word),
                         attr("reader", &w),
+                        // An association, a scope, an attachment, an attribute or an enum.
+                        format!(
+                            r"^\s*(?:has_many|has_one|belongs_to|has_and_belongs_to_many|scope|has_one_attached|has_many_attached|has_attached_file|attribute|alias_attribute|enum)\s*\(?\s*:{w}{end}"
+                        ),
+                        format!(r"^\s*enum\s*\(?\s*{w}:"),
+                        // Every name after the store's.
+                        format!(r"^\s*store_accessor\s*\(?\s*:\w+\s*(?:,\s*:\w+\s*)*,\s*:{w}{end}"),
+                        // A column, `t.string "language"`: [`ruby_column`] says where it counts.
+                        format!(r#"^\s*t\.\w+\s*\(?\s*(?:"{w}"|:{w}{end})"#),
                     ],
                 ]
                 .concat(),
@@ -355,9 +207,10 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         }
         // C and C++ have no statements at the top level, so a line in column zero that is shaped
         // like a declaration is one — a definition, a prototype and a signature that wraps alike.
-        // Indented, only a line that opens a body can be told from a call. An enum constant has no
-        // rule: `NAME,` in an `enum` body and in an initializer list are the same line, and C
-        // writes tables of callbacks that way everywhere.
+        // Indented, only a line that opens a body can be told from a call, or a line that the
+        // body around it tells (#373): `NAME,` declares an enum constant in an `enum` body and
+        // nothing in an initializer list, and `T name(…);` a member in a class body and a local
+        // object in a function's. [`declares_where`] reads the opener of that body.
         Kind::C => {
             let (mods, macros) = (c_mods!(), c_mods!(macros));
             vec![
@@ -389,6 +242,12 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 // assignment inside a function body is not one; no angle brackets, or a
                 // `template <typename T = U>` head would read as a declaration of `T`.
                 format!(r"^\w[^;(){{}}=<>]*[\s*&]{w}\s*(?:\[[^\]]*\])*\s*(?:=[^=]|;)"),
+                // An enum constant, on a line of its own or in a one-line `enum X { A, B };`,
+                // and a member function declared with no body (#373). Callers index the rules
+                // above, so these stay last.
+                c_enumerators(Some(word)),
+                c_enum_line(word),
+                c_member_decl(Some(word)),
             ]
         }
         // C# writes its modifiers and its attributes in front of everything and its type before
@@ -977,6 +836,13 @@ pub fn member_or_signature(kind: Kind, word: &str) -> Option<Vec<String>> {
     }
     Some(patterns)
 }
+/// Whether the Ruby line `text` of the file `path` is a column outside `db/schema.rb`, which
+/// declares nothing (#374): `t.string "language"` declares one in `db/schema.rb` alone, where
+/// every `t.` line is inside a `create_table` block. A migration's is history, and
+/// `db/structure.sql` is not read.
+fn ruby_column_elsewhere(path: &Path, text: &str) -> bool {
+    text.trim_start().starts_with("t.") && !path.ends_with("db/schema.rb")
+}
 /// A Ruby assignment of `word`, `||=` included; `==`, `=~` and `=>` are not one. The word
 /// carries its sigil: `@name =` assigns `@name`, never `name` (#383).
 pub fn ruby_assignment(word: &str) -> String {
@@ -1103,10 +969,13 @@ fn terraform_patterns(address: &str) -> Vec<String> {
 /// as every other attribute is inside its block, and an indented GraphQL line is a field or an
 /// enum value directly inside a type and a selection anywhere else. An indented Go line that is
 /// no `W :=` is a member of a grouped `const (`, `var (` or `type (` only directly inside one at
-/// column 0: a struct's field and a line inside a function are not. `lines` reads the file, and
-/// only for those.
+/// column 0: a struct's field and a line inside a function are not. A C line of enum constants
+/// or a C++ member function with no body declares only in an enum's or a class's body (#373).
+/// A Ruby column declares only in `db/schema.rb` ([`ruby_column_elsewhere`]), for `u` as for `d`.
+/// `lines` reads the file `path`, and only for those.
 pub fn declares_where<'a, S: AsRef<str> + 'a>(
     kind: Kind,
+    path: &Path,
     word: &str,
     line: usize,
     line_text: &str,
@@ -1126,8 +995,54 @@ pub fn declares_where<'a, S: AsRef<str> + 'a>(
                     .any(|o| directly_inside(lines, line, o))
             }
         }
+        Kind::Jvm if record_component(line_text) => in_record_header(lines(), line),
+        Kind::C => c_declares_where(line, line_text, lines),
+        Kind::Ruby if ruby_column_elsewhere(path, line_text) => false,
         _ => def_block(kind, word).is_none_or(|block| directly_inside(lines(), line, block)),
     }
+}
+/// The front of a line that holds one Java record component alone: its annotations (#367).
+const COMPONENT_HEAD: &str = r"^\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*";
+/// Whether `line` is shaped as a record component on a line of its own, `Type name,` or
+/// `Type name) {`, as a wrapped method's parameter is too (#367).
+fn record_component(line: &str) -> bool {
+    static SHAPE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(&format!(
+            r"{COMPONENT_HEAD}{}\s+\w+\s*(?:,\s*$|\)\s*(?:implements\b[^{{]*)?\{{)",
+            jvm_return_type!()
+        ))
+        .unwrap()
+    });
+    SHAPE.is_match(line) && !line.trim_start().starts_with("return ")
+}
+/// Whether 1-based `line` of `lines` stands in a header that opens with `record Name(`: the
+/// lines above it up to that one are components and their annotations.
+fn in_record_header<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
+    static RECORD: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(concat!(
+            jvm_mods!(),
+            r"record\s+\w+\s*(?:<[^>]*>)?\s*\(\s*$"
+        ))
+        .unwrap()
+    });
+    let above = lines[..line.saturating_sub(1).min(lines.len())]
+        .iter()
+        .rev();
+    for l in above.take(40) {
+        let l = l.as_ref();
+        if RECORD.is_match(l) {
+            return true;
+        }
+        let t = l.trim();
+        if !(t.is_empty()
+            || t.starts_with("//")
+            || t.starts_with('@')
+            || (record_component(l) && t.ends_with(',')))
+        {
+            return false;
+        }
+    }
+    false
 }
 /// The block a definition of `word` has to sit directly inside, when its line pattern cannot
 /// tell on its own: a Terraform local is `x = ...` inside `locals { }`, and so is every other
@@ -1180,6 +1095,110 @@ pub fn ts_nested_local<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
                 && (!t.starts_with(['}', ')', ']', '/', '*']) || AT_LOAD.is_match(l))
         })
         .is_some_and(|l| SCOPE.is_match(l) || AT_LOAD.is_match(l))
+}
+/// The 1-based line of `lines` that declares `key` directly inside the object literal a
+/// TypeScript or JavaScript `const name` on 1-based `line` binds (#341): `key:`, `key(`, `async
+/// key(`, `get key(` or the shorthand `key,`, on a line of its own or on the `const` line itself,
+/// `const m = { messageId: "", suggest: [] };`. A key of a nested literal, a `let` or `var`
+/// literal and one behind a call or a cast (`Object.freeze({`) are none.
+pub fn ts_literal_key<S: AsRef<str>>(
+    lines: &[S],
+    line: usize,
+    name: &str,
+    key: &str,
+) -> Option<usize> {
+    let head = lines.get(line.checked_sub(1)?)?.as_ref();
+    let open = Regex::new(&format!(
+        r"^\s*(?:export\s+)?const\s+{}\s*(?::[^=]+)?=\s*\{{",
+        regex::escape(name)
+    ))
+    .ok()?
+    .find(head)?
+    .end();
+    let k = regex::escape(key);
+    let form = Regex::new(&format!(
+        r"^(?:(?:async|get|set|static)\s+)*\*?(?:{k}|'{k}'|\x22{k}\x22)\s*(?:[:(,}}]|$)"
+    ))
+    .ok()?;
+    // The parts at the literal's own level on the `const` line, up to its closing `}`.
+    let rest = &head[open..];
+    let mut depth = 0i32;
+    let mut part = 0;
+    for (i, c) in rest.char_indices().chain([(rest.len(), ',')]) {
+        match c {
+            '{' | '[' | '(' => depth += 1,
+            '}' | ']' | ')' if depth > 0 => depth -= 1,
+            ',' | '}' if depth == 0 => {
+                if form.is_match(rest[part..i].trim()) {
+                    return Some(line);
+                }
+                if c == '}' {
+                    return None;
+                }
+                part = i + 1;
+            }
+            _ => {}
+        }
+    }
+    // Wrapped: the lines one level in, up to the one that closes the literal.
+    let outer = indent(head);
+    let mut level = None;
+    for (n, l) in lines.iter().enumerate().skip(line) {
+        let l = l.as_ref();
+        if l.trim().is_empty() {
+            continue;
+        }
+        let d = indent(l);
+        if d <= outer {
+            return None;
+        }
+        if *level.get_or_insert(d) == d && form.is_match(l.trim_start()) {
+            return Some(n + 1);
+        }
+    }
+    None
+}
+/// The first line of the block 1-based `line` of `text` sits directly inside: the nearest
+/// non-blank line above it that is indented less.
+pub fn owner_line(text: &str, line: usize) -> Option<&str> {
+    let lines: Vec<&str> = text.lines().collect();
+    let depth = indent(lines.get(line.checked_sub(1)?)?);
+    lines[..line - 1]
+        .iter()
+        .rev()
+        .find(|l| !l.trim().is_empty() && indent(l) < depth)
+        .copied()
+}
+/// Whether 1-based `line` of a TypeScript or JavaScript `text` declares into the global scope,
+/// where a member of `window` or `globalThis` can be the project's own (#341): inside `declare
+/// global { … }`, or in a script (no `import` or `export` at the top of the file) at its top level,
+/// either through `interface` and `namespace` blocks alone. A class's member is none.
+pub fn ts_global_scope(text: &str, line: usize) -> bool {
+    static MODULE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"(?m)^(?:import|export)\b").unwrap());
+    static GLOBAL: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^\s*declare\s+global\s*\{").unwrap());
+    static SCOPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:export\s+)?(?:declare\s+)?(?:interface|namespace)\s").unwrap()
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = lines.get(line.wrapping_sub(1)) else {
+        return false;
+    };
+    let mut depth = indent(at);
+    for l in lines[..line - 1].iter().rev() {
+        if l.trim().is_empty() || indent(l) >= depth {
+            continue;
+        }
+        depth = indent(l);
+        if GLOBAL.is_match(l) {
+            return true;
+        }
+        if !SCOPE.is_match(l) {
+            return false;
+        }
+    }
+    !MODULE.is_match(text)
 }
 /// Whether 1-based `line` of `lines` sits directly inside a block whose first line starts with
 /// `opener`: the nearest non-blank line above it that is indented less. `terraform fmt` indents

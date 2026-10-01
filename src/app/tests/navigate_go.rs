@@ -615,7 +615,7 @@ fn implementations_answer_only_on_the_declared_name() {
             ("go.mod", "module example.com/jobs\n"),
             (
                 "jobs.go",
-                "package jobs\n\ntype Send string\n\ntype Notifier interface {\n\tSend(msg Send) error\n}\n\ntype Email struct{}\n\nfunc (e Email) Send(msg Send) error { return nil }\n",
+                "package jobs\n\ntype Send string\n\ntype Notifier interface {\n\tSend(msg Send) error\n\tWave(w Wave) error\n}\n\ntype Email struct{}\n\nfunc (e Email) Send(msg Send) error { return nil }\n\nfunc (e Email) Wave(w Wave) error { return nil }\n",
             ),
         ],
     );
@@ -643,9 +643,17 @@ fn implementations_answer_only_on_the_declared_name() {
             "jobs.go",
             "\tSend",
             "(msg Send",
+            // A parameter's type is looked up as a type (#536).
+            jump("Send: by name, 1 match", "jobs.go:3"),
+        ),
+        (
+            "jobs.go",
+            "\tWave",
+            "(w Wave",
+            // With no type of that name, the namesakes are offered, as before #536.
             picker(
-                "Send: at a declaration, 2 others by name",
-                &[("Send", "jobs.go:3"), ("Email.Send", "jobs.go:11")],
+                "Wave: at a declaration, 1 other by name",
+                &[("Email.Wave", "jobs.go:14")],
             ),
         ),
     ];

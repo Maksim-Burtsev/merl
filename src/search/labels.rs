@@ -65,7 +65,7 @@ pub fn label_at(
     };
     let sep = match kind {
         Kind::Python | Kind::Jvm => b'=',
-        Kind::Swift | Kind::CSharp | Kind::Php | Kind::Ruby => b':',
+        Kind::Swift | Kind::CSharp | Kind::Php | Kind::Ruby | Kind::Rust => b':',
         Kind::TsJs if after.starts_with('=') => b'=',
         Kind::TsJs => b':',
         _ => return None,
@@ -128,6 +128,44 @@ pub fn label_at(
                 }
                 _ => None,
             }
+        }
+        // `Type { name: … }`, `path::Type { name: … }`: a field of `Type` (#529). The `{` of a
+        // declaration opens no literal, nor does a struct-like variant's inside an `enum`.
+        (Kind::Rust, b'{') => {
+            static LITERAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+                Regex::new(r"(?:^|[^\w:])(?:\w+::)*([A-Z]\w*|Self)\s*$").unwrap()
+            });
+            static DECLARES: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+                Regex::new(r"\b(?:struct|enum|union|impl|trait)\b").unwrap()
+            });
+            let before = &lines[at][..open];
+            let ty = LITERAL.captures(before)?.get(1)?;
+            if DECLARES.is_match(&before[..ty.start()]) {
+                return None;
+            }
+            let mut up = open_bracket(kind, &lines, &literal, at, ty.start());
+            if let Some((el, ei, b'{', ..)) = up
+                && lines[el][..ei].contains("enum ")
+            {
+                return None;
+            }
+            if ty.as_str() != "Self" {
+                return key(Some((at, ty.end() - 1, Owner::Typed)));
+            }
+            // `Self { … }`: the type of the `impl` around it.
+            static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+                Regex::new(r"^\s*(?:unsafe\s+)?impl\b.*?(?:\bfor\s+)?(?:\w+::)*(\w+)\s*(?:<[^{]*>)?\s*(?:where\b.*)?$")
+                    .unwrap()
+            });
+            while let Some((el, ei, c, ..)) = up {
+                if c == b'{'
+                    && let Some(m) = IMPL.captures(&lines[el][..ei]).and_then(|c| c.get(1))
+                {
+                    return key(Some((el, m.end() - 1, Owner::Typed)));
+                }
+                up = open_bracket(kind, &lines, &literal, el, ei);
+            }
+            key(None)
         }
         (Kind::Ruby, b'{') => {
             // `each { |x| … }` and `f(x) { … }` open a block; a line of its own a hash.
@@ -441,7 +479,7 @@ pub fn label_lines(
         }
         (Owner::Typed, _) => {
             let key = Regex::new(&format!(
-                r"^\s*(?:(?:readonly|public|private|protected|static|declare)\s+)*{}\s*[?!]?\s*:",
+                r"^\s*(?:(?:readonly|public|private|protected|static|declare|pub(?:\([^)]*\))?)\s+)*{}\s*[?!]?\s*:",
                 regex::escape(word)
             ))
             .expect("an escaped name keeps the pattern valid");
@@ -756,6 +794,23 @@ mod tests {
         assert_eq!(
             label_lines(Kind::Php, own, 1, "self", "image", &Owner::Args),
             vec![4]
+        );
+    }
+
+    /// #529: a Rust struct literal's key is a field of its type; the `{` of a declaration, of a
+    /// struct-like variant in an `enum` or of a block opens no literal.
+    #[test]
+    fn a_rust_literal_key_is_a_field_of_its_type() {
+        let rs = "pub struct Printer {\n    pub(crate) hyperlink: u32,\n}\n\npub enum Page {\n    Linked { hyperlink: u32 },\n}\n\nimpl Printer {\n    fn fresh() -> Self {\n        Self { hyperlink: 0 }\n    }\n}\n\nfn f<T>(t: T) -> Printer\nwhere\n    T: Clone,\n{\n    crate::p::Printer { hyperlink: 1 }\n}\n";
+        let typed = |w: &str| Some((w.to_owned(), Owner::Typed));
+        assert_eq!(owner(Kind::Rust, rs, "{ hyperlink: 1"), typed("Printer"));
+        assert_eq!(owner(Kind::Rust, rs, "{ hyperlink: 0"), typed("Printer"));
+        assert_eq!(label(Kind::Rust, rs, ") hyperlink"), None);
+        assert_eq!(label(Kind::Rust, rs, "{ hyperlink: u32"), None);
+        assert_eq!(label(Kind::Rust, rs, "    T: Clone"), None);
+        assert_eq!(
+            label_lines(Kind::Rust, rs, 1, "Printer", "hyperlink", &Owner::Typed),
+            vec![2]
         );
     }
 }
