@@ -1,0 +1,3 @@
+private func sealBox() -> String {
+    ""
+}

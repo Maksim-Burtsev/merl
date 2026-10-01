@@ -30,3 +30,12 @@ key t /
 type value - rhs
 key Enter d
 wait value → Instant.value
+# A generic parameter binds its name: `Value` lands on its header, `Value: local`, where it jumped
+# to a type declared inside another function, which nothing there sees (#375).
+run printf 'struct StreamPublisher<Value: Sendable> {\n    typealias Handler = (Value) -> Void\n}\n\nfunc encode() {\n    struct Value {}\n    _ = Value()\n}\n' > ios/Publisher.swift
+merl ios/Publisher.swift
+wait typealias Handler
+key t /
+type Value) ->
+key Enter d
+wait Value: local
