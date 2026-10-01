@@ -80,14 +80,12 @@ impl App {
         {
             return;
         }
-        // The path of a GraphQL `#import` is the file it pastes in, `./` and `/` included, and
-        // so is a PowerShell dot-source's or `Import-Module`'s (#420).
         if let Some(kind) = kind
             && let Some(here) = self.rel_current()
             && let Some(module) = search::file_import(kind, self.line_str(), self.col)
         {
             let module = [module];
-            let files = search::module_files(kind, &self.root, &self.files, &here, &module);
+            let files = self.import_files(kind, &here, &module);
             let found = self.module_candidates(files);
             self.show_definitions(kind, &module[0], &here, found, None);
             return;

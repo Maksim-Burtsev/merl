@@ -1,0 +1,57 @@
+wait project(shop CXX)
+┌orders──────────────────────┐1 project(shop CXX)
+│▸ .github                   │2 include(ShopHelpers)
+│▸ .venv                     │3
+│▸ app                       │4 shop_add_library(shop_core src/order.cpp)
+│▾ cmakeshop                 │
+│  ▸ cmake                   │
+│    CMakeLists.txt          │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+cmakeshop/CMakeLists.txt  1:1  [code]                                                                                                                                             ? help
+cursor (x,y,shown) 32,0,1

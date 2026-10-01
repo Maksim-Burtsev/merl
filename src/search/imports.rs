@@ -355,6 +355,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
         | Kind::PowerShell
         // A Dart prefix or `show` name is [`dart_imports`]'s, which `d` reads in its own branch.
         | Kind::Dart
+        | Kind::Cmake
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform
@@ -873,6 +874,7 @@ pub fn module_files(
         | Kind::Proto
         | Kind::Shell
         | Kind::Dart
+        | Kind::Cmake
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform
@@ -888,13 +890,11 @@ pub fn module_files(
             .collect(),
     }
 }
-/// The file the path under byte `col` of `line` names, when the line pastes it in or loads it:
-/// a GraphQL `#import` ([`graphql_import`]), a PowerShell dot-source or `Import-Module`
-/// ([`powershell_import`]).
 pub fn file_import(kind: Kind, line: &str, col: usize) -> Option<String> {
     match kind {
         Kind::Graphql => graphql_import(line, col).map(str::to_owned),
         Kind::PowerShell => powershell_import(line, col),
+        Kind::Cmake => cmake_import(line, col).map(|(_, arg)| arg),
         _ => None,
     }
 }
