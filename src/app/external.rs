@@ -420,8 +420,9 @@ impl App {
             }
         }
         let field = by_file.into_iter().any(|(path, lines)| {
-            std::fs::read_to_string(&path)
-                .is_ok_and(|t| !search::field_rows(Kind::Python, &t, &lines, word).is_empty())
+            std::fs::read_to_string(&path).is_ok_and(|t| {
+                !search::field_rows(Kind::Python, &t, &lines, word, false).is_empty()
+            })
         });
         (methods, field)
     }

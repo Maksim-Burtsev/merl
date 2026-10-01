@@ -17,7 +17,7 @@ fn a_field_by_name_is_the_declaration_in_its_type() {
             .filter(|(_, l)| re.is_match(l))
             .map(|(i, _)| i + 1)
             .collect();
-        field_rows(kind, text, &hits, name)
+        field_rows(kind, text, &hits, name, false)
             .into_iter()
             .map(|n| (n, qualified(kind, text, n, name).unwrap_or_default()))
             .collect()

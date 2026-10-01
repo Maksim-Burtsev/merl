@@ -70,3 +70,13 @@ key /
 type .Shipped;
 key Enter Right d
 wait Shipped → ParcelState.Shipped (via import web/src/orders/types.ts)
+# JSDoc in a JavaScript file types a receiver (#347): `receipt.total` lands on the `@property` of
+# its `@typedef {Object} Receipt`, not on `Order.total`, a namesake found by name.
+key o
+type receipt.js
+key Enter
+wait web/src/orders/receipt.js  1:1
+key /
+type .total;
+key Enter Right d
+wait total → Receipt.total (via receipt: Receipt)

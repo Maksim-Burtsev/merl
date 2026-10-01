@@ -933,12 +933,14 @@ pub fn field_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
             format!(r"\bself\.{w}\b.*[^=!<>]=[^=]|\bas\s+self\.{w}\b|^\s*for\s.*\bself\.{w}\b"),
         ],
         // A member behind any modifiers, bare or not, a constructor parameter behind one and
-        // any decorators, `this.name = …`.
+        // any decorators, `this.name = …`, a JSDoc `@property`.
         Kind::TsJs => vec![
             format!(
                 r"^\s+(?:@[\w$.]+(?:\([^)]*\))?\s*)*(?:(?:public|private|protected|readonly|static|declare|override|abstract|accessor)\s+)*{w}\s*[?!]?\s*(?::|=[^=>]|;|$)"
             ),
             format!(r"^\s+this\.{w}\s*=[^=]"),
+            // A `@property {T} name` of a JSDoc `@typedef {Object}` (#347).
+            format!(r"^\s*\*\s*@prop(?:erty)?\s*\{{.*\}}\s*\[?{w}(?:[\]=\s]|$)"),
         ],
         // A struct field, alone or among others (`a, name T`), and an embedded `*pkg.Name`.
         Kind::Go => vec![
