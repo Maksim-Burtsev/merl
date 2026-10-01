@@ -111,7 +111,16 @@ copy declares is found by name. A module of Node's own (`buffer`, `node:util`) i
 whatever npm package has the name, and never a project file. A workspace package linked into
 `node_modules`, and an alias such as `@/lib`, `~/lib` or `#lib`, is the project's own: its source is
 searched by name first, then outside, by name. A compiled module such as `orjson` lands in its `.pyi`
-stub. The standard library's hits come before the dependencies', the picker shows paths relative
+stub. A Python module is matched from the root it lies under (#329): `json` is `json.py`,
+`json.pyi` or `json/` right under a root, never `kombu/utils/json.py`. A module outside that does
+not declare the name hands it on through its own module-level imports, followed as the project's
+are, four modules deep: `pytest.mark` is `mark: via import _pytest.mark.structures`, through
+`pytest/__init__.py`'s `from _pytest.mark import MARK_GEN as mark` and the package's relative
+import. A source with no file, a compiled `_io`, ends on the import line that binds the name
+(`io.py`). Only when the imports lead nowhere is the name looked for everywhere outside, by name,
+and then offered, never jumped to. Under a `.venv` the base interpreter's `site-packages` is left
+out unless `pyvenv.cfg` sets `include-system-site-packages = true`, and a root inside another
+(`sys.path` lists `lib/python3.11` and its `site-packages`) is walked once. The standard library's hits come before the dependencies', the picker shows paths relative
 to their root, and files opened from there are read-only. Go's `_test.go` files, `testdata` and
 nested modules such as GOROOT's `cmd` are skipped, since no import reaches them. C and C++ have no
 per-project manifest — what the build system was told with `-I` is not in the source — so their
@@ -473,8 +482,15 @@ A TypeScript chain is read as the language means it: broken by prettier in front
 `repo.find` and `uow.users.find`, and a `#private` name is the word with its `#`, on the `#` and
 on the name, never the public name beside it.
 
-A type declared outside the project or any link the rules cannot prove leaves the word to the
-search by name below. With two or more names in front of the word the status line says where the
+In Python a class declared outside the project is read as the project's are (#340): the import
+that names it is followed to its one `class` line there, through the module's re-exports, and its
+members and bases are read from that file and its own imports, relative ones against the
+dependency's package: `self.assertEqual` in a `unittest.TestCase` subclass is
+`assertEqual → TestCase.assertEqual (via self: T)` in `unittest/case.py`. An attribute no line
+declares, such as the `objects` Django's metaclass makes, stays `no definition`, and a base that
+cannot be read (a call, a compiled class) leaves the word to the rules below. In the other
+languages a type declared outside the project, and in any language a link the rules cannot prove,
+leaves the word to the search by name below. With two or more names in front of the word the status line says where the
 chain broke: `delete_user: by name, 2 declarations (chain broke at item)` when `item` is typed by a
 generic parameter, at a property or a getter with no return type, or at the seventh name of a
 longer chain. A chain may hang off the call that starts the expression, which is read as a call

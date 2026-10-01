@@ -87,7 +87,19 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
                         .and_then(|h| h.join(&lib).canonicalize().ok())
                         .and_then(|exe| Some(exe.parent()?.parent()?.join("lib").join(&lib)));
                     let site = venv.join("lib").join(&lib).join("site-packages");
-                    stdlib.into_iter().chain([site]).collect()
+                    // The base interpreter's packages are the venv's only when it says so, and
+                    // then after its own, as `sys.path` orders them (#329).
+                    let system = cfg.lines().any(|l| {
+                        l.split_once('=').is_some_and(|(k, v)| {
+                            k.trim() == "include-system-site-packages"
+                                && v.trim().eq_ignore_ascii_case("true")
+                        })
+                    });
+                    let base = stdlib
+                        .as_ref()
+                        .filter(|_| system)
+                        .map(|s| s.join("site-packages"));
+                    stdlib.into_iter().chain([site]).chain(base).collect()
                 }
                 None => run(
                     "python3",
@@ -613,19 +625,33 @@ pub fn in_copy(path: &Path, copy: &[PathBuf]) -> bool {
 /// dependency.
 pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
     let go = kind == Kind::Go;
+    let python = kind == Kind::Python;
     let real = real_dirs(dirs);
     let mut files = Vec::new();
     for dir in dirs {
         // Homebrew's Rust ships the sysroot `library` with a copy of itself inside; every
         // definition would come up twice.
         let copy = dir.file_name().map(std::ffi::OsStr::to_owned);
+        // A root inside another is walked in its own place, never as part of the outer one: a
+        // `sys.path` lists `lib/python3.11` and its `site-packages` both (#329).
+        let others: Vec<PathBuf> = dirs.iter().filter(|o| *o != dir).cloned().collect();
         let walk = ignore::WalkBuilder::new(dir)
             .filter_entry(move |e| {
+                let is_dir = e.depth() > 0 && e.file_type().is_some_and(|t| t.is_dir());
                 let unreachable = go
-                    && e.depth() > 0
-                    && e.file_type().is_some_and(|t| t.is_dir())
+                    && is_dir
                     && (e.file_name() == "testdata" || e.path().join("go.mod").is_file());
-                !unreachable && (e.depth() != 1 || Some(e.file_name()) != copy.as_deref())
+                // A standard library's `site-packages` is the base interpreter's, which Python
+                // reads only from a `sys.path` entry of its own: a root, when it is one (#329).
+                let base_packages = python
+                    && is_dir
+                    && e.depth() == 1
+                    && (e.file_name() == "site-packages" || e.file_name() == "dist-packages");
+                let nested = is_dir && others.iter().any(|o| o == e.path());
+                !unreachable
+                    && !base_packages
+                    && !nested
+                    && (e.depth() != 1 || Some(e.file_name()) != copy.as_deref())
             })
             // Homebrew links each formula's headers into `include/` a directory at a time:
             // `include/google` is a link into the protobuf keg.

@@ -20,6 +20,7 @@ mod navigate_csharp;
 mod navigate_field;
 mod navigate_go;
 mod navigate_python;
+mod navigate_python_deps;
 mod navigate_reason;
 mod navigate_receiver;
 mod navigate_ruby;

@@ -12,13 +12,18 @@ impl App {
     /// proven; an empty list is a type without the member. Both leave the word to the search by
     /// name.
     pub(super) fn typed_definitions(
-        &self,
+        &mut self,
         kind: Kind,
         here: &Path,
         word: &str,
         chain: &[String],
         head: Option<&(String, search::Value, Vec<String>)>,
     ) -> Result<Vec<Candidate>, String> {
+        // A Python type may be a class outside the project (#340), read from the files there.
+        // ponytail: the first typed `d` of a session walks them, even for a type of the project.
+        if kind == Kind::Python {
+            self.external_files(kind);
+        }
         let text = self.buf.lines.join("\n");
         let line = self.line + 1;
         // `super().m()` / `super.m()` is `self` / `this` with the walk started one level up.
@@ -237,12 +242,15 @@ impl App {
     /// property), in the class or what [`App::above`] proves over it. An attribute a method
     /// assigns to `self` is an instance's, and no answer here.
     pub(super) fn class_attribute(
-        &self,
+        &mut self,
         kind: Kind,
         here: &Path,
         chain: &[String],
         word: &str,
     ) -> Vec<Candidate> {
+        if kind == Kind::Python {
+            self.external_files(kind);
+        }
         let Some(ty) = self.type_decl(kind, here, &chain.join(".")) else {
             return Vec::new();
         };

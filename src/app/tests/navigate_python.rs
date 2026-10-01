@@ -1179,7 +1179,8 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
                 "app/test_files.py",
                 "from django.conf import settings\n\n\ndef originals():\n    settings.connect()\n    return settings.ORIGINALS_DIR, settings.AUTH_USER_MODEL\n",
             ),
-            // A subclass that sets the member stays a candidate.
+            // A subclass that sets the member is no answer where a base outside declares it
+            // (#340).
             (
                 "app/test_api.py",
                 "from django.test import TestCase\n\n\nclass ApiCase(TestCase):\n    def test_post(self) -> None:\n        self.client.post(\"/\")\n\n\nclass SignedCase(ApiCase):\n    def setUp(self) -> None:\n        self.client = None\n",
@@ -1194,10 +1195,14 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
     use_roots(&mut a, Kind::Python, &[std.clone(), site.clone()]);
     let outside = |root: &Path, file: &str| format!("{}", root.join(file).display());
     for (file, code, want) in [
+        // A base outside that can be read is (#340).
         (
             "app/test_views.py",
             "self.client",
-            jump("no definition for client", "app/test_views.py:6"),
+            jump(
+                "client \u{2192} SimpleTestCase.client (via self: TestViews)",
+                &format!("{}:5", outside(&site, "django/test/testcases.py")),
+            ),
         ),
         (
             "app/users.py",
@@ -1243,13 +1248,9 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
         (
             "app/mocks.py",
             "m.return_value",
-            Shown::Picker(
-                "return_value: by name, 1+ declarations".into(),
-                vec![(
-                    "TaskHandle.return_value".into(),
-                    "by name".into(),
-                    "anyio/tasks.py:2".into(),
-                )],
+            jump(
+                "return_value \u{2192} NonCallableMock.return_value (via m: Mock)",
+                &format!("{}:2", outside(&std, "unittest/mock.py")),
             ),
         ),
         (
@@ -1264,8 +1265,8 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
             "app/test_api.py",
             "self.client|.post",
             jump(
-                "client \u{2192} SignedCase.client (by name, 1 match)",
-                "app/test_api.py:11",
+                "client \u{2192} SimpleTestCase.client (via self: ApiCase)",
+                &format!("{}:5", outside(&site, "django/test/testcases.py")),
             ),
         ),
     ] {

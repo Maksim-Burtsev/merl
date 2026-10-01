@@ -53,6 +53,53 @@ fn python_roots_read_the_venv_and_never_run_it() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #329. Under a venv, the base interpreter's `site-packages` is not the venv's: the walk of the
+/// standard library skips it, unless `pyvenv.cfg` includes the system packages, which then come
+/// after the venv's own. A root inside another is walked once, in its own place.
+#[test]
+fn python_base_packages_are_the_venvs_only_when_it_says_so() {
+    let (dir, _) = scratch(
+        "py-venv-base",
+        &[
+            ("base/bin/python3.99", ""),
+            ("base/lib/python3.99/json/__init__.py", ""),
+            ("base/lib/python3.99/site-packages/pip/__init__.py", ""),
+            (".venv/lib/python3.99/site-packages/lib/__init__.py", ""),
+        ],
+    );
+    let base = dir.canonicalize().unwrap().join("base/lib/python3.99");
+    let site = dir.join(".venv/lib/python3.99/site-packages");
+    let home = dir.join("base/bin").display().to_string();
+    let files = |include: &str| {
+        let cfg = format!("home = {home}\ninclude-system-site-packages = {include}\n");
+        std::fs::write(dir.join(".venv/pyvenv.cfg"), cfg).unwrap();
+        let roots = external_roots(Kind::Python, &dir);
+        let mut listed = external_files(Kind::Python, &roots);
+        listed.sort();
+        (roots, listed)
+    };
+    let (roots, listed) = files("false");
+    assert_eq!(roots, [base.clone(), site.clone()]);
+    assert_eq!(
+        listed,
+        [base.join("json/__init__.py"), site.join("lib/__init__.py")]
+    );
+    let (roots, listed) = files("true");
+    assert_eq!(
+        roots,
+        [base.clone(), site.clone(), base.join("site-packages")]
+    );
+    assert_eq!(
+        listed,
+        [
+            base.join("json/__init__.py"),
+            base.join("site-packages/pip/__init__.py"),
+            site.join("lib/__init__.py"),
+        ]
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// A toolchain is asked from outside the project, so no file of it picks the toolchain: a
 /// `rust-toolchain.toml` whose `path` is a `rustc` of its own is not run under rustup, and a
 /// `go.mod` asking for a Go that does not exist neither sends Go to download it nor leaves `d`

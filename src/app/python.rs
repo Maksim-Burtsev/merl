@@ -81,8 +81,9 @@ impl App {
     pub(super) fn package_assignments(&mut self, word: &str, module: &[String]) -> Vec<Candidate> {
         let kind = Kind::Python;
         let all = self.external_files(kind);
-        let Some((_, files)) =
-            search::module_among(&all, module, None).filter(|(n, _)| *n == module.len())
+        let Some((_, files)) = self
+            .python_module_among(&all, module)
+            .filter(|(n, _)| *n == module.len())
         else {
             return Vec::new();
         };
@@ -130,6 +131,135 @@ impl App {
             );
         }
         found
+    }
+
+    /// What the Python module `module` outside the project holds as `name` (#329): its top-level
+    /// declarations, else what its module-level imports of the name lead to, as `handed_on`
+    /// follows the project's: `from x import name`, `from x import y as name`, `from x import *`,
+    /// relative ones against the module's own package. Every source is followed. A source with no
+    /// file, a compiled `_io`, ends the walk on the line of the import that binds the name. A
+    /// name the module binds in any other way is not followed, and one no line binds, which a
+    /// `__getattr__` may make up, leads nowhere.
+    /// ponytail: four modules deep, which also ends a cycle.
+    pub(super) fn outside_handed_on(
+        &self,
+        module: &[String],
+        name: &str,
+        depth: usize,
+    ) -> Vec<Candidate> {
+        let kind = Kind::Python;
+        let Some(file) = self.walked_module(module) else {
+            return Vec::new();
+        };
+        let Ok(text) = std::fs::read_to_string(&file) else {
+            return Vec::new();
+        };
+        let reason = Reason::Import(module.join("."));
+        let pattern = search::def_patterns(kind, name).join("|");
+        let hits = self.external_grep(kind, std::slice::from_ref(&file), &pattern);
+        let hits: Vec<Hit> = (self.declaring(kind, name, hits).into_iter())
+            .filter(|h| search::qualified(kind, &text, h.line, name).is_none())
+            .collect();
+        if !hits.is_empty() {
+            return hits
+                .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: reason.clone(),
+                })
+                .collect();
+        }
+        let lines: Vec<&str> = text.lines().collect();
+        let import = |l: &str| l.starts_with("from ") || l.starts_with("import ");
+        let other = search::bindings(kind, &text, 1, name).iter().any(|b| {
+            !lines
+                .get(b.line - 1)
+                .is_some_and(|l| import(l.trim_start()))
+        });
+        if other || depth >= 4 {
+            return Vec::new();
+        }
+        let mut found: Vec<Candidate> = Vec::new();
+        for (bound, mut path) in
+            search::imports_as_written(kind, &search::python_module_level(&text))
+        {
+            let taken = match bound.as_str() {
+                "*" => name.to_owned(),
+                b if b == name => path.last().cloned().unwrap_or_default(),
+                _ => continue,
+            };
+            path.pop();
+            let Some(path) = python_absolute(&file, module, path) else {
+                continue;
+            };
+            let more = match self.walked_module(&path) {
+                Some(_) => self.outside_handed_on(&path, &taken, depth + 1),
+                // Compiled: the import is as far as the source goes.
+                None if bound != "*" => python_import_line(&text, name)
+                    .map(|line| Candidate {
+                        hit: Hit {
+                            deleted: None,
+                            path: file.clone(),
+                            line,
+                            col: 0,
+                            text: lines[line - 1].to_owned(),
+                        },
+                        reason: reason.clone(),
+                    })
+                    .into_iter()
+                    .collect(),
+                None => Vec::new(),
+            };
+            for c in more {
+                if !found
+                    .iter()
+                    .any(|o| (&o.hit.path, o.hit.line) == (&c.hit.path, c.hit.line))
+                {
+                    found.push(c);
+                }
+            }
+        }
+        found
+    }
+
+    /// The one class outside the project that `parts`, a type written in `file`, names through
+    /// `path`, what an import of the file binds its first part to (#340): the module lookup
+    /// outside of #329, re-exports followed. A relative import of a file outside is read against
+    /// its own package. Two declarations, or one that is no class, prove nothing. Only among the
+    /// files outside already walked: the typed walk walks them first.
+    pub(super) fn outside_class(
+        &self,
+        file: &Path,
+        path: &[String],
+        parts: &[String],
+    ) -> Option<Hit> {
+        let (name, chain) = parts.split_last()?;
+        let (module, taken) = match chain {
+            [] => {
+                let (taken, module) = path.split_last()?;
+                (module.to_vec(), taken.clone())
+            }
+            [_, rest @ ..] => ([path, rest].concat(), name.clone()),
+        };
+        let module = match file.is_absolute() {
+            true => {
+                let rel = self.rel_to_its_root(Kind::Python, file).with_extension("");
+                let mut own: Vec<String> = (rel.components())
+                    .map(|c| c.as_os_str().to_string_lossy().into_owned())
+                    .collect();
+                if own.last().is_some_and(|l| l == "__init__") {
+                    own.pop();
+                }
+                python_absolute(file, &own, module)?
+            }
+            false if module.first().is_none_or(|m| m.starts_with('.')) => return None,
+            false => module,
+        };
+        let found = self.outside_handed_on(&module, &taken, 0);
+        let [one] = found.as_slice() else {
+            return None;
+        };
+        search::declares_type(Kind::Python, &one.hit.text).then(|| one.hit.clone())
     }
 
     /// The first line of `file`, a module outside the project, named from its root.
@@ -227,6 +357,35 @@ pub(super) fn python_functions(text: &str, line: usize) -> Vec<usize> {
         }
     }
     out
+}
+/// The module path `path`, as an import in `file`, the module `module`, writes it, made absolute:
+/// a relative one is read against the module's own package, the module itself when it is one.
+/// `None` for a path that climbs past the top, or names nothing.
+pub(super) fn python_absolute(
+    file: &Path,
+    module: &[String],
+    mut path: Vec<String>,
+) -> Option<Vec<String>> {
+    if let Some(dots) = path.first().filter(|p| p.starts_with('.')).map(String::len) {
+        let init = file.file_stem().is_some_and(|s| s == "__init__");
+        let package = &module[..module.len() - usize::from(!init)];
+        let up = package.len().checked_sub(dots - 1)?;
+        path.splice(..1, package[..up].iter().cloned());
+    }
+    (!path.is_empty()).then_some(path)
+}
+/// The 1-based line `name` is written on in the first module-level `from … import` of `text`
+/// that binds it, one wrapped in brackets over several lines included.
+fn python_import_line(text: &str, name: &str) -> Option<usize> {
+    static FROM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?m)^from\s+[\w.]+\s+import\s+(\([^)]*\)|[^\n]+)").unwrap()
+    });
+    let word = Regex::new(&format!(r"\b{}\b", regex::escape(name))).ok()?;
+    FROM.captures_iter(text).find_map(|c| {
+        let names = c.get(1)?;
+        let at = word.find(names.as_str())?;
+        Some(text[..names.start() + at.start()].matches('\n').count() + 1)
+    })
 }
 /// Whether the Python line `text` assigns `word` at module level: `NAME = …`, `NAME: T = …`.
 pub(super) fn assigns(text: &str, word: &str) -> bool {
