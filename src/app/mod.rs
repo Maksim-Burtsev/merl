@@ -272,6 +272,11 @@ const SIDE_OFF: usize = 8;
 const HIST_NEAR: usize = 10;
 const HIST_MAX: usize = 50;
 
+/// A list of files shared between lookups.
+type Paths = Arc<Vec<PathBuf>>;
+/// How a C-kind file reads the files outside: a `.c` file or not, Objective-C or not (#382, #417).
+type CMode = (bool, bool);
+
 pub struct App {
     pub root: PathBuf,
     /// Set by `main` for a file opened outside any repository: the project is the files right
@@ -294,10 +299,10 @@ pub struct App {
     node_modules_of: Option<PathBuf>,
     /// The headers each C or C++ file includes, resolved, for a `.c` file or not (#382), an
     /// Objective-C file or not (#417).
-    c_includes: HashMap<(PathBuf, (bool, bool)), Arc<Vec<PathBuf>>>,
+    c_includes: HashMap<(PathBuf, CMode), Paths>,
     /// The C kind's files outside as a `.c` file or not, an Objective-C file or not, reads them
     /// (#382, #417), with the walk they were taken from.
-    c_files: HashMap<(bool, bool), (Arc<Vec<PathBuf>>, Arc<Vec<PathBuf>>)>,
+    c_files: HashMap<CMode, (Paths, Paths)>,
     /// What `go build` compiles here, which picks among a Go declaration's twins.
     go_build: search::GoBuild,
     /// The candidates of this `d` are to be offered, not jumped to, however few: the word is a
