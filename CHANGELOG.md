@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` and `D` in Objective-C. A `.m` or `.mm` file joins C and C++, where it said `no rules for
+  .m`, and a header reads `@interface`, `@protocol`, methods by any part of their selector,
+  `@property` and `NS_ENUM`: `d` on `findUserWithID` in `[repo findUserWithID:@"42"]` offers the
+  header's declaration beside the `.m` file's definition, `self.repository.baseURL` lands on the
+  `@property`, and `NSString` on Foundation's `@interface NSString`, read-only, from the SDK's
+  frameworks. `D` lists classes, protocols and methods. A C or C++ file reads no framework.
+  (#417)
 - `d` in Ruby looks outside the project: in the gems `Gemfile.lock` names, at their locked
   versions, in the standard library, and in the core's RBS signatures. `throttle` in a
   `Rack::Attack` initializer lands on rack-attack's `def throttle`, read-only, where it said `no
