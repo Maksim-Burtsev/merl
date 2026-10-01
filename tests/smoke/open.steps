@@ -65,3 +65,9 @@ key Enter n n N
 wait 2/14
 key Escape p
 wait ━━━━━━━━━━
+# The file list reads the query as typed (#519): `.py$` looks for a `$` in the path, so nothing
+# matches, where `$` used to anchor the end of the path and list every Python file.
+key Escape o
+type .py$
+wait Files (0/
+key Escape

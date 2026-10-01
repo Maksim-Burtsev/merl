@@ -653,43 +653,12 @@ impl App {
             return;
         }
         let pattern = patterns.join("|");
-        // PHP's `$this->`, `self::`, `static::` and `parent::` name the class around the cursor, a
-        // trait it uses or a class it extends (#356); `self::$name` is a static property.
-        if kind == Kind::Php {
-            let property = before.strip_suffix('$').filter(|b| b.ends_with("::"));
-            let b = property.unwrap_or(before);
-            let link = match search::qualifier(b, b.len()).as_slice() {
-                [l] if dotted && l == "this" => Some(l.clone()),
-                [l] if !dotted
-                    && b.ends_with("::")
-                    && matches!(l.as_str(), "self" | "static" | "parent") =>
-                {
-                    Some(l.clone())
-                }
-                _ => None,
-            };
-            let access = match self.line_str()[range.end..].trim_start().starts_with('(') {
-                true => search::PhpAccess::Call,
-                false if dotted || property.is_some() => search::PhpAccess::Property,
-                false => search::PhpAccess::Constant,
-            };
-            if let Some(link) = link
-                && let Some(found) = self.php_link(&here, &text, &link, &word, access)
-            {
-                self.show_definitions(kind, &word, &here, found, None);
-                return;
-            }
-            // `$x->word` and `$this->f->word` on a receiver whose class is proven (#361).
-            let receiver = before.strip_suffix(&format!("${}.", chain.join(".")));
-            if dotted
-                && !chain.is_empty()
-                && receiver
-                    .is_some_and(|b| !b.ends_with(|c: char| is_word(c) || c == ':' || c == '$'))
-                && let Some(found) = self.php_typed(&here, &text, &chain, &word, access)
-            {
-                self.show_definitions(kind, &word, &here, found, None);
-                return;
-            }
+        // PHP's `$this->`, `self::`, `static::`, `parent::`, typed receivers and class names.
+        if kind == Kind::Php
+            && let Some(found) = self.php_early(&here, &text, before, &chain, &word, range.clone())
+        {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
         }
         // `x.word` in Rust on a receiver whose type is proven (#377): the word of that type.
         let mut rust_broke = None;

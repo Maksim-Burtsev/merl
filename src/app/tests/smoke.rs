@@ -1,5 +1,6 @@
 //! The smoke scenarios (`tests/smoke/*.steps`) play every action of `KEYS` and every flag of the
-//! command line, or `NOT_SMOKED` says why not (#310), as `NOT_TAUGHT` does for the tutor.
+//! command line, or `NOT_SMOKED` says why not (#310), as `NOT_TAUGHT` does for the tutor. Every
+//! feature `## [Unreleased]` adds or changes plays in a scenario too, or `UNSMOKED` says why (#551).
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -16,6 +17,11 @@ const NOT_SMOKED: &[(&str, &str)] = &[(
     "--version",
     "its text changes with every release; run.py asks both builds for it before any play",
 )];
+
+/// Issues an `### Added` or `### Changed` entry of `## [Unreleased]` may cite with no scenario or
+/// fixture mentioning them, each with why. Empty until a feature cannot play in tmux (an Intel
+/// binary, a Homebrew formula).
+const UNSMOKED: &[(u32, &str)] = &[];
 
 fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -121,4 +127,87 @@ fn every_key_and_flag_is_smoked_or_skipped_on_purpose() {
          `tests/smoke/run.py --update --only NAME`, or list it in NOT_SMOKED with why",
         wrong.join("\n")
     );
+}
+
+/// The issues `text` cites as `#N`.
+fn cited(text: &str) -> BTreeSet<u32> {
+    regex::Regex::new(r"#(\d+)\b")
+        .unwrap()
+        .captures_iter(text)
+        .map(|c| c[1].parse().unwrap())
+        .collect()
+}
+
+/// The `### Added` and `### Changed` entries of the changelog's `## [Unreleased]` that cite no
+/// issue in `played`, nor one listed in `skipped`.
+fn unplayed(changelog: &str, played: &BTreeSet<u32>, skipped: &[u32]) -> Vec<String> {
+    let unreleased = changelog
+        .split("## [")
+        .find(|s| s.starts_with("Unreleased]"))
+        .unwrap_or("");
+    let mut wrong = Vec::new();
+    for section in unreleased.split("\n### ").skip(1) {
+        if !(section.starts_with("Added") || section.starts_with("Changed")) {
+            continue;
+        }
+        for entry in section.split("\n- ").skip(1) {
+            let issues = cited(entry);
+            if !issues
+                .iter()
+                .any(|n| played.contains(n) || skipped.contains(n))
+            {
+                let first: String = entry
+                    .lines()
+                    .next()
+                    .unwrap_or("")
+                    .chars()
+                    .take(60)
+                    .collect();
+                let issues: Vec<String> = issues.iter().map(|n| format!("#{n}")).collect();
+                wrong.push(match issues.is_empty() {
+                    true => format!("`{first}…` cites no issue"),
+                    false => format!("`{first}…` cites {}, no scenario plays", issues.join(", ")),
+                });
+            }
+        }
+    }
+    wrong
+}
+
+#[test]
+fn every_unreleased_feature_is_smoked_or_skipped_on_purpose() {
+    let mut played = BTreeSet::new();
+    let mut dirs = vec![root().join("tests/smoke"), root().join("tests/fixtures")];
+    while let Some(dir) = dirs.pop() {
+        for f in std::fs::read_dir(dir).unwrap() {
+            let path = f.unwrap().path();
+            // The fixtures' README cites issues in prose, some of them as known misses: no play.
+            let fixture = !path.starts_with(root().join("tests/smoke"))
+                && path.file_name().is_some_and(|n| n != "README.md");
+            if path.is_dir() && fixture {
+                dirs.push(path);
+            } else if fixture || path.extension().is_some_and(|e| e == "steps") {
+                played.extend(cited(&std::fs::read_to_string(&path).unwrap_or_default()));
+            }
+        }
+    }
+    let changelog = std::fs::read_to_string(root().join("CHANGELOG.md")).unwrap();
+    let skipped: Vec<u32> = UNSMOKED.iter().map(|(n, _)| *n).collect();
+    let wrong = unplayed(&changelog, &played, &skipped);
+    assert!(
+        wrong.is_empty(),
+        "{}\nplay the feature in a tests/smoke scenario whose comment cites `(#N)`, or annotate a \
+         fixture with it, or list the issue in UNSMOKED with why",
+        wrong.join("\n")
+    );
+}
+
+#[test]
+fn an_entry_passes_by_any_issue_it_cites_that_a_scenario_plays() {
+    let log = "## [Unreleased]\n\n### Added\n\n- A, played. (#1, #2)\n- B, skipped. (#3)\n- C, \
+               not played.\n  (#4)\n- D, no issue.\n\n### Fixed\n\n- E, a fix. (#5)\n\n\
+               ## [0.1.0] - 2026-01-01\n\n### Added\n\n- F, released. (#6)\n";
+    let wrong = unplayed(log, &BTreeSet::from([2]), &[3]);
+    assert_eq!(wrong.len(), 2, "{wrong:?}");
+    assert!(wrong[0].contains("cites #4,") && wrong[1].contains("cites no issue"));
 }

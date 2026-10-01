@@ -107,8 +107,22 @@ with its issue closed, or waits under `needs-owner` (see `## Merging`).
    runs share a scratchpad and overwrite each other's `before.gif`.
 5. Before a push, run what `.github/workflows/ci.yml` runs. A change a user can see adds its
    entry under `## [Unreleased]` in `CHANGELOG.md`, citing the issue as `(#N)`; docs, refactors,
-   tests and tooling get none. An added or changed feature also plays in a smoke scenario (the
-   `tests/smoke` bullets above).
+   tests and tooling get none. What the change moves in the tests, the bullets at the top
+   saying how:
+
+   | The PR changes | It moves |
+   |---|---|
+   | a key or a flag | a tutor/drill task, smoke steps and their `keys.txt` |
+   | what a screen draws | `tests/snapshots`, and the smoke screens it shows in |
+   | a new screen, overlay or panel | its state in `STATES` |
+   | what an edit key does | the `edit_fuzz` model |
+   | where `d` lands | a fixture annotation, and the bench's baseline |
+   | an `### Added` or `### Changed` entry | smoke steps citing `(#N)`, or a fixture annotation |
+   | a bug | a test that fails without the fix |
+
+   The `### Added` / `### Changed` row is enforced:
+   `every_unreleased_feature_is_smoked_or_skipped_on_purpose` (`src/app/tests/smoke.rs`) fails on
+   an entry no scenario or fixture cites, until its issue is listed in `UNSMOKED` with why.
 6. Commits are in English and carry the reasoning. The repo squashes with the PR's commit
    messages, so a commit written with Claude keeps its `Co-Authored-By: Claude …` trailer.
 7. Record the screencast, open the PR, and check `gh pr diff --name-only` holds only your files.
@@ -213,10 +227,11 @@ run under ~15 s.
   triage one; the owner may take it off. A `release-blocker` PR under `needs-owner` is the one
   the owner reads first.
 
-`master` takes squash merges of PRs only, with the CI checks green on a branch up to date with
-master; nobody can push to it directly or bypass the checks.
+`master` takes squash merges of PRs only, with the CI checks green; nobody can push to it
+directly or bypass the checks. A branch behind master merges as it is: a queue of green PRs goes
+in at once, and CI on the push to master catches two changes that break only together. A red
+master is fixed before the next merge.
 
-- After another PR lands, `gh pr update-branch N` and wait for the checks again.
 - A PR that conflicts with master gets no CI at all on a push. Merge `origin/master` into the
   branch, resolve, push: a merge keeps the commits a posted review links to, and the squash keeps
   it off master.
@@ -257,7 +272,9 @@ Only when the owner asks for one, and with nothing open under `release-blocker`.
      to the owner and ask whether it goes in; without a yes the note has none. It goes to `media`
      as `releases/X.Y.Z.gif` (a new name for every upload, as for PR screencasts) and into the
      note as `![](https://raw.githubusercontent.com/Maksim-Burtsev/merl/media/releases/X.Y.Z.gif)`.
-4. A release PR, `release: X.Y.Z`: `## [Unreleased]` becomes `## [X.Y.Z] - YYYY-MM-DD` with its
+4. A release PR, `release: X.Y.Z`, from a branch `release/X.Y.Z`: only such a branch's CI
+   presses `d`, `u` and `D` at every cursor of every fixture (#543, ~20 minutes), and a panic it
+   finds is fixed on that branch. `## [Unreleased]` becomes `## [X.Y.Z] - YYYY-MM-DD` with its
    link, the version goes into `Cargo.toml` and `Cargo.lock`, it adds `docs/releases/X.Y.Z.md`,
    it carries the `tests/budgets.tsv` the smoke test's time budgets wrote, and its body holds the
    smoke test's verdict table.
