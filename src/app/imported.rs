@@ -24,6 +24,25 @@ impl App {
         self.imported_at(kind, here, word, chain, path, 0)
     }
 
+    /// The first line of each of `files`, a module a name or a path leads to as a whole.
+    pub(super) fn module_candidates(&self, files: Vec<PathBuf>) -> Vec<Candidate> {
+        files
+            .into_iter()
+            .map(|path| Candidate {
+                reason: Reason::Module(path.display().to_string()),
+                hit: Hit {
+                    deleted: None,
+                    text: self.text_of(&path).map_or_else(String::new, |t| {
+                        t.lines().next().unwrap_or_default().to_owned()
+                    }),
+                    path,
+                    line: 1,
+                    col: 0,
+                },
+            })
+            .collect()
+    }
+
     /// The package a barrel of the project hands the word on from, `export { x } from
     /// "lodash"` (#527), when nothing of the project answers the import `path`.
     pub(super) fn barrel_package(

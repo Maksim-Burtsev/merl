@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d`, `u` and `D` in Dart (`.dart`, Flutter included), where `d` said `no rules for .dart`.
+  `d` on `formatPrice` lands on `String formatPrice(int cents) =>` in the project; on `get` of
+  `http.get` behind `import 'package:http/http.dart' as http` it opens the `http` package's
+  `get` in the pub cache, read-only, saying `via import package:http/http.dart`. Classes behind
+  their modifiers, mixins, extensions, enums and their values, typedefs, functions, methods,
+  getters, setters, constructors (`User.fromJson`) and fields are found; a call statement is not
+  taken for a declaration. Outside the project `d` reaches the packages `pub get` lists and the
+  SDK. `D` lists `abstract interface class Repo` as `Repo`, and functions and methods too, and
+  `_$UserFromJson` is one name. (#414)
 - `d`, `u` and `D` in PowerShell (`.ps1`, `.psm1`, `.psd1`), where `d` said `no rules for
   .ps1`. `d` on `get-shopuser` lands on `function Get-ShopUser`, as names ignore case; on `$Id`
   under a `param(` block it says `Id: local`; on `$script:BaseUri` it finds the assignment; on

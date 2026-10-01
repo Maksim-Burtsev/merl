@@ -973,6 +973,20 @@ mod tests {
     }
 
     #[test]
+    fn dart_highlights_with_every_shipped_theme() {
+        let src = "/// doc\nclass Cart {\n  int total = 0;\n  String label() => '$total';\n}\n";
+        for name in crate::theme::names() {
+            let theme = crate::theme::load(name).unwrap();
+            let mut b = Buffer::from_bytes(PathBuf::from("cart.dart"), src.as_bytes());
+            assert_eq!(b.syntax.map(|s| s.name.as_str()), Some("Dart"), "{name}");
+            b.highlight_to(4, &theme);
+            let colours: std::collections::HashSet<_> =
+                b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+            assert!(colours.len() > 1, "{name}: everything is one colour");
+        }
+    }
+
+    #[test]
     fn powershell_highlights_with_every_shipped_theme() {
         let src = "# doc\nfunction Get-ShopUser {\n    param([string]$Id)\n    \"user $Id\"\n}\n";
         // bat's PowerShell syntax covers each of these extensions (#420).

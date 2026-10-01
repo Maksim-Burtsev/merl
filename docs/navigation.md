@@ -134,7 +134,18 @@ that root, not a directory inside it. PowerShell has the module directories of `
 or without it PowerShell 7's defaults on macOS and Linux, `~/.local/share/powershell/Modules`,
 `/usr/local/share/powershell/Modules` and the `Modules` beside the `pwsh` on the PATH; the built-in
 cmdlets are compiled and have no source there, and `Import-Module` binds no name of its own, so
-nothing narrows the search. Protocol Buffers has the `include` directories `protoc`
+nothing narrows the search. Dart has the packages `dart pub get` or `flutter pub get` lists in
+`.dart_tool/package_config.json` (of the project, or of a package one or two directories down, as
+a Flutter app's `app/` is), each under its `rootUri` — the pub cache's
+`~/.pub-cache/hosted/pub.dev/<name>-<version>/lib/`, the Flutter SDK's for `flutter` and
+`sky_engine` — read as JSON with nothing run, and the `lib/` of the SDK of the `dart` on the PATH,
+links followed, or in a Flutter install the `bin/cache/dart-sdk` beside it; no `pub get` yet, no
+packages. A plain `import` binds no name, as Swift's does, so nothing narrows the search; a prefix
+of `import '…' as p` and a name of `import '…' show A` are looked for in the file the import names
+first — `package:<name>/x.dart` is the project's own `lib/x.dart` when `<name>` is the `name:` of
+the nearest `pubspec.yaml` above the file, else that package's `lib/x.dart`, `dart:async` the SDK's
+`lib/async/async.dart` — `via import <uri>`; a barrel's `export` is not followed, and a file that
+does not declare the name leaves it to the search by name. Protocol Buffers has the `include` directories `protoc`
 installs its well-known types into — `/opt/homebrew/include`, `/usr/local/include` and
 `/usr/include` — walked through the links Homebrew puts there; buf's module cache keeps
 dependencies under hashed directories no import spells, and is left out. `d` on the path of an
@@ -578,6 +589,7 @@ type, a class with no subclasses — and `d` goes on to the search by name below
 | Protocol Buffers | `message`, `enum`, `service` and `oneof`, a nested message included; `rpc Name(`, braces or not, `stream` arguments too; an enum value, `NAME = 1;`, with no type before the name; a field, `string id = 1;`, `repeated Order orders = 2;`, `map<string, int32> counts = 3;`, `optional`, `required` and a qualified type included. A field's type, an rpc's argument and return types and the message an `extend` adds to are uses, as a Rust `impl` is; an `option`, a `reserved` list and a name inside an import's string declare nothing. The text format (`.textproto`, `.pbtxt`) is data and has no rules. | every `.proto` file |
 | Shell | `name()` and `function name`, an assignment behind `export`/`declare`/`local`/`readonly`/`typeset` (or bare, and `+=`), `alias` | every `.sh`, `.bash`, `.zsh`, `.ksh` and shell dotfile (`.bashrc`, `.zshrc`, `.profile` and friends) |
 | PowerShell | `function` and `filter`, behind a scope (`function global:Get-ShopUser`), under the whole `Verb-Noun` name; `class` and `enum`; inside a class a property (`[string] $Name`, `hidden [int]$Count = 0`), a method (`[decimal] Total() {`, `static [Invoice] Parse(…) {`) and a constructor (`Invoice([string] $id) {`); an enum member on a line directly inside an `enum`; an assignment that opens a line (`$Config = @{`, `$script:Cache = @{}`, `[string]$Name = 'x'`, `$Count += 1`); `Set-Alias` and `New-Alias`. Names ignore case, as PowerShell does. A `$variable` is only a variable or a property, a bare word never one (`$tariff` declares no `Tariff`), and a constructor counts only where its class is built (`[Tariff]::new(`). A parameter of a `param(` block in the blocks around the cursor, a function's, a script block's or the script's, or of a `function Name($a)` header, is `local` and never looked for in another file. A call, a named argument, a hashtable key, a property or element write, a comparison and splatting declare nothing; nor does a line in comment-based help (`<# … #>`) or a here-string. `d` on the path of a dot-source (`. $PSScriptRoot/helpers.ps1`), an `Import-Module ./Shop/Users.psm1` or a `using module` opens that file. | every `.ps1`, `.psm1` and `.psd1` file |
+| Dart | `class` behind `abstract`, `sealed`, `base`, `final`, `interface` and `mixin`; `mixin`, a named `extension … on`, `extension type`, `enum` and `typedef`, the new form and the old (`typedef void Callback(int code);`); in column zero, where Dart has declarations and directives only, a function (`String formatPrice(int cents) =>`, `main() {`); indented, a method told from a call by the return type before its name — a primitive (`void`, `int`, `double`, `num`, `bool`, `dynamic`) or a name with a capital, with its generics and `?` — as Java's is; a getter and a setter; a constructor directly inside its class, an enum or an extension type, behind `const`, `factory` or `external` or with parameters that open with `this.`, `super.`, `{`, `[` or a type and a name, or followed by the `:` of an initializer list — `User.fromJson` under the name after the dot, the class's own `User(` only where the class is built, `User(…)`; a variable or a field behind `final`, `const`, `var` or `late` (`static`, `external` and `covariant` too), with or without its type, or with a type alone (`String? label;`), outside a parameter list wrapped over lines; an `enum` value on the `enum` line or on a line directly inside the `enum`. A call statement (`Navigator.push(context, route);`, `return Foo(x);`, `throw StateError('x');`), a named constructor's call with no arguments (`User.empty();`, the shape of a declaration with none), a method with no return type (`build(context) {`), an unnamed `extension on String`, a parameter and a pattern of a `switch` declare nothing, nor does a line inside a `'''` or `"""` string or a `/* */` comment. `$` is part of a name, at its start too (`_$UserFromJson`, `$UserCopyWith`), save in a string, where `'$name'` interpolates `name`. | every `.dart` file |
 | SQL | `CREATE` of a table, view, index, function, procedure, trigger, type, schema, sequence, domain, extension, database, role or user, behind `OR REPLACE`, `TEMP`, `UNLOGGED`, `MATERIALIZED`, `UNIQUE` and `IF NOT EXISTS`, schema-qualified or quoted; a `WITH … AS (` common table expression. Keywords ignore case. Columns have no rule. | every `.sql`, `.psql`, `.pgsql`, `.mysql`, `.ddl` and `.dml` file |
 | Makefile, `*.mk` | a target, also one of several before the colon; a variable, outside a recipe; a variable set only by `+=` or for one target (`release: VERSION := 1.0`), when nothing assigns it plainly | every Makefile |
 | Terraform | the block behind `var.x`, `module.x`, `local.x`, `data.T.N`, `T.N`; a bare name, as in `.tfvars`, is any block with that label | `.tf` files in the same directory |
@@ -603,7 +615,7 @@ kind of file; GraphQL's `type`, `interface`, `input`, `enum`, `union`, `scalar`,
 its name, without the `@`), `fragment` and named operations, from a row of its own, since the regex
 above knows four of those words and would list them twice; recomputed on each press. Zig adds a function behind `inline` or `noinline` and a
 `test`, under the description it is written with, which that regex has no word for. Java, Kotlin,
-Ruby, C, C++, C#, Swift, PHP, Lua, Elixir, Protocol Buffers and PowerShell are read from rules of their
+Ruby, C, C++, C#, Swift, PHP, Lua, Elixir, Protocol Buffers, PowerShell and Dart are read from rules of their
 own instead of that regex — Java's types and its methods, told from a call by the return type before
 the name; Kotlin's `fun` (past an extension's receiver), types, `object`, `typealias` and
 `const val`; Ruby's methods, classes and modules, `def self.name` included; C and C++ functions,
@@ -615,7 +627,10 @@ methods in another, behind `final public static` and the rest; Lua's functions i
 forms it writes them, under the name and not the table they hang off; Elixir's modules, protocols
 and every `def` form; Protocol Buffers' `message`, `enum`, `service` and `rpc`, nested messages
 included; PowerShell's `function` and `filter` under the whole `Verb-Noun` name, which that regex
-would cut at its `-`, and its `class` and `enum` — so none of them is listed twice or
+would cut at its `-`, and its `class` and `enum`; Dart's types (`class` behind its modifiers,
+`mixin`, a named `extension`, `extension type`, `enum`, `typedef`) in one row, its functions and
+methods, told from a call by the type before the name, in a second and its getters and setters in a
+third, which that regex would read as `class` for `abstract interface class Repo` — so none of them is listed twice or
 under a modifier or a receiver. A C prototype is not listed, since every function of a header would
 be there twice, and a `typedef struct x { … } y;` is listed once, under the `y` the project writes.
 TypeScript's class methods, with neither a keyword nor a type in front, are not listed: the regex

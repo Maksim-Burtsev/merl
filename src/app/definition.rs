@@ -182,6 +182,13 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
+        // A Dart name an import binds with `as` or `show` is looked for in that file (#414).
+        if kind == Kind::Dart
+            && let Some(found) = self.dart_imported(&here, &text, &chain, &word)
+        {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         // A named argument, a literal's key or a JSX attribute names a parameter of the callee
         // or a field of the literal's type, and nothing else spelled so (#315, #316).
         if self.probe.is_none()
@@ -2327,25 +2334,6 @@ impl App {
                     text: source.lines().nth(line - 1).unwrap_or_default().to_owned(),
                 },
                 reason: reason.clone(),
-            })
-            .collect()
-    }
-
-    /// The first line of each of `files`, a module a name or a path leads to as a whole.
-    pub(super) fn module_candidates(&self, files: Vec<PathBuf>) -> Vec<Candidate> {
-        files
-            .into_iter()
-            .map(|path| Candidate {
-                reason: Reason::Module(path.display().to_string()),
-                hit: Hit {
-                    deleted: None,
-                    text: self.text_of(&path).map_or_else(String::new, |t| {
-                        t.lines().next().unwrap_or_default().to_owned()
-                    }),
-                    path,
-                    line: 1,
-                    col: 0,
-                },
             })
             .collect()
     }

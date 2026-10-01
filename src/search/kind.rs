@@ -25,6 +25,8 @@ pub enum Kind {
     Shell,
     /// PowerShell scripts and modules; names ignore case in `d`, as the language does (#420).
     PowerShell,
+    /// Dart and Flutter; `$` is a name character, `_$UserFromJson` one name (#414).
+    Dart,
     Sql,
     Make,
     Terraform,
@@ -85,6 +87,7 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         ) => Kind::Shell,
         // A module manifest declares nothing, but `d` from its `FunctionsToExport` finds them.
         (_, "ps1" | "psm1" | "psd1") => Kind::PowerShell,
+        (_, "dart") => Kind::Dart,
         (_, "sql" | "psql" | "pgsql" | "mysql" | "ddl" | "dml") => Kind::Sql,
         ("Makefile" | "makefile" | "GNUmakefile", _) | (_, "mk") => Kind::Make,
         (_, "tf" | "tfvars") => Kind::Terraform,
@@ -115,6 +118,8 @@ pub fn word_chars(kind: Option<Kind>, address: bool) -> &'static str {
         Some(Kind::Terraform) if address => "-.",
         // `Get-ShopUser` is one PowerShell name, for `d` and `u` alike (#420).
         Some(Kind::Make | Kind::Terraform | Kind::Docker | Kind::Yaml | Kind::PowerShell) => "-",
+        // What `json_serializable` and `freezed` generate, `_$UserFromJson`, is one name (#414).
+        Some(Kind::Dart) => "$",
         _ => "",
     }
 }

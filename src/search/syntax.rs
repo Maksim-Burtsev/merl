@@ -106,6 +106,9 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             // A Kotlin raw string and a Java text block run over lines between `"""`; neither
             // language has a backtick template: Kotlin's backticks quote a name (#367).
             Kind::Jvm => (true, false, false, true, &["//"]),
+            // Dart's `'''` and `"""` (raw `r'''` too) and the C family's comments, `///` among
+            // them; no backtick: a Dart string of one quote ends with its line (#414).
+            Kind::Dart => (true, false, false, true, &["//"]),
             _ => (false, false, true, true, &["//"]),
         };
     // The forms one language each has: C#'s verbatim string, which closes on a `"` that no
@@ -280,10 +283,11 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             }
         } else if heredoc
             && (b[i..].starts_with(b"\"\"\"")
-                || (matches!(kind, Kind::Python | Kind::Elixir) && b[i..].starts_with(b"'''")))
+                || (matches!(kind, Kind::Python | Kind::Elixir | Kind::Dart)
+                    && b[i..].starts_with(b"'''")))
         {
-            // `'''` is Python's and Elixir's alone; Swift, C#, GraphQL, Java and Kotlin write the
-            // block with `"` only.
+            // `'''` is Python's, Elixir's and Dart's alone; Swift, C#, GraphQL, Java and Kotlin
+            // write the block with `"` only.
             block = Some(if c == b'"' { b"\"\"\"" } else { b"'''" }.into());
             i += 2;
         } else if powershell && b[i..].starts_with(b"<#") {

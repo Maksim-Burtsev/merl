@@ -31,6 +31,7 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Proto
         | Kind::Shell
         | Kind::PowerShell
+        | Kind::Dart
         | Kind::Sql
         | Kind::Make
         | Kind::Graphql => kind_of(path) == Some(kind),
@@ -222,6 +223,9 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
             });
             powershell_roots(std::env::var_os("PSModulePath"), &home, pwsh)
         }
+        // The packages `pub get` lists in `.dart_tool/package_config.json`, the pub cache's and
+        // the Flutter SDK's, and the `lib/` of the SDK of the `dart` on the PATH (#414).
+        Kind::Dart => dart_roots(root, dart_sdk()),
         // Java and Kotlin have no roots yet: the JDK and Gradle caches are their own lookups.
         // C# has nothing to point at: a NuGet package is compiled
         // assemblies, and the runtime's own source is not on the machine at all. Lua has no root

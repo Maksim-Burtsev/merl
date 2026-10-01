@@ -22,6 +22,7 @@ mod at_base;
 mod c;
 mod cs_typed;
 mod cursor;
+mod dart;
 mod definition;
 mod edit;
 mod external;
