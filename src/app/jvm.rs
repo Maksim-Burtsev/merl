@@ -22,6 +22,57 @@ impl App {
         Some(self.jvm_fit_candidates(&here, word, range, chain, found))
     }
 
+    /// Of the Java or Kotlin declarations `hits` found by name, what the cursor can see (#357): a
+    /// local only in its own block, below it, and never `behind` a `.` or a `::`; a `private`
+    /// declaration only in its own file. When that drops some and leaves one that is no local
+    /// in sight, it is still found by name only, and offered rather than jumped to.
+    pub(super) fn jvm_seen(&mut self, here: &Path, hits: Vec<Hit>, behind: bool) -> Vec<Hit> {
+        let mut all = hits.len();
+        let mut texts: HashMap<PathBuf, Option<String>> = HashMap::new();
+        let mut literals: HashMap<PathBuf, Vec<bool>> = HashMap::new();
+        let mut seen_local = false;
+        let kept: Vec<Hit> = hits
+            .into_iter()
+            .filter(|h| {
+                if h.path != here && search::jvm_private(&h.text) {
+                    return false;
+                }
+                // A declaration in column 0 is top-level, never a local.
+                if !h.text.starts_with([' ', '\t']) {
+                    return true;
+                }
+                let text = texts
+                    .entry(h.path.clone())
+                    .or_insert_with(|| self.text_of(&h.path));
+                match text
+                    .as_deref()
+                    .and_then(|t| search::jvm_local_block(t, h.line))
+                {
+                    None => true,
+                    Some(end) => {
+                        let seen =
+                            !behind && h.path == here && (h.line..=end).contains(&(self.line + 1));
+                        seen_local |= seen;
+                        // A line of a text block or a raw string is no local left out of sight,
+                        // only no declaration (#416): it makes no jump an offer.
+                        let literal = literals
+                            .entry(h.path.clone())
+                            .or_insert_with(|| {
+                                search::literal_lines(Kind::Jvm, text.as_deref().unwrap_or(""))
+                            })
+                            .get(h.line - 1)
+                            .copied()
+                            .unwrap_or(false);
+                        all -= usize::from(!seen && literal);
+                        seen
+                    }
+                }
+            })
+            .collect();
+        self.offer_only |= kept.len() == 1 && kept.len() < all && !seen_local;
+        kept
+    }
+
     /// [`App::jvm_use_fit`] over candidates: what the use at the cursor fits, a class or its
     /// constructors, an overload; all of them when none does.
     pub(super) fn jvm_fit_candidates(

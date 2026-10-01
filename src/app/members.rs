@@ -91,8 +91,12 @@ impl App {
     /// Whether `hit` stands in code, not in a docstring, a raw string or a block comment, where
     /// a declaration-shaped line declares nothing (#453).
     pub(super) fn in_code(&self, kind: Kind, hit: &Hit) -> bool {
-        self.text_of(&hit.path)
-            .is_some_and(|text| search::literal_lines(kind, &text).get(hit.line - 1) != Some(&true))
+        match search::component(&hit.path) {
+            true => self.hidden_of(kind, hit).get(hit.line - 1) != Some(&true),
+            false => (self.text_of(&hit.path)).is_some_and(|text| {
+                search::literal_lines(kind, &text).get(hit.line - 1) != Some(&true)
+            }),
+        }
     }
 
     /// Whether `hit`, in a comment, is a tag that declares: of a PHP class's docblock (#344), or a

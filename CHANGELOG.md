@@ -9,6 +9,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d`, `u` and `D` in Dart (`.dart`, Flutter included), where `d` said `no rules for .dart`.
+  `d` on `formatPrice` lands on `String formatPrice(int cents) =>` in the project; on `get` of
+  `http.get` behind `import 'package:http/http.dart' as http` it opens the `http` package's
+  `get` in the pub cache, read-only, saying `via import package:http/http.dart`. Classes behind
+  their modifiers, mixins, extensions, enums and their values, typedefs, functions, methods,
+  getters, setters, constructors (`User.fromJson`) and fields are found; a call statement is not
+  taken for a declaration. Outside the project `d` reaches the packages `pub get` lists and the
+  SDK. `D` lists `abstract interface class Repo` as `Repo`, and functions and methods too, and
+  `_$UserFromJson` is one name. (#414)
+- `d`, `u` and `D` in Vue, Svelte and Astro components (`.vue`, `.svelte`, `.astro`), where `d`
+  said `no rules for .vue`. Inside a component's `<script>` block (Astro: its frontmatter) every
+  TypeScript rule applies: `d` on `formatName` lands on `src/names.ts`, `via import`. From a
+  `.ts` file, `d` on `UserCard` of `import UserCard from './UserCard.vue'` opens the component,
+  where it said `no definition for UserCard`. In the template, `{{ label }}` lands on the
+  script's `const label`, an `item` of `v-for` or `{#each}` on that line (`item: local`), and a
+  `<user-card>` tag no import binds on `UserCard.vue`. The template and the `<style>` block
+  declare nothing, and `D` lists the script only. `.astro` is highlighted as TSX. (#413)
+- `d`, `u` and `D` in Scala. `.scala`, `.sc`, `.sbt` and `.mill` files are one kind with Java and
+  Kotlin, so `d` on `Ledger.total(xs)` in a `.java` file lands on the `def total` of `object
+  Ledger` in a `.scala` one, where it said `no definition for total`, and `d` in a `.scala` file
+  works where it said `no rules for .scala`. It finds `class`, `case class`, `trait`, `object`,
+  `enum` and its cases, `def`, `val`, `var`, `type`, a named `given` and a case class's fields,
+  behind Scala's modifiers; a match case and Java's `case RED:` declare nothing. `D` lists
+  Scala's types, `given`s and `def`s. A declaration-shaped line in a Java text block or a Kotlin
+  raw string no longer turns a jump into an offer, and in Kotlin a member of a named `object`
+  is that object's: `this.heat` inside a nested `object Kiln` lands on `Kiln.heat`, where it
+  jumped to the outer class's `heat`. (#416)
+- `d` and `D` in Objective-C. A `.m` or `.mm` file joins C and C++, where it said `no rules for
+  .m`, and a header reads `@interface`, `@protocol`, methods by any part of their selector,
+  `@property` and `NS_ENUM`: `d` on `findUserWithID` in `[repo findUserWithID:@"42"]` offers the
+  header's declaration beside the `.m` file's definition, `self.repository.baseURL` lands on the
+  `@property`, and `NSString` on Foundation's `@interface NSString`, read-only, from the SDK's
+  frameworks. `D` lists classes, protocols and methods. A C or C++ file reads no framework.
+  (#417)
+- `d`, `u` and `D` in PowerShell (`.ps1`, `.psm1`, `.psd1`), where `d` said `no rules for
+  .ps1`. `d` on `get-shopuser` lands on `function Get-ShopUser`, as names ignore case; on `$Id`
+  under a `param(` block it says `Id: local`; on `$script:BaseUri` it finds the assignment; on
+  the path of `Import-Module ./Shop/Users.psm1` or a dot-source it opens the file. Classes,
+  enums, filters and aliases are found too, and outside the project the module directories of
+  `PSModulePath`. `u` and `d` read `Get-ShopUser` as one name, and `D` lists it whole. (#420)
 - `d` in Ruby looks outside the project: in the gems `Gemfile.lock` names, at their locked
   versions, in the standard library, and in the core's RBS signatures. `throttle` in a
   `Rack::Attack` initializer lands on rack-attack's `def throttle`, read-only, where it said `no

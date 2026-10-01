@@ -235,7 +235,8 @@ impl App {
         let Some(r) = &self.review else {
             return Vec::new();
         };
-        let mut patterns = search::def_patterns(kind, word);
+        let mut patterns = search::def_patterns_for(kind, word, self.objc_file());
+        self.spelling_cut(kind, word, &mut patterns);
         patterns.extend(search::member_patterns(kind, word).unwrap_or_default());
         let Ok(re) = Regex::new(&patterns.join("|")) else {
             return Vec::new();
@@ -251,7 +252,7 @@ impl App {
             .filter(|h| {
                 let (lines, literal) = base.entry(h.path.clone()).or_insert_with(|| {
                     let text = self.hit_text(h).unwrap_or_default();
-                    let literal = search::literal_lines(kind, &text);
+                    let literal = self.hidden_of(kind, h);
                     (text.lines().map(str::to_owned).collect(), literal)
                 });
                 !literal.get(h.line - 1).copied().unwrap_or(false)

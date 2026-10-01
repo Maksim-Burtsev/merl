@@ -11,7 +11,7 @@ impl App {
         &self,
         kind: Option<Kind>,
     ) -> Option<(std::ops::Range<usize>, String)> {
-        let (range, word) = search::definition_word(kind, self.line_str(), self.col)?;
+        let (range, word) = self.word_here(kind)?;
         let mut word = word.to_owned();
         let (written, start) = self.written(kind, range.start);
         let before = &written[..start];
@@ -74,24 +74,19 @@ impl App {
             self.definition_at_base(path, line);
             return;
         }
-        // The path of a GraphQL `#import` is the file it pastes in, `./` and `/` included.
-        if kind == Some(Kind::Graphql)
+        // The path of a GraphQL `#import` is the file it pastes in, `./` and `/` included, and
+        // so is a PowerShell dot-source's or `Import-Module`'s (#420).
+        if let Some(kind) = kind
             && let Some(here) = self.rel_current()
-            && let Some(module) = search::graphql_import(self.line_str(), self.col)
+            && let Some(module) = search::file_import(kind, self.line_str(), self.col)
         {
-            let module = module.to_owned();
-            let files = search::module_files(
-                Kind::Graphql,
-                &self.root,
-                &self.files,
-                &here,
-                std::slice::from_ref(&module),
-            );
+            let module = [module];
+            let files = search::module_files(kind, &self.root, &self.files, &here, &module);
             let found = self.module_candidates(files);
-            self.show_definitions(Kind::Graphql, &module, &here, found, None);
+            self.show_definitions(kind, &module[0], &here, found, None);
             return;
         }
-        let Some((range, word)) = self.definition_word(kind) else {
+        let Some((range, mut word)) = self.definition_word(kind) else {
             self.message = "no word".into();
             return;
         };
@@ -104,19 +99,26 @@ impl App {
             self.message = self.no_rules();
             return;
         };
+        if self.component_template(&here, &range, &mut word) {
+            return;
+        }
         // Go's blank identifier names nothing: every `_` is a fresh discard (#476). Nor has a
         // GraphQL operation's `$variable` a rule: it is a parameter, and `$id` is no field `id`.
-        // A Java or Kotlin class literal, `Foo::class`, names no member `class` (#362).
+        // A Java or Kotlin class literal, `Foo::class`, names no member `class` (#362). A
+        // PowerShell `-Name` argument names a parameter of the command it is given to (#420).
         if (kind == Kind::Go && word == "_")
             || (kind == Kind::Graphql && self.line_str()[..range.start].ends_with('$'))
             || (kind == Kind::Jvm
                 && word == "class"
                 && self.line_str()[..range.start].ends_with("::"))
+            || (kind == Kind::PowerShell
+                && search::powershell_argument(&self.line_str()[..range.start]))
         {
             self.message = resolution(&word, None, &[], None, false);
             return;
         }
         let text = self.buf.lines.join("\n");
+        let text = search::script_text(&here, &text, Some(self.line)).into_owned();
         // Nothing in a Rust string names code, save the `{name}` a format string captures and
         // the path an attribute takes as a value, `#[serde(default = "default_port")]`: no
         // search for a word of prose (#346).
@@ -137,9 +139,11 @@ impl App {
             return;
         }
         // A segment of a Java or Kotlin `import` line: a package's declares nothing, a class's is
-        // looked for in its package of the project (#372).
+        // looked for in its package of the project (#372). A name inside a Scala import's `{…}`
+        // selectors is looked for by name (#416).
         if kind == Kind::Jvm
             && import_line(kind, self.line_str())
+            && !self.line_str()[..range.start].contains('{')
             && let Some(found) = self.jvm_imported(&text, &chain, &word, range.clone(), true)
         {
             self.show_definitions(kind, &word, &here, found, None);
@@ -180,6 +184,13 @@ impl App {
         // An import's path, and a name its package qualifies (#418).
         if kind == Kind::Proto
             && let Some(found) = self.proto_definitions(&text, &written[..start], &word)
+        {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
+        // A Dart name an import binds with `as` or `show` is looked for in that file (#414).
+        if kind == Kind::Dart
+            && let Some(found) = self.dart_imported(&here, &text, before, &chain, &word)
         {
             self.show_definitions(kind, &word, &here, found, None);
             return;
@@ -456,19 +467,20 @@ impl App {
         // answer, and a function of the same name elsewhere is not.
         // In C a function on one line holds its parameter and its uses (#378). A Java or Kotlin
         // name bound earlier on the cursor's own line, `fun f(x: Int) = x`, is bound there
-        // (#376); behind a `::` the word is a member, whatever the qualifier is. A C# use past its
-        // declaration on the same line, a lambda's parameter inside that lambda, is bound there
-        // too (#345), and so is a Go parameter used in a body on its function's line (#524). A
-        // Rust local the cursor's own line binds is one too: a closure `|w| w`, an
-        // arm, the parameter or the `let` itself (#353). So is a Swift generic parameter used on
-        // its header's line, `func f<T>(_ x: T)` (#375).
+        // (#376), and so is a PowerShell one's (#420); behind a `::` the word is a member,
+        // whatever the qualifier is. A C# use past its declaration on the same line, a lambda's
+        // parameter inside that lambda, is bound there too (#345), and so is a Go parameter used
+        // in a body on its function's line (#524). A Rust local the cursor's own line binds is
+        // one too: a closure `|w| w`, an arm, the parameter or the `let` itself (#353). So is a
+        // Swift generic parameter used on its header's line, `func f<T>(_ x: T)` (#375).
         let on_itself = match kind {
             Kind::C => search::c_bindings_at(&text, self.line + 1, first)
                 .iter()
                 .all(|&(l, c)| l == self.line + 1 && c == range.start),
             _ => locals == [self.line + 1],
         };
-        let same_line = (kind == Kind::Jvm || (kind == Kind::Swift && !declared))
+        let same_line = (matches!(kind, Kind::Jvm | Kind::PowerShell)
+            || (kind == Kind::Swift && !declared))
             && locals == [self.line + 1]
             && whole_at(self.line_str(), &word, "").is_some_and(|at| at < range.start);
         let own_line = go_own
@@ -661,9 +673,7 @@ impl App {
         if kind == Kind::Elixir && dotted {
             patterns.retain(|p| !p.starts_with(r"^\s*@"));
         }
-        if kind == Kind::Php {
-            search::php_namespace_patterns(&mut patterns, &text, self.line_str(), range.clone());
-        }
+        search::narrow_patterns(kind, &mut patterns, &text, self.line_str(), range.clone());
         if patterns.is_empty() {
             self.message = self.no_rules();
             return;
@@ -1045,7 +1055,7 @@ impl App {
         if kind == Kind::TsJs
             && locals.is_empty()
             && let [global] = chain.as_slice()
-            && JS_GLOBALS.contains(&global.as_str())
+            && super::imported::JS_GLOBALS.contains(&global.as_str())
             && bound(&imports, global).is_none()
             && self
                 .project_definitions(
@@ -2049,45 +2059,6 @@ impl App {
             .collect()
     }
 
-    /// Of the Java or Kotlin declarations `hits` found by name, what the cursor can see (#357): a
-    /// local only in its own block, below it, and never `behind` a `.` or a `::`; a `private`
-    /// declaration only in its own file. When that drops some and leaves one that is no local
-    /// in sight, it is still found by name only, and offered rather than jumped to.
-    fn jvm_seen(&mut self, here: &Path, hits: Vec<Hit>, behind: bool) -> Vec<Hit> {
-        let all = hits.len();
-        let mut texts: HashMap<PathBuf, Option<String>> = HashMap::new();
-        let mut seen_local = false;
-        let kept: Vec<Hit> = hits
-            .into_iter()
-            .filter(|h| {
-                if h.path != here && search::jvm_private(&h.text) {
-                    return false;
-                }
-                // A declaration in column 0 is top-level, never a local.
-                if !h.text.starts_with([' ', '\t']) {
-                    return true;
-                }
-                let text = texts
-                    .entry(h.path.clone())
-                    .or_insert_with(|| self.text_of(&h.path));
-                match text
-                    .as_deref()
-                    .and_then(|t| search::jvm_local_block(t, h.line))
-                {
-                    None => true,
-                    Some(end) => {
-                        let seen =
-                            !behind && h.path == here && (h.line..=end).contains(&(self.line + 1));
-                        seen_local |= seen;
-                        seen
-                    }
-                }
-            })
-            .collect();
-        self.offer_only |= kept.len() == 1 && kept.len() < all && !seen_local;
-        kept
-    }
-
     /// What a bare `word` names among the members of the Java or Kotlin classes around the
     /// cursor (#376): what the innermost class that declares it declares, `via` its name (an
     /// anonymous class's members are `local`), else what the class the innermost one extends
@@ -2127,7 +2098,7 @@ impl App {
         if found.is_empty()
             && let Some(&decl) = inner
         {
-            for base in search::jvm_bases(text, decl) {
+            for base in search::jvm_bases(text, decl, search::scala(here)) {
                 let pattern = search::def_patterns(Kind::Jvm, &base).join("|");
                 let cut = self.truncated.get();
                 let declared: Vec<Hit> = self
@@ -2334,25 +2305,6 @@ impl App {
             .collect()
     }
 
-    /// The first line of each of `files`, a module a name or a path leads to as a whole.
-    pub(super) fn module_candidates(&self, files: Vec<PathBuf>) -> Vec<Candidate> {
-        files
-            .into_iter()
-            .map(|path| Candidate {
-                reason: Reason::Module(path.display().to_string()),
-                hit: Hit {
-                    deleted: None,
-                    text: self.text_of(&path).map_or_else(String::new, |t| {
-                        t.lines().next().unwrap_or_default().to_owned()
-                    }),
-                    path,
-                    line: 1,
-                    col: 0,
-                },
-            })
-            .collect()
-    }
-
     /// `word` as a constant of the Java or Kotlin enum `owner`, when the project declares one type
     /// of that name and it is an `enum` (#457), and this file sees it: it is in the enum's package,
     /// or imports the enum or its whole package (`.*`). `import java.util.concurrent.TimeUnit`, or
@@ -2419,7 +2371,7 @@ impl App {
 
     /// Jumps to the one candidate, or opens the picker over several, and says how they were found
     /// and at which name of the chain in front of the word the typed lookup `broke`, if it did.
-    fn show_definitions(
+    pub(super) fn show_definitions(
         &mut self,
         kind: Kind,
         word: &str,
@@ -2444,12 +2396,10 @@ impl App {
             });
         }
         if found.len() <= 500 {
-            let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
+            let mut literal: HashMap<(PathBuf, bool), Vec<bool>> = HashMap::new();
             found.retain(|c| {
-                let lines = literal.entry(c.hit.path.clone()).or_insert_with(|| {
-                    self.text_of(&c.hit.path)
-                        .map_or_else(Vec::new, |t| search::literal_lines(kind, &t))
-                });
+                let lines = (literal.entry((c.hit.path.clone(), c.hit.deleted.is_some())))
+                    .or_insert_with(|| self.hidden_now(kind, &c.hit));
                 // `register<` over its type arguments over `>(1);` is a call prettier wrapped.
                 // A type's header wrapped so declares the type: `class User extends Model<`,
                 // `export interface Context<` (#331).
@@ -2463,8 +2413,10 @@ impl App {
                         .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line));
                 // A tag of a PHP class's docblock (#344) or of a JavaScript `@typedef` (#347)
                 // is a declaration inside a comment.
+                // A name a component's template binds is declared there (#413).
                 let literal = lines.get(c.hit.line - 1).copied().unwrap_or(false)
-                    && !self.doc_tag(kind, &c.hit);
+                    && !self.doc_tag(kind, &c.hit)
+                    && !(c.reason == Reason::Local && search::component(&c.hit.path));
                 !call && !literal
             });
         }
@@ -2480,28 +2432,8 @@ impl App {
         if superclass {
             found.retain(|c| c.hit.line != self.line + 1 || c.hit.path != here);
         }
-        // A C++ member declared in its class and defined out of line, `R X::name(`, is one row,
-        // the definition (#373). Standing on that definition, the declaration is the other end.
-        if kind == Kind::C && found.len() > 1 {
-            let classes: Vec<Option<Vec<String>>> = found
-                .iter()
-                .map(|c| {
-                    self.text_of(&c.hit.path)
-                        .and_then(|t| search::c_member_class(&t, c.hit.line, word))
-                })
-                .collect();
-            let defined = |scopes: &[String]| {
-                found.iter().any(|c| {
-                    (c.hit.line != self.line + 1 || c.hit.path != here)
-                        && search::c_defines_member(&c.hit.text, scopes, word)
-                })
-            };
-            let keep: Vec<bool> = classes
-                .iter()
-                .map(|class| class.as_deref().is_none_or(|c| !defined(c)))
-                .collect();
-            let mut keep = keep.into_iter();
-            found.retain(|_| keep.next().unwrap_or(true));
+        if kind == Kind::C {
+            self.c_rows(word, here, &mut found);
         }
         // A Go parameter's type named like the method it is a parameter of, `Send(msg Send)`, is
         // looked up as a type (#536); with no type found, the namesakes stay offered.
@@ -2800,35 +2732,6 @@ impl App {
         }
         hits
     }
-
-    /// `pattern` over the project files where a definition of a word in `here`, a file of
-    /// `kind`, can live, a cut noted.
-    pub(super) fn project_grep(&self, kind: Kind, here: &Path, pattern: &str) -> Vec<Hit> {
-        let sight = self.cs_sight(kind, here);
-        let hits = self
-            .grep(pattern, false, false, |p| {
-                search::in_def_scope(kind, here, p) && sight.as_ref().is_none_or(|s| s.sees(p))
-            })
-            .unwrap_or_default();
-        self.note_cut(&hits);
-        hits
-    }
-
-    /// Of `hits` of the [`search::def_patterns`] of `word`, the lines that declare it where they
-    /// sit ([`search::declares_where`]).
-    pub(super) fn declaring(&self, kind: Kind, word: &str, mut hits: Vec<Hit>) -> Vec<Hit> {
-        // One file holds thousands of GraphQL `id` fields, so each file is split once.
-        let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
-        hits.retain(|h| {
-            search::declares_where(kind, &h.path, word, h.line, &h.text, || {
-                lines.entry(h.path.clone()).or_insert_with(|| {
-                    self.text_of(&h.path)
-                        .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
-                })
-            })
-        });
-        hits
-    }
 }
 
 /// The name `word` is declared by on the line `text`: itself, or for a Java Lombok accessor
@@ -2885,25 +2788,3 @@ pub(super) fn resolution(
         format!("{word}: {n} declarations{note}")
     }
 }
-
-/// The JavaScript and DOM globals whose members TypeScript's lib and `@types/node` declare (#341).
-const JS_GLOBALS: &[&str] = &[
-    "JSON",
-    "Math",
-    "Object",
-    "Array",
-    "Promise",
-    "Reflect",
-    "Number",
-    "String",
-    "Date",
-    "RegExp",
-    "Symbol",
-    "Intl",
-    "console",
-    "document",
-    "window",
-    "navigator",
-    "globalThis",
-    "process",
-];

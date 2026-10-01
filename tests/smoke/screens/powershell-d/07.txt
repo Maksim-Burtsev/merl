@@ -1,0 +1,57 @@
+wait get-shopuser -Id
+┌orders──────────────────────┐1 Import-Module ./Shop/Users.psm1
+│▸ .github                   │2 $user = get-shopuser -Id 42
+│▸ .venv                     │
+│▸ app                       │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▾ ops                       │
+│  ▸ Shop                    │
+│    sync.ps1                │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+ops/sync.ps1  1:1  [code]                                                                                                                                                         ? help
+cursor (x,y,shown) 32,0,1

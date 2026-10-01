@@ -1,0 +1,57 @@
+wait StatusPill: module web/src/components/StatusPill.vue
+ 1 <script setup lang="ts">
+ 2 import { ApiClient } from "@/api/client";
+ 3
+ 4 const api = new ApiClient("/api");
+ 5 const label = "paid";
+ 6 </script>
+ 7
+ 8 <template>
+ 9   <span class="pill">{{ label }}</span>
+10 </template>
+11
+12 <style scoped>
+13 .pill {
+14   display: inline-block;
+15 }
+16 </style>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/src/components/StatusPill.vue  1:1  [code]  StatusPill: module web/src/components/StatusPill.vue
+cursor (x,y,shown) 3,0,1

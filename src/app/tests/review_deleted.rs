@@ -931,3 +931,61 @@ fn s_from_a_deleted_line_to_a_live_namesake_misses_no_d() {
     assert!(!a.missed.contains_key("d"), "{:?}", a.missed);
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// #413: `d` on a function the branch deleted from a component's script opens its red line,
+/// whatever the component holds at that line number now; a `.ts` file does the same.
+#[test]
+fn d_finds_a_definition_deleted_from_a_component() {
+    for (lib, base, now) in [
+        (
+            "Lib.svelte",
+            "<script context=\"module\" lang=\"ts\">\nexport function legacyTotal(x: number) {\n  return x;\n}\n</script>\n<p>hi</p>\n",
+            "<script context=\"module\" lang=\"ts\">\n</script>\n<p>hi</p>\n",
+        ),
+        (
+            "lib.ts",
+            "// head\nexport function legacyTotal(x: number) {\n  return x;\n}\n// tail\n\n",
+            "// head\n// tail\n\n",
+        ),
+    ] {
+        let (dir, mut a) = repo_review(
+            &format!("deleted-component-{lib}"),
+            &[(lib, base), ("main.ts", "export const a = 1;\n")],
+            &[
+                (lib, Some(now)),
+                ("main.ts", Some("export const a = legacyTotal(1);\n")),
+            ],
+        );
+        use_roots(&mut a, Kind::TsJs, &[]);
+        a.jump_to(&dir.join("main.ts"), 1);
+        a.col = a.line_str().find("legacyTotal").unwrap();
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+        assert_eq!(a.message, "legacyTotal: by name, 1 match", "{lib}");
+        assert!(a.deleted.is_some(), "{lib}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+}
+
+/// #413: `D` in a review lists the declarations a component's script lost, never a line its
+/// template lost.
+#[test]
+fn symbols_of_a_review_skip_a_deleted_template_line() {
+    let (dir, mut a) = repo_review(
+        "deleted-template",
+        &[(
+            "Card.vue",
+            "<script setup lang=\"ts\">\nfunction save() {}\n</script>\n<template>\nclass Fake {}\n</template>\n",
+        )],
+        &[(
+            "Card.vue",
+            Some(
+                "<script setup lang=\"ts\">\nfunction save() {}\n</script>\n<template>\n</template>\n",
+            ),
+        )],
+    );
+    use_roots(&mut a, Kind::TsJs, &[]);
+    a.jump_to(&dir.join("Card.vue"), 1);
+    press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
+    assert_eq!(rows(&mut a), ["save  Card.vue:2"]);
+    let _ = std::fs::remove_dir_all(dir);
+}

@@ -204,6 +204,12 @@ above a declaration, and a heredoc or a block scalar holding a declaration-shape
 answers there are the known misses of #436, and the globs inside quotes (`"parcels/*"`,
 `["src/**/*.rs"]`) guard what already works.
 
+Objective-C is a part of the C kind, so its cases are a corner of `c/` with names of their own:
+`c/objc/` declares every form of #417 in `Repo.h` and `Repo.m` (a class, a protocol, a method by
+each part of its selector, a property, a block property, the four `NS_ENUM` macros, a category, a
+class extension, forward declarations, a declaration-shaped `/* */` block) and probes them all,
+the refusals included, from `Profile.mm`.
+
 `markdown/` has no shop: Markdown declares nothing, and `d` there follows a link (#421).
 `docs/notes.md` probes every form of link against the headings of `README.md` (two of one name,
 a setext one, backticks and punctuation, an `<a id>`), code spans naming files (`mod.rs` is

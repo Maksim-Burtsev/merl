@@ -139,6 +139,7 @@ impl App {
         // ones apply is the hit file's own kind: one regex per kind met, built once. A Rust `let`
         // declares its local here too, though `d` reads it by scope and never by name (#353).
         let mut rules: HashMap<Option<Kind>, Option<Regex>> = HashMap::new();
+        let objc = self.objc_file();
         // A deleted line is read in the file at the base, apart from the file on disk.
         let mut literal: HashMap<(PathBuf, bool), Vec<bool>> = HashMap::new();
         let mut lines: HashMap<(PathBuf, bool), Vec<String>> = HashMap::new();
@@ -146,7 +147,9 @@ impl App {
             .map(|h| {
                 let kind = search::kind_of(&h.path);
                 let re = rules.entry(kind).or_insert_with_key(|k| {
-                    let mut patterns = k.map(|k| search::def_patterns(k, word)).unwrap_or_default();
+                    let mut patterns = k
+                        .map(|k| search::def_patterns_for(k, word, objc))
+                        .unwrap_or_default();
                     if let (Some(Kind::Ruby), Some(ivar)) = (k, ivar) {
                         patterns.push(search::ruby_assignment(ivar));
                     }
@@ -161,13 +164,13 @@ impl App {
                 // A pattern that matched inside a docstring, a raw string or a block comment
                 // declares nothing, and neither does a line the lines around it make a use, as
                 // `d` reads them too; only a file with a match is read.
+                // A PowerShell line declares what the word's own spelling there allows (#420).
                 let declares = re.as_ref().is_some_and(|re| re.is_match(&h.text))
+                    && (kind != Some(Kind::PowerShell)
+                        || search::powershell_declares_here(&h.text, word))
                     && !literal
                         .entry((h.path.clone(), h.deleted.is_some()))
-                        .or_insert_with(|| {
-                            kind.zip(self.hit_text(&h))
-                                .map_or_else(Vec::new, |(k, t)| search::literal_lines(k, &t))
-                        })
+                        .or_insert_with(|| kind.map_or_else(Vec::new, |k| self.hidden_of(k, &h)))
                         .get(h.line - 1)
                         .copied()
                         .unwrap_or(false)

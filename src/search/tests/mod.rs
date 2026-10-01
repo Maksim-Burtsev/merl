@@ -6,6 +6,8 @@ use super::*;
 
 mod bindings;
 mod c_family;
+mod component;
+mod dart;
 mod defs;
 mod fields;
 mod go;
@@ -13,6 +15,7 @@ mod grep;
 mod imports;
 mod links;
 mod other_languages;
+mod powershell;
 mod scope;
 mod symbols;
 mod types;

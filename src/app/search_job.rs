@@ -100,6 +100,25 @@ impl SearchJob {
             // Each row has the cap to itself, so a cut is this row's, never the total's: on a
             // project whose kinds add up past it with none of them cut, the list is whole.
             cut |= hits.len() >= search::MAX_HITS;
+            // A component's rows are its script's (#413).
+            let mut script: HashMap<PathBuf, Vec<bool>> = HashMap::new();
+            hits.retain(|h| {
+                !search::component(&h.path)
+                    || (script.entry(h.path.clone()).or_insert_with(|| {
+                        let text = match (&self.unsaved, &self.current) {
+                            (Some(t), Some(c)) if *c == h.path => {
+                                String::from_utf8_lossy(t).into_owned()
+                            }
+                            _ => {
+                                std::fs::read_to_string(self.root.join(&h.path)).unwrap_or_default()
+                            }
+                        };
+                        search::script_lines(&h.path, &text).unwrap_or_default()
+                    }))
+                    .get(h.line - 1)
+                    .copied()
+                    .unwrap_or(false)
+            });
             // The declarations the branch deleted, of the files this row is written for.
             hits.extend(deleted_hits(&self.deleted, wanted, |t| {
                 (re.is_match(t) && keep(t)).then_some(0)

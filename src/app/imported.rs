@@ -335,6 +335,11 @@ impl App {
                 return Some(found);
             }
         }
+        // A component with no `export default`, a `<script setup>`'s, a Svelte or an Astro one,
+        // is its file (#413).
+        if hits.is_empty() && !named && files.iter().all(|f| search::component(f)) {
+            return Some(self.module_candidates(files));
+        }
         // A barrel hands the name on (#335): `export { Name } from "./x"`, `export { default as
         // Name }`, `export { x as Name }`, `export * from "./x"`, each source followed as an
         // import of it. Several `export *` sources that declare it are a picker.
@@ -468,6 +473,25 @@ impl App {
             .flatten()
             .collect()
     }
+
+    /// The first line of each of `files`, a module a name or a path leads to as a whole.
+    pub(super) fn module_candidates(&self, files: Vec<PathBuf>) -> Vec<Candidate> {
+        files
+            .into_iter()
+            .map(|path| Candidate {
+                reason: Reason::Module(path.display().to_string()),
+                hit: Hit {
+                    deleted: None,
+                    text: self.file_text(&path).map_or_else(String::new, |t| {
+                        t.lines().next().unwrap_or_default().to_owned()
+                    }),
+                    path,
+                    line: 1,
+                    col: 0,
+                },
+            })
+            .collect()
+    }
 }
 
 /// The line a TypeScript enum's body opens with (#341).
@@ -482,3 +506,25 @@ static OWNER_VALUE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
 static OWNER_LITERAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r"^\s*(?:export\s+)?const\s+[\w$]+\s*(?::[^=]+)?=\s*\{\s*$").unwrap()
 });
+
+/// The JavaScript and DOM globals whose members TypeScript's lib and `@types/node` declare (#341).
+pub(super) const JS_GLOBALS: &[&str] = &[
+    "JSON",
+    "Math",
+    "Object",
+    "Array",
+    "Promise",
+    "Reflect",
+    "Number",
+    "String",
+    "Date",
+    "RegExp",
+    "Symbol",
+    "Intl",
+    "console",
+    "document",
+    "window",
+    "navigator",
+    "globalThis",
+    "process",
+];
