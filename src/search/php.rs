@@ -244,12 +244,9 @@ pub fn php_class_traits<S: AsRef<str>>(lines: &[S], class: usize) -> Vec<String>
         .collect()
 }
 
-/// A `namespace` declaration, `<?php namespace X;` on one line included (#579).
 static NAMESPACE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?m)^\s*(?:<\?php\s+)?namespace\s+([\w\\]+)\s*[;{]").unwrap());
 
-/// The namespace a PHP file declares, if any: the first one. In a file of several, read it from
-/// [`php_block`].
 pub fn php_namespace(text: &str) -> Option<&str> {
     NAMESPACE
         .captures(text)
@@ -257,10 +254,6 @@ pub fn php_namespace(text: &str) -> Option<&str> {
         .map(|m| m.as_str())
 }
 
-/// The part of `text` the `namespace` holding its 0-based `line` covers, from that declaration to
-/// the next, with the `use` lines that go with it (#579): a name there resolves against that
-/// block alone. The whole text in a file of one namespace or none; the first block for a line
-/// above every declaration.
 pub fn php_block(text: &str, line: usize) -> &str {
     let starts: Vec<usize> = NAMESPACE.find_iter(text).map(|m| m.start()).collect();
     if starts.len() < 2 {
@@ -387,10 +380,6 @@ pub fn php_resolve(text: &str, written: &str) -> Option<(String, bool)> {
     })
 }
 
-/// The `autoload` and `autoload-dev` PSR-4 entries of every `composer.json` above the directory
-/// `dir` of the project `root`, up to it (#351): each namespace prefix with its trailing `\` and
-/// the directories, relative to `root`, it maps to. A package's own file of a monorepo comes
-/// first, and the root's maps what it does not (#579). The files are read, never run.
 pub fn php_psr4(root: &Path, dir: &Path) -> Vec<(String, Vec<PathBuf>)> {
     static MAP: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r#""psr-4"\s*:\s*\{([^}]*)\}"#).unwrap());
@@ -427,8 +416,6 @@ pub fn php_psr4(root: &Path, dir: &Path) -> Vec<(String, Vec<PathBuf>)> {
             }
         }
     }
-    // The longest prefix first, as Composer tries them; the sort is stable, so of one prefix the
-    // nearest file's comes first.
     map.sort_by_key(|(prefix, _)| std::cmp::Reverse(prefix.len()));
     map
 }

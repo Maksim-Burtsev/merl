@@ -70,15 +70,6 @@ impl App {
         self.php_named(here, text, range, access)
     }
 
-    /// What `d` answers on a class name, or on `Class::word`, at `range` of the cursor's line
-    /// (#351), in a project whose `composer.json` maps namespaces to directories (PSR-4): the
-    /// name resolved as PHP resolves it ([`search::php_resolve`]), and the file the map puts it
-    /// in. When that file declares the class, the answer is its header, or `word` looked up in
-    /// it as [`Self::php_walk`] does. A name the map does not cover is outside the project: the
-    /// class in `vendor/`, in its own namespace, is read first. `None` leaves the word to the
-    /// other rules: no map, a name a group `use` binds, a mapped file missing or declaring
-    /// something else, a member found nowhere on the walk, a name outside whose class `vendor/`
-    /// does not declare it in.
     fn php_named(
         &mut self,
         here: &Path,
@@ -167,17 +158,6 @@ impl App {
         )
     }
 
-    /// What `d` answers for `word` behind `link` (`this`, `self`, `static` or `parent`, written
-    /// `$this->` or `link::`) on the cursor's line of `text`: `None` leaves the word to the search
-    /// by name, as for a link the rules cannot read, a cursor in an anonymous class or in a
-    /// trait's own body, whose `$this` is whichever class uses it.
-    ///
-    /// The class around the cursor declares the member itself, else a trait its body uses, else
-    /// the class it extends, walked the same way up to eight levels, as [`Self::hierarchy`] is.
-    /// A class the project does not declare is read from its file in `vendor/`, the one its
-    /// import names when it has one, and a member found nowhere there is no definition: never
-    /// another class's namesake. A walk that ends inside the project with nothing found leaves
-    /// the word to the search by name, which also knows an interface's constants.
     pub(super) fn php_link(
         &mut self,
         here: &Path,
@@ -232,8 +212,6 @@ impl App {
         }
     }
 
-    /// The members `re` matches of the class on 0-based line `class` of `text`, the file `path`,
-    /// then of its traits, then of the class it extends.
     fn php_walk(
         &mut self,
         path: &Path,
@@ -261,7 +239,6 @@ impl App {
         if !own.is_empty() {
             return Walk::Found(own);
         }
-        // A trait outside the project that does not declare it says nothing of the parent.
         let block = search::php_block(text, class);
         for t in search::php_class_traits(&lines, class) {
             match self.php_walk_class(path, block, &t, re, depth + 1, seen) {
@@ -275,8 +252,6 @@ impl App {
         }
     }
 
-    /// [`Self::php_walk`] from the class `name`, as the file `from` writes it in the namespace
-    /// block `text` ([`Self::php_class`]). A class the project does not declare is read in `vendor/`.
     fn php_walk_class(
         &mut self,
         from: &Path,
@@ -299,11 +274,6 @@ impl App {
         }
     }
 
-    /// The project's declarations of the class `name` as the file `from` writes it, `text` the
-    /// namespace block it is written in ([`search::php_block`], #579), resolved as PHP resolves
-    /// it ([`search::php_resolve`], #351), else, for a name a group
-    /// `use` binds, every one of that name. Each is its file, the file's text and its 0-based
-    /// line; the full name comes first, when the file resolves it.
     fn php_class(
         &mut self,
         from: &Path,
@@ -408,8 +378,6 @@ impl App {
         (keyword != "trait").then(|| (path.to_path_buf(), text.to_owned(), class))
     }
 
-    /// The project's one class `written` names in the file `path`, whose 0-based line `at` writes
-    /// it: `self` is the class around that line.
     fn php_type(&mut self, path: &Path, text: &str, at: usize, written: &str) -> Option<PhpClass> {
         if written.eq_ignore_ascii_case("self") {
             return self.php_self(path, text, at);
