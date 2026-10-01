@@ -2484,28 +2484,8 @@ impl App {
         if superclass {
             found.retain(|c| c.hit.line != self.line + 1 || c.hit.path != here);
         }
-        // A C++ member declared in its class and defined out of line, `R X::name(`, is one row,
-        // the definition (#373). Standing on that definition, the declaration is the other end.
-        if kind == Kind::C && found.len() > 1 {
-            let classes: Vec<Option<Vec<String>>> = found
-                .iter()
-                .map(|c| {
-                    self.text_of(&c.hit.path)
-                        .and_then(|t| search::c_member_class(&t, c.hit.line, word))
-                })
-                .collect();
-            let defined = |scopes: &[String]| {
-                found.iter().any(|c| {
-                    (c.hit.line != self.line + 1 || c.hit.path != here)
-                        && search::c_defines_member(&c.hit.text, scopes, word)
-                })
-            };
-            let keep: Vec<bool> = classes
-                .iter()
-                .map(|class| class.as_deref().is_none_or(|c| !defined(c)))
-                .collect();
-            let mut keep = keep.into_iter();
-            found.retain(|_| keep.next().unwrap_or(true));
+        if kind == Kind::C {
+            self.c_rows(word, here, &mut found);
         }
         // A Go parameter's type named like the method it is a parameter of, `Send(msg Send)`, is
         // looked up as a type (#536); with no type found, the namesakes stay offered.

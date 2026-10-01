@@ -552,21 +552,42 @@ impl App {
                 files
             }
         };
-        // A `.c` file cannot include a C++ header: no `c++/` directory is its (#382).
-        match kind == Kind::C && self.c_source() {
-            true => Arc::new(
-                (files.iter())
-                    .filter(|f| !f.components().any(|c| c.as_os_str() == "c++"))
-                    .cloned()
-                    .collect(),
-            ),
-            false => files,
+        if kind != Kind::C {
+            return files;
         }
+        // A `.c` file cannot include a C++ header: no `c++/` directory is its (#382). Only an
+        // Objective-C file reads the frameworks and `Pods/` (#417): any other keeps the files
+        // it had before them.
+        let key = (self.c_source(), self.objc_file());
+        if let Some((from, kept)) = self.c_files.get(&key)
+            && Arc::ptr_eq(from, &files)
+        {
+            return kept.clone();
+        }
+        let away: Vec<&PathBuf> = match self.external.get(&kind) {
+            Some((roots, _)) if !key.1 => roots.iter().filter(|r| search::objc_root(r)).collect(),
+            _ => Vec::new(),
+        };
+        let kept: Arc<Vec<PathBuf>> = Arc::new(
+            (files.iter())
+                .filter(|f| !key.0 || !f.components().any(|c| c.as_os_str() == "c++"))
+                .filter(|f| !away.iter().any(|r| f.starts_with(r)))
+                .cloned()
+                .collect(),
+        );
+        self.c_files.insert(key, (files, kept.clone()));
+        kept
     }
 
     /// Whether the open file is C source, `.c`, which reads no C++ header.
     pub(super) fn c_source(&self) -> bool {
         (self.buf.path.as_deref()).is_some_and(|p| p.extension().is_some_and(|e| e == "c"))
+    }
+
+    /// Whether the open file is Objective-C ([`search::objc_file`]).
+    pub(super) fn objc_file(&self) -> bool {
+        (self.buf.path.as_deref())
+            .is_some_and(|p| search::objc_file(p, || self.buf.lines.join("\n")))
     }
 
     /// The text of `path` as the search read it: the open file as it is on screen.

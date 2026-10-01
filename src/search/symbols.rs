@@ -374,6 +374,9 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::C), C_TYPE_SYMBOL),
     (Some(Kind::C), C_TYPEDEF_SYMBOL),
     (Some(Kind::C), C_MACRO_SYMBOL),
+    // Objective-C's classes, protocols and methods (#417); no property, as no field.
+    (Some(Kind::C), OBJC_TYPE_SYMBOL),
+    (Some(Kind::C), OBJC_METHOD_SYMBOL),
     // C# likewise: `public sealed partial class Foo<T>` stands behind modifiers the shared
     // pattern does not know, and a method or a property carries no keyword at all.
     (Some(Kind::CSharp), CS_DECL_SYMBOL),

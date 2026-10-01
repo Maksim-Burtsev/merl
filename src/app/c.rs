@@ -243,14 +243,18 @@ impl App {
     }
 
     /// `x->word` or `x.word`, `called` with a `(` after it. A data member is a field of a struct,
-    /// union or class body ([`search::c_field_rows`]); a called one is a method whose body opens
-    /// on its line, an out-of-line `R Type::word(`, a member a class body declares with no body (#373),
-    /// or a function-pointer field. Nothing else can
+    /// union or class body ([`search::c_field_rows`]) or an Objective-C property (#417); a called
+    /// one is a method whose body opens on its line, an out-of-line `R Type::word(`, a member a
+    /// class body declares with no body (#373), or a function-pointer field. Nothing else can
     /// follow `->` or `.`: no function, `#define`, type or global is offered. The files outside
     /// the project are searched the same way when the project has none: a system struct's field
     /// stays findable, and system headers' generic names do not crowd a project's own.
     pub(super) fn c_members(&mut self, here: &Path, word: &str, called: bool) -> Vec<Candidate> {
         let mut pattern = search::c_field_pattern(word);
+        // `self.word` in Objective-C reads a property (#417), which no C line declares.
+        if !called {
+            pattern = format!("{pattern}|{}", search::objc_property(word));
+        }
         if called {
             pattern = format!(
                 r"{pattern}|{}|{}",
@@ -289,6 +293,7 @@ impl App {
         let method = re(method_pattern(word));
         let declared = re(search::c_member_decl(Some(word)));
         let pointer = re(format!(r"\(\s*\*+\s*{w}\s*\)"));
+        let property = re(search::objc_property(word));
         let mut rows = Vec::new();
         let mut files: Vec<(PathBuf, Vec<Hit>)> = Vec::new();
         for h in hits {
@@ -309,6 +314,7 @@ impl App {
                         rows.push((h, owner.clone()))
                     }
                     None if called && method.is_match(&h.text) => rows.push((h, String::new())),
+                    None if !called && property.is_match(&h.text) => rows.push((h, String::new())),
                     // A member declared with no body, a pure virtual among them (#373).
                     None if called
                         && declared.is_match(&h.text)
@@ -356,10 +362,16 @@ impl App {
     /// project file whose path ends so. The system's part of the graph is read once a session.
     pub(super) fn c_reached(&mut self, here: &Path) -> HashSet<PathBuf> {
         self.external_files(Kind::C);
-        let source = self.c_source();
+        let mode = (self.c_source(), self.objc_file());
+        let source = mode.0;
         let roots = (self.external.get(&Kind::C))
             .map(|(roots, _)| roots.clone())
             .unwrap_or_default();
+        // An Objective-C file's `<Foundation/NSString.h>` is a framework's
+        // `Foundation.framework/Headers/NSString.h`, as the walk spells it (#417).
+        let frameworks: Vec<&PathBuf> = (roots.iter())
+            .filter(|r| mode.1 && r.ends_with("Library/Frameworks"))
+            .collect();
         let dirs: Vec<PathBuf> = match source {
             true => roots.clone(),
             false => [search::cpp_dirs(&roots), roots.clone()].concat(),
@@ -402,6 +414,16 @@ impl App {
                             .filter(|p| p.is_file())
                             .map(|p| search::c_spelled(&p, &real)),
                     );
+                    let mut parts = inc.components();
+                    if let (Some(name), rest) = (parts.next(), parts.as_path()) {
+                        let mut name = name.as_os_str().to_owned();
+                        name.push(".framework");
+                        out.extend(
+                            (frameworks.iter())
+                                .map(|d| d.join(&name).join("Headers").join(rest))
+                                .filter(|p| p.is_file()),
+                        );
+                    }
                 }
                 // A system header is the system's, not a project file of its name deep in a
                 // dependency (jemalloc's `internal/assert.h`).
@@ -418,7 +440,7 @@ impl App {
         while let Some(file) = queue.pop() {
             // The system's headers do not change in a session; the project's do, as they are
             // edited, and are read again.
-            let next = match self.c_includes.get(&(file.clone(), source)) {
+            let next = match self.c_includes.get(&(file.clone(), mode)) {
                 Some(next) if file.is_absolute() => next.clone(),
                 _ => {
                     let text = match file.is_absolute() {
@@ -427,7 +449,7 @@ impl App {
                     };
                     let next = Arc::new(edges(&text.unwrap_or_default(), &file));
                     if file.is_absolute() {
-                        self.c_includes.insert((file, source), next.clone());
+                        self.c_includes.insert((file, mode), next.clone());
                     }
                     next
                 }
@@ -506,6 +528,53 @@ impl App {
             .collect();
         hits.retain(|h| !gone.contains(&(h.path.clone(), h.line)));
         hits
+    }
+
+    /// What [`App::show_definitions`] offers of the C-kind candidates `found` for `word`, the
+    /// cursor in `here`:
+    /// - a C++ member declared in its class and defined out of line, `R X::name(`, is one row,
+    ///   the definition (#373). Standing on that definition, the declaration is the other end;
+    /// - a name an Objective-C `@interface` or `@protocol` declares is that class or protocol
+    ///   (#417), not a C line a pattern read through a comment (`NSString *const k /* NSString
+    ///   (CMVideoCodecType) */`). Of a class and a protocol of one name, `NSObject`, the protocol
+    ///   is the one inside `<…>` that no `*` follows, and the class anywhere else.
+    pub(super) fn c_rows(&self, word: &str, here: &Path, found: &mut Vec<Candidate>) {
+        if found.len() > 1 {
+            let classes: Vec<Option<Vec<String>>> = found
+                .iter()
+                .map(|c| {
+                    self.text_of(&c.hit.path)
+                        .and_then(|t| search::c_member_class(&t, c.hit.line, word))
+                })
+                .collect();
+            let defined = |scopes: &[String]| {
+                found.iter().any(|c| {
+                    (c.hit.line != self.line + 1 || c.hit.path != here)
+                        && search::c_defines_member(&c.hit.text, scopes, word)
+                })
+            };
+            let keep: Vec<bool> = classes
+                .iter()
+                .map(|class| class.as_deref().is_none_or(|c| !defined(c)))
+                .collect();
+            let mut keep = keep.into_iter();
+            found.retain(|_| keep.next().unwrap_or(true));
+        }
+        static OBJC: std::sync::LazyLock<Regex> =
+            std::sync::LazyLock::new(|| Regex::new(r"^\s*@(interface|protocol)\b").unwrap());
+        let objc = |c: &Candidate| OBJC.captures(&c.hit.text).map(|m| &m[1] == "protocol");
+        if !found.iter().any(|c| objc(c).is_some()) {
+            return;
+        }
+        found.retain(|c| objc(c).is_some());
+        let line = self.line_str();
+        let (before, after) = line.split_at(self.col.min(line.len()));
+        let after = after.trim_start_matches(|c: char| c.is_alphanumeric() || c == '_');
+        let protocol = before.matches('<').count() > before.matches('>').count()
+            && !after.trim_start().starts_with('*');
+        if found.iter().any(|c| objc(c) == Some(protocol)) {
+            found.retain(|c| objc(c) == Some(protocol));
+        }
     }
 
     /// Whether `hit` declares `word` as a type: a struct, union, enum or class tag, a namespace,

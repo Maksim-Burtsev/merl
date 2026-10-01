@@ -170,13 +170,21 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         // to read — what a build system was told with `-I` is not in the source — so the
         // directories are the same for every project, and the ones that do not exist fall out
         // below.
+        //
+        // Then Objective-C's, which only an Objective-C file reads ([`objc_root`]): the SDK's
+        // frameworks, UIKit's under `iOSSupport`, and CocoaPods' `Pods/`, gitignored as
+        // `node_modules` is (#417).
         Kind::C => {
+            let sdk = run("xcrun", &["--show-sdk-path"]).map(|s| PathBuf::from(s.trim()));
             let mut dirs = vec![PathBuf::from("/usr/include")];
-            if let Some(sdk) = run("xcrun", &["--show-sdk-path"]) {
-                dirs.push(PathBuf::from(sdk.trim()).join("usr/include"));
-            }
+            dirs.extend(sdk.iter().map(|sdk| sdk.join("usr/include")));
             dirs.push(PathBuf::from("/usr/local/include"));
             dirs.push(PathBuf::from("/opt/homebrew/include"));
+            if let Some(sdk) = &sdk {
+                dirs.push(sdk.join("System/Library/Frameworks"));
+                dirs.push(sdk.join("System/iOSSupport/System/Library/Frameworks"));
+            }
+            dirs.push(root.join("Pods"));
             dirs
         }
         // Where `protoc` installs the well-known types (`google/protobuf/timestamp.proto`), as
@@ -619,17 +627,27 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
         // Homebrew's Rust ships the sysroot `library` with a copy of itself inside; every
         // definition would come up twice.
         let copy = dir.file_name().map(std::ffi::OsStr::to_owned);
+        // Of an SDK's frameworks, each one's `Headers`, a link into `Versions/Current` that is
+        // walked through, so a header is read once (#417).
+        let frameworks = kind == Kind::C && dir.ends_with("Library/Frameworks");
         let walk = ignore::WalkBuilder::new(dir)
             .filter_entry(move |e| {
                 let unreachable = go
                     && e.depth() > 0
                     && e.file_type().is_some_and(|t| t.is_dir())
                     && (e.file_name() == "testdata" || e.path().join("go.mod").is_file());
-                !unreachable && (e.depth() != 1 || Some(e.file_name()) != copy.as_deref())
+                let header = match e.depth() {
+                    1 => e.file_name().to_string_lossy().ends_with(".framework"),
+                    2 => e.file_name() == "Headers",
+                    _ => true,
+                };
+                !unreachable
+                    && (!frameworks || header)
+                    && (e.depth() != 1 || Some(e.file_name()) != copy.as_deref())
             })
             // Homebrew links each formula's headers into `include/` a directory at a time:
             // `include/google` is a link into the protobuf keg.
-            .follow_links(kind == Kind::Proto)
+            .follow_links(kind == Kind::Proto || frameworks)
             .hidden(false)
             .git_ignore(false)
             .git_global(false)
