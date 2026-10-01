@@ -118,7 +118,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         Kind::Jvm => {
             let (mods, ret) = (jvm_mods!(), jvm_return_type!());
             let mods_one = jvm_mods!("+");
-            vec![
+            let mut patterns = vec![
                 format!(
                     r"{mods}(?:class|interface|fun\s+interface|enum|record|@interface|object|typealias)\s+{w}\b"
                 ),
@@ -153,7 +153,9 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 // Java: an abstract or interface method, and a field: a return type, the name,
                 // and the `(`, `;` or `=` that follows it.
                 format!(r"{mods}(?:<[^>]*>\s*)?{ret}(?:\.\.\.)?\s+{w}\s*[(;=]"),
-            ]
+            ];
+            patterns.extend(scala_patterns(word));
+            patterns
         }
         // Ruby declares everything on one line. A constant lives indented inside its class, so
         // the assignment rule is not anchored at column zero as Python's is. An instance or class
