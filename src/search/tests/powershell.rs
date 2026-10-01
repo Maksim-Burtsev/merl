@@ -1,0 +1,104 @@
+//! PowerShell's rules (#420): names with a `-`, what `D` lists, the literals that run over lines,
+//! the paths `d` follows and the module directories.
+
+use super::*;
+
+#[test]
+fn a_powershell_name_holds_its_dashes() {
+    let line = "$user = get-shopuser -Id $Id";
+    let word = |col| definition_word(Some(Kind::PowerShell), line, col).map(|(_, w)| w);
+    assert_eq!(word(12), Some("get-shopuser"));
+    // A named argument's `-` is no part of its name, nor is the `$` of a variable.
+    assert_eq!(word(23), Some("Id"));
+    assert_eq!(word(27), Some("Id"));
+}
+
+#[test]
+fn powershell_symbol_names() {
+    let ps = |line| listed(Kind::PowerShell, line);
+    assert_eq!(ps("function Get-ShopUser {"), ["Get-ShopUser"]);
+    assert_eq!(ps("function global:Get-ShopUser($Id) {"), ["Get-ShopUser"]);
+    assert_eq!(ps("  filter Select-Active {"), ["Select-Active"]);
+    assert_eq!(ps("class Invoice : Base {"), ["Invoice"]);
+    assert_eq!(ps("[Flags()] enum Status {"), ["Status"]);
+    for none in [
+        "$Config = @{",
+        "  [string] $Name",
+        "Set-Alias gu Get-ShopUser",
+        "Get-X",
+    ] {
+        assert!(ps(none).is_empty(), "{none}");
+    }
+}
+
+#[test]
+fn powershell_literals_run_over_lines() {
+    let text = "<#\n.EXAMPLE\nfunction A {}\n#>\n$h = @\"\nfunction B {\n\"@\n$q = @'\nfunction D {\n'@\n$x = 1 `\n  + 2 # <# no block\nfunction C {}\n";
+    let literal: Vec<usize> = literal_lines(Kind::PowerShell, text)
+        .iter()
+        .enumerate()
+        .filter(|(_, l)| **l)
+        .map(|(i, _)| i + 1)
+        .collect();
+    // The help block, the here-strings' bodies; a backtick continues a line and opens nothing,
+    // and a `<#` in a comment opens nothing either.
+    assert_eq!(literal, [2, 3, 4, 6, 9]);
+}
+
+#[test]
+fn d_follows_a_dot_sourced_or_imported_path() {
+    let at = |line: &str, col| powershell_import(line, col);
+    assert_eq!(at(". ./helpers.ps1", 4).as_deref(), Some("helpers.ps1"));
+    assert_eq!(
+        at(". $PSScriptRoot/lib/x.ps1", 20).as_deref(),
+        Some("lib/x.ps1")
+    );
+    assert_eq!(
+        at(r#". "$PSScriptRoot\lib\x.ps1""#, 20).as_deref(),
+        Some("lib/x.ps1")
+    );
+    assert_eq!(
+        at("Import-Module ./Shop/Users.psm1", 22).as_deref(),
+        Some("Shop/Users.psm1")
+    );
+    assert_eq!(
+        at("using module ./Shop.psm1", 16).as_deref(),
+        Some("Shop.psm1")
+    );
+    // Off the path, a module by name, a call.
+    assert_eq!(at("Import-Module ./Shop/Users.psm1", 3), None);
+    assert_eq!(at("Import-Module Pester", 16), None);
+    assert_eq!(at("Get-Item ./x.ps1", 11), None);
+}
+
+#[test]
+fn powershell_module_directories() {
+    let home = Path::new("/home/u");
+    let env = Some(std::ffi::OsString::from("/a/Modules:/b/Modules"));
+    assert_eq!(
+        powershell_roots(env, home, None),
+        [PathBuf::from("/a/Modules"), PathBuf::from("/b/Modules")]
+    );
+    assert_eq!(
+        powershell_roots(None, home, None),
+        [
+            PathBuf::from("/home/u/.local/share/powershell/Modules"),
+            PathBuf::from("/usr/local/share/powershell/Modules"),
+        ]
+    );
+}
+
+#[test]
+fn a_parameter_is_a_local_of_the_blocks_around_it() {
+    let text = "param([string]$Root)\nfunction A {\n    param(\n        [string]$Id\n    )\n    $Id\n}\nfunction B {\n    $Id\n    $Root\n}\n";
+    let at = |line, name| -> Vec<usize> {
+        bindings(Kind::PowerShell, text, line, name)
+            .iter()
+            .map(|b| b.line)
+            .collect()
+    };
+    assert_eq!(at(6, "id"), [4], "names ignore case");
+    // A function beside the cursor's is not around it; the script's block is.
+    assert!(at(9, "Id").is_empty());
+    assert_eq!(at(10, "Root"), [1]);
+}

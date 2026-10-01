@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d`, `u` and `D` in PowerShell (`.ps1`, `.psm1`, `.psd1`), where `d` said `no rules for
+  .ps1`. `d` on `get-shopuser` lands on `function Get-ShopUser`, as names ignore case; on `$Id`
+  under a `param(` block it says `Id: local`; on `$script:BaseUri` it finds the assignment; on
+  the path of `Import-Module ./Shop/Users.psm1` or a dot-source it opens the file. Classes,
+  enums, filters and aliases are found too, and outside the project the module directories of
+  `PSModulePath`. `u` and `d` read `Get-ShopUser` as one name, and `D` lists it whole. (#420)
 - `d` in Ruby looks outside the project: in the gems `Gemfile.lock` names, at their locked
   versions, in the standard library, and in the core's RBS signatures. `throttle` in a
   `Rack::Attack` initializer lands on rack-attack's `def throttle`, read-only, where it said `no

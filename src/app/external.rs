@@ -461,6 +461,7 @@ impl App {
             | Kind::Zig
             | Kind::Proto
             | Kind::Shell
+            | Kind::PowerShell
             | Kind::Sql
             | Kind::Make
             | Kind::Terraform
@@ -485,6 +486,7 @@ impl App {
             Kind::Zig,
             Kind::Proto,
             Kind::Shell,
+            Kind::PowerShell,
             Kind::Sql,
             Kind::Make,
             Kind::Terraform,

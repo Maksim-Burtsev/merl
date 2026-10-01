@@ -87,6 +87,9 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
                 (false, false, false, false, &["#"])
             }
             Kind::Sql => (false, false, false, true, &["--", "//"]),
+            // PowerShell's `<# #>` and here-strings are its own forms, below; a backtick is its
+            // escape and its line continuation, never a template (#420).
+            Kind::PowerShell => (false, false, false, false, &["#"]),
             Kind::Terraform => (false, false, false, true, &["#", "//"]),
             // GraphQL writes its descriptions in `"""` block strings, and nothing else runs
             // over lines: no `'''`, no `/* */`, no backtick.
@@ -116,7 +119,8 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
     // does: the scan cannot follow a `"…"` inside `"$( … )"`, so a quote it carried over lines
     // would hide the rest of the file behind one misread, and what `eval '…'` holds the shell
     // does declare.
-    let word_comment = matches!(kind, Kind::Shell | Kind::Docker);
+    let word_comment = matches!(kind, Kind::Shell | Kind::Docker | Kind::PowerShell);
+    let powershell = kind == Kind::PowerShell;
     // Whether the scan of a PHP file is between `<?php` (or `<?=`) and `?>`.
     let mut php_code = false;
     let b = text.as_bytes();
@@ -263,8 +267,13 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
                 _ => *depth -= 1,
             }
         } else if let Some(q) = quote {
-            // A backslash escapes the next byte, but the end of a line is still one.
-            if c == b'\\' && b.get(i + 1) != Some(&b'\n') {
+            // A backslash escapes the next byte, but the end of a line is still one. PowerShell
+            // escapes with a backtick, and only in a `"…"`.
+            let escape = match powershell {
+                true => q == b'"' && c == b'`',
+                false => c == b'\\',
+            };
+            if escape && b.get(i + 1) != Some(&b'\n') {
                 i += 1;
             } else if c == q {
                 quote = None;
@@ -277,6 +286,23 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             // block with `"` only.
             block = Some(if c == b'"' { b"\"\"\"" } else { b"'''" }.into());
             i += 2;
+        } else if powershell && b[i..].starts_with(b"<#") {
+            block = Some(b"#>".into());
+            i += 1;
+        } else if powershell
+            && (b[i..].starts_with(b"@\"") || b[i..].starts_with(b"@'"))
+            && b[i + 2..]
+                .iter()
+                .take_while(|&&c| c != b'\n')
+                .all(|c| c.is_ascii_whitespace())
+        {
+            // A here-string, `@"` or `@'` at the end of its line, closes on the line that starts
+            // with `"@` or `'@`.
+            (block, label, exact) = (Some(b"".into()), vec![b[i + 1], b'@'], None);
+            i += 1;
+        } else if powershell && c == b'`' {
+            // An escape outside a string: `` `" `` opens nothing, `` `# `` no comment.
+            i += 1;
         } else if verbatim_strings && (b[i..].starts_with(b"@\"") || b[i..].starts_with(b"@$\"")) {
             // `$@"` is read from its `@"`.
             block = Some(b"\"".into());
@@ -438,7 +464,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
     (out, inside)
 }
 /// The bytes of `s` a scan for brackets and separators reads, with their indexes. String literals
-/// are skipped; a comment (`#` in Python, `//` elsewhere) yields its first byte as `0` and is
+/// are skipped; a comment (`#` in Python and PowerShell, `//` elsewhere) yields its first byte as `0` and is
 /// skipped to the end of its line.
 pub(super) fn code(kind: Kind, s: &str) -> impl Iterator<Item = (usize, u8)> + '_ {
     let b = s.as_bytes();
@@ -460,7 +486,16 @@ pub(super) fn code(kind: Kind, s: &str) -> impl Iterator<Item = (usize, u8)> + '
             }
             return None;
         }
+        // PowerShell's backtick escapes the byte after it, a quote or a bracket too.
+        if escaped {
+            escaped = false;
+            return None;
+        }
         match c {
+            b'`' if kind == Kind::PowerShell => {
+                escaped = true;
+                None
+            }
             // Rust's lifetime `'a` and C++'s digit separator `1'000` open nothing: there `'`
             // quotes only a char literal, `'x'` or `'\n'`.
             b'\''
@@ -474,11 +509,13 @@ pub(super) fn code(kind: Kind, s: &str) -> impl Iterator<Item = (usize, u8)> + '
                 quote = Some(c);
                 None
             }
-            b'#' if kind == Kind::Python => {
+            b'#' if matches!(kind, Kind::Python | Kind::PowerShell) => {
                 comment = true;
                 Some((i, 0))
             }
-            b'/' if kind != Kind::Python && b.get(i + 1) == Some(&b'/') => {
+            b'/' if !matches!(kind, Kind::Python | Kind::PowerShell)
+                && b.get(i + 1) == Some(&b'/') =>
+            {
                 comment = true;
                 Some((i, 0))
             }

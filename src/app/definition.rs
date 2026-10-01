@@ -74,21 +74,16 @@ impl App {
             self.definition_at_base(path, line);
             return;
         }
-        // The path of a GraphQL `#import` is the file it pastes in, `./` and `/` included.
-        if kind == Some(Kind::Graphql)
+        // The path of a GraphQL `#import` is the file it pastes in, `./` and `/` included, and
+        // so is a PowerShell dot-source's or `Import-Module`'s (#420).
+        if let Some(kind) = kind
             && let Some(here) = self.rel_current()
-            && let Some(module) = search::graphql_import(self.line_str(), self.col)
+            && let Some(module) = search::file_import(kind, self.line_str(), self.col)
         {
-            let module = module.to_owned();
-            let files = search::module_files(
-                Kind::Graphql,
-                &self.root,
-                &self.files,
-                &here,
-                std::slice::from_ref(&module),
-            );
+            let module = [module];
+            let files = search::module_files(kind, &self.root, &self.files, &here, &module);
             let found = self.module_candidates(files);
-            self.show_definitions(Kind::Graphql, &module, &here, found, None);
+            self.show_definitions(kind, &module[0], &here, found, None);
             return;
         }
         let Some((range, word)) = self.definition_word(kind) else {
@@ -665,9 +660,7 @@ impl App {
         if kind == Kind::Elixir && dotted {
             patterns.retain(|p| !p.starts_with(r"^\s*@"));
         }
-        if kind == Kind::Php {
-            search::php_namespace_patterns(&mut patterns, &text, self.line_str(), range.clone());
-        }
+        search::narrow_patterns(kind, &mut patterns, &text, self.line_str(), range.clone());
         if patterns.is_empty() {
             self.message = self.no_rules();
             return;

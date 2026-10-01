@@ -350,6 +350,9 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
         | Kind::Zig
         | Kind::Proto
         | Kind::Shell
+        // `Import-Module` makes every function the module exports visible and binds no name, as
+        // a C `#include` does; its path is followed as [`file_import`] reads it.
+        | Kind::PowerShell
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform
@@ -871,11 +874,21 @@ pub fn module_files(
         | Kind::Docker
         | Kind::Yaml
         | Kind::Markdown => Vec::new(),
-        // The path of an `#import`, relative to the importing file.
-        Kind::Graphql => lexical(&dir.join(module.join("/")))
+        // The path of an `#import`, a dot-source or an `Import-Module`, relative to the file.
+        Kind::Graphql | Kind::PowerShell => lexical(&dir.join(module.join("/")))
             .filter(|f| files.contains(f))
             .into_iter()
             .collect(),
+    }
+}
+/// The file the path under byte `col` of `line` names, when the line pastes it in or loads it:
+/// a GraphQL `#import` ([`graphql_import`]), a PowerShell dot-source or `Import-Module`
+/// ([`powershell_import`]).
+pub fn file_import(kind: Kind, line: &str, col: usize) -> Option<String> {
+    match kind {
+        Kind::Graphql => graphql_import(line, col).map(str::to_owned),
+        Kind::PowerShell => powershell_import(line, col),
+        _ => None,
     }
 }
 /// The path of the `#import "./parts.graphql"` a GraphQL `line` is, when byte `col` stands on it
