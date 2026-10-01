@@ -10,6 +10,7 @@
 
 mod bindings;
 mod c;
+mod cmake;
 mod component;
 mod csharp;
 mod csproj;
@@ -41,6 +42,7 @@ mod words;
 
 pub use bindings::*;
 pub use c::*;
+pub use cmake::*;
 pub use component::*;
 pub use csharp::*;
 pub use csproj::*;

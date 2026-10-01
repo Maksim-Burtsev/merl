@@ -32,6 +32,7 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Shell
         | Kind::PowerShell
         | Kind::Dart
+        | Kind::Cmake
         | Kind::Sql
         | Kind::Make
         | Kind::Graphql
@@ -245,6 +246,11 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         // The packages `pub get` lists in `.dart_tool/package_config.json`, the pub cache's and
         // the Flutter SDK's, and the `lib/` of the SDK of the `dart` on the PATH (#414).
         Kind::Dart => dart_roots(root, dart_sdk()),
+        Kind::Cmake => cmake_roots(std::env::var_os("PATH").and_then(|p| {
+            std::env::split_paths(&p)
+                .map(|d| d.join("cmake"))
+                .find(|p| p.is_file())
+        })),
         // Java and Kotlin have no roots yet: the JDK and Gradle caches are their own lookups.
         // C# has nothing to point at: a NuGet package is compiled
         // assemblies, and the runtime's own source is not on the machine at all. Lua has no root
@@ -679,9 +685,7 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
                     && (!frameworks || header)
                     && (e.depth() != 1 || Some(e.file_name()) != copy.as_deref())
             })
-            // Homebrew links each formula's headers into `include/` a directory at a time:
-            // `include/google` is a link into the protobuf keg.
-            .follow_links(kind == Kind::Proto || frameworks)
+            .follow_links(kind == Kind::Proto || kind == Kind::Cmake || frameworks)
             .hidden(false)
             .git_ignore(false)
             .git_global(false)

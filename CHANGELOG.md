@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d`, `u` and `D` in CMake (`CMakeLists.txt`, `.cmake`), where `d` said `no rules for .txt`.
+  `d` on a call of `shop_add_library` lands on its `function(shop_add_library name)` in
+  `cmake/ShopHelpers.cmake`, whatever case the call is written in; on `${SHOP_WARNINGS}` on its
+  `set(`, on `SHOP_TESTS` on its `option(`, on `core` of `Shop::core` on the
+  `add_library(Shop::core ALIAS shop_core)` that makes it. `d` on `include(ShopHelpers)`,
+  `add_subdirectory(app)` or `find_package(Boost)` opens the file it names, and on
+  `FetchContent_Declare` CMake's own `Modules/FetchContent.cmake`, read-only. `D` lists functions,
+  macros and targets, and `u` reads `shop-core` and `Shop::core` as one name. (#432)
 - `d` in HTML, CSS, SCSS and Less. On a class in `className="btn-primary"` of a `.tsx` file, or
   in `class="btn-primary"` of an HTML file, it lands on `.btn-primary {` in the stylesheet,
   where it said `no definition for btn` or `no rules for .html`; `u` reads `btn-primary` whole.

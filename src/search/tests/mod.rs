@@ -6,6 +6,7 @@ use super::*;
 
 mod bindings;
 mod c_family;
+mod cmake;
 mod component;
 mod css;
 mod dart;
