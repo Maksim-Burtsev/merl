@@ -8,11 +8,11 @@ merl snapshot: usages
 │  export.csv                │11 class Config:
 │  Makef┌Usages of load_config: 1 declaration, 4 in code (5/5)─────────┐I."""
 │  model│>                                                             │
-│  notes│declaration  config.py:18: def load_config(path: Path | None =│
+│  notes│declaration  config.py:18: def load_config(path: Path | None …│
 │  PLAN.│             cli.py:6: from config import load_config         │
 │  store│             cli.py:30: store = NoteStore(load_config())      │
-│       │             store.py:5: from config import Config, load_confi│
-│       │             store.py:13: self.config = config or load_config(│e) ->
+│       │             store.py:5: from config import Config, load_conf…│
+│       │             store.py:13: self.config = config or load_config…│e) ->
 │       │                                                              │
 │       │                                                              │le,
 │       │                                                              │
@@ -34,11 +34,11 @@ aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccfeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccjjjjjekkkkkkgeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbaaaaaaaaaallllleee
 aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
-aeeeeeeeammmmmmmmmmmmmmmmmmmmmmmmmmmnnnmooooooooooopqqqqrmmmmmmrmssssmraeeeeeeee
-aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeetttteeeeeeeetttttteeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeammmmmmmmmmmmmmmmmmmmmmmmmmmnnnmooooooooooopqqqqrmmmmmmrmssssmtaeeeeeeee
+aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeuuuueeeeeeeeuuuuuueeeeeeeeeeeeeeeeeeeeeaeeeeeeee
 aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeefeaaaaaaaaagaaaaaaaaaaagggeeeeeeaeeeeeeee
-aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeetttteeeeeeeetttttteeeeeeefeeeeeeeeeeeaeeeeeeee
-aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeuuuufeeeeeeefeeeeeeeejjeaaaaaaaaaaagaspmrrmmm
+aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeuuuueeeeeeeeuuuuuueeeeeeefeeeeeeeeeecaeeeeeeee
+aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeevvvvfeeeeeeefeeeeeeeejjeaaaaaaaaaaacaspmrrmmm
 aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeammmmmmmm
 aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeealllleeee
 aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
@@ -46,11 +46,11 @@ aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaggeeeeee
 aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
 aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
 aeeeeeeeaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaeeeeeeee
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeevvvvvveaaaaaageeeeeeeeeeeeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccaaaaaaaawwwwfaaaagaaafaaagfhhhhffaeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeewwwwwweaaaaaageeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccaaaaaaaaxxxxfaaaagaaafaaagfhhhhffaeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeddddddddddddggfeeeeeeeeeeeeeeeeeeeeeeee
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccaaaaaaaawwwwwwwwwfkkkgaaafaaagfhhhhhhhhhffaeeee
-xxxxxxxxxmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccaaaaaaaaxxxxxxxxxfkkkgaaafaaagfhhhhhhhhhffaeeee
+yyyyyyyyymmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #32374f bg #222436
@@ -70,11 +70,12 @@ p fg #9abdf5 bg #1b1d2c
 q fg #ffc777 bg #1b1d2c
 r fg #89ddff bg #1b1d2c
 s fg #ff966c bg #1b1d2c
-t fg #86e1fc bg #222436
-u fg #ff757f bg #222436
-v fg #c099ff bg #222436 ITALIC
-w fg #ffc777 bg #222436
-x fg #82aaff bg #1b1d2c BOLD
+t fg #32374f bg #1b1d2c
+u fg #86e1fc bg #222436
+v fg #ff757f bg #222436
+w fg #c099ff bg #222436 ITALIC
+x fg #ffc777 bg #222436
+y fg #82aaff bg #1b1d2c BOLD
 
 ==== 80x24 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddedddddddddddddeddfffffffffffdddddd
@@ -84,11 +85,11 @@ aggggggggggggggggggggggggggggacccddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaccceeeeedhhhhhhddddddddddddddddddddddddddddddddddd
 adddddddabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbaaaaaaaaaaiidddddd
 adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
-adddddddajjjjjjjjjjjjjjjjjjjjjjjjjjjkkkjllllllllllljjjjjjjjjjjjkjmmmmjkadddddddd
+adddddddajjjjjjjjjjjjjjjjjjjjjjjjjjjkkkjllllllllllljjjjjjjjjjjjkjmmmmjnadddddddd
 adddddddadddddddddddddddddddddddeeeeddddddddeeeeeedddddddddddddddddddddadddddddd
 adddddddaddddddddddddddddddddddddddddddedddddddddddddddddddddddddddddddadddddddd
-adddddddadddddddddddddddddddddddddeeeeddddddddeeeeeedddddddddddddddddddadddddddd
-adddddddaddddddddddddddddddddddddddddddddddddddeddddddddeedddddddddddddamjjjjjjj
+adddddddadddddddddddddddddddddddddeeeeddddddddeeeeeeddddddddddddddddddcadddddddd
+adddddddaddddddddddddddddddddddddddddddddddddddeddddddddeeddddddddddddcamjjjjjjj
 adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddajjjjjjjj
 adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddaiiiidddd
 adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
@@ -100,7 +101,7 @@ addddddddddddddddddddddddddddacccddddeeeeeeddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddddddddddddeddddddddddddddffffdddddddddddddddd
 addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddehhhddddddddddfffffffffddddddd
-nnnnnnnnnjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ooooooooojjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #6e7781 bg #ffffff
@@ -114,7 +115,8 @@ j fg #1f2328 bg #e7eaf0
 k fg #cf222e bg #e7eaf0
 l fg #6639ba bg #e7eaf0
 m fg #0550ae bg #e7eaf0
-n fg #6639ba bg #e7eaf0 BOLD
+n fg #6e7781 bg #e7eaf0
+o fg #6639ba bg #e7eaf0 BOLD
 
 ==== 120x33 tokyonight-moon text, cursor 15,8
 ┌notes───────────────────────┐ 2
