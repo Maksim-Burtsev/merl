@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The `?` overlay on a screen narrower than 118 columns wraps an action too long for its row
+  onto the next row, under its own column, instead of cutting it at the border (#458).
+
 ## [0.8.0] - 2026-10-01
 
 ### Added
