@@ -80,9 +80,16 @@ fn python_base_packages_are_the_venvs_only_when_it_says_so() {
     };
     let (roots, listed) = files("false");
     assert_eq!(roots, [base.clone(), site.clone()]);
+    let sorted = |mut v: Vec<PathBuf>| {
+        v.sort();
+        v
+    };
     assert_eq!(
         listed,
-        [base.join("json/__init__.py"), site.join("lib/__init__.py")]
+        sorted(vec![
+            base.join("json/__init__.py"),
+            site.join("lib/__init__.py")
+        ])
     );
     let (roots, listed) = files("true");
     assert_eq!(
@@ -91,11 +98,11 @@ fn python_base_packages_are_the_venvs_only_when_it_says_so() {
     );
     assert_eq!(
         listed,
-        [
+        sorted(vec![
             base.join("json/__init__.py"),
             base.join("site-packages/pip/__init__.py"),
             site.join("lib/__init__.py"),
-        ]
+        ])
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }

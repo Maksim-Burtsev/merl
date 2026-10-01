@@ -51,7 +51,7 @@ wait tests/test_service.py  38:
 59
 60 class LegacyServiceTest(unittest.TestCase):
 61     def test_nothing_saved(self):
-62         self.assertEqual(FakeOrderRepo().saved, [])
+62         self.assertEqual(1 + 1, 2)
 
 tests/test_service.py  38:12  [code]                                                                                                                                              ? help
 cursor (x,y,shown) 14,28,1

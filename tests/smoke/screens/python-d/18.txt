@@ -34,7 +34,7 @@ wait next: builtin, no source
 59
 60 class LegacyServiceTest(unittest.TestCase):
 61     def test_nothing_saved(self):
-62         self.assertEqual(FakeOrderRepo().saved, [])
+62         self.assertEqual(1 + 1, 2)
 
 
 
