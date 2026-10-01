@@ -11,52 +11,32 @@ one line to the next as tmux emits it, and the 16 basic colours are the terminal
 import os
 import sys
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import ImageFont
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.dont_write_bytecode = True  # no __pycache__ left in tools/
 import cast  # noqa: E402
 
-SIZE = 26
-# Menlo.ttc: 0 regular, 1 bold, 2 italic, 3 bold italic.
-FACES = {(False, False): 0, (True, False): 1, (False, True): 2, (True, True): 3}
-
 
 def shot(text):
-    """The capture drawn cell by cell, with a cell of padding in the page's background."""
+    """The capture drawn by cast.py's renderer: the font, size and box lines of the screencasts."""
     width = max(len(cast.SGR.sub("", line)) for line in text.split("\n"))
     grid = cast.parse(text, width, text.count("\n") + 1)
-
-    fonts = {k: ImageFont.truetype(cast.FONT, SIZE, index=i) for k, i in FACES.items()}
-    cw = round(fonts[(False, False)].getlength("M"))
-    ch = SIZE * 2
-    # The background merl paints on most cells is the theme's own; use it for the padding too.
-    counts = {}
-    for row in grid:
-        for _, _, bg, _, _ in row:
-            counts[bg] = counts.get(bg, 0) + 1
-    page_bg = max(counts, key=counts.get)
-
-    pad = cw
-    img = Image.new("RGB", (width * cw + pad * 2, len(grid) * ch + pad * 2), page_bg)
-    draw = ImageDraw.Draw(img)
-    for y, row in enumerate(grid):
-        for x, (char, fg, bg, bold, italic) in enumerate(row):
-            px, py = pad + x * cw, pad + y * ch
-            if bg != page_bg:
-                draw.rectangle([px, py, px + cw - 1, py + ch - 1], fill=bg)
-            if char != " ":
-                draw.text((px, py + SIZE // 4), char, font=fonts[(bold, italic)], fill=fg)
-    return img, (pad, cw, ch)
+    fonts = [ImageFont.truetype(cast.FONT, cast.FONT_SIZE, index=i) for i in range(4)]
+    cell = (round(fonts[0].getlength("M")), sum(fonts[0].getmetrics()))
+    return cast.render(grid, None, fonts, cell), cell
 
 
 def selftest():
     # The third line goes on in the second one's background, not the first one's (#441), and
     # `\e[34m` is the terminal's blue, not xterm's near-black.
-    img, (pad, cw, ch) = shot("\x1b[48;2;9;9;9mAAAA\n\x1b[48;2;1;2;3mx\ny\n\x1b[34m█")
-    cell = lambda x, y: img.getpixel((pad + x * cw + cw // 2, pad + y * ch + ch // 2))
+    img, (cw, ch) = shot("\x1b[48;2;9;9;9mAAAA\n\x1b[48;2;1;2;3mx\ny\n\x1b[34m█\n│\n│")
+    cell = lambda x, y: img.getpixel((x * cw + cw // 2, y * ch + ch // 2))
     assert cell(2, 2) == (1, 2, 3), "the third line lost the background it carries on"
     assert cell(0, 3) == cast.ANSI[4] == (0x82, 0xaa, 0xff), "the blue is not the terminal's"
+    # A tree's border runs on from one row to the next, as in the screencasts: no dashed line.
+    assert all(img.getpixel((cw // 2, y)) != img.getpixel((cw + cw // 2, y))
+               for y in range(4 * ch, 6 * ch)), "the box line breaks between rows"
     print("selftest ok")
 
 

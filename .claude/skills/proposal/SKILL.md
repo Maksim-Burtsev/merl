@@ -1,6 +1,6 @@
 ---
 name: proposal
-description: Shape a visible merl change into a `## Proposal` the owner can pick from: a still per option, real demos, what GitHub, GitLab and VS Code do, one recommendation. Use when an issue changes a key, screen, colour, animation or default and has no accepted proposal yet, when moving a `to-think` or `needs-owner` issue forward, and when the owner asks to see options or how something will look.
+description: Shape a visible merl change into a `## Proposal` the owner can pick from: a real screencast of merl per option, what GitHub, GitLab and VS Code do, one recommendation. Use when an issue changes a key, screen, colour, animation or default and has no accepted proposal yet, when moving a `to-think` or `needs-owner` issue forward, and when the owner asks to see options or how something will look.
 ---
 
 # A proposal the owner picks from
@@ -9,7 +9,7 @@ The owner decides a visible change by eye, from the issue itself: a `## Proposal
 its body. They accept a change only when it is plainly better and nothing ordinary got worse, so
 the proposal answers their three standing questions before they ask:
 
-- What does each option look like in real use, on a real project?
+- What does each option look like in real use, on a real project, in merl itself?
 - What is the rule: when does the new drawing or behaviour kick in, and when not?
 - Does the ordinary flow stay exactly as it is?
 
@@ -34,30 +34,37 @@ colour, a line of text) says so in its rule: the owner weighs every addition.
 
 In a worktree of your own, detached at origin/master, with its own `target/` (`AGENTS.md`,
 `## Working on an issue`). One release build serves every option: an environment variable or a
-hidden flag switches between them. The prototype is throwaway: never pushed, no PR, the worktree
-removed when the proposal is up.
+hidden flag switches between them. The prototype is throwaway: never pushed, the worktree removed
+when the proposal is up, unless the owner asks for PRs (end of step 4).
 
 ## 4. Pictures
 
-Stills carry the decision; the owner compares options side by side and will not watch a GIF per
-option per theme.
+Every picture is merl itself: a real build, run in tmux on a real project, recorded with
+`tools/cast.py`. The owner must be able to run the same steps and see the same screen, one to one.
 
-- **A still per option**, and one of **now**: `tmux capture-pane -e -p` into `tools/shot.py`, on a
-  real project cloned into your scratch folder and copied to `/tmp/<N>-<name>` (`media` is
-  public: no home directory, no scratch path in a frame). The pane is a laptop's full screen,
-  160x50, in `tokyonight-moon`.
-- **The ordinary flow**: a still of an everyday project where the change must not kick in, for
-  the recommended option, beside the same screen on master.
-- **A light theme**: the recommended option once more in `tokyonight-day`
-  (`merl -t tokyonight-day`, `tools/shot.py … 'TokyoNight Day'`).
-- **A colour change**: a sheet of 6 themes, 3 dark and 3 light, for the recommended option. A
-  colour that fits one theme and jars in another is how the A / M / D letters were shipped and
-  removed (#256, #498).
-- **A GIF only where motion is the point** (scrolling, a jump, an animation): `tools/cast.py`,
-  one per option, moving as `AGENTS.md` `## Screencasts` says.
+- **A screencast per option**, and one of **now** on master: the same steps file for each, moving
+  as `AGENTS.md` `## Screencasts` says. The project is cloned into your scratch folder and copied
+  to `/tmp/<N>-<name>` (`media` is public: no home directory, no scratch path in a frame).
+- **One size and font for the whole proposal**: `--size 160x50`, a laptop's full screen, unless
+  the issue is about a width; cast.py's default font and the Ghostty TokyoNight Moon colours.
+- **A still** is a frame taken out of that screencast (`Image.open(gif).seek(n)`), the moment that
+  shows the change. One screen per picture: two screens side by side are two pictures.
+- **The ordinary flow**: a screencast of an everyday project where the change must not kick in,
+  for the recommended option, beside the same steps on master.
+- **A light theme**: the recommended option once more in `tokyonight-day` (`merl -t
+  tokyonight-day`, `--ghostty 'TokyoNight Day'`).
+- **A colour change**: the recommended option in 6 themes, 3 dark and 3 light. A colour that fits
+  one theme and jars in another is how the A / M / D letters were shipped and removed (#256,
+  #498).
+- **How to see it yourself**, under each picture: the project and its commit, the binary (master
+  at its sha, or the prototype's switch), the steps file.
 
-Open every picture yourself before uploading: the frame shows the change, in the right theme,
-without a path of yours.
+Before uploading, open each still and the live `tmux capture-pane -p` of the same moment: the
+same text in the same cells, the change in view, the right theme, no path of yours.
+
+When the owner cannot pick from pictures, build the recommended option as a PR and every other
+option as a draft PR, each with its before/after screencasts (`AGENTS.md` `## Screencasts`), so
+they run the options instead of reading them.
 
 Upload to `media` as `issues/<N>-<slug>-<variant>.<ext>`, each name free first (`AGENTS.md`,
 `## Screencasts`).
@@ -70,17 +77,17 @@ English, no implementation talk.
 ```
 ## Proposal
 
-**Now.** <one line> ![now](PNG)
+**Now.** <one line> ![now](PNG) · [screencast](GIF)
 
 **A. <name> (recommended).** <the rule>. <why, one reason>
-![A](PNG) · [in motion](GIF)
+![A](PNG) · [screencast](GIF) · to see it: <project@commit, binary, steps>
 
 **B. <name>.** <the rule>
-![B](PNG)
+![B](PNG) · [screencast](GIF) · to see it: <…>
 
 **Elsewhere.** GitHub: <what it does>. GitLab: <…>. VS Code: <…>.
 
-**Unchanged.** <the ordinary flow, one line> ![ordinary](PNG) · light theme ![light](PNG)
+**Unchanged.** <the ordinary flow, one line> [screencast](GIF) · light theme ![light](PNG)
 
 ---
 ```
