@@ -48,8 +48,6 @@ SOCK = "merl-readme"
 # colours, the ones the gutter marks and the review panel's letters are drawn in.
 THEME = ",".join("%02x%02x%02x" % c for c in (cast.DEFAULT_BG, cast.DEFAULT_FG, *cast.ANSI))
 
-# --keys: the key just pressed, as tools/cast.py draws it (`cast.draw_cap`), shown with merl's
-# answer to the press; HOLD after the last one it fades out over FADE.
 HOLD, FADE, FADE_STEPS = cast.HOLD, 0.25, 4
 
 
@@ -126,7 +124,6 @@ def take(steps, project):
 
 
 def draw_caps(frame, key, opacity):
-    # The sizes are in the pixels of the 18 px window, clear of the status line.
     return cast.draw_cap(frame, key, FONT / 18, round(FONT * LINE), opacity)
 
 

@@ -55,10 +55,6 @@ SEGMENTS = {"│": "ud", "┃": "ud", "─": "lr", "━": "lr", "┌": "dr", "�
             "├": "udr", "┤": "udl", "┬": "dlr", "┴": "ulr", "┼": "udlr",
             "╭": "dr", "╮": "dl", "╰": "ur", "╯": "ul"}
 SGR = re.compile(r"\x1b\[([0-9;]*)m")
-# The key just pressed, drawn in the bottom right corner the way macOS keystroke visualisers draw
-# it (#299): it stays until the next key replaces it, and HOLD seconds after the last one. No
-# count and no row of past keys, which would read as a chord. Only `key` steps show; what `type`
-# types shows in merl's own prompt.
 HOLD = 1.5
 CAPS = {"M-Right": "⌥→", "M-Left": "⌥←", "Right": "→", "Left": "←", "Down": "↓", "Up": "↑",
         "Enter": "Enter", "Escape": "Esc", "Tab": "Tab", "BSpace": "⌫", "C-d": "Ctrl+D",
@@ -187,8 +183,6 @@ def render(grid, cursor, fonts, cell):
 
 
 def draw_cap(frame, key, scale, above, opacity=1.0):
-    """`frame` with `key` drawn as a keycap in its bottom right corner, `above` pixels clear of
-    the bottom edge (the status line); `scale` is the font size over 18 px."""
     if not key:
         return frame
     font = ImageFont.truetype(SANS, round(44 * scale))
@@ -243,8 +237,6 @@ class Pane:
 
 
 def run(pane, steps, fps, key_delay, type_delay, tail):
-    """Feed the steps to the pane while a timer samples it, and give back (frame, key, seconds)
-    triples: the key is the one the corner shows over that frame, or None."""
     shots, presses, stop = [], [], threading.Event()
     # Leading waits are the app starting up; sampling them would open the GIF on a blank pane.
     while steps and steps[0].split(" ")[0] in ("wait", "sleep"):

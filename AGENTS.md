@@ -190,19 +190,16 @@ run under ~15 s.
 
 - Open the steps with `wait <text merl draws>` and a no-op `key Escape`: leading waits are not
   sampled, so the first real key would otherwise change the screen before the GIF starts.
-- A screencast that moves through code is a **master's walk**: the path an engineer who knows
-  merl takes, at a pace the viewer follows. The owner watches it twice: to judge the change, and
-  to learn moves from it, so every key in it is one worth copying.
-  - Each move is the fewest keys merl has for it: `/WORD` or `s` to text, `d` / `u` / `D` to
-    code, `{` / `}` between functions, `:N` to a line, `Ctrl+D` for half a screen, `Alt+Left` /
-    `Alt+Right` to a word, `End`, `c` / `C` to a hunk, `[` back. Arrows go a line or two; a
-    longer distance has a jump.
-  - One move, then a beat: `sleep 0.8` or more after a jump, so the eye finds the cursor and the
-    keycap before the next key; a function the walk lands on is read whole (`Ctrl+D` when it
-    does not fit) before the walk leaves it. The walk goes one way, as a reader does.
-  - `tools/cast.py` paces the keys and names each in a keycap; keep its defaults.
-  - Start where the story starts: open merl on the file, reach the place with one jump, then
-    show the change.
+- A screencast that moves through code moves the way a seasoned keyboard user does, someone with
+  twenty years of Vim or Emacs: the keys that person reaches for, at that person's pace. The owner
+  scrolled files with a mouse for years and learns keyboard navigation from these screencasts.
+  - Reading down a file is `Ctrl+D` / `Ctrl+U`, the keyboard's scroll wheel. Code already on the
+    screen is reached the way a person would reach it there: a few `}`, or `/` and the first
+    letters of a name. Either is fine; the walk takes whichever comes naturally in that spot,
+    not whichever has the fewest keys. Code off the screen is reached by name (`D`, `d`, `s`), by
+    number (`:N`), or back (`[`). Arrows move a line or two.
+  - The keys play at `tools/cast.py`'s pace, each shown in its keycap, and the walk pauses where
+    a person would read.
   - A demo of something that is not a walk (a picker, an overlay, a flag) shows it directly.
 - When merl exits (a panic, `q`) the pane dies and the GIF stops a frame early: pass `--bin` a
   script that runs merl and then `sleep 6`. For a change to the command line, the script is a
