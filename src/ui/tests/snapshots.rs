@@ -41,7 +41,8 @@ const STATES: &[State] = &[
         on_call(a);
         press(a, "<Tab><Up><Up>");
     }),
-    // Below 118 columns an action too long for its row wraps under its own column (#458).
+    // Below 118 columns the key column narrows to 24, a longer key gets a row of its own, and an
+    // action too long for its row wraps under its own column (#458).
     ("help", |a| {
         on_call(a);
         press(a, "?");

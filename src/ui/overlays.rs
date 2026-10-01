@@ -34,6 +34,14 @@ pub(super) fn draw_help(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         .max()
         .unwrap_or(0) as u16
         + 1;
+    // Too narrow for every row whole (below 118 columns), the key column narrows to 24; a longer
+    // key gets a row of its own, its action on the row below (#458, option B).
+    let key_w = if w + 4 > area.width {
+        key_w.min(24)
+    } else {
+        key_w
+    };
+    let lead = 3 + key_w + 2;
     let [area] = Layout::horizontal([Constraint::Length((w + 4).min(area.width))])
         .flex(Flex::Center)
         .areas(area);
@@ -48,12 +56,17 @@ pub(super) fn draw_help(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             group = g;
             lines.push(Line::styled(format!(" {group}"), bold.fg(theme.accent)));
         }
-        for (i, row) in wrap::wrap_line(action, room).into_iter().enumerate() {
-            let key = if i == 0 { *key } else { "" };
+        let mut key = *key;
+        if key.len() > key_w {
+            lines.push(Line::styled(format!("   {key}"), bold));
+            key = "";
+        }
+        for row in wrap::wrap_line(action, room) {
             lines.push(Line::from(vec![
                 Span::styled(format!("   {key:key_w$}  "), bold),
                 Span::styled(action[row].trim_end(), base.fg(theme.ghost_fg)),
             ]));
+            key = "";
         }
     }
     let [area] = Layout::vertical([Constraint::Length(
