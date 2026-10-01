@@ -4,7 +4,6 @@ use super::definition::resolution;
 use super::*;
 
 impl App {
-    /// Whether the cursor is on a line of a component outside its script.
     pub(super) fn on_template(&self, here: &Path) -> bool {
         let code = search::script_lines(here, &self.buf.lines.join("\n"));
         code.is_some_and(|c| c.get(self.line) == Some(&false))

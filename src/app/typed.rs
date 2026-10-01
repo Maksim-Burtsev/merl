@@ -3,14 +3,6 @@
 use super::*;
 
 impl App {
-    /// The declarations of `word` in the type of the receiver `chain`, `x.f.g…`, when every link is
-    /// proven: every declaration of `x` in scope reads the same type (through one call's return
-    /// type at most), each field is declared in the type before it or one that type extends or
-    /// embeds, and each type is declared once where the file that names it can see it
-    /// ([`App::declaration`]). The member — a method, else a field — is looked for in the last
-    /// type, then in the types it extends or embeds. `Err` names the first name that is not
-    /// proven; an empty list is a type without the member. Both leave the word to the search by
-    /// name.
     pub(super) fn typed_definitions(
         &self,
         kind: Kind,
@@ -71,9 +63,6 @@ impl App {
             .collect())
     }
 
-    /// The text of the cursor's file as the scope rules read it, and the 1-based line they read
-    /// the cursor at. On a component's template, the script's top level from past its end, so
-    /// the order of the blocks never changes the answer (#594).
     fn scope(&self, here: &Path) -> (String, usize) {
         let text = self.buf.lines.join("\n");
         match self.on_template(here) {
@@ -85,8 +74,6 @@ impl App {
         }
     }
 
-    /// The type of the receiver `chain`, or of the call `head` it hangs off, with the links that
-    /// prove it; `Err` names the first name that is not proven.
     fn receiver(
         &self,
         kind: Kind,
