@@ -626,17 +626,13 @@ impl App {
         };
         let mut patterns = search::def_patterns(kind, &word);
         // Where only a C# type can stand, only a type's rules count (#360): a type, a delegate, an
-        // alias, and no constructor, property or namespace of the name.
+        // alias, and no constructor, property or namespace of the name (save a constant, #581).
         let cs_type = kind == Kind::CSharp
             && !dotted
             && chain.is_empty()
-            && search::cs_type_position(self.line_str(), range.start, range.end);
+            && self.cs_types_only(&here, &word, range.clone());
         if cs_type {
-            patterns = vec![
-                patterns[0].clone(),
-                patterns[1].clone(),
-                patterns[3].clone(),
-            ];
+            patterns = search::cs_type_patterns(&word);
         }
         // A Ruby local is seen from its own method or block alone, and a value has none: its
         // assignments are this file's where the cursor sees them, below, never a search by name
