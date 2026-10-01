@@ -1,11 +1,11 @@
-# measure	median ms: the last release's `time_budgets` (#314); until the first release runs it, the baseline of 2026-09-28 (epic/tests-303, M4, load 3.4)
-startup	62
-startup on a 10 MB file	86
+# measure	median ms: the last release's `time_budgets` (#314)
+startup	76
+startup on a 10 MB file	99
 o filter	3
-s first hits	5
-s done	460
-D open	124
-D query	723
-d first, paperless-ngx	1035
-d next, slowest	775
-review of 1,000 files	308
+s first hits	10
+s done	758
+D open	120
+D query	818
+d first, paperless-ngx	1932
+d next, slowest	1264
+review of 1,000 files	454

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-01
+
 ### Added
 
 - In `--review`, `s`, `D`, `u` and `d` find the code the branch deleted as well as the files on
@@ -55,12 +57,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tutor has a Markdown plan and a lesson for it. (#249)
 - Short forms of the launch flags: `-r` for `--review`, `-b` for `--base`, `-t` for `--theme`,
   `-d` for `--drill` and `-k` for `--keys`. `merl -r feature -b origin/dev` is
-  `merl --review feature --base origin/dev`.
+  `merl --review feature --base origin/dev`. (#238)
 - Inside a long function whose first line has scrolled off, that line stays pinned on top of
   the code with its line number, on a band of the cursor line's colour, so the screen always
   says which function this is: in a review, where `c` drops you in the middle of one, and
   everywhere else. A method pins its `impl` or `class` too, two lines at most; a loop or an `if`
-  pins nothing. The code starts under the band, so no line hides behind it. (#248)
+  pins nothing. The code starts under the band, so no line hides behind it, and the pages,
+  Ctrl+D and Ctrl+U move by the rows left under it. (#248)
 - A line longer than merl draws (20 KB: a minified bundle, a one-line JSON dump) ends in a dim
   `…` right after its last drawn character, wrapped or not, so a cut line never reads as whole.
   (#283)
@@ -130,7 +133,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `merl -r BRANCH` reviews a branch another worktree has checked out, an agent's say, in that
   worktree, as `merl -r` started there would: nothing is fetched, switched or reset there, and its
   work not committed yet is part of the review. Before, merl exited with git's `already used by
-  worktree` (#396).
+  worktree`. (#396)
 - In `merl --review` the lines the branch deleted are lines of the text, as they are on a GitLab
   or GitHub diff page: the cursor stands on them, and every move, Up, Down, the pages, `{` and
   `}`, Home and End, the words, goes through them as through the file's own lines, so a deletion
@@ -139,14 +142,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   finds text in them. `c` and `C` stand on the first line of a change, its first deleted line
   when it starts with a deletion. On a deleted line the status bar reads its number in the file
   the branch started from, negative: `-9:5`. Nothing edits a deleted line: typing on one, or on
-  a selection that holds one, says `deleted`, and `d` and `u` there say the same for now.
+  a selection that holds one, says `deleted`.
   `:12` and the gutter still count the branch's lines. For the selection to show on the red
   tint, eight themes take a selection colour a shade further from their background, in every
   file: rose-pine, rose-pine-moon, melange-dark, bamboo, cendre, ayu-light, jellybeans-light and
-  neomodern-light. (#439)
+  neomodern-light. (#439, #279, #296, #408)
 - `merl --review feature` reviews `feature`: the branch goes after a space, as the base does after
   `--base`, and `--review=feature` still works. A file after a bare `--review` is now read as the
-  branch: `merl --review` opens on the first hunk, and `o` opens any file.
+  branch: `merl --review` opens on the first hunk, and `o` opens any file. (#238)
 - `merl -r origin/feature`, the name as `git branch -a` or a merge request shows it, reviews
   `feature` as `merl -r feature` does, where git refused to switch to a remote branch. origin
   without that branch is an error, `merl: no branch feature on origin`, even when a local
@@ -218,7 +221,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of the name in the dependencies, or jumped to the only one, after a grep of all of them. A bare
   name nothing binds is no longer looked for among the methods outside either: only at the top
   of a module the file imports with `*`. (#336)
-
 - `d` on a named argument lands on the parameter it names: `Basket(tariff=…)` on `__init__`'s
   `tariff`, `RefreshWindow(interval: 30, maximumAttempts: 1)` on the `init`'s `maximumAttempts`,
   `new self(name: …)` on the constructor's promoted `$name`, and a key of an object passed to a
@@ -1476,7 +1478,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scroll position, the jump history and the find pattern.
 - Help overlay on `?`, listing every binding; Esc in normal mode clears the find highlights.
 
-[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.8.0
 [0.7.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.7.0
 [0.6.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.6.0
 [0.5.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.5.0
