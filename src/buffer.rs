@@ -774,6 +774,35 @@ mod tests {
     }
 
     #[test]
+    fn web_highlights_with_every_shipped_theme() {
+        let sheet = "/* doc */\n.btn-primary:hover {\n  color: var(--brand, #000);\n}\n";
+        let html = "<!-- doc -->\n<button class=\"btn\" id=\"main\">OK</button>\n";
+        let files = [
+            ("a.css", "CSS", sheet),
+            ("b.scss", "SCSS", sheet),
+            ("c.sass", "Sass", "// doc\n.btn\n  color: $brand\n"),
+            ("d.less", "Less", sheet),
+            ("e.html", "HTML", html),
+            ("f.htm", "HTML", html),
+        ];
+        for (file, syntax, src) in files {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some(syntax),
+                    "{file} {name}"
+                );
+                b.highlight_to(2, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
     fn graphql_highlights_with_every_shipped_theme() {
         let src = "# doc\ntype User {\n  email: String! @deprecated(reason: \"x\")\n}\n";
         for file in ["a.graphql", "b.graphqls", "c.gql"] {

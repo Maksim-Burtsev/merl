@@ -5,8 +5,8 @@
 - `merl --tutor` (`src/tutor.rs`, sample project in `tutor/notes/`) walks `TUTOR`, a list of
   tasks from `POOL` (`src/tutor/pool.rs`), which `merl --drill` (`src/tutor/drill.rs`) shares:
   one task per action of `KEYS`, each with a start of its own, a tutor text that names the key, a
-  drill text that never does, and the answer that does it. When you add, remove or rebind a key, or change what an
-  overlay or jump does, update the affected task or add one. The test
+  drill text that never does, and the answer that does it. When you add, remove or rebind a key,
+  or change what an overlay or jump does, update the affected task or add one. The test
   `every_key_is_taught_or_skipped_on_purpose` fails on a new `KEYS` action until a task trains it
   or it is listed in `NOT_TAUGHT`; `every_task_starts_undone_and_its_answer_does_it` fails when a
   task's start already does it or its answer does not, from cold or with the whole pool run
@@ -47,6 +47,11 @@
 - No file under `src/` passes 1,500 lines of non-test code, and the ones already over it may not
   grow: `no_source_file_grows_past_its_size` (`src/main.rs`, `LONG_FILES`). Split the file; a
   listed file that shrinks lowers its number in the same PR.
+- Code carries no comments, `///` and `//!` included: names, types and tests say what it does,
+  and the commit message says why. The comments already in the code are older practice, not the
+  density to match: when you change the code under one, delete it and move what still holds into
+  the commit message, a `ponytail:` note included. Fixture annotations (`tests/fixtures/`) and
+  the tutor's sample project are data and stay.
 
 ## Issues
 
@@ -61,11 +66,9 @@ carries three labels:
   time allows.
 
 A large piece of work is an `epic`: a parent issue whose sub-issues are the work. The next issue
-to take is the top of `is:open label:agent-ok label:P1 -label:epic -label:in-progress`, the tests
-epic's first:
-language work finishes against the fixtures and the bench those issues build. An issue you file
-gets its three labels, the milestone if 1.0 needs it (never a `to-think` one), and its epic as
-the parent when one fits (`gh issue edit EPIC --add-sub-issue N`).
+to take is the top of `is:open label:agent-ok label:P1 -label:epic -label:in-progress`. An
+issue you file gets its three labels, the milestone if 1.0 needs it (never a `to-think` one), and
+its epic as the parent when one fits (`gh issue edit EPIC --add-sub-issue N`).
 
 An issue's body opens with `Visible:`: `no`, or what the user will see change. A visible issue
 gets `agent-ok` only with a `## Proposal` in its body that the owner has picked from
@@ -140,14 +143,15 @@ matches exactly as master does. Rules that start answering a new question tend t
 fallback paths, so a `d` PR is ready to merge only after the bench shows no cursor worse than
 master.
 
-- **The bench**, `tools/d-bench/run [--lang go,rust]` (`tools/d-bench/README.md`): 2,870
-  recorded cursors in 13 real projects pinned to a commit, one per language, merl's answer scored
-  against a language server's (a judgement read from the code for Java, Kotlin, C# and Ruby) and
-  diffed against `baseline.tsv`, master's. It prints per language the direct hits, pickers with
-  the answer, wrong jumps, misses and p50 / p90 ms, lists every cursor that got worse (a new
-  wrong jump first), and exits 1 when there is any. Run the languages the change touches, all of them when a shared path moves; the table
-  goes into the commit message. A PR that changes the table commits the new baseline with it
-  (`--update-baseline`), so the next PR compares against what master will be.
+- **The bench**, `tools/d-bench/run [--lang go,rust]` (`tools/d-bench/README.md`): recorded
+  cursors in real projects pinned to a commit, one per language, merl's answer scored against a
+  language server's (or a judgement read from the code, where the README says so) and diffed
+  against `baseline.tsv`, master's. It prints per language the direct hits, pickers with the
+  answer, wrong jumps, misses and p50 / p90 ms, lists every cursor that got worse (a new wrong
+  jump first), and exits 1 when there is any. Run the languages the change touches, all of them
+  when a shared path moves; the table goes into the commit message. A PR that changes the table
+  commits the new baseline with it (`--update-baseline`), so the next PR compares against what
+  master will be.
 - It times in release; the times mean something only with `sysctl -n vm.loadavg` under ~8:
   parallel sessions' builds push it to 30–90 and skew timings two- to threefold.
 - The answers are recorded once, never in CI and never in merl (`record.py`); a cursor whose

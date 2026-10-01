@@ -485,17 +485,6 @@ impl App {
         };
         let stale = old.merge_base != fresh.merge_base || kind(old) != kind(&fresh);
         let switched = old.branch != fresh.branch;
-        // A file the branch comes to change leaves the preview for good, as if `p` had been
-        // pressed: its diff lives on the source, and only `p` renders it again.
-        if self.previewing() && rel.as_deref().is_some_and(|rel| fresh.file(rel).is_some()) {
-            self.toggle_preview();
-        }
-        let root = self.root.clone();
-        let joined = |p: &PathBuf| {
-            p.strip_prefix(&root)
-                .is_ok_and(|rel| fresh.file(rel).is_some())
-        };
-        self.previewed.retain(|p| !joined(p));
         let paths: Vec<PathBuf> = fresh.files.iter().map(|f| f.path.clone()).collect();
         // A file whose text is on screen stays on screen when the listing comes to call it
         // generated (#243): the user may be typing into it.

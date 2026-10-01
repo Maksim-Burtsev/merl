@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unfolds it. Up and Down step over a fold, and anything that lands inside one opens it: `:`,
   `/`, `n`, `d`, `u`, `s`, `[`. A fold stays with its file across jumps and moves with the
   lines written above it. (#598)
+- `d` in HTML, CSS, SCSS and Less. On a class in `className="btn-primary"` of a `.tsx` file, or
+  in `class="btn-primary"` of an HTML file, it lands on `.btn-primary {` in the stylesheet,
+  where it said `no definition for btn` or `no rules for .html`; `u` reads `btn-primary` whole.
+  A stylesheet's custom properties, SCSS variables, mixins, functions and placeholders, Less
+  variables and mixins, and keyframes are found too, a `@use` namespace narrowing them to its
+  module, and the path of a `<link href>`, a `<script src>` and an `@import` or `@use` opens
+  its file. `D` lists the mixins, functions, placeholders and keyframes. (#415)
 - `d`, `u` and `D` in Dart (`.dart`, Flutter included), where `d` said `no rules for .dart`.
   `d` on `formatPrice` lands on `String formatPrice(int cents) =>` in the project; on `get` of
   `http.get` behind `import 'package:http/http.dart' as http` it opens the `http` package's
@@ -229,6 +236,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   #564)
 
 ### Fixed
+
+- In `--review`, `p` on a Markdown file of the review shows it rendered, where it said `in review`:
+  a file the branch adds or changes as it stands now, a deleted one as it was, without the diff's
+  marks; `p` again shows the source with its diff. A file shown rendered that the branch comes to
+  change stays rendered; a file of the review opened again shows its source. (#596)
 
 - `d` in C reads no declaration inside a multi-line `#define`, and a one-line `typedef struct
   client { int flags; } client;` declares `client` alone: `return flags;` and `return args;`

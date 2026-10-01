@@ -41,7 +41,7 @@ wait app/models.py  1:1
 # N goes back to the match before, and p shows a Markdown file rendered.
 key o
 wait Files (
-key PageDown PageDown PageUp Up*18 Enter
+key PageDown PageDown PageUp Up*19 Enter
 wait app/service.py  1:1  [code]
 key t Tab
 wait app/service.py  1:1  [tree]
