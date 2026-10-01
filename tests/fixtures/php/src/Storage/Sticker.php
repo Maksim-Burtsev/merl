@@ -9,6 +9,6 @@ class Sticker
     public function print(): void
     {
         $this->tag();
-        //     ^ d: picker src/Storage/Legacy/Tags.php:7, src/Storage/Tags.php:7
+        //     ^ d: src/Storage/Tags.php:7
     }
 }

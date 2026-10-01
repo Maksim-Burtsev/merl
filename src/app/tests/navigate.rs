@@ -1481,3 +1481,277 @@ fn an_elixir_call_is_no_attribute_and_an_import_leaves_it_to_the_search() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// #351. A PHP class name resolves as PHP resolves it, through the file's `use`, else its
+/// `namespace`, and `composer.json`'s PSR-4 map says which file declares it. A name the map does
+/// not cover is outside the project: `vendor/` first, before a namesake of the project's.
+#[test]
+fn php_names_resolve_through_use_namespace_and_psr4() {
+    let method = |ns: &str, class: &str, m: &str| {
+        format!(
+            "<?php\n\nnamespace {ns};\n\nclass {class}\n{{\n    public {m}\n    {{\n    }}\n}}\n"
+        )
+    };
+    let song = method("App\\Models", "Song", "static function query(): int");
+    let album = method("App\\Models", "Album", "static function query(): int");
+    let resource = method(
+        "App\\Http\\Resources",
+        "AlbumResource",
+        "function toArray(): array",
+    );
+    let subsonic = method(
+        "App\\Http\\Subsonic",
+        "AlbumResource",
+        "static function toArray(): array",
+    );
+    let search = "<?php\n\nnamespace App\\Http\\Subsonic;\n\nclass SearchResource\n{\n    public function toArray(): array\n    {\n        return AlbumResource::toArray();\n    }\n}\n";
+    let arr = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Arr\n{\n    public static function get($array, $key, $default = null)\n    {\n    }\n}\n";
+    let repo = "<?php\n\nnamespace App\\Repos;\n\nuse App\\Models\\Song;\nuse Illuminate\\Support\\Arr;\n\nclass SongRepository\n{\n    public function get(int $id): void\n    {\n    }\n\n    public function all(): void\n    {\n        Song::query();\n        Arr::get([], 'x');\n    }\n}\n";
+    let vendored = "vendor/laravel/framework/src/Illuminate/Support/Arr.php";
+    let files = [
+        (
+            "composer.json",
+            r#"{"autoload": {"psr-4": {"App\\": "app/"}}}"#,
+        ),
+        (".gitignore", "vendor/\n"),
+        ("app/Models/Song.php", song.as_str()),
+        ("app/Models/Album.php", album.as_str()),
+        ("app/Http/Resources/AlbumResource.php", resource.as_str()),
+        ("app/Http/Subsonic/AlbumResource.php", subsonic.as_str()),
+        ("app/Http/Subsonic/SearchResource.php", search),
+        ("app/Repos/SongRepository.php", repo),
+        (vendored, arr),
+    ];
+    for vendor in [false, true] {
+        let (dir, mut a) = project_app("php-psr4", &files);
+        if !vendor {
+            a.no_external();
+        }
+        let mut d = |file: &str, code: &str| {
+            d_on(&mut a, file, code);
+            shown(&mut a)
+        };
+        let repo = "app/Repos/SongRepository.php";
+        assert_eq!(
+            d(repo, "Song::query"),
+            jump(
+                "query \u{2192} Song::query (via import app/Models/Song.php)",
+                "app/Models/Song.php:7"
+            ),
+            "vendor: {vendor}"
+        );
+        assert_eq!(
+            d(repo, "    Song|::query"),
+            jump(
+                "Song: via import app/Models/Song.php",
+                "app/Models/Song.php:5"
+            ),
+            "vendor: {vendor}"
+        );
+        assert_eq!(
+            d(
+                "app/Http/Subsonic/SearchResource.php",
+                "AlbumResource::toArray"
+            ),
+            jump(
+                "toArray \u{2192} AlbumResource::toArray (via AlbumResource)",
+                "app/Http/Subsonic/AlbumResource.php:7"
+            ),
+            "vendor: {vendor}"
+        );
+        let get = match vendor {
+            true => jump(
+                "get \u{2192} Arr::get (via import Illuminate/Support/Arr)",
+                &format!("{vendored}:7"),
+            ),
+            false => jump(
+                "get \u{2192} SongRepository::get (by name, 1 match)",
+                "app/Repos/SongRepository.php:10",
+            ),
+        };
+        assert_eq!(d(repo, "Arr::get"), get, "vendor: {vendor}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+}
+
+/// Review of #573 (#351): where nothing proves the class, `d` answers as master did. A name a
+/// group `use` binds, a mapped file missing or of another namespace, a member the walk finds
+/// nowhere (Eloquent's `where`, forwarded by `__callStatic`), a `vendor/` hit by name or of another
+/// namespace, and a project with no `composer.json`.
+#[test]
+fn php_names_fall_back_where_nothing_proves_the_class() {
+    let class = |ns: &str, head: &str, body: &str| {
+        let ns = match ns {
+            "" => String::new(),
+            ns => format!("namespace {ns};\n"),
+        };
+        format!("<?php\n{ns}\n{head}\n{{\n{body}}}\n")
+    };
+    let make = "    public static function make(): void\n    {\n    }\n";
+    let caller = "<?php\nnamespace App\\Http\\Subsonic;\n\nuse App\\Http\\Resources\\{AlbumResource};\nuse App\\Models\\Tune;\nuse App\\Models\\Disc;\nuse App\\Models\\Track;\nuse Illuminate\\Support\\Facades\\Route;\n\nclass Caller\n{\n    public function get(): void\n    {\n        AlbumResource::make();\n        Tune::play();\n        Disc::spin();\n        Track::where('a', 1);\n        Route::get('/');\n    }\n}\n";
+    let resources = class("App\\Http\\Resources", "class AlbumResource", make);
+    let subsonic = class("App\\Http\\Subsonic", "class AlbumResource", make);
+    let tune = class(
+        "App\\Models",
+        "class Tune",
+        "    public static function play(): void\n    {\n    }\n",
+    );
+    let disc = class(
+        "App\\Old",
+        "class Disc",
+        "    public static function spin(): void\n    {\n    }\n",
+    );
+    // A `where` of the project's own, which master's search by name offers.
+    let query = class(
+        "App\\Support",
+        "class Query",
+        "    public function where($column): void\n    {\n    }\n",
+    );
+    let track = "<?php\nnamespace App\\Models;\n\nuse Illuminate\\Database\\Eloquent\\Model;\n\nclass Track extends Model\n{\n}\n";
+    let helper = class(
+        "",
+        "class Helper",
+        "    public static function format(): void\n    {\n    }\n",
+    );
+    let global = "<?php\n\nfunction show(): void\n{\n    Helper::format();\n}\n";
+    let model = class(
+        "Illuminate\\Database\\Eloquent",
+        "class Model",
+        "    public static function __callStatic($method, $parameters)\n    {\n    }\n",
+    );
+    let builder = class(
+        "Illuminate\\Database\\Eloquent",
+        "class Builder",
+        "    public function where($column, $value = null)\n    {\n    }\n",
+    );
+    let route = class("Illuminate\\Support\\Facades", "class Route", "");
+    let arr = class(
+        "Illuminate\\Support",
+        "class Arr",
+        "    public static function get($array, $key)\n    {\n    }\n",
+    );
+    let acme = class(
+        "Acme",
+        "class Helper",
+        "    public static function format(): void\n    {\n    }\n",
+    );
+    let eloquent = "vendor/laravel/framework/src/Illuminate/Database/Eloquent";
+    let files = [
+        (
+            "composer.json",
+            r#"{"autoload": {"psr-4": {"App\\": "app/"}}}"#,
+        ),
+        (".gitignore", "vendor/\n"),
+        ("app/Http/Subsonic/Caller.php", caller),
+        ("app/Http/Resources/AlbumResource.php", resources.as_str()),
+        ("app/Http/Subsonic/AlbumResource.php", subsonic.as_str()),
+        // Neither at its PSR-4 path nor in its namespace there.
+        ("app/Legacy/all.php", tune.as_str()),
+        ("app/Models/Disc.php", disc.as_str()),
+        ("app/Models/Track.php", track),
+        ("app/Support/Query.php", query.as_str()),
+        ("lib/Helper.php", helper.as_str()),
+        ("lib/show.php", global),
+        (&format!("{eloquent}/Model.php"), model.as_str()),
+        (&format!("{eloquent}/Builder.php"), builder.as_str()),
+        (
+            "vendor/laravel/framework/src/Illuminate/Support/Facades/Route.php",
+            route.as_str(),
+        ),
+        (
+            "vendor/laravel/framework/src/Illuminate/Support/Arr.php",
+            arr.as_str(),
+        ),
+        ("vendor/acme/pkg/src/Helper.php", acme.as_str()),
+    ];
+    let files: Vec<(&str, &str)> = files.iter().map(|(p, t)| (*p, *t)).collect();
+    for vendor in [false, true] {
+        let (dir, mut a) = project_app("php-psr4-fallback", &files);
+        if !vendor {
+            a.no_external();
+        }
+        let mut d = |file: &str, code: &str| {
+            d_on(&mut a, file, code);
+            shown(&mut a)
+        };
+        let caller = "app/Http/Subsonic/Caller.php";
+        let makes = [
+            (
+                "AlbumResource::make",
+                "app/Http/Resources/AlbumResource.php:6",
+            ),
+            (
+                "AlbumResource::make",
+                "app/Http/Subsonic/AlbumResource.php:6",
+            ),
+        ];
+        assert_eq!(
+            d(caller, "AlbumResource::make"),
+            picker("make: by name, 2 declarations", &makes),
+            "vendor: {vendor}"
+        );
+        assert_eq!(
+            d(caller, "Tune::play"),
+            jump(
+                "play \u{2192} Tune::play (by name, 1 match)",
+                "app/Legacy/all.php:6"
+            ),
+            "vendor: {vendor}"
+        );
+        assert_eq!(
+            d(caller, "Disc::spin"),
+            jump(
+                "spin \u{2192} Disc::spin (by name, 1 match)",
+                "app/Models/Disc.php:6"
+            ),
+            "vendor: {vendor}"
+        );
+        assert_eq!(
+            d(caller, "Track::where"),
+            jump(
+                "where \u{2192} Query::where (by name, 1 match)",
+                "app/Support/Query.php:6"
+            ),
+            "vendor: {vendor}"
+        );
+        assert_eq!(
+            d(caller, "Route::get"),
+            jump(
+                "get \u{2192} Caller::get (by name, 1 match)",
+                &format!("{caller}:12")
+            ),
+            "vendor: {vendor}"
+        );
+        assert_eq!(
+            d("lib/show.php", "Helper::format"),
+            jump(
+                "format \u{2192} Helper::format (via Helper)",
+                "lib/Helper.php:5"
+            ),
+            "vendor: {vendor}"
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+    // No composer.json: the `use` reads as on master, with `vendor/` or without.
+    let repo = "<?php\nnamespace App;\n\nuse Illuminate\\Support\\Arr;\n\nclass Repo\n{\n    public function get(): void\n    {\n        Arr::get([], 'x');\n    }\n}\n";
+    let (dir, mut a) = project_app(
+        "php-no-composer",
+        &[
+            (".gitignore", "vendor/\n"),
+            ("app/Repo.php", repo),
+            (
+                "vendor/laravel/framework/src/Illuminate/Support/Arr.php",
+                arr.as_str(),
+            ),
+        ],
+    );
+    d_on(&mut a, "app/Repo.php", "Arr::get");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "get \u{2192} Repo::get (by name, 1 match)",
+            "app/Repo.php:8"
+        )
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
