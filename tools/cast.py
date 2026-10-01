@@ -369,6 +369,8 @@ def main():
     save_gif(images, durations, args.out)
     if args.selftest:
         assert len(images) >= 5, "%d frames: the typing never reached merl" % len(images)
+        keys = [key for _, key, _ in frames]
+        assert "s" in keys and keys[-1] is None, "the keycap: %r" % keys
         written = Image.open(args.out)
         assert written.n_frames == len(images)
         written.seek(written.n_frames - 1)
