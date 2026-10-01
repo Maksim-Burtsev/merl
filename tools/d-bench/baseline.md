@@ -1,6 +1,6 @@
 # `d` bench baseline
 
-merl at `2af1537`, 2026-10-01, release build, `vm.loadavg` { 1.89 2.46 3.21 } before the run, { 1.85 2.40 3.04 } after. php (koel) again at `3d72d68c` (#351), `vm.loadavg` { 18.71 18.96 28.80 }: its times are high by that load.
+merl at `b8e99295`, 2026-10-01, release build, `vm.loadavg` { 4.94 7.28 14.63 } before the run, { 8.09 7.66 14.35 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
@@ -15,5 +15,5 @@ merl at `2af1537`, 2026-10-01, release build, `vm.loadavg` { 1.89 2.46 3.21 } be
 | swift (Alamofire) | 154 | 113 (73%) | 37 (24%) | 0 (0%) | 4 (3%) | 116 | 12.1 | 21.1 |
 | java (halo) | 37 | 34 (92%) | 3 (8%) | 0 (0%) | 0 (0%) | 43 | 38.9 | 84.1 |
 | kotlin (nowinandroid) | 30 | 30 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 50 | 19.8 | 35.0 |
-| csharp (eShop) | 27 | 19 (70%) | 8 (30%) | 0 (0%) | 0 (0%) | 53 | 14.4 | 38.8 |
+| csharp (eShop) | 27 | 23 (85%) | 4 (15%) | 0 (0%) | 0 (0%) | 53 | 22.7 | 44.5 |
 | ruby (mastodon) | 28 | 22 (79%) | 5 (18%) | 0 (0%) | 1 (4%) | 52 | 47.3 | 152.6 |
