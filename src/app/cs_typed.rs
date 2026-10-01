@@ -1,5 +1,7 @@
 //! C#'s typed lookup (#352): the type of a receiver as C# writes it, and of an object
-//! initializer, and the members that type declares.
+//! initializer, and the members that type declares. And what a C# name can reach: the projects
+//! its file compiles against (#349), the class around it first, a namespace on a `using` line,
+//! an overload that takes the call's arguments (#360).
 
 use super::*;
 
@@ -103,7 +105,12 @@ impl App {
         let (walked, outside) = match ty {
             CsType::Outside(name) => (vec![name.clone()], true),
             CsType::Project(t) => match self.cs_up(t, word, 0) {
-                Up::Found(hits) => return Some(CsAnswer::Found(receivers(hits, label))),
+                // An overload that cannot take the call's arguments is none (#360), unless none can.
+                Up::Found(hits) => {
+                    let fit = self.cs_fit(word, self.cs_args(), true, hits.clone());
+                    let hits = if fit.is_empty() { hits } else { fit };
+                    return Some(CsAnswer::Found(receivers(hits, label)));
+                }
                 Up::Outside(walked) => (walked, true),
                 Up::Missing(walked) => (walked, false),
                 Up::Unknown => return None,
@@ -371,6 +378,394 @@ impl App {
         };
         self.truncated.set(cut);
         found
+    }
+}
+
+impl App {
+    /// The projects a C# file `here` sees (#349); `None` for another kind, or when they cannot be
+    /// told and every file stays in sight.
+    pub(super) fn cs_sight(&self, kind: Kind, here: &Path) -> Option<search::CsProjects> {
+        if kind != Kind::CSharp {
+            return None;
+        }
+        search::cs_projects(&self.files, here, |p| {
+            std::fs::read_to_string(self.root.join(p)).ok()
+        })
+    }
+
+    /// Whether the C# project declares `name` in any form (#355): a rule of `d` matches it, or a
+    /// `namespace` line has it as one of its parts.
+    pub(super) fn cs_declares(&self, here: &Path, name: &str) -> bool {
+        let cut = self.truncated.get();
+        let n = regex::escape(name);
+        let pattern = search::def_patterns(Kind::CSharp, name).join("|");
+        let declared = !self
+            .project_definitions(Kind::CSharp, here, name, &pattern)
+            .is_empty()
+            || !self
+                .project_grep(
+                    Kind::CSharp,
+                    here,
+                    &format!(r"^\s*namespace\s+(?:[\w.]+\.)?{n}\b"),
+                )
+                .is_empty();
+        self.truncated.set(cut);
+        declared
+    }
+
+    /// A C# `Offer.Cut` whose qualifier is an `enum` of the project: the member its body lists
+    /// (#466). A bare `Cut` has no rule: in C# only a `using static` brings it in. The enum's
+    /// namespace has to be one this file sees, or a namesake the SDK brings in (MAUI's
+    /// `PermissionStatus`) would pass for the project's. `path` is the chain as written.
+    pub(super) fn cs_enum_member(
+        &self,
+        here: &Path,
+        text: &str,
+        chain: &[String],
+        word: &str,
+        path: &str,
+    ) -> Option<Vec<Candidate>> {
+        let kind = Kind::CSharp;
+        let owner = &chain[chain.len() - 1];
+        let owners = search::def_patterns(kind, owner).join("|");
+        let members: Vec<(Candidate, String)> = self
+            .project_definitions(kind, here, owner, &owners)
+            .into_iter()
+            .filter_map(|h| {
+                let text = self.text_of(&h.path)?;
+                let (line, col) = search::enum_member(kind, &text, h.line, word)?;
+                let hit = Hit {
+                    deleted: None,
+                    text: text.lines().nth(line - 1)?.to_owned(),
+                    path: h.path,
+                    line,
+                    col,
+                };
+                let reason = Reason::Path(path.to_owned());
+                Some((Candidate { hit, reason }, search::cs_namespace(&text, line)))
+            })
+            .collect();
+        let prefix = chain[..chain.len() - 1].join(".");
+        let inside = search::cs_namespace(text, self.line + 1);
+        let mut opened = search::cs_usings(text);
+        if !members.is_empty() {
+            // `global using` in any file of the `.csproj` this file is in, `<Using Include>` in
+            // that `.csproj`: a solution's other projects open their own.
+            let csproj = |d: &Path| {
+                self.files
+                    .iter()
+                    .any(|f| f.parent() == Some(d) && f.extension().is_some_and(|e| e == "csproj"))
+            };
+            let project = here
+                .ancestors()
+                .skip(1)
+                .find(|d| csproj(d))
+                .unwrap_or(Path::new(""));
+            let global = r#"^\u{feff}?\s*global\s+using\s+[\w.]+\s*;|<Using\s+Include=""#;
+            let files = |p: &Path| {
+                p.starts_with(project) && p.extension().is_some_and(|e| e == "cs" || e == "csproj")
+            };
+            for h in self.grep(global, false, false, files).unwrap_or_default() {
+                opened.extend(search::cs_usings(&h.text));
+            }
+        }
+        let sees = |ns: &String| match prefix.as_str() {
+            "" => {
+                ns.is_empty()
+                    || inside == *ns
+                    || inside.starts_with(&format!("{ns}."))
+                    || opened.contains(ns)
+            }
+            p => ns == p || ns.ends_with(&format!(".{p}")),
+        };
+        let named: Vec<Candidate> = members
+            .into_iter()
+            .filter(|(_, ns)| sees(ns))
+            .map(|(c, _)| c)
+            .collect();
+        if named.is_empty() {
+            self.truncated.set(false);
+            return None;
+        }
+        Some(named)
+    }
+
+    /// On a namespace segment (#360), the `namespace` lines in sight that declare that namespace
+    /// or one inside it, and never a type or a member. `None` off a segment, and in a `global::`
+    /// path that no namespace answers: its last name may be a type.
+    pub(super) fn cs_namespace_segment(
+        &self,
+        here: &Path,
+        range: &std::ops::Range<usize>,
+    ) -> Option<Vec<Candidate>> {
+        let (prefix, certain) =
+            search::cs_namespace_prefix(self.line_str(), range.start, range.end)?;
+        let p = regex::escape(&prefix);
+        let pattern = format!(r"^\u{{feff}}?\s*namespace\s+{p}(?:\.[\w.]+)?\s*[;{{]?\s*$");
+        let found: Vec<Candidate> = self
+            .project_grep(Kind::CSharp, here, &pattern)
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::ByName,
+            })
+            .collect();
+        (certain || !found.is_empty()).then_some(found)
+    }
+
+    /// A bare C# `word` inside a type (#360), looked up as C# resolves a simple name: in the type
+    /// around the cursor, a `partial` part of it, the bases its header names, walked up, then the
+    /// same for each type around that one. Only types count where a type stands. `Err` when none
+    /// declares it, with the names of the types walked, or `None` when a base the rules cannot
+    /// tell may declare it, or the cursor is in no type.
+    pub(super) fn cs_class_first(
+        &self,
+        here: &Path,
+        word: &str,
+        types_only: bool,
+    ) -> Result<Vec<Candidate>, Option<Vec<String>>> {
+        // A member an initializer sets, `new { Checked = c }`, is no name read in the type.
+        let line = self.line_str();
+        let (r, _) = self.definition_word(Some(Kind::CSharp)).ok_or(None)?;
+        let (before, after) = (line[..r.start].trim_end(), line[r.end..].trim_start());
+        if after.starts_with('=')
+            && !after.starts_with("==")
+            && !after.starts_with("=>")
+            && (before.ends_with(['{', ','])
+                || (before.is_empty() && !line.trim_end().ends_with(';')))
+        {
+            return Err(None);
+        }
+        let text = self.buf.lines.join("\n");
+        let lines: Vec<&str> = text.lines().collect();
+        let mut around = Vec::new();
+        let mut at = search::cs_owner(&text, self.line + 1);
+        while let Some(decl) = at.filter(|_| around.len() < 8) {
+            let (_, name) = search::cs_type_decl(lines[decl - 1]).ok_or(None)?;
+            around.push(Typed {
+                name,
+                path: here.to_path_buf(),
+                line: decl,
+            });
+            at = search::cs_owner(&text, decl);
+        }
+        if around.is_empty() {
+            return Err(None);
+        }
+        let types = Regex::new(&search::def_patterns(Kind::CSharp, word)[..2].join("|"))
+            .expect("an escaped name keeps the pattern valid");
+        let mut walked = Vec::new();
+        let mut unknown = false;
+        for ty in &around {
+            let mut hits = self.cs_walk(ty, word, 0, &mut walked, &mut unknown);
+            if types_only {
+                hits.retain(|h| types.is_match(&h.text));
+            }
+            // On a declaration of the name, its namesakes are offered, as before.
+            if hits
+                .iter()
+                .any(|h| h.path == here && h.line == self.line + 1)
+            {
+                return Err(None);
+            }
+            let hits = self.cs_fit(word, self.cs_args(), false, hits);
+            if !hits.is_empty() {
+                return Ok(hits
+                    .into_iter()
+                    .map(|hit| Candidate {
+                        hit,
+                        reason: Reason::Path(ty.name.clone()),
+                    })
+                    .collect());
+            }
+        }
+        Err((!unknown).then_some(walked))
+    }
+
+    /// `word` declared in `ty`, a `partial` part of it, or up the bases they name, nearest first;
+    /// every type passed is added to `walked`, and `unknown` set at a base the rules cannot tell.
+    fn cs_walk(
+        &self,
+        ty: &Typed,
+        word: &str,
+        depth: usize,
+        walked: &mut Vec<String>,
+        unknown: &mut bool,
+    ) -> Vec<Hit> {
+        walked.push(ty.name.clone());
+        let mut parts = vec![ty.clone()];
+        let Some(text) = self.text_of(&ty.path) else {
+            *unknown = true;
+            return Vec::new();
+        };
+        let partial = Regex::new(r"\bpartial\b").is_ok_and(|re| {
+            text.lines()
+                .nth(ty.line - 1)
+                .is_some_and(|l| re.is_match(l))
+        });
+        if partial {
+            let n = regex::escape(&ty.name);
+            let pattern =
+                format!(r"\bpartial\s+(?:record\s+)?(?:class|struct|interface|record)\s+{n}\b");
+            let cut = self.truncated.get();
+            for h in self.project_grep(Kind::CSharp, &ty.path, &pattern) {
+                if h.path != ty.path || h.line != ty.line {
+                    parts.push(Typed {
+                        name: ty.name.clone(),
+                        path: h.path,
+                        line: h.line,
+                    });
+                }
+            }
+            self.truncated.set(cut);
+        }
+        for part in &parts {
+            // A local of one of its methods is no member: another method does not see it.
+            let mut own = self.cs_members(part, word);
+            let text = self.text_of(&part.path).unwrap_or_default();
+            own.retain(|h| {
+                !matches!(
+                    search::cs_place(&text, h.line, word),
+                    search::CsPlace::Local { .. }
+                )
+            });
+            if !own.is_empty() {
+                return own;
+            }
+        }
+        // ponytail: eight levels up, which also ends a cycle.
+        if depth >= 8 {
+            *unknown = true;
+            return Vec::new();
+        }
+        for part in &parts {
+            let Some(text) = self.text_of(&part.path) else {
+                continue;
+            };
+            for base in search::cs_bases(&text, part.line) {
+                match self.cs_resolve(&part.path, &text, part.line, &base) {
+                    Some(CsType::Project(b)) if !walked.contains(&b.name) => {
+                        let found = self.cs_walk(&b, word, depth + 1, walked, unknown);
+                        if !found.is_empty() {
+                            return found;
+                        }
+                    }
+                    Some(CsType::Project(_)) => {}
+                    Some(CsType::Outside(name)) => walked.push(name),
+                    None => *unknown = true,
+                }
+            }
+        }
+        Vec::new()
+    }
+
+    /// Of `hits` for a C# `word`, those the cursor can reach. A private member from its own type
+    /// alone, a part of it this file declares included, and a local from its own method alone,
+    /// never behind a dot (#355). A method whose parameters cannot take the call's `args` is no
+    /// candidate (#360), nor, for a bare word whose types around were all `walked`, a member of
+    /// any other type: C# reaches it through a qualifier or a `using static` alone.
+    pub(super) fn cs_reachable(
+        &self,
+        here: &Path,
+        word: &str,
+        dotted: bool,
+        args: Option<usize>,
+        walked: Option<&[String]>,
+        hits: Vec<Hit>,
+    ) -> Vec<Hit> {
+        let mine: Vec<String> = self
+            .buf
+            .lines
+            .iter()
+            .filter_map(|l| search::cs_type_decl(l).map(|(_, name)| name))
+            .collect();
+        let statics = r"^\u{feff}?\s*(?:global\s+)?using\s+static\b";
+        let walked = walked.filter(|_| {
+            let cut = self.truncated.get();
+            let none = self.project_grep(Kind::CSharp, here, statics).is_empty()
+                && !self.buf.lines.iter().any(|l| l.contains("using static "));
+            self.truncated.set(cut);
+            none
+        });
+        let mut hits = hits;
+        hits.retain(|h| {
+            let place = self
+                .text_of(&h.path)
+                .map_or(search::CsPlace::Top, |t| search::cs_place(&t, h.line, word));
+            match place {
+                search::CsPlace::Member { owner, .. }
+                    if walked.is_some_and(|w| !w.contains(&owner)) =>
+                {
+                    false
+                }
+                search::CsPlace::Member {
+                    owner,
+                    private: true,
+                } => mine.contains(&owner),
+                search::CsPlace::Local { from, to } => {
+                    !dotted && h.path == here && (from..=to).contains(&(self.line + 1))
+                }
+                _ => true,
+            }
+        });
+        // A constructor yields to its type declared in its file (#360): a use names the type. On
+        // a declaration of the name, both stay its namesakes.
+        if !hits
+            .iter()
+            .any(|h| h.path == here && h.line == self.line + 1)
+        {
+            let patterns = search::def_patterns(Kind::CSharp, word);
+            let ty = Regex::new(&patterns[0]).expect("an escaped name keeps the pattern valid");
+            let ctor = Regex::new(&patterns[4]).expect("an escaped name keeps the pattern valid");
+            let typed: Vec<PathBuf> = (hits.iter())
+                .filter(|h| ty.is_match(&h.text))
+                .map(|h| h.path.clone())
+                .collect();
+            hits.retain(|h| {
+                ty.is_match(&h.text) || !ctor.is_match(&h.text) || !typed.contains(&h.path)
+            });
+        }
+        self.cs_fit(word, args, dotted, hits)
+    }
+
+    /// How many arguments the call of the C# word under the cursor passes (#360); `None` off a
+    /// call, or for a list not read.
+    pub(super) fn cs_args(&self) -> Option<usize> {
+        let (range, word) = self.definition_word(Some(Kind::CSharp))?;
+        // The name a declaration declares is followed by its parameters, not by arguments.
+        let declares = Regex::new(&search::def_patterns(Kind::CSharp, &word).join("|"))
+            .is_ok_and(|re| re.is_match(self.line_str()));
+        if declares && self.on_declared_name(Kind::CSharp, &word, true) {
+            return None;
+        }
+        search::cs_arguments(&self.buf.lines, self.line, range.end)
+    }
+
+    /// Of `hits` for a C# `word`, all but the methods whose parameters cannot take `args`
+    /// arguments (#360); an extension's `this` is passed by the receiver when `dotted`. A method
+    /// whose list is not read stays, and so does everything with no call to count.
+    pub(super) fn cs_fit(
+        &self,
+        word: &str,
+        args: Option<usize>,
+        dotted: bool,
+        hits: Vec<Hit>,
+    ) -> Vec<Hit> {
+        let Some(n) = args else {
+            return hits;
+        };
+        hits.into_iter()
+            .filter(|h| {
+                let Some(text) = self.text_of(&h.path) else {
+                    return true;
+                };
+                let Some((min, max, this)) = search::cs_parameters(&text, h.line, word) else {
+                    return true;
+                };
+                let by = usize::from(this && dotted);
+                n + by >= min && max.is_none_or(|m| n + by <= m)
+            })
+            .collect()
     }
 }
 

@@ -240,7 +240,7 @@ fn a_php_hash_comment_or_a_csharp_verbatim_backslash_hides_nothing() {
     d_on(&mut a, "a.cs", "{ Below");
     assert_eq!(
         shown(&mut a),
-        jump("Below \u{2192} A.Below (by name, 1 match)", "a.cs:3")
+        jump("Below \u{2192} A.Below (via A)", "a.cs:3")
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }

@@ -270,7 +270,11 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(r"^\s*(?:global\s+)?using\s+(?:unsafe\s+)?{w}\s*="),
                 // A constructor, behind at least one access modifier. With nothing in front,
                 // `Invoice(n);` is a call, so a bare name before `(` is never a declaration here.
-                format!(r"{access}{w}\s*\([^;]*\)\s*(?::\s*(?:base|this)\b.*)?[{{=]?\s*$"),
+                // Its body may stand on its line, `{ Id = id; }`, and its parameters wrap onto the
+                // lines below, past a `(` or a `,` at the end of this one (#360).
+                format!(
+                    r"{access}{w}\s*\((?:[^;]*\)\s*(?::\s*(?:base|this)\b.*)?[{{=]?|[^;{{}}]*\)\s*(?::\s*(?:base|this)\b[^{{]*)?\{{.*\}}|[^;)]*)\s*$"
+                ),
                 // A method, a property, an event and a field: the type, the name, and the `(` of
                 // the parameters, the `{` of the accessors, the `=>` of an expression body, the
                 // `=` of an initialiser, the `;` of a declaration with none — or the end of the

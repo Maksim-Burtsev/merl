@@ -30,7 +30,8 @@ public sealed class Coupons : IPriced
 {
     public int Rate() => 3;
     public int Price() => Rate();
-    //                    ^ d: picker src/Shop/Startup.cs:31, src/Shop/Pricing/Pricing.cs:19, src/Shop/Pricing/Pricing.cs:26; want src/Shop/Startup.cs:31 (#360)
+    //                    ^ d: src/Shop/Startup.cs:31
+    //                    status: via Coupons
 }
 
 public class Order

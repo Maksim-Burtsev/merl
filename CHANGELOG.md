@@ -127,6 +127,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   does not declare, a MAUI `Label`'s `Text` or an EF `DbContext`'s `SaveChangesAsync`, says `no
   definition` instead of offering or jumping to the project's namesakes, unless the project
   declares an extension method for it. (#352)
+- `d` in C# looks only in the projects a file compiles against: its own `.csproj` and the
+  projects that one references, `<ProjectReference>` items of a `Directory.Build.props` above it
+  included. In a solution of many projects, `new Address(…)` jumps to its own project's `Address`
+  instead of offering another project's namesake beside it. A file under no `.csproj` is seen
+  from everywhere; a script, two projects in one directory, a source file a `.csproj` pulls in
+  from outside its directory, a shared project and a reference that cannot be read keep the
+  whole repository in sight, as before. (#349)
+- `d` in C# reads a name as C# resolves it. A type where only a type can stand, `Buyer buyer`,
+  `new Address(`, `List<Buyer>`, `(Buyer)x` or a base in a class header, jumps to the type, not
+  to a property or a constructor named like it. A bare name in a class lands on what the class,
+  a `partial` part of it or a base it names declares, `IsBusyFor → ViewModelBase.IsBusyFor (via
+  OrderViewModel)`, before any namesake, and another class's member is never offered for it. A
+  segment of a `using` or `namespace` line offers the project's namespaces of that name and
+  nothing else, `no definition` when there are none. An overload that cannot take the call's
+  number of arguments is not offered. A constructor whose body stands on its line or whose
+  parameters wrap counts as a declaration, and a use of the type lands on the type, not on it.
+  They offered every declaration of the name. (#360)
 
 ### Fixed
 

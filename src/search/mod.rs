@@ -11,6 +11,7 @@
 mod bindings;
 mod c;
 mod csharp;
+mod csproj;
 mod defs;
 mod fields;
 mod grep;
@@ -33,6 +34,7 @@ mod words;
 pub use bindings::*;
 pub use c::*;
 pub use csharp::*;
+pub use csproj::*;
 pub use defs::*;
 pub use fields::*;
 pub use grep::*;

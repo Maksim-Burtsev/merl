@@ -205,3 +205,51 @@ fn a_partial_type_or_a_type_parameter_leaves_the_member_to_the_name() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// #349, the repro of the issue: a file of `Shop.App` sees its own project, not `Shop.Api`'s
+/// namesake, until `Shop.App.csproj` references `Shop.Api`.
+#[test]
+fn a_file_sees_its_own_project_and_the_ones_it_references() {
+    let files = |app: &'static str| {
+        [
+            (
+                "Shop.Api/Shop.Api.csproj",
+                r#"<Project Sdk="Microsoft.NET.Sdk"></Project>"#,
+            ),
+            ("Shop.App/Shop.App.csproj", app),
+            (
+                "Shop.Api/Address.cs",
+                "namespace Shop.Api;\npublic class Address\n{\n    public string Street { get; set; }\n}\n",
+            ),
+            (
+                "Shop.App/Address.cs",
+                "namespace Shop.App;\npublic class Address\n{\n    public string Street { get; set; }\n}\n",
+            ),
+            (
+                "Shop.App/Page.cs",
+                "namespace Shop.App;\npublic class Page\n{\n    public Address Home() => new Address { Street = \"Main\" };\n}\n",
+            ),
+        ]
+    };
+    let (dir, mut a) = cs_app(
+        "cs-projects",
+        &files(r#"<Project Sdk="Microsoft.NET.Sdk"></Project>"#),
+    );
+    d_on(&mut a, "Shop.App/Page.cs", "new |Address");
+    assert_eq!(
+        shown(&mut a),
+        jump("Address: by name, 1 match", "Shop.App/Address.cs:2")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    let (dir, mut a) = cs_app(
+        "cs-projects-referenced",
+        &files(
+            r#"<Project Sdk="Microsoft.NET.Sdk"><ItemGroup><ProjectReference Include="..\Shop.Api\Shop.Api.csproj" /></ItemGroup></Project>"#,
+        ),
+    );
+    d_on(&mut a, "Shop.App/Page.cs", "new |Address");
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(s, rows) if s.contains("2 declarations") && rows.len() == 2)
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
