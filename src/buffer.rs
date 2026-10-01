@@ -619,6 +619,9 @@ mod tests {
             ("ledger.hxx", "C++"),
             // Mapped by name above: bat's set gives `.h` to Objective-C.
             ("invoice.h", "C++"),
+            // bat's own grammars (#417).
+            ("Invoice.m", "Objective-C"),
+            ("Invoice.mm", "Objective-C++"),
         ] {
             for name in crate::theme::names() {
                 let theme = crate::theme::load(name).unwrap();
