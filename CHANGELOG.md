@@ -222,6 +222,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in Ruby on a method written `def User.build` inside `class User` names it `User.build` in
   the status line, and its parameter `User.build.arg`: the class was named twice,
   `User.User.build`. (#535)
+- `d` in C# on a constant after `is`, `Max` in `x is Max` with a `const int Max`, lands on the
+  constant when no type of that name is in sight. It said `no definition for Max`. (#581)
 
 ## [0.8.0] - 2026-10-01
 
