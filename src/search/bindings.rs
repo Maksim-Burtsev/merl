@@ -753,7 +753,7 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
     .expect("an escaped name keeps the pattern valid");
     while i > 0 {
         i -= 1;
-        let code = uncommented(kind, lines[i]);
+        let code = uncommented(kind, behind_doc(kind, lines[i]));
         let t = code.trim();
         let ind = indent(lines[i]);
         // A Go label, `scan:`, stands one level left of its statement, at column 0 in a function

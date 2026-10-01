@@ -1,6 +1,7 @@
 //! The types a JavaScript file writes in JSDoc (#347): `@type`, `@param`, `@returns`, and the
-//! fields of a `@typedef {Object}`. The caller reads them in `.js`, `.jsx`, `.mjs` and `.cjs`
-//! files only ([`jsdoc_file`]): a `.ts` file writes annotations.
+//! fields of a `@typedef {Object}`. They are read in `.js`, `.jsx`, `.mjs` and `.cjs` files only
+//! ([`reads_jsdoc`], which every reader of them asks): a `.ts` file writes annotations, and
+//! TypeScript ignores JSDoc types there.
 
 use std::ops::Range;
 use std::path::Path;
@@ -9,10 +10,25 @@ use regex::Regex;
 
 use super::*;
 
-/// Whether `path` is a JavaScript file, whose types JSDoc writes.
-pub fn jsdoc_file(path: &Path) -> bool {
-    path.extension()
-        .is_some_and(|e| matches!(e.to_str(), Some("js" | "jsx" | "mjs" | "cjs")))
+/// Whether the file `path` of `kind` is JavaScript, whose types JSDoc writes: the one test of
+/// every rule of this module.
+pub fn reads_jsdoc(kind: Kind, path: &Path) -> bool {
+    kind == Kind::TsJs
+        && path
+            .extension()
+            .is_some_and(|e| matches!(e.to_str(), Some("js" | "jsx" | "mjs" | "cjs")))
+}
+
+/// The `const`, `let` or `var` of a TypeScript or JavaScript `line` behind the block comment it
+/// opens with and closes on, `/** @type {T} */ let x;`: a declaration all the same. Any other
+/// line as it is, a comment.
+pub(super) fn behind_doc(kind: Kind, line: &str) -> &str {
+    let t = line.trim_start();
+    let declares = |c: &str| ["const ", "let ", "var "].iter().any(|k| c.starts_with(k));
+    match t.strip_prefix("/*").and_then(|c| c.split_once("*/")) {
+        Some((_, code)) if kind == Kind::TsJs && declares(code.trim_start()) => code,
+        _ => line,
+    }
 }
 
 /// The type inside a JSDoc tag's braces when it is one plain name, as an annotation is read:

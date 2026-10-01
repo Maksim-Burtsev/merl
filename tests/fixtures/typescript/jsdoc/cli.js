@@ -51,3 +51,24 @@ function refused(both, byName) {
 }
 
 module.exports = { run, styleOf, marks, refused };
+
+/** @typedef {import("./options").SpareFlags} SpareFlags */
+
+/**
+ * @param {SpareFlags} spare Lower case `object`, `@prop` and a default.
+ * @param {ParsedFlags} opts.flags A part of a parameter types nothing.
+ */
+function slots(spare, opts) {
+	/** @type {any} */
+	const loose = load();
+	/** @type {import("./options").ParsedFlags} */
+	const inline = load();
+	return spare.shortSlot + spare.longSlot + opts.warnLimit + loose.outStyle + inline.outStyle;
+	//           ^ d: jsdoc/options.js:14
+	//                             ^ d: jsdoc/options.js:15
+	//                                             ^ d: picker jsdoc/options.js:5, jsdoc/types/index.d.ts:3
+	//                                                               ^ d: picker jsdoc/options.js:6, jsdoc/types/index.d.ts:7
+	//                                                                                 ^ d: picker jsdoc/options.js:6, jsdoc/types/index.d.ts:7
+}
+
+module.exports.slots = slots;

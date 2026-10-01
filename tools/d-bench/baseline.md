@@ -1,12 +1,12 @@
 # `d` bench baseline
 
-merl at `6f87c952`, 2026-10-01, release build, `vm.loadavg` { 14.36 17.93 29.42 } before the run, { 14.36 17.93 29.42 } after.
+merl at `e1b6f126`, 2026-10-01, release build, `vm.loadavg` { 8.42 7.51 11.17 } before the run, { 8.42 7.51 11.17 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
 | python (paperless-ngx) | 215 | 175 (81%) | 21 (10%) | 0 (0%) | 19 (9%) | 55 | 15.3 | 945.9 |
 | ts (outline) | 122 | 109 (89%) | 8 (7%) | 1 (1%) | 4 (3%) | 178 | 48.5 | 116.9 |
-| js (eslint) | 147 | 119 (81%) | 21 (14%) | 0 (0%) | 7 (5%) | 123 | 53.0 | 1598.0 |
+| js (eslint) | 147 | 119 (81%) | 21 (14%) | 0 (0%) | 7 (5%) | 123 | 45.8 | 1546.3 |
 | go (caddy) | 229 | 224 (98%) | 3 (1%) | 0 (0%) | 2 (1%) | 41 | 6.2 | 14.8 |
 | rust (ripgrep) | 231 | 183 (79%) | 44 (19%) | 0 (0%) | 4 (2%) | 69 | 7.1 | 125.0 |
 | c (redis) | 250 | 226 (90%) | 24 (10%) | 0 (0%) | 0 (0%) | 20 | 36.9 | 118.9 |

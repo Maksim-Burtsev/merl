@@ -8,3 +8,9 @@
  */
 
 module.exports = {};
+
+/**
+ * @typedef {object} SpareFlags
+ * @prop {number} shortSlot The short tag.
+ * @property {string} [longSlot="x"] With a default.
+ */

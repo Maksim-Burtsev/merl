@@ -99,7 +99,8 @@ impl App {
         match kind {
             Kind::Php => search::php_tag_class(&lines, hit.line - 1).is_some(),
             Kind::TsJs => {
-                search::jsdoc_file(&hit.path) && search::jsdoc_owner(&lines, hit.line - 1).is_some()
+                search::reads_jsdoc(kind, &hit.path)
+                    && search::jsdoc_owner(&lines, hit.line - 1).is_some()
             }
             _ => false,
         }
@@ -266,11 +267,7 @@ impl App {
             return hits;
         };
         // A field is no declaration [`search::declares_where`] reads: a Go field is indented.
-        let mut raw = self.project_grep(kind, here, &fields.join("|"));
-        // A JSDoc `@property` declares a field in a JavaScript file only (#347).
-        raw.retain(|h| {
-            kind != Kind::TsJs || search::jsdoc_file(&h.path) || !h.text.contains("@prop")
-        });
+        let raw = self.project_grep(kind, here, &fields.join("|"));
         let mut by_file: Vec<(PathBuf, Vec<usize>)> = Vec::new();
         for h in raw {
             match by_file.last_mut() {
@@ -282,7 +279,8 @@ impl App {
             let Some(text) = self.text_of(&path) else {
                 continue;
             };
-            for line in search::field_rows(kind, &text, &lines, word) {
+            let jsdoc = search::reads_jsdoc(kind, &path);
+            for line in search::field_rows(kind, &text, &lines, word, jsdoc) {
                 if !hits.iter().any(|h| h.path == path && h.line == line) {
                     hits.push(Hit {
                         text: text.lines().nth(line - 1).unwrap_or_default().to_owned(),
