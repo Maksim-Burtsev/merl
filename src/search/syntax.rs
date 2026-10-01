@@ -87,6 +87,9 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
                 (false, false, false, false, &["#"])
             }
             Kind::Sql => (false, false, false, true, &["--", "//"]),
+            // PowerShell's `<# #>` and here-strings are its own forms, below; a backtick is its
+            // escape and its line continuation, never a template (#420).
+            Kind::PowerShell => (false, false, false, false, &["#"]),
             Kind::Terraform => (false, false, false, true, &["#", "//"]),
             // GraphQL writes its descriptions in `"""` block strings, and nothing else runs
             // over lines: no `'''`, no `/* */`, no backtick.
@@ -116,7 +119,8 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
     // does: the scan cannot follow a `"…"` inside `"$( … )"`, so a quote it carried over lines
     // would hide the rest of the file behind one misread, and what `eval '…'` holds the shell
     // does declare.
-    let word_comment = matches!(kind, Kind::Shell | Kind::Docker);
+    let word_comment = matches!(kind, Kind::Shell | Kind::Docker | Kind::PowerShell);
+    let powershell = kind == Kind::PowerShell;
     // Whether the scan of a PHP file is between `<?php` (or `<?=`) and `?>`.
     let mut php_code = false;
     let b = text.as_bytes();
@@ -263,8 +267,13 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
                 _ => *depth -= 1,
             }
         } else if let Some(q) = quote {
-            // A backslash escapes the next byte, but the end of a line is still one.
-            if c == b'\\' && b.get(i + 1) != Some(&b'\n') {
+            // A backslash escapes the next byte, but the end of a line is still one. PowerShell
+            // escapes with a backtick, and only in a `"…"`.
+            let escape = match powershell {
+                true => q == b'"' && c == b'`',
+                false => c == b'\\',
+            };
+            if escape && b.get(i + 1) != Some(&b'\n') {
                 i += 1;
             } else if c == q {
                 quote = None;
@@ -277,6 +286,26 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             // block with `"` only.
             block = Some(if c == b'"' { b"\"\"\"" } else { b"'''" }.into());
             i += 2;
+        } else if powershell && b[i..].starts_with(b"<#") {
+            block = Some(b"#>".into());
+            i += 1;
+        } else if powershell
+            && (b[i..].starts_with(b"@\"") || b[i..].starts_with(b"@'"))
+            && b[i + 2..]
+                .iter()
+                .take_while(|&&c| c != b'\n')
+                .all(|c| c.is_ascii_whitespace())
+        {
+            // A here-string, `@"` or `@'` at the end of its line, closes on the line that starts
+            // with `"@` or `'@`.
+            (block, label, exact) = (Some(b"".into()), vec![b[i + 1], b'@'], None);
+            i += 1;
+        } else if powershell && c == b'`' {
+            // An escape outside a string: `` `" `` opens nothing, `` `# `` no comment. At the end
+            // of a line it continues the line, and the line still ends.
+            if !matches!(b.get(i + 1), Some(b'\n' | b'\r')) {
+                i += 1;
+            }
         } else if verbatim_strings && (b[i..].starts_with(b"@\"") || b[i..].starts_with(b"@$\"")) {
             // `$@"` is read from its `@"`.
             block = Some(b"\"".into());

@@ -358,6 +358,9 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     // `name ()`, the form without the `function` keyword: a `function name` line is already
     // listed by [`SYMBOL_PATTERN`], and requiring no keyword here keeps it off the list twice.
     (Some(Kind::Shell), r"^\s*(?P<name>[A-Za-z_]\w*)\s*\(\s*\)"),
+    // A function and a filter under the whole `Verb-Noun` name, which the shared pattern cuts at
+    // its `-`; a class and an enum (#420).
+    (Some(Kind::PowerShell), POWERSHELL_SYMBOL),
     // Every `CREATE` object, with the name as written, schema and quotes included. CTEs are a
     // query's own scaffolding, not a symbol of the project, so they are left out.
     (Some(Kind::Sql), SQL_CREATE_SYMBOL),
@@ -430,7 +433,7 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     ),
 ];
 /// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C, C++, C#,
-/// Swift, PHP, Lua, Elixir, GraphQL and Protocol Buffers have rows of their own in [`SYMBOLS`],
+/// Swift, PHP, Lua, Elixir, GraphQL, Protocol Buffers and PowerShell have rows of their own in [`SYMBOLS`],
 /// written for what those languages declare and how they name it, so reading the all-language
 /// pattern over them too would list a declaration twice. Markdown has none: a declaration in a README's code block is
 /// an example, not one of the project, and a heading is prose that `s` finds (#421).
@@ -449,6 +452,7 @@ pub fn shared_symbols(kind: Option<Kind>) -> bool {
                 | Kind::Markdown
                 | Kind::Graphql
                 | Kind::Proto
+                | Kind::PowerShell
         )
     )
 }

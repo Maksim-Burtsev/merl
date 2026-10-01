@@ -973,6 +973,27 @@ mod tests {
     }
 
     #[test]
+    fn powershell_highlights_with_every_shipped_theme() {
+        let src = "# doc\nfunction Get-ShopUser {\n    param([string]$Id)\n    \"user $Id\"\n}\n";
+        // bat's PowerShell syntax covers each of these extensions (#420).
+        for file in ["a.ps1", "b.psm1", "c.psd1"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("PowerShell"),
+                    "{file} {name}"
+                );
+                b.highlight_to(4, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
     fn shown_clips_a_huge_line_on_a_char_boundary() {
         let text = "漢".repeat(MAX_SHOWN_BYTES / 3 + 1);
         let b = load(text.as_bytes());

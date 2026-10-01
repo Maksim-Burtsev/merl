@@ -74,21 +74,16 @@ impl App {
             self.definition_at_base(path, line);
             return;
         }
-        // The path of a GraphQL `#import` is the file it pastes in, `./` and `/` included.
-        if kind == Some(Kind::Graphql)
+        // The path of a GraphQL `#import` is the file it pastes in, `./` and `/` included, and
+        // so is a PowerShell dot-source's or `Import-Module`'s (#420).
+        if let Some(kind) = kind
             && let Some(here) = self.rel_current()
-            && let Some(module) = search::graphql_import(self.line_str(), self.col)
+            && let Some(module) = search::file_import(kind, self.line_str(), self.col)
         {
-            let module = module.to_owned();
-            let files = search::module_files(
-                Kind::Graphql,
-                &self.root,
-                &self.files,
-                &here,
-                std::slice::from_ref(&module),
-            );
+            let module = [module];
+            let files = search::module_files(kind, &self.root, &self.files, &here, &module);
             let found = self.module_candidates(files);
-            self.show_definitions(Kind::Graphql, &module, &here, found, None);
+            self.show_definitions(kind, &module[0], &here, found, None);
             return;
         }
         let Some((range, word)) = self.definition_word(kind) else {
@@ -106,12 +101,15 @@ impl App {
         };
         // Go's blank identifier names nothing: every `_` is a fresh discard (#476). Nor has a
         // GraphQL operation's `$variable` a rule: it is a parameter, and `$id` is no field `id`.
-        // A Java or Kotlin class literal, `Foo::class`, names no member `class` (#362).
+        // A Java or Kotlin class literal, `Foo::class`, names no member `class` (#362). A
+        // PowerShell `-Name` argument names a parameter of the command it is given to (#420).
         if (kind == Kind::Go && word == "_")
             || (kind == Kind::Graphql && self.line_str()[..range.start].ends_with('$'))
             || (kind == Kind::Jvm
                 && word == "class"
                 && self.line_str()[..range.start].ends_with("::"))
+            || (kind == Kind::PowerShell
+                && search::powershell_argument(&self.line_str()[..range.start]))
         {
             self.message = resolution(&word, None, &[], None, false);
             return;
@@ -456,19 +454,20 @@ impl App {
         // answer, and a function of the same name elsewhere is not.
         // In C a function on one line holds its parameter and its uses (#378). A Java or Kotlin
         // name bound earlier on the cursor's own line, `fun f(x: Int) = x`, is bound there
-        // (#376); behind a `::` the word is a member, whatever the qualifier is. A C# use past its
-        // declaration on the same line, a lambda's parameter inside that lambda, is bound there
-        // too (#345), and so is a Go parameter used in a body on its function's line (#524). A
-        // Rust local the cursor's own line binds is one too: a closure `|w| w`, an
-        // arm, the parameter or the `let` itself (#353). So is a Swift generic parameter used on
-        // its header's line, `func f<T>(_ x: T)` (#375).
+        // (#376), and so is a PowerShell one's (#420); behind a `::` the word is a member,
+        // whatever the qualifier is. A C# use past its declaration on the same line, a lambda's
+        // parameter inside that lambda, is bound there too (#345), and so is a Go parameter used
+        // in a body on its function's line (#524). A Rust local the cursor's own line binds is
+        // one too: a closure `|w| w`, an arm, the parameter or the `let` itself (#353). So is a
+        // Swift generic parameter used on its header's line, `func f<T>(_ x: T)` (#375).
         let on_itself = match kind {
             Kind::C => search::c_bindings_at(&text, self.line + 1, first)
                 .iter()
                 .all(|&(l, c)| l == self.line + 1 && c == range.start),
             _ => locals == [self.line + 1],
         };
-        let same_line = (kind == Kind::Jvm || (kind == Kind::Swift && !declared))
+        let same_line = (matches!(kind, Kind::Jvm | Kind::PowerShell)
+            || (kind == Kind::Swift && !declared))
             && locals == [self.line + 1]
             && whole_at(self.line_str(), &word, "").is_some_and(|at| at < range.start);
         let own_line = go_own
@@ -661,9 +660,7 @@ impl App {
         if kind == Kind::Elixir && dotted {
             patterns.retain(|p| !p.starts_with(r"^\s*@"));
         }
-        if kind == Kind::Php {
-            search::php_namespace_patterns(&mut patterns, &text, self.line_str(), range.clone());
-        }
+        search::narrow_patterns(kind, &mut patterns, &text, self.line_str(), range.clone());
         if patterns.is_empty() {
             self.message = self.no_rules();
             return;
@@ -1045,7 +1042,7 @@ impl App {
         if kind == Kind::TsJs
             && locals.is_empty()
             && let [global] = chain.as_slice()
-            && JS_GLOBALS.contains(&global.as_str())
+            && super::imported::JS_GLOBALS.contains(&global.as_str())
             && bound(&imports, global).is_none()
             && self
                 .project_definitions(
@@ -2885,25 +2882,3 @@ pub(super) fn resolution(
         format!("{word}: {n} declarations{note}")
     }
 }
-
-/// The JavaScript and DOM globals whose members TypeScript's lib and `@types/node` declare (#341).
-const JS_GLOBALS: &[&str] = &[
-    "JSON",
-    "Math",
-    "Object",
-    "Array",
-    "Promise",
-    "Reflect",
-    "Number",
-    "String",
-    "Date",
-    "RegExp",
-    "Symbol",
-    "Intl",
-    "console",
-    "document",
-    "window",
-    "navigator",
-    "globalThis",
-    "process",
-];

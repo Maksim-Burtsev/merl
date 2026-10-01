@@ -23,6 +23,8 @@ pub enum Kind {
     /// Protocol Buffers: `.proto` schemas, never the `.textproto` data they describe.
     Proto,
     Shell,
+    /// PowerShell scripts and modules; names ignore case in `d`, as the language does (#420).
+    PowerShell,
     Sql,
     Make,
     Terraform,
@@ -81,6 +83,8 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
             | ".profile",
             _,
         ) => Kind::Shell,
+        // A module manifest declares nothing, but `d` from its `FunctionsToExport` finds them.
+        (_, "ps1" | "psm1" | "psd1") => Kind::PowerShell,
         (_, "sql" | "psql" | "pgsql" | "mysql" | "ddl" | "dml") => Kind::Sql,
         ("Makefile" | "makefile" | "GNUmakefile", _) | (_, "mk") => Kind::Make,
         (_, "tf" | "tfvars") => Kind::Terraform,
@@ -109,7 +113,8 @@ fn cpp_library(path: &Path) -> bool {
 pub fn word_chars(kind: Option<Kind>, address: bool) -> &'static str {
     match kind {
         Some(Kind::Terraform) if address => "-.",
-        Some(Kind::Make | Kind::Terraform | Kind::Docker | Kind::Yaml) => "-",
+        // `Get-ShopUser` is one PowerShell name, for `d` and `u` alike (#420).
+        Some(Kind::Make | Kind::Terraform | Kind::Docker | Kind::Yaml | Kind::PowerShell) => "-",
         _ => "",
     }
 }

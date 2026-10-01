@@ -236,6 +236,7 @@ impl App {
             return Vec::new();
         };
         let mut patterns = search::def_patterns(kind, word);
+        self.powershell_spelling(kind, word, &mut patterns);
         patterns.extend(search::member_patterns(kind, word).unwrap_or_default());
         let Ok(re) = Regex::new(&patterns.join("|")) else {
             return Vec::new();

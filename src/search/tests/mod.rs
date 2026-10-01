@@ -13,6 +13,7 @@ mod grep;
 mod imports;
 mod links;
 mod other_languages;
+mod powershell;
 mod scope;
 mod symbols;
 mod types;

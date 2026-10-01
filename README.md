@@ -237,6 +237,7 @@ moment you open it. In Python, TypeScript and Go, `d` also follows the type of t
 | PHP | Composer's `vendor/` |
 | Zig | the standard library |
 | Protocol Buffers | the well-known types `protoc` installs |
+| PowerShell | the module directories of `PSModulePath` |
 | Java, Kotlin, Ruby, C#, Lua, Elixir | |
 | Shell, SQL, Makefile, Terraform, Dockerfile, YAML, GraphQL | |
 | Markdown | the file or the heading a link names, and a file a code span names |

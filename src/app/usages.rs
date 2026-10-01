@@ -161,7 +161,10 @@ impl App {
                 // A pattern that matched inside a docstring, a raw string or a block comment
                 // declares nothing, and neither does a line the lines around it make a use, as
                 // `d` reads them too; only a file with a match is read.
+                // A PowerShell line declares what the word's own spelling there allows (#420).
                 let declares = re.as_ref().is_some_and(|re| re.is_match(&h.text))
+                    && (kind != Some(Kind::PowerShell)
+                        || search::powershell_declares_here(&h.text, word))
                     && !literal
                         .entry((h.path.clone(), h.deleted.is_some()))
                         .or_insert_with(|| {
