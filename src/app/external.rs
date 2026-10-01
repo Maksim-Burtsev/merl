@@ -136,7 +136,13 @@ impl App {
             this.declaring(kind, word, this.external_grep(kind, files, pattern))
         };
         let Some(module) = module else {
-            return Some(by_name(grep(self, &all)));
+            let hits = grep(self, &all);
+            return Some(by_name(
+                match self.rel_current().filter(|_| kind == Kind::C) {
+                    Some(here) => self.c_near(&here, hits, |h| h),
+                    None => hits,
+                },
+            ));
         };
         // `from lib import pick` names something at the top of a module: a method called `pick`
         // is not it, however alone it stands (the real one may be native code).
@@ -524,17 +530,35 @@ impl App {
                 self.external.insert(kind, (roots, files));
             }
         }
-        if let Some((_, files)) = self.external.get(&kind) {
-            return files.clone();
+        let files = match self.external.get(&kind) {
+            Some((_, files)) => files.clone(),
+            None => {
+                let roots = search::external_roots(kind, &self.root);
+                let files = Arc::new(search::external_files(kind, &roots));
+                // No roots may be a toolchain that failed to answer this once: it is asked
+                // again on the next `d`, rather than leave the session without a standard
+                // library (#183).
+                if !roots.is_empty() {
+                    self.external.insert(kind, (roots, files.clone()));
+                }
+                files
+            }
+        };
+        // A `.c` file cannot include a C++ header: no `c++/` directory is its (#382).
+        match kind == Kind::C && self.c_source() {
+            true => Arc::new(
+                (files.iter())
+                    .filter(|f| !f.components().any(|c| c.as_os_str() == "c++"))
+                    .cloned()
+                    .collect(),
+            ),
+            false => files,
         }
-        let roots = search::external_roots(kind, &self.root);
-        let files = Arc::new(search::external_files(kind, &roots));
-        // No roots may be a toolchain that failed to answer this once: it is asked again on the
-        // next `d`, rather than leave the session without a standard library (#183).
-        if !roots.is_empty() {
-            self.external.insert(kind, (roots, files.clone()));
-        }
-        files
+    }
+
+    /// Whether the open file is C source, `.c`, which reads no C++ header.
+    pub(super) fn c_source(&self) -> bool {
+        (self.buf.path.as_deref()).is_some_and(|p| p.extension().is_some_and(|e| e == "c"))
     }
 
     /// The text of `path` as the search read it: the open file as it is on screen.

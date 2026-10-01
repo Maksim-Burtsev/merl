@@ -217,7 +217,11 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 // A function, and the out-of-line definition of a method (`Type::name(`). GNU
                 // style puts the return type on the line above, so the run before the name is
                 // optional: in column zero a bare `name(` is a declaration all the same.
-                format!(r"^(?:\w[^;(){{}}=]*[\s*&:])?{w}\s*\("),
+                // The run may hold one call of a reserved-name macro, `void *
+                // __sized_by_or_null(__size) malloc(` (#382).
+                format!(
+                    r"^(?:\w[^;(){{}}=]*(?:\b(?:__\w+|_[A-Z]\w*)\s*\([^()]*\)[^;(){{}}=]*)?[\s*&:])?{w}\s*\("
+                ),
                 // The same indented — a method in a class body, a function in an indented
                 // namespace — when the body opens on the line.
                 format!(r"^[^;(){{}}=]*\w[\s*&]+{w}\s*\([^;{{}}]*\)[^;{{}}=]*\{{"),
@@ -232,9 +236,14 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(r"^\s*(?:inline\s+)?namespace\s+(?:\w+::)*{w}\s*::"),
                 // `typedef unsigned long ull;`, `typedef int (*cb)(void);`, and the name a
                 // `typedef struct { … } client;` closes with, whose brace is in column zero: an
-                // indented one closes a nested anonymous struct, and that name is a field.
-                format!(r"^\s*typedef\s+[^;]*(?:\(\s*\*+\s*{w}\s*\)|\b{w}\s*(?:\[[^\]]*\])*\s*;)"),
-                format!(r"^\}}\s*[\w\s,*]*\b{w}\s*[,;]"),
+                // indented one closes a nested anonymous struct, and that name is a field. The
+                // run before a `typedef`'s name crosses no `{`: `typedef struct client { int
+                // flags; } client;` declares `client` alone (#382), by the brace's rule, which
+                // reads a body opened on the line from column zero.
+                format!(
+                    r"^\s*typedef\s+[^;{{]*(?:\(\s*\*+\s*{w}\s*\)|\b{w}\s*(?:\[[^\]]*\])*\s*;)"
+                ),
+                format!(r"^(?:\}}|[^\s{{}}][^{{}}]*\{{[^{{}}]*\}})\s*[\w\s,*]*\b{w}\s*[,;]"),
                 format!(r"^\s*(?:template\s*<[^>]*>\s*)?using\s+{w}\s*="),
                 // An object- or function-like macro.
                 format!(r"^\s*#\s*define\s+{w}\b"),

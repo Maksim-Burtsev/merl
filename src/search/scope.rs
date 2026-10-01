@@ -600,6 +600,7 @@ pub fn in_copy(path: &Path, copy: &[PathBuf]) -> bool {
 /// dependency.
 pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
     let go = kind == Kind::Go;
+    let real = real_dirs(dirs);
     let mut files = Vec::new();
     for dir in dirs {
         // Homebrew's Rust ships the sysroot `library` with a copy of itself inside; every
@@ -625,12 +626,63 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
             .build();
         files.extend(
             walk.filter_map(Result::ok)
-                .map(ignore::DirEntry::into_path)
-                .filter(|p| p.is_file() && kind_of(p) == Some(kind))
+                .map(|e| match kind == Kind::C && e.path_is_symlink() {
+                    true => c_spelled(e.path(), &real),
+                    false => e.into_path(),
+                })
+                .filter(|p| p.is_file() && (kind_of(p) == Some(kind) || cpp_library(kind, p)))
                 .filter(|p| !(go && p.to_string_lossy().ends_with("_test.go"))),
         );
     }
+    // A header linked under another name is one file, listed once (#382).
+    if kind == Kind::C {
+        let mut seen = std::collections::HashSet::new();
+        files.retain(|f| seen.insert(f.clone()));
+    }
     files
+}
+/// Whether `path` is a header of a C++ standard library with no extension, `c++/v1/string`
+/// or `c++/13/vector` (#382): libc++'s and libstdc++'s own are all named so.
+fn cpp_library(kind: Kind, path: &Path) -> bool {
+    let mut parts = path.parent().into_iter().flat_map(Path::components);
+    kind == Kind::C
+        && path.extension().is_none()
+        && parts.any(|c| c.as_os_str() == "c++")
+        && parts.next().is_some()
+}
+/// The C++ standard library directories under `roots`, `c++/v1` and `c++/<version>`, which a
+/// compiler searches for an `#include <…>` of a C++ file before the roots themselves.
+pub fn cpp_dirs(roots: &[PathBuf]) -> Vec<PathBuf> {
+    roots
+        .iter()
+        .flat_map(|r| {
+            std::fs::read_dir(r.join("c++"))
+                .into_iter()
+                .flatten()
+                .flatten()
+        })
+        .map(|e| e.path())
+        .filter(|d| d.is_dir())
+        .collect()
+}
+/// `path`, a file under one of `dirs`, as the walk of `dirs` spells it: through its links, under
+/// the directory its target lies in when that is one of `dirs`, so a header linked under a second
+/// name (`pthread.h` to `pthread/pthread.h`) is that header (#382). A link out of them keeps its
+/// own name: Homebrew's `include/` is links into its kegs.
+/// `dirs` are [`real_dirs`].
+pub fn c_spelled(path: &Path, dirs: &[(PathBuf, PathBuf)]) -> PathBuf {
+    let Ok(real) = path.canonicalize() else {
+        return path.to_path_buf();
+    };
+    dirs.iter()
+        .find_map(|(d, r)| Some(d.join(real.strip_prefix(r).ok()?)))
+        .unwrap_or_else(|| path.to_path_buf())
+}
+/// Each of `dirs` with the directory it is once its links are followed.
+pub fn real_dirs(dirs: &[PathBuf]) -> Vec<(PathBuf, PathBuf)> {
+    (dirs.iter())
+        .filter_map(|d| Some((d.clone(), d.canonicalize().ok()?)))
+        .collect()
 }
 /// The files a reader is shown last: tests, mocks, fixtures, generated code and vendored copies
 /// (#81). A row ending in `/` is a directory anywhere in the path; the rest match the file name,

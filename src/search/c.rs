@@ -8,6 +8,19 @@ use std::sync::LazyLock;
 
 use super::{Binding, Value};
 
+/// The files the `#include` lines of the C or C++ `text` name, as written, each with whether it
+/// is quoted, `"…"`, rather than `<…>`. A line under `#if` counts as any other: whichever branch
+/// a build takes, the file reaches no fewer headers.
+pub fn c_includes(text: &str) -> Vec<(String, bool)> {
+    static INCLUDE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r#"(?m)^[ \t]*#[ \t]*(?:include|include_next|import)[ \t]*([<"])([^>"\n]+)[>"]"#)
+            .unwrap()
+    });
+    (INCLUDE.captures_iter(text))
+        .map(|c| (c[2].trim().to_owned(), &c[1] == "\""))
+        .collect()
+}
+
 /// `text` of a C or C++ file as code alone: comments, string and character literals (raw strings
 /// included) and preprocessor lines with their continuations turned into spaces, the length and
 /// the line breaks kept, so a byte of it is the byte of `text` at the same place.

@@ -45,6 +45,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `d` in C and C++ looks outside the project in the headers the file includes first. On
+  `pthread_equal` it lands on `pthread/pthread.h`, one row where the header and a link to it
+  were two; `printf` no longer offers gettext's `libintl.h`, nor `s.append("x")` 148 methods
+  from headers `s.cc` never includes. A `.c` file reads no C++ header, libc++'s own headers
+  (`<string>`, `<mutex>`) are read, and `std::mutex` finds the class and `std::malloc` its
+  declaration, where they found none. A word no included header declares is searched by name, as before. (#382)
+
 - `d` in TypeScript and JavaScript finds a member behind an imported qualifier that no
   declaration pattern read: an enum member, `CollectionPermission.Admin` and `ImageStatus.ZOOMED`
   with no value, a static field, `TableCell.presetColors`, and a key of an exported `const`
@@ -145,6 +152,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   #564)
 
 ### Fixed
+
+- `d` in C reads no declaration inside a multi-line `#define`, and a one-line `typedef struct
+  client { int flags; } client;` declares `client` alone: `return flags;` and `return args;`
+  jump to the global they read instead of offering a macro's parameter or a struct's field.
+  (#382)
 
 - `d` in TypeScript and JavaScript on an arrow function's parameter itself, `crate` in
   `crates.map(crate => 0)`, offers a namesake elsewhere under "at a declaration", or stays on

@@ -263,7 +263,8 @@ impl App {
         if found.is_empty() {
             let files = self.external_files(Kind::C);
             let hits = self.external_grep(Kind::C, &files, &pattern);
-            found = self.c_member_rows(word, hits, called);
+            let rows = self.c_member_rows(word, hits, called);
+            found = self.c_near(here, rows, |(h, _)| h);
         }
         found
             .into_iter()
@@ -342,6 +343,138 @@ impl App {
             .collect()
     }
 
+    /// The headers the C or C++ file `here` reaches through its `#include` lines, followed from
+    /// header to header (#382): the project's relative to its root, those outside as their walk
+    /// spells them. A `"…"` names a file beside the one including it, else a project file whose
+    /// path ends so; a `<…>` a file under the roots outside (a C++ file's `c++/v1` first), and a
+    /// project file whose path ends so. The graph is read once a session, save the open file's.
+    pub(super) fn c_reached(&mut self, here: &Path) -> HashSet<PathBuf> {
+        self.external_files(Kind::C);
+        let source = self.c_source();
+        let roots = (self.external.get(&Kind::C))
+            .map(|(roots, _)| roots.clone())
+            .unwrap_or_default();
+        let dirs: Vec<PathBuf> = match source {
+            true => roots.clone(),
+            false => [search::cpp_dirs(&roots), roots.clone()].concat(),
+        };
+        let real = search::real_dirs(&roots);
+        let own: HashSet<&PathBuf> = self.files.iter().collect();
+        let mut by_name: HashMap<&std::ffi::OsStr, Vec<&PathBuf>> = HashMap::new();
+        for f in &self.files {
+            if let Some(name) = f.file_name() {
+                by_name.entry(name).or_default().push(f);
+            }
+        }
+        let edges = |text: &str, from: &Path| -> Vec<PathBuf> {
+            let mut out = Vec::new();
+            for (inc, quoted) in search::c_includes(text) {
+                let inc = Path::new(&inc);
+                let beside = from.parent().map(|d| normal(&d.join(inc)));
+                match beside {
+                    Some(b) if quoted && from.is_relative() && own.contains(&b) => {
+                        out.push(b);
+                        continue;
+                    }
+                    Some(b) if quoted && from.is_absolute() && b.is_file() => {
+                        out.push(search::c_spelled(&b, &real));
+                        continue;
+                    }
+                    _ => {}
+                }
+                let n = out.len();
+                if !quoted {
+                    // ponytail: every directory that has it, not the first: an `#include_next`
+                    // reaches the next one, and a wrapper of libc++ (`stdio.h`) the C one.
+                    out.extend(
+                        (dirs.iter().map(|d| d.join(inc)))
+                            .filter(|p| p.is_file())
+                            .map(|p| search::c_spelled(&p, &real)),
+                    );
+                }
+                // A system header is the system's, not a project file of its name deep in a
+                // dependency (jemalloc's `internal/assert.h`).
+                if out.len() == n {
+                    let suffix = inc.file_name().and_then(|n| by_name.get(n));
+                    let own = suffix.into_iter().flatten().filter(|f| f.ends_with(inc));
+                    out.extend(own.map(|f| (*f).clone()));
+                }
+            }
+            out
+        };
+        let mut reached = HashSet::new();
+        let mut queue = vec![here.to_path_buf()];
+        while let Some(file) = queue.pop() {
+            let next = match self.c_includes.get(&(file.clone(), source)) {
+                Some(next) if file != here => next.clone(),
+                _ => {
+                    let text = match file.is_absolute() {
+                        true => std::fs::read_to_string(&file).ok(),
+                        false => self.text_of(&file),
+                    };
+                    let next = Arc::new(edges(&text.unwrap_or_default(), &file));
+                    if file != here {
+                        self.c_includes.insert((file, source), next.clone());
+                    }
+                    next
+                }
+            };
+            for f in next.iter() {
+                if reached.insert(f.clone()) {
+                    queue.push(f.clone());
+                }
+            }
+        }
+        reached
+    }
+
+    /// Of `found` outside the project, those in the headers the C or C++ file `here` reaches,
+    /// when any is (#382): a header it does not include is no answer then. A line a comment or
+    /// a macro's body holds is none.
+    pub(super) fn c_near<T>(&mut self, here: &Path, found: Vec<T>, hit: fn(&T) -> &Hit) -> Vec<T> {
+        let reached = self.c_reached(here);
+        let mut literal = HashMap::new();
+        let near: Vec<bool> = (found.iter().map(hit))
+            .map(|h| reached.contains(&h.path) && self.c_code_line(&mut literal, h))
+            .collect();
+        if !near.contains(&true) {
+            return found;
+        }
+        let mut near = near.into_iter();
+        found
+            .into_iter()
+            .filter(|_| near.next() == Some(true))
+            .collect()
+    }
+
+    /// Whether `h` is on a line of code: what a raw string, a block comment or a macro's body
+    /// holds declares nothing ([`App::show_definitions`] drops it again, for every kind).
+    /// `literal` keeps each file's [`search::literal_lines`].
+    pub(super) fn c_code_line(&self, literal: &mut HashMap<PathBuf, Vec<bool>>, h: &Hit) -> bool {
+        let lines = literal.entry(h.path.clone()).or_insert_with(|| {
+            (self.text_of(&h.path)).map_or_else(Vec::new, |t| search::literal_lines(Kind::C, &t))
+        });
+        !lines.get(h.line - 1).copied().unwrap_or(false)
+    }
+
+    /// Of the project's `hits` for a word, those in headers the C or C++ file `here` does not
+    /// reach go when one it reaches declares the word (#382). A source file keeps its own, and
+    /// so does `here`.
+    pub(super) fn c_reached_only(&mut self, here: &Path, mut hits: Vec<Hit>) -> Vec<Hit> {
+        if !hits.iter().any(|h| c_header(&h.path) && h.path != here) {
+            return hits;
+        }
+        let reached = self.c_reached(here);
+        let near = |h: &Hit| h.path == here || !c_header(&h.path) || reached.contains(&h.path);
+        if hits
+            .iter()
+            .any(|h| h.path != here && c_header(&h.path) && near(h))
+        {
+            hits.retain(near);
+        }
+        hits
+    }
+
     /// Whether `hit` declares `word` as a type: a struct, union, enum or class tag, a namespace,
     /// a `typedef` or a `using` alias. A word followed by `->` or `.` is a value, none of these
     /// (#378).
@@ -358,6 +491,21 @@ struct CBody {
     text: String,
     code: String,
     open: usize,
+}
+
+/// `path` with its `.` and `..` resolved as written, no link followed.
+fn normal(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for c in path.components() {
+        match c {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                out.pop();
+            }
+            c => out.push(c),
+        }
+    }
+    out
 }
 
 /// Whether `path` is a C or C++ header.

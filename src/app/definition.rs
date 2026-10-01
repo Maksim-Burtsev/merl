@@ -1712,20 +1712,13 @@ impl App {
                     .filter(|h| !value || !Self::c_type_line(&word, h))
                     .collect();
                 let tag = ["struct", "union", "enum"].into_iter().any(keyword);
-                // What a raw string or a block comment holds declares nothing, and must not count
-                // as a second body or definition in the rules below (show_definitions drops it
-                // again, for every kind).
-                let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
-                let hits: Vec<Hit> = hits
-                    .into_iter()
-                    .filter(|h| {
-                        let lines = literal.entry(h.path.clone()).or_insert_with(|| {
-                            self.text_of(&h.path)
-                                .map_or_else(Vec::new, |t| search::literal_lines(kind, &t))
-                        });
-                        !lines.get(h.line - 1).copied().unwrap_or(false)
-                    })
+                // What a raw string, a block comment or a macro's body holds declares nothing,
+                // and must not count as a second body or definition in the rules below.
+                let mut literal = HashMap::new();
+                let hits: Vec<Hit> = (hits.into_iter())
+                    .filter(|h| self.c_code_line(&mut literal, h))
                     .collect();
+                let hits = self.c_reached_only(&here, hits);
                 let hits = search::c_type_rows(&word, hits, |p| self.text_of(p), construction, tag);
                 let on = hits
                     .iter()

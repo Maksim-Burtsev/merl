@@ -1298,6 +1298,107 @@ fn a_c_value_is_never_a_system_struct() {
     std::fs::remove_dir_all(&root).unwrap();
 }
 
+/// #382. Outside the project a C or C++ word is looked for in the headers the file includes
+/// first, and a header linked under a second name is one row. libc++'s headers have no extension
+/// and are read, never for a `.c` file; a class behind `_LIBCPP_` macros and a function behind a
+/// reserved-name macro call are declarations.
+#[test]
+fn c_outside_reads_what_the_file_includes() {
+    let (dir, mut a) = project_app(
+        "c-includes",
+        &[
+            (
+                "main.c",
+                "#include <pthread.h>\n#include <stdio.h>\n#include <stdlib.h>\n#include \"a.h\"\n\nint same(pthread_t a, pthread_t b) { return pthread_equal(a, b); }\nint p(void) { return printf(\"x\"); }\nvoid *x(void) { return malloc(1); }\nint s(void) { return shared(); }\nint z(void) { return mutex_init(); }\n",
+            ),
+            (
+                "other.c",
+                "int q(void) { return printf(\"y\"); }\nint t(void) { return shared(); }\nint e(void) { return pthread_equal(0, 0); }\n",
+            ),
+            ("a.h", "int shared(void);\n"),
+            ("b.h", "int shared(void);\n"),
+            (
+                "m.cc",
+                "#include <mutex>\nstd::mutex m;\nint y(void) { return mutex_init(); }\n",
+            ),
+        ],
+    );
+    let root = external_root(
+        "c-includes",
+        &[
+            (
+                "pthread/pthread.h",
+                "int pthread_equal(pthread_t, pthread_t);\n",
+            ),
+            ("stdio.h", "int printf(const char *, ...);\n"),
+            ("libintl.h", "int printf(const char *, ...);\n"),
+            (
+                "stdlib.h",
+                "void * __sized_by_or_null(__size) malloc(size_t __size);\n",
+            ),
+            (
+                "c++/v1/mutex",
+                "#include <__mutex/mutex.h>\nint mutex_init(void);\n",
+            ),
+            (
+                "c++/v1/__mutex/mutex.h",
+                "class _LIBCPP_EXPORTED_FROM_ABI _LIBCPP_CAPABILITY(\"mutex\") mutex {\npublic:\n    mutex() = default;\n};\n",
+            ),
+        ],
+    );
+    std::os::unix::fs::symlink("pthread/pthread.h", root.join("pthread.h")).unwrap();
+    use_roots(&mut a, Kind::C, std::slice::from_ref(&root));
+    let at = |f: &str, n: usize| format!("{}:{n}", root.join(f).display());
+    d_on(&mut a, "main.c", "return pthread_equal");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "pthread_equal: by name, 1 match",
+            &at("pthread/pthread.h", 1)
+        )
+    );
+    d_on(&mut a, "main.c", "return printf");
+    assert_eq!(
+        shown(&mut a),
+        jump("printf: by name, 1 match", &at("stdio.h", 1))
+    );
+    d_on(&mut a, "main.c", "return malloc");
+    assert_eq!(
+        shown(&mut a),
+        jump("malloc: by name, 1 match", &at("stdlib.h", 1))
+    );
+    d_on(&mut a, "main.c", "return shared");
+    assert_eq!(shown(&mut a), jump("shared: by name, 1 match", "a.h:1"));
+    // A `.c` file reads nothing under `c++/`.
+    d_on(&mut a, "main.c", "return mutex_init");
+    assert_eq!(a.message, "no definition for mutex_init");
+    d_on(&mut a, "m.cc", "std::mutex");
+    assert_eq!(
+        shown(&mut a),
+        jump("mutex: by name, 1 match", &at("c++/v1/__mutex/mutex.h", 1))
+    );
+    d_on(&mut a, "m.cc", "return mutex_init");
+    assert_eq!(
+        shown(&mut a),
+        jump("mutex_init: by name, 1 match", &at("c++/v1/mutex", 2))
+    );
+    // A file that includes none keeps every declaration, a header linked twice as one.
+    d_on(&mut a, "other.c", "return pthread_equal");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "pthread_equal: by name, 1 match",
+            &at("pthread/pthread.h", 1)
+        )
+    );
+    d_on(&mut a, "other.c", "return printf");
+    assert!(matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2));
+    d_on(&mut a, "other.c", "return shared");
+    assert!(matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2));
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
 /// PHP's `$x->name` is a member access (#348): a method for a call, a property otherwise, in the
 /// project and in `vendor/` alike, and never a local, a function or a class of the name.
 #[test]
