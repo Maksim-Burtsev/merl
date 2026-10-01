@@ -89,14 +89,14 @@ fn cmake_symbol_names() {
 
 #[test]
 fn cmake_literals_hide_declarations() {
-    let text = "#[[ comment\nfunction(a)\n]]\n#[==[ level\nfunction(b) ]]\n]==]\nset(X [=[\nfunction(c)\n]=])\nmessage(\"over\nfunction(d)\n\")\nfunction(e) # 'quote\nfunction(f)\n";
+    let text = "#[[ comment\nfunction(a)\n]]\n#[==[ level\nfunction(b) ]]\n]==]\nset(X [=[\nfunction(c)\n]=])\nmessage(\"over\nfunction(d)\n\")\nfunction(e) # 'quote\nfunction(f)\nstring(REPLACE \"\\\\\" \"/\" p ${p})\nfunction(g)\nmessage(\"a \\\" b\nfunction(h)\n\")\n";
     let hidden: Vec<usize> = literal_lines(Kind::Cmake, text)
         .iter()
         .enumerate()
         .filter(|(_, h)| **h)
         .map(|(i, _)| i + 1)
         .collect();
-    assert_eq!(hidden, [2, 3, 5, 6, 8, 9, 11, 12]);
+    assert_eq!(hidden, [2, 3, 5, 6, 8, 9, 11, 12, 18, 19]);
 }
 
 #[test]

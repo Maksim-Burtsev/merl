@@ -6,6 +6,7 @@ use super::*;
 
 mod annotated;
 mod budgets;
+mod cmake;
 mod cursor;
 mod d_bench;
 mod edit;

@@ -225,13 +225,8 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
                 && b[i..].starts_with(b"${")
                 && b[i - 1] != b'\\')
         {
-            // A long bracket closes on `]`, the `=` its opener carried, and `]`; a verbatim
-            // string on a `"` that no second `"` follows; a heredoc only on its label, above. A
-            // Go raw string has no escapes, so its backtick closes it whatever stands before
-            // (#325), as a verbatim string's `"` does (#475); a template's `\`` is a backtick
-            // inside it. A Rust string's `\` escapes the byte after it, a raw one's nothing.
             let doubled = verbatim && c == b'"' && b.get(i + 1) == Some(&b'"');
-            let escape = kind == Kind::Rust
+            let escape = matches!(kind, Kind::Rust | Kind::Cmake)
                 && !raw
                 && end == b"\""
                 && c == b'\\'
@@ -251,7 +246,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
                     && !doubled
                     && b[i..].starts_with(end)
                     && (end.len() > 1
-                        || matches!(kind, Kind::Go | Kind::Rust)
+                        || matches!(kind, Kind::Go | Kind::Rust | Kind::Cmake)
                         || verbatim
                         || b[i - 1] != b'\\')
             };
