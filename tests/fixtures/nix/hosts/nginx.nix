@@ -1,0 +1,1 @@
+{ ... }: { services.nginx.recommendedGzipSettings = true; }

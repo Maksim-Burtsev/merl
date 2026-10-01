@@ -26,6 +26,7 @@ mod navigate_receiver;
 mod navigate_ruby;
 mod navigate_rust;
 mod navigate_syntax;
+mod nix;
 mod no_panic;
 mod open;
 mod picker;

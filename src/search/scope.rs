@@ -33,6 +33,7 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::PowerShell
         | Kind::Dart
         | Kind::Cmake
+        | Kind::Nix
         | Kind::Sql
         | Kind::Make
         | Kind::Graphql
@@ -263,6 +264,7 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         Kind::Jvm
         | Kind::CSharp
         | Kind::Lua
+        | Kind::Nix
         | Kind::Elixir
         | Kind::Shell
         | Kind::Sql

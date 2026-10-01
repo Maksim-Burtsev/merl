@@ -356,6 +356,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
         // A Dart prefix or `show` name is [`dart_imports`]'s, which `d` reads in its own branch.
         | Kind::Dart
         | Kind::Cmake
+        | Kind::Nix
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform
@@ -884,6 +885,7 @@ pub fn module_files(
         | Kind::Css
         | Kind::Html => Vec::new(),
         // The path of an `#import`, a dot-source or an `Import-Module`, relative to the file.
+        Kind::Nix => nix_files(dir, &module.join("/"), files),
         Kind::Graphql | Kind::PowerShell => lexical(&dir.join(module.join("/")))
             .filter(|f| files.contains(f))
             .into_iter()
@@ -895,6 +897,7 @@ pub fn file_import(kind: Kind, line: &str, col: usize) -> Option<String> {
         Kind::Graphql => graphql_import(line, col).map(str::to_owned),
         Kind::PowerShell => powershell_import(line, col),
         Kind::Cmake => cmake_import(line, col).map(|(_, arg)| arg),
+        Kind::Nix => nix_path(line, col),
         _ => None,
     }
 }
