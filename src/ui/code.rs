@@ -27,16 +27,14 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     app.view_w = (area.width as usize).saturating_sub(gutter_w).max(1);
     app.view_h = area.height as usize;
     app.clamp_scroll();
-    // Wrapping only ever costs rows, so this covers every visible line.
-    app.buf.highlight_to(app.top_line + app.view_h, theme);
+    // Wrapping only ever costs rows, so this covers every visible line but those a fold pulls
+    // up from below.
+    let bottom = (app.top_line + app.view_h).max(app.bottom_line() + 1);
+    app.buf.highlight_to(bottom, theme);
     // Review: the ghosts on screen take their colours from the base file, highlighted as far as
     // the last of them. Base lines grow with the keys, so the last key on screen reaches furthest.
     if let Some((_, b)) = &mut app.base
-        && let Some((k, from)) = app
-            .diff
-            .ghost_from
-            .range(..=app.top_line + app.view_h)
-            .next_back()
+        && let Some((k, from)) = app.diff.ghost_from.range(..=bottom).next_back()
     {
         b.highlight_to(from + app.diff.ghosts.get(k).map_or(0, Vec::len), theme);
     }

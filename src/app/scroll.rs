@@ -9,7 +9,6 @@ const MAX_PINNED: usize = 2;
 impl App {
     /// Scrolls the minimum amount that puts the cursor back on screen.
     pub fn clamp_scroll(&mut self) {
-        self.reveal_cursor();
         // A wider or narrower pane wraps the top line into other rows (#412).
         self.clamp_top();
         self.clamp_left();
@@ -97,14 +96,19 @@ impl App {
         let end = self.buf.lines.len();
         if self.top_line != end || self.top_row >= self.ghost_rows(end) {
             self.top_line = self.top_line.min(end - 1);
-            // A fold closed over the top line: the view starts at the fold's first line.
-            if let Some(&(h, _)) =
-                (self.collapsed.iter()).find(|&&(h, e)| h < self.top_line && self.top_line <= e)
-            {
-                (self.top_line, self.top_row) = (h, 0);
+            // A fold closed over the top line: the view starts at the fold's first line, which
+            // is shown, as line 0 always is.
+            while self.hidden(self.top_line) {
+                (self.top_line, self.top_row) = (self.top_line - 1, 0);
             }
             self.top_row = self.top_row.min(self.row_count(self.top_line) - 1);
         }
+    }
+
+    /// The last file line on the pane, folds stepped over.
+    pub fn bottom_line(&self) -> usize {
+        let rows = self.view_h.saturating_sub(1);
+        self.forward_rows((self.top_line, self.top_row), rows).0
     }
 
     /// Puts the cursor in the middle of the rows of code, under the lines pinned for the top

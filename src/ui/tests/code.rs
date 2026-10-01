@@ -1605,3 +1605,34 @@ fn a_binary_file_is_an_empty_pane_with_a_centred_note() {
     assert_eq!(x, (60 - note.len() as u16) / 2);
     assert_eq!(buf[(x, 3)].fg, theme.ghost_fg);
 }
+
+/// A folded line ends in `⋯` and the `}` that closes it, and the lines a fold pulls up from
+/// below the first screen come in their syntax colours (#598).
+#[test]
+fn a_fold_draws_its_tail_and_the_lines_under_it_in_colour() {
+    let body: String = (0..30).map(|i| format!("    let x{i} = {i};\n")).collect();
+    let text = format!("fn f() {{\n{body}}}\nfn g() {{}}\n");
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/demo/f.rs"), text.as_bytes()),
+        None,
+    );
+    app.show_tree = false;
+    app.key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE));
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(30, 6)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(
+        rows(&terminal)[..2],
+        ["1 fn f() { \u{22ef} }", "33 fn g() {}"]
+    );
+    // `fn` of line 33 in the keyword colour, not the plain text one.
+    let buf = terminal.backend().buffer();
+    assert_ne!(
+        buf[(3, 1)].fg,
+        buf[(6, 1)].fg,
+        "line 33 is drawn uncoloured"
+    );
+}

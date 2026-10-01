@@ -21,7 +21,9 @@ impl App {
         }
         let from = (work && self.session.is_some()).then(|| self.review_spot());
         let quit = self.key_inner(key);
-        self.reveal_cursor();
+        if self.mode != Mode::Find {
+            self.reveal_cursor();
+        }
         let action = self.action.take();
         if let Some(from) = from {
             self.review_count(Some(at), from, action, quit);

@@ -13,7 +13,7 @@ impl App {
     /// the next line; else the declaration the cursor is in, the one the pane pins over the text
     /// (#248); else the innermost block around the cursor. The cursor goes to the folded line.
     pub(super) fn toggle_collapse(&mut self) {
-        if self.deleted.is_some() || self.preview.is_some() {
+        if self.deleted.is_some() || self.previewing() {
             return;
         }
         let l = self.line;
@@ -44,15 +44,20 @@ impl App {
         };
         let end = block_end(lines, h).unwrap();
         self.collapsed.push((h, end));
-        self.collapsed.sort_unstable();
+        self.nest_collapsed();
         self.anchor = None;
         self.set_at(TextLine::File(h));
         self.apply_want_x(0);
     }
 
-    /// Whether file line `l` is inside a fold: drawn in no row, stepped over by the cursor.
+    /// Whether file line `l` is inside a fold: drawn in no row, stepped over by the cursor. A
+    /// fold the cursor stands inside shows open: `/` passing through it on the way to a match,
+    /// the missed-key judge replaying a shortcut. It opens for good only where the cursor comes
+    /// to rest ([`App::reveal_cursor`]).
     pub fn hidden(&self, l: usize) -> bool {
-        self.collapsed.iter().any(|&(h, e)| h < l && l <= e)
+        let at = self.at().key();
+        let inside = |l: usize, (h, e): (usize, usize)| h < l && l <= e;
+        (self.collapsed.iter()).any(|&f| inside(l, f) && !inside(at, f))
     }
 
     /// What the pane draws after the folded line `l`, behind its `⋯`: the bracket or `end` that
@@ -73,27 +78,31 @@ impl App {
     }
 
     /// Opens every fold the cursor's line is hidden in: whatever brought it there (`:`, `/`,
-    /// `d`, `[`, an undo) meant to show that line.
+    /// `d`, `[`, an undo) meant to show that line. Called once a key is done, not while `/` is
+    /// still looking.
     pub(super) fn reveal_cursor(&mut self) {
-        let l = self.at().key();
+        self.unfold_over(self.at().key());
+    }
+
+    /// Opens every fold line `l` is hidden in.
+    pub(super) fn unfold_over(&mut self, l: usize) {
         self.collapsed.retain(|&(h, e)| !(h < l && l <= e));
     }
 
-    /// After `old` lines from `at` on became `new` lines: the folds below move with their text,
-    /// one whose first line was edited opens, and every fold is measured again, since its body
-    /// may have changed.
+    /// After `old` lines from `at` on became `new` lines: the folds above stay, those below move
+    /// with their text, one whose first line was edited opens, and one whose hidden lines were
+    /// changed (an undo, a selection taken through it) is measured again. A fold never grows over
+    /// a line typed under it.
     pub(super) fn shift_collapsed(&mut self, at: usize, old: usize, new: usize) {
-        let moved = |h: usize| match h {
-            h if h < at => Some(h),
-            h if h < at + old => None,
-            h => Some(h + new - old),
+        let lines = &self.buf.lines;
+        let moved = |(h, e): (usize, usize)| match () {
+            _ if (at..at + old).contains(&h) => None,
+            _ if e < at => Some((h, e)),
+            _ if h >= at + old => Some((h + new - old, e + new - old)),
+            _ => Some((h, block_end(lines, h)?)),
         };
-        let heads: Vec<usize> = self
-            .collapsed
-            .iter()
-            .filter_map(|&(h, _)| moved(h))
-            .collect();
-        self.measure_collapsed(heads);
+        self.collapsed = self.collapsed.iter().filter_map(|&f| moved(f)).collect();
+        self.nest_collapsed();
     }
 
     /// The folds of a file whose text was replaced by `old` → the buffer (a reload): each one
@@ -131,6 +140,24 @@ impl App {
             .into_iter()
             .filter_map(|h| Some((h, block_end(&self.buf.lines, h)?)))
             .collect();
+        self.nest_collapsed();
+    }
+
+    /// The folds sorted, one per first line, and nested: a fold that starts inside another and
+    /// ends past it makes the outer one end there too, so every fold's first line is shown or
+    /// hidden by a fold around it, never cut through.
+    fn nest_collapsed(&mut self) {
+        self.collapsed.sort_unstable();
+        self.collapsed.dedup_by_key(|f| f.0);
+        for i in (0..self.collapsed.len()).rev() {
+            let (h, mut e) = self.collapsed[i];
+            for &(h2, e2) in &self.collapsed[i + 1..] {
+                if h2 <= e {
+                    e = e.max(e2);
+                }
+            }
+            self.collapsed[i] = (h, e);
+        }
     }
 }
 
