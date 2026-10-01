@@ -456,11 +456,14 @@ or in a trait's own body, a trait or a parent the project declares twice with no
 choose, and a walk that finds nothing inside the project leave the word to the search by name.
 
 A PHP class name, and `Class::word`, follow Composer's PSR-4 map (#351): the `autoload.psr-4` and
-`autoload-dev.psr-4` of the nearest `composer.json` above the file, read and never run. Where PHP
+`autoload-dev.psr-4` of every `composer.json` above the file, read and never run: in a monorepo a
+package's own file first, then the root's for what it does not map (#579). Where PHP
 reads a class name (before `::`, after `new`, `extends`, `implements`, `instanceof` or `catch (`,
 a type hint, a return type, the last part of a `use` line), the name resolves as PHP resolves it:
 through the file's column-0 `use` (`use A\B\C;`, `use A\B\C as D;`), else a leading `\` spells it in
-full, else the file's `namespace` goes in front of it. A name a group `use A\{B, C}` binds is
+full, else the file's `namespace` goes in front of it. In a file of several `namespace` blocks
+the `use` lines and the namespace are those of the block the name is in, and `<?php namespace X;`
+on one line declares one (#579). A name a group `use A\{B, C}` binds is
 left to the search by name, `use function` and `use const` bind no class, and a function or a
 constant keeps the search by name, since PHP falls back to the global namespace for those. The map names the file, `App\Models\Song` in
 `app/Models/Song.php`; when that file declares the class, `d` lands on it, `Song: via import
