@@ -630,7 +630,7 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
                     true => c_spelled(e.path(), &real),
                     false => e.into_path(),
                 })
-                .filter(|p| p.is_file() && (kind_of(p) == Some(kind) || cpp_library(kind, p)))
+                .filter(|p| p.is_file() && kind_of(p) == Some(kind))
                 .filter(|p| !(go && p.to_string_lossy().ends_with("_test.go"))),
         );
     }
@@ -640,15 +640,6 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
         files.retain(|f| seen.insert(f.clone()));
     }
     files
-}
-/// Whether `path` is a header of a C++ standard library with no extension, `c++/v1/string`
-/// or `c++/13/vector` (#382): libc++'s and libstdc++'s own are all named so.
-fn cpp_library(kind: Kind, path: &Path) -> bool {
-    let mut parts = path.parent().into_iter().flat_map(Path::components);
-    kind == Kind::C
-        && path.extension().is_none()
-        && parts.any(|c| c.as_os_str() == "c++")
-        && parts.next().is_some()
 }
 /// The C++ standard library directories under `roots`, `c++/v1` and `c++/<version>`, which a
 /// compiler searches for an `#include <…>` of a C++ file before the roots themselves.

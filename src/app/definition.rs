@@ -1670,8 +1670,8 @@ impl App {
                 let hits: Vec<Hit> = (hits.into_iter())
                     .filter(|h| self.c_code_line(&mut literal, h))
                     .collect();
-                let hits = self.c_reached_only(&here, hits);
                 let hits = search::c_type_rows(&word, hits, |p| self.text_of(p), construction, tag);
+                let hits = self.c_reached_only(&here, &word, hits);
                 let on = hits
                     .iter()
                     .any(|h| h.path == here && h.line == self.line + 1);

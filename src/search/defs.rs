@@ -220,7 +220,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 // The run may hold one call of a reserved-name macro, `void *
                 // __sized_by_or_null(__size) malloc(` (#382).
                 format!(
-                    r"^(?:\w[^;(){{}}=]*(?:\b(?:__\w+|_[A-Z]\w*)\s*\([^()]*\)[^;(){{}}=]*)?[\s*&:])?{w}\s*\("
+                    r"^(?:\w[^;(){{}}=]*(?:\b(?:__\w+|_[A-Z][A-Z0-9_]*)\s*\([^()]*\)[^;(){{}}=]*)?[\s*&:])?{w}\s*\("
                 ),
                 // The same indented — a method in a class body, a function in an indented
                 // namespace — when the body opens on the line.
@@ -239,11 +239,14 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 // indented one closes a nested anonymous struct, and that name is a field. The
                 // run before a `typedef`'s name crosses no `{`: `typedef struct client { int
                 // flags; } client;` declares `client` alone (#382), by the brace's rule, which
-                // reads a body opened on the line from column zero.
+                // reads a body opened on the line from column zero, or behind a `typedef` at any
+                // indentation (one in a class body).
                 format!(
                     r"^\s*typedef\s+[^;{{]*(?:\(\s*\*+\s*{w}\s*\)|\b{w}\s*(?:\[[^\]]*\])*\s*;)"
                 ),
-                format!(r"^(?:\}}|[^\s{{}}][^{{}}]*\{{[^{{}}]*\}})\s*[\w\s,*]*\b{w}\s*[,;]"),
+                format!(
+                    r"^(?:\}}|(?:[^\s{{}}]|\s*typedef\b)[^{{}}]*\{{[^{{}}]*\}})\s*[\w\s,*]*\b{w}\s*[,;]"
+                ),
                 format!(r"^\s*(?:template\s*<[^>]*>\s*)?using\s+{w}\s*="),
                 // An object- or function-like macro.
                 format!(r"^\s*#\s*define\s+{w}\b"),
@@ -650,7 +653,8 @@ fn in_unnamed_namespace(text: &str, line: usize) -> bool {
     let literal = literal_lines(Kind::C, text);
     let (mut open, mut unnamed) = (Vec::new(), false);
     for (i, l) in text.lines().enumerate().take(line.saturating_sub(1)) {
-        if literal.get(i).copied().unwrap_or(false) {
+        // A brace of a `#define` is the macro's, its body hidden as a literal (#382).
+        if literal.get(i).copied().unwrap_or(false) || l.trim_start().starts_with('#') {
             continue;
         }
         unnamed |= UNNAMED.is_match(l);
@@ -781,6 +785,36 @@ pub fn c_one_definition(
         (false, _) => "declarations",
     };
     Some((at, format!("1 definition, {n} {what}")))
+}
+/// Whether 1-based `line` of the C or C++ `text` only declares `word`, defined elsewhere: a
+/// forward declaration `struct conn;`, a prototype `int f(int);`, an `extern` variable (#382).
+pub fn c_declaration_only(word: &str, text: &str, line: usize) -> bool {
+    let w = regex::escape(word);
+    let re = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let Some(l) = text.lines().nth(line.saturating_sub(1)) else {
+        return false;
+    };
+    let forward = re(format!(
+        r"^\s*(?:template\s*<[^>]*>\s*)?(?:class|struct|union|enum)\s+(?:\w+\s+)*{w}\s*;"
+    ));
+    if forward.is_match(l) || (l.trim_start().starts_with("extern ") && !l.contains('(')) {
+        return true;
+    }
+    let Some(m) = re(format!(r"\b{w}\s*\(")).find(l) else {
+        return false;
+    };
+    let s: String = text
+        .lines()
+        .skip(line - 1)
+        .take(30)
+        .collect::<Vec<_>>()
+        .join("\n");
+    let Some(close) = close_of(Kind::C, &s, m.end() - 1) else {
+        return false;
+    };
+    code(Kind::C, &s[close..])
+        .find(|(_, c)| matches!(c, b'{' | b';'))
+        .is_some_and(|(_, c)| c == b';')
 }
 /// Whether `word` is a parameter of the C function 1-based `line` of `text` stands in: named
 /// after the `(` of the nearest line above in column zero that opens no brace of its own, as

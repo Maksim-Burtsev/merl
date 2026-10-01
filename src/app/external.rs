@@ -136,11 +136,10 @@ impl App {
             this.declaring(kind, word, this.external_grep(kind, files, pattern))
         };
         let Some(module) = module else {
-            let hits = grep(self, &all);
             return Some(by_name(
                 match self.rel_current().filter(|_| kind == Kind::C) {
-                    Some(here) => self.c_near(&here, hits, |h| h),
-                    None => hits,
+                    Some(here) => self.c_outside(&here, &all, |h| h, grep),
+                    None => grep(self, &all),
                 },
             ));
         };
