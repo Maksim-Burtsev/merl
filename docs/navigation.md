@@ -605,8 +605,11 @@ src/components/UserCard.vue`. A name in the template (`{{ label }}`, `@click="sa
 `{label}`) is looked up as from the script. A name the template binds is a local of the file:
 Vue's `v-for`, `v-slot` and `#slot="{ item }"`, Svelte's `{#each … as item, i}`, `{:then value}`,
 `{:catch error}`, `let:item`, `{@const total = …}` and the parameters of `{#snippet row(item)}`;
-several lines binding it are a picker. A tag no import binds, `<UserCard>` or `<user-card>` (a
-global or auto-imported component), finds the component file of that name, by name.
+several lines binding it are a picker, and so is a binding of the same name at the top of the
+script, since the element a binding is scoped to is not read. A tag no import binds, `<UserCard>`
+or `<user-card>` (a global or auto-imported component), finds the component file of that name, by
+name, or else the script's own `const` of it (`defineAsyncComponent`). A word in the `<style>`
+block names nothing.
 
 In Makefiles, Terraform, Dockerfiles, YAML and PowerShell a `-` is part of the word under the cursor, and `d`
 in Terraform reads the whole dotted address, so it works from anywhere in `aws_s3_bucket.logs.id`.

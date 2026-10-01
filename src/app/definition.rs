@@ -2389,12 +2389,10 @@ impl App {
             });
         }
         if found.len() <= 500 {
-            let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
+            let mut literal: HashMap<(PathBuf, bool), Vec<bool>> = HashMap::new();
             found.retain(|c| {
-                let lines = literal.entry(c.hit.path.clone()).or_insert_with(|| {
-                    self.text_of(&c.hit.path)
-                        .map_or_else(Vec::new, |t| search::hidden_lines(kind, &c.hit.path, &t))
-                });
+                let lines = (literal.entry((c.hit.path.clone(), c.hit.deleted.is_some())))
+                    .or_insert_with(|| self.hidden_now(kind, &c.hit));
                 // `register<` over its type arguments over `>(1);` is a call prettier wrapped.
                 // A type's header wrapped so declares the type: `class User extends Model<`,
                 // `export interface Context<` (#331).

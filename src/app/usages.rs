@@ -170,11 +170,7 @@ impl App {
                         || search::powershell_declares_here(&h.text, word))
                     && !literal
                         .entry((h.path.clone(), h.deleted.is_some()))
-                        .or_insert_with(|| {
-                            kind.zip(self.hit_text(&h)).map_or_else(Vec::new, |(k, t)| {
-                                search::hidden_lines(k, &h.path, &t)
-                            })
-                        })
+                        .or_insert_with(|| kind.map_or_else(Vec::new, |k| self.hidden_of(k, &h)))
                         .get(h.line - 1)
                         .copied()
                         .unwrap_or(false)

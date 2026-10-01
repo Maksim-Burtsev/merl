@@ -3,3 +3,5 @@ export function formatName(first: string, last: string): string {
 }
 
 export const greeting = "hello";
+
+export const color = "red";

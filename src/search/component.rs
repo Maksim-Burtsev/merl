@@ -31,7 +31,8 @@ pub fn script_lines(path: &Path, text: &str) -> Option<Vec<bool>> {
     let mut at = At::Out;
     let mut out = Vec::new();
     for (i, line) in text.lines().enumerate() {
-        let t = line.trim();
+        // A file saved with a BOM opens with it, read from the disk.
+        let t = line.trim().trim_start_matches('\u{feff}');
         let code = match at {
             At::Out if astro && i == 0 && t == "---" => {
                 at = At::Front;
@@ -95,17 +96,17 @@ pub fn script_text<'a>(path: &Path, text: &'a str, cursor: Option<usize>) -> Cow
         });
     Cow::Owned(lines.collect::<Vec<_>>().join("\n"))
 }
-/// [`literal_lines`] of a file's text as [`script_text`] gave it, with a component's lines
-/// outside its script hidden too: those the mask left blank that a grep found a word on. Its
-/// first line stays, a tag or a fence no pattern declares by: there `d` lands on the file
-/// itself.
+/// The lines of `text`, a file as it is, where a declaration-shaped line declares nothing:
+/// [`literal_lines`], and in a component every line outside its script but the first, a tag or
+/// a fence no pattern declares by, where `d` lands on the file itself.
 pub fn hidden_lines(kind: Kind, path: &Path, text: &str) -> Vec<bool> {
-    let mut out = literal_lines(kind, text);
-    if component(path) {
-        out.resize(text.lines().count(), false);
-        for (i, (hidden, line)) in out.iter_mut().zip(text.lines()).enumerate() {
-            *hidden |= i > 0 && line.trim().is_empty();
-        }
+    let Some(code) = script_lines(path, text) else {
+        return literal_lines(kind, text);
+    };
+    let mut out = literal_lines(kind, &script_text(path, text, None));
+    out.resize(code.len(), false);
+    for (i, (hidden, code)) in out.iter_mut().zip(code).enumerate() {
+        *hidden |= i > 0 && !code;
     }
     out
 }
@@ -130,13 +131,7 @@ pub fn template_binds<S: AsRef<str>>(lines: &[S], code: &[bool], word: &str) -> 
         .map(|f| regex::Regex::new(f).unwrap())
         .collect()
     });
-    // The names a pattern binds: its identifiers, save a type or a key after a `:`.
-    static NAME: std::sync::LazyLock<regex::Regex> =
-        std::sync::LazyLock::new(|| regex::Regex::new(r"(:\s*)?([A-Za-z_$][\w$]*)").unwrap());
-    let binds = |pattern: &str| {
-        NAME.captures_iter(pattern)
-            .any(|c| c.get(1).is_none() && &c[2] == word)
-    };
+    let binds = |pattern: &str| pattern_names(pattern).contains(&word);
     let lines = lines.iter().map(AsRef::as_ref);
     lines
         .enumerate()
@@ -154,6 +149,46 @@ pub fn template_binds<S: AsRef<str>>(lines: &[S], code: &[bool], word: &str) -> 
         })
         .map(|(i, _)| i + 1)
         .collect()
+}
+/// The names a binding pattern binds: `item, i`, `{ id, name: label }` (`id` and `label`), `row:
+/// Row` (`row`), with no default value's names (`{ size = md }` binds `size`).
+fn pattern_names(pattern: &str) -> Vec<&str> {
+    static TOKEN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r#"[A-Za-z_$][\w$]*|"[^"]*"|'[^']*'|[{}\[\]()=:,]"#).unwrap()
+    });
+    let tokens: Vec<&str> = TOKEN.find_iter(pattern).map(|m| m.as_str()).collect();
+    let (mut names, mut depth, mut value) = (Vec::new(), 0usize, false);
+    for (i, t) in tokens.iter().enumerate() {
+        match *t {
+            "{" | "[" | "(" => depth += 1,
+            "}" | "]" | ")" => depth = depth.saturating_sub(1),
+            "," => value = false,
+            // A default value runs to the next `,`; outside a destructuring a `:` opens a type.
+            "=" => value = true,
+            ":" if depth == 0 => value = true,
+            _ if value || !t.starts_with(|c: char| c.is_alphabetic() || c == '_' || c == '$') => {}
+            // Inside a destructuring a name before a `:` is the key, not the name bound.
+            _ if depth > 0 && tokens.get(i + 1) == Some(&":") => {}
+            _ => names.push(*t),
+        }
+    }
+    names
+}
+/// Whether the 0-based `line` of a component stands inside a `<style …>` block, between the
+/// tags on lines of their own: its rules are a stylesheet's, no code.
+pub fn in_style<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
+    let mut inside = false;
+    for l in lines.iter().take(line + 1).map(|l| l.as_ref().trim()) {
+        if inside {
+            inside = !l.starts_with("</style");
+        } else if let Some(rest) = l.strip_prefix("<style") {
+            inside = rest.starts_with([' ', '>', '\t']) && !rest.contains("</style");
+        }
+    }
+    inside
+        && !lines
+            .get(line)
+            .is_some_and(|l| l.as_ref().trim().starts_with("</style"))
 }
 /// The tag name the byte `col` of `line` stands on, `-` included: `user-card` in
 /// `<user-card :user="u">`, `UserCard` in `</UserCard>`.

@@ -71,3 +71,49 @@ fn a_tag_is_the_component_of_its_name() {
     assert_eq!(component_name("UserCard"), "UserCard");
     assert_eq!(component_name("div"), "div");
 }
+
+#[test]
+fn a_destructuring_binds_the_name_after_its_key() {
+    let binds = |line: &str, word: &str| !template_binds(&[line], &[false], word).is_empty();
+    assert!(binds(r#"<Row #default="{ cell: entry }">"#, "entry"));
+    assert!(!binds(r#"<Row #default="{ cell: entry }">"#, "cell"));
+    assert!(binds("{#each users as { id: userId }}", "userId"));
+    assert!(binds("<Btn v-slot=\"{ size = 'md' }\">", "size"));
+    assert!(!binds("<Btn v-slot=\"{ size = md }\">", "md"));
+}
+
+#[test]
+fn a_component_saved_with_a_bom_still_has_its_script() {
+    let code = script_lines(
+        Path::new("A.vue"),
+        "\u{feff}<script setup>\nconst a = 1\n</script>",
+    );
+    assert_eq!(code.unwrap(), [false, true, false]);
+    let code = script_lines(Path::new("B.astro"), "\u{feff}---\nconst t = 1\n---\n<h1/>");
+    assert_eq!(code.unwrap(), [false, true, false, false]);
+}
+
+#[test]
+fn a_style_block_and_the_last_line_are_no_script() {
+    let lines = [
+        "<script>",
+        "const a = 1",
+        "</script>",
+        "<style>",
+        ".a {",
+        "  color: red;",
+        "}",
+        "</style>",
+        "<p/>",
+    ];
+    assert!(!in_style(&lines, 1));
+    assert!(in_style(&lines, 5));
+    assert!(!in_style(&lines, 7));
+    assert!(!in_style(&lines, 8));
+    // The last line, outside the script, is hidden like every other one but the first.
+    let hidden = hidden_lines(Kind::TsJs, Path::new("A.vue"), &lines.join("\n"));
+    assert_eq!(
+        hidden,
+        [false, false, true, true, true, true, true, true, true]
+    );
+}
