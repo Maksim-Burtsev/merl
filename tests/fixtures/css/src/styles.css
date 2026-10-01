@@ -1,0 +1,48 @@
+:root {
+  --brand: #0a7;
+}
+.btn-primary {
+  color: var(--brand);
+  //         ^ d: picker src/styles.css:2, src/styles.css:42
+  // status: --brand: by name, 2 declarations
+  border-color: var(--edge, #000);
+  //                  ^ d: src/styles.css:37
+  // status: --edge: by name, 1 match
+}
+.card > .btn-ghost:hover,
+.btn-ghost::before {
+  width: .5em;
+  //     ^ d: none
+  background: url(icons.svg#check);
+  //                        ^ d: none
+  animation: spin 1s linear infinite;
+  //         ^ d: src/styles.css:34
+  //              ^ d: none
+}
+.btn-ghost .icon,
+.btn-ghost + .label {
+}
+:not(.btn-ghost) .muted {
+}
+a.btn-ghost.active {
+}
+/* .btn-ghost { in a comment */
+// .btn-ghost { after a line comment
+#main {
+  padding: 0;
+}
+@keyframes spin {
+  from { opacity: 0; }
+}
+@property --edge {
+  syntax: '<color>';
+}
+.theme-dark {
+//^ d: src/styles.css:40
+  --brand: #0f9;
+}
+@import url("base.css");
+//            ^ d: src/base.css:1
+@import "https://cdn.example.com/x.css";
+//             ^ d: none
+// status: no file in the project: a URL
