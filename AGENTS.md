@@ -213,10 +213,11 @@ run under ~15 s.
   triage one; the owner may take it off. A `release-blocker` PR under `needs-owner` is the one
   the owner reads first.
 
-`master` takes squash merges of PRs only, with the CI checks green on a branch up to date with
-master; nobody can push to it directly or bypass the checks.
+`master` takes squash merges of PRs only, with the CI checks green; nobody can push to it
+directly or bypass the checks. A branch behind master merges as it is: a queue of green PRs goes
+in at once, and CI on the push to master catches two changes that break only together. A red
+master is fixed before the next merge.
 
-- After another PR lands, `gh pr update-branch N` and wait for the checks again.
 - A PR that conflicts with master gets no CI at all on a push. Merge `origin/master` into the
   branch, resolve, push: a merge keeps the commits a posted review links to, and the squash keeps
   it off master.
@@ -257,7 +258,9 @@ Only when the owner asks for one, and with nothing open under `release-blocker`.
      to the owner and ask whether it goes in; without a yes the note has none. It goes to `media`
      as `releases/X.Y.Z.gif` (a new name for every upload, as for PR screencasts) and into the
      note as `![](https://raw.githubusercontent.com/Maksim-Burtsev/merl/media/releases/X.Y.Z.gif)`.
-4. A release PR, `release: X.Y.Z`: `## [Unreleased]` becomes `## [X.Y.Z] - YYYY-MM-DD` with its
+4. A release PR, `release: X.Y.Z`, from a branch `release/X.Y.Z`: only such a branch's CI
+   presses `d`, `u` and `D` at every cursor of every fixture (#543, ~20 minutes), and a panic it
+   finds is fixed on that branch. `## [Unreleased]` becomes `## [X.Y.Z] - YYYY-MM-DD` with its
    link, the version goes into `Cargo.toml` and `Cargo.lock`, it adds `docs/releases/X.Y.Z.md`,
    it carries the `tests/budgets.tsv` the smoke test's time budgets wrote, and its body holds the
    smoke test's verdict table.

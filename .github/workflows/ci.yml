@@ -18,30 +18,49 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
+      # A PR that touches only what agents read (skills, AGENTS.md, release notes) builds nothing:
+      # no test reads those files, and the check passes in seconds instead of minutes.
+      - if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          files=$(gh api --paginate --jq '.[].filename' \
+            repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files)
+          grep -qvE '^(\.claude/|docs/releases/|AGENTS\.md$|CLAUDE\.md$)' <<<"$files" \
+            || echo DOCS_ONLY=1 >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - if: ${{ !env.DOCS_ONLY }}
+        uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo fmt --check
-      - run: cargo clippy --all-targets -- -D warnings
-      - run: cargo test --locked
-      - run: cargo build --release --locked
+      - if: ${{ !env.DOCS_ONLY }}
+        uses: Swatinem/rust-cache@v2
+      - if: ${{ !env.DOCS_ONLY }}
+        run: cargo fmt --check
+      - if: ${{ !env.DOCS_ONLY }}
+        run: cargo clippy --all-targets -- -D warnings
+      - if: ${{ !env.DOCS_ONLY }}
+        run: cargo test --locked
+      - if: ${{ !env.DOCS_ONLY }}
+        run: cargo build --release --locked
       # `d`, `u` and `D` at every cursor position of every fixture, failing on a panic (#543):
-      # half an hour in debug, so `cargo test` skips it and one runner plays it here in release.
-      - if: matrix.os == 'ubuntu-latest'
+      # half an hour in debug and 19 minutes here in release, so only a release PR plays it.
+      - if: matrix.os == 'ubuntu-latest' && startsWith(github.head_ref, 'release/') && !env.DOCS_ONLY
         run: cargo test --release --locked no_panic -- --ignored
       # The `d` bench's scoring and its no-cursor-worse gate, on made-up rows: no clone needed.
-      - run: tools/d-bench/run --selftest
+      - if: ${{ !env.DOCS_ONLY }}
+        run: tools/d-bench/run --selftest
       # The smoke scenarios in tmux on this build, every checkpoint against the screen checked in
       # under tests/smoke/screens (#309): a changed screen fails here with its diff. Go for the `d`
       # into its standard library. Homebrew's tmux on both: Ubuntu's 3.4 draws an emoji with a
       # variation selector one column wide, where Homebrew's and the owner's terminal draw two.
-      - uses: actions/setup-go@v7
+      - if: ${{ !env.DOCS_ONLY }}
+        uses: actions/setup-go@v7
         with:
           go-version: stable
           cache: false
-      - name: smoke screens
+      - if: ${{ !env.DOCS_ONLY }}
+        name: smoke screens
         env:
           LANG: C.UTF-8
         run: |
@@ -56,7 +75,7 @@ jobs:
           tmux -V
           tests/smoke/run.py --golden --new target/release/merl
       # The oldest Rust `Cargo.toml` allows builds merl too (#320), in a check the merge waits for.
-      - if: matrix.os == 'ubuntu-latest'
+      - if: matrix.os == 'ubuntu-latest' && !env.DOCS_ONLY
         run: |
           msrv=$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)
           rustup toolchain install "$msrv" --profile minimal
