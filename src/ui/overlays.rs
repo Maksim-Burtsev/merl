@@ -37,17 +37,29 @@ pub(super) fn draw_help(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     let [area] = Layout::horizontal([Constraint::Length((w + 4).min(area.width))])
         .flex(Flex::Center)
         .areas(area);
-    // A screen too narrow for an action wraps it at a space onto rows under its own column,
-    // keeping a blank column before the border (#458).
-    let room = (area.width as usize).saturating_sub(2 + lead + 1);
+    // Too narrow for every row whole (below 118 columns), each group's key column is as wide as
+    // that group's widest key (#458, option C).
+    let narrow = (area.width as usize) < 2 + w as usize + 2;
     let bold = base.add_modifier(Modifier::BOLD);
     let mut lines: Vec<Line> = Vec::new();
     let mut group = "";
+    let mut key_w = key_w;
     for (key, action, g) in keys {
         if *g != group {
             group = g;
             lines.push(Line::styled(format!(" {group}"), bold.fg(theme.accent)));
+            if narrow {
+                key_w = keys
+                    .iter()
+                    .filter(|k| k.2 == *g)
+                    .map(|k| k.0.len())
+                    .max()
+                    .unwrap_or(0);
+            }
         }
+        // A screen too narrow for an action wraps it at a space onto rows under its own column,
+        // keeping a blank column before the border (#458).
+        let room = (area.width as usize).saturating_sub(2 + 3 + key_w + 2 + 1);
         for (i, row) in wrap::wrap_line(action, room).into_iter().enumerate() {
             let key = if i == 0 { *key } else { "" };
             lines.push(Line::from(vec![

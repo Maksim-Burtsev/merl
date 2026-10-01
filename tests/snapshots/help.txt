@@ -3,53 +3,53 @@ merl snapshot: help
 ==== 80x24 tokyonight-moon text, cursor hidden
 ┌merl — keys (Up / Down to scroll)─────────────────────────────────────────────┐
 │ Files and jumps                                                              │
-│   o / Ctrl+E                        Open a file (fuzzy)                      │
-│   Ctrl+N                            New file: type its path, Enter creates   │
-│                                     and edits it                             │
-│   d / F12                           Go to definition of the word under the   │
-│                                     cursor, or its implementations           │
-│   D                                 Project symbols (fuzzy)                  │
-│   u / Shift+F12                     Usages of the word under the cursor      │
-│   [ / ]                             Back / forward in the jump history       │
-│   : / Ctrl+G                        Go to line                               │
+│   o / Ctrl+E     Open a file (fuzzy)                                         │
+│   Ctrl+N         New file: type its path, Enter creates and edits it         │
+│   d / F12        Go to definition of the word under the cursor, or its       │
+│                  implementations                                             │
+│   D              Project symbols (fuzzy)                                     │
+│   u / Shift+F12  Usages of the word under the cursor                         │
+│   [ / ]          Back / forward in the jump history                          │
+│   : / Ctrl+G     Go to line                                                  │
 │ Search                                                                       │
-│   / / Ctrl+F                        Find in the open file                    │
-│   n / N                             Next / previous match                    │
-│   s                                 Search the project                       │
+│   / / Ctrl+F  Find in the open file                                          │
+│   n / N       Next / previous match                                          │
+│   s           Search the project                                             │
 │ Review                                                                       │
-│   c / C                             Review: next / previous hunk, on to the  │
-│                                     next file                                │
-│   m                                 Review: mark the file as viewed, or take │
-│                                     the mark off                             │
-│   Fold: Enter                       Review: load the diff of a folded        │
-│                                     generated file                           │
+│   c / C        Review: next / previous hunk, on to the next file             │
+│   m            Review: mark the file as viewed, or take the mark off         │
+│   Fold: Enter  Review: load the diff of a folded generated file              │
 │ Editing                                                                      │
+│   Enter                             Edit at the cursor (Esc returns to       │
+│                                     navigation)                              │
+│   Ctrl+S                            Save now (edits are saved on their own   │
+│                                     after a pause)                           │
 └──────────────────────────────────────────────────────────────────────────────┘
 
 ==== 80x24 tokyonight-moon styles
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 abbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccdddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddddddddddddddaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddaaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+accccccccccccccccccdddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+accccccccccccccccccdddddddddddddddddddddddddddddddddddddddddddddddddddaaaaaaaaaa
+accccccccccccccccccdddddddddddddddddddddddddddddddddddddddddddddddddddddaaaaaaaa
+accccccccccccccccccdddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+accccccccccccccccccdddddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+accccccccccccccccccdddddddddddddddddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaa
+accccccccccccccccccddddddddddddddddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaa
+accccccccccccccccccddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 abbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccdddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccdddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 abbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddddddddddddddddddaaa
-acccccccccccccccccccccccccccccccccccccdddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddaa
-acccccccccccccccccccccccccccccccccccccddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddddddddddddaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+accccccccccccccccdddddddddddddddddddddddddddddddddddddddddddddddddaaaaaaaaaaaaaa
+accccccccccccccccdddddddddddddddddddddddddddddddddddddddddddddddddddddaaaaaaaaaa
+accccccccccccccccddddddddddddddddddddddddddddddddddddddddddddddddaaaaaaaaaaaaaaa
 abbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddaaaaaaaa
+acccccccccccccccccccccccccccccccccccccdddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 a fg #c8d3f5 bg #222436
 b fg #82aaff bg #222436 BOLD
@@ -59,27 +59,27 @@ d fg #7d849f bg #222436
 ==== 80x24 github-light styles
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 abbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccdddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddddddddddddddaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddaaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+accccccccccccccccccdddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+accccccccccccccccccdddddddddddddddddddddddddddddddddddddddddddddddddddaaaaaaaaaa
+accccccccccccccccccdddddddddddddddddddddddddddddddddddddddddddddddddddddaaaaaaaa
+accccccccccccccccccdddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+accccccccccccccccccdddddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+accccccccccccccccccdddddddddddddddddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaa
+accccccccccccccccccddddddddddddddddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaa
+accccccccccccccccccddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 abbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccdddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccdddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 abbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddddddddddddddddddaaa
-acccccccccccccccccccccccccccccccccccccdddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddaa
-acccccccccccccccccccccccccccccccccccccddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddddddddddddaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+accccccccccccccccdddddddddddddddddddddddddddddddddddddddddddddddddaaaaaaaaaaaaaa
+accccccccccccccccdddddddddddddddddddddddddddddddddddddddddddddddddddddaaaaaaaaaa
+accccccccccccccccddddddddddddddddddddddddddddddddddddddddddddddddaaaaaaaaaaaaaaa
 abbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddaaaaaaaa
+acccccccccccccccccccccccccccccccccccccdddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 a fg #1f2328 bg #ffffff
 b fg #6639ba bg #ffffff BOLD
