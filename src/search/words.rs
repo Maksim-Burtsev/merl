@@ -80,7 +80,7 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     }
     // A Kotlin extension is named by its receiver type (#362): `Topic.asExternalModel`.
     if kind == Kind::Jvm
-        && let Some(receiver) = jvm_receiver(target, name)
+        && let Some(receiver) = jvm_receiver_at(text, line, name)
     {
         return Some(format!("{receiver}{sep}{name}"));
     }

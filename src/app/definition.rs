@@ -135,9 +135,11 @@ impl App {
             return;
         }
         // A segment of a Java or Kotlin `import` line: a package's declares nothing, a class's is
-        // looked for in its package of the project (#372).
+        // looked for in its package of the project (#372). A name inside a Scala import's `{…}`
+        // selectors is looked for by name (#416).
         if kind == Kind::Jvm
             && import_line(kind, self.line_str())
+            && !self.line_str()[..range.start].contains('{')
             && let Some(found) = self.jvm_imported(&text, &chain, &word, range.clone(), true)
         {
             self.show_definitions(kind, &word, &here, found, None);
@@ -2053,45 +2055,6 @@ impl App {
             .collect()
     }
 
-    /// Of the Java or Kotlin declarations `hits` found by name, what the cursor can see (#357): a
-    /// local only in its own block, below it, and never `behind` a `.` or a `::`; a `private`
-    /// declaration only in its own file. When that drops some and leaves one that is no local
-    /// in sight, it is still found by name only, and offered rather than jumped to.
-    fn jvm_seen(&mut self, here: &Path, hits: Vec<Hit>, behind: bool) -> Vec<Hit> {
-        let all = hits.len();
-        let mut texts: HashMap<PathBuf, Option<String>> = HashMap::new();
-        let mut seen_local = false;
-        let kept: Vec<Hit> = hits
-            .into_iter()
-            .filter(|h| {
-                if h.path != here && search::jvm_private(&h.text) {
-                    return false;
-                }
-                // A declaration in column 0 is top-level, never a local.
-                if !h.text.starts_with([' ', '\t']) {
-                    return true;
-                }
-                let text = texts
-                    .entry(h.path.clone())
-                    .or_insert_with(|| self.text_of(&h.path));
-                match text
-                    .as_deref()
-                    .and_then(|t| search::jvm_local_block(t, h.line))
-                {
-                    None => true,
-                    Some(end) => {
-                        let seen =
-                            !behind && h.path == here && (h.line..=end).contains(&(self.line + 1));
-                        seen_local |= seen;
-                        seen
-                    }
-                }
-            })
-            .collect();
-        self.offer_only |= kept.len() == 1 && kept.len() < all && !seen_local;
-        kept
-    }
-
     /// What a bare `word` names among the members of the Java or Kotlin classes around the
     /// cursor (#376): what the innermost class that declares it declares, `via` its name (an
     /// anonymous class's members are `local`), else what the class the innermost one extends
@@ -2131,7 +2094,7 @@ impl App {
         if found.is_empty()
             && let Some(&decl) = inner
         {
-            for base in search::jvm_bases(text, decl) {
+            for base in search::jvm_bases(text, decl, search::scala(here)) {
                 let pattern = search::def_patterns(Kind::Jvm, &base).join("|");
                 let cut = self.truncated.get();
                 let declared: Vec<Hit> = self
@@ -2465,28 +2428,8 @@ impl App {
         if superclass {
             found.retain(|c| c.hit.line != self.line + 1 || c.hit.path != here);
         }
-        // A C++ member declared in its class and defined out of line, `R X::name(`, is one row,
-        // the definition (#373). Standing on that definition, the declaration is the other end.
-        if kind == Kind::C && found.len() > 1 {
-            let classes: Vec<Option<Vec<String>>> = found
-                .iter()
-                .map(|c| {
-                    self.text_of(&c.hit.path)
-                        .and_then(|t| search::c_member_class(&t, c.hit.line, word))
-                })
-                .collect();
-            let defined = |scopes: &[String]| {
-                found.iter().any(|c| {
-                    (c.hit.line != self.line + 1 || c.hit.path != here)
-                        && search::c_defines_member(&c.hit.text, scopes, word)
-                })
-            };
-            let keep: Vec<bool> = classes
-                .iter()
-                .map(|class| class.as_deref().is_none_or(|c| !defined(c)))
-                .collect();
-            let mut keep = keep.into_iter();
-            found.retain(|_| keep.next().unwrap_or(true));
+        if kind == Kind::C {
+            self.c_rows(word, here, &mut found);
         }
         // A Go parameter's type named like the method it is a parameter of, `Send(msg Send)`, is
         // looked up as a type (#536); with no type found, the namesakes stay offered.
@@ -2796,22 +2739,6 @@ impl App {
             })
             .unwrap_or_default();
         self.note_cut(&hits);
-        hits
-    }
-
-    /// Of `hits` of the [`search::def_patterns`] of `word`, the lines that declare it where they
-    /// sit ([`search::declares_where`]).
-    pub(super) fn declaring(&self, kind: Kind, word: &str, mut hits: Vec<Hit>) -> Vec<Hit> {
-        // One file holds thousands of GraphQL `id` fields, so each file is split once.
-        let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
-        hits.retain(|h| {
-            search::declares_where(kind, &h.path, word, h.line, &h.text, || {
-                lines.entry(h.path.clone()).or_insert_with(|| {
-                    self.text_of(&h.path)
-                        .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
-                })
-            })
-        });
         hits
     }
 }

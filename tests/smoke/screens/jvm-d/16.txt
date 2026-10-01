@@ -1,0 +1,57 @@
+wait web/android/src/main/scala/courier/app/Route.scala  4:
+1 package courier.app
+2
+3 object Route:
+4   def legs(stops: List[String]): Int = stops.size - 1
+5
+6 case class Stop(code: String)
+7
+8 def plan(stop: Stop): Int = Route.legs(List(stop.code))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/android/src/main/scala/courier/app/Route.scala  4:7  [code]  legs → Route.legs (via Route)
+cursor (x,y,shown) 8,3,1

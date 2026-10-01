@@ -12,7 +12,7 @@ pub enum Kind {
     TsJs,
     Jvm,
     Ruby,
-    /// C and C++ together, headers included.
+    /// C, C++, Objective-C and Objective-C++ together, headers included.
     C,
     CSharp,
     Swift,
@@ -52,13 +52,16 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "go") => Kind::Go,
         (_, "rs") => Kind::Rust,
         (_, "ts" | "tsx" | "mts" | "cts" | "js" | "jsx" | "mjs" | "cjs") => Kind::TsJs,
-        // Java and Kotlin are one kind: they call each other inside the same project, so `d` in
-        // a `.kt` file has to find the `.java` class it uses, as `.tsx` finds `.ts`.
-        (_, "java" | "kt" | "kts") => Kind::Jvm,
+        // Java, Kotlin and Scala are one kind: they call each other inside the same project, so
+        // `d` in a `.kt` file has to find the `.java` class it uses, as `.tsx` finds `.ts`. A
+        // `.sc` is a Scala script, a `.sbt` and a `.mill` the build Scala's tools read (#416).
+        (_, "java" | "kt" | "kts" | "scala" | "sc" | "sbt" | "mill") => Kind::Jvm,
         (_, "rb" | "rake" | "gemspec" | "podspec" | "rbi" | "ru") => Kind::Ruby,
         // C and C++ are one kind: a header declares what a `.c` or a `.cc` defines, and either
-        // language reads the other's headers, so they have to search each other.
-        (_, "c" | "h" | "cc" | "cpp" | "cxx" | "hpp" | "hh" | "hxx") => Kind::C,
+        // language reads the other's headers, so they have to search each other. Objective-C
+        // (`.m`) and Objective-C++ (`.mm`) too: C with messages, reading C headers and read from
+        // them, and an Objective-C project's `.h` is this kind's already (#417).
+        (_, "c" | "h" | "cc" | "cpp" | "cxx" | "hpp" | "hh" | "hxx" | "m" | "mm") => Kind::C,
         // `.csx` is a C# script: the same language, run by `dotnet script`.
         (_, "cs" | "csx") => Kind::CSharp,
         (_, "swift") => Kind::Swift,
@@ -104,6 +107,12 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         _ if !name.contains('.') && cpp_library(path) => Kind::C,
         _ => return None,
     })
+}
+/// Whether `path` is a Scala file of the Jvm kind (#416): what Scala writes differently from
+/// Java and Kotlin, a body with no brace or a type parameter in `[…]`, is read only there.
+pub fn scala(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|e| matches!(e.to_str(), Some("scala" | "sc" | "sbt" | "mill")))
 }
 /// Whether `path` is under a `c++/<dir>/` directory, where a C++ standard library keeps its
 /// headers.
