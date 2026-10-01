@@ -32,24 +32,12 @@ impl App {
             .is_some_and(|p| self.previewed.contains(p))
     }
 
-    /// The open file is one of the review's, whose diff lives on the source: `p` never renders
-    /// it, and one the branch comes to change leaves the preview (`review_refreshed`).
-    fn in_review(&self) -> bool {
-        let rel = self.rel_current();
-        let file = |r: &git::Review| rel.as_deref().and_then(|rel| r.file(rel)).is_some();
-        self.review.as_ref().is_some_and(file)
-    }
-
     /// `p`: the open Markdown file rendered, or its source again. The cursor row stays as far
     /// down the pane, on the same place of the file.
     pub(super) fn toggle_preview(&mut self) {
         let Some(path) = self.buf.path.clone() else {
             return;
         };
-        if self.in_review() {
-            self.message = "in review".into();
-            return;
-        }
         if self.previewed.remove(&path) {
             let off = self
                 .preview

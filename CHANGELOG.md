@@ -224,6 +224,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- In `--review`, `p` on a Markdown file of the review shows it rendered, where it said `in review`:
+  a file the branch adds or changes as it stands now, a deleted one as it was, without the diff's
+  marks; `p` again shows the source with its diff. A file shown rendered that the branch comes to
+  change stays rendered. (#596)
+
 - `d` in C reads no declaration inside a multi-line `#define`, and a one-line `typedef struct
   client { int flags; } client;` declares `client` alone: `return flags;` and `return args;`
   jump to the global they read instead of offering a macro's parameter or a struct's field.
