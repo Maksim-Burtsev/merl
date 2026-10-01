@@ -62,3 +62,13 @@ function Get-Tax($Amount) { $Amount / 5 }
 
 "tries: $Retries"
 #        ^ d: Shop/Pricing.psm1:105
+"$env:ShopRoot $status"
+#     ^ d: Shop/Pricing.psm1:137
+#               ^ d: basket.ps1:38
+$units = [Unit]::Kilo + [Unit]::Gram
+#                ^ d: Shop/Pricing.psm1:124
+#                               ^ d: Shop/Pricing.psm1:123
+$cut2 = [Coupon]::Parse('x')
+#                 ^ d: Shop/Pricing.psm1:37
+"$Code"
+# ^ d: none

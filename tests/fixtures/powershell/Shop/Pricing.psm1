@@ -103,3 +103,36 @@ Export-ModuleMember -Function Get-Discount, Get-Gross, Measure-Weight, Select-Ac
 
 # An attribute in front of a typed assignment holds a bracket of its own.
 [ValidateRange(1, 9)][int]$Retries = 3
+
+class Meter {
+    static [int]$Max = 5
+    [int] $Reading
+
+    Meter([int] $reading) {
+        $this.Reading = $reading
+        #                ^ d: Shop/Pricing.psm1:111
+        # status: reading → Meter.reading (local)
+        #     ^ d: Shop/Pricing.psm1:109
+    }
+
+    [int] Limit() { return [Meter]::Max }
+    #                               ^ d: Shop/Pricing.psm1:108
+}
+
+enum Unit {
+    Gram = (1 + 0)
+    Kilo  # (x1000)
+}
+
+function Format-Weight([int]$Grams) { "$Grams g" }
+#                                       ^ d: Shop/Pricing.psm1:127
+# status: Grams: local
+
+function Get-Unit {
+    param([string]$Code)
+    Get-Discount -Code $Code
+    #             ^ d: none
+}
+
+$env:ShopRoot = '/srv/shop'
+$ShopRoot = 'unrelated'

@@ -25,6 +25,7 @@ impl App {
         narrow: bool,
     ) -> Option<Vec<Candidate>> {
         let mut patterns = search::def_patterns(kind, word);
+        self.powershell_spelling(kind, word, &mut patterns);
         // A Ruby local is seen from its own method alone, never found by name (#383): outside
         // the project only a constant's assignment declares.
         if kind == Kind::Ruby && word.starts_with(|c: char| c.is_ascii_lowercase() || c == '_') {
@@ -340,6 +341,19 @@ impl App {
                 reason: Reason::ByName,
             })
             .collect()
+    }
+
+    /// PowerShell's patterns for `word` cut to what its spelling under the cursor allows
+    /// ([`search::powershell_sigil`]), as `d` cuts them in the project (#420): `$Error` outside
+    /// is no enum member `Error`.
+    pub(super) fn powershell_spelling(&self, kind: Kind, word: &str, patterns: &mut Vec<String>) {
+        let line = self.line_str();
+        if kind == Kind::PowerShell
+            && let Some((r, w)) = search::definition_word(Some(kind), line, self.col)
+            && w == word
+        {
+            search::powershell_sigil(patterns, &line[..r.start], &line[r.end..]);
+        }
     }
 
     /// `pattern` over `files` outside the project, standard library first. The paths are

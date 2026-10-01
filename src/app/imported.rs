@@ -482,3 +482,25 @@ static OWNER_VALUE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
 static OWNER_LITERAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r"^\s*(?:export\s+)?const\s+[\w$]+\s*(?::[^=]+)?=\s*\{\s*$").unwrap()
 });
+
+/// The JavaScript and DOM globals whose members TypeScript's lib and `@types/node` declare (#341).
+pub(super) const JS_GLOBALS: &[&str] = &[
+    "JSON",
+    "Math",
+    "Object",
+    "Array",
+    "Promise",
+    "Reflect",
+    "Number",
+    "String",
+    "Date",
+    "RegExp",
+    "Symbol",
+    "Intl",
+    "console",
+    "document",
+    "window",
+    "navigator",
+    "globalThis",
+    "process",
+];

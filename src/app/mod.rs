@@ -899,9 +899,17 @@ pub fn is_word(c: char) -> bool {
 /// counts as part of a word besides letters, digits and `_` ([`search::word_chars`]): the `-` of
 /// a Makefile target.
 pub(super) fn word_col(line: &str, word: &str, extra: &str) -> usize {
-    // `attr_writer :name` declares Ruby's setter `name=` under its bare name.
+    // `attr_writer :name` declares Ruby's setter `name=` under its bare name. A name found
+    // ignoring case, as SQL and PowerShell find theirs, lands on its own spelling (#420).
     whole_at(line, word, extra)
         .or_else(|| whole_at(line, word.strip_suffix('=')?, extra))
+        .or_else(|| {
+            whole_at(
+                &line.to_ascii_lowercase(),
+                &word.to_ascii_lowercase(),
+                extra,
+            )
+        })
         .unwrap_or(0)
 }
 

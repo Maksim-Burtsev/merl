@@ -46,6 +46,40 @@ fn powershell_literals_run_over_lines() {
 }
 
 #[test]
+fn a_backtick_continuation_keeps_every_line_below_in_place() {
+    let text = "$x = Get-Item `\n    -Path .\n<#\nfunction A {}\n#>\n$t = @\"\nfunction B {\n\"@\n";
+    let literal = literal_lines(Kind::PowerShell, text);
+    assert_eq!(literal.len(), 9, "one flag per line, and one past the last");
+    let at: Vec<usize> = (1..=8).filter(|&n| literal[n - 1]).collect();
+    assert_eq!(at, [4, 5, 7]);
+}
+
+#[test]
+fn a_named_argument_is_no_variable() {
+    assert!(powershell_argument("Get-ShopUser -"));
+    assert!(powershell_argument("Get-ShopUser($a, -"));
+    assert!(!powershell_argument("$total-"));
+    assert!(!powershell_argument("$"));
+}
+
+#[test]
+fn u_marks_what_the_spelling_declares() {
+    assert!(powershell_declares_here("class Tariff {", "Tariff"));
+    assert!(!powershell_declares_here(
+        "$tariff = [Tariff]::new(5)",
+        "Tariff"
+    ));
+    assert!(powershell_declares_here("$Tariff = 1", "Tariff"));
+    assert!(powershell_declares_here("$env:Path = 1", "Path"));
+    // `$env:Path` is set only so: a plain `$Path` declares no environment variable.
+    let mut env = powershell_patterns("Path");
+    powershell_sigil(&mut env, "$env:", "");
+    let env = Regex::new(&env.join("|")).unwrap();
+    assert!(env.is_match("$env:Path += ':/x'"));
+    assert!(!env.is_match("$Path = 1"));
+}
+
+#[test]
 fn d_follows_a_dot_sourced_or_imported_path() {
     let at = |line: &str, col| powershell_import(line, col);
     assert_eq!(at(". ./helpers.ps1", 4).as_deref(), Some("helpers.ps1"));
@@ -86,6 +120,20 @@ fn powershell_module_directories() {
             PathBuf::from("/usr/local/share/powershell/Modules"),
         ]
     );
+    // An empty `PSModulePath` is none, and the `Modules` beside `pwsh` is the real file's.
+    let dir = std::env::temp_dir().join(format!("merl-pwsh-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("opt/7")).unwrap();
+    std::fs::create_dir_all(dir.join("bin")).unwrap();
+    std::fs::write(dir.join("opt/7/pwsh"), "").unwrap();
+    std::os::unix::fs::symlink(dir.join("opt/7/pwsh"), dir.join("bin/pwsh")).unwrap();
+    let roots = powershell_roots(Some("".into()), home, Some(dir.join("bin/pwsh")));
+    let real = std::fs::canonicalize(dir.join("opt/7"))
+        .unwrap()
+        .join("Modules");
+    assert_eq!(roots.len(), 3);
+    assert_eq!(roots[2], real);
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]

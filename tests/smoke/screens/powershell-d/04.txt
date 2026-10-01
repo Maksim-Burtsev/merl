@@ -53,5 +53,5 @@ wait get-shopuser: by name, 1 match
 │                            │
 │                            │
 └────────────────────────────┘
-ops/Shop/Users.psm1  1:1  [code]  get-shopuser: by name, 1 match
-cursor (x,y,shown) 32,0,1
+ops/Shop/Users.psm1  1:10  [code]  get-shopuser: by name, 1 match
+cursor (x,y,shown) 41,0,1

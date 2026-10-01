@@ -17,9 +17,10 @@ const TYPES: &str = r"(?:\[[^\]]*\]\s*)*";
 
 /// Line patterns that declare `word` in a PowerShell file: a function or a filter, a class or
 /// an enum, a property, a method or a constructor of a class, an enum member, an assignment that
-/// opens its line, an alias. A call, a named argument, a hashtable key (no `$`), a property or
-/// element write and a comparison (`-eq`, never `=`) match none. [`powershell_declares`] keeps
-/// the indented shapes to where they declare.
+/// opens its line, an alias, a static property and an environment variable. A call, a named
+/// argument, a hashtable key (no `$`), a property or element write and a comparison (`-eq`,
+/// never `=`) match none. [`powershell_declares`] keeps the indented shapes to where they
+/// declare, and [`powershell_sigil`] picks the ones the word's own spelling allows, by index.
 pub fn powershell_patterns(word: &str) -> Vec<String> {
     let w = regex::escape(word);
     vec![
@@ -35,29 +36,63 @@ pub fn powershell_patterns(word: &str) -> Vec<String> {
         // An enum member: `Active`, `Closed = 2`.
         format!(r"(?i)^\s+{w}\s*(?:=\s*[^=\s]|#|$)"),
         format!(r#"(?i)^\s*(?:Set|New)-Alias\s+(?:-Name\s+)?["']?{w}["']?(?:\s|$)"#),
+        // A static property, the one `[Type]::Name` reaches: `static [int]$Max = 5`.
+        format!(
+            r"(?i)^\s*(?:hidden\s+)*static\s+(?:hidden\s+)*{TYPES}\${w}\s*(?:=(?:[^=]|$)|;|#|$)"
+        ),
+        // An environment variable, set only as `$env:Name`, which no other spelling declares.
+        format!(r"(?i)^\s*\$env:{w}\s*[-+]?=(?:[^=]|$)"),
     ]
 }
 
 /// [`powershell_patterns`] cut to what the word between `before` and `after` names: a
 /// variable behind `$`, a scope's `$script:` or a splat's `@` is assigned or a property, never
-/// a function (`$tariff` declares no `Tariff`); a member behind `.` is a property or a method; a
-/// static member behind `::` anything but a variable; a bare word is a command or a type, whose
+/// a function (`$tariff` declares no `Tariff`), and `$env:Name` an environment variable alone;
+/// a member behind `.` is a property or a method; a static member behind `::` anything but a
+/// variable, a static property included; a bare word is a command or a type, whose
 /// constructors count only where it is built: `[Tariff]::new(`.
 pub fn powershell_sigil(patterns: &mut Vec<String>, before: &str, after: &str) {
     static SIGIL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?i)(?:[$@]|\$(?:global|script|local|private|env|using):)$").unwrap()
+        Regex::new(r"(?i)(?:[$@]|\$(?:global|script|local|private|using):)$").unwrap()
     });
-    if patterns.len() != 6 {
+    if patterns.len() != 8 {
         return;
     }
     let keep: &[usize] = match before {
+        b if b.to_ascii_lowercase().ends_with("$env:") => &[7],
         b if SIGIL.is_match(b) => &[2],
         b if b.ends_with('.') => &[2, 3],
-        b if b.ends_with("::") || after.starts_with("]::new(") => &[0, 1, 3, 4, 5],
+        b if b.ends_with("::") => &[0, 1, 3, 4, 5, 6],
+        _ if after.starts_with("]::new(") => &[0, 1, 3, 4, 5],
         _ => &[0, 1, 4, 5],
     };
     let all = std::mem::take(patterns);
     patterns.extend(keep.iter().map(|&i| all[i].clone()));
+}
+
+/// Whether the PowerShell `line` declares `word` where it first stands whole in it: the
+/// patterns [`powershell_sigil`] keeps for that spelling, so `u` on the class `Tariff` reads
+/// `$tariff = [Tariff]::new()` as a use, as `d` does.
+pub fn powershell_declares_here(line: &str, word: &str) -> bool {
+    let part = |c: char| c.is_alphanumeric() || c == '_' || c == '-';
+    let Some(at) = line
+        .match_indices(word)
+        .map(|(i, _)| i)
+        .find(|&i| !line[..i].ends_with(part) && !line[i + word.len()..].starts_with(part))
+    else {
+        return false;
+    };
+    let mut patterns = powershell_patterns(word);
+    powershell_sigil(&mut patterns, &line[..at], &line[at + word.len()..]);
+    Regex::new(&patterns.join("|")).is_ok_and(|re| re.is_match(line))
+}
+
+/// Whether the word behind `before` is a named argument, `-Id` of `Get-ShopUser -Id 42`: it
+/// names a parameter of the command called, which no rule reads, never a variable of the caller.
+pub fn powershell_argument(before: &str) -> bool {
+    before
+        .strip_suffix('-')
+        .is_some_and(|b| b.is_empty() || b.ends_with([' ', '\t', '(']))
 }
 
 /// Whether 1-based `line` of `lines`, matched by [`powershell_patterns`], declares where it sits:
@@ -68,25 +103,19 @@ pub fn powershell_declares<S: AsRef<str>>(lines: &[S], line: usize, line_text: &
     static KEYWORD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?i)^\s*(?:(?:function|filter)\s|(?:\[[^\]]*\]\s*)*(?:class|enum)\s|(?:Set|New)-Alias\s)").unwrap()
     });
-    let t = line_text.trim_start();
     if KEYWORD.is_match(line_text) {
         return true;
     }
-    let inside = |opener: &str| {
-        owner(lines, line).is_some_and(|o| {
-            let o = o.trim_start().to_ascii_lowercase();
-            o.starts_with(opener) || o.starts_with('[') && o.contains(&format!("] {opener}"))
-        })
-    };
     // A variable or a property behind its modifiers, attributes and type, which may hold a `(`:
     // `[ValidateRange(1, 9)][int]$Retries = 3`.
     if VARIABLE.is_match(line_text) {
         return !in_param_block(lines, line);
     }
-    // A name and a `(`: a method; a name alone: an enum member.
-    match t.contains('(') {
-        true => inside("class "),
-        false => inside("enum "),
+    // A name and its `(`: a method; a name alone, whatever its value or comment holds: an enum
+    // member.
+    match METHOD.is_match(line_text) {
+        true => in_class(lines, line),
+        false => owner(lines, line).is_some_and(|o| opens(o, "enum")),
     }
 }
 
@@ -94,15 +123,45 @@ pub fn powershell_declares<S: AsRef<str>>(lines: &[S], line: usize, line_text: &
 static VARIABLE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r"(?i)^\s*(?:(?:hidden|static)\s+)*(?:\[[^\]]*\]\s*)*\$").unwrap()
 });
+/// A line that opens with a name and its `(`, behind `hidden`, `static`, attributes and a type:
+/// a method or a constructor where a class holds it.
+static METHOD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"(?i)^\s*(?:(?:hidden|static)\s+)*(?:\[[^\]]*\]\s*)*[A-Za-z_][\w-]*\s*\(").unwrap()
+});
 
-/// The nearest non-blank line above 1-based `line` of `lines` that is indented less.
+/// Whether the line `l` opens a `keyword` block, behind attributes: `[Flags()] enum Status {`.
+fn opens(l: &str, keyword: &str) -> bool {
+    static OPENER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?i)^\s*(?:\[[^\]]*\]\s*)*(class|enum)\s").unwrap()
+    });
+    OPENER
+        .captures(l)
+        .is_some_and(|c| c[1].eq_ignore_ascii_case(keyword))
+}
+
+/// Whether 1-based `line` of `lines` sits directly inside a `class`.
+fn in_class<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
+    owner(lines, line).is_some_and(|o| opens(o, "class"))
+}
+
+/// The byte of the `(` that opens a parameter list on 0-based line `i` of `lines`: a `param(`, a
+/// `function Name(` header, or a method's or a constructor's header directly inside a class.
+fn params_at<S: AsRef<str>>(lines: &[S], i: usize) -> Option<usize> {
+    let l = lines[i].as_ref();
+    PARAM
+        .find(l)
+        .or_else(|| METHOD.find(l).filter(|_| in_class(lines, i + 1)))
+        .map(|m| m.end() - 1)
+}
+
+/// The nearest line above 1-based `line` of `lines` that is indented less, past blanks and
+/// comments.
 fn owner<S: AsRef<str>>(lines: &[S], line: usize) -> Option<&str> {
     let depth = indent(lines.get(line.checked_sub(1)?)?.as_ref());
-    lines[..line - 1]
-        .iter()
-        .map(AsRef::as_ref)
-        .rev()
-        .find(|l| !l.trim().is_empty() && indent(l) < depth)
+    lines[..line - 1].iter().map(AsRef::as_ref).rev().find(|l| {
+        let t = l.trim_start();
+        !t.is_empty() && !t.starts_with('#') && indent(l) < depth
+    })
 }
 
 /// Whether 1-based `line` of `lines` starts inside a `param(` block: the brackets the nearest
@@ -154,11 +213,9 @@ fn brackets(s: &str) -> i32 {
 
 /// The parameter `name` of the `param(` blocks above 0-based `at` in the blocks around it, told
 /// by indentation, innermost first: a function's, a script block's or the script's, or the list
-/// of a `function Name($a) {` header. A function beside the cursor's, at its level or deeper,
+/// of a `function Name($a) {` header or of a method or a constructor of a class. A function beside the cursor's, at its level or deeper,
 /// is not around it, nor are its parameters.
 pub fn powershell_params(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
-    static HEADER: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"(?i)^\s*(?:function|filter)\s").unwrap());
     let var = Regex::new(&format!(r"(?i)\${}(?:[^\w-]|$)", regex::escape(name)))
         .expect("an escaped name keeps the pattern valid");
     let mut depth = indent(lines[at]);
@@ -167,15 +224,18 @@ pub fn powershell_params(lines: &[&str], at: usize, name: &str) -> Vec<Binding> 
         if l.trim().is_empty() || indent(l) > depth {
             continue;
         }
-        let beside = i != at && indent(l) == depth && HEADER.is_match(l);
+        let open = params_at(lines, i);
+        // A function or a method beside the cursor's, at its level: none of its parameters.
+        let header = HEADER.is_match(l) || (METHOD.is_match(l) && in_class(lines, i + 1));
+        let beside = i != at && indent(l) == depth && header;
         depth = indent(l);
-        if beside || !PARAM.is_match(l) {
+        let Some(from) = open.filter(|_| !beside) else {
             continue;
-        }
-        // The block runs from its `(` to the line that closes it.
+        };
+        // The list runs from its `(` to the line that closes it.
         let mut open = 0;
         for (n, b) in lines.iter().enumerate().skip(i).take(80) {
-            let from = PARAM.find(b).filter(|_| n == i).map_or(0, |m| m.end() - 1);
+            let from = if n == i { from } else { 0 };
             if var.is_match(&b[from..]) {
                 return vec![Binding {
                     line: n + 1,
@@ -190,6 +250,10 @@ pub fn powershell_params(lines: &[&str], at: usize, name: &str) -> Vec<Binding> 
     }
     Vec::new()
 }
+
+/// The header of a function or a filter.
+static HEADER: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"(?i)^\s*(?:function|filter)\s").unwrap());
 
 /// The path a dot-source (`. ./helpers.ps1`, `. $PSScriptRoot/helpers.ps1`), an `Import-Module
 /// ./Shop/Users.psm1` or a `using module ./Shop.psm1` on `line` names, when byte `col` stands on
