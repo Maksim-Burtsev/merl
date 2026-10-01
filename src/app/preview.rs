@@ -32,24 +32,12 @@ impl App {
             .is_some_and(|p| self.previewed.contains(p))
     }
 
-    /// The open file is one of the review's, whose diff lives on the source: `p` never renders
-    /// it, and one the branch comes to change leaves the preview (`review_refreshed`).
-    fn in_review(&self) -> bool {
-        let rel = self.rel_current();
-        let file = |r: &git::Review| rel.as_deref().and_then(|rel| r.file(rel)).is_some();
-        self.review.as_ref().is_some_and(file)
-    }
-
     /// `p`: the open Markdown file rendered, or its source again. The cursor row stays as far
     /// down the pane, on the same place of the file.
     pub(super) fn toggle_preview(&mut self) {
         let Some(path) = self.buf.path.clone() else {
             return;
         };
-        if self.in_review() {
-            self.message = "in review".into();
-            return;
-        }
         if self.previewed.remove(&path) {
             let off = self
                 .preview
@@ -74,6 +62,11 @@ impl App {
                 .min(self.view_h.saturating_sub(1)),
         };
         self.previewed.insert(path);
+        // The preview shows no deleted line: a cursor on one stands on the line below it, which
+        // the cursor row shows and Enter and Ctrl+C act on (#596).
+        if self.deleted.is_some() {
+            self.go((self.line, 0));
+        }
         // A selection the preview cannot draw would be what Ctrl+C copies.
         self.anchor = None;
         // Back to the row the preview left, when the cursor has not moved since; else the row
