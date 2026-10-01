@@ -62,6 +62,12 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     let sep = separator(kind);
     let lines: Vec<&str> = text.lines().collect();
     let target = *lines.get(line.checked_sub(1)?)?;
+    // A `@property` of a JavaScript `@typedef {Object}` is its typedef's field (#347).
+    if kind == Kind::TsJs
+        && let Some(owner) = jsdoc_owner_name(&lines, line - 1)
+    {
+        return Some(format!("{owner}{sep}{name}"));
+    }
     // Any other name on a Go function's line is the function's, a parameter or a named result,
     // and reads as a local of its body does (#100): `Load.err`, not the field `Issue.err`.
     if kind == Kind::Go

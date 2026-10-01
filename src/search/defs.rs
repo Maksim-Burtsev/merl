@@ -279,7 +279,11 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(r"^\s*(?:global\s+)?using\s+(?:unsafe\s+)?{w}\s*="),
                 // A constructor, behind at least one access modifier. With nothing in front,
                 // `Invoice(n);` is a call, so a bare name before `(` is never a declaration here.
-                format!(r"{access}{w}\s*\([^;]*\)\s*(?::\s*(?:base|this)\b.*)?[{{=]?\s*$"),
+                // Its body may stand on its line, `{ Id = id; }`, and its parameters wrap onto the
+                // lines below, past a `(` or a `,` at the end of this one (#360).
+                format!(
+                    r"{access}{w}\s*\((?:[^;]*\)\s*(?::\s*(?:base|this)\b.*)?[{{=]?|[^;{{}}]*\)\s*(?::\s*(?:base|this)\b[^{{]*)?\{{.*\}}|[^;)]*)\s*$"
+                ),
                 // A method, a property, an event and a field: the type, the name, and the `(` of
                 // the parameters, the `{` of the accessors, the `=>` of an expression body, the
                 // `=` of an initialiser, the `;` of a declaration with none — or the end of the
@@ -938,12 +942,14 @@ pub fn field_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
             format!(r"\bself\.{w}\b.*[^=!<>]=[^=]|\bas\s+self\.{w}\b|^\s*for\s.*\bself\.{w}\b"),
         ],
         // A member behind any modifiers, bare or not, a constructor parameter behind one and
-        // any decorators, `this.name = …`.
+        // any decorators, `this.name = …`, a JSDoc `@property`.
         Kind::TsJs => vec![
             format!(
                 r"^\s+(?:@[\w$.]+(?:\([^)]*\))?\s*)*(?:(?:public|private|protected|readonly|static|declare|override|abstract|accessor)\s+)*{w}\s*[?!]?\s*(?::|=[^=>]|;|$)"
             ),
             format!(r"^\s+this\.{w}\s*=[^=]"),
+            // A `@property {T} name` of a JSDoc `@typedef {Object}` (#347).
+            format!(r"^\s*\*\s*@prop(?:erty)?\s*\{{.*\}}\s*\[?{w}(?:[\]=\s]|$)"),
         ],
         // A struct field, alone or among others (`a, name T`), and an embedded `*pkg.Name`.
         Kind::Go => vec![

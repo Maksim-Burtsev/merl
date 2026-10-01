@@ -33,3 +33,19 @@ key /
 type AppendLine("
 key Enter d
 wait no definition for AppendLine in the project (via sb: StringBuilder)
+# #360: a bare name is its class's own first, then a base's, never another class's namesake. #349:
+# a type is looked for in the file's own project, not in a project its `.csproj` does not reference.
+run mkdir -p shop.app shop.api && printf '%s\n' '<Project Sdk="Microsoft.NET.Sdk"></Project>' > shop.app/Shop.App.csproj && cp shop.app/Shop.App.csproj shop.api/Shop.Api.csproj && printf '%s\n' 'namespace Shop.Api;' 'public class Address { }' > shop.api/Address.cs && printf '%s\n' 'namespace Shop.App;' 'public class Address { }' > shop.app/Address.cs && printf '%s\n' 'namespace Shop.App;' '' 'public class ViewModelBase' '{' '    protected void IsBusyFor(int n) { }' '}' '' 'public class Page : ViewModelBase' '{' '    public Address Home()' '    {' '        IsBusyFor(1);' '        return new Address();' '    }' '}' '' 'public class Spinner' '{' '    public void IsBusyFor(int n) { }' '}' > shop.app/Page.cs
+wait shop.app
+key o
+type shop.app/Page.cs
+key Enter
+wait public class Page
+key /
+type IsBusyFor(1
+key Enter d
+wait IsBusyFor → ViewModelBase.IsBusyFor (via Page)
+key /
+type Address(
+key Enter d
+wait Address: by name, 1 match
