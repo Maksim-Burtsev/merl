@@ -423,10 +423,7 @@ impl App {
         if go_own {
             locals = vec![self.line + 1];
         }
-        // No scope around the cursor binds it: the module's scope is the whole file, and its
-        // declarations below the cursor count too (#337). One on the cursor's line leaves the
-        // namesakes to the rules below, as on a declaration anywhere.
-        if bare && locals.is_empty() {
+        if (bare || self.script_scope(&here, Some(first)).is_some()) && locals.is_empty() {
             let module = locals_at(&format!("{text}\n0"), self.buf.lines.len() + 1);
             if !module.contains(&(self.line + 1)) {
                 locals = module;
