@@ -920,15 +920,11 @@ impl App {
         // A barrel of the project that hands the name on from a package, `export { x } from
         // "lodash"`, leads into that package, as an import straight from it does (#527), when
         // nothing of the project answers the import.
-        let import = match import {
-            Some(path)
-                if kind == Kind::TsJs
-                    && let Some(package) = self.package_behind(&here, &path, 0)
-                    && package.last().is_some_and(|t| t == first)
-                    && self
-                        .imported_definitions(kind, &here, &word, &chain, &path)
-                        .is_some_and(|f| f.is_empty()) =>
-            {
+        let barrel = import
+            .as_deref()
+            .and_then(|path| self.barrel_package(kind, &here, &word, &chain, path));
+        let import = match barrel {
+            Some(package) => {
                 for (name, p) in &mut imports {
                     if name.as_str() == first {
                         *p = package.clone();
@@ -936,7 +932,7 @@ impl App {
                 }
                 Some(package)
             }
-            import => import,
+            None => import,
         };
         // A package no `node_modules` holds, no workspace package is called and no `declare
         // module` types is not installed (#392): nothing says what it declares, and the project's namesakes are not it. The

@@ -24,6 +24,27 @@ impl App {
         self.imported_at(kind, here, word, chain, path, 0)
     }
 
+    /// The package a barrel of the project hands the word on from, `export { x } from
+    /// "lodash"` (#527), when nothing of the project answers the import `path`.
+    pub(super) fn barrel_package(
+        &self,
+        kind: Kind,
+        here: &Path,
+        word: &str,
+        chain: &[String],
+        path: &[String],
+    ) -> Option<Vec<String>> {
+        let first = chain.first().map_or(word, String::as_str);
+        let package = (kind == Kind::TsJs)
+            .then(|| self.package_behind(here, path, 0))
+            .flatten()?;
+        (package.last().is_some_and(|t| t == first)
+            && self
+                .imported_definitions(kind, here, word, chain, path)
+                .is_some_and(|f| f.is_empty()))
+        .then_some(package)
+    }
+
     /// The package a TypeScript barrel of the project hands on what the import `path` takes
     /// (#527), as an import of it is spelled: `["lodash", "x"]` for `export { x } from "lodash"`
     /// in the module `path` names, or in a barrel that module hands the name on from.
