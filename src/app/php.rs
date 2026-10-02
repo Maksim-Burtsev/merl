@@ -1,6 +1,3 @@
-//! `d` in PHP on `$this->name`, `self::name`, `static::name` and `parent::name`: a member of the
-//! class the cursor is in, of a trait it uses or of a class it extends (#356).
-
 use super::*;
 use std::ops::Range;
 

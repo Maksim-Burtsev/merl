@@ -693,8 +693,6 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // A bare Swift word in a type's body, once the walk proves it no local, is a member of
-        // that type through the implicit `self`, or of the class it extends, first (#380).
         if kind == Kind::Swift
             && !dotted
             && chain.is_empty()
