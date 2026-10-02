@@ -308,6 +308,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a function nested in it, whether it is declared above the call or below; two local overloads
   are offered together. It jumped to the type's member of the same name through `self`, or
   offered both. (#577)
+- `d` in a Vue or Svelte component on a member of a `v-for` or `{#each}` item named like a
+  `const` of the script above, `theme` in `{{ settings.theme }}` under `v-for="settings in
+  rows"`, no longer jumps to the key of the script's `const settings = { theme }`: the item is
+  another value, and `d` searches the member by name. (#618)
 
 ## [0.8.0] - 2026-10-01
 
