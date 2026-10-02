@@ -8,6 +8,9 @@ use std::sync::LazyLock;
 
 use super::{Binding, Value};
 
+static ACCESS_LABELS: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^\s*(?:(?:public|private|protected)\s*:\s*)+").unwrap());
+
 /// The files the `#include` lines of the C or C++ `text` name, as written, each with whether it
 /// is quoted, `"…"`, rather than `<…>`. A line under `#if` counts as any other: whichever branch
 /// a build takes, the file reaches no fewer headers.
@@ -168,6 +171,7 @@ fn c_struct_head(head: &str) -> Option<String> {
         )
         .unwrap()
     });
+    let head = ACCESS_LABELS.replace(head, "");
     let head = ATTR.replace_all(head.trim(), "");
     let head = untemplated(head.trim());
     HEAD.captures(head.trim_start())
@@ -971,6 +975,15 @@ pub enum CType {
 /// (`c->argv[j]->`). `None` for a receiver that starts with anything else: a cast, a bracketed
 /// expression, a call of a call or of a field, `this`.
 pub fn c_receiver(before: &str) -> Option<(String, bool, Vec<String>)> {
+    receiver(before, false)
+}
+pub fn cpp_receiver(before: &str) -> Option<(String, Vec<String>)> {
+    match receiver(before, true)? {
+        (head, false, fields) => Some((head, fields)),
+        _ => None,
+    }
+}
+fn receiver(before: &str, cpp: bool) -> Option<(String, bool, Vec<String>)> {
     let code = c_code(before);
     let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
     let mut rest = code.trim_end();
@@ -982,6 +995,9 @@ pub fn c_receiver(before: &str) -> Option<(String, bool, Vec<String>)> {
         }
         .trim_end();
         while rest.ends_with(']') {
+            if cpp {
+                return None;
+            }
             rest = rest[..opening(rest)?].trim_end();
         }
         let called = rest.ends_with(')');
@@ -994,7 +1010,7 @@ pub fn c_receiver(before: &str) -> Option<(String, bool, Vec<String>)> {
         // tail read is not it.
         if name.is_empty()
             || name.starts_with(|c: char| c.is_ascii_digit())
-            || name == "this"
+            || (name == "this" && !cpp)
             || rest[..start].ends_with(|c: char| !c.is_ascii())
         {
             return None;
@@ -1241,4 +1257,153 @@ pub fn c_place(code: &str, at: usize) -> (usize, usize) {
 /// anonymous one.
 pub fn c_body_name(code: &str, open: usize) -> String {
     c_struct_head(c_back_to_stop(code, open).0).unwrap_or_default()
+}
+pub fn cpp_type_at(code: &str, at: usize, len: usize) -> Option<Vec<String>> {
+    static AUTO: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*=\s*(?:new\s+)?((?:::)?\s*\w+(?:\s*::\s*\w+)*)\s*(?:<[^;(){}]*>)?\s*[({]")
+            .unwrap()
+    });
+    let b = code.as_bytes();
+    let (mut depth, mut i) = (0usize, at);
+    let from = loop {
+        if i == 0 {
+            break 0;
+        }
+        i -= 1;
+        match b[i] {
+            b'>' if i > 0 && b[i - 1] == b'-' => return None,
+            b')' | b']' | b'>' => depth += 1,
+            b'(' | b',' if depth == 0 => break i + 1,
+            b'[' | b'<' if depth == 0 => return None,
+            b'(' | b'[' | b'<' => depth -= 1,
+            b';' | b'{' | b'}' if depth == 0 => break i + 1,
+            b';' | b'{' | b'}' => return None,
+            _ => {}
+        }
+    };
+    let segment = ACCESS_LABELS.replace(&code[from..at], "");
+    let path = cpp_class_path(&segment)?;
+    if path != ["auto"] {
+        return Some(path);
+    }
+    let init = AUTO.captures(&code[at + len..])?;
+    let m = init.get(0)?;
+    let open = at + len + m.end() - 1;
+    let close = close_of_in(code, open, code.len());
+    let path = cpp_class_path(&init[1])?;
+    let last = path.last()?;
+    (close < code.len()
+        && code[close + 1..].trim_start().starts_with([';', ','])
+        && (m.as_str().contains("new") || last.starts_with(|c: char| c.is_ascii_uppercase())))
+    .then_some(path)
+}
+fn cpp_class_path(written: &str) -> Option<Vec<String>> {
+    static DROPPED: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\b(?:const|volatile|static|mutable|constexpr|inline|struct|class|typename|extern|thread_local|register|virtual|explicit)\b|\[\[[^\]]*\]\]").unwrap()
+    });
+    static SMART: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:::\s*)?(?:std\s*::\s*)?(?:unique_ptr|shared_ptr)\s*<(.*)>$").unwrap()
+    });
+    const BUILTIN: &[&str] = &[
+        "int", "char", "short", "long", "float", "double", "void", "signed", "unsigned", "bool",
+        "size_t",
+    ];
+    let s = DROPPED.replace_all(written, "");
+    let s = s.trim_matches(|c: char| c.is_whitespace() || c == '*' || c == '&');
+    if let Some(c) = SMART.captures(s) {
+        let inner = untemplated(&c[1]);
+        return cpp_class_path(inner.split(',').next()?);
+    }
+    let flat = untemplated(s);
+    let path: Vec<String> = flat
+        .split("::")
+        .map(|p| p.trim().to_owned())
+        .skip_while(|p| p.is_empty())
+        .collect();
+    let named = |p: &String| {
+        !p.is_empty()
+            && !p.starts_with(|c: char| c.is_ascii_digit())
+            && p.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+    };
+    (path.iter().all(named)
+        && !path.is_empty()
+        && !BUILTIN.contains(&path[path.len() - 1].as_str()))
+    .then_some(path)
+}
+pub fn cpp_value_type(text: &str, line: usize, name: &str) -> Result<Option<Vec<String>>, ()> {
+    let code = c_code(text);
+    let starts = line_starts(&code);
+    let at: Vec<usize> = c_bindings_at(text, line, name)
+        .into_iter()
+        .map(|(l, col)| starts[l - 1] + col)
+        .collect();
+    let mut types = at.iter().map(|&a| cpp_type_at(&code, a, name.len()));
+    let Some(first) = types.next() else {
+        return Ok(None);
+    };
+    match first {
+        Some(t) if types.all(|o| o.as_ref() == Some(&t)) => Ok(Some(t)),
+        _ => Err(()),
+    }
+}
+pub fn cpp_template_param(code: &str, name: &str) -> bool {
+    Regex::new(&format!(
+        r"\btemplate\s*<[^;{{}}]*\b(?:typename|class)\s+{}\b",
+        regex::escape(name)
+    ))
+    .is_ok_and(|re| re.is_match(code))
+}
+pub fn cpp_class_body(code: &str, line: usize, name: &str) -> Option<usize> {
+    c_words_on_line(code, line, name, None)
+        .into_iter()
+        .find_map(|at| {
+            let open = at + code[at..].find([';', '{', '(', '='])?;
+            (code.as_bytes()[open] == b'{'
+                && c_struct_head(c_back_to_stop(code, open).0).as_deref() == Some(name))
+            .then_some(open)
+        })
+}
+pub fn cpp_bases(code: &str, open: usize) -> Vec<Vec<String>> {
+    static ACCESS: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\b(?:public|private|protected|virtual)\b").unwrap());
+    let head = untemplated(c_back_to_stop(code, open).0);
+    let list = head
+        .match_indices(':')
+        .find(|&(i, _)| !head[i + 1..].starts_with(':') && !head[..i].ends_with(':'))
+        .map_or("", |(i, _)| &head[i + 1..]);
+    list.split(',')
+        .filter(|b| !b.trim().is_empty())
+        .filter_map(|b| cpp_class_path(&ACCESS.replace_all(b, "")))
+        .collect()
+}
+pub fn cpp_body_members(code: &str, open: usize, word: &str) -> Vec<usize> {
+    static REFUSED: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:typedef|using|friend|static_assert|return|operator|template\s*<[^>]*>\s*friend)\b").unwrap()
+    });
+    let close = close_of_in(code, open, code.len());
+    let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    let b = code.as_bytes();
+    code[open + 1..close]
+        .match_indices(word)
+        .map(|(i, _)| open + 1 + i)
+        .filter(|&at| {
+            if code[..at].ends_with(is_name)
+                || code[at + word.len()..].starts_with(is_name)
+                || c_opener(b, at) != Some(open)
+            {
+                return false;
+            }
+            if c_field_at(code, at, word).is_some() {
+                return true;
+            }
+            let pre = ACCESS_LABELS.replace(c_back_to_stop(code, at).0, "");
+            let pre = untemplated(pre.trim());
+            !pre.is_empty()
+                && !pre.contains(['(', ')', '=', '.', '~'])
+                && !pre.ends_with(':')
+                && !pre.ends_with("->")
+                && !REFUSED.is_match(&pre)
+                && code[at + word.len()..].trim_start().starts_with('(')
+        })
+        .collect()
 }

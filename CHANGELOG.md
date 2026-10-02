@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` on a C++ member reads the class its receiver is declared as: `key.size()` with a
+  `const Slice& key` lands on `Slice::size` (`via key: Slice`) instead of offering every `size`
+  of the project. The receiver is a parameter, a local (`auto x = new T(…)` included), a field
+  of the class the method is in, or `this`; `std::unique_ptr<T>` is `T`, a member the class
+  inherits is found in its bases, and a chain names each link
+  (`via thread: ThreadState → shared: SharedState`). A receiver of a `std::` type never lands in
+  the project: `v->clear()` on a `std::vector` searches the headers outside it. (#389)
 - `f` folds Python code into one line ending in `⋯`: on a line that opens a construct it folds
   that construct (`def`, `class`, `if` / `elif` / `else`, `for`, `while`, `with`, `try` /
   `except` / `finally`, `match` / `case`, a call, list or dict wrapped over lines, a docstring, a

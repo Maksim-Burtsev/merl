@@ -22,6 +22,7 @@ mod at_base;
 mod c;
 mod collapse;
 mod component;
+mod cpp;
 mod cs_typed;
 mod css;
 mod cursor;
