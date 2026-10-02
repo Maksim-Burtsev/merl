@@ -510,7 +510,7 @@ pub fn narrow_patterns(
         Kind::Php => php_namespace_patterns(p, text, line, r),
         Kind::PowerShell => powershell_sigil(p, &line[..r.start], &line[r.end..]),
         Kind::Dart => dart_narrow(p, line, r),
-        Kind::Julia => julia_narrow(p, &line[r.clone()], &line[r.end..]),
+        Kind::Julia => julia_narrow(p, line, r),
         _ => {}
     }
 }

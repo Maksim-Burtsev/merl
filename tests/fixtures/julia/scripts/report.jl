@@ -57,3 +57,14 @@ function sample(parcel, tariff)
 #   ^ d: src/Shop.jl:8
 #           ^ d: src/Shop.jl:9
 end
+
+function extra(t, xs)
+    Base.show(stdout, t)
+#   ^ d: none
+    sq(v) = v^2
+#           ^ d: scripts/report.jl:64
+    xs = sort(xs)
+#             ^ d: scripts/report.jl:61
+    map(rate -> rate * 2, xs)
+#               ^ d: scripts/report.jl:68
+end

@@ -266,8 +266,10 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         Kind::Julia => {
             static SHARE: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
             let share = SHARE.get_or_init(|| {
-                let bin = run("julia", &["--startup-file=no", "-e", "print(Sys.BINDIR)"])?;
-                Some(Path::new(bin.trim()).parent()?.join("share/julia"))
+                julia_share(&run(
+                    "julia",
+                    &["--startup-file=no", "-e", "print(Sys.BINDIR)"],
+                )?)
             });
             let depot = julia_depot(std::env::var_os("JULIA_DEPOT_PATH"), &home);
             julia_roots(root, share.clone(), &depot)

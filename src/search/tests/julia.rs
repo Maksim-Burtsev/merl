@@ -38,6 +38,9 @@ fn julia_declaration_forms() {
         ("@enum Color red green blue", "Color"),
         ("@enum Color red green blue", "green"),
         ("@enum Color::UInt8 red green", "red"),
+        ("@enum Fruit apple=1 orange=2", "orange"),
+        ("@inline f(x) = x", "f"),
+        ("Point{T}(x::T) where {T} = new(x)", "Point"),
     ] {
         assert!(alone(line, word), "{line}: {word}");
     }
@@ -63,6 +66,12 @@ fn julia_refusals() {
         ("sort!(xs) = xs", "sort"),
         ("function sort(xs)", "sort!"),
         ("struct Moneybag", "Money"),
+        ("function Base.show(io::IO, m::Money)", "Base"),
+        ("function Base.:+(a::Money, b::Money)", "Base"),
+        ("Base.show(io::IO, m::Money) = print(io, m)", "Base"),
+        ("@show total(xs)", "total"),
+        ("@test rate(t) == 1", "rate"),
+        ("x => 1", "x"),
     ] {
         assert!(!alone(line, word), "{line}: {word}");
     }
@@ -101,9 +110,20 @@ fn a_julia_field_is_one_directly_inside_its_struct() {
     assert!(!declares(&lines, 10, "cents"));
     assert!(!declares(&lines, 11, "note"));
     assert!(!declares(&lines, 13, "express"));
-    let mut field = julia_patterns("cents");
-    julia_narrow(&mut field, "cents", "(x)");
-    assert!(!Regex::new(&field.join("|")).unwrap().is_match(lines[1]));
+    let narrowed = |line: &str, word: &str| {
+        let at = line.find(word).unwrap();
+        let mut p = julia_patterns(word);
+        julia_narrow(&mut p, line, at..at + word.len());
+        Regex::new(&p.join("|")).unwrap()
+    };
+    assert!(!narrowed("cents(x)", "cents").is_match(lines[1]));
+    assert!(!narrowed("y = cents + 1", "cents").is_match(lines[1]));
+    assert!(narrowed("y = m.cents + 1", "cents").is_match(lines[1]));
+    assert!(narrowed("    cents::Int", "cents").is_match(lines[1]));
+    assert!(narrowed("@check x", "check").is_match("macro check(ex)"));
+    assert!(!narrowed("@check x", "check").is_match("check(x) = x > 0"));
+    assert!(!narrowed("check(x)", "check").is_match("macro check(ex)"));
+    assert!(narrowed("macro check(ex)", "check").is_match("check(x) = x > 0"));
 }
 
 #[test]
@@ -130,6 +150,10 @@ fn julia_literals_hide_declarations() {
         "struct Char end",
         "# struct Comment end",
         "struct Last end",
+        "y = A' * \"'\"",
+        "struct AfterAdjoint end",
+        "# don't \"quote",
+        "struct AfterComment end",
     ]
     .join("\n");
     let hidden: Vec<usize> = literal_lines(Kind::Julia, &text)
@@ -168,6 +192,19 @@ fn julia_locals_stay_in_their_function() {
         "map(xs) do",
         "    xs",
         "end",
+        "function g(xs, color)",
+        "    for x in xs",
+        "        x = 2x",
+        "        x",
+        "    end",
+        "    xs = sort(xs)",
+        "    draw(xs;",
+        "         color = :red,",
+        "         size = 3)",
+        "    color + size",
+        "    sq(v) = v^2",
+        "    map(rate -> rate * 2, xs) + map((a, b) -> a + b, xs)",
+        "end",
     ];
     let at = |line: usize, name: &str| {
         bindings(Kind::Julia, &lines.join("\n"), line, name)
@@ -176,7 +213,7 @@ fn julia_locals_stay_in_their_function() {
             .collect::<Vec<_>>()
     };
     assert_eq!(at(5, "m"), [3]);
-    assert_eq!(at(3, "m"), [3]);
+    assert!(at(3, "m").is_empty());
     assert_eq!(at(5, "i"), [4]);
     assert_eq!(at(5, "item"), [4]);
     assert_eq!(at(5, "verbose"), [2]);
@@ -190,6 +227,17 @@ fn julia_locals_stay_in_their_function() {
     assert!(at(16, "m").is_empty());
     assert_eq!(at(20, "k"), [18]);
     assert!(at(23, "xs").is_empty());
+    assert_eq!(at(28, "x"), [27]);
+    assert_eq!(at(30, "xs"), [25]);
+    assert_eq!(at(34, "color"), [25]);
+    assert!(at(34, "size").is_empty());
+    assert_eq!(at(35, "v"), [35]);
+    assert_eq!(at(36, "rate"), [36]);
+    assert_eq!(at(36, "b"), [36]);
+    let line = "    xs = sort(xs)";
+    assert!(binds_at(Kind::Julia, line, 4, "xs"));
+    assert!(!binds_at(Kind::Julia, line, 14, "xs"));
+    assert!(!binds_at(Kind::Julia, "    xs == ys", 4, "xs"));
 }
 
 #[test]
@@ -211,6 +259,12 @@ fn julia_imports_bind_names_and_modules() {
     assert!(has("show", &["Base", "show"]));
     assert!(has("test", &["Test", "test"]));
     assert!(!got.iter().any(|(n, _)| n == "Hidden"));
+    let documented = imports(
+        Kind::Julia,
+        "\"\"\"\n    using Example\n\"\"\"\nusing Real\n",
+    );
+    assert!(!documented.iter().any(|(n, _)| n == "Example"));
+    assert!(documented.iter().any(|(n, _)| n == "Real"));
 }
 
 #[test]
@@ -226,6 +280,10 @@ fn julia_names_keep_their_bang() {
         Some("../src/money.jl")
     );
     assert_eq!(julia_include("x = include_dependency(\"a.jl\")", 25), None);
+    assert_eq!(julia_col("sort!(a); sort(b)", "sort"), Some(10));
+    assert_eq!(julia_col("sort!(a); resort(b)", "sort"), None);
+    assert_eq!(julia_col("a!=b", "a"), Some(0));
+    assert_eq!(julia_col("sort!(a)", "sort!"), Some(0));
 }
 
 #[test]
@@ -238,6 +296,7 @@ fn julia_symbols() {
         ("Base.show(io::IO, m::Money) = print(io, m)", "show"),
         ("f(x::T)::T where {T} = x", "f"),
         ("sort!(xs) = xs", "sort!"),
+        ("f(x::Vector{Tuple{Int,Int}}, g = h(k(1))) = 1", "f"),
         ("mutable struct Acc", "Acc"),
         ("@kwdef struct Options", "Options"),
         ("abstract type Shape end", "Shape"),
@@ -255,6 +314,7 @@ fn julia_symbols() {
         "    inner(y) = y",
         "rate(t) == rate(c)",
         "function (m::Money)(x)",
+        "function Base.:+(a::Money, b::Money)",
     ] {
         assert_eq!(julia(line), None, "{line}");
     }
@@ -321,6 +381,29 @@ fn julia_roots_read_the_manifest_and_the_depot() {
             "depot/packages/CSV/b2/src",
             "depot/packages/DataFrames/0Y1g5/src",
         ]
+    );
+    std::fs::create_dir_all(dir.join("other")).unwrap();
+    std::fs::write(dir.join("other/JuliaProject.toml"), "name = \"CSV\"\n").unwrap();
+    std::fs::write(dir.join("other/Manifest.toml"), "").unwrap();
+    std::fs::write(
+        dir.join("other/JuliaManifest.toml"),
+        "[[DataFrames]]\ngit-tree-sha1 = \"5fab31e2e01e70ad66e3e24c968c264d1cf166d6\"\nuuid = \"a93c6f00-e57d-5684-b7b6-d8193f3e46c0\"\n",
+    )
+    .unwrap();
+    let other: Vec<String> = julia_roots(&dir.join("other"), None, &dir.join("depot"))
+        .iter()
+        .map(|r| r.strip_prefix(&dir).unwrap().display().to_string())
+        .collect();
+    assert_eq!(
+        other,
+        [
+            "depot/packages/DataFrames/0Y1g5/src",
+            "depot/packages/Shop/s1/src"
+        ]
+    );
+    assert_eq!(
+        julia_share("/opt/julia-1.11.7/bin\n"),
+        Some(PathBuf::from("/opt/julia-1.11.7/share/julia"))
     );
     let home = Path::new("/home/u");
     assert_eq!(julia_depot(None, home), home.join(".julia"));

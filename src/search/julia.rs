@@ -5,29 +5,59 @@ use regex::Regex;
 
 use super::*;
 
-const MACROS: &str = r"(?:(?:[\w.]+\.)?@[\w.]+\s+)*";
+macro_rules! julia_macros {
+    () => {
+        r"(?:(?:[\w.]+\.)?@[\w.]+\s+)*"
+    };
+}
 
-const END: &str = r"(?:[^\w!]|$)";
+macro_rules! julia_method_tail {
+    () => {
+        r"\s*(?:::\s*[^=\s][^=]*?)?\s*(?:where\b[^=]*)?=(?:[^=>]|$)"
+    };
+}
+
+macro_rules! julia_name_end {
+    () => {
+        r"(?:[^\w!.]|$)"
+    };
+}
+
+const MACROS: &str = julia_macros!();
+const END: &str = julia_name_end!();
+const QUALIFIER: &str = r"(?:[\w.]+\.)?";
+const TYPE_PARAMS: &str = r"(?:\{[^}]*\}\s*)?";
 
 pub fn julia_patterns(word: &str) -> Vec<String> {
     let (w, e) = (regex::escape(word), END);
     vec![
-        format!(r"^\s*{MACROS}function\s+(?:[\w.]+\.)?{w}{e}"),
-        format!(r"^\s*{MACROS}(?:[\w.]+\.)?{w}\s*(?:\{{[^}}]*\}}\s*)?\("),
+        format!(r"^\s*{MACROS}function\s+{QUALIFIER}{w}{e}"),
+        format!(r"^\s*{MACROS}{QUALIFIER}{w}\s*{TYPE_PARAMS}\("),
         format!(r"^\s*{MACROS}(?:mutable\s+)?struct\s+{w}{e}"),
         format!(r"^\s*(?:abstract|primitive)\s+type\s+{w}{e}"),
-        format!(r"^\s*macro\s+{w}{e}"),
+        julia_macro(word),
         format!(r"^\s*(?:bare)?module\s+{w}{e}"),
         format!(r"^\s*(?:global\s+)?const\s+{w}\s*(?:::[^=]*)?=(?:[^=]|$)"),
         format!(r"^{w}\s*(?:::[^=]*)?=(?:[^=>]|$)"),
         julia_field(word),
-        format!(r"^\s*@enum\s+(?:{w}{e}|[\w.]+(?:::[\w.]+)?\s+(?:[\w\s]*\s)?{w}{e})"),
+        format!(r"^\s*@enum\s+(?:{w}{e}|[\w.]+(?:::[\w.]+)?\s+(?:[\w\s=]*\s)?{w}{e})"),
     ]
 }
 
-pub fn julia_narrow(patterns: &mut Vec<String>, word: &str, after: &str) {
-    if after.starts_with(['(', '{']) || after.starts_with(".(") {
-        let field = julia_field(word);
+pub fn julia_narrow(patterns: &mut Vec<String>, line: &str, r: std::ops::Range<usize>) {
+    let (word, before, after) = (&line[r.clone()], &line[..r.start], &line[r.end..]);
+    let matches = |p: &str| Regex::new(p).is_ok_and(|re| re.is_match(line));
+    let (field, mac) = (julia_field(word), julia_macro(word));
+    if matches(&mac) {
+        return;
+    }
+    if before.ends_with('@') {
+        patterns.retain(|p| *p == mac);
+        return;
+    }
+    patterns.retain(|p| *p != mac);
+    let called = after.starts_with(['(', '{']) || after.starts_with(".(");
+    if called || (!before.ends_with('.') && !matches(&field)) {
         patterns.retain(|p| *p != field);
     }
 }
@@ -39,14 +69,25 @@ fn julia_field(word: &str) -> String {
     )
 }
 
-pub(super) const JULIA_FUNCTION_SYMBOL: &str =
-    r"^\s*(?:(?:[\w.]+\.)?@[\w.]+\s+)*function\s+(?:[\w.]+\.)?(?P<name>[A-Za-z_][\w!]*)";
+fn julia_macro(word: &str) -> String {
+    format!(r"^\s*macro\s+{}{END}", regex::escape(word))
+}
+
+pub(super) const JULIA_FUNCTION_SYMBOL: &str = concat!(
+    r"^\s*",
+    julia_macros!(),
+    r"function\s+(?:[\w.]+\.)?(?P<name>[A-Za-z_][\w!]*)",
+    julia_name_end!()
+);
 pub(super) const JULIA_METHOD_SYMBOL: &str = concat!(
-    r"^(?:[\w.]+\.)?(?P<name>[A-Za-z_][\w!]*)(?:\{[^}]*\})?\((?:[^()]|\([^()]*\))*\)",
-    r"\s*(?:::\s*[^=\s][^=]*?)?\s*(?:where\b[^=]*)?=(?:[^=>]|$)"
+    r"^(?:[\w.]+\.)?(?P<name>[A-Za-z_][\w!]*)(?:\{[^}]*\})?",
+    r"\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)",
+    julia_method_tail!()
 );
 pub(super) const JULIA_TYPE_SYMBOL: &str = concat!(
-    r"^\s*(?:(?:[\w.]+\.)?@[\w.]+\s+)*(?:(?:mutable\s+)?struct|(?:abstract|primitive)\s+type|macro|(?:bare)?module)",
+    r"^\s*",
+    julia_macros!(),
+    r"(?:(?:mutable\s+)?struct|(?:abstract|primitive)\s+type|macro|(?:bare)?module)",
     r"\s+(?P<name>[A-Za-z_][\w!]*)"
 );
 
@@ -55,6 +96,12 @@ static STRUCT: LazyLock<Regex> =
 static KEYWORD: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(
         r"^\s*(?:{MACROS}(?:function|(?:mutable\s+)?struct)|abstract\s+type|primitive\s+type|macro|(?:bare)?module|(?:global\s+)?const|@enum)\s"
+    ))
+    .unwrap()
+});
+static HEAD: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!(
+        r"^\s*{MACROS}{QUALIFIER}([A-Za-z_][\w!]*)\s*{TYPE_PARAMS}\("
     ))
     .unwrap()
 });
@@ -67,8 +114,8 @@ pub fn julia_declares<S: AsRef<str>>(lines: &[S], line: usize, word: &str) -> bo
     if KEYWORD.is_match(text) {
         return true;
     }
-    if let Some(after) = method_name_end(text, word) {
-        return defines(&text[after..]);
+    if let Some(c) = HEAD.captures(text).filter(|c| &c[1] == word) {
+        return defines(&text[c.get(0).map_or(0, |m| m.end() - 1)..]);
     }
     if !text.starts_with([' ', '\t']) {
         return true;
@@ -94,21 +141,9 @@ pub fn julia_declares<S: AsRef<str>>(lines: &[S], line: usize, word: &str) -> bo
             && owner(&julia_literal_lines(&text.join("\n"))))
 }
 
-fn method_name_end(text: &str, word: &str) -> Option<usize> {
-    static HEAD: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(&format!(
-            r"^\s*{MACROS}(?:[\w.]+\.)?([A-Za-z_][\w!]*)\s*(?:\{{[^}}]*\}}\s*)?\("
-        ))
-        .unwrap()
-    });
-    let c = HEAD.captures(text)?;
-    (&c[1] == word).then(|| c.get(0).map_or(0, |m| m.end() - 1))
-}
-
 fn defines(from_paren: &str) -> bool {
-    static REST: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:::\s*[^=\s][^=]*?)?\s*(?:where\b[^=]*)?=(?:[^=>]|$)").unwrap()
-    });
+    static REST: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(concat!("^", julia_method_tail!())).unwrap());
     closing(from_paren).is_some_and(|close| REST.is_match(&from_paren[close + 1..]))
 }
 
@@ -205,17 +240,18 @@ pub(super) fn julia_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindi
         r"\bfor\s+\(?(?:[\w!]+\s*,\s*)*{w}(?:\s*,\s*[\w!]+)*\)?\s*(?:in\b|=|∈)"
     ))
     .expect("an escaped name keeps the pattern valid");
+    let lambda = Regex::new(&format!(
+        r"(?:^|[^\w!])(?:{w}|\((?:[^()]*[,\s])?{w}(?:[,\s:=][^()]*)?\))\s*->"
+    ))
+    .expect("an escaped name keeps the pattern valid");
     if generator.is_match(lines[at])
-        || (!lines[at].starts_with([' ', '\t'])
-            && method_head(lines[at]).is_some_and(|h| params(h).iter().any(|p| p == name)))
+        || lambda.is_match(lines[at])
+        || method_head(lines[at]).is_some_and(|h| params(h).iter().any(|p| p == name))
     {
         return binding(at);
     }
     let literal = julia_literal_lines(&lines.join("\n"));
-    let assigns = Regex::new(&format!(
-        r"^\s*(?:local\s+)?\(?(?:[\w!]+\s*,\s*)*{w}\s*(?:::[^=,]*)?(?:,\s*[\w!]+\s*)*\)?\s*=(?:[^=>]|$)|^\s*for\s+\(?(?:[\w!]+\s*,\s*)*{w}(?:\s*,\s*[\w!]+)*\)?\s*(?:in\b|=|∈)"
-    ))
-    .expect("an escaped name keeps the pattern valid");
+    let assigns = assignment(name);
     let code = |i: usize| !literal.get(i).copied().unwrap_or(false);
     let mut depth = indent(lines[at]);
     let mut body_end = at;
@@ -233,15 +269,15 @@ pub(super) fn julia_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindi
         }
         depth = indent(l);
         if k != at && generator.is_match(l) {
-            let assigned = (k + 1..=body_end)
+            let assigned = (k + 1..body_end)
                 .rev()
-                .find(|&i| code(i) && assigns.is_match(lines[i]));
+                .find(|&i| code(i) && assigns(lines[i]));
             return binding(assigned.unwrap_or(k));
         }
         if header {
-            if let Some(i) = (k + 1..=body_end)
+            if let Some(i) = (k + 1..body_end)
                 .rev()
-                .find(|&i| code(i) && assigns.is_match(lines[i]))
+                .find(|&i| code(i) && assigns(lines[i]))
             {
                 return binding(i);
             }
@@ -258,6 +294,30 @@ pub(super) fn julia_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindi
     Vec::new()
 }
 
+fn assignment(name: &str) -> impl Fn(&str) -> bool {
+    let w = regex::escape(name);
+    let re = Regex::new(&format!(
+        r"^\s*(?:local\s+)?\(?(?:[\w!]+\s*,\s*)*{w}\s*(?:::[^=,]*)?(?:,\s*[\w!]+\s*)*\)?\s*=(?:[^=>]|$)|^\s*for\s+\(?(?:[\w!]+\s*,\s*)*{w}(?:\s*,\s*[\w!]+)*\)?\s*(?:in\b|=|∈)"
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    move |l: &str| {
+        let code = l.split_once('#').map_or(l, |(c, _)| c).trim_end();
+        re.is_match(l)
+            && !code.ends_with(',')
+            && code.matches(['(', '[']).count() >= code.matches([')', ']']).count()
+    }
+}
+
+pub fn julia_assigns_here(line: &str, start: usize, word: &str) -> bool {
+    assignment(word)(line)
+        && line
+            .match_indices('=')
+            .find(|&(i, _)| {
+                !line[i + 1..].starts_with(['=', '>']) && !line[..i].ends_with(['=', '!', '<', '>'])
+            })
+            .is_some_and(|(i, _)| start < i)
+}
+
 static HEADER: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(
         r"^\s*{MACROS}(?:function|macro)\s|\bdo(?:\s+[^#]*)?$"
@@ -266,12 +326,6 @@ static HEADER: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 fn method_head(line: &str) -> Option<&str> {
-    static HEAD: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(&format!(
-            r"^{MACROS}(?:[\w.]+\.)?[A-Za-z_][\w!]*\s*(?:\{{[^}}]*\}}\s*)?\("
-        ))
-        .unwrap()
-    });
     let m = HEAD.find(line)?;
     defines(&line[m.end() - 1..]).then_some(line)
 }
@@ -433,18 +487,21 @@ pub fn julia_name(line: &str, r: std::ops::Range<usize>) -> std::ops::Range<usiz
 }
 
 pub fn julia_whole(line: &str, word: &str) -> bool {
+    word.ends_with('!') || julia_col(line, word).is_some()
+}
+
+pub fn julia_col(line: &str, word: &str) -> Option<usize> {
     let b = line.as_bytes();
     let part = |i: usize| {
         b.get(i)
             .is_some_and(|&c| c.is_ascii_alphanumeric() || c == b'_')
     };
-    word.ends_with('!')
-        || line.match_indices(word).any(|(i, _)| {
-            let end = i + word.len();
-            !(i > 0 && part(i - 1))
-                && !part(end)
-                && (b.get(end) != Some(&b'!') || b.get(end + 1) == Some(&b'='))
-        })
+    line.match_indices(word).map(|(i, _)| i).find(|&i| {
+        let end = i + word.len();
+        !(i > 0 && part(i - 1))
+            && !part(end)
+            && (word.ends_with('!') || b.get(end) != Some(&b'!') || b.get(end + 1) == Some(&b'='))
+    })
 }
 
 pub fn julia_slug(uuid: &str, tree: &str) -> Option<String> {
@@ -495,15 +552,35 @@ pub fn julia_roots(root: &Path, share: Option<PathBuf>, depot: &Path) -> Vec<Pat
             dirs.extend(dirs_in(&version).into_iter().map(|p| p.join("src")));
         }
     }
-    let read = |name: &str| std::fs::read_to_string(root.join(name)).unwrap_or_default();
-    let own = read("Project.toml").lines().find_map(|l| {
-        let (k, v) = l.split_once('=')?;
-        (k.trim() == "name").then(|| v.trim().trim_matches('"').to_owned())
-    });
+    let read = |names: &[String]| {
+        names
+            .iter()
+            .find_map(|n| std::fs::read_to_string(root.join(n)).ok())
+            .unwrap_or_default()
+    };
+    let mut versioned: Vec<String> = std::fs::read_dir(root)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|e| e.file_name().into_string().ok())
+        .filter(|n| n.starts_with("Manifest-v") && n.ends_with(".toml"))
+        .collect();
+    versioned.sort();
+    let manifests: Vec<String> = ["JuliaManifest.toml".to_owned()]
+        .into_iter()
+        .chain(versioned.into_iter().rev())
+        .chain(["Manifest.toml".to_owned()])
+        .collect();
+    let own = read(&["JuliaProject.toml".to_owned(), "Project.toml".to_owned()])
+        .lines()
+        .find_map(|l| {
+            let (k, v) = l.split_once('=')?;
+            (k.trim() == "name").then(|| v.trim().trim_matches('"').to_owned())
+        });
     let mut pinned = std::collections::HashMap::new();
     let mut name: Option<String> = None;
     let (mut uuid, mut tree) = (None, None);
-    let manifest = read("Manifest.toml");
+    let manifest = read(&manifests);
     for line in manifest.lines().chain(["[["]) {
         let line = line.trim();
         if line.starts_with("[[") {
@@ -545,6 +622,10 @@ pub fn julia_roots(root: &Path, share: Option<PathBuf>, depot: &Path) -> Vec<Pat
         }
     }
     dirs
+}
+
+pub fn julia_share(bindir: &str) -> Option<PathBuf> {
+    Some(Path::new(bindir.trim()).parent()?.join("share/julia"))
 }
 
 pub fn julia_depot(var: Option<std::ffi::OsString>, home: &Path) -> PathBuf {

@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn d_on_a_julia_package_name_reads_the_version_the_manifest_pins() {
+fn d_on_a_julia_package_name_reads_the_version_the_manifest_pins_beside_the_projects_methods() {
     let (dir, mut a) = project_app(
         "julia-depot",
         &[
@@ -39,7 +39,6 @@ fn d_on_a_julia_package_name_reads_the_version_the_manifest_pins() {
             "    df = DataFrame|(",
             jump("DataFrame: by name, 1 match", &at(2)),
         ),
-        ("    select", jump("select: via import DataFrames", &at(3))),
         (
             "DataFrames.transform",
             jump("transform: via import DataFrames", &at(4)),
@@ -50,6 +49,21 @@ fn d_on_a_julia_package_name_reads_the_version_the_manifest_pins() {
         assert!(a.buf.readonly.is_some(), "{code}");
         a.jump_to(&dir.join("src/report.jl"), 1);
     }
+    d_on(&mut a, "src/report.jl", "    select");
+    assert_eq!(
+        shown(&mut a),
+        Shown::Picker(
+            "select: 2 declarations".into(),
+            vec![
+                (
+                    "select".into(),
+                    "via import DataFrames".into(),
+                    "DataFrames.jl:3".into()
+                ),
+                ("select".into(), "by name".into(), "src/report.jl:8".into()),
+            ]
+        )
+    );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&depot).unwrap();
 }
@@ -98,4 +112,28 @@ fn u_tells_a_julia_bang_function_from_its_namesake() {
         ["declaration  src/sort.jl:3:", "             src/use.jl:2:"]
     );
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn d_on_a_julia_call_outside_the_project_reads_no_field() {
+    let (dir, mut a) = project_app(
+        "julia-base",
+        &[(
+            "src/use.jl",
+            "function f(xs)\n    first(xs)\n    xs.first\nend\n",
+        )],
+    );
+    let base = external_root(
+        "julia-base",
+        &[(
+            "base/pair.jl",
+            "struct Pair{A, B}\n    first::A\n    second::B\nend\nfirst(p::Pair) = p.first\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Julia, &[base.join("base")]);
+    let at = |line: usize| format!("{}:{line}", base.join("base/pair.jl").display());
+    d_on(&mut a, "src/use.jl", "    first");
+    assert_eq!(shown(&mut a), jump("first: by name, 1 match", &at(5)));
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&base).unwrap();
 }

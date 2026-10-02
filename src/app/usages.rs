@@ -41,9 +41,15 @@ impl App {
         let hits = ranked
             .into_iter()
             .map(|(_, h)| {
-                let row = search::word_chars(search::kind_of(&h.path), false);
+                let kind = search::kind_of(&h.path);
+                let row = search::word_chars(kind, false);
+                let julia = (kind == Some(Kind::Julia))
+                    .then(|| search::julia_col(&h.text, word))
+                    .flatten();
                 Hit {
-                    col: word_col(&h.text, word, &format!("{}{row}", extra.replace('\'', ""))),
+                    col: julia.unwrap_or_else(|| {
+                        word_col(&h.text, word, &format!("{}{row}", extra.replace('\'', "")))
+                    }),
                     ..h
                 }
             })

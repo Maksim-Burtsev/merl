@@ -224,11 +224,27 @@ impl App {
         } else {
             Reason::Path(module.join(sep))
         };
-        let found = hits.into_iter().map(|hit| Candidate {
-            hit,
-            reason: reason.clone(),
-        });
-        Some(found.collect())
+        let mut found: Vec<Candidate> = hits
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: reason.clone(),
+            })
+            .collect();
+        if kind == Kind::Julia
+            && imported
+            && narrow
+            && chain.is_empty()
+            && !found.is_empty()
+            && let Some(here) = self.rel_current()
+        {
+            let own = self.project_definitions(kind, &here, word, pattern);
+            found.extend(own.into_iter().map(|hit| Candidate {
+                hit,
+                reason: Reason::ByName,
+            }));
+        }
+        Some(found)
     }
 
     /// Where the Elixir module `module`, or the one it is nested in, is among `all`, with how many
@@ -389,7 +405,7 @@ impl App {
     /// its class is built (#414), so `Future` in a type is the class alone.
     pub(super) fn spelling_cut(&self, kind: Kind, word: &str, patterns: &mut Vec<String>) {
         let line = self.line_str();
-        if matches!(kind, Kind::PowerShell | Kind::Dart)
+        if matches!(kind, Kind::PowerShell | Kind::Dart | Kind::Julia)
             && let Some((r, w)) = self.word_here(Some(kind))
             && w == word
         {

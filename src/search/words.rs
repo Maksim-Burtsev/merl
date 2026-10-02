@@ -778,3 +778,10 @@ pub fn word_at<'a>(line: &'a str, col: usize, extra: &str) -> Option<(Range<usiz
     }
     (start < end).then(|| (start..end, &line[start..end]))
 }
+pub fn binds_at(kind: Kind, line: &str, start: usize, word: &str) -> bool {
+    match kind {
+        Kind::Rust => rust_let_declares(line, start, word),
+        Kind::Julia => julia_assigns_here(line, start, word),
+        _ => false,
+    }
+}
