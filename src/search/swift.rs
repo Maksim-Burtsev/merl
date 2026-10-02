@@ -160,12 +160,10 @@ pub fn swift_static_member(line: &str) -> Option<bool> {
             .any(|w| w == "static" || w == "class"),
     )
 }
-/// Whether a Swift line declares an enum case.
 pub fn swift_case(line: &str) -> bool {
     let t = line.trim_start();
     t.starts_with("case ") || t.starts_with("indirect case ")
 }
-/// Whether a Swift line is an `extension` (#371).
 pub fn swift_extension(line: &str) -> bool {
     static EXTENSION: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(&format!(r"{}extension\s", swift_mods!())).unwrap());
@@ -502,8 +500,6 @@ pub fn swift_binds_on(line: &str, name: &str) -> bool {
     };
     binds == Some(true)
 }
-// ---- What the compiler sees from the cursor (#375) --------------------------------------------
-/// A line of [`swift_type_decl`].
 static SWIFT_TYPE_DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(&format!(
         r"{}(?:class|struct|enum|actor|protocol|typealias)\s+`?\w",
@@ -637,7 +633,6 @@ pub fn swift_sees_nested<S: AsRef<str>>(
     }
     false
 }
-// ---- Swift's receiver types (#384) ------------------------------------------------------------
 /// What a Swift line that binds a name gives it, as written.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SwiftGiven {
