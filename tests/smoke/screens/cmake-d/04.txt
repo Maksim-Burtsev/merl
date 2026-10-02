@@ -1,0 +1,57 @@
+wait shop_add_library: by name, 1 match
+┌orders──────────────────────┐1 function(shop_add_library name)
+│▸ .github                   │2   add_library(${name} STATIC ${ARGN})
+│▸ .venv                     │3 endfunction()
+│▸ app                       │
+│▾ cmakeshop                 │
+│  ▾ cmake                   │
+│      ShopHelpers.cmake     │
+│    CMakeLists.txt          │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+cmakeshop/cmake/ShopHelpers.cmake  1:10  [code]  shop_add_library: by name, 1 match
+cursor (x,y,shown) 41,0,1

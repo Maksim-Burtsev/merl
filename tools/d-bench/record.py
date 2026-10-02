@@ -80,6 +80,11 @@ while yield require require_relative include extend attr_accessor attr_reader at
 protected public puts raise new lambda proc""".split(),
 }
 KW["js"] = KW["ts"]
+KW["objc"] = C_KW + """self super nil Nil YES NO id instancetype BOOL SEL Class IMP NSInteger NSUInteger
+CGFloat interface implementation end property protocol optional required synthesize dynamic
+selector encode class import autoreleasepool synchronized nonatomic atomic strong weak copy assign
+readonly readwrite nullable nonnull null_resettable __block __weak __strong __kindof
+NS_ASSUME_NONNULL_BEGIN NS_ASSUME_NONNULL_END""".split()
 DECL = set("""def class func fn function struct interface type let const var val fun enum trait impl
 mod namespace union typedef record object protocol extension typealias module macro_rules define
 package import use from""".split())
@@ -91,6 +96,7 @@ SPEC = {
     "rust": dict(exts=(".rs",), lc=("//",), bc=("/*", "*/"), rust=True),
     "c": dict(exts=(".c", ".h"), lc=("//",), bc=("/*", "*/")),
     "cpp": dict(exts=(".cc", ".cpp", ".h", ".hpp"), lc=("//",), bc=("/*", "*/")),
+    "objc": dict(exts=(".m", ".h"), lc=("//",), bc=("/*", "*/")),
     "php": dict(exts=(".php",), lc=("//", "#"), bc=("/*", "*/")),
     "swift": dict(exts=(".swift",), lc=("//",), bc=("/*", "*/"), triple=True),
     "java": dict(exts=(".java",), lc=("//",), bc=("/*", "*/"), triple=True),
@@ -323,7 +329,7 @@ class Lsp:
 LANG_ID = {".py": "python", ".ts": "typescript", ".tsx": "typescriptreact", ".js": "javascript",
            ".jsx": "javascriptreact", ".mjs": "javascript", ".cjs": "javascript", ".go": "go",
            ".rs": "rust", ".c": "c", ".h": "cpp", ".cc": "cpp", ".cpp": "cpp", ".hpp": "cpp",
-           ".php": "php", ".swift": "swift"}
+           ".php": "php", ".swift": "swift", ".m": "objective-c"}
 
 
 def server(lang, root):
@@ -345,7 +351,7 @@ def server(lang, root):
         return Lsp([os.path.join(LSP, "bin-ra")], root,
                    init_options={"cachePriming": {"enable": True}, "checkOnSave": False,
                                  "procMacro": {"enable": True}, "cargo": {"buildScripts": {"enable": True}}})
-    if lang in ("c", "cpp"):
+    if lang in ("c", "cpp", "objc"):
         return Lsp(["clangd", "--background-index", "-j=8", "--log=error"], root)
     if lang == "php":
         st = os.path.join(CACHE, "intelephense-storage")
@@ -402,7 +408,7 @@ def oracle_run(lang, root, rows, out, warm):
     # Open a few files first so servers that index lazily start their work.
     for r in rows[:5]:
         p = os.path.join(root, r[2]); s.open(p, LANG_ID.get(os.path.splitext(p)[1], lang))
-    s.settle(quiet=8 if lang in ("rust", "c", "cpp", "swift", "php") else 3)
+    s.settle(quiet=8 if lang in ("rust", "c", "cpp", "objc", "swift", "php") else 3)
     if warm:
         s.pump(warm)
     with open(out, "a") as fh:
@@ -412,7 +418,7 @@ def oracle_run(lang, root, rows, out, warm):
             s.open(p, LANG_ID.get(os.path.splitext(p)[1], lang))
             pos = {"textDocument": {"uri": "file://" + p}, "position": {"line": int(line) - 1, "character": int(col)}}
             got = locs(s.request("textDocument/definition", pos, timeout=60))
-            if lang in ("c", "cpp"):
+            if lang in ("c", "cpp", "objc"):
                 got += locs(s.request("textDocument/declaration", pos, timeout=60))
             tag = ""
             if not got and lang in ("rust", "swift", "php"):

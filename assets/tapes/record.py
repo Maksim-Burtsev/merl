@@ -32,7 +32,7 @@ names another of its checkouts, as in tests/smoke/run.py.
     assets/tapes/record.py --selftest                  # checks the keycaps' timing, no recording
 """
 import json, os, shlex, subprocess, sys, tempfile, time
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
@@ -48,15 +48,7 @@ SOCK = "merl-readme"
 # colours, the ones the gutter marks and the review panel's letters are drawn in.
 THEME = ",".join("%02x%02x%02x" % c for c in (cast.DEFAULT_BG, cast.DEFAULT_FG, *cast.ANSI))
 
-# --keys: the key just pressed, drawn in the bottom right corner the way macOS keystroke
-# visualisers draw it. It shows with merl's answer to the press, stays until the next key replaces
-# it, and HOLD after the last one fades out over FADE: no flash, no count, no row of past keys,
-# which would read as a chord.
-HOLD, FADE, FADE_STEPS = 1.5, 0.25, 4
-CAPS = {"M-Right": "⌥→", "M-Left": "⌥←", "Right": "→", "Left": "←", "Down": "↓", "Up": "↑",
-        "Enter": "Enter", "Escape": "Esc", "Tab": "Tab", "BSpace": "⌫", "C-d": "Ctrl+D",
-        "C-u": "Ctrl+U"}
-SANS = "/System/Library/Fonts/SFNS.ttf"
+HOLD, FADE, FADE_STEPS = cast.HOLD, 0.25, 4
 
 
 def tmux(*args):
@@ -132,24 +124,7 @@ def take(steps, project):
 
 
 def draw_caps(frame, key, opacity):
-    if not key:
-        return frame
-    s = FONT / 18  # the sizes below are in the pixels of the 18 px window
-    font = ImageFont.truetype(SANS, round(44 * s))
-    font.set_variation_by_name("Semibold")
-    label = CAPS.get(key, key)
-    layer = Image.new("RGBA", frame.size)
-    d = ImageDraw.Draw(layer)
-    h = round(88 * s)
-    w = max(h, round(d.textlength(label, font=font) + h * 0.55))
-    # Bottom right, over the code and clear of the status line.
-    x = frame.width - round(20 * s) - w
-    y = frame.height - round(FONT * LINE) - round(14 * s) - h
-    a = lambda v: round(v * opacity)
-    d.rounded_rectangle((x, y, x + w, y + h), round(h * 0.2), fill=(47, 51, 77, a(250)),
-                        outline=(130, 139, 184, a(160)), width=max(2, round(1.2 * s)))
-    d.text((x + w / 2, y + h / 2), label, font=font, fill=(230, 235, 255, a(255)), anchor="mm")
-    return Image.alpha_composite(frame.convert("RGBA"), layer).convert("RGB")
+    return cast.draw_cap(frame, key, FONT / 18, round(FONT * LINE), opacity)
 
 
 def render(cast, presses, gif, keys):

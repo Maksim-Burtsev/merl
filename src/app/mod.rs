@@ -20,8 +20,12 @@ use crate::wrap;
 
 mod at_base;
 mod c;
+mod collapse;
+mod component;
 mod cs_typed;
+mod css;
 mod cursor;
+mod dart;
 mod definition;
 mod edit;
 mod external;
@@ -45,6 +49,7 @@ mod ruby;
 mod rust;
 mod scroll;
 mod search_job;
+mod swift;
 mod symbols;
 mod tree;
 mod typed;
@@ -210,6 +215,11 @@ pub const KEYS: &[(&str, &str, &str)] = &[
         "Show a Markdown file rendered, or its source again",
         "General",
     ),
+    (
+        "f",
+        "Fold the function or block at the cursor into its first line, or unfold it",
+        "General",
+    ),
     ("T", "Pick a theme (live preview)", "General"),
     (
         "Esc",
@@ -271,6 +281,11 @@ const SIDE_OFF: usize = 8;
 const HIST_NEAR: usize = 10;
 const HIST_MAX: usize = 50;
 
+/// A list of files shared between lookups.
+type Paths = Arc<Vec<PathBuf>>;
+/// How a C-kind file reads the files outside: a `.c` file or not, Objective-C or not (#382, #417).
+type CMode = (bool, bool);
+
 pub struct App {
     pub root: PathBuf,
     /// Set by `main` for a file opened outside any repository: the project is the files right
@@ -291,6 +306,12 @@ pub struct App {
     /// together for: a workspace has one per package, and each file sees those above it.
     node_modules: HashMap<PathBuf, Arc<Vec<PathBuf>>>,
     node_modules_of: Option<PathBuf>,
+    /// The headers each C or C++ file includes, resolved, for a `.c` file or not (#382), an
+    /// Objective-C file or not (#417).
+    c_includes: HashMap<(PathBuf, CMode), Paths>,
+    /// The C kind's files outside as a `.c` file or not, an Objective-C file or not, reads them
+    /// (#382, #417), with the walk they were taken from.
+    c_files: HashMap<CMode, (Paths, Paths)>,
     /// What `go build` compiles here, which picks among a Go declaration's twins.
     go_build: search::GoBuild,
     /// The candidates of this `d` are to be offered, not jumped to, however few: the word is a
@@ -327,6 +348,7 @@ pub struct App {
     /// the cursor (see `hist_note`).
     pub history: Vec<(PathBuf, TextLine, usize)>,
     pub hist_idx: usize,
+    hist_rows: HashMap<(PathBuf, TextLine, usize), usize>,
     /// Cursor: file line, byte offset into that line, and the display column Up/Down aims for.
     pub line: usize,
     pub col: usize,
@@ -343,6 +365,8 @@ pub struct App {
     /// Display columns scrolled off to the left while the file is not wrapped; follows the
     /// cursor in `clamp_scroll`.
     pub left: usize,
+    pub collapsed: Vec<(usize, usize)>,
+    collapsed_stash: HashMap<PathBuf, Vec<(usize, String)>>,
     /// Files `w` was pressed on: their wrapping is the opposite of what their kind gets.
     wrap_toggled: HashSet<PathBuf>,
     /// Markdown files `p` shows rendered, until `p` again or merl quits.
@@ -518,6 +542,8 @@ impl App {
             external: HashMap::new(),
             node_modules: HashMap::new(),
             node_modules_of: None,
+            c_includes: HashMap::new(),
+            c_files: HashMap::new(),
             go_build: search::GoBuild::host().env(
                 std::env::var("CGO_ENABLED").ok().as_deref(),
                 std::env::var("GOFLAGS").ok().as_deref(),
@@ -536,6 +562,7 @@ impl App {
             search_sent: None,
             search_enter: false,
             history: Vec::new(),
+            hist_rows: HashMap::new(),
             hist_idx: 0,
             line: 0,
             col: 0,
@@ -545,6 +572,8 @@ impl App {
             top_line: 0,
             top_row: 0,
             left: 0,
+            collapsed: Vec::new(),
+            collapsed_stash: HashMap::new(),
             wrap_toggled: HashSet::new(),
             previewed: HashSet::new(),
             preview: None,
@@ -627,7 +656,7 @@ impl App {
     /// else to the standard library or dependency root it came from, as the `d` picker shows it
     /// (#235).
     pub fn rel_path_of(&self, path: &Path) -> String {
-        match (path.strip_prefix(&self.root), search::kind_of(path)) {
+        match (path.strip_prefix(&self.root), search::opened_kind(path)) {
             (Ok(rel), _) => rel,
             (Err(_), Some(kind)) => self.rel_to_its_root(kind, path),
             (Err(_), None) => path,
@@ -717,6 +746,16 @@ impl App {
         }
     }
 
+    pub(super) fn next_shown(&self, t: TextLine) -> Option<TextLine> {
+        std::iter::successors(self.next_line(t), |&t| self.next_line(t))
+            .find(|t| !self.hidden(t.key()))
+    }
+
+    pub(super) fn prev_shown(&self, t: TextLine) -> Option<TextLine> {
+        std::iter::successors(self.prev_line(t), |&t| self.prev_line(t))
+            .find(|t| !self.hidden(t.key()))
+    }
+
     /// The first line of the text: the lines deleted above the file's first, if any.
     pub(super) fn first_line(&self) -> TextLine {
         match self.deleted_at(0) {
@@ -797,10 +836,10 @@ impl App {
         })
     }
 
-    /// Screen rows of line `l`: its ghosts (review mode, drawn above the text) and then its
-    /// wrapped rows. A `(line, row)` pair counts rows from the first ghost; `lines.len()` has
-    /// the ghosts deleted at the end of the file only.
     pub fn row_count(&self, l: usize) -> usize {
+        if self.hidden(l) {
+            return 0;
+        }
         let text = match l < self.buf.lines.len() {
             true => self.rows(l).len(),
             false => 0,
@@ -895,9 +934,17 @@ pub fn is_word(c: char) -> bool {
 /// counts as part of a word besides letters, digits and `_` ([`search::word_chars`]): the `-` of
 /// a Makefile target.
 pub(super) fn word_col(line: &str, word: &str, extra: &str) -> usize {
-    // `attr_writer :name` declares Ruby's setter `name=` under its bare name.
+    // `attr_writer :name` declares Ruby's setter `name=` under its bare name. A name found
+    // ignoring case, as SQL and PowerShell find theirs, lands on its own spelling (#420).
     whole_at(line, word, extra)
         .or_else(|| whole_at(line, word.strip_suffix('=')?, extra))
+        .or_else(|| {
+            whole_at(
+                &line.to_ascii_lowercase(),
+                &word.to_ascii_lowercase(),
+                extra,
+            )
+        })
         .unwrap_or(0)
 }
 
@@ -925,9 +972,6 @@ pub(crate) fn prev_char(s: &str, i: usize) -> usize {
         .map_or(0, |g| i - g.len())
 }
 
-/// Whether a line `search::bindings` gave for `name` is an import, or the declaration of a class,
-/// a function or a namespace of that name: what a value of the name would hide, and no value
-/// itself. `Outer.Inner` reads a declaration, not a member.
 fn names_itself(kind: Kind, line: &str, name: &str) -> bool {
     let t = line.trim_start();
     let t = t.strip_prefix("export ").unwrap_or(t);
@@ -949,7 +993,9 @@ fn names_itself(kind: Kind, line: &str, name: &str) -> bool {
         rest.strip_prefix(name)
             .is_some_and(|after| !after.starts_with(is_word))
     });
-    declares || import_line(kind, line)
+    declares
+        || import_line(kind, line)
+        || kind == Kind::Swift && search::swift_local_decl(line, name)
 }
 
 /// Whether `line` is an import in a language whose imports start with a word: `from ` only in

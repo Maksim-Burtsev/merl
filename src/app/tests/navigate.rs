@@ -240,7 +240,7 @@ fn a_php_hash_comment_or_a_csharp_verbatim_backslash_hides_nothing() {
     d_on(&mut a, "a.cs", "{ Below");
     assert_eq!(
         shown(&mut a),
-        jump("Below \u{2192} A.Below (by name, 1 match)", "a.cs:3")
+        jump("Below \u{2192} A.Below (via A)", "a.cs:3")
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -1298,6 +1298,226 @@ fn a_c_value_is_never_a_system_struct() {
     std::fs::remove_dir_all(&root).unwrap();
 }
 
+/// #382. Outside the project a C or C++ word is looked for in the headers the file includes
+/// first, and a header linked under a second name is one row. libc++'s headers have no extension
+/// and are read, never for a `.c` file; a class behind `_LIBCPP_` macros and a function behind a
+/// reserved-name macro call are declarations.
+#[test]
+fn c_outside_reads_what_the_file_includes() {
+    let (dir, mut a) = project_app(
+        "c-includes",
+        &[
+            (
+                "main.c",
+                "#include <pthread.h>\n#include <stdio.h>\n#include <stdlib.h>\n#include \"a.h\"\n\nint same(pthread_t a, pthread_t b) { return pthread_equal(a, b); }\nint p(void) { return printf(\"x\"); }\nvoid *x(void) { return malloc(1); }\nint s(void) { return shared(); }\nint z(void) { return mutex_init(); }\n",
+            ),
+            (
+                "other.c",
+                "int q(void) { return printf(\"y\"); }\nint t(void) { return shared(); }\nint e(void) { return pthread_equal(0, 0); }\n",
+            ),
+            ("a.h", "int shared(void);\n"),
+            ("b.h", "int shared(void);\n"),
+            (
+                "m.cc",
+                "#include <mutex>\nstd::mutex m;\nint y(void) { return mutex_init(); }\n",
+            ),
+        ],
+    );
+    let root = external_root(
+        "c-includes",
+        &[
+            (
+                "pthread/pthread.h",
+                "int pthread_equal(pthread_t, pthread_t);\n",
+            ),
+            ("stdio.h", "int printf(const char *, ...);\n"),
+            ("libintl.h", "int printf(const char *, ...);\n"),
+            (
+                "stdlib.h",
+                "void * __sized_by_or_null(__size) malloc(size_t __size);\n",
+            ),
+            (
+                "c++/v1/mutex",
+                "#include <__mutex/mutex.h>\n#include <__cxx03/mutex>\nint mutex_init(void);\n",
+            ),
+            ("c++/v1/__cxx03/mutex", "class mutex {\n};\n"),
+            (
+                "c++/v1/__mutex/mutex.h",
+                "class _LIBCPP_EXPORTED_FROM_ABI _LIBCPP_CAPABILITY(\"mutex\") mutex {\npublic:\n    mutex() = default;\n};\n",
+            ),
+        ],
+    );
+    std::os::unix::fs::symlink("pthread/pthread.h", root.join("pthread.h")).unwrap();
+    use_roots(&mut a, Kind::C, std::slice::from_ref(&root));
+    let at = |f: &str, n: usize| format!("{}:{n}", root.join(f).display());
+    d_on(&mut a, "main.c", "return pthread_equal");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "pthread_equal: by name, 1 match",
+            &at("pthread/pthread.h", 1)
+        )
+    );
+    d_on(&mut a, "main.c", "return printf");
+    assert_eq!(
+        shown(&mut a),
+        jump("printf: by name, 1 match", &at("stdio.h", 1))
+    );
+    d_on(&mut a, "main.c", "return malloc");
+    assert_eq!(
+        shown(&mut a),
+        jump("malloc: by name, 1 match", &at("stdlib.h", 1))
+    );
+    d_on(&mut a, "main.c", "return shared");
+    assert_eq!(shown(&mut a), jump("shared: by name, 1 match", "a.h:1"));
+    // A `.c` file reads nothing under `c++/`.
+    d_on(&mut a, "main.c", "return mutex_init");
+    assert_eq!(a.message, "no definition for mutex_init");
+    d_on(&mut a, "m.cc", "std::mutex");
+    assert_eq!(
+        shown(&mut a),
+        jump("mutex: by name, 1 match", &at("c++/v1/__mutex/mutex.h", 1))
+    );
+    d_on(&mut a, "m.cc", "return mutex_init");
+    assert_eq!(
+        shown(&mut a),
+        jump("mutex_init: by name, 1 match", &at("c++/v1/mutex", 3))
+    );
+    assert_eq!(search::kind_of(&root.join("c++/v1/mutex")), Some(Kind::C));
+    // A file that includes none keeps every declaration, a header linked twice as one.
+    d_on(&mut a, "other.c", "return pthread_equal");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "pthread_equal: by name, 1 match",
+            &at("pthread/pthread.h", 1)
+        )
+    );
+    d_on(&mut a, "other.c", "return printf");
+    assert!(matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2));
+    d_on(&mut a, "other.c", "return shared");
+    assert!(matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2));
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
+/// #382, the review of its PR: what the include graph decides inside the project and for a
+/// member outside, and the lookups the new rules must leave as master answered them.
+#[test]
+fn c_includes_narrow_no_further_than_they_should() {
+    let (dir, mut a) = project_app(
+        "c-includes-review",
+        &[
+            (
+                "a.c",
+                "#include <len.h>\nstatic struct _Ctx ctx;\nint get(void) { return use(&ctx); }\nint n(void) { return get()->len; }\n",
+            ),
+            ("b.c", "static struct _Ctx ctx;\n"),
+            ("types.h", "extern struct _Config config;\n"),
+            (
+                "config.c",
+                "#include \"types.h\"\nstruct _Config config;\nint v(void) { return config.verbose; }\n",
+            ),
+            (
+                "box.hpp",
+                "class Box {\n    typedef enum { Red, Green } Color;\n    Color c;\n};\n",
+            ),
+            ("fwd.h", "struct conn;\n"),
+            ("conn.h", "struct conn {\n    int fd;\n};\n"),
+            (
+                "x.c",
+                "#include \"fwd.h\"\n#include \"calc.h\"\nint f(struct conn *c);\nint k(void) { return calc(); }\n",
+            ),
+            ("calc.h", "int calc(void);\n"),
+            ("impl.h", "static inline int calc(void) { return 1; }\n"),
+            ("foo.h", "void Bar();\n"),
+            (
+                "foo.cc",
+                "namespace {\n#define CHECK(x) do { \\\n    if (!(x)) return; \\\n  } while (0)\nvoid helper() {}\n}\n\nvoid Bar() {\n}\n",
+            ),
+            ("bar.cc", "#include \"foo.h\"\nvoid go() { Bar(); }\n"),
+            ("x/u.h", "int util(void);\n"),
+            ("y/u.h", "int util(void);\n"),
+            (
+                "x/main.c",
+                "#include \"u.h\"\nint m(void) { return util(); }\n",
+            ),
+            (
+                "h1.h",
+                "#include \"h2.h\"\nint shared7(void);\nint h(void) { return shared7(); }\n",
+            ),
+            ("h2.h", "int shared7(void);\n"),
+            ("h3.h", "int shared7(void);\n"),
+            ("dep/internal/assert.h", "void assert_fail(void);\n"),
+            ("dep/other.h", "void assert_fail(void);\n"),
+            (
+                "s.c",
+                "#include <assert.h>\nvoid t(void) { assert_fail(); }\n",
+            ),
+            (
+                "e.c",
+                "#include \"e.h\"\nint g(void) { return edited(); }\n",
+            ),
+            ("e.h", "#include \"e1.h\"\n"),
+            ("e1.h", "int edited(void);\n"),
+            ("e2.h", "int edited(void);\n"),
+        ],
+    );
+    let root = external_root(
+        "c-includes-review",
+        &[
+            ("len.h", "struct small {\n    int len;\n};\n"),
+            ("far.h", "struct big {\n    int len;\n};\n"),
+            ("assert.h", "#define assert(e) ((void)0)\n"),
+        ],
+    );
+    use_roots(&mut a, Kind::C, std::slice::from_ref(&root));
+    let place = |s: Shown| match s {
+        Shown::Jump(_, place) => place,
+        picker => format!("{picker:?}"),
+    };
+    // A `_Name` tag is no macro: the variable is a file's own static, and a value.
+    d_on(&mut a, "a.c", "return use(&ctx");
+    assert_eq!(shown(&mut a), jump("ctx: by name, 1 match", "a.c:2"));
+    d_on(&mut a, "config.c", "return config");
+    assert_eq!(place(shown(&mut a)), "config.c:2");
+    // An indented one-line typedef declares its name.
+    d_on(&mut a, "box.hpp", "    Color");
+    assert_eq!(place(shown(&mut a)), "box.hpp:2");
+    // A forward declaration the file reaches yields to the body it does not.
+    d_on(&mut a, "x.c", "struct conn");
+    assert_eq!(place(shown(&mut a)), "conn.h:1");
+    // And a prototype it reaches to the definition it does not.
+    d_on(&mut a, "x.c", "return calc");
+    assert!(matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2));
+    // A macro's braces inside `namespace {` close nothing of the namespace's.
+    d_on(&mut a, "bar.cc", "{ Bar");
+    assert!(matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2));
+    // `"u.h"` is the one beside the file.
+    d_on(&mut a, "x/main.c", "return util");
+    assert_eq!(place(shown(&mut a)), "x/u.h:1");
+    // The open header keeps its own declaration beside the one it includes.
+    d_on(&mut a, "h1.h", "return shared7");
+    assert!(matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2));
+    // `<assert.h>` is the system's, not a project file of that name deep in a dependency.
+    d_on(&mut a, "s.c", "{ assert_fail");
+    assert!(matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2));
+    // A member outside: the struct of a header the file includes.
+    d_on(&mut a, "a.c", "get()->len");
+    assert_eq!(
+        place(shown(&mut a)),
+        format!("{}:2", root.join("len.h").display())
+    );
+    // A header's includes edited in the session are read again.
+    d_on(&mut a, "e.c", "return edited");
+    assert_eq!(place(shown(&mut a)), "e1.h:1");
+    std::fs::write(dir.join("e.h"), "#include \"e2.h\"\n").unwrap();
+    d_on(&mut a, "e.c", "return edited");
+    assert_eq!(place(shown(&mut a)), "e2.h:1");
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
 /// PHP's `$x->name` is a member access (#348): a method for a call, a property otherwise, in the
 /// project and in `vendor/` alike, and never a local, a function or a class of the name.
 #[test]
@@ -1480,4 +1700,361 @@ fn an_elixir_call_is_no_attribute_and_an_import_leaves_it_to_the_search() {
         "an imported discount/1 is no jump to the local discount/2"
     );
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #351. A PHP class name resolves as PHP resolves it, through the file's `use`, else its
+/// `namespace`, and `composer.json`'s PSR-4 map says which file declares it. A name the map does
+/// not cover is outside the project: `vendor/` first, before a namesake of the project's.
+#[test]
+fn php_names_resolve_through_use_namespace_and_psr4() {
+    let method = |ns: &str, class: &str, m: &str| {
+        format!(
+            "<?php\n\nnamespace {ns};\n\nclass {class}\n{{\n    public {m}\n    {{\n    }}\n}}\n"
+        )
+    };
+    let song = method("App\\Models", "Song", "static function query(): int");
+    let album = method("App\\Models", "Album", "static function query(): int");
+    let resource = method(
+        "App\\Http\\Resources",
+        "AlbumResource",
+        "function toArray(): array",
+    );
+    let subsonic = method(
+        "App\\Http\\Subsonic",
+        "AlbumResource",
+        "static function toArray(): array",
+    );
+    let search = "<?php\n\nnamespace App\\Http\\Subsonic;\n\nclass SearchResource\n{\n    public function toArray(): array\n    {\n        return AlbumResource::toArray();\n    }\n}\n";
+    let arr = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Arr\n{\n    public static function get($array, $key, $default = null)\n    {\n    }\n}\n";
+    let repo = "<?php\n\nnamespace App\\Repos;\n\nuse App\\Models\\Song;\nuse Illuminate\\Support\\Arr;\n\nclass SongRepository\n{\n    public function get(int $id): void\n    {\n    }\n\n    public function all(): void\n    {\n        Song::query();\n        Arr::get([], 'x');\n    }\n}\n";
+    let vendored = "vendor/laravel/framework/src/Illuminate/Support/Arr.php";
+    let files = [
+        (
+            "composer.json",
+            r#"{"autoload": {"psr-4": {"App\\": "app/"}}}"#,
+        ),
+        (".gitignore", "vendor/\n"),
+        ("app/Models/Song.php", song.as_str()),
+        ("app/Models/Album.php", album.as_str()),
+        ("app/Http/Resources/AlbumResource.php", resource.as_str()),
+        ("app/Http/Subsonic/AlbumResource.php", subsonic.as_str()),
+        ("app/Http/Subsonic/SearchResource.php", search),
+        ("app/Repos/SongRepository.php", repo),
+        (vendored, arr),
+    ];
+    for vendor in [false, true] {
+        let (dir, mut a) = project_app("php-psr4", &files);
+        if !vendor {
+            a.no_external();
+        }
+        let mut d = |file: &str, code: &str| {
+            d_on(&mut a, file, code);
+            shown(&mut a)
+        };
+        let repo = "app/Repos/SongRepository.php";
+        assert_eq!(
+            d(repo, "Song::query"),
+            jump(
+                "query \u{2192} Song::query (via import app/Models/Song.php)",
+                "app/Models/Song.php:7"
+            ),
+            "vendor: {vendor}"
+        );
+        assert_eq!(
+            d(repo, "    Song|::query"),
+            jump(
+                "Song: via import app/Models/Song.php",
+                "app/Models/Song.php:5"
+            ),
+            "vendor: {vendor}"
+        );
+        assert_eq!(
+            d(
+                "app/Http/Subsonic/SearchResource.php",
+                "AlbumResource::toArray"
+            ),
+            jump(
+                "toArray \u{2192} AlbumResource::toArray (via AlbumResource)",
+                "app/Http/Subsonic/AlbumResource.php:7"
+            ),
+            "vendor: {vendor}"
+        );
+        let get = match vendor {
+            true => jump(
+                "get \u{2192} Arr::get (via import Illuminate/Support/Arr)",
+                &format!("{vendored}:7"),
+            ),
+            false => jump(
+                "get \u{2192} SongRepository::get (by name, 1 match)",
+                "app/Repos/SongRepository.php:10",
+            ),
+        };
+        assert_eq!(d(repo, "Arr::get"), get, "vendor: {vendor}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+}
+
+/// Review of #573 (#351): where nothing proves the class, `d` answers as master did. A name a
+/// group `use` binds, a mapped file missing or of another namespace, a member the walk finds
+/// nowhere (Eloquent's `where`, forwarded by `__callStatic`), a `vendor/` hit by name or of another
+/// namespace, and a project with no `composer.json`.
+#[test]
+fn php_names_fall_back_where_nothing_proves_the_class() {
+    let class = |ns: &str, head: &str, body: &str| {
+        let ns = match ns {
+            "" => String::new(),
+            ns => format!("namespace {ns};\n"),
+        };
+        format!("<?php\n{ns}\n{head}\n{{\n{body}}}\n")
+    };
+    let make = "    public static function make(): void\n    {\n    }\n";
+    let caller = "<?php\nnamespace App\\Http\\Subsonic;\n\nuse App\\Http\\Resources\\{AlbumResource};\nuse App\\Models\\Tune;\nuse App\\Models\\Disc;\nuse App\\Models\\Track;\nuse Illuminate\\Support\\Facades\\Route;\n\nclass Caller\n{\n    public function get(): void\n    {\n        AlbumResource::make();\n        Tune::play();\n        Disc::spin();\n        Track::where('a', 1);\n        Route::get('/');\n    }\n}\n";
+    let resources = class("App\\Http\\Resources", "class AlbumResource", make);
+    let subsonic = class("App\\Http\\Subsonic", "class AlbumResource", make);
+    let tune = class(
+        "App\\Models",
+        "class Tune",
+        "    public static function play(): void\n    {\n    }\n",
+    );
+    let disc = class(
+        "App\\Old",
+        "class Disc",
+        "    public static function spin(): void\n    {\n    }\n",
+    );
+    // A `where` of the project's own, which master's search by name offers.
+    let query = class(
+        "App\\Support",
+        "class Query",
+        "    public function where($column): void\n    {\n    }\n",
+    );
+    let track = "<?php\nnamespace App\\Models;\n\nuse Illuminate\\Database\\Eloquent\\Model;\n\nclass Track extends Model\n{\n}\n";
+    let helper = class(
+        "",
+        "class Helper",
+        "    public static function format(): void\n    {\n    }\n",
+    );
+    let global = "<?php\n\nfunction show(): void\n{\n    Helper::format();\n}\n";
+    let model = class(
+        "Illuminate\\Database\\Eloquent",
+        "class Model",
+        "    public static function __callStatic($method, $parameters)\n    {\n    }\n",
+    );
+    let builder = class(
+        "Illuminate\\Database\\Eloquent",
+        "class Builder",
+        "    public function where($column, $value = null)\n    {\n    }\n",
+    );
+    let route = class("Illuminate\\Support\\Facades", "class Route", "");
+    let arr = class(
+        "Illuminate\\Support",
+        "class Arr",
+        "    public static function get($array, $key)\n    {\n    }\n",
+    );
+    let acme = class(
+        "Acme",
+        "class Helper",
+        "    public static function format(): void\n    {\n    }\n",
+    );
+    let eloquent = "vendor/laravel/framework/src/Illuminate/Database/Eloquent";
+    let files = [
+        (
+            "composer.json",
+            r#"{"autoload": {"psr-4": {"App\\": "app/"}}}"#,
+        ),
+        (".gitignore", "vendor/\n"),
+        ("app/Http/Subsonic/Caller.php", caller),
+        ("app/Http/Resources/AlbumResource.php", resources.as_str()),
+        ("app/Http/Subsonic/AlbumResource.php", subsonic.as_str()),
+        // Neither at its PSR-4 path nor in its namespace there.
+        ("app/Legacy/all.php", tune.as_str()),
+        ("app/Models/Disc.php", disc.as_str()),
+        ("app/Models/Track.php", track),
+        ("app/Support/Query.php", query.as_str()),
+        ("lib/Helper.php", helper.as_str()),
+        ("lib/show.php", global),
+        (&format!("{eloquent}/Model.php"), model.as_str()),
+        (&format!("{eloquent}/Builder.php"), builder.as_str()),
+        (
+            "vendor/laravel/framework/src/Illuminate/Support/Facades/Route.php",
+            route.as_str(),
+        ),
+        (
+            "vendor/laravel/framework/src/Illuminate/Support/Arr.php",
+            arr.as_str(),
+        ),
+        ("vendor/acme/pkg/src/Helper.php", acme.as_str()),
+    ];
+    let files: Vec<(&str, &str)> = files.iter().map(|(p, t)| (*p, *t)).collect();
+    for vendor in [false, true] {
+        let (dir, mut a) = project_app("php-psr4-fallback", &files);
+        if !vendor {
+            a.no_external();
+        }
+        let mut d = |file: &str, code: &str| {
+            d_on(&mut a, file, code);
+            shown(&mut a)
+        };
+        let caller = "app/Http/Subsonic/Caller.php";
+        let makes = [
+            (
+                "AlbumResource::make",
+                "app/Http/Resources/AlbumResource.php:6",
+            ),
+            (
+                "AlbumResource::make",
+                "app/Http/Subsonic/AlbumResource.php:6",
+            ),
+        ];
+        assert_eq!(
+            d(caller, "AlbumResource::make"),
+            picker("make: by name, 2 declarations", &makes),
+            "vendor: {vendor}"
+        );
+        assert_eq!(
+            d(caller, "Tune::play"),
+            jump(
+                "play \u{2192} Tune::play (by name, 1 match)",
+                "app/Legacy/all.php:6"
+            ),
+            "vendor: {vendor}"
+        );
+        assert_eq!(
+            d(caller, "Disc::spin"),
+            jump(
+                "spin \u{2192} Disc::spin (by name, 1 match)",
+                "app/Models/Disc.php:6"
+            ),
+            "vendor: {vendor}"
+        );
+        assert_eq!(
+            d(caller, "Track::where"),
+            jump(
+                "where \u{2192} Query::where (by name, 1 match)",
+                "app/Support/Query.php:6"
+            ),
+            "vendor: {vendor}"
+        );
+        assert_eq!(
+            d(caller, "Route::get"),
+            jump(
+                "get \u{2192} Caller::get (by name, 1 match)",
+                &format!("{caller}:12")
+            ),
+            "vendor: {vendor}"
+        );
+        assert_eq!(
+            d("lib/show.php", "Helper::format"),
+            jump(
+                "format \u{2192} Helper::format (via Helper)",
+                "lib/Helper.php:5"
+            ),
+            "vendor: {vendor}"
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+    // No composer.json: the `use` reads as on master, with `vendor/` or without.
+    let repo = "<?php\nnamespace App;\n\nuse Illuminate\\Support\\Arr;\n\nclass Repo\n{\n    public function get(): void\n    {\n        Arr::get([], 'x');\n    }\n}\n";
+    let (dir, mut a) = project_app(
+        "php-no-composer",
+        &[
+            (".gitignore", "vendor/\n"),
+            ("app/Repo.php", repo),
+            (
+                "vendor/laravel/framework/src/Illuminate/Support/Arr.php",
+                arr.as_str(),
+            ),
+        ],
+    );
+    d_on(&mut a, "app/Repo.php", "Arr::get");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "get \u{2192} Repo::get (by name, 1 match)",
+            "app/Repo.php:8"
+        )
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// #417. An Objective-C file reads the SDK's frameworks, `<Foundation/NSString.h>` being
+/// `Foundation.framework/Headers/NSString.h`, and an imported one first: Kit's namesake is not
+/// what Foundation's import reaches. A C file and a header with no Objective-C in it read none of
+/// them, and a system header linked into a framework stays the C file's; a header with an
+/// `#import` does read them.
+#[test]
+fn objc_reads_the_frameworks_and_c_does_not() {
+    let (dir, mut a) = project_app(
+        "objc-frameworks",
+        &[
+            (
+                "Shop.m",
+                "#import <Foundation/Foundation.h>\n\nNSString *shop_name(void) { return nil; }\n",
+            ),
+            (
+                "Shop.h",
+                "#import <Foundation/Foundation.h>\n\nNSString *shop_title(void);\n",
+            ),
+            ("plain.h", "NSString *plain_title(void);\n"),
+            (
+                "shop.c",
+                "#include <stdio.h>\n#include <tcl.h>\n\nNSString *c_name(void) { return 0; }\nint c_init(void) { return Tcl_Init(); }\n",
+            ),
+        ],
+    );
+    let root = external_root(
+        "objc-frameworks",
+        &[
+            ("include/stdio.h", "int printf(const char *f, ...);\n"),
+            (
+                "System/Library/Frameworks/Foundation.framework/Headers/Foundation.h",
+                "#import <Foundation/NSString.h>\n",
+            ),
+            (
+                "System/Library/Frameworks/Foundation.framework/Headers/NSString.h",
+                "@interface NSString : NSObject\n@end\n",
+            ),
+            (
+                "System/Library/Frameworks/Kit.framework/Headers/Kit.h",
+                "@interface NSString : NSObject\n@end\n",
+            ),
+            (
+                "System/Library/Frameworks/Tcl.framework/Headers/tcl.h",
+                "int Tcl_Init(void);\n",
+            ),
+        ],
+    );
+    let frameworks = root.join("System/Library/Frameworks");
+    // The SDK's `usr/include/tcl.h` is a link into `Tcl.framework`: a C file keeps it.
+    std::os::unix::fs::symlink(
+        frameworks.join("Tcl.framework/Headers/tcl.h"),
+        root.join("include/tcl.h"),
+    )
+    .unwrap();
+    use_roots(&mut a, Kind::C, &[root.join("include"), frameworks.clone()]);
+    let nsstring = frameworks.join("Foundation.framework/Headers/NSString.h");
+    for file in ["Shop.m", "Shop.h"] {
+        d_on(&mut a, file, "NSString");
+        assert_eq!(
+            shown(&mut a),
+            jump(
+                "NSString: by name, 1 match",
+                &format!("{}:1", nsstring.display())
+            ),
+            "{file}"
+        );
+    }
+    for file in ["shop.c", "plain.h"] {
+        d_on(&mut a, file, "NSString");
+        assert_eq!(a.message, "no definition for NSString", "{file}");
+    }
+    d_on(&mut a, "shop.c", "Tcl_Init");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Tcl_Init: by name, 1 match",
+            &format!("{}:1", root.join("include/tcl.h").display())
+        )
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
 }

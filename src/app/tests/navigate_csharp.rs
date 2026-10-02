@@ -205,3 +205,78 @@ fn a_partial_type_or_a_type_parameter_leaves_the_member_to_the_name() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// #349, the repro of the issue: a file of `Shop.App` sees its own project, not `Shop.Api`'s
+/// namesake, until `Shop.App.csproj` references `Shop.Api`.
+#[test]
+fn a_file_sees_its_own_project_and_the_ones_it_references() {
+    let files = |app: &'static str| {
+        [
+            (
+                "Shop.Api/Shop.Api.csproj",
+                r#"<Project Sdk="Microsoft.NET.Sdk"></Project>"#,
+            ),
+            ("Shop.App/Shop.App.csproj", app),
+            (
+                "Shop.Api/Address.cs",
+                "namespace Shop.Api;\npublic class Address\n{\n    public string Street { get; set; }\n}\n",
+            ),
+            (
+                "Shop.App/Address.cs",
+                "namespace Shop.App;\npublic class Address\n{\n    public string Street { get; set; }\n}\n",
+            ),
+            (
+                "Shop.App/Page.cs",
+                "namespace Shop.App;\npublic class Page\n{\n    public Address Home() => new Address { Street = \"Main\" };\n}\n",
+            ),
+        ]
+    };
+    let (dir, mut a) = cs_app(
+        "cs-projects",
+        &files(r#"<Project Sdk="Microsoft.NET.Sdk"></Project>"#),
+    );
+    d_on(&mut a, "Shop.App/Page.cs", "new |Address");
+    assert_eq!(
+        shown(&mut a),
+        jump("Address: by name, 1 match", "Shop.App/Address.cs:2")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    let (dir, mut a) = cs_app(
+        "cs-projects-referenced",
+        &files(
+            r#"<Project Sdk="Microsoft.NET.Sdk"><ItemGroup><ProjectReference Include="..\Shop.Api\Shop.Api.csproj" /></ItemGroup></Project>"#,
+        ),
+    );
+    d_on(&mut a, "Shop.App/Page.cs", "new |Address");
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(s, rows) if s.contains("2 declarations") && rows.len() == 2)
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #581: after `is` a constant of the class around is found when the walk by type reaches no type
+/// of the name, a public type nested in another class included; a declaration pattern keeps the
+/// lookup by type.
+#[test]
+fn a_constant_after_is_is_found_when_no_type_of_the_name_is_reached() {
+    let (_dir, mut a) = cs_app(
+        "cs-581",
+        &[
+            (
+                "Gauge.cs",
+                "namespace Shop;\n\npublic class Gauge\n{\n    public const int Max = 10;\n\n    public bool Full(int n) => n is Max;\n\n    public bool Typed(object o) => o is Max m;\n}\n",
+            ),
+            (
+                "Limits.cs",
+                "namespace Shop;\n\npublic class Limits\n{\n    public class Max { }\n}\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "Gauge.cs", "n is |Max");
+    assert_eq!(
+        shown(&mut a),
+        jump("Max \u{2192} Gauge.Max (via Gauge)", "Gauge.cs:5")
+    );
+    d_on(&mut a, "Gauge.cs", "o is |Max m");
+    assert_eq!(shown(&mut a), jump("no definition for Max", "Gauge.cs:9"));
+}

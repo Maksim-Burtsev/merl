@@ -1075,7 +1075,7 @@ fn php_namespace_patterns_cut_after_a_non_ascii_character() {
     let start = line.find("Ns").unwrap();
     let mut patterns = def_patterns(Kind::Php, "Ns");
     php_namespace_patterns(&mut patterns, text, line, start..start + 2);
-    assert_eq!(patterns, [r"^\s*namespace\s+App\\Ns\s*[;{]"]);
+    assert_eq!(patterns, [r"^\s*(?:<\?php\s+)?namespace\s+App\\Ns\s*[;{]"]);
 }
 
 /// A receiver's name is cut at a character, and a name a non-ASCII character goes on with is not
@@ -1090,4 +1090,288 @@ fn c_receiver_cuts_at_a_character() {
         c_receiver("ß = bar->"),
         Some(("bar".to_owned(), false, vec![]))
     );
+}
+
+/// #375: the test targets come from `Package.swift`, read, never run: a `path:`, else
+/// `Tests/<name>`; with no manifest, `Tests`.
+#[test]
+fn swift_test_targets_come_from_the_manifest() {
+    let dir = std::env::temp_dir().join(format!("merl-swift-tests-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    assert_eq!(swift_test_dirs(&dir), [PathBuf::from("Tests")]);
+    std::fs::write(
+        dir.join("Package.swift"),
+        r#"let package = Package(
+    name: "App",
+    targets: [
+        .target(name: "App"),
+        .testTarget(name: "AppTests", dependencies: ["App"]),
+        .testTarget(
+            name: "Checks",
+            dependencies: ["App"],
+            path: "./Checks/Unit"
+        ),
+    ]
+)
+"#,
+    )
+    .unwrap();
+    assert_eq!(
+        swift_test_dirs(&dir),
+        [
+            PathBuf::from("Tests/AppTests"),
+            PathBuf::from("Checks/Unit")
+        ]
+    );
+    std::fs::write(
+        dir.join("Package.swift"),
+        "let package = Package(name: \"App\")\n",
+    )
+    .unwrap();
+    assert!(swift_test_dirs(&dir).is_empty());
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #349: a C# file sees its own project and those its `.csproj` references, transitively and
+/// through `Directory.Build.props`; anything that cannot be told leaves every file in sight.
+#[test]
+fn a_csharp_file_sees_its_project_and_the_ones_it_references() {
+    let files: Vec<PathBuf> = [
+        "Shop.Api/Shop.Api.csproj",
+        "Shop.App/Shop.App.csproj",
+        "Shop.Core/Shop.Core.csproj",
+        "Shop.App/Page.cs",
+        "Shop.App/Views/Home.cs",
+        "Shop.Api/Address.cs",
+        "Shop.Core/Money.cs",
+        "Shared/Clock.cs",
+    ]
+    .iter()
+    .map(PathBuf::from)
+    .collect();
+    fn read<'a>(manifests: &'a [(&'a str, &'a str)]) -> impl Fn(&Path) -> Option<String> + 'a {
+        move |p: &Path| {
+            manifests
+                .iter()
+                .find(|(f, _)| Path::new(f) == p)
+                .map(|(_, t)| (*t).to_owned())
+        }
+    }
+    const PLAIN: &str = r#"<Project Sdk="Microsoft.NET.Sdk"></Project>"#;
+    let alone: &[(&str, &str)] = &[
+        ("Shop.Api/Shop.Api.csproj", PLAIN),
+        ("Shop.App/Shop.App.csproj", PLAIN),
+        ("Shop.Core/Shop.Core.csproj", PLAIN),
+    ];
+    let here = Path::new("Shop.App/Views/Home.cs");
+    let seen = cs_projects(&files, here, read(alone)).unwrap();
+    assert!(seen.sees(Path::new("Shop.App/Page.cs")));
+    assert!(!seen.sees(Path::new("Shop.Api/Address.cs")));
+    // A file under no project is anybody's.
+    assert!(seen.sees(Path::new("Shared/Clock.cs")));
+    // A reference, `\` and `..` as MSBuild writes them, and the references of that one.
+    let chained: &[(&str, &str)] = &[
+        (
+            "Shop.App/Shop.App.csproj",
+            r#"<ItemGroup><ProjectReference Include="..\Shop.Api\Shop.Api.csproj" /></ItemGroup>"#,
+        ),
+        (
+            "Shop.Api/Shop.Api.csproj",
+            r#"<ProjectReference Include="../Shop.Core/Shop.Core.csproj"/>"#,
+        ),
+        ("Shop.Core/Shop.Core.csproj", PLAIN),
+    ];
+    let seen = cs_projects(&files, here, read(chained)).unwrap();
+    assert!(seen.sees(Path::new("Shop.Api/Address.cs")));
+    assert!(seen.sees(Path::new("Shop.Core/Money.cs")));
+    // `Directory.Build.props` above the project references for it.
+    let props: &[(&str, &str)] = &[
+        ("Shop.App/Shop.App.csproj", PLAIN),
+        ("Shop.Api/Shop.Api.csproj", PLAIN),
+        ("Shop.Core/Shop.Core.csproj", PLAIN),
+        (
+            "Directory.Build.props",
+            r#"<Project><ItemGroup><ProjectReference Include="..\Shop.Core\Shop.Core.csproj" /></ItemGroup></Project>"#,
+        ),
+    ];
+    let seen = cs_projects(&files, here, read(props)).unwrap();
+    assert!(seen.sees(Path::new("Shop.Core/Money.cs")));
+    assert!(!seen.sees(Path::new("Shop.Api/Address.cs")));
+    // What cannot be told: a script, a file outside every project, a source file pulled in from
+    // outside the directory, a shared project, a reference MSBuild has to evaluate or that names
+    // no project here, two projects in one directory.
+    assert!(cs_projects(&files, Path::new("Shop.App/build.csx"), read(alone)).is_none());
+    assert!(cs_projects(&files, Path::new("Shared/Clock.cs"), read(alone)).is_none());
+    for app in [
+        r#"<Compile Include="..\Shared\Clock.cs" Link="Clock.cs" />"#,
+        r#"<Import Project="..\Shared\Shared.projitems" Label="Shared" />"#,
+        r#"<ProjectReference Include="$(RepoRoot)\Shop.Api\Shop.Api.csproj" />"#,
+        r#"<ProjectReference Include="..\Gone\Gone.csproj" />"#,
+    ] {
+        let manifests = [
+            ("Shop.App/Shop.App.csproj", app),
+            ("Shop.Api/Shop.Api.csproj", PLAIN),
+        ];
+        assert!(
+            cs_projects(&files, here, read(&manifests)).is_none(),
+            "{app}"
+        );
+    }
+    // An attribute before `Include` is still read; a reference the reader cannot read refuses.
+    let conditioned = [
+        (
+            "Shop.App/Shop.App.csproj",
+            r#"<ProjectReference Condition="'$(Os)' == 'mac'" Include="..\Shop.Api\Shop.Api.csproj" />"#,
+        ),
+        ("Shop.Api/Shop.Api.csproj", PLAIN),
+    ];
+    let seen = cs_projects(&files, here, read(&conditioned)).unwrap();
+    assert!(seen.sees(Path::new("Shop.Api/Address.cs")));
+    let quoted = [
+        (
+            "Shop.App/Shop.App.csproj",
+            "<ProjectReference Include='..\\Shop.Api\\Shop.Api.csproj' />",
+        ),
+        ("Shop.Api/Shop.Api.csproj", PLAIN),
+    ];
+    assert!(cs_projects(&files, here, read(&quoted)).is_none());
+    let linked = [
+        ("Shop.App/Shop.App.csproj", PLAIN),
+        (
+            "Directory.Build.props",
+            r#"<Compile Include="..\Shared\Clock.cs" />"#,
+        ),
+    ];
+    assert!(cs_projects(&files, here, read(&linked)).is_none());
+    // A project inside another's directory is a project of its own.
+    let mut nested = files.clone();
+    nested.push(PathBuf::from("Shop.App/Tests/Shop.App.Tests.csproj"));
+    let inner = [
+        ("Shop.App/Shop.App.csproj", PLAIN),
+        ("Shop.App/Tests/Shop.App.Tests.csproj", PLAIN),
+    ];
+    let seen = cs_projects(&nested, Path::new("Shop.App/Page.cs"), read(&inner)).unwrap();
+    assert!(!seen.sees(Path::new("Shop.App/Tests/PageTests.cs")));
+    let mut two = files.clone();
+    two.push(PathBuf::from("Shop.App/Shop.App.Tests.csproj"));
+    assert!(cs_projects(&two, here, read(alone)).is_none());
+}
+
+/// #360: where a C# word stands as a type, a namespace segment, and how many arguments a call
+/// passes and a declaration takes.
+#[test]
+fn csharp_type_positions_namespace_segments_and_arity() {
+    let at = |line: &str, word: &str| {
+        let start = line.find(word).unwrap();
+        cs_type_position(line, start, start + word.len())
+    };
+    for (line, word) in [
+        ("    Buyer Update(Buyer buyer);", "Buyer"),
+        ("    void Update(Buyer buyer);", "Buyer"),
+        ("    Buyer[] all = Load();", "Buyer"),
+        ("    Buyer? b = null;", "Buyer"),
+        ("    List<Buyer> all;", "List"),
+        ("    var d = new Dictionary<int, Buyer>();", "Buyer"),
+        ("    var a = new Address { Street = s };", "Address"),
+        ("    if (x is Buyer) return;", "Buyer"),
+        ("    var t = typeof(Buyer);", "Buyer"),
+        ("    var b = o as Buyer;", "Buyer"),
+        ("    var b = (Buyer)o;", "Buyer"),
+        ("    return (Buyer)o;", "Buyer"),
+        ("public class Order : Entity, IAggregateRoot", "Entity"),
+        (
+            "public class Order : Entity, IAggregateRoot",
+            "IAggregateRoot",
+        ),
+    ] {
+        assert!(at(line, word), "{line} / {word}");
+    }
+    for (line, word) in [
+        ("    var ok = valid ? a : b;", "valid"),
+        ("    if (x is null) return;", "x"),
+        ("    foreach (var item in items)", "item"),
+        ("    Courier.Weigh(grams);", "Courier"),
+        ("    if (a < Max && b > c) return;", "Max"),
+        ("    if (ready) return;", "ready"),
+        ("    Run(Buyer);", "Buyer"),
+        ("    var n = (count) * 2;", "count"),
+        ("    var empty = (Items) is null;", "Items"),
+        ("    var b = order switch { _ => 1 };", "order"),
+        ("    var x = new Courier.Inner();", "Courier"),
+        ("public class Order : Base(Total, Other)", "Other"),
+    ] {
+        assert!(!at(line, word), "{line} / {word}");
+    }
+    // #581: after `is` a constant pattern may stand as well as a type, save with a designation
+    // or generic arguments, which only a type takes.
+    let constant = |line: &str, word: &str| {
+        let start = line.find(word).unwrap();
+        cs_constant_may_stand(line, start, start + word.len())
+    };
+    assert!(constant("    if (n is Max) return;", "Max"));
+    assert!(constant("    bool full = n is Max;", "Max"));
+    for line in [
+        "    if (n is Max m) return;",
+        "    if (n is Max<int>) return;",
+        "    var m = n as Max;",
+        "    var m = new Max();",
+        "    Axis Max;",
+    ] {
+        assert!(!constant(line, "Max"), "{line}");
+    }
+    let prefix = |line: &str, word: &str| {
+        let start = line.find(word).unwrap();
+        cs_namespace_prefix(line, start, start + word.len())
+    };
+    assert_eq!(
+        prefix(
+            "using Microsoft.EntityFrameworkCore.Migrations;",
+            "EntityFrameworkCore"
+        ),
+        Some(("Microsoft.EntityFrameworkCore".to_owned(), true))
+    );
+    assert_eq!(
+        prefix("global using Microsoft.Extensions.Options;", "Options"),
+        Some(("Microsoft.Extensions.Options".to_owned(), true))
+    );
+    assert_eq!(
+        prefix("namespace Shop.Catalog {", "Catalog"),
+        Some(("Shop.Catalog".to_owned(), true))
+    );
+    assert_eq!(
+        prefix("    global::Shop.Pricing.Tariff t;", "Pricing"),
+        Some(("Shop.Pricing".to_owned(), false))
+    );
+    assert_eq!(prefix("using Rows = List<int>;", "List"), None);
+    assert_eq!(prefix("using static System.Math;", "Math"), None);
+    assert_eq!(prefix("using var stream = Open();", "stream"), None);
+    let args = |text: &str| {
+        let lines: Vec<&str> = text.lines().collect();
+        let end = lines[0].find("Equals").unwrap() + "Equals".len();
+        cs_arguments(&lines, 0, end)
+    };
+    assert_eq!(args("return Equals(a, Pick(b, c));"), Some(2));
+    assert_eq!(args("return Equals();"), Some(0));
+    assert_eq!(
+        args("return Equals<Dictionary<int, string>>(\n    a,\n    b);"),
+        Some(2)
+    );
+    assert_eq!(args("return Equals;"), None);
+    assert_eq!(args("return Equals(a < b, c > d);"), None);
+    assert_eq!(args("return Equals(a,"), None);
+    let params = |line: &str| cs_parameters(line, 1, "Equals");
+    assert_eq!(
+        params("public bool Equals(object other)"),
+        Some((1, Some(1), false))
+    );
+    assert_eq!(
+        params("public bool Equals(Dictionary<int, string> a, int b = 0)"),
+        Some((1, Some(2), false))
+    );
+    assert_eq!(
+        params("static bool Equals(this X x, params int[] rest)"),
+        Some((1, None, true))
+    );
+    assert_eq!(params("public record Equals(int A);"), None);
+    assert_eq!(params("public Func<int, bool> Equals { get; }"), None);
 }

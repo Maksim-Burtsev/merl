@@ -1,0 +1,57 @@
+wait class Rack::Attack
+┌orders──────────────────────┐1 class Rack::Attack
+│▸ .bundle                   │2   throttle('logins/ip', limit: 5)
+│▸ .github                   │3 end
+│▸ .venv                     │
+│▾ app                       │
+│  ▾ ruby                    │
+│      attack.rb             │
+│      feed.rb               │
+│      sessions.rb           │
+│    __init__.py             │
+│    api.py                  │
+│    config.py               │
+│    models.py               │
+│    repos.py                │
+│    service.py              │
+│    uow.py                  │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Gemfile.lock              │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+app/ruby/attack.rb  1:1  [code]                                                                                                                                                   ? help
+cursor (x,y,shown) 32,0,1

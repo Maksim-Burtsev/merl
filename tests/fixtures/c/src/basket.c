@@ -67,7 +67,7 @@ int counted(stamp *s)
     return tally() + s->flags + hook_args;
     //     ^ d: src/pricing.c:16
     //                  ^ d: include/shop/pricing.h:35
-    //                          ^ d: picker src/basket.c:8, include/shop/pricing.h:12; want src/basket.c:8 (#382)
+    //                          ^ d: src/basket.c:8
 }
 
 const char *money(void)

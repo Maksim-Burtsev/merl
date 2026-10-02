@@ -3,6 +3,7 @@
 //! (#356).
 
 use std::ops::Range;
+use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 use regex::Regex;
@@ -62,9 +63,10 @@ pub fn php_member_patterns(word: &str, call: bool) -> Vec<String> {
     }
 }
 
-/// The line pattern of a `namespace` line whose last part is the escaped word `w`.
+const NAMESPACE_HEAD: &str = r"^\s*(?:<\?php\s+)?namespace\s+";
+
 pub(super) fn php_namespace_line(w: &str) -> String {
-    format!(r"^\s*namespace\s+(?:[\w\\]+\\)?{w}\s*[;{{]")
+    format!(r"{NAMESPACE_HEAD}(?:[\w\\]+\\)?{w}\s*[;{{]")
 }
 
 /// The 0-based line of the `class`, `trait`, `interface` or `enum` whose docblock holds the
@@ -101,17 +103,6 @@ pub fn php_tag_class<S: AsRef<str>>(lines: &[S], at: usize) -> Option<usize> {
     CLASS.is_match(lines[class].as_ref()).then_some(class)
 }
 
-/// The `namespace` rule of `patterns`, [`def_patterns`](super::def_patterns) of PHP for the word
-/// at `range` of `line` in the file `text`, as the word asks (#344). `namespace X\Y;` is written
-/// in every file of `X\Y` and names none of the classes that share its last part, so:
-/// - a word a `\` follows is a segment of a qualified name, no class or function, and only a
-///   line declaring the namespace written up to it answers: `Illuminate\Support` for `Support` in
-///   `use Illuminate\Support\Facades\Route;`. A leading `\` is dropped, and outside a `use` or
-///   a `namespace` line a name that does not start with one is relative to the file's own
-///   namespace;
-/// - the last part of a `namespace` line keeps the rule as it is: the other files of the
-///   namespace are its namesakes;
-/// - any other word is no namespace, and the rule goes.
 pub fn php_namespace_patterns(
     patterns: &mut Vec<String>,
     text: &str,
@@ -119,7 +110,7 @@ pub fn php_namespace_patterns(
     range: Range<usize>,
 ) {
     static ON_NAMESPACE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*namespace\s+[\w\\]*$").unwrap());
+        LazyLock::new(|| Regex::new(&format!(r"{NAMESPACE_HEAD}[\w\\]*$")).unwrap());
     let generic = php_namespace_line(&regex::escape(&line[range.clone()]));
     let Some(at) = patterns.iter().position(|p| *p == generic) else {
         return;
@@ -136,13 +127,17 @@ pub fn php_namespace_patterns(
         .len();
     let spelled = &line[start..range.end];
     let head = before.trim_start();
-    let absolute =
-        spelled.starts_with('\\') || head.starts_with("use ") || head.starts_with("namespace ");
+    let absolute = spelled.starts_with('\\')
+        || head.starts_with("use ")
+        || head
+            .trim_start_matches("<?php")
+            .trim_start()
+            .starts_with("namespace ");
     let mut name = spelled.trim_start_matches('\\').to_owned();
     if !absolute && let Some(own) = php_namespace(text) {
         name = format!("{own}\\{name}");
     }
-    *patterns = vec![format!(r"^\s*namespace\s+{}\s*[;{{]", regex::escape(&name))];
+    *patterns = vec![format!(r"{NAMESPACE_HEAD}{}\s*[;{{]", regex::escape(&name))];
 }
 
 /// How a PHP member is reached, which says what can declare it (#356): a call is a method, a
@@ -243,14 +238,219 @@ pub fn php_class_traits<S: AsRef<str>>(lines: &[S], class: usize) -> Vec<String>
         .collect()
 }
 
-/// The namespace a PHP file declares, if any.
+static NAMESPACE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(&format!(r"(?m){NAMESPACE_HEAD}([\w\\]+)\s*[;{{]")).unwrap());
+
 pub fn php_namespace(text: &str) -> Option<&str> {
-    static NAMESPACE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?m)^\s*namespace\s+([\w\\]+)\s*[;{]").unwrap());
     NAMESPACE
         .captures(text)
         .and_then(|c| c.get(1))
         .map(|m| m.as_str())
+}
+
+pub fn php_block(text: &str, line: usize) -> &str {
+    let mut lines = vec![0];
+    lines.extend(text.match_indices('\n').map(|(i, _)| i + 1));
+    let declared: Vec<usize> = NAMESPACE
+        .captures_iter(text)
+        .map(|c| lines.partition_point(|&o| o <= c.get(1).map_or(0, |m| m.start())) - 1)
+        .collect();
+    if declared.len() < 2 {
+        return text;
+    }
+    let literal = super::syntax::literal_lines(Kind::Php, text);
+    let declared: Vec<usize> = declared
+        .into_iter()
+        .filter(|&l| literal.get(l) != Some(&true))
+        .collect();
+    if declared.len() < 2 {
+        return text;
+    }
+    let i = declared.iter().rposition(|&l| l <= line).unwrap_or(0);
+    let end = declared.get(i + 1).map_or(text.len(), |&l| lines[l]);
+    &text[lines[declared[i]]..end]
+}
+
+// ---- Class names and composer.json's PSR-4 map (#351) ----------------------------------------
+
+/// The class name the word at `range` of `line` belongs to, as written (`\A\B`, `B`), and
+/// whether the word is a member of it, `B::word`, rather than the name itself (#351). Only where
+/// PHP reads a class name: before `::`, after `new`, `extends`, `implements`, `instanceof`,
+/// `insteadof` and `catch (`, a type in front of a `$parameter`, a return type, and the last part
+/// of a column-0 `use` line. A function or a constant falls back to the global namespace, so no
+/// other position is read as a class.
+pub fn php_class_at(line: &str, range: Range<usize>) -> Option<(String, bool)> {
+    static AFTER: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:\b(?:new|extends|implements|instanceof|insteadof)|\bcatch\s*\(|\)\s*:\s*\??|\bimplements\s.*,)\s*$").unwrap()
+    });
+    static TYPED: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s*(?:&|\.\.\.)?\s*\$\w").unwrap());
+    let name_back = |s: &str| {
+        let n = s.trim_end_matches(|c: char| c.is_ascii_alphanumeric() || c == '_' || c == '\\');
+        (n.len(), s[n.len()..].to_owned())
+    };
+    let (before, word, after) = (
+        &line[..range.start],
+        &line[range.clone()],
+        &line[range.end..],
+    );
+    let is_class = |at: usize, written: &str| {
+        !written.trim_start_matches('\\').is_empty()
+            && !written.starts_with(|c: char| c.is_ascii_digit())
+            && !matches!(written, "self" | "static" | "parent")
+            && !line[..at].ends_with(['$', '>'])
+            && !line[..at].ends_with("::")
+    };
+    if let Some(b) = before
+        .strip_suffix("::$")
+        .or_else(|| before.strip_suffix("::"))
+    {
+        let (at, written) = name_back(b);
+        return (word != "class" && is_class(at, &written)).then_some((written, true));
+    }
+    if after.starts_with(|c: char| c == '\\' || c.is_ascii_alphanumeric() || c == '_') {
+        return None;
+    }
+    let (at, head) = name_back(before);
+    let written = format!("{head}{word}");
+    let pre = line[..at].trim_end();
+    let used = line.starts_with("use ")
+        && !line.contains('{')
+        && !["use function ", "use const "]
+            .iter()
+            .any(|u| line.starts_with(u));
+    let typed = TYPED.is_match(after)
+        && (pre.is_empty()
+            || pre.ends_with(['(', ',', '?', '|'])
+            || ["public", "protected", "private", "readonly"]
+                .iter()
+                .any(|m| pre.ends_with(m)));
+    (is_class(at, &written)
+        && (used || after.trim_start().starts_with("::") || AFTER.is_match(pre) || typed))
+        .then(|| match used && !written.starts_with('\\') {
+            true => format!("\\{written}"),
+            false => written,
+        })
+        .map(|w| (w, false))
+}
+
+/// The fully qualified name, with no leading `\`, of the class `written` names in the file
+/// `text`, as PHP resolves it, and whether a `use` bound it (#351): a leading `\` spells it in
+/// full, else the file's column-0 `use` that binds its first part (`use A\B\C;`, `use A\B\C as
+/// D;`; `use function` and `use const` bind no class), else the file's
+/// namespace in front of it. `None` for a name a group `use` binds: one clause binds several
+/// names there, and the rules do not read it.
+pub fn php_resolve(text: &str, written: &str) -> Option<(String, bool)> {
+    static USE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?m)^use\s+([\w\\\s,]+?)\s*;").unwrap());
+    static GROUP: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?m)^use\s+[^;{]*\{([^}]*)\}").unwrap());
+    if let Some(full) = written.strip_prefix('\\') {
+        return Some((full.to_owned(), false));
+    }
+    let (first, rest) = match written.split_once('\\') {
+        Some((first, rest)) => (first, Some(rest)),
+        None => (written, None),
+    };
+    let used = USE
+        .captures_iter(text)
+        .flat_map(|c| {
+            c[1].split(',')
+                .map(|item| item.trim().to_owned())
+                .collect::<Vec<_>>()
+        })
+        .filter(|item| !item.starts_with("function ") && !item.starts_with("const "))
+        .find_map(|item| {
+            let (path, alias) = match item.split_once(" as ") {
+                Some((path, alias)) => (path.trim().to_owned(), alias.trim().to_owned()),
+                None => (item.clone(), item.rsplit('\\').next()?.to_owned()),
+            };
+            (alias == first).then(|| path.trim_start_matches('\\').to_owned())
+        });
+    let grouped = || {
+        GROUP.captures_iter(text).any(|c| {
+            c[1].split(',').any(|item| {
+                let item = item.trim();
+                let alias = item.split_once(" as ").map_or(item, |(_, a)| a.trim());
+                alias.rsplit('\\').next() == Some(first)
+            })
+        })
+    };
+    let tail = rest.map_or(String::new(), |r| format!("\\{r}"));
+    Some(match used {
+        Some(path) => (format!("{path}{tail}"), true),
+        None if grouped() => return None,
+        None => match php_namespace(text) {
+            Some(ns) => (format!("{ns}\\{written}"), false),
+            None => (written.to_owned(), false),
+        },
+    })
+}
+
+pub fn php_psr4(root: &Path, dir: &Path) -> Vec<(String, Vec<PathBuf>)> {
+    static MAP: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r#""psr-4"\s*:\s*\{([^}]*)\}"#).unwrap());
+    static ENTRY: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r#""((?:[^"\\]|\\.)*)"\s*:\s*(?:"((?:[^"\\]|\\.)*)"|\[([^\]]*)\])"#).unwrap()
+    });
+    static STRING: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r#""((?:[^"\\]|\\.)*)""#).unwrap());
+    let unescape = |s: &str| s.replace("\\\\", "\\").replace("\\/", "/");
+    let mut map = Vec::new();
+    for at in dir.ancestors() {
+        let Ok(text) = std::fs::read_to_string(root.join(at).join("composer.json")) else {
+            continue;
+        };
+        let dir_of = |d: &str| {
+            let d = unescape(d);
+            let d = d.trim_start_matches("./").trim_end_matches('/');
+            match d {
+                "" | "." => at.to_path_buf(),
+                d => at.join(d),
+            }
+        };
+        for m in MAP.captures_iter(&text) {
+            for c in ENTRY.captures_iter(&m[1]) {
+                let dirs = match (c.get(2), c.get(3)) {
+                    (Some(one), _) => vec![dir_of(one.as_str())],
+                    (_, Some(list)) => STRING
+                        .captures_iter(list.as_str())
+                        .map(|s| dir_of(&s[1]))
+                        .collect(),
+                    _ => Vec::new(),
+                };
+                map.push((unescape(&c[1]).trim_start_matches('\\').to_owned(), dirs));
+            }
+        }
+    }
+    map.sort_by_key(|(prefix, _)| std::cmp::Reverse(prefix.len()));
+    map
+}
+
+/// Where the PSR-4 `map` puts the class `full` (#351): `Some(Ok(file))` for the first mapped
+/// file `has` holds, `Some(Err(()))` for a name a prefix covers whose file is missing, `None` for
+/// a name the map does not cover: one outside the project. The empty prefix maps any name, so it
+/// covers only a name whose file exists under it.
+pub fn php_psr4_file(
+    map: &[(String, Vec<PathBuf>)],
+    full: &str,
+    has: impl Fn(&Path) -> bool,
+) -> Option<Result<PathBuf, ()>> {
+    let mut covered = false;
+    for (prefix, dirs) in map {
+        let Some(rest) = full.strip_prefix(prefix.as_str()) else {
+            continue;
+        };
+        covered |= !prefix.is_empty();
+        if let Some(file) = dirs
+            .iter()
+            .map(|d| d.join(format!("{}.php", rest.replace('\\', "/"))))
+            .find(|f| has(f))
+        {
+            return Some(Ok(file));
+        }
+    }
+    covered.then_some(Err(()))
 }
 
 // ---- The type of a receiver (#361) ----------------------------------------------------------

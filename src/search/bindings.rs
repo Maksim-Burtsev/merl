@@ -166,31 +166,6 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
     }
     Value::Unknown
 }
-/// The declarations of `name` that 1-based `line` of `text`, a file of `kind`, reads, with what
-/// each gives it: those of the innermost scope that declares it, which hides the scopes around
-/// it (#100). Every one of that scope counts, and the caller trusts them only when they agree.
-///
-/// - Python: a name belongs to its function, so its parameters and every binding in the body
-///   count, before the cursor or after it; a function that binds none reads the enclosing
-///   function's, then the module's. Nested functions and classes are scopes of their own. A comprehension or a `lambda` counts
-///   on the cursor line only. `self` / `cls` is the class a method sits in, and so is `super`
-///   (what [`qualifier`] makes of `super()`): the caller starts above that class.
-/// - TypeScript and Go: `const`, `let` and `:=` belong to their block, so the declarations above
-///   the cursor count, in the nearest block around it that has any, told by indentation: the
-///   statements at the block's level and what its header binds (a function's parameters, a Go
-///   receiver). Only what a header binds for the block under it hides: another function on its
-///   lines, or on the cursor's own line, binds without hiding. `this` is the class around it, unless a
-///   `function` or an object literal comes first, and `super` reads as `this` does.
-/// - Lua (#461): a `local` belongs to its block, so the nearest one above the cursor counts, in
-///   the blocks around it told by indentation, and so do the parameters of a `function` and the
-///   variables of a `for` that open one of those blocks. The top of the file is left to the
-///   search by name: a module's `local` is what its `require` and its tables are read through.
-/// - Shell: a `local` (a `declare` / `typeset` without `-g`) above the cursor in the function
-///   around it (#470).
-/// - Zig: [`zig_bindings`], inside a function only (#469).
-/// - Ruby: [`ruby_bindings`], scopes by indentation (#365).
-/// - Rust: [`rust_bindings`], the nearest binding above the line in the blocks around it (#353).
-/// - Elixir: [`elixir_bindings`], inside a `def` only (#460).
 pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
@@ -200,15 +175,8 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         Kind::Python => python_bindings(&lines, at, name),
         Kind::TsJs | Kind::Go | Kind::CSharp => block_bindings(kind, &lines, at, name),
         Kind::Lua => lua_bindings(&lines, at, name),
-        Kind::Shell => shell_function_at(&lines, at).map_or_else(Vec::new, |f| {
-            (f + 1..=at)
-                .filter(|&i| shell_local_of(lines[i]).is_some_and(|names| names.contains(&name)))
-                .map(|i| Binding {
-                    line: i + 1,
-                    value: Value::Unknown,
-                })
-                .collect()
-        }),
+        Kind::Shell => shell_bindings(&lines, at, name),
+        Kind::PowerShell => powershell_params(&lines, at, name),
         Kind::Zig => zig_bindings(&lines, at, name),
         Kind::C => c_bindings(text, line, name),
         Kind::Jvm => jvm_bindings(&lines, at, name),
@@ -216,6 +184,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         Kind::Ruby => ruby_bindings(&lines, at, name),
         Kind::Rust => rust_bindings(&lines, at, name),
         Kind::Elixir => elixir_bindings(&lines, at, name),
+        Kind::Nix => nix_bindings(&lines, at, name),
         _ => Vec::new(),
     }
 }
@@ -434,76 +403,6 @@ fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
         }
     }
     Vec::new()
-}
-/// The 0-based line of the header of the Shell function whose body holds 0-based line `at`:
-/// `name() {`, `function name {`, told by indentation, since the `}` that closes a function
-/// stands at its header's indent. A one-line function holds no line below it, a comment after its
-/// `}` or not, and a `name() (` subshell body, closed by a `)`, is not read.
-pub fn shell_function_at(lines: &[&str], at: usize) -> Option<usize> {
-    static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:function\s+[^\s(){}]+|[\w.:-]+\s*\(\s*\))").unwrap()
-    });
-    static ONE_LINE: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"\{.*[;\s]\}\s*(?:#.*)?$|\(\s*$").unwrap());
-    (0..at.min(lines.len())).rev().find(|&k| {
-        let l = lines[k];
-        HEADER.is_match(l)
-            && !ONE_LINE.is_match(l)
-            && !lines[k + 1..=at]
-                .iter()
-                .any(|b| b.trim_start().starts_with('}') && indent(b) == indent(l))
-    })
-}
-/// The names a Shell `local`, or a `declare` / `typeset` without `-g`, declares on `line`: local
-/// to the function it is written in. `None` for any other line, and for `-p`, `-f` and `-F`,
-/// which print rather than declare.
-pub fn shell_local_of(line: &str) -> Option<Vec<&str>> {
-    static LOCAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:local|declare|typeset)((?:\s+-\w+)*)\s+(.*)").unwrap()
-    });
-    let c = LOCAL.captures(line)?;
-    if c[1].contains(['g', 'p', 'f', 'F']) {
-        return None;
-    }
-    let rest = c.get(2).map_or("", |m| m.as_str());
-    // Each word up to its `=` is a name, until one is not: the value of the one before it. A
-    // quoted value or an array `(…)` is one word, whatever spaces it holds.
-    let names = shell_words(rest)
-        .into_iter()
-        .map(|w| w.split(['=', '+']).next().unwrap_or(""))
-        .take_while(|n| {
-            n.chars()
-                .next()
-                .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
-                && n.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-        })
-        .collect();
-    Some(names)
-}
-/// `s` cut into Shell words: a `'…'`, a `"…"` or a `(…)` stays inside the word it starts in.
-fn shell_words(s: &str) -> Vec<&str> {
-    let (b, mut out, mut i) = (s.as_bytes(), Vec::new(), 0);
-    while i < b.len() {
-        if b[i].is_ascii_whitespace() {
-            i += 1;
-            continue;
-        }
-        let (start, mut depth, mut quote) = (i, 0usize, None);
-        while i < b.len() && (quote.is_some() || depth > 0 || !b[i].is_ascii_whitespace()) {
-            match (quote, b[i]) {
-                (Some(b'"'), b'\\') => i += 1,
-                (Some(q), c) if c == q => quote = None,
-                (Some(_), _) => {}
-                (None, c @ (b'"' | b'\'')) => quote = Some(c),
-                (None, b'(') => depth += 1,
-                (None, b')') => depth = depth.saturating_sub(1),
-                _ => {}
-            }
-            i += 1;
-        }
-        out.push(&s[start..i.min(b.len())]);
-    }
-    out
 }
 /// A Zig line that opens a function's or a test's body, whose `const`s and `var`s are locals.
 pub(super) static ZIG_BODY: std::sync::LazyLock<Regex> =
@@ -753,7 +652,7 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
     .expect("an escaped name keeps the pattern valid");
     while i > 0 {
         i -= 1;
-        let code = uncommented(kind, lines[i]);
+        let code = uncommented(kind, behind_doc(kind, lines[i]));
         let t = code.trim();
         let ind = indent(lines[i]);
         // A Go label, `scan:`, stands one level left of its statement, at column 0 in a function
@@ -902,9 +801,7 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
             }
             // Past a C# type's header the walk is out of its body; past a member's, in it.
             if kind == Kind::CSharp {
-                if cs_type_decl(lines[i]).is_some()
-                    || lines[i].trim_start().starts_with("namespace ")
-                {
+                if cs_type_decl(lines[i]).is_some() || cs_namespace_line(lines[i]) {
                     break;
                 }
                 members |= in_type(i);

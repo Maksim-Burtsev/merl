@@ -1,0 +1,57 @@
+wait class Cart
+┌orders──────────────────────┐1 import 'money.dart';
+│▸ .github                   │2 import 'coupon.dart' as c;
+│▸ .venv                     │3
+│▸ app                       │4 class Cart {
+│▸ data                      │5   int total = 0;
+│▸ deploy                    │6   String label() => formatPrice(total);
+│▸ docs                      │7   double cut() => c.discount(1.0);
+│▸ scripts                   │8   double discount(double x) => x;
+│▾ shop                      │9 }
+│  ▾ lib                     │
+│      cart.dart             │
+│      coupon.dart           │
+│      money.dart            │
+│    pubspec.yaml            │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+shop/lib/cart.dart  1:1  [code]                                                                                                                                                   ? help
+cursor (x,y,shown) 32,0,1

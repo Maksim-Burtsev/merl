@@ -11,7 +11,7 @@ impl App {
         &self,
         kind: Option<Kind>,
     ) -> Option<(std::ops::Range<usize>, String)> {
-        let (range, word) = search::definition_word(kind, self.line_str(), self.col)?;
+        let (range, word) = self.word_here(kind)?;
         let mut word = word.to_owned();
         let (written, start) = self.written(kind, range.start);
         let before = &written[..start];
@@ -74,24 +74,23 @@ impl App {
             self.definition_at_base(path, line);
             return;
         }
-        // The path of a GraphQL `#import` is the file it pastes in, `./` and `/` included.
-        if kind == Some(Kind::Graphql)
-            && let Some(here) = self.rel_current()
-            && let Some(module) = search::graphql_import(self.line_str(), self.col)
+        // A class or an id of markup, and HTML and the stylesheets, read as #415 says.
+        if let Some(here) = self.rel_current()
+            && self.css_definition(kind, &here)
         {
-            let module = module.to_owned();
-            let files = search::module_files(
-                Kind::Graphql,
-                &self.root,
-                &self.files,
-                &here,
-                std::slice::from_ref(&module),
-            );
-            let found = self.module_candidates(files);
-            self.show_definitions(Kind::Graphql, &module, &here, found, None);
             return;
         }
-        let Some((range, word)) = self.definition_word(kind) else {
+        if let Some(kind) = kind
+            && let Some(here) = self.rel_current()
+            && let Some(module) = search::file_import(kind, self.line_str(), self.col)
+        {
+            let module = [module];
+            let files = self.import_files(kind, &here, &module);
+            let found = self.module_candidates(files);
+            self.show_definitions(kind, &module[0], &here, found, None);
+            return;
+        }
+        let Some((range, mut word)) = self.definition_word(kind) else {
             self.message = "no word".into();
             return;
         };
@@ -104,19 +103,26 @@ impl App {
             self.message = self.no_rules();
             return;
         };
+        if self.component_template(&here, &range, &mut word) {
+            return;
+        }
         // Go's blank identifier names nothing: every `_` is a fresh discard (#476). Nor has a
         // GraphQL operation's `$variable` a rule: it is a parameter, and `$id` is no field `id`.
-        // A Java or Kotlin class literal, `Foo::class`, names no member `class` (#362).
+        // A Java or Kotlin class literal, `Foo::class`, names no member `class` (#362). A
+        // PowerShell `-Name` argument names a parameter of the command it is given to (#420).
         if (kind == Kind::Go && word == "_")
             || (kind == Kind::Graphql && self.line_str()[..range.start].ends_with('$'))
             || (kind == Kind::Jvm
                 && word == "class"
                 && self.line_str()[..range.start].ends_with("::"))
+            || (kind == Kind::PowerShell
+                && search::powershell_argument(&self.line_str()[..range.start]))
         {
             self.message = resolution(&word, None, &[], None, false);
             return;
         }
         let text = self.buf.lines.join("\n");
+        let text = search::script_text(&here, &text, Some(self.line)).into_owned();
         // Nothing in a Rust string names code, save the `{name}` a format string captures and
         // the path an attribute takes as a value, `#[serde(default = "default_port")]`: no
         // search for a word of prose (#346).
@@ -137,10 +143,19 @@ impl App {
             return;
         }
         // A segment of a Java or Kotlin `import` line: a package's declares nothing, a class's is
-        // looked for in its package of the project (#372).
+        // looked for in its package of the project (#372). A name inside a Scala import's `{…}`
+        // selectors is looked for by name (#416).
         if kind == Kind::Jvm
             && import_line(kind, self.line_str())
+            && !self.line_str()[..range.start].contains('{')
             && let Some(found) = self.jvm_imported(&text, &chain, &word, range.clone(), true)
+        {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
+        // A segment of a C# `using` or `namespace` line names a namespace, and nothing else (#360).
+        if kind == Kind::CSharp
+            && let Some(found) = self.cs_namespace_segment(&here, &range)
         {
             self.show_definitions(kind, &word, &here, found, None);
             return;
@@ -173,6 +188,13 @@ impl App {
         // An import's path, and a name its package qualifies (#418).
         if kind == Kind::Proto
             && let Some(found) = self.proto_definitions(&text, &written[..start], &word)
+        {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
+        // A Dart name an import binds with `as` or `show` is looked for in that file (#414).
+        if kind == Kind::Dart
+            && let Some(found) = self.dart_imported(&here, &text, before, &chain, &word)
         {
             self.show_definitions(kind, &word, &here, found, None);
             return;
@@ -355,15 +377,11 @@ impl App {
             Kind::TsJs => search::ts_import_lines(&text, first),
             _ => Vec::new(),
         };
-        // A Python `def` or `class` a function around the cursor binds is a local of it, one
-        // the bare name reads (#338); a module's is reached through the rules below, and the
-        // cursor's own line stands on the declaration.
         let closure = |n: usize| {
-            kind == Kind::Python
+            (kind == Kind::Swift || kind == Kind::Python && search::python_in_function(&text, n))
                 && !dotted
                 && chain.is_empty()
                 && n != self.line + 1
-                && search::python_in_function(&text, n)
         };
         let locals_at = |text: &str, line: usize| -> Vec<usize> {
             let binding: Vec<usize> = match declared {
@@ -401,10 +419,7 @@ impl App {
         if go_own {
             locals = vec![self.line + 1];
         }
-        // No scope around the cursor binds it: the module's scope is the whole file, and its
-        // declarations below the cursor count too (#337). One on the cursor's line leaves the
-        // namesakes to the rules below, as on a declaration anywhere.
-        if bare && locals.is_empty() {
+        if (bare || self.script_scope(&here, Some(first)).is_some()) && locals.is_empty() {
             let module = locals_at(&format!("{text}\n0"), self.buf.lines.len() + 1);
             if !module.contains(&(self.line + 1)) {
                 locals = module;
@@ -445,22 +460,14 @@ impl App {
             self.message = format!("{word}: builtin, no source");
             return;
         }
-        // The word itself is that parameter or local: its declarations in this scope are the
-        // answer, and a function of the same name elsewhere is not.
-        // In C a function on one line holds its parameter and its uses (#378). A Java or Kotlin
-        // name bound earlier on the cursor's own line, `fun f(x: Int) = x`, is bound there
-        // (#376); behind a `::` the word is a member, whatever the qualifier is. A C# use past its
-        // declaration on the same line, a lambda's parameter inside that lambda, is bound there
-        // too (#345), and so is a Go parameter used in a body on its function's line (#524). A
-        // Rust local the cursor's own line binds is one too: a closure `|w| w`, an
-        // arm, the parameter or the `let` itself (#353).
         let on_itself = match kind {
             Kind::C => search::c_bindings_at(&text, self.line + 1, first)
                 .iter()
                 .all(|&(l, c)| l == self.line + 1 && c == range.start),
             _ => locals == [self.line + 1],
         };
-        let same_line = kind == Kind::Jvm
+        let same_line = (matches!(kind, Kind::Jvm | Kind::PowerShell)
+            || (kind == Kind::Swift && !declared))
             && locals == [self.line + 1]
             && whole_at(self.line_str(), &word, "").is_some_and(|at| at < range.start);
         let own_line = go_own
@@ -470,7 +477,11 @@ impl App {
         if !dotted
             && !before.ends_with("::")
             && !locals.is_empty()
-            && (!on_itself || same_line || own_line || own_arrow || kind == Kind::Rust)
+            && (!on_itself
+                || same_line
+                || own_line
+                || own_arrow
+                || matches!(kind, Kind::Rust | Kind::Nix))
         {
             let found = locals
                 .iter()
@@ -615,6 +626,15 @@ impl App {
                 .map(|m| m.join("|")),
         };
         let mut patterns = search::def_patterns(kind, &word);
+        // Where only a C# type can stand, only a type's rules count (#360): a type, a delegate, an
+        // alias, and no constructor, property or namespace of the name (save a constant, #581).
+        let cs_type = kind == Kind::CSharp
+            && !dotted
+            && chain.is_empty()
+            && self.cs_types_only(&here, &word, range.clone());
+        if cs_type {
+            patterns = search::cs_type_patterns(&word);
+        }
         // A Ruby local is seen from its own method or block alone, and a value has none: its
         // assignments are this file's where the cursor sees them, below, never a search by name
         // (#383). A constant is the project's.
@@ -644,51 +664,18 @@ impl App {
         if kind == Kind::Elixir && dotted {
             patterns.retain(|p| !p.starts_with(r"^\s*@"));
         }
-        if kind == Kind::Php {
-            search::php_namespace_patterns(&mut patterns, &text, self.line_str(), range.clone());
-        }
+        search::narrow_patterns(kind, &mut patterns, &text, self.line_str(), range.clone());
         if patterns.is_empty() {
             self.message = self.no_rules();
             return;
         }
         let pattern = patterns.join("|");
-        // PHP's `$this->`, `self::`, `static::` and `parent::` name the class around the cursor, a
-        // trait it uses or a class it extends (#356); `self::$name` is a static property.
-        if kind == Kind::Php {
-            let property = before.strip_suffix('$').filter(|b| b.ends_with("::"));
-            let b = property.unwrap_or(before);
-            let link = match search::qualifier(b, b.len()).as_slice() {
-                [l] if dotted && l == "this" => Some(l.clone()),
-                [l] if !dotted
-                    && b.ends_with("::")
-                    && matches!(l.as_str(), "self" | "static" | "parent") =>
-                {
-                    Some(l.clone())
-                }
-                _ => None,
-            };
-            let access = match self.line_str()[range.end..].trim_start().starts_with('(') {
-                true => search::PhpAccess::Call,
-                false if dotted || property.is_some() => search::PhpAccess::Property,
-                false => search::PhpAccess::Constant,
-            };
-            if let Some(link) = link
-                && let Some(found) = self.php_link(&here, &text, &link, &word, access)
-            {
-                self.show_definitions(kind, &word, &here, found, None);
-                return;
-            }
-            // `$x->word` and `$this->f->word` on a receiver whose class is proven (#361).
-            let receiver = before.strip_suffix(&format!("${}.", chain.join(".")));
-            if dotted
-                && !chain.is_empty()
-                && receiver
-                    .is_some_and(|b| !b.ends_with(|c: char| is_word(c) || c == ':' || c == '$'))
-                && let Some(found) = self.php_typed(&here, &text, &chain, &word, access)
-            {
-                self.show_definitions(kind, &word, &here, found, None);
-                return;
-            }
+        // PHP's `$this->`, `self::`, `static::`, `parent::`, typed receivers and class names.
+        if kind == Kind::Php
+            && let Some(found) = self.php_early(&here, &text, before, &chain, &word, range.clone())
+        {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
         }
         // `x.word` in Rust on a receiver whose type is proven (#377): the word of that type.
         let mut rust_broke = None;
@@ -817,6 +804,7 @@ impl App {
         }
         // A receiver whose type is proven narrows the member to that type (#68, steps 2 to 4).
         let mut broke = None;
+        let mut cs_walked = None;
         // C# writes its types everywhere: a member of an object initializer's type, or of the
         // type a receiver is declared with; a type the project does not declare is the
         // framework's, and so is its member (#352).
@@ -841,6 +829,16 @@ impl App {
                 }
                 Some(Err(at)) => broke = (chain.len() > 1).then_some(at),
                 None => {}
+            }
+            // A bare name is the type's around it first, as C# resolves it (#360).
+            if !dotted && chain.is_empty() && locals.is_empty() && !before.ends_with("::") {
+                match self.cs_class_first(&here, &word, cs_type) {
+                    Ok(found) => {
+                        self.show_definitions(kind, &word, &here, found, None);
+                        return;
+                    }
+                    Err(walked) => cs_walked = walked.filter(|_| !declares_here),
+                }
             }
         }
         // A chain with no name to start from may hang off a call: `make_uow().users.word` (#100).
@@ -1048,7 +1046,7 @@ impl App {
         if kind == Kind::TsJs
             && locals.is_empty()
             && let [global] = chain.as_slice()
-            && JS_GLOBALS.contains(&global.as_str())
+            && super::imported::JS_GLOBALS.contains(&global.as_str())
             && bound(&imports, global).is_none()
             && self
                 .project_definitions(
@@ -1345,23 +1343,9 @@ impl App {
                 }
             }
             if class_method {
-                let found: Vec<Candidate> = concerns
-                    .map(|hits| self.concern_class_methods(kind, &here, &chain, hits))
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|hit| Candidate {
-                        hit,
-                        reason: Reason::Path(path.clone()),
-                    })
-                    .collect();
-                // Nothing of the class declares it: a class method from outside the project
-                // (ActiveRecord's `find`), or `Class#new` itself.
-                let asked = if found.is_empty() && word == "initialize" {
-                    "new"
-                } else {
-                    &word
-                };
-                self.show_definitions(kind, asked, &here, found, None);
+                let (asked, found) =
+                    self.ruby_class_method_elsewhere(&here, &chain, &word, &pattern, concerns);
+                self.show_definitions(kind, &asked, &here, found, None);
                 return;
             }
             // A cut in a grep whose result is dropped says nothing about the list below.
@@ -1424,73 +1408,14 @@ impl App {
             }
         }
         // A C# `Offer.Cut` whose qualifier is an `enum` of the project is a member its body
-        // lists (#466). A bare `Cut` has no rule: in C# only a `using static` brings it in.
-        // The enum's namespace has to be one this file sees, or a namesake the SDK brings in
-        // (MAUI's `PermissionStatus`) would pass for the project's.
-        if kind == Kind::CSharp && pathed && locals.is_empty() {
-            let owner = &chain[chain.len() - 1];
-            let owners = search::def_patterns(kind, owner).join("|");
-            let members: Vec<(Candidate, String)> = self
-                .project_definitions(kind, &here, owner, &owners)
-                .into_iter()
-                .filter_map(|h| {
-                    let text = self.text_of(&h.path)?;
-                    let (line, col) = search::enum_member(kind, &text, h.line, &word)?;
-                    let hit = Hit {
-                        deleted: None,
-                        text: text.lines().nth(line - 1)?.to_owned(),
-                        path: h.path,
-                        line,
-                        col,
-                    };
-                    let reason = Reason::Path(path.clone());
-                    Some((Candidate { hit, reason }, search::cs_namespace(&text, line)))
-                })
-                .collect();
-            let prefix = chain[..chain.len() - 1].join(".");
-            let inside = search::cs_namespace(&text, self.line + 1);
-            let mut opened = search::cs_usings(&text);
-            if !members.is_empty() {
-                // `global using` in any file of the `.csproj` this file is in, `<Using Include>` in
-                // that `.csproj`: a solution's other projects open their own.
-                let csproj = |d: &Path| {
-                    self.files.iter().any(|f| {
-                        f.parent() == Some(d) && f.extension().is_some_and(|e| e == "csproj")
-                    })
-                };
-                let project = here
-                    .ancestors()
-                    .skip(1)
-                    .find(|d| csproj(d))
-                    .unwrap_or(Path::new(""));
-                let global = r#"^\u{feff}?\s*global\s+using\s+[\w.]+\s*;|<Using\s+Include=""#;
-                let files = |p: &Path| {
-                    p.starts_with(project)
-                        && p.extension().is_some_and(|e| e == "cs" || e == "csproj")
-                };
-                for h in self.grep(global, false, false, files).unwrap_or_default() {
-                    opened.extend(search::cs_usings(&h.text));
-                }
-            }
-            let sees = |ns: &String| match prefix.as_str() {
-                "" => {
-                    ns.is_empty()
-                        || inside == *ns
-                        || inside.starts_with(&format!("{ns}."))
-                        || opened.contains(ns)
-                }
-                p => ns == p || ns.ends_with(&format!(".{p}")),
-            };
-            let named: Vec<Candidate> = members
-                .into_iter()
-                .filter(|(_, ns)| sees(ns))
-                .map(|(c, _)| c)
-                .collect();
-            if !named.is_empty() {
-                self.show_definitions(kind, &word, &here, named, None);
-                return;
-            }
-            self.truncated.set(false);
+        // lists (#466).
+        if kind == Kind::CSharp
+            && pathed
+            && locals.is_empty()
+            && let Some(found) = self.cs_enum_member(&here, &text, &chain, &word, &path)
+        {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
         }
         // A C# `Task.Delay` whose first name the project declares nowhere, in no form, is a
         // member of a type outside it (#355): NuGet ships assemblies, so nothing names what the
@@ -1583,6 +1508,9 @@ impl App {
                 hits = kept;
             }
         }
+        if kind == Kind::Swift && !dotted && chain.is_empty() {
+            self.swift_nested_unseen(&mut hits);
+        }
         // A Lua `local` inside a block is seen by that block alone, where the bindings above
         // found it already: anywhere else, and behind a dot, it is no candidate (#461). What is
         // left was a namesake beside it on master, and is offered, never jumped to. The cursor's
@@ -1600,30 +1528,10 @@ impl App {
                     }),
             );
         }
-        // A C# private member is reachable from its own type alone, a part of it this file
-        // declares included, and a local from its own method alone, never behind a dot (#355).
+        // What a C# name reaches of its namesakes (#355, #360).
         if kind == Kind::CSharp {
-            let mine: Vec<String> = self
-                .buf
-                .lines
-                .iter()
-                .filter_map(|l| search::cs_type_decl(l).map(|(_, name)| name))
-                .collect();
-            hits.retain(|h| {
-                let place = self.text_of(&h.path).map_or(search::CsPlace::Top, |t| {
-                    search::cs_place(&t, h.line, &word)
-                });
-                match place {
-                    search::CsPlace::Member {
-                        owner,
-                        private: true,
-                    } => mine.contains(&owner),
-                    search::CsPlace::Local { from, to } => {
-                        !dotted && h.path == here && (from..=to).contains(&(self.line + 1))
-                    }
-                    _ => true,
-                }
-            });
+            let chain = dotted.then_some(chain.as_slice());
+            hits = self.cs_reachable(&here, &word, chain, cs_walked.as_deref(), hits);
         }
         if kind == Kind::Lua {
             let at = |h: &Hit| h.path == here && h.line == self.line + 1;
@@ -1739,21 +1647,14 @@ impl App {
                     .filter(|h| !value || !Self::c_type_line(&word, h))
                     .collect();
                 let tag = ["struct", "union", "enum"].into_iter().any(keyword);
-                // What a raw string or a block comment holds declares nothing, and must not count
-                // as a second body or definition in the rules below (show_definitions drops it
-                // again, for every kind).
-                let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
-                let hits: Vec<Hit> = hits
-                    .into_iter()
-                    .filter(|h| {
-                        let lines = literal.entry(h.path.clone()).or_insert_with(|| {
-                            self.text_of(&h.path)
-                                .map_or_else(Vec::new, |t| search::literal_lines(kind, &t))
-                        });
-                        !lines.get(h.line - 1).copied().unwrap_or(false)
-                    })
+                // What a raw string, a block comment or a macro's body holds declares nothing,
+                // and must not count as a second body or definition in the rules below.
+                let mut literal = HashMap::new();
+                let hits: Vec<Hit> = (hits.into_iter())
+                    .filter(|h| self.c_code_line(&mut literal, h))
                     .collect();
                 let hits = search::c_type_rows(&word, hits, |p| self.text_of(p), construction, tag);
+                let hits = self.c_reached_only(&here, &word, hits);
                 let on = hits
                     .iter()
                     .any(|h| h.path == here && h.line == self.line + 1);
@@ -1937,9 +1838,10 @@ impl App {
         if found.is_empty() && self.probe.is_none() {
             found = self.deleted_definitions(kind, &word, &here);
         }
-        // Ruby's core and gems are not read (#390): the one namesake the project declares of
-        // `x.each` or `logger.info` proves nothing, and is offered rather than jumped to.
-        self.offer_only |= kind == Kind::Ruby && on_value && self.external_files(kind).is_empty();
+        // A Ruby value's member: what Ruby's core and the gems declare too, offered (#369, #390).
+        if kind == Kind::Ruby && on_value {
+            self.ruby_member_outside(&word, &pattern, &mut found);
+        }
         self.show_definitions(kind, &word, &here, found, broke.as_deref());
         // The status of the one definition says what was set aside: `1 definition, 1 prototype`.
         if let Some(note) = aside {
@@ -2148,112 +2050,6 @@ impl App {
             .collect()
     }
 
-    /// Of the Java or Kotlin declarations `hits` found by name, what the cursor can see (#357): a
-    /// local only in its own block, below it, and never `behind` a `.` or a `::`; a `private`
-    /// declaration only in its own file. When that drops some and leaves one that is no local
-    /// in sight, it is still found by name only, and offered rather than jumped to.
-    fn jvm_seen(&mut self, here: &Path, hits: Vec<Hit>, behind: bool) -> Vec<Hit> {
-        let all = hits.len();
-        let mut texts: HashMap<PathBuf, Option<String>> = HashMap::new();
-        let mut seen_local = false;
-        let kept: Vec<Hit> = hits
-            .into_iter()
-            .filter(|h| {
-                if h.path != here && search::jvm_private(&h.text) {
-                    return false;
-                }
-                // A declaration in column 0 is top-level, never a local.
-                if !h.text.starts_with([' ', '\t']) {
-                    return true;
-                }
-                let text = texts
-                    .entry(h.path.clone())
-                    .or_insert_with(|| self.text_of(&h.path));
-                match text
-                    .as_deref()
-                    .and_then(|t| search::jvm_local_block(t, h.line))
-                {
-                    None => true,
-                    Some(end) => {
-                        let seen =
-                            !behind && h.path == here && (h.line..=end).contains(&(self.line + 1));
-                        seen_local |= seen;
-                        seen
-                    }
-                }
-            })
-            .collect();
-        self.offer_only |= kept.len() == 1 && kept.len() < all && !seen_local;
-        kept
-    }
-
-    /// What a bare Swift `word` names among the members of the type whose body holds the cursor
-    /// (#380): what its body and every extension of it declare, `via self: Type`; else, for a
-    /// class, what the class its header extends first declares, when the project declares that
-    /// as a class once, and so on up. `None` when none of them does, and in an extension a
-    /// `where` constrains, whose members may be another type's.
-    fn swift_self_members(
-        &self,
-        here: &Path,
-        text: &str,
-        word: &str,
-        pattern: &str,
-    ) -> Option<Vec<Candidate>> {
-        let lines: Vec<&str> = text.lines().collect();
-        let literal = search::literal_lines(Kind::Swift, text);
-        let at = search::swift_enclosing_type(&lines, &literal, self.line + 1)?;
-        let (mut keyword, own, mut base, constrained) = search::swift_type_header(lines[at - 1])?;
-        if constrained {
-            return None;
-        }
-        // A cut in a grep whose result is dropped says nothing about the list shown in the end.
-        let cut = self.truncated.get();
-        let hits = self.project_definitions(Kind::Swift, here, word, pattern);
-        let mut ty = own.clone();
-        let mut seen = HashSet::from([own.clone()]);
-        loop {
-            let full = format!("{ty}.{word}");
-            let found: Vec<Candidate> = hits
-                .iter()
-                .filter(|h| {
-                    self.text_of(&h.path)
-                        .and_then(|t| search::qualified(Kind::Swift, &t, h.line, word))
-                        .is_some_and(|q| q == full || q.ends_with(&format!(".{full}")))
-                })
-                .map(|h| Candidate {
-                    hit: h.clone(),
-                    reason: Reason::Receiver(format!("self: {own}")),
-                })
-                .collect();
-            if !found.is_empty() {
-                return Some(found);
-            }
-            let next = match (keyword.as_str(), base) {
-                ("class", Some(next)) if seen.insert(next.clone()) => next,
-                _ => {
-                    self.truncated.set(cut);
-                    return None;
-                }
-            };
-            let classes: Vec<_> = self
-                .project_definitions(
-                    Kind::Swift,
-                    here,
-                    &next,
-                    &search::def_patterns(Kind::Swift, &next).join("|"),
-                )
-                .iter()
-                .filter_map(|h| search::swift_type_header(&h.text))
-                .filter(|(k, n, ..)| k == "class" && *n == next)
-                .collect();
-            let [(k, _, b, _)] = classes.as_slice() else {
-                self.truncated.set(cut);
-                return None;
-            };
-            (keyword, base, ty) = (k.clone(), b.clone(), next);
-        }
-    }
-
     /// What a bare `word` names among the members of the Java or Kotlin classes around the
     /// cursor (#376): what the innermost class that declares it declares, `via` its name (an
     /// anonymous class's members are `local`), else what the class the innermost one extends
@@ -2293,7 +2089,7 @@ impl App {
         if found.is_empty()
             && let Some(&decl) = inner
         {
-            for base in search::jvm_bases(text, decl) {
+            for base in search::jvm_bases(text, decl, search::scala(here)) {
                 let pattern = search::def_patterns(Kind::Jvm, &base).join("|");
                 let cut = self.truncated.get();
                 let declared: Vec<Hit> = self
@@ -2500,46 +2296,6 @@ impl App {
             .collect()
     }
 
-    /// The first line of each of `files`, a module a name or a path leads to as a whole.
-    pub(super) fn module_candidates(&self, files: Vec<PathBuf>) -> Vec<Candidate> {
-        files
-            .into_iter()
-            .map(|path| Candidate {
-                reason: Reason::Module(path.display().to_string()),
-                hit: Hit {
-                    deleted: None,
-                    text: self.text_of(&path).map_or_else(String::new, |t| {
-                        t.lines().next().unwrap_or_default().to_owned()
-                    }),
-                    path,
-                    line: 1,
-                    col: 0,
-                },
-            })
-            .collect()
-    }
-
-    /// Whether the C# project declares `name` in any form (#355): a rule of `d` matches it, or a
-    /// `namespace` line has it as one of its parts.
-    fn cs_declares(&self, here: &Path, name: &str) -> bool {
-        let cut = self.truncated.get();
-        let n = regex::escape(name);
-        let pattern = search::def_patterns(Kind::CSharp, name).join("|");
-        let declared = !self
-            .project_definitions(Kind::CSharp, here, name, &pattern)
-            .is_empty()
-            || self
-                .grep(
-                    &format!(r"^\s*namespace\s+(?:[\w.]+\.)?{n}\b"),
-                    false,
-                    false,
-                    |p| search::in_def_scope(Kind::CSharp, here, p),
-                )
-                .is_ok_and(|hits| !hits.is_empty());
-        self.truncated.set(cut);
-        declared
-    }
-
     /// `word` as a constant of the Java or Kotlin enum `owner`, when the project declares one type
     /// of that name and it is an `enum` (#457), and this file sees it: it is in the enum's package,
     /// or imports the enum or its whole package (`.*`). `import java.util.concurrent.TimeUnit`, or
@@ -2606,7 +2362,7 @@ impl App {
 
     /// Jumps to the one candidate, or opens the picker over several, and says how they were found
     /// and at which name of the chain in front of the word the typed lookup `broke`, if it did.
-    fn show_definitions(
+    pub(super) fn show_definitions(
         &mut self,
         kind: Kind,
         word: &str,
@@ -2631,12 +2387,10 @@ impl App {
             });
         }
         if found.len() <= 500 {
-            let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
+            let mut literal: HashMap<(PathBuf, bool), Vec<bool>> = HashMap::new();
             found.retain(|c| {
-                let lines = literal.entry(c.hit.path.clone()).or_insert_with(|| {
-                    self.text_of(&c.hit.path)
-                        .map_or_else(Vec::new, |t| search::literal_lines(kind, &t))
-                });
+                let lines = (literal.entry((c.hit.path.clone(), c.hit.deleted.is_some())))
+                    .or_insert_with(|| self.hidden_now(kind, &c.hit));
                 // `register<` over its type arguments over `>(1);` is a call prettier wrapped.
                 // A type's header wrapped so declares the type: `class User extends Model<`,
                 // `export interface Context<` (#331).
@@ -2648,13 +2402,12 @@ impl App {
                     && self
                         .text_of(&c.hit.path)
                         .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line));
-                // A tag of a PHP class's docblock is a declaration inside a comment (#344).
+                // A tag of a PHP class's docblock (#344) or of a JavaScript `@typedef` (#347)
+                // is a declaration inside a comment.
+                // A name a component's template binds is declared there (#413).
                 let literal = lines.get(c.hit.line - 1).copied().unwrap_or(false)
-                    && !(kind == Kind::Php
-                        && self.text_of(&c.hit.path).is_some_and(|t| {
-                            search::php_tag_class(&t.lines().collect::<Vec<_>>(), c.hit.line - 1)
-                                .is_some()
-                        }));
+                    && !self.doc_tag(kind, &c.hit)
+                    && !(c.reason == Reason::Local && search::component(&c.hit.path));
                 !call && !literal
             });
         }
@@ -2670,28 +2423,8 @@ impl App {
         if superclass {
             found.retain(|c| c.hit.line != self.line + 1 || c.hit.path != here);
         }
-        // A C++ member declared in its class and defined out of line, `R X::name(`, is one row,
-        // the definition (#373). Standing on that definition, the declaration is the other end.
-        if kind == Kind::C && found.len() > 1 {
-            let classes: Vec<Option<Vec<String>>> = found
-                .iter()
-                .map(|c| {
-                    self.text_of(&c.hit.path)
-                        .and_then(|t| search::c_member_class(&t, c.hit.line, word))
-                })
-                .collect();
-            let defined = |scopes: &[String]| {
-                found.iter().any(|c| {
-                    (c.hit.line != self.line + 1 || c.hit.path != here)
-                        && search::c_defines_member(&c.hit.text, scopes, word)
-                })
-            };
-            let keep: Vec<bool> = classes
-                .iter()
-                .map(|class| class.as_deref().is_none_or(|c| !defined(c)))
-                .collect();
-            let mut keep = keep.into_iter();
-            found.retain(|_| keep.next().unwrap_or(true));
+        if kind == Kind::C {
+            self.c_rows(word, here, &mut found);
         }
         // A Go parameter's type named like the method it is a parameter of, `Send(msg Send)`, is
         // looked up as a type (#536); with no type found, the namesakes stay offered.
@@ -2804,37 +2537,6 @@ impl App {
         }
     }
 
-    /// A Makefile line a declaration pattern matched, as `d` and `u` both count it (#504): `None`
-    /// off a recipe, else whether it still declares `word`. `GO=$(GO) ./build.sh` in a recipe
-    /// sets a variable of one shell command (#477): it declares the word only for a shell
-    /// variable of the command under the cursor, `$${ARCH}`, and never for make's own `$(GO)`.
-    /// The file on screen is read as it is, which is what the grep matched (#505).
-    pub(super) fn make_recipe_rule<'a>(
-        &'a self,
-        here: Option<&Path>,
-        word: &str,
-    ) -> impl FnMut(&Hit) -> Option<bool> + 'a {
-        let line = self.line_str();
-        let shell =
-            search::definition_word(Some(Kind::Make), line, self.col).is_some_and(|(r, w)| {
-                let before = &line[..r.start];
-                let shell_ref = before.ends_with("$$(") || before.ends_with("$${");
-                let make_ref = before.ends_with("$(") || before.ends_with("${");
-                w == word && (shell_ref || !make_ref)
-            });
-        let command = search::make_recipe_command(&self.buf.lines.join("\n"), self.line + 1)
-            .filter(|_| shell);
-        let here = here.map(Path::to_path_buf);
-        let mut texts: HashMap<PathBuf, Option<String>> = HashMap::new();
-        move |h: &Hit| {
-            let text = texts
-                .entry(h.path.clone())
-                .or_insert_with(|| self.text_of(&h.path));
-            let at = search::make_recipe_command(text.as_deref()?, h.line)?;
-            Some(here.as_ref() == Some(&h.path) && Some(at) == command)
-        }
-    }
-
     /// Whether the cursor stands on the name its line declares, not only on that line (#317):
     /// `let request = session.request(url)` declares the first `request`, and the second is a
     /// method looked up as on any other line. The declared one is the occurrence of `word` the
@@ -2944,6 +2646,9 @@ impl App {
                 hits.retain(|h| recipe(h).is_none());
             }
         }
+        if kind == Kind::Swift {
+            self.swift_unseen(here, &mut hits);
+        }
         // A Shell `local` belongs to its function: no candidate from any other (#470).
         if kind == Kind::Shell {
             let lines: Vec<&str> = self.buf.lines.iter().map(String::as_str).collect();
@@ -2985,34 +2690,6 @@ impl App {
                 false => !known || !seen,
             });
         }
-        hits
-    }
-
-    /// `pattern` over the project files where a definition of a word in `here`, a file of
-    /// `kind`, can live, a cut noted.
-    pub(super) fn project_grep(&self, kind: Kind, here: &Path, pattern: &str) -> Vec<Hit> {
-        let hits = self
-            .grep(pattern, false, false, |p| {
-                search::in_def_scope(kind, here, p)
-            })
-            .unwrap_or_default();
-        self.note_cut(&hits);
-        hits
-    }
-
-    /// Of `hits` of the [`search::def_patterns`] of `word`, the lines that declare it where they
-    /// sit ([`search::declares_where`]).
-    pub(super) fn declaring(&self, kind: Kind, word: &str, mut hits: Vec<Hit>) -> Vec<Hit> {
-        // One file holds thousands of GraphQL `id` fields, so each file is split once.
-        let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
-        hits.retain(|h| {
-            search::declares_where(kind, &h.path, word, h.line, &h.text, || {
-                lines.entry(h.path.clone()).or_insert_with(|| {
-                    self.text_of(&h.path)
-                        .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
-                })
-            })
-        });
         hits
     }
 }
@@ -3071,25 +2748,3 @@ pub(super) fn resolution(
         format!("{word}: {n} declarations{note}")
     }
 }
-
-/// The JavaScript and DOM globals whose members TypeScript's lib and `@types/node` declare (#341).
-const JS_GLOBALS: &[&str] = &[
-    "JSON",
-    "Math",
-    "Object",
-    "Array",
-    "Promise",
-    "Reflect",
-    "Number",
-    "String",
-    "Date",
-    "RegExp",
-    "Symbol",
-    "Intl",
-    "console",
-    "document",
-    "window",
-    "navigator",
-    "globalThis",
-    "process",
-];

@@ -41,7 +41,7 @@ wait app/models.py  1:1
 # N goes back to the match before, and p shows a Markdown file rendered.
 key o
 wait Files (
-key PageDown PageDown PageUp Up*15 Enter
+key PageDown PageDown PageUp Up*19 Enter
 wait app/service.py  1:1  [code]
 key t Tab
 wait app/service.py  1:1  [tree]
@@ -53,7 +53,7 @@ key Up Enter
 wait app/uow.py  1:1  [code]
 key ?
 wait This help
-key Down Up Down Down
+key Down Up Down Down Down
 wait Close an overlay, leave edit mode
 key Escape o
 type notes.md
@@ -65,3 +65,9 @@ key Enter n n N
 wait 2/14
 key Escape p
 wait ━━━━━━━━━━
+# The file list reads the query as typed (#519): `.py$` looks for a `$` in the path, so nothing
+# matches, where `$` used to anchor the end of the path and list every Python file.
+key Escape o
+type .py$
+wait Files (0/
+key Escape

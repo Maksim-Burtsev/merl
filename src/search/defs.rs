@@ -118,7 +118,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         Kind::Jvm => {
             let (mods, ret) = (jvm_mods!(), jvm_return_type!());
             let mods_one = jvm_mods!("+");
-            vec![
+            let mut patterns = vec![
                 format!(
                     r"{mods}(?:class|interface|fun\s+interface|enum|record|@interface|object|typealias)\s+{w}\b"
                 ),
@@ -153,7 +153,9 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 // Java: an abstract or interface method, and a field: a return type, the name,
                 // and the `(`, `;` or `=` that follows it.
                 format!(r"{mods}(?:<[^>]*>\s*)?{ret}(?:\.\.\.)?\s+{w}\s*[(;=]"),
-            ]
+            ];
+            patterns.extend(scala_patterns(word));
+            patterns
         }
         // Ruby declares everything on one line. A constant lives indented inside its class, so
         // the assignment rule is not anchored at column zero as Python's is. An instance or class
@@ -168,15 +170,19 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             // say so on a line below.
             let option = r"(?:(?:to|allow_nil|private):|prefix:\s*false\b)[^,#]*";
             let method = vec![
-                // A method: `def name`, `def self.name`, `def Klass.name`.
-                format!(r"^\s*def\s+(?:self\.|[A-Z]\w*\.)?{w}{end}"),
+                // A method: `def name`, `def self.name`, `def Klass.name`, and in the core's RBS
+                // signatures `def name: …` and `def self?.name: …` (#369).
+                format!(r"^\s*def\s+(?:self\??\.|[A-Z]\w*\.)?{w}{end}"),
                 format!(r"^\s*alias(?:_method)?\s+:?{w}{end}"),
                 format!(
                     r"^\s*delegate\s*\(?\s*(?::[\w?!]+\s*,\s*)*:{w}\s*,\s*(?::[\w?!]+\s*,\s*)*{option}(?:,\s*{option})*(?:#.*)?$"
                 ),
             ];
+            // Rails' class-level accessors too, `mattr_accessor` and the like (#369).
             let attr = |which: &str, name: &str| {
-                format!(r"^\s*attr_(?:accessor|{which})\s+(?:[:\w]+\s*,\s*)*:{name}\b")
+                format!(
+                    r"^\s*(?:[mc]?attr_(?:accessor|{which})|config_accessor)\s+(?:[:\w]+\s*,\s*)*:{name}\b"
+                )
             };
             match word.strip_suffix('=') {
                 // The reader and writer methods a class declares for its attributes, wherever
@@ -217,7 +223,11 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 // A function, and the out-of-line definition of a method (`Type::name(`). GNU
                 // style puts the return type on the line above, so the run before the name is
                 // optional: in column zero a bare `name(` is a declaration all the same.
-                format!(r"^(?:\w[^;(){{}}=]*[\s*&:])?{w}\s*\("),
+                // The run may hold one call of a reserved-name macro, `void *
+                // __sized_by_or_null(__size) malloc(` (#382).
+                format!(
+                    r"^(?:\w[^;(){{}}=]*(?:\b(?:__\w+|_[A-Z][A-Z0-9_]*)\s*\([^()]*\)[^;(){{}}=]*)?[\s*&:])?{w}\s*\("
+                ),
                 // The same indented — a method in a class body, a function in an indented
                 // namespace — when the body opens on the line.
                 format!(r"^[^;(){{}}=]*\w[\s*&]+{w}\s*\([^;{{}}]*\)[^;{{}}=]*\{{"),
@@ -232,9 +242,17 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(r"^\s*(?:inline\s+)?namespace\s+(?:\w+::)*{w}\s*::"),
                 // `typedef unsigned long ull;`, `typedef int (*cb)(void);`, and the name a
                 // `typedef struct { … } client;` closes with, whose brace is in column zero: an
-                // indented one closes a nested anonymous struct, and that name is a field.
-                format!(r"^\s*typedef\s+[^;]*(?:\(\s*\*+\s*{w}\s*\)|\b{w}\s*(?:\[[^\]]*\])*\s*;)"),
-                format!(r"^\}}\s*[\w\s,*]*\b{w}\s*[,;]"),
+                // indented one closes a nested anonymous struct, and that name is a field. The
+                // run before a `typedef`'s name crosses no `{`: `typedef struct client { int
+                // flags; } client;` declares `client` alone (#382), by the brace's rule, which
+                // reads a body opened on the line from column zero, or behind a `typedef` at any
+                // indentation (one in a class body).
+                format!(
+                    r"^\s*typedef\s+[^;{{]*(?:\(\s*\*+\s*{w}\s*\)|\b{w}\s*(?:\[[^\]]*\])*\s*;)"
+                ),
+                format!(
+                    r"^(?:\}}|(?:[^\s{{}}]|\s*typedef\b)[^{{}}]*\{{[^{{}}]*\}})\s*[\w\s,*]*\b{w}\s*[,;]"
+                ),
                 format!(r"^\s*(?:template\s*<[^>]*>\s*)?using\s+{w}\s*="),
                 // An object- or function-like macro.
                 format!(r"^\s*#\s*define\s+{w}\b"),
@@ -244,11 +262,14 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(r"^\w[^;(){{}}=<>]*[\s*&]{w}\s*(?:\[[^\]]*\])*\s*(?:=[^=]|;)"),
                 // An enum constant, on a line of its own or in a one-line `enum X { A, B };`,
                 // and a member function declared with no body (#373). Callers index the rules
-                // above, so these stay last.
+                // above, so these stay last, Objective-C's after them (#417).
                 c_enumerators(Some(word)),
                 c_enum_line(word),
                 c_member_decl(Some(word)),
             ]
+            .into_iter()
+            .chain(objc_patterns(word))
+            .collect()
         }
         // C# writes its modifiers and its attributes in front of everything and its type before
         // the name, as Java does, so a member is told from a call by that type: a primitive,
@@ -270,7 +291,11 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(r"^\s*(?:global\s+)?using\s+(?:unsafe\s+)?{w}\s*="),
                 // A constructor, behind at least one access modifier. With nothing in front,
                 // `Invoice(n);` is a call, so a bare name before `(` is never a declaration here.
-                format!(r"{access}{w}\s*\([^;]*\)\s*(?::\s*(?:base|this)\b.*)?[{{=]?\s*$"),
+                // Its body may stand on its line, `{ Id = id; }`, and its parameters wrap onto the
+                // lines below, past a `(` or a `,` at the end of this one (#360).
+                format!(
+                    r"{access}{w}\s*\((?:[^;]*\)\s*(?::\s*(?:base|this)\b.*)?[{{=]?|[^;{{}}]*\)\s*(?::\s*(?:base|this)\b[^{{]*)?\{{.*\}}|[^;)]*)\s*$"
+                ),
                 // A method, a property, an event and a field: the type, the name, and the `(` of
                 // the parameters, the `{` of the accessors, the `=>` of an expression body, the
                 // `=` of an initialiser, the `;` of a declaration with none — or the end of the
@@ -439,6 +464,10 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"^\s*((export|override)\s+)*define\s+{w}\s*(\+=|[:?!]{{0,3}}=)?\s*(#|$)"),
         ],
         Kind::Terraform => terraform_patterns(word),
+        Kind::PowerShell => powershell_patterns(word),
+        Kind::Dart => dart_patterns(word),
+        Kind::Cmake => cmake_patterns(word),
+        Kind::Nix => nix_patterns(word),
         // `FROM image AS name`, with any flags before the image. Stage names ignore case.
         Kind::Docker => vec![format!(r"(?i)^\s*FROM\s+(\S+\s+)+AS\s+{w}\s*$")],
         // An anchor, or a key that opens a block: compose services, CI jobs, GitLab's `.hidden`
@@ -461,6 +490,26 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"^directive\s+@{w}\b"),
             format!(r"^\s+{w}\s*(?:[:(@#,]|$)"),
         ],
+        // What `u` marks as a declaration; `d` reads a stylesheet with [`sheet_at`] (#415).
+        Kind::Css => css_patterns(word),
+        // An HTML file declares an id, which `d` reads from the attribute under the cursor.
+        Kind::Html => Vec::new(),
+    }
+}
+/// [`def_patterns`] cut to what the word at `range` of `line` can be: a PHP namespace's
+/// ([`php_namespace_patterns`]), a PowerShell variable's or not ([`powershell_sigil`]).
+pub fn narrow_patterns(
+    kind: Kind,
+    p: &mut Vec<String>,
+    text: &str,
+    line: &str,
+    r: std::ops::Range<usize>,
+) {
+    match kind {
+        Kind::Php => php_namespace_patterns(p, text, line, r),
+        Kind::PowerShell => powershell_sigil(p, &line[..r.start], &line[r.end..]),
+        Kind::Dart => dart_narrow(p, line, r),
+        _ => {}
     }
 }
 /// Of the C and C++ candidates for `word` found by name, the ones that are the type itself
@@ -557,10 +606,10 @@ fn in_class_body(text: &str, line: usize) -> bool {
         .is_some_and(|l| CLASS.is_match(l))
 }
 /// Of the C and C++ candidates for `word` found by name, the ones the file `here` can see (#364).
-/// A source file (`.c`, `.cc`, `.cpp`, `.cxx`) is compiled alone, so what another one declares
-/// `static` at file scope, with `#define` or inside an unnamed `namespace {` is visible in no
-/// other file: those rows go, unless `here` `#include`s that file or that file `#include`s
-/// `here`. A header's rows stay, as do types (an opaque struct's body lives in one source
+/// A source file (`.c`, `.cc`, `.cpp`, `.cxx`, `.m`, `.mm`) is compiled alone, so what another
+/// one declares `static` at file scope, with `#define` or inside an unnamed `namespace {` is
+/// visible in no other file: those rows go, unless `here` `#include`s that file or that file
+/// `#include`s `here`. A header's rows stay, as do types (an opaque struct's body lives in one source
 /// file). In `here` itself a file-scope `static` hides every other declaration of the name, so
 /// it is the answer — unless the cursor stands `on` a candidate, where the others are offered as
 /// namesakes.
@@ -598,7 +647,7 @@ pub fn c_file_local(
     let source = |p: &Path| {
         p.extension()
             .and_then(|e| e.to_str())
-            .is_some_and(|e| matches!(e, "c" | "cc" | "cpp" | "cxx"))
+            .is_some_and(|e| matches!(e, "c" | "cc" | "cpp" | "cxx" | "m" | "mm"))
     };
     // The X-macro idiom: a source file that `#define`s a name and then `#include`s `here` hands
     // it what it declares. A quoted include is looked up next to the file first, so a namesake
@@ -637,7 +686,8 @@ fn in_unnamed_namespace(text: &str, line: usize) -> bool {
     let literal = literal_lines(Kind::C, text);
     let (mut open, mut unnamed) = (Vec::new(), false);
     for (i, l) in text.lines().enumerate().take(line.saturating_sub(1)) {
-        if literal.get(i).copied().unwrap_or(false) {
+        // A brace of a `#define` is the macro's, its body hidden as a literal (#382).
+        if literal.get(i).copied().unwrap_or(false) || l.trim_start().starts_with('#') {
             continue;
         }
         unnamed |= UNNAMED.is_match(l);
@@ -768,6 +818,36 @@ pub fn c_one_definition(
         (false, _) => "declarations",
     };
     Some((at, format!("1 definition, {n} {what}")))
+}
+/// Whether 1-based `line` of the C or C++ `text` only declares `word`, defined elsewhere: a
+/// forward declaration `struct conn;`, a prototype `int f(int);`, an `extern` variable (#382).
+pub fn c_declaration_only(word: &str, text: &str, line: usize) -> bool {
+    let w = regex::escape(word);
+    let re = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let Some(l) = text.lines().nth(line.saturating_sub(1)) else {
+        return false;
+    };
+    let forward = re(format!(
+        r"^\s*(?:template\s*<[^>]*>\s*)?(?:class|struct|union|enum)\s+(?:\w+\s+)*{w}\s*;"
+    ));
+    if forward.is_match(l) || (l.trim_start().starts_with("extern ") && !l.contains('(')) {
+        return true;
+    }
+    let Some(m) = re(format!(r"\b{w}\s*\(")).find(l) else {
+        return false;
+    };
+    let s: String = text
+        .lines()
+        .skip(line - 1)
+        .take(30)
+        .collect::<Vec<_>>()
+        .join("\n");
+    let Some(close) = close_of(Kind::C, &s, m.end() - 1) else {
+        return false;
+    };
+    code(Kind::C, &s[close..])
+        .find(|(_, c)| matches!(c, b'{' | b';'))
+        .is_some_and(|(_, c)| c == b';')
 }
 /// Whether `word` is a parameter of the C function 1-based `line` of `text` stands in: named
 /// after the `(` of the nearest line above in column zero that opens no brace of its own, as
@@ -907,13 +987,19 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         | Kind::Zig
         | Kind::Proto
         | Kind::Shell
+        | Kind::PowerShell
+        | Kind::Dart
+        | Kind::Cmake
+        | Kind::Nix
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform
         | Kind::Docker
         | Kind::Yaml
         | Kind::Markdown
-        | Kind::Graphql => return None,
+        | Kind::Graphql
+        | Kind::Css
+        | Kind::Html => return None,
     })
 }
 /// Line patterns that can declare `word` as a field, for the search by name: more than the fields,
@@ -929,12 +1015,14 @@ pub fn field_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
             format!(r"\bself\.{w}\b.*[^=!<>]=[^=]|\bas\s+self\.{w}\b|^\s*for\s.*\bself\.{w}\b"),
         ],
         // A member behind any modifiers, bare or not, a constructor parameter behind one and
-        // any decorators, `this.name = …`.
+        // any decorators, `this.name = …`, a JSDoc `@property`.
         Kind::TsJs => vec![
             format!(
                 r"^\s+(?:@[\w$.]+(?:\([^)]*\))?\s*)*(?:(?:public|private|protected|readonly|static|declare|override|abstract|accessor)\s+)*{w}\s*[?!]?\s*(?::|=[^=>]|;|$)"
             ),
             format!(r"^\s+this\.{w}\s*=[^=]"),
+            // A `@property {T} name` of a JSDoc `@typedef {Object}` (#347).
+            format!(r"^\s*\*\s*@prop(?:erty)?\s*\{{.*\}}\s*\[?{w}(?:[\]=\s]|$)"),
         ],
         // A struct field, alone or among others (`a, name T`), and an embedded `*pkg.Name`.
         Kind::Go => vec![
@@ -981,8 +1069,35 @@ pub fn declares_where<'a, S: AsRef<str> + 'a>(
     line_text: &str,
     lines: impl FnOnce() -> &'a [S],
 ) -> bool {
+    // A component's line outside its script declares nothing (#413): `lines` are the script's,
+    // the rest left blank.
+    if component(path) {
+        let lines = lines();
+        let code = lines
+            .get(line - 1)
+            .is_some_and(|l| !l.as_ref().trim().is_empty());
+        return code && declares_by_kind(kind, path, word, line, line_text, || lines);
+    }
+    declares_by_kind(kind, path, word, line, line_text, lines)
+}
+/// [`declares_where`] by the rules of `kind`.
+fn declares_by_kind<'a, S: AsRef<str> + 'a>(
+    kind: Kind,
+    path: &Path,
+    word: &str,
+    line: usize,
+    line_text: &str,
+    lines: impl FnOnce() -> &'a [S],
+) -> bool {
     match kind {
         Kind::Graphql => !line_text.starts_with([' ', '\t']) || graphql_member(lines(), line),
+        Kind::Css => css_declares(word, line, line_text, || {
+            lines()
+                .iter()
+                .map(AsRef::as_ref)
+                .collect::<Vec<&str>>()
+                .join("\n")
+        }),
         Kind::Go if line_text.starts_with([' ', '\t']) => {
             let local = line_text
                 .trim_start()
@@ -998,6 +1113,9 @@ pub fn declares_where<'a, S: AsRef<str> + 'a>(
         Kind::Jvm if record_component(line_text) => in_record_header(lines(), line),
         Kind::C => c_declares_where(line, line_text, lines),
         Kind::Ruby if ruby_column_elsewhere(path, line_text) => false,
+        Kind::PowerShell => powershell_declares(lines(), line, line_text),
+        Kind::Dart => dart_declares(lines(), line, line_text),
+        Kind::Nix => nix_declares(lines(), line, word, false),
         _ => def_block(kind, word).is_none_or(|block| directly_inside(lines(), line, block)),
     }
 }
@@ -1340,78 +1458,6 @@ pub fn graphql_member<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
         .is_some_and(|l| OPENER.is_match(l))
 }
 
-/// Line patterns that set the Makefile variable `word` only in addition or for some targets:
-/// `X += …`, which make reads as `=` on a variable nothing set before, and a target-specific
-/// `release: X := 1.0`, behind `override`, `export` or `private`. Its targets are words and
-/// whole references, `$(SRC:.c=.o)`, so the text of `$(error usage: X=1)` is none. `d` falls
-/// back to them only when no line of [`def_patterns`] declares the word (#499).
-pub fn make_fallback_patterns(word: &str) -> Vec<String> {
-    let w = regex::escape(word);
-    let target = r"(?:[^\s:=#$(){}]+|\$[({][^)}]*[)}])+";
-    vec![
-        format!(r"^\s*(export\s+|override\s+)?{w}\s*\+="),
-        format!(
-            r"^{target}(?:\s+{target})*\s*::?\s*((export|override|private)\s+)*{w}\s*(\+|[:?!]{{0,3}})="
-        ),
-    ]
-}
-/// When 1-based `line` of a Makefile is a recipe line, a shell command that declares nothing
-/// make knows, the line its command starts on: a line that starts with a tab after a rule, until
-/// a line that is neither a recipe line, a blank, a comment nor a conditional ends the rule, as
-/// GNU make reads it, and the lines a `\` continues it over, which one shell runs. A tab-indented
-/// assignment inside an `ifeq` before any rule is make's own, and so is the continuation of one.
-pub fn make_recipe_command(text: &str, line: usize) -> Option<usize> {
-    let mut in_rule = false;
-    // The previous line ended in `\`: where the command it belongs to starts, if it is a recipe.
-    let mut continues = None;
-    for (i, l) in text.lines().take(line).enumerate() {
-        let recipe = match continues {
-            Some(recipe) => recipe,
-            None if l.starts_with('\t') => in_rule.then_some(i + 1),
-            None => {
-                let t = l.trim_start();
-                let conditional = ["ifeq", "ifneq", "ifdef", "ifndef", "else", "endif"]
-                    .iter()
-                    .any(|d| {
-                        t.strip_prefix(d)
-                            .is_some_and(|r| r.is_empty() || r.starts_with([' ', '\t', '(']))
-                    });
-                if !t.is_empty() && !t.starts_with('#') && !conditional {
-                    in_rule = starts_rule(t);
-                }
-                None
-            }
-        };
-        if i + 1 == line {
-            return recipe;
-        }
-        continues = l.ends_with('\\').then_some(recipe);
-    }
-    None
-}
-/// Whether a Makefile line outside a recipe is a rule, `targets: prerequisites`, and not an
-/// assignment, `x = a:b` or `x := y`: its first `:` outside a `$(…)` comes before any `=` and is
-/// not the start of `:=` or `::=`.
-fn starts_rule(line: &str) -> bool {
-    let mut depth = 0usize;
-    let mut chars = line.char_indices().peekable();
-    while let Some((i, c)) = chars.next() {
-        match c {
-            '$' if matches!(chars.peek(), Some((_, '(' | '{'))) => {
-                chars.next();
-                depth += 1;
-            }
-            ')' | '}' if depth > 0 => depth -= 1,
-            '=' if depth == 0 => return false,
-            ':' if depth == 0 => {
-                let rest = line[i..].trim_start_matches(':');
-                return !rest.starts_with('=');
-            }
-            _ => {}
-        }
-    }
-    false
-}
 /// A grep for the line that names one of `names` as a base: `class X(Base)` in Python,
 /// `class X extends Base`, `class X implements Base` and `interface I extends Base` in
 /// TypeScript, where the clause may also stand on a line of its own under a wrapped header —

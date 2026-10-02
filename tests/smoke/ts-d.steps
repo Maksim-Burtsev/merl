@@ -70,3 +70,40 @@ key /
 type .Shipped;
 key Enter Right d
 wait Shipped → ParcelState.Shipped (via import web/src/orders/types.ts)
+# JSDoc in a JavaScript file types a receiver (#347): `receipt.total` lands on the `@property` of
+# its `@typedef {Object} Receipt`, not on `Order.total`, a namesake found by name.
+key o
+type receipt.js
+key Enter
+wait web/src/orders/receipt.js  1:1
+key /
+type .total;
+key Enter Right d
+wait total → Receipt.total (via receipt: Receipt)
+# Vue components are TypeScript (#413): d on a component's import in index.tsx opens the `.vue`
+# file, d in its script follows its import, and d in its template lands on the script's const.
+key o
+type orders/index.tsx
+key Enter
+wait web/src/routes/orders/index.tsx  1:1
+key /
+type StatusPill from
+key Enter d
+wait StatusPill: module web/src/components/StatusPill.vue
+key /
+type ApiClient }
+key Enter d
+wait ApiClient: via import web/src/api/client.ts
+key [ /
+type { label
+key Enter Right Right d
+wait label: local
+# A class of a `className` lands on the rule that styles it, in a stylesheet (#415).
+key o
+type orders/index
+key Enter
+wait web/src/routes/orders/index.tsx  1:1
+key /
+type page-list
+key Enter d
+wait page-list: by name, 1 match

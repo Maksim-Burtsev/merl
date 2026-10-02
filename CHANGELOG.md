@@ -9,6 +9,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `f` folds Python code into one line ending in `⋯`: on a line that opens a construct it folds
+  that construct (`def`, `class`, `if` / `elif` / `else`, `for`, `while`, `with`, `try` /
+  `except` / `finally`, `match` / `case`, a call, list or dict wrapped over lines, a docstring, a
+  run of imports); anywhere else inside a function it folds the function, from a blank line
+  between methods the class. `f` on the folded line unfolds it; Up and Down step over a fold, and
+  a jump inside one (`:`, `/`, `n`, `d`, `u`, `s`, `[`) opens it. A fold stays with its file
+  across jumps and moves with the lines written above it. Other languages say
+  `no fold rules for .rs` until they are proven the same way (#623). (#598)
+- `d`, `u` and `D` in Nix, where `d` said `no rules for .nix`. `d` on `mkService` in
+  `shopLib.mkService` lands on its `mkService = { name, port ? 8080 }:` in `lib/default.nix`; on a
+  name a `let` binds or a parameter (`{ config, pkgs, ... }:`, `x:`) names, on that binding in the
+  same file, `pkgs: local`, never on another file's `pkgs =`; on a path, `./nginx.nix` or `../lib`,
+  the file or the directory's `default.nix`. `D` lists the bindings of functions, and `u` reads
+  `my-package` and `x'` as one name. (#430)
+- `d`, `u` and `D` in CMake (`CMakeLists.txt`, `.cmake`), where `d` said `no rules for .txt`.
+  `d` on a call of `shop_add_library` lands on its `function(shop_add_library name)` in
+  `cmake/ShopHelpers.cmake`, whatever case the call is written in; on `${SHOP_WARNINGS}` on its
+  `set(`, on `SHOP_TESTS` on its `option(`, on `core` of `Shop::core` on the
+  `add_library(Shop::core ALIAS shop_core)` that makes it. `d` on `include(ShopHelpers)`,
+  `add_subdirectory(app)` or `find_package(Boost)` opens the file it names, and on
+  `FetchContent_Declare` CMake's own `Modules/FetchContent.cmake`, read-only. `D` lists functions,
+  macros and targets, and `u` reads `shop-core` and `Shop::core` as one name. (#432)
+- `d` in HTML, CSS, SCSS and Less. On a class in `className="btn-primary"` of a `.tsx` file, or
+  in `class="btn-primary"` of an HTML file, it lands on `.btn-primary {` in the stylesheet,
+  where it said `no definition for btn` or `no rules for .html`; `u` reads `btn-primary` whole.
+  A stylesheet's custom properties, SCSS variables, mixins, functions and placeholders, Less
+  variables and mixins, and keyframes are found too, a `@use` namespace narrowing them to its
+  module, and the path of a `<link href>`, a `<script src>` and an `@import` or `@use` opens
+  its file. `D` lists the mixins, functions, placeholders and keyframes. (#415)
+- `d`, `u` and `D` in Dart (`.dart`, Flutter included), where `d` said `no rules for .dart`.
+  `d` on `formatPrice` lands on `String formatPrice(int cents) =>` in the project; on `get` of
+  `http.get` behind `import 'package:http/http.dart' as http` it opens the `http` package's
+  `get` in the pub cache, read-only, saying `via import package:http/http.dart`. Classes behind
+  their modifiers, mixins, extensions, enums and their values, typedefs, functions, methods,
+  getters, setters, constructors (`User.fromJson`) and fields are found; a call statement is not
+  taken for a declaration. Outside the project `d` reaches the packages `pub get` lists and the
+  SDK. `D` lists `abstract interface class Repo` as `Repo`, and functions and methods too, and
+  `_$UserFromJson` is one name. (#414)
+- `d`, `u` and `D` in Vue, Svelte and Astro components (`.vue`, `.svelte`, `.astro`), where `d`
+  said `no rules for .vue`. Inside a component's `<script>` block (Astro: its frontmatter) every
+  TypeScript rule applies: `d` on `formatName` lands on `src/names.ts`, `via import`. From a
+  `.ts` file, `d` on `UserCard` of `import UserCard from './UserCard.vue'` opens the component,
+  where it said `no definition for UserCard`. In the template, `{{ label }}` lands on the
+  script's `const label`, an `item` of `v-for` or `{#each}` on that line (`item: local`), and a
+  `<user-card>` tag no import binds on `UserCard.vue`. The template and the `<style>` block
+  declare nothing, and `D` lists the script only. `.astro` is highlighted as TSX. (#413)
+- `d`, `u` and `D` in Scala. `.scala`, `.sc`, `.sbt` and `.mill` files are one kind with Java and
+  Kotlin, so `d` on `Ledger.total(xs)` in a `.java` file lands on the `def total` of `object
+  Ledger` in a `.scala` one, where it said `no definition for total`, and `d` in a `.scala` file
+  works where it said `no rules for .scala`. It finds `class`, `case class`, `trait`, `object`,
+  `enum` and its cases, `def`, `val`, `var`, `type`, a named `given` and a case class's fields,
+  behind Scala's modifiers; a match case and Java's `case RED:` declare nothing. `D` lists
+  Scala's types, `given`s and `def`s. A declaration-shaped line in a Java text block or a Kotlin
+  raw string no longer turns a jump into an offer, and in Kotlin a member of a named `object`
+  is that object's: `this.heat` inside a nested `object Kiln` lands on `Kiln.heat`, where it
+  jumped to the outer class's `heat`. (#416)
+- `d` and `D` in Objective-C. A `.m` or `.mm` file joins C and C++, where it said `no rules for
+  .m`, and a header reads `@interface`, `@protocol`, methods by any part of their selector,
+  `@property` and `NS_ENUM`: `d` on `findUserWithID` in `[repo findUserWithID:@"42"]` offers the
+  header's declaration beside the `.m` file's definition, `self.repository.baseURL` lands on the
+  `@property`, and `NSString` on Foundation's `@interface NSString`, read-only, from the SDK's
+  frameworks. `D` lists classes, protocols and methods. A C or C++ file reads no framework.
+  (#417)
+- `d`, `u` and `D` in PowerShell (`.ps1`, `.psm1`, `.psd1`), where `d` said `no rules for
+  .ps1`. `d` on `get-shopuser` lands on `function Get-ShopUser`, as names ignore case; on `$Id`
+  under a `param(` block it says `Id: local`; on `$script:BaseUri` it finds the assignment; on
+  the path of `Import-Module ./Shop/Users.psm1` or a dot-source it opens the file. Classes,
+  enums, filters and aliases are found too, and outside the project the module directories of
+  `PSModulePath`. `u` and `d` read `Get-ShopUser` as one name, and `D` lists it whole. (#420)
+- `d` in Ruby looks outside the project: in the gems `Gemfile.lock` names, at their locked
+  versions, in the standard library, and in the core's RBS signatures. `throttle` in a
+  `Rack::Attack` initializer lands on rack-attack's `def throttle`, read-only, where it said `no
+  definition for throttle`, and `Account.find` reaches ActiveRecord's. The gems are found in the
+  project's `BUNDLE_PATH`, `GEM_HOME`, or the Ruby `.ruby-version` names under rbenv, mise, asdf
+  or chruby; nothing of the project is run. `mattr_accessor` and `cattr_accessor` declare their
+  names as `attr_accessor` does. (#369)
+- `d` in JavaScript reads the types JSDoc writes. With `/** @type {ParsedCLIOptions} */ let
+  options;`, `@param {ParsedCLIOptions} options` or a function's `@returns {CodePathState}`,
+  `options.maxWarnings` lands on the `@property` line of the `@typedef {Object}
+  ParsedCLIOptions` that declares it, saying `via options: ParsedCLIOptions`, where it jumped to
+  another type's `maxWarnings` found by name. A `@typedef {import("./options").X} X` reads the
+  type of that module, and the search by name counts a typedef's `@property` lines as fields.
+  (#347)
 - `d` in C knows the struct of a receiver from its declaration. In `void f(client *c)`,
   `c->flags` lands on the `flags` of `client`, saying `via c: client`, where it offered every
   `flags` of the project. The type comes from a parameter or a local, a
@@ -47,6 +130,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The `?` overlay on a screen narrower than 118 columns wraps an action too long for its row
   onto the next row, under its own column, instead of cutting it at the border (#458).
+- `d` in C and C++ looks outside the project in the headers the file includes first. On
+  `pthread_equal` it lands on `pthread/pthread.h`, one row where the header and a link to it
+  were two; `printf` no longer offers gettext's `libintl.h`, nor `s.append("x")` 148 methods
+  from headers `s.cc` never includes. A `.c` file reads no C++ header, libc++'s own headers
+  (`<string>`, `<mutex>`) are read, and `std::mutex` finds the class and `std::malloc` its
+  declaration, where they found none. A word no included header declares is searched by name, as before. (#382)
+
 - `d` in TypeScript and JavaScript finds a member behind an imported qualifier that no
   declaration pattern read: an enum member, `CollectionPermission.Admin` and `ImageStatus.ZOOMED`
   with no value, a static field, `TableCell.presetColors`, and a key of an exported `const`
@@ -108,6 +198,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   characters of the name: `!test` finds `!test.md` instead of hiding every path holding `test`,
   and `.rs$` looks for a `$` instead of the end of the path. Spaces still separate words
   matched in any order. (#519)
+- `d` in PHP resolves a class name as PHP does, through the file's `use`, else its `namespace`,
+  and follows `composer.json`'s PSR-4 map to the file. `Song::query()` behind `use
+  App\Models\Song;` lands on `Song::query (via import app/Models/Song.php)`, and
+  `AlbumResource::toArray()` on the `AlbumResource` of the file's own namespace, where both
+  offered every declaration of the name. A class outside the map is read in `vendor/` first:
+  `Arr::get()` behind `use Illuminate\Support\Arr;` lands on Laravel's `get`, not on the
+  project's own. In a monorepo a package's file reads the root `composer.json`'s map too, a
+  name in a file of several `namespace` blocks resolves in its own block, and `<?php namespace
+  X;` on one line counts as the file's namespace. (#351, #579)
 - `d` in PHP proves the class of the receiver in front of `->`: `$event->podcast` in
   `handle(UserUnsubscribed $event)` lands on the `podcast` of `UserUnsubscribed`, `(via $event:
   UserUnsubscribed)`, and `$this->artistRepository->getRecentlyAdded()` on the method of
@@ -129,8 +228,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   does not declare, a MAUI `Label`'s `Text` or an EF `DbContext`'s `SaveChangesAsync`, says `no
   definition` instead of offering or jumping to the project's namesakes, unless the project
   declares an extension method for it. (#352)
+- `d` in C# looks only in the projects a file compiles against: its own `.csproj` and the
+  projects that one references, `<ProjectReference>` items of a `Directory.Build.props` above it
+  included. In a solution of many projects, `new Address(…)` jumps to its own project's `Address`
+  instead of offering another project's namesake beside it. A file under no `.csproj` is seen
+  from everywhere; a script, two projects in one directory, a source file a `.csproj` pulls in
+  from outside its directory, a shared project and a reference that cannot be read keep the
+  whole repository in sight, as before. (#349)
+- `d` in C# reads a name as C# resolves it. A type where only a type can stand, `Buyer buyer`,
+  `new Address(`, `List<Buyer>`, `(Buyer)x` or a base in a class header, jumps to the type, not
+  to a property or a constructor named like it. A bare name in a class lands on what the class,
+  a `partial` part of it or a base it names declares, `IsBusyFor → ViewModelBase.IsBusyFor (via
+  OrderViewModel)`, before any namesake, and another class's member is never offered for it. A
+  segment of a `using` or `namespace` line offers the project's namespaces of that name and
+  nothing else, `no definition` when there are none. An overload that cannot take the call's
+  number of arguments is not offered. A constructor whose body stands on its line or whose
+  parameters wrap counts as a declaration, and a use of the type lands on the type, not on it.
+  They offered every declaration of the name. (#360)
+- `d` in Swift offers only what the compiler sees from the cursor. A file of the library no
+  longer offers a declaration of a test target (`.testTarget(` in `Package.swift`, or `Tests/`
+  with no manifest), another file's `private` or `fileprivate`, a type declared inside another
+  function, or a nested `PathMonitor.Result` for a bare `Result` outside `PathMonitor`: `d` on
+  `Result<Int, Error>` says `no definition for Result` where it jumped to the nested one. A
+  generic parameter binds its name, so `Value` in `struct StreamPublisher<Value: Sendable>`
+  lands on that header, `Value: local`, where it jumped to a namesake inside a test. Inside a
+  function nested in another, the outer function's locals and parameters are found too. (#375,
+  #564)
 
 ### Fixed
+
+- `[` and `]` bring back the screen you left: the line you jumped from stands on the same row it
+  stood on, where it came back to the middle of the screen. (#621)
+
+- In `--review`, `p` on a Markdown file of the review shows it rendered, where it said `in review`:
+  a file the branch adds or changes as it stands now, a deleted one as it was, without the diff's
+  marks; `p` again shows the source with its diff. A file shown rendered that the branch comes to
+  change stays rendered; a file of the review opened again shows its source. (#596)
+
+- `d` in C reads no declaration inside a multi-line `#define`, and a one-line `typedef struct
+  client { int flags; } client;` declares `client` alone: `return flags;` and `return args;`
+  jump to the global they read instead of offering a macro's parameter or a struct's field.
+  (#382)
 
 - `d` in TypeScript and JavaScript on an arrow function's parameter itself, `crate` in
   `crates.map(crate => 0)`, offers a namesake elsewhere under "at a declaration", or stays on
@@ -159,6 +297,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in Ruby on a method written `def User.build` inside `class User` names it `User.build` in
   the status line, and its parameter `User.build.arg`: the class was named twice,
   `User.User.build`. (#535)
+- `d` in C# on a constant after `is`, `Max` in `x is Max` with a `const int Max`, lands on the
+  constant when no type of that name is in sight. It said `no definition for Max`. (#581)
+- `d` in Swift on a call of a local function or type, `vent()` under `func vent() {}` declared
+  inside the method, lands on that local declaration, `(local)`, from the method's body and from
+  a function nested in it, whether it is declared above the call or below; two local overloads
+  are offered together. It jumped to the type's member of the same name through `self`, or
+  offered both. (#577)
 
 ## [0.8.0] - 2026-10-01
 

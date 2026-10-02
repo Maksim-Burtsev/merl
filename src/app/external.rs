@@ -24,7 +24,15 @@ impl App {
         imports: &[(String, Vec<String>)],
         narrow: bool,
     ) -> Option<Vec<Candidate>> {
-        let pattern = &search::def_patterns(kind, word).join("|");
+        let mut patterns = search::def_patterns(kind, word);
+        self.spelling_cut(kind, word, &mut patterns);
+        // A Ruby local is seen from its own method alone, never found by name (#383): outside
+        // the project only a constant's assignment declares.
+        if kind == Kind::Ruby && word.starts_with(|c: char| c.is_ascii_lowercase() || c == '_') {
+            let assignment = search::ruby_assignment(word);
+            patterns.retain(|p| *p != assignment);
+        }
+        let pattern = &patterns.join("|");
         let mut bound_path = bound(imports, chain.first().map_or(word, String::as_str));
         // What a TypeScript import takes (a name, `default`, `*`) is no part of a file's path.
         let taken = match kind {
@@ -95,8 +103,10 @@ impl App {
         }
         let mut module = match chain.first() {
             // A C++ `std::` or `detail::` qualifier names a namespace, and no directory of the
-            // system headers is called that, so narrowing by it would find nothing at all.
-            Some(_) if kind == Kind::C => None,
+            // system headers is called that, so narrowing by it would find nothing at all. Ruby's
+            // `require` binds no name and a constant is no path: `I18n` is in `i18n.rb` (#369).
+            // A Dart qualifier is a prefix, a class or a value, never a directory (#414).
+            Some(_) if matches!(kind, Kind::C | Kind::Ruby | Kind::Dart) => None,
             Some(first) => {
                 let mut p = bound_path.unwrap_or_else(|| vec![first.clone()]);
                 p.extend(chain[1..].iter().cloned());
@@ -136,7 +146,12 @@ impl App {
             this.declaring(kind, word, this.external_grep(kind, files, pattern))
         };
         let Some(module) = module else {
-            return Some(by_name(grep(self, &all)));
+            return Some(by_name(
+                match self.rel_current().filter(|_| kind == Kind::C) {
+                    Some(here) => self.c_outside(&here, &all, |h| h, grep),
+                    None => grep(self, &all),
+                },
+            ));
         };
         // `from lib import pick` names something at the top of a module: a method called `pick`
         // is not it, however alone it stands (the real one may be native code).
@@ -329,6 +344,20 @@ impl App {
             .collect()
     }
 
+    /// The patterns for `word` cut to what its spelling under the cursor allows
+    /// ([`search::narrow_patterns`]), as `d` cuts them in the project: PowerShell's sigil
+    /// (#420), so `$Error` outside is no enum member `Error`, and Dart's constructor only where
+    /// its class is built (#414), so `Future` in a type is the class alone.
+    pub(super) fn spelling_cut(&self, kind: Kind, word: &str, patterns: &mut Vec<String>) {
+        let line = self.line_str();
+        if matches!(kind, Kind::PowerShell | Kind::Dart)
+            && let Some((r, w)) = self.word_here(Some(kind))
+            && w == word
+        {
+            search::narrow_patterns(kind, patterns, "", line, r);
+        }
+    }
+
     /// `pattern` over `files` outside the project, standard library first. The paths are
     /// absolute: `root.join` leaves them alone, so a hit opens where it is.
     pub(super) fn external_grep(&self, kind: Kind, files: &[PathBuf], pattern: &str) -> Vec<Hit> {
@@ -420,8 +449,9 @@ impl App {
             }
         }
         let field = by_file.into_iter().any(|(path, lines)| {
-            std::fs::read_to_string(&path)
-                .is_ok_and(|t| !search::field_rows(Kind::Python, &t, &lines, word).is_empty())
+            std::fs::read_to_string(&path).is_ok_and(|t| {
+                !search::field_rows(Kind::Python, &t, &lines, word, false).is_empty()
+            })
         });
         (methods, field)
     }
@@ -447,13 +477,19 @@ impl App {
             | Kind::Zig
             | Kind::Proto
             | Kind::Shell
+            | Kind::PowerShell
+            | Kind::Dart
+            | Kind::Cmake
+            | Kind::Nix
             | Kind::Sql
             | Kind::Make
             | Kind::Terraform
             | Kind::Docker
             | Kind::Yaml
             | Kind::Markdown
-            | Kind::Graphql => kind,
+            | Kind::Graphql
+            | Kind::Css
+            | Kind::Html => kind,
         };
         for kind in [
             Kind::Python,
@@ -471,6 +507,10 @@ impl App {
             Kind::Zig,
             Kind::Proto,
             Kind::Shell,
+            Kind::PowerShell,
+            Kind::Dart,
+            Kind::Cmake,
+            Kind::Nix,
             Kind::Sql,
             Kind::Make,
             Kind::Terraform,
@@ -478,6 +518,8 @@ impl App {
             Kind::Yaml,
             Kind::Markdown,
             Kind::Graphql,
+            Kind::Css,
+            Kind::Html,
         ]
         .map(every)
         {
@@ -524,38 +566,154 @@ impl App {
                 self.external.insert(kind, (roots, files));
             }
         }
-        if let Some((_, files)) = self.external.get(&kind) {
-            return files.clone();
+        let files = match self.external.get(&kind) {
+            Some((_, files)) => files.clone(),
+            None => {
+                let roots = search::external_roots(kind, &self.root);
+                let files = Arc::new(search::external_files(kind, &roots));
+                // No roots may be a toolchain that failed to answer this once: it is asked
+                // again on the next `d`, rather than leave the session without a standard
+                // library (#183).
+                if !roots.is_empty() {
+                    self.external.insert(kind, (roots, files.clone()));
+                }
+                files
+            }
+        };
+        if kind != Kind::C {
+            return files;
         }
-        let roots = search::external_roots(kind, &self.root);
-        let files = Arc::new(search::external_files(kind, &roots));
-        // No roots may be a toolchain that failed to answer this once: it is asked again on the
-        // next `d`, rather than leave the session without a standard library (#183).
-        if !roots.is_empty() {
-            self.external.insert(kind, (roots, files.clone()));
+        // A `.c` file cannot include a C++ header: no `c++/` directory is its (#382). Only an
+        // Objective-C file reads the frameworks and `Pods/` (#417): any other keeps the files
+        // it had before them.
+        let key = (self.c_source(), self.objc_file());
+        if let Some((from, kept)) = self.c_files.get(&key)
+            && Arc::ptr_eq(from, &files)
+        {
+            return kept.clone();
         }
-        files
+        let away: Vec<&PathBuf> = match self.external.get(&kind) {
+            Some((roots, _)) if !key.1 => roots.iter().filter(|r| search::objc_root(r)).collect(),
+            _ => Vec::new(),
+        };
+        let kept: Arc<Vec<PathBuf>> = Arc::new(
+            (files.iter())
+                .filter(|f| !key.0 || !f.components().any(|c| c.as_os_str() == "c++"))
+                .filter(|f| !away.iter().any(|r| f.starts_with(r)))
+                .cloned()
+                .collect(),
+        );
+        self.c_files.insert(key, (files, kept.clone()));
+        kept
     }
 
-    /// The text of `path` as the search read it: the open file as it is on screen.
+    /// Whether the open file is C source, `.c`, or Objective-C's `.m` (#417), which read no C++
+    /// header; `.mm` does.
+    pub(super) fn c_source(&self) -> bool {
+        (self.buf.path.as_deref())
+            .is_some_and(|p| p.extension().is_some_and(|e| e == "c" || e == "m"))
+    }
+
+    /// Whether the open file is Objective-C ([`search::objc_file`]).
+    pub(super) fn objc_file(&self) -> bool {
+        (self.buf.path.as_deref())
+            .is_some_and(|p| search::objc_file(p, || self.buf.lines.join("\n")))
+    }
+
+    /// Of `hits` of the [`search::def_patterns`] of `word`, the lines that declare it where they
+    /// sit ([`search::declares_where`]). An Objective-C line declares for an Objective-C file
+    /// alone: a C++ `load` is no `+ (void)load;` of `objc/NSObject.h` (#417).
+    pub(super) fn declaring(&self, kind: Kind, word: &str, mut hits: Vec<Hit>) -> Vec<Hit> {
+        // One file holds thousands of GraphQL `id` fields, so each file is split once.
+        let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
+        let objc_only = (kind == Kind::C && !self.objc_file()).then(|| search::objc_only(word));
+        hits.retain(|h| {
+            objc_only.as_ref().is_none_or(|only| !only(&h.text))
+                && search::declares_where(kind, &h.path, word, h.line, &h.text, || {
+                    lines.entry(h.path.clone()).or_insert_with(|| {
+                        self.text_of(&h.path)
+                            .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
+                    })
+                })
+        });
+        hits
+    }
+
+    /// The text of `path` as the search read it: the open file as it is on screen. A
+    /// component's lines outside its script are blank (#413).
     pub(super) fn text_of(&self, path: &Path) -> Option<String> {
-        if self.rel_current().as_deref() == Some(path) {
-            Some(self.buf.lines.join("\n"))
-        } else {
-            std::fs::read_to_string(self.root.join(path)).ok()
+        let text = self.file_text(path)?;
+        Some(search::script_text(path, &text, None).into_owned())
+    }
+
+    /// The text of `path` as it is, a component's template included: the open file as it is on
+    /// screen.
+    pub(super) fn file_text(&self, path: &Path) -> Option<String> {
+        match self.rel_current().as_deref() == Some(path) {
+            true => Some(self.buf.lines.join("\n")),
+            false => std::fs::read_to_string(self.root.join(path)).ok(),
         }
     }
 
     /// The text `h` was read from: the file as the search read it, or for a line the branch
     /// deleted, the file at the base, under the name it had there (#440).
     pub(super) fn hit_text(&self, h: &Hit) -> Option<String> {
-        if h.deleted.is_none() {
-            return self.text_of(&h.path);
+        let text = self.hit_file_text(h)?;
+        Some(search::script_text(&h.path, &text, None).into_owned())
+    }
+
+    /// [`Self::hit_text`] as it is, a component's template included.
+    fn hit_file_text(&self, h: &Hit) -> Option<String> {
+        match h.deleted {
+            None => self.file_text(&h.path),
+            Some(_) => self.base_text(&h.path),
         }
+    }
+
+    /// The text of `path` at the base of the review, under the name it had there (#440).
+    fn base_text(&self, path: &Path) -> Option<String> {
         let r = self.review.as_ref()?;
-        let from = r.file(&h.path).and_then(|f| f.old.as_deref());
-        let bytes = r.base_bytes(&self.root, from.unwrap_or(&h.path)).ok()?;
+        let from = r.file(path).and_then(|f| f.old.as_deref());
+        let bytes = r.base_bytes(&self.root, from.unwrap_or(path)).ok()?;
         Some(String::from_utf8_lossy(&bytes).into_owned())
+    }
+
+    /// [`search::hidden_lines`] of the text `h` was read from: the lines where a
+    /// declaration-shaped line declares nothing.
+    pub(super) fn hidden_of(&self, kind: Kind, h: &Hit) -> Vec<bool> {
+        (self.hit_file_text(h)).map_or_else(Vec::new, |t| search::hidden_lines(kind, &h.path, &t))
+    }
+
+    /// The lines of `h`'s file where a declaration-shaped line declares nothing, as `d` filters
+    /// its candidates: a component's from the text the hit was read from (#413), any other file's
+    /// from its text now.
+    pub(super) fn hidden_now(&self, kind: Kind, h: &Hit) -> Vec<bool> {
+        // A rule of a component's `<style>` block is no script's: it is lexed as a stylesheet
+        // (#415).
+        match search::component(&h.path) && kind != Kind::Css {
+            true => self.hidden_of(kind, h),
+            false => {
+                (self.file_text(&h.path)).map_or_else(Vec::new, |t| search::literal_lines(kind, &t))
+            }
+        }
+    }
+
+    /// The lines the branch deleted that `D` lists: a component's, only those of its script at
+    /// the base (#413).
+    pub(super) fn symbol_deleted(&self) -> Arc<Vec<git::DeletedLine>> {
+        let all = self.deleted_lines();
+        let mut code: HashMap<PathBuf, Vec<bool>> = HashMap::new();
+        let kept = (all.iter()).filter(|d| {
+            !search::component(&d.path)
+                || (code.entry(d.path.clone()))
+                    .or_insert_with(|| {
+                        let text = self.base_text(&d.path).unwrap_or_default();
+                        search::script_lines(&d.path, &text).unwrap_or_default()
+                    })
+                    .get(d.line - 1)
+                    .is_some_and(|&c| c)
+        });
+        Arc::new(kept.cloned().collect())
     }
 
     /// `path` relative to the standard library or dependency root of `kind` it is under,
@@ -662,8 +820,9 @@ impl App {
 /// one package, and its own name counts: Cargo gives each crate a directory of its own,
 /// `serde-1.0.200`, and Go each module, `gin@v1.9.1`. A Go module whose path ends in its major
 /// version, `github.com/jackc/pgx/v5`, is `v5@v5.5.0` on disk, so the directory before it counts
-/// too. The other roots hold many packages and have no version in their name: a standard library
-/// (`python3.13`, `src`, `library`), `site-packages`, `node_modules`.
+/// too, as a gem's directory counts before its `lib`. The other roots hold many packages and
+/// have no version in their name: a standard library (`python3.13`, `src`, `library`),
+/// `site-packages`, `node_modules`.
 fn package_dirs(root: &Path) -> usize {
     let name = root.file_name().unwrap_or_default().to_string_lossy();
     let versioned = |sep: &str| {
@@ -673,6 +832,13 @@ fn package_dirs(root: &Path) -> usize {
             rest.len() < v.len() && rest.starts_with('.')
         })
     };
+    // A gem's `lib` is the gem's (#369): `rack-attack-6.7.0/lib`.
+    if name == "lib" {
+        return root.parent().map_or(0, |gem| match package_dirs(gem) {
+            0 => 0,
+            n => n + 1,
+        });
+    }
     if !versioned("-") && !versioned("@v") {
         return 0;
     }

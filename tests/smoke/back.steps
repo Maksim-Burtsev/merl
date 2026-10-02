@@ -1,0 +1,11 @@
+# back: `[` after `d` puts the line back on the screen row it was left on, not in the middle (#621).
+size 160x20
+merl worker/main.go
+wait // Command worker drains the order jobs
+key Down*18
+key End Left*3
+wait worker/main.go  19:18
+key d
+wait worker/internal/queue/queue.go
+key [
+wait worker/main.go  19:

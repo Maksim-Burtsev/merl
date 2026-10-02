@@ -214,6 +214,7 @@ counts stay on your machine.
 |---|---|
 | w | Wrap long lines, or cut them at the edge and scroll sideways |
 | p | Show a Markdown file rendered, or its source again |
+| f | Fold the function or block at the cursor into its first line, or unfold it |
 | T | Pick a theme (live preview) |
 | Esc | Close an overlay, leave edit mode, or clear selection and find |
 | q | Quit |
@@ -229,17 +230,21 @@ moment you open it. In Python, TypeScript and Go, `d` also follows the type of t
 | Language | `d` also reaches |
 |---|---|
 | Python | the standard library and the `.venv` |
-| TypeScript, JavaScript | `node_modules` |
+| TypeScript, JavaScript, Vue, Svelte, Astro | `node_modules` |
 | Go | GOROOT and the modules in `go.mod` |
 | Rust | the sysroot and the crates in `Cargo.lock` |
-| C, C++ | the system headers |
+| C, C++, Objective-C | the system headers, and from Objective-C the SDK's frameworks and CocoaPods' `Pods/` |
 | Swift | `.build/checkouts` |
 | PHP | Composer's `vendor/` |
 | Zig | the standard library |
 | Protocol Buffers | the well-known types `protoc` installs |
-| Java, Kotlin, Ruby, C#, Lua, Elixir | |
+| PowerShell | the module directories of `PSModulePath` |
+| Dart | the pub cache and the SDK |
+| CMake | CMake's own modules and the packages' config files |
+| Java, Kotlin, Scala, Ruby, C#, Lua, Elixir, Nix | |
 | Shell, SQL, Makefile, Terraform, Dockerfile, YAML, GraphQL | |
 | Markdown | the file or the heading a link names, and a file a code span names |
+| HTML, CSS, SCSS, Less | the rule a class or an id of HTML, JSX, Vue or Svelte names, the file a path names, a package's stylesheet in `node_modules` |
 
 What each rule reads and what it refuses to guess: [docs/navigation.md](docs/navigation.md).
 

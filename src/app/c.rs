@@ -243,14 +243,19 @@ impl App {
     }
 
     /// `x->word` or `x.word`, `called` with a `(` after it. A data member is a field of a struct,
-    /// union or class body ([`search::c_field_rows`]); a called one is a method whose body opens
-    /// on its line, an out-of-line `R Type::word(`, a member a class body declares with no body (#373),
-    /// or a function-pointer field. Nothing else can
+    /// union or class body ([`search::c_field_rows`]) or an Objective-C property (#417); a called
+    /// one is a method whose body opens on its line, an out-of-line `R Type::word(`, a member a
+    /// class body declares with no body (#373), or a function-pointer field. Nothing else can
     /// follow `->` or `.`: no function, `#define`, type or global is offered. The files outside
     /// the project are searched the same way when the project has none: a system struct's field
     /// stays findable, and system headers' generic names do not crowd a project's own.
     pub(super) fn c_members(&mut self, here: &Path, word: &str, called: bool) -> Vec<Candidate> {
+        // `self.word` in Objective-C reads a property, or calls a getter (#417), which no C
+        // line declares.
         let mut pattern = search::c_field_pattern(word);
+        if self.objc_file() {
+            pattern = format!("{pattern}|{}", search::objc_member(word));
+        }
         if called {
             pattern = format!(
                 r"{pattern}|{}|{}",
@@ -260,10 +265,25 @@ impl App {
         }
         let hits = self.project_definitions(Kind::C, here, word, &pattern);
         let mut found = self.c_member_rows(word, hits, called);
+        // A property another `.m` file declares, in a class extension of its own, is that
+        // file's: no other file sees it (#417).
+        let property = Regex::new(&search::objc_property(word)).expect("an escaped name");
+        found.retain(|(h, _)| {
+            h.path == here
+                || !property.is_match(&h.text)
+                || !h.path.extension().is_some_and(|e| e == "m" || e == "mm")
+        });
         if found.is_empty() {
             let files = self.external_files(Kind::C);
-            let hits = self.external_grep(Kind::C, &files, &pattern);
-            found = self.c_member_rows(word, hits, called);
+            found = self.c_outside(
+                here,
+                &files,
+                |(h, _)| h,
+                |this, files| {
+                    let hits = this.external_grep(Kind::C, files, &pattern);
+                    this.c_member_rows(word, hits, called)
+                },
+            );
         }
         found
             .into_iter()
@@ -282,6 +302,7 @@ impl App {
         let method = re(method_pattern(word));
         let declared = re(search::c_member_decl(Some(word)));
         let pointer = re(format!(r"\(\s*\*+\s*{w}\s*\)"));
+        let (member, objc) = (re(search::objc_member(word)), self.objc_file());
         let mut rows = Vec::new();
         let mut files: Vec<(PathBuf, Vec<Hit>)> = Vec::new();
         for h in hits {
@@ -302,6 +323,7 @@ impl App {
                         rows.push((h, owner.clone()))
                     }
                     None if called && method.is_match(&h.text) => rows.push((h, String::new())),
+                    None if objc && member.is_match(&h.text) => rows.push((h, String::new())),
                     // A member declared with no body, a pure virtual among them (#373).
                     None if called
                         && declared.is_match(&h.text)
@@ -342,6 +364,232 @@ impl App {
             .collect()
     }
 
+    /// The headers the C or C++ file `here` reaches through its `#include` lines, followed from
+    /// header to header (#382): the project's relative to its root, those outside as their walk
+    /// spells them. A `"…"` names a file beside the one including it, else a project file whose
+    /// path ends so; a `<…>` a file under the roots outside or a C++ file's `c++/v1`, else a
+    /// project file whose path ends so. The system's part of the graph is read once a session.
+    pub(super) fn c_reached(&mut self, here: &Path) -> HashSet<PathBuf> {
+        self.external_files(Kind::C);
+        let mode = (self.c_source(), self.objc_file());
+        let source = mode.0;
+        let all = (self.external.get(&Kind::C))
+            .map(|(roots, _)| roots.clone())
+            .unwrap_or_default();
+        // An Objective-C file's `<Foundation/NSString.h>` is a framework's
+        // `Foundation.framework/Headers/NSString.h`, as the walk spells it, and its `<…>` reaches
+        // `Pods/` too; a C or C++ file's reaches neither (#417).
+        let (frameworks, roots): (Vec<PathBuf>, Vec<PathBuf>) =
+            (all.into_iter()).partition(|r| search::objc_frameworks(r));
+        let frameworks = if mode.1 { frameworks } else { Vec::new() };
+        let roots: Vec<PathBuf> = (roots.into_iter())
+            .filter(|r| mode.1 || !search::objc_root(r))
+            .collect();
+        let dirs: Vec<PathBuf> = match source {
+            true => roots.clone(),
+            false => [search::cpp_dirs(&roots), roots.clone()].concat(),
+        };
+        let real = search::real_dirs(&roots);
+        let own: HashSet<&PathBuf> = self.files.iter().collect();
+        let mut by_name: HashMap<&std::ffi::OsStr, Vec<&PathBuf>> = HashMap::new();
+        for f in &self.files {
+            if let Some(name) = f.file_name() {
+                by_name.entry(name).or_default().push(f);
+            }
+        }
+        let edges = |text: &str, from: &Path| -> Vec<PathBuf> {
+            let mut out = Vec::new();
+            for (inc, quoted) in search::c_includes(text) {
+                // libc++'s frozen copy for C++03, behind an `#if` no later standard takes: each
+                // std name would come back twice.
+                if inc.starts_with("__cxx03/") {
+                    continue;
+                }
+                let inc = Path::new(&inc);
+                let beside = from.parent().map(|d| normal(&d.join(inc)));
+                match beside {
+                    Some(b) if quoted && from.is_relative() && own.contains(&b) => {
+                        out.push(b);
+                        continue;
+                    }
+                    Some(b) if quoted && from.is_absolute() && b.is_file() => {
+                        out.push(search::c_spelled(&b, &real));
+                        continue;
+                    }
+                    _ => {}
+                }
+                let n = out.len();
+                if !quoted {
+                    // ponytail: every directory that has it, not the first: an `#include_next`
+                    // reaches the next one, and a wrapper of libc++ (`stdio.h`) the C one.
+                    out.extend(
+                        (dirs.iter().map(|d| d.join(inc)))
+                            .filter(|p| p.is_file())
+                            .map(|p| search::c_spelled(&p, &real)),
+                    );
+                    let mut parts = inc.components();
+                    if let (Some(name), rest) = (parts.next(), parts.as_path()) {
+                        let mut name = name.as_os_str().to_owned();
+                        name.push(".framework");
+                        out.extend(
+                            (frameworks.iter())
+                                .map(|d| d.join(&name).join("Headers").join(rest))
+                                .filter(|p| p.is_file()),
+                        );
+                    }
+                }
+                // A system header is the system's, not a project file of its name deep in a
+                // dependency (jemalloc's `internal/assert.h`).
+                if out.len() == n {
+                    let suffix = inc.file_name().and_then(|n| by_name.get(n));
+                    let own = suffix.into_iter().flatten().filter(|f| f.ends_with(inc));
+                    out.extend(own.map(|f| (*f).clone()));
+                }
+            }
+            out
+        };
+        let mut reached = HashSet::new();
+        let mut queue = vec![here.to_path_buf()];
+        while let Some(file) = queue.pop() {
+            // The system's headers do not change in a session; the project's do, as they are
+            // edited, and are read again.
+            let next = match self.c_includes.get(&(file.clone(), mode)) {
+                Some(next) if file.is_absolute() => next.clone(),
+                _ => {
+                    let text = match file.is_absolute() {
+                        true => std::fs::read_to_string(&file).ok(),
+                        false => self.text_of(&file),
+                    };
+                    let next = Arc::new(edges(&text.unwrap_or_default(), &file));
+                    if file.is_absolute() {
+                        self.c_includes.insert((file, mode), next.clone());
+                    }
+                    next
+                }
+            };
+            for f in next.iter() {
+                if reached.insert(f.clone()) {
+                    queue.push(f.clone());
+                }
+            }
+        }
+        reached
+    }
+
+    /// `search` outside the project, over `files`: the headers the C or C++ file `here` reaches
+    /// first, the rest only when none of those declares the word on a line of code (#382). A
+    /// header it does not include is no answer while one it does is, and the answer waits on no
+    /// grep of the whole system tree; each file is searched once either way.
+    pub(super) fn c_outside<T>(
+        &mut self,
+        here: &Path,
+        files: &[PathBuf],
+        hit: fn(&T) -> &Hit,
+        search: impl Fn(&Self, &[PathBuf]) -> Vec<T>,
+    ) -> Vec<T> {
+        let reached = self.c_reached(here);
+        let (near, far): (Vec<PathBuf>, Vec<PathBuf>) =
+            files.iter().cloned().partition(|f| reached.contains(f));
+        let mut literal = HashMap::new();
+        let found: Vec<T> = (search(self, &near).into_iter())
+            .filter(|f| self.c_code_line(&mut literal, hit(f)))
+            .collect();
+        match found.is_empty() {
+            true => search(self, &far),
+            false => found,
+        }
+    }
+
+    /// Whether `h` is on a line of code: what a raw string, a block comment or a macro's body
+    /// holds declares nothing ([`App::show_definitions`] drops it again, for every kind).
+    /// `literal` keeps each file's [`search::literal_lines`].
+    pub(super) fn c_code_line(&self, literal: &mut HashMap<PathBuf, Vec<bool>>, h: &Hit) -> bool {
+        let lines = literal.entry(h.path.clone()).or_insert_with(|| {
+            (self.text_of(&h.path)).map_or_else(Vec::new, |t| search::literal_lines(Kind::C, &t))
+        });
+        !lines.get(h.line - 1).copied().unwrap_or(false)
+    }
+
+    /// Of the project's `hits` for `word`, those in headers the C or C++ file `here` does not
+    /// reach go when one it reaches declares the word (#382); a definition there goes only when
+    /// one it reaches defines the word too, as a forward declaration or a prototype says the
+    /// word exists, not where. A source file keeps its own, and so does `here`.
+    pub(super) fn c_reached_only(
+        &mut self,
+        here: &Path,
+        word: &str,
+        mut hits: Vec<Hit>,
+    ) -> Vec<Hit> {
+        let header = |h: &Hit| h.path != here && c_header(&h.path);
+        if !hits.iter().any(header) {
+            return hits;
+        }
+        let reached = self.c_reached(here);
+        let defines = |h: &Hit| {
+            !(self.text_of(&h.path)).is_some_and(|t| search::c_declaration_only(word, &t, h.line))
+        };
+        let (near, far): (Vec<&Hit>, Vec<&Hit>) = (hits.iter())
+            .filter(|h| header(h))
+            .partition(|h| reached.contains(&h.path));
+        if near.is_empty() {
+            return hits;
+        }
+        let defined = near.iter().any(|h| defines(h));
+        let gone: Vec<(PathBuf, usize)> = (far.into_iter())
+            .filter(|h| defined || !defines(h))
+            .map(|h| (h.path.clone(), h.line))
+            .collect();
+        hits.retain(|h| !gone.contains(&(h.path.clone(), h.line)));
+        hits
+    }
+
+    /// What [`App::show_definitions`] offers of the C-kind candidates `found` for `word`, the
+    /// cursor in `here`:
+    /// - a C++ member declared in its class and defined out of line, `R X::name(`, is one row,
+    ///   the definition (#373). Standing on that definition, the declaration is the other end;
+    /// - a name an Objective-C `@interface` or `@protocol` declares is that class or protocol
+    ///   (#417), not a C line a pattern read through a comment (`NSString *const k /* NSString
+    ///   (CMVideoCodecType) */`). Of a class and a protocol of one name, `NSObject`, the protocol
+    ///   is the one inside `<…>` that no `*` follows, and the class anywhere else.
+    pub(super) fn c_rows(&self, word: &str, here: &Path, found: &mut Vec<Candidate>) {
+        if found.len() > 1 {
+            let classes: Vec<Option<Vec<String>>> = found
+                .iter()
+                .map(|c| {
+                    self.text_of(&c.hit.path)
+                        .and_then(|t| search::c_member_class(&t, c.hit.line, word))
+                })
+                .collect();
+            let defined = |scopes: &[String]| {
+                found.iter().any(|c| {
+                    (c.hit.line != self.line + 1 || c.hit.path != here)
+                        && search::c_defines_member(&c.hit.text, scopes, word)
+                })
+            };
+            let keep: Vec<bool> = classes
+                .iter()
+                .map(|class| class.as_deref().is_none_or(|c| !defined(c)))
+                .collect();
+            let mut keep = keep.into_iter();
+            found.retain(|_| keep.next().unwrap_or(true));
+        }
+        static OBJC: std::sync::LazyLock<Regex> =
+            std::sync::LazyLock::new(|| Regex::new(r"^\s*@(interface|protocol)\b").unwrap());
+        let objc = |c: &Candidate| OBJC.captures(&c.hit.text).map(|m| &m[1] == "protocol");
+        if !found.iter().any(|c| objc(c).is_some()) {
+            return;
+        }
+        found.retain(|c| objc(c).is_some());
+        let line = self.line_str();
+        let (before, after) = line.split_at(self.col.min(line.len()));
+        let after = after.trim_start_matches(|c: char| c.is_alphanumeric() || c == '_');
+        let protocol = before.matches('<').count() > before.matches('>').count()
+            && !after.trim_start().starts_with('*');
+        if found.iter().any(|c| objc(c) == Some(protocol)) {
+            found.retain(|c| objc(c) == Some(protocol));
+        }
+    }
+
     /// Whether `hit` declares `word` as a type: a struct, union, enum or class tag, a namespace,
     /// a `typedef` or a `using` alias. A word followed by `->` or `.` is a value, none of these
     /// (#378).
@@ -358,6 +606,21 @@ struct CBody {
     text: String,
     code: String,
     open: usize,
+}
+
+/// `path` with its `.` and `..` resolved as written, no link followed.
+fn normal(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for c in path.components() {
+        match c {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                out.pop();
+            }
+            c => out.push(c),
+        }
+    }
+    out
 }
 
 /// Whether `path` is a C or C++ header.

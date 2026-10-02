@@ -1,0 +1,57 @@
+wait shopLib = import
+┌orders──────────────────────┐1 { config, pkgs, lib, ... }:
+│▸ .github                   │2 let
+│▸ .venv                     │3   shopLib = import ../lib { inherit lib; };
+│▸ app                       │4   api = shopLib.mkService { name = "api"; };
+│▸ data                      │5 in
+│▸ deploy                    │6 {
+│▸ docs                      │7   environment.systemPackages = [ pkgs.hello ];
+│▾ nixshop                   │8 }
+│  ▾ hosts                   │
+│      web.nix               │
+│  ▸ lib                     │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+nixshop/hosts/web.nix  1:1  [code]                                                                                                                                                ? help
+cursor (x,y,shown) 32,0,1

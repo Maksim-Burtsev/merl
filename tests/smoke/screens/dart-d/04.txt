@@ -1,0 +1,57 @@
+wait formatPrice: by name, 1 match
+┌orders──────────────────────┐1 String formatPrice(int cents) => cents.toString();
+│▸ .github                   │
+│▸ .venv                     │
+│▸ app                       │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▾ shop                      │
+│  ▾ lib                     │
+│      cart.dart             │
+│      coupon.dart           │
+│      money.dart            │
+│    pubspec.yaml            │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+shop/lib/money.dart  1:8  [code]  formatPrice: by name, 1 match
+cursor (x,y,shown) 39,0,1

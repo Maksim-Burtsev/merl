@@ -17,3 +17,20 @@ merl scripts/invoices.php:52:24
 wait send_receipt
 key d
 wait number → Receipt::number (via $receipt: Receipt)
+# `Ledger::total()` in a namespace beside another `Ledger` lands on the one of the file's own
+# namespace, where composer.json's PSR-4 map puts it, and `OldLedger::total()` on the one its
+# `use` imports; both were a picker of the two `total`s (#351). The files are made here, so the
+# fixture every other scenario reads stays as it is.
+run mkdir -p scripts/billing/Legacy
+run printf '{"autoload": {"psr-4": {"Billing\\\\": "billing/"}}}\n' > scripts/composer.json
+run printf '<?php\nnamespace Billing;\n\nclass Ledger\n{\n    public static function total(): int\n    {\n        return 0;\n    }\n}\n' > scripts/billing/Ledger.php
+run printf '<?php\nnamespace Billing\\Legacy;\n\nclass Ledger\n{\n    public static function total(): int\n    {\n        return -1;\n    }\n}\n' > scripts/billing/Legacy/Ledger.php
+run printf '<?php\nnamespace Billing;\n\nuse Billing\\Legacy\\Ledger as OldLedger;\n\nfunction close(): int\n{\n    return Ledger::total() - OldLedger::total();\n}\n' > scripts/billing/Month.php
+merl scripts/billing/Month.php:8:21
+wait function close
+key d
+wait total → Ledger::total (via Ledger)
+merl scripts/billing/Month.php:8:42
+wait function close
+key d
+wait total → Ledger::total (via import scripts/billing/Legacy/Ledger.php)

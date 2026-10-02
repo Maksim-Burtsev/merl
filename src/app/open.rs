@@ -28,6 +28,7 @@ impl App {
                 Ok(mut buf) => {
                     self.lock_unwritable(&mut buf);
                     let old = std::mem::replace(&mut self.buf, buf);
+                    self.swap_collapsed(&old, path);
                     let (undo, redo) = (
                         std::mem::take(&mut self.undo),
                         std::mem::take(&mut self.redo),
@@ -52,6 +53,14 @@ impl App {
                     self.undo_break = true;
                     self.anchor = None;
                     self.preview = None;
+                    // A file of the review opens on its source, where its diff and its fold are,
+                    // whatever an earlier visit rendered: `p` renders it again (#596).
+                    let rel = path.strip_prefix(&self.root).ok();
+                    if rel.is_some_and(|rel| {
+                        self.review.as_ref().is_some_and(|r| r.file(rel).is_some())
+                    }) {
+                        self.previewed.remove(path);
+                    }
                     self.dirty = false;
                     self.conflict = false;
                     if self.mode == Mode::Edit {
@@ -252,6 +261,7 @@ impl App {
         // A deleted line the cursor is on is found again by what it says (below).
         let reading = self.deleted.map(|(_, i)| (self.line_str().to_string(), i));
         let old = std::mem::replace(&mut self.buf, buf);
+        self.carry_collapsed(&old.lines);
         if self.review.is_some() {
             // The reader stays in the hunk they are in when an agent writes above it: every
             // line kept of this file goes down with its text, before anything is clamped.
@@ -351,6 +361,22 @@ impl App {
             self.history.remove(0);
         }
         self.hist_idx = self.history.len() - 1;
+    }
+
+    pub(super) fn note_hist_row(&mut self) {
+        let Some(pos) = self
+            .pos()
+            .filter(|p| self.history.get(self.hist_idx) == Some(p))
+        else {
+            return;
+        };
+        let (top, cur) = ((self.top_line, self.top_row), self.cursor_at());
+        let row = self.rows_between(top, cur);
+        if top <= cur && row < self.view_h {
+            self.hist_rows.insert(pos, row);
+        }
+        let history = &self.history;
+        self.hist_rows.retain(|stop, _| history.contains(stop));
     }
 
     /// Opens `path` at `line` and makes it a stop in the jump history. `:` and the pickers jump
@@ -460,6 +486,10 @@ impl App {
         self.set_at(line);
         self.col = col;
         self.sync_want_x();
+        if let Some(&row) = self.hist_rows.get(&self.history[i]) {
+            self.center = false;
+            (self.top_line, self.top_row) = self.back_rows(self.cursor_at(), row);
+        }
         // The stop follows the file: after a reload shortened it, this is where `[` lands,
         // and `hist_note` must not read the clamp as a move that drops the forward history.
         self.history[i] = (path, self.at(), self.col);

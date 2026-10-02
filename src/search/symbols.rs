@@ -40,6 +40,32 @@ macro_rules! jvm_mods {
     };
 }
 pub(super) use jvm_mods;
+/// [`jvm_mods`] and Scala's own modifiers (#416): `implicit`, `lazy`, `case`, `transparent`,
+/// `opaque`, and an access qualified by a scope, `private[shop]`, `protected[this]`. None of them
+/// stands before a Java or a Kotlin declaration, so a rule that reads them finds nothing new
+/// there.
+macro_rules! scala_mods {
+    () => {
+        concat!(
+            r"^\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*",
+            r"(?:(?:public|protected|private|internal|static|final|abstract|sealed|non-sealed",
+            r"|strictfp|synchronized|native|default|transient|volatile|open|data|value|inner",
+            r"|annotation|companion|enum|const|lateinit|expect|actual|suspend|override|inline",
+            r"|operator|infix|tailrec|external|reified|implicit|lazy|case|transparent|opaque",
+            r"|(?:private|protected)\[\w+\])\s+)*"
+        )
+    };
+}
+pub(super) use scala_mods;
+/// What a named Scala `given` writes after its name (#416): type parameters, `using` clauses,
+/// then the `:` of its type. An anonymous one, `given Ordering[User] = …`, writes its type where
+/// the name would stand, with no `:` after it, and declares no name.
+macro_rules! scala_given_tail {
+    () => {
+        r"\s*(?:\[[^\]]*\]\s*)?(?:\([^)]*\)\s*)*:"
+    };
+}
+pub(super) use scala_given_tail;
 
 /// A Java return type: a primitive, or a name with a capital in it. Java names its types that
 /// way, and requiring one keeps `return parse(x);` from reading as a declaration. The generics
@@ -57,12 +83,28 @@ pub(super) use jvm_return_type;
 /// `fun interface` stands before `fun`, so a Kotlin functional interface is listed under its own
 /// name; `companion object` has no name and falls out on the `\s+` before it. A `val` counts
 /// behind `const` only: the rest are fields and locals, which no kind lists.
+/// Scala's declarations share the row (#416): its modifiers, `trait`, `type` and `package
+/// object`; a Scala-only word never stands on a Java or a Kotlin line.
 const JVM_DECL_SYMBOL: &str = concat!(
-    jvm_mods!(),
-    r"(?:class|interface|enum|record|typealias|@interface|object",
+    scala_mods!(),
+    r"(?:class|interface|enum|record|typealias|@interface|object|trait|type|package\s+object",
     r"|fun\s+interface|fun|const\s+(?:val|var))\s+(?:<[^>]*>\s*)?",
     r"(?:[\w.]+(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?\??\.)?",
     r"(?P<name>[A-Za-z_]\w*)"
+);
+/// A Scala `given` with a name (#416), beside the declarations of [`JVM_DECL_SYMBOL`]; an
+/// anonymous one names its type, which it does not declare.
+const SCALA_GIVEN_SYMBOL: &str = concat!(
+    scala_mods!(),
+    r"given\s+`?(?P<name>[A-Za-z_]\w*)`?",
+    scala_given_tail!()
+);
+/// Scala's methods, a row of their own (#416): a project holds far more of them than types, and
+/// the cap of `D` is counted per row. A Scala 3 extension's `def` stands on the `extension` line.
+const SCALA_DEF_SYMBOL: &str = concat!(
+    "(?:",
+    scala_mods!(),
+    r"|^\s*extension\b.*?\b)def\s+`?(?P<name>[A-Za-z_]\w*)"
 );
 /// The other Java half: a method, told from a call by the return type before its name. Kotlin
 /// writes its types after the name, so nothing of Kotlin's lands here twice. A field is left out,
@@ -86,7 +128,7 @@ macro_rules! c_mods {
         )
     };
     (macros) => {
-        r"(?:(?:[A-Z][A-Z0-9_]*|__\w+)\s*(?:\((?:[^()]|\([^()]*\))*\))?\s+)*"
+        r"(?:(?:[A-Z][A-Z0-9_]*|__\w+|_[A-Z][A-Z0-9_]*)\s*(?:\((?:[^()]|\([^()]*\))*\))?\s+)*"
     };
 }
 pub(super) use c_mods;
@@ -358,13 +400,28 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     // `name ()`, the form without the `function` keyword: a `function name` line is already
     // listed by [`SYMBOL_PATTERN`], and requiring no keyword here keeps it off the list twice.
     (Some(Kind::Shell), r"^\s*(?P<name>[A-Za-z_]\w*)\s*\(\s*\)"),
+    // A function and a filter under the whole `Verb-Noun` name, which the shared pattern cuts at
+    // its `-`; a class and an enum (#420).
+    (Some(Kind::PowerShell), POWERSHELL_SYMBOL),
+    // Dart from rows of its own (#414): the shared pattern lists `abstract interface class Repo`
+    // as `class`, and knows no function without a keyword. The types first, so the methods of
+    // the first files cannot crowd them off the list, then the functions and methods, then the
+    // getters and setters.
+    (Some(Kind::Dart), DART_TYPE_SYMBOL),
+    (Some(Kind::Dart), DART_FUNCTION_SYMBOL),
+    (Some(Kind::Dart), DART_ACCESSOR_SYMBOL),
+    (Some(Kind::Cmake), CMAKE_FUNCTION_SYMBOL),
+    (Some(Kind::Cmake), CMAKE_TARGET_SYMBOL),
+    (Some(Kind::Nix), NIX_FUNCTION_SYMBOL),
     // Every `CREATE` object, with the name as written, schema and quotes included. CTEs are a
     // query's own scaffolding, not a symbol of the project, so they are left out.
     (Some(Kind::Sql), SQL_CREATE_SYMBOL),
-    // Java and Kotlin are listed from their own rows only: their modifiers, annotations and
-    // receivers are not the shared pattern's business, and a method carries no keyword at all.
+    // Java, Kotlin and Scala are listed from their own rows only: their modifiers, annotations
+    // and receivers are not the shared pattern's business, and a Java method carries no keyword.
     (Some(Kind::Jvm), JVM_DECL_SYMBOL),
     (Some(Kind::Jvm), JAVA_METHOD_SYMBOL),
+    (Some(Kind::Jvm), SCALA_GIVEN_SYMBOL),
+    (Some(Kind::Jvm), SCALA_DEF_SYMBOL),
     // Ruby likewise: `def self.parse` is `parse`, which the shared pattern would call `self`.
     (Some(Kind::Ruby), RUBY_SYMBOL),
     // C and C++ likewise: a function carries no keyword at all, and `struct dict *d;` is a use of
@@ -374,6 +431,9 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::C), C_TYPE_SYMBOL),
     (Some(Kind::C), C_TYPEDEF_SYMBOL),
     (Some(Kind::C), C_MACRO_SYMBOL),
+    // Objective-C's classes, protocols and methods (#417); no property, as no field.
+    (Some(Kind::C), OBJC_TYPE_SYMBOL),
+    (Some(Kind::C), OBJC_METHOD_SYMBOL),
     // C# likewise: `public sealed partial class Foo<T>` stands behind modifiers the shared
     // pattern does not know, and a method or a property carries no keyword at all.
     (Some(Kind::CSharp), CS_DECL_SYMBOL),
@@ -428,12 +488,13 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
         Some(Kind::Graphql),
         r"^(?:(?:type|interface|input|enum|union|scalar|fragment|query|mutation|subscription)\s+|directive\s+@)(?P<name>[A-Za-z_]\w*)",
     ),
+    // A stylesheet's mixins, functions, placeholders and keyframes under their names (#415). No
+    // selector, custom property or variable: Bootstrap alone has thousands of selectors.
+    (
+        Some(Kind::Css),
+        r"^\s*(?:@(?:mixin|function|(?:-[a-z]+-)?keyframes)\s+|%)(?P<name>[A-Za-z_-][\w-]*)",
+    ),
 ];
-/// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C, C++, C#,
-/// Swift, PHP, Lua, Elixir, GraphQL and Protocol Buffers have rows of their own in [`SYMBOLS`],
-/// written for what those languages declare and how they name it, so reading the all-language
-/// pattern over them too would list a declaration twice. Markdown has none: a declaration in a README's code block is
-/// an example, not one of the project, and a heading is prose that `s` finds (#421).
 pub fn shared_symbols(kind: Option<Kind>) -> bool {
     !matches!(
         kind,
@@ -449,6 +510,11 @@ pub fn shared_symbols(kind: Option<Kind>) -> bool {
                 | Kind::Markdown
                 | Kind::Graphql
                 | Kind::Proto
+                | Kind::Css
+                | Kind::PowerShell
+                | Kind::Dart
+                | Kind::Cmake
+                | Kind::Nix
         )
     )
 }
