@@ -158,6 +158,20 @@ fn f_on_a_line_ending_in_a_colon_folds_that_block() {
 }
 
 #[test]
+fn an_objective_c_header_has_no_fold_rules_and_a_c_header_folds_as_cpp() {
+    let objc = "@interface Box : NSObject\n- (void)open {\n  go();\n}\n@end\n";
+    let mut a = app_as("h", objc);
+    a.go((2, 2));
+    key(&mut a, KeyCode::Char('f'));
+    assert!(a.collapsed.is_empty());
+    assert_eq!(a.message, "no fold rules for .h");
+    let mut a = app_as("h", "namespace a {\nclass B {\n  int c;\n};\n}\n");
+    a.go((1, 0));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(1, 3)]);
+}
+
+#[test]
 fn f_folds_python_and_says_so_in_other_languages() {
     let mut a = app_as("json", "{\n  \"a\": [\n    1\n  ]\n}\n");
     a.go((2, 4));

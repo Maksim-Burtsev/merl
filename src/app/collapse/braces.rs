@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+mod c;
 mod csharp;
 mod java;
 mod kotlin;
@@ -15,6 +16,8 @@ pub(crate) enum Lang {
     Rust,
     Java,
     Kotlin,
+    C,
+    Cpp,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -35,6 +38,10 @@ pub(crate) fn syntax_of(path: &Path) -> Option<Syntax> {
         "rs" => (Lang::Rust, false),
         "java" => (Lang::Java, false),
         "kt" | "kts" => (Lang::Kotlin, false),
+        "c" => (Lang::C, false),
+        "h" | "cc" | "cpp" | "cxx" | "c++" | "hh" | "hpp" | "hxx" | "h++" | "ipp" => {
+            (Lang::Cpp, false)
+        }
         _ => return None,
     };
     Some(Syntax { lang, jsx })
@@ -47,14 +54,24 @@ pub(crate) struct Folds {
 }
 
 pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
-    let toks = Lexer::run(lines, syntax);
+    let mut toks = Lexer::run(lines, syntax);
+    let comments: Vec<(usize, usize)> = (toks.iter())
+        .filter(|t| t.kind == K::Comment)
+        .map(|t| (t.line, t.end))
+        .collect();
+    toks.retain(|t| t.kind != K::Comment);
     let mut model = Model::new(&toks);
+    for (s, e) in comments {
+        model.add(s, Some(e), false);
+    }
     match syntax.lang {
         Lang::Go => model.go(),
         Lang::CSharp => model.csharp(lines),
         Lang::Rust => model.rust(lines),
         Lang::Java => model.java(lines),
         Lang::Kotlin => model.kotlin(),
+        Lang::C => model.c_family(false, lines),
+        Lang::Cpp => model.c_family(true, lines),
         lang => model.ecma(lang == Lang::Ts),
     }
     let levels = levels(lines.len(), &model.nodes);
@@ -149,6 +166,7 @@ enum K {
     JsxOpen,
     JsxSelf,
     JsxClose,
+    Comment,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -196,6 +214,7 @@ impl<'a> Lexer<'a> {
     fn emit(&mut self, line: usize, at: usize, len: usize, kind: K, end: usize) {
         let text = match kind {
             K::Str => "`",
+            K::Comment => "/*",
             K::JsxOpen | K::JsxSelf => "<",
             K::JsxClose => ">",
             K::Word | K::Punct => &self.lines[line][at..at + len],
@@ -220,6 +239,10 @@ impl<'a> Lexer<'a> {
         self.l += 1;
         self.i = 0;
         true
+    }
+
+    fn c_family(&self) -> bool {
+        matches!(self.syntax.lang, Lang::C | Lang::Cpp)
     }
 
     fn ecma(&self) -> bool {
@@ -253,6 +276,18 @@ impl<'a> Lexer<'a> {
             }
             if s[i..].starts_with(b"/*") {
                 self.skip_past(i + 2, b"*/");
+                if self.c_family() && self.l > l {
+                    self.emit(l, i, 1, K::Comment, self.l);
+                }
+                continue;
+            }
+            if self.c_family() && c == b'#' && self.c_directive() {
+                continue;
+            }
+            if self.syntax.lang == Lang::Cpp
+                && matches!(c, b'R' | b'u' | b'U' | b'L')
+                && self.cpp_raw()
+            {
                 continue;
             }
             if c == b'`' {

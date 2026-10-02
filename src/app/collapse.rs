@@ -8,7 +8,8 @@ impl App {
         if self.kind() == Some(Kind::Python) {
             return Some(Shape::python(lines));
         }
-        match self.buf.path.as_deref().and_then(braces::syntax_of) {
+        let syntax = self.buf.path.as_deref().and_then(braces::syntax_of);
+        match syntax.filter(|_| !self.objc_file()) {
             Some(syntax) => Some(Shape::braces(lines, syntax)),
             None => every_kind().then(|| Shape::plain(lines)),
         }
