@@ -1,5 +1,3 @@
-//! Imports: the modules a name comes from and the files they reach.
-
 use super::*;
 
 #[test]
@@ -105,13 +103,11 @@ fn module_files_are_the_project_files_an_import_names() {
     let (dir, files) = scratch(
         "modules",
         &[
-            // Python: a src layout, a package, a module inside a package.
             ("src/app/__init__.py", ""),
             ("src/app/repos.py", ""),
             ("src/app/json.py", ""),
             ("src/app/store/__init__.py", ""),
             ("src/app/store/backends/memory.py", ""),
-            // TypeScript: `paths` and `baseUrl` in the config a nested one extends.
             (
                 "tsconfig.base.json",
                 "{\n  // shared\n  \"compilerOptions\": {\n    \"baseUrl\": \"web\",\n    \"paths\": {\"@/*\": [\"src/*\"], \"@lib\": [\"lib/index.ts\"]},\n  },\n}\n",
@@ -126,7 +122,6 @@ fn module_files_are_the_project_files_an_import_names() {
             ("web/src/types.d.ts", ""),
             ("web/src/ui/index.tsx", ""),
             ("web/lib/index.ts", ""),
-            // Go: a module nested in another.
             ("go.mod", "module example.com/app\n\ngo 1.22\n"),
             ("internal/repo/repo.go", ""),
             ("internal/repo/repo_test.go", ""),
@@ -255,7 +250,6 @@ fn typescript_spellings_are_read_in_typescript_only() {
         plain_access(Kind::TsJs, "    repo.find(1)?.name!.x", 24),
         ("    repo.find(1).name.x".to_owned(), 22)
     );
-    // The forms a destructuring is written in, and what is none.
     let field = |from: &[&str], name: &str| {
         Some(Value::Field(
             from.iter().map(|s| s.to_string()).collect(),
@@ -279,7 +273,6 @@ fn typescript_spellings_are_read_in_typescript_only() {
     ] {
         assert_eq!(ts_destructured(t, "repo"), want, "{t}");
     }
-    // A barrel's list wrapped by prettier, and `export type`.
     let list =
         "export type {\n  Other,\n  Notifier,\n} from \"./b\";\nexport * as ns from \"./c\";\n";
     assert_eq!(
@@ -401,7 +394,6 @@ fn a_package_is_the_copy_in_the_nearest_node_modules_that_has_it() {
     assert_eq!(copy(&["fs"]), Some(vec![]));
     // A workspace package linked in is the project's own.
     assert_eq!(copy(&["@app", "shared"]), None);
-    // A file of the copy, and one of a package it depends on.
     let copy = [top.join("lib")];
     assert!(in_copy(&top.join("lib/dist/index.d.ts"), &copy));
     assert!(!in_copy(
@@ -590,8 +582,6 @@ fn external_go_files_are_what_an_import_reaches() {
     assert!(!declaration_file(Path::new("x/index.ts")));
 }
 
-/// #227. The file of the crate module a top-level `use crate::…` or `use super::…` takes a name
-/// from, at the paths a module's file sits at by default.
 #[test]
 fn rust_use_files_follow_the_crate_and_super_paths() {
     let files: Vec<PathBuf> = [
@@ -665,8 +655,6 @@ fn rust_use_files_follow_the_crate_and_super_paths() {
     }
 }
 
-/// #333. A word in the module path of a Python import line is the module up to that word; an
-/// imported name, an alias and any other line are not.
 #[test]
 fn a_word_in_a_python_import_path_is_its_module() {
     let module = |line: &str, word: &str| {
@@ -707,8 +695,6 @@ fn java_and_kotlin_imports_bind_their_names_to_paths() {
     assert_eq!(jvm_package("import a.B\n"), None);
 }
 
-/// #351. Where PHP reads a class name, how it resolves one, and where composer.json's PSR-4 map
-/// puts it.
 #[test]
 fn php_class_names_resolve_and_map_to_files() {
     let at = |line: &str, word: &str| {
@@ -738,7 +724,6 @@ fn php_class_names_resolve_and_map_to_files() {
         at("use App\\Models\\Song;", "Song"),
         class("\\App\\Models\\Song")
     );
-    // A namespace's segment, a function, a constant, `self::`, `$x::`, `Song::class`.
     assert_eq!(at("use App\\Models\\Song;", "Models"), None);
     assert_eq!(at("use function App\\f;", "f"), None);
     assert_eq!(at("        return f(LIMIT);", "f"), None);

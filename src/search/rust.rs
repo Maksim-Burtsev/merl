@@ -1,5 +1,3 @@
-//! Rust's own rules for `d`: the words of an attribute, struct fields and enum variants (#370).
-
 use std::ops::Range;
 use std::sync::LazyLock;
 
@@ -600,7 +598,6 @@ pub fn rust_scope_items(text: &str, line: usize, word: &str, ns: RustNamespace) 
         false => items.into_iter().map(|i| i + 1).collect(),
     }
 }
-// ---- locals and parameters (#353) -----------------------------------------------------------
 /// The byte index of the first of `stops` in the Rust code `s` outside brackets, `<…>` included,
 /// and strings. The `:` of a `::` is none, nor the `=` of `==`, `=>`, `!=`, `<=`, `>=`.
 fn top_stop(s: &str, stops: &[u8]) -> Option<usize> {
@@ -626,7 +623,6 @@ fn top_stop(s: &str, stops: &[u8]) -> Option<usize> {
     }
     None
 }
-/// The parts of a Rust list: `s` cut at its top-level commas.
 fn top_split(mut s: &str) -> Vec<&str> {
     let mut out = Vec::new();
     while let Some(i) = top_stop(s, b",") {
@@ -1000,7 +996,6 @@ fn quoted_names(s: &str) -> impl Iterator<Item = String> + '_ {
         .step_by(2)
         .filter_map(|q| q.split_whitespace().next().map(str::to_owned))
 }
-/// The `name` of the `[package]` a `Cargo.toml` declares.
 pub fn cargo_package_name(toml: &str) -> Option<String> {
     let mut in_package = false;
     for l in toml.lines() {
@@ -1025,7 +1020,6 @@ pub fn rust_stability(lines: &[&str], line: usize) -> bool {
         .take_while(|t| t.starts_with("//") || !(t.is_empty() || t.ends_with(['{', '}', ';'])))
         .any(|t| t.starts_with("#[stable(") || t.starts_with("#[unstable("))
 }
-// ---- the type of a receiver (#377) ----------------------------------------------------------
 /// The Rust type written at the start of `s`, up to the `,`, `)`, `|`, `=`, `{`, `;` or `where`
 /// that ends it outside brackets.
 fn type_at(s: &str) -> &str {
@@ -1117,7 +1111,6 @@ pub fn rust_impl_type(line: &str) -> Option<String> {
     });
     IMPL.captures(line).map(|c| c[1].to_owned())
 }
-/// The trait an `impl<…> Tr for T` header on `line` implements.
 pub fn rust_impl_trait(line: &str) -> Option<String> {
     static FOR: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:\w+::)*([A-Za-z_]\w*)(?:<[^{]*?>)?\s+for\s").unwrap()
@@ -1199,7 +1192,6 @@ pub fn rust_holds(lines: &[&str], at: usize, name: &str) -> Option<RustHolds> {
         if c[1].starts_with(':') {
             return Some(RustHolds::Type(type_at(rest).to_owned()));
         }
-        // The statement, to its `;`.
         let mut statement = rest.to_owned();
         let mut i = at;
         while !statement.trim_end().ends_with(';') {
@@ -1322,7 +1314,6 @@ pub fn rust_struct_field(lines: &[&str], decl: usize, word: &str) -> Option<(usi
     }
     None
 }
-/// The line pattern of a Rust `struct`, `enum` or `union` called `name`.
 pub fn rust_type_decl_pattern(name: &str) -> String {
     format!(
         r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:struct|enum|union)\s+{}\b",

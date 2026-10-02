@@ -188,7 +188,6 @@ pub(super) fn scala_patterns(word: &str) -> Vec<String> {
         ),
     ]
 }
-// ---- the scope walk of `d` (#376) ------------------------------------------------------------
 
 /// The names one parameter or one lambda parameter of a Java or Kotlin list binds: `x` for
 /// `x: Int`, `vararg x: Int`, `final String x`, `String... x`, `(a, x)`, `x`; none for `_` or
@@ -263,7 +262,6 @@ fn lambda_names(line: &str) -> Vec<String> {
     out.retain(|n| n != "_");
     out
 }
-/// Whether `s` is one name.
 fn ident(s: &str) -> bool {
     s.starts_with(|c: char| c.is_alphabetic() || c == '_')
         && s.chars().all(|c| c.is_alphanumeric() || c == '_')
@@ -557,7 +555,6 @@ pub fn jvm_bases(text: &str, decl: usize, scala: bool) -> Vec<String> {
     let Some(k) = decl.checked_sub(1).filter(|&k| k < lines.len()) else {
         return Vec::new();
     };
-    // The header up to the `{` of its body, over the lines it is wrapped on.
     let mut header = String::new();
     for l in lines[k..].iter().take(20) {
         let code = uncommented(Kind::Jvm, l);
@@ -667,8 +664,6 @@ pub fn jvm_package(text: &str) -> Option<String> {
         .map(|c| c[1].to_owned())
         .find(|p| p != "object")
 }
-
-// ---- the receiver's type (#388, #391) and Lombok's accessors (#381) ----------------------------
 
 /// The type the Java or Kotlin declaration of `name` on `line` writes for it, generic arguments
 /// and a `?` dropped (#388, #391): Java's `Line line`, `var line = new Line(…)`; Kotlin's

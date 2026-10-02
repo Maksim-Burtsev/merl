@@ -1,5 +1,3 @@
-//! The shell's locals: the function a line is in, and what a `local` declares there (#470).
-
 use regex::Regex;
 
 use super::*;

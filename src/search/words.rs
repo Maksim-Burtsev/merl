@@ -1,6 +1,3 @@
-//! The word under the cursor and the access chain around it: what `d` is asked about,
-//! and the declaration a line stands inside.
-
 use std::ops::Range;
 
 use regex::Regex;
@@ -593,7 +590,6 @@ pub fn call_head(
     match value_of(kind, inner) {
         Value::Call(name) => Some((format!("{name}()"), Value::Call(name), fields)),
         Value::New(name) => Some((format!("new {name}()"), Value::New(name), fields)),
-        // A cast the chain hangs off, as written: `(x as T)`, `i.(T)`, `cast(T, x)`.
         value @ (Value::Type(_) | Value::Cast(..)) => {
             Some((inner.trim().to_owned(), value, fields))
         }

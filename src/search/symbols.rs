@@ -1,6 +1,3 @@
-//! The line patterns `D` lists a project's declarations with: one row per language,
-//! and the name read out of a row that matched.
-
 use regex::Regex;
 
 use super::*;
@@ -163,7 +160,6 @@ const C_TYPE_SYMBOL: &str = concat!(
 /// list, as a field does in every other kind.
 const C_TYPEDEF_SYMBOL: &str =
     r"^(?:\s*typedef\s+[^;]*?|\}\s*[\w\s,*]*)\b(?P<name>[A-Za-z_]\w*)\s*(?:\[[^\]]*\])?\s*;\s*$";
-/// An object- or function-like macro.
 const C_MACRO_SYMBOL: &str = r"^\s*#\s*define\s+(?P<name>[A-Za-z_]\w*)";
 
 /// Everything that can stand before a C# declaration: the attribute lists written on the same
@@ -386,7 +382,6 @@ pub(super) const ELIXIR_DIRECTIVES: &[&str] = &[
 /// A name in a `CREATE` statement, as written: bare, `"quoted"` or `` `backticked` ``, and
 /// optionally schema-qualified (`public.orders`).
 pub(super) const SQL_NAME: &str = r#"(?:"[^"]+"|`[^`]+`|\w+)"#;
-/// The SQL half of [`SYMBOLS`]: every `CREATE`d object, listed under its written name.
 const SQL_CREATE_SYMBOL: &str = concat!(
     sql_create!(),
     r#"(?P<name>(?:"[^"]+"|`[^`]+`|\w+)(?:\.(?:"[^"]+"|`[^`]+`|\w+))?)"#

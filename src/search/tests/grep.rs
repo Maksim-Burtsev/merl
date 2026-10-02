@@ -1,5 +1,3 @@
-//! The grep itself: whole word, ignoring case and the order of the hits.
-
 use super::*;
 
 #[test]
@@ -71,7 +69,6 @@ fn current_file_sorts_first_then_path_and_line() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Every pattern of [`LAST`], and the near-misses that carry the same letters but are code.
 #[test]
 fn tests_mocks_fixtures_and_generated_files_rank_last() {
     let here = Path::new("src/users/service.py");
@@ -124,7 +121,6 @@ fn a_declaration_comes_first_and_the_nearest_directory_next() {
         "src/users/admin/view.py",
         "src/users/repo.py",
     ];
-    // The last row is the declaration; the open file is the one that equals `here`.
     let declaration = |p: &str, i: usize| p == "src/users/repo.py" && i == 5;
     let mut order: Vec<(usize, &str)> = paths.iter().copied().enumerate().collect();
     order.sort_by_key(|&(i, p)| (rank(Path::new(p), Some(here), declaration(p, i)), p, i));
@@ -139,9 +135,12 @@ fn a_declaration_comes_first_and_the_nearest_directory_next() {
             "tests/test_service.py",   // a test file, whatever its distance
         ]
     );
-    // The open file is never demoted, even when it is a test file itself.
     let test = Path::new("tests/test_service.py");
-    assert_eq!(rank(test, Some(test), false).0, Tier::Open);
+    assert_eq!(
+        rank(test, Some(test), false).0,
+        Tier::Open,
+        "the open file is never demoted, even when it is a test file itself"
+    );
     // `d` asks for the tier alone: every candidate of its own is a declaration.
     assert_eq!(rank(test, None, true).0, Tier::Tests);
     assert_eq!(rank(here, None, true).0, Tier::Declaration);

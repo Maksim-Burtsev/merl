@@ -99,10 +99,13 @@ fn d_follows_a_dot_sourced_or_imported_path() {
         at("using module ./Shop.psm1", 16).as_deref(),
         Some("Shop.psm1")
     );
-    // Off the path, a module by name, a call.
-    assert_eq!(at("Import-Module ./Shop/Users.psm1", 3), None);
-    assert_eq!(at("Import-Module Pester", 16), None);
-    assert_eq!(at("Get-Item ./x.ps1", 11), None);
+    assert_eq!(
+        at("Import-Module ./Shop/Users.psm1", 3),
+        None,
+        "off the path"
+    );
+    assert_eq!(at("Import-Module Pester", 16), None, "a module by name");
+    assert_eq!(at("Get-Item ./x.ps1", 11), None, "a call");
 }
 
 #[test]
@@ -146,7 +149,9 @@ fn a_parameter_is_a_local_of_the_blocks_around_it() {
             .collect()
     };
     assert_eq!(at(6, "id"), [4], "names ignore case");
-    // A function beside the cursor's is not around it; the script's block is.
-    assert!(at(9, "Id").is_empty());
-    assert_eq!(at(10, "Root"), [1]);
+    assert!(
+        at(9, "Id").is_empty(),
+        "a function beside the cursor's is not around it"
+    );
+    assert_eq!(at(10, "Root"), [1], "the script's block is around it");
 }
