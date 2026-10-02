@@ -194,6 +194,35 @@ fn a_block_a_word_opens_folds_from_its_line_with_its_closing_word_shown() {
         vec![(2, 4)],
         "it moves with a line typed above"
     );
+    let mut a = app_as("sh", "for x in y; do\n  b\ndone < list\n");
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed_tail(0), Some("done < list"));
+}
+
+#[test]
+fn a_fold_inside_a_callback_is_the_same_fold_after_a_reload() {
+    let text = "vim.keymap.set(\"n\", \"K\", function()\n  hover()\nend, {\n  desc = \"x\",\n})\n";
+    let mut a = app_as("lua", text);
+    a.go((1, 2));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(0, 4)], "as f on its first line");
+    let path = a.buf.path.clone().unwrap();
+    std::fs::write(&path, format!("local k = 1\n{text}")).unwrap();
+    a.reload(false);
+    assert_eq!(a.collapsed, vec![(1, 5)]);
+}
+
+#[test]
+fn rbs_signatures_and_zsh_have_no_fold_rules_yet() {
+    for (ext, text) in [
+        ("rbs", "class Foo\n  def bar: () -> void\nend\n"),
+        ("zsh", "f() {\n  () {\n    x\n  }\n}\n"),
+    ] {
+        let mut a = app_as(ext, text);
+        key(&mut a, KeyCode::Char('f'));
+        assert!(a.collapsed.is_empty());
+        assert_eq!(a.message, format!("no fold rules for .{ext}"));
+    }
 }
 
 #[test]
@@ -323,17 +352,17 @@ fn a_docstring_folds_from_its_first_line_and_the_class_from_inside_it() {
 
 #[test]
 fn every_fold_fixture_folds_as_annotated() {
-    for (file, mark) in [
-        ("python.py", "# f: "),
-        ("ruby.rb", "# f: "),
-        ("lua.lua", "-- f: "),
-        ("shell.sh", "# f: "),
+    for (file, mark, floor) in [
+        ("python.py", "# f: ", 50),
+        ("ruby.rb", "# f: ", 100),
+        ("lua.lua", "-- f: ", 35),
+        ("shell.sh", "# f: ", 50),
     ] {
-        fixture_folds_as_annotated(file, mark);
+        fixture_folds_as_annotated(file, mark, floor);
     }
 }
 
-fn fixture_folds_as_annotated(file: &str, mark: &str) {
+fn fixture_folds_as_annotated(file: &str, mark: &str, floor: usize) {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/folds")
         .join(file);
@@ -360,5 +389,5 @@ fn fixture_folds_as_annotated(file: &str, mark: &str) {
         );
         checked += 1;
     }
-    assert!(checked > 30, "{file}: {checked} annotations");
+    assert!(checked > floor, "{file}: {checked} annotations");
 }

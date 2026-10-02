@@ -54,4 +54,13 @@ M.handlers = setmetatable({}, {  -- f: 51-55
   end,  -- f: 52-54
 })
 
+vim.keymap.set("n", "K", function()  -- f: 57-64
+  local x = (  -- f: 57-64
+    1 + 2  -- f: 57-64
+  )  -- f: 57-64
+  return x  -- f: 57-64
+end, {  -- f: 62-64
+  desc = "end",
+})
+
 return M

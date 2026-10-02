@@ -57,4 +57,15 @@ main() {  # f: 52-58
   done  # f: 52-58
 }  # f: 52-58
 
+tidy() {  # f: 60-69
+  for f in *; do  # f: 61-65
+    case "$f" in  # f: 62-64
+      done) rm "$f" ;;  # f: 60-69
+    esac  # f: 60-69
+  done  # f: 60-69
+  read -r a <<< "$f"  # f: 60-69
+  n="$(grep -c '"' "$a")"  # f: 60-69
+  echo "$n"  # f: 60-69
+}  # f: 60-69
+
 main "$@"

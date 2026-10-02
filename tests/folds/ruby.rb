@@ -111,6 +111,38 @@ module Shop  # f: 5-112
   end  # f: 6-111
 end  # f: 5-112
 
+module Extra  # f: 114-144
+  def wait_for(a, b)  # f: 115-122
+    while a.busy? ||  # f: 116-119
+          b.busy? do  # f: 115-122
+      sleep 1  # f: 115-122
+    end  # f: 115-122
+    [a, b].reduce(:/)  # f: 115-122
+    a =~ /the end/ ? self.class.name : b.end  # f: 115-122
+  end  # f: 115-122
+
+  def matcher(x)  # f: 124-131
+    case x  # f: 125-130
+    in [first, *]  # f: 126-127
+      first  # f: 124-131
+    in { name: }  # f: 128-129
+      name  # f: 124-131
+    end  # f: 124-131
+  end  # f: 124-131
+
+  def queries  # f: 133-143
+    one = <<-SQL  # f: 133-143
+      if end  # f: 133-143
+    SQL
+    two, three = <<~'A', <<B  # f: 133-143
+      def  # f: 133-143
+    A
+do  # f: 133-143
+B
+    [one, two, three]  # f: 133-143
+  end  # f: 133-143
+end  # f: 114-144
+
 =begin
 def not_code
 end

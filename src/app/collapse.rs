@@ -12,7 +12,7 @@ impl App {
             self.collapsed.remove(i);
             return;
         }
-        let Some(shape) = Folds::of(self.kind(), &self.buf.lines) else {
+        let Some(shape) = Folds::of(self.fold_kind(), &self.buf.lines) else {
             self.message = match self.buf.path.as_ref().and_then(|p| p.extension()) {
                 Some(ext) => format!("no fold rules for .{}", ext.to_string_lossy()),
                 None => "no fold rules for this file".into(),
@@ -28,6 +28,15 @@ impl App {
         self.anchor = None;
         self.set_at(TextLine::File(h));
         self.apply_want_x(0);
+    }
+
+    fn fold_kind(&self) -> Option<Kind> {
+        let name = self.buf.path.as_deref()?.file_name()?.to_str()?;
+        match self.kind()? {
+            Kind::Ruby if name.ends_with(".rbs") => None,
+            Kind::Shell if name.ends_with(".zsh") || name.starts_with(".z") => None,
+            kind => Some(kind),
+        }
     }
 
     pub fn hidden(&self, l: usize) -> bool {
@@ -61,7 +70,7 @@ impl App {
     }
 
     pub(super) fn shift_collapsed(&mut self, at: usize, old: usize, new: usize) {
-        let Some(shape) = Folds::of(self.kind(), &self.buf.lines) else {
+        let Some(shape) = Folds::of(self.fold_kind(), &self.buf.lines) else {
             return self.collapsed.clear();
         };
         let moved = |(h, e): (usize, usize)| match () {
@@ -99,7 +108,7 @@ impl App {
     }
 
     fn measure_collapsed(&mut self, heads: Vec<usize>) {
-        let Some(shape) = Folds::of(self.kind(), &self.buf.lines) else {
+        let Some(shape) = Folds::of(self.fold_kind(), &self.buf.lines) else {
             return self.collapsed.clear();
         };
         self.collapsed = heads

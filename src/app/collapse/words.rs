@@ -15,9 +15,10 @@ impl Blocks {
         if let Some(e) = self.region(l) {
             return Some((l, e));
         }
-        (self.funcs.iter().copied())
+        let (h, _) = (self.funcs.iter().copied())
             .filter(|&(h, e)| h < l && l <= e)
-            .max_by_key(|&(h, _)| h)
+            .max_by_key(|&(h, _)| h)?;
+        Some((h, self.region(h)?))
     }
 }
 
