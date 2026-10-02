@@ -600,8 +600,6 @@ pub fn call_head(
         _ => None,
     }
 }
-/// The word `d` asks about at byte `col` of `line`: [`word_at`], and in TypeScript a `#private`
-/// name with its `#`, on the `#` as on the name (#100): `#addRoute` is no `addRoute`.
 pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Range<usize>, &str)> {
     let extra = word_chars(kind, true);
     // On TypeScript's `#` and on a Dart `$`, the word is the one right behind it.
@@ -633,6 +631,14 @@ pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Ra
     };
     if kind == Some(Kind::Dart) {
         let r = dart_name(line, range);
+        return Some((r.clone(), &line[r]));
+    }
+    if kind == Some(Kind::Cmake) {
+        let r = cmake_name(line, range);
+        return Some((r.clone(), &line[r]));
+    }
+    if kind == Some(Kind::Nix) {
+        let r = nix_name(line, range);
         return Some((r.clone(), &line[r]));
     }
     // A Ruby method (#387) and an Elixir function (#459) take their `?` or `!` with them:

@@ -175,7 +175,7 @@ The Python, TypeScript and Go projects above keep their lines, since the `naviga
 pin them, so their annotated cases are a package of their own inside them: `python/shop/`,
 `typescript/shop/`, `go/shop/` and `go/cart/`. Every other kind has a directory of its own
 (`rust/`, `jvm/`, `ruby/`, `c/`, `csharp/`, `swift/`, `php/`, `lua/`, `elixir/`, `zig/`, `shell/`,
-`sql/`, `make/`, `terraform/`, `docker/`, `yaml/`, `graphql/`, `proto/`). Each is one small shop (a `Tariff` and a `Coupon` sharing `rate` and
+`sql/`, `make/`, `terraform/`, `docker/`, `yaml/`, `graphql/`, `proto/`, `css/`). Each is one small shop (a `Tariff` and a `Coupon` sharing `rate` and
 `describe`, a `Courier`, `discount`, `weigh`, a basket that uses them) holding:
 
 - two types sharing a method name, an import inside the project (aliased, of a module, of a
@@ -221,10 +221,30 @@ a reference definition below one needs a blank line to start its own block.
 beside selections, aliases and arguments of the same names, an `extend type`, a `"""` description
 holding a type, fragment spreads and an `#import`.
 
+`css/` (#415) has no shop: classes, ids, custom properties and Sass names are what it declares.
+`src/styles.css` holds rules a class or an id of `src/Button.tsx` and `index.html` name, in the
+selector shapes that style them and those that do not, a custom property with a theme's override,
+`@keyframes`, `@property` and `@import`s; `scss/` `@use`s a module under an alias and under its
+own name, `sass:math`, and a package of `node_modules/` (ignored, added with `git add -f`), and
+composes classes with `&`; `less/` has a variable, a mixin called both ways and an `@import`.
+Its annotations start with `//`, and with `#` in HTML, where they are text.
+
 `proto/` lays its files out under a proto root, `proto/shop/v1/`, as buf does, with the well-known
 types a project vendors under `third_party/`: its imports name paths from those roots, never from
 the importing file. `shop.v1` and `billing.v1` each declare a `Money`, used unqualified and
 qualified by each package, `.shop.v1.` absolute and `v1.` relative among them.
+
+`cmake/` (#432) has a project's `CMakeLists.txt` over an `app/` it adds as a subdirectory and the
+helpers, warnings and `Find` module it includes from `cmake/`: a function called in another case,
+a target made through `${name}`, an alias and an imported target, a generator expression, each
+refusal of the issue, and declaration-shaped lines in a bracket comment of each level, a bracket
+argument and a quoted argument over lines.
+
+`nix/` (#430) is a flake over a NixOS host that imports the shop's `lib/` through `../lib`: a
+function by name, `let` bindings named `api` in two files (each stays in its own), a parameter
+`pkgs` beside a `pkgs =` attribute of another file, a header over lines, a file and a directory
+path, each refusal of the issue, and declaration-shaped lines in indented strings (one opened
+after `//`, one holding the `'''`, `''$` and `''\` escapes), a `"…"`, a `/* */` and a `#` comment.
 
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
 `deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies

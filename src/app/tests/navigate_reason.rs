@@ -337,8 +337,6 @@ fn a_bare_self_stays_in_the_project() {
     std::fs::remove_dir_all(&root).unwrap();
 }
 
-/// #104, #340. A `self.word` whose class extends one outside the project lands where that class
-/// declares it, read as a project class is.
 #[test]
 fn a_self_word_past_a_base_outside_the_project_stays_in_it() {
     let (dir, mut a) = project_app(

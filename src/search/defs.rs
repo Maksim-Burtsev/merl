@@ -466,6 +466,8 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         Kind::Terraform => terraform_patterns(word),
         Kind::PowerShell => powershell_patterns(word),
         Kind::Dart => dart_patterns(word),
+        Kind::Cmake => cmake_patterns(word),
+        Kind::Nix => nix_patterns(word),
         // `FROM image AS name`, with any flags before the image. Stage names ignore case.
         Kind::Docker => vec![format!(r"(?i)^\s*FROM\s+(\S+\s+)+AS\s+{w}\s*$")],
         // An anchor, or a key that opens a block: compose services, CI jobs, GitLab's `.hidden`
@@ -488,6 +490,10 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"^directive\s+@{w}\b"),
             format!(r"^\s+{w}\s*(?:[:(@#,]|$)"),
         ],
+        // What `u` marks as a declaration; `d` reads a stylesheet with [`sheet_at`] (#415).
+        Kind::Css => css_patterns(word),
+        // An HTML file declares an id, which `d` reads from the attribute under the cursor.
+        Kind::Html => Vec::new(),
     }
 }
 /// [`def_patterns`] cut to what the word at `range` of `line` can be: a PHP namespace's
@@ -983,13 +989,17 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         | Kind::Shell
         | Kind::PowerShell
         | Kind::Dart
+        | Kind::Cmake
+        | Kind::Nix
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform
         | Kind::Docker
         | Kind::Yaml
         | Kind::Markdown
-        | Kind::Graphql => return None,
+        | Kind::Graphql
+        | Kind::Css
+        | Kind::Html => return None,
     })
 }
 /// Line patterns that can declare `word` as a field, for the search by name: more than the fields,
@@ -1081,6 +1091,13 @@ fn declares_by_kind<'a, S: AsRef<str> + 'a>(
 ) -> bool {
     match kind {
         Kind::Graphql => !line_text.starts_with([' ', '\t']) || graphql_member(lines(), line),
+        Kind::Css => css_declares(word, line, line_text, || {
+            lines()
+                .iter()
+                .map(AsRef::as_ref)
+                .collect::<Vec<&str>>()
+                .join("\n")
+        }),
         Kind::Go if line_text.starts_with([' ', '\t']) => {
             let local = line_text
                 .trim_start()
@@ -1098,6 +1115,7 @@ fn declares_by_kind<'a, S: AsRef<str> + 'a>(
         Kind::Ruby if ruby_column_elsewhere(path, line_text) => false,
         Kind::PowerShell => powershell_declares(lines(), line, line_text),
         Kind::Dart => dart_declares(lines(), line, line_text),
+        Kind::Nix => nix_declares(lines(), line, word, false),
         _ => def_block(kind, word).is_none_or(|block| directly_inside(lines(), line, block)),
     }
 }

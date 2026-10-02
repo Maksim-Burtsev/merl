@@ -159,7 +159,6 @@ fn a_local_name_is_not_an_import_and_a_member_is_not_a_module_level_name() {
             a.message
         );
     }
-    // Native: the import that binds it is as far as its source goes (#329), never the method.
     let native = format!("{}:1", root.join("fakelib/__init__.py").display());
     d_on(&mut a, "outside.py", "return pick");
     assert_eq!(shown(&mut a), jump("pick: via import fakelib", &native));

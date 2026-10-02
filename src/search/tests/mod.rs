@@ -6,7 +6,9 @@ use super::*;
 
 mod bindings;
 mod c_family;
+mod cmake;
 mod component;
+mod css;
 mod dart;
 mod defs;
 mod fields;
@@ -14,6 +16,7 @@ mod go;
 mod grep;
 mod imports;
 mod links;
+mod nix;
 mod other_languages;
 mod powershell;
 mod scope;

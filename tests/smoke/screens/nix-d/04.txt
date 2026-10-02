@@ -1,0 +1,57 @@
+wait mkService: by name, 1 match
+┌orders──────────────────────┐1 { lib }:
+│▸ .github                   │2 {
+│▸ .venv                     │3   mkService = { name, port ? 8080 }: {
+│▸ app                       │4     inherit name port;
+│▸ data                      │5   };
+│▸ deploy                    │6 }
+│▸ docs                      │
+│▾ nixshop                   │
+│  ▾ hosts                   │
+│      web.nix               │
+│  ▾ lib                     │
+│      default.nix           │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+nixshop/lib/default.nix  3:3  [code]  mkService: by name, 1 match
+cursor (x,y,shown) 34,2,1

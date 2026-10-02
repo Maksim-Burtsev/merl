@@ -177,13 +177,6 @@ impl App {
             };
             hits = self.renamed_export(word, |p| self.external_grep(kind, &within, p));
         }
-        // An imported module that does not declare the name re-exports it (`std::sync::Arc`
-        // lives in `alloc`, a package's `__init__` pulls from its submodules): look everywhere.
-        // Past a copy, first where the module's other copies are, as the module's files among
-        // all of them: no slower and no noisier than without the copy.
-        // A Python module outside that does not declare the name may import it (#329): its
-        // imports are followed, as the project's are. Only when they lead nowhere is it looked
-        // for everywhere, and what that finds is offered, never jumped to.
         let mut walked = false;
         if hits.is_empty()
             && imported
@@ -284,10 +277,6 @@ impl App {
         })
     }
 
-    /// The files among `all` of the Python module `module`, shortened from its end until some
-    /// match, as [`search::module_among`] shortens it, but matched from the root each file lies
-    /// under, the deepest that holds it (#329): `a/b.py`, `a/b.pyi` or anything under `a/b/`, part
-    /// by part. `json` is never `kombu/utils/json.py`.
     pub(super) fn python_module_among(
         &self,
         all: &[PathBuf],
@@ -325,8 +314,6 @@ impl App {
         self.walked_module(parts)
     }
 
-    /// [`App::external_module`] among the files outside already walked: none before the first
-    /// lookup outside the project.
     pub(super) fn walked_module(&self, parts: &[String]) -> Option<PathBuf> {
         let (roots, files) = self.external.get(&Kind::Python)?;
         let name: PathBuf = parts.iter().collect();
@@ -531,13 +518,17 @@ impl App {
             | Kind::Shell
             | Kind::PowerShell
             | Kind::Dart
+            | Kind::Cmake
+            | Kind::Nix
             | Kind::Sql
             | Kind::Make
             | Kind::Terraform
             | Kind::Docker
             | Kind::Yaml
             | Kind::Markdown
-            | Kind::Graphql => kind,
+            | Kind::Graphql
+            | Kind::Css
+            | Kind::Html => kind,
         };
         for kind in [
             Kind::Python,
@@ -557,6 +548,8 @@ impl App {
             Kind::Shell,
             Kind::PowerShell,
             Kind::Dart,
+            Kind::Cmake,
+            Kind::Nix,
             Kind::Sql,
             Kind::Make,
             Kind::Terraform,
@@ -564,6 +557,8 @@ impl App {
             Kind::Yaml,
             Kind::Markdown,
             Kind::Graphql,
+            Kind::Css,
+            Kind::Html,
         ]
         .map(every)
         {
@@ -732,10 +727,12 @@ impl App {
     /// its candidates: a component's from the text the hit was read from (#413), any other file's
     /// from its text now.
     pub(super) fn hidden_now(&self, kind: Kind, h: &Hit) -> Vec<bool> {
-        match search::component(&h.path) {
+        // A rule of a component's `<style>` block is no script's: it is lexed as a stylesheet
+        // (#415).
+        match search::component(&h.path) && kind != Kind::Css {
             true => self.hidden_of(kind, h),
             false => {
-                (self.text_of(&h.path)).map_or_else(Vec::new, |t| search::literal_lines(kind, &t))
+                (self.file_text(&h.path)).map_or_else(Vec::new, |t| search::literal_lines(kind, &t))
             }
         }
     }
@@ -775,8 +772,6 @@ impl App {
             Kind::Elixir => vec![&self.root],
             _ => roots.iter().collect::<Vec<_>>(),
         };
-        // A Python root inside another names its files from itself, as Python imports them
-        // (#329): `foo/__init__.py`, not `site-packages/foo/__init__.py`.
         if kind == Kind::Python {
             roots.sort_by_key(|r| std::cmp::Reverse(r.components().count()));
         }
@@ -864,8 +859,6 @@ impl App {
     }
 }
 
-/// The Python file `f` relative to the root it lies under, the deepest that holds it, as Python
-/// imports it (#329), with that root's place in `roots`.
 fn python_rel<'a>(roots: &[PathBuf], f: &'a Path) -> Option<(usize, &'a Path)> {
     let (i, root) = (roots.iter().enumerate())
         .filter(|(_, r)| f.starts_with(r))

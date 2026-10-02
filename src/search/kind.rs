@@ -27,6 +27,8 @@ pub enum Kind {
     PowerShell,
     /// Dart and Flutter; `$` is a name character, `_$UserFromJson` one name (#414).
     Dart,
+    Cmake,
+    Nix,
     Sql,
     Make,
     Terraform,
@@ -35,6 +37,12 @@ pub enum Kind {
     /// `d` follows a link or a path in a code span to the file or the heading it names (#421).
     Markdown,
     Graphql,
+    /// CSS, SCSS, Sass and Less: a class is styled in any of them, so one kind searches them all
+    /// (#415).
+    Css,
+    /// `d` follows a class, an id or a path of an HTML file to the rule or the file it names
+    /// (#415); an inline `<script>` is not read as JavaScript.
+    Html,
 }
 /// The kind of a file open on screen: [`kind_of`], and an RBS signature, `hash.rbs` of Ruby's
 /// core that `d` opened (#369), read as Ruby. The search never takes a `.rbs` for the project's.
@@ -94,6 +102,8 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         // A module manifest declares nothing, but `d` from its `FunctionsToExport` finds them.
         (_, "ps1" | "psm1" | "psd1") => Kind::PowerShell,
         (_, "dart") => Kind::Dart,
+        ("CMakeLists.txt", _) | (_, "cmake") => Kind::Cmake,
+        (_, "nix") => Kind::Nix,
         (_, "sql" | "psql" | "pgsql" | "mysql" | "ddl" | "dml") => Kind::Sql,
         ("Makefile" | "makefile" | "GNUmakefile", _) | (_, "mk") => Kind::Make,
         (_, "tf" | "tfvars") => Kind::Terraform,
@@ -102,6 +112,8 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "md" | "markdown" | "mdx") => Kind::Markdown,
         // `.graphqls` is a schema by convention, `.gql` the short form of either.
         (_, "graphql" | "graphqls" | "gql") => Kind::Graphql,
+        (_, "css" | "scss" | "sass" | "less") => Kind::Css,
+        (_, "html" | "htm") => Kind::Html,
         (_, "dockerignore") => return None,
         ("Dockerfile" | "Containerfile", _) | (_, "dockerfile" | "Dockerfile") => Kind::Docker,
         _ if name.starts_with("Dockerfile.") || name.starts_with("Containerfile.") => Kind::Docker,
@@ -123,13 +135,21 @@ fn cpp_library(path: &Path) -> bool {
     let mut parts = path.parent().into_iter().flat_map(Path::components);
     parts.any(|c| c.as_os_str() == "c++") && parts.next().is_some()
 }
-/// Characters that belong to a name besides `[A-Za-z0-9_]`. Targets, services and Terraform
-/// labels are often `kebab-case`; `d` in Terraform reads the whole dotted `var.region` address.
 pub fn word_chars(kind: Option<Kind>, address: bool) -> &'static str {
     match kind {
         Some(Kind::Terraform) if address => "-.",
         // `Get-ShopUser` is one PowerShell name, for `d` and `u` alike (#420).
-        Some(Kind::Make | Kind::Terraform | Kind::Docker | Kind::Yaml | Kind::PowerShell) => "-",
+        Some(
+            Kind::Make
+            | Kind::Terraform
+            | Kind::Docker
+            | Kind::Yaml
+            | Kind::PowerShell
+            | Kind::Css
+            | Kind::Html,
+        ) => "-",
+        Some(Kind::Cmake) => "-.",
+        Some(Kind::Nix) => "-'",
         _ => "",
     }
 }

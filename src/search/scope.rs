@@ -13,7 +13,7 @@ use super::*;
 /// directory; everything else is every file of the same kind, so `.tsx` finds `.ts`.
 pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
     match kind {
-        Kind::Docker | Kind::Yaml | Kind::Markdown => path == here,
+        Kind::Docker | Kind::Yaml | Kind::Markdown | Kind::Html => path == here,
         Kind::Terraform => kind_of(path) == Some(kind) && path.parent() == here.parent(),
         Kind::Python
         | Kind::Go
@@ -32,9 +32,12 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Shell
         | Kind::PowerShell
         | Kind::Dart
+        | Kind::Cmake
+        | Kind::Nix
         | Kind::Sql
         | Kind::Make
-        | Kind::Graphql => kind_of(path) == Some(kind),
+        | Kind::Graphql
+        | Kind::Css => kind_of(path) == Some(kind),
     }
 }
 /// Where the standard library and the dependencies of the project at `root` live on this
@@ -89,8 +92,6 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
                         .and_then(|h| h.join(&lib).canonicalize().ok())
                         .and_then(|exe| Some(exe.parent()?.parent()?.join("lib").join(&lib)));
                     let site = venv.join("lib").join(&lib).join("site-packages");
-                    // The base interpreter's packages are the venv's only when it says so, and
-                    // then after its own, as `sys.path` orders them (#329).
                     let system = cfg.lines().any(|l| {
                         l.split_once('=').is_some_and(|(k, v)| {
                             k.trim() == "include-system-site-packages"
@@ -256,6 +257,11 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         // The packages `pub get` lists in `.dart_tool/package_config.json`, the pub cache's and
         // the Flutter SDK's, and the `lib/` of the SDK of the `dart` on the PATH (#414).
         Kind::Dart => dart_roots(root, dart_sdk()),
+        Kind::Cmake => cmake_roots(std::env::var_os("PATH").and_then(|p| {
+            std::env::split_paths(&p)
+                .map(|d| d.join("cmake"))
+                .find(|p| p.is_file())
+        })),
         // Java and Kotlin have no roots yet: the JDK and Gradle caches are their own lookups.
         // C# has nothing to point at: a NuGet package is compiled
         // assemblies, and the runtime's own source is not on the machine at all. Lua has no root
@@ -268,6 +274,7 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         Kind::Jvm
         | Kind::CSharp
         | Kind::Lua
+        | Kind::Nix
         | Kind::Elixir
         | Kind::Shell
         | Kind::Sql
@@ -276,7 +283,9 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         | Kind::Docker
         | Kind::Yaml
         | Kind::Markdown
-        | Kind::Graphql => Vec::new(),
+        | Kind::Graphql
+        | Kind::Css
+        | Kind::Html => Vec::new(),
     };
     // The order is deliberate, so no sort: `sys.path` can list a directory twice, far apart.
     let mut seen = std::collections::HashSet::new();
@@ -671,8 +680,6 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
         // Homebrew's Rust ships the sysroot `library` with a copy of itself inside; every
         // definition would come up twice.
         let copy = dir.file_name().map(std::ffi::OsStr::to_owned);
-        // A root inside another is walked in its own place, never as part of the outer one: a
-        // `sys.path` lists `lib/python3.11` and its `site-packages` both (#329).
         let others: Vec<PathBuf> = dirs.iter().filter(|o| *o != dir).cloned().collect();
         // Of an SDK's frameworks, each one's `Headers`, a link into `Versions/Current` that is
         // walked through, so a header is read once (#417).
@@ -683,8 +690,6 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
                 let unreachable = go
                     && is_dir
                     && (e.file_name() == "testdata" || e.path().join("go.mod").is_file());
-                // A standard library's `site-packages` is the base interpreter's, which Python
-                // reads only from a `sys.path` entry of its own: a root, when it is one (#329).
                 let base_packages = python
                     && is_dir
                     && e.depth() == 1
@@ -701,9 +706,7 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
                     && (!frameworks || header)
                     && (e.depth() != 1 || Some(e.file_name()) != copy.as_deref())
             })
-            // Homebrew links each formula's headers into `include/` a directory at a time:
-            // `include/google` is a link into the protobuf keg.
-            .follow_links(kind == Kind::Proto || frameworks)
+            .follow_links(kind == Kind::Proto || kind == Kind::Cmake || frameworks)
             .hidden(false)
             .git_ignore(false)
             .git_global(false)

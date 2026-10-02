@@ -3,14 +3,6 @@
 use super::*;
 
 impl App {
-    /// The declarations of `word` in the type of the receiver `chain`, `x.f.g…`, when every link is
-    /// proven: every declaration of `x` in scope reads the same type (through one call's return
-    /// type at most), each field is declared in the type before it or one that type extends or
-    /// embeds, and each type is declared once where the file that names it can see it
-    /// ([`App::declaration`]). The member — a method, else a field — is looked for in the last
-    /// type, then in the types it extends or embeds. `Err` names the first name that is not
-    /// proven; an empty list is a type without the member. Both leave the word to the search by
-    /// name.
     pub(super) fn typed_definitions(
         &mut self,
         kind: Kind,
@@ -19,13 +11,10 @@ impl App {
         chain: &[String],
         head: Option<&(String, search::Value, Vec<String>)>,
     ) -> Result<Vec<Candidate>, String> {
-        // A Python type may be a class outside the project (#340), read from the files there.
-        // ponytail: the first typed `d` of a session walks them, even for a type of the project.
         if kind == Kind::Python {
             self.external_files(kind);
         }
-        let text = self.buf.lines.join("\n");
-        let line = self.line + 1;
+        let (text, line) = self.scope(here, chain.first())?;
         // `super().m()` / `super.m()` is `self` / `this` with the walk started one level up.
         if chain.first().is_some_and(|f| f == "super") {
             let [_] = chain else {
@@ -77,8 +66,16 @@ impl App {
             .collect())
     }
 
-    /// The type of the receiver `chain`, or of the call `head` it hangs off, with the links that
-    /// prove it; `Err` names the first name that is not proven.
+    fn scope(&self, here: &Path, first: Option<&String>) -> Result<(String, usize), String> {
+        if let Some(scope) = self.script_scope(here, first.map(String::as_str)) {
+            return Ok(scope);
+        }
+        match self.on_template(here) {
+            true => Err(first.cloned().unwrap_or_default()),
+            false => Ok((self.buf.lines.join("\n"), self.line + 1)),
+        }
+    }
+
     fn receiver(
         &self,
         kind: Kind,
@@ -86,8 +83,7 @@ impl App {
         chain: &[String],
         head: Option<&(String, search::Value, Vec<String>)>,
     ) -> Result<(Typed, Vec<String>), String> {
-        let text = self.buf.lines.join("\n");
-        let line = self.line + 1;
+        let (text, line) = self.scope(here, chain.first())?;
         match head {
             // The chain hangs off a call: `make_uow().users.word`.
             Some((call, value, fields)) => {
@@ -220,8 +216,6 @@ impl App {
             if matches!(name.as_str(), "object" | "Generic" | "Protocol" | "ABC") {
                 continue;
             }
-            // A class outside the project read as one (#340) is outside all the same: what its
-            // ancestry lacks may come from a project subclass, never from a namesake.
             if let Some(base) = self.type_decl(kind, &ty.path, &base) {
                 outside |= base.path.is_absolute() || self.ancestry_outside(&base, depth + 1)?;
                 continue;

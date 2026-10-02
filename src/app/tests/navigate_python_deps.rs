@@ -1,11 +1,5 @@
-//! `d` in Python on the names a dependency outside the project declares (#329).
-
 use super::*;
 
-/// #329. A dependency's module that hands a name on through its own imports is followed, as the
-/// project's are: a named import, an alias, a `*`, a relative import, down to a compiled source,
-/// where the import line is the answer. A module is matched from the root it lies under, so
-/// `json` is never a `json.py` deeper in another package.
 #[test]
 fn a_dependency_hands_a_name_on_through_its_imports() {
     let std = external_root(
@@ -56,7 +50,6 @@ fn a_dependency_hands_a_name_on_through_its_imports() {
                 "rest_framework/exceptions.py",
                 "class ValidationError(Exception):\n    pass\n",
             ),
-            // A name made up by a module `__getattr__` is not followed.
             ("lazy/__init__.py", "def __getattr__(name):\n    pass\n"),
             ("lazyreal.py", "def thing():\n    pass\n"),
             ("elsewhere/thing.py", "def thing():\n    pass\n"),
@@ -112,7 +105,6 @@ fn a_dependency_hands_a_name_on_through_its_imports() {
         d_on(&mut a, "app/reexports.py", code);
         assert_eq!(shown(&mut a), want, "{code}");
     }
-    // Nothing followed: found everywhere by name, and offered, never jumped to.
     d_on(&mut a, "app/reexports.py", "lazy.thing");
     assert_eq!(
         shown(&mut a),
@@ -133,8 +125,6 @@ fn a_dependency_hands_a_name_on_through_its_imports() {
     }
 }
 
-/// #329. A root inside another, as `sys.path` lists `lib/python3.11` and its `site-packages`, is
-/// walked once: a declaration there is one row, named from the inner root.
 #[test]
 fn a_root_inside_another_shows_each_declaration_once() {
     let std = external_root(
@@ -163,10 +153,6 @@ fn a_root_inside_another_shows_each_declaration_once() {
     }
 }
 
-/// #340. A class declared in a dependency is read as the project's are: a receiver typed or
-/// built as it, a base of a project class, the members it declares and those of its own bases,
-/// through its file's imports, relative ones too. An attribute no line declares, such as the
-/// `objects` Django's metaclass makes, stays unknown.
 #[test]
 fn a_class_declared_in_a_dependency_is_read() {
     let std = external_root(
@@ -282,11 +268,6 @@ fn a_class_declared_in_a_dependency_is_read() {
     }
 }
 
-/// #329, #340. The walk outside keeps its limits: a name the module binds otherwise is not
-/// followed, and what the search by name then finds is offered, while a project answer later in
-/// the same press still jumps; a cycle ends; two sources are both offered; a relative import of a
-/// module that is no package is read against its own package; a versioned root holds modules
-/// too. A dependency's imports are its own, a class declared twice or a value proves nothing.
 #[test]
 fn the_walk_outside_keeps_its_limits() {
     let std = external_root(
@@ -412,8 +393,6 @@ fn the_walk_outside_keeps_its_limits() {
         d_on(&mut a, file, code);
         assert_eq!(shown(&mut a), want, "{code}");
     }
-    // The import outside led nowhere and found nothing by name: the project's one `helper` is
-    // still jumped to.
     d_on(&mut a, file, "^    helper");
     let Shown::Jump(_, place) = shown(&mut a) else {
         panic!("a jump");
@@ -430,8 +409,6 @@ fn the_walk_outside_keeps_its_limits() {
     }
 }
 
-/// #340. The first typed `d` of a session reads the classes outside from the project's `.venv`,
-/// walked then, with no lookup outside before it.
 #[test]
 fn the_first_typed_d_walks_the_venv() {
     let base = external_root(

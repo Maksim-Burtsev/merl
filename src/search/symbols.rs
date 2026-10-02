@@ -410,6 +410,9 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::Dart), DART_TYPE_SYMBOL),
     (Some(Kind::Dart), DART_FUNCTION_SYMBOL),
     (Some(Kind::Dart), DART_ACCESSOR_SYMBOL),
+    (Some(Kind::Cmake), CMAKE_FUNCTION_SYMBOL),
+    (Some(Kind::Cmake), CMAKE_TARGET_SYMBOL),
+    (Some(Kind::Nix), NIX_FUNCTION_SYMBOL),
     // Every `CREATE` object, with the name as written, schema and quotes included. CTEs are a
     // query's own scaffolding, not a symbol of the project, so they are left out.
     (Some(Kind::Sql), SQL_CREATE_SYMBOL),
@@ -485,12 +488,13 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
         Some(Kind::Graphql),
         r"^(?:(?:type|interface|input|enum|union|scalar|fragment|query|mutation|subscription)\s+|directive\s+@)(?P<name>[A-Za-z_]\w*)",
     ),
+    // A stylesheet's mixins, functions, placeholders and keyframes under their names (#415). No
+    // selector, custom property or variable: Bootstrap alone has thousands of selectors.
+    (
+        Some(Kind::Css),
+        r"^\s*(?:@(?:mixin|function|(?:-[a-z]+-)?keyframes)\s+|%)(?P<name>[A-Za-z_-][\w-]*)",
+    ),
 ];
-/// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C, C++, C#,
-/// Swift, PHP, Lua, Elixir, GraphQL, Protocol Buffers, PowerShell and Dart have rows of their own in [`SYMBOLS`],
-/// written for what those languages declare and how they name it, so reading the all-language
-/// pattern over them too would list a declaration twice. Markdown has none: a declaration in a README's code block is
-/// an example, not one of the project, and a heading is prose that `s` finds (#421).
 pub fn shared_symbols(kind: Option<Kind>) -> bool {
     !matches!(
         kind,
@@ -506,8 +510,11 @@ pub fn shared_symbols(kind: Option<Kind>) -> bool {
                 | Kind::Markdown
                 | Kind::Graphql
                 | Kind::Proto
+                | Kind::Css
                 | Kind::PowerShell
                 | Kind::Dart
+                | Kind::Cmake
+                | Kind::Nix
         )
     )
 }

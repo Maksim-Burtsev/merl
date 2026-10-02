@@ -1179,15 +1179,10 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
                 "app/test_files.py",
                 "from django.conf import settings\n\n\ndef originals():\n    settings.connect()\n    return settings.ORIGINALS_DIR, settings.AUTH_USER_MODEL\n",
             ),
-            // A subclass that sets the member is no answer where a base outside declares it
-            // (#340).
             (
                 "app/test_api.py",
                 "from django.test import TestCase\n\n\nclass ApiCase(TestCase):\n    def test_post(self) -> None:\n        self.client.post(\"/\")\n\n\nclass SignedCase(ApiCase):\n    def setUp(self) -> None:\n        self.client = None\n",
             ),
-            // A base that cannot be read (#342): a subclass that sets the member stays a
-            // candidate, and a type outside that cannot be read leaves one method outside with a
-            // field of the name offered, not jumped to.
             (
                 "app/test_native.py",
                 "from fastbase import Base\n\n\nclass NativeCase(Base):\n    def test_post(self) -> None:\n        self.client.post(\"/\")\n\n\nclass SignedNative(NativeCase):\n    def setUp(self) -> None:\n        self.client = None\n",
@@ -1206,7 +1201,6 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
     use_roots(&mut a, Kind::Python, &[std.clone(), site.clone()]);
     let outside = |root: &Path, file: &str| format!("{}", root.join(file).display());
     for (file, code, want) in [
-        // A base outside that can be read is (#340).
         (
             "app/test_views.py",
             "self.client",
@@ -1215,7 +1209,6 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
                 &format!("{}:5", outside(&site, "django/test/testcases.py")),
             ),
         ),
-        // Its bases outside are read too (#340).
         (
             "app/users.py",
             "User.objects",
@@ -1254,7 +1247,6 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
                 &format!("{}:3", outside(&site, "condpkg/models.py")),
             ),
         ),
-        // A class the module re-exports by an import is followed there, bases and all (#340).
         (
             "app/things.py",
             "TestCase.client",
@@ -1274,7 +1266,6 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
         (
             "app/mocks.py",
             "m.captured_queries",
-            // `Mock` is read (#340) and declares none: no namesake in another package.
             jump("no definition for captured_queries", "app/mocks.py:6"),
         ),
         (

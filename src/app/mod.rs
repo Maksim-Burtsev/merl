@@ -20,8 +20,10 @@ use crate::wrap;
 
 mod at_base;
 mod c;
+mod collapse;
 mod component;
 mod cs_typed;
+mod css;
 mod cursor;
 mod dart;
 mod definition;
@@ -213,6 +215,11 @@ pub const KEYS: &[(&str, &str, &str)] = &[
         "Show a Markdown file rendered, or its source again",
         "General",
     ),
+    (
+        "f",
+        "Fold the function or block at the cursor into its first line, or unfold it",
+        "General",
+    ),
     ("T", "Pick a theme (live preview)", "General"),
     (
         "Esc",
@@ -341,6 +348,7 @@ pub struct App {
     /// the cursor (see `hist_note`).
     pub history: Vec<(PathBuf, TextLine, usize)>,
     pub hist_idx: usize,
+    hist_rows: HashMap<(PathBuf, TextLine, usize), usize>,
     /// Cursor: file line, byte offset into that line, and the display column Up/Down aims for.
     pub line: usize,
     pub col: usize,
@@ -357,6 +365,8 @@ pub struct App {
     /// Display columns scrolled off to the left while the file is not wrapped; follows the
     /// cursor in `clamp_scroll`.
     pub left: usize,
+    pub collapsed: Vec<(usize, usize)>,
+    collapsed_stash: HashMap<PathBuf, Vec<(usize, String)>>,
     /// Files `w` was pressed on: their wrapping is the opposite of what their kind gets.
     wrap_toggled: HashSet<PathBuf>,
     /// Markdown files `p` shows rendered, until `p` again or merl quits.
@@ -552,6 +562,7 @@ impl App {
             search_sent: None,
             search_enter: false,
             history: Vec::new(),
+            hist_rows: HashMap::new(),
             hist_idx: 0,
             line: 0,
             col: 0,
@@ -561,6 +572,8 @@ impl App {
             top_line: 0,
             top_row: 0,
             left: 0,
+            collapsed: Vec::new(),
+            collapsed_stash: HashMap::new(),
             wrap_toggled: HashSet::new(),
             previewed: HashSet::new(),
             preview: None,
@@ -733,6 +746,16 @@ impl App {
         }
     }
 
+    pub(super) fn next_shown(&self, t: TextLine) -> Option<TextLine> {
+        std::iter::successors(self.next_line(t), |&t| self.next_line(t))
+            .find(|t| !self.hidden(t.key()))
+    }
+
+    pub(super) fn prev_shown(&self, t: TextLine) -> Option<TextLine> {
+        std::iter::successors(self.prev_line(t), |&t| self.prev_line(t))
+            .find(|t| !self.hidden(t.key()))
+    }
+
     /// The first line of the text: the lines deleted above the file's first, if any.
     pub(super) fn first_line(&self) -> TextLine {
         match self.deleted_at(0) {
@@ -813,10 +836,10 @@ impl App {
         })
     }
 
-    /// Screen rows of line `l`: its ghosts (review mode, drawn above the text) and then its
-    /// wrapped rows. A `(line, row)` pair counts rows from the first ghost; `lines.len()` has
-    /// the ghosts deleted at the end of the file only.
     pub fn row_count(&self, l: usize) -> usize {
+        if self.hidden(l) {
+            return 0;
+        }
         let text = match l < self.buf.lines.len() {
             true => self.rows(l).len(),
             false => 0,
@@ -949,9 +972,6 @@ pub(crate) fn prev_char(s: &str, i: usize) -> usize {
         .map_or(0, |g| i - g.len())
 }
 
-/// Whether a line `search::bindings` gave for `name` is an import, or the declaration of a class,
-/// a function or a namespace of that name: what a value of the name would hide, and no value
-/// itself. `Outer.Inner` reads a declaration, not a member.
 fn names_itself(kind: Kind, line: &str, name: &str) -> bool {
     let t = line.trim_start();
     let t = t.strip_prefix("export ").unwrap_or(t);
@@ -973,7 +993,9 @@ fn names_itself(kind: Kind, line: &str, name: &str) -> bool {
         rest.strip_prefix(name)
             .is_some_and(|after| !after.starts_with(is_word))
     });
-    declares || import_line(kind, line)
+    declares
+        || import_line(kind, line)
+        || kind == Kind::Swift && search::swift_local_decl(line, name)
 }
 
 /// Whether `line` is an import in a language whose imports start with a word: `from ` only in

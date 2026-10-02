@@ -50,7 +50,7 @@ wait Tutor 1/
 
 
 
-Tutor 1/22 · Open a file
+Tutor 1/23 · Open a file
 Press `o` (or Ctrl+E), type `store`, and press Enter to open store.py.
 
 merl-tutor-NNNNN/  [code]                                                                                                                                                         ? help

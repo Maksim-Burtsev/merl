@@ -67,8 +67,6 @@ impl App {
         let mut hits: Vec<Hit> = (hits.into_iter())
             .filter(|h| search::qualified(kind, &text, h.line, word) == within)
             .collect();
-        // What the class does not declare itself, its bases may (#340), read as the typed walk
-        // reads them: `User.objects` is `AbstractUser`'s.
         if hits.is_empty()
             && let Some(class) = self.outside_class(Path::new(""), path, std::slice::from_ref(name))
             && let Some(declared) = search::type_name(kind, &class.text)
@@ -148,14 +146,6 @@ impl App {
         found
     }
 
-    /// What the Python module `module` outside the project holds as `name` (#329): its top-level
-    /// declarations, else what its module-level imports of the name lead to, as `handed_on`
-    /// follows the project's: `from x import name`, `from x import y as name`, `from x import *`,
-    /// relative ones against the module's own package. Every source is followed. A source with no
-    /// file, a compiled `_io`, ends the walk on the line of the import that binds the name. A
-    /// name the module binds in any other way is not followed, and one no line binds, which a
-    /// `__getattr__` may make up, leads nowhere.
-    /// ponytail: four modules deep, which also ends a cycle.
     pub(super) fn outside_handed_on(
         &self,
         module: &[String],
@@ -209,7 +199,6 @@ impl App {
             };
             let more = match self.walked_module(&path) {
                 Some(_) => self.outside_handed_on(&path, &taken, depth + 1),
-                // Compiled: the import is as far as the source goes.
                 None if bound != "*" => python_import_line(&text, name)
                     .map(|line| Candidate {
                         hit: Hit {
@@ -237,11 +226,6 @@ impl App {
         found
     }
 
-    /// The one class outside the project that `parts`, a type written in `file`, names through
-    /// `path`, what an import of the file binds its first part to (#340): the module lookup
-    /// outside of #329, re-exports followed. A relative import of a file outside is read against
-    /// its own package. Two declarations, or one that is no class, prove nothing. Only among the
-    /// files outside already walked: the typed walk walks them first.
     pub(super) fn outside_class(
         &self,
         file: &Path,
@@ -373,9 +357,6 @@ pub(super) fn python_functions(text: &str, line: usize) -> Vec<usize> {
     }
     out
 }
-/// The module path `path`, as an import in `file`, the module `module`, writes it, made absolute:
-/// a relative one is read against the module's own package, the module itself when it is one.
-/// `None` for a path that climbs past the top, or names nothing.
 pub(super) fn python_absolute(
     file: &Path,
     module: &[String],
@@ -389,8 +370,6 @@ pub(super) fn python_absolute(
     }
     (!path.is_empty()).then_some(path)
 }
-/// The 1-based line `name` is written on in the first module-level `from … import` of `text`
-/// that binds it, one wrapped in brackets over several lines included.
 fn python_import_line(text: &str, name: &str) -> Option<usize> {
     static FROM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?m)^from\s+[\w.]+\s+import\s+(\([^)]*\)|[^\n]+)").unwrap()

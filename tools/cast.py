@@ -11,12 +11,14 @@ CARGO_TARGET_DIR -- worktrees sharing a target dir hand you a stale binary.
 The steps file is one verb per line, `#` comments and blank lines ignored:
 
     wait store.py      poll the pane until the text shows up (10 s, then fail)
-    key Down Down d    tmux key names, several per line
-    type Duration      the literal characters, one keystroke at a time
+    key Down Down d    tmux key names, several per line, a person's pace apart (--key-delay);
+                       each shows in a keycap in the bottom right corner while it acts
+    type Duration      the literal characters, at typing speed (--type-delay); no keycap
     sleep 0.8          seconds
 
 The pane is sampled on a timer and identical frames are merged, so the GIF keeps the real
-timing of the run instead of one frame per keystroke. Keep a recording under ~15 s.
+timing of the run instead of one frame per keystroke. Keep a recording under ~15 s. How to walk
+the code in one, AGENTS.md `## Screencasts` says.
 
 Record outside the repository. merl walks up to the project root, so a sample project inside
 the checkout puts merl's own tree in the shot and makes `s` grep thousands of files -- the UI
@@ -53,6 +55,12 @@ SEGMENTS = {"│": "ud", "┃": "ud", "─": "lr", "━": "lr", "┌": "dr", "�
             "├": "udr", "┤": "udl", "┬": "dlr", "┴": "ulr", "┼": "udlr",
             "╭": "dr", "╮": "dl", "╰": "ur", "╯": "ul"}
 SGR = re.compile(r"\x1b\[([0-9;]*)m")
+HOLD = 1.5
+CAPS = {"M-Right": "⌥→", "M-Left": "⌥←", "Right": "→", "Left": "←", "Down": "↓", "Up": "↑",
+        "Enter": "Enter", "Escape": "Esc", "Tab": "Tab", "BSpace": "⌫", "C-d": "Ctrl+D",
+        "C-u": "Ctrl+U", "C-End": "Ctrl+End", "C-Home": "Ctrl+Home", "PageDown": "PgDn",
+        "PageUp": "PgUp", "S-Up": "⇧↑", "S-Down": "⇧↓"}
+SANS = "/System/Library/Fonts/SFNS.ttf"
 
 
 def use_ghostty(theme):
@@ -174,6 +182,25 @@ def render(grid, cursor, fonts, cell):
     return img
 
 
+def draw_cap(frame, key, scale, above, opacity=1.0):
+    if not key:
+        return frame
+    font = ImageFont.truetype(SANS, round(44 * scale))
+    font.set_variation_by_name("Semibold")
+    label = CAPS.get(key, key)
+    layer = Image.new("RGBA", frame.size)
+    d = ImageDraw.Draw(layer)
+    h = round(88 * scale)
+    w = max(h, round(d.textlength(label, font=font) + h * 0.55))
+    x = frame.width - round(20 * scale) - w
+    y = frame.height - above - round(14 * scale) - h
+    a = lambda v: round(v * opacity)
+    d.rounded_rectangle((x, y, x + w, y + h), round(h * 0.2), fill=(47, 51, 77, a(250)),
+                        outline=(130, 139, 184, a(160)), width=max(2, round(1.2 * scale)))
+    d.text((x + w / 2, y + h / 2), label, font=font, fill=(230, 235, 255, a(255)), anchor="mm")
+    return Image.alpha_composite(frame.convert("RGBA"), layer).convert("RGB")
+
+
 class Pane:
     """A merl running on a tmux socket of its own, with an empty HOME so the user's config and
     themes stay out of the recording."""
@@ -209,9 +236,8 @@ class Pane:
         shutil.rmtree(self.home, ignore_errors=True)
 
 
-def run(pane, steps, fps, key_delay, tail):
-    """Feed the steps to the pane while a timer samples it, and give back (frame, seconds) pairs."""
-    shots, stop = [], threading.Event()
+def run(pane, steps, fps, key_delay, type_delay, tail):
+    shots, presses, stop = [], [], threading.Event()
     # Leading waits are the app starting up; sampling them would open the GIF on a blank pane.
     while steps and steps[0].split(" ")[0] in ("wait", "sleep"):
         verb, _, rest = steps.pop(0).partition(" ")
@@ -236,25 +262,30 @@ def run(pane, steps, fps, key_delay, tail):
             time.sleep(float(rest))
         elif verb == "key":
             for key in rest.split():
+                presses.append((time.monotonic(), key))
                 pane.tmux("send-keys", "-t", "0", key)
                 time.sleep(key_delay)
         elif verb == "type":
             for char in rest:
                 pane.tmux("send-keys", "-t", "0", "-l", char)
-                time.sleep(key_delay)
+                time.sleep(type_delay)
         else:
             sys.exit("step %r: expected wait, key, type or sleep" % line)
     time.sleep(tail)
     stop.set()
     thread.join()
 
+    def cap(when):
+        last = next((p for p in reversed(presses) if p[0] <= when), None)
+        return last[1] if last and when - last[0] < HOLD else None
+
     merged = []
     for i, (when, frame) in enumerate(shots):
         end = shots[i + 1][0] if i + 1 < len(shots) else when + 1 / fps
-        if merged and merged[-1][0] == frame:
-            merged[-1][1] += end - when
+        if merged and merged[-1][:2] == [frame, cap(when)]:
+            merged[-1][2] += end - when
         else:
-            merged.append([frame, end - when])
+            merged.append([frame, cap(when), end - when])
     return merged
 
 
@@ -284,7 +315,9 @@ def main():
     p.add_argument("--size", default="90x20", help="pane in cells (default: 90x20)")
     p.add_argument("--font-size", type=int, default=FONT_SIZE)
     p.add_argument("--fps", type=float, default=10)
-    p.add_argument("--key-delay", type=float, default=0.12, help="pause after each keystroke")
+    p.add_argument("--key-delay", type=float, default=0.35,
+                   help="pause after each `key` keystroke: a person's pace, the eye follows it")
+    p.add_argument("--type-delay", type=float, default=0.12, help="pause after each typed char")
     p.add_argument("--tail", type=float, default=1.2, help="seconds held on the last frame")
     p.add_argument("--ghostty", metavar="THEME",
                    help="the terminal's colours from this Ghostty theme (default: TokyoNight Moon)")
@@ -312,7 +345,7 @@ def main():
     cols, rows = (int(n) for n in args.size.split("x"))
     pane = Pane(args.bin, merl_args, args.project, cols, rows)
     try:
-        frames = run(pane, steps, args.fps, args.key_delay, args.tail)
+        frames = run(pane, steps, args.fps, args.key_delay, args.type_delay, args.tail)
     finally:
         pane.close()
 
@@ -320,13 +353,16 @@ def main():
     ascent, descent = fonts[0].getmetrics()
     cell = (round(fonts[0].getlength("M")), ascent + descent)
     images, durations = [], []
-    for (capture, cursor), seconds in frames:
+    for (capture, cursor), key, seconds in frames:
         x, y, shown = (int(n) for n in cursor.split(","))
-        images.append(render(parse(capture, cols, rows), (x, y) if shown else None, fonts, cell))
+        image = render(parse(capture, cols, rows), (x, y) if shown else None, fonts, cell)
+        images.append(draw_cap(image, key, args.font_size / 18, cell[1]))
         durations.append(max(30, round(seconds * 1000)))
     save_gif(images, durations, args.out)
     if args.selftest:
         assert len(images) >= 5, "%d frames: the typing never reached merl" % len(images)
+        keys = [key for _, key, _ in frames]
+        assert "s" in keys and keys[-1] is None, "the keycap: %r" % keys
         written = Image.open(args.out)
         assert written.n_frames == len(images)
         written.seek(written.n_frames - 1)

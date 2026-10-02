@@ -53,9 +53,6 @@ fn python_roots_read_the_venv_and_never_run_it() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #329. Under a venv, the base interpreter's `site-packages` is not the venv's: the walk of the
-/// standard library skips it, unless `pyvenv.cfg` includes the system packages, which then come
-/// after the venv's own. A root inside another is walked once, in its own place.
 #[test]
 fn python_base_packages_are_the_venvs_only_when_it_says_so() {
     let (dir, _) = scratch(
@@ -107,8 +104,6 @@ fn python_base_packages_are_the_venvs_only_when_it_says_so() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #329. A root inside another, whatever it is called, lists each of its files once, in its own
-/// place in the order.
 #[test]
 fn a_root_inside_another_is_walked_once() {
     let (dir, _) = scratch(
