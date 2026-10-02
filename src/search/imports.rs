@@ -25,11 +25,6 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
     }
     imports_as_written(kind, text)
 }
-/// The module a word in the module path of a Python import line names (#333), when byte `at` of
-/// `line` is in that path: the path's parts up to and including the word. `from app.repos import
-/// X` on `repos` is `[app, repos]`, `import a.b as c, d` on `a` is `[a]`, and a relative `from
-/// ..x.y import z` on `x` keeps its dots as the first part, `["..", "x"]`. `None` on an imported
-/// name, an alias, or any other line.
 pub fn python_import_module(line: &str, at: usize) -> Option<Vec<String>> {
     static FROM: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^\s*from\s+([\w.]+)\s+import\b").unwrap());
@@ -77,18 +72,12 @@ pub fn python_import_module(line: &str, at: usize) -> Option<Vec<String>> {
     }
     Some(parts)
 }
-/// A TypeScript `import … from`, `require` or `import x = require`: the clause (one of the first
-/// three groups), the module, and after a `require(…)` what follows its `)`: a `.name` it takes,
-/// and a last `(`, `[` or `.` when the value is used further (#328).
 static TS_IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(
         r#"(?ms)^\s*(?:import\s+(?:type\s+)?([^'"]*?)\s*from\s*|(?:const|let|var)\s+([^=]+?)\s*=\s*(?:await\s+)?(?:require|import)\s*\(\s*|import\s+([\w$]+)\s*=\s*require\s*\(\s*)['"]([^'"]+)['"](\s*\)(?:\s*\.\s*[\w$]+)?\s*[(\[.]?)?"#,
     )
     .unwrap()
 });
-/// `text` with each declarator on a continuation line of a TypeScript `const`, `let` or `var`
-/// statement written as a statement of its own, `var more = require("./m"),`, so that
-/// [`TS_IMPORT`] reads it (#328). The lines stay where they are.
 fn ts_continued(text: &str) -> std::borrow::Cow<'_, str> {
     if !text.contains("require") {
         return text.into();
@@ -179,7 +168,6 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
                     if relative.len() < module.len() {
                         base.insert(0, ".".repeat(module.len() - relative.len()));
                     }
-                    // A comment is no name, whatever commas or brackets it holds (#280).
                     let names: Vec<&str> = names
                         .as_str()
                         .lines()
@@ -198,7 +186,6 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
                         }
                     }
                 } else if let Some(list) = c.get(3) {
-                    // Nor after a plain `import` (#298).
                     let list = list.as_str().split('#').next().unwrap_or_default();
                     for item in list.split(',') {
                         if let Some((alias, name)) = bound(item.trim()) {
@@ -260,8 +247,6 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
             let text = ts_continued(text);
             for c in TS_IMPORT.captures_iter(&text) {
                 let module = &c[4];
-                // `require("debug")("app")` is what the module's value returns, no import of it;
-                // `require("./x").Name` takes the module's `Name` (#328).
                 let after = c.get(5).map_or("", |m| m.as_str()).trim_end();
                 if after.ends_with(['(', '[', '.']) {
                     continue;
@@ -299,7 +284,6 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
                 for item in named.split(',') {
                     let item = item.trim();
                     let item = item.strip_prefix("type ").unwrap_or(item);
-                    // A destructuring renames with `:`, `const { a: b } = require("./x")` (#328).
                     if let Some((name, alias)) = item.split_once(':') {
                         let (name, alias) = (name.trim(), alias.trim());
                         if !name.is_empty() && !alias.is_empty() {
@@ -389,7 +373,6 @@ pub fn declares_wrapped_generic(text: &str, line: usize) -> bool {
         rest.starts_with(':') || rest.starts_with('{')
     })
 }
-/// The name `export default Name;` hands out, when it is a bare name (#335).
 pub fn default_name(line: &str) -> Option<String> {
     static DEFAULT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*export\s+default\s+([A-Za-z_$][\w$]*)\s*;?\s*$").unwrap()
@@ -397,9 +380,6 @@ pub fn default_name(line: &str) -> Option<String> {
     let name = DEFAULT.captures(line)?[1].to_owned();
     (!matches!(name.as_str(), "class" | "function" | "async" | "abstract")).then_some(name)
 }
-/// The class a TypeScript module's default export is an instance of (#341): `export default new
-/// C(…)`, or `export default name;` over `const name = new C(…)`. Any other default export, a
-/// call, an object or a function, is none.
 pub fn default_class(text: &str) -> Option<String> {
     static NEW: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?m)^\s*export\s+default\s+new\s+([A-Za-z_$][\w$]*)\s*\(").unwrap()
@@ -415,11 +395,6 @@ pub fn default_class(text: &str) -> Option<String> {
     .ok()?;
     Some(bound.captures(text)?[1].to_owned())
 }
-/// What a CommonJS module hands out as a whole (#328): the 1-based line of its one
-/// `module.exports = …`, and the name it assigns when that is a bare name, as `module.exports =
-/// Segment;` does. The outer `None` is a module that says nothing of `module.exports` or
-/// `exports`, an ES module; the inner one a module that assigns `module.exports` more than once or
-/// builds it with `exports.x = …` lines, where nothing is known of the whole.
 pub fn module_exports(text: &str) -> Option<Option<(usize, Option<String>)>> {
     static WHOLE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?m)^[ \t]*module\.exports\s*=\s*([^=\n][^\n]*)$").unwrap()
@@ -452,12 +427,6 @@ pub fn ts_method_head(word: &str) -> Regex {
     ))
     .expect("an escaped name keeps the pattern valid")
 }
-/// Whether 1-based `line`, a TypeScript line shaped like a method header `word(…`, is
-/// a call statement instead (#343): one of its arguments is what no parameter is (a
-/// string, a number, a bracket, a callback, `this.x`), or, wrapped after its `(`, the line that
-/// closes it, back at its indent, goes on as no body and no return type (`);`, `),`, `).x`), as
-/// [`declares_wrapped_generic`] tells for `word<`.
-///
 /// `head` is [`ts_method_head`] of the word, `l` the line, and `text` reads the file, only for a
 /// line that ends in its `(`.
 pub fn ts_call_statement(
@@ -564,9 +533,6 @@ pub fn reexports(text: &str, name: &str) -> Vec<Vec<String>> {
         .map(|(module, _)| module)
         .collect()
 }
-/// What a TypeScript barrel hands `name` on from (#335): each module, as [`imports`] spells one,
-/// with what it takes there, as an import path ends: `name` for `export { name }` and `export *`,
-/// `x` for `export { x as name }`, `default` for `export { default as name }`.
 pub fn reexported(text: &str, name: &str) -> Vec<(Vec<String>, String)> {
     static EXPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#"(?m)^\s*export\s+(?:type\s+)?(\*|\{[^}]*\})\s*from\s*['"]([^'"]+)['"]"#)
@@ -1103,10 +1069,6 @@ pub fn module_among<P: AsRef<Path> + Clone>(
         (!found.is_empty()).then_some((n, found))
     })
 }
-/// Whether the Go file `path` is of the package imported as `parts` (#100): a Go package is one
-/// directory, so the file's own directory ends with the import path, and `database/sql` is not
-/// `database/sql/driver`. A path with no dot in its first part is the standard library's, which
-/// sits right under GOROOT's `src` (or a `vendor` there): `errors` is not `github.com/pkg/errors`.
 pub fn in_package(path: &Path, parts: &[String]) -> bool {
     let dirs: Vec<String> = path
         .parent()
