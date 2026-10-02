@@ -246,6 +246,15 @@ function by name, `let` bindings named `api` in two files (each stays in its own
 path, each refusal of the issue, and declaration-shaped lines in indented strings (one opened
 after `//`, one holding the `'''`, `''$` and `''\` escapes), a `"…"`, a `/* */` and a `#` comment.
 
+`yaml/api/` (#435) is an OpenAPI description over two files and two JSON Schemas, for `d` on a
+`$ref`: a pointer into the same file past a namesake key, one into another file (on each word of
+the reference and on its punctuation), a whole file, an escaped path key, a quoted status code,
+an item index, a `discriminator.mapping` value, an `$anchor`, a URL a file declares as its `$id`
+and one none does, and the refusals: a `$ref` in a block scalar and in a comment, a flow-style
+value and a missing key, which fall back to the YAML rules. A backtick in a description stands
+above the anchor it must not hide. The `.json` files carry `//` annotations: the walk skips them
+as JSONC comments, and the annotation test reads `.json` files though they have no kind.
+
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
 `deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies
 the project walk does not reach, one whose module is no path and two declaring one name (#437).

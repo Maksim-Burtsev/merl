@@ -31,6 +31,7 @@ mod edit;
 mod external;
 mod find;
 mod imported;
+mod json_ref;
 mod jvm;
 mod jvm_typed;
 mod keys;

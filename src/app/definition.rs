@@ -74,9 +74,8 @@ impl App {
             self.definition_at_base(path, line);
             return;
         }
-        // A class or an id of markup, and HTML and the stylesheets, read as #415 says.
         if let Some(here) = self.rel_current()
-            && self.css_definition(kind, &here)
+            && (self.follow_ref(&here) || self.css_definition(kind, &here))
         {
             return;
         }
