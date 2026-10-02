@@ -84,7 +84,6 @@ impl App {
         true
     }
 
-    /// "no definition for" the word under the cursor, read with `-`.
     fn no_definition(&mut self, line: &str) {
         self.message = match search::word_at(line, self.col, "-") {
             Some((_, word)) => resolution(word, None, &[], None, false),

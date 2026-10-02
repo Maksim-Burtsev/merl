@@ -839,7 +839,6 @@ struct Level {
     on: (PathBuf, usize),
 }
 
-/// Whether two proven types are one.
 fn same(a: &CsType, b: &CsType) -> bool {
     match (a, b) {
         (CsType::Project(a), CsType::Project(b)) => a.path == b.path && a.line == b.line,

@@ -465,7 +465,6 @@ impl App {
                 call_re.is_match(&h.text) || is_class(h) || component.is_match(&h.text)
             });
         }
-        // The argument count.
         let Some((count, angle)) = arguments(&self.buf.lines, self.line, range.end) else {
             return hits;
         };

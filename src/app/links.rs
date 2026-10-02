@@ -6,7 +6,6 @@ use super::*;
 use search::MdAt;
 
 impl App {
-    /// `d` in the Markdown file `here`: what the cursor stands on, followed.
     pub(super) fn follow_markdown(&mut self, here: &Path) {
         // On a deleted line of a review, that line is read where it is drawn.
         let mut lines: Vec<&str> = self.buf.lines.iter().map(String::as_str).collect();
@@ -133,7 +132,6 @@ impl App {
         }
     }
 
-    /// Opens `path` at `line` and says `status`, unless the jump was refused and said why.
     pub(super) fn open_link(&mut self, path: &Path, line: usize, status: String) {
         self.jump_to(path, line);
         if self.buf.path.as_deref() == Some(path) {

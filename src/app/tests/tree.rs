@@ -1,5 +1,3 @@
-//! The file tree and the new file prompt.
-
 use super::*;
 
 #[test]
@@ -12,10 +10,12 @@ fn tree_focus_keys_do_not_move_the_code_cursor() {
     assert_eq!(a.focus, Focus::Code);
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);
     assert_eq!(a.line, 1);
-    // `t` hides the tree and hands the keys to the code pane for good.
     a.focus = Focus::Tree;
     press(&mut a, KeyCode::Char('t'), KeyModifiers::NONE);
-    assert!(!a.show_tree);
+    assert!(
+        !a.show_tree,
+        "`t` hides the tree and hands the keys to the code pane for good"
+    );
     assert_eq!(a.focus, Focus::Code);
     press(&mut a, KeyCode::Tab, KeyModifiers::NONE);
     assert_eq!(a.focus, Focus::Code);
@@ -52,14 +52,19 @@ fn ctrl_n_creates_a_file_next_to_the_open_one_and_edits_it() {
     let made = dir.join("src/sub/b.py");
     assert_eq!(std::fs::read_to_string(&made).unwrap(), "");
     assert_eq!((a.buf.path.as_deref(), a.mode), (Some(&*made), Mode::Edit));
-    // In the file list and the tree at once, with no watcher to wait for.
     let rel = Path::new("src/sub/b.py");
-    assert!(a.files.iter().any(|f| f == rel));
+    assert!(
+        a.files.iter().any(|f| f == rel),
+        "in the file list and the tree at once, with no watcher to wait for"
+    );
     assert_eq!(a.tree.selected().map(|n| &*n.path), Some(rel));
-    // `[` is the way back.
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
-    assert_eq!(a.buf.path.as_deref(), Some(&*dir.join("src/a.py")));
+    assert_eq!(
+        a.buf.path.as_deref(),
+        Some(&*dir.join("src/a.py")),
+        "`[` is the way back"
+    );
 }
 
 #[test]
@@ -109,9 +114,12 @@ fn ctrl_n_never_overwrites_and_never_leaves_the_project() {
         typed(a, path);
         press(a, KeyCode::Enter, KeyModifiers::NONE);
     };
-    // A file that is there opens as it is.
     new(&mut a, "README.md");
-    assert_eq!(a.buf.path.as_deref(), Some(&*dir.join("README.md")));
+    assert_eq!(
+        a.buf.path.as_deref(),
+        Some(&*dir.join("README.md")),
+        "a file that is there opens as it is"
+    );
     assert_eq!(
         std::fs::read_to_string(dir.join("README.md")).unwrap(),
         "hi\n"
@@ -127,9 +135,8 @@ fn ctrl_n_never_overwrites_and_never_leaves_the_project() {
         assert_eq!(a.message, why, "{path}");
     }
     assert!(!dir.parent().unwrap().join("out.py").exists());
-    // An empty prompt is a cancel, as in `:`.
     new(&mut a, "");
-    assert_eq!(a.message, "");
+    assert_eq!(a.message, "", "an empty prompt is a cancel, as in `:`");
 }
 
 /// #404: the directories on the typed path that exist are resolved, links included. A link out
@@ -159,11 +166,13 @@ fn ctrl_n_resolves_the_links_on_the_path() {
         assert_eq!(a.message, "outside the project", "{path}");
     }
     assert_eq!(std::fs::read_dir(&outside).unwrap().count(), 0);
-    // A link to a file out there is refused as well, not opened (#448).
     std::fs::write(outside.join("far.py"), "far = 1\n").unwrap();
     std::os::unix::fs::symlink(outside.join("far.py"), dir.join("far.py")).unwrap();
     new(&mut a, "far.py");
-    assert_eq!(a.message, "outside the project");
+    assert_eq!(
+        a.message, "outside the project",
+        "a link to a file out there is refused as well, not opened (#448)"
+    );
     assert_eq!(a.buf.path.as_deref(), Some(&*dir.join("src/a.py")));
     new(&mut a, "inside/b.py");
     let made = dir.join("src/b.py");

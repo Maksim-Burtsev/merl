@@ -418,7 +418,6 @@ impl App {
             return Some(found);
         }
         let hits = self.host_built(kind, hits);
-        // A file, or a Go package's directory.
         let label = |hit: &Hit| match (kind, hit.path.parent()) {
             (Kind::Go, Some(dir)) if dir != Path::new("") => format!("{}/", dir.display()),
             (Kind::Go, _) => "./".to_owned(),

@@ -1,5 +1,3 @@
-//! `u` / Shift+F12: every occurrence of the identifier under the cursor.
-
 use super::*;
 
 impl App {
