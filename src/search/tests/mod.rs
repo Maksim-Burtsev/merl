@@ -14,6 +14,7 @@ mod defs;
 mod fields;
 mod go;
 mod grep;
+mod haskell;
 mod imports;
 mod links;
 mod nix;

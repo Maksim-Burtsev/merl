@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `d`, `u` and `D` in Haskell, where `d` said `no rules for .hs`. `d` on `formatPrice` behind
+  `import Shop.Money (Money (..), formatPrice)` lands on its signature in `src/Shop/Money.hs`,
+  `formatPrice: via import src/Shop/Money.hs`; on a `go` a `where` binds, on that `go` in the same
+  file, `go: local`, never another module's; on `lookup` in `Map.lookup` behind
+  `import qualified Data.Map as Map`, `no definition for lookup`, never the project's own `lookup`.
+  `D` lists signatures, functions with none, `data`, `newtype`, `type`, `class` and `pattern`, and
+  `u` reads `foldl'` as one name. (#426)
+
 ## [0.8.1] - 2026-10-02
 
 ### Added

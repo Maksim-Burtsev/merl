@@ -30,6 +30,7 @@ mod definition;
 mod edit;
 mod external;
 mod find;
+mod haskell;
 mod imported;
 mod jvm;
 mod jvm_typed;

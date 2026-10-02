@@ -14,6 +14,7 @@ mod edit;
 mod edit_fuzz;
 mod find;
 mod fold_bench;
+mod haskell;
 mod keys;
 mod missed;
 mod navigate;

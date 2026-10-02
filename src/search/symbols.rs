@@ -413,6 +413,10 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::Cmake), CMAKE_FUNCTION_SYMBOL),
     (Some(Kind::Cmake), CMAKE_TARGET_SYMBOL),
     (Some(Kind::Nix), NIX_FUNCTION_SYMBOL),
+    (Some(Kind::Haskell), HASKELL_TYPE_SYMBOL),
+    (Some(Kind::Haskell), HASKELL_PATTERN_SYMBOL),
+    (Some(Kind::Haskell), HASKELL_SIGNATURE_SYMBOL),
+    (Some(Kind::Haskell), HASKELL_EQUATION_SYMBOL),
     // Every `CREATE` object, with the name as written, schema and quotes included. CTEs are a
     // query's own scaffolding, not a symbol of the project, so they are left out.
     (Some(Kind::Sql), SQL_CREATE_SYMBOL),
@@ -515,6 +519,7 @@ pub fn shared_symbols(kind: Option<Kind>) -> bool {
                 | Kind::Dart
                 | Kind::Cmake
                 | Kind::Nix
+                | Kind::Haskell
         )
     )
 }
