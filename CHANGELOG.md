@@ -7,8 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.8.1] - 2026-10-02
-
 ### Added
 
 - `d`, `u` and `D` in Erlang (`.erl`, `.hrl`, `.escript`), searched with Elixir as one kind,
@@ -19,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   header. A local call lands on the clauses of its own module or of the one its `-import` names. Mix's `deps/`, rebar3's
   `_build/default/lib` and the sources of the installed OTP are searched too. `D` lists modules,
   records, macros, types and function clauses. (#425)
+
+## [0.8.1] - 2026-10-02
+
+### Added
+
 - `f` folds Python code into one line ending in `⋯`: on a line that opens a construct it folds
   that construct (`def`, `class`, `if` / `elif` / `else`, `for`, `while`, `with`, `try` /
   `except` / `finally`, `match` / `case`, a call, list or dict wrapped over lines, a docstring, a
