@@ -32,7 +32,7 @@ For each branch:
    names another base, use that. Read the diff from these
    refs. Do not switch, check out, reset or stash anything: the working tree is the user's, and
    merl checks the branch out itself when they open it.
-2. Read the change and decide the order to read it in (see "A good order").
+2. Decide the order (see "The order").
 3. Write the order to `$(git rev-parse --git-common-dir)/merl/review/BRANCH`, the branch name
    with its slashes (`.git/merl/review/feat/paging`). Create the directories. The first line is
    `# commit SHA`, the commit of `origin/BRANCH` you read; then the paths, one per line.
@@ -72,14 +72,19 @@ cannot interleave the files of two directories (`src/a`, `tests/a`, `src/b` show
 then `tests/`). Files you leave out come after the listed ones, in the usual order, so nothing is
 ever hidden. A path that is not in the tree or the branch is ignored.
 
-## A good order
+## The order
 
-- What is used comes before what uses it: a type or a function before its callers.
-- The heart of the change first; mechanical changes (a parameter passed through, a rename),
-  docs, the changelog and generated files last.
-- Tests right after the code they test, as far as the directories allow.
-- In a project to read: what it is (README), its entry point, the core, the data it passes
-  around, then the edges (I/O, CLI, alternatives), then support code.
+The user reads the change once, top to bottom of merl's panel, and by the last file should
+have the whole picture: what changed and, between the lines, why. Order the files so the
+change unfolds in sequence, like a story. A story usually starts where the change shows from
+the outside (an endpoint, a command, a screen) and goes inward, toward the data; tests,
+wiring and docs come after it, and what is not part of the story goes last, under a `#`
+note. Look at as much of the change as you need to decide. Often no order is the single
+right one; pick one that reads well. merl keeps a directory's files together, so a directory
+is a chapter.
+
+A project to read is the same at the scale of the system: by the last file the user knows
+how it works.
 
 ## Also
 
