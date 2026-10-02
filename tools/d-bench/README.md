@@ -1,7 +1,7 @@
 # `d` bench
 
-How often `d` lands where a language server would, per language, in 14 real projects pinned to a
-commit: 3,140 cursors, each with an answer recorded once and reviewed, and the table master
+How often `d` lands where a language server would, per language, in 15 real projects pinned to a
+commit: 3,240 cursors, each with an answer recorded once and reviewed, and the table master
 scores on them (`baseline.md`). A `d` change runs it and shows no language worse than master
 (`AGENTS.md`, `## Changing d`).
 
@@ -73,6 +73,14 @@ Examples,Tests,WebImage,Docs,Scripts,SDWebImageMapKit,include` (`include/` links
 `Core/`). Java, Kotlin, C#
 and Ruby had no server on the recording machine: an agent judged their cursors by reading the
 code, and a definition outside the project (the JDK, a gem) is `no-answer` there.
+
+Nix (nix-darwin, 2026-10-02) was judged the same way: `nil` and `nixd` both need `nix` itself,
+`nil` already to build. A name a function argument, a `let` or an `inherit (lib)` binds answers
+with that binding; `cfg.enable` with the option's `mkOption` line (`cfg = config.services.x`); a
+path literal (sampled as shape `path`) with its file, or a directory's `default.nix`. A name from
+nixpkgs (`lib.mkIf`, `types.str`, `with lib;`), or from `builtins`, is outside the project and
+`no-answer`; an option namespace (`config.system`) or an attribute several modules set
+(`environment.variables.X`) is `skip`. A lambda argument used on its own line scores as `on-decl`.
 
 After recording, review every cursor where merl and the oracle disagree (`WRONG`, `pick-miss`,
 `none` in `last-score.tsv`) and mark the oracle's debatable answers `skip` with the reason: a
