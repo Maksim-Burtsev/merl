@@ -1,0 +1,5 @@
+name = "Shop"
+uuid = "6b1f8a52-3c1e-4f0a-9d55-2b7f3e1c0a42"
+
+[deps]
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"

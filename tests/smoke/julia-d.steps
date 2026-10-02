@@ -1,0 +1,21 @@
+# julia-d: d in Julia (#429). A one-line method the report calls lands on its line in
+# src/money.jl, and a name the function assigns is local. The files are written here, not in the
+# project, which every other scenario counts the files of.
+merl
+wait Open a file (fuzzy)
+run mkdir -p jlshop/src jlshop/scripts && printf 'struct Money\n    cents::Int\nend\n\nformat_price(m::Money) = string("$", m.cents / 100)\n' > jlshop/src/money.jl && printf 'include("../src/money.jl")\n\nfunction report(xs)\n    m = Money(sum(xs))\n    println(format_price(m))\nend\n' > jlshop/scripts/report.jl
+key q
+wait merl exited: 0
+merl jlshop/scripts/report.jl
+wait function report
+key /
+type format_price
+key Enter d
+wait format_price: by name, 1 match
+merl jlshop/scripts/report.jl
+wait function report
+key /
+type price(m
+key Enter Right Right Right Right Right Right d
+wait report.m (local)
+key Escape

@@ -641,6 +641,10 @@ pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Ra
         let r = nix_name(line, range);
         return Some((r.clone(), &line[r]));
     }
+    if kind == Some(Kind::Julia) {
+        let r = julia_name(line, start..range.end);
+        return Some((r.clone(), &line[r]));
+    }
     // A Ruby method (#387) and an Elixir function (#459) take their `?` or `!` with them:
     // `empty?` is no `empty`, `ship!` no `ship`. The `!` of a `!=` is the operator's, as in Ruby
     // are `!~` and an instance or global variable, which has no suffix.

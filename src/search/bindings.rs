@@ -185,6 +185,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         Kind::Rust => rust_bindings(&lines, at, name),
         Kind::Elixir => elixir_bindings(&lines, at, name),
         Kind::Nix => nix_bindings(&lines, at, name),
+        Kind::Julia => julia_bindings(&lines, at, name),
         _ => Vec::new(),
     }
 }
@@ -1771,12 +1772,4 @@ fn php_scope(lines: &[String], literal: &[bool], at: usize) -> PhpScope {
         }
     }
     PhpScope::Top
-}
-/// A line of PHP with its strings and its comment blanked out, byte for byte.
-fn php_code(l: &str) -> String {
-    let mut out = vec![b' '; l.len()];
-    for (i, c) in code(Kind::Php, l).take_while(|&(_, c)| c != 0) {
-        out[i] = c;
-    }
-    String::from_utf8_lossy(&out).into_owned()
 }

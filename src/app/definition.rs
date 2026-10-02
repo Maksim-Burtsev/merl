@@ -481,7 +481,7 @@ impl App {
                 || same_line
                 || own_line
                 || own_arrow
-                || matches!(kind, Kind::Rust | Kind::Nix))
+                || matches!(kind, Kind::Rust | Kind::Nix | Kind::Julia))
         {
             let found = locals
                 .iter()
