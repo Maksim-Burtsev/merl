@@ -175,6 +175,28 @@ fn f_folds_python_and_says_so_in_other_languages() {
 }
 
 #[test]
+fn a_block_a_word_opens_folds_from_its_line_with_its_closing_word_shown() {
+    let mut a = app_as("sh", "f() {\n  if a; then\n    b\n  fi\n}\n");
+    a.go((1, 0));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(1, 3)]);
+    assert_eq!(a.collapsed_tail(1), Some("fi"));
+    let mut a = app_as("rb", "def f\n  if a\n    b\n  end\nend\n");
+    a.go((1, 0));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(1, 3)], "the `if`, not `f`");
+    assert_eq!(a.collapsed_tail(1), Some("end"));
+    a.go((0, 0));
+    key(&mut a, KeyCode::Enter);
+    key(&mut a, KeyCode::Enter);
+    assert_eq!(
+        a.collapsed,
+        vec![(2, 4)],
+        "it moves with a line typed above"
+    );
+}
+
+#[test]
 fn the_arrows_step_over_a_fold_and_keep_it() {
     let mut a = app_as("py", PY);
     a.go((1, 0));
@@ -300,13 +322,26 @@ fn a_docstring_folds_from_its_first_line_and_the_class_from_inside_it() {
 }
 
 #[test]
-fn the_python_fixture_folds_as_annotated() {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/folds/python.py");
+fn every_fold_fixture_folds_as_annotated() {
+    for (file, mark) in [
+        ("python.py", "# f: "),
+        ("ruby.rb", "# f: "),
+        ("lua.lua", "-- f: "),
+        ("shell.sh", "# f: "),
+    ] {
+        fixture_folds_as_annotated(file, mark);
+    }
+}
+
+fn fixture_folds_as_annotated(file: &str, mark: &str) {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/folds")
+        .join(file);
     let text = std::fs::read_to_string(&path).unwrap();
-    let mut a = app_as("py", &text);
+    let mut a = app_as(path.extension().unwrap().to_str().unwrap(), &text);
     let mut checked = 0;
     for (l, line) in text.lines().enumerate() {
-        let Some((_, want)) = line.split_once("# f: ") else {
+        let Some((_, want)) = line.split_once(mark) else {
             continue;
         };
         let (h, e) = want.split_once('-').unwrap();
@@ -317,8 +352,13 @@ fn the_python_fixture_folds_as_annotated() {
         a.collapsed.clear();
         a.go((l, 0));
         key(&mut a, KeyCode::Char('f'));
-        assert_eq!(a.collapsed, vec![want], "f on line {}: {line}", l + 1);
+        assert_eq!(
+            a.collapsed,
+            vec![want],
+            "{file}: f on line {}: {line}",
+            l + 1
+        );
         checked += 1;
     }
-    assert!(checked > 50, "{checked} annotations");
+    assert!(checked > 30, "{file}: {checked} annotations");
 }
