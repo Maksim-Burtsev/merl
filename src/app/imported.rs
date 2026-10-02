@@ -24,8 +24,6 @@ impl App {
         self.imported_at(kind, here, word, chain, path, 0)
     }
 
-    /// The package a barrel of the project hands the word on from, `export { x } from
-    /// "lodash"` (#527), when nothing of the project answers the import `path`.
     pub(super) fn barrel_package(
         &self,
         kind: Kind,
@@ -45,9 +43,6 @@ impl App {
         .then_some(package)
     }
 
-    /// The package a TypeScript barrel of the project hands on what the import `path` takes
-    /// (#527), as an import of it is spelled: `["lodash", "x"]` for `export { x } from "lodash"`
-    /// in the module `path` names, or in a barrel that module hands the name on from.
     /// ponytail: four modules deep, which also ends a cycle.
     pub(super) fn package_behind(
         &self,
@@ -120,9 +115,7 @@ impl App {
     ) -> Option<Vec<Candidate>> {
         let module_files =
             |module: &[String]| search::module_files(kind, &self.root, &self.files, here, module);
-        // What a CommonJS module bound whole hands out (#328), [`search::module_exports`].
         let mut exports = None;
-        // The qualifier and its class, when it is an instance the module exports (#341).
         let mut instance = None;
         // The names from the module down to the word: what the import takes, then the chain.
         let tail = |mut names: Vec<String>| {
@@ -132,10 +125,6 @@ impl App {
             }
             names
         };
-        // The word itself names a module of the project (#280): `views` in `from shop import
-        // views`, `shop` in `import shop`. What Python imports: a package over a module of the
-        // same name beside it. Only when nothing the lookup below reads declares or hands on
-        // the name, so what a package's `__init__.py` binds keeps its say.
         let whole_module = || {
             let found = self.module_candidates(self.project_module(here, &tail(path.to_vec())));
             (!found.is_empty()).then_some(found)
@@ -176,10 +165,6 @@ impl App {
                 if files.is_empty() {
                     return None;
                 }
-                // A CommonJS module bound whole, `const X = require("./x")` (#328): `X` is what
-                // its one `module.exports =` hands out, the name it assigns or the line itself,
-                // and `X.member` a member of the class that name declares there. Where it
-                // builds `module.exports` otherwise, only its top-level `X` counts.
                 if taken == "*" {
                     exports = files.iter().find_map(|f| {
                         Some((f.clone(), search::module_exports(&self.text_of(f)?)?))
@@ -211,9 +196,6 @@ impl App {
                         }
                         _ => tail(Vec::new()),
                     },
-                    // An instance the module exports as its default, `export default new
-                    // Environment()`: `env.APP_NAME` is a member of its class (#341). Of any
-                    // other default export what it is called is known only on its own line.
                     "default" if chain.len() == 1 => {
                         match files
                             .iter()
@@ -244,12 +226,6 @@ impl App {
         };
         let wanted = |p: &Path| files.iter().any(|f| f == p);
         let mut patterns = search::def_patterns(kind, name);
-        // In a TypeScript type the import names, a field, a static and an enum member declare
-        // the name too (#341): `static presetColors = …`, `Admin = "admin",`, and so does a key
-        // directly inside a `const X = {` literal, `TwentyFivePerMinute: {`. A `let` or `var`
-        // literal may be reassigned, and one behind a call or a cast (`Object.freeze({`) is
-        // another value: neither declares. A member with no value, `ZOOMED,`, only directly
-        // inside an `enum`, where no array or call's arguments are, or a literal's shorthand.
         let member = kind == Kind::TsJs && inside.len() > 1;
         // What the declaration patterns find is kept as on master, `get(url) {` in `const api =
         // Object.freeze({`: the rules above sort only the hits of the patterns added here.
@@ -319,8 +295,6 @@ impl App {
             hits = self
                 .grep(r"^export\s+default\b", false, false, wanted)
                 .unwrap_or_default();
-            // `import Text from "../shared/Text"; export default Text;` hands on what it imports
-            // (#335): that import is followed. `export default observer(Text)` is what it says.
             if let [hit] = hits.as_slice()
                 && depth < 4
                 && let Some(name) = search::default_name(&hit.text)
@@ -335,14 +309,9 @@ impl App {
                 return Some(found);
             }
         }
-        // A component with no `export default`, a `<script setup>`'s, a Svelte or an Astro one,
-        // is its file (#413).
         if hits.is_empty() && !named && files.iter().all(|f| search::component(f)) {
             return Some(self.module_candidates(files));
         }
-        // A barrel hands the name on (#335): `export { Name } from "./x"`, `export { default as
-        // Name }`, `export { x as Name }`, `export * from "./x"`, each source followed as an
-        // import of it. Several `export *` sources that declare it are a picker.
         // ponytail: four modules deep, which also ends a cycle.
         if hits.is_empty()
             && kind == Kind::TsJs
@@ -383,8 +352,6 @@ impl App {
                 return Some(found);
             }
         }
-        // A Python module of the project that does not declare the name but imports it hands
-        // it on (#100): `from .sessions import open_session` in a package's `__init__.py`.
         // ponytail: four modules deep, which also ends a cycle.
         if hits.is_empty() && kind == Kind::Python && depth < 4 {
             let mut found: Vec<Candidate> = Vec::new();
@@ -418,7 +385,6 @@ impl App {
             return Some(found);
         }
         let hits = self.host_built(kind, hits);
-        // A file, or a Go package's directory.
         let label = |hit: &Hit| match (kind, hit.path.parent()) {
             (Kind::Go, Some(dir)) if dir != Path::new("") => format!("{}/", dir.display()),
             (Kind::Go, _) => "./".to_owned(),
@@ -515,20 +481,16 @@ impl App {
     }
 }
 
-/// The line a TypeScript enum's body opens with (#341).
 static OWNER_ENUM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r"^\s*(?:export\s+)?(?:declare\s+)?(?:const\s+)?enum\s").unwrap()
 });
-/// The line a TypeScript value's body opens with: a `const`, `let` or `var` (#341).
 static OWNER_VALUE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r"^\s*(?:export\s+)?(?:declare\s+)?(?:const|let|var)\s").unwrap()
 });
-/// A `const` bound to an object literal itself, `export const X = {` (#341).
 static OWNER_LITERAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r"^\s*(?:export\s+)?const\s+[\w$]+\s*(?::[^=]+)?=\s*\{\s*$").unwrap()
 });
 
-/// The JavaScript and DOM globals whose members TypeScript's lib and `@types/node` declare (#341).
 pub(super) const JS_GLOBALS: &[&str] = &[
     "JSON",
     "Math",

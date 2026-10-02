@@ -7,7 +7,8 @@ D=${1:-${D_BENCH_SERVERS:-${D_BENCH_CACHE:-$HOME/.cache/merl-d-bench}/servers}}
 mkdir -p "$D/bin"
 cd "$D"
 # typescript@7 on npm has no tsserver.js; typescript-language-server needs it.
-npm install --no-save --prefix "$D" pyright typescript-language-server typescript@6 intelephense
+npm install --no-save --prefix "$D" pyright typescript-language-server typescript@6 intelephense \
+  vscode-langservers-extracted @vue/language-server@2 svelte-language-server @astrojs/language-server
 GOBIN="$D/bin" go install golang.org/x/tools/gopls@latest
 rustup component add rust-analyzer
 ln -sf "$(rustup which rust-analyzer)" "$D/bin-ra"

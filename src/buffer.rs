@@ -20,7 +20,6 @@ const CHECKPOINT: usize = 64;
 const BOM: &[u8] = b"\xEF\xBB\xBF";
 /// How far in we look for a NUL before calling a file binary.
 const SNIFF: usize = 8 * 1024;
-/// Why a binary file is read-only, and how the pane tells it from an empty file (#287).
 const BINARY: &str = "binary file";
 /// ponytail: syntect is sequential, so a huge file would have to be parsed from line 1 before
 /// anything can be drawn. Past these limits merl shows plain text instead of stalling.
@@ -46,9 +45,7 @@ pub struct Buffer {
     /// Why the buffer cannot be edited, when it cannot: what was loaded is not what would be
     /// written back.
     pub readonly: Option<&'static str>,
-    /// The file starts with a [`BOM`].
     bom: bool,
-    /// Lines end with `\r\n` on disk.
     crlf: bool,
     /// The file ends with a line terminator (every sane file does; an empty file does not).
     trailing_newline: bool,
@@ -91,8 +88,6 @@ impl Buffer {
     }
 
     pub fn load(path: &Path) -> Result<Self> {
-        // A FIFO, a socket or a device: reading one can wait forever, whichever way it was
-        // reached (#405). A directory fails the read on its own.
         let meta = std::fs::metadata(path).with_context(|| format!("{}", path.display()))?;
         if !meta.is_file() && !meta.is_dir() {
             // The reason apart from the path, for the status bar to name the file its own way.
@@ -105,8 +100,6 @@ impl Buffer {
 
     pub fn from_bytes(path: PathBuf, bytes: &[u8]) -> Self {
         if bytes[..bytes.len().min(SNIFF)].contains(&0) {
-            // No placeholder text: the pane draws a note instead of lines (#287), and a text
-            // in the lines would pass for the file's content to `/`, `y` and the gutter.
             let mut b = Self::new(Some(path), vec![String::new()], None);
             b.readonly = Some(BINARY);
             return b;
@@ -395,7 +388,6 @@ fn known_name(path: &Path) -> Option<&'static str> {
     known_file(path.file_name()?.to_str()?)
 }
 
-/// [`known_name`] by the file name alone.
 fn known_file(name: &str) -> Option<&'static str> {
     let ext = name.rsplit_once('.').map_or("", |(_, ext)| ext);
     Some(match (name, ext) {
@@ -416,12 +408,8 @@ fn known_file(name: &str) -> Option<&'static str> {
         ("Procfile" | "yarn.lock", _) => "YAML",
         // Starlark.
         ("WORKSPACE" | "Tiltfile", _) => "Python",
-        // bat's set owns `.md` and `.markdown`; MDX is Markdown with JSX in it (#421).
         (_, "mdx") => "Markdown",
-        // bat's set has no Astro grammar: TSX paints its frontmatter and its JSX-like template,
-        // leaving the bodies of `<style>` and `<script>` plain (#413).
         (_, "astro") => "TypeScriptReact",
-        // bat's Scala grammar owns `.scala`, `.sbt` and `.sc`, not Mill's build files (#416).
         (_, "mill") => "Scala",
         _ => return None,
     })
@@ -470,18 +458,16 @@ mod tests {
         for plain in ["", "日本語", "a/../b", "12:15:", ":::"] {
             assert_eq!(name(plain), None, "{plain:?}");
         }
-        // The names blocks use change nothing for files.
         for file in ["x.shell", "x.console", "x.objc"] {
             let b = Buffer::from_bytes(PathBuf::from(file), b"echo hi\n");
             assert_eq!(
                 b.syntax.map(|s| s.name.as_str()),
                 Some("Plain Text"),
-                "{file}"
+                "the names blocks use change nothing for files: {file}"
             );
         }
     }
 
-    /// A block past the source view's limits is drawn plain, as a file past them is.
     #[test]
     fn a_code_block_past_the_limits_is_plain() {
         let many = vec!["x".to_string(); MAX_HL_LINES + 1];
@@ -684,9 +670,12 @@ mod tests {
         b.highlight_to(199, &theme);
         assert_eq!(b.hl.len(), 200);
         assert_ne!(b.hl[150][0].0.fg, b.hl[151][0].0.fg);
-        // Editing below the highlighted prefix forgets nothing.
         b.edited(5000);
-        assert_eq!(b.hl.len(), 200);
+        assert_eq!(
+            b.hl.len(),
+            200,
+            "editing below the highlighted prefix forgets nothing"
+        );
     }
 
     #[test]
@@ -734,8 +723,10 @@ mod tests {
             assert!(!spans.is_empty() || line.is_empty());
             assert!(spans.iter().all(|(_, r)| r.end <= line.len()), "{line:?}");
         }
-        // A comment and a keyword must not end up the same colour.
-        assert_ne!(b.hl[0][0].0.fg, b.hl[1][0].0.fg);
+        assert_ne!(
+            b.hl[0][0].0.fg, b.hl[1][0].0.fg,
+            "a comment and a keyword end up the same colour"
+        );
     }
 
     #[test]
@@ -1147,13 +1138,15 @@ mod tests {
         b.highlight_to(2, &theme);
         assert_eq!(b.hl[1], Vec::new(), "the long line went to syntect");
 
-        // The state carried on, so the last line is coloured as if the long line were not there.
         let mut short = Buffer::from_bytes(
             PathBuf::from("app.min.js"),
             b"const one = \"x\";\nconst two = \"y\";\n",
         );
         short.highlight_to(1, &theme);
-        assert_eq!(b.hl[2], short.hl[1]);
+        assert_eq!(
+            b.hl[2], short.hl[1],
+            "the state carried on, so the last line is coloured as if the long line were not there"
+        );
         let colours: std::collections::HashSet<_> = b.hl[2].iter().map(|(s, _)| s.fg).collect();
         assert!(colours.len() > 1, "the last line lost its colours");
     }
@@ -1215,8 +1208,11 @@ mod tests {
             let b = Buffer::from_bytes(PathBuf::from(name), b"x\n");
             assert_eq!(b.syntax.unwrap().name, syntax, "{name}");
         }
-        // The first line still finds a Dockerfile, and it gets the bash variant too.
         let b = Buffer::from_bytes(PathBuf::from("image"), b"FROM rust:1.80\n");
-        assert_eq!(b.syntax.unwrap().name, "Dockerfile (with bash)");
+        assert_eq!(
+            b.syntax.unwrap().name,
+            "Dockerfile (with bash)",
+            "the first line still finds a Dockerfile, and it gets the bash variant too"
+        );
     }
 }

@@ -1,5 +1,3 @@
-//! The lexer the rules stand on: comments, string literals, brackets and separators.
-
 use super::*;
 use std::borrow::Cow;
 
@@ -20,18 +18,6 @@ pub(super) fn comment(kind: Kind, t: &str) -> bool {
 /// shell's heredoc (a Dockerfile's and Terraform's too), a `/* */` block. A line
 /// there that reads like a declaration declares nothing — the SQL a migration embeds in one is
 /// the common case. Other strings end with their line, whatever they hold.
-///
-/// Each kind says which forms it has rather than inheriting another language's: Zig has none at
-/// all — a `\\` string ends with its line — and reading it with the backtick and `/* */` of the C
-/// family would take the ``` ``` ``` fences of the markdown a `\\` block holds for a literal and
-/// hide the rest of the file behind them, as the `/*` of a glob (`rm -rf build/*`) or a lone
-/// backtick in a comment would in a shell script, a Makefile or a CI workflow (#436).
-///
-/// Rust's strings run over lines as the language runs them (#346): a `"…"` to the `"` no `\`
-/// escapes, a raw `r#"…"#` to its `"#`; a `'` opens only a char literal, never a lifetime. A C++
-/// raw string, `R"(…)"` or `u8R"x(…)x"`, runs to its `)x"` (#465). Ruby writes `#` comments,
-/// `=begin` blocks, heredocs (`<<~SQL`, several on one line read in order) and `__END__`, after
-/// which every line is data (#379); its `%q()`, backtick and regex literals end with their line.
 ///
 /// ponytail: Elixir's `~S"""` sigil is read from its `"""`, and its one-line `~s(…)` forms not at
 /// all; Ruby's multi-line `%q{…}` is read as code, and a `/` opens a regex only after an operator
@@ -78,8 +64,6 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     }
     out
 }
-/// Whether byte `at` of `text` stands inside a Rust string literal, between its quotes: nothing
-/// there names code (#346). Other kinds say no: a string there may name a type or a module.
 pub fn in_string(kind: Kind, text: &str, at: usize) -> bool {
     kind == Kind::Rust && scan(kind, text, at).1
 }
@@ -103,8 +87,6 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
                 (false, false, false, false, &["#"])
             }
             Kind::Sql => (false, false, false, true, &["--", "//"]),
-            // PowerShell's `<# #>` and here-strings are its own forms, below; a backtick is its
-            // escape and its line continuation, never a template (#420).
             Kind::PowerShell => (false, false, false, false, &["#"]),
             Kind::Terraform => (false, false, false, true, &["#", "//"]),
             // GraphQL writes its descriptions in `"""` block strings, and nothing else runs
@@ -117,17 +99,12 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             // reads `//` in a `.css` file too, at the cost of a `/*` after a `url(//…)` on its
             // line (#415). A string ends with its line, and a backtick is nothing.
             Kind::Css => (false, false, false, true, &["//"]),
-            // PHP's `#` is a comment as `//` is, save `#[`, which opens an attribute (#488), and
-            // only in PHP's code: outside `<?php … ?>` it is the `#id` of CSS, the `#field` of
-            // JS or the `&#8212;` of HTML. A line comment ends at `?>` too, as PHP ends it.
             Kind::Php => (false, false, true, true, &["//", "#"]),
             Kind::Rust => (false, false, false, true, &["//"]),
             Kind::Ruby => (false, false, false, false, &["#"]),
             // A Kotlin raw string and a Java text block run over lines between `"""`; neither
             // language has a backtick template: Kotlin's backticks quote a name (#367).
             Kind::Jvm => (true, false, false, true, &["//"]),
-            // Dart's `'''` and `"""` (raw `r'''` too) and the C family's comments, `///` among
-            // them; no backtick: a Dart string of one quote ends with its line (#414).
             Kind::Dart => (true, false, false, true, &["//"]),
             Kind::Cmake => (false, true, false, false, &["#"]),
             _ => (false, false, true, true, &["//"]),
@@ -149,7 +126,6 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
     let mut php_code = false;
     let b = text.as_bytes();
     let ident = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
-    // Whether a token starts at `at`, bare or behind one of `prefixes` (the `b` of `br"…"`).
     let token_at = |at: usize, prefixes: &[&[u8]]| {
         [&b""[..]].iter().chain(prefixes).any(|p| {
             at >= p.len()
@@ -506,7 +482,6 @@ pub(super) fn code(kind: Kind, s: &str) -> impl Iterator<Item = (usize, u8)> + '
             comment = c != b'\n';
             return None;
         }
-        // A backslash escapes the next byte, so `"\\"` ends on its second quote.
         if let Some(q) = quote {
             if escaped {
                 escaped = false;
@@ -543,7 +518,6 @@ pub(super) fn code(kind: Kind, s: &str) -> impl Iterator<Item = (usize, u8)> + '
         }
     })
 }
-/// `s` without its comments.
 pub(super) fn uncommented(kind: Kind, s: &str) -> String {
     let (mut out, mut from) = (String::with_capacity(s.len()), 0);
     for (i, _) in code(kind, s).filter(|(_, c)| *c == 0) {

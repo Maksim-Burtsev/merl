@@ -1,4 +1,5 @@
 use super::*;
+use crate::app::collapse::FOLD_EVERY_KIND;
 
 #[test]
 #[ignore]
@@ -16,15 +17,28 @@ fn fold_bench() {
             let buf = Buffer::load(Path::new(path)).unwrap();
             App::new(PathBuf::from("/"), Tree::default(), Vec::new(), buf, None)
         });
-        a.collapsed.clear();
-        a.message.clear();
-        a.go((line, 0));
-        press(a, KeyCode::Char('f'), KeyModifiers::NONE);
+        let mut on = "on";
+        let mut took = Duration::ZERO;
+        for every_kind in [false, true] {
+            FOLD_EVERY_KIND.set(every_kind);
+            a.collapsed.clear();
+            a.message.clear();
+            a.go((line, 0));
+            let started = Instant::now();
+            press(a, KeyCode::Char('f'), KeyModifiers::NONE);
+            took = started.elapsed();
+            if !a.message.starts_with("no fold rules") {
+                break;
+            }
+            on = "off";
+        }
+        FOLD_EVERY_KIND.set(false);
         let got = match a.collapsed.first() {
             Some(&(h, e)) => format!("{}\t{}", h + 1, e + 1),
             None => "-\t-".into(),
         };
-        out.push_str(&format!("{id}\t{got}\t{}\n", a.message));
+        let us = took.as_micros();
+        out.push_str(&format!("{id}\t{got}\t{on}\t{us}\t{}\n", a.message));
     }
     std::fs::write(std::env::var("BENCH_OUT").unwrap(), out).unwrap();
 }

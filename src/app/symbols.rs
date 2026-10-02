@@ -1,5 +1,3 @@
-//! `D`: the project's declarations, listed and filtered by name.
-
 use super::*;
 
 impl App {

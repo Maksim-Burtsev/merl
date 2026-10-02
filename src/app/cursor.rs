@@ -97,8 +97,6 @@ impl App {
         }
     }
 
-    /// The cursor, or the selection, is on a line the branch deleted: an edit there is refused
-    /// (#439). A selection between two file lines holds the deleted lines drawn between them.
     pub(super) fn on_deleted(&self) -> bool {
         match self.selection() {
             _ if self.deleted.is_some() => true,
@@ -128,9 +126,6 @@ impl App {
     }
 
     /// The selected text, lines joined with `\n`, the deleted ones among them as they were.
-    /// The drawn end of a line cut at [`Buffer::shown`] stands for its real end (#284): the
-    /// cursor stops there, and what it selects runs on to the end, as Ctrl+C with no selection
-    /// copies it.
     pub(super) fn selected_text(&self) -> Option<String> {
         let (start, end) = self.selection()?;
         let lines: Vec<&str> = std::iter::successors(Some(start.0), |&t| self.next_line(t))
@@ -225,8 +220,7 @@ impl App {
         self.sync_want_x();
     }
 
-    /// Up / Down, PgUp / PgDn: `n` screen rows, aiming at the column in `want_x`. The rows of
-    /// the lines a review deleted are rows like any other (#439).
+    /// Up / Down, PgUp / PgDn: `n` screen rows, aiming at the column in `want_x`.
     pub(super) fn move_rows(&mut self, n: isize) {
         let cur = self.cursor_at();
         let to = if n < 0 {

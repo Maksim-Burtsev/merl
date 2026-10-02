@@ -230,7 +230,6 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         // not there: the toolchain ships it compiled, with `.swiftinterface` stubs beside it and
         // no `.swift` file to read.
         Kind::Swift => vec![root.join(".build/checkouts")],
-        // The gems `Gemfile.lock` names, the standard library and the core's signatures (#369).
         // The `ruby` on the PATH is asked once a session: it answers the same every time.
         Kind::Ruby => {
             static ASKED: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
@@ -244,8 +243,6 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
                 ASKED.get_or_init(|| run("ruby", &["-e", script])).clone()
             })
         }
-        // The module directories of `PSModulePath` (#420). Only scripts and modules count: the
-        // built-in cmdlets are compiled and have no source to find.
         Kind::PowerShell => {
             let pwsh = std::env::var_os("PATH").and_then(|p| {
                 std::env::split_paths(&p)
@@ -254,8 +251,6 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
             });
             powershell_roots(std::env::var_os("PSModulePath"), &home, pwsh)
         }
-        // The packages `pub get` lists in `.dart_tool/package_config.json`, the pub cache's and
-        // the Flutter SDK's, and the `lib/` of the SDK of the `dart` on the PATH (#414).
         Kind::Dart => dart_roots(root, dart_sdk()),
         Kind::Cmake => cmake_roots(std::env::var_os("PATH").and_then(|p| {
             std::env::split_paths(&p)
@@ -307,11 +302,6 @@ pub(super) fn zig_roots(env: &str) -> Vec<PathBuf> {
         .into_iter()
         .collect()
 }
-/// The `node_modules` a TypeScript file of the project `root` resolves an import in: the one of
-/// every directory from the file's up to `root`, nearest first, as Node walks them (#100). A
-/// workspace keeps a package's dependencies beside the package, and pnpm keeps a dependency's own
-/// under `.pnpm/<name>@<version>/node_modules`. A package installed in several is loaded from
-/// one: [`package_copy`].
 pub fn node_modules(root: &Path, file: &Path) -> Vec<PathBuf> {
     file.ancestors()
         .take_while(|dir| dir.starts_with(root))
@@ -319,10 +309,6 @@ pub fn node_modules(root: &Path, file: &Path) -> Vec<PathBuf> {
         .filter(|dir| dir.is_dir())
         .collect()
 }
-/// The `deps/` a Mix project of the project `root` fetches its dependencies into, as source, for
-/// an Elixir file in `file` (#437): beside every `mix.exs` from the file's directory up to `root`,
-/// nearest first, so an umbrella app finds the umbrella's. `mix new` gitignores it, so the project
-/// walk does not list it, as `node_modules` for TypeScript.
 pub fn mix_deps(root: &Path, file: &Path) -> Vec<PathBuf> {
     file.ancestors()
         .take_while(|dir| dir.starts_with(root))
@@ -340,24 +326,6 @@ const NODE_BUILTINS: &[&str] = &[
     "readline", "repl", "stream", "string_decoder", "sys", "timers", "tls", "trace_events", "tty",
     "url", "util", "v8", "vm", "wasi", "worker_threads", "zlib",
 ];
-/// The copy of the package a TypeScript import of `module` loads from a file with
-/// [`node_modules`] `roots`, with its files among `files` (#141). Each root that has the package
-/// (`lib`, `@scope/pkg`) or its types (`@types/lib`, `@types/scope__pkg`) holds a copy, whichever
-/// of the two are there. The nearest is the one, unless it lacks the whole `module` and has no
-/// `exports` map in its `package.json`: Node then goes on to the next `node_modules`, as it does
-/// when `lib/extra` is not in the nearer one. A copy of JavaScript alone takes in the nearest
-/// declaration files of the package further up, its own or its `@types`, which TypeScript reads;
-/// TypeScript source counts as declarations. A link is followed, so
-/// pnpm's `node_modules/lib` is the version of the store it points at, spelled under the root it
-/// lies in, as the files walked from there are; one that leads out of the roots (`npm link`, a
-/// pnpm store outside them) is a copy of no file. A copy whose `exports` map the path would come
-/// from, lacking it as a file, is no copy to narrow to. A workspace package linked in is read from
-/// the TypeScript and JavaScript among `own`, the files of the project at `root`, and `None` when
-/// the copy chosen is one: no copy
-/// outside is it. Empty when no root has the package (an ambient `declare module`, and a `node:`
-/// module, which no package directory is called) and for a bare module of Node's own: `buffer`
-/// is not the npm polyfill of that name but `@types/node`'s `declare module`, which TypeScript
-/// takes over any `node_modules`.
 pub fn package_copy(
     root: &Path,
     roots: &[PathBuf],
@@ -464,13 +432,6 @@ pub fn package_copy(
     }
     Some(copy)
 }
-/// Whether a TypeScript import of `module` from the directory `dir` of the project `root`, whose
-/// files are `files`, loads a package that is not installed (#392): a bare specifier (no
-/// relative path, no `@/`, `~/` or `#` alias, no alias of the `tsconfig.json`, no module of
-/// Node's own, none with a scheme such as `node:` or `virtual:`) that no workspace package of the
-/// project is called (the `name` of a `package.json` among `files`), that no `node_modules`
-/// from `dir` up holds, itself or its types (past the project's root too, as Node looks there),
-/// and that no `declare module` of a `.d.ts` among `files` types, `*` patterns included.
 pub fn package_missing(root: &Path, files: &[PathBuf], dir: &Path, module: &[String]) -> bool {
     static NAME: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r#""name"\s*:\s*"([^"]*)""#).unwrap());
@@ -668,8 +629,6 @@ pub fn in_copy(path: &Path, copy: &[PathBuf]) -> bool {
 pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
     let go = kind == Kind::Go;
     let python = kind == Kind::Python;
-    // A link is spelled through the roots a C file reads, never the frameworks: `usr/include`'s
-    // `tcl.h` links into `Tcl.framework`, and stays `tcl.h` (#417).
     let spelled: Vec<PathBuf> = (dirs.iter())
         .filter(|d| !objc_frameworks(d))
         .cloned()
@@ -724,7 +683,6 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
                 .filter(|p| !(go && p.to_string_lossy().ends_with("_test.go"))),
         );
     }
-    // A header linked under another name is one file, listed once (#382).
     if kind == Kind::C {
         let mut seen = std::collections::HashSet::new();
         files.retain(|f| seen.insert(f.clone()));
@@ -746,11 +704,6 @@ pub fn cpp_dirs(roots: &[PathBuf]) -> Vec<PathBuf> {
         .filter(|d| d.is_dir())
         .collect()
 }
-/// `path`, a file under one of `dirs`, as the walk of `dirs` spells it: through its links, under
-/// the directory its target lies in when that is one of `dirs`, so a header linked under a second
-/// name (`pthread.h` to `pthread/pthread.h`) is that header (#382). A link out of them keeps its
-/// own name: Homebrew's `include/` is links into its kegs.
-/// `dirs` are [`real_dirs`].
 pub fn c_spelled(path: &Path, dirs: &[(PathBuf, PathBuf)]) -> PathBuf {
     let Ok(real) = path.canonicalize() else {
         return path.to_path_buf();
@@ -778,10 +731,6 @@ fn core_signature(kind: Kind, path: &Path) -> bool {
                     .is_some_and(|n| n.to_string_lossy().starts_with("rbs-"))
         })
 }
-/// The files a reader is shown last: tests, mocks, fixtures, generated code and vendored copies
-/// (#81). A row ending in `/` is a directory anywhere in the path; the rest match the file name,
-/// where a `*` at either end stands for any run of characters. One table, so `u` and the
-/// candidates of `d` agree on what a test file is.
 const LAST: &[&str] = &[
     "test/",
     "tests/",
@@ -810,7 +759,6 @@ const LAST: &[&str] = &[
     "*.gen.go",
     "*.generated.*",
 ];
-/// Where a hit sorts in a result list: what the reader came for first (#81).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Tier {
     /// A line that declares the word, by the [`def_patterns`] of the file's kind.

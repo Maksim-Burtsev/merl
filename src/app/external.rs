@@ -383,18 +383,23 @@ impl App {
             .collect()
     }
 
-    /// The patterns for `word` cut to what its spelling under the cursor allows
-    /// ([`search::narrow_patterns`]), as `d` cuts them in the project: PowerShell's sigil
-    /// (#420), so `$Error` outside is no enum member `Error`, and Dart's constructor only where
-    /// its class is built (#414), so `Future` in a type is the class alone.
     pub(super) fn spelling_cut(&self, kind: Kind, word: &str, patterns: &mut Vec<String>) {
-        let line = self.line_str();
         if matches!(kind, Kind::PowerShell | Kind::Dart)
             && let Some((r, w)) = self.word_here(Some(kind))
             && w == word
         {
-            search::narrow_patterns(kind, patterns, "", line, r);
+            self.narrow(kind, patterns, "", r);
         }
+    }
+
+    pub(super) fn narrow(
+        &self,
+        kind: Kind,
+        p: &mut Vec<String>,
+        text: &str,
+        r: std::ops::Range<usize>,
+    ) {
+        search::narrow_patterns(kind, p, text, self.line, self.line_str(), r);
     }
 
     /// `pattern` over `files` outside the project, standard library first. The paths are
@@ -596,10 +601,11 @@ impl App {
             self.external.insert(kind, (roots, Arc::new(files)));
             self.node_modules_of = Some(here.to_path_buf());
         }
-        // Elixir's are the `deps/` of the Mix project the file is in (#437), inside the project
-        // and not of the machine, so a test's `no_external` does not hide them either.
-        if let Some(here) = here.filter(|_| kind == Kind::Elixir) {
-            let roots = search::mix_deps(&self.root, here);
+        if let Some(here) = here.filter(|_| kind == Kind::Elixir || kind == Kind::Css) {
+            let roots = match kind {
+                Kind::Elixir => search::mix_deps(&self.root, here),
+                _ => search::node_modules(&self.root, here),
+            };
             if self.external.get(&kind).is_none_or(|(r, _)| *r != roots) {
                 let files = Arc::new(search::external_files(kind, &roots));
                 self.external.insert(kind, (roots, files));

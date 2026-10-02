@@ -1,8 +1,5 @@
-//! Markdown's links (#421).
-
 use super::*;
 
-/// What `d` reads at the first byte of `on` in `text`.
 fn at(text: &str, on: &str) -> MdAt {
     markdown_at(text, text.find(on).unwrap())
 }

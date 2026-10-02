@@ -1,5 +1,3 @@
-//! Project-wide grep: ripgrep's own crates behind one call, and the lines it gives back.
-
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
@@ -70,7 +68,6 @@ pub fn grep_filtered(
         .with_context(|| format!("bad pattern `{pattern}`"))?;
     Ok(collect(root, files, &matcher, current, unsaved, keep))
 }
-/// The file walk both greps share: one `Hit` per line `matcher` matches and `keep` takes.
 fn collect(
     root: &Path,
     files: &[PathBuf],
@@ -103,7 +100,6 @@ fn collect(
     hits.sort_by_cached_key(|h| (current != Some(h.path.as_path()), h.path.clone(), h.line));
     hits
 }
-/// Collects one `Hit` per matching line `keep` takes, stopping the whole search at [`MAX_HITS`].
 struct Collect<'a> {
     path: &'a Path,
     matcher: &'a RegexMatcher,

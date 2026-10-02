@@ -185,8 +185,6 @@ fn gen_session(seed: u64) -> (Vec<u8>, Vec<Op>) {
     (file, ops)
 }
 
-// The model.
-
 #[derive(Clone, Copy, PartialEq, Debug)]
 struct Format {
     bom: bool,
@@ -722,8 +720,6 @@ impl Model {
         true
     }
 }
-
-// Playing a session.
 
 /// How a session went wrong: the step, and what disagreed. `what` alone decides whether a
 /// shorter session still fails "the same way".

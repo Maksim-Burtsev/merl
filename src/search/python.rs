@@ -5,9 +5,6 @@ use regex::Regex;
 
 use super::*;
 
-/// Python's builtins (#336), `dir(builtins)` of 3.13 without the module's own dunders and
-/// `super`, which `d` reads as the class above: compiled into the interpreter, with no source on
-/// the machine to land on.
 pub const PYTHON_BUILTINS: &[&str] = &[
     "ArithmeticError",
     "AssertionError",
@@ -162,8 +159,6 @@ pub const PYTHON_BUILTINS: &[&str] = &[
     "vars",
     "zip",
 ];
-/// The Python builtin types whose members `d` knows have no source (#336), as a type is written:
-/// `list[int]` is `list`, and `typing`'s `List` is not one of them.
 pub const PYTHON_BUILTIN_TYPES: &[&str] = &[
     "str",
     "bytes",
@@ -283,7 +278,6 @@ pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bind
             } else if unknown.is_match(t) || (i == at && inline.is_match(t)) {
                 Some(Value::Unknown)
             } else {
-                // A binding need not start its line (#131): `if x: ledger = A()`, `a = 1; b = 2`.
                 for s in python_statements(t, continued(Kind::Python, lines, i)) {
                     let value = if unknown.is_match(s) || chained.is_match(s) {
                         Some(Value::Unknown)
@@ -447,8 +441,6 @@ pub fn python_class_binds(text: &str, line: usize, name: &str) -> bool {
     }
     false
 }
-/// Whether the Python `def` on 1-based `line` of `text` is a method: the nearest code line above
-/// it indented less opens a class (#522). A bare name never calls one.
 pub fn python_method(text: &str, line: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
@@ -467,9 +459,6 @@ pub fn python_method(text: &str, line: usize) -> bool {
         })
         .is_some_and(|i| lines[i].trim_start().starts_with("class "))
 }
-/// Whether 1-based `line` of the Python `text` is in the body of a function: walking out through
-/// the blocks around it, a `def` comes before any `class` (#338). A `def` there is a local of that
-/// function, no member, while a method of a class nested in a function is one.
 pub fn python_in_function(text: &str, line: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
@@ -496,8 +485,6 @@ pub fn python_in_function(text: &str, line: usize) -> bool {
     }
     false
 }
-/// Whether the Python `def` on 1-based `line` of `text` carries `@overload` or `@typing.overload`
-/// among its decorators (#338).
 pub fn python_overload(text: &str, line: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let Some(d) = line.checked_sub(1).filter(|&i| i < lines.len()) else {

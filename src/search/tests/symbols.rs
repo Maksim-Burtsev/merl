@@ -123,16 +123,22 @@ fn sql_symbol_names() {
     ] {
         assert_eq!(sql(not_a_definition), None, "{not_a_definition}");
     }
-    // A CTE is a query's own scaffolding, not a project symbol.
-    assert_eq!(sql("WITH recent AS ("), None);
-    // The all-language pattern must not list SQL lines a second time: its keywords are
-    // matched case-sensitively at the start of the line.
+    assert_eq!(
+        sql("WITH recent AS ("),
+        None,
+        "a CTE is a query's own scaffolding, not a project symbol"
+    );
     for line in [
         "CREATE TYPE mood AS ENUM ('ok');",
         "create type mood as enum ('ok');",
         "CREATE TABLE public.orders (",
     ] {
-        assert_eq!(symbol(None, line), None, "{line}");
+        assert_eq!(
+            symbol(None, line),
+            None,
+            "{line}: the all-language pattern must not list SQL lines a second time, its keywords \
+             are matched case-sensitively at the start of the line"
+        );
     }
 }
 
