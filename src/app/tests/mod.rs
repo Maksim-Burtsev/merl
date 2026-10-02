@@ -32,6 +32,7 @@ mod navigate_syntax;
 mod nix;
 mod no_panic;
 mod open;
+mod perl;
 mod picker;
 mod preview;
 mod project_search;

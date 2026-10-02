@@ -18,6 +18,7 @@ mod imports;
 mod links;
 mod nix;
 mod other_languages;
+mod perl;
 mod powershell;
 mod scope;
 mod symbols;

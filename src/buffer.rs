@@ -1127,6 +1127,22 @@ mod tests {
     }
 
     #[test]
+    fn perl_highlights_with_every_shipped_theme() {
+        let src = "package Shop::Order;\n# doc\nsub total {\n    my $self = shift;\n    return $self->{total} // 0;\n}\n";
+        for path in ["lib/Shop/Order.pm", "bin/report.pl", "t/order.t"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(path), src.as_bytes());
+                assert_eq!(b.syntax.map(|s| s.name.as_str()), Some("Perl"), "{path}");
+                b.highlight_to(6, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
     fn shown_clips_a_huge_line_on_a_char_boundary() {
         let text = "漢".repeat(MAX_SHOWN_BYTES / 3 + 1);
         let b = load(text.as_bytes());

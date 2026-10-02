@@ -241,6 +241,7 @@ moment you open it. In Python, TypeScript and Go, `d` also follows the type of t
 | PowerShell | the module directories of `PSModulePath` |
 | Dart | the pub cache and the SDK |
 | CMake | CMake's own modules and the packages' config files |
+| Perl | `@INC` and Carton's `local/lib/perl5` |
 | Java, Kotlin, Scala, Ruby, C#, Lua, Elixir, Nix | |
 | Shell, SQL, Makefile, Terraform, Dockerfile, YAML, GraphQL | |
 | Markdown | the file or the heading a link names, and a file a code span names |

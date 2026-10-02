@@ -34,6 +34,7 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Dart
         | Kind::Cmake
         | Kind::Nix
+        | Kind::Perl
         | Kind::Sql
         | Kind::Make
         | Kind::Graphql
@@ -262,6 +263,13 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
                 .map(|d| d.join("cmake"))
                 .find(|p| p.is_file())
         })),
+        Kind::Perl => {
+            let inc = run("perl", &["-e", "print join qq{\\n}, @INC"]).unwrap_or_default();
+            let carton = root.join("local/lib/perl5");
+            std::iter::once(carton)
+                .chain(inc.lines().map(PathBuf::from).filter(|p| p.is_absolute()))
+                .collect()
+        }
         // Java and Kotlin have no roots yet: the JDK and Gradle caches are their own lookups.
         // C# has nothing to point at: a NuGet package is compiled
         // assemblies, and the runtime's own source is not on the machine at all. Lua has no root

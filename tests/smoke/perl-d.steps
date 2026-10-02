@@ -1,0 +1,19 @@
+# perl-d: d in Perl (#424). A method behind its class lands on the sub of that package's module,
+# and a `my` variable is local to its file. The files are written here, not in the project, which
+# every other scenario counts the files of.
+merl
+wait Open a file (fuzzy)
+run mkdir -p perlshop/lib/Shop perlshop/bin && printf 'package Shop::Order;\nuse strict;\n\nsub new {\n    my ($class, %%args) = @_;\n    my $self = { total => $args{total} // 0 };\n    return bless $self, $class;\n}\n\nsub total { $_[0]{total} }\n\n1;\n' > perlshop/lib/Shop/Order.pm && printf 'use lib "lib";\nuse Shop::Order;\n\nmy $order = Shop::Order->new(total => 12);\nprint $order->total, "\\n";\n' > perlshop/bin/report.pl
+key q
+wait merl exited: 0
+merl perlshop/bin/report.pl
+wait use Shop::Order
+key /
+type new(total
+key Enter d
+wait new: via Shop::Order
+key /
+type self, $class
+key Enter d
+wait new::self (local)
+key Escape
