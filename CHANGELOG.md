@@ -7,8 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.8.1] - 2026-10-02
-
 ### Added
 
 - `d` on a C++ member reads the class its receiver is declared as: `key.size()` with a
@@ -20,7 +18,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the project: `v->clear()` on a `std::vector` searches the headers outside it. One whose `->`
   reaches a type of the project, `std::optional<Tariff>` or `std::vector<Tariff>::iterator`, and
   any qualifier the rules cannot place (a namespace alias, a namespace a macro opens) are searched
-  by name as before. (#389)
+  by name as before.
+  `it->Valid()` on an `Iterator* it` lands on the declaration in `class Iterator`, where it
+  offered the overrides beside it; a receiver whose type is not known still offers them (#373). (#389)
+- `d` in four more places of stylesheets. `styles.container` behind
+  `import styles from './Button.module.css'`, or a name a named import takes from a CSS Module,
+  lands on `.container {` in that file only, `container: via import src/Button.module.css`, where
+  it said `no definition for container`. A Sass variable, mixin or function the project does not
+  declare is found in `node_modules` from a Sass file, a Less variable from a Less file, and a
+  class of a `.sass` file is found in its indented rules, `&__item` and all. (#590)
+
+### Changed
+
+- `d` in TypeScript and JavaScript reads the type of a receiver in five more places. In
+  `function Row({ apiKey }: Props)` `apiKey.id` lands on the `id` its `Props` field's type
+  declares, as `auth.user` does after `const { auth } = useStores()`, `membership.permission`
+  inside `for (const membership of document.memberships)`, and `server.post` after `const server
+  = getTestServer()` whose body does `const server = new TestServer(); return server;`. Each
+  offered a picker of every namesake. `props.href` with `props: Omit<Props, "document"> & { href:
+  string }` lands on the `href` of the literal, where it jumped to another class's `href`, and `d`
+  on `rest` after `const { id, ...rest } = document` lands on that line, where it said "no
+  definition". (#354)
+
+### Fixed
+
+- `d` in PHP on a relative namespace segment in a file of several `namespace` blocks, `Legacy` in
+  `Legacy\Entry::OPEN`, reads it in the block it stands in. It read it in the file's first block
+  and said `no definition`. (#617)
+- `d` in a Vue or Svelte component on a member of a `v-for` or `{#each}` item named like a
+  `const` of the script above, `theme` in `{{ settings.theme }}` under `v-for="settings in
+  rows"`, no longer jumps to the key of the script's `const settings = { theme }`: the item is
+  another value, and `d` searches the member by name. (#618)
+
+## [0.8.1] - 2026-10-02
+
+### Added
+
 - `f` folds Python code into one line ending in `⋯`: on a line that opens a construct it folds
   that construct (`def`, `class`, `if` / `elif` / `else`, `for`, `while`, `with`, `try` /
   `except` / `finally`, `match` / `case`, a call, list or dict wrapped over lines, a docstring, a
@@ -50,12 +83,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   variables and mixins, and keyframes are found too, a `@use` namespace narrowing them to its
   module, and the path of a `<link href>`, a `<script src>` and an `@import` or `@use` opens
   its file. `D` lists the mixins, functions, placeholders and keyframes. (#415)
-- `d` in four more places of stylesheets. `styles.container` behind
-  `import styles from './Button.module.css'`, or a name a named import takes from a CSS Module,
-  lands on `.container {` in that file only, `container: via import src/Button.module.css`, where
-  it said `no definition for container`. A Sass variable, mixin or function the project does not
-  declare is found in `node_modules` from a Sass file, a Less variable from a Less file, and a
-  class of a `.sass` file is found in its indented rules, `&__item` and all. (#590)
 - `d`, `u` and `D` in Dart (`.dart`, Flutter included), where `d` said `no rules for .dart`.
   `d` on `formatPrice` lands on `String formatPrice(int cents) =>` in the project; on `get` of
   `http.get` behind `import 'package:http/http.dart' as http` it opens the `http` package's
@@ -119,9 +146,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of the name as before, and a longer chain says where it broke. (#386)
 - `d` in C and C++ knows enum constants and the member functions a class only declares. `return
   GREEN;` lands on `GREEN` in its `enum`, where it said `no definition for GREEN`, and a constant
-  in an initializer list is still no declaration. `it->Valid()` on a receiver whose type is not
-  known offers the interface's `virtual bool Valid() const = 0;` beside the overrides; on an
-  `Iterator* it` it lands on the declaration in `class Iterator` (#389). On an out-of-line `Status
+  in an initializer list is still no declaration. `it->Valid()` offers the interface's `virtual
+  bool Valid() const = 0;` beside the overrides, and on an out-of-line `Status
   VersionSet::Recover(…) {` it lands on the declaration in `class VersionSet` instead of offering
   another class's `Recover`. A member declared in its class and defined out of line stays one
   row, the definition. (#373)
@@ -183,15 +209,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on from a package, `export { x } from "lodash"`, lands on `x` in the installed package, as an
   import straight from the package does, or on the import with `(not installed)`. It searched
   the project by name. (#527)
-- `d` in TypeScript and JavaScript reads the type of a receiver in five more places. In
-  `function Row({ apiKey }: Props)` `apiKey.id` lands on the `id` its `Props` field's type
-  declares, as `auth.user` does after `const { auth } = useStores()`, `membership.permission`
-  inside `for (const membership of document.memberships)`, and `server.post` after `const server
-  = getTestServer()` whose body does `const server = new TestServer(); return server;`. Each
-  offered a picker of every namesake. `props.href` with `props: Omit<Props, "document"> & { href:
-  string }` lands on the `href` of the literal, where it jumped to another class's `href`, and `d`
-  on `rest` after `const { id, ...rest } = document` lands on that line, where it said "no
-  definition". (#354)
 - `d` in Java and Kotlin reads the `import` lines: a class the file imports from the project
   opens in that package's file, `User: via import src/main/java/app/a/User.java`, not a picker
   of every `User`; `import static a.b.C.*` finds `isNull` in `C`; a name imported from outside
@@ -348,13 +365,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a function nested in it, whether it is declared above the call or below; two local overloads
   are offered together. It jumped to the type's member of the same name through `self`, or
   offered both. (#577)
-- `d` in PHP on a relative namespace segment in a file of several `namespace` blocks, `Legacy` in
-  `Legacy\Entry::OPEN`, reads it in the block it stands in. It read it in the file's first block
-  and said `no definition`. (#617)
-- `d` in a Vue or Svelte component on a member of a `v-for` or `{#each}` item named like a
-  `const` of the script above, `theme` in `{{ settings.theme }}` under `v-for="settings in
-  rows"`, no longer jumps to the key of the script's `const settings = { theme }`: the item is
-  another value, and `d` searches the member by name. (#618)
 
 ## [0.8.0] - 2026-10-01
 
