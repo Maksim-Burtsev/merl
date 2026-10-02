@@ -92,7 +92,17 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
                         .and_then(|h| h.join(&lib).canonicalize().ok())
                         .and_then(|exe| Some(exe.parent()?.parent()?.join("lib").join(&lib)));
                     let site = venv.join("lib").join(&lib).join("site-packages");
-                    stdlib.into_iter().chain([site]).collect()
+                    let system = cfg.lines().any(|l| {
+                        l.split_once('=').is_some_and(|(k, v)| {
+                            k.trim() == "include-system-site-packages"
+                                && v.trim().eq_ignore_ascii_case("true")
+                        })
+                    });
+                    let base = stdlib
+                        .as_ref()
+                        .filter(|_| system)
+                        .map(|s| s.join("site-packages"));
+                    stdlib.into_iter().chain([site]).chain(base).collect()
                 }
                 None => run(
                     "python3",
@@ -657,6 +667,7 @@ pub fn in_copy(path: &Path, copy: &[PathBuf]) -> bool {
 /// dependency.
 pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
     let go = kind == Kind::Go;
+    let python = kind == Kind::Python;
     // A link is spelled through the roots a C file reads, never the frameworks: `usr/include`'s
     // `tcl.h` links into `Tcl.framework`, and stays `tcl.h` (#417).
     let spelled: Vec<PathBuf> = (dirs.iter())
@@ -669,21 +680,29 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
         // Homebrew's Rust ships the sysroot `library` with a copy of itself inside; every
         // definition would come up twice.
         let copy = dir.file_name().map(std::ffi::OsStr::to_owned);
+        let others: Vec<PathBuf> = dirs.iter().filter(|o| *o != dir).cloned().collect();
         // Of an SDK's frameworks, each one's `Headers`, a link into `Versions/Current` that is
         // walked through, so a header is read once (#417).
         let frameworks = kind == Kind::C && objc_frameworks(dir);
         let walk = ignore::WalkBuilder::new(dir)
             .filter_entry(move |e| {
+                let is_dir = e.depth() > 0 && e.file_type().is_some_and(|t| t.is_dir());
                 let unreachable = go
-                    && e.depth() > 0
-                    && e.file_type().is_some_and(|t| t.is_dir())
+                    && is_dir
                     && (e.file_name() == "testdata" || e.path().join("go.mod").is_file());
+                let base_packages = python
+                    && is_dir
+                    && e.depth() == 1
+                    && (e.file_name() == "site-packages" || e.file_name() == "dist-packages");
+                let nested = is_dir && others.iter().any(|o| o == e.path());
                 let header = match e.depth() {
                     1 => e.file_name().to_string_lossy().ends_with(".framework"),
                     2 => e.file_name() == "Headers",
                     _ => true,
                 };
                 !unreachable
+                    && !base_packages
+                    && !nested
                     && (!frameworks || header)
                     && (e.depth() != 1 || Some(e.file_name()) != copy.as_deref())
             })

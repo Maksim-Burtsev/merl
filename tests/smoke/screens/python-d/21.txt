@@ -1,4 +1,13 @@
-wait tests/test_service.py  38:
+wait tests/test_service.py  1:1
+ 1 from decimal import Decimal
+ 2
+ 3 import pytest
+ 4
+ 5 from app import OrderService
+ 6 from app.models import Order, OrderStatus
+ 7 from app.service import OrderNotFound
+ 8
+ 9
 10 class FakeOrderRepo:
 11     def __init__(self, *orders):
 12         self.orders = {order.id: order for order in orders}
@@ -44,14 +53,5 @@ wait tests/test_service.py  38:
 52
 53 def test_first_of_many():
 54     assert next(iter([3, 4])) == 3
-55
-56
-57 import unittest  # noqa: E402
-58
-59
-60 class LegacyServiceTest(unittest.TestCase):
-61     def test_nothing_saved(self):
-62         self.assertEqual(1 + 1, 2)
-
-tests/test_service.py  38:12  [code]                                                                                                                                              ? help
-cursor (x,y,shown) 14,28,1
+tests/test_service.py  1:1  [code]                                                                                                                                                ? help
+cursor (x,y,shown) 3,0,1

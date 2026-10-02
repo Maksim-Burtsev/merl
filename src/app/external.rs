@@ -121,6 +121,7 @@ impl App {
             // as without a copy.
             let found = match kind {
                 Kind::Elixir => self.elixir_module(&all, m, pattern),
+                Kind::Python => self.python_module_among(&all, m),
                 _ => copy
                     .module(m)
                     .or_else(|| search::module_among(&all, m, package)),
@@ -176,10 +177,25 @@ impl App {
             };
             hits = self.renamed_export(word, |p| self.external_grep(kind, &within, p));
         }
-        // An imported module that does not declare the name re-exports it (`std::sync::Arc`
-        // lives in `alloc`, a package's `__init__` pulls from its submodules): look everywhere.
-        // Past a copy, first where the module's other copies are, as the module's files among
-        // all of them: no slower and no noisier than without the copy.
+        let mut walked = false;
+        if hits.is_empty()
+            && imported
+            && kind == Kind::Python
+            && module.len() >= floor
+            && let Some(named) = &named
+        {
+            let mut inside = named[module.len()..].to_vec();
+            if !chain.is_empty() {
+                inside.push(word.to_owned());
+            }
+            if let [name] = inside.as_slice() {
+                let found = self.outside_handed_on(&module, name, 0);
+                if !found.is_empty() {
+                    return Some(found);
+                }
+                walked = true;
+            }
+        }
         // Go has no re-exports: a package that does not declare the name is the answer (#332).
         if hits.is_empty() && imported && kind == Kind::Go {
             return Some(Vec::new());
@@ -193,6 +209,7 @@ impl App {
             if hits.is_empty() {
                 hits = at_top(self, grep(self, &all));
             }
+            self.offer_only |= walked && !hits.is_empty();
             return Some(by_name(hits));
         }
         let sep = match kind {
@@ -260,18 +277,45 @@ impl App {
         })
     }
 
+    pub(super) fn python_module_among(
+        &self,
+        all: &[PathBuf],
+        module: &[String],
+    ) -> Option<(usize, Vec<PathBuf>)> {
+        let roots = self
+            .external
+            .get(&Kind::Python)
+            .map(|(roots, _)| roots.as_slice())
+            .unwrap_or_default();
+        let rels: Vec<(&Path, &PathBuf)> = all
+            .iter()
+            .filter_map(|f| Some((python_rel(roots, f)?.1, f)))
+            .collect();
+        (1..=module.len()).rev().find_map(|n| {
+            let name: PathBuf = module[..n].iter().collect();
+            let forms = [name.with_extension("py"), name.with_extension("pyi")];
+            let found: Vec<PathBuf> = (rels.iter())
+                .filter(|(rel, _)| {
+                    (rel.starts_with(&name) && *rel != name) || forms.contains(&rel.to_path_buf())
+                })
+                .map(|(_, f)| (*f).clone())
+                .collect();
+            (!found.is_empty()).then_some((n, found))
+        })
+    }
+
     /// The file outside the project that is the Python module `parts` (#333), matched from the
     /// root it lies under, the deepest that holds it: `a/b/c/__init__.py`, `a/b/c.py` or
     /// `a/b/c.pyi` from there, never a `c.py` deeper in some other package. As Python imports it,
     /// the first root holding it wins, and in a root a package over a module beside it; `.py`
     /// over `.pyi`, which a compiled module has alone.
     pub(super) fn external_module(&mut self, parts: &[String]) -> Option<PathBuf> {
-        let files = self.external_files(Kind::Python);
-        let roots = self
-            .external
-            .get(&Kind::Python)
-            .map(|(roots, _)| roots.clone())
-            .unwrap_or_default();
+        self.external_files(Kind::Python);
+        self.walked_module(parts)
+    }
+
+    pub(super) fn walked_module(&self, parts: &[String]) -> Option<PathBuf> {
+        let (roots, files) = self.external.get(&Kind::Python)?;
         let name: PathBuf = parts.iter().collect();
         let forms = [
             name.join("__init__.py"),
@@ -282,14 +326,9 @@ impl App {
         files
             .iter()
             .filter_map(|f| {
-                let root = roots
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, r)| f.starts_with(r))
-                    .max_by_key(|(_, r)| r.components().count())?;
-                let rel = f.strip_prefix(root.1).ok()?;
+                let (root, rel) = python_rel(roots, f)?;
                 let form = forms.iter().position(|m| rel == m)?;
-                Some(((root.0, form), f))
+                Some(((root, form), f))
             })
             .min_by_key(|(rank, _)| *rank)
             .map(|(_, f)| f.clone())
@@ -727,19 +766,23 @@ impl App {
             .get(&kind)
             .map(|(roots, _)| roots.as_slice())
             .unwrap_or_default();
-        match kind {
+        let mut roots = match kind {
             Kind::TsJs => roots.last().into_iter().chain([&self.root]).collect(),
             // `deps/` is inside the project: `deps/jason/lib/jason.ex`.
             Kind::Elixir => vec![&self.root],
             _ => roots.iter().collect::<Vec<_>>(),
+        };
+        if kind == Kind::Python {
+            roots.sort_by_key(|r| std::cmp::Reverse(r.components().count()));
         }
-        .into_iter()
-        .find(|r| path.starts_with(r))
-        .map_or(path, |r| {
-            let keep = if *r == self.root { 0 } else { package_dirs(r) };
-            let from = r.ancestors().nth(keep).unwrap_or(r);
-            path.strip_prefix(from).unwrap_or(path)
-        })
+        roots
+            .into_iter()
+            .find(|r| path.starts_with(r))
+            .map_or(path, |r| {
+                let keep = if *r == self.root { 0 } else { package_dirs(r) };
+                let from = r.ancestors().nth(keep).unwrap_or(r);
+                path.strip_prefix(from).unwrap_or(path)
+            })
     }
 
     /// Picker rows for `d`: the qualified name, the reason, then `path:line: code`, the columns
@@ -814,6 +857,13 @@ impl App {
             None => "no rules for this file".into(),
         }
     }
+}
+
+fn python_rel<'a>(roots: &[PathBuf], f: &'a Path) -> Option<(usize, &'a Path)> {
+    let (i, root) = (roots.iter().enumerate())
+        .filter(|(_, r)| f.starts_with(r))
+        .max_by_key(|(_, r)| r.components().count())?;
+    Some((i, f.strip_prefix(root).ok()?))
 }
 
 /// How many directories at the end of `root` name its package. A root named with a version is

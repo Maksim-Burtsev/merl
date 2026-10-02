@@ -128,6 +128,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `d` in Python reads a dependency's modules as Python imports them (#329). `pytest.fixture` lands
+  on `_pytest/fixtures.py` and `pytest.mark` on `MARK_GEN` in `_pytest/mark/structures.py`, saying
+  `via import _pytest.mark.structures`, where it offered every `fixture` installed or jumped to a
+  namesake in another package: a module that hands a name on through its imports is followed,
+  relative and `*` imports too, down to the import line of a compiled source (`StringIO` in
+  `io.py`). `json.dumps` is `json/__init__.py`'s alone, never `kombu/utils/json.py`'s, and under a
+  `.venv` the base interpreter's pip is no longer searched. A name the imports lead nowhere with is
+  offered, never jumped to.
+- `d` in Python reads classes declared in dependencies (#340). `self.assertEqual` in a
+  `unittest.TestCase` subclass lands on `unittest/case.py`, saying `assertEqual →
+  TestCase.assertEqual (via self: T)`, where it said `no definition for assertEqual`; `p.write_bytes`
+  with `p: Path` lands on `pathlib`'s, not on a namesake in `anyio`, and `Document.objects` reaches
+  the `objects` of a base outside. Bases are followed through the dependency's own imports.
 - `d` in C and C++ looks outside the project in the headers the file includes first. On
   `pthread_equal` it lands on `pthread/pthread.h`, one row where the header and a link to it
   were two; `printf` no longer offers gettext's `libintl.h`, nor `s.append("x")` 148 methods
@@ -262,6 +275,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a file the branch adds or changes as it stands now, a deleted one as it was, without the diff's
   marks; `p` again shows the source with its diff. A file shown rendered that the branch comes to
   change stays rendered; a file of the review opened again shows its source. (#596)
+
+- `d` in Python showed each declaration twice when `sys.path` lists a directory and its
+  `site-packages` both, as a pyenv, uv or python.org `python3` does without a `.venv`. (#329)
 
 - `d` in C reads no declaration inside a multi-line `#define`, and a one-line `typedef struct
   client { int flags; } client;` declares `client` alone: `return flags;` and `return args;`

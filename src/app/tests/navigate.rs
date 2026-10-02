@@ -159,12 +159,12 @@ fn a_local_name_is_not_an_import_and_a_member_is_not_a_module_level_name() {
             a.message
         );
     }
+    let native = format!("{}:1", root.join("fakelib/__init__.py").display());
     d_on(&mut a, "outside.py", "return pick");
-    assert_eq!(a.message, "no definition for pick");
-    assert_eq!(a.rel_path(), "outside.py");
+    assert_eq!(shown(&mut a), jump("pick: via import fakelib", &native));
     // Behind the module's name as well: `fakelib.pick` is no method of a class in it.
     d_on(&mut a, "outside.py", "fakelib.pick");
-    assert_eq!(a.message, "no definition for pick");
+    assert_eq!(shown(&mut a), jump("pick: via import fakelib", &native));
     // A keyword argument names a parameter of a callee outside the project, and the variable
     // spelled so is no answer (#315).
     d_on(&mut a, "outside.py", "    limit");

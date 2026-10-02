@@ -3,10 +3,6 @@
 use super::*;
 
 impl App {
-    /// The one top-level declaration `parts` names as `file` sees it: in the file itself (for Go,
-    /// its package), else in the project module an import binds the first part to, or for Go the
-    /// package outside the project the import names (#334). `None` when there is none or more
-    /// than one, and for a module outside the project in the other kinds.
     pub(super) fn declaration(&self, kind: Kind, file: &Path, parts: &[String]) -> Option<Hit> {
         let (name, chain) = parts.split_last()?;
         let one = |hits: Vec<Hit>| <[Hit; 1]>::try_from(hits).ok().map(|[hit]| hit);
@@ -20,9 +16,13 @@ impl App {
         }
         let imports = search::imports(kind, &self.text_of(file)?);
         let path = bound(&imports, chain.first().unwrap_or(name))?;
+        if kind == Kind::Python && file.is_absolute() {
+            return self.outside_class(file, &path, parts);
+        }
         let found = match self.imported_definitions(kind, file, name, chain, &path) {
             Some(found) => found,
             None if kind == Kind::Go && chain.len() == 1 => self.outside_declarations(&path, name),
+            None if kind == Kind::Python => return self.outside_class(file, &path, parts),
             None => return None,
         };
         one(found
