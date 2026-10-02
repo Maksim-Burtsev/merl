@@ -33,6 +33,38 @@ pub(super) fn json(lines: &[String]) -> Vec<(usize, usize)> {
     brackets(&code(lines, &JSON), b"{[", false)
 }
 
+const TOML: Syntax = Syntax {
+    line_comment: "#",
+    block_comment: None,
+    strings: &["\"\"\"", "'''", "\"", "'"],
+};
+
+pub(super) fn toml(lines: &[String]) -> Vec<(usize, usize)> {
+    let code = code(lines, &TOML);
+    let mut folds = brackets(&code, b"[{", false);
+    let mut depth = 0usize;
+    let mut tables = Vec::new();
+    for (n, b) in code.iter().enumerate() {
+        if depth == 0 && b.trim_ascii_start().first() == Some(&b'[') {
+            tables.push(n);
+        }
+        for c in b {
+            match c {
+                b'[' | b'{' => depth += 1,
+                b']' | b'}' => depth = depth.saturating_sub(1),
+                _ => {}
+            }
+        }
+    }
+    let ends = tables
+        .iter()
+        .skip(1)
+        .map(|&n| n - 1)
+        .chain([lines.len().saturating_sub(1)]);
+    folds.extend(tables.iter().copied().zip(ends).filter(|(h, e)| e > h));
+    outermost(folds)
+}
+
 fn code(lines: &[String], syntax: &Syntax) -> Vec<Vec<u8>> {
     let mut open: Option<(&str, bool)> = None;
     let mut out = Vec::with_capacity(lines.len());

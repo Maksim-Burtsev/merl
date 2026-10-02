@@ -1,0 +1,23 @@
+# Every construct `f` folds in TOML, and the cases that could break it.
+title = "merl" # f: none
+
+[package] # f: 4-17
+name = "merl" # f: 4-17
+description = """ # f: 4-17
+A [table] in a string, # f: 4-17
+not a header. # f: 4-17
+""" # f: 4-17
+keywords = [ # f: 10-14
+  "editor", # f: 10-14
+  "a ] in a string", # f: 10-14
+  # a [comment] # f: 10-14
+] # f: 10-14
+matrix = [ # f: 15-16
+  [1, 2], [3, 4]] # f: 15-16
+
+[[bin]] # f: 18-20
+name = "merl" # f: 18-20
+path = 'src/main.rs' # f: 18-20
+[dependencies] # f: none
+[dev-dependencies] # f: 22-23
+tempfile = "3" # f: 22-23
