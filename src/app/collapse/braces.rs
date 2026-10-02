@@ -3,6 +3,7 @@ use std::path::Path;
 
 mod csharp;
 mod java;
+mod kotlin;
 mod rust;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -13,6 +14,7 @@ pub(crate) enum Lang {
     CSharp,
     Rust,
     Java,
+    Kotlin,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -32,6 +34,7 @@ pub(crate) fn syntax_of(path: &Path) -> Option<Syntax> {
         "cs" => (Lang::CSharp, false),
         "rs" => (Lang::Rust, false),
         "java" => (Lang::Java, false),
+        "kt" | "kts" => (Lang::Kotlin, false),
         _ => return None,
     };
     Some(Syntax { lang, jsx })
@@ -51,6 +54,7 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
         Lang::CSharp => model.csharp(lines),
         Lang::Rust => model.rust(lines),
         Lang::Java => model.java(lines),
+        Lang::Kotlin => model.kotlin(),
         lang => model.ecma(lang == Lang::Ts),
     }
     let levels = levels(lines.len(), &model.nodes);
@@ -269,6 +273,9 @@ impl<'a> Lexer<'a> {
             if self.syntax.lang == Lang::Java && s[i..].starts_with(b"\"\"\"") {
                 self.skip_past(i + 3, b"\"\"\"");
                 self.emit(l, i, 1, K::Str, self.l);
+                continue;
+            }
+            if self.syntax.lang == Lang::Kotlin && c == b'"' && self.kt_string() {
                 continue;
             }
             if self.syntax.lang == Lang::CSharp
