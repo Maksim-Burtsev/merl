@@ -46,9 +46,7 @@ pub struct Buffer {
     /// Why the buffer cannot be edited, when it cannot: what was loaded is not what would be
     /// written back.
     pub readonly: Option<&'static str>,
-    /// The file starts with a [`BOM`].
     bom: bool,
-    /// Lines end with `\r\n` on disk.
     crlf: bool,
     /// The file ends with a line terminator (every sane file does; an empty file does not).
     trailing_newline: bool,
@@ -395,7 +393,6 @@ fn known_name(path: &Path) -> Option<&'static str> {
     known_file(path.file_name()?.to_str()?)
 }
 
-/// [`known_name`] by the file name alone.
 fn known_file(name: &str) -> Option<&'static str> {
     let ext = name.rsplit_once('.').map_or("", |(_, ext)| ext);
     Some(match (name, ext) {
@@ -470,18 +467,16 @@ mod tests {
         for plain in ["", "日本語", "a/../b", "12:15:", ":::"] {
             assert_eq!(name(plain), None, "{plain:?}");
         }
-        // The names blocks use change nothing for files.
         for file in ["x.shell", "x.console", "x.objc"] {
             let b = Buffer::from_bytes(PathBuf::from(file), b"echo hi\n");
             assert_eq!(
                 b.syntax.map(|s| s.name.as_str()),
                 Some("Plain Text"),
-                "{file}"
+                "the names blocks use change nothing for files: {file}"
             );
         }
     }
 
-    /// A block past the source view's limits is drawn plain, as a file past them is.
     #[test]
     fn a_code_block_past_the_limits_is_plain() {
         let many = vec!["x".to_string(); MAX_HL_LINES + 1];
@@ -684,9 +679,12 @@ mod tests {
         b.highlight_to(199, &theme);
         assert_eq!(b.hl.len(), 200);
         assert_ne!(b.hl[150][0].0.fg, b.hl[151][0].0.fg);
-        // Editing below the highlighted prefix forgets nothing.
         b.edited(5000);
-        assert_eq!(b.hl.len(), 200);
+        assert_eq!(
+            b.hl.len(),
+            200,
+            "editing below the highlighted prefix forgets nothing"
+        );
     }
 
     #[test]
@@ -734,8 +732,10 @@ mod tests {
             assert!(!spans.is_empty() || line.is_empty());
             assert!(spans.iter().all(|(_, r)| r.end <= line.len()), "{line:?}");
         }
-        // A comment and a keyword must not end up the same colour.
-        assert_ne!(b.hl[0][0].0.fg, b.hl[1][0].0.fg);
+        assert_ne!(
+            b.hl[0][0].0.fg, b.hl[1][0].0.fg,
+            "a comment and a keyword end up the same colour"
+        );
     }
 
     #[test]
@@ -1147,13 +1147,15 @@ mod tests {
         b.highlight_to(2, &theme);
         assert_eq!(b.hl[1], Vec::new(), "the long line went to syntect");
 
-        // The state carried on, so the last line is coloured as if the long line were not there.
         let mut short = Buffer::from_bytes(
             PathBuf::from("app.min.js"),
             b"const one = \"x\";\nconst two = \"y\";\n",
         );
         short.highlight_to(1, &theme);
-        assert_eq!(b.hl[2], short.hl[1]);
+        assert_eq!(
+            b.hl[2], short.hl[1],
+            "the state carried on, so the last line is coloured as if the long line were not there"
+        );
         let colours: std::collections::HashSet<_> = b.hl[2].iter().map(|(s, _)| s.fg).collect();
         assert!(colours.len() > 1, "the last line lost its colours");
     }
@@ -1215,8 +1217,11 @@ mod tests {
             let b = Buffer::from_bytes(PathBuf::from(name), b"x\n");
             assert_eq!(b.syntax.unwrap().name, syntax, "{name}");
         }
-        // The first line still finds a Dockerfile, and it gets the bash variant too.
         let b = Buffer::from_bytes(PathBuf::from("image"), b"FROM rust:1.80\n");
-        assert_eq!(b.syntax.unwrap().name, "Dockerfile (with bash)");
+        assert_eq!(
+            b.syntax.unwrap().name,
+            "Dockerfile (with bash)",
+            "the first line still finds a Dockerfile, and it gets the bash variant too"
+        );
     }
 }
