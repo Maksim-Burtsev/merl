@@ -237,6 +237,19 @@ pub const POOL: &[Task] = &[
         done: |a| at(a, "PLAN.md") && a.previewing(),
     },
     Task {
+        key: "f",
+        title: "Fold a function",
+        tutor: "In a long file, a function you have read takes the room of the next one. `f` folds \
+                the function the cursor is in into its first line, ending in `\u{22ef}`, and the \
+                arrows step over it; `f` on that line unfolds it, and so does a jump into it. \
+                Press `f` to fold `remove`.",
+        drill: "Hide the body of `remove` under its first line.",
+        start: Some(("store.py", REMOVE_LINE + 2, "")),
+        keys: "",
+        answer: "f",
+        done: |a| at(a, "store.py") && a.collapsed_at(REMOVE_LINE - 1).is_some(),
+    },
+    Task {
         key: "Tab",
         title: "Focus the tree",
         tutor: "Tab switches the focus between the code and the tree. Press it once.",

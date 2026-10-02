@@ -1605,3 +1605,31 @@ fn a_binary_file_is_an_empty_pane_with_a_centred_note() {
     assert_eq!(x, (60 - note.len() as u16) / 2);
     assert_eq!(buf[(x, 3)].fg, theme.ghost_fg);
 }
+
+#[test]
+fn a_fold_draws_its_tail_and_the_lines_under_it_in_colour() {
+    let body: String = (0..30).map(|i| format!("    \"x{i}\": {i},\n")).collect();
+    let text = format!("ITEMS = {{\n{body}}}\ndef g():\n    pass\n");
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/demo/f.py"), text.as_bytes()),
+        None,
+    );
+    app.show_tree = false;
+    app.key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE));
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(30, 6)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(
+        rows(&terminal)[..2],
+        ["1 ITEMS = { \u{22ef} }", "33 def g():"]
+    );
+    let buf = terminal.backend().buffer();
+    assert_ne!(
+        buf[(3, 1)].fg,
+        buf[(7, 1)].fg,
+        "line 33 is drawn uncoloured"
+    );
+}

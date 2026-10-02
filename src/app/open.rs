@@ -28,6 +28,7 @@ impl App {
                 Ok(mut buf) => {
                     self.lock_unwritable(&mut buf);
                     let old = std::mem::replace(&mut self.buf, buf);
+                    self.swap_collapsed(&old, path);
                     let (undo, redo) = (
                         std::mem::take(&mut self.undo),
                         std::mem::take(&mut self.redo),
@@ -260,6 +261,7 @@ impl App {
         // A deleted line the cursor is on is found again by what it says (below).
         let reading = self.deleted.map(|(_, i)| (self.line_str().to_string(), i));
         let old = std::mem::replace(&mut self.buf, buf);
+        self.carry_collapsed(&old.lines);
         if self.review.is_some() {
             // The reader stays in the hunk they are in when an agent writes above it: every
             // line kept of this file goes down with its text, before anything is clamped.
