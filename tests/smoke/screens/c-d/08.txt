@@ -53,5 +53,5 @@ wait Sum: by name, 2 declarations
 │                            │
 │                            │
 └────────────────────────────┘
-worker/internal/crc/mode.cc  14:37  [code]  Sum: by name, 2 declarations
+worker/internal/crc/mode.cc  14:51  [code]  Sum: by name, 2 declarations
 cursor (x,y,shown) 22,12,1

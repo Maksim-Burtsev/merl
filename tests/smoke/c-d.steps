@@ -21,9 +21,9 @@ key [ /
 type entries[(
 key Enter d
 wait entries → crc_table::entries
-# An enum constant lands in its enum, and a call through an interface offers its pure virtual
+# An enum constant lands in its enum, and a call on a template parameter offers the pure virtual
 # beside the override (#373).
-run printf 'enum crc_mode {\n    CRC_PLAIN,\n    CRC_FAST\n};\n\nstruct Hasher {\n    virtual unsigned Sum() const = 0;\n};\n\nstruct Fast : Hasher {\n    unsigned Sum() const override { return 1; }\n};\n\nint crc_pick(Hasher *h) { return h->Sum() ? CRC_FAST : CRC_PLAIN; }\n' > worker/internal/crc/mode.cc
+run printf 'enum crc_mode {\n    CRC_PLAIN,\n    CRC_FAST\n};\n\nstruct Hasher {\n    virtual unsigned Sum() const = 0;\n};\n\nstruct Fast : Hasher {\n    unsigned Sum() const override { return 1; }\n};\n\ntemplate <class H> int crc_pick(H *h) { return h->Sum() ? CRC_FAST : CRC_PLAIN; }\n' > worker/internal/crc/mode.cc
 merl worker/internal/crc/mode.cc
 wait int crc_pick
 key /
@@ -64,4 +64,16 @@ key /
 type stampJob:nil
 key Enter d
 wait stampJob: by name, 2 declarations
+key Escape
+# A C++ member is the one of the class its receiver is declared as, not each class's of its
+# name (#389).
+run printf 'struct Slice {\n    unsigned long size() const { return n; }\n    unsigned long n;\n};\n' > worker/internal/crc/slice.h
+run printf 'struct Block {\n    unsigned long size() const { return n; }\n    unsigned long n;\n};\n' > worker/internal/crc/block.h
+run printf '#include "slice.h"\n\nunsigned long crc_len(const Slice& key) { return key.size(); }\n' > worker/internal/crc/use.cc
+merl worker/internal/crc/use.cc
+wait unsigned long crc_len
+key /
+type size()
+key Enter d
+wait via key: Slice
 key Escape

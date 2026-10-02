@@ -12,7 +12,7 @@ wait int crc_pick
 │▾ worker                    │11     unsigned Sum() const override { return 1; }
 │  ▾ internal                │12 };
 │    ▾ crc                   │13
-│        crc.c               │14 int crc_pick(Hasher *h) { return h->Sum() ? CRC_FAST : CRC_PLAIN; }
+│        crc.c               │14 template <class H> int crc_pick(H *h) { return h->Sum() ? CRC_FAST : CRC_PLAIN; }
 │        crc.h               │
 │        mode.cc             │
 │    ▸ queue                 │
