@@ -202,8 +202,17 @@ run under ~15 s.
 
 - Open the steps with `wait <text merl draws>` and a no-op `key Escape`: leading waits are not
   sampled, so the first real key would otherwise change the screen before the GIF starts.
-- Move the way a person does: `Alt+Left` / `Alt+Right` to a word, `End`, `/WORD`, `c` / `C` to a
-  hunk, `[` back. A cursor crawling with `Right*28` argues that merl is slow.
+- A screencast that moves through code moves the way a seasoned keyboard user does, someone with
+  twenty years of Vim or Emacs: the keys that person reaches for, at that person's pace. The owner
+  scrolled files with a mouse for years and learns keyboard navigation from these screencasts.
+  - Reading down a file is `Ctrl+D` / `Ctrl+U`, the keyboard's scroll wheel. Code already on the
+    screen is reached the way a person would reach it there: a few `}`, or `/` and the first
+    letters of a name. Either is fine; the walk takes whichever comes naturally in that spot,
+    not whichever has the fewest keys. Code off the screen is reached by name (`D`, `d`, `s`), by
+    number (`:N`), or back (`[`). Arrows move a line or two.
+  - The keys play at `tools/cast.py`'s pace, each shown in its keycap, and the walk pauses where
+    a person would read.
+  - A demo of something that is not a walk (a picker, an overlay, a flag) shows it directly.
 - When merl exits (a panic, `q`) the pane dies and the GIF stops a frame early: pass `--bin` a
   script that runs merl and then `sleep 6`. For a change to the command line, the script is a
   prompt that runs what the steps type, the binary passed after `--`:
