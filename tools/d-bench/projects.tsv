@@ -15,3 +15,6 @@ mastodon	ruby	https://github.com/mastodon/mastodon.git	a4ac5f5670942265804dbb261
 SDWebImage	objc	https://github.com/SDWebImage/SDWebImage.git	c3ad5e1a9bf55c9b76d4c362430b5fcded96c502	-
 nix-darwin	nix	https://github.com/nix-darwin/nix-darwin.git	4cff07de74b50e64bdd68cd4e722ab5b6b35ee48	-
 bootstrap	css	https://github.com/twbs/bootstrap.git	c1f9b9db4dd14d5353e34462ec589cdf8c7270d3	-
+gitea	vue	https://github.com/go-gitea/gitea.git	bea6fcaa840f2e14030aa2adc360969a1c8a0e0c	pnpm install --ignore-scripts --frozen-lockfile
+immich	svelte	https://github.com/immich-app/immich.git	c5e06dcfd1b35f8625863108a60d370e5b61c58e	pnpm install --ignore-scripts --frozen-lockfile --filter immich-web... && pnpm --dir web exec svelte-kit sync
+starlight	astro	https://github.com/withastro/starlight.git	e45162cea478e988f7c212b427736ebdf3427077	pnpm install --ignore-scripts --frozen-lockfile

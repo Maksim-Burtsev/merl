@@ -1,0 +1,271 @@
+# id	targets: path:line joined by ; (project-relative; ~/ or / outside the project; empty: the oracle found none)	skip: why the row is not scored	note
+svelte0000			
+svelte0001	web/src/lib/constants.ts:263		
+svelte0002	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/services/toast-manager.svelte.d.ts:11		
+svelte0003	node_modules/.pnpm/@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-svelte@7.3.1_svelte_dd6b04054a393a83278c0775cf586720/node_modules/@sveltejs/kit/src/runtime/client/client.js:2328		
+svelte0004	web/src/routes/(user)/people/[personId]/[[photos=photos]]/[[assetId=id]]/EditNameInput.svelte:8		
+svelte0005	web/src/lib/components/ApiKeyPermissionsPicker.svelte:3	@immich/sdk not built: oracle stops at the import line	
+svelte0006	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Text/Text.svelte.d.ts:1;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Text/Text.svelte.d.ts:14;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Text/Text.svelte.d.ts:15		
+svelte0007	web/src/lib/stores/preferences.store.ts:86		
+svelte0008	web/src/lib/managers/timeline-manager/types.ts:27		
+svelte0009	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/types.d.ts:352		
+svelte0010	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/IconButton/IconButton.svelte.d.ts:2;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/IconButton/IconButton.svelte.d.ts:3		
+svelte0011	web/src/lib/constants.ts:261		
+svelte0012			
+svelte0013	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/LoadingSpinner/LoadingSpinner.svelte.d.ts:7;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/LoadingSpinner/LoadingSpinner.svelte.d.ts:8		
+svelte0014		builtin: the server's own stub	
+svelte0015			
+svelte0016	web/src/lib/services/asset.service.ts:143		
+svelte0017	web/src/routes/admin/system-settings/FFmpegSettings.svelte:40		
+svelte0018	web/src/lib/components/timeline/Month.svelte:45		
+svelte0019	web/src/lib/utils/container-utils.ts:67		
+svelte0020		builtin: the server's own stub	
+svelte0021	web/src/routes/(user)/DragAndDropUploadOverlay.svelte:43		
+svelte0022	web/src/routes/(user)/user-settings/DeviceList.svelte:20		
+svelte0023	web/src/lib/components/timeline/Timeline.svelte:1		
+svelte0024	web/src/routes/(user)/workflows/[workflowId]/WorkflowSummary.svelte:12		
+svelte0025	web/src/routes/(user)/shared-links/(list)/ShareCover.svelte:1		
+svelte0026			
+svelte0027	web/src/routes/admin/server-status/ServerStatisticsPanel.svelte:45		
+svelte0028			
+svelte0029	web/src/routes/(user)/utilities/duplicates/[[photos=photos]]/[[assetId=id]]/+page.svelte:64		
+svelte0030	web/src/lib/types.ts:74		
+svelte0031			
+svelte0032	web/src/routes/admin/server-status/ServerStatisticsPanel.svelte:26		
+svelte0033	web/src/routes/(user)/utilities/geolocation/+page.svelte:111		
+svelte0034			
+svelte0035	web/src/routes/auth/login/+page.ts:31		
+svelte0036		builtin: the server's own stub	
+svelte0037	web/src/routes/(user)/workflows/[workflowId]/+page.svelte:72		
+svelte0038	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Text/Text.svelte.d.ts:1;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Text/Text.svelte.d.ts:14;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Text/Text.svelte.d.ts:15		
+svelte0039	web/src/lib/components/shared-components/settings/SettingInputField.svelte:23		
+svelte0040	node_modules/.pnpm/@types+luxon@3.7.5/node_modules/@types/luxon/src/datetime.d.ts:1257		
+svelte0041	web/src/lib/components/ApiKeyPermissionsPicker.svelte:30		
+svelte0042	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Icon/Icon.svelte.d.ts:4;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Icon/Icon.svelte.d.ts:5		
+svelte0043	web/src/lib/utils/adaptive-image-loader.svelte.ts:34;web/src/lib/utils/adaptive-image-loader.svelte.ts:47		
+svelte0044	web/src/lib/managers/timeline-manager/types.ts:33		
+svelte0045	web/src/lib/modals/AssetChangeDateModal.svelte:21		
+svelte0046	web/src/lib/modals/AssetAddToAlbumModal.svelte:4	@immich/sdk not built: oracle stops at the import line	
+svelte0047	web/src/lib/utils/ocr-utils.ts:12		
+svelte0048			
+svelte0049	web/src/lib/components/layouts/UserPageLayout.svelte:1		
+svelte0050	web/src/routes/(user)/albums/AlbumsControls.svelte:76		
+svelte0051	web/src/lib/elements/Portal.svelte:1		
+svelte0052	node_modules/.pnpm/@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-svelte@7.3.1_svelte_dd6b04054a393a83278c0775cf586720/node_modules/@sveltejs/kit/types/index.d.ts:1436		
+svelte0053	web/src/lib/managers/download-manager.svelte.ts:8		
+svelte0054	web/src/lib/modals/LibraryFolderAddModal.svelte:13		
+svelte0055	web/src/lib/modals/PartnerSelectionModal.svelte:29		
+svelte0056	node_modules/.pnpm/@types+lodash@4.17.25/node_modules/@types/lodash/common/collection.d.ts:1912;node_modules/.pnpm/lodash-es@4.18.1/node_modules/lodash-es/sortBy.js:35		reviewed: lodash-es's code next to its @types/lodash declaration
+svelte0057			
+svelte0058	web/src/routes/admin/system-settings/FFmpegSettings.svelte:15	@immich/sdk not built: oracle stops at the import line	
+svelte0059			
+svelte0060	web/src/lib/index.ts:21		
+svelte0061		builtin: the server's own stub	
+svelte0062		builtin: the server's own stub	
+svelte0063			
+svelte0064	web/src/lib/managers/auth-manager.svelte.ts:24		
+svelte0065			
+svelte0066			
+svelte0067	web/src/lib/components/shared-components/settings/SettingSwitch.svelte:1		
+svelte0068	web/src/lib/modals/ApiKeyUpdateModal.svelte:4	@immich/sdk not built: oracle stops at the import line	
+svelte0069	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Modal/Modal.svelte.d.ts:16;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Modal/Modal.svelte.d.ts:17		
+svelte0070	web/src/routes/(user)/user-settings/UserPurchaseSettings.svelte:13		
+svelte0071	web/src/routes/(user)/user-settings/FeatureSettings.svelte:27		
+svelte0072			
+svelte0073	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Button/Button.svelte.d.ts:1;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Button/Button.svelte.d.ts:3;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Button/Button.svelte.d.ts:4		
+svelte0074	web/src/lib/managers/auth-manager.svelte.ts:28		
+svelte0075	web/src/routes/admin/system-settings/SettingSelect.svelte:10		
+svelte0076	node_modules/.pnpm/@types+luxon@3.7.5/node_modules/@types/luxon/src/datetime.d.ts:1432		
+svelte0077			
+svelte0078	web/src/lib/modals/PeopleSelectionModal.svelte:76		
+svelte0079	web/src/lib/managers/asset-viewer-manager.svelte.ts:29		
+svelte0080	node_modules/.pnpm/@types+luxon@3.7.5/node_modules/@types/luxon/src/datetime.d.ts:1432		
+svelte0081	web/src/lib/utils/ocr-utils.ts:106		
+svelte0082			
+svelte0083	web/src/lib/managers/auth-manager.svelte.ts:36		
+svelte0084	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Table/Table.svelte.d.ts:12;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Table/Table.svelte.d.ts:13		
+svelte0085		builtin: the server's own stub	
+svelte0086	web/src/lib/modals/AssetAddToAlbumModal.svelte:11		
+svelte0087	web/src/lib/components/timeline/Timeline.svelte:541		
+svelte0088			
+svelte0089		builtin: the server's own stub	
+svelte0090	web/src/lib/components/shared-components/settings/SettingAccordion.svelte:1		
+svelte0091	web/src/lib/components/shared-components/gallery-viewer/GalleryViewer.svelte:182		
+svelte0092			
+svelte0093	web/src/lib/utils.ts:234		
+svelte0094	web/src/routes/(user)/albums/[albumId=id]/[[photos=photos]]/[[assetId=id]]/+page.ts:13		
+svelte0095	web/src/lib/utils.ts:234		
+svelte0096	web/src/routes/admin/maintenance/integrity-report/[type]/+page.svelte:8	@immich/sdk not built: oracle stops at the import line	
+svelte0097	web/src/lib/managers/auth-manager.svelte.ts:36		
+svelte0098		builtin: the server's own stub	
+svelte0099	web/src/lib/types.ts:67		
+svelte0100	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Text/Text.svelte.d.ts:1;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Text/Text.svelte.d.ts:14;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Text/Text.svelte.d.ts:15		
+svelte0101	web/src/lib/managers/asset-viewer-manager.svelte.ts:224		
+svelte0102	web/src/lib/components/shared-components/UserAvatar.svelte:1		
+svelte0103	web/src/routes/(user)/user-settings/SharingSettings.svelte:58		
+svelte0104	web/src/lib/managers/asset-multi-select-manager.svelte.ts:95		
+svelte0105	web/src/routes/(user)/DragAndDropUploadOverlay.svelte:30		
+svelte0106	web/src/lib/components/asset-viewer/PhotoViewer.svelte:289		
+svelte0107			
+svelte0108			
+svelte0109	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Button/Button.svelte.d.ts:1;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Button/Button.svelte.d.ts:3;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Button/Button.svelte.d.ts:4		
+svelte0110	web/src/routes/(user)/workflows/[workflowId]/+page.svelte:67		
+svelte0111	node_modules/.pnpm/svelte@5.57.1_@typescript-eslint+types@8.70.1/node_modules/svelte/src/index-client.js:91		
+svelte0112		builtin: the server's own stub	
+svelte0113	web/src/lib/elements/Dropdown.svelte:30		
+svelte0114	web/src/routes/admin/library-management/(list)/+layout.svelte:53		
+svelte0115	web/src/lib/modals/ObtainiumConfigModal.svelte:1		
+svelte0116	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Button/Button.svelte.d.ts:1;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Button/Button.svelte.d.ts:3;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Button/Button.svelte.d.ts:4		
+svelte0117	web/src/lib/stores/preferences.store.ts:77		
+svelte0118	web/src/routes/admin/library-management/(list)/+layout.svelte:34		
+svelte0119		builtin: the server's own stub	
+svelte0120		builtin: the server's own stub	
+svelte0121	web/src/lib/utils.ts:385		
+svelte0122	web/src/lib/managers/activity-manager.svelte.ts:35		
+svelte0123	web/src/lib/types.ts:48		
+svelte0124	web/src/lib/managers/asset-multi-select-manager.svelte.ts:20		
+svelte0125	web/src/lib/components/shared-components/settings/SystemConfigButtonRow.svelte:1		
+svelte0126	web/src/lib/modals/LibraryExclusionPatternAddModal.svelte:3	@immich/sdk not built: oracle stops at the import line	
+svelte0127	web/src/routes/(user)/albums/[albumId=id]/[[photos=photos]]/[[assetId=id]]/+page.svelte:49	@immich/sdk not built: oracle stops at the import line	
+svelte0128		builtin: the server's own stub	
+svelte0129	web/src/lib/utils/places-utils.ts:52		
+svelte0130	web/src/routes/(user)/workflows/+page.svelte:36		
+svelte0131	web/src/lib/components/layouts/UserPageLayout.svelte:1		
+svelte0132		builtin: the server's own stub	
+svelte0133	web/src/routes/(user)/workflows/[workflowId]/+page.svelte:95		
+svelte0134	web/src/routes/(user)/albums/[albumId=id]/[[photos=photos]]/[[assetId=id]]/+page.svelte:87		
+svelte0135	web/src/routes/(user)/search/[[photos=photos]]/[[assetId=id]]/+page.svelte:35	@immich/sdk not built: oracle stops at the import line	
+svelte0136	web/src/lib/components/album-page/AlbumCardGroup.svelte:31		
+svelte0137	web/src/lib/utils.ts:385		
+svelte0138	node_modules/.pnpm/geo-coordinates-parser@1.7.4/node_modules/geo-coordinates-parser/dist/mjs/converter.d.ts:12		
+svelte0139		builtin: the server's own stub	
+svelte0140		builtin: the server's own stub	
+svelte0141	web/src/routes/DownloadPanel.svelte:11		
+svelte0142	web/src/routes/(user)/people/[personId]/[[photos=photos]]/[[assetId=id]]/+page.svelte:268		
+svelte0143			
+svelte0144	web/src/routes/(user)/memories/[id]/[[photos=photos]]/[[assetId=id]]/MemoryViewer.svelte:280		
+svelte0145			
+svelte0146	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/ActionBar/ActionBar.svelte.d.ts:2;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/ActionBar/ActionBar.svelte.d.ts:3		
+svelte0147	web/src/lib/services/workflow.service.ts:56		
+svelte0148	web/src/lib/stores/preferences.store.ts:26		
+svelte0149	web/src/lib/components/asset-viewer/face-editor/FaceEditor.svelte:186		
+svelte0150			
+svelte0151	web/src/routes/(user)/user-settings/SharingSettings.svelte:24	@immich/sdk not built: oracle stops at the import line	
+svelte0152	web/src/lib/elements/Portal.svelte:71		
+svelte0153	web/src/lib/constants.ts:7		
+svelte0154	web/src/lib/managers/asset-multi-select-manager.svelte.ts:29		
+svelte0155	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Label/Label.svelte.d.ts:2;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Label/Label.svelte.d.ts:3		
+svelte0156	web/src/lib/components/shared-components/NumberRangeInput.svelte:13		
+svelte0157	web/src/lib/components/faces-page/PersonSidePanel.svelte:96		
+svelte0158	node_modules/.pnpm/@types+lodash@4.17.25/node_modules/@types/lodash/common/lang.d.ts:616;node_modules/.pnpm/lodash-es@4.18.1/node_modules/lodash-es/isEqual.js:31		reviewed: lodash-es's code next to its @types/lodash declaration
+svelte0159			
+svelte0160			
+svelte0161		builtin: the server's own stub	
+svelte0162		builtin: the server's own stub	
+svelte0163	web/src/lib/utils.ts:385		
+svelte0164		builtin: the server's own stub	
+svelte0165	node_modules/.pnpm/@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-svelte@7.3.1_svelte_dd6b04054a393a83278c0775cf586720/node_modules/@sveltejs/kit/src/runtime/client/client.js:2328		
+svelte0166		builtin: the server's own stub	
+svelte0167	web/src/routes/(user)/people/[personId]/[[photos=photos]]/[[assetId=id]]/+page.svelte:88		
+svelte0168	web/src/lib/modals/PeoplePickerModal.svelte:74		
+svelte0169	web/src/routes/(user)/utilities/large-files/[[photos=photos]]/[[assetId=id]]/+page.svelte:34		
+svelte0170	web/src/lib/managers/auth-manager.svelte.ts:19		
+svelte0171			
+svelte0172	web/src/routes/(user)/memories/[id]/[[photos=photos]]/[[assetId=id]]/MemoryViewer.svelte:104		
+svelte0173	web/src/routes/(user)/people/[personId]/[[photos=photos]]/[[assetId=id]]/MergeFaceSelector.svelte:45		
+svelte0174		builtin: the server's own stub	
+svelte0175	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Text/Text.svelte.d.ts:1;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Text/Text.svelte.d.ts:14;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Text/Text.svelte.d.ts:15		
+svelte0176	web/src/lib/index.ts:4		
+svelte0177	web/src/lib/managers/timeline-manager/types.ts:18		
+svelte0178	web/src/lib/route.ts:41		
+svelte0179	web/src/lib/components/asset-viewer/ActivityViewer.svelte:55		
+svelte0180		builtin: the server's own stub	
+svelte0181	web/src/routes/(user)/explore/+page.svelte:191		
+svelte0182	web/src/lib/components/asset-viewer/SlideshowBar.svelte:45		
+svelte0183			
+svelte0184	web/src/routes/auth/onboarding/+page.svelte:18	@immich/sdk not built: oracle stops at the import line	
+svelte0185		builtin: the server's own stub	
+svelte0186	node_modules/.pnpm/@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-svelte@7.3.1_svelte_dd6b04054a393a83278c0775cf586720/node_modules/@sveltejs/kit/src/runtime/client/client.js:2328		
+svelte0187	web/src/lib/components/timeline/actions/TimelineKeyboardActions.svelte:100		
+svelte0188	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Stack/Stack.svelte.d.ts:2;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Stack/Stack.svelte.d.ts:3		
+svelte0189	web/src/lib/stores/slideshow.store.ts:13		
+svelte0190	node_modules/.pnpm/svelte-maplibre@2.0.0_svelte@5.57.1_@typescript-eslint+types@8.70.1_/node_modules/svelte-maplibre/dist/ControlButton.svelte.d.ts:13;node_modules/.pnpm/svelte-maplibre@2.0.0_svelte@5.57.1_@typescript-eslint+types@8.70.1_/node_modules/svelte-maplibre/dist/ControlButton.svelte.d.ts:14		
+svelte0191	web/src/lib/route.ts:41		
+svelte0192	web/src/lib/services/asset.service.ts:139		
+svelte0193	web/src/lib/components/asset-viewer/VideoNativeViewer.svelte:69		
+svelte0194	web/src/lib/modals/PersonBulkShareModal.svelte:9	@immich/sdk not built: oracle stops at the import line	
+svelte0195	web/src/lib/components/shared-components/Combobox.svelte:4		
+svelte0196	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Stack/Stack.svelte.d.ts:2;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Stack/Stack.svelte.d.ts:3		
+svelte0197	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Table/TableCell.svelte.d.ts:7;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Table/TableCell.svelte.d.ts:8		
+svelte0198		builtin: the server's own stub	
+svelte0199	web/src/lib/components/admin-settings/StorageTemplateSettings.svelte:161		
+svelte0200	web/src/routes/auth/onboarding/OnboardingBackup.svelte:33		
+svelte0201	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Text/Text.svelte.d.ts:1;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Text/Text.svelte.d.ts:14;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Text/Text.svelte.d.ts:15		
+svelte0202		builtin: the server's own stub	
+svelte0203	web/src/routes/(user)/trash/[[photos=photos]]/[[assetId=id]]/+page.svelte:43		
+svelte0204	web/src/lib/components/timeline/actions/FavoriteAction.svelte:1		
+svelte0205	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Button/Button.svelte.d.ts:1;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Button/Button.svelte.d.ts:3;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Button/Button.svelte.d.ts:4		
+svelte0206	web/src/lib/components/timeline/Scrubber.svelte:424		
+svelte0207	web/src/lib/utils/handle-error.ts:38		
+svelte0208	web/src/lib/utils/timeline-util.ts:133		
+svelte0209			
+svelte0210	node_modules/.pnpm/@types+lodash@4.17.25/node_modules/@types/lodash/common/lang.d.ts:165;node_modules/.pnpm/lodash-es@4.18.1/node_modules/lodash-es/cloneDeep.js:25		reviewed: lodash-es's code next to its @types/lodash declaration
+svelte0211	web/src/lib/managers/activity-manager.svelte.ts:53		
+svelte0212	web/src/lib/modals/WorkflowLogsModal.svelte:49		
+svelte0213			
+svelte0214	node_modules/.pnpm/svelte@5.57.1_@typescript-eslint+types@8.70.1/node_modules/svelte/src/index-client.js:91		
+svelte0215	web/src/lib/managers/asset-multi-select-manager.svelte.ts:95		
+svelte0216	web/src/lib/modals/WorkflowEditStepModal.svelte:12		
+svelte0217	web/src/lib/managers/timeline-manager/timeline-month.svelte.ts:349		
+svelte0218		builtin: the server's own stub	
+svelte0219	node_modules/.pnpm/@photo-sphere-viewer+markers-plugin@5.15.1_@photo-sphere-viewer+core@5.15.1/node_modules/@photo-sphere-viewer/markers-plugin/index.d.mts:342		
+svelte0220	web/src/lib/utils/asset-utils.ts:428		
+svelte0221	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Table/TableHeader.svelte.d.ts:2;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Table/TableHeader.svelte.d.ts:3		
+svelte0222	web/src/lib/utils/navigation.ts:38		
+svelte0223	web/src/lib/components/timeline/Scrubber.svelte:327		
+svelte0224	web/src/lib/route.ts:41		
+svelte0225	node_modules/.pnpm/svelte@5.57.1_@typescript-eslint+types@8.70.1/node_modules/svelte/types/index.d.ts:286		
+svelte0226			
+svelte0227			
+svelte0228	web/src/lib/components/SchemaConfiguration.svelte:55		
+svelte0229			
+svelte0230	web/src/lib/stores/preferences.store.ts:55		
+svelte0231		builtin: the server's own stub	
+svelte0232			
+svelte0233	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/ConfirmModal/ConfirmModal.svelte.d.ts:6	object-literal key is itself a declaration; oracle gives its contextual type	
+svelte0234	web/src/lib/components/shared-components/settings/SettingAccordion.svelte:1		
+svelte0235	web/src/lib/components/shared-components/context-menu/ButtonContextMenu.svelte:106		
+svelte0236	web/src/lib/stores/drag-and-drop-files.store.ts:4		
+svelte0237	node_modules/.pnpm/@types+lodash@4.17.25/node_modules/@types/lodash/common/collection.d.ts:949;node_modules/.pnpm/lodash-es@4.18.1/node_modules/lodash-es/groupBy.js:33		reviewed: lodash-es's code next to its @types/lodash declaration
+svelte0238	node_modules/.pnpm/vite@8.3.0_@types+node@24.13.6_esbuild@0.28.2_jiti@2.7.0_sass@1.102.0_terser@5.49.0_tsx@4.23.15_yaml@2.9.1/node_modules/vite/types/hmrPayload.d.ts:21		
+svelte0239	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Input/Input.svelte.d.ts:2;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Input/Input.svelte.d.ts:3		
+svelte0240	web/src/lib/components/shared-components/Combobox.svelte:215;web/src/lib/components/shared-components/Combobox.svelte:225		
+svelte0241			
+svelte0242			
+svelte0243	web/src/lib/modals/PersonBulkShareModal.svelte:39		
+svelte0244	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Textarea/Textarea.svelte.d.ts:2;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Textarea/Textarea.svelte.d.ts:3		
+svelte0245	web/src/lib/components/faces-page/PersonSidePanel.svelte:163		
+svelte0246	web/src/lib/stores/preferences.store.ts:92		
+svelte0247			
+svelte0248	web/src/lib/modals/AlbumOptionsModal.svelte:33		
+svelte0249	node_modules/.pnpm/@types+luxon@3.7.5/node_modules/@types/luxon/src/datetime.d.ts:714		
+svelte0250	web/src/lib/stores/preferences.store.ts:59		
+svelte0251	web/src/lib/utils.ts:385		
+svelte0252	web/src/lib/utils/byte-units.ts:41		
+svelte0253	web/src/routes/(user)/people/[personId]/[[photos=photos]]/[[assetId=id]]/+page.svelte:446		
+svelte0254	web/src/lib/route.ts:41		
+svelte0255	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/HelperText/HelperText.svelte.d.ts:5;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/HelperText/HelperText.svelte.d.ts:6		
+svelte0256	web/src/lib/utils.ts:385		
+svelte0257	web/src/lib/utils.ts:257		
+svelte0258		builtin: the server's own stub	
+svelte0259			
+svelte0260			
+svelte0261	web/src/lib/stores/slideshow.store.ts:12		
+svelte0262	web/src/lib/components/shared-components/Combobox.svelte:61		
+svelte0263	web/src/lib/components/server-statistics/ServerStatisticsCard.svelte:20		
+svelte0264	web/src/routes/(user)/user-settings/FeatureSettings.svelte:6	@immich/sdk not built: oracle stops at the import line	
+svelte0265	node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Heading/Heading.svelte.d.ts:16;node_modules/.pnpm/@immich+ui@0.90.0_@sveltejs+kit@2.70.3_@opentelemetry+api@1.9.1_@sveltejs+vite-plugin-s_f759bcd1d1b6db9b45e97b274f4ec30d/node_modules/@immich/ui/dist/components/Heading/Heading.svelte.d.ts:17		
+svelte0266			
+svelte0267	web/src/lib/constants.ts:272		
+svelte0268	web/src/lib/components/timeline/Scrubber.svelte:317		
+svelte0269	node_modules/.pnpm/@types+luxon@3.7.5/node_modules/@types/luxon/src/datetime.d.ts:1296		

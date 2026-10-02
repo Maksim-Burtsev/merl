@@ -83,6 +83,8 @@ protected public puts raise new lambda proc""".split(),
 config throw abort toString map""".split(),
 }
 KW["js"] = KW["ts"]
+for _c in ("vue", "svelte", "astro"):
+    KW[_c] = KW["ts"] + "each then key html snippet render debug".split()
 KW["objc"] = C_KW + """self super nil Nil YES NO id instancetype BOOL SEL Class IMP NSInteger NSUInteger
 CGFloat interface implementation end property protocol optional required synthesize dynamic
 selector encode class import autoreleasepool synchronized nonatomic atomic strong weak copy assign
@@ -110,6 +112,8 @@ SPEC = {
 }
 NIX_PATH = re.compile(r"(?:^|(?<=[\s(\[{=;]))(?:\.{1,2}|[\w.+-]*)(?:/[\w.+-]+)+/?")
 NIX_BINDS = re.compile(r"\s*(?:\.\s*[\w'-]*\s*)*=(?!=)")
+for _c in ("vue", "svelte", "astro"):
+    SPEC[_c] = dict(SPEC["ts"], exts=(f".{_c}",), component=True)
 SKIP_DIRS = {".git", "node_modules", "vendor", "third_party", "dist", "build", "target", ".venv",
              "venv", "__pycache__", "migrations", "deps", "public", "static", "locale", "locales",
              "generated", ".build", "Pods", "fixtures", "testdata"}
@@ -206,6 +210,59 @@ def code_tokens(text, spec):
     return out
 
 
+def blank(text, a, b):
+    return text[:a] + re.sub(r"[^\n]", " ", text[a:b]) + text[b:]
+
+
+def braces(text):
+    out, depth, start, q, i = [], 0, 0, None, 0
+    while i < len(text):
+        c = text[i]
+        if q:
+            if c == "\\":
+                i += 1
+            elif c == q or c == "\n" and q != "`":
+                q = None
+        elif depth and c in "\"'`":
+            q = c
+        elif c == "{":
+            depth += 1
+            if depth == 1:
+                start = i + 1
+        elif c == "}" and depth:
+            depth -= 1
+            if not depth:
+                out.append((start, i))
+        i += 1
+    return out
+
+
+def component_code(text, lang):
+    kept = re.sub(r"[^\n]", " ", text)
+    keep = lambda a, b: kept[:a] + text[a:b] + kept[b:]
+    tpl = text
+    for m in re.finditer(r"<script\b[^>]*>(.*?)</script>", text, re.S):
+        kept = keep(*m.span(1))
+        tpl = blank(tpl, *m.span())
+    if lang == "astro":
+        m = re.match(r"---\n(.*?)\n---", text, re.S)
+        if m:
+            kept = keep(*m.span(1))
+            tpl = blank(tpl, *m.span())
+    for m in re.finditer(r"<style\b.*?</style>|<!--.*?-->", tpl, re.S):
+        tpl = blank(tpl, *m.span())
+    if lang == "vue":
+        spans = [m.span(1) for m in re.finditer(r"\{\{(.*?)\}\}", tpl, re.S)]
+        spans += [m.span(1) for m in re.finditer(
+            r"\s(?:v-[\w-]+(?::[\w.\[\]-]+)?|[:@#][\w.\[\]-]*)=\"([^\"]*)\"", tpl)]
+    else:
+        spans = braces(tpl)
+    spans += [m.span(1) for m in re.finditer(r"</?([A-Z][\w.]*)", tpl)]
+    for a, b in spans:
+        kept = keep(a, b)
+    return kept
+
+
 def shape(before, after, lang):
     b = before.rstrip()
     if b.endswith("?.") or (b.endswith(".") and not b.endswith("..")) or b.endswith("->"):
@@ -289,6 +346,8 @@ def sample(lang, project, root, n, out, exclude=()):
             if len(text) > 400_000:
                 continue
             rel = os.path.relpath(p, root)
+            if spec.get("component"):
+                text = component_code(text, lang)
             for (ln, col, w, before, after) in code_tokens(text, spec):
                 if w in kw or len(w) < 2:
                     continue
@@ -296,6 +355,9 @@ def sample(lang, project, root, n, out, exclude=()):
                     buckets["path"].append((rel, ln, col, "path", w))
                     continue
                 if lang == "nix" and NIX_BINDS.match(after):
+                    continue
+                if spec.get("component") and (re.search(r"</?$", before) and w[0].islower()
+                                              or re.match(r"=[\"'{]|-[a-z]", after)):
                     continue
                 prev = re.findall(r"[A-Za-z_]+", before)
                 if prev and prev[-1] in DECL and not before.rstrip().endswith((".", "->", "::", "(", ",", "=", ":")):
@@ -434,7 +496,7 @@ LANG_ID = {".py": "python", ".ts": "typescript", ".tsx": "typescriptreact", ".js
            ".jsx": "javascriptreact", ".mjs": "javascript", ".cjs": "javascript", ".go": "go",
            ".rs": "rust", ".c": "c", ".h": "cpp", ".cc": "cpp", ".cpp": "cpp", ".hpp": "cpp",
            ".php": "php", ".swift": "swift", ".m": "objective-c", ".css": "css", ".scss": "scss",
-           ".less": "less"}
+           ".less": "less", ".vue": "vue", ".svelte": "svelte", ".astro": "astro"}
 
 
 def server(lang, root):
@@ -450,6 +512,15 @@ def server(lang, root):
     if lang in ("ts", "js"):
         return Lsp([node, os.path.join(nm, "typescript-language-server", "lib", "cli.mjs"), "--stdio"], root,
                    init_options={"tsserver": {"path": os.path.join(nm, "typescript", "lib", "tsserver.js")}})
+    tsdk = {"typescript": {"tsdk": os.path.join(nm, "typescript", "lib")}}
+    if lang == "vue":
+        return Lsp([node, os.path.join(nm, "@vue", "language-server", "bin", "vue-language-server.js"), "--stdio"],
+                   root, init_options={**tsdk, "vue": {"hybridMode": False}})
+    if lang == "svelte":
+        return Lsp([node, os.path.join(nm, "svelte-language-server", "bin", "server.js"), "--stdio"], root)
+    if lang == "astro":
+        return Lsp([node, os.path.join(nm, "@astrojs", "language-server", "bin", "nodeServer.js"), "--stdio"], root,
+                   init_options=tsdk)
     if lang == "go":
         return Lsp([os.path.join(LSP, "bin", "gopls")], root, env={"GOFLAGS": "-mod=mod"})
     if lang == "rust":
