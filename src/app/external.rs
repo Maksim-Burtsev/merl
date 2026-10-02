@@ -557,10 +557,11 @@ impl App {
             self.external.insert(kind, (roots, Arc::new(files)));
             self.node_modules_of = Some(here.to_path_buf());
         }
-        // Elixir's are the `deps/` of the Mix project the file is in (#437), inside the project
-        // and not of the machine, so a test's `no_external` does not hide them either.
-        if let Some(here) = here.filter(|_| kind == Kind::Elixir) {
-            let roots = search::mix_deps(&self.root, here);
+        if let Some(here) = here.filter(|_| kind == Kind::Elixir || kind == Kind::Css) {
+            let roots = match kind {
+                Kind::Elixir => search::mix_deps(&self.root, here),
+                _ => search::node_modules(&self.root, here),
+            };
             if self.external.get(&kind).is_none_or(|(r, _)| *r != roots) {
                 let files = Arc::new(search::external_files(kind, &roots));
                 self.external.insert(kind, (roots, files));

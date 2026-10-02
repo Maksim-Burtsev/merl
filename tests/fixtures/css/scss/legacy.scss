@@ -1,0 +1,8 @@
+@import 'pkg/scss/tokens';
+.tag { color: $ink; }
+//             ^ d: node_modules/pkg/scss/_tokens.scss:1
+// status: ink: by name, 1 match
+.tag-raised { @include elevate; }
+//                      ^ d: node_modules/pkg/scss/_tokens.scss:2
+.tag-flat { color: $nowhere; }
+//                  ^ d: none

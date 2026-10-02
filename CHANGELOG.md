@@ -38,6 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   variables and mixins, and keyframes are found too, a `@use` namespace narrowing them to its
   module, and the path of a `<link href>`, a `<script src>` and an `@import` or `@use` opens
   its file. `D` lists the mixins, functions, placeholders and keyframes. (#415)
+- `d` in four more places of stylesheets. `styles.container` behind
+  `import styles from './Button.module.css'`, or a name a named import takes from a CSS Module,
+  lands on `.container {` in that file only, `container: via import src/Button.module.css`, where
+  it said `no definition for container`. A Sass or Less variable, mixin or function the project
+  does not declare is found in `node_modules`, and a class of a `.sass` file is found in its
+  indented rules, `&__item` and all. (#590)
 - `d`, `u` and `D` in Dart (`.dart`, Flutter included), where `d` said `no rules for .dart`.
   `d` on `formatPrice` lands on `String formatPrice(int cents) =>` in the project; on `get` of
   `http.get` behind `import 'package:http/http.dart' as http` it opens the `http` package's
