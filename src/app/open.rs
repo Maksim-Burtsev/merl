@@ -53,8 +53,6 @@ impl App {
                     self.undo_break = true;
                     self.anchor = None;
                     self.preview = None;
-                    // A file of the review opens on its source, where its diff and its fold are,
-                    // whatever an earlier visit rendered: `p` renders it again (#596).
                     let rel = path.strip_prefix(&self.root).ok();
                     if rel.is_some_and(|rel| {
                         self.review.as_ref().is_some_and(|r| r.file(rel).is_some())
@@ -74,8 +72,6 @@ impl App {
                     self.refresh_diff();
                 }
                 Err(e) => {
-                    // Named as the status bar names an open file, not by its absolute path,
-                    // which left no room for the reason (#403).
                     self.say_about(path, &format!(": {}", why_not(&e)));
                     return false;
                 }
@@ -94,12 +90,6 @@ impl App {
     /// The standard library and dependencies are read here, never edited. A `.venv` or
     /// `node_modules` sits inside the root, so the roots decide, but not over a file the project
     /// walk listed: an editable install puts the project's own `src` on `sys.path`.
-    ///
-    /// Then the file merl has no permission to write (#123). The test is an open for writing,
-    /// not the permission bits: the bits lie in both directions — root writes a 444 file, an ACL
-    /// or a read-only mount refuses a 644 one — and a save is `fs::write` on this very path, so
-    /// the open it would do is the honest question. Nothing is truncated, so the file is left as
-    /// it was. It comes last because every other reason says more.
     fn lock_unwritable(&self, buf: &mut Buffer) {
         let Some(path) = buf.path.as_deref() else {
             return;
@@ -115,8 +105,6 @@ impl App {
                     .any(|(roots, _)| roots.iter().any(|r| path.starts_with(r)))
                 // Another package's `node_modules`, walked from a file opened before.
                 || !listed && self.node_modules.keys().any(|r| path.starts_with(r))
-                // Below a link to a directory that leads out of the project (#404), or a link to a
-                // file out there, which the walk lists (#448).
                 || self.in_project(path).is_none();
         if external {
             buf.readonly.get_or_insert("outside the project");
@@ -124,9 +112,6 @@ impl App {
         lock_no_write(buf);
     }
 
-    /// `path`, below the root, as a path from the root once the directories on it that exist are
-    /// resolved, links included; `None` when they lead out of the project (#404), or the file is
-    /// a link that does (#448). A link to a file that stays inside keeps its own name.
     pub(super) fn in_project(&self, path: &Path) -> Option<PathBuf> {
         let root = self.root.canonicalize().ok()?;
         if path
@@ -226,11 +211,10 @@ impl App {
     }
 
     /// Re-reads the open file after it changed on disk. Cursor, scroll, history and find pattern
-    /// survive; the cursor is clamped to whatever the file is now. The reload is one undo step,
-    /// as in VS Code and Vim (#122): Ctrl+Z takes back what was written, then the edits before
-    /// it. merl's own saves are recognised and ignored; a change under unsaved edits is a
-    /// conflict, not a reload, unless `force` (Ctrl+R) says the edits go; Ctrl+Z brings them
-    /// back. Returns whether anything on screen changed.
+    /// survive; the cursor is clamped to whatever the file is now. merl's own saves are
+    /// recognised and ignored; a change under unsaved edits is a conflict, not a reload, unless
+    /// `force` (Ctrl+R) says the edits go; Ctrl+Z brings them back. Returns whether anything on
+    /// screen changed.
     pub fn reload(&mut self, force: bool) -> bool {
         let Some(path) = self.buf.path.clone() else {
             return false;
@@ -386,8 +370,6 @@ impl App {
         self.jump_to_col(path, line, 0);
     }
 
-    /// [`App::jump_to`], the cursor on byte `col` of the line: on the name `d` found, on the
-    /// word a picker row is about (#236). The stop is made there, so `[` and `]` come back to it.
     pub(super) fn jump_to_col(&mut self, path: &Path, line: usize, col: usize) {
         let before = (self.at(), self.col);
         self.preview_jumped();
@@ -545,10 +527,6 @@ fn reload_step(old: &[String], was: buffer::Format, buf: &Buffer) -> Option<Edit
     })
 }
 
-/// A status message's text for an error that may hold an I/O one (#516): what `{e:#}` says, the
-/// context naming what failed included, with the I/O error said in a few words as [`why_not`]
-/// says it, never with its `(os error N)`. Any other error, a git failure's own text or a theme
-/// that does not parse, reads as it comes.
 pub(crate) fn error_text(e: &anyhow::Error) -> String {
     let mut text = Vec::new();
     for cause in e.chain() {
@@ -561,8 +539,6 @@ pub(crate) fn error_text(e: &anyhow::Error) -> String {
     text.join(": ")
 }
 
-/// Why a file did not open, could not be made or saved, in a few words: the OS text without
-/// its `(os error N)` (#403, #507).
 pub(super) fn why_not(e: &anyhow::Error) -> String {
     use std::io::ErrorKind::*;
     match e.downcast_ref::<std::io::Error>().map(std::io::Error::kind) {
