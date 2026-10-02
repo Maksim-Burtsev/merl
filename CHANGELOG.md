@@ -308,6 +308,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a function nested in it, whether it is declared above the call or below; two local overloads
   are offered together. It jumped to the type's member of the same name through `self`, or
   offered both. (#577)
+- `d` in PHP on a relative namespace segment in a file of several `namespace` blocks, `Legacy` in
+  `Legacy\Entry::OPEN`, reads it in the block it stands in. It read it in the file's first block
+  and said `no definition`. (#617)
 
 ## [0.8.0] - 2026-10-01
 
