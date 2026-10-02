@@ -98,6 +98,8 @@ RELEASE_ONLY = {
 SCREEN_SKIPPED = {
     ("python-d", "json/__init__.py"): "the standard library of the machine's Python",
     ("python-d", "cancel: by name"): "the cancel methods of the machine's Python standard library",
+    ("python-d", "assertEqual → TestCase.assertEqual (via self: LegacyServiceTest)"):
+        "the unittest of the machine's Python standard library",
     ("go-d", "Errorf: via import fmt"): "the standard library of the machine's Go",
     ("go-d", "Done → Context.Done (via ctx: Context)"): "the standard library of the machine's Go",
     ("c-d", "printf: by name"): "the system headers of the machine",

@@ -23,6 +23,7 @@ mod navigate_csharp;
 mod navigate_field;
 mod navigate_go;
 mod navigate_python;
+mod navigate_python_deps;
 mod navigate_reason;
 mod navigate_receiver;
 mod navigate_ruby;
@@ -158,7 +159,7 @@ fn lock_lines(up: &[usize]) -> String {
 fn review_start(dir: &Path, base: Option<&str>) -> App {
     let review = git::Review::open(dir, None, base).unwrap();
     let (_, files) = crate::tree::build(dir, false);
-    let tree = crate::tree::from_files(
+    let tree = crate::tree::from_listing(
         &review
             .files
             .iter()
