@@ -46,3 +46,6 @@ a.btn-ghost.active {
 @import "https://cdn.example.com/x.css";
 //             ^ d: none
 // status: no file in the project: a URL
+.ink { color: rgb(0, 0, 0); }
+//            ^ d: none
+// a CSS file never reads a Sass library in node_modules (#590)

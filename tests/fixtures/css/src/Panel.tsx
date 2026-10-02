@@ -14,3 +14,24 @@ export const Missing = () => <h2 className={title}>m</h2>
 export const Gone = () => <p className={styles.nowhere}>n</p>
 //                                              ^ d: none
 // CSS Modules: a default import and a named one, each narrowed to its file (#590)
+interface Theme {
+  container: string
+}
+const theme = { styles: { title: 'c' } }
+export const Nested = () => <div className={theme.styles.title}>n</div>
+//                                                       ^ d: none
+export function Shadow(styles: Theme) { return styles.container }
+//                                                    ^ d: src/Panel.tsx:18
+export const Arrow = (styles: Theme) => styles.container
+//                                             ^ d: src/Panel.tsx:18
+export const Boxed = (box: string) => <div className={box}>b</div>
+//                                                    ^ d: src/Panel.tsx:27
+//                    ^ d: src/Panel.tsx:27
+import plain from './base.css'
+export const Plain = () => <p className={plain.lede}>p</p>
+//                                             ^ d: none
+export function Indented() {
+  return <div className={styles.container}>i</div>
+//                              ^ d: src/Button.module.css:1
+}
+// A styles that is not the import, a chain past it and a stylesheet that is no module stay TypeScript's (#590)

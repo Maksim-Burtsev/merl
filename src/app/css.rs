@@ -98,11 +98,19 @@ impl App {
         let Some((range, word)) = search::word_at(line, self.col, "") else {
             return false;
         };
-        let object = line[..range.start].strip_suffix('.').map(|b| {
-            let ident = |c: char| c.is_alphanumeric() || c == '_' || c == '$';
-            &b[b.trim_end_matches(ident).len()..]
-        });
-        let imports = search::imports(Kind::TsJs, &self.buf.lines.join("\n"));
+        let chain = search::qualifier(line, range.start);
+        let object = match (chain.as_slice(), line[..range.start].ends_with('.')) {
+            ([head], true) => Some(head.as_str()),
+            ([], false) => None,
+            _ => return false,
+        };
+        let name = object.unwrap_or(word);
+        let text = self.buf.lines.join("\n");
+        let code = search::script_text(here, &text, Some(self.line));
+        if !search::bindings(Kind::TsJs, &code, self.line + 1, name).is_empty() {
+            return false;
+        }
+        let imports = search::imports(Kind::TsJs, &text);
         let found = imports.iter().find_map(|(name, path)| {
             let (taken, module) = path.split_last()?;
             let whole = taken == "default" || taken == "*";
@@ -224,10 +232,25 @@ impl App {
                 })
                 .collect();
         }
-        let outside = matches!(
-            sheet,
-            Sheet::Var(..) | Sheet::Mixin(..) | Sheet::Function(..) | Sheet::LessVar(_)
-        );
+        let dialect = here
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or_default();
+        let no_source = match sheet {
+            Sheet::Function(None, n) => search::css_builtin(n),
+            Sheet::Function(Some(_), _) | Sheet::Var(Some(_), _) | Sheet::Mixin(Some(_), _) => {
+                module.is_none()
+            }
+            _ => false,
+        };
+        let outside = !no_source
+            && match sheet {
+                Sheet::Var(..) | Sheet::Mixin(..) | Sheet::Function(..) => {
+                    dialect == "scss" || dialect == "sass"
+                }
+                Sheet::LessVar(_) => dialect == "less",
+                _ => false,
+            };
         if found.is_empty() && outside {
             let files: Vec<PathBuf> = (self.external_files(Kind::Css).iter())
                 .filter(|p| wanted(p))
