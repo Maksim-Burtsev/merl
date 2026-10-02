@@ -177,7 +177,10 @@ impl Folds<'_> {
         match self {
             Folds::Shape(shape) => shape.target(l),
             Folds::Spans(spans) => (spans.iter().find(|s| s.0 == l))
-                .or_else(|| spans.iter().filter(|s| s.0 < l && l <= s.1).max())
+                .or_else(|| {
+                    (spans.iter().filter(|s| s.0 < l && l <= s.1))
+                        .min_by_key(|s| (std::cmp::Reverse(s.0), s.1))
+                })
                 .copied(),
         }
     }

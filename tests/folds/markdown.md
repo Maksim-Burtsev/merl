@@ -4,7 +4,7 @@ title: front matter is not a heading
 Text before the first heading folds as a section. <!-- f: 4-5 -->
 Second line of it. <!-- f: 4-5 -->
 
-# Title <!-- f: 7-44 -->
+# Title <!-- f: 7-48 -->
 
 ## Lists <!-- f: 9-26 -->
 
@@ -25,7 +25,7 @@ A paragraph ends the list. <!-- f: 9-26 -->
 
 ### A deeper heading inside Lists <!-- f: 9-26 -->
 
-## Code <!-- f: 28-44 -->
+## Code <!-- f: 28-48 -->
 
 ```rust <!-- f: 30-34 -->
 fn main() { <!-- f: 30-34 -->
@@ -40,5 +40,9 @@ fn main() { <!-- f: 30-34 -->
     indented code <!-- f: 40-41 -->
     over two lines <!-- f: 40-41 -->
 
-Title line under a setext rule <!-- f: 28-44 -->
-=== <!-- f: 28-44 -->
+Title line under a setext rule <!-- f: 28-48 -->
+=== <!-- f: 28-48 -->
+
+- a first item holding a list <!-- f: 46-47 -->
+  - nested <!-- f: 46-47 -->
+- second <!-- f: 46-48 -->

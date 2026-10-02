@@ -166,7 +166,7 @@ fn brackets(code: &[Vec<u8>], opens: &[u8], statements: bool) -> Vec<(usize, usi
 
 fn innermost(mut folds: Vec<(usize, usize)>) -> Vec<(usize, usize)> {
     folds.sort_unstable();
-    folds.dedup_by_key(|f| f.0);
+    folds.dedup();
     folds
 }
 
