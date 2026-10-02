@@ -98,11 +98,13 @@ impl Model<'_, '_> {
                 continue;
             }
             stack.push(k);
-            if t.text == "[" && cpp && up != Ctx::Decl {
-                if let Some(body) = self.lambda(k) {
-                    marked[body] = Some(Ctx::Code);
-                    self.add(t.line, self.closing(body), true);
-                }
+            if t.text == "["
+                && cpp
+                && up != Ctx::Decl
+                && let Some(body) = self.lambda(k)
+            {
+                marked[body] = Some(Ctx::Code);
+                self.add(t.line, self.closing(body), true);
             }
             if t.text != "{" {
                 ctx[k] = if up == Ctx::Switch { Ctx::Code } else { up };
@@ -136,17 +138,13 @@ impl Model<'_, '_> {
                 }
                 if matches!(t.text, "do" | "try" | "else") || self.punct(k + 1, "{") {
                     marked[k + 1] = Some(Ctx::Code);
-                } else if let Some(c) = self.paren_after(k).and_then(|o| self.pair[o]) {
-                    if self.punct(c + 1, "{") {
-                        let body = if t.text == "switch" {
-                            Ctx::Switch
-                        } else {
-                            Ctx::Code
-                        };
-                        marked[c + 1] = Some(body);
-                        if t.text == "switch" {
-                            self.c_cases(c + 1);
-                        }
+                } else if let Some(c) = self.paren_after(k).and_then(|o| self.pair[o])
+                    && self.punct(c + 1, "{")
+                {
+                    let switch = t.text == "switch";
+                    marked[c + 1] = Some(if switch { Ctx::Switch } else { Ctx::Code });
+                    if switch {
+                        self.c_cases(c + 1);
                     }
                 }
                 let end = self.c_stmt_end(k);

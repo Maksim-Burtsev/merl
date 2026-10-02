@@ -16,13 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   between methods the class. `f` on the folded line unfolds it; Up and Down step over a fold, and
   a jump inside one (`:`, `/`, `n`, `d`, `u`, `s`, `[`) opens it. A fold stays with its file
   across jumps and moves with the lines written above it. Other languages say
-  `no fold rules for .rs` until they are proven the same way (#623). (#598)
-- `f` folds Go, JavaScript and TypeScript, JSX and TSX included, where it said
-  `no fold rules for .go`: on a line that opens a construct it folds what Neovim's treesitter
-  folds there (a function, an `if` and its branches, a `switch` and each `case`, a loop,
-  an object, an array, a call's arguments wrapped over lines, a JSX element, a run of imports, a
-  Go composite literal and each of its elements); anywhere else inside a function it folds the
-  function; a raw string or a template literal at column 0 inside a body does not end it. (#625)
+  `no fold rules for .rb` until they are proven the same way (#623). (#598)
+- `f` folds Go, JavaScript, TypeScript (JSX and TSX included), Rust, C, C++, C#, Java and
+  Kotlin, where it said `no fold rules for .go`: on a line that opens a construct it folds what
+  Neovim's treesitter folds there (a function, a class, an `if` and its branches, a `switch` and
+  each `case`, a loop, an object, an array, a call's arguments wrapped over lines, a JSX element,
+  a C `#ifdef` to its `#endif`, a Rust `impl`, a run of imports); on the line of a function or
+  `if` whose `{` stands on the next line it folds that body; anywhere else inside a function it
+  folds the function; a raw string or a template literal at column 0 inside a body does not end
+  it. An Objective-C header still says `no fold rules for .h`. (#625)
 - `d`, `u` and `D` in Nix, where `d` said `no rules for .nix`. `d` on `mkService` in
   `shopLib.mkService` lands on its `mkService = { name, port ? 8080 }:` in `lib/default.nix`; on a
   name a `let` binds or a parameter (`{ config, pkgs, ... }:`, `x:`) names, on that binding in the
