@@ -155,6 +155,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on from a package, `export { x } from "lodash"`, lands on `x` in the installed package, as an
   import straight from the package does, or on the import with `(not installed)`. It searched
   the project by name. (#527)
+- `d` in TypeScript and JavaScript reads the type of a receiver in five more places. In
+  `function Row({ apiKey }: Props)` `apiKey.id` lands on the `id` its `Props` field's type
+  declares, as `auth.user` does after `const { auth } = useStores()`, `membership.permission`
+  inside `for (const membership of document.memberships)`, and `server.post` after `const server
+  = getTestServer()` whose body does `const server = new TestServer(); return server;`. Each
+  offered a picker of every namesake. `props.href` with `props: Omit<Props, "document"> & { href:
+  string }` lands on the `href` of the literal, where it jumped to another class's `href`, and `d`
+  on `rest` after `const { id, ...rest } = document` lands on that line, where it said "no
+  definition". (#354)
 - `d` in Java and Kotlin reads the `import` lines: a class the file imports from the project
   opens in that package's file, `User: via import src/main/java/app/a/User.java`, not a picker
   of every `User`; `import static a.b.C.*` finds `isNull` in `C`; a name imported from outside

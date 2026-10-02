@@ -1,4 +1,4 @@
-wait close → Dialog.close (via this: Dialog)
+wait close → Dialog.close (via target: Dialog)
  1 export class Dialog {
  2   private readonly el: HTMLDialogElement;
  3
@@ -53,5 +53,5 @@ wait close → Dialog.close (via this: Dialog)
 
 
 
-web/src/components/Dialog.ts  14:3  [code]  close → Dialog.close (via this: Dialog)
+web/src/components/Dialog.ts  14:3  [code]  close → Dialog.close (via target: Dialog)
 cursor (x,y,shown) 5,13,1

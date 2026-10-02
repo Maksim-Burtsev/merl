@@ -29,6 +29,7 @@ pub enum Value {
     /// A field of a chain of names, as a TypeScript destructuring hands it on: `this` and `repo`
     /// for `const { repo } = this`, `this.uow` and `users` for `const { users: u } = this.uow`.
     Field(Vec<String>, String),
+    Member(Box<Value>, String),
     Struct(usize),
     /// A declaration whose type the rules cannot read: `for repo in`, a tuple, a parameter with
     /// no annotation.
@@ -571,8 +572,9 @@ pub(super) fn continued(kind: Kind, lines: &[&str], i: usize) -> bool {
         .is_some_and(|t| t.trim_end().ends_with(['(', '[', '{', ',', '\\']))
 }
 pub fn written_line<S: AsRef<str>>(lines: &[S], line: usize, name: &str) -> usize {
+    let has = |l: &str| names(&uncommented(Kind::TsJs, l).replace("...", " "), name);
     let first = lines[line - 1].as_ref();
-    if names(&uncommented(Kind::TsJs, first), name) {
+    if has(first) {
         return line;
     }
     for (k, l) in lines.iter().enumerate().skip(line) {
@@ -580,7 +582,7 @@ pub fn written_line<S: AsRef<str>>(lines: &[S], line: usize, name: &str) -> usiz
         if l.trim().is_empty() {
             continue;
         }
-        if names(&uncommented(Kind::TsJs, l), name) {
+        if has(l) {
             return k + 1;
         }
         if indent(l) <= indent(first) {
@@ -962,9 +964,8 @@ fn opener_bindings(
             };
             let is_loop = starts(header) || header.rsplit('\n').next().is_some_and(starts);
             let count = out.len();
-            // `for (const r of repos)` over a plain name hands out elements; `in` hands out keys.
             if let Some(b) = element(format!(
-                r"\bfor\s*\(\s*(?:const|let|var)\s+{n}\s+of\s+([A-Za-z_$][\w$]*)\s*\)"
+                r"\bfor\s*\(\s*(?:const|let|var)\s+{n}\s+of\s+((?:this|[A-Za-z_$][\w$]*)(?:\.[A-Za-z_$][\w$]*)*)\s*\)"
             )) {
                 out.push(b);
             } else if TS_LOOP
@@ -1162,38 +1163,6 @@ fn return_type(before: &str) -> bool {
     }
     false
 }
-/// The binding of `name` among TypeScript parameters: its annotation, else its default value.
-fn ts_params(params: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
-    static MODS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:(?:public|private|protected|readonly|override)\s+)*(?:\.\.\.)?").unwrap()
-    });
-    for p in split_top(Kind::TsJs, params, b',') {
-        let p = MODS.replace(p.trim(), "");
-        if p.starts_with(['{', '[']) {
-            if names(&p, name) {
-                out.push(Binding {
-                    line,
-                    value: Value::Unknown,
-                });
-            }
-            continue;
-        }
-        let parts = split_top(Kind::TsJs, &p, b'=');
-        let (pname, annotation) = match parts[0].split_once(':') {
-            Some((pname, t)) => (pname, Some(t.trim())),
-            None => (parts[0], None),
-        };
-        if pname.trim().trim_end_matches('?') != name {
-            continue;
-        }
-        let value = match (annotation, parts.get(1)) {
-            (Some(t), _) => Value::Type(t.to_owned()),
-            (None, Some(default)) => value_of(Kind::TsJs, default),
-            (None, None) => Value::Unknown,
-        };
-        out.push(Binding { line, value });
-    }
-}
 /// The binding of `name` among Go parameters, a receiver or named results: `a, b *T` gives both
 /// names the type written after the last of them. A list of bare types names nothing.
 fn go_params(params: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
@@ -1222,18 +1191,6 @@ fn go_params(params: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
             out.push(Binding { line, value });
         }
     }
-}
-pub(super) fn ts_destructured(t: &str, name: &str) -> Option<Value> {
-    static SHAPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:export\s+)?(?:const|let|var)\s*\{([^{}\[\]]*)\}\s*=\s*((?:this|[A-Za-z_$][\w$]*)(?:\.#?[A-Za-z_$][\w$]*)*)\s*;?$").unwrap()
-    });
-    let c = SHAPE.captures(t)?;
-    let field = c[1].split(',').find_map(|item| {
-        let (field, local) = item.split_once(':').unwrap_or((item, item));
-        (local.trim() == name).then(|| field.trim().to_owned())
-    })?;
-    let from = c[2].split('.').map(str::to_owned).collect();
-    Some(Value::Field(from, field))
 }
 /// The binding of `name` a statement at a block's level makes: a TypeScript `const` / `let` /
 /// `var`, a Go `:=` or `var`. A destructuring, a second name of a Go `:=` or a declaration the
@@ -1275,7 +1232,7 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
             } else if named.is_match(t)
                 || TS_DESTRUCTURE
                     .captures(t)
-                    .is_some_and(|c| names(&KEY.replace_all(&c[1], ""), name))
+                    .is_some_and(|c| names(&KEY.replace_all(&c[1], "").replace("...", " "), name))
             {
                 Value::Unknown
             } else {

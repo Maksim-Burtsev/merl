@@ -284,7 +284,9 @@ the type before it. The type comes from the declaration:
   `): UserRepository`, `func NewRepo() *UserRepository` (a Go function's first result), or a
   function that declares none and whose every `return` constructs the same class,
   `return new UserRepository()` in TypeScript, `return UserRepository()` in an undecorated Python
-  `def` (a bare `return` or a `yield` spoils it). A callee that a parameter or a local of the
+  `def` (a bare `return` or a `yield` spoils it). In TypeScript every `return` may also name one
+  local that each of its declarations in the function constructs as the same class,
+  `const repo = new UserRepository(); return repo;`, and that is not assigned again (#354). A callee that a parameter or a local of the
   scope names is a value, not the function of that name. The function may be a method called on a receiver
   whose type is proven the same way, `info := e.RequestInfo()` or `repo = self.depot.people()`:
   the method is looked for in that type and the types it extends, where it must be declared once,
@@ -301,7 +303,8 @@ the type before it. The type comes from the declaration:
   `repos: list[UserRepository]` (`Sequence`, `Iterable`, `set`, `tuple[T, ...]` and the like),
   `for (const repo of repos)` with `UserRepository[]`, `Array<T>` or `Set<T>`,
   `for _, repo := range repos` with `[]*UserRepository`, `[4]T` or `map[K]T`. The collection is a
-  plain name, and every declaration of it writes that type: as an annotation, as the declared
+  plain name (in TypeScript also a chain, `for (const m of document.memberships)`, typed by the
+  last field's declaration, #354), and every declaration of it writes that type: as an annotation, as the declared
   return type of the function it was assigned from, or in Go as `make([]T, …)`, a literal `[]T{…}`
   or a named type declared `type RepoList []*UserRepository`. `repos.word` on the collection itself is no member of `UserRepository`, and a `dict`'s
   keys, a `Map`'s pairs, `for … in`, a tuple target, a single `range` variable and `async for`
@@ -310,8 +313,14 @@ the type before it. The type comes from the declaration:
   `@functools.cached_property` over `def users(self) -> UserRepository`, a getter
   `get users(): UserRepository`;
 - a TypeScript destructuring out of a chain of names, `const { repo, audit: trail } = this` or
-  `= this.uow`, on one line or wrapped over several: the field's type. A default, a rest, a nested
-  or an array's pattern is a binding of no readable type.
+  `= this.uow`, on one line or wrapped over several, out of a call read as above,
+  `const { auth } = useStores()`, or of a parameter by its written type,
+  `function Row({ apiKey, document: doc }: Props)` (#354): the field's type. A default, a rest
+  (`...rest`, which binds `rest`), a nested or an array's pattern is a binding of no readable
+  type.
+- a TypeScript annotation that intersects inline type literals, `props: Omit<Props, "x"> & {
+  href: string }` (#354): a field one `{ … }` operand declares is the answer, on its line; two
+  operands declaring it, or a top-level `|`, prove nothing.
 - JSDoc in a `.js`, `.jsx`, `.mjs` or `.cjs` file (#347), read as the annotation it stands for:
   `/** @type {UserRepository} */` right above a `const`, `let` or `var` or on its line,
   `@param {UserRepository} repo` and `@returns {UserRepository}` in the block right above a
