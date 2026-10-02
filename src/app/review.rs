@@ -479,7 +479,7 @@ impl App {
         // generated (#243): the user may be typing into it.
         let shown = rel.clone().filter(|_| self.folded_here().is_none());
         self.review = Some(fresh);
-        self.refresh_tree(crate::tree::from_files(&paths));
+        self.refresh_tree(crate::tree::from_listing(&paths));
         if stale {
             self.refresh_diff();
         }

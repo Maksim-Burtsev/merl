@@ -102,7 +102,7 @@ fn time_budgets() {
         let _project = crate::live::Project::new(&root, false, &tree);
         let ignored = tree.ignored_files();
         if let Some(paths) = review {
-            tree = crate::tree::from_files(paths);
+            tree = crate::tree::from_listing(paths);
         }
         let buf = file.map_or_else(Buffer::empty, |p| Buffer::load(p).unwrap());
         let mut a = App::new(root.clone(), tree, files, buf, None);

@@ -16,9 +16,13 @@ impl App {
         }
         let imports = search::imports(kind, &self.text_of(file)?);
         let path = bound(&imports, chain.first().unwrap_or(name))?;
+        if kind == Kind::Python && file.is_absolute() {
+            return self.outside_class(file, &path, parts);
+        }
         let found = match self.imported_definitions(kind, file, name, chain, &path) {
             Some(found) => found,
             None if kind == Kind::Go && chain.len() == 1 => self.outside_declarations(&path, name),
+            None if kind == Kind::Python => return self.outside_class(file, &path, parts),
             None => return None,
         };
         one(found

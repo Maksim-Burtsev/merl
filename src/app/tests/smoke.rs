@@ -13,10 +13,16 @@ use crate::stats::ACTIONS;
 
 /// Actions of `KEYS`, and flags as `--long`, that no scenario plays, each with why. A new row in
 /// `KEYS` or a new flag fails the test below until a scenario plays it or it is listed here.
-const NOT_SMOKED: &[(&str, &str)] = &[(
-    "--version",
-    "its text changes with every release; run.py asks both builds for it before any play",
-)];
+const NOT_SMOKED: &[(&str, &str)] = &[
+    (
+        "--version",
+        "its text changes with every release; run.py asks both builds for it before any play",
+    ),
+    (
+        "--for-agents",
+        "prints a guide for an agent and exits, no screen to play; hidden while #599 is an experiment",
+    ),
+];
 
 /// Issues an `### Added` or `### Changed` entry of `## [Unreleased]` may cite with no scenario or
 /// fixture mentioning them, each with why. Empty until a feature cannot play in tmux (an Intel

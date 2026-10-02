@@ -291,6 +291,7 @@ pub struct App {
     /// Set by `main` for a file opened outside any repository: the project is the files right
     /// in the root, and every walk stops there (#182).
     pub shallow: bool,
+    pub tree_order: Option<crate::tree::OrderFile>,
     pub buf: Buffer,
     pub tree: Tree,
     /// Every file under the root that is not ignored, sorted like the tree: what `o` offers
@@ -500,6 +501,7 @@ impl App {
         let mut app = Self {
             root,
             shallow: false,
+            tree_order: None,
             buf: Buffer::empty(),
             tree,
             files,

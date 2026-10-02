@@ -4,13 +4,16 @@ use super::*;
 
 impl App {
     pub(super) fn typed_definitions(
-        &self,
+        &mut self,
         kind: Kind,
         here: &Path,
         word: &str,
         chain: &[String],
         head: Option<&(String, search::Value, Vec<String>)>,
     ) -> Result<Vec<Candidate>, String> {
+        if kind == Kind::Python {
+            self.external_files(kind);
+        }
         let (text, line) = self.scope(here, chain.first())?;
         // `super().m()` / `super.m()` is `self` / `this` with the walk started one level up.
         if chain.first().is_some_and(|f| f == "super") {
@@ -259,7 +262,7 @@ impl App {
                 continue;
             }
             if let Some(base) = self.type_decl(kind, &ty.path, &base) {
-                outside |= self.ancestry_outside(&base, depth + 1)?;
+                outside |= base.path.is_absolute() || self.ancestry_outside(&base, depth + 1)?;
                 continue;
             }
             let path = bound(&imports, &parts[0])?;
@@ -280,12 +283,15 @@ impl App {
     /// property), in the class or what [`App::above`] proves over it. An attribute a method
     /// assigns to `self` is an instance's, and no answer here.
     pub(super) fn class_attribute(
-        &self,
+        &mut self,
         kind: Kind,
         here: &Path,
         chain: &[String],
         word: &str,
     ) -> Vec<Candidate> {
+        if kind == Kind::Python {
+            self.external_files(kind);
+        }
         let Some(ty) = self.type_decl(kind, here, &chain.join(".")) else {
             return Vec::new();
         };

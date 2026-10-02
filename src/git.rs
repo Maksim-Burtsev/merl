@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
 
+use crate::tree::Order;
 use anyhow::{Context, Result, bail};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -319,8 +320,14 @@ impl Review {
                 None => generated(root, f),
             };
         }
-        // The panel's order, so `c` walks the files top to bottom.
-        files.sort_by_cached_key(|f| crate::tree::sort_key(&f.path, false));
+        let order = match (branch.as_str(), dirs(root)) {
+            _ if !crate::tree::orders_on() => Order::default(),
+            ("HEAD", _) | (_, None) => Order::default(),
+            (b, Some((_, common))) => {
+                Order::read(&common.join("merl").join("review").join(b), Path::new(""))
+            }
+        };
+        files.sort_by_cached_key(|f| crate::tree::sort_key(&f.path, false, &order));
         // The prefixes are spelled out: a user's `diff.noprefix` would read the patch otherwise.
         // Renames are left to the user's `diff.renames`, as in the listing above, so every part
         // is keyed by a path the panel has. Names keep their letters.
@@ -1306,6 +1313,107 @@ mod tests {
         assert!(
             format!("{e:#}").contains("switching to agent/task"),
             "{e:#}"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn the_agents_order_sorts_the_review_and_a_refresh_reads_it_again() {
+        let dir = std::env::temp_dir().join(format!("merl-order-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let git = |args: &[&str]| {
+            let out = Command::new("git").arg("-C").arg(&dir).args(args).output();
+            assert!(out.unwrap().status.success(), "git {args:?}");
+        };
+        git(&["init", "-q", "-b", "main"]);
+        git(&["config", "user.email", "t@t"]);
+        git(&["config", "user.name", "t"]);
+        git(&["commit", "-q", "--allow-empty", "-m", "base"]);
+        git(&["switch", "-q", "-c", "feat/x"]);
+        for f in [
+            "CHANGELOG.md",
+            "docs/a.md",
+            "src/api.py",
+            "src/types.py",
+            "tests/t.py",
+        ] {
+            std::fs::create_dir_all(dir.join(f).parent().unwrap()).unwrap();
+            std::fs::write(dir.join(f), "x\n").unwrap();
+        }
+        git(&["add", "."]);
+        git(&["commit", "-q", "-m", "change"]);
+        let paths = |r: &Review| {
+            r.files
+                .iter()
+                .map(|f| f.path.display().to_string())
+                .collect::<Vec<_>>()
+        };
+        let r = Review::open(&dir, None, Some("main")).unwrap();
+        assert_eq!(
+            paths(&r),
+            [
+                "docs/a.md",
+                "src/api.py",
+                "src/types.py",
+                "tests/t.py",
+                "CHANGELOG.md"
+            ]
+        );
+        let order = dir.join(".git/merl/review/feat/x");
+        std::fs::create_dir_all(order.parent().unwrap()).unwrap();
+        std::fs::write(
+            &order,
+            "# commit abc\nsrc/types.py\ntests/t.py\nsrc/api.py\ngone.py\n",
+        )
+        .unwrap();
+        let r = r.refresh(&dir).unwrap();
+        assert_eq!(
+            paths(&r),
+            [
+                "src/types.py",
+                "src/api.py",
+                "tests/t.py",
+                "docs/a.md",
+                "CHANGELOG.md"
+            ]
+        );
+        std::fs::write(&order, "CHANGELOG.md\ntests/t.py\n").unwrap();
+        let r = r.refresh(&dir).unwrap();
+        assert_eq!(
+            paths(&r),
+            [
+                "CHANGELOG.md",
+                "tests/t.py",
+                "docs/a.md",
+                "src/api.py",
+                "src/types.py"
+            ]
+        );
+        std::fs::write(dir.join(".git/merl/review/HEAD"), "CHANGELOG.md\n").unwrap();
+        git(&["switch", "-q", "--detach"]);
+        let r = Review::open(&dir, None, Some("main")).unwrap();
+        assert_eq!(
+            paths(&r),
+            [
+                "docs/a.md",
+                "src/api.py",
+                "src/types.py",
+                "tests/t.py",
+                "CHANGELOG.md"
+            ]
+        );
+        git(&["switch", "-q", "-c", "other"]);
+        let r = Review::open(&dir, None, Some("main")).unwrap();
+        assert_eq!(
+            paths(&r),
+            [
+                "docs/a.md",
+                "src/api.py",
+                "src/types.py",
+                "tests/t.py",
+                "CHANGELOG.md"
+            ]
         );
         std::fs::remove_dir_all(&dir).unwrap();
     }
