@@ -1,0 +1,22 @@
+wait worker/internal/queue/queue.go
+┌orders──────────────────────┐13 type Queue interface {
+│▸ .github                   │15     Pop() (Job, bool)
+│▸ .venv                     │16 }
+│▸ app                       │17
+│▸ data                      │18 type memQueue struct {
+│▸ deploy                    │19     mu   sync.Mutex
+│▸ docs                      │20     jobs []Job
+│▸ scripts                   │21 }
+│▸ tests                     │22
+│▸ web                       │23 // New returns a queue in memory, for local runs and tests.
+│▾ worker                    │24 func New() *memQueue {
+│  ▾ internal                │25     return &memQueue{}
+│    ▾ queue                 │26 }
+│        queue.go            │27
+│        queue.proto         │28 func (q *memQueue) Push(job Job) {
+│        redis.go            │29     q.mu.Lock()
+│    go.mod                  │30     defer q.mu.Unlock()
+│    main.go                 │31     q.jobs = append(q.jobs, job)
+└────────────────────────────┘32 }
+worker/internal/queue/queue.go  24:6  [code]  New: via import worker/internal/queue/
+cursor (x,y,shown) 38,10,1

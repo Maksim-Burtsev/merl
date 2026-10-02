@@ -342,6 +342,7 @@ pub struct App {
     /// the cursor (see `hist_note`).
     pub history: Vec<(PathBuf, TextLine, usize)>,
     pub hist_idx: usize,
+    hist_rows: HashMap<(PathBuf, TextLine, usize), usize>,
     /// Cursor: file line, byte offset into that line, and the display column Up/Down aims for.
     pub line: usize,
     pub col: usize,
@@ -553,6 +554,7 @@ impl App {
             search_sent: None,
             search_enter: false,
             history: Vec::new(),
+            hist_rows: HashMap::new(),
             hist_idx: 0,
             line: 0,
             col: 0,

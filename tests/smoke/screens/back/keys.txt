@@ -1,0 +1,6 @@
+Arrows
+End
+Esc
+[
+d
+q

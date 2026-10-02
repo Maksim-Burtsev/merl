@@ -361,6 +361,22 @@ impl App {
         self.hist_idx = self.history.len() - 1;
     }
 
+    pub(super) fn note_hist_row(&mut self) {
+        let Some(pos) = self
+            .pos()
+            .filter(|p| self.history.get(self.hist_idx) == Some(p))
+        else {
+            return;
+        };
+        let (top, cur) = ((self.top_line, self.top_row), self.cursor_at());
+        let row = self.rows_between(top, cur);
+        if top <= cur && row < self.view_h {
+            self.hist_rows.insert(pos, row);
+        }
+        let history = &self.history;
+        self.hist_rows.retain(|stop, _| history.contains(stop));
+    }
+
     /// Opens `path` at `line` and makes it a stop in the jump history. `:` and the pickers jump
     /// from outside `key_inner`'s move rule, so a jump that lands elsewhere drops the selection
     /// here.
@@ -468,6 +484,10 @@ impl App {
         self.set_at(line);
         self.col = col;
         self.sync_want_x();
+        if let Some(&row) = self.hist_rows.get(&self.history[i]) {
+            self.center = false;
+            (self.top_line, self.top_row) = self.back_rows(self.cursor_at(), row);
+        }
         // The stop follows the file: after a reload shortened it, this is where `[` lands,
         // and `hist_note` must not read the clamp as a move that drops the forward history.
         self.history[i] = (path, self.at(), self.col);

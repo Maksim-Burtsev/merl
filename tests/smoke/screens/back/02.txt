@@ -1,0 +1,22 @@
+wait worker/main.go  19:18
+┌orders──────────────────────┐ 1 // Command worker drains the order jobs the API queues: shipping and syncs.
+│▸ .github                   │ 2 package main
+│▸ .venv                     │ 3
+│▸ app                       │ 4 import (
+│▸ data                      │ 5     "context"
+│▸ deploy                    │ 6     "fmt"
+│▸ docs                      │ 7     "log"
+│▸ scripts                   │ 8     "os"
+│▸ tests                     │ 9     "os/signal"
+│▸ web                       │10     "time"
+│▾ worker                    │11
+│  ▸ internal                │12     "example.com/orders/worker/internal/queue"
+│    go.mod                  │13 )
+│    main.go                 │14
+│  .env                      │15 func main() {
+│  .gitignore                │16     ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+│  docker-compose.yml        │17     defer stop()
+│  Dockerfile                │18
+└────────────────────────────┘19     q := queue.New()
+worker/main.go  19:18  [code]                                                                                                                            ? help
+cursor (x,y,shown) 50,18,1
