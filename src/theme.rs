@@ -114,12 +114,10 @@ const THEMES: &[(&str, &[u8])] = &[
 
 pub const DEFAULT: &str = "tokyonight-moon";
 
-/// The names of [`THEMES`], in order.
 pub fn names() -> impl Iterator<Item = &'static str> {
     THEMES.iter().map(|(name, _)| *name)
 }
 
-/// Where merl looks for the user's own themes.
 pub fn user_dir() -> Option<PathBuf> {
     Some(dirs::home_dir()?.join(".config/merl/themes"))
 }
@@ -151,7 +149,6 @@ fn user_names(dir: Option<&Path>) -> Vec<String> {
         .collect()
 }
 
-/// The user's file for `name`, when there is one.
 fn user_path(dir: Option<&Path>, name: &str) -> Option<PathBuf> {
     dir.map(|d| d.join(format!("{name}.tmTheme")))
         .filter(|p| p.is_file())
@@ -639,10 +636,10 @@ mod tests {
             "mine",
             "after the built-ins"
         );
-        // Shadowing a built-in loads the user's file, not the theme it covers.
         assert_eq!(
             load_from(Some(&dir), DEFAULT).unwrap().bg,
-            load_from(None, "dayfox").unwrap().bg
+            load_from(None, "dayfox").unwrap().bg,
+            "shadowing a built-in loads the user's file, not the theme it covers"
         );
         let e = load_from(Some(&dir), "nope").unwrap_err().to_string();
         assert!(
@@ -677,7 +674,6 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// The gallery in docs/themes.md shows every theme, with its screenshot, and nothing else.
     #[test]
     fn gallery_shows_every_theme() {
         let page = include_str!("../docs/themes.md");
@@ -791,16 +787,21 @@ mod tests {
         let Color::Rgb(r, g, b) = t.line_hl else {
             unreachable!()
         };
-        // 0x30/255 ≈ 19% black over #222436.
-        assert!(r > 0x10 && g > 0x10 && b > 0x20, "{r:02x}{g:02x}{b:02x}");
+        assert!(
+            r > 0x10 && g > 0x10 && b > 0x20,
+            "{r:02x}{g:02x}{b:02x} is not 0x30/255 ≈ 19% black over #222436"
+        );
         assert_ne!(t.gutter_fg, Color::Rgb(0x3b, 0x41, 0x5c));
     }
 
     #[test]
     fn accent_is_the_function_colour_and_differs_from_the_text() {
-        // tokyonight-moon paints functions #82aaff, the blue LazyVim uses for directories.
         let t = load("tokyonight-moon").unwrap();
-        assert_eq!(t.accent, Color::Rgb(0x82, 0xaa, 0xff));
+        assert_eq!(
+            t.accent,
+            Color::Rgb(0x82, 0xaa, 0xff),
+            "tokyonight-moon paints functions #82aaff, the blue LazyVim uses for directories"
+        );
         for name in names() {
             let t = load(name).unwrap();
             assert_ne!(t.accent, t.fg, "{name}");
@@ -926,10 +927,9 @@ mod tests {
         for name in names() {
             let t = load(name).unwrap();
             let (text, ghost) = (contrast(t.fg, t.bg), contrast(t.ghost_fg, t.bg));
-            // Greyed: clearly weaker than live text.
             assert!(
                 ghost <= text * 0.9,
-                "{name}: ghost {ghost:.2} vs text {text:.2}"
+                "{name}: ghost {ghost:.2} vs text {text:.2} is not clearly weaker than live text"
             );
             // Readable: 4:1, or, where the theme's own text is too soft for a grey of it to
             // get there (material-light is 2.5:1 itself), most of what the text has.
