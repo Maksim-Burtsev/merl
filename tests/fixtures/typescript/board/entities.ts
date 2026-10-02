@@ -58,3 +58,33 @@ export function getSwappedHarness() {
   harness = makeHarness();
   return harness;
 }
+
+export function getNullishHarness() {
+  let harness = new Harness();
+  harness ??= makeHarness();
+  return harness;
+}
+
+export function getOrHarness() {
+  let harness = new Harness();
+  harness ||= makeHarness();
+  return harness;
+}
+
+export function getAndHarness() {
+  let harness = new Harness();
+  harness &&= makeHarness();
+  return harness;
+}
+
+export function getArrayHarness() {
+  let harness = new Harness();
+  [harness] = makeHarnesses();
+  return harness;
+}
+
+export function getObjectHarness() {
+  let harness = new Harness();
+  ({ harness } = makeKit());
+  return harness;
+}

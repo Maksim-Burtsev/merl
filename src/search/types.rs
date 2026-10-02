@@ -100,8 +100,11 @@ fn ts_returned_local(
     body: std::ops::Range<usize>,
     local: &str,
 ) -> Option<Value> {
-    let assigned = Regex::new(&format!(r"(?:^|[^\w$.]){}\s*=[^=>]", regex::escape(local)))
-        .expect("an escaped name keeps the pattern valid");
+    let assigned = Regex::new(&format!(
+        r"(?:^|[^\w$.]){}(?:\s*(?:\?\?|\|\||&&)?=|(?:[^\w$=;][^=;]*)?[\]}}]\s*=)[^=>]",
+        regex::escape(local)
+    ))
+    .expect("an escaped name keeps the pattern valid");
     let mut constructed: Option<Value> = None;
     for (i, _) in returned {
         let found = bindings(Kind::TsJs, text, i + 1, local);

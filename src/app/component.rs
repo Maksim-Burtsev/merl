@@ -14,10 +14,7 @@ impl App {
 
     pub(super) fn template_shadows(&self, here: &Path, first: &str) -> bool {
         let code = search::script_lines(here, &self.buf.lines.join("\n"));
-        code.is_some_and(|c| {
-            c.get(self.line) == Some(&false)
-                && !search::template_binds(&self.buf.lines, &c, first).is_empty()
-        })
+        code.is_some_and(|c| search::template_reaches(&self.buf.lines, &c, first, self.line))
     }
 
     pub(super) fn script_scope(&self, here: &Path, first: Option<&str>) -> Option<(String, usize)> {
