@@ -293,9 +293,9 @@ fn haskell_symbols_are_top_level_declarations() {
     ] {
         assert_eq!(hs(line), None, "{line}");
     }
-    let text = "total xs = sum xs\ntotal [] = 0\nweigh :: Int\nweigh = 1\nimport Data.List\ninstance Show Money where\n";
+    let text = "total xs = sum xs\ntotal [] = 0\nweigh :: Int\nweigh = 1\nimport Data.List\ninstance Show Money where\nmakeLenses ''Tariff\n{-\nghost = 1\n-}\n";
     let lines: Vec<&str> = text.lines().collect();
-    let literal = literal_lines(Kind::Haskell, text);
+    let code = HaskellCode::new(&lines);
     let kept: Vec<usize> = [
         (1, "total"),
         (2, "total"),
@@ -303,9 +303,11 @@ fn haskell_symbols_are_top_level_declarations() {
         (4, "weigh"),
         (5, "import"),
         (6, "instance"),
+        (7, "makeLenses"),
+        (9, "ghost"),
     ]
     .into_iter()
-    .filter(|&(l, n)| haskell_symbol(&lines, &literal, l, n))
+    .filter(|&(l, n)| haskell_symbol(&code, l, n))
     .map(|(l, _)| l)
     .collect();
     assert_eq!(kept, [1, 3]);
@@ -322,4 +324,135 @@ fn a_haskell_name_holds_its_primes() {
     assert_eq!(word(25), Some("don't"));
     assert_eq!(kind_of(Path::new("src/Shop/Money.hs")), Some(Kind::Haskell));
     assert_eq!(kind_of(Path::new("Setup.lhs")), None);
+}
+
+#[test]
+fn haskell_declares_only_in_code() {
+    let text = "\
+{-
+foo :: Int -> Int
+-}
+foo x = x + 1
+
+#if FAST
+scale factor = factor * 2
+#else
+scale factor = factor * 3
+#endif
+
+data Coupon
+  = Percent Int -- ^ off, a => b
+  | Flat Int
+
+main = print (0 :: Int, total :: Int -> Int)
+
+total' = 0
+total xs = sum xs
+
+bar
+  :: Int
+bar = 1
+
+makeLenses ''Coupon
+";
+    assert!(declares(text, 4, "foo"), "a signature in a comment is none");
+    assert!(declares(text, 7, "scale"));
+    assert!(!declares(text, 9, "scale"), "CPP splits no run");
+    assert!(
+        declares(text, 13, "Percent"),
+        "a comment after a constructor"
+    );
+    assert!(
+        !declares(text, 16, "total"),
+        "an annotation in an expression"
+    );
+    assert!(declares(text, 19, "total"), "total' is another name");
+    assert!(declares(text, 21, "bar"), "a signature over two lines");
+    assert!(!declares(text, 23, "bar"));
+    assert!(
+        !declares(text, 25, "makeLenses"),
+        "a Template Haskell splice"
+    );
+    assert_eq!(
+        local(text, 7, "factor"),
+        [7],
+        "CPP is no declaration of its own"
+    );
+}
+
+#[test]
+fn haskell_locals_in_corners() {
+    let text = "\
+label m = go m
+  where
+    go :: Int
+    go s = go s
+
+total = go 0 + x
+  where
+    go x = x
+
+instance P Int where
+  p n = go n
+    where go k = k
+
+f = do
+  print ok
+  ok <- pure 1
+
+run \"build\" = build
+";
+    assert_eq!(
+        local(text, 4, "go"),
+        [3],
+        "a local's signature from its own body"
+    );
+    assert!(local(text, 6, "x").is_empty(), "a sibling's parameter");
+    assert_eq!(local(text, 11, "go"), [12], "a local under a method");
+    assert!(local(text, 15, "ok").is_empty(), "bound below its use");
+    assert!(
+        local(text, 18, "build").is_empty(),
+        "a string is no parameter"
+    );
+}
+
+#[test]
+fn haskell_imports_skip_comments_and_know_qualified() {
+    let text = "\
+{-
+import Data.Text (render)
+-}
+import Shop.Courier
+  ( weigh -- scale
+  , ship
+  )
+import qualified Data.Map.Strict as M (Map, insert)
+";
+    let imports = haskell_imports(text);
+    let rows: Vec<_> = (imports.iter())
+        .map(|i| (i.module.as_str(), i.qualified, i.names.clone()))
+        .collect();
+    assert_eq!(
+        rows,
+        [
+            (
+                "Shop.Courier",
+                false,
+                vec!["weigh".to_owned(), "ship".into()]
+            ),
+            (
+                "Data.Map.Strict",
+                true,
+                vec!["Map".to_owned(), "insert".into()]
+            ),
+        ]
+    );
+}
+
+#[test]
+fn a_haskell_quote_is_no_part_of_the_name() {
+    assert_eq!(haskell_whole("makeLenses ''Config", "Config"), Some(13));
+    assert_eq!(haskell_whole("x = 'Just", "Just"), Some(5));
+    assert_eq!(haskell_whole("don't = 1", "t"), None);
+    assert_eq!(haskell_whole("foldl' f", "foldl"), None);
 }

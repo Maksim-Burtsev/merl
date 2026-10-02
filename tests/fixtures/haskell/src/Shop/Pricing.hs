@@ -111,5 +111,7 @@ ghosts :: (Phantom, Ghost)
 --                  ^ d: none
 ghosts = undefined
 
+retired = 0
+
 m <+> n = discount m n
 --                 ^ d: none

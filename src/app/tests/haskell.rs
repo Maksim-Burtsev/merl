@@ -57,3 +57,54 @@ fn d_lists_haskell_declarations_once() {
     assert_eq!(names, ["Coupon", "band", "rate"]);
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn u_reads_a_name_behind_a_template_haskell_quote() {
+    let (dir, mut a) = project_app(
+        "haskell-u-quote",
+        &[(
+            "src/Config.hs",
+            "data Config = Config\n\nmakeLenses ''Config\n\nnew :: Config\nnew = Config\n",
+        )],
+    );
+    a.jump_to(&dir.join("src/Config.hs"), 5);
+    a.col = a.line_str().find("Config").unwrap();
+    press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
+    let found = rows(&mut a);
+    assert!(
+        found
+            .iter()
+            .any(|r| r.contains("src/Config.hs:3: makeLenses")),
+        "{found:?}"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn d_takes_the_module_of_the_importing_package_first() {
+    let (dir, mut a) = project_app(
+        "haskell-packages",
+        &[
+            ("pkg-a/a.cabal", "name: a\n"),
+            (
+                "pkg-a/src/Types.hs",
+                "module Types (Foo (..)) where\n\ndata Foo = Foo\n",
+            ),
+            (
+                "pkg-a/src/Use.hs",
+                "module Use where\n\nimport Types (Foo (..))\n\nx :: Foo\nx = Foo\n",
+            ),
+            ("pkg-b/b.cabal", "name: b\n"),
+            (
+                "pkg-b/src/Types.hs",
+                "module Types where\n\ndata Foo = Foo Int\n",
+            ),
+        ],
+    );
+    a.jump_to(&dir.join("pkg-a/src/Use.hs"), 5);
+    a.col = a.line_str().find("Foo").unwrap();
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(a.message, "Foo: via import pkg-a/src/Types.hs");
+    assert!(a.rel_current().unwrap().starts_with("pkg-a"));
+    std::fs::remove_dir_all(&dir).unwrap();
+}

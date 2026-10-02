@@ -74,6 +74,7 @@ impl SearchJob {
     pub(super) fn symbol_hits(&self) -> (Vec<(String, usize, Hit)>, bool) {
         let mut named: Vec<(String, usize, Hit)> = Vec::new();
         let mut cut = false;
+        let mut haskell_code: HashMap<PathBuf, search::HaskellCode> = HashMap::new();
         for (kind, pattern) in search::SYMBOLS {
             let re = Regex::new(pattern).expect("built-in symbol patterns are valid");
             let wanted = |p: &Path| match kind {
@@ -117,21 +118,25 @@ impl SearchJob {
                     .copied()
                     .unwrap_or(false)
             });
-            if *kind == Some(Kind::Haskell) {
-                let mut texts: HashMap<PathBuf, (Vec<String>, Vec<bool>)> = HashMap::new();
+            let haskell = *kind == Some(Kind::Haskell);
+            if haskell {
                 hits.retain(|h| {
-                    let (lines, literal) = texts.entry(h.path.clone()).or_insert_with(|| {
+                    let code = haskell_code.entry(h.path.clone()).or_insert_with(|| {
                         let text = read(&h.path);
-                        let literal = search::literal_lines(Kind::Haskell, &text);
-                        (text.lines().map(str::to_owned).collect(), literal)
+                        search::HaskellCode::new(&text.lines().collect::<Vec<_>>())
                     });
                     search::symbol_name(&re, &h.text)
-                        .is_some_and(|n| search::haskell_symbol(lines, literal, h.line, &n))
+                        .is_some_and(|n| search::haskell_symbol(code, h.line, &n))
                 });
             }
+            let reserved = |t: &str| {
+                haskell
+                    && search::symbol_name(&re, t)
+                        .is_some_and(|n| search::HASKELL_RESERVED.contains(&n.as_str()))
+            };
             // The declarations the branch deleted, of the files this row is written for.
             hits.extend(deleted_hits(&self.deleted, wanted, |t| {
-                (re.is_match(t) && keep(t)).then_some(0)
+                (re.is_match(t) && keep(t) && !reserved(t)).then_some(0)
             }));
             named.extend(
                 hits.into_iter()

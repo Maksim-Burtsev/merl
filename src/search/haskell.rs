@@ -20,7 +20,7 @@ macro_rules! hs_equation_end {
 const ARGS: &str = hs_args!();
 const EQUATION_END: &str = hs_equation_end!();
 const CONTEXT: &str = r"(?:(?:\([^)]*\)|[A-Z][\w'.]*(?:\s+[\w']+)*)\s*=>\s*)?";
-pub(super) const HASKELL_RESERVED: &[&str] = &[
+pub const HASKELL_RESERVED: &[&str] = &[
     "module", "import", "data", "newtype", "type", "class", "instance", "deriving", "infix",
     "infixl", "infixr", "foreign", "default", "pattern", "where", "let", "in", "if", "then",
     "else", "case", "of", "do",
@@ -60,7 +60,8 @@ fn owner<S: AsRef<str>>(lines: &[S], i: usize) -> Option<usize> {
 
 fn has_word(s: &str, name: &str) -> bool {
     s.match_indices(name).any(|(i, _)| {
-        !s[..i].bytes().next_back().is_some_and(hs_name_byte)
+        s[..i].matches('"').count().is_multiple_of(2)
+            && !s[..i].bytes().next_back().is_some_and(hs_name_byte)
             && !s
                 .as_bytes()
                 .get(i + name.len())
@@ -108,73 +109,146 @@ pub fn haskell_patterns(word: &str) -> Vec<String> {
     ]
 }
 
-fn declared_alone<S: AsRef<str>>(lines: &[S], j: usize, word: &str) -> bool {
-    let l = lines[j].as_ref();
-    l.trim_end() == word
-        && lines[j + 1..]
-            .iter()
-            .map(AsRef::as_ref)
-            .find(|l| code(l))
-            .is_some_and(|n| !top(n) && n.trim_start().starts_with("::"))
+fn signed_names(lines: &[String], j: usize) -> Vec<&str> {
+    static SIGNATURE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^((?:[a-z_][\w']*\s*,\s*)*[a-z_][\w']*)\s*::").unwrap());
+    let l = &lines[j];
+    if let Some(c) = SIGNATURE.captures(l) {
+        let names = c.get(1).map_or("", |m| m.as_str());
+        return names.split(',').map(str::trim).collect();
+    }
+    let alone = l.trim_end();
+    let next = lines[j + 1..].iter().find(|l| code(l));
+    match next {
+        Some(n) if !top(n) && n.trim_start().starts_with("::") && is_name(alone) => vec![alone],
+        _ => Vec::new(),
+    }
 }
 
-fn first_declaration<S: AsRef<str>>(lines: &[S], i: usize, word: &str) -> bool {
-    let sig = Regex::new(&signature_pattern(&regex::escape(word), "^")).ok();
-    let is_sig = |j: usize| {
-        let l = lines[j].as_ref();
-        l.contains(word)
-            && (sig.as_ref().is_some_and(|re| re.is_match(l)) || declared_alone(lines, j, word))
-    };
-    if is_sig(i) {
-        return true;
+fn is_name(s: &str) -> bool {
+    s.starts_with(|c: char| c.is_ascii_lowercase() || c == '_') && s.bytes().all(hs_name_byte)
+}
+
+fn uncommented(l: &str) -> &str {
+    let b = l.as_bytes();
+    let mut string = false;
+    for i in 0..b.len() {
+        match b[i] {
+            b'"' if !(i > 0 && b[i - 1] == b'\\') => string = !string,
+            _ if string => {}
+            b'{' if b.get(i + 1) == Some(&b'-') => return &l[..i],
+            b'-' if line_comment(b, i) => return &l[..i],
+            _ => {}
+        }
     }
-    if (0..lines.len()).any(is_sig) {
-        return false;
+    l
+}
+
+fn line_comment(b: &[u8], i: usize) -> bool {
+    b[i..].starts_with(b"--")
+        && !(i > 0 && symbol_byte(b[i - 1]))
+        && !b[i..]
+            .iter()
+            .find(|&&c| c != b'-')
+            .is_some_and(|&c| symbol_byte(c))
+}
+
+pub struct HaskellCode {
+    lines: Vec<String>,
+    signed: std::collections::HashSet<String>,
+}
+
+impl HaskellCode {
+    pub fn new<S: AsRef<str>>(lines: &[S]) -> Self {
+        let text: Vec<&str> = lines.iter().map(AsRef::as_ref).collect();
+        let literal = haskell_literal_lines(&text.join("\n"));
+        let lines: Vec<String> = text
+            .iter()
+            .enumerate()
+            .map(
+                |(i, l)| match literal.get(i) == Some(&true) || l.starts_with('#') {
+                    true => String::new(),
+                    false => uncommented(l).to_owned(),
+                },
+            )
+            .collect();
+        let signed = (0..lines.len())
+            .filter(|&j| top(&lines[j]))
+            .flat_map(|j| signed_names(&lines, j))
+            .map(str::to_owned)
+            .collect();
+        Self { lines, signed }
     }
-    !(0..i)
-        .rev()
-        .map(|j| lines[j].as_ref())
-        .find(|l| code(l) && top(l))
-        .is_some_and(|l| starts_with_name(l, word))
+
+    fn closed(&self, i: usize) -> bool {
+        match equation(&self.lines[i]) {
+            Some((_, _, true)) => self.lines[i + 1..]
+                .iter()
+                .find(|l| code(l))
+                .is_some_and(|n| !top(n) && n.trim_start().starts_with(['|', '='])),
+            _ => true,
+        }
+    }
+
+    pub fn declares(&self, line: usize, word: &str) -> bool {
+        let lines = &self.lines;
+        let Some(i) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
+            return false;
+        };
+        let l = &lines[i];
+        if !code(l) {
+            return false;
+        }
+        if top(l) {
+            return match keyword(l) {
+                "data" | "newtype" | "type" | "class" | "pattern" => true,
+                k if HASKELL_RESERVED.contains(&k) => false,
+                _ if signed_names(lines, i).contains(&word) => true,
+                _ => {
+                    starts_with_name(l, word)
+                        && !self.signed.contains(word)
+                        && self.closed(i)
+                        && !(0..i)
+                            .rev()
+                            .map(|j| &lines[j])
+                            .find(|l| code(l) && top(l))
+                            .is_some_and(|l| starts_with_name(l, word))
+                }
+            };
+        }
+        let Some(o) = owner(lines, i) else {
+            return false;
+        };
+        match keyword(&lines[o]) {
+            "data" | "newtype" => {
+                let t = l.trim_start();
+                !(t.starts_with(['=', '|'])
+                    && t.find(word)
+                        .map(|at| &t[at + word.len()..])
+                        .is_some_and(|rest| rest.contains('=') || rest.contains("<-")))
+            }
+            "class" => directly_inside(lines, line, "class"),
+            _ => false,
+        }
+    }
 }
 
 pub fn haskell_declares<S: AsRef<str>>(lines: &[S], line: usize, word: &str) -> bool {
-    let Some(i) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
-        return false;
-    };
-    let l = lines[i].as_ref();
-    if top(l) {
-        return match keyword(l) {
-            "data" | "newtype" | "type" | "class" | "pattern" => true,
-            k if HASKELL_RESERVED.contains(&k) => false,
-            _ => first_declaration(lines, i, word),
-        };
-    }
-    let Some(o) = owner(lines, i) else {
-        return false;
-    };
-    match keyword(lines[o].as_ref()) {
-        "data" | "newtype" => {
-            let t = l.trim_start();
-            !(t.starts_with(['=', '|'])
-                && t.find(word)
-                    .map(|at| &t[at + word.len()..])
-                    .is_some_and(|rest| rest.contains('=') || rest.contains("<-")))
-        }
-        "class" => directly_inside(lines, line, "class"),
-        _ => false,
-    }
+    HaskellCode::new(lines).declares(line, word)
 }
 
-pub fn haskell_symbol<S: AsRef<str>>(
-    lines: &[S],
-    literal: &[bool],
-    line: usize,
-    name: &str,
-) -> bool {
-    !HASKELL_RESERVED.contains(&name)
-        && literal.get(line - 1) != Some(&true)
-        && haskell_declares(lines, line, name)
+pub fn haskell_symbol(code: &HaskellCode, line: usize, name: &str) -> bool {
+    !HASKELL_RESERVED.contains(&name) && code.declares(line, name)
+}
+
+pub fn haskell_whole(line: &str, word: &str) -> Option<usize> {
+    let b = line.as_bytes();
+    line.match_indices(word).map(|(i, _)| i).find(|&i| {
+        let quotes = b[..i].iter().rev().take_while(|&&c| c == b'\'').count();
+        let start = i - quotes;
+        let before = start == 0 || !hs_name_byte(b[start - 1]);
+        before && !b.get(i + word.len()).copied().is_some_and(hs_name_byte)
+    })
 }
 
 pub(super) const HASKELL_SIGNATURE_SYMBOL: &str =
@@ -242,6 +316,9 @@ fn arrow_pattern(t: &str) -> Option<&str> {
 }
 
 pub(super) fn haskell_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+    let blanked = HaskellCode::new(lines);
+    let lines: Vec<&str> = blanked.lines.iter().map(String::as_str).collect();
+    let lines = &lines[..];
     let Some(start) = owner(lines, at).filter(|_| !name.starts_with(|c: char| c.is_uppercase()))
     else {
         return Vec::new();
@@ -322,12 +399,13 @@ pub struct HaskellImport {
     pub module: String,
     pub alias: Option<String>,
     pub names: Vec<String>,
+    pub qualified: bool,
 }
 
 pub fn haskell_imports(text: &str) -> Vec<HaskellImport> {
     let mut joined: Vec<String> = Vec::new();
-    for l in text.lines() {
-        let l = l.find("--").map_or(l, |c| &l[..c]);
+    let lines: Vec<&str> = text.lines().collect();
+    for l in &HaskellCode::new(&lines).lines {
         if l.starts_with("import ") {
             joined.push(l.to_owned());
         } else if let Some(last) = joined.last_mut()
@@ -348,6 +426,7 @@ fn parse_import(l: &str) -> Option<HaskellImport> {
         !matches!(*w, "safe" | "qualified" | "{-#" | "SOURCE" | "#-}") && !w.starts_with('"')
     });
     let module = words.next()?.to_owned();
+    let qualified = head.split_whitespace().any(|w| w == "qualified");
     let mut alias = None;
     let mut hiding = false;
     while let Some(w) = words.next() {
@@ -396,6 +475,7 @@ fn parse_import(l: &str) -> Option<HaskellImport> {
         module,
         alias,
         names,
+        qualified,
     })
 }
 
@@ -480,13 +560,7 @@ pub(super) fn haskell_literal_lines(text: &str) -> Vec<bool> {
         } else if b[i..].starts_with(b"{-") {
             depth = 1;
             i += 1;
-        } else if b[i..].starts_with(b"--")
-            && !(i > 0 && symbol_byte(b[i - 1]))
-            && !b[i..]
-                .iter()
-                .find(|&&c| c != b'-')
-                .is_some_and(|&c| symbol_byte(c))
-        {
+        } else if line_comment(b, i) {
             i += b[i..]
                 .iter()
                 .position(|&c| c == b'\n')

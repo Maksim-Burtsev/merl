@@ -36,8 +36,8 @@ impl App {
         let qualifier = self.line_str()[before.len()..]
             .strip_prefix(word)
             .is_some_and(|after| after.starts_with('.'));
-        if chain.is_empty() && qualifier {
-            let modules = named(word);
+        if qualifier {
+            let modules = named(&[chain, &[word.to_owned()]].concat().join("."));
             if !modules.is_empty() {
                 let files = modules
                     .iter()
@@ -47,13 +47,13 @@ impl App {
             }
         }
         let modules: Vec<String> = match chain {
-            [] if before.trim_end().ends_with('.') => return None,
+            [] if before.ends_with('.') && !before.ends_with("..") => return None,
             [] if !search::bindings(Kind::Haskell, text, self.line + 1, word).is_empty() => {
                 return None;
             }
             [] => imports
                 .iter()
-                .filter(|i| i.names.iter().any(|n| n == word))
+                .filter(|i| !i.qualified && i.names.iter().any(|n| n == word))
                 .map(|i| i.module.clone())
                 .collect(),
             _ => named(&chain.join(".")),
@@ -72,9 +72,17 @@ impl App {
         let hits = self
             .grep(&pattern, false, false, |p| files.iter().any(|f| f == p))
             .unwrap_or_default();
+        let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
         let found: Vec<Candidate> = self
             .declaring(Kind::Haskell, word, hits)
             .into_iter()
+            .filter(|h| {
+                let lines = literal.entry(h.path.clone()).or_insert_with(|| {
+                    let text = self.text_of(&h.path).unwrap_or_default();
+                    search::literal_lines(Kind::Haskell, &text)
+                });
+                lines.get(h.line - 1) != Some(&true)
+            })
             .map(|hit| Candidate {
                 reason: Reason::Import(hit.path.display().to_string()),
                 hit,
@@ -84,12 +92,29 @@ impl App {
     }
 
     fn import_module_files(&self, here: &Path, module: &str) -> Vec<PathBuf> {
-        search::module_files(
+        let files = search::module_files(
             Kind::Haskell,
             &self.root,
             &self.files,
             here,
             &[module.to_owned()],
-        )
+        );
+        let package = |f: &Path| -> Option<PathBuf> {
+            f.ancestors().skip(1).map(Path::to_path_buf).find(|dir| {
+                self.files.iter().any(|p| {
+                    p.parent() == Some(dir.as_path())
+                        && (p.extension().is_some_and(|e| e == "cabal")
+                            || p.ends_with("package.yaml"))
+                })
+            })
+        };
+        let own: Vec<PathBuf> = (files.iter())
+            .filter(|f| package(f) == package(here))
+            .cloned()
+            .collect();
+        match own.is_empty() {
+            true => files,
+            false => own,
+        }
     }
 }
