@@ -46,27 +46,33 @@ pub fn returns(kind: Kind, text: &str, decl: usize) -> Option<Value> {
                 return Some(Value::Type(c[1].to_owned()));
             }
             let expression = after.trim_start().strip_prefix("=>").map(str::trim);
-            let returned: Vec<Value> = match expression {
-                Some(e) if !e.starts_with('{') => vec![value_of(kind, e)],
-                _ => {
-                    let base = indent(lines[k]);
-                    lines[end + 1..]
-                        .iter()
-                        .take_while(|l| !(indent(l) <= base && l.trim_start().starts_with('}')))
-                        .map(|l| uncommented(kind, l))
-                        .filter(|l| names(l, "return"))
-                        // `if (x) return new A();` returns behind something the rules do not
-                        // read: unknown, which no other `return` can agree with.
-                        .map(|l| match l.trim().strip_prefix("return ") {
-                            Some(e) => value_of(kind, e),
-                            None => Value::Unknown,
-                        })
-                        .collect()
-                }
+            let base = indent(lines[k]);
+            let body = end
+                + 1
+                + lines[end + 1..]
+                    .iter()
+                    .take_while(|l| !(indent(l) <= base && l.trim_start().starts_with('}')))
+                    .count();
+            let block = expression.is_none_or(|e| e.starts_with('{'));
+            let returned: Vec<(usize, Value)> = match expression {
+                Some(e) if !block => vec![(k, value_of(kind, e))],
+                _ => (end + 1..body)
+                    .map(|i| (i, uncommented(kind, lines[i])))
+                    .filter(|(_, l)| names(l, "return"))
+                    .map(|(i, l)| match l.trim().strip_prefix("return ") {
+                        Some(e) => (i, value_of(kind, e)),
+                        None => (i, Value::Unknown),
+                    })
+                    .collect(),
             };
-            match returned.first() {
-                Some(Value::New(t)) if returned.iter().all(|v| *v == returned[0]) => {
-                    Some(Value::New(t.clone()))
+            let first = &returned.first()?.1;
+            if !returned.iter().all(|(_, v)| v == first) {
+                return None;
+            }
+            match first {
+                Value::New(t) => Some(Value::New(t.clone())),
+                Value::Name(local) if block => {
+                    ts_returned_local(text, &lines, &returned, end + 1..body, local)
                 }
                 _ => None,
             }
@@ -85,6 +91,44 @@ pub fn returns(kind: Kind, text: &str, decl: usize) -> Option<Value> {
             };
             (!first.is_empty()).then(|| Value::Type(first.to_owned()))
         }
+    }
+}
+fn ts_returned_local(
+    text: &str,
+    lines: &[&str],
+    returned: &[(usize, Value)],
+    body: std::ops::Range<usize>,
+    local: &str,
+) -> Option<Value> {
+    let assigned = Regex::new(&format!(r"(?:^|[^\w$.]){}\s*=[^=>]", regex::escape(local)))
+        .expect("an escaped name keeps the pattern valid");
+    let mut constructed: Option<Value> = None;
+    for (i, _) in returned {
+        let found = bindings(Kind::TsJs, text, i + 1, local);
+        if found.is_empty() {
+            return None;
+        }
+        for b in found {
+            if !body.contains(&(b.line - 1)) || !matches!(b.value, Value::New(_)) {
+                return None;
+            }
+            if constructed.as_ref().is_some_and(|c| *c != b.value) {
+                return None;
+            }
+            constructed = Some(b.value);
+        }
+    }
+    let declared = |l: &str| {
+        let t = l.trim_start();
+        ["const ", "let ", "var "].iter().any(|k| t.starts_with(k))
+    };
+    let reassigned = body.clone().any(|i| {
+        let l = uncommented(Kind::TsJs, lines[i]);
+        !declared(&l) && assigned.is_match(&l)
+    });
+    match reassigned {
+        true => None,
+        false => constructed,
     }
 }
 /// What an undecorated Python `def` on line `k`, its signature ending on line `end`, returns when

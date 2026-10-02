@@ -370,16 +370,13 @@ fn the_innermost_binding_wins() {
             ),
         ),
         (
-            "A destructured parameter under a header closed by `}: Deps): void {` hides the module's `ledger` and has no type of its own",
+            "A destructured parameter under a header closed by `}: Deps): void {` hides the module's `ledger` and has the type of the field of `Deps` (#354)",
             "typescript",
             "scopes.ts",
             "ledger.deleteUser|(id + 11)",
-            picker(
-                "deleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.deleteUser", "repos.ts:10"),
-                    ("AuditLog.deleteUser", "repos.ts:16"),
-                ],
+            jump(
+                "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
+                "repos.ts:10",
             ),
         ),
         (
