@@ -230,8 +230,6 @@ fn a_member_access_broken_over_lines_is_one_chain() {
     }
 }
 
-/// #100, TypeScript: `r!.m()` and `a?.b.m()` have the type of the plain access for a member
-/// lookup.
 #[test]
 fn a_non_null_or_optional_access_is_the_plain_one() {
     let user = |via: &str| {
@@ -585,7 +583,6 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
             "packages/api/node_modules/lib/index.d.ts:2",
         )
     };
-    // Back in `api` after `web`: each file has its own view, and no directory is walked twice.
     for (file, want) in [
         ("packages/api/src/main.ts", api()),
         ("packages/web/src/main.ts", top()),
@@ -595,9 +592,11 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
         d_on(&mut a, file, "^pick");
         assert_eq!(shown(&mut a), want, "{file}");
     }
-    assert_eq!(a.node_modules.len(), 2);
-    // From inside a dependency, its own `node_modules` is the nearest, and the one it lies
-    // in is not listed twice.
+    assert_eq!(
+        a.node_modules.len(),
+        2,
+        "Back in `api` after `web`: each file has its own view, and no directory is walked twice"
+    );
     d_on(
         &mut a,
         "packages/api/node_modules/lib/index.d.ts",
@@ -608,13 +607,17 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
         jump(
             "deep: via import deep",
             "packages/api/node_modules/lib/node_modules/deep/index.d.ts:1"
-        )
+        ),
+        "From inside a dependency, its own `node_modules` is the nearest, and the one it lies in is not listed twice"
     );
     assert_eq!(a.buf.readonly, Some("outside the project"));
-    // A dependency of `api` is outside the project from wherever `d` was pressed last.
     d_on(&mut a, "packages/web/src/main.ts", "^pick");
     a.jump_to(&dir.join("packages/api/node_modules/lib/index.d.ts"), 1);
-    assert_eq!(a.buf.readonly, Some("outside the project"));
+    assert_eq!(
+        a.buf.readonly,
+        Some("outside the project"),
+        "A dependency of `api` is outside the project from wherever `d` was pressed last"
+    );
     d_on(
         &mut a,
         "packages/api/node_modules/lib/index.d.ts",
@@ -1440,15 +1443,13 @@ fn an_alias_is_the_projects_own() {
         d_on(&mut a, "src/main.ts", code);
         assert_eq!(shown(&mut a), want, "{code}");
     }
-    // A named alias is no scope either: its barrel hands `clsx` on from the package, which is
-    // followed there (#527).
     d_on(&mut a, "src/other.ts", "^clsx");
     assert_eq!(
         shown(&mut a),
-        jump("clsx: via import clsx", "node_modules/clsx/clsx.d.ts:1")
+        jump("clsx: via import clsx", "node_modules/clsx/clsx.d.ts:1"),
+        "A named alias is no scope either: its barrel hands `clsx` on from the package, which is followed there (#527)"
     );
     std::fs::remove_dir_all(&dir).unwrap();
-    // No tsconfig says what `@/` is: the project's `Button`, and not `@mui`'s.
     let (dir, mut a) = project_app(
         "alias-bare",
         &[
@@ -1465,7 +1466,8 @@ fn an_alias_is_the_projects_own() {
     d_on(&mut a, "src/main.ts", "^Button");
     assert_eq!(
         shown(&mut a),
-        jump("Button: by name, 1 match", "src/components/Button.tsx:1")
+        jump("Button: by name, 1 match", "src/components/Button.tsx:1"),
+        "No tsconfig says what `@/` is: the project's `Button`, and not `@mui`'s"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -1518,7 +1520,6 @@ fn a_grep_for_where_to_read_cuts_nothing_shown() {
     std::fs::remove_dir_all(&root).unwrap();
 }
 
-/// #141: `node:util` is Node's own, never the project's `src/util.ts` under `"baseUrl": "src"`.
 #[test]
 fn a_node_import_is_never_a_project_file() {
     let (dir, mut a) = project_app(
@@ -1997,8 +1998,6 @@ fn what_the_review_of_the_typescript_items_found() {
         d_on(&mut a, file, code);
         assert_eq!(shown(&mut a), want, "{file}: {code}");
     }
-    // A JSX tag's `>` closes no header: the parameter of an attribute's callback is not the
-    // children's `repo`.
     let (dir, mut a) = project_app(
         "jsx",
         &[
@@ -2020,7 +2019,8 @@ fn what_the_review_of_the_typescript_items_found() {
         jump(
             "deleteUser \u{2192} UserRepository.deleteUser (via repo: UserRepository)",
             "repos.ts:2"
-        )
+        ),
+        "A JSX tag's `>` closes no header: the parameter of an attribute's callback is not the children's `repo`"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }

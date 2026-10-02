@@ -1,5 +1,3 @@
-//! `d` in Go.
-
 use super::*;
 
 /// The rows of the Go section of #100, each on the `go` fixture.
@@ -180,7 +178,6 @@ fn a_go_alias_is_the_type_it_names() {
             "aliases.go:39"
         )
     );
-    // Two aliases of each other, which no compiler accepts, end.
     let (dir, mut a) = project_app(
         "alias-cycle",
         &[(
@@ -191,7 +188,10 @@ fn a_go_alias_is_the_type_it_names() {
     a.external
         .insert(Kind::Go, (Vec::new(), Arc::new(Vec::new())));
     d_on(&mut a, "a.go", "x.Run");
-    assert_eq!(a.message, "Run \u{2192} C.Run (by name, 1 match)");
+    assert_eq!(
+        a.message, "Run \u{2192} C.Run (by name, 1 match)",
+        "Two aliases of each other, which no compiler accepts, end"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -292,7 +292,6 @@ fn a_go_declaration_per_platform_is_the_hosts() {
             ),
         ),
     ]);
-    // `GOFLAGS=-tags=fast` builds the other one.
     let mut a = fixture_app("go");
     a.go_build.tags = vec!["fast".into()];
     d_on(&mut a, "platforms.go", "codec.Encode");
@@ -301,7 +300,8 @@ fn a_go_declaration_per_platform_is_the_hosts() {
         jump(
             "Encode \u{2192} Codec.Encode (via codec: Codec)",
             "platform/codec_fast.go:8",
-        )
+        ),
+        "`GOFLAGS=-tags=fast` builds the other one"
     );
     // Asked from inside the file the host does not build, a method per platform is both;
     // and where no declaration is built (`gate_windows.go`, `gate_plan9.go`), all stay.
@@ -332,8 +332,6 @@ fn a_go_declaration_per_platform_is_the_hosts() {
         d_on(&mut a, "platforms_gate.go", "platform.NewGate");
         assert_eq!(a.message, "NewGate: via import platform/, 2 declarations");
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-        // `meter_fast.go` (`// +build`) is not known to be built, so `meter_windows.go` loses
-        // to nothing.
         d_on(&mut a, "platforms_gate.go", "meter.Sample");
         assert_eq!(
             shown(&mut a),
@@ -342,7 +340,8 @@ fn a_go_declaration_per_platform_is_the_hosts() {
                 "Meter.Sample",
                 "platform/meter_fast.go:8",
                 "platform/meter_windows.go:5",
-            )
+            ),
+            "`meter_fast.go` (`// +build`) is not known to be built, so `meter_windows.go` loses to nothing"
         );
     }
 }
@@ -723,10 +722,10 @@ fn a_go_raw_string_ending_in_a_backslash_ends_there() {
         d("shop/shop.go", "return below"),
         by_name("below", "shop/shop.go:7")
     );
-    // On its declaration `d` says what it says on any other, as on `slash` above the string.
     assert_eq!(
         d("shop/shop.go", "func slash"),
-        by_name("slash", "shop/shop.go:5")
+        by_name("slash", "shop/shop.go:5"),
+        "On its declaration `d` says what it says on any other, as on `slash` above the string"
     );
     assert_eq!(
         d("shop/shop.go", "func below"),
@@ -810,9 +809,11 @@ fn a_go_grouped_declaration_is_top_level() {
     );
     assert_eq!(d("return Order"), by_name("Order", "shop/shop.go:16"));
     assert_eq!(d("return KindB"), by_name("KindB", "shop/shop.go:8"));
-    // The field of `Order` is no top-level `Address`, and the function's own `var (` block
-    // declares a local, not a name of the package.
-    assert_eq!(d("+ Address"), by_name("Address", "shop/shop.go:36"));
+    assert_eq!(
+        d("+ Address"),
+        by_name("Address", "shop/shop.go:36"),
+        "The field of `Order` is no top-level `Address`, and the function's own `var (` block declares a local, not a name of the package"
+    );
     assert_eq!(
         d("return Street| +"),
         jump("no definition for Street", "shop/shop.go:38")
@@ -883,20 +884,22 @@ fn a_go_literal_key_is_a_field_of_the_literals_type() {
             "shop/shop.go:4"
         )
     );
-    // `sync.Pool` is outside the project: what the name finds is offered, never jumped to.
     assert_eq!(
         d("app/app.go", "\tNew"),
-        picker("New: by name, 1 match", &[("New", "other/other.go:3")])
+        picker("New: by name, 1 match", &[("New", "other/other.go:3")]),
+        "`sync.Pool` is outside the project: what the name finds is offered, never jumped to"
     );
-    // A struct without the field says so.
     assert_eq!(
         d("shop/more.go", "Order{Missing"),
-        jump("no definition for Missing", "shop/more.go:23")
+        jump("no definition for Missing", "shop/more.go:23"),
+        "A struct without the field says so"
     );
-    // A map's keys, a slice expression, a label and a `case` are no fields. In the slice
-    // expression it is the parameter of the function on its line (#524).
     let street = || jump("Street: local", "shop/more.go:3");
-    assert_eq!(d("shop/more.go", "{Street"), street());
+    assert_eq!(
+        d("shop/more.go", "{Street"),
+        street(),
+        "A map's keys, a slice expression, a label and a `case` are no fields. In the slice expression it is the parameter of the function on its line (#524)"
+    );
     assert_eq!(
         d("shop/more.go", "xs[Street"),
         jump("Street \u{2192} cut.Street (local)", "shop/more.go:9")
@@ -960,10 +963,10 @@ fn a_go_name_is_looked_up_in_its_own_package() {
         shown(&mut a)
     };
     let by_name = |word: &str, place: &str| jump(&format!("{word}: by name, 1 match"), place);
-    // A bare name is never a method.
     assert_eq!(
         d("shop/shop.go", "return IsUnix"),
-        by_name("IsUnix", "shop/shop.go:11")
+        by_name("IsUnix", "shop/shop.go:11"),
+        "A bare name is never a method"
     );
     assert_eq!(
         d("app/app.go", "shop.MaxItems"),
@@ -992,10 +995,10 @@ fn a_go_name_is_looked_up_in_its_own_package() {
         d("dot/dot.go", "return MaxItems"),
         jump("MaxItems: via import shop/", "shop/shop.go:4")
     );
-    // An external test package shares the directory, not the names.
     assert_eq!(
         d("shop/inner_test.go", "return IsUnix"),
-        by_name("IsUnix", "shop/shop.go:11")
+        by_name("IsUnix", "shop/shop.go:11"),
+        "An external test package shares the directory, not the names"
     );
     assert_eq!(
         d("shop/inner_test.go", "&& extOnly"),
@@ -1005,13 +1008,13 @@ fn a_go_name_is_looked_up_in_its_own_package() {
         d("shop/outer_test.go", "return IsUnix"),
         jump("no definition for IsUnix", "shop/outer_test.go:3")
     );
-    // A key is the literal's field, whatever the package declares of its name.
     assert_eq!(
         d("shop/shop.go", "{Network"),
         jump(
             "Network \u{2192} NetworkAddress.Network (via NetworkAddress{\u{2026}})",
             "shop/shop.go:7"
-        )
+        ),
+        "A key is the literal's field, whatever the package declares of its name"
     );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&goroot).unwrap();

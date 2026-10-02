@@ -78,12 +78,12 @@ fn a_member_of_a_value_is_found_by_name_and_says_so() {
         d_on(&mut a, file, code);
         assert_eq!(shown(&mut a), want, "{fixture}: {code}");
     }
-    // The picker is titled with what the status line says.
     let mut a = fixture_app("go");
     d_on(&mut a, "factories.go", "^\t\trepo.DeleteUser");
     assert_eq!(
         a.picker.as_ref().unwrap().title,
-        "DeleteUser: by name, 2 declarations"
+        "DeleteUser: by name, 2 declarations",
+        "The picker is titled with what the status line says"
     );
 }
 
