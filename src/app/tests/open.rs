@@ -638,3 +638,56 @@ fn the_file_picker_reads_no_pattern_syntax() {
     assert_eq!(rows("\\!bang"), ["\\!bang.txt"]);
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn history_walk_puts_the_line_back_on_the_screen_row_it_was_left_on() {
+    let (dir, mut a) = files_app("screen");
+    let (x, y) = (dir.join("a.rs"), dir.join("b.rs"));
+    let text: String = (0..200).map(|i| format!("l{i}\n")).collect();
+    for f in [&x, &y] {
+        std::fs::write(f, &text).unwrap();
+    }
+    let row = |a: &mut App| {
+        a.clamp_scroll();
+        a.rows_between((a.top_line, a.top_row), a.cursor_at())
+    };
+    let goto = |a: &mut App, n: &str| {
+        press(a, KeyCode::Char(':'), KeyModifiers::NONE);
+        for c in n.chars() {
+            press(a, KeyCode::Char(c), KeyModifiers::NONE);
+        }
+        press(a, KeyCode::Enter, KeyModifiers::NONE);
+    };
+    let down = |a: &mut App, n: usize| {
+        for _ in 0..n {
+            press(a, KeyCode::Down, KeyModifiers::NONE);
+            row(a);
+        }
+    };
+    a.jump_to(&x, 100);
+    row(&mut a);
+    down(&mut a, 8);
+    let in_x = row(&mut a);
+    assert_eq!((a.line, in_x), (107, 20));
+    goto(&mut a, "40");
+    row(&mut a);
+    down(&mut a, 2);
+    let in_x_top = row(&mut a);
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    a.jump_to(&y, 150);
+    press(&mut a, KeyCode::Up, KeyModifiers::NONE);
+    row(&mut a);
+    press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+    assert_eq!((a.line, row(&mut a)), (41, in_x_top));
+    press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+    assert_eq!((a.line, row(&mut a)), (107, in_x));
+    press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
+    assert_eq!((a.line, row(&mut a)), (41, in_x_top));
+
+    press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+    a.view_h = 10;
+    press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
+    assert_eq!(a.line, 41);
+    assert!(row(&mut a) < 10);
+    std::fs::remove_dir_all(&dir).unwrap();
+}

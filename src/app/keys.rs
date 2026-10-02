@@ -19,6 +19,7 @@ impl App {
         if work {
             self.watch_before(key, at);
         }
+        self.note_hist_row();
         let from = (work && self.session.is_some()).then(|| self.review_spot());
         let quit = self.key_inner(key);
         if self.mode != Mode::Find {

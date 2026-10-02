@@ -255,6 +255,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `[` and `]` bring back the screen you left: the line you jumped from stands on the same row it
+  stood on, where it came back to the middle of the screen. (#621)
+
 - In `--review`, `p` on a Markdown file of the review shows it rendered, where it said `in review`:
   a file the branch adds or changes as it stands now, a deleted one as it was, without the diff's
   marks; `p` again shows the source with its diff. A file shown rendered that the branch comes to
