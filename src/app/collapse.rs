@@ -59,6 +59,9 @@ impl App {
     }
 
     pub(super) fn shift_collapsed(&mut self, at: usize, old: usize, new: usize) {
+        if self.collapsed.is_empty() {
+            return;
+        }
         let Some(folds) = folds(&self.buf) else {
             return;
         };
@@ -97,7 +100,8 @@ impl App {
     }
 
     fn measure_collapsed(&mut self, heads: Vec<usize>) {
-        let Some(folds) = folds(&self.buf) else {
+        let folds = folds(&self.buf).filter(|_| !heads.is_empty());
+        let Some(folds) = folds else {
             self.collapsed.clear();
             return;
         };
@@ -150,6 +154,7 @@ fn folds(buf: &Buffer) -> Option<Folds<'_>> {
         "yml" | "yaml" => spans::yaml(lines),
         "toml" => spans::toml(lines),
         "html" | "htm" => spans::html(lines),
+        "md" | "markdown" => spans::markdown(lines),
         _ if every_kind() => return Some(Folds::Shape(Shape::plain(lines))),
         _ => return None,
     }))

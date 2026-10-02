@@ -136,6 +136,24 @@ fn a_fold_stays_with_its_file() {
 }
 
 #[test]
+fn a_fold_in_json_stays_with_its_file_measured_as_json() {
+    let (dir, mut a) = files_app("fold-json");
+    std::fs::write(dir.join("a.json"), "{\n  \"e\": {\n  },\n  \"x\": 1\n}\n").unwrap();
+    std::fs::write(dir.join("b.py"), "x = 1\n").unwrap();
+    a.jump_to(&dir.join("a.json"), 0);
+    a.go((1, 0));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(1, 2)]);
+    a.jump_to(&dir.join("b.py"), 0);
+    a.jump_to(&dir.join("a.json"), 0);
+    assert_eq!(
+        a.collapsed,
+        vec![(1, 2)],
+        "an empty object, which indentation never folds"
+    );
+}
+
+#[test]
 fn a_reload_keeps_a_fold_whose_line_is_still_there() {
     let mut a = app_as("py", PY);
     a.go((6, 0));
@@ -266,7 +284,7 @@ fn f_answers_on_a_markdown_source_shown_again_after_its_preview() {
     key(&mut a, KeyCode::Char('p'));
     a.go((0, 0));
     key(&mut a, KeyCode::Char('f'));
-    assert_eq!(a.message, "no fold rules for .md");
+    assert_eq!(a.collapsed, vec![(0, 1)]);
 }
 
 #[test]
