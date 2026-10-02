@@ -80,7 +80,19 @@ fn f_inside_a_body_folds_the_function_around_it() {
     let mut a = app_as("py", "def send(self):\n    self.post(\n        1,\n    )\n");
     a.go((1, 4));
     key(&mut a, KeyCode::Char('f'));
-    assert_eq!(a.collapsed, vec![(0, 3)]);
+    assert_eq!(
+        a.collapsed,
+        vec![(1, 3)],
+        "a call wrapped over lines folds itself"
+    );
+    let mut a = app_as("py", "def f(\n    self,\n) -> None:\n    pass\n");
+    a.go((2, 0));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(
+        a.collapsed,
+        vec![(0, 3)],
+        "the tail of a signature folds the function"
+    );
 }
 
 #[test]
@@ -113,13 +125,14 @@ fn a_fold_moves_with_the_lines_typed_above_it() {
 #[test]
 fn a_fold_stays_with_its_file() {
     let (dir, mut a) = files_app("fold");
-    std::fs::write(dir.join("a.rs"), "fn f() {\n    1\n}\n").unwrap();
-    a.jump_to(&dir.join("a.rs"), 1);
+    std::fs::write(dir.join("a.py"), "def f():\n    return 1\n").unwrap();
+    std::fs::write(dir.join("b.py"), "x = 1\n").unwrap();
+    a.jump_to(&dir.join("a.py"), 1);
     key(&mut a, KeyCode::Char('f'));
-    a.jump_to(&dir.join("b.rs"), 1);
+    a.jump_to(&dir.join("b.py"), 1);
     assert!(a.collapsed.is_empty());
-    a.jump_to(&dir.join("a.rs"), 0);
-    assert_eq!(a.collapsed, vec![(0, 2)]);
+    a.jump_to(&dir.join("a.py"), 0);
+    assert_eq!(a.collapsed, vec![(0, 1)]);
 }
 
 #[test]
@@ -145,11 +158,16 @@ fn f_on_a_line_ending_in_a_colon_folds_that_block() {
 }
 
 #[test]
-fn f_folds_a_block_in_a_file_with_no_declarations() {
+fn f_folds_python_and_says_so_in_other_languages() {
     let mut a = app_as("json", "{\n  \"a\": [\n    1\n  ]\n}\n");
     a.go((2, 4));
     key(&mut a, KeyCode::Char('f'));
-    assert_eq!(a.collapsed, vec![(1, 3)]);
+    assert!(a.collapsed.is_empty());
+    assert_eq!(a.message, "no fold rules for .json");
+    let mut a = app_as("py", "x = [\n    1,\n]\n");
+    a.go((1, 4));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(0, 2)], "a block outside any function");
     let mut a = app_as("py", "x = 1\ny = 2\n");
     key(&mut a, KeyCode::Char('f'));
     assert!(a.collapsed.is_empty());
@@ -184,10 +202,10 @@ fn an_undo_puts_a_fold_back_with_its_lines() {
 
 #[test]
 fn backspace_or_delete_into_a_fold_opens_it_and_changes_nothing() {
-    let text = "fn a() {\n    x();\n}\ny();\n";
-    let mut a = app_as("rs", text);
+    let text = "def a():\n    x()\ny()\n";
+    let mut a = app_as("py", text);
     key(&mut a, KeyCode::Char('f'));
-    a.go((3, 0));
+    a.go((2, 0));
     key(&mut a, KeyCode::Enter);
     key(&mut a, KeyCode::Backspace);
     assert!(a.collapsed.is_empty());
@@ -236,28 +254,71 @@ fn a_find_that_passes_through_a_fold_and_is_cancelled_leaves_it_folded() {
 
 #[test]
 fn folds_nest_even_when_their_blocks_overlap() {
-    let mut a = app_as("rs", "if a {\n    b\n}\n    c\nd\n");
-    a.go((2, 0));
-    key(&mut a, KeyCode::Char('f'));
-    a.go((0, 0));
-    key(&mut a, KeyCode::Char('f'));
+    let mut a = app_as("py", "a\nb\nc\nd\ne\n");
+    a.collapsed = vec![(2, 3), (0, 2), (2, 3)];
+    a.nest_collapsed();
     assert_eq!(a.collapsed, vec![(0, 3), (2, 3)]);
 }
 
 #[test]
-fn f_works_on_a_markdown_source_shown_again_after_its_preview() {
+fn f_answers_on_a_markdown_source_shown_again_after_its_preview() {
     let mut a = app_as("md", "- a\n  - b\n");
     key(&mut a, KeyCode::Char('p'));
     key(&mut a, KeyCode::Char('p'));
     a.go((0, 0));
     key(&mut a, KeyCode::Char('f'));
-    assert_eq!(a.collapsed, vec![(0, 1)]);
+    assert_eq!(a.message, "no fold rules for .md");
 }
 
 #[test]
-fn f_on_a_blank_line_folds_the_block_above_it() {
+fn a_blank_line_between_methods_is_the_class_and_one_inside_a_body_the_method() {
     let mut a = app_as("py", PY);
     a.go((5, 0));
     key(&mut a, KeyCode::Char('f'));
-    assert_eq!(a.collapsed, vec![(1, 4)], "`read`, not the class");
+    assert_eq!(
+        a.collapsed,
+        vec![(0, 7)],
+        "the class, as VS Code, JetBrains, Zed and Vim"
+    );
+    let mut a = app_as("py", "def f():\n    a = 1\n\n    b = 2\n");
+    a.go((2, 0));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(0, 3)]);
+}
+
+#[test]
+fn a_docstring_folds_from_its_first_line_and_the_class_from_inside_it() {
+    let text = "class A:\n    \"\"\"\n    Doc.\n    \"\"\"\n\n    x = 1\n";
+    let mut a = app_as("py", text);
+    a.go((1, 4));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(1, 3)]);
+    let mut a = app_as("py", text);
+    a.go((2, 4));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(0, 5)]);
+}
+
+#[test]
+fn the_python_fixture_folds_as_annotated() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/folds/python.py");
+    let text = std::fs::read_to_string(&path).unwrap();
+    let mut a = app_as("py", &text);
+    let mut checked = 0;
+    for (l, line) in text.lines().enumerate() {
+        let Some((_, want)) = line.split_once("# f: ") else {
+            continue;
+        };
+        let (h, e) = want.split_once('-').unwrap();
+        let want = (
+            h.parse::<usize>().unwrap() - 1,
+            e.parse::<usize>().unwrap() - 1,
+        );
+        a.collapsed.clear();
+        a.go((l, 0));
+        key(&mut a, KeyCode::Char('f'));
+        assert_eq!(a.collapsed, vec![want], "f on line {}: {line}", l + 1);
+        checked += 1;
+    }
+    assert!(checked > 50, "{checked} annotations");
 }

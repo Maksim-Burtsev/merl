@@ -1,0 +1,214 @@
+#!/usr/bin/env python3
+"""The fold bench: `f` pressed on every line of real Python code, against what the code's own
+syntax says that line should fold.
+
+    tools/fold-bench/run [--cache DIR] [--show N]
+
+The projects are cloned at a pinned commit into the cache (default $D_BENCH_CACHE or
+~/.cache/merl-d-bench, shared with tools/d-bench). The reference comes from Python's own `ast`
+and `tokenize`, so it needs no language server and runs anywhere Python 3.10+ does; it is never
+run in CI. For every .py file it lists:
+
+    def / class / if / elif / else / for / while / with / try / except / finally / match / case
+                 the header line folds its suite, header kept, through the suite's last line
+    bracket      a line ending in ( [ { folds to the closing bracket's line when that line only
+                 closes, else to the line before it
+    string       the first line of a multi-line string folds to its last line
+    import       any line of a run of two or more imports folds the whole run
+    inside       any other line inside a def or class, blank lines included, folds the innermost
+                 def or class around it; a blank line after a method's last statement is the
+                 class's
+
+merl presses `f` on each line through the ignored test `fold_bench` (src/app/tests/fold_bench.rs)
+and the table counts, per kind, the folds that hid exactly the reference lines. It exits 1 when
+fewer than 99 % of all lines are exact. The lines that differ are written to `last-fold.tsv` in
+the cache; --show N prints the first N of them.
+
+Known to differ, 2 of 270,726 lines: rich/tests/test_inspect.py 442 and 452, a multi-line string
+whose closing line opens `% (`. merl folds the string and the bracket as one; the reference
+folds them apart.
+"""
+import argparse, ast, io, os, subprocess, sys, tempfile, time, tokenize
+from collections import Counter
+
+PROJECTS = [
+    ("httpx", "https://github.com/encode/httpx.git", "b5addb64f0161ff6bfe94c124ef76f6a1fba5254"),
+    ("paperless-ngx", "https://github.com/paperless-ngx/paperless-ngx.git",
+     "6a5d06ee26a4620e6c8452870f157998d5b35050"),
+    ("fastapi", "https://github.com/fastapi/fastapi.git", "28a206107302ee20ce6a9a876d05a258c1c8d328"),
+    ("rich", "https://github.com/Textualize/rich.git", "9d8f9a372cc5916fd4781fec207ced7ddac2f08f"),
+]
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+CLOSERS = set(")]}},;: ")
+
+
+def ensure(cache, name, url, commit):
+    d = os.path.join(cache, name)
+    if not os.path.isdir(d):
+        subprocess.run(["git", "clone", "-q", url, d], check=True)
+    head = subprocess.run(["git", "-C", d, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+    if head != commit:
+        subprocess.run(["git", "-C", d, "fetch", "-q", "--depth", "1", "origin", commit], check=False)
+        subprocess.run(["git", "-C", d, "checkout", "-q", commit], check=True)
+    return d
+
+
+def suite_end(stmts):
+    return max(s.end_lineno for s in stmts)
+
+
+def keyword_line(lines, word, before, col):
+    for n in range(before - 1, 0, -1):
+        text = lines[n - 1]
+        if len(text) - len(text.lstrip()) == col and text.lstrip().startswith(word):
+            return n
+    return None
+
+
+def reference(src):
+    tree = ast.parse(src)
+    lines = src.split("\n")
+    exp = {}
+
+    def add(line, h, e, kind):
+        if line and e > h and line not in exp:
+            exp[line] = (h, e, kind)
+
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            add(node.lineno, node.lineno, node.end_lineno, "def / class")
+        if isinstance(node, ast.If):
+            add(node.lineno, node.lineno, suite_end(node.body), "if / elif / else")
+            elif_ = (len(node.orelse) == 1 and isinstance(node.orelse[0], ast.If)
+                     and lines[node.orelse[0].lineno - 1].lstrip().startswith("elif"))
+            if node.orelse and not elif_:
+                n = keyword_line(lines, "else", node.orelse[0].lineno, node.col_offset)
+                add(n, n, suite_end(node.orelse), "if / elif / else")
+        if isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
+            add(node.lineno, node.lineno, suite_end(node.body), "for / while")
+            if node.orelse:
+                n = keyword_line(lines, "else", node.orelse[0].lineno, node.col_offset)
+                add(n, n, suite_end(node.orelse), "for / while")
+        if isinstance(node, (ast.With, ast.AsyncWith)):
+            add(node.lineno, node.lineno, suite_end(node.body), "with")
+        if isinstance(node, (ast.Try, getattr(ast, "TryStar", ast.Try))):
+            add(node.lineno, node.lineno, suite_end(node.body), "try / except / finally")
+            for h in node.handlers:
+                add(h.lineno, h.lineno, suite_end(h.body), "try / except / finally")
+            if node.orelse:
+                n = keyword_line(lines, "else", node.orelse[0].lineno, node.col_offset)
+                add(n, n, suite_end(node.orelse), "try / except / finally")
+            if node.finalbody:
+                n = keyword_line(lines, "finally", node.finalbody[0].lineno, node.col_offset)
+                add(n, n, suite_end(node.finalbody), "try / except / finally")
+        if isinstance(node, getattr(ast, "Match", ())):
+            add(node.lineno, node.lineno, node.end_lineno, "match / case")
+            for c in node.cases:
+                n = next(k for k in range(c.pattern.lineno, 0, -1)
+                         if lines[k - 1].lstrip().startswith("case"))
+                add(n, n, suite_end(c.body), "match / case")
+
+    for node in ast.walk(tree):
+        for field in ("body", "orelse", "finalbody"):
+            stmts = getattr(node, field, None)
+            if not isinstance(stmts, list):
+                continue
+            run = []
+            for s in stmts + [None]:
+                if isinstance(s, (ast.Import, ast.ImportFrom)):
+                    run.append(s)
+                    continue
+                if len(run) > 1:
+                    for r in run:
+                        add(r.lineno, run[0].lineno, run[-1].end_lineno, "import")
+                run = []
+
+    toks = list(tokenize.generate_tokens(io.StringIO(src).readline))
+    ends = (tokenize.NL, tokenize.NEWLINE, tokenize.COMMENT)
+    stack = []
+    for i, t in enumerate(toks):
+        if t.type == tokenize.OP and t.string in "([{":
+            stack.append(i)
+        elif t.type == tokenize.OP and t.string in ")]}" and stack:
+            j = stack.pop()
+            o = toks[j]
+            if toks[j + 1].type in ends and t.start[0] > o.start[0]:
+                close = lines[t.start[0] - 1].split("#")[0].strip()
+                e = t.start[0] if close and set(close) <= CLOSERS else t.start[0] - 1
+                add(o.start[0], o.start[0], e, "bracket")
+    fstart = []
+    for t in toks:
+        name = tokenize.tok_name[t.type]
+        if name == "FSTRING_START":
+            fstart.append(t)
+        elif name == "FSTRING_END" and fstart:
+            s = fstart.pop()
+            if not fstart:
+                add(s.start[0], s.start[0], t.end[0], "string")
+        elif t.type == tokenize.STRING:
+            add(t.start[0], t.start[0], t.end[0], "string")
+
+    spans = sorted(((n.lineno, n.end_lineno) for n in ast.walk(tree)
+                    if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))),
+                   key=lambda s: s[1] - s[0])
+    for line in range(1, len(lines) + 1):
+        if line in exp:
+            continue
+        inner = next((s for s in spans if s[0] < line <= s[1]), None)
+        if inner:
+            exp[line] = (inner[0], inner[1], "inside")
+    return exp
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--cache", default=os.environ.get("D_BENCH_CACHE", os.path.expanduser("~/.cache/merl-d-bench")))
+    ap.add_argument("--show", type=int, default=0)
+    a = ap.parse_args()
+    cache = os.path.realpath(a.cache)
+    os.makedirs(cache, exist_ok=True)
+    rows, expect = [], {}
+    for name, url, commit in PROJECTS:
+        d = ensure(cache, name, url, commit)
+        files = subprocess.run(["git", "-C", d, "ls-files", "*.py"], capture_output=True, text=True).stdout.split()
+        for f in files:
+            path = os.path.join(d, f)
+            try:
+                src = open(path, encoding="utf-8").read()
+                exp = reference(src)
+            except (SyntaxError, UnicodeDecodeError, tokenize.TokenError, ValueError):
+                continue
+            for line, (h, e, kind) in sorted(exp.items()):
+                rid = str(len(rows))
+                rows.append(f"{rid}\t{path}\t{line}")
+                expect[rid] = (name, f, line, h, e, kind)
+    tmp = tempfile.mkdtemp(prefix="fold-bench-")
+    bench_in, bench_out = os.path.join(tmp, "in.tsv"), os.path.join(tmp, "out.tsv")
+    open(bench_in, "w").write("\n".join(rows) + "\n")
+    started = time.time()
+    env = {**os.environ, "BENCH_IN": bench_in, "BENCH_OUT": bench_out}
+    subprocess.run(["cargo", "test", "--release", "--quiet", "fold_bench", "--", "--ignored"],
+                   cwd=ROOT, env=env, check=True, stdout=subprocess.DEVNULL)
+    took = time.time() - started
+    total, exact, wrong = Counter(), Counter(), []
+    for row in open(bench_out).read().splitlines():
+        rid, h, e, msg = (row.split("\t") + [""])[:4]
+        name, f, line, xh, xe, kind = expect[rid]
+        total[kind] += 1
+        if h == str(xh) and e == str(xe):
+            exact[kind] += 1
+        else:
+            wrong.append(f"{name}/{f}:{line}\t{kind}\twant {xh}-{xe}\tgot {h}-{e}\t{msg}")
+    print(f"{'kind':26}{'lines':>8}{'exact':>8}{'%':>8}")
+    for kind in sorted(total):
+        print(f"{kind:26}{total[kind]:8}{exact[kind]:8}{100 * exact[kind] / total[kind]:8.2f}")
+    t, x = sum(total.values()), sum(exact.values())
+    print(f"{'all':26}{t:8}{x:8}{100 * x / t:8.2f}   ({took:.0f} s for {len(rows)} presses)")
+    open(os.path.join(cache, "last-fold.tsv"), "w").write("\n".join(wrong) + "\n")
+    for w in wrong[: a.show]:
+        print(w)
+    sys.exit(0 if x >= 0.99 * t else 1)
+
+
+if __name__ == "__main__":
+    main()

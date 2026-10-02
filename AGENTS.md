@@ -135,6 +135,15 @@ with its issue closed, or waits under `needs-owner` (see `## Merging`).
 
 Everything on GitHub (issues, PR bodies, reviews, comments) is in English.
 
+## Changing `f`
+
+`f` (`src/app/collapse.rs`) folds by the rules decided in #598, in the languages that pass the
+fold bench and nowhere else: Python today, the rest in epic #623, each saying `no fold rules for
+.EXT` until then. `tools/fold-bench/run` presses `f` on every line of real projects and compares
+the fold with the reference the code's own syntax gives; a change to `f` keeps it at 100 % but
+the lines its docstring names, and keeps `tests/folds/` green. A language turns on with a fold
+fixture there and its row in the bench.
+
 ## Changing `d`
 
 A wrong jump is worse than a picker or "don't know", and no lookup may get worse than on master.

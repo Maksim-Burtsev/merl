@@ -13,6 +13,7 @@ mod d_bench;
 mod edit;
 mod edit_fuzz;
 mod find;
+mod fold_bench;
 mod keys;
 mod missed;
 mod navigate;

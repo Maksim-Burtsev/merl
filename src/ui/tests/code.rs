@@ -1608,13 +1608,13 @@ fn a_binary_file_is_an_empty_pane_with_a_centred_note() {
 
 #[test]
 fn a_fold_draws_its_tail_and_the_lines_under_it_in_colour() {
-    let body: String = (0..30).map(|i| format!("    let x{i} = {i};\n")).collect();
-    let text = format!("fn f() {{\n{body}}}\nfn g() {{}}\n");
+    let body: String = (0..30).map(|i| format!("    \"x{i}\": {i},\n")).collect();
+    let text = format!("ITEMS = {{\n{body}}}\ndef g():\n    pass\n");
     let mut app = App::new(
         PathBuf::from("/demo"),
         Tree::default(),
         Vec::new(),
-        Buffer::from_bytes(PathBuf::from("/demo/f.rs"), text.as_bytes()),
+        Buffer::from_bytes(PathBuf::from("/demo/f.py"), text.as_bytes()),
         None,
     );
     app.show_tree = false;
@@ -1624,12 +1624,12 @@ fn a_fold_draws_its_tail_and_the_lines_under_it_in_colour() {
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(
         rows(&terminal)[..2],
-        ["1 fn f() { \u{22ef} }", "33 fn g() {}"]
+        ["1 ITEMS = { \u{22ef} }", "33 def g():"]
     );
     let buf = terminal.backend().buffer();
     assert_ne!(
         buf[(3, 1)].fg,
-        buf[(6, 1)].fg,
+        buf[(7, 1)].fg,
         "line 33 is drawn uncoloured"
     );
 }

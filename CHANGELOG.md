@@ -9,12 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `f` folds the function the cursor is in into its first line, which ends in `⋯` and the
-  bracket or `end` that closes it: `def get(self, order_id: int) -> Order: ⋯`, `fn main() {⋯}`.
-  On a line that opens a block (an `if`, a loop) `f` folds that block; `f` on the folded line
-  unfolds it. Up and Down step over a fold, and anything that lands inside one opens it: `:`,
-  `/`, `n`, `d`, `u`, `s`, `[`. A fold stays with its file across jumps and moves with the
-  lines written above it. (#598)
+- `f` folds Python code into one line ending in `⋯`: on a line that opens a construct it folds
+  that construct (`def`, `class`, `if` / `elif` / `else`, `for`, `while`, `with`, `try` /
+  `except` / `finally`, `match` / `case`, a call, list or dict wrapped over lines, a docstring, a
+  run of imports); anywhere else inside a function it folds the function, from a blank line
+  between methods the class. `f` on the folded line unfolds it; Up and Down step over a fold, and
+  a jump inside one (`:`, `/`, `n`, `d`, `u`, `s`, `[`) opens it. A fold stays with its file
+  across jumps and moves with the lines written above it. Other languages say
+  `no fold rules for .rs` until they are proven the same way (#623). (#598)
 - `d`, `u` and `D` in Nix, where `d` said `no rules for .nix`. `d` on `mkService` in
   `shopLib.mkService` lands on its `mkService = { name, port ? 8080 }:` in `lib/default.nix`; on a
   name a `let` binds or a parameter (`{ config, pkgs, ... }:`, `x:`) names, on that binding in the
