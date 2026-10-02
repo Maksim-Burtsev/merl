@@ -1,6 +1,3 @@
-//! Vue, Svelte and Astro components (#413): TypeScript in a `<script>` block or an Astro
-//! frontmatter, around a template that declares nothing.
-
 use super::*;
 use std::borrow::Cow;
 use std::ops::Range;

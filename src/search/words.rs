@@ -32,8 +32,6 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?&?(?:\w+::)*([A-Za-z_]\w*)").unwrap()
     });
-    // An Elixir module is named as written, `Shop.Pricing`, and one nested in it adds its own
-    // name: a call spells the module out that way (#459).
     static EX_MODULE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*def(?:module|protocol)\s+([A-Z](?:[\w.]*\w)?)").unwrap()
     });
@@ -65,8 +63,6 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     {
         return Some(format!("{owner}{sep}{name}"));
     }
-    // Any other name on a Go function's line is the function's, a parameter or a named result,
-    // and reads as a local of its body does (#100): `Load.err`, not the field `Issue.err`.
     if kind == Kind::Go
         && let Some(c) = FUNC.captures(target).filter(|c| &c[1] != name)
     {
@@ -75,22 +71,17 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     if let Some(c) = RECEIVER.captures(target).filter(|_| kind == Kind::Go) {
         return Some(format!("{}{sep}{name}", &c[1]));
     }
-    // A Kotlin extension is named by its receiver type (#362): `Topic.asExternalModel`.
     if kind == Kind::Jvm
         && let Some(receiver) = jvm_receiver_at(text, line, name)
     {
         return Some(format!("{receiver}{sep}{name}"));
     }
-    // Any other name on a Java or Kotlin function's header is a parameter (#376), named as a
-    // local of the body is: `SortUtils.resolve.directionParams`.
     if kind == Kind::Jvm
         && let Some(f) = jvm_function(target).filter(|f| f != name)
     {
         let owner = qualified(kind, text, line, &f).unwrap_or(f);
         return Some(format!("{owner}{sep}{name}"));
     }
-    // A field of a Go struct whose body closes on its own line, `type Item struct{ Name string }`
-    // or `[]struct{ want int }{…}`, is its type's, or the struct's written in place (#330).
     if kind == Kind::Go && go_one_line_field(target, name) {
         let owner = GO_TYPE
             .captures(target)
@@ -109,7 +100,6 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         let owner = qualified(kind, text, decl, &ty).unwrap_or(ty);
         return Some(format!("{owner}{sep}{name}"));
     }
-    // A tag of a PHP class's docblock declares a member of the class under it (#344).
     if kind == Kind::Php
         && let Some(class) = php_tag_class(&lines, line - 1)
         && let Some(owner) = declared_name(Some(kind), lines[class])
@@ -117,7 +107,6 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         let owner = qualified(kind, text, class + 1, &owner).unwrap_or(owner);
         return Some(format!("{owner}{sep}{name}"));
     }
-    // Any other name on a Rust `fn` line is a parameter (#353): `Builder::hyperlink::config`.
     if kind == Kind::Rust
         && let Some(c) = RUST_FN.captures(target).filter(|c| &c[1] != name)
     {
@@ -131,7 +120,6 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         let owner = qualified(kind, text, line, &m).unwrap_or(m);
         return Some(format!("{owner}{sep}{name}"));
     }
-    // A column of `db/schema.rb` is its table's (#374): `collections.language`.
     if kind == Kind::Ruby
         && COLUMN
             .captures(target)
@@ -141,9 +129,6 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         let table = table.get(1).or(table.get(2)).map_or("", |m| m.as_str());
         return Some(format!("{table}{sep}{name}"));
     }
-    // Any other name on a Python `def` line is a parameter (#100): `Recipes.get_one.slug`, as a
-    // local of the body reads, not `Recipes.slug`, a field's name. So is one on an Elixir
-    // function's `def` line (#460), and on a Ruby method's (#526).
     let def = match kind {
         Kind::Python => PY_DEF.captures(target),
         Kind::Elixir => EX_DEF.captures(target),
@@ -157,11 +142,7 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     let indent = |s: &str| s.len() - s.trim_start().len();
     let mut depth = indent(target);
     let mut names = vec![name.to_owned()];
-    // Ruby writes the namespace into the line (#387): `class A::B` is `B` inside `A`, and
-    // `def Klass.m` is `m` of `Klass`.
     let ruby = kind == Kind::Ruby;
-    // An owner written into a `def` that is the class around it is that class, not one inside
-    // it (#535): `def User.build` in `class User` is `User.build`.
     let mut def_owner = None;
     if ruby {
         let spelled = ruby_namespace(target);
@@ -170,8 +151,6 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         }
         names.extend(spelled);
     }
-    // C++ writes it in front of an out-of-line body (#508): `struct Drawer::Scanner {` is
-    // `Scanner` inside `Drawer`, and `std::string Tariff::describe()` is `describe` of `Tariff`.
     let cpp = kind == Kind::C;
     if cpp {
         names.extend(cpp_namespace(target, name));
@@ -180,14 +159,11 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         if depth == 0 {
             break;
         }
-        // A Java or Kotlin class header wrapped over lines closes on `) : Base {` (#523): what
-        // it opens is named on the line the bracket opened on, further up.
         let tail = kind == Kind::Jvm && l.trim_start().starts_with(')');
         if steps_over(Some(kind), l.trim_start()) || tail || indent(l) >= depth {
             continue;
         }
         depth = indent(l);
-        // A `companion object` with no name holds its class's members (#523): `Repo.DEFAULT`.
         if kind == Kind::Jvm && COMPANION.is_match(l) {
             continue;
         }
@@ -212,7 +188,6 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
                     .map(|c| c[1].to_owned())
             })
             .or_else(|| declared_name(Some(kind), l));
-        // A field of a Go struct written in place is that struct's, wherever it stands (#330).
         if named.is_none() && kind == Kind::Go && GO_ANONYMOUS.is_match(l) {
             names.push("struct{\u{2026}}".to_owned());
             break;
@@ -236,13 +211,6 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     names.reverse();
     (names.len() > 1).then(|| names.join(sep))
 }
-/// `chain`, the names in front of an Elixir word, with the first read through an `alias` of
-/// `text` (#459): `W` behind `alias Shop.Warehouse, as: W` is `Shop.Warehouse`, and `Courier`
-/// behind `alias Shop.Warehouse.Courier` or `alias Shop.Warehouse.{Courier, Depot}` is
-/// `Shop.Warehouse.Courier`. An `alias` counts above 0-based `line`, the cursor's, and only while
-/// the block it is written in is still open there: none of the lines between is indented less
-/// than it. Another module's `alias`, or one inside another function, renames nothing here; the
-/// nearest one wins.
 /// ponytail: a `{…}` group wrapped over several lines is not read.
 pub fn elixir_unalias(text: &str, line: usize, mut chain: Vec<String>) -> Vec<String> {
     static ALIAS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -374,13 +342,6 @@ pub(super) fn steps_over(kind: Option<Kind>, t: &str) -> bool {
     let closer = kind == Some(Kind::Python) && t.starts_with([')', ']']);
     aside(t) || t == "{" || (kind == Some(Kind::TsJs) && t.starts_with('>')) || access || closer
 }
-/// The declarations 0-based `line` of `lines` stands inside, outermost first, for the code pane
-/// to pin over the text once their own lines scroll off (#248). merl has no parser: the scopes
-/// are the lines above indented less, each less than the last, as VS Code's indentation model
-/// reads them, and of those only the ones [`declared_name`] names something on count. A `for`
-/// or an `if` is a scope too, so it moves the walk out, but pins nothing: the question the pins
-/// answer is which function this is. A blank line or a comment belongs to the code after it, so
-/// scrolling over the blank lines of a body keeps its header.
 pub fn enclosing_declarations(kind: Option<Kind>, lines: &[String], line: usize) -> Vec<usize> {
     if !nests(kind) {
         return Vec::new();
@@ -441,9 +402,6 @@ pub(super) fn in_method(t: &str, name: &str) -> bool {
             .any(|(i, m)| !t[..i].ends_with(ident) && !t[i + m.len()..].starts_with(ident))
     })
 }
-/// The byte the name at the end of `s` starts at: past the last character that is no name char,
-/// or 0 where every character is one. `rfind` gives that character's first byte, and a character
-/// outside ASCII is wider than the byte a slice at `i + 1` would assume (#150).
 fn name_start(s: &str, is_name: impl Fn(char) -> bool) -> usize {
     s.char_indices()
         .rev()
@@ -654,9 +612,6 @@ pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Ra
     }
     Some((start..end, &line[start..end]))
 }
-/// The Dart name around `r` of `line` (#414): a `$` outside a string is part of it, at its start
-/// too (`_$UserFromJson`, `$UserCopyWith`), and in a string it interpolates, so `'$a$b'` holds
-/// `a` and `b`. The caller reads a line inside a `'''` string as a string.
 pub fn dart_name(line: &str, r: Range<usize>) -> Range<usize> {
     let b = line.as_bytes();
     let code: std::collections::HashSet<usize> = code(Kind::Dart, line).map(|(i, _)| i).collect();
@@ -684,10 +639,6 @@ fn owner_line(lines: &[&str], at: usize) -> Option<usize> {
         .rev()
         .find(|&i| !aside(lines[i].trim_start()) && indent(lines[i]) < depth)
 }
-/// Whether the Ruby method declared on 1-based `line` of `text` is a class method (#387):
-/// `def self.m`, `def Const.m`, a `scope :m` (#374), a class-level accessor such as
-/// `mattr_accessor :m` (#369), a `def` inside `class << self`, or one of a module that is
-/// `extend self` or `module_function`.
 pub fn ruby_singleton(text: &str, line: usize) -> bool {
     static ON: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(
@@ -718,10 +669,6 @@ pub fn ruby_singleton(text: &str, line: usize) -> bool {
                 .take_while(|l| l.trim().is_empty() || indent(l) > indent(lines[owner]))
                 .any(|l| MODULE_WIDE.is_match(l)))
 }
-/// Where the ActiveSupport concern `module` keeps the class methods it gives the class that
-/// includes it (#387): whether the Ruby method on 1-based `line` of `text` is inside its
-/// `class_methods do` block or its `module ClassMethods`, or is a `scope` of its `included do`
-/// block (#374).
 pub fn ruby_concern_class_method(text: &str, line: usize, module: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let Some(owner) = line.checked_sub(1).and_then(|i| owner_line(&lines, i)) else {

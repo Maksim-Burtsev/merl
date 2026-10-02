@@ -128,8 +128,6 @@ pub fn label_at(
                 _ => None,
             }
         }
-        // `Type { name: … }`, `path::Type { name: … }`: a field of `Type` (#529). The `{` of a
-        // declaration opens no literal, nor does a struct-like variant's inside an `enum`.
         (Kind::Rust, b'{') => {
             static LITERAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
                 Regex::new(r"(?:^|[^\w:])(?:\w+::)*([A-Z]\w*|Self)\s*$").unwrap()

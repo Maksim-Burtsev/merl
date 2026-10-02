@@ -906,7 +906,7 @@ mod tests {
     /// leaves the list.
     const LONG_FILES: &[(&str, usize)] = &[
         ("src/app/definition.rs", 2748),
-        ("src/search/bindings.rs", 1772),
+        ("src/search/bindings.rs", 1685),
     ];
     const MAX_LINES: usize = 1500;
 
@@ -972,7 +972,7 @@ mod tests {
         assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
     }
 
-    const COMMENT_LINES: usize = 8841;
+    const COMMENT_LINES: usize = 8269;
 
     fn comment_lines(text: &str) -> usize {
         let b = text.as_bytes();

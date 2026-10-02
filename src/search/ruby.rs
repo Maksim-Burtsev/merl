@@ -68,11 +68,6 @@ fn around(lines: &[&str], literal: &[bool], at: usize) -> (Vec<(usize, Opens)>, 
     (out, sure)
 }
 
-/// The 1-based lines of `text` that assign the Ruby local `name` where 1-based `line` sees it
-/// (#383): a local belongs to its `def`, and to the block it is assigned in, so it is seen from
-/// that block or `def` and not across a `def`, a `class` or a `module`. Outside any of them it
-/// belongs to the top of the file. Where the indentation does not tell, every assignment of the
-/// file counts.
 pub fn ruby_locals(text: &str, line: usize, name: &str) -> Vec<usize> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
@@ -171,13 +166,6 @@ fn block_binds(line: &str, name: &str) -> bool {
         .is_some_and(|c| param_names(&c[1]).iter().any(|p| p == name))
 }
 
-/// Ruby's parameters and locals (#365): what the innermost scope around 1-based `line` that binds
-/// `name` binds it with — the parameters of its `def`, the parameters of its block, and what is
-/// assigned to the name above the cursor directly in it (`x =`, `x ||=`, `a, x = …`,
-/// `rescue => x`, `for x in`). A block sees what the scopes around it bind, up to its `def`; a
-/// `def`, a `class` or a `module` sees nothing outside. Where the indentation does not tell, none:
-/// the search by name decides. Numbered parameters, `it`, `define_method` and `binding` are not
-/// read.
 pub(super) fn ruby_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let n = regex::escape(name);
     let local = Regex::new(&format!(
@@ -289,9 +277,6 @@ pub fn ruby_class_parents(text: &str, line: usize) -> (Option<String>, Vec<Strin
     (superclass, includes, extends)
 }
 
-/// Whether the Ruby declaration on 1-based `line` of `text` is on the class itself, not on its
-/// instances: `def self.m`, `def Const.m`, a `scope :m` (#374), or anything directly inside
-/// `class << self`.
 pub fn ruby_on_class(text: &str, line: usize) -> bool {
     static ON: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:(?:[a-z_]+\s+)?def\s+(?:self|[A-Z]\w*)\.|scope\s*\(?\s*:)").unwrap()

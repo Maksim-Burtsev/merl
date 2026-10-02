@@ -901,10 +901,6 @@ pub fn c_enum_head(head: &str) -> bool {
 pub fn c_class_around<S: AsRef<str>>(lines: &[S], line: usize) -> Option<String> {
     c_struct_head(&c_body_head(lines, line)?)
 }
-/// Whether 1-based `line` of a C or C++ file, which a declaration pattern matched as `text`,
-/// declares where it sits (#373): a line of enum constants only inside an enum's body, a member
-/// function declared with no body only directly inside a class or struct. Any other line is left
-/// to its pattern.
 pub fn c_declares_where<'a, S: AsRef<str> + 'a>(
     line: usize,
     text: &str,

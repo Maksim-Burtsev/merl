@@ -1,6 +1,3 @@
-//! HTML, CSS, SCSS and Less for `d` (#415): the class, the id or the path under the cursor, the
-//! rules of a stylesheet and the names they style, the declarations of a stylesheet's names.
-
 use regex::Regex;
 use std::ops::Range;
 use std::path::{Path, PathBuf};

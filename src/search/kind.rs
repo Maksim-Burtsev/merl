@@ -21,9 +21,7 @@ pub enum Kind {
     /// Protocol Buffers: `.proto` schemas, never the `.textproto` data they describe.
     Proto,
     Shell,
-    /// PowerShell scripts and modules; names ignore case in `d`, as the language does (#420).
     PowerShell,
-    /// Dart and Flutter; `$` is a name character, `_$UserFromJson` one name (#414).
     Dart,
     Cmake,
     Nix,
@@ -32,11 +30,8 @@ pub enum Kind {
     Terraform,
     Docker,
     Yaml,
-    /// `d` follows a link or a path in a code span to the file or the heading it names (#421).
     Markdown,
     Graphql,
-    /// CSS, SCSS, Sass and Less: a class is styled in any of them, so one kind searches them all
-    /// (#415).
     Css,
     /// `d` follows a class, an id or a path of an HTML file to the rule or the file it names
     /// (#415); an inline `<script>` is not read as JavaScript.
@@ -58,8 +53,6 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "go") => Kind::Go,
         (_, "rs") => Kind::Rust,
         (_, "ts" | "tsx" | "mts" | "cts" | "js" | "jsx" | "mjs" | "cjs") => Kind::TsJs,
-        // A component's script calls `.ts` modules and they import components, so the two
-        // search each other; only the script's lines are code (`script_lines`, #413).
         (_, "vue" | "svelte" | "astro") => Kind::TsJs,
         // Java, Kotlin and Scala are one kind: they call each other inside the same project, so
         // `d` in a `.kt` file has to find the `.java` class it uses, as `.tsx` finds `.ts`. A
@@ -115,14 +108,10 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "dockerignore") => return None,
         ("Dockerfile" | "Containerfile", _) | (_, "dockerfile" | "Dockerfile") => Kind::Docker,
         _ if name.starts_with("Dockerfile.") || name.starts_with("Containerfile.") => Kind::Docker,
-        // libc++'s and libstdc++'s own headers have no extension: `c++/v1/string`,
-        // `c++/13/vector` (#382).
         _ if !name.contains('.') && cpp_library(path) => Kind::C,
         _ => return None,
     })
 }
-/// Whether `path` is a Scala file of the Jvm kind (#416): what Scala writes differently from
-/// Java and Kotlin, a body with no brace or a type parameter in `[…]`, is read only there.
 pub fn scala(path: &Path) -> bool {
     path.extension()
         .is_some_and(|e| matches!(e.to_str(), Some("scala" | "sc" | "sbt" | "mill")))
@@ -134,7 +123,6 @@ fn cpp_library(path: &Path) -> bool {
 pub fn word_chars(kind: Option<Kind>, address: bool) -> &'static str {
     match kind {
         Some(Kind::Terraform) if address => "-.",
-        // `Get-ShopUser` is one PowerShell name, for `d` and `u` alike (#420).
         Some(
             Kind::Make
             | Kind::Terraform
