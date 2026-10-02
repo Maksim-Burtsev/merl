@@ -11,3 +11,5 @@ func show_coins(total: int) -> void:
 #          ^ d: globals/game_state.gd:3
 #          status: via GameState
 #                                ^ d: ui/hud.gd:3
+	GameState.die()
+#          ^ d: actors/actor.gd:6
