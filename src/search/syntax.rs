@@ -102,7 +102,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             Kind::Swift | Kind::CSharp => (true, false, true, true, &["//"]),
             // A YAML block scalar (`filters: |`) hides nothing: the keys dorny/paths-filter reads
             // out of one are what `steps.changes.outputs.backend` names.
-            Kind::Shell | Kind::Make | Kind::Docker | Kind::Yaml | Kind::R => {
+            Kind::Shell | Kind::Make | Kind::Docker | Kind::Yaml => {
                 (false, false, false, false, &["#"])
             }
             Kind::Sql => (false, false, false, true, &["--", "//"]),

@@ -6,7 +6,21 @@ use regex::Regex;
 
 use super::*;
 
-const ASSIGNED: &str = r"(?:[A-Za-z.][A-Za-z0-9_.]*\s*(?:<<?-|=)\s*)?";
+macro_rules! r_name {
+    () => {
+        r"[A-Za-z.][A-Za-z0-9_.]*"
+    };
+}
+
+macro_rules! r_assigned {
+    () => {
+        concat!(r"(?:", r_name!(), r"\s*(?:<<?-|=)\s*)?")
+    };
+}
+
+fn name_byte(c: u8) -> bool {
+    c.is_ascii_alphanumeric() || c == b'_' || c == b'.'
+}
 
 pub fn r_patterns(word: &str) -> Vec<String> {
     let w = regex::escape(word);
@@ -16,25 +30,52 @@ pub fn r_patterns(word: &str) -> Vec<String> {
         format!(r"^{name}\s*=(?:[^=]|$)"),
         format!(r"(?:^|[(,])\s*{name}\s*=\s*(?:function\b|\\\()"),
         format!(
-            r#"^\s*{ASSIGNED}(?:methods::)?set(?:Class|Generic|RefClass|Method)\s*\(\s*(?:[A-Za-z]+\s*=\s*)?["']{w}["']"#
+            r#"^\s*{}(?:methods::)?set(?:Class|Generic|RefClass|Method)\s*\(\s*(?:[A-Za-z]+\s*=\s*)?["']{w}["']"#,
+            r_assigned!()
         ),
     ]
 }
 
 pub(super) const R_FUNCTION_SYMBOL: &str = concat!(
-    r"^\s*(?P<name>[A-Za-z.][A-Za-z0-9_.]*|`[^`]+`)\s*(?:<<?-|=)\s*",
+    r"^\s*(?P<name>",
+    r_name!(),
+    r"|`[^`]+`)\s*(?:<<?-|=)\s*",
     r"(?:function\b|\\\()"
 );
 pub(super) const R_CLASS_SYMBOL: &str = concat!(
-    r"^\s*(?:[A-Za-z.][A-Za-z0-9_.]*\s*(?:<<?-|=)\s*)?",
+    r"^\s*",
+    r_assigned!(),
     r"(?:methods::)?set(?:Class|Generic|RefClass)\s*\(\s*(?:[A-Za-z]+\s*=\s*)?",
     r#"["'](?P<name>[^"']+)["']"#
 );
-pub(super) const R6_CLASS_SYMBOL: &str =
-    r"^\s*(?P<name>[A-Za-z.][A-Za-z0-9_.]*)\s*(?:<<?-|=)\s*(?:R6::)?R6Class\s*\(";
+pub(super) const R6_CLASS_SYMBOL: &str = concat!(
+    r"^\s*(?P<name>",
+    r_name!(),
+    r")\s*(?:<<?-|=)\s*(?:R6::)?R6Class\s*\("
+);
+
+fn comment_at(line: &str) -> usize {
+    let b = line.as_bytes();
+    let (mut quote, mut i) = (None, 0);
+    while i < b.len() {
+        match (quote, b[i]) {
+            (Some(_), b'\\') => i += 1,
+            (Some(q), c) if c == q => quote = None,
+            (None, b'#') => return i,
+            (None, c @ (b'"' | b'\'' | b'`')) => quote = Some(c),
+            _ => {}
+        }
+        i += 1;
+    }
+    b.len()
+}
 
 pub fn r_quoted_name(line: &str, col: usize) -> Option<Range<usize>> {
-    let ticks: Vec<usize> = line.match_indices('`').map(|(i, _)| i).collect();
+    let code = &line[..comment_at(line)];
+    if col >= code.len() {
+        return None;
+    }
+    let ticks: Vec<usize> = code.match_indices('`').map(|(i, _)| i).collect();
     if let Some(&[a, b]) = ticks
         .chunks(2)
         .find(|p| p.len() == 2 && p[0] <= col && col <= p[1])
@@ -43,7 +84,7 @@ pub fn r_quoted_name(line: &str, col: usize) -> Option<Range<usize>> {
     }
     static OPERATOR: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"%[^%\s`]+%").unwrap());
     OPERATOR
-        .find_iter(line)
+        .find_iter(code)
         .find(|m| m.start() <= col && col < m.end())
         .map(|m| m.range())
 }
@@ -57,7 +98,7 @@ pub fn r_foreign_package(line: &str, start: usize, root: &Path) -> bool {
         return false;
     };
     let from = q
-        .rfind(|c: char| !(c.is_ascii_alphanumeric() || c == '.' || c == '_'))
+        .rfind(|c: char| !(c.is_ascii() && name_byte(c as u8)))
         .map_or(0, |i| i + 1);
     let package = std::fs::read_to_string(root.join("DESCRIPTION")).ok();
     let own = package.as_deref().and_then(|d| {
@@ -90,7 +131,6 @@ pub fn r_files(dir: &Path, path: &str, files: &[PathBuf]) -> Vec<PathBuf> {
 
 pub(super) fn r_literal_lines(text: &str) -> Vec<bool> {
     let b = text.as_bytes();
-    let name = |c: u8| c.is_ascii_alphanumeric() || c == b'_' || c == b'.';
     let mut out = vec![false];
     let mut end: Option<Vec<u8>> = None;
     let mut i = 0;
@@ -129,7 +169,8 @@ pub(super) fn r_literal_lines(text: &str) -> Vec<bool> {
                 i += 1;
             }
             b'r' | b'R'
-                if (i == 0 || !name(b[i - 1])) && matches!(b.get(i + 1), Some(b'"' | b'\'')) =>
+                if (i == 0 || !name_byte(b[i - 1]))
+                    && matches!(b.get(i + 1), Some(b'"' | b'\'')) =>
             {
                 let quote = b[i + 1];
                 let dashes = b[i + 2..].iter().take_while(|&&c| c == b'-').count();

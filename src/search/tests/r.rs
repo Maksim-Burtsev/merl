@@ -150,6 +150,13 @@ fn an_r_name_holds_its_dots_and_backticks() {
     assert_eq!(word(quoted, 5), Some("names<-.invoice"));
     assert_eq!(word(quoted, 27), Some("%+%"));
     assert_eq!(word(quoted, 18), Some("x"));
+    let roxygen = "#' `withOtelCollect()` sets the level, `%+%` too";
+    assert_eq!(word(roxygen, 6), Some("withOtelCollect"));
+    assert_eq!(word(roxygen, 41), None, "no operator in a comment");
+    let after = "y <- `odd name`(1) # `a b`";
+    assert_eq!(word(after, 7), Some("odd name"));
+    assert_eq!(word(after, 22), Some("a"));
+    assert_eq!(word("x <- \"#\" + `a b`", 13), Some("a b"));
 }
 
 #[test]
