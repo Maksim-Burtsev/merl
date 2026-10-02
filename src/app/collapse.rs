@@ -10,14 +10,18 @@ impl App {
             self.collapsed.remove(i);
             return;
         }
-        if self.kind() != Some(Kind::Python) {
-            self.message = match self.buf.path.as_ref().and_then(|p| p.extension()) {
-                Some(ext) => format!("no fold rules for .{}", ext.to_string_lossy()),
-                None => "no fold rules for this file".into(),
-            };
-            return;
-        }
-        let Some((h, end)) = Shape::python(&self.buf.lines).target(l) else {
+        let shape = match self.kind() {
+            Some(Kind::Python) => Shape::python(&self.buf.lines),
+            _ if every_kind() => Shape::plain(&self.buf.lines),
+            _ => {
+                self.message = match self.buf.path.as_ref().and_then(|p| p.extension()) {
+                    Some(ext) => format!("no fold rules for .{}", ext.to_string_lossy()),
+                    None => "no fold rules for this file".into(),
+                };
+                return;
+            }
+        };
+        let Some((h, end)) = shape.target(l) else {
             self.message = "nothing to fold".into();
             return;
         };
@@ -114,6 +118,21 @@ impl App {
             self.collapsed[i] = (h, e);
         }
     }
+}
+
+#[cfg(test)]
+thread_local! {
+    pub(crate) static FOLD_EVERY_KIND: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+#[cfg(test)]
+fn every_kind() -> bool {
+    FOLD_EVERY_KIND.get()
+}
+
+#[cfg(not(test))]
+fn every_kind() -> bool {
+    false
 }
 
 const COMPOUND: &[&str] = &[

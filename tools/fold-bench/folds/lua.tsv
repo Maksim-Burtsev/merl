@@ -1,0 +1,19 @@
+# NVIM v0.12.5, nvim-treesitter 910fdf6: 83 folds in 17 files, 0 files left out for a syntax error
+# path (project/file)	each fold as line:last hidden line, 1-based
+redis/deps/lua/etc/strict.lua	12:15 19:22 24:33 25:31 27:29 35:40 36:38
+redis/deps/lua/test/bisect.lua	5:12 15:19 22:24
+redis/deps/lua/test/cf.lua	3:16 5:7 11:14
+redis/deps/lua/test/echo.lua	3:5
+redis/deps/lua/test/factorial.lua	4:12 6:11 7:10 16:21 17:20 18:19 26:28 30:32
+redis/deps/lua/test/fib.lua	4:11 6:10 14:24 16:23 18:21 27:33
+redis/deps/lua/test/fibfor.lua	3:11 4:10 6:9
+redis/deps/lua/test/globals.lua	5:13 9:12
+redis/deps/lua/test/life.lua	11:14 16:25 18:23 20:22 30:36 31:35 32:34 39:52 41:51 43:49 55:64 57:62 58:60 67:73 85:109 99:108
+redis/deps/lua/test/printf.lua	3:5
+redis/deps/lua/test/sieve.lua	5:9 6:8 12:20 13:19 14:18 24:29
+redis/deps/lua/test/sort.lua	5:25 6:24 12:19 14:17 27:38 29:37 31:34 40:49 43:47 51:61
+redis/deps/lua/test/table.lua	5:11
+redis/deps/lua/test/trace-calls.lua	6:29 11:15 16:27 17:21
+redis/deps/lua/test/trace-globals.lua	3:28 6:12 7:11 14:20 23:26
+redis/deps/lua/test/xd.lua	5:14 9:10
+ripgrep/.nvim.lua	1:12 2:11 3:10 4:6 7:9
