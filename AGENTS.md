@@ -138,8 +138,9 @@ Everything on GitHub (issues, PR bodies, reviews, comments) is in English.
 ## Changing `f`
 
 `f` (`src/app/collapse.rs`) folds by the rules decided in #598, in the languages that pass the
-fold bench and nowhere else: Python today, the rest in epic #623, each saying `no fold rules for
-.EXT` until then.
+fold bench and nowhere else: Python, YAML, JSON, TOML, HTML, CSS / SCSS and Markdown today
+(`src/app/collapse/spans.rs` for all but Python), the rest in epic #623, each saying `no fold
+rules for .EXT` until then.
 
 - **The bench**, `tools/fold-bench/run [--lang go,rust]`: `f` pressed on every line that starts
   a fold in real projects, compared with the reference: Python's own `ast` for Python, and for

@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a jump inside one (`:`, `/`, `n`, `d`, `u`, `s`, `[`) opens it. A fold stays with its file
   across jumps and moves with the lines written above it. Other languages say
   `no fold rules for .rs` until they are proven the same way (#623). (#598)
+- `f` folds YAML, JSON, TOML, HTML, CSS / SCSS and Markdown too, where it said
+  `no fold rules for .json`: a key with what is nested under it and a list item in YAML, an
+  object or an array in JSON, a table and a wrapped array in TOML, an element from its start tag
+  to its end tag in HTML, a rule in CSS from the first line of its selectors, and in Markdown a
+  heading with its section, a list and a code block. On a line inside one, `f` folds the
+  innermost one around it. (#627)
 - `d`, `u` and `D` in Nix, where `d` said `no rules for .nix`. `d` on `mkService` in
   `shopLib.mkService` lands on its `mkService = { name, port ? 8080 }:` in `lib/default.nix`; on a
   name a `let` binds or a parameter (`{ config, pkgs, ... }:`, `x:`) names, on that binding in the
