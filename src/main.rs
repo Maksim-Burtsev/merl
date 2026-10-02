@@ -2,6 +2,7 @@
 
 mod app;
 mod buffer;
+mod for_agents;
 mod git;
 mod intraline;
 mod line_edit;
@@ -103,6 +104,8 @@ struct Cli {
     /// develop, then the local master or main)
     #[arg(short, long, value_name = "REF", requires = "review")]
     base: Option<String>,
+    #[arg(long, hide = true)]
+    for_agents: bool,
 }
 
 fn main() {
@@ -118,6 +121,10 @@ fn run() -> Result<()> {
         let path = stats::path().context("no home directory")?;
         // `merl --keys | head` closes the pipe early; that is no error.
         let _ = stdout().write_all(stats::report(&path, stats::today())?.as_bytes());
+        return Ok(());
+    }
+    if cli.for_agents {
+        let _ = stdout().write_all(for_agents::guide().as_bytes());
         return Ok(());
     }
     if cli.reviews {
@@ -155,13 +162,27 @@ fn run() -> Result<()> {
         }
         None => None,
     };
-    let (mut tree, files) = tree::build(&root, shallow);
+    let tree_order = (git_toplevel(&root))
+        .zip(git::dirs(&root))
+        .filter(|_| tree::orders_on() && review.is_none())
+        .map(|(top, (_, common))| tree::OrderFile {
+            file: common.join("merl").join("tree"),
+            under: root
+                .strip_prefix(&top)
+                .unwrap_or(Path::new(""))
+                .to_path_buf(),
+        });
+    let order = tree_order
+        .as_ref()
+        .map(tree::OrderFile::read)
+        .unwrap_or_default();
+    let (mut tree, files) = tree::build_ordered(&root, shallow, &order);
     // Of the walk, before the review panel takes the tree's place.
     let project = live::Project::new(&root, shallow, &tree);
     // `o` offers them in a review too, and the panel has none.
     let ignored = tree.ignored_files();
     if let Some(r) = &review {
-        tree = tree::from_files(&r.files.iter().map(|f| f.path.clone()).collect::<Vec<_>>());
+        tree = tree::from_listing(&r.files.iter().map(|f| f.path.clone()).collect::<Vec<_>>());
     }
     let buf = match &file {
         Some(p) => Buffer::load(p)?,
@@ -170,6 +191,7 @@ fn run() -> Result<()> {
     let dir = root.clone();
     let mut app = App::new(root, tree, files, buf, line);
     app.shallow = shallow;
+    app.tree_order = tree_order;
     app.ignored = ignored;
     if let Some(r) = review {
         app.start_review(r);
@@ -366,8 +388,13 @@ fn event_loop(
         if project.walk_due(Instant::now()) {
             // In a thread: the walk takes 0.1 s on 12k files.
             let (tx, root, shallow) = (diff_tx.clone(), app.root.clone(), app.shallow);
+            let order = app.tree_order.clone();
             std::thread::spawn(move || {
-                let (tree, files) = tree::build(&root, shallow);
+                let order = order
+                    .as_ref()
+                    .map(tree::OrderFile::read)
+                    .unwrap_or_default();
+                let (tree, files) = tree::build_ordered(&root, shallow, &order);
                 let _ = tx.send(Msg::Project(tree, files));
             });
         }
