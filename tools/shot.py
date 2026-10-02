@@ -34,7 +34,6 @@ def selftest():
     cell = lambda x, y: img.getpixel((x * cw + cw // 2, y * ch + ch // 2))
     assert cell(2, 2) == (1, 2, 3), "the third line lost the background it carries on"
     assert cell(0, 3) == cast.ANSI[4] == (0x82, 0xaa, 0xff), "the blue is not the terminal's"
-    # A tree's border runs on from one row to the next, as in the screencasts: no dashed line.
     assert all(img.getpixel((cw // 2, y)) != img.getpixel((cw + cw // 2, y))
                for y in range(4 * ch, 6 * ch)), "the box line breaks between rows"
     print("selftest ok")
