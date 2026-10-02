@@ -35,8 +35,6 @@ impl App {
         }
     }
 
-    // ---- new file --------------------------------------------------------
-
     /// Ctrl+N: asks for a path from the project root. It starts in the directory of the tree
     /// row, or of the open file, as the explorers of VS Code and nvim-tree do.
     pub(super) fn start_new(&mut self) {

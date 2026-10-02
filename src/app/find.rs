@@ -1,5 +1,3 @@
-//! `/`: find in the open file.
-
 use super::*;
 
 /// The most chars a `/` query holds (#267): nobody searches a file for a longer literal. Ignoring
@@ -138,7 +136,6 @@ impl App {
         }
     }
 
-    /// First match starting at or after `(line, col)`, searching down the file.
     fn match_at_or_after(
         &self,
         re: &Regex,
@@ -153,7 +150,6 @@ impl App {
         None
     }
 
-    /// Last match starting strictly before `(line, col)`, searching up the file.
     fn match_before(
         &self,
         re: &Regex,
