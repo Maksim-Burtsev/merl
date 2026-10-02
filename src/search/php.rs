@@ -271,8 +271,6 @@ pub fn php_block(text: &str, line: usize) -> &str {
     &text[lines[declared[i]]..end]
 }
 
-// ---- Class names and composer.json's PSR-4 map (#351) ----------------------------------------
-
 /// The class name the word at `range` of `line` belongs to, as written (`\A\B`, `B`), and
 /// whether the word is a member of it, `B::word`, rather than the name itself (#351). Only where
 /// PHP reads a class name: before `::`, after `new`, `extends`, `implements`, `instanceof`,
@@ -452,8 +450,6 @@ pub fn php_psr4_file(
     }
     covered.then_some(Err(()))
 }
-
-// ---- The type of a receiver (#361) ----------------------------------------------------------
 
 /// What a line binding PHP's `$name` says of its type (#361).
 #[derive(Debug, Clone, PartialEq, Eq)]

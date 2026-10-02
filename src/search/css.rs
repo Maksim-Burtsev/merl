@@ -222,7 +222,6 @@ fn open(buf: &[(u8, usize)], parent: Option<&Frame>, out: &mut Vec<Rule>) -> Fra
     }
     let parents = parent.map(|p| p.trailing.as_slice()).unwrap_or_default();
     let mut trailing = Vec::new();
-    // Each selector of the list, split where no bracket is open.
     let (mut depth, mut start) = (0i32, 0);
     let mut parts = Vec::new();
     for (k, &(c, _)) in buf.iter().enumerate() {
@@ -435,7 +434,6 @@ pub fn sheet_at(line: &str, col: usize, less: bool) -> Option<Sheet> {
     }
 }
 
-/// The line patterns that declare what `sheet` names.
 pub fn sheet_patterns(sheet: &Sheet) -> Vec<String> {
     let w = |n: &str| regex::escape(n);
     let end = r"(?:[^\w-]|$)";
