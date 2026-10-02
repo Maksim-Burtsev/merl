@@ -103,13 +103,11 @@ impl App {
             self.message = self.no_rules();
             return;
         };
-        if self.component_template(&here, &range, &mut word) {
+        if self.component_template(&here, &range, &mut word)
+            || (kind == Kind::Gdscript && self.gdscript_definition(&here, &range, &chain, &word))
+        {
             return;
         }
-        // Go's blank identifier names nothing: every `_` is a fresh discard (#476). Nor has a
-        // GraphQL operation's `$variable` a rule: it is a parameter, and `$id` is no field `id`.
-        // A Java or Kotlin class literal, `Foo::class`, names no member `class` (#362). A
-        // PowerShell `-Name` argument names a parameter of the command it is given to (#420).
         if (kind == Kind::Go && word == "_")
             || (kind == Kind::Graphql && self.line_str()[..range.start].ends_with('$'))
             || (kind == Kind::Jvm
@@ -481,7 +479,7 @@ impl App {
                 || same_line
                 || own_line
                 || own_arrow
-                || matches!(kind, Kind::Rust | Kind::Nix))
+                || matches!(kind, Kind::Rust | Kind::Nix | Kind::Gdscript))
         {
             let found = locals
                 .iter()

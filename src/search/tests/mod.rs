@@ -12,6 +12,7 @@ mod css;
 mod dart;
 mod defs;
 mod fields;
+mod gdscript;
 mod go;
 mod grep;
 mod imports;

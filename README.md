@@ -242,6 +242,7 @@ moment you open it. In Python, TypeScript and Go, `d` also follows the type of t
 | Dart | the pub cache and the SDK |
 | CMake | CMake's own modules and the packages' config files |
 | Java, Kotlin, Scala, Ruby, C#, Lua, Elixir, Nix | |
+| GDScript | the script `project.godot` autoloads under a name, and the file a `res://` path names |
 | Shell, SQL, Makefile, Terraform, Dockerfile, YAML, GraphQL | |
 | Markdown | the file or the heading a link names, and a file a code span names |
 | HTML, CSS, SCSS, Less | the rule a class or an id of HTML, JSX, Vue or Svelte names, the file a path names, a package's stylesheet in `node_modules` |

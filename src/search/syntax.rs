@@ -9,7 +9,7 @@ pub(super) fn indent(s: &str) -> usize {
 /// Whether a trimmed line of `kind` is a comment. TypeScript's `#private` is a name.
 pub(super) fn comment(kind: Kind, t: &str) -> bool {
     match kind {
-        Kind::Python => t.starts_with('#'),
+        Kind::Python | Kind::Gdscript => t.starts_with('#'),
         _ => ["//", "/*", "*"].iter().any(|c| t.starts_with(c)),
     }
 }
@@ -93,7 +93,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
     // backtick quotes a MySQL name of one line, whose `/*` opens nothing.
     let (heredoc, long_bracket, template, block_comment, line_comments): (_, _, _, _, &[&str]) =
         match kind {
-            Kind::Python | Kind::Elixir => (true, false, false, false, &["#"]),
+            Kind::Python | Kind::Elixir | Kind::Gdscript => (true, false, false, false, &["#"]),
             Kind::Lua => (false, true, false, false, &["--"]),
             Kind::Zig => (false, false, false, false, &["//"]),
             Kind::Swift | Kind::CSharp => (true, false, true, true, &["//"]),
@@ -302,8 +302,10 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             }
         } else if heredoc
             && (b[i..].starts_with(b"\"\"\"")
-                || (matches!(kind, Kind::Python | Kind::Elixir | Kind::Dart)
-                    && b[i..].starts_with(b"'''")))
+                || (matches!(
+                    kind,
+                    Kind::Python | Kind::Elixir | Kind::Dart | Kind::Gdscript
+                ) && b[i..].starts_with(b"'''")))
         {
             // `'''` is Python's, Elixir's and Dart's alone; Swift, C#, GraphQL, Java and Kotlin
             // write the block with `"` only.
@@ -531,11 +533,13 @@ pub(super) fn code(kind: Kind, s: &str) -> impl Iterator<Item = (usize, u8)> + '
                 quote = Some(c);
                 None
             }
-            b'#' if kind == Kind::Python => {
+            b'#' if matches!(kind, Kind::Python | Kind::Gdscript) => {
                 comment = true;
                 Some((i, 0))
             }
-            b'/' if kind != Kind::Python && b.get(i + 1) == Some(&b'/') => {
+            b'/' if !matches!(kind, Kind::Python | Kind::Gdscript)
+                && b.get(i + 1) == Some(&b'/') =>
+            {
                 comment = true;
                 Some((i, 0))
             }

@@ -246,6 +246,14 @@ function by name, `let` bindings named `api` in two files (each stays in its own
 path, each refusal of the issue, and declaration-shaped lines in indented strings (one opened
 after `//`, one holding the `'''`, `''$` and `''\` escapes), a `"…"`, a `/* */` and a `#` comment.
 
+`gdscript/` (#434) is a Godot project whose `project.godot` autoloads `globals/game_state.gd` as
+`GameState`: the issue's table, a `class_name` with its `extends` on the line, an inner `class`, a
+signal from `emit()` and `emit_signal("…")`, members, named and anonymous `enum`s, a local
+`direction` beside a member `direction` of `actor.gd`, a `for` variable, a parameter and a lambda's,
+an autoload's function and the autoload itself, `res://` paths in `preload` and `extends`, each
+refusal (a node path, a dictionary key, `extends CharacterBody2D`) and declaration-shaped lines in
+a `"""` string.
+
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
 `deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies
 the project walk does not reach, one whose module is no path and two declaring one name (#437).
