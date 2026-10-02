@@ -452,17 +452,16 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         Kind::Html => Vec::new(),
     }
 }
-/// [`def_patterns`] cut to what the word at `range` of `line` can be: a PHP namespace's
-/// ([`php_namespace_patterns`]), a PowerShell variable's or not ([`powershell_sigil`]).
 pub fn narrow_patterns(
     kind: Kind,
     p: &mut Vec<String>,
     text: &str,
+    row: usize,
     line: &str,
     r: std::ops::Range<usize>,
 ) {
     match kind {
-        Kind::Php => php_namespace_patterns(p, text, line, r),
+        Kind::Php => php_namespace_patterns(p, php_block(text, row), line, r),
         Kind::PowerShell => powershell_sigil(p, &line[..r.start], &line[r.end..]),
         Kind::Dart => dart_narrow(p, line, r),
         _ => {}
