@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 mod csharp;
+mod java;
 mod rust;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -11,6 +12,7 @@ pub(crate) enum Lang {
     Go,
     CSharp,
     Rust,
+    Java,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -29,6 +31,7 @@ pub(crate) fn syntax_of(path: &Path) -> Option<Syntax> {
         "go" => (Lang::Go, false),
         "cs" => (Lang::CSharp, false),
         "rs" => (Lang::Rust, false),
+        "java" => (Lang::Java, false),
         _ => return None,
     };
     Some(Syntax { lang, jsx })
@@ -47,6 +50,7 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
         Lang::Go => model.go(),
         Lang::CSharp => model.csharp(lines),
         Lang::Rust => model.rust(lines),
+        Lang::Java => model.java(lines),
         lang => model.ecma(lang == Lang::Ts),
     }
     let levels = levels(lines.len(), &model.nodes);
@@ -260,6 +264,11 @@ impl<'a> Lexer<'a> {
                 && matches!(c, b'\'' | b'"' | b'r' | b'b' | b'c')
                 && self.rust_quote()
             {
+                continue;
+            }
+            if self.syntax.lang == Lang::Java && s[i..].starts_with(b"\"\"\"") {
+                self.skip_past(i + 3, b"\"\"\"");
+                self.emit(l, i, 1, K::Str, self.l);
                 continue;
             }
             if self.syntax.lang == Lang::CSharp
