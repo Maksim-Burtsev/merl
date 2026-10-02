@@ -51,7 +51,9 @@
   and the commit message says why. The comments already in the code are older practice, not the
   density to match: when you change the code under one, delete it and move what still holds into
   the commit message, a `ponytail:` note included. Fixture annotations (`tests/fixtures/`) and
-  the tutor's sample project are data and stay.
+  the tutor's sample project are data and stay. The comment lines under `src/` may not grow:
+  `comment_lines_do_not_grow` (`src/main.rs`, `COMMENT_LINES`); a PR that deletes comments
+  lowers the number.
 
 ## Issues
 
