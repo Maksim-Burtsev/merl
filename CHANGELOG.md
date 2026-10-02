@@ -130,8 +130,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- A row of a list (`u`, `s`, `d`'s choices, `D`, `o`) wider than the list ends in a dim `…`
-  instead of stopping mid-word at the border. (#479)
 - `d` in TypeScript and JavaScript on an arrow function's parameter itself, `crate` in
   `crates.map(crate => 0)`, offers a namesake elsewhere under "at a declaration", or stays on
   the line when there is none. It jumped to a module-level `const` of the same name. (#534)
