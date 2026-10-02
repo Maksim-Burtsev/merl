@@ -56,7 +56,7 @@ impl App {
                 line: h.line,
                 col,
                 code_at: None,
-                place_at: None,
+                path_at: None,
             })
             .collect()
     }

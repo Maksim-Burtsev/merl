@@ -24,7 +24,7 @@ pub struct PickItem {
     /// Byte offset in `label` where a copy of the file's line `line` (trimmed, maybe clipped)
     /// starts, so the row can be drawn with that line's syntax colours. `None`: no code text.
     pub code_at: Option<usize>,
-    pub place_at: Option<usize>,
+    pub path_at: Option<std::ops::Range<usize>>,
     /// A line the branch under review deleted (#440): `line` is its number in the file at the
     /// base, drawn red, and Enter lands on it.
     pub deleted: bool,
@@ -281,7 +281,7 @@ mod tests {
             .map(|l| PickItem {
                 label: (*l).to_string(),
                 code_at: None,
-                place_at: None,
+                path_at: None,
                 path: PathBuf::from(l),
                 line: 0,
                 col: 0,

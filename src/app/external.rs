@@ -785,13 +785,12 @@ impl App {
             .into_iter()
             .map(|(name, why, c)| {
                 let lead = format!("{name}{}  {why}{}  ", pad(name_w, &name), pad(why_w, &why));
-                let head = format!(
-                    "{lead}{}: ",
-                    at_label(self.rel_to_its_root(kind, &c.hit.path), c.hit.line),
-                );
+                let shown = self.rel_to_its_root(kind, &c.hit.path);
+                let head = format!("{lead}{}: ", at_label(shown, c.hit.line));
+                let path_at = lead.len()..lead.len() + shown.display().to_string().len();
                 PickItem {
                     code_at: Some(head.len()),
-                    place_at: Some(lead.len()),
+                    path_at: Some(path_at),
                     col: word_col(
                         &c.hit.text,
                         &definition::declared_as(kind, word, &c.hit.text),

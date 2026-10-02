@@ -270,7 +270,7 @@ pub(super) fn draw_picker(
     );
     let height = list.height as usize;
     let prefix_w = usize::from(marks.is_some());
-    let (rows, places, selected) = match grouped {
+    let (rows, places, selected) = match grouped && height > 1 {
         true => group_window(picker, height, width, prefix_w),
         false => {
             let (rows, selected) = picker.window(height);
@@ -345,19 +345,35 @@ pub(super) fn draw_picker(
             ));
             continue;
         };
-        if let Some(path) = &place.header {
-            let lead = " ".repeat(prefix_w + place.head_w);
-            let path = Span::styled(
-                path.clone(),
-                base.fg(theme.accent).add_modifier(Modifier::BOLD),
-            );
-            lines.push(padded([Span::styled(lead, base), path], width, base));
+        let bold = |s: &Span| s.style.add_modifier.contains(Modifier::BOLD);
+        if place.header {
+            let lead = Span::styled(" ".repeat(prefix_w + place.head_w), base);
+            let path = cells
+                .iter()
+                .filter(|(b, _)| place.path.contains(b))
+                .map(|(_, s)| {
+                    let accent = base.fg(theme.accent);
+                    match bold(s) {
+                        true => {
+                            Span::styled(s.content.clone(), accent.add_modifier(Modifier::BOLD))
+                        }
+                        false => Span::styled(s.content.clone(), accent),
+                    }
+                });
+            lines.push(padded([lead].into_iter().chain(path), width, base));
             headers.push(lines.len());
         }
-        let (place_at, code_at) = (place.place_at, place.code_at);
+        let code_at = place.code_at;
+        let matched_num = cells
+            .iter()
+            .any(|(b, s)| (place.path.end..code_at).contains(b) && bold(s));
+        let num_style = match matched_num {
+            true => style.fg(theme.ghost_fg).add_modifier(Modifier::BOLD),
+            false => style.fg(theme.ghost_fg),
+        };
         let num = Span::styled(
             format!("  {:>w$}  ", row.item.line, w = place.num_w),
-            style.fg(theme.ghost_fg),
+            num_style,
         );
         let in_row = |r: &std::ops::Range<usize>| {
             cells
@@ -368,7 +384,7 @@ pub(super) fn draw_picker(
         };
         let head = cells
             .iter()
-            .filter(|(b, _)| *b < place_at)
+            .filter(|(b, _)| *b < place.path.start)
             .map(|(_, s)| s.clone());
         let first = prefix
             .into_iter()
@@ -396,9 +412,9 @@ fn padded<'a>(spans: impl IntoIterator<Item = Span<'a>>, width: usize, style: St
 }
 
 struct Place {
-    header: Option<String>,
+    header: bool,
     head_w: usize,
-    place_at: usize,
+    path: std::ops::Range<usize>,
     code_at: usize,
     num_w: usize,
     code_col: usize,
@@ -407,7 +423,7 @@ struct Place {
 
 impl Place {
     fn lines(&self) -> usize {
-        usize::from(self.header.is_some()) + self.code_rows.len()
+        usize::from(self.header) + self.code_rows.len()
     }
 }
 
@@ -421,9 +437,13 @@ fn group_window(
         picker.first = 0;
         return (Vec::new(), Vec::new(), 0);
     }
-    picker.first = picker.first.min(picker.selected);
+    let height = height.max(1);
+    picker.first = picker.first.clamp(
+        (picker.selected + 1).saturating_sub(height),
+        picker.selected,
+    );
     loop {
-        let rows = picker.rows(picker.first, height.max(1));
+        let rows = picker.rows(picker.first, height);
         let places = places(&rows, width, prefix_w);
         let selected = picker.selected - picker.first;
         let lines = |n: usize| -> usize {
@@ -445,36 +465,34 @@ fn group_window(
 }
 
 fn places(rows: &[Row], width: usize, prefix_w: usize) -> Vec<Option<Place>> {
-    let splits: Vec<Option<(usize, usize, usize)>> = rows
+    let paths: Vec<Option<(std::ops::Range<usize>, usize)>> = rows
         .iter()
         .map(|r| {
-            let (place_at, code_at) = (r.item.place_at?, r.item.code_at?);
-            let tail = format!(":{}: ", r.item.line);
-            let path_end = code_at.checked_sub(tail.len())?;
-            (place_at < path_end && r.item.label.get(path_end..code_at) == Some(tail.as_str()))
-                .then_some((place_at, path_end, code_at))
+            let (path, code_at) = (r.item.path_at.clone()?, r.item.code_at?);
+            r.item.label.get(path.clone())?;
+            (!path.is_empty() && path.end <= code_at).then_some((path, code_at))
         })
         .collect();
     let num_w = rows
         .iter()
-        .zip(&splits)
-        .filter(|(_, s)| s.is_some())
+        .zip(&paths)
+        .filter(|(_, p)| p.is_some())
         .map(|(r, _)| r.item.line.to_string().len())
         .max()
         .unwrap_or(0);
     let mut last: Option<&str> = None;
     rows.iter()
-        .zip(&splits)
+        .zip(paths)
         .map(|(r, split)| {
-            let Some((place_at, path_end, code_at)) = *split else {
+            let Some((path, code_at)) = split else {
                 last = None;
                 return None;
             };
             let label = &r.item.label;
-            let path = &label[place_at..path_end];
-            let header = (last != Some(path)).then(|| path.to_string());
-            last = Some(path);
-            let head_w = wrap::width(&label[..place_at]);
+            let text = &label[path.clone()];
+            let header = last != Some(text);
+            last = Some(text);
+            let head_w = wrap::width(&label[..path.start]);
             let code_col = prefix_w + head_w + 2 + num_w + 2;
             let code = &label[code_at..];
             let room = width.saturating_sub(code_col);
@@ -485,7 +503,7 @@ fn places(rows: &[Row], width: usize, prefix_w: usize) -> Vec<Option<Place>> {
             Some(Place {
                 header,
                 head_w,
-                place_at,
+                path,
                 code_at,
                 num_w,
                 code_col,

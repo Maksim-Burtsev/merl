@@ -279,7 +279,7 @@ fn hit_picker_rows_keep_the_syntax_colours_of_their_line() {
     assert_eq!(path.1 + 1, y);
     let code_x = x + 3;
     assert_eq!(buf[(code_x, y)].symbol(), "/");
-    assert_ne!(buf[(code_x, y)].fg, buf[path].fg);
+    assert_ne!(buf[(code_x, y)].fg, theme.fg);
 }
 
 #[test]
@@ -310,12 +310,11 @@ fn hit_picker_rows_keep_their_colours_past_a_tab() {
     std::fs::remove_dir_all(&dir).unwrap();
 
     let buf = terminal.backend().buffer();
-    let path = cell_at(&terminal, "a.c");
     let (hash, row) = cell_at(&terminal, "#define");
     // The tab is drawn four wide, and `10` past it keeps the colour the code view gives it.
     let ten = hash + "#define MAX".len() as u16 + 4;
     assert_eq!(buf[(ten, row)].symbol(), "1");
-    assert_ne!(buf[(ten, row)].fg, buf[path].fg);
+    assert_ne!(buf[(ten, row)].fg, theme.fg);
 }
 
 /// The tree pane and the status bar frame the overlay; the overlay itself is the border,
@@ -873,4 +872,86 @@ fn a_path_with_no_room_for_its_rows_is_not_drawn_last() {
         list[1..],
         ["a.py", "  1  total", "  2  total", "  3  total", ""]
     );
+}
+
+fn three_files() -> App {
+    let hits: Vec<(&str, usize, &str)> = (1..=6)
+        .map(|n| (["a.py", "b.py", "c.py"][(n - 1) / 2], n, "total"))
+        .collect();
+    hits_app("three-files", &hits)
+}
+
+fn picked_is_shown(app: &mut App, terminal: &mut Terminal<TestBackend>) -> Vec<String> {
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+    let list = inside(terminal);
+    let picked = app.picker.as_ref().unwrap().current().unwrap().line;
+    assert!(
+        list.iter().any(|r| r.trim() == format!("{picked}  total")),
+        "{list:#?}"
+    );
+    list
+}
+
+#[test]
+fn page_down_from_mid_list_lands_on_a_row_on_screen() {
+    let mut app = three_files();
+    let mut terminal = Terminal::new(TestBackend::new(80, 12)).unwrap();
+    picked_is_shown(&mut app, &mut terminal);
+    for _ in 0..2 {
+        app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+    }
+    picked_is_shown(&mut app, &mut terminal);
+    app.key(KeyEvent::new(KeyCode::PageDown, KeyModifiers::NONE));
+    picked_is_shown(&mut app, &mut terminal);
+    assert_eq!(app.picker.as_ref().unwrap().current().unwrap().line, 6);
+    app.key(KeyEvent::new(KeyCode::PageUp, KeyModifiers::NONE));
+    let list = picked_is_shown(&mut app, &mut terminal);
+    assert_eq!(list[1], "b.py");
+}
+
+#[test]
+fn moving_up_after_scrolling_down_keeps_the_row_on_screen_under_its_path() {
+    let mut app = three_files();
+    let mut terminal = Terminal::new(TestBackend::new(80, 12)).unwrap();
+    for _ in 0..5 {
+        app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+    }
+    picked_is_shown(&mut app, &mut terminal);
+    for _ in 0..5 {
+        app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+        let list = picked_is_shown(&mut app, &mut terminal);
+        assert!(list[1].ends_with(".py"), "{list:#?}");
+    }
+    let list = picked_is_shown(&mut app, &mut terminal);
+    assert_eq!(list[1..4], ["a.py", "  1  total", "  2  total"]);
+}
+
+#[test]
+fn a_file_heads_each_run_of_its_rows() {
+    let mut app = hits_app(
+        "runs",
+        &[
+            ("a.py", 1, "total"),
+            ("b.py", 2, "total"),
+            ("a.py", 3, "total"),
+        ],
+    );
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+    let list = picked_is_shown(&mut app, &mut terminal);
+    let heads: Vec<&str> = list
+        .iter()
+        .filter(|r| r.ends_with(".py"))
+        .map(|r| r.as_str())
+        .collect();
+    assert_eq!(heads, ["a.py", "b.py", "a.py"]);
+}
+
+#[test]
+fn a_list_one_line_tall_shows_the_picked_row() {
+    let mut app = three_files();
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(80, 6)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(inside(&terminal), [">", "a.py:1: total"]);
 }

@@ -989,3 +989,32 @@ fn symbols_of_a_review_skip_a_deleted_template_line() {
     assert_eq!(rows(&mut a), ["save  Card.vue:2"]);
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn a_base_picker_row_of_a_renamed_file_names_the_file_it_has_now() {
+    let (dir, mut a) = repo_review(
+        "d-picker-renamed",
+        &[
+            ("a.py", "class A:\n    def run(self):\n        return 1\n"),
+            ("b.py", "class B:\n    def run(self):\n        return 2\n"),
+            ("main.py", "def go(x):\n    return x.run()\n"),
+        ],
+        &[
+            ("b.py", None),
+            (
+                "lib/beta.py",
+                Some("class B:\n    def run(self):\n        return 2\n"),
+            ),
+            ("main.py", Some("def go(x):\n    return x\n")),
+        ],
+    );
+    on_deleted(&mut a, &dir.join("main.py"), "x.run()", "run");
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    let p = a.picker.as_mut().expect("a picker");
+    p.settle();
+    let paths: Vec<String> = (p.window(9).0.iter())
+        .map(|r| r.item.label[r.item.path_at.clone().unwrap()].to_string())
+        .collect();
+    assert_eq!(paths, ["a.py", "lib/beta.py"]);
+    let _ = std::fs::remove_dir_all(dir);
+}

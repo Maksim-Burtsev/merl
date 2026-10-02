@@ -150,10 +150,10 @@ impl App {
             {
                 *code = *code + now.len() - was.len();
             }
-            if let Some(place) = &mut it.place_at
-                && *place > at
+            if let Some(path) = &mut it.path_at
+                && path.start == at
             {
-                *place = *place + now.len() - was.len();
+                path.end = at + hit.path.display().to_string().len();
             }
         }
         (it.path, it.line, it.deleted) = (hit.path, hit.line, hit.deleted.is_some());
