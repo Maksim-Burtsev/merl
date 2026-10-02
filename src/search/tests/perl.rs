@@ -168,3 +168,17 @@ fn perl_lexical_is_the_nearest_declaration_in_the_blocks_around() {
     assert_eq!(at(14, "item"), None);
     assert_eq!(at(11, "n"), Some(11));
 }
+
+#[test]
+fn perl_roots_put_carton_first_and_drop_a_relative_inc_entry() {
+    let inc = "/Library/Perl/5.34\n.\n/System/Library/Perl/5.34\nlib\n";
+    assert_eq!(
+        perl_roots(Path::new("/p"), inc),
+        [
+            "/p/local/lib/perl5",
+            "/Library/Perl/5.34",
+            "/System/Library/Perl/5.34"
+        ]
+        .map(PathBuf::from)
+    );
+}

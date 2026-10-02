@@ -265,10 +265,7 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         })),
         Kind::Perl => {
             let inc = run("perl", &["-e", "print join qq{\\n}, @INC"]).unwrap_or_default();
-            let carton = root.join("local/lib/perl5");
-            std::iter::once(carton)
-                .chain(inc.lines().map(PathBuf::from).filter(|p| p.is_absolute()))
-                .collect()
+            perl_roots(root, &inc)
         }
         // Java and Kotlin have no roots yet: the JDK and Gradle caches are their own lookups.
         // C# has nothing to point at: a NuGet package is compiled

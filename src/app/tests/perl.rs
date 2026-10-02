@@ -66,3 +66,41 @@ fn perl_symbols_are_subs_packages_classes_and_methods() {
     assert_eq!(names, ["apply", "Shop::Coupon", "Shop::Order", "total"]);
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn u_on_a_perl_sub_marks_its_sub_and_no_fat_comma_key() {
+    let (dir, mut a) = project_app(
+        "perl-u",
+        &[
+            (
+                "lib/Shop/Order.pm",
+                "package Shop::Order;\nsub total { 1 }\n1;\n",
+            ),
+            (
+                "bin/report.pl",
+                "my $o = Shop::Order->new(\n    total => 12,\n);\nprint $o->total;\n",
+            ),
+        ],
+    );
+    a.jump_to(&dir.join("bin/report.pl"), 4);
+    a.col = a.line_str().find("total").unwrap();
+    press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
+    let picker = a.picker.as_mut().expect("a picker");
+    picker.settle();
+    let rows: Vec<String> = (picker.window(50).0.into_iter())
+        .map(|r| {
+            r.item.label[..r.item.code_at.unwrap()]
+                .trim_end()
+                .to_owned()
+        })
+        .collect();
+    assert_eq!(
+        rows,
+        [
+            "declaration  lib/Shop/Order.pm:2:",
+            "             bin/report.pl:2:",
+            "             bin/report.pl:4:",
+        ]
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}

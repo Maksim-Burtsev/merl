@@ -1,4 +1,5 @@
 use std::ops::Range;
+use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 use regex::Regex;
@@ -11,9 +12,19 @@ pub fn perl_sub_patterns(word: &str) -> Vec<String> {
         format!(r"^\s*(?:sub|method)\s+(?:\w+::)*{w}\s*(?:[({{:]|$)"),
         format!(r"^\s*use\s+constant\s+{w}\s*(?:=>|,)"),
         format!(r"^\s*use\s+constant\s*\{{.*\b{w}\s*=>"),
-        format!(r"^\s*{w}\s*=>"),
+        perl_constant_entry(word),
         format!(r#"^\s*has\s*(?:\(\s*)?(?:['"]\+?{w}['"]|\+?{w}\b|\[[^\]]*\b{w}\b)"#),
     ]
+}
+
+fn perl_constant_entry(word: &str) -> String {
+    format!(r"^\s*{}\s*=>", regex::escape(word))
+}
+
+pub fn perl_roots(root: &Path, inc: &str) -> Vec<PathBuf> {
+    std::iter::once(root.join("local/lib/perl5"))
+        .chain(inc.lines().map(PathBuf::from).filter(|p| p.is_absolute()))
+        .collect()
 }
 
 pub fn perl_package_patterns(word: &str) -> Vec<String> {
@@ -50,7 +61,7 @@ pub fn perl_declares<S: AsRef<str>>(lines: &[S], line: usize, word: &str, text: 
         LazyLock::new(|| Regex::new(r"^\s*(?:\w+\s*=>.*)?(?:#.*)?$").unwrap());
     static OPENER: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\s*use\s+constant\s*\{").unwrap());
-    let entry = format!(r"^\s*{}\s*=>", regex::escape(word));
+    let entry = perl_constant_entry(word);
     let others = (perl_patterns(word).into_iter())
         .filter(|p| *p != entry)
         .collect::<Vec<_>>()

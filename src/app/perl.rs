@@ -204,7 +204,8 @@ impl App {
         let roots = (self.external.get(&Kind::Perl))
             .map(|(roots, _)| roots.clone())
             .unwrap_or_default();
-        std::iter::once(self.root.join("local/lib/perl5"))
+        search::perl_roots(&self.root, "")
+            .into_iter()
             .chain(roots)
             .map(|r| r.join(&rel))
             .find(|f| f.is_file())
