@@ -1,4 +1,14 @@
-import { getMailHarness, getSwappedHarness, Team, useBoard } from "./entities";
+import {
+  getAndHarness,
+  getArrayHarness,
+  getMailHarness,
+  getNullishHarness,
+  getObjectHarness,
+  getOrHarness,
+  getSwappedHarness,
+  Team,
+  useBoard,
+} from "./entities";
 import { KeyProps } from "./panel";
 
 const WrappedRow = ({
@@ -48,3 +58,18 @@ const swapped = getSwappedHarness();
 swapped.submit("/b");
 //      ^ d: picker board/entities.ts:31, board/namesakes.ts:11
 
+const nullish = getNullishHarness();
+nullish.submit("/c");
+//      ^ d: picker board/entities.ts:31, board/namesakes.ts:11
+const or = getOrHarness();
+or.submit("/c");
+// ^ d: picker board/entities.ts:31, board/namesakes.ts:11
+const and = getAndHarness();
+and.submit("/c");
+//  ^ d: picker board/entities.ts:31, board/namesakes.ts:11
+const array = getArrayHarness();
+array.submit("/c");
+//    ^ d: picker board/entities.ts:31, board/namesakes.ts:11
+const object = getObjectHarness();
+object.submit("/c");
+//     ^ d: picker board/entities.ts:31, board/namesakes.ts:11
