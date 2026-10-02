@@ -146,7 +146,12 @@ a Flutter app's `app/` is), each under its `rootUri` — the pub cache's
 `~/.pub-cache/hosted/pub.dev/<name>-<version>/lib/`, the Flutter SDK's for `flutter` and
 `sky_engine` — read as JSON with nothing run, and the `lib/` of the SDK of the `dart` on the PATH,
 links followed, or in a Flutter install the `bin/cache/dart-sdk` beside it; no `pub get` yet, no
-packages. A plain `import` binds no name, as Swift's does, so nothing narrows the search; a prefix
+packages. CMake has its own modules, as source: the `Modules` directory beside the `cmake` on the
+PATH, links followed (`<prefix>/share/cmake/Modules` from Homebrew, `<prefix>/share/cmake-X.Y/Modules`
+on a Linux distribution), and the packages' config files under `lib/cmake` of `/opt/homebrew`,
+`/usr/local` and `/usr`, and `/usr/lib/<triplet>/cmake` on Linux, links followed. An `include`
+binds no name, so nothing narrows the search: `d` on `FetchContent_Declare` lands on its
+`function(` in `Modules/FetchContent.cmake`, read-only. A plain `import` binds no name, as Swift's does, so nothing narrows the search; a prefix
 of `import '…' as p` and a name of `import '…' show A` are looked for in the file the import names
 first — `package:<name>/x.dart` is the project's own `lib/x.dart` when `<name>` is the `name:` of
 the nearest `pubspec.yaml` above the file, else that package's `lib/x.dart`, `dart:async` the SDK's
@@ -187,8 +192,10 @@ it installed, there are no roots. `require` binds no name and a constant names n
 project declaration answers is looked for by name in all of them, a local of a gem's method never
 among them: a bare call, `Const.meth` the
 class does not declare (ActiveRecord's `find`), `Errno::ENOENT`, and a member on a value, whose
-candidates outside join the project's. The rest have no roots yet, so `d` stays inside the
-project for them. `d` on a Go package
+candidates outside join the project's. Nix has none on purpose: nixpkgs and a flake's inputs live
+in the store under a hash (`/nix/store/<hash>-source`) that no line of the project spells and that
+only `nix` itself knows, so `pkgs.hello` and `lib.mkOption` stay a search in the project. The rest
+have no roots yet, so `d` stays inside the project for them. `d` on a Go package
 qualifier, `db` in `db.Get`, lands on the import line of the open file, `db: via import
 code.gitea.io/gitea/models/db`, unless a local or a top-level name of the package is called
 that, or the function mentions the name other than as a qualifier. A parameter has no
@@ -451,11 +458,14 @@ or in a trait's own body, a trait or a parent the project declares twice with no
 choose, and a walk that finds nothing inside the project leave the word to the search by name.
 
 A PHP class name, and `Class::word`, follow Composer's PSR-4 map (#351): the `autoload.psr-4` and
-`autoload-dev.psr-4` of the nearest `composer.json` above the file, read and never run. Where PHP
+`autoload-dev.psr-4` of every `composer.json` above the file, read and never run: in a monorepo a
+package's own file first, then the root's for what it does not map (#579). Where PHP
 reads a class name (before `::`, after `new`, `extends`, `implements`, `instanceof` or `catch (`,
 a type hint, a return type, the last part of a `use` line), the name resolves as PHP resolves it:
 through the file's column-0 `use` (`use A\B\C;`, `use A\B\C as D;`), else a leading `\` spells it in
-full, else the file's `namespace` goes in front of it. A name a group `use A\{B, C}` binds is
+full, else the file's `namespace` goes in front of it. In a file of several `namespace` blocks
+the `use` lines and the namespace are those of the block the name is in, and `<?php namespace X;`
+on one line declares one (#579). A name a group `use A\{B, C}` binds is
 left to the search by name, `use function` and `use const` bind no class, and a function or a
 constant keeps the search by name, since PHP falls back to the global namespace for those. The map names the file, `App\Models\Song` in
 `app/Models/Song.php`; when that file declares the class, `d` lands on it, `Song: via import
@@ -598,6 +608,8 @@ type, a class with no subclasses — and `d` goes on to the search by name below
 | Shell | `name()` and `function name`, an assignment behind `export`/`declare`/`local`/`readonly`/`typeset` (or bare, and `+=`), `alias` | every `.sh`, `.bash`, `.zsh`, `.ksh` and shell dotfile (`.bashrc`, `.zshrc`, `.profile` and friends) |
 | PowerShell | `function` and `filter`, behind a scope (`function global:Get-ShopUser`), under the whole `Verb-Noun` name; `class` and `enum`; inside a class a property (`[string] $Name`, `hidden [int]$Count = 0`), a method (`[decimal] Total() {`, `static [Invoice] Parse(…) {`) and a constructor (`Invoice([string] $id) {`); an enum member on a line directly inside an `enum`; an assignment that opens a line (`$Config = @{`, `$script:Cache = @{}`, `[string]$Name = 'x'`, `$Count += 1`); `Set-Alias` and `New-Alias`. Names ignore case, as PowerShell does. A `$variable` is only a variable or a property, a bare word never one (`$tariff` declares no `Tariff`), and a constructor counts only where its class is built (`[Tariff]::new(`). A parameter of a `param(` block in the blocks around the cursor, a function's, a script block's or the script's, or of a `function Name($a)` header, is `local` and never looked for in another file. A call, a named argument, a hashtable key, a property or element write, a comparison and splatting declare nothing; nor does a line in comment-based help (`<# … #>`) or a here-string. `d` on the path of a dot-source (`. $PSScriptRoot/helpers.ps1`), an `Import-Module ./Shop/Users.psm1` or a `using module` opens that file. | every `.ps1`, `.psm1` and `.psd1` file |
 | Dart | `class` behind `abstract`, `sealed`, `base`, `final`, `interface` and `mixin`; `mixin`, a named `extension … on`, `extension type`, `enum` and `typedef`, the new form and the old (`typedef void Callback(int code);`); in column zero, where Dart has declarations and directives only, a function (`String formatPrice(int cents) =>`, `main() {`); indented, a method told from a call by the return type before its name — a primitive (`void`, `int`, `double`, `num`, `bool`, `dynamic`) or a name with a capital, with its generics and `?` — as Java's is; a getter and a setter; a constructor directly inside its class, an enum or an extension type, behind `const`, `factory` or `external` or with parameters that open with `this.`, `super.`, `{`, `[` or a type and a name, or followed by the `:` of an initializer list — `User.fromJson` under the name after the dot, the class's own `User(` only where the class is built, `User(…)`; a variable or a field behind `final`, `const`, `var` or `late` (`static`, `external` and `covariant` too), with or without its type, or with a type alone (`String? label;`), outside a parameter list wrapped over lines; an `enum` value on the `enum` line or on a line directly inside the `enum`. A call statement (`Navigator.push(context, route);`, `return Foo(x);`, `throw StateError('x');`), a named constructor's call with no arguments (`User.empty();`, the shape of a declaration with none), a method with no return type (`build(context) {`), an unnamed `extension on String`, a parameter and a pattern of a `switch` declare nothing, nor does a line inside a `'''` or `"""` string or a `/* */` comment. `$` is part of a name, at its start too (`_$UserFromJson`, `$UserCopyWith`), save in a string, where `'$name'` interpolates `name`. | every `.dart` file |
+| CMake | `function(name …)` and `macro(name …)`, whose name ignores case as every command's does, in the definition (`FUNCTION(`) and in a call (`SHOP_ADD_LIBRARY(…)` calls `shop_add_library`); a variable of `set(NAME …)`, a cache entry included, and of `option(NAME …)`; a target of `add_library`, `add_executable` and `add_custom_target`, an alias (`add_library(Shop::core ALIAS shop_core)`) and an imported one (`add_library(Foo::foo UNKNOWN IMPORTED)`) included, for a use in `target_link_libraries`, `add_dependencies` or a generator expression (`$<TARGET_FILE:shop_app>`). A variable and a target keep their case. A call, a variable's use (`${X}`, `if(X)`), a target's use, a keyword (`PRIVATE`, `STATIC`), `set_target_properties(` and `set_property(`, `list(APPEND X …)`, `unset(X)`, `set(ENV{X} …)` and `endfunction(name)` declare nothing, nor does a line inside a bracket argument (`[[…]]`, `[=[…]=]`), a bracket comment (`#[[…]]`, `#[==[…]==]`) or a quoted argument over lines; a target a function creates through `${name}` has no line that spells it, and `d` finds none. `d` on the argument of `include(ShopHelpers)` opens the project's `ShopHelpers.cmake`, else CMake's own module of that name; `include(cmake/warnings.cmake)` is a path from the file's directory; `add_subdirectory(app)` opens `app/CMakeLists.txt`; `find_package(Boost)` opens `FindBoost.cmake`, `BoostConfig.cmake` or `boost-config.cmake`, the project's or else one outside it. | every `.cmake` file and `CMakeLists.txt` |
+| Nix | an attribute binding, `mkService = …;` (a name, then `=` and not `==`): the last part of a dotted path (`services.nginx.enable = true;` binds `enable`), a quoted name (`"my-attr" = …;`), and each name of `inherit name port;` and `inherit (pkgs) hello;`. A binding between a `let` and its `in`, on one line or over several, is local: it is found only in the file the cursor is in, in the `let` blocks whose bindings or body hold the cursor's line, innermost first, `api: local`, and never over the project, where every other file has an `api` or a `cfg`. So is a parameter: the names of a set pattern, `{ config, pkgs, lib, ... }:` (a file's header or a lambda's, on one line or over several, `args@{ … }` and `{ … }@args` included), and each plain `x:` (`final: prev:`), for the body of that lambda, `pkgs: local`, whatever binding of the name another file holds. A body ends where the bracket around it closes, at the `;` that ends its binding (not one of `with x;` or `assert x;`), or at the `then`, `else` or `in` around it, so a sibling attribute's `let` or a lambda closed on a line above binds nothing below it. A use (`pkgs.hello`, `config.services.nginx.enable`, `with pkgs;`), a comparison (`==`), a default in a parameter set (`port ? 8080`, a parameter), a name inside `${…}`, a `#` comment, a one-line string and a line inside an indented string (`'' … ''`, with its `'''`, `''$` and `''\` escapes), a `"…"` over lines or a `/* */` comment declare nothing; `//` is the update operator, no comment. `d` on a path (`./nginx.nix`, `../lib`) opens that file, or a directory's `default.nix`, from the file that writes it; `<nixpkgs>` is not followed. | every `.nix` file |
 | SQL | `CREATE` of a table, view, index, function, procedure, trigger, type, schema, sequence, domain, extension, database, role or user, behind `OR REPLACE`, `TEMP`, `UNLOGGED`, `MATERIALIZED`, `UNIQUE` and `IF NOT EXISTS`, schema-qualified or quoted; a `WITH … AS (` common table expression. Keywords ignore case. Columns have no rule. | every `.sql`, `.psql`, `.pgsql`, `.mysql`, `.ddl` and `.dml` file |
 | Makefile, `*.mk` | a target, also one of several before the colon; a variable, outside a recipe; a variable set only by `+=` or for one target (`release: VERSION := 1.0`), when nothing assigns it plainly | every Makefile |
 | Terraform | the block behind `var.x`, `module.x`, `local.x`, `data.T.N`, `T.N`; a bare name, as in `.tfvars`, is any block with that label | `.tf` files in the same directory |
@@ -628,6 +640,11 @@ block names nothing.
 In Makefiles, Terraform, Dockerfiles, YAML, PowerShell, HTML and stylesheets a `-` is part of the
 word under the cursor, and so it is inside a `class`, `className` or `id` value of any file; `d` in
 Terraform reads the whole dotted address, so it works from anywhere in `aws_s3_bucket.logs.id`.
+In CMake a `-` and a `.` are part of a target's name (`shop-core`, `shop.cli`), and `::` joins the
+parts of an alias or an imported target, so `d` and `u` read `Shop::core` whole from either part;
+a single `:`, as in `$<TARGET_FILE:shop_app>`, joins nothing. In Nix a `-` and a `'` are part of a
+name (`my-package`, `x'`), a trailing `'` included, and a `.` separates the parts of an attribute
+path.
 Markdown reads a link or a code span whole around the cursor, not as a word.
 
 ## `D`: project symbols
@@ -645,7 +662,7 @@ above knows four of those words and would list them twice; a stylesheet's `@mixi
 `%placeholder` and `@keyframes`, under their names, and none of its selectors, custom properties
 or variables, which Bootstrap alone has thousands of; recomputed on each press. Zig adds a function behind `inline` or `noinline` and a
 `test`, under the description it is written with, which that regex has no word for. Java, Kotlin,
-Scala, Ruby, C, C++, C#, Swift, PHP, Lua, Elixir, Protocol Buffers, PowerShell and Dart are read from rules of their
+Scala, Ruby, C, C++, C#, Swift, PHP, Lua, Elixir, Protocol Buffers, PowerShell, Dart, CMake and Nix are read from rules of their
 own instead of that regex — Java's types and its methods, told from a call by the return type before
 the name; Kotlin's `fun` (past an extension's receiver), types, `object`, `typealias` and
 `const val`; Scala's types, `trait`s, `object`s, `type`s and named `given`s, and its `def`s in a
@@ -663,7 +680,13 @@ included; PowerShell's `function` and `filter` under the whole `Verb-Noun` name,
 would cut at its `-`, and its `class` and `enum`; Dart's types (`class` behind its modifiers,
 `mixin`, a named `extension`, `extension type`, `enum`, `typedef`) in one row, its functions and
 methods, told from a call by the type before the name, in a second and its getters and setters in a
-third, which that regex would read as `class` for `abstract interface class Repo` — so none of them is listed twice or
+third, which that regex would read as `class` for `abstract interface class Repo`; CMake's
+`function` and `macro`, whose name stands inside the parentheses where that regex does not look,
+and the targets of `add_library` (not an alias), `add_executable` and `add_custom_target` under
+their names, no variable; Nix's bindings whose value is a function (`mkService = { name, … }:`,
+`double = x: x * 2;`) with its set pattern on the binding's line (one wrapped onto the lines
+below is not listed), and no other binding, since a NixOS module's options and a derivation's
+attributes would flood the list — so none of them is listed twice or
 under a modifier or a receiver. A C prototype is not listed, since every function of a header would
 be there twice, and a `typedef struct x { … } y;` is listed once, under the `y` the project writes.
 TypeScript's class methods, with neither a keyword nor a type in front, are not listed: the regex

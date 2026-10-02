@@ -15,6 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unfolds it. Up and Down step over a fold, and anything that lands inside one opens it: `:`,
   `/`, `n`, `d`, `u`, `s`, `[`. A fold stays with its file across jumps and moves with the
   lines written above it. (#598)
+- `d`, `u` and `D` in Nix, where `d` said `no rules for .nix`. `d` on `mkService` in
+  `shopLib.mkService` lands on its `mkService = { name, port ? 8080 }:` in `lib/default.nix`; on a
+  name a `let` binds or a parameter (`{ config, pkgs, ... }:`, `x:`) names, on that binding in the
+  same file, `pkgs: local`, never on another file's `pkgs =`; on a path, `./nginx.nix` or `../lib`,
+  the file or the directory's `default.nix`. `D` lists the bindings of functions, and `u` reads
+  `my-package` and `x'` as one name. (#430)
+- `d`, `u` and `D` in CMake (`CMakeLists.txt`, `.cmake`), where `d` said `no rules for .txt`.
+  `d` on a call of `shop_add_library` lands on its `function(shop_add_library name)` in
+  `cmake/ShopHelpers.cmake`, whatever case the call is written in; on `${SHOP_WARNINGS}` on its
+  `set(`, on `SHOP_TESTS` on its `option(`, on `core` of `Shop::core` on the
+  `add_library(Shop::core ALIAS shop_core)` that makes it. `d` on `include(ShopHelpers)`,
+  `add_subdirectory(app)` or `find_package(Boost)` opens the file it names, and on
+  `FetchContent_Declare` CMake's own `Modules/FetchContent.cmake`, read-only. `D` lists functions,
+  macros and targets, and `u` reads `shop-core` and `Shop::core` as one name. (#432)
 - `d` in HTML, CSS, SCSS and Less. On a class in `className="btn-primary"` of a `.tsx` file, or
   in `class="btn-primary"` of an HTML file, it lands on `.btn-primary {` in the stylesheet,
   where it said `no definition for btn` or `no rules for .html`; `u` reads `btn-primary` whole.
@@ -186,7 +200,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `AlbumResource::toArray()` on the `AlbumResource` of the file's own namespace, where both
   offered every declaration of the name. A class outside the map is read in `vendor/` first:
   `Arr::get()` behind `use Illuminate\Support\Arr;` lands on Laravel's `get`, not on the
-  project's own. (#351)
+  project's own. In a monorepo a package's file reads the root `composer.json`'s map too, a
+  name in a file of several `namespace` blocks resolves in its own block, and `<?php namespace
+  X;` on one line counts as the file's namespace. (#351, #579)
 - `d` in PHP proves the class of the receiver in front of `->`: `$event->podcast` in
   `handle(UserUnsubscribed $event)` lands on the `podcast` of `UserUnsubscribed`, `(via $event:
   UserUnsubscribed)`, and `$this->artistRepository->getRecentlyAdded()` on the method of
@@ -276,6 +292,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `User.User.build`. (#535)
 - `d` in C# on a constant after `is`, `Max` in `x is Max` with a `const int Max`, lands on the
   constant when no type of that name is in sight. It said `no definition for Max`. (#581)
+- `d` in Swift on a call of a local function or type, `vent()` under `func vent() {}` declared
+  inside the method, lands on that local declaration, `(local)`, from the method's body and from
+  a function nested in it, whether it is declared above the call or below; two local overloads
+  are offered together. It jumped to the type's member of the same name through `self`, or
+  offered both. (#577)
 
 ## [0.8.0] - 2026-10-01
 

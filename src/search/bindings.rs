@@ -166,31 +166,6 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
     }
     Value::Unknown
 }
-/// The declarations of `name` that 1-based `line` of `text`, a file of `kind`, reads, with what
-/// each gives it: those of the innermost scope that declares it, which hides the scopes around
-/// it (#100). Every one of that scope counts, and the caller trusts them only when they agree.
-///
-/// - Python: a name belongs to its function, so its parameters and every binding in the body
-///   count, before the cursor or after it; a function that binds none reads the enclosing
-///   function's, then the module's. Nested functions and classes are scopes of their own. A comprehension or a `lambda` counts
-///   on the cursor line only. `self` / `cls` is the class a method sits in, and so is `super`
-///   (what [`qualifier`] makes of `super()`): the caller starts above that class.
-/// - TypeScript and Go: `const`, `let` and `:=` belong to their block, so the declarations above
-///   the cursor count, in the nearest block around it that has any, told by indentation: the
-///   statements at the block's level and what its header binds (a function's parameters, a Go
-///   receiver). Only what a header binds for the block under it hides: another function on its
-///   lines, or on the cursor's own line, binds without hiding. `this` is the class around it, unless a
-///   `function` or an object literal comes first, and `super` reads as `this` does.
-/// - Lua (#461): a `local` belongs to its block, so the nearest one above the cursor counts, in
-///   the blocks around it told by indentation, and so do the parameters of a `function` and the
-///   variables of a `for` that open one of those blocks. The top of the file is left to the
-///   search by name: a module's `local` is what its `require` and its tables are read through.
-/// - Shell: a `local` (a `declare` / `typeset` without `-g`) above the cursor in the function
-///   around it (#470).
-/// - Zig: [`zig_bindings`], inside a function only (#469).
-/// - Ruby: [`ruby_bindings`], scopes by indentation (#365).
-/// - Rust: [`rust_bindings`], the nearest binding above the line in the blocks around it (#353).
-/// - Elixir: [`elixir_bindings`], inside a `def` only (#460).
 pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
@@ -209,6 +184,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         Kind::Ruby => ruby_bindings(&lines, at, name),
         Kind::Rust => rust_bindings(&lines, at, name),
         Kind::Elixir => elixir_bindings(&lines, at, name),
+        Kind::Nix => nix_bindings(&lines, at, name),
         _ => Vec::new(),
     }
 }

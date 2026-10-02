@@ -10,6 +10,7 @@
 
 mod bindings;
 mod c;
+mod cmake;
 mod component;
 mod csharp;
 mod csproj;
@@ -25,6 +26,7 @@ mod kind;
 mod labels;
 mod links;
 mod make;
+mod nix;
 mod objc;
 mod php;
 mod powershell;
@@ -41,6 +43,7 @@ mod words;
 
 pub use bindings::*;
 pub use c::*;
+pub use cmake::*;
 pub use component::*;
 pub use csharp::*;
 pub use csproj::*;
@@ -56,6 +59,7 @@ pub use kind::*;
 pub use labels::*;
 pub use links::*;
 pub use make::*;
+pub use nix::*;
 pub use objc::*;
 pub use php::*;
 pub use powershell::*;

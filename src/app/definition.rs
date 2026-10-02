@@ -80,14 +80,12 @@ impl App {
         {
             return;
         }
-        // The path of a GraphQL `#import` is the file it pastes in, `./` and `/` included, and
-        // so is a PowerShell dot-source's or `Import-Module`'s (#420).
         if let Some(kind) = kind
             && let Some(here) = self.rel_current()
             && let Some(module) = search::file_import(kind, self.line_str(), self.col)
         {
             let module = [module];
-            let files = search::module_files(kind, &self.root, &self.files, &here, &module);
+            let files = self.import_files(kind, &here, &module);
             let found = self.module_candidates(files);
             self.show_definitions(kind, &module[0], &here, found, None);
             return;
@@ -379,15 +377,11 @@ impl App {
             Kind::TsJs => search::ts_import_lines(&text, first),
             _ => Vec::new(),
         };
-        // A Python `def` or `class` a function around the cursor binds is a local of it, one
-        // the bare name reads (#338); a module's is reached through the rules below, and the
-        // cursor's own line stands on the declaration.
         let closure = |n: usize| {
-            kind == Kind::Python
+            (kind == Kind::Swift || kind == Kind::Python && search::python_in_function(&text, n))
                 && !dotted
                 && chain.is_empty()
                 && n != self.line + 1
-                && search::python_in_function(&text, n)
         };
         let locals_at = |text: &str, line: usize| -> Vec<usize> {
             let binding: Vec<usize> = match declared {
@@ -425,10 +419,7 @@ impl App {
         if go_own {
             locals = vec![self.line + 1];
         }
-        // No scope around the cursor binds it: the module's scope is the whole file, and its
-        // declarations below the cursor count too (#337). One on the cursor's line leaves the
-        // namesakes to the rules below, as on a declaration anywhere.
-        if bare && locals.is_empty() {
+        if (bare || self.script_scope(&here, Some(first)).is_some()) && locals.is_empty() {
             let module = locals_at(&format!("{text}\n0"), self.buf.lines.len() + 1);
             if !module.contains(&(self.line + 1)) {
                 locals = module;
@@ -469,16 +460,6 @@ impl App {
             self.message = format!("{word}: builtin, no source");
             return;
         }
-        // The word itself is that parameter or local: its declarations in this scope are the
-        // answer, and a function of the same name elsewhere is not.
-        // In C a function on one line holds its parameter and its uses (#378). A Java or Kotlin
-        // name bound earlier on the cursor's own line, `fun f(x: Int) = x`, is bound there
-        // (#376), and so is a PowerShell one's (#420); behind a `::` the word is a member,
-        // whatever the qualifier is. A C# use past its declaration on the same line, a lambda's
-        // parameter inside that lambda, is bound there too (#345), and so is a Go parameter used
-        // in a body on its function's line (#524). A Rust local the cursor's own line binds is
-        // one too: a closure `|w| w`, an arm, the parameter or the `let` itself (#353). So is a
-        // Swift generic parameter used on its header's line, `func f<T>(_ x: T)` (#375).
         let on_itself = match kind {
             Kind::C => search::c_bindings_at(&text, self.line + 1, first)
                 .iter()
@@ -496,7 +477,11 @@ impl App {
         if !dotted
             && !before.ends_with("::")
             && !locals.is_empty()
-            && (!on_itself || same_line || own_line || own_arrow || kind == Kind::Rust)
+            && (!on_itself
+                || same_line
+                || own_line
+                || own_arrow
+                || matches!(kind, Kind::Rust | Kind::Nix))
         {
             let found = locals
                 .iter()

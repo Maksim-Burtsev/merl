@@ -27,6 +27,8 @@ pub enum Kind {
     PowerShell,
     /// Dart and Flutter; `$` is a name character, `_$UserFromJson` one name (#414).
     Dart,
+    Cmake,
+    Nix,
     Sql,
     Make,
     Terraform,
@@ -100,6 +102,8 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         // A module manifest declares nothing, but `d` from its `FunctionsToExport` finds them.
         (_, "ps1" | "psm1" | "psd1") => Kind::PowerShell,
         (_, "dart") => Kind::Dart,
+        ("CMakeLists.txt", _) | (_, "cmake") => Kind::Cmake,
+        (_, "nix") => Kind::Nix,
         (_, "sql" | "psql" | "pgsql" | "mysql" | "ddl" | "dml") => Kind::Sql,
         ("Makefile" | "makefile" | "GNUmakefile", _) | (_, "mk") => Kind::Make,
         (_, "tf" | "tfvars") => Kind::Terraform,
@@ -131,8 +135,6 @@ fn cpp_library(path: &Path) -> bool {
     let mut parts = path.parent().into_iter().flat_map(Path::components);
     parts.any(|c| c.as_os_str() == "c++") && parts.next().is_some()
 }
-/// Characters that belong to a name besides `[A-Za-z0-9_]`. Targets, services and Terraform
-/// labels are often `kebab-case`; `d` in Terraform reads the whole dotted `var.region` address.
 pub fn word_chars(kind: Option<Kind>, address: bool) -> &'static str {
     match kind {
         Some(Kind::Terraform) if address => "-.",
@@ -146,6 +148,8 @@ pub fn word_chars(kind: Option<Kind>, address: bool) -> &'static str {
             | Kind::Css
             | Kind::Html,
         ) => "-",
+        Some(Kind::Cmake) => "-.",
+        Some(Kind::Nix) => "-'",
         _ => "",
     }
 }

@@ -1093,6 +1093,40 @@ mod tests {
     }
 
     #[test]
+    fn cmake_highlights_with_every_shipped_theme() {
+        let src = "# doc\nfunction(shop_add_library name)\n  add_library(${name} STATIC)\nendfunction()\n";
+        for file in ["CMakeLists.txt", "cmake/Shop.cmake"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("CMake"),
+                    "{file} {name}"
+                );
+                b.highlight_to(4, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
+    fn nix_highlights_with_every_shipped_theme() {
+        let src = "# doc\n{ pkgs, ... }:\nlet\n  name = \"shop\";\nin pkgs.hello\n";
+        for name in crate::theme::names() {
+            let theme = crate::theme::load(name).unwrap();
+            let mut b = Buffer::from_bytes(PathBuf::from("hosts/web.nix"), src.as_bytes());
+            assert_eq!(b.syntax.map(|s| s.name.as_str()), Some("Nix"), "{name}");
+            b.highlight_to(5, &theme);
+            let colours: std::collections::HashSet<_> =
+                b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+            assert!(colours.len() > 1, "{name}: everything is one colour");
+        }
+    }
+
+    #[test]
     fn shown_clips_a_huge_line_on_a_char_boundary() {
         let text = "漢".repeat(MAX_SHOWN_BYTES / 3 + 1);
         let b = load(text.as_bytes());

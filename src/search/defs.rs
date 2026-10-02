@@ -466,6 +466,8 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         Kind::Terraform => terraform_patterns(word),
         Kind::PowerShell => powershell_patterns(word),
         Kind::Dart => dart_patterns(word),
+        Kind::Cmake => cmake_patterns(word),
+        Kind::Nix => nix_patterns(word),
         // `FROM image AS name`, with any flags before the image. Stage names ignore case.
         Kind::Docker => vec![format!(r"(?i)^\s*FROM\s+(\S+\s+)+AS\s+{w}\s*$")],
         // An anchor, or a key that opens a block: compose services, CI jobs, GitLab's `.hidden`
@@ -987,6 +989,8 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         | Kind::Shell
         | Kind::PowerShell
         | Kind::Dart
+        | Kind::Cmake
+        | Kind::Nix
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform
@@ -1111,6 +1115,7 @@ fn declares_by_kind<'a, S: AsRef<str> + 'a>(
         Kind::Ruby if ruby_column_elsewhere(path, line_text) => false,
         Kind::PowerShell => powershell_declares(lines(), line, line_text),
         Kind::Dart => dart_declares(lines(), line, line_text),
+        Kind::Nix => nix_declares(lines(), line, word, false),
         _ => def_block(kind, word).is_none_or(|block| directly_inside(lines(), line, block)),
     }
 }

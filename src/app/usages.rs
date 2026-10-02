@@ -9,20 +9,17 @@ impl App {
     /// vendored files. The title says how the list splits.
     pub(super) fn usages(&mut self) {
         let extra = search::word_chars(self.kind(), false);
-        // A Ruby name is read as `d` reads it (#387): `valid?` lists `valid?`, its own `def`
-        // first, and on `x.name = v` the setter `name=` declared by `attr_writer :name` does. So
-        // is an Elixir one, whose `?` or `!` is the name's too (#459).
-        // On a Ruby `@x` or `@@x` the word keeps its sigil, so that `@x =` declares it (#383).
-        // On a line the branch deleted, the word is read there (#440).
         let Some(read) = self.on_drawn(|a| match a.kind() {
-            k @ Some(Kind::Ruby | Kind::Elixir) => a.definition_word(k).map(|(r, w)| {
-                let lead = &a.line_str()[..r.start];
-                let sigil = lead.len() - lead.trim_end_matches('@').len();
-                match k == Some(Kind::Ruby) && (1..=2).contains(&sigil) {
-                    true => format!("{}{w}", &lead[lead.len() - sigil..]),
-                    false => w,
-                }
-            }),
+            k @ Some(Kind::Ruby | Kind::Elixir | Kind::Cmake | Kind::Nix) => {
+                a.definition_word(k).map(|(r, w)| {
+                    let lead = &a.line_str()[..r.start];
+                    let sigil = lead.len() - lead.trim_end_matches('@').len();
+                    match k == Some(Kind::Ruby) && (1..=2).contains(&sigil) {
+                        true => format!("{}{w}", &lead[lead.len() - sigil..]),
+                        false => w,
+                    }
+                })
+            }
             _ => a.css_word().or_else(|| a.word_under(extra)),
         }) else {
             self.message = "no word under the cursor".into();
@@ -46,7 +43,7 @@ impl App {
             .map(|(_, h)| {
                 let row = search::word_chars(search::kind_of(&h.path), false);
                 Hit {
-                    col: word_col(&h.text, word, &format!("{extra}{row}")),
+                    col: word_col(&h.text, word, &format!("{}{row}", extra.replace('\'', ""))),
                     ..h
                 }
             })
@@ -175,15 +172,20 @@ impl App {
                         .copied()
                         .unwrap_or(false)
                     && kind.is_some_and(|k| {
-                        search::declares_where(k, &h.path, word, h.line, &h.text, || {
-                            lines
-                                .entry((h.path.clone(), h.deleted.is_some()))
-                                .or_insert_with(|| {
-                                    self.hit_text(&h).map_or_else(Vec::new, |t| {
-                                        t.lines().map(str::to_owned).collect()
-                                    })
-                                })
-                        })
+                        let key = (h.path.clone(), h.deleted.is_some());
+                        let read = || {
+                            self.hit_text(&h)
+                                .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
+                        };
+                        match k {
+                            Kind::Nix => {
+                                let file = lines.entry(key).or_insert_with(read);
+                                search::nix_declares(file, h.line, word, true)
+                            }
+                            _ => search::declares_where(k, &h.path, word, h.line, &h.text, || {
+                                lines.entry(key).or_insert_with(read)
+                            }),
+                        }
                     });
                 (kind, declares, h)
             })

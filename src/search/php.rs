@@ -63,9 +63,10 @@ pub fn php_member_patterns(word: &str, call: bool) -> Vec<String> {
     }
 }
 
-/// The line pattern of a `namespace` line whose last part is the escaped word `w`.
+const NAMESPACE_HEAD: &str = r"^\s*(?:<\?php\s+)?namespace\s+";
+
 pub(super) fn php_namespace_line(w: &str) -> String {
-    format!(r"^\s*namespace\s+(?:[\w\\]+\\)?{w}\s*[;{{]")
+    format!(r"{NAMESPACE_HEAD}(?:[\w\\]+\\)?{w}\s*[;{{]")
 }
 
 /// The 0-based line of the `class`, `trait`, `interface` or `enum` whose docblock holds the
@@ -102,17 +103,6 @@ pub fn php_tag_class<S: AsRef<str>>(lines: &[S], at: usize) -> Option<usize> {
     CLASS.is_match(lines[class].as_ref()).then_some(class)
 }
 
-/// The `namespace` rule of `patterns`, [`def_patterns`](super::def_patterns) of PHP for the word
-/// at `range` of `line` in the file `text`, as the word asks (#344). `namespace X\Y;` is written
-/// in every file of `X\Y` and names none of the classes that share its last part, so:
-/// - a word a `\` follows is a segment of a qualified name, no class or function, and only a
-///   line declaring the namespace written up to it answers: `Illuminate\Support` for `Support` in
-///   `use Illuminate\Support\Facades\Route;`. A leading `\` is dropped, and outside a `use` or
-///   a `namespace` line a name that does not start with one is relative to the file's own
-///   namespace;
-/// - the last part of a `namespace` line keeps the rule as it is: the other files of the
-///   namespace are its namesakes;
-/// - any other word is no namespace, and the rule goes.
 pub fn php_namespace_patterns(
     patterns: &mut Vec<String>,
     text: &str,
@@ -120,7 +110,7 @@ pub fn php_namespace_patterns(
     range: Range<usize>,
 ) {
     static ON_NAMESPACE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*namespace\s+[\w\\]*$").unwrap());
+        LazyLock::new(|| Regex::new(&format!(r"{NAMESPACE_HEAD}[\w\\]*$")).unwrap());
     let generic = php_namespace_line(&regex::escape(&line[range.clone()]));
     let Some(at) = patterns.iter().position(|p| *p == generic) else {
         return;
@@ -137,13 +127,17 @@ pub fn php_namespace_patterns(
         .len();
     let spelled = &line[start..range.end];
     let head = before.trim_start();
-    let absolute =
-        spelled.starts_with('\\') || head.starts_with("use ") || head.starts_with("namespace ");
+    let absolute = spelled.starts_with('\\')
+        || head.starts_with("use ")
+        || head
+            .trim_start_matches("<?php")
+            .trim_start()
+            .starts_with("namespace ");
     let mut name = spelled.trim_start_matches('\\').to_owned();
     if !absolute && let Some(own) = php_namespace(text) {
         name = format!("{own}\\{name}");
     }
-    *patterns = vec![format!(r"^\s*namespace\s+{}\s*[;{{]", regex::escape(&name))];
+    *patterns = vec![format!(r"{NAMESPACE_HEAD}{}\s*[;{{]", regex::escape(&name))];
 }
 
 /// How a PHP member is reached, which says what can declare it (#356): a call is a method, a
@@ -244,14 +238,37 @@ pub fn php_class_traits<S: AsRef<str>>(lines: &[S], class: usize) -> Vec<String>
         .collect()
 }
 
-/// The namespace a PHP file declares, if any.
+static NAMESPACE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(&format!(r"(?m){NAMESPACE_HEAD}([\w\\]+)\s*[;{{]")).unwrap());
+
 pub fn php_namespace(text: &str) -> Option<&str> {
-    static NAMESPACE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?m)^\s*namespace\s+([\w\\]+)\s*[;{]").unwrap());
     NAMESPACE
         .captures(text)
         .and_then(|c| c.get(1))
         .map(|m| m.as_str())
+}
+
+pub fn php_block(text: &str, line: usize) -> &str {
+    let mut lines = vec![0];
+    lines.extend(text.match_indices('\n').map(|(i, _)| i + 1));
+    let declared: Vec<usize> = NAMESPACE
+        .captures_iter(text)
+        .map(|c| lines.partition_point(|&o| o <= c.get(1).map_or(0, |m| m.start())) - 1)
+        .collect();
+    if declared.len() < 2 {
+        return text;
+    }
+    let literal = super::syntax::literal_lines(Kind::Php, text);
+    let declared: Vec<usize> = declared
+        .into_iter()
+        .filter(|&l| literal.get(l) != Some(&true))
+        .collect();
+    if declared.len() < 2 {
+        return text;
+    }
+    let i = declared.iter().rposition(|&l| l <= line).unwrap_or(0);
+    let end = declared.get(i + 1).map_or(text.len(), |&l| lines[l]);
+    &text[lines[declared[i]]..end]
 }
 
 // ---- Class names and composer.json's PSR-4 map (#351) ----------------------------------------
@@ -370,9 +387,6 @@ pub fn php_resolve(text: &str, written: &str) -> Option<(String, bool)> {
     })
 }
 
-/// The `autoload` and `autoload-dev` PSR-4 entries of the nearest `composer.json` above the
-/// directory `dir` of the project `root`, up to it (#351): each namespace prefix with its trailing
-/// `\` and the directories, relative to `root`, it maps to. The file is read, never run.
 pub fn php_psr4(root: &Path, dir: &Path) -> Vec<(String, Vec<PathBuf>)> {
     static MAP: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r#""psr-4"\s*:\s*\{([^}]*)\}"#).unwrap());
@@ -382,43 +396,33 @@ pub fn php_psr4(root: &Path, dir: &Path) -> Vec<(String, Vec<PathBuf>)> {
     static STRING: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r#""((?:[^"\\]|\\.)*)""#).unwrap());
     let unescape = |s: &str| s.replace("\\\\", "\\").replace("\\/", "/");
-    let Some((at, text)) = dir.ancestors().find_map(|d| {
-        let file = d.join("composer.json");
-        Some((
-            d.to_path_buf(),
-            std::fs::read_to_string(root.join(&file)).ok()?,
-        ))
-    }) else {
-        return Vec::new();
-    };
-    let dir_of = |d: &str| {
-        let d = unescape(d);
-        let d = d.trim_start_matches("./").trim_end_matches('/');
-        match d {
-            "" | "." => at.clone(),
-            d => at.join(d),
+    let mut map = Vec::new();
+    for at in dir.ancestors() {
+        let Ok(text) = std::fs::read_to_string(root.join(at).join("composer.json")) else {
+            continue;
+        };
+        let dir_of = |d: &str| {
+            let d = unescape(d);
+            let d = d.trim_start_matches("./").trim_end_matches('/');
+            match d {
+                "" | "." => at.to_path_buf(),
+                d => at.join(d),
+            }
+        };
+        for m in MAP.captures_iter(&text) {
+            for c in ENTRY.captures_iter(&m[1]) {
+                let dirs = match (c.get(2), c.get(3)) {
+                    (Some(one), _) => vec![dir_of(one.as_str())],
+                    (_, Some(list)) => STRING
+                        .captures_iter(list.as_str())
+                        .map(|s| dir_of(&s[1]))
+                        .collect(),
+                    _ => Vec::new(),
+                };
+                map.push((unescape(&c[1]).trim_start_matches('\\').to_owned(), dirs));
+            }
         }
-    };
-    let mut map: Vec<(String, Vec<PathBuf>)> = MAP
-        .captures_iter(&text)
-        .flat_map(|m| {
-            ENTRY
-                .captures_iter(&m[1])
-                .map(|c| {
-                    let dirs = match (c.get(2), c.get(3)) {
-                        (Some(one), _) => vec![dir_of(one.as_str())],
-                        (_, Some(list)) => STRING
-                            .captures_iter(list.as_str())
-                            .map(|s| dir_of(&s[1]))
-                            .collect(),
-                        _ => Vec::new(),
-                    };
-                    (unescape(&c[1]).trim_start_matches('\\').to_owned(), dirs)
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect();
-    // The longest prefix first, as Composer tries them.
+    }
     map.sort_by_key(|(prefix, _)| std::cmp::Reverse(prefix.len()));
     map
 }
