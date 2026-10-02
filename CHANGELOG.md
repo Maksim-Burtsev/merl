@@ -128,6 +128,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The `?` overlay on a screen narrower than 118 columns wraps an action too long for its row
+  onto the next row, under its own column, instead of cutting it at the border (#458).
 - `d` in Python reads a dependency's modules as Python imports them (#329). `pytest.fixture` lands
   on `_pytest/fixtures.py` and `pytest.mark` on `MARK_GEN` in `_pytest/mark/structures.py`, saying
   `via import _pytest.mark.structures`, where it offered every `fixture` installed or jumped to a
