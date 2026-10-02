@@ -27,60 +27,60 @@ fn a_wrapped_class_header_is_a_header() {
             "headers.ts:12",
         )
     };
-    let cases: Vec<(&str, Shown)> = vec![
-        // Under `> extends Crate<K> {`: a field of the class, one of its base, a method of
-        // the base through `this` and through `super`, a constructor parameter.
+    let cases: Vec<(&str, &str, Shown)> = vec![
         (
+            "Under `> extends Crate<K> {`: a field of the class, one of its base, a method of the base through `this` and through `super`, a constructor parameter",
             "this.repo.deleteUser|(id)",
             user("this.repo: UserRepository"),
         ),
         (
+            "",
             "this.audit.deleteUser|(id + 1)",
             audit("this.audit: AuditLog"),
         ),
-        ("this.seal|(key)", seal("this: Shelf")),
-        ("super.seal|(key)", seal("super of Shelf")),
+        ("", "this.seal|(key)", seal("this: Shelf")),
+        ("", "super.seal|(key)", seal("super of Shelf")),
         (
+            "",
             "this.spare|)",
             jump(
                 "spare \u{2192} Shelf.spare (via this: Shelf)",
                 "headers.ts:34",
             ),
         ),
-        // Under `extends` and `implements` on their own lines and a lone `{`.
         (
+            "Under `extends` and `implements` on their own lines and a lone `{`",
             "this.repo.deleteUser|(id + 2)",
             user("this.repo: UserRepository"),
         ),
         (
+            "",
             "this.audit.deleteUser|(id + 3)",
             audit("this.audit: AuditLog"),
         ),
         (
+            "",
             "super.seal|(key + \"!\")",
             seal("super of LongNamedShelfOfStrings"),
         ),
-        // `implements Sealable` on its own line is read; the constraint `S extends Sealable`
-        // of `Bin` implements nothing.
         (
+            "`implements Sealable` on its own line is read; the constraint `S extends Sealable` of `Bin` implements nothing",
             "seal|(key: string): void;",
             jump(
                 "seal \u{2192} LongNamedShelfOfStrings.seal (implementations of Sealable.seal)",
                 "headers.ts:70",
             ),
         ),
-        // A method whose own type parameters are wrapped, `stash<` over `>(a: A, b: B)`; a
-        // call written so inside a method is no declaration of it.
         (
+            "A method whose own type parameters are wrapped, `stash<` over `>(a: A, b: B)`; a call written so inside a method is no declaration of it",
             "this.stash|(key, this.spare)",
             jump(
                 "stash \u{2192} Crate.stash (via this: Shelf)",
                 "headers.ts:18",
             ),
         ),
-        // What overrides a method of the base, and a field found by name, are told to be
-        // the class's under `> extends … {` too.
         (
+            "What overrides a method of the base, and a field found by name, are told to be the class's under `> extends … {` too",
             "^  open|(): void {}",
             jump(
                 "open \u{2192} Shelf.open (implementations of Crate.open)",
@@ -88,6 +88,7 @@ fn a_wrapped_class_header_is_a_header() {
             ),
         ),
         (
+            "",
             "found.spare|)",
             jump(
                 "spare \u{2192} Shelf.spare (by name, 1 match)",
@@ -95,11 +96,12 @@ fn a_wrapped_class_header_is_a_header() {
             ),
         ),
         (
+            "",
             "found.one|)",
             jump("one \u{2192} Bin.one (by name, 1 match)", "headers.ts:81"),
         ),
-        // `other: T` is typed by a parameter of the wrapped list: the chain breaks there.
         (
+            "`other: T` is typed by a parameter of the wrapped list: the chain breaks there",
             "this.other.seal|(key)",
             picker(
                 "seal: by name, 4 declarations (chain broke at other)",
@@ -111,8 +113,8 @@ fn a_wrapped_class_header_is_a_header() {
                 ],
             ),
         ),
-        // `type Loose = any;` has no body: the fields of the class under it are not its.
         (
+            "`type Loose = any;` has no body: the fields of the class under it are not its",
             "loose.audit.deleteUser|(id + 5)",
             picker(
                 "deleteUser: by name, 2 declarations (chain broke at audit)",
@@ -122,32 +124,32 @@ fn a_wrapped_class_header_is_a_header() {
                 ],
             ),
         ),
-        // A lone `{` under a statement, with no `;`, is a block, and the statement still binds.
         (
+            "A lone `{` under a statement, with no `;`, is a block, and the statement still binds",
             "void repo.deleteUser|(id + 4)",
             user("repo: UserRepository"),
         ),
-        // `>(repo: UserRepository, …` binds the parameter: the module's `repo` is hidden.
         (
+            "`>(repo: UserRepository, …` binds the parameter: the module's `repo` is hidden",
             "void repo.deleteUser|(key.length)",
             user("repo: UserRepository"),
         ),
-        ("^  repo.deleteUser|(id)", audit("repo: AuditLog")),
-        // `(repo: AuditLog) => void` among wrapped type parameters, or wrapped type
-        // arguments, types the function's `repo` no more than it does on one line.
+        ("", "^  repo.deleteUser|(id)", audit("repo: AuditLog")),
         (
+            "`(repo: AuditLog) => void` among wrapped type parameters, or wrapped type arguments, types the function's `repo` no more than it does on one line",
             "void repo.deleteUser|(visit.length);",
             user("repo: UserRepository"),
         ),
         (
+            "",
             "void repo.deleteUser|(visit.length + 1)",
             user("repo: UserRepository"),
         ),
     ];
-    for (code, want) in cases {
+    for (name, code, want) in cases {
         let mut a = fixture_app("typescript");
         d_on(&mut a, "headers.ts", code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
 }
 
@@ -170,13 +172,14 @@ fn a_member_access_broken_over_lines_is_one_chain() {
             ],
         )
     };
-    let cases: Vec<(&str, Shown)> = vec![
-        // One break, two breaks with a comment between them, and the name in the middle.
+    let cases: Vec<(&str, &str, Shown)> = vec![
         (
+            "One break, two breaks with a comment between them, and the name in the middle",
             "      .deleteUser|(id);",
             user("this.uow: UnitOfWork \u{2192} users: UserRepository"),
         ),
         (
+            "",
             "      .deleteUser|(id + 1);",
             jump(
                 "deleteUser \u{2192} AuditLog.deleteUser (via this.uow: UnitOfWork \u{2192} audit: AuditLog)",
@@ -184,18 +187,20 @@ fn a_member_access_broken_over_lines_is_one_chain() {
             ),
         ),
         (
+            "",
             "      .audit",
             jump(
                 "audit \u{2192} UnitOfWork.audit (via this.uow: UnitOfWork)",
                 "chains.ts:5",
             ),
         ),
-        // Off a method's call and off a function's, as on one line.
         (
+            "Off a method's call and off a function's, as on one line",
             "      .deleteUser|(id + 2);",
             user("this.depot.peopleRepo(): UserRepository"),
         ),
         (
+            "",
             "      .peopleRepo|()",
             jump(
                 "peopleRepo \u{2192} Depot.peopleRepo (via this.depot: Depot)",
@@ -203,30 +208,39 @@ fn a_member_access_broken_over_lines_is_one_chain() {
             ),
         ),
         (
+            "",
             "      .people.deleteUser|(id + 3);",
             user("openDepot(): Depot \u{2192} people: UserRepository"),
         ),
         (
+            "",
             "      .people|.deleteUser(id + 3);",
             jump(
                 "people \u{2192} Depot.people (via openDepot(): Depot)",
                 "calls.ts:8",
             ),
         ),
-        // `found // note`: the module's `note` is an `AuditLog`, and no receiver here.
-        ("      .deleteUser|(id + 4);", by_name()),
-        // A call of a call, and a call closed on a line of its own, stay by name.
-        ("      .deleteUser|(id + 5);", by_name()),
-        ("      .deleteUser|(id + 6);", by_name()),
         (
+            "`found // note`: the module's `note` is an `AuditLog`, and no receiver here",
+            "      .deleteUser|(id + 4);",
+            by_name(),
+        ),
+        (
+            "A call of a call, and a call closed on a line of its own, stay by name",
+            "      .deleteUser|(id + 5);",
+            by_name(),
+        ),
+        ("", "      .deleteUser|(id + 6);", by_name()),
+        (
+            "",
             "      .length",
             jump("no definition for length", "fluent.ts:39"),
         ),
     ];
-    for (code, want) in cases {
+    for (name, code, want) in cases {
         let mut a = fixture_app("typescript");
         d_on(&mut a, "fluent.ts", code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
 }
 
@@ -245,36 +259,40 @@ fn a_non_null_or_optional_access_is_the_plain_one() {
         )
     };
     let users = "this.uow: UnitOfWork \u{2192} users: UserRepository";
-    let cases: Vec<(&str, Shown)> = vec![
+    let cases: Vec<(&str, &str, Shown)> = vec![
         (
+            "",
             "this.repo!.deleteUser|(id)",
             user("this.repo: UserRepository"),
         ),
         (
+            "",
             "this.repo?.deleteUser|(id + 1)",
             user("this.repo: UserRepository"),
         ),
-        ("this.uow?.users.deleteUser|(id + 2)", user(users)),
+        ("", "this.uow?.users.deleteUser|(id + 2)", user(users)),
         (
+            "",
             "this.uow?.users|.deleteUser(id + 2)",
             jump(
                 "users \u{2192} UnitOfWork.users (via this.uow: UnitOfWork)",
                 "chains.ts:4",
             ),
         ),
-        // Two marks in one chain, and two around a name of one letter.
         (
+            "Two marks in one chain, and two around a name of one letter",
             "this.uow!.audit!.deleteUser|(id + 3)",
             audit("this.uow: UnitOfWork \u{2192} audit: AuditLog"),
         ),
         (
+            "",
             "u!.users!.deleteUser|(id + 9)",
             user("u.users: UserRepository"),
         ),
-        ("spare?.deleteUser|(id + 4)", audit("spare: AuditLog")),
-        ("spare!.deleteUser|(id + 5)", audit("spare: AuditLog")),
-        // A receiver nobody typed stays by name.
+        ("", "spare?.deleteUser|(id + 4)", audit("spare: AuditLog")),
+        ("", "spare!.deleteUser|(id + 5)", audit("spare: AuditLog")),
         (
+            "A receiver nobody typed stays by name",
             "found?.deleteUser|(id + 6)",
             picker(
                 "deleteUser: by name, 2 declarations",
@@ -284,12 +302,12 @@ fn a_non_null_or_optional_access_is_the_plain_one() {
                 ],
             ),
         ),
-        ("!note.deleteUser|.length", audit("note: AuditLog")),
+        ("", "!note.deleteUser|.length", audit("note: AuditLog")),
     ];
-    for (code, want) in cases {
+    for (name, code, want) in cases {
         let mut a = fixture_app("typescript");
         d_on(&mut a, "optional.ts", code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
 }
 
@@ -300,18 +318,22 @@ fn a_private_name_keeps_its_hash() {
         "#addRoute \u{2192} Router.#addRoute (via this: Router)",
         "privates.ts:12",
     );
-    let cases: Vec<(&str, Shown)> = vec![
-        // On the name and on the `#`: the private method, not the public `addRoute`.
-        ("this.#addRoute|(path);", private),
+    let cases: Vec<(&str, &str, Shown)> = vec![
         (
+            "On the name and on the `#`: the private method, not the public `addRoute`",
+            "this.#addRoute|(path);",
+            private,
+        ),
+        (
+            "",
             "this.|#addRoute(path + \"/\")",
             jump(
                 "#addRoute \u{2192} Router.#addRoute (via this: Router)",
                 "privates.ts:12",
             ),
         ),
-        // A private field, as a target and as a link.
         (
+            "A private field, as a target and as a link",
             "this.#repo|.deleteUser(id)",
             jump(
                 "#repo \u{2192} Router.#repo (via this: Router)",
@@ -319,6 +341,7 @@ fn a_private_name_keeps_its_hash() {
             ),
         ),
         (
+            "",
             "console.log(this.#audit|)",
             jump(
                 "#audit \u{2192} Router.#audit (via this: Router)",
@@ -326,14 +349,15 @@ fn a_private_name_keeps_its_hash() {
             ),
         ),
         (
+            "",
             "other.#repo.deleteUser|(id + 2)",
             jump(
                 "deleteUser \u{2192} UserRepository.deleteUser (via other.#repo: UserRepository)",
                 "repos.ts:10",
             ),
         ),
-        // The public name never reaches a private one, by name or through a type.
         (
+            "The public name never reaches a private one, by name or through a type",
             "found.addRoute|(path)",
             jump(
                 "addRoute \u{2192} Router.addRoute (by name, 1 match)",
@@ -341,22 +365,23 @@ fn a_private_name_keeps_its_hash() {
             ),
         ),
         (
+            "",
             "this.addRoute|(path);",
             jump(
                 "addRoute \u{2192} Router.addRoute (via this: SubRouter)",
                 "privates.ts:16",
             ),
         ),
-        // `route#addRoute` in a string is no private name.
         (
+            "`route#addRoute` in a string is no private name",
             "see route#addRoute|",
             jump(
                 "addRoute \u{2192} Router.addRoute (by name, 1 match)",
                 "privates.ts:16",
             ),
         ),
-        // A subclass's `#addRoute` is its own, and implements nothing of the base's.
         (
+            "A subclass's `#addRoute` is its own, and implements nothing of the base's",
             "this.#addRoute|(path, 1)",
             jump(
                 "#addRoute \u{2192} SubRouter.#addRoute (via this: SubRouter)",
@@ -364,6 +389,7 @@ fn a_private_name_keeps_its_hash() {
             ),
         ),
         (
+            "",
             "^  #addRoute|(path: string): void {",
             picker(
                 "#addRoute: at a declaration, 1 other by name",
@@ -371,10 +397,10 @@ fn a_private_name_keeps_its_hash() {
             ),
         ),
     ];
-    for (code, want) in cases {
+    for (name, code, want) in cases {
         let mut a = fixture_app("typescript");
         d_on(&mut a, "privates.ts", code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
 }
 
@@ -407,40 +433,46 @@ fn a_nest_service_reads_its_dependencies() {
             &format!("nest_parts.ts:{line}"),
         )
     };
-    let cases: Vec<(&str, Shown)> = vec![
-        // The wrapped constructor: a decorated parameter, a plain one, one under its
-        // decorator's line; as a link and as a target.
+    let cases: Vec<(&str, &str, Shown)> = vec![
         (
+            "The wrapped constructor: a decorated parameter, a plain one, one under its decorator's line; as a link and as a target",
             "this.repo.deleteUser|(id)",
             user("this.repo: UserRepository"),
         ),
         (
+            "",
             "this.audit.deleteUser|(id + 1)",
             audit("this.audit: AuditLog"),
         ),
         (
+            "",
             "this.uow.users.deleteUser|(id + 2)",
             user("this.uow: UnitOfWork \u{2192} users: UserRepository"),
         ),
-        ("console.log(this.repo|,", field("repo", 15)),
-        ("console.log(this.repo, this.audit|,", field("audit", 16)),
+        ("", "console.log(this.repo|,", field("repo", 15)),
         (
+            "",
+            "console.log(this.repo, this.audit|,",
+            field("audit", 16),
+        ),
+        (
+            "",
             "console.log(this.repo, this.audit, this.uow|)",
             field("uow", 18),
         ),
-        // `const { repo, audit: trail } = this` and `const { users } = this.uow`; the
-        // module's `repo` is an `AuditLog`.
         (
+            "`const { repo, audit: trail } = this` and `const { users } = this.uow`; the module's `repo` is an `AuditLog`",
             "void repo.deleteUser|(id + 3)",
             user("repo: UserRepository"),
         ),
-        ("trail.deleteUser|(id + 4)", audit("trail: AuditLog")),
+        ("", "trail.deleteUser|(id + 4)", audit("trail: AuditLog")),
         (
+            "",
             "void users.deleteUser|(id + 5)",
             user("users: UserRepository"),
         ),
-        // A default may be what the name holds.
         (
+            "A default may be what the name holds",
             "uow.audit.deleteUser|(id + 6)",
             picker(
                 "deleteUser: by name, 2 declarations (chain broke at uow)",
@@ -450,26 +482,29 @@ fn a_nest_service_reads_its_dependencies() {
                 ],
             ),
         ),
-        ("^  repo.deleteUser|(id + 7)", audit("repo: AuditLog")),
-        // Namespaces of an import, of a module taken whole, and of the file itself, where a
-        // `Tool` and a `Widget` outside them are other classes.
+        ("", "^  repo.deleteUser|(id + 7)", audit("repo: AuditLog")),
         (
+            "Namespaces of an import, of a module taken whole, and of the file itself, where a `Tool` and a `Widget` outside them are other classes",
             "widget.spin|(id)",
             spin("widget: Widget", "Outer.Inner.Widget", 4),
         ),
         (
+            "",
             "new Outer.Inner.Widget().spin|(id + 1)",
             spin("new Outer.Inner.Widget(): Widget", "Outer.Inner.Widget", 4),
         ),
         (
+            "",
             "other.spin|(id + 2)",
             spin("other: Widget", "Outer.Inner.Widget", 4),
         ),
         (
+            "",
             "gadget.spin|(id + 3)",
             spin("gadget: Gadget", "Outer.Gadget", 11),
         ),
         (
+            "",
             "tool.turn|(id)",
             jump(
                 "turn \u{2192} Local.Tool.turn (via tool: Tool)",
@@ -477,6 +512,7 @@ fn a_nest_service_reads_its_dependencies() {
             ),
         ),
         (
+            "",
             "new Local.Tool().turn|(id + 1)",
             jump(
                 "turn \u{2192} Local.Tool.turn (via new Local.Tool(): Tool)",
@@ -484,6 +520,7 @@ fn a_nest_service_reads_its_dependencies() {
             ),
         ),
         (
+            "",
             "new Tool().turn|(id + 2)",
             jump(
                 "turn \u{2192} Tool.turn (via new Tool(): Tool)",
@@ -491,10 +528,10 @@ fn a_nest_service_reads_its_dependencies() {
             ),
         ),
     ];
-    for (code, want) in cases {
+    for (name, code, want) in cases {
         let mut a = fixture_app("typescript");
         d_on(&mut a, "nest.ts", code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
 }
 
@@ -515,22 +552,28 @@ fn a_wrapped_destructuring_binds_its_names() {
             ],
         )
     };
-    let cases: Vec<(&str, Shown)> = vec![
-        // Out of `deps: Deps`, whose `ledger` is a `UserRepository`; from a block below too.
-        ("ledger.deleteUser|(id + 13)", user),
+    let cases: Vec<(&str, &str, Shown)> = vec![
         (
+            "Out of `deps: Deps`, whose `ledger` is a `UserRepository`; from a block below too",
+            "ledger.deleteUser|(id + 13)",
+            user,
+        ),
+        (
+            "",
             "ledger.deleteUser|(id + 14)",
             jump(
                 "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
                 "repos.ts:10",
             ),
         ),
-        // With a type literal behind the pattern, and an array's pattern: nothing is read,
-        // and nothing outside answers.
-        ("ledger.deleteUser|(count + 15)", by_name()),
-        ("ledger.deleteUser|(16)", by_name()),
-        // Any statement closed so is read whole, once: `const ledger = {` … `} as T;`.
         (
+            "With a type literal behind the pattern, and an array's pattern: nothing is read, and nothing outside answers",
+            "ledger.deleteUser|(count + 15)",
+            by_name(),
+        ),
+        ("", "ledger.deleteUser|(16)", by_name()),
+        (
+            "Any statement closed so is read whole, once: `const ledger = {` … `} as T;`",
             "ledger.deleteUser|(id + 17)",
             jump(
                 "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
@@ -538,10 +581,10 @@ fn a_wrapped_destructuring_binds_its_names() {
             ),
         ),
     ];
-    for (code, want) in cases {
+    for (name, code, want) in cases {
         let mut a = fixture_app("typescript");
         d_on(&mut a, "scopes.ts", code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
 }
 
@@ -884,8 +927,9 @@ fn an_imported_package_is_the_copy_node_loads() {
         std::fs::create_dir_all(dir.join(path).parent().unwrap()).unwrap();
         std::fs::write(dir.join(path), text).unwrap();
     }
-    for (code, want) in [
+    for (name, code, want) in [
         (
+            "",
             "^pick",
             jump(
                 "pick: via import lib",
@@ -893,10 +937,12 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^onlyFar",
             jump("onlyFar: by name, 1 match", "node_modules/lib/index.d.ts:2"),
         ),
         (
+            "",
             "^part",
             jump(
                 "part: via import lib/sub",
@@ -904,6 +950,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^nest",
             jump(
                 "nest: via import nested",
@@ -911,6 +958,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^typed",
             jump(
                 "typed: via import typed",
@@ -918,6 +966,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^scoped",
             jump(
                 "scoped: via import @scope/pkg",
@@ -925,6 +974,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^readFile",
             jump(
                 "readFile: via import fs",
@@ -932,6 +982,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^Buffer",
             Shown::Picker(
                 "Buffer: via import buffer, 3 declarations".into(),
@@ -946,6 +997,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^DatabaseSync",
             Shown::Picker(
                 "DatabaseSync: via import sqlite, 2 declarations".into(),
@@ -954,17 +1006,16 @@ fn an_imported_package_is_the_copy_node_loads() {
                     .to_vec(),
             ),
         ),
-        // Only the root's copy has `lib/extra`: Node goes on to it past the nearer one.
         (
+            "Only the root's copy has `lib/extra`: Node goes on to it past the nearer one",
             "^extra",
             jump(
                 "extra: via import lib/extra",
                 "node_modules/lib/extra.d.ts:1",
             ),
         ),
-        // No copy has `nested/gone`: the nearest that has the package decides, past a root
-        // without it.
         (
+            "No copy has `nested/gone`: the nearest that has the package decides, past a root without it",
             "^lonely",
             jump(
                 "lonely: via import nested",
@@ -972,6 +1023,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^onlyNested",
             jump(
                 "onlyNested: by name, 1 match",
@@ -979,6 +1031,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^alsoNear",
             jump(
                 "alsoNear: via import lib/extra",
@@ -986,6 +1039,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^useState",
             Shown::Picker(
                 "useState: via import react, 2 declarations".into(),
@@ -998,6 +1052,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^jsfn",
             Shown::Picker(
                 "jsfn: via import jsonly, 2 declarations".into(),
@@ -1010,6 +1065,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^tsf",
             jump(
                 "tsf: via import tssrc",
@@ -1017,6 +1073,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^jsown",
             Shown::Picker(
                 "jsown: via import jsowned, 2 declarations".into(),
@@ -1029,6 +1086,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^shipped",
             jump(
                 "shipped: via import shipped",
@@ -1036,6 +1094,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^dparse",
             jump(
                 "no definition for dparse",
@@ -1043,6 +1102,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^dlocal",
             jump(
                 "dlocal: via import packages/api/src/dflt.ts",
@@ -1050,6 +1110,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^solo",
             jump(
                 "solo: via import solo",
@@ -1057,6 +1118,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^soloRen",
             jump(
                 "no definition for soloRen",
@@ -1064,6 +1126,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^both",
             Shown::Picker(
                 "both: via import dual, 2 declarations".into(),
@@ -1075,12 +1138,13 @@ fn an_imported_package_is_the_copy_node_loads() {
                 .to_vec(),
             ),
         ),
-        // The other copies of `lib/nothere` are those of `lib`, as the module is shortened.
         (
+            "The other copies of `lib/nothere` are those of `lib`, as the module is shortened",
             "^deeper",
             jump("deeper: by name, 1 match", "node_modules/lib/index.d.ts:5"),
         ),
         (
+            "",
             "^parseX",
             jump(
                 "parseX: via import multi/sub",
@@ -1088,14 +1152,15 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^Box.open",
             jump(
                 "no definition for open",
                 &format!("{file}:{}", line("Box.open")),
             ),
         ),
-        // A name in the module a `* as ck` import names is followed through its renaming too.
         (
+            "A name in the module a `* as ck` import names is followed through its renaming too",
             "ck.parse",
             jump(
                 "parse: via import cookie",
@@ -1103,6 +1168,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^parse",
             jump(
                 "parse: via import cookie",
@@ -1110,6 +1176,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^mfn",
             Shown::Picker(
                 "mfn: via import mainpkg, 2 declarations".into(),
@@ -1119,10 +1186,12 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^ifn",
             jump("ifn: via import idxpkg", "node_modules/idxpkg/index.d.ts:1"),
         ),
         (
+            "",
             "^rparse",
             jump(
                 "rparse: by name, 1 match",
@@ -1130,6 +1199,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^rjsfn",
             jump(
                 "rjsfn: by name, 1 match",
@@ -1138,7 +1208,7 @@ fn an_imported_package_is_the_copy_node_loads() {
         ),
     ] {
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -1238,8 +1308,9 @@ fn a_linked_package_is_the_version_it_links() {
     ] {
         std::os::unix::fs::symlink(to, dir.join(at)).unwrap();
     }
-    for (code, want) in [
+    for (name, code, want) in [
         (
+            "",
             "^pin",
             jump(
                 "pin: via import pinned",
@@ -1247,23 +1318,25 @@ fn a_linked_package_is_the_version_it_links() {
             ),
         ),
         (
+            "",
             "^shared",
             jump("shared: by name, 1 match", "packages/shared/index.ts:1"),
         ),
         (
+            "",
             "^z|.string",
             jump("z: by name, 1 match", "node_modules/zod/index.d.ts:1"),
         ),
-        // After the project, outside as the import names it: the chain and all.
         (
+            "After the project, outside as the import names it: the chain and all",
             "^z.string",
             jump(
                 "string: by name, 1 match",
                 "node_modules/zod/schemas.d.ts:1",
             ),
         ),
-        // Nothing outside is proven the import's: the copy it loads is the project's own.
         (
+            "Nothing outside is proven the import's: the copy it loads is the project's own",
             "^gone",
             jump(
                 "gone: by name, 1 match",
@@ -1271,22 +1344,23 @@ fn a_linked_package_is_the_version_it_links() {
             ),
         ),
         (
+            "",
             "sh.helper",
             jump(
                 "helper: by name, 1 match",
                 "node_modules/helpers/index.d.ts:1",
             ),
         ),
-        // The copy is the package, whatever its store directory is called.
         (
+            "The copy is the package, whatever its store directory is called",
             "^parse",
             jump(
                 "parse: via import cookie",
                 "node_modules/.pnpm/cookie-es@1.0.0/node_modules/cookie-es/index.d.ts:1",
             ),
         ),
-        // A path in it is below the store directory, whatever that is called.
         (
+            "A path in it is below the store directory, whatever that is called",
             "^subfn",
             jump(
                 "subfn: via import cookie/sub",
@@ -1294,6 +1368,7 @@ fn a_linked_package_is_the_version_it_links() {
             ),
         ),
         (
+            "",
             "^reach",
             jump(
                 "reach: via import far",
@@ -1302,7 +1377,7 @@ fn a_linked_package_is_the_version_it_links() {
         ),
     ] {
         d_on(&mut a, "src/main.ts", code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&store).unwrap();
@@ -1682,25 +1757,25 @@ fn a_linked_copy_is_chosen_as_any_other() {
         std::os::unix::fs::symlink(to, dir.join(at)).unwrap();
     }
     let outl = |at: &str| ("reachOut".into(), "via import outl".into(), at.into());
-    for (code, want) in [
-        // The linked `wlib` lacks `extra`: on to the root's.
+    for (name, code, want) in [
         (
+            "The linked `wlib` lacks `extra`: on to the root's",
             "^ex",
             jump(
                 "ex: via import wlib/extra",
                 "node_modules/wlib/extra.d.ts:1",
             ),
         ),
-        // `exports` maps `./old`: the nearer copy, whatever `old` lies further up.
         (
+            "`exports` maps `./old`: the nearer copy, whatever `old` lies further up",
             "^Old",
             jump(
                 "Old: via import @app/ui",
                 "packages/api/node_modules/@app/ui/dist/legacy.d.ts:1",
             ),
         ),
-        // Neither has `missing`: the nearer, which is no project's own.
         (
+            "Neither has `missing`: the nearer, which is no project's own",
             "^thing",
             jump(
                 "thing: via import both",
@@ -1708,6 +1783,7 @@ fn a_linked_copy_is_chosen_as_any_other() {
             ),
         ),
         (
+            "",
             "^esub",
             jump(
                 "esub: via import elib/sub2",
@@ -1715,6 +1791,7 @@ fn a_linked_copy_is_chosen_as_any_other() {
             ),
         ),
         (
+            "",
             "^nl1f",
             jump(
                 "nl1f: via import nl1/extra",
@@ -1722,6 +1799,7 @@ fn a_linked_copy_is_chosen_as_any_other() {
             ),
         ),
         (
+            "",
             "^nl2f",
             jump(
                 "nl2f: via import nl2/extra",
@@ -1729,14 +1807,15 @@ fn a_linked_copy_is_chosen_as_any_other() {
             ),
         ),
         (
+            "",
             "^nl3f",
             jump(
                 "nl3f: via import nl3/extra",
                 "node_modules/nl3/extra.d.ts:1",
             ),
         ),
-        // A link out of the walk is the level, of no file: every copy, as without one.
         (
+            "A link out of the walk is the level, of no file: every copy, as without one",
             "^reachOut",
             Shown::Picker(
                 "reachOut: via import outl, 2 declarations".into(),
@@ -1748,7 +1827,7 @@ fn a_linked_copy_is_chosen_as_any_other() {
         ),
     ] {
         d_on(&mut a, "packages/api/src/main.ts", code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&store).unwrap();
@@ -1868,8 +1947,9 @@ fn a_python_namespace_package_spans_its_roots() {
 /// from another module under a new name is not.
 #[test]
 fn an_export_under_another_name_is_followed() {
-    let cases: Vec<(&str, Shown)> = vec![
+    let cases: Vec<(&str, &str, Shown)> = vec![
         (
+            "",
             "super.lock|()",
             jump(
                 "lock \u{2192} Trunk.lock (via super of Boot)",
@@ -1877,6 +1957,7 @@ fn an_export_under_another_name_is_followed() {
             ),
         ),
         (
+            "",
             "this.audit.deleteUser|(1)",
             jump(
                 "deleteUser \u{2192} AuditLog.deleteUser (via this.audit: AuditLog)",
@@ -1884,6 +1965,7 @@ fn an_export_under_another_name_is_followed() {
             ),
         ),
         (
+            "",
             "trunk.lock|()",
             jump(
                 "lock \u{2192} Trunk.lock (via trunk: Trunk)",
@@ -1891,16 +1973,17 @@ fn an_export_under_another_name_is_followed() {
             ),
         ),
         (
+            "",
             "extends TrunkBase|",
             jump("TrunkBase: via import aliased.ts", "aliased.ts:4"),
         ),
-        // The re-export under another name is followed to the class it renames (#335).
         (
+            "The re-export under another name is followed to the class it renames (#335)",
             "import { HatchBase|",
             jump("HatchBase: via import repos.ts", "repos.ts:5"),
         ),
-        // `HatchBase` is the `UserRepository` of `repos`, not the one `aliased` declares.
         (
+            "`HatchBase` is the `UserRepository` of `repos`, not the one `aliased` declares",
             "hatch.deleteUser|(2)",
             jump(
                 "deleteUser \u{2192} UserRepository.deleteUser (via hatch: UserRepository)",
@@ -1908,10 +1991,10 @@ fn an_export_under_another_name_is_followed() {
             ),
         ),
     ];
-    for (code, want) in cases {
+    for (name, code, want) in cases {
         let mut a = fixture_app("typescript");
         d_on(&mut a, "aliased_use.ts", code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
 }
 
@@ -1940,10 +2023,9 @@ fn what_the_review_of_the_typescript_items_found() {
             "privates.ts:16",
         )
     };
-    let cases: Vec<(&str, &str, Shown)> = vec![
-        // `svc.list()` is the namespace's function, until a parameter `svc` hides it: as a
-        // callee and as the namespace of `new svc.Tool()`.
+    let cases: Vec<(&str, &str, &str, Shown)> = vec![
         (
+            "`svc.list()` is the namespace's function, until a parameter `svc` hides it: as a callee and as the namespace of `new svc.Tool()`",
             "shadowed.ts",
             "log.deleteUser|(id)",
             jump(
@@ -1951,8 +2033,9 @@ fn what_the_review_of_the_typescript_items_found() {
                 "repos.ts:16",
             ),
         ),
-        ("shadowed.ts", "r.deleteUser|(id + 1)", by_name()),
+        ("", "shadowed.ts", "r.deleteUser|(id + 1)", by_name()),
         (
+            "",
             "shadowed.ts",
             "tool.turn|(String(id + 2))",
             picker(
@@ -1964,8 +2047,8 @@ fn what_the_review_of_the_typescript_items_found() {
                 ],
             ),
         ),
-        // A statement closed by `}` is one declaration, not its first line and itself.
         (
+            "A statement closed by `}` is one declaration, not its first line and itself",
             "scopes.ts",
             "void ledger|.deleteUser(id + 17)",
             jump(
@@ -1973,8 +2056,8 @@ fn what_the_review_of_the_typescript_items_found() {
                 "scopes.ts:129",
             ),
         ),
-        // `this.stash<` over its type arguments over `>(key, this.spare);` is a call.
         (
+            "`this.stash<` over its type arguments over `>(key, this.spare);` is a call",
             "headers.ts",
             "found.stash|(1, {})",
             jump(
@@ -1982,21 +2065,25 @@ fn what_the_review_of_the_typescript_items_found() {
                 "headers.ts:18",
             ),
         ),
-        // #131 under a name commented out at the margin, and behind another name's default.
         (
+            "#131 under a name commented out at the margin, and behind another name's default",
             "scopes.ts",
             "ledger.deleteUser|(18)",
             user("ledger: UserRepository"),
         ),
-        ("scopes.ts", "ledger?.deleteUser|(id + 19)", by_name()),
-        // A `#` in a comment or a string starts no private name.
-        ("privates.ts", "// As #addRoute|", public()),
-        ("privates.ts", "console.log(\"#addRoute|", public()),
+        ("", "scopes.ts", "ledger?.deleteUser|(id + 19)", by_name()),
+        (
+            "A `#` in a comment or a string starts no private name",
+            "privates.ts",
+            "// As #addRoute|",
+            public(),
+        ),
+        ("", "privates.ts", "console.log(\"#addRoute|", public()),
     ];
-    for (file, code, want) in cases {
+    for (name, file, code, want) in cases {
         let mut a = fixture_app("typescript");
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{file}: {code}");
+        assert_eq!(shown(&mut a), want, "{name}: {file}: {code}");
     }
     let (dir, mut a) = project_app(
         "jsx",

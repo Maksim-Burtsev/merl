@@ -1,11 +1,11 @@
 use super::*;
 
 /// The rows of the Go section of #100, each on the `go` fixture.
-fn go_rows(cases: Vec<(&str, &str, Shown)>) {
-    for (file, code, want) in cases {
+fn go_rows(cases: Vec<(&str, &str, &str, Shown)>) {
+    for (name, file, code, want) in cases {
         let mut a = fixture_app("go");
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{file}: {code}");
+        assert_eq!(shown(&mut a), want, "{name}: {file}: {code}");
     }
 }
 
@@ -32,87 +32,97 @@ fn a_go_package_level_name_is_read_in_every_file_of_the_package() {
     };
     go_rows(vec![
         (
+            "",
             "globals.go",
             "defaultRepo.DeleteUser|(id + 10",
             repo("defaultRepo: UserRepository"),
         ),
-        // The `var` inside `globalsInner` and the raw string's line are not the package's.
         (
+            "The `var` inside `globalsInner` and the raw string's line are not the package's",
             "globals.go",
             "sharedAudit.DeleteUser|(id + 11",
             audit("sharedAudit: AuditLog"),
         ),
         (
+            "",
             "globals.go",
             "sharedRepo.DeleteUser",
             repo("NewRepo() *UserRepository"),
         ),
         (
+            "",
             "globals.go",
             "lateRepo.DeleteUser",
             repo("lateRepo: UserRepository"),
         ),
         (
+            "",
             "globals.go",
             "spareAudit.DeleteUser",
             picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
         ),
-        // Declared twice under build tags, as two types.
         (
+            "Declared twice under build tags, as two types",
             "globals.go",
             "taggedRepo.DeleteUser",
             picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
         ),
-        // Two files that agree, and two of which one cannot be read.
         (
+            "Two files that agree, and two of which one cannot be read",
             "globals.go",
             "twinRepo.DeleteUser",
             repo("twinRepo: UserRepository"),
         ),
         (
+            "Two files that agree, and two of which one cannot be read",
             "globals.go",
             "mixedRepo.DeleteUser",
             picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
         ),
         (
+            "",
             "globals.go",
             "defaultRepo.DeleteUser|(id + 15",
             audit("defaultRepo: AuditLog"),
         ),
         (
+            "",
             "globals.go",
             "sharedAudit.DeleteUser|(id + 16",
             picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
         ),
-        // Locals the scope walk does not read: nothing is proven from their absence.
         (
+            "Locals the scope walk does not read: nothing is proven from their absence",
             "globals.go",
             "defaultRepo.DeleteUser|(18",
             picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
         ),
         (
+            "Locals the scope walk does not read: nothing is proven from their absence",
             "globals.go",
             "defaultRepo.DeleteUser|(19",
             picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
         ),
         (
+            "Locals the scope walk does not read: nothing is proven from their absence",
             "globals.go",
             "defaultRepo.DeleteUser|(20",
             picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
         ),
-        // A label opens no block: the local above it is read (#330).
         (
+            "A label opens no block: the local above it is read (#330)",
             "globals.go",
             "defaultRepo.DeleteUser|(21",
             audit("defaultRepo: AuditLog"),
         ),
         (
+            "",
             "globals.go",
             "hop.DeleteUser",
             picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
         ),
-        // An import of the external test package is no variable of `package main`.
         (
+            "An import of the external test package is no variable of `package main`",
             "globals_x_test.go",
             "session.Close",
             jump(
@@ -129,6 +139,7 @@ fn a_go_package_level_name_is_read_in_every_file_of_the_package() {
 fn a_go_alias_is_the_type_it_names() {
     go_rows(vec![
         (
+            "",
             "aliases.go",
             "first.DeleteUser",
             jump(
@@ -137,6 +148,7 @@ fn a_go_alias_is_the_type_it_names() {
             ),
         ),
         (
+            "",
             "aliases.go",
             "again.DeleteUser",
             jump(
@@ -145,6 +157,7 @@ fn a_go_alias_is_the_type_it_names() {
             ),
         ),
         (
+            "",
             "aliases.go",
             "session.Close",
             jump(
@@ -153,6 +166,7 @@ fn a_go_alias_is_the_type_it_names() {
             ),
         ),
         (
+            "",
             "aliases.go",
             "twin.Close",
             jump(
@@ -161,6 +175,7 @@ fn a_go_alias_is_the_type_it_names() {
             ),
         ),
         (
+            "",
             "aliases.go",
             "kind.Flush",
             jump(
@@ -228,16 +243,19 @@ fn a_go_declaration_per_platform_is_the_hosts() {
     };
     go_rows(vec![
         (
+            "",
             "platforms.go",
             "clock.Now",
             jump(&via("clock: Clock"), &now(mine)),
         ),
         (
+            "",
             "platforms.go",
             "made.Now",
             jump(&via("platform.NewClock() *Clock"), &now(mine)),
         ),
         (
+            "",
             "platforms.go",
             "platform.NewClock",
             jump(
@@ -246,6 +264,7 @@ fn a_go_declaration_per_platform_is_the_hosts() {
             ),
         ),
         (
+            "",
             "platforms.go",
             "codec.Encode",
             jump(
@@ -254,6 +273,7 @@ fn a_go_declaration_per_platform_is_the_hosts() {
             ),
         ),
         (
+            "",
             "platform/codec_fast.go",
             "c.Encode",
             both(
@@ -263,8 +283,8 @@ fn a_go_declaration_per_platform_is_the_hosts() {
                 "platform/codec_slow.go:7",
             ),
         ),
-        // The type is declared once and its method per platform.
         (
+            "The type is declared once and its method per platform",
             "platforms.go",
             "timer.Tick",
             jump(
@@ -272,8 +292,8 @@ fn a_go_declaration_per_platform_is_the_hosts() {
                 &format!("platform/timer_{}.go:{}", host.0, host.1),
             ),
         ),
-        // A platform and a tag of the project's own: `windows && !slow`.
         (
+            "A platform and a tag of the project's own: `windows && !slow`",
             "platforms.go",
             "gauge.Read",
             jump(
@@ -282,6 +302,7 @@ fn a_go_declaration_per_platform_is_the_hosts() {
             ),
         ),
         (
+            "",
             &format!("platform/{other}"),
             "c.Now",
             both(
@@ -353,6 +374,7 @@ fn a_go_declaration_per_platform_is_the_hosts() {
 fn a_go_package_qualifier_is_its_import_line() {
     go_rows(vec![
         (
+            "",
             "qualifiers.go",
             "depot|.Open",
             jump(
@@ -361,17 +383,19 @@ fn a_go_package_qualifier_is_its_import_line() {
             ),
         ),
         (
+            "",
             "qualifiers.go",
             "fmt|.Println",
             jump("fmt: via import fmt", "qualifiers.go:4"),
         ),
-        // On the import line itself the name is no qualifier.
         (
+            "On the import line itself the name is no qualifier",
             "qualifiers.go",
             "depot| \"example",
             jump("no definition for depot", "qualifiers.go:7"),
         ),
         (
+            "",
             "qualifiers.go",
             "depot|.Remove",
             jump(
@@ -380,11 +404,13 @@ fn a_go_package_qualifier_is_its_import_line() {
             ),
         ),
         (
+            "",
             "qualifiers.go",
             "depot|.Remove(2",
             jump("no definition for depot", "qualifiers.go:32"),
         ),
         (
+            "",
             "qualifiers.go",
             "h.depot|.Remove",
             jump(
@@ -393,6 +419,7 @@ fn a_go_package_qualifier_is_its_import_line() {
             ),
         ),
         (
+            "",
             "qualifiers.go",
             "ledger|.DeleteUser",
             picker(
@@ -415,21 +442,25 @@ fn a_go_package_qualifier_is_its_import_line() {
 fn a_go_named_result_is_named_after_its_function() {
     go_rows(vec![
         (
+            "",
             "results.go",
             "return user, err",
             jump("err \u{2192} Reload.err (local)", "results.go:4"),
         ),
         (
+            "",
             "results.go",
             "count| == 0",
             jump("count \u{2192} Reload.count (local)", "results.go:5"),
         ),
         (
+            "",
             "results.go",
             "FindUser(id|)",
             jump("id \u{2192} Reload.id (local)", "results.go:4"),
         ),
         (
+            "",
             "results.go",
             "\treturn err",
             jump("err \u{2192} ReloadPlain.err (local)", "results.go:12"),
@@ -452,10 +483,9 @@ fn implementations_are_offered_on_the_declaration_they_implement() {
             .collect();
         Shown::Picker(status.into(), rows)
     };
-    let cases: [(&str, &str, &str, Shown); 9] = [
-        // A base class: the subclasses that override it, `NightlyJob` two levels down.
-        // `QuietJob` inherits `run` without declaring it and is no implementation.
+    let cases: [(&str, &str, &str, &str, Shown); 9] = [
         (
+            "A base class: the subclasses that override it, `NightlyJob` two levels down. `QuietJob` inherits `run` without declaring it and is no implementation",
             "python",
             "impls.py",
             "def run",
@@ -473,9 +503,8 @@ fn implementations_are_offered_on_the_declaration_they_implement() {
                 ],
             ),
         ),
-        // A protocol is structural: `WebhookNotifier` names nothing and implements it,
-        // `Batch.send` takes another parameter and does not.
         (
+            "A protocol is structural: `WebhookNotifier` names nothing and implements it, `Batch.send` takes another parameter and does not",
             "python",
             "repos.py",
             "def send",
@@ -491,6 +520,7 @@ fn implementations_are_offered_on_the_declaration_they_implement() {
             ),
         ),
         (
+            "",
             "typescript",
             "impls.ts",
             "^  run",
@@ -506,8 +536,8 @@ fn implementations_are_offered_on_the_declaration_they_implement() {
                 ],
             ),
         ),
-        // `implements` in the same file and behind an import.
         (
+            "`implements` in the same file and behind an import",
             "typescript",
             "repos.ts",
             "^  send",
@@ -522,9 +552,8 @@ fn implementations_are_offered_on_the_declaration_they_implement() {
                 ],
             ),
         ),
-        // Go's interfaces are implicit: the method name and the number of parameters are all
-        // there is to go on, and `Batch.Run` takes one more.
         (
+            "Go's interfaces are implicit: the method name and the number of parameters are all there is to go on, and `Batch.Run` takes one more",
             "go",
             "impls.go",
             "Run",
@@ -538,6 +567,7 @@ fn implementations_are_offered_on_the_declaration_they_implement() {
             ),
         ),
         (
+            "Go's interfaces are implicit: the method name and the number of parameters are all there is to go on, and `Batch.Run` takes one more",
             "go",
             "repos.go",
             "Send",
@@ -551,9 +581,8 @@ fn implementations_are_offered_on_the_declaration_they_implement() {
                 ],
             ),
         ),
-        // One implementation is an answer, not a one-row picker, and the status line says
-        // where it came from.
         (
+            "One implementation is an answer, not a one-row picker, and the status line says where it came from",
             "typescript",
             "impls.ts",
             "^  sweep",
@@ -562,9 +591,8 @@ fn implementations_are_offered_on_the_declaration_they_implement() {
                 "impls.ts:32",
             ),
         ),
-        // Nothing implements a Go method beside its type: the search by name answers, and
-        // says the cursor is on one of them.
         (
+            "Nothing implements a Go method beside its type: the search by name answers, and says the cursor is on one of them",
             "go",
             "repos.go",
             "func (e *EmailNotifier) Send",
@@ -576,9 +604,8 @@ fn implementations_are_offered_on_the_declaration_they_implement() {
                 ],
             ),
         ),
-        // A member of a value still resolves through the type of the receiver, not through
-        // the implementations of the interface it lands on.
         (
+            "A member of a value still resolves through the type of the receiver, not through the implementations of the interface it lands on",
             "python",
             "service.py",
             "self.notifier.send",
@@ -588,10 +615,10 @@ fn implementations_are_offered_on_the_declaration_they_implement() {
             ),
         ),
     ];
-    for (fixture, file, code, want) in cases {
+    for (name, fixture, file, code, want) in cases {
         let mut a = fixture_app(fixture);
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        assert_eq!(shown(&mut a), want, "{name}: {fixture}: {file}: {code}");
     }
 }
 

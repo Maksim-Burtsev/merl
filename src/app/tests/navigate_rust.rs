@@ -568,77 +568,92 @@ fn a_path_is_looked_up_in_the_crate_its_first_name_names() {
     let memmap = std.join("registry/memmap2-0.9.0");
     use_roots(&mut a, Kind::Rust, &[library.clone(), memmap.clone()]);
     let lib = |p: &str| library.join(p);
-    for (code, place, status) in [
+    for (name, code, place, status) in [
         (
+            "",
             "File::open|(p)",
             lib("std/src/fs.rs"),
             4,
             "via import std::fs",
         ),
-        ("-> io|::Result", lib("std/src/lib.rs"), 2, "via import std"),
         (
+            "",
+            "-> io|::Result",
+            lib("std/src/lib.rs"),
+            2,
+            "via import std",
+        ),
+        (
+            "",
             "    norm|(1)",
             dir.join("src/helpers.rs"),
             1,
             "via import crate::helpers",
         ),
         (
+            "",
             "_e: io::Error",
             lib("std/src/io/error.rs"),
             3,
             "via import std::io",
         ),
         (
+            "",
             "m: Match",
             dir.join("crates/matcher/src/lib.rs"),
             1,
             "via import grep_matcher",
         ),
-        ("-> std::fs|::File", lib("std/src/lib.rs"), 1, "via std"),
+        ("", "-> std::fs|::File", lib("std/src/lib.rs"), 1, "via std"),
         (
+            "",
             "std::fs::File::create",
             lib("std/src/fs.rs"),
             5,
             "via std::fs",
         ),
         (
+            "",
             "std::sync::Arc",
             lib("alloc/src/sync.rs"),
             1,
             "via alloc::sync",
         ),
         (
+            "",
             "usize::MAX",
             lib("core/src/num/uint_macros.rs"),
             3,
             "by name",
         ),
-        // A glob `use` of the block hides the file's `use` of the name.
         (
+            "A glob `use` of the block hides the file's `use` of the name",
             "        Match|(n)",
             dir.join("src/lib.rs"),
             51,
             "Kind::Match",
         ),
         (
+            "",
             "dyn StdError",
             lib("core/src/error.rs"),
             1,
             "via import core::error",
         ),
         (
+            "",
             "memmap2::Mmap::map",
             memmap.join("src/lib.rs"),
             4,
             "via memmap2",
         ),
     ]
-    .map(|(c, p, l, s)| (c, (p, l), s))
+    .map(|(n, c, p, l, s)| (n, c, (p, l), s))
     {
         d_on(&mut a, "src/lib.rs", code);
         let (path, line) = at(&a);
-        assert_eq!((path, line + 1), place, "{code}: {}", a.message);
-        assert!(a.message.contains(status), "{code}: {}", a.message);
+        assert_eq!((path, line + 1), place, "{name}: {code}: {}", a.message);
+        assert!(a.message.contains(status), "{name}: {code}: {}", a.message);
     }
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&std).unwrap();
