@@ -99,7 +99,9 @@ impl App {
             let named: Vec<Hit> = hits
                 .iter()
                 .filter(|h| {
-                    h.text.contains(&format!("{m}.{word}"))
+                    let t = h.text.trim_start();
+                    (t.starts_with("module ") || t.starts_with("namespace "))
+                        && t.contains(&format!("{m}.{word}"))
                         || search::ml_modules(&h.path, &lines_of(self, &h.path), h.line).contains(m)
                 })
                 .cloned()
@@ -131,12 +133,15 @@ impl App {
             return Some(by_name(found, Reason::Path(m.clone())));
         }
         if !dotted && !label {
+            let line = self.line + 1;
+            hits.retain(|h| {
+                h.path != here || h.line <= line || h.text.trim_start().starts_with("and ")
+            });
             let mine = search::ml_implementation(here).unwrap_or_else(|| here.to_path_buf());
             let own: Vec<Hit> = hits
                 .iter()
                 .filter(|h| {
-                    (h.path == here || h.path == mine)
-                        && !(h.path == here && h.line == self.line + 1)
+                    (h.path == here || h.path == mine) && !(h.path == here && h.line == line)
                 })
                 .cloned()
                 .collect();

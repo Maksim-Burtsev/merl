@@ -66,3 +66,9 @@ let rate = Pricing.tariff_of `Active + coupon_rate
 let faked = fake_rate + fake_query
 (*          ^ d: none *)
 (*                      ^ d: none *)
+
+let map f xs = List.map f xs
+(*                  ^ d: none *)
+
+let misplaced = Money.discount
+(*                    ^ d: !jump *)

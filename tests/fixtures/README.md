@@ -253,7 +253,9 @@ after `//`, one holding the `'''`, `''$` and `''\` escapes), a `"…"`, a `/* */
 `sig … end = struct` module, a functor and its application, a class with a method), probed from
 `basket.ml`: each refusal, a qualified call through two modules, a record field in a `with`
 expression named like a function of the file, a local `acc` in two files (each stays in its own),
-a polymorphic variant, and declaration-shaped lines in a nested comment and a quoted string.
+a polymorphic variant, declaration-shaped lines in a nested comment and a quoted string, `List.map`
+beside a `let map` of the file, a module of the project that lacks the name, and in `receipt.ml` a
+name of an `open`ed module used above the file's own namesake.
 `fsharp/` (#427) is the issue's `Money.fs` and `Cart.fs` over a `Pricing.fs` in a namespace:
 module lets behind their modifiers and an attribute, members of every kind, union cases, a record
 over one line, an interface, a double-backticked name, `(*)`, and declaration-shaped lines in a
