@@ -7,7 +7,7 @@
 The project is LANG's row of projects.tsv, cloned into the cache by `run` first
 ($D_BENCH_CACHE or ~/.cache/merl-d-bench). The servers come from install-servers.sh
 ($D_BENCH_SERVERS or <cache>/servers). `oracle` resumes from the answers already written.
-Java, Kotlin, C# and Ruby have no server here: their answers were judged by reading the code.
+Java, Kotlin, C#, Ruby and Nix have no server here: their answers were judged by reading the code.
 """
 import json, os, random, re, select, subprocess, sys, time
 from collections import defaultdict
@@ -78,6 +78,8 @@ yield Task List String""".split(),
 in module next nil not or redo rescue retry return self super then true undef unless until when
 while yield require require_relative include extend attr_accessor attr_reader attr_writer private
 protected public puts raise new lambda proc""".split(),
+    "nix": """let in with rec inherit if then else assert or import true false null builtins lib pkgs
+config throw abort toString map""".split(),
 }
 KW["js"] = KW["ts"]
 KW["objc"] = C_KW + """self super nil Nil YES NO id instancetype BOOL SEL Class IMP NSInteger NSUInteger
@@ -103,14 +105,51 @@ SPEC = {
     "kotlin": dict(exts=(".kt", ".kts"), lc=("//",), bc=("/*", "*/"), triple=True),
     "csharp": dict(exts=(".cs",), lc=("//",), bc=("/*", "*/"), triple=True),
     "ruby": dict(exts=(".rb",), lc=("#",), bc=None),
+    "nix": dict(exts=(".nix",), lc=(), nix=True),
 }
+NIX_PATH = re.compile(r"(?:^|(?<=[\s(\[{=;]))(?:\.{1,2}|[\w.+-]*)(?:/[\w.+-]+)+/?")
+NIX_BINDS = re.compile(r"\s*(?:\.\s*[\w'-]*\s*)*=(?!=)")
 SKIP_DIRS = {".git", "node_modules", "vendor", "third_party", "dist", "build", "target", ".venv",
              "venv", "__pycache__", "migrations", "deps", "public", "static", "locale", "locales",
              "generated", ".build", "Pods", "fixtures", "testdata"}
 
 
+def nix_mask(text):
+    """Blanks Nix's comments and strings, nested in `${}` included, keeping the code inside `${}`."""
+    out, stack, i, n = list(text), [0], 0, len(text)
+
+    def blank(a, b):
+        out[a:b] = [ch if ch == "\n" else " " for ch in text[a:b]]
+
+    while i < n:
+        top = stack[-1]
+        if top in ('"', "''"):
+            if text.startswith("${", i):
+                blank(i, i + 2); stack.append(0); i += 2; continue
+            if top == '"' and text[i] == "\\":
+                blank(i, i + 2); i += 2; continue
+            if top == '"' and text[i] == '"' or top == "''" and text.startswith("''", i) and text[i + 2:i + 3] not in ("'", "$", "\\"):
+                blank(i, i + len(top)); stack.pop(); i += len(top); continue
+            k = 3 if top == "''" and text.startswith("''", i) else 1
+            blank(i, i + k); i += k; continue
+        if text[i] == "#" or text.startswith("/*", i):
+            j = text.find("\n", i) if text[i] == "#" else text.find("*/", i + 2) + 2
+            j = n if j < 2 else j
+            blank(i, j); i = j; continue
+        if text.startswith("''", i) or text[i] == '"':
+            k = 2 if text[i] == "'" else 1
+            stack.append(text[i:i + k]); blank(i, i + k); i += k; continue
+        if text[i] == "}" and top == 0 and len(stack) > 1:
+            blank(i, i + 1); stack.pop(); i += 1; continue
+        stack[-1] += {"{": 1, "}": -1}.get(text[i], 0)
+        i += 1
+    return "".join(out)
+
+
 def code_tokens(text, spec):
     """(line1, col, word, before, after) for identifiers outside comments and strings."""
+    if spec.get("nix"):
+        text = nix_mask(text)
     out = []
     state = None  # None | 'block' | ('str', closer)
     for n, line in enumerate(text.split("\n"), 1):
@@ -139,6 +178,8 @@ def code_tokens(text, spec):
                 state = "block"; masked[i:i + 2] = "  "; i += 2; continue
             if spec.get("triple") and (line.startswith('"""', i) or line.startswith("'''", i)):
                 state = ("str", line[i:i + 3]); masked[i:i + 3] = "   "; i += 3; continue
+            if spec.get("nix") and c == "'":
+                i += 1; continue
             if spec.get("tmpl") and c == spec["tmpl"]:
                 state = ("str", c); masked[i] = " "; i += 1; continue
             if c in "\"'":
@@ -152,7 +193,11 @@ def code_tokens(text, spec):
         m = "".join(masked)
         if not m.isascii():
             continue
-        for t in re.finditer(r"[A-Za-z_][A-Za-z0-9_]*", m):
+        if spec.get("nix"):
+            for t in NIX_PATH.finditer(m):
+                out.append((n, t.start(), t.group(), m[:t.start()], m[t.end():]))
+            m = NIX_PATH.sub(lambda t: " " * len(t.group()), m)
+        for t in re.finditer(r"[A-Za-z_][A-Za-z0-9_'-]*" if spec.get("nix") else r"[A-Za-z_][A-Za-z0-9_]*", m):
             s, e = t.span()
             if s > 0 and (m[s - 1].isdigit() or m[s - 1] in "$@#"):
                 continue
@@ -190,6 +235,11 @@ def sample(lang, project, root, n, out, exclude=()):
             rel = os.path.relpath(p, root)
             for (ln, col, w, before, after) in code_tokens(text, spec):
                 if w in kw or len(w) < 2:
+                    continue
+                if "/" in w:
+                    buckets["path"].append((rel, ln, col, "path", w))
+                    continue
+                if lang == "nix" and NIX_BINDS.match(after):
                     continue
                 prev = re.findall(r"[A-Za-z_]+", before)
                 if prev and prev[-1] in DECL and not before.rstrip().endswith((".", "->", "::", "(", ",", "=", ":")):
