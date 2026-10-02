@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 mod csharp;
+mod rust;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum Lang {
@@ -9,6 +10,7 @@ pub(crate) enum Lang {
     Ts,
     Go,
     CSharp,
+    Rust,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -26,6 +28,7 @@ pub(crate) fn syntax_of(path: &Path) -> Option<Syntax> {
         "tsx" => (Lang::Ts, true),
         "go" => (Lang::Go, false),
         "cs" => (Lang::CSharp, false),
+        "rs" => (Lang::Rust, false),
         _ => return None,
     };
     Some(Syntax { lang, jsx })
@@ -43,6 +46,7 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
     match syntax.lang {
         Lang::Go => model.go(),
         Lang::CSharp => model.csharp(lines),
+        Lang::Rust => model.rust(lines),
         lang => model.ecma(lang == Lang::Ts),
     }
     let levels = levels(lines.len(), &model.nodes);
@@ -235,6 +239,10 @@ impl<'a> Lexer<'a> {
                 self.i = s.len();
                 continue;
             }
+            if s[i..].starts_with(b"/*") && self.syntax.lang == Lang::Rust {
+                self.nested_comment(i + 2);
+                continue;
+            }
             if s[i..].starts_with(b"/*") {
                 self.skip_past(i + 2, b"*/");
                 continue;
@@ -246,6 +254,12 @@ impl<'a> Lexer<'a> {
                     self.skip_past(i + 1, b"`");
                     self.emit(l, i, 1, K::Str, self.l);
                 }
+                continue;
+            }
+            if self.syntax.lang == Lang::Rust
+                && matches!(c, b'\'' | b'"' | b'r' | b'b' | b'c')
+                && self.rust_quote()
+            {
                 continue;
             }
             if self.syntax.lang == Lang::CSharp
