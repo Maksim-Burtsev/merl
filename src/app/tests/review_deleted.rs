@@ -336,7 +336,7 @@ fn a_deleted_row_carries_a_red_mark() {
     let mut t = Terminal::new(TestBackend::new(90, 12)).unwrap();
     t.draw(|f| crate::ui::draw(f, &mut a, &theme)).unwrap();
     let buf = t.backend().buffer();
-    let label = "app/services/orders.py:9: self.total(order_id)";
+    let label = "  9  self.total(order_id)";
     let (x, y) = (0..buf.area.height)
         .find_map(|y| {
             let text: String = (0..buf.area.width).map(|x| buf[(x, y)].symbol()).collect();

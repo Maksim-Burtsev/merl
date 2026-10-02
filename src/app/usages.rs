@@ -70,6 +70,7 @@ impl App {
                 let head = format!("{mark:width$}");
                 PickItem {
                     code_at: it.code_at.map(|at| at + head.len()),
+                    place_at: it.place_at.map(|at| at + head.len()),
                     label: head + &it.label,
                     ..it
                 }

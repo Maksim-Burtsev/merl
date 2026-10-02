@@ -1312,16 +1312,16 @@ fn review_marks_changed_rows_in_u_and_s_and_lists_its_files_first_in_o() {
     a.col = 0;
     press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
     let rows = screen(&mut a);
-    assert_eq!(row(&rows, "\u{2502}\u{258e}src/a.rs:2: B c"), Color::Green);
-    row(&rows, "\u{2502} src/a.rs:3: c");
+    assert_eq!(row(&rows, "\u{2502}\u{258e}  2  B c"), Color::Green);
+    row(&rows, "\u{2502}   3  c");
     esc(&mut a);
 
     press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
     typed(&mut a, "c");
     a.settle_search();
     let rows = screen(&mut a);
-    row(&rows, "\u{2502}\u{258e}src/a.rs:2: B c");
-    row(&rows, "\u{2502} src/a.rs:3: c");
+    row(&rows, "\u{2502}\u{258e}  2  B c");
+    row(&rows, "\u{2502}   3  c");
     esc(&mut a);
 
     // The review's files on disk in the panel's order, then the rest; `gone` is not on disk.
@@ -1360,7 +1360,7 @@ fn review_marks_changed_rows_in_u_and_s_and_lists_its_files_first_in_o() {
     a.review_list_marks = false;
     a.review_open_files_first = false;
     press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
-    row(&screen(&mut a), "\u{2502}src/a.rs:2: B c");
+    row(&screen(&mut a), "\u{2502}src/a.rs ");
     esc(&mut a);
     press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
     let rows = screen(&mut a);

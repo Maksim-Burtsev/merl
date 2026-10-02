@@ -82,6 +82,7 @@ impl App {
                     path: h.path,
                     line: h.line,
                     code_at,
+                    place_at: Some(0),
                     deleted: h.deleted.is_some(),
                 }
             })

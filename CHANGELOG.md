@@ -128,6 +128,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The lists of `u`, `s` and `d`'s choices name a file once, above its rows, and each row shows
+  the line number and the code: `polar/license_key/endpoints.py` over `242  license_key = await …`
+  instead of the path repeated on every row. A row still too wide for the list wraps under its
+  code instead of stopping at the border mid-word. (#479)
 - `d` in C and C++ looks outside the project in the headers the file includes first. On
   `pthread_equal` it lands on `pthread/pthread.h`, one row where the header and a link to it
   were two; `printf` no longer offers gettext's `libintl.h`, nor `s.append("x")` 148 methods

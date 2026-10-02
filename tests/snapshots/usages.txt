@@ -8,15 +8,15 @@ merl snapshot: usages
 │  export.csv                │11 class Config:
 │  Makef┌Usages of load_config: 1 declaration, 4 in code (5/5)─────────┐I."""
 │  model│>                                                             │
-│  notes│declaration  config.py:18: def load_config(path: Path | None =│
-│  PLAN.│             cli.py:6: from config import load_config         │
-│  store│             cli.py:30: store = NoteStore(load_config())      │
-│       │             store.py:5: from config import Config, load_confi│
-│       │             store.py:13: self.config = config or load_config(│e) ->
-│       │                                                              │
-│       │                                                              │le,
-│       │                                                              │
-│       │                                                              │):
+│  notes│             config.py                                        │
+│  PLAN.│declaration    18  def load_config(path: Path | None = None)  │
+│  store│                   -> Config:                                 │
+│       │             cli.py                                           │
+│       │                6  from config import load_config             │e) ->
+│       │               30  store = NoteStore(load_config())           │
+│       │             store.py                                         │le,
+│       │                5  from config import Config, load_config     │
+│       │               13  self.config = config or load_config()      │):
 │       │                                                              │
 │       │                                                              │
 │       └──────────────────────────────────────────────────────────────┘
@@ -34,23 +34,23 @@ aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccfeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccjjjjjekkkkkkgeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbaaaaaaaaaallllleee
 aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
-aeeeeeeeammmmmmmmmmmmmmmmmmmmmmmmmmmnnnmooooooooooopqqqqrmmmmmmrmssssmraeeeeeeee
-aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeetttteeeeeeeetttttteeeeeeeeeeeeeeeeeeeeeaeeeeeeee
-aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeefeaaaaaaaaagaaaaaaaaaaagggeeeeeeaeeeeeeee
-aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeetttteeeeeeeetttttteeeeeeefeeeeeeeeeeeaeeeeeeee
-aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeuuuufeeeeeeefeeeeeeeejjeaaaaaaaaaaagaspmrrmmm
-aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeammmmmmmm
-aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeealllleeee
-aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
-aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaggeeeeee
+aeeeeeeeaeeeeeeeeeeeeebbbbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeammmmmmmmmmmmmnnnnnnooompppppppppppqrrrrsmmmmmmsmttttmsmttttqmmaeeeeeeee
+aeeeeeeeammmmmmmmmmmmmmmmmmmssmmmmmmmqmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmaeeeeeeee
+aeeeeeeeaeeeeeeeeeeeeebbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeaeeeeeeeeeeeeeuuuuuuvvvveeeeeeeevvvvvveeeeeeeeeeeeeeeeeeeeeeeeeatqmssmmm
+aeeeeeeeaeeeeeeeeeeeeeuuuuuueeeeeefeaaaaaaaaagaaaaaaaaaaagggeeeeeeeeeeeammmmmmmm
+aeeeeeeeaeeeeeeeeeeeeebbbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeealllleeee
+aeeeeeeeaeeeeeeeeeeeeeuuuuuuvvvveeeeeeeevvvvvveeeeeeefeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeaeeeeeeeeeeeeeuuuuuuwwwwfeeeeeeefeeeeeeeejjeaaaaaaaaaaaggeeeeeeaggeeeeee
 aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
 aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
 aeeeeeeeaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaeeeeeeee
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeevvvvvveaaaaaageeeeeeeeeeeeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccaaaaaaaawwwwfaaaagaaafaaagfhhhhffaeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeexxxxxxeaaaaaageeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccaaaaaaaayyyyfaaaagaaafaaagfhhhhffaeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeddddddddddddggfeeeeeeeeeeeeeeeeeeeeeeee
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccaaaaaaaawwwwwwwwwfkkkgaaafaaagfhhhhhhhhhffaeeee
-xxxxxxxxxmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccaaaaaaaayyyyyyyyyfkkkgaaafaaagfhhhhhhhhhffaeeee
+zzzzzzzzzmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #32374f bg #222436
@@ -64,17 +64,19 @@ j fg #c099ff bg #222436
 k fg #0db9d7 bg #222436
 l fg #636da6 bg #222436 ITALIC
 m fg #c8d3f5 bg #1b1d2c
-n fg #c099ff bg #1b1d2c
-o fg #82aaff bg #1b1d2c
-p fg #9abdf5 bg #1b1d2c
-q fg #ffc777 bg #1b1d2c
-r fg #89ddff bg #1b1d2c
-s fg #ff966c bg #1b1d2c
-t fg #86e1fc bg #222436
-u fg #ff757f bg #222436
-v fg #c099ff bg #222436 ITALIC
-w fg #ffc777 bg #222436
-x fg #82aaff bg #1b1d2c BOLD
+n fg #7d849f bg #1b1d2c
+o fg #c099ff bg #1b1d2c
+p fg #82aaff bg #1b1d2c
+q fg #9abdf5 bg #1b1d2c
+r fg #ffc777 bg #1b1d2c
+s fg #89ddff bg #1b1d2c
+t fg #ff966c bg #1b1d2c
+u fg #7d849f bg #222436
+v fg #86e1fc bg #222436
+w fg #ff757f bg #222436
+x fg #c099ff bg #222436 ITALIC
+y fg #ffc777 bg #222436
+z fg #82aaff bg #1b1d2c BOLD
 
 ==== 80x24 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddedddddddddddddeddfffffffffffdddddd
@@ -84,15 +86,15 @@ aggggggggggggggggggggggggggggacccddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaccceeeeedhhhhhhddddddddddddddddddddddddddddddddddd
 adddddddabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbaaaaaaaaaaiidddddd
 adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
-adddddddajjjjjjjjjjjjjjjjjjjjjjjjjjjkkkjllllllllllljjjjjjjjjjjjkjmmmmjkadddddddd
-adddddddadddddddddddddddddddddddeeeeddddddddeeeeeedddddddddddddddddddddadddddddd
-adddddddaddddddddddddddddddddddddddddddedddddddddddddddddddddddddddddddadddddddd
-adddddddadddddddddddddddddddddddddeeeeddddddddeeeeeedddddddddddddddddddadddddddd
-adddddddaddddddddddddddddddddddddddddddddddddddeddddddddeedddddddddddddamjjjjjjj
-adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddajjjjjjjj
-adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddaiiiidddd
-adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
-adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+adddddddadddddddddddddbbbbbbbbbddddddddddddddddddddddddddddddddddddddddadddddddd
+adddddddajjjjjjjjjjjjjkkkkkkllljmmmmmmmmmmmjjjjjjjjjjjjljnnnnjljnnnnjjjadddddddd
+adddddddajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjadddddddd
+adddddddadddddddddddddbbbbbbdddddddddddddddddddddddddddddddddddddddddddadddddddd
+adddddddadddddddddddddooooooeeeeddddddddeeeeeedddddddddddddddddddddddddanjjjjjjj
+adddddddadddddddddddddooooooddddddeddddddddddddddddddddddddddddddddddddajjjjjjjj
+adddddddadddddddddddddbbbbbbbbdddddddddddddddddddddddddddddddddddddddddaiiiidddd
+adddddddadddddddddddddooooooeeeeddddddddeeeeeedddddddddddddddddddddddddadddddddd
+adddddddadddddddddddddooooooddddddddddddeddddddddeeddddddddddddddddddddadddddddd
 adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
 adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
 adddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddd
@@ -100,7 +102,7 @@ addddddddddddddddddddddddddddacccddddeeeeeeddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddddddddddddeddddddddddddddffffdddddddddddddddd
 addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddehhhddddddddddfffffffffddddddd
-nnnnnnnnnjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+pppppppppjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #6e7781 bg #ffffff
@@ -111,10 +113,12 @@ g fg #1f2328 bg #f3f4f7
 h fg #953800 bg #ffffff
 i fg #57606a bg #ffffff
 j fg #1f2328 bg #e7eaf0
-k fg #cf222e bg #e7eaf0
-l fg #6639ba bg #e7eaf0
-m fg #0550ae bg #e7eaf0
-n fg #6639ba bg #e7eaf0 BOLD
+k fg #787b7e bg #e7eaf0
+l fg #cf222e bg #e7eaf0
+m fg #6639ba bg #e7eaf0
+n fg #0550ae bg #e7eaf0
+o fg #787b7e bg #ffffff
+p fg #6639ba bg #e7eaf0 BOLD
 
 ==== 120x33 tokyonight-moon text, cursor 15,8
 ┌notes───────────────────────┐ 2
@@ -126,14 +130,14 @@ n fg #6639ba bg #e7eaf0 BOLD
 │  models.py                 │ 8
 │  notes.jso┌Usages of load_config: 1 declaration, 4 in code (5/5)─────────────────────────────────────────┐
 │  PLAN.md  │>                                                                                             │
-│  store.py │declaration  config.py:18: def load_config(path: Path | None = None) -> Config:               │
-│           │             cli.py:6: from config import load_config                                         │
-│           │             cli.py:30: store = NoteStore(load_config())                                      │
-│           │             store.py:5: from config import Config, load_config                               │
-│           │             store.py:13: self.config = config or load_config()                               │
-│           │                                                                                              │
-│           │                                                                                              │
-│           │                                                                                              │
+│  store.py │             config.py                                                                        │
+│           │declaration    18  def load_config(path: Path | None = None) -> Config:                       │
+│           │             cli.py                                                                           │
+│           │                6  from config import load_config                                             │
+│           │               30  store = NoteStore(load_config())                                           │
+│           │             store.py                                                                         │
+│           │                5  from config import Config, load_config                                     │
+│           │               13  self.config = config or load_config()                                      │
 │           │                                                                                              │
 │           │                                                                                              │
 │           │                                                                                              │
@@ -161,14 +165,14 @@ addddddddddddddddddddddddddddacccggggggggggggdhdaaaahaaaaiidhdhjjjjjjjjjjjhddddd
 addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 adddddddddddabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddd
 adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddakkkkkkkkkkkkkkkkkkkkkkkkkkklllkmmmmmmmmmmmnoooopkkkkkkpkqqqqkpkqqqqnkppkkkkkkknkkkkkkkkkkkkkkkadddddddddddd
-adddddddddddadddddddddddddddddddddddeeeeddddddddeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddhdaaaaaaaaaiaaaaaaaaaaaiiiddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddadddddddddddddddddddddddddeeeeddddddddeeeeeedddddddhdddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddrrrrhdddddddhddddddddssdaaaaaaaaaaaiidddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddakkkkkkkkkkkk
+adddddddddddadddddddddddddbbbbbbbbbddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
+adddddddddddakkkkkkkkkkkkkllllllmmmknnnnnnnnnnnoppppqkkkkkkqkrrrrkqkrrrrokqqkkkkkkkokkkkkkkkkkkkkkkkkkkkkkkadddddddddddd
+adddddddddddadddddddddddddbbbbbbdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
+adddddddddddadddddddddddddsssssseeeeddddddddeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
+adddddddddddadddddddddddddssssssddddddhdaaaaaaaaaiaaaaaaaaaaaiiidddddddddddddddddddddddddddddddddddddddddddadddddddddddd
+adddddddddddadddddddddddddbbbbbbbbdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
+adddddddddddadddddddddddddsssssseeeeddddddddeeeeeedddddddhdddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
+adddddddddddadddddddddddddsssssstttthdddddddhdddddddduudaaaaaaaaaaaiiddddddddddddddddddddddddddddddddddddddakkkkkkkkkkkk
 adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
 adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
 adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
@@ -184,7 +188,7 @@ addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-tttttttttkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
+vvvvvvvvvkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #32374f bg #222436
@@ -196,15 +200,17 @@ h fg #89ddff bg #222436
 i fg #9abdf5 bg #222436
 j fg #c3e88d bg #222436
 k fg #c8d3f5 bg #1b1d2c
-l fg #c099ff bg #1b1d2c
-m fg #82aaff bg #1b1d2c
-n fg #9abdf5 bg #1b1d2c
-o fg #ffc777 bg #1b1d2c
-p fg #89ddff bg #1b1d2c
-q fg #ff966c bg #1b1d2c
-r fg #ff757f bg #222436
-s fg #c099ff bg #222436
-t fg #82aaff bg #1b1d2c BOLD
+l fg #7d849f bg #1b1d2c
+m fg #c099ff bg #1b1d2c
+n fg #82aaff bg #1b1d2c
+o fg #9abdf5 bg #1b1d2c
+p fg #ffc777 bg #1b1d2c
+q fg #89ddff bg #1b1d2c
+r fg #ff966c bg #1b1d2c
+s fg #7d849f bg #222436
+t fg #ff757f bg #222436
+u fg #c099ff bg #222436
+v fg #82aaff bg #1b1d2c BOLD
 
 ==== 120x33 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
@@ -216,14 +222,14 @@ addddddddddddddddddddddddddddacccdddddddddddddedddddddddddddeddgggggggggggdddddd
 addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 adddddddddddabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddd
 adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddahhhhhhhhhhhhhhhhhhhhhhhhhhhiiihjjjjjjjjjjjhhhhhhhhhhhhihkkkkhihkkkkhhhhhhhhhhhhhhhhhhhhhhhhhhhadddddddddddd
-adddddddddddadddddddddddddddddddddddeeeeddddddddeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddadddddddddddddddddddddddddeeeeddddddddeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddeddddddddeedddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddahhhhhhhhhhhh
+adddddddddddadddddddddddddbbbbbbbbbddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
+adddddddddddahhhhhhhhhhhhhiiiiiijjjhkkkkkkkkkkkhhhhhhhhhhhhjhllllhjhllllhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhadddddddddddd
+adddddddddddadddddddddddddbbbbbbdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
+adddddddddddadddddddddddddmmmmmmeeeeddddddddeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
+adddddddddddadddddddddddddmmmmmmddddddeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
+adddddddddddadddddddddddddbbbbbbbbdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
+adddddddddddadddddddddddddmmmmmmeeeeddddddddeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
+adddddddddddadddddddddddddmmmmmmddddddddddddeddddddddeeddddddddddddddddddddddddddddddddddddddddddddddddddddahhhhhhhhhhhh
 adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
 adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
 adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
@@ -239,7 +245,7 @@ addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-lllllllllhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+nnnnnnnnnhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #6e7781 bg #ffffff
@@ -248,10 +254,12 @@ e fg #cf222e bg #ffffff
 f fg #1f2328 bg #f3f4f7
 g fg #0a3069 bg #ffffff
 h fg #1f2328 bg #e7eaf0
-i fg #cf222e bg #e7eaf0
-j fg #6639ba bg #e7eaf0
-k fg #0550ae bg #e7eaf0
-l fg #6639ba bg #e7eaf0 BOLD
+i fg #787b7e bg #e7eaf0
+j fg #cf222e bg #e7eaf0
+k fg #6639ba bg #e7eaf0
+l fg #0550ae bg #e7eaf0
+m fg #787b7e bg #ffffff
+n fg #6639ba bg #e7eaf0 BOLD
 
 ==== 185x55 tokyonight-moon text, cursor 22,12
 ┌notes───────────────────────┐ 1 """Configuration: where the notes live and how many are listed at once."""
@@ -267,14 +275,14 @@ l fg #6639ba bg #e7eaf0 BOLD
 │                            │11 class Config:
 │                  ┌Usages of load_config: 1 declaration, 4 in code (5/5)─────────────────────────────────────────────────────────────────────────────────────────────┐
 │                  │>                                                                                                                                                 │
-│                  │declaration  config.py:18: def load_config(path: Path | None = None) -> Config:                                                                   │
-│                  │             cli.py:6: from config import load_config                                                                                             │
-│                  │             cli.py:30: store = NoteStore(load_config())                                                                                          │
-│                  │             store.py:5: from config import Config, load_config                                                                                   │
-│                  │             store.py:13: self.config = config or load_config()                                                                                   │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
+│                  │             config.py                                                                                                                            │
+│                  │declaration    18  def load_config(path: Path | None = None) -> Config:                                                                           │
+│                  │             cli.py                                                                                                                               │
+│                  │                6  from config import load_config                                                                                                 │
+│                  │               30  store = NoteStore(load_config())                                                                                               │
+│                  │             store.py                                                                                                                             │
+│                  │                5  from config import Config, load_config                                                                                         │
+│                  │               13  self.config = config or load_config()                                                                                          │
 │                  │                                                                                                                                                  │
 │                  │                                                                                                                                                  │
 │                  │                                                                                                                                                  │
@@ -324,14 +332,14 @@ aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccclllllemmmmmmjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeannnnnnnnnnnnnnnnnnnnnnnnnnnooonpppppppppppqrrrrsnnnnnnsnttttnsnttttqnssnnnnnnnqnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeffffeeeeeeeeffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeieaaaaaaaaajaaaaaaaaaaajjjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeffffeeeeeeeeffffffeeeeeeeieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeuuuuieeeeeeeieeeeeeeelleaaaaaaaaaaajjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeannnnnnnnnnnnnnnnnn
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeebbbbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeannnnnnnnnnnnnoooooopppnqqqqqqqqqqqrsssstnnnnnntnuuuuntnuuuurnttnnnnnnnrnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnaeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeebbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeevvvvvvffffeeeeeeeeffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeevvvvvveeeeeeieaaaaaaaaajaaaaaaaaaaajjjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeannnnnnnnnnnnnnnnnn
+aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeebbbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeevvvvvvffffeeeeeeeeffffffeeeeeeeieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeevvvvvvwwwwieeeeeeeieeeeeeeelleaaaaaaaaaaajjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
@@ -365,7 +373,7 @@ aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-vvvvvvvvvnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+xxxxxxxxxnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #32374f bg #222436
@@ -380,14 +388,16 @@ k fg #c3e88d bg #222436
 l fg #c099ff bg #222436
 m fg #0db9d7 bg #222436
 n fg #c8d3f5 bg #1b1d2c
-o fg #c099ff bg #1b1d2c
-p fg #82aaff bg #1b1d2c
-q fg #9abdf5 bg #1b1d2c
-r fg #ffc777 bg #1b1d2c
-s fg #89ddff bg #1b1d2c
-t fg #ff966c bg #1b1d2c
-u fg #ff757f bg #222436
-v fg #82aaff bg #1b1d2c BOLD
+o fg #7d849f bg #1b1d2c
+p fg #c099ff bg #1b1d2c
+q fg #82aaff bg #1b1d2c
+r fg #9abdf5 bg #1b1d2c
+s fg #ffc777 bg #1b1d2c
+t fg #89ddff bg #1b1d2c
+u fg #ff966c bg #1b1d2c
+v fg #7d849f bg #222436
+w fg #ff757f bg #222436
+x fg #82aaff bg #1b1d2c BOLD
 
 ==== 185x55 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
@@ -403,14 +413,14 @@ addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccfffffdiiiiiidddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddd
 addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddajjjjjjjjjjjjjjjjjjjjjjjjjjjkkkjllllllllllljjjjjjjjjjjjkjmmmmjkjmmmmjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjadddddddddddddddddd
-addddddddddddddddddadddddddddddddddddddddddffffddddddddffffffdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddfdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddadddddddddddddddddddddddddffffddddddddffffffdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddfddddddddffdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddajjjjjjjjjjjjjjjjjj
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
+addddddddddddddddddadddddddddddddbbbbbbbbbddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
+addddddddddddddddddajjjjjjjjjjjjjkkkkkkllljmmmmmmmmmmmjjjjjjjjjjjjljnnnnjljnnnnjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjadddddddddddddddddd
+addddddddddddddddddadddddddddddddbbbbbbdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
+addddddddddddddddddadddddddddddddooooooffffddddddddffffffdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
+addddddddddddddddddadddddddddddddooooooddddddfddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddajjjjjjjjjjjjjjjjjj
+addddddddddddddddddadddddddddddddbbbbbbbbdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
+addddddddddddddddddadddddddddddddooooooffffddddddddffffffdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
+addddddddddddddddddadddddddddddddooooooddddddddddddfddddddddffddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
 addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
 addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
 addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
@@ -444,7 +454,7 @@ addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-nnnnnnnnnjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+pppppppppjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #6e7781 bg #ffffff
@@ -455,7 +465,9 @@ g fg #1f2328 bg #f3f4f7
 h fg #0a3069 bg #ffffff
 i fg #953800 bg #ffffff
 j fg #1f2328 bg #e7eaf0
-k fg #cf222e bg #e7eaf0
-l fg #6639ba bg #e7eaf0
-m fg #0550ae bg #e7eaf0
-n fg #6639ba bg #e7eaf0 BOLD
+k fg #787b7e bg #e7eaf0
+l fg #cf222e bg #e7eaf0
+m fg #6639ba bg #e7eaf0
+n fg #0550ae bg #e7eaf0
+o fg #787b7e bg #ffffff
+p fg #6639ba bg #e7eaf0 BOLD

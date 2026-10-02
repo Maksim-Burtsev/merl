@@ -12,11 +12,11 @@ wait Search (3 hits)
 11 class OrderService:
 12     def __init__┌Search (3 hits)───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 13         self.rep│s> unitofwork                                                                                                                                     │
-14         self.uow│app/service.py:4: from app.uow import UnitOfWork                                                                                                  │
-15         self.set│app/service.py:12: def __init__(self, repo: OrderRepo, uow: UnitOfWork, settings: Settings):                                                      │
-16                 │app/uow.py:4: class UnitOfWork:                                                                                                                   │
-17     def get(self│                                                                                                                                                  │
-18         order = │                                                                                                                                                  │
+14         self.uow│app/service.py                                                                                                                                    │
+15         self.set│   4  from app.uow import UnitOfWork                                                                                                              │
+16                 │  12  def __init__(self, repo: OrderRepo, uow: UnitOfWork, settings: Settings):                                                                   │
+17     def get(self│app/uow.py                                                                                                                                        │
+18         order = │   4  class UnitOfWork:                                                                                                                           │
 19         if order│                                                                                                                                                  │
 20             rais│                                                                                                                                                  │
 21         return o│                                                                                                                                                  │
