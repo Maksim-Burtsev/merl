@@ -112,7 +112,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             Kind::Graphql => (true, false, false, false, &["#"]),
             // The C family's comments, and no backtick: a Protocol Buffers string ends with its
             // line.
-            Kind::Proto => (false, false, false, true, &["//"]),
+            Kind::Proto | Kind::Solidity => (false, false, false, true, &["//"]),
             // `/* */` in all four stylesheet languages and `//` in SCSS, Sass and Less: one kind
             // reads `//` in a `.css` file too, at the cost of a `/*` after a `url(//…)` on its
             // line (#415). A string ends with its line, and a backtick is nothing.

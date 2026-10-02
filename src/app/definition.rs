@@ -185,17 +185,17 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // An import's path, and a name its package qualifies (#418).
         if kind == Kind::Proto
             && let Some(found) = self.proto_definitions(&text, &written[..start], &word)
         {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // A Dart name an import binds with `as` or `show` is looked for in that file (#414).
-        if kind == Kind::Dart
-            && let Some(found) = self.dart_imported(&here, &text, before, &chain, &word)
-        {
+        if let Some(found) = match kind {
+            Kind::Dart => self.dart_imported(&here, &text, before, &chain, &word),
+            Kind::Solidity => self.solidity_imported(&here, &text, before, &chain, &word),
+            _ => None,
+        } {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
@@ -481,7 +481,7 @@ impl App {
                 || same_line
                 || own_line
                 || own_arrow
-                || matches!(kind, Kind::Rust | Kind::Nix))
+                || matches!(kind, Kind::Rust | Kind::Nix | Kind::Solidity))
         {
             let found = locals
                 .iter()

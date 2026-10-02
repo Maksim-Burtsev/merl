@@ -1,7 +1,7 @@
 # `d` bench
 
-How often `d` lands where a language server would, per language, in 14 real projects pinned to a
-commit: 3,140 cursors, each with an answer recorded once and reviewed, and the table master
+How often `d` lands where a language server would, per language, in 15 real projects pinned to a
+commit: 3,410 cursors, each with an answer recorded once and reviewed, and the table master
 scores on them (`baseline.md`). A `d` change runs it and shows no language worse than master
 (`AGENTS.md`, `## Changing d`).
 
@@ -70,7 +70,11 @@ one was written for `SDWebImage/Core/*.m` and `SDWebImage/Private/*.m` (flags `-
 -fobjc-arc -fmodules -isysroot $(xcrun --show-sdk-path) -ISDWebImage/Core -ISDWebImage/Private
 -ISDWebImage/include`), its cursors sampled with `--exclude
 Examples,Tests,WebImage,Docs,Scripts,SDWebImageMapKit,include` (`include/` links back into
-`Core/`). Java, Kotlin, C#
+`Core/`). Solidity's oracle, `@nomicfoundation/solidity-language-server`, reads a project
+through its local Hardhat 3, so openzeppelin-contracts installs with `npm ci --ignore-scripts`;
+its cursors were sampled with `--exclude test,lib,scripts,fv,certora,docs,hardhat,audits,mocks`
+(the library's own `contracts/`), and the ones in inline assembly, Yul builtins, have no answer.
+Java, Kotlin, C#
 and Ruby had no server on the recording machine: an agent judged their cursors by reading the
 code, and a definition outside the project (the JDK, a gem) is `no-answer` there.
 

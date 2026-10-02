@@ -13,3 +13,4 @@ nowinandroid	kotlin	https://github.com/android/nowinandroid.git	a49ed253d75e61a2
 eShop	csharp	https://github.com/dotnet/eShop.git	b4a40872005d4bb29e5b1fa1ff7e244143d39215	-
 mastodon	ruby	https://github.com/mastodon/mastodon.git	a4ac5f5670942265804dbb261713e1ff0109a402	-
 SDWebImage	objc	https://github.com/SDWebImage/SDWebImage.git	c3ad5e1a9bf55c9b76d4c362430b5fcded96c502	-
+openzeppelin-contracts	solidity	https://github.com/OpenZeppelin/openzeppelin-contracts.git	40a51f7e78852e48d0b128d4ee3d620cbc7d35d8	npm ci --ignore-scripts

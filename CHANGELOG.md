@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `d`, `u` and `D` in Solidity, where `d` said `no rules for .sol`. `d` on `withinSupply` in a
+  function's header lands on its `modifier withinSupply(uint256 amount) {`, on `Minted` in
+  `emit Minted(…)` on its `event`, on `MAX_SUPPLY` on its `uint256 public constant MAX_SUPPLY`; on
+  a name an `import {ERC20} from "@openzeppelin/…";` binds, on its `abstract contract ERC20` in
+  `node_modules`, `ERC20: via import @openzeppelin/contracts/token/ERC20/ERC20.sol`, a path
+  resolved through `remappings.txt`, `foundry.toml` and `lib/` too; on the import's path, that
+  file; on a parameter or a local, the line that declares it. `D` lists contracts, libraries,
+  modifiers, events and errors beside functions, structs, enums and interfaces. (#433)
+
 ## [0.8.1] - 2026-10-02
 
 ### Added

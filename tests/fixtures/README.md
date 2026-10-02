@@ -246,6 +246,14 @@ function by name, `let` bindings named `api` in two files (each stays in its own
 path, each refusal of the issue, and declaration-shaped lines in indented strings (one opened
 after `//`, one holding the `'''`, `''$` and `''\` escapes), a `"…"`, a `/* */` and a `#` comment.
 
+`solidity/` (#433) is a token and a basket over a library: the issue's `ShopToken` with its
+`modifier`, `event`, `error` and constant, imports of `@openzeppelin/contracts` from a
+`node_modules` the fixture's `.gitignore` ignores (added with `git add -f`), a relative import
+aliased and as a qualifier, a remapped one through `remappings.txt` and one through
+`foundry.toml` into `lib/`, every declaration form of the issue, parameters, named returns and
+locals of a header over lines, and declaration-shaped lines in a NatSpec `/** */`, a `/* */` and a
+`//` comment.
+
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
 `deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies
 the project walk does not reach, one whose module is no path and two declaring one name (#437).
