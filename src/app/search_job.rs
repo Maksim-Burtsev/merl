@@ -1,5 +1,3 @@
-//! One project grep, owned by the thread that runs it.
-
 use super::*;
 
 /// How long the `s` query has to stand still before it is grepped.

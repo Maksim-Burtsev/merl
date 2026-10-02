@@ -1630,7 +1630,6 @@ impl App {
         let hits = match kind == Kind::C && !dotted && !before.ends_with("->") {
             true => {
                 let (before, after) = (before.trim_end(), &self.line_str()[range.end..]);
-                // `before` ends in the keyword `k` itself, not in a name ending so.
                 let keyword = |k: &str| {
                     before.strip_suffix(k).is_some_and(|b| {
                         !b.ends_with(|c: char| c.is_ascii_alphanumeric() || c == '_')
@@ -2082,7 +2081,6 @@ impl App {
                 break;
             }
         }
-        // One level up: the class the innermost named one extends, declared once.
         let inner = types
             .iter()
             .find(|&&d| search::jvm_type_name(lines[d - 1]).is_some());

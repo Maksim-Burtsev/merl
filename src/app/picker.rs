@@ -95,7 +95,6 @@ impl App {
             if pending {
                 // The list on screen answers an older query: Enter waits for this one's.
                 self.search_enter = true;
-                // No point in waiting out the pause.
                 self.search_due = self.search_due.map(|_| Instant::now());
             } else if let Some(item) = picker.current().cloned() {
                 self.search_jump(item);
@@ -133,7 +132,6 @@ impl App {
         self.mode = Mode::Normal;
     }
 
-    /// The query of a live picker changed: its search goes out once typing pauses.
     pub(super) fn search_typed(&mut self) {
         // `s` has nothing to show without a query. `D` has the list it opened on, so an
         // emptied query asks for that list again rather than for nothing.

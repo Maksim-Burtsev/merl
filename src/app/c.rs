@@ -623,7 +623,6 @@ fn normal(path: &Path) -> PathBuf {
     out
 }
 
-/// Whether `path` is a C or C++ header.
 fn c_header(path: &Path) -> bool {
     path.extension()
         .is_some_and(|e| ["h", "hh", "hpp", "hxx"].iter().any(|h| e == *h))

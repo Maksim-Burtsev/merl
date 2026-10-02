@@ -37,7 +37,6 @@ impl App {
         {
             return Some(self.rust_fields(here, word));
         }
-        // On the variant's own name, behind its attributes at most.
         let before = self.line_str()[..range.start].trim();
         let variant = (before.is_empty() || (before.starts_with("#[") && before.ends_with(']')))
             && Regex::new(&search::rust_variant_pattern(word))
@@ -690,7 +689,6 @@ impl App {
         hits
     }
 
-    /// The `src/` of the sysroot's crate `name` (`std`, `core`…) and its files.
     fn sysroot_crate(&mut self, name: &str) -> Option<(PathBuf, Vec<PathBuf>)> {
         let all = self.external_files(Kind::Rust);
         let roots = self.external.get(&Kind::Rust)?.0.clone();
@@ -967,7 +965,6 @@ impl App {
         <[Hit; 1]>::try_from(decls).ok().map(|[hit]| typed(hit))
     }
 
-    /// The field `word` the struct `ty` declares, and its type as written.
     fn rust_field(&self, ty: &Typed, word: &str) -> Option<(Hit, String)> {
         let text = self.text_of(&ty.path)?;
         let lines: Vec<&str> = text.lines().collect();
