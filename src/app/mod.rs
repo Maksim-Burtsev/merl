@@ -28,6 +28,7 @@ mod cursor;
 mod dart;
 mod definition;
 mod edit;
+mod erlang;
 mod external;
 mod find;
 mod imported;
@@ -35,6 +36,7 @@ mod jvm;
 mod jvm_typed;
 mod keys;
 mod links;
+mod lua;
 mod members;
 mod missed;
 mod open;
@@ -303,10 +305,9 @@ pub struct App {
     /// Per kind, the standard library and dependency roots outside the project and the files of
     /// that kind under them; filled the first time `d` leaves the project.
     external: HashMap<Kind, (Vec<PathBuf>, Arc<Vec<PathBuf>>)>,
-    /// The walk of each `node_modules`, and the file the TypeScript entry of `external` was put
-    /// together for: a workspace has one per package, and each file sees those above it.
-    node_modules: HashMap<PathBuf, Arc<Vec<PathBuf>>>,
+    walked_roots: HashMap<PathBuf, Arc<Vec<PathBuf>>>,
     node_modules_of: Option<PathBuf>,
+    otp: Option<Vec<PathBuf>>,
     /// The headers each C or C++ file includes, resolved, for a `.c` file or not (#382), an
     /// Objective-C file or not (#417).
     c_includes: HashMap<(PathBuf, CMode), Paths>,
@@ -542,8 +543,9 @@ impl App {
             files,
             ignored,
             external: HashMap::new(),
-            node_modules: HashMap::new(),
+            walked_roots: HashMap::new(),
             node_modules_of: None,
+            otp: None,
             c_includes: HashMap::new(),
             c_files: HashMap::new(),
             go_build: search::GoBuild::host().env(

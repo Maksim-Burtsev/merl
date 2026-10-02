@@ -143,8 +143,11 @@ impl App {
                 .collect()
         };
         // What the patterns match, of the lines that declare the word where they sit.
+        let erlang = self.buf.path.as_deref().is_some_and(search::erlang);
         let grep = |this: &Self, files: &[PathBuf]| {
-            this.declaring(kind, word, this.external_grep(kind, files, pattern))
+            let mut hits = this.declaring(kind, word, this.external_grep(kind, files, pattern));
+            hits.retain(|h| kind != Kind::Elixir || search::erlang(&h.path) == erlang);
+            hits
         };
         let Some(module) = module else {
             return Some(by_name(
@@ -565,6 +568,7 @@ impl App {
             self.external
                 .insert(kind, (Vec::new(), Arc::new(Vec::new())));
         }
+        self.otp = Some(Vec::new());
     }
 
     /// The files of `kind` outside the project, walked once per kind.
@@ -588,7 +592,7 @@ impl App {
                 if roots.iter().any(|o| o != dir && dir.starts_with(o)) {
                     continue;
                 }
-                let walked = self.node_modules.entry(dir.clone()).or_insert_with(|| {
+                let walked = self.walked_roots.entry(dir.clone()).or_insert_with(|| {
                     Arc::new(search::external_files(kind, std::slice::from_ref(dir)))
                 });
                 files.extend(walked.iter().cloned());
@@ -596,13 +600,31 @@ impl App {
             self.external.insert(kind, (roots, Arc::new(files)));
             self.node_modules_of = Some(here.to_path_buf());
         }
-        // Elixir's are the `deps/` of the Mix project the file is in (#437), inside the project
-        // and not of the machine, so a test's `no_external` does not hide them either.
         if let Some(here) = here.filter(|_| kind == Kind::Elixir) {
-            let roots = search::mix_deps(&self.root, here);
+            let otp = match &self.otp {
+                Some(otp) => otp.clone(),
+                None => search::external_roots(kind, &self.root),
+            };
+            if !otp.is_empty() {
+                self.otp = Some(otp.clone());
+            }
+            let mut roots = [
+                search::mix_deps(&self.root, here),
+                search::rebar_deps(&self.root, here),
+                otp,
+            ]
+            .concat();
+            let mut seen = std::collections::HashSet::new();
+            roots.retain(|r| seen.insert(r.clone()));
             if self.external.get(&kind).is_none_or(|(r, _)| *r != roots) {
-                let files = Arc::new(search::external_files(kind, &roots));
-                self.external.insert(kind, (roots, files));
+                let mut files = Vec::new();
+                for dir in &roots {
+                    let walked = self.walked_roots.entry(dir.clone()).or_insert_with(|| {
+                        Arc::new(search::external_files(kind, std::slice::from_ref(dir)))
+                    });
+                    files.extend(walked.iter().cloned());
+                }
+                self.external.insert(kind, (roots, Arc::new(files)));
             }
         }
         let files = match self.external.get(&kind) {
@@ -731,9 +753,8 @@ impl App {
         // (#415).
         match search::component(&h.path) && kind != Kind::Css {
             true => self.hidden_of(kind, h),
-            false => {
-                (self.file_text(&h.path)).map_or_else(Vec::new, |t| search::literal_lines(kind, &t))
-            }
+            false => (self.file_text(&h.path))
+                .map_or_else(Vec::new, |t| search::file_literal_lines(kind, &h.path, &t)),
         }
     }
 
@@ -769,7 +790,10 @@ impl App {
         let mut roots = match kind {
             Kind::TsJs => roots.last().into_iter().chain([&self.root]).collect(),
             // `deps/` is inside the project: `deps/jason/lib/jason.ex`.
-            Kind::Elixir => vec![&self.root],
+            Kind::Elixir => [&self.root]
+                .into_iter()
+                .chain(roots.iter().filter(|r| !r.starts_with(&self.root)))
+                .collect(),
             _ => roots.iter().collect::<Vec<_>>(),
         };
         if kind == Kind::Python {

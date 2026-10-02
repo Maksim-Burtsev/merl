@@ -78,7 +78,7 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "swift") => Kind::Swift,
         (_, "php" | "phtml") => Kind::Php,
         (_, "lua") => Kind::Lua,
-        (_, "ex" | "exs") => Kind::Elixir,
+        (_, "ex" | "exs" | "erl" | "hrl" | "escript") => Kind::Elixir,
         // Not `.zon`: Zig's data format declares nothing the rules look for, and a key of a
         // build manifest is no reason to send `d` into the standard library. bat paints it
         // as Zig all the same.
@@ -128,6 +128,10 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
 pub fn scala(path: &Path) -> bool {
     path.extension()
         .is_some_and(|e| matches!(e.to_str(), Some("scala" | "sc" | "sbt" | "mill")))
+}
+pub fn erlang(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|e| matches!(e.to_str(), Some("erl" | "hrl" | "escript")))
 }
 /// Whether `path` is under a `c++/<dir>/` directory, where a C++ standard library keeps its
 /// headers.

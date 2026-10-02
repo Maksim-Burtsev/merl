@@ -452,6 +452,8 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     // Elixir likewise: the shared pattern knows `def` and nothing else of the family, and reads
     // the `x` of an anonymous `fn x -> …` as a declaration.
     (Some(Kind::Elixir), ELIXIR_SYMBOL),
+    (Some(Kind::Elixir), ERLANG_ATTRIBUTE_SYMBOL),
+    (Some(Kind::Elixir), ERLANG_CLAUSE_SYMBOL),
     // Zig fits the shared pattern — it declares with `fn` and `const` — so these two rows only
     // complement it, the way Shell's and SQL's do.
     (Some(Kind::Zig), ZIG_INLINE_FN_SYMBOL),

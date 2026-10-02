@@ -11,6 +11,7 @@ mod component;
 mod css;
 mod dart;
 mod defs;
+mod erlang;
 mod fields;
 mod go;
 mod grep;

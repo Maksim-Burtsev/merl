@@ -248,7 +248,13 @@ after `//`, one holding the `'''`, `''$` and `''\` escapes), a `"…"`, a `/* */
 
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
 `deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies
-the project walk does not reach, one whose module is no path and two declaring one name (#437).
+the project walk does not reach, one whose module is no path and two declaring one name (#437). Its
+Erlang (#425) is `src/shop_parcel.erl` over `include/shop_parcel.hrl` and `deps/ranch`: a module
+called from `src/shop_depot.erl` and from Elixir's `lib/shop/report.ex`, records with a field on
+the `-record` line and on the lines it wraps to, macros, types, clauses over lines, includes of
+both kinds, each refusal of the issue, and declaration-shaped lines in a `"…"` and a `"""…"""`
+beside a `%` comment holding `"""` and a `$"`. `lib/shop/seed.exs` calls a function in column zero,
+which declares nothing. Its annotations start with `%`.
 
 ### Adding a kind
 

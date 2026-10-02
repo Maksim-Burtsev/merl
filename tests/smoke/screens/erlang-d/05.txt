@@ -1,0 +1,57 @@
+wait -module(shop_order)
+┌orders──────────────────────┐ 1 -module(shop_order).
+│▸ .github                   │ 2 -export([new/1, total/1]).
+│▸ .venv                     │ 3
+│▸ app                       │ 4 -include("shop.hrl").
+│▸ data                      │ 5
+│▸ deploy                    │ 6 new(Id) ->
+│▸ docs                      │ 7     #order{id = Id}.
+│▾ erlshop                   │ 8
+│  ▸ include                 │ 9 total(#order{total = Total}) ->
+│  ▸ lib                     │10     Total.
+│  ▾ src                     │
+│      shop_order.erl        │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+erlshop/src/shop_order.erl  1:1  [code]                                                                                                                                           ? help
+cursor (x,y,shown) 33,0,1

@@ -589,6 +589,26 @@ mod tests {
     }
 
     #[test]
+    fn erlang_highlights_with_every_shipped_theme() {
+        let src = "% doc\n-module(ledger).\n\nparse(Raw) -> {ok, Raw}.\n";
+        for file in ["ledger.erl", "ledger.hrl", "ledger.escript"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("Erlang"),
+                    "{file} {name}"
+                );
+                b.highlight_to(3, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
     fn zig_highlights_with_every_shipped_theme() {
         let src =
             "// doc\nconst std = @import(\"std\");\n\npub fn main() !void {\n    _ = std;\n}\n";

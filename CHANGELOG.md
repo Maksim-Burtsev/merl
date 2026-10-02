@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d`, `u` and `D` in Erlang (`.erl`, `.hrl`, `.escript`), searched with Elixir as one kind,
+  where `d` said `no rules for .erl`. `d` on `total` in `shop_order:total(X)`, or in Elixir's
+  `:shop_order.total(x)`, lands on its clauses in `shop_order.erl`, `total: via shop_order`; on
+  `#order{` on the `-record(order, …)`, on `total` in `R#order.total` or `#order{total = T}` on
+  that field, on `?DEFAULT_TOTAL` on its `-define`, and on `-include("shop.hrl")` it opens the
+  header. A local call lands on the clauses of its own module or of the one its `-import` names. Mix's `deps/`, rebar3's
+  `_build/default/lib` and the sources of the installed OTP are searched too. `D` lists modules,
+  records, macros, types and function clauses. (#425)
 - `f` folds Python code into one line ending in `⋯`: on a line that opens a construct it folds
   that construct (`def`, `class`, `if` / `elif` / `else`, `for`, `while`, `with`, `try` /
   `except` / `finally`, `match` / `case`, a call, list or dict wrapped over lines, a docstring, a

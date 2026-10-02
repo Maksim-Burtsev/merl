@@ -898,6 +898,7 @@ pub fn file_import(kind: Kind, line: &str, col: usize) -> Option<String> {
         Kind::PowerShell => powershell_import(line, col),
         Kind::Cmake => cmake_import(line, col).map(|(_, arg)| arg),
         Kind::Nix => nix_path(line, col),
+        Kind::Elixir => erlang_include(line, col).map(|(_, path)| path),
         _ => None,
     }
 }
