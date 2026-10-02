@@ -218,3 +218,154 @@ pub(super) fn yaml(lines: &[String]) -> Vec<(usize, usize)> {
 fn indent(s: &str) -> usize {
     s.len() - s.trim_start().len()
 }
+
+const VOID: &[&str] = &[
+    "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source",
+    "track", "wbr",
+];
+
+const CLOSES_P: &[&str] = &[
+    "address",
+    "article",
+    "aside",
+    "blockquote",
+    "details",
+    "div",
+    "dl",
+    "fieldset",
+    "figcaption",
+    "figure",
+    "footer",
+    "form",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "header",
+    "hr",
+    "main",
+    "nav",
+    "ol",
+    "p",
+    "pre",
+    "section",
+    "table",
+    "ul",
+];
+
+fn contains(parent: &str, child: &str) -> bool {
+    match parent {
+        "li" => child != "li",
+        "dt" | "dd" => !matches!(child, "dt" | "dd"),
+        "p" => !CLOSES_P.contains(&child),
+        "colgroup" => child == "col",
+        "rb" | "rt" | "rp" => !matches!(child, "rb" | "rt" | "rp"),
+        "optgroup" => child != "optgroup",
+        "tr" => child != "tr",
+        "td" | "th" => !matches!(child, "td" | "th" | "tr"),
+        _ => true,
+    }
+}
+
+pub(super) fn html(lines: &[String]) -> Vec<(usize, usize)> {
+    let text = lines.join("\n");
+    let b = text.as_bytes();
+    let starts: Vec<usize> = std::iter::once(0)
+        .chain(
+            b.iter()
+                .enumerate()
+                .filter(|c| *c.1 == b'\n')
+                .map(|(i, _)| i + 1),
+        )
+        .collect();
+    let line = |at: usize| starts.partition_point(|&s| s <= at) - 1;
+    let lower = text.to_ascii_lowercase();
+    let find = |from: usize, what: &str| {
+        (lower.get(from..).and_then(|r| r.find(what))).map_or(b.len(), |i| from + i)
+    };
+    let name_at = |from: usize| {
+        let n = b[from..]
+            .iter()
+            .position(|c| !(c.is_ascii_alphanumeric() || matches!(c, b'-' | b':' | b'_')))
+            .unwrap_or(b.len() - from);
+        lower[from..from + n].to_owned()
+    };
+    let tag_end = |from: usize| {
+        let mut quote = None;
+        for (i, &c) in b.iter().enumerate().skip(from) {
+            match quote {
+                Some(q) if c == q => quote = None,
+                Some(_) => {}
+                None if c == b'"' || c == b'\'' => quote = Some(c),
+                None if c == b'>' => return i,
+                None => {}
+            }
+        }
+        b.len()
+    };
+    let mut open: Vec<(String, usize)> = Vec::new();
+    let mut folds = Vec::new();
+    let close = |h: usize, e: usize, folds: &mut Vec<(usize, usize)>| {
+        if e > h {
+            folds.push((h, e));
+        }
+    };
+    let mut at = 0;
+    while let Some(i) =
+        (b.get(at..).and_then(|r| r.iter().position(|&c| c == b'<'))).map(|i| at + i)
+    {
+        let rest = &b[i + 1..];
+        if rest.starts_with(b"!--") {
+            at = find(i + 4, "-->") + 3;
+            continue;
+        }
+        if rest.starts_with(b"!") || rest.starts_with(b"?") {
+            at = tag_end(i) + 1;
+            continue;
+        }
+        if rest.first() == Some(&b'/') {
+            let name = name_at(i + 2);
+            let end = tag_end(i);
+            if let Some(k) = open.iter().rposition(|(n, _)| *n == name) {
+                for (_, h) in open.drain(k + 1..) {
+                    close(h, line(i), &mut folds);
+                }
+                let (_, h) = open.pop().unwrap_or_default();
+                close(h, line(end.min(b.len().saturating_sub(1))), &mut folds);
+            }
+            at = end + 1;
+            continue;
+        }
+        if !rest.first().is_some_and(u8::is_ascii_alphabetic) {
+            at = i + 1;
+            continue;
+        }
+        let name = name_at(i + 1);
+        while let Some((parent, h)) = open.last()
+            && !contains(parent, &name)
+        {
+            close(*h, line(i), &mut folds);
+            open.pop();
+        }
+        let end = tag_end(i);
+        at = end + 1;
+        if matches!(name.as_str(), "script" | "style") {
+            let stop = tag_end(find(at.min(b.len()), &format!("</{name}")));
+            close(
+                line(i),
+                line(stop.min(b.len().saturating_sub(1))),
+                &mut folds,
+            );
+            at = stop + 1;
+        } else if !VOID.contains(&name.as_str()) && b.get(end.wrapping_sub(1)) != Some(&b'/') {
+            open.push((name, line(i)));
+        }
+    }
+    let last = lines.len().saturating_sub(1);
+    for (_, h) in open {
+        close(h, last, &mut folds);
+    }
+    outermost(folds)
+}

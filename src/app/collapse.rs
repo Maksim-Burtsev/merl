@@ -149,6 +149,7 @@ fn folds(buf: &Buffer) -> Option<Folds<'_>> {
         "scss" => spans::scss(lines),
         "yml" | "yaml" => spans::yaml(lines),
         "toml" => spans::toml(lines),
+        "html" | "htm" => spans::html(lines),
         _ if every_kind() => return Some(Folds::Shape(Shape::plain(lines))),
         _ => return None,
     }))
