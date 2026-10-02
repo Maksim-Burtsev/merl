@@ -955,3 +955,24 @@ fn a_list_one_line_tall_shows_the_picked_row() {
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(inside(&terminal), [">", "a.py:1: total"]);
 }
+
+/// `?` at 80 columns wraps an action too long for its row instead of cutting it (#458).
+#[test]
+fn help_wraps_every_action_whole_at_80_columns() {
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::empty(),
+        None,
+    );
+    app.mode = crate::app::Mode::Help;
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(80, 200)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let words = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
+    let text = words(&rows(&terminal).join(" ").replace('│', " "));
+    for (_, action, _) in crate::app::KEYS {
+        assert!(text.contains(&words(action)), "{action}\n{text}");
+    }
+}

@@ -27,6 +27,19 @@ use super::status::draw_prompt;
 pub(super) fn draw_help(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
     let keys = crate::app::KEYS;
     let key_w = keys.iter().map(|(k, _, _)| k.len()).max().unwrap_or(0);
+    let lead = 3 + key_w + 2;
+    let w = keys
+        .iter()
+        .map(|(_, a, g)| (lead + wrap::width(a)).max(1 + g.len()))
+        .max()
+        .unwrap_or(0) as u16
+        + 1;
+    let [area] = Layout::horizontal([Constraint::Length((w + 4).min(area.width))])
+        .flex(Flex::Center)
+        .areas(area);
+    // A screen too narrow for an action wraps it at a space onto rows under its own column,
+    // keeping a blank column before the border (#458).
+    let room = (area.width as usize).saturating_sub(2 + lead + 1);
     let bold = base.add_modifier(Modifier::BOLD);
     let mut lines: Vec<Line> = Vec::new();
     let mut group = "";
@@ -35,15 +48,14 @@ pub(super) fn draw_help(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             group = g;
             lines.push(Line::styled(format!(" {group}"), bold.fg(theme.accent)));
         }
-        lines.push(Line::from(vec![
-            Span::styled(format!("   {key:key_w$}  "), bold),
-            Span::styled(*action, base.fg(theme.ghost_fg)),
-        ]));
+        for (i, row) in wrap::wrap_line(action, room).into_iter().enumerate() {
+            let key = if i == 0 { *key } else { "" };
+            lines.push(Line::from(vec![
+                Span::styled(format!("   {key:key_w$}  "), bold),
+                Span::styled(action[row].trim_end(), base.fg(theme.ghost_fg)),
+            ]));
+        }
     }
-    let w = lines.iter().map(Line::width).max().unwrap_or(0) as u16 + 1;
-    let [area] = Layout::horizontal([Constraint::Length((w + 4).min(area.width))])
-        .flex(Flex::Center)
-        .areas(area);
     let [area] = Layout::vertical([Constraint::Length(
         (lines.len() as u16 + 2).min(area.height),
     )])

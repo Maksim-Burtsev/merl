@@ -4,8 +4,10 @@ merl snapshot: help
 ┌merl — keys (Up / Down to scroll)─────────────────────────────────────────────┐
 │ Files and jumps                                                              │
 │   o / Ctrl+E                        Open a file (fuzzy)                      │
-│   Ctrl+N                            New file: type its path, Enter creates an│
-│   d / F12                           Go to definition of the word under the cu│
+│   Ctrl+N                            New file: type its path, Enter creates   │
+│                                     and edits it                             │
+│   d / F12                           Go to definition of the word under the   │
+│                                     cursor, or its implementations           │
 │   D                                 Project symbols (fuzzy)                  │
 │   u / Shift+F12                     Usages of the word under the cursor      │
 │   [ / ]                             Back / forward in the jump history       │
@@ -15,23 +17,23 @@ merl snapshot: help
 │   n / N                             Next / previous match                    │
 │   s                                 Search the project                       │
 │ Review                                                                       │
-│   c / C                             Review: next / previous hunk, on to the n│
+│   c / C                             Review: next / previous hunk, on to the  │
+│                                     next file                                │
 │   m                                 Review: mark the file as viewed, or take │
-│   Fold: Enter                       Review: load the diff of a folded generat│
+│                                     the mark off                             │
+│   Fold: Enter                       Review: load the diff of a folded        │
+│                                     generated file                           │
 │ Editing                                                                      │
-│   Enter                             Edit at the cursor (Esc returns to naviga│
-│   Ctrl+S                            Save now (edits are saved on their own af│
-│   Ctrl+R                            Reload from disk, dropping unsaved edits │
-│   Ctrl+Z / Ctrl+Y                   Undo / redo                              │
-│   Ctrl+C                            Copy the selection, or the line, to the c│
 └──────────────────────────────────────────────────────────────────────────────┘
 
 ==== 80x24 tokyonight-moon styles
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 abbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 acccccccccccccccccccccccccccccccccccccdddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddaaaaaaaaaaaa
 acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddaaaaaaaaaaaaaaaaaaa
 acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddddddddddddddaaaaaaa
 acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddaaaaaaaa
@@ -41,15 +43,13 @@ acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaa
 acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaa
 acccccccccccccccccccccccccccccccccccccddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaa
 abbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
-abbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
+acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddddddddddddddddddaaa
+acccccccccccccccccccccccccccccccccccccdddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddaa
-acccccccccccccccccccccccccccccccccccccdddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
+acccccccccccccccccccccccccccccccccccccddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddddddddddddaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+abbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 a fg #c8d3f5 bg #222436
 b fg #82aaff bg #222436 BOLD
@@ -60,8 +60,10 @@ d fg #7d849f bg #222436
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 abbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 acccccccccccccccccccccccccccccccccccccdddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddaaaaaaaaaaaa
 acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddaaaaaaaaaaaaaaaaaaa
 acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddddddddddddddaaaaaaa
 acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddaaaaaaaa
@@ -71,15 +73,13 @@ acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaa
 acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaa
 acccccccccccccccccccccccccccccccccccccddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaa
 abbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
-abbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
+acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddddddddddddddddddaaa
+acccccccccccccccccccccccccccccccccccccdddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddaa
-acccccccccccccccccccccccccccccccccccccdddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
+acccccccccccccccccccccccccccccccccccccddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddddddddddddaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+abbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 a fg #1f2328 bg #ffffff
 b fg #6639ba bg #ffffff BOLD

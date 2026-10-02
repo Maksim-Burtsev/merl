@@ -291,6 +291,7 @@ pub struct App {
     /// Set by `main` for a file opened outside any repository: the project is the files right
     /// in the root, and every walk stops there (#182).
     pub shallow: bool,
+    pub tree_order: Option<crate::tree::OrderFile>,
     pub buf: Buffer,
     pub tree: Tree,
     /// Every file under the root that is not ignored, sorted like the tree: what `o` offers
@@ -348,6 +349,7 @@ pub struct App {
     /// the cursor (see `hist_note`).
     pub history: Vec<(PathBuf, TextLine, usize)>,
     pub hist_idx: usize,
+    hist_rows: HashMap<(PathBuf, TextLine, usize), usize>,
     /// Cursor: file line, byte offset into that line, and the display column Up/Down aims for.
     pub line: usize,
     pub col: usize,
@@ -534,6 +536,7 @@ impl App {
         let mut app = Self {
             root,
             shallow: false,
+            tree_order: None,
             buf: Buffer::empty(),
             tree,
             files,
@@ -561,6 +564,7 @@ impl App {
             search_sent: None,
             search_enter: false,
             history: Vec::new(),
+            hist_rows: HashMap::new(),
             hist_idx: 0,
             line: 0,
             col: 0,

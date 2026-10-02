@@ -1,7 +1,6 @@
-:
-?
 Arrows
-Enter
+End
 Esc
+[
+d
 q
-t
