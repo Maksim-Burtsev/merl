@@ -141,10 +141,20 @@ Everything on GitHub (issues, PR bodies, reviews, comments) is in English.
 
 `f` (`src/app/collapse.rs`) folds by the rules decided in #598, in the languages that pass the
 fold bench and nowhere else: Python today, the rest in epic #623, each saying `no fold rules for
-.EXT` until then. `tools/fold-bench/run` presses `f` on every line of real projects and compares
-the fold with the reference the code's own syntax gives; a change to `f` keeps it at 100 % but
-the lines its docstring names, and keeps `tests/folds/` green. A language turns on with a fold
-fixture there and its row in the bench.
+.EXT` until then.
+
+- **The bench**, `tools/fold-bench/run [--lang go,rust]`: `f` pressed on every line that starts
+  a fold in real projects, compared with the reference: Python's own `ast` for Python, and for
+  the rest what Neovim folds with nvim-treesitter's `folds.scm` in the projects of
+  `tools/d-bench/projects.tsv`, recorded once into `tools/fold-bench/folds/LANG.tsv`
+  (`record.py`, never in CI). It prints per language the exact folds, wrong ranges, nothing
+  folded and p50 ms. A language still off is pressed with the rules forced on and marked `off`:
+  that row is where its work starts, and it never fails the run.
+- **A language turns `f` on** at 99 % exact in the bench, with a fold fixture in `tests/folds/`
+  and its bench row; the PR commits the new `tools/fold-bench/baseline.tsv`
+  (`--update-baseline`).
+- **A change to `f`** keeps `tests/folds/` green and no bench line of a language that is on worse
+  than `baseline.tsv`: the run exits 1 on any.
 
 ## Changing `d`
 

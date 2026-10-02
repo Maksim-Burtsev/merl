@@ -1,0 +1,510 @@
+# NVIM v0.12.5, nvim-treesitter 910fdf6: 2712 folds in 508 files, 2 files left out for a syntax error
+# path (project/file)	each fold as line:last hidden line, 1-based
+eShop/src/Basket.API/Extensions/Extensions.cs	1:4 9:22 11:21 26:28
+eShop/src/Basket.API/Extensions/ServerCallContextIdentityExtensions.cs	6:9
+eShop/src/Basket.API/GlobalUsings.cs	1:11
+eShop/src/Basket.API/Grpc/BasketService.cs	1:4 11:111 14:34 17:19 22:24 29:31 37:57 40:42 45:47 52:54 60:69 63:65 78:91 82:88 84:87 94:110 96:98 101:107
+eShop/src/Basket.API/IntegrationEvents/EventHandling/OrderStartedIntegrationEventHandler.cs	1:2 9:16 11:15
+eShop/src/Basket.API/Model/BasketItem.cs	4:24 14:23 18:20
+eShop/src/Basket.API/Model/CustomerBasket.cs	4:15 12:14
+eShop/src/Basket.API/Repositories/IBasketRepository.cs	6:10
+eShop/src/Basket.API/Repositories/RedisBasketRepository.cs	1:2 7:49 19:21 24:32 28:30 35:48 40:43 54:56
+eShop/src/Catalog.API/Apis/CatalogApi.cs	1:6 11:467 13:119 125:127 136:166 143:145 147:149 151:153 172:204 181:183 191:193 210:213 220:236 222:226 231:233 243:245 254:269 258:260 277:279 286:334 291:293 299:301 310:322 324:331 342:344 351:353 359:367 361:365 374:408 378:382 393:402 404:406 414:433 416:426 438:449 442:444
+eShop/src/Catalog.API/CatalogOptions.cs	4:7
+eShop/src/Catalog.API/Extensions/Extensions.cs	4:51 6:50 10:13 16:21 18:20 39:42 44:47
+eShop/src/Catalog.API/Extensions/HostEnvironmentExtensions.cs	6:14 8:13
+eShop/src/Catalog.API/GlobalUsings.cs	1:20
+eShop/src/Catalog.API/Infrastructure/CatalogContext.cs	9:28 11:12 19:27
+eShop/src/Catalog.API/Infrastructure/CatalogContextSeed.cs	1:3 12:86 14:75 24:74 49:59 62:69 66:68 78:85
+eShop/src/Catalog.API/Infrastructure/EntityConfigurations/CatalogBrandEntityTypeConfiguration.cs	5:13 7:12
+eShop/src/Catalog.API/Infrastructure/EntityConfigurations/CatalogItemEntityTypeConfiguration.cs	5:24 7:23
+eShop/src/Catalog.API/Infrastructure/EntityConfigurations/CatalogTypeEntityTypeConfiguration.cs	5:13 7:12
+eShop/src/Catalog.API/Infrastructure/Exceptions/CatalogDomainException.cs	7:18
+eShop/src/Catalog.API/Infrastructure/Migrations/20231009153249_Initial.Designer.cs	2:8 13:147 17:146 20:145 39:54 57:106 109:124 127:143
+eShop/src/Catalog.API/Infrastructure/Migrations/20231009153249_Initial.cs	1:2 7:120 10:119 13:96 37:39 49:51 71:85 100:118
+eShop/src/Catalog.API/Infrastructure/Migrations/20231018163051_RemoveHiLoAndIndexCatalogName.Designer.cs	2:8 13:140 17:139 20:138 30:45 48:99 102:117 120:136
+eShop/src/Catalog.API/Infrastructure/Migrations/20231018163051_RemoveHiLoAndIndexCatalogName.cs	1:2 7:103 10:102 13:54 58:101
+eShop/src/Catalog.API/Infrastructure/Migrations/20231026091140_Outbox.Designer.cs	2:9 14:172 18:171 21:170 31:46 49:100 103:118 121:149 152:168
+eShop/src/Catalog.API/Infrastructure/Migrations/20231026091140_Outbox.cs	1:2 7:39 10:38 13:30 27:29 34:37
+eShop/src/Catalog.API/Infrastructure/Migrations/CatalogContextModelSnapshot.cs	2:8 13:169 16:168 18:167 28:43 46:97 100:115 118:146 149:165
+eShop/src/Catalog.API/IntegrationEvents/CatalogIntegrationEventService.cs	8:60 12:26 14:20 22:25 29:40 35:39 43:53 45:52 47:49 56:59
+eShop/src/Catalog.API/IntegrationEvents/EventHandling/OrderStatusChangedToAwaitingValidationIntegrationEventHandler.cs	8:34 10:33 16:25 19:24
+eShop/src/Catalog.API/IntegrationEvents/EventHandling/OrderStatusChangedToPaidIntegrationEventHandler.cs	7:22 9:21 14:18
+eShop/src/Catalog.API/IntegrationEvents/ICatalogIntegrationEventService.cs	4:7
+eShop/src/Catalog.API/Model/CatalogBrand.cs	6:15 7:9
+eShop/src/Catalog.API/Model/CatalogItem.cs	1:3 8:106 63:79 65:67 70:72 87:105 92:96 98:100
+eShop/src/Catalog.API/Model/CatalogServices.cs	1:2 10:16
+eShop/src/Catalog.API/Model/CatalogType.cs	6:15 7:9
+eShop/src/Catalog.API/Model/PaginatedItems.cs	6:14
+eShop/src/Catalog.API/Program.cs	8:11
+eShop/src/Catalog.API/Services/CatalogAI.cs	1:3 8:76 18:22 35:52 37:49 44:46 56:73 58:70 65:67
+eShop/src/Catalog.API/Services/ICatalogAI.cs	6:18
+eShop/src/ClientApp/Animations/Base/AnimationBase.cs	6:111 30:33 36:39 42:45 48:51 54:57 62:81 64:73 66:72 75:76 78:80 86:89 92:110 94:96 99:101 103:109 105:108
+eShop/src/ClientApp/Animations/Base/EasingType.cs	4:16
+eShop/src/ClientApp/Animations/FadeToAnimation.cs	1:2 7:38 14:17 20:27 22:24 30:37 32:34 41:96 43:46 54:57 60:69 62:64 72:81 74:76 84:95 99:155 101:104 112:115 118:127 120:122 130:139 132:134 142:154
+eShop/src/ClientApp/Animations/StoryBoard.cs	7:45 9:11 14:16 21:31 23:30 25:27 34:44 36:43 38:40
+eShop/src/ClientApp/App.xaml.cs	1:8 13:167 24:37 40:42 45:55 47:49 52:54 58:72 62:64 67:69 75:78 81:84 87:89 92:113 96:103 99:102 105:112 108:111 116:138 118:127 123:126 129:137 131:133 141:149 143:146 152:166 154:156 160:165 162:164
+eShop/src/ClientApp/AppActions.cs	4:7
+eShop/src/ClientApp/AppShell.xaml.cs	1:2 7:38 11:16 19:26 23:25 29:37
+eShop/src/ClientApp/Controls/AddBasketButton.xaml.cs	4:9 6:8
+eShop/src/ClientApp/Controls/CustomTabbedPage.cs	4:30 12:14 17:19 22:24 27:29
+eShop/src/ClientApp/Controls/ToggleButton.cs	6:122 30:32 35:38 41:44 47:50 53:56 59:62 65:68 72:79 76:78 82:91 94:98 101:121 105:107 116:120
+eShop/src/ClientApp/Converters/DoesNotHaveCountConverter.cs	1:2 7:14 11:13
+eShop/src/ClientApp/Converters/DoubleConverter.cs	1:2 7:20 12:14 17:19
+eShop/src/ClientApp/Converters/FirstValidationErrorConverter.cs	1:2 7:14 11:13
+eShop/src/ClientApp/Converters/HasCountConverter.cs	1:2 7:14 11:13
+eShop/src/ClientApp/Converters/ItemsToHeightConverter.cs	1:2 7:16 13:15
+eShop/src/ClientApp/Converters/WebNavigatedEventArgsConverter.cs	1:2 7:14 11:13
+eShop/src/ClientApp/Converters/WebNavigatingEventArgsConverter.cs	1:2 7:22 9:16 11:13 19:21
+eShop/src/ClientApp/Effects/EntryLineColorEffect.cs	4:9 7:8
+eShop/src/ClientApp/Effects/ThemeEffects.cs	4:49 10:12 15:17 22:40 24:26 29:35 32:34 37:39 43:48 46:47
+eShop/src/ClientApp/Exceptions/ServiceAuthenticationException.cs	4:15 6:7 10:12
+eShop/src/ClientApp/Extensions/DictionaryExtensions.cs	4:25 6:10 13:17 20:24
+eShop/src/ClientApp/Extensions/ICommandExtensions.cs	6:15 9:14 11:13
+eShop/src/ClientApp/Extensions/VisualElementExtensions.cs	1:2 7:399 23:54 25:27 44:48 50:51 70:101 72:74 91:95 97:98 117:148 119:121 138:142 144:145 164:195 166:168 185:189 191:192 200:231 202:204 221:225 227:228 237:260 239:241 250:254 256:257 265:289 267:269 279:283 285:286 294:317 296:298 307:311 313:314 322:345 324:326 335:339 341:342 355:362 372:376 379:383 386:390 393:398
+eShop/src/ClientApp/GlobalUsings.cs	1:3
+eShop/src/ClientApp/Helpers/EasingHelper.cs	6:25 8:24
+eShop/src/ClientApp/Helpers/UriHelper.cs	4:21 7:20 11:17 14:16
+eShop/src/ClientApp/Models/Basket/BasketItem.cs	4:37 20:27 23:26 34:36
+eShop/src/ClientApp/Models/Basket/CustomerBasket.cs	4:41 12:23 14:20 16:19 26:35 28:34 30:33 38:40
+eShop/src/ClientApp/Models/Catalog/CatalogBrand.cs	4:12 9:11
+eShop/src/ClientApp/Models/Catalog/CatalogItem.cs	4:15
+eShop/src/ClientApp/Models/Catalog/CatalogRoot.cs	4:9
+eShop/src/ClientApp/Models/Catalog/CatalogType.cs	4:12 9:11
+eShop/src/ClientApp/Models/Location/GeolocationError.cs	4:7
+eShop/src/ClientApp/Models/Location/GeolocationException.cs	4:28 7:14 9:11 18:25 20:22
+eShop/src/ClientApp/Models/Location/Location.cs	4:7
+eShop/src/ClientApp/Models/Location/Position.cs	4:41 6:7 10:14 17:31 19:21
+eShop/src/ClientApp/Models/Marketing/Campaign.cs	4:16
+eShop/src/ClientApp/Models/Marketing/CampaignItem.cs	4:18
+eShop/src/ClientApp/Models/Marketing/CampaignRoot.cs	4:9
+eShop/src/ClientApp/Models/Navigation/TabParameter.cs	4:6
+eShop/src/ClientApp/Models/Orders/CancelOrderCommand.cs	4:11 6:8
+eShop/src/ClientApp/Models/Orders/CardType.cs	4:7
+eShop/src/ClientApp/Models/Orders/Order.cs	6:51 8:11
+eShop/src/ClientApp/Models/Orders/OrderCheckout.cs	1:2 7:37
+eShop/src/ClientApp/Models/Orders/OrderItem.cs	6:30 27:29
+eShop/src/ClientApp/Models/Permissions/Permission.cs	4:9
+eShop/src/ClientApp/Models/Permissions/PermissionStatus.cs	4:10
+eShop/src/ClientApp/Models/Token/UserToken.cs	6:16
+eShop/src/ClientApp/Models/User/Address.cs	4:15
+eShop/src/ClientApp/Models/User/LogoutParameter.cs	4:6
+eShop/src/ClientApp/Models/User/PaymentInfo.cs	6:15
+eShop/src/ClientApp/Models/User/UserInfo.cs	6:43
+eShop/src/ClientApp/Platforms/Android/MainActivity.cs	1:2 12:26 14:18 21:25
+eShop/src/ClientApp/Platforms/Android/MainApplication.cs	1:2 8:15 11:12
+eShop/src/ClientApp/Platforms/Android/WebAuthenticationCallbackActivity.cs	1:2 12:14
+eShop/src/ClientApp/Platforms/MacCatalyst/AppDelegate.cs	7:9
+eShop/src/ClientApp/Platforms/MacCatalyst/Program.cs	6:14 9:13
+eShop/src/ClientApp/Platforms/Windows/App.xaml.cs	10:18
+eShop/src/ClientApp/Platforms/iOS/AppDelegate.cs	7:9
+eShop/src/ClientApp/Platforms/iOS/Program.cs	6:14 9:13
+eShop/src/ClientApp/Services/AppEnvironment/AppEnvironmentService.cs	1:4 9:66 27:39 50:65 52:57 59:64
+eShop/src/ClientApp/Services/AppEnvironment/IAppEnvironmentService.cs	1:4 9:19
+eShop/src/ClientApp/Services/Basket/BasketMockService.cs	6:59 10:31 13:20 23:30 36:40 43:49 52:58
+eShop/src/ClientApp/Services/Basket/BasketService.cs	1:9 14:151 24:28 33:64 39:41 44:55 49:54 51:53 57:60 67:97 71:73 87:89 92:94 100:110 104:106 113:116 119:130 121:123 133:137 140:145 142:144 148:150
+eShop/src/ClientApp/Services/Basket/IBasketService.cs	6:11
+eShop/src/ClientApp/Services/Basket/Protos/BasketGrpc.cs	10:185 12:184 17:28 18:26 20:25 32:34 38:46 39:44 41:43 85:87 91:182 96:97 102:103 107:108 113:114 118:120 123:125 128:130 133:135 138:140 143:145 148:150 153:155 158:160 163:165 168:170 173:175 179:181
+eShop/src/ClientApp/Services/Catalog/CatalogMockService.cs	6:116 17:27 29:39 41:51 53:63 65:75 79:83 86:90 93:101 104:108 111:115
+eShop/src/ClientApp/Services/Catalog/CatalogService.cs	1:5 10:84 20:24 27:34 37:49 43:46 52:65 59:62 68:74 77:83
+eShop/src/ClientApp/Services/Catalog/ICatalogService.cs	6:13
+eShop/src/ClientApp/Services/Common/Common.cs	4:13
+eShop/src/ClientApp/Services/Dialog/DialogService.cs	4:9 6:8
+eShop/src/ClientApp/Services/Dialog/IDialogService.cs	4:6
+eShop/src/ClientApp/Services/EShopJsonSerializerContext.cs	1:4 20:21
+eShop/src/ClientApp/Services/FixUri/FixUriService.cs	1:6 11:108 19:21 24:44 26:28 31:39 33:38 35:37 41:43 47:75 49:51 54:70 56:69 58:68 63:67 72:74 78:107 80:82 85:102 87:101 89:100 94:99 104:106
+eShop/src/ClientApp/Services/FixUri/IFixUriService.cs	1:3 8:12
+eShop/src/ClientApp/Services/Identity/AuthorizeRequest.cs	6:21 10:12 15:20
+eShop/src/ClientApp/Services/Identity/IIdentityService.cs	6:14
+eShop/src/ClientApp/Services/Identity/IdentityMockService.cs	6:58 10:13 16:19 22:47 24:26 29:46 50:57 52:54
+eShop/src/ClientApp/Services/Identity/IdentityService.cs	1:5 10:153 16:20 23:43 27:29 34:39 46:57 50:52 60:96 64:66 72:95 99:131 103:105 108:110 115:117 122:127 134:152 136:144 147:149
+eShop/src/ClientApp/Services/Location/ILocationService.cs	4:6
+eShop/src/ClientApp/Services/Location/LocationService.cs	1:3 8:30 13:15 18:29 22:24
+eShop/src/ClientApp/Services/Navigation/INavigationService.cs	4:10
+eShop/src/ClientApp/Services/Navigation/MauiNavigationService.cs	1:2 7:35 11:13 16:20 23:29 32:34
+eShop/src/ClientApp/Services/OpenUrl/IOpenUrlService.cs	4:6
+eShop/src/ClientApp/Services/OpenUrl/OpenUrlService.cs	4:12 6:11 8:10
+eShop/src/ClientApp/Services/Order/IOrderService.cs	6:16
+eShop/src/ClientApp/Services/Order/OrderMockService.cs	1:3 8:187 31:34 44:52 54:62 81:97 99:115 117:133 135:151 155:161 164:169 172:176 179:181 184:186
+eShop/src/ClientApp/Services/Order/OrderService.cs	1:7 12:128 22:26 29:40 33:35 43:57 47:49 60:81 64:66 69:76 78:80 84:110 88:90 99:101 105:107 113:127 115:126
+eShop/src/ClientApp/Services/RequestProvider/HttpRequestExceptionEx.cs	6:21 8:9 12:13 16:18
+eShop/src/ClientApp/Services/RequestProvider/IRequestProvider.cs	4:16
+eShop/src/ClientApp/Services/RequestProvider/RequestProvider.cs	2:6 11:181 14:18 22:31 34:49 38:40 52:66 56:58 70:86 74:76 89:104 93:95 107:110 113:122 125:137 127:129 132:134 140:152 142:144 147:149 155:167 157:166 161:163 170:174 177:180
+eShop/src/ClientApp/Services/Settings/ISettingsService.cs	7:38
+eShop/src/ClientApp/Services/Settings/SettingsService.cs	1:3 8:152 36:40 43:47 50:53 56:59 62:65 68:71 74:77 80:83 86:89 92:95 98:101 104:107 110:113 116:119 122:125 128:131 134:137 140:143 146:149
+eShop/src/ClientApp/Services/Theme/ITheme.cs	4:6
+eShop/src/ClientApp/Services/Theme/Theme.shared.cs	4:8 6:7
+eShop/src/ClientApp/Triggers/BeginAnimation.cs	6:16 10:15 12:14
+eShop/src/ClientApp/Validations/IValidationRule.cs	4:8
+eShop/src/ClientApp/Validations/IValidity.cs	4:6
+eShop/src/ClientApp/Validations/IsNotNullOrEmptyRule.cs	4:12 8:11
+eShop/src/ClientApp/Validations/ValidatableObject.cs	4:47 10:13 18:21 24:27 30:33 36:46
+eShop/src/ClientApp/ViewModels/Base/IViewModelBase.cs	6:16
+eShop/src/ClientApp/ViewModels/Base/ViewModelBase.cs	6:55 12:23 18:21 32:33 36:38 41:54 46:48 50:53
+eShop/src/ClientApp/ViewModels/BasketViewModel.cs	1:5 10:113 19:22 31:51 36:50 39:49 41:48 55:57 60:72 66:69 76:87 81:84 90:96 99:102 106:112 108:111
+eShop/src/ClientApp/ViewModels/CatalogItemViewModel.cs	1:7 12:65 19:21 24:28 32:58 34:36 40:57 43:49 62:64
+eShop/src/ClientApp/ViewModels/CatalogViewModel.cs	2:7 12:197 41:55 52:54 66:88 68:70 75:87 92:103 96:98 107:109 113:134 115:133 119:122 125:129 138:159 140:158 144:147 150:154 163:176 166:175 168:172 180:190 183:189 194:196 200:201 204:205
+eShop/src/ClientApp/ViewModels/CheckoutViewModel.cs	1:9 14:170 30:36 39:102 42:101 49:56 60:65 71:90 93:100 106:134 108:128 130:133 137:157 141:154 143:153 145:152 160:169 164:166
+eShop/src/ClientApp/ViewModels/LoginViewModel.cs	1:7 12:137 34:40 43:50 47:49 53:55 59:81 62:80 66:70 72:74 77:79 85:96 88:95 92:94 100:102 106:113 117:119 123:125 128:131 134:136
+eShop/src/ClientApp/ViewModels/MainViewModel.cs	1:2 7:18 10:11 15:17
+eShop/src/ClientApp/ViewModels/MapViewModel.cs	1:2 7:30 12:13 16:29 21:25 33:37
+eShop/src/ClientApp/ViewModels/ObservableCollectionEx.cs	1:3 8:54 10:11 14:15 18:19 22:31 25:30 27:29 34:42 45:53
+eShop/src/ClientApp/ViewModels/OrderDetailViewModel.cs	1:5 10:75 26:29 32:41 35:40 45:59 49:51 53:56 62:74 64:73 66:68 70:72
+eShop/src/ClientApp/ViewModels/ProfileViewModel.cs	1:5 10:78 21:26 31:33 37:46 40:45 50:64 52:54 58:63 68:77 70:72
+eShop/src/ClientApp/ViewModels/SelectionViewModel.cs	4:7
+eShop/src/ClientApp/ViewModels/SettingsViewModel.cs	1:9 14:344 37:79 88:95 91:94 106:113 109:112 124:127 130:140 133:139 136:138 143:153 146:152 149:151 156:166 159:165 162:164 169:179 172:178 175:177 182:189 185:188 192:199 195:198 202:205 216:223 220:222 226:231 234:238 241:248 243:247 251:254 257:260 263:266 269:271 274:276 279:281 284:286 289:292 295:298 301:343 303:338 308:311 313:315 318:321 323:325 329:332 334:337 340:342
+eShop/src/ClientApp/Views/BadgeView.cs	7:140 33:57 36:40 46:52 60:63 66:69 72:75 78:81 84:87 90:92 95:104 101:103 107:116 113:115 119:139 125:128
+eShop/src/ClientApp/Views/BasketView.xaml.cs	4:10 6:9
+eShop/src/ClientApp/Views/CatalogItemView.xaml.cs	4:10 6:9
+eShop/src/ClientApp/Views/CatalogView.xaml.cs	1:2 7:57 9:13 16:31 23:30 26:29 34:38 41:56 43:45 48:52
+eShop/src/ClientApp/Views/CheckoutView.xaml.cs	4:10 6:9
+eShop/src/ClientApp/Views/ContentPageBase.cs	6:23 8:10 13:22 17:19
+eShop/src/ClientApp/Views/CustomNavigationView.xaml.cs	4:14 6:8 11:13
+eShop/src/ClientApp/Views/FiltersView.xaml.cs	4:11 6:10
+eShop/src/ClientApp/Views/LoginView.xaml.cs	4:22 8:12 15:21
+eShop/src/ClientApp/Views/MapView.xaml.cs	1:3 8:26 10:13 16:25 20:22
+eShop/src/ClientApp/Views/MauiAuthenticationBrowser.cs	1:3 8:27 10:26 12:21 23:25
+eShop/src/ClientApp/Views/OrderDetailView.xaml.cs	4:10 6:9
+eShop/src/ClientApp/Views/ProfileView.xaml.cs	4:23 8:12 15:22 19:21
+eShop/src/ClientApp/Views/SettingsView.xaml.cs	4:10 6:9
+eShop/src/ClientApp/Views/Templates/BasketItemTemplate.xaml.cs	4:9 6:8
+eShop/src/ClientApp/Views/Templates/CampaignTemplate.xaml.cs	4:9 6:8
+eShop/src/ClientApp/Views/Templates/OrderItemTemplate.xaml.cs	4:9 6:8
+eShop/src/ClientApp/Views/Templates/OrderTemplate.xaml.cs	4:9 6:8
+eShop/src/ClientApp/Views/Templates/ProductTemplate.xaml.cs	4:9 6:8
+eShop/src/EventBus/Abstractions/EventBusSubscriptionInfo.cs	1:2 7:23
+eShop/src/EventBus/Abstractions/IEventBus.cs	4:6
+eShop/src/EventBus/Abstractions/IEventBusBuilder.cs	4:6
+eShop/src/EventBus/Abstractions/IIntegrationEventHandler.cs	5:9 12:14
+eShop/src/EventBus/Events/IntegrationEvent.cs	4:16 6:9
+eShop/src/EventBus/Extensions/EventBusBuilderExtensions.cs	1:4 9:40 11:18 13:15 23:39 30:36
+eShop/src/EventBus/Extensions/GenericTypeExtensions.cs	4:26 6:20 10:13 15:17 23:25
+eShop/src/EventBus/GlobalUsings.cs	1:2
+eShop/src/EventBusRabbitMQ/EventBusOptions.cs	4:7
+eShop/src/EventBusRabbitMQ/GlobalUsings.cs	1:10
+eShop/src/EventBusRabbitMQ/RabbitMQEventBus.cs	3:11 19:321 32:111 36:38 43:45 58:110 67:69 71:73 76:78 81:84 91:93 96:103 105:109 114:125 116:124 128:130 133:181 135:142 137:140 160:169 164:166 171:175 184:208 186:188 193:196 205:207 214:216 222:224 227:295 230:291 232:286 237:239 242:244 249:252 266:268 280:285 288:290 298:300 303:320 306:310 317:319
+eShop/src/EventBusRabbitMQ/RabbitMQTelemetry.cs	1:2 7:12
+eShop/src/EventBusRabbitMQ/RabbitMqDependencyInjectionExtensions.cs	1:2 7:46 18:40 26:28 43:45
+eShop/src/HybridApp/App.xaml.cs	4:14 6:8 11:13
+eShop/src/HybridApp/MainPage.xaml.cs	4:9 6:8
+eShop/src/HybridApp/MauiProgram.cs	1:2 7:35 13:34 18:20 24:27
+eShop/src/HybridApp/Platforms/Android/MainActivity.cs	1:3 9:10
+eShop/src/HybridApp/Platforms/Android/MainApplication.cs	1:2 8:15 11:12
+eShop/src/HybridApp/Platforms/MacCatalyst/AppDelegate.cs	7:9
+eShop/src/HybridApp/Platforms/MacCatalyst/Program.cs	1:2 7:15 10:14
+eShop/src/HybridApp/Platforms/Tizen/Main.cs	1:3 8:16 12:15
+eShop/src/HybridApp/Platforms/Windows/App.xaml.cs	12:23 18:20
+eShop/src/HybridApp/Platforms/iOS/AppDelegate.cs	7:9
+eShop/src/HybridApp/Platforms/iOS/Program.cs	1:2 7:15 10:14
+eShop/src/HybridApp/Services/CatalogJsonContext.cs	1:2 15:16
+eShop/src/HybridApp/Services/CatalogService.cs	1:4 9:69 14:17 20:24 27:31 34:38 41:45 48:52 55:68 59:61 63:65
+eShop/src/HybridApp/Services/ProductImageUrlProvider.cs	6:9
+eShop/src/Identity.API/Configuration/Config.cs	2:192 4:191 7:14 9:13 19:26 21:25 31:37 33:36 41:190 43:189 45:75 60:68 77:111 81:83 92:94 96:98 100:108 113:143 117:119 127:129 131:133 135:140 145:158 160:173 175:188
+eShop/src/Identity.API/Data/ApplicationDbContext.cs	9:22 12:13 16:21
+eShop/src/Identity.API/Data/Migrations/20230925223402_InitialMigration.Designer.cs	2:8 13:324 17:323 20:322 29:52 55:77 80:102 105:124 127:139 142:158 161:269 272:278 281:287 290:296 299:311 314:320
+eShop/src/Identity.API/Data/Migrations/20230925223402_InitialMigration.cs	1:3 8:235 11:234 14:208 25:27 62:64 77:85 98:106 118:126 136:150 162:170 212:233
+eShop/src/Identity.API/Data/Migrations/ApplicationDbContextModelSnapshot.cs	2:7 12:321 15:320 17:319 26:49 52:74 77:99 102:121 124:136 139:155 158:266 269:275 278:284 287:293 296:308 311:317
+eShop/src/Identity.API/GlobalUsings.cs	1:43
+eShop/src/Identity.API/Models/AccountViewModels/ForgotPasswordViewModel.cs	2:9 4:8
+eShop/src/Identity.API/Models/AccountViewModels/LoggedOutViewModel.cs	2:9 4:8
+eShop/src/Identity.API/Models/AccountViewModels/LoginViewModel.cs	2:17 4:16
+eShop/src/Identity.API/Models/AccountViewModels/LogoutViewModel.cs	2:7 4:6
+eShop/src/Identity.API/Models/AccountViewModels/RedirectViewModel.cs	2:7 4:6
+eShop/src/Identity.API/Models/AccountViewModels/RegisterViewModel.cs	2:23 4:22
+eShop/src/Identity.API/Models/AccountViewModels/ResetPasswordViewModel.cs	2:21 4:20
+eShop/src/Identity.API/Models/AccountViewModels/SendCodeViewModel.cs	2:13 4:12
+eShop/src/Identity.API/Models/AccountViewModels/VerifyCodeViewModel.cs	2:19 4:18
+eShop/src/Identity.API/Models/ApplicationUser.cs	2:31 5:30
+eShop/src/Identity.API/Models/ConsentViewModels/ConsentInputModel.cs	2:11 4:10
+eShop/src/Identity.API/Models/ConsentViewModels/ConsentOptions.cs	2:12 4:11
+eShop/src/Identity.API/Models/ConsentViewModels/ConsentViewModel.cs	2:13 4:12
+eShop/src/Identity.API/Models/ConsentViewModels/ProcessConsentResult.cs	2:15 4:14
+eShop/src/Identity.API/Models/ConsentViewModels/ScopeViewModel.cs	2:12 4:11
+eShop/src/Identity.API/Models/ErrorViewModel.cs	4:9 6:8
+eShop/src/Identity.API/Models/ManageViewModels/AddPhoneNumberViewModel.cs	2:10 4:9
+eShop/src/Identity.API/Models/ManageViewModels/ChangePasswordViewModel.cs	2:21 4:20
+eShop/src/Identity.API/Models/ManageViewModels/ConfigureTwoFactorViewModel.cs	2:9 4:8
+eShop/src/Identity.API/Models/ManageViewModels/FactorViewModel.cs	2:7 4:6
+eShop/src/Identity.API/Models/ManageViewModels/IndexViewModel.cs	2:15 4:14
+eShop/src/Identity.API/Models/ManageViewModels/SetPasswordViewModel.cs	2:16 4:15
+eShop/src/Identity.API/Models/ManageViewModels/VerifyPhoneNumberViewModel.cs	2:13 4:12
+eShop/src/Identity.API/Program.cs	19:30
+eShop/src/Identity.API/Quickstart/Account/AccountController.cs	5:334 9:333 26:34 41:54 48:51 62:140 68:91 70:85 78:82 87:90 94:132 97:128 102:112 104:108 116:118 120:122 124:127 148:160 153:157 168:194 173:179 183:191 198:200 207:262 210:227 215:219 222:224 234:237 241:252 244:251 248:250 255:261 265:270 273:294 277:281 285:289 297:332 302:308 311:329 314:328 317:327 319:324
+eShop/src/Identity.API/Quickstart/Account/AccountOptions.cs	7:16
+eShop/src/Identity.API/Quickstart/Account/ExternalController.cs	6:238 21:28 35:58 40:43 47:54 65:133 69:71 74:77 82:87 104:108 123:130 125:129 137:158 161:217 169:171 173:190 179:181 183:185 187:189 196:198 201:203 208:211 222:237 227:229 234:236
+eShop/src/Identity.API/Quickstart/Account/ExternalProvider.cs	7:10
+eShop/src/Identity.API/Quickstart/Account/LoggedOutViewModel.cs	8:18
+eShop/src/Identity.API/Quickstart/Account/LoginInputModel.cs	8:15
+eShop/src/Identity.API/Quickstart/Account/LoginViewModel.cs	8:17
+eShop/src/Identity.API/Quickstart/Account/LogoutInputModel.cs	8:10
+eShop/src/Identity.API/Quickstart/Account/LogoutViewModel.cs	8:10
+eShop/src/Identity.API/Quickstart/Account/RedirectViewModel.cs	9:11
+eShop/src/Identity.API/Quickstart/Consent/ConsentController.cs	12:247 21:25 34:42 37:39 50:77 54:64 57:61 67:69 72:74 83:148 94:99 102:126 105:121 108:110 113:117 123:125 128:130 133:140 142:145 151:163 154:156 158:160 168:202 170:181 187:194 190:193 196:198 205:215 207:214 218:234 221:223 226:233 237:246 239:245
+eShop/src/Identity.API/Quickstart/Consent/ConsentInputModel.cs	8:14
+eShop/src/Identity.API/Quickstart/Consent/ConsentOptions.cs	8:15
+eShop/src/Identity.API/Quickstart/Consent/ConsentViewModel.cs	8:16
+eShop/src/Identity.API/Quickstart/Consent/ProcessConsentResult.cs	7:17
+eShop/src/Identity.API/Quickstart/Consent/ScopeViewModel.cs	8:15
+eShop/src/Identity.API/Quickstart/Device/DeviceAuthorizationInputModel.cs	8:10
+eShop/src/Identity.API/Quickstart/Device/DeviceAuthorizationViewModel.cs	8:11
+eShop/src/Identity.API/Quickstart/Device/DeviceController.cs	9:214 20:25 29:39 44:49 54:61 64:128 74:79 82:106 85:101 88:90 93:97 103:105 108:110 113:120 122:125 131:139 134:136 142:176 144:155 161:168 164:167 170:172 179:189 181:188 192:202 194:201 204:213 206:212
+eShop/src/Identity.API/Quickstart/Diagnostics/DiagnosticsController.cs	10:22 12:21 15:17
+eShop/src/Identity.API/Quickstart/Diagnostics/DiagnosticsViewModel.cs	5:6 11:28 13:24 17:23
+eShop/src/Identity.API/Quickstart/Extensions.cs	4:22 10:13 16:21
+eShop/src/Identity.API/Quickstart/Grants/GrantsController.cs	12:85 22:27 34:36 44:49 52:84 57:78 60:77 64:74 81:83
+eShop/src/Identity.API/Quickstart/Grants/GrantsViewModel.cs	8:10 13:23
+eShop/src/Identity.API/Quickstart/Home/ErrorViewModel.cs	7:18 9:10 13:15
+eShop/src/Identity.API/Quickstart/Home/HomeController.cs	5:59 9:58 18:22 25:34 27:30 40:57 46:54 50:53
+eShop/src/Identity.API/Quickstart/SecurityHeadersAttribute.cs	8:52 10:51 13:50 16:18 22:24 35:37 40:42 47:49
+eShop/src/Identity.API/Services/EFLoginService.cs	2:34 4:33 9:12 15:17 20:22 25:27 30:32
+eShop/src/Identity.API/Services/ILoginService.cs	2:13 4:12
+eShop/src/Identity.API/Services/IRedirectService.cs	2:7 4:6
+eShop/src/Identity.API/Services/ProfileService.cs	2:118 4:117 8:10 13:24 27:53 36:52 38:46 41:45 56:116 58:62 98:104 107:113
+eShop/src/Identity.API/Services/RedirectService.cs	2:29 4:28 6:27
+eShop/src/Identity.API/UsersSeed.cs	5:98 7:97 11:44 13:31 36:38 41:43 46:51 48:50 56:89 58:76 81:83 86:88 91:96 93:95
+eShop/src/IntegrationEventLogEF/EventStateEnum.cs	4:9
+eShop/src/IntegrationEventLogEF/GlobalUsings.cs	1:8
+eShop/src/IntegrationEventLogEF/IntegrationEventLogEntry.cs	6:40 12:20 36:39
+eShop/src/IntegrationEventLogEF/IntegrationLogExtensions.cs	4:14 6:13 8:12
+eShop/src/IntegrationEventLogEF/Services/IIntegrationEventLogService.cs	4:10
+eShop/src/IntegrationEventLogEF/Services/IntegrationEventLogService.cs	5:91 11:17 20:32 26:29 35:44 47:49 52:54 57:59 62:70 73:84 75:83 77:79 87:90
+eShop/src/IntegrationEventLogEF/Utilities/ResilientTransaction.cs	4:23 12:22 17:21
+eShop/src/OrderProcessor/BackgroundTaskOptions.cs	4:8
+eShop/src/OrderProcessor/Events/GracePeriodConfirmedIntegrationEvent.cs	2:12 6:11
+eShop/src/OrderProcessor/Extensions/Extensions.cs	1:2 7:21 9:20 25:27
+eShop/src/OrderProcessor/GlobalUsings.cs	1:7
+eShop/src/OrderProcessor/Services/GracePeriodManagerService.cs	1:3 6:65 12:64 16:41 20:23 26:35 28:30 38:40 44:62 46:48 55:61
+eShop/src/OrderProcessor/Services/GracePeriodOrdersRepository.cs	6:10 15:47 19:46 21:40 35:37 42:45
+eShop/src/Ordering.API/Apis/OrderServices.cs	6:11
+eShop/src/Ordering.API/Apis/OrdersApi.cs	1:3 6:169 8:20 26:49 28:30 44:46 55:78 57:59 73:75 81:91 83:86 88:90 94:98 101:104 107:116 122:168 133:136 139:167 158:160 162:164
+eShop/src/Ordering.API/Application/Behaviors/LoggingBehavior.cs	3:15 8:14
+eShop/src/Ordering.API/Application/Behaviors/TransactionBehavior.cs	6:64 14:18 21:63 26:56 28:30 35:53 40:50 58:62
+eShop/src/Ordering.API/Application/Behaviors/ValidatorBehavior.cs	4:38 9:12 15:37 29:34
+eShop/src/Ordering.API/Application/Commands/CancelOrderCommandHandler.cs	5:30 9:11 20:29 23:25 35:48 41:42 45:47
+eShop/src/Ordering.API/Application/Commands/CreateOrderCommand.cs	12:13 18:84 62:64 69:83
+eShop/src/Ordering.API/Application/Commands/CreateOrderCommandHandler.cs	8:53 21:27 30:52 43:45 58:71 64:65 68:70
+eShop/src/Ordering.API/Application/Commands/CreateOrderDraftCommandHandler.cs	3:4 9:21 11:20 15:17 24:44 29:43 31:42 33:40 47:59
+eShop/src/Ordering.API/Application/Commands/IdentifiedCommand.cs	5:13 9:12
+eShop/src/Ordering.API/Application/Commands/IdentifiedCommandHandler.cs	11:105 20:25 40:104 43:45 47:103 50:98 57:77 100:102
+eShop/src/Ordering.API/Application/Commands/SetAwaitingValidationOrderStatusCommandHandler.cs	5:30 9:11 20:29 23:25 35:48 41:42 45:47
+eShop/src/Ordering.API/Application/Commands/SetPaidOrderStatusCommandHandler.cs	5:33 9:11 20:32 26:28 38:51 44:45 48:50
+eShop/src/Ordering.API/Application/Commands/SetStockConfirmedOrderStatusCommandHandler.cs	5:33 9:11 20:32 26:28 38:51 44:45 48:50
+eShop/src/Ordering.API/Application/Commands/SetStockRejectedOrderStatusCommandHandler.cs	5:34 9:11 20:33 26:28 39:52 45:46 49:51
+eShop/src/Ordering.API/Application/Commands/ShipOrderCommandHandler.cs	5:30 9:11 20:29 23:25 35:48 41:42 45:47
+eShop/src/Ordering.API/Application/DomainEventHandlers/OrderCancelledDomainEventHandler.cs	5:33 16:21 24:32
+eShop/src/Ordering.API/Application/DomainEventHandlers/OrderShippedDomainEventHandler.cs	5:33 16:21 24:32
+eShop/src/Ordering.API/Application/DomainEventHandlers/OrderStatusChangedToAwaitingValidationDomainEventHandler.cs	5:36 16:21 24:35
+eShop/src/Ordering.API/Application/DomainEventHandlers/OrderStatusChangedToPaidDomainEventHandler.cs	4:41 15:20 23:40
+eShop/src/Ordering.API/Application/DomainEventHandlers/OrderStatusChangedToStockConfirmedDomainEventHandler.cs	5:33 16:21 24:32
+eShop/src/Ordering.API/Application/DomainEventHandlers/UpdateOrderWhenBuyerAndPaymentMethodVerifiedDomainEventHandler.cs	4:25 11:14 20:24
+eShop/src/Ordering.API/Application/DomainEventHandlers/ValidateOrAddBuyerAggregateWhenOrderStartedDomainEventHandler.cs	5:54 14:18 21:53 27:29 43:45
+eShop/src/Ordering.API/Application/IntegrationEvents/EventHandling/GracePeriodConfirmedIntegrationEventHandler.cs	6:30 16:29
+eShop/src/Ordering.API/Application/IntegrationEvents/EventHandling/OrderPaymentFailedIntegrationEventHandler.cs	7:23 9:22
+eShop/src/Ordering.API/Application/IntegrationEvents/EventHandling/OrderPaymentSucceededIntegrationEventHandler.cs	7:23 9:22
+eShop/src/Ordering.API/Application/IntegrationEvents/EventHandling/OrderStockConfirmedIntegrationEventHandler.cs	7:23 9:22
+eShop/src/Ordering.API/Application/IntegrationEvents/EventHandling/OrderStockRejectedIntegrationEventHandler.cs	5:26 7:25
+eShop/src/Ordering.API/Application/IntegrationEvents/Events/GracePeriodConfirmedIntegrationEvent.cs	4:9
+eShop/src/Ordering.API/Application/IntegrationEvents/Events/OrderPaymentFailedIntegrationEvent .cs	4:8
+eShop/src/Ordering.API/Application/IntegrationEvents/Events/OrderPaymentSucceededIntegrationEvent.cs	4:8
+eShop/src/Ordering.API/Application/IntegrationEvents/Events/OrderStartedIntegrationEvent.cs	7:12
+eShop/src/Ordering.API/Application/IntegrationEvents/Events/OrderStatusChangedToAwaitingValidationIntegrationEvent.cs	4:21 14:20 24:33 29:32
+eShop/src/Ordering.API/Application/IntegrationEvents/Events/OrderStatusChangedToCancelledIntegrationEvent.cs	4:18 12:17
+eShop/src/Ordering.API/Application/IntegrationEvents/Events/OrderStatusChangedToPaidIntegrationEvent.cs	4:21 14:20
+eShop/src/Ordering.API/Application/IntegrationEvents/Events/OrderStatusChangedToShippedIntegrationEvent.cs	4:18 12:17
+eShop/src/Ordering.API/Application/IntegrationEvents/Events/OrderStatusChangedToStockConfirmedIntegrationEvent.cs	4:18 12:17
+eShop/src/Ordering.API/Application/IntegrationEvents/Events/OrderStatusChangedTosubmittedIntegrationEvent.cs	4:18 12:17
+eShop/src/Ordering.API/Application/IntegrationEvents/Events/OrderStockConfirmedIntegrationEvent.cs	4:8
+eShop/src/Ordering.API/Application/IntegrationEvents/Events/OrderStockRejectedIntegrationEvent.cs	4:15 11:14 18:27 23:26
+eShop/src/Ordering.API/Application/IntegrationEvents/IOrderingIntegrationEventService.cs	4:7
+eShop/src/Ordering.API/Application/IntegrationEvents/OrderingIntegrationEventService.cs	7:42 14:34 18:33 22:26 28:32 37:41
+eShop/src/Ordering.API/Application/Models/BasketItem.cs	4:12
+eShop/src/Ordering.API/Application/Models/CustomerBasket.cs	4:13 9:12
+eShop/src/Ordering.API/Application/Queries/IOrderQueries.cs	4:10
+eShop/src/Ordering.API/Application/Queries/OrderQueries.cs	5:53 7:35 16:34 28:33 38:49 42:47
+eShop/src/Ordering.API/Application/Queries/OrderViewModel.cs	4:9 12:24 27:32 35:38
+eShop/src/Ordering.API/Application/Validations/CancelOrderCommandValidator.cs	4:14 6:13 10:12
+eShop/src/Ordering.API/Application/Validations/CreateOrderCommandValidator.cs	3:33 5:22 19:21 25:27 30:32
+eShop/src/Ordering.API/Application/Validations/IdentifiedCommandValidator.cs	4:14 6:13 10:12
+eShop/src/Ordering.API/Application/Validations/ShipOrderCommandValidator.cs	4:14 6:13 10:12
+eShop/src/Ordering.API/Extensions/BasketItemExtensions.cs	4:24 6:11 8:10 14:23 16:22
+eShop/src/Ordering.API/Extensions/Extensions.cs	4:61 6:51 16:18 36:42 54:60
+eShop/src/Ordering.API/Extensions/LinqSelectExtensions.cs	4:45 6:20 8:19 11:13 15:17 23:25 28:30 33:44 35:39
+eShop/src/Ordering.API/Extensions/OrderingApiTrace.cs	4:13
+eShop/src/Ordering.API/GlobalUsings.cs	1:30
+eShop/src/Ordering.API/Infrastructure/OrderingContextSeed.cs	6:25 8:17 10:14 20:24
+eShop/src/Ordering.API/Infrastructure/Services/IIdentityService.cs	4:8
+eShop/src/Ordering.API/Infrastructure/Services/IdentityService.cs	4:10
+eShop/src/Ordering.API/Program.cs	8:11
+eShop/src/Ordering.Domain/AggregatesModel/BuyerAggregate/Buyer.cs	7:51 18:21 24:27 32:50 37:41
+eShop/src/Ordering.Domain/AggregatesModel/BuyerAggregate/CardType.cs	4:7
+eShop/src/Ordering.Domain/AggregatesModel/BuyerAggregate/IBuyerRepository.cs	7:12
+eShop/src/Ordering.Domain/AggregatesModel/BuyerAggregate/PaymentMethod.cs	6:43 22:35 28:30 38:42
+eShop/src/Ordering.Domain/AggregatesModel/OrderAggregate/Address.cs	6:33 16:22 25:32
+eShop/src/Ordering.Domain/AggregatesModel/OrderAggregate/IOrderRepository.cs	7:13
+eShop/src/Ordering.Domain/AggregatesModel/OrderAggregate/Order.cs	7:186 38:44 40:42 47:50 54:65 72:91 76:84 79:81 86:90 94:97 100:106 102:105 109:117 111:116 120:128 122:127 131:140 133:135 143:153 146:148 156:168 158:167 172:178 181:183
+eShop/src/Ordering.Domain/AggregatesModel/OrderAggregate/OrderItem.cs	7:63 24:42 26:28 31:33 45:52 47:49 55:62 57:59
+eShop/src/Ordering.Domain/AggregatesModel/OrderAggregate/OrderStatus.cs	7:14
+eShop/src/Ordering.Domain/Events/BuyerPaymentMethodVerifiedDomainEvent.cs	5:16 11:15
+eShop/src/Ordering.Domain/Events/OrderCancelledDomainEvent.cs	4:11 8:10
+eShop/src/Ordering.Domain/Events/OrderShippedDomainEvent.cs	4:11 8:10
+eShop/src/Ordering.Domain/Events/OrderStatusChangedToAwaitingValidationDomainEvent.cs	8:18 14:17
+eShop/src/Ordering.Domain/Events/OrderStatusChangedToPaidDomainEvent.cs	8:18 14:17
+eShop/src/Ordering.Domain/Events/OrderStatusChangedToStockConfirmedDomainEvent.cs	8:13
+eShop/src/Ordering.Domain/Exceptions/OrderingDomainException.cs	7:18
+eShop/src/Ordering.Domain/GlobalUsings.cs	1:7
+eShop/src/Ordering.Domain/SeedWork/Entity.cs	4:87 8:17 10:12 14:16 23:26 29:31 34:36 39:41 44:60 63:74 65:70 76:81 84:86
+eShop/src/Ordering.Domain/SeedWork/IRepository.cs	4:6
+eShop/src/Ordering.Domain/SeedWork/IUnitOfWork.cs	4:7
+eShop/src/Ordering.Domain/SeedWork/ValueObject.cs	4:44 6:12 8:10 15:17 22:31 24:26 34:38 41:43
+eShop/src/Ordering.Infrastructure/EntityConfigurations/BuyerEntityTypeConfiguration.cs	5:24 7:23
+eShop/src/Ordering.Infrastructure/EntityConfigurations/CardTypeEntityTypeConfiguration.cs	5:17 7:16
+eShop/src/Ordering.Infrastructure/EntityConfigurations/ClientRequestEntityTypeConfiguration.cs	5:10 7:9
+eShop/src/Ordering.Infrastructure/EntityConfigurations/OrderEntityTypeConfiguration.cs	4:36 6:35
+eShop/src/Ordering.Infrastructure/EntityConfigurations/OrderItemEntityTypeConfiguration.cs	5:17 7:16
+eShop/src/Ordering.Infrastructure/EntityConfigurations/PaymentMethodEntityTypeConfiguration.cs	5:46 7:45
+eShop/src/Ordering.Infrastructure/GlobalUsings.cs	1:12
+eShop/src/Ordering.Infrastructure/Idempotency/ClientRequest.cs	6:11
+eShop/src/Ordering.Infrastructure/Idempotency/IRequestManager.cs	4:8
+eShop/src/Ordering.Infrastructure/Idempotency/RequestManager.cs	4:38 8:10 14:19 22:37 28:32
+eShop/src/Ordering.Infrastructure/MediatorExtension.cs	4:21 6:20
+eShop/src/Ordering.Infrastructure/Migrations/20230925222426_Initial.Designer.cs	2:8 13:332 17:331 20:330 41:62 65:78 81:125 128:163 166:205 208:221 224:239 242:256 259:309 276:304 312:318 321:323 326:328
+eShop/src/Ordering.Infrastructure/Migrations/20230925222426_Initial.cs	1:2 7:281 10:280 13:232 46:48 59:61 72:74 86:88 104:120 140:162 179:188 236:279
+eShop/src/Ordering.Infrastructure/Migrations/20231021004633_FixOrderitemseqSchema.Designer.cs	2:8 13:329 17:328 20:327 42:63 66:78 81:125 128:163 166:205 208:220 223:238 241:255 258:306 275:300 309:315 318:320 323:325
+eShop/src/Ordering.Infrastructure/Migrations/20231021004633_FixOrderitemseqSchema.cs	6:68 9:67 12:37 41:66
+eShop/src/Ordering.Infrastructure/Migrations/20231026091055_Outbox.Designer.cs	2:8 13:360 17:359 20:358 42:70 73:94 97:109 112:156 159:194 197:236 239:251 254:269 272:286 289:337 306:331 340:346 349:351 354:356
+eShop/src/Ordering.Infrastructure/Migrations/20231026091055_Outbox.cs	1:2 7:41 10:40 13:31 28:30 35:39
+eShop/src/Ordering.Infrastructure/Migrations/20240106121712_UseEnumForOrderStatus.Designer.cs	2:8 13:336 17:335 20:334 42:70 73:94 97:109 112:156 159:193 196:235 238:253 256:270 273:313 284:309 316:322 325:327 330:332
+eShop/src/Ordering.Infrastructure/Migrations/20240106121712_UseEnumForOrderStatus.cs	6:112 9:111 12:48 52:110 70:72
+eShop/src/Ordering.Infrastructure/Migrations/OrderingContextModelSnapshot.cs	2:7 12:333 15:332 17:331 39:67 70:91 94:106 109:153 156:190 193:232 235:250 253:267 270:310 281:306 313:319 322:324 327:329
+eShop/src/Ordering.Infrastructure/OrderingContext.cs	11:113 28:33 36:45 48:62 65:71 74:96 79:82 84:87 89:95 91:94 99:112 101:103 105:111 107:110
+eShop/src/Ordering.Infrastructure/Repositories/BuyerRepository.cs	5:52 10:12 15:24 17:21 27:31 34:41 44:51
+eShop/src/Ordering.Infrastructure/Repositories/OrderRepository.cs	5:38 11:13 16:19 22:32 26:29 35:37
+eShop/src/PaymentProcessor/GlobalUsings.cs	1:7
+eShop/src/PaymentProcessor/IntegrationEvents/EventHandling/OrderStatusChangedToStockConfirmedIntegrationEventHandler.cs	8:34 10:33 22:24 26:28
+eShop/src/PaymentProcessor/PaymentOptions.cs	4:6
+eShop/src/Shared/ActivityExtensions.cs	4:18 7:17 9:11
+eShop/src/Shared/MigrateDbContextExtensions.cs	6:89 16:21 26:29 32:56 41:47 49:55 60:74 64:67 69:73 78:88 80:82 85:87 91:93
+eShop/src/WebApp/Components/Chatbot/ChatState.cs	1:5 10:178 26:65 34:36 70:93 77:83 80:82 85:91 87:89 98:115 119:134 121:129 124:126 131:133 138:153 140:144 146:148 150:152 157:167 159:162 164:166 170:177 172:174
+eShop/src/WebApp/Components/Chatbot/MessageProcessor.cs	1:4 9:35 11:31 21:27
+eShop/src/WebApp/Extensions/Extensions.cs	1:9 12:124 14:41 44:51 54:92 67:70 73:87 95:109 98:101 103:106 112:116 119:123
+eShop/src/WebApp/GlobalUsings.cs	1:3
+eShop/src/WebApp/Program.cs	1:2 18:22
+eShop/src/WebApp/Services/BasketCheckoutInfo.cs	6:34
+eShop/src/WebApp/Services/BasketItem.cs	4:11
+eShop/src/WebApp/Services/BasketService.cs	1:3 8:47 10:13 16:18 21:35 25:32 27:30 38:46 41:43
+eShop/src/WebApp/Services/BasketState.cs	1:5 14:156 27:31 34:56 38:46 41:45 49:51 59:76 62:75 64:66 68:70 79:109 81:83 118:149 122:148 125:127 134:145 137:143 152:155
+eShop/src/WebApp/Services/IBasketState.cs	4:11 6:10
+eShop/src/WebApp/Services/LogOutService.cs	1:3 8:14 10:13
+eShop/src/WebApp/Services/OrderStatus/IntegrationEvents/EventHandling/OrderStatusChangedToAwaitingValidationIntegrationEventHandler.cs	9:15 11:14
+eShop/src/WebApp/Services/OrderStatus/IntegrationEvents/EventHandling/OrderStatusChangedToCancelledIntegrationEventHandler.cs	9:15 11:14
+eShop/src/WebApp/Services/OrderStatus/IntegrationEvents/EventHandling/OrderStatusChangedToPaidIntegrationEventHandler.cs	9:15 11:14
+eShop/src/WebApp/Services/OrderStatus/IntegrationEvents/EventHandling/OrderStatusChangedToShippedIntegrationEventHandler.cs	9:15 11:14
+eShop/src/WebApp/Services/OrderStatus/IntegrationEvents/EventHandling/OrderStatusChangedToStockConfirmedIntegrationEventHandler.cs	9:15 11:14
+eShop/src/WebApp/Services/OrderStatus/IntegrationEvents/EventHandling/OrderStatusChangedToSubmittedIntegrationEventHandler.cs	9:15 11:14
+eShop/src/WebApp/Services/OrderStatus/IntegrationEvents/Events/OrderStatusChangedToAwaitingValidationIntegrationEvent.cs	6:20 14:19
+eShop/src/WebApp/Services/OrderStatus/IntegrationEvents/Events/OrderStatusChangedToCancelledIntegrationEvent.cs	6:20 14:19
+eShop/src/WebApp/Services/OrderStatus/IntegrationEvents/Events/OrderStatusChangedToPaidIntegrationEvent.cs	6:20 14:19
+eShop/src/WebApp/Services/OrderStatus/IntegrationEvents/Events/OrderStatusChangedToShippedIntegrationEvent.cs	6:20 14:19
+eShop/src/WebApp/Services/OrderStatus/IntegrationEvents/Events/OrderStatusChangedToStockConfirmedIntegrationEvent.cs	6:20 14:19
+eShop/src/WebApp/Services/OrderStatus/IntegrationEvents/Events/OrderStatusChangedToSubmittedIntegrationEvent.cs	6:20 14:19
+eShop/src/WebApp/Services/OrderStatus/OrderStatusNotificationService.cs	4:62 10:25 14:22 16:19 28:35 30:34 38:50 40:49 42:48 45:47 53:61 55:57
+eShop/src/WebApp/Services/OrderingService.cs	4:19 8:10 13:18
+eShop/src/WebApp/Services/ProductImageUrlProvider.cs	6:9
+eShop/src/WebAppComponents/Item/ItemHelper.cs	6:9
+eShop/src/WebAppComponents/Services/CatalogService.cs	1:3 8:84 12:15 18:22 25:29 32:36 39:43 46:50 53:67 56:58 60:62 70:83 74:76 78:80
+eShop/src/WebAppComponents/Services/ICatalogService.cs	1:3 6:16 8:15
+eShop/src/WebAppComponents/Services/IProductImageUrlProvider.cs	6:11
+eShop/src/WebAppComponents/Services/PriceFormatter.cs	6:11
+eShop/src/WebhookClient/Endpoints/AuthenticationEndpoints.cs	1:4 9:21 11:20 13:17
+eShop/src/WebhookClient/Endpoints/WebhookEndpoints.cs	1:2 7:57 9:56 17:29 19:26 21:23 32:53 38:49 41:45
+eShop/src/WebhookClient/Extensions/Extensions.cs	1:4 9:66 11:22 25:65 36:39 41:47 49:61
+eShop/src/WebhookClient/GlobalUsings.cs	1:5
+eShop/src/WebhookClient/Program.cs	15:19
+eShop/src/WebhookClient/Services/HooksRepository.cs	6:48 11:28 15:25 17:19 21:24 31:33 36:40 43:47
+eShop/src/WebhookClient/Services/WebHookReceived.cs	4:10
+eShop/src/WebhookClient/Services/WebHooksClient.cs	4:14 6:8 11:13
+eShop/src/WebhookClient/Services/WebhookClientOptions.cs	4:8
+eShop/src/WebhookClient/Services/WebhookData.cs	6:12
+eShop/src/WebhookClient/Services/WebhookResponse.cs	4:8
+eShop/src/WebhookClient/Services/WebhookSubscriptionRequest.cs	4:9
+eShop/src/WebhookClient/Services/WebhookType.cs	4:8
+eShop/src/Webhooks.API/Apis/WebHooksApi.cs	1:3 8:86 10:85 14:18 24:33 29:31 40:63 44:58 46:52 60:62 70:82 75:79
+eShop/src/Webhooks.API/Exceptions/WebhooksDomainException.cs	4:5
+eShop/src/Webhooks.API/Extensions/Extensions.cs	2:25 4:17 20:24
+eShop/src/Webhooks.API/Extensions/RouteHandlerBuilderExtensions.cs	4:49 6:25 8:24 12:14 19:21 28:48 32:46 36:45 38:40 42:44
+eShop/src/Webhooks.API/GlobalUsings.cs	1:12
+eShop/src/Webhooks.API/Infrastructure/WebhooksContext.cs	9:20 13:19 15:18
+eShop/src/Webhooks.API/IntegrationEvents/OrderStatusChangedToPaidIntegrationEventHandler.cs	7:18 9:17
+eShop/src/Webhooks.API/IntegrationEvents/OrderStatusChangedToShippedIntegrationEventHandler.cs	7:18 9:17
+eShop/src/Webhooks.API/IntegrationEvents/ProductPriceChangedIntegrationEventHandler.cs	4:9 6:8
+eShop/src/Webhooks.API/Migrations/20230925222606_Initial.Designer.cs	2:8 13:58 17:57 20:56 29:54
+eShop/src/Webhooks.API/Migrations/20230925222606_Initial.cs	1:3 8:40 11:39 14:31 28:30 35:38
+eShop/src/Webhooks.API/Migrations/WebhooksContextModelSnapshot.cs	2:7 12:61 15:60 17:59 26:57
+eShop/src/Webhooks.API/Model/WebhookData.cs	4:17 12:16
+eShop/src/Webhooks.API/Model/WebhookSubscription.cs	4:14
+eShop/src/Webhooks.API/Model/WebhookSubscriptionRequest.cs	4:29 11:27 13:15 18:20 24:26
+eShop/src/Webhooks.API/Model/WebhookType.cs	4:8
+eShop/src/Webhooks.API/Program.cs	7:10
+eShop/src/Webhooks.API/Services/GrantUrlTesterService.cs	4:46 6:35 8:11 20:28 30:34 38:45
+eShop/src/Webhooks.API/Services/IGrantUrlTesterService.cs	4:6
+eShop/src/Webhooks.API/Services/IWebhooksRetriever.cs	4:7
+eShop/src/Webhooks.API/Services/IWebhooksSender.cs	4:6
+eShop/src/Webhooks.API/Services/WebhooksRetriever.cs	4:9 6:8
+eShop/src/Webhooks.API/Services/WebhooksSender.cs	4:35 6:11 14:33 16:20 23:25 28:30
+eShop/src/eShop.AppHost/Extensions.cs	1:7 12:153 20:23 26:44 28:43 30:40 32:37 34:36 52:61 69:85 91:152 93:151
+eShop/src/eShop.AppHost/Program.cs	83:85 89:91 110:116
+eShop/src/eShop.ServiceDefaults/AuthenticationExtensions.cs	1:4 9:56 11:55 25:28 34:50 42:47 45:46
+eShop/src/eShop.ServiceDefaults/ClaimsPrincipalExtensions.cs	6:12
+eShop/src/eShop.ServiceDefaults/ConfigurationExtensions.cs	4:7
+eShop/src/eShop.ServiceDefaults/Extensions.cs	1:10 15:129 17:32 23:29 41:48 51:83 53:56 60:65 67:78 69:72 86:97 90:94 100:106 109:128 116:125 122:124
+eShop/src/eShop.ServiceDefaults/HttpClientExtensions.cs	1:5 10:52 12:20 23:50 27:29 32:34 37:49 39:46 43:45
+eShop/src/eShop.ServiceDefaults/OpenApi.Extensions.cs	1:8 13:87 15:45 20:22 27:42 32:40 37:39 50:86 60:62 65:83 69:72 74:82
+eShop/src/eShop.ServiceDefaults/OpenApiOptionsExtensions.cs	1:10 15:199 17:33 19:31 24:26 36:100 40:52 42:49 44:46 55:97 57:66 59:61 69:96 75:90 77:80 93:95 103:106 109:136 111:134 115:117 126:131 139:149 141:147 152:165 154:163 158:161 168:198 170:197 173:175 180:192 183:191 186:190
+eShop/tests/Application.UnitTests/CatalogAITests.cs	1:4 10:23 13:22
+eShop/tests/Application.UnitTests/GlobalUsings.cs	1:2
+eShop/tests/Application.UnitTests/IdentityConfigurationTests.cs	1:3 9:51 12:18 22:40 24:31 46:50
+eShop/tests/Application.UnitTests/OrderProcessorTests.cs	1:6 12:41 17:40 26:29
+eShop/tests/Application.UnitTests/PaymentProcessorTests.cs	1:6 12:41 17:40 29:33 35:39
+eShop/tests/Application.UnitTests/WebhookClientTests.cs	1:8 14:100 19:38 23:26 28:32 42:55 46:49 59:99 82:86 88:90
+eShop/tests/Application.UnitTests/WebhookTests.cs	1:6 12:71 17:30 19:23 34:57 42:46 60:70 66:69
+eShop/tests/Basket.FunctionalTests/GlobalUsings.cs	1:7
+eShop/tests/Basket.FunctionalTests/RedisBasketRepositoryTests.cs	4:51 7:38 13:25 18:23 42:50
+eShop/tests/Basket.FunctionalTests/RedisFixture.cs	1:2 7:54 16:24 18:21 27:34 37:53 39:42 46:48 50:52
+eShop/tests/Basket.UnitTests/BasketServiceTests.cs	1:10 16:153 21:31 35:49 53:66 70:89 93:102 106:116 120:127 131:140 143:152 147:149
+eShop/tests/Basket.UnitTests/GlobalUsings.cs	1:8
+eShop/tests/Basket.UnitTests/Helpers/TestServerCallContext.cs	6:61 17:23 37:39 42:50 44:46 58:60
+eShop/tests/Catalog.FunctionalTests/CatalogApiFixture.cs	1:6 11:58 18:25 28:37 30:35 32:34 40:51 44:46 48:50 54:57
+eShop/tests/Catalog.FunctionalTests/CatalogApiTests.cs	1:7 12:469 17:19 22:25 31:45 51:80 86:117 123:136 142:156 162:184 190:212 218:230 236:257 263:286 292:314 320:334 340:354 360:396 370:383 402:422 428:434 440:449 455:468
+eShop/tests/Catalog.FunctionalTests/GlobalUsings.cs	1:10
+eShop/tests/ClientApp.UnitTests/GlobalUsings.cs	1:8
+eShop/tests/ClientApp.UnitTests/Mocks/MockDialogService.cs	4:9 6:8
+eShop/tests/ClientApp.UnitTests/Mocks/MockNavigationService.cs	4:19 6:8 11:13 16:18
+eShop/tests/ClientApp.UnitTests/Mocks/MockSettingsService.cs	6:192 33:36 39:42 45:47 50:54 57:60 63:66 69:72 75:78 81:84 87:90 93:96 99:102 105:108 111:114 117:120 123:126 129:132 135:138 141:144 147:150 153:156 159:162 170:179 172:174 176:178 186:191 188:190
+eShop/tests/ClientApp.UnitTests/Mocks/MockViewModel.cs	1:2 7:28 14:20 23:27
+eShop/tests/ClientApp.UnitTests/Services/BasketServiceTests.cs	5:13 8:12
+eShop/tests/ClientApp.UnitTests/Services/CatalogServiceTests.cs	5:32 8:13 17:22 26:31
+eShop/tests/ClientApp.UnitTests/Services/OrdersServiceTests.cs	7:32 11:13 17:22 26:31
+eShop/tests/ClientApp.UnitTests/TestingExtensions.cs	1:2 7:18 9:17 11:14
+eShop/tests/ClientApp.UnitTests/ViewModels/CatalogItemViewModelTests.cs	1:5 11:62 16:31 35:38 42:60 53:55
+eShop/tests/ClientApp.UnitTests/ViewModels/CatalogViewModelTests.cs	1:2 8:148 13:29 33:36 40:43 47:50 54:57 61:64 68:71 75:78 82:85 89:95 99:105 109:115 119:134 125:130 127:129 138:147
+eShop/tests/ClientApp.UnitTests/ViewModels/MainViewModelTests.cs	7:28 11:13 17:20 24:27
+eShop/tests/ClientApp.UnitTests/ViewModels/MockViewModelTests.cs	7:118 11:13 17:29 33:46 50:63 67:81 85:99 90:95 92:94 103:117 108:113 110:112
+eShop/tests/ClientApp.UnitTests/ViewModels/OrderViewModelTests.cs	1:2 8:73 14:31 35:38 42:51 55:72 61:66 63:65
+eShop/tests/Ordering.FunctionalTests/AutoAuthorizeMiddleware.cs	4:26 10:12 15:25
+eShop/tests/Ordering.FunctionalTests/GlobalUsings.cs	1:13
+eShop/tests/Ordering.FunctionalTests/OrderingApiFixture.cs	1:5 10:77 20:27 30:44 32:38 34:37 40:42 47:58 51:53 55:57 61:64 67:76 69:75 71:74
+eShop/tests/Ordering.FunctionalTests/OrderingApiTests.cs	1:9 14:243 19:24 28:36 40:51 43:45 55:66 58:60 70:81 73:75 85:95 88:90 99:107 111:118 122:133 125:127 137:160 140:148 152:154 164:186 167:175 178:180 190:205 193:195 208:224 212:223 214:222 227:233 236:242
+eShop/tests/Ordering.UnitTests/Application/IdentifiedCommandHandlerTest.cs	5:77 11:15 19:37 41:58 61:76
+eShop/tests/Ordering.UnitTests/Application/NewOrderCommandHandlerTest.cs	1:2 8:83 15:21 25:47 51:54 57:59 62:64 67:82
+eShop/tests/Ordering.UnitTests/Application/OrdersWebApiTest.cs	3:6 10:182 17:22 26:37 41:52 56:68 72:83 87:103 107:121 125:139 143:155 159:168 172:181
+eShop/tests/Ordering.UnitTests/Application/SetStockRejectedOrderStatusCommandTest.cs	7:30 10:29 26:28
+eShop/tests/Ordering.UnitTests/Builders.cs	6:11 8:10 14:46 18:28 37:40 43:45
+eShop/tests/Ordering.UnitTests/Domain/BuyerAggregateTest.cs	5:130 11:21 25:32 36:54 58:73 77:88 92:107 111:129
+eShop/tests/Ordering.UnitTests/Domain/OrderAggregateTest.cs	3:4 8:178 14:28 32:43 47:58 62:76 80:94 98:106 110:129 133:152 156:177
+eShop/tests/Ordering.UnitTests/Domain/SeedWork/ValueObjectTests.cs	5:197 9:15 20:26 31:68 33:67 71:114 73:112 117:140 119:125 134:139 143:166 145:149 157:165 162:164 169:196 171:174 181:183 186:190 193:195
+eShop/tests/Ordering.UnitTests/GlobalUsings.cs	1:19
+eShop/tests/Webhooks.FunctionalTests/GlobalUsings.cs	1:9
+eShop/tests/Webhooks.FunctionalTests/TestAuthenticationMiddleware.cs	6:15 8:14
+eShop/tests/Webhooks.FunctionalTests/WebhooksApiFixture.cs	1:4 9:79 17:27 19:22 30:47 32:39 34:38 41:45 50:54 57:68 61:63 65:67 71:78 74:77 82:85
+eShop/tests/Webhooks.FunctionalTests/WebhooksApiTests.cs	1:4 9:87 11:16 20:56 25:30 60:86 63:68 77:81
+eShop/tests/eShop.AppHost.UnitTests/AppHostConfigurationTests.cs	1:3 9:74 17:23 27:37 41:51 55:58 64:73 67:69
