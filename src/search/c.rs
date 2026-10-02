@@ -1301,6 +1301,9 @@ fn cpp_class_path(written: &str) -> Option<Vec<String>> {
     static DROPPED: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"\b(?:const|volatile|static|mutable|constexpr|inline|struct|class|typename|extern|thread_local|register|virtual|explicit)\b|\[\[[^\]]*\]\]").unwrap()
     });
+    static STD_NAME: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\bstd(?:\s*::\s*\w+)+").unwrap());
+    static WORD: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[A-Za-z_]\w*").unwrap());
     static SMART: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^(?:::\s*)?(?:std\s*::\s*)?(?:unique_ptr|shared_ptr)\s*<(.*)>$").unwrap()
     });
@@ -1325,9 +1328,30 @@ fn cpp_class_path(written: &str) -> Option<Vec<String>> {
             && !p.starts_with(|c: char| c.is_ascii_digit())
             && p.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
     };
+    const ARROW: &[&str] = &[
+        "optional",
+        "expected",
+        "auto_ptr",
+        "weak_ptr",
+        "reverse_iterator",
+        "move_iterator",
+        "counted_iterator",
+        "common_iterator",
+        "basic_const_iterator",
+        "istream_iterator",
+        "istreambuf_iterator",
+        "indirect",
+        "polymorphic",
+    ];
+    let std_only = || {
+        let args = STD_NAME.replace_all(s, "");
+        WORD.find_iter(&args).all(|w| BUILTIN.contains(&w.as_str()))
+            || (path.len() == 2 && !ARROW.contains(&path[1].as_str()))
+    };
     (path.iter().all(named)
         && !path.is_empty()
-        && !BUILTIN.contains(&path[path.len() - 1].as_str()))
+        && !BUILTIN.contains(&path[path.len() - 1].as_str())
+        && (path[0] != "std" || std_only()))
     .then_some(path)
 }
 pub fn cpp_value_type(text: &str, line: usize, name: &str) -> Result<Option<Vec<String>>, ()> {

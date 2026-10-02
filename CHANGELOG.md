@@ -15,7 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of the class the method is in, or `this`; `std::unique_ptr<T>` is `T`, a member the class
   inherits is found in its bases, and a chain names each link
   (`via thread: ThreadState → shared: SharedState`). A receiver of a `std::` type never lands in
-  the project: `v->clear()` on a `std::vector` searches the headers outside it. (#389)
+  the project: `v->clear()` on a `std::vector` searches the headers outside it. One whose `->`
+  reaches a type of the project, `std::optional<Tariff>` or `std::vector<Tariff>::iterator`, and
+  any qualifier the rules cannot place (a namespace alias, a namespace a macro opens) are searched
+  by name as before. (#389)
 - `f` folds Python code into one line ending in `⋯`: on a line that opens a construct it folds
   that construct (`def`, `class`, `if` / `elif` / `else`, `for`, `while`, `with`, `try` /
   `except` / `finally`, `match` / `case`, a call, list or dict wrapped over lines, a docstring, a
@@ -114,8 +117,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of the name as before, and a longer chain says where it broke. (#386)
 - `d` in C and C++ knows enum constants and the member functions a class only declares. `return
   GREEN;` lands on `GREEN` in its `enum`, where it said `no definition for GREEN`, and a constant
-  in an initializer list is still no declaration. `it->Valid()` offers the interface's `virtual
-  bool Valid() const = 0;` beside the overrides, and on an out-of-line `Status
+  in an initializer list is still no declaration. `it->Valid()` on a receiver whose type is not
+  known offers the interface's `virtual bool Valid() const = 0;` beside the overrides; on an
+  `Iterator* it` it lands on the declaration in `class Iterator` (#389). On an out-of-line `Status
   VersionSet::Recover(…) {` it lands on the declaration in `class VersionSet` instead of offering
   another class's `Recover`. A member declared in its class and defined out of line stays one
   row, the definition. (#373)

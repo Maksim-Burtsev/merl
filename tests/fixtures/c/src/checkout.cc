@@ -73,4 +73,23 @@ int guess() {
   //       ^ d: picker include/shop/offers.hh:11, include/shop/offers.hh:20
 }
 
+namespace sh = shop;
+int aliased(sh::Tariff* t) { return t->rate(); }
+//                                     ^ d: include/shop/offers.hh:11
+
+int maybe(std::optional<Tariff> o) { return o->rate(); }
+//                                             ^ d: picker include/shop/offers.hh:11, include/shop/offers.hh:20
+
+int walked(std::vector<Tariff>::iterator it) { return it->rate(); }
+//                                                        ^ d: picker include/shop/offers.hh:11, include/shop/offers.hh:20
+
+int racked(Rack& r) { return r[0].tariff.rate(); }
+//                                       ^ d: picker include/shop/offers.hh:11, include/shop/offers.hh:20
+
+void drop(std::vector<Tariff>* ts) { ts->clear(); }
+//                                       ^ d: none
+
+void reset(std::optional<std::string> s) { s->clear(); }
+//                                            ^ d: none
+
 }  // namespace shop
