@@ -115,11 +115,11 @@ fn lua_long_brackets_hide_what_they_hold() {
             .collect::<Vec<_>>(),
         [36, 37, 38, 39, 45, 46, 47, 48, 55, 56, 57]
     );
-    // A `--` line comment is still one line, whatever quote it holds.
     assert!(
         literal_lines(Kind::Lua, "-- don't\nlocal x = 1\n")[1..]
             .iter()
-            .all(|l| !l)
+            .all(|l| !l),
+        "a `--` line comment is one line, whatever quote it holds"
     );
 }
 
@@ -330,8 +330,11 @@ fn mix_deps_are_those_beside_a_mix_exs_from_the_file_up() {
         mix_deps(&root, &root.join("apps/web/lib")),
         [root.join("apps/web/deps"), root.join("deps")]
     );
-    // A `deps` with no `mix.exs` beside it is some other directory.
-    assert_eq!(mix_deps(&root, &root.join("tools")), [root.join("deps")]);
+    assert_eq!(
+        mix_deps(&root, &root.join("tools")),
+        [root.join("deps")],
+        "a `deps` with no `mix.exs` beside it is some other directory"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -599,18 +602,24 @@ fn zig_scope_roots_and_names() {
 
 #[test]
 fn zig_std_comes_from_zig_env() {
-    // What `zig env` prints: JSON on some versions, ZON on others.
     let json = "{\n \"zig_exe\": \"/opt/homebrew/bin/zig\",\n \"lib_dir\": \"/opt/lib/zig\",\n \"std_dir\": \"/opt/lib/zig/std\"\n}\n";
-    assert_eq!(zig_roots(json), [PathBuf::from("/opt/lib/zig/std")]);
+    assert_eq!(
+        zig_roots(json),
+        [PathBuf::from("/opt/lib/zig/std")],
+        "`zig env` as JSON"
+    );
     let zon = ".{ .zig_exe = \"/usr/bin/zig\", .lib_dir = \"/usr/lib/zig\", .std_dir = \"/usr/lib/zig/std\" }\n";
-    assert_eq!(zig_roots(zon), [PathBuf::from("/usr/lib/zig/std")]);
-    // A version that reports only the library directory the standard library sits in.
+    assert_eq!(
+        zig_roots(zon),
+        [PathBuf::from("/usr/lib/zig/std")],
+        "`zig env` as ZON"
+    );
     assert_eq!(
         zig_roots("{\"lib_dir\": \"/usr/lib/zig\"}"),
-        [PathBuf::from("/usr/lib/zig/std")]
+        [PathBuf::from("/usr/lib/zig/std")],
+        "a version that reports only the library directory"
     );
-    // No `zig` on this machine: nothing to search outside the project.
-    assert!(zig_roots("").is_empty());
+    assert!(zig_roots("").is_empty(), "no `zig` on this machine");
 }
 
 #[test]
@@ -717,9 +726,11 @@ fn proto_roots_are_where_protoc_installs_its_types() {
     assert_eq!(kind_of(Path::new("shop/v1/user.proto")), Some(Kind::Proto));
     assert_eq!(kind_of(Path::new("testdata/user.textproto")), None);
     assert_eq!(kind_of(Path::new("testdata/user.pbtxt")), None);
-    // Strings end with their line: a backtick in a comment opens nothing.
     let text = "// run `buf generate\nmessage Tariff {\n}\n";
-    assert!(literal_lines(Kind::Proto, text).iter().all(|l| !l));
+    assert!(
+        literal_lines(Kind::Proto, text).iter().all(|l| !l),
+        "strings end with their line: a backtick in a comment opens nothing"
+    );
 }
 
 const SH: &str = "#!/usr/bin/env bash\nset -eu\n\nexport ROOT=/srv\nlocal -i tries=3\ndeclare -r -x LIMIT=10\nreadonly NAME=app\nPATH+=:/opt/bin\nalias ll='ls -l'\n\nbuild() {\n  echo \"$ROOT\"\n}\n\nfunction deploy {\n  build\n}\n\nfunction check() {\n  [ \"$NAME\" = app ]\n}\n\nbuild \"$ROOT\"\n";
@@ -728,15 +739,13 @@ const SH: &str = "#!/usr/bin/env bash\nset -eu\n\nexport ROOT=/srv\nlocal -i tri
 fn shell_def_patterns_find_functions_assignments_and_aliases() {
     let (dir, files) = scratch("sh", &[("run.sh", SH)]);
     let d = |w| defs(&dir, &files, Kind::Shell, w);
-    // The definition, not the `build` call on line 16 or line 23.
-    assert_eq!(d("build"), [11]);
+    assert_eq!(d("build"), [11], "not the calls on lines 16 and 23");
     assert_eq!(d("deploy"), [15]);
     assert_eq!(d("check"), [19], "`function name()` counts once");
     assert_eq!(d("ROOT"), [4], "not the `\"$ROOT\"` uses");
     assert_eq!(d("tries"), [5]);
     assert_eq!(d("LIMIT"), [6], "behind `declare` and its flags");
-    // The `readonly` assignment, not the `[ \"$NAME\" = app ]` test.
-    assert_eq!(d("NAME"), [7]);
+    assert_eq!(d("NAME"), [7], "not the `[ \"$NAME\" = app ]` test");
     assert_eq!(d("PATH"), [8], "`+=` appends to a variable");
     assert_eq!(d("ll"), [9]);
     assert_eq!(d("echo"), Vec::<usize>::new());
@@ -778,20 +787,20 @@ DROP TABLE customers;
 fn sql_def_patterns_find_create_statements_and_ctes() {
     let (dir, files) = scratch("sql", &[("schema.sql", SQL)]);
     let d = |w| defs(&dir, &files, Kind::Sql, w);
-    // The bare name finds the schema-qualified `CREATE TABLE`.
-    assert_eq!(d("orders"), [1]);
+    assert_eq!(d("orders"), [1], "the schema-qualified `CREATE TABLE`");
     assert_eq!(d("total"), [6]);
     assert_eq!(d("orders_id_idx"), [8]);
-    // Lower-case keywords read the same.
-    assert_eq!(d("daily_totals"), [10]);
+    assert_eq!(d("daily_totals"), [10], "lower-case keywords");
     assert_eq!(d("mood"), [12]);
     assert_eq!(d("invoices"), [14]);
     assert_eq!(d("user"), [16], "a quoted name");
-    // The `WITH` and the `,` continuation both open a CTE.
-    assert_eq!(d("recent"), [18]);
-    assert_eq!(d("older"), [20]);
-    // `customers` is only ever used, never created: no definition.
-    assert_eq!(d("customers"), Vec::<usize>::new());
+    assert_eq!(d("recent"), [18], "a CTE behind `WITH`");
+    assert_eq!(d("older"), [20], "a CTE behind the `,` continuation");
+    assert_eq!(
+        d("customers"),
+        Vec::<usize>::new(),
+        "only ever used, never created"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -803,8 +812,7 @@ fn make_def_patterns_find_targets_and_variables() {
     let d = |w| defs(&dir, &files, Kind::Make, w);
     assert_eq!(d("build"), [4]);
     assert_eq!(d("test-all"), [4], "one of several targets");
-    // The `deps::` rule, not the prerequisite on line 4.
-    assert_eq!(d("deps"), [6]);
+    assert_eq!(d("deps"), [6], "not the prerequisite on line 4");
     assert_eq!(d("CC"), [2]);
     assert_eq!(d("CFLAGS"), [3]);
     assert_eq!(d("gcc"), Vec::<usize>::new());
@@ -852,8 +860,11 @@ fn a_makefile_recipe_line_is_one_after_a_rule() {
     let recipe: Vec<(usize, usize)> = (1..=make.lines().count())
         .filter_map(|n| make_recipe_command(make, n).map(|at| (n, at)))
         .collect();
-    // Line 11 continues the command of line 10: one shell runs both.
-    assert_eq!(recipe, [(10, 10), (11, 10), (15, 15), (20, 20)]);
+    assert_eq!(
+        recipe,
+        [(10, 10), (11, 10), (15, 15), (20, 20)],
+        "line 11 continues the command of line 10"
+    );
     assert_eq!(make_recipe_command(make, 0), None);
     assert_eq!(make_recipe_command(make, 99), None);
 }
@@ -918,8 +929,11 @@ fn docker_and_yaml_def_patterns() {
     assert_eq!(defs(&dir, &yaml, Kind::Yaml, "db-main"), [7]);
     assert_eq!(defs(&dir, &yaml, Kind::Yaml, "web"), [4]);
     assert_eq!(defs(&dir, &yaml, Kind::Yaml, "base"), [9]);
-    // A key with a value on its line is data, not a definition.
-    assert_eq!(defs(&dir, &yaml, Kind::Yaml, "image"), Vec::<usize>::new());
+    assert_eq!(
+        defs(&dir, &yaml, Kind::Yaml, "image"),
+        Vec::<usize>::new(),
+        "a key with a value on its line is data"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 

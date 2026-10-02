@@ -126,7 +126,6 @@ fn cs_block_end(lines: &[&str], k: usize) -> usize {
     lines.len().saturating_sub(1)
 }
 
-// ---- bindings (#345) ----------------------------------------------------------------------
 /// What a C# block header binds `name` to for the block under it (#345), as [`block_bindings`]
 /// reads a header: whether it binds it, and whether for that block (so it hides the scopes
 /// around): the parameters of a method, a constructor, a local function, an operator, an indexer
@@ -344,7 +343,6 @@ pub fn cs_written_line<S: AsRef<str>>(lines: &[S], line: usize, name: &str) -> u
     written_line(&masked, line, name)
 }
 
-// ---- typed receivers and object initializers (#352) ---------------------------------------
 /// What a C# declaration gives a name, as far as its line tells.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CsValue {

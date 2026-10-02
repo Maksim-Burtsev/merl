@@ -139,7 +139,6 @@ fn opens(l: &str, keyword: &str) -> bool {
         .is_some_and(|c| c[1].eq_ignore_ascii_case(keyword))
 }
 
-/// Whether 1-based `line` of `lines` sits directly inside a `class`.
 fn in_class<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
     owner(lines, line).is_some_and(|o| opens(o, "class"))
 }
@@ -232,7 +231,6 @@ pub fn powershell_params(lines: &[&str], at: usize, name: &str) -> Vec<Binding> 
         let Some(from) = open.filter(|_| !beside) else {
             continue;
         };
-        // The list runs from its `(` to the line that closes it.
         let mut open = 0;
         for (n, b) in lines.iter().enumerate().skip(i).take(80) {
             let from = if n == i { from } else { 0 };
@@ -251,7 +249,6 @@ pub fn powershell_params(lines: &[&str], at: usize, name: &str) -> Vec<Binding> 
     Vec::new()
 }
 
-/// The header of a function or a filter.
 static HEADER: std::sync::LazyLock<Regex> =
     std::sync::LazyLock::new(|| Regex::new(r"(?i)^\s*(?:function|filter)\s").unwrap());
 

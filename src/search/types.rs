@@ -465,7 +465,6 @@ pub fn enum_constants(text: &str, decl: usize) -> Vec<(String, usize)> {
     let mut out = Vec::new();
     let mut chars = text.chars().peekable();
     let mut line = 1;
-    // Past the lines above the declaration.
     while line < decl {
         match chars.next() {
             Some('\n') => line += 1,

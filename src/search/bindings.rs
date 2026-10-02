@@ -1,13 +1,9 @@
-//! What a name is bound to where it is written: the miniature per-language reader
-//! behind the receiver types `d` proves.
-
 use std::ops::Range;
 
 use regex::Regex;
 
 use super::*;
 
-// ---- the type of a receiver (#68, steps 2 and 3) --------------------------------------------
 /// What a declaration gives a name, as far as the declaration itself tells. The caller resolves a
 /// type in the file that wrote it, a call through the declaration of what it calls, and another
 /// name at the declaration's line.
@@ -46,7 +42,6 @@ pub struct Binding {
     pub line: usize,
     pub value: Value,
 }
-/// The value an expression gives a name: a call, a construction, another name, or unknown.
 pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
     static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^(?:await\s+)?(new\s+)?([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*(?:<[^()]*>)?\s*\(").unwrap()
@@ -64,7 +59,6 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
     });
     let e = uncommented(kind, expr);
     let e = e.trim().trim_end_matches(';').trim_end();
-    // What comes after the bracket that opens at `open` must be nothing, or the next lines.
     let ends = |open: usize| close_of(kind, e, open).is_none_or(|end| e[end..].trim().is_empty());
     // A cast writes the type (#100): `x as T` (the last one of `x as unknown as T`), Go's
     // `i.(T)`, and below Python's `cast(T, x)`.
@@ -1628,8 +1622,6 @@ pub fn package_bindings(text: &str, name: &str) -> Vec<Binding> {
     }
     out
 }
-
-// ---- PHP's `$variable` (#464) ------------------------------------------------------------
 /// The 1-based lines that bind PHP's `$name` where 1-based `line` of `text` reads it (#464). A
 /// variable belongs to its function or closure, which sees nothing of the scope around it but
 /// what its `use (…)` list names: its parameters (a promoted one included) and that list, and,
@@ -1742,8 +1734,6 @@ fn php_scope(lines: &[String], literal: &[bool], at: usize) -> PhpScope {
                 b'}' => depth += 1,
                 b'{' if depth > 0 => depth -= 1,
                 b'{' => {
-                    // The header: this line up to the brace, and the lines above it up to the
-                    // end of the statement before.
                     let own = &lines[i][..pos];
                     let cut = own.rfind([';', '{', '}']);
                     let mut start = i;

@@ -1,5 +1,3 @@
-//! What a file imports, and which file on disk an import names.
-
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
@@ -713,7 +711,6 @@ fn use_tree(tree: &str, prefix: &[String], out: &mut Vec<(String, Vec<String>)>)
                 .filter(|p| !p.is_empty())
                 .map(String::from),
         );
-        // Split the list at the commas outside nested braces.
         let (mut depth, mut start) = (0, 0);
         for (i, ch) in rest.char_indices() {
             match ch {
@@ -1054,9 +1051,7 @@ pub fn in_module(path: &Path, parts: &[String]) -> bool {
 /// A directory or a part of a module path without what only one of the two carries.
 fn module_part(s: &str) -> String {
     let s = s.split('@').next().unwrap_or(s);
-    // `fs.d.ts`, `python3.13`, `github.com`: the stem before every extension.
     let s = s.split('.').next().unwrap_or(s);
-    // `name-1.2.3`: the version after the first `-` followed by a digit.
     let s = s
         .match_indices('-')
         .find(|(i, _)| s[i + 1..].starts_with(|c: char| c.is_ascii_digit()))

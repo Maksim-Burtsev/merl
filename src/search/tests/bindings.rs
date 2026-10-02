@@ -1,5 +1,3 @@
-//! What a name is bound to around the cursor.
-
 use super::*;
 
 #[test]
