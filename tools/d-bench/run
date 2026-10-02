@@ -203,7 +203,7 @@ def main():
                 col = byte_col(lines[path][int(c[3]) - 1], int(c[4]))
                 f.write("\t".join([c[0], roots[c[1]], c[2], c[3], str(col)]) + "\n")
         print(f"load {load_before}; {len(cursors)} cursors", file=sys.stderr)
-        subprocess.run(["cargo", "test", "--release", "--bin", "merl", "d_bench", "--", "--ignored", "--quiet"],
+        subprocess.run(["cargo", "test", "--release", "--bin", "merl", "tests::d_bench::d_bench", "--", "--ignored", "--quiet"],
                        cwd=REPO, check=True, env={**os.environ, "BENCH_IN": bench_in, "BENCH_OUT": merl_out})
     merl = {r[0]: r + [""] * (5 - len(r)) for r in tsv(merl_out)}
 

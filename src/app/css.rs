@@ -129,7 +129,14 @@ impl App {
         true
     }
 
-    fn styled_in(&mut self, here: &Path, name: &str, id: bool, files: Vec<PathBuf>, reason: Reason) {
+    fn styled_in(
+        &mut self,
+        here: &Path,
+        name: &str,
+        id: bool,
+        files: Vec<PathBuf>,
+        reason: Reason,
+    ) {
         let piece = name
             .rsplit(['-', '_'])
             .find(|p| !p.is_empty())
