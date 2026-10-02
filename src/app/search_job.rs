@@ -15,7 +15,6 @@ pub struct SearchJob {
     pub(super) symbols: bool,
     pub(super) current: Option<PathBuf>,
     pub(super) unsaved: Option<Vec<u8>>,
-    /// In a review, the lines the branch deleted: `s` and `D` list them too (#440).
     pub(super) deleted: Arc<Vec<git::DeletedLine>>,
 }
 
@@ -98,7 +97,6 @@ impl SearchJob {
             // Each row has the cap to itself, so a cut is this row's, never the total's: on a
             // project whose kinds add up past it with none of them cut, the list is whole.
             cut |= hits.len() >= search::MAX_HITS;
-            // A component's rows are its script's (#413).
             let mut script: HashMap<PathBuf, Vec<bool>> = HashMap::new();
             hits.retain(|h| {
                 !search::component(&h.path)
@@ -130,8 +128,6 @@ impl SearchJob {
     }
 }
 
-/// The lines the branch deleted, in files `wanted` takes, where `find` finds the byte a row lands
-/// on (#440). Nothing outside a review.
 pub(super) fn deleted_hits(
     lines: &[git::DeletedLine],
     wanted: impl Fn(&Path) -> bool,

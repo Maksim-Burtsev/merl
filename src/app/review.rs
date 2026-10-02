@@ -40,8 +40,6 @@ impl App {
         self.open_session();
     }
 
-    /// Review stats (#242): a session of the review as it stands now starts here, its stops
-    /// counted on a thread.
     fn open_session(&mut self) {
         if let Some(r) = &self.review {
             let (repo, branch) = (self.root_name(), r.branch_or_commit(&self.root));
@@ -85,9 +83,6 @@ impl App {
         Some((rel, i + 1))
     }
 
-    /// Review stats (#242): a press at `at` done as `action`, the cursor at `from` before it, or
-    /// with no `at` a jump that came after its press (`s` answering an Enter that did not wait).
-    /// `quit`: the press quits merl.
     pub(super) fn review_count(
         &mut self,
         at: Option<Instant>,
@@ -133,8 +128,6 @@ impl App {
         rows
     }
 
-    /// `c` / `C`: the next / previous hunk, crossing into the next file of the review. From a
-    /// file outside it, back to the hunk they last stopped on (#239).
     pub(super) fn hunk(&mut self, dir: isize) {
         let Some(r) = self.review.clone() else {
             return;
@@ -184,8 +177,6 @@ impl App {
         self.mark_viewed(read.take());
     }
 
-    /// The hunk of the open file `c` (`dir` 1) or `C` (-1) goes to; `None` when it goes on to
-    /// another file. A fold is one stop: the walk goes on from it (#243).
     pub(super) fn hunk_ahead(&self, dir: isize) -> Option<TextLine> {
         if self.folded_here().is_some() {
             return None;
@@ -430,8 +421,6 @@ impl App {
         self.buf.path.as_deref() == Some(&path)
     }
 
-    /// Opens `path` on the first line of a hunk, `h`: its first deleted line when it starts
-    /// with a deletion (#439). The view is centred on it.
     fn jump_to_hunk(&mut self, path: &Path, h: TextLine) {
         self.jump_to(path, h.key() + 1);
         if self.buf.path.as_deref() == Some(path) {
@@ -528,8 +517,6 @@ fn count_stops(
         .collect()
 }
 
-/// Is `f` folded: generated (#243), with lines to read, and its diff not loaded with Enter in
-/// this review. A binary file, a mode change or a pure rename has nothing to fold.
 fn folded(f: &git::ReviewFile, unfolded: &HashSet<PathBuf>) -> bool {
     f.generated && f.has_hunks() && !unfolded.contains(&f.path)
 }
@@ -633,8 +620,6 @@ fn write_viewed<'a>(
 mod tests {
     use super::*;
 
-    /// #240: the 30 days, on a fixed day: a review written 29 days ago is read and kept by a
-    /// write, one written 30 or 31 days ago is neither.
     #[test]
     fn a_review_is_forgotten_on_its_thirtieth_day() {
         let dir = std::env::temp_dir().join(format!("merl-viewededge-{}", std::process::id()));

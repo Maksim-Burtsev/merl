@@ -1,6 +1,3 @@
-//! `d` in HTML, CSS, SCSS and Less, and on a class or an id attribute of a JSX, Vue, Svelte or
-//! Astro template (#415).
-
 use super::definition::resolution;
 use super::links::in_project;
 use super::*;
@@ -21,8 +18,6 @@ impl App {
         search::attr_at(self.line_str(), self.col, !markup)
     }
 
-    /// The word `u` reads where `d` reads one of its own (#415): a class or an id of an
-    /// attribute, `-` and all, and a custom property with its `--`.
     pub(super) fn css_word(&self) -> Option<String> {
         let kind = self.kind();
         if let Some((Attr::Class | Attr::Id, range)) = self.attr_here(kind) {
@@ -37,8 +32,6 @@ impl App {
             .then(|| format!("--{word}"))
     }
 
-    /// `d` where #415 answers: a class or an id attribute in any file with markup, and anything
-    /// in a stylesheet or an HTML file. False leaves the cursor to the kind's own rules.
     pub(super) fn css_definition(&mut self, kind: Option<Kind>, here: &Path) -> bool {
         let line = self.line_str().to_owned();
         match self.attr_here(kind) {
