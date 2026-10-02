@@ -1,48 +1,48 @@
-wait unsigned long crc_len
-┌orders──────────────────────┐1 #include "slice.h"
-│▸ .github                   │2
-│▸ .venv                     │3 unsigned long crc_len(const Slice& key) { return key.size(); }
-│▸ app                       │
-│▸ data                      │
-│▸ deploy                    │
-│▸ docs                      │
-│▸ scripts                   │
-│▸ tests                     │
-│▸ web                       │
-│▾ worker                    │
-│  ▾ internal                │
-│    ▾ crc                   │
-│        block.h             │
-│        client.c            │
-│        crc.c               │
-│        crc.h               │
-│        CrcStamp.h          │
-│        CrcStamp.m          │
-│        log.c               │
-│        mode.cc             │
-│        slice.h             │
-│        use.cc              │
-│    ▸ queue                 │
-│    go.mod                  │
-│    main.go                 │
-│  .env                      │
-│  .gitignore                │
-│  docker-compose.yml        │
-│  Dockerfile                │
-│  Makefile                  │
-│  pyproject.toml            │
-│  README.md                 │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
+wait stampJob: by name, 2 declarations
+┌orders──────────────────────┐ 1 #import "CrcStamp.h"
+│▸ .github                   │ 2
+│▸ .venv                     │ 3 @implementation CrcStamp
+│▸ app                       │ 4 - (unsigned int)stampJob:(NSData *)job {
+│▸ data                      │ 5     return 0;
+│▸ deploy                    │ 6 }
+│▸ docs                      │ 7
+│▸ scripts                   │ 8 - (void)log {
+│▸ tests                     │ 9     [self stampJob:nil];
+│▸ web                       │10 }
+│▾ worker                    │11 @end
+│  ▾ internal      ┌stampJob: by name, 2 declarations (2/2)───────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│    ▾ crc         │>                                                                                                                                                 │
+│        client.c  │stampJob  by name  worker/internal/crc/CrcStamp.m:4: - (unsigned int)stampJob:(NSData *)job {                                                     │
+│        crc.c     │stampJob  by name  worker/internal/crc/CrcStamp.h:4: - (unsigned int)stampJob:(NSData *)job;                                                      │
+│        crc.h     │                                                                                                                                                  │
+│        CrcStamp.h│                                                                                                                                                  │
+│        CrcStamp.m│                                                                                                                                                  │
+│        log.c     │                                                                                                                                                  │
+│        mode.cc   │                                                                                                                                                  │
+│    ▸ queue       │                                                                                                                                                  │
+│    go.mod        │                                                                                                                                                  │
+│    main.go       │                                                                                                                                                  │
+│  .env            │                                                                                                                                                  │
+│  .gitignore      │                                                                                                                                                  │
+│  docker-compose.y│                                                                                                                                                  │
+│  Dockerfile      │                                                                                                                                                  │
+│  Makefile        │                                                                                                                                                  │
+│  pyproject.toml  │                                                                                                                                                  │
+│  README.md       │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 │                            │
 │                            │
 │                            │
@@ -53,5 +53,5 @@ wait unsigned long crc_len
 │                            │
 │                            │
 └────────────────────────────┘
-worker/internal/crc/use.cc  1:1  [code]                                                                                                                                           ? help
-cursor (x,y,shown) 32,0,1
+worker/internal/crc/CrcStamp.m  9:11  [code]  stampJob: by name, 2 declarations
+cursor (x,y,shown) 22,12,1

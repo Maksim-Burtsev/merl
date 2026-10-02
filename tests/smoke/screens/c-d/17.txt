@@ -1,17 +1,18 @@
-wait @implementation CrcStamp
-┌orders──────────────────────┐ 1 #import "CrcStamp.h"
-│▸ .github                   │ 2
-│▸ .venv                     │ 3 @implementation CrcStamp
-│▸ app                       │ 4 - (unsigned int)stampJob:(NSData *)job {
-│▸ data                      │ 5     return 0;
-│▸ deploy                    │ 6 }
-│▸ docs                      │ 7
-│▸ scripts                   │ 8 - (void)log {
-│▸ tests                     │ 9     [self stampJob:nil];
-│▸ web                       │10 }
-│▾ worker                    │11 @end
+wait via key: Slice
+┌orders──────────────────────┐1 struct Slice {
+│▸ .github                   │2     unsigned long size() const { return n; }
+│▸ .venv                     │3     unsigned long n;
+│▸ app                       │4 };
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▾ worker                    │
 │  ▾ internal                │
 │    ▾ crc                   │
+│        block.h             │
 │        client.c            │
 │        crc.c               │
 │        crc.h               │
@@ -19,6 +20,8 @@ wait @implementation CrcStamp
 │        CrcStamp.m          │
 │        log.c               │
 │        mode.cc             │
+│        slice.h             │
+│        use.cc              │
 │    ▸ queue                 │
 │    go.mod                  │
 │    main.go                 │
@@ -49,9 +52,6 @@ wait @implementation CrcStamp
 │                            │
 │                            │
 │                            │
-│                            │
-│                            │
-│                            │
 └────────────────────────────┘
-worker/internal/crc/CrcStamp.m  1:1  [code]                                                                                                                                       ? help
-cursor (x,y,shown) 33,0,1
+worker/internal/crc/slice.h  2:19  [code]  size → Slice::size (via key: Slice)
+cursor (x,y,shown) 50,1,1

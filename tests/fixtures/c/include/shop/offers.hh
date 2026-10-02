@@ -55,4 +55,9 @@ struct Till {
   Tariff tariff;
 };
 
+struct Rack {
+  Till& operator[](int i);
+  Coupon tariff;
+};
+
 }  // namespace shop

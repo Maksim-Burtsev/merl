@@ -13,8 +13,8 @@ wait CRC_FAST → crc_mode::CRC_FAST
 │  ▾ internal                │12 };
 │    ▾ crc                   │13
 │        crc.c               │14 template <class H> int crc_pick(H *h) { return h->Sum() ? CRC_FAST : CRC_PLAIN; }
-│        crc.h               │
-│        mode.cc             │
+│        crc.h               │15
+│        mode.cc             │16 int crc_check(Hasher *h) { return h->Sum(); }
 │    ▸ queue                 │
 │    go.mod                  │
 │    main.go                 │

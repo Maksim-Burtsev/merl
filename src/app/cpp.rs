@@ -39,7 +39,7 @@ impl App {
         let mut prev = head.clone();
         let last = fields.len();
         for (i, name) in fields.iter().map(String::as_str).chain([word]).enumerate() {
-            if self.cpp_outside(here, &ty) {
+            if ty[0] == "std" {
                 return match i == last {
                     true => CppAnswer::Outside,
                     false => broke(&prev),
@@ -90,18 +90,6 @@ impl App {
         let (owner, ats) = self.cpp_member(here, &class, head, 0)?;
         let t = (ats.iter()).find_map(|&at| search::cpp_type_at(&owner.code, at, head.len()))?;
         Some((t, owner.code))
-    }
-
-    fn cpp_outside(&self, here: &Path, ty: &[String]) -> bool {
-        match ty {
-            [ns, _, ..] if ns == "std" => true,
-            [ns, _, ..] => {
-                let p = search::def_patterns(Kind::C, ns);
-                self.project_definitions(Kind::C, here, ns, &format!("{}|{}", p[2], p[3]))
-                    .is_empty()
-            }
-            _ => false,
-        }
     }
 
     fn cpp_class(
@@ -177,7 +165,7 @@ impl App {
             return None;
         }
         for base in search::cpp_bases(&class.code, class.open) {
-            if self.cpp_outside(here, &base) {
+            if base[0] == "std" {
                 return None;
             }
             let base = self.cpp_class(here, &base, &class.code, None)?;
