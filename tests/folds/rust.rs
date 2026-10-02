@@ -61,67 +61,68 @@ extern "C" {  // f: 60-62
     fn abs(x: i32) -> i32;  // f: 60-62
 }  // f: 60-62
 
-pub fn classify(points: &[Point<'_>], raw: &str) -> Result<usize, String> {  // f: 64-114
-    let quote = '"';  // f: 64-114
-    let brace = '{';  // f: 64-114
-    let text = r#"a raw string { with "quotes"  // f: 67-72
-    } over lines"#;  // f: 64-114
-    let total = points  // f: 69-70
-        .iter()  // f: 64-114
-        .filter(|p| p.x > 0)  // f: 64-114
-        .count();  // f: 64-114
-    let origin = Point {  // f: 73-76
-        name: "origin",  // f: 64-114
-        x: 0,  // f: 64-114
-    };  // f: 64-114
-    let Some(first) = points.first() else {  // f: 77-91
-        return Err(format!(  // f: 78-80
-            "no points in {raw}"  // f: 64-114
-        ));  // f: 64-114
-    };  // f: 64-114
-    let sizes = if first.x > 0 {  // f: 82-83
-        vec![1, 2]  // f: 64-114
-    } else {  // f: 84-86
-        vec![3]  // f: 64-114
-    }  // f: 64-114
-    .into_iter()  // f: 64-114
-    .map(|n| -> u32 {  // f: 88-90
-        n * 2  // f: 64-114
-    })  // f: 64-114
-    .collect::<Vec<_>>();  // f: 64-114
-    'outer: for p in points {  // f: 92-106
-        match p.x {  // f: 93-99
-            0 => continue,  // f: 64-114
-            n if n > 10 => {  // f: 95-97
-                break 'outer;  // f: 64-114
-            }  // f: 64-114
-            _ => {}  // f: 64-114
-        }  // f: 64-114
-        while total > 0 {  // f: 100-105
-            #[cfg(debug_assertions)]  // f: 102-104
-            {  // f: 102-104
-                println!("{}", square!(n));  // f: 64-114
-            }  // f: 64-114
-        }  // f: 64-114
-    }  // f: 64-114
-    unsafe {  // f: 107-109
-        abs(-1);  // f: 64-114
-    }  // f: 64-114
-    loop {  // f: 110-112
-        break;  // f: 64-114
-    }  // f: 64-114
-    Ok(sizes.len() + text.len() + quote.len_utf8() + brace.len_utf8() + origin.x as usize)  // f: 64-114
-}  // f: 64-114
+pub fn classify(points: &[Point<'_>], raw: &str) -> Result<usize, String> {  // f: 64-115
+    /* /* a nested comment */ closes nothing } */  // f: 64-115
+    let quote = '"';  // f: 64-115
+    let brace = '{';  // f: 64-115
+    let text = r#"a raw string { with "quotes"  // f: 68-73
+    } over lines"#;  // f: 64-115
+    let total = points  // f: 70-71
+        .iter()  // f: 64-115
+        .filter(|p| p.x > 0)  // f: 64-115
+        .count();  // f: 64-115
+    let origin = Point {  // f: 74-77
+        name: "origin",  // f: 64-115
+        x: 0,  // f: 64-115
+    };  // f: 64-115
+    let Some(first) = points.first() else {  // f: 78-92
+        return Err(format!(  // f: 79-81
+            "no points in {raw}"  // f: 64-115
+        ));  // f: 64-115
+    };  // f: 64-115
+    let sizes = if first.x > 0 {  // f: 83-84
+        vec![1, 2]  // f: 64-115
+    } else {  // f: 85-87
+        vec![3]  // f: 64-115
+    }  // f: 64-115
+    .into_iter()  // f: 64-115
+    .map(|n| -> u32 {  // f: 89-91
+        n * 2  // f: 64-115
+    })  // f: 64-115
+    .collect::<Vec<_>>();  // f: 64-115
+    'outer: for p in points {  // f: 93-107
+        match p.x {  // f: 94-100
+            0 => continue,  // f: 64-115
+            n if n > 10 => {  // f: 96-98
+                break 'outer;  // f: 64-115
+            }  // f: 64-115
+            _ => {}  // f: 64-115
+        }  // f: 64-115
+        while total > 0 {  // f: 101-106
+            #[cfg(debug_assertions)]  // f: 103-105
+            {  // f: 103-105
+                println!("{}", square!(n));  // f: 64-115
+            }  // f: 64-115
+        }  // f: 64-115
+    }  // f: 64-115
+    unsafe {  // f: 108-110
+        abs(-1);  // f: 64-115
+    }  // f: 64-115
+    loop {  // f: 111-113
+        break;  // f: 64-115
+    }  // f: 64-115
+    Ok(sizes.len() + text.len() + quote.len_utf8() + brace.len_utf8() + origin.x as usize)  // f: 64-115
+}  // f: 64-115
 
 #[cfg(test)]
-mod tests {  // f: 117-127
-    use super::*;  // f: 117-127
+mod tests {  // f: 118-128
+    use super::*;  // f: 118-128
 
-    #[test]  // f: 117-127
-    fn classifies() {  // f: 121-126
-        assert_eq!(  // f: 122-125
-            classify(&[], "x"),  // f: 121-126
-            Err("no points in x".into()),  // f: 121-126
-        );  // f: 121-126
-    }  // f: 121-126
-}  // f: 117-127
+    #[test]  // f: 118-128
+    fn classifies() {  // f: 122-127
+        assert_eq!(  // f: 123-126
+            classify(&[], "x"),  // f: 122-127
+            Err("no points in x".into()),  // f: 122-127
+        );  // f: 122-127
+    }  // f: 122-127
+}  // f: 118-128

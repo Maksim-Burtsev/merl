@@ -389,6 +389,56 @@ fn a_go_fold_keeps_go_rules_through_edits_switches_and_reloads() {
     assert_eq!(a.collapsed, vec![(4, 6)]);
 }
 
+const CS: &str = "\
+class A
+{
+    void F()
+    {
+        Go();
+    }
+}
+";
+
+#[test]
+fn f_on_a_header_line_folds_its_body_and_unfolds_it_again() {
+    let mut a = app_as("cs", CS);
+    a.go((2, 4));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(3, 5)], "the body under `void F()`");
+    a.go((2, 4));
+    key(&mut a, KeyCode::Char('f'));
+    assert!(a.collapsed.is_empty(), "f again on the header unfolds it");
+}
+
+#[test]
+fn a_header_line_fold_stays_through_edits_switches_and_reloads() {
+    let (dir, mut a) = files_app("fold-cs");
+    std::fs::write(dir.join("a.cs"), CS).unwrap();
+    std::fs::write(dir.join("b.cs"), "class B { }\n").unwrap();
+    a.jump_to(&dir.join("a.cs"), 3);
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(3, 5)]);
+    a.jump_to(&dir.join("b.cs"), 1);
+    a.jump_to(&dir.join("a.cs"), 1);
+    assert_eq!(a.collapsed, vec![(3, 5)]);
+
+    let mut a = app_as("cs", CS);
+    a.go((2, 4));
+    key(&mut a, KeyCode::Char('f'));
+    a.go((0, 0));
+    key(&mut a, KeyCode::Enter);
+    key(&mut a, KeyCode::Enter);
+    assert_eq!(a.collapsed, vec![(4, 6)]);
+
+    let mut a = app_as("cs", CS);
+    a.go((2, 4));
+    key(&mut a, KeyCode::Char('f'));
+    let path = a.buf.path.clone().unwrap();
+    std::fs::write(&path, format!("using X;\n\n{CS}")).unwrap();
+    a.reload(false);
+    assert_eq!(a.collapsed, vec![(5, 7)]);
+}
+
 #[test]
 fn f_folds_a_jsx_element_in_a_jsx_file() {
     let mut a = app_as("jsx", "const a = (\n  <div>\n    <p>hi</p>\n  </div>\n);\n");

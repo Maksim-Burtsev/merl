@@ -21,8 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Kotlin, where it said `no fold rules for .go`: on a line that opens a construct it folds what
   Neovim's treesitter folds there (a function, a class, an `if` and its branches, a `switch` and
   each `case`, a loop, an object, an array, a call's arguments wrapped over lines, a JSX element,
-  a C `#ifdef` to its `#endif`, a Rust `impl`, a run of imports); on the line of a function or
-  `if` whose `{` stands on the next line it folds that body; anywhere else inside a function it
+  a C `#ifdef` to its `#endif`, a Rust `impl`, a run of imports, a Go composite literal and each
+  of its elements); on the header line of a function, class or `if` whose `{` stands on the next
+  line it folds that body, and `f` there again unfolds it; anywhere else inside a function it
   folds the function; a raw string or a template literal at column 0 inside a body does not end
   it. An Objective-C header still says `no fold rules for .h`. (#625)
 - `d`, `u` and `D` in Nix, where `d` said `no rules for .nix`. `d` on `mkService` in

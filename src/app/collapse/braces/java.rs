@@ -54,20 +54,12 @@ impl Model<'_, '_> {
             let parent = stack.last().map(|&p| kind[p]);
             if self.tx(k) == "import" && self.first[k] && stack.is_empty() {
                 let end = (k..n).find(|&j| self.punct(j, ";")).unwrap_or(n - 1);
-                let (s, e) = (self.toks[k].line, self.toks[end].end);
-                imports = match imports {
-                    Some((rs, re)) if (re + 1..s).all(|i| lines[i].trim().is_empty()) => {
-                        Some((rs, e))
-                    }
-                    run => {
-                        self.flush(run);
-                        Some((s, e))
-                    }
-                };
+                let span = (self.toks[k].line, self.toks[end].end);
+                imports = self.join_run(imports, span, lines);
                 k = end + 1;
                 continue;
             }
-            self.flush(imports.take());
+            self.end_run(imports.take());
             if self.closer(k) {
                 stack.pop();
             } else if self.opener(k) {
@@ -88,13 +80,7 @@ impl Model<'_, '_> {
             }
             k += 1;
         }
-        self.flush(imports);
-    }
-
-    fn flush(&mut self, run: Option<(usize, usize)>) {
-        if let Some((s, e)) = run {
-            self.add(s, Some(e), false);
-        }
+        self.end_run(imports);
     }
 
     fn params_before(&self, p: usize) -> usize {

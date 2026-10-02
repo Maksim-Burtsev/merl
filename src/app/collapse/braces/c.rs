@@ -469,7 +469,7 @@ impl Model<'_, '_> {
     }
 
     fn c_preproc(&mut self, lines: &[String]) {
-        let mut stack: Vec<(usize, Vec<usize>)> = Vec::new();
+        let mut stack = Vec::new();
         let mut includes: Option<(usize, usize)> = None;
         let mut n = 0;
         while n < lines.len() {
@@ -488,28 +488,12 @@ impl Model<'_, '_> {
                     includes = Some((includes.map_or(n, |r| r.0), n));
                 }
                 _ if line.is_empty() => {}
-                _ => {
-                    if let Some((s, e)) = includes.take() {
-                        self.add(s, Some(e), false);
-                    }
-                }
+                _ => self.end_run(includes.take()),
+            }
+            if let Some((w, _)) = &directive {
+                self.if_chain(&mut stack, w, n, lines);
             }
             match directive.as_ref().map(|(w, r)| (*w, r.as_str())) {
-                Some(("if" | "ifdef" | "ifndef", _)) => stack.push((n, Vec::new())),
-                Some(("elif" | "elifdef" | "elifndef" | "else", _)) => {
-                    if let Some(top) = stack.last_mut() {
-                        top.1.push(n);
-                    }
-                }
-                Some(("endif", _)) => {
-                    if let Some((h, alts)) = stack.pop() {
-                        self.add(h, Some(n), false);
-                        let end = (h..n).rev().find(|&i| !lines[i].trim().is_empty());
-                        for a in alts {
-                            self.add(a, end, false);
-                        }
-                    }
-                }
                 Some(("define", rest)) if last > n => {
                     let name = rest.trim_start();
                     let ident = name
@@ -524,8 +508,6 @@ impl Model<'_, '_> {
             }
             n = last + 1;
         }
-        if let Some((s, e)) = includes {
-            self.add(s, Some(e), false);
-        }
+        self.end_run(includes);
     }
 }

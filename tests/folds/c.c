@@ -56,11 +56,22 @@ const char *names[] = {  // f: 54-57
     "b",  // f: 54-57
 };  // f: 54-57
 
+struct pt {  // f: 59-60
+    int x;  // f: 59-60
+} pts[] = {  // f: 61-68
+    {  // f: 62-64
+        1,  // f: 62-64
+    },  // f: 62-64
+    {  // f: 65-67
+        2,  // f: 65-67
+    },  // f: 65-67
+};  // f: 61-68
+
 union u {
     int i;
     float f;
 };
 
-typedef struct {  // f: 64-66
-    int a;  // f: 64-66
-} T;  // f: 64-66
+typedef struct {  // f: 75-77
+    int a;  // f: 75-77
+} T;  // f: 75-77

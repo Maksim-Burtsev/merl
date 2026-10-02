@@ -103,20 +103,12 @@ impl Model<'_, '_> {
             let parent = stack.last().copied();
             if self.using(k, parent) {
                 let end = (k..n).find(|&j| self.punct(j, ";")).unwrap_or(n - 1);
-                let (s, e) = (self.toks[k].line, self.toks[end].end);
-                usings = match usings {
-                    Some((rs, re)) if (re + 1..s).all(|i| lines[i].trim().is_empty()) => {
-                        Some((rs, e))
-                    }
-                    run => {
-                        self.add_run(run);
-                        Some((s, e))
-                    }
-                };
+                let span = (self.toks[k].line, self.toks[end].end);
+                usings = self.join_run(usings, span, lines);
                 k = end + 1;
                 continue;
             }
-            self.add_run(usings.take());
+            self.end_run(usings.take());
             if self.closer(k) {
                 stack.pop();
             } else if self.opener(k) {
@@ -134,13 +126,7 @@ impl Model<'_, '_> {
             }
             k += 1;
         }
-        self.add_run(usings);
-    }
-
-    fn add_run(&mut self, run: Option<(usize, usize)>) {
-        if let Some((s, e)) = run {
-            self.add(s, Some(e), false);
-        }
+        self.end_run(usings);
     }
 
     fn using(&self, k: usize, parent: Option<usize>) -> bool {
@@ -236,31 +222,13 @@ impl Model<'_, '_> {
     }
 
     fn cs_preproc(&mut self, lines: &[String]) {
-        let mut stack: Vec<(usize, Vec<usize>)> = Vec::new();
+        let mut chain = Vec::new();
         for (n, line) in lines.iter().enumerate() {
             let Some(d) = line.trim_start().strip_prefix('#') else {
                 continue;
             };
             let word = d.trim_start().split(|c: char| !c.is_alphabetic()).next();
-            match word {
-                Some("if") => stack.push((n, Vec::new())),
-                Some("elif" | "else") => {
-                    if let Some(top) = stack.last_mut() {
-                        top.1.push(n);
-                    }
-                }
-                Some("endif") => {
-                    let Some((h, alts)) = stack.pop() else {
-                        continue;
-                    };
-                    self.add(h, Some(n), false);
-                    let last = (h..n).rev().find(|&i| !lines[i].trim().is_empty());
-                    for a in alts {
-                        self.add(a, last, false);
-                    }
-                }
-                _ => {}
-            }
+            self.if_chain(&mut chain, word.unwrap_or(""), n, lines);
         }
     }
 }

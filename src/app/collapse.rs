@@ -35,6 +35,10 @@ impl App {
             self.message = "nothing to fold".into();
             return;
         };
+        if let Some(i) = self.collapsed.iter().position(|&(f, _)| f == h) {
+            self.collapsed.remove(i);
+            return;
+        }
         self.collapsed.push((h, end));
         self.nest_collapsed();
         self.anchor = None;
@@ -71,6 +75,9 @@ impl App {
     }
 
     pub(super) fn shift_collapsed(&mut self, at: usize, old: usize, new: usize) {
+        if self.collapsed.is_empty() {
+            return;
+        }
         let Some(shape) = self.shape() else {
             self.collapsed.clear();
             return;
@@ -110,6 +117,10 @@ impl App {
     }
 
     fn measure_collapsed(&mut self, heads: Vec<usize>) {
+        if heads.is_empty() {
+            self.collapsed.clear();
+            return;
+        }
         let Some(shape) = self.shape() else {
             self.collapsed.clear();
             return;

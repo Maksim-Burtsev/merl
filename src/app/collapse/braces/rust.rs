@@ -166,6 +166,7 @@ impl Model<'_, '_> {
         let mut body = vec![None::<bool>; n];
         let mut owner = HashMap::new();
         let mut uses: Option<(usize, usize)> = None;
+        let mut last_use: Option<usize> = None;
         for k in 0..n {
             if opaque[k] {
                 continue;
@@ -176,18 +177,12 @@ impl Model<'_, '_> {
                     && let Some(s) = self.item_start(k)
                 {
                     let end = self.depth0(k, &[";"], true);
-                    let joined = uses.filter(|&(_, e)| {
-                        e + 1 == s
-                            && (self.toks[e].end + 1..self.toks[s].line)
-                                .all(|i| lines[i].trim().is_empty())
-                    });
-                    uses = match joined {
-                        Some((first, _)) => Some((first, end)),
-                        None => {
-                            self.add_uses(uses);
-                            Some((s, end))
-                        }
-                    };
+                    if last_use.is_none_or(|e| e + 1 != s) {
+                        self.end_run(uses.take());
+                    }
+                    last_use = Some(end);
+                    let span = (self.toks[s].line, self.toks[end].end);
+                    uses = self.join_run(uses, span, lines);
                 }
                 self.rust_word(k, &mut body, &mut owner);
                 continue;
@@ -207,13 +202,7 @@ impl Model<'_, '_> {
                 _ => {}
             }
         }
-        self.add_uses(uses);
-    }
-
-    fn add_uses(&mut self, run: Option<(usize, usize)>) {
-        if let Some((s, e)) = run {
-            self.add(self.toks[s].line, Some(self.end_of(e)), false);
-        }
+        self.end_run(uses);
     }
 
     fn rust_word(

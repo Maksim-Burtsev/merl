@@ -87,7 +87,11 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
         .collect();
     defs.sort_unstable();
     defs.dedup();
-    let heads = heads(lines, &toks, &starts);
+    let semicolons = !matches!(syntax.lang, Lang::Js | Lang::Ts | Lang::Go | Lang::Kotlin);
+    let heads = match semicolons {
+        true => heads(lines, &toks, &model.back, &starts),
+        false => HashMap::new(),
+    };
     Folds {
         starts,
         heads,
@@ -95,17 +99,37 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
     }
 }
 
-fn heads(lines: &[String], toks: &[Tok], starts: &HashMap<usize, usize>) -> HashMap<usize, usize> {
+fn heads(
+    lines: &[String],
+    toks: &[Tok],
+    back: &[Option<usize>],
+    starts: &HashMap<usize, usize>,
+) -> HashMap<usize, usize> {
     let mut heads = HashMap::new();
     for (k, t) in toks.iter().enumerate() {
         let alone = lines[t.line].trim_start().starts_with('{');
         if !(alone && t.kind == K::Punct && t.text == "{" && starts.contains_key(&t.line)) {
             continue;
         }
-        let stop = |j: &usize| matches!(toks[*j].text, ";" | "{" | "}");
-        let Some(from) = (0..k).rev().take_while(|j| !stop(j)).last() else {
+        let header = |p: &Tok| p.kind == K::Word || matches!(p.text, ")" | "]" | ">");
+        if !k.checked_sub(1).is_some_and(|p| header(&toks[p])) {
             continue;
-        };
+        }
+        let (mut j, mut from) = (k, k);
+        while j > 0 {
+            let p = toks[j - 1];
+            let ends_line = toks[j].line > p.end;
+            if p.kind == K::Punct
+                && (matches!(p.text, ";" | "{" | "}" | "(" | "[") || (p.text == "," && ends_line))
+            {
+                break;
+            }
+            j = match p.text {
+                ")" | "]" => back[j - 1].unwrap_or(j - 1),
+                _ => j - 1,
+            };
+            from = j;
+        }
         for l in toks[from].line..t.line {
             if !starts.contains_key(&l) {
                 heads.entry(l).or_insert(t.line);
@@ -642,6 +666,54 @@ impl<'t, 'a> Model<'t, 'a> {
 
     fn closing(&self, k: usize) -> Option<usize> {
         self.pair[k].map(|c| self.end_of(c))
+    }
+
+    fn join_run(
+        &mut self,
+        run: Option<(usize, usize)>,
+        (s, e): (usize, usize),
+        lines: &[String],
+    ) -> Option<(usize, usize)> {
+        match run {
+            Some((rs, re)) if (re + 1..s).all(|i| lines[i].trim().is_empty()) => Some((rs, e)),
+            run => {
+                self.end_run(run);
+                Some((s, e))
+            }
+        }
+    }
+
+    fn end_run(&mut self, run: Option<(usize, usize)>) {
+        if let Some((s, e)) = run {
+            self.add(s, Some(e), false);
+        }
+    }
+
+    fn if_chain(
+        &mut self,
+        chain: &mut Vec<(usize, Vec<usize>)>,
+        word: &str,
+        n: usize,
+        lines: &[String],
+    ) {
+        match word {
+            "if" | "ifdef" | "ifndef" => chain.push((n, Vec::new())),
+            "elif" | "elifdef" | "elifndef" | "else" => {
+                if let Some(top) = chain.last_mut() {
+                    top.1.push(n);
+                }
+            }
+            "endif" => {
+                if let Some((h, alts)) = chain.pop() {
+                    self.add(h, Some(n), false);
+                    let last = (h..n).rev().find(|&i| !lines[i].trim().is_empty());
+                    for a in alts {
+                        self.add(a, last, false);
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 
     fn add(&mut self, start: usize, end: Option<usize>, def: bool) {

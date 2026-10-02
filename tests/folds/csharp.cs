@@ -6,8 +6,8 @@ using System.Linq;  // f: 5-7
 
 using System.Text;  // f: 5-7
 
-namespace Shop.Orders  // f: 10-146
-{  // f: 10-146
+namespace Shop.Orders  // f: 10-148
+{  // f: 10-148
     public interface IRepository<T> where T : class  // f: 12-14
     {  // f: 12-14
         T Find(int id);  // f: 12-14
@@ -24,9 +24,9 @@ namespace Shop.Orders  // f: 10-146
         Paid,  // f: 22-25
     }  // f: 22-25
 
-    public class Order : Base, IDisposable  // f: 28-145
-    {  // f: 28-145
-        private readonly List<Line> _lines = new();  // f: 28-145
+    public class Order : Base, IDisposable  // f: 28-147
+    {  // f: 28-147
+        private readonly List<Line> _lines = new();  // f: 28-147
 
         public int Count  // f: 32-37
         {  // f: 32-37
@@ -51,96 +51,98 @@ namespace Shop.Orders  // f: 10-146
             return new T();  // f: 46-52
         }  // f: 46-52
 
-        public string Describe(object shape) => shape switch  // f: 28-145
-        {  // f: 28-145
-            { Length: 0 } => "empty",  // f: 28-145
-            Line { Count: > 1 } => "many",  // f: 28-145
-            _ => "other",  // f: 28-145
-        };  // f: 28-145
+        public string Describe(object shape) => shape switch  // f: 28-147
+        {  // f: 28-147
+            { Length: 0 } => "empty",  // f: 28-147
+            Line { Count: > 1 } => "many",  // f: 28-147
+            _ => "other",  // f: 28-147
+        };  // f: 28-147
 
-        public void Fill(int n)  // f: 62-142
-        {  // f: 62-142
+        public void Fill(int n)  // f: 62-144
+        {  // f: 62-144
 #if DEBUG  // f: 63-70
-            Console.WriteLine("debug");  // f: 62-142
+            Console.WriteLine("debug");  // f: 62-144
 #elif TRACE  // f: 65-69
-            Console.WriteLine("trace");  // f: 62-142
+            Console.WriteLine("trace");  // f: 62-144
 
 #else  // f: 68-69
-            Console.WriteLine("release");  // f: 62-142
-#endif  // f: 62-142
-            var json = $@"{{  // f: 62-142
-  ""count"": {n}  // f: 62-142
-}}";  // f: 62-142
-            var raw = """  // f: 62-142
-                { not a block  // f: 62-142
-                """;  // f: 62-142
-            var brace = '{';  // f: 62-142
-            // }  // f: 62-142
-            var order = new Order  // f: 80-86
-            {  // f: 80-86
-                Name = "a",  // f: 62-142
-                Tags =  // f: 62-142
-                {  // f: 62-142
-                    "x",  // f: 62-142
-                },  // f: 62-142
-            };  // f: 62-142
-            var same = new()  // f: 62-142
-            {  // f: 62-142
-                Name = "b",  // f: 62-142
-            };  // f: 62-142
-            var numbers = new int[]  // f: 62-142
-            {  // f: 62-142
-                1, 2,  // f: 62-142
-            };  // f: 62-142
-            var anonymous = new  // f: 62-142
-            {  // f: 62-142
-                A = 1,  // f: 62-142
-            };  // f: 62-142
-            var copy = order with  // f: 62-142
-            {  // f: 62-142
-                Name = "c",  // f: 62-142
-            };  // f: 62-142
-            var map = new Dictionary<int, string>  // f: 104-108
-            {  // f: 104-108
-                {  // f: 62-142
-                    1, "one"  // f: 62-142
-                },  // f: 62-142
-            };  // f: 62-142
-            Action log = () =>  // f: 110-112
-            {  // f: 110-112
-                Console.WriteLine(json);  // f: 110-112
-            };  // f: 110-112
-            foreach (var line in _lines)  // f: 114-124
-            {  // f: 114-124
-                switch (line.Count)  // f: 116-123
-                {  // f: 116-123
-                    case 0:  // f: 118-120
-                    {  // f: 118-120
-                        break;  // f: 62-142
-                    }  // f: 62-142
-                    default:  // f: 62-142
-                        break;  // f: 62-142
-                }  // f: 62-142
-            }  // f: 62-142
-            try  // f: 126-128
-            {  // f: 126-128
-                log();  // f: 62-142
-            }  // f: 62-142
-            catch (Exception)  // f: 130-132
-            {  // f: 130-132
-                throw;  // f: 62-142
-            }  // f: 62-142
-            finally  // f: 134-136
-            {  // f: 134-136
-                Local();  // f: 62-142
-            }  // f: 62-142
+            Console.WriteLine("release");  // f: 62-144
+#endif  // f: 62-144
+            var json = $@"{{  // f: 62-144
+  ""count"": {n}  // f: 62-144
+}}";  // f: 62-144
+            var raw = """  // f: 62-144
+                { not a block  // f: 62-144
+                """;  // f: 62-144
+            var brace = '{';  // f: 62-144
+            var lookup = new Dictionary<string, string>();  // f: 62-144
+            var hole = $"{lookup["}"]} {{";  // f: 62-144
+            // }  // f: 62-144
+            var order = new Order  // f: 82-88
+            {  // f: 82-88
+                Name = "a",  // f: 62-144
+                Tags =  // f: 62-144
+                {  // f: 62-144
+                    "x",  // f: 62-144
+                },  // f: 62-144
+            };  // f: 62-144
+            var same = new()  // f: 62-144
+            {  // f: 62-144
+                Name = "b",  // f: 62-144
+            };  // f: 62-144
+            var numbers = new int[]  // f: 62-144
+            {  // f: 62-144
+                1, 2,  // f: 62-144
+            };  // f: 62-144
+            var anonymous = new  // f: 62-144
+            {  // f: 62-144
+                A = 1,  // f: 62-144
+            };  // f: 62-144
+            var copy = order with  // f: 62-144
+            {  // f: 62-144
+                Name = "c",  // f: 62-144
+            };  // f: 62-144
+            var map = new Dictionary<int, string>  // f: 106-110
+            {  // f: 106-110
+                {  // f: 62-144
+                    1, "one"  // f: 62-144
+                },  // f: 62-144
+            };  // f: 62-144
+            Action log = () =>  // f: 62-144
+            {  // f: 112-114
+                Console.WriteLine(json);  // f: 112-114
+            };  // f: 112-114
+            foreach (var line in _lines)  // f: 116-126
+            {  // f: 116-126
+                switch (line.Count)  // f: 118-125
+                {  // f: 118-125
+                    case 0:  // f: 62-144
+                    {  // f: 120-122
+                        break;  // f: 62-144
+                    }  // f: 62-144
+                    default:  // f: 62-144
+                        break;  // f: 62-144
+                }  // f: 62-144
+            }  // f: 62-144
+            try  // f: 128-130
+            {  // f: 128-130
+                log();  // f: 62-144
+            }  // f: 62-144
+            catch (Exception)  // f: 132-134
+            {  // f: 132-134
+                throw;  // f: 62-144
+            }  // f: 62-144
+            finally  // f: 136-138
+            {  // f: 136-138
+                Local();  // f: 62-144
+            }  // f: 62-144
 
-            void Local()  // f: 139-141
-            {  // f: 139-141
-                Console.WriteLine(raw + brace);  // f: 139-141
-            }  // f: 139-141
-        }  // f: 62-142
+            void Local()  // f: 141-143
+            {  // f: 141-143
+                Console.WriteLine(raw + brace);  // f: 141-143
+            }  // f: 141-143
+        }  // f: 62-144
 
-        public void Dispose() { }  // f: 28-145
-    }  // f: 28-145
-}  // f: 10-146
+        public void Dispose() { }  // f: 28-147
+    }  // f: 28-147
+}  // f: 10-148
