@@ -98,6 +98,15 @@ impl App {
             self.message = "deleted".into();
             return true;
         }
+        let beside = match code {
+            KeyCode::Backspace if self.col == 0 => self.line.checked_sub(1),
+            KeyCode::Delete if self.col == self.line_str().len() => Some(self.line + 1),
+            _ => None,
+        };
+        if let Some(l) = beside.filter(|&l| self.selection().is_none() && self.hidden(l)) {
+            self.unfold_over(l);
+            return true;
+        }
         match code {
             KeyCode::Esc => {
                 self.mode = Mode::Normal;
@@ -273,6 +282,7 @@ impl App {
             return false;
         }
         self.buf.lines.splice(from.0..=to.0, new.iter().cloned());
+        self.shift_collapsed(from.0, old.len(), new.len());
         self.go((from.0 + last, col));
         let edit = Edit {
             line: from.0,
@@ -318,6 +328,7 @@ impl App {
         self.buf
             .lines
             .splice(edit.line..edit.line + from.len(), to.iter().cloned());
+        self.shift_collapsed(edit.line, from.len(), to.len());
         self.go(at);
         if let Some((was, is)) = edit.format {
             self.buf.set_format(if back { was } else { is });

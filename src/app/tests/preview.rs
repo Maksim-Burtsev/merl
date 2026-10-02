@@ -670,64 +670,124 @@ fn a_jump_shows_the_row_of_its_line() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// In `--review` the diff lives on the source: `p` on a file of the review does nothing and says
-/// so, and a file outside the review renders as anywhere.
+/// The rendered text of the preview, row after row.
+fn preview_text(a: &App) -> String {
+    let p = a.preview.as_ref().unwrap();
+    p.doc
+        .rows
+        .iter()
+        .map(|r| r.text.as_str())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn git_in(dir: &Path, args: &[&str]) {
+    let out = std::process::Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args(args)
+        .output();
+    assert!(out.unwrap().status.success(), "git {args:?}");
+}
+
+/// In `--review`, `p` on a Markdown file of the review renders it as it stands now, without the
+/// diff's marks (#596): a changed file as the branch has it, a deleted one as it was. `p` again
+/// shows the source with its diff.
 #[test]
-fn p_on_a_file_of_the_review_says_in_review() {
+fn p_renders_a_file_of_the_review_as_it_stands_now() {
     let (dir, mut a) = md_review("in-review", "# Doc\n\nOld.\n", "# Doc\n\nNew.\n");
     key(&mut a, KeyCode::Char('p'));
-    assert_eq!((a.previewing(), a.message.as_str()), (false, "in review"));
-    crate::tutor::press(&mut a, "onotes.md<Enter>");
-    assert_eq!(a.rel_path(), "notes.md");
+    assert!(a.previewing(), "{}", a.message);
+    let text = preview_text(&a);
+    assert!(text.contains("New.") && !text.contains("Old."), "{text}");
     key(&mut a, KeyCode::Char('p'));
-    assert!(a.previewing());
+    assert!(!a.previewing());
+    assert!(!a.diff.ghosts.is_empty(), "the source keeps its diff");
+
+    git_in(&dir, &["rm", "-q", "notes.md"]);
+    git_in(&dir, &["commit", "-q", "-m", "drop notes"]);
+    a.review_refreshed(git::Review::open(&dir, None, None).unwrap());
+    let gone = a
+        .review
+        .as_ref()
+        .unwrap()
+        .file(Path::new("notes.md"))
+        .unwrap()
+        .clone();
+    assert!(gone.status == 'D' && a.open_review_file(&gone, false));
+    key(&mut a, KeyCode::Char('p'));
+    assert!(a.previewing(), "{}", a.message);
+    assert!(
+        preview_text(&a).starts_with("Notes"),
+        "{}",
+        preview_text(&a)
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
 const NOTES: &str = "# Notes\n\nKept.\n";
 
-/// A file shown rendered that an agent changes joins the review: its preview is off for good, as
-/// if `p` had been pressed, the source at the place the preview showed. When the file leaves the
-/// review again it stays source, in edit mode or not, until `p`; so does a rendered file that was
-/// not open when it joined.
+/// A file shown rendered that an agent changes joins the review and stays rendered, its new text
+/// on screen.
 #[test]
-fn a_file_that_joins_the_review_leaves_the_preview_for_good() {
+fn a_file_that_joins_the_review_stays_rendered() {
     let (dir, mut a) = md_review("joins", "# Doc\n\nOld.\n", "# Doc\n\nNew.\n");
     let kept = std::fs::read_to_string(dir.join("notes.md")).unwrap();
-    let refresh = |a: &mut App| a.review_refreshed(git::Review::open(&dir, None, None).unwrap());
-    (a.view_w, a.view_h) = (40, 7);
     crate::tutor::press(&mut a, "onotes.md<Enter>");
     key(&mut a, KeyCode::Char('p'));
-    for _ in 0..6 {
-        key(&mut a, KeyCode::Down);
-    }
-    assert!(a.previewing() && a.line > 7, "{}", a.line);
     std::fs::write(dir.join("notes.md"), format!("# Changed\n{kept}")).unwrap();
-    refresh(&mut a);
-    assert!(!a.previewing(), "joined: source");
+    a.reload(true);
+    a.review_refreshed(git::Review::open(&dir, None, None).unwrap());
+    assert!(a.previewing());
+    a.preview_sync();
     assert!(
-        (a.top_line..a.top_line + 7).contains(&a.line),
-        "the cursor on screen"
+        preview_text(&a).starts_with("Changed"),
+        "{}",
+        preview_text(&a)
     );
-    key(&mut a, KeyCode::Enter);
-    std::fs::write(dir.join("notes.md"), &kept).unwrap();
-    refresh(&mut a);
-    assert_eq!(
-        (a.mode, a.previewing()),
-        (Mode::Edit, false),
-        "left, editing: source"
-    );
-    key(&mut a, KeyCode::Esc);
-    key(&mut a, KeyCode::Char('p'));
-    assert!(a.previewing(), "`p` renders it again");
+    let _ = std::fs::remove_dir_all(&dir);
+}
 
-    crate::tutor::press(&mut a, "odoc.md<Enter>");
-    std::fs::write(dir.join("notes.md"), format!("# Changed\n{kept}")).unwrap();
-    refresh(&mut a);
-    std::fs::write(dir.join("notes.md"), &kept).unwrap();
-    refresh(&mut a);
+/// A review opens a file on its first hunk, here on the line the branch deleted; the preview
+/// shows no deleted line, so `p` puts the cursor on the line below it, the row it highlights,
+/// where Enter edits and Ctrl+C copies (#596).
+#[test]
+fn p_from_a_deleted_line_stands_on_the_line_below() {
+    let (dir, mut a) = md_review("ghost", "# Doc\n\nOld.\n\nKeep.\n", "# Doc\n\nKeep.\n");
+    assert!(a.deleted.is_some(), "the review opens on the deleted line");
+    key(&mut a, KeyCode::Char('p'));
+    assert_eq!((a.deleted, at_row(&a).2.as_str()), (None, "Keep."));
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
+    assert_eq!(a.clipboard.as_deref(), Some("Keep.\n"));
+    key(&mut a, KeyCode::Enter);
+    assert_eq!((a.mode, a.line), (Mode::Edit, 2));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A file of the review rendered on an earlier visit opens on its source, with its diff: `c`
+/// lands on its hunk there, and a file the branch comes to generate shows its fold, where Enter
+/// loads the diff (#596).
+#[test]
+fn a_file_of_the_review_opens_on_its_source() {
+    let (dir, mut a) = md_review("reopen", "# Doc\n\nOld.\n", "# Doc\n\nNew.\n");
+    key(&mut a, KeyCode::Char('p'));
     crate::tutor::press(&mut a, "onotes.md<Enter>");
-    assert!(!a.previewing(), "joined while not open: source");
+    key(&mut a, KeyCode::Char('c'));
+    assert_eq!((a.rel_path(), a.previewing()), ("doc.md".into(), false));
+
+    crate::tutor::press(&mut a, "onotes.md<Enter>");
+    key(&mut a, KeyCode::Char('p'));
+    crate::tutor::press(&mut a, "odoc.md<Enter>");
+    std::fs::write(dir.join(".gitattributes"), "notes.md linguist-generated\n").unwrap();
+    let kept = std::fs::read_to_string(dir.join("notes.md")).unwrap();
+    std::fs::write(dir.join("notes.md"), format!("# Changed\n{kept}")).unwrap();
+    git_in(&dir, &["add", "."]);
+    git_in(&dir, &["commit", "-q", "-m", "generated"]);
+    a.review_refreshed(git::Review::open(&dir, None, None).unwrap());
+    crate::tutor::press(&mut a, "onotes.md<Enter>");
+    assert!(a.folded_here().is_some() && !a.previewing());
+    key(&mut a, KeyCode::Enter);
+    assert_eq!((a.folded_here(), a.mode), (None, Mode::Normal));
     let _ = std::fs::remove_dir_all(&dir);
 }
 

@@ -8,6 +8,19 @@ use std::sync::LazyLock;
 
 use super::{Binding, Value};
 
+/// The files the `#include` lines of the C or C++ `text` name, as written, each with whether it
+/// is quoted, `"…"`, rather than `<…>`. A line under `#if` counts as any other: whichever branch
+/// a build takes, the file reaches no fewer headers.
+pub fn c_includes(text: &str) -> Vec<(String, bool)> {
+    static INCLUDE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r#"(?m)^[ \t]*#[ \t]*(?:include|include_next|import)[ \t]*([<"])([^>"\n]+)[>"]"#)
+            .unwrap()
+    });
+    (INCLUDE.captures_iter(text))
+        .map(|c| (c[2].trim().to_owned(), &c[1] == "\""))
+        .collect()
+}
+
 /// `text` of a C or C++ file as code alone: comments, string and character literals (raw strings
 /// included) and preprocessor lines with their continuations turned into spaces, the length and
 /// the line breaks kept, so a byte of it is the byte of `text` at the same place.
@@ -683,8 +696,8 @@ fn scope_pos(code: &str, starts: &[usize], line: usize, name: &str) -> Option<us
 /// The parameters and locals that bind `name` where 1-based `line` of a C or C++ `text` reads it
 /// (#378): the declarations above it in the innermost block around it that has any, a block
 /// closed before it not counted, then what a `for`, `if`, `while` or `switch` head or a `catch`
-/// binds for its body, then the parameters of the function, a lambda's reading on into the
-/// function around it.
+/// binds for its body, then the parameters of the function or the Objective-C method (#417), a
+/// lambda's reading on into the function around it.
 pub fn c_bindings(text: &str, line: usize, name: &str) -> Vec<Binding> {
     c_bindings_at(text, line, name)
         .into_iter()
@@ -711,6 +724,9 @@ pub fn c_bindings_at(text: &str, line: usize, name: &str) -> Vec<(usize, usize)>
         if !found.is_empty() {
             return found.into_iter().map(place).collect();
         }
+        if let Some(j) = super::objc_parameter(&code[start..open], name) {
+            return vec![place(start + j)];
+        }
         let found = match head {
             Head::Function(group, _) | Head::Control(group, true) => {
                 let inner = start + group.start + 1..start + group.end - 1;
@@ -719,9 +735,10 @@ pub fn c_bindings_at(text: &str, line: usize, name: &str) -> Vec<(usize, usize)>
             Head::Control(group, false) => {
                 let inner = start + group.start + 1..start + group.end - 1;
                 let init = split_semicolons(&code[inner.clone()]);
-                init.into_iter().find_map(|(at, stmt)| {
-                    declared_at(stmt, name, true).map(|j| inner.start + at + j)
-                })
+                (init.into_iter())
+                    .find_map(|(at, stmt)| declared_at(stmt, name, true).map(|j| at + j))
+                    .or_else(|| super::objc_for_in(&code[inner.clone()], name))
+                    .map(|j| inner.start + j)
             }
             Head::Block | Head::Stop => None,
         };

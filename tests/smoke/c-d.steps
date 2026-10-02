@@ -44,3 +44,24 @@ type flags =
 key Enter d
 wait via c: client
 key Escape
+# A system function lands on the system's declaration, one row: the headers the file includes
+# are searched first, and a header linked under two names is one file (#382).
+run printf '#include <stdio.h>\n\nvoid crc_log(void) { printf("crc"); }\n' > worker/internal/crc/log.c
+merl worker/internal/crc/log.c
+wait void crc_log
+key /
+type printf(
+key Enter d
+wait printf: by name
+key Escape
+# Objective-C joins the C kind: in a `.m` file, `d` on a message's selector offers the method's
+# declaration in the header beside its definition (#417).
+run printf '#import <Foundation/Foundation.h>\n\n@interface CrcStamp : NSObject\n- (unsigned int)stampJob:(NSData *)job;\n@end\n' > worker/internal/crc/CrcStamp.h
+run printf '#import "CrcStamp.h"\n\n@implementation CrcStamp\n- (unsigned int)stampJob:(NSData *)job {\n    return 0;\n}\n\n- (void)log {\n    [self stampJob:nil];\n}\n@end\n' > worker/internal/crc/CrcStamp.m
+merl worker/internal/crc/CrcStamp.m
+wait @implementation CrcStamp
+key /
+type stampJob:nil
+key Enter d
+wait stampJob: by name, 2 declarations
+key Escape

@@ -3,14 +3,6 @@
 use super::*;
 
 impl App {
-    /// The declarations of `word` in the type of the receiver `chain`, `x.f.g…`, when every link is
-    /// proven: every declaration of `x` in scope reads the same type (through one call's return
-    /// type at most), each field is declared in the type before it or one that type extends or
-    /// embeds, and each type is declared once where the file that names it can see it
-    /// ([`App::declaration`]). The member — a method, else a field — is looked for in the last
-    /// type, then in the types it extends or embeds. `Err` names the first name that is not
-    /// proven; an empty list is a type without the member. Both leave the word to the search by
-    /// name.
     pub(super) fn typed_definitions(
         &self,
         kind: Kind,
@@ -19,8 +11,7 @@ impl App {
         chain: &[String],
         head: Option<&(String, search::Value, Vec<String>)>,
     ) -> Result<Vec<Candidate>, String> {
-        let text = self.buf.lines.join("\n");
-        let line = self.line + 1;
+        let (text, line) = self.scope(here, chain.first())?;
         // `super().m()` / `super.m()` is `self` / `this` with the walk started one level up.
         if chain.first().is_some_and(|f| f == "super") {
             let [_] = chain else {
@@ -72,8 +63,16 @@ impl App {
             .collect())
     }
 
-    /// The type of the receiver `chain`, or of the call `head` it hangs off, with the links that
-    /// prove it; `Err` names the first name that is not proven.
+    fn scope(&self, here: &Path, first: Option<&String>) -> Result<(String, usize), String> {
+        if let Some(scope) = self.script_scope(here, first.map(String::as_str)) {
+            return Ok(scope);
+        }
+        match self.on_template(here) {
+            true => Err(first.cloned().unwrap_or_default()),
+            false => Ok((self.buf.lines.join("\n"), self.line + 1)),
+        }
+    }
+
     fn receiver(
         &self,
         kind: Kind,
@@ -81,8 +80,7 @@ impl App {
         chain: &[String],
         head: Option<&(String, search::Value, Vec<String>)>,
     ) -> Result<(Typed, Vec<String>), String> {
-        let text = self.buf.lines.join("\n");
-        let line = self.line + 1;
+        let (text, line) = self.scope(here, chain.first())?;
         match head {
             // The chain hangs off a call: `make_uow().users.word`.
             Some((call, value, fields)) => {
@@ -149,7 +147,7 @@ impl App {
                 search::Value::Type(t) => (builtin(t)?, None),
                 search::Value::Call(callee) => {
                     let first = callee.split('.').next().unwrap_or(callee);
-                    if hidden(kind, &text, b.line, first) {
+                    if hidden(kind, &file, &text, b.line, first) {
                         return None;
                     }
                     let (t, at) = self.declared_return(kind, &file, callee)?;
@@ -363,7 +361,7 @@ impl App {
         name: &str,
         hops: usize,
     ) -> Option<(Typed, Option<String>)> {
-        let bindings = search::bindings(kind, text, line, name);
+        let bindings = self.bindings_of(kind, file, text, line, name);
         if !bindings.is_empty() || kind != Kind::Go {
             return self.agree(kind, file, text, &bindings, hops);
         }
@@ -451,7 +449,7 @@ impl App {
             search::Value::Type(t) | search::Value::New(t) => {
                 // `new api.Tool()` on a parameter `api` names no namespace of the file.
                 let path = search::type_path(kind, t).filter(|p| p.len() > 1);
-                if path.is_some_and(|p| hidden(kind, text, b.line, &p[0])) {
+                if path.is_some_and(|p| hidden(kind, file, text, b.line, &p[0])) {
                     return None;
                 }
                 self.type_decl(kind, file, t).map(|ty| (ty, None))
@@ -490,7 +488,7 @@ impl App {
             // annotation, or the return type of the function it was assigned from.
             search::Value::Element(n) if hops > 0 => {
                 let mut found: Option<(Typed, Option<String>)> = None;
-                for c in search::bindings(kind, text, b.line, n) {
+                for c in self.bindings_of(kind, file, text, b.line, n) {
                     let (written, at, link) = match &c.value {
                         search::Value::Type(t) => {
                             (t.clone(), file.to_path_buf(), format!("{n}: {}", t.trim()))
@@ -498,7 +496,7 @@ impl App {
                         search::Value::Call(callee) => {
                             // `api.list()` on a parameter `api` is no function of the file.
                             let first = callee.split('.').next().unwrap_or(callee);
-                            if hidden(kind, text, c.line, first) {
+                            if hidden(kind, file, text, c.line, first) {
                                 return None;
                             }
                             let (t, at) = self.declared_return(kind, file, callee)?;
@@ -595,7 +593,7 @@ impl App {
             None => {
                 // A parameter or a local named like a function or an import is a value: what it
                 // returns when called is not what that function declares.
-                if hidden(kind, text, line, &parts[0]) {
+                if hidden(kind, file, text, line, &parts[0]) {
                     return None;
                 }
                 self.declaration(kind, file, &parts)?
@@ -610,7 +608,7 @@ impl App {
             return Some((ty, None));
         }
         let text = self.text_of(&decl.path)?;
-        let (written, signature) = match search::returns(kind, &text, decl.line)? {
+        let (written, signature) = match self.returns_of(kind, &decl.path, &text, decl.line)? {
             search::Value::New(t) if kind == Kind::Python => {
                 (t.clone(), format!("{callee}() returns {t}()"))
             }
@@ -631,7 +629,7 @@ impl App {
         let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
         let decl = self.declaration(kind, file, &parts)?;
         let text = self.text_of(&decl.path)?;
-        match search::returns(kind, &text, decl.line)? {
+        match self.returns_of(kind, &decl.path, &text, decl.line)? {
             search::Value::Type(t) => Some((t, decl.path)),
             _ => None,
         }
@@ -644,7 +642,9 @@ impl App {
 
     fn type_decl_at(&self, kind: Kind, file: &Path, written: &str, depth: usize) -> Option<Typed> {
         let parts = search::type_path(kind, written)?;
-        let decl = self.declaration(kind, file, &parts)?;
+        let Some(decl) = self.declaration(kind, file, &parts) else {
+            return self.typedef(kind, file, &parts, depth);
+        };
         // Go's `type X = Y` is `Y` itself, methods and fields (#100), where `Y` is a type the
         // project declares; `type X = []Y` and the like stay what their line says.
         // ponytail: eight aliases deep, which also ends a cycle.
@@ -665,10 +665,129 @@ impl App {
         // The name is the declaration's own: behind `from repos import UserRepository as Users`
         // the members are `UserRepository`'s (#100).
         // So is a TypeScript one, which an `export { Hono as HonoBase }` renames.
-        search::declares_type(kind, &decl.text).then(|| Typed {
+        if !search::declares_type(kind, &decl.text) {
+            return self.required(kind, file, &parts);
+        }
+        Some(Typed {
             name: declared_name(kind, &decl.text, &parts),
             path: decl.path,
             line: decl.line,
+        })
+    }
+}
+
+impl App {
+    /// Whether the JSDoc type `t` of `file` names a type the project declares, itself or as the
+    /// element of `T[]`: only then does it say more than the code it documents (#347). A
+    /// `{Object}` or `{string}` leaves the default value, the body's `return new X()`, to say.
+    fn jsdoc_resolves(&self, kind: Kind, file: &Path, t: &str) -> bool {
+        let element = search::element_type(kind, t);
+        self.type_decl(kind, file, element.as_deref().unwrap_or(t))
+            .is_some()
+    }
+
+    /// The declarations of `name` that 1-based `line` of `text`, the text of `file`, reads
+    /// ([`search::bindings`]), each typed by the JSDoc a JavaScript file writes for it, as an
+    /// annotation types it in TypeScript (#347), when that type resolves.
+    fn bindings_of(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        line: usize,
+        name: &str,
+    ) -> Vec<search::Binding> {
+        let mut bindings = search::bindings(kind, text, line, name);
+        if search::reads_jsdoc(kind, file) {
+            for b in &mut bindings {
+                if let Some(t) = search::jsdoc_binding(text, b.line, name)
+                    .filter(|t| self.jsdoc_resolves(kind, file, t))
+                {
+                    b.value = search::Value::Type(t);
+                }
+            }
+        }
+        bindings
+    }
+
+    /// What the function declared on 1-based `decl` of `text`, the text of `file`, returns
+    /// ([`search::returns`]). In a JavaScript file its JSDoc `@returns {T}` says it first, when
+    /// `T`, or the element of a `T[]`, is a type the project declares (#347).
+    fn returns_of(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        decl: usize,
+    ) -> Option<search::Value> {
+        let declared = search::reads_jsdoc(kind, file)
+            .then(|| search::jsdoc_returns(text, decl))
+            .flatten()
+            .filter(|t| self.jsdoc_resolves(kind, file, t));
+        match declared {
+            Some(t) => Some(search::Value::Type(t)),
+            None => search::returns(kind, text, decl),
+        }
+    }
+
+    /// The JSDoc `@typedef` of a JavaScript `file` that declares the type `parts` names (#347):
+    /// a `@typedef {Object}` with its `@property` lines, or `@typedef {import("./x").Name}`, the
+    /// type `Name` of the module an import of `./x` reads. A name the file declares twice is
+    /// none.
+    fn typedef(&self, kind: Kind, file: &Path, parts: &[String], depth: usize) -> Option<Typed> {
+        static IMPORTED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r#"^import\(\s*["']([^"']+)["']\s*\)\.([A-Za-z_$][\w$]*)$"#).unwrap()
+        });
+        let [name] = parts else {
+            return None;
+        };
+        if !search::reads_jsdoc(kind, file) || depth >= 8 {
+            return None;
+        }
+        let text = self.text_of(file)?;
+        let [(line, written)] = &search::jsdoc_typedefs(&text, name)[..] else {
+            return None;
+        };
+        if search::jsdoc_object(written) {
+            return Some(Typed {
+                name: name.clone(),
+                path: file.to_path_buf(),
+                line: *line,
+            });
+        }
+        let c = IMPORTED.captures(written)?;
+        let import = format!("import {{ {} }} from \"{}\";", &c[2], &c[1]);
+        let (_, path) = search::imports(kind, &import).pop()?;
+        let (taken, module) = path.split_last()?;
+        let files = search::module_files(kind, &self.root, &self.files, file, module);
+        let [module] = &files[..] else {
+            return None;
+        };
+        self.type_decl_at(kind, module, taken, depth + 1)
+    }
+}
+
+impl App {
+    /// The class a JavaScript `file` binds to `parts` by `const X = require("./x")` (#347): what
+    /// the module hands out, when it declares a type. It types what a JSDoc type names, and as
+    /// any type the file writes, `new X()` and `extends X` too.
+    fn required(&self, kind: Kind, file: &Path, parts: &[String]) -> Option<Typed> {
+        let [name] = parts else {
+            return None;
+        };
+        if !search::reads_jsdoc(kind, file) {
+            return None;
+        }
+        let path = bound(&search::imports(kind, &self.text_of(file)?), name)?;
+        let found = self.imported_definitions(kind, file, name, &[], &path)?;
+        let [found] = &found[..] else {
+            return None;
+        };
+        let hit = &found.hit;
+        search::declares_type(kind, &hit.text).then(|| Typed {
+            name: declared_name(kind, &hit.text, parts),
+            path: hit.path.clone(),
+            line: hit.line,
         })
     }
 }
@@ -684,13 +803,21 @@ pub(super) fn anonymous(file: &Path, line: usize) -> Typed {
 }
 
 /// Whether a parameter or a local binds `name` where 1-based `line` of `text` reads it: a value
-/// then, whatever function, import or namespace of that name the file can see.
-fn hidden(kind: Kind, text: &str, line: usize, name: &str) -> bool {
+/// then, whatever function, import or namespace of that name the file can see. In JavaScript a
+/// `const X = require("./x")` is an import (#328), so `X.make()` returns what `make` declares
+/// (#347); TypeScript reads what `require` gives as `any`.
+fn hidden(kind: Kind, file: &Path, text: &str, line: usize, name: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();
+    let required = Regex::new(&format!(
+        r"^\s*(?:(?:export\s+)?(?:const|let|var)\s+)?{}\s*=\s*require\(",
+        regex::escape(name)
+    ))
+    .expect("an escaped name keeps the pattern valid");
     search::bindings(kind, text, line, name).iter().any(|b| {
-        lines
-            .get(b.line - 1)
-            .is_some_and(|l| !names_itself(kind, l, name))
+        lines.get(b.line - 1).is_some_and(|l| {
+            !names_itself(kind, l, name)
+                && !(search::reads_jsdoc(kind, file) && required.is_match(l))
+        })
     })
 }
 

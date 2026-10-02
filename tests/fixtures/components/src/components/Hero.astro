@@ -1,0 +1,23 @@
+---
+import UserCard from "./UserCard.vue";
+import { greeting } from "../names";
+const title = "Welcome";
+---
+
+<h1>{title}</h1>
+//   ^ d: src/components/Hero.astro:4
+<UserCard first="a" last="b" />
+//^ d: src/components/UserCard.vue:1
+<p>{greeting}</p>
+//  ^ d: src/names.ts:5
+<script>
+  const ticks = 1;
+  console.log(ticks);
+  //          ^ d: src/components/Hero.astro:14
+</script>
+<style>
+  h1 {
+    margin: 0;
+    //^ d: none
+  }
+</style>

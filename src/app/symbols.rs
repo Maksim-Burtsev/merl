@@ -9,7 +9,11 @@ impl App {
     /// ([`App::search_tick`]). The rows stay on screen meanwhile, under a title that says what
     /// they are.
     pub(super) fn symbols(&mut self) {
-        let (named, cut) = self.grep_job(0, "", |_| true).symbol_hits();
+        let job = SearchJob {
+            deleted: self.symbol_deleted(),
+            ..self.grep_job(0, "", |_| true)
+        };
+        let (named, cut) = job.symbol_hits();
         if named.is_empty() {
             self.message = "no symbols".into();
             return;

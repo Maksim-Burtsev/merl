@@ -19,21 +19,19 @@ use crate::wrap;
 
 use super::tagged;
 
+const FOLDED: &str = " \u{22ef} ";
+
 pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
     let gutter_w = digits(app.buf.lines.len()) + 1;
     app.view_w = (area.width as usize).saturating_sub(gutter_w).max(1);
     app.view_h = area.height as usize;
     app.clamp_scroll();
-    // Wrapping only ever costs rows, so this covers every visible line.
-    app.buf.highlight_to(app.top_line + app.view_h, theme);
+    let bottom = (app.top_line + app.view_h).max(app.bottom_line() + 1);
+    app.buf.highlight_to(bottom, theme);
     // Review: the ghosts on screen take their colours from the base file, highlighted as far as
     // the last of them. Base lines grow with the keys, so the last key on screen reaches furthest.
     if let Some((_, b)) = &mut app.base
-        && let Some((k, from)) = app
-            .diff
-            .ghost_from
-            .range(..=app.top_line + app.view_h)
-            .next_back()
+        && let Some((k, from)) = app.diff.ghost_from.range(..=bottom).next_back()
     {
         b.highlight_to(from + app.diff.ghosts.get(k).map_or(0, Vec::len), theme);
     }
@@ -95,6 +93,10 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     let mut l = app.top_line;
     let mut skip = app.top_row;
     while lines.len() < area.height as usize && l <= app.buf.lines.len() {
+        if app.hidden(l) {
+            l += 1;
+            continue;
+        }
         // Review: the lines the branch deleted here, above the text, unnumbered. `skip` counts
         // rows: the top of the view can sit inside a wrapped ghost, as it can sit on the lines
         // deleted at the end of the file, under the last line.
@@ -233,6 +235,14 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         let (before, after) = (nowrap && before, nowrap && after);
         let rows = if nowrap { vec![shown] } else { app.rows(l) };
         let last = rows.len() - 1;
+        let folded = app.collapsed_tail(l).map(|tail| {
+            let gap = if clipped.ends_with(['{', '(', '[']) {
+                ""
+            } else {
+                " "
+            };
+            (gap, tail)
+        });
         for (i, r) in rows.into_iter().enumerate() {
             let ell =
                 cut && i == last && (!nowrap || ellipsis_in_view(app, clipped, before, after));
@@ -268,11 +278,15 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             if lead > 0 {
                 row.push(Span::styled(" ".repeat(lead), t));
             }
+            let fold = folded.as_ref().filter(|_| i == last);
             let pad = app.view_w.saturating_sub(
                 lead + wrap::width(&clipped[r.clone()])
                     + usize::from(before)
                     + usize::from(after)
-                    + usize::from(ell),
+                    + usize::from(ell)
+                    + fold.map_or(0, |(gap, tail)| {
+                        gap.len() + wrap::width(FOLDED) + wrap::width(tail)
+                    }),
             );
             row.extend(selected_row(
                 clipped,
@@ -285,6 +299,16 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             let pad_style = if pad_selected { sel } else { t };
             if ell {
                 row.push(ellipsis(pad_style));
+            }
+            if let Some((gap, tail)) = fold {
+                let chip = if cursor_line {
+                    theme.selection
+                } else {
+                    theme.line_hl
+                };
+                row.push(Span::styled(*gap, t));
+                row.push(Span::styled(FOLDED, t.bg(chip).fg(theme.fg)));
+                row.push(Span::styled(*tail, t));
             }
             if cursor_line || pad_selected || after || tint.is_some() {
                 // Pad so the line background reaches the right edge of the pane.

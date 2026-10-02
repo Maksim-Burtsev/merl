@@ -85,8 +85,29 @@ impl App {
     /// Whether `hit` stands in code, not in a docstring, a raw string or a block comment, where
     /// a declaration-shaped line declares nothing (#453).
     pub(super) fn in_code(&self, kind: Kind, hit: &Hit) -> bool {
-        self.text_of(&hit.path)
-            .is_some_and(|text| search::literal_lines(kind, &text).get(hit.line - 1) != Some(&true))
+        match search::component(&hit.path) {
+            true => self.hidden_of(kind, hit).get(hit.line - 1) != Some(&true),
+            false => (self.text_of(&hit.path)).is_some_and(|text| {
+                search::literal_lines(kind, &text).get(hit.line - 1) != Some(&true)
+            }),
+        }
+    }
+
+    /// Whether `hit`, in a comment, is a tag that declares: of a PHP class's docblock (#344), or a
+    /// `@property` of a JavaScript `@typedef {Object}` (#347).
+    pub(super) fn doc_tag(&self, kind: Kind, hit: &Hit) -> bool {
+        let Some(text) = self.text_of(&hit.path) else {
+            return false;
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        match kind {
+            Kind::Php => search::php_tag_class(&lines, hit.line - 1).is_some(),
+            Kind::TsJs => {
+                search::reads_jsdoc(kind, &hit.path)
+                    && search::jsdoc_owner(&lines, hit.line - 1).is_some()
+            }
+            _ => false,
+        }
     }
 
     /// The declarations of `name` that `file` sees without an import: at the top level, or
@@ -262,7 +283,8 @@ impl App {
             let Some(text) = self.text_of(&path) else {
                 continue;
             };
-            for line in search::field_rows(kind, &text, &lines, word) {
+            let jsdoc = search::reads_jsdoc(kind, &path);
+            for line in search::field_rows(kind, &text, &lines, word, jsdoc) {
                 if !hits.iter().any(|h| h.path == path && h.line == line) {
                     hits.push(Hit {
                         text: text.lines().nth(line - 1).unwrap_or_default().to_owned(),

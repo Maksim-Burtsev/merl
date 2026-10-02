@@ -418,6 +418,11 @@ fn known_file(name: &str) -> Option<&'static str> {
         ("WORKSPACE" | "Tiltfile", _) => "Python",
         // bat's set owns `.md` and `.markdown`; MDX is Markdown with JSX in it (#421).
         (_, "mdx") => "Markdown",
+        // bat's set has no Astro grammar: TSX paints its frontmatter and its JSX-like template,
+        // leaving the bodies of `<style>` and `<script>` plain (#413).
+        (_, "astro") => "TypeScriptReact",
+        // bat's Scala grammar owns `.scala`, `.sbt` and `.sc`, not Mill's build files (#416).
+        (_, "mill") => "Scala",
         _ => return None,
     })
 }
@@ -619,6 +624,9 @@ mod tests {
             ("ledger.hxx", "C++"),
             // Mapped by name above: bat's set gives `.h` to Objective-C.
             ("invoice.h", "C++"),
+            // bat's own grammars (#417).
+            ("Invoice.m", "Objective-C"),
+            ("Invoice.mm", "Objective-C++"),
         ] {
             for name in crate::theme::names() {
                 let theme = crate::theme::load(name).unwrap();
@@ -766,6 +774,35 @@ mod tests {
     }
 
     #[test]
+    fn web_highlights_with_every_shipped_theme() {
+        let sheet = "/* doc */\n.btn-primary:hover {\n  color: var(--brand, #000);\n}\n";
+        let html = "<!-- doc -->\n<button class=\"btn\" id=\"main\">OK</button>\n";
+        let files = [
+            ("a.css", "CSS", sheet),
+            ("b.scss", "SCSS", sheet),
+            ("c.sass", "Sass", "// doc\n.btn\n  color: $brand\n"),
+            ("d.less", "Less", sheet),
+            ("e.html", "HTML", html),
+            ("f.htm", "HTML", html),
+        ];
+        for (file, syntax, src) in files {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some(syntax),
+                    "{file} {name}"
+                );
+                b.highlight_to(2, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
     fn graphql_highlights_with_every_shipped_theme() {
         let src = "# doc\ntype User {\n  email: String! @deprecated(reason: \"x\")\n}\n";
         for file in ["a.graphql", "b.graphqls", "c.gql"] {
@@ -828,8 +865,44 @@ mod tests {
     }
 
     #[test]
-    fn java_and_kotlin_highlight_with_every_shipped_theme() {
-        // bat's set owns all three by name; none needs a mapping.
+    fn components_highlight_with_every_shipped_theme() {
+        // bat's own grammars for Vue and Svelte; Astro maps to TSX (#413).
+        for (file, lang, src) in [
+            (
+                "A.vue",
+                "Vue Component",
+                "<script setup lang=\"ts\">\nconst n = 1\n</script>\n<template><p>{{ n }}</p></template>\n",
+            ),
+            (
+                "B.svelte",
+                "Svelte",
+                "<script lang=\"ts\">\nlet n = 1\n</script>\n<p class=\"a\">{n}</p>\n",
+            ),
+            (
+                "C.astro",
+                "TypeScriptReact",
+                "---\nimport Card from \"./Card.astro\";\nconst title = \"x\";\n---\n<h1>{title}</h1>\n",
+            ),
+        ] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some(lang),
+                    "{file} {name}"
+                );
+                b.highlight_to(4, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
+    fn java_kotlin_and_scala_highlight_with_every_shipped_theme() {
+        // bat's set owns all but `.mill` by name; that one is mapped (#416).
         for (file, lang, src) in [
             (
                 "Invoice.java",
@@ -845,6 +918,18 @@ mod tests {
                 "build.gradle.kts",
                 "Kotlin",
                 "// doc\nplugins { kotlin(\"jvm\") version \"2.0.0\" }\n",
+            ),
+            (
+                "Ledger.scala",
+                "Scala",
+                "// doc\nobject Ledger:\n  def total(xs: List[Long]): Long = xs.sum\n",
+            ),
+            ("build.sbt", "Scala", "// doc\nlazy val core = project\n"),
+            ("run.sc", "Scala", "// doc\nval limit = 10\n"),
+            (
+                "build.mill",
+                "Scala",
+                "// doc\nobject core extends ScalaModule\n",
             ),
         ] {
             for name in crate::theme::names() {
@@ -969,6 +1054,75 @@ mod tests {
                     b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
                 assert!(colours.len() > 1, "{file} {name}: everything is one colour");
             }
+        }
+    }
+
+    #[test]
+    fn dart_highlights_with_every_shipped_theme() {
+        let src = "/// doc\nclass Cart {\n  int total = 0;\n  String label() => '$total';\n}\n";
+        for name in crate::theme::names() {
+            let theme = crate::theme::load(name).unwrap();
+            let mut b = Buffer::from_bytes(PathBuf::from("cart.dart"), src.as_bytes());
+            assert_eq!(b.syntax.map(|s| s.name.as_str()), Some("Dart"), "{name}");
+            b.highlight_to(4, &theme);
+            let colours: std::collections::HashSet<_> =
+                b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+            assert!(colours.len() > 1, "{name}: everything is one colour");
+        }
+    }
+
+    #[test]
+    fn powershell_highlights_with_every_shipped_theme() {
+        let src = "# doc\nfunction Get-ShopUser {\n    param([string]$Id)\n    \"user $Id\"\n}\n";
+        // bat's PowerShell syntax covers each of these extensions (#420).
+        for file in ["a.ps1", "b.psm1", "c.psd1"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("PowerShell"),
+                    "{file} {name}"
+                );
+                b.highlight_to(4, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
+    fn cmake_highlights_with_every_shipped_theme() {
+        let src = "# doc\nfunction(shop_add_library name)\n  add_library(${name} STATIC)\nendfunction()\n";
+        for file in ["CMakeLists.txt", "cmake/Shop.cmake"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("CMake"),
+                    "{file} {name}"
+                );
+                b.highlight_to(4, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
+    fn nix_highlights_with_every_shipped_theme() {
+        let src = "# doc\n{ pkgs, ... }:\nlet\n  name = \"shop\";\nin pkgs.hello\n";
+        for name in crate::theme::names() {
+            let theme = crate::theme::load(name).unwrap();
+            let mut b = Buffer::from_bytes(PathBuf::from("hosts/web.nix"), src.as_bytes());
+            assert_eq!(b.syntax.map(|s| s.name.as_str()), Some("Nix"), "{name}");
+            b.highlight_to(5, &theme);
+            let colours: std::collections::HashSet<_> =
+                b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+            assert!(colours.len() > 1, "{name}: everything is one colour");
         }
     }
 

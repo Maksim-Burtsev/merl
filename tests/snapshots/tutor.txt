@@ -19,7 +19,7 @@ merl snapshot: tutor
 19             return []
 20         raw = json.loads(self.config.path.read_text(encoding="utf-8"))
 21         return [Note.from_dict(item) for item in raw]
-Tutor 4/22 · Go to definition
+Tutor 4/23 · Go to definition
 With the cursor on `load_config`, press `d` (or F12) to jump to its definition.
 The status line says how it was found: via the import at the top, in config.py.
 `d` reads Makefiles, Terraform, Dockerfiles and YAML too, and on a declaration
@@ -144,7 +144,7 @@ m fg #6639ba bg #e7eaf0 BOLD
 26         self.config.path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
 27
 28     def next_id(self) -> int:
-Tutor 4/22 · Go to definition
+Tutor 4/23 · Go to definition
 With the cursor on `load_config`, press `d` (or F12) to jump to its definition. The status line says how it was found:
 via the import at the top, in config.py. `d` reads Makefiles, Terraform, Dockerfiles and YAML too, and on a declaration
 it lists what implements it.
@@ -309,7 +309,7 @@ m fg #6639ba bg #e7eaf0 BOLD
 49         """Every note whose text contains `needle`, case-insensitively."""
 50         lowered = needle.lower()
 51         return [note for note in self.notes if lowered in note.text.lower()]
-Tutor 4/22 · Go to definition
+Tutor 4/23 · Go to definition
 With the cursor on `load_config`, press `d` (or F12) to jump to its definition. The status line says how it was found: via the import at the top, in config.py. `d` reads Makefiles,
 Terraform, Dockerfiles and YAML too, and on a declaration it lists what implements it.
 store.py  13:33  [code]                                                                                                                                                           ? help

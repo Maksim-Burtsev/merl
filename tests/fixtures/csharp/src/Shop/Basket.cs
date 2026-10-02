@@ -28,7 +28,7 @@ public class Basket
     public bool Overweight(int grams)
     {
         var limit = Courier.Weigh(grams) + 20;
-        //          ^ d: picker src/Shop/Startup.cs:38, src/Shop/Warehouse/Courier.cs:3; want src/Shop/Warehouse/Courier.cs:3 (#360)
+        //          ^ d: src/Shop/Warehouse/Courier.cs:3
         //                  ^ d: src/Shop/Warehouse/Courier.cs:9
         return grams > limit;
         //             ^ d: src/Shop/Basket.cs:30
@@ -79,7 +79,7 @@ public class Basket
     //                                          ^ d: src/Shop/Warehouse/Courier.cs:25
 
     public Address Home() => new Address { Street = "Main" };
-    //     ^ d: picker src/Shop/Warehouse/Courier.cs:33, src/Shop.Api/Address.cs:3; want src/Shop/Warehouse/Courier.cs:33 (#349)
+    //     ^ d: src/Shop/Warehouse/Courier.cs:33
 
     public int Coupons(Coupon coupon) => coupon.Price();
     //                                          ^ d: src/Shop/Pricing/Pricing.cs:28

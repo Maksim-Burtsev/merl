@@ -13,7 +13,7 @@ use super::*;
 /// directory; everything else is every file of the same kind, so `.tsx` finds `.ts`.
 pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
     match kind {
-        Kind::Docker | Kind::Yaml | Kind::Markdown => path == here,
+        Kind::Docker | Kind::Yaml | Kind::Markdown | Kind::Html => path == here,
         Kind::Terraform => kind_of(path) == Some(kind) && path.parent() == here.parent(),
         Kind::Python
         | Kind::Go
@@ -30,16 +30,21 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Zig
         | Kind::Proto
         | Kind::Shell
+        | Kind::PowerShell
+        | Kind::Dart
+        | Kind::Cmake
+        | Kind::Nix
         | Kind::Sql
         | Kind::Make
-        | Kind::Graphql => kind_of(path) == Some(kind),
+        | Kind::Graphql
+        | Kind::Css => kind_of(path) == Some(kind),
     }
 }
 /// Where the standard library and the dependencies of the project at `root` live on this
 /// machine, for a file of `kind`; empty when the toolchain is not installed. Each is asked the
 /// way it answers itself: the project's `.venv`, or `sys.path` of the `python3` on the PATH,
 /// `rustc --print sysroot` plus the registry crates `Cargo.lock` names, `GOROOT` plus the `go.mod`
-/// requirements in the module cache, `node_modules`. `pip install -e` and vendored code inside
+/// requirements in the module cache, `node_modules`, the gems `Gemfile.lock` names. `pip install -e` and vendored code inside
 /// `root` are project files already, so `root` itself is never returned.
 ///
 /// Nothing the project ships is run (#183). A toolchain runs from `/`, where no
@@ -170,13 +175,31 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         // to read — what a build system was told with `-I` is not in the source — so the
         // directories are the same for every project, and the ones that do not exist fall out
         // below.
+        //
+        // Then Objective-C's, which only an Objective-C file reads ([`objc_root`]): the SDK's
+        // frameworks, UIKit's under `iOSSupport`, those an umbrella framework holds (vImage in
+        // Accelerate), and CocoaPods' `Pods/`, gitignored as `node_modules` is (#417).
         Kind::C => {
+            let sdk = run("xcrun", &["--show-sdk-path"]).map(|s| PathBuf::from(s.trim()));
             let mut dirs = vec![PathBuf::from("/usr/include")];
-            if let Some(sdk) = run("xcrun", &["--show-sdk-path"]) {
-                dirs.push(PathBuf::from(sdk.trim()).join("usr/include"));
-            }
+            dirs.extend(sdk.iter().map(|sdk| sdk.join("usr/include")));
             dirs.push(PathBuf::from("/usr/local/include"));
             dirs.push(PathBuf::from("/opt/homebrew/include"));
+            if let Some(sdk) = &sdk {
+                let top = [
+                    "System/Library/Frameworks",
+                    "System/iOSSupport/System/Library/Frameworks",
+                ]
+                .map(|d| sdk.join(d));
+                let umbrellas = (top.iter())
+                    .flat_map(|d| std::fs::read_dir(d).into_iter().flatten().flatten())
+                    .map(|e| e.path().join("Frameworks"))
+                    .filter(|d| d.is_dir())
+                    .collect::<Vec<_>>();
+                dirs.extend(top);
+                dirs.extend(umbrellas);
+            }
+            dirs.push(root.join("Pods"));
             dirs
         }
         // Where `protoc` installs the well-known types (`google/protobuf/timestamp.proto`), as
@@ -197,8 +220,40 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         // not there: the toolchain ships it compiled, with `.swiftinterface` stubs beside it and
         // no `.swift` file to read.
         Kind::Swift => vec![root.join(".build/checkouts")],
-        // Java, Kotlin and Ruby have no roots yet: the JDK and Gradle caches, and a gem path,
-        // are their own lookups. C# has nothing to point at: a NuGet package is compiled
+        // The gems `Gemfile.lock` names, the standard library and the core's signatures (#369).
+        // The `ruby` on the PATH is asked once a session: it answers the same every time.
+        Kind::Ruby => {
+            static ASKED: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+            let env: Vec<PathBuf> = ["GEM_HOME", "GEM_PATH"]
+                .into_iter()
+                .filter_map(std::env::var_os)
+                .flat_map(|v| std::env::split_paths(&v).collect::<Vec<_>>())
+                .collect();
+            let script = "puts RbConfig::CONFIG['rubylibdir'], Gem.path";
+            ruby_roots(root, &home, &env, || {
+                ASKED.get_or_init(|| run("ruby", &["-e", script])).clone()
+            })
+        }
+        // The module directories of `PSModulePath` (#420). Only scripts and modules count: the
+        // built-in cmdlets are compiled and have no source to find.
+        Kind::PowerShell => {
+            let pwsh = std::env::var_os("PATH").and_then(|p| {
+                std::env::split_paths(&p)
+                    .map(|d| d.join("pwsh"))
+                    .find(|p| p.is_file())
+            });
+            powershell_roots(std::env::var_os("PSModulePath"), &home, pwsh)
+        }
+        // The packages `pub get` lists in `.dart_tool/package_config.json`, the pub cache's and
+        // the Flutter SDK's, and the `lib/` of the SDK of the `dart` on the PATH (#414).
+        Kind::Dart => dart_roots(root, dart_sdk()),
+        Kind::Cmake => cmake_roots(std::env::var_os("PATH").and_then(|p| {
+            std::env::split_paths(&p)
+                .map(|d| d.join("cmake"))
+                .find(|p| p.is_file())
+        })),
+        // Java and Kotlin have no roots yet: the JDK and Gradle caches are their own lookups.
+        // C# has nothing to point at: a NuGet package is compiled
         // assemblies, and the runtime's own source is not on the machine at all. Lua has no root
         // to ask for either: `package.path` is whatever the interpreter embedding it was built
         // with, and a Neovim or a LuaRocks tree is not a standard library any project can be
@@ -207,9 +262,9 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         // depend on the open file: [`mix_deps`]. `d` stays inside the project for all of them,
         // as for the rest.
         Kind::Jvm
-        | Kind::Ruby
         | Kind::CSharp
         | Kind::Lua
+        | Kind::Nix
         | Kind::Elixir
         | Kind::Shell
         | Kind::Sql
@@ -218,7 +273,9 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         | Kind::Docker
         | Kind::Yaml
         | Kind::Markdown
-        | Kind::Graphql => Vec::new(),
+        | Kind::Graphql
+        | Kind::Css
+        | Kind::Html => Vec::new(),
     };
     // The order is deliberate, so no sort: `sys.path` can list a directory twice, far apart.
     let mut seen = std::collections::HashSet::new();
@@ -600,22 +657,37 @@ pub fn in_copy(path: &Path, copy: &[PathBuf]) -> bool {
 /// dependency.
 pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
     let go = kind == Kind::Go;
+    // A link is spelled through the roots a C file reads, never the frameworks: `usr/include`'s
+    // `tcl.h` links into `Tcl.framework`, and stays `tcl.h` (#417).
+    let spelled: Vec<PathBuf> = (dirs.iter())
+        .filter(|d| !objc_frameworks(d))
+        .cloned()
+        .collect();
+    let real = real_dirs(&spelled);
     let mut files = Vec::new();
     for dir in dirs {
         // Homebrew's Rust ships the sysroot `library` with a copy of itself inside; every
         // definition would come up twice.
         let copy = dir.file_name().map(std::ffi::OsStr::to_owned);
+        // Of an SDK's frameworks, each one's `Headers`, a link into `Versions/Current` that is
+        // walked through, so a header is read once (#417).
+        let frameworks = kind == Kind::C && objc_frameworks(dir);
         let walk = ignore::WalkBuilder::new(dir)
             .filter_entry(move |e| {
                 let unreachable = go
                     && e.depth() > 0
                     && e.file_type().is_some_and(|t| t.is_dir())
                     && (e.file_name() == "testdata" || e.path().join("go.mod").is_file());
-                !unreachable && (e.depth() != 1 || Some(e.file_name()) != copy.as_deref())
+                let header = match e.depth() {
+                    1 => e.file_name().to_string_lossy().ends_with(".framework"),
+                    2 => e.file_name() == "Headers",
+                    _ => true,
+                };
+                !unreachable
+                    && (!frameworks || header)
+                    && (e.depth() != 1 || Some(e.file_name()) != copy.as_deref())
             })
-            // Homebrew links each formula's headers into `include/` a directory at a time:
-            // `include/google` is a link into the protobuf keg.
-            .follow_links(kind == Kind::Proto)
+            .follow_links(kind == Kind::Proto || kind == Kind::Cmake || frameworks)
             .hidden(false)
             .git_ignore(false)
             .git_global(false)
@@ -625,12 +697,67 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
             .build();
         files.extend(
             walk.filter_map(Result::ok)
-                .map(ignore::DirEntry::into_path)
-                .filter(|p| p.is_file() && kind_of(p) == Some(kind))
+                .map(|e| match kind == Kind::C && e.path_is_symlink() {
+                    true => c_spelled(e.path(), &real),
+                    false => e.into_path(),
+                })
+                .filter(|p| p.is_file() && (kind_of(p) == Some(kind) || core_signature(kind, p)))
                 .filter(|p| !(go && p.to_string_lossy().ends_with("_test.go"))),
         );
     }
+    // A header linked under another name is one file, listed once (#382).
+    if kind == Kind::C {
+        let mut seen = std::collections::HashSet::new();
+        files.retain(|f| seen.insert(f.clone()));
+    }
     files
+}
+/// The C++ standard library directories under `roots`, `c++/v1` and `c++/<version>`, which a
+/// compiler searches for an `#include <…>` of a C++ file before the roots themselves.
+pub fn cpp_dirs(roots: &[PathBuf]) -> Vec<PathBuf> {
+    roots
+        .iter()
+        .flat_map(|r| {
+            std::fs::read_dir(r.join("c++"))
+                .into_iter()
+                .flatten()
+                .flatten()
+        })
+        .map(|e| e.path())
+        .filter(|d| d.is_dir())
+        .collect()
+}
+/// `path`, a file under one of `dirs`, as the walk of `dirs` spells it: through its links, under
+/// the directory its target lies in when that is one of `dirs`, so a header linked under a second
+/// name (`pthread.h` to `pthread/pthread.h`) is that header (#382). A link out of them keeps its
+/// own name: Homebrew's `include/` is links into its kegs.
+/// `dirs` are [`real_dirs`].
+pub fn c_spelled(path: &Path, dirs: &[(PathBuf, PathBuf)]) -> PathBuf {
+    let Ok(real) = path.canonicalize() else {
+        return path.to_path_buf();
+    };
+    dirs.iter()
+        .find_map(|(d, r)| Some(d.join(real.strip_prefix(r).ok()?)))
+        .unwrap_or_else(|| path.to_path_buf())
+}
+/// Each of `dirs` with the directory it is once its links are followed.
+pub fn real_dirs(dirs: &[PathBuf]) -> Vec<(PathBuf, PathBuf)> {
+    (dirs.iter())
+        .filter_map(|d| Some((d.clone(), d.canonicalize().ok()?)))
+        .collect()
+}
+/// Whether `path` is one of the RBS signatures of Ruby's core, `core/*.rbs` of the `rbs` gem
+/// (#369): the classes written in C have no other source. Elsewhere a `.rbs` repeats a `.rb`
+/// beside it, so it is no file of any kind, the project's own `sig/` included.
+fn core_signature(kind: Kind, path: &Path) -> bool {
+    kind == Kind::Ruby
+        && path.extension().is_some_and(|e| e == "rbs")
+        && path.ancestors().any(|a| {
+            a.ends_with("core")
+                && a.parent()
+                    .and_then(Path::file_name)
+                    .is_some_and(|n| n.to_string_lossy().starts_with("rbs-"))
+        })
 }
 /// The files a reader is shown last: tests, mocks, fixtures, generated code and vendored copies
 /// (#81). A row ending in `/` is a directory anywhere in the path; the rest match the file name,

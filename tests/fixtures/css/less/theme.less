@@ -1,0 +1,14 @@
+@brand: #0a7;
+.bordered(@w: 2px) {
+  border: @w solid @brand;
+  //                ^ d: less/theme.less:1
+}
+#header {
+  .bordered();
+  // ^ d: less/theme.less:2
+  .bordered;
+  // ^ d: less/theme.less:2
+  @media (min-width: 768px) { color: @brand; }
+}
+@import "base";
+//       ^ d: less/base.less:1

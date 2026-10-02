@@ -28,6 +28,7 @@ impl App {
                 Ok(mut buf) => {
                     self.lock_unwritable(&mut buf);
                     let old = std::mem::replace(&mut self.buf, buf);
+                    self.swap_collapsed(&old, path);
                     let (undo, redo) = (
                         std::mem::take(&mut self.undo),
                         std::mem::take(&mut self.redo),
@@ -52,6 +53,14 @@ impl App {
                     self.undo_break = true;
                     self.anchor = None;
                     self.preview = None;
+                    // A file of the review opens on its source, where its diff and its fold are,
+                    // whatever an earlier visit rendered: `p` renders it again (#596).
+                    let rel = path.strip_prefix(&self.root).ok();
+                    if rel.is_some_and(|rel| {
+                        self.review.as_ref().is_some_and(|r| r.file(rel).is_some())
+                    }) {
+                        self.previewed.remove(path);
+                    }
                     self.dirty = false;
                     self.conflict = false;
                     if self.mode == Mode::Edit {
@@ -252,6 +261,7 @@ impl App {
         // A deleted line the cursor is on is found again by what it says (below).
         let reading = self.deleted.map(|(_, i)| (self.line_str().to_string(), i));
         let old = std::mem::replace(&mut self.buf, buf);
+        self.carry_collapsed(&old.lines);
         if self.review.is_some() {
             // The reader stays in the hunk they are in when an agent writes above it: every
             // line kept of this file goes down with its text, before anything is clamped.

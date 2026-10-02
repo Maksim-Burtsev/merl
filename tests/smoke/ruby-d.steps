@@ -22,3 +22,14 @@ key t /
 type recent
 key Enter d
 wait recent → Account.recent
+# A bare call no project declaration answers lands in the gem `Gemfile.lock` names, at its locked
+# version, read-only, where it said `no definition for throttle` (#369). The gem is installed
+# beside the project, in the `BUNDLE_PATH` its `.bundle/config` names.
+run mkdir -p ../bundle/ruby/3.3.0/gems/rack-attack-6.7.0/lib/rack .bundle && printf '%s\n' 'module Rack' '  class Attack' '    def self.throttle(name, options)' '    end' '  end' 'end' > ../bundle/ruby/3.3.0/gems/rack-attack-6.7.0/lib/rack/attack.rb && printf '%s\n' '---' 'BUNDLE_PATH: "../bundle"' > .bundle/config && printf '%s\n' 'GEM' '  specs:' '    rack-attack (6.7.0)' > Gemfile.lock
+run printf '%s\n' 'class Rack::Attack' "  throttle('logins/ip', limit: 5)" 'end' > app/ruby/attack.rb
+merl app/ruby/attack.rb
+wait class Rack::Attack
+key t /
+type throttle
+key Enter d
+wait read-only

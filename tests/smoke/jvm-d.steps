@@ -57,3 +57,13 @@ key /
 type getLimit
 key Enter d
 wait getLimit → Scale.limit (via scale: Scale)
+# Scala is one kind with Java and Kotlin (#416): `d` on a method lands in the `object` declaring
+# it, where it said `no rules for .scala`.
+key o
+type Route.scala
+key Enter
+wait web/android/src/main/scala/courier/app/Route.scala  1:1
+key /
+type legs(List
+key Enter d
+wait web/android/src/main/scala/courier/app/Route.scala  4:

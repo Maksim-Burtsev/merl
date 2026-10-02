@@ -350,6 +350,13 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
         | Kind::Zig
         | Kind::Proto
         | Kind::Shell
+        // `Import-Module` makes every function the module exports visible and binds no name, as
+        // a C `#include` does; its path is followed as [`file_import`] reads it.
+        | Kind::PowerShell
+        // A Dart prefix or `show` name is [`dart_imports`]'s, which `d` reads in its own branch.
+        | Kind::Dart
+        | Kind::Cmake
+        | Kind::Nix
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform
@@ -357,7 +364,9 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
         | Kind::Yaml
         | Kind::Markdown
         // `#import "./parts.graphql"` pastes the file in and binds no name: [`graphql_import`].
-        | Kind::Graphql => {}
+        | Kind::Graphql
+        | Kind::Css
+        | Kind::Html => {}
     }
     out
 }
@@ -865,17 +874,31 @@ pub fn module_files(
         | Kind::Zig
         | Kind::Proto
         | Kind::Shell
+        | Kind::Dart
+        | Kind::Cmake
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform
         | Kind::Docker
         | Kind::Yaml
-        | Kind::Markdown => Vec::new(),
-        // The path of an `#import`, relative to the importing file.
-        Kind::Graphql => lexical(&dir.join(module.join("/")))
+        | Kind::Markdown
+        | Kind::Css
+        | Kind::Html => Vec::new(),
+        // The path of an `#import`, a dot-source or an `Import-Module`, relative to the file.
+        Kind::Nix => nix_files(dir, &module.join("/"), files),
+        Kind::Graphql | Kind::PowerShell => lexical(&dir.join(module.join("/")))
             .filter(|f| files.contains(f))
             .into_iter()
             .collect(),
+    }
+}
+pub fn file_import(kind: Kind, line: &str, col: usize) -> Option<String> {
+    match kind {
+        Kind::Graphql => graphql_import(line, col).map(str::to_owned),
+        Kind::PowerShell => powershell_import(line, col),
+        Kind::Cmake => cmake_import(line, col).map(|(_, arg)| arg),
+        Kind::Nix => nix_path(line, col),
+        _ => None,
     }
 }
 /// The path of the `#import "./parts.graphql"` a GraphQL `line` is, when byte `col` stands on it
@@ -984,7 +1007,7 @@ fn ts_config(root: &Path, dir: &Path, spec: &str) -> (Vec<PathBuf>, Option<PathB
     (targets.into_iter().map(|(_, t)| t).collect(), url)
 }
 /// `path` with its `.` and `..` parts folded away, `None` when it climbs above where it starts.
-fn lexical(path: &Path) -> Option<PathBuf> {
+pub(super) fn lexical(path: &Path) -> Option<PathBuf> {
     let mut out = PathBuf::new();
     for c in path.components() {
         match c {
