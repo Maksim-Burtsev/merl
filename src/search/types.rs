@@ -189,11 +189,6 @@ pub fn bases(kind: Kind, text: &str, decl: usize) -> Vec<String> {
         _ => Vec::new(),
     }
 }
-/// The interfaces the TypeScript class or interface declared on 1-based `decl` of `text` says it
-/// implements. [`bases`] reads `extends` alone, since that is where a member is inherited from;
-/// an `implements` list declares no member and is read only to find the implementations of one
-/// (#68 step 6). A Python class lists everything it derives from in [`bases`], and a Go type
-/// names no interface at all.
 pub fn interfaces(kind: Kind, text: &str, decl: usize) -> Vec<String> {
     static TS_IMPLEMENTS: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"\bimplements\s+(.+?)\s*(?:\{|$)").unwrap());
@@ -457,10 +452,6 @@ pub fn element_type(kind: Kind, written: &str) -> Option<String> {
     let element = element.trim();
     (!element.is_empty()).then(|| element.to_owned())
 }
-/// The constants of the Java or Kotlin `enum` declared on 1-based `decl` of `text`, each with
-/// its 1-based line: the names at the start of the body, up to its first `;` or its end (#457).
-/// A constant's arguments, its body and the annotations and comments in front of it are
-/// skipped; a string inside them is not read.
 pub fn enum_constants(text: &str, decl: usize) -> Vec<(String, usize)> {
     let mut out = Vec::new();
     let mut chars = text.chars().peekable();
