@@ -332,3 +332,53 @@ fn every_fold_fixture_folds_as_annotated() {
         assert!(checked > 40, "{path:?}: {checked} annotations");
     }
 }
+
+const GO: &str = "\
+func f(n int) string {
+\tswitch n {
+\tcase 1:
+\t\treturn \"one\"
+
+\tcase 2:
+\t\treturn \"two\"
+\t}
+\treturn \"\"
+}
+";
+
+#[test]
+fn a_go_fold_keeps_go_rules_through_edits_switches_and_reloads() {
+    let (dir, mut a) = files_app("fold-go");
+    std::fs::write(dir.join("a.go"), GO).unwrap();
+    std::fs::write(dir.join("b.go"), "package b\n").unwrap();
+    a.jump_to(&dir.join("a.go"), 3);
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(2, 4)], "the case and its blank line");
+    a.jump_to(&dir.join("b.go"), 1);
+    a.jump_to(&dir.join("a.go"), 1);
+    assert_eq!(a.collapsed, vec![(2, 4)]);
+
+    let mut a = app_as("go", GO);
+    a.go((2, 0));
+    key(&mut a, KeyCode::Char('f'));
+    a.go((0, 0));
+    key(&mut a, KeyCode::Enter);
+    key(&mut a, KeyCode::Enter);
+    assert_eq!(a.collapsed, vec![(3, 5)]);
+
+    let mut a = app_as("go", GO);
+    a.go((2, 0));
+    key(&mut a, KeyCode::Char('f'));
+    let path = a.buf.path.clone().unwrap();
+    std::fs::write(&path, format!("package a\n\n{GO}")).unwrap();
+    a.reload(false);
+    assert_eq!(a.collapsed, vec![(4, 6)]);
+}
+
+#[test]
+fn f_folds_a_jsx_element_in_a_jsx_file() {
+    let mut a = app_as("jsx", "const a = (\n  <div>\n    <p>hi</p>\n  </div>\n);\n");
+    a.go((1, 2));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(1, 3)]);
+}
