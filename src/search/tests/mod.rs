@@ -14,6 +14,7 @@ mod defs;
 mod fields;
 mod go;
 mod grep;
+mod groovy;
 mod imports;
 mod links;
 mod nix;
@@ -116,6 +117,7 @@ fn listed(kind: Kind, line: &str) -> Vec<String> {
     SYMBOLS
         .iter()
         .filter(|(k, _)| *k == Some(kind) || (k.is_none() && shared_symbols(Some(kind))))
+        .filter(|(_, p)| row_reads(p, Path::new("not-groovy")))
         .filter_map(|(_, p)| symbol_name(&Regex::new(p).unwrap(), line))
         .collect()
 }

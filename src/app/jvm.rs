@@ -22,6 +22,40 @@ impl App {
         Some(self.jvm_fit_candidates(&here, word, range, chain, found))
     }
 
+    /// The step `word` of a Jenkins shared library, named in a Groovy file where no rule declares
+    /// it (#423): `vars/<word>.groovy`, at its `call` method, else its first line.
+    pub(super) fn jenkins_step(&self, here: &Path, word: &str) -> Vec<Candidate> {
+        static CALL: std::sync::LazyLock<Regex> =
+            std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:def|void)\s+call\s*\(").unwrap());
+        if !search::groovy(here) {
+            return Vec::new();
+        }
+        let file = format!("{word}.groovy");
+        self.files
+            .iter()
+            .filter(|p| p.ends_with(Path::new("vars").join(&file)))
+            .map(|p| {
+                let text = self.text_of(p).unwrap_or_default();
+                let (line, text) = text
+                    .lines()
+                    .enumerate()
+                    .find(|(_, l)| CALL.is_match(l))
+                    .or(text.lines().enumerate().next())
+                    .map_or((1, String::new()), |(i, l)| (i + 1, l.to_owned()));
+                Candidate {
+                    hit: Hit {
+                        deleted: None,
+                        path: p.clone(),
+                        line,
+                        col: 0,
+                        text,
+                    },
+                    reason: Reason::ByName,
+                }
+            })
+            .collect()
+    }
+
     /// Of the Java or Kotlin declarations `hits` found by name, what the cursor can see (#357): a
     /// local only in its own block, below it, and never `behind` a `.` or a `::`; a `private`
     /// declaration only in its own file. When that drops some and leaves one that is no local
@@ -37,8 +71,9 @@ impl App {
                 if h.path != here && search::jvm_private(&h.text) {
                     return false;
                 }
-                // A declaration in column 0 is top-level, never a local.
-                if !h.text.starts_with([' ', '\t']) {
+                if !h.text.starts_with([' ', '\t'])
+                    || (search::groovy(&h.path) && search::gradle_global(&h.text))
+                {
                     return true;
                 }
                 let text = texts

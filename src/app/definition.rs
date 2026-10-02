@@ -1829,11 +1829,11 @@ impl App {
                 })
                 .collect();
         }
-        // Nothing in the branch by name: the definitions the branch deleted are the answer (#440).
-        // A rule that answered earlier, "none" included, keeps its answer.
-        // No method of the name: the field Lombok writes the accessor for (#381).
         if kind == Kind::Jvm && found.is_empty() {
             found = self.jvm_lombok(&here, &text, &chain, &word);
+            if found.is_empty() && !dotted {
+                found = self.jenkins_step(&here, &word);
+            }
         }
         if found.is_empty() && self.probe.is_none() {
             found = self.deleted_definitions(kind, &word, &here);

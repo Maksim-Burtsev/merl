@@ -67,6 +67,7 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         // `d` in a `.kt` file has to find the `.java` class it uses, as `.tsx` finds `.ts`. A
         // `.sc` is a Scala script, a `.sbt` and a `.mill` the build Scala's tools read (#416).
         (_, "java" | "kt" | "kts" | "scala" | "sc" | "sbt" | "mill") => Kind::Jvm,
+        (_, "groovy" | "gvy" | "gradle" | "jenkinsfile") | ("Jenkinsfile", _) => Kind::Jvm,
         (_, "rb" | "rake" | "gemspec" | "podspec" | "rbi" | "ru") => Kind::Ruby,
         // C and C++ are one kind: a header declares what a `.c` or a `.cc` defines, and either
         // language reads the other's headers, so they have to search each other. Objective-C
@@ -128,6 +129,15 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
 pub fn scala(path: &Path) -> bool {
     path.extension()
         .is_some_and(|e| matches!(e.to_str(), Some("scala" | "sc" | "sbt" | "mill")))
+}
+pub fn groovy(path: &Path) -> bool {
+    path.file_name().is_some_and(|n| n == "Jenkinsfile")
+        || path.extension().is_some_and(|e| {
+            matches!(
+                e.to_str(),
+                Some("groovy" | "gvy" | "gradle" | "jenkinsfile")
+            )
+        })
 }
 /// Whether `path` is under a `c++/<dir>/` directory, where a C++ standard library keeps its
 /// headers.

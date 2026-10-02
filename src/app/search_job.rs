@@ -77,7 +77,7 @@ impl SearchJob {
         for (kind, pattern) in search::SYMBOLS {
             let re = Regex::new(pattern).expect("built-in symbol patterns are valid");
             let wanted = |p: &Path| match kind {
-                Some(k) => search::kind_of(p) == Some(*k),
+                Some(k) => search::kind_of(p) == Some(*k) && search::row_reads(pattern, p),
                 None => search::shared_symbols(search::kind_of(p)),
             };
             let files: Vec<PathBuf> = self.files.iter().filter(|p| wanted(p)).cloned().collect();

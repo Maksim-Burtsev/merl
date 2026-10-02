@@ -302,13 +302,14 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             }
         } else if heredoc
             && (b[i..].starts_with(b"\"\"\"")
-                || (matches!(kind, Kind::Python | Kind::Elixir | Kind::Dart)
+                || (matches!(kind, Kind::Python | Kind::Elixir | Kind::Dart | Kind::Jvm)
                     && b[i..].starts_with(b"'''")))
         {
-            // `'''` is Python's, Elixir's and Dart's alone; Swift, C#, GraphQL, Java and Kotlin
-            // write the block with `"` only.
             block = Some(if c == b'"' { b"\"\"\"" } else { b"'''" }.into());
             i += 2;
+        } else if kind == Kind::Jvm && b[i..].starts_with(b"$/") && token_at(i, &[]) {
+            block = Some(b"/$".into());
+            i += 1;
         } else if powershell && b[i..].starts_with(b"<#") {
             block = Some(b"#>".into());
             i += 1;
