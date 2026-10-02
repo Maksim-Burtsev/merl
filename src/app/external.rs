@@ -520,6 +520,8 @@ impl App {
             | Kind::Dart
             | Kind::Cmake
             | Kind::Nix
+            | Kind::Ocaml
+            | Kind::Fsharp
             | Kind::Sql
             | Kind::Make
             | Kind::Terraform
@@ -550,6 +552,8 @@ impl App {
             Kind::Dart,
             Kind::Cmake,
             Kind::Nix,
+            Kind::Ocaml,
+            Kind::Fsharp,
             Kind::Sql,
             Kind::Make,
             Kind::Terraform,

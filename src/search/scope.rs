@@ -34,6 +34,8 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Dart
         | Kind::Cmake
         | Kind::Nix
+        | Kind::Ocaml
+        | Kind::Fsharp
         | Kind::Sql
         | Kind::Make
         | Kind::Graphql
@@ -257,6 +259,7 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         // The packages `pub get` lists in `.dart_tool/package_config.json`, the pub cache's and
         // the Flutter SDK's, and the `lib/` of the SDK of the `dart` on the PATH (#414).
         Kind::Dart => dart_roots(root, dart_sdk()),
+        Kind::Ocaml => ocaml_roots(run("ocamlc", &["-where"])),
         Kind::Cmake => cmake_roots(std::env::var_os("PATH").and_then(|p| {
             std::env::split_paths(&p)
                 .map(|d| d.join("cmake"))
@@ -275,6 +278,7 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         | Kind::CSharp
         | Kind::Lua
         | Kind::Nix
+        | Kind::Fsharp
         | Kind::Elixir
         | Kind::Shell
         | Kind::Sql

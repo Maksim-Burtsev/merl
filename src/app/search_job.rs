@@ -119,6 +119,23 @@ impl SearchJob {
                     .copied()
                     .unwrap_or(false)
             });
+            if let Some(k @ (search::Kind::Ocaml | search::Kind::Fsharp)) = *kind {
+                let mut texts: HashMap<PathBuf, String> = HashMap::new();
+                hits.retain(|h| {
+                    let text = texts.entry(h.path.clone()).or_insert_with(|| {
+                        match (&self.unsaved, &self.current) {
+                            (Some(t), Some(c)) if *c == h.path => {
+                                String::from_utf8_lossy(t).into_owned()
+                            }
+                            _ => {
+                                std::fs::read_to_string(self.root.join(&h.path)).unwrap_or_default()
+                            }
+                        }
+                    });
+                    let lines: Vec<&str> = text.lines().collect();
+                    search::ml_symbol_kept(k, &h.path, &lines, h.line)
+                });
+            }
             // The declarations the branch deleted, of the files this row is written for.
             hits.extend(deleted_hits(&self.deleted, wanted, |t| {
                 (re.is_match(t) && keep(t)).then_some(0)

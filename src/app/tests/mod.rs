@@ -16,6 +16,7 @@ mod find;
 mod fold_bench;
 mod keys;
 mod missed;
+mod ml;
 mod navigate;
 mod navigate_binding;
 mod navigate_call;

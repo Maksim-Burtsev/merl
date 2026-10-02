@@ -357,6 +357,8 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
         | Kind::Dart
         | Kind::Cmake
         | Kind::Nix
+        | Kind::Ocaml
+        | Kind::Fsharp
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform
@@ -876,6 +878,8 @@ pub fn module_files(
         | Kind::Shell
         | Kind::Dart
         | Kind::Cmake
+        | Kind::Ocaml
+        | Kind::Fsharp
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform

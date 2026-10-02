@@ -423,6 +423,7 @@ fn known_file(name: &str) -> Option<&'static str> {
         (_, "astro") => "TypeScriptReact",
         // bat's Scala grammar owns `.scala`, `.sbt` and `.sc`, not Mill's build files (#416).
         (_, "mill") => "Scala",
+        (_, "fs") => "F#",
         _ => return None,
     })
 }
@@ -1123,6 +1124,47 @@ mod tests {
             let colours: std::collections::HashSet<_> =
                 b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
             assert!(colours.len() > 1, "{name}: everything is one colour");
+        }
+    }
+
+    #[test]
+    fn ocaml_highlights_with_every_shipped_theme() {
+        let src = "(* doc *)\ntype t = { cents : int }\nlet format_price { cents } =\n  Printf.sprintf \"%d\" cents\n";
+        for file in ["lib/money.ml", "lib/money.mli"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("OCaml"),
+                    "{file} {name}"
+                );
+                b.highlight_to(4, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
+    fn fsharp_highlights_with_every_shipped_theme() {
+        let src =
+            "// doc\nmodule Shop.Money\n\nlet formatPrice (m: Money) = sprintf \"%d\" m.Cents\n";
+        for file in ["src/Money.fs", "src/Money.fsi", "build.fsx"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("F#"),
+                    "{file} {name}"
+                );
+                b.highlight_to(4, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
         }
     }
 

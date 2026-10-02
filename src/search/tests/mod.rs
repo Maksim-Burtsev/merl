@@ -16,6 +16,7 @@ mod go;
 mod grep;
 mod imports;
 mod links;
+mod ml;
 mod nix;
 mod other_languages;
 mod powershell;
