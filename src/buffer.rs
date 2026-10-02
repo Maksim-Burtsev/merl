@@ -20,7 +20,6 @@ const CHECKPOINT: usize = 64;
 const BOM: &[u8] = b"\xEF\xBB\xBF";
 /// How far in we look for a NUL before calling a file binary.
 const SNIFF: usize = 8 * 1024;
-/// Why a binary file is read-only, and how the pane tells it from an empty file (#287).
 const BINARY: &str = "binary file";
 /// ponytail: syntect is sequential, so a huge file would have to be parsed from line 1 before
 /// anything can be drawn. Past these limits merl shows plain text instead of stalling.
@@ -89,8 +88,6 @@ impl Buffer {
     }
 
     pub fn load(path: &Path) -> Result<Self> {
-        // A FIFO, a socket or a device: reading one can wait forever, whichever way it was
-        // reached (#405). A directory fails the read on its own.
         let meta = std::fs::metadata(path).with_context(|| format!("{}", path.display()))?;
         if !meta.is_file() && !meta.is_dir() {
             // The reason apart from the path, for the status bar to name the file its own way.
@@ -103,8 +100,6 @@ impl Buffer {
 
     pub fn from_bytes(path: PathBuf, bytes: &[u8]) -> Self {
         if bytes[..bytes.len().min(SNIFF)].contains(&0) {
-            // No placeholder text: the pane draws a note instead of lines (#287), and a text
-            // in the lines would pass for the file's content to `/`, `y` and the gutter.
             let mut b = Self::new(Some(path), vec![String::new()], None);
             b.readonly = Some(BINARY);
             return b;
@@ -413,12 +408,8 @@ fn known_file(name: &str) -> Option<&'static str> {
         ("Procfile" | "yarn.lock", _) => "YAML",
         // Starlark.
         ("WORKSPACE" | "Tiltfile", _) => "Python",
-        // bat's set owns `.md` and `.markdown`; MDX is Markdown with JSX in it (#421).
         (_, "mdx") => "Markdown",
-        // bat's set has no Astro grammar: TSX paints its frontmatter and its JSX-like template,
-        // leaving the bodies of `<style>` and `<script>` plain (#413).
         (_, "astro") => "TypeScriptReact",
-        // bat's Scala grammar owns `.scala`, `.sbt` and `.sc`, not Mill's build files (#416).
         (_, "mill") => "Scala",
         _ => return None,
     })

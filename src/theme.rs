@@ -170,10 +170,6 @@ pub struct Theme {
     pub status_bg: Color,
     pub status_fg: Color,
     pub find_bg: Color,
-    /// The theme's `findHighlightForeground`. Without one a match keeps the text's own colours
-    /// over `find_bg`, as in VS Code (#480). A theme with no `findHighlight` either gets merl's
-    /// grey tint, which the syntax colours may not read on, so the text or the background colour,
-    /// whichever reads better on it.
     pub find_fg: Option<Color>,
     /// The theme's signature colour, painted on the chrome the user navigates by: directory
     /// names, the tree and picker frames, the file name in the status bar. Taken from the colour
@@ -196,9 +192,6 @@ pub struct Theme {
     /// The text of a changed word, which GitHub draws in the plain text colour: `fg`, pushed
     /// toward white on a dark theme or black on a light one until it reads on every word tint.
     pub word_fg: Color,
-    /// A hidden char's tag (#401): a warning's amber, GitHub's attention colour over this
-    /// background, which no diff tint uses, so a tag on an added row never reads as deleted
-    /// text; and its text, as `word_fg` is found for the diff's words.
     pub tag_bg: Color,
     pub tag_fg: Color,
     /// The background is lighter than the text: what picks GitHub's light colours over its dark
@@ -211,8 +204,6 @@ pub fn load(name: &str) -> Result<Theme> {
     load_from(user_dir().as_deref(), name)
 }
 
-/// The theme `config.toml` names, at start. One that does not load names the config too: that is
-/// where the way back is (#277). Never a silent fall back to the default, as in [`load_from`].
 pub fn load_configured(name: &str) -> Result<Theme> {
     load_configured_from(user_dir().as_deref(), config_path().as_deref(), name)
 }
@@ -314,9 +305,6 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         .map(|percent| blend(toward, fg, percent))
         .find(|&c| contrast(c, tag_bg) >= WORD_CONTRAST)
         .unwrap_or(rgb(toward));
-    // The selection is drawn over the cursor line (#62) and, in a review, over added and
-    // deleted rows (#439), so a theme whose own selection colour sits within a few points of one
-    // of them gets one blended further from the background instead.
     let mut selection = s.selection.map_or_else(|| blend(fg, bg, 25), over_bg);
     for percent in [35, 45, 55, 65] {
         if [line_hl, add_bg, add_bg_hl, del_bg, del_bg_hl]
@@ -470,13 +458,10 @@ pub struct Config {
     /// Edits are written this long after the last keystroke; VS Code's `files.autoSaveDelay`.
     #[serde(default = "default_autosave")]
     pub autosave_delay_ms: u64,
-    /// The review panel's dim counts and branch totals (#250).
     #[serde(default = "default_true")]
     pub review_panel_colours: bool,
-    /// Review: `u` and `s` mark the rows on lines the branch changed with the gutter's `▎` (#246).
     #[serde(default = "default_true")]
     pub review_list_marks: bool,
-    /// Review: `o` lists the review's files first, with their panel letter (#246).
     #[serde(default = "default_true")]
     pub review_open_files_first: bool,
 }

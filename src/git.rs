@@ -18,10 +18,6 @@ pub enum Mark {
     DeletedBelow,
 }
 
-/// A line of a file as a review draws it (#439): a line of the file, or the `i`th of the lines
-/// the branch deleted above file line `key`, `Diff::ghosts[key][i]` (`key` is `lines.len()` for
-/// those deleted at the end). Ordered as drawn: the deleted lines at a key come before the
-/// file's line there.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TextLine {
     File(usize),
@@ -53,9 +49,6 @@ impl PartialOrd for TextLine {
     }
 }
 
-/// A line the branch deleted (#440): the file the review lists it under, its 1-based number in
-/// the file at the base, the line of the text the review draws it as, and what it said. In a file
-/// the branch deleted, whose text is the base's, that is a line of the file.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeletedLine {
     pub path: PathBuf,
@@ -64,8 +57,6 @@ pub struct DeletedLine {
     pub text: String,
 }
 
-/// A run of lines the branch added (#440): the file, the 1-based number of its first line, and
-/// how many follow. `d` finds a definition the branch moved unchanged in one.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AddedRun {
     pub path: PathBuf,
@@ -216,8 +207,6 @@ pub struct ReviewFile {
     pub binary: bool,
     /// Not in git yet: listed as added, and its diff is the whole file.
     pub untracked: bool,
-    /// Generated as both GitHub and GitLab have it (see [`generated`]): the review folds it until
-    /// Enter loads its diff (#243).
     pub generated: bool,
 }
 
@@ -238,10 +227,7 @@ pub struct Review {
     /// working tree lines up with the numbers.
     pub merge_base: String,
     pub files: Vec<ReviewFile>,
-    /// Every line the branch deleted, file by file in the panel's order: the second source `s`,
-    /// `D`, `u` and `d` search besides the files on disk (#440).
     pub deleted: Arc<Vec<DeletedLine>>,
-    /// Every run of lines the branch added, read from the same patch (#440).
     pub added: Arc<Vec<AddedRun>>,
     /// What opening found about the branch against `origin` (`diverged from origin/feat`), for
     /// the status bar; `App::start_review` takes it, so it is said once.
@@ -268,9 +254,6 @@ impl Review {
         Ok(Self { note, ..r })
     }
 
-    /// The file the review opens on when none is named: the first with something to read; a
-    /// branch of binaries opens on one, and one of submodules and links to directories on none
-    /// (#404). A file the branch deleted is not on disk to open.
     pub fn first_file(&self, root: &Path) -> Option<PathBuf> {
         let on_disk = || self.files.iter().filter(|f| f.status != 'D');
         on_disk()
@@ -308,7 +291,6 @@ impl Review {
             "-z",
             &merge_base,
         ];
-        // A symlink counts one line too, where it points: to a directory, no text either (#404).
         let dir_link = |p: &Path| p.is_symlink() && p.is_dir();
         for (path, counts) in parse_numstat(&git(&numstat)?) {
             if let Some(f) = files.iter_mut().find(|f| f.path == path)
@@ -675,9 +657,6 @@ pub fn dirs(root: &Path) -> Option<(PathBuf, PathBuf)> {
     Some((dirs.next()??, dirs.next()??))
 }
 
-/// The other worktree of this repository that has `branch` checked out, an agent's say (#396):
-/// `-r BRANCH` reviews it there, since git will not check the branch out twice. A worktree git
-/// calls `prunable` (its directory is gone) is not one.
 pub fn worktree_of(root: &Path, branch: &str) -> Option<PathBuf> {
     let out = git(root, &["worktree", "list", "--porcelain"]).ok()?;
     let here = root.canonicalize().ok()?;
@@ -730,9 +709,6 @@ fn untracked(root: &Path, path: &Path) -> ReviewFile {
     }
 }
 
-/// What both GitHub and GitLab fold as generated, by the file's exact name: the lock files
-/// of Linguist's `generated.rb` that go-enry's `generated.go` also has (#243). `yarn.lock`,
-/// `go.sum` and `Gemfile.lock` are in neither, and stay open.
 const GENERATED_NAMES: &[&str] = &[
     "package-lock.json",
     "npm-shrinkwrap.json",
@@ -762,8 +738,6 @@ const GENERATED_ENDS: &[&str] = &[".min.js", ".min.css", ".js.map", ".css.map"];
 /// Directories both forges fold whatever is in them.
 const GENERATED_DIRS: &[&str] = &["node_modules", "Godeps"];
 
-/// Is `f` generated as both forges have it, by its path or, for Go, its first 40 lines: Go's
-/// `// Code generated … DO NOT EDIT.` Certain only, no guessing by content (#243).
 fn generated(root: &Path, f: &ReviewFile) -> bool {
     use std::io::{BufRead, BufReader};
     let name = f.path.file_name().and_then(|n| n.to_str()).unwrap_or("");
@@ -837,7 +811,6 @@ fn generated_attrs(root: &Path, files: &[ReviewFile]) -> Result<HashMap<PathBuf,
 /// a newline is a line. A binary file is not read past the 8000 bytes that say so.
 fn count_lines(path: &Path) -> std::io::Result<(bool, usize)> {
     use std::io::Read;
-    // An untracked link to a FIFO would hold the open until something writes to it (#405).
     if !std::fs::metadata(path)?.is_file() {
         return Err(std::io::Error::other("not a regular file"));
     }
@@ -914,9 +887,6 @@ fn checkout(
     b: &str,
     base: &str,
 ) -> Result<Option<String>> {
-    // `origin/feat`, copied from `git branch -a` or a merge request, is `feat` as it was pushed
-    // (#271), which origin must then have; a local branch literally named so is that branch, as
-    // `git switch` takes it. Other remotes stay local names: the fetch and the base are origin's.
     let pushed = b
         .strip_prefix("origin/")
         .filter(|_| git(&["rev-parse", "--verify", "-q", &format!("refs/heads/{b}")]).is_err());
@@ -971,7 +941,6 @@ fn own_commits(git: &dyn Fn(&[&str]) -> Result<String>, b: &str) -> bool {
     !git(&args).is_ok_and(|n| n == "0")
 }
 
-/// The bases tried in order when origin has no `HEAD`; the help of `--base` names them (#322).
 pub const BASES: [&str; 5] = [
     "origin/master",
     "origin/main",
