@@ -4,6 +4,7 @@ use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fs::FileType;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use ignore::WalkBuilder;
 
@@ -83,7 +84,8 @@ pub fn build(root: &Path, shallow: bool) -> (Tree, Vec<PathBuf>) {
         .map(|(p, is_dir)| node(p, is_dir, false))
         .chain(ignored.into_iter().map(|(p, is_dir)| node(p, is_dir, true)))
         .collect();
-    nodes.sort_by_cached_key(|n| sort_key(&n.path, n.is_dir));
+    let order = (TREE_ORDER.get()).map_or_else(Order::default, |(f, u)| Order::read(f, u));
+    nodes.sort_by_cached_key(|n| sort_key(&n.path, n.is_dir, &order));
 
     let files = nodes
         .iter()
@@ -142,9 +144,16 @@ fn node(path: PathBuf, is_dir: bool, ignored: bool) -> Node {
     }
 }
 
-/// A tree of just `files` (relative paths) and the directories above them, all expanded:
-/// the review panel.
+#[cfg(test)]
 pub fn from_files(files: &[PathBuf]) -> Tree {
+    from_files_in(files, &Order::default())
+}
+
+pub fn from_listing(files: &[PathBuf]) -> Tree {
+    from_files_in(files, &Order::of(files))
+}
+
+fn from_files_in(files: &[PathBuf], order: &Order) -> Tree {
     let mut entries: Vec<(PathBuf, bool)> = files.iter().map(|p| (p.clone(), false)).collect();
     for f in files {
         for dir in f.ancestors().skip(1) {
@@ -153,7 +162,7 @@ pub fn from_files(files: &[PathBuf]) -> Tree {
             }
         }
     }
-    entries.sort_by_cached_key(|(p, is_dir)| sort_key(p, *is_dir));
+    entries.sort_by_cached_key(|(p, is_dir)| sort_key(p, *is_dir, order));
     let nodes = entries
         .into_iter()
         .map(|(p, is_dir)| Node {
@@ -167,17 +176,63 @@ pub fn from_files(files: &[PathBuf]) -> Tree {
     }
 }
 
-/// Sorting a path component by component puts every child right after its parent, and the
-/// `0`/`1` rank puts directories before files at each level.
-pub(crate) fn sort_key(path: &Path, is_dir: bool) -> Vec<(u8, String)> {
+pub(crate) fn sort_key(path: &Path, is_dir: bool, order: &Order) -> Vec<(usize, u8, String)> {
     let last = path.components().count() - 1;
+    let mut prefix = PathBuf::new();
     path.components()
         .enumerate()
         .map(|(i, c)| {
+            prefix.push(c);
             let rank = u8::from(i == last && !is_dir);
-            (rank, c.as_os_str().to_string_lossy().to_lowercase())
+            (
+                order.at(&prefix),
+                rank,
+                c.as_os_str().to_string_lossy().to_lowercase(),
+            )
         })
         .collect()
+}
+
+#[derive(Default)]
+pub struct Order(HashMap<PathBuf, usize>);
+
+impl Order {
+    pub fn read(file: &Path, under: &Path) -> Order {
+        if std::env::var("MERL_ORDER").is_ok_and(|v| v == "off") {
+            return Order::default();
+        }
+        let text = std::fs::read_to_string(file).unwrap_or_default();
+        Order::of(
+            text.lines()
+                .map(str::trim)
+                .filter(|l| !l.is_empty() && !l.starts_with('#'))
+                .filter_map(|l| Path::new(l).strip_prefix(under).ok()),
+        )
+    }
+
+    pub fn of<P: AsRef<Path>>(paths: impl IntoIterator<Item = P>) -> Order {
+        let mut at = HashMap::new();
+        for (i, path) in paths.into_iter().enumerate() {
+            for a in path
+                .as_ref()
+                .ancestors()
+                .filter(|a| !a.as_os_str().is_empty())
+            {
+                at.entry(a.to_path_buf()).or_insert(i);
+            }
+        }
+        Order(at)
+    }
+
+    fn at(&self, path: &Path) -> usize {
+        self.0.get(path).copied().unwrap_or(usize::MAX)
+    }
+}
+
+static TREE_ORDER: OnceLock<(PathBuf, PathBuf)> = OnceLock::new();
+
+pub fn order_tree_by(file: PathBuf, under: PathBuf) {
+    let _ = TREE_ORDER.set((file, under));
 }
 
 impl Tree {
@@ -244,7 +299,7 @@ impl Tree {
                         ..node(p, is_dir, true)
                     })
                     .collect();
-                level.sort_by_cached_key(|c| sort_key(&c.path, c.is_dir));
+                level.sort_by_cached_key(|c| sort_key(&c.path, c.is_dir, &Order::default()));
                 self.nodes.splice(i + 1..i + 1, level);
             }
             i += 1;
@@ -528,6 +583,44 @@ mod tests {
         );
         assert_eq!(t.dirs().len(), 2, "node_modules and node_modules/pkg");
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_listing_keeps_its_order_and_the_tree_its_shape() {
+        let listed =
+            ["src/b/y.rs", "README", "src/a.rs", "tests/t.rs", "src/c.rs"].map(PathBuf::from);
+        let t = from_listing(&listed);
+        let rows: Vec<_> = t
+            .visible()
+            .iter()
+            .map(|&i| t.nodes[i].path.to_str().unwrap())
+            .collect();
+        assert_eq!(
+            rows,
+            [
+                "src",
+                "src/b",
+                "src/b/y.rs",
+                "src/a.rs",
+                "src/c.rs",
+                "README",
+                "tests",
+                "tests/t.rs"
+            ]
+        );
+        let order = Order::of(["b/y.rs", "a.rs"]);
+        let mut paths = ["c.rs", "a.rs", "b", "b/y.rs", "b/x.rs"].map(PathBuf::from);
+        paths.sort_by_cached_key(|p| sort_key(p, p.extension().is_none(), &order));
+        assert_eq!(
+            paths.clone().map(|p| p.display().to_string()),
+            ["b", "b/y.rs", "b/x.rs", "a.rs", "c.rs"]
+        );
+        let mut plain = paths.clone();
+        plain.sort_by_cached_key(|p| sort_key(p, p.extension().is_none(), &Order::default()));
+        assert_eq!(
+            plain.map(|p| p.display().to_string()),
+            ["b", "b/x.rs", "b/y.rs", "a.rs", "c.rs"]
+        );
     }
 
     #[test]

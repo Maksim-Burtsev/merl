@@ -2,6 +2,7 @@
 
 mod app;
 mod buffer;
+mod for_agents;
 mod git;
 mod intraline;
 mod line_edit;
@@ -103,6 +104,8 @@ struct Cli {
     /// develop, then the local master or main)
     #[arg(short, long, value_name = "REF", requires = "review")]
     base: Option<String>,
+    #[arg(long, hide = true)]
+    for_agents: bool,
 }
 
 fn main() {
@@ -118,6 +121,10 @@ fn run() -> Result<()> {
         let path = stats::path().context("no home directory")?;
         // `merl --keys | head` closes the pipe early; that is no error.
         let _ = stdout().write_all(stats::report(&path, stats::today())?.as_bytes());
+        return Ok(());
+    }
+    if cli.for_agents {
+        let _ = stdout().write_all(for_agents::guide().as_bytes());
         return Ok(());
     }
     if cli.reviews {
@@ -155,13 +162,20 @@ fn run() -> Result<()> {
         }
         None => None,
     };
+    if let (Some(top), Some((_, common))) = (git_toplevel(&root), git::dirs(&root)) {
+        let under = root
+            .strip_prefix(&top)
+            .unwrap_or(Path::new(""))
+            .to_path_buf();
+        tree::order_tree_by(common.join("merl").join("tree"), under);
+    }
     let (mut tree, files) = tree::build(&root, shallow);
     // Of the walk, before the review panel takes the tree's place.
     let project = live::Project::new(&root, shallow, &tree);
     // `o` offers them in a review too, and the panel has none.
     let ignored = tree.ignored_files();
     if let Some(r) = &review {
-        tree = tree::from_files(&r.files.iter().map(|f| f.path.clone()).collect::<Vec<_>>());
+        tree = tree::from_listing(&r.files.iter().map(|f| f.path.clone()).collect::<Vec<_>>());
     }
     let buf = match &file {
         Some(p) => Buffer::load(p)?,

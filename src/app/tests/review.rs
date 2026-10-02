@@ -187,6 +187,53 @@ fn viewed_marks_outlive_the_session_and_a_changed_file_loses_its_tick() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+#[test]
+fn the_agents_order_moves_the_files_and_leaves_the_viewed_marks_alone() {
+    let (dir, mut a) = review_app("ordermarks");
+    let git = |args: &[&str]| {
+        let mut cmd = std::process::Command::new("git");
+        let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    let paths = |p: &[&str]| p.iter().map(PathBuf::from).collect::<Vec<_>>();
+    let listed = |a: &App| {
+        a.review
+            .as_ref()
+            .unwrap()
+            .files
+            .iter()
+            .map(|f| f.path.clone())
+            .collect::<Vec<_>>()
+    };
+    a.focus = Focus::Tree;
+    for f in ["tail", "src/a.rs"] {
+        a.tree.reveal(Path::new(f));
+        press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+    }
+    let order = dir.join(".git/merl/review/feature");
+    std::fs::create_dir_all(order.parent().unwrap()).unwrap();
+    std::fs::write(&order, "# commit 1\ntail\nsrc/a.rs\nnew\n").unwrap();
+    let a = review_start(&dir, None);
+    assert_eq!(
+        listed(&a),
+        paths(&["tail", "src/a.rs", "new", "crlf.txt", "gone"])
+    );
+    assert_eq!(marks(&a), (paths(&["src/a.rs", "tail"]), vec![]));
+
+    std::fs::write(dir.join("tail"), "t1\nfixed\n").unwrap();
+    std::fs::write(dir.join("added.rs"), "fn added() {}\n").unwrap();
+    git(&["add", "-A"]);
+    git(&["commit", "-qm", "fix"]);
+    std::fs::write(&order, "# commit 2\nadded.rs\nsrc/a.rs\nnew\ntail\n").unwrap();
+    let a = review_start(&dir, None);
+    assert_eq!(
+        listed(&a),
+        paths(&["added.rs", "src/a.rs", "new", "tail", "crlf.txt", "gone"])
+    );
+    assert_eq!(marks(&a), (paths(&["src/a.rs"]), paths(&["tail"])));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 /// #240: the marks are a branch's, never `HEAD`'s. A tag named like the branch changes nothing;
 /// a live review keeps its ticks through a detached HEAD, and a mark made then is the branch's;
 /// a review started detached keeps its marks in memory for its whole life, and reads and writes
