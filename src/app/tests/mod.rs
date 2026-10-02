@@ -35,6 +35,7 @@ mod open;
 mod picker;
 mod preview;
 mod project_search;
+mod r;
 mod review;
 mod review_deleted;
 mod smoke;

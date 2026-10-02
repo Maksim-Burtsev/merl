@@ -49,6 +49,9 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     if kind == Kind::Nix {
         return nix_literal_lines(text);
     }
+    if kind == Kind::R {
+        return r_literal_lines(text);
+    }
     if kind == Kind::Css && text.contains("<style") {
         let html = html_literal_lines(text);
         let mut out = scan(kind, &style_blocks(text), usize::MAX).0;
@@ -99,7 +102,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             Kind::Swift | Kind::CSharp => (true, false, true, true, &["//"]),
             // A YAML block scalar (`filters: |`) hides nothing: the keys dorny/paths-filter reads
             // out of one are what `steps.changes.outputs.backend` names.
-            Kind::Shell | Kind::Make | Kind::Docker | Kind::Yaml => {
+            Kind::Shell | Kind::Make | Kind::Docker | Kind::Yaml | Kind::R => {
                 (false, false, false, false, &["#"])
             }
             Kind::Sql => (false, false, false, true, &["--", "//"]),

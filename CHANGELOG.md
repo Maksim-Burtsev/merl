@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `d`, `u` and `D` in R (`.R`, `.r`, `.Rprofile`), where `d` said `no rules for .R`. `d` on
+  `format_price` lands on its `format_price <- function(cents) {`; on `label` in `cart$label()`, on
+  the R6 method `label = function()`; on `area`, a picker of its `setGeneric` and every
+  `setMethod`; on the path in `source("R/money.R")`, that file. `filter` in `dplyr::filter(x)` says
+  `no definition for filter` rather than landing on the project's own `filter`. `D` lists functions,
+  S4 and reference classes, generics and R6 classes, and `u` reads `print.invoice` and `.onLoad` as
+  one name. (#422)
+
 ## [0.8.1] - 2026-10-02
 
 ### Added

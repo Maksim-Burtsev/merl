@@ -423,6 +423,7 @@ fn known_file(name: &str) -> Option<&'static str> {
         (_, "astro") => "TypeScriptReact",
         // bat's Scala grammar owns `.scala`, `.sbt` and `.sc`, not Mill's build files (#416).
         (_, "mill") => "Scala",
+        (".Rprofile", _) => "R",
         _ => return None,
     })
 }
@@ -1123,6 +1124,27 @@ mod tests {
             let colours: std::collections::HashSet<_> =
                 b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
             assert!(colours.len() > 1, "{name}: everything is one colour");
+        }
+    }
+
+    #[test]
+    fn r_highlights_with_every_shipped_theme() {
+        let src =
+            "# doc\nformat_price <- function(cents) {\n  sprintf(\"$%.2f\", cents / 100)\n}\n";
+        for file in ["R/money.R", "R/money.r", ".Rprofile"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("R"),
+                    "{file} {name}"
+                );
+                b.highlight_to(4, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
         }
     }
 

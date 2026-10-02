@@ -10,7 +10,7 @@ impl App {
     pub(super) fn usages(&mut self) {
         let extra = search::word_chars(self.kind(), false);
         let Some(read) = self.on_drawn(|a| match a.kind() {
-            k @ Some(Kind::Ruby | Kind::Elixir | Kind::Cmake | Kind::Nix) => {
+            k @ Some(Kind::Ruby | Kind::Elixir | Kind::Cmake | Kind::Nix | Kind::R) => {
                 a.definition_word(k).map(|(r, w)| {
                     let lead = &a.line_str()[..r.start];
                     let sigil = lead.len() - lead.trim_end_matches('@').len();
