@@ -12,3 +12,6 @@
 }
 @import "base";
 //       ^ d: less/base.less:1
+.faded { color: fade(@brand, 50%); }
+//              ^ d: none
+// a Less file never reads a Sass library in node_modules (#590)

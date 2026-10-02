@@ -388,6 +388,28 @@ pub fn styles_in(path: &Path) -> Option<bool> {
     }
 }
 
+pub fn css_builtin(name: &str) -> bool {
+    const NAMES: &str = "\
+        abs acos asin atan atan2 attr blur brightness calc clamp color color-mix conic-gradient \
+        contrast cos counter counters cubic-bezier drop-shadow element env exp fit-content \
+        format grayscale hsl hsla hue-rotate hwb hypot image-set invert lab lch light-dark \
+        linear-gradient local log matrix matrix3d max min minmax mod oklab oklch opacity \
+        perspective pow radial-gradient rem repeat repeating-conic-gradient \
+        repeating-linear-gradient repeating-radial-gradient rgb rgba rotate rotate3d rotateX \
+        rotateY rotateZ round saturate scale scale3d scaleX scaleY scaleZ sepia sign sin skew \
+        skewX skewY sqrt steps tan translate translate3d translateX translateY translateZ url \
+        var adjust-color adjust-hue alpha append blue call ceil change-color comparable \
+        complement content-exists darken desaturate fade-in fade-out feature-exists floor \
+        function-exists get-function green hue ie-hex-str if index inspect is-bracketed \
+        is-superselector join keywords length lighten lightness list-separator map-get \
+        map-has-key map-keys map-merge map-remove map-values mix mixin-exists nth opacify \
+        percentage quote random red saturation scale-color selector-append selector-extend \
+        selector-nest selector-parse selector-replace selector-unify set-nth simple-selectors \
+        str-index str-insert str-length str-slice to-lower-case to-upper-case transparentize \
+        type-of unique-id unit unitless unquote variable-exists zip";
+    NAMES.split_whitespace().any(|n| n == name)
+}
+
 /// What the cursor in a stylesheet stands on, for `d`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Sheet {
