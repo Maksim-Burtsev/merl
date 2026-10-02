@@ -68,6 +68,11 @@ fn solidity_declaration_forms() {
         ("        uint256 fee = amount / 100;", "fee"),
         ("        uint256 price;", "price"),
         ("        Order storage o = orders[0];", "o"),
+        (
+            "        (bool isAdmin, ) = hasRole(ADMIN, sender);",
+            "isAdmin",
+        ),
+        ("            let ptr := mload(0x40)", "ptr"),
     ] {
         assert!(declares(line, word), "{line}: {word}");
     }
@@ -369,6 +374,31 @@ contract Shop {
     assert!(local(9, "ptr").is_empty());
     assert_eq!(local(7, "ptr"), [6]);
     assert_eq!(local(7, "b"), [7]);
+    let allman = "\
+contract Shop {
+    function mint(address to, uint256 amount) external onlyOwner
+    {
+        withinSupply(amount);
+    }
+    function burn(
+        mapping(address => uint256) storage balances,
+        uint256 amount
+    ) external returns (bool ok) {}
+}
+";
+    let local = |line: usize, name: &str| -> Vec<usize> {
+        bindings(Kind::Solidity, allman, line, name)
+            .iter()
+            .map(|b| b.line)
+            .collect()
+    };
+    assert!(local(2, "onlyOwner").is_empty());
+    assert!(local(4, "withinSupply").is_empty());
+    assert_eq!(local(4, "amount"), [2]);
+    assert_eq!(local(9, "balances"), [7]);
+    assert_eq!(local(9, "amount"), [8]);
+    assert_eq!(local(9, "ok"), [9]);
+    assert!(local(9, "external").is_empty());
 }
 
 #[test]

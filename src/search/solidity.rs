@@ -36,8 +36,14 @@ pub fn solidity_patterns(word: &str) -> Vec<String> {
         format!(r"^\s*type\s+{w}\s+is\b"),
         format!(r"^\s*enum\s+{NAME}\s*\{{(?:[^}}]*,)?\s*{w}\s*[,}}]"),
         format!(r"^\s+{w}\s*,?\s*(?://.*)?$"),
-        format!(r"^\s*{TYPE}(?:\s+{MODS})*\s+{w}\s*(?:;|=(?:[^=>]|$))"),
+        solidity_variable(&w),
     ]
+}
+
+fn solidity_variable(w: &str) -> String {
+    format!(
+        r"^\s*{TYPE}(?:\s+{MODS})*\s+{w}\s*(?:;|=(?:[^=>]|$))|^\s*\((?:[^()]*,)?\s*{NAME}(?:\.{NAME})*(?:\[[^\]]*\])*(?:\s+(?:memory|storage|calldata))?\s+{w}\s*[,)][^;]*=[^=]|^\s*let\s+(?:{NAME}\s*,\s*)*{w}\s*(?:,[^:]*)?:="
+    )
 }
 
 pub(super) const SOLIDITY_SYMBOL: &str =
@@ -156,13 +162,33 @@ fn solidity_head(t: &str) -> bool {
     })
 }
 
+fn solidity_params(head: &str) -> Vec<std::ops::Range<usize>> {
+    let (mut depth, mut open, mut lists) = (0, 0, Vec::new());
+    for (i, c) in head.char_indices() {
+        match c {
+            '(' => {
+                if depth == 0 {
+                    open = i + 1;
+                }
+                depth += 1;
+            }
+            ')' if depth > 0 => {
+                depth -= 1;
+                let returns = head[..open - 1].trim_end().ends_with("returns");
+                if depth == 0 && (lists.is_empty() || returns) {
+                    lists.push(open..i);
+                }
+            }
+            '{' | ';' if depth == 0 => break,
+            _ => {}
+        }
+    }
+    lists
+}
+
 pub(super) fn solidity_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let w = regex::escape(name);
-    let param = Regex::new(&format!(r"[\w$\])]\s+{w}\s*(?:[,)]|$)")).expect("an escaped name");
-    let local = Regex::new(&format!(
-        r"^\s*{TYPE}(?:\s+(?:memory|storage|calldata))?\s+{w}\s*(?:;|=(?:[^=>]|$))|^\s*\((?:[^()]*,)?\s*{NAME}(?:\.{NAME})*(?:\[[^\]]*\])*(?:\s+(?:memory|storage|calldata))?\s+{w}\s*[,)][^;]*=[^=]|^\s*let\s+(?:{NAME}\s*,\s*)*{w}\s*(?:,[^:]*)?:="
-    ))
-    .expect("an escaped name");
+    let local = Regex::new(&solidity_variable(&w)).expect("an escaped name");
     let each = Regex::new(&format!(r"^for\s*\(\s*{TYPE}\s+{w}\s*[=;]")).expect("an escaped name");
     let literal = literal_lines(Kind::Solidity, &lines.join("\n"));
     let found = |line: usize| {
@@ -171,15 +197,24 @@ pub(super) fn solidity_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bi
             value: Value::Unknown,
         }]
     };
-    let declares = |i: usize| {
-        let t = lines[i].trim();
-        let first = t.split_whitespace().next().unwrap_or_default();
-        local.is_match(lines[i]) && !STATEMENTS.contains(&first)
-    };
+    let declares = |i: usize| local.is_match(lines[i]) && solidity_declares(lines, i + 1, lines[i]);
     let params = |i: usize| -> Option<usize> {
-        (i..lines.len().min(i + 12))
+        let span: Vec<&str> = (i..lines.len().min(i + 12))
             .take_while(|&j| j == i || !lines[j - 1].contains(['{', ';']))
-            .find(|&j| param.is_match(lines[j].split("//").next().unwrap_or_default()))
+            .map(|j| lines[j].split("//").next().unwrap_or_default())
+            .collect();
+        let head = span.join("\n");
+        let at = solidity_params(&head).into_iter().find_map(|list| {
+            let mut from = list.start;
+            head[list].split(',').find_map(|item| {
+                let start = from;
+                from += item.len() + 1;
+                let last = item.trim_end().rsplit(char::is_whitespace).next()?;
+                (last == name && item.split_whitespace().count() > 1)
+                    .then(|| start + item.trim_end().len() - last.len())
+            })
+        })?;
+        Some(i + head[..at].matches('\n').count())
     };
     let own = lines[at].trim();
     if solidity_head(own) {
@@ -207,6 +242,8 @@ pub(super) fn solidity_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bi
         }
         if t.starts_with(['}', ')']) {
             wrapped = t.starts_with(')');
+        } else if t == "{" {
+            wrapped = true;
         } else if ["contract ", "library ", "interface ", "abstract "]
             .iter()
             .any(|k| t.starts_with(k))
