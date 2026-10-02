@@ -169,6 +169,9 @@ and watch it go red.
 
 ## Pull requests
 
+- One issue, one PR. An issue whose options the owner has not picked from is not built; when
+  the owner asks for a PR anyway, it holds the recommended option, and the others are
+  screencasts in its body (`.claude/skills/proposal/SKILL.md`), never PRs of their own.
 - The body of a pull request is read by a merl user, not by a reviewer of the diff. It is the
   shape of `.github/pull_request_template.md` and nothing more: the issue it closes, one
   sentence on what happens today, one on what happens now, the before/after screencasts, and a
