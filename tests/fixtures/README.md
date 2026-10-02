@@ -227,6 +227,10 @@ selector shapes that style them and those that do not, a custom property with a 
 `@keyframes`, `@property` and `@import`s; `scss/` `@use`s a module under an alias and under its
 own name, `sass:math`, and a package of `node_modules/` (ignored, added with `git add -f`), and
 composes classes with `&`; `less/` has a variable, a mixin called both ways and an `@import`.
+Since #590 `src/Panel.tsx` takes classes from two CSS Modules, by a default and a named import,
+each module declaring a `.container` the other must not answer for; `scss/legacy.scss` uses a
+variable and a mixin only `node_modules/` declares; `sass/nav.sass` writes indented rules with an
+`&` chain, a selector list and a comment that styles nothing, which `index.html` names last.
 Its annotations start with `//`, and with `#` in HTML, where they are text.
 
 `proto/` lays its files out under a proto root, `proto/shop/v1/`, as buf does, with the well-known

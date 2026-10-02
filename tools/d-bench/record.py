@@ -7,7 +7,8 @@
 The project is LANG's row of projects.tsv, cloned into the cache by `run` first
 ($D_BENCH_CACHE or ~/.cache/merl-d-bench). The servers come from install-servers.sh
 ($D_BENCH_SERVERS or <cache>/servers). `oracle` resumes from the answers already written.
-Java, Kotlin, C#, Ruby and Nix have no server here: their answers were judged by reading the code.
+Java, Kotlin, C#, Ruby and Nix have no server here: their answers were judged by reading the code,
+as are the classes of CSS's Astro templates, which no server answers (`judge` in the note).
 """
 import json, os, random, re, select, subprocess, sys, time
 from collections import defaultdict
@@ -216,7 +217,62 @@ def shape(before, after, lang):
     return None  # decided by the word
 
 
+CSS_SHAPES = [
+    ("name", re.compile(r"\$([A-Za-z_][\w-]*)(?!\s*:)")),
+    ("call", re.compile(r"@include\s+([A-Za-z_][\w-]*)")),
+    ("call", re.compile(r"(?<![\w$@.#%-])([A-Za-z_][\w-]*)\((?=[^)]*\$)")),
+    ("path", re.compile(r"@(?:import|use|forward)\s+[\"']([^\"']+)[\"']")),
+]
+
+
+def sample_css(project, root, n, out, exclude=()):
+    """Stylesheet names in scss/ (variables, mixins, functions, imports, for the oracle) and the
+    classes of site/'s Astro templates (judged by reading the stylesheets)."""
+    buckets = defaultdict(list)
+    declared = set(re.findall(r"@function\s+([\w-]+)", subprocess.run(
+        ["grep", "-rh", "@function", os.path.join(root, "scss")], capture_output=True, text=True).stdout))
+    for d, dirs, files in os.walk(root):
+        dirs[:] = [x for x in dirs if x not in SKIP_DIRS and x not in exclude and not x.startswith(".")]
+        rel_dir = os.path.relpath(d, root)
+        for f in files:
+            rel = os.path.normpath(os.path.join(rel_dir, f))
+            text = open(os.path.join(d, f), encoding="utf-8", errors="replace").read()
+            if rel.startswith("scss/") and f.endswith(".scss"):
+                for ln, line in enumerate(text.split("\n"), 1):
+                    code = line.split("//", 1)[0]
+                    if not code.isascii():
+                        continue
+                    for sh, rx in CSS_SHAPES:
+                        for m in rx.finditer(code):
+                            if rx is CSS_SHAPES[2][1] and m.group(1) not in declared:
+                                continue
+                            if sh == "name" and re.match(r"\s*\$[\w-]+\s*:", code) and m.start() == code.index("$"):
+                                continue
+                            buckets[sh].append((rel, ln, m.start(1), sh, m.group(1)))
+            elif rel.startswith("site/") and f.endswith(".astro"):
+                for ln, line in enumerate(text.split("\n"), 1):
+                    if not line.isascii():
+                        continue
+                    for m in re.finditer(r'\bclass="([^"{}]*)"', line):
+                        for w in re.finditer(r"[^\s]+", m.group(1)):
+                            buckets["class"].append((rel, ln, m.start(1) + w.start(), "class", w.group()))
+    rnd = random.Random(20261002)
+    mix = {"name": 0.4, "call": 0.25, "path": 0.1, "class": 0.25}
+    chosen = []
+    for sh, frac in mix.items():
+        pool = buckets.get(sh, [])
+        chosen += rnd.sample(pool, min(len(pool), round(n * frac)))
+    rnd.shuffle(chosen)
+    with open(out, "w") as fh:
+        fh.write("# id\tproject\tfile\tline\tcol (0-based)\tshape\tword\n")
+        for i, (rel, ln, col, sh, w) in enumerate(chosen):
+            fh.write(f"css{i:04d}\t{project}\t{rel}\t{ln}\t{col}\t{sh}\t{w}\n")
+    print({k: len(v) for k, v in buckets.items()}, "->", len(chosen), file=sys.stderr)
+
+
 def sample(lang, project, root, n, out, exclude=()):
+    if lang == "css":
+        return sample_css(project, root, n, out, exclude)
     spec = SPEC[lang]
     kw = set(KW[lang])
     buckets = defaultdict(list)
@@ -377,7 +433,8 @@ class Lsp:
 LANG_ID = {".py": "python", ".ts": "typescript", ".tsx": "typescriptreact", ".js": "javascript",
            ".jsx": "javascriptreact", ".mjs": "javascript", ".cjs": "javascript", ".go": "go",
            ".rs": "rust", ".c": "c", ".h": "cpp", ".cc": "cpp", ".cpp": "cpp", ".hpp": "cpp",
-           ".php": "php", ".swift": "swift", ".m": "objective-c"}
+           ".php": "php", ".swift": "swift", ".m": "objective-c", ".css": "css", ".scss": "scss",
+           ".less": "less"}
 
 
 def server(lang, root):
@@ -407,6 +464,8 @@ def server(lang, root):
                    init_options={"storagePath": st, "globalStoragePath": st})
     if lang == "swift":
         return Lsp(["xcrun", "sourcekit-lsp"], root)
+    if lang == "css":
+        return Lsp([os.path.join(nm, ".bin", "vscode-css-language-server"), "--stdio"], root)
     raise SystemExit(f"no server for {lang}")
 
 
@@ -463,6 +522,9 @@ def oracle_run(lang, root, rows, out, warm):
         for k, r in enumerate(rows):
             cid, _, rel, line, col = r[:5]
             p = os.path.join(root, rel)
+            if lang == "css" and r[5] == "class":
+                fh.write(f"{cid}\t\t\tjudge\n")
+                continue
             s.open(p, LANG_ID.get(os.path.splitext(p)[1], lang))
             pos = {"textDocument": {"uri": "file://" + p}, "position": {"line": int(line) - 1, "character": int(col)}}
             got = locs(s.request("textDocument/definition", pos, timeout=60))

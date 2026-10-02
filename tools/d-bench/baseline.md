@@ -1,6 +1,6 @@
 # `d` bench baseline
 
-merl at `2af1537`, 2026-10-01, release build, `vm.loadavg` { 1.89 2.46 3.21 } before the run, { 1.85 2.40 3.04 } after. php (koel) again at `3d72d68c` (#351), `vm.loadavg` { 18.71 18.96 28.80 }: its times are high by that load. swift (Alamofire) again at `1bde563f` (#375), `vm.loadavg` { 6.21 8.92 18.31 } before, { 11.91 9.53 17.86 } after: its times are high by that load. csharp (eShop) again at `b8e99295` (#349, #360). js (eslint) again at `fb3cf164` (#347), `vm.loadavg` { 8.42 7.51 11.17 }: its times are high by that load. c (redis) and cpp (leveldb) again at `0a54d385` (#382), `vm.loadavg` { 18.14 9.24 7.07 }. objc (SDWebImage) added at `a84351e7` and its review fixes (#417), `vm.loadavg` { 6.05 6.09 7.73 } before, { 7.29 6.82 7.88 } after. nix (nix-darwin) added at `35684017` (#620), `vm.loadavg` { 24.49 30.54 24.43 }: its times are high by that load.
+merl at `2af1537`, 2026-10-01, release build, `vm.loadavg` { 1.89 2.46 3.21 } before the run, { 1.85 2.40 3.04 } after. php (koel) again at `3d72d68c` (#351), `vm.loadavg` { 18.71 18.96 28.80 }: its times are high by that load. swift (Alamofire) again at `1bde563f` (#375), `vm.loadavg` { 6.21 8.92 18.31 } before, { 11.91 9.53 17.86 } after: its times are high by that load. csharp (eShop) again at `b8e99295` (#349, #360). js (eslint) again at `fb3cf164` (#347), `vm.loadavg` { 8.42 7.51 11.17 }: its times are high by that load. c (redis) and cpp (leveldb) again at `0a54d385` (#382), `vm.loadavg` { 18.14 9.24 7.07 }. objc (SDWebImage) added at `a84351e7` and its review fixes (#417), `vm.loadavg` { 6.05 6.09 7.73 } before, { 7.29 6.82 7.88 } after. nix (nix-darwin) added at `35684017` (#620), `vm.loadavg` { 24.49 30.54 24.43 }: its times are high by that load. css (bootstrap) added at `dce59c0d` (#590), `vm.loadavg` { 8.51 15.26 31.33 }.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
@@ -19,3 +19,4 @@ merl at `2af1537`, 2026-10-01, release build, `vm.loadavg` { 1.89 2.46 3.21 } be
 | ruby (mastodon) | 28 | 22 (79%) | 5 (18%) | 0 (0%) | 1 (4%) | 52 | 47.3 | 152.6 |
 | objc (SDWebImage) | 229 | 92 (40%) | 122 (53%) | 0 (0%) | 15 (7%) | 41 | 25.1 | 257.9 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 5.9 | 14.6 |
+| css (bootstrap) | 230 | 164 (71%) | 56 (24%) | 1 (0%) | 9 (4%) | 70 | 4.1 | 36.2 |

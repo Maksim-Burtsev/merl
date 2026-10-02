@@ -1,7 +1,7 @@
 # `d` bench
 
-How often `d` lands where a language server would, per language, in 15 real projects pinned to a
-commit: 3,240 cursors, each with an answer recorded once and reviewed, and the table master
+How often `d` lands where a language server would, per language, in 16 real projects pinned to a
+commit: 3,540 cursors, each with an answer recorded once and reviewed, and the table master
 scores on them (`baseline.md`). A `d` change runs it and shows no language worse than master
 (`AGENTS.md`, `## Changing d`).
 
@@ -81,6 +81,15 @@ path literal (sampled as shape `path`) with its file, or a directory's `default.
 nixpkgs (`lib.mkIf`, `types.str`, `with lib;`), or from `builtins`, is outside the project and
 `no-answer`; an option namespace (`config.system`) or an attribute several modules set
 (`environment.variables.X`) is `skip`. A lambda argument used on its own line scores as `on-decl`.
+
+CSS (#590) samples Bootstrap's `scss/` (`$variable` uses, `@include` mixins, calls of the
+functions it declares, `@import` paths) and the classes of `site/`'s Astro templates
+(`--exclude tests,vendor`). `vscode-css-language-server` answers within the open stylesheet
+only, so a name used in another file was judged instead: its top-level declarations in `scss/`,
+or for a path the file Sass loads (`judged` in the note). The classes were judged by reading the
+stylesheets: the top-level rule of `scss/`, or of the example's own stylesheet; a class the
+utilities API or a Sass loop generates, a state class such as `active` and one styled only inside
+other components are `skip`.
 
 After recording, review every cursor where merl and the oracle disagree (`WRONG`, `pick-miss`,
 `none` in `last-score.tsv`) and mark the oracle's debatable answers `skip` with the reason: a

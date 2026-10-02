@@ -907,6 +907,29 @@ pub fn graphql_import(line: &str, col: usize) -> Option<&str> {
     let path = c.get(2)?;
     (c.get(1)?.start() <= col && col <= path.end()).then_some(path.as_str())
 }
+pub fn css_module_file(
+    root: &Path,
+    files: &[PathBuf],
+    here: &Path,
+    module: &[String],
+) -> Option<PathBuf> {
+    let spec = module.join("/");
+    let name = Path::new(&spec);
+    let ext = name.extension()?.to_str()?;
+    let stem = name.file_stem()?.to_str()?;
+    if !stem.ends_with(".module") || !matches!(ext, "css" | "scss" | "sass" | "less") {
+        return None;
+    }
+    let dir = here.parent().unwrap_or(Path::new(""));
+    let bases = match module.first().is_some_and(|p| p.starts_with('.')) {
+        true => vec![dir.join(&spec)],
+        false => ts_aliases(root, dir, &spec),
+    };
+    bases
+        .iter()
+        .filter_map(|b| lexical(b))
+        .find(|b| files.contains(b))
+}
 /// Where an aliased TypeScript specifier points, most specific first: the targets of the
 /// `compilerOptions.paths` entries it matches, then the specifier under `baseUrl`. Read from the
 /// `tsconfig.json`, or a JavaScript project's `jsconfig.json`, nearest above `dir` and the configs it `extends` by a relative path, the
