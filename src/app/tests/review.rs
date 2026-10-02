@@ -196,6 +196,11 @@ fn the_agents_order_moves_the_files_and_leaves_the_viewed_marks_alone() {
         assert!(out.status.success(), "git {args:?}");
     };
     let paths = |p: &[&str]| p.iter().map(PathBuf::from).collect::<Vec<_>>();
+    let rows = |a: &App| {
+        (a.tree.visible().iter())
+            .map(|&i| a.tree.nodes[i].path.display().to_string())
+            .collect::<Vec<_>>()
+    };
     let listed = |a: &App| {
         a.review
             .as_ref()
@@ -213,10 +218,21 @@ fn the_agents_order_moves_the_files_and_leaves_the_viewed_marks_alone() {
     let order = dir.join(".git/merl/review/feature");
     std::fs::create_dir_all(order.parent().unwrap()).unwrap();
     std::fs::write(&order, "# commit 1\ntail\nsrc/a.rs\nnew\n").unwrap();
-    let a = review_start(&dir, None);
+    let mut a = review_start(&dir, None);
     assert_eq!(
         listed(&a),
         paths(&["tail", "src/a.rs", "new", "crlf.txt", "gone"])
+    );
+    assert_eq!(
+        rows(&a),
+        ["tail", "src", "src/a.rs", "new", "crlf.txt", "gone"]
+    );
+    std::fs::write(&order, "new\ncrlf.txt\n").unwrap();
+    let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+    assert!(a.review_refreshed(fresh));
+    assert_eq!(
+        rows(&a),
+        ["new", "crlf.txt", "src", "src/a.rs", "gone", "tail"]
     );
     assert_eq!(marks(&a), (paths(&["src/a.rs", "tail"]), vec![]));
 

@@ -28,8 +28,8 @@ For each branch:
 
 1. `git fetch origin BRANCH`, then the files merl will list:
    `git diff --name-status $(git merge-base origin/HEAD origin/BRANCH) origin/BRANCH`.
-   merl's base is `origin/HEAD`, or else the first of `origin/master`, `origin/main`,
-   `origin/develop` that exists; if the user names another base, use that. Read the diff from these
+   merl's base is `origin/HEAD`, or else the first of {BASES} that exists; if the user
+   names another base, use that. Read the diff from these
    refs. Do not switch, check out, reset or stash anything: the working tree is the user's, and
    merl checks the branch out itself when they open it.
 2. Read the change and decide the order to read it in (see "A good order").
@@ -83,7 +83,7 @@ ever hidden. A path that is not in the tree or the branch is ignored.
 
 ## Also
 
-- merl reads the order when it starts, and an open review again whenever the branch changes.
+- An order applies when merl opens. If the user has merl open already, tell them to reopen it.
 - `MERL_ORDER=off merl ...` ignores every order: directories first, then by name.
 - Delete an order file to drop it.
 - Your harness may ask the user before you write inside `.git/`; that is expected.

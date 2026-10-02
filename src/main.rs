@@ -162,14 +162,21 @@ fn run() -> Result<()> {
         }
         None => None,
     };
-    if let (Some(top), Some((_, common))) = (git_toplevel(&root), git::dirs(&root)) {
-        let under = root
-            .strip_prefix(&top)
-            .unwrap_or(Path::new(""))
-            .to_path_buf();
-        tree::order_tree_by(common.join("merl").join("tree"), under);
-    }
-    let (mut tree, files) = tree::build(&root, shallow);
+    let tree_order = (git_toplevel(&root))
+        .zip(git::dirs(&root))
+        .filter(|_| tree::orders_on() && review.is_none())
+        .map(|(top, (_, common))| tree::OrderFile {
+            file: common.join("merl").join("tree"),
+            under: root
+                .strip_prefix(&top)
+                .unwrap_or(Path::new(""))
+                .to_path_buf(),
+        });
+    let order = tree_order
+        .as_ref()
+        .map(tree::OrderFile::read)
+        .unwrap_or_default();
+    let (mut tree, files) = tree::build_ordered(&root, shallow, &order);
     // Of the walk, before the review panel takes the tree's place.
     let project = live::Project::new(&root, shallow, &tree);
     // `o` offers them in a review too, and the panel has none.
@@ -184,6 +191,7 @@ fn run() -> Result<()> {
     let dir = root.clone();
     let mut app = App::new(root, tree, files, buf, line);
     app.shallow = shallow;
+    app.tree_order = tree_order;
     app.ignored = ignored;
     if let Some(r) = review {
         app.start_review(r);
@@ -380,8 +388,13 @@ fn event_loop(
         if project.walk_due(Instant::now()) {
             // In a thread: the walk takes 0.1 s on 12k files.
             let (tx, root, shallow) = (diff_tx.clone(), app.root.clone(), app.shallow);
+            let order = app.tree_order.clone();
             std::thread::spawn(move || {
-                let (tree, files) = tree::build(&root, shallow);
+                let order = order
+                    .as_ref()
+                    .map(tree::OrderFile::read)
+                    .unwrap_or_default();
+                let (tree, files) = tree::build_ordered(&root, shallow, &order);
                 let _ = tx.send(Msg::Project(tree, files));
             });
         }

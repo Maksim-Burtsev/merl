@@ -339,6 +339,7 @@ impl Review {
             };
         }
         let order = match (branch.as_str(), dirs(root)) {
+            _ if !crate::tree::orders_on() => Order::default(),
             ("HEAD", _) | (_, None) => Order::default(),
             (b, Some((_, common))) => {
                 Order::read(&common.join("merl").join("review").join(b), Path::new(""))
@@ -1418,6 +1419,19 @@ mod tests {
                 "docs/a.md",
                 "src/api.py",
                 "src/types.py"
+            ]
+        );
+        std::fs::write(dir.join(".git/merl/review/HEAD"), "CHANGELOG.md\n").unwrap();
+        git(&["switch", "-q", "--detach"]);
+        let r = Review::open(&dir, None, Some("main")).unwrap();
+        assert_eq!(
+            paths(&r),
+            [
+                "docs/a.md",
+                "src/api.py",
+                "src/types.py",
+                "tests/t.py",
+                "CHANGELOG.md"
             ]
         );
         git(&["switch", "-q", "-c", "other"]);

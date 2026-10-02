@@ -4,7 +4,6 @@ use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fs::FileType;
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
 
 use ignore::WalkBuilder;
 
@@ -49,6 +48,10 @@ pub struct Tree {
 /// The list leaves out what is ignored; the tree has it as dim rows, an ignored directory
 /// unread.
 pub fn build(root: &Path, shallow: bool) -> (Tree, Vec<PathBuf>) {
+    build_ordered(root, shallow, &Order::default())
+}
+
+pub fn build_ordered(root: &Path, shallow: bool, order: &Order) -> (Tree, Vec<PathBuf>) {
     // Dotfiles are walked: `.github/`, `.env` and `.dockerignore` are part of a project.
     // `.gitignore` still prunes caches; a version-control store is never content.
     // A link to a directory is not followed (#404): the level it is in lists it, a directory
@@ -84,14 +87,16 @@ pub fn build(root: &Path, shallow: bool) -> (Tree, Vec<PathBuf>) {
         .map(|(p, is_dir)| node(p, is_dir, false))
         .chain(ignored.into_iter().map(|(p, is_dir)| node(p, is_dir, true)))
         .collect();
-    let order = (TREE_ORDER.get()).map_or_else(Order::default, |(f, u)| Order::read(f, u));
-    nodes.sort_by_cached_key(|n| sort_key(&n.path, n.is_dir, &order));
+    nodes.sort_by_cached_key(|n| sort_key(&n.path, n.is_dir, &Order::default()));
 
     let files = nodes
         .iter()
         .filter(|n| !n.is_dir && !n.ignored)
         .map(|n| n.path.clone())
         .collect();
+    if !order.0.is_empty() {
+        nodes.sort_by_cached_key(|n| sort_key(&n.path, n.is_dir, order));
+    }
     let tree = Tree {
         nodes,
         root: root.to_path_buf(),
@@ -196,17 +201,22 @@ pub(crate) fn sort_key(path: &Path, is_dir: bool, order: &Order) -> Vec<(usize, 
 #[derive(Default)]
 pub struct Order(HashMap<PathBuf, usize>);
 
+pub fn orders_on() -> bool {
+    !std::env::var("MERL_ORDER").is_ok_and(|v| v == "off")
+}
+
 impl Order {
     pub fn read(file: &Path, under: &Path) -> Order {
-        if std::env::var("MERL_ORDER").is_ok_and(|v| v == "off") {
-            return Order::default();
-        }
         let text = std::fs::read_to_string(file).unwrap_or_default();
         Order::of(
             text.lines()
                 .map(str::trim)
                 .filter(|l| !l.is_empty() && !l.starts_with('#'))
-                .filter_map(|l| Path::new(l).strip_prefix(under).ok()),
+                .filter_map(|l| {
+                    Path::new(l.trim_start_matches("./"))
+                        .strip_prefix(under)
+                        .ok()
+                }),
         )
     }
 
@@ -229,10 +239,16 @@ impl Order {
     }
 }
 
-static TREE_ORDER: OnceLock<(PathBuf, PathBuf)> = OnceLock::new();
+#[derive(Clone)]
+pub struct OrderFile {
+    pub file: PathBuf,
+    pub under: PathBuf,
+}
 
-pub fn order_tree_by(file: PathBuf, under: PathBuf) {
-    let _ = TREE_ORDER.set((file, under));
+impl OrderFile {
+    pub fn read(&self) -> Order {
+        Order::read(&self.file, &self.under)
+    }
 }
 
 impl Tree {
@@ -582,6 +598,32 @@ mod tests {
             ]
         );
         assert_eq!(t.dirs().len(), 2, "node_modules and node_modules/pkg");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn the_project_order_moves_the_rows_and_leaves_the_file_list_alone() {
+        let dir = std::env::temp_dir().join(format!("merl-tree-order-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        for f in ["sub/a.rs", "sub/b.rs", "sub/z/c.rs", "top.rs"] {
+            std::fs::create_dir_all(dir.join(f).parent().unwrap()).unwrap();
+            std::fs::write(dir.join(f), "").unwrap();
+        }
+        let file = dir.join("order");
+        std::fs::write(&file, "# notes\ntop.rs\n./sub/b.rs\nsub/z/c.rs\n").unwrap();
+        let order = OrderFile {
+            file,
+            under: PathBuf::from("sub"),
+        }
+        .read();
+        let (t, files) = build_ordered(&dir.join("sub"), false, &order);
+        let rows: Vec<_> = t
+            .nodes
+            .iter()
+            .map(|n| n.path.display().to_string())
+            .collect();
+        assert_eq!(rows, ["b.rs", "z", "z/c.rs", "a.rs"]);
+        assert_eq!(files, build(&dir.join("sub"), false).1);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
