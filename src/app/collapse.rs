@@ -407,6 +407,9 @@ impl<'a> Shape<'a> {
             if let Some(&e) = folds.starts.get(&l) {
                 return Some((l, e));
             }
+            if let Some(&h) = folds.heads.get(&l) {
+                return Some((h, folds.starts[&h]));
+            }
             let around = |&&(h, e): &&(usize, usize)| h < l && l <= e;
             let inner = |spans: &[(usize, usize)]| spans.iter().filter(around).max().copied();
             let starts: Vec<(usize, usize)> = folds.starts.iter().map(|(&h, &e)| (h, e)).collect();

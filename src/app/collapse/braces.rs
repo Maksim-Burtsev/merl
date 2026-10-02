@@ -1,11 +1,14 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+mod csharp;
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum Lang {
     Js,
     Ts,
     Go,
+    CSharp,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -22,6 +25,7 @@ pub(crate) fn syntax_of(path: &Path) -> Option<Syntax> {
         "ts" | "mts" | "cts" => (Lang::Ts, false),
         "tsx" => (Lang::Ts, true),
         "go" => (Lang::Go, false),
+        "cs" => (Lang::CSharp, false),
         _ => return None,
     };
     Some(Syntax { lang, jsx })
@@ -29,6 +33,7 @@ pub(crate) fn syntax_of(path: &Path) -> Option<Syntax> {
 
 pub(crate) struct Folds {
     pub(crate) starts: HashMap<usize, usize>,
+    pub(crate) heads: HashMap<usize, usize>,
     pub(crate) defs: Vec<(usize, usize)>,
 }
 
@@ -37,6 +42,7 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
     let mut model = Model::new(&toks);
     match syntax.lang {
         Lang::Go => model.go(),
+        Lang::CSharp => model.csharp(lines),
         lang => model.ecma(lang == Lang::Ts),
     }
     let levels = levels(lines.len(), &model.nodes);
@@ -52,7 +58,32 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
         .collect();
     defs.sort_unstable();
     defs.dedup();
-    Folds { starts, defs }
+    let heads = heads(lines, &toks, &starts);
+    Folds {
+        starts,
+        heads,
+        defs,
+    }
+}
+
+fn heads(lines: &[String], toks: &[Tok], starts: &HashMap<usize, usize>) -> HashMap<usize, usize> {
+    let mut heads = HashMap::new();
+    for (k, t) in toks.iter().enumerate() {
+        let alone = lines[t.line].trim_start().starts_with('{');
+        if !(alone && t.kind == K::Punct && t.text == "{" && starts.contains_key(&t.line)) {
+            continue;
+        }
+        let stop = |j: &usize| matches!(toks[*j].text, ";" | "{" | "}");
+        let Some(from) = (0..k).rev().take_while(|j| !stop(j)).last() else {
+            continue;
+        };
+        for l in toks[from].line..t.line {
+            if !starts.contains_key(&l) {
+                heads.entry(l).or_insert(t.line);
+            }
+        }
+    }
+    heads
 }
 
 fn levels(n: usize, nodes: &[(usize, usize, bool)]) -> Vec<(usize, bool)> {
@@ -180,7 +211,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn ecma(&self) -> bool {
-        self.syntax.lang != Lang::Go
+        matches!(self.syntax.lang, Lang::Js | Lang::Ts)
     }
 
     fn code(&mut self, stop: bool) {
@@ -215,6 +246,12 @@ impl<'a> Lexer<'a> {
                     self.skip_past(i + 1, b"`");
                     self.emit(l, i, 1, K::Str, self.l);
                 }
+                continue;
+            }
+            if self.syntax.lang == Lang::CSharp
+                && matches!(c, b'"' | b'$' | b'@')
+                && self.cs_string()
+            {
                 continue;
             }
             if c == b'"' || c == b'\'' {
