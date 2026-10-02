@@ -311,6 +311,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in PHP on a relative namespace segment in a file of several `namespace` blocks, `Legacy` in
   `Legacy\Entry::OPEN`, reads it in the block it stands in. It read it in the file's first block
   and said `no definition`. (#617)
+- `d` in a Vue or Svelte component on a member of a `v-for` or `{#each}` item named like a
+  `const` of the script above, `theme` in `{{ settings.theme }}` under `v-for="settings in
+  rows"`, no longer jumps to the key of the script's `const settings = { theme }`: the item is
+  another value, and `d` searches the member by name. (#618)
 
 ## [0.8.0] - 2026-10-01
 

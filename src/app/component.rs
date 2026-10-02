@@ -12,11 +12,17 @@ impl App {
         (format!("{script}\n0"), self.buf.lines.len() + 1)
     }
 
+    pub(super) fn template_shadows(&self, here: &Path, first: &str) -> bool {
+        let code = search::script_lines(here, &self.buf.lines.join("\n"));
+        code.is_some_and(|c| {
+            c.get(self.line) == Some(&false)
+                && !search::template_binds(&self.buf.lines, &c, first).is_empty()
+        })
+    }
+
     pub(super) fn script_scope(&self, here: &Path, first: Option<&str>) -> Option<(String, usize)> {
-        let code = search::script_lines(here, &self.buf.lines.join("\n"))?;
-        let shadowed =
-            first.is_some_and(|f| !search::template_binds(&self.buf.lines, &code, f).is_empty());
-        (code.get(self.line) == Some(&false) && !shadowed).then(|| self.script_end(here))
+        let shadowed = first.is_some_and(|f| self.template_shadows(here, f));
+        (self.on_template(here) && !shadowed).then(|| self.script_end(here))
     }
 
     /// `d` on a line of a component outside its script. A `<style>` block declares and names no

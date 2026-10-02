@@ -365,7 +365,7 @@ impl App {
                     Kind::CSharp => search::cs_written_line(&self.buf.lines, n, first),
                     _ => n,
                 })
-                .filter(|n| !required.contains(n))
+                .filter(|n| !required.contains(n) && !self.template_shadows(&here, first))
                 .collect()
         };
         let mut locals = locals_at(&text, self.line + 1);
