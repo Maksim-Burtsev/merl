@@ -300,25 +300,35 @@ fn a_docstring_folds_from_its_first_line_and_the_class_from_inside_it() {
 }
 
 #[test]
-fn the_python_fixture_folds_as_annotated() {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/folds/python.py");
-    let text = std::fs::read_to_string(&path).unwrap();
-    let mut a = app_as("py", &text);
-    let mut checked = 0;
-    for (l, line) in text.lines().enumerate() {
-        let Some((_, want)) = line.split_once("# f: ") else {
-            continue;
-        };
-        let (h, e) = want.split_once('-').unwrap();
-        let want = (
-            h.parse::<usize>().unwrap() - 1,
-            e.parse::<usize>().unwrap() - 1,
-        );
-        a.collapsed.clear();
-        a.go((l, 0));
-        key(&mut a, KeyCode::Char('f'));
-        assert_eq!(a.collapsed, vec![want], "f on line {}: {line}", l + 1);
-        checked += 1;
+fn every_fold_fixture_folds_as_annotated() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/folds");
+    for entry in std::fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        let ext = path.extension().unwrap().to_str().unwrap().to_owned();
+        let mark = if ext == "py" { "# f: " } else { "// f: " };
+        let text = std::fs::read_to_string(&path).unwrap();
+        let mut a = app_as(&ext, &text);
+        let mut checked = 0;
+        for (l, line) in text.lines().enumerate() {
+            let Some((_, want)) = line.split_once(mark) else {
+                continue;
+            };
+            let (h, e) = want.split_once('-').unwrap();
+            let want = (
+                h.parse::<usize>().unwrap() - 1,
+                e.parse::<usize>().unwrap() - 1,
+            );
+            a.collapsed.clear();
+            a.go((l, 0));
+            key(&mut a, KeyCode::Char('f'));
+            assert_eq!(
+                a.collapsed,
+                vec![want],
+                "{path:?}, f on line {}: {line}",
+                l + 1
+            );
+            checked += 1;
+        }
+        assert!(checked > 40, "{path:?}: {checked} annotations");
     }
-    assert!(checked > 50, "{checked} annotations");
 }
