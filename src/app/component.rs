@@ -1,5 +1,3 @@
-//! `d` in the template of a Vue, Svelte or Astro component (#413).
-
 use super::definition::resolution;
 use super::*;
 

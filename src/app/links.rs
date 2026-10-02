@@ -1,6 +1,3 @@
-//! `d` in Markdown (#421): a link, a reference or an `#anchor` opens the file or the heading it
-//! names, and a code span naming a file of the project opens that file.
-
 use super::*;
 
 use search::MdAt;
