@@ -596,7 +596,7 @@ impl App {
         if kind == Kind::Elixir && dotted {
             patterns.retain(|p| !p.starts_with(r"^\s*@"));
         }
-        search::narrow_patterns(kind, &mut patterns, &text, self.line_str(), range.clone());
+        self.narrow(kind, &mut patterns, &text, range.clone());
         if patterns.is_empty() {
             self.message = self.no_rules();
             return;

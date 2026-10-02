@@ -43,3 +43,12 @@ class Recount extends Tally
         //         ^ d: src/Audit/Tally.php:9
     }
 }
+
+class Reopening
+{
+    public function open(): int
+    {
+        return Legacy\Entry::OPEN;
+        //     ^ d: src/Audit/Legacy/Entry.php:3
+    }
+}
