@@ -1,3 +1,5 @@
 # lines not exact on master in the languages whose f is on: language, path:line, verdict
 python	rich/tests/test_inspect.py:442	wrong
 python	rich/tests/test_inspect.py:452	wrong
+yaml	halo/application/src/main/resources/extensions/role-template-anonymous.yaml:22	wrong
+yaml	halo/application/src/main/resources/extensions/role-template-anonymous.yaml:24	wrong
