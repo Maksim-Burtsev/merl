@@ -480,6 +480,12 @@ impl App {
         here: &Path,
         module: &[String],
     ) -> Vec<PathBuf> {
+        if kind == Kind::Elixir
+            && let Some((lib, path)) = search::erlang_include(self.line_str(), self.col)
+        {
+            let outside = self.external_files(kind);
+            return search::erlang_include_files(lib, &path, here, &self.files, &outside);
+        }
         let Some((command, arg)) = (kind == Kind::Cmake)
             .then(|| search::cmake_import(self.line_str(), self.col))
             .flatten()

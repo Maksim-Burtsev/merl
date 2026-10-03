@@ -153,10 +153,12 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // A segment of a C# `using` or `namespace` line names a namespace, and nothing else (#360).
-        if kind == Kind::CSharp
-            && let Some(found) = self.cs_namespace_segment(&here, &range)
-        {
+        let early = match kind {
+            Kind::CSharp => self.cs_namespace_segment(&here, &range),
+            Kind::Elixir => self.erlang_definitions(&here, &word, range.clone()),
+            _ => None,
+        };
+        if let Some(found) = early {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
@@ -324,9 +326,6 @@ impl App {
         let key = kind == Kind::Lua
             && (search::table_key(&text, self.line + 1, &range)
                 || (before.ends_with(':') && !before.ends_with("::")));
-        // An Elixir name followed by `(` is a call, one behind `@` an attribute and behind `&` a
-        // capture, and the names an `@spec` promises are functions: each is its module's first
-        // (#460). Nor is a key `name:` or an atom `:name` a variable.
         let after = &self.line_str()[range.end..];
         let call = kind == Kind::Elixir
             && !dotted
@@ -335,6 +334,7 @@ impl App {
                 || before.trim_start().starts_with("@spec "));
         let key = key
             || call
+            || search::erlang(&here)
             || (kind == Kind::Elixir
                 && !dotted
                 && (before.ends_with(':') || (after.starts_with(':') && !after.starts_with("::"))));
@@ -2228,72 +2228,6 @@ impl App {
             self.declaring(kind, word, hits),
             Reason::Path("builtin".to_owned()),
         )
-    }
-
-    /// Lua's `m.word`, `m.T.word`, `T.word` (#462): `m` bound by `local m = require("a.b")` reads
-    /// `a/b.lua` or `a/b/init.lua`, at the root or under `lua/`, and the table it returns; `T` is
-    /// a table that file, or the one on screen, declares. The declarations of `word` in that
-    /// table are the answer. A qualifier these rules cannot read gives nothing, and the search
-    /// by name goes on.
-    fn lua_qualified(
-        &self,
-        here: &Path,
-        text: &str,
-        chain: &[String],
-        word: &str,
-    ) -> Vec<Candidate> {
-        let Some((first, rest)) = chain.split_first() else {
-            return Vec::new();
-        };
-        let Some(value) = search::lua_local_value(text, self.line + 1, first) else {
-            return Vec::new();
-        };
-        let required = search::lua_required(&value);
-        let (path, reason) = match required {
-            Some(module) => {
-                let dir = module.replace('.', "/");
-                let Some(path) = ["", "lua/"]
-                    .iter()
-                    .flat_map(|root| [format!("{root}{dir}.lua"), format!("{root}{dir}/init.lua")])
-                    .map(PathBuf::from)
-                    .find(|p| self.files.contains(p))
-                else {
-                    return Vec::new();
-                };
-                (path, Reason::Import(module.to_owned()))
-            }
-            None if value.starts_with('{') => (here.to_path_buf(), Reason::Path(chain.join("."))),
-            None => return Vec::new(),
-        };
-        let Some(source) = self.text_of(&path) else {
-            return Vec::new();
-        };
-        let mut table = match required {
-            Some(_) => search::lua_returned(&source),
-            None => Some(first.clone()),
-        };
-        for name in rest {
-            let Some(next) = search::lua_table(&source, table.as_deref(), name) else {
-                return Vec::new();
-            };
-            table = Some(next);
-        }
-        let Some(table) = table else {
-            return Vec::new();
-        };
-        search::lua_members(&source, &table, word)
-            .into_iter()
-            .map(|line| Candidate {
-                hit: Hit {
-                    deleted: None,
-                    path: path.clone(),
-                    line,
-                    col: 0,
-                    text: source.lines().nth(line - 1).unwrap_or_default().to_owned(),
-                },
-                reason: reason.clone(),
-            })
-            .collect()
     }
 
     /// `word` as a constant of the Java or Kotlin enum `owner`, when the project declares one type

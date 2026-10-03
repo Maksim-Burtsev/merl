@@ -5,7 +5,7 @@
 use super::*;
 
 /// The comment markers an annotation may start with: every kind's line comment.
-const MARKERS: [&str; 4] = ["//", "#", "--", ";"];
+const MARKERS: [&str; 5] = ["//", "#", "--", ";", "%"];
 
 /// What an annotation wants `d` to show.
 #[derive(Debug)]
@@ -259,6 +259,7 @@ fn the_annotation_grammar() {
     assert_eq!(annotation("    //   ^ d: a.go:3"), Some((9, "d: a.go:3")));
     assert_eq!(annotation("\t# ^ d: none"), Some((3, "d: none")));
     assert_eq!(annotation("# ^ D: none"), Some((2, "D: none")));
+    assert_eq!(annotation("    %  ^ d: a.erl:3"), Some((7, "d: a.erl:3")));
     assert_eq!(annotation("x = 1  # ^ d: none"), None);
     assert_eq!(annotation("-- a ^ d: none"), None);
     assert!(matches!(parse_want("none"), Ok(Want::None)));

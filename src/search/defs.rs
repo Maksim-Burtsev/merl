@@ -401,6 +401,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             if !ELIXIR_DIRECTIVES.contains(&word) {
                 patterns.push(format!(r"^\s*@{w}\s+[^\s|]"));
             }
+            patterns.extend(erlang_patterns(&w));
             patterns
         }
         // Zig writes every declaration behind a keyword: `fn`, or the `const` a type, a constant
@@ -1118,6 +1119,7 @@ fn declares_by_kind<'a, S: AsRef<str> + 'a>(
         Kind::PowerShell => powershell_declares(lines(), line, line_text),
         Kind::Dart => dart_declares(lines(), line, line_text),
         Kind::Nix => nix_declares(lines(), line, word, false),
+        Kind::Elixir if erlang_head(line_text) => erlang_clause(lines(), line),
         _ => def_block(kind, word).is_none_or(|block| directly_inside(lines(), line, block)),
     }
 }
