@@ -1,0 +1,271 @@
+# id	targets: path:line joined by ; (project-relative; ~/ or / outside the project; empty: the oracle found none)	skip: why the row is not scored	note
+starlark0000			
+starlark0001			
+starlark0002			
+starlark0003			
+starlark0004	go/private/rules/go_bin_for_host.bzl:18		
+starlark0005			
+starlark0006			
+starlark0007	go/private/rules/test.bzl:200		
+starlark0008	go/def.bzl:180		
+starlark0009	go/private/context.bzl:90		
+starlark0010	go/private/repositories.bzl:376		
+starlark0011			
+starlark0012	go/private/providers.bzl:58		
+starlark0013	go/private/common.bzl:113		
+starlark0014			
+starlark0015	go/private/context.bzl:244		
+starlark0016			
+starlark0017	go/private/context.bzl:90		
+starlark0018			
+starlark0019	go/private/context.bzl:367		
+starlark0020	go/tools/gopackagesdriver/aspect.bzl:27		
+starlark0021			
+starlark0022			
+starlark0023	go/private/providers.bzl:29		
+starlark0024			
+starlark0025			
+starlark0026			
+starlark0027			
+starlark0028	go/private/providers.bzl:60		
+starlark0029	go/private/rules/binary.bzl:580		
+starlark0030	go/private/platforms.bzl:43		
+starlark0031	go/private/mode.bzl:29		
+starlark0032			
+starlark0033	go/private/providers.bzl:33		
+starlark0034			
+starlark0035			
+starlark0036			
+starlark0037			
+starlark0038	go/private/go_toolchain.bzl:136		
+starlark0039			
+starlark0040			
+starlark0041			
+starlark0042			
+starlark0043	go/private/rules/transition.bzl:64		
+starlark0044	go/private/common.bzl:113		
+starlark0045			
+starlark0046			
+starlark0047			
+starlark0048			
+starlark0049			
+starlark0050			
+starlark0051			
+starlark0052	go/private/context.bzl:368		
+starlark0053			
+starlark0054			
+starlark0055			
+starlark0056			
+starlark0057			
+starlark0058			
+starlark0059			
+starlark0060	go/private/providers.bzl:33		
+starlark0061	go/private/providers.bzl:29		
+starlark0062			
+starlark0063	go/private/mode.bzl:17		
+starlark0064			
+starlark0065			
+starlark0066	go/private/rules/transition.bzl:325		
+starlark0067			
+starlark0068	go/private/common.bzl:113		
+starlark0069			
+starlark0070			
+starlark0071			
+starlark0072	go/def.bzl:186		
+starlark0073			
+starlark0074			
+starlark0075	go/private/common.bzl:168		
+starlark0076	go/private/providers.bzl:29		
+starlark0077	go/private/mode.bzl:23		
+starlark0078			
+starlark0079			
+starlark0080			
+starlark0081	go/private/context.bzl:516		
+starlark0082			
+starlark0083	go/private/mode.bzl:27		
+starlark0084	go/private/common.bzl:104		
+starlark0085			
+starlark0086			
+starlark0087			
+starlark0088			
+starlark0089			
+starlark0090			
+starlark0091			
+starlark0092			
+starlark0093			
+starlark0094			
+starlark0095			
+starlark0096			
+starlark0097	go/private/sdk.bzl:452		
+starlark0098			
+starlark0099			
+starlark0100			
+starlark0101			
+starlark0102	extras/gomock.bzl:35		
+starlark0103			
+starlark0104	tests/legacy/providers/test.bzl:6		
+starlark0105	tests/core/starlark/provider_tests.bzl:4		
+starlark0106	go/private/sdk.bzl:591		
+starlark0107	tests/legacy/test_chdir/remote.bzl:5		
+starlark0108	go/def.bzl:155		
+starlark0109			
+starlark0110	go/private/providers.bzl:19		
+starlark0111			
+starlark0112	go/private/common.bzl:113		
+starlark0113			
+starlark0114	go/private/rules/transition.bzl:37		
+starlark0115			
+starlark0116	go/private/rules/cgo.bzl:260		
+starlark0117			
+starlark0118			
+starlark0119			
+starlark0120			
+starlark0121	go/private/rules/cgo.bzl:260		
+starlark0122			
+starlark0123			
+starlark0124			
+starlark0125			
+starlark0126	go/private/providers.bzl:19		
+starlark0127			
+starlark0128			
+starlark0129			
+starlark0130			
+starlark0131	tests/core/starlark/cgo/cgo_test.bzl:106		
+starlark0132			
+starlark0133			
+starlark0134	go/private/sdk.bzl:136		
+starlark0135			
+starlark0136			
+starlark0137	go/private/mode.bzl:23		
+starlark0138			
+starlark0139			
+starlark0140	go/private/nogo.bzl:20		
+starlark0141	go/private/platforms.bzl:159		
+starlark0142			
+starlark0143	go/private/mode.bzl:41		
+starlark0144			
+starlark0145			
+starlark0146	go/private/providers.bzl:66		
+starlark0147			
+starlark0148	go/private/sdk.bzl:306		
+starlark0149			
+starlark0150			
+starlark0151			
+starlark0152			
+starlark0153	go/private/repositories.bzl:45;go/private/repositories.bzl:43		
+starlark0154	go/private/mode.bzl:19		
+starlark0155			
+starlark0156	go/def.bzl:177		
+starlark0157			
+starlark0158			
+starlark0159			
+starlark0160			
+starlark0161	proto/BUILD.bazel:62		
+starlark0162			
+starlark0163			
+starlark0164			
+starlark0165	go/private/rules/transition.bzl:424		
+starlark0166	go/private/sdk.bzl:20		
+starlark0167	go/private/providers.bzl:19		
+starlark0168			
+starlark0169			
+starlark0170	go/private/rules/cgo.bzl:37		
+starlark0171			
+starlark0172	proto/wkt/well_known_types.bzl:44		
+starlark0173			
+starlark0174	go/private/tools/path.bzl:274		
+starlark0175			
+starlark0176			
+starlark0177	go/private/rules/cross.bzl:28		
+starlark0178			
+starlark0179			
+starlark0180	go/private/providers.bzl:19		
+starlark0181			
+starlark0182	go/private/rules/binary.bzl:166		
+starlark0183	go/private/common.bzl:208		
+starlark0184			
+starlark0185			
+starlark0186			
+starlark0187	tests/core/go_binary/linkmode.bzl:24		
+starlark0188	go/private/nogo.bzl:15		
+starlark0189	tests/core/go_proto_library/defs.bzl:22		
+starlark0190			
+starlark0191	go/private/mode.bzl:32		
+starlark0192			
+starlark0193	go/private/go_mod.bzl:155		
+starlark0194	tests/core/starlark/module_info_tests.bzl:5		
+starlark0195			
+starlark0196			
+starlark0197	go/private/providers.bzl:19		
+starlark0198	go/private/platforms.bzl:116		
+starlark0199	go/private/rules/cross.bzl:33		
+starlark0200			
+starlark0201	go/private/platforms.bzl:212		
+starlark0202			
+starlark0203			
+starlark0204	go/private/common.bzl:212		
+starlark0205			
+starlark0206	go/private/context.bzl:367		
+starlark0207			
+starlark0208			
+starlark0209	go/platform/list.bzl:24		
+starlark0210	go/private/common.bzl:113		
+starlark0211			
+starlark0212			
+starlark0213			
+starlark0214	go/private/nogo.bzl:54		
+starlark0215	go/def.bzl:180		
+starlark0216			
+starlark0217			
+starlark0218			
+starlark0219	go/private/mode.bzl:17		
+starlark0220	go/private/common.bzl:168		
+starlark0221			
+starlark0222			
+starlark0223	go/private/common.bzl:16		
+starlark0224			
+starlark0225			
+starlark0226	go/private/actions/link.bzl:52		
+starlark0227	go/tools/gopackagesdriver/aspect.bzl:34		
+starlark0228	go/private/providers.bzl:68		
+starlark0229			
+starlark0230			
+starlark0231	go/toolchain/toolchains.bzl:36;go/toolchain/toolchains.bzl:48		
+starlark0232			
+starlark0233			
+starlark0234			
+starlark0235			
+starlark0236	go/private/nogo.bzl:23		
+starlark0237			
+starlark0238	go/private/rules/binary.bzl:604		
+starlark0239			
+starlark0240			
+starlark0241			
+starlark0242			
+starlark0243	go/private/platforms.bzl:43		
+starlark0244	go/private/context.bzl:516		
+starlark0245			
+starlark0246	go/private/providers.bzl:58		
+starlark0247			
+starlark0248			
+starlark0249			
+starlark0250	go/private/rules/nogo.bzl:122		
+starlark0251	go/private/mode.bzl:21		
+starlark0252	go/private/mode.bzl:17		
+starlark0253			
+starlark0254	go/private/common.bzl:15		
+starlark0255	go/private/rules/transition.bzl:37		
+starlark0256			
+starlark0257	go/private/sdk.bzl:479		
+starlark0258			
+starlark0259			
+starlark0260			
+starlark0261	go/private/context.bzl:598		
+starlark0262			
+starlark0263	go/private/providers.bzl:33		
+starlark0264			
+starlark0265			
+starlark0266			
+starlark0267			
+starlark0268			
+starlark0269			

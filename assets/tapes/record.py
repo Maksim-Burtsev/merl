@@ -64,6 +64,13 @@ def wait(text, timeout=15):
     sys.exit(f"never saw {text!r} on screen:\n" + tmux("capture-pane", "-p", "-t", "p"))
 
 
+def type_text(text, pace):
+    for ch in text:
+        for keys in cast.typed(ch):
+            tmux("send-keys", "-t", "p", *keys)
+        time.sleep(pace)
+
+
 def take(steps, project):
     """Plays the steps; returns the recording, its clock set to 0 at `show`, and every key pressed
     with its time on that clock."""
@@ -91,9 +98,7 @@ def take(steps, project):
                     time.sleep(pace)
         elif verb.startswith("type"):
             pace = float(verb.partition("@")[2] or TYPE)
-            for ch in arg:
-                tmux("send-keys", "-t", "p", "-l", ch)
-                time.sleep(pace)
+            type_text(arg, pace)
         elif verb == "show":
             shown = time.time()
         elif verb == "spawn":
@@ -197,7 +202,7 @@ def timeline(starts, total, presses):
 
 
 def selftest():
-    """The corner's timing, on made-up screens: no tmux, no agg."""
+    """The corner's timing, on made-up screens, and a typed `;` reaching a pane: no agg."""
     shown = lambda frames, t: next(f for f in reversed(frames) if f[0] <= t + 1e-9)
     # A press lands on merl's answer 30 ms later; the corner is empty HOLD + FADE after it.
     f = timeline([0, 1.03, 5.0], 7, [(1.0, "c")])
@@ -215,6 +220,11 @@ def selftest():
     assert all(d >= 0.04 - 1e-9 for _, d, *_ in f), f
     # Without keys, the frames are agg's.
     assert [t for t, *_ in timeline([0, 1, 2], 3, [])] == [0, 1, 2]
+    tmux("kill-server")
+    tmux("new-session", "-d", "-s", "p", "cat")
+    type_text("x;;", 0)
+    wait("x;;", timeout=3)
+    tmux("kill-server")
     print("selftest ok")
 
 

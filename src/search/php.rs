@@ -607,3 +607,11 @@ pub fn php_return_type(header: &str) -> Option<String> {
     let short = written.rsplit('\\').next().unwrap_or(written);
     (!NO_CLASS.contains(&short.to_ascii_lowercase().as_str())).then(|| written.to_owned())
 }
+
+pub(super) fn php_code(l: &str) -> String {
+    let mut out = vec![b' '; l.len()];
+    for (i, c) in super::syntax::code(Kind::Php, l).take_while(|&(_, c)| c != 0) {
+        out[i] = c;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}

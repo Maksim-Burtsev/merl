@@ -1,0 +1,57 @@
+wait pick_up.direction (local)
+┌orders──────────────────────┐1 class_name Player
+│▸ .github                   │2 extends CharacterBody2D
+│▸ .venv                     │3
+│▸ app                       │4 func pick_up(value: int) -> void:
+│▸ data                      │5     var direction := value
+│▸ deploy                    │6     GameState.add_coins(direction)
+│▸ docs                      │
+│▾ godotshop                 │
+│  ▾ actors                  │
+│      player.gd             │
+│  ▸ globals                 │
+│    project.godot           │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+godotshop/actors/player.gd  5:9  [code]  direction → pick_up.direction (local)
+cursor (x,y,shown) 40,4,1

@@ -1,0 +1,57 @@
+wait module Shop.Cart
+┌orders──────────────────────┐1 module Shop.Cart
+│▸ .github                   │2
+│▸ .venv                     │3 open Shop.Money
+│▸ app                       │4
+│▸ data                      │5 let label m =
+│▸ deploy                    │6     let prefix = "Total: "
+│▸ docs                      │7     prefix + formatPrice m
+│▾ mlshop                    │
+│  ▸ lib                     │
+│  ▾ src                     │
+│      Cart.fs               │
+│      Money.fs              │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+mlshop/src/Cart.fs  1:1  [code]                                                                                                                                                   ? help
+cursor (x,y,shown) 32,0,1

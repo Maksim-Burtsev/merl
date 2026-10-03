@@ -1,0 +1,4 @@
+<resources>
+    <string name="pick_image">Bild/*</string>
+    <string name="greeting">Hallo</string>
+</resources>

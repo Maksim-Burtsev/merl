@@ -1,0 +1,57 @@
+wait class_name Player
+┌orders──────────────────────┐1 class_name Player
+│▸ .github                   │2 extends CharacterBody2D
+│▸ .venv                     │3
+│▸ app                       │4 func pick_up(value: int) -> void:
+│▸ data                      │5     var direction := value
+│▸ deploy                    │6     GameState.add_coins(direction)
+│▸ docs                      │
+│▾ godotshop                 │
+│  ▾ actors                  │
+│      player.gd             │
+│  ▸ globals                 │
+│    project.godot           │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+godotshop/actors/player.gd  1:1  [code]                                                                                                                                           ? help
+cursor (x,y,shown) 32,0,1

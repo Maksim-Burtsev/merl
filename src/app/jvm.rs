@@ -22,6 +22,38 @@ impl App {
         Some(self.jvm_fit_candidates(&here, word, range, chain, found))
     }
 
+    pub(super) fn jenkins_step(&self, here: &Path, word: &str) -> Vec<Candidate> {
+        static CALL: std::sync::LazyLock<Regex> =
+            std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:def|void)\s+call\s*\(").unwrap());
+        if !search::groovy(here) {
+            return Vec::new();
+        }
+        let file = format!("{word}.groovy");
+        self.files
+            .iter()
+            .filter(|p| p.ends_with(Path::new("vars").join(&file)))
+            .map(|p| {
+                let text = self.text_of(p).unwrap_or_default();
+                let (line, text) = text
+                    .lines()
+                    .enumerate()
+                    .find(|(_, l)| CALL.is_match(l))
+                    .or(text.lines().enumerate().next())
+                    .map_or((1, String::new()), |(i, l)| (i + 1, l.to_owned()));
+                Candidate {
+                    hit: Hit {
+                        deleted: None,
+                        path: p.clone(),
+                        line,
+                        col: 0,
+                        text,
+                    },
+                    reason: Reason::ByName,
+                }
+            })
+            .collect()
+    }
+
     /// Of the Java or Kotlin declarations `hits` found by name, what the cursor can see (#357): a
     /// local only in its own block, below it, and never `behind` a `.` or a `::`; a `private`
     /// declaration only in its own file. When that drops some and leaves one that is no local
@@ -37,8 +69,9 @@ impl App {
                 if h.path != here && search::jvm_private(&h.text) {
                     return false;
                 }
-                // A declaration in column 0 is top-level, never a local.
-                if !h.text.starts_with([' ', '\t']) {
+                if !h.text.starts_with([' ', '\t'])
+                    || (search::groovy(&h.path) && search::gradle_global(&h.text))
+                {
                     return true;
                 }
                 let text = texts
@@ -184,6 +217,81 @@ impl App {
             }
         }
         (!found.is_empty()).then_some(found)
+    }
+
+    /// What a bare `word` names among the members of the Java or Kotlin classes around the
+    /// cursor (#376): what the innermost class that declares it declares, `via` its name (an
+    /// anonymous class's members are `local`), else what the class the innermost one extends
+    /// declares, when the project declares that class once. `None` when neither does, or when the
+    /// cursor stands on the member itself, whose namesakes and implementations are asked for.
+    pub(super) fn jvm_members(
+        &self,
+        here: &Path,
+        text: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let lines: Vec<&str> = text.lines().collect();
+        let candidate = |path: &Path, lines: &[&str], line: usize, reason: Reason| Candidate {
+            hit: Hit {
+                deleted: None,
+                path: path.to_path_buf(),
+                line,
+                col: 0,
+                text: lines[line - 1].to_owned(),
+            },
+            reason,
+        };
+        let types = search::jvm_enclosing_types(text, self.line + 1);
+        let mut found: Vec<Candidate> = Vec::new();
+        for &decl in &types {
+            let reason = match search::jvm_type_name(lines[decl - 1]) {
+                Some(name) => Reason::Path(name),
+                None => Reason::Local,
+            };
+            found = search::jvm_members_of(text, decl, word)
+                .into_iter()
+                .map(|line| candidate(here, &lines, line, reason.clone()))
+                .collect();
+            if !found.is_empty() {
+                break;
+            }
+        }
+        // One level up: the class the innermost named one extends, declared once.
+        let inner = types
+            .iter()
+            .find(|&&d| search::jvm_type_name(lines[d - 1]).is_some());
+        if found.is_empty()
+            && let Some(&decl) = inner
+        {
+            for base in search::jvm_bases(text, decl, search::scala(here)) {
+                let pattern = search::def_patterns(Kind::Jvm, &base).join("|");
+                let cut = self.truncated.get();
+                let declared: Vec<Hit> = self
+                    .project_definitions(Kind::Jvm, here, &base, &pattern)
+                    .into_iter()
+                    .filter(|h| search::jvm_type_name(&h.text).as_deref() == Some(base.as_str()))
+                    .collect();
+                self.truncated.set(cut);
+                let [hit] = declared.as_slice() else {
+                    continue;
+                };
+                let Some(t) = self.text_of(&hit.path) else {
+                    continue;
+                };
+                let base_lines: Vec<&str> = t.lines().collect();
+                found.extend(
+                    search::jvm_members_of(&t, hit.line, word)
+                        .into_iter()
+                        .map(|line| {
+                            candidate(&hit.path, &base_lines, line, Reason::Path(base.clone()))
+                        }),
+                );
+            }
+        }
+        let on_it = found
+            .iter()
+            .any(|c| c.hit.path == here && c.hit.line == self.line + 1);
+        (!found.is_empty() && !on_it).then_some(found)
     }
 
     /// The Java and Kotlin files of the project by the package their `package` line declares;
@@ -373,13 +481,43 @@ fn arguments(lines: &[String], at: usize, open: usize) -> Option<(usize, bool)> 
     None
 }
 
+static MAP_ARGUMENT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"^\(\s*(?:\[\s*(?:\w+\s*:|:\s*\])|\w+\s*:[^:])").unwrap()
+});
+
+static DEFAULT: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"[^=!<>]=(?:[^=~]|$)").unwrap());
+
+fn parameters(text: &str, line: usize, word: &str, groovy: bool) -> Option<(usize, usize)> {
+    if !groovy {
+        return search::jvm_parameters(text, line, word);
+    }
+    let lines: Vec<String> = text.lines().map(str::to_owned).collect();
+    let at = line.checked_sub(1)?;
+    let re = Regex::new(&format!(r"\b{}\s*\(", regex::escape(word))).ok()?;
+    let open = re.find(lines.get(at)?)?.end() - 1;
+    let (count, _) = arguments(&lines, at, open)?;
+    let joined = lines[at..(at + 60).min(lines.len())].join("\n");
+    let list = joined[open..].split(')').next().unwrap_or_default();
+    if list.contains("...") {
+        return Some((count.saturating_sub(1), usize::MAX));
+    }
+    let mut angle = 0usize;
+    let mut typed = 0;
+    for c in list.chars() {
+        match c {
+            '<' => angle += 1,
+            '>' => angle = angle.saturating_sub(1),
+            ',' if angle > 0 => typed += 1,
+            _ => {}
+        }
+    }
+    let count = count.saturating_sub(typed);
+    let optional = (list.split(',').filter(|p| DEFAULT.is_match(p)).count()).min(count);
+    Some((count - optional, optional))
+}
+
 impl App {
-    /// Of the Java and Kotlin declarations of `word` found by name, those the shape of the use
-    /// at the cursor fits (#367). In Java: behind `new`, the constructors of a class that
-    /// declares some, and elsewhere its `class` line rather than them; a call `name(` is a
-    /// method or a constructor, never a variable, `values()` and `valueOf(` an enum's; the
-    /// argument count keeps the overloads it fits, unless the arguments hold a `<` or none
-    /// fits. In Kotlin, a word between two operands is an infix call: only an `infix fun`.
     pub(super) fn jvm_use_fit(
         &self,
         here: &Path,
@@ -391,7 +529,8 @@ impl App {
         let line = self.line_str();
         let (before, after) = (&line[..range.start], &line[range.end..]);
         let java = here.extension().is_some_and(|e| e == "java");
-        if !java {
+        let groovy = search::groovy(here);
+        if !java && !groovy {
             return match self.kotlin_infix(before, after, word) {
                 true => hits
                     .into_iter()
@@ -406,9 +545,10 @@ impl App {
         let call_re =
             Regex::new(&format!(r"\b{w}\s*\(")).expect("an escaped name keeps the pattern valid");
         let is_class = |h: &Hit| class_re.is_match(&h.text);
-        let java_file = |h: &Hit| h.path.extension().is_some_and(|e| e == "java");
+        let java_or_groovy =
+            |h: &Hit| h.path.extension().is_some_and(|e| e == "java") || search::groovy(&h.path);
         let constructor = |h: &Hit| {
-            java_file(h)
+            java_or_groovy(h)
                 && !is_class(h)
                 && word.starts_with(char::is_uppercase)
                 && call_re.is_match(&h.text)
@@ -426,7 +566,7 @@ impl App {
             hits.retain(|h| !constructor(h));
         }
         let call = after.starts_with('(');
-        if !call {
+        if !call || (groovy && !constructed) {
             return hits;
         }
         // `values()` and `valueOf(` inside an enum or behind its name are the enum's.
@@ -453,15 +593,36 @@ impl App {
         if angle || hits.len() < 2 {
             return hits;
         }
+        let map_argument = groovy && constructed && MAP_ARGUMENT.is_match(after);
+        let count = match map_argument {
+            true => 1,
+            false => count,
+        };
         let fits = |h: &Hit| {
-            if !java_file(h) || is_class(h) {
+            if !java_or_groovy(h) || is_class(h) {
                 return true;
             }
             self.text_of(&h.path)
-                .and_then(|t| search::jvm_parameters(&t, h.line, word))
-                .is_none_or(|(n, more)| count == n || (more && count >= n))
+                .and_then(|t| parameters(&t, h.line, word, search::groovy(&h.path)))
+                .is_none_or(|(n, more)| (n..=n.saturating_add(more)).contains(&count))
         };
         let fit: Vec<Hit> = hits.iter().filter(|h| fits(h)).cloned().collect();
+        let fit = match map_argument {
+            true => {
+                let map = Regex::new(&format!(r"\b{w}\s*\(\s*(?:final\s+)?Map\b"))
+                    .expect("an escaped name keeps the pattern valid");
+                let maps: Vec<Hit> = fit
+                    .iter()
+                    .filter(|h| map.is_match(&h.text))
+                    .cloned()
+                    .collect();
+                match maps.is_empty() {
+                    true => fit,
+                    false => maps,
+                }
+            }
+            false => fit,
+        };
         match fit.is_empty() {
             true => hits,
             false => fit,
@@ -547,6 +708,15 @@ impl App {
             && !keyword(&next)
             && !b.ends_with(['=', ':', ',', '{', '('])
     }
+}
+
+pub(super) fn declared_as(kind: Kind, word: &str, text: &str) -> String {
+    if kind != Kind::Jvm || whole_at(text, word, "").is_some() {
+        return word.to_owned();
+    }
+    search::jvm_accessor(word)
+        .and_then(|(names, _)| names.into_iter().find(|n| whole_at(text, n, "").is_some()))
+        .unwrap_or_else(|| word.to_owned())
 }
 
 #[cfg(test)]

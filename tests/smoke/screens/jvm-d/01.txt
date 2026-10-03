@@ -10,8 +10,9 @@ wait public class ParcelSync {
 │▸ tests                     │ 9     public int send(List<String> parcelCodes) {
 │▾ web                       │10         parcelCodes.forEach(code -> dispatcher.run(code));
 │  ▾ android                 │11         return parcelCodes.size();
-│    ▾ src                   │12     }
-│      ▾ main                │13 }
+│    ▸ gradle                │12     }
+│    ▾ src                   │13 }
+│      ▾ main                │
 │        ▾ java              │
 │          ▾ courier         │
 │            ▾ app           │
@@ -19,7 +20,10 @@ wait public class ParcelSync {
 │                ParcelSync.j│
 │                Scale.java  │
 │        ▸ kotlin            │
+│        ▸ res               │
 │        ▸ scala             │
+│      build.gradle          │
+│      build.gradle.kts      │
 │  ▸ src                     │
 │    package.json            │
 │    tsconfig.json           │
@@ -31,10 +35,6 @@ wait public class ParcelSync {
 │  Makefile                  │
 │  pyproject.toml            │
 │  README.md                 │
-│                            │
-│                            │
-│                            │
-│                            │
 │                            │
 │                            │
 │                            │
