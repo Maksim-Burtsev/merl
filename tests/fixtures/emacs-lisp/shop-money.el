@@ -1,0 +1,5 @@
+;;; shop-money.el --- money (#428)
+(defun shop-money-format (cents)
+  (format "$%.2f" (/ cents 100.0)))
+(defun shop-money-total (cart) (apply #'+ cart))
+(provide 'shop-money)

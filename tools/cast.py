@@ -201,6 +201,12 @@ def draw_cap(frame, key, scale, above, opacity=1.0):
     return Image.alpha_composite(frame.convert("RGBA"), layer).convert("RGB")
 
 
+def typed(text):
+    body = text.rstrip(";")
+    semicolons = len(text) - len(body)
+    return ([["-l", body]] if body else []) + ([["-H", *["3b"] * semicolons]] if semicolons else [])
+
+
 class Pane:
     """A merl running on a tmux socket of its own, with an empty HOME so the user's config and
     themes stay out of the recording."""

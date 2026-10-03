@@ -453,3 +453,60 @@ fn the_first_typed_d_walks_the_venv() {
         std::fs::remove_dir_all(d).unwrap();
     }
 }
+
+#[test]
+fn a_member_outside_is_looked_for_in_the_imported_packages_first() {
+    let site = external_root(
+        "py-reach-site",
+        &[
+            (
+                "requests/models.py",
+                "class Response:\n    def close(self):\n        pass\n\n    def json(self):\n        pass\n",
+            ),
+            (
+                "requests/sessions.py",
+                "class Session:\n    def close(self):\n        pass\n",
+            ),
+            (
+                "otherlib/files.py",
+                "class Handle:\n    def close(self):\n        pass\n\n    def json(self):\n        pass\n",
+            ),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "py-reach",
+        &[(
+            "app/x.py",
+            "import requests\n\n\ndef fetch(url):\n    r = requests.get(url)\n    r.close()\n    r.json()\n",
+        )],
+    );
+    a.no_external();
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&site));
+    d_on(&mut a, "app/x.py", "    r.|close");
+    assert_eq!(
+        shown(&mut a),
+        picker(
+            "close: by name, 2 declarations",
+            &[
+                ("Response.close", "requests/models.py:2"),
+                ("Session.close", "requests/sessions.py:2"),
+            ]
+        ),
+        "the imported package declares it twice: no namesake of another package is offered"
+    );
+    d_on(&mut a, "app/x.py", "    r.|json");
+    assert_eq!(
+        shown(&mut a),
+        picker(
+            "json: by name, 2 declarations",
+            &[
+                ("Handle.json", "otherlib/files.py:5"),
+                ("Response.json", "requests/models.py:5"),
+            ]
+        ),
+        "one declaration in the imported package is no proof: every package is read, as before"
+    );
+    for d in [dir, site] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}

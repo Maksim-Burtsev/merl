@@ -1,0 +1,73 @@
+# id	targets: path:line joined by ; (project-relative; empty: none in reach)	skip: why the row is not scored	note (judged by reading the code: no language server ran for this language)
+groovy0000	modules/nf-commons/src/test/nextflow/file/FileHelperTest.groovy:634		local def copy
+groovy0001	modules/nextflow/src/main/groovy/nextflow/script/WorkflowMetadata.groovy:129		getter of property projectDir, stubbed on Mock(WorkflowMetadata)
+groovy0002	modules/nf-commons/src/main/nextflow/extension/FilesEx.groovy:458		getStoreDir() is a Path; FilesEx is a registered extension module
+groovy0003		a package segment of an import or package line	
+groovy0004		the cursor is on a declaration	
+groovy0005		a dynamic property: Nextflow's memory-unit DSL on an Integer, declared only in nf-lang's type shim	
+groovy0006			outside the project: java.lang.System
+groovy0007			outside the project: java.util.ArrayList
+groovy0008		a Spock block label, not a reference	
+groovy0009		a package segment of an import or package line	
+groovy0010		a Spock data variable bound by the where: table	
+groovy0011			outside the project: asUri returns java.net.URI, URI.toString
+groovy0012	modules/nf-lineage/src/main/nextflow/lineage/fs/LinPath.groovy:107		2-arg constructor LinPath(LinFileSystem, String)
+groovy0013		a package segment of an import or package line	
+groovy0014			outside the project: java.net.URL.getRef
+groovy0015	modules/nextflow/src/main/groovy/nextflow/exception/ConfigParseException.groovy:27		merl's jump, judged right
+groovy0016	modules/nextflow/src/main/groovy/nextflow/container/ContainerBuilder.groovy:72		field memory of ContainerBuilder
+groovy0017		a package segment of an import or package line	
+groovy0018			outside the project: java.nio.file.Path.resolve (tempDir is a Path)
+groovy0019	modules/nf-commons/src/main/nextflow/extension/FilesEx.groovy:60		merl's jump, judged right
+groovy0020	modules/nextflow/src/main/groovy/nextflow/extension/DataflowHelper.groovy:46		merl's jump, judged right
+groovy0021	modules/nextflow/src/main/groovy/nextflow/splitter/TextFileCollector.groovy:44		CachePath.path (getCollectorBaseFile returns CachePath)
+groovy0022	modules/nextflow/src/main/groovy/nextflow/dag/DAG.groovy:102		session.dag is a DAG; inputs is an InputsList here
+groovy0023		a package segment of an import or package line	
+groovy0024		the cursor is on a declaration	
+groovy0025		a package segment of an import or package line	
+groovy0026	modules/nextflow/src/main/groovy/nextflow/file/SequentialFileStore.groovy:87		merl's jump, judged right
+groovy0027			outside the project: java.nio.file.Path
+groovy0028		a package segment of an import or package line	
+groovy0029			outside the project: io.seqera.npr ModuleRelease (imported)
+groovy0030		the cursor is on a declaration	
+groovy0031	modules/nextflow/src/main/groovy/nextflow/processor/TaskHandler.groovy:83		field completeTimeMillis of TaskHandler
+groovy0032			outside the project: org.codehaus.groovy.control.SourceUnit
+groovy0033			outside the project: io.seqera.npr ModuleMetadata (imported)
+groovy0034	modules/nf-commons/src/main/nextflow/plugin/DevPluginManager.groovy:100		merl's jump, judged right
+groovy0035		the cursor is on a declaration	
+groovy0036			outside the project: java.lang.IllegalArgumentException
+groovy0037	modules/nf-commons/src/test/nextflow/plugin/PluginsFacadeTest.groovy:536		merl's jump, judged right
+groovy0038	build.gradle:335		local final out in the git closure
+groovy0039		the cursor is on a declaration	
+groovy0040		a Spock block label, not a reference	
+groovy0041			outside the project: StringBuilder.insert (result is a StringBuilder)
+groovy0042		the cursor is on a declaration	
+groovy0043			outside the project: java.net.URI.toString
+groovy0044	modules/nf-commons/src/main/nextflow/util/Escape.groovy:59		loc is a String: path(String)
+groovy0045			outside the project: java.security.SecureRandom
+groovy0046			outside the project: java.io.File
+groovy0047	modules/nf-commons/src/main/nextflow/Global.groovy:35		class Global (import line)
+groovy0048	modules/nextflow/src/main/groovy/nextflow/Session.groovy:342		field logObserver of Session
+groovy0049	modules/nextflow/src/main/groovy/nextflow/processor/TaskInputResolver.groovy:70		parameter param
+groovy0050			outside the project: spock.lang.Specification
+groovy0051		a package segment of an import or package line	
+groovy0052			outside the project: java.nio.file.Paths.get
+groovy0053			outside the project: java.io.File
+groovy0054			outside the project: java.nio.file.Path
+groovy0055			outside the project: java.nio.file.Files
+groovy0056		a CodeNarc rule name in its ruleset DSL, no declaration in reach	
+groovy0057		a Spock data variable bound by the where: table	
+groovy0058	modules/nextflow/src/main/groovy/nextflow/processor/TaskPath.groovy:61		constructor TaskPath(Path, String)
+groovy0059			outside the project: org.eclipse.jgit.lib.Ref
+groovy0060	plugins/nf-k8s/src/main/nextflow/k8s/client/K8sResponseJson.groovy:38		constructor K8sResponseJson(Map)
+groovy0061			outside the project: System.getenv
+groovy0062			outside the project: java.nio.file.Path
+groovy0063	modules/nextflow/src/main/groovy/nextflow/processor/PublishDir.groovy:68		merl's jump, judged right
+groovy0064			outside the project: Spock Specification.Mock
+groovy0065	modules/nextflow/src/main/groovy/nextflow/processor/TaskRun.groovy:291		getter of property workDir, stubbed on Stub(TaskRun)
+groovy0066		the cursor is on a declaration	
+groovy0067		a package segment of an import or package line	
+groovy0068		a package segment of an import or package line	
+groovy0069	modules/nf-commons/src/main/nextflow/extension/FilesEx.groovy:416		file is a Path: FilesEx.getName extension
+groovy0070			outside the project: org.codehaus.groovy ASTTransformationCustomizer (import line)
+groovy0071	modules/nextflow/src/main/groovy/nextflow/processor/TaskConfig.groovy:67		no-arg constructor TaskConfig()

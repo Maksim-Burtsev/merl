@@ -87,7 +87,7 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     // Any other name on a Java or Kotlin function's header is a parameter (#376), named as a
     // local of the body is: `SortUtils.resolve.directionParams`.
     if kind == Kind::Jvm
-        && let Some(f) = jvm_function(target).filter(|f| f != name)
+        && let Some(f) = jvm_function(target).filter(|f| f != name && target.contains(name))
     {
         let owner = qualified(kind, text, line, &f).unwrap_or(f);
         return Some(format!("{owner}{sep}{name}"));
@@ -348,7 +348,10 @@ fn declared_name(kind: Option<Kind>, line: &str) -> Option<String> {
     });
     ROWS.iter()
         .filter(|(k, _)| *k == kind || (k.is_none() && shared_symbols(kind)))
-        .find_map(|(_, re)| symbol_name(re, line))
+        .find_map(|(k, re)| {
+            symbol_name(re, line)
+                .filter(|n| *k != Some(Kind::Haskell) || !HASKELL_RESERVED.contains(&n.as_str()))
+        })
 }
 /// Whether a file of `kind` names what it nests: a YAML anchor names a value, not a container,
 /// so YAML qualifies no name and pins no header. Markdown declares nothing.
@@ -602,6 +605,11 @@ pub fn call_head(
 }
 pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Range<usize>, &str)> {
     let extra = word_chars(kind, true);
+    if kind == Some(Kind::R)
+        && let Some(r) = r_quoted_name(line, col)
+    {
+        return Some((r.clone(), &line[r]));
+    }
     // On TypeScript's `#` and on a Dart `$`, the word is the one right behind it.
     let hash = |i: usize| match kind {
         Some(Kind::TsJs) => line.as_bytes().get(i) == Some(&b'#'),
@@ -639,6 +647,26 @@ pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Ra
     }
     if kind == Some(Kind::Nix) {
         let r = nix_name(line, range);
+        return Some((r.clone(), &line[r]));
+    }
+    if kind == Some(Kind::Haskell) {
+        let r = haskell_name(line, range);
+        return Some((r.clone(), &line[r]));
+    }
+    if matches!(kind, Some(Kind::Ocaml | Kind::Fsharp)) {
+        let r = ml_name(line, range, col);
+        return Some((r.clone(), &line[r]));
+    }
+    if kind == Some(Kind::Julia) {
+        let r = julia_name(line, start..range.end);
+        return Some((r.clone(), &line[r]));
+    }
+    if kind == Some(Kind::R) {
+        let start = line[..range.start].trim_end_matches('.').len();
+        return Some((start..range.end, &line[start..range.end]));
+    }
+    if let Some(k) = kind.filter(|&k| lisp(k)) {
+        let r = lisp_name(k, line, range);
         return Some((r.clone(), &line[r]));
     }
     // A Ruby method (#387) and an Elixir function (#459) take their `?` or `!` with them:
@@ -773,4 +801,11 @@ pub fn word_at<'a>(line: &'a str, col: usize, extra: &str) -> Option<(Range<usiz
         end -= 1;
     }
     (start < end).then(|| (start..end, &line[start..end]))
+}
+pub fn binds_at(kind: Kind, line: &str, start: usize, word: &str) -> bool {
+    match kind {
+        Kind::Rust => rust_let_declares(line, start, word),
+        Kind::Julia => julia_assigns_here(line, start, word),
+        _ => false,
+    }
 }

@@ -1,0 +1,13 @@
+[versions]
+googleOss = "17.1.0"
+compose = "2.0.0"
+
+[libraries]
+google-oss-licenses = { group = "com.google.android.gms", name = "play-services-oss-licenses", version.ref = "googleOss" }
+androidx_compose.ui = { group = "androidx.compose.ui", name = "ui" }
+
+[bundles]
+compose-ui = ["androidx_compose.ui"]
+
+[plugins]
+compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "compose" }

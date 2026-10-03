@@ -1,0 +1,1 @@
+-define(RANCH_TIMEOUT, 5000).

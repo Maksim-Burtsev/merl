@@ -24,10 +24,10 @@ const NOT_SMOKED: &[(&str, &str)] = &[
     ),
 ];
 
-/// Issues an `### Added` or `### Changed` entry of `## [Unreleased]` may cite with no scenario or
-/// fixture mentioning them, each with why. Empty until a feature cannot play in tmux (an Intel
-/// binary, a Homebrew formula).
-const UNSMOKED: &[(u32, &str)] = &[];
+const UNSMOKED: &[(u32, &str)] = &[(
+    318,
+    "a speed-up of d outside the project: the scenarios have no installed dependencies to time it on; the d bench measures it",
+)];
 
 fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
