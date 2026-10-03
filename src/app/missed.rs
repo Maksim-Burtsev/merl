@@ -449,12 +449,7 @@ impl App {
             from: (self.buf.path.clone()?, self.at()),
             here: self.rel_current(),
             // The preview has no word under the cursor for `d` or `u` to read.
-            word: (!self.previewing())
-                .then(|| {
-                    (self.css_word())
-                        .or_else(|| self.word_under(search::word_chars(self.kind(), false)))
-                })
-                .flatten(),
+            word: (!self.previewing()).then(|| self.usage_word()).flatten(),
             query: String::new(),
             stops,
             next,
@@ -502,7 +497,11 @@ impl App {
         let word = trip
             .word
             .as_ref()
-            .filter(|w| w.to_lowercase() == trip.query.to_lowercase())?;
+            .filter(|w| {
+                let bare = w.trim_start_matches('@');
+                let bare = bare.strip_suffix('=').unwrap_or(bare);
+                bare.to_lowercase() == trip.query.to_lowercase()
+            })?;
         let landed = self.rel_current()?;
         let (hits, _) = self.usage_hits(word, trip.here.as_deref());
         let row = hits

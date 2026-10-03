@@ -9,19 +9,7 @@ impl App {
     /// vendored files. The title says how the list splits.
     pub(super) fn usages(&mut self) {
         let extra = search::word_chars(self.kind(), false);
-        let Some(read) = self.on_drawn(|a| match a.kind() {
-            k @ Some(Kind::Ruby | Kind::Elixir | Kind::Cmake | Kind::Nix) => {
-                a.definition_word(k).map(|(r, w)| {
-                    let lead = &a.line_str()[..r.start];
-                    let sigil = lead.len() - lead.trim_end_matches('@').len();
-                    match k == Some(Kind::Ruby) && (1..=2).contains(&sigil) {
-                        true => format!("{}{w}", &lead[lead.len() - sigil..]),
-                        false => w,
-                    }
-                })
-            }
-            _ => a.css_word().or_else(|| a.word_under(extra)),
-        }) else {
+        let Some(read) = self.on_drawn(|a| a.usage_word()) else {
             self.message = "no word under the cursor".into();
             return;
         };
@@ -96,6 +84,22 @@ impl App {
         self.show_cut_picker(PickerKind::Usages, items, cut);
         if let Some(p) = &mut self.picker {
             p.title = p.title.replacen(PickerKind::Usages.title(), &status, 1);
+        }
+    }
+
+    pub(super) fn usage_word(&self) -> Option<String> {
+        match self.kind() {
+            k @ Some(Kind::Ruby | Kind::Elixir | Kind::Cmake | Kind::Nix) => {
+                self.definition_word(k).map(|(r, w)| {
+                    let lead = &self.line_str()[..r.start];
+                    let sigil = lead.len() - lead.trim_end_matches('@').len();
+                    match k == Some(Kind::Ruby) && (1..=2).contains(&sigil) {
+                        true => format!("{}{w}", &lead[lead.len() - sigil..]),
+                        false => w,
+                    }
+                })
+            }
+            k => self.css_word().or_else(|| self.word_under(search::word_chars(k, false))),
         }
     }
 
