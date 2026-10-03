@@ -30,11 +30,20 @@ impl App {
         word: &str,
     ) -> Option<Vec<Candidate>> {
         let kotlin = here.extension().is_none_or(|e| e != "java");
-        let Some((first, rest)) = chain.split_first() else {
-            let cast = search::jvm_cast_receiver(before, kotlin)?;
+        if let ([], Some(cast)) = (chain, search::jvm_cast_receiver(before, kotlin)) {
             let ty = self.jvm_type_at(here, text, &cast);
             return self.jvm_typed_member(here, ty, cast, word);
+        }
+        let safe: Vec<String>;
+        let chain = match chain {
+            [] if kotlin => {
+                let plain = before.replace("?.", ".").replace("!!.", ".");
+                safe = search::qualifier(&plain, plain.len());
+                &safe[..]
+            }
+            _ => chain,
         };
+        let (first, rest) = chain.split_first()?;
         if chain.len() > 6 {
             return None;
         }
@@ -311,6 +320,13 @@ impl App {
     /// package's); outside the project when an import names a package the project does not
     /// have, or nothing in the project declares the name at all.
     pub(super) fn jvm_type_at(&self, file: &Path, text: &str, written: &str) -> JvmType {
+        if let Some((outer, inner)) = written.rsplit_once('.') {
+            return match self.jvm_type_at(file, text, outer) {
+                JvmType::Project(decl) => self.jvm_nested(&decl, inner),
+                JvmType::Outside(_) => JvmType::Outside(written.to_owned()),
+                JvmType::Unknown => JvmType::Unknown,
+            };
+        }
         if search::jvm_type_parameter(text, written)
             || (search::scala(file) && search::scala_type_parameter(text, written))
         {
@@ -391,6 +407,27 @@ impl App {
             })
             .collect();
         one(same)
+    }
+
+    fn jvm_nested(&self, decl: &Hit, name: &str) -> JvmType {
+        let Some(text) = self.text_of(&decl.path) else {
+            return JvmType::Unknown;
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        let nested: Vec<usize> = search::jvm_members_of(&text, decl.line, name)
+            .into_iter()
+            .filter(|&l| search::jvm_type_name(lines[l - 1]).as_deref() == Some(name))
+            .collect();
+        match nested[..] {
+            [line] => JvmType::Project(Hit {
+                deleted: None,
+                path: decl.path.clone(),
+                line,
+                col: 0,
+                text: lines[line - 1].to_owned(),
+            }),
+            _ => JvmType::Unknown,
+        }
     }
 
     /// The fields Lombok writes the accessor `word` for, when no method of the name was found

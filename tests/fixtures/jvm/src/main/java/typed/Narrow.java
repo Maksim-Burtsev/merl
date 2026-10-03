@@ -1,5 +1,7 @@
 package typed;
 
+import java.util.Map;
+
 class Narrow {
     int cast(Object any) {
         var meter = (Meter) any;
@@ -31,5 +33,13 @@ class Narrow {
 
     Object wrap(Object any) {
         return any;
+    }
+
+    int dotted(Meter.Dial dial, Map.Entry<String, Gauge> entry) {
+        entry.tick();
+        //    ^ d: none
+        return dial.tick();
+        //          ^ d: src/main/java/typed/Meter.java:13
+        // status: via dial: Meter.Dial
     }
 }

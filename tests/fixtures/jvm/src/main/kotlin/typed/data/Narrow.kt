@@ -44,4 +44,16 @@ class Narrow {
             //                     ^ d: src/main/kotlin/typed/data/TopicDao.kt:4
         }
     }
+
+    suspend fun entry(entry: Map.Entry<String, NewsDao>, ids: List<String>) {
+        entry.purgeAll(ids)
+        //    ^ d: none
+    }
+
+    suspend fun safe(news: NewsDao?, ids: List<String>) {
+        news?.purgeAll(ids)
+        //    ^ d: src/main/kotlin/typed/data/NewsDao.kt:4
+        news!!.purgeAll(ids)
+        //     ^ d: src/main/kotlin/typed/data/NewsDao.kt:4
+    }
 }

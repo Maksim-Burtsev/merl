@@ -672,37 +672,33 @@ pub fn jvm_package(text: &str) -> Option<String> {
 
 const CAST_OPERAND: &str = r"(?:[\w.!?]|\([^()]*\))+";
 
-/// The type the Java or Kotlin declaration of `name` on `line` writes for it, generic arguments
-/// and a `?` dropped (#388, #391): Java's `Line line`, `var line = new Line(…)`; Kotlin's
-/// `line: Line`, `val line = Line(…)`. `None` for any other form, an array, a delegated Kotlin
-/// property (`by lazy`) and a type written with a dot.
 pub fn jvm_declared_type(line: &str, name: &str, kotlin: bool) -> Option<String> {
     let n = regex::escape(name);
     let code = uncommented(Kind::Jvm, line);
     let generic = r"(?:<(?:[^<>]|<(?:[^<>]|<[^<>]*>)*>)*>)?";
+    let ty = r"([A-Z]\w*(?:\.[A-Z]\w*)*)";
     let rules: Vec<String> = match kotlin {
         true => {
             if Regex::new(&format!(r"\b{n}\b[^=]*\bby\b")).is_ok_and(|re| re.is_match(&code)) {
                 return None;
             }
             vec![
-                format!(r"(?:^|[^\w.]){n}\s*:\s*([A-Z]\w*){generic}\??\s*(?:[=,)]|$|\{{)"),
+                format!(r"(?:^|[^\w.]){n}\s*:\s*{ty}{generic}\??\s*(?:[=,)]|$|\{{)"),
                 format!(
-                    r"\b(?:val|var)\s+{n}\s*=\s*{CAST_OPERAND}\s+as\??\s+([A-Z]\w*){generic}\??\s*;?\s*$"
+                    r"\b(?:val|var)\s+{n}\s*=\s*{CAST_OPERAND}\s+as\??\s+{ty}{generic}\??\s*;?\s*$"
                 ),
                 format!(r"\b(?:val|var)\s+{n}\s*=\s*([A-Z]\w*){generic}\s*\("),
             ]
         }
         false => vec![
-            format!(r"(?:^|[\s(,<])([A-Z]\w*){generic}(?:\s*\.\.\.)?\s+{n}\s*(?:[=;,:)]|&&|$)"),
-            format!(r"\bvar\s+{n}\s*=\s*new\s+([A-Z]\w*){generic}\s*\("),
-            format!(r"\bvar\s+{n}\s*=\s*\(\s*([A-Z]\w*){generic}\s*\)\s*[\w(]"),
+            format!(r"(?:^|[\s(,<]){ty}{generic}(?:\s*\.\.\.)?\s+{n}\s*(?:[=;,:)]|&&|$)"),
+            format!(r"\bvar\s+{n}\s*=\s*new\s+{ty}{generic}\s*\("),
+            format!(r"\bvar\s+{n}\s*=\s*\(\s*{ty}{generic}\s*\)\s*[\w(]"),
         ],
     };
     rules.iter().find_map(|r| {
         let re = Regex::new(r).ok()?;
         let c = re.captures(&code)?;
-        // `Outer.Inner x` and `a.b.Line x`: the capture starts after a dot.
         let at = c.get(1)?.start();
         (!code[..at].ends_with('.')).then(|| c[1].to_owned())
     })
