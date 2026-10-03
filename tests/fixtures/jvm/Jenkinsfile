@@ -17,6 +17,8 @@ node {
       //^ d: none
         deploy('prod')
       //^ d: Jenkinsfile:3
+        rollOut(region: 'us')
+      //^ d: vars/rollOut.groovy:5
         notifyTeam.send('ops')
       //^ d: vars/notifyTeam.groovy:1
         //         ^ d: vars/notifyTeam.groovy:1
