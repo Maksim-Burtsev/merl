@@ -115,6 +115,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dao: NewsDao)`, where they offered every `purge` of the project. So do a dotted type,
   `Meter.Dial dial`, and Kotlin's `x?.m` and `x!!.m`; `Map.Entry` says `no definition`. (#388,
   #391)
+- `d` and `D` in Starlark: Bazel's `BUILD`, `*.bazel` and `.bzl` files, `.star`, Tilt's `Tiltfile`
+  and Buck's `BUCK`, where `d` said `no rules for .bzl`. `d` on a macro or a rule a `load` takes
+  lands on its declaration in the file the `load` names, `shop_binary: via import tools/defs.bzl`;
+  anywhere on a label, on what it names: `":api"` on the target's `name = "api"` line, `"api.go"`
+  and `"//tools:defs.bzl"` on the file, `"@rules_go"` on its `bazel_dep` line, and in a project
+  Bazel has built, `"@rules_go//go:def.bzl"` and the names loaded from it in the repository Bazel
+  fetched, read-only. `D` lists the rules, the providers and the targets. (#431)
+
+### Fixed
+
+- A Bazel `BUILD` file is highlighted as Starlark instead of as XML, and a `BUCK` or `.star` file
+  is highlighted at all. (#431)
 
 ## [0.8.1] - 2026-10-02
 

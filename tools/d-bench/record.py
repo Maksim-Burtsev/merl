@@ -24,6 +24,10 @@ override final template typename namespace using new delete this operator friend
 constexpr noexcept static_cast dynamic_cast reinterpret_cast const_cast try catch throw decltype
 static_assert include define ifdef ifndef endif elif pragma undef defined""".split()
 KW = {
+    "starlark": """False None True and break continue def elif else for if in lambda load not or pass
+return attr ctx native select glob struct depset fail print len str int bool list dict type range
+enumerate zip any all min max sorted reversed getattr hasattr Label rule provider aspect
+repository_rule module_extension transition""".split(),
     "python": """False None True and as assert async await break class continue def del elif else
 except finally for from global if import in is lambda nonlocal not or pass raise return try while
 with yield self cls match case print len str int float bool list dict set tuple object type super
@@ -122,6 +126,7 @@ SPEC = {
     "groovy": dict(exts=(".groovy", ".gvy", ".gradle", "Jenkinsfile"), lc=("//",), bc=("/*", "*/"),
                    triple=True, dollar_slashy=True),
     "solidity": dict(exts=(".sol",), lc=("//",), bc=("/*", "*/")),
+    "starlark": dict(exts=(".bzl", ".bazel", "BUILD"), lc=("#",), bc=None, triple=True),
 }
 SPEC["jenkins"] = SPEC["groovy"]
 SKIP_DIRS = {".git", "node_modules", "vendor", "third_party", "dist", "build", "target", ".venv",
@@ -352,7 +357,8 @@ class Lsp:
 LANG_ID = {".py": "python", ".ts": "typescript", ".tsx": "typescriptreact", ".js": "javascript",
            ".jsx": "javascriptreact", ".mjs": "javascript", ".cjs": "javascript", ".go": "go",
            ".rs": "rust", ".c": "c", ".h": "cpp", ".cc": "cpp", ".cpp": "cpp", ".hpp": "cpp",
-           ".php": "php", ".swift": "swift", ".m": "objective-c", ".sol": "solidity"}
+           ".php": "php", ".swift": "swift", ".m": "objective-c", ".sol": "solidity", ".bzl": "starlark",
+           ".bazel": "starlark"}
 
 
 def server(lang, root):
@@ -385,6 +391,8 @@ def server(lang, root):
     if lang == "solidity":
         server = os.path.join(nm, "@nomicfoundation", "solidity-language-server", "out", "index.js")
         return Lsp([node, server, "--stdio"], root)
+    if lang == "starlark":
+        return Lsp([os.path.join(LSP, "bin", "starpls"), "server"], root)
     raise SystemExit(f"no server for {lang}")
 
 

@@ -58,6 +58,7 @@ mod rust;
 mod scroll;
 mod search_job;
 mod solidity;
+mod starlark;
 mod swift;
 mod symbols;
 mod tree;

@@ -323,6 +323,13 @@ defining form of the dialect, a namespace alias and a `:refer` (`money/format-pr
 of another file, `empty?` beside `empty`, a `defmulti`, `cl-defgeneric` or `defgeneric` offered
 with its methods, a `(comment …)` form, `#_`, `#;` and a nested `#| … |#`, a `(require …)` that
 opens a file, each refusal of the issue, and declaration-shaped lines in a docstring.
+`starlark/` (#431) is a Bazel module, `shop`, with two packages and two `.bzl` files: every
+declaration form (a `def`, a rule, a provider, an aspect, a repository rule, a module extension, a
+transition, a plain value), names a `load` takes (one under an alias, one over several lines, one a
+parameter shadows), labels to a target in every form (`:api`, `api`, `//api`, `@shop//api:api`,
+`@//api`), to a source file and to a repository (`@rules_go`, `@bazel_gazelle` by its
+`repo_name`), each refusal of the issue (a rule call, a keyword argument, a computed name, a load's
+strings, `native.genrule`, a `select` key), and declaration-shaped lines in a docstring.
 
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
 `deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies

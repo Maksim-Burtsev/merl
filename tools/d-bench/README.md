@@ -56,7 +56,7 @@ Never in merl, never in CI. The servers go into a scratch directory:
 ```sh
 tools/d-bench/run --project koel                # clone and install the project first
 tools/d-bench/install-servers.sh                # pyright, typescript-language-server with typescript@6,
-                                                # intelephense, gopls, rust-analyzer
+                                                # intelephense, gopls, rust-analyzer, starpls
 tools/d-bench/record.py sample php 300          # -> cursors/php.tsv (seeded: the same cursors again)
 tools/d-bench/record.py oracle php              # -> answers/php.tsv, resumes where it stopped
 ```
@@ -97,6 +97,14 @@ definition next to its header declaration, a module's file next to its `mod` lin
 TokenStore method next to its type). Go, Python and Swift needed nothing. The agreements (`ok`,
 `pick-hit`) were not re-read. The four judged languages were judged cursor by cursor already;
 their in-project targets were checked line by line when they were written down.
+
+## Starlark, 2026-10-03
+
+rules_go's 270 cursors were recorded with starpls 0.1.22 and no Bazel on the machine: starpls
+answers inside the workspace and fetches no external repository, so a name a `load` takes from
+`@bazel_skylib` or another repository is `no-answer`, as is a builtin (`ctx.actions`,
+`attr.label`): 166 cursors, and 20 more stand on their declaration. Of the three misses, all are keyword arguments, which
+starpls takes to the callee's parameter and `d` refuses on purpose (#431).
 
 ## History
 

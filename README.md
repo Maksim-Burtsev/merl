@@ -249,6 +249,7 @@ moment you open it. In Python, TypeScript and Go, `d` also follows the type of t
 | Emacs Lisp | the packages `package.el` installs in `elpa/` |
 | Scheme, Racket | Racket's collections |
 | Common Lisp | Quicklisp's software and local projects |
+| Starlark (Bazel, Buck, Tilt) | the target or the file a label names, and the external repositories a Bazel build fetched |
 | Java, Kotlin, Scala, Groovy, Ruby, C#, F#, Lua, Nix, Haskell, R, Clojure | |
 | GDScript | the script `project.godot` autoloads under a name, and the file a `res://` path names |
 | Shell, SQL, Makefile, Terraform, Dockerfile, GraphQL | |

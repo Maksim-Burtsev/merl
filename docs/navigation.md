@@ -261,7 +261,13 @@ Racket the collection directories the `racket` on the PATH reports, where its li
 sources; Common Lisp Quicklisp's `~/quicklisp/dists/quicklisp/software/` and
 `~/quicklisp/local-projects/`. Clojure has none: its dependencies are jars in `~/.m2/repository`,
 whose sources merl does not read, so a namespace that is no file of the project (`clojure.string`)
-is looked for nowhere. The rest
+is looked for nowhere. Starlark's are the external repositories a Bazel build fetched: the `bazel-<name>` link Bazel
+leaves at the project root, named after the root directory, points to
+`<output_base>/execroot/_main`, and `<output_base>/external/` holds each repository under its
+canonical name, `rules_go+` in Bazel 8 and `rules_go~` in Bazel 7, so `@rules_go` is the directory
+named `rules_go` or starting with `rules_go+` or `rules_go~`. With no link, in a project never
+built, there are none, and a name a `load` takes from outside is looked for by name in the
+project. The rest
 have no roots yet, so `d` stays inside the project for them. `d` on a Go package
 qualifier, `db` in `db.Get`, lands on the import line of the open file, `db: via import
 code.gitea.io/gitea/models/db`, unless a local or a top-level name of the package is called
@@ -703,6 +709,7 @@ type, a class with no subclasses — and `d` goes on to the search by name below
 | Emacs Lisp | `defun`, `defmacro`, `defsubst`, `defvar`, `defvar-local`, `defcustom`, `defconst`, `defface`, `defgroup`, `defalias` (`(defalias 'shop-total …)`), `defclass`, `defgeneric` and `cl-defgeneric` with each `defmethod` and `cl-defmethod` offered beside it, `cl-defun`, `cl-defmacro`, `cl-defsubst`, `cl-defstruct` (`(cl-defstruct (name (:constructor …))`), `define-minor-mode`, `define-derived-mode`, `define-globalized-minor-mode`, `define-inline`, `define-error` and transient's `transient-define-prefix`, `-suffix`, `-infix` and `-argument`. A name a `let` or `let*` of the cursor's top-level form binds, or a parameter of its `defun`, `defmacro` or `lambda`, is local. `d` on the feature of `(require 'shop-money)` opens `shop-money.el`. `defadvice`, a call, a quoted symbol, a keyword, a docstring and a `?\"` character declare nothing. | every `.el` file and `.emacs` |
 | Scheme, Racket | `(define (name …)` and `(define name …)`, `define-syntax`, `define-syntax-rule`, `define-record-type`, each name of `define-values`, Racket's `struct`, `define/contract`, `define/public`, `define/private`, `define/override` and `module`. A name a `let`, `let*`, `letrec` or `letrec*` of the cursor's top-level form binds, or a parameter of its `define` or `lambda`, is local. `d` on `(require "utils.rkt")` opens that file beside the requiring one, and on `racket/list` the project's `racket/list.rkt`. A `#\| … \|#` block comment, nested, a `#;` datum comment, a docstring and a `#\"` character declare nothing. | every `.scm`, `.ss`, `.sld` and `.rkt` file |
 | Common Lisp | `defun`, `defmacro`, `defvar`, `defparameter`, `defconstant`, `defclass`, `defstruct` (`(defstruct (point (:constructor make-pt))`), `defgeneric` with each `defmethod` offered beside it, `deftype`, `define-condition`, `define-compiler-macro`, `defpackage` (`:shop`, `#:shop` or `"SHOP"`) and ASDF's `(defsystem "shop"`. Names ignore case, as the reader upcases them: `(Format-Price x)` calls `format-price`. A package qualifier (`alexandria:when-let`, `shop::internal`) is read off and the name after it looked for by name. A name a `let`, `let*`, `flet` or `labels` of the cursor's top-level form binds, or a parameter of its `defun`, `defmacro`, `defmethod` or `lambda`, is local. `(in-package :shop)`, a `#\| … \|#` block comment, nested, and a docstring declare nothing. | every `.lisp`, `.cl`, `.lsp` and `.asd` file |
+| Starlark (`BUILD`, `BUILD.bazel`, `WORKSPACE`, `MODULE.bazel`, `*.bazel`, `*.bzl`, `*.star`, `Tiltfile`, `BUCK`) | `def name(`; an assignment in column zero, which is how Starlark declares a rule, a provider and the rest (`SHOP_VISIBILITY = [...]`, `go_library = rule(`, `GoInfo = provider(`, `go_sdk = module_extension(`). A name a `load` binds, `load("//tools:defs.bzl", "shop_binary", my_alias = "go_binary")`, is looked for first in the file the label names, in the project or in an external repository, `shop_binary: via import tools/defs.bzl`; `my_alias` is that file's `go_binary`. `d` anywhere on a label string reads it whole, from quote to quote: `":api"` and `"api"` are the target `api` of the same package, the directory of the file; `"//pkg/api:api"` the target of `pkg/api/BUILD.bazel` (or `BUILD`, or `BUCK`), and `"//pkg/api"` is `//pkg/api:api`; a target is the `name = "api"` of a rule call, on its own line inside the call or on the call's line. A label that names no target but a file (`"api.go"`, `"//pkg:file.go"`, a `load`'s `"//tools:defs.bzl"`) opens the file. `"@rules_go//go:def.bzl"` is that file in the external repository, and `"@rules_go"` alone its `bazel_dep` or `http_archive` line (`name =` or `repo_name =`) in `MODULE.bazel`, `WORKSPACE.bazel` or `WORKSPACE`; the project's own name, `module(name = "shop")` or `workspace(name = …)`, is the project, and so are `@//` and `@@//`. A `//` label in a file of an external repository is that repository's. A rule call (`go_library(` is a use; its target is its `name =`), any other attribute or keyword argument (`srcs = […]`, `visibility = …`), a computed name (`name = name + "_gen"`), a name inside a `load`'s strings, `native.genrule`, a dictionary key such as one of `select({…})` and a string that is no label (`"cp $< $@"`) declare nothing. | every Starlark file |
 | SQL | `CREATE` of a table, view, index, function, procedure, trigger, type, schema, sequence, domain, extension, database, role or user, behind `OR REPLACE`, `TEMP`, `UNLOGGED`, `MATERIALIZED`, `UNIQUE` and `IF NOT EXISTS`, schema-qualified or quoted; a `WITH … AS (` common table expression. Keywords ignore case. Columns have no rule. | every `.sql`, `.psql`, `.pgsql`, `.mysql`, `.ddl` and `.dml` file |
 | Makefile, `*.mk` | a target, also one of several before the colon; a variable, outside a recipe; a variable set only by `+=` or for one target (`release: VERSION := 1.0`), when nothing assigns it plainly | every Makefile |
 | Terraform | the block behind `var.x`, `module.x`, `local.x`, `data.T.N`, `T.N`; a bare name, as in `.tfvars`, is any block with that label | `.tf` files in the same directory |
@@ -753,6 +760,8 @@ In the Lisps `-`, `?`, `!`, `*`, `+`, `<`, `>` and `=` belong to a name, at its 
 separates a namespace alias from the name and `.` the parts of a namespace; in Emacs Lisp `/` is part
 of a name (`doom/reload`); in Scheme and Racket `/` and `:` are (`define/contract`, `racket/list`);
 in Common Lisp `/` and `%` are, and `:` or `::` separates a package from the name.
+A Starlark label is read whole, from quote to quote, `/`, `:`, `@`, `-`, `.`, `+` and `~`
+included; a name outside a string is Python's.
 Markdown reads a link or a code span whole around the cursor, not as a word.
 
 ## `D`: project symbols
@@ -775,7 +784,10 @@ generic of `setClass`, `setGeneric` and `setRefClass` under its quoted name, and
 the name it is assigned to, and no plain assignment. Solidity
 adds `contract`, `abstract contract`, `library`, `modifier`, `event` and `error`, which that regex
 has no word for, beside the `function`, `struct`, `enum`, `interface` and `type` it reads, and no
-state variable. Java, Kotlin,
+state variable. Starlark adds
+a rule, a provider, an aspect, a repository rule and a module extension assigned in column zero
+(`go_library = rule(`), under its name, and the targets, under their `name = "…"`, in a row of
+their own, so that a monorepo's thousands of targets never crowd the rules off the list. Java, Kotlin,
 Scala, Groovy, Ruby, C, C++, C#, Swift, PHP, Lua, Elixir, Protocol Buffers, PowerShell, Dart, CMake, Nix, Haskell, OCaml, F#, Julia, Perl, GDScript and the Lisps are read from rules of their
 own instead of that regex — Java's types and its methods, told from a call by the return type before
 the name; Kotlin's `fun` (past an extension's receiver), types, `object`, `typealias` and

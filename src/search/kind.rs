@@ -41,6 +41,7 @@ pub enum Kind {
     EmacsLisp,
     Scheme,
     CommonLisp,
+    Starlark,
     Sql,
     Make,
     Terraform,
@@ -129,6 +130,9 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (".emacs", _) | (_, "el") => Kind::EmacsLisp,
         (_, "scm" | "ss" | "sld" | "rkt") => Kind::Scheme,
         (_, "lisp" | "cl" | "lsp" | "asd") => Kind::CommonLisp,
+        ("BUILD" | "WORKSPACE" | "Tiltfile" | "BUCK", _) | (_, "bazel" | "bzl" | "star") => {
+            Kind::Starlark
+        }
         (_, "sql" | "psql" | "pgsql" | "mysql" | "ddl" | "dml") => Kind::Sql,
         ("Makefile" | "makefile" | "GNUmakefile", _) | (_, "mk") => Kind::Make,
         (_, "tf" | "tfvars") => Kind::Terraform,

@@ -171,7 +171,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         return Vec::new();
     };
     match kind {
-        Kind::Python => python_bindings(&lines, at, name),
+        Kind::Python | Kind::Starlark => python_bindings(&lines, at, name),
         Kind::TsJs | Kind::Go | Kind::CSharp => block_bindings(kind, &lines, at, name),
         Kind::Lua => lua_bindings(&lines, at, name),
         Kind::Shell => shell_bindings(&lines, at, name),

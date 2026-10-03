@@ -369,6 +369,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
         | Kind::EmacsLisp
         | Kind::Scheme
         | Kind::CommonLisp
+        | Kind::Starlark
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform
@@ -891,6 +892,7 @@ pub fn module_files(
         | Kind::Ocaml
         | Kind::Fsharp
         | Kind::Perl
+        | Kind::Starlark
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform

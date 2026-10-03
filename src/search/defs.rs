@@ -480,6 +480,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         Kind::Clojure | Kind::EmacsLisp | Kind::Scheme | Kind::CommonLisp => {
             lisp_patterns(kind, word)
         }
+        Kind::Starlark => starlark_patterns(word),
         // `FROM image AS name`, with any flags before the image. Stage names ignore case.
         Kind::Docker => vec![format!(r"(?i)^\s*FROM\s+(\S+\s+)+AS\s+{w}\s*$")],
         // An anchor, or a key that opens a block: compose services, CI jobs, GitLab's `.hidden`
@@ -1016,6 +1017,7 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         | Kind::EmacsLisp
         | Kind::Scheme
         | Kind::CommonLisp
+        | Kind::Starlark
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform

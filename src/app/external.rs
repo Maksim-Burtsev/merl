@@ -578,6 +578,7 @@ impl App {
             | Kind::EmacsLisp
             | Kind::Scheme
             | Kind::CommonLisp
+            | Kind::Starlark
             | Kind::Sql
             | Kind::Make
             | Kind::Terraform
@@ -620,6 +621,7 @@ impl App {
             Kind::EmacsLisp,
             Kind::Scheme,
             Kind::CommonLisp,
+            Kind::Starlark,
             Kind::Sql,
             Kind::Make,
             Kind::Terraform,

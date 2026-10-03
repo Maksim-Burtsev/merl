@@ -30,6 +30,7 @@ mod powershell;
 mod r;
 mod scope;
 mod solidity;
+mod starlark;
 mod symbols;
 mod types;
 mod words;

@@ -75,7 +75,9 @@ impl App {
             return;
         }
         if let Some(here) = self.rel_current()
-            && (self.follow_ref(&here) || self.css_definition(kind, &here))
+            && (self.follow_ref(&here)
+                || self.css_definition(kind, &here)
+                || kind == Some(Kind::Starlark) && self.starlark_definition(&here))
         {
             return;
         }
