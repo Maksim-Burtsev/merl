@@ -73,7 +73,7 @@ fn defs(dir: &Path, files: &[PathBuf], kind: Kind, word: &str) -> Vec<usize> {
     grep(dir, files, &pat, false, false)
         .iter()
         .filter(|h| {
-            if kind != Kind::C {
+            if !matches!(kind, Kind::C | Kind::Jvm) {
                 return true;
             }
             let text = std::fs::read_to_string(dir.join(&h.path)).unwrap_or_default();
