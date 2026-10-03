@@ -323,27 +323,15 @@ impl App {
         files: &[PathBuf],
         imports: &[(String, Vec<String>)],
     ) -> Vec<PathBuf> {
-        let roots = self
-            .external
-            .get(&Kind::Python)
-            .map(|(roots, _)| roots.as_slice())
-            .unwrap_or_default();
-        let packages: Vec<&str> = (imports.iter())
+        let mut packages: Vec<&String> = (imports.iter())
             .filter_map(|(_, path)| path.first())
             .filter(|p| !p.starts_with('.'))
-            .map(String::as_str)
             .collect();
-        (files.iter())
-            .filter(|f| {
-                python_rel(roots, f)
-                    .and_then(|(_, rel)| rel.components().next())
-                    .map(|c| c.as_os_str().to_string_lossy())
-                    .is_some_and(|top| {
-                        let module = top.strip_suffix(".pyi").or_else(|| top.strip_suffix(".py"));
-                        packages.contains(&module.unwrap_or(&top))
-                    })
-            })
-            .cloned()
+        packages.sort();
+        packages.dedup();
+        (packages.into_iter())
+            .filter_map(|p| self.python_module_among(files, std::slice::from_ref(p)))
+            .flat_map(|(_, found)| found)
             .collect()
     }
 

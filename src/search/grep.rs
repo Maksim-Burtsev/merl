@@ -119,7 +119,7 @@ fn collect(
         let others: Vec<_> = (1..threads).map(|_| s.spawn(work)).collect();
         let mut hits = work();
         for t in others {
-            hits.extend(t.join().unwrap_or_default());
+            hits.extend(t.join().unwrap_or_else(|e| std::panic::resume_unwind(e)));
         }
         hits
     });

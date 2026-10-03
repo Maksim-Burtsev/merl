@@ -92,6 +92,24 @@ fn the_cap_keeps_the_first_files_in_the_order_given() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+#[test]
+fn a_panic_on_any_file_reaches_the_caller() {
+    let names: Vec<String> = (0..400).map(|i| format!("f{i:03}.py")).collect();
+    let texts: Vec<(&str, &str)> = (names.iter())
+        .enumerate()
+        .map(|(i, n)| (n.as_str(), if i == 399 { "boom\n" } else { "calm\n" }))
+        .collect();
+    let (dir, files) = scratch("panic-reaches", &texts);
+    let run = std::panic::catch_unwind(|| {
+        grep_filtered(&dir, &files, "boom|calm", None, None, |l| {
+            assert_ne!(l, "boom");
+            true
+        })
+    });
+    assert!(run.is_err(), "the file a worker thread read panicked");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// Every pattern of [`LAST`], and the near-misses that carry the same letters but are code.
 #[test]
 fn tests_mocks_fixtures_and_generated_files_rank_last() {
