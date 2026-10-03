@@ -1,0 +1,57 @@
+wait new::self (local)
+┌orders──────────────────────┐ 1 package Shop::Order;
+│▸ .github                   │ 2 use strict;
+│▸ .venv                     │ 3
+│▸ app                       │ 4 sub new {
+│▸ data                      │ 5     my ($class, %args) = @_;
+│▸ deploy                    │ 6     my $self = { total => $args{total} // 0 };
+│▸ docs                      │ 7     return bless $self, $class;
+│▾ perlshop                  │ 8 }
+│  ▾ bin                     │ 9
+│      report.pl             │10 sub total { $_[0]{total} }
+│  ▾ lib                     │11
+│    ▾ Shop                  │12 1;
+│        Order.pm            │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+perlshop/lib/Shop/Order.pm  6:9  [code]  self → new::self (local)
+cursor (x,y,shown) 41,5,1

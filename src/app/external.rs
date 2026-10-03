@@ -544,6 +544,7 @@ impl App {
             | Kind::Fsharp
             | Kind::Julia
             | Kind::R
+            | Kind::Perl
             | Kind::Sql
             | Kind::Make
             | Kind::Terraform
@@ -579,6 +580,7 @@ impl App {
             Kind::Fsharp,
             Kind::Julia,
             Kind::R,
+            Kind::Perl,
             Kind::Sql,
             Kind::Make,
             Kind::Terraform,
@@ -855,7 +857,7 @@ impl App {
                     .as_deref()
                     .filter(|_| !matches!(c.reason, Reason::Module(_)))
                     .and_then(|text| {
-                        let word = definition::declared_as(kind, word, &c.hit.text);
+                        let word = jvm::declared_as(kind, word, &c.hit.text);
                         search::qualified(kind, text, c.hit.line, &word)
                     })
                     .unwrap_or_else(|| word.to_owned());
@@ -887,7 +889,7 @@ impl App {
                     code_at: Some(head.len()),
                     col: word_col(
                         &c.hit.text,
-                        &definition::declared_as(kind, word, &c.hit.text),
+                        &jvm::declared_as(kind, word, &c.hit.text),
                         search::word_chars(Some(kind), true),
                     ),
                     label: head + &clip(c.hit.text.trim(), MAX_LABEL_TEXT),

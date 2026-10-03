@@ -42,6 +42,7 @@ mod members;
 mod missed;
 mod ml;
 mod open;
+mod perl;
 mod php;
 mod picker;
 mod preview;

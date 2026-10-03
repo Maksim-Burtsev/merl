@@ -34,6 +34,7 @@ pub enum Kind {
     Fsharp,
     Julia,
     R,
+    Perl,
     Sql,
     Make,
     Terraform,
@@ -115,6 +116,7 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "fs" | "fsi" | "fsx") => Kind::Fsharp,
         (_, "jl") => Kind::Julia,
         (_, "R" | "r") | (".Rprofile", _) => Kind::R,
+        (_, "pl" | "pm" | "t") => Kind::Perl,
         (_, "sql" | "psql" | "pgsql" | "mysql" | "ddl" | "dml") => Kind::Sql,
         ("Makefile" | "makefile" | "GNUmakefile", _) | (_, "mk") => Kind::Make,
         (_, "tf" | "tfvars") => Kind::Terraform,
@@ -182,7 +184,7 @@ pub fn word_chars(kind: Option<Kind>, address: bool) -> &'static str {
 }
 /// What stands between the names of a qualified name of `kind`: `Depot::open`, `Outer.find`.
 pub fn separator(kind: Kind) -> &'static str {
-    if matches!(kind, Kind::Rust | Kind::C | Kind::Php) {
+    if matches!(kind, Kind::Rust | Kind::C | Kind::Php | Kind::Perl) {
         "::"
     } else {
         "."

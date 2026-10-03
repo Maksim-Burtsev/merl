@@ -62,6 +62,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `no definition for filter` rather than landing on the project's own `filter`. `D` lists functions,
   S4 and reference classes, generics and R6 classes, and `u` reads `print.invoice` and `.onLoad` as
   one name. (#422)
+- `d` and `D` in Perl (`.pl`, `.pm`, `.t`), where `d` said `no rules for .pm`. `d` on `new` in
+  `Shop::Order->new` lands on `sub new` of the file that declares `package Shop::Order`, `new: via
+  Shop::Order`, and on `Order` there on that `package` line; on `$order->total`, on `sub total` by
+  name; on a `my` or `state` variable, on its nearest declaration in the same file, `self: local`,
+  never on another file's `my $self`; on `basename` behind `use File::Basename qw(basename)`, on
+  its `sub basename` in `@INC`, read-only. A constant, a `has` attribute, an `our` variable and
+  5.38's `class`, `method` and `field` are found too, nothing in POD, a heredoc or after
+  `__END__`, and `D` lists the subs, methods, packages and classes. (#424)
 
 ## [0.8.1] - 2026-10-02
 

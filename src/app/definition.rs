@@ -103,6 +103,10 @@ impl App {
             self.message = self.no_rules();
             return;
         };
+        if kind == Kind::Perl {
+            self.perl_definition(&here);
+            return;
+        }
         if self.component_template(&here, &range, &mut word) {
             return;
         }
@@ -2421,7 +2425,7 @@ impl App {
                 let path = self.root.join(&one.hit.path);
                 // A module's first line declares nothing of the word, and a label's reason names
                 // what declares the parameter or the field already.
-                let name = declared_as(kind, word, &one.hit.text);
+                let name = super::jvm::declared_as(kind, word, &one.hit.text);
                 let target = self
                     .hit_text(&one.hit)
                     .filter(|_| !matches!(one.reason, Reason::Module(_) | Reason::Label(_)))
@@ -2617,17 +2621,6 @@ impl App {
         }
         hits
     }
-}
-
-/// The name `word` is declared by on the line `text`: itself, or for a Java Lombok accessor
-/// the field it reads, `title` for `getTitle` (#381).
-pub(super) fn declared_as(kind: Kind, word: &str, text: &str) -> String {
-    if kind != Kind::Jvm || whole_at(text, word, "").is_some() {
-        return word.to_owned();
-    }
-    search::jvm_accessor(word)
-        .and_then(|(names, _)| names.into_iter().find(|n| whole_at(text, n, "").is_some()))
-        .unwrap_or_else(|| word.to_owned())
 }
 
 /// What the status line says after `d` on `word`: `word → Target.word (reason)` for a jump,

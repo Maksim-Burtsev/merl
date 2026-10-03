@@ -38,6 +38,7 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Fsharp
         | Kind::Julia
         | Kind::R
+        | Kind::Perl
         | Kind::Sql
         | Kind::Make
         | Kind::Graphql
@@ -286,6 +287,10 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
             });
             let depot = julia_depot(std::env::var_os("JULIA_DEPOT_PATH"), &home);
             julia_roots(root, share.clone(), &depot)
+        }
+        Kind::Perl => {
+            let inc = run("perl", &["-e", "print join qq{\\n}, @INC"]).unwrap_or_default();
+            perl_roots(root, &inc)
         }
         // Java and Kotlin have no roots yet: the JDK and Gradle caches are their own lookups.
         // C# has nothing to point at: a NuGet package is compiled

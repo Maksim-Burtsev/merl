@@ -23,6 +23,7 @@ mod links;
 mod ml;
 mod nix;
 mod other_languages;
+mod perl;
 mod powershell;
 mod r;
 mod scope;

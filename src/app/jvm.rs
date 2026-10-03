@@ -635,6 +635,15 @@ impl App {
     }
 }
 
+pub(super) fn declared_as(kind: Kind, word: &str, text: &str) -> String {
+    if kind != Kind::Jvm || whole_at(text, word, "").is_some() {
+        return word.to_owned();
+    }
+    search::jvm_accessor(word)
+        .and_then(|(names, _)| names.into_iter().find(|n| whole_at(text, n, "").is_some()))
+        .unwrap_or_else(|| word.to_owned())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

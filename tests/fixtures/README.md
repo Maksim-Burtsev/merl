@@ -285,6 +285,16 @@ its own; a `source()` path; each refusal (a wrapped call with named arguments be
 `=`, field and element writes, a replacement call, a formula, a right assignment, a `for`
 variable); and declaration-shaped lines in a `"…"` and a `'…'` over lines, a raw string with
 parentheses and one with dashes and brackets, and a comment.
+`perl/` (#424) is a `lib/Shop/` of three packages and a `bin/report.pl` and `t/order.t` that
+use them: a package read whole from either part, a method behind its class (`Shop::Order->new`),
+a qualified sub and variable, a call on a value by name, `my $self` in three files (each stays in
+its own) and in two subs of one file, a sigil change (`$args{total}` to `%args`, `$#items` to
+`@items`), a `for my` loop, `state`, a signature, a constant of each form, Moose's `has`, 5.38's
+`class`, `method` and `field`, each refusal of the issue, a `new` the package does not declare
+(offered, never jumped to), and declaration-shaped lines in a heredoc, an indented heredoc, a
+`q{…}` over lines, POD and after `__END__`. Carton's `local/lib/perl5`, ignored by a `.gitignore`
+of its own and added with `git add -f`, holds the `File::Basename` an import reaches outside the
+project.
 
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
 `deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies
