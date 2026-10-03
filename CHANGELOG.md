@@ -43,10 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `exception`, `external`, `class` and `method`, and F#'s `member`, `override`, `abstract` and
   `namespace`. `D` lists each module's items, and `u` reads `x'` as one name. `List.map` is
   looked for in the OCaml standard library and the opam switch. (#427)
-
-### Fixed
-
-- A `.fs` file is highlighted as F#, not GLSL. (#427)
 - `d`, `u` and `D` in Julia, where `d` said `no rules for .jl`. `d` on `format_price` lands on
   its one-line `format_price(m::Money) = …`, on `check` in `@check` on its `macro check(ex)`, on
   a name the function assigns or takes on that line, `m → report.m (local)`, never on another file's global
@@ -101,20 +97,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `defun`, `define` or `lambda` bind, on that binding, `total: local`; on `(require 'shop-money)`
   or `(require "utils.rkt")`, the file. `D` lists each dialect's functions, macros and types, and
   `u` reads `format-price`, `empty?` and `*out*` as one name. (#428)
-### Changed
-
-- `d` outside the project answers faster: the dependencies are read in parallel, each file's
-  comments are lexed once, and a Python member is looked for in the packages the file imports
-  before every installed one, so its picker lists those alone (#318).
-### Changed
-
-- `d` in Java and Kotlin reads the type a cast, a pattern or a smart cast gives the receiver:
-  `var m = (Meter) any`, `((Meter) any).reading()`, `any instanceof Gauge g`, Kotlin's `dao as
-  NewsDao`, `(dao as? NewsDao)?.purge()`, and `dao.purge()` inside `if (dao is NewsDao)` or an
-  `is NewsDao ->` branch of `when (dao)` jump to that type's member, `purge → NewsDao.purge (via
-  dao: NewsDao)`, where they offered every `purge` of the project. So do a dotted type,
-  `Meter.Dial dial`, and Kotlin's `x?.m` and `x!!.m`; `Map.Entry` says `no definition`. (#388,
-  #391)
 - `d` and `D` in Starlark: Bazel's `BUILD`, `*.bazel` and `.bzl` files, `.star`, Tilt's `Tiltfile`
   and Buck's `BUCK`, where `d` said `no rules for .bzl`. `d` on a macro or a rule a `load` takes
   lands on its declaration in the file the `load` names, `shop_binary: via import tools/defs.bzl`;
@@ -122,11 +104,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `"//tools:defs.bzl"` on the file, `"@rules_go"` on its `bazel_dep` line, and in a project
   Bazel has built, `"@rules_go//go:def.bzl"` and the names loaded from it in the repository Bazel
   fetched, read-only. `D` lists the rules, the providers and the targets. (#431)
-
-### Fixed
-
-- A Bazel `BUILD` file is highlighted as Starlark instead of as XML, and a `BUCK` or `.star` file
-  is highlighted at all. (#431)
 - `d` in Kotlin follows the names Gradle and Android generate from files that are no code, where
   it said `no definition`: in a `build.gradle.kts`, `d` on any segment of
   `libs.google.oss.licenses` lands on its `google-oss-licenses = …` in
@@ -135,6 +112,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on its `<string name="bookmark_removed">` in `res/values/strings.xml`, with a picker when a
   translation declares it too; `R.drawable.x` and the other file resources open the file, and
   `R.id.x` its `@+id/x` in a layout. (#385)
+
+### Changed
+
+- `d` outside the project answers faster: the dependencies are read in parallel, each file's
+  comments are lexed once, and a Python member is looked for in the packages the file imports
+  before every installed one, so its picker lists those alone (#318).
+- `d` in Java and Kotlin reads the type a cast, a pattern or a smart cast gives the receiver:
+  `var m = (Meter) any`, `((Meter) any).reading()`, `any instanceof Gauge g`, Kotlin's `dao as
+  NewsDao`, `(dao as? NewsDao)?.purge()`, and `dao.purge()` inside `if (dao is NewsDao)` or an
+  `is NewsDao ->` branch of `when (dao)` jump to that type's member, `purge → NewsDao.purge (via
+  dao: NewsDao)`, where they offered every `purge` of the project. So do a dotted type,
+  `Meter.Dial dial`, and Kotlin's `x?.m` and `x!!.m`; `Map.Entry` says `no definition`. (#388,
+  #391)
+
+### Fixed
+
+- A `.fs` file is highlighted as F#, not GLSL. (#427)
+- A Bazel `BUILD` file is highlighted as Starlark instead of as XML, and a `BUCK` or `.star` file
+  is highlighted at all. (#431)
 
 ## [0.8.1] - 2026-10-02
 

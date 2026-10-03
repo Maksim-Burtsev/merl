@@ -1369,69 +1369,6 @@ pub fn directly_inside<S: AsRef<str>>(lines: &[S], line: usize, opener: &str) ->
         .find(|l| !l.trim().is_empty() && indent(l) < depth)
         .is_some_and(|l| l.trim_start().starts_with(opener))
 }
-/// A common table expression named `word`: opening the `WITH`, or continuing it after the
-/// comma that follows the previous one's closing `)`. The match ends on the `(` of its body.
-pub fn sql_cte(word: &str) -> String {
-    let w = regex::escape(word);
-    format!(r"(?i)^\s*(?:\)\s*)?(?:WITH\s+(?:RECURSIVE\s+)?|,\s*)?{w}\s+AS\s*\(")
-}
-/// Whether byte `col` of 1-based `line` of `text` sees the common table expression `word` that
-/// 1-based `cte` opens (#472). A CTE lives in its own statement: after its `AS (…)` up to the
-/// `;` that ends it, and inside its own body too under `WITH RECURSIVE`. A bracket or a `;` in
-/// a comment or a `'string'` counts for nothing. `None` past its body when no `;` ends the
-/// statement (a script of T-SQL batches split by `GO`, say): where its scope ends is not known.
-pub fn sql_cte_sees(text: &str, cte: usize, word: &str, line: usize, col: usize) -> Option<bool> {
-    let start = |l: usize| -> usize { text.split_inclusive('\n').take(l - 1).map(str::len).sum() };
-    let head = Regex::new(&sql_cte(word)).expect("an escaped name keeps the pattern valid");
-    let Some(m) = text.lines().nth(cte - 1).and_then(|l| head.find(l)) else {
-        return Some(false);
-    };
-    let (open, at, b) = (start(cte) + m.end() - 1, start(line) + col, text.as_bytes());
-    // The statement's first byte, the depth inside the body, and the body's closing `)`.
-    let (mut first, mut depth, mut close, mut i) = (0, None::<usize>, None, 0);
-    let mut ended = false;
-    while i < b.len() {
-        let skip = match &b[i..] {
-            [b'-', b'-', ..] => "\n",
-            [b'/', b'*', ..] => "*/",
-            [b'\'', ..] => "'",
-            [b'(', ..] if i >= open => {
-                depth = Some(depth.map_or(1, |d| d + 1));
-                ""
-            }
-            [b')', ..] if close.is_none() => {
-                depth = depth.map(|d| d - 1);
-                if depth == Some(0) {
-                    close = Some(i);
-                }
-                ""
-            }
-            [b';', ..] if i < open => {
-                first = i + 1;
-                ""
-            }
-            [b';', ..] => {
-                ended = true;
-                break;
-            }
-            _ => "",
-        };
-        i += match skip {
-            "" => 1,
-            s => text[i + 1..].find(s).map_or(b.len(), |n| n + 1 + s.len()),
-        };
-    }
-    let recursive = Regex::new(r"(?i)\bWITH\s+RECURSIVE\b").expect("a valid pattern");
-    let from = if recursive.is_match(&text[first..open]) {
-        open
-    } else {
-        close.unwrap_or(i)
-    };
-    match at > from {
-        false => Some(false),
-        true => ended.then_some(at <= i),
-    }
-}
 /// Whether the Zig declaration on 1-based `line` of `text` can be what a name elsewhere names
 /// (#469): no function or test holds it, whose local it would be — the blocks around it, told by
 /// indentation, lead to a container (the file, a `struct`, an `enum`, a `union`, an `opaque`)
