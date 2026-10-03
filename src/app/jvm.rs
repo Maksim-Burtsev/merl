@@ -186,6 +186,81 @@ impl App {
         (!found.is_empty()).then_some(found)
     }
 
+    /// What a bare `word` names among the members of the Java or Kotlin classes around the
+    /// cursor (#376): what the innermost class that declares it declares, `via` its name (an
+    /// anonymous class's members are `local`), else what the class the innermost one extends
+    /// declares, when the project declares that class once. `None` when neither does, or when the
+    /// cursor stands on the member itself, whose namesakes and implementations are asked for.
+    pub(super) fn jvm_members(
+        &self,
+        here: &Path,
+        text: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let lines: Vec<&str> = text.lines().collect();
+        let candidate = |path: &Path, lines: &[&str], line: usize, reason: Reason| Candidate {
+            hit: Hit {
+                deleted: None,
+                path: path.to_path_buf(),
+                line,
+                col: 0,
+                text: lines[line - 1].to_owned(),
+            },
+            reason,
+        };
+        let types = search::jvm_enclosing_types(text, self.line + 1);
+        let mut found: Vec<Candidate> = Vec::new();
+        for &decl in &types {
+            let reason = match search::jvm_type_name(lines[decl - 1]) {
+                Some(name) => Reason::Path(name),
+                None => Reason::Local,
+            };
+            found = search::jvm_members_of(text, decl, word)
+                .into_iter()
+                .map(|line| candidate(here, &lines, line, reason.clone()))
+                .collect();
+            if !found.is_empty() {
+                break;
+            }
+        }
+        // One level up: the class the innermost named one extends, declared once.
+        let inner = types
+            .iter()
+            .find(|&&d| search::jvm_type_name(lines[d - 1]).is_some());
+        if found.is_empty()
+            && let Some(&decl) = inner
+        {
+            for base in search::jvm_bases(text, decl, search::scala(here)) {
+                let pattern = search::def_patterns(Kind::Jvm, &base).join("|");
+                let cut = self.truncated.get();
+                let declared: Vec<Hit> = self
+                    .project_definitions(Kind::Jvm, here, &base, &pattern)
+                    .into_iter()
+                    .filter(|h| search::jvm_type_name(&h.text).as_deref() == Some(base.as_str()))
+                    .collect();
+                self.truncated.set(cut);
+                let [hit] = declared.as_slice() else {
+                    continue;
+                };
+                let Some(t) = self.text_of(&hit.path) else {
+                    continue;
+                };
+                let base_lines: Vec<&str> = t.lines().collect();
+                found.extend(
+                    search::jvm_members_of(&t, hit.line, word)
+                        .into_iter()
+                        .map(|line| {
+                            candidate(&hit.path, &base_lines, line, Reason::Path(base.clone()))
+                        }),
+                );
+            }
+        }
+        let on_it = found
+            .iter()
+            .any(|c| c.hit.path == here && c.hit.line == self.line + 1);
+        (!found.is_empty() && !on_it).then_some(found)
+    }
+
     /// The Java and Kotlin files of the project by the package their `package` line declares;
     /// `None` when the grep was cut and a package may be missing.
     pub(super) fn jvm_packages(&self) -> Option<HashMap<String, Vec<PathBuf>>> {

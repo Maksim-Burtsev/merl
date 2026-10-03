@@ -8,6 +8,7 @@
 //! The rules live in the modules below and are re-exported here, so a caller names what
 //! it wants (`search::def_patterns`) and not which module happens to hold it.
 
+mod android;
 mod bindings;
 mod c;
 mod cmake;
@@ -41,6 +42,7 @@ mod syntax;
 mod types;
 mod words;
 
+pub use android::*;
 pub use bindings::*;
 pub use c::*;
 pub use cmake::*;
