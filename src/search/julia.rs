@@ -244,10 +244,7 @@ pub(super) fn julia_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindi
         r"(?:^|[^\w!])(?:{w}|\((?:[^()]*[,\s])?{w}(?:[,\s:=][^()]*)?\))\s*->"
     ))
     .expect("an escaped name keeps the pattern valid");
-    if generator.is_match(lines[at])
-        || lambda.is_match(lines[at])
-        || method_head(lines[at]).is_some_and(|h| params(h).iter().any(|p| p == name))
-    {
+    if generator.is_match(lines[at]) || lambda.is_match(lines[at]) {
         return binding(at);
     }
     let literal = julia_literal_lines(&lines.join("\n"));
@@ -279,7 +276,7 @@ pub(super) fn julia_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindi
             outer = (k + 1..body_end)
                 .find(|&i| code(i) && indent(lines[i]) == body && assigns(lines[i]))
                 .or(outer);
-            if outer.is_some() && l.trim_start().starts_with('@') {
+            if outer.is_some() && l.trim_start().starts_with("@testset") {
                 break;
             }
         }
@@ -337,11 +334,6 @@ static HEADER: LazyLock<Regex> = LazyLock::new(|| {
 fn method_def(lines: &[&str], k: usize) -> bool {
     HEAD.find(lines[k])
         .is_some_and(|m| defines(&lines[k..lines.len().min(k + 20)].join("\n")[m.end() - 1..]))
-}
-
-fn method_head(line: &str) -> Option<&str> {
-    let m = HEAD.find(line)?;
-    defines(&line[m.end() - 1..]).then_some(line)
 }
 
 fn params(head: &str) -> Vec<String> {
