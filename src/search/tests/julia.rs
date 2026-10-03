@@ -241,6 +241,45 @@ fn julia_locals_stay_in_their_function() {
 }
 
 #[test]
+fn julia_locals_of_blocks_outside_functions() {
+    let lines = [
+        "@testset \"all\" begin",
+        "    for x in xs",
+        "        res = 1",
+        "    end",
+        "    t = 1",
+        "    for y in ys",
+        "        res = 2",
+        "        res = 3",
+        "        t = 2",
+        "        @inbounds for z in zs",
+        "            t = 3",
+        "            res + t",
+        "        end",
+        "    end",
+        "    function f()",
+        "        t",
+        "    end",
+        "end",
+        "Base.push!(xs, row;",
+        "           strict = true) =",
+        "    append!(xs, row)",
+    ];
+    let at = |line: usize, name: &str| {
+        bindings(Kind::Julia, &lines.join("\n"), line, name)
+            .iter()
+            .map(|b| b.line)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(at(12, "res"), [7]);
+    assert_eq!(at(12, "t"), [5]);
+    assert_eq!(at(16, "t"), [5]);
+    assert_eq!(at(21, "row"), [19]);
+    assert_eq!(at(21, "strict"), [19]);
+    assert!(at(21, "append!").is_empty());
+}
+
+#[test]
 fn julia_imports_bind_names_and_modules() {
     let text = "using DataFrames\nusing CSV, Tables\nimport DataFrames: select, transform as tf\nusing Base.Iterators: flatten\nimport LinearAlgebra as LA\nusing ..Shop\nimport Base.show\nusing Test: @test\n# using Hidden\n";
     let got = imports(Kind::Julia, text);
