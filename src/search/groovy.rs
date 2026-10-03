@@ -10,6 +10,8 @@ static EXT_MEMBER: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^\s+([A-Za-z_]\w*)\s*=[^=]").unwrap());
 static TASK: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^\s*task\s+([A-Za-z_]\w*)(?:[^\w.=]|$)").unwrap());
+static CONSTRUCTOR: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^\s*([A-Za-z_]\w*)\s*\([^;]*\)\s*\{").unwrap());
 static REGISTERED: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"\btasks\.(?:register|create)\s*\(?\s*['"]([A-Za-z_]\w*)['"]"#).unwrap()
 });
@@ -21,6 +23,7 @@ pub(super) fn groovy_patterns(word: &str) -> Vec<String> {
         format!(r"^\s+{w}\s*=[^=]"),
         format!(r"^\s*task\s+{w}(?:[^\w.=]|$)"),
         format!(r#"\btasks\.(?:register|create)\s*\(?\s*['"]{w}['"]"#),
+        format!(r"^\s*{w}\s*\([^;]*\)\s*\{{"),
     ]
 }
 
@@ -39,6 +42,17 @@ pub(super) fn groovy_declares<'a, S: AsRef<str> + 'a>(
     let other = [&*EXT_PROPERTY, &TASK, &REGISTERED]
         .iter()
         .any(|re| names(re, line_text, word));
+    if names(&CONSTRUCTOR, line_text, word) {
+        return Some(
+            groovy(path) && {
+                let lines = lines().iter().map(AsRef::as_ref).collect::<Vec<&str>>();
+                jvm_enclosing_types(&lines.join("\n"), line)
+                    .first()
+                    .and_then(|&t| jvm_type_name(lines[t - 1]))
+                    .is_some_and(|name| name == word)
+            },
+        );
+    }
     if !member && !other {
         return None;
     }

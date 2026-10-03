@@ -406,32 +406,43 @@ fn arguments(lines: &[String], at: usize, open: usize) -> Option<(usize, bool)> 
     None
 }
 
-/// The parameters the declaration of `word` on 1-based `line` of `text` takes: the fewest, and
-/// whether a varargs `...` takes any more. `None` when the line opens no parameter list.
-fn parameters(text: &str, line: usize, word: &str) -> Option<(usize, bool)> {
+static MAP_ARGUMENT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"^\(\s*(?:\[\s*(?:\w+\s*:|:\s*\])|\w+\s*:[^:])").unwrap()
+});
+
+static DEFAULT: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"[^=!<>]=(?:[^=~]|$)").unwrap());
+
+fn parameters(text: &str, line: usize, word: &str, groovy: bool) -> Option<(usize, usize)> {
     let lines: Vec<String> = text.lines().map(str::to_owned).collect();
     let at = line.checked_sub(1)?;
     let re = Regex::new(&format!(r"\b{}\s*\(", regex::escape(word))).ok()?;
     let open = re.find(lines.get(at)?)?.end() - 1;
     let (count, _) = arguments(&lines, at, open)?;
     let joined = lines[at..(at + 60).min(lines.len())].join("\n");
-    let varargs = joined[open..]
-        .split(')')
-        .next()
-        .is_some_and(|p| p.contains("..."));
-    Some(match varargs {
-        true => (count.saturating_sub(1), true),
-        false => (count, false),
-    })
+    let list = joined[open..].split(')').next().unwrap_or_default();
+    if list.contains("...") {
+        return Some((count.saturating_sub(1), usize::MAX));
+    }
+    if !groovy {
+        return Some((count, 0));
+    }
+    let mut angle = 0usize;
+    let mut typed = 0;
+    for c in list.chars() {
+        match c {
+            '<' => angle += 1,
+            '>' => angle = angle.saturating_sub(1),
+            ',' if angle > 0 => typed += 1,
+            _ => {}
+        }
+    }
+    let count = count.saturating_sub(typed);
+    let optional = (list.split(',').filter(|p| DEFAULT.is_match(p)).count()).min(count);
+    Some((count - optional, optional))
 }
 
 impl App {
-    /// Of the Java and Kotlin declarations of `word` found by name, those the shape of the use
-    /// at the cursor fits (#367). In Java: behind `new`, the constructors of a class that
-    /// declares some, and elsewhere its `class` line rather than them; a call `name(` is a
-    /// method or a constructor, never a variable, `values()` and `valueOf(` an enum's; the
-    /// argument count keeps the overloads it fits, unless the arguments hold a `<` or none
-    /// fits. In Kotlin, a word between two operands is an infix call: only an `infix fun`.
     pub(super) fn jvm_use_fit(
         &self,
         here: &Path,
@@ -443,7 +454,8 @@ impl App {
         let line = self.line_str();
         let (before, after) = (&line[..range.start], &line[range.end..]);
         let java = here.extension().is_some_and(|e| e == "java");
-        if !java {
+        let groovy = search::groovy(here);
+        if !java && !groovy {
             return match self.kotlin_infix(before, after, word) {
                 true => hits
                     .into_iter()
@@ -458,9 +470,10 @@ impl App {
         let call_re =
             Regex::new(&format!(r"\b{w}\s*\(")).expect("an escaped name keeps the pattern valid");
         let is_class = |h: &Hit| class_re.is_match(&h.text);
-        let java_file = |h: &Hit| h.path.extension().is_some_and(|e| e == "java");
+        let java_or_groovy =
+            |h: &Hit| h.path.extension().is_some_and(|e| e == "java") || search::groovy(&h.path);
         let constructor = |h: &Hit| {
-            java_file(h)
+            java_or_groovy(h)
                 && !is_class(h)
                 && word.starts_with(char::is_uppercase)
                 && call_re.is_match(&h.text)
@@ -478,7 +491,7 @@ impl App {
             hits.retain(|h| !constructor(h));
         }
         let call = after.starts_with('(');
-        if !call {
+        if !call || (groovy && !constructed) {
             return hits;
         }
         // `values()` and `valueOf(` inside an enum or behind its name are the enum's.
@@ -505,15 +518,36 @@ impl App {
         if angle || hits.len() < 2 {
             return hits;
         }
+        let map_argument = groovy && constructed && MAP_ARGUMENT.is_match(after);
+        let count = match map_argument {
+            true => 1,
+            false => count,
+        };
         let fits = |h: &Hit| {
-            if !java_file(h) || is_class(h) {
+            if !java_or_groovy(h) || is_class(h) {
                 return true;
             }
             self.text_of(&h.path)
-                .and_then(|t| parameters(&t, h.line, word))
-                .is_none_or(|(n, more)| count == n || (more && count >= n))
+                .and_then(|t| parameters(&t, h.line, word, search::groovy(&h.path)))
+                .is_none_or(|(n, more)| (n..=n.saturating_add(more)).contains(&count))
         };
         let fit: Vec<Hit> = hits.iter().filter(|h| fits(h)).cloned().collect();
+        let fit = match map_argument {
+            true => {
+                let map = Regex::new(&format!(r"\b{w}\s*\(\s*(?:final\s+)?Map\b"))
+                    .expect("an escaped name keeps the pattern valid");
+                let maps: Vec<Hit> = fit
+                    .iter()
+                    .filter(|h| map.is_match(&h.text))
+                    .cloned()
+                    .collect();
+                match maps.is_empty() {
+                    true => fit,
+                    false => maps,
+                }
+            }
+            false => fit,
+        };
         match fit.is_empty() {
             true => hits,
             false => fit,
