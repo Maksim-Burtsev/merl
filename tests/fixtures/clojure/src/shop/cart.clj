@@ -20,3 +20,8 @@
   (+ money/total (count cart)))
 ;            ^ d: src/shop/money.clj:5
 ; status: total: via import src/shop/money.clj
+
+(defn shape-of [s]
+  (money/describe s "x"))
+;            ^ d: src/shop/shapes.clj:8
+; status: by name, 1 match

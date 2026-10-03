@@ -484,7 +484,13 @@ impl App {
             .then(|| search::cmake_import(self.line_str(), self.col))
             .flatten()
         else {
-            return search::module_files(kind, &self.root, &self.files, here, module);
+            let found = search::module_files(kind, &self.root, &self.files, here, module);
+            if !found.is_empty() || !matches!(kind, Kind::EmacsLisp | Kind::Scheme) {
+                return found;
+            }
+            let outside = self.external_files(kind);
+            let dir = here.parent().unwrap_or(Path::new(""));
+            return search::lisp_files(kind, dir, &module.join("/"), &outside);
         };
         let dir = here.parent().unwrap_or(Path::new(""));
         let found = search::cmake_files(&command, &arg, dir, &self.files);
