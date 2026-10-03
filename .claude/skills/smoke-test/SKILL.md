@@ -44,7 +44,8 @@ The `d` rows press `d` in paperless-ngx from the `d` bench's cache (`tools/d-ben
 paperless-ngx` fills it, #308; `MERL_BUDGET_D_PROJECT` points elsewhere); without it they are
 skipped with a note. The test prints startup, `o`, `s`, `D`, `d` and `--review` in milliseconds
 beside the last release's (`last`, from `tests/budgets.tsv`) and each budget, fails on a median
-over its budget, and with `MERL_BUDGETS_SAVE=1` writes this run's medians to `tests/budgets.tsv`
+over its budget or on a `d` row whose samples, each a fresh merl, lie more than twice apart
+(#640), and with `MERL_BUDGETS_SAVE=1` writes this run's medians to `tests/budgets.tsv`
 for the release PR to commit, so the next release compares against them.
 
 ## 2. Read the report
@@ -65,6 +66,8 @@ for the release PR to commit, so the next release compares against them.
 - **Unreleased entries**, with the scenarios whose comments cite their issues.
 - **Time budgets**: a row `OVER` its budget, or at twice its `last` and over 200 ms more, is a
   regression unless an Unreleased entry says why. A load over ~8 stretches every row: rerun.
+  A `d` row failing as two times (#640) that comes back under ~8 is a NO-GO: `d` on a fresh
+  merl takes a slow path at random.
 
 ## 3. Look at every checkpoint
 
