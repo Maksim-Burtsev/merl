@@ -127,6 +127,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - A Bazel `BUILD` file is highlighted as Starlark instead of as XML, and a `BUCK` or `.star` file
   is highlighted at all. (#431)
+- `d` in Kotlin follows the names Gradle and Android generate from files that are no code, where
+  it said `no definition`: in a `build.gradle.kts`, `d` on any segment of
+  `libs.google.oss.licenses` lands on its `google-oss-licenses = …` in
+  `gradle/libs.versions.toml` (`libs.plugins.…`, `libs.bundles.…`, `libs.versions.…` in their
+  tables), and in Kotlin or Java, `d` on `bookmark_removed` in `R.string.bookmark_removed` lands
+  on its `<string name="bookmark_removed">` in `res/values/strings.xml`, with a picker when a
+  translation declares it too; `R.drawable.x` and the other file resources open the file, and
+  `R.id.x` its `@+id/x` in a layout. (#385)
 
 ## [0.8.1] - 2026-10-02
 

@@ -35,10 +35,12 @@ wait Files (
                    │scripts/invoices.php                                                                                                                              │
                    │scripts/refund_by_hand.py                                                                                                                         │
                    │tests/test_service.py                                                                                                                             │
+                   │web/android/gradle/libs.versions.toml                                                                                                             │
                    │web/android/src/main/java/courier/app/scan/Parcel.java                                                                                            │
                    │web/android/src/main/java/courier/app/ParcelSync.java                                                                                             │
                    │web/android/src/main/java/courier/app/Scale.java                                                                                                  │
                    │web/android/src/main/kotlin/courier/app/ship/Parcel.kt                                                                                            │
+                   │web/android/src/main/kotlin/courier/app/Notice.kt                                                                                                 │
                    │web/android/src/main/kotlin/courier/app/ParcelList.kt                                                                                             │
                    │web/android/src/main/scala/courier/app/Route.scala                                                                                                │
                    │web/android/build.gradle                                                                                                                          │

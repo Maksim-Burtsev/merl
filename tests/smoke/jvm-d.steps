@@ -87,3 +87,21 @@ key /
 type send(codes
 key Enter d
 wait send → ParcelSync.send (via target: ParcelSync)
+# A build script's `libs.…` accessor leads to its key in gradle/libs.versions.toml, and an Android
+# `R.string.x` to its `name="x"` in res/values, where d said `no definition` (#385).
+key o
+type build.gradle.kts
+key Enter
+wait web/android/build.gradle.kts  1:1
+key /
+type oss
+key Enter d
+wait oss: via web/android/gradle/libs.versions.toml
+key o
+type Notice
+key Enter
+wait web/android/src/main/kotlin/courier/app/Notice.kt  1:1
+key /
+type parcel_removed
+key Enter d
+wait parcel_removed: via web/android/src/main/res/values/strings.xml

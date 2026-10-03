@@ -18,6 +18,7 @@ use crate::tree::Tree;
 use crate::tutor::{self, Tutor};
 use crate::wrap;
 
+mod android;
 mod at_base;
 mod c;
 mod collapse;
