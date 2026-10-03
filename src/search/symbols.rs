@@ -433,6 +433,9 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::Julia), JULIA_TYPE_SYMBOL),
     (Some(Kind::Julia), JULIA_FUNCTION_SYMBOL),
     (Some(Kind::Julia), JULIA_METHOD_SYMBOL),
+    (Some(Kind::R), R_FUNCTION_SYMBOL),
+    (Some(Kind::R), R_CLASS_SYMBOL),
+    (Some(Kind::R), R6_CLASS_SYMBOL),
     // Every `CREATE` object, with the name as written, schema and quotes included. CTEs are a
     // query's own scaffolding, not a symbol of the project, so they are left out.
     (Some(Kind::Sql), SQL_CREATE_SYMBOL),

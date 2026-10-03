@@ -543,6 +543,7 @@ impl App {
             | Kind::Ocaml
             | Kind::Fsharp
             | Kind::Julia
+            | Kind::R
             | Kind::Sql
             | Kind::Make
             | Kind::Terraform
@@ -577,6 +578,7 @@ impl App {
             Kind::Ocaml,
             Kind::Fsharp,
             Kind::Julia,
+            Kind::R,
             Kind::Sql,
             Kind::Make,
             Kind::Terraform,

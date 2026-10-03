@@ -361,6 +361,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
         | Kind::Haskell
         | Kind::Ocaml
         | Kind::Fsharp
+        | Kind::R
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform
@@ -893,6 +894,7 @@ pub fn module_files(
         // The path of an `#import`, a dot-source or an `Import-Module`, relative to the file.
         Kind::Nix => nix_files(dir, &module.join("/"), files),
         Kind::Haskell => haskell_files(&module.join("."), files),
+        Kind::R => r_files(dir, &module.join("/"), files),
         Kind::Graphql | Kind::PowerShell | Kind::Julia => lexical(&dir.join(module.join("/")))
             .filter(|f| files.contains(f))
             .into_iter()
@@ -908,6 +910,7 @@ pub fn file_import(kind: Kind, line: &str, col: usize) -> Option<String> {
         Kind::Elixir => erlang_include(line, col).map(|(_, path)| path),
         Kind::Haskell => haskell_import_module(line, col),
         Kind::Julia => julia_include(line, col),
+        Kind::R => r_source(line, col),
         _ => None,
     }
 }

@@ -276,6 +276,15 @@ global `m` of another file and a local `total` beside the function `total`, `rat
 and a field, a functor, each refusal, imports of a package that is not installed, and
 declaration-shaped lines in a docstring, a nested `#= =#`, a backtick command over lines, a
 regex and a raw string.
+`r/` (#422) is a package, `shop` in its `DESCRIPTION`, whose `R/` holds every declaration form of
+the issue (a function with `<-` and `<<-`, a lambda, a backticked operator and replacement
+function, an S3 method, `.onLoad`, a top-level `=`), an S4 generic with two methods beside
+`setClass` and `setRefClass`, an R6 class with its methods and a field, a list of handlers, a
+`.r` file and a `.Rprofile`; a `dplyr::filter` beside the project's `filter` and a `shop::` call of
+its own; a `source()` path; each refusal (a wrapped call with named arguments beside a top-level
+`=`, field and element writes, a replacement call, a formula, a right assignment, a `for`
+variable); and declaration-shaped lines in a `"…"` and a `'…'` over lines, a raw string with
+parentheses and one with dashes and brackets, and a comment.
 
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
 `deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies

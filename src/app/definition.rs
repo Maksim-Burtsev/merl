@@ -106,10 +106,6 @@ impl App {
         if self.component_template(&here, &range, &mut word) {
             return;
         }
-        // Go's blank identifier names nothing: every `_` is a fresh discard (#476). Nor has a
-        // GraphQL operation's `$variable` a rule: it is a parameter, and `$id` is no field `id`.
-        // A Java or Kotlin class literal, `Foo::class`, names no member `class` (#362). A
-        // PowerShell `-Name` argument names a parameter of the command it is given to (#420).
         if (kind == Kind::Go && word == "_")
             || (kind == Kind::Graphql && self.line_str()[..range.start].ends_with('$'))
             || (kind == Kind::Jvm
@@ -117,6 +113,8 @@ impl App {
                 && self.line_str()[..range.start].ends_with("::"))
             || (kind == Kind::PowerShell
                 && search::powershell_argument(&self.line_str()[..range.start]))
+            || (kind == Kind::R
+                && search::r_foreign_package(self.line_str(), range.start, &self.root))
         {
             self.message = resolution(&word, None, &[], None, false);
             return;

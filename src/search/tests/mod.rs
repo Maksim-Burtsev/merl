@@ -24,6 +24,7 @@ mod ml;
 mod nix;
 mod other_languages;
 mod powershell;
+mod r;
 mod scope;
 mod symbols;
 mod types;

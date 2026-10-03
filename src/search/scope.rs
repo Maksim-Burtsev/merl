@@ -37,6 +37,7 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Ocaml
         | Kind::Fsharp
         | Kind::Julia
+        | Kind::R
         | Kind::Sql
         | Kind::Make
         | Kind::Graphql
@@ -298,6 +299,7 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         | Kind::Nix
         | Kind::Haskell
         | Kind::Fsharp
+        | Kind::R
         | Kind::Shell
         | Kind::Sql
         | Kind::Make

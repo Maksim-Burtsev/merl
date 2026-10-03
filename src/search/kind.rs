@@ -33,6 +33,7 @@ pub enum Kind {
     Ocaml,
     Fsharp,
     Julia,
+    R,
     Sql,
     Make,
     Terraform,
@@ -113,6 +114,7 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "ml" | "mli") => Kind::Ocaml,
         (_, "fs" | "fsi" | "fsx") => Kind::Fsharp,
         (_, "jl") => Kind::Julia,
+        (_, "R" | "r") | (".Rprofile", _) => Kind::R,
         (_, "sql" | "psql" | "pgsql" | "mysql" | "ddl" | "dml") => Kind::Sql,
         ("Makefile" | "makefile" | "GNUmakefile", _) | (_, "mk") => Kind::Make,
         (_, "tf" | "tfvars") => Kind::Terraform,
@@ -174,6 +176,7 @@ pub fn word_chars(kind: Option<Kind>, address: bool) -> &'static str {
         Some(Kind::Nix) => "-'",
         Some(Kind::Haskell) => "'",
         Some(Kind::Ocaml | Kind::Fsharp) => "'",
+        Some(Kind::R) => ".",
         _ => "",
     }
 }

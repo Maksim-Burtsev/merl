@@ -18,7 +18,8 @@ impl App {
                 | Kind::Haskell
                 | Kind::Ocaml
                 | Kind::Fsharp
-                | Kind::Julia,
+                | Kind::Julia
+                | Kind::R,
             ) => a.definition_word(k).map(|(r, w)| {
                 let lead = &a.line_str()[..r.start];
                 let sigil = lead.len() - lead.trim_end_matches('@').len();
