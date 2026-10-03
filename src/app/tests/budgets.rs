@@ -190,9 +190,15 @@ fn time_budgets() {
     ));
     rows.push(("D query", D_QUERY, query.split_off(1)));
 
+    let mut two_modes = Vec::new();
     match paperless() {
         Some(project) => {
             let (first, next) = d_presses(&project);
+            two_modes = [("d first", &first), ("d next", &next)]
+                .into_iter()
+                .filter(|(_, s)| !one_mode(s))
+                .map(|(name, s)| format!("{name} {s:.0?}"))
+                .collect();
             rows.push(("d first, paperless-ngx", D_FIRST, first));
             rows.push(("d next, slowest", D_NEXT, next));
         }
@@ -219,6 +225,17 @@ fn time_budgets() {
     ));
 
     report(&rows);
+    assert!(
+        two_modes.is_empty(),
+        "d on a fresh App takes one of two times (#640): {}",
+        two_modes.join(", ")
+    );
+}
+
+fn one_mode(samples: &[f64]) -> bool {
+    let max = samples.iter().copied().fold(0.0, f64::max);
+    let min = samples.iter().copied().fold(f64::MAX, f64::min);
+    max <= 2.0 * min
 }
 
 /// paperless-ngx with its dependencies: `MERL_BUDGET_D_PROJECT`, else the `d` bench's cache.
@@ -421,4 +438,10 @@ fn code(i: usize, changed: bool) -> String {
         s.push_str("// added\n// added\n");
     }
     s
+}
+
+#[test]
+fn one_mode_takes_the_fast_runs_and_not_the_slow_one_beside_them() {
+    assert!(one_mode(&[666.0, 758.0, 616.0]));
+    assert!(!one_mode(&[4420.0, 3042.0, 1544.0]));
 }
