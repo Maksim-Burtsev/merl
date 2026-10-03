@@ -99,7 +99,9 @@ impl App {
                     }
                 })
             }
-            k => self.css_word().or_else(|| self.word_under(search::word_chars(k, false))),
+            k => self
+                .css_word()
+                .or_else(|| self.word_under(search::word_chars(k, false))),
         }
     }
 

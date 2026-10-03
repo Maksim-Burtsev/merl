@@ -448,7 +448,6 @@ impl App {
             n: 1,
             from: (self.buf.path.clone()?, self.at()),
             here: self.rel_current(),
-            // The preview has no word under the cursor for `d` or `u` to read.
             word: (!self.previewing()).then(|| self.usage_word()).flatten(),
             query: String::new(),
             stops,
@@ -491,17 +490,12 @@ impl App {
             .min_by_key(|&(cost, _)| cost)
     }
 
-    /// `s` or `D` for the word under the cursor: on a declaration `u` marks, `d`; on another
-    /// line `u` lists, after `s`, `u`, the arrows to its row and Enter.
     fn to_word(&self, trip: &Trip) -> Option<(usize, &'static str)> {
-        let word = trip
-            .word
-            .as_ref()
-            .filter(|w| {
-                let bare = w.trim_start_matches('@');
-                let bare = bare.strip_suffix('=').unwrap_or(bare);
-                bare.to_lowercase() == trip.query.to_lowercase()
-            })?;
+        let word = trip.word.as_ref().filter(|w| {
+            let bare = w.trim_start_matches('@');
+            let bare = bare.strip_suffix('=').unwrap_or(bare);
+            bare.to_lowercase() == trip.query.to_lowercase()
+        })?;
         let landed = self.rel_current()?;
         let (hits, _) = self.usage_hits(word, trip.here.as_deref());
         let row = hits
