@@ -101,6 +101,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `defun`, `define` or `lambda` bind, on that binding, `total: local`; on `(require 'shop-money)`
   or `(require "utils.rkt")`, the file. `D` lists each dialect's functions, macros and types, and
   `u` reads `format-price`, `empty?` and `*out*` as one name. (#428)
+### Changed
+
+- `d` outside the project answers faster: the dependencies are read in parallel, each file's
+  comments are lexed once, and a Python member is looked for in the packages the file imports
+  before every installed one, so its picker lists those alone (#318).
 
 ## [0.8.1] - 2026-10-02
 

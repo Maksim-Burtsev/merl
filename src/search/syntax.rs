@@ -37,6 +37,29 @@ pub(super) fn comment(kind: Kind, t: &str) -> bool {
 /// all; Ruby's multi-line `%q{…}` is read as code, and a `/` opens a regex only after an operator
 /// or a bracket, not after `when` or `split `.
 pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
+    thread_local! {
+        static LEXED: std::cell::RefCell<std::collections::VecDeque<(Kind, String, Vec<bool>)>> =
+            const { std::cell::RefCell::new(std::collections::VecDeque::new()) };
+    }
+    let seen = LEXED.with_borrow(|l| {
+        l.iter()
+            .find(|(k, t, _)| *k == kind && t == text)
+            .map(|(.., lines)| lines.clone())
+    });
+    if let Some(lines) = seen {
+        return lines;
+    }
+    let lines = lex_literal_lines(kind, text);
+    LEXED.with_borrow_mut(|l| {
+        if l.len() == LEXED_KEPT {
+            l.pop_front();
+        }
+        l.push_back((kind, text.to_owned(), lines.clone()));
+    });
+    lines
+}
+const LEXED_KEPT: usize = 16;
+fn lex_literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     // Markdown's are blocks, not tokens: a fence, an HTML comment, the front matter (#421).
     if kind == Kind::Markdown {
         return markdown_literal_lines(text);
