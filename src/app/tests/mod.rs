@@ -15,6 +15,7 @@ mod edit_fuzz;
 mod find;
 mod fold_bench;
 mod haskell;
+mod julia;
 mod keys;
 mod missed;
 mod ml;

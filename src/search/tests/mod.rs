@@ -18,6 +18,7 @@ mod grep;
 mod groovy;
 mod haskell;
 mod imports;
+mod julia;
 mod links;
 mod ml;
 mod nix;

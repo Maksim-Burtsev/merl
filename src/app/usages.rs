@@ -17,7 +17,8 @@ impl App {
                 | Kind::Nix
                 | Kind::Haskell
                 | Kind::Ocaml
-                | Kind::Fsharp,
+                | Kind::Fsharp
+                | Kind::Julia,
             ) => a.definition_word(k).map(|(r, w)| {
                 let lead = &a.line_str()[..r.start];
                 let sigil = lead.len() - lead.trim_end_matches('@').len();
@@ -47,9 +48,11 @@ impl App {
         let hits = ranked
             .into_iter()
             .map(|(_, h)| {
-                let row = search::word_chars(search::kind_of(&h.path), false);
-                let col = match search::kind_of(&h.path) {
+                let kind = search::kind_of(&h.path);
+                let row = search::word_chars(kind, false);
+                let col = match kind {
                     Some(Kind::Haskell) => search::haskell_whole(&h.text, word),
+                    Some(Kind::Julia) => search::julia_col(&h.text, word),
                     _ => None,
                 };
                 Hit {
@@ -144,7 +147,8 @@ impl App {
             Some(Kind::Haskell) => search::haskell_whole(&h.text, text).is_some(),
             k => {
                 let extra = search::word_chars(k, false);
-                extra.is_empty() || whole_at(&h.text, text, extra).is_some()
+                (extra.is_empty() || whole_at(&h.text, text, extra).is_some())
+                    && (k != Some(Kind::Julia) || search::julia_whole(&h.text, text))
             }
         });
         // What tells a declaration of the word from a use of it is `def_patterns`, and which

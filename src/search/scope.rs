@@ -36,6 +36,7 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Haskell
         | Kind::Ocaml
         | Kind::Fsharp
+        | Kind::Julia
         | Kind::Sql
         | Kind::Make
         | Kind::Graphql
@@ -274,6 +275,17 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
                 .map(|d| d.join("cmake"))
                 .find(|p| p.is_file())
         })),
+        Kind::Julia => {
+            static SHARE: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
+            let share = SHARE.get_or_init(|| {
+                julia_share(&run(
+                    "julia",
+                    &["--startup-file=no", "-e", "print(Sys.BINDIR)"],
+                )?)
+            });
+            let depot = julia_depot(std::env::var_os("JULIA_DEPOT_PATH"), &home);
+            julia_roots(root, share.clone(), &depot)
+        }
         // Java and Kotlin have no roots yet: the JDK and Gradle caches are their own lookups.
         // C# has nothing to point at: a NuGet package is compiled
         // assemblies, and the runtime's own source is not on the machine at all. Lua has no root

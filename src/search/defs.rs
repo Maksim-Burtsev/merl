@@ -472,6 +472,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         Kind::Nix => nix_patterns(word),
         Kind::Haskell => haskell_patterns(word),
         Kind::Ocaml | Kind::Fsharp => ml_patterns(kind, word),
+        Kind::Julia => julia_patterns(word),
         // `FROM image AS name`, with any flags before the image. Stage names ignore case.
         Kind::Docker => vec![format!(r"(?i)^\s*FROM\s+(\S+\s+)+AS\s+{w}\s*$")],
         // An anchor, or a key that opens a block: compose services, CI jobs, GitLab's `.hidden`
@@ -513,6 +514,7 @@ pub fn narrow_patterns(
         Kind::Php => php_namespace_patterns(p, text, line, r),
         Kind::PowerShell => powershell_sigil(p, &line[..r.start], &line[r.end..]),
         Kind::Dart => dart_narrow(p, line, r),
+        Kind::Julia => julia_narrow(p, line, r),
         _ => {}
     }
 }
@@ -998,6 +1000,7 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         | Kind::Haskell
         | Kind::Ocaml
         | Kind::Fsharp
+        | Kind::Julia
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform
@@ -1127,6 +1130,7 @@ fn declares_by_kind<'a, S: AsRef<str> + 'a>(
         Kind::Elixir if erlang_head(line_text) => erlang_clause(lines(), line),
         Kind::Haskell => haskell_declares(lines(), line, word),
         Kind::Ocaml | Kind::Fsharp => ml_declares(kind, lines(), line, word),
+        Kind::Julia => julia_declares(lines(), line, word),
         _ => def_block(kind, word).is_none_or(|block| directly_inside(lines(), line, block)),
     }
 }

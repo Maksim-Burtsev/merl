@@ -267,6 +267,15 @@ name of an `open`ed module used above the file's own namesake.
 module lets behind their modifiers and an attribute, members of every kind, union cases, a record
 over one line, an interface, a double-backticked name, `(*)`, and declaration-shaped lines in a
 nested comment, a verbatim and a triple-quoted string, probed from `Courier.fs`.
+`julia/` (#429) is a `Shop` package whose module includes `money.jl` and `tariff.jl`, with
+scripts that `include` them by path: every declaration form of the issue (a `function`, one
+`Base.show`, one-line methods with a return type and a `where`, `struct`, `mutable struct`,
+`Base.@kwdef struct` with a default, `abstract type`, `primitive type`, `@enum`, `macro`,
+`baremodule`, `const` and a column-zero global), `weigh!` beside `weigh`, a local `m` beside a
+global `m` of another file and a local `total` beside the function `total`, `rate` both a method
+and a field, a functor, each refusal, imports of a package that is not installed, and
+declaration-shaped lines in a docstring, a nested `#= =#`, a backtick command over lines, a
+regex and a raw string.
 
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
 `deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies

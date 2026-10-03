@@ -243,6 +243,7 @@ moment you open it. In Python, TypeScript and Go, `d` also follows the type of t
 | CMake | CMake's own modules and the packages' config files |
 | Elixir, Erlang | Mix's `deps/`, rebar3's `_build`, and OTP's sources |
 | OCaml | the standard library and the opam switch's libraries |
+| Julia | the standard library and the packages of the depot, at the versions `Manifest.toml` pins |
 | Java, Kotlin, Scala, Groovy, Ruby, C#, F#, Lua, Nix, Haskell | |
 | Shell, SQL, Makefile, Terraform, Dockerfile, YAML, GraphQL | |
 | Markdown | the file or the heading a link names, and a file a code span names |
