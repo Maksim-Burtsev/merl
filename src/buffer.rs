@@ -425,6 +425,8 @@ fn known_file(name: &str) -> Option<&'static str> {
         (_, "mill") => "Scala",
         (_, "fs") => "F#",
         (".Rprofile", _) => "R",
+        (_, "bb") => "Clojure",
+        (_, "asd") | (".emacs", _) => "Lisp",
         _ => return None,
     })
 }
@@ -1161,6 +1163,43 @@ mod tests {
             let colours: std::collections::HashSet<_> =
                 b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
             assert!(colours.len() > 1, "{name}: everything is one colour");
+        }
+    }
+
+    #[test]
+    fn lisp_highlights_with_every_shipped_theme() {
+        let cases = [
+            (
+                "src/shop/money.clj",
+                "Clojure",
+                "(ns shop.money)\n(defn f [x] \"doc\" x)\n",
+            ),
+            ("bb.bb", "Clojure", "(ns tasks)\n(defn f [x] \"doc\" x)\n"),
+            ("shop.el", "Lisp", "; doc\n(defun f (x) \"doc\" x)\n"),
+            (".emacs", "Lisp", "; doc\n(defun f (x) \"doc\" x)\n"),
+            ("shop.scm", "Lisp", "; doc\n(define (f x) \"doc\" x)\n"),
+            (
+                "shop.rkt",
+                "Racket",
+                "#lang racket\n(define (f x) \"doc\" x)\n",
+            ),
+            ("shop.lisp", "Lisp", "; doc\n(defun f (x) \"doc\" x)\n"),
+            (
+                "shop.asd",
+                "Lisp",
+                "; doc\n(defsystem \"shop\" :depends-on ())\n",
+            ),
+        ];
+        for (file, syntax, src) in cases {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(b.syntax.map(|s| s.name.as_str()), Some(syntax), "{file}");
+                b.highlight_to(2, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
         }
     }
 

@@ -64,6 +64,9 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     if kind == Kind::Perl {
         return perl_literal_lines(text);
     }
+    if lisp(kind) {
+        return lisp_literal_lines(kind, text);
+    }
     if kind == Kind::Css && text.contains("<style") {
         let html = html_literal_lines(text);
         let mut out = scan(kind, &style_blocks(text), usize::MAX).0;

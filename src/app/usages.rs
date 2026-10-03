@@ -19,7 +19,11 @@ impl App {
                 | Kind::Ocaml
                 | Kind::Fsharp
                 | Kind::Julia
-                | Kind::R,
+                | Kind::R
+                | Kind::Clojure
+                | Kind::EmacsLisp
+                | Kind::Scheme
+                | Kind::CommonLisp,
             ) => a.definition_word(k).map(|(r, w)| {
                 let lead = &a.line_str()[..r.start];
                 let sigil = lead.len() - lead.trim_end_matches('@').len();

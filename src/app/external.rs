@@ -547,6 +547,10 @@ impl App {
             | Kind::Perl
             | Kind::Gdscript
             | Kind::Solidity
+            | Kind::Clojure
+            | Kind::EmacsLisp
+            | Kind::Scheme
+            | Kind::CommonLisp
             | Kind::Sql
             | Kind::Make
             | Kind::Terraform
@@ -585,6 +589,10 @@ impl App {
             Kind::Perl,
             Kind::Gdscript,
             Kind::Solidity,
+            Kind::Clojure,
+            Kind::EmacsLisp,
+            Kind::Scheme,
+            Kind::CommonLisp,
             Kind::Sql,
             Kind::Make,
             Kind::Terraform,

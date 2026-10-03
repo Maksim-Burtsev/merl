@@ -41,6 +41,10 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Perl
         | Kind::Gdscript
         | Kind::Solidity
+        | Kind::Clojure
+        | Kind::EmacsLisp
+        | Kind::Scheme
+        | Kind::CommonLisp
         | Kind::Sql
         | Kind::Make
         | Kind::Graphql
@@ -300,6 +304,17 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         // to ask for either: `package.path` is whatever the interpreter embedding it was built
         // with, and a Neovim or a LuaRocks tree is not a standard library any project can be
         // assumed to use. `d` stays inside the project for all of them, as for the rest.
+        Kind::EmacsLisp => vec![home.join(".emacs.d/elpa"), home.join(".config/emacs/elpa")],
+        Kind::CommonLisp => vec![
+            home.join("quicklisp/dists/quicklisp/software"),
+            home.join("quicklisp/local-projects"),
+        ],
+        Kind::Scheme => {
+            let script = "(for-each displayln (current-library-collection-paths))";
+            (run("racket", &["-e", script]).unwrap_or_default().lines())
+                .map(PathBuf::from)
+                .collect()
+        }
         Kind::Jvm
         | Kind::CSharp
         | Kind::Lua
@@ -309,6 +324,7 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         | Kind::R
         | Kind::Gdscript
         | Kind::Solidity
+        | Kind::Clojure
         | Kind::Shell
         | Kind::Sql
         | Kind::Make

@@ -246,7 +246,10 @@ moment you open it. In Python, TypeScript and Go, `d` also follows the type of t
 | Julia | the standard library and the packages of the depot, at the versions `Manifest.toml` pins |
 | Solidity | `node_modules`, and the files remappings and Foundry's `lib/` name |
 | Perl | `@INC` and Carton's `local/lib/perl5` |
-| Java, Kotlin, Scala, Groovy, Ruby, C#, F#, Lua, Nix, Haskell, R | |
+| Emacs Lisp | the packages `package.el` installs in `elpa/` |
+| Scheme, Racket | Racket's collections |
+| Common Lisp | Quicklisp's software and local projects |
+| Java, Kotlin, Scala, Groovy, Ruby, C#, F#, Lua, Nix, Haskell, R, Clojure | |
 | GDScript | the script `project.godot` autoloads under a name, and the file a `res://` path names |
 | Shell, SQL, Makefile, Terraform, Dockerfile, GraphQL | |
 | YAML | the schema a `$ref` names, in the same file or another |

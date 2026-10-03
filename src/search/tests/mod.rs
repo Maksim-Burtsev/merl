@@ -21,6 +21,7 @@ mod haskell;
 mod imports;
 mod julia;
 mod links;
+mod lisp;
 mod ml;
 mod nix;
 mod other_languages;

@@ -660,11 +660,14 @@ pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Ra
     if kind == Some(Kind::Julia) {
         let r = julia_name(line, start..range.end);
         return Some((r.clone(), &line[r]));
-        return Some((r.clone(), &line[r]));
     }
     if kind == Some(Kind::R) {
         let start = line[..range.start].trim_end_matches('.').len();
         return Some((start..range.end, &line[start..range.end]));
+    }
+    if let Some(k) = kind.filter(|&k| lisp(k)) {
+        let r = lisp_name(k, line, range);
+        return Some((r.clone(), &line[r]));
     }
     // A Ruby method (#387) and an Elixir function (#459) take their `?` or `!` with them:
     // `empty?` is no `empty`, `ship!` no `ship`. The `!` of a `!=` is the operator's, as in Ruby
