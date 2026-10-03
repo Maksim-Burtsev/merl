@@ -23,6 +23,7 @@ wait public class ParcelSync {
 │        ▸ res               │
 │        ▸ scala             │
 │      build.gradle          │
+│      build.gradle.kts      │
 │  ▸ src                     │
 │    package.json            │
 │    tsconfig.json           │
@@ -34,9 +35,6 @@ wait public class ParcelSync {
 │  Makefile                  │
 │  pyproject.toml            │
 │  README.md                 │
-│                            │
-│                            │
-│                            │
 │                            │
 │                            │
 │                            │
