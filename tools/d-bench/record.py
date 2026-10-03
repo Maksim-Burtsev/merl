@@ -79,6 +79,10 @@ in module next nil not or redo rescue retry return self super then true undef un
 while yield require require_relative include extend attr_accessor attr_reader attr_writer private
 protected public puts raise new lambda proc""".split(),
 }
+KW["julia"] = """abstract baremodule begin break catch const continue do else elseif end export false
+finally for function global if import in isa let local macro module mutable primitive quote return
+struct true try type using where while nothing missing Any Int Int64 Float64 String Bool Symbol
+Nothing Vector Matrix Array Tuple Dict println print length size eltype""".split()
 KW["js"] = KW["ts"]
 KW["objc"] = C_KW + """self super nil Nil YES NO id instancetype BOOL SEL Class IMP NSInteger NSUInteger
 CGFloat interface implementation end property protocol optional required synthesize dynamic
@@ -103,6 +107,8 @@ SPEC = {
     "kotlin": dict(exts=(".kt", ".kts"), lc=("//",), bc=("/*", "*/"), triple=True),
     "csharp": dict(exts=(".cs",), lc=("//",), bc=("/*", "*/"), triple=True),
     "ruby": dict(exts=(".rb",), lc=("#",), bc=None),
+    "julia": dict(exts=(".jl",), lc=("#",), bc=("#=", "=#"), triple=True, adjoint=True,
+                  word=r"[A-Za-z_][A-Za-z0-9_]*(?:!(?!=))?", decl={"macro", "using"}),
 }
 SKIP_DIRS = {".git", "node_modules", "vendor", "third_party", "dist", "build", "target", ".venv",
              "venv", "__pycache__", "migrations", "deps", "public", "static", "locale", "locales",
@@ -133,14 +139,16 @@ def code_tokens(text, spec):
                 if j >= L:
                     masked[i:] = " " * (L - i); i = L; break
                 masked[i:j + len(closer)] = " " * (j + len(closer) - i); i = j + len(closer); state = None; continue
-            if any(line.startswith(lc, i) for lc in spec["lc"]):
-                masked[i:] = " " * (L - i); break
             if spec.get("bc") and line.startswith(spec["bc"][0], i):
                 state = "block"; masked[i:i + 2] = "  "; i += 2; continue
+            if any(line.startswith(lc, i) for lc in spec["lc"]):
+                masked[i:] = " " * (L - i); break
             if spec.get("triple") and (line.startswith('"""', i) or line.startswith("'''", i)):
                 state = ("str", line[i:i + 3]); masked[i:i + 3] = "   "; i += 3; continue
             if spec.get("tmpl") and c == spec["tmpl"]:
                 state = ("str", c); masked[i] = " "; i += 1; continue
+            if spec.get("adjoint") and c == "'" and i and (line[i - 1].isalnum() or line[i - 1] in "_)]}'."):
+                i += 1; continue
             if c in "\"'":
                 if spec.get("rust") and c == "'" and not re.match(r"'(\\.|[^\\'])'", line[i:i + 4] if line[i + 1:i + 2] != "\\" else line[i:i + 5]):
                     i += 1; continue  # a lifetime
@@ -152,7 +160,7 @@ def code_tokens(text, spec):
         m = "".join(masked)
         if not m.isascii():
             continue
-        for t in re.finditer(r"[A-Za-z_][A-Za-z0-9_]*", m):
+        for t in re.finditer(spec.get("word", r"[A-Za-z_][A-Za-z0-9_]*"), m):
             s, e = t.span()
             if s > 0 and (m[s - 1].isdigit() or m[s - 1] in "$@#"):
                 continue
@@ -174,6 +182,7 @@ def shape(before, after, lang):
 def sample(lang, project, root, n, out, exclude=()):
     spec = SPEC[lang]
     kw = set(KW[lang])
+    decl = DECL | spec.get("decl", set())
     buckets = defaultdict(list)
     for d, dirs, files in os.walk(root):
         dirs[:] = [x for x in dirs if x not in SKIP_DIRS and x not in exclude and not x.startswith(".")]
@@ -192,7 +201,7 @@ def sample(lang, project, root, n, out, exclude=()):
                 if w in kw or len(w) < 2:
                     continue
                 prev = re.findall(r"[A-Za-z_]+", before)
-                if prev and prev[-1] in DECL and not before.rstrip().endswith((".", "->", "::", "(", ",", "=", ":")):
+                if prev and prev[-1] in decl and not before.rstrip().endswith((".", "->", "::", "(", ",", "=", ":")):
                     continue
                 sh = shape(before, after, lang) or ("type" if w[0].isupper() else "name")
                 buckets[sh].append((rel, ln, col, sh, w))
@@ -329,7 +338,7 @@ class Lsp:
 LANG_ID = {".py": "python", ".ts": "typescript", ".tsx": "typescriptreact", ".js": "javascript",
            ".jsx": "javascriptreact", ".mjs": "javascript", ".cjs": "javascript", ".go": "go",
            ".rs": "rust", ".c": "c", ".h": "cpp", ".cc": "cpp", ".cpp": "cpp", ".hpp": "cpp",
-           ".php": "php", ".swift": "swift", ".m": "objective-c"}
+           ".php": "php", ".swift": "swift", ".m": "objective-c", ".jl": "julia"}
 
 
 def server(lang, root):
@@ -359,6 +368,9 @@ def server(lang, root):
                    init_options={"storagePath": st, "globalStoragePath": st})
     if lang == "swift":
         return Lsp(["xcrun", "sourcekit-lsp"], root)
+    if lang == "julia":
+        return Lsp(["julia", "--project=@ls", "-e", "using LanguageServer; runserver(stdin, stdout, pwd())"], root,
+                   env={"HOME": os.path.join(LSP, "julia-home")})
     raise SystemExit(f"no server for {lang}")
 
 

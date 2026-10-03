@@ -1,0 +1,57 @@
+wait function report
+┌orders──────────────────────┐1 include("../src/money.jl")
+│▸ .github                   │2
+│▸ .venv                     │3 function report(xs)
+│▸ app                       │4     m = Money(sum(xs))
+│▸ data                      │5     println(format_price(m))
+│▸ deploy                    │6 end
+│▸ docs                      │
+│▾ jlshop                    │
+│  ▾ scripts                 │
+│      report.jl             │
+│  ▸ src                     │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+jlshop/scripts/report.jl  1:1  [code]                                                                                                                                             ? help
+cursor (x,y,shown) 32,0,1

@@ -367,9 +367,7 @@ impl App {
                 &word,
             );
         let declared = swift_binds_here
-            || (kind == Kind::Rust
-                && chain.is_empty()
-                && search::rust_let_declares(self.line_str(), range.start, &word));
+            || (chain.is_empty() && search::binds_at(kind, self.line_str(), range.start, &word));
         // A TypeScript bare word is a value a `class`, `function`, `type`, `interface` or `enum`
         // of its scope declares as well as a `const` (#337); the first name of a chain is not.
         let bare = kind == Kind::TsJs && !dotted && chain.is_empty();
@@ -481,7 +479,7 @@ impl App {
                 || same_line
                 || own_line
                 || own_arrow
-                || matches!(kind, Kind::Rust | Kind::Nix))
+                || matches!(kind, Kind::Rust | Kind::Nix | Kind::Julia))
         {
             let found = locals
                 .iter()

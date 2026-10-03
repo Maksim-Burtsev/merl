@@ -15,6 +15,7 @@ mod fields;
 mod go;
 mod grep;
 mod imports;
+mod julia;
 mod links;
 mod nix;
 mod other_languages;

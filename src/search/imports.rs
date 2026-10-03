@@ -16,7 +16,7 @@ use super::*;
 /// it Node's own. Rust's in-crate `crate::` and `super::` paths are left out.
 pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
     // A Python import in a docstring's example binds nothing of the file.
-    if kind == Kind::Python {
+    if matches!(kind, Kind::Python | Kind::Julia) {
         let literal = literal_lines(kind, text);
         let code: Vec<&str> = text
             .lines()
@@ -335,6 +335,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
                 }
             }
         }
+        Kind::Julia => julia_imports(text, &mut out),
         // Nothing to bind without roots to resolve an `import` or a `require` against. A C
         // `#include` binds no name of its own either: it pastes a file in, and everything the
         // file declares is then visible unqualified, and a C# `using` opens a whole namespace
@@ -886,7 +887,7 @@ pub fn module_files(
         | Kind::Html => Vec::new(),
         // The path of an `#import`, a dot-source or an `Import-Module`, relative to the file.
         Kind::Nix => nix_files(dir, &module.join("/"), files),
-        Kind::Graphql | Kind::PowerShell => lexical(&dir.join(module.join("/")))
+        Kind::Graphql | Kind::PowerShell | Kind::Julia => lexical(&dir.join(module.join("/")))
             .filter(|f| files.contains(f))
             .into_iter()
             .collect(),
@@ -898,6 +899,7 @@ pub fn file_import(kind: Kind, line: &str, col: usize) -> Option<String> {
         Kind::PowerShell => powershell_import(line, col),
         Kind::Cmake => cmake_import(line, col).map(|(_, arg)| arg),
         Kind::Nix => nix_path(line, col),
+        Kind::Julia => julia_include(line, col),
         _ => None,
     }
 }

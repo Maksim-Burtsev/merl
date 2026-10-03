@@ -233,6 +233,7 @@ impl App {
                 (files, inside)
             }
             Kind::Go => (module_files(path), tail(Vec::new())),
+            Kind::Julia if path.first().is_some_and(|p| !p.starts_with('.')) => return None,
             // No module rules: the search by name, then outside the project, as before.
             _ => return Some(Vec::new()),
         };

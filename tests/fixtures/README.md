@@ -246,6 +246,16 @@ function by name, `let` bindings named `api` in two files (each stays in its own
 path, each refusal of the issue, and declaration-shaped lines in indented strings (one opened
 after `//`, one holding the `'''`, `''$` and `''\` escapes), a `"…"`, a `/* */` and a `#` comment.
 
+`julia/` (#429) is a `Shop` package whose module includes `money.jl` and `tariff.jl`, with
+scripts that `include` them by path: every declaration form of the issue (a `function`, one
+`Base.show`, one-line methods with a return type and a `where`, `struct`, `mutable struct`,
+`Base.@kwdef struct` with a default, `abstract type`, `primitive type`, `@enum`, `macro`,
+`baremodule`, `const` and a column-zero global), `weigh!` beside `weigh`, a local `m` beside a
+global `m` of another file and a local `total` beside the function `total`, `rate` both a method
+and a field, a functor, each refusal, imports of a package that is not installed, and
+declaration-shaped lines in a docstring, a nested `#= =#`, a backtick command over lines, a
+regex and a raw string.
+
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
 `deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies
 the project walk does not reach, one whose module is no path and two declaring one name (#437).

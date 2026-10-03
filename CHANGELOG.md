@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `d`, `u` and `D` in Julia, where `d` said `no rules for .jl`. `d` on `format_price` lands on
+  its one-line `format_price(m::Money) = …`, on `check` in `@check` on its `macro check(ex)`, on
+  a name the function assigns or takes on that line, `m → report.m (local)`, never on another file's global
+  `m`; on the path of `include("../src/money.jl")`, the file; on `DataFrame` or a name
+  `import DataFrames: select` binds, the installed DataFrames at the version `Manifest.toml`
+  pins, read-only, and on Base and the standard library in the Julia on the PATH. `D` lists
+  functions, one-line methods, structs, abstract and primitive types, macros and modules, and
+  `sort!` is a name of its own for `d` and `u`. (#429)
+
 ## [0.8.1] - 2026-10-02
 
 ### Added
