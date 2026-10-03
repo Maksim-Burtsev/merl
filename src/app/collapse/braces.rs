@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+use crate::search::{Kind, kind_of};
+
 mod c;
 mod csharp;
 mod java;
@@ -32,20 +34,20 @@ pub(crate) struct Syntax {
 
 pub(crate) fn syntax_of(path: &Path) -> Option<Syntax> {
     let ext = path.extension()?.to_str()?;
-    let (lang, jsx) = match ext {
-        "js" | "mjs" | "cjs" => (Lang::Js, false),
-        "jsx" => (Lang::Js, true),
-        "ts" | "mts" | "cts" => (Lang::Ts, false),
-        "tsx" => (Lang::Ts, true),
-        "go" => (Lang::Go, false),
-        "cs" => (Lang::CSharp, false),
-        "rs" => (Lang::Rust, false),
-        "java" => (Lang::Java, false),
-        "kt" | "kts" => (Lang::Kotlin, false),
-        "c" => (Lang::C, false),
-        "swift" => (Lang::Swift, false),
-        "php" => (Lang::Php, false),
-        "h" | "cc" | "cpp" | "cxx" | "c++" | "hh" | "hpp" | "hxx" | "h++" | "ipp" => {
+    let (lang, jsx) = match (kind_of(path), ext) {
+        (Some(Kind::Swift), _) => (Lang::Swift, false),
+        (Some(Kind::Php), _) => (Lang::Php, false),
+        (_, "js" | "mjs" | "cjs") => (Lang::Js, false),
+        (_, "jsx") => (Lang::Js, true),
+        (_, "ts" | "mts" | "cts") => (Lang::Ts, false),
+        (_, "tsx") => (Lang::Ts, true),
+        (_, "go") => (Lang::Go, false),
+        (_, "cs") => (Lang::CSharp, false),
+        (_, "rs") => (Lang::Rust, false),
+        (_, "java") => (Lang::Java, false),
+        (_, "kt" | "kts") => (Lang::Kotlin, false),
+        (_, "c") => (Lang::C, false),
+        (_, "h" | "cc" | "cpp" | "cxx" | "c++" | "hh" | "hpp" | "hxx" | "h++" | "ipp") => {
             (Lang::Cpp, false)
         }
         _ => return None,
@@ -237,6 +239,9 @@ impl<'a> Lexer<'a> {
             i: 0,
         };
         if !lines.is_empty() {
+            if syntax.lang == Lang::Php {
+                lx.php_html();
+            }
             lx.code(false);
         }
         lx.out
@@ -346,7 +351,7 @@ impl<'a> Lexer<'a> {
                 continue;
             }
             if self.syntax.lang == Lang::Php
-                && matches!(c, b'#' | b'\'' | b'"' | b'<')
+                && matches!(c, b'#' | b'\'' | b'"' | b'<' | b'?')
                 && self.php_quote()
             {
                 continue;
@@ -734,6 +739,17 @@ impl<'t, 'a> Model<'t, 'a> {
             }
             _ => {}
         }
+    }
+
+    fn word_at(&self, k: usize) -> bool {
+        self.toks.get(k).is_some_and(|t| t.kind == K::Word)
+    }
+
+    fn loop_tail(&self, k: usize, head: &str) -> bool {
+        self.tx(k) == "while"
+            && k > 0
+            && self.punct(k - 1, "}")
+            && self.back[k - 1].is_some_and(|o| self.before(o) == head)
     }
 
     fn add(&mut self, start: usize, end: Option<usize>, def: bool) {

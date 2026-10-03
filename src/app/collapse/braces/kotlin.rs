@@ -200,10 +200,6 @@ impl Model<'_, '_> {
         j >= 1 && self.word_at(j) && self.tx(j - 1) == "class"
     }
 
-    fn word_at(&self, k: usize) -> bool {
-        self.toks.get(k).is_some_and(|t| t.kind == K::Word)
-    }
-
     fn kt_imports(&mut self) {
         let n = self.toks.len();
         let mut k = 0;

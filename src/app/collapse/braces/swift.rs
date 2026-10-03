@@ -112,7 +112,9 @@ impl Model<'_, '_> {
                 "import" if let Some(from) = self.import_start(k) => {
                     imports = self.join_run(imports, (from, t.line), lines);
                 }
-                "if" | "guard" | "for" | "while" | "switch" | "do" if !self.repeat_while(k) => {
+                "if" | "guard" | "for" | "while" | "switch" | "do"
+                    if !self.loop_tail(k, "repeat") =>
+                {
                     let end = self.sw_stmt(k, &mut quiet);
                     self.add(t.line, end, false);
                 }
@@ -147,11 +149,8 @@ impl Model<'_, '_> {
         a.as_ptr() as usize + a.len() == b.as_ptr() as usize
     }
 
-    fn repeat_while(&self, k: usize) -> bool {
-        self.tx(k) == "while"
-            && k > 0
-            && self.tx(k - 1) == "}"
-            && self.back[k - 1].is_some_and(|o| self.before(o) == "repeat")
+    fn declares(&self, k: usize, words: &[&str]) -> bool {
+        self.word_at(k) && words.contains(&self.tx(k)) && self.before(k) != "."
     }
 
     fn sw_body(&self, k: usize) -> Option<usize> {
@@ -299,7 +298,7 @@ impl Model<'_, '_> {
             p = p.saturating_sub(1);
         }
         let lead = p.checked_sub(1).map_or("", |b| self.tx(b));
-        matches!(lead, "func" | "case") || (ACCESSORS.contains(&self.tx(p)) && lead != ".")
+        matches!(lead, "func" | "case") || self.declares(p, ACCESSORS)
     }
 
     fn trailing_end(&self, open: usize) -> usize {
@@ -364,7 +363,7 @@ impl Model<'_, '_> {
                 j = self.back[p].unwrap_or(p);
                 continue;
             }
-            if DECLS.contains(&pt.text) && pt.kind == K::Word {
+            if self.declares(p, DECLS) {
                 return true;
             }
             if matches!(

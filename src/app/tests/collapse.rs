@@ -446,3 +446,31 @@ fn f_folds_a_jsx_element_in_a_jsx_file() {
     key(&mut a, KeyCode::Char('f'));
     assert_eq!(a.collapsed, vec![(1, 3)]);
 }
+
+#[test]
+fn f_survives_every_prefix_of_the_swift_and_php_fixtures() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/folds");
+    for (ext, name) in [("swift", "swift.swift"), ("php", "php.php")] {
+        let text = std::fs::read_to_string(dir.join(name)).unwrap();
+        let mut a = app_as(ext, "");
+        let path = a.buf.path.clone().unwrap();
+        for (cut, _) in text.char_indices() {
+            a.buf = Buffer::from_bytes(path.clone(), &text.as_bytes()[..cut]);
+            a.collapsed.clear();
+            a.go((a.buf.lines.len() - 1, 0));
+            key(&mut a, KeyCode::Char('f'));
+        }
+    }
+}
+
+#[test]
+fn php_uses_inside_a_braced_namespace_and_a_phtml_file_fold() {
+    let text =
+        "<?php\nnamespace App {\n    use A;\n    use B;\n\n    function f()\n    {\n    }\n}\n";
+    for ext in ["php", "phtml"] {
+        let mut a = app_as(ext, text);
+        a.go((2, 4));
+        key(&mut a, KeyCode::Char('f'));
+        assert_eq!(a.collapsed, vec![(2, 3)], ".{ext}");
+    }
+}

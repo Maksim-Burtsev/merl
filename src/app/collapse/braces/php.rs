@@ -22,6 +22,10 @@ impl Lexer<'_> {
         let s = self.bytes();
         let (l, at) = (self.l, self.i);
         match s[at] {
+            b'?' if s.get(at + 1) == Some(&b'>') => {
+                self.i = at + 2;
+                self.php_html();
+            }
             b'#' if s.get(at + 1) != Some(&b'[') => self.i = s.len(),
             b'<' if s[at..].starts_with(b"<<<") => return self.heredoc(),
             q @ (b'\'' | b'"') => {
@@ -48,6 +52,25 @@ impl Lexer<'_> {
             _ => return false,
         }
         true
+    }
+
+    pub(super) fn php_html(&mut self) {
+        loop {
+            let s = self.bytes();
+            if let Some(j) = super::find(&s[self.i.min(s.len())..], b"<?") {
+                self.i += j + 2;
+                let s = &self.bytes()[self.i..];
+                if s.starts_with(b"php") {
+                    self.i += 3;
+                } else if s.starts_with(b"=") {
+                    self.i += 1;
+                }
+                return;
+            }
+            if !self.next_line() {
+                return;
+            }
+        }
     }
 
     fn heredoc(&mut self) -> bool {
@@ -99,17 +122,20 @@ impl Model<'_, '_> {
                 continue;
             }
             match t.text {
-                "use" if self.first[k] && stack.last().copied().unwrap_or(true) => {
+                "use"
+                    if matches!(self.before(k), "" | ";" | "{" | "}")
+                        && stack.last().copied().unwrap_or(true) =>
+                {
                     let end = self.php_semicolon(k);
                     uses = self.join_run(uses, (t.line, self.end_of(end)), lines);
                     continue;
                 }
-                "while" if self.do_while(k) => {}
+                "while" if self.loop_tail(k, "do") => {}
                 w if STATEMENTS.contains(&w) => {
                     let end = self.php_stmt_end(k);
                     self.add(t.line, end.map(|e| self.end_of(e)), false);
                 }
-                "function" if self.word_next(k) => {
+                "function" if self.word_next(k) && self.before(k) != "use" => {
                     let start = self.php_decl_start(k);
                     let end = self.php_decl_end(k);
                     self.add(self.toks[start].line, end.map(|e| self.end_of(e)), true);
@@ -161,8 +187,7 @@ impl Model<'_, '_> {
     }
 
     fn word_next(&self, k: usize) -> bool {
-        self.toks.get(k + 1).is_some_and(|t| t.kind == K::Word)
-            || (self.punct(k + 1, "&") && self.toks.get(k + 2).is_some_and(|t| t.kind == K::Word))
+        self.word_at(k + 1) || (self.punct(k + 1, "&") && self.word_at(k + 2))
     }
 
     fn php_bracket(&mut self, k: usize) {

@@ -133,7 +133,7 @@ impl Model<'_, '_> {
         let code = matches!(up, Ctx::Code | Ctx::Switch);
         match t.text {
             "if" | "for" | "while" | "switch" | "do" | "try" if code => {
-                if t.text == "while" && self.do_while(k) {
+                if self.loop_tail(k, "do") {
                     return;
                 }
                 if matches!(t.text, "do" | "try" | "else") || self.punct(k + 1, "{") {
@@ -274,10 +274,6 @@ impl Model<'_, '_> {
             j += 1;
         }
         self.punct(j, "(").then_some(j)
-    }
-
-    pub(super) fn do_while(&self, k: usize) -> bool {
-        k > 0 && self.punct(k - 1, "}") && self.back[k - 1].is_some_and(|o| self.before(o) == "do")
     }
 
     fn c_stmt_end(&self, k: usize) -> usize {
