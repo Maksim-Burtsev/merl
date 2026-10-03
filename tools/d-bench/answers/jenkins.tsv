@@ -1,0 +1,73 @@
+# id	targets: path:line joined by ; (project-relative; empty: none in reach)	skip: why the row is not scored	note (judged by reading the code: no language server ran for this language)
+jenkins0000			outside the project: a Jenkins environment variable (env.CHANGE_ID)
+jenkins0001			outside the project: org.junit.Assert.assertTrue (static import)
+jenkins0002		a key of a Map built at runtime, no declaration	
+jenkins0003	test/groovy/BaseTest.groovy:10		field env of BaseTest, the test's superclass
+jenkins0004		a package segment of an import or package line	
+jenkins0005		inside the shebang line, which the sampler does not mask	
+jenkins0006	test/groovy/BaseTest.groovy:10		field env of BaseTest, the test's superclass
+jenkins0007			outside the project: JenkinsPipelineUnit BasePipelineTest.printCallStack
+jenkins0008		the cursor is on a declaration	
+jenkins0009			outside the project: JenkinsPipelineUnit BasePipelineTest.loadScript
+jenkins0010			outside the project: JenkinsPipelineUnit PipelineTestHelper.registerAllowedMethod
+jenkins0011			outside the project: java.lang.Exception
+jenkins0012		inside a Groovy slashy regex, which the sampler does not mask	
+jenkins0013		a key of a Map built at runtime, no declaration	
+jenkins0014		a key of a Map built at runtime, no declaration	
+jenkins0015		inside a Groovy slashy regex, which the sampler does not mask	
+jenkins0016			outside the project: JenkinsPipelineUnit PipelineTestHelper.registerAllowedMethod
+jenkins0017			outside the project: JenkinsPipelineUnit PipelineTestHelper.registerAllowedMethod
+jenkins0018	test/groovy/BaseTest.groovy:115		merl's jump, judged right
+jenkins0019	vars/infra.groovy:229		script = loadScript('vars/infra.groovy'): the step's checkoutSCM
+jenkins0020			outside the project: java.util.Date
+jenkins0021			outside the project: java.lang.Exception
+jenkins0022			outside the project: org.junit.Assert.assertFalse (import line)
+jenkins0023			outside the project: org.junit.Assert (import line)
+jenkins0024	vars/terraform.groovy:6		script = loadScript('vars/terraform.groovy'): the step's call
+jenkins0025			outside the project: java.lang.Exception
+jenkins0026	vars/runBenchmarks.groovy:8		script = loadScript('vars/runBenchmarks.groovy'): the step's call
+jenkins0027			outside the project: JenkinsPipelineUnit BasePipelineTest.printCallStack
+jenkins0028			outside the project: java.lang.Exception
+jenkins0029		a package segment of an import or package line	
+jenkins0030			outside the project: java.util.ArrayList
+jenkins0031			outside the project: java.text.DateFormat (import line)
+jenkins0032			outside the project: java.lang.Exception
+jenkins0033	vars/buildWebsite.groovy:3		script = loadScript('vars/buildWebsite.groovy'): the step's call
+jenkins0034			outside the project: JenkinsPipelineUnit BasePipelineTest.loadScript
+jenkins0035		the cursor is on a declaration	
+jenkins0036	test/groovy/BaseTest.groovy:123		merl's jump, judged right
+jenkins0037	test/groovy/BaseTest.groovy:115		merl's jump, judged right
+jenkins0038	test/groovy/BuildDockerAndPublishImageStepTests.groovy:97		merl's jump, judged right
+jenkins0039		the cursor is on a declaration	
+jenkins0040			outside the project: java.lang.Exception
+jenkins0041			outside the project: java.lang.Exception
+jenkins0042			outside the project: the Jenkins global env of a vars/ step; merl's picker holds the tests' fields
+jenkins0043			outside the project: GDK Collection.findAll
+jenkins0044			outside the project: org.junit.Assert.assertTrue (static import)
+jenkins0045			outside the project: JenkinsPipelineUnit PipelineTestHelper.registerAllowedMethod
+jenkins0046			outside the project: the Jenkins step withEnv
+jenkins0047			outside the project: java.lang.Exception
+jenkins0048			outside the project: org.junit.Assert.assertTrue (static import)
+jenkins0049	vars/buildDockerAndPublishImage.groovy:52		script = loadScript('vars/buildDockerAndPublishImage.groovy'): the step's call
+jenkins0050	test/groovy/BaseTest.groovy:115		merl's jump, judged right
+jenkins0051		the cursor is on a declaration	
+jenkins0052			outside the project: java.lang.Exception
+jenkins0053		a key of a Map built at runtime, no declaration	
+jenkins0054			outside the project: String.equals
+jenkins0055			outside the project: java.lang.Exception
+jenkins0056			outside the project: java.util.Arrays
+jenkins0057			outside the project: java.lang.Exception
+jenkins0058			outside the project: java.lang.Exception
+jenkins0059	test/groovy/BuildWebsiteStepTests.groovy:11		merl's jump, judged right
+jenkins0060	test/groovy/mock/CurrentBuild.groovy:15		constructor CurrentBuild(String, ArrayList)
+jenkins0061			outside the project: java.lang.Exception
+jenkins0062	vars/buildPlugin.groovy:323		merl's jump, judged right
+jenkins0063	vars/buildPlugin.groovy:34		local String platform (the map value, not the key)
+jenkins0064	vars/infra.groovy:604		script = loadScript('vars/infra.groovy'): the step's getBuildAgentLabel
+jenkins0065			outside the project: the Jenkins pipeline function logRotator
+jenkins0066		the cursor is on a declaration	
+jenkins0067		a key of a map literal, not a reference	
+jenkins0068		a key of a Map built at runtime, no declaration	
+jenkins0069		a key of a Map built at runtime, no declaration	
+jenkins0070	vars/buildPluginWithGradle.groovy:6		script = loadScript('vars/buildPluginWithGradle.groovy'): the step's call
+jenkins0071		a package segment of an import or package line	

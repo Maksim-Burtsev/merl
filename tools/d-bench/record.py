@@ -7,7 +7,8 @@
 The project is LANG's row of projects.tsv, cloned into the cache by `run` first
 ($D_BENCH_CACHE or ~/.cache/merl-d-bench). The servers come from install-servers.sh
 ($D_BENCH_SERVERS or <cache>/servers). `oracle` resumes from the answers already written.
-Java, Kotlin, C# and Ruby have no server here: their answers were judged by reading the code.
+Java, Kotlin, C#, Ruby, Groovy and Jenkins (a Groovy shared library, its own row) have no server
+here: their answers were judged by reading the code.
 """
 import json, os, random, re, select, subprocess, sys, time
 from collections import defaultdict
@@ -78,8 +79,14 @@ yield Task List String""".split(),
 in module next nil not or redo rescue retry return self super then true undef unless until when
 while yield require require_relative include extend attr_accessor attr_reader attr_writer private
 protected public puts raise new lambda proc""".split(),
+    "groovy": """abstract as assert boolean break byte case catch char class const continue def default
+do double else enum extends false final finally float for goto if implements import in instanceof
+int interface long native new null package private protected public return short static strictfp
+super switch synchronized this throw throws trait transient true try var void volatile while it
+println print String Object Integer Long Boolean List Map Set Closure Override""".split(),
 }
 KW["js"] = KW["ts"]
+KW["jenkins"] = KW["groovy"]
 KW["objc"] = C_KW + """self super nil Nil YES NO id instancetype BOOL SEL Class IMP NSInteger NSUInteger
 CGFloat interface implementation end property protocol optional required synthesize dynamic
 selector encode class import autoreleasepool synchronized nonatomic atomic strong weak copy assign
@@ -103,7 +110,10 @@ SPEC = {
     "kotlin": dict(exts=(".kt", ".kts"), lc=("//",), bc=("/*", "*/"), triple=True),
     "csharp": dict(exts=(".cs",), lc=("//",), bc=("/*", "*/"), triple=True),
     "ruby": dict(exts=(".rb",), lc=("#",), bc=None),
+    "groovy": dict(exts=(".groovy", ".gvy", ".gradle", "Jenkinsfile"), lc=("//",), bc=("/*", "*/"),
+                   triple=True, dollar_slashy=True),
 }
+SPEC["jenkins"] = SPEC["groovy"]
 SKIP_DIRS = {".git", "node_modules", "vendor", "third_party", "dist", "build", "target", ".venv",
              "venv", "__pycache__", "migrations", "deps", "public", "static", "locale", "locales",
              "generated", ".build", "Pods", "fixtures", "testdata"}
@@ -139,6 +149,8 @@ def code_tokens(text, spec):
                 state = "block"; masked[i:i + 2] = "  "; i += 2; continue
             if spec.get("triple") and (line.startswith('"""', i) or line.startswith("'''", i)):
                 state = ("str", line[i:i + 3]); masked[i:i + 3] = "   "; i += 3; continue
+            if spec.get("dollar_slashy") and line.startswith("$/", i):
+                state = ("str", "/$"); masked[i:i + 2] = "  "; i += 2; continue
             if spec.get("tmpl") and c == spec["tmpl"]:
                 state = ("str", c); masked[i] = " "; i += 1; continue
             if c in "\"'":
