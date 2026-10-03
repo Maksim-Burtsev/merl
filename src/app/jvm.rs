@@ -489,6 +489,9 @@ static DEFAULT: std::sync::LazyLock<Regex> =
     std::sync::LazyLock::new(|| Regex::new(r"[^=!<>]=(?:[^=~]|$)").unwrap());
 
 fn parameters(text: &str, line: usize, word: &str, groovy: bool) -> Option<(usize, usize)> {
+    if !groovy {
+        return search::jvm_parameters(text, line, word);
+    }
     let lines: Vec<String> = text.lines().map(str::to_owned).collect();
     let at = line.checked_sub(1)?;
     let re = Regex::new(&format!(r"\b{}\s*\(", regex::escape(word))).ok()?;
@@ -498,9 +501,6 @@ fn parameters(text: &str, line: usize, word: &str, groovy: bool) -> Option<(usiz
     let list = joined[open..].split(')').next().unwrap_or_default();
     if list.contains("...") {
         return Some((count.saturating_sub(1), usize::MAX));
-    }
-    if !groovy {
-        return Some((count, 0));
     }
     let mut angle = 0usize;
     let mut typed = 0;

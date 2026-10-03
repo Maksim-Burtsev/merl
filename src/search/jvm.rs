@@ -851,6 +851,30 @@ pub fn jvm_return_type(line: &str, name: &str, kotlin: bool) -> Option<String> {
         .map(|c| c[1].to_owned())
 }
 
+pub fn jvm_parameters(text: &str, line: usize, word: &str) -> Option<(usize, usize)> {
+    let rows: Vec<&str> = text.lines().collect();
+    let at = line.checked_sub(1)?;
+    let head = Regex::new(&format!(r"\b{}\s*\(", regex::escape(word))).ok()?;
+    let open = head.find(rows.get(at)?)?.end() - 1;
+    let (inner, _, _) = group(Kind::Jvm, &rows, at, open)?;
+    if inner.trim().is_empty() {
+        return Some((0, 0));
+    }
+    let (mut depth, mut count) = (0i32, 1);
+    for (_, c) in code(Kind::Jvm, &inner) {
+        match c {
+            b'(' | b'[' | b'{' | b'<' => depth += 1,
+            b')' | b']' | b'}' | b'>' => depth -= 1,
+            b',' if depth == 0 => count += 1,
+            _ => {}
+        }
+    }
+    Some(match inner.contains("...") {
+        true => (count - 1, usize::MAX),
+        false => (count, 0),
+    })
+}
+
 pub fn jvm_smart_cast(text: &str, line: usize, before: &str, name: &str) -> Option<String> {
     let n = regex::escape(name);
     let ty = format!(r"([A-Z]\w*){GENERIC}\??");
