@@ -255,24 +255,33 @@ pub(super) fn julia_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindi
     let code = |i: usize| !literal.get(i).copied().unwrap_or(false);
     let mut depth = indent(lines[at]);
     let mut body_end = at;
+    let mut outer = None;
     for k in (0..=at).rev() {
         let l = lines[k];
         if !code(k) || l.trim().is_empty() || l.trim_start().starts_with('#') {
             continue;
         }
-        let header = HEADER.is_match(l);
+        let header = HEADER.is_match(l) || method_def(lines, k);
         if k != at && indent(l) >= depth {
             continue;
         }
         if k == at && !header {
             continue;
         }
-        depth = indent(l);
+        let body = std::mem::replace(&mut depth, indent(l));
         if k != at && generator.is_match(l) {
             let assigned = (k + 1..body_end)
                 .rev()
                 .find(|&i| code(i) && assigns(lines[i]));
             return binding(assigned.unwrap_or(k));
+        }
+        if !header && k != at {
+            outer = (k + 1..body_end)
+                .find(|&i| code(i) && indent(lines[i]) == body && assigns(lines[i]))
+                .or(outer);
+            if outer.is_some() && l.trim_start().starts_with('@') {
+                break;
+            }
         }
         if header {
             if let Some(i) = (k + 1..body_end)
@@ -291,7 +300,7 @@ pub(super) fn julia_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindi
             break;
         }
     }
-    Vec::new()
+    outer.map(binding).unwrap_or_default()
 }
 
 fn assignment(name: &str) -> impl Fn(&str) -> bool {
@@ -324,6 +333,11 @@ static HEADER: LazyLock<Regex> = LazyLock::new(|| {
     ))
     .unwrap()
 });
+
+fn method_def(lines: &[&str], k: usize) -> bool {
+    HEAD.find(lines[k])
+        .is_some_and(|m| defines(&lines[k..lines.len().min(k + 20)].join("\n")[m.end() - 1..]))
+}
 
 fn method_head(line: &str) -> Option<&str> {
     let m = HEAD.find(line)?;

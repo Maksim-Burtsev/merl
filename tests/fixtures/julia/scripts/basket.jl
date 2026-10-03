@@ -35,3 +35,5 @@ function checkout(items, coupon)
 #           ^ d: scripts/basket.jl:20
 #                      ^ d: scripts/basket.jl:2
 end
+row(i) = i
+res = 0
