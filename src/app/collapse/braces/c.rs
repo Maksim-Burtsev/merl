@@ -276,7 +276,7 @@ impl Model<'_, '_> {
         self.punct(j, "(").then_some(j)
     }
 
-    fn do_while(&self, k: usize) -> bool {
+    pub(super) fn do_while(&self, k: usize) -> bool {
         k > 0 && self.punct(k - 1, "}") && self.back[k - 1].is_some_and(|o| self.before(o) == "do")
     }
 

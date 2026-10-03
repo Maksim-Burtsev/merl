@@ -17,8 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a jump inside one (`:`, `/`, `n`, `d`, `u`, `s`, `[`) opens it. A fold stays with its file
   across jumps and moves with the lines written above it. Other languages say
   `no fold rules for .rb` until they are proven the same way (#623). (#598)
-- `f` folds Go, JavaScript, TypeScript (JSX and TSX included), Rust, C, C++, C#, Java, Kotlin
-  and Swift, where it said `no fold rules for .go`: on a line that opens a construct it folds what
+- `f` folds Go, JavaScript, TypeScript (JSX and TSX included), Rust, C, C++, C#, Java, Kotlin,
+  Swift and PHP, where it said `no fold rules for .go`: on a line that opens a construct it folds what
   Neovim's treesitter folds there (a function, a class, an `if` and its branches, a `switch` and
   each `case`, a loop, an object, an array, a call's arguments wrapped over lines, a JSX element,
   a C `#ifdef` to its `#endif`, a Rust `impl`, a run of imports, a Go composite literal and each

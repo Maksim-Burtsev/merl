@@ -5,6 +5,7 @@ mod c;
 mod csharp;
 mod java;
 mod kotlin;
+mod php;
 mod rust;
 mod swift;
 
@@ -20,6 +21,7 @@ pub(crate) enum Lang {
     C,
     Cpp,
     Swift,
+    Php,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -42,6 +44,7 @@ pub(crate) fn syntax_of(path: &Path) -> Option<Syntax> {
         "kt" | "kts" => (Lang::Kotlin, false),
         "c" => (Lang::C, false),
         "swift" => (Lang::Swift, false),
+        "php" => (Lang::Php, false),
         "h" | "cc" | "cpp" | "cxx" | "c++" | "hh" | "hpp" | "hxx" | "h++" | "ipp" => {
             (Lang::Cpp, false)
         }
@@ -76,6 +79,7 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
         Lang::C => model.c_family(false, lines),
         Lang::Cpp => model.c_family(true, lines),
         Lang::Swift => model.swift(lines),
+        Lang::Php => model.php(lines),
         lang => model.ecma(lang == Lang::Ts),
     }
     let levels = levels(lines.len(), &model.nodes);
@@ -339,6 +343,12 @@ impl<'a> Lexer<'a> {
             if self.syntax.lang == Lang::Java && s[i..].starts_with(b"\"\"\"") {
                 self.skip_past(i + 3, b"\"\"\"");
                 self.emit(l, i, 1, K::Str, self.l);
+                continue;
+            }
+            if self.syntax.lang == Lang::Php
+                && matches!(c, b'#' | b'\'' | b'"' | b'<')
+                && self.php_quote()
+            {
                 continue;
             }
             if self.syntax.lang == Lang::Swift && matches!(c, b'"' | b'#') && self.swift_string() {
