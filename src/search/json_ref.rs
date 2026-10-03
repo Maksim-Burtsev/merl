@@ -5,7 +5,7 @@ use std::path::Path;
 #[derive(Debug, PartialEq)]
 pub enum RefAt {
     Value(String),
-    Refused,
+    Refused(String),
 }
 
 pub fn is_ref_file(path: &Path) -> bool {
@@ -45,7 +45,7 @@ pub fn ref_at(path: &Path, lines: &[&str], line: usize, col: usize) -> Option<Re
         || (!json && comment_start(l).is_some_and(|c| c < start))
         || (!json && in_block_scalar(lines, line));
     Some(match refused {
-        true => RefAt::Refused,
+        true => RefAt::Refused(value),
         false => RefAt::Value(value),
     })
 }
@@ -77,7 +77,14 @@ fn in_block_scalar(lines: &[&str], line: usize) -> bool {
         std::sync::LazyLock::new(|| Regex::new(r"(?:^-|:)\s+[|>][-+0-9]*\s*(?:#.*)?$").unwrap());
     let mut at = line;
     while let Some(up) = parent(lines, at, false) {
-        if HEADER.is_match(lines[up].trim()) {
+        let t = lines[up].trim();
+        let column = match t.strip_prefix('-').map(str::trim_start) {
+            Some(item) if key_of(item).is_some() => {
+                syntax::indent(lines[up]) + t.len() - item.len()
+            }
+            _ => syntax::indent(lines[up]),
+        };
+        if HEADER.is_match(t) && syntax::indent(lines[at]) > column {
             return true;
         }
         at = up;
@@ -319,9 +326,15 @@ components:
         let value = RefAt::Value("#/components/responses/NotFound".into());
         assert_eq!(ref_at(p, &lines, 6, 20), Some(value));
         assert_eq!(ref_at(p, &lines, 6, 10), None);
-        assert_eq!(ref_at(p, &lines, 20, 20), Some(RefAt::Refused));
+        assert_eq!(
+            ref_at(p, &lines, 20, 20),
+            Some(RefAt::Refused("#/components/schemas/User".into()))
+        );
         let commented = ["# $ref: '#/a'"];
-        assert_eq!(ref_at(p, &commented, 0, 10), Some(RefAt::Refused));
+        assert_eq!(
+            ref_at(p, &commented, 0, 10),
+            Some(RefAt::Refused("#/a".into()))
+        );
         let json = ["    \"home\": { \"$ref\": \"#/$defs/address\" },"];
         let value = RefAt::Value("#/$defs/address".into());
         assert_eq!(ref_at(Path::new("a.json"), &json, 0, 30), Some(value));
@@ -336,5 +349,17 @@ components:
             Some(RefAt::Value("Dog.yaml".into()))
         );
         assert_eq!(ref_at(p, &mapping, 3, 8), None);
+        let sibling = [
+            "allOf:",
+            "  - description: |",
+            "      text",
+            "    $ref: '#/a'",
+        ];
+        assert_eq!(ref_at(p, &sibling, 3, 13), Some(RefAt::Value("#/a".into())));
+        let inside = ["allOf:", "  - description: |", "      $ref: '#/a'"];
+        assert_eq!(
+            ref_at(p, &inside, 2, 15),
+            Some(RefAt::Refused("#/a".into()))
+        );
     }
 }

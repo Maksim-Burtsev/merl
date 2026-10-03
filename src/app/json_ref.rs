@@ -19,8 +19,8 @@ impl App {
         };
         match found {
             None => false,
-            Some(RefAt::Refused) => {
-                self.message = resolution(&word(""), None, &[], None, false);
+            Some(RefAt::Refused(r)) => {
+                self.message = resolution(&word(&r), None, &[], None, false);
                 true
             }
             Some(RefAt::Value(r)) => {
