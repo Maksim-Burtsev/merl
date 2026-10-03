@@ -1,16 +1,16 @@
 wait web/android/src/main/kotlin/courier/app/ParcelList.kt  1:1
-1 package courier.app
-2
-3 class ParcelList(private val sync: ParcelSync) {
-4     fun refresh(codes: List<String>): Int {
-5         val trimmed = codes.map { code -> code.trim() }
-6         return sync.send(trimmed)
-7     }
-8 }
-
-
-
-
+ 1 package courier.app
+ 2
+ 3 class ParcelList(private val sync: ParcelSync) {
+ 4     fun refresh(codes: List<String>): Int {
+ 5         val trimmed = codes.map { code -> code.trim() }
+ 6         return sync.send(trimmed)
+ 7     }
+ 8
+ 9     fun push(target: Any, codes: List<String>) {
+10         if (target is ParcelSync) target.send(codes)
+11     }
+12 }
 
 
 
@@ -54,4 +54,4 @@ wait web/android/src/main/kotlin/courier/app/ParcelList.kt  1:1
 
 
 web/android/src/main/kotlin/courier/app/ParcelList.kt  1:1  [code]                                                                                                                ? help
-cursor (x,y,shown) 2,0,1
+cursor (x,y,shown) 3,0,1

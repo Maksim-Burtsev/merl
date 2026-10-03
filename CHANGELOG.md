@@ -106,6 +106,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` outside the project answers faster: the dependencies are read in parallel, each file's
   comments are lexed once, and a Python member is looked for in the packages the file imports
   before every installed one, so its picker lists those alone (#318).
+### Changed
+
+- `d` in Java and Kotlin reads the type a cast, a pattern or a smart cast gives the receiver:
+  `var m = (Meter) any`, `((Meter) any).reading()`, `any instanceof Gauge g`, Kotlin's `dao as
+  NewsDao`, `(dao as? NewsDao)?.purge()`, and `dao.purge()` inside `if (dao is NewsDao)` or an
+  `is NewsDao ->` branch of `when (dao)` jump to that type's member, `purge → NewsDao.purge (via
+  dao: NewsDao)`, where they offered every `purge` of the project. So do a dotted type,
+  `Meter.Dial dial`, and Kotlin's `x?.m` and `x!!.m`; `Map.Entry` says `no definition`. (#388,
+  #391)
 
 ## [0.8.1] - 2026-10-02
 
