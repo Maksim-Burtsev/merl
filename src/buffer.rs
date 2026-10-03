@@ -414,8 +414,7 @@ fn known_file(name: &str) -> Option<&'static str> {
         (_, "h") => "C++",
         (".npmrc", _) | (_, "service" | "timer" | "socket") => "INI",
         ("Procfile" | "yarn.lock", _) => "YAML",
-        // Starlark.
-        ("WORKSPACE" | "Tiltfile", _) => "Python",
+        ("WORKSPACE" | "Tiltfile" | "BUILD" | "BUCK", _) | (_, "star") => "Python",
         // bat's set owns `.md` and `.markdown`; MDX is Markdown with JSX in it (#421).
         (_, "mdx") => "Markdown",
         // bat's set has no Astro grammar: TSX paints its frontmatter and its JSX-like template,
@@ -1127,6 +1126,29 @@ mod tests {
     }
 
     #[test]
+    fn starlark_highlights_as_python_with_every_shipped_theme() {
+        let src =
+            "# doc\nload(\"//tools:defs.bzl\", \"shop_binary\")\n\ndef shop(name):\n    pass\n";
+        for file in [
+            "BUILD",
+            "api/BUILD.bazel",
+            "tools/defs.bzl",
+            "x.star",
+            "BUCK",
+        ] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(b.syntax.map(|s| s.name.as_str()), Some("Python"), "{file}");
+                b.highlight_to(5, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
     fn shown_clips_a_huge_line_on_a_char_boundary() {
         let text = "漢".repeat(MAX_SHOWN_BYTES / 3 + 1);
         let b = load(text.as_bytes());
@@ -1198,6 +1220,9 @@ mod tests {
             ("yarn.lock", "YAML"),
             ("WORKSPACE", "Python"),
             ("Tiltfile", "Python"),
+            ("BUILD", "Python"),
+            ("BUCK", "Python"),
+            ("rules.star", "Python"),
             // Already in bat's set; listed so a two-face upgrade cannot drop them silently.
             ("docker-compose.yml", "YAML"),
             ("Makefile", "Makefile"),

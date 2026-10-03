@@ -29,6 +29,7 @@ pub enum Kind {
     Dart,
     Cmake,
     Nix,
+    Starlark,
     Sql,
     Make,
     Terraform,
@@ -104,6 +105,9 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "dart") => Kind::Dart,
         ("CMakeLists.txt", _) | (_, "cmake") => Kind::Cmake,
         (_, "nix") => Kind::Nix,
+        ("BUILD" | "WORKSPACE" | "Tiltfile" | "BUCK", _) | (_, "bazel" | "bzl" | "star") => {
+            Kind::Starlark
+        }
         (_, "sql" | "psql" | "pgsql" | "mysql" | "ddl" | "dml") => Kind::Sql,
         ("Makefile" | "makefile" | "GNUmakefile", _) | (_, "mk") => Kind::Make,
         (_, "tf" | "tfvars") => Kind::Terraform,

@@ -38,6 +38,7 @@ mod project_search;
 mod review;
 mod review_deleted;
 mod smoke;
+mod starlark;
 mod stats;
 mod symbols;
 mod tree;

@@ -6,10 +6,9 @@ use std::borrow::Cow;
 pub(super) fn indent(s: &str) -> usize {
     s.len() - s.trim_start().len()
 }
-/// Whether a trimmed line of `kind` is a comment. TypeScript's `#private` is a name.
 pub(super) fn comment(kind: Kind, t: &str) -> bool {
     match kind {
-        Kind::Python => t.starts_with('#'),
+        Kind::Python | Kind::Starlark => t.starts_with('#'),
         _ => ["//", "/*", "*"].iter().any(|c| t.starts_with(c)),
     }
 }
@@ -85,15 +84,9 @@ pub fn in_string(kind: Kind, text: &str, at: usize) -> bool {
 }
 /// [`literal_lines`], and whether byte `at` is inside a Rust string.
 fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
-    // What this kind writes: the triple quote of a heredoc, Lua's long bracket, the backtick
-    // template and the `/* */` block of the C family, and the comments that run to the end of a
-    // line. Elixir writes its heredocs and its comments exactly as Python does; Swift and C#
-    // write the same `"""` block with the C family's comments around it. SQL and Terraform have
-    // the `/* */` block but no template; SQL keeps the `//` comment Snowflake writes, and its
-    // backtick quotes a MySQL name of one line, whose `/*` opens nothing.
     let (heredoc, long_bracket, template, block_comment, line_comments): (_, _, _, _, &[&str]) =
         match kind {
-            Kind::Python | Kind::Elixir => (true, false, false, false, &["#"]),
+            Kind::Python | Kind::Starlark | Kind::Elixir => (true, false, false, false, &["#"]),
             Kind::Lua => (false, true, false, false, &["--"]),
             Kind::Zig => (false, false, false, false, &["//"]),
             Kind::Swift | Kind::CSharp => (true, false, true, true, &["//"]),
@@ -302,11 +295,11 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             }
         } else if heredoc
             && (b[i..].starts_with(b"\"\"\"")
-                || (matches!(kind, Kind::Python | Kind::Elixir | Kind::Dart)
-                    && b[i..].starts_with(b"'''")))
+                || (matches!(
+                    kind,
+                    Kind::Python | Kind::Starlark | Kind::Elixir | Kind::Dart
+                ) && b[i..].starts_with(b"'''")))
         {
-            // `'''` is Python's, Elixir's and Dart's alone; Swift, C#, GraphQL, Java and Kotlin
-            // write the block with `"` only.
             block = Some(if c == b'"' { b"\"\"\"" } else { b"'''" }.into());
             i += 2;
         } else if powershell && b[i..].starts_with(b"<#") {

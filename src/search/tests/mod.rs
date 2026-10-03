@@ -20,6 +20,7 @@ mod nix;
 mod other_languages;
 mod powershell;
 mod scope;
+mod starlark;
 mod symbols;
 mod types;
 mod words;

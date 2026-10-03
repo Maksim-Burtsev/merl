@@ -413,6 +413,8 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::Cmake), CMAKE_FUNCTION_SYMBOL),
     (Some(Kind::Cmake), CMAKE_TARGET_SYMBOL),
     (Some(Kind::Nix), NIX_FUNCTION_SYMBOL),
+    (Some(Kind::Starlark), STARLARK_RULE_SYMBOL),
+    (Some(Kind::Starlark), STARLARK_TARGET_SYMBOL),
     // Every `CREATE` object, with the name as written, schema and quotes included. CTEs are a
     // query's own scaffolding, not a symbol of the project, so they are left out.
     (Some(Kind::Sql), SQL_CREATE_SYMBOL),
