@@ -26,6 +26,12 @@ class Narrow {
         //                                       ^ d: src/main/kotlin/typed/data/NewsDao.kt:4
         if (dao is NewsDao) dao.hashCode() else dao.purgeAll(ids)
         //                                          ^ d: picker src/main/kotlin/typed/data/NewsDao.kt:4, src/main/kotlin/typed/data/TopicDao.kt:4
+        if (dao is NewsDao && ids.isEmpty() || ids.size > 3) dao.purgeAll(ids)
+        //                                                       ^ d: picker src/main/kotlin/typed/data/NewsDao.kt:4, src/main/kotlin/typed/data/TopicDao.kt:4
+        if (dao is TopicDao && ids.isEmpty() || ids.size > 3) {
+            dao.purgeAll(ids)
+            //  ^ d: picker src/main/kotlin/typed/data/NewsDao.kt:4, src/main/kotlin/typed/data/TopicDao.kt:4
+        }
     }
 
     suspend fun branch(dao: Any, ids: List<String>) {
