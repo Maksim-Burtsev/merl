@@ -187,13 +187,10 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         Kind::Nix => nix_bindings(&lines, at, name),
         Kind::Haskell => haskell_bindings(&lines, at, name),
         Kind::Julia => julia_bindings(&lines, at, name),
+        Kind::Gdscript => gdscript_bindings(&lines, at, name),
         _ => Vec::new(),
     }
 }
-/// Elixir's locals (#460): the nearest `pattern = value` above the cursor in a block around it,
-/// told by indentation as `mix format` keeps it, a clause head `pattern ->` or `fn x ->` or the
-/// `pattern <-` of a `for` or `with` that opens one of those blocks, and the parameters of the `def` around them, where the walk stops:
-/// a `def` sees nothing of the module around it. Nothing outside a `def` is a local.
 fn elixir_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^def(?:p|macrop?|guardp?|module|impl|protocol)?\s+[\w.?!]+").unwrap()

@@ -13,6 +13,7 @@ mod dart;
 mod defs;
 mod erlang;
 mod fields;
+mod gdscript;
 mod go;
 mod grep;
 mod groovy;

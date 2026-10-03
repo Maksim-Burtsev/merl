@@ -107,7 +107,9 @@ impl App {
             self.perl_definition(&here);
             return;
         }
-        if self.component_template(&here, &range, &mut word) {
+        if self.component_template(&here, &range, &mut word)
+            || (kind == Kind::Gdscript && self.gdscript_definition(&here, &range, &chain, &word))
+        {
             return;
         }
         if (kind == Kind::Go && word == "_")
@@ -476,7 +478,10 @@ impl App {
                 || same_line
                 || own_line
                 || own_arrow
-                || matches!(kind, Kind::Rust | Kind::Nix | Kind::Haskell | Kind::Julia))
+                || matches!(
+                    kind,
+                    Kind::Rust | Kind::Nix | Kind::Haskell | Kind::Julia | Kind::Gdscript
+                ))
         {
             let found = locals
                 .iter()

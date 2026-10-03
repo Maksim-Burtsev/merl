@@ -70,6 +70,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its `sub basename` in `@INC`, read-only. A constant, a `has` attribute, an `our` variable and
   5.38's `class`, `method` and `field` are found too, nothing in POD, a heredoc or after
   `__END__`, and `D` lists the subs, methods, packages and classes. (#424)
+- `d`, `u` and `D` in GDScript, Godot's language, where `d` said `no rules for .gd`. `d` on a
+  `func`, a `class_name`, an inner `class`, a `signal` (from `died.emit()` or
+  `emit_signal("died")`), a member `var` or `const` or an `enum` value lands on its declaration;
+  on a `var`, a `for` variable or a parameter of the function around the cursor, on that line,
+  `direction (local)`, never on another script's `direction`. `GameState.add_coins` lands in the
+  script `project.godot` autoloads as `GameState`, `add_coins: via GameState`, and a
+  `res://` path opens its file. A node path (`$Sprite2D`, `%HealthBar`) names nothing. `D` lists
+  functions, classes, enums, `class_name`s and signals. (#434)
 
 ## [0.8.1] - 2026-10-02
 

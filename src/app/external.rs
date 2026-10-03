@@ -545,6 +545,7 @@ impl App {
             | Kind::Julia
             | Kind::R
             | Kind::Perl
+            | Kind::Gdscript
             | Kind::Sql
             | Kind::Make
             | Kind::Terraform
@@ -581,6 +582,7 @@ impl App {
             Kind::Julia,
             Kind::R,
             Kind::Perl,
+            Kind::Gdscript,
             Kind::Sql,
             Kind::Make,
             Kind::Terraform,

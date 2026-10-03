@@ -39,6 +39,7 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Julia
         | Kind::R
         | Kind::Perl
+        | Kind::Gdscript
         | Kind::Sql
         | Kind::Make
         | Kind::Graphql
@@ -305,6 +306,7 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         | Kind::Haskell
         | Kind::Fsharp
         | Kind::R
+        | Kind::Gdscript
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
