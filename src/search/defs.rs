@@ -476,6 +476,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         Kind::R => r_patterns(word),
         Kind::Perl => perl_patterns(word),
         Kind::Gdscript => gdscript_patterns(word),
+        Kind::Solidity => solidity_patterns(word),
         // `FROM image AS name`, with any flags before the image. Stage names ignore case.
         Kind::Docker => vec![format!(r"(?i)^\s*FROM\s+(\S+\s+)+AS\s+{w}\s*$")],
         // An anchor, or a key that opens a block: compose services, CI jobs, GitLab's `.hidden`
@@ -1007,6 +1008,7 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         | Kind::R
         | Kind::Perl
         | Kind::Gdscript
+        | Kind::Solidity
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform
@@ -1139,6 +1141,7 @@ fn declares_by_kind<'a, S: AsRef<str> + 'a>(
         Kind::Julia => julia_declares(lines(), line, word),
         Kind::Perl => perl_declares(lines(), line, word, line_text),
         Kind::Gdscript => gdscript_declares(lines(), line, line_text),
+        Kind::Solidity => solidity_declares(lines(), line, line_text),
         _ => def_block(kind, word).is_none_or(|block| directly_inside(lines(), line, block)),
     }
 }

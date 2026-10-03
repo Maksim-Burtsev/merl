@@ -188,6 +188,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         Kind::Haskell => haskell_bindings(&lines, at, name),
         Kind::Julia => julia_bindings(&lines, at, name),
         Kind::Gdscript => gdscript_bindings(&lines, at, name),
+        Kind::Solidity => solidity_bindings(&lines, at, name),
         _ => Vec::new(),
     }
 }

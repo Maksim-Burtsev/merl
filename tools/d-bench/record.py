@@ -85,6 +85,14 @@ int interface long native new null package private protected public return short
 super switch synchronized this throw throws trait transient true try var void volatile while it
 println print String Object Integer Long Boolean List Map Set Closure Override""".split(),
 }
+KW["solidity"] = """pragma solidity import from as contract abstract interface library is function
+modifier event error struct enum type using for mapping returns return emit revert require assert if
+else while do break continue new delete public private internal external pure view payable constant
+immutable transient virtual override memory storage calldata indexed anonymous unchecked assembly
+try catch constructor fallback receive true false this super msg tx block abi address bool string
+bytes int uint wei gwei ether seconds minutes hours days weeks keccak256 sha256 ecrecover gasleft
+blockhash addmod mulmod selfdestruct length push pop""".split() + [
+    f"{t}{n}" for t in ("int", "uint") for n in range(8, 257, 8)] + [f"bytes{n}" for n in range(1, 33)]
 KW["js"] = KW["ts"]
 KW["jenkins"] = KW["groovy"]
 KW["objc"] = C_KW + """self super nil Nil YES NO id instancetype BOOL SEL Class IMP NSInteger NSUInteger
@@ -95,6 +103,7 @@ NS_ASSUME_NONNULL_BEGIN NS_ASSUME_NONNULL_END""".split()
 DECL = set("""def class func fn function struct interface type let const var val fun enum trait impl
 mod namespace union typedef record object protocol extension typealias module macro_rules define
 package import use from""".split())
+SOL_DECL = {"contract", "library", "modifier", "event", "error", "is"}
 SPEC = {
     "python": dict(exts=(".py",), lc=("#",), bc=None, triple=True),
     "ts": dict(exts=(".ts", ".tsx"), lc=("//",), bc=("/*", "*/"), tmpl="`"),
@@ -112,6 +121,7 @@ SPEC = {
     "ruby": dict(exts=(".rb",), lc=("#",), bc=None),
     "groovy": dict(exts=(".groovy", ".gvy", ".gradle", "Jenkinsfile"), lc=("//",), bc=("/*", "*/"),
                    triple=True, dollar_slashy=True),
+    "solidity": dict(exts=(".sol",), lc=("//",), bc=("/*", "*/")),
 }
 SPEC["jenkins"] = SPEC["groovy"]
 SKIP_DIRS = {".git", "node_modules", "vendor", "third_party", "dist", "build", "target", ".venv",
@@ -204,7 +214,8 @@ def sample(lang, project, root, n, out, exclude=()):
                 if w in kw or len(w) < 2:
                     continue
                 prev = re.findall(r"[A-Za-z_]+", before)
-                if prev and prev[-1] in DECL and not before.rstrip().endswith((".", "->", "::", "(", ",", "=", ":")):
+                decl = DECL | SOL_DECL if lang == "solidity" else DECL
+                if prev and prev[-1] in decl and not before.rstrip().endswith((".", "->", "::", "(", ",", "=", ":")):
                     continue
                 sh = shape(before, after, lang) or ("type" if w[0].isupper() else "name")
                 buckets[sh].append((rel, ln, col, sh, w))
@@ -341,7 +352,7 @@ class Lsp:
 LANG_ID = {".py": "python", ".ts": "typescript", ".tsx": "typescriptreact", ".js": "javascript",
            ".jsx": "javascriptreact", ".mjs": "javascript", ".cjs": "javascript", ".go": "go",
            ".rs": "rust", ".c": "c", ".h": "cpp", ".cc": "cpp", ".cpp": "cpp", ".hpp": "cpp",
-           ".php": "php", ".swift": "swift", ".m": "objective-c"}
+           ".php": "php", ".swift": "swift", ".m": "objective-c", ".sol": "solidity"}
 
 
 def server(lang, root):
@@ -371,6 +382,9 @@ def server(lang, root):
                    init_options={"storagePath": st, "globalStoragePath": st})
     if lang == "swift":
         return Lsp(["xcrun", "sourcekit-lsp"], root)
+    if lang == "solidity":
+        server = os.path.join(nm, "@nomicfoundation", "solidity-language-server", "out", "index.js")
+        return Lsp([node, server, "--stdio"], root)
     raise SystemExit(f"no server for {lang}")
 
 

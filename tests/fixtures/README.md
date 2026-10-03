@@ -302,6 +302,13 @@ signal from `emit()` and `emit_signal("…")`, members, named and anonymous `enu
 an autoload's function and the autoload itself, `res://` paths in `preload` and `extends`, each
 refusal (a node path, a dictionary key, `extends CharacterBody2D`) and declaration-shaped lines in
 a `"""` string.
+`solidity/` (#433) is a token and a basket over a library: the issue's `ShopToken` with its
+`modifier`, `event`, `error` and constant, imports of `@openzeppelin/contracts` from a
+`node_modules` the fixture's `.gitignore` ignores (added with `git add -f`), a relative import
+aliased and as a qualifier, a remapped one through `remappings.txt` and one through
+`foundry.toml` into `lib/`, every declaration form of the issue, parameters, named returns and
+locals of a header over lines, and declaration-shaped lines in a NatSpec `/** */`, a `/* */` and a
+`//` comment.
 
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
 `deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies

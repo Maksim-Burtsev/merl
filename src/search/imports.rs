@@ -364,6 +364,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
         | Kind::R
         | Kind::Perl
         | Kind::Gdscript
+        | Kind::Solidity
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform
@@ -899,6 +900,9 @@ pub fn module_files(
         Kind::Haskell => haskell_files(&module.join("."), files),
         Kind::R => r_files(dir, &module.join("/"), files),
         Kind::Gdscript => gdscript_files(here, &module.join("/"), files),
+        Kind::Solidity => solidity_file(root, files, here, &module.join("/"))
+            .into_iter()
+            .collect(),
         Kind::Graphql | Kind::PowerShell | Kind::Julia => lexical(&dir.join(module.join("/")))
             .filter(|f| files.contains(f))
             .into_iter()
@@ -916,6 +920,7 @@ pub fn file_import(kind: Kind, line: &str, col: usize) -> Option<String> {
         Kind::Julia => julia_include(line, col),
         Kind::R => r_source(line, col),
         Kind::Gdscript => gdscript_path(line, col),
+        Kind::Solidity => solidity_import_path(line, col),
         _ => None,
     }
 }

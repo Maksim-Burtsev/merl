@@ -13,6 +13,7 @@ impl App {
         match kind {
             Kind::Dart => self.dart_imported(here, text, before, chain, word),
             Kind::Haskell => self.haskell_imported(here, text, before, chain, word),
+            Kind::Solidity => self.solidity_imported(here, text, before, chain, word),
             _ => None,
         }
     }

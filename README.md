@@ -244,6 +244,7 @@ moment you open it. In Python, TypeScript and Go, `d` also follows the type of t
 | Elixir, Erlang | Mix's `deps/`, rebar3's `_build`, and OTP's sources |
 | OCaml | the standard library and the opam switch's libraries |
 | Julia | the standard library and the packages of the depot, at the versions `Manifest.toml` pins |
+| Solidity | `node_modules`, and the files remappings and Foundry's `lib/` name |
 | Perl | `@INC` and Carton's `local/lib/perl5` |
 | Java, Kotlin, Scala, Groovy, Ruby, C#, F#, Lua, Nix, Haskell, R | |
 | GDScript | the script `project.godot` autoloads under a name, and the file a `res://` path names |

@@ -546,6 +546,7 @@ impl App {
             | Kind::R
             | Kind::Perl
             | Kind::Gdscript
+            | Kind::Solidity
             | Kind::Sql
             | Kind::Make
             | Kind::Terraform
@@ -583,6 +584,7 @@ impl App {
             Kind::R,
             Kind::Perl,
             Kind::Gdscript,
+            Kind::Solidity,
             Kind::Sql,
             Kind::Make,
             Kind::Terraform,
@@ -630,22 +632,28 @@ impl App {
             self.external.insert(kind, (roots, Arc::new(files)));
             self.node_modules_of = Some(here.to_path_buf());
         }
-        if let Some(here) = here.filter(|_| kind == Kind::Elixir) {
-            let otp = match &self.otp {
-                Some(otp) => otp.clone(),
-                None => search::external_roots(kind, &self.root),
+        if let Some(here) = here.filter(|_| matches!(kind, Kind::Elixir | Kind::Solidity)) {
+            let roots = match kind {
+                Kind::Elixir => {
+                    let otp = match &self.otp {
+                        Some(otp) => otp.clone(),
+                        None => search::external_roots(kind, &self.root),
+                    };
+                    if !otp.is_empty() {
+                        self.otp = Some(otp.clone());
+                    }
+                    let mut roots = [
+                        search::mix_deps(&self.root, here),
+                        search::rebar_deps(&self.root, here),
+                        otp,
+                    ]
+                    .concat();
+                    let mut seen = std::collections::HashSet::new();
+                    roots.retain(|r| seen.insert(r.clone()));
+                    roots
+                }
+                _ => search::node_modules(&self.root, here),
             };
-            if !otp.is_empty() {
-                self.otp = Some(otp.clone());
-            }
-            let mut roots = [
-                search::mix_deps(&self.root, here),
-                search::rebar_deps(&self.root, here),
-                otp,
-            ]
-            .concat();
-            let mut seen = std::collections::HashSet::new();
-            roots.retain(|r| seen.insert(r.clone()));
             if self.external.get(&kind).is_none_or(|(r, _)| *r != roots) {
                 let mut files = Vec::new();
                 for dir in &roots {

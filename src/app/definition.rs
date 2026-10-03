@@ -189,7 +189,6 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // An import's path, and a name its package qualifies (#418).
         if kind == Kind::Proto
             && let Some(found) = self.proto_definitions(&text, &written[..start], &word)
         {
@@ -480,7 +479,12 @@ impl App {
                 || own_arrow
                 || matches!(
                     kind,
-                    Kind::Rust | Kind::Nix | Kind::Haskell | Kind::Julia | Kind::Gdscript
+                    Kind::Rust
+                        | Kind::Nix
+                        | Kind::Haskell
+                        | Kind::Julia
+                        | Kind::Gdscript
+                        | Kind::Solidity
                 ))
         {
             let found = locals

@@ -439,6 +439,7 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::Perl), PERL_SUB_SYMBOL),
     (Some(Kind::Perl), PERL_PACKAGE_SYMBOL),
     (Some(Kind::Gdscript), GDSCRIPT_SYMBOL),
+    (Some(Kind::Solidity), SOLIDITY_SYMBOL),
     // Every `CREATE` object, with the name as written, schema and quotes included. CTEs are a
     // query's own scaffolding, not a symbol of the project, so they are left out.
     (Some(Kind::Sql), SQL_CREATE_SYMBOL),

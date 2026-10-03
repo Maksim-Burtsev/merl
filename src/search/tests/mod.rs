@@ -28,6 +28,7 @@ mod perl;
 mod powershell;
 mod r;
 mod scope;
+mod solidity;
 mod symbols;
 mod types;
 mod words;
