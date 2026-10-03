@@ -48,7 +48,11 @@ impl App {
             return None;
         }
         let line = self.line + 1;
-        let smart = || kotlin.then(|| search::jvm_smart_cast(text, line, before, first)).flatten();
+        let smart = || {
+            kotlin
+                .then(|| search::jvm_smart_cast(text, line, before, first))
+                .flatten()
+        };
         let (mut ty, mut links) = match first.as_str() {
             "this" => {
                 let lines: Vec<&str> = text.lines().collect();
