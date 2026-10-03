@@ -670,6 +670,8 @@ pub fn jvm_package(text: &str) -> Option<String> {
 
 // ---- the receiver's type (#388, #391) and Lombok's accessors (#381) ----------------------------
 
+const CAST_OPERAND: &str = r"(?:[\w.!?]|\([^()]*\))+";
+
 /// The type the Java or Kotlin declaration of `name` on `line` writes for it, generic arguments
 /// and a `?` dropped (#388, #391): Java's `Line line`, `var line = new Line(…)`; Kotlin's
 /// `line: Line`, `val line = Line(…)`. `None` for any other form, an array, a delegated Kotlin
@@ -685,12 +687,16 @@ pub fn jvm_declared_type(line: &str, name: &str, kotlin: bool) -> Option<String>
             }
             vec![
                 format!(r"(?:^|[^\w.]){n}\s*:\s*([A-Z]\w*){generic}\??\s*(?:[=,)]|$|\{{)"),
+                format!(
+                    r"\b(?:val|var)\s+{n}\s*=\s*{CAST_OPERAND}\s+as\??\s+([A-Z]\w*){generic}\??\s*;?\s*$"
+                ),
                 format!(r"\b(?:val|var)\s+{n}\s*=\s*([A-Z]\w*){generic}\s*\("),
             ]
         }
         false => vec![
-            format!(r"(?:^|[\s(,<])([A-Z]\w*){generic}(?:\s*\.\.\.)?\s+{n}\s*(?:[=;,:)]|$)"),
+            format!(r"(?:^|[\s(,<])([A-Z]\w*){generic}(?:\s*\.\.\.)?\s+{n}\s*(?:[=;,:)]|&&|$)"),
             format!(r"\bvar\s+{n}\s*=\s*new\s+([A-Z]\w*){generic}\s*\("),
+            format!(r"\bvar\s+{n}\s*=\s*\(\s*([A-Z]\w*){generic}\s*\)\s*[\w(]"),
         ],
     };
     rules.iter().find_map(|r| {
@@ -840,4 +846,75 @@ pub fn jvm_return_type(line: &str, name: &str, kotlin: bool) -> Option<String> {
         .ok()?
         .captures(&code)
         .map(|c| c[1].to_owned())
+}
+
+pub fn jvm_smart_cast(text: &str, line: usize, before: &str, name: &str) -> Option<String> {
+    let n = regex::escape(name);
+    let ty = r"([A-Z]\w*)(?:<(?:[^<>]|<[^<>]*>)*>)?\??";
+    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let test = rule(format!(
+        r"\bif\s*\(\s*{n}\s+is\s+{ty}\s*(?:\)|&&)|^\s*{n}\s+is\s+{ty}\s*->"
+    ));
+    let branch = rule(format!(r"^\s*is\s+{ty}\s*->"));
+    let subject = rule(format!(r"\bwhen\s*\(\s*{n}\s*\)\s*\{{\s*$"));
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line.checked_sub(1).filter(|&i| i < lines.len())?;
+    let header_of = |i: usize| {
+        let depth = indent(lines[i]);
+        (0..i).rev().find(|&j| {
+            let t = lines[j].trim_start();
+            !(t.is_empty() || comment(Kind::Jvm, t)) && indent(lines[j]) < depth
+        })
+    };
+    let narrowed = |head: &str, at: usize| -> Option<String> {
+        let code = uncommented(Kind::Jvm, head);
+        if let Some(c) = test.captures(&code) {
+            let rest = &code[c.get(0)?.end()..];
+            return (!rest.contains("else") && !rest.contains(';'))
+                .then(|| c.get(1).or(c.get(2)).map(|m| m.as_str().to_owned()))
+                .flatten();
+        }
+        let c = branch.captures(&code)?;
+        let when = header_of(at)?;
+        subject
+            .is_match(&uncommented(Kind::Jvm, lines[when]))
+            .then(|| c[1].to_owned())
+    };
+    if let Some(t) = narrowed(before, at) {
+        return Some(t);
+    }
+    let mut i = at;
+    while let Some(h) = header_of(i) {
+        let head = lines[h];
+        if opens_type(head) || params_open(head).is_some() {
+            return None;
+        }
+        let code = uncommented(Kind::Jvm, head);
+        let opens = code.trim_end().ends_with('{') || code.trim_end().ends_with("->");
+        if opens && let Some(t) = narrowed(head, h) {
+            return Some(t);
+        }
+        i = h;
+    }
+    None
+}
+
+pub fn jvm_cast_receiver(before: &str, kotlin: bool) -> Option<String> {
+    static JAVA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"(?:^|[^\w.])\(\s*\(\s*([A-Z]\w*)(?:<(?:[^<>]|<[^<>]*>)*>)?\s*\)\s*[a-z]{CAST_OPERAND}\s*\)\.$"
+        ))
+        .unwrap()
+    });
+    static KOTLIN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"(?:^|[^\w.])\(\s*{CAST_OPERAND}\s+as\??\s+([A-Z]\w*)(?:<(?:[^<>]|<[^<>]*>)*>)?\??\s*\)(?:\?|!!)?\.$"
+        ))
+        .unwrap()
+    });
+    let re = match kotlin {
+        true => &*KOTLIN,
+        false => &*JAVA,
+    };
+    re.captures(before.trim_end()).map(|c| c[1].to_owned())
 }

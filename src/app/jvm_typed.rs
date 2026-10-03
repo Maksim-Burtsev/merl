@@ -25,16 +25,21 @@ impl App {
         &self,
         here: &Path,
         text: &str,
+        before: &str,
         chain: &[String],
         word: &str,
     ) -> Option<Vec<Candidate>> {
-        let (first, rest) = chain.split_first()?;
-        // ponytail: six names in front of the word, as the other kinds read.
+        let kotlin = here.extension().is_none_or(|e| e != "java");
+        let Some((first, rest)) = chain.split_first() else {
+            let cast = search::jvm_cast_receiver(before, kotlin)?;
+            let ty = self.jvm_type_at(here, text, &cast);
+            return self.jvm_typed_member(here, ty, cast, word);
+        };
         if chain.len() > 6 {
             return None;
         }
-        let kotlin = here.extension().is_none_or(|e| e != "java");
         let line = self.line + 1;
+        let smart = || kotlin.then(|| search::jvm_smart_cast(text, line, before, first)).flatten();
         let (mut ty, mut links) = match first.as_str() {
             "this" => {
                 let lines: Vec<&str> = text.lines().collect();
@@ -51,7 +56,10 @@ impl App {
                 (JvmType::Project(hit), Vec::new())
             }
             f if f.starts_with(|c: char| c.is_ascii_lowercase()) => {
-                let (ty, written) = self.jvm_value(here, text, line, f, kotlin, 1)?;
+                let (ty, written) = match smart() {
+                    Some(t) => (self.jvm_type_at(here, text, &t), t),
+                    None => self.jvm_value(here, text, line, f, kotlin, 1)?,
+                };
                 (ty, vec![format!("{f}: {written}")])
             }
             _ => return None,
@@ -68,7 +76,16 @@ impl App {
                 _ => format!("{field}: {written}"),
             });
         }
-        let label = links.join(" \u{2192} ");
+        self.jvm_typed_member(here, ty, links.join(" \u{2192} "), word)
+    }
+
+    fn jvm_typed_member(
+        &self,
+        here: &Path,
+        ty: JvmType,
+        label: String,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
         let found = match ty {
             JvmType::Unknown => return None,
             JvmType::Outside(name) => self.jvm_outside(here, word, &name)?,

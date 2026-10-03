@@ -596,7 +596,7 @@ impl App {
                         })
                         .collect()
                 }),
-                false => self.jvm_typed(&here, &text, &chain, &word),
+                false => self.jvm_typed(&here, &text, before, &chain, &word),
             };
             if let Some(found) = found {
                 let found = self.jvm_fit_candidates(&here, &word, range.clone(), &chain, found);
