@@ -17,5 +17,8 @@ node {
       //^ d: none
         deploy('prod')
       //^ d: Jenkinsfile:3
+        notifyTeam.send('ops')
+      //^ d: vars/notifyTeam.groovy:1
+        //         ^ d: vars/notifyTeam.groovy:1
     }
 }
