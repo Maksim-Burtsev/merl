@@ -348,18 +348,23 @@ Java and Kotlin (#388, #391) read the receiver `x` of `x.word`, `x::word` and `x
 names at most, `this.f` included) the same way: `x` is a parameter, a lambda's typed parameter, a
 loop variable or a local that the scope walk finds, else a field of the classes around the
 cursor; its type is written `Line line`, `var line = new Line(…)`, `line: Line` (a constructor's
-property too, `?` and generic arguments dropped) or `val line = Line(…)`, and every declaration in
-scope writes the same one. The type is the class the file imports from the project, else the one
+property too, `?` and generic arguments dropped), `val line = Line(…)`, or by a cast, `var line =
+(Line) x`, `val line = x as Line`, and every declaration in scope writes the same one. A pattern
+`x instanceof Line line` declares `line`; a Kotlin smart cast, `if (x is Line)` on the line or
+around the block and an `is Line ->` branch of `when (x)` (or `x is Line ->` of a `when`), makes `x`
+a `Line` there; `((Line) x).word`, `(x as Line).word` and `(x as? Line)?.word` read the cast, and
+`x?.word` and `x!!.word` read `x`. A dotted type, `Outer.Inner`, is the type `Outer` declares
+inside it. The type is the class the file imports from the project, else the one
 class of the name the project declares (this file's, then its package's). The member is a method,
 a field or a record component of that class or a class it extends or implements in the project,
 a field Lombok writes the accessor for (#381), or the project's Kotlin extension `fun Type.word`:
 `total → Line.total (via line: Line)`. A type the project does not declare (the JDK, Spring,
 AndroidX, a library) has no source to land on: `no definition`, and so does a string literal's
 `"a".equals`, unless the project declares an extension of the name on it; one it declares on some
-other type leaves the word to the search by name. An array, a type parameter, a type written with
-a dot, a delegated property (`by lazy`), a name that a smart cast, a pattern or a cast may narrow
-(`x is T`, `x instanceof T`, `(T) x`), a type declared twice, and a class of the project without
-the member all stay by name, as before.
+other type leaves the word to the search by name. An array, a type parameter, a package-qualified
+type, a delegated property (`by lazy`), a name narrowed elsewhere in the file (`x is T` outside
+the cursor's branch, `x instanceof T`, `(T) x`), a type declared twice, and a class of the project
+without the member all stay by name, as before.
 
 In Rust (#377) `self` is the type of the `impl<…> T` or `impl<…> Tr for T` the method sits in (a
 trait's default method proves nothing), and a binding the scope walk below finds says what it

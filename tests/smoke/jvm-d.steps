@@ -67,3 +67,13 @@ key /
 type legs(List
 key Enter d
 wait web/android/src/main/scala/courier/app/Route.scala  4:
+# A smart cast names the receiver's type: inside `if (target is ParcelSync)`, `send` is
+# ParcelSync's, where d found it by name (#391).
+key o
+type ParcelList
+key Enter
+wait web/android/src/main/kotlin/courier/app/ParcelList.kt  1:1
+key /
+type send(codes
+key Enter d
+wait send → ParcelSync.send (via target: ParcelSync)

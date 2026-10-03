@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `d` in Java and Kotlin reads the type a cast, a pattern or a smart cast gives the receiver:
+  `var m = (Meter) any`, `((Meter) any).reading()`, `any instanceof Gauge g`, Kotlin's `dao as
+  NewsDao`, `(dao as? NewsDao)?.purge()`, and `dao.purge()` inside `if (dao is NewsDao)` or an
+  `is NewsDao ->` branch of `when (dao)` jump to that type's member, `purge → NewsDao.purge (via
+  dao: NewsDao)`, where they offered every `purge` of the project. So do a dotted type,
+  `Meter.Dial dial`, and Kotlin's `x?.m` and `x!!.m`; `Map.Entry` says `no definition`. (#388,
+  #391)
+
 ## [0.8.1] - 2026-10-02
 
 ### Added
