@@ -28,8 +28,6 @@ fn names(re: &Regex, line: &str, word: &str) -> bool {
     re.captures(line).is_some_and(|c| &c[1] == word)
 }
 
-/// Whether `line_text` is shaped as one of [`groovy_patterns`] for `word`, and if so whether it
-/// declares there: only in a Groovy file, and a bare `name = …` only directly inside `ext {`.
 pub(super) fn groovy_declares<'a, S: AsRef<str> + 'a>(
     path: &Path,
     word: &str,
@@ -53,8 +51,6 @@ pub(super) fn groovy_declares<'a, S: AsRef<str> + 'a>(
     )
 }
 
-/// Whether a line of a Groovy file that declares is a Gradle extra property or a task: the
-/// build's, seen from anywhere, never a local of the block it is written in.
 pub fn gradle_global(line: &str) -> bool {
     [&*EXT_PROPERTY, &EXT_MEMBER, &TASK, &REGISTERED]
         .iter()

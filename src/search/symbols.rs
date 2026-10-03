@@ -110,8 +110,6 @@ const SCALA_DEF_SYMBOL: &str = concat!(
 const GROOVY_DEF_SYMBOL: &str = concat!(scala_mods!(), r"def\s+(?P<name>[A-Za-z_]\w*)\s*\(");
 const GRADLE_TASK_SYMBOL: &str =
     r#"(?:^\s*task\s+|\btasks\.(?:register|create)\s*\(?\s*['"])(?P<name>[A-Za-z_]\w*)"#;
-/// Whether the [`SYMBOLS`] row `pattern` reads the file `path`: Groovy's `def x = 1` is a
-/// variable where Scala's is a method, so each has a row of its own.
 pub fn row_reads(pattern: &str, path: &Path) -> bool {
     match pattern {
         SCALA_DEF_SYMBOL => !groovy(path),

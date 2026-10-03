@@ -22,8 +22,6 @@ impl App {
         Some(self.jvm_fit_candidates(&here, word, range, chain, found))
     }
 
-    /// The step `word` of a Jenkins shared library, named in a Groovy file where no rule declares
-    /// it (#423): `vars/<word>.groovy`, at its `call` method, else its first line.
     pub(super) fn jenkins_step(&self, here: &Path, word: &str) -> Vec<Candidate> {
         static CALL: std::sync::LazyLock<Regex> =
             std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:def|void)\s+call\s*\(").unwrap());
