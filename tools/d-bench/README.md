@@ -18,8 +18,8 @@ once (marked in the clone's `.git`); a clone already at that commit and installe
 `src/app/tests/d_bench.rs` in release (one `App` per project: jump to the line, set the column,
 converted from code points to merl's bytes, press `d`), prints the table, and diffs every cursor
 against `baseline.tsv`: each cursor that got worse, new wrong jumps first, and exit 1 when there
-is any (a fixed cursor does not pay for a broken one). `--selftest` checks the scoring and this
-gate on made-up rows; CI runs it. `last-score.tsv` in the cache has every cursor's verdict, status line, merl's
+is any (a fixed cursor does not pay for a broken one). `--selftest` checks the scoring, this
+gate and `record.py`'s tokenizer on made-up rows; CI runs it. `last-score.tsv` in the cache has every cursor's verdict, status line, merl's
 targets and the answer; `--merl <cache>/last-merl.tsv` scores the last run again without
 replaying it.
 
