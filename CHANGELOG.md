@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `d` on `Settings` in a Java `new Settings(entries)` no longer jumps to `Settings(String path)`
+  when the class also declares `Settings(Map<String, Object> entries)`: the comma inside `<…>` of
+  a parameter list no longer counts as a second parameter. (#675)
+
 ## [0.8.1] - 2026-10-02
 
 ### Added

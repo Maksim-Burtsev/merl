@@ -373,25 +373,6 @@ fn arguments(lines: &[String], at: usize, open: usize) -> Option<(usize, bool)> 
     None
 }
 
-/// The parameters the declaration of `word` on 1-based `line` of `text` takes: the fewest, and
-/// whether a varargs `...` takes any more. `None` when the line opens no parameter list.
-fn parameters(text: &str, line: usize, word: &str) -> Option<(usize, bool)> {
-    let lines: Vec<String> = text.lines().map(str::to_owned).collect();
-    let at = line.checked_sub(1)?;
-    let re = Regex::new(&format!(r"\b{}\s*\(", regex::escape(word))).ok()?;
-    let open = re.find(lines.get(at)?)?.end() - 1;
-    let (count, _) = arguments(&lines, at, open)?;
-    let joined = lines[at..(at + 60).min(lines.len())].join("\n");
-    let varargs = joined[open..]
-        .split(')')
-        .next()
-        .is_some_and(|p| p.contains("..."));
-    Some(match varargs {
-        true => (count.saturating_sub(1), true),
-        false => (count, false),
-    })
-}
-
 impl App {
     /// Of the Java and Kotlin declarations of `word` found by name, those the shape of the use
     /// at the cursor fits (#367). In Java: behind `new`, the constructors of a class that
@@ -477,7 +458,7 @@ impl App {
                 return true;
             }
             self.text_of(&h.path)
-                .and_then(|t| parameters(&t, h.line, word))
+                .and_then(|t| search::jvm_parameters(&t, h.line, word))
                 .is_none_or(|(n, more)| count == n || (more && count >= n))
         };
         let fit: Vec<Hit> = hits.iter().filter(|h| fits(h)).cloned().collect();
