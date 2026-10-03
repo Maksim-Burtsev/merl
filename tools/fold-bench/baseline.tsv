@@ -11,6 +11,9 @@ go	caddy/modules/caddyhttp/reverseproxy/fastcgi/client.go:156	wrong
 go	caddy/modules/caddytls/acmeissuer.go:270	wrong
 python	rich/tests/test_inspect.py:442	wrong
 python	rich/tests/test_inspect.py:452	wrong
+swift	Alamofire/Source/Core/Response.swift:441	wrong
+swift	Alamofire/Source/Core/Session.swift:1180	wrong
+swift	Alamofire/Tests/UploadTests.swift:658	wrong
 ts	outline/app/components/Avatar/AvatarWithPresence.tsx:144	wrong
 ts	outline/app/components/LazyLoad.ts:44	wrong
 ts	outline/app/editor/components/SuggestionsMenu.tsx:1101	wrong

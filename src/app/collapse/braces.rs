@@ -6,6 +6,7 @@ mod csharp;
 mod java;
 mod kotlin;
 mod rust;
+mod swift;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum Lang {
@@ -18,6 +19,7 @@ pub(crate) enum Lang {
     Kotlin,
     C,
     Cpp,
+    Swift,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -39,6 +41,7 @@ pub(crate) fn syntax_of(path: &Path) -> Option<Syntax> {
         "java" => (Lang::Java, false),
         "kt" | "kts" => (Lang::Kotlin, false),
         "c" => (Lang::C, false),
+        "swift" => (Lang::Swift, false),
         "h" | "cc" | "cpp" | "cxx" | "c++" | "hh" | "hpp" | "hxx" | "h++" | "ipp" => {
             (Lang::Cpp, false)
         }
@@ -72,6 +75,7 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
         Lang::Kotlin => model.kotlin(),
         Lang::C => model.c_family(false, lines),
         Lang::Cpp => model.c_family(true, lines),
+        Lang::Swift => model.swift(lines),
         lang => model.ecma(lang == Lang::Ts),
     }
     let levels = levels(lines.len(), &model.nodes);
@@ -87,7 +91,10 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
         .collect();
     defs.sort_unstable();
     defs.dedup();
-    let semicolons = !matches!(syntax.lang, Lang::Js | Lang::Ts | Lang::Go | Lang::Kotlin);
+    let semicolons = !matches!(
+        syntax.lang,
+        Lang::Js | Lang::Ts | Lang::Go | Lang::Kotlin | Lang::Swift
+    );
     let heads = match semicolons {
         true => heads(lines, &toks, &model.back, &starts),
         false => HashMap::new(),
@@ -294,7 +301,7 @@ impl<'a> Lexer<'a> {
                 self.i = s.len();
                 continue;
             }
-            if s[i..].starts_with(b"/*") && self.syntax.lang == Lang::Rust {
+            if s[i..].starts_with(b"/*") && matches!(self.syntax.lang, Lang::Rust | Lang::Swift) {
                 self.nested_comment(i + 2);
                 continue;
             }
@@ -332,6 +339,9 @@ impl<'a> Lexer<'a> {
             if self.syntax.lang == Lang::Java && s[i..].starts_with(b"\"\"\"") {
                 self.skip_past(i + 3, b"\"\"\"");
                 self.emit(l, i, 1, K::Str, self.l);
+                continue;
+            }
+            if self.syntax.lang == Lang::Swift && matches!(c, b'"' | b'#') && self.swift_string() {
                 continue;
             }
             if self.syntax.lang == Lang::Kotlin && c == b'"' && self.kt_string() {
