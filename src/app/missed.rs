@@ -491,11 +491,8 @@ impl App {
     }
 
     fn to_word(&self, trip: &Trip) -> Option<(usize, &'static str)> {
-        let word = trip.word.as_ref().filter(|w| {
-            let bare = w.trim_start_matches('@');
-            let bare = bare.strip_suffix('=').unwrap_or(bare);
-            bare.to_lowercase() == trip.query.to_lowercase()
-        })?;
+        let word = (trip.word.as_ref())
+            .filter(|w| super::usages::bare_name(w).to_lowercase() == trip.query.to_lowercase())?;
         let landed = self.rel_current()?;
         let (hits, _) = self.usage_hits(word, trip.here.as_deref());
         let row = hits

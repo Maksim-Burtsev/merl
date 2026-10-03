@@ -14,8 +14,7 @@ impl App {
             return;
         };
         let (ranked, cut) = self.usage_hits(&read, self.rel_current().as_deref());
-        let word = read.trim_start_matches('@');
-        let word = word.strip_suffix('=').unwrap_or(word);
+        let word = bare_name(&read);
         if ranked.is_empty() {
             self.message = format!("no usages of {word}");
             return;
@@ -116,7 +115,7 @@ impl App {
         // `@x` they are every `x`, as on a bare `x`, and its assignment `@x =` declares it too.
         let ivar = word.starts_with('@').then_some(word);
         let word = word.trim_start_matches('@');
-        let text = word.strip_suffix('=').unwrap_or(word);
+        let text = bare_name(word);
         let mut hits = self
             .grep(&regex::escape(text), true, false, |_| true)
             .unwrap_or_default();
@@ -254,4 +253,9 @@ impl App {
             Some(here.as_ref() == Some(&h.path) && Some(at) == command)
         }
     }
+}
+
+pub(super) fn bare_name(word: &str) -> &str {
+    let word = word.trim_start_matches('@');
+    word.strip_suffix('=').unwrap_or(word)
 }
