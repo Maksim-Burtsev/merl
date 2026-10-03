@@ -35,6 +35,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `import qualified Data.Map as Map`, `no definition for lookup`, never the project's own `lookup`.
   `D` lists signatures, functions with none, `data`, `newtype`, `type`, `class` and `pattern`, and
   `u` reads `foldl'` as one name. (#426)
+- `d`, `u` and `D` in OCaml (`.ml`, `.mli`) and F# (`.fs`, `.fsi`, `.fsx`), where `d` said
+  `no rules for .ml`. `d` on `format_price` in `Money.format_price` lands on its `let` in
+  `lib/money.ml`, `format_price: via Money`, never on the `.mli`'s `val`; from an `.mli`, on the
+  `.ml`; on a name a local `let` binds, on that `let` in the same file, `prefix: local`, never on
+  another file's. It finds `let`, `type` with its constructors and fields, `module`, `val`,
+  `exception`, `external`, `class` and `method`, and F#'s `member`, `override`, `abstract` and
+  `namespace`. `D` lists each module's items, and `u` reads `x'` as one name. `List.map` is
+  looked for in the OCaml standard library and the opam switch. (#427)
+
+### Fixed
+
+- A `.fs` file is highlighted as F#, not GLSL. (#427)
 
 ## [0.8.1] - 2026-10-02
 

@@ -52,6 +52,9 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     if kind == Kind::Haskell {
         return haskell_literal_lines(text);
     }
+    if matches!(kind, Kind::Ocaml | Kind::Fsharp) {
+        return ml_literal_lines(kind, text);
+    }
     if kind == Kind::Css && text.contains("<style") {
         let html = html_literal_lines(text);
         let mut out = scan(kind, &style_blocks(text), usize::MAX).0;

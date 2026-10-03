@@ -34,6 +34,8 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Cmake
         | Kind::Nix
         | Kind::Haskell
+        | Kind::Ocaml
+        | Kind::Fsharp
         | Kind::Sql
         | Kind::Make
         | Kind::Graphql
@@ -266,6 +268,7 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
                 r#"io:format("~s", [code:root_dir()]), halt()."#,
             ],
         )),
+        Kind::Ocaml => ocaml_roots(run("ocamlc", &["-where"])),
         Kind::Cmake => cmake_roots(std::env::var_os("PATH").and_then(|p| {
             std::env::split_paths(&p)
                 .map(|d| d.join("cmake"))
@@ -282,6 +285,7 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         | Kind::Lua
         | Kind::Nix
         | Kind::Haskell
+        | Kind::Fsharp
         | Kind::Shell
         | Kind::Sql
         | Kind::Make

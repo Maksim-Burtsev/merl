@@ -19,6 +19,7 @@ mod groovy;
 mod haskell;
 mod imports;
 mod links;
+mod ml;
 mod nix;
 mod other_languages;
 mod powershell;

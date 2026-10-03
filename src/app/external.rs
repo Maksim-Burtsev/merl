@@ -524,6 +524,8 @@ impl App {
             | Kind::Cmake
             | Kind::Nix
             | Kind::Haskell
+            | Kind::Ocaml
+            | Kind::Fsharp
             | Kind::Sql
             | Kind::Make
             | Kind::Terraform
@@ -555,6 +557,8 @@ impl App {
             Kind::Cmake,
             Kind::Nix,
             Kind::Haskell,
+            Kind::Ocaml,
+            Kind::Fsharp,
             Kind::Sql,
             Kind::Make,
             Kind::Terraform,

@@ -5,7 +5,7 @@
 use super::*;
 
 /// The comment markers an annotation may start with: every kind's line comment.
-const MARKERS: [&str; 5] = ["//", "#", "--", ";", "%"];
+const MARKERS: [&str; 6] = ["//", "#", "--", ";", "%", "(*"];
 
 /// What an annotation wants `d` to show.
 #[derive(Debug)]
@@ -47,14 +47,23 @@ fn annotation(line: &str) -> Option<(usize, &str)> {
     if !MARKERS.contains(&line[..caret].trim()) {
         return None;
     }
-    Some((caret, line[caret + 1..].trim()))
+    Some((
+        caret,
+        line[caret + 1..].trim().trim_end_matches("*)").trim(),
+    ))
 }
 
 /// The text of a `status:` line.
 fn status_line(line: &str) -> Option<&str> {
     let body = line.trim_start();
     let body = MARKERS.iter().find_map(|m| body.strip_prefix(m))?;
-    Some(body.trim_start().strip_prefix("status:")?.trim())
+    Some(
+        body.trim_start()
+            .strip_prefix("status:")?
+            .trim()
+            .trim_end_matches("*)")
+            .trim(),
+    )
 }
 
 fn parse_answer(s: &str) -> Result<Want, String> {

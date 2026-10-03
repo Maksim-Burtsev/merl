@@ -33,7 +33,7 @@ void nam\u{301}(int x) {\n\
 x = (";
 
 /// The files [`ODD`] is written into: one per kind, so every kind's rules read it.
-const ODD_FILES: [&str; 25] = [
+const ODD_FILES: [&str; 27] = [
     "odd.py",
     "odd.go",
     "odd.rs",
@@ -59,6 +59,8 @@ const ODD_FILES: [&str; 25] = [
     "odd.nix",
     "odd.groovy",
     "odd.hs",
+    "odd.ml",
+    "odd.fs",
 ];
 
 /// Panics found and not fixed yet: `(project/file, line from 1, byte column, key, issue)`.

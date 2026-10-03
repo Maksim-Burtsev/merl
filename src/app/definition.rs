@@ -123,9 +123,6 @@ impl App {
         }
         let text = self.buf.lines.join("\n");
         let text = search::script_text(&here, &text, Some(self.line)).into_owned();
-        // Nothing in a Rust string names code, save the `{name}` a format string captures and
-        // the path an attribute takes as a value, `#[serde(default = "default_port")]`: no
-        // search for a word of prose (#346).
         let at = self.buf.lines[..self.line]
             .iter()
             .map(|l| l.len() + 1)
@@ -142,9 +139,10 @@ impl App {
             self.message = resolution(&word, None, &[], None, false);
             return;
         }
-        // A segment of a Java or Kotlin `import` line: a package's declares nothing, a class's is
-        // looked for in its package of the project (#372). A name inside a Scala import's `{…}`
-        // selectors is looked for by name (#416).
+        if let Some(found) = self.ml_definitions(kind, &here, &chain, &word, dotted) {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         if kind == Kind::Jvm
             && import_line(kind, self.line_str())
             && !self.line_str()[..range.start].contains('{')

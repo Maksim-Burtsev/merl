@@ -150,7 +150,8 @@ couple of seconds.
 
 The grammar:
 
-- The comment marker is the kind's own: `//`, `#`, `--` or `;`. Nothing but whitespace stands
+- The comment marker is the kind's own: `//`, `#`, `--` or `;`, and OCaml's `(*`, whose closing
+  `*)` at the end of the line is not part of the answer. Nothing but whitespace stands
   before it on the line, and nothing but spaces between it and the caret.
 - The caret's byte column is the column in the probed line, so an annotation is indented as its
   line is (a tab under a tab in Go). The probed line is the nearest line above that is no
@@ -253,6 +254,19 @@ its methods, an instance's methods, constructors on and under a `data` line, rec
 GADT, a type family, a pattern synonym, `go` in a `where` of two files (each stays in its own),
 parameters, `do` and `let` bindings, case alternatives, each refusal of the issue, and
 declaration-shaped lines in a nested `{- -}` comment and a quasi-quote.
+`ocaml/` (#427) is a dune library: `money.ml` with its `money.mli`, a `cart.ml` calling
+`Money.format_price` beside a local `prefix`, and `pricing.ml` declaring every form of the issue
+(constructors on a `type` line, on `|` lines and in a GADT, record fields, `module type`, a
+`sig … end = struct` module, a functor and its application, a class with a method), probed from
+`basket.ml`: each refusal, a qualified call through two modules, a record field in a `with`
+expression named like a function of the file, a local `acc` in two files (each stays in its own),
+a polymorphic variant, declaration-shaped lines in a nested comment and a quoted string, `List.map`
+beside a `let map` of the file, a module of the project that lacks the name, and in `receipt.ml` a
+name of an `open`ed module used above the file's own namesake.
+`fsharp/` (#427) is the issue's `Money.fs` and `Cart.fs` over a `Pricing.fs` in a namespace:
+module lets behind their modifiers and an attribute, members of every kind, union cases, a record
+over one line, an interface, a double-backticked name, `(*)`, and declaration-shaped lines in a
+nested comment, a verbatim and a triple-quoted string, probed from `Courier.fs`.
 
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
 `deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies
