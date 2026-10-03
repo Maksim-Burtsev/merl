@@ -242,7 +242,7 @@ moment you open it. In Python, TypeScript and Go, `d` also follows the type of t
 | Dart | the pub cache and the SDK |
 | CMake | CMake's own modules and the packages' config files |
 | Elixir, Erlang | Mix's `deps/`, rebar3's `_build`, and OTP's sources |
-| Java, Kotlin, Scala, Groovy, Ruby, C#, Lua, Nix | |
+| Java, Kotlin, Scala, Groovy, Ruby, C#, Lua, Nix, Haskell | |
 | Shell, SQL, Makefile, Terraform, Dockerfile, YAML, GraphQL | |
 | Markdown | the file or the heading a link names, and a file a code span names |
 | HTML, CSS, SCSS, Less | the rule a class or an id of HTML, JSX, Vue or Svelte names, the file a path names, a package's stylesheet in `node_modules` |

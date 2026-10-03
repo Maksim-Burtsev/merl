@@ -31,6 +31,7 @@ mod edit;
 mod erlang;
 mod external;
 mod find;
+mod haskell;
 mod imported;
 mod jvm;
 mod jvm_typed;

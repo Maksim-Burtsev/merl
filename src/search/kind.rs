@@ -29,6 +29,7 @@ pub enum Kind {
     Dart,
     Cmake,
     Nix,
+    Haskell,
     Sql,
     Make,
     Terraform,
@@ -105,6 +106,7 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "dart") => Kind::Dart,
         ("CMakeLists.txt", _) | (_, "cmake") => Kind::Cmake,
         (_, "nix") => Kind::Nix,
+        (_, "hs") => Kind::Haskell,
         (_, "sql" | "psql" | "pgsql" | "mysql" | "ddl" | "dml") => Kind::Sql,
         ("Makefile" | "makefile" | "GNUmakefile", _) | (_, "mk") => Kind::Make,
         (_, "tf" | "tfvars") => Kind::Terraform,
@@ -164,6 +166,7 @@ pub fn word_chars(kind: Option<Kind>, address: bool) -> &'static str {
         ) => "-",
         Some(Kind::Cmake) => "-.",
         Some(Kind::Nix) => "-'",
+        Some(Kind::Haskell) => "'",
         _ => "",
     }
 }

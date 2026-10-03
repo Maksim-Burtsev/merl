@@ -246,6 +246,14 @@ function by name, `let` bindings named `api` in two files (each stays in its own
 path, each refusal of the issue, and declaration-shaped lines in indented strings (one opened
 after `//`, one holding the `'''`, `''$` and `''\` escapes), a `"…"`, a `/* */` and a `#` comment.
 
+`haskell/` (#426) is a Cabal package whose `src/Shop/` modules import each other by module path,
+one qualified (`C.weigh`), beside `Data.Map` from outside: a function with a signature and one
+without, three equations of one function, two names on one signature, a class with a context and
+its methods, an instance's methods, constructors on and under a `data` line, record fields, a
+GADT, a type family, a pattern synonym, `go` in a `where` of two files (each stays in its own),
+parameters, `do` and `let` bindings, case alternatives, each refusal of the issue, and
+declaration-shaped lines in a nested `{- -}` comment and a quasi-quote.
+
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
 `deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies
 the project walk does not reach, one whose module is no path and two declaring one name (#437). Its

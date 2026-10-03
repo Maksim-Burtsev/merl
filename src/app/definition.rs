@@ -194,10 +194,7 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // A Dart name an import binds with `as` or `show` is looked for in that file (#414).
-        if kind == Kind::Dart
-            && let Some(found) = self.dart_imported(&here, &text, before, &chain, &word)
-        {
+        if let Some(found) = self.file_imported(kind, &here, &text, before, &chain, &word) {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
@@ -481,7 +478,7 @@ impl App {
                 || same_line
                 || own_line
                 || own_arrow
-                || matches!(kind, Kind::Rust | Kind::Nix))
+                || matches!(kind, Kind::Rust | Kind::Nix | Kind::Haskell))
         {
             let found = locals
                 .iter()

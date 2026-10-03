@@ -185,6 +185,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         Kind::Rust => rust_bindings(&lines, at, name),
         Kind::Elixir => elixir_bindings(&lines, at, name),
         Kind::Nix => nix_bindings(&lines, at, name),
+        Kind::Haskell => haskell_bindings(&lines, at, name),
         _ => Vec::new(),
     }
 }
@@ -460,21 +461,6 @@ fn zig_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
         }
     }
     Vec::new()
-}
-/// Whether the word at `range` of 1-based `line` names a keyword argument of a Python call:
-/// `recipe_yield=…` behind a `(` or a `,`, or at the start of a line that continues a call. It
-/// names a parameter of whatever is called, and no variable of that spelling.
-pub fn keyword_argument(text: &str, line: usize, range: &Range<usize>) -> bool {
-    let lines: Vec<&str> = text.lines().collect();
-    let Some(l) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
-        return false;
-    };
-    let after = l[range.end..].trim_start();
-    let before = l[..range.start].trim_end();
-    after.starts_with('=')
-        && !after.starts_with("==")
-        && (before.ends_with(['(', ','])
-            || (before.is_empty() && continued(Kind::Python, &lines, line - 1)))
 }
 /// Whether the word at `range` of 1-based `line` of a Lua file is the key of a table
 /// constructor: `name = …` behind a `{` or a `,`, or at the start of a line inside one. It names a

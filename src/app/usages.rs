@@ -10,7 +10,7 @@ impl App {
     pub(super) fn usages(&mut self) {
         let extra = search::word_chars(self.kind(), false);
         let Some(read) = self.on_drawn(|a| match a.kind() {
-            k @ Some(Kind::Ruby | Kind::Elixir | Kind::Cmake | Kind::Nix) => {
+            k @ Some(Kind::Ruby | Kind::Elixir | Kind::Cmake | Kind::Nix | Kind::Haskell) => {
                 a.definition_word(k).map(|(r, w)| {
                     let lead = &a.line_str()[..r.start];
                     let sigil = lead.len() - lead.trim_end_matches('@').len();
@@ -42,8 +42,14 @@ impl App {
             .into_iter()
             .map(|(_, h)| {
                 let row = search::word_chars(search::kind_of(&h.path), false);
+                let col = match search::kind_of(&h.path) {
+                    Some(Kind::Haskell) => search::haskell_whole(&h.text, word),
+                    _ => None,
+                };
                 Hit {
-                    col: word_col(&h.text, word, &format!("{}{row}", extra.replace('\'', ""))),
+                    col: col.unwrap_or_else(|| {
+                        word_col(&h.text, word, &format!("{}{row}", extra.replace('\'', "")))
+                    }),
                     ..h
                 }
             })
@@ -128,9 +134,12 @@ impl App {
                 |t| whole.captures(t).and_then(|c| c.get(1)).map(|m| m.start()),
             ));
         }
-        let hits = hits.into_iter().filter(|h| {
-            let extra = search::word_chars(search::kind_of(&h.path), false);
-            extra.is_empty() || whole_at(&h.text, text, extra).is_some()
+        let hits = hits.into_iter().filter(|h| match search::kind_of(&h.path) {
+            Some(Kind::Haskell) => search::haskell_whole(&h.text, text).is_some(),
+            k => {
+                let extra = search::word_chars(k, false);
+                extra.is_empty() || whole_at(&h.text, text, extra).is_some()
+            }
         });
         // What tells a declaration of the word from a use of it is `def_patterns`, and which
         // ones apply is the hit file's own kind: one regex per kind met, built once. A Rust `let`

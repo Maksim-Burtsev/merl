@@ -1,0 +1,57 @@
+wait go: local
+┌orders──────────────────────┐1 module Shop.Cart where
+│▸ .github                   │2
+│▸ .venv                     │3 import Shop.Money (Money (..), formatPrice)
+│▸ app                       │4
+│▸ data                      │5 label :: Money -> String
+│▸ deploy                    │6 label m = go (formatPrice m)
+│▸ docs                      │7   where
+│▾ hsshop                    │8     go s = "Total: " ++ s
+│  ▾ src                     │
+│    ▾ Shop                  │
+│        Cart.hs             │
+│        Money.hs            │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+hsshop/src/Shop/Cart.hs  8:5  [code]  go: local
+cursor (x,y,shown) 36,7,1

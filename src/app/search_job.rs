@@ -74,6 +74,7 @@ impl SearchJob {
     pub(super) fn symbol_hits(&self) -> (Vec<(String, usize, Hit)>, bool) {
         let mut named: Vec<(String, usize, Hit)> = Vec::new();
         let mut cut = false;
+        let mut haskell_code: HashMap<PathBuf, search::HaskellCode> = HashMap::new();
         for (kind, pattern) in search::SYMBOLS {
             let re = Regex::new(pattern).expect("built-in symbol patterns are valid");
             let wanted = |p: &Path| match kind {
@@ -101,27 +102,41 @@ impl SearchJob {
             // project whose kinds add up past it with none of them cut, the list is whole.
             cut |= hits.len() >= search::MAX_HITS;
             // A component's rows are its script's (#413).
+            let read = |path: &Path| match (&self.unsaved, &self.current) {
+                (Some(t), Some(c)) if c.as_path() == path => {
+                    String::from_utf8_lossy(t).into_owned()
+                }
+                _ => std::fs::read_to_string(self.root.join(path)).unwrap_or_default(),
+            };
             let mut script: HashMap<PathBuf, Vec<bool>> = HashMap::new();
             hits.retain(|h| {
                 !search::component(&h.path)
                     || (script.entry(h.path.clone()).or_insert_with(|| {
-                        let text = match (&self.unsaved, &self.current) {
-                            (Some(t), Some(c)) if *c == h.path => {
-                                String::from_utf8_lossy(t).into_owned()
-                            }
-                            _ => {
-                                std::fs::read_to_string(self.root.join(&h.path)).unwrap_or_default()
-                            }
-                        };
-                        search::script_lines(&h.path, &text).unwrap_or_default()
+                        search::script_lines(&h.path, &read(&h.path)).unwrap_or_default()
                     }))
                     .get(h.line - 1)
                     .copied()
                     .unwrap_or(false)
             });
+            let haskell = *kind == Some(Kind::Haskell);
+            if haskell {
+                hits.retain(|h| {
+                    let code = haskell_code.entry(h.path.clone()).or_insert_with(|| {
+                        let text = read(&h.path);
+                        search::HaskellCode::new(&text.lines().collect::<Vec<_>>())
+                    });
+                    search::symbol_name(&re, &h.text)
+                        .is_some_and(|n| search::haskell_symbol(code, h.line, &n))
+                });
+            }
+            let reserved = |t: &str| {
+                haskell
+                    && search::symbol_name(&re, t)
+                        .is_some_and(|n| search::HASKELL_RESERVED.contains(&n.as_str()))
+            };
             // The declarations the branch deleted, of the files this row is written for.
             hits.extend(deleted_hits(&self.deleted, wanted, |t| {
-                (re.is_match(t) && keep(t)).then_some(0)
+                (re.is_match(t) && keep(t) && !reserved(t)).then_some(0)
             }));
             named.extend(
                 hits.into_iter()

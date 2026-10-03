@@ -16,6 +16,7 @@ mod fields;
 mod go;
 mod grep;
 mod groovy;
+mod haskell;
 mod imports;
 mod links;
 mod nix;

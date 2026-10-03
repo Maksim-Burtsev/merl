@@ -348,7 +348,10 @@ fn declared_name(kind: Option<Kind>, line: &str) -> Option<String> {
     });
     ROWS.iter()
         .filter(|(k, _)| *k == kind || (k.is_none() && shared_symbols(kind)))
-        .find_map(|(_, re)| symbol_name(re, line))
+        .find_map(|(k, re)| {
+            symbol_name(re, line)
+                .filter(|n| *k != Some(Kind::Haskell) || !HASKELL_RESERVED.contains(&n.as_str()))
+        })
 }
 /// Whether a file of `kind` names what it nests: a YAML anchor names a value, not a container,
 /// so YAML qualifies no name and pins no header. Markdown declares nothing.
@@ -639,6 +642,10 @@ pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Ra
     }
     if kind == Some(Kind::Nix) {
         let r = nix_name(line, range);
+        return Some((r.clone(), &line[r]));
+    }
+    if kind == Some(Kind::Haskell) {
+        let r = haskell_name(line, range);
         return Some((r.clone(), &line[r]));
     }
     // A Ruby method (#387) and an Elixir function (#459) take their `?` or `!` with them:
