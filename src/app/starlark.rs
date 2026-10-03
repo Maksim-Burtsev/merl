@@ -36,13 +36,16 @@ impl App {
         if line[..range.start].ends_with('.') {
             return false;
         }
-        let at: usize = self.buf.lines[..self.line]
-            .iter()
-            .map(|l| l.len() + 1)
-            .sum();
-        if search::starlark_keyword_argument(&text, at + range.start, at + range.end) {
+        let in_load = loads.iter().any(|l| l.lines.contains(&self.line));
+        if search::keyword_argument(&text, self.line + 1, &range)
+            && !in_load
+            && !line.trim_start().starts_with("def ")
+        {
             self.message = resolution(&word, None, &[], None, false);
             return true;
+        }
+        if !search::bindings(Kind::Starlark, &text, self.line + 1, &word).is_empty() {
+            return false;
         }
         let Some((label, taken)) = loads.iter().find_map(|l| {
             let (_, taken) = l.names.iter().find(|(local, _)| *local == word)?;

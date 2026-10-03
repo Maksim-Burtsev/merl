@@ -37,6 +37,9 @@ fn starlark_declaration_forms() {
         ("go_library = rule(", "go_library"),
         ("GoInfo = provider(", "GoInfo"),
         ("go_sdk =", "go_sdk"),
+        ("host_go_proto, _host_go_proto = (", "host_go_proto"),
+        ("_a, host_go_proto = macro_pair(", "host_go_proto"),
+        ("a, host_go_proto, b =", "host_go_proto"),
     ] {
         assert!(declares(line, word), "{line}: {word}");
     }
@@ -48,6 +51,9 @@ fn starlark_declaration_forms() {
         ("SHOP == 1", "SHOP"),
         ("    native.genrule(name = name + \"_gen\")", "genrule"),
         ("def shop_binary_x(name):", "shop_binary"),
+        ("a, host_go_proto == b", "host_go_proto"),
+        ("f(a, host_go_proto = 1)", "host_go_proto"),
+        ("    a, host_go_proto = 1, 2", "host_go_proto"),
     ] {
         assert!(!declares(line, word), "{line}: {word}");
     }
@@ -164,11 +170,13 @@ fn starlark_loads_bind_their_names_and_aliases() {
                     ("my_alias".into(), "go_binary".into()),
                 ],
                 name_strings: vec![(0, 26), (0, 52)],
+                lines: 0..=0,
             },
             StarlarkLoad {
                 label: ":x.bzl".into(),
                 names: vec![("a".into(), "a".into()), ("b".into(), "c".into())],
                 name_strings: vec![(3, 5), (4, 9)],
+                lines: 1..=4,
             },
         ]
     );
@@ -221,21 +229,4 @@ fn a_bzlmod_repository_is_found_by_its_canonical_name() {
     assert_eq!(repo("rules_python"), Some(PathBuf::from("rules_python")));
     assert_eq!(repo("rules"), None);
     std::fs::remove_dir_all(&dir).unwrap();
-}
-
-#[test]
-fn a_starlark_keyword_argument_names_the_callee_s_parameter() {
-    let text = "X = 1\nload(\":a.bzl\", alias = \"b\")\ndef f(name, srcs = []):\n    native.genrule(name = name, outs = [x == 1])\n    y = 2\n    g(\n        srcs = srcs,\n    )\n";
-    let kwarg = |word: &str, nth: usize| {
-        let at = text.match_indices(word).nth(nth).unwrap().0;
-        starlark_keyword_argument(text, at, at + word.len())
-    };
-    assert!(kwarg("name", 1));
-    assert!(kwarg("srcs", 1));
-    assert!(!kwarg("name", 2));
-    assert!(!kwarg("X", 0));
-    assert!(!kwarg("alias", 0));
-    assert!(!kwarg("srcs", 0));
-    assert!(!kwarg("x", 0));
-    assert!(!kwarg("y", 0));
 }

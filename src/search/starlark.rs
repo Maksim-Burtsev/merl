@@ -158,6 +158,7 @@ pub struct StarlarkLoad {
     pub label: String,
     pub names: Vec<(String, String)>,
     pub name_strings: Vec<(usize, usize)>,
+    pub lines: std::ops::RangeInclusive<usize>,
 }
 
 enum Tok {
@@ -240,6 +241,7 @@ pub fn starlark_loads(text: &str) -> Vec<StarlarkLoad> {
             label: text[label.clone()].to_owned(),
             names: Vec::new(),
             name_strings: Vec::new(),
+            lines: i..=place(label.start).0,
         };
         let mut local = None;
         for t in toks {
@@ -250,6 +252,7 @@ pub fn starlark_loads(text: &str) -> Vec<StarlarkLoad> {
                     load.names
                         .push((local.take().unwrap_or_else(|| name.clone()), name));
                     load.name_strings.push(place(r.start));
+                    load.lines = i..=place(r.start).0;
                 }
                 Tok::Eq | Tok::Comma => {}
             }
@@ -285,24 +288,4 @@ pub fn starlark_repo_dir(external: &Path, repo: &str) -> Option<PathBuf> {
         .collect();
     dirs.sort();
     dirs.into_iter().next()
-}
-
-pub fn starlark_keyword_argument(text: &str, at: usize, end: usize) -> bool {
-    let assigns = text[end..].trim_start().strip_prefix('=');
-    if assigns.is_none_or(|rest| rest.starts_with('=')) {
-        return false;
-    }
-    let mut open = Vec::new();
-    for (i, c) in code(Kind::Starlark, &text[..at]) {
-        match c {
-            b'(' | b'[' | b'{' => open.push((i, c)),
-            b')' | b']' | b'}' => {
-                open.pop();
-            }
-            _ => {}
-        }
-    }
-    static DEF: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"(?m)(?:\bdef\s+\w+|^load)\s*\z").unwrap());
-    matches!(open.last(), Some(&(i, b'('))  if !DEF.is_match(&text[..i]))
 }

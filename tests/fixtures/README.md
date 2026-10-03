@@ -246,6 +246,14 @@ function by name, `let` bindings named `api` in two files (each stays in its own
 path, each refusal of the issue, and declaration-shaped lines in indented strings (one opened
 after `//`, one holding the `'''`, `''$` and `''\` escapes), a `"…"`, a `/* */` and a `#` comment.
 
+`starlark/` (#431) is a Bazel module, `shop`, with two packages and two `.bzl` files: every
+declaration form (a `def`, a rule, a provider, an aspect, a repository rule, a module extension, a
+transition, a plain value), names a `load` takes (one under an alias, one over several lines, one a
+parameter shadows), labels to a target in every form (`:api`, `api`, `//api`, `@shop//api:api`,
+`@//api`), to a source file and to a repository (`@rules_go`, `@bazel_gazelle` by its
+`repo_name`), each refusal of the issue (a rule call, a keyword argument, a computed name, a load's
+strings, `native.genrule`, a `select` key), and declaration-shaped lines in a docstring.
+
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
 `deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies
 the project walk does not reach, one whose module is no path and two declaring one name (#437).
