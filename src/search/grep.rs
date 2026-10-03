@@ -1,6 +1,7 @@
 //! Project-wide grep: ripgrep's own crates behind one call, and the lines it gives back.
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use anyhow::{Context, Result};
 
@@ -13,6 +14,8 @@ use grep_searcher::{BinaryDetection, Searcher, SearcherBuilder, Sink, SinkMatch}
 /// so the picker title says it is cut ("first N", or "N+ hits" for `s`) when it hits. Raise it
 /// if a picker over the whole result set ever becomes the point.
 pub const MAX_HITS: usize = 5_000;
+const MAX_THREADS: usize = 8;
+const FILES_PER_THREAD: usize = 64;
 /// One matching line. `path` is relative to the project root, `line` is 1-based.
 #[derive(Debug, Clone)]
 pub struct Hit {
@@ -63,51 +66,75 @@ pub fn grep_filtered(
     pattern: &str,
     current: Option<&Path>,
     unsaved: Option<&[u8]>,
-    keep: impl Fn(&str) -> bool,
+    keep: impl Fn(&str) -> bool + Sync,
 ) -> Result<Vec<Hit>> {
     let matcher = RegexMatcherBuilder::new()
         .build(pattern)
         .with_context(|| format!("bad pattern `{pattern}`"))?;
     Ok(collect(root, files, &matcher, current, unsaved, keep))
 }
-/// The file walk both greps share: one `Hit` per line `matcher` matches and `keep` takes.
 fn collect(
     root: &Path,
     files: &[PathBuf],
     matcher: &RegexMatcher,
     current: Option<&Path>,
     unsaved: Option<&[u8]>,
-    keep: impl Fn(&str) -> bool,
+    keep: impl Fn(&str) -> bool + Sync,
 ) -> Vec<Hit> {
-    let mut searcher = SearcherBuilder::new()
-        .line_number(true)
-        .binary_detection(BinaryDetection::quit(0))
-        .build();
-
-    let mut hits = Vec::new();
-    for rel in files {
-        if hits.len() >= MAX_HITS {
-            break;
+    let next = AtomicUsize::new(0);
+    let full = AtomicBool::new(false);
+    let work = || {
+        let mut searcher = SearcherBuilder::new()
+            .line_number(true)
+            .binary_detection(BinaryDetection::quit(0))
+            .build();
+        let mut hits = Vec::new();
+        while !full.load(Ordering::Relaxed) {
+            let file = next.fetch_add(1, Ordering::Relaxed);
+            let Some(rel) = files.get(file) else {
+                break;
+            };
+            let sink = Collect {
+                file,
+                path: rel,
+                matcher,
+                hits: &mut hits,
+                keep: &keep,
+            };
+            let _ = match unsaved.filter(|_| current == Some(rel.as_path())) {
+                Some(text) => searcher.search_slice(matcher, text, sink),
+                None => searcher.search_path(matcher, root.join(rel), sink),
+            };
+            if hits.len() >= MAX_HITS {
+                full.store(true, Ordering::Relaxed);
+            }
         }
-        let sink = Collect {
-            path: rel,
-            matcher,
-            hits: &mut hits,
-            keep: &keep,
-        };
-        let _ = match unsaved.filter(|_| current == Some(rel.as_path())) {
-            Some(text) => searcher.search_slice(matcher, text, sink),
-            None => searcher.search_path(matcher, root.join(rel), sink),
-        };
-    }
+        hits
+    };
+    let threads = std::thread::available_parallelism()
+        .map_or(1, usize::from)
+        .min(MAX_THREADS)
+        .min(files.len().div_ceil(FILES_PER_THREAD));
+    let mut hits: Vec<(usize, Hit)> = std::thread::scope(|s| {
+        let others: Vec<_> = (1..threads).map(|_| s.spawn(work)).collect();
+        let mut hits = work();
+        for t in others {
+            hits.extend(t.join().unwrap_or_default());
+        }
+        hits
+    });
+    hits.sort_by_key(|(file, h)| (*file, h.line));
+    hits.truncate(MAX_HITS);
+    let mut hits: Vec<Hit> = hits.into_iter().map(|(_, h)| h).collect();
     hits.sort_by_cached_key(|h| (current != Some(h.path.as_path()), h.path.clone(), h.line));
     hits
 }
 /// Collects one `Hit` per matching line `keep` takes, stopping the whole search at [`MAX_HITS`].
 struct Collect<'a> {
+    file: usize,
     path: &'a Path,
     matcher: &'a RegexMatcher,
-    hits: &'a mut Vec<Hit>,
+    hits: &'a mut Vec<(usize, Hit)>,
     keep: &'a dyn Fn(&str) -> bool,
 }
 impl Sink for Collect<'_> {
@@ -120,13 +147,16 @@ impl Sink for Collect<'_> {
             // The matcher that found the line, run again over it as `Buffer` reads it (lossy, its
             // trailing blanks kept), finds the column as ripgrep does, with nothing to compile.
             let col = self.matcher.find(line.as_bytes()).ok().flatten();
-            self.hits.push(Hit {
-                path: self.path.to_path_buf(),
-                line: m.line_number().unwrap_or(0) as usize,
-                col: col.map_or(0, |m| m.start()),
-                text: text.to_string(),
-                deleted: None,
-            });
+            self.hits.push((
+                self.file,
+                Hit {
+                    path: self.path.to_path_buf(),
+                    line: m.line_number().unwrap_or(0) as usize,
+                    col: col.map_or(0, |m| m.start()),
+                    text: text.to_string(),
+                    deleted: None,
+                },
+            ));
         }
         Ok(self.hits.len() < MAX_HITS)
     }

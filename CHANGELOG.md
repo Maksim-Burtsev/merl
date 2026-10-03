@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `d` outside the project answers faster: the dependencies are read in parallel, each file's
+  comments are lexed once, and a Python member is looked for in the packages the file imports
+  before every installed one, so its picker lists those alone (#318).
+
 ## [0.8.1] - 2026-10-02
 
 ### Added

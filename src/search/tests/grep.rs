@@ -71,6 +71,27 @@ fn current_file_sorts_first_then_path_and_line() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+#[test]
+fn the_cap_keeps_the_first_files_in_the_order_given() {
+    let names: Vec<String> = (0..400).map(|i| format!("f{i:03}.py")).collect();
+    let many = "x = 1\n".repeat(MAX_HITS / 100);
+    let texts: Vec<(&str, &str)> = names.iter().map(|n| (n.as_str(), many.as_str())).collect();
+    let (dir, mut given) = scratch("cap-order", &texts);
+    given.reverse();
+    for _ in 0..5 {
+        let hits = grep(&dir, &given, "x", false, false);
+        let mut kept: Vec<&Path> = hits.iter().map(|h| h.path.as_path()).collect();
+        kept.dedup();
+        let first: Vec<&Path> = (given[..100].iter().rev()).map(PathBuf::as_path).collect();
+        assert_eq!(hits.len(), MAX_HITS);
+        assert_eq!(
+            kept, first,
+            "the 100 files first in the list, sorted by path"
+        );
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// Every pattern of [`LAST`], and the near-misses that carry the same letters but are code.
 #[test]
 fn tests_mocks_fixtures_and_generated_files_rank_last() {

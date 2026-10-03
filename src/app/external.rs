@@ -304,6 +304,49 @@ impl App {
         })
     }
 
+    pub(super) fn python_members(
+        &self,
+        files: &[PathBuf],
+        imports: &[(String, Vec<String>)],
+        members: &str,
+        word: &str,
+    ) -> (Vec<Hit>, bool) {
+        let reached = self.python_imported(files, imports);
+        match self.external_methods(&reached, members, word) {
+            (methods, field) if methods.len() > 1 => (methods, field),
+            _ => self.external_methods(files, members, word),
+        }
+    }
+
+    fn python_imported(
+        &self,
+        files: &[PathBuf],
+        imports: &[(String, Vec<String>)],
+    ) -> Vec<PathBuf> {
+        let roots = self
+            .external
+            .get(&Kind::Python)
+            .map(|(roots, _)| roots.as_slice())
+            .unwrap_or_default();
+        let packages: Vec<&str> = (imports.iter())
+            .filter_map(|(_, path)| path.first())
+            .filter(|p| !p.starts_with('.'))
+            .map(String::as_str)
+            .collect();
+        (files.iter())
+            .filter(|f| {
+                python_rel(roots, f)
+                    .and_then(|(_, rel)| rel.components().next())
+                    .map(|c| c.as_os_str().to_string_lossy())
+                    .is_some_and(|top| {
+                        let module = top.strip_suffix(".pyi").or_else(|| top.strip_suffix(".py"));
+                        packages.contains(&module.unwrap_or(&top))
+                    })
+            })
+            .cloned()
+            .collect()
+    }
+
     /// The file outside the project that is the Python module `parts` (#333), matched from the
     /// root it lies under, the deepest that holds it: `a/b/c/__init__.py`, `a/b/c.py` or
     /// `a/b/c.pyi` from there, never a `c.py` deeper in some other package. As Python imports it,
@@ -446,13 +489,9 @@ impl App {
         };
         let method = Regex::new(members).expect("built-in patterns compile");
         let pattern = format!("{members}|{}", fields.join("|"));
-        let kept = std::cell::Cell::new(0);
-        // ponytail: the first 500 field-shaped lines; a field past them goes unseen.
+        let kept = std::sync::atomic::AtomicUsize::new(0);
         let hits = search::grep_filtered(&self.root, files, &pattern, None, None, |l| {
-            method.is_match(l) || {
-                kept.set(kept.get() + 1);
-                kept.get() <= 500
-            }
+            method.is_match(l) || kept.fetch_add(1, std::sync::atomic::Ordering::Relaxed) < 500
         })
         .unwrap_or_default();
         let (mut methods, candidates): (Vec<Hit>, Vec<Hit>) =
