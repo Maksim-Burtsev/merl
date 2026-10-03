@@ -1,7 +1,7 @@
 # `d` bench
 
-How often `d` lands where a language server would, per language, in 14 real projects pinned to a
-commit: 3,140 cursors, each with an answer recorded once and reviewed, and the table master
+How often `d` lands where a language server would, per language, in 15 real projects pinned to a
+commit: 3,440 cursors, each with an answer recorded once and reviewed, and the table master
 scores on them (`baseline.md`). A `d` change runs it and shows no language worse than master
 (`AGENTS.md`, `## Changing d`).
 
@@ -56,7 +56,7 @@ Never in merl, never in CI. The servers go into a scratch directory:
 ```sh
 tools/d-bench/run --project koel                # clone and install the project first
 tools/d-bench/install-servers.sh                # pyright, typescript-language-server with typescript@6,
-                                                # intelephense, gopls, rust-analyzer
+                                                # intelephense, gopls, rust-analyzer, LanguageServer.jl
 tools/d-bench/record.py sample php 300          # -> cursors/php.tsv (seeded: the same cursors again)
 tools/d-bench/record.py oracle php              # -> answers/php.tsv, resumes where it stopped
 ```
@@ -73,6 +73,14 @@ Examples,Tests,WebImage,Docs,Scripts,SDWebImageMapKit,include` (`include/` links
 `Core/`). Java, Kotlin, C#
 and Ruby had no server on the recording machine: an agent judged their cursors by reading the
 code, and a definition outside the project (the JDK, a gem) is `no-answer` there.
+
+Julia came from a julialang-s3 tarball, `JULIA_DEPOT_PATH` pointing at a scratch depot for both
+DataFrames.jl's install and `install-servers.sh`. LanguageServer.jl's analysis process drops
+`JULIA_DEPOT_PATH` and reads `~/.julia`, so `oracle` starts it with `HOME` at
+`<servers>/julia-home`, whose `.julia` links to that depot. It answers nothing for names from a
+dependency (Tables, InvertedIndices) and for some of Base's core types: those rows are `no-answer`.
+For a Base generic that DataFrames extends (`parent`, `view`, `copy`, `filter!`) it lists only
+the methods outside the project: where the argument is a DataFrames type, the row is `skip`.
 
 After recording, review every cursor where merl and the oracle disagree (`WRONG`, `pick-miss`,
 `none` in `last-score.tsv`) and mark the oracle's debatable answers `skip` with the reason: a

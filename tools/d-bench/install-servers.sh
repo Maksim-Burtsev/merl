@@ -11,3 +11,6 @@ npm install --no-save --prefix "$D" pyright typescript-language-server typescrip
 GOBIN="$D/bin" go install golang.org/x/tools/gopls@latest
 rustup component add rust-analyzer
 ln -sf "$(rustup which rust-analyzer)" "$D/bin-ra"
+mkdir -p "$D/julia-home"
+ln -sfn "${JULIA_DEPOT_PATH:-$HOME/.julia}" "$D/julia-home/.julia"
+julia --project=@ls -e 'using Pkg; Pkg.add("LanguageServer")'
