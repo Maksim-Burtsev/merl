@@ -1,0 +1,57 @@
+wait web/android/build.gradle  9:
+ 1 plugins {
+ 2     id 'java'
+ 3 }
+ 4
+ 5 ext {
+ 6     courierVersion = '2.4.0'
+ 7 }
+ 8
+ 9 tasks.register("bundleRoutes", Zip) {
+10     from 'src/main/scala'
+11     archiveFileName = "routes-${courierVersion}.zip"
+12 }
+13
+14 tasks.named('build') {
+15     dependsOn 'bundleRoutes'
+16 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/android/build.gradle  9:17  [code]  bundleRoutes: by name, 1 match
+cursor (x,y,shown) 19,8,1

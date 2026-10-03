@@ -2,6 +2,7 @@
 //! and the name read out of a row that matched.
 
 use regex::Regex;
+use std::path::Path;
 
 use super::*;
 
@@ -106,6 +107,16 @@ const SCALA_DEF_SYMBOL: &str = concat!(
     scala_mods!(),
     r"|^\s*extension\b.*?\b)def\s+`?(?P<name>[A-Za-z_]\w*)"
 );
+const GROOVY_DEF_SYMBOL: &str = concat!(scala_mods!(), r"def\s+(?P<name>[A-Za-z_]\w*)\s*\(");
+const GRADLE_TASK_SYMBOL: &str =
+    r#"(?:^\s*task\s+|\btasks\.(?:register|create)\s*\(?\s*['"])(?P<name>[A-Za-z_]\w*)"#;
+pub fn row_reads(pattern: &str, path: &Path) -> bool {
+    match pattern {
+        SCALA_DEF_SYMBOL => !groovy(path),
+        GROOVY_DEF_SYMBOL | GRADLE_TASK_SYMBOL => groovy(path),
+        _ => true,
+    }
+}
 /// The other Java half: a method, told from a call by the return type before its name. Kotlin
 /// writes its types after the name, so nothing of Kotlin's lands here twice. A field is left out,
 /// as in every other kind.
@@ -422,6 +433,8 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::Jvm), JAVA_METHOD_SYMBOL),
     (Some(Kind::Jvm), SCALA_GIVEN_SYMBOL),
     (Some(Kind::Jvm), SCALA_DEF_SYMBOL),
+    (Some(Kind::Jvm), GROOVY_DEF_SYMBOL),
+    (Some(Kind::Jvm), GRADLE_TASK_SYMBOL),
     // Ruby likewise: `def self.parse` is `parse`, which the shared pattern would call `self`.
     (Some(Kind::Ruby), RUBY_SYMBOL),
     // C and C++ likewise: a function carries no keyword at all, and `struct dict *d;` is a use of

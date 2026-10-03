@@ -193,7 +193,7 @@ pub(super) fn scala_patterns(word: &str) -> Vec<String> {
 /// The names one parameter or one lambda parameter of a Java or Kotlin list binds: `x` for
 /// `x: Int`, `vararg x: Int`, `final String x`, `String... x`, `(a, x)`, `x`; none for `_` or
 /// what reads as no parameter (a call's `a = b`, a lone type).
-fn param_names(entry: &str) -> Vec<String> {
+fn param_names(entry: &str, groovy: bool) -> Vec<String> {
     static KOTLIN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^(?:@[\w.]+(?:\([^)]*\))?\s+)*(?:(?:vararg|noinline|crossinline|private|public|protected|internal|override|open|val|var|using|implicit)\s+)*([A-Za-z_]\w*)\s*:").unwrap()
     });
@@ -202,14 +202,19 @@ fn param_names(entry: &str) -> Vec<String> {
     });
     let e = entry.split_whitespace().collect::<Vec<_>>().join(" ");
     let e = e.trim_matches(|c: char| c == '(' || c == ')' || c.is_whitespace());
+    let typed = match groovy {
+        true => e.split_once('=').map_or(e, |(p, _)| p).trim_end(),
+        false => e,
+    };
     let name = KOTLIN
         .captures(e)
         .or_else(|| {
-            (!e.contains(['=', ':']))
-                .then(|| JAVA.captures(e))
+            (!typed.contains(['=', ':']))
+                .then(|| JAVA.captures(typed))
                 .flatten()
         })
-        .map(|c| c[1].to_owned());
+        .map(|c| c[1].to_owned())
+        .or_else(|| (groovy && ident(typed)).then(|| typed.to_owned()));
     name.into_iter().filter(|n| n != "_").collect()
 }
 
@@ -251,7 +256,7 @@ fn lambda_names(line: &str) -> Vec<String> {
                 for entry in list.as_str().split(',') {
                     let e = entry.trim();
                     out.extend(match e.contains(char::is_whitespace) {
-                        true => param_names(e),
+                        true => param_names(e, false),
                         false => ident(e).then(|| e.to_owned()).into_iter().collect(),
                     });
                 }
@@ -329,6 +334,9 @@ fn header_binds(lines: &[&str], from: usize, to: usize, name: &str) -> Vec<usize
             .find(|&i| word.is_match(&uncommented(Kind::Jvm, lines[i])))
             .map(|i| i + 1)
     };
+    static DEF: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\bdef\s+[A-Za-z_]\w*\s*\(").unwrap());
+    let groovy = DEF.is_match(lines[from]);
     let mut out = Vec::new();
     // The parameters, over the lines they span, and Scala's further lists, `(a: A)(b: B)`.
     if let Some(mut open) = params_open(lines[from]) {
@@ -336,7 +344,7 @@ fn header_binds(lines: &[&str], from: usize, to: usize, name: &str) -> Vec<usize
         while let Some((inner, last, rest)) = group(Kind::Jvm, lines, at, open) {
             if split_top(Kind::Jvm, &inner, b',')
                 .iter()
-                .any(|e| param_names(e).iter().any(|p| p == name))
+                .any(|e| param_names(e, groovy).iter().any(|p| p == name))
             {
                 out.extend(at_line(from, last));
                 break;
@@ -365,7 +373,7 @@ fn declares_local(t: &str, name: &str) -> bool {
     let n = regex::escape(name);
     let ret = jvm_return_type!();
     Regex::new(&format!(
-        r"^(?:(?:final|lateinit|const)\s+)*(?:(?:val|var)\s+{n}(?:[^\w.]|$)|(?:val|var)\s*\([^)]*\b{n}\b[^)]*\)\s*=|(?:@[\w.]+\s+)*(?:var|{ret})(?:\.\.\.)?\s+{n}\s*[=;,:])"
+        r"^(?:(?:final|lateinit|const)\s+)*(?:(?:val|var|def)\s+{n}(?:[^\w.]|$)|(?:val|var)\s*\([^)]*\b{n}\b[^)]*\)\s*=|(?:@[\w.]+\s+)*(?:var|{ret})(?:\.\.\.)?\s+{n}\s*[=;,:])"
     ))
     .is_ok_and(|re| re.is_match(t))
 }

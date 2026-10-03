@@ -990,10 +990,12 @@ fn names_itself(kind: Kind, line: &str, name: &str) -> bool {
         "enum ",
     ]
     .iter()
-    .filter_map(|k| t.strip_prefix(k))
-    .any(|rest| {
-        rest.strip_prefix(name)
-            .is_some_and(|after| !after.starts_with(is_word))
+    .filter_map(|k| t.strip_prefix(k).map(|rest| (k, rest)))
+    .any(|(k, rest)| {
+        rest.strip_prefix(name).is_some_and(|after| {
+            !after.starts_with(is_word)
+                && (kind != Kind::Jvm || *k != "def " || after.trim_start().starts_with('('))
+        })
     });
     declares
         || import_line(kind, line)

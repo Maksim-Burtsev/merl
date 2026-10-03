@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `d`, `u` and `D` in Groovy, Gradle build scripts and Jenkinsfiles, where `d` said `no rules for
+  .groovy`, `no rules for .gradle` and `no rules for this file`. `.groovy`, `.gvy`, `.gradle`,
+  `*.jenkinsfile` and `Jenkinsfile` are one kind with Java, Kotlin and Scala, so a Groovy class
+  finds the Java class it calls and back. `d` on `buildDocs` in `dependsOn 'buildDocs'` lands on
+  its `tasks.register('buildDocs', Copy)` or `task buildDocs {`; on `kotlinVersion` in
+  `"${kotlinVersion}"`, on `ext.kotlinVersion = …` or its line inside `ext {`; on `buildPlugin`
+  in a Jenkinsfile, on `def call(` of the shared library's `vars/buildPlugin.groovy`. It finds
+  `trait`, a method or a variable with `def` and a method's parameters; a Gradle or Jenkins block
+  or call (`dependencies {`, `node {`, `sh 'make'`) declares nothing, nor does a line inside a
+  `'''` or `$/ … /$` string. `D` lists Groovy's `def` methods and Gradle's tasks, and no `def`
+  variable. (#423)
+
 ## [0.8.1] - 2026-10-02
 
 ### Added

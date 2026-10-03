@@ -901,8 +901,7 @@ mod tests {
     }
 
     #[test]
-    fn java_kotlin_and_scala_highlight_with_every_shipped_theme() {
-        // bat's set owns all but `.mill` by name; that one is mapped (#416).
+    fn jvm_languages_highlight_with_every_shipped_theme() {
         for (file, lang, src) in [
             (
                 "Invoice.java",
@@ -930,6 +929,23 @@ mod tests {
                 "build.mill",
                 "Scala",
                 "// doc\nobject core extends ScalaModule\n",
+            ),
+            (
+                "Ledger.groovy",
+                "Groovy",
+                "// doc\nclass Ledger {\n    def total(xs) { xs.sum() }\n}\n",
+            ),
+            ("run.gvy", "Groovy", "// doc\ndef limit = 10\n"),
+            (
+                "build.gradle",
+                "Groovy",
+                "// doc\ntask docs(type: Copy) { from 'docs' }\n",
+            ),
+            ("Jenkinsfile", "Groovy", "// doc\nnode { sh 'make' }\n"),
+            (
+                "release.jenkinsfile",
+                "Groovy",
+                "// doc\nnode { sh 'make' }\n",
             ),
         ] {
             for name in crate::theme::names() {

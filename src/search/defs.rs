@@ -155,6 +155,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(r"{mods}(?:<[^>]*>\s*)?{ret}(?:\.\.\.)?\s+{w}\s*[(;=]"),
             ];
             patterns.extend(scala_patterns(word));
+            patterns.extend(groovy_patterns(word));
             patterns
         }
         // Ruby declares everything on one line. A constant lives indented inside its class, so
@@ -1111,6 +1112,7 @@ fn declares_by_kind<'a, S: AsRef<str> + 'a>(
             }
         }
         Kind::Jvm if record_component(line_text) => in_record_header(lines(), line),
+        Kind::Jvm => groovy_declares(path, word, line, line_text, lines).unwrap_or(true),
         Kind::C => c_declares_where(line, line_text, lines),
         Kind::Ruby if ruby_column_elsewhere(path, line_text) => false,
         Kind::PowerShell => powershell_declares(lines(), line, line_text),

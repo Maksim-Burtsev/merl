@@ -87,7 +87,7 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     // Any other name on a Java or Kotlin function's header is a parameter (#376), named as a
     // local of the body is: `SortUtils.resolve.directionParams`.
     if kind == Kind::Jvm
-        && let Some(f) = jvm_function(target).filter(|f| f != name)
+        && let Some(f) = jvm_function(target).filter(|f| f != name && target.contains(name))
     {
         let owner = qualified(kind, text, line, &f).unwrap_or(f);
         return Some(format!("{owner}{sep}{name}"));
