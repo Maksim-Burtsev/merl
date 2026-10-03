@@ -86,6 +86,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   resolved through `remappings.txt`, `foundry.toml` and `lib/` too; on the import's path, that
   file; on a parameter or a local, the line that declares it. `D` lists contracts, libraries,
   modifiers, events and errors beside functions, structs, enums and interfaces. (#433)
+- `d` follows a `$ref` in OpenAPI and JSON Schema files (`.yaml`, `.yml`, `.json`). On `User` in
+  `$ref: '#/components/schemas/User'` it lands on `components/schemas/User`, where it offered
+  every key named `User`; on `'./schemas/order.yaml#/Order'` on `Order:` in that file, where it
+  said `no definition for Order`; in a `.json` file on `"#/$defs/address"`, where it said
+  `no rules for .json`. An escaped key (`~1users`), an item index, an `$anchor`, a URL a
+  project file declares as its `$id`, and a `discriminator.mapping` value are followed too; a
+  `$ref` in a block scalar or a comment is not. (#435)
 
 ## [0.8.1] - 2026-10-02
 

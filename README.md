@@ -248,7 +248,9 @@ moment you open it. In Python, TypeScript and Go, `d` also follows the type of t
 | Perl | `@INC` and Carton's `local/lib/perl5` |
 | Java, Kotlin, Scala, Groovy, Ruby, C#, F#, Lua, Nix, Haskell, R | |
 | GDScript | the script `project.godot` autoloads under a name, and the file a `res://` path names |
-| Shell, SQL, Makefile, Terraform, Dockerfile, YAML, GraphQL | |
+| Shell, SQL, Makefile, Terraform, Dockerfile, GraphQL | |
+| YAML | the schema a `$ref` names, in the same file or another |
+| JSON | only the schema a `$ref` names |
 | Markdown | the file or the heading a link names, and a file a code span names |
 | HTML, CSS, SCSS, Less | the rule a class or an id of HTML, JSX, Vue or Svelte names, the file a path names, a package's stylesheet in `node_modules` |
 

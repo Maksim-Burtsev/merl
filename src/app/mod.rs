@@ -34,6 +34,7 @@ mod find;
 mod gdscript;
 mod haskell;
 mod imported;
+mod json_ref;
 mod jvm;
 mod jvm_typed;
 mod keys;
