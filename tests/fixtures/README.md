@@ -246,6 +246,13 @@ function by name, `let` bindings named `api` in two files (each stays in its own
 path, each refusal of the issue, and declaration-shaped lines in indented strings (one opened
 after `//`, one holding the `'''`, `''$` and `''\` escapes), a `"…"`, a `/* */` and a `#` comment.
 
+`clojure/`, `emacs-lisp/`, `scheme/` and `common-lisp/` (#428) are a shop in each Lisp: every
+defining form of the dialect, a namespace alias and a `:refer` (`money/format-price`, and
+`str/join` of a namespace outside the project), a `let` binding named `total` beside a `(def total`
+of another file, `empty?` beside `empty`, a `defmulti`, `cl-defgeneric` or `defgeneric` offered
+with its methods, a `(comment …)` form, `#_`, `#;` and a nested `#| … |#`, a `(require …)` that
+opens a file, each refusal of the issue, and declaration-shaped lines in a docstring.
+
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
 `deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies
 the project walk does not reach, one whose module is no path and two declaring one name (#437).

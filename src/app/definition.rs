@@ -310,23 +310,21 @@ impl App {
             self.show_definitions(kind, &ivar, &here, found, None);
             return;
         }
-        // Inside a docstring's example the imports written there count too.
+        if kind == Kind::Clojure
+            && let Some(found) = self.clojure_qualified(&text, before, &word)
+        {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         let in_literal = search::literal_lines(kind, &text).get(self.line) == Some(&true);
         let mut imports = match in_literal {
             true => search::imports_as_written(kind, &text),
             false => search::imports(kind, &text),
         };
-        // A parameter or a local of the same name hides the import where the cursor is: `json`
-        // in `def handler(json)` is a value, and `via import` would be a proof of nothing.
         let first = chain.first().map_or(word.as_str(), String::as_str);
-        // A key of a Lua table constructor names a field, whatever local shares its name, and so
-        // does a method called with `:`.
         let key = kind == Kind::Lua
             && (search::table_key(&text, self.line + 1, &range)
                 || (before.ends_with(':') && !before.ends_with("::")));
-        // An Elixir name followed by `(` is a call, one behind `@` an attribute and behind `&` a
-        // capture, and the names an `@spec` promises are functions: each is its module's first
-        // (#460). Nor is a key `name:` or an atom `:name` a variable.
         let after = &self.line_str()[range.end..];
         let call = kind == Kind::Elixir
             && !dotted
@@ -481,7 +479,8 @@ impl App {
                 || same_line
                 || own_line
                 || own_arrow
-                || matches!(kind, Kind::Rust | Kind::Nix))
+                || matches!(kind, Kind::Rust | Kind::Nix)
+                || search::lisp(kind))
         {
             let found = locals
                 .iter()

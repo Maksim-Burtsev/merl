@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `d`, `u` and `D` in Clojure, Emacs Lisp, Scheme and Racket, and Common Lisp, where `d` said
+  `no rules for .clj`, `.el`, `.scm`, `.rkt` or `.lisp`. `d` on `format-price` in
+  `money/format-price` lands on its `(defn format-price` in the file of the namespace the `ns`
+  form requires as `money`, `format-price: via import src/shop/money.clj`, and finds nothing for
+  `str/join` of a namespace outside the project; on a name a `let` or the parameters of a `defn`,
+  `defun`, `define` or `lambda` bind, on that binding, `total: local`; on `(require 'shop-money)`
+  or `(require "utils.rkt")`, the file. `D` lists each dialect's functions, macros and types, and
+  `u` reads `format-price`, `empty?` and `*out*` as one name. (#428)
+
 ## [0.8.1] - 2026-10-02
 
 ### Added

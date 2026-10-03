@@ -520,6 +520,10 @@ impl App {
             | Kind::Dart
             | Kind::Cmake
             | Kind::Nix
+            | Kind::Clojure
+            | Kind::EmacsLisp
+            | Kind::Scheme
+            | Kind::CommonLisp
             | Kind::Sql
             | Kind::Make
             | Kind::Terraform
@@ -550,6 +554,10 @@ impl App {
             Kind::Dart,
             Kind::Cmake,
             Kind::Nix,
+            Kind::Clojure,
+            Kind::EmacsLisp,
+            Kind::Scheme,
+            Kind::CommonLisp,
             Kind::Sql,
             Kind::Make,
             Kind::Terraform,

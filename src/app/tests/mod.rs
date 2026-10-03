@@ -15,6 +15,7 @@ mod edit_fuzz;
 mod find;
 mod fold_bench;
 mod keys;
+mod lisp;
 mod missed;
 mod navigate;
 mod navigate_binding;

@@ -70,7 +70,6 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
     // `i.(T)`, and below Python's `cast(T, x)`.
     if kind == Kind::TsJs {
         let mut depth = 0i32;
-        // The first and the last ` as ` outside brackets.
         let mut cast: Option<(usize, usize)> = None;
         for (i, c) in code(kind, e) {
             match c {
@@ -185,6 +184,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         Kind::Rust => rust_bindings(&lines, at, name),
         Kind::Elixir => elixir_bindings(&lines, at, name),
         Kind::Nix => nix_bindings(&lines, at, name),
+        k if lisp(k) => lisp_bindings(k, &lines, at, name),
         _ => Vec::new(),
     }
 }

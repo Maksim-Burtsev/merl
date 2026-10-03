@@ -35,6 +35,7 @@ mod jvm;
 mod jvm_typed;
 mod keys;
 mod links;
+mod lisp;
 mod members;
 mod missed;
 mod open;

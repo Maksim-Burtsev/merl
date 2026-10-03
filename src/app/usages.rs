@@ -10,16 +10,23 @@ impl App {
     pub(super) fn usages(&mut self) {
         let extra = search::word_chars(self.kind(), false);
         let Some(read) = self.on_drawn(|a| match a.kind() {
-            k @ Some(Kind::Ruby | Kind::Elixir | Kind::Cmake | Kind::Nix) => {
-                a.definition_word(k).map(|(r, w)| {
-                    let lead = &a.line_str()[..r.start];
-                    let sigil = lead.len() - lead.trim_end_matches('@').len();
-                    match k == Some(Kind::Ruby) && (1..=2).contains(&sigil) {
-                        true => format!("{}{w}", &lead[lead.len() - sigil..]),
-                        false => w,
-                    }
-                })
-            }
+            k @ Some(
+                Kind::Ruby
+                | Kind::Elixir
+                | Kind::Cmake
+                | Kind::Nix
+                | Kind::Clojure
+                | Kind::EmacsLisp
+                | Kind::Scheme
+                | Kind::CommonLisp,
+            ) => a.definition_word(k).map(|(r, w)| {
+                let lead = &a.line_str()[..r.start];
+                let sigil = lead.len() - lead.trim_end_matches('@').len();
+                match k == Some(Kind::Ruby) && (1..=2).contains(&sigil) {
+                    true => format!("{}{w}", &lead[lead.len() - sigil..]),
+                    false => w,
+                }
+            }),
             _ => a.css_word().or_else(|| a.word_under(extra)),
         }) else {
             self.message = "no word under the cursor".into();

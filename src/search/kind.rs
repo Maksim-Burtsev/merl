@@ -29,6 +29,10 @@ pub enum Kind {
     Dart,
     Cmake,
     Nix,
+    Clojure,
+    EmacsLisp,
+    Scheme,
+    CommonLisp,
     Sql,
     Make,
     Terraform,
@@ -104,6 +108,10 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "dart") => Kind::Dart,
         ("CMakeLists.txt", _) | (_, "cmake") => Kind::Cmake,
         (_, "nix") => Kind::Nix,
+        (_, "clj" | "cljs" | "cljc" | "bb") => Kind::Clojure,
+        (".emacs", _) | (_, "el") => Kind::EmacsLisp,
+        (_, "scm" | "ss" | "sld" | "rkt") => Kind::Scheme,
+        (_, "lisp" | "cl" | "lsp" | "asd") => Kind::CommonLisp,
         (_, "sql" | "psql" | "pgsql" | "mysql" | "ddl" | "dml") => Kind::Sql,
         ("Makefile" | "makefile" | "GNUmakefile", _) | (_, "mk") => Kind::Make,
         (_, "tf" | "tfvars") => Kind::Terraform,
@@ -150,8 +158,18 @@ pub fn word_chars(kind: Option<Kind>, address: bool) -> &'static str {
         ) => "-",
         Some(Kind::Cmake) => "-.",
         Some(Kind::Nix) => "-'",
+        Some(Kind::Clojure) => "-?!*+<>=",
+        Some(Kind::EmacsLisp) => "-?!*+<>=/",
+        Some(Kind::Scheme) => "-?!*+<>=/:",
+        Some(Kind::CommonLisp) => "-?!*+<>=/%",
         _ => "",
     }
+}
+pub fn lisp(kind: Kind) -> bool {
+    matches!(
+        kind,
+        Kind::Clojure | Kind::EmacsLisp | Kind::Scheme | Kind::CommonLisp
+    )
 }
 /// What stands between the names of a qualified name of `kind`: `Depot::open`, `Outer.find`.
 pub fn separator(kind: Kind) -> &'static str {

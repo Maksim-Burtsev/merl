@@ -34,6 +34,10 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Dart
         | Kind::Cmake
         | Kind::Nix
+        | Kind::Clojure
+        | Kind::EmacsLisp
+        | Kind::Scheme
+        | Kind::CommonLisp
         | Kind::Sql
         | Kind::Make
         | Kind::Graphql
@@ -271,10 +275,22 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         // `.beam` files, not `.ex` — and its dependencies are the project's `deps/`, which
         // depend on the open file: [`mix_deps`]. `d` stays inside the project for all of them,
         // as for the rest.
+        Kind::EmacsLisp => vec![home.join(".emacs.d/elpa"), home.join(".config/emacs/elpa")],
+        Kind::CommonLisp => vec![
+            home.join("quicklisp/dists/quicklisp/software"),
+            home.join("quicklisp/local-projects"),
+        ],
+        Kind::Scheme => {
+            let script = "(for-each displayln (current-library-collection-paths))";
+            (run("racket", &["-e", script]).unwrap_or_default().lines())
+                .map(PathBuf::from)
+                .collect()
+        }
         Kind::Jvm
         | Kind::CSharp
         | Kind::Lua
         | Kind::Nix
+        | Kind::Clojure
         | Kind::Elixir
         | Kind::Shell
         | Kind::Sql

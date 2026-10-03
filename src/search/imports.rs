@@ -357,6 +357,10 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
         | Kind::Dart
         | Kind::Cmake
         | Kind::Nix
+        | Kind::Clojure
+        | Kind::EmacsLisp
+        | Kind::Scheme
+        | Kind::CommonLisp
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform
@@ -886,6 +890,9 @@ pub fn module_files(
         | Kind::Html => Vec::new(),
         // The path of an `#import`, a dot-source or an `Import-Module`, relative to the file.
         Kind::Nix => nix_files(dir, &module.join("/"), files),
+        Kind::Clojure | Kind::EmacsLisp | Kind::Scheme | Kind::CommonLisp => {
+            lisp_files(kind, dir, &module.join("/"), files)
+        }
         Kind::Graphql | Kind::PowerShell => lexical(&dir.join(module.join("/")))
             .filter(|f| files.contains(f))
             .into_iter()
@@ -898,6 +905,7 @@ pub fn file_import(kind: Kind, line: &str, col: usize) -> Option<String> {
         Kind::PowerShell => powershell_import(line, col),
         Kind::Cmake => cmake_import(line, col).map(|(_, arg)| arg),
         Kind::Nix => nix_path(line, col),
+        Kind::Clojure | Kind::EmacsLisp | Kind::Scheme => lisp_require(kind, line, col),
         _ => None,
     }
 }
