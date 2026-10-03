@@ -8,7 +8,7 @@ fun removed(): String = stringResource(id = R.string.bookmark_removed)
 //                                                   ^ d: src/main/res/values/strings.xml:2
 // status: bookmark_removed: via src/main/res/values/strings.xml
 fun hello(): String = stringResource(R.string.greeting)
-//                                            ^ d: picker src/main/res/values/strings.xml:3, src/main/res/values-de/strings.xml:2
+//                                            ^ d: picker src/main/res/values/strings.xml:3, src/main/res/values-de/strings.xml:3
 fun aliased(): String = stringResource(CoreUiR.string.bookmark_removed)
 //                                                    ^ d: src/main/res/values/strings.xml:2
 fun tint(): Int = colorResource(R.color.accent)

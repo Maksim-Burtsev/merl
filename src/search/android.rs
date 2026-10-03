@@ -109,6 +109,10 @@ pub fn res_file(path: &Path, ty: &str, name: &str) -> bool {
             == Some(name)
 }
 
+pub fn android_source(path: &Path) -> bool {
+    path.extension().is_some_and(|e| e == "xml" || e == "toml")
+}
+
 pub fn qualified_res(path: &Path) -> bool {
     path.parent()
         .and_then(|p| p.file_name())

@@ -4,6 +4,7 @@ use super::definition::resolution;
 use super::open::carried;
 use super::*;
 
+mod android;
 mod annotated;
 mod budgets;
 mod cmake;

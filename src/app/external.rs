@@ -727,6 +727,9 @@ impl App {
     /// its candidates: a component's from the text the hit was read from (#413), any other file's
     /// from its text now.
     pub(super) fn hidden_now(&self, kind: Kind, h: &Hit) -> Vec<bool> {
+        if search::android_source(&h.path) {
+            return Vec::new();
+        }
         // A rule of a component's `<style>` block is no script's: it is lexed as a stylesheet
         // (#415).
         match search::component(&h.path) && kind != Kind::Css {

@@ -11,7 +11,11 @@ impl App {
         let Some((segments, at)) = search::dotted_at(self.line_str(), col) else {
             return false;
         };
-        let free = |name: &str| search::bindings(Kind::Jvm, text, self.line + 1, name).is_empty();
+        let free = |name: &str| {
+            let declared = format!("(?m){}", search::def_patterns(Kind::Jvm, name).join("|"));
+            search::bindings(Kind::Jvm, text, self.line + 1, name).is_empty()
+                && Regex::new(&declared).is_ok_and(|re| !re.is_match(text))
+        };
         let build_script = here.to_string_lossy().ends_with(".gradle.kts");
         let found = if build_script
             && let Some((section, key)) = search::catalog_key(&segments)
