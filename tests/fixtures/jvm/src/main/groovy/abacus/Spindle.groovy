@@ -18,7 +18,7 @@ final class Spindle implements Comparable<Spindle> {
 class Heddle {
     Heddle(String eye) {  }
 
-    Heddle(Map opts) {  }
+    Heddle(Map<String, Object> opts) {  }
 }
 
 class Loom {
@@ -32,5 +32,7 @@ class Loom {
         new Heddle([eye: 'warp']) <=> new Heddle(eye: 'weft')
         //  ^ d: src/main/groovy/abacus/Spindle.groovy:21
         //                                ^ d: src/main/groovy/abacus/Spindle.groovy:21
+        new Heddle(eye: 'weft', lift: 2)
+        //  ^ d: src/main/groovy/abacus/Spindle.groovy:21
     }
 }

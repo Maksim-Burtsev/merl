@@ -413,7 +413,7 @@ static MAP_ARGUMENT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
 static DEFAULT: std::sync::LazyLock<Regex> =
     std::sync::LazyLock::new(|| Regex::new(r"[^=!<>]=(?:[^=~]|$)").unwrap());
 
-fn parameters(text: &str, line: usize, word: &str, defaults: bool) -> Option<(usize, usize)> {
+fn parameters(text: &str, line: usize, word: &str, groovy: bool) -> Option<(usize, usize)> {
     let lines: Vec<String> = text.lines().map(str::to_owned).collect();
     let at = line.checked_sub(1)?;
     let re = Regex::new(&format!(r"\b{}\s*\(", regex::escape(word))).ok()?;
@@ -424,11 +424,22 @@ fn parameters(text: &str, line: usize, word: &str, defaults: bool) -> Option<(us
     if list.contains("...") {
         return Some((count.saturating_sub(1), usize::MAX));
     }
-    let optional = match defaults {
-        true => list.split(',').filter(|p| DEFAULT.is_match(p)).count(),
-        false => 0,
-    };
-    Some((count.saturating_sub(optional), optional))
+    if !groovy {
+        return Some((count, 0));
+    }
+    let mut angle = 0usize;
+    let mut typed = 0;
+    for c in list.chars() {
+        match c {
+            '<' => angle += 1,
+            '>' => angle = angle.saturating_sub(1),
+            ',' if angle > 0 => typed += 1,
+            _ => {}
+        }
+    }
+    let count = count.saturating_sub(typed);
+    let optional = (list.split(',').filter(|p| DEFAULT.is_match(p)).count()).min(count);
+    Some((count - optional, optional))
 }
 
 impl App {
@@ -507,6 +518,11 @@ impl App {
         if angle || hits.len() < 2 {
             return hits;
         }
+        let map_argument = groovy && constructed && MAP_ARGUMENT.is_match(after);
+        let count = match map_argument {
+            true => 1,
+            false => count,
+        };
         let fits = |h: &Hit| {
             if !java_or_groovy(h) || is_class(h) {
                 return true;
@@ -516,7 +532,7 @@ impl App {
                 .is_none_or(|(n, more)| (n..=n.saturating_add(more)).contains(&count))
         };
         let fit: Vec<Hit> = hits.iter().filter(|h| fits(h)).cloned().collect();
-        let fit = match groovy && constructed && MAP_ARGUMENT.is_match(after) {
+        let fit = match map_argument {
             true => {
                 let map = Regex::new(&format!(r"\b{w}\s*\(\s*(?:final\s+)?Map\b"))
                     .expect("an escaped name keeps the pattern valid");
