@@ -1,7 +1,7 @@
 # `d` bench
 
-How often `d` lands where a language server would, per language, in 14 real projects pinned to a
-commit: 3,140 cursors, each with an answer recorded once and reviewed, and the table master
+How often `d` lands where a language server would, per language, in 16 real projects pinned to a
+commit: 3,284 cursors, each with an answer recorded once and reviewed, and the table master
 scores on them (`baseline.md`). A `d` change runs it and shows no language worse than master
 (`AGENTS.md`, `## Changing d`).
 
@@ -72,7 +72,11 @@ one was written for `SDWebImage/Core/*.m` and `SDWebImage/Private/*.m` (flags `-
 Examples,Tests,WebImage,Docs,Scripts,SDWebImageMapKit,include` (`include/` links back into
 `Core/`). Java, Kotlin, C#
 and Ruby had no server on the recording machine: an agent judged their cursors by reading the
-code, and a definition outside the project (the JDK, a gem) is `no-answer` there.
+code, and a definition outside the project (the JDK, a gem) is `no-answer` there. Groovy was
+judged the same way, in two rows: `groovy` (nextflow, Groovy with Java and a Gradle build) and
+`jenkins` (pipeline-library, a Jenkins shared library: `vars/` steps and the tests that load them
+with `loadScript`, whose `script.call()` is judged to land on the loaded step). Their keys of a
+map built at runtime (`config.deployFolder`), Spock labels and `where:` variables are `skip`.
 
 After recording, review every cursor where merl and the oracle disagree (`WRONG`, `pick-miss`,
 `none` in `last-score.tsv`) and mark the oracle's debatable answers `skip` with the reason: a
