@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `f` folds Go, JavaScript, TypeScript (JSX and TSX included), Rust, C, C++, C#, Java, Kotlin,
+  Swift and PHP, where it said `no fold rules for .go`: on a line that opens a construct it folds
+  what Neovim's treesitter folds there in that language (a function, a class, an `if` and its
+  branches, a `switch`, a loop, an object, an array, and where the language's folds have them, a
+  `case`, a call's arguments wrapped over lines, a JSX element, a C `#ifdef` to its `#endif`, a
+  Rust `impl`, a run of imports, a Go composite literal and each of its elements); in C, C++,
+  C#, Java and Rust, on the header line of a function, class or `if` whose `{` stands on the
+  next line it folds that body, and `f` there again unfolds it; anywhere else inside a function
+  it folds the function; a raw string or a template literal at column 0 inside a body does not
+  end it, and the HTML around PHP's `<?php … ?>` is not read as code. An Objective-C header still
+  says `no fold rules for .h`. (#625)
+- `f` folds Ruby, Lua and shell, where it said `no fold rules for .rb`. On a line a word opens
+  (`def`, `class`, `module`, `if`, `unless`, `case`, `while`, `for`, `begin`, `do`, a lambda;
+  Lua's `function`, `if`, `for`, `while`, `repeat`, `do`, a table or a call wrapped over lines;
+  shell's functions, `if`, `case`, `for`, `while`, `until` and heredocs) it folds that block, its
+  `end`, `fi`, `done` or `esac` shown after the `⋯`; on `else`, `elsif`, `when`, `rescue`,
+  `ensure`, `elseif` or `elif` it folds that branch; anywhere else inside a method or function it
+  folds the method or function. (#626)
 - `d`, `u` and `D` in Groovy, Gradle build scripts and Jenkinsfiles, where `d` said `no rules for
   .groovy`, `no rules for .gradle` and `no rules for this file`. `.groovy`, `.gvy`, `.gradle`,
   `*.jenkinsfile` and `Jenkinsfile` are one kind with Java, Kotlin and Scala, so a Groovy class
@@ -146,18 +164,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   between methods the class. `f` on the folded line unfolds it; Up and Down step over a fold, and
   a jump inside one (`:`, `/`, `n`, `d`, `u`, `s`, `[`) opens it. A fold stays with its file
   across jumps and moves with the lines written above it. Other languages say
-  `no fold rules for .rb` until they are proven the same way (#623). (#598)
-- `f` folds Go, JavaScript, TypeScript (JSX and TSX included), Rust, C, C++, C#, Java, Kotlin,
-  Swift and PHP, where it said `no fold rules for .go`: on a line that opens a construct it folds
-  what Neovim's treesitter folds there in that language (a function, a class, an `if` and its
-  branches, a `switch`, a loop, an object, an array, and where the language's folds have them, a
-  `case`, a call's arguments wrapped over lines, a JSX element, a C `#ifdef` to its `#endif`, a
-  Rust `impl`, a run of imports, a Go composite literal and each of its elements); in C, C++,
-  C#, Java and Rust, on the header line of a function, class or `if` whose `{` stands on the
-  next line it folds that body, and `f` there again unfolds it; anywhere else inside a function
-  it folds the function; a raw string or a template literal at column 0 inside a body does not
-  end it, and the HTML around PHP's `<?php … ?>` is not read as code. An Objective-C header still
-  says `no fold rules for .h`. (#625)
+  `no fold rules for .rs` until they are proven the same way (#623). (#598)
 - `d`, `u` and `D` in Nix, where `d` said `no rules for .nix`. `d` on `mkService` in
   `shopLib.mkService` lands on its `mkService = { name, port ? 8080 }:` in `lib/default.nix`; on a
   name a `let` binds or a parameter (`{ config, pkgs, ... }:`, `x:`) names, on that binding in the

@@ -1,0 +1,57 @@
+wait admin?  ⋯ end
+┌orders──────────────────────┐1 class Checkout
+│▸ .bundle                   │2   def call(user)
+│▸ .github                   │3     if user.admin?  ⋯ end
+│▸ .venv                     │6     charge(user)
+│▾ app                       │7   end
+│  ▾ ruby                    │8 end
+│      attack.rb             │
+│      checkout.rb           │
+│      feed.rb               │
+│      sessions.rb           │
+│    __init__.py             │
+│    api.py                  │
+│    config.py               │
+│    models.py               │
+│    repos.py                │
+│    service.py              │
+│    uow.py                  │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Gemfile.lock              │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+app/ruby/checkout.rb  3:1  [code]                                                                                                                                                 ? help
+cursor (x,y,shown) 32,2,1

@@ -189,6 +189,57 @@ fn f_folds_python_and_says_so_in_other_languages() {
 }
 
 #[test]
+fn a_block_a_word_opens_folds_from_its_line_with_its_closing_word_shown() {
+    let mut a = app_as("sh", "f() {\n  if a; then\n    b\n  fi\n}\n");
+    a.go((1, 0));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(1, 3)]);
+    assert_eq!(a.collapsed_tail(1), Some("fi"));
+    let mut a = app_as("rb", "def f\n  if a\n    b\n  end\nend\n");
+    a.go((1, 0));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(1, 3)], "the `if`, not `f`");
+    assert_eq!(a.collapsed_tail(1), Some("end"));
+    a.go((0, 0));
+    key(&mut a, KeyCode::Enter);
+    key(&mut a, KeyCode::Enter);
+    assert_eq!(
+        a.collapsed,
+        vec![(2, 4)],
+        "it moves with a line typed above"
+    );
+    let mut a = app_as("sh", "for x in y; do\n  b\ndone < list\n");
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed_tail(0), Some("done < list"));
+}
+
+#[test]
+fn a_fold_inside_a_callback_is_the_same_fold_after_a_reload() {
+    let text = "vim.keymap.set(\"n\", \"K\", function()\n  hover()\nend, {\n  desc = \"x\",\n})\n";
+    let mut a = app_as("lua", text);
+    a.go((1, 2));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(0, 4)], "as f on its first line");
+    let path = a.buf.path.clone().unwrap();
+    std::fs::write(&path, format!("local k = 1\n{text}")).unwrap();
+    a.reload(false);
+    assert_eq!(a.collapsed, vec![(1, 5)]);
+}
+
+#[test]
+fn rbs_signatures_and_zsh_have_no_fold_rules_yet() {
+    for (ext, text) in [
+        ("rbs", "class Foo\n  def bar: () -> void\nend\n"),
+        ("zsh", "f() {\n  () {\n    x\n  }\n}\n"),
+    ] {
+        let mut a = app_as(ext, text);
+        key(&mut a, KeyCode::Char('f'));
+        assert!(a.collapsed.is_empty());
+        assert_eq!(a.message, format!("no fold rules for .{ext}"));
+    }
+}
+
+#[test]
 fn the_arrows_step_over_a_fold_and_keep_it() {
     let mut a = app_as("py", PY);
     a.go((1, 0));
@@ -319,7 +370,11 @@ fn every_fold_fixture_folds_as_annotated() {
     for entry in std::fs::read_dir(dir).unwrap() {
         let path = entry.unwrap().path();
         let ext = path.extension().unwrap().to_str().unwrap().to_owned();
-        let mark = if ext == "py" { "# f: " } else { "// f: " };
+        let mark = match ext.as_str() {
+            "py" | "rb" | "sh" => "# f: ",
+            "lua" => "-- f: ",
+            _ => "// f: ",
+        };
         let text = std::fs::read_to_string(&path).unwrap();
         let mut a = app_as(&ext, &text);
         let mut checked = 0;

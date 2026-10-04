@@ -1,17 +1,27 @@
 use super::*;
 
 mod braces;
+mod words;
 
 impl App {
-    fn shape(&self) -> Option<Shape<'_>> {
+    fn shape(&self) -> Option<Folds<'_>> {
         let lines = &self.buf.lines;
         if self.kind() == Some(Kind::Python) {
-            return Some(Shape::python(lines));
+            return Some(Folds::Indent(Box::new(Shape::python(lines))));
+        }
+        let words = match self.fold_kind() {
+            Some(Kind::Ruby) => Some(words::ruby(lines)),
+            Some(Kind::Lua) => Some(words::lua(lines)),
+            Some(Kind::Shell) => Some(words::shell(lines)),
+            _ => None,
+        };
+        if let Some(blocks) = words {
+            return Some(Folds::Words(blocks));
         }
         let syntax = self.buf.path.as_deref().and_then(braces::syntax_of);
         match syntax.filter(|_| !self.objc_file()) {
-            Some(syntax) => Some(Shape::braces(lines, syntax)),
-            None => every_kind().then(|| Shape::plain(lines)),
+            Some(syntax) => Some(Folds::Indent(Box::new(Shape::braces(lines, syntax)))),
+            None => every_kind().then(|| Folds::Indent(Box::new(Shape::plain(lines)))),
         }
     }
 
@@ -46,6 +56,15 @@ impl App {
         self.apply_want_x(0);
     }
 
+    fn fold_kind(&self) -> Option<Kind> {
+        let name = self.buf.path.as_deref()?.file_name()?.to_str()?;
+        match self.kind()? {
+            Kind::Ruby if name.ends_with(".rbs") => None,
+            Kind::Shell if name.ends_with(".zsh") || name.starts_with(".z") => None,
+            kind => Some(kind),
+        }
+    }
+
     pub fn hidden(&self, l: usize) -> bool {
         let at = self.at().key();
         let inside = |l: usize, (h, e): (usize, usize)| h < l && l <= e;
@@ -55,7 +74,9 @@ impl App {
     pub fn collapsed_tail(&self, l: usize) -> Option<&str> {
         let e = self.collapsed_at(l)?;
         let (head, end) = (&self.buf.lines[l], &self.buf.lines[e]);
-        let level = indent(head) == indent(end) && closes(end.trim());
+        let word = end.trim().split([' ', ';']).next();
+        let level = indent(head) == indent(end)
+            && (closes(end.trim()) || matches!(word, Some("fi" | "done" | "esac")));
         Some(if level { end.trim() } else { "" })
     }
 
@@ -160,6 +181,27 @@ fn every_kind() -> bool {
 #[cfg(not(test))]
 fn every_kind() -> bool {
     false
+}
+
+enum Folds<'a> {
+    Indent(Box<Shape<'a>>),
+    Words(words::Blocks),
+}
+
+impl<'a> Folds<'a> {
+    fn target(&self, l: usize) -> Option<(usize, usize)> {
+        match self {
+            Folds::Indent(s) => s.target(l),
+            Folds::Words(w) => w.target(l),
+        }
+    }
+
+    fn region(&self, h: usize) -> Option<usize> {
+        match self {
+            Folds::Indent(s) => s.region(h),
+            Folds::Words(w) => w.region(h),
+        }
+    }
 }
 
 const COMPOUND: &[&str] = &[
