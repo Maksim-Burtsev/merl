@@ -15,8 +15,8 @@ use anyhow::{Context, Result, bail};
 pub enum Mark {
     Added,
     Changed,
-    /// Lines were removed right below this one.
     DeletedBelow,
+    Deleted,
 }
 
 /// A line of a file as a review draws it (#439): a line of the file, or the `i`th of the lines
