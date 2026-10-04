@@ -5,7 +5,7 @@
 use super::*;
 
 /// The comment markers an annotation may start with: every kind's line comment.
-const MARKERS: [&str; 4] = ["//", "#", "--", ";"];
+const MARKERS: [&str; 6] = ["//", "#", "--", ";", "%", "(*"];
 
 #[derive(Debug)]
 enum Want {
@@ -45,13 +45,22 @@ fn annotation(line: &str) -> Option<(usize, &str)> {
     if !MARKERS.contains(&line[..caret].trim()) {
         return None;
     }
-    Some((caret, line[caret + 1..].trim()))
+    Some((
+        caret,
+        line[caret + 1..].trim().trim_end_matches("*)").trim(),
+    ))
 }
 
 fn status_line(line: &str) -> Option<&str> {
     let body = line.trim_start();
     let body = MARKERS.iter().find_map(|m| body.strip_prefix(m))?;
-    Some(body.trim_start().strip_prefix("status:")?.trim())
+    Some(
+        body.trim_start()
+            .strip_prefix("status:")?
+            .trim()
+            .trim_end_matches("*)")
+            .trim(),
+    )
 }
 
 fn parse_answer(s: &str) -> Result<Want, String> {
@@ -111,7 +120,7 @@ fn cases() -> Vec<Case> {
         let (_, files) = crate::tree::build(&root.join(&fixture), false);
         for file in files {
             let path = root.join(&fixture).join(&file);
-            if search::kind_of(&path).is_none() {
+            if search::kind_of(&path).is_none() && !path.extension().is_some_and(|e| e == "json") {
                 continue;
             }
             let Ok(text) = std::fs::read_to_string(&path) else {
@@ -255,6 +264,7 @@ fn the_annotation_grammar() {
     assert_eq!(annotation("    //   ^ d: a.go:3"), Some((9, "d: a.go:3")));
     assert_eq!(annotation("\t# ^ d: none"), Some((3, "d: none")));
     assert_eq!(annotation("# ^ D: none"), Some((2, "D: none")));
+    assert_eq!(annotation("    %  ^ d: a.erl:3"), Some((7, "d: a.erl:3")));
     assert_eq!(annotation("x = 1  # ^ d: none"), None);
     assert_eq!(annotation("-- a ^ d: none"), None);
     assert!(matches!(parse_want("none"), Ok(Want::None)));

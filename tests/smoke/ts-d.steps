@@ -107,6 +107,15 @@ key /
 type page-list
 key Enter d
 wait page-list: by name, 1 match
+# f folds TSX (#625): on a JSX element, f folds it to its closing tag.
+key o
+type orders/index
+key Enter
+wait web/src/routes/orders/index.tsx  1:1
+key :
+type 5
+key Enter f
+wait ⋯ </section>
 # A destructured parameter has the type of its field in the parameter's written type (#354):
 # `target.close` in `closeOn({ target }: Closing)` lands on Dialog.close through `Closing`.
 key o

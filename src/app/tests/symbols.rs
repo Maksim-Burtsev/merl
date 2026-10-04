@@ -331,3 +331,29 @@ fn a_symbol_query_reads_no_pattern_syntax() {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }
+
+#[test]
+fn d_lists_a_scala_def_value_and_no_groovy_def_variable() {
+    let (dir, mut a) = project_app(
+        "symbols-groovy",
+        &[
+            ("Ledger.scala", "object Ledger:\n  def tally = 0\n"),
+            (
+                "build.gradle",
+                "def stamp = 0\ndef bump() {\n}\ntasks.register('pack')\n",
+            ),
+        ],
+    );
+    press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
+    let picker = a.picker.as_mut().unwrap();
+    picker.settle();
+    let mut names: Vec<String> = picker
+        .window(20)
+        .0
+        .into_iter()
+        .map(|r| r.item.label.split_whitespace().next().unwrap().to_string())
+        .collect();
+    names.sort();
+    assert_eq!(names, ["Ledger", "bump", "pack", "tally"]);
+    let _ = std::fs::remove_dir_all(dir);
+}

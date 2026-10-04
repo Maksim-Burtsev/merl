@@ -1,0 +1,1 @@
+TariffInfo = provider(fields = ["rate"])

@@ -150,7 +150,8 @@ couple of seconds.
 
 The grammar:
 
-- The comment marker is the kind's own: `//`, `#`, `--` or `;`. Nothing but whitespace stands
+- The comment marker is the kind's own: `//`, `#`, `--` or `;`, and OCaml's `(*`, whose closing
+  `*)` at the end of the line is not part of the answer. Nothing but whitespace stands
   before it on the line, and nothing but spaces between it and the caret.
 - The caret's byte column is the column in the probed line, so an annotation is indented as its
   line is (a tab under a tab in Go). The probed line is the nearest line above that is no
@@ -253,9 +254,99 @@ function by name, `let` bindings named `api` in two files (each stays in its own
 path, each refusal of the issue, and declaration-shaped lines in indented strings (one opened
 after `//`, one holding the `'''`, `''$` and `''\` escapes), a `"…"`, a `/* */` and a `#` comment.
 
+`haskell/` (#426) is a Cabal package whose `src/Shop/` modules import each other by module path,
+one qualified (`C.weigh`), beside `Data.Map` from outside: a function with a signature and one
+without, three equations of one function, two names on one signature, a class with a context and
+its methods, an instance's methods, constructors on and under a `data` line, record fields, a
+GADT, a type family, a pattern synonym, `go` in a `where` of two files (each stays in its own),
+parameters, `do` and `let` bindings, case alternatives, each refusal of the issue, and
+declaration-shaped lines in a nested `{- -}` comment and a quasi-quote.
+`ocaml/` (#427) is a dune library: `money.ml` with its `money.mli`, a `cart.ml` calling
+`Money.format_price` beside a local `prefix`, and `pricing.ml` declaring every form of the issue
+(constructors on a `type` line, on `|` lines and in a GADT, record fields, `module type`, a
+`sig … end = struct` module, a functor and its application, a class with a method), probed from
+`basket.ml`: each refusal, a qualified call through two modules, a record field in a `with`
+expression named like a function of the file, a local `acc` in two files (each stays in its own),
+a polymorphic variant, declaration-shaped lines in a nested comment and a quoted string, `List.map`
+beside a `let map` of the file, a module of the project that lacks the name, and in `receipt.ml` a
+name of an `open`ed module used above the file's own namesake.
+`fsharp/` (#427) is the issue's `Money.fs` and `Cart.fs` over a `Pricing.fs` in a namespace:
+module lets behind their modifiers and an attribute, members of every kind, union cases, a record
+over one line, an interface, a double-backticked name, `(*)`, and declaration-shaped lines in a
+nested comment, a verbatim and a triple-quoted string, probed from `Courier.fs`.
+`julia/` (#429) is a `Shop` package whose module includes `money.jl` and `tariff.jl`, with
+scripts that `include` them by path: every declaration form of the issue (a `function`, one
+`Base.show`, one-line methods with a return type and a `where`, `struct`, `mutable struct`,
+`Base.@kwdef struct` with a default, `abstract type`, `primitive type`, `@enum`, `macro`,
+`baremodule`, `const` and a column-zero global), `weigh!` beside `weigh`, a local `m` beside a
+global `m` of another file and a local `total` beside the function `total`, `rate` both a method
+and a field, a functor, each refusal, imports of a package that is not installed, and
+declaration-shaped lines in a docstring, a nested `#= =#`, a backtick command over lines, a
+regex and a raw string.
+`r/` (#422) is a package, `shop` in its `DESCRIPTION`, whose `R/` holds every declaration form of
+the issue (a function with `<-` and `<<-`, a lambda, a backticked operator and replacement
+function, an S3 method, `.onLoad`, a top-level `=`), an S4 generic with two methods beside
+`setClass` and `setRefClass`, an R6 class with its methods and a field, a list of handlers, a
+`.r` file and a `.Rprofile`; a `dplyr::filter` beside the project's `filter` and a `shop::` call of
+its own; a `source()` path; each refusal (a wrapped call with named arguments beside a top-level
+`=`, field and element writes, a replacement call, a formula, a right assignment, a `for`
+variable); and declaration-shaped lines in a `"…"` and a `'…'` over lines, a raw string with
+parentheses and one with dashes and brackets, and a comment.
+`perl/` (#424) is a `lib/Shop/` of three packages and a `bin/report.pl` and `t/order.t` that
+use them: a package read whole from either part, a method behind its class (`Shop::Order->new`),
+a qualified sub and variable, a call on a value by name, `my $self` in three files (each stays in
+its own) and in two subs of one file, a sigil change (`$args{total}` to `%args`, `$#items` to
+`@items`), a `for my` loop, `state`, a signature, a constant of each form, Moose's `has`, 5.38's
+`class`, `method` and `field`, each refusal of the issue, a `new` the package does not declare
+(offered, never jumped to), and declaration-shaped lines in a heredoc, an indented heredoc, a
+`q{…}` over lines, POD and after `__END__`. Carton's `local/lib/perl5`, ignored by a `.gitignore`
+of its own and added with `git add -f`, holds the `File::Basename` an import reaches outside the
+project.
+`gdscript/` (#434) is a Godot project whose `project.godot` autoloads `globals/game_state.gd` as
+`GameState`: the issue's table, a `class_name` with its `extends` on the line, an inner `class`, a
+signal from `emit()` and `emit_signal("…")`, members, named and anonymous `enum`s, a local
+`direction` beside a member `direction` of `actor.gd`, a `for` variable, a parameter and a lambda's,
+an autoload's function and the autoload itself, `res://` paths in `preload` and `extends`, each
+refusal (a node path, a dictionary key, `extends CharacterBody2D`) and declaration-shaped lines in
+a `"""` string.
+`solidity/` (#433) is a token and a basket over a library: the issue's `ShopToken` with its
+`modifier`, `event`, `error` and constant, imports of `@openzeppelin/contracts` from a
+`node_modules` the fixture's `.gitignore` ignores (added with `git add -f`), a relative import
+aliased and as a qualifier, a remapped one through `remappings.txt` and one through
+`foundry.toml` into `lib/`, every declaration form of the issue, parameters, named returns and
+locals of a header over lines, and declaration-shaped lines in a NatSpec `/** */`, a `/* */` and a
+`//` comment.
+`yaml/api/` (#435) is an OpenAPI description over two files and two JSON Schemas, for `d` on a
+`$ref`: a pointer into the same file past a namesake key, one into another file (on each word of
+the reference and on its punctuation), a whole file, an escaped path key, a quoted status code,
+an item index, a `discriminator.mapping` value, an `$anchor`, a URL a file declares as its `$id`
+and one none does, and the refusals: a `$ref` in a block scalar and in a comment, a flow-style
+value and a missing key, which fall back to the YAML rules. A backtick in a description stands
+above the anchor it must not hide. The `.json` files carry `//` annotations: the walk skips them
+as JSONC comments, and the annotation test reads `.json` files though they have no kind.
+`clojure/`, `emacs-lisp/`, `scheme/` and `common-lisp/` (#428) are a shop in each Lisp: every
+defining form of the dialect, a namespace alias and a `:refer` (`money/format-price`, and
+`str/join` of a namespace outside the project), a `let` binding named `total` beside a `(def total`
+of another file, `empty?` beside `empty`, a `defmulti`, `cl-defgeneric` or `defgeneric` offered
+with its methods, a `(comment …)` form, `#_`, `#;` and a nested `#| … |#`, a `(require …)` that
+opens a file, each refusal of the issue, and declaration-shaped lines in a docstring.
+`starlark/` (#431) is a Bazel module, `shop`, with two packages and two `.bzl` files: every
+declaration form (a `def`, a rule, a provider, an aspect, a repository rule, a module extension, a
+transition, a plain value), names a `load` takes (one under an alias, one over several lines, one a
+parameter shadows), labels to a target in every form (`:api`, `api`, `//api`, `@shop//api:api`,
+`@//api`), to a source file and to a repository (`@rules_go`, `@bazel_gazelle` by its
+`repo_name`), each refusal of the issue (a rule call, a keyword argument, a computed name, a load's
+strings, `native.genrule`, a `select` key), and declaration-shaped lines in a docstring.
+
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
 `deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies
-the project walk does not reach, one whose module is no path and two declaring one name (#437).
+the project walk does not reach, one whose module is no path and two declaring one name (#437). Its
+Erlang (#425) is `src/shop_parcel.erl` over `include/shop_parcel.hrl` and `deps/ranch`: a module
+called from `src/shop_depot.erl` and from Elixir's `lib/shop/report.ex`, records with a field on
+the `-record` line and on the lines it wraps to, macros, types, clauses over lines, includes of
+both kinds, each refusal of the issue, and declaration-shaped lines in a `"…"` and a `"""…"""`
+beside a `%` comment holding `"""` and a `$"`. `lib/shop/seed.exs` calls a function in column zero,
+which declares nothing. Its annotations start with `%`.
 
 ### Adding a kind
 

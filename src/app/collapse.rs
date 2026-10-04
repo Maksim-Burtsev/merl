@@ -1,6 +1,49 @@
 use super::*;
 
+mod braces;
+mod spans;
+mod words;
+
 impl App {
+    fn shape(&self) -> Option<Folds<'_>> {
+        let lines = &self.buf.lines;
+        if self.kind() == Some(Kind::Python) {
+            return Some(Folds::Indent(Box::new(Shape::python(lines))));
+        }
+        let words = match self.fold_kind() {
+            Some(Kind::Ruby) => Some(words::ruby(lines)),
+            Some(Kind::Lua) => Some(words::lua(lines)),
+            Some(Kind::Shell) => Some(words::shell(lines)),
+            _ => None,
+        };
+        if let Some(blocks) = words {
+            return Some(Folds::Words(blocks));
+        }
+        let ext = self
+            .buf
+            .path
+            .as_deref()
+            .and_then(|p| p.extension()?.to_str());
+        let spans = match ext {
+            Some("json") => Some(spans::json(lines)),
+            Some("css") => Some(spans::css(lines)),
+            Some("scss") => Some(spans::scss(lines)),
+            Some("yml" | "yaml") => Some(spans::yaml(lines)),
+            Some("toml") => Some(spans::toml(lines)),
+            Some("html" | "htm") => Some(spans::html(lines)),
+            Some("md" | "markdown") => Some(spans::markdown(lines)),
+            _ => None,
+        };
+        if let Some(spans) = spans {
+            return Some(Folds::Spans(spans));
+        }
+        let syntax = self.buf.path.as_deref().and_then(braces::syntax_of);
+        match syntax.filter(|_| !self.objc_file()) {
+            Some(syntax) => Some(Folds::Indent(Box::new(Shape::braces(lines, syntax)))),
+            None => every_kind().then(|| Folds::Indent(Box::new(Shape::plain(lines)))),
+        }
+    }
+
     pub(super) fn toggle_collapse(&mut self) {
         if self.deleted.is_some() || self.previewing() {
             return;
@@ -10,26 +53,35 @@ impl App {
             self.collapsed.remove(i);
             return;
         }
-        let shape = match self.kind() {
-            Some(Kind::Python) => Shape::python(&self.buf.lines),
-            _ if every_kind() => Shape::plain(&self.buf.lines),
-            _ => {
-                self.message = match self.buf.path.as_ref().and_then(|p| p.extension()) {
-                    Some(ext) => format!("no fold rules for .{}", ext.to_string_lossy()),
-                    None => "no fold rules for this file".into(),
-                };
-                return;
-            }
+        let Some(shape) = self.shape() else {
+            self.message = match self.buf.path.as_ref().and_then(|p| p.extension()) {
+                Some(ext) => format!("no fold rules for .{}", ext.to_string_lossy()),
+                None => "no fold rules for this file".into(),
+            };
+            return;
         };
         let Some((h, end)) = shape.target(l) else {
             self.message = "nothing to fold".into();
             return;
         };
+        if let Some(i) = self.collapsed.iter().position(|&(f, _)| f == h) {
+            self.collapsed.remove(i);
+            return;
+        }
         self.collapsed.push((h, end));
         self.nest_collapsed();
         self.anchor = None;
         self.set_at(TextLine::File(h));
         self.apply_want_x(0);
+    }
+
+    fn fold_kind(&self) -> Option<Kind> {
+        let name = self.buf.path.as_deref()?.file_name()?.to_str()?;
+        match self.kind()? {
+            Kind::Ruby if name.ends_with(".rbs") => None,
+            Kind::Shell if name.ends_with(".zsh") || name.starts_with(".z") => None,
+            kind => Some(kind),
+        }
     }
 
     pub fn hidden(&self, l: usize) -> bool {
@@ -41,7 +93,9 @@ impl App {
     pub fn collapsed_tail(&self, l: usize) -> Option<&str> {
         let e = self.collapsed_at(l)?;
         let (head, end) = (&self.buf.lines[l], &self.buf.lines[e]);
-        let level = indent(head) == indent(end) && closes(end.trim());
+        let word = end.trim().split([' ', ';']).next();
+        let level = indent(head) == indent(end)
+            && (closes(end.trim()) || matches!(word, Some("fi" | "done" | "esac")));
         Some(if level { end.trim() } else { "" })
     }
 
@@ -61,7 +115,13 @@ impl App {
     }
 
     pub(super) fn shift_collapsed(&mut self, at: usize, old: usize, new: usize) {
-        let shape = Shape::python(&self.buf.lines);
+        if self.collapsed.is_empty() {
+            return;
+        }
+        let Some(shape) = self.shape() else {
+            self.collapsed.clear();
+            return;
+        };
         let moved = |(h, e): (usize, usize)| match () {
             _ if (at..at + old).contains(&h) => None,
             _ if e < at => Some((h, e)),
@@ -97,7 +157,14 @@ impl App {
     }
 
     fn measure_collapsed(&mut self, heads: Vec<usize>) {
-        let shape = Shape::python(&self.buf.lines);
+        if heads.is_empty() {
+            self.collapsed.clear();
+            return;
+        }
+        let Some(shape) = self.shape() else {
+            self.collapsed.clear();
+            return;
+        };
         self.collapsed = heads
             .into_iter()
             .filter_map(|h| Some((h, shape.region(h)?)))
@@ -135,6 +202,35 @@ fn every_kind() -> bool {
     false
 }
 
+enum Folds<'a> {
+    Indent(Box<Shape<'a>>),
+    Words(words::Blocks),
+    Spans(Vec<(usize, usize)>),
+}
+
+impl<'a> Folds<'a> {
+    fn target(&self, l: usize) -> Option<(usize, usize)> {
+        match self {
+            Folds::Indent(s) => s.target(l),
+            Folds::Words(w) => w.target(l),
+            Folds::Spans(spans) => (spans.iter().find(|s| s.0 == l))
+                .or_else(|| {
+                    (spans.iter().filter(|s| s.0 < l && l <= s.1))
+                        .min_by_key(|s| (std::cmp::Reverse(s.0), s.1))
+                })
+                .copied(),
+        }
+    }
+
+    fn region(&self, h: usize) -> Option<usize> {
+        match self {
+            Folds::Indent(s) => s.region(h),
+            Folds::Words(w) => w.region(h),
+            Folds::Spans(spans) => spans.iter().find(|s| s.0 == h).map(|s| s.1),
+        }
+    }
+}
+
 const COMPOUND: &[&str] = &[
     "def", "class", "if", "elif", "else", "for", "while", "with", "try", "except", "finally",
     "async",
@@ -148,6 +244,7 @@ pub(crate) struct Shape<'a> {
     imports: Vec<(usize, usize)>,
     nested: Vec<bool>,
     python: bool,
+    braces: Option<braces::Folds>,
 }
 
 impl<'a> Shape<'a> {
@@ -160,7 +257,14 @@ impl<'a> Shape<'a> {
             imports: Vec::new(),
             nested: vec![false; lines.len()],
             python: false,
+            braces: None,
         }
+    }
+
+    fn braces(lines: &'a [String], syntax: braces::Syntax) -> Self {
+        let mut shape = Shape::plain(lines);
+        shape.braces = Some(braces::folds(lines, syntax));
+        shape
     }
 
     pub(crate) fn python(lines: &'a [String]) -> Self {
@@ -270,6 +374,9 @@ impl<'a> Shape<'a> {
     }
 
     pub(crate) fn region(&self, h: usize) -> Option<usize> {
+        if let Some(folds) = &self.braces {
+            return folds.starts.get(&h).copied();
+        }
         if self.quiet.get(h).copied().unwrap_or(true) {
             return None;
         }
@@ -377,6 +484,18 @@ impl<'a> Shape<'a> {
     }
 
     pub(crate) fn target(&self, l: usize) -> Option<(usize, usize)> {
+        if let Some(folds) = &self.braces {
+            if let Some(&e) = folds.starts.get(&l) {
+                return Some((l, e));
+            }
+            if let Some(&h) = folds.heads.get(&l) {
+                return Some((h, folds.starts[&h]));
+            }
+            let around = |&&(h, e): &&(usize, usize)| h < l && l <= e;
+            let inner = |spans: &[(usize, usize)]| spans.iter().filter(around).max().copied();
+            let starts: Vec<(usize, usize)> = folds.starts.iter().map(|(&h, &e)| (h, e)).collect();
+            return inner(&folds.defs).or_else(|| inner(&starts));
+        }
         if let Some(run) = self.run_at(l) {
             return Some(run);
         }

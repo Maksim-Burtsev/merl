@@ -1,0 +1,16 @@
+plugins {
+    id 'java'
+}
+
+ext {
+    courierVersion = '2.4.0'
+}
+
+tasks.register("bundleRoutes", Zip) {
+    from 'src/main/scala'
+    archiveFileName = "routes-${courierVersion}.zip"
+}
+
+tasks.named('build') {
+    dependsOn 'bundleRoutes'
+}

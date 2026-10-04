@@ -104,7 +104,7 @@ impl App {
                     .values()
                     .any(|(roots, _)| roots.iter().any(|r| path.starts_with(r)))
                 // Another package's `node_modules`, walked from a file opened before.
-                || !listed && self.node_modules.keys().any(|r| path.starts_with(r))
+                || !listed && self.walked_roots.keys().any(|r| path.starts_with(r))
                 || self.in_project(path).is_none();
         if external {
             buf.readonly.get_or_insert("outside the project");

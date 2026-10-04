@@ -5,4 +5,8 @@ class ParcelList(private val sync: ParcelSync) {
         val trimmed = codes.map { code -> code.trim() }
         return sync.send(trimmed)
     }
+
+    fun push(target: Any, codes: List<String>) {
+        if (target is ParcelSync) target.send(codes)
+    }
 }

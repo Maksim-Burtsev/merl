@@ -92,5 +92,6 @@ English, no implementation talk.
 ---
 ```
 
-Then move the issue from `to-think` to `needs-owner`. Report in a few lines: the issue's link,
+Then move the issue from `to-think` to `needs-owner`, and put its question on the decision desk
+(`.claude/skills/groom/desk.md`) with the same stills and screencasts. Report in a few lines: the issue's link,
 the options by their rules, the recommendation, and anything the demos revealed.

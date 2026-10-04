@@ -18,6 +18,7 @@ use crate::tree::Tree;
 use crate::tutor::{self, Tutor};
 use crate::wrap;
 
+mod android;
 mod at_base;
 mod c;
 mod collapse;
@@ -29,16 +30,24 @@ mod cursor;
 mod dart;
 mod definition;
 mod edit;
+mod erlang;
 mod external;
 mod find;
+mod gdscript;
+mod haskell;
 mod imported;
+mod json_ref;
 mod jvm;
 mod jvm_typed;
 mod keys;
 mod links;
+mod lisp;
+mod lua;
 mod members;
 mod missed;
+mod ml;
 mod open;
+mod perl;
 mod php;
 mod picker;
 mod preview;
@@ -50,6 +59,8 @@ mod ruby;
 mod rust;
 mod scroll;
 mod search_job;
+mod solidity;
+mod starlark;
 mod swift;
 mod symbols;
 mod tree;
@@ -303,10 +314,9 @@ pub struct App {
     /// Per kind, the standard library and dependency roots outside the project and the files of
     /// that kind under them; filled the first time `d` leaves the project.
     external: HashMap<Kind, (Vec<PathBuf>, Arc<Vec<PathBuf>>)>,
-    /// The walk of each `node_modules`, and the file the TypeScript entry of `external` was put
-    /// together for: a workspace has one per package, and each file sees those above it.
-    node_modules: HashMap<PathBuf, Arc<Vec<PathBuf>>>,
+    walked_roots: HashMap<PathBuf, Arc<Vec<PathBuf>>>,
     node_modules_of: Option<PathBuf>,
+    otp: Option<Vec<PathBuf>>,
     c_includes: HashMap<(PathBuf, CMode), Paths>,
     c_files: HashMap<CMode, (Paths, Paths)>,
     /// What `go build` compiles here, which picks among a Go declaration's twins.
@@ -507,8 +517,9 @@ impl App {
             files,
             ignored,
             external: HashMap::new(),
-            node_modules: HashMap::new(),
+            walked_roots: HashMap::new(),
             node_modules_of: None,
+            otp: None,
             c_includes: HashMap::new(),
             c_files: HashMap::new(),
             go_build: search::GoBuild::host().env(
@@ -951,10 +962,12 @@ fn names_itself(kind: Kind, line: &str, name: &str) -> bool {
         "enum ",
     ]
     .iter()
-    .filter_map(|k| t.strip_prefix(k))
-    .any(|rest| {
-        rest.strip_prefix(name)
-            .is_some_and(|after| !after.starts_with(is_word))
+    .filter_map(|k| t.strip_prefix(k).map(|rest| (k, rest)))
+    .any(|(k, rest)| {
+        rest.strip_prefix(name).is_some_and(|after| {
+            !after.starts_with(is_word)
+                && (kind != Kind::Jvm || *k != "def " || after.trim_start().starts_with('('))
+        })
     });
     declares
         || import_line(kind, line)

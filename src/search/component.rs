@@ -97,7 +97,7 @@ pub fn script_text<'a>(path: &Path, text: &'a str, cursor: Option<usize>) -> Cow
 /// a fence no pattern declares by, where `d` lands on the file itself.
 pub fn hidden_lines(kind: Kind, path: &Path, text: &str) -> Vec<bool> {
     let Some(code) = script_lines(path, text) else {
-        return literal_lines(kind, text);
+        return file_literal_lines(kind, path, text);
     };
     let mut out = literal_lines(kind, &script_text(path, text, None));
     out.resize(code.len(), false);

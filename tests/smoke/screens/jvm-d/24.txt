@@ -1,0 +1,57 @@
+wait parcel_removed: via web/android/src/main/res/values/strings.xml
+1 <resources>
+2     <string name="parcel_removed">Parcel removed</string>
+3 </resources>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/android/src/main/res/values/strings.xml  2:19  [code]  parcel_removed: via web/android/src/main/res/values/strings.xml
+cursor (x,y,shown) 20,1,1

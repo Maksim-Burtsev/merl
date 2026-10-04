@@ -636,7 +636,7 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
         assert_eq!(shown(&mut a), want, "{file}");
     }
     assert_eq!(
-        a.node_modules.len(),
+        a.walked_roots.len(),
         2,
         "Back in `api` after `web`: each file has its own view, and no directory is walked twice"
     );

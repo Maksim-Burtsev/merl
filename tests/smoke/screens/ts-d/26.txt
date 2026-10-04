@@ -1,47 +1,13 @@
-wait close → Dialog.close (via target: Dialog)
- 1 export class Dialog {
- 2   private readonly el: HTMLDialogElement;
- 3
- 4   constructor(el: HTMLDialogElement) {
- 5     this.el = el;
- 6     this.close = this.close.bind(this);
- 7     el.addEventListener("cancel", this.close);
- 8   }
- 9
-10   open(): void {
-11     this.el.showModal();
-12   }
-13
-14   close(): void {
-15     this.el.close();
-16   }
-17 }
-18
-19 export function dialogOf(el: HTMLDialogElement, props: Props): Dialog {
-20   return props.modal ? new Dialog(el) : new Dialog(el);
-21 }
-22
-23 type Props = { modal: boolean };
-24
-25 export function whenClosed(dialog: Dialog, done: () => void): void {
-26   onClose(dialog, () => {
-27     done();
-28   });
-29   onClose(dialog, () => {
-30     dialog.close();
-31   });
-32 }
-33
-34 import { ParcelState } from "../orders/types";
-35 export const shippedState = ParcelState.Shipped;
-36
-37 type Closing = {
-38   target: Dialog;
-39 };
-40
-41 export function closeOn({ target }: Closing): void {
-42   target.close();
-43 }
+wait ⋯ </section>
+ 1 import StatusPill from "@/components/StatusPill.vue";
+ 2
+ 3 export default function OrdersPage() {
+ 4   return (
+ 5     <section className="page-list">  ⋯ </section>
+10   );
+11 }
+12
+13 type Props = { page?: number };
 
 
 
@@ -53,5 +19,39 @@ wait close → Dialog.close (via target: Dialog)
 
 
 
-web/src/components/Dialog.ts  14:3  [code]  close → Dialog.close (via target: Dialog)
-cursor (x,y,shown) 5,13,1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/src/routes/orders/index.tsx  5:1  [code]                                                                                                                                      ? help
+cursor (x,y,shown) 3,4,1

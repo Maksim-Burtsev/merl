@@ -3,7 +3,7 @@
 against the recorded one, print a table per language and diff it against the baseline.
 
   tools/d-bench/run [--lang L[,L]] [--project P] [--cache DIR] [--merl FILE] [--update-baseline]
-  tools/d-bench/run --selftest     the scoring and the gate on made-up rows, no clone (CI runs it)
+  tools/d-bench/run --selftest     the scoring, the gate and record.py's tokenizer on made-up rows, no clone (CI runs it)
 
 --cache            where the projects are cloned (default $D_BENCH_CACHE or ~/.cache/merl-d-bench).
                    A clone already at its pinned commit and installed is only read, never touched.
@@ -14,7 +14,7 @@ against the recorded one, print a table per language and diff it against the bas
 Exits 1 when any cursor scores worse than in the baseline (ok < pick-hit < miss < WRONG): a gain
 elsewhere does not pay for it.
 """
-import argparse, datetime, os, re, subprocess, sys
+import argparse, datetime, importlib.util, os, re, subprocess, sys
 from collections import Counter, defaultdict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -161,6 +161,15 @@ def selftest():
     lost = {"go1": ["go1", "ok"], "go2": ["go2", "WRONG"], "go3": ["go3", "none"]}
     assert [w[2] for w in worse_rows(base, lost)] == ["go3"]
     assert worse_rows(base, base) == []
+    sys.dont_write_bytecode = True
+    spec = importlib.util.spec_from_file_location("record", os.path.join(HERE, "record.py"))
+    record = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(record)
+    words = lambda line, lang: [t[2] for t in record.code_tokens(line, record.SPEC[lang])]
+    assert words("x = A' * b #= note =# + push!(v, 'c') # tail", "julia") == ["x", "A", "b", "push!", "v"]
+    assert words("if a!=b && c==d", "julia") == ["if", "a", "b", "c", "d"]
+    assert words("x = y / 2 /* note */ + z // tail", "c") == ["x", "y", "z"]
+    assert words("f('a', g($y)); # tail", "php") == ["f", "g"]
     print("selftest ok")
 
 

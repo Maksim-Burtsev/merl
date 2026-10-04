@@ -1,4 +1,5 @@
 use regex::Regex;
+use std::path::Path;
 
 use super::*;
 
@@ -90,6 +91,16 @@ const SCALA_DEF_SYMBOL: &str = concat!(
     scala_mods!(),
     r"|^\s*extension\b.*?\b)def\s+`?(?P<name>[A-Za-z_]\w*)"
 );
+const GROOVY_DEF_SYMBOL: &str = concat!(scala_mods!(), r"def\s+(?P<name>[A-Za-z_]\w*)\s*\(");
+const GRADLE_TASK_SYMBOL: &str =
+    r#"(?:^\s*task\s+|\btasks\.(?:register|create)\s*\(?\s*['"])(?P<name>[A-Za-z_]\w*)"#;
+pub fn row_reads(pattern: &str, path: &Path) -> bool {
+    match pattern {
+        SCALA_DEF_SYMBOL => !groovy(path),
+        GROOVY_DEF_SYMBOL | GRADLE_TASK_SYMBOL => groovy(path),
+        _ => true,
+    }
+}
 /// The other Java half: a method, told from a call by the return type before its name. Kotlin
 /// writes its types after the name, so nothing of Kotlin's lands here twice. A field is left out,
 /// as in every other kind.
@@ -384,6 +395,28 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::Cmake), CMAKE_FUNCTION_SYMBOL),
     (Some(Kind::Cmake), CMAKE_TARGET_SYMBOL),
     (Some(Kind::Nix), NIX_FUNCTION_SYMBOL),
+    (Some(Kind::Haskell), HASKELL_TYPE_SYMBOL),
+    (Some(Kind::Haskell), HASKELL_PATTERN_SYMBOL),
+    (Some(Kind::Haskell), HASKELL_SIGNATURE_SYMBOL),
+    (Some(Kind::Haskell), HASKELL_EQUATION_SYMBOL),
+    (Some(Kind::Ocaml), OCAML_SYMBOL),
+    (Some(Kind::Fsharp), FSHARP_SYMBOL),
+    (Some(Kind::Julia), JULIA_TYPE_SYMBOL),
+    (Some(Kind::Julia), JULIA_FUNCTION_SYMBOL),
+    (Some(Kind::Julia), JULIA_METHOD_SYMBOL),
+    (Some(Kind::R), R_FUNCTION_SYMBOL),
+    (Some(Kind::R), R_CLASS_SYMBOL),
+    (Some(Kind::R), R6_CLASS_SYMBOL),
+    (Some(Kind::Perl), PERL_SUB_SYMBOL),
+    (Some(Kind::Perl), PERL_PACKAGE_SYMBOL),
+    (Some(Kind::Gdscript), GDSCRIPT_SYMBOL),
+    (Some(Kind::Solidity), SOLIDITY_SYMBOL),
+    (Some(Kind::Clojure), CLOJURE_SYMBOL),
+    (Some(Kind::EmacsLisp), EMACS_LISP_SYMBOL),
+    (Some(Kind::Scheme), SCHEME_SYMBOL),
+    (Some(Kind::CommonLisp), COMMON_LISP_SYMBOL),
+    (Some(Kind::Starlark), STARLARK_RULE_SYMBOL),
+    (Some(Kind::Starlark), STARLARK_TARGET_SYMBOL),
     // Every `CREATE` object, with the name as written, schema and quotes included. CTEs are a
     // query's own scaffolding, not a symbol of the project, so they are left out.
     (Some(Kind::Sql), SQL_CREATE_SYMBOL),
@@ -393,6 +426,8 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::Jvm), JAVA_METHOD_SYMBOL),
     (Some(Kind::Jvm), SCALA_GIVEN_SYMBOL),
     (Some(Kind::Jvm), SCALA_DEF_SYMBOL),
+    (Some(Kind::Jvm), GROOVY_DEF_SYMBOL),
+    (Some(Kind::Jvm), GRADLE_TASK_SYMBOL),
     // Ruby likewise: `def self.parse` is `parse`, which the shared pattern would call `self`.
     (Some(Kind::Ruby), RUBY_SYMBOL),
     // C and C++ likewise: a function carries no keyword at all, and `struct dict *d;` is a use of
@@ -422,6 +457,8 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     // Elixir likewise: the shared pattern knows `def` and nothing else of the family, and reads
     // the `x` of an anonymous `fn x -> …` as a declaration.
     (Some(Kind::Elixir), ELIXIR_SYMBOL),
+    (Some(Kind::Elixir), ERLANG_ATTRIBUTE_SYMBOL),
+    (Some(Kind::Elixir), ERLANG_CLAUSE_SYMBOL),
     // Zig fits the shared pattern — it declares with `fn` and `const` — so these two rows only
     // complement it, the way Shell's and SQL's do.
     (Some(Kind::Zig), ZIG_INLINE_FN_SYMBOL),
@@ -483,6 +520,12 @@ pub fn shared_symbols(kind: Option<Kind>) -> bool {
                 | Kind::Dart
                 | Kind::Cmake
                 | Kind::Nix
+                | Kind::Haskell
+                | Kind::Ocaml
+                | Kind::Fsharp
+                | Kind::Julia
+                | Kind::Perl
+                | Kind::Gdscript
         )
     )
 }

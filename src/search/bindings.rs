@@ -61,7 +61,6 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
     let ends = |open: usize| close_of(kind, e, open).is_none_or(|end| e[end..].trim().is_empty());
     if kind == Kind::TsJs {
         let mut depth = 0i32;
-        // The first and the last ` as ` outside brackets.
         let mut cast: Option<(usize, usize)> = None;
         for (i, c) in code(kind, e) {
             match c {
@@ -158,7 +157,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         return Vec::new();
     };
     match kind {
-        Kind::Python => python_bindings(&lines, at, name),
+        Kind::Python | Kind::Starlark => python_bindings(&lines, at, name),
         Kind::TsJs | Kind::Go | Kind::CSharp => block_bindings(kind, &lines, at, name),
         Kind::Lua => lua_bindings(&lines, at, name),
         Kind::Shell => shell_bindings(&lines, at, name),
@@ -171,6 +170,11 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         Kind::Rust => rust_bindings(&lines, at, name),
         Kind::Elixir => elixir_bindings(&lines, at, name),
         Kind::Nix => nix_bindings(&lines, at, name),
+        Kind::Haskell => haskell_bindings(&lines, at, name),
+        Kind::Julia => julia_bindings(&lines, at, name),
+        Kind::Gdscript => gdscript_bindings(&lines, at, name),
+        Kind::Solidity => solidity_bindings(&lines, at, name),
+        k if lisp(k) => lisp_bindings(k, &lines, at, name),
         _ => Vec::new(),
     }
 }
@@ -438,21 +442,6 @@ fn zig_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
         }
     }
     Vec::new()
-}
-/// Whether the word at `range` of 1-based `line` names a keyword argument of a Python call:
-/// `recipe_yield=…` behind a `(` or a `,`, or at the start of a line that continues a call. It
-/// names a parameter of whatever is called, and no variable of that spelling.
-pub fn keyword_argument(text: &str, line: usize, range: &Range<usize>) -> bool {
-    let lines: Vec<&str> = text.lines().collect();
-    let Some(l) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
-        return false;
-    };
-    let after = l[range.end..].trim_start();
-    let before = l[..range.start].trim_end();
-    after.starts_with('=')
-        && !after.starts_with("==")
-        && (before.ends_with(['(', ','])
-            || (before.is_empty() && continued(Kind::Python, &lines, line - 1)))
 }
 /// Whether the word at `range` of 1-based `line` of a Lua file is the key of a table
 /// constructor: `name = …` behind a `{` or a `,`, or at the start of a line inside one. It names a
@@ -1631,12 +1620,4 @@ fn php_scope(lines: &[String], literal: &[bool], at: usize) -> PhpScope {
         }
     }
     PhpScope::Top
-}
-/// A line of PHP with its strings and its comment blanked out, byte for byte.
-fn php_code(l: &str) -> String {
-    let mut out = vec![b' '; l.len()];
-    for (i, c) in code(Kind::Php, l).take_while(|&(_, c)| c != 0) {
-        out[i] = c;
-    }
-    String::from_utf8_lossy(&out).into_owned()
 }

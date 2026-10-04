@@ -1,0 +1,23 @@
+// Every construct `f` folds in SCSS, and the cases that could break it.
+@use "sass:math";
+$gap: 4px; // f: none
+
+@mixin card($pad: 1em) { // f: 5-8
+  padding: $pad; // f: 5-8
+  // a line comment with { a brace // f: 5-8
+} // f: 5-8
+
+.panel-#{$name} { // f: 10-23
+  @include card; // f: 10-23
+  background: url(//cdn.example.com/a.png); // f: 10-23
+
+  &:hover, // f: 14-17
+  &.active { // f: 14-17
+    color: red; // f: 14-17
+  } // f: 14-17
+
+  @each $size in s, m { // f: 19-22
+    .icon-#{$size} { width: math.div($gap, 2); } // f: 19-22
+    .label-#{$size} { margin: $gap; } // f: 19-22
+  } // f: 19-22
+} // f: 10-23
