@@ -16,7 +16,13 @@ smoke() { tests/smoke/run.py --golden --new target/release/merl; }
 msrv() {
   local v
   v=$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)
-  cargo "+$v" --version >/dev/null 2>&1 || rustup toolchain install "$v" --profile minimal
+  if ! command -v rustup >/dev/null; then
+    local d=${XDG_CACHE_HOME:-$HOME/.cache}/merl-msrv
+    export RUSTUP_HOME=$d/rustup CARGO_HOME=$d/cargo PATH=$d/cargo/bin:$PATH
+    [ -x "$d/cargo/bin/rustup" ] || curl -sSf https://sh.rustup.rs |
+      sh -s -- -y -q --no-modify-path --profile minimal --default-toolchain none
+  fi
+  rustup toolchain list | grep -q "^$v" || rustup toolchain install "$v" --profile minimal
   cargo "+$v" build --locked
 }
 
