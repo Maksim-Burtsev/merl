@@ -36,3 +36,14 @@ class Loom {
         //  ^ d: src/main/groovy/abacus/Spindle.groovy:21
     }
 }
+
+class Shuttle {
+    Shuttle(@Named("cfg") Map<String, Object> m) {  }
+
+    Shuttle(String s, int n) {  }
+
+    def fly(Map<String, Object> m) {
+        new Shuttle(m)
+        //  ^ d: src/main/groovy/abacus/Spindle.groovy:41
+    }
+}

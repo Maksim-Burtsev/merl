@@ -851,7 +851,10 @@ pub fn jvm_return_type(line: &str, name: &str, kotlin: bool) -> Option<String> {
         .map(|c| c[1].to_owned())
 }
 
-pub fn jvm_parameters(text: &str, line: usize, word: &str) -> Option<(usize, usize)> {
+static DEFAULT: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"[^=!<>]=(?:[^=~]|$)").unwrap());
+
+pub fn jvm_parameters(text: &str, line: usize, word: &str, groovy: bool) -> Option<(usize, usize)> {
     let rows: Vec<&str> = text.lines().collect();
     let at = line.checked_sub(1)?;
     let head = Regex::new(&format!(r"\b{}\s*\(", regex::escape(word))).ok()?;
@@ -860,18 +863,28 @@ pub fn jvm_parameters(text: &str, line: usize, word: &str) -> Option<(usize, usi
     if inner.trim().is_empty() {
         return Some((0, 0));
     }
-    let (mut depth, mut count) = (0i32, 1);
+    let (mut depth, mut count, mut defaults) = (0i32, 1, 0);
+    let mut top = String::new();
+    let mut close = |top: &mut String| {
+        defaults += usize::from(groovy && DEFAULT.is_match(top));
+        top.clear();
+    };
     for (_, c) in code(Kind::Jvm, &inner) {
         match c {
             b'(' | b'[' | b'{' | b'<' => depth += 1,
             b')' | b']' | b'}' | b'>' => depth -= 1,
-            b',' if depth == 0 => count += 1,
+            b',' if depth == 0 => {
+                count += 1;
+                close(&mut top);
+            }
+            _ if depth == 0 => top.push(char::from(c)),
             _ => {}
         }
     }
+    close(&mut top);
     Some(match inner.contains("...") {
         true => (count - 1, usize::MAX),
-        false => (count, 0),
+        false => (count - defaults, defaults),
     })
 }
 
