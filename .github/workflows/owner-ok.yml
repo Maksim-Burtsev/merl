@@ -29,15 +29,18 @@ jobs:
           fi
           say() { gh pr comment "$PR" --body "$1"; exit 0; }
           for _ in 1 2 3 4 5 6; do
-            read -r state base mergeable < <(gh pr view "$PR" --json state,baseRefName,mergeable \
-              --jq '"\(.state) \(.baseRefName) \(.mergeable)"')
+            read -r state base mergeable merge_state head < <(gh pr view "$PR" \
+              --json state,baseRefName,mergeable,mergeStateStatus,headRefOid \
+              --jq '"\(.state) \(.baseRefName) \(.mergeable) \(.mergeStateStatus) \(.headRefOid)"')
             [ "$mergeable" != UNKNOWN ] && break
             sleep 5
           done
           [ "$state" = OPEN ] || say "The PR is ${state,,}: nothing to merge."
           [ "$base" = master ] || say "Based on \`$base\`, not master: needs an agent."
           [ "$mergeable" = CONFLICTING ] && say "Conflicts with master: needs an agent."
-          if ! err=$(GH_TOKEN=$MERGE_TOKEN gh pr merge "$PR" --squash --auto 2>&1); then
+          auto=--auto
+          [ "$merge_state" = CLEAN ] && auto=
+          if ! err=$(GH_TOKEN=$MERGE_TOKEN gh pr merge "$PR" --squash $auto --match-head-commit "$head" 2>&1); then
             say "Could not enable the merge: ${err//$'\n'/ }"
           fi
           gh pr edit "$PR" --remove-label needs-owner
