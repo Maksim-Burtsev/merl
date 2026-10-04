@@ -1,0 +1,57 @@
+wait ⋯ </section>
+ 1 import StatusPill from "@/components/StatusPill.vue";
+ 2
+ 3 export default function OrdersPage() {
+ 4   return (
+ 5     <section className="page-list">  ⋯ </section>
+10   );
+11 }
+12
+13 type Props = { page?: number };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/src/routes/orders/index.tsx  5:1  [code]                                                                                                                                      ? help
+cursor (x,y,shown) 3,4,1

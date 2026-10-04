@@ -1,0 +1,582 @@
+# NVIM v0.12.5, nvim-treesitter 910fdf6: 6029 folds in 580 files, 0 files left out for a syntax error
+# path (project/file)	each fold as line:last hidden line, 1-based
+mastodon/app/controllers/admin/action_logs_controller.rb	3:22 4:21 7:10 14:16 18:20
+mastodon/app/controllers/admin/dashboard_controller.rb	3:24 4:23 7:16 20:22
+mastodon/app/controllers/admin/domain_blocks_controller.rb	3:135 4:134 19:31 27:28 33:36 38:40 42:72 49:54 57:60 65:71 69:70 74:89 82:88 86:87 91:96 100:102 104:109 111:116 118:125 127:129 131:133
+mastodon/app/controllers/admin/email_subscriptions/setups_controller.rb	3:34 6:10 12:23 17:22 20:21 27:29 31:33
+mastodon/app/controllers/admin/export_domain_allows_controller.rb	3:56 4:55 9:11 13:16 18:36 24:30 40:42 44:46 48:54 49:53 50:52
+mastodon/app/controllers/admin/fasp/registrations_controller.rb	3:23 6:8 10:16 20:22
+mastodon/app/controllers/admin/relationships_controller.rb	3:26 4:25 9:14 18:20 22:24
+mastodon/app/controllers/admin/reports/actions_controller.rb	3:64 6:9 11:24 14:21 19:20 28:30 32:35 37:45 47:49 51:63 52:62
+mastodon/app/controllers/admin/resets_controller.rb	3:14 4:13 7:12
+mastodon/app/controllers/admin/settings/appearance_controller.rb	3:9 6:8
+mastodon/app/controllers/admin/terms_of_service/drafts_controller.rb	3:37 6:8 10:21 15:20 18:19 25:27 29:31 33:36
+mastodon/app/controllers/admin/terms_of_service/histories_controller.rb	3:8 4:7
+mastodon/app/controllers/admin/terms_of_service/previews_controller.rb	3:16 6:9 13:15
+mastodon/app/controllers/admin/trends/links_controller.rb	3:49 4:10 12:21 25:27 29:31 33:36 38:48 39:47
+mastodon/app/controllers/admin/warning_presets_controller.rb	3:59 4:58 7:12 14:16 18:29 23:28 25:27 31:39 34:38 36:37 41:46 50:52 54:57
+mastodon/app/controllers/api/fasp/debug/v0/callback/responses_controller.rb	3:15 4:14 11:13
+mastodon/app/controllers/api/oembed_controller.rb	3:26 9:11 15:17 19:21 23:25
+mastodon/app/controllers/api/v1/accounts/identity_proofs_controller.rb	3:13 10:12
+mastodon/app/controllers/api/v1/accounts/relationships_controller.rb	3:22 7:11 15:17 19:21
+mastodon/app/controllers/api/v1/admin/dimensions_controller.rb	3:28 12:15 19:27
+mastodon/app/controllers/api/v1/admin/reports_controller.rb	3:113 27:30 32:35 37:42 44:49 51:56 58:63 65:70 74:76 78:80 82:84 86:88 90:92 94:96 98:100 102:104 106:108 110:112
+mastodon/app/controllers/api/v1/admin/retention_controller.rb	3:26 12:15 19:25
+mastodon/app/controllers/api/v1/admin/trends/links/preview_card_providers_controller.rb	3:59 16:20 22:28 30:36 40:42 44:46 48:50 52:54 56:58
+mastodon/app/controllers/api/v1/admin/trends/links_controller.rb	3:49 12:18 13:17 15:16 20:26 28:34 38:40 42:48 43:47 45:46
+mastodon/app/controllers/api/v1/domain_blocks_controller.rb	3:60 11:14 16:20 22:25 29:35 37:39 41:43 45:47 49:51 53:55 57:59
+mastodon/app/controllers/api/v1/emails/confirmations_controller.rb	3:30 10:15 17:19 23:25 27:29
+mastodon/app/controllers/api/v1/follow_requests_controller.rb	3:70 9:12 14:18 20:23 27:29 31:33 35:37 39:41 43:49 51:53 55:57 59:61 63:65 67:69
+mastodon/app/controllers/api/v1/media_controller.rb	3:70 9:11 13:21 23:26 28:35 39:41 43:45 47:49 51:53 55:57 59:61 63:65 67:69
+mastodon/app/controllers/api/v1/polls/votes_controller.rb	3:27 10:13 17:22 24:26
+mastodon/app/controllers/api/v1/polls_controller.rb	3:27 10:13 17:22 24:26
+mastodon/app/controllers/api/v1/scheduled_statuses_controller.rb	3:62 15:17 19:21 23:26 28:31 35:37 39:41 43:45 47:49 51:53 55:57 59:61
+mastodon/app/controllers/api/v1/statuses/bookmarks_controller.rb	3:29 8:11 13:28 16:21 18:20
+mastodon/app/controllers/api/v1/statuses/favourites_controller.rb	3:31 8:11 13:30 16:24 20:23
+mastodon/app/controllers/api/v1/statuses/mutes_controller.rb	3:28 8:13 15:20 24:27
+mastodon/app/controllers/api/v1/statuses/reblogged_by_accounts_controller.rb	3:52 7:11 15:19 21:23 25:31 33:35 37:39 41:43 45:47 49:51
+mastodon/app/controllers/api/v1/statuses_controller.rb	3:175 19:22 24:28 30:53 55:74 76:91 95:97 99:104 106:111 113:119 121:123 125:127 129:131 133:159 161:163 165:170 172:174
+mastodon/app/controllers/api/v1/timelines/topic_controller.rb	3:17 8:16 9:15 13:14
+mastodon/app/controllers/api/v2/filters/statuses_controller.rb	3:44 11:13 15:17 19:23 25:28 32:35 37:39 41:43
+mastodon/app/controllers/api/web/base_controller.rb	3:9 6:8
+mastodon/app/controllers/application_controller.rb	3:143 36:38 42:44 46:55 57:59 61:87 64:86 65:73 66:72 70:71 75:85 76:84 89:91 93:99 94:98 96:97 103:105 107:109 111:113 115:117 119:123 125:129 131:138 134:137 140:142
+mastodon/app/controllers/auth/registrations_controller.rb	3:153 22:24 26:28 30:32 34:38 35:37 40:42 46:50 52:61 63:67 64:66 69:71 73:81 76:80 78:79 83:85 87:89 91:93 95:101 96:100 98:99 105:110 112:114 116:118 120:122 124:126 128:130 132:140 142:144 146:152 147:151 149:150
+mastodon/app/controllers/collections_controller.rb	3:57 18:29 19:28 20:22 24:27 33:40 34:39 36:38 42:47 49:51 53:56
+mastodon/app/controllers/concerns/account_controller_concern.rb	3:43 11:13 17:24 26:31 33:38 40:42
+mastodon/app/controllers/concerns/accountable_concern.rb	3:11 6:10
+mastodon/app/controllers/concerns/admin/export_controller_concern.rb	3:29 8:12 9:11 14:16 18:20 22:24 26:28
+mastodon/app/controllers/concerns/api/content_security_policy.rb	3:27 6:26 7:25
+mastodon/app/controllers/concerns/api/rate_limit_headers.rb	3:70 6:16 7:15 8:14 18:20 24:28 30:32 34:36 38:40 42:44 46:48 50:52 54:56 58:61 63:65 67:69
+mastodon/app/controllers/concerns/async_refreshes_concern.rb	3:14 6:13
+mastodon/app/controllers/concerns/auth/captcha_concern.rb	3:87 20:22 24:26 28:30 32:34 36:38 40:54 43:53 45:52 46:50 56:60 62:66 70:74 71:73 76:86 77:85 80:82
+mastodon/app/controllers/concerns/authorization.rb	3:23 8:10 12:16 18:22
+mastodon/app/controllers/concerns/error_responses.rb	3:68 6:20 16:19 24:26 28:30 32:34 36:38 40:42 44:46 48:50 52:54 56:58 62:67 63:66
+mastodon/app/controllers/oauth/authorized_applications_controller.rb	3:37 18:22 26:28 30:32 34:36
+mastodon/app/controllers/redirect/accounts_controller.rb	3:10 6:9
+mastodon/app/controllers/settings/exports/blocked_domains_controller.rb	3:19 4:18 5:17 8:10 14:16
+mastodon/app/controllers/settings/exports_controller.rb	3:39 11:14 16:27 19:22 31:38 32:37
+mastodon/app/controllers/settings/migrations_controller.rb	3:44 10:12 14:23 17:22 20:21 29:31 33:35 37:39 41:43
+mastodon/app/controllers/settings/pictures_controller.rb	3:35 4:34 8:19 9:18 10:15 13:14 16:17 23:25 27:29 31:33
+mastodon/app/controllers/settings/two_factor_authentication/recovery_codes_controller.rb	3:23 4:22 5:21 12:20
+mastodon/app/controllers/settings/two_factor_authentication_methods_controller.rb	3:28 4:27 15:20 24:26
+mastodon/app/controllers/settings/verifications_controller.rb	3:33 9:16 10:15 13:14 20:24 21:23 26:28 30:32
+mastodon/app/controllers/severed_relationships_controller.rb	3:55 10:12 14:18 15:17 20:24 21:23 28:30 32:38 33:37 34:36 40:46 41:45 42:44 48:50 52:54
+mastodon/app/controllers/statuses_controller.rb	3:78 21:23 25:38 26:37 27:31 33:36 40:43 45:50 54:56 58:62 64:69 71:73 75:77
+mastodon/app/controllers/terms_of_service_controller.rb	3:22 11:13 17:21
+mastodon/app/helpers/accounts_helper.rb	3:46 4:12 7:11 9:10 14:20 15:19 17:18 22:24 26:45
+mastodon/app/helpers/admin/account_moderation_notes_helper.rb	3:45 4:13 15:24 28:36 38:40 42:44
+mastodon/app/helpers/admin/action_logs_helper.rb	3:70 4:43 5:42 9:13 11:12 33:37 35:36 45:55 46:54 48:53 57:62 64:69
+mastodon/app/helpers/admin/content_policies_helper.rb	3:10 4:9
+mastodon/app/helpers/branding_helper.rb	3:27 4:11 5:10 13:18 14:17 20:22 24:26
+mastodon/app/helpers/database_helper.rb	3:24 4:6 9:15 10:14 12:13 17:23 18:22 20:21
+mastodon/app/helpers/statuses_helper.rb	3:100 11:15 12:14 17:35 20:28 21:27 25:26 37:41 43:47 49:55 50:54 57:66 60:63 69:80 73:79 77:78 82:84 86:88 90:99
+mastodon/app/helpers/theme_helper.rb	3:88 4:18 10:14 20:22 24:36 25:35 27:30 38:47 49:59 61:63 65:67 69:71 75:81 83:87 84:86
+mastodon/app/lib/access_token_extension.rb	3:29 6:16 18:20 22:24 26:28
+mastodon/app/lib/activitypub/activity/accept.rb	3:75 4:14 10:13 18:25 27:34 36:45 47:58 60:62 64:66 68:70 72:74
+mastodon/app/lib/activitypub/activity/block.rb	3:23 4:22 9:12
+mastodon/app/lib/activitypub/activity/flag.rb	3:48 6:29 13:28 33:35 37:39 41:43 45:47
+mastodon/app/lib/activitypub/activity/reject.rb	3:59 4:15 11:14 19:28 30:32 34:39 41:46 48:50 52:54 56:58
+mastodon/app/lib/activitypub/parser/interaction_policy_parser.rb	3:41 4:7 9:18 22:40
+mastodon/app/lib/activitypub/parser/status_parser.rb	3:219 15:19 21:31 24:28 26:27 33:38 40:46 41:45 48:56 58:64 59:63 66:70 72:78 73:77 80:85 87:91 93:95 97:99 101:111 102:110 108:109 113:116 118:120 122:124 126:136 138:140 142:144 146:150 147:149 152:154 157:159 161:163 165:167 169:171 173:175 179:196 198:206 199:205 208:210 212:214 216:218
+mastodon/app/lib/admin/metrics/dimension/sources_dimension.rb	3:31 6:8 12:14 16:18 20:30
+mastodon/app/lib/admin/metrics/dimension/store_helper.rb	3:26 8:13 15:17 19:21 23:25
+mastodon/app/lib/admin/metrics/dimension/tag_servers_dimension.rb	3:45 6:8 10:12 16:18 20:22 24:36 38:40 42:44
+mastodon/app/lib/admin/metrics/measure/instance_follows_measure.rb	3:55 6:8 10:12 14:16 20:24 26:28 30:32 34:50 52:54
+mastodon/app/lib/admin/metrics/measure/instance_reports_measure.rb	3:55 6:8 10:12 14:16 20:24 26:28 30:32 34:50 52:54
+mastodon/app/lib/admin/metrics/measure/resolved_reports_measure.rb	3:39 6:8 12:14 16:18 20:22 24:38
+mastodon/app/lib/admin/system_check/software_version_check.rb	3:29 6:8 10:12 14:22 15:21 19:20 26:28
+mastodon/app/lib/annual_report/source.rb	3:41 6:9 11:13 15:17 21:26 28:30 34:36 38:40
+mastodon/app/lib/connection_pool/shared_timed_stack.rb	3:96 4:12 14:19 15:18 23:39 26:38 27:37 41:43 45:49 46:48 51:65 52:64 53:63 56:60 69:80 70:79 82:86 88:90 92:95
+mastodon/app/lib/extractor.rb	3:114 10:21 23:54 28:45 47:51 48:50 56:87 61:78 67:72 68:71 80:84 81:83 89:113 94:104 106:110 107:109
+mastodon/app/lib/feature_usage_tracker.rb	3:50 25:29 31:33 35:43 39:42 47:49
+mastodon/app/lib/importer/accounts_index_importer.rb	3:30 4:19 5:16 6:15 23:25 27:29
+mastodon/app/lib/interaction_policy.rb	3:39 12:30 13:15 17:19 21:25 22:24 27:29 34:38
+mastodon/app/lib/link_details_extractor.rb	3:324 20:110 26:28 30:32 34:36 38:42 44:46 48:54 56:58 60:62 64:67 69:71 73:75 77:79 81:83 87:89 91:93 95:97 99:101 103:105 107:109 112:116 118:137 139:141 143:149 144:148 146:147 151:153 155:157 159:161 163:165 167:169 171:173 175:177 179:181 183:185 187:189 191:193 195:197 199:201 203:205 207:209 211:213 215:217 221:223 225:229 231:241 243:245 247:249 251:253 255:276 262:275 278:280 282:284 286:301 290:296 292:295 303:306 308:313 315:319 316:318 321:323
+mastodon/app/lib/ostatus/tag_manager.rb	3:32 7:9 11:16 18:20 22:31 25:30
+mastodon/app/lib/rss/media_content.rb	3:35 4:12 7:11 14:16 18:22 19:21 24:28 25:27 30:34 31:33
+mastodon/app/lib/scope_parser.rb	3:10
+mastodon/app/lib/search_query_parser.rb	3:15
+mastodon/app/lib/signature_parser.rb	3:44 19:43
+mastodon/app/lib/user_settings_serializer.rb	3:19 4:14 6:10 8:9 16:18
+mastodon/app/lib/vacuum/backups_vacuum.rb	3:25 4:6 8:10 14:16 18:20 22:24
+mastodon/app/lib/vacuum/media_attachments_vacuum.rb	3:50 6:8 10:13 17:23 18:22 25:31 26:30 33:39 41:45 47:49
+mastodon/app/mailers/admin_mailer.rb	3:103 18:22 24:28 30:34 36:46 48:52 54:58 60:64 66:70 72:76 78:80 84:86 88:90 92:94 96:102
+mastodon/app/mailers/application_mailer.rb	3:25 14:16 18:24
+mastodon/app/models/account/field.rb	3:94 10:21 23:25 27:33 28:32 30:31 35:51 53:55 57:59 61:63 67:69 71:73 75:93
+mastodon/app/models/account_suggestions/fasp_source.rb	3:17 4:10 7:9 14:16
+mastodon/app/models/account_warning.rb	19:60 45:47 49:51 53:55 57:59
+mastodon/app/models/admin/appeal_filter.rb	3:51 12:14 16:26 19:23 30:37 31:36 34:35 39:50 40:49 47:48
+mastodon/app/models/admin/base_action.rb	3:66 23:29 31:33 35:37 39:41 45:54 56:61 63:65
+mastodon/app/models/announcement.rb	21:130 36:44 37:43 46:48 50:52 54:56 58:60 62:64 66:74 68:72 70:71 76:78 80:82 84:92 86:88 89:91 94:96 100:106 108:122 109:121 111:120 124:129
+mastodon/app/models/announcement_filter.rb	3:41 13:15 17:27 20:24 31:40 32:39 37:38
+mastodon/app/models/application_record.rb	3:31 10:14 11:13 16:24 19:23 21:22 28:30
+mastodon/app/models/concerns/account/counters.rb	3:82 8:11 23:25 28:30 34:45 41:44 47:49 53:63 65:69 66:68 71:75 72:74 77:81
+mastodon/app/models/concerns/browser_detection.rb	3:27 6:8 10:12 14:16 18:20 24:26
+mastodon/app/models/concerns/expireable.rb	3:36 6:35 9:17 12:16 14:15 19:22 24:26 28:30 32:34
+mastodon/app/models/concerns/follow_limitable.rb	3:11 6:10
+mastodon/app/models/concerns/notification/groups.rb	3:127 10:12 14:36 17:24 22:23 38:126 39:98 48:64 62:63 102:107 112:117 119:125 120:124 122:123
+mastodon/app/models/concerns/reviewable.rb	3:26 6:9 11:13 15:17 19:21 23:25
+mastodon/app/models/concerns/status/fetch_replies_concern.rb	3:42 12:34 36:41
+mastodon/app/models/concerns/status/search_concern.rb	3:49 6:8 10:24 26:33 35:48 36:47
+mastodon/app/models/concerns/user/confirmation.rb	3:22 6:13 10:12 15:17 19:21
+mastodon/app/models/fasp.rb	3:9 6:8
+mastodon/app/models/home_feed.rb	3:44 4:7 9:11 13:17 19:23 25:29 33:35 37:43 38:42
+mastodon/app/models/list_account.rb	14:45 29:32 34:40 42:44
+mastodon/app/models/list_feed.rb	3:7 4:6
+mastodon/app/models/mute.rb	16:38 31:33 35:37
+mastodon/app/models/poll.rb	23:124 33:36 51:53 55:57 59:61 63:65 69:71 73:84 76:83 86:91 95:97 99:101 103:105 107:111 113:115 117:119 121:123
+mastodon/app/models/preview_card.rb	39:192 85:87 89:91 93:95 97:103 98:102 100:101 105:107 109:111 113:115 119:121 123:125 127:132 134:136 138:140 142:152 145:151 154:170 157:169 174:178 180:191
+mastodon/app/models/relay.rb	15:88 28:30 32:39 41:48 52:54 56:64 66:79 81:83 85:87
+mastodon/app/models/report_note.rb	15:24
+mastodon/app/models/rule.rb	15:47 29:41 36:40 37:39 43:46
+mastodon/app/models/rule_translation.rb	15:27 24:26
+mastodon/app/models/search.rb	3:5
+mastodon/app/models/setting.rb	43:123 52:96 55:65 57:64 61:63 67:69 71:73 75:80 76:79 83:87 89:95 99:101 104:106 108:110 112:114 116:118 120:122
+mastodon/app/models/software_deprecation.rb	14:37 22:24 26:28 30:32 34:36
+mastodon/app/models/status.rb	34:502 82:85 146:150 190:192 194:196 198:200 202:204 206:208 210:212 214:216 218:220 222:228 223:227 225:226 230:232 234:236 238:240 242:244 246:248 250:252 254:256 258:260 262:264 266:268 270:272 274:276 278:285 287:296 288:295 292:294 298:300 302:304 306:308 310:312 315:317 320:322 324:332 325:331 329:330 334:342 335:341 339:340 344:350 345:349 347:348 352:354 356:358 360:394 361:363 365:367 369:371 373:375 377:379 381:393 384:392 385:389 387:388 396:398 400:404 406:415 412:414 419:423 425:427 429:432 434:436 438:440 442:453 447:452 455:459 461:467 462:466 464:465 469:471 473:477 479:485 487:493 495:497 499:501
+mastodon/app/models/terms_of_service.rb	16:79 30:32 34:36 38:40 42:44 46:48 50:52 54:56 58:60 62:64 66:68 72:78
+mastodon/app/models/trends/base.rb	3:60 16:18 20:22 24:26 28:30 32:34 36:38 42:44 46:48 50:53 57:59
+mastodon/app/models/trends/history.rb	3:100 6:20 9:11 13:15 17:19 22:70 27:31 35:37 39:41 43:52 44:51 45:50 54:56 58:65 59:64 67:69 72:75 77:79 81:83 85:87 89:95 90:94 92:93 97:99
+mastodon/app/models/trends/preview_card_batch.rb	3:65 9:20 10:19 24:26 28:30 32:35 37:45 38:41 47:50 52:60 53:56 62:64
+mastodon/app/models/trends/preview_card_filter.rb	3:57 13:15 17:27 20:24 31:36 38:47 39:46 44:45 49:56 50:55 53:54
+mastodon/app/models/trends/preview_card_provider_filter.rb	3:51 12:14 16:26 19:23 30:37 31:36 34:35 39:50 40:49 47:48
+mastodon/app/models/trends/query.rb	3:114 10:18 20:23 25:27 29:32 34:36 38:41 43:45 47:50 52:54 56:59 61:63 65:68 72:74 78:80 84:91 93:95 97:99 101:105 107:113 108:112 110:111
+mastodon/app/models/trends/statuses.rb	3:143 15:31 16:24 28:30 33:35 37:39 41:43 45:61 48:50 54:56 63:77 64:76 68:75 71:74 81:83 85:87 91:98 100:104 106:108 110:115 117:142 118:135 122:126 124:125 128:132 130:131
+mastodon/app/models/trends/tag_filter.rb	3:70 13:15 17:27 20:24 31:36 38:47 39:46 44:45 49:60 50:59 57:58 62:69 63:68 66:67
+mastodon/app/models/user_ip.rb	12:21
+mastodon/app/models/user_settings/dsl.rb	3:41 4:36 5:11 8:10 13:15 17:23 20:22 25:27 29:31 33:35 38:40
+mastodon/app/models/worker_batch.rb	3:98 8:10 18:20 22:31 35:44 38:43 48:64 49:55 60:63 66:75 69:72 79:81 85:87 91:93 95:97
+mastodon/app/policies/account_policy.rb	3:79 4:6 8:10 12:14 16:18 20:22 24:26 28:30 32:34 36:38 40:42 44:46 48:50 52:54 56:58 60:62 64:66 68:70 72:74 76:78
+mastodon/app/policies/announcement_policy.rb	3:23 4:6 8:10 12:14 16:18 20:22
+mastodon/app/policies/ip_block_policy.rb	3:23 4:6 8:10 12:14 16:18 20:22
+mastodon/app/policies/preview_card_provider_policy.rb	3:11 4:6 8:10
+mastodon/app/policies/relay_policy.rb	3:7 4:6
+mastodon/app/presenters/instance_presenter.rb	3:96 7:19 10:12 14:18 21:23 25:27 29:31 33:35 37:39 41:43 45:47 49:51 53:55 57:59 61:63 65:67 69:71 73:75 77:79 81:83 85:89 91:95
+mastodon/app/serializers/activitypub/add_featured_collection_serializer.rb	3:20 9:11 13:15 17:19
+mastodon/app/serializers/activitypub/add_hashtag_serializer.rb	3:24 8:10 12:14 16:23
+mastodon/app/serializers/activitypub/context_serializer.rb	3:13 10:12
+mastodon/app/serializers/activitypub/delete_feature_authorization_serializer.rb	3:25 10:12 14:16 18:20 22:24
+mastodon/app/serializers/activitypub/image_serializer.rb	3:39 12:14 16:18 20:22 24:26 28:30 32:34 36:38
+mastodon/app/serializers/activitypub/like_serializer.rb	3:22 7:9 11:13 15:17 19:21
+mastodon/app/serializers/activitypub/move_serializer.rb	3:26 7:9 11:13 15:17 19:21 23:25
+mastodon/app/serializers/activitypub/note_serializer.rb	3:402 41:43 45:47 49:51 53:55 57:59 61:75 77:83 85:91 93:95 99:107 102:106 104:105 109:111 113:115 117:119 121:123 125:127 129:131 133:135 137:139 141:143 145:149 151:155 157:166 160:165 162:164 168:173 175:177 179:181 183:185 187:189 191:193 197:199 201:203 205:207 209:211 213:215 217:219 221:223 225:228 230:232 234:249 251:261 254:256 258:260 263:331 276:278 280:282 284:286 288:290 292:294 296:298 300:302 304:306 308:310 312:314 316:318 320:322 324:326 328:330 333:347 336:338 340:342 344:346 349:367 356:358 360:362 364:366 373:401 374:384 377:379 381:383 390:392 394:396 398:400
+mastodon/app/serializers/activitypub/outbox_serializer.rb	3:16 4:11 5:10 8:9 13:15
+mastodon/app/serializers/activitypub/reject_quote_request_serializer.rb	3:19 8:10 12:14 16:18
+mastodon/app/serializers/activitypub/remove_note_serializer.rb	3:22 7:9 11:13 15:17 19:21
+mastodon/app/serializers/concerns/notification_fallback_concern.rb	3:96 6:12 14:29 19:28 26:27 31:73 34:72 44:55 50:54 75:95 76:94
+mastodon/app/serializers/oembed_serializer.rb	3:94 46:48 50:52 54:56 58:60 62:64 66:68 70:72 74:85 87:89 91:93
+mastodon/app/serializers/rest/admin/domain_block_serializer.rb	3:15 8:10 12:14
+mastodon/app/serializers/rest/admin/ip_serializer.rb	3:5
+mastodon/app/serializers/rest/admin/trends/link_serializer.rb	3:9 6:8
+mastodon/app/serializers/rest/admin/trends/status_serializer.rb	3:9 6:8
+mastodon/app/serializers/rest/base_quote_serializer.rb	3:31 6:13 15:17 21:30 23:27
+mastodon/app/serializers/rest/conversation_serializer.rb	3:12 9:11
+mastodon/app/serializers/rest/credential_application_serializer.rb	3:19 6:8 10:12 16:18
+mastodon/app/serializers/rest/domain_block_preview_serializer.rb	3:5
+mastodon/app/serializers/rest/familiar_followers_serializer.rb	3:11 8:10
+mastodon/app/serializers/rest/filter_serializer.rb	3:15 8:10 12:14
+mastodon/app/serializers/rest/filter_status_serializer.rb	3:13 6:8 10:12
+mastodon/app/serializers/rest/media_attachment_serializer.rb	3:51 12:14 16:24 17:23 21:22 26:28 30:38 31:37 40:42 44:46 48:50
+mastodon/app/serializers/rest/preferences_serializer.rb	3:40 13:15 17:19 21:23 25:27 29:31 33:35 37:39
+mastodon/app/serializers/rest/preview_card_serializer.rb	3:39 4:7 20:22 24:26 28:30 32:34 36:38
+mastodon/app/serializers/rest/profile_serializer.rb	3:49 18:20 22:24 26:28 30:32 34:36 38:40 42:44 46:48
+mastodon/app/serializers/rest/quote_serializer.rb	3:5
+mastodon/app/serializers/rest/relationship_serializer.rb	3:78 10:12 14:16 18:22 24:28 30:33 35:37 39:41 43:45 47:49 51:53 55:57 59:61 63:65 67:69 71:73 75:77
+mastodon/app/serializers/rest/report_serializer.rb	3:25 10:12 14:16 18:20 22:24
+mastodon/app/serializers/rest/shallow_quote_serializer.rb	3:9 6:8
+mastodon/app/serializers/rest/shallow_tag_serializer.rb	3:11 8:10
+mastodon/app/serializers/rest/v1/instance_serializer.rb	3:98 15:17 19:21 23:25 27:29 31:33 35:37 39:45 47:49 51:79 81:83 85:87 89:91 95:97
+mastodon/app/serializers/web/notification_serializer.rb	3:39 11:13 15:17 19:21 23:25 27:29 31:33 35:38
+mastodon/app/services/activitypub/fetch_remote_actor_service.rb	3:63 12:42 17:21 19:20 46:54 56:58 60:62
+mastodon/app/services/activitypub/fetch_remote_poll_service.rb	3:13 6:12
+mastodon/app/services/activitypub/prepare_followers_synchronization_service.rb	3:13 6:12
+mastodon/app/services/activitypub/process_featured_item_service.rb	3:81 10:34 23:33 38:40 42:46 48:54 56:60 62:66 68:74 76:80
+mastodon/app/services/activitypub/process_status_update_service.rb	3:480 11:40 30:37 35:36 44:71 48:68 49:58 73:83 74:80 85:87 89:131 93:124 94:98 133:147 134:144 149:179 154:178 181:192 194:217 200:210 201:209 219:244 221:225 232:234 240:242 246:278 249:263 275:277 280:310 283:297 307:309 312:332 315:331 336:349 351:384 354:383 358:373 360:369 366:368 370:372 386:391 393:405 399:404 407:409 411:413 415:420 422:426 428:430 432:434 436:441 443:445 447:450 452:454 456:471 473:475 477:479
+mastodon/app/services/app_sign_up_service.rb	3:54 6:19 13:16 23:27 29:37 39:41 43:45 47:49 51:53
+mastodon/app/services/backup_service.rb	3:212 17:22 26:56 35:53 38:50 44:46 58:69 71:79 72:78 81:83 85:87 89:102 90:101 91:98 104:108 105:107 110:125 122:124 127:150 135:149 138:146 141:143 152:154 156:178 163:177 166:174 169:171 180:182 184:191 193:199 201:211 204:208
+mastodon/app/services/create_collection_service.rb	3:52 4:17 21:23 25:29 26:28 31:41 35:40 43:47 44:46 49:51
+mastodon/app/services/favourite_service.rb	3:47 11:26 30:38 33:37 40:42 44:46
+mastodon/app/services/fetch_link_card_service.rb	3:172 18:35 26:29 39:43 45:67 54:66 69:77 70:76 79:90 80:87 82:86 92:95 97:101 98:100 103:106 108:150 129:147 152:171 163:168
+mastodon/app/services/fetch_remote_status_service.rb	3:14 4:13 5:10 7:9
+mastodon/app/services/resolve_url_service.rb	3:141 9:20 13:19 17:18 24:36 25:35 38:63 39:42 52:55 65:67 69:71 73:75 77:79 81:83 85:87 89:91 93:123 96:122 109:117 125:131 133:140
+mastodon/app/services/unblock_service.rb	3:23 6:12 16:18 20:22
+mastodon/app/services/unfavourite_service.rb	3:23 6:11 15:18 20:22
+mastodon/app/services/update_media_attachments_permissions_service.rb	3:47 4:46 13:45 14:44 20:43 21:40
+mastodon/app/workers/account_refresh_worker.rb	3:14 8:13
+mastodon/app/workers/activitypub/delivery_worker.rb	3:100 14:21 25:45 38:44 39:43 49:55 50:54 57:59 61:75 62:74 63:73 64:72 65:71 69:70 77:79 81:87 89:91 93:95 97:99
+mastodon/app/workers/activitypub/distribution_worker.rb	3:41 11:18 22:24 26:28 30:32 34:36 38:40
+mastodon/app/workers/activitypub/post_upgrade_worker.rb	3:15 8:14
+mastodon/app/workers/backup_worker.rb	3:30 8:17 11:16 19:29
+mastodon/app/workers/delete_mute_worker.rb	3:10 6:9
+mastodon/app/workers/filtered_notification_cleanup_worker.rb	3:9 6:8
+mastodon/app/workers/local_notification_worker.rb	3:23 6:22 13:17
+mastodon/app/workers/merge_worker.rb	3:46 8:21 9:11 13:18 25:35 26:28 30:32 37:45 38:40 42:44
+mastodon/app/workers/publish_scheduled_status_worker.rb	3:29 8:20 22:28 23:27
+mastodon/app/workers/remove_featured_tag_worker.rb	3:11 6:10
+mastodon/app/workers/scheduler/accounts_statuses_cleanup_scheduler.rb	3:131 37:85 57:84 61:76 72:75 87:92 94:96 100:114 103:113 105:109 107:108 110:112 116:118 120:122 124:130 125:129 127:128
+mastodon/app/workers/scheduler/auto_close_registrations_scheduler.rb	3:33 13:18 22:24 26:32 29:31
+mastodon/app/workers/scheduler/collection_item_cleanup_scheduler.rb	3:16 10:15
+mastodon/app/workers/unfollow_follow_worker.rb	3:17 8:16
+mastodon/app/workers/webhooks/delivery_worker.rb	3:37 9:17 21:32 29:31 34:36
+mastodon/config/initializers/1_hosts.rb	9:36 22:28 23:27 25:26
+mastodon/config/initializers/deprecations.rb	3:18 20:25
+mastodon/config/initializers/json_ld_identity.rb	4:86 5:84
+mastodon/config/initializers/mail_delivery_job.rb	3:5
+mastodon/config/initializers/open_redirects.rb	10:12
+mastodon/config/initializers/session_activations.rb	3:5
+mastodon/config/initializers/simple_form.rb	5:11 6:10 13:22 14:21 24:30 25:29 36:232 42:85 87:103 90:98 94:97 105:110 112:119
+mastodon/config/initializers/statistics.rb	13:15
+mastodon/config/initializers/vite.rb	5:16 9:15 11:14 12:14
+mastodon/config/navigation.rb	3:90 6:89 20:25 27:30 35:39 41:44 49:54 56:69 71:84
+mastodon/config/routes.rb	5:11 6:10 7:9 13:15 17:255 24:27 29:33 35:40 42:51 43:48 62:67 63:66 71:85 76:84 81:83 87:89 91:96 100:111 104:110 113:124 114:123 115:118 126:143 127:142 133:141 134:136 148:152 149:151 154:158 160:169 161:168 171:177 184:188 185:187 190:194 196:198 200:202 207:213 208:212 209:211 216:223 217:222 218:221 227:229
+mastodon/db/migrate/20160222122600_create_stream_entries.rb	3:13 4:12 5:11
+mastodon/db/migrate/20160223162837_add_metadata_to_statuses.rb	3:10 4:9 5:8
+mastodon/db/migrate/20160224223247_create_mentions.rb	3:14 4:13 5:10
+mastodon/db/migrate/20160826155805_add_superapp_to_oauth_applications.rb	3:7 4:6
+mastodon/db/migrate/20161003142332_add_confirmable_to_users.rb	3:13 4:12 5:10
+mastodon/db/migrate/20161203164520_add_from_account_id_to_notifications.rb	3:45 4:40 42:44
+mastodon/db/migrate/20161221152630_add_hidden_to_stream_entries.rb	3:7 4:6
+mastodon/db/migrate/20170125145934_add_spoiler_text_to_statuses.rb	3:7 4:6
+mastodon/db/migrate/20170322162804_add_search_index_to_tags.rb	3:11 4:6 8:10
+mastodon/db/migrate/20170406215816_add_notifications_and_favourites_indices.rb	3:9 4:8
+mastodon/db/migrate/20170414132105_add_language_to_statuses.rb	3:7 4:6
+mastodon/db/migrate/20170427011934_re_add_owner_to_application.rb	3:12 4:11 5:8
+mastodon/db/migrate/20170520145338_change_language_filter_to_opt_out.rb	3:14 4:13 7:10
+mastodon/db/migrate/20170610000000_add_statuses_index_on_account_id_id.rb	3:15 6:14
+mastodon/db/migrate/20170713112503_make_tag_search_case_insensitive.rb	3:13 4:7 9:12
+mastodon/db/migrate/20170718211102_add_activitypub_to_accounts.rb	3:13 4:12 5:11
+mastodon/db/migrate/20170824103029_add_timestamps_to_status_pins.rb	3:7 4:6
+mastodon/db/migrate/20170928082043_create_email_domain_blocks.rb	3:11 4:10 5:9
+mastodon/db/migrate/20171010023049_add_foreign_key_to_account_moderation_notes.rb	3:7 4:6
+mastodon/db/migrate/20171107143332_add_memorial_to_accounts.rb	3:13 6:8 10:12
+mastodon/db/migrate/20171119172437_create_admin_action_logs.rb	3:14 4:13 5:12
+mastodon/db/migrate/20171125024930_create_invites.rb	3:17 4:16 5:13
+mastodon/db/migrate/20171125031751_add_invite_id_to_users.rb	3:7 4:6
+mastodon/db/migrate/20171129172043_add_index_on_stream_entries.rb	3:10 6:9
+mastodon/db/migrate/20171130000000_add_embed_url_to_preview_cards.rb	3:16 6:10 7:9 12:15
+mastodon/db/migrate/20171201000000_change_account_id_nonnullable_in_lists.rb	3:9 4:8 5:7
+mastodon/db/migrate/20180106000232_add_index_on_statuses_for_api_v1_accounts_account_id_statuses.rb	3:12 6:11 7:9
+mastodon/db/migrate/20180204034416_create_identities.rb	3:13 4:12 5:11
+mastodon/db/migrate/20180304013859_add_featured_collection_url_to_accounts.rb	3:7 4:6
+mastodon/db/migrate/20180402031200_add_assigned_account_id_to_reports.rb	3:7 4:6
+mastodon/db/migrate/20180510230049_migrate_web_push_subscriptions.rb	3:15 6:9 11:14
+mastodon/db/migrate/20180514140000_revert_index_change_on_statuses_for_api_v1_accounts_account_id_statuses.rb	3:15 6:14 7:9
+mastodon/db/migrate/20180608213548_reject_following_blocked_users.rb	3:42 6:37 25:36 39:41
+mastodon/db/migrate/20180615122121_add_autofollow_to_invites.rb	3:15 6:10 7:9 12:14
+mastodon/db/migrate/20180812173710_copy_status_stats.rb	3:53 6:14 7:13 8:12 10:11 16:18 22:24 26:39 29:38 41:52 46:51
+mastodon/db/migrate/20180820232245_add_foreign_key_indices.rb	3:16 6:15
+mastodon/db/migrate/20181017170937_add_reject_reports_to_domain_blocks.rb	3:15 6:10 7:9 12:14
+mastodon/db/migrate/20181203021853_add_discoverable_to_accounts.rb	3:7 4:6
+mastodon/db/migrate/20181204215309_create_account_tag_stats.rb	3:13 4:12 5:11
+mastodon/db/migrate/20181219235220_add_created_by_application_id_to_users.rb	3:10 6:9
+mastodon/db/migrate/20190203180359_create_featured_tags.rb	3:14 4:13 5:12
+mastodon/db/migrate/20190317135723_add_uri_to_reports.rb	3:7 4:6
+mastodon/db/migrate/20190409054914_create_user_invite_requests.rb	3:12 4:11 5:10
+mastodon/db/migrate/20190820003045_update_statuses_index.rb	3:15 6:9 11:14
+mastodon/db/migrate/20190823221802_add_local_index_to_statuses.rb	3:13 6:8 10:12
+mastodon/db/migrate/20190904222339_create_markers.rb	3:16 4:15 5:12
+mastodon/db/migrate/20190914202517_create_account_migrations.rb	3:14 4:13 5:12
+mastodon/db/migrate/20200312162302_add_status_ids_to_announcements.rb	3:7 4:6
+mastodon/db/migrate/20200317021758_add_expires_at_to_mutes.rb	3:7 4:6
+mastodon/db/migrate/20200608113046_add_sign_in_token_to_users.rb	3:12 4:11 5:10 6:9
+mastodon/db/migrate/20200630190544_add_webauthn_id_to_users.rb	3:7 4:6
+mastodon/db/migrate/20200917192924_add_notify_to_follows.rb	3:17 6:11 7:10 13:16
+mastodon/db/migrate/20210221045109_create_rules.rb	3:13 4:12 5:11
+mastodon/db/migrate/20210306164523_account_ids_to_timestamp_ids.rb	3:19 4:12 6:8 14:18
+mastodon/db/migrate/20210621221010_add_skip_sign_in_token_to_users.rb	3:7 4:6
+mastodon/db/migrate/20210908220918_create_status_edits.rb	3:15 4:14 5:13
+mastodon/db/migrate/20220302232632_add_ordered_media_attachment_ids_to_statuses.rb	3:7 4:6
+mastodon/db/migrate/20220303000827_add_ordered_media_attachment_ids_to_status_edits.rb	3:14 4:13 5:12 6:11
+mastodon/db/migrate/20220428112727_add_index_statuses_pins_on_status_id.rb	3:9 6:8
+mastodon/db/migrate/20220606044941_create_webhooks.rb	3:14 4:13 5:12
+mastodon/db/migrate/20220827195229_change_canonical_email_blocks_nullable.rb	3:7 4:6
+mastodon/db/migrate/20220829192633_add_languages_to_follows.rb	3:7 4:6
+mastodon/db/migrate/20221025171544_add_index_ip_blocks_on_ip.rb	3:19 6:14 9:11 16:18
+mastodon/db/migrate/20221104133904_add_name_to_featured_tags.rb	3:7 4:6
+mastodon/db/migrate/20230605085711_add_time_zone_to_users.rb	3:7 4:6
+mastodon/db/migrate/20231210154528_add_otp_secret_to_user.rb	3:7 4:6
+mastodon/db/migrate/20231212073317_add_languages_index_to_account_summaries.rb	3:9 6:8
+mastodon/db/migrate/20231222100226_add_allow_with_approval_to_email_domain_blocks.rb	3:7 4:6
+mastodon/db/migrate/20240222203722_create_notification_policies.rb	3:15 4:14 5:13
+mastodon/db/migrate/20240510192043_fix_notification_policies_foreign_key.rb	3:28 4:15 5:14 17:27 18:26
+mastodon/db/migrate/20240607093446_change_mention_status_id_non_nullable.rb	3:7 4:6
+mastodon/db/migrate/20240607094856_validate_change_mention_account_id_non_nullable.rb	3:14 4:8 10:13
+mastodon/db/migrate/20240713171909_validate_add_application_to_reports.rb	3:7 4:6
+mastodon/db/migrate/20240724181224_enable_pkce.rb	3:8 4:7
+mastodon/db/migrate/20241007071624_fix_notification_permission_foreign_keys.rb	3:39 4:21 5:20 23:38 24:37
+mastodon/db/migrate/20241205163118_add_missing_delete_cascade_account_moderation_notes.rb	3:45 4:24 5:23 26:44 27:43
+mastodon/db/migrate/20241212153054_add_not_null_to_announcement_mute_columns.rb	3:23 4:15 11:14 17:22 18:21
+mastodon/db/migrate/20241213170027_add_not_null_to_account_conversation_account_column.rb	3:7 4:6
+mastodon/db/migrate/20241216223433_validate_not_null_to_account_note_account_column.rb	3:19 4:13 15:18
+mastodon/db/migrate/20241216223446_add_not_null_to_account_note_target_account_column.rb	3:7 4:6
+mastodon/db/migrate/20241216224211_add_not_null_to_poll_vote_account_column.rb	3:7 4:6
+mastodon/db/migrate/20241216224530_validate_not_null_to_poll_status_column.rb	3:19 4:13 15:18
+mastodon/db/migrate/20250103131909_create_fasp_backfill_requests.rb	3:15 4:14 5:13
+mastodon/db/migrate/20250305074104_add_effective_date_index_to_terms_of_services.rb	3:9 6:8
+mastodon/db/migrate/20250520204643_create_rule_translations.rb	3:16 4:15 5:12
+mastodon/db/migrate/20250819100545_update_quote_index.rb	3:13 6:12
+mastodon/db/migrate/20250902221600_add_index_on_conversation_to_statuses.rb	3:9 6:8
+mastodon/db/migrate/20251002140103_migrate_timeline_preview_setting.rb	3:23 6:20 15:17
+mastodon/db/migrate/20251209093813_add_item_count_to_collections.rb	3:7 4:6
+mastodon/db/migrate/20251217091936_add_feature_approval_policy_to_accounts.rb	3:7 4:6
+mastodon/db/migrate/20260119153538_add_language_to_collections.rb	3:7 4:6
+mastodon/db/migrate/20260127141459_add_avatar_description_to_accounts.rb	3:7 4:6
+mastodon/db/migrate/20260217154542_add_profile_settings_to_accounts.rb	3:9 4:8
+mastodon/db/migrate/20260303144409_add_unverified_author_account_id_to_preview_cards.rb	3:10 6:9
+mastodon/db/migrate/20260323105645_create_keypairs.rb	3:20 4:19 5:16
+mastodon/db/migrate/20260630070531_revert_add_new_index_on_uri_to_keypairs.rb	3:13 6:10
+mastodon/db/migrate/20260706122112_add_end_of_support_to_software_updates.rb	3:7 4:6
+mastodon/db/migrate/20260720092724_change_account_uri_default.rb	3:7 4:6
+mastodon/db/post_migrate/20180813113448_copy_status_stats_cleanup.rb	3:12 6:11 7:10
+mastodon/db/post_migrate/20190511152737_remove_suspended_silenced_account_fields.rb	3:45 4:6 8:13 17:37 20:26 21:25 23:24 32:35 39:44 40:43
+mastodon/db/post_migrate/20190706233204_drop_stream_entries.rb	3:13 6:8 10:12
+mastodon/db/post_migrate/20200917222734_remove_index_notifications_on_account_activity.rb	3:15 6:9 11:14
+mastodon/db/post_migrate/20210308133107_remove_subscription_expires_at_from_accounts.rb	3:9 4:8 5:7
+mastodon/db/post_migrate/20210507001928_remove_hub_url_from_accounts.rb	3:12 4:11 5:10
+mastodon/db/post_migrate/20220303203437_remove_media_attachments_changed_from_status_edits.rb	3:7 4:6
+mastodon/db/post_migrate/20220310060641_optimize_null_index_users_reset_password_token.rb	5:17 10:12 14:16
+mastodon/db/post_migrate/20220310060750_optimize_null_index_accounts_url.rb	5:17 10:12 14:16
+mastodon/db/post_migrate/20240322130318_remove_relationships_count_from_account_relationship_severance_events.rb	3:7 4:6
+mastodon/db/post_migrate/20260720113713_remove_old_index_on_accounts_uri.rb	3:9 6:8
+mastodon/db/post_migrate/20260804081821_convert_materialized_views_to_tables.rb	3:58 4:46 10:13 15:18 23:27 29:32 35:38 48:57
+mastodon/db/schema.rb	13:1686 17:24 26:36 38:43 45:51 53:62 64:72 74:82 84:91 93:102 104:114 116:131 133:137 139:144 146:158 160:223 225:229 231:245 247:254 256:266 268:280 282:287 289:303 305:315 317:325 327:334 336:342 344:360 362:369 371:388 390:397 399:418 420:424 426:434 436:442 444:460 462:469 471:478 480:489 491:496 498:509 511:518 520:530 532:541 543:550 552:559 561:577 579:591 593:601 603:613 615:622 624:629 631:642 644:655 657:667 669:674 676:684 686:693 695:707 709:717 719:732 734:743 745:753 755:765 767:775 777:805 807:815 817:826 828:835 837:848 850:860 862:877 879:892 894:908 910:926 928:935 937:946 948:964 966:978 980:987 989:1022 1024:1028 1030:1047 1049:1056 1058:1064 1066:1074 1076:1095 1097:1105 1107:1114 1116:1122 1124:1136 1138:1144 1146:1159 1161:1172 1174:1181 1183:1192 1194:1208 1210:1217 1219:1230 1232:1241 1243:1278 1280:1284 1286:1293 1295:1302 1304:1315 1317:1331 1333:1342 1344:1352 1354:1359 1361:1367 1369:1379 1381:1390 1392:1435 1437:1449 1451:1457 1459:1469 1471:1480
+mastodon/db/seeds/05_blocked_usernames.rb	25:27 32:34
+mastodon/lib/action_dispatch/remote_ip_extensions.rb	15:68 16:67 17:66 18:65 40:45 48:52
+mastodon/lib/devise/strategies/two_factor_ldap_authenticatable.rb	6:30 7:29 8:28 9:11 13:21 16:20 18:19 25:27
+mastodon/lib/elasticsearch/client_extensions.rb	3:11 4:10 5:9
+mastodon/lib/mastodon/feature.rb	3:26 4:25 5:8 10:20 11:17 22:24
+mastodon/lib/mastodon/migration_helpers.rb	41:756 42:755 43:61 46:52 54:56 58:60 64:78 67:69 73:77 81:84 96:107 97:101 118:129 119:123 140:151 141:145 163:196 166:168 203:205 210:212 244:342 245:249 254:261 284:341 287:311 302:306 314:337 327:331 329:330 357:407 358:360 367:371 414:431 420:430 438:542 442:447 453:488 477:487 493:496 498:508 511:516 519:524 528:535 538:541 552:560 563:584 588:604 607:610 613:616 619:621 624:626 629:633 636:640 647:680 651:679 652:654 662:664 687:694 688:693 697:701 705:722 706:711 724:742 748:754 749:753
+mastodon/lib/mastodon/prometheus_exporter/local_server.rb	6:18 7:17 10:16
+mastodon/lib/mastodon/worker_batch_middleware.rb	3:11 4:10 5:7
+mastodon/lib/paperclip/blurhash_transcoder.rb	3:26 4:25 5:17 21:24
+mastodon/lib/paperclip/lazy_thumbnail.rb	3:39 4:38 5:18 8:15 22:24 26:29 31:33 35:37
+mastodon/lib/paperclip/type_corrector.rb	5:21 6:20 7:19
+mastodon/lib/tasks/branding.rake	3:76 5:10 13:27 18:20 30:36 39:65 52:56 58:60 62:64 68:75
+mastodon/lib/tasks/mastodon.rake	5:622 7:588 11:15 23:28 33:37 47:49 56:58 72:128 73:77 79:83 85:89 91:95 97:99 132:174 133:137 139:143 145:149 178:367 179:358 184:188 190:194 196:200 204:207 209:212 217:221 223:227 229:233 235:238 240:243 251:255 257:260 262:265 271:274 279:283 285:288 290:293 299:303 308:312 314:317 319:322 324:327 337:341 343:347 349:352 354:357 360:366 361:365 371:469 372:408 378:407 379:383 385:389 391:393 395:397 399:403 410:414 424:433 431:432 478:584 481:487 493:499 505:515 509:514 511:513 522:532 526:531 528:530 536:541 539:540 544:581 545:547 558:563 565:568 582:583 590:597 592:596 601:610 612:621 615:620 616:619 624:631 633:677
+mastodon/lib/vite/builder.rb	3:50 6:49 7:11 8:10 15:18 20:32 22:31 23:25 26:28 34:38 42:48
+mastodon/lib/vite/config.rb	3:88 20:87 34:53 55:57 59:61 63:65 67:69 71:86
+mastodon/spec/chewy/instances_index_spec.rb	5:45 6:18 7:17 8:11 13:16 20:30 21:23 25:29 32:44
+mastodon/spec/chewy/statuses_index_spec.rb	5:40 6:13 7:12 8:11 15:25 16:18 20:24 27:39
+mastodon/spec/controllers/admin/base_controller_spec.rb	5:56 8:13 9:12 17:25 20:24 27:40 30:39 42:55 45:54
+mastodon/spec/controllers/concerns/account_controller_concern_spec.rb	5:84 6:12 9:11 14:17 19:25 20:24 27:34 28:33 36:42 37:41 44:51 45:50 53:59 54:58 61:68 62:67 70:83 73:82
+mastodon/spec/controllers/concerns/accountable_concern_spec.rb	5:29 6:16 7:15 12:14 22:28 23:27 24:26
+mastodon/spec/controllers/concerns/challengable_concern_spec.rb	5:122 8:20 13:15 17:19 22:27 23:26 29:51 32:34 36:42 39:41 44:50 47:49 53:76 57:59 61:67 64:66 69:75 72:74 78:121 82:84 86:93 89:92 95:120 98:101 103:110 112:119
+mastodon/spec/controllers/settings/two_factor_authentication/confirmations_controller_spec.rb	5:134 8:30 9:17 19:23 25:29 32:133 37:132 40:54 41:47 42:44 49:53 56:131 57:63 58:62 65:87 68:72 74:86 89:108 90:93 95:98 100:105 112:116 118:122 124:130
+mastodon/spec/fabricators/account_domain_block_fabricator.rb	3:6
+mastodon/spec/fabricators/domain_allow_fabricator.rb	3:5
+mastodon/spec/fabricators/featured_tag_fabricator.rb	3:7
+mastodon/spec/fabricators/media_attachment_fabricator.rb	3:14 6:13 7:12 10:11
+mastodon/spec/fabricators/poll_fabricator.rb	3:10
+mastodon/spec/fabricators/preview_card_trend_fabricator.rb	3:5
+mastodon/spec/fabricators/quote_fabricator.rb	3:7
+mastodon/spec/fabricators/session_activation_fabricator.rb	3:6
+mastodon/spec/fabricators/status_pin_fabricator.rb	3:6
+mastodon/spec/fabricators/status_trend_fabricator.rb	3:6
+mastodon/spec/fabricators/tag_follow_fabricator.rb	3:6
+mastodon/spec/fabricators/user_fabricator.rb	3:15 4:9 17:19 21:23 25:27 29:33 30:32
+mastodon/spec/fabricators/web_push_subscription_fabricator.rb	3:13 5:9
+mastodon/spec/fabricators/webhook_fabricator.rb	3:7
+mastodon/spec/generators/post_deployment_migration_generator_spec.rb	9:27 19:26 20:25
+mastodon/spec/helpers/admin/account_moderation_notes_helper_spec.rb	5:55 8:28 11:17 14:16 19:27 22:26 30:50 33:39 36:38 41:49 44:48 52:54
+mastodon/spec/helpers/routing_helper_spec.rb	5:43 6:42 7:11 13:25 14:18 20:24 27:33 28:30 35:41 36:38
+mastodon/spec/helpers/statuses_helper_spec.rb	5:77 6:24 7:14 10:13 16:23 19:22 26:34 36:76 37:45 40:44 47:55 50:54 57:65 60:64 67:75 70:74
+mastodon/spec/lib/activitypub/activity/delete_spec.rb	5:146 9:18 22:145 25:28 30:52 35:39 41:43 45:47 49:51 54:69 57:60 62:64 66:68 71:85 75:77 79:84 87:99 95:98 101:121 107:115 117:120 123:144 128:136 138:143
+mastodon/spec/lib/activitypub/activity/remove_spec.rb	5:113 6:10 12:112 15:37 18:27 29:31 33:36 39:65 42:55 57:59 61:64 67:89 69:78 80:82 84:88 91:111 94:103 107:110
+mastodon/spec/lib/activitypub/forwarder_spec.rb	5:61 13:23 25:39 26:30 27:29 32:38 35:37 41:60 47:53 55:59
+mastodon/spec/lib/admin/metrics/dimension/instance_accounts_dimension_spec.rb	5:34 13:33 18:23 25:32
+mastodon/spec/lib/admin/metrics/measure/instance_reports_measure_spec.rb	5:52 15:22 24:38 25:29 26:28 31:37 34:36 40:51 41:50
+mastodon/spec/lib/admin/metrics/measure/interactions_measure_spec.rb	5:40 12:39 13:38 14:22 15:17 18:20 24:33 35:37
+mastodon/spec/lib/admin/metrics/measure/opened_reports_measure_spec.rb	5:32 12:31 13:30 14:18 20:29
+mastodon/spec/lib/admin/system_check/software_version_check_spec.rb	5:134 12:41 13:19 16:18 21:40 24:26 28:39 29:34 36:38 43:99 44:48 45:47 50:58 51:53 55:57 60:68 61:63 65:67 70:78 71:73 75:77 80:88 81:83 85:87 90:98 91:93 95:97 101:133 102:116 103:105 107:115 118:132 119:121 123:131
+mastodon/spec/lib/annual_report/top_statuses_spec.rb	5:50 6:49 9:22 12:21 24:48 31:36 38:47
+mastodon/spec/lib/collection_reach_finder_spec.rb	5:35 15:22 19:21 24:34 27:33
+mastodon/spec/lib/emoji_formatter_spec.rb	5:57 8:10 12:56 17:23 20:22 25:31 28:30 33:39 36:38 41:47 44:46 49:55 52:54
+mastodon/spec/lib/extractor_spec.rb	5:91 6:35 7:11 13:17 19:25 27:34 29:33 37:82 38:42 44:48 50:54 56:60 62:66 68:72 74:81 76:80 84:90 85:89
+mastodon/spec/lib/importer/accounts_index_importer_spec.rb	5:16 6:15 12:14
+mastodon/spec/lib/importer/base_importer_spec.rb	5:14 6:13 10:12
+mastodon/spec/lib/importer/public_statuses_index_importer_spec.rb	5:16 6:15 12:14
+mastodon/spec/lib/mastodon/cli/maintenance_spec.rb	6:595 15:594 18:27 19:21 23:26 29:40 30:33 35:39 42:52 43:46 48:51 54:593 55:58 60:108 61:64 69:80 82:84 86:88 90:99 101:107 110:135 111:113 117:125 127:129 131:134 137:163 138:140 144:153 155:157 159:162 165:191 166:168 172:181 183:185 187:190 193:219 194:196 201:209 211:213 215:218 221:248 222:224 230:238 240:242 244:247 250:275 251:253 257:265 267:269 271:274 277:303 278:280 285:293 295:297 299:302 305:330 306:308 312:320 322:324 326:329 332:357 333:335 339:347 349:351 353:356 359:384 360:362 366:374 376:378 380:383 386:411 387:389 393:401 403:405 407:410 413:438 414:416 420:428 430:432 434:437 440:465 441:443 447:455 457:459 461:464 467:498 468:470 475:483 485:487 489:497 500:525 501:503 507:515 517:519 521:524 527:552 528:530 534:542 544:546 548:551 554:579 555:557 561:569 571:573 575:578 581:584 586:592
+mastodon/spec/lib/permalink_redirector_spec.rb	5:98 8:97 9:11 13:16 18:54 19:22 24:27 29:32 34:37 39:42 44:47 49:53 56:96 57:59 61:64 66:69 71:74 76:79 81:84 86:89 91:95
+mastodon/spec/lib/request_pool_spec.rb	5:74 8:73 9:13 10:12 15:21 23:29 31:45 36:42 37:41 47:72 48:52 54:66 55:59 56:58 68:71
+mastodon/spec/lib/status_reach_finder_spec.rb	5:105 6:104 7:103 15:25 18:20 22:24 27:45 30:32 34:36 38:44 41:43 47:65 50:52 54:56 58:64 61:63 67:85 70:72 74:76 78:84 81:83 87:102 91:93 95:101 98:100
+mastodon/spec/lib/vacuum/backups_vacuum_spec.rb	5:23 10:22 14:21
+mastodon/spec/lib/vite/dev_server_spec.rb	5:29 14:28 15:19 16:18 21:27 22:26
+mastodon/spec/mailers/previews/email_subscription_mailer_preview.rb	5:15 7:9 12:14
+mastodon/spec/mailers/previews/user_mailer_preview.rb	5:111 7:9 12:16 19:21 24:26 29:31 34:36 39:41 44:46 49:52 55:58 61:65 68:70 73:75 78:80 83:85 88:90 93:95 98:100 103:105 108:110
+mastodon/spec/models/account/avatar_spec.rb	5:48 6:27 7:12 8:11 14:19 15:18 21:26 22:25 29:47 33:36 38:40 42:46
+mastodon/spec/models/account/fields_spec.rb	5:200 8:27 9:26 15:17 19:21 23:25 29:57 34:38 40:50 43:49 52:56 59:149 62:69 63:68 71:85 72:84 87:100 88:99 102:116 103:115 118:132 121:131 134:148 137:147 151:199 156:167 159:166 169:185 172:184 187:198 190:197
+mastodon/spec/models/account_conversation_spec.rb	5:74 10:52 11:20 22:35 37:51 54:73 55:64 66:72
+mastodon/spec/models/account_pin_spec.rb	5:33 6:9 11:32 12:31 18:22 24:30 27:29
+mastodon/spec/models/account_spec.rb	5:883 8:12 14:54 19:27 20:26 29:42 30:32 34:41 44:53 45:48 50:52 56:68 57:61 63:67 70:82 71:75 77:81 84:96 85:89 91:95 98:122 101:105 107:113 108:112 115:121 116:120 124:134 125:128 130:133 136:176 137:140 142:146 150:161 151:153 155:160 163:175 164:167 169:174 178:204 181:187 184:186 189:195 192:194 197:203 200:202 206:239 210:225 213:215 217:224 227:238 230:237 241:246 242:245 248:254 249:253 256:261 257:260 263:299 266:269 271:286 272:275 277:281 283:285 288:298 289:293 295:297 301:337 304:307 309:324 310:313 315:319 321:323 326:336 327:331 333:335 339:354 340:353 356:362 357:361 364:393 367:371 373:376 378:383 385:392 395:437 398:400 402:404 406:408 410:412 414:416 418:420 422:424 426:428 430:432 434:436 439:477 440:476 441:449 444:448 451:475 454:463 458:462 465:474 469:473 479:493 482:484 486:488 490:492 495:505 496:498 500:504 507:588 512:554 517:521 525:529 531:535 537:541 556:575 559:565 577:579 581:583 585:587 590:730 591:614 595:603 605:613 616:633 620:622 624:632 635:642 636:641 644:651 645:650 653:668 654:657 659:662 664:667 670:676 671:675 678:684 679:683 686:695 687:694 689:691 697:702 698:701 704:729 715:719 721:724 726:728 732:743 733:742 745:756 746:750 752:755 758:770 761:769 764:766 772:840 778:819 782:810 785:791 788:790 793:809 796:798 800:808 801:803 805:807 812:818 815:817 821:839 826:830 827:829 832:838 835:837 842:882 845:849 851:881 854:858 860:864 866:880 869:871 873:879 874:876
+mastodon/spec/models/account_statuses_cleanup_policy_spec.rb	5:468 8:14 16:126 17:96 20:31 33:35 37:41 43:47 49:53 55:59 61:65 67:71 73:77 79:83 85:89 91:95 98:125 99:110 112:124 128:135 131:134 137:234 143:145 147:171 150:159 151:153 155:158 161:170 162:164 166:169 173:197 176:185 177:179 181:184 187:196 188:190 192:195 199:223 202:211 203:205 207:210 213:222 214:216 218:221 225:233 229:232 236:261 243:254 246:249 251:253 256:260 257:259 263:467 282:292 294:306 300:305 308:320 314:319 322:326 323:325 328:338 329:331 333:337 340:348 343:347 350:358 353:357 360:368 363:367 370:378 373:377 380:388 383:387 390:398 393:397 400:409 403:408 411:419 414:418 421:433 422:424 426:432 435:447 436:438 440:446 451:455 452:454 457:466
+mastodon/spec/models/account_suggestions/fasp_source_spec.rb	5:23 6:22 13:17 14:16 19:21
+mastodon/spec/models/admin/appeal_filter_spec.rb	5:16 6:15 10:14
+mastodon/spec/models/appeal_spec.rb	5:116 6:16 11:15 18:82 19:49 22:27 29:34 36:41 43:48 51:65 54:58 60:64 67:81 70:74 76:80 84:115 85:93 89:92 95:103 99:102 105:114 110:113
+mastodon/spec/models/async_refresh_spec.rb	5:174 12:32 13:24 14:16 18:23 26:31 27:30 34:62 35:39 41:45 47:53 48:52 55:61 56:60 64:75 65:67 69:74 77:95 78:80 82:86 83:85 88:94 91:93 97:115 98:100 102:106 103:105 108:114 111:113 117:135 118:120 122:126 123:125 128:134 131:133 137:147 138:140 142:146 149:157 150:152 154:156 159:173 160:162 164:172
+mastodon/spec/models/concerns/account/interactions_spec.rb	5:815 9:15 10:14 11:13 17:23 18:22 19:21 25:140 28:58 29:37 32:36 33:35 39:47 42:46 43:45 49:57 52:56 53:55 60:139 61:63 65:70 72:104 75:83 78:82 79:81 85:93 88:92 89:91 95:103 98:102 99:101 106:138 109:117 112:116 113:115 119:127 122:126 123:125 129:137 132:136 133:135 142:152 147:151 148:150 154:164 159:163 160:162 166:182 167:172 177:181 178:180 184:200 187:193 188:192 195:199 196:198 202:218 205:211 206:210 213:217 214:216 220:236 223:229 224:228 231:235 232:234 238:256 243:249 244:248 251:255 252:254 258:277 263:270 264:269 272:276 273:275 279:299 285:292 286:291 294:298 295:297 301:331 304:324 305:307 309:313 315:323 316:322 326:330 327:329 333:348 336:341 337:340 343:347 344:346 350:382 353:375 354:356 358:363 365:374 366:373 377:381 378:380 384:416 387:409 388:390 392:397 399:408 400:407 411:415 412:414 418:451 423:444 424:427 429:433 435:443 436:442 446:450 447:449 453:489 456:467 457:459 461:466 469:482 472:475 477:481 484:488 485:487 491:522 494:515 495:498 500:504 506:514 507:513 517:521 518:520 524:541 529:534 530:533 536:540 537:539 543:566 546:549 551:557 554:556 559:565 562:564 568:583 571:576 572:575 578:582 579:581 585:605 590:596 593:595 598:604 601:603 607:627 612:618 615:617 620:626 623:625 629:646 634:639 635:638 641:645 642:644 648:679 655:661 663:668 670:678 681:716 685:687 689:691 693:699 701:715 704:706 708:714 718:751 722:730 723:725 727:729 732:740 733:735 737:739 742:750 743:745 747:749 753:786 757:765 758:760 762:764 767:775 768:770 772:774 777:785 778:780 782:784 788:814 800:809 811:813
+mastodon/spec/models/concerns/account/merging_spec.rb	5:21 8:20 14:19
+mastodon/spec/models/concerns/status/fasp_concern_spec.rb	5:123 6:54 7:43 10:16 11:15 12:14 18:24 19:23 20:22 26:33 27:32 29:31 35:42 36:41 38:40 45:53 48:52 49:51 56:95 57:62 64:85 68:74 71:73 76:84 79:83 80:82 87:94 91:93 97:122 100:105 107:113 110:112 115:121 118:120
+mastodon/spec/models/concerns/status/threading_concern_spec.rb	5:132 6:79 16:18 20:25 27:30 32:35 37:40 42:45 47:56 58:67 69:78 81:131 91:93 95:100 102:105 107:110 112:115 117:120 122:130
+mastodon/spec/models/doorkeeper/access_token_spec.rb	5:63 6:8 10:14 16:42 17:30 19:23 20:22 25:29 32:41 36:40 44:51 47:50 53:62 57:61
+mastodon/spec/models/export_spec.rb	5:111 9:14 16:33 22:24 26:32 35:47 40:46 49:62 54:61 64:77 69:76 79:96 80:85 81:84 89:95 98:110 103:109
+mastodon/spec/models/form/account_batch_spec.rb	5:119 8:118 16:24 26:80 32:35 37:46 41:45 48:57 52:56 61:65 67:71 73:75 77:79 82:93 89:92 95:106 102:105 108:117 113:116
+mastodon/spec/models/form/admin_settings_spec.rb	5:60 6:19 7:18 8:10 12:17 21:55 22:54 23:33 29:32 35:44 40:43 46:53 49:52 57:59
+mastodon/spec/models/form/redirect_spec.rb	5:39 6:31 9:30 12:16 18:23 25:29 33:38
+mastodon/spec/models/invite_spec.rb	5:85 8:11 13:15 17:29 18:28 23:27 31:62 32:35 37:40 42:45 47:50 52:55 57:61 64:84 65:83 66:73 69:72 75:82 78:81
+mastodon/spec/models/ip_block_spec.rb	5:70 9:17 19:27 22:26 29:43 32:36 38:42 45:59 46:52 47:51 54:58 55:57 61:69 62:68
+mastodon/spec/models/keypair_spec.rb	5:81 6:12 9:11 14:35 17:25 20:24 27:34 30:33 37:80 38:46 42:45 48:60 52:59 62:70 66:69 72:79 75:78
+mastodon/spec/models/marker_spec.rb	5:14 6:8 10:13
+mastodon/spec/models/poll_vote_spec.rb	5:62 6:12 9:11 14:61 15:22 16:21 24:38 25:30 32:37 40:49 41:48 51:60 52:59
+mastodon/spec/models/preview_card_provider_spec.rb	5:60 8:27 12:18 13:17 20:26 21:25 29:59 34:36 38:42 44:49 51:58
+mastodon/spec/models/severed_relationship_spec.rb	5:45 10:26 11:17 14:16 19:25 22:24 28:44 29:35 32:34 37:43 40:42
+mastodon/spec/models/tag_feed_spec.rb	5:376 6:375 14:19 21:26 28:33 35:40 42:47 49:53 55:60 62:68 70:176 71:74 76:109 85:91 88:90 93:99 96:98 101:108 104:107 111:142 118:124 121:123 126:132 129:131 134:141 137:140 144:175 151:157 154:156 159:165 162:164 167:174 170:173 178:269 179:181 183:209 192:199 195:198 201:208 204:207 211:242 218:224 221:223 226:232 229:231 234:241 237:240 244:268 251:258 254:257 260:267 263:266 271:374 272:274 276:308 285:292 288:291 294:307 297:300 302:306 310:340 317:324 320:323 326:339 329:332 334:338 342:373 349:355 352:354 357:363 360:362 365:372 368:371
+mastodon/spec/policies/account_moderation_note_policy_spec.rb	5:52 11:23 12:16 13:15 18:22 19:21 25:51 26:30 32:36 33:35 38:42 39:41 44:50 47:49
+mastodon/spec/policies/account_policy_spec.rb	5:211 12:24 13:17 14:16 19:23 20:22 26:38 27:31 28:30 33:37 34:36 40:56 41:43 45:49 46:48 51:55 52:54 58:70 59:63 60:62 65:69 66:68 72:94 75:87 76:80 77:79 82:86 83:85 89:93 90:92 96:118 99:111 100:104 101:103 106:110 107:109 113:117 114:116 120:132 121:125 122:124 127:131 128:130 134:158 135:151 136:142 139:141 144:150 147:149 153:157 154:156 160:190 161:165 162:164 167:173 170:172 175:181 178:180 183:189 186:188 192:210 193:195 197:200 202:209
+mastodon/spec/policies/account_warning_preset_policy_spec.rb	5:23 10:22 11:15 12:14 17:21 18:20
+mastodon/spec/policies/appeal_policy_spec.rb	5:50 11:23 12:16 13:15 18:22 19:21 25:49 26:42 27:33 30:32 35:41 38:40 44:48 45:47
+mastodon/spec/policies/application_policy_spec.rb	5:37 6:12 7:11 8:10 18:36 19:23 20:22 25:29 26:28 31:35 32:34
+mastodon/spec/policies/audit_log_policy_spec.rb	5:20 11:19 12:14 16:18
+mastodon/spec/policies/collection_policy_spec.rb	5:55 11:16 12:15 18:36 19:21 23:26 28:35 38:45 39:44 47:54 48:53
+mastodon/spec/policies/custom_emoji_policy_spec.rb	5:38 11:23 12:16 13:15 18:22 19:21 25:37 26:30 27:29 32:36 33:35
+mastodon/spec/policies/instance_policy_spec.rb	5:24 11:23 12:16 13:15 18:22 19:21
+mastodon/spec/policies/preview_card_policy_spec.rb	5:23 10:22 11:15 12:14 17:21 18:20
+mastodon/spec/policies/report_note_policy_spec.rb	5:47 11:23 12:16 13:15 18:22 19:21 25:46 26:31 27:30 33:38 34:37 40:45 41:44
+mastodon/spec/policies/status_policy_spec.rb	5:234 13:27 14:26 15:17 19:25 29:87 30:86 31:35 37:42 44:50 52:57 59:63 65:71 73:78 80:85 89:173 90:172 91:95 97:102 104:110 112:117 119:124 126:131 133:139 141:147 149:152 154:158 160:164 166:171 175:191 176:190 177:182 184:189 193:207 194:206 195:197 199:201 203:205 209:225 210:224 211:216 218:223 227:233 228:232 229:231
+mastodon/spec/policies/user_policy_spec.rb	5:152 11:31 12:24 13:17 14:16 19:23 20:22 26:30 27:29 33:53 34:46 35:39 36:38 41:45 42:44 48:52 49:51 55:77 56:70 57:62 58:61 64:69 65:68 72:76 73:75 79:91 80:84 81:83 86:90 87:89 93:113 94:106 95:99 96:98 101:105 102:104 108:112 109:111 115:129 116:124 117:119 121:123 126:128 131:151 132:134 136:150 139:143 145:149
+mastodon/spec/requests/account_show_page_spec.rb	5:19 6:18
+mastodon/spec/requests/activitypub/outboxes_spec.rb	5:275 8:14 16:258 17:168 22:91 25:38 40:52 41:44 46:51 54:63 57:62 65:77 66:69 71:76 79:90 80:82 84:89 93:167 96:114 116:128 117:120 122:127 130:139 133:138 141:153 142:145 147:152 155:166 156:158 160:165 170:257 176:194 177:193 196:216 199:215 218:236 221:235 238:256 241:255 262:264 266:268 270:274
+mastodon/spec/requests/activitypub/quote_authorizations_spec.rb	5:49 12:48 13:25 14:24 27:34 28:33 36:47 37:39 41:46
+mastodon/spec/requests/admin/announcements_spec.rb	5:16 6:15 9:14
+mastodon/spec/requests/admin/export_domain_allows_spec.rb	5:42 8:15 9:14 17:35 18:21 23:34 39:41
+mastodon/spec/requests/admin/follow_recommendations_spec.rb	5:16 6:15 9:14
+mastodon/spec/requests/admin/instances_spec.rb	5:27 6:26 9:16 10:15 18:25 19:24
+mastodon/spec/requests/admin/tags_spec.rb	5:37 8:17 11:16 19:36 22:28 30:35
+mastodon/spec/requests/admin/warning_presets_spec.rb	5:16 6:15 9:14
+mastodon/spec/requests/api/fasp/data_sharing/v0/continuations_spec.rb	5:29 8:28 9:11 15:19 23:27
+mastodon/spec/requests/api/v1/admin/account_actions_spec.rb	5:155 8:20 9:19 22:40 23:33 37:39 42:154 43:45 49:64 58:63 66:81 75:80 83:98 92:97 100:115 109:114 117:129 122:128 131:141 134:140 143:153 146:152
+mastodon/spec/requests/api/v1/admin/dimensions_spec.rb	5:39 10:38 11:20 12:19 22:37 25:36
+mastodon/spec/requests/api/v1/admin/trends/links/links_spec.rb	5:142 8:20 9:11 13:19 22:80 23:25 33:41 43:45 47:57 59:67 60:66 69:79 72:78 82:141 83:85 93:100 102:104 106:118 120:128 121:127 130:140 133:139
+mastodon/spec/requests/api/v1/announcements_spec.rb	5:60 10:32 11:19 12:18 21:31 22:24 26:30 34:59 35:43 36:42 45:58 48:50 52:57
+mastodon/spec/requests/api/v1/bookmarks_spec.rb	5:64 8:63 9:11 16:20 17:19 24:31 33:50 36:49 52:62 55:61
+mastodon/spec/requests/api/v1/collections_spec.rb	5:296 8:105 9:11 19:24 26:32 34:48 37:47 50:65 53:64 67:91 68:70 72:79 73:78 81:90 84:89 93:104 94:96 98:103 107:149 108:110 115:122 116:121 124:128 130:148 131:133 135:147 136:138 140:146 151:196 152:154 160:178 161:169 171:177 172:174 180:195 181:194 182:184 198:265 199:201 206:212 207:211 214:264 215:222 226:246 227:234 236:245 248:263 251:262 267:295 268:270 274:280 275:279 282:294 287:293
+mastodon/spec/requests/api/v1/csp_spec.rb	5:43 10:15 19:25 22:24 27:38 28:37 29:31 40:42
+mastodon/spec/requests/api/v1/followed_tags_spec.rb	5:55 8:54 9:11 16:20 17:19 22:24 28:35 37:53 40:52
+mastodon/spec/requests/api/v1/instances/domain_blocks_spec.rb	5:137 6:136 12:29 15:28 31:124 34:41 35:40 43:123 44:53 47:52 55:64 58:63 66:75 69:74 77:86 80:85 88:105 91:104 107:122 108:121 126:135 129:134
+mastodon/spec/requests/api/v1/instances/extended_descriptions_spec.rb	5:20 6:19 7:18
+mastodon/spec/requests/api/v1/instances/peers_spec.rb	5:34 6:33 7:21 10:20 23:32 26:31
+mastodon/spec/requests/api/v1/polls/votes_spec.rb	5:46 11:45 15:17 19:28 30:38 33:37 42:44
+mastodon/spec/requests/api/v1/reports_spec.rb	5:148 8:147 9:11 21:31 35:59 61:69 64:68 71:82 76:81 84:114 88:101 103:113 106:112 116:146 120:133 135:145 138:144
+mastodon/spec/requests/api/v1/scheduled_status_spec.rb	5:78 8:77 9:18 10:17 20:26 21:23 28:39 31:38 41:76 44:56 45:55 58:75 61:74
+mastodon/spec/requests/api/v1/statuses/histories_spec.rb	5:27 11:26 12:25 15:17 19:24
+mastodon/spec/requests/api/v1/statuses/reblogged_by_accounts_spec.rb	5:99 13:56 14:16 18:55 21:24 26:43 45:54 58:98 59:61 63:79 66:78 67:69 71:77 81:97 84:96 85:87 89:95
+mastodon/spec/requests/api/v1/timelines/link_spec.rb	5:155 11:20 12:19 22:154 23:25 36:44 37:43 40:42 48:58 51:57 60:72 61:63 65:71 74:86 75:77 79:85 88:122 89:91 95:105 98:104 107:117 110:116 119:121 124:153 125:127 129:133 135:152 138:151
+mastodon/spec/requests/api/v1/timelines/tag_spec.rb	5:126 11:125 12:14 16:28 17:27 40:44 46:51 53:58 60:66 68:89 72:76 78:88 91:98 92:97 100:124 101:103 107:117 110:116 119:123
+mastodon/spec/requests/api/v2/filters/keywords_spec.rb	5:157 13:36 17:26 28:35 29:34 38:71 42:44 46:60 62:70 65:69 73:102 77:79 81:91 93:101 96:100 104:129 108:110 112:118 120:128 123:127 131:156 135:137 139:145 147:155 150:154
+mastodon/spec/requests/api/v2/notifications/policies_spec.rb	5:87 11:45 12:14 18:20 24:44 25:43 47:77 48:50 56:76 79:86 80:85
+mastodon/spec/requests/api/v2/search_spec.rb	5:189 6:128 9:127 15:21 23:93 26:30 32:42 35:41 44:54 47:53 56:66 59:65 68:78 71:77 80:92 83:85 87:91 95:105 98:104 107:117 110:116 119:126 120:125 130:188 131:187 134:136 138:144 139:143 146:154 149:153 156:186 159:163 165:174 168:173 176:185 179:184
+mastodon/spec/requests/api/v2/suggestions_spec.rb	5:44 8:43 13:15 17:33 25:31 35:42 36:41
+mastodon/spec/requests/api/web/embeds_spec.rb	5:195 8:65 11:38 14:25 17:24 27:37 30:36 40:52 45:51 54:64 57:63 67:194 70:115 73:98 76:83 85:97 86:88 90:96 100:114 103:105 107:113 117:181 124:127 129:141 130:132 134:140 143:154 146:153 156:168 161:167 170:180 173:179 183:193 186:192
+mastodon/spec/requests/auth/challenges_spec.rb	5:46 11:45 14:23 15:22 25:35 26:34 37:44 38:43
+mastodon/spec/requests/backups_spec.rb	5:26 8:25 12:14 16:20 22:24
+mastodon/spec/requests/collection_items_spec.rb	5:127 6:126 13:56 14:26 15:18 20:25 28:37 31:36 39:55 40:54 58:75 61:63 65:74 68:73 77:125 78:82 86:95 89:94 97:106 100:105 108:124 109:123
+mastodon/spec/requests/custom_css_spec.rb	5:47 8:46 9:21 10:20 23:45 24:26 28:38 40:44
+mastodon/spec/requests/disabled_oauth_endpoints_spec.rb	5:83 10:16 11:15 18:24 19:23 26:32 27:31 34:42 37:41 44:52 47:51 54:62 57:61 64:72 67:71 74:82 77:81
+mastodon/spec/requests/filters/statuses_spec.rb	5:45 6:18 12:17 20:44 23:30 24:29 32:43 33:42 36:41
+mastodon/spec/requests/intents_spec.rb	5:53 10:52 15:33 16:20 22:26 28:32 35:39 41:45 47:51
+mastodon/spec/requests/invites_spec.rb	5:40 10:30 13:20 14:19 22:29 23:28 32:39 33:38
+mastodon/spec/requests/localization_spec.rb	5:41 6:10 7:9 12:20 22:30 32:40
+mastodon/spec/requests/media_proxy_spec.rb	5:88 6:87 9:28 13:19 21:27 30:39 33:38 41:48 42:47 50:60 54:59 62:76 63:65 71:75 78:86
+mastodon/spec/requests/oauth/token_spec.rb	5:126 6:106 7:9 11:13 14:23 25:66 27:30 32:39 33:38 41:45 47:65 48:52 54:58 60:64 68:105 72:81 75:80 83:104 84:93 87:92 95:103 98:102 108:125 116:124
+mastodon/spec/requests/settings/imports_spec.rb	5:36 6:35 12:17 19:34 25:33
+mastodon/spec/requests/settings/privacy_spec.rb	5:16 6:15 9:14
+mastodon/spec/requests/settings/two_factor_authentication/confirmations_spec.rb	5:35 6:18 7:10 12:17 20:34 21:26 28:33
+mastodon/spec/requests/severed_relationships_spec.rb	5:62 11:35 12:23 25:34 28:33 37:61 38:49 51:60 54:59
+mastodon/spec/requests/statuses_cleanup_spec.rb	5:16 6:15 9:14
+mastodon/spec/requests/unsubscriptions_spec.rb	5:101 10:18 11:17 14:16 20:28 21:27 24:26 30:45 31:33 38:44 47:70 48:53 58:64 66:69 72:100 73:80 82:87 92:94 96:99
+mastodon/spec/requests/username_rewrites_spec.rb	5:53 6:16 7:15 18:28 19:27 30:40 31:39 42:52 43:51
+mastodon/spec/requests/well_known/host_meta_spec.rb	5:64 6:26 7:18 20:25 28:40 29:39 42:54 43:53 56:63
+mastodon/spec/routing/accounts_routing_spec.rb	5:188 6:48 9:11 13:15 17:19 21:23 25:27 29:31 33:35 37:39 41:43 45:47 50:104 55:58 60:63 65:68 70:73 75:78 80:83 85:88 90:93 95:98 100:103 106:140 109:111 113:115 117:119 121:123 125:127 129:131 133:135 137:139 142:187 148:151 153:156 158:161 163:166 168:171 173:176 178:181 183:186
+mastodon/spec/routing/custom_css_routing_spec.rb	5:19 6:11 7:10 13:18 14:17
+mastodon/spec/serializers/activitypub/accept_follow_serializer_spec.rb	5:21 8:20 11:19
+mastodon/spec/serializers/activitypub/accept_quote_request_serializer_spec.rb	5:25 8:24 11:23
+mastodon/spec/serializers/activitypub/delete_feature_authorization_serializer_spec.rb	5:27 10:26 14:25
+mastodon/spec/serializers/activitypub/feature_authorization_serializer_spec.rb	5:24 10:23 14:22
+mastodon/spec/serializers/activitypub/quote_authorization_serializer_spec.rb	5:22 8:21 12:20
+mastodon/spec/serializers/activitypub/quote_request_serializer_spec.rb	5:51 11:28 14:27 30:50 33:49
+mastodon/spec/serializers/activitypub/remove_hashtag_serializer_spec.rb	5:26 11:25
+mastodon/spec/serializers/activitypub/update_poll_serializer_spec.rb	5:23 12:14 16:18 20:22
+mastodon/spec/serializers/rest/account_serializer_spec.rb	5:141 6:11 19:27 20:22 24:26 29:35 32:34 37:43 40:42 45:53 46:48 50:52 55:66 56:58 60:65 68:76 69:71 73:75 78:140 79:127 80:114 81:87 89:113 92:100 93:99 102:112 105:111 116:126 119:125 129:139 132:138
+mastodon/spec/serializers/rest/admin/cohort_serializer_spec.rb	5:21 10:20 11:19
+mastodon/spec/serializers/rest/admin/domain_block_serializer_spec.rb	5:18 10:17 11:16
+mastodon/spec/serializers/rest/admin/ip_block_serializer_spec.rb	5:19 8:18 11:17
+mastodon/spec/serializers/rest/appeal_serializer_spec.rb	5:27 8:26 9:13 15:19 21:25
+mastodon/spec/serializers/rest/custom_emoji_serializer_spec.rb	5:18 10:17 11:16
+mastodon/spec/serializers/rest/preview_card_serializer_spec.rb	5:64 6:15 19:28 22:27 30:45 33:44 47:63 50:62
+mastodon/spec/serializers/rest/shallow_quote_serializer_spec.rb	5:93 6:15 20:30 21:29 32:44 35:43 46:61 49:52 54:60 63:77 66:68 70:76 79:92 83:91
+mastodon/spec/services/activitypub/fetch_featured_tags_collection_service_spec.rb	5:97 11:17 19:26 28:36 29:31 33:35 38:96 39:45 40:42 47:57 48:54 59:74 60:67 69:71 76:95 77:88 90:92
+mastodon/spec/services/activitypub/fetch_remote_featured_collection_service_spec.rb	5:64 11:23 25:32 34:42 35:41 44:54 45:47 49:53 50:52 56:63 60:62
+mastodon/spec/services/activitypub/process_account_service_spec.rb	5:920 8:20 22:80 23:49 51:55 57:79 82:113 83:94 96:100 102:112 115:173 118:130 134:145 147:155 150:154 157:172 160:163 165:171 175:272 179:187 189:195 197:200 202:213 215:244 216:228 232:243 246:254 249:253 256:271 259:262 264:270 274:330 275:294 298:314 316:329 319:328 332:388 333:354 358:372 374:387 377:386 390:436 393:405 407:409 411:435 438:530 441:452 454:467 469:494 496:529 499:528 532:612 535:546 548:550 552:576 578:611 581:610 614:635 615:625 629:634 637:662 638:648 652:661 664:686 665:676 680:685 688:718 691:699 701:707 709:712 714:717 720:772 725:734 736:742 744:754 747:749 751:753 756:771 759:761 763:766 768:770 774:808 775:786 776:785 788:801 791:800 803:807 810:872 811:820 822:865 825:864 867:871 874:909 875:893 895:900 902:908 903:907 913:915 917:919
+mastodon/spec/services/activitypub/process_featured_collection_service_spec.rb	5:134 11:32 35:43 38:42 39:41 45:53 48:52 49:51 55:71 56:70 73:89 74:80 82:88 91:101 92:94 96:100 103:133 106:109 111:117 119:132 120:126 128:131
+mastodon/spec/services/activitypub/process_featured_item_service_spec.rb	5:208 15:25 26:28 30:32 34:54 35:43 38:42 39:41 45:53 48:52 49:51 56:179 61:95 62:74 63:73 76:83 77:82 85:94 86:89 91:93 97:117 98:100 102:108 103:107 110:116 111:115 119:130 120:122 126:129 132:156 133:139 142:149 151:155 152:154 158:178 159:165 168:171 173:177 174:176 181:207 183:190 192:194 198:206
+mastodon/spec/services/activitypub/verify_featured_item_service_spec.rb	5:109 9:16 18:26 27:34 39:73 40:52 43:51 54:72 57:60 62:71 75:87 76:79 81:86 89:108 90:98 102:107
+mastodon/spec/services/add_account_to_collection_service_spec.rb	5:61 10:60 11:49 14:22 15:17 24:35 25:34 37:48 40:47 51:59 54:58 55:57
+mastodon/spec/services/after_unallow_domain_service_spec.rb	5:24 6:23 7:22 14:21
+mastodon/spec/services/app_sign_up_service_spec.rb	5:120 12:119 15:28 16:27 30:49 31:34 36:48 51:72 52:57 59:71 74:102 75:77 79:81 83:92 87:89 94:101 98:100 104:106 110:118 111:117
+mastodon/spec/services/block_domain_service_spec.rb	5:72 16:49 17:20 22:48 51:71 52:70
+mastodon/spec/services/fetch_link_card_service_spec.rb	5:324 11:40 42:304 43:51 46:50 53:60 57:59 62:68 65:67 70:80 73:75 77:79 82:95 85:88 90:94 97:108 100:103 105:107 110:116 113:115 118:124 121:123 126:132 129:131 134:140 137:139 142:148 145:147 150:156 153:155 158:164 161:163 166:172 169:171 174:200 175:181 178:180 183:199 184:190 187:189 192:198 195:197 202:208 205:207 210:216 213:215 218:228 221:223 225:227 230:236 233:235 238:287 242:244 246:250 252:265 255:258 260:264 270:286 274:276 278:281 283:285 289:295 292:294 297:303 300:302 306:323 307:314 316:318 320:322
+mastodon/spec/services/fetch_oembed_service_spec.rb	5:201 8:12 14:200 15:154 16:40 17:28 30:34 36:39 42:67 43:49 51:55 57:61 63:66 69:88 70:76 78:82 84:87 90:109 91:97 99:103 105:108 111:123 112:118 120:122 125:137 126:132 134:136 139:153 140:146 148:152 156:172 157:163 165:171 174:186 175:181 183:185 188:199 189:194 196:198
+mastodon/spec/services/mute_service_spec.rb	5:63 11:28 16:18 20:27 30:34 36:42 37:41 44:52 47:51 54:62 57:61
+mastodon/spec/services/reject_follow_service_spec.rb	5:44 10:23 15:22 25:43 28:31 33:42
+mastodon/spec/services/remove_domains_from_followers_service_spec.rb	5:28 6:27 7:26 12:15 17:25
+mastodon/spec/services/remove_from_followers_service_spec.rb	5:41 10:21 15:20 23:40 26:29 31:39
+mastodon/spec/services/unfollow_service_spec.rb	5:61 11:13 15:26 18:20 22:25 28:36 29:33 38:49 41:46 51:60 54:59
+mastodon/spec/services/update_collection_service_spec.rb	5:38 11:37 12:28 13:18 20:27 21:26 30:36 31:35 32:34
+mastodon/spec/support/browser_errors.rb	3:11 4:6 8:10 13:50 16:25 20:24 27:49 34:36 38:48 39:47 40:46
+mastodon/spec/support/examples/fasp/api.rb	3:13 4:12 7:11
+mastodon/spec/support/examples/models/concerns/reviewable.rb	3:79 9:32 13:19 14:18 21:27 22:26 29:31 34:42 37:41 44:52 47:51 54:62 57:61 64:78 67:71 73:77
+mastodon/spec/support/matchers/private_cache_control.rb	3:14 4:6 8:13
+mastodon/spec/support/threading_helpers.rb	5:18 6:17 9:14 10:13
+mastodon/spec/system/admin/announcements/tests_spec.rb	5:23 11:22 12:21
+mastodon/spec/system/admin/announcements_spec.rb	5:126 8:19 9:18 14:17 21:34 22:33 36:53 37:52 42:44 55:67 56:66 69:93 70:80 82:92 97:101 98:100 103:107 104:106 109:113 110:112 115:117 119:121 123:125
+mastodon/spec/system/admin/custom_emojis_spec.rb	5:68 10:20 13:19 22:45 23:40 42:44 47:67 48:50 52:58 53:57 60:62 64:66
+mastodon/spec/system/admin/email_subscriptions/setups_spec.rb	5:29 10:28 11:23 25:27
+mastodon/spec/system/admin/email_subscriptions_spec.rb	5:47 10:46 11:13 15:34 18:33 36:45 39:44
+mastodon/spec/system/admin/fasp/debug/callbacks_spec.rb	5:29 8:28 11:13 15:27 22:26
+mastodon/spec/system/admin/reports_spec.rb	5:112 10:33 15:32 35:56 38:55 40:42 58:78 61:77 63:65 80:105 83:104 109:111
+mastodon/spec/system/admin/rules_spec.rb	5:108 6:107 9:23 12:22 25:49 26:44 46:48 51:72 55:71 74:95 77:90 92:94 97:106 100:105
+mastodon/spec/system/admin/settings/registrations_spec.rb	5:31 10:22 24:26 28:30
+mastodon/spec/system/admin/site_uploads_spec.rb	5:27 10:26 13:25
+mastodon/spec/system/admin/software_updates_spec.rb	5:28 12:27 22:24
+mastodon/spec/system/admin/terms_of_service/drafts_spec.rb	5:82 10:81 11:41 14:40 43:64 44:48 45:47 50:63 66:80 67:79
+mastodon/spec/system/admin/terms_of_service_spec.rb	5:21 6:20 11:19
+mastodon/spec/system/admin/trends/links_spec.rb	5:104 10:103 11:22 12:21 24:35 27:34 37:49 41:48 51:62 54:61 64:76 68:75 78:82 79:81 84:86 88:90 92:94 96:98 100:102
+mastodon/spec/system/admin/trends/statuses_spec.rb	5:102 10:101 11:22 12:21 24:35 27:34 37:48 40:47 50:61 53:60 63:74 66:73 76:80 77:79 82:84 86:88 90:92 94:96 98:100
+mastodon/spec/system/admin/trends/tags_spec.rb	5:82 10:23 11:22 14:21 17:20 25:81 26:36 27:35 38:49 41:48 51:62 54:61 64:68 65:67 70:72 74:76 78:80
+mastodon/spec/system/admin/users/roles_spec.rb	5:38 12:14 16:37 20:36
+mastodon/spec/system/settings/aliases_spec.rb	5:82 11:20 12:19 22:54 23:36 26:35 38:49 39:48 51:53 56:74 57:61 58:60 63:73 78:81
+mastodon/spec/system/settings/migration/redirects_spec.rb	5:55 10:54 13:33 35:46 38:45 50:53
+mastodon/spec/system/settings/preferences/notifications_spec.rb	5:27 10:22 24:26
+mastodon/spec/system/settings/privacy_spec.rb	5:64 10:63 13:32 14:31 34:62 35:37 39:55 59:61
+mastodon/spec/system/share_entrypoint_spec.rb	5:38 15:29 31:37 32:36
+mastodon/spec/system/statuses_cleanup_spec.rb	5:33 9:32 12:27 29:31
+mastodon/spec/system/streaming/streaming_spec.rb	4:142 12:14 16:18 20:27 21:26 29:38 32:37 40:49 43:48 51:62 52:54 56:61 64:76 65:75 78:93 82:92 95:106 96:98 100:105 108:117 109:116 119:130 120:122 124:129 132:141 133:140
+mastodon/spec/system/unlogged_spec.rb	5:17 8:10 12:16
+mastodon/spec/system/wrapstodon_spec.rb	5:22 6:21 10:20 13:19
+mastodon/spec/validators/disallowed_hashtags_validator_spec.rb	5:49 10:34 13:17 19:33 20:22 24:32 29:31 36:48 39:43 45:47
+mastodon/spec/validators/follow_limit_validator_spec.rb	5:47 8:10 12:16 18:46 21:25 27:45 30:38 35:37 40:44
+mastodon/spec/workers/account_refresh_worker_spec.rb	5:56 9:55 12:18 13:17 20:48 21:29 24:28 31:39 34:38 41:43 45:47 50:54
+mastodon/spec/workers/activitypub/distribution_worker_spec.rb	5:101 11:100 12:14 16:27 17:19 21:26 29:40 30:32 34:39 42:56 45:48 50:55 58:99 59:61 63:78 67:77 80:98 84:97
+mastodon/spec/workers/bulk_import_worker_spec.rb	5:24 10:23 13:15 17:22
+mastodon/spec/workers/fasp/announce_account_lifecycle_event_worker_spec.rb	5:46 12:14 17:31 33:37 39:45 40:42
+mastodon/spec/workers/fasp/announce_trend_worker_spec.rb	5:65 12:19 22:36 38:56 39:41 43:47 49:55 50:52 58:64 59:63
+mastodon/spec/workers/feed_insert_worker_spec.rb	5:71 8:70 13:31 14:21 23:30 33:69 34:41 43:50 52:59 61:68
+mastodon/spec/workers/generate_annual_report_worker_spec.rb	5:27 9:26 10:13 15:19 21:25
+mastodon/spec/workers/mute_worker_spec.rb	5:44 8:43 17:21 23:27 29:42 34:41
+mastodon/spec/workers/poll_expiration_notify_worker_spec.rb	5:58 13:57 14:16 18:24 19:23 26:56 27:33 35:43 36:42 45:55 48:54
+mastodon/spec/workers/push_update_worker_spec.rb	5:45 8:44 9:14 10:13 16:43 22:38 40:42
+mastodon/spec/workers/redownload_media_worker_spec.rb	5:37 8:36 9:13 15:21 23:35 28:34
+mastodon/spec/workers/regeneration_worker_spec.rb	5:26 8:25 11:18 20:24
+mastodon/spec/workers/remove_from_public_statuses_index_worker_spec.rb	5:42 6:41 10:13 15:22 18:21 24:31 27:30 33:40 37:39
+mastodon/spec/workers/scheduler/software_update_check_scheduler_spec.rb	5:20 8:19 11:13 15:18
+mastodon/spec/workers/verify_account_links_worker_spec.rb	5:42 8:41 11:18 14:17 20:40 25:32 34:39
+mastodon/spec/workers/webhooks/delivery_worker_spec.rb	5:25 8:24 11:17 19:23

@@ -534,3 +534,18 @@ fn python_class_of(lines: &[&str], d: usize) -> Option<usize> {
     }
     None
 }
+/// Whether the word at `range` of 1-based `line` names a keyword argument of a Python call:
+/// `recipe_yield=…` behind a `(` or a `,`, or at the start of a line that continues a call. It
+/// names a parameter of whatever is called, and no variable of that spelling.
+pub fn keyword_argument(text: &str, line: usize, range: &std::ops::Range<usize>) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(l) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
+        return false;
+    };
+    let after = l[range.end..].trim_start();
+    let before = l[..range.start].trim_end();
+    after.starts_with('=')
+        && !after.starts_with("==")
+        && (before.ends_with(['(', ','])
+            || (before.is_empty() && continued(Kind::Python, &lines, line - 1)))
+}

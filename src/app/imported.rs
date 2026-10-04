@@ -233,6 +233,7 @@ impl App {
                 (files, inside)
             }
             Kind::Go => (module_files(path), tail(Vec::new())),
+            Kind::Julia if path.first().is_some_and(|p| !p.starts_with('.')) => return None,
             // No module rules: the search by name, then outside the project, as before.
             _ => return Some(Vec::new()),
         };
@@ -480,11 +481,23 @@ impl App {
         here: &Path,
         module: &[String],
     ) -> Vec<PathBuf> {
+        if kind == Kind::Elixir
+            && let Some((lib, path)) = search::erlang_include(self.line_str(), self.col)
+        {
+            let outside = self.external_files(kind);
+            return search::erlang_include_files(lib, &path, here, &self.files, &outside);
+        }
         let Some((command, arg)) = (kind == Kind::Cmake)
             .then(|| search::cmake_import(self.line_str(), self.col))
             .flatten()
         else {
-            return search::module_files(kind, &self.root, &self.files, here, module);
+            let found = search::module_files(kind, &self.root, &self.files, here, module);
+            if !found.is_empty() || !matches!(kind, Kind::EmacsLisp | Kind::Scheme) {
+                return found;
+            }
+            let outside = self.external_files(kind);
+            let dir = here.parent().unwrap_or(Path::new(""));
+            return search::lisp_files(kind, dir, &module.join("/"), &outside);
         };
         let dir = here.parent().unwrap_or(Path::new(""));
         let found = search::cmake_files(&command, &arg, dir, &self.files);
