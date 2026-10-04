@@ -271,6 +271,33 @@ fn ctrl_shift_left_right_select_to_the_line_edges() {
     assert_eq!((a.col, a.file_selection()), (4, None));
 }
 
+/// #687: Shift on PgUp / PgDn, Home / End and Ctrl+Home / Ctrl+End extends the selection over
+/// all the move covers, as on an arrow; the move without Shift drops it.
+#[test]
+fn shift_far_moves_extend_the_selection() {
+    let text: String = (0..40).map(|i| format!("line {i}\n")).collect();
+    let mut a = app(&text);
+    a.view_h = 10;
+    let shift = KeyModifiers::SHIFT;
+    let ctrl_shift = KeyModifiers::CONTROL | KeyModifiers::SHIFT;
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Right, KeyModifiers::NONE);
+    press(&mut a, KeyCode::End, shift);
+    assert_eq!(a.file_selection(), Some(((1, 1), (1, 6))));
+    press(&mut a, KeyCode::PageDown, shift);
+    assert_eq!(a.file_selection(), Some(((1, 1), (11, 6))));
+    press(&mut a, KeyCode::Home, shift);
+    assert_eq!(a.file_selection(), Some(((1, 1), (11, 0))));
+    press(&mut a, KeyCode::End, ctrl_shift);
+    assert_eq!(a.file_selection(), Some(((1, 1), (39, 7))));
+    press(&mut a, KeyCode::PageUp, shift);
+    assert_eq!(a.file_selection(), Some(((1, 1), (29, 7))));
+    press(&mut a, KeyCode::Home, ctrl_shift);
+    assert_eq!(a.file_selection(), Some(((0, 0), (1, 1))));
+    press(&mut a, KeyCode::PageDown, KeyModifiers::NONE);
+    assert_eq!(a.file_selection(), None);
+}
+
 #[test]
 fn alt_shift_left_right_select_by_word_without_touching_find() {
     let mut a = app("foo bar_1 baz");

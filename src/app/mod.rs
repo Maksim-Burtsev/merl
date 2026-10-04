@@ -175,6 +175,21 @@ pub const KEYS: &[(&str, &str, &str)] = &[
         "Selection",
     ),
     (
+        "Shift+Home / Shift+End",
+        "Extend the selection to the start / end of the screen row, then of the line",
+        "Selection",
+    ),
+    (
+        "Shift+PgUp / Shift+PgDn",
+        "Extend the selection by a screen",
+        "Selection",
+    ),
+    (
+        "Ctrl+Shift+Home / Ctrl+Shift+End",
+        "Extend the selection to the start / end of the file",
+        "Selection",
+    ),
+    (
         "Arrows",
         "Move the cursor; Up / Down go by screen row",
         "Movement",

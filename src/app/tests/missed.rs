@@ -41,6 +41,14 @@ fn a_held_arrow_misses_the_key_that_covers_the_distance() {
         // Half a screen and two rows: Ctrl+D Down Down, three presses of seven.
         (lines.as_str(), KeyCode::Down, NONE, 7, "Ctrl+D"),
         (words, KeyCode::Right, NONE, 10, "Alt+Right"),
+        // Two screens selected: Shift+PgDn twice.
+        (
+            lines.as_str(),
+            KeyCode::Down,
+            KeyModifiers::SHIFT,
+            20,
+            "Shift+PgDn",
+        ),
         // `alpha` selected: Alt+Shift+Right, and `v` too, which comes later in the list.
         (
             words,
