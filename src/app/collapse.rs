@@ -1,5 +1,7 @@
 use super::*;
 
+mod words;
+
 impl App {
     pub(super) fn toggle_collapse(&mut self) {
         if self.deleted.is_some() || self.previewing() {
@@ -10,14 +12,14 @@ impl App {
             self.collapsed.remove(i);
             return;
         }
-        if self.kind() != Some(Kind::Python) {
+        let Some(shape) = Folds::of(self.fold_kind(), &self.buf.lines) else {
             self.message = match self.buf.path.as_ref().and_then(|p| p.extension()) {
                 Some(ext) => format!("no fold rules for .{}", ext.to_string_lossy()),
                 None => "no fold rules for this file".into(),
             };
             return;
-        }
-        let Some((h, end)) = Shape::python(&self.buf.lines).target(l) else {
+        };
+        let Some((h, end)) = shape.target(l) else {
             self.message = "nothing to fold".into();
             return;
         };
@@ -26,6 +28,15 @@ impl App {
         self.anchor = None;
         self.set_at(TextLine::File(h));
         self.apply_want_x(0);
+    }
+
+    fn fold_kind(&self) -> Option<Kind> {
+        let name = self.buf.path.as_deref()?.file_name()?.to_str()?;
+        match self.kind()? {
+            Kind::Ruby if name.ends_with(".rbs") => None,
+            Kind::Shell if name.ends_with(".zsh") || name.starts_with(".z") => None,
+            kind => Some(kind),
+        }
     }
 
     pub fn hidden(&self, l: usize) -> bool {
@@ -37,7 +48,9 @@ impl App {
     pub fn collapsed_tail(&self, l: usize) -> Option<&str> {
         let e = self.collapsed_at(l)?;
         let (head, end) = (&self.buf.lines[l], &self.buf.lines[e]);
-        let level = indent(head) == indent(end) && closes(end.trim());
+        let word = end.trim().split([' ', ';']).next();
+        let level = indent(head) == indent(end)
+            && (closes(end.trim()) || matches!(word, Some("fi" | "done" | "esac")));
         Some(if level { end.trim() } else { "" })
     }
 
@@ -57,7 +70,9 @@ impl App {
     }
 
     pub(super) fn shift_collapsed(&mut self, at: usize, old: usize, new: usize) {
-        let shape = Shape::python(&self.buf.lines);
+        let Some(shape) = Folds::of(self.fold_kind(), &self.buf.lines) else {
+            return self.collapsed.clear();
+        };
         let moved = |(h, e): (usize, usize)| match () {
             _ if (at..at + old).contains(&h) => None,
             _ if e < at => Some((h, e)),
@@ -93,7 +108,9 @@ impl App {
     }
 
     fn measure_collapsed(&mut self, heads: Vec<usize>) {
-        let shape = Shape::python(&self.buf.lines);
+        let Some(shape) = Folds::of(self.fold_kind(), &self.buf.lines) else {
+            return self.collapsed.clear();
+        };
         self.collapsed = heads
             .into_iter()
             .filter_map(|h| Some((h, shape.region(h)?)))
@@ -112,6 +129,53 @@ impl App {
                 }
             }
             self.collapsed[i] = (h, e);
+        }
+    }
+}
+
+#[cfg(test)]
+thread_local! {
+    pub(crate) static FOLD_EVERY_KIND: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+#[cfg(test)]
+fn every_kind() -> bool {
+    FOLD_EVERY_KIND.get()
+}
+
+#[cfg(not(test))]
+fn every_kind() -> bool {
+    false
+}
+
+enum Folds<'a> {
+    Indent(Shape<'a>),
+    Words(words::Blocks),
+}
+
+impl<'a> Folds<'a> {
+    fn of(kind: Option<Kind>, lines: &'a [String]) -> Option<Self> {
+        Some(match kind {
+            Some(Kind::Python) => Folds::Indent(Shape::python(lines)),
+            Some(Kind::Ruby) => Folds::Words(words::ruby(lines)),
+            Some(Kind::Lua) => Folds::Words(words::lua(lines)),
+            Some(Kind::Shell) => Folds::Words(words::shell(lines)),
+            _ if every_kind() => Folds::Indent(Shape::plain(lines)),
+            _ => return None,
+        })
+    }
+
+    fn target(&self, l: usize) -> Option<(usize, usize)> {
+        match self {
+            Folds::Indent(s) => s.target(l),
+            Folds::Words(w) => w.target(l),
+        }
+    }
+
+    fn region(&self, h: usize) -> Option<usize> {
+        match self {
+            Folds::Indent(s) => s.region(h),
+            Folds::Words(w) => w.region(h),
         }
     }
 }
