@@ -128,6 +128,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` on `Settings` in a Java `new Settings(entries)` no longer jumps to `Settings(String path)`
+  when the class also declares `Settings(Map<String, Object> entries)`: the comma inside `<…>` of
+  a parameter list no longer counts as a second parameter. (#675)
 - A `.fs` file is highlighted as F#, not GLSL. (#427)
 - A Bazel `BUILD` file is highlighted as Starlark instead of as XML, and a `BUCK` or `.star` file
   is highlighted at all. (#431)
