@@ -10,7 +10,7 @@ wait Files (
 │✓       M values.yaml  +1 −0│  ▎    def get(self, order_id: int) -> Order | None:
 │  ▾ docs                    │  ▎        return self.orders.get(order_id)
 │    M architecture.png   bin│  ▎
-│  ▾ scripts       ┌Files (57/57)─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  ▾ scripts       ┌Files (62/62)─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │    D refund_by_ha│>                                                                                                                                                 │
 │  ▾ tests         │A app/refunds.py                                                                                                                                  │
 │    A test_refunds│M app/repos.py                                                                                                                                    │
@@ -37,11 +37,11 @@ wait Files (
 │                  │  scripts/payouts/Cargo.toml                                                                                                                      │
 │                  │  scripts/invoices.php                                                                                                                            │
 │                  │  tests/test_service.py                                                                                                                           │
+│                  │  web/android/gradle/libs.versions.toml                                                                                                           │
 │                  │  web/android/src/main/java/courier/app/scan/Parcel.java                                                                                          │
 │                  │  web/android/src/main/java/courier/app/ParcelSync.java                                                                                           │
 │                  │  web/android/src/main/java/courier/app/Scale.java                                                                                                │
 │                  │  web/android/src/main/kotlin/courier/app/ship/Parcel.kt                                                                                          │
-│                  │  web/android/src/main/kotlin/courier/app/ParcelList.kt                                                                                           │
 │                  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 │                            │
 │                            │

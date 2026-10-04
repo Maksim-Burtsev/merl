@@ -10,16 +10,28 @@ impl App {
     pub(super) fn usages(&mut self) {
         let extra = search::word_chars(self.kind(), false);
         let Some(read) = self.on_drawn(|a| match a.kind() {
-            k @ Some(Kind::Ruby | Kind::Elixir | Kind::Cmake | Kind::Nix | Kind::Julia) => {
-                a.definition_word(k).map(|(r, w)| {
-                    let lead = &a.line_str()[..r.start];
-                    let sigil = lead.len() - lead.trim_end_matches('@').len();
-                    match k == Some(Kind::Ruby) && (1..=2).contains(&sigil) {
-                        true => format!("{}{w}", &lead[lead.len() - sigil..]),
-                        false => w,
-                    }
-                })
-            }
+            k @ Some(
+                Kind::Ruby
+                | Kind::Elixir
+                | Kind::Cmake
+                | Kind::Nix
+                | Kind::Haskell
+                | Kind::Ocaml
+                | Kind::Fsharp
+                | Kind::Julia
+                | Kind::R
+                | Kind::Clojure
+                | Kind::EmacsLisp
+                | Kind::Scheme
+                | Kind::CommonLisp,
+            ) => a.definition_word(k).map(|(r, w)| {
+                let lead = &a.line_str()[..r.start];
+                let sigil = lead.len() - lead.trim_end_matches('@').len();
+                match k == Some(Kind::Ruby) && (1..=2).contains(&sigil) {
+                    true => format!("{}{w}", &lead[lead.len() - sigil..]),
+                    false => w,
+                }
+            }),
             _ => a.css_word().or_else(|| a.word_under(extra)),
         }) else {
             self.message = "no word under the cursor".into();
@@ -43,11 +55,13 @@ impl App {
             .map(|(_, h)| {
                 let kind = search::kind_of(&h.path);
                 let row = search::word_chars(kind, false);
-                let julia = (kind == Some(Kind::Julia))
-                    .then(|| search::julia_col(&h.text, word))
-                    .flatten();
+                let col = match kind {
+                    Some(Kind::Haskell) => search::haskell_whole(&h.text, word),
+                    Some(Kind::Julia) => search::julia_col(&h.text, word),
+                    _ => None,
+                };
                 Hit {
-                    col: julia.unwrap_or_else(|| {
+                    col: col.unwrap_or_else(|| {
                         word_col(&h.text, word, &format!("{}{row}", extra.replace('\'', "")))
                     }),
                     ..h
@@ -134,11 +148,13 @@ impl App {
                 |t| whole.captures(t).and_then(|c| c.get(1)).map(|m| m.start()),
             ));
         }
-        let hits = hits.into_iter().filter(|h| {
-            let kind = search::kind_of(&h.path);
-            let extra = search::word_chars(kind, false);
-            (extra.is_empty() || whole_at(&h.text, text, extra).is_some())
-                && (kind != Some(Kind::Julia) || search::julia_whole(&h.text, text))
+        let hits = hits.into_iter().filter(|h| match search::kind_of(&h.path) {
+            Some(Kind::Haskell) => search::haskell_whole(&h.text, text).is_some(),
+            k => {
+                let extra = search::word_chars(k, false);
+                (extra.is_empty() || whole_at(&h.text, text, extra).is_some())
+                    && (k != Some(Kind::Julia) || search::julia_whole(&h.text, text))
+            }
         });
         // What tells a declaration of the word from a use of it is `def_patterns`, and which
         // ones apply is the hit file's own kind: one regex per kind met, built once. A Rust `let`

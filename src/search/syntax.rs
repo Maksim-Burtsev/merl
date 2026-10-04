@@ -6,10 +6,9 @@ use std::borrow::Cow;
 pub(super) fn indent(s: &str) -> usize {
     s.len() - s.trim_start().len()
 }
-/// Whether a trimmed line of `kind` is a comment. TypeScript's `#private` is a name.
 pub(super) fn comment(kind: Kind, t: &str) -> bool {
     match kind {
-        Kind::Python => t.starts_with('#'),
+        Kind::Python | Kind::Gdscript | Kind::Starlark => t.starts_with('#'),
         _ => ["//", "/*", "*"].iter().any(|c| t.starts_with(c)),
     }
 }
@@ -37,6 +36,29 @@ pub(super) fn comment(kind: Kind, t: &str) -> bool {
 /// all; Ruby's multi-line `%q{…}` is read as code, and a `/` opens a regex only after an operator
 /// or a bracket, not after `when` or `split `.
 pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
+    thread_local! {
+        static LEXED: std::cell::RefCell<std::collections::VecDeque<(Kind, String, Vec<bool>)>> =
+            const { std::cell::RefCell::new(std::collections::VecDeque::new()) };
+    }
+    let seen = LEXED.with_borrow(|l| {
+        l.iter()
+            .find(|(k, t, _)| *k == kind && t == text)
+            .map(|(.., lines)| lines.clone())
+    });
+    if let Some(lines) = seen {
+        return lines;
+    }
+    let lines = lex_literal_lines(kind, text);
+    LEXED.with_borrow_mut(|l| {
+        if l.len() == LEXED_KEPT {
+            l.pop_front();
+        }
+        l.push_back((kind, text.to_owned(), lines.clone()));
+    });
+    lines
+}
+const LEXED_KEPT: usize = 16;
+fn lex_literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     // Markdown's are blocks, not tokens: a fence, an HTML comment, the front matter (#421).
     if kind == Kind::Markdown {
         return markdown_literal_lines(text);
@@ -49,8 +71,23 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     if kind == Kind::Nix {
         return nix_literal_lines(text);
     }
+    if kind == Kind::Haskell {
+        return haskell_literal_lines(text);
+    }
+    if matches!(kind, Kind::Ocaml | Kind::Fsharp) {
+        return ml_literal_lines(kind, text);
+    }
     if kind == Kind::Julia {
         return julia_literal_lines(text);
+    }
+    if kind == Kind::R {
+        return r_literal_lines(text);
+    }
+    if kind == Kind::Perl {
+        return perl_literal_lines(text);
+    }
+    if lisp(kind) {
+        return lisp_literal_lines(kind, text);
     }
     if kind == Kind::Css && text.contains("<style") {
         let html = html_literal_lines(text);
@@ -88,15 +125,11 @@ pub fn in_string(kind: Kind, text: &str, at: usize) -> bool {
 }
 /// [`literal_lines`], and whether byte `at` is inside a Rust string.
 fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
-    // What this kind writes: the triple quote of a heredoc, Lua's long bracket, the backtick
-    // template and the `/* */` block of the C family, and the comments that run to the end of a
-    // line. Elixir writes its heredocs and its comments exactly as Python does; Swift and C#
-    // write the same `"""` block with the C family's comments around it. SQL and Terraform have
-    // the `/* */` block but no template; SQL keeps the `//` comment Snowflake writes, and its
-    // backtick quotes a MySQL name of one line, whose `/*` opens nothing.
     let (heredoc, long_bracket, template, block_comment, line_comments): (_, _, _, _, &[&str]) =
         match kind {
-            Kind::Python | Kind::Elixir => (true, false, false, false, &["#"]),
+            Kind::Python | Kind::Starlark | Kind::Elixir | Kind::Gdscript => {
+                (true, false, false, false, &["#"])
+            }
             Kind::Lua => (false, true, false, false, &["--"]),
             Kind::Zig => (false, false, false, false, &["//"]),
             Kind::Swift | Kind::CSharp => (true, false, true, true, &["//"]),
@@ -115,7 +148,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             Kind::Graphql => (true, false, false, false, &["#"]),
             // The C family's comments, and no backtick: a Protocol Buffers string ends with its
             // line.
-            Kind::Proto => (false, false, false, true, &["//"]),
+            Kind::Proto | Kind::Solidity => (false, false, false, true, &["//"]),
             // `/* */` in all four stylesheet languages and `//` in SCSS, Sass and Less: one kind
             // reads `//` in a `.css` file too, at the cost of a `/*` after a `url(//…)` on its
             // line (#415). A string ends with its line, and a backtick is nothing.
@@ -305,13 +338,21 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             }
         } else if heredoc
             && (b[i..].starts_with(b"\"\"\"")
-                || (matches!(kind, Kind::Python | Kind::Elixir | Kind::Dart)
-                    && b[i..].starts_with(b"'''")))
+                || (matches!(
+                    kind,
+                    Kind::Python
+                        | Kind::Starlark
+                        | Kind::Elixir
+                        | Kind::Dart
+                        | Kind::Jvm
+                        | Kind::Gdscript
+                ) && b[i..].starts_with(b"'''")))
         {
-            // `'''` is Python's, Elixir's and Dart's alone; Swift, C#, GraphQL, Java and Kotlin
-            // write the block with `"` only.
             block = Some(if c == b'"' { b"\"\"\"" } else { b"'''" }.into());
             i += 2;
+        } else if kind == Kind::Jvm && b[i..].starts_with(b"$/") && token_at(i, &[]) {
+            block = Some(b"/$".into());
+            i += 1;
         } else if powershell && b[i..].starts_with(b"<#") {
             block = Some(b"#>".into());
             i += 1;
@@ -534,11 +575,13 @@ pub(super) fn code(kind: Kind, s: &str) -> impl Iterator<Item = (usize, u8)> + '
                 quote = Some(c);
                 None
             }
-            b'#' if kind == Kind::Python => {
+            b'#' if matches!(kind, Kind::Python | Kind::Gdscript) => {
                 comment = true;
                 Some((i, 0))
             }
-            b'/' if kind != Kind::Python && b.get(i + 1) == Some(&b'/') => {
+            b'/' if !matches!(kind, Kind::Python | Kind::Gdscript)
+                && b.get(i + 1) == Some(&b'/') =>
+            {
                 comment = true;
                 Some((i, 0))
             }

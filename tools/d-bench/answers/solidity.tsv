@@ -1,0 +1,271 @@
+# id	targets: path:line joined by ; (project-relative; ~/ or / outside the project; empty: the oracle found none)	skip: why the row is not scored	note
+solidity0000	contracts/token/ERC721/ERC721.sol:279		
+solidity0001			
+solidity0002			
+solidity0003			
+solidity0004			
+solidity0005	contracts/token/ERC20/ERC20.sol:294		
+solidity0006	contracts/interfaces/draft-IERC7579.sol:57		
+solidity0007			
+solidity0008			
+solidity0009	contracts/access/manager/AccessManager.sol:736		
+solidity0010			
+solidity0011	contracts/utils/Context.sol:17		
+solidity0012	contracts/utils/LowLevelCall.sol:12		
+solidity0013	contracts/utils/RLP.sol:59		
+solidity0014			
+solidity0015	contracts/utils/RLP.sol:58		
+solidity0016	contracts/utils/introspection/IERC165.sol:15		
+solidity0017			
+solidity0018	contracts/token/ERC20/ERC20.sol:77		
+solidity0019			
+solidity0020	contracts/account/utils/draft-ERC7579Utils.sol:29		
+solidity0021			
+solidity0022	contracts/utils/structs/Checkpoints.sol:241		
+solidity0023	contracts/utils/Bytes.sol:210		
+solidity0024	contracts/account/utils/ERC4337Utils.sol:52		
+solidity0025			
+solidity0026			
+solidity0027	contracts/access/manager/AccessManager.sol:100		
+solidity0028	contracts/governance/extensions/GovernorCountingSimple.sol:21		
+solidity0029			
+solidity0030	contracts/token/common/ERC2981.sol:25		
+solidity0031			
+solidity0032	contracts/utils/cryptography/WebAuthn.sol:239		
+solidity0033	contracts/utils/structs/MerkleTree.sol:135		
+solidity0034	contracts/account/utils/draft-ERC7579Utils.sol:22		
+solidity0035	contracts/governance/extensions/GovernorCountingOverridable.sol:41		
+solidity0036			
+solidity0037	contracts/utils/structs/EnumerableMap.sol:1372		
+solidity0038			
+solidity0039	contracts/token/ERC20/utils/SafeERC20.sol:19		
+solidity0040			
+solidity0041	contracts/utils/cryptography/SignatureChecker.sol:32		
+solidity0042			
+solidity0043	contracts/interfaces/draft-IERC7579.sol:148		
+solidity0044	contracts/utils/structs/EnumerableMap.sol:237		
+solidity0045	contracts/interfaces/draft-IERC7579.sol:13		
+solidity0046			
+solidity0047	contracts/utils/Strings.sol:434		
+solidity0048			
+solidity0049	contracts/utils/structs/EnumerableMap.sol:111		
+solidity0050	contracts/utils/structs/EnumerableMap.sol:759		
+solidity0051	contracts/utils/RateLimiter.sol:89		
+solidity0052	contracts/utils/structs/Checkpoints.sol:27		
+solidity0053	contracts/utils/structs/Checkpoints.sol:227		
+solidity0054			
+solidity0055			
+solidity0056	contracts/utils/Packing.sol:1439		
+solidity0057	contracts/utils/StorageSlot.sol:111		
+solidity0058			
+solidity0059			
+solidity0060			
+solidity0061	contracts/utils/RLP.sol:78		
+solidity0062	contracts/utils/LowLevelCall.sol:97		
+solidity0063			
+solidity0064	contracts/utils/structs/EnumerableMap.sol:238		
+solidity0065			
+solidity0066	contracts/utils/Errors.sol:14		
+solidity0067			
+solidity0068	contracts/utils/CAIP2.sol:36		
+solidity0069			
+solidity0070	contracts/utils/Panic.sol:26		
+solidity0071	contracts/utils/math/Math.sol:162		
+solidity0072			
+solidity0073			
+solidity0074	contracts/utils/Address.sol:158		
+solidity0075	contracts/utils/structs/EnumerableMap.sol:398		
+solidity0076	contracts/utils/cryptography/MerkleProof.sol:91		
+solidity0077	contracts/utils/cryptography/WebAuthn.sol:53		
+solidity0078	contracts/interfaces/IERC1363.sol:66		
+solidity0079	contracts/utils/cryptography/ECDSA.sol:15		
+solidity0080			
+solidity0081	contracts/token/ERC1155/extensions/IERC1155MetadataURI.sol:12		
+solidity0082	contracts/utils/cryptography/P256.sol:189		
+solidity0083			
+solidity0084	contracts/access/manager/IAccessManager.sol:81		
+solidity0085	contracts/access/manager/AccessManager.sol:88		
+solidity0086	contracts/utils/RLP.sol:59		
+solidity0087			
+solidity0088	contracts/utils/math/Math.sol:12		
+solidity0089	contracts/access/AccessControl.sol:180		
+solidity0090			
+solidity0091	contracts/interfaces/IERC1967.sol:9		
+solidity0092	contracts/token/ERC1155/ERC1155.sol:117		
+solidity0093	contracts/governance/TimelockController.sol:67		
+solidity0094	contracts/utils/TransientSlot.sol:85		
+solidity0095			
+solidity0096	contracts/governance/extensions/GovernorStorage.sol:21		
+solidity0097	contracts/token/ERC20/IERC20.sol:32		
+solidity0098	contracts/governance/IGovernor.sol:22		
+solidity0099	contracts/utils/cryptography/TrieProof.sol:47		
+solidity0100	contracts/token/ERC20/extensions/ERC20Permit.sol:68		
+solidity0101	contracts/utils/cryptography/Hashes.sol:17		
+solidity0102			
+solidity0103	contracts/utils/draft-InteroperableAddress.sol:20		
+solidity0104	contracts/interfaces/IERC1363.sol:16		
+solidity0105	contracts/access/AccessControl.sol:57		
+solidity0106			
+solidity0107			
+solidity0108	contracts/utils/RLP.sol:77		
+solidity0109	contracts/vendor/compound/ICompoundTimelock.sol:79		
+solidity0110	contracts/utils/math/Math.sol:12		
+solidity0111			
+solidity0112	contracts/utils/Strings.sol:513		
+solidity0113	contracts/utils/cryptography/signers/MultiSignerERC7913.sol:100		
+solidity0114	contracts/utils/types/Time.sol:66		
+solidity0115	contracts/account/extensions/draft-AccountERC7579.sol:237		
+solidity0116			
+solidity0117	contracts/governance/Governor.sol:191		
+solidity0118	contracts/utils/structs/EnumerableSet.sol:657		
+solidity0119	contracts/access/manager/AccessManager.sol:88		
+solidity0120			
+solidity0121	contracts/utils/math/Math.sol:12		
+solidity0122	contracts/utils/structs/EnumerableSet.sol:988		
+solidity0123	contracts/utils/structs/Checkpoints.sol:668		
+solidity0124			
+solidity0125	contracts/access/IAccessControl.sol:28		
+solidity0126	contracts/utils/RateLimiter.sol:210		
+solidity0127			
+solidity0128	contracts/account/utils/draft-ERC7579Utils.sol:262		
+solidity0129			
+solidity0130			
+solidity0131	contracts/utils/math/Math.sol:162		
+solidity0132	contracts/crosschain/bridges/BridgeERC1155.sol:18		
+solidity0133	contracts/utils/Panic.sol:42		
+solidity0134			
+solidity0135	contracts/utils/Packing.sol:407		
+solidity0136	contracts/utils/Arrays.sol:736		
+solidity0137			
+solidity0138	contracts/interfaces/IERC4337.sol:37		
+solidity0139	contracts/utils/math/SafeCast.sol:1157		
+solidity0140			
+solidity0141	contracts/utils/Panic.sol:40		
+solidity0142	contracts/utils/Memory.sol:39		
+solidity0143	contracts/utils/Panic.sol:26		
+solidity0144	contracts/proxy/Clones.sol:120		
+solidity0145			
+solidity0146			
+solidity0147	contracts/token/ERC20/utils/ERC1363Utils.sol:74		
+solidity0148			
+solidity0149			
+solidity0150	contracts/utils/cryptography/EIP712.sol:119		
+solidity0151			
+solidity0152	contracts/token/ERC721/utils/ERC721Utils.sol:25		
+solidity0153	contracts/interfaces/IERC4337.sol:37		
+solidity0154			
+solidity0155			
+solidity0156	contracts/utils/cryptography/ECDSA.sol:13		
+solidity0157	contracts/interfaces/IERC6093.sol:128		
+solidity0158	contracts/governance/TimelockController.sol:33		
+solidity0159	contracts/utils/structs/MerkleTree.sol:55		
+solidity0160	contracts/finance/VestingWallet.sol:69		
+solidity0161	contracts/utils/structs/DoubleEndedQueue.sol:34		
+solidity0162			
+solidity0163	contracts/utils/CAIP10.sol:48		
+solidity0164	contracts/utils/cryptography/EIP712.sol:119		
+solidity0165			
+solidity0166	contracts/access/manager/AccessManager.sol:235		
+solidity0167			
+solidity0168	contracts/utils/NoncesKeyed.sol:21		
+solidity0169	contracts/utils/RateLimiter.sol:86		
+solidity0170			
+solidity0171	contracts/utils/introspection/IERC165.sol:24		
+solidity0172	contracts/utils/Packing.sol:37		
+solidity0173	contracts/utils/structs/Heap.sol:49		
+solidity0174			
+solidity0175			
+solidity0176			
+solidity0177	contracts/utils/math/Math.sol:162		
+solidity0178	contracts/governance/Governor.sol:726		
+solidity0179			
+solidity0180	contracts/access/manager/AccessManager.sol:100		
+solidity0181			
+solidity0182			
+solidity0183			
+solidity0184	contracts/access/manager/AccessManager.sol:100		
+solidity0185	contracts/proxy/ERC1967/ERC1967Utils.sol:21		
+solidity0186	contracts/governance/utils/Votes.sol:34		
+solidity0187			
+solidity0188	contracts/crosschain/bridges/abstract/BridgeFungible.sol:24		
+solidity0189			
+solidity0190			
+solidity0191			
+solidity0192	contracts/governance/extensions/GovernorTimelockAccess.sol:45		
+solidity0193			
+solidity0194	contracts/utils/cryptography/P256.sol:23		
+solidity0195	contracts/utils/BlockHeader.sol:17		
+solidity0196	contracts/access/manager/AccessManager.sol:72		
+solidity0197			
+solidity0198	contracts/utils/Packing.sol:1019		
+solidity0199	contracts/utils/math/Math.sol:753		
+solidity0200			
+solidity0201	contracts/utils/structs/EnumerableSet.sol:986		
+solidity0202			
+solidity0203	contracts/governance/IGovernor.sol:16		
+solidity0204			
+solidity0205	contracts/utils/Base58.sol:141		
+solidity0206			
+solidity0207	contracts/utils/Panic.sol:26		
+solidity0208	contracts/utils/cryptography/ECDSA.sol:13		
+solidity0209	contracts/token/ERC20/IERC20.sol:50		
+solidity0210			
+solidity0211	contracts/utils/math/Math.sol:499		
+solidity0212	contracts/crosschain/CrosschainLinked.sol:106		
+solidity0213			
+solidity0214	contracts/governance/extensions/GovernorCountingSimple.sol:15		
+solidity0215	contracts/governance/extensions/GovernorCountingOverridable.sol:40		
+solidity0216	contracts/crosschain/bridges/abstract/BridgeMultiToken.sol:53		
+solidity0217	contracts/proxy/utils/Initializable.sol:69		
+solidity0218	contracts/account/utils/draft-ERC7579Utils.sol:12		
+solidity0219	contracts/utils/cryptography/EIP712.sol:119		
+solidity0220			
+solidity0221	contracts/crosschain/bridges/BridgeERC7802.sol:31		
+solidity0222			
+solidity0223	contracts/utils/BlockHeader.sol:17		
+solidity0224	contracts/governance/extensions/GovernorVotes.sol:17		
+solidity0225	contracts/utils/Calldata.sol:9		
+solidity0226	contracts/governance/extensions/GovernorCountingSimple.sol:22		
+solidity0227	contracts/finance/VestingWallet.sol:151		
+solidity0228			
+solidity0229	contracts/utils/math/Math.sol:170		
+solidity0230	contracts/utils/cryptography/MessageHashUtils.sol:122		
+solidity0231	contracts/account/paymaster/extensions/PaymasterERC20.sol:377		
+solidity0232			
+solidity0233			
+solidity0234			
+solidity0235			
+solidity0236	contracts/account/utils/draft-ERC7579Utils.sol:11		
+solidity0237			
+solidity0238	contracts/utils/structs/EnumerableMap.sol:1196		
+solidity0239	contracts/utils/RateLimiter.sol:160		
+solidity0240	contracts/utils/structs/EnumerableMap.sol:881		
+solidity0241			
+solidity0242	contracts/utils/Strings.sol:253		
+solidity0243	contracts/governance/extensions/GovernorTimelockControl.sol:153		
+solidity0244			
+solidity0245			
+solidity0246			
+solidity0247	contracts/utils/Address.sol:12		
+solidity0248	contracts/utils/structs/EnumerableMap.sol:1703		
+solidity0249	contracts/token/ERC1155/ERC1155.sol:329		
+solidity0250			
+solidity0251			
+solidity0252	contracts/access/manager/AccessManager.sol:117		
+solidity0253	contracts/utils/structs/Checkpoints.sol:183		
+solidity0254	contracts/governance/extensions/GovernorCountingOverridable.sol:40		
+solidity0255	contracts/account/utils/draft-ERC7579Utils.sol:22		
+solidity0256	contracts/utils/BlockHeader.sol:29		
+solidity0257	contracts/utils/Calldata.sol:9		
+solidity0258	contracts/utils/Strings.sol:513		
+solidity0259	contracts/utils/math/SafeCast.sol:19		
+solidity0260	contracts/account/extensions/draft-AccountERC7579.sol:80		
+solidity0261	contracts/account/extensions/draft-AccountERC7579.sol:127		
+solidity0262			
+solidity0263	contracts/utils/structs/EnumerableMap.sol:238		
+solidity0264	contracts/utils/draft-InteroperableAddress.sol:15		
+solidity0265	contracts/utils/Panic.sol:26		
+solidity0266			
+solidity0267	contracts/utils/RLP.sol:71		
+solidity0268			
+solidity0269			

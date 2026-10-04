@@ -11,16 +11,26 @@ mod component;
 mod css;
 mod dart;
 mod defs;
+mod erlang;
 mod fields;
+mod gdscript;
 mod go;
 mod grep;
+mod groovy;
+mod haskell;
 mod imports;
 mod julia;
 mod links;
+mod lisp;
+mod ml;
 mod nix;
 mod other_languages;
+mod perl;
 mod powershell;
+mod r;
 mod scope;
+mod solidity;
+mod starlark;
 mod symbols;
 mod types;
 mod words;
@@ -73,7 +83,7 @@ fn defs(dir: &Path, files: &[PathBuf], kind: Kind, word: &str) -> Vec<usize> {
     grep(dir, files, &pat, false, false)
         .iter()
         .filter(|h| {
-            if kind != Kind::C {
+            if !matches!(kind, Kind::C | Kind::Jvm) {
                 return true;
             }
             let text = std::fs::read_to_string(dir.join(&h.path)).unwrap_or_default();
@@ -117,6 +127,7 @@ fn listed(kind: Kind, line: &str) -> Vec<String> {
     SYMBOLS
         .iter()
         .filter(|(k, _)| *k == Some(kind) || (k.is_none() && shared_symbols(Some(kind))))
+        .filter(|(_, p)| row_reads(p, Path::new("not-groovy")))
         .filter_map(|(_, p)| symbol_name(&Regex::new(p).unwrap(), line))
         .collect()
 }

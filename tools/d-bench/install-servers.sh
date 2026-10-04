@@ -7,10 +7,14 @@ D=${1:-${D_BENCH_SERVERS:-${D_BENCH_CACHE:-$HOME/.cache/merl-d-bench}/servers}}
 mkdir -p "$D/bin"
 cd "$D"
 # typescript@7 on npm has no tsserver.js; typescript-language-server needs it.
-npm install --no-save --prefix "$D" pyright typescript-language-server typescript@6 intelephense
+npm install --no-save --prefix "$D" pyright typescript-language-server typescript@6 intelephense \
+  @nomicfoundation/solidity-language-server
 GOBIN="$D/bin" go install golang.org/x/tools/gopls@latest
 rustup component add rust-analyzer
 ln -sf "$(rustup which rust-analyzer)" "$D/bin-ra"
+arch=$(uname -m | sed 's/x86_64/amd64/')
+curl -fsSL "https://github.com/withered-magic/starpls/releases/download/v0.1.22/starpls-$(uname -s | tr A-Z a-z)-$arch" -o "$D/bin/starpls"
+chmod +x "$D/bin/starpls"
 julia --project=@ls -e 'using Pkg; Pkg.add("LanguageServer")'
 depot=$(julia -e 'print(first(DEPOT_PATH))')
 test -d "$depot"

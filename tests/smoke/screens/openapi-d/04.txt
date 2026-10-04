@@ -1,0 +1,57 @@
+wait Order: via
+┌orders──────────────────────┐1 Order:
+│▸ .github                   │2   type: object
+│▸ .venv                     │3   properties:
+│▾ api                       │4     id:
+│  ▾ schemas                 │5       type: string
+│      order.yaml            │
+│    openapi.yaml            │
+│▸ app                       │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+api/schemas/order.yaml  1:1  [code]  Order: via api/schemas/order.yaml#/Order
+cursor (x,y,shown) 32,0,1

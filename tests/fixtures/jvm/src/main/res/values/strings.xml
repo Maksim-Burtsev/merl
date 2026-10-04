@@ -1,0 +1,10 @@
+<resources>
+    <string name="bookmark_removed">Bookmark removed</string>
+    <string name="greeting">Hello</string>
+    <string name="accent">Accent</string>
+    <color name="accent">#FF6200EE</color>
+    <plurals name="parcels">
+        <item quantity="one">%d parcel</item>
+        <item quantity="other">%d parcels</item>
+    </plurals>
+</resources>

@@ -1,0 +1,21 @@
+# lisp-d: d in Clojure (#428). A call through a namespace alias lands on its `defn` in the file of
+# the namespace the `ns` form requires, and a `let` binding is local. The files are written here,
+# not in the project, which every other scenario counts the files of.
+merl
+wait Open a file (fuzzy)
+run mkdir -p cljshop/src/shop && printf '(ns shop.money)\n\n(defn format-price [cents]\n  (format "$%%.2f" (/ cents 100.0)))\n' > cljshop/src/shop/money.clj && printf '(ns shop.cart\n  (:require [shop.money :as money]))\n\n(defn label [cart]\n  (let [total (reduce + cart)]\n    (str "Total: " (money/format-price total))))\n' > cljshop/src/shop/cart.clj
+key q
+wait merl exited: 0
+merl cljshop/src/shop/cart.clj
+wait (ns shop.cart
+key /
+type format-price total
+key Enter d
+wait format-price: via import
+merl cljshop/src/shop/cart.clj
+wait (ns shop.cart
+key /
+type total)
+key Enter d
+wait (local)
+key Escape

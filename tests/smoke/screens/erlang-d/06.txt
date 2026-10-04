@@ -1,0 +1,57 @@
+wait order: by name, 1 match
+┌orders──────────────────────┐1 -record(order, {id, total = 0}).
+│▸ .github                   │
+│▸ .venv                     │
+│▸ app                       │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▾ erlshop                   │
+│  ▾ include                 │
+│      shop.hrl              │
+│  ▸ lib                     │
+│  ▾ src                     │
+│      shop_order.erl        │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+erlshop/include/shop.hrl  1:9  [code]  order: by name, 1 match
+cursor (x,y,shown) 40,0,1

@@ -1,0 +1,57 @@
+wait defmodule Shop.Report
+┌orders──────────────────────┐1 defmodule Shop.Report do
+│▸ .github                   │2   def summary(id), do: :shop_order.total(:shop_order.new(id))
+│▸ .venv                     │3 end
+│▸ app                       │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▾ erlshop                   │
+│  ▸ include                 │
+│  ▾ lib                     │
+│      report.ex             │
+│  ▸ src                     │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+erlshop/lib/report.ex  1:1  [code]                                                                                                                                                ? help
+cursor (x,y,shown) 32,0,1
