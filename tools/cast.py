@@ -225,6 +225,13 @@ class Pane:
             sys.exit("tmux %s: %s" % (args[0], out.stderr.strip()))
         return out.stdout
 
+    def type(self, text):
+        body = text.rstrip(";")
+        if body:
+            self.tmux("send-keys", "-t", "0", "-l", body)
+        if len(body) < len(text):
+            self.tmux("send-keys", "-t", "0", "-H", *["3b"] * (len(text) - len(body)))
+
     def frame(self):
         return (self.tmux("capture-pane", "-p", "-e", "-N", "-t", "0"),
                 self.tmux("display", "-p", "-t", "0", "#{cursor_x},#{cursor_y},#{cursor_flag}").strip())
@@ -273,7 +280,7 @@ def run(pane, steps, fps, key_delay, type_delay, tail):
                 time.sleep(key_delay)
         elif verb == "type":
             for char in rest:
-                pane.tmux("send-keys", "-t", "0", "-l", char)
+                pane.type(char)
                 time.sleep(type_delay)
         else:
             sys.exit("step %r: expected wait, key, type or sleep" % line)
