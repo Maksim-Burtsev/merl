@@ -1,11 +1,11 @@
 # measure	median ms: the last release's `time_budgets` (#314)
-startup	67
-startup on a 10 MB file	91
+startup	71
+startup on a 10 MB file	97
 o filter	3
-s first hits	5
-s done	1310
-D open	160
-D query	1571
-d first, paperless-ngx	1352
-d next, slowest	943
-review of 1,000 files	341
+s first hits	7
+s done	500
+D open	216
+D query	718
+d first, paperless-ngx	889
+d next, slowest	751
+review of 1,000 files	447
