@@ -57,9 +57,14 @@ fn ctrl_shift_letter_is_never_the_bare_letter() {
         assert!(a.picker.is_none() && a.message.is_empty());
         assert_eq!((a.mode, a.line), (Mode::Normal, 0));
     }
-    press(&mut a, KeyCode::Char('D'), KeyModifiers::CONTROL);
-    assert!(a.picker.is_none());
-    assert!(!press(&mut a, KeyCode::Char('Q'), ctrl_shift));
+    for c in ['D', '?', ':', '}'] {
+        press(&mut a, KeyCode::Char(c), KeyModifiers::CONTROL);
+        assert!(a.picker.is_none() && a.message.is_empty(), "Ctrl+{c}");
+        assert_eq!((a.mode, a.line), (Mode::Normal, 0), "Ctrl+{c}");
+    }
+    assert!(!press(&mut a, KeyCode::Char('q'), ctrl_shift));
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::CONTROL);
+    assert_ne!(a.line, 0);
 }
 
 /// Every alias in `KEYS` reaches the same action as its primary key.
