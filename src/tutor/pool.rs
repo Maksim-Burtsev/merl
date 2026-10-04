@@ -474,28 +474,6 @@ pub const POOL: &[Task] = &[
         done: |a| selected(a) == Some("load_config()"),
     },
     Task {
-        key: "Shift+Home",
-        title: "Select to the row start",
-        tutor: "Shift+Home extends the selection to the start of the screen row, and pressed \
-                again to the start of the line, as Home moves. Press it once.",
-        drill: "Select everything on this line before the cursor.",
-        start: Some(("store.py", CALL_LINE, "load_config")),
-        keys: "",
-        answer: "<S-Home>",
-        done: |a| selected(a) == Some("        self.config = config or "),
-    },
-    Task {
-        key: "Shift+End",
-        title: "Select to the row end",
-        tutor: "Shift+End extends the selection to the end of the screen row, and pressed again \
-                to the end of the line, as End moves. Press it once.",
-        drill: "Select the rest of this line from the cursor on.",
-        start: Some(("store.py", CALL_LINE, "load_config")),
-        keys: "",
-        answer: "<S-End>",
-        done: |a| selected(a) == Some("load_config()"),
-    },
-    Task {
         key: "Shift+PgUp",
         title: "Select a screen up",
         tutor: "Shift+PgUp extends the selection a whole screen up. Press it.",

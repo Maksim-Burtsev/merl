@@ -17,7 +17,7 @@ const SAVED: usize = 3;
 const REACH: usize = 3;
 
 /// The keys a run of arrows or Shift+arrows may have missed. A tie goes to the first.
-const SHORTCUTS: [(KeyCode, KeyModifiers); 23] = [
+const SHORTCUTS: [(KeyCode, KeyModifiers); 21] = [
     (KeyCode::Char('d'), KeyModifiers::CONTROL),
     (KeyCode::Char('u'), KeyModifiers::CONTROL),
     (KeyCode::PageUp, KeyModifiers::NONE),
@@ -50,8 +50,6 @@ const SHORTCUTS: [(KeyCode, KeyModifiers); 23] = [
         KeyCode::End,
         KeyModifiers::CONTROL.union(KeyModifiers::SHIFT),
     ),
-    (KeyCode::Home, KeyModifiers::SHIFT),
-    (KeyCode::End, KeyModifiers::SHIFT),
     (KeyCode::Char('v'), KeyModifiers::NONE),
 ];
 /// And a run of arrows in a picker.
