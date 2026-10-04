@@ -1,0 +1,24 @@
+# lines not exact on master in the languages whose f is on: language, path:line, verdict
+go	caddy/caddyconfig/httpcaddyfile/httptype.go:847	wrong
+go	caddy/caddyconfig/httpcaddyfile/options.go:144	wrong
+go	caddy/caddyconfig/httpcaddyfile/pkiapp_test.go:76	wrong
+go	caddy/modules/caddyhttp/fileserver/browse.go:173	wrong
+go	caddy/modules/caddyhttp/metrics_test.go:190	wrong
+go	caddy/modules/caddyhttp/metrics_test.go:364	wrong
+go	caddy/modules/caddyhttp/metrics_test.go:427	wrong
+go	caddy/modules/caddyhttp/metrics_test.go:476	wrong
+go	caddy/modules/caddyhttp/reverseproxy/fastcgi/client.go:156	wrong
+go	caddy/modules/caddytls/acmeissuer.go:270	wrong
+python	rich/tests/test_inspect.py:442	wrong
+python	rich/tests/test_inspect.py:452	wrong
+swift	Alamofire/Source/Core/Response.swift:441	wrong
+swift	Alamofire/Source/Core/Session.swift:1180	wrong
+swift	Alamofire/Tests/UploadTests.swift:658	wrong
+ts	outline/app/components/Avatar/AvatarWithPresence.tsx:144	wrong
+ts	outline/app/components/LazyLoad.ts:44	wrong
+ts	outline/app/editor/components/SuggestionsMenu.tsx:1101	wrong
+ts	outline/app/editor/components/SuggestionsMenu.tsx:1159	wrong
+ts	outline/app/scenes/Search/Search.tsx:238	wrong
+ts	outline/server/models/FileOperation.ts:65	wrong
+ts	outline/server/routes/api/comments/comments.test.ts:776	wrong
+ts	outline/server/routes/api/middlewares/pagination.ts:21	wrong
