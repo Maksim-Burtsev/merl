@@ -192,10 +192,7 @@ impl Project {
     }
 }
 
-/// The live review panel: when to ask git for the branch again. The files come through the
-/// project watch ([`Project::touched`]); a commit, a rebase or a switch moves `HEAD` or a ref,
-/// inside `.git`, which no walk lists and which Linux therefore does not watch.
-pub struct Review {
+pub struct Repo {
     /// Canonical. `HEAD` is the worktree's own; the refs belong to the repository.
     head: PathBuf,
     refs: PathBuf,
@@ -207,7 +204,7 @@ pub struct Review {
     listing: bool,
 }
 
-impl Review {
+impl Repo {
     /// `git_dir` and `common_dir` as `git::dirs` answers: one directory, or two in a worktree.
     pub fn new(git_dir: &Path, common_dir: &Path) -> Self {
         Self {
@@ -506,7 +503,7 @@ mod tests {
     fn a_commit_asks_for_a_listing_and_the_index_does_not() {
         // A linked worktree: `HEAD` is its own, the refs are the repository's.
         let common = Path::new("/repo/.git");
-        let mut r = Review::new(&common.join("worktrees/wt"), common);
+        let mut r = Repo::new(&common.join("worktrees/wt"), common);
         let rename = EventKind::Modify(ModifyKind::Name(RenameMode::Any));
         for (path, want) in [
             ("worktrees/wt/HEAD", true),

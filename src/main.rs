@@ -344,7 +344,7 @@ fn event_loop(
         project.watch(w, &mut project_watched);
     }
     let mut repo =
-        git::dirs(&app.root).map(|(git_dir, common_dir)| live::Review::new(&git_dir, &common_dir));
+        git::dirs(&app.root).map(|(git_dir, common_dir)| live::Repo::new(&git_dir, &common_dir));
     if let (Some(r), Some(w)) = (&repo, &mut project_watcher) {
         r.watch(w);
     }

@@ -711,10 +711,10 @@ fn parse_status(out: &str, prefix: &Path) -> HashMap<PathBuf, char> {
         let Ok(rel) = Path::new(path).strip_prefix(prefix) else {
             continue;
         };
-        let mark = if xy == "??" || xy.contains('A') {
-            'A'
-        } else {
-            'M'
+        let mark = match xy {
+            "??" | "UA" | "DU" | " A" => 'A',
+            _ if xy.starts_with('A') && !matches!(xy, "AA" | "AU") => 'A',
+            _ => 'M',
         };
         marks.entry(rel.to_path_buf()).or_insert(mark);
     }
@@ -1828,6 +1828,18 @@ mod tests {
         assert_eq!(marks[Path::new("a.rs")], 'M');
         assert_eq!(marks[Path::new("b.rs")], 'M');
         assert_eq!(marks[Path::new("c.rs")], 'A');
+    }
+
+    #[test]
+    fn a_conflicted_file_is_changed_when_head_has_it() {
+        let out = "AA both\0AU ours\0UU edited\0UD kept\0UA theirs\0DU revived\0 A intent\0";
+        let marks = parse_status(out, Path::new(""));
+        let letter = |p: &str| marks[Path::new(p)];
+        let got = [
+            "both", "ours", "edited", "kept", "theirs", "revived", "intent",
+        ]
+        .map(letter);
+        assert_eq!(got, ['M', 'M', 'M', 'M', 'A', 'A', 'A']);
     }
 
     #[test]
