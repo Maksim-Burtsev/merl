@@ -155,6 +155,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` on `Settings` in a Java `new Settings(entries)` no longer jumps to `Settings(String path)`
   when the class also declares `Settings(Map<String, Object> entries)`: the comma inside `<…>` of
   a parameter list no longer counts as a second parameter. (#675)
+- `d` on `Shuttle` in a Groovy `new Shuttle(m)` lands on `Shuttle(@Named("cfg") Map<K, V> m)`
+  instead of offering a picker with `Shuttle(String s, int n)`: an annotation with arguments no
+  longer hides the commas of a generic type, or a default value, behind it. (#679)
 - A `.fs` file is highlighted as F#, not GLSL. (#427)
 - A Bazel `BUILD` file is highlighted as Starlark instead of as XML, and a `BUCK` or `.star` file
   is highlighted at all. (#431)
