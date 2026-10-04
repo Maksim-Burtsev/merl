@@ -1,6 +1,20 @@
 use super::*;
 
+mod braces;
+
 impl App {
+    fn shape(&self) -> Option<Shape<'_>> {
+        let lines = &self.buf.lines;
+        if self.kind() == Some(Kind::Python) {
+            return Some(Shape::python(lines));
+        }
+        let syntax = self.buf.path.as_deref().and_then(braces::syntax_of);
+        match syntax.filter(|_| !self.objc_file()) {
+            Some(syntax) => Some(Shape::braces(lines, syntax)),
+            None => every_kind().then(|| Shape::plain(lines)),
+        }
+    }
+
     pub(super) fn toggle_collapse(&mut self) {
         if self.deleted.is_some() || self.previewing() {
             return;
@@ -10,17 +24,21 @@ impl App {
             self.collapsed.remove(i);
             return;
         }
-        if self.kind() != Some(Kind::Python) {
+        let Some(shape) = self.shape() else {
             self.message = match self.buf.path.as_ref().and_then(|p| p.extension()) {
                 Some(ext) => format!("no fold rules for .{}", ext.to_string_lossy()),
                 None => "no fold rules for this file".into(),
             };
             return;
-        }
-        let Some((h, end)) = Shape::python(&self.buf.lines).target(l) else {
+        };
+        let Some((h, end)) = shape.target(l) else {
             self.message = "nothing to fold".into();
             return;
         };
+        if let Some(i) = self.collapsed.iter().position(|&(f, _)| f == h) {
+            self.collapsed.remove(i);
+            return;
+        }
         self.collapsed.push((h, end));
         self.nest_collapsed();
         self.anchor = None;
@@ -57,7 +75,13 @@ impl App {
     }
 
     pub(super) fn shift_collapsed(&mut self, at: usize, old: usize, new: usize) {
-        let shape = Shape::python(&self.buf.lines);
+        if self.collapsed.is_empty() {
+            return;
+        }
+        let Some(shape) = self.shape() else {
+            self.collapsed.clear();
+            return;
+        };
         let moved = |(h, e): (usize, usize)| match () {
             _ if (at..at + old).contains(&h) => None,
             _ if e < at => Some((h, e)),
@@ -93,7 +117,14 @@ impl App {
     }
 
     fn measure_collapsed(&mut self, heads: Vec<usize>) {
-        let shape = Shape::python(&self.buf.lines);
+        if heads.is_empty() {
+            self.collapsed.clear();
+            return;
+        }
+        let Some(shape) = self.shape() else {
+            self.collapsed.clear();
+            return;
+        };
         self.collapsed = heads
             .into_iter()
             .filter_map(|h| Some((h, shape.region(h)?)))
@@ -116,6 +147,21 @@ impl App {
     }
 }
 
+#[cfg(test)]
+thread_local! {
+    pub(crate) static FOLD_EVERY_KIND: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+#[cfg(test)]
+fn every_kind() -> bool {
+    FOLD_EVERY_KIND.get()
+}
+
+#[cfg(not(test))]
+fn every_kind() -> bool {
+    false
+}
+
 const COMPOUND: &[&str] = &[
     "def", "class", "if", "elif", "else", "for", "while", "with", "try", "except", "finally",
     "async",
@@ -129,6 +175,7 @@ pub(crate) struct Shape<'a> {
     imports: Vec<(usize, usize)>,
     nested: Vec<bool>,
     python: bool,
+    braces: Option<braces::Folds>,
 }
 
 impl<'a> Shape<'a> {
@@ -141,7 +188,14 @@ impl<'a> Shape<'a> {
             imports: Vec::new(),
             nested: vec![false; lines.len()],
             python: false,
+            braces: None,
         }
+    }
+
+    fn braces(lines: &'a [String], syntax: braces::Syntax) -> Self {
+        let mut shape = Shape::plain(lines);
+        shape.braces = Some(braces::folds(lines, syntax));
+        shape
     }
 
     pub(crate) fn python(lines: &'a [String]) -> Self {
@@ -251,6 +305,9 @@ impl<'a> Shape<'a> {
     }
 
     pub(crate) fn region(&self, h: usize) -> Option<usize> {
+        if let Some(folds) = &self.braces {
+            return folds.starts.get(&h).copied();
+        }
         if self.quiet.get(h).copied().unwrap_or(true) {
             return None;
         }
@@ -358,6 +415,18 @@ impl<'a> Shape<'a> {
     }
 
     pub(crate) fn target(&self, l: usize) -> Option<(usize, usize)> {
+        if let Some(folds) = &self.braces {
+            if let Some(&e) = folds.starts.get(&l) {
+                return Some((l, e));
+            }
+            if let Some(&h) = folds.heads.get(&l) {
+                return Some((h, folds.starts[&h]));
+            }
+            let around = |&&(h, e): &&(usize, usize)| h < l && l <= e;
+            let inner = |spans: &[(usize, usize)]| spans.iter().filter(around).max().copied();
+            let starts: Vec<(usize, usize)> = folds.starts.iter().map(|(&h, &e)| (h, e)).collect();
+            return inner(&folds.defs).or_else(|| inner(&starts));
+        }
         if let Some(run) = self.run_at(l) {
             return Some(run);
         }
