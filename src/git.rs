@@ -1040,10 +1040,7 @@ mod tests {
         assert_eq!(d.marks.len(), 3, "{:?}", d.marks);
         // A deletion right after a changed last line is one stop, not two.
         let d = parse("@@ -5 +5 @@\n-a\n+b\n@@ -6,2 +5,0 @@\n-c\n-d\n", true);
-        assert_eq!(
-            (d.hunks.clone(), d.ghosts[&5].len()),
-            (vec![File(4)], 2)
-        );
+        assert_eq!((d.hunks.clone(), d.ghosts[&5].len()), (vec![File(4)], 2));
     }
 
     #[test]

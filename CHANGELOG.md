@@ -149,6 +149,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dao: NewsDao)`, where they offered every `purge` of the project. So do a dotted type,
   `Meter.Dial dial`, and Kotlin's `x?.m` and `x!!.m`; `Map.Entry` says `no definition`. (#388,
   #391)
+- `c` and `C` in `--review` stand on the first line a hunk added, where they stood on the first
+  line it deleted: on a hunk that rewrites code, the cursor is on the new code, the old code
+  above it, a key Up away. A hunk that only deletes still stands on its first deleted line.
+  (#690)
 
 ### Fixed
 
