@@ -1446,6 +1446,15 @@ fn deleted_lines_are_lines_of_the_text() {
     key(&mut a, KeyCode::Up);
     assert_eq!((a.at(), a.line_str()), (Deleted(1, 0), "b"));
     assert_eq!(a.review_status().unwrap(), "hunk 1/2  file 1/5");
+    // From a rewritten line, `c` and `C` go on to the next and the previous hunk.
+    key(&mut a, KeyCode::Char('c'));
+    assert_eq!((a.at(), a.line_str()), (File(5), "F"));
+    key(&mut a, KeyCode::Up);
+    assert_eq!((a.at(), a.line_str()), (Deleted(5, 0), "f"));
+    assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/5");
+    key(&mut a, KeyCode::Char('C'));
+    assert_eq!((a.at(), a.line_str()), (File(1), "B"));
+    key(&mut a, KeyCode::Up);
 
     // `/` finds the deleted `b` and the added `B` alike, in the order they are drawn.
     key(&mut a, KeyCode::Up);

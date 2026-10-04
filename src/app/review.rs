@@ -190,10 +190,19 @@ impl App {
         if self.folded_here().is_some() {
             return None;
         }
-        let at = self.at();
+        let at = self.hunk_place(self.at());
         match dir > 0 {
             true => self.diff.hunks.iter().find(|&&h| h > at).copied(),
             false => self.diff.hunks.iter().rev().find(|&&h| h < at).copied(),
+        }
+    }
+
+    pub(super) fn hunk_place(&self, t: TextLine) -> TextLine {
+        match t {
+            TextLine::Deleted(k, _) if self.diff.hunks.contains(&TextLine::File(k)) => {
+                TextLine::File(k)
+            }
+            t => t,
         }
     }
 
@@ -453,10 +462,7 @@ impl App {
         if self.folded_here().is_some() {
             return Some(format!("folded  file {}/{}", file + 1, r.files.len()));
         }
-        let at = match self.at() {
-            TextLine::Deleted(k, _) => TextLine::File(k),
-            at => at,
-        };
+        let at = self.hunk_place(self.at());
         let hunk = self.diff.hunks.iter().filter(|&&h| h <= at).count();
         Some(format!(
             "hunk {hunk}/{}  file {}/{}",
