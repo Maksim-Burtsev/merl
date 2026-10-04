@@ -114,7 +114,7 @@ impl App {
                     .values()
                     .any(|(roots, _)| roots.iter().any(|r| path.starts_with(r)))
                 // Another package's `node_modules`, walked from a file opened before.
-                || !listed && self.node_modules.keys().any(|r| path.starts_with(r))
+                || !listed && self.walked_roots.keys().any(|r| path.starts_with(r))
                 // Below a link to a directory that leads out of the project (#404), or a link to a
                 // file out there, which the walk lists (#448).
                 || self.in_project(path).is_none();

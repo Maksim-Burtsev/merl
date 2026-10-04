@@ -27,32 +27,26 @@ An issue whose question is how something looks or moves gets its `## Proposal` f
 owner does not pick a look from a description; such an issue is asked about once its pictures
 are up, or stays `needs-owner` with the proposal for their next pass.
 
-## 3. One issue per message
+## 3. Put the questions on the desk
 
-```
-#N <title> — <link>
-<what it is, one sentence: what the user presses and sees today>
-Visible: <no | what changes on screen>
+Every question becomes a card on the decision desk, the owner's page for picking
+(`desk.md` beside this file: the link, the card fields, the pictures). One card per question;
+an issue with two questions gets two cards, `#N q1` and `#N q2`.
 
-q1. <the question>
-  a) <recommended option> — <one reason>
-  b) <option>
-  GitHub / GitLab / VS Code: <what they do, when that answers it>
-q2. …
-```
-
-- Every question has options and the recommended one is `a`. A question you can answer from
-  the code, the forges or an earlier decision is not a question: answer it and say so in a line.
+- Every question has options, one of them recommended. A question you can answer from the code,
+  the forges or an earlier decision is not a question: answer it in the issue instead.
 - The user's terms: keys, screens, messages. Code only when the owner asks how.
-- The owner answers like `q1 a, q2 ok`. `ok` is your recommendation. A new question in their
-  answer is answered before moving on.
+- A card whose question is a look waits for its proposal's pictures (step 2).
 
-Go to the next issue when every question of this one has an answer or the owner parks it.
+Send the owner the desk's link once, with how many cards are new, and wait for their word
+(`готово`, done). Then read the answers: `pick` is the chosen options (the recommendation when
+they pressed it), `later` parks the card, `note` is their own words. A new question in a note is
+answered in chat before step 4.
 
 ## 4. Write it down, then move the label
 
-Before the next issue: the decisions go into the issue as a `## Decided` section at the top of
-the body (the question, the pick, the owner's reason when they gave one), in English. Then:
+For every answered card: the decisions go into the issue as a `## Decided` section at the top
+of the body (the question, the pick, the owner's reason when they gave one), in English. Then:
 
 - nothing left to ask, and nothing visible without a picked proposal: `agent-ok`;
 - parked: `backlog`, with the reason in a comment;
@@ -60,5 +54,6 @@ the body (the question, the pick, the owner's reason when they gave one), in Eng
 
 ## 5. Close
 
-One table: what became `agent-ok`, what waits for the owner and for what, what was parked. The
+Archive the cards you wrote down (`desk.md`), so the desk holds only what still waits. One
+table: what became `agent-ok`, what waits for the owner and for what, what was parked. The
 owner starts the build themselves (`.claude/skills/batch/SKILL.md`).

@@ -1,0 +1,57 @@
+wait oss: via web/android/gradle/libs.versions.toml
+1 [versions]
+2 googleOss = "17.1.0"
+3
+4 [libraries]
+5 google-oss-licenses = { group = "com.google.android.gms", name = "play-services-oss-licenses", version.ref = "googleOss" }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/android/gradle/libs.versions.toml  5:8  [code]  oss: via web/android/gradle/libs.versions.toml
+cursor (x,y,shown) 9,4,1

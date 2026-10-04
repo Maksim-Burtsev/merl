@@ -98,6 +98,8 @@ RELEASE_ONLY = {
 SCREEN_SKIPPED = {
     ("python-d", "json/__init__.py"): "the standard library of the machine's Python",
     ("python-d", "cancel: by name"): "the cancel methods of the machine's Python standard library",
+    ("python-d", "assertEqual → TestCase.assertEqual (via self: LegacyServiceTest)"):
+        "the unittest of the machine's Python standard library",
     ("go-d", "Errorf: via import fmt"): "the standard library of the machine's Go",
     ("go-d", "Done → Context.Done (via ctx: Context)"): "the standard library of the machine's Go",
     ("c-d", "printf: by name"): "the system headers of the machine",
@@ -370,16 +372,14 @@ def play(binary, path, work, timed_only=False, rec=None, theme=None):
                     rec.step = f"wait {arg}  ✓ {ms} ms"
                     time.sleep(HOLD)
             elif verb in ("key", "type"):
-                keys = [["-l", c] for c in arg] if verb == "type" else [
-                    [k.partition("*")[0]] for k in arg.split()
+                keys = (list(arg) if rec else [arg]) if verb == "type" else [
+                    k.partition("*")[0] for k in arg.split()
                     for _ in range(int(k.partition("*")[2] or 1))]
-                if verb == "type" and not rec:  # a burst, as a paste arrives: a keystroke a char is slow
-                    keys = [["-l", arg]]
                 gap = float(pace or (0.12 if verb == "type" else 0.25)) if rec else PACE
                 if rec:
                     rec.step = f"{verb} {arg}"
                 for k in keys:
-                    pane.tmux("send-keys", "-t", "0", *k)
+                    pane.type(k) if verb == "type" else pane.tmux("send-keys", "-t", "0", k)
                     time.sleep(gap)
                 last_key = time.monotonic()
             elif verb == "sleep":
@@ -846,6 +846,7 @@ while IFS= read -rsn1 c; do
     a) kill -ABRT $$ ;;
     e) exit 3 ;;
     d) %(d)s echo done ;;
+    ';') printf ';' ;;
   esac
 done
 """
@@ -861,6 +862,7 @@ SELFTEST = {
     "fail": ("merl\nwait ready\nwait never\n", {}, {}, "FAIL", "FAIL at fail.steps:3"),
     "hung": ("merl\nwait ready\n", {"q": ":"}, {}, "HUNG", "HUNG on q"),
     "run": ("merl\nwait ready\nrun test -e nowhere\n", {}, {}, "RUN", "RUN 1 at"),
+    "semicolon": ("merl\nwait ready\ntype x;;\nwait ;;\n", {}, {}, "PASS", ""),
     # dead on a key no wait follows: the death, not the q after it, with the screen at its size
     "end": ("merl\nwait ready\nsize 60x10\n" + DIE, {}, {}, "EXIT", "EXIT 3 after its last step"),
     "restart": ("merl\nwait ready\n" + DIE + "merl\nwait ready\n", {}, {}, "EXIT", "EXIT 3 before"),

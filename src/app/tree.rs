@@ -114,7 +114,9 @@ impl App {
             Ok(()) => {
                 // ponytail: a whole walk on the key press, as at startup, rather than one path
                 // put into the tree and the list; a thread like the watcher's if it ever stalls.
-                let (tree, files) = crate::tree::build(&self.root, self.shallow);
+                let order = (self.tree_order.as_ref()).map(crate::tree::OrderFile::read);
+                let order = order.unwrap_or_default();
+                let (tree, files) = crate::tree::build_ordered(&self.root, self.shallow, &order);
                 self.project_walked(tree, files);
             }
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}

@@ -121,6 +121,7 @@ impl App {
             // as without a copy.
             let found = match kind {
                 Kind::Elixir => self.elixir_module(&all, m, pattern),
+                Kind::Python => self.python_module_among(&all, m),
                 _ => copy
                     .module(m)
                     .or_else(|| search::module_among(&all, m, package)),
@@ -142,8 +143,11 @@ impl App {
                 .collect()
         };
         // What the patterns match, of the lines that declare the word where they sit.
+        let erlang = self.buf.path.as_deref().is_some_and(search::erlang);
         let grep = |this: &Self, files: &[PathBuf]| {
-            this.declaring(kind, word, this.external_grep(kind, files, pattern))
+            let mut hits = this.declaring(kind, word, this.external_grep(kind, files, pattern));
+            hits.retain(|h| kind != Kind::Elixir || search::erlang(&h.path) == erlang);
+            hits
         };
         let Some(module) = module else {
             return Some(by_name(
@@ -176,10 +180,25 @@ impl App {
             };
             hits = self.renamed_export(word, |p| self.external_grep(kind, &within, p));
         }
-        // An imported module that does not declare the name re-exports it (`std::sync::Arc`
-        // lives in `alloc`, a package's `__init__` pulls from its submodules): look everywhere.
-        // Past a copy, first where the module's other copies are, as the module's files among
-        // all of them: no slower and no noisier than without the copy.
+        let mut walked = false;
+        if hits.is_empty()
+            && imported
+            && kind == Kind::Python
+            && module.len() >= floor
+            && let Some(named) = &named
+        {
+            let mut inside = named[module.len()..].to_vec();
+            if !chain.is_empty() {
+                inside.push(word.to_owned());
+            }
+            if let [name] = inside.as_slice() {
+                let found = self.outside_handed_on(&module, name, 0);
+                if !found.is_empty() {
+                    return Some(found);
+                }
+                walked = true;
+            }
+        }
         // Go has no re-exports: a package that does not declare the name is the answer (#332).
         if hits.is_empty() && imported && kind == Kind::Go {
             return Some(Vec::new());
@@ -193,6 +212,7 @@ impl App {
             if hits.is_empty() {
                 hits = at_top(self, grep(self, &all));
             }
+            self.offer_only |= walked && !hits.is_empty();
             return Some(by_name(hits));
         }
         let sep = match kind {
@@ -207,11 +227,27 @@ impl App {
         } else {
             Reason::Path(module.join(sep))
         };
-        let found = hits.into_iter().map(|hit| Candidate {
-            hit,
-            reason: reason.clone(),
-        });
-        Some(found.collect())
+        let mut found: Vec<Candidate> = hits
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: reason.clone(),
+            })
+            .collect();
+        if kind == Kind::Julia
+            && imported
+            && narrow
+            && chain.is_empty()
+            && !found.is_empty()
+            && let Some(here) = self.rel_current()
+        {
+            let own = self.project_definitions(kind, &here, word, pattern);
+            found.extend(own.into_iter().map(|hit| Candidate {
+                hit,
+                reason: Reason::ByName,
+            }));
+        }
+        Some(found)
     }
 
     /// Where the Elixir module `module`, or the one it is nested in, is among `all`, with how many
@@ -260,18 +296,76 @@ impl App {
         })
     }
 
+    pub(super) fn python_module_among(
+        &self,
+        all: &[PathBuf],
+        module: &[String],
+    ) -> Option<(usize, Vec<PathBuf>)> {
+        let roots = self
+            .external
+            .get(&Kind::Python)
+            .map(|(roots, _)| roots.as_slice())
+            .unwrap_or_default();
+        let rels: Vec<(&Path, &PathBuf)> = all
+            .iter()
+            .filter_map(|f| Some((python_rel(roots, f)?.1, f)))
+            .collect();
+        (1..=module.len()).rev().find_map(|n| {
+            let name: PathBuf = module[..n].iter().collect();
+            let forms = [name.with_extension("py"), name.with_extension("pyi")];
+            let found: Vec<PathBuf> = (rels.iter())
+                .filter(|(rel, _)| {
+                    (rel.starts_with(&name) && *rel != name) || forms.contains(&rel.to_path_buf())
+                })
+                .map(|(_, f)| (*f).clone())
+                .collect();
+            (!found.is_empty()).then_some((n, found))
+        })
+    }
+
+    pub(super) fn python_members(
+        &self,
+        files: &[PathBuf],
+        imports: &[(String, Vec<String>)],
+        members: &str,
+        word: &str,
+    ) -> (Vec<Hit>, bool) {
+        let reached = self.python_imported(files, imports);
+        match self.external_methods(&reached, members, word) {
+            (methods, field) if methods.len() > 1 => (methods, field),
+            _ => self.external_methods(files, members, word),
+        }
+    }
+
+    fn python_imported(
+        &self,
+        files: &[PathBuf],
+        imports: &[(String, Vec<String>)],
+    ) -> Vec<PathBuf> {
+        let mut packages: Vec<&String> = (imports.iter())
+            .filter_map(|(_, path)| path.first())
+            .filter(|p| !p.starts_with('.'))
+            .collect();
+        packages.sort();
+        packages.dedup();
+        (packages.into_iter())
+            .filter_map(|p| self.python_module_among(files, std::slice::from_ref(p)))
+            .flat_map(|(_, found)| found)
+            .collect()
+    }
+
     /// The file outside the project that is the Python module `parts` (#333), matched from the
     /// root it lies under, the deepest that holds it: `a/b/c/__init__.py`, `a/b/c.py` or
     /// `a/b/c.pyi` from there, never a `c.py` deeper in some other package. As Python imports it,
     /// the first root holding it wins, and in a root a package over a module beside it; `.py`
     /// over `.pyi`, which a compiled module has alone.
     pub(super) fn external_module(&mut self, parts: &[String]) -> Option<PathBuf> {
-        let files = self.external_files(Kind::Python);
-        let roots = self
-            .external
-            .get(&Kind::Python)
-            .map(|(roots, _)| roots.clone())
-            .unwrap_or_default();
+        self.external_files(Kind::Python);
+        self.walked_module(parts)
+    }
+
+    pub(super) fn walked_module(&self, parts: &[String]) -> Option<PathBuf> {
+        let (roots, files) = self.external.get(&Kind::Python)?;
         let name: PathBuf = parts.iter().collect();
         let forms = [
             name.join("__init__.py"),
@@ -282,14 +376,9 @@ impl App {
         files
             .iter()
             .filter_map(|f| {
-                let root = roots
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, r)| f.starts_with(r))
-                    .max_by_key(|(_, r)| r.components().count())?;
-                let rel = f.strip_prefix(root.1).ok()?;
+                let (root, rel) = python_rel(roots, f)?;
                 let form = forms.iter().position(|m| rel == m)?;
-                Some(((root.0, form), f))
+                Some(((root, form), f))
             })
             .min_by_key(|(rank, _)| *rank)
             .map(|(_, f)| f.clone())
@@ -350,7 +439,7 @@ impl App {
     /// its class is built (#414), so `Future` in a type is the class alone.
     pub(super) fn spelling_cut(&self, kind: Kind, word: &str, patterns: &mut Vec<String>) {
         let line = self.line_str();
-        if matches!(kind, Kind::PowerShell | Kind::Dart)
+        if matches!(kind, Kind::PowerShell | Kind::Dart | Kind::Julia)
             && let Some((r, w)) = self.word_here(Some(kind))
             && w == word
         {
@@ -407,13 +496,9 @@ impl App {
         };
         let method = Regex::new(members).expect("built-in patterns compile");
         let pattern = format!("{members}|{}", fields.join("|"));
-        let kept = std::cell::Cell::new(0);
-        // ponytail: the first 500 field-shaped lines; a field past them goes unseen.
+        let kept = std::sync::atomic::AtomicUsize::new(0);
         let hits = search::grep_filtered(&self.root, files, &pattern, None, None, |l| {
-            method.is_match(l) || {
-                kept.set(kept.get() + 1);
-                kept.get() <= 500
-            }
+            method.is_match(l) || kept.fetch_add(1, std::sync::atomic::Ordering::Relaxed) < 500
         })
         .unwrap_or_default();
         let (mut methods, candidates): (Vec<Hit>, Vec<Hit>) =
@@ -481,6 +566,19 @@ impl App {
             | Kind::Dart
             | Kind::Cmake
             | Kind::Nix
+            | Kind::Haskell
+            | Kind::Ocaml
+            | Kind::Fsharp
+            | Kind::Julia
+            | Kind::R
+            | Kind::Perl
+            | Kind::Gdscript
+            | Kind::Solidity
+            | Kind::Clojure
+            | Kind::EmacsLisp
+            | Kind::Scheme
+            | Kind::CommonLisp
+            | Kind::Starlark
             | Kind::Sql
             | Kind::Make
             | Kind::Terraform
@@ -511,6 +609,19 @@ impl App {
             Kind::Dart,
             Kind::Cmake,
             Kind::Nix,
+            Kind::Haskell,
+            Kind::Ocaml,
+            Kind::Fsharp,
+            Kind::Julia,
+            Kind::R,
+            Kind::Perl,
+            Kind::Gdscript,
+            Kind::Solidity,
+            Kind::Clojure,
+            Kind::EmacsLisp,
+            Kind::Scheme,
+            Kind::CommonLisp,
+            Kind::Starlark,
             Kind::Sql,
             Kind::Make,
             Kind::Terraform,
@@ -526,6 +637,7 @@ impl App {
             self.external
                 .insert(kind, (Vec::new(), Arc::new(Vec::new())));
         }
+        self.otp = Some(Vec::new());
     }
 
     /// The files of `kind` outside the project, walked once per kind.
@@ -549,7 +661,7 @@ impl App {
                 if roots.iter().any(|o| o != dir && dir.starts_with(o)) {
                     continue;
                 }
-                let walked = self.node_modules.entry(dir.clone()).or_insert_with(|| {
+                let walked = self.walked_roots.entry(dir.clone()).or_insert_with(|| {
                     Arc::new(search::external_files(kind, std::slice::from_ref(dir)))
                 });
                 files.extend(walked.iter().cloned());
@@ -557,13 +669,37 @@ impl App {
             self.external.insert(kind, (roots, Arc::new(files)));
             self.node_modules_of = Some(here.to_path_buf());
         }
-        // Elixir's are the `deps/` of the Mix project the file is in (#437), inside the project
-        // and not of the machine, so a test's `no_external` does not hide them either.
-        if let Some(here) = here.filter(|_| kind == Kind::Elixir) {
-            let roots = search::mix_deps(&self.root, here);
+        if let Some(here) = here.filter(|_| matches!(kind, Kind::Elixir | Kind::Solidity)) {
+            let roots = match kind {
+                Kind::Elixir => {
+                    let otp = match &self.otp {
+                        Some(otp) => otp.clone(),
+                        None => search::external_roots(kind, &self.root),
+                    };
+                    if !otp.is_empty() {
+                        self.otp = Some(otp.clone());
+                    }
+                    let mut roots = [
+                        search::mix_deps(&self.root, here),
+                        search::rebar_deps(&self.root, here),
+                        otp,
+                    ]
+                    .concat();
+                    let mut seen = std::collections::HashSet::new();
+                    roots.retain(|r| seen.insert(r.clone()));
+                    roots
+                }
+                _ => search::node_modules(&self.root, here),
+            };
             if self.external.get(&kind).is_none_or(|(r, _)| *r != roots) {
-                let files = Arc::new(search::external_files(kind, &roots));
-                self.external.insert(kind, (roots, files));
+                let mut files = Vec::new();
+                for dir in &roots {
+                    let walked = self.walked_roots.entry(dir.clone()).or_insert_with(|| {
+                        Arc::new(search::external_files(kind, std::slice::from_ref(dir)))
+                    });
+                    files.extend(walked.iter().cloned());
+                }
+                self.external.insert(kind, (roots, Arc::new(files)));
             }
         }
         let files = match self.external.get(&kind) {
@@ -688,13 +824,15 @@ impl App {
     /// its candidates: a component's from the text the hit was read from (#413), any other file's
     /// from its text now.
     pub(super) fn hidden_now(&self, kind: Kind, h: &Hit) -> Vec<bool> {
+        if search::android_source(&h.path) {
+            return Vec::new();
+        }
         // A rule of a component's `<style>` block is no script's: it is lexed as a stylesheet
         // (#415).
         match search::component(&h.path) && kind != Kind::Css {
             true => self.hidden_of(kind, h),
-            false => {
-                (self.file_text(&h.path)).map_or_else(Vec::new, |t| search::literal_lines(kind, &t))
-            }
+            false => (self.file_text(&h.path))
+                .map_or_else(Vec::new, |t| search::file_literal_lines(kind, &h.path, &t)),
         }
     }
 
@@ -727,19 +865,26 @@ impl App {
             .get(&kind)
             .map(|(roots, _)| roots.as_slice())
             .unwrap_or_default();
-        match kind {
+        let mut roots = match kind {
             Kind::TsJs => roots.last().into_iter().chain([&self.root]).collect(),
             // `deps/` is inside the project: `deps/jason/lib/jason.ex`.
-            Kind::Elixir => vec![&self.root],
+            Kind::Elixir => [&self.root]
+                .into_iter()
+                .chain(roots.iter().filter(|r| !r.starts_with(&self.root)))
+                .collect(),
             _ => roots.iter().collect::<Vec<_>>(),
+        };
+        if kind == Kind::Python {
+            roots.sort_by_key(|r| std::cmp::Reverse(r.components().count()));
         }
-        .into_iter()
-        .find(|r| path.starts_with(r))
-        .map_or(path, |r| {
-            let keep = if *r == self.root { 0 } else { package_dirs(r) };
-            let from = r.ancestors().nth(keep).unwrap_or(r);
-            path.strip_prefix(from).unwrap_or(path)
-        })
+        roots
+            .into_iter()
+            .find(|r| path.starts_with(r))
+            .map_or(path, |r| {
+                let keep = if *r == self.root { 0 } else { package_dirs(r) };
+                let from = r.ancestors().nth(keep).unwrap_or(r);
+                path.strip_prefix(from).unwrap_or(path)
+            })
     }
 
     /// Picker rows for `d`: the qualified name, the reason, then `path:line: code`, the columns
@@ -762,7 +907,7 @@ impl App {
                     .as_deref()
                     .filter(|_| !matches!(c.reason, Reason::Module(_)))
                     .and_then(|text| {
-                        let word = definition::declared_as(kind, word, &c.hit.text);
+                        let word = jvm::declared_as(kind, word, &c.hit.text);
                         search::qualified(kind, text, c.hit.line, &word)
                     })
                     .unwrap_or_else(|| word.to_owned());
@@ -794,7 +939,7 @@ impl App {
                     code_at: Some(head.len()),
                     col: word_col(
                         &c.hit.text,
-                        &definition::declared_as(kind, word, &c.hit.text),
+                        &jvm::declared_as(kind, word, &c.hit.text),
                         search::word_chars(Some(kind), true),
                     ),
                     label: head + &clip(c.hit.text.trim(), MAX_LABEL_TEXT),
@@ -814,6 +959,13 @@ impl App {
             None => "no rules for this file".into(),
         }
     }
+}
+
+fn python_rel<'a>(roots: &[PathBuf], f: &'a Path) -> Option<(usize, &'a Path)> {
+    let (i, root) = (roots.iter().enumerate())
+        .filter(|(_, r)| f.starts_with(r))
+        .max_by_key(|(_, r)| r.components().count())?;
+    Some((i, f.strip_prefix(root).ok()?))
 }
 
 /// How many directories at the end of `root` name its package. A root named with a version is

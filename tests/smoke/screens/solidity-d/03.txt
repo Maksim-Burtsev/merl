@@ -1,0 +1,57 @@
+wait contract ShopToken
+┌orders──────────────────────┐ 1 contract ShopToken {
+│▸ .github                   │ 2     event Minted(address to, uint256 amount);
+│▸ .venv                     │ 3
+│▸ app                       │ 4     modifier withinSupply(uint256 amount) {
+│▸ data                      │ 5         _;
+│▸ deploy                    │ 6     }
+│▸ docs                      │ 7
+│▸ scripts                   │ 8     function mint(address to, uint256 amount) external withinSupply(amount) {
+│▾ solshop                   │ 9         emit Minted(to, amount);
+│    ShopToken.sol           │10     }
+│▸ tests                     │11 }
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+solshop/ShopToken.sol  1:1  [code]                                                                                                                                                ? help
+cursor (x,y,shown) 33,0,1

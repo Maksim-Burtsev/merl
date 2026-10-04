@@ -1,0 +1,57 @@
+wait (ns shop.cart
+┌orders──────────────────────┐1 (ns shop.cart
+│▸ .github                   │2   (:require [shop.money :as money]))
+│▸ .venv                     │3
+│▸ app                       │4 (defn label [cart]
+│▾ cljshop                   │5   (let [total (reduce + cart)]
+│  ▾ src                     │6     (str "Total: " (money/format-price total))))
+│    ▾ shop                  │
+│        cart.clj            │
+│        money.clj           │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+cljshop/src/shop/cart.clj  1:1  [code]                                                                                                                                            ? help
+cursor (x,y,shown) 32,0,1

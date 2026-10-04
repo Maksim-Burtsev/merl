@@ -244,6 +244,8 @@ run under ~15 s.
 - A change the user has to learn (a new or changed key, screen, animation or default): leave the
   PR open with the before/after screencasts, add the `needs-owner` label and name it in your
   status line. Never ask "can I merge?" in chat.
+- The owner's comment `ok` on a PR merges it through `.github/workflows/owner-ok.yml`, at the
+  commit it was given to; a push after it needs a new `ok`. Any other owner comment is a brief.
 - The README and any other text in the owner's voice: open a draft PR with the `needs-owner`
   label and leave it to the owner.
 - An issue holding a question only the owner can answer carries one of two labels until the
