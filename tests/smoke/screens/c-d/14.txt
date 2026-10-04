@@ -10,39 +10,39 @@ wait stampJob: by name, 2 declarations
 │▸ tests                     │ 9     [self stampJob:nil];
 │▸ web                       │10 }
 │▾ worker                    │11 @end
-│  ▾ internal      ┌stampJob: by name, 2 declarations (2/2)───────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│    ▾ crc         │>                                                                                                                                                 │
-│        client.c  │                   worker/internal/crc/CrcStamp.m                                                                                                 │
-│        crc.c     │stampJob  by name    4  - (unsigned int)stampJob:(NSData *)job {                                                                                  │
-│        crc.h     │                   worker/internal/crc/CrcStamp.h                                                                                                 │
-│        CrcStamp.h│stampJob  by name    4  - (unsigned int)stampJob:(NSData *)job;                                                                                   │
-│        CrcStamp.m│                                                                                                                                                  │
-│        log.c     │                                                                                                                                                  │
-│        mode.cc   │                                                                                                                                                  │
-│    ▸ queue       │                                                                                                                                                  │
-│    go.mod        │                                                                                                                                                  │
-│    main.go       │                                                                                                                                                  │
-│  .env            │                                                                                                                                                  │
-│  .gitignore      │                                                                                                                                                  │
-│  docker-compose.y│                                                                                                                                                  │
-│  Dockerfile      │                                                                                                                                                  │
-│  Makefile        │                                                                                                                                                  │
-│  pyproject.toml  │                                                                                                                                                  │
-│  README.md       │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+│  ▾ internal                │        ┌stampJob: by name, 2 declarations (2/2)──────────────────────────────────────────────────────────────────────────────────────────────────┐
+│    ▾ crc                   │        │>                                                                                                                                        │
+│        client.c            │        │                   worker/internal/crc/CrcStamp.m                                                                                        │
+│        crc.c               │        │stampJob  by name    4  - (unsigned int)stampJob:(NSData *)job {                                                                         │
+│        crc.h               │        │                   worker/internal/crc/CrcStamp.h                                                                                        │
+│        CrcStamp.h          │        │stampJob  by name    4  - (unsigned int)stampJob:(NSData *)job;                                                                          │
+│        CrcStamp.m          │        │                                                                                                                                         │
+│        log.c               │        │                                                                                                                                         │
+│        mode.cc             │        │                                                                                                                                         │
+│    ▸ queue                 │        │                                                                                                                                         │
+│    go.mod                  │        │                                                                                                                                         │
+│    main.go                 │        │                                                                                                                                         │
+│  .env                      │        │                                                                                                                                         │
+│  .gitignore                │        │                                                                                                                                         │
+│  docker-compose.yml        │        │                                                                                                                                         │
+│  Dockerfile                │        │                                                                                                                                         │
+│  Makefile                  │        │                                                                                                                                         │
+│  pyproject.toml            │        │                                                                                                                                         │
+│  README.md                 │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 │                            │
 │                            │
 │                            │
@@ -54,4 +54,4 @@ wait stampJob: by name, 2 declarations
 │                            │
 └────────────────────────────┘
 worker/internal/crc/CrcStamp.m  9:11  [code]  stampJob: by name, 2 declarations
-cursor (x,y,shown) 22,12,1
+cursor (x,y,shown) 41,12,1

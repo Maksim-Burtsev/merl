@@ -212,6 +212,7 @@ pub(super) fn draw_picker(
     app: &mut App,
     theme: &Theme,
     area: Rect,
+    share: u16,
     base: Style,
 ) {
     let pending = app.search_pending();
@@ -220,7 +221,7 @@ pub(super) fn draw_picker(
     let Some(picker) = &mut app.picker else {
         return;
     };
-    let [area] = Layout::horizontal([Constraint::Percentage(80)])
+    let [area] = Layout::horizontal([Constraint::Percentage(share)])
         .flex(Flex::Center)
         .areas(area);
     let [area] = Layout::vertical([Constraint::Percentage(60)])

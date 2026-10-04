@@ -273,7 +273,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the line number and the code: `polar/license_key/endpoints.py` over `242  license_key = await …`
   instead of the path repeated on every row. A row still too wide for the list wraps under its
   code instead of stopping at the border mid-word. `u` no longer writes `declaration` before
-  its first rows: the title counts them, and the code moves left by 13 columns. (#479)
+  its first rows: the title counts them. With the tree open and the code at least 80 columns
+  wide, every list sits over the code instead of over the tree, its text where the code starts. (#479)
 - The `?` overlay on a screen narrower than 118 columns wraps an action too long for its row
   onto the next row, under its own column, instead of cutting it at the border (#458).
 - `d` in Python reads a dependency's modules as Python imports them (#329). `pytest.fixture` lands
