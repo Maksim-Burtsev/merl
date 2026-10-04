@@ -307,11 +307,12 @@ fn review_runs_into_a_hunk_or_o_to_the_next_file_miss_c() {
     open_by_name(&mut a, "tail");
     assert_eq!(a.rel_path(), "tail");
     assert_eq!(a.missed, missed(&[("c", 1)]));
-    // src/a.rs: hunks on `B` and `F`, lines 2 and 6, each under the line it rewrites (#439).
+    // src/a.rs: hunks on `B` and `F`, lines 2 and 6, each under the line it rewrites, where
+    // `c` stands (#690).
     a.jump_to(&dir.join("src/a.rs"), 2);
-    hold(&mut a, KeyCode::Down, NONE, 4, FAST);
-    assert_eq!(a.line_str(), "f");
-    hold(&mut a, KeyCode::Up, NONE, 4, FAST);
+    hold(&mut a, KeyCode::Down, NONE, 5, FAST);
+    assert_eq!(a.line_str(), "F");
+    hold(&mut a, KeyCode::Up, NONE, 5, FAST);
     assert_eq!(a.line_str(), "B");
     assert_eq!(a.missed, missed(&[("c", 2), ("C", 1)]));
     // #239: from a file outside the review, `c` goes back to the hunk it left, in crlf.txt.

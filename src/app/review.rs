@@ -430,8 +430,6 @@ impl App {
         self.buf.path.as_deref() == Some(&path)
     }
 
-    /// Opens `path` on the first line of a hunk, `h`: its first deleted line when it starts
-    /// with a deletion (#439). The view is centred on it.
     fn jump_to_hunk(&mut self, path: &Path, h: TextLine) {
         self.jump_to(path, h.key() + 1);
         if self.buf.path.as_deref() == Some(path) {
@@ -455,7 +453,11 @@ impl App {
         if self.folded_here().is_some() {
             return Some(format!("folded  file {}/{}", file + 1, r.files.len()));
         }
-        let hunk = self.diff.hunks.iter().filter(|&&h| h <= self.at()).count();
+        let at = match self.at() {
+            TextLine::Deleted(k, _) => TextLine::File(k),
+            at => at,
+        };
+        let hunk = self.diff.hunks.iter().filter(|&&h| h <= at).count();
         Some(format!(
             "hunk {hunk}/{}  file {}/{}",
             self.diff.hunks.len(),
