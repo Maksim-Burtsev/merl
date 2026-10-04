@@ -47,3 +47,14 @@ class Shuttle {
         //  ^ d: src/main/groovy/abacus/Spindle.groovy:41
     }
 }
+
+class Bobbin {
+    Bobbin(Closure c = { -> 1 }, int b) {  }
+
+    Bobbin(String s) {  }
+
+    def wind(Closure c) {
+        new Bobbin(c, 1)
+        //  ^ d: src/main/groovy/abacus/Spindle.groovy:52
+    }
+}
