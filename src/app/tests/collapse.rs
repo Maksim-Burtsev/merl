@@ -136,6 +136,24 @@ fn a_fold_stays_with_its_file() {
 }
 
 #[test]
+fn a_fold_in_json_stays_with_its_file_measured_as_json() {
+    let (dir, mut a) = files_app("fold-json");
+    std::fs::write(dir.join("a.json"), "{\n  \"e\": {\n  },\n  \"x\": 1\n}\n").unwrap();
+    std::fs::write(dir.join("b.py"), "x = 1\n").unwrap();
+    a.jump_to(&dir.join("a.json"), 0);
+    a.go((1, 0));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(1, 2)]);
+    a.jump_to(&dir.join("b.py"), 0);
+    a.jump_to(&dir.join("a.json"), 0);
+    assert_eq!(
+        a.collapsed,
+        vec![(1, 2)],
+        "an empty object, which indentation never folds"
+    );
+}
+
+#[test]
 fn a_reload_keeps_a_fold_whose_line_is_still_there() {
     let mut a = app_as("py", PY);
     a.go((6, 0));
@@ -173,11 +191,10 @@ fn an_objective_c_header_has_no_fold_rules_and_a_c_header_folds_as_cpp() {
 
 #[test]
 fn f_folds_python_and_says_so_in_other_languages() {
-    let mut a = app_as("json", "{\n  \"a\": [\n    1\n  ]\n}\n");
-    a.go((2, 4));
+    let mut a = app_as("txt", "a\n  b\n");
     key(&mut a, KeyCode::Char('f'));
     assert!(a.collapsed.is_empty());
-    assert_eq!(a.message, "no fold rules for .json");
+    assert_eq!(a.message, "no fold rules for .txt");
     let mut a = app_as("py", "x = [\n    1,\n]\n");
     a.go((1, 4));
     key(&mut a, KeyCode::Char('f'));
@@ -332,7 +349,7 @@ fn f_answers_on_a_markdown_source_shown_again_after_its_preview() {
     key(&mut a, KeyCode::Char('p'));
     a.go((0, 0));
     key(&mut a, KeyCode::Char('f'));
-    assert_eq!(a.message, "no fold rules for .md");
+    assert_eq!(a.collapsed, vec![(0, 1)]);
 }
 
 #[test]
@@ -369,36 +386,37 @@ fn every_fold_fixture_folds_as_annotated() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/folds");
     for entry in std::fs::read_dir(dir).unwrap() {
         let path = entry.unwrap().path();
-        let ext = path.extension().unwrap().to_str().unwrap().to_owned();
-        let mark = match ext.as_str() {
-            "py" | "rb" | "sh" => "# f: ",
-            "lua" => "-- f: ",
-            _ => "// f: ",
-        };
+        let ext = path.extension().unwrap().to_str().unwrap();
         let text = std::fs::read_to_string(&path).unwrap();
-        let mut a = app_as(&ext, &text);
+        let mut a = app_as(ext, &text);
         let mut checked = 0;
         for (l, line) in text.lines().enumerate() {
-            let Some((_, want)) = line.split_once(mark) else {
+            let Some((_, want)) = line.rsplit_once(" f: ") else {
                 continue;
             };
-            let (h, e) = want.split_once('-').unwrap();
-            let want = (
-                h.parse::<usize>().unwrap() - 1,
-                e.parse::<usize>().unwrap() - 1,
-            );
+            let want: String = want
+                .chars()
+                .take_while(|c| c.is_ascii_digit() || *c == '-')
+                .collect();
+            let want = want.split_once('-').map(|(h, e)| {
+                (
+                    h.parse::<usize>().unwrap() - 1,
+                    e.parse::<usize>().unwrap() - 1,
+                )
+            });
             a.collapsed.clear();
             a.go((l, 0));
             key(&mut a, KeyCode::Char('f'));
+            let name = path.file_name().unwrap().to_string_lossy();
             assert_eq!(
                 a.collapsed,
-                vec![want],
-                "{path:?}, f on line {}: {line}",
+                Vec::from_iter(want),
+                "f on {name}:{}: {line}",
                 l + 1
             );
             checked += 1;
         }
-        assert!(checked > 40, "{path:?}: {checked} annotations");
+        assert!(checked > 10, "{checked} annotations in {}", path.display());
     }
 }
 

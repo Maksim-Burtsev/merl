@@ -27,6 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `end`, `fi`, `done` or `esac` shown after the `⋯`; on `else`, `elsif`, `when`, `rescue`,
   `ensure`, `elseif` or `elif` it folds that branch; anywhere else inside a method or function it
   folds the method or function. (#626)
+- `f` folds YAML, JSON, TOML, HTML, CSS / SCSS and Markdown too, where it said
+  `no fold rules for .json`: a key with what is nested under it and a list item in YAML, an
+  object or an array in JSON, a table and a wrapped array in TOML, an element from its start tag
+  to its end tag in HTML, a rule in CSS from the first line of its selectors, and in Markdown a
+  heading with its section, a list and a code block. On a line inside one, `f` folds the
+  innermost one around it. (#627)
 - `d`, `u` and `D` in Groovy, Gradle build scripts and Jenkinsfiles, where `d` said `no rules for
   .groovy`, `no rules for .gradle` and `no rules for this file`. `.groovy`, `.gvy`, `.gradle`,
   `*.jenkinsfile` and `Jenkinsfile` are one kind with Java, Kotlin and Scala, so a Groovy class

@@ -1,6 +1,7 @@
 use super::*;
 
 mod braces;
+mod spans;
 mod words;
 
 impl App {
@@ -17,6 +18,24 @@ impl App {
         };
         if let Some(blocks) = words {
             return Some(Folds::Words(blocks));
+        }
+        let ext = self
+            .buf
+            .path
+            .as_deref()
+            .and_then(|p| p.extension()?.to_str());
+        let spans = match ext {
+            Some("json") => Some(spans::json(lines)),
+            Some("css") => Some(spans::css(lines)),
+            Some("scss") => Some(spans::scss(lines)),
+            Some("yml" | "yaml") => Some(spans::yaml(lines)),
+            Some("toml") => Some(spans::toml(lines)),
+            Some("html" | "htm") => Some(spans::html(lines)),
+            Some("md" | "markdown") => Some(spans::markdown(lines)),
+            _ => None,
+        };
+        if let Some(spans) = spans {
+            return Some(Folds::Spans(spans));
         }
         let syntax = self.buf.path.as_deref().and_then(braces::syntax_of);
         match syntax.filter(|_| !self.objc_file()) {
@@ -186,6 +205,7 @@ fn every_kind() -> bool {
 enum Folds<'a> {
     Indent(Box<Shape<'a>>),
     Words(words::Blocks),
+    Spans(Vec<(usize, usize)>),
 }
 
 impl<'a> Folds<'a> {
@@ -193,6 +213,12 @@ impl<'a> Folds<'a> {
         match self {
             Folds::Indent(s) => s.target(l),
             Folds::Words(w) => w.target(l),
+            Folds::Spans(spans) => (spans.iter().find(|s| s.0 == l))
+                .or_else(|| {
+                    (spans.iter().filter(|s| s.0 < l && l <= s.1))
+                        .min_by_key(|s| (std::cmp::Reverse(s.0), s.1))
+                })
+                .copied(),
         }
     }
 
@@ -200,6 +226,7 @@ impl<'a> Folds<'a> {
         match self {
             Folds::Indent(s) => s.region(h),
             Folds::Words(w) => w.region(h),
+            Folds::Spans(spans) => spans.iter().find(|s| s.0 == h).map(|s| s.1),
         }
     }
 }

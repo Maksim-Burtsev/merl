@@ -1,0 +1,30 @@
+/* Every construct `f` folds in CSS, and the cases that could break it. */
+@import url("theme.css"); /* f: none */
+/* f: none */
+html { /* f: 4-6 */
+  line-height: 1.15; /* f: 4-6 */
+} /* f: 4-6 */
+/* f: none */
+h1, /* f: 8-13 */
+h2, /* f: 8-13 */
+.title > a:hover { /* f: 8-13 */
+  margin: 0; /* f: 8-13 */
+  content: "a } brace in a string"; /* f: 8-13 */
+} /* f: 8-13 */
+/* a comment with { a brace } */ /* f: none */
+@media print and (min-width: 40em) { /* f: 15-22 */
+  a, /* f: 16-19 */
+  b { /* f: 16-19 */
+    color: #000 !important; /* f: 16-19 */
+  } /* f: 16-19 */
+/* f: 15-22 */
+  .logo { display: none; } /* f: 15-22 */
+} /* f: 15-22 */
+.empty { /* f: 23-24 */
+} /* f: 23-24 */
+.bg { /* f: 25-30 */
+  background: url(http://example.com/a.png); /* f: 25-30 */
+  font-family: /* f: 25-30 */
+    Menlo, /* f: 25-30 */
+    monospace; /* f: 25-30 */
+} /* f: 25-30 */
