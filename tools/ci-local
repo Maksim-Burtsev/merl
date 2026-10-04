@@ -13,7 +13,7 @@ release() { cargo build --release --locked; }
 panic() { cargo test --release --locked no_panic -- --ignored; }
 dbench() { tools/d-bench/run --selftest; }
 smoke() { tests/smoke/run.py --golden --new target/release/merl; }
-msrv() {
+msrv() (
   local v
   v=$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)
   if ! command -v rustup >/dev/null; then
@@ -24,7 +24,7 @@ msrv() {
   fi
   rustup toolchain list | grep -q "^$v" || rustup toolchain install "$v" --profile minimal
   cargo "+$v" build --locked
-}
+)
 
 all=(fmt clippy tests release panic dbench smoke msrv)
 if [ $# -eq 0 ]; then
