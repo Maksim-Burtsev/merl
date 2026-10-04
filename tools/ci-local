@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# The jobs of .github/workflows/ci.yml, which calls this script for each of them.
+#   tools/ci-local            every step, stopping at the first that fails
+#   tools/ci-local STEP...    only those steps
+# `panic` runs only when named or on a release/ branch, as in CI.
+set -Eeuo pipefail
+cd "$(dirname "$0")/.."
+
+fmt() { cargo fmt --check; }
+clippy() { cargo clippy --all-targets -- -D warnings; }
+tests() { cargo test --locked; }
+release() { cargo build --release --locked; }
+panic() { cargo test --release --locked no_panic -- --ignored; }
+dbench() { tools/d-bench/run --selftest; }
+smoke() { tests/smoke/run.py --golden --new target/release/merl; }
+msrv() {
+  local v
+  v=$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)
+  cargo "+$v" --version >/dev/null 2>&1 || rustup toolchain install "$v" --profile minimal
+  cargo "+$v" build --locked
+}
+
+all=(fmt clippy tests release panic dbench smoke msrv)
+if [ $# -eq 0 ]; then
+  steps=(fmt clippy tests release)
+  case $(git rev-parse --abbrev-ref HEAD) in release/*) steps+=(panic) ;; esac
+  steps+=(dbench smoke msrv)
+else
+  steps=("$@")
+fi
+
+for s in "${steps[@]}"; do
+  [[ " ${all[*]} " == *" $s "* ]] || { echo "ci-local: no step '$s' (${all[*]})" >&2; exit 2; }
+done
+trap 'echo "== ci-local: $s FAILED" >&2' ERR
+for s in "${steps[@]}"; do
+  echo "== ci-local: $s"
+  "$s"
+done
+echo "== ci-local: all passed (${steps[*]})"

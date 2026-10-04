@@ -18,7 +18,8 @@ a release build of master, and the commit trailers. Read `AGENTS.md` in your wor
   `~/.cache/merl-d-bench/<project>`: parallel runs overwrite the shared cache's tables.
 - "Before" screencasts use the master build from your task file.
 - A change to a screen updates the golden screens and snapshots in the same commit.
-- Before every push, what `.github/workflows/ci.yml` runs.
+- Before every push, `tools/ci-local` (the jobs of `.github/workflows/ci.yml`), its output to a
+  file; push only when it ends in `all passed`.
 - About an hour. Kill hung tmux sessions, builds and probes. Stuck: push what is good and report
   what is left.
 - Merging is the dispatcher's.
