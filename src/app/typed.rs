@@ -107,8 +107,6 @@ impl App {
         }
     }
 
-    /// A builtin type the file writing it declares or imports, a project class called `str`, is
-    /// read as before.
     pub(super) fn builtin_receiver(
         &self,
         kind: Kind,

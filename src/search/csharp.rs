@@ -204,13 +204,13 @@ pub(super) fn cs_opener(header: &str, name: &str) -> CsOpener {
     }
 }
 
-/// `before` is the whole signature up to the `(`, with a type, a type keyword, an operator or an
-/// access modifier in it, so a call such as `var order = new Order` or `new Order` is none.
 struct CsSignature {
     name: String,
     primary_constructor: bool,
 }
 
+/// `before` is the whole signature up to the `(`, with a type, a type keyword, an operator or an
+/// access modifier in it, so a call such as `var order = new Order` or `new Order` is none.
 fn cs_signature(before: &str) -> Option<CsSignature> {
     static SIG: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(concat!(
