@@ -27,6 +27,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it said `no definition for container`. A Sass variable, mixin or function the project does not
   declare is found in `node_modules` from a Sass file, a Less variable from a Less file, and a
   class of a `.sass` file is found in its indented rules, `&__item` and all. (#590)
+
+### Changed
+
+- `d` in TypeScript and JavaScript reads the type of a receiver in five more places. In
+  `function Row({ apiKey }: Props)` `apiKey.id` lands on the `id` its `Props` field's type
+  declares, as `auth.user` does after `const { auth } = useStores()`, `membership.permission`
+  inside `for (const membership of document.memberships)`, and `server.post` after `const server
+  = getTestServer()` whose body does `const server = new TestServer(); return server;`. Each
+  offered a picker of every namesake. `props.href` with `props: Omit<Props, "document"> & { href:
+  string }` lands on the `href` of the literal, where it jumped to another class's `href`, and `d`
+  on `rest` after `const { id, ...rest } = document` lands on that line, where it said "no
+  definition". (#354)
+
+### Fixed
+
+- `d` in PHP on a relative namespace segment in a file of several `namespace` blocks, `Legacy` in
+  `Legacy\Entry::OPEN`, reads it in the block it stands in. It read it in the file's first block
+  and said `no definition`. (#617)
+- `d` in a Vue or Svelte component on a member of a `v-for` or `{#each}` item named like a
+  `const` of the script above, `theme` in `{{ settings.theme }}` under `v-for="settings in
+  rows"`, no longer jumps to the key of the script's `const settings = { theme }`: the item is
+  another value, and `d` searches the member by name. (#618)
+
+## [0.8.2] - 2026-10-04
+
+### Added
+
 - `f` folds Go, JavaScript, TypeScript (JSX and TSX included), Rust, C, C++, C#, Java, Kotlin,
   Swift and PHP, where it said `no fold rules for .go`: on a line that opens a construct it folds
   what Neovim's treesitter folds there in that language (a function, a class, an `if` and its
@@ -157,15 +184,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `d` in TypeScript and JavaScript reads the type of a receiver in five more places. In
-  `function Row({ apiKey }: Props)` `apiKey.id` lands on the `id` its `Props` field's type
-  declares, as `auth.user` does after `const { auth } = useStores()`, `membership.permission`
-  inside `for (const membership of document.memberships)`, and `server.post` after `const server
-  = getTestServer()` whose body does `const server = new TestServer(); return server;`. Each
-  offered a picker of every namesake. `props.href` with `props: Omit<Props, "document"> & { href:
-  string }` lands on the `href` of the literal, where it jumped to another class's `href`, and `d`
-  on `rest` after `const { id, ...rest } = document` lands on that line, where it said "no
-  definition". (#354)
 - `d` outside the project answers faster: the dependencies are read in parallel, each file's
   comments are lexed once, and a Python member is looked for in the packages the file imports
   before every installed one, so its picker lists those alone (#318).
@@ -179,19 +197,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `d` in PHP on a relative namespace segment in a file of several `namespace` blocks, `Legacy` in
-  `Legacy\Entry::OPEN`, reads it in the block it stands in. It read it in the file's first block
-  and said `no definition`. (#617)
-- `d` in a Vue or Svelte component on a member of a `v-for` or `{#each}` item named like a
-  `const` of the script above, `theme` in `{{ settings.theme }}` under `v-for="settings in
-  rows"`, no longer jumps to the key of the script's `const settings = { theme }`: the item is
-  another value, and `d` searches the member by name. (#618)
 - `d` on `Settings` in a Java `new Settings(entries)` no longer jumps to `Settings(String path)`
   when the class also declares `Settings(Map<String, Object> entries)`: the comma inside `<…>` of
   a parameter list no longer counts as a second parameter. (#675)
 - A `.fs` file is highlighted as F#, not GLSL. (#427)
 - A Bazel `BUILD` file is highlighted as Starlark instead of as XML, and a `BUCK` or `.star` file
   is highlighted at all. (#431)
+- After `s` or `D` to a Nix name ending in `'`, such as `discount'`, the hint that `d` would have
+  got there counts the run, as it does for every other name. (#648)
 
 ## [0.8.1] - 2026-10-02
 
@@ -1980,7 +1993,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scroll position, the jump history and the find pattern.
 - Help overlay on `?`, listing every binding; Esc in normal mode clears the find highlights.
 
-[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.8.2
 [0.8.1]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.8.1
 [0.8.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.8.0
 [0.7.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.7.0

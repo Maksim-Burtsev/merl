@@ -253,8 +253,8 @@ fn perl_target(line: &str, range: std::ops::Range<usize>, name: &str, col: usize
         Some(receiver) => {
             let receiver = receiver.trim_end();
             let start = receiver
-                .rfind(|c: char| !(c.is_ascii_alphanumeric() || c == '_' || c == ':'))
-                .map_or(0, |i| i + 1);
+                .trim_end_matches(|c: char| c.is_alphanumeric() || c == '_' || c == ':')
+                .len();
             let class = &receiver[start..];
             let value = receiver[..start].ends_with(['$', '@', '%', '>', '}', ']', ')']);
             match class.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_') && !value {
