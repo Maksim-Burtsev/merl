@@ -883,7 +883,7 @@ fn review_paints_the_word_that_changed_on_both_rows() {
     // A file the branch deleted is all deleted rows.
     app.jump_to(&dir.join("gone.py"), 0);
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!(rows(&terminal)[0], "1\u{2581}x = 1");
+    assert_eq!(rows(&terminal)[0], "1\u{258e}x = 1");
     assert_eq!(cell(&terminal, 23, 0).1, theme.del_bg_hl);
     let _ = std::fs::remove_dir_all(dir);
 }
