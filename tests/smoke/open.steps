@@ -71,3 +71,9 @@ key Escape o
 type .py$
 wait Files (0/
 key Escape
+# With nothing typed the file list starts with the files this session left, the last one left on
+# top, so o and Enter go back to it (#406).
+key o
+wait Files (
+key Enter
+wait app/uow.py  1:1

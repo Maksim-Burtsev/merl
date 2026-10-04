@@ -1,0 +1,57 @@
+wait Files (
+┌orders──────────────────────┐   Release notes for the support team
+│▸ .github                   │   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+│▸ .venv                     │   1.8.0
+│▾ app                       │   ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+│    __init__.py             │   • ⚠️ A refund past the 30-day window needs a manager's approval: open the order, press Refund and write the reason in the note, the payment team reads
+│    api.py                  │     it.
+│    config.py               │   • Заказы старше года архивируются, их нельзя вернуть через API: пишите в поддержку платёжного провайдера.
+│    models.py               │   • The refund flow was tested with the payment team 👍🏽 on staging, on the cards and on the bank transfers both, twice.
+│    repos.py                │
+│    service.py              │   1.7.2
+│    uow.py                  │   ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+│▸ data            ┌Files (61/61)─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│▸ deploy          │>                                                                                                                                                 │
+│▾ docs            │app/uow.py                                                                                                                                        │
+│    architecture.p│app/service.py                                                                                                                                    │
+│    notes.md      │app/models.py                                                                                                                                     │──────────────────
+│▸ scripts         │.github/workflows/ci.yml                                                                                                                          │
+│▸ tests           │app/__init__.py                                                                                                                                   │
+│▸ web             │app/api.py                                                                                                                                        │
+│▸ worker          │app/config.py                                                                                                                                     │
+│  .env            │app/repos.py                                                                                                                                      │──────────────────
+│  .gitignore      │data/orders.min.json                                                                                                                              │
+│  docker-compose.y│data/refunds-2026-08.csv                                                                                                                          │
+│  Dockerfile      │deploy/helm/orders/templates/_helpers.tpl                                                                                                         │
+│  Makefile        │deploy/helm/orders/templates/deployment.yaml                                                                                                      │
+│  pyproject.toml  │deploy/helm/orders/Chart.yaml                                                                                                                     │
+│  README.md       │deploy/helm/orders/values.yaml                                                                                                                    │──────────────────
+│                  │docs/architecture.png                                                                                                                             │
+│                  │docs/notes.md                                                                                                                                     │
+│                  │scripts/payouts/src/ledger.rs                                                                                                                     │
+│                  │scripts/payouts/src/main.rs                                                                                                                       │
+│                  │scripts/payouts/src/summary.rs                                                                                                                    │──────────────────
+│                  │scripts/payouts/Cargo.toml                                                                                                                        │
+│                  │scripts/invoices.php                                                                                                                              │
+│                  │scripts/refund_by_hand.py                                                                                                                         │
+│                  │tests/test_service.py                                                                                                                             │
+│                  │web/android/gradle/libs.versions.toml                                                                                                             │
+│                  │web/android/src/main/java/courier/app/scan/Parcel.java                                                                                            │──────────────────
+│                  │web/android/src/main/java/courier/app/ParcelSync.java                                                                                             │
+│                  │web/android/src/main/java/courier/app/Scale.java                                                                                                  │
+│                  │web/android/src/main/kotlin/courier/app/ship/Parcel.kt                                                                                            │
+│                  │web/android/src/main/kotlin/courier/app/Notice.kt                                                                                                 │
+│                  │web/android/src/main/kotlin/courier/app/ParcelList.kt                                                                                             │
+│                  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+docs/notes.md  11:7  [preview]                                                                                                                                                    ? help
+cursor (x,y,shown) 22,12,1

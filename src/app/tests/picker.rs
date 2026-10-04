@@ -454,3 +454,64 @@ fn enter_with_nothing_matched_keeps_the_list_and_its_query() {
         assert_eq!((a.mode, a.picker.is_none()), (Mode::Normal, true));
     }
 }
+
+fn files_listed(a: &mut App, query: &str) -> Vec<String> {
+    press(a, KeyCode::Char('o'), KeyModifiers::NONE);
+    typed(a, query);
+    let p = a.picker.as_mut().unwrap();
+    p.settle();
+    let labels = p.window(10).0.into_iter().map(|r| r.item.label).collect();
+    press(a, KeyCode::Esc, KeyModifiers::NONE);
+    labels
+}
+
+fn recent_app(tag: &str) -> (PathBuf, App) {
+    let names = ["aa.txt", "bb.txt", "cc.txt", "dd.txt"];
+    project_app(tag, &names.map(|n| (n, "x\n")))
+}
+
+#[test]
+fn o_lists_the_files_left_this_session_first() {
+    let (dir, mut a) = recent_app("recent-first");
+    for f in ["bb.txt", "cc.txt", "dd.txt", "cc.txt"] {
+        a.jump_to(&dir.join(f), 1);
+    }
+    assert_eq!(
+        files_listed(&mut a, ""),
+        ["dd.txt", "bb.txt", "aa.txt", "cc.txt"]
+    );
+    press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(a.rel_path(), "dd.txt");
+    assert_eq!(
+        files_listed(&mut a, ""),
+        ["cc.txt", "bb.txt", "aa.txt", "dd.txt"]
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_typed_query_lists_the_files_as_without_recent_ones() {
+    let (dir, mut fresh) = recent_app("recent-typed-fresh");
+    let today = files_listed(&mut fresh, "txt");
+    let (dir2, mut a) = recent_app("recent-typed");
+    for f in ["cc.txt", "dd.txt"] {
+        a.jump_to(&dir2.join(f), 1);
+    }
+    assert_eq!(today, ["aa.txt", "bb.txt", "cc.txt", "dd.txt"]);
+    assert_eq!(files_listed(&mut a, "txt"), today);
+    let _ = (std::fs::remove_dir_all(dir), std::fs::remove_dir_all(dir2));
+}
+
+#[test]
+fn o_in_a_review_keeps_the_review_order() {
+    let (dir, mut a) = review_app("recent-review");
+    a.jump_to(&dir.join("src/keep.rs"), 1);
+    a.jump_to(&dir.join("tail"), 1);
+    let listed = files_listed(&mut a, "");
+    assert_eq!(
+        listed[..5],
+        ["src/a.rs", "crlf.txt", "new", "tail", "src/keep.rs"]
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}

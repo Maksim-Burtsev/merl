@@ -1,0 +1,57 @@
+wait app/uow.py  1:1
+┌orders──────────────────────┐ 1 from app.repos import OrderRepo
+│▸ .github                   │ 2
+│▸ .venv                     │ 3
+│▾ app                       │ 4 class UnitOfWork:
+│    __init__.py             │ 5     """One transaction: `with uow:` commits on success and rolls back on an error."""
+│    api.py                  │ 6
+│    config.py               │ 7     def __init__(self, db):
+│    models.py               │ 8         self.db = db
+│    repos.py                │ 9         self.orders = OrderRepo(db)
+│    service.py              │10
+│    uow.py                  │11     def __enter__(self):
+│▸ data                      │12         self.db.begin()
+│▸ deploy                    │13         return self
+│▾ docs                      │14
+│    architecture.png        │15     def __exit__(self, exc_type, exc, tb):
+│    notes.md                │16         if exc_type is None:
+│▸ scripts                   │17             self.db.commit()
+│▸ tests                     │18         else:
+│▸ web                       │19             self.db.rollback()
+│▸ worker                    │20         return False
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+app/uow.py  1:1  [code]                                                                                                                                                           ? help
+cursor (x,y,shown) 33,0,1

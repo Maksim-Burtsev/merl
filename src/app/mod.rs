@@ -432,6 +432,7 @@ pub struct App {
     /// The history of each file left with one, by path (#163): coming back is like coming back
     /// to a VS Code tab that stayed open.
     stash: HashMap<PathBuf, Stashed>,
+    left_files: Vec<PathBuf>,
     /// The overlay on screen (find, goto, a prompt, a picker) was opened from edit mode with a
     /// chord alias: closing it without leaving the file goes back to editing.
     resume_edit: bool,
@@ -615,6 +616,7 @@ impl App {
             redo: Vec::new(),
             undo_break: false,
             stash: HashMap::new(),
+            left_files: Vec::new(),
             resume_edit: false,
             clipboard: None,
             diff: git::Diff::default(),

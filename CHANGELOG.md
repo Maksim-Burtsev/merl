@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `o` with nothing typed lists the files opened this session first, the one left last on top and
+  the open file left out, so `o` and Enter go back to the file before; a typed query lists as it
+  did, and in `--review` the review's files stay first. (#406)
+
 ## [0.8.2] - 2026-10-04
 
 ### Added

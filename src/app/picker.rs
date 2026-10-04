@@ -20,10 +20,10 @@ impl App {
             .chain(&self.ignored)
             .partition(|p| order.contains_key(p));
         review.sort_by_key(|p| order[p]);
-        let items = review
-            .into_iter()
-            .chain(rest)
-            .map(|p| PickItem {
+        let listed: Vec<&PathBuf> = review.into_iter().chain(rest).collect();
+        let items = listed
+            .iter()
+            .map(|&p| PickItem {
                 label: p.display().to_string(),
                 path: p.clone(),
                 line: 0,
@@ -32,9 +32,31 @@ impl App {
                 deleted: false,
             })
             .collect();
-        // Only the file picker wants nucleo's path-aware scoring.
-        self.picker = Some(Picker::new(PickerKind::Files.title(), items, true));
+        let mut picker = Picker::new(PickerKind::Files.title(), items, true);
+        if self.review.is_none() {
+            picker.blank_order = self.recent_first(&listed);
+        }
+        self.picker = Some(picker);
         self.mode = Mode::Picker(PickerKind::Files);
+    }
+
+    fn recent_first(&self, listed: &[&PathBuf]) -> Vec<u32> {
+        let rank: HashMap<&Path, usize> = (self.left_files.iter().rev())
+            .filter(|f| self.buf.path.as_ref() != Some(*f))
+            .filter_map(|f| f.strip_prefix(&self.root).ok())
+            .enumerate()
+            .map(|(i, f)| (f, i))
+            .collect();
+        if rank.is_empty() {
+            return Vec::new();
+        }
+        let mut order: Vec<u32> = (0..listed.len() as u32).collect();
+        order.sort_by_key(|&i| {
+            rank.get(listed[i as usize].as_path())
+                .copied()
+                .unwrap_or(usize::MAX)
+        });
+        order
     }
 
     pub(crate) fn show_picker(&mut self, kind: PickerKind, items: Vec<PickItem>) {

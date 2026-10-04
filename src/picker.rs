@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use nucleo::pattern::{CaseMatching, Normalization};
-use nucleo::{Config, Matcher, Nucleo};
+use nucleo::{Config, Item, Matcher, Nucleo, Snapshot};
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 
 use crate::buffer::Buffer;
@@ -61,6 +61,18 @@ pub struct Picker {
     /// Review: the gutter marks of the review's files drawn so far, filled lazily by `ui` like
     /// `bufs` (#246).
     pub marks: HashMap<PathBuf, HashMap<usize, Mark>>,
+    pub blank_order: Vec<u32>,
+}
+
+fn nth<'a>(
+    snap: &'a Snapshot<PickItem>,
+    blank_order: &[u32],
+    n: u32,
+) -> Option<Item<'a, PickItem>> {
+    match blank_order.get(n as usize) {
+        Some(&i) if snap.pattern().is_empty() => snap.get_item(i),
+        _ => snap.get_matched_item(n),
+    }
 }
 
 impl Picker {
@@ -91,6 +103,7 @@ impl Picker {
             page: 10,
             bufs: HashMap::new(),
             marks: HashMap::new(),
+            blank_order: Vec::new(),
         }
     }
 
@@ -126,6 +139,7 @@ impl Picker {
             nucleo,
             matcher,
             selected,
+            blank_order,
             ..
         } = self;
         let snap = nucleo.snapshot();
@@ -139,9 +153,8 @@ impl Picker {
         let height = height.max(1).min(total);
         let start = (*selected + 1).saturating_sub(height).min(total - height);
         let pattern = snap.pattern().column_pattern(0);
-        let rows = snap
-            // matched_items panics on a range past the match count, so it is clamped above.
-            .matched_items(start as u32..(start + height) as u32)
+        let rows = (start as u32..(start + height) as u32)
+            .filter_map(|n| nth(snap, blank_order, n))
             .map(|item| {
                 let mut matched = Vec::new();
                 // Indices are only needed for what is on screen; scoring the whole list would
@@ -161,8 +174,7 @@ impl Picker {
     /// The item under the cursor, if the query matches anything.
     pub fn current(&self) -> Option<&PickItem> {
         let snap = self.nucleo.snapshot();
-        snap.get_matched_item(self.selected as u32)
-            .map(|item| item.data)
+        nth(snap, &self.blank_order, self.selected as u32).map(|item| item.data)
     }
 
     /// Enter with nothing matched does nothing, as in VS Code's quick open: the list and the
