@@ -25,7 +25,6 @@ use unicase::UniCase;
 use crate::theme::Theme;
 use crate::wrap;
 
-/// Whether `path` is a Markdown file, which `p` shows rendered.
 pub fn is_markdown(path: &Path) -> bool {
     path.extension()
         .is_some_and(|e| e.eq_ignore_ascii_case("md") || e.eq_ignore_ascii_case("markdown"))
@@ -45,7 +44,6 @@ pub enum Ink {
     /// Inline code and code blocks, on a tint.
     Code,
     Link,
-    /// A quote's text.
     Quote,
     /// What is shown as it is written: front matter, HTML, an image's alt text.
     Dim,
@@ -66,7 +64,6 @@ impl Ink {
     }
 }
 
-/// One screen row of the preview.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Row {
     pub text: String,
@@ -153,7 +150,6 @@ impl Doc {
     }
 }
 
-/// `text` laid out in rows of `width` columns.
 pub fn layout(lines: &[String], width: usize) -> Doc {
     let src = lines.join("\n");
     let mut starts = vec![0];
@@ -196,7 +192,6 @@ pub fn layout(lines: &[String], width: usize) -> Doc {
 /// position: to the row that shows or owns the line above it, and above every row to the row
 /// that shows the next line. With no row that shows a line, the first row takes them all.
 fn cover(rows: &mut [Row], n: usize) {
-    // The first and the last row that show each line.
     let (mut first, mut last) = (vec![None; n], vec![None; n]);
     for (i, r) in rows.iter().enumerate() {
         for l in r.lines.clone().filter(|&l| l < n) {
@@ -646,7 +641,6 @@ impl Lay<'_> {
         Look { ink, mods }
     }
 
-    /// Text of the event at source bytes `r`.
     fn text(&mut self, s: &str, look: Look, r: Range<usize>) {
         let raw = &self.src[r.clone()];
         let inline = self.inline.get_or_insert_with(|| {
@@ -721,7 +715,6 @@ impl Lay<'_> {
         self.width.saturating_sub(w).max(1)
     }
 
-    /// Adds a row: the containers' prefix, then `text` with `looks` over it.
     fn push(
         &mut self,
         text: String,
@@ -790,7 +783,6 @@ impl Lay<'_> {
         }
     }
 
-    /// The row just added is drawn for no line of its own.
     fn shows_nothing(&mut self) {
         if let Some(r) = self.rows.last_mut() {
             r.lines.end = r.lines.start;
@@ -1104,7 +1096,6 @@ pub struct Palette {
     line: Color,
     /// Note, Tip, Important, Warning, Caution.
     alerts: [Color; 5],
-    /// Behind code.
     pub code_bg: Color,
 }
 

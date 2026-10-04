@@ -321,7 +321,6 @@ mod tests {
         (Some(PathBuf::from(file)), git::TextLine::File(line), on)
     }
 
-    /// A session over a review whose files have these stops.
     fn session_over(at: Instant, stops_in: &[(&str, usize)]) -> Session {
         let review = git::Review {
             branch: "feat".into(),
@@ -432,11 +431,10 @@ mod tests {
         let viewed = [PathBuf::from("a.rs"), PathBuf::from("new.rs")];
         let columns = s.columns(viewed.iter()).unwrap();
         let cols: Vec<&str> = columns.split('\t').collect();
-        // files, hunks; stops, viewed.
         assert_eq!(
             (cols[0], cols[1], cols[9], cols[10]),
             ("2", "3", "1", "1"),
-            "{columns}"
+            "files, hunks, stops, viewed: {columns}"
         );
     }
 
@@ -570,10 +568,13 @@ mod tests {
                  2026-09-26\tmerl\tfeat/a\t2\t{cols}\n"
             )
         );
-        // A file that cannot be read is not written over.
         std::fs::write(&file, b"\xff\n").unwrap();
         assert!(add(&file, day("2026-09-26"), "merl", "feat/a", cols).is_err());
-        assert_eq!(std::fs::read(&file).unwrap(), b"\xff\n");
+        assert_eq!(
+            std::fs::read(&file).unwrap(),
+            b"\xff\n",
+            "a file that cannot be read is not written over"
+        );
         let _ = std::fs::remove_dir_all(file.ancestors().nth(3).unwrap());
     }
 
