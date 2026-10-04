@@ -1,0 +1,5 @@
+[versions]
+googleOss = "17.1.0"
+
+[libraries]
+google-oss-licenses = { group = "com.google.android.gms", name = "play-services-oss-licenses", version.ref = "googleOss" }

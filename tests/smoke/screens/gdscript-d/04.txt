@@ -1,0 +1,57 @@
+wait add_coins: via GameState
+┌orders──────────────────────┐1 extends Node
+│▸ .github                   │2
+│▸ .venv                     │3 var coins := 0
+│▸ app                       │4
+│▸ data                      │5 func add_coins(amount: int) -> void:
+│▸ deploy                    │6     coins += amount
+│▸ docs                      │
+│▾ godotshop                 │
+│  ▾ actors                  │
+│      player.gd             │
+│  ▾ globals                 │
+│      game_state.gd         │
+│    project.godot           │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+godotshop/globals/game_state.gd  5:6  [code]  add_coins: via GameState
+cursor (x,y,shown) 37,4,1

@@ -1,0 +1,21 @@
+# r-d: d in R (#422). A function an R6 method calls lands on its `<-` in R/money.R, and `filter`
+# behind `dplyr::` is no name of the project. The files are written here, not in the project,
+# which every other scenario counts the files of.
+merl
+wait Open a file (fuzzy)
+run mkdir -p rshop/R && printf 'format_price <- function(cents) {\n  sprintf("$%%.2f", cents / 100)\n}\nfilter <- function(rows, keep) rows[keep]\n' > rshop/R/money.R && printf 'source("R/money.R")\n\nCart <- R6::R6Class("Cart",\n  public = list(\n    total = 0,\n    label = function() format_price(self$total)\n  )\n)\n\nkept <- dplyr::filter(rows, TRUE)\n' > rshop/R/cart.R
+key q
+wait merl exited: 0
+merl rshop/R/cart.R
+wait R6Class
+key /
+type format_price
+key Enter d
+wait format_price: by name, 1 match
+merl rshop/R/cart.R
+wait R6Class
+key /
+type filter(rows
+key Enter d
+wait no definition for filter
+key Escape

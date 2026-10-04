@@ -344,10 +344,7 @@ fn elixir_scope_roots_and_names() {
         Path::new("test/ledger_test.exs")
     ));
     assert!(!in_def_scope(Kind::Elixir, here, Path::new("mix.lock")));
-    // `alias` and `import` bind no path, and the machine holds no Elixir source to leave for:
-    // the dependencies are the project's `deps/`, [`mix_deps`].
     assert!(imports(Kind::Elixir, EX).is_empty());
-    assert!(external_roots(Kind::Elixir, Path::new("/")).is_empty());
     assert!(member_patterns(Kind::Elixir, "parse").is_none());
     // A function is named under the module it is written in, as in every kind, and the
     // module as it is written (#459).

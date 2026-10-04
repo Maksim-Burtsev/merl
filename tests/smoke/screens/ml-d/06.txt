@@ -1,0 +1,57 @@
+wait formatPrice: by name, 1 match
+┌orders──────────────────────┐1 module Shop.Money
+│▸ .github                   │2
+│▸ .venv                     │3 type Money = { Cents: int }
+│▸ app                       │4
+│▸ data                      │5 let formatPrice (m: Money) = string m.Cents
+│▸ deploy                    │
+│▸ docs                      │
+│▾ mlshop                    │
+│  ▸ lib                     │
+│  ▾ src                     │
+│      Cart.fs               │
+│      Money.fs              │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+mlshop/src/Money.fs  5:5  [code]  formatPrice: by name, 1 match
+cursor (x,y,shown) 36,4,1

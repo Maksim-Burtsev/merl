@@ -65,3 +65,17 @@ key /
 type Done()
 key Enter d
 wait Done → Context.Done (via ctx: Context)
+# f folds Go (#625): inside the select of run, f folds the function; f on its line unfolds it,
+# and f on an `if` folds the if.
+key o
+type worker/main.go
+key Enter
+wait worker/main.go  1:1
+key :
+type 30
+key Enter f
+wait func run(ctx context.Context, q queue.Queue) error { ⋯ }
+key f :
+type 21
+key Enter f
+wait err != nil { ⋯ }

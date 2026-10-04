@@ -201,6 +201,12 @@ def draw_cap(frame, key, scale, above, opacity=1.0):
     return Image.alpha_composite(frame.convert("RGBA"), layer).convert("RGB")
 
 
+def typed(text):
+    body = text.rstrip(";")
+    semicolons = len(text) - len(body)
+    return ([["-l", body]] if body else []) + ([["-H", *["3b"] * semicolons]] if semicolons else [])
+
+
 class Pane:
     """A merl running on a tmux socket of its own, with an empty HOME so the user's config and
     themes stay out of the recording."""
@@ -218,6 +224,13 @@ class Pane:
         if out.returncode:
             sys.exit("tmux %s: %s" % (args[0], out.stderr.strip()))
         return out.stdout
+
+    def type(self, text):
+        body = text.rstrip(";")
+        if body:
+            self.tmux("send-keys", "-t", "0", "-l", body)
+        if len(body) < len(text):
+            self.tmux("send-keys", "-t", "0", "-H", *["3b"] * (len(text) - len(body)))
 
     def frame(self):
         return (self.tmux("capture-pane", "-p", "-e", "-N", "-t", "0"),
@@ -267,7 +280,7 @@ def run(pane, steps, fps, key_delay, type_delay, tail):
                 time.sleep(key_delay)
         elif verb == "type":
             for char in rest:
-                pane.tmux("send-keys", "-t", "0", "-l", char)
+                pane.type(char)
                 time.sleep(type_delay)
         else:
             sys.exit("step %r: expected wait, key, type or sleep" % line)

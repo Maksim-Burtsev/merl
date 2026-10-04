@@ -29,6 +29,19 @@ pub enum Kind {
     Dart,
     Cmake,
     Nix,
+    Haskell,
+    Ocaml,
+    Fsharp,
+    Julia,
+    R,
+    Perl,
+    Gdscript,
+    Solidity,
+    Clojure,
+    EmacsLisp,
+    Scheme,
+    CommonLisp,
+    Starlark,
     Sql,
     Make,
     Terraform,
@@ -67,6 +80,7 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         // `d` in a `.kt` file has to find the `.java` class it uses, as `.tsx` finds `.ts`. A
         // `.sc` is a Scala script, a `.sbt` and a `.mill` the build Scala's tools read (#416).
         (_, "java" | "kt" | "kts" | "scala" | "sc" | "sbt" | "mill") => Kind::Jvm,
+        (_, "groovy" | "gvy" | "gradle" | "jenkinsfile") | ("Jenkinsfile", _) => Kind::Jvm,
         (_, "rb" | "rake" | "gemspec" | "podspec" | "rbi" | "ru") => Kind::Ruby,
         // C and C++ are one kind: a header declares what a `.c` or a `.cc` defines, and either
         // language reads the other's headers, so they have to search each other. Objective-C
@@ -78,7 +92,7 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "swift") => Kind::Swift,
         (_, "php" | "phtml") => Kind::Php,
         (_, "lua") => Kind::Lua,
-        (_, "ex" | "exs") => Kind::Elixir,
+        (_, "ex" | "exs" | "erl" | "hrl" | "escript") => Kind::Elixir,
         // Not `.zon`: Zig's data format declares nothing the rules look for, and a key of a
         // build manifest is no reason to send `d` into the standard library. bat paints it
         // as Zig all the same.
@@ -104,6 +118,21 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "dart") => Kind::Dart,
         ("CMakeLists.txt", _) | (_, "cmake") => Kind::Cmake,
         (_, "nix") => Kind::Nix,
+        (_, "hs") => Kind::Haskell,
+        (_, "ml" | "mli") => Kind::Ocaml,
+        (_, "fs" | "fsi" | "fsx") => Kind::Fsharp,
+        (_, "jl") => Kind::Julia,
+        (_, "R" | "r") | (".Rprofile", _) => Kind::R,
+        (_, "pl" | "pm" | "t") => Kind::Perl,
+        (_, "gd") => Kind::Gdscript,
+        (_, "sol") => Kind::Solidity,
+        (_, "clj" | "cljs" | "cljc" | "bb") => Kind::Clojure,
+        (".emacs", _) | (_, "el") => Kind::EmacsLisp,
+        (_, "scm" | "ss" | "sld" | "rkt") => Kind::Scheme,
+        (_, "lisp" | "cl" | "lsp" | "asd") => Kind::CommonLisp,
+        ("BUILD" | "WORKSPACE" | "Tiltfile" | "BUCK", _) | (_, "bazel" | "bzl" | "star") => {
+            Kind::Starlark
+        }
         (_, "sql" | "psql" | "pgsql" | "mysql" | "ddl" | "dml") => Kind::Sql,
         ("Makefile" | "makefile" | "GNUmakefile", _) | (_, "mk") => Kind::Make,
         (_, "tf" | "tfvars") => Kind::Terraform,
@@ -129,6 +158,19 @@ pub fn scala(path: &Path) -> bool {
     path.extension()
         .is_some_and(|e| matches!(e.to_str(), Some("scala" | "sc" | "sbt" | "mill")))
 }
+pub fn groovy(path: &Path) -> bool {
+    path.file_name().is_some_and(|n| n == "Jenkinsfile")
+        || path.extension().is_some_and(|e| {
+            matches!(
+                e.to_str(),
+                Some("groovy" | "gvy" | "gradle" | "jenkinsfile")
+            )
+        })
+}
+pub fn erlang(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|e| matches!(e.to_str(), Some("erl" | "hrl" | "escript")))
+}
 /// Whether `path` is under a `c++/<dir>/` directory, where a C++ standard library keeps its
 /// headers.
 fn cpp_library(path: &Path) -> bool {
@@ -150,12 +192,25 @@ pub fn word_chars(kind: Option<Kind>, address: bool) -> &'static str {
         ) => "-",
         Some(Kind::Cmake) => "-.",
         Some(Kind::Nix) => "-'",
+        Some(Kind::Haskell) => "'",
+        Some(Kind::Ocaml | Kind::Fsharp) => "'",
+        Some(Kind::R) => ".",
+        Some(Kind::Clojure) => "-?!*+<>=",
+        Some(Kind::EmacsLisp) => "-?!*+<>=/",
+        Some(Kind::Scheme) => "-?!*+<>=/:",
+        Some(Kind::CommonLisp) => "-?!*+<>=/%",
         _ => "",
     }
 }
+pub fn lisp(kind: Kind) -> bool {
+    matches!(
+        kind,
+        Kind::Clojure | Kind::EmacsLisp | Kind::Scheme | Kind::CommonLisp
+    )
+}
 /// What stands between the names of a qualified name of `kind`: `Depot::open`, `Outer.find`.
 pub fn separator(kind: Kind) -> &'static str {
-    if matches!(kind, Kind::Rust | Kind::C | Kind::Php) {
+    if matches!(kind, Kind::Rust | Kind::C | Kind::Php | Kind::Perl) {
         "::"
     } else {
         "."
