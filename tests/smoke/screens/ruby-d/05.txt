@@ -4,8 +4,8 @@ wait class Feed
 │▸ .venv                     │3     Account.recent
 │▾ app                       │4   end
 │  ▾ ruby                    │5 end
-│      feed.rb               │6
-│      sessions.rb           │7 class Account < ApplicationRecord
+│    A feed.rb               │6
+│    A sessions.rb           │7 class Account < ApplicationRecord
 │    __init__.py             │8   scope :recent, -> { all }
 │    api.py                  │9 end
 │    config.py               │

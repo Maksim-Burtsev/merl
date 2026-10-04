@@ -8,8 +8,8 @@ wait BaseUri: by name, 1 match
 │▸ docs                      │7 }
 │▾ ops                       │8
 │  ▾ Shop                    │9 $script:BaseUri = "https://shop.test"
-│      Users.psm1            │
-│    sync.ps1                │
+│    A Users.psm1            │
+│  A sync.ps1                │
 │▸ scripts                   │
 │▸ tests                     │
 │▸ web                       │

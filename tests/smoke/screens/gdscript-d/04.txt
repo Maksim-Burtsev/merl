@@ -8,10 +8,10 @@ wait add_coins: via GameState
 │▸ docs                      │
 │▾ godotshop                 │
 │  ▾ actors                  │
-│      player.gd             │
+│    A player.gd             │
 │  ▾ globals                 │
-│      game_state.gd         │
-│    project.godot           │
+│    A game_state.gd         │
+│  A project.godot           │
 │▸ scripts                   │
 │▸ tests                     │
 │▸ web                       │

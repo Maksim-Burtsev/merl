@@ -4,8 +4,8 @@ wait Order: via
 │▸ .venv                     │3   properties:
 │▾ api                       │4     id:
 │  ▾ schemas                 │5       type: string
-│      order.yaml            │
-│    openapi.yaml            │
+│    A order.yaml            │
+│  A openapi.yaml            │
 │▸ app                       │
 │▸ data                      │
 │▸ deploy                    │

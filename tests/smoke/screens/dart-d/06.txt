@@ -9,10 +9,10 @@ wait via import coupon.dart
 │▸ scripts                   │
 │▾ shop                      │
 │  ▾ lib                     │
-│      cart.dart             │
-│      coupon.dart           │
-│      money.dart            │
-│    pubspec.yaml            │
+│    A cart.dart             │
+│    A coupon.dart           │
+│    A money.dart            │
+│  A pubspec.yaml            │
 │▸ tests                     │
 │▸ web                       │
 │▸ worker                    │

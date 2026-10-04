@@ -8,8 +8,8 @@ wait format_price: by name, 1 match
 │▸ docs                      │
 │▾ rshop                     │
 │  ▾ R                       │
-│      cart.R                │
-│      money.R               │
+│    A cart.R                │
+│    A money.R               │
 │▸ scripts                   │
 │▸ tests                     │
 │▸ web                       │

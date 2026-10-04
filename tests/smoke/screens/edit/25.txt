@@ -5,9 +5,9 @@ wait app/money.py  1:1  [code]
 │▾ app                       │
 │    __init__.py             │
 │    api.py                  │
-│    config.py               │
-│    models.py               │
-│    money.py                │
+│  M config.py               │
+│  M models.py               │
+│  A money.py                │
 │    repos.py                │
 │    service.py              │
 │    uow.py                  │
@@ -24,7 +24,7 @@ wait app/money.py  1:1  [code]
 │  Dockerfile                │
 │  Makefile                  │
 │  pyproject.toml            │
-│  README.md                 │
+│M README.md                 │
 │                            │
 │                            │
 │                            │

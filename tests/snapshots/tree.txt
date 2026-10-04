@@ -9,8 +9,8 @@ merl snapshot: tree
 │  Makefile                  │ 9 class NoteStore:
 │  models.py                 │10     """Reads and writes the notes of a single
 │  notes.json                │       JSON file."""
-│  PLAN.md                   │11
-│  store.py                  │12     def __init__(self, config: Config | None =
+│A PLAN.md                   │11
+│M store.py                  │12     def __init__(self, config: Config | None =
 │                            │       None) -> None:
 │                            │13         self.config = config or load_config()
 │                            │14         self.notes: list[Note] = self._read()
@@ -124,8 +124,8 @@ m fg #6639ba bg #e7eaf0 BOLD
 │  Makefile                  │ 6 from models import Note
 │  models.py                 │ 7
 │  notes.json                │ 8
-│  PLAN.md                   │ 9 class NoteStore:
-│  store.py                  │10     """Reads and writes the notes of a single JSON file."""
+│A PLAN.md                   │ 9 class NoteStore:
+│M store.py                  │10     """Reads and writes the notes of a single JSON file."""
 │                            │11
 │                            │12     def __init__(self, config: Config | None = None) -> None:
 │                            │13         self.config = config or load_config()
@@ -266,8 +266,8 @@ m fg #6639ba bg #e7eaf0 BOLD
 │  Makefile                  │ 6 from models import Note
 │  models.py                 │ 7
 │  notes.json                │ 8
-│  PLAN.md                   │ 9 class NoteStore:
-│  store.py                  │10     """Reads and writes the notes of a single JSON file."""
+│A PLAN.md                   │ 9 class NoteStore:
+│M store.py                  │10     """Reads and writes the notes of a single JSON file."""
 │                            │11
 │                            │12     def __init__(self, config: Config | None = None) -> None:
 │                            │13         self.config = config or load_config()

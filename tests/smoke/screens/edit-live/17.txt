@@ -1,0 +1,57 @@
+wait A notify.py
+┌orders──────────────────────┐ 9
+│▸ .github                   │10
+│▸ .venv                     │11 class OrderService:
+│▾ app                       │12     def __init__(self, repo: OrderRepo, uow: UnitOfWork, settings: Settings):
+│    __init__.py             │13         self.repo = repo
+│    api.py                  │14         self.uow = uow
+│    config.py               │15         self.settings = settings
+│    models.py               │16
+│  A notify.py               │17     def get(self, order_id: int) -> Order:
+│    repos.py                │18         order = self.repo.get(order_id)
+│  M service.py              │19         if order is None:
+│▸ data                      │20             raise OrderNotFound(order_id)
+│▸ deploy                    │21         return order
+│▸ docs                      │22
+│▸ scripts                   │23     def mark_paid(self, order_id: int) -> Order:
+│▸ tests                     │24         order = self.get(order_id)
+│▸ web                       │25         order.status = OrderStatus.PAID
+│▸ worker                    │26         self.repo.save(order)
+│  .env                      │27         return order
+│  .gitignore                │28
+│  docker-compose.yml        │29     def cancel(self, order_id: int) -> Order:
+│  Dockerfile                │30         order = self.get(order_id)
+│  Makefile                  │31         if not order.can_cancel():
+│  pyproject.toml            │32             raise ValueError(f"order {order_id} is {order.status.value}")
+│  README.md                 │33         order.status = OrderStatus.CANCELLED
+│                            │34         with self.uow:
+│                            │35             self.uow.orders.save(order)
+│                            │36         return order
+│                            │37▎        # paid orders go to the worker
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+app/service.py  37:39  [code]                                                                                                                                                     ? help
+cursor (x,y,shown) 71,28,1

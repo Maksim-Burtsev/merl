@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The tree marks a file changed since the last commit with `M` and a new one with `A`, staged or
+  not, in the review panel's column before the name, and follows the disk as an agent writes
+  (#402).
+
 ## [0.8.2] - 2026-10-04
 
 ### Added

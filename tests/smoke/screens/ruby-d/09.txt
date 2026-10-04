@@ -5,10 +5,10 @@ wait class Checkout
 │▸ .venv                     │4       grant(user)
 │▾ app                       │5     end
 │  ▾ ruby                    │6     charge(user)
-│      attack.rb             │7   end
-│      checkout.rb           │8 end
-│      feed.rb               │
-│      sessions.rb           │
+│    A attack.rb             │7   end
+│    A checkout.rb           │8 end
+│    A feed.rb               │
+│    A sessions.rb           │
 │    __init__.py             │
 │    api.py                  │
 │    config.py               │
@@ -27,7 +27,7 @@ wait class Checkout
 │  .gitignore                │
 │  docker-compose.yml        │
 │  Dockerfile                │
-│  Gemfile.lock              │
+│A Gemfile.lock              │
 │  Makefile                  │
 │  pyproject.toml            │
 │  README.md                 │

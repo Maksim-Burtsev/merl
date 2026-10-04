@@ -5,9 +5,9 @@ wait api: target
 │▸ app                       │ 4     name = "api",
 │▾ bazelshop                 │ 5     srcs = ["api.go"],
 │  ▾ api                     │ 6     visibility = SHOP_VISIBILITY,
-│      BUILD.bazel           │ 7 )
+│    A BUILD.bazel           │ 7 )
 │  ▸ tools                   │ 8
-│    MODULE.bazel            │ 9 shop_binary(
+│  A MODULE.bazel            │ 9 shop_binary(
 │▸ data                      │10     name = "server",
 │▸ deploy                    │11     srcs = [":api"],
 │▸ docs                      │12 )

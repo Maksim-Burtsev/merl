@@ -4,7 +4,7 @@ wait class SessionsController
 │▸ .venv                     │ 3     track(user)
 │▾ app                       │ 4   end
 │  ▾ ruby                    │ 5
-│      sessions.rb           │ 6   def track(user)
+│    A sessions.rb           │ 6   def track(user)
 │    __init__.py             │ 7     user
 │    api.py                  │ 8   end
 │    config.py               │ 9 end

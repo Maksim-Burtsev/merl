@@ -682,6 +682,45 @@ pub fn dirs(root: &Path) -> Option<(PathBuf, PathBuf)> {
     Some((dirs.next()??, dirs.next()??))
 }
 
+pub fn changed_files(root: &Path) -> HashMap<PathBuf, char> {
+    let status = [
+        "--no-optional-locks",
+        "status",
+        "--porcelain",
+        "-z",
+        "--untracked-files=all",
+        "--no-renames",
+        "--",
+        ".",
+    ];
+    let (Ok(prefix), Ok(out)) = (
+        git(root, &["rev-parse", "--show-prefix"]),
+        git(root, &status),
+    ) else {
+        return HashMap::new();
+    };
+    parse_status(&out, Path::new(&prefix))
+}
+
+fn parse_status(out: &str, prefix: &Path) -> HashMap<PathBuf, char> {
+    let mut marks = HashMap::new();
+    for entry in out.split('\0') {
+        let (Some(xy), Some(path)) = (entry.get(..2), entry.get(3..)) else {
+            continue;
+        };
+        let Ok(rel) = Path::new(path).strip_prefix(prefix) else {
+            continue;
+        };
+        let mark = if xy == "??" || xy.contains('A') {
+            'A'
+        } else {
+            'M'
+        };
+        marks.entry(rel.to_path_buf()).or_insert(mark);
+    }
+    marks
+}
+
 /// The other worktree of this repository that has `branch` checked out, an agent's say (#396):
 /// `-r BRANCH` reviews it there, since git will not check the branch out twice. A worktree git
 /// calls `prunable` (its directory is gone) is not one.
@@ -1728,6 +1767,67 @@ mod tests {
         assert_eq!(r.branch, "feat");
         assert_eq!(r.note.as_deref(), Some("origin/feat not fetched"));
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn changed_files_are_m_and_new_ones_a_under_the_root() {
+        let dir = std::env::temp_dir().join(format!("merl-marks-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("sub/deep")).unwrap();
+        let git = |args: &[&str]| {
+            let out = Command::new("git").arg("-C").arg(&dir).args(args).output();
+            assert!(out.unwrap().status.success(), "git {args:?}");
+        };
+        git(&["init", "-q", "-b", "main"]);
+        git(&["config", "user.email", "t@t"]);
+        git(&["config", "user.name", "t"]);
+        for f in [
+            "top.rs",
+            "sub/edited.rs",
+            "sub/staged.rs",
+            "sub/same.rs",
+            "sub/moved.rs",
+        ] {
+            std::fs::write(dir.join(f), "one\n").unwrap();
+        }
+        std::fs::write(dir.join(".gitignore"), "*.log\n").unwrap();
+        git(&["add", "."]);
+        git(&["commit", "-q", "-m", "base"]);
+        assert!(changed_files(&dir.join("sub")).is_empty());
+
+        for f in ["top.rs", "sub/edited.rs", "sub/staged.rs"] {
+            std::fs::write(dir.join(f), "one\ntwo\n").unwrap();
+        }
+        for f in ["sub/new.rs", "sub/deep/untracked.rs", "sub/build.log"] {
+            std::fs::write(dir.join(f), "new\n").unwrap();
+        }
+        git(&["add", "sub/staged.rs", "sub/new.rs"]);
+        git(&["mv", "sub/moved.rs", "sub/renamed.rs"]);
+        let mut got: Vec<(String, char)> = changed_files(&dir.join("sub"))
+            .into_iter()
+            .map(|(p, m)| (p.to_string_lossy().into_owned(), m))
+            .collect();
+        got.sort();
+        let want = [
+            ("deep/untracked.rs", 'A'),
+            ("edited.rs", 'M'),
+            ("moved.rs", 'M'),
+            ("new.rs", 'A'),
+            ("renamed.rs", 'A'),
+            ("staged.rs", 'M'),
+        ];
+        assert_eq!(got, want.map(|(p, m)| (p.to_string(), m)));
+        assert_eq!(changed_files(&dir)[Path::new("top.rs")], 'M');
+        assert!(changed_files(&std::env::temp_dir()).is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_new_file_over_a_staged_deletion_is_changed() {
+        let marks = parse_status("D  a.rs\0?? a.rs\0 M b.rs\0AM c.rs\0", Path::new(""));
+        assert_eq!(marks[Path::new("a.rs")], 'M');
+        assert_eq!(marks[Path::new("b.rs")], 'M');
+        assert_eq!(marks[Path::new("c.rs")], 'A');
     }
 
     #[test]

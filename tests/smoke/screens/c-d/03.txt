@@ -12,8 +12,8 @@ wait buf: local
 │▾ worker                    │11     table->ready = 1;
 │  ▾ internal                │12 }
 │    ▾ crc                   │13
-│        crc.c               │14 unsigned int crc32(struct crc_table *table, const unsigned char *buf, int len)
-│        crc.h               │15 {
+│      A crc.c               │14 unsigned int crc32(struct crc_table *table, const unsigned char *buf, int len)
+│      A crc.h               │15 {
 │    ▸ queue                 │16     unsigned int crc = 0xffffffff;
 │    go.mod                  │17     if (!table->ready)
 │    main.go                 │18         crc_fill(table);

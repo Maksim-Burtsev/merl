@@ -5,8 +5,8 @@ wait shop_add_library: by name, 1 match
 │▸ app                       │
 │▾ cmakeshop                 │
 │  ▾ cmake                   │
-│      ShopHelpers.cmake     │
-│    CMakeLists.txt          │
+│    A ShopHelpers.cmake     │
+│  A CMakeLists.txt          │
 │▸ data                      │
 │▸ deploy                    │
 │▸ docs                      │

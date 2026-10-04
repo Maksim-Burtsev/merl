@@ -8,7 +8,7 @@ wait ShopToken.Minted (by name, 1 match)
 │▸ docs                      │ 7
 │▸ scripts                   │ 8     function mint(address to, uint256 amount) external withinSupply(amount) {
 │▾ solshop                   │ 9         emit Minted(to, amount);
-│    ShopToken.sol           │10     }
+│  A ShopToken.sol           │10     }
 │▸ tests                     │11 }
 │▸ web                       │
 │▸ worker                    │

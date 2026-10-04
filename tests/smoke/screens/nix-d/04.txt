@@ -8,9 +8,9 @@ wait mkService: by name, 1 match
 │▸ docs                      │
 │▾ nixshop                   │
 │  ▾ hosts                   │
-│      web.nix               │
+│    A web.nix               │
 │  ▾ lib                     │
-│      default.nix           │
+│    A default.nix           │
 │▸ scripts                   │
 │▸ tests                     │
 │▸ web                       │

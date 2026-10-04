@@ -5,7 +5,7 @@ wait project(shop CXX)
 │▸ app                       │4 shop_add_library(shop_core src/order.cpp)
 │▾ cmakeshop                 │
 │  ▸ cmake                   │
-│    CMakeLists.txt          │
+│  A CMakeLists.txt          │
 │▸ data                      │
 │▸ deploy                    │
 │▸ docs                      │

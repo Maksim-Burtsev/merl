@@ -9,8 +9,8 @@ wait go: local
 │▾ hsshop                    │8     go s = "Total: " ++ s
 │  ▾ src                     │
 │    ▾ Shop                  │
-│        Cart.hs             │
-│        Money.hs            │
+│      A Cart.hs             │
+│      A Money.hs            │
 │▸ scripts                   │
 │▸ tests                     │
 │▸ web                       │

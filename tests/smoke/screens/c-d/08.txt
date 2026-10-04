@@ -12,9 +12,9 @@ wait Sum: by name, 2 declarations
 │▾ worker                    │11     unsigned Sum() const override { return 1; }
 │  ▾ internal      ┌Sum: by name, 2 declarations (2/2)────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │    ▾ crc         │>                                                                                                                                                 │
-│        crc.c     │Hasher::Sum  by name  worker/internal/crc/mode.cc:7: virtual unsigned Sum() const = 0;                                                            │
-│        crc.h     │Fast::Sum    by name  worker/internal/crc/mode.cc:11: unsigned Sum() const override { return 1; }                                                 │
-│        mode.cc   │                                                                                                                                                  │
+│      A crc.c     │Hasher::Sum  by name  worker/internal/crc/mode.cc:7: virtual unsigned Sum() const = 0;                                                            │
+│      A crc.h     │Fast::Sum    by name  worker/internal/crc/mode.cc:11: unsigned Sum() const override { return 1; }                                                 │
+│      A mode.cc   │                                                                                                                                                  │
 │    ▸ queue       │                                                                                                                                                  │
 │    go.mod        │                                                                                                                                                  │
 │    main.go       │                                                                                                                                                  │

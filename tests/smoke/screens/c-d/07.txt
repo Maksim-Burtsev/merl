@@ -12,9 +12,9 @@ wait CRC_FAST → crc_mode::CRC_FAST
 │▾ worker                    │11     unsigned Sum() const override { return 1; }
 │  ▾ internal                │12 };
 │    ▾ crc                   │13
-│        crc.c               │14 int crc_pick(Hasher *h) { return h->Sum() ? CRC_FAST : CRC_PLAIN; }
-│        crc.h               │
-│        mode.cc             │
+│      A crc.c               │14 int crc_pick(Hasher *h) { return h->Sum() ? CRC_FAST : CRC_PLAIN; }
+│      A crc.h               │
+│      A mode.cc             │
 │    ▸ queue                 │
 │    go.mod                  │
 │    main.go                 │

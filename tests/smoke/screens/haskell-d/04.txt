@@ -9,8 +9,8 @@ wait formatPrice: via import
 │▾ hsshop                    │
 │  ▾ src                     │
 │    ▾ Shop                  │
-│        Cart.hs             │
-│        Money.hs            │
+│      A Cart.hs             │
+│      A Money.hs            │
 │▸ scripts                   │
 │▸ tests                     │
 │▸ web                       │

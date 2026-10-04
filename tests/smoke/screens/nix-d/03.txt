@@ -8,7 +8,7 @@ wait shopLib = import
 │▸ docs                      │7   environment.systemPackages = [ pkgs.hello ];
 │▾ nixshop                   │8 }
 │  ▾ hosts                   │
-│      web.nix               │
+│    A web.nix               │
 │  ▸ lib                     │
 │▸ scripts                   │
 │▸ tests                     │

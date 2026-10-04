@@ -50,3 +50,8 @@ wait app/service.py  37:39  [code]
 key ]
 wait app/service.py  37:39  [code]  app/uow.py gone
 run test ! -e app/uow.py
+# The tree marks the file the agent changed `M` and the one it added `A`, as git sees them, and
+# a file written while merl runs gets its mark after the walk (#402).
+run printf 'def notify(order):\n    return order\n' > app/notify.py
+key t
+wait A notify.py

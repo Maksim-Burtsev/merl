@@ -9,9 +9,9 @@ wait total: via shop_order
 │▾ erlshop                   │ 8
 │  ▸ include                 │ 9 total(#order{total = Total}) ->
 │  ▾ lib                     │10     Total.
-│      report.ex             │
+│    A report.ex             │
 │  ▾ src                     │
-│      shop_order.erl        │
+│    A shop_order.erl        │
 │▸ scripts                   │
 │▸ tests                     │
 │▸ web                       │

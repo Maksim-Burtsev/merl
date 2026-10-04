@@ -4,7 +4,7 @@ wait openapi: 3.1.0
 │▸ .venv                     │ 3   /orders:
 │▾ api                       │ 4     get:
 │  ▸ schemas                 │ 5       responses:
-│    openapi.yaml            │ 6         "200":
+│  A openapi.yaml            │ 6         "200":
 │▸ app                       │ 7           content:
 │▸ data                      │ 8             application/json:
 │▸ deploy                    │ 9               schema:

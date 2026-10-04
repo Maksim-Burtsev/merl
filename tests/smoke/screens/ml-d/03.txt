@@ -8,8 +8,8 @@ wait let label m
 │▸ docs                      │
 │▾ mlshop                    │
 │  ▾ lib                     │
-│      cart.ml               │
-│      money.ml              │
+│    A cart.ml               │
+│    A money.ml              │
 │  ▸ src                     │
 │▸ scripts                   │
 │▸ tests                     │

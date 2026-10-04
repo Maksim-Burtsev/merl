@@ -4,8 +4,8 @@ wait no definition for AppendLine in the project (via sb: StringBuilder)
 │▸ .venv                     │ 3     public void Send(string to) { }
 │▸ app                       │ 4 }
 │▾ billing                   │ 5
-│    Outbox.cs               │ 6 public class Fax
-│    Refunds.cs              │ 7 {
+│  A Outbox.cs               │ 6 public class Fax
+│  A Refunds.cs              │ 7 {
 │▸ data                      │ 8     public void Send(string to) { }
 │▸ deploy                    │ 9     public void AppendLine(int n) { }
 │▸ docs                      │10 }

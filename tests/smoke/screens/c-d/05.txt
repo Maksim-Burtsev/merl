@@ -12,8 +12,8 @@ wait entries → crc_table::entries
 │▾ worker                    │11
 │  ▾ internal                │12 #endif
 │    ▾ crc                   │
-│        crc.c               │
-│        crc.h               │
+│      A crc.c               │
+│      A crc.h               │
 │    ▸ queue                 │
 │    go.mod                  │
 │    main.go                 │

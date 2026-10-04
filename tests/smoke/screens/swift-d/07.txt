@@ -7,9 +7,9 @@ wait struct Clock
 │▸ deploy                    │ 6     }
 │▸ docs                      │ 7 }
 │▾ ios                       │ 8
-│    Instant.swift           │ 9 struct Clock {
-│    Protected.swift         │10     let value: Int
-│    Retry.swift             │11 }
+│  A Instant.swift           │ 9 struct Clock {
+│  A Protected.swift         │10     let value: Int
+│  A Retry.swift             │11 }
 │▸ scripts                   │
 │▸ tests                     │
 │▸ web                       │

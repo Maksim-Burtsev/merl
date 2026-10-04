@@ -12,13 +12,13 @@ wait stampJob: by name, 2 declarations
 │▾ worker                    │11 @end
 │  ▾ internal      ┌stampJob: by name, 2 declarations (2/2)───────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │    ▾ crc         │>                                                                                                                                                 │
-│        client.c  │stampJob  by name  worker/internal/crc/CrcStamp.m:4: - (unsigned int)stampJob:(NSData *)job {                                                     │
-│        crc.c     │stampJob  by name  worker/internal/crc/CrcStamp.h:4: - (unsigned int)stampJob:(NSData *)job;                                                      │
-│        crc.h     │                                                                                                                                                  │
-│        CrcStamp.h│                                                                                                                                                  │
-│        CrcStamp.m│                                                                                                                                                  │
-│        log.c     │                                                                                                                                                  │
-│        mode.cc   │                                                                                                                                                  │
+│      A client.c  │stampJob  by name  worker/internal/crc/CrcStamp.m:4: - (unsigned int)stampJob:(NSData *)job {                                                     │
+│      A crc.c     │stampJob  by name  worker/internal/crc/CrcStamp.h:4: - (unsigned int)stampJob:(NSData *)job;                                                      │
+│      A crc.h     │                                                                                                                                                  │
+│      A CrcStamp.h│                                                                                                                                                  │
+│      A CrcStamp.m│                                                                                                                                                  │
+│      A log.c     │                                                                                                                                                  │
+│      A mode.cc   │                                                                                                                                                  │
 │    ▸ queue       │                                                                                                                                                  │
 │    go.mod        │                                                                                                                                                  │
 │    main.go       │                                                                                                                                                  │

@@ -254,6 +254,10 @@ impl Review {
         due
     }
 
+    pub fn listing(&mut self) {
+        self.listing = true;
+    }
+
     pub fn listed(&mut self) {
         self.listing = false;
     }
