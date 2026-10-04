@@ -138,9 +138,10 @@ Everything on GitHub (issues, PR bodies, reviews, comments) is in English.
 ## Changing `f`
 
 `f` (`src/app/collapse.rs`) folds by the rules decided in #598, in the languages that pass the
-fold bench and nowhere else: Python, YAML, JSON, TOML, HTML, CSS / SCSS and Markdown today
-(`src/app/collapse/spans.rs` for all but Python), the rest in epic #623, each saying `no fold
-rules for .EXT` until then.
+fold bench and nowhere else: Python, the brace languages (`src/app/collapse/braces.rs`), Ruby,
+Lua and shell (`src/app/collapse/words.rs`), and YAML, JSON, TOML, HTML, CSS / SCSS and Markdown
+(`src/app/collapse/spans.rs`) today, the rest in epic #623, each saying `no fold rules for .EXT`
+until then.
 
 - **The bench**, `tools/fold-bench/run [--lang go,rust]`: `f` pressed on every line that starts
   a fold in real projects, compared with the reference: Python's own `ast` for Python, and for
@@ -245,6 +246,8 @@ run under ~15 s.
 - A change the user has to learn (a new or changed key, screen, animation or default): leave the
   PR open with the before/after screencasts, add the `needs-owner` label and name it in your
   status line. Never ask "can I merge?" in chat.
+- The owner's comment `ok` on a PR merges it through `.github/workflows/owner-ok.yml`, at the
+  commit it was given to; a push after it needs a new `ok`. Any other owner comment is a brief.
 - The README and any other text in the owner's voice: open a draft PR with the `needs-owner`
   label and leave it to the owner.
 - An issue holding a question only the owner can answer carries one of two labels until the

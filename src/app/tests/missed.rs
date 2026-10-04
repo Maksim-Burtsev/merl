@@ -194,6 +194,40 @@ fn s_for_another_word_or_hit_counts_nothing() {
     std::fs::remove_dir_all(dir2).unwrap();
 }
 
+/// A Nix name keeps its trailing primes (#648): `s discount'` from a use of `discount'` was `d`.
+#[test]
+fn s_for_a_primed_name_under_the_cursor_misses_d() {
+    let text = "let\n  discount' = 4;\n  discount = 5;\nin\n  discount' + discount\n";
+    let (dir, mut a) = project_app("missed-s-primed", &[("default.nix", text)]);
+    a.jump_to(&dir.join("default.nix"), 5);
+    a.col = 2;
+    press(&mut a, KeyCode::Char('s'), NONE);
+    typed(&mut a, "discount'");
+    a.settle_search();
+    press(&mut a, KeyCode::Enter, NONE);
+    a.settle_search();
+    assert_eq!(at(&a), (dir.join("default.nix"), 1));
+    assert_eq!(a.missed, missed(&[("d", 1)]));
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+/// On a Ruby `@subtotal` the word is `u`'s, `@subtotal`, and `s subtotal` is the query for it.
+#[test]
+fn s_for_a_ruby_instance_variable_under_the_cursor_misses_d() {
+    let text = "class Cart\n  def initialize\n    @subtotal = 0\n  end\n\n  def add(x)\n    @subtotal += x\n  end\nend\n";
+    let (dir, mut a) = project_app("missed-s-ivar", &[("cart.rb", text)]);
+    a.jump_to(&dir.join("cart.rb"), 7);
+    a.col = 5;
+    press(&mut a, KeyCode::Char('s'), NONE);
+    typed(&mut a, "subtotal");
+    a.settle_search();
+    press(&mut a, KeyCode::Enter, NONE);
+    a.settle_search();
+    assert_eq!(at(&a), (dir.join("cart.rb"), 2));
+    assert_eq!(a.missed, missed(&[("d", 1)]));
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
 /// `D` with the word under the cursor as the query, then Enter: that was `d`. Another query,
 /// or a word too short to save three presses, counts nothing.
 #[test]

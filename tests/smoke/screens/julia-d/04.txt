@@ -1,0 +1,57 @@
+wait format_price: by name, 1 match
+┌orders──────────────────────┐1 struct Money
+│▸ .github                   │2     cents::Int
+│▸ .venv                     │3 end
+│▸ app                       │4
+│▸ data                      │5 format_price(m::Money) = string("$", m.cents / 100)
+│▸ deploy                    │
+│▸ docs                      │
+│▾ jlshop                    │
+│  ▾ scripts                 │
+│      report.jl             │
+│  ▾ src                     │
+│      money.jl              │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+jlshop/src/money.jl  5:1  [code]  format_price: by name, 1 match
+cursor (x,y,shown) 32,4,1

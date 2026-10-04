@@ -9,6 +9,160 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `f` folds Go, JavaScript, TypeScript (JSX and TSX included), Rust, C, C++, C#, Java, Kotlin,
+  Swift and PHP, where it said `no fold rules for .go`: on a line that opens a construct it folds
+  what Neovim's treesitter folds there in that language (a function, a class, an `if` and its
+  branches, a `switch`, a loop, an object, an array, and where the language's folds have them, a
+  `case`, a call's arguments wrapped over lines, a JSX element, a C `#ifdef` to its `#endif`, a
+  Rust `impl`, a run of imports, a Go composite literal and each of its elements); in C, C++,
+  C#, Java and Rust, on the header line of a function, class or `if` whose `{` stands on the
+  next line it folds that body, and `f` there again unfolds it; anywhere else inside a function
+  it folds the function; a raw string or a template literal at column 0 inside a body does not
+  end it, and the HTML around PHP's `<?php … ?>` is not read as code. An Objective-C header still
+  says `no fold rules for .h`. (#625)
+- `f` folds Ruby, Lua and shell, where it said `no fold rules for .rb`. On a line a word opens
+  (`def`, `class`, `module`, `if`, `unless`, `case`, `while`, `for`, `begin`, `do`, a lambda;
+  Lua's `function`, `if`, `for`, `while`, `repeat`, `do`, a table or a call wrapped over lines;
+  shell's functions, `if`, `case`, `for`, `while`, `until` and heredocs) it folds that block, its
+  `end`, `fi`, `done` or `esac` shown after the `⋯`; on `else`, `elsif`, `when`, `rescue`,
+  `ensure`, `elseif` or `elif` it folds that branch; anywhere else inside a method or function it
+  folds the method or function. (#626)
+- `f` folds YAML, JSON, TOML, HTML, CSS / SCSS and Markdown too, where it said
+  `no fold rules for .json`: a key with what is nested under it and a list item in YAML, an
+  object or an array in JSON, a table and a wrapped array in TOML, an element from its start tag
+  to its end tag in HTML, a rule in CSS from the first line of its selectors, and in Markdown a
+  heading with its section, a list and a code block. On a line inside one, `f` folds the
+  innermost one around it. (#627)
+- `d`, `u` and `D` in Groovy, Gradle build scripts and Jenkinsfiles, where `d` said `no rules for
+  .groovy`, `no rules for .gradle` and `no rules for this file`. `.groovy`, `.gvy`, `.gradle`,
+  `*.jenkinsfile` and `Jenkinsfile` are one kind with Java, Kotlin and Scala, so a Groovy class
+  finds the Java class it calls and back. `d` on `buildDocs` in `dependsOn 'buildDocs'` lands on
+  its `tasks.register('buildDocs', Copy)` or `task buildDocs {`; on `kotlinVersion` in
+  `"${kotlinVersion}"`, on `ext.kotlinVersion = …` or its line inside `ext {`; on `buildPlugin`
+  in a Jenkinsfile, on `def call(` of the shared library's `vars/buildPlugin.groovy`. It finds
+  `trait`, a method or a variable with `def` and a method's parameters; a Gradle or Jenkins block
+  or call (`dependencies {`, `node {`, `sh 'make'`) declares nothing, nor does a line inside a
+  `'''` or `$/ … /$` string. `D` lists Groovy's `def` methods and Gradle's tasks, and no `def`
+  variable. (#423)
+- `d`, `u` and `D` in Erlang (`.erl`, `.hrl`, `.escript`), searched with Elixir as one kind,
+  where `d` said `no rules for .erl`. `d` on `total` in `shop_order:total(X)`, or in Elixir's
+  `:shop_order.total(x)`, lands on its clauses in `shop_order.erl`, `total: via shop_order`; on
+  `#order{` on the `-record(order, …)`, on `total` in `R#order.total` or `#order{total = T}` on
+  that field, on `?DEFAULT_TOTAL` on its `-define`, and on `-include("shop.hrl")` it opens the
+  header. A local call lands on the clauses of its own module or of the one its `-import` names. Mix's `deps/`, rebar3's
+  `_build/default/lib` and the sources of the installed OTP are searched too. `D` lists modules,
+  records, macros, types and function clauses. (#425)
+- `d`, `u` and `D` in Haskell, where `d` said `no rules for .hs`. `d` on `formatPrice` behind
+  `import Shop.Money (Money (..), formatPrice)` lands on its signature in `src/Shop/Money.hs`,
+  `formatPrice: via import src/Shop/Money.hs`; on a `go` a `where` binds, on that `go` in the same
+  file, `go: local`, never another module's; on `lookup` in `Map.lookup` behind
+  `import qualified Data.Map as Map`, `no definition for lookup`, never the project's own `lookup`.
+  `D` lists signatures, functions with none, `data`, `newtype`, `type`, `class` and `pattern`, and
+  `u` reads `foldl'` as one name. (#426)
+- `d`, `u` and `D` in OCaml (`.ml`, `.mli`) and F# (`.fs`, `.fsi`, `.fsx`), where `d` said
+  `no rules for .ml`. `d` on `format_price` in `Money.format_price` lands on its `let` in
+  `lib/money.ml`, `format_price: via Money`, never on the `.mli`'s `val`; from an `.mli`, on the
+  `.ml`; on a name a local `let` binds, on that `let` in the same file, `prefix: local`, never on
+  another file's. It finds `let`, `type` with its constructors and fields, `module`, `val`,
+  `exception`, `external`, `class` and `method`, and F#'s `member`, `override`, `abstract` and
+  `namespace`. `D` lists each module's items, and `u` reads `x'` as one name. `List.map` is
+  looked for in the OCaml standard library and the opam switch. (#427)
+- `d`, `u` and `D` in Julia, where `d` said `no rules for .jl`. `d` on `format_price` lands on
+  its one-line `format_price(m::Money) = …`, on `check` in `@check` on its `macro check(ex)`, on
+  a name the function assigns or takes on that line, `m → report.m (local)`, never on another file's global
+  `m`; on the path of `include("../src/money.jl")`, the file; on `DataFrame` or a name
+  `import DataFrames: select` binds, the installed DataFrames at the version `Manifest.toml`
+  pins, read-only, and on Base and the standard library in the Julia on the PATH. `D` lists
+  functions, one-line methods, structs, abstract and primitive types, macros and modules, and
+  `sort!` is a name of its own for `d` and `u`. (#429)
+- `d`, `u` and `D` in R (`.R`, `.r`, `.Rprofile`), where `d` said `no rules for .R`. `d` on
+  `format_price` lands on its `format_price <- function(cents) {`; on `label` in `cart$label()`, on
+  the R6 method `label = function()`; on `area`, a picker of its `setGeneric` and every
+  `setMethod`; on the path in `source("R/money.R")`, that file. `filter` in `dplyr::filter(x)` says
+  `no definition for filter` rather than landing on the project's own `filter`. `D` lists functions,
+  S4 and reference classes, generics and R6 classes, and `u` reads `print.invoice` and `.onLoad` as
+  one name. (#422)
+- `d` and `D` in Perl (`.pl`, `.pm`, `.t`), where `d` said `no rules for .pm`. `d` on `new` in
+  `Shop::Order->new` lands on `sub new` of the file that declares `package Shop::Order`, `new: via
+  Shop::Order`, and on `Order` there on that `package` line; on `$order->total`, on `sub total` by
+  name; on a `my` or `state` variable, on its nearest declaration in the same file, `self: local`,
+  never on another file's `my $self`; on `basename` behind `use File::Basename qw(basename)`, on
+  its `sub basename` in `@INC`, read-only. A constant, a `has` attribute, an `our` variable and
+  5.38's `class`, `method` and `field` are found too, nothing in POD, a heredoc or after
+  `__END__`, and `D` lists the subs, methods, packages and classes. (#424)
+- `d`, `u` and `D` in GDScript, Godot's language, where `d` said `no rules for .gd`. `d` on a
+  `func`, a `class_name`, an inner `class`, a `signal` (from `died.emit()` or
+  `emit_signal("died")`), a member `var` or `const` or an `enum` value lands on its declaration;
+  on a `var`, a `for` variable or a parameter of the function around the cursor, on that line,
+  `direction (local)`, never on another script's `direction`. `GameState.add_coins` lands in the
+  script `project.godot` autoloads as `GameState`, `add_coins: via GameState`, and a
+  `res://` path opens its file. A node path (`$Sprite2D`, `%HealthBar`) names nothing. `D` lists
+  functions, classes, enums, `class_name`s and signals. (#434)
+- `d`, `u` and `D` in Solidity, where `d` said `no rules for .sol`. `d` on `withinSupply` in a
+  function's header lands on its `modifier withinSupply(uint256 amount) {`, on `Minted` in
+  `emit Minted(…)` on its `event`, on `MAX_SUPPLY` on its `uint256 public constant MAX_SUPPLY`; on
+  a name an `import {ERC20} from "@openzeppelin/…";` binds, on its `abstract contract ERC20` in
+  `node_modules`, `ERC20: via import @openzeppelin/contracts/token/ERC20/ERC20.sol`, a path
+  resolved through `remappings.txt`, `foundry.toml` and `lib/` too; on the import's path, that
+  file; on a parameter or a local, the line that declares it. `D` lists contracts, libraries,
+  modifiers, events and errors beside functions, structs, enums and interfaces. (#433)
+- `d` follows a `$ref` in OpenAPI and JSON Schema files (`.yaml`, `.yml`, `.json`). On `User` in
+  `$ref: '#/components/schemas/User'` it lands on `components/schemas/User`, where it offered
+  every key named `User`; on `'./schemas/order.yaml#/Order'` on `Order:` in that file, where it
+  said `no definition for Order`; in a `.json` file on `"#/$defs/address"`, where it said
+  `no rules for .json`. An escaped key (`~1users`), an item index, an `$anchor`, a URL a
+  project file declares as its `$id`, and a `discriminator.mapping` value are followed too; a
+  `$ref` in a block scalar or a comment is not. (#435)
+- `d`, `u` and `D` in Clojure, Emacs Lisp, Scheme and Racket, and Common Lisp, where `d` said
+  `no rules for .clj`, `.el`, `.scm`, `.rkt` or `.lisp`. `d` on `format-price` in
+  `money/format-price` lands on its `(defn format-price` in the file of the namespace the `ns`
+  form requires as `money`, `format-price: via import src/shop/money.clj`, and finds nothing for
+  `str/join` of a namespace outside the project; on a name a `let` or the parameters of a `defn`,
+  `defun`, `define` or `lambda` bind, on that binding, `total: local`; on `(require 'shop-money)`
+  or `(require "utils.rkt")`, the file. `D` lists each dialect's functions, macros and types, and
+  `u` reads `format-price`, `empty?` and `*out*` as one name. (#428)
+- `d` and `D` in Starlark: Bazel's `BUILD`, `*.bazel` and `.bzl` files, `.star`, Tilt's `Tiltfile`
+  and Buck's `BUCK`, where `d` said `no rules for .bzl`. `d` on a macro or a rule a `load` takes
+  lands on its declaration in the file the `load` names, `shop_binary: via import tools/defs.bzl`;
+  anywhere on a label, on what it names: `":api"` on the target's `name = "api"` line, `"api.go"`
+  and `"//tools:defs.bzl"` on the file, `"@rules_go"` on its `bazel_dep` line, and in a project
+  Bazel has built, `"@rules_go//go:def.bzl"` and the names loaded from it in the repository Bazel
+  fetched, read-only. `D` lists the rules, the providers and the targets. (#431)
+- `d` in Kotlin follows the names Gradle and Android generate from files that are no code, where
+  it said `no definition`: in a `build.gradle.kts`, `d` on any segment of
+  `libs.google.oss.licenses` lands on its `google-oss-licenses = …` in
+  `gradle/libs.versions.toml` (`libs.plugins.…`, `libs.bundles.…`, `libs.versions.…` in their
+  tables), and in Kotlin or Java, `d` on `bookmark_removed` in `R.string.bookmark_removed` lands
+  on its `<string name="bookmark_removed">` in `res/values/strings.xml`, with a picker when a
+  translation declares it too; `R.drawable.x` and the other file resources open the file, and
+  `R.id.x` its `@+id/x` in a layout. (#385)
+
+### Changed
+
+- `d` outside the project answers faster: the dependencies are read in parallel, each file's
+  comments are lexed once, and a Python member is looked for in the packages the file imports
+  before every installed one, so its picker lists those alone (#318).
+- `d` in Java and Kotlin reads the type a cast, a pattern or a smart cast gives the receiver:
+  `var m = (Meter) any`, `((Meter) any).reading()`, `any instanceof Gauge g`, Kotlin's `dao as
+  NewsDao`, `(dao as? NewsDao)?.purge()`, and `dao.purge()` inside `if (dao is NewsDao)` or an
+  `is NewsDao ->` branch of `when (dao)` jump to that type's member, `purge → NewsDao.purge (via
+  dao: NewsDao)`, where they offered every `purge` of the project. So do a dotted type,
+  `Meter.Dial dial`, and Kotlin's `x?.m` and `x!!.m`; `Map.Entry` says `no definition`. (#388,
+  #391)
+
+### Fixed
+
+- `d` on `Settings` in a Java `new Settings(entries)` no longer jumps to `Settings(String path)`
+  when the class also declares `Settings(Map<String, Object> entries)`: the comma inside `<…>` of
+  a parameter list no longer counts as a second parameter. (#675)
+- A `.fs` file is highlighted as F#, not GLSL. (#427)
+- A Bazel `BUILD` file is highlighted as Starlark instead of as XML, and a `BUCK` or `.star` file
+  is highlighted at all. (#431)
+
+## [0.8.1] - 2026-10-02
+
+### Added
+
 - `f` folds Python code into one line ending in `⋯`: on a line that opens a construct it folds
   that construct (`def`, `class`, `if` / `elif` / `else`, `for`, `while`, `with`, `try` /
   `except` / `finally`, `match` / `case`, a call, list or dict wrapped over lines, a docstring, a
@@ -17,12 +171,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a jump inside one (`:`, `/`, `n`, `d`, `u`, `s`, `[`) opens it. A fold stays with its file
   across jumps and moves with the lines written above it. Other languages say
   `no fold rules for .rs` until they are proven the same way (#623). (#598)
-- `f` folds YAML, JSON, TOML, HTML, CSS / SCSS and Markdown too, where it said
-  `no fold rules for .json`: a key with what is nested under it and a list item in YAML, an
-  object or an array in JSON, a table and a wrapped array in TOML, an element from its start tag
-  to its end tag in HTML, a rule in CSS from the first line of its selectors, and in Markdown a
-  heading with its section, a list and a code block. On a line inside one, `f` folds the
-  innermost one around it. (#627)
 - `d`, `u` and `D` in Nix, where `d` said `no rules for .nix`. `d` on `mkService` in
   `shopLib.mkService` lands on its `mkService = { name, port ? 8080 }:` in `lib/default.nix`; on a
   name a `let` binds or a parameter (`{ config, pkgs, ... }:`, `x:`) names, on that binding in the
@@ -134,6 +282,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The `?` overlay on a screen narrower than 118 columns wraps an action too long for its row
+  onto the next row, under its own column, instead of cutting it at the border (#458).
+- `d` in Python reads a dependency's modules as Python imports them (#329). `pytest.fixture` lands
+  on `_pytest/fixtures.py` and `pytest.mark` on `MARK_GEN` in `_pytest/mark/structures.py`, saying
+  `via import _pytest.mark.structures`, where it offered every `fixture` installed or jumped to a
+  namesake in another package: a module that hands a name on through its imports is followed,
+  relative and `*` imports too, down to the import line of a compiled source (`StringIO` in
+  `io.py`). `json.dumps` is `json/__init__.py`'s alone, never `kombu/utils/json.py`'s, and under a
+  `.venv` the base interpreter's pip is no longer searched. A name the imports lead nowhere with is
+  offered, never jumped to.
+- `d` in Python reads classes declared in dependencies (#340). `self.assertEqual` in a
+  `unittest.TestCase` subclass lands on `unittest/case.py`, saying `assertEqual →
+  TestCase.assertEqual (via self: T)`, where it said `no definition for assertEqual`; `p.write_bytes`
+  with `p: Path` lands on `pathlib`'s, not on a namesake in `anyio`, and `Document.objects` reaches
+  the `objects` of a base outside. Bases are followed through the dependency's own imports.
 - `d` in C and C++ looks outside the project in the headers the file includes first. On
   `pthread_equal` it lands on `pthread/pthread.h`, one row where the header and a link to it
   were two; `printf` no longer offers gettext's `libintl.h`, nor `s.append("x")` 148 methods
@@ -268,6 +431,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a file the branch adds or changes as it stands now, a deleted one as it was, without the diff's
   marks; `p` again shows the source with its diff. A file shown rendered that the branch comes to
   change stays rendered; a file of the review opened again shows its source. (#596)
+
+- `d` in Python showed each declaration twice when `sys.path` lists a directory and its
+  `site-packages` both, as a pyenv, uv or python.org `python3` does without a `.venv`. (#329)
 
 - `d` in C reads no declaration inside a multi-line `#define`, and a one-line `typedef struct
   client { int flags; } client;` declares `client` alone: `return flags;` and `return args;`
@@ -1780,7 +1946,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scroll position, the jump history and the find pattern.
 - Help overlay on `?`, listing every binding; Esc in normal mode clears the find highlights.
 
-[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.8.1
 [0.8.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.8.0
 [0.7.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.7.0
 [0.6.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.6.0

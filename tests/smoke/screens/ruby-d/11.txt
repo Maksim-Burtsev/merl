@@ -1,0 +1,57 @@
+wait deploy() {
+┌orders──────────────────────┐1 deploy() {
+│▸ .bundle                   │2   if [ -n "$1" ]; then
+│▸ .github                   │3     echo "$1"
+│▸ .venv                     │4   fi
+│▸ app                       │5 }
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▾ scripts                   │
+│  ▸ payouts                 │
+│    deploy.sh               │
+│    invoices.php            │
+│    refund_by_hand.py       │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Gemfile.lock              │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+scripts/deploy.sh  1:1  [code]                                                                                                                                                    ? help
+cursor (x,y,shown) 32,0,1

@@ -1,9 +1,11 @@
 /
+:
 Esc
 Picker: Enter
 Picker: Esc
 [
 d
+f
 o
 q
 t

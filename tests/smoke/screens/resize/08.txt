@@ -1,0 +1,26 @@
+wait Go to definition of the word under the
+┌merl — keys (Up / Down to scroll)─────────────────────────────────────────────┐
+│ Files and jumps                                                              │
+│   o / Ctrl+E                        Open a file (fuzzy)                      │
+│   Ctrl+N                            New file: type its path, Enter creates   │
+│                                     and edits it                             │
+│   d / F12                           Go to definition of the word under the   │
+│                                     cursor, or its implementations           │
+│   D                                 Project symbols (fuzzy)                  │
+│   u / Shift+F12                     Usages of the word under the cursor      │
+│   [ / ]                             Back / forward in the jump history       │
+│   : / Ctrl+G                        Go to line                               │
+│ Search                                                                       │
+│   / / Ctrl+F                        Find in the open file                    │
+│   n / N                             Next / previous match                    │
+│   s                                 Search the project                       │
+│ Review                                                                       │
+│   c / C                             Review: next / previous hunk, on to the  │
+│                                     next file                                │
+│   m                                 Review: mark the file as viewed, or take │
+│                                     the mark off                             │
+│   Fold: Enter                       Review: load the diff of a folded        │
+│                                     generated file                           │
+│ Editing                                                                      │
+└──────────────────────────────────────────────────────────────────────────────┘
+cursor (x,y,shown) 80,23,0

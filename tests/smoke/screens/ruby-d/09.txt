@@ -1,0 +1,57 @@
+wait class Checkout
+┌orders──────────────────────┐1 class Checkout
+│▸ .bundle                   │2   def call(user)
+│▸ .github                   │3     if user.admin?
+│▸ .venv                     │4       grant(user)
+│▾ app                       │5     end
+│  ▾ ruby                    │6     charge(user)
+│      attack.rb             │7   end
+│      checkout.rb           │8 end
+│      feed.rb               │
+│      sessions.rb           │
+│    __init__.py             │
+│    api.py                  │
+│    config.py               │
+│    models.py               │
+│    repos.py                │
+│    service.py              │
+│    uow.py                  │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Gemfile.lock              │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+app/ruby/checkout.rb  1:1  [code]                                                                                                                                                 ? help
+cursor (x,y,shown) 32,0,1

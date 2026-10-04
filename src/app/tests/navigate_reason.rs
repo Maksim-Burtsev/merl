@@ -337,8 +337,6 @@ fn a_bare_self_stays_in_the_project() {
     std::fs::remove_dir_all(&root).unwrap();
 }
 
-/// #104. A `self.word` whose class extends one outside the project gets the project's
-/// declarations of the word and never the dependency's, although the dependency declares it.
 #[test]
 fn a_self_word_past_a_base_outside_the_project_stays_in_it() {
     let (dir, mut a) = project_app(
@@ -357,7 +355,11 @@ fn a_self_word_past_a_base_outside_the_project_stays_in_it() {
     );
     use_roots(&mut a, Kind::Python, std::slice::from_ref(&root));
     d_on(&mut a, "a.py", "self.stop");
-    assert_eq!(shown(&mut a), jump("no definition for stop", "a.py:6"));
+    let stop = format!("{}:2", root.join("threading.py").display());
+    assert_eq!(
+        shown(&mut a),
+        jump("stop \u{2192} Thread.stop (via self: A)", &stop)
+    );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();
 }

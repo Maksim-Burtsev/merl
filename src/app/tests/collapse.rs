@@ -176,6 +176,20 @@ fn f_on_a_line_ending_in_a_colon_folds_that_block() {
 }
 
 #[test]
+fn an_objective_c_header_has_no_fold_rules_and_a_c_header_folds_as_cpp() {
+    let objc = "@interface Box : NSObject\n- (void)open {\n  go();\n}\n@end\n";
+    let mut a = app_as("h", objc);
+    a.go((2, 2));
+    key(&mut a, KeyCode::Char('f'));
+    assert!(a.collapsed.is_empty());
+    assert_eq!(a.message, "no fold rules for .h");
+    let mut a = app_as("h", "namespace a {\nclass B {\n  int c;\n};\n}\n");
+    a.go((1, 0));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(1, 3)]);
+}
+
+#[test]
 fn f_folds_python_and_says_so_in_other_languages() {
     let mut a = app_as("txt", "a\n  b\n");
     key(&mut a, KeyCode::Char('f'));
@@ -189,6 +203,57 @@ fn f_folds_python_and_says_so_in_other_languages() {
     key(&mut a, KeyCode::Char('f'));
     assert!(a.collapsed.is_empty());
     assert_eq!(a.message, "nothing to fold");
+}
+
+#[test]
+fn a_block_a_word_opens_folds_from_its_line_with_its_closing_word_shown() {
+    let mut a = app_as("sh", "f() {\n  if a; then\n    b\n  fi\n}\n");
+    a.go((1, 0));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(1, 3)]);
+    assert_eq!(a.collapsed_tail(1), Some("fi"));
+    let mut a = app_as("rb", "def f\n  if a\n    b\n  end\nend\n");
+    a.go((1, 0));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(1, 3)], "the `if`, not `f`");
+    assert_eq!(a.collapsed_tail(1), Some("end"));
+    a.go((0, 0));
+    key(&mut a, KeyCode::Enter);
+    key(&mut a, KeyCode::Enter);
+    assert_eq!(
+        a.collapsed,
+        vec![(2, 4)],
+        "it moves with a line typed above"
+    );
+    let mut a = app_as("sh", "for x in y; do\n  b\ndone < list\n");
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed_tail(0), Some("done < list"));
+}
+
+#[test]
+fn a_fold_inside_a_callback_is_the_same_fold_after_a_reload() {
+    let text = "vim.keymap.set(\"n\", \"K\", function()\n  hover()\nend, {\n  desc = \"x\",\n})\n";
+    let mut a = app_as("lua", text);
+    a.go((1, 2));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(0, 4)], "as f on its first line");
+    let path = a.buf.path.clone().unwrap();
+    std::fs::write(&path, format!("local k = 1\n{text}")).unwrap();
+    a.reload(false);
+    assert_eq!(a.collapsed, vec![(1, 5)]);
+}
+
+#[test]
+fn rbs_signatures_and_zsh_have_no_fold_rules_yet() {
+    for (ext, text) in [
+        ("rbs", "class Foo\n  def bar: () -> void\nend\n"),
+        ("zsh", "f() {\n  () {\n    x\n  }\n}\n"),
+    ] {
+        let mut a = app_as(ext, text);
+        key(&mut a, KeyCode::Char('f'));
+        assert!(a.collapsed.is_empty());
+        assert_eq!(a.message, format!("no fold rules for .{ext}"));
+    }
 }
 
 #[test]
@@ -344,13 +409,141 @@ fn every_fold_fixture_folds_as_annotated() {
             key(&mut a, KeyCode::Char('f'));
             let name = path.file_name().unwrap().to_string_lossy();
             assert_eq!(
-                a.collapsed.first().copied(),
-                want,
+                a.collapsed,
+                Vec::from_iter(want),
                 "f on {name}:{}: {line}",
                 l + 1
             );
             checked += 1;
         }
         assert!(checked > 10, "{checked} annotations in {}", path.display());
+    }
+}
+
+const GO: &str = "\
+func f(n int) string {
+\tswitch n {
+\tcase 1:
+\t\treturn \"one\"
+
+\tcase 2:
+\t\treturn \"two\"
+\t}
+\treturn \"\"
+}
+";
+
+#[test]
+fn a_go_fold_keeps_go_rules_through_edits_switches_and_reloads() {
+    let (dir, mut a) = files_app("fold-go");
+    std::fs::write(dir.join("a.go"), GO).unwrap();
+    std::fs::write(dir.join("b.go"), "package b\n").unwrap();
+    a.jump_to(&dir.join("a.go"), 3);
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(2, 4)], "the case and its blank line");
+    a.jump_to(&dir.join("b.go"), 1);
+    a.jump_to(&dir.join("a.go"), 1);
+    assert_eq!(a.collapsed, vec![(2, 4)]);
+
+    let mut a = app_as("go", GO);
+    a.go((2, 0));
+    key(&mut a, KeyCode::Char('f'));
+    a.go((0, 0));
+    key(&mut a, KeyCode::Enter);
+    key(&mut a, KeyCode::Enter);
+    assert_eq!(a.collapsed, vec![(3, 5)]);
+
+    let mut a = app_as("go", GO);
+    a.go((2, 0));
+    key(&mut a, KeyCode::Char('f'));
+    let path = a.buf.path.clone().unwrap();
+    std::fs::write(&path, format!("package a\n\n{GO}")).unwrap();
+    a.reload(false);
+    assert_eq!(a.collapsed, vec![(4, 6)]);
+}
+
+const CS: &str = "\
+class A
+{
+    void F()
+    {
+        Go();
+    }
+}
+";
+
+#[test]
+fn f_on_a_header_line_folds_its_body_and_unfolds_it_again() {
+    let mut a = app_as("cs", CS);
+    a.go((2, 4));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(3, 5)], "the body under `void F()`");
+    a.go((2, 4));
+    key(&mut a, KeyCode::Char('f'));
+    assert!(a.collapsed.is_empty(), "f again on the header unfolds it");
+}
+
+#[test]
+fn a_header_line_fold_stays_through_edits_switches_and_reloads() {
+    let (dir, mut a) = files_app("fold-cs");
+    std::fs::write(dir.join("a.cs"), CS).unwrap();
+    std::fs::write(dir.join("b.cs"), "class B { }\n").unwrap();
+    a.jump_to(&dir.join("a.cs"), 3);
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(3, 5)]);
+    a.jump_to(&dir.join("b.cs"), 1);
+    a.jump_to(&dir.join("a.cs"), 1);
+    assert_eq!(a.collapsed, vec![(3, 5)]);
+
+    let mut a = app_as("cs", CS);
+    a.go((2, 4));
+    key(&mut a, KeyCode::Char('f'));
+    a.go((0, 0));
+    key(&mut a, KeyCode::Enter);
+    key(&mut a, KeyCode::Enter);
+    assert_eq!(a.collapsed, vec![(4, 6)]);
+
+    let mut a = app_as("cs", CS);
+    a.go((2, 4));
+    key(&mut a, KeyCode::Char('f'));
+    let path = a.buf.path.clone().unwrap();
+    std::fs::write(&path, format!("using X;\n\n{CS}")).unwrap();
+    a.reload(false);
+    assert_eq!(a.collapsed, vec![(5, 7)]);
+}
+
+#[test]
+fn f_folds_a_jsx_element_in_a_jsx_file() {
+    let mut a = app_as("jsx", "const a = (\n  <div>\n    <p>hi</p>\n  </div>\n);\n");
+    a.go((1, 2));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(1, 3)]);
+}
+
+#[test]
+fn f_survives_every_prefix_of_the_swift_and_php_fixtures() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/folds");
+    for (ext, name) in [("swift", "swift.swift"), ("php", "php.php")] {
+        let text = std::fs::read_to_string(dir.join(name)).unwrap();
+        let mut a = app_as(ext, "");
+        let path = a.buf.path.clone().unwrap();
+        for (cut, _) in text.char_indices() {
+            a.buf = Buffer::from_bytes(path.clone(), &text.as_bytes()[..cut]);
+            a.collapsed.clear();
+            a.go((a.buf.lines.len() - 1, 0));
+            key(&mut a, KeyCode::Char('f'));
+        }
+    }
+}
+
+#[test]
+fn php_uses_inside_a_braced_namespace_and_a_phtml_file_fold() {
+    let text =
+        "<?php\nnamespace App {\n    use A;\n    use B;\n\n    function f()\n    {\n    }\n}\n";
+    for ext in ["php", "phtml"] {
+        let mut a = app_as(ext, text);
+        a.go((2, 4));
+        key(&mut a, KeyCode::Char('f'));
+        assert_eq!(a.collapsed, vec![(2, 3)], ".{ext}");
     }
 }

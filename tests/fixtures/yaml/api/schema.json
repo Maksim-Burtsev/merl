@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "home": { "$ref": "#/$defs/address" },
+//                              ^ d: api/schema.json:19
+// status: address: via #/$defs/address
+    "work": { "$ref": "#office" },
+//                       ^ d: api/schema.json:23
+    "street": { "$ref": "https://example.com/schemas/street.json#/$defs/line" },
+//                                                       ^ d: api/schemas/street.json:4
+    "postcode": { "$ref": "https://example.com/schemas/street.json" },
+//                                                     ^ d: api/schemas/street.json:1
+    "country": { "$ref": "https://example.com/schemas/country.json" },
+//                                                    ^ d: none
+    "city": { "$ref": "schemas/street.json#/$defs/line" }
+//                                                  ^ d: api/schemas/street.json:4
+  },
+  "$defs": {
+    "address": {
+      "type": "object"
+    },
+    "branch": {
+      "$anchor": "office",
+      "type": "object"
+    }
+  }
+}

@@ -1,0 +1,2 @@
+wait assertEqual → TestCase.assertEqual (via self: LegacyServiceTest)
+(screen not compared: the unittest of the machine's Python standard library)

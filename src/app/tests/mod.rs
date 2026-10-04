@@ -4,6 +4,7 @@ use super::definition::resolution;
 use super::open::carried;
 use super::*;
 
+mod android;
 mod annotated;
 mod budgets;
 mod cmake;
@@ -14,8 +15,12 @@ mod edit;
 mod edit_fuzz;
 mod find;
 mod fold_bench;
+mod haskell;
+mod julia;
 mod keys;
+mod lisp;
 mod missed;
+mod ml;
 mod navigate;
 mod navigate_binding;
 mod navigate_call;
@@ -23,6 +28,7 @@ mod navigate_csharp;
 mod navigate_field;
 mod navigate_go;
 mod navigate_python;
+mod navigate_python_deps;
 mod navigate_reason;
 mod navigate_receiver;
 mod navigate_ruby;
@@ -31,12 +37,15 @@ mod navigate_syntax;
 mod nix;
 mod no_panic;
 mod open;
+mod perl;
 mod picker;
 mod preview;
 mod project_search;
+mod r;
 mod review;
 mod review_deleted;
 mod smoke;
+mod starlark;
 mod stats;
 mod symbols;
 mod tree;
@@ -158,7 +167,7 @@ fn lock_lines(up: &[usize]) -> String {
 fn review_start(dir: &Path, base: Option<&str>) -> App {
     let review = git::Review::open(dir, None, base).unwrap();
     let (_, files) = crate::tree::build(dir, false);
-    let tree = crate::tree::from_files(
+    let tree = crate::tree::from_listing(
         &review
             .files
             .iter()

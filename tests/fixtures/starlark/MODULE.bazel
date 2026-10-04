@@ -1,0 +1,8 @@
+# The shop of #307 in Starlark and Bazel (#431): every d case carries its answer under it.
+module(name = "shop")
+bazel_dep(name = "rules_go", version = "0.50.1")
+bazel_dep(name = "gazelle", version = "0.38.0", repo_name = "bazel_gazelle")
+
+shop_couriers = use_extension("//tools:defs.bzl", "couriers")
+#                                       ^ d: tools/defs.bzl:1
+#                                                   ^ d: none
