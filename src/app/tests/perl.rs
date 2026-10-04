@@ -104,3 +104,20 @@ fn u_on_a_perl_sub_marks_its_sub_and_no_fat_comma_key() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn d_on_a_method_of_a_perl_receiver_named_beyond_ascii_reads_the_receiver_whole() {
+    let (dir, mut a) = project_app(
+        "perl-unicode-receiver",
+        &[(
+            "lib/Odd.pm",
+            "package Odd;\nsub total { 1 }\nmy $ßar = Odd->new;\n$ßar->total();\n",
+        )],
+    );
+    d_on(&mut a, "lib/Odd.pm", "$ßar->|total(");
+    assert_eq!(
+        shown(&mut a),
+        jump("total: by name, 1 match", "lib/Odd.pm:2")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
