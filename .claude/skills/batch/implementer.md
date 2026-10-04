@@ -35,9 +35,11 @@ it, screencast links, what the change leaves alone.
 
 ## Kind `own PR`
 
-Open a PR into master in the shape of `.github/pull_request_template.md`, with before/after
-screencasts, under `needs-owner`. The decisions are in the issue: the owner's latest comment
-overrides the body, and what the issue does not decide is not yours to add to the screen. Review
-the PR with Punchcard once and fix its findings.
+Open a PR into master in the shape of `.github/pull_request_template.md`; a visible change gets
+before/after screencasts and `needs-owner`. The decisions are in the issue: the owner's latest
+comment overrides the body, and what the issue does not decide is not yours to add to the
+screen. Review the PR with Punchcard once, its finders in the foreground
+(`run_in_background: false`), and fix its findings. A finding that asks whether a change is the
+owner's call is not yours to answer: take that change out of the PR and name it in the report.
 
 Report in up to 6 lines: the PR's link, what a user sees now, anything you had to decide.
