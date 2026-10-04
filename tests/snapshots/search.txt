@@ -8,14 +8,14 @@ merl snapshot: search
 │  export.csv                │       ███╗   ███╗███████╗██████╗ ██╗
 │  Makef┌Search (5 hits)───────────────────────────────────────────────┐
 │  model│s> load_config                                                │
-│  notes│cli.py:6: from config import load_config                      │
-│  PLAN.│cli.py:30: store = NoteStore(load_config())                   │
-│  store│config.py:18: def load_config(path: Path | None = None) -> Con│
-│       │store.py:5: from config import Config, load_config            │
-│       │store.py:13: self.config = config or load_config()            │
-│       │                                                              │
-│       │                                                              │)
-│       │                                                              │
+│  notes│cli.py                                                        │
+│  PLAN.│   6  from config import load_config                          │
+│  store│  30  store = NoteStore(load_config())                        │
+│       │config.py                                                     │
+│       │  18  def load_config(path: Path | None = None) -> Config:    │
+│       │store.py                                                      │
+│       │   5  from config import Config, load_config                  │)
+│       │  13  self.config = config or load_config()                   │
 │       │                                                              │
 │       │                                                              │
 │       │                                                              │
@@ -34,14 +34,14 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccaccccccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccc
 acccccccabbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccc
 acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
-acccccccaffffffffffggggffffffffggggggffffffffffffffffffffffffffffffffffacccccccc
-acccccccaccccccccccccccccchcaaaaaaaaaiaaaaaaaaaaaiiicccccccccccccccccccacccccccc
-acccccccaccccccccccccccjjjcaaaaaaaaaaaikkkkhcccccchcllllchcllllichhccccacccccccc
-acccccccaccccccccccccmmmmccccccccmmmmmmccccccchccccccccccccccccccccccccacccccccc
-acccccccacccccccccccccnnnnhccccccchccccccccjjcaaaaaaaaaaaiiccccccccccccacccccccc
-acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
-acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
-acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaffffffgggghhhhhhhhgggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhacccccccc
+acccccccaiiiiiiccccccjcaaaaaaaaakaaaaaaaaaaakkkccccccccccccccccccccccccacccccccc
+acccccccaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaiiiiiilllcaaaaaaaaaaakmmmmjccccccjcnnnncjcnnnnkcjjccccccckccccacccccccc
+acccccccaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaiiiiiiooooccccccccoooooocccccccjccccccccccccccccccccccccccccccacccccccc
+acccccccaiiiiiippppjcccccccjccccccccllcaaaaaaaaaaakkcccccccccccccccccccacccccccc
 acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
 acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
 acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
@@ -50,22 +50,24 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccc
-ooooooffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+qqqqqqhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #c8d3f5 bg #222436
 d fg #82aaff bg #1b1d2c
 e fg #6c94fc bg #222436
-f fg #c8d3f5 bg #1b1d2c
+f fg #7d849f bg #1b1d2c
 g fg #86e1fc bg #1b1d2c
-h fg #89ddff bg #222436
-i fg #9abdf5 bg #222436
-j fg #c099ff bg #222436
-k fg #ffc777 bg #222436
-l fg #ff966c bg #222436
-m fg #86e1fc bg #222436
-n fg #ff757f bg #222436
-o fg #82aaff bg #1b1d2c BOLD
+h fg #c8d3f5 bg #1b1d2c
+i fg #7d849f bg #222436
+j fg #89ddff bg #222436
+k fg #9abdf5 bg #222436
+l fg #c099ff bg #222436
+m fg #ffc777 bg #222436
+n fg #ff966c bg #222436
+o fg #86e1fc bg #222436
+p fg #ff757f bg #222436
+q fg #82aaff bg #1b1d2c BOLD
 
 ==== 80x24 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -75,14 +77,14 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccaccccccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccc
 acccccccabbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccc
 acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
-acccccccaffffffffffggggffffffffggggggffffffffffffffffffffffffffffffffffacccccccc
-acccccccaccccccccccccccccchccccccccccccccccccccccccccccccccccccccccccccacccccccc
-acccccccacccccccccccccchhhcaaaaaaaaaaacccccccccccchciiiichciiiiccccccccacccccccc
-acccccccacccccccccccchhhhcccccccchhhhhhccccccccccccccccccccccccccccccccacccccccc
-acccccccaccccccccccccccccccccccccchcccccccchhccccccccccccccccccccccccccacccccccc
-acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
-acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
-acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaffffffgggghhhhhhhhgggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhacccccccc
+acccccccaiiiiiiccccccjcccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaiiiiiijjjcaaaaaaaaaaaccccccccccccjckkkkcjckkkkccccccccccccccccacccccccc
+acccccccaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaiiiiiijjjjccccccccjjjjjjccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaiiiiiiccccccccccccjccccccccjjcccccccccccccccccccccccccccccccccacccccccc
 acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
 acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
 acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
@@ -91,17 +93,19 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccc
-jjjjjjffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+llllllhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #1f2328 bg #ffffff
 d fg #6639ba bg #e7eaf0
 e fg #6c94fc bg #ffffff
-f fg #1f2328 bg #e7eaf0
+f fg #787b7e bg #e7eaf0
 g fg #cf222e bg #e7eaf0
-h fg #cf222e bg #ffffff
-i fg #0550ae bg #ffffff
-j fg #6639ba bg #e7eaf0 BOLD
+h fg #1f2328 bg #e7eaf0
+i fg #787b7e bg #ffffff
+j fg #cf222e bg #ffffff
+k fg #0550ae bg #ffffff
+l fg #6639ba bg #e7eaf0 BOLD
 
 ==== 120x33 tokyonight-moon text, cursor 27,8
 ┌notes───────────────────────┐
@@ -113,14 +117,14 @@ j fg #6639ba bg #e7eaf0 BOLD
 │  models.py                 │
 │  notes.jso┌Search (5 hits)───────────────────────────────────────────────────────────────────────────────┐
 │  PLAN.md  │s> load_config                                                                                │
-│  store.py │cli.py:6: from config import load_config                                                      │
-│           │cli.py:30: store = NoteStore(load_config())                                                   │
-│           │config.py:18: def load_config(path: Path | None = None) -> Config:                            │
-│           │store.py:5: from config import Config, load_config                                            │
-│           │store.py:13: self.config = config or load_config()                                            │
-│           │                                                                                              │
-│           │                                                                                              │
-│           │                                                                                              │
+│  store.py │cli.py                                                                                        │
+│           │   6  from config import load_config                                                          │
+│           │  30  store = NoteStore(load_config())                                                        │
+│           │config.py                                                                                     │
+│           │  18  def load_config(path: Path | None = None) -> Config:                                    │
+│           │store.py                                                                                      │
+│           │   5  from config import Config, load_config                                                  │
+│           │  13  self.config = config or load_config()                                                   │
 │           │                                                                                              │
 │           │                                                                                              │
 │           │                                                                                              │
@@ -148,14 +152,14 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 acccccccccccabbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccc
 acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
-acccccccccccaeeeeeeeeeeffffeeeeeeeeffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccccccccccc
-acccccccccccacccccccccccccccccgcaaaaaaaaahaaaaaaaaaaahhhcccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
-acccccccccccacccccccccccccciiicaaaaaaaaaaahjjjjgccccccgckkkkcgckkkkhcggccccccchccccccccccccccccccccccccccccacccccccccccc
-acccccccccccaccccccccccccllllccccccccllllllcccccccgccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
-acccccccccccacccccccccccccmmmmgcccccccgcccccccciicaaaaaaaaaaahhccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
-acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
-acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
-acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaeeeeeeffffggggggggffffffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggacccccccccccc
+acccccccccccahhhhhhccccccicaaaaaaaaajaaaaaaaaaaajjjccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccahhhhhhkkkcaaaaaaaaaaajlllliccccccicmmmmcicmmmmjciicccccccjccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccahhhhhhnnnnccccccccnnnnnnccccccciccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccahhhhhhooooicccccccicccccccckkcaaaaaaaaaaajjcccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
 acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
 acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
 acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
@@ -171,21 +175,23 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-nnnnnneeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+ppppppgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #c8d3f5 bg #222436
 d fg #82aaff bg #1b1d2c
-e fg #c8d3f5 bg #1b1d2c
+e fg #7d849f bg #1b1d2c
 f fg #86e1fc bg #1b1d2c
-g fg #89ddff bg #222436
-h fg #9abdf5 bg #222436
-i fg #c099ff bg #222436
-j fg #ffc777 bg #222436
-k fg #ff966c bg #222436
-l fg #86e1fc bg #222436
-m fg #ff757f bg #222436
-n fg #82aaff bg #1b1d2c BOLD
+g fg #c8d3f5 bg #1b1d2c
+h fg #7d849f bg #222436
+i fg #89ddff bg #222436
+j fg #9abdf5 bg #222436
+k fg #c099ff bg #222436
+l fg #ffc777 bg #222436
+m fg #ff966c bg #222436
+n fg #86e1fc bg #222436
+o fg #ff757f bg #222436
+p fg #82aaff bg #1b1d2c BOLD
 
 ==== 120x33 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -197,14 +203,14 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 acccccccccccabbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccc
 acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
-acccccccccccaeeeeeeeeeeffffeeeeeeeeffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccccccccccc
-acccccccccccacccccccccccccccccgccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
-acccccccccccaccccccccccccccgggcaaaaaaaaaaaccccccccccccgchhhhcgchhhhccccccccccccccccccccccccccccccccccccccccacccccccccccc
-acccccccccccaccccccccccccggggccccccccggggggccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
-acccccccccccacccccccccccccccccccccccccgccccccccggccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
-acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
-acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
-acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaeeeeeeffffggggggggffffffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggacccccccccccc
+acccccccccccahhhhhhccccccicccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccahhhhhhiiicaaaaaaaaaaaccccccccccccicjjjjcicjjjjccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccahhhhhhiiiicccccccciiiiiiccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccahhhhhhccccccccccccicccccccciicccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
 acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
 acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
 acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
@@ -220,16 +226,18 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-iiiiiieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+kkkkkkgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #1f2328 bg #ffffff
 d fg #6639ba bg #e7eaf0
-e fg #1f2328 bg #e7eaf0
+e fg #787b7e bg #e7eaf0
 f fg #cf222e bg #e7eaf0
-g fg #cf222e bg #ffffff
-h fg #0550ae bg #ffffff
-i fg #6639ba bg #e7eaf0 BOLD
+g fg #1f2328 bg #e7eaf0
+h fg #787b7e bg #ffffff
+i fg #cf222e bg #ffffff
+j fg #0550ae bg #ffffff
+k fg #6639ba bg #e7eaf0 BOLD
 
 ==== 185x55 tokyonight-moon text, cursor 34,12
 ┌notes───────────────────────┐
@@ -245,14 +253,14 @@ i fg #6639ba bg #e7eaf0 BOLD
 │                            │
 │                  ┌Search (5 hits)───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │                  │s> load_config                                                                                                                                    │
-│                  │cli.py:6: from config import load_config                                                                                                          │
-│                  │cli.py:30: store = NoteStore(load_config())                                                                                                       │
-│                  │config.py:18: def load_config(path: Path | None = None) -> Config:                                                                                │
-│                  │store.py:5: from config import Config, load_config                                                                                                │
-│                  │store.py:13: self.config = config or load_config()                                                                                                │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
+│                  │cli.py                                                                                                                                            │
+│                  │   6  from config import load_config                                                                                                              │
+│                  │  30  store = NoteStore(load_config())                                                                                                            │
+│                  │config.py                                                                                                                                         │
+│                  │  18  def load_config(path: Path | None = None) -> Config:                                                                                        │
+│                  │store.py                                                                                                                                          │
+│                  │   5  from config import Config, load_config                                                                                                      │
+│                  │  13  self.config = config or load_config()                                                                                                       │
 │                  │                                                                                                                                                  │
 │                  │                                                                                                                                                  │
 │                  │                                                                                                                                                  │
@@ -302,14 +310,14 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccabbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccc
 accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
-accccccccccccccccccaeeeeeeeeeeffffeeeeeeeeffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccccccccccccccccc
-accccccccccccccccccacccccccccccccccccgcaaaaaaaaahaaaaaaaaaaahhhcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
-accccccccccccccccccacccccccccccccciiicaaaaaaaaaaahjjjjgccccccgckkkkcgckkkkhcggccccccchccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
-accccccccccccccccccaccccccccccccllllccccccccllllllcccccccgccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
-accccccccccccccccccacccccccccccccmmmmgcccccccgcccccccciicaaaaaaaaaaahhccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
-accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
-accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
-accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaeeeeeeffffggggggggffffffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggacccccccccccccccccc
+accccccccccccccccccahhhhhhccccccicaaaaaaaaajaaaaaaaaaaajjjccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccahhhhhhkkkcaaaaaaaaaaajlllliccccccicmmmmcicmmmmjciicccccccjccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccahhhhhhnnnnccccccccnnnnnnccccccciccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccahhhhhhooooicccccccicccccccckkcaaaaaaaaaaajjcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
 accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
 accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
 accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
@@ -343,21 +351,23 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-nnnnnneeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+ppppppggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #c8d3f5 bg #222436
 d fg #82aaff bg #1b1d2c
-e fg #c8d3f5 bg #1b1d2c
+e fg #7d849f bg #1b1d2c
 f fg #86e1fc bg #1b1d2c
-g fg #89ddff bg #222436
-h fg #9abdf5 bg #222436
-i fg #c099ff bg #222436
-j fg #ffc777 bg #222436
-k fg #ff966c bg #222436
-l fg #86e1fc bg #222436
-m fg #ff757f bg #222436
-n fg #82aaff bg #1b1d2c BOLD
+g fg #c8d3f5 bg #1b1d2c
+h fg #7d849f bg #222436
+i fg #89ddff bg #222436
+j fg #9abdf5 bg #222436
+k fg #c099ff bg #222436
+l fg #ffc777 bg #222436
+m fg #ff966c bg #222436
+n fg #86e1fc bg #222436
+o fg #ff757f bg #222436
+p fg #82aaff bg #1b1d2c BOLD
 
 ==== 185x55 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -373,14 +383,14 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccabbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccc
 accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
-accccccccccccccccccaeeeeeeeeeeffffeeeeeeeeffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccccccccccccccccc
-accccccccccccccccccacccccccccccccccccgccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
-accccccccccccccccccaccccccccccccccgggcaaaaaaaaaaaccccccccccccgchhhhcgchhhhccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
-accccccccccccccccccaccccccccccccggggccccccccggggggccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
-accccccccccccccccccacccccccccccccccccccccccccgccccccccggccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
-accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
-accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
-accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaeeeeeeffffggggggggffffffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggacccccccccccccccccc
+accccccccccccccccccahhhhhhccccccicccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccahhhhhhiiicaaaaaaaaaaaccccccccccccicjjjjcicjjjjccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccahhhhhhiiiicccccccciiiiiiccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccahhhhhhccccccccccccicccccccciicccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
 accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
 accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
 accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
@@ -414,13 +424,15 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-iiiiiieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+kkkkkkggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #1f2328 bg #ffffff
 d fg #6639ba bg #e7eaf0
-e fg #1f2328 bg #e7eaf0
+e fg #787b7e bg #e7eaf0
 f fg #cf222e bg #e7eaf0
-g fg #cf222e bg #ffffff
-h fg #0550ae bg #ffffff
-i fg #6639ba bg #e7eaf0 BOLD
+g fg #1f2328 bg #e7eaf0
+h fg #787b7e bg #ffffff
+i fg #cf222e bg #ffffff
+j fg #0550ae bg #ffffff
+k fg #6639ba bg #e7eaf0 BOLD
