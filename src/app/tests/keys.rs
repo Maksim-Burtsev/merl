@@ -48,6 +48,20 @@ fn shift_on_char_is_stripped() {
     assert_eq!(a.mode, Mode::Goto);
 }
 
+#[test]
+fn ctrl_shift_letter_is_never_the_bare_letter() {
+    let mut a = app(&"x\n".repeat(200));
+    let ctrl_shift = KeyModifiers::CONTROL | KeyModifiers::SHIFT;
+    for code in [KeyCode::Char('D'), KeyCode::Char('d'), KeyCode::Char('U')] {
+        press(&mut a, code, ctrl_shift);
+        assert!(a.picker.is_none() && a.message.is_empty());
+        assert_eq!((a.mode, a.line), (Mode::Normal, 0));
+    }
+    press(&mut a, KeyCode::Char('D'), KeyModifiers::CONTROL);
+    assert!(a.picker.is_none());
+    assert!(!press(&mut a, KeyCode::Char('Q'), ctrl_shift));
+}
+
 /// Every alias in `KEYS` reaches the same action as its primary key.
 #[test]
 fn aliases_reach_the_same_actions() {
