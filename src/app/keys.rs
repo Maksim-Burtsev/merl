@@ -88,7 +88,7 @@ impl App {
         }
         if let KeyCode::Char(c) = key.code
             && key.modifiers.contains(KeyModifiers::CONTROL)
-            && (key.modifiers.contains(KeyModifiers::SHIFT) || c.is_uppercase())
+            && (key.modifiers.contains(KeyModifiers::SHIFT) || !c.is_ascii_lowercase())
         {
             return false;
         }
