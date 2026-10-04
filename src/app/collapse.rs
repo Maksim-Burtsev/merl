@@ -1,5 +1,7 @@
 use super::*;
 
+mod spans;
+
 impl App {
     pub(super) fn toggle_collapse(&mut self) {
         if self.deleted.is_some() || self.previewing() {
@@ -10,14 +12,14 @@ impl App {
             self.collapsed.remove(i);
             return;
         }
-        if self.kind() != Some(Kind::Python) {
+        let Some(folds) = folds(&self.buf) else {
             self.message = match self.buf.path.as_ref().and_then(|p| p.extension()) {
                 Some(ext) => format!("no fold rules for .{}", ext.to_string_lossy()),
                 None => "no fold rules for this file".into(),
             };
             return;
-        }
-        let Some((h, end)) = Shape::python(&self.buf.lines).target(l) else {
+        };
+        let Some((h, end)) = folds.target(l) else {
             self.message = "nothing to fold".into();
             return;
         };
@@ -57,12 +59,17 @@ impl App {
     }
 
     pub(super) fn shift_collapsed(&mut self, at: usize, old: usize, new: usize) {
-        let shape = Shape::python(&self.buf.lines);
+        if self.collapsed.is_empty() {
+            return;
+        }
+        let Some(folds) = folds(&self.buf) else {
+            return;
+        };
         let moved = |(h, e): (usize, usize)| match () {
             _ if (at..at + old).contains(&h) => None,
             _ if e < at => Some((h, e)),
             _ if h >= at + old => Some((h + new - old, e + new - old)),
-            _ => Some((h, shape.region(h)?)),
+            _ => Some((h, folds.region(h)?)),
         };
         self.collapsed = self.collapsed.iter().filter_map(|&f| moved(f)).collect();
         self.nest_collapsed();
@@ -93,10 +100,14 @@ impl App {
     }
 
     fn measure_collapsed(&mut self, heads: Vec<usize>) {
-        let shape = Shape::python(&self.buf.lines);
+        let folds = folds(&self.buf).filter(|_| !heads.is_empty());
+        let Some(folds) = folds else {
+            self.collapsed.clear();
+            return;
+        };
         self.collapsed = heads
             .into_iter()
-            .filter_map(|h| Some((h, shape.region(h)?)))
+            .filter_map(|h| Some((h, folds.region(h)?)))
             .collect();
         self.nest_collapsed();
     }
@@ -112,6 +123,65 @@ impl App {
                 }
             }
             self.collapsed[i] = (h, e);
+        }
+    }
+}
+
+#[cfg(test)]
+thread_local! {
+    pub(crate) static FOLD_EVERY_KIND: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+#[cfg(test)]
+fn every_kind() -> bool {
+    FOLD_EVERY_KIND.get()
+}
+
+#[cfg(not(test))]
+fn every_kind() -> bool {
+    false
+}
+
+fn folds(buf: &Buffer) -> Option<Folds<'_>> {
+    let (path, lines) = (buf.path.as_deref()?, &buf.lines);
+    if search::opened_kind(path) == Some(Kind::Python) {
+        return Some(Folds::Shape(Shape::python(lines)));
+    }
+    Some(Folds::Spans(match path.extension()?.to_str()? {
+        "json" => spans::json(lines),
+        "css" => spans::css(lines),
+        "scss" => spans::scss(lines),
+        "yml" | "yaml" => spans::yaml(lines),
+        "toml" => spans::toml(lines),
+        "html" | "htm" => spans::html(lines),
+        "md" | "markdown" => spans::markdown(lines),
+        _ if every_kind() => return Some(Folds::Shape(Shape::plain(lines))),
+        _ => return None,
+    }))
+}
+
+enum Folds<'a> {
+    Shape(Shape<'a>),
+    Spans(Vec<(usize, usize)>),
+}
+
+impl Folds<'_> {
+    fn region(&self, h: usize) -> Option<usize> {
+        match self {
+            Folds::Shape(shape) => shape.region(h),
+            Folds::Spans(spans) => spans.iter().find(|s| s.0 == h).map(|s| s.1),
+        }
+    }
+
+    fn target(&self, l: usize) -> Option<(usize, usize)> {
+        match self {
+            Folds::Shape(shape) => shape.target(l),
+            Folds::Spans(spans) => (spans.iter().find(|s| s.0 == l))
+                .or_else(|| {
+                    (spans.iter().filter(|s| s.0 < l && l <= s.1))
+                        .min_by_key(|s| (std::cmp::Reverse(s.0), s.1))
+                })
+                .copied(),
         }
     }
 }

@@ -1,13 +1,25 @@
 #!/usr/bin/env python3
-"""The fold bench: `f` pressed on every line of real Python code, against what the code's own
-syntax says that line should fold.
+"""The fold bench: `f` pressed on the lines of real projects, against a reference.
 
-    tools/fold-bench/run [--cache DIR] [--show N]
+    tools/fold-bench/run [--lang python,go] [--cache DIR] [--show N] [--update-baseline]
 
 The projects are cloned at a pinned commit into the cache (default $D_BENCH_CACHE or
-~/.cache/merl-d-bench, shared with tools/d-bench). The reference comes from Python's own `ast`
-and `tokenize`, so it needs no language server and runs anywhere Python 3.10+ does; it is never
-run in CI. For every .py file it lists:
+~/.cache/merl-d-bench, shared with tools/d-bench). The reference:
+
+    python       Python's own `ast` and `tokenize`, run here on every line of four projects
+    the rest     folds/LANG.tsv, what Neovim folds with nvim-treesitter's `folds.scm` in the
+                 projects of tools/d-bench/projects.tsv, recorded once by record.py: every
+                 line that starts a fold, and the last line `zc` hides there
+
+merl presses `f` on each line through the ignored test `fold_bench` (src/app/tests/fold_bench.rs).
+A language whose `f` is off (`no fold rules for .EXT`) is pressed with the rules forced on, the
+plain shape every language without rules of its own gets, and marked `off`: its row is the
+starting line, never a failure. For a language that is on, the run exits 1 under 99 % exact or
+on any line worse than baseline.tsv, master's lines that are not exact (exact, then nothing
+folded, then a wrong range). --update-baseline writes the languages it ran into baseline.tsv.
+The lines that differ are written to `last-fold.tsv` in the cache; --show N prints N of them.
+
+Python's reference, per line:
 
     def / class / if / elif / else / for / while / with / try / except / finally / match / case
                  the header line folds its suite, header kept, through the suite's last line
@@ -19,17 +31,15 @@ run in CI. For every .py file it lists:
                  def or class around it; a blank line after a method's last statement is the
                  class's
 
-merl presses `f` on each line through the ignored test `fold_bench` (src/app/tests/fold_bench.rs)
-and the table counts, per kind, the folds that hid exactly the reference lines. It exits 1 when
-fewer than 99 % of all lines are exact. The lines that differ are written to `last-fold.tsv` in
-the cache; --show N prints the first N of them.
-
-Known to differ, 2 of 270,726 lines: rich/tests/test_inspect.py 442 and 452, a multi-line string
-whose closing line opens `% (`. merl folds the string and the bracket as one; the reference
-folds them apart.
+Known to differ in Python, 2 of 270,726 lines: rich/tests/test_inspect.py 442 and 452, a
+multi-line string whose closing line opens `% (`. merl folds the string and the bracket as one;
+the reference folds them apart.
 """
-import argparse, ast, io, os, subprocess, sys, tempfile, time, tokenize
-from collections import Counter
+import argparse, ast, io, os, statistics, subprocess, sys, tempfile, time, tokenize
+
+sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from record import ensure, projects
 
 PROJECTS = [
     ("httpx", "https://github.com/encode/httpx.git", "b5addb64f0161ff6bfe94c124ef76f6a1fba5254"),
@@ -38,19 +48,10 @@ PROJECTS = [
     ("fastapi", "https://github.com/fastapi/fastapi.git", "28a206107302ee20ce6a9a876d05a258c1c8d328"),
     ("rich", "https://github.com/Textualize/rich.git", "9d8f9a372cc5916fd4781fec207ced7ddac2f08f"),
 ]
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(HERE))
+RANK = {"exact": 0, "nothing": 1, "wrong": 2}
 CLOSERS = set(")]}},;: ")
-
-
-def ensure(cache, name, url, commit):
-    d = os.path.join(cache, name)
-    if not os.path.isdir(d):
-        subprocess.run(["git", "clone", "-q", url, d], check=True)
-    head = subprocess.run(["git", "-C", d, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
-    if head != commit:
-        subprocess.run(["git", "-C", d, "fetch", "-q", "--depth", "1", "origin", commit], check=False)
-        subprocess.run(["git", "-C", d, "checkout", "-q", commit], check=True)
-    return d
 
 
 def suite_end(stmts):
@@ -160,54 +161,108 @@ def reference(src):
     return exp
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--cache", default=os.environ.get("D_BENCH_CACHE", os.path.expanduser("~/.cache/merl-d-bench")))
-    ap.add_argument("--show", type=int, default=0)
-    a = ap.parse_args()
-    cache = os.path.realpath(a.cache)
-    os.makedirs(cache, exist_ok=True)
-    rows, expect = [], {}
+def python_rows(cache):
     for name, url, commit in PROJECTS:
         d = ensure(cache, name, url, commit)
-        files = subprocess.run(["git", "-C", d, "ls-files", "*.py"], capture_output=True, text=True).stdout.split()
-        for f in files:
-            path = os.path.join(d, f)
+        for f in subprocess.run(["git", "-C", d, "ls-files", "*.py"], capture_output=True, text=True).stdout.split():
             try:
-                src = open(path, encoding="utf-8").read()
-                exp = reference(src)
+                exp = reference(open(os.path.join(d, f), encoding="utf-8").read())
             except (SyntaxError, UnicodeDecodeError, tokenize.TokenError, ValueError):
                 continue
             for line, (h, e, kind) in sorted(exp.items()):
-                rid = str(len(rows))
-                rows.append(f"{rid}\t{path}\t{line}")
-                expect[rid] = (name, f, line, h, e, kind)
+                yield f"{name}/{f}", line, h, e, kind
+
+
+def recorded_rows(cache, lang):
+    every, ready = projects(), set()
+    for row in open(os.path.join(HERE, "folds", f"{lang}.tsv")).read().splitlines():
+        if row.startswith("#"):
+            continue
+        path, folds = row.split("\t")
+        name = path.split("/")[0]
+        if name not in ready:
+            _, _, url, commit, _ = every[name]
+            ensure(cache, name, url, commit)
+            ready.add(name)
+        for fold in folds.split():
+            h, e = map(int, fold.split(":"))
+            yield path, h, h, e, lang
+
+
+def baseline():
+    path = os.path.join(HERE, "baseline.tsv")
+    rows = [r.split("\t") for r in open(path).read().splitlines() if r and not r.startswith("#")]
+    return {(lang, at): status for lang, at, status in rows}
+
+
+def main():
+    recorded = sorted(f[:-4] for f in os.listdir(os.path.join(HERE, "folds")))
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--lang", default=",".join(["python"] + recorded))
+    ap.add_argument("--cache", default=os.environ.get("D_BENCH_CACHE", os.path.expanduser("~/.cache/merl-d-bench")))
+    ap.add_argument("--show", type=int, default=0)
+    ap.add_argument("--update-baseline", action="store_true")
+    a = ap.parse_args()
+    langs = a.lang.split(",")
+    unknown = [l for l in langs if l != "python" and l not in recorded]
+    if unknown:
+        sys.exit(f"no reference for {', '.join(unknown)}: {', '.join(['python'] + recorded)}")
+    cache = os.path.realpath(a.cache)
+    os.makedirs(cache, exist_ok=True)
+    rows, expect = [], {}
+    for lang in langs:
+        source = python_rows(cache) if lang == "python" else recorded_rows(cache, lang)
+        for path, line, h, e, kind in source:
+            rid = str(len(rows))
+            rows.append(f"{rid}\t{os.path.join(cache, path)}\t{line}")
+            expect[rid] = (lang, path, line, h, e, kind)
     tmp = tempfile.mkdtemp(prefix="fold-bench-")
     bench_in, bench_out = os.path.join(tmp, "in.tsv"), os.path.join(tmp, "out.tsv")
     open(bench_in, "w").write("\n".join(rows) + "\n")
     started = time.time()
     env = {**os.environ, "BENCH_IN": bench_in, "BENCH_OUT": bench_out}
-    subprocess.run(["cargo", "test", "--release", "--quiet", "fold_bench", "--", "--ignored"],
+    subprocess.run(["cargo", "test", "--release", "--quiet", "--bin", "merl", "fold_bench", "--", "--ignored"],
                    cwd=ROOT, env=env, check=True, stdout=subprocess.DEVNULL)
     took = time.time() - started
-    total, exact, wrong = Counter(), Counter(), []
+    status, on, micros, wrong = {}, {}, {l: [] for l in langs}, []
     for row in open(bench_out).read().splitlines():
-        rid, h, e, msg = (row.split("\t") + [""])[:4]
-        name, f, line, xh, xe, kind = expect[rid]
-        total[kind] += 1
-        if h == str(xh) and e == str(xe):
-            exact[kind] += 1
-        else:
-            wrong.append(f"{name}/{f}:{line}\t{kind}\twant {xh}-{xe}\tgot {h}-{e}\t{msg}")
-    print(f"{'kind':26}{'lines':>8}{'exact':>8}{'%':>8}")
-    for kind in sorted(total):
-        print(f"{kind:26}{total[kind]:8}{exact[kind]:8}{100 * exact[kind] / total[kind]:8.2f}")
-    t, x = sum(total.values()), sum(exact.values())
-    print(f"{'all':26}{t:8}{x:8}{100 * x / t:8.2f}   ({took:.0f} s for {len(rows)} presses)")
+        rid, h, e, state, us, msg = (row.split("\t") + [""])[:6]
+        lang, path, line, xh, xe, kind = expect[rid]
+        on[lang] = state
+        micros[lang].append(int(us))
+        verdict = "exact" if (h, e) == (str(xh), str(xe)) else "nothing" if h == "-" else "wrong"
+        status[(lang, f"{path}:{line}")] = verdict
+        if verdict != "exact":
+            wrong.append(f"{lang}\t{path}:{line}\t{kind}\twant {xh}-{xe}\tgot {h}-{e}\t{msg}")
+    print(f"{'language':10}{'f':>5}{'lines':>8}{'exact':>8}{'wrong':>8}{'nothing':>9}{'%':>8}{'p50 ms':>8}")
+    failed = []
+    for lang in langs:
+        mine = [v for (l, _), v in status.items() if l == lang]
+        n, x = len(mine), mine.count("exact")
+        p50 = statistics.median(micros[lang]) / 1000 if micros[lang] else 0
+        print(f"{lang:10}{on.get(lang, '-'):>5}{n:8}{x:8}{mine.count('wrong'):8}{mine.count('nothing'):9}"
+              f"{100 * x / max(n, 1):8.2f}{p50:8.2f}")
+        if on.get(lang) == "on" and x < 0.99 * n:
+            failed.append(f"{lang}: {100 * x / n:.2f} % exact, under 99 %")
+    print(f"({took:.0f} s for {len(rows)} presses)")
     open(os.path.join(cache, "last-fold.tsv"), "w").write("\n".join(wrong) + "\n")
     for w in wrong[: a.show]:
         print(w)
-    sys.exit(0 if x >= 0.99 * t else 1)
+    base = baseline()
+    worse = [f"{lang}\t{at}\t{base.get((lang, at), 'exact')} -> {v}" for (lang, at), v in status.items()
+             if on.get(lang) == "on" and RANK[v] > RANK[base.get((lang, at), "exact")]]
+    if a.update_baseline:
+        kept = {k: v for k, v in base.items() if k[0] not in langs}
+        kept.update({k: v for k, v in status.items() if v != "exact" and on.get(k[0]) == "on"})
+        head = "# lines not exact on master in the languages whose f is on: language, path:line, verdict\n"
+        open(os.path.join(HERE, "baseline.tsv"), "w").write(
+            head + "".join(f"{l}\t{at}\t{v}\n" for (l, at), v in sorted(kept.items())))
+    elif worse:
+        failed.append(f"{len(worse)} lines worse than baseline.tsv:")
+        failed += worse
+    for f in failed:
+        print(f)
+    sys.exit(1 if failed else 0)
 
 
 if __name__ == "__main__":

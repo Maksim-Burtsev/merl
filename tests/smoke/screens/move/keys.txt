@@ -12,10 +12,12 @@ Ctrl+U
 End
 Esc
 Home
+Picker: Enter
 Shift+Left
 Shift+Right
 Shift+Up
 f
+o
 q
 t
 v
