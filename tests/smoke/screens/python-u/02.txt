@@ -12,14 +12,14 @@ wait Usages of save: 2 declarations, 2 in code, 1 in tests (5/5)
 11         row = self.db.fetch_one("SELECT * FROM orders WHERE id = %s", order_id)
 12         return O┌Usages of save: 2 declarations, 2 in code, 1 in tests (5/5)───────────────────────────────────────────────────────────────────────────────────────┐
 13                 │>                                                                                                                                                 │
-14     def find_by_│             app/repos.py                                                                                                                         │
-15         rows = s│declaration    20  def save(self, order: Order) -> None:                                                                                          │
-16             "SEL│declaration    52  def save(self, order: Order) -> None:                                                                                          │
-17         )       │             app/service.py                                                                                                                       │
-18         return [│               26  self.repo.save(order)                                                                                                          │
-19                 │               35  self.uow.orders.save(order)                                                                                                    │
-20     def save(sel│             tests/test_service.py                                                                                                                │
-21         self.db.│               21  def save(self, order):                                                                                                         │
+14     def find_by_│app/repos.py                                                                                                                                      │
+15         rows = s│  20  def save(self, order: Order) -> None:                                                                                                       │
+16             "SEL│  52  def save(self, order: Order) -> None:                                                                                                       │
+17         )       │app/service.py                                                                                                                                    │
+18         return [│  26  self.repo.save(order)                                                                                                                       │
+19                 │  35  self.uow.orders.save(order)                                                                                                                 │
+20     def save(sel│tests/test_service.py                                                                                                                             │
+21         self.db.│  21  def save(self, order):                                                                                                                      │
 22             "INS│                                                                                                                                                  │
 23             "ON │                                                                                                                                                  │
 24             orde│                                                                                                                                                  │

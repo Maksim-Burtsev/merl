@@ -12,35 +12,35 @@ wait Usages of OrderStatus
 │    M architecture.png   bin│  ▎        self.repo.save(order)
 │  ▾ scripts       ┌Usages of OrderStatus: 2 declarations, 13 in code, 4 in tests (19/19)─────────────────────────────────────────────────────────────────────────────┐
 │    D refund_by_ha│>                                                                                                                                                 │
-│  ▾ tests         │              app/models.py                                                                                                                       │
-│    A test_refunds│ declaration     7  class OrderStatus(Enum):                                                                                                      │
-│  ▾ worker        │              web/src/orders/types.ts                                                                                                             │
-│    M main.go     │ declaration     1  export type OrderStatus = "pending" | "paid" | "shipped" | "cancelled" | "refunded";                                          │
-│                  │              app/service.py                                                                                                                      │
-│                  │                 4  from app.models import Order, OrderStatus                                                                                     │
-│                  │                28  order.status = OrderStatus.PAID                                                                                               │
-│                  │                37  order.status = OrderStatus.CANCELLED                                                                                          │
-│                  │▎               45  order.status = OrderStatus.REFUNDED                                                                                           │
-│                  │              app/models.py                                                                                                                       │
-│                  │                20  status: OrderStatus = OrderStatus.PENDING                                                                                     │
-│                  │                24  return self.status in (OrderStatus.PENDING, OrderStatus.PAID)                                                                 │
-│                  │              app/refunds.py                                                                                                                      │
-│                  │▎                4  from app.models import Order, OrderStatus                                                                                     │
-│                  │▎               14  if order.status is not OrderStatus.PAID:                                                                                      │
-│                  │              app/repos.py                                                                                                                        │
-│                  │                 1  from app.models import Order, OrderStatus                                                                                     │
-│                  │▎               49  def find_by_status(self, status: OrderStatus) -> list[Order]:                                                                 │
-│                  │              scripts/refund_by_hand.py                                                                                                           │
-│                  │▎                5  from app.models import OrderStatus                                                                                            │
-│                  │▎                8  print(f"UPDATE orders SET status = '{OrderStatus.REFUNDED.value}' WHERE id = {ORDER_ID};")                                    │
-│                  │              web/src/orders/types.ts                                                                                                             │
-│                  │                 5  status: OrderStatus;                                                                                                          │
-│                  │              tests/test_refunds.py                                                                                                               │
-│                  │▎                6  from app.models import Order, OrderStatus                                                                                     │
-│                  │▎               13  return Order(id=1, customer_id=7, total=Decimal("40.00"), status=OrderStatus.PAID,                                            │
-│                  │              tests/test_service.py                                                                                                               │
-│                  │                 6  from app.models import Order, OrderStatus                                                                                     │
-│                  │                43  assert service.cancel(1).status is OrderStatus.CANCELLED                                                                      │
+│  ▾ tests         │ app/models.py                                                                                                                                    │
+│    A test_refunds│    7  class OrderStatus(Enum):                                                                                                                   │
+│  ▾ worker        │ web/src/orders/types.ts                                                                                                                          │
+│    M main.go     │    1  export type OrderStatus = "pending" | "paid" | "shipped" | "cancelled" | "refunded";                                                       │
+│                  │ app/service.py                                                                                                                                   │
+│                  │    4  from app.models import Order, OrderStatus                                                                                                  │
+│                  │   28  order.status = OrderStatus.PAID                                                                                                            │
+│                  │   37  order.status = OrderStatus.CANCELLED                                                                                                       │
+│                  │▎  45  order.status = OrderStatus.REFUNDED                                                                                                        │
+│                  │ app/models.py                                                                                                                                    │
+│                  │   20  status: OrderStatus = OrderStatus.PENDING                                                                                                  │
+│                  │   24  return self.status in (OrderStatus.PENDING, OrderStatus.PAID)                                                                              │
+│                  │ app/refunds.py                                                                                                                                   │
+│                  │▎   4  from app.models import Order, OrderStatus                                                                                                  │
+│                  │▎  14  if order.status is not OrderStatus.PAID:                                                                                                   │
+│                  │ app/repos.py                                                                                                                                     │
+│                  │    1  from app.models import Order, OrderStatus                                                                                                  │
+│                  │▎  49  def find_by_status(self, status: OrderStatus) -> list[Order]:                                                                              │
+│                  │ scripts/refund_by_hand.py                                                                                                                        │
+│                  │▎   5  from app.models import OrderStatus                                                                                                         │
+│                  │▎   8  print(f"UPDATE orders SET status = '{OrderStatus.REFUNDED.value}' WHERE id = {ORDER_ID};")                                                 │
+│                  │ web/src/orders/types.ts                                                                                                                          │
+│                  │    5  status: OrderStatus;                                                                                                                       │
+│                  │ tests/test_refunds.py                                                                                                                            │
+│                  │▎   6  from app.models import Order, OrderStatus                                                                                                  │
+│                  │▎  13  return Order(id=1, customer_id=7, total=Decimal("40.00"), status=OrderStatus.PAID,                                                         │
+│                  │ tests/test_service.py                                                                                                                            │
+│                  │    6  from app.models import Order, OrderStatus                                                                                                  │
+│                  │   43  assert service.cancel(1).status is OrderStatus.CANCELLED                                                                                   │
 │                  │                                                                                                                                                  │
 │                  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 │                            │

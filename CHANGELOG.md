@@ -131,7 +131,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The lists of `u`, `s` and `d`'s choices name a file once, above its rows, and each row shows
   the line number and the code: `polar/license_key/endpoints.py` over `242  license_key = await …`
   instead of the path repeated on every row. A row still too wide for the list wraps under its
-  code instead of stopping at the border mid-word. (#479)
+  code instead of stopping at the border mid-word. `u` no longer writes `declaration` before
+  its first rows: the title counts them, and the code moves left by 13 columns. (#479)
 - The `?` overlay on a screen narrower than 118 columns wraps an action too long for its row
   onto the next row, under its own column, instead of cutting it at the border (#458).
 - `d` in Python reads a dependency's modules as Python imports them (#329). `pytest.fixture` lands

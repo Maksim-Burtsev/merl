@@ -271,8 +271,6 @@ fn s_keeps_its_row_apart_from_a_deleted_line_of_the_same_number() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// `u` lists the deleted uses beside the branch's, a deleted declaration marked as one; `D` lists
-/// the deleted declarations.
 #[test]
 fn u_and_capital_d_list_deleted_lines() {
     let (dir, mut a) = orders_review("u-deleted");
@@ -289,12 +287,16 @@ fn u_and_capital_d_list_deleted_lines() {
     ] {
         assert!(has(row), "{row} in {listed:#?}");
     }
-    assert!(
-        listed
-            .iter()
-            .any(|r| r.starts_with("declaration") && r.contains("app/legacy.py:1: def get(key):")),
-        "{listed:#?}"
-    );
+    let legacy = listed
+        .iter()
+        .position(|r| r.contains("app/legacy.py:1: def get(key):"))
+        .expect("the deleted declaration");
+    let title = &a.picker.as_ref().unwrap().title;
+    let declarations: usize = title
+        .split_once(": ")
+        .and_then(|(_, counts)| counts.split_once(" declaration"))
+        .map_or(0, |(n, _)| n.parse().unwrap());
+    assert!(legacy < declarations, "{title}: {listed:#?}");
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
 
     // From the deleted call, its uses: both deleted.
