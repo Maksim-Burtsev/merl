@@ -241,7 +241,7 @@ impl App {
     ) -> Option<(CsType, String)> {
         let owner = || {
             let decl = search::cs_owner(text, line)?;
-            let (_, n) = search::cs_type_decl(text.lines().nth(decl - 1)?)?;
+            let n = search::cs_type_decl(text.lines().nth(decl - 1)?)?.name;
             Some(Typed {
                 name: n,
                 path: file.to_path_buf(),
@@ -306,7 +306,7 @@ impl App {
         let owner = match receiver {
             [] => {
                 let decl = search::cs_owner(text, line)?;
-                let (_, n) = search::cs_type_decl(text.lines().nth(decl - 1)?)?;
+                let n = search::cs_type_decl(text.lines().nth(decl - 1)?)?.name;
                 Typed {
                     name: n,
                     path: file.to_path_buf(),
@@ -356,7 +356,7 @@ impl App {
         let hits = self.project_definitions(Kind::CSharp, file, &name, &pattern);
         let (types, other): (Vec<&Hit>, Vec<&Hit>) = hits
             .iter()
-            .partition(|h| search::cs_type_decl(&h.text).is_some_and(|(_, n)| n == name));
+            .partition(|h| search::cs_type_decl(&h.text).is_some_and(|d| d.name == name));
         let found = match (types.as_slice(), other.is_empty()) {
             ([one], true) => Some(CsType::Project(Typed {
                 name: name.clone(),
@@ -468,7 +468,7 @@ impl App {
         here: &Path,
         range: &std::ops::Range<usize>,
     ) -> Option<Vec<Candidate>> {
-        let (prefix, certain) =
+        let search::CsNamespacePrefix { prefix, certain } =
             search::cs_namespace_prefix(self.line_str(), range.start, range.end)?;
         let p = regex::escape(&prefix);
         let pattern = format!(r"^\u{{feff}}?\s*namespace\s+{p}(?:\.[\w.]+)?\s*[;{{]?\s*$");
@@ -541,7 +541,7 @@ impl App {
         let mut around = Vec::new();
         let mut at = search::cs_owner(&text, self.line + 1);
         while let Some(decl) = at.filter(|_| around.len() < 8) {
-            let (_, name) = search::cs_type_decl(lines[decl - 1]).ok_or(None)?;
+            let name = search::cs_type_decl(lines[decl - 1]).ok_or(None)?.name;
             around.push(Typed {
                 name,
                 path: here.to_path_buf(),
@@ -709,7 +709,7 @@ impl App {
             .buf
             .lines
             .iter()
-            .filter_map(|l| search::cs_type_decl(l).map(|(_, name)| name))
+            .filter_map(|l| search::cs_type_decl(l).map(|d| d.name))
             .collect();
         let statics = r"^\u{feff}?\s*global\s+using\s+static\b";
         let walked = walked.filter(|_| {
@@ -791,7 +791,12 @@ impl App {
                 let Some(text) = self.text_of(&h.path) else {
                     return true;
                 };
-                let Some((min, max, this)) = search::cs_parameters(&text, h.line, word) else {
+                let Some(search::CsArity {
+                    fewest: min,
+                    most_unless_params: max,
+                    extension_this: this,
+                }) = search::cs_parameters(&text, h.line, word)
+                else {
                     return true;
                 };
                 let owner = match search::cs_place(&text, h.line, word) {
