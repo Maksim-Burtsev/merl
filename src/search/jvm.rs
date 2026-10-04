@@ -869,10 +869,27 @@ pub fn jvm_parameters(text: &str, line: usize, word: &str, groovy: bool) -> Opti
         defaults += usize::from(groovy && DEFAULT.is_match(top));
         top.clear();
     };
-    for (_, c) in code(Kind::Jvm, &inner) {
+    let b = inner.as_bytes();
+    let mut angles = Vec::new();
+    let generic_open = |i: usize| {
+        i > 0
+            && (b[i - 1].is_ascii_alphanumeric() || b[i - 1] == b'_')
+            && !matches!(b.get(i + 1), Some(b'<' | b'='))
+    };
+    for (i, c) in code(Kind::Jvm, &inner) {
         match c {
-            b'(' | b'[' | b'{' | b'<' => depth += 1,
-            b')' | b']' | b'}' | b'>' => depth -= 1,
+            b'<' if groovy && !generic_open(i) => {}
+            b'>' if groovy && angles.last() != Some(&depth) => {}
+            b'<' => {
+                depth += 1;
+                angles.push(depth);
+            }
+            b'>' => {
+                angles.pop();
+                depth -= 1;
+            }
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth -= 1,
             b',' if depth == 0 => {
                 count += 1;
                 close(&mut top);

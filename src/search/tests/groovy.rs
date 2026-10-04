@@ -137,6 +137,18 @@ fn groovy_parameters_read_past_an_annotation_with_arguments() {
         Some((1, 2))
     );
     assert_eq!(p("X(@Tag(\"a\") Object... rest) {"), Some((0, usize::MAX)));
+    assert_eq!(p("X(Closure c = { -> 1 }, int b) {"), Some((1, 1)));
+    assert_eq!(
+        p("X(int a, Closure c = { x, y -> x }, int b) {"),
+        Some((2, 1))
+    );
+    assert_eq!(p("X(boolean f = x >= 1, int b) {"), Some((1, 1)));
+    assert_eq!(p("X(int n = 1 >> 2, m) {"), Some((1, 1)));
+    assert_eq!(p("X(boolean f = a < 1, int b) {"), Some((1, 1)));
+    assert_eq!(
+        p("X(boolean f = a > b, Map<K, List<V>> m, int c) {"),
+        Some((2, 1))
+    );
     assert_eq!(
         jvm_parameters("X(int n = 1) {", 1, "X", false),
         Some((1, 0))
