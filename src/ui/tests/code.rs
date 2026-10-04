@@ -746,6 +746,7 @@ fn git_marks_sit_between_the_number_and_the_text() {
         (0, Mark::Added),
         (1, Mark::Changed),
         (2, Mark::DeletedBelow),
+        (3, Mark::Deleted),
     ]
     .into();
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
@@ -756,11 +757,12 @@ fn git_marks_sit_between_the_number_and_the_text() {
     assert_eq!(head(0), "1\u{258e}a");
     assert_eq!(head(1), "2\u{258e}b");
     assert_eq!(head(2), "3\u{2581}c");
-    assert_eq!(head(3), "4 d");
+    assert_eq!(head(3), "4\u{258e}d");
     let buf = terminal.backend().buffer();
     assert_eq!(buf[(1, 0)].fg, Color::Green);
     assert_eq!(buf[(1, 1)].fg, Color::Blue);
     assert_eq!(buf[(1, 2)].fg, Color::Red);
+    assert_eq!(buf[(1, 3)].fg, Color::Red);
 }
 
 #[test]

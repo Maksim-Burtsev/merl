@@ -152,6 +152,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- In `--review`, a file the branch deleted draws the red `▎` of a deleted line on every line,
+  where it drew the `▁` that marks lines deleted below one. (#642)
 - `d` on `Settings` in a Java `new Settings(entries)` no longer jumps to `Settings(String path)`
   when the class also declares `Settings(Map<String, Object> entries)`: the comma inside `<…>` of
   a parameter list no longer counts as a second parameter. (#675)

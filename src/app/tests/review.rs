@@ -1085,6 +1085,7 @@ fn review_walks_hunks_across_files_and_opens_deleted_files_from_the_base() {
     assert_eq!(at(&a), (dir.join("gone"), 0));
     assert_eq!(a.buf.lines, vec!["x", "y"]);
     assert_eq!(a.diff.marks.len(), 2);
+    assert!(a.diff.marks.values().all(|m| *m == git::Mark::Deleted));
     assert_eq!(a.buf.readonly, Some("deleted in this branch"));
     assert!(a.review_status().unwrap().starts_with("hunk 0/0"));
     // A read-only buffer that the branch did not delete keeps its real diff.
