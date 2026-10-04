@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Ctrl+Shift+D no longer opens the symbols list, as `D` does, in Ghostty, kitty and WezTerm:
+  a Ctrl chord with Shift is never read as the bare letter, and one merl does not bind does
+  nothing. (#688)
+- In `--review`, a file the branch deleted draws the red `▎` of a deleted line on every line,
+  where it drew the `▁` that marks lines deleted below one. (#642)
+- `d` on `Shuttle` in a Groovy `new Shuttle(m)` lands on `Shuttle(@Named("cfg") Map<K, V> m)`
+  instead of offering a picker with `Shuttle(String s, int n)`: an annotation with arguments no
+  longer hides the commas of a generic type, or a default value, behind it. (#679)
+
 ## [0.8.2] - 2026-10-04
 
 ### Added
@@ -154,17 +165,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Ctrl+Shift+D no longer opens the symbols list, as `D` does, in Ghostty, kitty and WezTerm:
-  a Ctrl chord with Shift is never read as the bare letter, and one merl does not bind does
-  nothing. (#688)
-- In `--review`, a file the branch deleted draws the red `▎` of a deleted line on every line,
-  where it drew the `▁` that marks lines deleted below one. (#642)
 - `d` on `Settings` in a Java `new Settings(entries)` no longer jumps to `Settings(String path)`
   when the class also declares `Settings(Map<String, Object> entries)`: the comma inside `<…>` of
   a parameter list no longer counts as a second parameter. (#675)
-- `d` on `Shuttle` in a Groovy `new Shuttle(m)` lands on `Shuttle(@Named("cfg") Map<K, V> m)`
-  instead of offering a picker with `Shuttle(String s, int n)`: an annotation with arguments no
-  longer hides the commas of a generic type, or a default value, behind it. (#679)
 - A `.fs` file is highlighted as F#, not GLSL. (#427)
 - A Bazel `BUILD` file is highlighted as Starlark instead of as XML, and a `BUCK` or `.star` file
   is highlighted at all. (#431)
