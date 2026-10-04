@@ -61,7 +61,7 @@ pub struct Picker {
     /// Review: the gutter marks of the review's files drawn so far, filled lazily by `ui` like
     /// `bufs` (#246).
     pub marks: HashMap<PathBuf, HashMap<usize, Mark>>,
-    pub blank_order: Vec<u32>,
+    blank_order: Vec<u32>,
 }
 
 fn nth<'a>(
@@ -70,7 +70,7 @@ fn nth<'a>(
     n: u32,
 ) -> Option<Item<'a, PickItem>> {
     match blank_order.get(n as usize) {
-        Some(&i) if snap.pattern().is_empty() => snap.get_item(i),
+        Some(&i) if snap.pattern().is_empty() && n < snap.matched_item_count() => snap.get_item(i),
         _ => snap.get_matched_item(n),
     }
 }
@@ -105,6 +105,13 @@ impl Picker {
             marks: HashMap::new(),
             blank_order: Vec::new(),
         }
+    }
+
+    pub fn lead_with(&mut self, first: &[u32]) {
+        let total = self.nucleo.injector().injected_items();
+        let lead: std::collections::HashSet<&u32> = first.iter().collect();
+        let rest = (0..total).filter(|i| !lead.contains(i));
+        self.blank_order = first.iter().copied().chain(rest).collect();
     }
 
     /// Rows a PgUp / PgDn moves: the list's height in the last frame.

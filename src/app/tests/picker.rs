@@ -481,6 +481,7 @@ fn o_lists_the_files_left_this_session_first() {
         ["dd.txt", "bb.txt", "aa.txt", "cc.txt"]
     );
     press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+    a.picker.as_mut().unwrap().settle();
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!(a.rel_path(), "dd.txt");
     assert_eq!(
@@ -512,6 +513,50 @@ fn o_in_a_review_keeps_the_review_order() {
     assert_eq!(
         listed[..5],
         ["src/a.rs", "crlf.txt", "new", "tail", "src/keep.rs"]
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_file_left_again_goes_back_on_top() {
+    let (dir, mut a) = recent_app("recent-again");
+    for f in ["aa.txt", "bb.txt", "aa.txt", "dd.txt"] {
+        a.jump_to(&dir.join(f), 1);
+    }
+    assert_eq!(
+        files_listed(&mut a, ""),
+        ["aa.txt", "bb.txt", "cc.txt", "dd.txt"]
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn an_erased_query_lists_the_recent_files_first_again() {
+    let (dir, mut a) = recent_app("recent-erased");
+    a.jump_to(&dir.join("cc.txt"), 1);
+    a.jump_to(&dir.join("dd.txt"), 1);
+    press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+    typed(&mut a, "b");
+    a.picker.as_mut().unwrap().settle();
+    press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+    let p = a.picker.as_mut().unwrap();
+    p.settle();
+    let labels: Vec<String> = p.window(10).0.into_iter().map(|r| r.item.label).collect();
+    assert_eq!(labels, ["cc.txt", "aa.txt", "bb.txt", "dd.txt"]);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn enter_before_the_list_is_matched_opens_nothing() {
+    let (dir, mut a) = recent_app("recent-unmatched");
+    a.jump_to(&dir.join("cc.txt"), 1);
+    a.jump_to(&dir.join("dd.txt"), 1);
+    press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+    typed(&mut a, "qqqzz");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(
+        (a.mode, a.rel_path()),
+        (Mode::Picker(PickerKind::Files), "dd.txt".to_string())
     );
     let _ = std::fs::remove_dir_all(dir);
 }

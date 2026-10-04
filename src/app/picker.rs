@@ -34,29 +34,20 @@ impl App {
             .collect();
         let mut picker = Picker::new(PickerKind::Files.title(), items, true);
         if self.review.is_none() {
-            picker.blank_order = self.recent_first(&listed);
+            picker.lead_with(&self.recent_first(&listed));
         }
         self.picker = Some(picker);
         self.mode = Mode::Picker(PickerKind::Files);
     }
 
     fn recent_first(&self, listed: &[&PathBuf]) -> Vec<u32> {
-        let rank: HashMap<&Path, usize> = (self.left_files.iter().rev())
-            .filter(|f| self.buf.path.as_ref() != Some(*f))
-            .filter_map(|f| f.strip_prefix(&self.root).ok())
-            .enumerate()
-            .map(|(i, f)| (f, i))
+        let at: HashMap<&Path, u32> = (listed.iter().enumerate())
+            .map(|(i, p)| (p.as_path(), i as u32))
             .collect();
-        if rank.is_empty() {
-            return Vec::new();
-        }
-        let mut order: Vec<u32> = (0..listed.len() as u32).collect();
-        order.sort_by_key(|&i| {
-            rank.get(listed[i as usize].as_path())
-                .copied()
-                .unwrap_or(usize::MAX)
-        });
-        order
+        (self.left_files.iter().rev())
+            .filter(|f| self.buf.path.as_ref() != Some(*f))
+            .filter_map(|f| at.get(f.strip_prefix(&self.root).ok()?).copied())
+            .collect()
     }
 
     pub(crate) fn show_picker(&mut self, kind: PickerKind, items: Vec<PickItem>) {
