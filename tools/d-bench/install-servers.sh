@@ -15,3 +15,8 @@ ln -sf "$(rustup which rust-analyzer)" "$D/bin-ra"
 arch=$(uname -m | sed 's/x86_64/amd64/')
 curl -fsSL "https://github.com/withered-magic/starpls/releases/download/v0.1.22/starpls-$(uname -s | tr A-Z a-z)-$arch" -o "$D/bin/starpls"
 chmod +x "$D/bin/starpls"
+julia --project=@ls -e 'using Pkg; Pkg.add("LanguageServer")'
+depot=$(julia -e 'print(first(DEPOT_PATH))')
+test -d "$depot"
+mkdir -p "$D/julia-home"
+ln -sfn "$depot" "$D/julia-home/.julia"

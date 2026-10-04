@@ -1,6 +1,6 @@
 # `d` bench baseline
 
-merl at `2771821d`, 2026-10-03, release build, `vm.loadavg` { 3.17 8.28 10.83 } before the run, { 4.83 6.51 9.47 } after, the epic of 18 PRs scored from the run's `last-merl.tsv` (#649).
+merl at `2771821d`, 2026-10-03, release build, `vm.loadavg` { 3.17 8.28 10.83 } before the run, { 4.83 6.51 9.47 } after, the epic of 18 PRs scored from the run's `last-merl.tsv` (#649). julia (DataFrames.jl) added at master `41df0a48` merged into #672 (#429, #653, #674), `vm.loadavg` { 48.49 38.25 23.30 }: its times are high by that load.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
@@ -22,3 +22,4 @@ merl at `2771821d`, 2026-10-03, release build, `vm.loadavg` { 3.17 8.28 10.83 } 
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 63.2 | 93.5 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 7.8 | 10.5 |
 | starlark (rules_go) | 84 | 79 (94%) | 2 (2%) | 0 (0%) | 3 (4%) | 186 | 5.1 | 8.6 |
+| julia (DataFrames.jl) | 177 | 67 (38%) | 78 (44%) | 7 (4%) | 25 (14%) | 123 | 26.2 | 65.4 |

@@ -97,6 +97,10 @@ try catch constructor fallback receive true false this super msg tx block abi ad
 bytes int uint wei gwei ether seconds minutes hours days weeks keccak256 sha256 ecrecover gasleft
 blockhash addmod mulmod selfdestruct length push pop""".split() + [
     f"{t}{n}" for t in ("int", "uint") for n in range(8, 257, 8)] + [f"bytes{n}" for n in range(1, 33)]
+KW["julia"] = """abstract baremodule begin break catch const continue do else elseif end export false
+finally for function global if import in isa let local macro module mutable primitive quote return
+struct true try type using where while nothing missing Any Int Int64 Float64 String Bool Symbol
+Nothing Vector Matrix Array Tuple Dict println print length size eltype""".split()
 KW["js"] = KW["ts"]
 KW["jenkins"] = KW["groovy"]
 KW["objc"] = C_KW + """self super nil Nil YES NO id instancetype BOOL SEL Class IMP NSInteger NSUInteger
@@ -127,6 +131,8 @@ SPEC = {
                    triple=True, dollar_slashy=True),
     "solidity": dict(exts=(".sol",), lc=("//",), bc=("/*", "*/")),
     "starlark": dict(exts=(".bzl", ".bazel", "BUILD"), lc=("#",), bc=None, triple=True),
+    "julia": dict(exts=(".jl",), lc=("#",), bc=("#=", "=#"), triple=True, adjoint=True,
+                  word=r"[A-Za-z_][A-Za-z0-9_]*(?:!(?!=))?", decl={"macro", "using"}),
 }
 SPEC["jenkins"] = SPEC["groovy"]
 SKIP_DIRS = {".git", "node_modules", "vendor", "third_party", "dist", "build", "target", ".venv",
@@ -158,16 +164,18 @@ def code_tokens(text, spec):
                 if j >= L:
                     masked[i:] = " " * (L - i); i = L; break
                 masked[i:j + len(closer)] = " " * (j + len(closer) - i); i = j + len(closer); state = None; continue
-            if any(line.startswith(lc, i) for lc in spec["lc"]):
-                masked[i:] = " " * (L - i); break
             if spec.get("bc") and line.startswith(spec["bc"][0], i):
                 state = "block"; masked[i:i + 2] = "  "; i += 2; continue
+            if any(line.startswith(lc, i) for lc in spec["lc"]):
+                masked[i:] = " " * (L - i); break
             if spec.get("triple") and (line.startswith('"""', i) or line.startswith("'''", i)):
                 state = ("str", line[i:i + 3]); masked[i:i + 3] = "   "; i += 3; continue
             if spec.get("dollar_slashy") and line.startswith("$/", i):
                 state = ("str", "/$"); masked[i:i + 2] = "  "; i += 2; continue
             if spec.get("tmpl") and c == spec["tmpl"]:
                 state = ("str", c); masked[i] = " "; i += 1; continue
+            if spec.get("adjoint") and c == "'" and i and (line[i - 1].isalnum() or line[i - 1] in "_)]}'."):
+                i += 1; continue
             if c in "\"'":
                 if spec.get("rust") and c == "'" and not re.match(r"'(\\.|[^\\'])'", line[i:i + 4] if line[i + 1:i + 2] != "\\" else line[i:i + 5]):
                     i += 1; continue  # a lifetime
@@ -179,7 +187,7 @@ def code_tokens(text, spec):
         m = "".join(masked)
         if not m.isascii():
             continue
-        for t in re.finditer(r"[A-Za-z_][A-Za-z0-9_]*", m):
+        for t in re.finditer(spec.get("word", r"[A-Za-z_][A-Za-z0-9_]*"), m):
             s, e = t.span()
             if s > 0 and (m[s - 1].isdigit() or m[s - 1] in "$@#"):
                 continue
@@ -219,7 +227,7 @@ def sample(lang, project, root, n, out, exclude=()):
                 if w in kw or len(w) < 2:
                     continue
                 prev = re.findall(r"[A-Za-z_]+", before)
-                decl = DECL | SOL_DECL if lang == "solidity" else DECL
+                decl = (DECL | SOL_DECL if lang == "solidity" else DECL) | spec.get("decl", set())
                 if prev and prev[-1] in decl and not before.rstrip().endswith((".", "->", "::", "(", ",", "=", ":")):
                     continue
                 sh = shape(before, after, lang) or ("type" if w[0].isupper() else "name")
@@ -358,7 +366,7 @@ LANG_ID = {".py": "python", ".ts": "typescript", ".tsx": "typescriptreact", ".js
            ".jsx": "javascriptreact", ".mjs": "javascript", ".cjs": "javascript", ".go": "go",
            ".rs": "rust", ".c": "c", ".h": "cpp", ".cc": "cpp", ".cpp": "cpp", ".hpp": "cpp",
            ".php": "php", ".swift": "swift", ".m": "objective-c", ".sol": "solidity", ".bzl": "starlark",
-           ".bazel": "starlark"}
+           ".bazel": "starlark", ".jl": "julia"}
 
 
 def server(lang, root):
@@ -393,6 +401,9 @@ def server(lang, root):
         return Lsp([node, server, "--stdio"], root)
     if lang == "starlark":
         return Lsp([os.path.join(LSP, "bin", "starpls"), "server"], root)
+    if lang == "julia":
+        return Lsp(["julia", "--project=@ls", "-e", "using LanguageServer; runserver(stdin, stdout, pwd())"], root,
+                   env={"HOME": os.path.join(LSP, "julia-home")})
     raise SystemExit(f"no server for {lang}")
 
 
