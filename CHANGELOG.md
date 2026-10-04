@@ -152,6 +152,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Ctrl+Shift+D no longer opens the symbols list, as `D` does, in Ghostty, kitty and WezTerm:
+  a Ctrl chord with Shift is never read as the bare letter, and one merl does not bind does
+  nothing. (#688)
 - `d` on `Settings` in a Java `new Settings(entries)` no longer jumps to `Settings(String path)`
   when the class also declares `Settings(Map<String, Object> entries)`: the comma inside `<…>` of
   a parameter list no longer counts as a second parameter. (#675)
