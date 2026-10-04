@@ -233,3 +233,37 @@ fn the_query_is_capped_so_it_always_compiles() {
         (1_000, "no match")
     );
 }
+
+#[test]
+fn a_selection_in_one_line_seeds_find() {
+    let mut a = app("now = 1\nx = now\nNOW\n");
+    press(&mut a, KeyCode::Char('v'), KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+    assert_eq!(
+        (&*a.prompt, a.prompt.selection(), a.line, a.message.as_str()),
+        ("now", Some(0..3), 1, "2/3")
+    );
+    typed(&mut a, "x");
+    assert_eq!((&*a.prompt, a.line), ("x", 1));
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    assert_eq!((a.line, a.selected_text().as_deref()), (0, Some("now")));
+}
+
+#[test]
+fn a_selection_over_two_lines_opens_find_as_without_one() {
+    let mut a = app("now = 1\nx = now\n");
+    find(&mut a, "x");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    a.line = 0;
+    press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+    press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+    assert_eq!((&*a.prompt, a.prompt.selection()), ("x", Some(0..1)));
+}
+
+#[test]
+fn a_seed_is_cut_to_the_cap() {
+    let mut a = app(&format!("{}\n", "a".repeat(1_005)));
+    press(&mut a, KeyCode::Char('v'), KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+    assert_eq!(a.prompt.chars().count(), 1_000);
+}

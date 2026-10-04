@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `/` and `s` open with the selected text as the query when the selection is within one line,
+  already searched and selected so typing replaces it; without a selection, or with one over
+  several lines, they open as before. (#410)
+
 ## [0.8.2] - 2026-10-04
 
 ### Added

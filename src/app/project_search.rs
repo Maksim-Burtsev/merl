@@ -88,15 +88,20 @@ impl App {
             .collect()
     }
 
-    /// `s`: the result picker, empty, with the query as its input line. The hits are a grep for
-    /// the query as typed, ignoring case, over every file, refreshed as it changes. Literal like
-    /// `/`: `foo(` finds the calls and the definition, not a regex error.
     pub(super) fn start_search(&mut self) {
+        let seed = self.one_line_selection();
         self.show_picker(PickerKind::Search, Vec::new());
         if let Some(p) = &mut self.picker {
             p.live = true;
+            if let Some(seed) = &seed {
+                p.query = LineEdit::selected(seed);
+            }
         }
         self.drop_pending_search();
+        if seed.is_some() {
+            self.search_typed();
+            self.search_due = Some(Instant::now());
+        }
     }
 
     /// Forgets the grep on its way: its answer belongs to a picker that is gone, and its number
