@@ -97,9 +97,9 @@ fn u_on_a_perl_sub_marks_its_sub_and_no_fat_comma_key() {
     assert_eq!(
         rows,
         [
-            "declaration  lib/Shop/Order.pm:2:",
-            "             bin/report.pl:2:",
-            "             bin/report.pl:4:",
+            "lib/Shop/Order.pm:2:",
+            "bin/report.pl:2:",
+            "bin/report.pl:4:",
         ]
     );
     std::fs::remove_dir_all(&dir).unwrap();
