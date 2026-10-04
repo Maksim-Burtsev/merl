@@ -1,0 +1,47 @@
+plugins {
+    id 'java'
+}
+
+stamping = '1.0'
+println stamping
+//      ^ d: none
+
+ext {
+    toolVersion = '2.0.0'
+}
+ext.lintLevel = 3
+project.ext.pipelineRev = 'a1'
+
+dependencies {
+    implementation 'x:y:1'
+}
+
+task packSite {
+    doLast { println "Tool ${toolVersion} at $lintLevel" }
+    //                       ^ d: build.gradle:10
+    //                                        ^ d: build.gradle:12
+}
+
+task packZip(type: Zip) {
+    dependsOn packSite
+    //        ^ d: build.gradle:19
+}
+
+tasks.register('packDocs', Copy) {
+    from 'docs'
+}
+
+tasks.register("packApi")
+tasks.create('packAll', overwrite: true)
+    .configure { println overwrite }
+    //                   ^ d: none
+
+tasks.named('packZip') {
+//           ^ d: build.gradle:25
+    dependsOn 'packDocs', 'packApi', 'packAll'
+    //         ^ d: build.gradle:30
+    //                     ^ d: build.gradle:34
+    //                                ^ d: build.gradle:35
+    doLast { println pipelineRev }
+    //               ^ d: build.gradle:13
+}

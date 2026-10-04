@@ -1,0 +1,25 @@
+load("//tools:defs.bzl", "shop_binary", "SHOP_VISIBILITY")
+#              ^ d: tools/defs.bzl:1
+#                           ^ d: none
+load("@rules_go//go:def.bzl", "go_library")
+#       ^ d: none
+
+go_library(
+# ^ d: none
+    name = "api",
+#   ^ d: none
+#            ^ d: api/BUILD.bazel:9
+    srcs = ["api.go"],
+#   ^ d: none
+#             ^ d: api/api.go:1
+    visibility = SHOP_VISIBILITY,
+#                 ^ d: tools/defs.bzl:19
+)
+
+shop_binary(
+# ^ d: tools/defs.bzl:11
+# status: shop_binary: via import tools/defs.bzl
+    name = "server",
+    srcs = [":api"],
+#             ^ d: api/BUILD.bazel:9
+)

@@ -4,7 +4,7 @@ kotlin0001	core/network/src/main/kotlin/com/google/samples/apps/nowinandroid/cor
 kotlin0002			outside the project: androidx stringResource (imported)
 kotlin0003	core/designsystem/src/main/kotlin/com/google/samples/apps/nowinandroid/core/designsystem/component/Background.kt:77		merl's jump, judged right
 kotlin0004	core/designsystem/src/main/kotlin/com/google/samples/apps/nowinandroid/core/designsystem/component/ViewToggle.kt:50		merl's jump, judged right
-kotlin0005	gradle/libs.versions.toml:131	Gradle version catalog accessor, generated	catalog entry google-oss-licenses
+kotlin0005	gradle/libs.versions.toml:131		catalog entry google-oss-licenses (#385)
 kotlin0006	core/designsystem/src/main/kotlin/com/google/samples/apps/nowinandroid/core/designsystem/component/Tag.kt:31		merl's jump, judged right
 kotlin0007	feature/interests/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/interests/impl/InterestsViewModel.kt:66		named arg, followTopic parameter followedTopicId
 kotlin0008	core/data-test/src/main/kotlin/com/google/samples/apps/nowinandroid/core/data/test/repository/FakeTopicsRepository.kt:43		getTopics in the same class
@@ -23,14 +23,14 @@ kotlin0020			outside the project: Gradle ListProperty
 kotlin0021	core/network/src/main/kotlin/com/google/samples/apps/nowinandroid/core/network/demo/DemoNiaNetworkDataSource.kt:89		function parameter idGetter
 kotlin0022			outside the project: lint API
 kotlin0023		a package segment of an import or package line	
-kotlin0024	feature/bookmarks/api/src/main/res/values/strings.xml:22	R.string resource, generated	string resource feature_bookmarks_api_removed
+kotlin0024	feature/bookmarks/api/src/main/res/values/strings.xml:22		string resource feature_bookmarks_api_removed (#385)
 kotlin0025		a package segment of an import or package line	
 kotlin0026			outside the project: Gradle alias -> private fun String.alias in Graph.kt
 kotlin0027			outside the project: androidx LocalLifecycleOwner
-kotlin0028	gradle/libs.versions.toml:178	Gradle version catalog accessor, generated	[plugins] table of the catalog
+kotlin0028	gradle/libs.versions.toml:200		catalog plugin nowinandroid-android-application (#385)
 kotlin0029	feature/foryou/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/foryou/impl/OnboardingUiState.kt:24		merl's jump, judged right
 kotlin0030			outside the project: hiltViewModel
-kotlin0031	gradle/libs.versions.toml:69	Gradle version catalog accessor, generated	catalog bundle androidx-compose-ui-test
+kotlin0031	gradle/libs.versions.toml:69		catalog bundle androidx-compose-ui-test (#385)
 kotlin0032			outside the project: UnconfinedTestDispatcher
 kotlin0033	core/model/src/main/kotlin/com/google/samples/apps/nowinandroid/core/model/data/Topic.kt:22		data class Topic (import)
 kotlin0034	core/database/src/main/kotlin/com/google/samples/apps/nowinandroid/core/database/dao/TopicDao.kt:75		TopicDao.deleteTopics

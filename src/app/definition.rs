@@ -74,9 +74,10 @@ impl App {
             self.definition_at_base(path, line);
             return;
         }
-        // A class or an id of markup, and HTML and the stylesheets, read as #415 says.
         if let Some(here) = self.rel_current()
-            && self.css_definition(kind, &here)
+            && (self.follow_ref(&here)
+                || self.css_definition(kind, &here)
+                || kind == Some(Kind::Starlark) && self.starlark_definition(&here))
         {
             return;
         }
@@ -103,13 +104,15 @@ impl App {
             self.message = self.no_rules();
             return;
         };
-        if self.component_template(&here, &range, &mut word) {
+        if kind == Kind::Perl {
+            self.perl_definition(&here);
             return;
         }
-        // Go's blank identifier names nothing: every `_` is a fresh discard (#476). Nor has a
-        // GraphQL operation's `$variable` a rule: it is a parameter, and `$id` is no field `id`.
-        // A Java or Kotlin class literal, `Foo::class`, names no member `class` (#362). A
-        // PowerShell `-Name` argument names a parameter of the command it is given to (#420).
+        if self.component_template(&here, &range, &mut word)
+            || (kind == Kind::Gdscript && self.gdscript_definition(&here, &range, &chain, &word))
+        {
+            return;
+        }
         if (kind == Kind::Go && word == "_")
             || (kind == Kind::Graphql && self.line_str()[..range.start].ends_with('$'))
             || (kind == Kind::Jvm
@@ -117,15 +120,14 @@ impl App {
                 && self.line_str()[..range.start].ends_with("::"))
             || (kind == Kind::PowerShell
                 && search::powershell_argument(&self.line_str()[..range.start]))
+            || (kind == Kind::R
+                && search::r_foreign_package(self.line_str(), range.start, &self.root))
         {
             self.message = resolution(&word, None, &[], None, false);
             return;
         }
         let text = self.buf.lines.join("\n");
         let text = search::script_text(&here, &text, Some(self.line)).into_owned();
-        // Nothing in a Rust string names code, save the `{name}` a format string captures and
-        // the path an attribute takes as a value, `#[serde(default = "default_port")]`: no
-        // search for a word of prose (#346).
         let at = self.buf.lines[..self.line]
             .iter()
             .map(|l| l.len() + 1)
@@ -142,9 +144,10 @@ impl App {
             self.message = resolution(&word, None, &[], None, false);
             return;
         }
-        // A segment of a Java or Kotlin `import` line: a package's declares nothing, a class's is
-        // looked for in its package of the project (#372). A name inside a Scala import's `{…}`
-        // selectors is looked for by name (#416).
+        if let Some(found) = self.ml_definitions(kind, &here, &chain, &word, dotted) {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         if kind == Kind::Jvm
             && import_line(kind, self.line_str())
             && !self.line_str()[..range.start].contains('{')
@@ -153,10 +156,15 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // A segment of a C# `using` or `namespace` line names a namespace, and nothing else (#360).
-        if kind == Kind::CSharp
-            && let Some(found) = self.cs_namespace_segment(&here, &range)
-        {
+        if kind == Kind::Jvm && self.android_definition(&here, &text, &word, range.start) {
+            return;
+        }
+        let early = match kind {
+            Kind::CSharp => self.cs_namespace_segment(&here, &range),
+            Kind::Elixir => self.erlang_definitions(&here, &word, range.clone()),
+            _ => None,
+        };
+        if let Some(found) = early {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
@@ -185,17 +193,13 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // An import's path, and a name its package qualifies (#418).
         if kind == Kind::Proto
             && let Some(found) = self.proto_definitions(&text, &written[..start], &word)
         {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // A Dart name an import binds with `as` or `show` is looked for in that file (#414).
-        if kind == Kind::Dart
-            && let Some(found) = self.dart_imported(&here, &text, before, &chain, &word)
-        {
+        if let Some(found) = self.file_imported(kind, &here, &text, before, &chain, &word) {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
@@ -310,23 +314,21 @@ impl App {
             self.show_definitions(kind, &ivar, &here, found, None);
             return;
         }
-        // Inside a docstring's example the imports written there count too.
+        if kind == Kind::Clojure
+            && let Some(found) = self.clojure_qualified(&text, before, &word)
+        {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         let in_literal = search::literal_lines(kind, &text).get(self.line) == Some(&true);
         let mut imports = match in_literal {
             true => search::imports_as_written(kind, &text),
             false => search::imports(kind, &text),
         };
-        // A parameter or a local of the same name hides the import where the cursor is: `json`
-        // in `def handler(json)` is a value, and `via import` would be a proof of nothing.
         let first = chain.first().map_or(word.as_str(), String::as_str);
-        // A key of a Lua table constructor names a field, whatever local shares its name, and so
-        // does a method called with `:`.
         let key = kind == Kind::Lua
             && (search::table_key(&text, self.line + 1, &range)
                 || (before.ends_with(':') && !before.ends_with("::")));
-        // An Elixir name followed by `(` is a call, one behind `@` an attribute and behind `&` a
-        // capture, and the names an `@spec` promises are functions: each is its module's first
-        // (#460). Nor is a key `name:` or an atom `:name` a variable.
         let after = &self.line_str()[range.end..];
         let call = kind == Kind::Elixir
             && !dotted
@@ -335,6 +337,7 @@ impl App {
                 || before.trim_start().starts_with("@spec "));
         let key = key
             || call
+            || search::erlang(&here)
             || (kind == Kind::Elixir
                 && !dotted
                 && (before.ends_with(':') || (after.starts_with(':') && !after.starts_with("::"))));
@@ -367,9 +370,7 @@ impl App {
                 &word,
             );
         let declared = swift_binds_here
-            || (kind == Kind::Rust
-                && chain.is_empty()
-                && search::rust_let_declares(self.line_str(), range.start, &word));
+            || (chain.is_empty() && search::binds_at(kind, self.line_str(), range.start, &word));
         // A TypeScript bare word is a value a `class`, `function`, `type`, `interface` or `enum`
         // of its scope declares as well as a `const` (#337); the first name of a chain is not.
         let bare = kind == Kind::TsJs && !dotted && chain.is_empty();
@@ -481,7 +482,16 @@ impl App {
                 || same_line
                 || own_line
                 || own_arrow
-                || matches!(kind, Kind::Rust | Kind::Nix))
+                || matches!(
+                    kind,
+                    Kind::Rust
+                        | Kind::Nix
+                        | Kind::Haskell
+                        | Kind::Julia
+                        | Kind::Gdscript
+                        | Kind::Solidity
+                )
+                || search::lisp(kind))
         {
             let found = locals
                 .iter()
@@ -596,7 +606,7 @@ impl App {
                         })
                         .collect()
                 }),
-                false => self.jvm_typed(&here, &text, &chain, &word),
+                false => self.jvm_typed(&here, &text, before, &chain, &word),
             };
             if let Some(found) = found {
                 let found = self.jvm_fit_candidates(&here, &word, range.clone(), &chain, found);
@@ -1829,11 +1839,11 @@ impl App {
                 })
                 .collect();
         }
-        // Nothing in the branch by name: the definitions the branch deleted are the answer (#440).
-        // A rule that answered earlier, "none" included, keeps its answer.
-        // No method of the name: the field Lombok writes the accessor for (#381).
         if kind == Kind::Jvm && found.is_empty() {
             found = self.jvm_lombok(&here, &text, &chain, &word);
+            if found.is_empty() && !dotted {
+                found = self.jenkins_step(&here, &word);
+            }
         }
         if found.is_empty() && self.probe.is_none() {
             found = self.deleted_definitions(kind, &word, &here);
@@ -2050,76 +2060,6 @@ impl App {
             .collect()
     }
 
-    /// What a bare `word` names among the members of the Java or Kotlin classes around the
-    /// cursor (#376): what the innermost class that declares it declares, `via` its name (an
-    /// anonymous class's members are `local`), else what the class the innermost one extends
-    /// declares, when the project declares that class once. `None` when neither does, or when the
-    /// cursor stands on the member itself, whose namesakes and implementations are asked for.
-    fn jvm_members(&self, here: &Path, text: &str, word: &str) -> Option<Vec<Candidate>> {
-        let lines: Vec<&str> = text.lines().collect();
-        let candidate = |path: &Path, lines: &[&str], line: usize, reason: Reason| Candidate {
-            hit: Hit {
-                deleted: None,
-                path: path.to_path_buf(),
-                line,
-                col: 0,
-                text: lines[line - 1].to_owned(),
-            },
-            reason,
-        };
-        let types = search::jvm_enclosing_types(text, self.line + 1);
-        let mut found: Vec<Candidate> = Vec::new();
-        for &decl in &types {
-            let reason = match search::jvm_type_name(lines[decl - 1]) {
-                Some(name) => Reason::Path(name),
-                None => Reason::Local,
-            };
-            found = search::jvm_members_of(text, decl, word)
-                .into_iter()
-                .map(|line| candidate(here, &lines, line, reason.clone()))
-                .collect();
-            if !found.is_empty() {
-                break;
-            }
-        }
-        // One level up: the class the innermost named one extends, declared once.
-        let inner = types
-            .iter()
-            .find(|&&d| search::jvm_type_name(lines[d - 1]).is_some());
-        if found.is_empty()
-            && let Some(&decl) = inner
-        {
-            for base in search::jvm_bases(text, decl, search::scala(here)) {
-                let pattern = search::def_patterns(Kind::Jvm, &base).join("|");
-                let cut = self.truncated.get();
-                let declared: Vec<Hit> = self
-                    .project_definitions(Kind::Jvm, here, &base, &pattern)
-                    .into_iter()
-                    .filter(|h| search::jvm_type_name(&h.text).as_deref() == Some(base.as_str()))
-                    .collect();
-                self.truncated.set(cut);
-                let [hit] = declared.as_slice() else {
-                    continue;
-                };
-                let Some(t) = self.text_of(&hit.path) else {
-                    continue;
-                };
-                let base_lines: Vec<&str> = t.lines().collect();
-                found.extend(
-                    search::jvm_members_of(&t, hit.line, word)
-                        .into_iter()
-                        .map(|line| {
-                            candidate(&hit.path, &base_lines, line, Reason::Path(base.clone()))
-                        }),
-                );
-            }
-        }
-        let on_it = found
-            .iter()
-            .any(|c| c.hit.path == here && c.hit.line == self.line + 1);
-        (!found.is_empty() && !on_it).then_some(found)
-    }
-
     /// The field `word` of the Go struct a literal `written{…}` builds, `file` the file writing it
     /// (#327): only the struct's own fields, since Go takes no promoted field as a key. An empty
     /// list is a struct without the field, `None` a type that is no struct (a named map or slice,
@@ -2228,72 +2168,6 @@ impl App {
             self.declaring(kind, word, hits),
             Reason::Path("builtin".to_owned()),
         )
-    }
-
-    /// Lua's `m.word`, `m.T.word`, `T.word` (#462): `m` bound by `local m = require("a.b")` reads
-    /// `a/b.lua` or `a/b/init.lua`, at the root or under `lua/`, and the table it returns; `T` is
-    /// a table that file, or the one on screen, declares. The declarations of `word` in that
-    /// table are the answer. A qualifier these rules cannot read gives nothing, and the search
-    /// by name goes on.
-    fn lua_qualified(
-        &self,
-        here: &Path,
-        text: &str,
-        chain: &[String],
-        word: &str,
-    ) -> Vec<Candidate> {
-        let Some((first, rest)) = chain.split_first() else {
-            return Vec::new();
-        };
-        let Some(value) = search::lua_local_value(text, self.line + 1, first) else {
-            return Vec::new();
-        };
-        let required = search::lua_required(&value);
-        let (path, reason) = match required {
-            Some(module) => {
-                let dir = module.replace('.', "/");
-                let Some(path) = ["", "lua/"]
-                    .iter()
-                    .flat_map(|root| [format!("{root}{dir}.lua"), format!("{root}{dir}/init.lua")])
-                    .map(PathBuf::from)
-                    .find(|p| self.files.contains(p))
-                else {
-                    return Vec::new();
-                };
-                (path, Reason::Import(module.to_owned()))
-            }
-            None if value.starts_with('{') => (here.to_path_buf(), Reason::Path(chain.join("."))),
-            None => return Vec::new(),
-        };
-        let Some(source) = self.text_of(&path) else {
-            return Vec::new();
-        };
-        let mut table = match required {
-            Some(_) => search::lua_returned(&source),
-            None => Some(first.clone()),
-        };
-        for name in rest {
-            let Some(next) = search::lua_table(&source, table.as_deref(), name) else {
-                return Vec::new();
-            };
-            table = Some(next);
-        }
-        let Some(table) = table else {
-            return Vec::new();
-        };
-        search::lua_members(&source, &table, word)
-            .into_iter()
-            .map(|line| Candidate {
-                hit: Hit {
-                    deleted: None,
-                    path: path.clone(),
-                    line,
-                    col: 0,
-                    text: source.lines().nth(line - 1).unwrap_or_default().to_owned(),
-                },
-                reason: reason.clone(),
-            })
-            .collect()
     }
 
     /// `word` as a constant of the Java or Kotlin enum `owner`, when the project declares one type
@@ -2496,7 +2370,7 @@ impl App {
                 let path = self.root.join(&one.hit.path);
                 // A module's first line declares nothing of the word, and a label's reason names
                 // what declares the parameter or the field already.
-                let name = declared_as(kind, word, &one.hit.text);
+                let name = super::jvm::declared_as(kind, word, &one.hit.text);
                 let target = self
                     .hit_text(&one.hit)
                     .filter(|_| !matches!(one.reason, Reason::Module(_) | Reason::Label(_)))
@@ -2692,17 +2566,6 @@ impl App {
         }
         hits
     }
-}
-
-/// The name `word` is declared by on the line `text`: itself, or for a Java Lombok accessor
-/// the field it reads, `title` for `getTitle` (#381).
-pub(super) fn declared_as(kind: Kind, word: &str, text: &str) -> String {
-    if kind != Kind::Jvm || whole_at(text, word, "").is_some() {
-        return word.to_owned();
-    }
-    search::jvm_accessor(word)
-        .and_then(|(names, _)| names.into_iter().find(|n| whole_at(text, n, "").is_some()))
-        .unwrap_or_else(|| word.to_owned())
 }
 
 /// What the status line says after `d` on `word`: `word → Target.word (reason)` for a jump,

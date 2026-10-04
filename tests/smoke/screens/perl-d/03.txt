@@ -1,0 +1,57 @@
+wait use Shop::Order
+┌orders──────────────────────┐1 use lib "lib";
+│▸ .github                   │2 use Shop::Order;
+│▸ .venv                     │3
+│▸ app                       │4 my $order = Shop::Order->new(total => 12);
+│▸ data                      │5 print $order->total, "\n";
+│▸ deploy                    │
+│▸ docs                      │
+│▾ perlshop                  │
+│  ▾ bin                     │
+│      report.pl             │
+│  ▸ lib                     │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+perlshop/bin/report.pl  1:1  [code]                                                                                                                                               ? help
+cursor (x,y,shown) 32,0,1

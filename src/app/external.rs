@@ -143,8 +143,11 @@ impl App {
                 .collect()
         };
         // What the patterns match, of the lines that declare the word where they sit.
+        let erlang = self.buf.path.as_deref().is_some_and(search::erlang);
         let grep = |this: &Self, files: &[PathBuf]| {
-            this.declaring(kind, word, this.external_grep(kind, files, pattern))
+            let mut hits = this.declaring(kind, word, this.external_grep(kind, files, pattern));
+            hits.retain(|h| kind != Kind::Elixir || search::erlang(&h.path) == erlang);
+            hits
         };
         let Some(module) = module else {
             return Some(by_name(
@@ -224,11 +227,27 @@ impl App {
         } else {
             Reason::Path(module.join(sep))
         };
-        let found = hits.into_iter().map(|hit| Candidate {
-            hit,
-            reason: reason.clone(),
-        });
-        Some(found.collect())
+        let mut found: Vec<Candidate> = hits
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: reason.clone(),
+            })
+            .collect();
+        if kind == Kind::Julia
+            && imported
+            && narrow
+            && chain.is_empty()
+            && !found.is_empty()
+            && let Some(here) = self.rel_current()
+        {
+            let own = self.project_definitions(kind, &here, word, pattern);
+            found.extend(own.into_iter().map(|hit| Candidate {
+                hit,
+                reason: Reason::ByName,
+            }));
+        }
+        Some(found)
     }
 
     /// Where the Elixir module `module`, or the one it is nested in, is among `all`, with how many
@@ -420,7 +439,7 @@ impl App {
     /// its class is built (#414), so `Future` in a type is the class alone.
     pub(super) fn spelling_cut(&self, kind: Kind, word: &str, patterns: &mut Vec<String>) {
         let line = self.line_str();
-        if matches!(kind, Kind::PowerShell | Kind::Dart)
+        if matches!(kind, Kind::PowerShell | Kind::Dart | Kind::Julia)
             && let Some((r, w)) = self.word_here(Some(kind))
             && w == word
         {
@@ -547,6 +566,19 @@ impl App {
             | Kind::Dart
             | Kind::Cmake
             | Kind::Nix
+            | Kind::Haskell
+            | Kind::Ocaml
+            | Kind::Fsharp
+            | Kind::Julia
+            | Kind::R
+            | Kind::Perl
+            | Kind::Gdscript
+            | Kind::Solidity
+            | Kind::Clojure
+            | Kind::EmacsLisp
+            | Kind::Scheme
+            | Kind::CommonLisp
+            | Kind::Starlark
             | Kind::Sql
             | Kind::Make
             | Kind::Terraform
@@ -577,6 +609,19 @@ impl App {
             Kind::Dart,
             Kind::Cmake,
             Kind::Nix,
+            Kind::Haskell,
+            Kind::Ocaml,
+            Kind::Fsharp,
+            Kind::Julia,
+            Kind::R,
+            Kind::Perl,
+            Kind::Gdscript,
+            Kind::Solidity,
+            Kind::Clojure,
+            Kind::EmacsLisp,
+            Kind::Scheme,
+            Kind::CommonLisp,
+            Kind::Starlark,
             Kind::Sql,
             Kind::Make,
             Kind::Terraform,
@@ -592,6 +637,7 @@ impl App {
             self.external
                 .insert(kind, (Vec::new(), Arc::new(Vec::new())));
         }
+        self.otp = Some(Vec::new());
     }
 
     /// The files of `kind` outside the project, walked once per kind.
@@ -615,7 +661,7 @@ impl App {
                 if roots.iter().any(|o| o != dir && dir.starts_with(o)) {
                     continue;
                 }
-                let walked = self.node_modules.entry(dir.clone()).or_insert_with(|| {
+                let walked = self.walked_roots.entry(dir.clone()).or_insert_with(|| {
                     Arc::new(search::external_files(kind, std::slice::from_ref(dir)))
                 });
                 files.extend(walked.iter().cloned());
@@ -623,13 +669,37 @@ impl App {
             self.external.insert(kind, (roots, Arc::new(files)));
             self.node_modules_of = Some(here.to_path_buf());
         }
-        // Elixir's are the `deps/` of the Mix project the file is in (#437), inside the project
-        // and not of the machine, so a test's `no_external` does not hide them either.
-        if let Some(here) = here.filter(|_| kind == Kind::Elixir) {
-            let roots = search::mix_deps(&self.root, here);
+        if let Some(here) = here.filter(|_| matches!(kind, Kind::Elixir | Kind::Solidity)) {
+            let roots = match kind {
+                Kind::Elixir => {
+                    let otp = match &self.otp {
+                        Some(otp) => otp.clone(),
+                        None => search::external_roots(kind, &self.root),
+                    };
+                    if !otp.is_empty() {
+                        self.otp = Some(otp.clone());
+                    }
+                    let mut roots = [
+                        search::mix_deps(&self.root, here),
+                        search::rebar_deps(&self.root, here),
+                        otp,
+                    ]
+                    .concat();
+                    let mut seen = std::collections::HashSet::new();
+                    roots.retain(|r| seen.insert(r.clone()));
+                    roots
+                }
+                _ => search::node_modules(&self.root, here),
+            };
             if self.external.get(&kind).is_none_or(|(r, _)| *r != roots) {
-                let files = Arc::new(search::external_files(kind, &roots));
-                self.external.insert(kind, (roots, files));
+                let mut files = Vec::new();
+                for dir in &roots {
+                    let walked = self.walked_roots.entry(dir.clone()).or_insert_with(|| {
+                        Arc::new(search::external_files(kind, std::slice::from_ref(dir)))
+                    });
+                    files.extend(walked.iter().cloned());
+                }
+                self.external.insert(kind, (roots, Arc::new(files)));
             }
         }
         let files = match self.external.get(&kind) {
@@ -754,13 +824,15 @@ impl App {
     /// its candidates: a component's from the text the hit was read from (#413), any other file's
     /// from its text now.
     pub(super) fn hidden_now(&self, kind: Kind, h: &Hit) -> Vec<bool> {
+        if search::android_source(&h.path) {
+            return Vec::new();
+        }
         // A rule of a component's `<style>` block is no script's: it is lexed as a stylesheet
         // (#415).
         match search::component(&h.path) && kind != Kind::Css {
             true => self.hidden_of(kind, h),
-            false => {
-                (self.file_text(&h.path)).map_or_else(Vec::new, |t| search::literal_lines(kind, &t))
-            }
+            false => (self.file_text(&h.path))
+                .map_or_else(Vec::new, |t| search::file_literal_lines(kind, &h.path, &t)),
         }
     }
 
@@ -796,7 +868,10 @@ impl App {
         let mut roots = match kind {
             Kind::TsJs => roots.last().into_iter().chain([&self.root]).collect(),
             // `deps/` is inside the project: `deps/jason/lib/jason.ex`.
-            Kind::Elixir => vec![&self.root],
+            Kind::Elixir => [&self.root]
+                .into_iter()
+                .chain(roots.iter().filter(|r| !r.starts_with(&self.root)))
+                .collect(),
             _ => roots.iter().collect::<Vec<_>>(),
         };
         if kind == Kind::Python {
@@ -832,7 +907,7 @@ impl App {
                     .as_deref()
                     .filter(|_| !matches!(c.reason, Reason::Module(_)))
                     .and_then(|text| {
-                        let word = definition::declared_as(kind, word, &c.hit.text);
+                        let word = jvm::declared_as(kind, word, &c.hit.text);
                         search::qualified(kind, text, c.hit.line, &word)
                     })
                     .unwrap_or_else(|| word.to_owned());
@@ -864,7 +939,7 @@ impl App {
                     code_at: Some(head.len()),
                     col: word_col(
                         &c.hit.text,
-                        &definition::declared_as(kind, word, &c.hit.text),
+                        &jvm::declared_as(kind, word, &c.hit.text),
                         search::word_chars(Some(kind), true),
                     ),
                     label: head + &clip(c.hit.text.trim(), MAX_LABEL_TEXT),

@@ -1,0 +1,57 @@
+wait total: via shop_order
+┌orders──────────────────────┐ 1 -module(shop_order).
+│▸ .github                   │ 2 -export([new/1, total/1]).
+│▸ .venv                     │ 3
+│▸ app                       │ 4 -include("shop.hrl").
+│▸ data                      │ 5
+│▸ deploy                    │ 6 new(Id) ->
+│▸ docs                      │ 7     #order{id = Id}.
+│▾ erlshop                   │ 8
+│  ▸ include                 │ 9 total(#order{total = Total}) ->
+│  ▾ lib                     │10     Total.
+│      report.ex             │
+│  ▾ src                     │
+│      shop_order.erl        │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+erlshop/src/shop_order.erl  9:1  [code]  total: via shop_order
+cursor (x,y,shown) 33,8,1
