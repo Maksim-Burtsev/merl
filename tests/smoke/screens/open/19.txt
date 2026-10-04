@@ -22,7 +22,7 @@ wait Close an overlay, leave edit mode
 │  docker-compose.yml        │    │   Edit: Ctrl+X                      Cut the selection, or the line                                                │
 │  Dockerfile                │    │   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
 │  Makefile                  │    │ Selection                                                                                                         │
-│  pyproject.toml            │    │   v                                 Select the word, then the line, then the paragraph                            │
+│  pyproject.toml            │    │   v                                 Select the word, then the line, then the paragraph, then the whole file       │
 │  README.md                 │    │   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
 │                            │    │   Shift+Left / Shift+Right          Extend the selection by a char                                                │
 │                            │    │   Alt+Shift+Left / Right            Extend the selection by a word                                                │

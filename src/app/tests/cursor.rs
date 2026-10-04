@@ -88,7 +88,7 @@ fn ctrl_c_copies_in_navigation_and_never_quits() {
 }
 
 #[test]
-fn v_grows_the_selection_word_line_paragraph() {
+fn v_grows_the_selection_word_line_paragraph_file() {
     let mut a = app("x\n\n  let foo = 1;\n  bar\n\ny");
     (a.line, a.col) = (2, 7);
     let v = |a: &mut App| press(a, KeyCode::Char('v'), KeyModifiers::NONE);
@@ -99,7 +99,9 @@ fn v_grows_the_selection_word_line_paragraph() {
     v(&mut a);
     assert_eq!(a.file_selection(), Some(((2, 0), (3, 5))), "the paragraph");
     v(&mut a);
-    assert_eq!(a.file_selection(), Some(((2, 0), (3, 5))), "nothing wider");
+    assert_eq!(a.file_selection(), Some(((0, 0), (5, 1))), "the file");
+    v(&mut a);
+    assert_eq!(a.file_selection(), Some(((0, 0), (5, 1))), "nothing wider");
     // Off a word the first step is the line; a hand-made selection grows from what it is.
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     (a.line, a.col) = (2, 11);
