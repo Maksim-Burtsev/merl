@@ -1,0 +1,216 @@
+diff --git a/src/app/keys.rs b/src/app/keys.rs
+index a5a7f77a..9c2b666d 100644
+--- a/src/app/keys.rs
++++ b/src/app/keys.rs
+@@ -236,6 +236,7 @@ impl App {
+             KeyCode::Char('f') if !ctrl && self.focus == Focus::Code => self.toggle_collapse(),
+             KeyCode::Char('p') => self.toggle_preview(),
+             KeyCode::Tab if self.show_tree => {
++                self.tree_zoom = 0;
+                 self.focus = match self.focus {
+                     Focus::Tree => Focus::Code,
+                     Focus::Code => Focus::Tree,
+diff --git a/src/app/mod.rs b/src/app/mod.rs
+index 7499c13d..3d4927e1 100644
+--- a/src/app/mod.rs
++++ b/src/app/mod.rs
+@@ -343,6 +343,7 @@ pub struct App {
+     reading: std::cell::RefCell<Vec<(PathBuf, usize)>>,
+     pub focus: Focus,
+     pub show_tree: bool,
++    pub tree_zoom: u8,
+     /// First visible row of the tree pane, clamped by `ui`.
+     pub tree_top: usize,
+     pub picker: Option<Picker>,
+@@ -568,6 +569,7 @@ impl App {
+             reading: Default::default(),
+             focus,
+             show_tree: true,
++            tree_zoom: 0,
+             tree_top: 0,
+             picker: None,
+             search_seq: 0,
+diff --git a/src/app/tree.rs b/src/app/tree.rs
+index f4f1f462..f2ae5bb1 100644
+--- a/src/app/tree.rs
++++ b/src/app/tree.rs
+@@ -9,12 +9,18 @@ impl App {
+             KeyCode::Down => self.tree.down(),
+             KeyCode::Right => self.tree.expand(),
+             KeyCode::Left => self.tree.collapse(),
++            KeyCode::Char('A') if crate::ui::proto_399() == "a" => {
++                self.tree_zoom = if self.tree_zoom == 2 { 0 } else { 2 };
++            }
++            KeyCode::Char('+') if crate::ui::proto_399() == "b" => self.tree_zoom = (self.tree_zoom + 1) % 3,
++            KeyCode::Char('_') if crate::ui::proto_399() == "b" => self.tree_zoom = (self.tree_zoom + 2) % 3,
+             KeyCode::Enter => match self.tree.selected() {
+                 Some(n) if n.is_dir => self.tree.toggle(),
+                 // The review panel lists what git changed, a link to a directory or a submodule
+                 // among the files: there is no text to open (#449).
+                 Some(n) if self.root.join(&n.path).is_dir() => {}
+                 Some(n) => {
++                    self.tree_zoom = 0;
+                     // A file behind a link that stays in the project opens by its own path, as
+                     // Ctrl+N and the command line open it: one file, one name (#404).
+                     let path = self.root.join(&n.path);
+diff --git a/src/ui/mod.rs b/src/ui/mod.rs
+index b0cc5bf6..ae64451b 100644
+--- a/src/ui/mod.rs
++++ b/src/ui/mod.rs
+@@ -4,7 +4,7 @@ use std::num::NonZeroU16;
+ 
+ use ratatui::Frame;
+ use ratatui::buffer::{CellDiffOption, CellWidth};
+-use ratatui::layout::{Constraint, Layout};
++use ratatui::layout::{Constraint, Layout, Rect};
+ use ratatui::style::Style;
+ use ratatui::text::Span;
+ use ratatui::widgets::Block;
+@@ -52,15 +52,21 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
+         Constraint::Length(1),
+     ])
+     .areas(area);
+-    let tree_w = if app.show_tree { TREE_W } else { 0 };
++    let tree_w = match (app.show_tree, app.tree_zoom) {
++        (false, _) => 0,
++        (true, 1) => main.width / 2,
++        (true, 2) => main.width,
++        (true, _) => TREE_W,
++    };
+     let [tree, code] =
+-        Layout::horizontal([Constraint::Length(tree_w), Constraint::Min(1)]).areas(main);
++        Layout::horizontal([Constraint::Length(tree_w), Constraint::Min(0)]).areas(main);
+ 
+     let whole = match app.show_tree {
+         true => draw_tree(frame, app, theme, tree, base),
+         false => None,
+     };
+-    if app.previewing() {
++    if code.width == 0 {
++    } else if app.previewing() {
+         draw_preview(frame, app, theme, code, base);
+     } else if app.folded_here().is_some() {
+         fold::draw_fold(frame, app, theme, code, base);
+@@ -72,8 +78,21 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
+         draw_welcome(frame, theme, code, base);
+     }
+     if let Some((at, line)) = whole {
++        let edge = base.fg(theme.accent);
++        let end = (at.x + at.width).min(frame.area().width.saturating_sub(1));
++        let at = Rect::new(at.x, at.y, end - at.x, 1);
++        let bg = line.spans.last().map_or(base, |s| s.style);
+         frame.render_widget(ratatui::widgets::Clear, at);
+-        frame.render_widget(ratatui::widgets::Paragraph::new(line).style(base), at);
++        frame.render_widget(ratatui::widgets::Paragraph::new(line).style(bg), at);
++        let buf = frame.buffer_mut();
++        let bx = tree.right() - 1;
++        buf.set_string(end, at.y, "\u{2502}", edge);
++        for (y, corner) in [(at.y - 1, "\u{256e}"), (at.y + 1, "\u{256f}")] {
++            let left = if y == tree.y { "\u{252c}" } else if y + 1 == tree.bottom() { "\u{2534}" } else { "\u{251c}" };
++            buf.set_string(bx, y, left, edge);
++            buf.set_string(bx + 1, y, "\u{2500}".repeat((end - bx - 1) as usize), edge);
++            buf.set_string(end, y, corner, edge);
++        }
+     }
+     if let Some(panel) = panel {
+         frame.render_widget(panel, lesson);
+@@ -134,3 +153,7 @@ pub(super) fn tagged<'a>(out: &mut Vec<Span<'a>>, s: &'a str, style: Style, tag:
+         out.push(Span::styled(expand(&s[pos..]), style));
+     }
+ }
++
++pub fn proto_399() -> String {
++    overlays::proto()
++}
+diff --git a/src/ui/overlays.rs b/src/ui/overlays.rs
+index e9fcdd99..3147a64a 100644
+--- a/src/ui/overlays.rs
++++ b/src/ui/overlays.rs
+@@ -144,7 +144,7 @@ pub(super) fn draw_tree(
+             let room = name_room(app.review.as_ref(), n, depth, width).max(0) as usize;
+             let cut = wrap::width(&full) > room;
+             let joined = full.contains('/');
+-            let whole_row = focused && i == app.tree.cursor && cut && (room < NAME_ROOM || joined);
++            let whole_row = proto() == "box" && focused && i == app.tree.cursor && cut;
+             // Directories carry the accent: they are what the eye scans the tree by. What
+             // `.gitignore` leaves out is dim, directory or not.
+             let row = if n.ignored {
+@@ -188,8 +188,7 @@ pub(super) fn draw_tree(
+                     let used = 2 * depth + 2;
+                     let mut name = full.clone();
+                     if cut {
+-                        let fits = wrap::cut(&name, 0, room.saturating_sub(1)).0;
+-                        name = format!("{}\u{2026}", &name[fits]);
++                        name = proto_cut(&full, room);
+                     }
+                     if whole_row {
+                         let mut line = spans.clone();
+@@ -221,9 +220,10 @@ pub(super) fn draw_tree(
+                         line.push(Span::styled(format!("{marker}{full} "), style));
+                         whole = Some((y, Line::from(line)));
+                     }
+-                    let name = match cut && joined {
+-                        true => cut_at_slash(&full, room),
+-                        false => full,
++                    let name = match (cut, joined) {
++                        (true, true) => cut_at_slash(&full, room),
++                        (true, false) => proto_cut(&full, room),
++                        (false, _) => full,
+                     };
+                     spans.push(Span::styled(format!("{marker}{name}"), style));
+                 }
+@@ -241,6 +241,27 @@ pub(super) fn draw_tree(
+ 
+ const NAME_ROOM: usize = 12;
+ 
++pub(super) fn proto() -> String {
++    std::env::var("MERL_399").unwrap_or_default()
++}
++
++fn proto_cut(name: &str, room: usize) -> String {
++    if wrap::width(name) <= room || room < 2 {
++        return name[wrap::cut(name, 0, room).0].to_string();
++    }
++    match proto().as_str() {
++        "cut" => format!("{}\u{2026}", &name[wrap::cut(name, 0, room - 1).0]),
++        "" | "a" | "b" => name[wrap::cut(name, 0, room).0].to_string(),
++        _ => {
++            let total = wrap::width(name);
++            let tail = (room - 1) / 2 + (room - 1) % 2;
++            let head = room - 1 - tail;
++            let t = wrap::cut(name, total - tail, total).0;
++            format!("{}\u{2026}{}", &name[wrap::cut(name, 0, head).0], &name[t])
++        }
++    }
++}
++
+ fn counts(f: &crate::git::ReviewFile) -> String {
+     match f.binary {
+         true => "bin".to_string(),
+diff --git a/src/ui/status.rs b/src/ui/status.rs
+index 5c1c2816..a6aa882b 100644
+--- a/src/ui/status.rs
++++ b/src/ui/status.rs
+@@ -61,7 +61,13 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
+     };
+     let mut spans = vec![
+         Span::styled(
+-            app.rel_path(),
++            match (app.focus, app.tree.selected()) {
++                (Focus::Tree, Some(n)) if std::env::var("MERL_399_ECHO").is_ok() => {
++                    let p = n.path.display().to_string();
++                    if n.is_dir { format!("{p}/") } else { p }
++                }
++                _ => app.rel_path(),
++            },
+             style.fg(theme.accent).add_modifier(Modifier::BOLD),
+         ),
+         Span::styled(
+@@ -71,6 +77,7 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
+                 // With no file open there is no cursor to place (#285). On a line the branch
+                 // deleted, its number in the file at the base, negative (#439).
+                 match app.deleted {
++                    _ if app.focus == Focus::Tree && std::env::var("MERL_399_ECHO").is_ok() => String::new(),
+                     // A fold shows no text to place a cursor in (#243).
+                     _ if app.buf.path.is_none() || app.folded_here().is_some() => String::new(),
+                     Some((k, i)) => {
