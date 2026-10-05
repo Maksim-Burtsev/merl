@@ -13,7 +13,7 @@ elisp0010	magit	lisp/magit-mode.el	1364	13	call	magit-wip-commit-worktree
 elisp0011	magit	test/magit-tests.el	144	18	call	expand-file-name
 elisp0012	magit	lisp/magit-status.el	682	48	name	merge
 elisp0013	magit	lisp/magit-git.el	1787	32	call	oref
-elisp0014	magit	lisp/magit-diff.el	3937	45	name	section
+elisp0014	magit	lisp/magit-diff.el	3936	45	name	section
 elisp0015	magit	lisp/magit-blame.el	131	10	call	alist
 elisp0016	magit	lisp/magit-blame.el	695	47	name	face
 elisp0017	magit	lisp/magit-reset.el	99	36	name	optional

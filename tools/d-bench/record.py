@@ -283,7 +283,7 @@ def sample(lang, project, root, n, out, exclude=()):
                 continue
             p = os.path.join(d, f)
             try:
-                text = open(p, encoding="utf-8").read()
+                text = open(p, encoding="utf-8", newline="").read()
             except Exception:
                 continue
             if len(text) > 400_000:
@@ -328,7 +328,7 @@ class Lsp:
                                   env={**os.environ, **(env or {})})
         self.id, self.buf, self.progress, self.settings = 0, b"", {}, settings or {}
         self.last_progress = time.time()
-        self.opened = set()
+        self.opened, self.diagnosed = set(), set()
         root_uri = "file://" + root
         caps = {"textDocument": {"definition": {"linkSupport": True},
                                  "declaration": {"linkSupport": True},
@@ -380,6 +380,8 @@ class Lsp:
             elif meth == "workspace/workspaceFolders":
                 res = []
             self.send({"jsonrpc": "2.0", "id": m["id"], "result": res})
+        elif meth == "textDocument/publishDiagnostics":
+            self.diagnosed.add(m["params"]["uri"])
         elif meth == "$/progress":
             tok, v = str(m["params"]["token"]), m["params"]["value"]
             self.last_progress = time.time()
@@ -476,7 +478,11 @@ def server(lang, root):
     if lang == "starlark":
         return Lsp([os.path.join(LSP, "bin", "starpls"), "server"], root)
     if lang == "clojure":
-        return Lsp(["clojure-lsp"], root)
+        edn = open(os.path.join(root, "deps.edn")).read()
+        paths = re.findall(r'"([^"]+)"', " ".join(re.findall(r":(?:extra-)?paths\s*\[([^\]]*)\]", edn)))
+        cp = ":".join(dict.fromkeys(p for p in paths if os.path.isdir(os.path.join(root, p))))
+        return Lsp(["clojure-lsp"], root, init_options={
+            "project-specs": [{"project-path": "deps.edn", "classpath-cmd": ["echo", cp]}]})
     if lang == "racket":
         return Lsp(["racket", "-l", "racket-langserver"], root)
     if lang == "julia":
@@ -539,6 +545,10 @@ def oracle_run(lang, root, rows, out, warm):
             cid, _, rel, line, col = r[:5]
             p = os.path.join(root, rel)
             s.open(p, LANG_ID.get(os.path.splitext(p)[1], lang))
+            if lang == "racket":
+                end = time.time() + 300
+                while "file://" + p not in s.diagnosed and time.time() < end:
+                    s.pump(1)
             pos = {"textDocument": {"uri": "file://" + p}, "position": {"line": int(line) - 1, "character": int(col)}}
             got = locs(s.request("textDocument/definition", pos, timeout=60))
             if lang in ("c", "cpp", "objc"):
