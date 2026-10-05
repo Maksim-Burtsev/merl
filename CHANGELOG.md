@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `d` outside the project in JavaScript and TypeScript reads each installed package once, in the
+  copy Node loads from the open file: the copy of `typescript` another package keeps is no longer
+  listed beside it. A member is looked for in the packages the file imports before every
+  installed one, so its picker lists those alone. (#318)
 - `v` grows on to the whole file: a fourth press, after the word, the line and the paragraph,
   selects every line of the file, the cursor at its end; Ctrl+C then copies it all. (#635)
 - The lists of `u`, `s` and `d`'s choices name a file once, above its rows, and each row shows
