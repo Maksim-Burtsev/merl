@@ -271,8 +271,6 @@ fn s_keeps_its_row_apart_from_a_deleted_line_of_the_same_number() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// `u` lists the deleted uses beside the branch's, a deleted declaration marked as one; `D` lists
-/// the deleted declarations.
 #[test]
 fn u_and_capital_d_list_deleted_lines() {
     let (dir, mut a) = orders_review("u-deleted");
@@ -289,12 +287,16 @@ fn u_and_capital_d_list_deleted_lines() {
     ] {
         assert!(has(row), "{row} in {listed:#?}");
     }
-    assert!(
-        listed
-            .iter()
-            .any(|r| r.starts_with("declaration") && r.contains("app/legacy.py:1: def get(key):")),
-        "{listed:#?}"
-    );
+    let legacy = listed
+        .iter()
+        .position(|r| r.contains("app/legacy.py:1: def get(key):"))
+        .expect("the deleted declaration");
+    let title = &a.picker.as_ref().unwrap().title;
+    let declarations: usize = title
+        .split_once(": ")
+        .and_then(|(_, counts)| counts.split_once(" declaration"))
+        .map_or(0, |(n, _)| n.parse().unwrap());
+    assert!(legacy < declarations, "{title}: {listed:#?}");
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
 
     // From the deleted call, its uses: both deleted.
@@ -336,7 +338,7 @@ fn a_deleted_row_carries_a_red_mark() {
     let mut t = Terminal::new(TestBackend::new(90, 12)).unwrap();
     t.draw(|f| crate::ui::draw(f, &mut a, &theme)).unwrap();
     let buf = t.backend().buffer();
-    let label = "app/services/orders.py:9: self.total(order_id)";
+    let label = "  9  self.total(order_id)";
     let (x, y) = (0..buf.area.height)
         .find_map(|y| {
             let text: String = (0..buf.area.width).map(|x| buf[(x, y)].symbol()).collect();
@@ -987,5 +989,34 @@ fn symbols_of_a_review_skip_a_deleted_template_line() {
     a.jump_to(&dir.join("Card.vue"), 1);
     press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
     assert_eq!(rows(&mut a), ["save  Card.vue:2"]);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_base_picker_row_of_a_renamed_file_names_the_file_it_has_now() {
+    let (dir, mut a) = repo_review(
+        "d-picker-renamed",
+        &[
+            ("a.py", "class A:\n    def run(self):\n        return 1\n"),
+            ("b.py", "class B:\n    def run(self):\n        return 2\n"),
+            ("main.py", "def go(x):\n    return x.run()\n"),
+        ],
+        &[
+            ("b.py", None),
+            (
+                "lib/beta.py",
+                Some("class B:\n    def run(self):\n        return 2\n"),
+            ),
+            ("main.py", Some("def go(x):\n    return x\n")),
+        ],
+    );
+    on_deleted(&mut a, &dir.join("main.py"), "x.run()", "run");
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    let p = a.picker.as_mut().expect("a picker");
+    p.settle();
+    let paths: Vec<String> = (p.window(9).0.iter())
+        .map(|r| r.item.label[r.item.path_at.clone().unwrap()].to_string())
+        .collect();
+    assert_eq!(paths, ["a.py", "lib/beta.py"]);
     let _ = std::fs::remove_dir_all(dir);
 }

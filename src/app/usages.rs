@@ -3,10 +3,6 @@
 use super::*;
 
 impl App {
-    /// `u` / Shift+F12: every whole-word occurrence of the identifier, case-sensitive, in the
-    /// order a reader wants them (#81): the declarations first, marked, then the open file, then
-    /// the rest of the project's code nearest first, then tests, mocks, fixtures, generated and
-    /// vendored files. The title says how the list splits.
     pub(super) fn usages(&mut self) {
         let extra = search::word_chars(self.kind(), false);
         let Some(read) = self.on_drawn(|a| a.usage_word()) else {
@@ -46,30 +42,6 @@ impl App {
         let items = Self::hit_items(hits);
         let declarations = tiers.iter().filter(|&&t| t == Tier::Declaration).count();
         let tests = tiers.iter().filter(|&&t| t == Tier::Tests).count();
-        // A declaration row says so in the column `d` puts its reason in; with no declaration
-        // among the hits the column is not there at all.
-        let width = if declarations > 0 {
-            "declaration".len() + 2
-        } else {
-            0
-        };
-        let items = items
-            .into_iter()
-            .zip(&tiers)
-            .map(|(it, &tier)| {
-                let mark = if tier == Tier::Declaration {
-                    "declaration"
-                } else {
-                    ""
-                };
-                let head = format!("{mark:width$}");
-                PickItem {
-                    code_at: it.code_at.map(|at| at + head.len()),
-                    label: head + &it.label,
-                    ..it
-                }
-            })
-            .collect();
         let counts = [
             (
                 declarations,

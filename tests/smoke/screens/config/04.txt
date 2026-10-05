@@ -12,11 +12,11 @@ wait Usages of replicaCount: 3 in code (3/3)
 11     memory: 128Mi
 12   limits:       ┌Usages of replicaCount: 3 in code (3/3)───────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 13     memory: 256M│>                                                                                                                                                 │
-14                 │deploy/helm/orders/values.yaml:1: replicaCount: 2                                                                                                 │
-15 worker:         │deploy/helm/orders/values.yaml:16: replicaCount: 1                                                                                                │
-16   replicaCount: │deploy/helm/orders/templates/deployment.yaml:8: replicas: {{ .Values.replicaCount }}                                                              │
-17   resources: *de│                                                                                                                                                  │
-18                 │                                                                                                                                                  │
+14                 │deploy/helm/orders/values.yaml                                                                                                                    │
+15 worker:         │   1  replicaCount: 2                                                                                                                             │
+16   replicaCount: │  16  replicaCount: 1                                                                                                                             │
+17   resources: *de│deploy/helm/orders/templates/deployment.yaml                                                                                                      │
+18                 │   8  replicas: {{ .Values.replicaCount }}                                                                                                        │
 19 service:        │                                                                                                                                                  │
 20   type: ClusterI│                                                                                                                                                  │
 21   port: 8000    │                                                                                                                                                  │
