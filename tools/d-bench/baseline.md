@@ -1,6 +1,6 @@
 # `d` bench baseline
 
-merl at the merge of master `7155f91b` into the epic `0deed2e8` (#645), 2026-10-04, release build, `vm.loadavg` { 2.74 4.76 4.30 } before the run, { 23.02 11.82 7.34 } after: the later rows' times are high by that load. julia (DataFrames.jl) again with Julia 1.11.7 on the PATH and the depot of #653, `vm.loadavg` { 10.27 10.30 7.08 }.
+merl at the merge of master `7155f91b` into the epic `0deed2e8` (#645), 2026-10-04, release build, `vm.loadavg` { 2.74 4.76 4.30 } before the run, { 23.02 11.82 7.34 } after: the later rows' times are high by that load. julia (DataFrames.jl) again with Julia 1.11.7 on the PATH and the depot of #653, `vm.loadavg` { 10.27 10.30 7.08 }. clojure (babashka), elisp (magit), racket (drracket), scheme (chibi-scheme) and commonlisp (lem) added at `af4311bd` (#428), 2026-10-06, `vm.loadavg` { 2.26 2.69 8.36 } before, { 2.69 2.73 7.99 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
@@ -28,3 +28,8 @@ merl at the merge of master `7155f91b` into the epic `0deed2e8` (#645), 2026-10-
 | vue (gitea) | 218 | 123 (56%) | 42 (19%) | 3 (1%) | 50 (23%) | 52 | 52.4 | 441.4 |
 | svelte (immich) | 182 | 115 (63%) | 42 (23%) | 5 (3%) | 20 (11%) | 88 | 76.2 | 500.0 |
 | astro (starlight) | 167 | 112 (67%) | 13 (8%) | 1 (1%) | 41 (25%) | 103 | 83.2 | 358.9 |
+| clojure (babashka) | 100 | 56 (56%) | 22 (22%) | 1 (1%) | 21 (21%) | 170 | 8.9 | 15.4 |
+| elisp (magit) | 39 | 26 (67%) | 4 (10%) | 1 (3%) | 8 (21%) | 41 | 3.9 | 4.8 |
+| racket (drracket) | 108 | 59 (55%) | 14 (13%) | 2 (2%) | 33 (31%) | 128 | 11.4 | 13.3 |
+| scheme (chibi-scheme) | 54 | 25 (46%) | 16 (30%) | 2 (4%) | 11 (20%) | 17 | 7.0 | 14.3 |
+| commonlisp (lem) | 52 | 33 (63%) | 3 (6%) | 1 (2%) | 15 (29%) | 26 | 6.6 | 7.5 |

@@ -1,7 +1,7 @@
 # `d` bench
 
-How often `d` lands where a language server would, per language, in 24 real projects pinned to a
-commit: 5,334 cursors, each with an answer recorded once and reviewed, and the table master
+How often `d` lands where a language server would, per language, in 29 real projects pinned to a
+commit: 6,069 cursors, each with an answer recorded once and reviewed, and the table master
 scores on them (`baseline.md`). A `d` change runs it and shows no language worse than master
 (`AGENTS.md`, `## Changing d`).
 
