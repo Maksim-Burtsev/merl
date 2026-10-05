@@ -503,11 +503,24 @@ fn parameters(text: &str, line: usize, word: &str, groovy: bool) -> Option<(usiz
     }
     let mut angle = 0usize;
     let mut typed = 0;
-    for c in list.chars() {
+    let mut default = false;
+    let generic_opens = |i: usize| {
+        let name = list[..i].bytes().rev();
+        let name = name.take_while(|b| b.is_ascii_alphanumeric() || *b == b'_');
+        name.last().is_some_and(|b| b.is_ascii_uppercase())
+            && !list[i + 1..].starts_with(['<', '='])
+    };
+    for (i, c) in list.char_indices() {
         match c {
-            '<' => angle += 1,
+            '=' if !list[..i].ends_with(['=', '!', '<', '>'])
+                && !list[i + 1..].starts_with(['=', '~']) =>
+            {
+                default = true
+            }
+            '<' if !default || generic_opens(i) => angle += 1,
             '>' => angle = angle.saturating_sub(1),
             ',' if angle > 0 => typed += 1,
+            ',' => default = false,
             _ => {}
         }
     }

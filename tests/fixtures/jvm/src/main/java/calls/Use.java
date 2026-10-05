@@ -16,4 +16,9 @@ class Use {
         return new Settings(entries);
         //         ^ d: picker src/main/java/calls/Settings.java:6, src/main/java/calls/Settings.java:9
     }
+
+    Bounds bounded() {
+        return new Bounds(1, 2);
+        //         ^ d: src/main/java/calls/Bounds.java:10
+    }
 }

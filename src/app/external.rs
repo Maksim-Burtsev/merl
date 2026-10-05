@@ -323,7 +323,53 @@ impl App {
         })
     }
 
-    pub(super) fn python_members(
+    pub(super) fn outside_members(
+        &self,
+        kind: Kind,
+        all: &[PathBuf],
+        files: &[PathBuf],
+        imports: &[(String, Vec<String>)],
+        members: &str,
+        word: &str,
+    ) -> (Vec<Hit>, bool) {
+        match kind {
+            Kind::Python => self.python_members(files, imports, members, word),
+            Kind::TsJs => match self.ts_imported_members(all, imports, members) {
+                Some(hits) => (hits, false),
+                None => (self.external_grep(kind, files, members), false),
+            },
+            _ => (self.external_grep(kind, files, members), false),
+        }
+    }
+
+    fn ts_imported_members(
+        &self,
+        all: &[PathBuf],
+        imports: &[(String, Vec<String>)],
+        members: &str,
+    ) -> Option<Vec<Hit>> {
+        let (roots, _) = self.external.get(&Kind::TsJs)?;
+        let mut packages: Vec<&[String]> = (imports.iter())
+            .filter_map(|(_, path)| {
+                let first = path.first().filter(|f| !f.starts_with(['.', '/']))?;
+                let parts = 1 + usize::from(first.starts_with('@'));
+                path.get(..parts).filter(|_| path.len() > parts)
+            })
+            .collect();
+        packages.sort();
+        packages.dedup();
+        let mut reached: Vec<PathBuf> = (packages.into_iter())
+            .filter_map(|p| search::package_copy(&self.root, roots, all, &self.files, p))
+            .flat_map(|copy| copy.files)
+            .filter(|f| search::declaration_file(f))
+            .collect();
+        reached.sort();
+        reached.dedup();
+        let hits = self.external_grep(Kind::TsJs, &reached, members);
+        (hits.len() > 1).then_some(hits)
+    }
+
+    fn python_members(
         &self,
         files: &[PathBuf],
         imports: &[(String, Vec<String>)],
@@ -474,6 +520,7 @@ impl App {
                 });
                 !search::ts_nested_local(lines, h.line)
             });
+            hits = search::drop_farther_copies(roots, hits);
         }
         hits.sort_by_cached_key(|h| {
             (
@@ -645,15 +692,24 @@ impl App {
         self.otp = Some(Vec::new());
     }
 
+    pub fn warm_up(&mut self) {
+        let Some(kind) = self.kind() else { return };
+        if matches!(kind, Kind::TsJs | Kind::Elixir | Kind::Solidity)
+            || self.external.contains_key(&kind)
+            || self.warming.contains_key(&kind)
+        {
+            return;
+        }
+        let root = self.root.clone();
+        let walk = std::thread::spawn(move || walk_outside(kind, &root));
+        self.warming.insert(kind, Some(walk));
+    }
+
     /// The files of `kind` outside the project, walked once per kind.
     ///
     /// ponytail: lives for the session, unlike the project walk. A `pip install` mid-session
     /// needs a restart.
     pub(super) fn external_files(&mut self, kind: Kind) -> Arc<Vec<PathBuf>> {
-        // TypeScript's roots depend on where the open file is (#100). Each `node_modules` is
-        // walked once; one inside another already listed adds no file of its own. They are
-        // inside the project, so a test's `no_external`, which lists no root, does not hide
-        // them either; roots a test lists are kept.
         let here = self.buf.path.as_ref().and_then(|p| p.parent());
         if let Some(here) = here.filter(|_| kind == Kind::TsJs)
             && (self.node_modules_of.is_some()
@@ -713,10 +769,12 @@ impl App {
             Some((_, files)) => files.clone(),
             None => {
                 let roots = search::external_roots(kind, &self.root);
-                let files = Arc::new(search::external_files(kind, &roots));
-                // No roots may be a toolchain that failed to answer this once: it is asked
-                // again on the next `d`, rather than leave the session without a standard
-                // library (#183).
+                let warm = self.warming.insert(kind, None).flatten();
+                let files = match warm.and_then(|w| w.join().ok()) {
+                    Some((walked, files)) if walked == roots => files,
+                    _ => search::external_files(kind, &roots),
+                };
+                let files = Arc::new(files);
                 if !roots.is_empty() {
                     self.external.insert(kind, (roots, files.clone()));
                 }
@@ -965,6 +1023,14 @@ impl App {
             None => "no rules for this file".into(),
         }
     }
+}
+
+pub(super) type Walked = (Vec<PathBuf>, Vec<PathBuf>);
+
+fn walk_outside(kind: Kind, root: &Path) -> Walked {
+    let roots = search::external_roots(kind, root);
+    let files = search::external_files(kind, &roots);
+    (roots, files)
 }
 
 fn python_rel<'a>(roots: &[PathBuf], f: &'a Path) -> Option<(usize, &'a Path)> {
