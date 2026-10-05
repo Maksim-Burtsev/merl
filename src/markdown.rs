@@ -1134,7 +1134,7 @@ impl Palette {
             ),
             quote: theme.ghost_fg,
             bullet: theme.accent,
-            line: theme.gutter_fg,
+            line: theme.own_gutter_fg,
             alerts,
             code_bg: theme.line_hl_dim,
         }

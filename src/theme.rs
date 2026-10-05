@@ -161,6 +161,7 @@ pub struct Theme {
     pub bg: Color,
     pub fg: Color,
     pub gutter_fg: Color,
+    pub own_gutter_fg: Color,
     pub line_hl: Color,
     /// The tree cursor row while the code pane has the keys: `line_hl` at half strength.
     pub line_hl_dim: Color,
@@ -306,6 +307,9 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         .map(|percent| blend(toward, fg, percent))
         .find(|&c| words.iter().all(|&w| contrast(c, w) >= WORD_CONTRAST))
         .unwrap_or(rgb(toward));
+    let own_gutter = s
+        .gutter_foreground
+        .map_or_else(|| mix(fg, bg, 45), |c| composite(c, bg));
     let find_bg = s.find_highlight.map_or_else(|| blend(fg, bg, 35), over_bg);
     // Primer's attention yellow, at the strength of a changed word.
     let tag_bg = blend(hue(0xd2, 0x99, 0x22), bg, if light { 45 } else { 40 });
@@ -331,13 +335,8 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
     Ok(Theme {
         bg: rgb(bg),
         fg: rgb(fg),
-        gutter_fg: gutter_fg(
-            s.gutter_foreground
-                .map_or_else(|| mix(fg, bg, 45), |c| composite(c, bg)),
-            bg,
-            comment_color(&syntect),
-            toward,
-        ),
+        gutter_fg: gutter_fg(own_gutter, bg, comment_color(&syntect), toward),
+        own_gutter_fg: rgb(own_gutter),
         line_hl,
         line_hl_dim,
         ghost_fg,
@@ -979,11 +978,7 @@ mod tests {
         let mut changed = 0;
         for name in names() {
             let t = load(name).unwrap();
-            let s = &t.syntect.settings;
-            let (bg, fg) = (s.background.unwrap(), s.foreground.unwrap());
-            let own = rgb(s
-                .gutter_foreground
-                .map_or_else(|| mix(fg, bg, 45), |c| composite(c, bg)));
+            let own = t.own_gutter_fg;
             let (before, after) = (contrast(own, t.bg), contrast(t.gutter_fg, t.bg));
             let comments = contrast(comment_color(&t.syntect), t.bg);
             if before >= GUTTER_CONTRAST || before >= comments {
