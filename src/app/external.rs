@@ -520,6 +520,7 @@ impl App {
                 });
                 !search::ts_nested_local(lines, h.line)
             });
+            hits = search::drop_farther_copies(roots, hits);
         }
         hits.sort_by_cached_key(|h| {
             (
@@ -726,7 +727,6 @@ impl App {
                 });
                 files.extend(walked.iter().cloned());
             }
-            let files = search::nearest_copies(&roots, files);
             self.external.insert(kind, (roots, Arc::new(files)));
             self.node_modules_of = Some(here.to_path_buf());
         }

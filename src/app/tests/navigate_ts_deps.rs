@@ -138,3 +138,77 @@ fn a_member_outside_is_looked_for_in_the_imported_packages_first() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn a_member_only_a_nested_copy_declares_is_still_offered() {
+    let main = "import { make } from \"a\";\n\nconst n = make();\nn.onlyV2();\n";
+    let (dir, mut a) = project_app("ts-nested-only", &[("src/main.ts", main)]);
+    write_outside(
+        &dir,
+        &[
+            (
+                "node_modules/a/index.d.ts",
+                "import { B } from \"b\";\nexport declare function make(): B;\n",
+            ),
+            (
+                "node_modules/b/index.d.ts",
+                "export interface B {\n    v1(): void;\n}\n",
+            ),
+            (
+                "node_modules/a/node_modules/b/index.d.ts",
+                "export interface B {\n    v1(): void;\n    onlyV2(): void;\n}\n",
+            ),
+            (
+                "node_modules/unrelated/index.d.ts",
+                "export interface U {\n    onlyV2(): void;\n}\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "src/main.ts", "n.onlyV2");
+    assert_eq!(
+        shown(&mut a),
+        picker(
+            "onlyV2: by name, 2 declarations",
+            &[
+                ("B.onlyV2", "a/node_modules/b/index.d.ts:3"),
+                ("U.onlyV2", "unrelated/index.d.ts:2"),
+            ]
+        ),
+        "the version of b that a returns declares it: it stays offered beside the namesake"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_reexport_from_a_nested_copy_lands_in_that_copy() {
+    let main = "import { X } from \"other\";\n\nX;\n";
+    let (dir, mut a) = project_app("ts-nested-reexport", &[("src/main.ts", main)]);
+    write_outside(
+        &dir,
+        &[
+            (
+                "node_modules/other/index.d.ts",
+                "export { X } from \"lib\";\n",
+            ),
+            (
+                "node_modules/other/node_modules/lib/index.d.ts",
+                "export declare class X {}\n",
+            ),
+            (
+                "node_modules/lib/index.d.ts",
+                "export declare const pad = 1;\nexport declare function X(): void;\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "src/main.ts", "^X");
+    let shown = shown(&mut a);
+    std::fs::remove_dir_all(&dir).unwrap();
+    assert_eq!(
+        shown,
+        jump(
+            "X: by name, 1 match",
+            "node_modules/other/node_modules/lib/index.d.ts:1",
+        ),
+        "other's own copy of lib is the one its re-export names"
+    );
+}

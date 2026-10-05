@@ -360,20 +360,28 @@ pub fn node_modules(root: &Path, file: &Path) -> Vec<PathBuf> {
         .filter(|dir| dir.is_dir())
         .collect()
 }
-pub fn nearest_copies(roots: &[PathBuf], files: Vec<PathBuf>) -> Vec<PathBuf> {
+pub fn drop_farther_copies(roots: &[PathBuf], hits: Vec<Hit>) -> Vec<Hit> {
     let real: Vec<PathBuf> = roots.iter().filter_map(|r| r.canonicalize().ok()).collect();
-    let mut kept: std::collections::HashMap<PathBuf, bool> = std::collections::HashMap::new();
-    files
-        .into_iter()
-        .filter(|f| {
-            nested_packages(roots, f).into_iter().all(|(dir, name)| {
-                *kept.entry(dir).or_insert_with_key(|dir| {
-                    let nearest = roots.iter().find_map(|r| r.join(&name).canonicalize().ok());
-                    nearest.is_none_or(|n| {
-                        !real.iter().any(|r| n.starts_with(r)) || dir.canonicalize().ok() == Some(n)
+    let rows: std::collections::HashSet<(PathBuf, String)> = (hits.iter())
+        .filter_map(|h| Some((h.path.canonicalize().ok()?, h.text.trim().to_owned())))
+        .collect();
+    let mut loaded: std::collections::HashMap<PathBuf, Option<PathBuf>> =
+        std::collections::HashMap::new();
+    (hits.into_iter())
+        .filter(|h| {
+            !nested_packages(roots, &h.path)
+                .into_iter()
+                .any(|(dir, name)| {
+                    let nearest = loaded.entry(dir.clone()).or_insert_with(|| {
+                        let n = (roots.iter()).find_map(|r| r.join(&name).canonicalize().ok())?;
+                        let other = dir.canonicalize().ok() != Some(n.clone());
+                        (other && real.iter().any(|r| n.starts_with(r))).then_some(n)
+                    });
+                    nearest.as_ref().is_some_and(|n| {
+                        let row = |rel: &Path| (n.join(rel), h.text.trim().to_owned());
+                        (h.path.strip_prefix(&dir)).is_ok_and(|rel| rows.contains(&row(rel)))
                     })
                 })
-            })
         })
         .collect()
 }
