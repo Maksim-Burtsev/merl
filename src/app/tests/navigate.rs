@@ -109,6 +109,34 @@ fn empty_external_roots_are_asked_again() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+#[test]
+fn opening_a_file_walks_its_kind_outside_for_the_first_d() {
+    let (dir, mut a) = project_app(
+        "warm-up",
+        &[
+            ("index.php", "<?php\n"),
+            ("vendor/acme/Client.php", "<?php\n"),
+        ],
+    );
+    a.jump_to(&dir.join("index.php"), 1);
+    a.warm_up();
+    while !a.warming[&Kind::Php].is_finished() {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    std::fs::remove_file(dir.join("vendor/acme/Client.php")).unwrap();
+    assert_eq!(
+        *a.external_files(Kind::Php),
+        [dir.join("vendor/acme/Client.php")]
+    );
+    assert!(a.warming.is_empty());
+    a.warm_up();
+    assert!(
+        a.warming.is_empty(),
+        "a kind walked once is not walked again"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// Found by the acceptance pass of #68: three ways `d` claimed more than it knew.
 #[test]
 fn a_local_name_is_not_an_import_and_a_member_is_not_a_module_level_name() {

@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `v` grows on to the whole file: a fourth press, after the word, the line and the paragraph,
   selects every line of the file, the cursor at its end; Ctrl+C then copies it all. (#635)
+- The first `d` that leaves the project no longer waits for the walk of the standard library and
+  the dependencies (about 0.9 s for Rust): merl walks them in the background once a file of that
+  language opens. Rust's standard library is read without its tests, benches and vendored
+  crates, which no `use` reaches. (#318)
 
 ### Fixed
 
