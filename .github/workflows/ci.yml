@@ -29,18 +29,19 @@ jobs:
 
   check:
     name: check (${{ matrix.os }})
-    # The checks the merge requires wait for the shards and fail with any of them; on any other
-    # PR the shards are skipped and the checks start at once.
+    # The checks the merge requires wait for the shards and fail unless all passed, a cancelled
+    # run included: a skipped required check would count as passed. On any other PR the shards
+    # are skipped and the checks start at once.
     needs: no-panic
-    if: ${{ !cancelled() }}
+    if: always()
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - if: needs.no-panic.result == 'failure'
-        run: echo "the panic sweep failed, see its no-panic jobs" && exit 1
+      - if: needs.no-panic.result != 'success' && needs.no-panic.result != 'skipped'
+        run: echo "the panic sweep did not pass: ${{ needs.no-panic.result }}" && exit 1
       # A PR that touches only what agents read (skills, AGENTS.md, release notes) builds nothing:
       # no test reads those files, and the check passes in seconds instead of minutes.
       - if: github.event_name == 'pull_request'
