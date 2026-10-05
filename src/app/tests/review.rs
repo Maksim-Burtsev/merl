@@ -1731,3 +1731,39 @@ fn a_fold_keeps_a_jumps_line_and_never_covers_text_in_sight() {
     assert!(a.folded_here().is_none(), "still in sight after the edit");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn review_ticks_the_empty_files_it_walks_past_and_not_the_binary_ones() {
+    let png: &[u8] = b"\x89PNG\0\0";
+    let extra: &[(&str, &[u8])] = &[("e", b""), ("z.png", png), ("zz", b"")];
+    let (dir, mut a) = review_app_with("reviewempty", extra);
+    let order = |a: &App| -> Vec<_> {
+        let r = a.review.as_ref().unwrap();
+        r.files.iter().map(|f| f.path.clone()).collect()
+    };
+    assert_eq!(
+        order(&a),
+        [
+            "src/a.rs", "crlf.txt", "e", "gone", "new", "tail", "z.png", "zz"
+        ]
+        .map(PathBuf::from)
+    );
+    let viewed = |a: &App, p: &str| a.viewed.contains_key(Path::new(p));
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    assert_eq!(a.message, "last hunk of the review");
+    assert!(viewed(&a, "zz") && viewed(&a, "tail"));
+    assert!(!viewed(&a, "z.png"));
+    while at(&a) != (dir.join("crlf.txt"), 1) {
+        press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+    }
+    assert!(viewed(&a, "e"));
+
+    std::fs::write(dir.join("src/__init__.py"), "").unwrap();
+    let mut a = review_start(&dir, None);
+    a.buf = Buffer::load(&dir.join("src/a.rs")).unwrap();
+    a.start_review(git::Review::open(&dir, None, None).unwrap());
+    assert_eq!(order(&a)[0], Path::new("src/__init__.py"));
+    assert_eq!(a.message, "skipped 1 file without hunks");
+    assert!(viewed(&a, "src/__init__.py"));
+}
