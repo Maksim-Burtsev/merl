@@ -13,7 +13,7 @@ int Cabinet::Lock(int code) { return code; }
 
 bool seen(Beacon* s) { return s->Ready(); }
 //        ^ d: picker include/shop/beacon.hh:5, include/shop/beacon.hh:33
-//                               ^ d: picker include/shop/beacon.hh:9, include/shop/beacon.hh:14, include/shop/beacon.hh:19, include/shop/beacon.hh:40
+//                               ^ d: include/shop/beacon.hh:9
 
 unsigned long stocked(Cabinet* d) {
   d->Fill(1, 2);
@@ -29,5 +29,8 @@ int sweep(int k) {
 
 int again() { return probe(3); }
 //                   ^ d: src/count.cc:3
+
+bool shelved(Shelf<int>::Beacon* b) { return b->Ready(); }
+//                                              ^ d: include/shop/beacon.hh:40
 
 }  // namespace shop

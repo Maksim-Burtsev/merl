@@ -5,8 +5,6 @@
 use super::*;
 
 impl App {
-    /// The files of the Python module `module` in the project: a package over a module of the
-    /// same name beside it, as Python imports it (#280).
     pub(super) fn project_module(&self, here: &Path, module: &[String]) -> Vec<PathBuf> {
         let mut files = search::module_files(Kind::Python, &self.root, &self.files, here, module);
         if files.iter().any(|f| f.ends_with("__init__.py")) {
@@ -15,8 +13,6 @@ impl App {
         files
     }
 
-    /// The Python module `module` as a whole (#333): the project's, else, for an absolute path,
-    /// the one outside, named from its root as the picker names it.
     pub(super) fn python_module(&mut self, here: &Path, module: &[String]) -> Vec<Candidate> {
         let files = self.project_module(here, module);
         if !files.is_empty() || module[0].starts_with('.') {
@@ -26,15 +22,6 @@ impl App {
         file.map(|f| self.outside_module(f)).unwrap_or_default()
     }
 
-    /// `word` qualified by a name an import binds to `path` outside the project, when the path
-    /// resolves to a module only without its last part, the name the import takes
-    /// (#342): the declarations of `Name.word` in that module, `Name` as the module calls it. An
-    /// empty list is a member the lookup does not find there, which no namesake elsewhere
-    /// answers for. `Some(None)` is a name the module neither declares a class of nor imports
-    /// (#560): a value it holds, such as Django's `settings = LazySettings()`, whose
-    /// `__getattr__` reads the project's settings module, or a name a module `__getattr__` makes
-    /// up; nothing outside is read for its members. `None` leaves it to the lookup by import: a
-    /// relative import, a name that is a module itself, a module not found.
     pub(super) fn outside_class_member(
         &mut self,
         word: &str,
@@ -89,8 +76,6 @@ impl App {
         ))
     }
 
-    /// The module-level assignments of `word` in the files of the Python package `module` outside
-    /// the project, `django.conf` for `django/conf/global_settings.py` (#560).
     pub(super) fn package_assignments(&mut self, word: &str, module: &[String]) -> Vec<Candidate> {
         let kind = Kind::Python;
         let all = self.external_files(kind);
@@ -112,8 +97,6 @@ impl App {
             .collect()
     }
 
-    /// The top-level declarations of `word` in the modules outside the project that the file's
-    /// `from m import *` lines name (#336).
     pub(super) fn star_imported(
         &mut self,
         word: &str,
@@ -271,11 +254,6 @@ impl App {
         found
     }
 
-    /// What a Python name bound by an import to `path`, outside the project, is as a whole
-    /// (#333): the module, when the whole path is one and the package above does not bind the
-    /// name itself (that binding keeps its say, through the lookup by import). The name a plain
-    /// `import x` binds is a module or nothing, never a namesake found by name. `None` leaves the
-    /// name to the lookup by import.
     pub(super) fn bound_module(&mut self, path: &[String]) -> Option<Vec<Candidate>> {
         if path[0].starts_with('.') {
             return None;
@@ -293,10 +271,6 @@ impl App {
         Some(self.outside_module(file))
     }
 
-    /// An `@overload` set is one function: when every candidate declares the same name in one
-    /// `.py` file and all but one are overloads, that one, the implementation, is the answer
-    /// (#338). A stub file, and a set of overloads only, has none and keeps its picker. Standing
-    /// on one of them leaves them all, as on any declaration.
     pub(super) fn python_implementation(
         &self,
         word: &str,

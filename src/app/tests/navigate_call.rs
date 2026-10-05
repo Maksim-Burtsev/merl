@@ -8,9 +8,9 @@ use super::*;
 /// A call of a call, returns that differ and an unproven receiver stay by name.
 #[test]
 fn a_call_is_one_more_hop() {
-    let cases: Vec<(&str, &str, &str, Shown)> = vec![
-        // A method of a parameter whose type is written, with the return type it declares.
+    let cases: Vec<(&str, &str, &str, &str, Shown)> = vec![
         (
+            "A method of a parameter whose type is written, with the return type it declares",
             "python",
             "calls.py",
             "repo.delete_user|(user_id)",
@@ -19,8 +19,8 @@ fn a_call_is_one_more_hop() {
                 "repos.py:8",
             ),
         ),
-        // No annotation, and every `return` constructs an `AuditLog`.
         (
+            "No annotation, and every `return` constructs an `AuditLog`",
             "python",
             "calls.py",
             "trail.delete_user",
@@ -29,8 +29,8 @@ fn a_call_is_one_more_hop() {
                 "repos.py:13",
             ),
         ),
-        // A chain off a call that starts the expression: a function, a class, and the field itself.
         (
+            "A chain off a call that starts the expression: a function, a class, and the field itself",
             "python",
             "calls.py",
             "open_depot().people.delete_user",
@@ -40,6 +40,7 @@ fn a_call_is_one_more_hop() {
             ),
         ),
         (
+            "A chain off a call that starts the expression: a function, a class, and the field itself",
             "python",
             "calls.py",
             "Depot().people.delete_user",
@@ -49,6 +50,7 @@ fn a_call_is_one_more_hop() {
             ),
         ),
         (
+            "A chain off a call that starts the expression: a function, a class, and the field itself",
             "python",
             "calls.py",
             "open_depot().people|.delete_user",
@@ -57,8 +59,8 @@ fn a_call_is_one_more_hop() {
                 "calls.py:8",
             ),
         ),
-        // The returns differ; one of them is `None`; a decorator may return anything.
         (
+            "The returns differ; one of them is `None`; a decorator may return anything",
             "python",
             "calls.py",
             "either.delete_user",
@@ -71,6 +73,7 @@ fn a_call_is_one_more_hop() {
             ),
         ),
         (
+            "The returns differ; one of them is `None`; a decorator may return anything",
             "python",
             "calls.py",
             "maybe.delete_user",
@@ -83,6 +86,7 @@ fn a_call_is_one_more_hop() {
             ),
         ),
         (
+            "The returns differ; one of them is `None`; a decorator may return anything",
             "python",
             "calls.py",
             "shared.delete_user",
@@ -94,8 +98,8 @@ fn a_call_is_one_more_hop() {
                 ],
             ),
         ),
-        // A call of a call hangs off a value nobody typed.
         (
+            "A call of a call hangs off a value nobody typed",
             "python",
             "calls.py",
             "open_depot().people_repo().delete_user",
@@ -107,8 +111,8 @@ fn a_call_is_one_more_hop() {
                 ],
             ),
         ),
-        // The receiver of the method is a parameter with no annotation.
         (
+            "The receiver of the method is a parameter with no annotation",
             "python",
             "calls.py",
             "repo.delete_user|(user_id + 8)",
@@ -120,9 +124,8 @@ fn a_call_is_one_more_hop() {
                 ],
             ),
         ),
-        // TypeScript: a method's `): T`, a method whose every `return` is `new T()`, a chain off a
-        // function and off `new`, and the method line of an interface.
         (
+            "TypeScript: a method's `): T`, a method whose every `return` is `new T()`, a chain off a function and off `new`, and the method line of an interface",
             "typescript",
             "calls.ts",
             "repo.deleteUser|(id);",
@@ -132,6 +135,7 @@ fn a_call_is_one_more_hop() {
             ),
         ),
         (
+            "TypeScript: a method's `): T`, a method whose every `return` is `new T()`, a chain off a function and off `new`, and the method line of an interface",
             "typescript",
             "calls.ts",
             "trail.deleteUser",
@@ -141,6 +145,7 @@ fn a_call_is_one_more_hop() {
             ),
         ),
         (
+            "TypeScript: a method's `): T`, a method whose every `return` is `new T()`, a chain off a function and off `new`, and the method line of an interface",
             "typescript",
             "calls.ts",
             "openDepot().people.deleteUser",
@@ -150,6 +155,7 @@ fn a_call_is_one_more_hop() {
             ),
         ),
         (
+            "TypeScript: a method's `): T`, a method whose every `return` is `new T()`, a chain off a function and off `new`, and the method line of an interface",
             "typescript",
             "calls.ts",
             "new Depot().people.deleteUser",
@@ -159,6 +165,7 @@ fn a_call_is_one_more_hop() {
             ),
         ),
         (
+            "TypeScript: a method's `): T`, a method whose every `return` is `new T()`, a chain off a function and off `new`, and the method line of an interface",
             "typescript",
             "calls.ts",
             "sourced.deleteUser",
@@ -167,8 +174,8 @@ fn a_call_is_one_more_hop() {
                 "repos.ts:10",
             ),
         ),
-        // Overloads declare the method three times: which one is called is not read.
         (
+            "Overloads declare the method three times: which one is called is not read",
             "typescript",
             "calls.ts",
             "picked.deleteUser",
@@ -180,8 +187,8 @@ fn a_call_is_one_more_hop() {
                 ],
             ),
         ),
-        // A call of a call, and a receiver typed `any`.
         (
+            "A call of a call, and a receiver typed `any`",
             "typescript",
             "calls.ts",
             "openDepot().peopleRepo().deleteUser",
@@ -194,6 +201,7 @@ fn a_call_is_one_more_hop() {
             ),
         ),
         (
+            "A call of a call, and a receiver typed `any`",
             "typescript",
             "calls.ts",
             "repo.deleteUser|(id + 6)",
@@ -205,9 +213,8 @@ fn a_call_is_one_more_hop() {
                 ],
             ),
         ),
-        // Go: a method behind its receiver, the first of two results, a chain off a function and
-        // off a package's, and the method line of an interface.
         (
+            "Go: a method behind its receiver, the first of two results, a chain off a function and off a package's, and the method line of an interface",
             "go",
             "calls.go",
             "repo.DeleteUser|(id)",
@@ -217,6 +224,7 @@ fn a_call_is_one_more_hop() {
             ),
         ),
         (
+            "Go: a method behind its receiver, the first of two results, a chain off a function and off a package's, and the method line of an interface",
             "go",
             "calls.go",
             "trail.DeleteUser",
@@ -226,6 +234,7 @@ fn a_call_is_one_more_hop() {
             ),
         ),
         (
+            "Go: a method behind its receiver, the first of two results, a chain off a function and off a package's, and the method line of an interface",
             "go",
             "calls.go",
             "OpenDepot().People.DeleteUser",
@@ -235,6 +244,7 @@ fn a_call_is_one_more_hop() {
             ),
         ),
         (
+            "Go: a method behind its receiver, the first of two results, a chain off a function and off a package's, and the method line of an interface",
             "go",
             "calls.go",
             "store.Open().Close",
@@ -244,6 +254,7 @@ fn a_call_is_one_more_hop() {
             ),
         ),
         (
+            "Go: a method behind its receiver, the first of two results, a chain off a function and off a package's, and the method line of an interface",
             "go",
             "calls.go",
             "sourced.DeleteUser",
@@ -252,8 +263,8 @@ fn a_call_is_one_more_hop() {
                 "repos.go:15",
             ),
         ),
-        // A call of a call, and a receiver that is the second name of a `:=`.
         (
+            "A call of a call, and a receiver that is the second name of a `:=`",
             "go",
             "calls.go",
             "OpenDepot().PeopleRepo().DeleteUser",
@@ -266,6 +277,7 @@ fn a_call_is_one_more_hop() {
             ),
         ),
         (
+            "A call of a call, and a receiver that is the second name of a `:=`",
             "go",
             "calls.go",
             "repo.DeleteUser|(id + 5)",
@@ -277,8 +289,8 @@ fn a_call_is_one_more_hop() {
                 ],
             ),
         ),
-        // A decorator written over several lines may return anything too.
         (
+            "A decorator written over several lines may return anything too",
             "python",
             "calls.py",
             "wrapped.delete_user",
@@ -290,8 +302,8 @@ fn a_call_is_one_more_hop() {
                 ],
             ),
         ),
-        // A parameter named like a function of the module is a value nobody typed.
         (
+            "A parameter named like a function of the module is a value nobody typed",
             "python",
             "calls.py",
             "open_depot().people.delete_user|(user_id + 10)",
@@ -304,6 +316,7 @@ fn a_call_is_one_more_hop() {
             ),
         ),
         (
+            "",
             "python",
             "calls.py",
             "made.people.delete_user",
@@ -315,9 +328,8 @@ fn a_call_is_one_more_hop() {
                 ],
             ),
         ),
-        // The method is inherited; the receiver is a field; the chain hangs off a method
-        // of a proven receiver.
         (
+            "The method is inherited; the receiver is a field; the chain hangs off a method of a proven receiver",
             "python",
             "calls.py",
             "inherited.delete_user",
@@ -327,6 +339,7 @@ fn a_call_is_one_more_hop() {
             ),
         ),
         (
+            "The method is inherited; the receiver is a field; the chain hangs off a method of a proven receiver",
             "python",
             "calls.py",
             "through.delete_user",
@@ -336,6 +349,7 @@ fn a_call_is_one_more_hop() {
             ),
         ),
         (
+            "The method is inherited; the receiver is a field; the chain hangs off a method of a proven receiver",
             "python",
             "calls.py",
             "self.depot.people_repo().delete_user",
@@ -344,8 +358,8 @@ fn a_call_is_one_more_hop() {
                 "repos.py:8",
             ),
         ),
-        // Two locals assigned from each other's methods end in a picker, and end.
         (
+            "Two locals assigned from each other's methods end in a picker, and end",
             "python",
             "calls.py",
             "ahead.delete_user",
@@ -357,8 +371,8 @@ fn a_call_is_one_more_hop() {
                 ],
             ),
         ),
-        // A `return` behind an `if` on its own line is a return the rules do not read.
         (
+            "A `return` behind an `if` on its own line is a return the rules do not read",
             "python",
             "calls.py",
             "picked.delete_user",
@@ -371,6 +385,7 @@ fn a_call_is_one_more_hop() {
             ),
         ),
         (
+            "",
             "typescript",
             "calls.ts",
             "inline.deleteUser",
@@ -383,10 +398,10 @@ fn a_call_is_one_more_hop() {
             ),
         ),
     ];
-    for (fixture, file, code, want) in cases {
+    for (name, fixture, file, code, want) in cases {
         let mut a = fixture_app(fixture);
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        assert_eq!(shown(&mut a), want, "{name}: {fixture}: {file}: {code}");
     }
 }
 
@@ -396,10 +411,9 @@ fn a_call_is_one_more_hop() {
 /// several types and `default` prove nothing.
 #[test]
 fn a_cast_writes_the_type() {
-    let cases: Vec<(&str, &str, &str, Shown)> = vec![
-        // `cast(T, x)` and `typing.cast("T", x)` assigned to a name, and with the member hanging
-        // off the cast itself.
+    let cases: Vec<(&str, &str, &str, &str, Shown)> = vec![
         (
+            "`cast(T, x)` and `typing.cast(\"T\", x)` assigned to a name, and with the member hanging off the cast itself",
             "python",
             "casts.py",
             "repo.delete_user",
@@ -409,6 +423,7 @@ fn a_cast_writes_the_type() {
             ),
         ),
         (
+            "`cast(T, x)` and `typing.cast(\"T\", x)` assigned to a name, and with the member hanging off the cast itself",
             "python",
             "casts.py",
             "audit.delete_user",
@@ -418,6 +433,7 @@ fn a_cast_writes_the_type() {
             ),
         ),
         (
+            "`cast(T, x)` and `typing.cast(\"T\", x)` assigned to a name, and with the member hanging off the cast itself",
             "python",
             "casts.py",
             "cast(UserRepository, found).delete_user",
@@ -426,8 +442,8 @@ fn a_cast_writes_the_type() {
                 "repos.py:8",
             ),
         ),
-        // A cast to a type the project does not declare proves nothing.
         (
+            "A cast to a type the project does not declare proves nothing",
             "python",
             "casts.py",
             "missing.delete_user",
@@ -440,6 +456,7 @@ fn a_cast_writes_the_type() {
             ),
         ),
         (
+            "A cast to a type the project does not declare proves nothing",
             "python",
             "casts.py",
             "loose.delete_user",
@@ -451,8 +468,8 @@ fn a_cast_writes_the_type() {
                 ],
             ),
         ),
-        // TypeScript: `x as T`, the last type of `x as unknown as T`, and `(x as T).member`.
         (
+            "TypeScript: `x as T`, the last type of `x as unknown as T`, and `(x as T).member`",
             "typescript",
             "casts.ts",
             "repo.deleteUser",
@@ -462,6 +479,7 @@ fn a_cast_writes_the_type() {
             ),
         ),
         (
+            "TypeScript: `x as T`, the last type of `x as unknown as T`, and `(x as T).member`",
             "typescript",
             "casts.ts",
             "audit.deleteUser",
@@ -471,6 +489,7 @@ fn a_cast_writes_the_type() {
             ),
         ),
         (
+            "TypeScript: `x as T`, the last type of `x as unknown as T`, and `(x as T).member`",
             "typescript",
             "casts.ts",
             "(found as UserRepository).deleteUser",
@@ -479,8 +498,8 @@ fn a_cast_writes_the_type() {
                 "repos.ts:10",
             ),
         ),
-        // `any`, and a generic wrapper that is no type of the project.
         (
+            "`any`, and a generic wrapper that is no type of the project",
             "typescript",
             "casts.ts",
             "loose.deleteUser",
@@ -493,6 +512,7 @@ fn a_cast_writes_the_type() {
             ),
         ),
         (
+            "`any`, and a generic wrapper that is no type of the project",
             "typescript",
             "casts.ts",
             "partial.deleteUser",
@@ -504,8 +524,8 @@ fn a_cast_writes_the_type() {
                 ],
             ),
         ),
-        // Go: `v, ok := i.(T)`, `v := i.(T)` and `i.(T).Member`.
         (
+            "Go: `v, ok := i.(T)`, `v := i.(T)` and `i.(T).Member`",
             "go",
             "casts.go",
             "repo.DeleteUser",
@@ -515,6 +535,7 @@ fn a_cast_writes_the_type() {
             ),
         ),
         (
+            "Go: `v, ok := i.(T)`, `v := i.(T)` and `i.(T).Member`",
             "go",
             "casts.go",
             "audit.DeleteUser",
@@ -524,6 +545,7 @@ fn a_cast_writes_the_type() {
             ),
         ),
         (
+            "Go: `v, ok := i.(T)`, `v := i.(T)` and `i.(T).Member`",
             "go",
             "casts.go",
             "found.(*UserRepository).DeleteUser",
@@ -532,16 +554,15 @@ fn a_cast_writes_the_type() {
                 "repos.go:15",
             ),
         ),
-        // `fmt.Stringer` is declared outside the project.
         (
+            "`fmt.Stringer` is declared outside the project",
             "go",
             "casts.go",
             "found.(fmt.Stringer).String",
             jump("no definition for String", "casts.go:25"),
         ),
-        // The variable of a type switch has the type of the `case` the cursor is in, also from a
-        // block inside it.
         (
+            "The variable of a type switch has the type of the `case` the cursor is in, also from a block inside it",
             "go",
             "casts.go",
             "v.DeleteUser|(id + 3)",
@@ -551,6 +572,7 @@ fn a_cast_writes_the_type() {
             ),
         ),
         (
+            "The variable of a type switch has the type of the `case` the cursor is in, also from a block inside it",
             "go",
             "casts.go",
             "v.DeleteUser|(id + 4)",
@@ -559,15 +581,15 @@ fn a_cast_writes_the_type() {
                 "repos.go:21",
             ),
         ),
-        // A second type switch below the first: the first one's `v` is out of scope.
         (
+            "A second type switch below the first: the first one's `v` is out of scope",
             "go",
             "casts.go",
             "return v.Area|()",
             jump("Area \u{2192} Square.Area (via v: Square)", "casts.go:11"),
         ),
-        // A `case` of two types and `default` leave `v` what it was.
         (
+            "A `case` of two types and `default` leave `v` what it was",
             "go",
             "casts.go",
             "v.Area|() + 1",
@@ -580,6 +602,7 @@ fn a_cast_writes_the_type() {
             ),
         ),
         (
+            "A `case` of two types and `default` leave `v` what it was",
             "go",
             "casts.go",
             "v.Area|() + 2",
@@ -591,8 +614,8 @@ fn a_cast_writes_the_type() {
                 ],
             ),
         ),
-        // A `cast` the project declares itself is a function with a return type.
         (
+            "A `cast` the project declares itself is a function with a return type",
             "python",
             "casts_own.py",
             "repo.delete_user",
@@ -602,9 +625,9 @@ fn a_cast_writes_the_type() {
             ),
         ),
     ];
-    for (fixture, file, code, want) in cases {
+    for (name, fixture, file, code, want) in cases {
         let mut a = fixture_app(fixture);
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        assert_eq!(shown(&mut a), want, "{name}: {fixture}: {file}: {code}");
     }
 }

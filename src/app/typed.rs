@@ -33,6 +33,12 @@ impl App {
                 })
                 .collect());
         }
+        if kind == Kind::TsJs
+            && head.is_none()
+            && let Some(found) = self.literal_member(kind, here, chain, word)
+        {
+            return Ok(found);
+        }
         let (ty, links) = self.receiver(kind, here, chain, head)?;
         let declared = self.hierarchy(kind, &ty, 0, &mut |t| {
             let members = self.members_of(kind, t, word);
@@ -117,22 +123,7 @@ impl App {
             return None;
         }
         let (last, before) = chain.split_last()?;
-        let (file, text, bindings, mut links) = match before {
-            [] => {
-                let text = self.buf.lines.join("\n");
-                let bindings = search::bindings(kind, &text, self.line + 1, last);
-                (here.to_path_buf(), text, bindings, Vec::new())
-            }
-            _ => {
-                let (ty, links) = self.receiver(kind, here, before, None).ok()?;
-                let found = self.hierarchy(kind, &ty, 0, &mut |t| {
-                    let text = self.text_of(&t.path)?;
-                    let bindings = search::field_bindings(kind, &text, t.line, last);
-                    (!bindings.is_empty()).then(|| (t.path.clone(), text, bindings))
-                })?;
-                (found.0, found.1, found.2, links)
-            }
-        };
+        let (file, text, bindings, mut links) = self.last_bindings(kind, here, chain)?;
         let imports = search::imports(kind, &text);
         let builtin = |written: &str| {
             let parts = search::type_path(kind, written)?;
@@ -180,6 +171,60 @@ impl App {
             _ => links.push(link),
         }
         Some(links.join(" \u{2192} "))
+    }
+
+    fn last_bindings(
+        &self,
+        kind: Kind,
+        here: &Path,
+        chain: &[String],
+    ) -> Option<(PathBuf, String, Vec<search::Binding>, Vec<String>)> {
+        let (last, before) = chain.split_last()?;
+        match before {
+            [] => {
+                let text = self.buf.lines.join("\n");
+                let bindings = search::bindings(kind, &text, self.line + 1, last);
+                Some((here.to_path_buf(), text, bindings, Vec::new()))
+            }
+            _ => {
+                let (ty, links) = self.receiver(kind, here, before, None).ok()?;
+                let found = self.hierarchy(kind, &ty, 0, &mut |t| {
+                    let text = self.text_of(&t.path)?;
+                    let bindings = search::field_bindings(kind, &text, t.line, last);
+                    (!bindings.is_empty()).then(|| (t.path.clone(), text, bindings))
+                })?;
+                Some((found.0, found.1, found.2, links))
+            }
+        }
+    }
+
+    fn literal_member(
+        &self,
+        kind: Kind,
+        here: &Path,
+        chain: &[String],
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let (file, text, bindings, mut links) = self.last_bindings(kind, here, chain)?;
+        let [b] = &bindings[..] else {
+            return None;
+        };
+        let search::Value::Type(written) = &b.value else {
+            return None;
+        };
+        let (line, literal) = search::ts_literal_member(&text, b.line, written, word)?;
+        links.push(format!("{}: {literal}", chain.last()?));
+        let hit = Hit {
+            text: text.lines().nth(line - 1)?.to_owned(),
+            path: file,
+            line,
+            col: 0,
+            deleted: None,
+        };
+        Some(vec![Candidate {
+            hit,
+            reason: Reason::Receiver(links.join(" \u{2192} ")),
+        }])
     }
 
     /// The project class a Python receiver is proven to be when what it lacks can only come from
@@ -493,14 +538,32 @@ impl App {
             // An element of a collection whose every declaration writes its type: an
             // annotation, or the return type of the function it was assigned from.
             search::Value::Element(n) if hops > 0 => {
+                let (file, text, bindings) = match n.rsplit_once('.') {
+                    None => (
+                        file.to_path_buf(),
+                        text.to_owned(),
+                        self.bindings_of(kind, file, text, b.line, n),
+                    ),
+                    Some((chain, last)) => {
+                        let chain: Vec<String> = chain.split('.').map(str::to_owned).collect();
+                        let (ty, _) = self
+                            .chain_type(kind, file, text, b.line, &chain, hops - 1)
+                            .ok()?;
+                        self.hierarchy(kind, &ty, 0, &mut |t| {
+                            let text = self.text_of(&t.path)?;
+                            let bindings = search::field_bindings(kind, &text, t.line, last);
+                            (!bindings.is_empty()).then(|| (t.path.clone(), text, bindings))
+                        })?
+                    }
+                };
+                let (file, text) = (file.as_path(), text.as_str());
                 let mut found: Option<(Typed, Option<String>)> = None;
-                for c in self.bindings_of(kind, file, text, b.line, n) {
+                for c in bindings {
                     let (written, at, link) = match &c.value {
                         search::Value::Type(t) => {
                             (t.clone(), file.to_path_buf(), format!("{n}: {}", t.trim()))
                         }
                         search::Value::Call(callee) => {
-                            // `api.list()` on a parameter `api` is no function of the file.
                             let first = callee.split('.').next().unwrap_or(callee);
                             if hidden(kind, file, text, c.line, first) {
                                 return None;
@@ -549,6 +612,17 @@ impl App {
                 let (ty, _) = self
                     .chain_type(kind, file, text, b.line, from, hops - 1)
                     .ok()?;
+                let (ty, _) = self
+                    .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
+                    .flatten()?;
+                Some((ty, None))
+            }
+            search::Value::Member(head, field) => {
+                let at = search::Binding {
+                    line: b.line,
+                    value: (**head).clone(),
+                };
+                let (ty, _) = self.binding_type(kind, file, text, &at, hops)?;
                 let (ty, _) = self
                     .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
                     .flatten()?;

@@ -1,6 +1,3 @@
-//! Vue, Svelte and Astro components (#413): TypeScript in a `<script>` block or an Astro
-//! frontmatter, around a template that declares nothing.
-
 use super::*;
 use std::borrow::Cow;
 use std::ops::Range;
@@ -148,6 +145,31 @@ pub fn template_binds<S: AsRef<str>>(lines: &[S], code: &[bool], word: &str) -> 
         })
         .map(|(i, _)| i + 1)
         .collect()
+}
+pub fn template_reaches<S: AsRef<str>>(
+    lines: &[S],
+    code: &[bool],
+    word: &str,
+    line: usize,
+) -> bool {
+    let text = |i: usize| lines[i].as_ref();
+    let indent = |i: usize| text(i).len() - text(i).trim_start().len();
+    let opens = |i: usize| text(i).trim_start().starts_with(['<', '{']);
+    template_binds(lines, code, word).into_iter().any(|b| {
+        let at = b - 1;
+        let start = (0..=at)
+            .rev()
+            .take_while(|&i| !code.get(i).copied().unwrap_or(false))
+            .find(|&i| opens(i))
+            .unwrap_or(at);
+        let base = indent(start);
+        let sibling = text(start).trim_start().starts_with("{@const");
+        let within = |i: usize| {
+            let t = text(i).trim();
+            t.is_empty() || t == ">" || indent(i) > base || sibling && indent(i) == base
+        };
+        start <= line && (line <= at || (at + 1..=line).all(within))
+    })
 }
 /// The names a binding pattern binds: `item, i`, `{ id, name: label }` (`id` and `label`), `row:
 /// Row` (`row`), with no default value's names (`{ size = md }` binds `size`).

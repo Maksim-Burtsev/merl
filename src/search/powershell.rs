@@ -1,7 +1,3 @@
-//! PowerShell's rules for `d` and `D` (#420): what declares a name, the `param(` block a name
-//! is a local of, the path a dot-source or an `Import-Module` names, and where modules live.
-//! Every name ignores case, as the language does.
-
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
