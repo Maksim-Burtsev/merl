@@ -1,0 +1,18 @@
+@use 'sass:math';
+@import 'pkg/scss/tokens';
+.tag { color: $ink; }
+//             ^ d: node_modules/pkg/scss/_tokens.scss:1
+// status: ink: by name, 1 match
+.tag-raised { @include elevate; }
+//                      ^ d: node_modules/pkg/scss/_tokens.scss:2
+.tag-flat { color: $nowhere; }
+//                  ^ d: none
+.tag-dim { color: rgb(0, 0, 0); }
+//                ^ d: none
+.tag-half { width: math.div(4px, 2); }
+//                      ^ d: none
+.tag-size { width: to-rem(4px); }
+//                 ^ d: node_modules/pkg/scss/_fns.scss:4
+.tag-ghost { @extend %pkg-only; }
+//                    ^ d: none
+// node_modules answers a Sass name, never a CSS built-in, a sass: module's member or a placeholder (#590)

@@ -256,7 +256,6 @@ impl App {
                 break;
             }
         }
-        // One level up: the class the innermost named one extends, declared once.
         let inner = types
             .iter()
             .find(|&&d| search::jvm_type_name(lines[d - 1]).is_some());
@@ -592,7 +591,6 @@ impl App {
                 call_re.is_match(&h.text) || is_class(h) || component.is_match(&h.text)
             });
         }
-        // The argument count.
         let Some((count, angle)) = arguments(&self.buf.lines, self.line, range.end) else {
             return hits;
         };

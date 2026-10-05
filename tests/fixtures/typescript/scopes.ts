@@ -80,7 +80,7 @@ interface Deps {
 }
 
 // A destructured parameter wrapped by prettier: `}: Deps): void {` closes the parameters, not a
-// sibling block, and its `ledger` has no type the rules read.
+// sibling block, and its `ledger` is the `ledger` of `Deps` (#354).
 export function destructured({
   ledger,
   id,

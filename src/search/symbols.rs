@@ -38,10 +38,6 @@ macro_rules! jvm_mods {
     };
 }
 pub(super) use jvm_mods;
-/// [`jvm_mods`] and Scala's own modifiers (#416): `implicit`, `lazy`, `case`, `transparent`,
-/// `opaque`, and an access qualified by a scope, `private[shop]`, `protected[this]`. None of them
-/// stands before a Java or a Kotlin declaration, so a rule that reads them finds nothing new
-/// there.
 macro_rules! scala_mods {
     () => {
         concat!(
@@ -55,9 +51,6 @@ macro_rules! scala_mods {
     };
 }
 pub(super) use scala_mods;
-/// What a named Scala `given` writes after its name (#416): type parameters, `using` clauses,
-/// then the `:` of its type. An anonymous one, `given Ordering[User] = …`, writes its type where
-/// the name would stand, with no `:` after it, and declares no name.
 macro_rules! scala_given_tail {
     () => {
         r"\s*(?:\[[^\]]*\]\s*)?(?:\([^)]*\)\s*)*:"
@@ -81,8 +74,6 @@ pub(super) use jvm_return_type;
 /// `fun interface` stands before `fun`, so a Kotlin functional interface is listed under its own
 /// name; `companion object` has no name and falls out on the `\s+` before it. A `val` counts
 /// behind `const` only: the rest are fields and locals, which no kind lists.
-/// Scala's declarations share the row (#416): its modifiers, `trait`, `type` and `package
-/// object`; a Scala-only word never stands on a Java or a Kotlin line.
 const JVM_DECL_SYMBOL: &str = concat!(
     scala_mods!(),
     r"(?:class|interface|enum|record|typealias|@interface|object|trait|type|package\s+object",
@@ -90,15 +81,11 @@ const JVM_DECL_SYMBOL: &str = concat!(
     r"(?:[\w.]+(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?\??\.)?",
     r"(?P<name>[A-Za-z_]\w*)"
 );
-/// A Scala `given` with a name (#416), beside the declarations of [`JVM_DECL_SYMBOL`]; an
-/// anonymous one names its type, which it does not declare.
 const SCALA_GIVEN_SYMBOL: &str = concat!(
     scala_mods!(),
     r"given\s+`?(?P<name>[A-Za-z_]\w*)`?",
     scala_given_tail!()
 );
-/// Scala's methods, a row of their own (#416): a project holds far more of them than types, and
-/// the cap of `D` is counted per row. A Scala 3 extension's `def` stands on the `extension` line.
 const SCALA_DEF_SYMBOL: &str = concat!(
     "(?:",
     scala_mods!(),
@@ -298,11 +285,6 @@ macro_rules! php_mods {
     };
 }
 pub(super) use php_mods;
-/// The PHP half of [`SYMBOLS`], first half: what the language declares with a keyword other than
-/// `function`, behind the modifiers a member carries. A namespace is listed under its last part,
-/// the one `d` finds it by, and a typed constant under its name, not its type (#344). A property
-/// is a field, which no kind lists, and an `enum` case is what a type holds, as in every other
-/// kind; `define('X', …)` has no keyword before the name and is left out with them.
 const PHP_DECL_SYMBOL: &str = concat!(
     php_mods!(),
     r"(?:(?:class|interface|trait|enum)\s+|const\s+(?:[\w\\|&?()]+\s+)?|namespace\s+(?:[\w\\]+\\)?)",
@@ -406,13 +388,7 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     // `name ()`, the form without the `function` keyword: a `function name` line is already
     // listed by [`SYMBOL_PATTERN`], and requiring no keyword here keeps it off the list twice.
     (Some(Kind::Shell), r"^\s*(?P<name>[A-Za-z_]\w*)\s*\(\s*\)"),
-    // A function and a filter under the whole `Verb-Noun` name, which the shared pattern cuts at
-    // its `-`; a class and an enum (#420).
     (Some(Kind::PowerShell), POWERSHELL_SYMBOL),
-    // Dart from rows of its own (#414): the shared pattern lists `abstract interface class Repo`
-    // as `class`, and knows no function without a keyword. The types first, so the methods of
-    // the first files cannot crowd them off the list, then the functions and methods, then the
-    // getters and setters.
     (Some(Kind::Dart), DART_TYPE_SYMBOL),
     (Some(Kind::Dart), DART_FUNCTION_SYMBOL),
     (Some(Kind::Dart), DART_ACCESSOR_SYMBOL),
@@ -461,7 +437,6 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::C), C_TYPE_SYMBOL),
     (Some(Kind::C), C_TYPEDEF_SYMBOL),
     (Some(Kind::C), C_MACRO_SYMBOL),
-    // Objective-C's classes, protocols and methods (#417); no property, as no field.
     (Some(Kind::C), OBJC_TYPE_SYMBOL),
     (Some(Kind::C), OBJC_METHOD_SYMBOL),
     // C# likewise: `public sealed partial class Foo<T>` stands behind modifiers the shared
@@ -520,8 +495,6 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
         Some(Kind::Graphql),
         r"^(?:(?:type|interface|input|enum|union|scalar|fragment|query|mutation|subscription)\s+|directive\s+@)(?P<name>[A-Za-z_]\w*)",
     ),
-    // A stylesheet's mixins, functions, placeholders and keyframes under their names (#415). No
-    // selector, custom property or variable: Bootstrap alone has thousands of selectors.
     (
         Some(Kind::Css),
         r"^\s*(?:@(?:mixin|function|(?:-[a-z]+-)?keyframes)\s+|%)(?P<name>[A-Za-z_-][\w-]*)",

@@ -7,7 +7,6 @@ use super::*;
 /// The comment markers an annotation may start with: every kind's line comment.
 const MARKERS: [&str; 6] = ["//", "#", "--", ";", "%", "(*"];
 
-/// What an annotation wants `d` to show.
 #[derive(Debug)]
 enum Want {
     Jump(String),
@@ -17,7 +16,6 @@ enum Want {
     NotJump,
 }
 
-/// What `d` showed.
 #[derive(Debug)]
 enum Got {
     Jump(String),
@@ -53,7 +51,6 @@ fn annotation(line: &str) -> Option<(usize, &str)> {
     ))
 }
 
-/// The text of a `status:` line.
 fn status_line(line: &str) -> Option<&str> {
     let body = line.trim_start();
     let body = MARKERS.iter().find_map(|m| body.strip_prefix(m))?;
@@ -236,7 +233,6 @@ fn d_answers_every_annotation_in_the_fixtures() {
     );
 }
 
-/// The failure of one case, if it fails.
 fn check(case: &Case) -> Option<String> {
     let here = format!("tests/fixtures/{}/{}:{}", case.fixture, case.file, case.at);
     let want = match &case.want {

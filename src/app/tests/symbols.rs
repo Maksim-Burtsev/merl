@@ -1,5 +1,3 @@
-//! `D`: the declarations of the project.
-
 use super::*;
 
 #[test]
@@ -160,25 +158,33 @@ fn symbols_past_the_cap_are_grepped_not_filtered() {
     let cut = a.picker.as_ref().unwrap().counts().1 as usize;
     assert_eq!(cut, search::MAX_HITS + 1, "a stale answer settles nothing");
 
-    // Case is ignored, as everywhere else: the query finds both spellings.
     a.settle_search();
     let p = a.picker.as_mut().unwrap();
-    assert_eq!(p.counts(), (2, 2));
+    assert_eq!(
+        p.counts(),
+        (2, 2),
+        "case is ignored, as everywhere else: the query finds both spellings"
+    );
     let rows = p.window(5).0;
     let mut labels: Vec<&str> = rows.iter().map(|r| r.item.label.as_str()).collect();
     labels.sort_unstable();
     assert_eq!(labels, ["Zebra  z.go:2", "zebra  z.go:1"]);
-    // nucleo ranks and marks what the grep brought back, as it does under the cap.
-    assert_eq!(rows[0].matched, [0, 1, 2, 3, 4]);
+    assert_eq!(
+        rows[0].matched,
+        [0, 1, 2, 3, 4],
+        "nucleo ranks and marks what the grep brought back, as it does under the cap"
+    );
 
-    // A capital of its own does not make the query exact: `zeBra` still finds both (#174).
     press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
     typed(&mut a, "zeBra");
     a.settle_search();
     let p = a.picker.as_mut().unwrap();
-    assert_eq!(p.counts(), (2, 2));
+    assert_eq!(
+        p.counts(),
+        (2, 2),
+        "a capital of its own does not make the query exact: `zeBra` still finds both (#174)"
+    );
 
-    // A name no declaration has: Enter keeps the list and the query, as under the cap (#288).
     press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
     typed(&mut a, "qqqqzz");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
@@ -187,7 +193,8 @@ fn symbols_past_the_cap_are_grepped_not_filtered() {
     let query = a.picker.as_ref().map(|p| p.query.to_string());
     assert_eq!(
         (a.mode, query.as_deref()),
-        (Mode::Picker(PickerKind::Symbols), Some("qqqqzz"))
+        (Mode::Picker(PickerKind::Symbols), Some("qqqqzz")),
+        "a name no declaration has: Enter keeps the list and the query, as under the cap (#288)"
     );
 
     press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);

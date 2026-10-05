@@ -479,18 +479,23 @@ impl App {
             .collect()
     }
 
-    /// The patterns for `word` cut to what its spelling under the cursor allows
-    /// ([`search::narrow_patterns`]), as `d` cuts them in the project: PowerShell's sigil
-    /// (#420), so `$Error` outside is no enum member `Error`, and Dart's constructor only where
-    /// its class is built (#414), so `Future` in a type is the class alone.
     pub(super) fn spelling_cut(&self, kind: Kind, word: &str, patterns: &mut Vec<String>) {
-        let line = self.line_str();
         if matches!(kind, Kind::PowerShell | Kind::Dart | Kind::Julia)
             && let Some((r, w)) = self.word_here(Some(kind))
             && w == word
         {
-            search::narrow_patterns(kind, patterns, "", line, r);
+            self.narrow(kind, patterns, "", r);
         }
+    }
+
+    pub(super) fn narrow(
+        &self,
+        kind: Kind,
+        p: &mut Vec<String>,
+        text: &str,
+        r: std::ops::Range<usize>,
+    ) {
+        search::narrow_patterns(kind, p, text, self.line, self.line_str(), r);
     }
 
     /// `pattern` over `files` outside the project, standard library first. The paths are
@@ -725,7 +730,9 @@ impl App {
             self.external.insert(kind, (roots, Arc::new(files)));
             self.node_modules_of = Some(here.to_path_buf());
         }
-        if let Some(here) = here.filter(|_| matches!(kind, Kind::Elixir | Kind::Solidity)) {
+        if let Some(here) =
+            here.filter(|_| matches!(kind, Kind::Elixir | Kind::Solidity | Kind::Css))
+        {
             let roots = match kind {
                 Kind::Elixir => {
                     let otp = match &self.otp {

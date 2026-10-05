@@ -1,0 +1,57 @@
+wait stampJob: by name, 2 declarations
+┌orders──────────────────────┐ 1 #import "CrcStamp.h"
+│▸ .github                   │ 2
+│▸ .venv                     │ 3 @implementation CrcStamp
+│▸ app                       │ 4 - (unsigned int)stampJob:(NSData *)job {
+│▸ data                      │ 5     return 0;
+│▸ deploy                    │ 6 }
+│▸ docs                      │ 7
+│▸ scripts                   │ 8 - (void)log {
+│▸ tests                     │ 9     [self stampJob:nil];
+│▸ web                       │10 }
+│▾ worker                    │11 @end
+│  ▾ internal                │        ┌stampJob: by name, 2 declarations (2/2)──────────────────────────────────────────────────────────────────────────────────────────────────┐
+│    ▾ crc                   │        │>                                                                                                                                        │
+│        client.c            │        │                   worker/internal/crc/CrcStamp.m                                                                                        │
+│        crc.c               │        │stampJob  by name    4  - (unsigned int)stampJob:(NSData *)job {                                                                         │
+│        crc.h               │        │                   worker/internal/crc/CrcStamp.h                                                                                        │
+│        CrcStamp.h          │        │stampJob  by name    4  - (unsigned int)stampJob:(NSData *)job;                                                                          │
+│        CrcStamp.m          │        │                                                                                                                                         │
+│        log.c               │        │                                                                                                                                         │
+│        mode.cc             │        │                                                                                                                                         │
+│    ▸ queue                 │        │                                                                                                                                         │
+│    go.mod                  │        │                                                                                                                                         │
+│    main.go                 │        │                                                                                                                                         │
+│  .env                      │        │                                                                                                                                         │
+│  .gitignore                │        │                                                                                                                                         │
+│  docker-compose.yml        │        │                                                                                                                                         │
+│  Dockerfile                │        │                                                                                                                                         │
+│  Makefile                  │        │                                                                                                                                         │
+│  pyproject.toml            │        │                                                                                                                                         │
+│  README.md                 │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+worker/internal/crc/CrcStamp.m  9:11  [code]  stampJob: by name, 2 declarations
+cursor (x,y,shown) 41,12,1

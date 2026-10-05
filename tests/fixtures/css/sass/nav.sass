@@ -1,0 +1,17 @@
+// .nav-ghost is no rule
+  .nav-ghost-too
+.nav
+  display: flex
+  &__item
+    margin: 0
+    &--active
+      color: red
+  &:hover
+    color: blue
+=pill($r)
+  border-radius: $r
+.nav-link,
+.nav-button
+  +pill(4px)
+  &.is-on
+    color: green

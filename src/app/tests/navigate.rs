@@ -487,11 +487,10 @@ fn a_path_in_front_of_the_word_is_joined_as_the_kind_qualifies() {
             "Bare::open",
             picker("open: by name, 4 declarations", &cpp),
         ),
-        // A value called like a type, behind a `.`: a `lid`, whatever `crate::open` reads.
         (
             "depot.cpp",
             "crate.open",
-            picker("open: by name, 4 declarations", &cpp),
+            jump("open \u{2192} lid::open (via crate: lid)", "depot.cpp:20"),
         ),
     ];
     for (file, code, want) in cases {
