@@ -8,9 +8,9 @@ use super::*;
 /// be unknown, and then nothing behind it answers; two bindings of one scope still disagree.
 #[test]
 fn the_innermost_binding_wins() {
-    let cases: Vec<(&str, &str, &str, Shown)> = vec![
-        // A parameter named like a module-level `def`.
+    let cases: Vec<(&str, &str, &str, &str, Shown)> = vec![
         (
+            "A parameter named like a module-level `def`",
             "python",
             "scopes.py",
             "save.find_user",
@@ -19,8 +19,8 @@ fn the_innermost_binding_wins() {
                 "repos.py:5",
             ),
         ),
-        // A local hides the module's variable, in the function and in a closure inside it.
         (
+            "A local hides the module's variable, in the function and in a closure inside it",
             "python",
             "scopes.py",
             "ledger.find_user|(user_id)",
@@ -30,6 +30,7 @@ fn the_innermost_binding_wins() {
             ),
         ),
         (
+            "A local hides the module's variable, in the function and in a closure inside it",
             "python",
             "scopes.py",
             "ledger.find_user|(user_id + 1)",
@@ -38,8 +39,8 @@ fn the_innermost_binding_wins() {
                 "repos.py:5",
             ),
         ),
-        // A function that binds no `ledger` reads the module's.
         (
+            "A function that binds no `ledger` reads the module's",
             "python",
             "scopes.py",
             "ledger.delete_user|(user_id + 2)",
@@ -48,8 +49,8 @@ fn the_innermost_binding_wins() {
                 "repos.py:13",
             ),
         ),
-        // Two bindings in one function disagree: which one reaches the line is control flow.
         (
+            "Two bindings in one function disagree: which one reaches the line is control flow",
             "python",
             "scopes.py",
             "ledger.delete_user|(3)",
@@ -61,8 +62,8 @@ fn the_innermost_binding_wins() {
                 ],
             ),
         ),
-        // A parameter with no annotation hides the module's `ledger`, which must not answer.
         (
+            "A parameter with no annotation hides the module's `ledger`, which must not answer",
             "python",
             "scopes.py",
             "ledger.delete_user|(user_id + 4)",
@@ -74,16 +75,15 @@ fn the_innermost_binding_wins() {
                 ],
             ),
         ),
-        // On the name itself, the declaration in its scope.
         (
+            "On the name itself, the declaration in its scope",
             "python",
             "scopes.py",
             "    ledger|.find_user(user_id)",
             jump("ledger \u{2192} rotate.ledger (local)", "scopes.py:15"),
         ),
-        // TypeScript: a `const` of the function, an arrow function's parameter, a block's `const`
-        // over the function's, and the function's own below that block.
         (
+            "TypeScript: a `const` of the function, an arrow function's parameter, a block's `const` over the function's, and the function's own below that block",
             "typescript",
             "scopes.ts",
             "ledger.findUser",
@@ -93,6 +93,7 @@ fn the_innermost_binding_wins() {
             ),
         ),
         (
+            "TypeScript: a `const` of the function, an arrow function's parameter, a block's `const` over the function's, and the function's own below that block",
             "typescript",
             "scopes.ts",
             "ledger.deleteUser|(id);",
@@ -102,6 +103,7 @@ fn the_innermost_binding_wins() {
             ),
         ),
         (
+            "TypeScript: a `const` of the function, an arrow function's parameter, a block's `const` over the function's, and the function's own below that block",
             "typescript",
             "scopes.ts",
             "ledger.deleteUser|(id + 1)",
@@ -111,6 +113,7 @@ fn the_innermost_binding_wins() {
             ),
         ),
         (
+            "TypeScript: a `const` of the function, an arrow function's parameter, a block's `const` over the function's, and the function's own below that block",
             "typescript",
             "scopes.ts",
             "ledger.deleteUser|(id + 2)",
@@ -119,8 +122,8 @@ fn the_innermost_binding_wins() {
                 "repos.ts:16",
             ),
         ),
-        // `any` hides the module's `ledger`.
         (
+            "`any` hides the module's `ledger`",
             "typescript",
             "scopes.ts",
             "ledger.deleteUser|(id + 3)",
@@ -132,9 +135,8 @@ fn the_innermost_binding_wins() {
                 ],
             ),
         ),
-        // The cursor is not inside an arrow function on its own line, or on the line the
-        // statement started on: its parameter counts and hides nothing.
         (
+            "The cursor is not inside an arrow function on its own line, or on the line the statement started on: its parameter counts and hides nothing",
             "typescript",
             "scopes.ts",
             "ledger.deleteUser|(repos.map",
@@ -147,6 +149,7 @@ fn the_innermost_binding_wins() {
             ),
         ),
         (
+            "The cursor is not inside an arrow function on its own line, or on the line the statement started on: its parameter counts and hides nothing",
             "typescript",
             "scopes.ts",
             "ledger.deleteUser|(id + 4)",
@@ -159,14 +162,14 @@ fn the_innermost_binding_wins() {
             ),
         ),
         (
+            "",
             "typescript",
             "scopes.ts",
             "  ledger|.findUser(id)",
             jump("ledger \u{2192} rotate.ledger (local)", "scopes.ts:6"),
         ),
-        // A literal under a line that also holds an arrow function: the cursor is in the
-        // literal, and the arrow's parameter hides nothing.
         (
+            "A literal under a line that also holds an arrow function: the cursor is in the literal, and the arrow's parameter hides nothing",
             "typescript",
             "scopes.ts",
             "ledger.deleteUser|(id + 5)",
@@ -178,9 +181,8 @@ fn the_innermost_binding_wins() {
                 ],
             ),
         ),
-        // Go: a `:=` over the package's `var`, a block's over the function's, and the package's
-        // where nothing hides it.
         (
+            "Go: a `:=` over the package's `var`, a block's over the function's, and the package's where nothing hides it",
             "go",
             "scopes.go",
             "ledger.FindUser",
@@ -190,6 +192,7 @@ fn the_innermost_binding_wins() {
             ),
         ),
         (
+            "Go: a `:=` over the package's `var`, a block's over the function's, and the package's where nothing hides it",
             "go",
             "scopes.go",
             "ledger.DeleteUser|(id + 1)",
@@ -199,6 +202,7 @@ fn the_innermost_binding_wins() {
             ),
         ),
         (
+            "Go: a `:=` over the package's `var`, a block's over the function's, and the package's where nothing hides it",
             "go",
             "scopes.go",
             "ledger.DeleteUser|(id + 2)",
@@ -208,6 +212,7 @@ fn the_innermost_binding_wins() {
             ),
         ),
         (
+            "Go: a `:=` over the package's `var`, a block's over the function's, and the package's where nothing hides it",
             "go",
             "scopes.go",
             "ledger.DeleteUser|(id + 3)",
@@ -216,8 +221,8 @@ fn the_innermost_binding_wins() {
                 "repos.go:21",
             ),
         ),
-        // The second name of a `:=` is unknown and hides the package's.
         (
+            "The second name of a `:=` is unknown and hides the package's",
             "go",
             "scopes.go",
             "ledger.DeleteUser|(id + 4)",
@@ -229,8 +234,8 @@ fn the_innermost_binding_wins() {
                 ],
             ),
         ),
-        // An `if` header and its body are read as one scope, so their two `ledger` disagree.
         (
+            "An `if` header and its body are read as one scope, so their two `ledger` disagree",
             "go",
             "scopes.go",
             "ledger.DeleteUser|(id + 5)",
@@ -243,6 +248,7 @@ fn the_innermost_binding_wins() {
             ),
         ),
         (
+            "",
             "go",
             "scopes.go",
             "	ledger|.FindUser(id)",
@@ -251,8 +257,8 @@ fn the_innermost_binding_wins() {
                 "scopes.go:10",
             ),
         ),
-        // A composite literal under a line that also holds a `func`.
         (
+            "A composite literal under a line that also holds a `func`",
             "go",
             "scopes.go",
             "ledger.DeleteUser|(id + 6)",
@@ -264,10 +270,8 @@ fn the_innermost_binding_wins() {
                 ],
             ),
         ),
-        // A sibling block's callback or loop is not around the cursor of the `else` or the
-        // `catch`, which reads the parameter of its own function. A callback on the lines
-        // of the header itself counts, as one on the cursor's line does, and hides nothing.
         (
+            "A sibling block's callback or loop is not around the cursor of the `else` or the `catch`, which reads the parameter of its own function. A callback on the lines of the header itself counts, as one on the cursor's line does, and hides nothing",
             "go",
             "scopes.go",
             "ledger.DeleteUser|(7)",
@@ -277,6 +281,7 @@ fn the_innermost_binding_wins() {
             ),
         ),
         (
+            "A sibling block's callback or loop is not around the cursor of the `else` or the `catch`, which reads the parameter of its own function. A callback on the lines of the header itself counts, as one on the cursor's line does, and hides nothing",
             "go",
             "scopes.go",
             "ledger.DeleteUser|(8)",
@@ -286,6 +291,7 @@ fn the_innermost_binding_wins() {
             ),
         ),
         (
+            "A sibling block's callback or loop is not around the cursor of the `else` or the `catch`, which reads the parameter of its own function. A callback on the lines of the header itself counts, as one on the cursor's line does, and hides nothing",
             "go",
             "scopes.go",
             "ledger.DeleteUser|(9)",
@@ -298,6 +304,7 @@ fn the_innermost_binding_wins() {
             ),
         ),
         (
+            "A sibling block's callback or loop is not around the cursor of the `else` or the `catch`, which reads the parameter of its own function. A callback on the lines of the header itself counts, as one on the cursor's line does, and hides nothing",
             "typescript",
             "scopes.ts",
             "ledger.deleteUser|(id + 6)",
@@ -307,6 +314,7 @@ fn the_innermost_binding_wins() {
             ),
         ),
         (
+            "A sibling block's callback or loop is not around the cursor of the `else` or the `catch`, which reads the parameter of its own function. A callback on the lines of the header itself counts, as one on the cursor's line does, and hides nothing",
             "typescript",
             "scopes.ts",
             "ledger.deleteUser|(id + 7)",
@@ -316,6 +324,7 @@ fn the_innermost_binding_wins() {
             ),
         ),
         (
+            "A sibling block's callback or loop is not around the cursor of the `else` or the `catch`, which reads the parameter of its own function. A callback on the lines of the header itself counts, as one on the cursor's line does, and hides nothing",
             "typescript",
             "scopes.ts",
             "ledger.deleteUser|(id + 8)",
@@ -328,6 +337,7 @@ fn the_innermost_binding_wins() {
             ),
         ),
         (
+            "A sibling block's callback or loop is not around the cursor of the `else` or the `catch`, which reads the parameter of its own function. A callback on the lines of the header itself counts, as one on the cursor's line does, and hides nothing",
             "typescript",
             "scopes.ts",
             "ledger.deleteUser|(id + 9",
@@ -339,8 +349,8 @@ fn the_innermost_binding_wins() {
                 ],
             ),
         ),
-        // A docstring's example binds nothing: the module's `ledger` is read.
         (
+            "A docstring's example binds nothing: the module's `ledger` is read",
             "python",
             "scopes.py",
             "ledger.delete_user|(user_id + 5)",
@@ -349,8 +359,8 @@ fn the_innermost_binding_wins() {
                 "repos.py:13",
             ),
         ),
-        // The arrow function's line ends in `=>`: its body is the lines below.
         (
+            "The arrow function's line ends in `=>`: its body is the lines below",
             "typescript",
             "scopes.ts",
             "ledger.deleteUser|(id + 10)",
@@ -359,22 +369,18 @@ fn the_innermost_binding_wins() {
                 "repos.ts:10",
             ),
         ),
-        // A destructured parameter under a header closed by `}: Deps): void {` hides the
-        // module's `ledger` and has no type of its own.
         (
+            "A destructured parameter under a header closed by `}: Deps): void {` hides the module's `ledger` and has the type of the field of `Deps` (#354)",
             "typescript",
             "scopes.ts",
             "ledger.deleteUser|(id + 11)",
-            picker(
-                "deleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.deleteUser", "repos.ts:10"),
-                    ("AuditLog.deleteUser", "repos.ts:16"),
-                ],
+            jump(
+                "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
+                "repos.ts:10",
             ),
         ),
-        // A backtick inside a regex opens no template: the `const` under it is read.
         (
+            "A backtick inside a regex opens no template: the `const` under it is read",
             "typescript",
             "scopes.ts",
             "ledger.deleteUser|(id + 12)",
@@ -384,10 +390,10 @@ fn the_innermost_binding_wins() {
             ),
         ),
     ];
-    for (fixture, file, code, want) in cases {
+    for (name, fixture, file, code, want) in cases {
         let mut a = fixture_app(fixture);
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        assert_eq!(shown(&mut a), want, "{name}: {fixture}: {file}: {code}");
     }
 }
 
@@ -397,9 +403,9 @@ fn the_innermost_binding_wins() {
 /// and a collection declared twice stay unknown.
 #[test]
 fn a_loop_variable_is_an_element_of_a_written_collection() {
-    let cases: Vec<(&str, &str, &str, Shown)> = vec![
-        // An annotated parameter: `list[T]`, and `tuple[T, ...]` in quotes.
+    let cases: Vec<(&str, &str, &str, &str, Shown)> = vec![
         (
+            "An annotated parameter: `list[T]`, and `tuple[T, ...]` in quotes",
             "python",
             "elements.py",
             "repo.delete_user|(user_id)",
@@ -409,6 +415,7 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
             ),
         ),
         (
+            "An annotated parameter: `list[T]`, and `tuple[T, ...]` in quotes",
             "python",
             "elements.py",
             "log.delete_user",
@@ -417,8 +424,8 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
                 "repos.py:13",
             ),
         ),
-        // The collection came from a function that declares what it returns.
         (
+            "The collection came from a function that declares what it returns",
             "python",
             "elements.py",
             "repo.delete_user|(user_id + 3)",
@@ -427,8 +434,8 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
                 "repos.py:8",
             ),
         ),
-        // The list itself is no `UserRepository`: a builtin, with no source (#336).
         (
+            "The list itself is no `UserRepository`: a builtin, with no source (#336)",
             "python",
             "elements.py",
             "repos.delete_user",
@@ -437,8 +444,8 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
                 "elements.py:15",
             ),
         ),
-        // A `dict` hands out its keys; a tuple target over a call is not read.
         (
+            "A `dict` hands out its keys; a tuple target over a call is not read",
             "python",
             "elements.py",
             "key.delete_user",
@@ -451,6 +458,7 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
             ),
         ),
         (
+            "A `dict` hands out its keys; a tuple target over a call is not read",
             "python",
             "elements.py",
             "repo.delete_user|(user_id + 5)",
@@ -462,8 +470,8 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
                 ],
             ),
         ),
-        // `repos` is assigned again with no type written: not every declaration says what it holds.
         (
+            "`repos` is assigned again with no type written: not every declaration says what it holds",
             "python",
             "elements.py",
             "repo.delete_user|(user_id + 6)",
@@ -475,8 +483,8 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
                 ],
             ),
         ),
-        // Two annotations that disagree.
         (
+            "Two annotations that disagree",
             "python",
             "elements.py",
             "repo.delete_user|(user_id + 7)",
@@ -488,8 +496,8 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
                 ],
             ),
         ),
-        // TypeScript: `T[]`, `ReadonlyArray<T>`, a declared return type.
         (
+            "TypeScript: `T[]`, `ReadonlyArray<T>`, a declared return type",
             "typescript",
             "elements.ts",
             "repo.deleteUser|(id);",
@@ -499,6 +507,7 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
             ),
         ),
         (
+            "TypeScript: `T[]`, `ReadonlyArray<T>`, a declared return type",
             "typescript",
             "elements.ts",
             "log.deleteUser",
@@ -508,6 +517,7 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
             ),
         ),
         (
+            "TypeScript: `T[]`, `ReadonlyArray<T>`, a declared return type",
             "typescript",
             "elements.ts",
             "repo.deleteUser|(id + 2)",
@@ -516,8 +526,8 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
                 "repos.ts:10",
             ),
         ),
-        // The array itself, a `Map`'s pairs and the keys of `for … in`.
         (
+            "The array itself, a `Map`'s pairs and the keys of `for … in`",
             "typescript",
             "elements.ts",
             "repos.deleteUser",
@@ -530,6 +540,7 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
             ),
         ),
         (
+            "The array itself, a `Map`'s pairs and the keys of `for … in`",
             "typescript",
             "elements.ts",
             "entry.deleteUser",
@@ -542,6 +553,7 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
             ),
         ),
         (
+            "The array itself, a `Map`'s pairs and the keys of `for … in`",
             "typescript",
             "elements.ts",
             "index.deleteUser",
@@ -553,8 +565,8 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
                 ],
             ),
         ),
-        // Go: the second variable of a `range` over `[]*T`, over `map[K]T`, over a declared result.
         (
+            "Go: the second variable of a `range` over `[]*T`, over `map[K]T`, over a declared result",
             "go",
             "elements.go",
             "repo.DeleteUser|(id)",
@@ -564,6 +576,7 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
             ),
         ),
         (
+            "Go: the second variable of a `range` over `[]*T`, over `map[K]T`, over a declared result",
             "go",
             "elements.go",
             "entry.DeleteUser",
@@ -573,6 +586,7 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
             ),
         ),
         (
+            "Go: the second variable of a `range` over `[]*T`, over `map[K]T`, over a declared result",
             "go",
             "elements.go",
             "repo.DeleteUser|(id + 2)",
@@ -581,8 +595,8 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
                 "repos.go:15",
             ),
         ),
-        // A single variable is an index or a key, or the element of a channel the rules do not read.
         (
+            "A single variable is an index or a key, or the element of a channel the rules do not read",
             "go",
             "elements.go",
             "repo.DeleteUser|(id + 3)",
@@ -594,8 +608,8 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
                 ],
             ),
         ),
-        // A slice made or written out in place says what it holds.
         (
+            "A slice made or written out in place says what it holds",
             "go",
             "elements.go",
             "repo.DeleteUser|(id + 4)",
@@ -605,6 +619,7 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
             ),
         ),
         (
+            "A slice made or written out in place says what it holds",
             "go",
             "elements.go",
             "entry.DeleteUser|(id + 5)",
@@ -613,8 +628,8 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
                 "repos.go:21",
             ),
         ),
-        // A named slice type, read where it is declared.
         (
+            "A named slice type, read where it is declared",
             "go",
             "elements.go",
             "repo.DeleteUser|(id + 6)",
@@ -623,8 +638,8 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
                 "repos.go:15",
             ),
         ),
-        // An element handed on to another name is one hop too many.
         (
+            "An element handed on to another name is one hop too many",
             "python",
             "elements.py",
             "current.delete_user",
@@ -636,9 +651,8 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
                 ],
             ),
         ),
-        // A named map, a named slice declared in another package, and a `type X = []T`
-        // alias, which is not read.
         (
+            "A named map, a named slice declared in another package, and a `type X = []T` alias, which is not read",
             "go",
             "elements.go",
             "repo.DeleteUser|(id + 7)",
@@ -648,6 +662,7 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
             ),
         ),
         (
+            "A named map, a named slice declared in another package, and a `type X = []T` alias, which is not read",
             "go",
             "elements.go",
             "session.Close",
@@ -657,6 +672,7 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
             ),
         ),
         (
+            "A named map, a named slice declared in another package, and a `type X = []T` alias, which is not read",
             "go",
             "elements.go",
             "repo.DeleteUser|(id + 8)",
@@ -669,9 +685,9 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
             ),
         ),
     ];
-    for (fixture, file, code, want) in cases {
+    for (name, fixture, file, code, want) in cases {
         let mut a = fixture_app(fixture);
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        assert_eq!(shown(&mut a), want, "{name}: {fixture}: {file}: {code}");
     }
 }

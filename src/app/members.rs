@@ -32,9 +32,6 @@ impl App {
             .collect())
     }
 
-    /// The top-level declarations of `name` in the Go package outside the project that the
-    /// import `path` names (#334): the directory `via import` reads, standard library or module,
-    /// among the files outside already walked. A type declared per platform is the host's.
     fn outside_declarations(&self, path: &[String], name: &str) -> Vec<Candidate> {
         let kind = Kind::Go;
         let (Some((_, all)), Some(last)) = (self.external.get(&kind), path.last()) else {
@@ -137,7 +134,6 @@ impl App {
     /// file of its package (a `_test.go` file only from a test). An external test package,
     /// `package x_test`, shares the directory with `package x` but not its names (#332).
     pub(super) fn package_files(&self, kind: Kind, file: &Path) -> Vec<PathBuf> {
-        // A package outside the project is its directory among the files walked there (#334).
         if kind == Kind::Go
             && file.is_absolute()
             && let Some((_, all)) = self.external.get(&kind)
@@ -199,13 +195,6 @@ impl App {
         self.host_built(kind, hits)
     }
 
-    /// Of several Go declarations of one name, those in files the host's `go build` compiles
-    /// (#100): `Clock` of `clock_linux.go` and of `clock_windows.go` is one type per platform.
-    /// A tag of the project's own (`gogit`) is unset, as it is for a plain `go build`, unless
-    /// `GOFLAGS` sets it (#137). Only on certainty: every file is known to be built or known not
-    /// to be ([`search::go_built`]), so a constraint the rules do not read leaves all of them.
-    /// Asked from the open file, which the host must not be known to skip: inside
-    /// `clock_windows.go` on another host, or inside `repo_gogit.go`, nothing is preferred.
     pub(super) fn host_built(&self, kind: Kind, hits: Vec<Hit>) -> Vec<Hit> {
         if kind != Kind::Go || hits.len() < 2 {
             return hits;
@@ -230,9 +219,6 @@ impl App {
             .collect()
     }
 
-    /// The line on which `ty` itself declares the field `word` (#104), [`search::field_line`]: a
-    /// class-body annotation, a constructor parameter, a struct field, or with `assigned` the
-    /// first `self.word = …` of a type that declares it no other way.
     pub(super) fn field_of(
         &self,
         kind: Kind,
@@ -251,11 +237,6 @@ impl App {
         })
     }
 
-    /// The project's declarations of `word` by name as a member of any type: the lines `members`
-    /// matches, and each type's declaration of a field `word` ([`search::field_rows`]), so a type
-    /// is one row and a local or a literal's key of that name is none (#104). The field lines are
-    /// grepped apart: their patterns match object keys, locals and keyword arguments too, which
-    /// must not push a method past [`search::MAX_HITS`], and a cut there is kept for the count.
     pub(super) fn members_by_name(
         &mut self,
         kind: Kind,
@@ -301,7 +282,6 @@ impl App {
         hits
     }
 
-    /// Whether `h` is a Python `def` in the body of a function: a local of it, no member (#338).
     pub(super) fn python_nested_def(&self, h: &Hit) -> bool {
         let t = h.text.trim_start();
         (t.starts_with("def ") || t.starts_with("async def "))
@@ -310,8 +290,6 @@ impl App {
                 .is_some_and(|text| search::python_in_function(&text, h.line))
     }
 
-    /// What a field's own declaration offers (#104): the declarations of its name as a member of
-    /// any type, by name, the declaration itself among them.
     pub(super) fn field_namesakes(
         &mut self,
         kind: Kind,
@@ -330,17 +308,6 @@ impl App {
             .collect()
     }
 
-    /// #68 step 6. What implements the member the cursor stands on: the same member in the types
-    /// that implement the interface, protocol, abstract or base class declaring it. Empty when
-    /// the cursor is not on such a declaration, and when nothing implements it, and `d` then goes
-    /// on as before.
-    ///
-    /// A Python class and a TypeScript class or interface implement another by naming it, so the
-    /// subtypes are walked down from the type ([`Self::subtype_impls`]). A Go type and a Python
-    /// `Protocol` implementer name nothing, so there the rule is structural: a member of the same
-    /// name taking the same number of parameters, which is what Go's implicit interfaces and a
-    /// protocol ask for. Only the project is searched: an interface is opened to find what this
-    /// project does with it.
     pub(super) fn implementations(
         &self,
         kind: Kind,
@@ -355,7 +322,6 @@ impl App {
         let declares = search::member_or_signature(kind, word)
             .and_then(|p| Regex::new(&p.join("|")).ok())
             .is_some_and(|re| re.is_match(self.line_str()));
-        // On the name the line declares, not on another occurrence of it there (#517).
         let declares = declares && self.on_declared_name(kind, word, true);
         let Some(owner_line) = search::owner_decl(kind, text, line).filter(|_| declares) else {
             return Vec::new();
