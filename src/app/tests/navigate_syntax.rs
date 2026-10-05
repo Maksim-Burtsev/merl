@@ -972,7 +972,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             "^onlyNested",
             jump(
                 "onlyNested: by name, 1 match",
-                "node_modules/other/node_modules/lib/nested.d.ts:1",
+                "node_modules/lib/index.d.ts:4",
             ),
         ),
         (

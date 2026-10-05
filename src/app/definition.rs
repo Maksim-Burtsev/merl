@@ -1769,10 +1769,8 @@ impl App {
                 .collect();
             // One method outside is no proof while a field of the name is declared outside
             // too, which is never listed (#342): the one method is offered, counted `1+`.
-            let (external, field) = match kind {
-                Kind::Python => self.python_members(&files, &imports, members, &word),
-                _ => (self.external_grep(kind, &files, members), false),
-            };
+            let (external, field) =
+                self.outside_members(kind, &all, &files, &imports, members, &word);
             if found.is_empty() && external.len() == 1 && field {
                 self.truncated.set(true);
             }

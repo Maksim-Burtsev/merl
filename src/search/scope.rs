@@ -370,6 +370,51 @@ pub fn node_modules(root: &Path, file: &Path) -> Vec<PathBuf> {
         .filter(|dir| dir.is_dir())
         .collect()
 }
+pub fn nearest_copies(roots: &[PathBuf], files: Vec<PathBuf>) -> Vec<PathBuf> {
+    let real: Vec<PathBuf> = roots.iter().filter_map(|r| r.canonicalize().ok()).collect();
+    let mut kept: std::collections::HashMap<PathBuf, bool> = std::collections::HashMap::new();
+    files
+        .into_iter()
+        .filter(|f| {
+            nested_packages(roots, f).into_iter().all(|(dir, name)| {
+                *kept.entry(dir).or_insert_with_key(|dir| {
+                    let nearest = roots.iter().find_map(|r| r.join(&name).canonicalize().ok());
+                    nearest.is_none_or(|n| {
+                        !real.iter().any(|r| n.starts_with(r)) || dir.canonicalize().ok() == Some(n)
+                    })
+                })
+            })
+        })
+        .collect()
+}
+fn nested_packages(roots: &[PathBuf], file: &Path) -> Vec<(PathBuf, PathBuf)> {
+    let Some(root) = roots.iter().find(|r| file.starts_with(r)) else {
+        return Vec::new();
+    };
+    let parts: Vec<_> = file
+        .strip_prefix(root)
+        .unwrap_or(file)
+        .components()
+        .collect();
+    let mut dir = root.clone();
+    let mut found = Vec::new();
+    for (i, part) in parts.iter().enumerate() {
+        dir.push(part);
+        if part.as_os_str() != "node_modules" || roots.contains(&dir) {
+            continue;
+        }
+        let scoped =
+            (parts.get(i + 1)).is_some_and(|p| p.as_os_str().to_string_lossy().starts_with('@'));
+        let name: PathBuf = parts[i + 1..]
+            .iter()
+            .take(1 + usize::from(scoped))
+            .collect();
+        if parts.len() > i + 1 + name.components().count() {
+            found.push((dir.join(&name), name));
+        }
+    }
+    found
+}
 /// The `deps/` a Mix project of the project `root` fetches its dependencies into, as source, for
 /// an Elixir file in `file` (#437): beside every `mix.exs` from the file's directory up to `root`,
 /// nearest first, so an umbrella app finds the umbrella's. `mix new` gitignores it, so the project

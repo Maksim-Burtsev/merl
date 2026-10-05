@@ -323,7 +323,53 @@ impl App {
         })
     }
 
-    pub(super) fn python_members(
+    pub(super) fn outside_members(
+        &self,
+        kind: Kind,
+        all: &[PathBuf],
+        files: &[PathBuf],
+        imports: &[(String, Vec<String>)],
+        members: &str,
+        word: &str,
+    ) -> (Vec<Hit>, bool) {
+        match kind {
+            Kind::Python => self.python_members(files, imports, members, word),
+            Kind::TsJs => match self.ts_imported_members(all, imports, members) {
+                Some(hits) => (hits, false),
+                None => (self.external_grep(kind, files, members), false),
+            },
+            _ => (self.external_grep(kind, files, members), false),
+        }
+    }
+
+    fn ts_imported_members(
+        &self,
+        all: &[PathBuf],
+        imports: &[(String, Vec<String>)],
+        members: &str,
+    ) -> Option<Vec<Hit>> {
+        let (roots, _) = self.external.get(&Kind::TsJs)?;
+        let mut packages: Vec<&[String]> = (imports.iter())
+            .filter_map(|(_, path)| {
+                let first = path.first().filter(|f| !f.starts_with(['.', '/']))?;
+                let parts = 1 + usize::from(first.starts_with('@'));
+                path.get(..parts).filter(|_| path.len() > parts)
+            })
+            .collect();
+        packages.sort();
+        packages.dedup();
+        let mut reached: Vec<PathBuf> = (packages.into_iter())
+            .filter_map(|p| search::package_copy(&self.root, roots, all, &self.files, p))
+            .flat_map(|copy| copy.files)
+            .filter(|f| search::declaration_file(f))
+            .collect();
+        reached.sort();
+        reached.dedup();
+        let hits = self.external_grep(Kind::TsJs, &reached, members);
+        (hits.len() > 1).then_some(hits)
+    }
+
+    fn python_members(
         &self,
         files: &[PathBuf],
         imports: &[(String, Vec<String>)],
@@ -645,10 +691,6 @@ impl App {
     /// ponytail: lives for the session, unlike the project walk. A `pip install` mid-session
     /// needs a restart.
     pub(super) fn external_files(&mut self, kind: Kind) -> Arc<Vec<PathBuf>> {
-        // TypeScript's roots depend on where the open file is (#100). Each `node_modules` is
-        // walked once; one inside another already listed adds no file of its own. They are
-        // inside the project, so a test's `no_external`, which lists no root, does not hide
-        // them either; roots a test lists are kept.
         let here = self.buf.path.as_ref().and_then(|p| p.parent());
         if let Some(here) = here.filter(|_| kind == Kind::TsJs)
             && (self.node_modules_of.is_some()
@@ -666,6 +708,7 @@ impl App {
                 });
                 files.extend(walked.iter().cloned());
             }
+            let files = search::nearest_copies(&roots, files);
             self.external.insert(kind, (roots, Arc::new(files)));
             self.node_modules_of = Some(here.to_path_buf());
         }
