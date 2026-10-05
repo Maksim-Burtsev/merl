@@ -47,6 +47,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `--review`: a file with nothing to read that `c` or `C` walks past, or the review opens past
   (an empty `__init__.py`, a pure rename, a mode change), gets its viewed tick; a binary file or a
   submodule stays unticked until `m`. (#715)
+- A find match reads in the 14 themes whose match text all but vanished into its tint
+  (flexoki-dark, onedark-light, e-ink, e-ink-light, tokyonight-day, melange-light,
+  oxocarbon-light, minischeme, minischeme-light, edge-light, material-light, solarized-light,
+  everforest-light, selenized-light); every other theme draws as before. (#482)
 - `d` in PHP on a relative namespace segment in a file of several `namespace` blocks, `Legacy` in
   `Legacy\Entry::OPEN`, reads it in the block it stands in. It read it in the file's first block
   and said `no definition`. (#617)
