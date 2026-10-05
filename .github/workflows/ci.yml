@@ -13,7 +13,7 @@ jobs:
   # `d`, `u` and `D` at every cursor position of every fixture, failing on a panic (#543): 50
   # minutes on one runner in release, so only a release PR plays it, in shards (#711).
   no-panic:
-    if: startsWith(github.head_ref, 'release/') || github.head_ref == 'ci-panic-sweep-shards'
+    if: startsWith(github.head_ref, 'release/')
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
