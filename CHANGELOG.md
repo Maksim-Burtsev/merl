@@ -11,12 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `v` grows on to the whole file: a fourth press, after the word, the line and the paragraph,
   selects every line of the file, the cursor at its end; Ctrl+C then copies it all. (#635)
+- The selected row of every picker (`o`, `s`, `u`, `D`, `d`'s choices, `T`) and the tree's cursor
+  while the tree has the keys take the theme's selection colour instead of the cursor line's,
+  which could barely be seen (1.09:1 in the default theme). Where that colour sits too close to
+  the background it moves toward the text colour until it stands at 1.4:1, and where the text
+  would not read on it, back toward the background. (#556)
 
 ### Fixed
 
 - `--review`: a file with nothing to read that `c` or `C` walks past, or the review opens past
   (an empty `__init__.py`, a pure rename, a mode change), gets its viewed tick; a binary file or a
   submodule stays unticked until `m`. (#715)
+- Selected code reads in every theme: srcery and lackluster painted it in the text's own colour.
+  The code view's selection follows the same rule as the pickers' selected row. (#686)
 
 ## [0.8.2] - 2026-10-04
 

@@ -2,6 +2,8 @@ Esc
 Picker: Down
 Picker: Enter
 Picker: Esc
+Shift+Down
 T
+o
 q
 t

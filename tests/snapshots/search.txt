@@ -50,15 +50,15 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccc
-qqqqqqhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+qqqqqqrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #c8d3f5 bg #222436
-d fg #82aaff bg #1b1d2c
+d fg #82aaff bg #453755
 e fg #6c94fc bg #222436
-f fg #7d849f bg #1b1d2c
-g fg #86e1fc bg #1b1d2c
-h fg #c8d3f5 bg #1b1d2c
+f fg #7d849f bg #453755
+g fg #86e1fc bg #453755
+h fg #c8d3f5 bg #453755
 i fg #7d849f bg #222436
 j fg #89ddff bg #222436
 k fg #9abdf5 bg #222436
@@ -68,6 +68,7 @@ n fg #ff966c bg #222436
 o fg #86e1fc bg #222436
 p fg #ff757f bg #222436
 q fg #82aaff bg #1b1d2c BOLD
+r fg #c8d3f5 bg #1b1d2c
 
 ==== 80x24 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -93,19 +94,20 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccc
-llllllhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+llllllmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #1f2328 bg #ffffff
-d fg #6639ba bg #e7eaf0
+d fg #6639ba bg #ccdbea
 e fg #6c94fc bg #ffffff
-f fg #787b7e bg #e7eaf0
-g fg #cf222e bg #e7eaf0
-h fg #1f2328 bg #e7eaf0
+f fg #787b7e bg #ccdbea
+g fg #cf222e bg #ccdbea
+h fg #1f2328 bg #ccdbea
 i fg #787b7e bg #ffffff
 j fg #cf222e bg #ffffff
 k fg #0550ae bg #ffffff
 l fg #6639ba bg #e7eaf0 BOLD
+m fg #1f2328 bg #e7eaf0
 
 ==== 120x33 tokyonight-moon text, cursor 50,8
 ┌notes───────────────────────┐
@@ -175,14 +177,14 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-ppppppgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+ppppppqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #c8d3f5 bg #222436
-d fg #82aaff bg #1b1d2c
-e fg #7d849f bg #1b1d2c
-f fg #86e1fc bg #1b1d2c
-g fg #c8d3f5 bg #1b1d2c
+d fg #82aaff bg #453755
+e fg #7d849f bg #453755
+f fg #86e1fc bg #453755
+g fg #c8d3f5 bg #453755
 h fg #7d849f bg #222436
 i fg #89ddff bg #222436
 j fg #9abdf5 bg #222436
@@ -192,6 +194,7 @@ m fg #ff966c bg #222436
 n fg #86e1fc bg #222436
 o fg #ff757f bg #222436
 p fg #82aaff bg #1b1d2c BOLD
+q fg #c8d3f5 bg #1b1d2c
 
 ==== 120x33 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -226,18 +229,19 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-kkkkkkgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+kkkkkkllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #1f2328 bg #ffffff
-d fg #6639ba bg #e7eaf0
-e fg #787b7e bg #e7eaf0
-f fg #cf222e bg #e7eaf0
-g fg #1f2328 bg #e7eaf0
+d fg #6639ba bg #ccdbea
+e fg #787b7e bg #ccdbea
+f fg #cf222e bg #ccdbea
+g fg #1f2328 bg #ccdbea
 h fg #787b7e bg #ffffff
 i fg #cf222e bg #ffffff
 j fg #0550ae bg #ffffff
 k fg #6639ba bg #e7eaf0 BOLD
+l fg #1f2328 bg #e7eaf0
 
 ==== 185x55 tokyonight-moon text, cursor 53,12
 ┌notes───────────────────────┐
@@ -351,14 +355,14 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-ppppppggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+ppppppqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #c8d3f5 bg #222436
-d fg #82aaff bg #1b1d2c
-e fg #7d849f bg #1b1d2c
-f fg #86e1fc bg #1b1d2c
-g fg #c8d3f5 bg #1b1d2c
+d fg #82aaff bg #453755
+e fg #7d849f bg #453755
+f fg #86e1fc bg #453755
+g fg #c8d3f5 bg #453755
 h fg #7d849f bg #222436
 i fg #89ddff bg #222436
 j fg #9abdf5 bg #222436
@@ -368,6 +372,7 @@ m fg #ff966c bg #222436
 n fg #86e1fc bg #222436
 o fg #ff757f bg #222436
 p fg #82aaff bg #1b1d2c BOLD
+q fg #c8d3f5 bg #1b1d2c
 
 ==== 185x55 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -424,15 +429,16 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-kkkkkkggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+kkkkkklllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #1f2328 bg #ffffff
-d fg #6639ba bg #e7eaf0
-e fg #787b7e bg #e7eaf0
-f fg #cf222e bg #e7eaf0
-g fg #1f2328 bg #e7eaf0
+d fg #6639ba bg #ccdbea
+e fg #787b7e bg #ccdbea
+f fg #cf222e bg #ccdbea
+g fg #1f2328 bg #ccdbea
 h fg #787b7e bg #ffffff
 i fg #cf222e bg #ffffff
 j fg #0550ae bg #ffffff
 k fg #6639ba bg #e7eaf0 BOLD
+l fg #1f2328 bg #e7eaf0

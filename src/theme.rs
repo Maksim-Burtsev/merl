@@ -180,8 +180,6 @@ pub struct Theme {
     /// the theme gives function names, or the first other scope it colours, so every theme has
     /// one without a new key.
     pub accent: Color,
-    /// Background of the Shift+Up/Down line selection.
-    #[allow(dead_code)]
     pub selection: Color,
     /// Review, GitHub's diff colours over this theme: the rows the branch deleted and added, the
     /// words that changed on them, and those rows under the cursor (`_hl`, over `line_hl`). A
@@ -314,10 +312,10 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         .map(|percent| blend(toward, fg, percent))
         .find(|&c| contrast(c, tag_bg) >= WORD_CONTRAST)
         .unwrap_or(rgb(toward));
-    // The selection is drawn over the cursor line (#62) and, in a review, over added and
-    // deleted rows (#439), so a theme whose own selection colour sits within a few points of one
-    // of them gets one blended further from the background instead.
-    let mut selection = s.selection.map_or_else(|| blend(fg, bg, 25), over_bg);
+    let raw_selection = s
+        .selection
+        .map_or_else(|| mix(fg, bg, 25), |c| composite(c, bg));
+    let mut selection = shown(raw_selection, fg, bg);
     for percent in [35, 45, 55, 65] {
         if [line_hl, add_bg, add_bg_hl, del_bg, del_bg_hl]
             .into_iter()
@@ -325,7 +323,7 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         {
             break;
         }
-        selection = blend(fg, bg, percent);
+        selection = shown(mix(fg, bg, percent), fg, bg);
     }
 
     Ok(Theme {
@@ -422,6 +420,21 @@ const GHOST_MAX: u32 = 85;
 
 /// The contrast a changed word's text keeps on its tint: WCAG AA for body text.
 const WORD_CONTRAST: f64 = 4.5;
+
+const SELECTION_CONTRAST: f64 = 1.4;
+
+fn shown(selection: SynColor, fg: SynColor, bg: SynColor) -> Color {
+    let back = rgb(bg);
+    let toward_fg = (0..=100)
+        .map(|percent| mix(fg, selection, percent))
+        .find(|&c| contrast(rgb(c), back) >= SELECTION_CONTRAST)
+        .unwrap_or(fg);
+    let readable = (0..=100)
+        .map(|percent| mix(bg, toward_fg, percent))
+        .take_while(|&c| contrast(rgb(c), back) >= SELECTION_CONTRAST)
+        .find(|&c| contrast(rgb(fg), rgb(c)) >= WORD_CONTRAST);
+    rgb(readable.unwrap_or(toward_fg))
+}
 
 /// WCAG relative luminance, 0.0 (black) to 1.0 (white).
 fn luminance(c: Color) -> f64 {
@@ -910,6 +923,19 @@ mod tests {
             }
             let c = contrast(t.tag_fg, t.tag_bg);
             assert!(c >= WORD_CONTRAST, "{name}: tag text at {c:.2}");
+        }
+    }
+
+    #[test]
+    fn the_selection_shows_and_its_text_reads_in_every_theme() {
+        for name in names() {
+            let t = load(name).unwrap();
+            let (row, text) = (contrast(t.selection, t.bg), contrast(t.fg, t.selection));
+            assert!(row >= SELECTION_CONTRAST, "{name}: selection at {row:.2}");
+            assert!(
+                text >= WORD_CONTRAST || contrast(t.fg, t.bg) < WORD_CONTRAST * SELECTION_CONTRAST,
+                "{name}: text at {text:.2} on the selection at {row:.2}"
+            );
         }
     }
 

@@ -38,19 +38,19 @@ aeeeeeeeaaaaaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
 aeeeeeeeammmmmmnnnopppppppppppqrrrrsoooooosottttosottttqossoooooooqooooaeeeeeeee
 aeeeeeeeaaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
 aeeeeeeeauuuuuuvvvveeeeeeeevvvvvveeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
-aeeeeeeeauuuuuueeeeeefeaaaaaaaaagaaaaaaaaaaagggeeeeeeeeeeeeeeeeeeeeeeeeatqossooo
-aeeeeeeeaaaaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaoooooooo
+aeeeeeeeauuuuuueeeeeefeaaaaaaaaagaaaaaaaaaaagggeeeeeeeeeeeeeeeeeeeeeeeeawxyzzyyy
+aeeeeeeeaaaaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeayyyyyyyy
 aeeeeeeeauuuuuuvvvveeeeeeeevvvvvveeeeeeefeeeeeeeeeeeeeeeeeeeeeeeeeeeeeealllleeee
-aeeeeeeeauuuuuuwwwwfeeeeeeefeeeeeeeejjeaaaaaaaaaaaggeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeauuuuuuAAAAfeeeeeeefeeeeeeeejjeaaaaaaaaaaaggeeeeeeeeeeeeeeeeeeeaeeeeeeee
 aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaggeeeeee
 aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
 aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
 aeeeeeeeaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaeeeeeeee
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeexxxxxxeaaaaaageeeeeeeeeeeeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccaaaaaaaayyyyfaaaagaaafaaagfhhhhffaeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeBBBBBBeaaaaaageeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccaaaaaaaaCCCCfaaaagaaafaaagfhhhhffaeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeddddddddddddggfeeeeeeeeeeeeeeeeeeeeeeee
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccaaaaaaaayyyyyyyyyfkkkgaaafaaagfhhhhhhhhhffaeeee
-zzzzzzzzzooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccaaaaaaaaCCCCCCCCCfkkkgaaafaaagfhhhhhhhhhffaeeee
+DDDDDDDDDyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #32374f bg #222436
@@ -63,20 +63,24 @@ i fg #c8d3f5 bg #1e2031
 j fg #c099ff bg #222436
 k fg #0db9d7 bg #222436
 l fg #636da6 bg #222436 ITALIC
-m fg #7d849f bg #1b1d2c
-n fg #c099ff bg #1b1d2c
-o fg #c8d3f5 bg #1b1d2c
-p fg #82aaff bg #1b1d2c
-q fg #9abdf5 bg #1b1d2c
-r fg #ffc777 bg #1b1d2c
-s fg #89ddff bg #1b1d2c
-t fg #ff966c bg #1b1d2c
+m fg #7d849f bg #453755
+n fg #c099ff bg #453755
+o fg #c8d3f5 bg #453755
+p fg #82aaff bg #453755
+q fg #9abdf5 bg #453755
+r fg #ffc777 bg #453755
+s fg #89ddff bg #453755
+t fg #ff966c bg #453755
 u fg #7d849f bg #222436
 v fg #86e1fc bg #222436
-w fg #ff757f bg #222436
-x fg #c099ff bg #222436 ITALIC
-y fg #ffc777 bg #222436
-z fg #82aaff bg #1b1d2c BOLD
+w fg #ff966c bg #1b1d2c
+x fg #9abdf5 bg #1b1d2c
+y fg #c8d3f5 bg #1b1d2c
+z fg #89ddff bg #1b1d2c
+A fg #ff757f bg #222436
+B fg #c099ff bg #222436 ITALIC
+C fg #ffc777 bg #222436
+D fg #82aaff bg #1b1d2c BOLD
 
 ==== 80x24 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddedddddddddddddeddfffffffffffdddddd
@@ -90,8 +94,8 @@ adddddddaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
 adddddddajjjjjjkkklmmmmmmmmmmmllllllllllllklnnnnlklnnnnlllllllllllllllladddddddd
 adddddddaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
 adddddddaooooooeeeeddddddddeeeeeeddddddddddddddddddddddddddddddddddddddadddddddd
-adddddddaooooooddddddedddddddddddddddddddddddddddddddddddddddddddddddddanlllllll
-adddddddaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddallllllll
+adddddddaooooooddddddedddddddddddddddddddddddddddddddddddddddddddddddddapqqqqqqq
+adddddddaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddaqqqqqqqq
 adddddddaooooooeeeeddddddddeeeeeeddddddddddddddddddddddddddddddddddddddaiiiidddd
 adddddddaooooooddddddddddddeddddddddeedddddddddddddddddddddddddddddddddadddddddd
 adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
@@ -102,7 +106,7 @@ addddddddddddddddddddddddddddacccddddeeeeeeddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddddddddddddeddddddddddddddffffdddddddddddddddd
 addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddehhhddddddddddfffffffffddddddd
-ppppppppplllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll
+rrrrrrrrrqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #6e7781 bg #ffffff
@@ -112,13 +116,15 @@ f fg #0a3069 bg #ffffff
 g fg #1f2328 bg #f3f4f7
 h fg #953800 bg #ffffff
 i fg #57606a bg #ffffff
-j fg #787b7e bg #e7eaf0
-k fg #cf222e bg #e7eaf0
-l fg #1f2328 bg #e7eaf0
-m fg #6639ba bg #e7eaf0
-n fg #0550ae bg #e7eaf0
+j fg #787b7e bg #ccdbea
+k fg #cf222e bg #ccdbea
+l fg #1f2328 bg #ccdbea
+m fg #6639ba bg #ccdbea
+n fg #0550ae bg #ccdbea
 o fg #787b7e bg #ffffff
-p fg #6639ba bg #e7eaf0 BOLD
+p fg #0550ae bg #e7eaf0
+q fg #1f2328 bg #e7eaf0
+r fg #6639ba bg #e7eaf0 BOLD
 
 ==== 120x33 tokyonight-moon text, cursor 38,8
 ┌notes───────────────────────┐ 2
@@ -172,7 +178,7 @@ addddddddddddddddddddddddddddacccddatttttteeeeddddddddeeeeeedddddddddddddddddddd
 addddddddddddddddddddddddddddacccddattttttddddddhdaaaaaaaaaiaaaaaaaaaaaiiidddddddddddddddddddddddddddddddddddddddddadddd
 addddddddddddddddddddddddddddacccddaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
 addddddddddddddddddddddddddddacccddatttttteeeeddddddddeeeeeedddddddhdddddddddddddddddddddddddddddddddddddddddddddddadddd
-addddddddddddddddddddddddddddauuummattttttvvvvhdddddddhddddddddkkdaaaaaaaaaaaiiddddddddddddddddddddddddddddddddddddannnn
+addddddddddddddddddddddddddddauuuvvattttttwwwwhdddddddhddddddddkkdaaaaaaaaaaaiiddddddddddddddddddddddddddddddddddddaxxxx
 addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
 addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
 addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
@@ -188,7 +194,7 @@ addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-wwwwwwwwwnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+yyyyyyyyyxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #32374f bg #222436
@@ -200,18 +206,20 @@ h fg #89ddff bg #222436
 i fg #9abdf5 bg #222436
 j fg #c3e88d bg #222436
 k fg #c099ff bg #222436
-l fg #7d849f bg #1b1d2c
-m fg #c099ff bg #1b1d2c
-n fg #c8d3f5 bg #1b1d2c
-o fg #82aaff bg #1b1d2c
-p fg #9abdf5 bg #1b1d2c
-q fg #ffc777 bg #1b1d2c
-r fg #89ddff bg #1b1d2c
-s fg #ff966c bg #1b1d2c
+l fg #7d849f bg #453755
+m fg #c099ff bg #453755
+n fg #c8d3f5 bg #453755
+o fg #82aaff bg #453755
+p fg #9abdf5 bg #453755
+q fg #ffc777 bg #453755
+r fg #89ddff bg #453755
+s fg #ff966c bg #453755
 t fg #7d849f bg #222436
 u fg #32374f bg #1b1d2c
-v fg #ff757f bg #222436
-w fg #82aaff bg #1b1d2c BOLD
+v fg #c099ff bg #1b1d2c
+w fg #ff757f bg #222436
+x fg #c8d3f5 bg #1b1d2c
+y fg #82aaff bg #1b1d2c BOLD
 
 ==== 120x33 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
@@ -230,7 +238,7 @@ addddddddddddddddddddddddddddacccddammmmmmeeeeddddddddeeeeeedddddddddddddddddddd
 addddddddddddddddddddddddddddacccddammmmmmddddddeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
 addddddddddddddddddddddddddddacccddaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
 addddddddddddddddddddddddddddacccddammmmmmeeeeddddddddeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
-addddddddddddddddddddddddddddannniiammmmmmddddddddddddeddddddddeeddddddddddddddddddddddddddddddddddddddddddddddddddajjjj
+addddddddddddddddddddddddddddannnooammmmmmddddddddddddeddddddddeeddddddddddddddddddddddddddddddddddddddddddddddddddapppp
 addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
 addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
 addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
@@ -246,7 +254,7 @@ addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-ooooooooojjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+qqqqqqqqqppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #6e7781 bg #ffffff
@@ -254,14 +262,16 @@ d fg #1f2328 bg #ffffff
 e fg #cf222e bg #ffffff
 f fg #1f2328 bg #f3f4f7
 g fg #0a3069 bg #ffffff
-h fg #787b7e bg #e7eaf0
-i fg #cf222e bg #e7eaf0
-j fg #1f2328 bg #e7eaf0
-k fg #6639ba bg #e7eaf0
-l fg #0550ae bg #e7eaf0
+h fg #787b7e bg #ccdbea
+i fg #cf222e bg #ccdbea
+j fg #1f2328 bg #ccdbea
+k fg #6639ba bg #ccdbea
+l fg #0550ae bg #ccdbea
 m fg #787b7e bg #ffffff
 n fg #6e7781 bg #e7eaf0
-o fg #6639ba bg #e7eaf0 BOLD
+o fg #cf222e bg #e7eaf0
+p fg #1f2328 bg #e7eaf0
+q fg #6639ba bg #e7eaf0 BOLD
 
 ==== 185x55 tokyonight-moon text, cursor 41,12
 ┌notes───────────────────────┐ 1 """Configuration: where the notes live and how many are listed at once."""
@@ -338,12 +348,12 @@ aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaaaaaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeannnnnnooopqqqqqqqqqqqrsssstpppppptpuuuuptpuuuurpttppppppprpppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppaeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeavvvvvvffffeeeeeeeeffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeeawwwooopqavvvvvveeeeeeieaaaaaaaaajaaaaaaaaaaajjjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeapppppppp
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeawwwxxxyzavvvvvveeeeeeieaaaaaaaaajaaaaaaaaaaajjjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeayyyyyyyy
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeedaaaaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeelavvvvvvffffeeeeeeeeffffffeeeeeeeieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeavvvvvvxxxxieeeeeeeieeeeeeeelleaaaaaaaaaaajjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeavvvvvvAAAAieeeeeeeieeeeeeeelleaaaaaaaaaaajjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeyaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeBaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccaaaajaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
@@ -375,7 +385,7 @@ aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-zzzzzzzzzpppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+CCCCCCCCCyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #32374f bg #222436
@@ -389,19 +399,22 @@ j fg #9abdf5 bg #222436
 k fg #c3e88d bg #222436
 l fg #c099ff bg #222436
 m fg #0db9d7 bg #222436
-n fg #7d849f bg #1b1d2c
-o fg #c099ff bg #1b1d2c
-p fg #c8d3f5 bg #1b1d2c
-q fg #82aaff bg #1b1d2c
-r fg #9abdf5 bg #1b1d2c
-s fg #ffc777 bg #1b1d2c
-t fg #89ddff bg #1b1d2c
-u fg #ff966c bg #1b1d2c
+n fg #7d849f bg #453755
+o fg #c099ff bg #453755
+p fg #c8d3f5 bg #453755
+q fg #82aaff bg #453755
+r fg #9abdf5 bg #453755
+s fg #ffc777 bg #453755
+t fg #89ddff bg #453755
+u fg #ff966c bg #453755
 v fg #7d849f bg #222436
 w fg #32374f bg #1b1d2c
-x fg #ff757f bg #222436
-y fg #c099ff bg #222436 ITALIC
-z fg #82aaff bg #1b1d2c BOLD
+x fg #c099ff bg #1b1d2c
+y fg #c8d3f5 bg #1b1d2c
+z fg #82aaff bg #1b1d2c
+A fg #ff757f bg #222436
+B fg #c099ff bg #222436 ITALIC
+C fg #82aaff bg #1b1d2c BOLD
 
 ==== 185x55 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
@@ -421,7 +434,7 @@ addddddddddddddddddddddddddddacccdddddaaaaaaaaaadddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccdddddajjjjjjkkklmmmmmmmmmmmllllllllllllklnnnnlklnnnnllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllladddddddd
 addddddddddddddddddddddddddddacccdddddaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
 addddddddddddddddddddddddddddacccdddddaooooooffffddddddddffffffdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
-addddddddddddddddddddddddddddapppkkklmaooooooddddddfddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddallllllll
+addddddddddddddddddddddddddddapppqqqrsaooooooddddddfddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddarrrrrrrr
 addddddddddddddddddddddddddddacccdddddaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
 addddddddddddddddddddddddddddacccddddfaooooooffffddddddddffffffdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
 addddddddddddddddddddddddddddacccdddddaooooooddddddddddddfddddddddffddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
@@ -458,7 +471,7 @@ addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-qqqqqqqqqllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll
+tttttttttrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #6e7781 bg #ffffff
@@ -468,11 +481,14 @@ f fg #cf222e bg #ffffff
 g fg #1f2328 bg #f3f4f7
 h fg #0a3069 bg #ffffff
 i fg #953800 bg #ffffff
-j fg #787b7e bg #e7eaf0
-k fg #cf222e bg #e7eaf0
-l fg #1f2328 bg #e7eaf0
-m fg #6639ba bg #e7eaf0
-n fg #0550ae bg #e7eaf0
+j fg #787b7e bg #ccdbea
+k fg #cf222e bg #ccdbea
+l fg #1f2328 bg #ccdbea
+m fg #6639ba bg #ccdbea
+n fg #0550ae bg #ccdbea
 o fg #787b7e bg #ffffff
 p fg #6e7781 bg #e7eaf0
-q fg #6639ba bg #e7eaf0 BOLD
+q fg #cf222e bg #e7eaf0
+r fg #1f2328 bg #e7eaf0
+s fg #6639ba bg #e7eaf0
+t fg #6639ba bg #e7eaf0 BOLD

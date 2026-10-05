@@ -350,7 +350,7 @@ fn a_deleted_row_carries_a_red_mark() {
         (buf[(x - 1, y)].symbol(), buf[(x - 1, y)].fg),
         ("\u{258e}", Color::Red)
     );
-    assert_eq!(buf[(x, y)].bg, theme.line_hl, "selected");
+    assert_eq!(buf[(x, y)].bg, theme.selection, "selected");
     let _ = std::fs::remove_dir_all(dir);
 }
 
