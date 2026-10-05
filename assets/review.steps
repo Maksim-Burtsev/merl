@@ -1,7 +1,8 @@
-# The reviewing half: an agent's branch of polar, three files. c walks the hunks; from the
-# refactored validate, d goes down through the service and the repository to the model, and one c
-# brings the review back; u checks who calls the new method; the tests are read whole. Every move
-# goes one way, onto what it reads next.
+# The reviewing half: an agent's branch of polar, three files. c walks the hunks; the new endpoint
+# calls a new service method, d opens it, and right under it sits get_or_raise_by_key, a name one
+# swap away. u shows who calls that one: the customer portal, and Enter opens a portal endpoint
+# that needs no authentication, while the new method checks the caller's organizations. One c
+# brings the review back; the refactored endpoints and the tests are walked to the end.
 project polar
 merl --review
 wait hunk 1/9
@@ -12,87 +13,78 @@ sleep 1.8
 # c: the imports the refactor dropped, then the new endpoint, read whole
 key c
 wait hunk 2/9
-sleep 0.8
+sleep 0.9
 key c
 wait hunk 3/9
-sleep 2.4
+sleep 2.6
 
-# c: validate drops its lookup for the service's; the cursor stands on the lookup it dropped
-# (#439), Down walks it onto the new call: onto the method, d
-key c
-wait hunk 4/9
-sleep 1.6
-key@0.12 Down*7
+# the endpoint calls a service method the branch adds: / onto it, Esc clears the find, d
+key /
+sleep 0.2
+type@0.08 get_by
 sleep 0.4
-key@0.18 M-Right*4
+key Enter
+sleep 0.5
+key Escape
 sleep 0.3
 key d
 wait LicenseKeyService.get_by_key_or_raise
-sleep 2.0
+sleep 2.2
 
-# the service: } to its lookup, onto the repository method, d
-key }
-sleep 0.3
-key Down
-sleep 0.3
-key@0.18 M-Right*4
-sleep 0.3
-key d
-wait LicenseKeyRepository.get_readable_by_key
-sleep 1.6
+# Ctrl+D reads on: right under the new method, a namesake
+key C-d
+sleep 2.4
 
-# the repository filters on the model: / finds it, d
+# u on the namesake: the customer portal calls it; Enter opens one of its endpoints
 key /
 sleep 0.2
-type@0.05 LicenseKey.k
+type@0.08 get_or
 sleep 0.4
 key Enter
-sleep 0.3
-key d
-wait via import
-sleep 1.9
+sleep 0.4
+key u
+wait Usages of get_or_raise_by_key
+sleep 2.2
+key Down Down
+sleep 0.4
+key Enter
+wait customer_portal/endpoints/license_keys.py
+sleep 3.2
 
-# c: back to validate, where the dive started, and on through activate and deactivate
+# c: back to the review where it stood, then on through validate, activate and deactivate
+key c
+wait hunk 3/9
+sleep 0.9
 key c
 wait hunk 4/9
-sleep 1.2
+sleep 1.6
 key c
 wait hunk 5/9
-sleep 0.6
+sleep 0.7
 key c
 wait hunk 6/9
 sleep 1.0
 key c
 wait hunk 7/9
-sleep 0.5
+sleep 0.6
 key c
 wait hunk 8/9
 sleep 0.9
 key c
 wait hunk 9/9
-sleep 0.5
+sleep 0.6
 
-# the new service method: u, who calls it now
+# c: the service file, already read on the way; c: the tests, read whole with Ctrl+D
 key c
 wait file 2/3
-sleep 0.7
-key@0.18 M-Right*3
-sleep 0.3
-key u
-wait Usages of
-sleep 2.4
-key Escape
-sleep 0.3
-
-# the tests, read whole: Ctrl+D brings the class to the top, Ctrl+D again shows its last test;
-# c on the last hunk says the review is done and ticks the last file
+sleep 1.0
 key c
 wait file 3/3
 sleep 1.0
 key C-d
 sleep 2.4
 key C-d
-sleep 2.8
+sleep 2.6
 key c
 wait last hunk of the review
 sleep 2.4

@@ -4,7 +4,7 @@
 
 <h1 align="center">merl</h1>
 
-<p align="center"><b>A terminal code navigator, for when agents write the code.</b></p>
+<p align="center"><b>Code navigator for the terminal — read and review code, and nothing else.</b></p>
 
 <p align="center">
   <a href="https://github.com/Maksim-Burtsev/merl/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Maksim-Burtsev/merl/ci.yml?branch=master&label=ci" alt="CI"></a>
@@ -25,10 +25,10 @@ and now and then type a secret into a `.env`. No setup, no config, no modes. It 
 Claude Code, Codex or any other agent, and wherever a terminal does, SSH and tmux included.
 
 <p align="center">
-  <img src="assets/demo.gif" alt="merl on a checkout of gitea: open a file by a few letters of its name, find in the file, go to definition with the status line saying how it was proven, back, usages with the declarations first and the test last, then project search with the hits following the typing" width="900">
+  <img src="assets/teaser.gif" alt="merl --review on an agent's branch of polar, a FastAPI app, each key drawn in the corner as it is pressed: on validate's refactored lookup, / finds the new call and d opens the service method the branch adds; Ctrl+D shows get_or_raise_by_key right under it, u lists who calls that one, three endpoints of the customer portal, and Enter opens one that needs no authentication; c brings the review back to validate" width="900">
 </p>
 
-<p align="center"><sub>A checkout of <a href="https://github.com/go-gitea/gitea">gitea</a>, 5,500 files. Nothing was indexed or configured first.</sub></p>
+<p align="center"><sub>An agent's branch of <a href="https://github.com/polarsource/polar">polar</a>. The method it adds has a namesake right under it, called from customer portal endpoints that need no authentication.</sub></p>
 
 ## Install
 
@@ -57,14 +57,9 @@ merl                 # the current directory
 merl FILE:LINE[:COL] # what compilers, linters and grep print, pasted straight in
 merl --review        # the branch you are on, as a diff over the real files
 merl --tutor         # every key, hands on, in about ten minutes
-merl --drill [N]     # N tasks (20) that name what to do, not the key; the keys you skip come most
-merl --keys          # how often you press each key and miss it, the unused last
-merl --reviews       # your reviews of the last 30 days: their size, their time, the jumps out
 ```
 
-The long flags have short forms: `-r` for `--review`, `-b` for `--base`, `-t` for `--theme`,
-`-d` for `--drill` and `-k` for `--keys`, so `merl -r feature -b origin/dev` reviews `feature`
-against `origin/dev`.
+`merl --help` has the rest.
 
 ## Why
 
@@ -73,14 +68,18 @@ those two things out of the box, with nothing to configure and nothing to switch
 
 - **Understand the code.** Open a file by a few letters of its name, search the project as you
   type, go to a definition or list its usages, and come back with `[`. It follows you into the
-  standard library and the dependencies, in over 50 languages, with no language server and
-  [measured against one](#languages).
+  standard library and the dependencies, in over 50 languages, with nothing to install.
+
+  <img src="assets/demo.gif" alt="merl on a checkout of gitea: open a file by a few letters of its name, find in the file, go to definition with the status line saying how it was proven, back, usages with the declarations first and the test last, then project search with the hits following the typing" width="900">
+
+  <sub>A checkout of <a href="https://github.com/go-gitea/gitea">gitea</a>, 5,500 files. Nothing was indexed or configured first.</sub>
+
 - **Review a branch.** `merl --review` draws the branch's diff over the real files, so from any
   changed line you can look up what it calls and who else uses it. It stays current while the
   agent keeps working, and a file you have walked through gets a tick that stays with the branch
   and goes when the file changes. [A review, step by step](docs/a-day-with-merl.md).
 
-  <img src="assets/review.gif" alt="merl --review on an agent's branch of polar, a FastAPI app, its three changed files in the panel, each key drawn in the corner as it is pressed: c walks the hunks, red and green rows with the changed words tinted stronger; on validate's new call Alt+Right lands on the method and d opens the service, d again the repository, / and d the LicenseKey model; one c comes back to validate and walks on through activate and deactivate, u lists who calls the new service method, c opens the tests and Ctrl+D reads them through, and the last c says the review is done, every file ticked" width="900">
+  <img src="assets/review.gif" alt="merl --review on an agent's branch of polar, a FastAPI app, its three changed files in the panel, each key drawn in the corner as it is pressed: c walks the dropped imports and the new lookup endpoint; / and d open the service method it calls, Ctrl+D shows a namesake right under it, u lists its callers in the customer portal and Enter opens one that needs no authentication; c comes back to the review and walks validate, activate and deactivate, red and green rows with the changed words tinted stronger; c opens the tests, Ctrl+D reads them through, and the last c says the review is done, every file ticked" width="900">
 
 - **Touch up a line.** Enter, type, Esc. It saves itself. Enough for a typo, a constant, or a
   secret you would rather not hand to an agent. [More on editing](docs/editing.md).
@@ -88,13 +87,7 @@ those two things out of the box, with nothing to configure and nothing to switch
 I spent years switching things off in VS Code to get down to a tree, a highlighted file, go to
 definition and search. Vim and Helix want weeks of learning and a config first. merl starts
 there. It has no autocomplete, and it took me a while to notice: most of an editor is for typing
-code, and I had stopped typing it. So merl is not an editor. It is a code navigator.
-
-Next to an agent, code gets read in one of three kinds of tool. An IDE: a window of its own, with
-an extension and a language server per language. Neovim or Helix: a config first, then language
-servers installed and kept up to date by hand. A diff viewer: nothing to set up, and the change
-with a few lines around it. merl is one binary that draws the change over the whole file and jumps
-anywhere from it, with nothing to install per language and nothing to configure.
+code, and I had stopped typing it.
 
 ## What merl is not
 
@@ -234,14 +227,9 @@ counts stay on your machine.
 the moment you open it. In Python, TypeScript and Go, `d` also follows the type of the receiver
 (`self.repo.save`), and it always says how it found its target.
 
-`d` has no language server behind it, so it is measured against one: 4,124 cursors in 19 real
-projects, one per language (ripgrep, redis, caddy, paperless-ngx and others), each with the answer
-a language server gives, recorded once and reviewed. Java, Kotlin, C#, Ruby and Groovy had no
-server at hand, and their answers were read from the code. Of the 2,500 cursors it scores, `d`
-lands on the answer 75% of the time, lists it among a few candidates 21% of the time, and jumps
-somewhere wrong 10 times. When it cannot tell, it lists the candidates or says it does not know,
-and no change to `d` may make one of these cursors worse.
-[The table per language](tools/d-bench/baseline.md).
+When `d` cannot tell, it lists the candidates or says it does not know rather than guess. Every
+change to it is checked on 4,124 places in 19 real projects, and may not make one of them worse:
+[how often it lands today](tools/d-bench/baseline.md).
 
 <details>
 <summary>The languages, and where <code>d</code> reaches outside the project</summary>
