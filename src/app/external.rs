@@ -701,7 +701,7 @@ impl App {
         }
         let root = self.root.clone();
         let walk = std::thread::spawn(move || walk_outside(kind, &root));
-        self.warming.insert(kind, walk);
+        self.warming.insert(kind, Some(walk));
     }
 
     /// The files of `kind` outside the project, walked once per kind.
@@ -768,12 +768,13 @@ impl App {
         let files = match self.external.get(&kind) {
             Some((_, files)) => files.clone(),
             None => {
-                let warm = self.warming.remove(&kind).and_then(|w| w.join().ok());
-                let (roots, files) = warm.unwrap_or_else(|| walk_outside(kind, &self.root));
+                let roots = search::external_roots(kind, &self.root);
+                let warm = self.warming.insert(kind, None).flatten();
+                let files = match warm.and_then(|w| w.join().ok()) {
+                    Some((walked, files)) if walked == roots => files,
+                    _ => search::external_files(kind, &roots),
+                };
                 let files = Arc::new(files);
-                // No roots may be a toolchain that failed to answer this once: it is asked
-                // again on the next `d`, rather than leave the session without a standard
-                // library (#183).
                 if !roots.is_empty() {
                     self.external.insert(kind, (roots, files.clone()));
                 }
