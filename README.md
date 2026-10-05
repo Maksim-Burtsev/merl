@@ -20,10 +20,9 @@ An agent works in one terminal split. merl sits in the other. You read what the 
 its branch hunk by hunk, jump from a changed line into the code around it, fix the one line that
 is wrong, and go back to reading.
 
-That is the whole tool, a code navigator rather than an editor: find your way around a project,
-review a diff with the code around it, and now and then type a secret into a `.env`. No setup, no
-config, no modes. It works next to Claude Code, Codex or any other agent, and wherever a terminal
-does, SSH and tmux included.
+That is the whole tool: find your way around a project, review a diff with the code around it,
+and now and then type a secret into a `.env`. No setup, no config, no modes. It works next to
+Claude Code, Codex or any other agent, and wherever a terminal does, SSH and tmux included.
 
 <p align="center">
   <img src="assets/demo.gif" alt="merl on a checkout of gitea: open a file by a few letters of its name, find in the file, go to definition with the status line saying how it was proven, back, usages with the declarations first and the test last, then project search with the hits following the typing" width="900">
@@ -91,12 +90,11 @@ definition and search. Vim and Helix want weeks of learning and a config first. 
 there. It has no autocomplete, and it took me a while to notice: most of an editor is for typing
 code, and I had stopped typing it. So merl is not an editor. It is a code navigator.
 
-Next to an agent, code gets read in one of three kinds of tool. An IDE: an extension and a
-language server per language, in a window away from the terminal the agent runs in. Neovim or
-Helix: a config, plugins and language servers, kept up to date by hand. A diff viewer: nothing to
-set up, and the change with a few lines around it. merl is one binary that draws the change over
-the whole file and jumps anywhere from it, with nothing to install per language and nothing to
-configure.
+Next to an agent, code gets read in one of three kinds of tool. An IDE: a window of its own, with
+an extension and a language server per language. Neovim or Helix: a config first, then language
+servers installed and kept up to date by hand. A diff viewer: nothing to set up, and the change
+with a few lines around it. merl is one binary that draws the change over the whole file and jumps
+anywhere from it, with nothing to install per language and nothing to configure.
 
 ## What merl is not
 
@@ -238,10 +236,12 @@ the moment you open it. In Python, TypeScript and Go, `d` also follows the type 
 
 `d` has no language server behind it, so it is measured against one: 4,124 cursors in 19 real
 projects, one per language (ripgrep, redis, caddy, paperless-ngx and others), each with the answer
-a language server gives, recorded once and reviewed. Of the 2,500 it scores, `d` lands on that
-answer 75% of the time, lists it among a few candidates 21% of the time, and jumps somewhere wrong
-10 times. When it cannot tell, it lists the candidates or says it does not know, and no change to
-`d` may make one of these cursors worse. [The table per language](tools/d-bench/baseline.md).
+a language server gives, recorded once and reviewed. Java, Kotlin, C#, Ruby and Groovy had no
+server at hand, and their answers were read from the code. Of the 2,500 cursors it scores, `d`
+lands on the answer 75% of the time, lists it among a few candidates 21% of the time, and jumps
+somewhere wrong 10 times. When it cannot tell, it lists the candidates or says it does not know,
+and no change to `d` may make one of these cursors worse.
+[The table per language](tools/d-bench/baseline.md).
 
 <details>
 <summary>The languages, and where <code>d</code> reaches outside the project</summary>
