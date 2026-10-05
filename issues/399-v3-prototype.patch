@@ -1,0 +1,160 @@
+diff --git a/src/app/keys.rs b/src/app/keys.rs
+index a5a7f77a..e247f568 100644
+--- a/src/app/keys.rs
++++ b/src/app/keys.rs
+@@ -235,7 +235,16 @@ impl App {
+             KeyCode::Char('w') => self.toggle_wrap(),
+             KeyCode::Char('f') if !ctrl && self.focus == Focus::Code => self.toggle_collapse(),
+             KeyCode::Char('p') => self.toggle_preview(),
++            KeyCode::Char('A')
++                if self.show_tree && std::env::var("MERL_399").is_ok_and(|v| v.contains('z')) =>
++            {
++                self.tree_zoom = !self.tree_zoom;
++                if self.tree_zoom {
++                    self.focus = Focus::Tree;
++                }
++            }
+             KeyCode::Tab if self.show_tree => {
++                self.tree_zoom = false;
+                 self.focus = match self.focus {
+                     Focus::Tree => Focus::Code,
+                     Focus::Code => Focus::Tree,
+diff --git a/src/app/mod.rs b/src/app/mod.rs
+index 7499c13d..2e621cce 100644
+--- a/src/app/mod.rs
++++ b/src/app/mod.rs
+@@ -343,6 +343,7 @@ pub struct App {
+     reading: std::cell::RefCell<Vec<(PathBuf, usize)>>,
+     pub focus: Focus,
+     pub show_tree: bool,
++    pub tree_zoom: bool,
+     /// First visible row of the tree pane, clamped by `ui`.
+     pub tree_top: usize,
+     pub picker: Option<Picker>,
+@@ -568,6 +569,7 @@ impl App {
+             reading: Default::default(),
+             focus,
+             show_tree: true,
++            tree_zoom: false,
+             tree_top: 0,
+             picker: None,
+             search_seq: 0,
+diff --git a/src/app/tree.rs b/src/app/tree.rs
+index f4f1f462..a352ba3f 100644
+--- a/src/app/tree.rs
++++ b/src/app/tree.rs
+@@ -15,6 +15,7 @@ impl App {
+                 // among the files: there is no text to open (#449).
+                 Some(n) if self.root.join(&n.path).is_dir() => {}
+                 Some(n) => {
++                    self.tree_zoom = false;
+                     // A file behind a link that stays in the project opens by its own path, as
+                     // Ctrl+N and the command line open it: one file, one name (#404).
+                     let path = self.root.join(&n.path);
+diff --git a/src/ui/mod.rs b/src/ui/mod.rs
+index b0cc5bf6..88cc9180 100644
+--- a/src/ui/mod.rs
++++ b/src/ui/mod.rs
+@@ -52,15 +52,40 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
+         Constraint::Length(1),
+     ])
+     .areas(area);
+-    let tree_w = if app.show_tree { TREE_W } else { 0 };
++    let proto = overlays::proto();
++    let tree_w = match app.show_tree {
++        false => 0,
++        true if app.tree_zoom && proto.contains('w') => {
++            let review = app.review.as_ref();
++            let need = app
++                .tree
++                .visible()
++                .iter()
++                .map(|&i| {
++                    let n = &app.tree.nodes[i];
++                    let counts = review
++                        .and_then(|r| r.file(&n.path))
++                        .map_or(0, |f| crate::wrap::width(&format!("+{} \u{2212}{}", f.added, f.deleted)) + 2);
++                    review.map_or(0, |_| 2) + 2 * n.depth + 2 + crate::wrap::width(&n.name()) + counts
++                })
++                .max()
++                .unwrap_or(0) as u16
++                + 3;
++            need.clamp(TREE_W, main.width)
++        }
++        true if app.tree_zoom => main.width,
++        true if proto.contains('f') && app.focus == crate::app::Focus::Tree => 50.min(main.width.saturating_sub(10)),
++        true => TREE_W,
++    };
+     let [tree, code] =
+-        Layout::horizontal([Constraint::Length(tree_w), Constraint::Min(1)]).areas(main);
++        Layout::horizontal([Constraint::Length(tree_w), Constraint::Min(0)]).areas(main);
+ 
+     let whole = match app.show_tree {
+         true => draw_tree(frame, app, theme, tree, base),
+         false => None,
+     };
+-    if app.previewing() {
++    if code.width == 0 {
++    } else if app.previewing() {
+         draw_preview(frame, app, theme, code, base);
+     } else if app.folded_here().is_some() {
+         fold::draw_fold(frame, app, theme, code, base);
+diff --git a/src/ui/overlays.rs b/src/ui/overlays.rs
+index e9fcdd99..bf231621 100644
+--- a/src/ui/overlays.rs
++++ b/src/ui/overlays.rs
+@@ -144,7 +144,7 @@ pub(super) fn draw_tree(
+             let room = name_room(app.review.as_ref(), n, depth, width).max(0) as usize;
+             let cut = wrap::width(&full) > room;
+             let joined = full.contains('/');
+-            let whole_row = focused && i == app.tree.cursor && cut && (room < NAME_ROOM || joined);
++            let whole_row = proto().is_empty() && focused && i == app.tree.cursor && cut && (room < NAME_ROOM || joined);
+             // Directories carry the accent: they are what the eye scans the tree by. What
+             // `.gitignore` leaves out is dim, directory or not.
+             let row = if n.ignored {
+@@ -190,6 +190,9 @@ pub(super) fn draw_tree(
+                     if cut {
+                         let fits = wrap::cut(&name, 0, room.saturating_sub(1)).0;
+                         name = format!("{}\u{2026}", &name[fits]);
++                        if !proto().is_empty() {
++                            name = proto_cut(&full, room);
++                        }
+                     }
+                     if whole_row {
+                         let mut line = spans.clone();
+@@ -221,9 +224,10 @@ pub(super) fn draw_tree(
+                         line.push(Span::styled(format!("{marker}{full} "), style));
+                         whole = Some((y, Line::from(line)));
+                     }
+-                    let name = match cut && joined {
+-                        true => cut_at_slash(&full, room),
+-                        false => full,
++                    let name = match (cut, joined) {
++                        (true, true) => cut_at_slash(&full, room),
++                        (true, false) if !proto().is_empty() => proto_cut(&full, room),
++                        _ => full,
+                     };
+                     spans.push(Span::styled(format!("{marker}{name}"), style));
+                 }
+@@ -241,6 +245,21 @@ pub(super) fn draw_tree(
+ 
+ const NAME_ROOM: usize = 12;
+ 
++pub(super) fn proto() -> String {
++    std::env::var("MERL_399").unwrap_or_default()
++}
++
++fn proto_cut(name: &str, room: usize) -> String {
++    let total = wrap::width(name);
++    if total <= room || room < 2 {
++        return name[wrap::cut(name, 0, room).0].to_string();
++    }
++    match proto().contains('l') {
++        true => format!("\u{2026}{}", &name[wrap::cut(name, total - (room - 1), total).0]),
++        false => format!("{}\u{2026}", &name[wrap::cut(name, 0, room - 1).0]),
++    }
++}
++
+ fn counts(f: &crate::git::ReviewFile) -> String {
+     match f.binary {
+         true => "bin".to_string(),
