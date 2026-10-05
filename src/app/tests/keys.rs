@@ -1,5 +1,3 @@
-//! The key table: the aliases, the overlays and the goto prompt.
-
 use super::*;
 
 #[test]
@@ -10,9 +8,11 @@ fn goto_prompt_clamps() {
     }
     assert_eq!(a.mode, Mode::Normal);
     assert_eq!(a.line, 2);
-    // `q` inside the prompt is a digit-less keystroke, not a quit.
     press(&mut a, KeyCode::Char(':'), KeyModifiers::NONE);
-    assert!(!press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
+    assert!(
+        !press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE),
+        "`q` inside the prompt is a digit-less keystroke, not a quit"
+    );
     assert!(!press(&mut a, KeyCode::Esc, KeyModifiers::NONE));
     assert_eq!(a.mode, Mode::Normal);
     assert!(press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
@@ -48,7 +48,6 @@ fn shift_on_char_is_stripped() {
     assert_eq!(a.mode, Mode::Goto);
 }
 
-/// Every alias in `KEYS` reaches the same action as its primary key.
 #[test]
 fn aliases_reach_the_same_actions() {
     let mut a = app("foo bar\n");
@@ -93,8 +92,10 @@ fn alt_letter_over_an_overlay_only_closes_it() {
     press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('d'), KeyModifiers::ALT);
     assert_eq!((a.mode, a.message.as_str()), (Mode::Normal, ""));
-    // In normal mode the letter still counts.
-    assert!(press(&mut a, KeyCode::Char('q'), KeyModifiers::ALT));
+    assert!(
+        press(&mut a, KeyCode::Char('q'), KeyModifiers::ALT),
+        "in normal mode the letter still counts"
+    );
 }
 
 /// Edit mode is not an overlay for an Esc to close: Option+letter mid-word must not drop
@@ -114,11 +115,13 @@ fn help_opens_and_closes_and_esc_clears_the_find() {
     let mut a = app("foo\nbar\n");
     press(&mut a, KeyCode::Char('?'), KeyModifiers::NONE);
     assert_eq!(a.mode, Mode::Help);
-    // Keys are inert while the overlay is up; `q` closes it instead of quitting.
-    assert!(!press(&mut a, KeyCode::Down, KeyModifiers::NONE));
+    assert!(
+        !press(&mut a, KeyCode::Down, KeyModifiers::NONE),
+        "keys are inert while the overlay is up"
+    );
     assert_eq!((a.mode, a.line), (Mode::Help, 0));
     assert!(!press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
-    assert_eq!(a.mode, Mode::Normal);
+    assert_eq!(a.mode, Mode::Normal, "`q` closes it instead of quitting");
 
     find(&mut a, "foo");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);

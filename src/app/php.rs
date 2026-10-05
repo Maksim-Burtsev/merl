@@ -1,6 +1,3 @@
-//! `d` in PHP on `$this->name`, `self::name`, `static::name` and `parent::name`: a member of the
-//! class the cursor is in, of a trait it uses or of a class it extends (#356).
-
 use super::*;
 use std::ops::Range;
 
@@ -9,7 +6,6 @@ type PhpClass = (PathBuf, String, usize);
 
 /// Where the walk of [`App::php_link`] reads a member from.
 enum Walk {
-    /// Declared here.
     Found(Vec<Hit>),
     /// Nowhere on the walk, which went to its end: `true` when it ended in a class outside the
     /// project, which may inherit more than the walk read.
@@ -363,7 +359,6 @@ impl App {
         )
     }
 
-    /// The name of the class on 0-based `line` of `text`.
     fn php_class_name(&self, (_, text, line): &PhpClass) -> Option<String> {
         let l = text.lines().nth(*line)?;
         search::php_class_header(l).map(|(_, name, _)| name.to_owned())

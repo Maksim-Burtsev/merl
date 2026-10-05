@@ -1,6 +1,6 @@
 ---
 name: proposal
-description: Shape a visible merl change into a `## Proposal` the owner can pick from: every case it touches, a real screencast of merl per option, what other editors and the forges do, one recommendation. Use when an issue changes a key, screen, colour, animation or default and has no accepted proposal yet, when moving a `to-think` or `needs-owner` issue forward, and when the owner asks to see options or how something will look.
+description: Shape a visible merl change into a `## Proposal` the owner can pick from: every case it touches, a real screencast of merl per option, options copied from the classic terminal editors, one recommendation. Use when an issue changes a key, screen, colour, animation or default and has no accepted proposal yet, when moving a `to-think` or `needs-owner` issue forward, and when the owner asks to see options or how something will look.
 ---
 
 # A proposal the owner picks from
@@ -19,9 +19,11 @@ under `needs-owner`.
 ## 1. Read
 
 The issue with its comments: the owner's latest answer overrides the body. Then find out what
-VS Code, JetBrains, Vim, Neovim's common plugins and LazyVim do in the same situation, and
-GitHub and GitLab for anything review mode shows, from their own docs or source, not from
-memory. For review mode their shared behaviour is the default proposal: where the two forges
+the classic terminal editors do in the same situation: Vim (netrw, NERDTree), Neovim (nvim-tree,
+neo-tree, LazyVim's explorer), Emacs (dired, treemacs), Helix, and terminal tools such as lazygit
+where they fit; GitHub and GitLab for anything review mode shows. Read their docs or source, run
+them where you can, and record them on the same project as merl: their default is the standard
+an option copies one to one or adapts, never an invention of merl's own (#399). For review mode their shared behaviour is the default proposal: where the two forges
 differ, propose what both share; bring an option of merl's own only when it is clearly better,
 and show the difference.
 
@@ -37,7 +39,7 @@ that pane's text: #399's first build showed one case, and its cursor row ran int
 ## 3. Options
 
 At most 4, each a rule of one or two lines in the user's terms (what is on screen, what a key
-does). One is recommended. An option that adds an element to the screen (an icon, a count, a
+does), naming the tool it copies and what it adapts. One is recommended. An option that adds an element to the screen (an icon, a count, a
 colour, a line of text) says so in its rule: the owner weighs every addition.
 
 ## 4. Prototype

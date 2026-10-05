@@ -102,8 +102,7 @@ impl App {
         if ctrl && key.code == KeyCode::Char('c') && self.mode != Mode::Edit {
             // Ctrl+C is copy everywhere and never quits; a prompt or picker has nothing to copy.
             self.action = named("", key);
-            // A preview row that shows no line has none to copy.
-            // Nor does a fold, which shows no text (#243).
+            // A preview row that shows no line has none to copy, nor does a fold.
             let shown = !self.preview_blank() && self.folded_here().is_none();
             if self.mode == Mode::Normal && self.picker.is_none() && shown {
                 self.copy();
@@ -182,8 +181,6 @@ impl App {
                 self.mode = Mode::Help;
                 self.help_top = 0;
             }
-            // A fold (#243) shows no text: Enter loads the diff, and the keys that read or move
-            // in the text wait for it. The walk, the panel and the pickers work as anywhere.
             KeyCode::Enter if fold => self.unfold(),
             _ if fold && !leaves_the_text(key) => {}
             KeyCode::Esc => {
@@ -333,8 +330,6 @@ impl App {
     }
 }
 
-/// Does `key` do something other than read or move in the open file's text: the review walk,
-/// the panel, the pickers, the history. The rest does nothing on a fold (#243).
 fn leaves_the_text(key: KeyEvent) -> bool {
     let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
     match key.code {

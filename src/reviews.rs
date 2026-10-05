@@ -1,6 +1,3 @@
-//! Review stats (#242): a line per `--review` session in `~/.local/state/merl/reviews.tsv`, next
-//! to `keys.tsv`, which `merl --reviews` prints. Nothing on screen while you review.
-
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};

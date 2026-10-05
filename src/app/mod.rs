@@ -23,6 +23,7 @@ mod at_base;
 mod c;
 mod collapse;
 mod component;
+mod cpp;
 mod cs_typed;
 mod css;
 mod cursor;
@@ -294,7 +295,6 @@ const HIST_MAX: usize = 50;
 
 /// A list of files shared between lookups.
 type Paths = Arc<Vec<PathBuf>>;
-/// How a C-kind file reads the files outside: a `.c` file or not, Objective-C or not (#382, #417).
 type CMode = (bool, bool);
 
 pub struct App {
@@ -317,11 +317,7 @@ pub struct App {
     walked_roots: HashMap<PathBuf, Arc<Vec<PathBuf>>>,
     node_modules_of: Option<PathBuf>,
     otp: Option<Vec<PathBuf>>,
-    /// The headers each C or C++ file includes, resolved, for a `.c` file or not (#382), an
-    /// Objective-C file or not (#417).
     c_includes: HashMap<(PathBuf, CMode), Paths>,
-    /// The C kind's files outside as a `.c` file or not, an Objective-C file or not, reads them
-    /// (#382, #417), with the walk they were taken from.
     c_files: HashMap<CMode, (Paths, Paths)>,
     /// What `go build` compiles here, which picks among a Go declaration's twins.
     go_build: search::GoBuild,
@@ -331,15 +327,11 @@ pub struct App {
     /// While `d` resolves the owner of a label (#316), where it collects the candidates it would
     /// show: the callee of a named argument, the type of a literal.
     probe: Option<Vec<Candidate>>,
-    /// The project as the base had it, for `d` on a deleted line (#440), with the stamp of the
-    /// tree it was made from.
     base_app: Option<(String, Box<App>)>,
     /// Set by a grep of this `d` that stopped at [`search::MAX_HITS`], whatever was filtered out
     /// of it afterwards: the candidates are a lower bound, so the count says `+` and a single
     /// one is offered, not jumped to.
     truncated: std::cell::Cell<bool>,
-    /// The bindings (`path`, `line`) a type is being read from, outermost first: a binding met
-    /// again inside its own reading, `this.close = this.close.bind(this)`, is left out (#175).
     reading: std::cell::RefCell<Vec<(PathBuf, usize)>>,
     pub focus: Focus,
     pub show_tree: bool,
@@ -364,9 +356,6 @@ pub struct App {
     pub line: usize,
     pub col: usize,
     pub want_x: usize,
-    /// Review: the line the branch deleted the cursor stands on, as its key and index in
-    /// `diff.ghosts` (#439); `col` is then a byte of it. `line` is the key, or the last line
-    /// for the lines deleted at the end of the file.
     pub deleted: Option<(usize, usize)>,
     /// (line, col) where the selection started; it runs from here to the cursor.
     anchor: Option<(TextLine, usize)>,
@@ -396,9 +385,6 @@ pub struct App {
     /// The selection anchor, set aside while `/` moves the cursor; Esc puts it back.
     find_sel: Option<(TextLine, usize)>,
     pub message: String,
-    /// The `message` that opens with a path, and the bytes of it the path takes: the status
-    /// bar cuts that part from the left and no other (#403). It stands only while `message` is
-    /// still that text; [`App::say_about`] sets both.
     pub message_path: Option<(String, usize)>,
     /// Code text area, in cells, written by `ui::draw` before every frame.
     pub view_w: usize,
@@ -418,9 +404,7 @@ pub struct App {
     /// When the last edit was made; autosave fires `autosave` after it.
     last_edit: Option<Instant>,
     pub autosave: Duration,
-    /// `review_panel_colours` of the config: off, the review panel draws as it did before #250.
     pub review_panel_colours: bool,
-    /// `review_list_marks` of the config: `u` and `s` mark the rows the branch changed (#246).
     pub review_list_marks: bool,
     /// `review_open_files_first` of the config: `o` lists the review's files first (#246).
     pub review_open_files_first: bool,
@@ -429,8 +413,6 @@ pub struct App {
     redo: Vec<Edit>,
     /// Set when the next edit must start its own undo step even if it continues the last one.
     undo_break: bool,
-    /// The history of each file left with one, by path (#163): coming back is like coming back
-    /// to a VS Code tab that stayed open.
     stash: HashMap<PathBuf, Stashed>,
     /// The overlay on screen (find, goto, a prompt, a picker) was opened from edit mode with a
     /// chord alias: closing it without leaving the file goes back to editing.
@@ -447,27 +429,18 @@ pub struct App {
     pub want_diff: bool,
     /// `--review`: the branch under review. The tree pane then lists its files.
     pub review: Option<git::Review>,
-    /// Review: the files of the listing marked as viewed, each with the hash of what was on disk
-    /// then. A file that has changed since is not viewed any more (`recheck_viewed`). Kept in
-    /// the repository's git dir, per branch and base, from one start to the next (#240).
     pub viewed: HashMap<PathBuf, u64>,
     /// Review: the marks without a tick, of files changed since they were viewed or that the
     /// listing does not have now (a rebase stopped before their commit, a file reverted), kept
     /// with the hash they were viewed at for when the file comes back as it was.
     hidden: HashMap<PathBuf, u64>,
-    /// Review: the generated files whose diff Enter loaded (#243), kept beside the viewed marks
-    /// of the branch; every other generated file of the listing is folded.
     unfolded: HashSet<PathBuf>,
     /// Review: the branch the marks are kept under, the one the listing names (during a rebase,
     /// the branch being rebased). While HEAD is detached, the last branch the review had.
     /// `None` for a review started detached, or whose store cannot be read: its marks are in
     /// memory only, for the whole session.
     viewed_branch: Option<String>,
-    /// Review: the hunk `c` / `C` last stopped on, as its relative path and its index among that
-    /// file's hunks. From a file outside the review they go back to it (#239). Kept for the
-    /// session.
     last_hunk: Option<(PathBuf, usize)>,
-    /// `--review`: what the session did, written to the review stats on exit (#242).
     pub session: Option<crate::reviews::Session>,
     /// The sessions a `git switch` closed, each with the files marked viewed then.
     closed: Vec<(crate::reviews::Session, Vec<PathBuf>)>,
@@ -485,7 +458,6 @@ pub struct App {
     /// Real work's presses by action, since merl started: `main` adds them to the key stats on
     /// exit. The tutorial counts nothing.
     pub pressed: HashMap<&'static str, u64>,
-    /// Real work's missed keys by action (#210), added to the key stats with the presses.
     pub missed: HashMap<&'static str, u64>,
     watch: missed::Watch,
 }
@@ -511,13 +483,6 @@ pub fn plural(n: usize) -> &'static str {
     if n == 1 { "" } else { "s" }
 }
 
-/// A file merl has no permission to write is read-only before the first keystroke, not after the
-/// first failed save (#123). The test is an open for writing, not the permission bits: the bits
-/// lie in both directions — root writes a 444 file, an ACL or a read-only mount refuses a 644 one
-/// — and a save is `fs::write` on this very path, so the open it would do is the honest question.
-/// Nothing is truncated, so the file is left as it was. A file that is not there is not a file
-/// that refuses to be written: merl keeps the text of one deleted under it, and Ctrl+S puts it
-/// back. Every other reason says more, so this one never takes a place.
 fn lock_no_write(buf: &mut Buffer) {
     let Some(path) = buf.path.as_deref() else {
         return;
@@ -665,9 +630,6 @@ impl App {
         }
     }
 
-    /// `path` as merl names it to the user: relative to the project root when it is below it,
-    /// else to the standard library or dependency root it came from, as the `d` picker shows it
-    /// (#235).
     pub fn rel_path_of(&self, path: &Path) -> String {
         match (path.strip_prefix(&self.root), search::opened_kind(path)) {
             (Ok(rel), _) => rel,
@@ -947,8 +909,7 @@ pub fn is_word(c: char) -> bool {
 /// counts as part of a word besides letters, digits and `_` ([`search::word_chars`]): the `-` of
 /// a Makefile target.
 pub(super) fn word_col(line: &str, word: &str, extra: &str) -> usize {
-    // `attr_writer :name` declares Ruby's setter `name=` under its bare name. A name found
-    // ignoring case, as SQL and PowerShell find theirs, lands on its own spelling (#420).
+    // `attr_writer :name` declares Ruby's setter `name=` under its bare name.
     whole_at(line, word, extra)
         .or_else(|| whole_at(line, word.strip_suffix('=')?, extra))
         .or_else(|| {
@@ -1013,8 +974,6 @@ fn names_itself(kind: Kind, line: &str, name: &str) -> bool {
         || kind == Kind::Swift && search::swift_local_decl(line, name)
 }
 
-/// Whether `line` is an import in a language whose imports start with a word: `from ` only in
-/// Python, where a Go local may well be named `from` (#521 review).
 fn import_line(kind: Kind, line: &str) -> bool {
     let t = line.trim_start();
     match kind {

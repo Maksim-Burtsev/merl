@@ -1,7 +1,3 @@
-//! `merl --drill [N]` (#209): N tasks of [`POOL`], each asking for what to do and never naming
-//! the key, the keys left unpressed in real work asked most often. A task is checked by its
-//! effect as the tutor checks it; a hit needs its action routed as well.
-
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::io::Write as _;

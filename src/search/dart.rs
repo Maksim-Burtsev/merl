@@ -1,6 +1,3 @@
-//! Dart's rules for `d` and `D` (#414): what declares a name, what an import binds and which file
-//! it names, and where the pub cache and the SDK keep their sources.
-
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
