@@ -170,6 +170,8 @@ def selftest():
     assert words("if a!=b && c==d", "julia") == ["if", "a", "b", "c", "d"]
     assert words("x = y / 2 /* note */ + z // tail", "c") == ["x", "y", "z"]
     assert words("f('a', g($y)); # tail", "php") == ["f", "g"]
+    assert words("(foo? 'a \"b ;\\\"\" ?\\( #'bar) ; tail", "elisp") == ["foo?", "a", "bar"]
+    assert words("(set! x #\\( #| c |# y-2) ; tail", "racket") == ["set!", "x", "y-2"]
     print("selftest ok")
 
 

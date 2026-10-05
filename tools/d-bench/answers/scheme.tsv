@@ -1,0 +1,72 @@
+# id	targets: path:line joined by ; (project-relative; empty: none in reach)	skip: why the row is not scored	note (judged by reading the code: no language server ran for this language)
+scheme0000			outside the project: bytevector-u8-ref is a C opcode (opcodes.c), via (scheme base)
+scheme0001	lib/init-7.scm:707		define in init-7.scm, (scheme base) via (srfi 133) re-export
+scheme0002	lib/chibi/term/edit-line.scm:757		define in same file
+scheme0003	lib/chibi/test.scm:75		define-syntax in (chibi test)
+scheme0004	lib/srfi/146/hamt.scm:85		record field accessor in (srfi 146 hamt)
+scheme0005	lib/srfi/129/test.sld:11		define in same library
+scheme0006	lib/init-7.scm:606		define in init-7.scm via (scheme base)
+scheme0007	lib/init-7.scm:726		define in init-7.scm via (chibi)
+scheme0008	tools/extract-unicode-props.scm:70		let* binding
+scheme0009	lib/srfi/130.scm:266		named let binding
+scheme0010	lib/chibi/match/match.scm:1035		syntax-rules pattern variable (on-decl)
+scheme0011	lib/chibi/test.scm:75		define-syntax in (chibi test)
+scheme0012		not a definition reference: rename is an export-spec keyword of define-library	
+scheme0013	lib/srfi/127.scm:48		define in (srfi 127)
+scheme0014	lib/chibi/text/types.scm:39		record field accessor in (chibi text types)
+scheme0015	lib/srfi/146/rbtree.scm:405		define in same file
+scheme0016	lib/chibi/term/ansi.sld:1		define-library name (chibi term ansi)
+scheme0017	lib/chibi/test.scm:108		define-syntax in (chibi test)
+scheme0018	lib/chibi/net/servlet.scm:117		function parameter
+scheme0019	lib/srfi/146/hamt.scm:377		let* binding (on-decl)
+scheme0020	lib/scheme/extras.scm:207		define in extras.scm included by (scheme base)
+scheme0021	lib/srfi/127.scm:179		define in (srfi 127)
+scheme0022	lib/chibi/crypto/md5.scm:186		let binding
+scheme0023	lib/init-7.scm:628		define in same file
+scheme0024	lib/chibi/test.scm:75		define-syntax in (chibi test)
+scheme0025	lib/chibi/test.scm:75		define-syntax in (chibi test)
+scheme0026	lib/chibi/crypto/rsa.scm:60		function parameter
+scheme0027	lib/chibi/filesystem.stub:26;lib/chibi/filesystem.stub:42		define-c-struct accessor, both cond-expand branches of the stub
+scheme0028			outside the project: expt is a C primitive (opcodes.c)
+scheme0029			outside the project: string-set! is a C opcode (opcodes.c)
+scheme0030	lib/chibi/parse/parse.scm:963		macro keyword in its own syntax-rules pattern; define-syntax in same file
+scheme0031	lib/srfi/113/sets.scm:183		define in sets.scm included by (srfi 113)
+scheme0032	lib/chibi/iset/optimize.scm:74		named let binding
+scheme0033	lib/srfi/146/test.sld:526		library-level define in same library
+scheme0034	lib/init-7.scm:628		define in same file
+scheme0035	lib/srfi/231/base.scm:61		record predicate in same file
+scheme0036	lib/srfi/160/uvprims.stub:13		define-c-const in stub of (srfi 160 prims)
+scheme0037	lib/srfi/166/write.scm:126		let* binding (on-decl)
+scheme0038	lib/srfi/179/test.sld:3055		let* binding
+scheme0039	lib/chibi/test.scm:75		define-syntax in (chibi test)
+scheme0040	lib/chibi/ieee-754.scm:179		lambda parameter (on-decl)
+scheme0041	tests/lib-tests.scm:31		name introduced by rename import (on-decl)
+scheme0042		not a definition reference: quoted data symbol	
+scheme0043	lib/srfi/128/comparators.scm:212	debatable: inside a #; datum comment (dead code)	define in comparators.scm, same library (srfi 128)
+scheme0044	lib/chibi/test.scm:108		define-syntax in (chibi test)
+scheme0045	lib/chibi/loop/loop.scm:74		syntax-rules pattern variable
+scheme0046	lib/chibi/show/shared.sld:12		named let binding
+scheme0047	lib/srfi/179/transforms.scm:399		define in (srfi 179)
+scheme0048	lib/srfi/132/sort.scm:161		function parameter
+scheme0049	lib/srfi/231/base.scm:314		define in (srfi 231 base) via (srfi 231)
+scheme0050	lib/srfi/231/base.scm:295		record field accessor in (srfi 231 base)
+scheme0051	benchmarks/gabriel/ray.scm:39		let binding
+scheme0052	lib/chibi/term/edit-line.scm:184		function parameter
+scheme0053	lib/chibi/io-test.sld:8		define in (chibi io-test)
+scheme0054	lib/srfi/135/kernel8.body.scm:261		define in (srfi 135 kernel8)
+scheme0055	lib/chibi/char-set/extras.scm:26		define in (chibi char-set extras) via (srfi 14)
+scheme0056	lib/srfi/125.sld:9	debatable: token is %hash-table-delete!, a rename import of srfi 69's C primitive (srfi/69/hash.c)	rename import in (srfi 125)
+scheme0057	lib/srfi/135.scm:320		define in (srfi 135)
+scheme0058	tools/extract-unicode-props.scm:179		let binding
+scheme0059	lib/chibi/term/edit-line.scm:773		function parameter
+scheme0060	lib/chibi/test.scm:75		define-syntax in (chibi test)
+scheme0061	lib/srfi/135.scm:627		case-lambda parameter (on-decl)
+scheme0062	lib/chibi/csv.scm:238		opt-lambda parameter
+scheme0063		not a definition reference: quoted data symbol	
+scheme0064	lib/chibi/sxml.scm:96		let* binding (on-decl)
+scheme0065	lib/chibi/test.scm:75		define-syntax in (chibi test)
+scheme0066	lib/srfi/146/hamt-map.scm:208		function parameter
+scheme0067	lib/chibi/snow/commands.scm:724		lambda parameter
+scheme0068			outside the project: random-real is a C primitive (srfi/27/rand.c), no stub
+scheme0069		not a definition reference: quoted data symbol	
+scheme0070	lib/chibi/pathname.sld:4		define-library name (chibi pathname)
