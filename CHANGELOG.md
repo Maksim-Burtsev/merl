@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `v` grows on to the whole file: a fourth press, after the word, the line and the paragraph,
+  selects every line of the file, the cursor at its end; Ctrl+C then copies it all. (#635)
+
 ## [0.8.2] - 2026-10-04
 
 ### Added
