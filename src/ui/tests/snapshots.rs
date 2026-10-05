@@ -41,7 +41,7 @@ const STATES: &[State] = &[
         on_call(a);
         press(a, "<Tab><Up><Up>");
     }),
-    // Below 120 columns the actions are cut at the border (#458).
+    // Below 118 columns an action too long for its row wraps under its own column (#458).
     ("help", |a| {
         on_call(a);
         press(a, "?");

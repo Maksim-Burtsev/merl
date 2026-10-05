@@ -1,6 +1,7 @@
 # python-d: d through the Python half of the service, the status line saying how each jump was
 # proven. json.dumps into the standard library of the .venv's interpreter, read-only, found
-# without running it (#183), named from its library's root on the status line (#235), timed as
+# without running it (#183), named from its library's root on the status line (#235), its module
+# matched from that root and never the base interpreter's pip (#329), timed as
 # the first d of the session into the standard library; a method of an unannotated parameter
 # lists every find_by_customer in a picker, Enter jumps onto the name (#236); [ [ back and ]
 # forward through the jumps (#2); a name bound by a cast( that ruff wrapped over two lines
@@ -75,3 +76,13 @@ key /
 type page_url(n) for
 key Enter d
 wait page_url → page_links.page_url
+# A class the standard library declares is read as the project's are: d on self.assertEqual in a
+# unittest.TestCase subclass lands on unittest/case.py's, through unittest's re-export (#340).
+key o
+type test_serv
+key Enter
+wait tests/test_service.py  1:1
+key /
+type assertEqual
+key Enter d
+wait assertEqual → TestCase.assertEqual (via self: LegacyServiceTest)

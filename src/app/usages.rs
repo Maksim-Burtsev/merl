@@ -3,31 +3,14 @@
 use super::*;
 
 impl App {
-    /// `u` / Shift+F12: every whole-word occurrence of the identifier, case-sensitive, in the
-    /// order a reader wants them (#81): the declarations first, marked, then the open file, then
-    /// the rest of the project's code nearest first, then tests, mocks, fixtures, generated and
-    /// vendored files. The title says how the list splits.
     pub(super) fn usages(&mut self) {
         let extra = search::word_chars(self.kind(), false);
-        let Some(read) = self.on_drawn(|a| match a.kind() {
-            k @ Some(Kind::Ruby | Kind::Elixir | Kind::Cmake | Kind::Nix) => {
-                a.definition_word(k).map(|(r, w)| {
-                    let lead = &a.line_str()[..r.start];
-                    let sigil = lead.len() - lead.trim_end_matches('@').len();
-                    match k == Some(Kind::Ruby) && (1..=2).contains(&sigil) {
-                        true => format!("{}{w}", &lead[lead.len() - sigil..]),
-                        false => w,
-                    }
-                })
-            }
-            _ => a.css_word().or_else(|| a.word_under(extra)),
-        }) else {
+        let Some(read) = self.on_drawn(|a| a.usage_word()) else {
             self.message = "no word under the cursor".into();
             return;
         };
         let (ranked, cut) = self.usage_hits(&read, self.rel_current().as_deref());
-        let word = read.trim_start_matches('@');
-        let word = word.strip_suffix('=').unwrap_or(word);
+        let word = bare_name(&read);
         if ranked.is_empty() {
             self.message = format!("no usages of {word}");
             return;
@@ -41,9 +24,17 @@ impl App {
         let hits = ranked
             .into_iter()
             .map(|(_, h)| {
-                let row = search::word_chars(search::kind_of(&h.path), false);
+                let kind = search::kind_of(&h.path);
+                let row = search::word_chars(kind, false);
+                let col = match kind {
+                    Some(Kind::Haskell) => search::haskell_whole(&h.text, word),
+                    Some(Kind::Julia) => search::julia_col(&h.text, word),
+                    _ => None,
+                };
                 Hit {
-                    col: word_col(&h.text, word, &format!("{}{row}", extra.replace('\'', ""))),
+                    col: col.unwrap_or_else(|| {
+                        word_col(&h.text, word, &format!("{}{row}", extra.replace('\'', "")))
+                    }),
                     ..h
                 }
             })
@@ -51,30 +42,6 @@ impl App {
         let items = Self::hit_items(hits);
         let declarations = tiers.iter().filter(|&&t| t == Tier::Declaration).count();
         let tests = tiers.iter().filter(|&&t| t == Tier::Tests).count();
-        // A declaration row says so in the column `d` puts its reason in; with no declaration
-        // among the hits the column is not there at all.
-        let width = if declarations > 0 {
-            "declaration".len() + 2
-        } else {
-            0
-        };
-        let items = items
-            .into_iter()
-            .zip(&tiers)
-            .map(|(it, &tier)| {
-                let mark = if tier == Tier::Declaration {
-                    "declaration"
-                } else {
-                    ""
-                };
-                let head = format!("{mark:width$}");
-                PickItem {
-                    code_at: it.code_at.map(|at| at + head.len()),
-                    label: head + &it.label,
-                    ..it
-                }
-            })
-            .collect();
         let counts = [
             (
                 declarations,
@@ -99,6 +66,36 @@ impl App {
         }
     }
 
+    pub(super) fn usage_word(&self) -> Option<String> {
+        match self.kind() {
+            k @ Some(
+                Kind::Ruby
+                | Kind::Elixir
+                | Kind::Cmake
+                | Kind::Nix
+                | Kind::Haskell
+                | Kind::Ocaml
+                | Kind::Fsharp
+                | Kind::Julia
+                | Kind::R
+                | Kind::Clojure
+                | Kind::EmacsLisp
+                | Kind::Scheme
+                | Kind::CommonLisp,
+            ) => self.definition_word(k).map(|(r, w)| {
+                let lead = &self.line_str()[..r.start];
+                let sigil = lead.len() - lead.trim_end_matches('@').len();
+                match k == Some(Kind::Ruby) && (1..=2).contains(&sigil) {
+                    true => format!("{}{w}", &lead[lead.len() - sigil..]),
+                    false => w,
+                }
+            }),
+            k => self
+                .css_word()
+                .or_else(|| self.word_under(search::word_chars(k, false))),
+        }
+    }
+
     /// Every whole-word, case-sensitive hit of `word` in `u`'s order from the file `here`, each
     /// with its tier, and whether the grep stopped at its cap: the filter below can make a cut
     /// list short, and it is still cut.
@@ -110,7 +107,7 @@ impl App {
         // `@x` they are every `x`, as on a bare `x`, and its assignment `@x =` declares it too.
         let ivar = word.starts_with('@').then_some(word);
         let word = word.trim_start_matches('@');
-        let text = word.strip_suffix('=').unwrap_or(word);
+        let text = bare_name(word);
         let mut hits = self
             .grep(&regex::escape(text), true, false, |_| true)
             .unwrap_or_default();
@@ -128,9 +125,13 @@ impl App {
                 |t| whole.captures(t).and_then(|c| c.get(1)).map(|m| m.start()),
             ));
         }
-        let hits = hits.into_iter().filter(|h| {
-            let extra = search::word_chars(search::kind_of(&h.path), false);
-            extra.is_empty() || whole_at(&h.text, text, extra).is_some()
+        let hits = hits.into_iter().filter(|h| match search::kind_of(&h.path) {
+            Some(Kind::Haskell) => search::haskell_whole(&h.text, text).is_some(),
+            k => {
+                let extra = search::word_chars(k, false);
+                (extra.is_empty() || whole_at(&h.text, text, extra).is_some())
+                    && (k != Some(Kind::Julia) || search::julia_whole(&h.text, text))
+            }
         });
         // What tells a declaration of the word from a use of it is `def_patterns`, and which
         // ones apply is the hit file's own kind: one regex per kind met, built once. A Rust `let`
@@ -248,4 +249,9 @@ impl App {
             Some(here.as_ref() == Some(&h.path) && Some(at) == command)
         }
     }
+}
+
+pub(super) fn bare_name(word: &str) -> &str {
+    let word = word.trim_start_matches('@');
+    word.strip_suffix('=').unwrap_or(word)
 }

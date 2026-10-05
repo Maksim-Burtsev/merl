@@ -1,0 +1,91 @@
+# #435: d on a $ref opens what it names, in this file or another.
+openapi: 3.1.0
+info:
+  title: Shop
+  description: Use the `id field of a user.
+x-defaults: &defaults
+  type: object
+paths:
+  /users/{id}:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+                #                            ^ d: api/openapi.yaml:48
+                # status: User: via #/components/schemas/User
+        "404":
+          $ref: '#/components/responses/NotFound'
+          #                             ^ d: api/openapi.yaml:83
+  /orders:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: './schemas/order.yaml#/Order'
+                #                             ^ d: api/schemas/order.yaml:1
+                # status: Order: via api/schemas/order.yaml#/Order
+                #                  ^ d: api/schemas/order.yaml:1
+                #       ^ d: api/schemas/order.yaml:1
+  /people/{id}:
+    $ref: '#/paths/~1users~1%7Bid%7D'
+    #        ^ d: api/openapi.yaml:9
+  /orders/{id}:
+    get:
+      responses:
+        "200":
+          $ref: '#/paths/~1users~1{id}/get/responses/200'
+          #                                          ^ d: api/openapi.yaml:12
+        default:
+          $ref: schemas/order.yaml
+          #             ^ d: api/schemas/order.yaml:1
+components:
+  schemas:
+    User:
+      <<: *defaults
+      #    ^ d: api/openapi.yaml:6
+      properties:
+        name:
+          type: string
+    Admin:
+      allOf:
+      - $ref: '#/components/schemas/User'
+      - type: object
+        properties:
+          role:
+            type: string
+    Owner:
+      $ref: '#/components/schemas/Admin/allOf/1/properties/role'
+      #                                                   ^ d: api/openapi.yaml:59
+    Guest:
+      $ref: '#/components/schemas/Admin/allOf/0'
+      #                                     ^ d: api/openapi.yaml:56
+    Pet:
+      discriminator:
+        propertyName: kind
+        mapping:
+          dog: '#/components/schemas/Dog'
+          #                          ^ d: api/openapi.yaml:73
+    Dog:
+      type: object
+    Tag: {type: object, properties: {label: {type: string}}}
+    Label:
+      $ref: '#/components/schemas/Tag/properties/label'
+      #                                          ^ d: none
+    Missing:
+      $ref: '#/components/schemas/Nowhere'
+      #                           ^ d: none
+  responses:
+    NotFound:
+      description: |
+        An example of a reference:
+          $ref: '#/components/schemas/User'
+          #                           ^ d: none
+    User:
+      description: a user
+      # $ref: '#/components/schemas/User'
+      #                             ^ d: none

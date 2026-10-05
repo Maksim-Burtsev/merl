@@ -10,39 +10,39 @@ wait Sum: by name, 2 declarations
 │▸ tests                     │ 9
 │▸ web                       │10 struct Fast : Hasher {
 │▾ worker                    │11     unsigned Sum() const override { return 1; }
-│  ▾ internal      ┌Sum: by name, 2 declarations (2/2)────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│    ▾ crc         │>                                                                                                                                                 │
-│        crc.c     │Hasher::Sum  by name  worker/internal/crc/mode.cc:7: virtual unsigned Sum() const = 0;                                                            │
-│        crc.h     │Fast::Sum    by name  worker/internal/crc/mode.cc:11: unsigned Sum() const override { return 1; }                                                 │
-│        mode.cc   │                                                                                                                                                  │
-│    ▸ queue       │                                                                                                                                                  │
-│    go.mod        │                                                                                                                                                  │
-│    main.go       │                                                                                                                                                  │
-│  .env            │                                                                                                                                                  │
-│  .gitignore      │                                                                                                                                                  │
-│  docker-compose.y│                                                                                                                                                  │
-│  Dockerfile      │                                                                                                                                                  │
-│  Makefile        │                                                                                                                                                  │
-│  pyproject.toml  │                                                                                                                                                  │
-│  README.md       │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+│  ▾ internal                │12 };   ┌Sum: by name, 2 declarations (2/2)───────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│    ▾ crc                   │13      │>                                                                                                                                        │
+│        crc.c               │14 int c│                      worker/internal/crc/mode.cc                                                                                        │
+│        crc.h               │        │Hasher::Sum  by name     7  virtual unsigned Sum() const = 0;                                                                            │
+│        mode.cc             │        │Fast::Sum    by name    11  unsigned Sum() const override { return 1; }                                                                  │
+│    ▸ queue                 │        │                                                                                                                                         │
+│    go.mod                  │        │                                                                                                                                         │
+│    main.go                 │        │                                                                                                                                         │
+│  .env                      │        │                                                                                                                                         │
+│  .gitignore                │        │                                                                                                                                         │
+│  docker-compose.yml        │        │                                                                                                                                         │
+│  Dockerfile                │        │                                                                                                                                         │
+│  Makefile                  │        │                                                                                                                                         │
+│  pyproject.toml            │        │                                                                                                                                         │
+│  README.md                 │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 │                            │
 │                            │
 │                            │
@@ -54,4 +54,4 @@ wait Sum: by name, 2 declarations
 │                            │
 └────────────────────────────┘
 worker/internal/crc/mode.cc  14:37  [code]  Sum: by name, 2 declarations
-cursor (x,y,shown) 22,12,1
+cursor (x,y,shown) 41,12,1

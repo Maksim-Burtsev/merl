@@ -9,4 +9,11 @@ class Use {
         return new Guard("a", "b");
         //         ^ d: src/main/java/calls/Guard.java:8
     }
+
+    Settings load(java.util.Map<String, Object> entries) {
+        new Settings("settings.conf", 2);
+        //  ^ d: src/main/java/calls/Settings.java:12
+        return new Settings(entries);
+        //         ^ d: picker src/main/java/calls/Settings.java:6, src/main/java/calls/Settings.java:9
+    }
 }

@@ -1,0 +1,57 @@
+wait let label m
+┌orders──────────────────────┐1 let label m =
+│▸ .github                   │2   let prefix = "Total: " in
+│▸ .venv                     │3   prefix ^ Money.format_price m
+│▸ app                       │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▾ mlshop                    │
+│  ▾ lib                     │
+│      cart.ml               │
+│      money.ml              │
+│  ▸ src                     │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+mlshop/lib/cart.ml  1:1  [code]                                                                                                                                                   ? help
+cursor (x,y,shown) 32,0,1

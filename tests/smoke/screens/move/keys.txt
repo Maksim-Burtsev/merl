@@ -2,6 +2,7 @@
 Alt+Left
 Alt+Right
 Alt+Shift+Left
+Arrows
 Ctrl+D
 Ctrl+End
 Ctrl+Home
@@ -11,9 +12,12 @@ Ctrl+U
 End
 Esc
 Home
+Picker: Enter
 Shift+Left
 Shift+Right
 Shift+Up
+f
+o
 q
 t
 v

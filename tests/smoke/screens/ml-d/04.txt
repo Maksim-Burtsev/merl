@@ -1,0 +1,57 @@
+wait format_price: via Money
+┌orders──────────────────────┐1 type t = { cents : int }
+│▸ .github                   │2
+│▸ .venv                     │3 let format_price { cents } = string_of_int cents
+│▸ app                       │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▾ mlshop                    │
+│  ▾ lib                     │
+│      cart.ml               │
+│      money.ml              │
+│  ▸ src                     │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+mlshop/lib/money.ml  3:5  [code]  format_price: via Money
+cursor (x,y,shown) 36,2,1

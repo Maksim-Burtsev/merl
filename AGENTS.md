@@ -135,6 +135,27 @@ with its issue closed, or waits under `needs-owner` (see `## Merging`).
 
 Everything on GitHub (issues, PR bodies, reviews, comments) is in English.
 
+## Changing `f`
+
+`f` (`src/app/collapse.rs`) folds by the rules decided in #598, in the languages that pass the
+fold bench and nowhere else: Python, the brace languages (`src/app/collapse/braces.rs`), Ruby,
+Lua and shell (`src/app/collapse/words.rs`), and YAML, JSON, TOML, HTML, CSS / SCSS and Markdown
+(`src/app/collapse/spans.rs`) today, the rest in epic #623, each saying `no fold rules for .EXT`
+until then.
+
+- **The bench**, `tools/fold-bench/run [--lang go,rust]`: `f` pressed on every line that starts
+  a fold in real projects, compared with the reference: Python's own `ast` for Python, and for
+  the rest what Neovim folds with nvim-treesitter's `folds.scm` in the projects of
+  `tools/d-bench/projects.tsv`, recorded once into `tools/fold-bench/folds/LANG.tsv`
+  (`record.py`, never in CI). It prints per language the exact folds, wrong ranges, nothing
+  folded and p50 ms. A language still off is pressed with the rules forced on and marked `off`:
+  that row is where its work starts, and it never fails the run.
+- **A language turns `f` on** at 99 % exact in the bench, with a fold fixture in `tests/folds/`
+  and its bench row; the PR commits the new `tools/fold-bench/baseline.tsv`
+  (`--update-baseline`).
+- **A change to `f`** keeps `tests/folds/` green and no bench line of a language that is on worse
+  than `baseline.tsv`: the run exits 1 on any.
+
 ## Changing `d`
 
 A wrong jump is worse than a picker or "don't know", and no lookup may get worse than on master.
@@ -169,6 +190,9 @@ and watch it go red.
 
 ## Pull requests
 
+- One issue, one PR. An issue whose options the owner has not picked from is not built; when
+  the owner asks for a PR anyway, it holds the recommended option, and the others are
+  screencasts in its body (`.claude/skills/proposal/SKILL.md`), never PRs of their own.
 - The body of a pull request is read by a merl user, not by a reviewer of the diff. It is the
   shape of `.github/pull_request_template.md` and nothing more: the issue it closes, one
   sentence on what happens today, one on what happens now, the before/after screencasts, and a
@@ -190,8 +214,17 @@ run under ~15 s.
 
 - Open the steps with `wait <text merl draws>` and a no-op `key Escape`: leading waits are not
   sampled, so the first real key would otherwise change the screen before the GIF starts.
-- Move the way a person does: `Alt+Left` / `Alt+Right` to a word, `End`, `/WORD`, `c` / `C` to a
-  hunk, `[` back. A cursor crawling with `Right*28` argues that merl is slow.
+- A screencast that moves through code moves the way a seasoned keyboard user does, someone with
+  twenty years of Vim or Emacs: the keys that person reaches for, at that person's pace. The owner
+  scrolled files with a mouse for years and learns keyboard navigation from these screencasts.
+  - Reading down a file is `Ctrl+D` / `Ctrl+U`, the keyboard's scroll wheel. Code already on the
+    screen is reached the way a person would reach it there: a few `}`, or `/` and the first
+    letters of a name. Either is fine; the walk takes whichever comes naturally in that spot,
+    not whichever has the fewest keys. Code off the screen is reached by name (`D`, `d`, `s`), by
+    number (`:N`), or back (`[`). Arrows move a line or two.
+  - The keys play at `tools/cast.py`'s pace, each shown in its keycap, and the walk pauses where
+    a person would read.
+  - A demo of something that is not a walk (a picker, an overlay, a flag) shows it directly.
 - When merl exits (a panic, `q`) the pane dies and the GIF stops a frame early: pass `--bin` a
   script that runs merl and then `sleep 6`. For a change to the command line, the script is a
   prompt that runs what the steps type, the binary passed after `--`:
@@ -213,6 +246,8 @@ run under ~15 s.
 - A change the user has to learn (a new or changed key, screen, animation or default): leave the
   PR open with the before/after screencasts, add the `needs-owner` label and name it in your
   status line. Never ask "can I merge?" in chat.
+- The owner's comment `ok` on a PR merges it through `.github/workflows/owner-ok.yml`, at the
+  commit it was given to; a push after it needs a new `ok`. Any other owner comment is a brief.
 - The README and any other text in the owner's voice: open a draft PR with the `needs-owner`
   label and leave it to the owner.
 - An issue holding a question only the owner can answer carries one of two labels until the

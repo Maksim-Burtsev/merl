@@ -1,0 +1,35 @@
+// Every construct `f` folds in JSON, and the cases that could break it. f: none
+{ // f: 2-35
+  "name": "merl", // f: 2-35
+  "keywords": [ // f: 4-8
+    "editor", // f: 4-8
+    "a { brace in a string", // f: 4-8
+    "an escaped \" quote ] and a bracket" // f: 4-8
+  ], // f: 4-8
+  "empty": { // f: 9-10
+  }, // f: 9-10
+  "inline": { "a": [1, 2] }, // f: 2-35
+  "nested": { // f: 12-22
+    /* a comment with { a brace */ // f: 12-22
+    "list": [ // f: 14-19
+      { // f: 15-17
+        "a": 1 // f: 15-17
+      }, // f: 15-17
+      { "b": 2 } // f: 14-19
+    ] // f: 14-19
+    , // f: 12-22
+    "url": "http://example.com/{x}" // f: 12-22
+  }, // f: 12-22
+  "matrix": [ // f: 23-26
+    [1, 2], // f: 23-26
+    [3, 4] // f: 23-26
+  ], // f: 23-26
+  "key on its own line": // f: 2-35
+    { // f: 28-30
+      "deep": true // f: 28-30
+    }, // f: 28-30
+  "tabs": { // f: 31-34
+			"mixed": "indentation", // f: 31-34
+        "x": null // f: 31-34
+  } // f: 31-34
+} // f: 2-35

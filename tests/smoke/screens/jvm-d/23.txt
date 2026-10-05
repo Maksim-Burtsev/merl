@@ -1,0 +1,57 @@
+wait web/android/src/main/kotlin/courier/app/Notice.kt  1:1
+1 package courier.app
+2
+3 fun removedNotice(): String = stringResource(R.string.parcel_removed)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/android/src/main/kotlin/courier/app/Notice.kt  1:1  [code]                                                                                                                    ? help
+cursor (x,y,shown) 2,0,1

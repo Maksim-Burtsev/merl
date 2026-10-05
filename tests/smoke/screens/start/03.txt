@@ -1,5 +1,4 @@
 wait merl exited: 0
-Fold: Enter            0       0    0  never  Review: load the diff of a folded generated file
 Enter                  0       0    0  never  Edit at the cursor (Esc returns to navigation)
 Ctrl+S                 0       0    0  never  Save now (edits are saved on their own after a pause)
 Ctrl+R                 0       0    0  never  Reload from disk, dropping unsaved edits
@@ -49,6 +48,7 @@ Help: Up               0       0    0  never  Scroll
 Help: Down             0       0    0  never  Scroll
 w                      0       0    0  never  Wrap long lines, or cut them at the edge and scroll sideways
 p                      0       0    0  never  Show a Markdown file rendered, or its source again
+f                      0       0    0  never  Fold the function or block at the cursor into its first line, or unfold it
 T                      0       0    0  never  Pick a theme (live preview)
 Esc                    0       0    0  never  Close an overlay, leave edit mode, or clear selection and find
 q                      0       0    0  never  Quit

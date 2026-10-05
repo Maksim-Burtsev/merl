@@ -18,7 +18,7 @@ python0015
 python0016	src/documents/search/_errors.py:1		
 python0017	src/paperless_mail/models.py:125		
 python0018	.venv/lib/python3.11/site-packages/django/db/models/expressions.py:1574		
-python0019	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/typing.py:2754		
+python0019	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/typing.py:2754	typing's alias, through typeshed's stubs: collections.abc's name is the class _collections_abc declares (#329)	
 python0020	.venv/lib/python3.11/site-packages/llama_index/core/schema.py:289		
 python0021	src/paperless_testing/factories.py:1		
 python0022	src/documents/utils.py:1		
@@ -189,7 +189,7 @@ python0186	src/paperless/parsers/registry.py:151
 python0187	src/documents/models.py:158		
 python0188	src/documents/models.py:158		
 python0189	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/datetime.py:1058		
-python0190	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/typing.py:2734		
+python0190	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/typing.py:2734	typing's alias, through typeshed's stubs: collections.abc's name is the class _collections_abc declares (#329)	
 python0191	src/documents/tests/test_barcodes.py:28		
 python0192	src/documents/models.py:1207		
 python0193			

@@ -1,0 +1,57 @@
+wait web/android/build.gradle.kts  1:1
+1 dependencies {
+2     implementation(libs.google.oss.licenses)
+3 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/android/build.gradle.kts  1:1  [code]                                                                                                                                         ? help
+cursor (x,y,shown) 2,0,1

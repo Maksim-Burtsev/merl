@@ -23,3 +23,8 @@ key t Enter
 type X
 key Escape
 wait 16▎X- A cancelled order keeps its total.
+# #458: at 80 columns `?` wraps an action too long for its row under its own column, where it was
+# cut at the border.
+size 80x24
+key ?
+wait Go to definition of the word under the

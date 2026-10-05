@@ -1,0 +1,4 @@
+[profile.default]
+src = "contracts"
+libs = ["lib", "node_modules"]
+remappings = ["@courier/=lib/shop-lib/src/courier/"]

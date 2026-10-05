@@ -36,17 +36,11 @@ fn u_reads_a_dashed_and_a_primed_nix_name_whole() {
     };
     assert_eq!(
         rows(&mut a, "hosts/web.nix", 3, "package;"),
-        [
-            "declaration  default.nix:2:",
-            "             hosts/web.nix:3:"
-        ]
+        ["default.nix:2:", "hosts/web.nix:3:"]
     );
     assert_eq!(
         rows(&mut a, "hosts/web.nix", 4, "rate' "),
-        [
-            "declaration  default.nix:5:",
-            "             hosts/web.nix:4:"
-        ]
+        ["default.nix:5:", "hosts/web.nix:4:"]
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -78,10 +72,7 @@ fn u_marks_a_let_binding_and_lands_whole_on_a_quoted_word_elsewhere() {
             .collect();
         rows
     };
-    assert_eq!(
-        rows(&mut a, 5, "api;"),
-        ["declaration  g.nix:3:", "             g.nix:5:"]
-    );
+    assert_eq!(rows(&mut a, 5, "api;"), ["g.nix:3:", "g.nix:5:"]);
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     assert_eq!(rows(&mut a, 5, "hello"), ["g.nix:5:", "run.sh:1:"]);
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);

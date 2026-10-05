@@ -1,6 +1,6 @@
 [package]
 name = "merl"
-version = "0.8.0"
+version = "0.8.2"
 edition = "2024"
 rust-version = "1.88"
 description = "The one editor you need when agents write the code: read a project, review a branch, fix a line"

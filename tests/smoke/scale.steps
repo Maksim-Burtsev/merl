@@ -25,5 +25,5 @@ wait Usages of
 key Escape s
 type QueueSettings{}
 time
-wait queue.go:49
+wait setting/queue.go
 include assets/demo.steps

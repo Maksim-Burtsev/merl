@@ -52,3 +52,11 @@ def test_missing_order():
 
 def test_first_of_many():
     assert next(iter([3, 4])) == 3
+
+
+import unittest  # noqa: E402
+
+
+class LegacyServiceTest(unittest.TestCase):
+    def test_nothing_saved(self):
+        self.assertEqual(1 + 1, 2)

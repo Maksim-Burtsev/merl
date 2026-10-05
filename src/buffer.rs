@@ -411,8 +411,7 @@ fn known_file(name: &str) -> Option<&'static str> {
         (_, "h") => "C++",
         (".npmrc", _) | (_, "service" | "timer" | "socket") => "INI",
         ("Procfile" | "yarn.lock", _) => "YAML",
-        // Starlark.
-        ("WORKSPACE" | "Tiltfile", _) => "Python",
+        ("WORKSPACE" | "Tiltfile" | "BUILD" | "BUCK", _) | (_, "star") => "Python",
         // bat's set owns `.md` and `.markdown`; MDX is Markdown with JSX in it (#421).
         (_, "mdx") => "Markdown",
         // bat's set has no Astro grammar: TSX paints its frontmatter and its JSX-like template,
@@ -420,6 +419,10 @@ fn known_file(name: &str) -> Option<&'static str> {
         (_, "astro") => "TypeScriptReact",
         // bat's Scala grammar owns `.scala`, `.sbt` and `.sc`, not Mill's build files (#416).
         (_, "mill") => "Scala",
+        (_, "fs") => "F#",
+        (".Rprofile", _) => "R",
+        (_, "bb") => "Clojure",
+        (_, "asd") | (".emacs", _) => "Lisp",
         _ => return None,
     })
 }
@@ -573,6 +576,26 @@ mod tests {
                 assert_eq!(
                     b.syntax.map(|s| s.name.as_str()),
                     Some("Elixir"),
+                    "{file} {name}"
+                );
+                b.highlight_to(3, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
+    fn erlang_highlights_with_every_shipped_theme() {
+        let src = "% doc\n-module(ledger).\n\nparse(Raw) -> {ok, Raw}.\n";
+        for file in ["ledger.erl", "ledger.hrl", "ledger.escript"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("Erlang"),
                     "{file} {name}"
                 );
                 b.highlight_to(3, &theme);
@@ -901,8 +924,7 @@ mod tests {
     }
 
     #[test]
-    fn java_kotlin_and_scala_highlight_with_every_shipped_theme() {
-        // bat's set owns all but `.mill` by name; that one is mapped (#416).
+    fn jvm_languages_highlight_with_every_shipped_theme() {
         for (file, lang, src) in [
             (
                 "Invoice.java",
@@ -930,6 +952,23 @@ mod tests {
                 "build.mill",
                 "Scala",
                 "// doc\nobject core extends ScalaModule\n",
+            ),
+            (
+                "Ledger.groovy",
+                "Groovy",
+                "// doc\nclass Ledger {\n    def total(xs) { xs.sum() }\n}\n",
+            ),
+            ("run.gvy", "Groovy", "// doc\ndef limit = 10\n"),
+            (
+                "build.gradle",
+                "Groovy",
+                "// doc\ntask docs(type: Copy) { from 'docs' }\n",
+            ),
+            ("Jenkinsfile", "Groovy", "// doc\nnode { sh 'make' }\n"),
+            (
+                "release.jenkinsfile",
+                "Groovy",
+                "// doc\nnode { sh 'make' }\n",
             ),
         ] {
             for name in crate::theme::names() {
@@ -1113,6 +1152,57 @@ mod tests {
     }
 
     #[test]
+    fn julia_highlights_with_every_shipped_theme() {
+        let src = "# doc\nfunction total(xs)\n    m = \"shop\"\n    sum(xs)\nend\n";
+        for name in crate::theme::names() {
+            let theme = crate::theme::load(name).unwrap();
+            let mut b = Buffer::from_bytes(PathBuf::from("src/money.jl"), src.as_bytes());
+            assert_eq!(b.syntax.map(|s| s.name.as_str()), Some("Julia"), "{name}");
+            b.highlight_to(5, &theme);
+            let colours: std::collections::HashSet<_> =
+                b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+            assert!(colours.len() > 1, "{name}: everything is one colour");
+        }
+    }
+
+    #[test]
+    fn lisp_highlights_with_every_shipped_theme() {
+        let cases = [
+            (
+                "src/shop/money.clj",
+                "Clojure",
+                "(ns shop.money)\n(defn f [x] \"doc\" x)\n",
+            ),
+            ("bb.bb", "Clojure", "(ns tasks)\n(defn f [x] \"doc\" x)\n"),
+            ("shop.el", "Lisp", "; doc\n(defun f (x) \"doc\" x)\n"),
+            (".emacs", "Lisp", "; doc\n(defun f (x) \"doc\" x)\n"),
+            ("shop.scm", "Lisp", "; doc\n(define (f x) \"doc\" x)\n"),
+            (
+                "shop.rkt",
+                "Racket",
+                "#lang racket\n(define (f x) \"doc\" x)\n",
+            ),
+            ("shop.lisp", "Lisp", "; doc\n(defun f (x) \"doc\" x)\n"),
+            (
+                "shop.asd",
+                "Lisp",
+                "; doc\n(defsystem \"shop\" :depends-on ())\n",
+            ),
+        ];
+        for (file, syntax, src) in cases {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(b.syntax.map(|s| s.name.as_str()), Some(syntax), "{file}");
+                b.highlight_to(2, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
     fn nix_highlights_with_every_shipped_theme() {
         let src = "# doc\n{ pkgs, ... }:\nlet\n  name = \"shop\";\nin pkgs.hello\n";
         for name in crate::theme::names() {
@@ -1123,6 +1213,157 @@ mod tests {
             let colours: std::collections::HashSet<_> =
                 b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
             assert!(colours.len() > 1, "{name}: everything is one colour");
+        }
+    }
+
+    #[test]
+    fn haskell_highlights_with_every_shipped_theme() {
+        let src = "-- | doc\nmodule Shop.Money where\n\nformatPrice :: Money -> String\nformatPrice (Money c) = show c\n";
+        for name in crate::theme::names() {
+            let theme = crate::theme::load(name).unwrap();
+            let mut b = Buffer::from_bytes(PathBuf::from("src/Shop/Money.hs"), src.as_bytes());
+            assert_eq!(b.syntax.map(|s| s.name.as_str()), Some("Haskell"), "{name}");
+            b.highlight_to(5, &theme);
+            let colours: std::collections::HashSet<_> =
+                b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+            assert!(colours.len() > 1, "{name}: everything is one colour");
+        }
+    }
+
+    #[test]
+    fn ocaml_highlights_with_every_shipped_theme() {
+        let src = "(* doc *)\ntype t = { cents : int }\nlet format_price { cents } =\n  Printf.sprintf \"%d\" cents\n";
+        for file in ["lib/money.ml", "lib/money.mli"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("OCaml"),
+                    "{file} {name}"
+                );
+                b.highlight_to(4, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
+    fn fsharp_highlights_with_every_shipped_theme() {
+        let src =
+            "// doc\nmodule Shop.Money\n\nlet formatPrice (m: Money) = sprintf \"%d\" m.Cents\n";
+        for file in ["src/Money.fs", "src/Money.fsi", "build.fsx"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("F#"),
+                    "{file} {name}"
+                );
+                b.highlight_to(4, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
+    fn r_highlights_with_every_shipped_theme() {
+        let src =
+            "# doc\nformat_price <- function(cents) {\n  sprintf(\"$%.2f\", cents / 100)\n}\n";
+        for file in ["R/money.R", "R/money.r", ".Rprofile"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("R"),
+                    "{file} {name}"
+                );
+                b.highlight_to(4, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
+    fn perl_highlights_with_every_shipped_theme() {
+        let src = "package Shop::Order;\n# doc\nsub total {\n    my $self = shift;\n    return $self->{total} // 0;\n}\n";
+        for path in ["lib/Shop/Order.pm", "bin/report.pl", "t/order.t"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(path), src.as_bytes());
+                assert_eq!(b.syntax.map(|s| s.name.as_str()), Some("Perl"), "{path}");
+                b.highlight_to(6, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
+    fn gdscript_highlights_with_every_shipped_theme() {
+        let src = "## doc\nclass_name Player\nsignal died\nfunc hit(amount: int) -> void:\n\tprint(\"ouch\")\n";
+        for name in crate::theme::names() {
+            let theme = crate::theme::load(name).unwrap();
+            let mut b = Buffer::from_bytes(PathBuf::from("actors/player.gd"), src.as_bytes());
+            assert_eq!(
+                b.syntax.map(|s| s.name.as_str()),
+                Some("GDScript (Godot Engine)"),
+                "{name}"
+            );
+            b.highlight_to(5, &theme);
+            let colours: std::collections::HashSet<_> =
+                b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+            assert!(colours.len() > 1, "{name}: everything is one colour");
+        }
+    }
+
+    #[test]
+    fn solidity_highlights_with_every_shipped_theme() {
+        let src = "// doc\ncontract Shop {\n    uint256 public total = 1;\n    function mint() external {}\n}\n";
+        for name in crate::theme::names() {
+            let theme = crate::theme::load(name).unwrap();
+            let mut b = Buffer::from_bytes(PathBuf::from("contracts/Shop.sol"), src.as_bytes());
+            assert_eq!(
+                b.syntax.map(|s| s.name.as_str()),
+                Some("Solidity"),
+                "{name}"
+            );
+            b.highlight_to(5, &theme);
+            let colours: std::collections::HashSet<_> =
+                b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+            assert!(colours.len() > 1, "{name}: everything is one colour");
+        }
+    }
+
+    #[test]
+    fn starlark_highlights_as_python_with_every_shipped_theme() {
+        let src =
+            "# doc\nload(\"//tools:defs.bzl\", \"shop_binary\")\n\ndef shop(name):\n    pass\n";
+        for file in [
+            "BUILD",
+            "api/BUILD.bazel",
+            "tools/defs.bzl",
+            "x.star",
+            "BUCK",
+        ] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(b.syntax.map(|s| s.name.as_str()), Some("Python"), "{file}");
+                b.highlight_to(5, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
         }
     }
 
@@ -1200,6 +1441,9 @@ mod tests {
             ("yarn.lock", "YAML"),
             ("WORKSPACE", "Python"),
             ("Tiltfile", "Python"),
+            ("BUILD", "Python"),
+            ("BUCK", "Python"),
+            ("rules.star", "Python"),
             // Already in bat's set; listed so a two-face upgrade cannot drop them silently.
             ("docker-compose.yml", "YAML"),
             ("Makefile", "Makefile"),

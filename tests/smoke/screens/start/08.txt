@@ -18,7 +18,7 @@ wait Tutor 3/
 16     def _read(self) -> list[Note]:
 17         """Load the notes from disk; a missing file means no notes yet."""
 18         if not self.config.path.exists():
-Tutor 3/22 · Next match
+Tutor 3/23 · Next match
 The file is searched for `load_config`. `n` goes to the next match, `N` to the
 previous one; `/` again brings the query back, selected, to refine it. Press
 `n`: the call inside NoteStore.

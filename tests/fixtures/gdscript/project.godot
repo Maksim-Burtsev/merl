@@ -1,0 +1,12 @@
+; Engine configuration file.
+config_version=5
+
+[application]
+
+config/name="Shop"
+run/main_scene="res://actors/coin.tscn"
+
+[autoload]
+
+GameState="*res://globals/game_state.gd"
+Hud="res://ui/hud.gd"
