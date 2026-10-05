@@ -246,8 +246,6 @@ def sample(lang, project, root, n, out, exclude=()):
     print({k: len(v) for k, v in buckets.items()}, "->", len(chosen), file=sys.stderr)
 
 
-# ---------------------------------------------------------------- LSP client
-
 class Lsp:
     def __init__(self, cmd, root, init_options=None, settings=None, env=None):
         self.p = subprocess.Popen(cmd, cwd=root, stdin=subprocess.PIPE, stdout=subprocess.PIPE,

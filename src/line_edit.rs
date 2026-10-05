@@ -219,13 +219,12 @@ mod tests {
         press(&mut e, KeyCode::End, KeyModifiers::NONE);
         assert!(press(&mut e, KeyCode::Char('w'), KeyModifiers::CONTROL));
         assert_eq!(&*e, "найти ");
-        // Option+Backspace is the same cut; Option+Delete is its pair forward.
         assert!(press(&mut e, KeyCode::Backspace, KeyModifiers::ALT));
-        assert_eq!(&*e, "");
+        assert_eq!(&*e, "", "Option+Backspace is the same cut");
         let mut e = typed("a bc");
         press(&mut e, KeyCode::Home, KeyModifiers::NONE);
         assert!(press(&mut e, KeyCode::Delete, KeyModifiers::ALT));
-        assert_eq!(&*e, " bc");
+        assert_eq!(&*e, " bc", "Option+Delete is its pair forward");
         assert!(press(&mut e, KeyCode::Char('u'), KeyModifiers::CONTROL));
         assert_eq!((&*e, e.cursor()), ("", 0));
     }
@@ -248,11 +247,14 @@ mod tests {
         press(&mut e, KeyCode::Right, KeyModifiers::NONE);
         assert_eq!((e.cursor(), e.selection()), (6, None));
 
-        // Shrunk back to nothing, it does not come alive under the next char typed.
         press(&mut e, KeyCode::Left, KeyModifiers::SHIFT);
         press(&mut e, KeyCode::Right, KeyModifiers::SHIFT);
         press(&mut e, KeyCode::Char('y'), KeyModifiers::NONE);
-        assert_eq!((&*e, e.selection()), ("func xy", None));
+        assert_eq!(
+            (&*e, e.selection()),
+            ("func xy", None),
+            "a selection shrunk back to nothing does not come alive under the next char typed"
+        );
         press(&mut e, KeyCode::Backspace, KeyModifiers::NONE);
 
         press(&mut e, KeyCode::Left, KeyModifiers::SHIFT);

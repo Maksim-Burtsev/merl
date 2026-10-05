@@ -169,7 +169,6 @@ impl Picker {
             .collect()
     }
 
-    /// The item under the cursor, if the query matches anything.
     pub fn current(&self) -> Option<&PickItem> {
         let snap = self.nucleo.snapshot();
         snap.get_matched_item(self.selected as u32)
@@ -306,12 +305,11 @@ mod tests {
         assert_eq!(sel, 0);
         assert_eq!(rows[0].item.label, "src/wrap.rs");
         assert_eq!(rows[0].matched, [4, 5, 6]);
-        // Backspacing widens the result set again.
         p.key(KeyCode::Backspace.into());
         p.key(KeyCode::Backspace.into());
         p.key(KeyCode::Backspace.into());
         p.settle();
-        assert_eq!(p.counts().0, 3);
+        assert_eq!(p.counts().0, 3, "backspacing widens the result set again");
     }
 
     /// A capital in the query does not make it exact: `sameCancel` finds `SameCancel` (#174).

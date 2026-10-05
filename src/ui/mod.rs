@@ -29,7 +29,6 @@ use welcome::draw_welcome;
 #[cfg(test)]
 mod tests;
 
-/// Width of the file tree pane.
 const TREE_W: u16 = 30;
 
 pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
