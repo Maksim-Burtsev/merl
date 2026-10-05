@@ -331,9 +331,13 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
     Ok(Theme {
         bg: rgb(bg),
         fg: rgb(fg),
-        gutter_fg: s
-            .gutter_foreground
-            .map_or_else(|| blend(fg, bg, 45), over_bg),
+        gutter_fg: gutter_fg(
+            s.gutter_foreground
+                .map_or_else(|| mix(fg, bg, 45), |c| composite(c, bg)),
+            bg,
+            comment_color(&syntect),
+            toward,
+        ),
         line_hl,
         line_hl_dim,
         ghost_fg,
@@ -383,6 +387,33 @@ fn accent_color(theme: &syntect::highlighting::Theme) -> Option<SynColor> {
     })
 }
 
+fn comment_color(theme: &syntect::highlighting::Theme) -> Color {
+    let comment = Scope::new("comment").expect("a valid scope");
+    rgb(Highlighter::new(theme)
+        .style_for_stack(&[comment])
+        .foreground)
+}
+
+fn gutter_fg(start: SynColor, bg: SynColor, comment: Color, toward: SynColor) -> Color {
+    let on_bg = |c: Color| contrast(c, rgb(bg));
+    let cap = on_bg(comment);
+    let mut out = rgb(start);
+    if on_bg(out) >= GUTTER_CONTRAST || on_bg(out) >= cap {
+        return out;
+    }
+    for percent in 1..=100 {
+        let c = blend(toward, start, percent);
+        if on_bg(c) > cap {
+            break;
+        }
+        out = c;
+        if on_bg(c) >= GUTTER_CONTRAST {
+            break;
+        }
+    }
+    out
+}
+
 /// Converts one syntect span style into a ratatui style. The span background is ignored: merl
 /// paints its own (theme background, or the cursor-line highlight).
 pub fn style(s: syntect::highlighting::Style) -> ratatui::style::Style {
@@ -422,6 +453,8 @@ const GHOST_MAX: u32 = 85;
 
 /// The contrast a changed word's text keeps on its tint: WCAG AA for body text.
 const WORD_CONTRAST: f64 = 4.5;
+
+const GUTTER_CONTRAST: f64 = 3.0;
 
 /// WCAG relative luminance, 0.0 (black) to 1.0 (white).
 fn luminance(c: Color) -> f64 {
@@ -939,5 +972,34 @@ mod tests {
             );
             assert!(ghost >= 2.0, "{name}: ghost {ghost:.2}");
         }
+    }
+
+    #[test]
+    fn line_numbers_reach_3_to_1_but_never_pass_the_comments() {
+        let mut changed = 0;
+        for name in names() {
+            let t = load(name).unwrap();
+            let s = &t.syntect.settings;
+            let (bg, fg) = (s.background.unwrap(), s.foreground.unwrap());
+            let own = rgb(s
+                .gutter_foreground
+                .map_or_else(|| mix(fg, bg, 45), |c| composite(c, bg)));
+            let (before, after) = (contrast(own, t.bg), contrast(t.gutter_fg, t.bg));
+            let comments = contrast(comment_color(&t.syntect), t.bg);
+            if before >= GUTTER_CONTRAST || before >= comments {
+                assert_eq!(t.gutter_fg, own, "{name}");
+                continue;
+            }
+            changed += 1;
+            assert!(
+                after <= comments,
+                "{name}: {after:.2} past comments {comments:.2}"
+            );
+            assert!(
+                after >= GUTTER_CONTRAST || comments - after < 0.15,
+                "{name}: {before:.2} -> {after:.2}, comments {comments:.2}"
+            );
+        }
+        assert!(changed > 40, "{changed}");
     }
 }
