@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   code instead of stopping at the border mid-word. `u` no longer writes `declaration` before
   its first rows: the title counts them. With the tree open and the code at least 80 columns
   wide, every list sits over the code instead of over the tree, its text where the code starts. (#479)
+- The first `d` that leaves the project no longer waits for the walk of the standard library and
+  the dependencies (about 0.9 s for Rust): merl walks them in the background once a file of that
+  language opens. Rust's standard library is read without its tests, benches and vendored
+  crates, which no `use` reaches. (#318)
 
 ### Fixed
 

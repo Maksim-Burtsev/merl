@@ -640,6 +640,19 @@ impl App {
         self.otp = Some(Vec::new());
     }
 
+    pub fn warm_up(&mut self) {
+        let Some(kind) = self.kind() else { return };
+        if matches!(kind, Kind::TsJs | Kind::Elixir | Kind::Solidity)
+            || self.external.contains_key(&kind)
+            || self.warming.contains_key(&kind)
+        {
+            return;
+        }
+        let root = self.root.clone();
+        let walk = std::thread::spawn(move || walk_outside(kind, &root));
+        self.warming.insert(kind, walk);
+    }
+
     /// The files of `kind` outside the project, walked once per kind.
     ///
     /// ponytail: lives for the session, unlike the project walk. A `pip install` mid-session
@@ -705,8 +718,9 @@ impl App {
         let files = match self.external.get(&kind) {
             Some((_, files)) => files.clone(),
             None => {
-                let roots = search::external_roots(kind, &self.root);
-                let files = Arc::new(search::external_files(kind, &roots));
+                let warm = self.warming.remove(&kind).and_then(|w| w.join().ok());
+                let (roots, files) = warm.unwrap_or_else(|| walk_outside(kind, &self.root));
+                let files = Arc::new(files);
                 // No roots may be a toolchain that failed to answer this once: it is asked
                 // again on the next `d`, rather than leave the session without a standard
                 // library (#183).
@@ -958,6 +972,14 @@ impl App {
             None => "no rules for this file".into(),
         }
     }
+}
+
+pub(super) type Walked = (Vec<PathBuf>, Vec<PathBuf>);
+
+fn walk_outside(kind: Kind, root: &Path) -> Walked {
+    let roots = search::external_roots(kind, root);
+    let files = search::external_files(kind, &roots);
+    (roots, files)
 }
 
 fn python_rel<'a>(roots: &[PathBuf], f: &'a Path) -> Option<(usize, &'a Path)> {

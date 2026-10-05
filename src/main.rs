@@ -374,6 +374,7 @@ fn event_loop(
             dirty |= p.tick();
         }
         dirty |= app.tick();
+        app.warm_up();
         rewatch(watcher.as_mut(), &mut watched, app);
         if std::mem::take(&mut app.want_diff)
             && let Some(path) = app.buf.path.clone()
