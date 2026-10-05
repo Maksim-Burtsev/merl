@@ -4,7 +4,7 @@
 
 <h1 align="center">merl</h1>
 
-<p align="center"><b>Code navigator for the terminal — read and review code, and nothing else.</b></p>
+<p align="center"><b>Code navigator for the terminal: read and review code, and nothing else.</b></p>
 
 <p align="center">
   <a href="https://github.com/Maksim-Burtsev/merl/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Maksim-Burtsev/merl/ci.yml?branch=master&label=ci" alt="CI"></a>
