@@ -217,3 +217,77 @@ fn an_entry_passes_by_any_issue_it_cites_that_a_scenario_plays() {
     assert_eq!(wrong.len(), 2, "{wrong:?}");
     assert!(wrong[0].contains("cites #4,") && wrong[1].contains("cites no issue"));
 }
+
+fn released(changelog: &str) -> Vec<(String, String)> {
+    let mut sections: Vec<(String, String)> = Vec::new();
+    for line in changelog.lines() {
+        if line.starts_with('[') && line.contains("]: ") {
+            break;
+        }
+        if let Some(heading) = line.strip_prefix("## [") {
+            let version = heading.split(']').next().unwrap_or("").to_string();
+            sections.push((version, String::new()));
+        }
+        if let Some((_, text)) = sections.last_mut() {
+            text.push_str(line);
+            text.push('\n');
+        }
+    }
+    sections.retain(|(version, _)| version != "Unreleased");
+    sections
+}
+
+fn changed_releases(at_release: &str, now: &str) -> Vec<String> {
+    let then = released(at_release);
+    released(now)
+        .into_iter()
+        .filter(|s| then.iter().any(|t| t.0 == s.0) && !then.contains(s))
+        .map(|(version, _)| version)
+        .collect()
+}
+
+fn git(args: &[&str]) -> String {
+    let out = std::process::Command::new("git")
+        .args(args)
+        .current_dir(root())
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "git {args:?}: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    String::from_utf8(out.stdout).unwrap()
+}
+
+#[test]
+fn released_changelog_sections_stay_as_released() {
+    let log = git(&["log", "--format=%H %s"]);
+    let release = log
+        .lines()
+        .filter_map(|l| l.split_once(' '))
+        .find(|(_, subject)| subject.starts_with("release: "))
+        .map(|(hash, _)| hash)
+        .expect("no `release: X.Y.Z` commit in the history: a shallow clone needs fetch-depth: 0");
+    let at_release = git(&["show", &format!("{release}:CHANGELOG.md")]);
+    let now = std::fs::read_to_string(root().join("CHANGELOG.md")).unwrap();
+    let wrong = changed_releases(&at_release, &now);
+    assert!(
+        wrong.is_empty(),
+        "CHANGELOG.md's [{}] differ from release commit {release}: a merge of master after a \
+         release moves a branch's entries under the released heading; move them back to \
+         [Unreleased]",
+        wrong.join("], [")
+    );
+}
+
+#[test]
+fn a_released_section_counts_as_changed_by_any_line_but_a_new_one_does_not() {
+    let then = "## [Unreleased]\n\n## [0.2.0] - 2026-01-02\n\n- B. (#2)\n\n\
+                ## [0.1.0] - 2026-01-01\n\n- A. (#1)\n\n[0.2.0]: url\n";
+    let now = "## [Unreleased]\n\n- D. (#4)\n\n## [0.3.0] - 2026-01-03\n\n- C. (#3)\n\n\
+               ## [0.2.0] - 2026-01-02\n\n- B. (#2)\n- D. (#4)\n\n\
+               ## [0.1.0] - 2026-01-01\n\n- A. (#1)\n\n[0.3.0]: url\n[0.2.0]: url\n";
+    assert_eq!(changed_releases(then, now), ["0.2.0"]);
+    assert!(changed_releases(then, then).is_empty());
+}

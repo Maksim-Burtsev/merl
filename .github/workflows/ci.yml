@@ -52,7 +52,11 @@ jobs:
             repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files)
           grep -qvE '^(\.claude/|docs/releases/|AGENTS\.md$|CLAUDE\.md$)' <<<"$files" \
             || echo DOCS_ONLY=1 >> "$GITHUB_ENV"
+      # The whole history: a test compares the released sections of CHANGELOG.md with the last
+      # `release:` commit (#706).
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - if: ${{ !env.DOCS_ONLY }}
         uses: dtolnay/rust-toolchain@stable
         with:
