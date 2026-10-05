@@ -935,6 +935,7 @@ fn review_walks_past_a_submodule_and_a_file_that_does_not_open() {
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!(at(&a), (dir.join("tail"), 0));
     assert_eq!(a.message, "skipped 1 file without hunks");
+    assert!(a.viewed.contains_key(Path::new("new")) && !a.viewed.contains_key(Path::new("sub")));
     // `new` stops opening: `c` from `gone` goes past it to `tail`, and the status says
     // what happened to `new`.
     std::fs::remove_file(dir.join("new")).unwrap();
