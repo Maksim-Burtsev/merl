@@ -44,8 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wide, every list sits over the code instead of over the tree, its text where the code starts. (#479)
 - The first `d` that leaves the project no longer waits for the walk of the standard library and
   the dependencies (about 0.9 s for Rust): merl walks them in the background once a file of that
-  language opens. Rust's standard library is read without its tests, benches and vendored
-  crates, which no `use` reaches. (#318)
+  language opens. Rust's standard library is read without its tests and benches. (#318)
 - `d` in TypeScript and JavaScript reads the type of a receiver in five more places. In
   `function Row({ apiKey }: Props)` `apiKey.id` lands on the `id` its `Props` field's type
   declares, as `auth.user` does after `const { auth } = useStores()`, `membership.permission`
