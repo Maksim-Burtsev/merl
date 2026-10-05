@@ -4,7 +4,7 @@
 
 <h1 align="center">merl</h1>
 
-<p align="center"><b>Code navigator for the terminal: read and review code, and nothing else.</b></p>
+<p align="center"><b>Code navigator for the terminal — VS Code's reading half, without the window.</b></p>
 
 <p align="center">
   <a href="https://github.com/Maksim-Burtsev/merl/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Maksim-Burtsev/merl/ci.yml?branch=master&label=ci" alt="CI"></a>
@@ -25,10 +25,10 @@ and now and then type a secret into a `.env`. No setup, no config, no modes. It 
 Claude Code, Codex or any other agent, and wherever a terminal does, SSH and tmux included.
 
 <p align="center">
-  <img src="assets/teaser.gif" alt="merl --review on an agent's branch of polar, a FastAPI app, each key drawn in the corner as it is pressed: on validate's refactored lookup, / finds the new call and d opens the service method the branch adds; Ctrl+D shows get_or_raise_by_key right under it, u lists who calls that one, three endpoints of the customer portal, and Enter opens one that needs no authentication; c brings the review back to validate" width="900">
+  <img src="assets/demo.gif" alt="merl on a checkout of gitea: open a file by a few letters of its name, find in the file, go to definition with the status line saying how it was proven, back, usages with the declarations first and the test last, then project search with the hits following the typing" width="900">
 </p>
 
-<p align="center"><sub>An agent's branch of <a href="https://github.com/polarsource/polar">polar</a>. The method it adds has a namesake right under it, called from customer portal endpoints that need no authentication.</sub></p>
+<p align="center"><sub>A checkout of <a href="https://github.com/go-gitea/gitea">gitea</a>, 5,500 files. Nothing was indexed or configured first.</sub></p>
 
 ## Install
 
@@ -69,11 +69,6 @@ those two things out of the box, with nothing to configure and nothing to switch
 - **Understand the code.** Open a file by a few letters of its name, search the project as you
   type, go to a definition or list its usages, and come back with `[`. It follows you into the
   standard library and the dependencies, in over 50 languages, with nothing to install.
-
-  <img src="assets/demo.gif" alt="merl on a checkout of gitea: open a file by a few letters of its name, find in the file, go to definition with the status line saying how it was proven, back, usages with the declarations first and the test last, then project search with the hits following the typing" width="900">
-
-  <sub>A checkout of <a href="https://github.com/go-gitea/gitea">gitea</a>, 5,500 files. Nothing was indexed or configured first.</sub>
-
 - **Review a branch.** `merl --review` draws the branch's diff over the real files, so from any
   changed line you can look up what it calls and who else uses it. It stays current while the
   agent keeps working, and a file you have walked through gets a tick that stays with the branch
