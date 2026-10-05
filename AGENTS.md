@@ -314,8 +314,8 @@ Only when the owner asks for one, and with nothing open under `release-blocker`.
      as `releases/X.Y.Z.gif` (a new name for every upload, as for PR screencasts) and into the
      note as `![](https://raw.githubusercontent.com/Maksim-Burtsev/merl/media/releases/X.Y.Z.gif)`.
 4. A release PR, `release: X.Y.Z`, from a branch `release/X.Y.Z`: only such a branch's CI
-   presses `d`, `u` and `D` at every cursor of every fixture (#543, ~20 minutes), and a panic it
-   finds is fixed on that branch. `## [Unreleased]` becomes `## [X.Y.Z] - YYYY-MM-DD` with its
+   presses `d`, `u` and `D` at every cursor of every fixture (#543, in four shards, ~25 minutes
+   with the other checks), and a panic it finds is fixed on that branch. `## [Unreleased]` becomes `## [X.Y.Z] - YYYY-MM-DD` with its
    link, the version goes into `Cargo.toml` and `Cargo.lock`, it adds `docs/releases/X.Y.Z.md`,
    it carries the `tests/budgets.tsv` the smoke test's time budgets wrote, and its body holds the
    smoke test's verdict table.

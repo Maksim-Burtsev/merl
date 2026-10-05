@@ -10,14 +10,37 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # `d`, `u` and `D` at every cursor position of every fixture, failing on a panic (#543): 50
+  # minutes on one runner in release, so only a release PR plays it, in shards (#711).
+  no-panic:
+    if: startsWith(github.head_ref, 'release/')
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --release --locked no_panic -- --ignored
+        env:
+          MERL_NO_PANIC_SHARD: ${{ matrix.shard }}/4
+
   check:
     name: check (${{ matrix.os }})
+    # The checks the merge requires wait for the shards and fail with any of them; on any other
+    # PR the shards are skipped and the checks start at once.
+    needs: no-panic
+    if: ${{ !cancelled() }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
+      - if: needs.no-panic.result == 'failure'
+        run: echo "the panic sweep failed, see its no-panic jobs" && exit 1
       # A PR that touches only what agents read (skills, AGENTS.md, release notes) builds nothing:
       # no test reads those files, and the check passes in seconds instead of minutes.
       - if: github.event_name == 'pull_request'
@@ -43,10 +66,6 @@ jobs:
         run: cargo test --locked
       - if: ${{ !env.DOCS_ONLY }}
         run: cargo build --release --locked
-      # `d`, `u` and `D` at every cursor position of every fixture, failing on a panic (#543):
-      # half an hour in debug and 19 minutes here in release, so only a release PR plays it.
-      - if: matrix.os == 'ubuntu-latest' && startsWith(github.head_ref, 'release/') && !env.DOCS_ONLY
-        run: cargo test --release --locked no_panic -- --ignored
       # The `d` bench's scoring and its no-cursor-worse gate, on made-up rows: no clone needed.
       - if: ${{ !env.DOCS_ONLY }}
         run: tools/d-bench/run --selftest
