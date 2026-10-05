@@ -297,6 +297,9 @@ impl App {
         if !extending {
             self.drop_selection_if_moved(before);
         }
+        if (self.at(), self.col) != before {
+            self.undo_break = true;
+        }
         if paging && let (Some(pos), Some(cur)) = (self.pos(), self.history.get_mut(self.hist_idx))
         {
             *cur = pos;

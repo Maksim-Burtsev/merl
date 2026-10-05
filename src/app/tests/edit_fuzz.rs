@@ -234,8 +234,6 @@ struct Step {
     before: Pos,
     after: Pos,
     format: Option<(Format, Format)>,
-    /// What it left is one line, so typing on that line can carry it on.
-    one_line: bool,
 }
 
 struct Model {
@@ -250,6 +248,7 @@ struct Model {
     redo: Vec<Step>,
     /// The next edit starts an undo step of its own.
     fresh: bool,
+    last: &'static str,
     format: Format,
     disk: Vec<u8>,
     dirty: bool,
@@ -284,6 +283,7 @@ impl Model {
             undo: Vec::new(),
             redo: Vec::new(),
             fresh: false,
+            last: "other",
             format,
             disk: bytes.to_vec(),
             dirty: false,
@@ -429,9 +429,8 @@ impl Model {
         }
     }
 
-    /// The one way the text changes: `from..to` becomes `text`, the cursor after it. Typing
-    /// that carries on where the last step ended, on one line, extends that step.
-    fn replace(&mut self, from: Pos, to: Pos, text: &str) -> bool {
+    fn replace(&mut self, from: Pos, to: Pos, text: &str, kind: &'static str) -> bool {
+        self.fresh |= kind == "other";
         // Nothing to take and nothing to put: no step, the redo kept (#455).
         if from == to && text.is_empty() {
             return false;
@@ -449,9 +448,18 @@ impl Model {
         self.lines.splice(from.0..=to.0, new);
         let last = from.0 + n - 1;
         self.cur = (last, self.lines[last].len() - tail);
-        let one_line = from.0 == to.0 && !text.contains('\n');
+        let kind = match (kind, text) {
+            ("type", " ") if self.last.starts_with("space") => "spaces",
+            ("type", " ") => "space",
+            _ => kind,
+        };
+        let stops = match kind {
+            "other" => true,
+            "left" | "right" => self.last != kind || from.0 != to.0,
+            _ => text.contains('\n') || self.last != "space" && self.last != kind,
+        };
         match self.undo.last_mut() {
-            Some(s) if !self.fresh && s.after == before && s.one_line && one_line => {
+            Some(s) if !self.fresh && !stops && s.after == before => {
                 s.new = self.lines.clone();
                 s.after = self.cur;
             }
@@ -461,10 +469,10 @@ impl Model {
                 before,
                 after: self.cur,
                 format: None,
-                one_line: n == 1,
             }),
         }
-        self.fresh = false;
+        self.fresh = kind == "other";
+        self.last = kind;
         self.redo.clear();
         self.dirty = true;
         self.anchor = None;
@@ -472,9 +480,9 @@ impl Model {
         true
     }
 
-    fn insert(&mut self, text: &str) {
+    fn insert(&mut self, text: &str, kind: &'static str) {
         let (from, to) = self.selection().unwrap_or((self.cur, self.cur));
-        self.replace(from, to, text);
+        self.replace(from, to, text, kind);
     }
 
     /// Ctrl+C: the selection, else the line with its break. Returns what Ctrl+X takes: on the
@@ -507,9 +515,7 @@ impl Model {
             .collect::<Vec<_>>()
             .join("\n");
         let (anchor, cur) = (self.anchor, self.cur);
-        self.fresh = true;
-        self.replace((from.0, 0), (last, self.lines[last].len()), &text);
-        self.fresh = true;
+        self.replace((from.0, 0), (last, self.lines[last].len()), &text, "other");
         let moved = |(l, c): Pos| match (from.0..=last).contains(&l) && c > 0 {
             true => (l, c + indent.len()),
             false => (l, c),
@@ -538,6 +544,7 @@ impl Model {
         self.dirty = true;
         self.anchor = None;
         self.fresh = true;
+        self.last = "other";
         self.sync_x();
         (if back { &mut self.redo } else { &mut self.undo }).push(step);
     }
@@ -559,13 +566,13 @@ impl Model {
                 before: (head.min(self.lines.len() - 1), 0),
                 after: (head.min(lines.len() - 1), 0),
                 format: Some((self.format, format)),
-                one_line: false,
             });
         }
         (self.lines, self.format) = (lines, format);
         self.dirty = false;
         self.redo.clear();
         self.fresh = true;
+        self.last = "other";
         self.cur = self.clamp(self.cur);
         self.sync_x();
     }
@@ -609,7 +616,7 @@ impl Model {
 
     fn paste(&mut self, text: &str) {
         if self.editing {
-            self.insert(&text.replace("\r\n", "\n").replace('\r', "\n"));
+            self.insert(&text.replace("\r\n", "\n").replace('\r', "\n"), "other");
         }
     }
 
@@ -660,6 +667,7 @@ impl Model {
         if !extending && self.cur != before {
             self.anchor = None;
         }
+        self.fresh |= self.cur != before;
     }
 
     /// The keys edit mode has of its own; `false` for the rest, which move as in navigation.
@@ -676,46 +684,48 @@ impl Model {
                 let last = self.selection().is_none() && l + 1 == self.lines.len();
                 let (from, to) = self.copy();
                 let want = self.want_x;
-                if self.replace(from, to, "") && last {
+                if self.replace(from, to, "", "other") && last {
                     // The last line cut: onto the line above, at the column it had.
                     self.want_x = want;
                     self.aim(self.cur.0);
                     self.undo.last_mut().unwrap().after = self.cur;
                 }
             }
-            KeyCode::Char(ch) if !ctrl => self.insert(&ch.to_string()),
+            KeyCode::Char(ch) if !ctrl => self.insert(&ch.to_string(), "type"),
             KeyCode::Enter => {
                 let head = &self.line()[..c];
                 let indent = &head[..head.len() - head.trim_start().len()];
-                self.insert(&format!("\n{indent}"));
+                self.insert(&format!("\n{indent}"), "type");
             }
             KeyCode::Tab => {
                 let indent = if self.format.tabs { "\t" } else { "    " };
                 match self.selection() {
                     Some((from, to)) if to.0 > from.0 => self.indent(from, to, indent),
-                    _ => self.insert(indent),
+                    _ => self.insert(indent, "other"),
                 }
             }
-            KeyCode::Backspace | KeyCode::Delete if self.selection().is_some() => self.insert(""),
+            KeyCode::Backspace if self.selection().is_some() => self.insert("", "left"),
+            KeyCode::Delete if self.selection().is_some() => self.insert("", "right"),
             KeyCode::Backspace | KeyCode::Delete if alt => {
                 let to = if code == KeyCode::Backspace {
                     self.word_left_of(self.cur)
                 } else {
                     self.word_right_of(self.cur)
                 };
-                // A word of its own in the undo history.
-                self.fresh = true;
-                self.replace(self.cur.min(to), self.cur.max(to), "");
-                self.fresh = true;
+                self.replace(self.cur.min(to), self.cur.max(to), "", "other");
             }
-            KeyCode::Backspace if c > 0 => _ = self.replace((l, prev(self.line(), c)), (l, c), ""),
+            KeyCode::Backspace if c > 0 => {
+                self.replace((l, prev(self.line(), c)), (l, c), "", "left");
+            }
             KeyCode::Backspace if l > 0 => {
-                self.replace((l - 1, self.lines[l - 1].len()), (l, c), "");
+                self.replace((l - 1, self.lines[l - 1].len()), (l, c), "", "left");
             }
             KeyCode::Delete if c < self.line().len() => {
-                self.replace((l, c), (l, next(self.line(), c)), "");
+                self.replace((l, c), (l, next(self.line(), c)), "", "right");
             }
-            KeyCode::Delete if l + 1 < self.lines.len() => _ = self.replace((l, c), (l + 1, 0), ""),
+            KeyCode::Delete if l + 1 < self.lines.len() => {
+                self.replace((l, c), (l + 1, 0), "", "right");
+            }
             KeyCode::Backspace | KeyCode::Delete => {}
             _ => return false,
         }

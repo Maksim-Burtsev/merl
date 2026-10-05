@@ -219,9 +219,8 @@ fn undo_groups_typing_and_redo_replays_it() {
     typed(&mut a, "34");
     press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
     assert_eq!(a.buf.lines, vec!["ab12", "3", "cd"]);
-    // A run of keystrokes on one line is one step; the split and the next run are others.
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
-    assert_eq!(a.buf.lines, vec!["ab12", "", "cd"]);
+    assert_eq!(a.buf.lines, vec!["ab12", "34", "cd"]);
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
     assert_eq!(
         (a.buf.lines.clone(), a.line, a.col),
@@ -234,25 +233,82 @@ fn undo_groups_typing_and_redo_replays_it() {
     press(&mut a, KeyCode::Char('y'), KeyModifiers::CONTROL);
     assert_eq!(
         (a.buf.lines.clone(), a.line, a.col),
-        (vec!["ab12".to_string(), "".into(), "cd".into()], 1, 0)
+        (vec!["ab12".to_string(), "34".into(), "cd".into()], 1, 2)
     );
-    // A new edit drops the redo stack; a cursor move starts a new step.
     typed(&mut a, "x");
     press(&mut a, KeyCode::Char('y'), KeyModifiers::CONTROL);
     assert_eq!(a.message, "nothing to redo");
     press(&mut a, KeyCode::Up, KeyModifiers::NONE);
     typed(&mut a, "!");
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
-    assert_eq!(a.buf.lines, vec!["ab12", "x", "cd"]);
-    // Leaving and re-entering edit mode also ends the step; undo works from navigation.
+    assert_eq!(a.buf.lines, vec!["ab12", "34x", "cd"]);
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     typed(&mut a, "y");
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
-    assert_eq!(a.buf.lines, vec!["ab12", "x", "cd"]);
+    assert_eq!(a.buf.lines, vec!["ab12", "34x", "cd"]);
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
-    assert_eq!(a.buf.lines, vec!["ab12", "", "cd"]);
+    assert_eq!(a.buf.lines, vec!["ab12", "34", "cd"]);
+}
+
+#[test]
+fn undo_steps_close_as_in_vs_code() {
+    let undone = |keys: &dyn Fn(&mut App)| {
+        let mut a = app("\n");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        keys(&mut a);
+        press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+        a.buf.lines.join("/")
+    };
+    let key = |a: &mut App, code| _ = press(a, code, KeyModifiers::NONE);
+    let moved = undone(&|a| {
+        typed(a, "abc");
+        (0..3).for_each(|_| key(a, KeyCode::Left));
+        (0..3).for_each(|_| key(a, KeyCode::Right));
+        typed(a, "def");
+    });
+    assert_eq!(moved, "abc", "a cursor move closes the step");
+    assert_eq!(undone(&|a| typed(a, "abcdef")), "");
+    assert_eq!(
+        undone(&|a| typed(a, "ab cd")),
+        "ab",
+        "a space after a word opens one"
+    );
+    assert_eq!(undone(&|a| typed(a, "ab  ")), "ab");
+    let enter = undone(&|a| {
+        typed(a, "ab");
+        key(a, KeyCode::Enter);
+        typed(a, "cd");
+    });
+    assert_eq!(enter, "ab", "Enter opens a step the typing after it joins");
+    let deleted = undone(&|a| {
+        typed(a, "abc");
+        key(a, KeyCode::Backspace);
+        key(a, KeyCode::Backspace);
+    });
+    assert_eq!(deleted, "abc", "deleting after typing is a step of its own");
+    let typed_after = undone(&|a| {
+        typed(a, "abc");
+        key(a, KeyCode::Backspace);
+        typed(a, "d");
+    });
+    assert_eq!(typed_after, "ab");
+    let cut = undone(&|a| {
+        typed(a, "abc");
+        press(a, KeyCode::Char('x'), KeyModifiers::CONTROL);
+    });
+    assert_eq!(cut, "abc", "a cut is a step of its own");
+    let tab = undone(&|a| {
+        typed(a, "ab");
+        key(a, KeyCode::Tab);
+    });
+    assert_eq!(tab, "ab");
+    let pasted = undone(&|a| {
+        typed(a, "ab");
+        a.paste("cd");
+    });
+    assert_eq!(pasted, "ab");
 }
 
 #[test]

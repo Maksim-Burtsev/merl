@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Undo steps close as in VS Code: a cursor move ends the step, so typing after the cursor went
+  away and came back is undone on its own; so does a switch between typing and deleting, and a
+  space typed after a word starts one. A cut, a paste and Tab are steps of their own; Enter starts
+  a step that the typing after it joins. (#478)
+
 ## [0.8.2] - 2026-10-04
 
 ### Added

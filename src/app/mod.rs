@@ -427,8 +427,8 @@ pub struct App {
     /// Linear per-file undo history, oldest first, and what undo took back.
     undo: Vec<Edit>,
     redo: Vec<Edit>,
-    /// Set when the next edit must start its own undo step even if it continues the last one.
     undo_break: bool,
+    edit_kind: edit::Kind,
     /// The history of each file left with one, by path (#163): coming back is like coming back
     /// to a VS Code tab that stayed open.
     stash: HashMap<PathBuf, Stashed>,
@@ -614,6 +614,7 @@ impl App {
             undo: Vec::new(),
             redo: Vec::new(),
             undo_break: false,
+            edit_kind: edit::Kind::Other,
             stash: HashMap::new(),
             resume_edit: false,
             clipboard: None,

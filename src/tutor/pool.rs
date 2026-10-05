@@ -262,34 +262,34 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Enter",
         title: "Edit",
-        tutor: "Enter starts editing at the cursor and the cursor becomes a bar: type `# hi` and \
+        tutor: "Enter starts editing at the cursor and the cursor becomes a bar: type `#hi` and \
                 press Esc, the block is back. merl saves a second after you stop typing; Ctrl+S \
                 saves now, Ctrl+R reloads the file from disk.",
-        drill: "Type `# hi` at the top of this file, then go back to moving around it.",
+        drill: "Type `#hi` at the top of this file, then go back to moving around it.",
         start: Some((TEST_FILE, 1, "")),
         keys: "",
-        answer: "<Enter># hi<Esc>",
+        answer: "<Enter>#hi<Esc>",
         done: |a| a.mode == Mode::Normal && edited(a),
     },
     Task {
         key: "Ctrl+Z",
         title: "Undo",
-        tutor: "`# hi` was typed at the top. Ctrl+Z takes an edit back, Ctrl+Y brings it again. \
+        tutor: "`#hi` was typed at the top. Ctrl+Z takes an edit back, Ctrl+Y brings it again. \
                 Press Ctrl+Z once: the file is as it was, and a second later so is the disk.",
-        drill: "Take back the `# hi` typed at the top.",
+        drill: "Take back the `#hi` typed at the top.",
         start: Some((TEST_FILE, 1, "")),
-        keys: "<Enter># hi<Esc>",
+        keys: "<Enter>#hi<Esc>",
         answer: "<C-z>",
         done: |a| at(a, TEST_FILE) && a.mode == Mode::Normal && !edited(a),
     },
     Task {
         key: "Ctrl+Y",
         title: "Redo",
-        tutor: "`# hi` was typed at the top and taken back. Ctrl+Y brings back what Ctrl+Z took: \
+        tutor: "`#hi` was typed at the top and taken back. Ctrl+Y brings back what Ctrl+Z took: \
                 press it.",
-        drill: "Bring back the `# hi` that was taken back.",
+        drill: "Bring back the `#hi` that was taken back.",
         start: Some((TEST_FILE, 1, "")),
-        keys: "<Enter># hi<Esc><C-z>",
+        keys: "<Enter>#hi<Esc><C-z>",
         answer: "<C-y>",
         done: |a| at(a, TEST_FILE) && a.mode == Mode::Normal && edited(a),
     },
