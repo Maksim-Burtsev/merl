@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- A chain of directories that each hold only the next one, too deep for the names below it to
+  keep 12 columns in the tree or the review panel, shares one row from its lowest directories,
+  cut from the left at a `/` (`…/twofactor/totp`), as few as give the names their columns back;
+  a chain that fits keeps a row per directory, and Left, Right and Enter work on the shared row.
+  With the tree focused, a cursor row cut to fewer than 12 columns is drawn whole over the code
+  beside it. (#399)
+
 ## [0.8.2] - 2026-10-04
 
 ### Added

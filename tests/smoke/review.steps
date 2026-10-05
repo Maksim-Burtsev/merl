@@ -15,7 +15,9 @@
 # from the main checkout: the branch an agent has checked out in a worktree of its own is reviewed
 # there, its file not committed yet included (#396). Back on agent/refund, d on a line the
 # branch deleted reads its word there and lands on the deleted field it names, [ back (#440).
-# Last, p on that worktree's Markdown file renders it, p again shows its source (#596).
+# Then p on that worktree's Markdown file renders it, p again shows its source (#596). Last,
+# `merl -r agent/totp` reviews a Java package eleven directories deep: the panel folds its
+# one-child chain into `…/twofactor/totp`, so both file names fit (#399).
 caption review · merl --review=agent/refund fetches the agent's branch and opens on its first hunk
 merl --review=agent/refund
 wait hunk 1/1  file 1/8
@@ -125,3 +127,8 @@ key p
 wait [preview]
 key p
 wait [code]
+caption merl -r agent/totp: a package eleven directories deep; the chain folds into one row, so both file names fit (#399)
+merl -r agent/totp
+wait hunk 1/1  file 1/2
+key Tab
+wait [tree]

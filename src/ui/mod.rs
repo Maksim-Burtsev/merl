@@ -56,9 +56,6 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     let [tree, code] =
         Layout::horizontal([Constraint::Length(tree_w), Constraint::Min(1)]).areas(main);
 
-    if app.show_tree {
-        draw_tree(frame, app, theme, tree, base);
-    }
     if app.previewing() {
         draw_preview(frame, app, theme, code, base);
     } else if app.folded_here().is_some() {
@@ -69,6 +66,9 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
         draw_code(frame, app, theme, code, base);
     } else {
         draw_welcome(frame, theme, code, base);
+    }
+    if app.show_tree {
+        draw_tree(frame, app, theme, tree, base);
     }
     if let Some(panel) = panel {
         frame.render_widget(panel, lesson);

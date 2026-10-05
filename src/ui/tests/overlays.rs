@@ -750,3 +750,73 @@ fn help_wraps_every_action_whole_at_80_columns() {
         assert!(text.contains(&words(action)), "{action}\n{text}");
     }
 }
+
+#[test]
+fn a_deep_review_folds_its_chain_and_keeps_both_file_names() {
+    let d = "application/src/main/java/run/halo/app/security/authentication/twofactor/totp";
+    let filter = format!("{d}/TotpAuthenticationFilter.java");
+    let converter = format!("{d}/TotpCodeAuthenticationConverter.java");
+    let mut app = review_app(&[(&filter, 'M', 1, 1), (&converter, 'A', 1, 0)]);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(92, 10)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let r: Vec<String> = rows(&terminal)
+        .iter()
+        .map(|l| l.chars().take(30).collect())
+        .collect();
+    assert_eq!(
+        r[1..6],
+        [
+            "\u{2502}  \u{25be} application             \u{2502}",
+            "\u{2502}    \u{25be} src                   \u{2502}",
+            "\u{2502}      \u{25be} \u{2026}/twofactor/totp    \u{2502}",
+            "\u{2502}        M TotpAuthent\u{2026} +1 \u{2212}1\u{2502}",
+            "\u{2502}        A TotpCodeAut\u{2026} +1 \u{2212}0\u{2502}",
+        ],
+        "{r:#?}"
+    );
+}
+
+#[test]
+fn a_chain_that_fits_keeps_a_row_per_directory() {
+    let mut app = review_app(&[
+        ("binding/form_mapping.go", 'M', 1, 0),
+        ("internal/bytesconv/bytesconv.go", 'M', 1, 0),
+    ]);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(92, 10)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let text = rows(&terminal).join("\n");
+    assert!(text.contains("\u{25be} internal "), "{text}");
+    assert!(text.contains("\u{25be} bytesconv "), "{text}");
+}
+
+#[test]
+fn the_cursor_row_cut_short_is_drawn_whole_over_the_code() {
+    let mut files: Vec<String> = Vec::new();
+    let mut dir = String::new();
+    for d in ["a", "b", "c", "d", "e", "f", "g", "h"] {
+        dir.push_str(d);
+        dir.push('/');
+        files.push(format!("{dir}x.rs"));
+    }
+    let deep = format!("{dir}TotpAuthenticationManager.java");
+    files.push(deep.clone());
+    let mut app = review_app(
+        &files
+            .iter()
+            .map(|f| (f.as_str(), 'M', 1, 1))
+            .collect::<Vec<_>>(),
+    );
+    app.review = None;
+    app.tree.reveal(std::path::Path::new(&deep));
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(92, 30)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let text = rows(&terminal).join("\n");
+    assert!(!text.contains("TotpAuthenticationManager.java"), "{text}");
+    app.focus = crate::app::Focus::Tree;
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let text = rows(&terminal).join("\n");
+    assert!(text.contains("  TotpAuthenticationManager.java"), "{text}");
+}
