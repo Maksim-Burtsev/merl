@@ -121,6 +121,7 @@ LEGEND = [("PASS", "every checkpoint the same on both builds"),
 # colours the PNG draws). A light theme is read on a light terminal; None is merl's default theme
 # on the owner's dark terminal. github-light is the light theme the text snapshots use too.
 THEMES = ((None, None), ("github-light", "GitHub Light Default"))
+NEVER_SHOWN = "(never shown)"
 # The scenarios --all-shots plays in the default theme only, and why.
 DEFAULT_ONLY = {"theme": "its first wait is a theme the picker lists around the default one"}
 
@@ -356,7 +357,7 @@ def play(binary, path, work, timed_only=False, rec=None, theme=None):
                 if ms is None:
                     s = pane.dead()
                     r["status"] = f"{'FAIL' if s is None else died(s)} at {step}"
-                    r["checkpoints"].append([f"{where} wait {arg} (never shown)", *pane.frame(), size])
+                    r["checkpoints"].append([f"{where} wait {arg} {NEVER_SHOWN}", *pane.frame(), size])
                     if s is None:
                         keep(f"{where} wait {arg}: the screen when it gave up", pane.frame())
                     else:
@@ -566,7 +567,7 @@ def report(results, out, head, names):
             if o[1:] == n[1:]:
                 kinds.append("same")
                 continue
-            failed = "(never shown)" in o[0] + n[0]
+            failed = NEVER_SHOWN in o[0] + n[0]
             colour = SGR.sub("", o[1]) == SGR.sub("", n[1]) and o[2:] == n[2:]
             kinds.append("failed" if failed else "colour" if colour else "text")
             what, diff_rows = boxes(o, n)
@@ -723,7 +724,7 @@ def shots(new, old, tag, picked, work, out):
             where = os.path.join(out, label, name)
             os.makedirs(where)
             for i, c in enumerate(r["checkpoints"], 1):
-                o = was[i - 1] if i <= len(was) and not was[i - 1][0].endswith("(never shown)") else None
+                o = was[i - 1] if i <= len(was) and NEVER_SHOWN not in was[i - 1][0] else None
                 if o and o[1:] == c[1:]:
                     same += 1
                     continue
