@@ -325,7 +325,15 @@ impl App {
             _ => prev != Kind::FirstSpace && prev.spaces() != kind.spaces(),
         };
         match self.undo.last_mut() {
-            Some(last) if !stops && !self.undo_break && last.after == before => last.merge(edit),
+            Some(last)
+                if !stops
+                    && !self.undo_break
+                    && last.after == before
+                    && edit.line <= last.line + last.new.len()
+                    && last.line <= edit.line + edit.old.len() =>
+            {
+                last.merge(edit)
+            }
             _ => self.undo.push(edit),
         }
         self.undo_break = kind == Kind::Other;

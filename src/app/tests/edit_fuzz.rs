@@ -667,7 +667,16 @@ impl Model {
         if !extending && self.cur != before {
             self.anchor = None;
         }
-        self.fresh |= self.cur != before;
+        let moves = matches!(
+            code,
+            KeyCode::Left
+                | KeyCode::Right
+                | KeyCode::Up
+                | KeyCode::Down
+                | KeyCode::Home
+                | KeyCode::End
+        );
+        self.fresh |= moves || self.cur != before;
     }
 
     /// The keys edit mode has of its own; `false` for the rest, which move as in navigation.

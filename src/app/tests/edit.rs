@@ -309,6 +309,57 @@ fn undo_steps_close_as_in_vs_code() {
         a.paste("cd");
     });
     assert_eq!(pasted, "ab");
+    let still = undone(&|a| {
+        typed(a, "ab");
+        key(a, KeyCode::End);
+        typed(a, "cd");
+    });
+    assert_eq!(
+        still, "ab",
+        "a move key closes the step even where the cursor stays"
+    );
+    assert_eq!(undone(&|a| typed(a, "ab  cd")), "ab  ");
+    let reset = undone(&|a| {
+        typed(a, "a ");
+        press(a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+        typed(a, " b");
+    });
+    assert_eq!(
+        reset, "a",
+        "undo resets the kind: the space after it is a first one"
+    );
+    let left_right = undone(&|a| {
+        typed(a, "abcd");
+        (0..2).for_each(|_| key(a, KeyCode::Left));
+        key(a, KeyCode::Backspace);
+        key(a, KeyCode::Delete);
+    });
+    assert_eq!(left_right, "acd");
+    let tab_after_space = undone(&|a| {
+        typed(a, "ab ");
+        key(a, KeyCode::Tab);
+    });
+    assert_eq!(tab_after_space, "ab ");
+}
+
+#[test]
+fn a_line_join_and_the_backspaces_after_it_are_one_step() {
+    let mut a = app("ab\ncd\n");
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+    assert_eq!(a.buf.lines, vec!["acd"]);
+    press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+    assert_eq!(
+        (a.buf.lines.clone(), a.line, a.col),
+        (vec!["ab".to_string(), "cd".into()], 1, 0)
+    );
+    press(&mut a, KeyCode::Char('y'), KeyModifiers::CONTROL);
+    assert_eq!(
+        (a.buf.lines.clone(), a.line, a.col),
+        (vec!["acd".to_string()], 0, 1)
+    );
 }
 
 #[test]
