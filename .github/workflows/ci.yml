@@ -41,7 +41,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     steps:
       - if: needs.no-panic.result != 'success' && needs.no-panic.result != 'skipped'
-        run: echo "the panic sweep did not pass: ${{ needs.no-panic.result }}" && exit 1
+        run: echo "the panic sweep did not pass (${{ needs.no-panic.result }})" && exit 1
       # A PR that touches only what agents read (skills, AGENTS.md, release notes) builds nothing:
       # no test reads those files, and the check passes in seconds instead of minutes.
       - if: github.event_name == 'pull_request'
