@@ -21,6 +21,14 @@ class Heddle {
     Heddle(Map<String, Object> opts) {  }
 }
 
+class Shuttle {
+    static int pace = 0
+
+    Shuttle(String yarn, boolean fast = pace<1, int picks = 2) {  }
+
+    Shuttle(String yarn, String weft, String warp, String reed) {  }
+}
+
 class Loom {
     def weave() {
         Spindle warp = new Spindle('warp')
@@ -34,5 +42,7 @@ class Loom {
         //                                ^ d: src/main/groovy/abacus/Spindle.groovy:21
         new Heddle(eye: 'weft', lift: 2)
         //  ^ d: src/main/groovy/abacus/Spindle.groovy:21
+        new Shuttle('silk', true, 3)
+        //  ^ d: src/main/groovy/abacus/Spindle.groovy:27
     }
 }

@@ -31,6 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `--review`: a file with nothing to read that `c` or `C` walks past, or the review opens past
   (an empty `__init__.py`, a pure rename, a mode change), gets its viewed tick; a binary file or a
   submodule stays unticked until `m`. (#715)
+- `d` on a Java or Groovy call lands on the right overload when a parameter's annotation or
+  default value holds a comparison: the `<` of `@Max(LOW < HIGH ? 1 : 2)` or of
+  `boolean fast = pace<1` no longer hides the parameters after it. (#700)
 
 ## [0.8.2] - 2026-10-04
 
