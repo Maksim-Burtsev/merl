@@ -57,8 +57,10 @@ Every picture is merl itself: a real build, run in tmux on a real project, recor
   to `/tmp/<N>-<name>` (`media` is public: no home directory, no scratch path in a frame).
 - **One size and font for the whole proposal**: `--size 160x50`, a laptop's full screen, unless
   the issue is about a width; cast.py's default font and the Ghostty TokyoNight Moon colours.
-- **A still** is a frame taken out of that screencast (`Image.open(gif).seek(n)`), the moment that
-  shows the change. One screen per picture: two screens side by side are two pictures.
+- **The issue shows the GIF itself**, inline, never a still with a link to it: the owner watches
+  the option, not a frame of it (#720). A still, a frame taken out of that screencast
+  (`Image.open(gif).seek(n)`), is for the decision desk only. One screen per picture: two screens
+  side by side are two pictures.
 - **The ordinary flow**: a screencast of an everyday project where the change must not kick in,
   for the recommended option, beside the same steps on master.
 - **A light theme**: the recommended option once more in `tokyonight-day` (`merl -t
@@ -87,17 +89,29 @@ English, no implementation talk.
 ```
 ## Proposal
 
-**Now.** <one line> ![now](PNG) · [screencast](GIF)
+**Now.** <one line>
+
+![now](GIF)
 
 **A. <name> (recommended).** <the rule>. <why, one reason>
-![A](PNG) · [screencast](GIF) · to see it: <project@commit, binary, steps>
+
+![A](GIF)
+
+To see it: <project@commit, binary, steps>
 
 **B. <name>.** <the rule>
-![B](PNG) · [screencast](GIF) · to see it: <…>
+
+![B](GIF)
+
+To see it: <…>
 
 **Elsewhere.** GitHub: <what it does>. GitLab: <…>. VS Code: <…>.
 
-**Unchanged.** <the ordinary flow, one line> [screencast](GIF) · light theme ![light](PNG)
+**Unchanged.** <the ordinary flow, one line>
+
+![master](GIF) ![recommended](GIF)
+
+Light theme: ![light](GIF)
 
 ---
 ```
