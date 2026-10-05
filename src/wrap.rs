@@ -19,10 +19,6 @@ pub fn cluster_width(g: &str) -> usize {
     }
 }
 
-/// A char that changes how a line reads without being seen (#401): the bidirectional controls
-/// behind "Trojan Source" and the zero-width chars that stand alone. Each is a grapheme cluster
-/// of its own, so a ZWJ inside an emoji or a ZWNJ in Persian, which are not on the list, stay
-/// as they are. A BOM at the start of a file never reaches a line (#177); one further on does.
 pub fn hidden(c: char) -> bool {
     matches!(
         c,
@@ -123,10 +119,6 @@ pub fn wrap_line(line: &str, width: usize) -> Vec<Range<usize>> {
     rows
 }
 
-/// The rows `line` is drawn in when wrapped: [`wrap_line`] over what
-/// [`crate::buffer::shown_str`] shows of it. A line cut there ends in a `…` right after its last
-/// char (#283); when its last row has no room left for it, the `…` gets a row of its own, an
-/// empty one at the end of the text, so it never covers a char.
 pub fn wrap_shown(line: &str, width: usize) -> Vec<Range<usize>> {
     let shown = crate::buffer::shown_str(line);
     let mut rows = wrap_line(shown, width);

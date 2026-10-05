@@ -1,6 +1,3 @@
-//! Markdown's links for `d` (#421): what the cursor stands on, and the anchors GitHub gives a
-//! file's headings. Read with the parser the preview (`p`) lays Markdown out with.
-
 use std::collections::HashMap;
 use std::ops::Range;
 

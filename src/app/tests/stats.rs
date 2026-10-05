@@ -1,5 +1,3 @@
-//! Key stats: the action each press counts toward (#207).
-
 use super::*;
 use crate::stats;
 
@@ -136,7 +134,6 @@ fn a_press_under_the_tutor_writes_nothing() {
         dir: PathBuf::from("/nonexistent"),
         drill: None,
     });
-    // Right held to the end of the line misses a key in real work.
     let keys = ["d", "]", "[", "v", "Ctrl+D", "Down", "Enter", "Esc"]
         .into_iter()
         .chain(["Right"; 7])
@@ -145,7 +142,10 @@ fn a_press_under_the_tutor_writes_nothing() {
     for key in keys.clone() {
         work.key(read(key));
     }
-    assert!(!work.missed.is_empty());
+    assert!(
+        !work.missed.is_empty(),
+        "Right held to the end of the line misses a key in real work"
+    );
     for key in keys {
         a.key(read(key));
     }
@@ -189,9 +189,11 @@ fn a_review_session_counts_its_presses() {
     assert!(key(&mut a, "q", 2));
     let (repo, branch, columns) = a.review_row().unwrap();
     assert_eq!((repo, branch.as_str()), (a.root_name(), "feature"));
-    // files, hunks, added, deleted; seconds on the review and elsewhere; excursions, their
-    // jumps, `[`; hunks stopped on, files viewed, the last hunk reached.
-    assert_eq!(columns, "5\t6\t4\t7\t42\t330\t1\t1\t1\t2\t2\t1");
+    assert_eq!(
+        columns, "5\t6\t4\t7\t42\t330\t1\t1\t1\t2\t2\t1",
+        "files, hunks, added, deleted; seconds on the review and elsewhere; excursions, their \
+         jumps, `[`; hunks stopped on, files viewed, the last hunk reached"
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -237,7 +239,6 @@ fn a_review_under_the_tutor_has_no_line() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// The session's columns after the round, as `review_row` has them.
 fn columns(a: &mut App) -> Vec<usize> {
     let (_, _, columns) = a.review_row().expect("a line");
     columns.split('\t').map(|n| n.parse().unwrap()).collect()
@@ -249,8 +250,6 @@ fn columns(a: &mut App) -> Vec<usize> {
 #[test]
 fn a_stop_is_a_hunk_reached_by_c_or_c_back() {
     let (dir, mut a) = review_app("reviewstats-stops");
-    // Opened on the hunk of `new`: one stop. Into `src/a.rs` by `o`, down past its first hunk,
-    // and `C` back onto it.
     press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
     typed(&mut a, "a.rs");
     a.picker.as_mut().unwrap().settle();
@@ -260,27 +259,41 @@ fn a_stop_is_a_hunk_reached_by_c_or_c_back() {
     }
     press(&mut a, KeyCode::Char('C'), KeyModifiers::SHIFT);
     assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
-    assert_eq!(columns(&mut a)[9], 2);
-    // `c` on to the end of the review: the second hunk of `src/a.rs`, `crlf.txt`, the top of
-    // the deleted `gone`, `new` again, `tail`.
+    assert_eq!(
+        columns(&mut a)[9],
+        2,
+        "opened on the hunk of `new`: one stop; into `src/a.rs` by `o`, down past its first \
+         hunk, and `C` back onto it"
+    );
     for _ in 0..5 {
         press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     }
-    assert_eq!(at(&a), (dir.join("tail"), 0));
+    assert_eq!(
+        at(&a),
+        (dir.join("tail"), 0),
+        "`c` on to the end of the review: the second hunk of `src/a.rs`, `crlf.txt`, the top of \
+         the deleted `gone`, `new` again, `tail`"
+    );
     assert_eq!(columns(&mut a)[9], 6);
-    // An agent writes two lines at the top of `tail`: its hunk moves down under the cursor, and
-    // `c` stays on it.
     std::fs::write(dir.join("tail"), "x\ny\nt1\n").unwrap();
     a.reload(false);
-    assert_eq!(at(&a), (dir.join("tail"), 2));
+    assert_eq!(
+        at(&a),
+        (dir.join("tail"), 2),
+        "an agent writes two lines at the top of `tail`: its hunk moves down under the cursor"
+    );
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!(
         (at(&a), a.message.as_str()),
-        ((dir.join("tail"), 2), "last hunk of the review")
+        ((dir.join("tail"), 2), "last hunk of the review"),
+        "`c` stays on it"
     );
     let cols = columns(&mut a);
-    // Stops, hunks, the last hunk reached.
-    assert_eq!((cols[9], cols[1], cols[11]), (6, 6, 1));
+    assert_eq!(
+        (cols[9], cols[1], cols[11]),
+        (6, 6, 1),
+        "stops, hunks, the last hunk reached"
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -298,8 +311,11 @@ fn a_hunk_the_panel_opens_on_is_a_stop() {
     }
     assert_eq!(at(&a), (dir.join("tail"), 0));
     let cols = columns(&mut a);
-    // Stops, hunks; the walk stopped short of `last hunk of the review`.
-    assert_eq!((cols[9], cols[1], cols[11]), (6, 6, 0), "{cols:?}");
+    assert_eq!(
+        (cols[9], cols[1], cols[11]),
+        (6, 6, 0),
+        "stops, hunks; the walk stopped short of `last hunk of the review`: {cols:?}"
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -317,17 +333,23 @@ fn only_the_walk_makes_stops() {
     open(&mut a, "a.rs");
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);
     assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
-    // `tail`'s hunk is the lines deleted under its only line (#439): Down goes onto it.
     open(&mut a, "tail");
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);
-    assert_eq!((at(&a), a.line_str()), ((dir.join("tail"), 0), "t2"));
+    assert_eq!(
+        (at(&a), a.line_str()),
+        ((dir.join("tail"), 0), "t2"),
+        "`tail`'s hunk is the lines deleted under its only line (#439): Down goes onto it"
+    );
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!(
         (at(&a), a.message.as_str()),
         ((dir.join("tail"), 0), "last hunk of the review")
     );
-    // The hunk of `new`, where the review opened, and no other.
-    assert_eq!(columns(&mut a)[9], 1);
+    assert_eq!(
+        columns(&mut a)[9],
+        1,
+        "the hunk of `new`, where the review opened, and no other"
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -343,8 +365,11 @@ fn c_onto_the_lines_deleted_at_the_end_is_a_stop() {
     assert_eq!((at(&a), a.line_str()), ((dir.join("tail"), 0), "t1"));
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!((at(&a), a.line_str()), ((dir.join("tail"), 0), "t2"));
-    // `new`, where the review opened, and the hunk of `tail`.
-    assert_eq!(columns(&mut a)[9], 2);
+    assert_eq!(
+        columns(&mut a)[9],
+        2,
+        "`new`, where the review opened, and the hunk of `tail`"
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -366,9 +391,12 @@ fn a_stop_past_the_hunks_the_review_opened_with_does_not_count() {
     typed(&mut a, "a.rs");
     a.picker.as_mut().unwrap().settle();
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    // Two hunks when the review opened (lines 2 and 6), counted in the second after it did; the
-    // agent's edit comes after, and there are three now.
-    assert_eq!(columns(&mut a)[1], 6);
+    assert_eq!(
+        columns(&mut a)[1],
+        6,
+        "two hunks when the review opened (lines 2 and 6), counted in the second after it did; \
+         the agent's edit comes after, and there are three now"
+    );
     std::fs::write(dir.join("src/a.rs"), "a\nB\nc\nD\ne\nF\n").unwrap();
     a.reload(false);
     use TextLine::Deleted;
@@ -377,8 +405,11 @@ fn a_stop_past_the_hunks_the_review_opened_with_does_not_count() {
         press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     }
     assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
-    // `new`, where the review opened, and the first two hunks of `src/a.rs`.
-    assert_eq!(columns(&mut a)[9], 3);
+    assert_eq!(
+        columns(&mut a)[9],
+        3,
+        "`new`, where the review opened, and the first two hunks of `src/a.rs`"
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -449,10 +480,13 @@ fn a_switch_during_the_review_writes_a_line_per_branch() {
             .unwrap();
         assert!(out.status.success(), "git {args:?}");
     };
-    // `c` from `new` to `tail`, which marks `new` viewed. The stops are counted in the second
-    // after the review opens; the switch comes after.
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
-    assert_eq!(columns(&mut a)[..2], [5, 6]);
+    assert_eq!(
+        columns(&mut a)[..2],
+        [5, 6],
+        "`c` from `new` to `tail`, which marks `new` viewed; the stops are counted in the second \
+         after the review opens, the switch comes after"
+    );
     git(&["switch", "-q", "-c", "other", "main"]);
     std::fs::write(dir.join("src/keep.rs"), "k1\nK2\nk3\n").unwrap();
     git(&["commit", "-qam", "other"]);
@@ -461,14 +495,17 @@ fn a_switch_during_the_review_writes_a_line_per_branch() {
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!(at(&a), (dir.join("src/keep.rs"), 1));
     let rows = a.review_rows();
-    // Branch; files, hunks, added, deleted; stops, viewed, the last hunk reached.
     let line = |i: usize| {
         let (_, branch, columns) = &rows[i];
         let cols: Vec<&str> = columns.split('\t').collect();
         format!("{branch} {} {}", cols[..4].join(" "), cols[9..].join(" "))
     };
     assert_eq!(rows.len(), 2, "{rows:?}");
-    assert_eq!(line(0), "feature 5 6 4 7 2 1 0");
+    assert_eq!(
+        line(0),
+        "feature 5 6 4 7 2 1 0",
+        "branch; files, hunks, added, deleted; stops, viewed, the last hunk reached"
+    );
     assert_eq!(line(1), "other 1 1 1 1 1 0 0");
     let _ = std::fs::remove_dir_all(dir);
 }
@@ -509,13 +546,15 @@ fn a_fold_is_one_stop_whichever_branch_unfolded_it() {
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert!(a.folded_here().is_some());
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
-    // Files, hunks; stops: `new` it opened on, the fold, `tail`.
     let cols = columns(&mut a);
-    assert_eq!((cols[0], cols[1], cols[9]), (6, 7, 3), "{cols:?}");
-    // Unfolded on `feature`, folded on `other`.
+    assert_eq!(
+        (cols[0], cols[1], cols[9]),
+        (6, 7, 3),
+        "files, hunks; stops: `new` it opened on, the fold, `tail`: {cols:?}"
+    );
     press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    assert!(a.folded_here().is_none());
+    assert!(a.folded_here().is_none(), "unfolded on `feature`");
     // Off the lock file, which would otherwise stay in sight through the switch.
     a.jump_to(&dir.join("src/keep.rs"), 1);
     git(&["switch", "-q", "-c", "other", "main"]);
@@ -527,6 +566,10 @@ fn a_fold_is_one_stop_whichever_branch_unfolded_it() {
     let rows = a.review_rows();
     let (_, branch, columns) = &rows[1];
     let cols: Vec<&str> = columns.split('\t').collect();
-    assert_eq!((branch.as_str(), cols[1]), ("other", "1"), "{rows:?}");
+    assert_eq!(
+        (branch.as_str(), cols[1]),
+        ("other", "1"),
+        "folded on `other`: {rows:?}"
+    );
     let _ = std::fs::remove_dir_all(dir);
 }

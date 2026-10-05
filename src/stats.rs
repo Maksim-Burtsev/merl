@@ -1,7 +1,3 @@
-//! Key stats (#207): how often each action of [`KEYS`] is pressed in real work, and missed
-//! (#210), a line per UTC day and action in `~/.local/state/merl/keys.tsv`, which `merl --keys`
-//! prints.
-
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -141,8 +137,6 @@ pub fn day(s: &str) -> Option<i64> {
     (date(n) == s).then_some(n)
 }
 
-/// `YYYY-MM-DD<TAB>action<TAB>presses<TAB>misses` lines; a line #207 wrote has no misses and
-/// reads as none. One that is neither, or names an action no longer in `KEYS`, is dropped.
 fn parse(text: &str) -> Rows {
     let mut rows = Rows::new();
     for line in text.lines() {

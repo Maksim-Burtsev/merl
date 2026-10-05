@@ -36,8 +36,6 @@ pub enum CsPlace {
     Top,
 }
 
-/// Where the declaration of `word` on 1-based `line` of `text` stands (#355): the lines above
-/// indented less, as [`qualified`] walks them, told apart by whether they declare a type.
 pub fn cs_place(text: &str, line: usize, word: &str) -> CsPlace {
     let lines: Vec<&str> = text.lines().collect();
     let Some(target) = line.checked_sub(1).and_then(|k| lines.get(k)) else {
@@ -621,12 +619,6 @@ pub fn cs_generic_param(text: &str, line: usize, name: &str) -> bool {
     }
 }
 
-/// The type an object initializer's member stands in (#352): the word at bytes `start..end` of
-/// 0-based line `at` is `Name` of `Name = …` at the start of a line, or after the `{` or a `,` of
-/// the braces after `new T`, `new T(…)`, or a target-typed `new()` whose type the declaration
-/// writes (`T x = new()`, `T X { get; } = new()`, `return new()` in a method returning `T`). The
-/// type as written; `None` for anything else, an anonymous type, a `with`, a collection, a
-/// dictionary's `["k"] =` and a nested initializer included.
 pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> Option<String> {
     static NEW: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(&format!(r"\bnew\s+({CS_TYPE})$")).unwrap());
@@ -761,12 +753,6 @@ pub fn cs_extended(line: &str) -> Option<String> {
     Some(THIS.captures(line)?[1].to_owned())
 }
 
-/// Whether the C# word at bytes `start..end` of `line` stands where only a type can (#360): an
-/// identifier follows it, past its generic arguments, a `?` written against it and `[]`
-/// (`Buyer buyer`, `Buyer Update(`, `Buyer[] all`), save a contextual keyword (`x is T`); `new`,
-/// `typeof(`, `is` or `as` precedes it; or it is a cast `(T)x`, a generic argument
-/// (`Dictionary<int, Buyer>`) or a base in a type's header. `Name.` is not one: C# may mean a
-/// property of the same name there ("Color Color").
 pub fn cs_type_position(line: &str, start: usize, end: usize) -> bool {
     let (before, after) = (&line[..start], &line[end..]);
     if before.ends_with('.') || after.trim_start().starts_with('.') {
@@ -852,8 +838,6 @@ pub fn cs_type_patterns(word: &str) -> Vec<String> {
     vec![all[0].clone(), all[1].clone(), all[3].clone()]
 }
 
-/// Whether a C# constant pattern may stand at bytes `start..end` of `line` (#581): right after
-/// `is`, as `x is Max`, where a type may stand too. Not `x is Max m`, nor `x is List<int>`.
 pub fn cs_constant_may_stand(line: &str, start: usize, end: usize) -> bool {
     let after = &line[end..];
     let is = line[..start].trim_end().strip_suffix("is");
@@ -919,10 +903,6 @@ fn cs_base_listed(line: &str, before: &str) -> bool {
     colon && depth == 0
 }
 
-/// The namespace a C# word at bytes `start..end` of `line` is a segment of (#360), up to and
-/// including it, and whether the line says so for certain: on a `using`, `global using` or
-/// `namespace` line (`true`), and in a `global::A.B` path (`false`, where the last name may be a
-/// type). An alias's `using X = …` and a `using static` name a type, and are none.
 pub fn cs_namespace_prefix(line: &str, start: usize, end: usize) -> Option<(String, bool)> {
     static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\u{feff}?\s*(?:(?:global\s+)?using|namespace)\s+([\w.\s]*)$").unwrap()
@@ -942,10 +922,6 @@ pub fn cs_namespace_prefix(line: &str, start: usize, end: usize) -> Option<(Stri
         .then(|| (format!("{path}{}", &line[start..end]), false))
 }
 
-/// How many arguments the call of the C# word ending at byte `end` of 0-based `line` passes: the
-/// top-level commas between its brackets, over the lines it wraps onto (#360). `None` off a call,
-/// or when the list is not read to its closing bracket, or reads two ways (a `<` that may be a
-/// comparison or a generic argument list).
 pub fn cs_arguments<S: AsRef<str>>(lines: &[S], line: usize, end: usize) -> Option<usize> {
     let text = lines.get(line)?.as_ref();
     let after = &text[end..];

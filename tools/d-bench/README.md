@@ -1,7 +1,7 @@
 # `d` bench
 
-How often `d` lands where a language server would, per language, in 19 real projects pinned to a
-commit: 4,124 cursors, each with an answer recorded once and reviewed, and the table master
+How often `d` lands where a language server would, per language, in 24 real projects pinned to a
+commit: 5,334 cursors, each with an answer recorded once and reviewed, and the table master
 scores on them (`baseline.md`). A `d` change runs it and shows no language worse than master
 (`AGENTS.md`, `## Changing d`).
 
@@ -29,7 +29,7 @@ Times mean something only with `sysctl -n vm.loadavg` under ~8; the baseline not
 
 | file | what |
 |---|---|
-| `projects.tsv` | name, language, git URL, pinned commit, install command (`uv sync`, `npm install --ignore-scripts`, `go mod download`, `cargo fetch`, `-`) |
+| `projects.tsv` | name, language, git URL, pinned commit, install command (`uv sync`, `npm install --ignore-scripts`, `pnpm install --ignore-scripts`, `go mod download`, `cargo fetch`, `-`) |
 | `cursors/LANG.tsv` | `id project file line col shape word`: identifiers outside comments and strings, 1-based line, 0-based column in code points; `shape` is `member` (after `.`, `?.`, `->`), `path` (after `::`), `call`, `type` (capitalised) or `name` |
 | `answers/LANG.tsv` | `id targets skip note`: the definition as `path:line`, project-relative, `~/` or absolute outside the project (a dependency or the toolchain's standard library); `skip` holds the reason a debatable answer is not scored |
 | `baseline.tsv`, `baseline.md` | master's verdict per cursor, and its table |
@@ -56,7 +56,9 @@ Never in merl, never in CI. The servers go into a scratch directory:
 ```sh
 tools/d-bench/run --project koel                # clone and install the project first
 tools/d-bench/install-servers.sh                # pyright, typescript-language-server with typescript@6,
-                                                # intelephense, gopls, rust-analyzer, starpls, LanguageServer.jl
+                                                # intelephense, the Vue, Svelte and Astro servers,
+                                                # @nomicfoundation/solidity-language-server, gopls,
+                                                # rust-analyzer, starpls, LanguageServer.jl
 tools/d-bench/record.py sample php 300          # -> cursors/php.tsv (seeded: the same cursors again)
 tools/d-bench/record.py oracle php              # -> answers/php.tsv, resumes where it stopped
 ```
@@ -90,6 +92,31 @@ dependency (Tables, InvertedIndices) and for some of Base's core types: those ro
 For a Base generic that DataFrames extends (`parent`, `view`, `copy`, `filter!`) it lists only
 the methods outside the project: where the argument is a DataFrames type, the row is `skip`.
 
+Nix (nix-darwin, 2026-10-02) was judged the same way: `nil` and `nixd` both need `nix` itself,
+`nil` already to build. A name a function argument, a `let` or an `inherit (lib)` binds answers
+with that binding; `cfg.enable` with the option's `mkOption` line (`cfg = config.services.x`); a
+path literal (sampled as shape `path`) with its file, or a directory's `default.nix`. A name from
+nixpkgs (`lib.mkIf`, `types.str`, `with lib;`), or from `builtins`, is outside the project and
+`no-answer`; an option namespace (`config.system`) or an attribute several modules set
+(`environment.variables.X`) is `skip`. A lambda argument used on its own line scores as `on-decl`.
+
+CSS (#590) samples Bootstrap's `scss/` (`$variable` uses, `@include` mixins, calls of the
+functions it declares, `@import` paths) and the classes of `site/`'s Astro templates
+(`--exclude tests,vendor`). `vscode-css-language-server` answers within the open stylesheet
+only, so a name used in another file was judged instead: its top-level declarations in `scss/`,
+or for a path the file Sass loads (`judged` in the note). The classes were judged by reading the
+stylesheets: the top-level rule of `scss/`, or of the example's own stylesheet; a class the
+utilities API or a Sass loop generates, a state class such as `active` and one styled only inside
+other components are `skip`.
+
+Vue (gitea), Svelte (immich) and Astro (starlight) components are sampled from their code only:
+the `<script>` blocks and an Astro frontmatter, the template's expressions (`{{ }}` and bound
+attributes in Vue, `{ }` in Svelte and Astro) and the component names its tags use. Their oracles
+are `@vue/language-server@2` with `hybridMode: false` (version 3 answers TypeScript only through
+an editor's tsserver), `svelte-language-server` and `@astrojs/language-server`. immich installs
+the web app alone and runs `svelte-kit sync` for its `$lib` alias; its `@immich/sdk` is not built,
+so the 39 cursors on the API's types are `no-answer`.
+
 After recording, review every cursor where merl and the oracle disagree (`WRONG`, `pick-miss`,
 `none` in `last-score.tsv`) and mark the oracle's debatable answers `skip` with the reason: a
 shorthand property, a contextual type, a package that is not installed, a declaration the
@@ -106,6 +133,13 @@ TokenStore method next to its type). Go, Python and Swift needed nothing. The ag
 `pick-hit`) were not re-read. The four judged languages were judged cursor by cursor already;
 their in-project targets were checked line by line when they were written down.
 
+The components, recorded on 2026-10-02 (#595), were reviewed the same way: 143 disagreements,
+of which 19 are now `skip` (12 on `@immich/sdk`, 4 object-literal keys, 2 custom element tags, 1
+attribute name) and 4 got lodash-es's code next to its `@types/lodash` declaration. An answer in
+the oracle's own TypeScript (`lib.dom.d.ts`) is `skip` as the server's own stub, 151 of them.
+The rest stand: `d` on a Vue import picks among the copies in `vue/dist` where the oracle
+follows the re-export into `@vue/reactivity`, and SvelteKit's `$app/…` modules stop at their
+import line.
 ## Starlark, 2026-10-03
 
 rules_go's 270 cursors were recorded with starpls 0.1.22 and no Bazel on the machine: starpls
