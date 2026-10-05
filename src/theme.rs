@@ -575,22 +575,20 @@ mod tests {
         }
     }
 
-    /// A find match reads on its tint (#480): a theme that sets `findHighlight` alone keeps the
-    /// text's own colours over it, and its plain text reads at WCAG AA; one that sets neither gets
-    /// the text or background colour, whichever reads better on merl's tint. A theme's own
-    /// `findHighlightForeground` is kept as it is.
     #[test]
     fn every_find_match_reads_on_its_tint() {
         for name in names() {
             let t = load(name).unwrap();
             let s = &t.syntect.settings;
-            if s.find_highlight_foreground.is_some() {
-                continue;
-            }
-            assert_eq!(t.find_fg.is_none(), s.find_highlight.is_some(), "{name}");
-            let text = t.find_fg.unwrap_or(t.fg);
+            let (text, bar) = match s.find_highlight_foreground {
+                Some(_) => (t.find_fg.unwrap(), 3.0),
+                None => {
+                    assert_eq!(t.find_fg.is_none(), s.find_highlight.is_some(), "{name}");
+                    (t.find_fg.unwrap_or(t.fg), WORD_CONTRAST)
+                }
+            };
             let c = contrast(text, t.find_bg);
-            assert!(c >= WORD_CONTRAST, "{name}: {c:.2}:1");
+            assert!(c >= bar, "{name}: {c:.2}:1");
         }
     }
 

@@ -14,7 +14,7 @@
 				<key>findHighlight</key>
 				<string>#686868</string>
 				<key>findHighlightForeground</key>
-				<string>#333333</string>
+				<string>#ECECEC</string>
 				<key>foreground</key>
 				<string>#A4A4A4</string>
 				<key>gutterForeground</key>
