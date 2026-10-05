@@ -14,7 +14,7 @@ use super::*;
 /// it Node's own. Rust's in-crate `crate::` and `super::` paths are left out.
 pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
     // A Python import in a docstring's example binds nothing of the file.
-    if kind == Kind::Python {
+    if matches!(kind, Kind::Python | Kind::Julia) {
         let literal = literal_lines(kind, text);
         let code: Vec<&str> = text
             .lines()
@@ -333,6 +333,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
                 }
             }
         }
+        Kind::Julia => julia_imports(text, &mut out),
         // Nothing to bind without roots to resolve an `import` or a `require` against. A C
         // `#include` binds no name of its own either: it pastes a file in, and everything the
         // file declares is then visible unqualified, and a C# `using` opens a whole namespace
@@ -355,6 +356,18 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
         | Kind::Dart
         | Kind::Cmake
         | Kind::Nix
+        | Kind::Haskell
+        | Kind::Ocaml
+        | Kind::Fsharp
+        | Kind::R
+        | Kind::Perl
+        | Kind::Gdscript
+        | Kind::Solidity
+        | Kind::Clojure
+        | Kind::EmacsLisp
+        | Kind::Scheme
+        | Kind::CommonLisp
+        | Kind::Starlark
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform
@@ -873,6 +886,10 @@ pub fn module_files(
         | Kind::Shell
         | Kind::Dart
         | Kind::Cmake
+        | Kind::Ocaml
+        | Kind::Fsharp
+        | Kind::Perl
+        | Kind::Starlark
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform
@@ -883,7 +900,16 @@ pub fn module_files(
         | Kind::Html => Vec::new(),
         // The path of an `#import`, a dot-source or an `Import-Module`, relative to the file.
         Kind::Nix => nix_files(dir, &module.join("/"), files),
-        Kind::Graphql | Kind::PowerShell => lexical(&dir.join(module.join("/")))
+        Kind::Haskell => haskell_files(&module.join("."), files),
+        Kind::R => r_files(dir, &module.join("/"), files),
+        Kind::Gdscript => gdscript_files(here, &module.join("/"), files),
+        Kind::Solidity => solidity_file(root, files, here, &module.join("/"))
+            .into_iter()
+            .collect(),
+        Kind::Clojure | Kind::EmacsLisp | Kind::Scheme | Kind::CommonLisp => {
+            lisp_files(kind, dir, &module.join("/"), files)
+        }
+        Kind::Graphql | Kind::PowerShell | Kind::Julia => lexical(&dir.join(module.join("/")))
             .filter(|f| files.contains(f))
             .into_iter()
             .collect(),
@@ -895,6 +921,13 @@ pub fn file_import(kind: Kind, line: &str, col: usize) -> Option<String> {
         Kind::PowerShell => powershell_import(line, col),
         Kind::Cmake => cmake_import(line, col).map(|(_, arg)| arg),
         Kind::Nix => nix_path(line, col),
+        Kind::Elixir => erlang_include(line, col).map(|(_, path)| path),
+        Kind::Haskell => haskell_import_module(line, col),
+        Kind::Julia => julia_include(line, col),
+        Kind::R => r_source(line, col),
+        Kind::Gdscript => gdscript_path(line, col),
+        Kind::Solidity => solidity_import_path(line, col),
+        Kind::Clojure | Kind::EmacsLisp | Kind::Scheme => lisp_require(kind, line, col),
         _ => None,
     }
 }

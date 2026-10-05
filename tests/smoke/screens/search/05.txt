@@ -12,8 +12,8 @@ wait Search (1 hit)
 11 class OrderService:
 12     def __init__┌Search (1 hit)────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 13         self.rep│s> PAGE_SIZE", "50                                                                                                                                │
-14         self.uow│app/config.py:18: page_size=int(os.environ.get("PAGE_SIZE", "50")),                                                                               │
-15         self.set│                                                                                                                                                  │
+14         self.uow│app/config.py                                                                                                                                     │
+15         self.set│  18  page_size=int(os.environ.get("PAGE_SIZE", "50")),                                                                                           │
 16                 │                                                                                                                                                  │
 17     def get(self│                                                                                                                                                  │
 18         order = │                                                                                                                                                  │

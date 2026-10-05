@@ -70,6 +70,45 @@ fn current_file_sorts_first_then_path_and_line() {
 }
 
 #[test]
+fn the_cap_keeps_the_first_files_in_the_order_given() {
+    let names: Vec<String> = (0..400).map(|i| format!("f{i:03}.py")).collect();
+    let many = "x = 1\n".repeat(MAX_HITS / 100);
+    let texts: Vec<(&str, &str)> = names.iter().map(|n| (n.as_str(), many.as_str())).collect();
+    let (dir, mut given) = scratch("cap-order", &texts);
+    given.reverse();
+    for _ in 0..5 {
+        let hits = grep(&dir, &given, "x", false, false);
+        let mut kept: Vec<&Path> = hits.iter().map(|h| h.path.as_path()).collect();
+        kept.dedup();
+        let first: Vec<&Path> = (given[..100].iter().rev()).map(PathBuf::as_path).collect();
+        assert_eq!(hits.len(), MAX_HITS);
+        assert_eq!(
+            kept, first,
+            "the 100 files first in the list, sorted by path"
+        );
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_panic_on_any_file_reaches_the_caller() {
+    let names: Vec<String> = (0..400).map(|i| format!("f{i:03}.py")).collect();
+    let texts: Vec<(&str, &str)> = (names.iter())
+        .enumerate()
+        .map(|(i, n)| (n.as_str(), if i == 399 { "boom\n" } else { "calm\n" }))
+        .collect();
+    let (dir, files) = scratch("panic-reaches", &texts);
+    let run = std::panic::catch_unwind(|| {
+        grep_filtered(&dir, &files, "boom|calm", None, None, |l| {
+            assert_ne!(l, "boom");
+            true
+        })
+    });
+    assert!(run.is_err(), "the file a worker thread read panicked");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn tests_mocks_fixtures_and_generated_files_rank_last() {
     let here = Path::new("src/users/service.py");
     for (path, last) in [

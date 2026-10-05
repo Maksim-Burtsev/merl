@@ -35,7 +35,7 @@ colour, a line of text) says so in its rule: the owner weighs every addition.
 In a worktree of your own, detached at origin/master, with its own `target/` (`AGENTS.md`,
 `## Working on an issue`). One release build serves every option: an environment variable or a
 hidden flag switches between them. The prototype is throwaway: never pushed, the worktree removed
-when the proposal is up, unless the owner asks for PRs (end of step 4).
+when the proposal is up, unless the owner asks for a PR (end of step 4).
 
 ## 4. Pictures
 
@@ -62,9 +62,9 @@ Every picture is merl itself: a real build, run in tmux on a real project, recor
 Before uploading, open each still and the live `tmux capture-pane -p` of the same moment: the
 same text in the same cells, the change in view, the right theme, no path of yours.
 
-When the owner cannot pick from pictures, build the recommended option as a PR and every other
-option as a draft PR, each with its before/after screencasts (`AGENTS.md` `## Screencasts`), so
-they run the options instead of reading them.
+When the owner cannot pick from pictures, build the recommended option as one PR. Its body shows
+now and every option as screencasts of the prototype's build, the recommendation, and asks for one
+letter. The other options never become PRs of their own: the owner reads one PR per issue.
 
 Upload to `media` as `issues/<N>-<slug>-<variant>.<ext>`, each name free first (`AGENTS.md`,
 `## Screencasts`).
@@ -92,5 +92,6 @@ English, no implementation talk.
 ---
 ```
 
-Then move the issue from `to-think` to `needs-owner`. Report in a few lines: the issue's link,
+Then move the issue from `to-think` to `needs-owner`, and put its question on the decision desk
+(`.claude/skills/groom/desk.md`) with the same stills and screencasts. Report in a few lines: the issue's link,
 the options by their rules, the recommendation, and anything the demos revealed.

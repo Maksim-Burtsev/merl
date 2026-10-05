@@ -1,0 +1,38 @@
+# Every construct `f` folds in YAML, and the cases that could break it.
+name: ci # f: none
+on: # f: 3-8
+  push: # f: 4-6
+    branches: # f: 5-6
+    - master # f: 5-6
+  schedule: # f: 7-8
+  - cron: '0 1 * * *' # f: 7-8
+
+jobs: # f: 10-38
+  test: # f: 11-38
+    strategy: # f: 12-18
+      matrix: # f: 13-18
+        include: # f: 14-18
+        - os: linux # f: 15-16
+          label: ubuntu-latest # f: 15-16
+        - os: mac # f: 17-18
+          label: macos-14 # f: 17-18
+    steps: # f: 19-38
+      - uses: actions/checkout@v4 # f: 20-22
+        # a comment under a step stays with it # f: 20-22
+# a comment at column 0 inside the list # f: 20-22
+      - name: build # f: 23-28
+        run: | # f: 24-26
+          cargo build # f: 24-26
+          # not a comment: a line of the script # f: 24-26
+
+        # the next step # f: 23-28
+      - name: flow # f: 29-35
+        with: # f: 30-34
+          paths: [ # f: 31-34
+            "a: b", # f: 31-34
+            "c" # f: 31-34
+          ] # f: 31-34
+        if: always() # f: 29-35
+      - run: > # f: 36-38
+          folded text # f: 36-38
+          on two lines # f: 36-38

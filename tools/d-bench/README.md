@@ -1,7 +1,7 @@
 # `d` bench
 
-How often `d` lands where a language server would, per language, in 14 real projects pinned to a
-commit: 3,140 cursors, each with an answer recorded once and reviewed, and the table master
+How often `d` lands where a language server would, per language, in 19 real projects pinned to a
+commit: 4,124 cursors, each with an answer recorded once and reviewed, and the table master
 scores on them (`baseline.md`). A `d` change runs it and shows no language worse than master
 (`AGENTS.md`, `## Changing d`).
 
@@ -18,8 +18,8 @@ once (marked in the clone's `.git`); a clone already at that commit and installe
 `src/app/tests/d_bench.rs` in release (one `App` per project: jump to the line, set the column,
 converted from code points to merl's bytes, press `d`), prints the table, and diffs every cursor
 against `baseline.tsv`: each cursor that got worse, new wrong jumps first, and exit 1 when there
-is any (a fixed cursor does not pay for a broken one). `--selftest` checks the scoring and this
-gate on made-up rows; CI runs it. `last-score.tsv` in the cache has every cursor's verdict, status line, merl's
+is any (a fixed cursor does not pay for a broken one). `--selftest` checks the scoring, this
+gate and `record.py`'s tokenizer on made-up rows; CI runs it. `last-score.tsv` in the cache has every cursor's verdict, status line, merl's
 targets and the answer; `--merl <cache>/last-merl.tsv` scores the last run again without
 replaying it.
 
@@ -56,7 +56,7 @@ Never in merl, never in CI. The servers go into a scratch directory:
 ```sh
 tools/d-bench/run --project koel                # clone and install the project first
 tools/d-bench/install-servers.sh                # pyright, typescript-language-server with typescript@6,
-                                                # intelephense, gopls, rust-analyzer
+                                                # intelephense, gopls, rust-analyzer, starpls, LanguageServer.jl
 tools/d-bench/record.py sample php 300          # -> cursors/php.tsv (seeded: the same cursors again)
 tools/d-bench/record.py oracle php              # -> answers/php.tsv, resumes where it stopped
 ```
@@ -70,9 +70,25 @@ one was written for `SDWebImage/Core/*.m` and `SDWebImage/Private/*.m` (flags `-
 -fobjc-arc -fmodules -isysroot $(xcrun --show-sdk-path) -ISDWebImage/Core -ISDWebImage/Private
 -ISDWebImage/include`), its cursors sampled with `--exclude
 Examples,Tests,WebImage,Docs,Scripts,SDWebImageMapKit,include` (`include/` links back into
-`Core/`). Java, Kotlin, C#
+`Core/`). Solidity's oracle, `@nomicfoundation/solidity-language-server`, reads a project
+through its local Hardhat 3, so openzeppelin-contracts installs with `npm ci --ignore-scripts`;
+its cursors were sampled with `--exclude test,lib,scripts,fv,certora,docs,hardhat,audits,mocks`
+(the library's own `contracts/`), and the ones in inline assembly, Yul builtins, have no answer.
+Java, Kotlin, C#
 and Ruby had no server on the recording machine: an agent judged their cursors by reading the
-code, and a definition outside the project (the JDK, a gem) is `no-answer` there.
+code, and a definition outside the project (the JDK, a gem) is `no-answer` there. Groovy was
+judged the same way, in two rows: `groovy` (nextflow, Groovy with Java and a Gradle build) and
+`jenkins` (pipeline-library, a Jenkins shared library: `vars/` steps and the tests that load them
+with `loadScript`, whose `script.call()` is judged to land on the loaded step). Their keys of a
+map built at runtime (`config.deployFolder`), Spock labels and `where:` variables are `skip`.
+
+Julia came from a julialang-s3 tarball, `JULIA_DEPOT_PATH` pointing at a scratch depot for both
+DataFrames.jl's install and `install-servers.sh`. LanguageServer.jl's analysis process drops
+`JULIA_DEPOT_PATH` and reads `~/.julia`, so `oracle` starts it with `HOME` at
+`<servers>/julia-home`, whose `.julia` links to that depot. It answers nothing for names from a
+dependency (Tables, InvertedIndices) and for some of Base's core types: those rows are `no-answer`.
+For a Base generic that DataFrames extends (`parent`, `view`, `copy`, `filter!`) it lists only
+the methods outside the project: where the argument is a DataFrames type, the row is `skip`.
 
 After recording, review every cursor where merl and the oracle disagree (`WRONG`, `pick-miss`,
 `none` in `last-score.tsv`) and mark the oracle's debatable answers `skip` with the reason: a
@@ -89,6 +105,14 @@ definition next to its header declaration, a module's file next to its `mod` lin
 TokenStore method next to its type). Go, Python and Swift needed nothing. The agreements (`ok`,
 `pick-hit`) were not re-read. The four judged languages were judged cursor by cursor already;
 their in-project targets were checked line by line when they were written down.
+
+## Starlark, 2026-10-03
+
+rules_go's 270 cursors were recorded with starpls 0.1.22 and no Bazel on the machine: starpls
+answers inside the workspace and fetches no external repository, so a name a `load` takes from
+`@bazel_skylib` or another repository is `no-answer`, as is a builtin (`ctx.actions`,
+`attr.label`): 166 cursors, and 20 more stand on their declaration. Of the three misses, all are keyword arguments, which
+starpls takes to the callee's parameter and `d` refuses on purpose (#431).
 
 ## History
 

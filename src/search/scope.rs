@@ -26,7 +26,6 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Swift
         | Kind::Php
         | Kind::Lua
-        | Kind::Elixir
         | Kind::Zig
         | Kind::Proto
         | Kind::Shell
@@ -34,10 +33,24 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Dart
         | Kind::Cmake
         | Kind::Nix
+        | Kind::Haskell
+        | Kind::Ocaml
+        | Kind::Fsharp
+        | Kind::Julia
+        | Kind::R
+        | Kind::Perl
+        | Kind::Gdscript
+        | Kind::Solidity
+        | Kind::Clojure
+        | Kind::EmacsLisp
+        | Kind::Scheme
+        | Kind::CommonLisp
+        | Kind::Starlark
         | Kind::Sql
         | Kind::Make
         | Kind::Graphql
         | Kind::Css => kind_of(path) == Some(kind),
+        Kind::Elixir => kind_of(path) == Some(kind) && erlang(path) == erlang(here),
     }
 }
 /// Where the standard library and the dependencies of the project at `root` live on this
@@ -92,7 +105,17 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
                         .and_then(|h| h.join(&lib).canonicalize().ok())
                         .and_then(|exe| Some(exe.parent()?.parent()?.join("lib").join(&lib)));
                     let site = venv.join("lib").join(&lib).join("site-packages");
-                    stdlib.into_iter().chain([site]).collect()
+                    let system = cfg.lines().any(|l| {
+                        l.split_once('=').is_some_and(|(k, v)| {
+                            k.trim() == "include-system-site-packages"
+                                && v.trim().eq_ignore_ascii_case("true")
+                        })
+                    });
+                    let base = stdlib
+                        .as_ref()
+                        .filter(|_| system)
+                        .map(|s| s.join("site-packages"));
+                    stdlib.into_iter().chain([site]).chain(base).collect()
                 }
                 None => run(
                     "python3",
@@ -247,25 +270,63 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         // The packages `pub get` lists in `.dart_tool/package_config.json`, the pub cache's and
         // the Flutter SDK's, and the `lib/` of the SDK of the `dart` on the PATH (#414).
         Kind::Dart => dart_roots(root, dart_sdk()),
+        Kind::Elixir => otp_roots(run(
+            "erl",
+            &[
+                "-noshell",
+                "-eval",
+                r#"io:format("~s", [code:root_dir()]), halt()."#,
+            ],
+        )),
+        Kind::Ocaml => ocaml_roots(run("ocamlc", &["-where"])),
         Kind::Cmake => cmake_roots(std::env::var_os("PATH").and_then(|p| {
             std::env::split_paths(&p)
                 .map(|d| d.join("cmake"))
                 .find(|p| p.is_file())
         })),
+        Kind::Julia => {
+            static SHARE: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
+            let share = SHARE.get_or_init(|| {
+                julia_share(&run(
+                    "julia",
+                    &["--startup-file=no", "-e", "print(Sys.BINDIR)"],
+                )?)
+            });
+            let depot = julia_depot(std::env::var_os("JULIA_DEPOT_PATH"), &home);
+            julia_roots(root, share.clone(), &depot)
+        }
+        Kind::Perl => {
+            let inc = run("perl", &["-e", "print join qq{\\n}, @INC"]).unwrap_or_default();
+            perl_roots(root, &inc)
+        }
         // Java and Kotlin have no roots yet: the JDK and Gradle caches are their own lookups.
         // C# has nothing to point at: a NuGet package is compiled
         // assemblies, and the runtime's own source is not on the machine at all. Lua has no root
         // to ask for either: `package.path` is whatever the interpreter embedding it was built
         // with, and a Neovim or a LuaRocks tree is not a standard library any project can be
-        // assumed to use. Elixir's standard library ships compiled — an installed Elixir has
-        // `.beam` files, not `.ex` — and its dependencies are the project's `deps/`, which
-        // depend on the open file: [`mix_deps`]. `d` stays inside the project for all of them,
-        // as for the rest.
+        // assumed to use. `d` stays inside the project for all of them, as for the rest.
+        Kind::EmacsLisp => vec![home.join(".emacs.d/elpa"), home.join(".config/emacs/elpa")],
+        Kind::CommonLisp => vec![
+            home.join("quicklisp/dists/quicklisp/software"),
+            home.join("quicklisp/local-projects"),
+        ],
+        Kind::Scheme => {
+            let script = "(for-each displayln (current-library-collection-paths))";
+            (run("racket", &["-e", script]).unwrap_or_default().lines())
+                .map(PathBuf::from)
+                .collect()
+        }
         Kind::Jvm
         | Kind::CSharp
         | Kind::Lua
         | Kind::Nix
-        | Kind::Elixir
+        | Kind::Haskell
+        | Kind::Fsharp
+        | Kind::R
+        | Kind::Gdscript
+        | Kind::Solidity
+        | Kind::Clojure
+        | Kind::Starlark
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -657,6 +718,7 @@ pub fn in_copy(path: &Path, copy: &[PathBuf]) -> bool {
 /// dependency.
 pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
     let go = kind == Kind::Go;
+    let python = kind == Kind::Python;
     // A link is spelled through the roots a C file reads, never the frameworks: `usr/include`'s
     // `tcl.h` links into `Tcl.framework`, and stays `tcl.h` (#417).
     let spelled: Vec<PathBuf> = (dirs.iter())
@@ -669,21 +731,29 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
         // Homebrew's Rust ships the sysroot `library` with a copy of itself inside; every
         // definition would come up twice.
         let copy = dir.file_name().map(std::ffi::OsStr::to_owned);
+        let others: Vec<PathBuf> = dirs.iter().filter(|o| *o != dir).cloned().collect();
         // Of an SDK's frameworks, each one's `Headers`, a link into `Versions/Current` that is
         // walked through, so a header is read once (#417).
         let frameworks = kind == Kind::C && objc_frameworks(dir);
         let walk = ignore::WalkBuilder::new(dir)
             .filter_entry(move |e| {
+                let is_dir = e.depth() > 0 && e.file_type().is_some_and(|t| t.is_dir());
                 let unreachable = go
-                    && e.depth() > 0
-                    && e.file_type().is_some_and(|t| t.is_dir())
+                    && is_dir
                     && (e.file_name() == "testdata" || e.path().join("go.mod").is_file());
+                let base_packages = python
+                    && is_dir
+                    && e.depth() == 1
+                    && (e.file_name() == "site-packages" || e.file_name() == "dist-packages");
+                let nested = is_dir && others.iter().any(|o| o == e.path());
                 let header = match e.depth() {
                     1 => e.file_name().to_string_lossy().ends_with(".framework"),
                     2 => e.file_name() == "Headers",
                     _ => true,
                 };
                 !unreachable
+                    && !base_packages
+                    && !nested
                     && (!frameworks || header)
                     && (e.depth() != 1 || Some(e.file_name()) != copy.as_deref())
             })

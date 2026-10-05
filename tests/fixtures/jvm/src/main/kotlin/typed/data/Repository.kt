@@ -19,7 +19,7 @@ class Repository(
 
     suspend fun cast(dao: Any, ids: List<String>) {
         if (dao is TopicDao) dao.purgeAll(ids)
-        //                       ^ d: picker src/main/kotlin/typed/data/NewsDao.kt:4, src/main/kotlin/typed/data/TopicDao.kt:4
+        //                       ^ d: src/main/kotlin/typed/data/TopicDao.kt:4
     }
 
     private fun dao(): NewsDao = newsDao

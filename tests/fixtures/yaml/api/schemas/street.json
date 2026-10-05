@@ -1,0 +1,8 @@
+{
+  "$id": "https://example.com/schemas/street.json",
+  "$defs": {
+    "line": {
+      "type": "string"
+    }
+  }
+}

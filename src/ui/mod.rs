@@ -4,7 +4,7 @@ use std::num::NonZeroU16;
 
 use ratatui::Frame;
 use ratatui::buffer::{CellDiffOption, CellWidth};
-use ratatui::layout::{Constraint, Layout};
+use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::text::Span;
 use ratatui::widgets::Block;
@@ -78,7 +78,19 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     // task can start with the help open. The panel and the status bar stay in sight.
     let over = if app.tutor.is_some() { main } else { area };
     if app.picker.is_some() {
-        draw_picker(frame, app, theme, over, base);
+        let (list, share) = if app.show_tree && code.width >= 80 {
+            (
+                Rect {
+                    x: code.x,
+                    width: code.width,
+                    ..over
+                },
+                90,
+            )
+        } else {
+            (over, 80)
+        };
+        draw_picker(frame, app, theme, list, share, base);
     }
     if app.mode == Mode::Help {
         draw_help(frame, app, theme, over, base);

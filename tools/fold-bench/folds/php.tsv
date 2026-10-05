@@ -1,0 +1,891 @@
+# NVIM v0.12.5, nvim-treesitter 910fdf6: 6020 folds in 889 files, 0 files left out for a syntax error
+# path (project/file)	each fold as line:last hidden line, 1-based
+koel/app/Ai/Agents/KoelAssistant.php	5:15 17:85 24:67 69:84
+koel/app/Ai/AiAssistantResult.php	5:11
+koel/app/Ai/Serializers/Contracts/AiResultSerializer.php	7:12
+koel/app/Ai/Serializers/FavoriteResultSerializer.php	5:12 14:37 16:19 21:36 27:33
+koel/app/Ai/Serializers/PlaySongsResultSerializer.php	5:7 9:23 11:14 16:22 18:21
+koel/app/Ai/Serializers/PlaylistSongsResultSerializer.php	5:8 10:24 12:15 17:23 19:22
+koel/app/Ai/Serializers/RadioStationResultSerializer.php	5:7 9:22 11:14 16:21 18:20
+koel/app/Ai/Serializers/SuggestSongsResultSerializer.php	5:7 9:23 11:14 16:22 18:21
+koel/app/Ai/Serializers/UpdateAlbumResultSerializer.php	5:7 9:22 11:14 16:21 18:20
+koel/app/Ai/Serializers/UpdateLyricsResultSerializer.php	5:7 9:23 11:14 16:22 18:21
+koel/app/Ai/Services/AiProviderRegistrar.php	5:10 12:44 17:21 26:43 35:40
+koel/app/Ai/Services/FavoriteableEntityResolver.php	5:14 16:55 18:24 26:49 28:40 29:39 42:46 51:54
+koel/app/Ai/Tools/AddRadioStation.php	5:17 19:71 21:25 27:30 32:38 34:37 40:70 44:53 45:52 55:57 65:67
+koel/app/Ai/Tools/AddToFavorites.php	5:13 15:76 17:22 24:31 33:49 35:48 51:75 56:61 70:72
+koel/app/Ai/Tools/AddToPlaylist.php	5:14 16:91 18:27 29:36 38:50 40:49 52:90 56:58 60:62 64:69 73:78 85:87
+koel/app/Ai/Tools/CreateSmartPlaylist.php	5:17 19:138 21:25 27:40 42:78 47:77 51:72 54:70 80:137 83:93 86:91 96:107 109:124 132:134
+koel/app/Ai/Tools/DeletePlaylist.php	5:11 13:55 15:21 23:26 28:36 30:35 38:54 42:44 46:48
+koel/app/Ai/Tools/GetAlbumInfo.php	5:12 14:75 16:21 23:29 31:36 33:35 38:74 42:44 57:60 62:67 69:71
+koel/app/Ai/Tools/GetArtistInfo.php	5:12 14:63 16:21 23:29 31:36 33:35 38:62 42:44 52:55 57:59
+koel/app/Ai/Tools/GetLyrics.php	5:11 13:64 15:19 21:28 30:41 32:40 43:63 47:49 51:57
+koel/app/Ai/Tools/PlayAlbum.php	5:11 13:44 15:19 21:24 26:32 28:31 34:43 38:40
+koel/app/Ai/Tools/PlayMostPlayedAlbum.php	5:11 13:44 15:19 21:27 29:32 34:43 38:40
+koel/app/Ai/Tools/PlayPlaylist.php	5:12 14:59 16:21 23:29 31:37 33:36 39:58 43:45 49:51
+koel/app/Ai/Tools/PlayRecentlyAdded.php	5:11 13:51 15:19 21:27 29:35 31:34 37:50 41:43
+koel/app/Ai/Tools/PlayRecentlyAddedAlbum.php	5:11 13:44 15:19 21:27 29:32 34:43 38:40
+koel/app/Ai/Tools/PlaySimilarSongs.php	5:15 17:104 19:25 27:35 37:57 39:56 59:103 63:68 78:80 82:96
+koel/app/Ai/Tools/PlaySongsByGenre.php	5:12 14:62 16:21 23:26 28:35 30:34 37:61 41:43 52:54
+koel/app/Ai/Tools/RemoveFromPlaylist.php	5:14 16:91 18:27 29:36 38:50 40:49 52:90 56:58 60:62 64:69 73:78 85:87
+koel/app/Ai/Tools/UpdateAlbumDetails.php	5:14 16:84 18:26 28:31 33:43 35:42 45:83 47:50 52:54 56:58 70:72 74:76 78:80
+koel/app/Ai/Tools/UpdateSongLyrics.php	5:11 13:59 15:19 21:30 32:41 34:40 43:58 47:49
+koel/app/Attributes/DemoConstraint.php	7:13 9:12
+koel/app/Builders/AlbumBuilder.php	5:14 19:172 23:30 32:40 42:45 47:73 49:51 55:57 75:93 95:102 97:101 104:115 108:114 117:133 128:130 135:150 152:157 159:171
+koel/app/Builders/GenreBuilder.php	5:7 9:20 11:19 13:16
+koel/app/Builders/PodcastBuilder.php	5:10 15:47 19:26 28:33 35:46 39:45
+koel/app/Builders/SongBuilder.php	5:13 18:220 22:35 37:50 52:58 60:67 69:111 71:74 97:99 113:124 117:123 126:136 138:168 145:150 170:198 193:195 200:205 207:210 212:219
+koel/app/Builders/UserBuilder.php	5:7
+koel/app/Casts/EncryptedValueCast.php	5:6 8:19 10:13 15:18
+koel/app/Casts/LicenseMetaCast.php	5:8 10:44 12:26 14:25 17:22 29:43 31:42 34:39
+koel/app/Casts/Podcast/CategoriesCast.php	5:8 10:30 12:19 14:18 22:29 24:26
+koel/app/Casts/Podcast/EnclosureCast.php	5:7 9:25 11:14 17:24 19:21
+koel/app/Casts/Podcast/EpisodeMetadataCast.php	5:8 10:30 12:19 14:18 22:29 24:26
+koel/app/Casts/Podcast/PodcastMetadataCast.php	5:8 10:30 12:19 14:18 22:29 24:26
+koel/app/Casts/SongLyricsCast.php	5:6 8:26 11:20 13:15 22:25
+koel/app/Casts/SongStorageCast.php	5:7 9:28 12:19 14:16 22:27
+koel/app/Casts/SongTitleCast.php	5:7 9:28 15:19 24:27
+koel/app/Casts/ThemePropertiesCast.php	5:8 10:44 12:26 14:25 17:22 29:43 31:42 34:39
+koel/app/Casts/UserPreferencesCast.php	5:9 11:55 13:16 19:24 26:37 28:34 29:31 39:54 41:51 42:44 46:50
+koel/app/Console/Commands/ActivateLicenseCommand.php	5:7 9:45 14:18 20:44 24:30
+koel/app/Console/Commands/CheckLicenseStatusCommand.php	5:9 11:67 16:20 22:66 26:28 30:63 33:60
+koel/app/Console/Commands/CleanUpTempFilesCommand.php	5:7 9:40 14:39 22:30 23:25 32:36
+koel/app/Console/Commands/Concerns/AskForPassword.php	11:47 13:27 15:24 18:21 29:46 35:37 39:43
+koel/app/Console/Commands/DeactivateLicenseCommand.php	5:7 9:49 14:18 20:48 24:28 30:34 38:47
+koel/app/Console/Commands/DoctorCommand.php	5:34 37:414 44:88 46:50 55:59 63:67 81:85 90:109 94:108 96:98 105:107 111:131 113:130 116:120 122:126 133:142 137:141 144:161 146:150 154:160 163:225 165:183 171:182 174:176 185:203 191:202 194:196 205:224 212:223 215:217 227:230 232:236 238:247 249:263 253:262 265:274 267:273 276:293 278:282 284:292 285:291 295:308 297:307 310:335 316:320 322:326 328:334 337:344 346:354 348:353 356:359 361:364 366:369 371:374 376:383 385:408 393:397 399:401 403:407 410:413
+koel/app/Console/Commands/ExtractFoldersCommand.php	5:9 11:61 18:22 24:60 26:30 34:38
+koel/app/Console/Commands/FetchArtworkCommand.php	5:13 15:77 20:24 26:76 30:34
+koel/app/Console/Commands/ImportSearchableEntitiesCommand.php	5:10 12:33 14:20 25:32 27:29
+koel/app/Console/Commands/InitCommand.php	5:23 26:425 37:45 47:109 55:57 59:81 86:90 92:98 100:102 111:117 119:128 121:127 130:144 135:140 149:190 151:156 160:165 169:177 182:189 192:195 197:200 202:208 210:221 212:220 223:265 227:264 231:234 238:263 251:262 267:272 274:286 282:285 288:313 290:292 296:300 308:312 315:348 317:319 321:325 333:347 336:338 340:344 350:363 352:354 365:370 372:385 376:378 380:384 387:390 392:395 397:417 399:401 403:405 413:416 419:424
+koel/app/Console/Commands/InstallSchedulerCommand.php	5:8 10:49 15:43 17:21 27:31 45:48
+koel/app/Console/Commands/PruneLibraryCommand.php	5:6 8:46 13:17 19:45 24:40 31:33 35:37
+koel/app/Console/Commands/ReleaseCommand.php	5:16 18:159 28:54 36:42 44:51 56:85 65:77 79:81 87:117 91:95 99:101 107:114 119:126 121:125 128:133 135:144 139:143 146:153 148:152 155:158
+koel/app/Console/Commands/ScanChunkCommand.php	5:11 13:72 26:30 32:71 36:40 44:48 63:67
+koel/app/Console/Commands/ScanCommand.php	5:19 21:200 37:43 45:50 52:79 54:58 72:76 84:113 99:101 108:112 125:128 130:150 132:136 140:145 147:149 152:174 156:158 162:171 165:168 176:199 180:190
+koel/app/Console/Commands/Storage/SetupDropboxStorageCommand.php	5:14 16:109 21:25 27:108 29:33 35:39 66:69 71:79 85:89 93:103
+koel/app/Console/Commands/Storage/SetupLocalStorageCommand.php	5:12 14:61 19:23 25:43 38:40 45:60 53:55
+koel/app/Console/Commands/Storage/SetupS3StorageCommand.php	5:13 15:80 20:24 26:79 28:32 62:74
+koel/app/Console/Commands/Storage/SetupWebDAVStorageCommand.php	5:14 16:101 21:25 27:100 29:33 75:81 85:95
+koel/app/Console/Commands/Subsonic/ShowApiKeyCommand.php	5:6 8:33 13:17 19:32 23:27
+koel/app/Console/Commands/SyncPodcastsChunkCommand.php	5:9 11:54 17:21 23:43 27:40 28:39 29:32 45:53 47:52
+koel/app/Enums/Acl/Permission.php	5:12
+koel/app/Enums/Acl/Role.php	5:8 10:106 17:25 19:24 27:30 32:40 34:39 42:45 47:50 52:55 57:64 59:63 66:69 72:75 77:93 82:92 96:105 98:104
+koel/app/Enums/DoctorResult.php	5:9
+koel/app/Enums/EmbeddableType.php	5:13 15:43 23:31 25:30 34:42 36:41
+koel/app/Enums/LicenseStatus.php	5:11
+koel/app/Enums/ListenBrainzListenType.php	5:9
+koel/app/Enums/Placement.php	5:9
+koel/app/Enums/SmartPlaylistModel.php	5:56 19:33 21:32 35:38 44:47 49:55 51:54
+koel/app/Enums/SongStorageType.php	7:25 16:19 21:24
+koel/app/Events/Event.php	5:8 10:18 14:17
+koel/app/Events/MediaScanCompleted.php	7:12 9:11
+koel/app/Events/MultipleSongsLiked.php	5:7 9:18 14:17
+koel/app/Events/NewPlaylistCollaboratorJoined.php	5:7 9:16 11:15
+koel/app/Events/PlaybackStarted.php	5:6 8:14 10:13
+koel/app/Events/SongFavoriteToggled.php	5:6 8:15 10:14
+koel/app/Events/UserUnsubscribedFromPodcast.php	5:6 8:14 10:13
+koel/app/Exceptions/AlbumNameConflictException.php	7:13 9:12
+koel/app/Exceptions/FailedToParsePodcastFeedException.php	5:6 8:14 10:13
+koel/app/Exceptions/MethodNotImplementedException.php	7:13 9:12
+koel/app/Exceptions/NonSmartPlaylistException.php	5:6 8:14 10:13
+koel/app/Exceptions/ProxyAuthException.php	7:11
+koel/app/Exceptions/ProxyAuthIpNotAllowedException.php	5:23 8:13 16:22 18:21
+koel/app/Exceptions/ProxyAuthUserHeaderMissingException.php	5:22 7:12 15:21 17:20
+koel/app/Exceptions/RequiresTwoFactorException.php	7:13 9:12
+koel/app/Exceptions/SongPathNotFoundException.php	7:13 9:12
+koel/app/Exceptions/SongUploadFailedException.php	5:6 8:28 10:13 15:18 20:27 22:24
+koel/app/Exceptions/Subsonic/DataNotFoundException.php	5:16 7:10 12:15
+koel/app/Exceptions/Subsonic/GenericErrorException.php	5:16 7:10 12:15
+koel/app/Exceptions/Subsonic/InvalidCredentialsException.php	5:16 7:10 12:15
+koel/app/Exceptions/Subsonic/RequiredParameterMissingException.php	5:16 7:10 12:15
+koel/app/Exceptions/Subsonic/SubsonicException.php	5:6 8:21 10:13 17:20
+koel/app/Exceptions/SubsonicAwareErrorRenderer.php	5:12 14:49 23:27 29:48 31:33 35:39 41:45 42:44
+koel/app/Exceptions/UnsupportedSongStorageTypeException.php	5:6 8:14 10:13
+koel/app/Facades/Dispatcher.php	5:6 12:18 14:17
+koel/app/Facades/Download.php	5:6 12:18 14:17
+koel/app/Facades/Hooks.php	5:8 20:26 22:25
+koel/app/Facades/License.php	5:6 13:24 15:18 20:23
+koel/app/Filesystems/DropboxFilesystem.php	5:7 9:26 11:15 17:20 22:25
+koel/app/Helpers.php	3:14 23:28 30:33 35:38 40:45 47:60 49:51 55:57 62:71 64:66 73:86 77:79 81:83 88:91 93:96 98:101 103:106 108:116 110:113 118:129 120:122 124:126 135:138 141:162 143:145 149:155 157:159 164:170 176:179 181:184 189:192 197:206 208:240 211:215 220:222 227:237 230:236 233:235 242:250 252:268 263:265 270:273 275:278 280:283 285:288 297:300 302:305 307:310
+koel/app/Helpers/Encoding/Bom.php	15:47 21:27 29:46 31:33 35:43 36:38
+koel/app/Helpers/Encoding/TagFixer.php	25:102 27:38 29:31 33:35 40:51 42:44 46:48 53:73 64:66 68:70 82:101 87:98 88:90 92:94
+koel/app/Helpers/SyncedLyricsConverter.php	5:6 8:82 16:33 19:30 21:23 27:29 39:69 44:66 45:47 53:55 61:63 71:81
+koel/app/Helpers/TestableIdentifier.php	5:32 11:14 21:26 28:31
+koel/app/Helpers/Ulid.php	7:13 9:12
+koel/app/Hooks/Action.php	5:8
+koel/app/Hooks/HookRegistry.php	5:6 8:88 18:26 28:35 30:34 31:33 37:45 54:63 56:60 57:59 65:68 70:73 80:87 82:84
+koel/app/Http/Controllers/API/ActivateLicenseController.php	5:8 10:20 12:19
+koel/app/Http/Controllers/API/AiController.php	5:18 20:78 24:77 55:59 61:69 64:68 71:76
+koel/app/Http/Controllers/API/Artist/ArtistSongController.php	5:10 12:24 15:18 20:23
+koel/app/Http/Controllers/API/Artist/FetchArtistInformationController.php	5:7 9:15 11:14
+koel/app/Http/Controllers/API/Auth/LoginWithCredentialsController.php	5:9 11:34 13:15 17:33 19:23 25:30 26:29
+koel/app/Http/Controllers/API/Auth/LoginWithOneTimeTokenController.php	5:9 11:27 13:15 17:26 19:23
+koel/app/Http/Controllers/API/Auth/LogoutController.php	5:7 9:21 11:13 15:20
+koel/app/Http/Controllers/API/Auth/TwoFactor/ConfirmController.php	5:10 12:32 14:16 19:31 21:23 28:30
+koel/app/Http/Controllers/API/Auth/TwoFactor/DisableController.php	5:10 12:29 14:16 19:28 21:23
+koel/app/Http/Controllers/API/Auth/TwoFactorChallengeController.php	5:10 12:28 14:16 18:27 20:24
+koel/app/Http/Controllers/API/ChangePasswordController.php	5:14 16:45 19:24 26:44
+koel/app/Http/Controllers/API/Embed/EmbedController.php	5:21 23:58 26:31 33:41 43:57 45:56 49:53
+koel/app/Http/Controllers/API/EqualizerPresetController.php	5:10 12:33 14:16 19:24 27:32
+koel/app/Http/Controllers/API/ExcerptSearchController.php	5:8 10:16 12:15
+koel/app/Http/Controllers/API/FavoriteController.php	5:16 18:67 21:24 26:38 40:52 54:66
+koel/app/Http/Controllers/API/FetchAlbumInformationController.php	5:7 9:15 11:14
+koel/app/Http/Controllers/API/FetchDemoCreditsController.php	5:7 9:19 11:18 13:17
+koel/app/Http/Controllers/API/FetchFavoriteSongsController.php	5:9 11:18 14:17
+koel/app/Http/Controllers/API/FetchInitialDataController.php	5:33 35:111 38:110 57:109 58:65 60:63 94:100
+koel/app/Http/Controllers/API/FetchRandomAlbumsController.php	5:7 9:15 11:14
+koel/app/Http/Controllers/API/FetchRandomArtistsController.php	5:7 9:15 11:14
+koel/app/Http/Controllers/API/FetchRecentlyPlayedSongController.php	5:9 11:20 16:19
+koel/app/Http/Controllers/API/FetchSongsByIdsController.php	5:11 13:25 16:24
+koel/app/Http/Controllers/API/FetchSongsForQueueController.php	5:10 12:23 15:22
+koel/app/Http/Controllers/API/ForgotPasswordController.php	5:8 10:19 13:18
+koel/app/Http/Controllers/API/GenreController.php	5:10 12:36 15:18 20:23 25:35
+koel/app/Http/Controllers/API/GetLastfmAuthorizationUrlController.php	5:9 11:24 14:23
+koel/app/Http/Controllers/API/GetOneTimeTokenController.php	5:8 10:17 13:16
+koel/app/Http/Controllers/API/LambdaSongController.php	5:11 13:49 15:17 19:37 39:48 41:45
+koel/app/Http/Controllers/API/ListenBrainzTokenController.php	5:9 11:32 13:15 18:23 26:31
+koel/app/Http/Controllers/API/MediaBrowser/FetchFolderSongsController.php	5:9 11:24 14:23 18:20
+koel/app/Http/Controllers/API/MediaBrowser/FetchRecursiveFolderSongsController.php	5:10 12:22 15:21
+koel/app/Http/Controllers/API/MoveFavoriteSongsController.php	5:10 12:21 15:20
+koel/app/Http/Controllers/API/MovePlaylistSongsController.php	5:9 11:26 13:25
+koel/app/Http/Controllers/API/PaginateSongsByGenreController.php	5:12 14:30 17:29
+koel/app/Http/Controllers/API/PlaylistCollaboration/AcceptPlaylistCollaborationInviteController.php	5:10 12:22 16:21
+koel/app/Http/Controllers/API/PlaylistCollaboration/CreatePlaylistCollaborationTokenController.php	5:10 12:24 15:23
+koel/app/Http/Controllers/API/PlaylistController.php	5:16 18:67 21:26 28:31 33:46 35:37 39:45 48:57 52:54 59:66
+koel/app/Http/Controllers/API/PlaylistFolderController.php	5:12 14:51 17:20 22:25 27:34 36:41 43:50
+koel/app/Http/Controllers/API/PlaylistFolderPlaylistController.php	5:10 12:35 14:16 18:25 27:34
+koel/app/Http/Controllers/API/PlaylistSongController.php	5:18 20:71 23:27 29:40 31:35 42:55 57:60 62:70
+koel/app/Http/Controllers/API/Podcast/PodcastController.php	5:16 18:51 21:25 27:33 35:43 38:42 45:50
+koel/app/Http/Controllers/API/PrivatizeSongsController.php	5:11 13:24 17:23
+koel/app/Http/Controllers/API/PublicizeSongsController.php	5:11 13:26 17:25
+koel/app/Http/Controllers/API/QueueStateController.php	5:10 12:31 15:18 20:23 25:30
+koel/app/Http/Controllers/API/RadioStationController.php	5:15 17:56 20:24 26:29 31:37 39:45 47:55
+koel/app/Http/Controllers/API/RateArtistController.php	5:12 14:30 16:19 22:29
+koel/app/Http/Controllers/API/ResetPasswordController.php	5:9 11:22 14:21 16:18
+koel/app/Http/Controllers/API/ScrobbleController.php	5:12 14:29 17:28 23:25
+koel/app/Http/Controllers/API/SetLastfmSessionKeyController.php	5:9 11:20 14:19
+koel/app/Http/Controllers/API/Settings/UpdateBrandingController.php	5:12 14:36 18:21 23:35
+koel/app/Http/Controllers/API/Settings/UpdateMediaPathController.php	5:13 15:35 18:22 24:34
+koel/app/Http/Controllers/API/ThemeController.php	5:13 15:42 19:23 25:28 30:33 35:41
+koel/app/Http/Controllers/API/UnlikeMultipleSongsController.php	5:11 13:29 16:28
+koel/app/Http/Controllers/API/UpdatePlaybackStatusController.php	5:11 13:34 16:33 28:30
+koel/app/Http/Controllers/API/UpdateUserPreferenceController.php	5:9 11:20 14:19
+koel/app/Http/Controllers/API/Upload/CompletePresignedUploadController.php	5:23 25:87 29:86 65:85 73:78
+koel/app/Http/Controllers/API/Upload/DiscardAllDuplicateUploadsController.php	5:10 12:25 16:24
+koel/app/Http/Controllers/API/Upload/KeepAllDuplicateUploadsController.php	5:14 16:37 20:36
+koel/app/Http/Controllers/API/Upload/KeepDuplicateUploadController.php	5:11 13:30 16:29
+koel/app/Http/Controllers/API/Upload/UploadSongController.php	5:23 25:64 29:63 39:62 48:53
+koel/app/Http/Controllers/API/UserInvitationController.php	5:17 19:68 21:24 27:34 36:43 38:42 45:54 47:53 56:67 60:66
+koel/app/Http/Controllers/AppManifestController.php	7:15 9:14
+koel/app/Http/Controllers/Controller.php	5:7 9:14
+koel/app/Http/Controllers/Demo/NewSessionController.php	5:14 16:41 19:40 36:39
+koel/app/Http/Controllers/LastfmController.php	5:7 9:27 11:13 15:26
+koel/app/Http/Controllers/PlayController.php	5:10 12:35 18:34
+koel/app/Http/Controllers/RemoteManifestController.php	7:15 9:14
+koel/app/Http/Controllers/SSO/GoogleCallbackController.php	5:10 12:22 15:21
+koel/app/Http/Controllers/SSO/OpenIDConnectCallbackController.php	5:10 12:22 15:21
+koel/app/Http/Controllers/StreamEmbedController.php	5:7 9:15 11:14
+koel/app/Http/Controllers/Subsonic/CreatePodcastChannelController.php	5:10 12:25 14:16 19:24
+koel/app/Http/Controllers/Subsonic/DeletePlaylistController.php	5:8 10:25 12:14 16:24
+koel/app/Http/Controllers/Subsonic/DeletePodcastChannelController.php	5:12 14:31 16:19 22:30
+koel/app/Http/Controllers/Subsonic/DownloadController.php	5:9 11:25 13:16 18:24
+koel/app/Http/Controllers/Subsonic/GetAlbumController.php	5:14 16:38 18:21 24:37 31:36 33:35
+koel/app/Http/Controllers/Subsonic/GetAlbumInfo2Controller.php	5:12 14:30 16:19 21:29 26:28
+koel/app/Http/Controllers/Subsonic/GetAlbumList2Controller.php	5:13 15:40 19:21 24:39 34:38 35:37
+koel/app/Http/Controllers/Subsonic/GetAlbumListController.php	5:12 14:36 18:20 23:35 30:34 31:33
+koel/app/Http/Controllers/Subsonic/GetArtistController.php	5:14 16:38 18:21 24:37 31:36 33:35
+koel/app/Http/Controllers/Subsonic/GetArtistInfoController.php	5:12 18:34 20:23 25:33 30:32
+koel/app/Http/Controllers/Subsonic/GetAvatarController.php	5:10 12:31 14:17 19:30
+koel/app/Http/Controllers/Subsonic/GetCoverArtController.php	5:11 13:42 15:20 22:41 30:32 36:38
+koel/app/Http/Controllers/Subsonic/GetGenresController.php	5:8 10:29 12:14 16:28 23:27 24:26
+koel/app/Http/Controllers/Subsonic/GetIndexesController.php	5:10 12:30 14:16 19:29 23:28 25:27
+koel/app/Http/Controllers/Subsonic/GetLicenseController.php	5:8 10:22 13:21 15:20 16:19
+koel/app/Http/Controllers/Subsonic/GetLyricsBySongIdController.php	5:10 12:35 14:16 18:34 23:25 27:33 28:32 29:31
+koel/app/Http/Controllers/Subsonic/GetMusicFoldersController.php	5:6 8:20 10:19 12:18 13:17 14:16
+koel/app/Http/Controllers/Subsonic/GetNewestPodcastsController.php	5:11 13:30 15:17 20:29 24:28 25:27
+koel/app/Http/Controllers/Subsonic/GetNowPlayingController.php	5:6 8:14 10:13
+koel/app/Http/Controllers/Subsonic/GetPlayQueueController.php	5:10 12:31 14:16 19:30 23:25 27:29
+koel/app/Http/Controllers/Subsonic/GetPlaylistController.php	5:14 16:40 18:21 24:39 33:38 35:37
+koel/app/Http/Controllers/Subsonic/GetPlaylistsController.php	5:10 12:32 14:16 19:31 26:30 27:29
+koel/app/Http/Controllers/Subsonic/GetPodcastsController.php	5:12 14:40 16:18 21:39 27:29 31:38 32:37
+koel/app/Http/Controllers/Subsonic/GetSongsByGenreController.php	5:14 16:41 18:21 24:40 35:39 36:38
+koel/app/Http/Controllers/Subsonic/GetStarred2Controller.php	5:12 14:33 16:20 23:32 29:31
+koel/app/Http/Controllers/Subsonic/GetStarredController.php	5:12 14:33 16:20 23:32 29:31
+koel/app/Http/Controllers/Subsonic/GetUserController.php	5:14 16:37 18:20 23:36 27:29
+koel/app/Http/Controllers/Subsonic/PingController.php	5:6 8:14 10:13
+koel/app/Http/Controllers/Subsonic/RefreshPodcastsController.php	5:12 14:36 16:19 22:35 26:32 27:31
+koel/app/Http/Controllers/Subsonic/SavePlayQueueController.php	5:11 13:35 15:18 21:34
+koel/app/Http/Controllers/Subsonic/Search3Controller.php	5:11 13:44 15:17 20:43 40:42
+koel/app/Http/Controllers/Subsonic/StarController.php	5:11 13:31 15:18 21:30 25:27
+koel/app/Http/Controllers/Subsonic/UnstarController.php	5:11 13:31 15:18 21:30 25:27
+koel/app/Http/Controllers/Subsonic/UpdateInternetRadioStationController.php	5:12 14:39 16:19 22:38
+koel/app/Http/Controllers/Subsonic/UpdatePlaylistController.php	5:13 15:59 17:21 24:58 31:34 36:38 40:43 45:55 52:54
+koel/app/Http/Controllers/ViewSongOnITunesController.php	5:9 11:26 13:25
+koel/app/Http/Integrations/Concerns/OnlyThrowsOnServerErrorsAndRateLimits.php	5:7 9:17 13:16
+koel/app/Http/Integrations/IPinfo/IPinfoConnector.php	5:8 10:24 15:18 20:23
+koel/app/Http/Integrations/IPinfo/Requests/GetLiteDataRequest.php	5:8 10:27 14:16 18:21 23:26
+koel/app/Http/Integrations/Lastfm/Auth/LastfmAuthenticator.php	5:9 11:67 13:17 19:26 23:25 28:35 30:34 37:44 39:43 46:66 54:61 55:58
+koel/app/Http/Integrations/Lastfm/LastfmConnector.php	5:7 9:22 13:16 18:21
+koel/app/Http/Integrations/Lastfm/Requests/GetSessionKeyRequest.php	5:8 10:33 14:17 19:22 25:32 27:31
+koel/app/Http/Integrations/Lastfm/Requests/UpdateNowPlayingRequest.php	5:12 14:47 20:23 25:28 31:46 33:39 41:43
+koel/app/Http/Integrations/LemonSqueezy/Requests/ActivateLicenseRequest.php	5:8 10:33 16:18 20:23 26:32 28:31
+koel/app/Http/Integrations/LemonSqueezy/Requests/DeactivateLicenseRequest.php	5:9 11:34 17:19 21:24 27:33 29:32
+koel/app/Http/Integrations/ListenBrainz/ListenBrainzConnector.php	5:6 8:16 12:15
+koel/app/Http/Integrations/MusicBrainz/Requests/SearchForArtistRequest.php	5:7 9:30 13:15 17:20 23:29 25:28
+koel/app/Http/Integrations/MusicBrainz/ThrottledMusicBrainzConnector.php	5:6 8:29 15:17 19:28 23:25
+koel/app/Http/Integrations/Spotify/SpotifyClient.php	5:9 14:50 18:27 23:26 29:42 33:39 44:49
+koel/app/Http/Integrations/Ticketmaster/Requests/AttractionSearchRequest.php	5:9 11:39 15:17 19:22 25:32 27:31 35:38
+koel/app/Http/Integrations/Ticketmaster/Requests/EventSearchRequest.php	5:9 11:40 15:18 20:23 26:33 28:32 36:39
+koel/app/Http/Integrations/Wikidata/Requests/GetEntityDataRequest.php	5:6 8:20 12:14 16:19
+koel/app/Http/Integrations/Wikipedia/Requests/GetPageSummaryRequest.php	5:6 8:20 12:14 16:19
+koel/app/Http/Integrations/Wikipedia/WikipediaConnector.php	5:6 8:25 12:15 18:24 20:23
+koel/app/Http/Integrations/YouTube/Requests/SearchVideosRequest.php	5:7 9:46 14:17 19:22 25:45 27:36 31:33 38:44
+koel/app/Http/Integrations/YouTube/YouTubeConnector.php	5:7 9:22 13:16 18:21
+koel/app/Http/Integrations/iTunes/ITunesConnector.php	5:7 9:18 14:17
+koel/app/Http/Integrations/iTunes/Requests/GetTrackRequest.php	5:8 10:47 14:17 20:41 24:26 28:33 35:40 43:46
+koel/app/Http/Middleware/AddBuildHeader.php	5:8 10:28 12:14 17:27 22:24
+koel/app/Http/Middleware/Authenticate.php	5:7 9:21 11:20 13:15
+koel/app/Http/Middleware/AuthenticateAudioRequests.php	5:7 9:17 11:16
+koel/app/Http/Middleware/AuthenticateSubsonicRequests.php	5:10 12:37 14:16 18:29 31:36
+koel/app/Http/Middleware/Concerns/ChecksControllerAttributes.php	5:8 10:30 13:29 15:28
+koel/app/Http/Middleware/EncryptCookies.php	7:15
+koel/app/Http/Middleware/EnsurePodcastsEnabled.php	5:9 11:27 13:16 19:26 21:23
+koel/app/Http/Middleware/ForceHttps.php	5:7 9:23 11:13 15:22 17:19
+koel/app/Http/Middleware/HandleDemoMode.php	5:14 16:44 23:43 29:31 36:40
+koel/app/Http/Middleware/NormalizeSubsonicArrayParams.php	5:8 10:36 12:35 20:22 24:32 25:27
+koel/app/Http/Middleware/ObjectStorageAuthenticate.php	5:7 13:21 15:20
+koel/app/Http/Middleware/RestrictPlusFeatures.php	5:12 14:32 21:31 23:28
+koel/app/Http/Middleware/ThrottleRequests.php	5:7 9:19 11:18 13:15
+koel/app/Http/Middleware/TrimStrings.php	7:18 14:17
+koel/app/Http/Middleware/TrustHosts.php	5:6 8:33 15:23 25:32 27:29
+koel/app/Http/Requests/API/AcceptUserInvitationRequest.php	12:23 15:22 17:21
+koel/app/Http/Requests/API/ActivateLicenseRequest.php	8:17 11:16 13:15
+koel/app/Http/Requests/API/AddSongsToPlaylistRequest.php	10:19 13:18 15:17
+koel/app/Http/Requests/API/AiRequest.php	5:17 8:16 10:15
+koel/app/Http/Requests/API/Album/AlbumCoverStoreRequest.php	8:14 10:13
+koel/app/Http/Requests/API/Album/AlbumListRequest.php	12:23 15:22 17:21
+koel/app/Http/Requests/API/Album/AlbumUpdateRequest.php	5:7 14:34 17:24 19:23 26:33
+koel/app/Http/Requests/API/Artist/ArtistUpdateRequest.php	5:7 13:32 16:22 18:21 24:31
+koel/app/Http/Requests/API/Auth/TwoFactor/CodeBearingRequest.php	8:17 11:16 13:15
+koel/app/Http/Requests/API/Auth/TwoFactorChallengeRequest.php	11:21 14:20 16:19
+koel/app/Http/Requests/API/ChangeSongsVisibilityRequest.php	5:7 12:26 15:20 17:19 22:25
+koel/app/Http/Requests/API/DeleteSongsRequest.php	5:6 9:18 12:17 14:16
+koel/app/Http/Requests/API/Favorites/DestroyFavoritesRequest.php	5:6 12:25 17:24 19:23
+koel/app/Http/Requests/API/Favorites/StoreFavoritesRequest.php	5:6 12:25 17:24 19:23
+koel/app/Http/Requests/API/Favorites/ToggleFavoriteRequest.php	5:6 12:24 17:23 19:22
+koel/app/Http/Requests/API/FetchSongsForQueueRequest.php	5:6 13:27 16:26 18:25 21:24
+koel/app/Http/Requests/API/Interaction/IncreasePlayCountRequest.php	5:6 11:20 14:19 16:18
+koel/app/Http/Requests/API/InviteUserRequest.php	5:8 13:40 18:29 20:28 22:27 34:39 36:38
+koel/app/Http/Requests/API/LastfmCallbackRequest.php	9:19 12:18 14:17
+koel/app/Http/Requests/API/LoginWithCredentialsRequest.php	9:19 12:18 14:17
+koel/app/Http/Requests/API/ObjectStorage/S3/PutSongRequest.php	12:23 15:22 17:21
+koel/app/Http/Requests/API/Playlist/PlaylistCoverUpdateRequest.php	8:14 10:13
+koel/app/Http/Requests/API/Playlist/PlaylistSongUpdateRequest.php	5:7 12:22 15:21 17:20
+koel/app/Http/Requests/API/Playlist/PlaylistStoreRequest.php	5:13 24:57 27:43 29:42 34:39 45:56
+koel/app/Http/Requests/API/Playlist/PlaylistUpdateRequest.php	5:12 22:53 25:40 27:39 31:36 42:52
+koel/app/Http/Requests/API/PlaylistCollaboration/PlaylistCollaboratorDestroyRequest.php	10:21 15:20 17:19
+koel/app/Http/Requests/API/PlaylistFolder/PlaylistFolderPlaylistDestroyRequest.php	5:8 13:27 16:26 18:25 19:24
+koel/app/Http/Requests/API/PlaylistFolder/PlaylistFolderStoreRequest.php	5:7 13:28 16:27 18:26 20:25
+koel/app/Http/Requests/API/PlaylistFolder/PlaylistFolderUpdateRequest.php	5:7 13:28 16:27 18:26 20:25
+koel/app/Http/Requests/API/Podcast/PodcastStoreRequest.php	5:6 11:22 16:21 18:20
+koel/app/Http/Requests/API/ProfileUpdateRequest.php	5:6 13:33 16:23 18:22 25:32
+koel/app/Http/Requests/API/Radio/RadioStationStoreRequest.php	5:10 20:55 23:42 25:41 26:35 44:54
+koel/app/Http/Requests/API/RateRequest.php	10:19 13:18 15:17
+koel/app/Http/Requests/API/ResetPasswordRequest.php	12:23 15:22 17:21
+koel/app/Http/Requests/API/RevokeUserInvitationRequest.php	8:15 11:14
+koel/app/Http/Requests/API/ScrobbleRequest.php	8:15 11:14
+koel/app/Http/Requests/API/SetLastfmSessionKeyRequest.php	8:17 11:16 13:15
+koel/app/Http/Requests/API/Settings/UpdateBrandingRequest.php	5:11 18:51 21:28 23:27 30:50
+koel/app/Http/Requests/API/StoreEqualizerPresetRequest.php	10:22 13:21 15:20
+koel/app/Http/Requests/API/ThemeStoreRequest.php	5:7 9:39 12:23 14:22 25:38
+koel/app/Http/Requests/API/UpdatePlaybackStatusRequest.php	5:6 12:22 15:21 17:20
+koel/app/Http/Requests/API/UpdateUserPreferencesRequest.php	11:21 14:20 16:19
+koel/app/Http/Requests/API/Upload/UploadSongRequest.php	5:7 10:19 13:18 15:17
+koel/app/Http/Requests/API/UserUpdateRequest.php	5:11 18:48 21:37 26:36 30:35 39:47
+koel/app/Http/Requests/Subsonic/FavoriteRequest.php	5:6 13:36 15:22 17:21 25:35 27:34
+koel/app/Http/Requests/Subsonic/GetAlbumList2Request.php	10:37 12:23 26:36 28:35
+koel/app/Http/Requests/Subsonic/GetLyricsRequest.php	11:21 14:20 16:19
+koel/app/Http/Requests/Subsonic/GetPodcastsRequest.php	11:28 14:20 16:19 22:27 24:26
+koel/app/Http/Requests/Subsonic/GetSongsByGenreRequest.php	10:21 13:20 15:19
+koel/app/Http/Requests/Subsonic/ScrobbleRequest.php	5:6 12:30 14:20 16:19 23:29 25:28
+koel/app/Http/Requests/Subsonic/Search3Request.php	7:22 10:21 12:20
+koel/app/Http/Requests/Subsonic/StreamRequest.php	5:16 8:15 11:14
+koel/app/Http/Requests/Subsonic/UpdateInternetRadioStationRequest.php	5:7 15:27 18:26 20:25
+koel/app/Http/Resources/AlbumResource.php	5:10 12:111 14:29 26:28 31:48 32:34 35:40 41:47 50:66 51:53 54:59 60:65 70:74 76:81 84:110 92:109 106:108
+koel/app/Http/Resources/CollaborativeSongResourceCollection.php	5:16 8:15
+koel/app/Http/Resources/DuplicateUploadResource.php	5:7 9:31 13:17 20:30 22:29
+koel/app/Http/Resources/EmbedOptionsResource.php	5:7 9:34 11:16 18:22 25:33 27:32
+koel/app/Http/Resources/EmbedResource.php	5:9 11:58 13:20 22:29 31:36 39:52 43:51 54:57
+koel/app/Http/Resources/ExcerptSearchResource.php	5:6 8:45 10:26 11:13 14:16 17:19 20:22 23:25 28:32 35:44 37:43
+koel/app/Http/Resources/FavoriteResource.php	5:7 9:36 11:17 19:23 26:35 28:34
+koel/app/Http/Resources/InteractionResource.php	5:6 8:37 10:17 19:23 26:36 28:35
+koel/app/Http/Resources/LiveEventResource.php	5:7 9:43 11:26 15:18 19:23 29:33 36:42
+koel/app/Http/Resources/PlaylistCollaborationTokenResource.php	5:7 9:31 11:14 16:21 24:30 26:29
+koel/app/Http/Resources/PlaylistCollaboratorResource.php	5:6 8:33 10:15 17:21 24:32 26:31
+koel/app/Http/Resources/PlaylistFolderResource.php	5:6 8:37 10:17 19:23 26:36 28:35
+koel/app/Http/Resources/PlaylistResource.php	5:9 11:66 13:27 23:26 29:33 36:65 47:64 60:63
+koel/app/Http/Resources/PodcastCategoryResource.php	5:7 9:22 11:15 18:21
+koel/app/Http/Resources/PodcastResource.php	5:9 11:67 13:24 26:31 33:36 39:66 41:52 54:63
+koel/app/Http/Resources/PodcastResourceCollection.php	5:8 10:26 12:17 20:25
+koel/app/Http/Resources/SongFileResource.php	5:7 9:57 11:33 35:41 44:47 50:56
+koel/app/Http/Resources/SongFileResourceCollection.php	5:14 8:13
+koel/app/Http/Resources/SongResource.php	5:12 14:161 16:39 41:58 42:44 45:50 51:57 60:76 61:63 64:69 70:75 80:84 86:89 91:96 99:160 107:140 134:138 142:157 143:150 152:156
+koel/app/Http/Resources/ThemeResource.php	5:7 9:47 11:26 17:24 28:32 35:46 37:45
+koel/app/Http/Resources/UserProspectResource.php	5:6 8:39 10:18 20:24 27:38 29:37
+koel/app/Http/Responses/StreamedFileResponse.php	5:7 9:22 11:21 16:18
+koel/app/Http/Responses/Subsonic/Resources/AlbumChildResource.php	13:53 16:24 39:52 41:51
+koel/app/Http/Responses/Subsonic/Resources/AlbumResource.php	5:6 8:56 11:19 38:55 40:54
+koel/app/Http/Responses/Subsonic/Resources/ArtistResource.php	5:6 8:40 11:15 28:39 30:38
+koel/app/Http/Responses/Subsonic/Resources/DirectoryResource.php	5:9 17:62 19:23 34:41 36:40 53:61 55:60
+koel/app/Http/Responses/Subsonic/Resources/GenreResource.php	7:30 9:13 22:29 24:28
+koel/app/Http/Responses/Subsonic/Resources/IndexesResource.php	5:9 16:72 20:23 33:51 40:43 47:50 54:71 59:66 62:65
+koel/app/Http/Responses/Subsonic/Resources/PodcastChannelResource.php	7:48 10:16 30:47 32:40 42:44
+koel/app/Http/Responses/Subsonic/Resources/RadioStationResource.php	7:33 10:14 24:32 26:31
+koel/app/Http/Responses/Subsonic/Resources/SearchResult2Resource.php	5:9 17:44 19:23 36:43 38:42
+koel/app/Http/Responses/Subsonic/Resources/SearchResultResource.php	5:9 15:42 17:21 34:41 36:40
+koel/app/Http/Responses/Subsonic/Resources/SongResource.php	5:6 8:79 11:22 51:78 53:77
+koel/app/Http/Responses/Subsonic/Resources/StarredResource.php	5:9 16:43 18:22 35:42 37:41
+koel/app/Http/Responses/Subsonic/Resources/StructuredLyricsResource.php	5:6 12:35 24:34 26:33
+koel/app/Http/Responses/Subsonic/Resources/UserResource.php	5:6 8:67 10:25 45:66 50:65
+koel/app/Http/Responses/Subsonic/SubsonicResponse.php	5:10 17:151 22:26 29:32 34:37 40:49 44:48 55:68 59:65 60:62 71:89 73:79 81:86 82:85 92:98 101:110 103:109 113:129 115:128 116:127 119:121 132:141 143:150 145:149
+koel/app/Jobs/DeleteSongFilesJob.php	5:9 11:33 16:18 20:32 23:30 26:29
+koel/app/Jobs/DeleteTranscodeFilesJob.php	5:9 11:38 16:18 20:37 23:35 26:28 30:34
+koel/app/Jobs/GenerateAlbumThumbnailJob.php	5:6 8:18 10:12 14:17
+koel/app/Jobs/HandlePresignedSongUploadJob.php	5:16 18:65 20:25 27:48 43:45 50:53 55:64
+koel/app/Jobs/HandleSongUploadJob.php	5:10 12:35 14:17 19:34 29:31
+koel/app/Jobs/ScrobbleJob.php	5:7 9:21 11:15 17:20
+koel/app/Listeners/DeleteNonExistingRecordsPostScan.php	5:12 14:73 16:19 21:47 30:40 65:72 67:69
+koel/app/Listeners/LoveTrackOnLastfm.php	5:7 9:28 11:13 15:27 17:24
+koel/app/Listeners/MakePlaylistSongsPublic.php	5:7 9:19 11:13 15:18
+koel/app/Listeners/PruneLibrary.php	5:6 8:18 10:12 14:17
+koel/app/Listeners/UnloveMultipleTracksOnLastfm.php	5:7 9:25 11:13 15:24 19:21
+koel/app/Listeners/UpdateNowPlaying.php	5:7 9:23 11:13 15:22 17:19
+koel/app/Listeners/WriteScanLog.php	5:9 11:27 13:26
+koel/app/Models/Album.php	5:31 54:161 78:85 80:84 87:91 97:106 100:105 108:111 113:116 118:121 123:126 129:146 131:135 137:143 148:160 150:152 156:159
+koel/app/Models/Artist.php	5:32 51:142 72:78 74:77 80:84 86:89 91:94 96:99 101:104 110:131 118:120 126:129 134:141 136:140
+koel/app/Models/Concerns/Albums/HasAlbumAttributes.php	5:6 8:40 10:13 19:22 24:33 27:29 36:39
+koel/app/Models/Concerns/MorphsToEmbeds.php	5:6 8:14 10:13
+koel/app/Models/Concerns/MorphsToFavorites.php	5:6 8:14 10:13
+koel/app/Models/Concerns/MorphsToRatings.php	5:8 13:28 15:18 20:27 22:24
+koel/app/Models/Concerns/Playlists/ManagesPlayables.php	5:7 9:46 14:33 19:21 25:30 26:29 38:45 40:42
+koel/app/Models/Concerns/Users/HasUserAttributes.php	5:8 10:53 12:18 20:23 25:28 30:33 35:38 40:52 46:48
+koel/app/Models/DuplicateUpload.php	5:13 27:53 37:42 39:41 44:47 49:52
+koel/app/Models/Genre.php	5:15 24:69 37:41 43:46 48:51 53:59 62:68 64:67
+koel/app/Models/License.php	5:16 28:52 33:41 35:40 43:46 48:51
+koel/app/Models/Playlist.php	5:29 49:132 63:68 65:67 72:75 77:80 82:89 91:94 96:99 101:104 106:109 111:115 117:120 123:131 125:130
+koel/app/Models/PodcastUserPivot.php	5:10 17:27 21:26 23:25
+koel/app/Models/RadioStation.php	5:21 38:84 52:61 54:60 63:66 68:72 75:83 77:82
+koel/app/Models/Setting.php	5:11 21:60 28:31 36:39 48:59 50:56 51:53
+koel/app/Observers/AlbumObserver.php	5:9 11:47 15:19 21:26 23:25 28:31 33:41 37:40 43:46
+koel/app/Observers/ArtistObserver.php	5:6 8:37 12:15 17:20 22:31 26:30 33:36
+koel/app/Observers/FolderObserver.php	7:13 9:12
+koel/app/Observers/PlaylistCollaborationTokenObserver.php	5:7 9:15 11:14
+koel/app/Observers/PlaylistObserver.php	5:6 8:26 12:15 17:20 22:25
+koel/app/Observers/ThemeObserver.php	5:6 8:20 10:12 14:19
+koel/app/Pipelines/Encyclopedia/GetAlbumTracksUsingMbid.php	5:8 10:42 14:16 18:41 20:22 32:34
+koel/app/Pipelines/Encyclopedia/GetAlbumWikidataIdUsingReleaseGroupMbid.php	5:9 11:40 15:17 19:39 21:23
+koel/app/Pipelines/Encyclopedia/GetAlbumYearUsingReleaseMbid.php	5:7 9:40 13:15 17:34 19:21 36:39
+koel/app/Pipelines/Encyclopedia/GetArtistImageUsingWikidataId.php	5:8 10:69 17:19 21:42 23:25 50:59 61:68
+koel/app/Pipelines/Encyclopedia/GetArtistWikidataIdUsingMbid.php	5:9 11:40 15:17 19:39 21:23
+koel/app/Pipelines/Encyclopedia/GetMbidForArtist.php	5:7 9:31 13:15 17:30 19:21
+koel/app/Pipelines/Encyclopedia/GetReleaseAndReleaseGroupMbidsForAlbum.php	5:9 11:48 15:17 19:47 21:23 33:38
+koel/app/Pipelines/Encyclopedia/GetReleaseGroupMbidUsingReleaseMbid.php	5:7 9:33 13:15 17:32 19:21
+koel/app/Pipelines/Encyclopedia/GetWikipediaPageSummaryUsingPageTitle.php	5:7 9:32 13:15 17:31 19:21
+koel/app/Pipelines/Encyclopedia/GetWikipediaPageTitleUsingWikidataId.php	5:7 9:33 13:15 17:32 19:21
+koel/app/Pipelines/Encyclopedia/TriesRemember.php	5:7 9:61 14:21 23:29 31:60 37:41 46:50 52:56
+koel/app/Policies/AlbumPolicy.php	5:8 10:40 12:15 20:34 23:25 28:30 36:39
+koel/app/Policies/FolderPolicy.php	5:7 9:18 11:17
+koel/app/Policies/LicensePolicy.php	5:7 9:15 11:14
+koel/app/Policies/PlaylistPolicy.php	5:7 9:45 11:14 16:19 21:24 26:29 31:34 36:39 41:44
+koel/app/Policies/ThemePolicy.php	5:6 8:14 10:13
+koel/app/Policies/UserPolicy.php	5:8 10:44 12:15 17:23 25:32 34:43 36:38
+koel/app/Providers/ITunesServiceProvider.php	5:6 8:14 10:13
+koel/app/Providers/LicenseServiceProvider.php	5:6 8:14 10:13
+koel/app/Providers/SocialiteServiceProvider.php	5:12 14:33 16:32
+koel/app/Providers/SongStorageServiceProvider.php	5:17 19:53 21:24 27:36 29:35 38:52 42:46
+koel/app/Repositories/ArtistRepository.php	5:13 19:163 24:29 32:37 39:48 50:59 62:71 73:82 85:94 97:100 102:105 107:116 118:134 137:153 155:162
+koel/app/Repositories/Contracts/PaginationStrategy.php	5:7 9:12
+koel/app/Repositories/Contracts/Repository.php	5:6 9:40
+koel/app/Repositories/Contracts/ScoutableRepository.php	5:7 12:24
+koel/app/Repositories/FolderRepository.php	5:7 10:90 12:21 16:18 23:26 29:36 31:33 38:41 43:46 49:74 54:56 60:62 76:81 86:89
+koel/app/Repositories/OrganizationRepository.php	10:21 12:15 17:20
+koel/app/Repositories/Pagination/CursorStrategy.php	5:7 9:19 11:13 15:18
+koel/app/Repositories/Pagination/OffsetStrategy.php	5:7 9:15 11:14
+koel/app/Repositories/Pagination/PaginationStrategyResolver.php	5:6 8:14 10:13
+koel/app/Repositories/PlaylistFolderRepository.php	5:7 12:24 15:18 20:23
+koel/app/Repositories/PlaylistRepository.php	5:9 12:33 15:22 24:27 29:32
+koel/app/Repositories/RadioStationRepository.php	5:8 14:47 16:24 26:33 36:39 41:46
+koel/app/Repositories/Repository.php	5:8 14:86 22:29 32:35 38:41 44:47 50:53 56:59 62:65 68:73 76:79 82:85
+koel/app/Repositories/SongRepository.php	5:30 37:558 41:48 50:53 55:58 60:77 65:67 79:82 84:91 93:101 103:110 112:121 123:136 141:161 163:174 177:191 194:200 203:214 216:226 228:243 246:255 250:254 257:282 284:305 308:315 317:325 328:334 339:357 360:365 368:373 375:380 382:387 393:409 412:415 417:424 427:437 439:465 447:449 472:481 483:494 487:491 496:502 505:536 507:509 538:545 547:557 551:556
+koel/app/Repositories/TranscodeRepository.php	5:6 11:21 17:20
+koel/app/Responses/SongUploadFailedResponse.php	5:7 9:35 11:15 17:20 22:25 28:34 30:33
+koel/app/Responses/SongUploadResponse.php	5:10 12:39 14:18 20:23 25:28 31:38 33:37
+koel/app/Rules/AllPlayablesAreAccessibleBy.php	5:9 11:31 13:15 18:25 22:24 27:30
+koel/app/Rules/AllPlaylistsAreAccessibleBy.php	5:9 11:33 13:15 17:32 21:23 25:31
+koel/app/Rules/AvailableRole.php	5:9 11:28 18:27 20:22 24:26
+koel/app/Rules/MediaPath.php	5:7 9:27 11:26 15:17 19:25
+koel/app/Rules/SafeUrl.php	5:11 19:61 23:27 30:60 32:38 40:44 46:59 52:58
+koel/app/Rules/SupportedAudioFile.php	5:9 11:25 14:24 21:23
+koel/app/Rules/SupportedAudioFileName.php	5:7 9:19 11:18 15:17
+koel/app/Rules/ValidListenBrainzToken.php	5:7 9:18 12:17 14:16
+koel/app/Rules/ValidSmartPlaylistRulePayload.php	5:8 10:20 12:19 16:18
+koel/app/Services/ApplicationInformationService.php	5:6 8:32 10:12 14:31 22:25
+koel/app/Services/ArtistService.php	5:11 13:47 15:18 20:46 25:28 34:41
+koel/app/Services/Auth/ProxyAuthService.php	5:16 18:67 22:28 30:50 34:47 42:46 52:58 60:66
+koel/app/Services/Auth/Support/NullQrCodeProvider.php	5:6 8:19 10:13 15:18
+koel/app/Services/Auth/TokenManager.php	5:10 12:66 14:17 19:29 31:42 36:39 44:47 49:52 54:57 59:65
+koel/app/Services/Contracts/Encyclopedia.php	5:8 10:15
+koel/app/Services/Contracts/Scrobbler.php	5:6 8:18
+koel/app/Services/EqualizerPresetService.php	5:7 9:53 11:29 15:18 31:43 46:52
+koel/app/Services/FavoriteService.php	5:16 18:133 20:36 25:28 31:33 43:69 48:60 49:51 53:59 66:68 76:95 81:87 92:94 98:125 118:123 127:132
+koel/app/Services/Geolocation/IPinfoService.php	5:9 11:35 13:15 17:20 22:34 24:26
+koel/app/Services/Image/ImageWriter.php	5:15 17:137 29:35 37:40 46:53 55:75 57:62 64:66 68:72 69:71 77:82 84:99 104:115 106:108 110:112 117:120 122:136 124:135 128:130
+koel/app/Services/Image/LegacyArtworkMigrator.php	7:53 11:14 21:42 23:25 30:35 37:39 44:47 49:52
+koel/app/Services/Image/SvgSanitizer.php	7:17 9:11 13:16
+koel/app/Services/Integrations/EncyclopediaService.php	5:11 14:136 16:23 25:43 27:29 45:61 47:49 63:81 69:71 83:101 89:91 103:118 109:111 120:135 126:128
+koel/app/Services/Integrations/ITunesService.php	5:8 10:44 12:14 16:19 21:43 32:34
+koel/app/Services/Integrations/LastfmService.php	5:26 28:135 30:33 38:41 46:49 51:60 53:55 62:71 64:66 73:76 78:81 86:95 89:91 97:100 102:105 107:110 112:116 118:127 123:126 129:134
+koel/app/Services/Integrations/ListenBrainzService.php	5:12 14:60 16:18 20:23 25:30 32:39 44:53 55:59
+koel/app/Services/Integrations/MusicBrainzService.php	5:18 20:107 22:25 27:30 32:52 34:36 43:47 55:70 57:64 66:69 72:106 74:76 85:87 93:97
+koel/app/Services/Integrations/TicketmasterService.php	5:15 17:70 19:24 26:29 32:49 51:69
+koel/app/Services/Integrations/YouTubeService.php	5:9 11:41 13:15 17:20 23:40 25:27 31:39
+koel/app/Services/InteractionService.php	5:7 9:26 11:25 14:17
+koel/app/Services/LibraryManager.php	5:7 9:44 16:43 29:32 34:39
+koel/app/Services/License/CommunityLicenseService.php	5:8 10:36 12:15 17:20 22:25 27:30 32:35
+koel/app/Services/License/LicenseService.php	5:22 25:168 29:33 35:54 37:53 40:42 56:77 58:76 61:63 65:70 79:117 81:83 88:90 92:116 98:100 120:131 122:123 124:130 133:137 139:144 150:157 159:162 164:167
+koel/app/Services/MediaBrowser.php	5:14 16:135 23:25 27:30 39:57 46:48 52:56 66:128 71:73 81:90 102:122 103:105 109:119 113:116 124:127 130:134
+koel/app/Services/Network/Network.php	5:13 15:159 22:25 37:52 39:43 45:47 58:61 82:111 87:93 88:90 95:100 102:106 114:120 123:128 139:144 155:158
+koel/app/Services/OrganizationService.php	5:6 8:19 10:12 14:18
+koel/app/Services/Playlist/PlaylistCollaborationService.php	5:16 18:65 20:25 27:45 34:36 48:53 55:64
+koel/app/Services/Playlist/PlaylistFolderService.php	5:12 14:151 16:18 20:35 25:28 30:33 37:40 43:88 45:52 46:49 58:60 62:64 68:82 76:78 90:104 106:109 111:116 118:121 124:140 131:137 132:134 142:150 146:148
+koel/app/Services/Playlist/SmartPlaylistService.php	5:10 12:25 14:16 19:24
+koel/app/Services/Podcast/ParallelPodcastSync.php	5:6 9:127 12:31 17:28 20:22 34:56 39:55 40:50 44:46 52:54 58:72 62:64 68:71 74:92 78:80 84:91 88:90 94:117 96:102 97:99 104:106 110:116 111:115 119:126 123:125
+koel/app/Services/Podcast/PodcastService.php	5:29 32:300 34:40 42:92 50:58 51:53 60:91 66:79 94:128 108:110 114:125 130:179 137:170 138:140 144:152 156:169 181:192 194:206 208:212 214:240 216:219 221:223 225:239 228:230 234:236 245:280 249:251 255:279 256:262 257:260 267:269 271:274 282:285 287:290 292:299 294:296
+koel/app/Services/PublicStorageLinker.php	5:6 8:33 10:24 12:14 17:21 26:32
+koel/app/Services/QueueService.php	5:9 11:64 13:15 17:32 34:37 39:47 41:42 43:46 50:63 57:62
+koel/app/Services/Radio/RadioStreamMetadata.php	5:6 8:57 16:29 20:26 23:25 34:41 48:51 53:56
+koel/app/Services/Radio/RadioStreamProxy.php	7:100 12:21 14:18 15:17 28:36 30:33 43:67 47:64 51:53 60:63 74:99 78:80 84:86 90:92 96:98
+koel/app/Services/RatingService.php	5:9 11:42 17:41 21:25 28:37 29:36
+koel/app/Services/Scanners/Contracts/ScannerCacheStrategy.php	7:10
+koel/app/Services/Scanners/DirectoryScanner.php	5:12 14:55 19:26 28:49 34:36 51:54
+koel/app/Services/Scanners/FileScanner.php	5:10 12:42 14:17 19:41 26:30
+koel/app/Services/Scanners/Scanner.php	7:43 9:12 19:30 32:42 34:36 38:41
+koel/app/Services/Scanners/Strategies/ParallelScanStrategy.php	5:12 15:209 17:19 22:41 30:32 34:36 43:69 51:68 52:61 65:67 72:97 74:82 84:86 88:90 92:94 100:128 106:125 107:121 108:116 112:115 118:120 131:145 133:144 134:143 135:137 147:167 155:157 161:166 169:176 173:175 178:195 185:187 189:194 197:208 199:201 205:207
+koel/app/Services/Scanners/Strategies/ScanResultDeserializer.php	5:7 9:35 11:34 15:19 23:27 29:33
+koel/app/Services/Scanners/Strategies/SequentialScanStrategy.php	5:7 9:31 11:13 16:30 20:27 24:26
+koel/app/Services/Scanners/WatchRecordScanner.php	5:10 12:96 14:20 22:33 28:32 35:45 40:44 47:57 52:56 59:64 66:75 70:74 77:86 81:85 88:95 90:92
+koel/app/Services/Search/MultiIndexSqliteEngine.php	19:28 21:27
+koel/app/Services/SimpleLrcReader.php	5:6 8:33 10:19 14:18 21:32 23:29 26:28
+koel/app/Services/SongService.php	5:28 31:324 33:39 41:109 43:51 70:72 74:76 78:80 82:84 88:90 94:97 101:104 112:158 127:130 153:155 160:163 166:188 193:215 203:205 209:211 217:303 228:230 237:239 255:263 258:262 265:273 281:288 290:292 294:296 298:300 305:313 315:323
+koel/app/Services/SongStorages/CloudStorage.php	5:9 11:37 15:23 25:30
+koel/app/Services/SongStorages/CloudStorageFactory.php	5:6 8:19 10:18 12:17
+koel/app/Services/SongStorages/Concerns/MovesUploadedFile.php	5:8 10:21 12:20
+koel/app/Services/SongStorages/Contracts/IssuesPresignedUploadUrls.php	5:6 8:19
+koel/app/Services/SongStorages/S3UploadUrlSigner.php	5:12 14:57 16:42 22:26 44:56 48:54
+koel/app/Services/SongStorages/SftpStorage.php	5:17 19:103 26:29 31:37 39:46 48:54 56:76 63:67 69:73 78:82 84:87 89:92 94:97 99:102
+koel/app/Services/SongStorages/WebDAVStorage.php	5:17 19:102 26:29 31:39 41:45 47:53 55:75 62:66 68:72 77:81 83:86 88:91 93:96 98:101
+koel/app/Services/Streamer/Adapters/Concerns/StreamsLocalPath.php	5:8 10:21 12:20
+koel/app/Services/Streamer/Adapters/DropboxStreamerAdapter.php	5:9 11:23 13:15 17:22
+koel/app/Services/Streamer/Adapters/PodcastStreamerAdapter.php	5:13 15:39 19:22 25:38 33:35
+koel/app/Services/Streamer/Adapters/S3CompatibleStreamerAdapter.php	5:9 11:23 13:15 17:22
+koel/app/Services/Streamer/Adapters/TranscodingStreamerAdapter.php	5:12 14:36 18:35 30:32
+koel/app/Services/Streamer/Adapters/WebDAVStreamerAdapter.php	5:9 11:24 15:17 19:23
+koel/app/Services/Streamer/Adapters/XSendFileStreamerAdapter.php	5:6 8:25 13:24
+koel/app/Services/Subsonic/AuthenticationService.php	5:13 15:58 17:21 23:41 26:30 32:38 35:37 43:52 49:51 54:57
+koel/app/Services/Subsonic/Authenticators/ApiKeyAuthenticator.php	5:11 13:38 15:19 21:32 23:25 34:37
+koel/app/Services/Subsonic/Authenticators/TokenAuthenticator.php	5:11 13:38 15:17 19:37 21:23
+koel/app/Services/Subsonic/SubsonicSearchService.php	5:12 19:59 21:25 28:33 36:41 44:51 53:58
+koel/app/Services/ThemeService.php	5:10 12:54 14:16 18:48 23:34 36:47 50:53
+koel/app/Services/Transcoding/LocalTranscodingStrategy.php	5:8 10:45 12:39 16:18 21:23 41:44
+koel/app/Services/Transcoding/SftpTranscodingStrategy.php	5:11 13:53 15:45 19:21 24:26 34:42 47:52
+koel/app/Services/Transcoding/WebDAVTranscodingStrategy.php	5:11 13:52 15:44 19:21 23:25 33:41 46:51
+koel/app/Services/Upload/DuplicateUploadService.php	5:22 24:105 28:33 38:59 40:42 46:48 51:56 62:90 66:87 69:84 81:83 92:104 101:103
+koel/app/Services/UserInvitationService.php	5:14 16:90 18:20 23:30 32:39 41:46 48:70 56:63 72:89 81:86
+koel/app/Services/UserService.php	5:18 20:121 22:28 30:44 46:61 50:58 51:55 63:67 69:96 74:78 80:82 84:87 91:93 101:108 103:105 110:113 115:120
+koel/app/Socialite/OpenIDConnect/Provider.php	5:11 13:92 28:37 40:49 51:54 56:59 62:70 73:91 84:90
+koel/app/Values/Album/AlbumInformation.php	5:7 9:88 11:25 14:17 18:24 19:23 27:37 39:46 48:59 53:56 61:76 68:72 79:87 81:86
+koel/app/Values/Album/AlbumUpdateData.php	7:29 9:13 15:18 21:28 23:27
+koel/app/Values/Artist/ArtistInformation.php	5:7 9:63 11:18 14:17 20:29 31:37 42:52 47:50 55:62 57:61
+koel/app/Values/Branding.php	5:6 8:72 10:22 15:17 19:21 24:27 29:36 39:46 41:45 48:51 53:56 58:61 63:66 68:71
+koel/app/Values/CompositeToken.php	5:7 18:42 20:25 27:30 35:41 37:40
+koel/app/Values/EmbedOptions.php	5:9 11:81 13:23 19:22 25:28 30:43 32:42 45:48 50:65 56:62 57:59 68:75 70:74 77:80
+koel/app/Values/EqualizerPreset.php	5:7 9:91 12:17 19:52 21:23 30:38 40:44 41:43 54:57 60:68 70:73 76:84 78:83 87:90
+koel/app/Values/EqualizerPresetCollection.php	8:28 10:27 12:14
+koel/app/Values/ExcerptSearchResult.php	7:26 9:15 17:25
+koel/app/Values/HookHandle.php	7:18 9:12 14:17
+koel/app/Values/ImageWritingConfig.php	5:28 10:14 16:22 24:27
+koel/app/Values/IpInfoLiteData.php	5:6 8:51 10:19 21:35 38:50 40:49
+koel/app/Values/LastfmLoveTrackParameters.php	5:16 7:10 12:15
+koel/app/Values/License/LicenseStatus.php	5:6 8:44 10:13 15:18 20:23 25:28 30:33 35:38 40:43
+koel/app/Values/ParsedLyrics.php	5:67 8:12 15:18 20:66 24:26 32:57 33:36 38:54 42:51 46:48 59:63
+koel/app/Values/Playlist/PlaylistCollaborator.php	5:6 8:36 10:14 16:19 21:24 27:35 29:34
+koel/app/Values/Playlist/PlaylistCreateData.php	5:7 9:58 14:24 26:44 47:57 49:56
+koel/app/Values/Playlist/PlaylistUpdateData.php	5:6 8:48 10:17 19:35 38:47 40:46
+koel/app/Values/Podcast/EpisodePlayable.php	5:10 12:65 14:17 19:22 24:27 29:35 37:49 41:43 52:58 54:57 61:64
+koel/app/Values/PresignedUpload.php	5:6 9:35 12:17 20:23 26:34 28:33
+koel/app/Values/QueueState.php	5:7 9:34 14:20 25:33
+koel/app/Values/Radio/RadioStationCreateData.php	7:48 9:16 18:34 37:47 39:46
+koel/app/Values/Radio/RadioStationUpdateData.php	7:48 9:16 18:34 37:47 39:46
+koel/app/Values/RequestedStreamingConfig.php	5:17 7:11 13:16
+koel/app/Values/Scanning/ScanConfiguration.php	7:34 17:23 25:33
+koel/app/Values/Scanning/ScanResult.php	7:56 9:13 15:18 20:23 25:28 30:33 35:38 40:43 45:48 50:55
+koel/app/Values/SmartPlaylist/SmartPlaylistQueryModifier.php	5:11 13:121 15:18 20:70 29:34 36:69 45:50 73:82 85:103 89:102 105:120 107:119
+koel/app/Values/SmartPlaylist/SmartPlaylistRuleGroupCollection.php	7:17 9:16
+koel/app/Values/Song/SongUpdateData.php	7:50 9:19 21:33 36:49 38:48
+koel/app/Values/Song/SongUpdateResult.php	5:8 10:48 12:16 18:28 30:33 35:40 37:39 42:47 44:46
+koel/app/Values/SongStorageMetadata/DropboxMetadata.php	5:20 7:9 11:14 16:19
+koel/app/Values/SongStorageMetadata/LocalMetadata.php	5:20 7:9 11:14 16:19
+koel/app/Values/SongStorageMetadata/S3CompatibleMetadata.php	5:21 7:10 12:15 17:20
+koel/app/Values/SongStorageMetadata/SftpMetadata.php	5:20 7:9 11:14 16:19
+koel/app/Values/SongStorageMetadata/SongStorageMetadata.php	5:8
+koel/app/Values/Subsonic/SubsonicCredentials.php	5:7 9:54 11:21 23:41 43:53 45:47
+koel/app/Values/Ticketmaster/TicketmasterAttraction.php	5:6 8:37 10:15 17:25 28:36 30:35
+koel/app/Values/Transcoding/TranscodeResult.php	7:18 9:12 14:17
+koel/app/Values/UploadReference.php	5:21 12:15 17:20
+koel/app/Values/User/AvatarUpdateData.php	10:20 12:14 16:19
+koel/app/Values/User/Preferences/ActiveExtraPanelTabPreference.php	7:13 9:12
+koel/app/Values/User/Preferences/AlbumsFavoritesOnlyPreference.php	5:11 7:10
+koel/app/Values/User/Preferences/AlbumsSortFieldPreference.php	7:18 9:12 14:17
+koel/app/Values/User/Preferences/ArtistsFavoritesOnlyPreference.php	5:11 7:10
+koel/app/Values/User/Preferences/ArtistsSortFieldPreference.php	7:18 9:12 14:17
+koel/app/Values/User/Preferences/ContinuousPlaybackPreference.php	5:11 7:10
+koel/app/Values/User/Preferences/CrossfadeDurationPreference.php	7:23 9:12 14:17 19:22
+koel/app/Values/User/Preferences/CurrentEqualizerPresetPreference.php	7:27 9:12 14:17 19:26 21:23
+koel/app/Values/User/Preferences/DetectDuplicateUploadsPreference.php	5:11 7:10
+koel/app/Values/User/Preferences/GenresSortFieldPreference.php	7:18 9:12 14:17
+koel/app/Values/User/Preferences/ListenBrainzTokenPreference.php	5:29 10:13 15:18 20:23 25:28
+koel/app/Values/User/Preferences/LyricsZoomLevelPreference.php	5:16 7:10 12:15
+koel/app/Values/User/Preferences/PodcastsSortFieldPreference.php	7:18 9:12 14:17
+koel/app/Values/User/Preferences/Preference.php	5:8 13:97 19:25 27:42 29:31 36:41 44:51 46:48 53:58 60:63 65:68 70:73 77:80 82:85 88:91 93:96
+koel/app/Values/User/Preferences/RadioStationsSortFieldPreference.php	7:18 9:12 14:17
+koel/app/Values/User/Preferences/RadioStationsViewModePreference.php	7:27 9:12 14:17 19:26 21:25
+koel/app/Values/User/Preferences/ShowNowPlayingNotificationPreference.php	5:11 7:10
+koel/app/Values/User/Preferences/ThemePreference.php	5:11 7:10
+koel/app/Values/User/Preferences/TranscodeOnMobilePreference.php	5:11 7:10
+koel/app/Values/User/Preferences/TranscodeQualityPreference.php	5:20 9:12 14:19
+koel/app/Values/User/Preferences/VisualizerPreference.php	5:11 7:10
+koel/app/Values/User/SsoUser.php	5:7 9:50 11:19 21:30 32:44 46:49
+koel/app/Values/User/UserUpdateData.php	5:6 8:39 12:21 23:38
+koel/app/Values/WatchRecord/Contracts/WatchRecordInterface.php	5:18
+koel/app/Values/WatchRecord/InotifyWatchRecord.php	5:51 10:15 21:25 30:33 42:45 47:50
+koel/app/Values/WatchRecord/WatchRecord.php	7:56 29:32 34:37 42:45 47:50 52:55
+koel/config/ai.php	3:127 33:38 34:37 51:126 52:55 57:64 66:69 71:74 76:79 81:84 86:89 91:94 96:99 101:105 107:110 112:115 117:120 122:125
+koel/config/audit.php	3:7 9:203 32:39 34:37 49:53 64:69 110:112 170:175 171:174 186:191
+koel/config/auth.php	5:98 16:19 36:45 37:40 41:44 62:71 63:66 90:97 91:96
+koel/config/compile.php	3:29
+koel/config/filesystems.php	5:134 45:133 46:60 62:66 68:81 83:93 95:100 102:113 115:122 124:132
+koel/config/hashing.php	3:47 28:30 42:46
+koel/config/ide-helper.php	3:112 28:30 42:44 55:58 60:71 61:70
+koel/config/ignition.php	5:125 72:74
+koel/config/images.php	3:18
+koel/config/koel.php	5:240 25:29 42:125 49:90 94:124 127:164 128:133 134:137 138:142 143:145 146:149 150:154 155:159 160:163 166:168 179:181 183:185 187:189 191:193 195:197 199:201 218:223 225:227 229:231 233:239
+koel/config/queue.php	3:108 30:72 31:33 35:42 44:51 53:62 64:71 85:88 103:107
+koel/config/saloon.php	7:37
+koel/config/scout.php	5:119 58:61 102:105 107:118 111:115
+koel/config/services.php	5:58 18:21 23:25 27:31 33:37 39:45 47:52 54:57
+koel/config/view.php	3:31 15:17
+koel/database/factories/ArtistFactory.php	5:8 11:22 14:21 16:20
+koel/database/factories/DuplicateUploadFactory.php	5:9 12:23 14:22 16:21
+koel/database/factories/EmbedFactory.php	5:8 11:25 14:24 19:23
+koel/database/factories/FavoriteFactory.php	5:9 12:23 15:22 17:21
+koel/database/factories/FolderFactory.php	5:7 10:27 12:18 14:17 21:26 23:25
+koel/database/factories/InteractionFactory.php	5:8 11:23 14:22 16:21
+koel/database/factories/LicenseFactory.php	5:9 12:29 15:28 17:27
+koel/database/factories/OrganizationFactory.php	5:7 12:24 17:23 19:22
+koel/database/factories/PlaylistFactory.php	5:12 15:55 18:26 20:25 28:46 31:45 32:44 33:43 35:42 36:41 48:54
+koel/database/factories/PlaylistFolderFactory.php	5:7 10:20 13:19 15:18
+koel/database/factories/QueueStateFactory.php	5:8 11:23 14:22 16:21
+koel/database/factories/SongFactory.php	5:9 12:78 15:39 17:38 41:45 47:51 53:77 56:76 58:63
+koel/database/factories/UserFactory.php	5:9 12:53 15:27 17:26 21:23 29:32 34:37 39:42 44:52 47:51
+koel/database/migrations/2014_10_12_000000_create_users_table.php	3:5 7:26 9:20 22:25
+koel/database/migrations/2015_11_23_074600_create_artists_table.php	3:5 7:22 9:16 18:21
+koel/database/migrations/2015_11_23_074709_create_albums_table.php	3:5 7:28 9:22 24:27
+koel/database/migrations/2015_11_23_074713_create_songs_table.php	3:5 7:31 9:25 27:30
+koel/database/migrations/2015_11_25_033351_create_settings_table.php	3:4 6:21 8:15 17:20
+koel/database/migrations/2016_04_15_121215_add_is_complilation_into_albums.php	3:5 7:27 13:18 24:26
+koel/database/migrations/2016_04_15_125237_add_contributing_artist_id_into_songs.php	3:5 7:31 13:19 25:30
+koel/database/migrations/2016_06_16_134516_cascade_delete_user.php	3:6 8:31 10:19 13:15 21:30 24:26
+koel/database/migrations/2016_07_09_054503_fix_artist_autoindex_value.php	5:14 7:9 11:13
+koel/database/migrations/2017_04_21_092159_copy_artist_to_contributing_artist.php	3:4 6:22 8:21 15:19
+koel/database/migrations/2017_04_22_161504_drop_is_complication_from_albums.php	3:5 7:19 9:14 16:18
+koel/database/migrations/2017_04_29_025836_rename_contributing_artist_id.php	3:5 7:16 9:15
+koel/database/migrations/2017_11_27_184010_add_disc_into_songs.php	3:5 7:22 9:14 16:21
+koel/database/migrations/2021_12_06_164648_increase_string_columns_length.php	3:5 7:31 9:30
+koel/database/migrations/2022_06_11_091750_add_indexes.php	3:6 10:29 13:17 23:27
+koel/database/migrations/2022_08_04_092531_drop_contributing_artist_id.php	3:5 8:20
+koel/database/migrations/2022_08_10_075423_support_playlist_folders.php	3:5 9:27
+koel/database/migrations/2022_11_08_144634_add_last_played_at_into_interactions_table.php	3:6 10:21
+koel/database/migrations/2023_08_20_122210_support_user_invitation.php	3:4 8:17
+koel/database/migrations/2023_12_28_223335_create_queue_states_table.php	3:5 9:24
+koel/database/migrations/2024_01_05_102651_add_license_support.php	3:5 9:20
+koel/database/migrations/2024_01_12_101606_add_own_songs_only_into_playlists_table.php	3:5 9:14
+koel/database/migrations/2024_01_16_215642_use_uuids_for_playlists.php	3:7 10:38 14:18
+koel/database/migrations/2024_01_16_223632_add_timestamps_and_user_id_into_playlist_song_table.php	3:6 9:32 20:24
+koel/database/migrations/2024_01_17_104332_create_playlist_collaboration_tokens_table.php	3:5 9:21
+koel/database/migrations/2024_01_27_171649_add_position_into_playlists_table.php	3:5 9:14
+koel/database/migrations/2024_02_05_171703_add_storage_into_songs_table.php	3:7 11:20 17:19
+koel/database/migrations/2024_03_19_204549_add_user_avatar.php	3:5 9:14
+koel/database/migrations/2024_03_26_094029_add_playlist_folder_playlist_table.php	3:6 10:51 35:37 39:42
+koel/database/migrations/2024_03_28_132619_add_user_sso_provider.php	3:5 9:14
+koel/database/migrations/2024_03_31_094353_add_sso_id_into_users_table.php	3:5 9:15
+koel/database/migrations/2024_04_18_093120_upgrade_sanctum_from2_to3.php	3:5 9:14
+koel/database/migrations/2025_05_13_114436_add_release_year_to_albums.php	3:6 10:26
+koel/database/migrations/2025_05_15_172148_create_audits_table.php	3:5 7:41 9:32 34:40
+koel/database/migrations/2025_05_17_131024_add_folders_table.php	3:5 9:31 11:13
+koel/database/migrations/2025_05_18_181238_change_auditable_id_type.php	3:5 9:17
+koel/database/migrations/2025_05_28_125915_add_hash_to_folders_table.php	3:6 10:20
+koel/database/migrations/2025_06_03_121538_modify_playlist-user_relationship.php	3:6 9:41 14:16 24:28
+koel/database/migrations/2025_06_04_180008_add_public_id_column_into_users_table.php	3:7 11:26
+koel/database/migrations/2025_06_12_150202_user-scope_artists_and_albums.php	3:8 11:165 32:35 41:45 49:52 59:63 67:70 74:76 94:96 103:137 107:112 121:127 142:144 151:153 160:163
+koel/database/migrations/2025_07_02_085134_create_jobs_table.php	3:5 9:20
+koel/database/migrations/2025_07_11_100738_remove_own_songs_only_setting.php	3:5 9:14
+koel/database/migrations/2025_07_18_105237_favorites.php	3:6 10:47 12:14 32:37
+koel/database/migrations/2025_07_20_165224_migrate_foreign_keys_to_ulid.php	3:5 8:18
+koel/database/migrations/2025_07_20_165510_promote_public_ids.php	3:6 9:128 13:15 21:97 36:43 62:72 106:109 116:119
+koel/database/migrations/2025_08_08_085019_support_radio_stations.php	3:5 8:22
+koel/database/migrations/2025_09_21_062502_create_permission_tables.php	3:5 8:143 28:31 37:41 62:78 66:71 73:77 100:116 104:109 111:115
+koel/database/migrations/2025_09_23_025435_migrate_admins.php	3:7 10:20
+koel/database/migrations/2025_10_06_195925_add_file_size_to_songs_and_transcodes.php	3:5 9:18
+koel/database/migrations/2025_10_17_125814_add_themes_table.php	3:5 9:21
+koel/database/migrations/2026_03_09_061438_add_fulltext_index_to_songs_lyrics.php	3:6 9:19 12:14 21:30 23:25
+koel/database/migrations/2026_03_18_171005_create_duplicate_uploads_table.php	3:5 8:21
+koel/database/migrations/2026_03_18_213444_add_position_to_favorites_table.php	3:6 9:30 32:37
+koel/database/migrations/2026_05_08_212314_add_guest_role.php	3:5 8:11
+koel/database/migrations/2026_05_26_213550_tune_fulltext_search_indexes.php	3:6 9:48 11:13 16:18 23:25
+koel/database/migrations/2026_05_27_200733_revert_fulltext_search_indexes.php	3:6 9:64 11:13 16:18 20:22 26:28 30:32 36:38 42:44 48:50 54:56 60:62
+koel/database/migrations/2026_05_28_164312_create_ratings_table.php	3:5 8:23
+koel/database/migrations/2026_05_29_165950_add_homepage_url_to_radio_stations.php	3:5 8:13
+koel/database/migrations/2026_05_30_173004_encrypt_subsonic_api_key.php	3:7 10:37 28:31
+koel/database/migrations/2026_09_19_120000_give_organizations_an_owner.php	3:6 9:18
+koel/database/migrations/2026_09_27_100000_scope_settings_to_organizations.php	3:6 9:37 29:32
+koel/database/migrations/2026_09_27_120000_move_branding_into_the_default_organization.php	3:5 8:20 12:14
+koel/database/seeders/SettingTableSeeder.php	5:6 8:14 10:13
+koel/public/index.php	21:22
+koel/resources/lang/en/auth.php	3:17
+koel/resources/lang/en/pagination.php	3:17
+koel/resources/lang/en/passwords.php	3:20
+koel/resources/lang/en/validation.php	3:111 23:28 44:49 51:56 68:73 79:81 96:97
+koel/resources/lang/es/auth.php	3:17
+koel/resources/lang/es/passwords.php	3:20
+koel/routes/channels.php	3:4
+koel/routes/subsonic.php	3:57 59:111 113:123 128:132
+koel/server.php	15:17
+koel/tests/Concerns/AssertsArraySubset.php	7:42 9:16 11:15 18:41 20:38 21:37 22:28 23:25 30:36 31:33
+koel/tests/Concerns/CreatesApplication.php	5:8 10:27 15:26
+koel/tests/Concerns/CreatesOwnedPlaylists.php	5:6 8:19 10:18
+koel/tests/Concerns/MakesHttpRequests.php	5:8 10:51 19:25 27:30 32:35 37:40 42:45 47:50
+koel/tests/Concerns/TestsPipelines.php	5:6 8:15 11:14
+koel/tests/Fakes/FakeJob.php	7:13 9:12
+koel/tests/Fakes/FakePlusLicenseService.php	5:8 10:36 12:15 17:20 22:25 27:30 32:35
+koel/tests/Feature/AiSettingTest.php	5:11 13:39 15:23 25:38
+koel/tests/Feature/AlbumThumbnailTest.php	5:11 13:54 17:22 24:43 45:53
+koel/tests/Feature/ArtistAlbumTest.php	5:9 11:21 13:20
+koel/tests/Feature/AuthTest.php	5:10 12:89 14:37 17:20 23:26 28:31 33:36 39:53 49:52 55:62 64:68 70:88 73:76 78:81
+koel/tests/Feature/BrandingSettingTest.php	5:9 11:26 13:25 18:22
+koel/tests/Feature/BroadcastingAuthTest.php	5:8 10:91 12:25 16:22 27:30 32:45 39:42 47:60 54:57 62:75 69:72 77:90 84:87
+koel/tests/Feature/ChangePasswordTest.php	5:9 11:68 13:27 29:42 44:51 53:67
+koel/tests/Feature/CleanUrlsTest.php	5:9 11:75 13:18 20:26 28:34 36:42 44:50 53:65 62:64 67:74
+koel/tests/Feature/Commands/ActivateLicenseCommandTest.php	5:10 12:41 14:25 27:40
+koel/tests/Feature/Commands/ChangePasswordCommandTest.php	5:10 12:52 14:27 29:42 44:51
+koel/tests/Feature/Commands/CleanUpDuplicateUploadsCommandTest.php	5:9 11:87 13:35 18:20 21:23 24:26 37:52 42:44 54:72 59:61 62:64 74:86
+koel/tests/Feature/Commands/CollectTagsCommandTest.php	5:10 12:39 14:20 22:28 30:38
+koel/tests/Feature/Commands/FetchArtworkCommandTest.php	5:10 12:45 14:24 17:21 26:44 29:32
+koel/tests/Feature/Commands/FetchMbidsCommandTest.php	5:14 16:182 18:23 25:31 33:59 38:40 43:47 61:80 69:73 82:93 95:115 99:101 104:108 117:139 125:128 141:159 149:153 161:170 172:181
+koel/tests/Feature/Commands/ImportSearchableEntitiesCommandTest.php	5:6 8:15 10:14
+koel/tests/Feature/Commands/PruneLibraryCommandTest.php	5:9 11:43 13:27 29:42
+koel/tests/Feature/DownloadTest.php	5:15 17:77 21:26 28:34 36:50 52:62 64:76
+koel/tests/Feature/EmbedOptionsTest.php	5:6 8:34 10:21 14:18 23:33 28:32
+koel/tests/Feature/EmbedTest.php	5:13 15:93 17:29 23:26 31:40 36:39 42:57 45:49 59:68 70:81 77:80 83:92
+koel/tests/Feature/EpisodeTest.php	5:8 10:19 12:18
+koel/tests/Feature/EqualizerPresetTest.php	5:9 11:206 15:23 18:22 25:55 33:37 57:77 79:95 84:90 97:115 117:127 129:139 141:157 159:182 184:199 201:205
+koel/tests/Feature/ExcerptSearchTest.php	5:16 18:56 20:25 27:32 34:55 49:54
+koel/tests/Feature/FavoriteTest.php	5:20 22:186 24:47 33:36 40:44 49:69 57:60 64:66 71:98 82:85 89:95 90:94 100:126 112:115 119:123 120:122 129:137 131:136 139:163 165:185 172:178 173:177
+koel/tests/Feature/FetchDuplicateUploadsTest.php	5:10 12:56 14:18 20:31 33:43 45:55
+koel/tests/Feature/FetchFavoriteSongsTest.php	5:11 13:29 15:28 22:24
+koel/tests/Feature/ForgotPasswordTest.php	5:15 17:117 19:29 31:41 43:61 63:77 69:73 79:95 85:88 89:91 97:109 104:108 111:116
+koel/tests/Feature/GenreTest.php	5:10 12:77 14:29 31:40 42:46 48:54 56:65 67:76
+koel/tests/Feature/HomeTest.php	5:6 8:23 10:22
+koel/tests/Feature/InitialDataTest.php	5:9 11:58 13:57 20:51 38:42 43:49
+koel/tests/Feature/KoelPlus/Ai/AddRadioStationToolTest.php	5:16 18:100 23:33 35:55 38:40 42:45 50:54 58:68 60:67 70:82 75:78 84:99 87:89 93:96
+koel/tests/Feature/KoelPlus/Ai/AiControllerTest.php	5:14 16:115 18:21 23:43 34:36 45:62 64:72 74:84 79:81 86:96 98:114 107:109
+koel/tests/Feature/KoelPlus/Ai/DeletePlaylistToolTest.php	5:13 15:53 20:28 30:44 46:52
+koel/tests/Feature/KoelPlus/Ai/GetCurrentSongToolTest.php	5:14 16:92 21:29 31:48 34:38 50:65 67:83 85:91
+koel/tests/Feature/KoelPlus/Ai/PlayLeastPlayedToolTest.php	5:15 17:79 23:33 35:56 58:65 67:78
+koel/tests/Feature/KoelPlus/Ai/PlayPlaylistToolTest.php	5:15 17:84 23:33 35:49 51:58 60:70 72:83
+koel/tests/Feature/KoelPlus/Ai/PlaySongsByLyricsToolTest.php	5:18 20:88 27:39 41:56 58:70 72:87
+koel/tests/Feature/KoelPlus/Ai/RemoveFromFavoritesToolTest.php	5:21 23:113 29:39 41:57 59:66 68:89 91:112
+koel/tests/Feature/KoelPlus/Ai/UpdateAlbumDetailsToolTest.php	5:15 17:109 23:33 35:45 47:57 59:72 74:81 83:91 93:108
+koel/tests/Feature/KoelPlus/Ai/UpdateArtistDetailsToolTest.php	5:15 17:74 23:33 35:47 49:56 58:73
+koel/tests/Feature/KoelPlus/AlbumTest.php	5:11 13:78 15:33 22:25 35:51 45:48 53:69 63:66 71:77
+koel/tests/Feature/KoelPlus/ArtistEventTest.php	5:19 21:87 23:29 31:52 38:42 43:45 54:86 75:77
+koel/tests/Feature/KoelPlus/ArtistTest.php	5:11 13:74 15:31 22:24 33:48 43:45 50:65 60:62 67:73
+koel/tests/Feature/KoelPlus/BrandingSettingTest.php	5:15 17:155 19:37 24:28 39:67 44:48 54:58 69:99 74:78 84:88 101:128 108:112 118:122 130:142 135:139 144:154
+koel/tests/Feature/KoelPlus/Commands/Storage/SetupWebDAVStorageCommandTest.php	5:9 11:40 13:39 24:30
+koel/tests/Feature/KoelPlus/DownloadTest.php	5:12 14:39 16:38
+koel/tests/Feature/KoelPlus/InteractionTest.php	5:13 15:132 17:39 41:59 61:95 97:131
+koel/tests/Feature/KoelPlus/MediaBrowser/FetchSubfoldersTest.php	5:10 12:65 14:19 21:37 29:33 39:52 44:48 54:64
+koel/tests/Feature/KoelPlus/MediaBrowser/PaginateFolderSongsTest.php	5:10 12:41 14:27 29:40
+koel/tests/Feature/KoelPlus/PlaylistCollaborationTest.php	5:13 15:84 17:27 29:42 44:60 62:71 73:83
+koel/tests/Feature/KoelPlus/PlaylistSongTest.php	5:11 13:86 15:29 31:48 50:66 68:85
+koel/tests/Feature/KoelPlus/PlaylistTest.php	5:9 11:43 13:28 22:25 30:42
+koel/tests/Feature/KoelPlus/PresignedUploadTest.php	5:24 26:243 28:34 36:64 66:70 72:76 78:86 88:96 98:117 105:108 119:138 140:157 142:145 159:175 177:189 191:201 203:217 219:232 234:242
+koel/tests/Feature/KoelPlus/ProfileTest.php	5:9 11:44 13:43 16:23 30:34
+koel/tests/Feature/KoelPlus/SSO/GoogleTest.php	5:12 14:102 16:32 19:24 34:52 39:44 54:76 57:61 63:68 78:101 81:86 88:93
+koel/tests/Feature/KoelPlus/SSO/OpenIDConnectTest.php	5:12 14:77 16:24 18:23 26:29 31:37 39:47 49:61 52:56 63:76 66:71
+koel/tests/Feature/KoelPlus/SongTest.php	5:9 11:143 13:29 31:78 42:47 44:46 56:61 58:60 70:75 72:74 80:100 102:115 117:130 132:142
+koel/tests/Feature/KoelPlus/SongVisibilityTest.php	5:9 11:50 13:30 32:49
+koel/tests/Feature/KoelPlus/Subsonic/GetCoverArtTest.php	5:11 13:49 17:23 25:30 32:48 38:41
+koel/tests/Feature/KoelPlus/Subsonic/ScrobbleTest.php	5:10 12:47 14:46
+koel/tests/Feature/KoelPlus/Subsonic/SetRatingTest.php	5:10 12:35 14:34
+koel/tests/Feature/KoelPlus/UploadTest.php	5:14 16:52 20:26 28:41 43:51
+koel/tests/Feature/ListenBrainzTest.php	5:11 13:78 15:24 26:38 40:47 49:60 62:70 72:77
+koel/tests/Feature/MediaPathSettingTest.php	5:12 14:50 18:23 25:33 35:39 41:49
+koel/tests/Feature/MoveFavoriteSongsTest.php	5:10 12:177 14:46 20:26 21:25 31:35 48:80 54:60 55:59 65:69 82:123 88:94 89:93 99:103 114:120 125:151 134:140 135:139 144:148 153:176 159:165 160:164 169:173
+koel/tests/Feature/OverviewTest.php	5:15 17:71 19:46 28:30 32:45 48:58 60:70
+koel/tests/Feature/PlayCountTest.php	5:12 14:56 16:35 26:31 37:55 44:49
+koel/tests/Feature/QueueTest.php	5:11 13:111 15:19 21:25 27:36 30:33 38:52 54:66 68:94 96:110
+koel/tests/Feature/RadioStationNowPlayingTest.php	5:10 12:53 14:28 25:27 30:43 39:42 45:52
+koel/tests/Feature/RadioStationTest.php	5:17 19:302 21:26 28:46 38:41 48:78 58:64 70:77 80:108 83:85 90:95 110:132 120:125 134:154 142:147 156:169 160:166 171:184 175:181 186:201 190:196 198:200 203:226 214:217 228:236 238:244 246:254 251:253 256:264 266:277 279:289 291:301
+koel/tests/Feature/RatePodcastTest.php	5:11 13:119 15:21 23:41 35:40 43:56 58:71 73:90 92:99 101:109 111:118
+koel/tests/Feature/RateSongTest.php	5:10 12:91 14:32 26:31 34:44 46:56 58:71 73:81 83:90
+koel/tests/Feature/ScrobbleTest.php	5:12 14:68 16:29 31:44 46:55 57:67
+koel/tests/Feature/Subsonic/CreateInternetRadioStationTest.php	5:11 13:108 15:20 22:45 30:36 47:68 55:60 70:87 78:82 89:107 97:102
+koel/tests/Feature/Subsonic/CreatePlaylistTest.php	5:10 12:65 14:32 34:52 54:64
+koel/tests/Feature/Subsonic/CreatePodcastChannelTest.php	5:12 14:68 16:21 23:39 36:38 41:49 46:48 51:57 59:67 64:66
+koel/tests/Feature/Subsonic/DeletePlaylistTest.php	5:10 12:40 16:28 30:39
+koel/tests/Feature/Subsonic/DeletePodcastChannelTest.php	5:10 12:53 14:29 31:37 39:52 47:49
+koel/tests/Feature/Subsonic/DownloadTest.php	5:11 13:55 15:20 22:27 29:43 33:36 45:54
+koel/tests/Feature/Subsonic/GetAlbumInfo2Test.php	5:11 13:69 15:36 38:53 55:68
+koel/tests/Feature/Subsonic/GetAlbumTest.php	5:15 17:136 19:46 25:28 33:39 34:38 35:37 48:67 56:61 69:80 82:109 91:95 99:103 111:123 125:135
+koel/tests/Feature/Subsonic/GetArtistInfo2Test.php	5:11 13:85 15:36 38:51 53:67 69:84
+koel/tests/Feature/Subsonic/GetArtistInfoTest.php	5:12 14:67 16:44 34:38 46:66 56:60
+koel/tests/Feature/Subsonic/GetArtistsTest.php	5:10 12:63 14:47 24:28 29:33 49:62
+koel/tests/Feature/Subsonic/GetAvatarTest.php	5:10 12:64 17:22 24:39 41:52 54:63
+koel/tests/Feature/Subsonic/GetGenresTest.php	5:11 13:39 15:38 27:31 28:30
+koel/tests/Feature/Subsonic/GetInternetRadioStationsTest.php	5:10 12:69 14:56 19:27 20:25 33:39 34:38 35:37 53:55 58:68
+koel/tests/Feature/Subsonic/GetLicenseTest.php	5:8 10:41 12:27 29:40
+koel/tests/Feature/Subsonic/GetLyricsTest.php	5:11 13:91 15:43 20:26 31:36 45:64 53:58 66:90 71:77 81:86
+koel/tests/Feature/Subsonic/GetMusicDirectoryTest.php	5:14 16:125 18:69 24:37 25:30 31:36 42:46 51:57 52:56 53:55 65:68 71:112 77:80 85:89 95:101 96:100 97:99 109:111 114:124
+koel/tests/Feature/Subsonic/GetNewestPodcastsTest.php	5:10 12:86 14:52 26:30 33:37 42:48 43:47 44:46 54:67 69:85 80:82
+koel/tests/Feature/Subsonic/GetNowPlayingTest.php	5:8 10:23 12:22
+koel/tests/Feature/Subsonic/GetOpenSubsonicExtensionsTest.php	5:8 10:26 12:25
+koel/tests/Feature/Subsonic/GetPlayQueueTest.php	5:10 12:70 14:42 20:26 31:35 32:34 44:53 55:69 61:66
+koel/tests/Feature/Subsonic/GetPlaylistTest.php	5:10 12:47 16:34 36:46
+koel/tests/Feature/Subsonic/GetPodcastsTest.php	5:11 13:84 15:39 28:34 29:33 30:32 41:65 52:62 53:61 54:60 55:59 56:58 67:83 76:79
+koel/tests/Feature/Subsonic/GetRandomSongsTest.php	5:10 12:66 14:30 23:27 24:26 32:41 43:52 54:65 59:64
+koel/tests/Feature/Subsonic/GetSongTest.php	5:10 12:39 14:26 28:38
+koel/tests/Feature/Subsonic/GetSongsByGenreTest.php	5:11 13:59 15:36 22:24 29:33 30:32 38:47 49:58
+koel/tests/Feature/Subsonic/GetStarred2Test.php	5:16 18:131 20:74 30:34 36:52 37:41 42:46 47:51 57:65 58:64 59:63 76:117 87:106 88:93 94:99 100:105 119:130
+koel/tests/Feature/Subsonic/GetStarredTest.php	5:16 18:88 20:74 30:34 36:52 37:41 42:46 47:51 57:65 58:64 59:63 76:87
+koel/tests/Feature/Subsonic/GetUserTest.php	5:10 12:64 14:25 27:40 42:52 54:63
+koel/tests/Feature/Subsonic/LegacyAuthTest.php	5:9 11:302 13:29 21:25 31:47 39:43 49:65 57:61 67:83 75:79 85:101 93:97 103:122 113:118 124:143 134:139 145:162 153:158 164:180 172:176 182:198 190:194 200:221 212:217 223:240 232:236 242:249 251:260 262:279 270:275 281:301 291:297
+koel/tests/Feature/Subsonic/RefreshPodcastsTest.php	5:11 13:56 15:32 34:55 47:49
+koel/tests/Feature/Subsonic/ScrobbleTest.php	5:10 12:57 14:32 26:31 34:45 47:56
+koel/tests/Feature/Subsonic/SetRatingTest.php	5:10 12:102 14:26 28:45 33:38 47:59 61:71 73:82 84:101 89:94
+koel/tests/Feature/Subsonic/StreamTest.php	5:13 15:73 17:22 24:29 31:43 35:38 45:60 49:52 62:72
+koel/tests/Feature/Subsonic/SubsonicTestCase.php	5:8 10:40 12:28 31:39 33:36
+koel/tests/Feature/Subsonic/UpdatePlaylistTest.php	5:10 12:115 16:33 35:49 51:67 69:83 85:103 105:114
+koel/tests/Feature/UpdateUserPreferenceTest.php	5:8 10:38 12:20 22:37 29:32
+koel/tests/Feature/UploadTest.php	5:16 18:74 22:27 29:35 38:44 40:43 46:52 54:60 62:73 68:72
+koel/tests/Feature/UserInvitationTest.php	5:14 16:140 18:36 26:29 38:52 44:47 54:68 60:63 70:81 75:78 83:92 94:102 104:112 114:131 120:124 133:139 135:138
+koel/tests/Feature/UserTest.php	5:16 18:291 20:29 23:28 31:52 36:41 54:70 60:65 72:88 78:83 90:105 97:102 107:130 115:120 132:150 139:143 152:167 160:162 169:184 177:179 186:193 195:202 204:251 209:212 214:217 219:221 223:226 228:231 233:235 237:240 253:264 256:259 266:277 279:290
+koel/tests/Feature/YouTubeTest.php	5:10 12:32 16:21 23:31
+koel/tests/Integration/Geolocation/IPinfoServiceTest.php	5:14 16:52 20:26 28:41 31:35 43:51
+koel/tests/Integration/Http/Resources/FolderResourceTest.php	5:13 15:67 17:40 24:28 42:52 54:66
+koel/tests/Integration/KoelPlus/Repositories/FolderRepositoryTest.php	5:11 13:75 17:22 24:37 39:50 52:66 68:74
+koel/tests/Integration/KoelPlus/Services/SettingServiceTest.php	5:10 12:44 16:21 23:43
+koel/tests/Integration/KoelPlus/Services/SongStorages/S3CompatibleStorageTest.php	5:19 21:213 26:50 52:63 65:78 80:88 90:99 101:111 113:121 123:129 131:140 142:148 150:157 159:165 167:182 184:194 189:193 196:203 205:212
+koel/tests/Integration/KoelPlus/Services/SongStorages/SftpStorageTest.php	5:15 17:78 22:30 32:43 45:54 56:66 68:77
+koel/tests/Integration/KoelPlus/Services/SongStorages/WebDAVStorageTest.php	5:15 17:80 22:30 32:43 45:57 59:69 71:79
+koel/tests/Integration/KoelPlus/Services/Streamer/StreamerTest.php	5:15 17:60 21:59 27:29 33:57
+koel/tests/Integration/KoelPlus/Services/TestingDropboxStorage.php	7:21 10:20 14:19 15:18
+koel/tests/Integration/Listeners/DeleteNonExistingRecordsPostSyncTest.php	5:18 20:162 24:29 31:42 44:50 52:70 72:91 93:105 107:125 127:141 143:161
+koel/tests/Integration/Migrations/EncryptIntegrationTokensInUserPreferencesTest.php	5:12 14:101 16:39 23:29 24:28 41:56 48:50 58:78 68:70 80:91 93:100
+koel/tests/Integration/Observers/AlbumObserverTest.php	5:12 14:55 16:22 24:30 32:41 43:54
+koel/tests/Integration/Repositories/SongRepositoryTest.php	5:8 10:27 14:19 21:26
+koel/tests/Integration/Services/ApplicationInformationServiceTest.php	5:16 18:49 20:34 25:27 36:48 39:41
+koel/tests/Integration/Services/Auth/AuthenticationServiceTest.php	5:13 15:53 19:24 26:41 43:52
+koel/tests/Integration/Services/DownloadServiceTest.php	5:10 12:40 16:21 23:39 26:28 32:34
+koel/tests/Integration/Services/EmbedServiceTest.php	5:14 16:55 20:25 28:36 30:35 38:54
+koel/tests/Integration/Services/Integrations/TicketmasterServiceTest.php	5:20 22:114 26:34 36:85 39:78 42:47 57:62 79:81 87:113
+koel/tests/Integration/Services/Playlist/PlaylistServiceTest.php	5:21 23:314 27:32 34:48 50:70 72:86 88:115 91:103 92:102 94:101 95:100 117:129 131:140 142:187 145:157 146:156 148:155 149:154 164:176 165:175 167:174 168:173 189:203 205:224 226:239 241:257 259:268 270:291 293:303 305:313
+koel/tests/Integration/Services/Playlist/SmartPlaylistServiceTest.php	5:18 20:581 24:29 31:50 37:49 38:48 40:47 41:46 52:71 58:70 59:69 61:68 62:67 73:92 79:91 80:90 82:89 83:88 94:113 100:112 101:111 103:110 104:109 115:134 121:133 122:132 124:131 125:130 136:155 142:154 143:153 145:152 146:151 157:177 164:176 165:175 167:174 168:173 179:204 185:187 191:203 192:202 194:201 195:200 206:227 214:226 215:225 217:224 218:223 229:250 237:249 238:248 240:247 241:246 252:275 262:274 263:273 265:272 266:271 277:300 287:299 288:298 290:297 291:296 302:325 312:324 313:323 315:322 316:321 327:355 340:352 341:351 343:350 344:349 357:393 378:390 379:389 381:388 382:387 395:428 413:425 414:424 416:423 417:422 430:461 446:458 447:457 449:456 450:455 463:486 473:485 474:484 476:483 477:482 488:511 498:510 499:509 501:508 502:507 513:538 525:537 526:536 528:535 529:534 540:565 552:564 553:563 555:562 556:561 567:580 571:574
+koel/tests/Integration/Services/Podcast/PodcastServiceTest.php	5:26 28:398 32:44 36:38 46:56 58:78 66:75 80:99 88:93 89:91 101:118 104:107 120:132 124:126 134:157 139:141 142:146 159:177 179:187 182:184 189:201 192:194 195:198 203:216 206:208 210:213 218:230 224:227 232:251 238:241 243:246 253:267 269:283 272:274 285:294 296:315 299:303 306:309 317:323 325:339 328:330 342:350 344:349 352:356 358:371 364:366 373:397 380:382 387:391
+koel/tests/Integration/Services/QueueServiceTest.php	5:11 13:86 17:22 24:38 28:31 40:57 45:47 59:72 74:85
+koel/tests/Integration/Services/Radio/RadioStreamConnectorTest.php	5:9 11:130 13:22 24:43 29:42 45:65 50:64 68:74 84:106 112:115 124:129
+koel/tests/Integration/Services/RadioServiceTest.php	5:12 14:64 18:23 25:46 48:63
+koel/tests/Integration/Services/Scanners/DirectoryScannerTest.php	5:19 21:262 25:32 34:37 39:104 49:53 56:59 77:80 82:85 106:123 125:148 138:141 150:178 162:165 180:203 192:195 205:235 224:228 237:248 250:261
+koel/tests/Integration/Services/Scanners/FileScannerTest.php	5:14 16:264 20:26 28:33 35:67 40:63 47:56 69:78 80:89 91:122 97:118 105:112 124:128 130:140 142:152 154:183 159:173 161:171 162:170 163:169 165:168 175:178 185:207 190:199 192:196 193:195 201:204 209:231 214:223 216:220 217:219 225:228 233:263 238:249 240:246 241:245 251:254
+koel/tests/Integration/Services/Scanners/WatchRecordScannerTest.php	5:16 18:75 22:28 30:33 35:46 48:59 61:74
+koel/tests/Integration/Services/Search/MultiIndexSqliteEngineTest.php	5:13 15:46 19:31 25:28 33:45
+koel/tests/Integration/Services/SettingServiceTest.php	5:10 12:68 16:21 23:43 45:51 53:59 61:67
+koel/tests/Integration/Services/SongServiceTest.php	5:26 28:517 32:42 44:63 65:87 89:118 120:150 141:149 152:175 177:195 197:227 229:240 242:261 263:275 277:288 290:315 299:310 317:335 324:327 337:355 344:347 357:373 375:404 385:391 406:433 416:421 435:467 444:449 451:456 462:466 469:495 479:484 497:516
+koel/tests/Integration/Services/SongStorages/LocalStorageTest.php	5:16 18:51 22:27 29:36 38:50
+koel/tests/Integration/Services/Streamer/StreamerTest.php	5:22 24:132 26:54 35:52 56:72 61:65 74:82 84:100 89:93 103:110 105:109 112:122 124:131
+koel/tests/Integration/Services/ThemeServiceTest.php	5:12 14:84 18:23 25:48 50:73 75:83
+koel/tests/Integration/Services/Transcoding/CloudTranscodingStrategyTest.php	5:15 17:97 22:28 30:68 33:36 61:67 70:96 73:76 78:81
+koel/tests/Integration/Services/Transcoding/LocalTranscodingStrategyTest.php	5:13 15:102 20:26 28:54 45:51 56:73 60:64 75:101 81:85
+koel/tests/Integration/Services/UserServiceTest.php	5:19 21:228 25:30 32:49 51:77 79:109 111:126 128:141 143:154 156:176 178:186 188:200 202:216 218:227
+koel/tests/TestCase.php	5:21 23:88 37:58 51:54 60:70 72:82 74:78 84:87
+koel/tests/Unit/Ai/Serializers/AiResultSerializerRegistryTest.php	5:16 18:303 20:34 36:48 50:64 66:78 80:93 95:108 110:123 125:138 140:154 156:170 172:184 186:198 200:212 214:226 228:240 242:252 254:268 270:281 283:292 294:302
+koel/tests/Unit/Ai/Services/AiProviderRegistrarTest.php	5:12 14:80 16:22 24:39 41:61 63:79
+koel/tests/Unit/Ai/Services/FavoriteableEntityResolverTest.php	5:25 27:210 37:56 58:69 71:82 84:95 97:112 114:125 127:139 141:150 152:159 161:168 170:179 181:193 195:201 203:209
+koel/tests/Unit/ApplicationTest.php	5:6 8:27 10:17 19:26
+koel/tests/Unit/Enums/SongStorageTypeTest.php	5:7 9:30 11:19 21:29
+koel/tests/Unit/Exceptions/Subsonic/InvalidCredentialsExceptionTest.php	5:7 9:28 11:18 20:27
+koel/tests/Unit/Exceptions/Subsonic/RequiredParameterMissingExceptionTest.php	5:7 9:28 11:18 20:27
+koel/tests/Unit/Exceptions/SubsonicAwareErrorRendererTest.php	5:16 18:92 20:24 26:30 32:36 38:42 44:66 48:51 53:56 68:74 76:82 84:91
+koel/tests/Unit/HelperTest.php	5:7 9:53 11:18 20:26 28:36 38:44 46:52
+koel/tests/Unit/Helpers/Encoding/BomTest.php	5:7 9:61 11:15 17:23 25:31 33:39 41:47 49:53 55:60
+koel/tests/Unit/Helpers/GravatarTest.php	5:6 8:51 12:19 21:25 27:39 30:33 41:50
+koel/tests/Unit/Helpers/ImageStoragePathTest.php	5:7 9:42 11:22 24:34 36:41
+koel/tests/Unit/Helpers/ImageStorageUrlTest.php	5:6 8:50 10:16 18:24 26:42 29:39 30:38 44:49
+koel/tests/Unit/Helpers/LuceneQueryTest.php	5:8 10:30 13:23 15:22 25:29
+koel/tests/Unit/Helpers/QueryStringParserTest.php	5:7 9:46 11:15 17:21 23:27 29:33 35:39 41:45
+koel/tests/Unit/Helpers/SyncedLyricsConverterTest.php	5:7 9:86 11:25 14:22 15:21 17:20 27:41 30:38 31:37 33:36 43:58 46:55 47:54 49:53 60:69 63:66 71:79 74:76 81:85
+koel/tests/Unit/Hooks/HookHelpersTest.php	5:10 12:66 14:19 21:27 29:41 43:50 52:65
+koel/tests/Unit/Http/Integrations/MusicBrainz/ThrottledMusicBrainzConnectorTest.php	5:11 13:64 15:20 22:28 30:36 38:44 46:54 56:63 60:62
+koel/tests/Unit/Http/Middleware/AddBuildHeaderTest.php	5:11 13:34 15:21 23:27 29:33
+koel/tests/Unit/Http/Middleware/ForceHttpsTest.php	5:12 14:58 19:25 27:41 43:57
+koel/tests/Unit/Http/Middleware/TrustProxiesTest.php	5:8 10:57 12:19 21:28 30:36 38:49 40:44 51:56
+koel/tests/Unit/Jobs/DeleteSongFilesJobTest.php	5:12 14:33 16:32 19:22
+koel/tests/Unit/Jobs/DeleteTranscodeFilesJobTest.php	5:11 13:36 15:35 18:21
+koel/tests/Unit/Jobs/GenerateAlbumThumbnailJobTest.php	5:10 12:25 14:24
+koel/tests/Unit/KoelPlus/Enums/SongStorageTypeTest.php	5:7 9:18 11:17
+koel/tests/Unit/KoelPlus/Models/ArtistTest.php	5:9 11:24 13:23
+koel/tests/Unit/KoelPlus/Models/UserTest.php	5:10 12:38 18:24 31:37
+koel/tests/Unit/Listeners/MakePlaylistSongsPublicTest.php	5:13 15:27 17:26
+koel/tests/Unit/Listeners/UpdateNowPlayingTest.php	5:14 16:42 18:28 30:41
+koel/tests/Unit/Listeners/WriteSyncLogTest.php	5:14 16:74 21:28 30:36 38:49 51:62 64:73
+koel/tests/Unit/Pipelines/Encyclopedia/GetAlbumTracksUsingMbidTest.php	5:17 19:109 26:36 33:35 38:43 45:63 48:50 65:76 78:88 90:108 93:95
+koel/tests/Unit/Pipelines/Encyclopedia/GetAlbumWikidataIdUsingReleaseGroupMbidTest.php	5:16 18:69 22:42 27:29 44:56 58:68
+koel/tests/Unit/Pipelines/Encyclopedia/GetAlbumYearUsingReleaseMbidTest.php	5:14 16:79 21:31 23:30 33:53 37:42 38:41 55:67 69:78
+koel/tests/Unit/Pipelines/Encyclopedia/GetArtistImageUsingWikidataIdTest.php	5:16 18:84 24:44 27:31 46:58 49:53 60:72 74:83
+koel/tests/Unit/Pipelines/Encyclopedia/GetArtistWikidataIdUsingMbidTest.php	5:16 18:69 22:42 27:29 44:56 58:68
+koel/tests/Unit/Pipelines/Encyclopedia/GetMbidForArtistTest.php	5:17 19:146 23:49 28:30 38:41 51:61 63:76 66:68 78:93 81:83 95:104 107:114 109:113 116:131 120:124 121:123 133:145 136:138
+koel/tests/Unit/Pipelines/Encyclopedia/GetReleaseAndReleaseGroupMbidsForAlbumTest.php	5:16 18:116 22:60 27:29 34:37 43:46 62:83 75:78 85:94 96:115 99:101
+koel/tests/Unit/Repositories/SongRepositoryTest.php	5:10 12:46 14:23 25:33 35:45
+koel/tests/Unit/Services/Auth/AuthenticationServiceTest.php	5:22 24:172 32:47 49:58 60:72 74:86 88:105 107:126 128:134 136:145 147:171 160:164
+koel/tests/Unit/Services/Auth/RecoveryCodeFactoryTest.php	5:8 10:52 14:19 21:26 28:35 31:34 37:43 45:51
+koel/tests/Unit/Services/Auth/TwoFactorAuthenticatorTest.php	5:12 14:186 20:28 30:50 52:58 60:75 77:89 91:101 103:121 123:140 142:158 160:168 170:185
+koel/tests/Unit/Services/BuildIdentifierTest.php	5:9 11:58 13:19 21:27 29:37 39:47 49:57
+koel/tests/Unit/Services/DotenvEditorTest.php	5:9 11:108 16:24 26:33 28:30 35:41 43:49 51:62 54:57 64:81 71:74 83:89 91:99 101:107
+koel/tests/Unit/Services/Image/ImageStorageTest.php	5:15 17:80 23:31 33:47 49:62 64:79
+koel/tests/Unit/Services/Image/ImageWriterTest.php	5:18 20:99 24:29 31:46 48:67 54:56 69:84 86:98 93:97
+koel/tests/Unit/Services/Image/LegacyArtworkMigratorTest.php	5:10 12:108 16:22 24:29 31:36 38:49 51:62 64:75 77:94 96:107
+koel/tests/Unit/Services/Integrations/CoverArtArchiveServiceTest.php	5:16 18:108 22:27 29:42 32:34 44:63 47:53 49:51 65:79 68:74 70:72 81:89 91:102 104:107
+koel/tests/Unit/Services/Integrations/SpotifyServiceTest.php	5:15 17:94 22:33 26:29 35:45 40:42 47:55 57:67 62:64 69:77 80:83 85:93 87:90
+koel/tests/Unit/Services/Network/NetworkTest.php	5:8 10:176 14:19 22:33 24:32 35:39 41:46 48:52 54:59 62:78 64:77 80:84 87:97 89:96 99:104 107:115 109:114 117:123 125:130 132:138 140:145 147:151 153:157 159:169 166:168 171:175
+koel/tests/Unit/Services/Network/SafeHttpTest.php	5:9 11:72 15:20 22:28 30:36 38:49 41:44 51:60 54:57 62:71
+koel/tests/Unit/Services/Playlist/PlaylistFolderServiceTest.php	5:14 16:141 20:25 27:38 40:48 50:67 56:61 63:66 69:83 75:80 85:95 97:109 111:123 125:140
+koel/tests/Unit/Services/Radio/RadioStreamServiceTest.php	5:9 11:63 13:20 22:29 31:38 40:50 52:62
+koel/tests/Unit/Services/ScrobbleServiceTest.php	5:15 17:90 24:32 34:45 47:58 60:71 73:80 82:89
+koel/tests/Unit/Services/SimpleLrcReaderTest.php	5:11 13:35 17:22 24:34
+koel/tests/Unit/Services/SongStorages/S3UploadUrlSignerTest.php	5:10 12:54 14:26 18:25 28:41 43:53
+koel/tests/Unit/Services/SongStorages/SongStorageFactoryTest.php	5:16 18:44 21:30 23:29 32:43
+koel/tests/Unit/Services/Transcoding/TranscodingStrategyFactoryTest.php	5:12 14:34 17:26 19:25 28:33
+koel/tests/Unit/Services/Upload/DuplicateUploadServiceTest.php	5:21 23:102 30:38 40:43 45:64 55:63 59:62 66:75 77:89 91:101 98:100
+koel/tests/Unit/Services/Upload/UploadServiceTest.php	5:26 28:170 34:41 43:46 48:75 77:101 84:87 103:126 109:111 128:150 152:169
+koel/tests/Unit/Socialite/OpenIDConnect/ProviderTest.php	5:7 9:79 13:24 26:41 29:35 43:55 46:51 57:67 60:64 69:78 72:75
+koel/tests/Unit/Values/EmbedOptionsTest.php	5:9 11:68 13:22 24:33 35:44 46:54 56:67
+koel/tests/Unit/Values/User/Preferences/PreferenceContractTest.php	5:29 31:177 34:42 45:53 56:64 67:75 78:93 84:92 96:107 100:102 104:106 110:121 124:144 129:143 132:134 138:140 147:168 149:163 165:167 171:176 173:175

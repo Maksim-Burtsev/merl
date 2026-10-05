@@ -27,14 +27,14 @@ wait next: builtin, no source
 52
 53 def test_first_of_many():
 54     assert next(iter([3, 4])) == 3
-
-
-
-
-
-
-
-
+55
+56
+57 import unittest  # noqa: E402
+58
+59
+60 class LegacyServiceTest(unittest.TestCase):
+61     def test_nothing_saved(self):
+62         self.assertEqual(1 + 1, 2)
 
 
 

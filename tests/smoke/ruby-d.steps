@@ -33,3 +33,19 @@ key t /
 type throttle
 key Enter d
 wait read-only
+# f on a line a word opens folds that block, not the method around it: Ruby's `if` to its `end`,
+# shell's `if` to its `fi`, each shown after the `⋯` (#626).
+run printf '%s\n' 'class Checkout' '  def call(user)' '    if user.admin?' '      grant(user)' '    end' '    charge(user)' '  end' 'end' > app/ruby/checkout.rb
+merl app/ruby/checkout.rb
+wait class Checkout
+key :
+type 3
+key Enter f
+wait admin?  ⋯ end
+run printf '%s\n' 'deploy() {' '  if [ -n "$1" ]; then' '    echo "$1"' '  fi' '}' > scripts/deploy.sh
+merl scripts/deploy.sh
+wait deploy() {
+key :
+type 2
+key Enter f
+wait then  ⋯ fi

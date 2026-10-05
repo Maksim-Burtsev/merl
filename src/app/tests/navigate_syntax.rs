@@ -595,7 +595,7 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
         d_on(&mut a, file, "^pick");
         assert_eq!(shown(&mut a), want, "{file}");
     }
-    assert_eq!(a.node_modules.len(), 2);
+    assert_eq!(a.walked_roots.len(), 2);
     // From inside a dependency, its own `node_modules` is the nearest, and the one it lies
     // in is not listed twice.
     d_on(

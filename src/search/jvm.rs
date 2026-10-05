@@ -192,7 +192,7 @@ pub(super) fn scala_patterns(word: &str) -> Vec<String> {
 /// The names one parameter or one lambda parameter of a Java or Kotlin list binds: `x` for
 /// `x: Int`, `vararg x: Int`, `final String x`, `String... x`, `(a, x)`, `x`; none for `_` or
 /// what reads as no parameter (a call's `a = b`, a lone type).
-fn param_names(entry: &str) -> Vec<String> {
+fn param_names(entry: &str, groovy: bool) -> Vec<String> {
     static KOTLIN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^(?:@[\w.]+(?:\([^)]*\))?\s+)*(?:(?:vararg|noinline|crossinline|private|public|protected|internal|override|open|val|var|using|implicit)\s+)*([A-Za-z_]\w*)\s*:").unwrap()
     });
@@ -201,14 +201,19 @@ fn param_names(entry: &str) -> Vec<String> {
     });
     let e = entry.split_whitespace().collect::<Vec<_>>().join(" ");
     let e = e.trim_matches(|c: char| c == '(' || c == ')' || c.is_whitespace());
+    let typed = match groovy {
+        true => e.split_once('=').map_or(e, |(p, _)| p).trim_end(),
+        false => e,
+    };
     let name = KOTLIN
         .captures(e)
         .or_else(|| {
-            (!e.contains(['=', ':']))
-                .then(|| JAVA.captures(e))
+            (!typed.contains(['=', ':']))
+                .then(|| JAVA.captures(typed))
                 .flatten()
         })
-        .map(|c| c[1].to_owned());
+        .map(|c| c[1].to_owned())
+        .or_else(|| (groovy && ident(typed)).then(|| typed.to_owned()));
     name.into_iter().filter(|n| n != "_").collect()
 }
 
@@ -250,7 +255,7 @@ fn lambda_names(line: &str) -> Vec<String> {
                 for entry in list.as_str().split(',') {
                     let e = entry.trim();
                     out.extend(match e.contains(char::is_whitespace) {
-                        true => param_names(e),
+                        true => param_names(e, false),
                         false => ident(e).then(|| e.to_owned()).into_iter().collect(),
                     });
                 }
@@ -327,6 +332,9 @@ fn header_binds(lines: &[&str], from: usize, to: usize, name: &str) -> Vec<usize
             .find(|&i| word.is_match(&uncommented(Kind::Jvm, lines[i])))
             .map(|i| i + 1)
     };
+    static DEF: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\bdef\s+[A-Za-z_]\w*\s*\(").unwrap());
+    let groovy = DEF.is_match(lines[from]);
     let mut out = Vec::new();
     // The parameters, over the lines they span, and Scala's further lists, `(a: A)(b: B)`.
     if let Some(mut open) = params_open(lines[from]) {
@@ -334,7 +342,7 @@ fn header_binds(lines: &[&str], from: usize, to: usize, name: &str) -> Vec<usize
         while let Some((inner, last, rest)) = group(Kind::Jvm, lines, at, open) {
             if split_top(Kind::Jvm, &inner, b',')
                 .iter()
-                .any(|e| param_names(e).iter().any(|p| p == name))
+                .any(|e| param_names(e, groovy).iter().any(|p| p == name))
             {
                 out.extend(at_line(from, last));
                 break;
@@ -363,7 +371,7 @@ fn declares_local(t: &str, name: &str) -> bool {
     let n = regex::escape(name);
     let ret = jvm_return_type!();
     Regex::new(&format!(
-        r"^(?:(?:final|lateinit|const)\s+)*(?:(?:val|var)\s+{n}(?:[^\w.]|$)|(?:val|var)\s*\([^)]*\b{n}\b[^)]*\)\s*=|(?:@[\w.]+\s+)*(?:var|{ret})(?:\.\.\.)?\s+{n}\s*[=;,:])"
+        r"^(?:(?:final|lateinit|const)\s+)*(?:(?:val|var|def)\s+{n}(?:[^\w.]|$)|(?:val|var)\s*\([^)]*\b{n}\b[^)]*\)\s*=|(?:@[\w.]+\s+)*(?:var|{ret})(?:\.\.\.)?\s+{n}\s*[=;,:])"
     ))
     .is_ok_and(|re| re.is_match(t))
 }
@@ -665,33 +673,35 @@ pub fn jvm_package(text: &str) -> Option<String> {
         .find(|p| p != "object")
 }
 
-/// The type the Java or Kotlin declaration of `name` on `line` writes for it, generic arguments
-/// and a `?` dropped (#388, #391): Java's `Line line`, `var line = new Line(…)`; Kotlin's
-/// `line: Line`, `val line = Line(…)`. `None` for any other form, an array, a delegated Kotlin
-/// property (`by lazy`) and a type written with a dot.
+const CAST_OPERAND: &str = r"(?:[\w.!?]|\([^()]*\))+";
+const GENERIC: &str = r"(?:<(?:[^<>]|<(?:[^<>]|<[^<>]*>)*>)*>)?";
+
 pub fn jvm_declared_type(line: &str, name: &str, kotlin: bool) -> Option<String> {
     let n = regex::escape(name);
     let code = uncommented(Kind::Jvm, line);
-    let generic = r"(?:<(?:[^<>]|<(?:[^<>]|<[^<>]*>)*>)*>)?";
+    let ty = r"([A-Z]\w*(?:\.[A-Z]\w*)*)";
     let rules: Vec<String> = match kotlin {
         true => {
             if Regex::new(&format!(r"\b{n}\b[^=]*\bby\b")).is_ok_and(|re| re.is_match(&code)) {
                 return None;
             }
             vec![
-                format!(r"(?:^|[^\w.]){n}\s*:\s*([A-Z]\w*){generic}\??\s*(?:[=,)]|$|\{{)"),
-                format!(r"\b(?:val|var)\s+{n}\s*=\s*([A-Z]\w*){generic}\s*\("),
+                format!(r"(?:^|[^\w.]){n}\s*:\s*{ty}{GENERIC}\??\s*(?:[=,)]|$|\{{)"),
+                format!(
+                    r"\b(?:val|var)\s+{n}\s*=\s*{CAST_OPERAND}\s+as\??\s+{ty}{GENERIC}\??\s*;?\s*$"
+                ),
+                format!(r"\b(?:val|var)\s+{n}\s*=\s*([A-Z]\w*){GENERIC}\s*\("),
             ]
         }
         false => vec![
-            format!(r"(?:^|[\s(,<])([A-Z]\w*){generic}(?:\s*\.\.\.)?\s+{n}\s*(?:[=;,:)]|$)"),
-            format!(r"\bvar\s+{n}\s*=\s*new\s+([A-Z]\w*){generic}\s*\("),
+            format!(r"(?:^|[\s(,<]){ty}{GENERIC}(?:\s*\.\.\.)?\s+{n}\s*(?:[=;,:)]|&&|$)"),
+            format!(r"\bvar\s+{n}\s*=\s*new\s+{ty}{GENERIC}\s*\("),
+            format!(r"\bvar\s+{n}\s*=\s*\(\s*{ty}{GENERIC}\s*\)\s*[\w(]"),
         ],
     };
     rules.iter().find_map(|r| {
         let re = Regex::new(r).ok()?;
         let c = re.captures(&code)?;
-        // `Outer.Inner x` and `a.b.Line x`: the capture starts after a dot.
         let at = c.get(1)?.start();
         (!code[..at].ends_with('.')).then(|| c[1].to_owned())
     })
@@ -825,14 +835,108 @@ pub fn jvm_assigned_call(line: &str, name: &str) -> Option<(Option<String>, Stri
 /// and `fun status(): Status`.
 pub fn jvm_return_type(line: &str, name: &str, kotlin: bool) -> Option<String> {
     let n = regex::escape(name);
-    let generic = r"(?:<(?:[^<>]|<(?:[^<>]|<[^<>]*>)*>)*>)?";
     let rule = match kotlin {
-        true => format!(r"\bfun\s+(?:<[^>]*>\s*)?{n}\s*\([^)]*\)\s*:\s*([A-Z]\w*){generic}\??"),
-        false => format!(r"(?:^|\s)([A-Z]\w*){generic}\s+{n}\s*\("),
+        true => format!(r"\bfun\s+(?:<[^>]*>\s*)?{n}\s*\([^)]*\)\s*:\s*([A-Z]\w*){GENERIC}\??"),
+        false => format!(r"(?:^|\s)([A-Z]\w*){GENERIC}\s+{n}\s*\("),
     };
     let code = uncommented(Kind::Jvm, line);
     Regex::new(&rule)
         .ok()?
         .captures(&code)
         .map(|c| c[1].to_owned())
+}
+
+pub fn jvm_parameters(text: &str, line: usize, word: &str) -> Option<(usize, usize)> {
+    let rows: Vec<&str> = text.lines().collect();
+    let at = line.checked_sub(1)?;
+    let head = Regex::new(&format!(r"\b{}\s*\(", regex::escape(word))).ok()?;
+    let open = head.find(rows.get(at)?)?.end() - 1;
+    let (inner, _, _) = group(Kind::Jvm, &rows, at, open)?;
+    if inner.trim().is_empty() {
+        return Some((0, 0));
+    }
+    let (mut depth, mut count) = (0i32, 1);
+    for (_, c) in code(Kind::Jvm, &inner) {
+        match c {
+            b'(' | b'[' | b'{' | b'<' => depth += 1,
+            b')' | b']' | b'}' | b'>' => depth -= 1,
+            b',' if depth == 0 => count += 1,
+            _ => {}
+        }
+    }
+    Some(match inner.contains("...") {
+        true => (count - 1, usize::MAX),
+        false => (count, 0),
+    })
+}
+
+pub fn jvm_smart_cast(text: &str, line: usize, before: &str, name: &str) -> Option<String> {
+    let n = regex::escape(name);
+    let ty = format!(r"([A-Z]\w*){GENERIC}\??");
+    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let test = rule(format!(
+        r"\bif\s*\(\s*{n}\s+is\s+{ty}\s*(?:\)|&&)|^\s*{n}\s+is\s+{ty}\s*->"
+    ));
+    let branch = rule(format!(r"^\s*is\s+{ty}\s*->"));
+    let subject = rule(format!(r"\bwhen\s*\(\s*{n}\s*\)\s*\{{\s*$"));
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line.checked_sub(1).filter(|&i| i < lines.len())?;
+    let header_of = |i: usize| {
+        let depth = indent(lines[i]);
+        (0..i).rev().find(|&j| {
+            let t = lines[j].trim_start();
+            !(t.is_empty() || comment(Kind::Jvm, t)) && indent(lines[j]) < depth
+        })
+    };
+    let narrowed = |head: &str, at: usize| -> Option<String> {
+        let code = uncommented(Kind::Jvm, head);
+        if let Some(c) = test.captures(&code) {
+            let rest = &code[c.get(0)?.end()..];
+            return (!rest.contains("else") && !rest.contains(';') && !rest.contains("||"))
+                .then(|| c.get(1).or(c.get(2)).map(|m| m.as_str().to_owned()))
+                .flatten();
+        }
+        let c = branch.captures(&code)?;
+        let when = header_of(at)?;
+        subject
+            .is_match(&uncommented(Kind::Jvm, lines[when]))
+            .then(|| c[1].to_owned())
+    };
+    if let Some(t) = narrowed(before, at) {
+        return Some(t);
+    }
+    let mut i = at;
+    while let Some(h) = header_of(i) {
+        let head = lines[h];
+        if opens_type(head) || params_open(head).is_some() {
+            return None;
+        }
+        let code = uncommented(Kind::Jvm, head);
+        let opens = code.trim_end().ends_with('{') || code.trim_end().ends_with("->");
+        if opens && let Some(t) = narrowed(head, h) {
+            return Some(t);
+        }
+        i = h;
+    }
+    None
+}
+
+pub fn jvm_cast_receiver(before: &str, kotlin: bool) -> Option<String> {
+    static JAVA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"(?:^|[^\w.])\(\s*\(\s*([A-Z]\w*){GENERIC}\s*\)\s*[a-z]{CAST_OPERAND}\s*\)\.$"
+        ))
+        .unwrap()
+    });
+    static KOTLIN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"(?:^|[^\w.])\(\s*{CAST_OPERAND}\s+as\??\s+([A-Z]\w*){GENERIC}\??\s*\)(?:\?|!!)?\.$"
+        ))
+        .unwrap()
+    });
+    let re = match kotlin {
+        true => &*KOTLIN,
+        false => &*JAVA,
+    };
+    re.captures(before.trim_end()).map(|c| c[1].to_owned())
 }

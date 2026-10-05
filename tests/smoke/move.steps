@@ -40,3 +40,33 @@ key Escape C-S-Left
 wait app/service.py  12:1  [code]
 key C-S-Right
 wait app/service.py  12:78  [code]
+# f folds the method the cursor is in into its first line, Down steps over the hidden body, f on
+# the folded line unfolds it, and `:` to a hidden line opens its fold again (#598).
+key Escape :
+type 18
+key Enter f
+wait app/service.py  17:1  [code]
+key Down
+wait app/service.py  22:1  [code]
+key Up f
+wait app/service.py  17:1  [code]
+key f :
+type 20
+key Enter
+wait app/service.py  20:1  [code]
+# f folds YAML, JSON, TOML, HTML, CSS and Markdown too (#627): on `worker:` in docker-compose.yml it
+# folds the service and Down steps over it to `db:`; on README.md's heading it folds the section.
+key o
+type compose
+key Enter
+wait docker-compose.yml  1:1  [code]
+key :
+type 9
+key Enter f
+wait docker-compose.yml  9:1  [code]
+key Down
+wait docker-compose.yml  15:1  [code]
+key o
+type READMEmd
+key Enter f
+wait README.md  1:1  [code]

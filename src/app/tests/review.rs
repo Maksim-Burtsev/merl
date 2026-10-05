@@ -187,6 +187,69 @@ fn viewed_marks_outlive_the_session_and_a_changed_file_loses_its_tick() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+#[test]
+fn the_agents_order_moves_the_files_and_leaves_the_viewed_marks_alone() {
+    let (dir, mut a) = review_app("ordermarks");
+    let git = |args: &[&str]| {
+        let mut cmd = std::process::Command::new("git");
+        let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    let paths = |p: &[&str]| p.iter().map(PathBuf::from).collect::<Vec<_>>();
+    let rows = |a: &App| {
+        (a.tree.visible().iter())
+            .map(|&i| a.tree.nodes[i].path.display().to_string())
+            .collect::<Vec<_>>()
+    };
+    let listed = |a: &App| {
+        a.review
+            .as_ref()
+            .unwrap()
+            .files
+            .iter()
+            .map(|f| f.path.clone())
+            .collect::<Vec<_>>()
+    };
+    a.focus = Focus::Tree;
+    for f in ["tail", "src/a.rs"] {
+        a.tree.reveal(Path::new(f));
+        press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+    }
+    let order = dir.join(".git/merl/review/feature");
+    std::fs::create_dir_all(order.parent().unwrap()).unwrap();
+    std::fs::write(&order, "# commit 1\ntail\nsrc/a.rs\nnew\n").unwrap();
+    let mut a = review_start(&dir, None);
+    assert_eq!(
+        listed(&a),
+        paths(&["tail", "src/a.rs", "new", "crlf.txt", "gone"])
+    );
+    assert_eq!(
+        rows(&a),
+        ["tail", "src", "src/a.rs", "new", "crlf.txt", "gone"]
+    );
+    std::fs::write(&order, "new\ncrlf.txt\n").unwrap();
+    let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+    assert!(a.review_refreshed(fresh));
+    assert_eq!(
+        rows(&a),
+        ["new", "crlf.txt", "src", "src/a.rs", "gone", "tail"]
+    );
+    assert_eq!(marks(&a), (paths(&["src/a.rs", "tail"]), vec![]));
+
+    std::fs::write(dir.join("tail"), "t1\nfixed\n").unwrap();
+    std::fs::write(dir.join("added.rs"), "fn added() {}\n").unwrap();
+    git(&["add", "-A"]);
+    git(&["commit", "-qm", "fix"]);
+    std::fs::write(&order, "# commit 2\nadded.rs\nsrc/a.rs\nnew\ntail\n").unwrap();
+    let a = review_start(&dir, None);
+    assert_eq!(
+        listed(&a),
+        paths(&["added.rs", "src/a.rs", "new", "tail", "crlf.txt", "gone"])
+    );
+    assert_eq!(marks(&a), (paths(&["src/a.rs"]), paths(&["tail"])));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 /// #240: the marks are a branch's, never `HEAD`'s. A tag named like the branch changes nothing;
 /// a live review keeps its ticks through a detached HEAD, and a mark made then is the branch's;
 /// a review started detached keeps its marks in memory for its whole life, and reads and writes
@@ -1312,16 +1375,16 @@ fn review_marks_changed_rows_in_u_and_s_and_lists_its_files_first_in_o() {
     a.col = 0;
     press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
     let rows = screen(&mut a);
-    assert_eq!(row(&rows, "\u{2502}\u{258e}src/a.rs:2: B c"), Color::Green);
-    row(&rows, "\u{2502} src/a.rs:3: c");
+    assert_eq!(row(&rows, "\u{2502}\u{258e}  2  B c"), Color::Green);
+    row(&rows, "\u{2502}   3  c");
     esc(&mut a);
 
     press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
     typed(&mut a, "c");
     a.settle_search();
     let rows = screen(&mut a);
-    row(&rows, "\u{2502}\u{258e}src/a.rs:2: B c");
-    row(&rows, "\u{2502} src/a.rs:3: c");
+    row(&rows, "\u{2502}\u{258e}  2  B c");
+    row(&rows, "\u{2502}   3  c");
     esc(&mut a);
 
     // The review's files on disk in the panel's order, then the rest; `gone` is not on disk.
@@ -1360,7 +1423,7 @@ fn review_marks_changed_rows_in_u_and_s_and_lists_its_files_first_in_o() {
     a.review_list_marks = false;
     a.review_open_files_first = false;
     press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
-    row(&screen(&mut a), "\u{2502}src/a.rs:2: B c");
+    row(&screen(&mut a), "\u{2502}src/a.rs ");
     esc(&mut a);
     press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
     let rows = screen(&mut a);

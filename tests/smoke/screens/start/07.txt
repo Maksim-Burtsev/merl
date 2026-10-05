@@ -19,7 +19,7 @@ wait Tutor 2/
 17         """Load the notes from disk; a missing file means no notes yet."""
 18         if not self.config.path.exists():
 19             return []
-Tutor 2/22 · Find in the file
+Tutor 2/23 · Find in the file
 Press `/` (or Ctrl+F), type `load_config`, Enter. The search runs as you type.
 
 store.py  1:1  [code]  ✓ Open a file
