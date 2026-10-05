@@ -158,11 +158,8 @@ impl App {
             .rel_current()
             .filter(|rel| dir > 0 && r.file(rel).is_some());
         let (mut skipped, mut failed, mut passed) = (0, None, vec![]);
-        let ahead = self.ahead(&r, dir);
-        let end = ahead.len();
-        for (i, f) in ahead.into_iter().enumerate() {
-            let ends_the_walk = dir > 0 && i + 1 == end && !self.nothing_to_read([f]).is_empty();
-            if !f.has_hunks() && !ends_the_walk {
+        for f in self.ahead(&r, dir) {
+            if !f.has_hunks() && !(dir > 0 && self.ends_the_walk(&r, f)) {
                 skipped += 1;
                 passed.push(f);
             } else if self.open_review_file(f, dir < 0) {
@@ -187,6 +184,10 @@ impl App {
         });
         let read_through = self.nothing_to_read(passed);
         self.mark_viewed(read.take().into_iter().chain(read_through));
+    }
+
+    fn ends_the_walk(&self, r: &git::Review, f: &git::ReviewFile) -> bool {
+        r.files.last() == Some(f) && !self.nothing_to_read([f]).is_empty()
     }
 
     fn nothing_to_read<'f>(
@@ -250,8 +251,11 @@ impl App {
         }
         let (rel, i) = self.last_hunk.clone()?;
         let f = r.file(&rel)?;
-        if !self.nothing_to_read([f]).is_empty() {
+        if self.ends_the_walk(r, f) {
             return Some((rel, TextLine::File(0)));
+        }
+        if !f.has_hunks() {
+            return None;
         }
         let hunks = review_hunks(&self.root, r, f);
         let h = *hunks.get(i).or(hunks.last())?;
