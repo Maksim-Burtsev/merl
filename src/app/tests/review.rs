@@ -1760,6 +1760,9 @@ fn review_ticks_the_empty_files_it_walks_past_and_stops_on_the_last_one() {
     assert_eq!(at(&a), (dir.join("zz"), 0));
     assert_eq!(a.message, "last hunk of the review");
     assert!(viewed(&a, "zz"));
+    a.jump_to(&dir.join("src/keep.rs"), 1);
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    assert_eq!(at(&a), (dir.join("zz"), 0));
     while at(&a) != (dir.join("crlf.txt"), 1) {
         press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
     }

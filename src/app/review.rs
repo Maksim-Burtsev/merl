@@ -249,7 +249,10 @@ impl App {
             return None;
         }
         let (rel, i) = self.last_hunk.clone()?;
-        let f = r.file(&rel).filter(|f| f.has_hunks())?;
+        let f = r.file(&rel)?;
+        if !self.nothing_to_read([f]).is_empty() {
+            return Some((rel, TextLine::File(0)));
+        }
         let hunks = review_hunks(&self.root, r, f);
         let h = *hunks.get(i).or(hunks.last())?;
         Some((rel, h))
