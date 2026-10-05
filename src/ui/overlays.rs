@@ -81,7 +81,13 @@ pub(super) fn draw_help(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     );
 }
 
-pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
+pub(super) fn draw_tree(
+    frame: &mut Frame,
+    app: &mut App,
+    theme: &Theme,
+    area: Rect,
+    base: Style,
+) -> Option<(Rect, Line<'static>)> {
     let accent = base.fg(theme.accent);
     let title = match &app.review {
         Some(r) => format!("{} \u{2190} {}", r.branch, r.base),
@@ -228,14 +234,9 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         })
         .collect();
     frame.render_widget(Paragraph::new(rows).style(base), inner);
-    if let Some((y, line)) = whole {
-        let w = (line.width() as u16).min(frame.area().width.saturating_sub(inner.x));
-        if w > inner.width {
-            let at = Rect::new(inner.x, inner.y + y as u16, w, 1);
-            frame.render_widget(Clear, at);
-            frame.render_widget(Paragraph::new(line).style(base), at);
-        }
-    }
+    let (y, line) = whole?;
+    let w = (line.width() as u16).min(frame.area().width.saturating_sub(inner.x));
+    (w > inner.width).then(|| (Rect::new(inner.x, inner.y + y as u16, w, 1), line))
 }
 
 const NAME_ROOM: usize = 12;

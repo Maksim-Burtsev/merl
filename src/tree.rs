@@ -285,6 +285,15 @@ impl Tree {
             .find_map(|&i| index.get(self.nodes[i].path.as_path()).copied())
             .unwrap_or(0);
         fresh.cursor = cursor;
+        let folded: HashSet<&Path> = self
+            .folded
+            .iter()
+            .map(|&i| self.nodes[i].path.as_path())
+            .collect();
+        fresh.folded = (fresh.nodes.iter().enumerate())
+            .filter(|(_, n)| folded.contains(n.path.as_path()))
+            .map(|(i, _)| i)
+            .collect();
         *self = fresh;
     }
 
@@ -374,16 +383,19 @@ impl Tree {
     pub fn fold(&mut self, lacks: impl Fn(&Node, usize) -> usize) {
         self.folded.clear();
         self.lift = vec![0; self.nodes.len()];
+        let mut chains = Vec::new();
         let mut top = 0;
         while top < self.nodes.len() {
             let mut head = top;
             while self.only_dir_child(head) {
                 head += 1;
             }
-            if head == top {
-                top += 1;
-                continue;
+            if head > top {
+                chains.push((top, head));
             }
+            top = head + 1;
+        }
+        for (top, head) in chains.into_iter().rev() {
             let end = self.end(head);
             let shown_below = match self.nodes[head].expanded {
                 true => usize::MAX,
@@ -407,7 +419,6 @@ impl Tree {
             for lift in &mut self.lift[head..end] {
                 *lift += levels;
             }
-            top = head + 1;
         }
         while self.folded.contains(&self.cursor) {
             self.cursor += 1;
@@ -1102,6 +1113,35 @@ mod tests {
             drawn(&t),
             ["a", "  b", "    c/d/e", "      x.rs", "      y.rs"]
         );
+    }
+
+    #[test]
+    fn an_odd_lack_folds_one_more_level() {
+        let mut t = from_files(&["a/b/c/d/x.rs".into()]);
+        t.fold(narrow(11));
+        assert_eq!(drawn(&t), ["a", "  b/c/d", "    x.rs"]);
+    }
+
+    #[test]
+    fn a_lower_chain_folds_before_the_one_above_it() {
+        let mut t = from_files(&["a/b/c/d/e/x.rs".into(), "a/b/z.rs".into()]);
+        t.fold(narrow(14));
+        assert_eq!(
+            drawn(&t),
+            ["a", "  b", "    c", "      d/e", "        x.rs", "    z.rs"]
+        );
+    }
+
+    #[test]
+    fn a_refresh_keeps_the_rows_folded_until_the_next_draw() {
+        let dir = project("refold", &["a/b/c/d/x.rs", "z.rs"]);
+        let (mut t, _) = build(&dir, false);
+        t.reveal(Path::new("a/b/c/d/x.rs"));
+        t.fold(narrow(10));
+        let before = drawn(&t);
+        t.refresh(build(&dir, false).0);
+        assert_eq!(t.visible().len(), before.len());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

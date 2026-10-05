@@ -56,6 +56,10 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     let [tree, code] =
         Layout::horizontal([Constraint::Length(tree_w), Constraint::Min(1)]).areas(main);
 
+    let whole = match app.show_tree {
+        true => draw_tree(frame, app, theme, tree, base),
+        false => None,
+    };
     if app.previewing() {
         draw_preview(frame, app, theme, code, base);
     } else if app.folded_here().is_some() {
@@ -63,12 +67,13 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     } else if app.buf.binary() {
         draw_binary(frame, theme, code, base);
     } else if app.buf.path.is_some() {
-        draw_code(frame, app, theme, code, base);
+        draw_code(frame, app, theme, code, base, whole.as_ref().map(|w| w.0));
     } else {
         draw_welcome(frame, theme, code, base);
     }
-    if app.show_tree {
-        draw_tree(frame, app, theme, tree, base);
+    if let Some((at, line)) = whole {
+        frame.render_widget(ratatui::widgets::Clear, at);
+        frame.render_widget(ratatui::widgets::Paragraph::new(line).style(base), at);
     }
     if let Some(panel) = panel {
         frame.render_widget(panel, lesson);

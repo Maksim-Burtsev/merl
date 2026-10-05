@@ -810,13 +810,34 @@ fn the_cursor_row_cut_short_is_drawn_whole_over_the_code() {
     );
     app.review = None;
     app.tree.reveal(std::path::Path::new(&deep));
+    app.buf = Buffer::from_bytes(PathBuf::from("/tmp/a.rs"), "x\n".repeat(40).as_bytes());
+    app.goto_line(10);
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut terminal = Terminal::new(TestBackend::new(92, 30)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     let text = rows(&terminal).join("\n");
     assert!(!text.contains("TotpAuthenticationManager.java"), "{text}");
     app.focus = crate::app::Focus::Tree;
+    let mut terminal = Terminal::new(TestBackend::new(92, 30)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    let text = rows(&terminal).join("\n");
-    assert!(text.contains("  TotpAuthenticationManager.java"), "{text}");
+    let r = rows(&terminal);
+    assert!(r[9].contains("  TotpAuthenticationManager.java"), "{r:#?}");
+    assert_ne!(terminal.get_cursor_position().unwrap().y, 9, "{r:#?}");
+}
+
+#[test]
+fn a_folded_row_under_the_cursor_shows_its_whole_path() {
+    let d = "application/src/main/java/run/halo/app/security/authentication/twofactor/totp";
+    let filter = format!("{d}/TotpAuthenticationFilter.java");
+    let mut app = review_app(&[(&filter, 'M', 1, 1)]);
+    app.tree.reveal(std::path::Path::new(d));
+    app.focus = crate::app::Focus::Tree;
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(92, 10)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let r = rows(&terminal);
+    assert!(
+        r[3].contains("\u{25be} main/java/run/halo/app/security/authentication/twofactor/totp"),
+        "{r:#?}"
+    );
 }

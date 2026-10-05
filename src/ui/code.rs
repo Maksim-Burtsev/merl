@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::ops::Range;
 
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::layout::{Constraint, Layout, Position, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
@@ -21,7 +21,14 @@ use super::tagged;
 
 const FOLDED: &str = " \u{22ef} ";
 
-pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
+pub(super) fn draw_code(
+    frame: &mut Frame,
+    app: &mut App,
+    theme: &Theme,
+    area: Rect,
+    base: Style,
+    covered: Option<Rect>,
+) {
     let gutter_w = digits(app.buf.lines.len()) + 1;
     app.view_w = (area.width as usize).saturating_sub(gutter_w).max(1);
     app.view_h = area.height as usize;
@@ -330,7 +337,10 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         && matches!(app.mode, Mode::Normal | Mode::Edit)
     {
         let x = area.x + (gutter_w + app.cursor_x().saturating_sub(app.left)) as u16;
-        frame.set_cursor_position((x.min(area.right().saturating_sub(1)), area.y + y as u16));
+        let at = Position::new(x.min(area.right().saturating_sub(1)), area.y + y as u16);
+        if !covered.is_some_and(|c| c.contains(at)) {
+            frame.set_cursor_position(at);
+        }
     }
 }
 
