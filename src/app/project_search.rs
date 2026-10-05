@@ -74,12 +74,14 @@ impl App {
             .map(|h| {
                 let label = format!("{}: ", at_label(&h.path, h.line));
                 let code_at = Some(label.len());
+                let path_at = Some(0..h.path.display().to_string().len());
                 PickItem {
                     col: h.col,
                     label: label + &clip(h.text.trim(), MAX_LABEL_TEXT),
                     path: h.path,
                     line: h.line,
                     code_at,
+                    path_at,
                     deleted: h.deleted.is_some(),
                 }
             })

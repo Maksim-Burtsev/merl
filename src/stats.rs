@@ -384,7 +384,7 @@ mod tests {
                 "}                      2       0    17  3 days ago   Previous / next paragraph \
                  (blank line)",
                 "v                      0       0     3  41 days ago  Select the word, then the line, \
-                 then the paragraph",
+                 then the paragraph, then the whole file",
             ]
         );
         assert_eq!(lines.len(), 1 + 69);

@@ -29,6 +29,7 @@ impl App {
                 line: 0,
                 col: 0,
                 code_at: None,
+                path_at: None,
                 deleted: false,
             })
             .collect();
@@ -66,6 +67,7 @@ impl App {
                 line: 0,
                 col: 0,
                 code_at: None,
+                path_at: None,
                 deleted: false,
             })
             .collect();

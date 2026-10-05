@@ -24,10 +24,11 @@ impl App {
                 self.hist_note(true);
             }
         }
-        // `main` opens the first file with a hunk; say so when that is not the first file.
+        let mut read_through = vec![];
         if let (Some(r), Some(rel)) = (&self.review, self.rel_current()) {
             let skipped = r.files.iter().take_while(|f| !f.has_hunks()).count();
             if r.files.get(skipped).is_some_and(|f| f.path == rel) {
+                read_through = self.nothing_to_read(&r.files[..skipped]);
                 self.say_skipped(skipped);
             }
         }
@@ -37,6 +38,7 @@ impl App {
         }
         // And marks that cannot be read, more than both.
         self.load_viewed();
+        self.mark_viewed(read_through);
         self.open_session();
     }
 
@@ -148,20 +150,19 @@ impl App {
         let mut read = self
             .rel_current()
             .filter(|rel| dir > 0 && r.file(rel).is_some());
-        // Files with nothing to read (binary, a mode change, a pure rename, a submodule) are not
-        // stops. Nor is one that does not open: the walk goes on, and the status says why.
-        let (mut skipped, mut failed) = (0, None);
+        let (mut skipped, mut failed, mut passed) = (0, None, vec![]);
         for f in self.ahead(&r, dir) {
             if !f.has_hunks() {
                 skipped += 1;
+                passed.push(f);
             } else if self.open_review_file(f, dir < 0) {
                 self.remember_hunk();
                 match failed {
                     Some(why) => self.message = why,
                     None => self.say_skipped(skipped),
                 }
-                // After the walk's word: a mark that could not be saved says so over it.
-                self.mark_viewed(read.take());
+                let read_through = self.nothing_to_read(passed);
+                self.mark_viewed(read.take().into_iter().chain(read_through));
                 return;
             } else if self.dirty {
                 // Edits that could not be saved hold merl on this file, whatever is ahead.
@@ -174,7 +175,19 @@ impl App {
             let end = if dir > 0 { "last" } else { "first" };
             format!("{end} hunk of the review")
         });
-        self.mark_viewed(read.take());
+        let read_through = self.nothing_to_read(passed);
+        self.mark_viewed(read.take().into_iter().chain(read_through));
+    }
+
+    fn nothing_to_read<'f>(
+        &self,
+        files: impl IntoIterator<Item = &'f git::ReviewFile>,
+    ) -> Vec<PathBuf> {
+        let unseen = |f: &git::ReviewFile| f.binary || self.root.join(&f.path).is_dir();
+        (files.into_iter())
+            .filter(|f| !f.has_hunks() && !unseen(f))
+            .map(|f| f.path.clone())
+            .collect()
     }
 
     pub(super) fn hunk_ahead(&self, dir: isize) -> Option<TextLine> {
@@ -276,11 +289,15 @@ impl App {
         }
     }
 
-    fn mark_viewed(&mut self, rel: Option<PathBuf>) {
-        if let Some(rel) = rel {
+    fn mark_viewed(&mut self, rels: impl IntoIterator<Item = PathBuf>) {
+        let mut any = false;
+        for rel in rels {
             let hash = self.disk_hash(&rel);
             self.hidden.remove(&rel);
             self.viewed.insert(rel, hash);
+            any = true;
+        }
+        if any {
             self.save_viewed();
         }
     }

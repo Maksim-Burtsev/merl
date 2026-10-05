@@ -935,6 +935,7 @@ fn review_walks_past_a_submodule_and_a_file_that_does_not_open() {
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!(at(&a), (dir.join("tail"), 0));
     assert_eq!(a.message, "skipped 1 file without hunks");
+    assert!(a.viewed.contains_key(Path::new("new")) && !a.viewed.contains_key(Path::new("sub")));
     // `new` stops opening: `c` from `gone` goes past it to `tail`, and the status says
     // what happened to `new`.
     std::fs::remove_file(dir.join("new")).unwrap();
@@ -1375,16 +1376,16 @@ fn review_marks_changed_rows_in_u_and_s_and_lists_its_files_first_in_o() {
     a.col = 0;
     press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
     let rows = screen(&mut a);
-    assert_eq!(row(&rows, "\u{2502}\u{258e}src/a.rs:2: B c"), Color::Green);
-    row(&rows, "\u{2502} src/a.rs:3: c");
+    assert_eq!(row(&rows, "\u{2502}\u{258e}  2  B c"), Color::Green);
+    row(&rows, "\u{2502}   3  c");
     esc(&mut a);
 
     press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
     typed(&mut a, "c");
     a.settle_search();
     let rows = screen(&mut a);
-    row(&rows, "\u{2502}\u{258e}src/a.rs:2: B c");
-    row(&rows, "\u{2502} src/a.rs:3: c");
+    row(&rows, "\u{2502}\u{258e}  2  B c");
+    row(&rows, "\u{2502}   3  c");
     esc(&mut a);
 
     // The review's files on disk in the panel's order, then the rest; `gone` is not on disk.
@@ -1423,7 +1424,7 @@ fn review_marks_changed_rows_in_u_and_s_and_lists_its_files_first_in_o() {
     a.review_list_marks = false;
     a.review_open_files_first = false;
     press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
-    row(&screen(&mut a), "\u{2502}src/a.rs:2: B c");
+    row(&screen(&mut a), "\u{2502}src/a.rs ");
     esc(&mut a);
     press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
     let rows = screen(&mut a);
@@ -1730,4 +1731,40 @@ fn a_fold_keeps_a_jumps_line_and_never_covers_text_in_sight() {
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     assert!(a.folded_here().is_none(), "still in sight after the edit");
     let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn review_ticks_the_empty_files_it_walks_past_and_not_the_binary_ones() {
+    let png: &[u8] = b"\x89PNG\0\0";
+    let extra: &[(&str, &[u8])] = &[("e", b""), ("z.png", png), ("zz", b"")];
+    let (dir, mut a) = review_app_with("reviewempty", extra);
+    let order = |a: &App| -> Vec<_> {
+        let r = a.review.as_ref().unwrap();
+        r.files.iter().map(|f| f.path.clone()).collect()
+    };
+    assert_eq!(
+        order(&a),
+        [
+            "src/a.rs", "crlf.txt", "e", "gone", "new", "tail", "z.png", "zz"
+        ]
+        .map(PathBuf::from)
+    );
+    let viewed = |a: &App, p: &str| a.viewed.contains_key(Path::new(p));
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    assert_eq!(a.message, "last hunk of the review");
+    assert!(viewed(&a, "zz") && viewed(&a, "tail"));
+    assert!(!viewed(&a, "z.png"));
+    while at(&a) != (dir.join("crlf.txt"), 1) {
+        press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+    }
+    assert!(viewed(&a, "e"));
+
+    std::fs::write(dir.join("src/__init__.py"), "").unwrap();
+    let mut a = review_start(&dir, None);
+    a.buf = Buffer::load(&dir.join("src/a.rs")).unwrap();
+    a.start_review(git::Review::open(&dir, None, None).unwrap());
+    assert_eq!(order(&a)[0], Path::new("src/__init__.py"));
+    assert_eq!(a.message, "skipped 1 file without hunks");
+    assert!(viewed(&a, "src/__init__.py"));
 }

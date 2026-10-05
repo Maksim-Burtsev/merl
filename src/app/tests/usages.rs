@@ -5,14 +5,20 @@ use super::*;
 fn usage_rows(a: &mut App) -> Vec<(String, String)> {
     let picker = a.picker.as_mut().expect("a picker");
     picker.settle();
+    let declarations = picker
+        .title
+        .split_once(": ")
+        .and_then(|(_, counts)| counts.split_once(" declaration"))
+        .map_or(0, |(n, _)| n.parse().unwrap());
     picker
         .window(50)
         .0
         .into_iter()
-        .map(|r| {
-            let head = r.item.label[..r.item.code_at.unwrap()].trim_end();
-            let (mark, place) = head.rsplit_once(' ').unwrap_or(("", head));
-            (mark.trim().into(), place.trim_end_matches(':').into())
+        .enumerate()
+        .map(|(i, r)| {
+            let head = r.item.label[..r.item.code_at.unwrap()].trim();
+            let mark = if i < declarations { "declaration" } else { "" };
+            (mark.into(), head.trim_end_matches(':').into())
         })
         .collect()
 }

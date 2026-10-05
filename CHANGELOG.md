@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `v` grows on to the whole file: a fourth press, after the word, the line and the paragraph,
+  selects every line of the file, the cursor at its end; Ctrl+C then copies it all. (#635)
 - `d` in TypeScript and JavaScript reads the type of a receiver in five more places. In
   `function Row({ apiKey }: Props)` `apiKey.id` lands on the `id` its `Props` field's type
   declares, as `auth.user` does after `const { auth } = useStores()`, `membership.permission`
@@ -42,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `--review`: a file with nothing to read that `c` or `C` walks past, or the review opens past
+  (an empty `__init__.py`, a pure rename, a mode change), gets its viewed tick; a binary file or a
+  submodule stays unticked until `m`. (#715)
 - `d` in PHP on a relative namespace segment in a file of several `namespace` blocks, `Legacy` in
   `Legacy\Entry::OPEN`, reads it in the block it stands in. It read it in the file's first block
   and said `no definition`. (#617)
@@ -329,6 +334,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The lists of `u`, `s` and `d`'s choices name a file once, above its rows, and each row shows
+  the line number and the code: `polar/license_key/endpoints.py` over `242  license_key = await …`
+  instead of the path repeated on every row. A row still too wide for the list wraps under its
+  code instead of stopping at the border mid-word. `u` no longer writes `declaration` before
+  its first rows: the title counts them. With the tree open and the code at least 80 columns
+  wide, every list sits over the code instead of over the tree, its text where the code starts. (#479)
 - The `?` overlay on a screen narrower than 118 columns wraps an action too long for its row
   onto the next row, under its own column, instead of cutting it at the border (#458).
 - `d` in Python reads a dependency's modules as Python imports them (#329). `pytest.fixture` lands

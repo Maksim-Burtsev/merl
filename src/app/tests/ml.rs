@@ -24,10 +24,7 @@ fn u_reads_a_primed_ocaml_name_whole() {
                 .to_owned()
         })
         .collect();
-    assert_eq!(
-        rows,
-        ["declaration  lib/rate.ml:1:", "             lib/cart.ml:1:"]
-    );
+    assert_eq!(rows, ["lib/rate.ml:1:", "lib/cart.ml:1:"]);
     std::fs::remove_dir_all(&dir).unwrap();
 }
 

@@ -568,8 +568,6 @@ impl Model {
         self.sync_x();
     }
 
-    /// `v`: the word under the cursor, then the line, then the paragraph between blank lines:
-    /// the first of them wider than the selection.
     fn grow(&mut self) {
         let blank = |l: usize| self.lines[l].trim().is_empty();
         let l = self.cur.0;
@@ -596,6 +594,10 @@ impl Model {
             (from < to).then_some(((l, from), (l, to))),
             Some(((l, 0), (l, s.len()))),
             Some(((top, 0), (bottom, self.lines[bottom].len()))),
+            Some((
+                (0, 0),
+                (self.lines.len() - 1, self.lines[self.lines.len() - 1].len()),
+            )),
         ];
         let wider = |&(a, b): &(Pos, Pos)| a <= now.0 && now.1 <= b && (a, b) != now;
         if let Some((a, b)) = steps.into_iter().flatten().find(wider) {

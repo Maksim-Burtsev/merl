@@ -24,6 +24,7 @@ pub struct PickItem {
     /// Byte offset in `label` where a copy of the file's line `line` (trimmed, maybe clipped)
     /// starts, so the row can be drawn with that line's syntax colours. `None`: no code text.
     pub code_at: Option<usize>,
+    pub path_at: Option<std::ops::Range<usize>>,
     /// A line the branch under review deleted (#440): `line` is its number in the file at the
     /// base, drawn red, and Enter lands on it.
     pub deleted: bool,
@@ -61,6 +62,7 @@ pub struct Picker {
     /// Review: the gutter marks of the review's files drawn so far, filled lazily by `ui` like
     /// `bufs` (#246).
     pub marks: HashMap<PathBuf, HashMap<usize, Mark>>,
+    pub first: usize,
 }
 
 impl Picker {
@@ -91,6 +93,7 @@ impl Picker {
             page: 10,
             bufs: HashMap::new(),
             marks: HashMap::new(),
+            first: 0,
         }
     }
 
@@ -122,29 +125,39 @@ impl Picker {
     /// The rows to draw for a list `height` tall, plus the selected row's offset in them.
     pub fn window(&mut self, height: usize) -> (Vec<Row>, usize) {
         self.page = height.max(1);
+        let total = self.clamp_selected();
+        if total == 0 {
+            return (Vec::new(), 0);
+        }
+        let height = height.max(1).min(total);
+        let start = (self.selected + 1)
+            .saturating_sub(height)
+            .min(total - height);
+        (self.rows(start, height), self.selected - start)
+    }
+
+    pub fn clamp_selected(&mut self) -> usize {
+        let total = self.counts().0 as usize;
+        self.selected = self.selected.min(total.saturating_sub(1));
+        total
+    }
+
+    pub fn set_page(&mut self, rows: usize) {
+        self.page = rows.max(1);
+    }
+
+    pub fn rows(&mut self, start: usize, count: usize) -> Vec<Row> {
         let Self {
-            nucleo,
-            matcher,
-            selected,
-            ..
+            nucleo, matcher, ..
         } = self;
         let snap = nucleo.snapshot();
         let total = snap.matched_item_count() as usize;
-        if total == 0 {
-            *selected = 0;
-            return (Vec::new(), 0);
-        }
-        *selected = (*selected).min(total - 1);
-        let height = height.max(1).min(total);
-        let start = (*selected + 1).saturating_sub(height).min(total - height);
+        let start = start.min(total);
+        let end = start.saturating_add(count).min(total);
         let pattern = snap.pattern().column_pattern(0);
-        let rows = snap
-            // matched_items panics on a range past the match count, so it is clamped above.
-            .matched_items(start as u32..(start + height) as u32)
+        snap.matched_items(start as u32..end as u32)
             .map(|item| {
                 let mut matched = Vec::new();
-                // Indices are only needed for what is on screen; scoring the whole list would
-                // be the expensive part.
                 pattern.indices(item.matcher_columns[0].slice(..), matcher, &mut matched);
                 matched.sort_unstable();
                 matched.dedup();
@@ -153,8 +166,7 @@ impl Picker {
                     matched,
                 }
             })
-            .collect();
-        (rows, *selected - start)
+            .collect()
     }
 
     pub fn current(&self) -> Option<&PickItem> {
@@ -268,6 +280,7 @@ mod tests {
             .map(|l| PickItem {
                 label: (*l).to_string(),
                 code_at: None,
+                path_at: None,
                 path: PathBuf::from(l),
                 line: 0,
                 col: 0,

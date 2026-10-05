@@ -148,9 +148,6 @@ impl App {
         mv(self);
     }
 
-    /// `v`: the selection grows to the word under the cursor (what `d` and `u` read), then the
-    /// line, then the paragraph between blank lines. No state: the next step is the first of the
-    /// three that is wider than what is selected, so a selection made by hand grows too.
     pub(super) fn grow_selection(&mut self) {
         let blank = |t: TextLine| self.text(t).trim().is_empty();
         let l = self.at();
@@ -171,10 +168,15 @@ impl App {
             to = next_char(s, to);
         }
         let word = (from < to).then_some(from..to);
+        let last = self.last_line();
         let steps = [
             word.map(|r| ((l, r.start), (l, r.end))),
             Some(((l, 0), (l, s.len()))),
             Some(((top, 0), (bottom, shown_str(self.text(bottom)).len()))),
+            Some((
+                (self.first_line(), 0),
+                (last, shown_str(self.text(last)).len()),
+            )),
         ];
         let cur = self.selection().unwrap_or(((l, self.col), (l, self.col)));
         type Span = ((TextLine, usize), (TextLine, usize));

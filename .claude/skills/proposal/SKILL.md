@@ -1,6 +1,6 @@
 ---
 name: proposal
-description: Shape a visible merl change into a `## Proposal` the owner can pick from: a real screencast of merl per option, what GitHub, GitLab and VS Code do, one recommendation. Use when an issue changes a key, screen, colour, animation or default and has no accepted proposal yet, when moving a `to-think` or `needs-owner` issue forward, and when the owner asks to see options or how something will look.
+description: Shape a visible merl change into a `## Proposal` the owner can pick from: every case it touches, a real screencast of merl per option, what other editors and the forges do, one recommendation. Use when an issue changes a key, screen, colour, animation or default and has no accepted proposal yet, when moving a `to-think` or `needs-owner` issue forward, and when the owner asks to see options or how something will look.
 ---
 
 # A proposal the owner picks from
@@ -19,36 +19,48 @@ under `needs-owner`.
 ## 1. Read
 
 The issue with its comments: the owner's latest answer overrides the body. Then find out what
-GitHub, GitLab and VS Code do in the same situation, from their own pages or source, not from
+VS Code, JetBrains, Vim, Neovim's common plugins and LazyVim do in the same situation, and
+GitHub and GitLab for anything review mode shows, from their own docs or source, not from
 memory. For review mode their shared behaviour is the default proposal: where the two forges
 differ, propose what both share; bring an option of merl's own only when it is clearly better,
 and show the difference.
 
-## 2. Options
+## 2. Cases
+
+Before any option, list every case the change touches, not only the one in the issue: each kind
+of row or element it draws, the cursor on it and off it, the tree or the code focused, the
+project tree and the review panel, a narrow terminal (80×24) and a wide one, an ordinary project
+where it must not kick in. The list goes into the proposal as a table, and every option is
+recorded on all of it. Anything drawn over another pane is checked frame by frame where it meets
+that pane's text: #399's first build showed one case, and its cursor row ran into the code.
+
+## 3. Options
 
 At most 4, each a rule of one or two lines in the user's terms (what is on screen, what a key
 does). One is recommended. An option that adds an element to the screen (an icon, a count, a
 colour, a line of text) says so in its rule: the owner weighs every addition.
 
-## 3. Prototype
+## 4. Prototype
 
 In a worktree of your own, detached at origin/master, with its own `target/` (`AGENTS.md`,
 `## Working on an issue`). One release build serves every option: an environment variable or a
 hidden flag switches between them. The prototype is throwaway: never pushed, the worktree removed
-when the proposal is up, unless the owner asks for a PR (end of step 4).
+when the proposal is up, unless the owner asks for a PR (end of step 5).
 
-## 4. Pictures
+## 5. Pictures
 
 Every picture is merl itself: a real build, run in tmux on a real project, recorded with
 `tools/cast.py`. The owner must be able to run the same steps and see the same screen, one to one.
 
-- **A screencast per option**, and one of **now** on master: the same steps file for each, moving
+- **A screencast per option and case**, and one of **now** on master: the same steps file for each, moving
   as `AGENTS.md` `## Screencasts` says. The project is cloned into your scratch folder and copied
   to `/tmp/<N>-<name>` (`media` is public: no home directory, no scratch path in a frame).
 - **One size and font for the whole proposal**: `--size 160x50`, a laptop's full screen, unless
   the issue is about a width; cast.py's default font and the Ghostty TokyoNight Moon colours.
-- **A still** is a frame taken out of that screencast (`Image.open(gif).seek(n)`), the moment that
-  shows the change. One screen per picture: two screens side by side are two pictures.
+- **The issue shows the GIF itself**, inline, never a still with a link to it: the owner watches
+  the option, not a frame of it (#720). A still, a frame taken out of that screencast
+  (`Image.open(gif).seek(n)`), is for the decision desk only. One screen per picture: two screens
+  side by side are two pictures.
 - **The ordinary flow**: a screencast of an everyday project where the change must not kick in,
   for the recommended option, beside the same steps on master.
 - **A light theme**: the recommended option once more in `tokyonight-day` (`merl -t
@@ -69,7 +81,7 @@ letter. The other options never become PRs of their own: the owner reads one PR 
 Upload to `media` as `issues/<N>-<slug>-<variant>.<ext>`, each name free first (`AGENTS.md`,
 `## Screencasts`).
 
-## 5. Write it into the issue
+## 6. Write it into the issue
 
 Prepend to the body, or replace a `## Proposal` already there; the old body stays below the rule.
 English, no implementation talk.
@@ -77,17 +89,29 @@ English, no implementation talk.
 ```
 ## Proposal
 
-**Now.** <one line> ![now](PNG) · [screencast](GIF)
+**Now.** <one line>
+
+![now](GIF)
 
 **A. <name> (recommended).** <the rule>. <why, one reason>
-![A](PNG) · [screencast](GIF) · to see it: <project@commit, binary, steps>
+
+![A](GIF)
+
+To see it: <project@commit, binary, steps>
 
 **B. <name>.** <the rule>
-![B](PNG) · [screencast](GIF) · to see it: <…>
+
+![B](GIF)
+
+To see it: <…>
 
 **Elsewhere.** GitHub: <what it does>. GitLab: <…>. VS Code: <…>.
 
-**Unchanged.** <the ordinary flow, one line> [screencast](GIF) · light theme ![light](PNG)
+**Unchanged.** <the ordinary flow, one line>
+
+![master](GIF) ![recommended](GIF)
+
+Light theme: ![light](GIF)
 
 ---
 ```

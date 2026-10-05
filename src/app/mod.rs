@@ -152,7 +152,7 @@ pub const KEYS: &[(&str, &str, &str)] = &[
     ),
     (
         "v",
-        "Select the word, then the line, then the paragraph",
+        "Select the word, then the line, then the paragraph, then the whole file",
         "Selection",
     ),
     (
