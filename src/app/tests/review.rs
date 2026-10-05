@@ -1267,8 +1267,6 @@ fn the_hunk_left_is_found_by_its_place_in_its_file() {
     write(&mut a, "src/a.rs", "p1\na\nB\nc\nd\ne\nf\n");
     big_c(&mut a);
     assert_eq!(here(&a), on("B"));
-    // `new` emptied: an added file with nothing in it is listed, but no stop, and neither is
-    // its top, which only a deleted file's is.
     a.jump_to(&dir.join("gone"), 1);
     c(&mut a);
     assert_eq!(at(&a), (dir.join("new"), 0));
@@ -1276,7 +1274,7 @@ fn the_hunk_left_is_found_by_its_place_in_its_file() {
     let r = a.review.as_ref().unwrap();
     assert!(r.file(Path::new("new")).is_some_and(|f| !f.has_hunks()));
     c(&mut a);
-    assert_eq!(at(&a), (src.clone(), 0));
+    assert_eq!(at(&a), (dir.join("new"), 0));
     // crlf.txt as it was at the base: the review drops the file.
     a.jump_to(&src, 3);
     c(&mut a);
@@ -1299,10 +1297,8 @@ fn the_hunk_left_is_found_by_its_place_in_its_file() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #239: a file empty at the base, filled on the branch and then deleted by the agent is
-/// listed with nothing to read: the walk passes it, and so does the way back.
 #[test]
-fn a_deleted_file_with_nothing_to_read_is_not_gone_back_to() {
+fn a_deleted_file_with_nothing_to_read_is_gone_back_to() {
     let (dir, mut a) = review_app("reviewbackempty");
     let git = |args: &[&str]| {
         let mut cmd = std::process::Command::new("git");
@@ -1328,7 +1324,8 @@ fn a_deleted_file_with_nothing_to_read_is_not_gone_back_to() {
     let f = a.review.as_ref().unwrap().file(Path::new("empty")).unwrap();
     assert!(f.status == 'D' && !f.has_hunks());
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
-    assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
+    assert_eq!(at(&a), (dir.join("empty"), 0));
+    assert_eq!(a.buf.readonly, Some("deleted in this branch"));
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -1734,7 +1731,7 @@ fn a_fold_keeps_a_jumps_line_and_never_covers_text_in_sight() {
 }
 
 #[test]
-fn review_ticks_the_empty_files_it_walks_past_and_stops_on_the_last_one() {
+fn review_stops_on_every_empty_file_and_walks_past_a_binary_one() {
     let png: &[u8] = b"\x89PNG\0\0";
     let extra: &[(&str, &[u8])] = &[("e", b""), ("z.png", png), ("zy", b""), ("zz", b"")];
     let (dir, mut a) = review_app_with("reviewempty", extra);
@@ -1750,29 +1747,36 @@ fn review_ticks_the_empty_files_it_walks_past_and_stops_on_the_last_one() {
         .map(PathBuf::from)
     );
     let viewed = |a: &App, p: &str| a.viewed.contains_key(Path::new(p));
-    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
-    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
+    c(&mut a);
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("zy"), 0));
+    assert_eq!(a.message, "skipped 1 file without hunks");
+    assert!(viewed(&a, "tail") && !viewed(&a, "zy"));
+    c(&mut a);
     assert_eq!(at(&a), (dir.join("zz"), 0));
-    assert_eq!(a.message, "skipped 2 files without hunks");
-    assert!(viewed(&a, "zy") && viewed(&a, "tail"));
-    assert!(!viewed(&a, "z.png") && !viewed(&a, "zz"));
-    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    assert!(viewed(&a, "zy") && !viewed(&a, "zz"));
+    c(&mut a);
     assert_eq!(at(&a), (dir.join("zz"), 0));
     assert_eq!(a.message, "last hunk of the review");
-    assert!(viewed(&a, "zz"));
+    assert!(viewed(&a, "zz") && !viewed(&a, "z.png"));
     a.jump_to(&dir.join("src/keep.rs"), 1);
-    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    c(&mut a);
     assert_eq!(at(&a), (dir.join("zz"), 0));
+    let mut back = vec![];
     while at(&a) != (dir.join("crlf.txt"), 1) {
         press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+        back.push(at(&a).0.strip_prefix(&dir).unwrap().to_path_buf());
     }
-    assert!(viewed(&a, "e"));
+    assert_eq!(
+        back,
+        ["zy", "tail", "new", "gone", "e", "crlf.txt"].map(PathBuf::from)
+    );
 
     std::fs::write(dir.join("src/__init__.py"), "").unwrap();
     let mut a = review_start(&dir, None);
-    a.buf = Buffer::load(&dir.join("src/a.rs")).unwrap();
+    a.buf = Buffer::empty();
     a.start_review(git::Review::open(&dir, None, None).unwrap());
     assert_eq!(order(&a)[0], Path::new("src/__init__.py"));
-    assert_eq!(a.message, "skipped 1 file without hunks");
-    assert!(viewed(&a, "src/__init__.py"));
+    assert_eq!(at(&a), (dir.join("src/__init__.py"), 0));
 }

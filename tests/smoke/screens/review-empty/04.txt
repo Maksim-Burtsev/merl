@@ -1,33 +1,33 @@
-wait py.typed  1:1
-┌typed ← origin/main─────────┐1
-│  ▾ app                     │
-│✓   M service.py       +2 −0│
-│  ▾ scripts                 │
-│✓   A __init__.py      +0 −0│
-│  ▾ worker                  │
-│✓   M main.go          +2 −0│
-│  A py.typed           +0 −0│
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
+wait hunk 1/1  file 3/4
+┌typed ← origin/main─────────┐41 }
+│  ▾ app                     │42
+│✓   M service.py       +2 −0│43 // drain runs the jobs left in q before the worker stops.
+│  ▾ scripts                 │44 func drain(q queue.Queue) error {
+│✓   A __init__.py      +0 −0│45     jobs := make(
+│  ▾ worker                  │46         []queue.Job, 0, 16,
+│    M main.go          +2 −0│47     )
+│  A py.typed           +0 −0│48     for job, ok := q.Pop(); ok; job, ok = q.Pop() {
+│                            │49         jobs = append(jobs, job)
+│                            │50     }
+│                            │51     for _, job := range jobs {
+│                            │52         if err := handle(job); err != nil {
+│                            │53             return err
+│                            │54         }
+│                            │55     }
+│                            │56     return nil
+│                            │57 }
+│                            │58
+│                            │59 func handle(job queue.Job) error {
+│                            │60     switch job.Kind {
+│                            │61     case "ship", "sync":
+│                            │62         log.Printf("order %d → %s", job.OrderID, job.Kind)
+│                            │63         return nil
+│                            │64     default:
+│                            │65         return fmt.Errorf("unknown job kind %q", job.Kind)
+│                            │66     }
+│                            │67 }
+│                            │68▎
+│                            │69▎// Retries back off: see the queue.
 │                            │
 │                            │
 │                            │
@@ -53,5 +53,5 @@ wait py.typed  1:1
 │                            │
 │                            │
 └ 4 files · +4 −0 ───────────┘
-py.typed  1:1  [code]  hunk 0/0  file 4/4                                                                                                                                         ? help
-cursor (x,y,shown) 32,0,1
+worker/main.go  68:1  [code]  hunk 1/1  file 3/4                                                                                                                                  ? help
+cursor (x,y,shown) 33,27,1

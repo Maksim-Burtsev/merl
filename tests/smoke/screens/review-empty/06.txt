@@ -1,12 +1,12 @@
-wait scripts/__init__.py  1:1
+wait last hunk of the review
 ┌typed ← origin/main─────────┐1
 │  ▾ app                     │
 │✓   M service.py       +2 −0│
 │  ▾ scripts                 │
-│    A __init__.py      +0 −0│
+│✓   A __init__.py      +0 −0│
 │  ▾ worker                  │
-│    M main.go          +2 −0│
-│  A py.typed           +0 −0│
+│✓   M main.go          +2 −0│
+│✓ A py.typed           +0 −0│
 │                            │
 │                            │
 │                            │
@@ -53,5 +53,5 @@ wait scripts/__init__.py  1:1
 │                            │
 │                            │
 └ 4 files · +4 −0 ───────────┘
-scripts/__init__.py  1:1  [code]  hunk 0/0  file 2/4                                                                                                                              ? help
+py.typed  1:1  [code]  hunk 0/0  file 4/4  last hunk of the review
 cursor (x,y,shown) 32,0,1

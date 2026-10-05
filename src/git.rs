@@ -223,10 +223,12 @@ pub struct ReviewFile {
 }
 
 impl ReviewFile {
-    /// Is there a line to read? Not in a binary file, a mode change or a pure rename: `c` walks
-    /// past those, and the panel still opens them.
     pub fn has_hunks(&self) -> bool {
         self.added + self.deleted > 0
+    }
+
+    pub fn is_stop(&self, root: &Path) -> bool {
+        self.has_hunks() || !(self.binary || root.join(&self.path).is_dir())
     }
 }
 
@@ -269,13 +271,10 @@ impl Review {
         Ok(Self { note, ..r })
     }
 
-    /// The file the review opens on when none is named: the first with something to read; a
-    /// branch of binaries opens on one, and one of submodules and links to directories on none
-    /// (#404). A file the branch deleted is not on disk to open.
     pub fn first_file(&self, root: &Path) -> Option<PathBuf> {
         let on_disk = || self.files.iter().filter(|f| f.status != 'D');
         on_disk()
-            .find(|f| f.has_hunks())
+            .find(|f| f.is_stop(root))
             .map(|f| root.join(&f.path))
             .or_else(|| on_disk().map(|f| root.join(&f.path)).find(|p| p.is_file()))
     }
@@ -300,8 +299,6 @@ impl Review {
             .with_context(|| format!("no merge base between {base} and HEAD"))?;
         // `-z`: NUL-separated and unquoted, so a non-ASCII name is the name on disk.
         let mut files = parse_name_status(&git(&["diff", "--name-status", "-z", &merge_base])?);
-        // A submodule counts as one line (`Subproject commit …`) that is no text to read: left
-        // out here it keeps its row in the panel and, like a pure rename, is not a stop.
         let numstat = [
             "diff",
             "--numstat",

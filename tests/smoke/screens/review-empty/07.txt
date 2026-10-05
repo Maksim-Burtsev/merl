@@ -3,10 +3,10 @@ wait scripts/__init__.py  1:1
 │  ▾ app                     │
 │✓   M service.py       +2 −0│
 │  ▾ scripts                 │
-│    A __init__.py      +0 −0│
+│✓   A __init__.py      +0 −0│
 │  ▾ worker                  │
-│    M main.go          +2 −0│
-│  A py.typed           +0 −0│
+│✓   M main.go          +2 −0│
+│✓ A py.typed           +0 −0│
 │                            │
 │                            │
 │                            │

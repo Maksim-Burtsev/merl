@@ -11,15 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `v` grows on to the whole file: a fourth press, after the word, the line and the paragraph,
   selects every line of the file, the cursor at its end; Ctrl+C then copies it all. (#635)
-- `--review`: when the review's last file is empty, `c` on the last hunk before it opens it
-  instead of ticking it unseen; the next `c` ticks it and says `last hunk of the review`. Empty
-  files in the middle are still walked past and ticked. (#720)
-
-### Fixed
-
-- `--review`: a file with nothing to read that `c` or `C` walks past, or the review opens past
-  (an empty `__init__.py`, a pure rename, a mode change), gets its viewed tick; a binary file or a
-  submodule stays unticked until `m`. (#715)
+- `--review`: `c` and `C` stop on every file of the review, an empty one included (a new
+  `__init__.py`, a pure rename, a mode change), and the review opens on one when it comes first,
+  a deleted one too; `c` ticks it when it leaves it, as any other file. Only binary files and
+  submodules, which merl cannot show, are still walked past. (#715, #720)
 
 ## [0.8.2] - 2026-10-04
 
