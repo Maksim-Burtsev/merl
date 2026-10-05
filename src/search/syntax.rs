@@ -1,5 +1,3 @@
-//! The lexer the rules stand on: comments, string literals, brackets and separators.
-
 use super::*;
 use std::borrow::Cow;
 
@@ -185,7 +183,6 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
     let mut php_code = false;
     let b = text.as_bytes();
     let ident = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
-    // Whether a token starts at `at`, bare or behind one of `prefixes` (the `b` of `br"…"`).
     let token_at = |at: usize, prefixes: &[&[u8]]| {
         [&b""[..]].iter().chain(prefixes).any(|p| {
             at >= p.len()
@@ -550,7 +547,6 @@ pub(super) fn code(kind: Kind, s: &str) -> impl Iterator<Item = (usize, u8)> + '
             comment = c != b'\n';
             return None;
         }
-        // A backslash escapes the next byte, so `"\\"` ends on its second quote.
         if let Some(q) = quote {
             if escaped {
                 escaped = false;
@@ -589,7 +585,6 @@ pub(super) fn code(kind: Kind, s: &str) -> impl Iterator<Item = (usize, u8)> + '
         }
     })
 }
-/// `s` without its comments.
 pub(super) fn uncommented(kind: Kind, s: &str) -> String {
     let (mut out, mut from) = (String::with_capacity(s.len()), 0);
     for (i, _) in code(kind, s).filter(|(_, c)| *c == 0) {

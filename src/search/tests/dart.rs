@@ -163,8 +163,11 @@ fn dart_literals_run_over_lines() {
         .filter(|(_, l)| **l)
         .map(|(i, _)| i + 1)
         .collect();
-    // A backtick opens nothing: `class D` is code.
-    assert_eq!(literal, [2, 3, 5, 6, 8, 9]);
+    assert_eq!(
+        literal,
+        [2, 3, 5, 6, 8, 9],
+        "a backtick opens nothing: `class D` is code"
+    );
 }
 
 #[test]
@@ -265,16 +268,15 @@ fn dart_uris_name_files() {
         file("../lib/money.dart"),
         Some(PathBuf::from("app/lib/money.dart"))
     );
-    // A path dependency of the project is a project file.
     assert_eq!(
         file("package:core/x.dart"),
-        Some(PathBuf::from("packages/core/lib/x.dart"))
+        Some(PathBuf::from("packages/core/lib/x.dart")),
+        "a path dependency of the project is a project file"
     );
     assert_eq!(
         file("dart:ui"),
         Some(cache.join("sky_engine/lib/ui/ui.dart"))
     );
-    // The packages outside the project and the SDK's `lib/`; the project's own is not one.
     assert_eq!(
         dart_roots(&root, Some(sdk.clone())),
         [
@@ -282,7 +284,8 @@ fn dart_uris_name_files() {
             cache.join("sky_engine/lib/"),
             cache.join("path-1.9.0/lib/"),
             sdk.join("lib")
-        ]
+        ],
+        "the packages outside the project and the SDK's `lib/`, not the project's own"
     );
     // Flutter's `bin/dart` stands beside `bin/cache/dart-sdk`; a plain SDK's is in its `bin/`.
     std::fs::create_dir_all(cache.join("flutter/bin/cache/dart-sdk")).unwrap();

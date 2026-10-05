@@ -6,7 +6,6 @@ use std::borrow::Cow;
 use std::ops::Range;
 use std::path::Path;
 
-/// Whether `path` is a `.vue`, `.svelte` or `.astro` component.
 pub fn component(path: &Path) -> bool {
     path.extension()
         .is_some_and(|e| e == "vue" || e == "svelte" || e == "astro")

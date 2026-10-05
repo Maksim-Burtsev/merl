@@ -163,7 +163,6 @@ fn def_binds(lines: &[&str], d: usize, name: &str) -> bool {
     param_names(&list).iter().any(|p| p == name)
 }
 
-/// Whether the block the line `line` opens (`do |x|`, `{ |x|`) names `name` among its parameters.
 fn block_binds(line: &str, name: &str) -> bool {
     static PARAMS: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"(?:\bdo|\{)\s*\|([^|]*)\|\s*(?:#.*)?$").unwrap());
@@ -189,7 +188,6 @@ pub(super) fn ruby_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
         line: line + 1,
         value: Value::Unknown,
     };
-    // The cursor on a parameter of the `def` or the block its own line opens.
     if def_binds(lines, at, name) || block_binds(lines[at], name) {
         return vec![found(at)];
     }
@@ -199,7 +197,6 @@ pub(super) fn ruby_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
     if !sure {
         return Vec::new();
     }
-    // The scopes the cursor is in, innermost first, and the top of the file last.
     let chain = scopes
         .iter()
         .filter(|(_, o)| *o != Opens::Nothing)

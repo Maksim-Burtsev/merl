@@ -1,6 +1,3 @@
-//! The line patterns `d` looks a declaration up with, per kind and per word, and the
-//! reason a candidate is offered under.
-
 use super::php::{php_constants, php_method, php_namespace_line, php_properties, php_tags};
 use super::*;
 use regex::Regex;
@@ -61,7 +58,6 @@ impl std::fmt::Display for Reason {
         }
     }
 }
-/// A declaration `d` can land on, and why it is offered.
 #[derive(Debug, Clone)]
 pub struct Candidate {
     pub hit: Hit,
@@ -255,7 +251,6 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                     r"^(?:\}}|(?:[^\s{{}}]|\s*typedef\b)[^{{}}]*\{{[^{{}}]*\}})\s*[\w\s,*]*\b{w}\s*[,;]"
                 ),
                 format!(r"^\s*(?:template\s*<[^>]*>\s*)?using\s+{w}\s*="),
-                // An object- or function-like macro.
                 format!(r"^\s*#\s*define\s+{w}\b"),
                 // A global, with the array bounds it can carry. In column zero again, so an
                 // assignment inside a function body is not one; no angle brackets, or a
@@ -349,7 +344,6 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(r"{mods}(?:class|interface|trait|enum)\s+{w}\b"),
                 php_namespace_line(&w),
                 constant,
-                // The `define()` of a global.
                 format!(r#"^\s*define\s*\(\s*['"]{w}['"]"#),
                 case,
                 property,
@@ -1107,7 +1101,6 @@ pub fn declares_where<'a, S: AsRef<str> + 'a>(
     }
     declares_by_kind(kind, path, word, line, line_text, lines)
 }
-/// [`declares_where`] by the rules of `kind`.
 fn declares_by_kind<'a, S: AsRef<str> + 'a>(
     kind: Kind,
     path: &Path,

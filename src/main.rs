@@ -933,7 +933,7 @@ mod tests {
     /// leaves the list.
     const LONG_FILES: &[(&str, usize)] = &[
         ("src/app/definition.rs", 2613),
-        ("src/search/bindings.rs", 1759),
+        ("src/search/bindings.rs", 1749),
     ];
     const MAX_LINES: usize = 1500;
 

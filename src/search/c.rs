@@ -216,7 +216,6 @@ fn c_field_at(code: &str, at: usize, word: &str) -> Option<String> {
         // `} name;` closes a nested body; a bare `name;` is an expression.
         stop == b'}' && AFTER.is_match(after) && !after.trim_start().starts_with(['{', '='])
     } else if let Some(m) = FN_POINTER.find(pre) {
-        // `T (*name)(…);`
         let ty = pre[..m.start()].trim();
         !ty.is_empty()
             && !untemplated(ty).contains(['(', ')', '='])
@@ -335,8 +334,6 @@ pub fn c_initialized_member(text: &str, line: usize, start: usize) -> Option<Str
     }
 }
 
-// ---- parameters and locals (#378) ------------------------------------------------------------
-/// The byte offsets at which the lines of `code` start.
 fn line_starts(code: &str) -> Vec<usize> {
     std::iter::once(0)
         .chain(code.match_indices('\n').map(|(i, _)| i + 1))
@@ -404,7 +401,6 @@ fn paren_groups(s: &str) -> Vec<Range<usize>> {
     }
     out
 }
-/// What the head of a body is.
 enum Head {
     /// A struct, class, union, enum, namespace or `extern "C"` body: no function is outside it.
     Stop,
@@ -413,7 +409,6 @@ enum Head {
     Function(Range<usize>, String),
     /// A `for`, `if`, `while`, `switch` or `catch`: what its brackets hold.
     Control(Range<usize>, bool),
-    /// Any other block.
     Block,
 }
 fn c_head(head: &str) -> Head {
@@ -784,8 +779,6 @@ pub fn c_method_class(text: &str, line: usize, name: &str) -> Option<String> {
     c_struct_head(c_back_to_stop(&code, outer).0).filter(|n| !n.is_empty())
 }
 
-// ---- enum constants and member declarations (#373) ---------------------------------------------
-/// One enum constant: a name and the value it may be given.
 const C_ENUMERATOR: &str = r"[A-Za-z_]\w*\s*(?:=[^,;{}]*)?";
 /// A line of enum constants, `NAME,`, `NAME = expr,`, `A, B, C,` or the last one without a comma,
 /// with `word` among them (or any name, for `None`). A `}` may close the body after them.
@@ -969,7 +962,6 @@ pub fn c_defines_member(text: &str, scopes: &[String], word: &str) -> bool {
     })
 }
 
-// ---- the struct of a receiver (#386) -----------------------------------------------------------
 /// What a C value is declared as: a type by the last word of its name (`client` for `struct
 /// client *c`), or the struct or union body that a `} name;` closes, by the byte of its `{`.
 #[derive(Clone, Debug, PartialEq)]

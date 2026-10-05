@@ -1,5 +1,3 @@
-//! The kinds of file merl has navigation rules for, told by the file name.
-
 use std::path::Path;
 
 /// A file kind with navigation rules of its own. Told by the file name, since a `Makefile` or a
@@ -171,8 +169,6 @@ pub fn erlang(path: &Path) -> bool {
     path.extension()
         .is_some_and(|e| matches!(e.to_str(), Some("erl" | "hrl" | "escript")))
 }
-/// Whether `path` is under a `c++/<dir>/` directory, where a C++ standard library keeps its
-/// headers.
 fn cpp_library(path: &Path) -> bool {
     let mut parts = path.parent().into_iter().flat_map(Path::components);
     parts.any(|c| c.as_os_str() == "c++") && parts.next().is_some()
@@ -216,7 +212,6 @@ pub fn separator(kind: Kind) -> &'static str {
         "."
     }
 }
-/// Whether `path` is a TypeScript declaration file: `.d.ts`, `.d.mts` or `.d.cts`.
 pub fn declaration_file(path: &Path) -> bool {
     path.file_name()
         .and_then(|n| n.to_str())
