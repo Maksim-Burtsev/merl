@@ -247,9 +247,13 @@ fn changed_releases(at_release: &str, now: &str) -> Vec<String> {
 }
 
 fn git(args: &[&str]) -> String {
+    git_in(&root(), args)
+}
+
+fn git_in(dir: &Path, args: &[&str]) -> String {
     let out = std::process::Command::new("git")
         .args(args)
-        .current_dir(root())
+        .current_dir(dir)
         .output()
         .unwrap();
     assert!(
@@ -260,15 +264,19 @@ fn git(args: &[&str]) -> String {
     String::from_utf8(out.stdout).unwrap()
 }
 
-#[test]
-fn released_changelog_sections_stay_as_released() {
-    let log = git(&["log", "--format=%H %s"]);
-    let release = log
-        .lines()
+fn last_release_on_master(dir: &Path) -> String {
+    let base = git_in(dir, &["merge-base", "HEAD", "origin/master"]);
+    let log = git_in(dir, &["log", "--format=%H %s", base.trim()]);
+    log.lines()
         .filter_map(|l| l.split_once(' '))
         .find(|(_, subject)| subject.starts_with("release: "))
-        .map(|(hash, _)| hash)
-        .expect("no `release: X.Y.Z` commit in the history: a shallow clone needs fetch-depth: 0");
+        .map(|(hash, _)| hash.to_string())
+        .expect("no `release: X.Y.Z` commit in the history: a shallow clone needs fetch-depth: 0")
+}
+
+#[test]
+fn released_changelog_sections_stay_as_released() {
+    let release = last_release_on_master(&root());
     let at_release = git(&["show", &format!("{release}:CHANGELOG.md")]);
     let now = std::fs::read_to_string(root().join("CHANGELOG.md")).unwrap();
     let wrong = changed_releases(&at_release, &now);
@@ -279,6 +287,30 @@ fn released_changelog_sections_stay_as_released() {
          [Unreleased]",
         wrong.join("], [")
     );
+}
+
+#[test]
+fn a_release_branch_keeps_its_own_section_open_until_master_has_it() {
+    let dir = std::env::temp_dir().join(format!("merl-last-release-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let git = |args: &[&str]| {
+        let mut all = vec!["-c", "user.email=t@t", "-c", "user.name=t"];
+        all.extend_from_slice(args);
+        git_in(&dir, &all).trim().to_string()
+    };
+    git(&["init", "-q", "-b", "master"]);
+    git(&["commit", "-q", "--allow-empty", "-m", "release: 0.1.0 (#1)"]);
+    let released = git(&["rev-parse", "HEAD"]);
+    git(&["update-ref", "refs/remotes/origin/master", "HEAD"]);
+    git(&["switch", "-q", "-c", "release/0.2.0"]);
+    git(&["commit", "-q", "--allow-empty", "-m", "release: 0.2.0"]);
+    let releasing = git(&["rev-parse", "HEAD"]);
+    git(&["commit", "-q", "--allow-empty", "-m", "fix: a panic"]);
+    assert_eq!(last_release_on_master(&dir), released);
+    git(&["update-ref", "refs/remotes/origin/master", "HEAD"]);
+    assert_eq!(last_release_on_master(&dir), releasing);
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
