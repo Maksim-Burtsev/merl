@@ -7,8 +7,8 @@
 The project is LANG's row of projects.tsv, cloned into the cache by `run` first
 ($D_BENCH_CACHE or ~/.cache/merl-d-bench). The servers come from install-servers.sh
 ($D_BENCH_SERVERS or <cache>/servers). `oracle` resumes from the answers already written.
-Java, Kotlin, C#, Ruby, Groovy and Jenkins (a Groovy shared library, its own row) have no server
-here: their answers were judged by reading the code.
+Java, Kotlin, C#, Ruby, Groovy, Jenkins (a Groovy shared library, its own row), Emacs Lisp,
+Scheme and Common Lisp have no server here: their answers were judged by reading the code.
 """
 import json, os, random, re, select, subprocess, sys, time
 from collections import defaultdict
@@ -101,6 +101,45 @@ KW["julia"] = """abstract baremodule begin break catch const continue do else el
 finally for function global if import in isa let local macro module mutable primitive quote return
 struct true try type using where while nothing missing Any Int Int64 Float64 String Bool Symbol
 Nothing Vector Matrix Array Tuple Dict println print length size eltype""".split()
+KW["clojure"] = """def defn defn- defmacro defonce defmulti defmethod defprotocol defrecord deftype declare
+ns require import use refer let letfn fn if if-not if-let if-some when when-not when-let when-some cond
+condp case do loop recur try catch finally throw quote var new set! and or not nil true false binding
+for doseq dotimes doto some-> some->> cond-> cond->> as-> str map mapv filter remove reduce first second
+rest next cons conj assoc assoc-in dissoc get get-in update update-in keys vals count seq vec vector list
+hash-map hash-set into apply partial comp identity println prn print format nil? some? empty? not=
+inc dec merge concat range take drop keyword symbol name meta atom deref swap! reset! instance? fn?
+map? vector? string? keyword? symbol? seq? coll? number? int? boolean? ex-info ex-data this""".split()
+KW["elisp"] = """defun defmacro defsubst defvar defvar-local defcustom defconst defface defgroup defalias let
+let* if when unless cond progn prog1 prog2 setq setq-local setf lambda and or not nil t while dolist
+dotimes condition-case ignore-errors unwind-protect save-excursion save-restriction save-match-data
+with-current-buffer with-temp-buffer interactive car cdr cadr cddr cons list append concat format message
+error user-error funcall apply mapcar mapc memq member assq assoc push pop require provide
+declare-function declare eq eql equal null pcase pcase-let pcase-dolist if-let if-let* when-let
+when-let* and-let* catch throw quote function cl-loop cl-case cl-defun cl-defmethod cl-defgeneric
+insert point goto-char forward-line string-match match-string substring length nth nthcdr
+buffer-substring-no-properties current-buffer get-buffer-create""".split()
+KW["scheme"] = """define define-syntax define-record-type define-library define-values lambda let let*
+letrec letrec* let-values let*-values let-syntax letrec-syntax if cond case when unless begin do set!
+quote quasiquote unquote and or not else import export include include-ci syntax-rules
+er-macro-transformer car cdr cadr cddr cons list null? pair? list? eq? eqv? equal? apply map for-each
+vector string length append reverse error display newline values call-with-values call/cc
+call-with-current-continuation dynamic-wind assq assv assoc memq member vector-ref vector-set!
+string-ref string-length number? string? symbol? procedure? zero? exact inexact""".split()
+KW["racket"] = KW["scheme"] + """racket lang base define/contract define/public define/private define/override
+define/augment struct require provide module module+ module* for for/list for/fold for/hash for/and
+for/or for*/list match match-define send new class class* object% this super-new init init-field field
+inherit public private override augment hash hash-ref hash-set! void parameterize with-handlers
+contract-out all-defined-out only-in prefix-in except-in rename-in submod case-lambda
+define-syntax-rule syntax-parse syntax-case syntax quasisyntax first second rest empty empty? cons*
+printf format eprintf string-append""".split()
+KW["commonlisp"] = """defun defmacro defvar defparameter defconstant defclass defmethod defgeneric defstruct
+deftype define-condition defpackage in-package let let* flet labels macrolet lambda if when unless cond
+case ecase typecase etypecase progn prog1 setf setq incf decf loop do dolist dotimes and or not nil t
+declare ignore ignorable type optimize funcall apply list cons car cdr first second rest push pop format
+error values multiple-value-bind destructuring-bind handler-case handler-bind unwind-protect with-slots
+with-accessors return return-from block eq eql equal gethash make-instance make-hash-table function
+quote length nth elt aref string= null listp consp stringp numberp mapcar mapc remove find position
+member assoc append nreverse reverse concatenate coerce use export import-from shadow""".split()
 KW["js"] = KW["ts"]
 KW["jenkins"] = KW["groovy"]
 KW["objc"] = C_KW + """self super nil Nil YES NO id instancetype BOOL SEL Class IMP NSInteger NSUInteger
@@ -135,6 +174,15 @@ SPEC = {
                   word=r"[A-Za-z_][A-Za-z0-9_]*(?:!(?!=))?", decl={"macro", "using"}),
 }
 SPEC["jenkins"] = SPEC["groovy"]
+LISP_WORD = r"(?![0-9])[A-Za-z0-9_{0}]*[A-Za-z][A-Za-z0-9_{0}]*"
+SPEC["clojure"] = dict(exts=(".clj", ".cljs", ".cljc", ".bb"), lc=(";",), bc=None, lisp="\\",
+                       word=LISP_WORD.format(r"?!*+<>=\-"))
+SPEC["elisp"] = dict(exts=(".el",), lc=(";",), bc=None, lisp="?", word=LISP_WORD.format(r"?!*+<>=/\-"))
+SPEC["scheme"] = dict(exts=(".scm", ".sld", ".ss"), lc=(";",), bc=("#|", "|#"), lisp="#\\",
+                      word=LISP_WORD.format(r"?!*+<>=/:\-"))
+SPEC["racket"] = {**SPEC["scheme"], "exts": (".rkt",)}
+SPEC["commonlisp"] = dict(exts=(".lisp", ".lsp", ".cl", ".asd"), lc=(";",), bc=("#|", "|#"), lisp="#\\",
+                          word=LISP_WORD.format(r"?!*+<>=/%\-"))
 SKIP_DIRS = {".git", "node_modules", "vendor", "third_party", "dist", "build", "target", ".venv",
              "venv", "__pycache__", "migrations", "deps", "public", "static", "locale", "locales",
              "generated", ".build", "Pods", "fixtures", "testdata"}
@@ -176,7 +224,15 @@ def code_tokens(text, spec):
                 state = ("str", c); masked[i] = " "; i += 1; continue
             if spec.get("adjoint") and c == "'" and i and (line[i - 1].isalnum() or line[i - 1] in "_)]}'."):
                 i += 1; continue
-            if c in "\"'":
+            if spec.get("lisp") and c == '"':
+                state = ("str", c); masked[i] = " "; i += 1; continue
+            ch = spec.get("lisp")
+            if ch and line.startswith(ch, i) and (ch != "?" or i == 0 or line[i - 1] in " \t()[]{}'`,"):
+                j = i + len(ch) + (ch == "?" and line[i + 1:i + 2] == "\\") + 1
+                while j < L and line[j].isalpha() and line[j - 1].isalpha():
+                    j += 1
+                masked[i:min(j, L)] = " " * (min(j, L) - i); i = j; continue
+            if c in "\"'" and not ch:
                 if spec.get("rust") and c == "'" and not re.match(r"'(\\.|[^\\'])'", line[i:i + 4] if line[i + 1:i + 2] != "\\" else line[i:i + 5]):
                     i += 1; continue  # a lifetime
                 j = i + 1
@@ -193,6 +249,16 @@ def code_tokens(text, spec):
                 continue
             out.append((n, s, t.group(), m[:s], m[e:]))
     return out
+
+
+def lisp_shape(before, word):
+    if before.endswith(("(.", "[.", " .")):
+        return "member"
+    if before.endswith("(") and not before.endswith(("((", "[(")):
+        return "call"
+    if before.endswith(("/", ":")):
+        return "path"
+    return "type" if word[0].isupper() else "name"
 
 
 def shape(before, after, lang):
@@ -226,6 +292,13 @@ def sample(lang, project, root, n, out, exclude=()):
             for (ln, col, w, before, after) in code_tokens(text, spec):
                 if w in kw or len(w) < 2:
                     continue
+                if spec.get("lisp"):
+                    head = re.search(spec["word"] + r"[\s(]*$", before)
+                    if (w.startswith(":") or re.search(r"(^|[^A-Za-z0-9_*+!?<>=/%-]):+$", before)
+                            or head and re.match(r"(cl-)?def|define", head.group())):
+                        continue
+                    buckets[lisp_shape(before, w)].append((rel, ln, col, lisp_shape(before, w), w))
+                    continue
                 prev = re.findall(r"[A-Za-z_]+", before)
                 decl = (DECL | SOL_DECL if lang == "solidity" else DECL) | spec.get("decl", set())
                 if prev and prev[-1] in decl and not before.rstrip().endswith((".", "->", "::", "(", ",", "=", ":")):
@@ -234,6 +307,8 @@ def sample(lang, project, root, n, out, exclude=()):
                 buckets[sh].append((rel, ln, col, sh, w))
     rnd = random.Random(20260928)
     mix = {"member": 0.35, "call": 0.25, "type": 0.2, "name": 0.1, "path": 0.1}
+    if spec.get("lisp"):
+        mix = {"call": 0.5, "name": 0.35, "path": 0.1, "member": 0.025, "type": 0.025}
     chosen = []
     for sh, frac in mix.items():
         pool = buckets.get(sh, [])
@@ -364,7 +439,8 @@ LANG_ID = {".py": "python", ".ts": "typescript", ".tsx": "typescriptreact", ".js
            ".jsx": "javascriptreact", ".mjs": "javascript", ".cjs": "javascript", ".go": "go",
            ".rs": "rust", ".c": "c", ".h": "cpp", ".cc": "cpp", ".cpp": "cpp", ".hpp": "cpp",
            ".php": "php", ".swift": "swift", ".m": "objective-c", ".sol": "solidity", ".bzl": "starlark",
-           ".bazel": "starlark", ".jl": "julia"}
+           ".bazel": "starlark", ".jl": "julia", ".clj": "clojure", ".cljs": "clojure",
+           ".cljc": "clojure", ".bb": "clojure", ".rkt": "racket"}
 
 
 def server(lang, root):
@@ -399,6 +475,10 @@ def server(lang, root):
         return Lsp([node, server, "--stdio"], root)
     if lang == "starlark":
         return Lsp([os.path.join(LSP, "bin", "starpls"), "server"], root)
+    if lang == "clojure":
+        return Lsp(["clojure-lsp"], root)
+    if lang == "racket":
+        return Lsp(["racket", "-l", "racket-langserver"], root)
     if lang == "julia":
         return Lsp(["julia", "--project=@ls", "-e", "using LanguageServer; runserver(stdin, stdout, pwd())"], root,
                    env={"HOME": os.path.join(LSP, "julia-home")})
