@@ -990,7 +990,7 @@ mod tests {
         assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
     }
 
-    const COMMENT_LINES: usize = 7510;
+    const COMMENT_LINES: usize = 7507;
 
     fn comment_lines(text: &str) -> usize {
         let b = text.as_bytes();
