@@ -1,15 +1,3 @@
-//! Markdown rendered for reading (#249): `p` shows a `.md` file as the rows laid out here.
-//!
-//! Every row carries the source position it starts at, so the preview and the source keep one
-//! place both ways. The layout depends on the text and the width only; the colours are the
-//! theme's, looked up as a row is drawn ([`Palette`]), so `T` repaints without laying out again.
-//! Prose reflows with [`wrap`], which measures emoji and CJK as the screen does; a table wider
-//! than the pane narrows its widest columns and wraps inside their cells, so it stays whole.
-//!
-//! The rows come in source order: every row's lines start at or after those of the rows above
-//! it. A footnote definition is drawn where it is written, not gathered at the end, so moving
-//! down the rows never moves back up the source.
-
 use std::collections::HashMap;
 use std::ops::Range;
 use std::path::Path;

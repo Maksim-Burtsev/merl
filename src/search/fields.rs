@@ -114,8 +114,6 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
                     push(i, returns(kind, text, i + 1).unwrap_or(Value::Unknown));
                     continue;
                 }
-                // An assignment need not start its line (#131): `if x: self.repo = A()`.
-                // A header binds on its own line: `with open(p) as self.h:`.
                 if unknown.is_match(t) {
                     push(i, Value::Unknown);
                     continue;
@@ -217,7 +215,6 @@ fn go_one_line(line: &str) -> Option<&str> {
     let close = close_of(Kind::Go, line, open)?;
     Some(&line[open + 1..close - 1])
 }
-/// Whether the Go `line` declares the field `name` of a struct whose body it closes too (#330).
 pub(super) fn go_one_line_field(line: &str, name: &str) -> bool {
     go_one_line(line).is_some_and(|body| body.split(';').any(|f| go_field(f, name).is_some()))
 }
@@ -379,7 +376,6 @@ pub fn cs_usings(text: &str) -> Vec<String> {
         .collect()
 }
 
-/// What a Go word followed by `:` is a key of (#327).
 #[derive(Debug, PartialEq)]
 pub enum GoKey {
     /// No key of a composite literal: a label, a `case`, a slice expression. The word keeps the
@@ -392,16 +388,8 @@ pub enum GoKey {
     Unknown,
     /// A key of a map or a slice literal, which is a value.
     Value,
-    /// A key of a literal of a struct written in place, whose body opens on this 1-based line:
-    /// `struct {…}{…}`, an element of `[]struct {…}{…}` (#330).
     Struct(usize),
 }
-/// Whether the Go word at bytes `start..end` of 1-based `line` of `text` is a key of a composite
-/// literal, and of what type (#327). The word is followed by `:` (not `:=`), has no `.` in front,
-/// and its line is no `case`, `default` or label. The bracket still open in front of it, strings
-/// and comments skipped, is a `{` whose type is written in front of it (`T{`, `&T{`, `pkg.T{`,
-/// `T[A]{`), or an element whose type is elided (`{` after `{`, `,` or `key:`), which is the
-/// element type of the literal around it, as often as it nests.
 pub fn go_key(text: &str, line: usize, start: usize, end: usize) -> GoKey {
     let lines: Vec<&str> = text.lines().collect();
     let Some(&l) = line.checked_sub(1).and_then(|k| lines.get(k)) else {
@@ -521,8 +509,6 @@ fn go_literal_type(
                 .and_then(|p| element_type(Kind::Go, &p).ok_or(())),
         );
     }
-    // `struct {…}{`, `[]struct {…}{`: the struct written in place, `struct@LINE` for the line
-    // its body opens on (#330).
     if pre.ends_with('}') {
         let close = lines[j][..i].rfind('}')?;
         let Some((sj, si, b'{')) = go_open_before(lines, literal, j, close) else {

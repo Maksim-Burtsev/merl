@@ -269,7 +269,14 @@ fn typescript_spellings_are_read_in_typescript_only() {
         ("const { repo = spare } = this;", None),
         ("const { ...repo } = this;", None),
         ("const { inner: { repo } } = this;", None),
-        ("const { repo } = make();", None),
+        (
+            "const { repo } = make();",
+            Some(Value::Member(
+                Box::new(Value::Call("make".into())),
+                "repo".into(),
+            )),
+        ),
+        ("const { repo } = make().inner;", None),
     ] {
         assert_eq!(ts_destructured(t, "repo"), want, "{t}");
     }

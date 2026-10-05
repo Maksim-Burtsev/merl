@@ -45,17 +45,10 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     let hl = base.bg(theme.line_hl);
     let hl_gutter = gutter_style.bg(theme.line_hl);
     let sel = base.bg(theme.selection);
-    // A line longer than merl draws ends in a dim `…` after its last drawn char (#283), in the
-    // colour of `‹` and `›`, on the row's own background.
     let ellipsis = |bg: Style| Span::styled("\u{2026}", bg.fg(theme.gutter_fg));
     // Selected lines above the selection's last line are selected through their newline, so
     // their background runs to the right edge like VS Code's.
     let sel_lines = app.selection().map(|(start, end)| (start.0, end.0));
-    // The cursor line keeps its highlight under a selection, so starting one inside a wrapped
-    // line does not flash its other rows back to the plain background. The one exception is a
-    // cursor line none of whose text is selected (the selection ends at its start, or begins at
-    // its end and takes only the newline): a highlight close to the selection colour would pass
-    // for selected (#48), so that line is highlighted in the gutter only, as in VS Code.
     let text_hl = app.selected_bytes(app.at()).is_none_or(|r| !r.is_empty());
 
     let nowrap = app.nowrap();
@@ -101,7 +94,6 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         // rows: the top of the view can sit inside a wrapped ghost, as it can sit on the lines
         // deleted at the end of the file, under the last line.
         for (i, raw) in app.diff.ghosts.get(&l).into_iter().flatten().enumerate() {
-            // A line like any other for the cursor, the selection and `/` (#439).
             let line = TextLine::Deleted(l, i);
             let cursor_line = app.at() == line;
             let bg = match cursor_line && text_hl {
@@ -334,8 +326,6 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     }
 }
 
-/// A binary file (#287), as VS Code shows one: an empty pane with one dimmed line, centred
-/// where the welcome screen's block sits, and no gutter or cursor.
 pub(super) fn draw_binary(frame: &mut Frame, theme: &Theme, area: Rect, base: Style) {
     let [_, row] = Layout::vertical([
         Constraint::Length(area.height.saturating_sub(1) * 2 / 5),
@@ -346,9 +336,6 @@ pub(super) fn draw_binary(frame: &mut Frame, theme: &Theme, area: Rect, base: St
     frame.render_widget(Paragraph::new(note).style(base), row);
 }
 
-/// The declarations enclosing the top of the view, pinned over the text (#248): the first row
-/// of each in its syntax colours, beside its line number, on a band of the cursor line's colour
-/// across the pane. The band is what tells them from the code under them at a glance.
 fn pinned_lines<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -> Vec<Line<'a>> {
     let band = base.bg(theme.line_hl);
     let tag = Style::new().bg(theme.tag_bg).fg(theme.tag_fg);
@@ -488,10 +475,6 @@ fn matches(re: &Regex, text: &str) -> Vec<Range<usize>> {
         .collect()
 }
 
-/// Overlays `finds` (sorted, disjoint: find matches, or the words a review says changed) on the
-/// syntax spans of one line: the text under them keeps its syntax style with `style` laid over
-/// it, so a style without a foreground keeps the syntax colours, as a VS Code find match does
-/// (#480). The result stays sorted and disjoint, which is all [`row_spans`] needs.
 pub(super) fn with_find(
     hl: &[(Style, Range<usize>)],
     finds: &[Range<usize>],

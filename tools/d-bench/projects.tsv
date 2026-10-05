@@ -18,3 +18,8 @@ pipeline-library	jenkins	https://github.com/jenkins-infra/pipeline-library.git	b
 openzeppelin-contracts	solidity	https://github.com/OpenZeppelin/openzeppelin-contracts.git	40a51f7e78852e48d0b128d4ee3d620cbc7d35d8	npm ci --ignore-scripts
 rules_go	starlark	https://github.com/bazel-contrib/rules_go.git	c18ec4766d81c57cb84f545ea2823d2bd9714766	-
 DataFrames.jl	julia	https://github.com/JuliaData/DataFrames.jl.git	946c72aff8898cd6c1e75f51dd9057abd87040b2	julia --project -e 'using Pkg; Pkg.instantiate()'
+nix-darwin	nix	https://github.com/nix-darwin/nix-darwin.git	4cff07de74b50e64bdd68cd4e722ab5b6b35ee48	-
+bootstrap	css	https://github.com/twbs/bootstrap.git	c1f9b9db4dd14d5353e34462ec589cdf8c7270d3	-
+gitea	vue	https://github.com/go-gitea/gitea.git	bea6fcaa840f2e14030aa2adc360969a1c8a0e0c	pnpm install --ignore-scripts --frozen-lockfile
+immich	svelte	https://github.com/immich-app/immich.git	c5e06dcfd1b35f8625863108a60d370e5b61c58e	pnpm install --ignore-scripts --frozen-lockfile --filter immich-web... && pnpm --dir web exec svelte-kit sync
+starlight	astro	https://github.com/withastro/starlight.git	e45162cea478e988f7c212b427736ebdf3427077	pnpm install --ignore-scripts --frozen-lockfile
