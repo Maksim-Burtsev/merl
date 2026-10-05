@@ -175,7 +175,9 @@ fn roots_that_appear_after_the_file_opened_are_walked_by_the_first_d() {
     let mut files = a.external_files(Kind::Python).to_vec();
     files.sort();
     let os = dir.join("py/lib/python3.12/os.py").canonicalize().unwrap();
-    assert_eq!(files, [os, site.join("acme.py")]);
+    let mut want = vec![os, site.join("acme.py")];
+    want.sort();
+    assert_eq!(files, want);
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
