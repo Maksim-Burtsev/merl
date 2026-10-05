@@ -1734,9 +1734,9 @@ fn a_fold_keeps_a_jumps_line_and_never_covers_text_in_sight() {
 }
 
 #[test]
-fn review_ticks_the_empty_files_it_walks_past_and_not_the_binary_ones() {
+fn review_ticks_the_empty_files_it_walks_past_and_stops_on_the_last_one() {
     let png: &[u8] = b"\x89PNG\0\0";
-    let extra: &[(&str, &[u8])] = &[("e", b""), ("z.png", png), ("zz", b"")];
+    let extra: &[(&str, &[u8])] = &[("e", b""), ("z.png", png), ("zy", b""), ("zz", b"")];
     let (dir, mut a) = review_app_with("reviewempty", extra);
     let order = |a: &App| -> Vec<_> {
         let r = a.review.as_ref().unwrap();
@@ -1745,16 +1745,21 @@ fn review_ticks_the_empty_files_it_walks_past_and_not_the_binary_ones() {
     assert_eq!(
         order(&a),
         [
-            "src/a.rs", "crlf.txt", "e", "gone", "new", "tail", "z.png", "zz"
+            "src/a.rs", "crlf.txt", "e", "gone", "new", "tail", "z.png", "zy", "zz"
         ]
         .map(PathBuf::from)
     );
     let viewed = |a: &App, p: &str| a.viewed.contains_key(Path::new(p));
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    assert_eq!(at(&a), (dir.join("zz"), 0));
+    assert_eq!(a.message, "skipped 2 files without hunks");
+    assert!(viewed(&a, "zy") && viewed(&a, "tail"));
+    assert!(!viewed(&a, "z.png") && !viewed(&a, "zz"));
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    assert_eq!(at(&a), (dir.join("zz"), 0));
     assert_eq!(a.message, "last hunk of the review");
-    assert!(viewed(&a, "zz") && viewed(&a, "tail"));
-    assert!(!viewed(&a, "z.png"));
+    assert!(viewed(&a, "zz"));
     while at(&a) != (dir.join("crlf.txt"), 1) {
         press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
     }

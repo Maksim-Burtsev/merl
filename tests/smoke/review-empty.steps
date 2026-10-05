@@ -1,0 +1,17 @@
+# review-empty: the agent's branch turns scripts/ into a package with an empty __init__.py,
+# touches app/service.py and worker/main.go, and adds an empty py.typed, the review's last file.
+# c walks past the empty file in the middle and ticks it; at the end it opens the empty last file,
+# and the next c ticks it and ends the review (#720).
+merl README.md
+wait # orders
+run git switch -q -c typed && : > scripts/__init__.py && : > py.typed && printf '\n# Refunds go through the service.\n' >> app/service.py && printf '\n// Retries back off: see the queue.\n' >> worker/main.go && git add -A && git commit -qm typed
+merl --review
+wait hunk 1/1  file 1/4
+caption c walks past the empty scripts/__init__.py and ticks it
+key c
+wait file 3/4  skipped 1 file without hunks
+caption the review's last file is empty: c opens it, c again ticks it and ends the review (#720)
+key c
+wait py.typed  1:1
+key c
+wait last hunk of the review

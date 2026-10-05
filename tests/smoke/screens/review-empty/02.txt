@@ -1,0 +1,57 @@
+wait hunk 1/1  file 1/4
+┌typed ← origin/main─────────┐10
+│  ▾ app                     │11 class OrderService:
+│    M service.py       +2 −0│12     def __init__(self, repo: OrderRepo, uow: UnitOfWork, settings: Settings):
+│  ▾ scripts                 │13         self.repo = repo
+│    A __init__.py      +0 −0│14         self.uow = uow
+│  ▾ worker                  │15         self.settings = settings
+│    M main.go          +2 −0│16
+│  A py.typed           +0 −0│17     def get(self, order_id: int) -> Order:
+│                            │18         order = self.repo.get(order_id)
+│                            │19         if order is None:
+│                            │20             raise OrderNotFound(order_id)
+│                            │21         return order
+│                            │22
+│                            │23     def mark_paid(self, order_id: int) -> Order:
+│                            │24         order = self.get(order_id)
+│                            │25         order.status = OrderStatus.PAID
+│                            │26         self.repo.save(order)
+│                            │27         return order
+│                            │28
+│                            │29     def cancel(self, order_id: int) -> Order:
+│                            │30         order = self.get(order_id)
+│                            │31         if not order.can_cancel():
+│                            │32             raise ValueError(f"order {order_id} is {order.status.value}")
+│                            │33         order.status = OrderStatus.CANCELLED
+│                            │34         with self.uow:
+│                            │35             self.uow.orders.save(order)
+│                            │36         return order
+│                            │37▎
+│                            │38▎# Refunds go through the service.
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└ 4 files · +4 −0 ───────────┘
+app/service.py  37:1  [code]  hunk 1/1  file 1/4                                                                                                                                  ? help
+cursor (x,y,shown) 33,27,1

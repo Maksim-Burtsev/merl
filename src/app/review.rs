@@ -158,8 +158,11 @@ impl App {
             .rel_current()
             .filter(|rel| dir > 0 && r.file(rel).is_some());
         let (mut skipped, mut failed, mut passed) = (0, None, vec![]);
-        for f in self.ahead(&r, dir) {
-            if !f.has_hunks() {
+        let ahead = self.ahead(&r, dir);
+        let end = ahead.len();
+        for (i, f) in ahead.into_iter().enumerate() {
+            let ends_the_walk = dir > 0 && i + 1 == end && !self.nothing_to_read([f]).is_empty();
+            if !f.has_hunks() && !ends_the_walk {
                 skipped += 1;
                 passed.push(f);
             } else if self.open_review_file(f, dir < 0) {
