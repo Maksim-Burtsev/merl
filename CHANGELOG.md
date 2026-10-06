@@ -30,13 +30,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Line numbers and the `‹` `›` `…` marks read at 3:1 on the background in every theme: a theme
+  whose own gutter colour is fainter has it lightened (darkened in a light theme) in its own hue
+  until it gets there, never past the theme's comments. 50 of the 94 themes change, the default
+  among them (1.3:1 before); the rest draw as before. (#555)
 - `d` outside the project in JavaScript and TypeScript lists a declaration once when another
   package keeps a copy of its own: a line of the copy of `typescript` another package keeps is no
   longer listed beside the same line of the copy Node loads from the open file. A member is
   looked for in the packages the file imports before every installed one, so its picker lists
   those alone. (#318)
+- `c` and `C` in `--review` stand on the first line a hunk added, where they stood on the first
+  line it deleted: on a hunk that rewrites code, the cursor is on the new code, the old code
+  above it, a key Up away. A hunk that only deletes still stands on its first deleted line.
+  (#690)
 - `v` grows on to the whole file: a fourth press, after the word, the line and the paragraph,
   selects every line of the file, the cursor at its end; Ctrl+C then copies it all. (#635)
+- Shift+PgUp / Shift+PgDn, Shift+Home / Shift+End and Ctrl+Shift+Home / Ctrl+Shift+End extend
+  the selection over everything the cursor passes, as Shift with an arrow does, where they moved
+  the cursor and dropped the selection; the same moves without Shift drop it, as in VS Code.
+  (#687)
 - The lists of `u`, `s` and `d`'s choices name a file once, above its rows, and each row shows
   the line number and the code: `polar/license_key/endpoints.py` over `242  license_key = await …`
   instead of the path repeated on every row. A row still too wide for the list wraps under its
@@ -58,18 +70,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/` and `s` open with the selected text as the query when the selection is within one line,
   already searched and selected so typing replaces it; without a selection, or with one over
   several lines, they open as before. (#410)
-- Line numbers and the `‹` `›` `…` marks read at 3:1 on the background in every theme: a theme
-  whose own gutter colour is fainter has it lightened (darkened in a light theme) in its own hue
-  until it gets there, never past the theme's comments. 50 of the 94 themes change, the default
-  among them (1.3:1 before); the rest draw as before. (#555)
-- `c` and `C` in `--review` stand on the first line a hunk added, where they stood on the first
-  line it deleted: on a hunk that rewrites code, the cursor is on the new code, the old code
-  above it, a key Up away. A hunk that only deletes still stands on its first deleted line.
-  (#690)
-- Shift+PgUp / Shift+PgDn, Shift+Home / Shift+End and Ctrl+Shift+Home / Ctrl+Shift+End extend
-  the selection over everything the cursor passes, as Shift with an arrow does, where they moved
-  the cursor and dropped the selection; the same moves without Shift drop it, as in VS Code.
-  (#687)
 
 ### Fixed
 
