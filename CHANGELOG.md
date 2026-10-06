@@ -55,6 +55,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   string }` lands on the `href` of the literal, where it jumped to another class's `href`, and `d`
   on `rest` after `const { id, ...rest } = document` lands on that line, where it said "no
   definition". (#354)
+- `/` and `s` open with the selected text as the query when the selection is within one line,
+  already searched and selected so typing replaces it; without a selection, or with one over
+  several lines, they open as before. (#410)
 
 ### Fixed
 

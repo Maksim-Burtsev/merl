@@ -210,3 +210,42 @@ fn a_truncated_result_list_says_so_in_its_title() {
     assert_eq!(p.counts().1 as usize, search::MAX_HITS);
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn a_selection_in_one_line_seeds_the_project_search() {
+    let (path, mut a) = temp_file(
+        "seed-s",
+        "raise Not authenticated now\nnot authenticated\nnot\n",
+    );
+    a.col = 6;
+    for _ in 0..3 {
+        press(
+            &mut a,
+            KeyCode::Right,
+            KeyModifiers::ALT | KeyModifiers::SHIFT,
+        );
+    }
+    press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+    let p = a.picker.as_ref().unwrap();
+    assert_eq!(
+        (&*p.query, p.query.selection()),
+        ("Not authenticated now", Some(0..21))
+    );
+    assert!(a.search_tick().is_some(), "the grep goes out at once");
+    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+}
+
+#[test]
+fn without_a_one_line_selection_the_project_search_opens_empty() {
+    let (path, mut a) = temp_file("seed-none-s", "foo\nbar\n");
+    for shift_down in [false, true] {
+        if shift_down {
+            press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+        }
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+        assert_eq!(&*a.picker.as_ref().unwrap().query, "");
+        assert!(!a.search_pending());
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    }
+    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+}
