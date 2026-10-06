@@ -293,6 +293,7 @@ struct Frame<'a> {
     named: bool,
     loop_var: bool,
     sequential: bool,
+    recursive: bool,
     entry: Option<usize>,
 }
 
@@ -322,6 +323,7 @@ const LETS: &[&str] = &[
     "pcase-let*",
 ];
 const SEQUENTIAL: &[&str] = &["let*", "when-let*", "if-let*", "and-let*", "pcase-let*"];
+const RECURSIVE: &[&str] = &["letrec", "letrec*", "labels"];
 const LAMBDAS: &[&str] = &["lambda", "opt-lambda"];
 const CLASSES: &[&str] = &["class", "class*", "mixin"];
 const CLAUSES: &[&str] = &["inherit", "inherit-field", "init-field", "field"];
@@ -411,6 +413,13 @@ pub(super) fn lisp_bindings(
                     }
                     _ => (false, None),
                 };
+                let recursive = match stack.last() {
+                    Some(p) if role == Role::Entries => {
+                        RECURSIVE.contains(&p.head.unwrap_or("").to_ascii_lowercase().as_str())
+                    }
+                    Some(p) => p.role == Role::Letfn || (p.role == Role::Entries && p.recursive),
+                    None => false,
+                };
                 let scope = match (role, stack.last()) {
                     (Role::Plain | Role::Arity, _) | (_, None) => {
                         scopes.push((pos, None));
@@ -427,6 +436,7 @@ pub(super) fn lisp_bindings(
                     named: false,
                     loop_var: false,
                     sequential,
+                    recursive,
                     entry,
                 });
             }
@@ -473,7 +483,12 @@ pub(super) fn lisp_bindings(
                     _ => false,
                 };
                 if bound && binds(a) && same(a) {
-                    found.push((f.scope, pos, if pending { usize::MAX } else { pos }));
+                    let visible = match (f.recursive, pending) {
+                        (true, _) => 0,
+                        (false, true) => usize::MAX,
+                        (false, false) => pos,
+                    };
+                    found.push((f.scope, pos, visible));
                 }
                 if looping {
                     f.loop_var = !f.loop_var && LOOP_VARS.iter().any(|k| k.eq_ignore_ascii_case(a));
