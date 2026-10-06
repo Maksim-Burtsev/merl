@@ -1,12 +1,10 @@
-//! `d` in Python.
-
 use super::*;
 
-fn py_rows(cases: Vec<(&str, &str, Shown)>) {
-    for (file, code, want) in cases {
+fn py_rows(cases: Vec<(&str, &str, &str, Shown)>) {
+    for (name, file, code, want) in cases {
         let mut a = fixture_app("python");
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{file}: {code}");
+        assert_eq!(shown(&mut a), want, "{name}: {file}: {code}");
     }
 }
 
@@ -20,15 +18,11 @@ const EVERY_SEAL: [(&str, &str); 7] = [
     ("Pallet.seal", "depot/labels.py:10"),
 ];
 
-/// #100. `from x import y as z` types a receiver as `y`, and a module of the project that
-/// imports a name without declaring it hands it on: a package's `__init__.py`, by a relative
-/// import, under another name, from another package that hands it on in turn, through
-/// `import *`. What the module may not end up with stays by name: two sources, a name it
-/// also assigns, the import of a function in it, a cycle.
 #[test]
 fn a_python_alias_and_a_module_that_hands_a_name_on_are_followed() {
     py_rows(vec![
         (
+            "",
             "aliases.py",
             "repo.delete_user|(1",
             jump(
@@ -37,6 +31,7 @@ fn a_python_alias_and_a_module_that_hands_a_name_on_are_followed() {
             ),
         ),
         (
+            "",
             "aliases.py",
             "log.delete_user|(2",
             jump(
@@ -44,8 +39,8 @@ fn a_python_alias_and_a_module_that_hands_a_name_on_are_followed() {
                 "repos.py:13",
             ),
         ),
-        // The alias called: the class it names.
         (
+            "the alias called: the class it names",
             "aliases.py",
             "Users().find_user",
             jump(
@@ -54,6 +49,7 @@ fn a_python_alias_and_a_module_that_hands_a_name_on_are_followed() {
             ),
         ),
         (
+            "",
             "aliases.py",
             "repo.delete_user|(4",
             jump(
@@ -61,8 +57,8 @@ fn a_python_alias_and_a_module_that_hands_a_name_on_are_followed() {
                 "repos.py:8",
             ),
         ),
-        // `depot/__init__.py` declares none of these.
         (
+            "`depot/__init__.py` declares none of these",
             "aliases.py",
             "crate.seal",
             jump(
@@ -70,8 +66,8 @@ fn a_python_alias_and_a_module_that_hands_a_name_on_are_followed() {
                 "depot/crates.py:2",
             ),
         ),
-        // `from .crates import Lid as Cover`.
         (
+            "`from .crates import Lid as Cover`",
             "aliases.py",
             "cover.seal",
             jump(
@@ -79,8 +75,8 @@ fn a_python_alias_and_a_module_that_hands_a_name_on_are_followed() {
                 "depot/crates.py:7",
             ),
         ),
-        // Two modules on: `depot` has it from `store`, which has it from `.sessions`.
         (
+            "two modules on: `depot` has it from `store`, which has it from `.sessions`",
             "aliases.py",
             "conn.close",
             jump(
@@ -89,6 +85,7 @@ fn a_python_alias_and_a_module_that_hands_a_name_on_are_followed() {
             ),
         ),
         (
+            "",
             "aliases.py",
             "trail.delete_user",
             jump(
@@ -97,6 +94,7 @@ fn a_python_alias_and_a_module_that_hands_a_name_on_are_followed() {
             ),
         ),
         (
+            "",
             "aliases.py",
             "dial().close",
             jump(
@@ -104,8 +102,8 @@ fn a_python_alias_and_a_module_that_hands_a_name_on_are_followed() {
                 "store/sessions.py:6",
             ),
         ),
-        // `from .labels import *`.
         (
+            "`from .labels import *`",
             "aliases.py",
             "label.seal",
             jump(
@@ -113,8 +111,8 @@ fn a_python_alias_and_a_module_that_hands_a_name_on_are_followed() {
                 "depot/labels.py:5",
             ),
         ),
-        // `fakes.UserRepository`, not the one of `repos`.
         (
+            "`fakes.UserRepository`, not the one of `repos`",
             "aliases.py",
             "users.users",
             jump(
@@ -122,8 +120,8 @@ fn a_python_alias_and_a_module_that_hands_a_name_on_are_followed() {
                 "fakes.py:3",
             ),
         ),
-        // A parameter called like the alias is a value of its own type.
         (
+            "a parameter called like the alias is a value of its own type",
             "aliases.py",
             "Users.delete_user|(7",
             jump(
@@ -131,19 +129,20 @@ fn a_python_alias_and_a_module_that_hands_a_name_on_are_followed() {
                 "repos.py:13",
             ),
         ),
-        // `d` on the imported word itself. `Crate` comes by two routes, the import and
-        // the `*` of a module that imports it too, to one declaration.
         (
+            "`d` on the imported word itself. `Crate` comes by two routes, the import and the `*` of a module that imports it too, to one declaration",
             "aliases.py",
             "crate: Crate",
             jump("Crate: via import depot/crates.py", "depot/crates.py:1"),
         ),
         (
+            "",
             "aliases.py",
             "cover: Cover",
             jump("Cover: via import depot/crates.py", "depot/crates.py:6"),
         ),
         (
+            "",
             "aliases.py",
             "conn: Session",
             jump(
@@ -151,8 +150,8 @@ fn a_python_alias_and_a_module_that_hands_a_name_on_are_followed() {
                 "store/sessions.py:1",
             ),
         ),
-        // Four modules that hand the name on are followed, five are not.
         (
+            "four modules that hand the name on are followed, five are not",
             "relays.py",
             "parcel.wrap_up",
             jump(
@@ -161,6 +160,7 @@ fn a_python_alias_and_a_module_that_hands_a_name_on_are_followed() {
             ),
         ),
         (
+            "",
             "relays.py",
             "bundle.wrap_up",
             jump(
@@ -168,14 +168,14 @@ fn a_python_alias_and_a_module_that_hands_a_name_on_are_followed() {
                 "relay5.py:2",
             ),
         ),
-        // An import in a docstring's example is no source.
         (
+            "an import in a docstring's example is no source",
             "docstring_import.py",
             "repo: UserRepository",
             jump("UserRepository: via import repos.py", "repos.py:4"),
         ),
-        // … but for the reader of that example, as it was.
         (
+            "… but for the reader of that example, as it was",
             "docstring_import.py",
             "from fakes import UserRepository",
             Shown::Picker(
@@ -194,8 +194,8 @@ fn a_python_alias_and_a_module_that_hands_a_name_on_are_followed() {
                 ],
             ),
         ),
-        // `try` / `except ImportError` names two sources: both are offered, neither typed.
         (
+            "`try` / `except ImportError` names two sources: both are offered, neither typed",
             "aliases.py",
             "pallet: Pallet",
             Shown::Picker(
@@ -215,34 +215,37 @@ fn a_python_alias_and_a_module_that_hands_a_name_on_are_followed() {
             ),
         ),
         (
+            "",
             "aliases.py",
             "pallet.seal",
             picker("seal: by name, 7 declarations", &EVERY_SEAL),
         ),
-        // `Tray` is imported and, under an `if`, assigned.
         (
+            "`Tray` is imported and, under an `if`, assigned",
             "aliases.py",
             "tray: Tray",
             jump("Tray: by name, 1 match", "depot/crates.py:16"),
         ),
         (
+            "",
             "aliases.py",
             "tray.seal",
             picker("seal: by name, 7 declarations", &EVERY_SEAL),
         ),
-        // An import inside a function of the module binds nothing of the module.
         (
+            "an import inside a function of the module binds nothing of the module",
             "aliases.py",
             "hook: Hook",
             jump("Hook: by name, 1 match", "depot/crates.py:21"),
         ),
         (
+            "",
             "aliases.py",
             "hook.seal",
             picker("seal: by name, 7 declarations", &EVERY_SEAL),
         ),
-        // `depot` has `Ring` from `depot.loop`, which has it from `depot`.
         (
+            "`depot` has `Ring` from `depot.loop`, which has it from `depot`",
             "aliases.py",
             "ring: Ring",
             jump("no definition for Ring", "aliases.py:35"),
@@ -250,11 +253,6 @@ fn a_python_alias_and_a_module_that_hands_a_name_on_are_followed() {
     ]);
 }
 
-/// #100. `Cls.CONST`, an `Enum` member and a dataclass field are what the class body
-/// declares, in the class the qualifier names or one above it: `via Cls`. An attribute a
-/// method assigns to `self`, a member of a member, a function's attribute, a class declared
-/// inside the function and a parameter of the class's name are not that. A `with … as x`
-/// target is a local, which hides the module's name whatever its type (so on master).
 #[test]
 fn a_python_class_attribute_is_looked_up_in_the_class() {
     let both_delete_user = [
@@ -263,6 +261,7 @@ fn a_python_class_attribute_is_looked_up_in_the_class() {
     ];
     py_rows(vec![
         (
+            "",
             "consts.py",
             "Limits.MAX_USERS",
             jump(
@@ -271,6 +270,7 @@ fn a_python_class_attribute_is_looked_up_in_the_class() {
             ),
         ),
         (
+            "",
             "consts.py",
             "Limits.timeout",
             jump(
@@ -278,25 +278,26 @@ fn a_python_class_attribute_is_looked_up_in_the_class() {
                 "consts.py:13",
             ),
         ),
-        // Two enums with a `RED`.
         (
+            "two enums with a `RED`",
             "consts.py",
             "    Color.RED",
             jump("RED \u{2192} Color.RED (via Color)", "consts.py:27"),
         ),
         (
+            "",
             "consts.py",
             "    Shade.RED",
             jump("RED \u{2192} Shade.RED (via Shade)", "consts.py:32"),
         ),
-        // A dataclass field; `Archive.label` is a namesake.
         (
+            "a dataclass field; `Archive.label` is a namesake",
             "consts.py",
             "Point.label",
             jump("label \u{2192} Point.label (via Point)", "consts.py:38"),
         ),
-        // Inherited, overridden, and a method as before.
         (
+            "inherited, overridden, and a method as before",
             "consts.py",
             "Tight.MAX_USERS",
             jump(
@@ -305,22 +306,25 @@ fn a_python_class_attribute_is_looked_up_in_the_class() {
             ),
         ),
         (
+            "",
             "consts.py",
             "Tight.timeout",
             jump("timeout \u{2192} Tight.timeout (via Tight)", "consts.py:20"),
         ),
         (
+            "",
             "consts.py",
             "Tight.check",
             jump("check \u{2192} Limits.check (via Tight)", "consts.py:15"),
         ),
-        // Behind an import, an alias and a module.
         (
+            "behind an import, an alias and a module",
             "consts_use.py",
             "Color.GREEN",
             jump("GREEN \u{2192} Color.GREEN (via Color)", "consts.py:28"),
         ),
         (
+            "",
             "consts_use.py",
             "Caps.MAX_USERS",
             jump(
@@ -329,12 +333,13 @@ fn a_python_class_attribute_is_looked_up_in_the_class() {
             ),
         ),
         (
+            "",
             "consts_use.py",
             "consts.Shade.RED",
             jump("RED \u{2192} Shade.RED (via consts.Shade)", "consts.py:32"),
         ),
-        // `self.count = 0` is an instance's.
         (
+            "`self.count = 0` is an instance's",
             "consts.py",
             "Tight.count",
             jump(
@@ -343,11 +348,13 @@ fn a_python_class_attribute_is_looked_up_in_the_class() {
             ),
         ),
         (
+            "",
             "consts.py",
             "Limits.missing",
             jump("no definition for missing", "consts.py:48"),
         ),
         (
+            "",
             "consts.py",
             "Color.RED.value",
             jump(
@@ -356,12 +363,13 @@ fn a_python_class_attribute_is_looked_up_in_the_class() {
             ),
         ),
         (
+            "",
             "consts.py",
             "scan.cache",
             jump("no definition for cache", "consts.py:54"),
         ),
-        // The function's own `class Color`, which the rules do not read (#101).
         (
+            "the function's own `class Color`, which the rules do not read",
             "consts.py",
             "Color.RED|  # the class",
             picker(
@@ -374,11 +382,13 @@ fn a_python_class_attribute_is_looked_up_in_the_class() {
             ),
         ),
         (
+            "",
             "consts.py",
             "Color.RED|  # a parameter",
             jump("RED \u{2192} Shade.RED (via Color: Shade)", "consts.py:32"),
         ),
         (
+            "",
             "consts.py",
             "Limits.MAX_USERS|  # a parameter",
             jump(
@@ -386,9 +396,8 @@ fn a_python_class_attribute_is_looked_up_in_the_class() {
                 "consts.py:12",
             ),
         ),
-        // The class binds the word in a shape the rules do not read: a tuple, a `def` under
-        // an `if`, a `for`. Not reading it is no proof that the base's is meant.
         (
+            "the class binds the word in a shape the rules do not read: a tuple, a `def` under an `if`, a `for`. Not reading it is no proof that the base's is meant",
             "consts.py",
             "    Unread.RANK",
             jump(
@@ -397,6 +406,7 @@ fn a_python_class_attribute_is_looked_up_in_the_class() {
             ),
         ),
         (
+            "under an `if` the walk of `qualified` names nothing",
             "consts.py",
             "    Unread.check",
             picker(
@@ -404,12 +414,12 @@ fn a_python_class_attribute_is_looked_up_in_the_class() {
                 &[
                     ("Limits.check", "consts.py:15"),
                     ("Plain.check", "consts.py:105"),
-                    // Under an `if` the walk of `qualified` names nothing.
                     ("check", "consts.py:112"),
                 ],
             ),
         ),
         (
+            "",
             "consts.py",
             "    Unread.CODE",
             jump(
@@ -417,14 +427,14 @@ fn a_python_class_attribute_is_looked_up_in_the_class() {
                 "consts.py:103",
             ),
         ),
-        // The body goes on past a comment and a string at column 0, and may share the
-        // header's line.
         (
+            "the body goes on past a comment and a string at column 0, and may share the header's line",
             "consts.py",
             "    Noted.Meta",
             jump("Meta \u{2192} Noted.Meta (via Noted)", "consts.py:133"),
         ),
         (
+            "",
             "consts.py",
             "    Queried.RANK",
             jump(
@@ -433,6 +443,7 @@ fn a_python_class_attribute_is_looked_up_in_the_class() {
             ),
         ),
         (
+            "",
             "consts.py",
             "    Short.CODE",
             jump(
@@ -440,8 +451,8 @@ fn a_python_class_attribute_is_looked_up_in_the_class() {
                 "consts.py:103",
             ),
         ),
-        // The header's own lines at the margin end nothing either.
         (
+            "the header's own lines at the margin end nothing either",
             "consts.py",
             "    Flush.CODE",
             jump(
@@ -449,14 +460,14 @@ fn a_python_class_attribute_is_looked_up_in_the_class() {
                 "consts.py:103",
             ),
         ),
-        // … and a nested class, which is what the class declares.
         (
+            "… and a nested class, which is what the class declares",
             "consts.py",
             "    Unread.Meta",
             jump("Meta \u{2192} Unread.Meta (via Unread)", "consts.py:115"),
         ),
-        // Two bases that disagree: the order Python reads them in is not computed.
         (
+            "two bases that disagree: the order Python reads them in is not computed",
             "consts.py",
             "Diamond.LEVEL",
             picker(
@@ -467,28 +478,32 @@ fn a_python_class_attribute_is_looked_up_in_the_class() {
                 ],
             ),
         ),
-        // `with … as`: one line, two targets, and wrapped in brackets.
         (
+            "`with … as`: one line, two targets, and wrapped in brackets",
             "consts.py",
             "        conn|.delete",
             jump("conn \u{2192} scan.conn (local)", "consts.py:70"),
         ),
         (
+            "",
             "consts.py",
             "        handle|.read",
             jump("handle \u{2192} scan.handle (local)", "consts.py:70"),
         ),
         (
+            "",
             "consts.py",
             "        wrapped|.delete",
             jump("wrapped: local", "consts.py:74"),
         ),
         (
+            "",
             "consts.py",
             "conn.delete_user",
             picker("delete_user: by name, 2 declarations", &both_delete_user),
         ),
         (
+            "",
             "consts.py",
             "wrapped.delete_user",
             picker("delete_user: by name, 2 declarations", &both_delete_user),
@@ -496,13 +511,11 @@ fn a_python_class_attribute_is_looked_up_in_the_class() {
     ]);
 }
 
-/// #100. A Python class header wrapped over several lines: its members are the class's,
-/// its bases are read, and from inside it a member's implementations are found, the
-/// bases of the implementing class sharing one line under theirs.
 #[test]
 fn a_wrapped_python_class_header_keeps_its_name_and_its_bases() {
     py_rows(vec![
         (
+            "its members are the class's",
             "impls.py",
             "self.mop",
             jump(
@@ -511,6 +524,7 @@ fn a_wrapped_python_class_header_keeps_its_name_and_its_bases() {
             ),
         ),
         (
+            "its members are the class's",
             "impls.py",
             "job.mop",
             jump(
@@ -519,6 +533,7 @@ fn a_wrapped_python_class_header_keeps_its_name_and_its_bases() {
             ),
         ),
         (
+            "from inside it a member's implementations are found, the bases of the implementing class sharing one line under theirs",
             "impls.py",
             "def tick",
             jump(
@@ -527,6 +542,7 @@ fn a_wrapped_python_class_header_keeps_its_name_and_its_bases() {
             ),
         ),
         (
+            "its bases are read",
             "impls.py",
             "self.sweep",
             jump(
@@ -537,12 +553,11 @@ fn a_wrapped_python_class_header_keeps_its_name_and_its_bases() {
     ]);
 }
 
-/// #100. A parameter of a Python function is named after the function, as a local of its
-/// body is: `RecipeController.get_one.slug`, not `RecipeController.slug`, a field's name.
 #[test]
 fn a_python_parameter_is_named_after_its_function() {
     py_rows(vec![
         (
+            "",
             "params.py",
             "found = slug",
             jump(
@@ -551,6 +566,7 @@ fn a_python_parameter_is_named_after_its_function() {
             ),
         ),
         (
+            "",
             "params.py",
             "return found",
             jump(
@@ -558,8 +574,8 @@ fn a_python_parameter_is_named_after_its_function() {
                 "params.py:3",
             ),
         ),
-        // A signature wrapped over several lines: the parameter, and a local under its `)`.
         (
+            "a signature wrapped over several lines: the parameter, and a local under its `)`",
             "params.py",
             "kept = slugs",
             jump(
@@ -568,6 +584,7 @@ fn a_python_parameter_is_named_after_its_function() {
             ),
         ),
         (
+            "",
             "params.py",
             "return kept",
             jump(
@@ -576,6 +593,7 @@ fn a_python_parameter_is_named_after_its_function() {
             ),
         ),
         (
+            "",
             "params.py",
             "        return slug",
             jump(
@@ -584,6 +602,7 @@ fn a_python_parameter_is_named_after_its_function() {
             ),
         ),
         (
+            "",
             "params.py",
             "return level",
             jump("level \u{2192} top.level (local)", "params.py:17"),
@@ -591,14 +610,11 @@ fn a_python_parameter_is_named_after_its_function() {
     ]);
 }
 
-/// #131. A Python binding that does not start its line is a binding: behind the `:` of a
-/// header on the same line, behind a `;`, annotated, chained. It used to be unseen, and the
-/// module's `ledger`, an `AuditLog`, was proven in its place. One the rules cannot read hides
-/// the module's all the same; a comparison binds nothing.
 #[test]
 fn a_python_binding_need_not_start_its_line() {
-    let users = |n: &str| {
+    let users = |name: &'static str, n: &str| {
         (
+            name,
             "scopes.py",
             format!("ledger.delete_user|({n}"),
             jump(
@@ -607,19 +623,21 @@ fn a_python_binding_need_not_start_its_line() {
             ),
         )
     };
-    let unproven = |n: &str, status: &str| {
+    let unproven = |name: &'static str, n: &str, status: &str| {
         let rows = [
             ("UserRepository.delete_user", "repos.py:8"),
             ("AuditLog.delete_user", "repos.py:13"),
         ];
         (
+            name,
             "scopes.py",
             format!("ledger.delete_user|({n}"),
             picker(status, &rows),
         )
     };
-    let module = |n: &str| {
+    let module = |name: &'static str, n: &str| {
         (
+            name,
             "scopes.py",
             format!("ledger.delete_user|({n}"),
             jump(
@@ -630,58 +648,65 @@ fn a_python_binding_need_not_start_its_line() {
     };
     let by_name = "delete_user: by name, 2 declarations";
     let cases = vec![
-        // `if fresh: ledger = UserRepository()`.
-        users("10"),
-        // … and `else: ledger = open("ledger")`.
-        unproven("11", by_name),
-        // `count = 1; ledger = UserRepository()`.
-        users("12 + count"),
-        // `for name in names["a:b"]: ledger = …`: the `:` of the string ends no header.
-        users("13"),
-        // `with … as source: ledger: UserRepository = source`.
-        users("14"),
-        // The `:` of a header wrapped over two lines, the first ending in `and`, in `(`.
-        users("19"),
-        users("20"),
-        // `first = ledger = UserRepository()`.
-        unproven("15 + len", by_name),
-        // `try: from fakes import ledger`: only the statement starts with `from`.
-        unproven("16", by_name),
-        // `if cold: self.ledger = UserRepository()` beside `self.ledger = AuditLog()`.
+        users("`if fresh: ledger = UserRepository()`", "10"),
+        unproven("… and `else: ledger = open(\"ledger\")`", "11", by_name),
+        users("`count = 1; ledger = UserRepository()`", "12 + count"),
+        users(
+            "`for name in names[\"a:b\"]: ledger = …`: the `:` of the string ends no header",
+            "13",
+        ),
+        users("`with … as source: ledger: UserRepository = source`", "14"),
+        users(
+            "the `:` of a header wrapped over two lines, the first ending in `and`",
+            "19",
+        ),
+        users(
+            "the `:` of a header wrapped over two lines, the first ending in `(`",
+            "20",
+        ),
+        unproven("`first = ledger = UserRepository()`", "15 + len", by_name),
         unproven(
+            "`try: from fakes import ledger`: only the statement starts with `from`",
+            "16",
+            by_name,
+        ),
+        unproven(
+            "`if cold: self.ledger = UserRepository()` beside `self.ledger = AuditLog()`",
             "18",
             "delete_user: by name, 2 declarations (chain broke at ledger)",
         ),
-        // `if ledger == flag: print(ledger)` binds nothing, and neither does a keyword
-        // argument on a line that continues a call: the module's.
-        module("17"),
-        module("21"),
-        // A lambda's `:` behind the end of a call's arguments is no header's.
-        module("22"),
+        module(
+            "`if ledger == flag: print(ledger)` binds nothing: the module's",
+            "17",
+        ),
+        module(
+            "a keyword argument on a line that continues a call binds nothing: the module's",
+            "21",
+        ),
+        module(
+            "a lambda's `:` behind the end of a call's arguments is no header's",
+            "22",
+        ),
     ];
-    for (file, code, want) in cases {
+    for (name, file, code, want) in cases {
         let mut a = fixture_app("python");
         d_on(&mut a, file, &code);
-        assert_eq!(shown(&mut a), want, "{file}: {code}");
+        assert_eq!(shown(&mut a), want, "{name}: {file}: {code}");
     }
 }
 
-/// Step 5 of #68 over the same project in three languages: a word or a qualifier an import
-/// binds to a module of the project is looked for in that module, and the status line names
-/// the file or the package directory. A module that does not declare the word re-exports it,
-/// and the search by name answers, as before.
 #[test]
 fn an_import_inside_the_project_is_looked_up_in_its_module() {
-    let cases: [(&str, &str, &str, Shown); 13] = [
-        // `fakes.py` declares a `UserRepository` too.
+    let cases: [(&str, &str, &str, &str, Shown); 13] = [
         (
+            "`fakes.py` declares a `UserRepository` too",
             "python",
             "jobs.py",
             "repo: UserRepository",
             jump("UserRepository: via import repos.py", "repos.py:4"),
         ),
-        // A package is its `__init__.py`.
         (
+            "a package is its `__init__.py`",
             "python",
             "jobs.py",
             "    connect",
@@ -691,16 +716,17 @@ fn an_import_inside_the_project_is_looked_up_in_its_module() {
             ),
         ),
         (
+            "`store/__init__.py` imports it from `.sessions` and hands it on",
             "python",
             "jobs.py",
             "    open_session",
-            // `store/__init__.py` imports it from `.sessions` and hands it on (#100).
             jump(
                 "open_session: via import store/sessions.py",
                 "store/sessions.py:16",
             ),
         ),
         (
+            "",
             "python",
             "jobs.py",
             "sessions.open_session",
@@ -709,8 +735,8 @@ fn an_import_inside_the_project_is_looked_up_in_its_module() {
                 "store/sessions.py:16",
             ),
         ),
-        // Through an aliased class: its own `start`, not `Pool.start` in the same module.
         (
+            "through an aliased class: its own `start`, not `Pool.start` in the same module",
             "python",
             "jobs.py",
             "StoreSession.start",
@@ -720,6 +746,7 @@ fn an_import_inside_the_project_is_looked_up_in_its_module() {
             ),
         ),
         (
+            "",
             "python",
             "store/__init__.py",
             "return open_session",
@@ -729,13 +756,14 @@ fn an_import_inside_the_project_is_looked_up_in_its_module() {
             ),
         ),
         (
+            "",
             "typescript",
             "jobs.ts",
             "repo: UserRepository",
             jump("UserRepository: via import repos.ts", "repos.ts:5"),
         ),
-        // A default import under another name: the module's `export default`.
         (
+            "a default import under another name: the module's `export default`",
             "typescript",
             "jobs.ts",
             "  connectToStore",
@@ -745,6 +773,7 @@ fn an_import_inside_the_project_is_looked_up_in_its_module() {
             ),
         ),
         (
+            "",
             "typescript",
             "jobs.ts",
             "  openSession",
@@ -756,8 +785,8 @@ fn an_import_inside_the_project_is_looked_up_in_its_module() {
                 ],
             ),
         ),
-        // A namespace behind the `@/` alias of tsconfig.json.
         (
+            "a namespace behind the `@/` alias of tsconfig.json",
             "typescript",
             "jobs.ts",
             "sessions.openSession",
@@ -767,6 +796,7 @@ fn an_import_inside_the_project_is_looked_up_in_its_module() {
             ),
         ),
         (
+            "",
             "typescript",
             "jobs.ts",
             "StoreSession.start",
@@ -776,6 +806,7 @@ fn an_import_inside_the_project_is_looked_up_in_its_module() {
             ),
         ),
         (
+            "",
             "typescript",
             "store/index.ts",
             "return openSession",
@@ -784,24 +815,21 @@ fn an_import_inside_the_project_is_looked_up_in_its_module() {
                 "store/sessions.ts:15",
             ),
         ),
-        // The package function, not the method `Session.Open` nor `fakes.Open`.
         (
+            "the package function, not the method `Session.Open` nor `fakes.Open`",
             "go",
             "jobs.go",
             "store.Open",
             jump("Open: via import store/", "store/store.go:7"),
         ),
     ];
-    for (fixture, file, code, want) in cases {
+    for (name, fixture, file, code, want) in cases {
         let mut a = fixture_app(fixture);
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{fixture}: {code}");
+        assert_eq!(shown(&mut a), want, "{name}: {fixture}: {code}");
     }
 }
 
-/// A type that does not declare the member itself hands it to the class it extends or the
-/// struct it embeds; a field comes down from a base class the same way. The status line keeps
-/// the receiver's own type.
 #[test]
 fn a_typed_receiver_finds_what_its_type_extends() {
     type Probe = (&'static str, &'static str, Shown);
@@ -921,7 +949,6 @@ fn a_member_of_a_value_is_looked_for_outside_the_project_too() {
         ),
     );
     d_on(&mut a, "factories.py", "repo.find_user");
-    // The project first; a dependency shown relative to its root.
     assert_eq!(
         shown(&mut a),
         picker(
@@ -930,9 +957,9 @@ fn a_member_of_a_value_is_looked_for_outside_the_project_too() {
                 ("UserRepository.find_user", "repos.py:5"),
                 ("Client.find_user", "client/api.py:2"),
             ],
-        )
+        ),
+        "the project first; a dependency shown relative to its root"
     );
-    // TypeScript outside the project is read from its declarations, not the bundle.
     let mut a = fixture_app("typescript");
     let (dts, js) = (site.join("client/index.d.ts"), site.join("client/index.js"));
     std::fs::write(
@@ -952,23 +979,18 @@ fn a_member_of_a_value_is_looked_for_outside_the_project_too() {
                 ("UserRepository.findUser", "repos.ts:6"),
                 ("Client.findUser", "client/index.d.ts:2"),
             ],
-        )
+        ),
+        "TypeScript outside the project is read from its declarations, not the bundle"
     );
     std::fs::remove_dir_all(&site).unwrap();
 }
 
-/// #333. A word in the module path of an import line opens that module, in the project or outside
-/// it, matched from the root it lies under: never a method of the name, never a namesake found
-/// by name. So does a name an import binds to a module outside, bare or as a qualifier, unless
-/// the package above binds it itself; and the name a plain `import x` binds is a module or
-/// nothing.
 #[test]
 fn a_module_name_in_or_bound_by_an_import_opens_the_module() {
     let std = external_root(
         "py-modules-std",
         &[
             ("json/__init__.py", "def dumps(obj):\n    pass\n"),
-            // The base interpreter's pip, which a module found by name used to land in.
             (
                 "site-packages/pip/_internal/cli/cmdoptions.py",
                 "json = object()\n",
@@ -993,9 +1015,7 @@ fn a_module_name_in_or_bound_by_an_import_opens_the_module() {
                 "fsspec/github.py",
                 "class GithubFileSystem:\n    def repos(self):\n        pass\n",
             ),
-            // A module of the name deeper in another package is not the one imported.
             ("kombu/utils/yaml.py", "def load(s):\n    pass\n"),
-            // A package that binds the name itself keeps its say.
             ("drf/__init__.py", "fields = None\n"),
             ("drf/fields.py", "x = 1\n"),
         ],
@@ -1016,48 +1036,60 @@ fn a_module_name_in_or_bound_by_an_import_opens_the_module() {
         let place = format!("{}:1", root.join(file).display());
         jump(&format!("{word}: module {file}"), &place)
     };
-    for (code, want) in [
+    for (name, code, want) in [
         (
+            "",
             "from app.repos",
             module("repos", "app/repos.py", Path::new("")),
         ),
         (
+            "",
             "from app|.repos",
             module("app", "app/__init__.py", Path::new("")),
         ),
         (
+            "",
             "from django.core.management",
             module("management", "django/core/management/__init__.py", &site),
         ),
         (
+            "",
             "from django.core|.management",
             module("core", "django/core/__init__.py", &site),
         ),
-        ("^import json", module("json", "json/__init__.py", &std)),
-        ("json|.dumps", module("json", "json/__init__.py", &std)),
         (
+            "the base interpreter's pip, which a module found by name used to land in, is no answer",
+            "^import json",
+            module("json", "json/__init__.py", &std),
+        ),
+        ("", "json|.dumps", module("json", "json/__init__.py", &std)),
+        (
+            "",
             "import serializers",
             module("serializers", "rest_framework/serializers.py", &site),
         ),
         (
+            "",
             "serializers|.ListField",
             module("serializers", "rest_framework/serializers.py", &site),
         ),
-        // Nothing of the name at the root: no module, and no search by name.
         (
+            "nothing of the name at the root: no module, and no search by name; a module of the name deeper in another package is not the one imported",
             "^import yaml",
             jump("no definition for yaml", "app/modules.py:5"),
         ),
         (
+            "nothing of the name at the root: no module, and no search by name",
             "^    yaml|.load",
             jump("no definition for yaml", "app/modules.py:12"),
         ),
-        // Unchanged: what the import takes, and a name the package above binds.
         (
+            "unchanged: what the import takes",
             "import UserRepo",
             jump("UserRepo: via import app/repos.py", "app/repos.py:1"),
         ),
         (
+            "",
             "json.dumps",
             jump(
                 "dumps: via import json",
@@ -1065,6 +1097,7 @@ fn a_module_name_in_or_bound_by_an_import_opens_the_module() {
             ),
         ),
         (
+            "",
             "serializers.ListField",
             jump(
                 "ListField: via import rest_framework.serializers",
@@ -1072,6 +1105,7 @@ fn a_module_name_in_or_bound_by_an_import_opens_the_module() {
             ),
         ),
         (
+            "unchanged: a name the package above binds, a package that binds the name itself keeps its say",
             "import fields",
             jump(
                 "fields: by name, 1 match",
@@ -1080,17 +1114,13 @@ fn a_module_name_in_or_bound_by_an_import_opens_the_module() {
         ),
     ] {
         d_on(&mut a, "app/modules.py", code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
     for d in [dir, std, site] {
         std::fs::remove_dir_all(d).unwrap();
     }
 }
 
-/// #342. A member a project class lacks, when its ancestry goes outside the project, is looked
-/// for only in the project classes extending it; a name qualified by a class imported from
-/// outside is a member of that class, never a top-level namesake; one method outside is offered,
-/// not jumped to, while a field of the name is declared outside too.
 #[test]
 fn a_member_from_outside_never_lands_on_a_namesake() {
     let std = external_root(
@@ -1116,14 +1146,10 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
                 "class AbstractUser:\n    objects = None\n\n\nclass User(AbstractUser):\n    pass\n",
             ),
             ("nltk/chomsky.py", "objects = \"text\"\n"),
-            // Django's `settings` is an instance whose `__getattr__` reads the project's
-            // settings module (#560): its members are nowhere in `django/conf`.
             (
                 "django/conf/__init__.py",
                 "class LazySettings:\n    def __getattr__(self, name):\n        pass\n\n\nsettings = LazySettings()\n",
             ),
-            // Namesakes outside, in the module's package and elsewhere, are no setting of the
-            // project.
             (
                 "django/conf/global_settings.py",
                 "ORIGINALS_DIR = None\nAUTH_USER_MODEL = \"auth.User\"\n",
@@ -1132,7 +1158,6 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
                 "otherlib/consts.py",
                 "ORIGINALS_DIR = 1\nAUTH_USER_MODEL = 1\n",
             ),
-            // A class declared under an `if` is a class of the module all the same.
             (
                 "condpkg/models.py",
                 "if True:\n    class Thing:\n        objects = None\n",
@@ -1191,7 +1216,6 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
                 "app/mocks_native.py",
                 "from unittest import mock\n\n\ndef use(m: mock.NativeMock) -> None:\n    m.return_value = None\n",
             ),
-            // A base written as a call cannot be read: today's search by name.
             (
                 "app/test_six.py",
                 "import six\nfrom django.test import TestCase\n\n\nclass SixCase(six.with_metaclass(type, TestCase)):\n    def test_put(self) -> None:\n        self.client.put(\"/\")\n",
@@ -1200,8 +1224,9 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
     );
     use_roots(&mut a, Kind::Python, &[std.clone(), site.clone()]);
     let outside = |root: &Path, file: &str| format!("{}", root.join(file).display());
-    for (file, code, want) in [
+    for (name, file, code, want) in [
         (
+            "",
             "app/test_views.py",
             "self.client",
             jump(
@@ -1210,6 +1235,7 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
             ),
         ),
         (
+            "a name qualified by a class imported from outside is a member of that class, never a top-level namesake",
             "app/users.py",
             "User.objects",
             jump(
@@ -1217,15 +1243,14 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
                 &format!("{}:2", outside(&site, "django/contrib/auth/models.py")),
             ),
         ),
-        // Not a class of the module: what it holds is not read, the search by name answers
-        // (#560).
         (
+            "Django's `settings` is an instance whose `__getattr__` reads the project's settings module: not a class of the module, what it holds is not read, the search by name answers; namesakes outside, in the module's package and elsewhere, are no setting of the project",
             "app/test_files.py",
             "settings.ORIGINALS_DIR",
             jump("ORIGINALS_DIR: by name, 1 match", "app/settings.py:1"),
         ),
-        // What the project does not set is Django's default, never a namesake elsewhere.
         (
+            "what the project does not set is Django's default, never a namesake elsewhere",
             "app/test_files.py",
             "settings.AUTH_USER_MODEL",
             jump(
@@ -1233,13 +1258,14 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
                 &format!("{}:2", outside(&site, "django/conf/global_settings.py")),
             ),
         ),
-        // Only a module-level assignment of the project: never a method of a project class.
         (
+            "only a module-level assignment of the project: never a method of a project class",
             "app/test_files.py",
             "settings.connect",
             jump("no definition for connect", "app/test_files.py:5"),
         ),
         (
+            "a class declared under an `if` is a class of the module all the same",
             "app/things.py",
             "Thing.objects",
             jump(
@@ -1248,6 +1274,7 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
             ),
         ),
         (
+            "",
             "app/things.py",
             "TestCase.client",
             jump(
@@ -1256,6 +1283,7 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
             ),
         ),
         (
+            "",
             "app/mocks.py",
             "m.return_value",
             jump(
@@ -1264,11 +1292,13 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
             ),
         ),
         (
+            "",
             "app/mocks.py",
             "m.captured_queries",
             jump("no definition for captured_queries", "app/mocks.py:6"),
         ),
         (
+            "",
             "app/test_api.py",
             "self.client|.post",
             jump(
@@ -1278,7 +1308,7 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
         ),
     ] {
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{file}: {code}");
+        assert_eq!(shown(&mut a), want, "{name}: {file}: {code}");
     }
     d_on(&mut a, "app/test_native.py", "self.client|.post");
     assert_eq!(
@@ -1286,7 +1316,8 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
         jump(
             "client \u{2192} SignedNative.client (by name, 1 match)",
             "app/test_native.py:11"
-        )
+        ),
+        "a member a project class lacks, when its ancestry goes outside the project, is looked for only in the project classes extending it"
     );
     d_on(&mut a, "app/mocks_native.py", "m.return_value");
     assert_eq!(
@@ -1298,22 +1329,22 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
                 "by name".into(),
                 "anyio/tasks.py:2".into(),
             )],
-        )
+        ),
+        "one method outside is offered, not jumped to, while a field of the name is declared outside too"
     );
     d_on(&mut a, "app/test_six.py", "self.client");
     let Shown::Picker(_, rows) = shown(&mut a) else {
         panic!("a picker");
     };
-    assert!(rows.iter().any(|r| r.2 == "app/mailer.py:3"), "{rows:?}");
+    assert!(
+        rows.iter().any(|r| r.2 == "app/mailer.py:3"),
+        "a base written as a call cannot be read: today's search by name: {rows:?}"
+    );
     for d in [dir, std, site] {
         std::fs::remove_dir_all(d).unwrap();
     }
 }
 
-/// #336. A builtin has no source: a bare `next` nothing in the file binds, and a member of a
-/// value proven to be a `str`, say so rather than jumping to a namesake outside. A bare name
-/// nothing binds that is no builtin is no method outside, and only a module the file
-/// `*`-imports can declare it there.
 #[test]
 fn a_builtin_says_it_has_no_source() {
     let std = external_root(
@@ -1345,7 +1376,6 @@ fn a_builtin_says_it_has_no_source() {
                 "app/starred.py",
                 "from tools import *\n\n\ndef go() -> None:\n    helper()\n",
             ),
-            // A project class called `str` is read as before.
             (
                 "app/own_str.py",
                 "class str:\n    def replace(self):\n        pass\n\n\ndef go(s: str) -> None:\n    s.replace()\n",
@@ -1354,8 +1384,9 @@ fn a_builtin_says_it_has_no_source() {
     );
     use_roots(&mut a, Kind::Python, std::slice::from_ref(&std));
     let here = |file: &str, line: usize| format!("{file}:{line}");
-    for (file, code, want) in [
+    for (name, file, code, want) in [
         (
+            "a member of a value proven to be a `str` says it has no source rather than jumping to a namesake outside",
             "app/builtins_use.py",
             "s.replace",
             jump(
@@ -1364,11 +1395,13 @@ fn a_builtin_says_it_has_no_source() {
             ),
         ),
         (
+            "a bare `next` nothing in the file binds says it has no source rather than jumping to a namesake outside",
             "app/builtins_use.py",
             "next",
             jump("next: builtin, no source", &here("app/builtins_use.py", 8)),
         ),
         (
+            "",
             "app/builtins_use.py",
             "name.upper",
             jump(
@@ -1377,11 +1410,13 @@ fn a_builtin_says_it_has_no_source() {
             ),
         ),
         (
+            "a bare name nothing binds that is no builtin is no method outside",
             "app/builtins_use.py",
             "^    helper",
             jump("no definition for helper", &here("app/builtins_use.py", 10)),
         ),
         (
+            "only a module the file `*`-imports can declare a bare name outside",
             "app/starred.py",
             "^    helper",
             jump(
@@ -1390,6 +1425,7 @@ fn a_builtin_says_it_has_no_source() {
             ),
         ),
         (
+            "a project class called `str` is read as before",
             "app/own_str.py",
             "s.replace",
             jump(
@@ -1399,15 +1435,12 @@ fn a_builtin_says_it_has_no_source() {
         ),
     ] {
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{file}: {code}");
+        assert_eq!(shown(&mut a), want, "{name}: {file}: {code}");
     }
     std::fs::remove_dir_all(dir).unwrap();
     std::fs::remove_dir_all(std).unwrap();
 }
 
-/// #338. A `def` nested in a function outside the project is no method: `unittest/mock.py`
-/// nests a `def assert_not_called` in `_setup_func`, beside the method of that name. The
-/// project's cases are annotations in `tests/fixtures/python/shop/nesting.py`.
 #[test]
 fn a_python_def_nested_in_a_function_outside_is_no_method() {
     let std = external_root(
@@ -1431,7 +1464,8 @@ fn a_python_def_nested_in_a_function_outside_is_no_method() {
         jump(
             "assert_not_called \u{2192} NonCallableMock.assert_not_called (by name, 1 match)",
             &format!("{}:9", std.join("mock.py").display()),
-        )
+        ),
+        "`unittest/mock.py` nests a `def assert_not_called` in `_setup_func`, beside the method of that name"
     );
     std::fs::remove_dir_all(dir).unwrap();
     std::fs::remove_dir_all(std).unwrap();

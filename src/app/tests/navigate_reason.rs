@@ -1,12 +1,8 @@
-//! What `d` says about how it found the target, and the cut greps.
-
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 
 use super::*;
 
-/// What `d` says about a lookup outside the project: the module an import or a path names,
-/// and "by name" once the search is no longer inside it.
 #[test]
 fn a_module_lookup_says_which_module_or_that_it_went_by_name() {
     let (dir, mut a) = project_app(
@@ -24,7 +20,6 @@ fn a_module_lookup_says_which_module_or_that_it_went_by_name() {
                 "m.py",
                 "import os\nimport jsonx\n\nos.path.join('a', 'b')\njsonx.dumps_x(1)\n",
             ),
-            // The project's own `dumps_x` is not the one `import jsonx` names.
             ("codec.py", "def dumps_x(o):\n    return o\n"),
             (
                 "app.ts",
@@ -47,7 +42,6 @@ fn a_module_lookup_says_which_module_or_that_it_went_by_name() {
                 "github.com/other/lib@v1.0.0/lib.go",
                 "package lib\n\nfunc Baz() {}\n",
             ),
-            // `kit` does not declare `Wire`: a package inside it is another package.
             (
                 "example.com/kit@v1.0.0/kit.go",
                 "package kit\n\nfunc Other() {}\n",
@@ -60,8 +54,6 @@ fn a_module_lookup_says_which_module_or_that_it_went_by_name() {
                 "github.com/else/thing@v1.0.0/thing.go",
                 "package thing\n\nfunc Wire() {}\n",
             ),
-            // A Go package is one directory: `database/sql` is not `database/sql/driver`,
-            // and the standard library's `errors` is not a module's.
             (
                 "src/database/sql/sql.go",
                 "package sql\n\nfunc Open(driver, dsn string) {}\n",
@@ -101,9 +93,9 @@ fn a_module_lookup_says_which_module_or_that_it_went_by_name() {
         use_roots(&mut a, kind, std::slice::from_ref(&root));
     }
     let at = |p: &str| format!("{}", root.join(p).display());
-    for (file, code, want) in [
-        // A Go package named without its module path's `.v3`.
+    for (name, file, code, want) in [
         (
+            "a Go package named without its module path's `.v3`",
             "main.go",
             "yaml.Unmarshal",
             jump(
@@ -111,14 +103,14 @@ fn a_module_lookup_says_which_module_or_that_it_went_by_name() {
                 &at("gopkg.in/yaml.v3@v3.0.1/yaml.go:3"),
             ),
         ),
-        // `github.com/foo/bar` is not installed: `github.com/other/lib` only shares a prefix,
-        // and a Go package is its own directory or nothing (#332).
         (
+            "`github.com/foo/bar` is not installed: `github.com/other/lib` only shares a prefix, and a Go package is its own directory or nothing",
             "main.go",
             "bar.Baz",
             jump("no definition for Baz", "main.go:15"),
         ),
         (
+            "a Go package is one directory: `database/sql` is not `database/sql/driver`",
             "main.go",
             "sql.Open",
             jump(
@@ -127,26 +119,25 @@ fn a_module_lookup_says_which_module_or_that_it_went_by_name() {
             ),
         ),
         (
+            "the standard library's `errors` is not a module's",
             "main.go",
             "errors.New",
             jump("New: via import errors", &at("src/errors/errors.go:3")),
         ),
-        // Nor is a package inside the imported one: Go has no re-exports, and a name the
-        // package lacks is declared nowhere else (#332).
         (
+            "`kit` does not declare `Wire`, and nor is a package inside the imported one: Go has no re-exports, and a name the package lacks is declared nowhere else",
             "main.go",
             "kit.Wire",
             jump("no definition for Wire", "main.go:14"),
         ),
-        // A package that is not installed: its parent directory is no proof.
         (
+            "a package that is not installed: its parent directory is no proof",
             "main.go",
             "pq.Open",
             jump("no definition for Open", "main.go:18"),
         ),
-        // A Rust call on a value still looks outside the project, and a trait's own method is
-        // where every call of it lands (#358).
         (
+            "a Rust call on a value still looks outside the project, and a trait's own method is where every call of it lands",
             "main.rs",
             ".into_owned",
             jump(
@@ -154,9 +145,8 @@ fn a_module_lookup_says_which_module_or_that_it_went_by_name() {
                 &at("alloc/src/borrow.rs:2"),
             ),
         ),
-        // A value named like a module is a value like any other (#358): the one method of the
-        // name outside the project, by name.
         (
+            "a value named like a module is a value like any other: the one method of the name outside the project, by name",
             "main.rs",
             "path.join",
             jump(
@@ -165,26 +155,27 @@ fn a_module_lookup_says_which_module_or_that_it_went_by_name() {
             ),
         ),
         (
+            "",
             "main.rs",
             "std::fs::read_to_string",
             jump("read_to_string: via std::fs", &at("std/src/fs.rs:1")),
         ),
         (
+            "",
             "m.py",
             "os.path.join",
             jump("join: via import os.path", &at("os/path.py:1")),
         ),
-        // The name a TypeScript import takes is not a file of the package.
         (
+            "the name a TypeScript import takes is not a file of the package",
             "app.ts",
             "new Hono",
             jump("Hono: via import hono", &at("hono/dist/types/hono.d.ts:1")),
         ),
     ] {
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
-    // Rows that share an import say so, and so does the title.
     d_on(&mut a, "m.py", "jsonx.dumps_x");
     let row = |place: &str| {
         (
@@ -198,14 +189,13 @@ fn a_module_lookup_says_which_module_or_that_it_went_by_name() {
         Shown::Picker(
             "dumps_x: via import jsonx, 2 declarations".into(),
             vec![row("jsonx/a.py:1"), row("jsonx/b.py:1")],
-        )
+        ),
+        "rows that share an import say so, and so does the title; the project's own `dumps_x` is not the one `import jsonx` names"
     );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();
 }
 
-/// #235: the status line names a file `d` found outside the project from the root it came
-/// from, as the picker does, so the column, `read-only` and the reason fit beside it.
 #[test]
 fn a_jump_outside_names_the_file_from_its_root() {
     let (dir, mut a) = project_app("status", &[("m.py", "import json\n\njson.dumps(1)\n")]);
@@ -229,16 +219,14 @@ fn a_jump_outside_names_the_file_from_its_root() {
         let status: String = (0..width).map(|x| buf[(x, 3)].symbol()).collect();
         assert_eq!(
             status.trim_end(),
-            "json/__init__.py  4:5  [code]  read-only  dumps: via import json"
+            "json/__init__.py  4:5  [code]  read-only  dumps: via import json",
+            "as the picker does, so the column, `read-only` and the reason fit beside it: {width}"
         );
     }
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();
 }
 
-/// A root that is one package, a crate Cargo unpacked or a module Go did, keeps its name on
-/// the status line and in the picker, so its `src/lib.rs` never reads like the project's own. A
-/// root of many packages is named from inside, as the standard library is.
 #[test]
 fn a_root_of_one_package_keeps_its_name() {
     let (dir, mut a) = project_app(
@@ -286,31 +274,37 @@ fn a_root_of_one_package_keeps_its_name() {
         "mod/github.com/jackc/pgx/v5@v5.5.0",
     ];
     use_roots(&mut a, Kind::Go, &modules.map(|m| outside.join(m)));
-    for (path, name) in [
-        (dir.join("src/lib.rs"), "src/lib.rs"),
+    for (why, path, name) in [
+        ("", dir.join("src/lib.rs"), "src/lib.rs"),
         (
+            "a crate Cargo unpacked keeps its name, so its `src/lib.rs` never reads like the project's own",
             outside.join("registry/serde-1.0.200/src/lib.rs"),
             "serde-1.0.200/src/lib.rs",
         ),
-        (outside.join("go/src/fmt/print.go"), "fmt/print.go"),
-        // A module path that ends in its major version is named by the element before it too.
         (
+            "a root of many packages is named from inside, as the standard library is",
+            outside.join("go/src/fmt/print.go"),
+            "fmt/print.go",
+        ),
+        (
+            "a module path that ends in its major version is named by the element before it too",
             outside.join("mod/github.com/jackc/pgx/v5@v5.5.0/conn.go"),
             "pgx/v5@v5.5.0/conn.go",
         ),
     ] {
         a.jump_to(&path, 1);
-        assert_eq!(a.rel_path(), name);
+        assert_eq!(a.rel_path(), name, "{why}");
     }
-    // Go has no re-exports: a package that does not declare the name is the answer (#332).
     d_on(&mut a, "main.go", "kit.Wire");
-    assert_eq!(shown(&mut a), jump("no definition for Wire", "main.go:6"));
+    assert_eq!(
+        shown(&mut a),
+        jump("no definition for Wire", "main.go:6"),
+        "Go has no re-exports: a package that does not declare the name is the answer"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&outside).unwrap();
 }
 
-/// `self.word` alone is the class's own member: a dependency's method of that name is not
-/// a candidate.
 #[test]
 fn a_bare_self_stays_in_the_project() {
     let (dir, mut a) = project_app(
@@ -331,7 +325,8 @@ fn a_bare_self_stays_in_the_project() {
     d_on(&mut a, "a.py", "self.stop");
     assert_eq!(
         shown(&mut a),
-        jump("stop \u{2192} A.stop (via self: A)", "a.py:2")
+        jump("stop \u{2192} A.stop (via self: A)", "a.py:2"),
+        "a dependency's method of that name is not a candidate"
     );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();
@@ -364,9 +359,6 @@ fn a_self_word_past_a_base_outside_the_project_stays_in_it() {
     std::fs::remove_dir_all(&root).unwrap();
 }
 
-/// #100. A grep that stopped at the cap counts a lower bound also after a filter has made
-/// the list short: the one top-level `Pick` left of a cut list is offered with a `+`, not
-/// jumped to as the package's only one.
 #[test]
 fn a_count_behind_a_cut_grep_says_so() {
     let (dir, mut a) = project_app(
@@ -395,14 +387,13 @@ fn a_count_behind_a_cut_grep_says_so() {
                 "via import example.com/lib".into(),
                 "example.com/lib@v1.0.0/lib.go:3".into()
             )],
-        )
+        ),
+        "the one top-level `Pick` left of a cut list is offered with a `+`, not jumped to as the package's only one"
     );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();
 }
 
-/// A cut in a grep whose hits are all dropped (`x.String` looked for as `x`'s own `String`)
-/// does not mark the members that are then listed: one match is a jump, as it was.
 #[test]
 fn a_cut_grep_that_is_dropped_marks_nothing() {
     let plain = "func String() {}\n".repeat(search::MAX_HITS);
@@ -421,14 +412,12 @@ fn a_cut_grep_that_is_dropped_marks_nothing() {
     d_on(&mut a, "main.go", "x.String");
     assert_eq!(
         shown(&mut a),
-        jump("String \u{2192} T.String (by name, 1 match)", "main.go:5")
+        jump("String \u{2192} T.String (by name, 1 match)", "main.go:5"),
+        "the members listed after the dropped hits are not marked: one match is a jump, as it was"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #104. The field lines of a name are grepped apart from its methods: a file of object-literal
-/// keys that fills the grep leaves the method a candidate, and the count says the field side
-/// was cut, so a single candidate is offered rather than jumped to.
 #[test]
 fn a_field_grep_cut_at_the_cap_keeps_the_methods_and_says_so() {
     let keys = format!(
@@ -458,13 +447,12 @@ fn a_field_grep_cut_at_the_cap_keeps_the_methods_and_says_so() {
         picker(
             "id: by name, 1+ declarations",
             &[("Model.id", "z/model.ts:2")]
-        )
+        ),
+        "a file of object-literal keys that fills the grep leaves the method a candidate, and the count says the field side was cut"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// An editable install puts the project's own `src` on `sys.path`: a file the project walk
-/// listed stays editable, while a gitignored `.venv` under the root does not.
 #[test]
 fn a_project_file_under_an_external_root_stays_editable() {
     let (dir, mut a) = project_app(
@@ -492,13 +480,19 @@ fn a_project_file_under_an_external_root_stays_editable() {
             "src/app/repo.py:2"
         )
     );
-    assert_eq!(a.buf.readonly, None);
+    assert_eq!(
+        a.buf.readonly, None,
+        "an editable install puts the project's own `src` on `sys.path`: a file the project walk listed stays editable"
+    );
     a.jump_to(&dir.join(".venv/lib/site.py"), 1);
-    assert_eq!(a.buf.readonly, Some("outside the project"));
+    assert_eq!(
+        a.buf.readonly,
+        Some("outside the project"),
+        "a gitignored `.venv` under the root does not stay editable"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Edits that cannot be saved keep merl on the file; the status line must not claim `d` went.
 #[test]
 fn a_refused_jump_does_not_report_a_resolution() {
     let (dir, mut a) = project_app(
@@ -511,17 +505,23 @@ fn a_refused_jump_does_not_report_a_resolution() {
     a.jump_to(&dir.join("b.py"), 3);
     (a.dirty, a.conflict) = (true, true);
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
-    assert_eq!(at(&a), (dir.join("b.py"), 2));
-    assert_eq!(a.message, "");
+    assert_eq!(
+        at(&a),
+        (dir.join("b.py"), 2),
+        "edits that cannot be saved keep merl on the file"
+    );
+    assert_eq!(a.message, "", "the status line must not claim `d` went");
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
 #[test]
 fn a_jump_says_how_the_target_was_found() {
     let mut a = fixture_app("go");
-    // A bare word declared at the top level: nothing to qualify it with.
     d_on(&mut a, "service.go", "\tHandleDelete");
-    assert_eq!(a.message, "HandleDelete: by name, 1 match");
+    assert_eq!(
+        a.message, "HandleDelete: by name, 1 match",
+        "a bare word declared at the top level: nothing to qualify it with"
+    );
     assert!(a.line_str().starts_with("func HandleDelete("));
     let one = |reason| {
         vec![Candidate {
@@ -551,24 +551,23 @@ fn a_jump_says_how_the_target_was_found() {
         resolution("read", None, &two, None, false),
         "read: 2 declarations"
     );
-    // The candidates stop at MAX_HITS: the count is a lower bound.
     let many: Vec<Candidate> = (0..search::MAX_HITS)
         .flat_map(|_| one(Reason::ByName))
         .collect();
     assert_eq!(
         resolution("save", None, &many, None, false),
-        format!("save: by name, {}+ declarations", search::MAX_HITS)
+        format!("save: by name, {}+ declarations", search::MAX_HITS),
+        "the candidates stop at MAX_HITS: the count is a lower bound"
     );
-    // So is a list a search cut short, one candidate or more.
     assert_eq!(
         resolution("id", None, &one(Reason::ByName), None, true),
-        "id: by name, 1+ declarations"
+        "id: by name, 1+ declarations",
+        "so is a list a search cut short, one candidate or more"
     );
     assert_eq!(
         resolution("read", None, &[], None, false),
         "no definition for read"
     );
-    // A chain in front of the word that could not be followed says where it broke.
     assert_eq!(
         resolution(
             "remove",
@@ -577,11 +576,13 @@ fn a_jump_says_how_the_target_was_found() {
             Some("users"),
             false
         ),
-        "remove \u{2192} UserService.remove (by name, 1 match, chain broke at users)"
+        "remove \u{2192} UserService.remove (by name, 1 match, chain broke at users)",
+        "a chain in front of the word that could not be followed says where it broke"
     );
     assert_eq!(
         resolution("read", None, &[], Some("repo"), false),
-        "no definition for read (chain broke at repo)"
+        "no definition for read (chain broke at repo)",
+        "a chain in front of the word that could not be followed says where it broke"
     );
 }
 
@@ -599,17 +600,17 @@ fn navigation_searches_the_open_file_as_it_is_on_screen() {
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-    // Undo from navigation: until autosave the buffer is a line shorter than the disk.
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
-    assert!(a.dirty);
+    assert!(
+        a.dirty,
+        "undo from navigation: until autosave the buffer is a line shorter than the disk"
+    );
     a.col = 12;
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
     assert_eq!(a.line_str(), "fn target() {}", "{}", a.message);
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #307: a well-known type the project does not vendor is found under a root outside it, as
-/// `protoc -I` finds it: the file its `import` names, and the message its package declares.
 #[test]
 fn proto_finds_an_import_and_a_type_only_under_a_root_outside() {
     let (dir, mut a) = project_app(
@@ -636,12 +637,14 @@ fn proto_finds_an_import_and_a_type_only_under_a_root_outside() {
     d_on(&mut a, "shop/v1/order.proto", "google/protobuf/timestamp");
     assert_eq!(
         shown(&mut a),
-        jump("timestamp: module google/protobuf/timestamp.proto", &at(1))
+        jump("timestamp: module google/protobuf/timestamp.proto", &at(1)),
+        "the file its `import` names, as `protoc -I` finds it"
     );
     d_on(&mut a, "shop/v1/order.proto", "google.protobuf.Timestamp");
     assert_eq!(
         shown(&mut a),
-        jump("Timestamp: via google.protobuf", &at(5))
+        jump("Timestamp: via google.protobuf", &at(5)),
+        "the message its package declares"
     );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();

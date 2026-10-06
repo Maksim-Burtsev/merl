@@ -1,10 +1,5 @@
-//! `d` in Rust against a standard library and dependencies on disk: what the fixtures, which
-//! have none, cannot show.
-
 use super::*;
 
-/// #370: a word inside an attribute is a macro outside the project or nothing, never a project
-/// item of its name; a field access with nothing in the project reads the `pub` fields outside.
 #[test]
 fn attributes_name_macros_and_fields_reach_outside() {
     let (dir, mut a) = project_app(
@@ -121,9 +116,6 @@ fn attributes_name_macros_and_fields_reach_outside() {
     std::fs::remove_dir_all(&std).unwrap();
 }
 
-/// #358: `x.method()` of a type `d` does not know is every method of the name the cursor can
-/// reach, in the project, the standard library and the dependencies, and the one trait's method
-/// when every candidate declares or implements it.
 #[test]
 fn a_method_of_an_unknown_type_is_every_reachable_one() {
     let lock = "version = 3\n\n[[package]]\nname = \"dep\"\nversion = \"1.0.0\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\n\n[[package]]\nname = \"far\"\nversion = \"1.0.0\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\n\n[[package]]\nname = \"other\"\nversion = \"0.1.0\"\ndependencies = [\n \"far\",\n]\n\n[[package]]\nname = \"repro\"\nversion = \"0.1.0\"\ndependencies = [\n \"dep\",\n]\n";
@@ -471,8 +463,6 @@ fn each_reach_rule_keeps_or_drops_its_namesake() {
     std::fs::remove_dir_all(&registry).unwrap();
 }
 
-/// #529: a struct literal's key lands on the field of the literal's type, the project's or a
-/// dependency's, and never on a method of the name.
 #[test]
 fn a_literal_key_is_its_struct_field_inside_and_out() {
     let (dir, mut a) = project_app(
@@ -495,16 +485,23 @@ fn a_literal_key_is_its_struct_field_inside_and_out() {
     let knobs = registry.join("knobs-1.0.0");
     use_roots(&mut a, Kind::Rust, std::slice::from_ref(&knobs));
     d_on(&mut a, "src/lib.rs", "Printer { hyperlink|: 1");
-    assert_eq!(at(&a), (dir.join("src/lib.rs"), 3), "{}", a.message);
+    assert_eq!(
+        at(&a),
+        (dir.join("src/lib.rs"), 3),
+        "the field of the literal's type, never a method of the name: {}",
+        a.message
+    );
     d_on(&mut a, "src/lib.rs", "Opts { depth|: 2");
-    assert_eq!(at(&a), (knobs.join("src/lib.rs"), 1), "{}", a.message);
+    assert_eq!(
+        at(&a),
+        (knobs.join("src/lib.rs"), 1),
+        "a dependency's field: {}",
+        a.message
+    );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&registry).unwrap();
 }
 
-/// #350: the first name of a path names the crate searched first, a `use` of the file or the
-/// path written out, and in it the module the path spells; a project namesake found by name is
-/// no answer then.
 #[test]
 fn a_path_is_looked_up_in_the_crate_its_first_name_names() {
     let (dir, mut a) = project_app(
