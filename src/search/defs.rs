@@ -862,6 +862,23 @@ pub fn stage_entries(before: &str, text: &str, word: &str) -> Option<Vec<usize>>
     }
     Some(found)
 }
+const SHAPE_WORD: &str = "MerlShapeWord";
+fn ts_shapes(word: &str) -> [String; 3] {
+    let def = def_patterns(Kind::TsJs, word);
+    let members = member_patterns(Kind::TsJs, word).unwrap_or_default();
+    let mut global = def.clone();
+    global.extend(member_or_signature(Kind::TsJs, word).unwrap_or_default());
+    [def.join("|"), members.join("|"), global.join("|")]
+}
+pub fn ts_shape(word: &str, pattern: &str) -> Option<&'static grep_regex::RegexMatcher> {
+    static SHAPE: std::sync::LazyLock<grep_regex::RegexMatcher> = std::sync::LazyLock::new(|| {
+        let [.., every] = ts_shapes(SHAPE_WORD);
+        super::shape_matcher(&every.replace(SHAPE_WORD, "[A-Za-z0-9_$]+"))
+    });
+    let plain = !word.is_empty()
+        && (word.bytes()).all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'$');
+    (plain && ts_shapes(word).iter().any(|p| p == pattern)).then(|| &*SHAPE)
+}
 /// [`member_patterns`] and, in Go, the method lines of an interface, which carry no receiver:
 /// every form in which a type declares a member called `word`.
 pub fn member_or_signature(kind: Kind, word: &str) -> Option<Vec<String>> {
