@@ -105,6 +105,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in Common Lisp on a variable `loop` binds, `line` of `(loop for line in data …)`, lands
   on its `for`, `as` or `with` clause, a destructuring `for (key value) in …` included, where it
   jumped to a global of the same name or said `no definition`. (#734)
+- `d` in Emacs Lisp on a variable bound earlier in the same `when-let*`, `if-let*`, `and-let*`,
+  `pcase-let*` or `let*` list, `limit` in `(when-let* ((limit limit) (limit (* 2 limit))) …)`,
+  lands on the binding just above it, where it jumped to an outer `let` of the same name. A
+  binding's own value still reads the one outside it. (#731)
 
 ## [0.8.2] - 2026-10-04
 

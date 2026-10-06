@@ -1,6 +1,22 @@
 use super::*;
 
 impl App {
+    pub(super) fn binding_lines(
+        &self,
+        kind: Kind,
+        text: &str,
+        line: usize,
+        col: usize,
+        bare: bool,
+        name: &str,
+    ) -> Vec<usize> {
+        let found = match search::lisp(kind) && bare && line == self.line + 1 {
+            true => search::lisp_bindings_at(kind, text, line, col, name),
+            false => search::bindings(kind, text, line, name),
+        };
+        found.iter().map(|b| b.line).collect()
+    }
+
     pub(super) fn clojure_qualified(
         &self,
         text: &str,

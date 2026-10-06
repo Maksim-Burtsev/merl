@@ -291,6 +291,8 @@ struct Frame<'a> {
     scope: usize,
     params: bool,
     loop_var: bool,
+    sequential: bool,
+    entry: Option<usize>,
 }
 
 const CLOJURE_LETS: &[&str] = &[
@@ -306,7 +308,19 @@ const CLOJURE_LETS: &[&str] = &[
     "if-some",
     "dotimes",
 ];
-const LETS: &[&str] = &["let", "let*", "letrec", "letrec*", "flet", "labels"];
+const LETS: &[&str] = &[
+    "let",
+    "let*",
+    "letrec",
+    "letrec*",
+    "flet",
+    "labels",
+    "when-let*",
+    "if-let*",
+    "and-let*",
+    "pcase-let*",
+];
+const SEQUENTIAL: &[&str] = &["let*", "when-let*", "if-let*", "and-let*", "pcase-let*"];
 const LOOP_VARS: &[&str] = &["for", "as", "with"];
 const DEFUNS: &[&str] = &[
     "defun",
@@ -331,7 +345,27 @@ fn binds(atom: &str) -> bool {
     !atom.starts_with([':', '&', '"', '#']) && atom != "."
 }
 
-pub(super) fn lisp_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+pub fn lisp_bindings_at(
+    kind: Kind,
+    text: &str,
+    line: usize,
+    col: usize,
+    name: &str,
+) -> Vec<Binding> {
+    let lines: Vec<&str> = text.lines().collect();
+    match line.checked_sub(1).filter(|&i| i < lines.len()) {
+        Some(at) => lisp_bindings(kind, &lines, at, Some(col), name),
+        None => Vec::new(),
+    }
+}
+
+pub(super) fn lisp_bindings(
+    kind: Kind,
+    lines: &[&str],
+    at: usize,
+    col: Option<usize>,
+    name: &str,
+) -> Vec<Binding> {
     let text = lines.join("\n");
     let code = String::from_utf8_lossy(&lex(kind, &text).code).into_owned();
     let starts: Vec<usize> = std::iter::once(0)
@@ -351,7 +385,7 @@ pub(super) fn lisp_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -
     };
     let clojure = kind == Kind::Clojure;
     let mut scopes: Vec<(usize, Option<usize>)> = Vec::new();
-    let mut found: Vec<(usize, usize)> = Vec::new();
+    let mut found: Vec<(usize, usize, usize)> = Vec::new();
     let mut stack: Vec<Frame> = Vec::new();
     for (tok, pos) in tokens(&code[starts[top]..]) {
         let pos = pos + starts[top];
@@ -363,6 +397,16 @@ pub(super) fn lisp_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -
                 let role = stack
                     .last_mut()
                     .map_or(Role::Plain, |p| child_role(clojure, p, c));
+                let (sequential, entry) = match stack.last() {
+                    Some(p) if role == Role::Entries => (
+                        SEQUENTIAL.contains(&p.head.unwrap_or("").to_ascii_lowercase().as_str()),
+                        None,
+                    ),
+                    Some(p) if p.role == Role::Entries && p.sequential => {
+                        (false, Some(found.len()))
+                    }
+                    _ => (false, None),
+                };
                 let scope = match (role, stack.last()) {
                     (Role::Plain | Role::Arity, _) | (_, None) => {
                         scopes.push((pos, None));
@@ -377,6 +421,8 @@ pub(super) fn lisp_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -
                     scope,
                     params: false,
                     loop_var: false,
+                    sequential,
+                    entry,
                 });
             }
             Tok::Close => {
@@ -384,12 +430,18 @@ pub(super) fn lisp_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -
                 if matches!(f.role, Role::Plain | Role::Arity) {
                     scopes[f.scope].1 = Some(pos);
                 }
+                if let Some(from) = f.entry {
+                    for e in found[from..].iter_mut().filter(|e| e.2 == usize::MAX) {
+                        e.2 = pos;
+                    }
+                }
                 match stack.last_mut() {
                     Some(p) => p.idx += 1,
                     None => break,
                 }
             }
             Tok::Atom(a) => {
+                let pending = stack.last().is_some_and(|f| f.entry.is_some());
                 let Some(f) = stack.last_mut() else { break };
                 if f.idx == 0 {
                     f.head = Some(a);
@@ -408,7 +460,7 @@ pub(super) fn lisp_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -
                     _ => false,
                 };
                 if bound && binds(a) && same(a) {
-                    found.push((f.scope, pos));
+                    found.push((f.scope, pos, if pending { usize::MAX } else { pos }));
                 }
                 if looping {
                     f.loop_var = !f.loop_var && LOOP_VARS.iter().any(|k| k.eq_ignore_ascii_case(a));
@@ -417,13 +469,16 @@ pub(super) fn lisp_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -
             }
         }
     }
+    let open_at =
+        |scope: usize, at: usize| scopes[scope].0 < at && scopes[scope].1.is_none_or(|c| c >= at);
     found
         .into_iter()
-        .filter(|&(scope, pos)| {
-            pos >= here || (scopes[scope].0 < here && scopes[scope].1.is_none_or(|c| c >= here))
+        .filter(|&(scope, pos, visible)| match col {
+            None => pos >= here || open_at(scope, here),
+            Some(col) => pos == here + col || (visible < here + col && open_at(scope, here + col)),
         })
-        .max_by_key(|&(scope, pos)| (scopes[scope].0, pos))
-        .map(|(_, pos)| Binding {
+        .max_by_key(|&(scope, pos, _)| (scopes[scope].0, pos))
+        .map(|(_, pos, _)| Binding {
             line: line_of(&text, pos),
             value: Value::Unknown,
         })

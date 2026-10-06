@@ -358,10 +358,7 @@ impl App {
         let locals_at = |text: &str, line: usize| -> Vec<usize> {
             let binding: Vec<usize> = match declared {
                 true => vec![self.line + 1],
-                false => search::bindings(kind, text, line, first)
-                    .iter()
-                    .map(|b| b.line)
-                    .collect(),
+                false => self.binding_lines(kind, text, line, range.start, chain.is_empty(), first),
             };
             binding
                 .into_iter()
