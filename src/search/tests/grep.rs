@@ -184,3 +184,67 @@ fn a_declaration_comes_first_and_the_nearest_directory_next() {
     assert_eq!(rank(test, None, true).0, Tier::Tests);
     assert_eq!(rank(here, None, true).0, Tier::Declaration);
 }
+
+#[test]
+fn a_declaration_outside_is_found_from_the_lines_kept_of_its_file() {
+    let dir = std::env::temp_dir().join(format!("merl-shaped-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let texts = [
+        (
+            "a.d.ts",
+            "export declare function value(x: number): string;\nconst value$ = 1\n  value(): void;\n  value: string;\r\n  value<\n    T,\n  >(x: T): this {\nlet values = 2;\nexport { value as other };\n  value = () => 1",
+        ),
+        (
+            "b.js",
+            "function first() {}\n\tvalue: function () {},\nfoo(value);\n",
+        ),
+        ("c.js", "var value = 1;\n\0binary"),
+        ("d.js", "\u{feff}function value() {}\n"),
+        (
+            "e.js",
+            "class X {\n  static value = async (a) => a;\n  constructor(private value: V) {}\n}\n",
+        ),
+    ];
+    for (name, text) in texts {
+        std::fs::write(dir.join(name), text).unwrap();
+    }
+    let files: Vec<PathBuf> = texts.iter().map(|(n, _)| dir.join(n)).collect();
+    let rows = |hits: Vec<Hit>| -> Vec<(PathBuf, usize, usize, String)> {
+        hits.into_iter()
+            .map(|h| (h.path, h.line, h.col, h.text))
+            .collect()
+    };
+    let kept = ShapedFiles::default();
+    let mut every = def_patterns(Kind::TsJs, "value");
+    every.extend(member_or_signature(Kind::TsJs, "value").unwrap());
+    for pattern in [
+        def_patterns(Kind::TsJs, "value").join("|"),
+        member_patterns(Kind::TsJs, "value").unwrap().join("|"),
+        every.join("|"),
+    ] {
+        let shape = ts_shape("value", &pattern).expect("a pattern of `d`");
+        let plain =
+            rows(grep_project(Path::new(""), &files, &pattern, false, false, None, None).unwrap());
+        assert!(plain.len() >= 5, "{plain:?}");
+        assert_eq!(
+            rows(grep_shaped(&files, &pattern, shape, &kept).unwrap()),
+            plain
+        );
+        assert_eq!(
+            rows(grep_shaped(&files, &pattern, shape, &kept).unwrap()),
+            plain
+        );
+    }
+    assert!(ts_shape("value", "value").is_none());
+    assert!(ts_shape("vä", &def_patterns(Kind::TsJs, "vä").join("|")).is_none());
+    std::fs::remove_file(dir.join("b.js")).unwrap();
+    let pattern = def_patterns(Kind::TsJs, "first").join("|");
+    let shape = ts_shape("first", &pattern).unwrap();
+    assert_eq!(
+        lines(&grep_shaped(&files, &pattern, shape, &kept).unwrap()),
+        [(dir.join("b.js").display().to_string(), 1)],
+        "read from the lines kept, not the disk"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}

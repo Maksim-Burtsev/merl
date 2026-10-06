@@ -145,7 +145,11 @@ impl App {
         // What the patterns match, of the lines that declare the word where they sit.
         let erlang = self.buf.path.as_deref().is_some_and(search::erlang);
         let grep = |this: &Self, files: &[PathBuf]| {
-            let mut hits = this.declaring(kind, word, this.external_grep(kind, files, pattern));
+            let mut hits = this.declaring(
+                kind,
+                word,
+                this.outside_grep(kind, files, pattern, Some(word)),
+            );
             hits.retain(|h| kind != Kind::Elixir || search::erlang(&h.path) == erlang);
             hits
         };
@@ -336,7 +340,7 @@ impl App {
             Kind::Python => self.python_members(files, imports, members, word),
             Kind::TsJs => match self.ts_imported_members(all, imports, members) {
                 Some(hits) => (hits, false),
-                None => (self.external_grep(kind, files, members), false),
+                None => (self.outside_grep(kind, files, members, Some(word)), false),
             },
             _ => (self.external_grep(kind, files, members), false),
         }
@@ -469,7 +473,7 @@ impl App {
             self.text_of(&h.path)
                 .is_some_and(|text| search::ts_global_scope(&text, h.line))
         });
-        found.extend(self.external_grep(kind, &files, &patterns.join("|")));
+        found.extend(self.outside_grep(kind, &files, &patterns.join("|"), Some(word)));
         found
             .into_iter()
             .map(|hit| Candidate {
@@ -501,13 +505,29 @@ impl App {
     /// `pattern` over `files` outside the project, standard library first. The paths are
     /// absolute: `root.join` leaves them alone, so a hit opens where it is.
     pub(super) fn external_grep(&self, kind: Kind, files: &[PathBuf], pattern: &str) -> Vec<Hit> {
+        self.outside_grep(kind, files, pattern, None)
+    }
+
+    pub(super) fn outside_grep(
+        &self,
+        kind: Kind,
+        files: &[PathBuf],
+        pattern: &str,
+        word: Option<&str>,
+    ) -> Vec<Hit> {
         let roots = self
             .external
             .get(&kind)
             .map(|(roots, _)| roots.as_slice())
             .unwrap_or_default();
-        let mut hits = search::grep_project(&self.root, files, pattern, false, false, None, None)
-            .unwrap_or_default();
+        let shape = word
+            .filter(|_| kind == Kind::TsJs)
+            .and_then(|w| search::ts_shape(w, pattern));
+        let mut hits = match shape {
+            Some(shape) => search::grep_shaped(files, pattern, shape, &self.shaped),
+            None => search::grep_project(&self.root, files, pattern, false, false, None, None),
+        }
+        .unwrap_or_default();
         self.note_cut(&hits);
         // A function's locals in a dependency are no one's to import (#339).
         if kind == Kind::TsJs {

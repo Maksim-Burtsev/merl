@@ -1,12 +1,12 @@
 # `d` bench baseline
 
-merl at the merge of master `7155f91b` into the epic `0deed2e8` (#645), 2026-10-04, release build, `vm.loadavg` { 2.74 4.76 4.30 } before the run, { 23.02 11.82 7.34 } after: the later rows' times are high by that load. julia (DataFrames.jl) again with Julia 1.11.7 on the PATH and the depot of #653, `vm.loadavg` { 10.27 10.30 7.08 }. clojure (babashka), elisp (magit), racket (drracket), scheme (chibi-scheme) and commonlisp (lem) added at `af4311bd` (#428), 2026-10-06, `vm.loadavg` { 2.26 2.69 8.36 } before, { 2.69 2.73 7.99 } after.
+merl at the merge of master `7155f91b` into the epic `0deed2e8` (#645), 2026-10-04, release build, `vm.loadavg` { 2.74 4.76 4.30 } before the run, { 23.02 11.82 7.34 } after: the later rows' times are high by that load. julia (DataFrames.jl) again with Julia 1.11.7 on the PATH and the depot of #653, `vm.loadavg` { 10.27 10.30 7.08 }. clojure (babashka), elisp (magit), racket (drracket), scheme (chibi-scheme) and commonlisp (lem) added at `af4311bd` (#428), 2026-10-06, `vm.loadavg` { 2.26 2.69 8.36 } before, { 2.69 2.73 7.99 } after. ts (outline) and js (eslint) again on the branch of #318, 2026-10-07, `vm.loadavg` { 4.93 11.18 27.84 } before, { 5.10 10.59 27.05 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
 | python (paperless-ngx) | 213 | 199 (93%) | 8 (4%) | 0 (0%) | 6 (3%) | 57 | 13.6 | 258.1 |
-| ts (outline) | 122 | 114 (93%) | 5 (4%) | 1 (1%) | 2 (2%) | 178 | 42.4 | 91.1 |
-| js (eslint) | 147 | 119 (81%) | 21 (14%) | 0 (0%) | 7 (5%) | 123 | 38.6 | 404.6 |
+| ts (outline) | 122 | 114 (93%) | 5 (4%) | 1 (1%) | 2 (2%) | 178 | 41.5 | 82.3 |
+| js (eslint) | 147 | 119 (81%) | 21 (14%) | 0 (0%) | 7 (5%) | 123 | 38.6 | 152.5 |
 | go (caddy) | 229 | 224 (98%) | 3 (1%) | 0 (0%) | 2 (1%) | 41 | 5.3 | 15.3 |
 | rust (ripgrep) | 231 | 183 (79%) | 44 (19%) | 0 (0%) | 4 (2%) | 69 | 5.7 | 67.7 |
 | c (redis) | 250 | 232 (93%) | 18 (7%) | 0 (0%) | 0 (0%) | 20 | 22.5 | 32.3 |
