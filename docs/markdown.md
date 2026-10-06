@@ -49,7 +49,8 @@ the source line, nothing on a row that shows none. What acts on a word, a column
 (`/`, `n`, `v`, `d`, `u`, Home / End, Shift or Alt with an arrow, `w`) has nothing to act on in the
 preview and does nothing; `p` or Enter take you to the source for it.
 
-In `--review` the diff lives on the source: `p` on a file of the review does nothing and says
-`in review`, and a file shown rendered that the branch comes to change shows its source again.
-A file outside the review renders as anywhere; `c` / `C` there leave the preview and walk the
-review from the source.
+In `--review` the diff lives on the source: `p` on a Markdown file of the review renders it as
+it stands now (a deleted one as it was) without the diff's marks, and `p` again shows the source
+with its diff. A file shown rendered that the branch comes to change stays rendered; a file of the
+review opened again shows its source. A file outside the review renders as anywhere; `c` / `C`
+there leave the preview and walk the review from the source.

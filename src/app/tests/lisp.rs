@@ -33,17 +33,11 @@ fn u_reads_a_lisp_name_whole_with_its_marks() {
     };
     assert_eq!(
         rows(&mut a, 2, "format-price"),
-        [
-            "declaration  src/shop/money.clj:2:",
-            "             src/shop/cart.clj:2:"
-        ]
+        ["src/shop/money.clj:2:", "src/shop/cart.clj:2:"]
     );
     assert_eq!(
         rows(&mut a, 2, "price 1"),
-        [
-            "declaration  src/shop/money.clj:4:",
-            "             src/shop/cart.clj:2:"
-        ]
+        ["src/shop/money.clj:4:", "src/shop/cart.clj:2:"]
     );
     assert_eq!(rows(&mut a, 3, "empty?"), ["src/shop/cart.clj:3:"]);
     std::fs::remove_dir_all(&dir).unwrap();

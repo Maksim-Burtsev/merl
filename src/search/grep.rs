@@ -1,5 +1,3 @@
-//! Project-wide grep: ripgrep's own crates behind one call, and the lines it gives back.
-
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
@@ -129,7 +127,6 @@ fn collect(
     hits.sort_by_cached_key(|h| (current != Some(h.path.as_path()), h.path.clone(), h.line));
     hits
 }
-/// Collects one `Hit` per matching line `keep` takes, stopping the whole search at [`MAX_HITS`].
 struct Collect<'a> {
     file: usize,
     path: &'a Path,

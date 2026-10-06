@@ -17,7 +17,7 @@ const SAVED: usize = 3;
 const REACH: usize = 3;
 
 /// The keys a run of arrows or Shift+arrows may have missed. A tie goes to the first.
-const SHORTCUTS: [(KeyCode, KeyModifiers); 17] = [
+const SHORTCUTS: [(KeyCode, KeyModifiers); 21] = [
     (KeyCode::Char('d'), KeyModifiers::CONTROL),
     (KeyCode::Char('u'), KeyModifiers::CONTROL),
     (KeyCode::PageUp, KeyModifiers::NONE),
@@ -38,6 +38,16 @@ const SHORTCUTS: [(KeyCode, KeyModifiers); 17] = [
     ),
     (
         KeyCode::Right,
+        KeyModifiers::CONTROL.union(KeyModifiers::SHIFT),
+    ),
+    (KeyCode::PageUp, KeyModifiers::SHIFT),
+    (KeyCode::PageDown, KeyModifiers::SHIFT),
+    (
+        KeyCode::Home,
+        KeyModifiers::CONTROL.union(KeyModifiers::SHIFT),
+    ),
+    (
+        KeyCode::End,
         KeyModifiers::CONTROL.union(KeyModifiers::SHIFT),
     ),
     (KeyCode::Char('v'), KeyModifiers::NONE),
@@ -262,7 +272,7 @@ impl App {
             return None;
         }
         let hunks = &self.diff.hunks;
-        let (from, to) = (run.from.at(), self.at());
+        let (from, to) = (self.hunk_place(run.from.at()), self.hunk_place(self.at()));
         let (&start, key) = match to.cmp(&from) {
             std::cmp::Ordering::Greater => (hunks.iter().find(|&&h| h > from)?, "c"),
             std::cmp::Ordering::Less => (hunks.iter().rev().find(|&&h| h < from)?, "C"),

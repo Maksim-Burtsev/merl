@@ -25,11 +25,14 @@ wait This help
 │  pyproject.toml            │    │   Edit: Ctrl+X                      Cut the selection, or the line                                                │
 │  README.md                 │    │   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
 │                            │    │ Selection                                                                                                         │
-│                            │    │   v                                 Select the word, then the line, then the paragraph                            │
+│                            │    │   v                                 Select the word, then the line, then the paragraph, then the whole file       │
 │                            │    │   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
 │                            │    │   Shift+Left / Shift+Right          Extend the selection by a char                                                │
 │                            │    │   Alt+Shift+Left / Right            Extend the selection by a word                                                │
 │                            │    │   Ctrl+Shift+Left / Right           Extend the selection to the start / end of the screen row, then of the line   │
+│                            │    │   Shift+Home / Shift+End            Extend the selection to the start / end of the screen row, then of the line   │
+│                            │    │   Shift+PgUp / Shift+PgDn           Extend the selection by a screen                                              │
+│                            │    │   Ctrl+Shift+Home / Ctrl+Shift+End  Extend the selection to the start / end of the file                           │
 │                            │    │ Movement                                                                                                          │
 │                            │    │   Arrows                            Move the cursor; Up / Down go by screen row                                   │
 │                            │    │   Alt+Left / Alt+Right              Move one word                                                                 │
@@ -49,9 +52,6 @@ wait This help
 │                            │    │   Picker: Enter                     Accept                                                                        │
 │                            │    │   Picker: Esc                       Cancel                                                                        │
 │                            │    │   ?                                 This help                                                                     │
-│                            │    │   Help: Up / Down                   Scroll                                                                        │
-│                            │    │ General                                                                                                           │
-│                            │    │   w                                 Wrap long lines, or cut them at the edge and scroll sideways                  │
-└────────────────────────────┘    │   p                                 Show a Markdown file rendered, or its source again                            │
+└────────────────────────────┘    │   Help: Up / Down                   Scroll                                                                        │
 app/uow.py  1:1  [code]           └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                           ? help
 cursor (x,y,shown) 151,54,0

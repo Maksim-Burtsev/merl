@@ -109,7 +109,7 @@ cpp0106	include/leveldb/env.h:51
 cpp0107	include/leveldb/slice.h:78		
 cpp0108	benchmarks/db_bench.cc:230		
 cpp0109	util/histogram.cc:235		
-cpp0110	db/db_iter.cc:292;db/db_iter.cc:83		
+cpp0110	db/db_iter.cc:292;db/db_iter.cc:83	inside `#if 0`: clangd parses no code there, and the `Iterator* iter` the line reads names iterator.h:39	
 cpp0111	helpers/memenv/memenv_test.cc:98		
 cpp0112	db/repair.cc:108		
 cpp0113	db/db_iter.cc:111		

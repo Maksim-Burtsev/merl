@@ -28,12 +28,11 @@ fn u_reads_a_primed_haskell_name_whole() {
     a.jump_to(&dir.join("src/Shop.hs"), 7);
     a.col = a.line_str().find("total'").unwrap();
     press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
+    let title = a.picker.as_ref().expect("a picker").title.clone();
     let found = rows(&mut a);
     assert_eq!(found.len(), 3, "{found:?}");
-    assert!(
-        found[0].starts_with("declaration src/Shop.hs:4:"),
-        "{found:?}"
-    );
+    assert!(found[0].starts_with("src/Shop.hs:4:"), "{found:?}");
+    assert!(title.contains(": 1 declaration,"), "{title}");
     assert!(found.iter().all(|r| r.contains("total'")), "{found:?}");
     std::fs::remove_dir_all(&dir).unwrap();
 }

@@ -11,12 +11,8 @@ impl App {
             KeyCode::Left => self.tree.collapse(),
             KeyCode::Enter => match self.tree.selected() {
                 Some(n) if n.is_dir => self.tree.toggle(),
-                // The review panel lists what git changed, a link to a directory or a submodule
-                // among the files: there is no text to open (#449).
                 Some(n) if self.root.join(&n.path).is_dir() => {}
                 Some(n) => {
-                    // A file behind a link that stays in the project opens by its own path, as
-                    // Ctrl+N and the command line open it: one file, one name (#404).
                     let path = self.root.join(&n.path);
                     let path = self
                         .in_project(&path)
@@ -34,8 +30,6 @@ impl App {
             _ => {}
         }
     }
-
-    // ---- new file --------------------------------------------------------
 
     /// Ctrl+N: asks for a path from the project root. It starts in the directory of the tree
     /// row, or of the open file, as the explorers of VS Code and nvim-tree do.
@@ -92,7 +86,6 @@ impl App {
             self.message = "no file name".into();
             return;
         }
-        // A link on the way may lead out of the project too (#404); one that stays in is followed.
         let Some(rel) = self.in_project(&self.root.join(&rel)) else {
             self.message = "outside the project".into();
             return;

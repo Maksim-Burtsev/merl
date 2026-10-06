@@ -12,28 +12,28 @@ wait Search (15 hits)
 11 class OrderService:
 12     def __init__┌Search (15 hits)──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 13         self.rep│s> OrderRepo                                                                                                                                      │
-14         self.uow│app/service.py:3: from app.repos import OrderRepo                                                                                                 │
-15         self.set│app/service.py:12: def __init__(self, repo: OrderRepo, uow: UnitOfWork, settings: Settings):                                                      │
-16                 │app/repos.py:4: class OrderRepo:                                                                                                                  │
-17     def get(self│app/repos.py:34: class InMemoryOrderRepo:                                                                                                         │
-18         order = │app/repos.py:35: """Orders in a dict, for running the API without Postgres. Same methods as OrderRepo."""                                         │
-19         if order│app/uow.py:1: from app.repos import OrderRepo                                                                                                     │
-20             rais│app/uow.py:9: self.orders = OrderRepo(db)                                                                                                         │
-21         return o│tests/test_service.py:10: class FakeOrderRepo:                                                                                                    │
-22                 │tests/test_service.py:37: repo = FakeOrderRepo(*orders)                                                                                           │
-23     def mark_pai│web/src/orders/repo.ts:4: export class OrderRepo {                                                                                                │
-24         order = │web/src/orders/store.ts:1: import { OrderRepo } from "./repo";                                                                                    │
-25         order.st│web/src/orders/store.ts:5: private readonly repo: OrderRepo;                                                                                      │
-26         self.rep│web/src/orders/store.ts:8: constructor(repo: OrderRepo) {                                                                                         │
-27         return o│web/src/routes/orders/[id].tsx:3: import { OrderRepo } from "@/orders/repo";                                                                      │
-28                 │web/src/routes/orders/[id].tsx:7: const store = new OrderStore(new OrderRepo(new ApiClient("/api")));                                             │
-29     def cancel(s│                                                                                                                                                  │
-30         order = │                                                                                                                                                  │
-31         if not o│                                                                                                                                                  │
-32             rais│                                                                                                                                                  │
-33         order.st│                                                                                                                                                  │
-34         with sel│                                                                                                                                                  │
-35             self│                                                                                                                                                  │
+14         self.uow│app/service.py                                                                                                                                    │
+15         self.set│   3  from app.repos import OrderRepo                                                                                                             │
+16                 │  12  def __init__(self, repo: OrderRepo, uow: UnitOfWork, settings: Settings):                                                                   │
+17     def get(self│app/repos.py                                                                                                                                      │
+18         order = │   4  class OrderRepo:                                                                                                                            │
+19         if order│  34  class InMemoryOrderRepo:                                                                                                                    │
+20             rais│  35  """Orders in a dict, for running the API without Postgres. Same methods as OrderRepo."""                                                    │
+21         return o│app/uow.py                                                                                                                                        │
+22                 │   1  from app.repos import OrderRepo                                                                                                             │
+23     def mark_pai│   9  self.orders = OrderRepo(db)                                                                                                                 │
+24         order = │tests/test_service.py                                                                                                                             │
+25         order.st│  10  class FakeOrderRepo:                                                                                                                        │
+26         self.rep│  37  repo = FakeOrderRepo(*orders)                                                                                                               │
+27         return o│web/src/orders/repo.ts                                                                                                                            │
+28                 │   4  export class OrderRepo {                                                                                                                    │
+29     def cancel(s│web/src/orders/store.ts                                                                                                                           │
+30         order = │   1  import { OrderRepo } from "./repo";                                                                                                         │
+31         if not o│   5  private readonly repo: OrderRepo;                                                                                                           │
+32             rais│   8  constructor(repo: OrderRepo) {                                                                                                              │
+33         order.st│web/src/routes/orders/[id].tsx                                                                                                                    │
+34         with sel│   3  import { OrderRepo } from "@/orders/repo";                                                                                                  │
+35             self│   7  const store = new OrderStore(new OrderRepo(new ApiClient("/api")));                                                                         │
 36         return o│                                                                                                                                                  │
                    │                                                                                                                                                  │
                    │                                                                                                                                                  │

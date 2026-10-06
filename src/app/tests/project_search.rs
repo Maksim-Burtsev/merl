@@ -1,5 +1,3 @@
-//! `s`: the project search.
-
 use super::*;
 
 #[test]
@@ -52,9 +50,11 @@ foo
     a.settle_search();
     let p = a.picker.as_ref().unwrap();
     assert_eq!((p.counts().1, p.current().unwrap().line), (3, 2));
-    // An emptied query empties the list at once.
     press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
-    assert!(a.search_tick().is_none());
+    assert!(
+        a.search_tick().is_none(),
+        "an emptied query empties the list at once"
+    );
     a.settle_search();
     assert_eq!(a.picker.as_ref().unwrap().counts().1, 0);
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
@@ -78,7 +78,6 @@ two
         (true, Mode::Normal, 1)
     );
 
-    // No hit: the Enter is spent, the list stays open with its query (#288).
     press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
     typed(&mut a, "three");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
@@ -86,17 +85,20 @@ two
     let query = a.picker.as_ref().map(|p| p.query.to_string());
     assert_eq!(
         (query.as_deref(), a.mode, &*a.message, a.search_enter),
-        (Some("three"), Mode::Picker(PickerKind::Search), "", false)
+        (Some("three"), Mode::Picker(PickerKind::Search), "", false),
+        "no hit: the Enter is spent, the list stays open with its query (#288)"
     );
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
 
-    // Past the pause, with the grep running: the list on screen is still the older one.
     press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
     typed(&mut a, "one");
     std::thread::sleep(SEARCH_PAUSE);
     let job = a.search_tick().expect("the grep for one");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    assert!(a.picker.is_some(), "the grep for one is still running");
+    assert!(
+        a.picker.is_some(),
+        "past the pause, with the grep running: the list on screen is still the older one"
+    );
     a.search_done(job.seq, job.items());
     assert_eq!((a.picker.is_none(), a.line), (true, 0));
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
@@ -107,7 +109,6 @@ two
 #[test]
 fn enter_after_the_project_search_answered() {
     let (path, mut a) = temp_file("enter-late-s", "one\ntwo\n");
-    // The very next key after the answer, before the event loop has ticked or drawn.
     press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
     typed(&mut a, "two");
     std::thread::sleep(SEARCH_PAUSE);
@@ -116,7 +117,8 @@ fn enter_after_the_project_search_answered() {
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!(
         (a.picker.is_none(), a.mode, a.line, &*a.message),
-        (true, Mode::Normal, 1, "")
+        (true, Mode::Normal, 1, ""),
+        "the very next key after the answer, before the event loop has ticked or drawn"
     );
 
     press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
@@ -196,15 +198,54 @@ fn a_truncated_result_list_says_so_in_its_title() {
     press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
     let p = a.picker.as_mut().unwrap();
     p.settle();
-    // The split counts what the list holds, and the cut still says so behind it.
     assert_eq!(
         p.title,
         format!(
             "Usages of x: {} in code (first {})",
             search::MAX_HITS,
             search::MAX_HITS
-        )
+        ),
+        "the split counts what the list holds, and the cut still says so behind it"
     );
     assert_eq!(p.counts().1 as usize, search::MAX_HITS);
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_selection_in_one_line_seeds_the_project_search() {
+    let (path, mut a) = temp_file(
+        "seed-s",
+        "raise Not authenticated now\nnot authenticated\nnot\n",
+    );
+    a.col = 6;
+    for _ in 0..3 {
+        press(
+            &mut a,
+            KeyCode::Right,
+            KeyModifiers::ALT | KeyModifiers::SHIFT,
+        );
+    }
+    press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+    let p = a.picker.as_ref().unwrap();
+    assert_eq!(
+        (&*p.query, p.query.selection()),
+        ("Not authenticated now", Some(0..21))
+    );
+    assert!(a.search_tick().is_some(), "the grep goes out at once");
+    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+}
+
+#[test]
+fn without_a_one_line_selection_the_project_search_opens_empty() {
+    let (path, mut a) = temp_file("seed-none-s", "foo\nbar\n");
+    for shift_down in [false, true] {
+        if shift_down {
+            press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+        }
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+        assert_eq!(&*a.picker.as_ref().unwrap().query, "");
+        assert!(!a.search_pending());
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    }
+    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }

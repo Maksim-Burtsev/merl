@@ -294,21 +294,23 @@ mod tests {
         let ms = |n| t0 + Duration::from_millis(n);
         let mut d = Debounce::default();
         assert!(!d.due(ms(0)), "nothing happened");
-        // Ten files, 50 ms apart: not due while they keep coming.
         for i in 0..10 {
             d.touch(ms(i * 50));
-            assert!(!d.due(ms(i * 50 + 49)));
+            assert!(!d.due(ms(i * 50 + 49)), "not due while events keep coming");
         }
         assert!(!d.due(ms(450 + 199)));
         assert!(d.due(ms(450 + 200)));
         assert!(!d.due(ms(5000)), "once per burst");
-        // Events that never pause are answered after MAX_WAIT.
         let mut d = Debounce::default();
         let fired = (0..40).find(|i| {
             d.touch(ms(i * 50));
             d.due(ms(i * 50 + 1))
         });
-        assert_eq!(fired, Some(20));
+        assert_eq!(
+            fired,
+            Some(20),
+            "events that never pause are answered after MAX_WAIT"
+        );
     }
 
     /// A project on disk, walked: `src/app.rs`, `src/deep/x.rs`, an ignored `target/` and
@@ -387,7 +389,6 @@ mod tests {
             }
             assert_eq!(p.concerns(&ev), want, "{kind:?} {paths:?}");
         }
-        // The review panel counts a plain save too, in the same directories.
         for (kind, path, want) in [
             (write, "src/deep/x.rs", true),
             (create, "new.rs", true),
@@ -397,11 +398,17 @@ mod tests {
             (write, "../elsewhere.rs", false),
         ] {
             let ev = notify::Event::new(kind).add_path(dir.join(path));
-            assert_eq!(p.touched(&ev), want, "{kind:?} {path}");
+            assert_eq!(
+                p.touched(&ev),
+                want,
+                "the review panel counts a plain save too, in the same directories: {kind:?} {path}"
+            );
         }
-        // inotify overflowed: no path, something was missed.
         let ev = notify::Event::new(EventKind::Other).set_flag(Flag::Rescan);
-        assert!(p.concerns(&ev) && p.touched(&ev));
+        assert!(
+            p.concerns(&ev) && p.touched(&ev),
+            "inotify overflowed: no path, something was missed"
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -468,12 +475,11 @@ mod tests {
         assert!(!p.walk_due(ms(0)));
         create(&mut p, "a.rs", ms(0));
         assert!(!p.walk_due(ms(100)) && p.walk_due(ms(200)));
-        // Changes during the walk wait for it, and are not lost.
         create(&mut p, "b.rs", ms(250));
-        assert!(!p.walk_due(ms(600)));
+        assert!(!p.walk_due(ms(600)), "changes during the walk wait for it");
         let (tree, _) = tree::build(&dir, false);
         p.walked(&tree, ms(700));
-        assert!(p.walk_due(ms(700)));
+        assert!(p.walk_due(ms(700)), "changes during the walk are not lost");
         let (tree, _) = tree::build(&dir, false);
         p.walked(&tree, ms(800));
         assert!(
@@ -481,20 +487,24 @@ mod tests {
             "no new directory: nothing more to find"
         );
 
-        // `services/` is reported, the file written into it right after is not: its
-        // directory was not listed yet. The walk that finds `services/` asks for one more.
         std::fs::create_dir_all(dir.join("services")).unwrap();
         let ev = notify::Event::new(EventKind::Create(CreateKind::Folder));
         p.event(&ev.add_path(dir.join("services")), ms(6000));
         assert!(p.walk_due(ms(6200)));
         let (tree, _) = tree::build(&dir, false);
         p.walked(&tree, ms(6300));
-        assert!(!p.walk_due(ms(6400)) && p.walk_due(ms(6500)));
-        // A walk that only lost a directory asks for nothing.
+        assert!(
+            !p.walk_due(ms(6400)) && p.walk_due(ms(6500)),
+            "a file written into `services/` before it was listed reported nothing: the walk \
+             that finds `services/` asks for one more"
+        );
         std::fs::remove_dir_all(dir.join("services")).unwrap();
         let (tree, _) = tree::build(&dir, false);
         p.walked(&tree, ms(6600));
-        assert!(!p.walk_due(ms(9000)));
+        assert!(
+            !p.walk_due(ms(9000)),
+            "a walk that only lost a directory asks for nothing"
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -528,7 +538,6 @@ mod tests {
         }
         let read = notify::Event::new(EventKind::Access(notify::event::AccessKind::Any));
         assert!(!r.moves_the_branch(&read.add_path(common.join("worktrees/wt/HEAD"))));
-        // Debounced, and one listing at a time.
         let t0 = Instant::now();
         let ms = |n| t0 + Duration::from_millis(n);
         let head = notify::Event::new(rename).add_path(common.join("worktrees/wt/HEAD"));
@@ -537,7 +546,7 @@ mod tests {
         assert!(!r.list_due(ms(1000)));
         r.event(&head, false, ms(1000));
         r.event(&index, true, ms(1100)); // a file of the project
-        assert!(!r.list_due(ms(1200)) && r.list_due(ms(1300)));
+        assert!(!r.list_due(ms(1200)) && r.list_due(ms(1300)), "debounced");
         r.touch(ms(1400));
         assert!(!r.list_due(ms(2000)), "the first one is not back");
         r.listed();
@@ -570,12 +579,10 @@ mod tests {
         let seen = std::iter::from_fn(|| rx.recv_timeout(Duration::from_secs(5)).ok())
             .any(|ev| ev.paths.iter().any(|f| f.ends_with("src/deep/again.rs")));
         assert!(seen, "no event from the directory that was made again");
-        // An ignored directory is not watched.
         std::fs::write(dir.join("target/debug/new"), b"x").unwrap();
         let seen = std::iter::from_fn(|| rx.recv_timeout(Duration::from_millis(500)).ok())
             .any(|ev| ev.paths.iter().any(|f| f.starts_with(dir.join("target"))));
-        assert!(!seen);
-        // Until the tree opens it.
+        assert!(!seen, "an ignored directory is not watched");
         let (mut t, _) = tree::build(&dir, false);
         t.reveal(Path::new("target"));
         t.expand();

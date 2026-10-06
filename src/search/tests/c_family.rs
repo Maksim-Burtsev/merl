@@ -205,8 +205,11 @@ fn cpp_def_patterns_cover_classes_methods_and_aliases() {
     );
     assert_eq!(d("total"), [20], "a method defined in the class body");
     assert_eq!(d("Row"), [24], "a `using` alias indented in a class body");
-    // The declaration in the class body and the out-of-line definition (#373).
-    assert_eq!(d("append"), [22, 30]);
+    assert_eq!(
+        d("append"),
+        [22, 30],
+        "the declaration in the class body and the out-of-line definition (#373)"
+    );
     assert_eq!(d("Status"), [36]);
     assert_eq!(
         d("T"),
@@ -256,10 +259,10 @@ fn c_and_cpp_scope_roots_and_names() {
         Some("Ledger::total")
     );
     assert_eq!(qualified(Kind::C, CPP, 3, "billing"), None);
-    // An out-of-line body is its class's by the qualifier on its own line (#508).
     assert_eq!(
         qualified(Kind::C, CPP, 30, "append").as_deref(),
-        Some("Ledger::append")
+        Some("Ledger::append"),
+        "an out-of-line body is its class's by the qualifier on its own line (#508)"
     );
 }
 
@@ -277,11 +280,11 @@ fn c_and_cpp_files_find_each_other() {
         [("invoice.c".into(), 6), ("invoice.h".into(), 40)],
         "the picker's order is by path, as everywhere: it is not definition before prototype"
     );
-    // A type of the C header, reached from the C++ file that includes it.
     let pat = def_patterns(Kind::C, "sds").join("|");
     assert_eq!(
         lines(&grep(&dir, &files, &pat, false, false)),
-        [("invoice.h".into(), 7)]
+        [("invoice.h".into(), 7)],
+        "a type of the C header, reached from the C++ file that includes it"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -354,9 +357,11 @@ fn csharp_def_patterns_find_types_members_and_fields() {
         [3],
         "a `using` alias, not the `Rows` it is used as"
     );
-    // The class past its generic parameters and its attribute, and the constructor; the
-    // caller shows a picker.
-    assert_eq!(d("Invoice"), [6, 12]);
+    assert_eq!(
+        d("Invoice"),
+        [6, 12],
+        "the class past its generic parameters and its attribute, and the constructor; the caller shows a picker"
+    );
     assert_eq!(d("Limit"), [8]);
     assert_eq!(d("_logger"), [9], "not the `_logger = Create(n);` write");
     assert_eq!(d("Saved"), [10], "an event");
@@ -443,14 +448,19 @@ public class Cart
             .map(|b| b.line)
             .collect()
     };
-    // The object initialiser's `new Order(seed)` over `{` is no signature: `seed` is Fill's.
-    assert_eq!(lines("seed", 9), [5]);
+    assert_eq!(
+        lines("seed", 9),
+        [5],
+        "the object initialiser's `new Order(seed)` over `{{` is no signature: `seed` is Fill's"
+    );
     assert_eq!(lines("order", 11), [7]);
     // A deconstruction binds nothing, and a field of the class is no local.
     assert!(lines("left", 13).is_empty());
     assert!(lines("item", 13).is_empty());
-    // On a member's own line the class body is not read as statements either.
-    assert!(lines("item", 3).is_empty());
+    assert!(
+        lines("item", 3).is_empty(),
+        "on a member's own line the class body is not read as statements either"
+    );
 }
 
 const SWIFT: &str = r#"import Foundation
@@ -569,9 +579,11 @@ fn swift_def_patterns_find_declarations_behind_attributes_and_modifiers() {
     assert_eq!(d("Rows"), [65], "a `typealias`");
     assert_eq!(d("Store"), [67]);
     assert_eq!(d("owner"), [68], "behind `public private(set) weak`");
-    // The `let`, not the `case opened:` of the `switch` below it, which matches against
-    // that constant: a bare name there is a pattern, not a declaration.
-    assert_eq!(d("opened"), [71]);
+    assert_eq!(
+        d("opened"),
+        [71],
+        "the `let`, not the `case opened:` of the `switch` below it, which matches against that constant: a bare name there is a pattern, not a declaration"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -656,10 +668,10 @@ fn swift_scope_roots_and_names() {
     );
     assert!(external_roots(Kind::Swift, Path::new("/")).is_empty());
     std::fs::remove_dir_all(&dir).unwrap();
-    // A member is named by the type its extension extends.
     assert_eq!(
         qualified(Kind::Swift, SWIFT, 41, "didFinish").as_deref(),
-        Some("Session.didFinish")
+        Some("Session.didFinish"),
+        "a member is named by the type its extension extends"
     );
 }
 
@@ -746,8 +758,11 @@ fn php_def_patterns_find_declarations_behind_modifiers() {
     assert_eq!(d("BILLING_LIMIT"), [8], "a `define()` constant");
     assert_eq!(d("Invoice"), [10], "not the `Invoice $invoice` parameter");
     assert_eq!(d("STATUS_OPEN"), [12], "a class constant");
-    // The property and the method that returns it, not the `$this->rows` uses.
-    assert_eq!(d("rows"), [14, 33]);
+    assert_eq!(
+        d("rows"),
+        [14, 33],
+        "the property and the method that returns it, not the `$this->rows` uses"
+    );
     assert_eq!(d("logger"), [16], "not the `$this->logger = null;` write");
     assert_eq!(d("account"), [18], "a promoted constructor parameter");
     assert_eq!(
@@ -767,8 +782,11 @@ fn php_def_patterns_find_declarations_behind_modifiers() {
     assert_eq!(d("billing_total"), [59], "a function at the top level");
     assert_eq!(d("sum"), [61], "not the `return $sum;`");
     assert_eq!(d("map"), [67]);
-    // Not the `$total == 0` that opens line 72: `==` compares, it declares nothing.
-    assert_eq!(d("total"), [21, 23]);
+    assert_eq!(
+        d("total"),
+        [21, 23],
+        "not the `$total == 0` that opens line 72: `==` compares, it declares nothing"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -876,8 +894,11 @@ fn php_typed_constants_and_class_docblock_tags_declare() {
     for at in [23, 24, 33] {
         assert_eq!(php_tag_class(&lines, at), None, "line {}", at + 1);
     }
-    // Past an attribute wrapped over lines.
-    assert_eq!(php_tag_class(&lines, 36), Some(42));
+    assert_eq!(
+        php_tag_class(&lines, 36),
+        Some(42),
+        "past an attribute wrapped over lines"
+    );
     assert_eq!(
         qualified(Kind::Php, PHP_TAGS, 9, "whereTitle").as_deref(),
         Some("Song::whereTitle")
@@ -907,10 +928,10 @@ fn php_namespace_line_answers_only_the_namespace_written_up_to_the_word() {
         let hit: Vec<&str> = decls.into_iter().filter(|d| re.is_match(d)).collect();
         (patterns.len(), hit)
     };
-    // A segment: only the namespace written up to it, absolute on a `use` line, and no class.
     assert_eq!(
         answers("use Illuminate\\Support\\Facades\\Route;", "Support"),
-        (1, vec!["namespace Illuminate\\Support;"])
+        (1, vec!["namespace Illuminate\\Support;"]),
+        "a segment: only the namespace written up to it, absolute on a `use` line, and no class"
     );
     // Relative to the file's own namespace elsewhere, unless it starts with `\`.
     assert_eq!(
@@ -930,10 +951,10 @@ fn php_namespace_line_answers_only_the_namespace_written_up_to_the_word() {
     ] {
         assert_eq!(answers(line, "Support").1, ["class Support"], "{line}");
     }
-    // On a `namespace` line's last part, the other files of the namespace are its namesakes.
     assert_eq!(
         answers("namespace App\\Repos\\Support;", "Support").1.len(),
-        4
+        4,
+        "on a `namespace` line's last part, the other files of the namespace are its namesakes"
     );
 }
 
@@ -1167,8 +1188,10 @@ fn a_csharp_file_sees_its_project_and_the_ones_it_references() {
     let seen = cs_projects(&files, here, read(alone)).unwrap();
     assert!(seen.sees(Path::new("Shop.App/Page.cs")));
     assert!(!seen.sees(Path::new("Shop.Api/Address.cs")));
-    // A file under no project is anybody's.
-    assert!(seen.sees(Path::new("Shared/Clock.cs")));
+    assert!(
+        seen.sees(Path::new("Shared/Clock.cs")),
+        "a file under no project is anybody's"
+    );
     // A reference, `\` and `..` as MSBuild writes them, and the references of that one.
     let chained: &[(&str, &str)] = &[
         (
@@ -1323,24 +1346,33 @@ fn csharp_type_positions_namespace_segments_and_arity() {
         let start = line.find(word).unwrap();
         cs_namespace_prefix(line, start, start + word.len())
     };
+    let certain = |prefix: &str| {
+        Some(CsNamespacePrefix {
+            prefix: prefix.to_owned(),
+            certain: true,
+        })
+    };
     assert_eq!(
         prefix(
             "using Microsoft.EntityFrameworkCore.Migrations;",
             "EntityFrameworkCore"
         ),
-        Some(("Microsoft.EntityFrameworkCore".to_owned(), true))
+        certain("Microsoft.EntityFrameworkCore")
     );
     assert_eq!(
         prefix("global using Microsoft.Extensions.Options;", "Options"),
-        Some(("Microsoft.Extensions.Options".to_owned(), true))
+        certain("Microsoft.Extensions.Options")
     );
     assert_eq!(
         prefix("namespace Shop.Catalog {", "Catalog"),
-        Some(("Shop.Catalog".to_owned(), true))
+        certain("Shop.Catalog")
     );
     assert_eq!(
         prefix("    global::Shop.Pricing.Tariff t;", "Pricing"),
-        Some(("Shop.Pricing".to_owned(), false))
+        Some(CsNamespacePrefix {
+            prefix: "Shop.Pricing".to_owned(),
+            certain: false
+        })
     );
     assert_eq!(prefix("using Rows = List<int>;", "List"), None);
     assert_eq!(prefix("using static System.Math;", "Math"), None);
@@ -1359,7 +1391,9 @@ fn csharp_type_positions_namespace_segments_and_arity() {
     assert_eq!(args("return Equals;"), None);
     assert_eq!(args("return Equals(a < b, c > d);"), None);
     assert_eq!(args("return Equals(a,"), None);
-    let params = |line: &str| cs_parameters(line, 1, "Equals");
+    let params = |line: &str| {
+        cs_parameters(line, 1, "Equals").map(|a| (a.fewest, a.most_unless_params, a.extension_this))
+    };
     assert_eq!(
         params("public bool Equals(object other)"),
         Some((1, Some(1), false))

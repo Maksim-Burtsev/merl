@@ -12,10 +12,10 @@ wait Pop: implementations of Queue.Pop, 2 declarations (2/2)
 11
 12 // Queue is what┌Pop: implementations of Queue.Pop, 2 declarations (2/2)───────────────────────────────────────────────────────────────────────────────────────────┐
 13 type Queue inter│>                                                                                                                                                 │
-14     Push(job Job│memQueue.Pop    implementations of Queue.Pop  worker/internal/queue/queue.go:34: func (q *memQueue) Pop() (Job, bool) {                           │
-15     Pop() (Job, │redisQueue.Pop  implementations of Queue.Pop  worker/internal/queue/redis.go:27: func (q *redisQueue) Pop() (Job, bool) {                         │
-16 }               │                                                                                                                                                  │
-17                 │                                                                                                                                                  │
+14     Push(job Job│                                              worker/internal/queue/queue.go                                                                      │
+15     Pop() (Job, │memQueue.Pop    implementations of Queue.Pop    34  func (q *memQueue) Pop() (Job, bool) {                                                        │
+16 }               │                                              worker/internal/queue/redis.go                                                                      │
+17                 │redisQueue.Pop  implementations of Queue.Pop    27  func (q *redisQueue) Pop() (Job, bool) {                                                      │
 18 type memQueue st│                                                                                                                                                  │
 19     mu   sync.Mu│                                                                                                                                                  │
 20     jobs []Job  │                                                                                                                                                  │

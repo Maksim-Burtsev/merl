@@ -1,5 +1,3 @@
-//! Imports: the modules a name comes from and the files they reach.
-
 use super::*;
 
 #[test]
@@ -105,13 +103,11 @@ fn module_files_are_the_project_files_an_import_names() {
     let (dir, files) = scratch(
         "modules",
         &[
-            // Python: a src layout, a package, a module inside a package.
             ("src/app/__init__.py", ""),
             ("src/app/repos.py", ""),
             ("src/app/json.py", ""),
             ("src/app/store/__init__.py", ""),
             ("src/app/store/backends/memory.py", ""),
-            // TypeScript: `paths` and `baseUrl` in the config a nested one extends.
             (
                 "tsconfig.base.json",
                 "{\n  // shared\n  \"compilerOptions\": {\n    \"baseUrl\": \"web\",\n    \"paths\": {\"@/*\": [\"src/*\"], \"@lib\": [\"lib/index.ts\"]},\n  },\n}\n",
@@ -126,7 +122,6 @@ fn module_files_are_the_project_files_an_import_names() {
             ("web/src/types.d.ts", ""),
             ("web/src/ui/index.tsx", ""),
             ("web/lib/index.ts", ""),
-            // Go: a module nested in another.
             ("go.mod", "module example.com/app\n\ngo 1.22\n"),
             ("internal/repo/repo.go", ""),
             ("internal/repo/repo_test.go", ""),
@@ -255,7 +250,6 @@ fn typescript_spellings_are_read_in_typescript_only() {
         plain_access(Kind::TsJs, "    repo.find(1)?.name!.x", 24),
         ("    repo.find(1).name.x".to_owned(), 22)
     );
-    // The forms a destructuring is written in, and what is none.
     let field = |from: &[&str], name: &str| {
         Some(Value::Field(
             from.iter().map(|s| s.to_string()).collect(),
@@ -275,11 +269,17 @@ fn typescript_spellings_are_read_in_typescript_only() {
         ("const { repo = spare } = this;", None),
         ("const { ...repo } = this;", None),
         ("const { inner: { repo } } = this;", None),
-        ("const { repo } = make();", None),
+        (
+            "const { repo } = make();",
+            Some(Value::Member(
+                Box::new(Value::Call("make".into())),
+                "repo".into(),
+            )),
+        ),
+        ("const { repo } = make().inner;", None),
     ] {
         assert_eq!(ts_destructured(t, "repo"), want, "{t}");
     }
-    // A barrel's list wrapped by prettier, and `export type`.
     let list =
         "export type {\n  Other,\n  Notifier,\n} from \"./b\";\nexport * as ns from \"./c\";\n";
     assert_eq!(
@@ -401,7 +401,6 @@ fn a_package_is_the_copy_in_the_nearest_node_modules_that_has_it() {
     assert_eq!(copy(&["fs"]), Some(vec![]));
     // A workspace package linked in is the project's own.
     assert_eq!(copy(&["@app", "shared"]), None);
-    // A file of the copy, and one of a package it depends on.
     let copy = [top.join("lib")];
     assert!(in_copy(&top.join("lib/dist/index.d.ts"), &copy));
     assert!(!in_copy(
@@ -590,8 +589,45 @@ fn external_go_files_are_what_an_import_reaches() {
     assert!(!declaration_file(Path::new("x/index.ts")));
 }
 
-/// #227. The file of the crate module a top-level `use crate::…` or `use super::…` takes a name
-/// from, at the paths a module's file sits at by default.
+#[test]
+fn the_rust_sysroot_leaves_out_its_tests_and_benches() {
+    let base = std::env::temp_dir().join(format!("merl-ext-rs-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    let sysroot = base.join("lib/rustlib/src/rust/library");
+    let registry = base.join("registry/serde-1.0.0");
+    let files = [
+        "core/src/option.rs",
+        "core/src/iter/mod.rs",
+        "coretests/tests/option.rs",
+        "alloctests/lib.rs",
+        "std/tests/env.rs",
+        "std/benches/hash.rs",
+        "vendor/hashbrown-0.17.1/src/map.rs",
+    ];
+    for f in files {
+        std::fs::create_dir_all(sysroot.join(f).parent().unwrap()).unwrap();
+        std::fs::write(sysroot.join(f), "").unwrap();
+    }
+    for f in ["src/de.rs", "tests/de.rs", "benches/de.rs", "vendor/x.rs"] {
+        std::fs::create_dir_all(registry.join(f).parent().unwrap()).unwrap();
+        std::fs::write(registry.join(f), "").unwrap();
+    }
+    let mut found = external_files(Kind::Rust, &[sysroot.clone(), registry.clone()]);
+    found.sort();
+    let mut want = vec![
+        sysroot.join("core/src/iter/mod.rs"),
+        sysroot.join("core/src/option.rs"),
+        sysroot.join("vendor/hashbrown-0.17.1/src/map.rs"),
+        registry.join("benches/de.rs"),
+        registry.join("src/de.rs"),
+        registry.join("tests/de.rs"),
+        registry.join("vendor/x.rs"),
+    ];
+    want.sort();
+    assert_eq!(found, want);
+    std::fs::remove_dir_all(&base).unwrap();
+}
+
 #[test]
 fn rust_use_files_follow_the_crate_and_super_paths() {
     let files: Vec<PathBuf> = [
@@ -665,8 +701,6 @@ fn rust_use_files_follow_the_crate_and_super_paths() {
     }
 }
 
-/// #333. A word in the module path of a Python import line is the module up to that word; an
-/// imported name, an alias and any other line are not.
 #[test]
 fn a_word_in_a_python_import_path_is_its_module() {
     let module = |line: &str, word: &str| {
@@ -707,16 +741,24 @@ fn java_and_kotlin_imports_bind_their_names_to_paths() {
     assert_eq!(jvm_package("import a.B\n"), None);
 }
 
-/// #351. Where PHP reads a class name, how it resolves one, and where composer.json's PSR-4 map
-/// puts it.
 #[test]
 fn php_class_names_resolve_and_map_to_files() {
     let at = |line: &str, word: &str| {
         let start = line.rfind(word).unwrap();
         php_class_at(line, start..start + word.len())
     };
-    let class = |w: &str| Some((w.to_owned(), false));
-    let member = |w: &str| Some((w.to_owned(), true));
+    let class = |w: &str| {
+        Some(PhpClassAt {
+            written: w.to_owned(),
+            member: false,
+        })
+    };
+    let member = |w: &str| {
+        Some(PhpClassAt {
+            written: w.to_owned(),
+            member: true,
+        })
+    };
     assert_eq!(at("        Song::query();", "Song"), class("Song"));
     assert_eq!(at("        Song::query();", "query"), member("Song"));
     assert_eq!(at("        \\A\\Song::$all;", "all"), member("\\A\\Song"));
@@ -738,7 +780,6 @@ fn php_class_names_resolve_and_map_to_files() {
         at("use App\\Models\\Song;", "Song"),
         class("\\App\\Models\\Song")
     );
-    // A namespace's segment, a function, a constant, `self::`, `$x::`, `Song::class`.
     assert_eq!(at("use App\\Models\\Song;", "Models"), None);
     assert_eq!(at("use function App\\f;", "f"), None);
     assert_eq!(at("        return f(LIMIT);", "f"), None);
@@ -748,7 +789,10 @@ fn php_class_names_resolve_and_map_to_files() {
     assert_eq!(at("        Song::class;", "class"), None);
 
     let text = "<?php\nnamespace App\\Repos;\n\nuse App\\Models\\Song;\nuse App\\Models\\Album as Record;\nuse App\\Http\\{Kernel, Request};\nuse function App\\helpers\\Tag;\n";
-    let resolve = |w: &str| php_resolve(text, w).unwrap();
+    let resolve = |w: &str| {
+        let r = php_resolve(text, w).unwrap();
+        (r.full, r.imported)
+    };
     assert_eq!(resolve("Song"), ("App\\Models\\Song".into(), true));
     assert_eq!(resolve("Record"), ("App\\Models\\Album".into(), true));
     assert_eq!(
@@ -760,7 +804,13 @@ fn php_class_names_resolve_and_map_to_files() {
     assert_eq!(php_resolve(text, "Kernel"), None);
     assert_eq!(php_resolve(text, "Request\\Part"), None);
     assert_eq!(resolve("Tag"), ("App\\Repos\\Tag".into(), false));
-    assert_eq!(php_resolve("<?php\n", "Song"), Some(("Song".into(), false)));
+    assert_eq!(
+        php_resolve("<?php\n", "Song"),
+        Some(PhpResolved {
+            full: "Song".into(),
+            imported: false
+        })
+    );
 
     let dir = std::env::temp_dir().join(format!("merl-psr4-{}", std::process::id()));
     std::fs::create_dir_all(dir.join("api")).unwrap();
@@ -778,16 +828,16 @@ fn php_class_names_resolve_and_map_to_files() {
     let file = |full: &str| php_psr4_file(&map, full, |f| files.iter().any(|g| Path::new(g) == f));
     assert_eq!(
         file("App\\Models\\Song"),
-        Some(Ok("api/app/Models/Song.php".into()))
+        Psr4File::Found("api/app/Models/Song.php".into())
     );
     assert_eq!(
         file("App\\Tests\\Unit"),
-        Some(Ok("api/more/Unit.php".into()))
+        Psr4File::Found("api/more/Unit.php".into())
     );
-    assert_eq!(file("App\\Models\\Gone"), Some(Err(())));
+    assert_eq!(file("App\\Models\\Gone"), Psr4File::Missing);
     // The empty prefix covers only a name whose file is there.
-    assert_eq!(file("Legacy"), Some(Ok("api/lib/Legacy.php".into())));
-    assert_eq!(file("Illuminate\\Support\\Arr"), None);
+    assert_eq!(file("Legacy"), Psr4File::Found("api/lib/Legacy.php".into()));
+    assert_eq!(file("Illuminate\\Support\\Arr"), Psr4File::OutsideProject);
     assert!(php_psr4(&dir, Path::new("elsewhere")).is_empty());
     std::fs::remove_dir_all(&dir).unwrap();
 }

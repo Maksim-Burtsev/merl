@@ -1,13 +1,3 @@
-//! #543: `d`, `u` and `D` never panic, wherever the cursor stands. A panic leaves the terminal in
-//! raw mode, and the ones found so far were each a string cut inside a character or an index past
-//! the end, on a line nobody had tried. One test presses `d` and `u` at every place the cursor can
-//! stand (every grapheme boundary of every line, its end included) of every file of every fixture
-//! and of [`ODD`] under every kind, and `D` once per file (it reads no cursor). What each key
-//! answers is the annotations' and the bench's business: here only a panic fails.
-//!
-//! It takes half an hour in a debug build and 19 minutes in release, so it is `#[ignore]`d and
-//! only a release PR's CI runs it: `cargo test --release no_panic -- --ignored`.
-
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use unicode_segmentation::UnicodeSegmentation;
@@ -89,8 +79,6 @@ fn no_panic_on_d_u_or_shift_d_anywhere() {
         .map(|e| (e.file_name().to_string_lossy().into_owned(), e.path()))
         .chain([("odd".to_owned(), dir.clone())])
         .collect();
-    // One job per file, the biggest projects' popped first, so no thread is left alone with a
-    // big one at the end: every key greps the whole project.
     let mut jobs: Vec<(u64, &str, &Path, PathBuf)> = Vec::new();
     for (name, path) in &projects {
         let (_, files) = crate::tree::build(path, false);
@@ -106,6 +94,14 @@ fn no_panic_on_d_u_or_shift_d_anywhere() {
         );
     }
     jobs.sort_by_key(|j| j.0);
+    let (shard, shards) = shard();
+    let jobs: Vec<_> = jobs
+        .into_iter()
+        .enumerate()
+        .filter(|(i, _)| i % shards == shard)
+        .map(|(_, j)| j)
+        .collect();
+    assert!(!jobs.is_empty(), "shard {shard}/{shards} holds no file");
     let jobs = std::sync::Mutex::new(jobs);
     let fails = std::sync::Mutex::new(Vec::new());
     // `RUST_TEST_THREADS` holds it back on a shared machine, as it does the other tests.
@@ -143,6 +139,17 @@ fn no_panic_on_d_u_or_shift_d_anywhere() {
         fails.len(),
         fails.join("\n")
     );
+}
+
+fn shard() -> (usize, usize) {
+    let Ok(spec) = std::env::var("MERL_NO_PANIC_SHARD") else {
+        return (0, 1);
+    };
+    let parsed = spec
+        .split_once('/')
+        .and_then(|(i, n)| Some((i.parse().ok()?, n.parse().ok()?)))
+        .filter(|&(i, n): &(usize, usize)| i < n);
+    parsed.unwrap_or_else(|| panic!("MERL_NO_PANIC_SHARD={spec}: want I/N with I below N"))
 }
 
 /// Presses the keys everywhere in `file` of the project `new` makes, and returns each panic that

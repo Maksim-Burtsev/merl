@@ -120,3 +120,37 @@ fn an_untyped_parameter_is_bound_only_on_a_groovy_def() {
         "fun f() {\n    val seen = load()\n    check(\n        Item(id = 1, seen),\n    )\n}\n";
     assert_eq!(bindings(Kind::Jvm, kotlin, 4, "seen")[0].line, 2);
 }
+
+#[test]
+fn groovy_parameters_read_past_an_annotation_with_arguments() {
+    let p = |decl: &str| jvm_parameters(decl, 1, "X", true);
+    assert_eq!(
+        p(r#"X(@Named("cfg") Map<String, Object> m) {"#),
+        Some((1, 0))
+    );
+    assert_eq!(
+        p(r#"X(@Named(value = "x") Long id, String tag = "a, b") {"#),
+        Some((1, 1))
+    );
+    assert_eq!(
+        p("X(@Size(max = 3) String s, Map<K, V> m = [:], int n=1) {"),
+        Some((1, 2))
+    );
+    assert_eq!(p("X(@Tag(\"a\") Object... rest) {"), Some((0, usize::MAX)));
+    assert_eq!(p("X(Closure c = { -> 1 }, int b) {"), Some((1, 1)));
+    assert_eq!(
+        p("X(int a, Closure c = { x, y -> x }, int b) {"),
+        Some((2, 1))
+    );
+    assert_eq!(p("X(boolean f = x >= 1, int b) {"), Some((1, 1)));
+    assert_eq!(p("X(int n = 1 >> 2, m) {"), Some((1, 1)));
+    assert_eq!(p("X(boolean f = a < 1, int b) {"), Some((1, 1)));
+    assert_eq!(
+        p("X(boolean f = a > b, Map<K, List<V>> m, int c) {"),
+        Some((2, 1))
+    );
+    assert_eq!(
+        jvm_parameters("X(int n = 1) {", 1, "X", false),
+        Some((1, 0))
+    );
+}

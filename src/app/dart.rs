@@ -1,6 +1,3 @@
-//! `d` in a Dart file through its imports (#414): a prefix of `import … as p` and a name of
-//! `import … show A` are looked for in the file the import names.
-
 use super::*;
 
 impl App {

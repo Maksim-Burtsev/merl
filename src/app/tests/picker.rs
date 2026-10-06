@@ -1,5 +1,3 @@
-//! The theme picker, and where Enter on a row of the other pickers lands.
-
 use super::*;
 
 /// `T` previews the theme under the cursor without committing to it: Esc puts the one in
@@ -139,7 +137,6 @@ fn orders_app(tag: &str) -> (PathBuf, App) {
     )
 }
 
-/// Puts the cursor on `word` in `file` at `line`.
 fn cursor_on(a: &mut App, file: &str, line: usize, word: &str) {
     a.jump_to(&a.root.join(file), line);
     a.col = a.line_str().find(word).expect(word);
@@ -402,9 +399,12 @@ fn a_usage_row_in_a_file_of_another_language_lands_on_the_word() {
     let picker = a.picker.as_mut().expect("a picker");
     picker.settle();
     assert_eq!(picker.counts().0, 2, "app.py:1 and ci.yml:3");
-    // The row is listed for the whole `app`, and lands there, not inside `my-app`.
     enter_on_row(&mut a, "ci.yml", 3);
-    assert_eq!(landed(&a), ("ci.yml".into(), 3, 16));
+    assert_eq!(
+        landed(&a),
+        ("ci.yml".into(), 3, 16),
+        "the row is listed for the whole `app`, and lands there, not inside `my-app`"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 

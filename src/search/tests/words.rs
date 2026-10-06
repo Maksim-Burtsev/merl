@@ -1,5 +1,3 @@
-//! The kind of a file, the word under the cursor and the qualifier in front of it.
-
 use super::*;
 
 #[test]

@@ -10,39 +10,39 @@ wait Files (
 │✓       M values.yaml  +1 −0│  ▎    def get(self, order_id: int) -> Order | None:
 │  ▾ docs                    │  ▎        return self.orders.get(order_id)
 │    M architecture.png   bin│  ▎
-│  ▾ scripts       ┌Files (62/62)─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│    D refund_by_ha│>                                                                                                                                                 │
-│  ▾ tests         │A app/refunds.py                                                                                                                                  │
-│    A test_refunds│M app/repos.py                                                                                                                                    │
-│  ▾ worker        │M app/service.py                                                                                                                                  │
-│    M main.go     │M deploy/helm/orders/values.yaml                                                                                                                  │
-│                  │M docs/architecture.png                                                                                                                           │
-│                  │A tests/test_refunds.py                                                                                                                           │
-│                  │M worker/main.go                                                                                                                                  │
-│                  │  .github/workflows/ci.yml                                                                                                                        │
-│                  │  app/__init__.py                                                                                                                                 │
-│                  │  app/api.py                                                                                                                                      │
-│                  │  app/config.py                                                                                                                                   │
-│                  │  app/models.py                                                                                                                                   │
-│                  │  app/uow.py                                                                                                                                      │
-│                  │  data/orders.min.json                                                                                                                            │
-│                  │  data/refunds-2026-08.csv                                                                                                                        │
-│                  │  deploy/helm/orders/templates/_helpers.tpl                                                                                                       │
-│                  │  deploy/helm/orders/templates/deployment.yaml                                                                                                    │
-│                  │  deploy/helm/orders/Chart.yaml                                                                                                                   │
-│                  │  docs/notes.md                                                                                                                                   │
-│                  │  scripts/payouts/src/ledger.rs                                                                                                                   │
-│                  │  scripts/payouts/src/main.rs                                                                                                                     │
-│                  │  scripts/payouts/src/summary.rs                                                                                                                  │
-│                  │  scripts/payouts/Cargo.toml                                                                                                                      │
-│                  │  scripts/invoices.php                                                                                                                            │
-│                  │  tests/test_service.py                                                                                                                           │
-│                  │  web/android/gradle/libs.versions.toml                                                                                                           │
-│                  │  web/android/src/main/java/courier/app/scan/Parcel.java                                                                                          │
-│                  │  web/android/src/main/java/courier/app/ParcelSync.java                                                                                           │
-│                  │  web/android/src/main/java/courier/app/Scale.java                                                                                                │
-│                  │  web/android/src/main/kotlin/courier/app/ship/Parcel.kt                                                                                          │
-│                  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+│  ▾ scripts                 │  ▎    d┌Files (62/62)────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│    D refund_by_hand.… +0 −9│  ▎     │>                                                                                                                                        │
+│  ▾ tests                   │  ▎     │A app/refunds.py                                                                                                                         │
+│    A test_refunds.py +23 −0│  ▎     │M app/repos.py                                                                                                                           │
+│  ▾ worker                  │  ▎     │M app/service.py                                                                                                                         │
+│    M main.go          +4 −1│  ▎     │M deploy/helm/orders/values.yaml                                                                                                         │
+│                            │  ▎    d│M docs/architecture.png                                                                                                                  │
+│                            │  ▎     │A tests/test_refunds.py                                                                                                                  │
+│                            │  ▎     │M worker/main.go                                                                                                                         │
+│                            │  ▎    d│  .github/workflows/ci.yml                                                                                                               │
+│                            │  ▎     │  app/__init__.py                                                                                                                        │
+│                            │  ▎     │  app/api.py                                                                                                                             │
+│                            │  ▎    d│  app/config.py                                                                                                                          │
+│                            │  ▎     │  app/models.py                                                                                                                          │
+│                            │  ▎     │  app/uow.py                                                                                                                             │
+│                            │  ▎    d│  data/orders.min.json                                                                                                                   │
+│                            │  ▎     │  data/refunds-2026-08.csv                                                                                                               │
+│                            │        │  deploy/helm/orders/templates/_helpers.tpl                                                                                              │
+│                            │        │  deploy/helm/orders/templates/deployment.yaml                                                                                           │
+│                            │        │  deploy/helm/orders/Chart.yaml                                                                                                          │
+│                            │        │  docs/notes.md                                                                                                                          │
+│                            │        │  scripts/payouts/src/ledger.rs                                                                                                          │
+│                            │        │  scripts/payouts/src/main.rs                                                                                                            │
+│                            │        │  scripts/payouts/src/summary.rs                                                                                                         │
+│                            │        │  scripts/payouts/Cargo.toml                                                                                                             │
+│                            │        │  scripts/invoices.php                                                                                                                   │
+│                            │        │  tests/test_service.py                                                                                                                  │
+│                            │        │  web/android/gradle/libs.versions.toml                                                                                                  │
+│                            │        │  web/android/src/main/java/courier/app/scan/Parcel.java                                                                                 │
+│                            │        │  web/android/src/main/java/courier/app/ParcelSync.java                                                                                  │
+│                            │        │  web/android/src/main/java/courier/app/Scale.java                                                                                       │
+│                            │        │  web/android/src/main/kotlin/courier/app/ship/Parcel.kt                                                                                 │
+│                            │        └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 │                            │
 │                            │
 │                            │
@@ -54,4 +54,4 @@ wait Files (
 │                            │
 └ 8 files · +59 −39 ─────────┘
 app/repos.py  -59:14  [code]  hunk 1/1  file 2/8                                                                                                                                  ? help
-cursor (x,y,shown) 22,12,1
+cursor (x,y,shown) 41,12,1

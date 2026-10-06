@@ -1,0 +1,81 @@
+# id	targets: path:line joined by ; (project-relative; empty: none in reach)	skip: why the row is not scored	note (judged by reading the code: no language server ran for this language)
+elisp0000	lisp/magit-process.el:481		defun magit-call-git
+elisp0001			outside the project: Emacs builtin looking-at
+elisp0002			outside the project: transient macro transient-define-suffix
+elisp0003			outside the project: Emacs macro define-derived-mode
+elisp0004	lisp/magit-git.el:2185		on-decl: parameter in lambda list
+elisp0005	lisp/magit-git.el:2614		defun parameter string
+elisp0006	lisp/magit-extras.el:386		let binding blame-type
+elisp0007	lisp/magit-patch.el:169		on-decl: part of symbol magit-format-patch:--interdiff, transient-define-argument
+elisp0008	lisp/magit-mode.el:1046		defun magit-refresh (defgroup of the same name is another namespace)
+elisp0009		not a definition reference: quoted constant in a defcustom :type	custom type data
+elisp0010	lisp/magit-wip.el:171		defun magit-wip-commit-worktree
+elisp0011			outside the project: Emacs builtin expand-file-name
+elisp0012	lisp/magit-status.el:660		let binding merge
+elisp0013			outside the project: eieio macro oref
+elisp0014	lisp/magit-diff.el:3928		parameter section of magit-diff-update-hunk-region
+elisp0015		not a definition reference: alist in a defcustom :type	custom type data
+elisp0016	lisp/magit-blame.el:687		defun parameter face
+elisp0017		not a definition reference: &optional lambda-list keyword	lambda-list keyword
+elisp0018	lisp/magit-bundle.el:104	let-alist binds .file from the runtime alist; no literal binding	let-alist macro binding
+elisp0019	lisp/magit-log.el:1184		innermost when-let* binding (limit (* 2 limit))
+elisp0020		not a definition reference: radio in a defcustom :type	custom type data
+elisp0021	lisp/magit-log.el:1437		implicit block of cl-defun magit-log-wash-rev
+elisp0022	lisp/magit-git.el:588		defun magit-git-insert
+elisp0023	lisp/magit-stash.el:579		defun magit--maybe-update-stash-buffer
+elisp0024	lisp/magit-bundle.el:46		on-decl: parameter in lambda list
+elisp0025	lisp/magit-transient.el:49		defclass magit--git-variable:boolean
+elisp0026			outside the project: transient function transient-prefix-object
+elisp0027	lisp/magit-diff.el:985		defvar-local magit-buffer-diff-args (git.el:48 is a bare forward defvar)
+elisp0028	lisp/magit-refs.el:728		on-decl: let* binding p:behind
+elisp0029	lisp/magit-diff.el:3875		defun magit-diff--update-hunk-syntax
+elisp0030	lisp/magit-diff.el:1946		let binding file
+elisp0031	lisp/magit-git.el:1660		on-decl: parameter in lambda list
+elisp0032			outside the project: Emacs builtin file-relative-name
+elisp0033	lisp/magit-log.el:1709		on-decl: parameter in lambda list
+elisp0034		not a definition reference: package name in :package-version data	quoted data
+elisp0035	lisp/magit-mode.el:924		defun parameter mode
+elisp0036	lisp/magit-log.el:1729		pcase-let* binding abbr
+elisp0037		not a definition reference: function-item in a defcustom :type	custom type data
+elisp0038			outside the project: transient function transient-setup
+elisp0039		not a definition reference: symbol in a quoted pcase pattern	quoted data
+elisp0040		not a definition reference: quoted symbol in ediff-combination-pattern	quoted data
+elisp0041			outside the project: Emacs builtin nreverse
+elisp0042			outside the project: helm variable helm-mode
+elisp0043	lisp/magit-sequence.el:674		defun parameter commit
+elisp0044	lisp/magit-sequence.el:1127		defun magit-sequence-insert-commit
+elisp0045			outside the project: Emacs builtin overlays-in
+elisp0046		not a definition reference: key name in a key vector	key data
+elisp0047	lisp/magit-mode.el:589		defvar-local magit-buffer-blob-oid
+elisp0048			outside the project: transient macro transient-define-suffix
+elisp0049	lisp/magit-branch.el:314		defun parameter arg
+elisp0050	lisp/magit-sequence.el:590		on-decl: parameter in lambda list
+elisp0051	lisp/magit-section.el:2445		defun magit--propertize-face
+elisp0052	lisp/magit-bundle.el:104	let-alist binds .branch from the runtime alist; no literal binding	let-alist macro binding
+elisp0053	lisp/magit-mode.el:1046		defun magit-refresh, quoted command in keymap
+elisp0054	lisp/magit-section.el:695		lambda parameter key
+elisp0055			outside the project: Emacs builtin window-list
+elisp0056			outside the project: Emacs builtin symbol-function
+elisp0057	lisp/magit-git.el:2869		defvar magit-revision-history
+elisp0058		not a definition reference: function-item in a defcustom :type	custom type data
+elisp0059	lisp/magit-status.el:486		pcase-let binding dfiles
+elisp0060	lisp/magit-ediff.el:546		on-decl: let* binding ctl-frm
+elisp0061	lisp/magit-log.el:632		on-decl: part of symbol magit-log:--until, transient-define-argument
+elisp0062			outside the project: Emacs builtin nconc
+elisp0063	lisp/magit.el:499		transient-define-argument magit:--signoff
+elisp0064		not a definition reference: quoted symbol compared with eq	quoted data
+elisp0065	lisp/magit-git.el:1290		defun magit-assume-unchanged-files
+elisp0066	lisp/magit-section.el:1831		defun magit-section-selective-highlight-p
+elisp0067	lisp/magit-clone.el:251		on-decl: let binding name
+elisp0068	lisp/magit-refs.el:680		pcase-lambda binding p:behind
+elisp0069	lisp/magit-base.el:839		defun magit-confirm-files
+elisp0070		not a definition reference: section type in quoted list	quoted data
+elisp0071	lisp/magit-gitignore.el:118		defun magit-gitignore-read-pattern
+elisp0072	lisp/magit-git.el:1563		defun magit-commit-oid
+elisp0073	lisp/magit-patch.el:132		transient-define-argument magit-format-patch:--in-reply-to
+elisp0074	lisp/magit-section.el:1371		defmacro magit-insert-section
+elisp0075	lisp/magit-sequence.el:170		transient-define-argument magit-cherry-pick:--mainline
+elisp0076	lisp/magit-log.el:525		transient-define-prefix magit-log
+elisp0077	lisp/magit-base.el:798		cl-defun magit-confirm
+elisp0078	lisp/magit-log.el:936		on-decl: parameter in lambda list
+elisp0079			outside the project: transient class transient-option

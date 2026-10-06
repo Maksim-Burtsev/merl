@@ -103,7 +103,7 @@ wait 30 days: 2 sessions
 wait merl exited: 0
 caption merl -r agent/page-size: the branch an agent works on in a worktree of its own is reviewed there (#396)
 merl -r agent/page-size
-wait app/config.py  -10:1  [code]  hunk 1/1  file 1/2
+wait [code]  hunk 1/1  file 1/2
 caption its file not committed yet is part of the review
 key c
 wait docs/paging.md
@@ -127,6 +127,10 @@ key p
 wait [preview]
 key p
 wait [code]
+# C back from docs/paging.md: on config.py's hunk, which rewrites a line, c and C stand on the
+# line it added, the one it deleted above it (#690).
+key C
+wait hunk 1/1  file 1/2
 caption merl -r agent/totp: a package eleven directories deep; the chain folds into one row, so both file names fit (#399)
 merl -r agent/totp
 wait hunk 1/1  file 1/2
