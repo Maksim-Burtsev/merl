@@ -13,3 +13,8 @@
 ;                                 ^ d: shop-limit.el:12
     (funcall pick limit)))
 ;                 ^ d: shop-limit.el:11
+(defun shop-limit-buffer (buf)
+  (when-let* (buf (buf) (size (length buf)))
+;                                     ^ d: shop-limit.el:16
+    (message buf)))
+;            ^ d: shop-limit.el:16

@@ -294,6 +294,7 @@ struct Frame<'a> {
     loop_var: bool,
     sequential: bool,
     recursive: bool,
+    tests: bool,
     entry: Option<usize>,
 }
 
@@ -324,6 +325,7 @@ const LETS: &[&str] = &[
 ];
 const SEQUENTIAL: &[&str] = &["let*", "when-let*", "if-let*", "and-let*", "pcase-let*"];
 const RECURSIVE: &[&str] = &["letrec", "letrec*", "labels"];
+const TESTS: &[&str] = &["when-let*", "if-let*", "and-let*"];
 const LAMBDAS: &[&str] = &["lambda", "opt-lambda"];
 const CLASSES: &[&str] = &["class", "class*", "mixin"];
 const CLAUSES: &[&str] = &["inherit", "inherit-field", "init-field", "field"];
@@ -420,6 +422,13 @@ pub(super) fn lisp_bindings(
                     Some(p) => p.role == Role::Letfn || (p.role == Role::Entries && p.recursive),
                     None => false,
                 };
+                let tests = match stack.last() {
+                    Some(p) if role == Role::Entries => {
+                        TESTS.contains(&p.head.unwrap_or("").to_ascii_lowercase().as_str())
+                    }
+                    Some(p) => p.role == Role::Entries && p.tests,
+                    None => false,
+                };
                 let scope = match (role, stack.last()) {
                     (Role::Plain | Role::Arity, _) | (_, None) => {
                         scopes.push((pos, None));
@@ -437,6 +446,7 @@ pub(super) fn lisp_bindings(
                     loop_var: false,
                     sequential,
                     recursive,
+                    tests,
                     entry,
                 });
             }
@@ -444,6 +454,9 @@ pub(super) fn lisp_bindings(
                 let Some(f) = stack.pop() else { break };
                 if matches!(f.role, Role::Plain | Role::Arity) {
                     scopes[f.scope].1 = Some(pos);
+                }
+                if let Some(from) = f.entry.filter(|_| f.tests && f.idx < 2) {
+                    found.truncate(from);
                 }
                 if let Some(from) = f.entry {
                     for e in found[from..].iter_mut().filter(|e| e.2 == usize::MAX) {
@@ -476,7 +489,8 @@ pub(super) fn lisp_bindings(
                     kind == Kind::Scheme && f.role == Role::Plain && f.idx == 1 && head == "let";
                 let bound = match f.role {
                     Role::Pairs => f.idx.is_multiple_of(2),
-                    Role::Entries | Role::Params | Role::Destructure => true,
+                    Role::Entries => !f.tests,
+                    Role::Params | Role::Destructure => true,
                     Role::Define => f.idx >= 1,
                     Role::First => f.idx == 0,
                     Role::Plain => (looping && f.loop_var) || named,
