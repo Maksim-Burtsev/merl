@@ -428,8 +428,8 @@ pub struct App {
     /// Linear per-file undo history, oldest first, and what undo took back.
     undo: Vec<Edit>,
     redo: Vec<Edit>,
-    /// Set when the next edit must start its own undo step even if it continues the last one.
     undo_break: bool,
+    edit_kind: edit::Kind,
     stash: HashMap<PathBuf, Stashed>,
     /// The overlay on screen (find, goto, a prompt, a picker) was opened from edit mode with a
     /// chord alias: closing it without leaving the file goes back to editing.
@@ -597,6 +597,7 @@ impl App {
             undo: Vec::new(),
             redo: Vec::new(),
             undo_break: false,
+            edit_kind: edit::Kind::Other,
             stash: HashMap::new(),
             resume_edit: false,
             clipboard: None,
