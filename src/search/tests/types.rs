@@ -190,10 +190,10 @@ fn returns_read_the_declared_type_or_what_typescript_constructs() {
         Some(Value::New("Repo".into()))
     );
     assert_eq!(returns(Kind::Python, py, 12), Some(ty("Repo")));
-    // A `: ` inside a string is not the end of the annotation.
     assert_eq!(
         returns(Kind::Python, py, 14),
-        Some(ty("Annotated[Repo, \"doc: x\"]"))
+        Some(ty("Annotated[Repo, \"doc: x\"]")),
+        "a `: ` inside a string is not the end of the annotation"
     );
     let ts = "export function makeRepo(): UserRepository {
   return new UserRepository();
@@ -297,8 +297,11 @@ fn returns_read_methods_and_what_an_unannotated_python_def_constructs() {
     let ts = "export class Depot {\n  async repo<T>(id: T): Promise<Repo> {\n    return load(id);\n  }\n  private static trail() {\n    return new Trail();\n  }\n  find = (id: number): Repo => load(id);\n}\ninterface Source {\n  source(): Repo;\n  maybe?(): Repo\n}\n";
     assert_eq!(returns(Kind::TsJs, ts, 2), Some(ty("Promise<Repo>")));
     assert_eq!(returns(Kind::TsJs, ts, 5), new("Trail"));
-    // A property holding a function is not read.
-    assert_eq!(returns(Kind::TsJs, ts, 8), None);
+    assert_eq!(
+        returns(Kind::TsJs, ts, 8),
+        None,
+        "a property holding a function is not read"
+    );
     assert_eq!(returns(Kind::TsJs, ts, 11), Some(ty("Repo")));
     assert_eq!(returns(Kind::TsJs, ts, 12), Some(ty("Repo")));
     let go = "func (d *Depot) Repo(id int) *Repo {\n\treturn d.people\n}\nfunc (d Depot) Trail() (Trail, error) {\n\treturn Trail{}, nil\n}\ntype Source interface {\n\tSource() *Repo\n\tClose()\n}\n";
@@ -338,10 +341,13 @@ fn a_python_line_is_cut_into_its_simple_statements() {
     for (line, want) in cases {
         assert_eq!(python_statements(line, false), want, "{line}");
     }
-    // The last line of a wrapped header, whatever the line above it ends in.
     for continues in [false, true] {
         let got = python_statements("flag): x = 1; y = 2", continues);
-        assert_eq!(got, ["x = 1", "y = 2"]);
+        assert_eq!(
+            got,
+            ["x = 1", "y = 2"],
+            "the last line of a wrapped header, whatever the line above it ends in"
+        );
     }
     let continued: [(&str, &[&str]); 3] = [
         ("b=2, x = 1", &[]),
@@ -398,14 +404,23 @@ fn a_cast_is_read_as_the_type_it_writes() {
     assert_eq!(at(4), [(2, ty("*Repo"))]);
     assert_eq!(at(6), [(2, Value::Unknown)]);
     assert_eq!(at(8), [(2, Value::Unknown)]);
-    // Past a plain `switch` inside the arm, and not the closed type switch above.
-    assert_eq!(at(14), [(10, ty("*Audit"))]);
-    // No type switch: nothing the rules read binds `v` here.
-    assert_eq!(at(19), []);
-    // A `select` ends its `case` as a `switch` does: the closed type switch above it is not
-    // read with the `case` of the `select`, and the parameter `v` stays what it is.
+    assert_eq!(
+        at(14),
+        [(10, ty("*Audit"))],
+        "past a plain `switch` inside the arm, and not the closed type switch above"
+    );
+    assert_eq!(
+        at(19),
+        [],
+        "no type switch: nothing the rules read binds `v` here"
+    );
     let chans = "func f(v *Repo, x any, ch chan int) {\n\tswitch v := x.(type) {\n\tcase *Audit:\n\t\tv.Go()\n\t}\n\tselect {\n\tcase <-ch:\n\t\tv.Go()\n\t}\n}\n";
-    assert_eq!(bound_at(Kind::Go, chans, 8, "v"), [(1, ty("*Repo"))]);
+    assert_eq!(
+        bound_at(Kind::Go, chans, 8, "v"),
+        [(1, ty("*Repo"))],
+        "a `select` ends its `case` as a `switch` does: the closed type switch above it is not \
+         read with the `case` of the `select`, and the parameter `v` stays what it is"
+    );
 }
 
 /// #178: `cast(`, `new(` and `make(` read their arguments, and the three of them sliced the line
@@ -419,8 +434,11 @@ fn a_call_wrapped_onto_the_next_lines_reads_no_arguments() {
     assert_eq!(v(Kind::Go, "new("), Value::Unknown);
     assert_eq!(v(Kind::Go, "make("), Value::Unknown);
     assert_eq!(v(Kind::Go, "make([]*Repo,"), Value::Unknown);
-    // A call that is not read for a type still names its callee, wrapped or not.
-    assert_eq!(v(Kind::Python, "load("), Value::Call("load".into()));
+    assert_eq!(
+        v(Kind::Python, "load("),
+        Value::Call("load".into()),
+        "a call that is not read for a type still names its callee, wrapped or not"
+    );
     // The same calls closed on their line keep writing the type they always did.
     assert_eq!(
         v(Kind::Python, "cast(Repo, row)"),
@@ -500,18 +518,33 @@ fn a_chain_may_hang_off_the_call_that_starts_it() {
             String::new()
         ))
     );
-    // Brackets around a call are read through, as an `await` in front of one is.
     assert_eq!(
         head(Kind::TsJs, "  (await load()).find()"),
-        call("load()", "load", "")
+        call("load()", "load", ""),
+        "brackets around a call are read through, as an `await` in front of one is"
     );
-    // A call of a call, an index, a generic call, a condition, a plain name.
-    assert_eq!(head(Kind::Go, "\tOpen().Repo().Delete()"), None);
-    assert_eq!(head(Kind::Python, "    make()[0].delete()"), None);
-    assert_eq!(head(Kind::Python, "    items[0].load().delete()"), None);
-    assert_eq!(head(Kind::TsJs, "  load<Repo>(id).find()"), None);
-    assert_eq!(head(Kind::TsJs, "  if (ok).find()"), None);
-    assert_eq!(head(Kind::Python, "    repo.find()"), None);
+    assert_eq!(
+        head(Kind::Go, "\tOpen().Repo().Delete()"),
+        None,
+        "a call of a call"
+    );
+    assert_eq!(
+        head(Kind::Python, "    make()[0].delete()"),
+        None,
+        "an index"
+    );
+    assert_eq!(
+        head(Kind::Python, "    items[0].load().delete()"),
+        None,
+        "an index"
+    );
+    assert_eq!(
+        head(Kind::TsJs, "  load<Repo>(id).find()"),
+        None,
+        "a generic call"
+    );
+    assert_eq!(head(Kind::TsJs, "  if (ok).find()"), None, "a condition");
+    assert_eq!(head(Kind::Python, "    repo.find()"), None, "a plain name");
     // A callee or a field with a character outside ASCII: no name to read, and no slice inside
     // the character either (#150).
     assert_eq!(head(Kind::TsJs, "  void café().word"), None);

@@ -1,12 +1,8 @@
-//! Vue, Svelte and Astro components (#413): TypeScript in a `<script>` block or an Astro
-//! frontmatter, around a template that declares nothing.
-
 use super::*;
 use std::borrow::Cow;
 use std::ops::Range;
 use std::path::Path;
 
-/// Whether `path` is a `.vue`, `.svelte` or `.astro` component.
 pub fn component(path: &Path) -> bool {
     path.extension()
         .is_some_and(|e| e == "vue" || e == "svelte" || e == "astro")
@@ -20,48 +16,47 @@ pub fn script_lines(path: &Path, text: &str) -> Option<Vec<bool>> {
         return None;
     }
     let astro = path.extension().is_some_and(|e| e == "astro");
-    // Where a line stands: outside, inside a `<script` tag wrapped over lines, in the script.
     #[derive(PartialEq)]
     enum At {
-        Out,
-        Tag,
-        Script,
-        Front,
+        Outside,
+        InWrappedScriptTag,
+        InScript,
+        InFrontmatter,
     }
-    let mut at = At::Out;
+    let mut at = At::Outside;
     let mut out = Vec::new();
     for (i, line) in text.lines().enumerate() {
         // A file saved with a BOM opens with it, read from the disk.
         let t = line.trim().trim_start_matches('\u{feff}');
         let code = match at {
-            At::Out if astro && i == 0 && t == "---" => {
-                at = At::Front;
+            At::Outside if astro && i == 0 && t == "---" => {
+                at = At::InFrontmatter;
                 false
             }
-            At::Out if t.starts_with("<script") && t[7..].starts_with([' ', '>', '\t']) => {
+            At::Outside if t.starts_with("<script") && t[7..].starts_with([' ', '>', '\t']) => {
                 at = script_open(t);
                 false
             }
-            At::Out if t == "<script" => {
-                at = At::Tag;
+            At::Outside if t == "<script" => {
+                at = At::InWrappedScriptTag;
                 false
             }
-            At::Out => false,
-            At::Tag => {
+            At::Outside => false,
+            At::InWrappedScriptTag => {
                 if let Some(close) = t.find('>') {
                     at = script_open(&t[close..]);
                 }
                 false
             }
-            At::Script if t.starts_with("</script") => {
-                at = At::Out;
+            At::InScript if t.starts_with("</script") => {
+                at = At::Outside;
                 false
             }
-            At::Front if t == "---" => {
-                at = At::Out;
+            At::InFrontmatter if t == "---" => {
+                at = At::Outside;
                 false
             }
-            At::Script | At::Front => true,
+            At::InScript | At::InFrontmatter => true,
         };
         out.push(code);
     }
@@ -71,9 +66,9 @@ pub fn script_lines(path: &Path, text: &str) -> Option<Vec<bool>> {
     /// (`<script src="x"></script>`) or its tag goes on to the next line.
     fn script_open(t: &str) -> At {
         match (t.contains("</script"), t.contains('>')) {
-            (true, _) => At::Out,
-            (false, true) => At::Script,
-            (false, false) => At::Tag,
+            (true, _) => At::Outside,
+            (false, true) => At::InScript,
+            (false, false) => At::InWrappedScriptTag,
         }
     }
 }
@@ -149,6 +144,31 @@ pub fn template_binds<S: AsRef<str>>(lines: &[S], code: &[bool], word: &str) -> 
         })
         .map(|(i, _)| i + 1)
         .collect()
+}
+pub fn template_reaches<S: AsRef<str>>(
+    lines: &[S],
+    code: &[bool],
+    word: &str,
+    line: usize,
+) -> bool {
+    let text = |i: usize| lines[i].as_ref();
+    let indent = |i: usize| text(i).len() - text(i).trim_start().len();
+    let opens = |i: usize| text(i).trim_start().starts_with(['<', '{']);
+    template_binds(lines, code, word).into_iter().any(|b| {
+        let at = b - 1;
+        let start = (0..=at)
+            .rev()
+            .take_while(|&i| !code.get(i).copied().unwrap_or(false))
+            .find(|&i| opens(i))
+            .unwrap_or(at);
+        let base = indent(start);
+        let sibling = text(start).trim_start().starts_with("{@const");
+        let within = |i: usize| {
+            let t = text(i).trim();
+            t.is_empty() || t == ">" || indent(i) > base || sibling && indent(i) == base
+        };
+        start <= line && (line <= at || (at + 1..=line).all(within))
+    })
 }
 /// The names a binding pattern binds: `item, i`, `{ id, name: label }` (`id` and `label`), `row:
 /// Row` (`row`), with no default value's names (`{ size = md }` binds `size`).

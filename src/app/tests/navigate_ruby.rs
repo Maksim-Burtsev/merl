@@ -142,27 +142,24 @@ fn the_core_signatures_and_the_standard_library_come_first() {
             ]
         )
     );
-    // A constant's path names no file: `Errno` is no directory of the core, and the name is
-    // looked for by name, offered as any `::` path no declaration of the project spells.
     d_on(&mut a, "app/lib/run.rb", "Errno::ENOENT");
     assert_eq!(
         shown(&mut a),
         picker(
             "ENOENT: by name, 1 match",
             &[("Errno.ENOENT", "errno.rbs:2")]
-        )
+        ),
+        "A constant's path names no file: `Errno` is no directory of the core, and the name is looked for by name, offered as any `::` path no declaration of the project spells"
     );
-    // A class method the project's class does not declare: ActiveRecord's, by name.
     d_on(&mut a, "app/lib/run.rb", "Account.find");
     assert_eq!(
         shown(&mut a),
         jump(
             "find \u{2192} ActiveRecord.Core.ClassMethods.find (by name, 1 match)",
             &at("gems/activerecord-8.0.0/lib/active_record/core.rb:4")
-        )
+        ),
+        "A class method the project's class does not declare: ActiveRecord's, by name"
     );
-    // `mattr_accessor` declares its name as `attr_accessor` does. On a value of no known type
-    // the one row is offered, as without the gems (#390).
     d_on(&mut a, "app/lib/run.rb", ".send_email_changed_notification");
     assert_eq!(
         shown(&mut a),
@@ -172,36 +169,37 @@ fn the_core_signatures_and_the_standard_library_come_first() {
                 "Devise.send_email_changed_notification",
                 "devise-4.9.4/lib/devise.rb:2"
             )]
-        )
+        ),
+        "`mattr_accessor` declares its name as `attr_accessor` does. On a value of no known type the one row is offered, as without the gems (#390)"
     );
-    // A local of a gem's method declares nothing by name (#383): `name = 'devise'` is no answer.
     d_on(&mut a, "app/lib/run.rb", "options.name");
     assert_eq!(
         shown(&mut a),
-        jump("no definition for name", "app/lib/run.rb:7")
+        jump("no definition for name", "app/lib/run.rb:7"),
+        "A local of a gem's method declares nothing by name (#383): `name = 'devise'` is no answer"
     );
-    // A class-level accessor is the class's own: the project's `MyGem.api_key`, never Devise's.
     d_on(&mut a, "app/lib/run.rb", "MyGem.api_key");
     assert_eq!(
         shown(&mut a),
         jump(
             "api_key \u{2192} MyGem.api_key (via MyGem)",
             "lib/my_gem.rb:2"
-        )
+        ),
+        "A class-level accessor is the class's own: the project's `MyGem.api_key`, never Devise's"
     );
-    // `def self?.puts:` declares Kernel's `puts`.
     d_on(&mut a, "app/lib/run.rb", "  puts");
     assert_eq!(
         shown(&mut a),
         jump(
             "puts \u{2192} Kernel.puts (by name, 1 match)",
             &at("rbs-3.4.0/core/kernel.rbs:2")
-        )
+        ),
+        "`def self?.puts:` declares Kernel's `puts`"
     );
-    // Opened, a core signature is named from its root and read as Ruby.
     assert_eq!(
         a.rel_path_of(&root.join("rbs-3.4.0/core/kernel.rbs")),
-        "kernel.rbs"
+        "kernel.rbs",
+        "Opened, a core signature is named from its root and read as Ruby"
     );
     assert_eq!(a.kind(), Some(Kind::Ruby));
     std::fs::remove_dir_all(&dir).unwrap();

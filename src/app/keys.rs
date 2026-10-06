@@ -86,7 +86,12 @@ impl App {
             self.session = session;
             return !overlay && self.key(key);
         }
-        // In kitty mode `:`, `?` and `D` arrive with SHIFT set; legacy sends none.
+        if let KeyCode::Char(c) = key.code
+            && key.modifiers.contains(KeyModifiers::CONTROL)
+            && (key.modifiers.contains(KeyModifiers::SHIFT) || !c.is_ascii_lowercase())
+        {
+            return false;
+        }
         if matches!(key.code, KeyCode::Char(_)) {
             key.modifiers.remove(KeyModifiers::SHIFT);
         }
@@ -102,8 +107,7 @@ impl App {
         if ctrl && key.code == KeyCode::Char('c') && self.mode != Mode::Edit {
             // Ctrl+C is copy everywhere and never quits; a prompt or picker has nothing to copy.
             self.action = named("", key);
-            // A preview row that shows no line has none to copy.
-            // Nor does a fold, which shows no text (#243).
+            // A preview row that shows no line has none to copy, nor does a fold.
             let shown = !self.preview_blank() && self.folded_here().is_none();
             if self.mode == Mode::Normal && self.picker.is_none() && shown {
                 self.copy();
@@ -156,12 +160,17 @@ impl App {
             self.hist_note(false);
             return false;
         }
+        let far = matches!(
+            key.code,
+            KeyCode::PageUp | KeyCode::PageDown | KeyCode::Home | KeyCode::End
+        );
         let extending = key.code == KeyCode::Char('v')
             || shift
-                && matches!(
-                    key.code,
-                    KeyCode::Up | KeyCode::Down | KeyCode::Left | KeyCode::Right
-                );
+                && (far
+                    || matches!(
+                        key.code,
+                        KeyCode::Up | KeyCode::Down | KeyCode::Left | KeyCode::Right
+                    ));
         // Ctrl+D/U and PageUp/Down are how merl scrolls, and a page is always farther than
         // `HIST_NEAR`: the current stop follows the cursor anyway, so paging through a file adds
         // no stops and drops no forward history.
@@ -182,8 +191,6 @@ impl App {
                 self.mode = Mode::Help;
                 self.help_top = 0;
             }
-            // A fold (#243) shows no text: Enter loads the diff, and the keys that read or move
-            // in the text wait for it. The walk, the panel and the pickers work as anywhere.
             KeyCode::Enter if fold => self.unfold(),
             _ if fold && !leaves_the_text(key) => {}
             KeyCode::Esc => {
@@ -278,20 +285,27 @@ impl App {
             KeyCode::Right if alt => self.word_right(),
             KeyCode::Left => self.left(),
             KeyCode::Right => self.right(),
-            KeyCode::PageUp => self.move_rows(-(self.page_rows(false) as isize)),
-            KeyCode::PageDown => self.move_rows(self.page_rows(true) as isize),
-            KeyCode::Home if ctrl => {
-                self.set_at(self.first_line());
-                self.col = 0;
-                self.want_x = 0;
+            _ if far => {
+                if shift {
+                    self.anchor.get_or_insert((self.at(), self.col));
+                }
+                match key.code {
+                    KeyCode::PageUp => self.move_rows(-(self.page_rows(false) as isize)),
+                    KeyCode::PageDown => self.move_rows(self.page_rows(true) as isize),
+                    KeyCode::Home if ctrl => {
+                        self.set_at(self.first_line());
+                        self.col = 0;
+                        self.want_x = 0;
+                    }
+                    KeyCode::End if ctrl => {
+                        self.set_at(self.last_line());
+                        self.col = self.shown_len();
+                        self.sync_want_x();
+                    }
+                    KeyCode::Home => self.line_start(),
+                    _ => self.line_end(),
+                }
             }
-            KeyCode::End if ctrl => {
-                self.set_at(self.last_line());
-                self.col = self.shown_len();
-                self.sync_want_x();
-            }
-            KeyCode::Home => self.line_start(),
-            KeyCode::End => self.line_end(),
             _ => {}
         }
         if !extending {
@@ -346,8 +360,6 @@ impl App {
     }
 }
 
-/// Does `key` do something other than read or move in the open file's text: the review walk,
-/// the panel, the pickers, the history. The rest does nothing on a fold (#243).
 fn leaves_the_text(key: KeyEvent) -> bool {
     let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
     match key.code {

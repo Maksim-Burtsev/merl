@@ -3,7 +3,6 @@
 use super::*;
 
 impl App {
-    /// The open file's path relative to the root, for sorting and labels.
     pub(super) fn rel_current(&self) -> Option<PathBuf> {
         let path = self.buf.path.as_ref()?;
         Some(path.strip_prefix(&self.root).unwrap_or(path).to_path_buf())
@@ -52,7 +51,6 @@ impl App {
         }
     }
 
-    /// In a review, every line the branch deleted (#440); outside one, none.
     pub(super) fn deleted_lines(&self) -> Arc<Vec<git::DeletedLine>> {
         self.review
             .as_ref()
@@ -76,27 +74,34 @@ impl App {
             .map(|h| {
                 let label = format!("{}: ", at_label(&h.path, h.line));
                 let code_at = Some(label.len());
+                let path_at = Some(0..h.path.display().to_string().len());
                 PickItem {
                     col: h.col,
                     label: label + &clip(h.text.trim(), MAX_LABEL_TEXT),
                     path: h.path,
                     line: h.line,
                     code_at,
+                    path_at,
                     deleted: h.deleted.is_some(),
                 }
             })
             .collect()
     }
 
-    /// `s`: the result picker, empty, with the query as its input line. The hits are a grep for
-    /// the query as typed, ignoring case, over every file, refreshed as it changes. Literal like
-    /// `/`: `foo(` finds the calls and the definition, not a regex error.
     pub(super) fn start_search(&mut self) {
+        let seed = self.one_line_selection();
         self.show_picker(PickerKind::Search, Vec::new());
         if let Some(p) = &mut self.picker {
             p.live = true;
+            if let Some(seed) = &seed {
+                p.query = LineEdit::selected(seed);
+            }
         }
         self.drop_pending_search();
+        if seed.is_some() {
+            self.search_typed();
+            self.search_due = Some(Instant::now());
+        }
     }
 
     /// Forgets the grep on its way: its answer belongs to a picker that is gone, and its number

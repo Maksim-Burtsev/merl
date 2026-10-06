@@ -9,7 +9,7 @@ every PR (--golden, in CI), plays them on the new build alone against the screen
     tests/smoke/run.py --only review,edit        these two, or all whose name holds a part given
     tests/smoke/run.py --old target/release/merl the new build against itself
     tests/smoke/run.py --gif demo.gif --only python-d    one scenario on the new build, as a GIF
-    tests/smoke/run.py --all-shots               every checkpoint of the new build, a PNG each, in two themes
+    tests/smoke/run.py --all-shots               each checkpoint that differs from the last release, a PNG each, in two themes
     tests/smoke/run.py --selftest                the runner's own failure paths, on fake binaries
 
 Without --new the checkout is built (`cargo build --release --locked`, its own target/); without
@@ -54,11 +54,13 @@ of the scenarios it played instead (only those that played through); commit them
 so the PR's diff shows every screen it changes. RELEASE_ONLY names the scenarios CI does not play, and SCREEN_SKIPPED the checkpoints
 whose screen depends on the machine (their wait is still checked).
 
---all-shots plays each scenario on the new build alone, once in merl's default theme and once in
-a light one (THEMES), and draws every checkpoint to OUT/THEME/SCENARIO/NN.png, OUT being
-WORK/shots (WORK/shots-only for --only); OUT/shots.md lists them. It compares nothing: the skill's
-agent looks at every PNG against its checklist. Text that did not change never reaches a diff, and
-contrast, colour and alignment are only seen in a picture (#312).
+--all-shots plays each scenario on the new build and on the last release (or --old), once in
+merl's default theme and once in a light one (THEMES), and draws to OUT/THEME/SCENARIO/NN.png,
+OUT being WORK/shots (WORK/shots-only for --only), every checkpoint whose screen, colours
+included, differs from the old build's (old above new) or that the old build never reaches;
+OUT/shots.md lists them and counts the ones left out as the same. The skill's agents look at each
+PNG against its checklist: contrast, colour and alignment are only seen in a picture (#312), and a
+screen the last release drew alike was looked at on its release (#707).
 
 A scenario that is not about the tree hides it (`t`) after its first wait, so that a change to the
 tree shows in one checkpoint per scenario, not in all of them. What a wait may name, and where a new
@@ -119,6 +121,7 @@ LEGEND = [("PASS", "every checkpoint the same on both builds"),
 # colours the PNG draws). A light theme is read on a light terminal; None is merl's default theme
 # on the owner's dark terminal. github-light is the light theme the text snapshots use too.
 THEMES = ((None, None), ("github-light", "GitHub Light Default"))
+NEVER_SHOWN = "(never shown)"
 # The scenarios --all-shots plays in the default theme only, and why.
 DEFAULT_ONLY = {"theme": "its first wait is a theme the picker lists around the default one"}
 
@@ -354,7 +357,7 @@ def play(binary, path, work, timed_only=False, rec=None, theme=None):
                 if ms is None:
                     s = pane.dead()
                     r["status"] = f"{'FAIL' if s is None else died(s)} at {step}"
-                    r["checkpoints"].append([f"{where} wait {arg} (never shown)", *pane.frame(), size])
+                    r["checkpoints"].append([f"{where} wait {arg} {NEVER_SHOWN}", *pane.frame(), size])
                     if s is None:
                         keep(f"{where} wait {arg}: the screen when it gave up", pane.frame())
                     else:
@@ -564,7 +567,7 @@ def report(results, out, head, names):
             if o[1:] == n[1:]:
                 kinds.append("same")
                 continue
-            failed = "(never shown)" in o[0] + n[0]
+            failed = NEVER_SHOWN in o[0] + n[0]
             colour = SGR.sub("", o[1]) == SGR.sub("", n[1]) and o[2:] == n[2:]
             kinds.append("failed" if failed else "colour" if colour else "text")
             what, diff_rows = boxes(o, n)
@@ -694,15 +697,19 @@ def golden(new, picked, work, update, screens=SCREENS):
     return good
 
 
-def shots(new, picked, work, out):
-    """--all-shots: each scenario played on `new` once per theme of THEMES, every checkpoint drawn
-    to OUT/THEME/SCENARIO/NN.png, and for a play that did not end ok its screen at the failure,
-    last.png. OUT/shots.md lists them, with each play's status. The plays, by theme and scenario."""
+def shots(new, old, tag, picked, work, out):
+    """--all-shots: each scenario played on `new` and on `old` once per theme of THEMES, each
+    checkpoint of `new` whose screen differs from `old`'s drawn to OUT/THEME/SCENARIO/NN.png, old
+    above new, or alone when `old` never reached it, and for a play of `new` that did not end ok
+    its screen at the failure, last.png. OUT/shots.md lists them, with each play's status. The
+    plays of `new`, by theme and scenario."""
     report_dir(out)
     fonts, cell = fonts_cell(14)
-    lines, results, t0 = ["# merl smoke: every checkpoint", "", f"`{new}` ({version(new)})", "",
-                          "| PNG | checkpoint |", "|---|---|"], {}, time.monotonic()
-    failed, dark = [], (cast.DEFAULT_FG, cast.DEFAULT_BG, cast.ANSI[:])
+    tag = tag or old
+    lines, results, t0 = ["# merl smoke: the checkpoints that differ from " + tag, "",
+                          f"`{new}` ({version(new)}) against {tag} ({version(old)})", "",
+                          "| PNG | checkpoint | |", "|---|---|---|"], {}, time.monotonic()
+    failed, dark, same = [], (cast.DEFAULT_FG, cast.DEFAULT_BG, cast.ANSI[:]), 0
     for theme, terminal in THEMES:
         cast.DEFAULT_FG, cast.DEFAULT_BG, cast.ANSI[:] = dark
         if terminal and os.path.exists(os.path.join(cast.GHOSTTY_THEMES, terminal)):
@@ -713,11 +720,17 @@ def shots(new, picked, work, out):
                 failed.append(f"- {label}/{name}: not played, {DEFAULT_ONLY[name]}")
                 continue
             r = results.setdefault(label, {})[name] = play(new, path, work, theme=theme)
+            was = play(old, path, work, theme=theme)["checkpoints"]
             where = os.path.join(out, label, name)
             os.makedirs(where)
             for i, c in enumerate(r["checkpoints"], 1):
-                png_pair([(label, c)], [], os.path.join(where, f"{i:02d}.png"), fonts, cell)
-                lines.append(f"| {label}/{name}/{i:02d}.png | `{c[0]}` |")
+                o = was[i - 1] if i <= len(was) and NEVER_SHOWN not in was[i - 1][0] else None
+                if o and o[1:] == c[1:]:
+                    same += 1
+                    continue
+                pair = [(tag, o), (label, c)] if o else [(label, c)]
+                png_pair(pair, [], os.path.join(where, f"{i:02d}.png"), fonts, cell)
+                lines.append(f"| {label}/{name}/{i:02d}.png | `{c[0]}` | {'changed' if o else 'new'} |")
             if r["status"] != "ok":
                 failed.append(f"- {label}/{name}: {r['status']}")
                 if r.get("last"):
@@ -726,7 +739,8 @@ def shots(new, picked, work, out):
             print(f"{label:13} {name:14} {r['status']}, {len(r['checkpoints'])} shots, {r['seconds']} s",
                   flush=True)
     count = sum(len(r["checkpoints"]) for t in results.values() for r in t.values())
-    lines[4:4] = [f"{count} PNGs, {time.monotonic() - t0:.0f} s. Plays that did not end ok, or were not played:",
+    lines[4:4] = [f"{count} checkpoints: {count - same} PNGs, {same} the same as {tag} and not drawn; "
+                  f"{time.monotonic() - t0:.0f} s. Plays that did not end ok, or were not played:",
                   "", *(failed or ["none"]), ""]
     cast.DEFAULT_FG, cast.DEFAULT_BG, cast.ANSI[:] = dark
     open(os.path.join(out, "shots.md"), "w").write("\n".join(lines) + "\n")
@@ -955,15 +969,21 @@ def selftest():
         for binary, want in (("pass-new", True), ("diff-red-new", True), ("other", False), ("gone", False)):
             assert golden(fake(binary), one, work, False, screens) == want, f"--golden on {binary}: not {want}"
     assert "+other" in said.getvalue() and "EXIT 3 at" in said.getvalue(), said.getvalue()
-    # --all-shots: a PNG per checkpoint in each theme, the light one written into HOME's config
+    # --all-shots: in each theme, the light one written into HOME's config, a PNG per checkpoint
+    # that differs from the old build's or that the old build never reached, none for the same
     open(fake("themed"), "w").write(FAKE % {"q": "exit 0", "s": "",
                                              "d": 'grep -qs github-light "$HOME/.config/merl/config.toml" && echo light;'})
     os.chmod(fake("themed"), 0o755)
+    drawn = lambda run, theme: sorted(os.listdir(os.path.join(tmp, run, theme, "pass")))  # noqa: E731
     with contextlib.redirect_stdout(io.StringIO()):
-        shot = shots(fake("themed"), one, work, os.path.join(tmp, "shots"))
+        shot = shots(fake("themed"), fake("pass-new"), None, one, work, os.path.join(tmp, "shots"))
+        shots(fake("themed"), fake("gone"), "gone", one, work, os.path.join(tmp, "shots-gone"))
     for theme, light in (("default", False), ("github-light", True)):
         assert ("light" in shot[theme]["pass"]["checkpoints"][-1][1]) == light, f"{theme}: the wrong theme"
-        assert os.path.exists(os.path.join(tmp, "shots", theme, "pass", "02.png")), f"{theme}: no PNG"
+        assert drawn("shots", theme) == (["02.png"] if light else []), f"{theme}: {drawn('shots', theme)}"
+        assert drawn("shots-gone", theme) == ["02.png"], f"{theme} on gone: {drawn('shots-gone', theme)}"
+    listed = open(os.path.join(tmp, "shots-gone", "shots.md")).read()
+    assert "| default/pass/02.png |" in listed and "| new |" in listed, listed
     label = load(os.path.join(HERE, "go-d.steps"))[1][0][0]
     assert label.startswith("tests/smoke/go-d.steps:"), f"a step labelled {label!r}"
     # Ctrl-C while a play waits for a merl that will not quit: its tmux server goes all the same.
@@ -1012,7 +1032,7 @@ def main():
                    help="the new build alone, every checkpoint against tests/smoke/screens/ (CI)")
     p.add_argument("--update", action="store_true", help="--golden, writing the screens instead of comparing")
     p.add_argument("--all-shots", action="store_true",
-                   help="every checkpoint of the new build as a PNG, in the default and a light theme")
+                   help="each checkpoint that differs from the old build as a PNG, in the default and a light theme")
     p.add_argument("--again", action="store_true", help="the report again from OUT/results.json, unplayed")
     p.add_argument("--selftest", action="store_true", help="the runner's failure paths on fake merls")
     a = p.parse_args()
@@ -1060,8 +1080,6 @@ def played(a, picked, names, out, t0, load0):
     if a.gif:
         assert len(picked) == 1, f"--gif records one scenario, --only picked {list(picked) or 'none'}"
         return gif(new, *picked.values(), a.work, a.gif)
-    if a.all_shots:
-        return shots(new, picked, a.work, out)
     if a.golden:
         # A screens folder with no scenario CI plays would still count as played in
         # src/app/tests/smoke.rs: a renamed or deleted scenario takes its screens with it.
@@ -1072,6 +1090,8 @@ def played(a, picked, names, out, t0, load0):
     old, tag = (a.old, None) if a.old and os.path.exists(a.old) else last_release(a.old)
     if not version(old):
         sys.exit(f"{old} does not answer --version")
+    if a.all_shots:
+        return shots(new, old, tag, picked, a.work, out)
     report_dir(out)
     results = {}
     describe = ["git", "describe", "--tags", "--always", "--dirty"]

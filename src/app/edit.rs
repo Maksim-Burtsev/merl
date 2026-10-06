@@ -98,8 +98,6 @@ impl App {
     /// Keys that only mean something while editing. Returns `false` for every other key, which
     /// then falls through to the navigation keys: arrows, Home / End, the chord aliases.
     pub(super) fn edit_key(&mut self, code: KeyCode, ctrl: bool, alt: bool) -> bool {
-        // The lines a review deleted are text to read, not to edit (#439): no key that changes
-        // the text works on one, nor on the line break a deleted line is drawn after.
         let changes = matches!(code, KeyCode::Char(c) if !ctrl || c == 'x')
             || matches!(
                 code,
@@ -237,14 +235,10 @@ impl App {
             self.anchor = anchor.map(moved).map(|(l, c)| (TextLine::File(l), c));
             self.go(moved(cursor));
             self.sync_want_x();
-            // Redo lands where the Tab left the cursor, not at the end of the last line (#456).
             self.undo.last_mut().unwrap().after = (self.line, self.col);
         }
     }
 
-    /// Text the terminal pasted (Cmd+V): inserted while editing; in a prompt or a picker query,
-    /// its first line goes in as if typed, in one go, so the query is searched once rather than
-    /// once per char (#267); ignored in navigation, where every letter is a command.
     pub fn paste(&mut self, text: &str) {
         let text = text.replace("\r\n", "\n").replace('\r', "\n");
         let line = text.lines().next().unwrap_or_default();

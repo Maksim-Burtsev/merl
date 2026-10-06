@@ -1,0 +1,57 @@
+wait unsigned long crc_len
+┌orders──────────────────────┐1 #include "slice.h"
+│▸ .github                   │2
+│▸ .venv                     │3 unsigned long crc_len(const Slice& key) { return key.size(); }
+│▸ app                       │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▾ worker                    │
+│  ▾ internal                │
+│    ▾ crc                   │
+│        block.h             │
+│        client.c            │
+│        crc.c               │
+│        crc.h               │
+│        CrcStamp.h          │
+│        CrcStamp.m          │
+│        log.c               │
+│        mode.cc             │
+│        slice.h             │
+│        use.cc              │
+│    ▸ queue                 │
+│    go.mod                  │
+│    main.go                 │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+worker/internal/crc/use.cc  1:1  [code]                                                                                                                                           ? help
+cursor (x,y,shown) 32,0,1

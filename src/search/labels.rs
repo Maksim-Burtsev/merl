@@ -19,7 +19,6 @@ pub enum Owner {
     /// `const x: T = { word: … }`: a field of `T`.
     Typed,
 }
-/// A word in a label position.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Label {
     /// What the status line calls the word: `argument label` or `key`.
@@ -129,8 +128,6 @@ pub fn label_at(
                 _ => None,
             }
         }
-        // `Type { name: … }`, `path::Type { name: … }`: a field of `Type` (#529). The `{` of a
-        // declaration opens no literal, nor does a struct-like variant's inside an `enum`.
         (Kind::Rust, b'{') => {
             static LITERAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
                 Regex::new(r"(?:^|[^\w:])(?:\w+::)*([A-Z]\w*|Self)\s*$").unwrap()
@@ -649,14 +646,22 @@ mod tests {
             Some(("followTopic".into(), Owner::Args))
         );
         assert_eq!(label(Kind::Jvm, kt, "Int = 1"), None);
-        // A control keyword's brackets, or a tuple's, are no call's.
         let tuple = "return (count: n, total: t);\nvar p = f(count: n);\n";
-        assert_eq!(label(Kind::CSharp, tuple, "count: n,"), None);
+        assert_eq!(
+            label(Kind::CSharp, tuple, "count: n,"),
+            None,
+            "a control keyword's brackets, or a tuple's, are no call's"
+        );
         assert!(label(Kind::CSharp, tuple, "count: n)").is_some());
-        // Java has no named arguments; only an annotation's brackets hold labels.
         let java = "for (i = 0; i < n; i++) {}\n@Size(max = 3)\n";
-        assert!(label_at(Kind::Jvm, true, java, 0, 5..6).is_none());
-        assert!(label_at(Kind::Jvm, true, java, 1, 6..9).is_some());
+        assert!(
+            label_at(Kind::Jvm, true, java, 0, 5..6).is_none(),
+            "Java has no named arguments"
+        );
+        assert!(
+            label_at(Kind::Jvm, true, java, 1, 6..9).is_some(),
+            "only an annotation's brackets hold labels"
+        );
         assert!(label_at(Kind::Jvm, false, java, 1, 6..9).is_some());
         let swift = "let w = RefreshWindow.init(interval: 30, maximumAttempts: 1)\nlet v = RefreshWindow(interval: 30)\ninit(interval: Double) {}\nlet t = a ? b : c\nx = self.init(name: 1)\n";
         assert_eq!(

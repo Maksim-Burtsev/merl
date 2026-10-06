@@ -1,5 +1,3 @@
-//! Tests for [`crate::ui::welcome`].
-
 use std::path::PathBuf;
 
 use ratatui::Terminal;
