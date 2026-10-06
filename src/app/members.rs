@@ -227,8 +227,11 @@ impl App {
         assigned: bool,
     ) -> Option<Hit> {
         let text = self.text_of(&ty.path)?;
-        let (line, is) = search::field_line(kind, &text, ty.line, word)?;
-        (is == assigned).then(|| Hit {
+        let search::FieldLine {
+            line,
+            assigned_in_method,
+        } = search::field_line(kind, &text, ty.line, word)?;
+        (assigned_in_method == assigned).then(|| Hit {
             path: ty.path.clone(),
             line,
             col: 0,

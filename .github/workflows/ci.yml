@@ -9,6 +9,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+# Every command is a step of tools/ci-local, which runs them all on a laptop before a push (#682).
 jobs:
   # `d`, `u` and `D` at every cursor position of every fixture, failing on a panic (#543): 50
   # minutes on one runner in release, so only a release PR plays it, in shards (#711).
@@ -23,7 +24,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test --release --locked no_panic -- --ignored
+      - run: tools/ci-local panic
         env:
           MERL_NO_PANIC_SHARD: ${{ matrix.shard }}/4
 
@@ -52,7 +53,11 @@ jobs:
             repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files)
           grep -qvE '^(\.claude/|docs/releases/|AGENTS\.md$|CLAUDE\.md$)' <<<"$files" \
             || echo DOCS_ONLY=1 >> "$GITHUB_ENV"
+      # The whole history and origin/master: a test compares the released sections of
+      # CHANGELOG.md with the last `release:` commit on master (#706).
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - if: ${{ !env.DOCS_ONLY }}
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -60,16 +65,16 @@ jobs:
       - if: ${{ !env.DOCS_ONLY }}
         uses: Swatinem/rust-cache@v2
       - if: ${{ !env.DOCS_ONLY }}
-        run: cargo fmt --check
+        run: tools/ci-local fmt
       - if: ${{ !env.DOCS_ONLY }}
-        run: cargo clippy --all-targets -- -D warnings
+        run: tools/ci-local clippy
       - if: ${{ !env.DOCS_ONLY }}
-        run: cargo test --locked
+        run: tools/ci-local tests
       - if: ${{ !env.DOCS_ONLY }}
-        run: cargo build --release --locked
+        run: tools/ci-local release
       # The `d` bench's scoring and its no-cursor-worse gate, on made-up rows: no clone needed.
       - if: ${{ !env.DOCS_ONLY }}
-        run: tools/d-bench/run --selftest
+        run: tools/ci-local dbench
       # The smoke scenarios in tmux on this build, every checkpoint against the screen checked in
       # under tests/smoke/screens (#309): a changed screen fails here with its diff. Go for the `d`
       # into its standard library. Homebrew's tmux on both: Ubuntu's 3.4 draws an emoji with a
@@ -93,10 +98,7 @@ jobs:
             brew install -q tmux
           fi
           tmux -V
-          tests/smoke/run.py --golden --new target/release/merl
+          tools/ci-local smoke
       # The oldest Rust `Cargo.toml` allows builds merl too (#320), in a check the merge waits for.
       - if: matrix.os == 'ubuntu-latest' && !env.DOCS_ONLY
-        run: |
-          msrv=$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)
-          rustup toolchain install "$msrv" --profile minimal
-          cargo "+$msrv" build --locked
+        run: tools/ci-local msrv

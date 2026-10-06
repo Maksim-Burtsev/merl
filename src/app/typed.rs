@@ -107,11 +107,6 @@ impl App {
         }
     }
 
-    /// The links that prove the Python receiver `chain` holds a builtin type (#336), as a typed
-    /// jump names them: `s: str`, `render() -> str`, `self.name: str`. Every binding of the last
-    /// name reads the same type from [`search::PYTHON_BUILTIN_TYPES`] as written, one that the
-    /// file writing it neither declares nor imports: a project class called `str` is read as
-    /// before. The names in front of it are proven as for any typed jump.
     pub(super) fn builtin_receiver(
         &self,
         kind: Kind,
@@ -227,11 +222,8 @@ impl App {
         }])
     }
 
-    /// The project class a Python receiver is proven to be when what it lacks can only come from
-    /// outside the project (#342): every base up its ancestry is a project class read or a name
-    /// imported from outside, and at least one is the latter. `None` when no base is outside, or
-    /// when one cannot be read at all: a call (`six.with_metaclass(…)`), a name nothing binds, a
-    /// `*` import.
+    /// `None` when a base cannot be read at all: a call (`six.with_metaclass(…)`), a name nothing
+    /// binds, a `*` import.
     pub(super) fn inherited_outside(
         &self,
         kind: Kind,
@@ -592,7 +584,6 @@ impl App {
                         Some(element) => (element, at.clone()),
                         None => named(&written)?,
                     };
-                    // `tests := []struct {…}{…}`: the struct written on the line itself (#330).
                     let (ty, link) = match kind == Kind::Go && element == "struct" {
                         true => (anonymous(&at, c.line), None),
                         false => (self.type_decl(kind, &at, &element)?, Some(link)),
@@ -872,8 +863,6 @@ impl App {
     }
 }
 
-/// The Go struct written in place whose body opens on 1-based `line` of `file`: `[]struct {…}`'s
-/// element, named `struct{…}` (#330).
 pub(super) fn anonymous(file: &Path, line: usize) -> Typed {
     Typed {
         name: "struct{\u{2026}}".to_owned(),

@@ -484,38 +484,6 @@ static MAP_ARGUMENT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r"^\(\s*(?:\[\s*(?:\w+\s*:|:\s*\])|\w+\s*:[^:])").unwrap()
 });
 
-static DEFAULT: std::sync::LazyLock<Regex> =
-    std::sync::LazyLock::new(|| Regex::new(r"[^=!<>]=(?:[^=~]|$)").unwrap());
-
-fn parameters(text: &str, line: usize, word: &str, groovy: bool) -> Option<(usize, usize)> {
-    if !groovy {
-        return search::jvm_parameters(text, line, word);
-    }
-    let lines: Vec<String> = text.lines().map(str::to_owned).collect();
-    let at = line.checked_sub(1)?;
-    let re = Regex::new(&format!(r"\b{}\s*\(", regex::escape(word))).ok()?;
-    let open = re.find(lines.get(at)?)?.end() - 1;
-    let (count, _) = arguments(&lines, at, open)?;
-    let joined = lines[at..(at + 60).min(lines.len())].join("\n");
-    let list = joined[open..].split(')').next().unwrap_or_default();
-    if list.contains("...") {
-        return Some((count.saturating_sub(1), usize::MAX));
-    }
-    let mut angle = 0usize;
-    let mut typed = 0;
-    for c in list.chars() {
-        match c {
-            '<' => angle += 1,
-            '>' => angle = angle.saturating_sub(1),
-            ',' if angle > 0 => typed += 1,
-            _ => {}
-        }
-    }
-    let count = count.saturating_sub(typed);
-    let optional = (list.split(',').filter(|p| DEFAULT.is_match(p)).count()).min(count);
-    Some((count - optional, optional))
-}
-
 impl App {
     pub(super) fn jvm_use_fit(
         &self,
@@ -601,7 +569,7 @@ impl App {
                 return true;
             }
             self.text_of(&h.path)
-                .and_then(|t| parameters(&t, h.line, word, search::groovy(&h.path)))
+                .and_then(|t| search::jvm_parameters(&t, h.line, word, search::groovy(&h.path)))
                 .is_none_or(|(n, more)| (n..=n.saturating_add(more)).contains(&count))
         };
         let fit: Vec<Hit> = hits.iter().filter(|h| fits(h)).cloned().collect();

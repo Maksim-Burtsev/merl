@@ -179,6 +179,9 @@ counts stay on your machine.
 | Shift+Left / Shift+Right | Extend the selection by a char |
 | Alt+Shift+Left / Right | Extend the selection by a word |
 | Ctrl+Shift+Left / Right | Extend the selection to the start / end of the screen row, then of the line |
+| Shift+Home / Shift+End | Extend the selection to the start / end of the screen row, then of the line |
+| Shift+PgUp / Shift+PgDn | Extend the selection by a screen |
+| Ctrl+Shift+Home / Ctrl+Shift+End | Extend the selection to the start / end of the file |
 
 **Movement**
 

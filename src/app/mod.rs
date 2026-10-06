@@ -67,6 +67,7 @@ mod tree;
 mod typed;
 mod usages;
 
+use external::Walked;
 pub(crate) use open::error_text;
 pub use preview::Preview;
 use project_search::at_label;
@@ -173,6 +174,21 @@ pub const KEYS: &[(&str, &str, &str)] = &[
     (
         "Ctrl+Shift+Left / Right",
         "Extend the selection to the start / end of the screen row, then of the line",
+        "Selection",
+    ),
+    (
+        "Shift+Home / Shift+End",
+        "Extend the selection to the start / end of the screen row, then of the line",
+        "Selection",
+    ),
+    (
+        "Shift+PgUp / Shift+PgDn",
+        "Extend the selection by a screen",
+        "Selection",
+    ),
+    (
+        "Ctrl+Shift+Home / Ctrl+Shift+End",
+        "Extend the selection to the start / end of the file",
         "Selection",
     ),
     (
@@ -315,6 +331,7 @@ pub struct App {
     /// that kind under them; filled the first time `d` leaves the project.
     external: HashMap<Kind, (Vec<PathBuf>, Arc<Vec<PathBuf>>)>,
     walked_roots: HashMap<PathBuf, Arc<Vec<PathBuf>>>,
+    warming: HashMap<Kind, Option<std::thread::JoinHandle<Walked>>>,
     node_modules_of: Option<PathBuf>,
     otp: Option<Vec<PathBuf>>,
     c_includes: HashMap<(PathBuf, CMode), Paths>,
@@ -518,6 +535,7 @@ impl App {
             ignored,
             external: HashMap::new(),
             walked_roots: HashMap::new(),
+            warming: HashMap::new(),
             node_modules_of: None,
             otp: None,
             c_includes: HashMap::new(),

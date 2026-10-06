@@ -23,3 +23,8 @@ bootstrap	css	https://github.com/twbs/bootstrap.git	c1f9b9db4dd14d5353e34462ec58
 gitea	vue	https://github.com/go-gitea/gitea.git	bea6fcaa840f2e14030aa2adc360969a1c8a0e0c	pnpm install --ignore-scripts --frozen-lockfile
 immich	svelte	https://github.com/immich-app/immich.git	c5e06dcfd1b35f8625863108a60d370e5b61c58e	pnpm install --ignore-scripts --frozen-lockfile --filter immich-web... && pnpm --dir web exec svelte-kit sync
 starlight	astro	https://github.com/withastro/starlight.git	e45162cea478e988f7c212b427736ebdf3427077	pnpm install --ignore-scripts --frozen-lockfile
+babashka	clojure	https://github.com/babashka/babashka.git	792a5ec8acb89797e55df68fe3ce870af1f5d567	-
+magit	elisp	https://github.com/magit/magit.git	bd9bce524cce1557db37c4e2260b0a7874c1075c	-
+drracket	racket	https://github.com/racket/drracket.git	05e05cb74fc6adc740a7841d258e1f942f12d701	-
+chibi-scheme	scheme	https://github.com/ashinn/chibi-scheme.git	c4e7367e867428889d8fe898a0b39f42e418b3f1	-
+lem	commonlisp	https://github.com/lem-project/lem.git	8cb37f8ecf2a9d6c9b51f51587de5950619a0a10	-
