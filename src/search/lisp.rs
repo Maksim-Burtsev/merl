@@ -290,6 +290,7 @@ struct Frame<'a> {
     role: Role,
     scope: usize,
     params: bool,
+    named: bool,
     loop_var: bool,
     sequential: bool,
     entry: Option<usize>,
@@ -321,6 +322,8 @@ const LETS: &[&str] = &[
     "pcase-let*",
 ];
 const SEQUENTIAL: &[&str] = &["let*", "when-let*", "if-let*", "and-let*", "pcase-let*"];
+const CLASSES: &[&str] = &["class", "class*", "mixin"];
+const CLAUSES: &[&str] = &["inherit", "inherit-field", "init-field", "field"];
 const LOOP_VARS: &[&str] = &["for", "as", "with"];
 const DEFUNS: &[&str] = &[
     "defun",
@@ -420,6 +423,7 @@ pub(super) fn lisp_bindings(
                     role,
                     scope,
                     params: false,
+                    named: false,
                     loop_var: false,
                     sequential,
                     entry,
@@ -441,6 +445,12 @@ pub(super) fn lisp_bindings(
                 }
             }
             Tok::Atom(a) => {
+                let class = match stack.len() {
+                    n if n >= 2 && kind == Kind::Scheme => (stack[n - 2].head)
+                        .filter(|h| CLASSES.contains(h))
+                        .map(|_| stack[n - 2].scope),
+                    _ => None,
+                };
                 let pending = stack.last().is_some_and(|f| f.entry.is_some());
                 let Some(f) = stack.last_mut() else { break };
                 if f.idx == 0 {
@@ -451,12 +461,14 @@ pub(super) fn lisp_bindings(
                     && f.role == Role::Plain
                     && f.idx > 0
                     && head.eq_ignore_ascii_case("loop");
+                let named =
+                    kind == Kind::Scheme && f.role == Role::Plain && f.idx == 1 && head == "let";
                 let bound = match f.role {
                     Role::Pairs => f.idx.is_multiple_of(2),
                     Role::Entries | Role::Params | Role::Destructure => true,
                     Role::Define => f.idx >= 1,
                     Role::First => f.idx == 0,
-                    Role::Plain => looping && f.loop_var,
+                    Role::Plain => (looping && f.loop_var) || named,
                     _ => false,
                 };
                 if bound && binds(a) && same(a) {
@@ -464,6 +476,11 @@ pub(super) fn lisp_bindings(
                 }
                 if looping {
                     f.loop_var = !f.loop_var && LOOP_VARS.iter().any(|k| k.eq_ignore_ascii_case(a));
+                }
+                f.named |= named;
+                if let Some(scope) = class.filter(|_| f.idx == 0 && CLAUSES.contains(&a)) {
+                    f.role = Role::Entries;
+                    f.scope = scope;
                 }
                 f.idx += 1;
             }
@@ -527,6 +544,7 @@ fn child_role(clojure: bool, p: &mut Frame, c: u8) -> Role {
     let h = h.as_str();
     match p.idx {
         1 if LETS.contains(&h) => Role::Entries,
+        2 if h == "let" && p.named => Role::Entries,
         1 if h == "lambda" => Role::Params,
         1 if DEFINES.contains(&h) => Role::Define,
         2 if DEFUNS.contains(&h) => Role::Params,

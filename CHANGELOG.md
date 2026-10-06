@@ -109,6 +109,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `pcase-let*` or `let*` list, `limit` in `(when-let* ((limit limit) (limit (* 2 limit))) …)`,
   lands on the binding just above it, where it jumped to an outer `let` of the same name. A
   binding's own value still reads the one outside it. (#731)
+- `d` in Racket on a variable of a named `let`, `(let loop ([xs xs] [n 0]) …)`, or on a name an
+  `inherit`, `inherit-field`, `init-field` or `field` clause of the class around binds, lands on
+  that binding, where it jumped to a namesake elsewhere in the project. (#733)
 
 ## [0.8.2] - 2026-10-04
 
