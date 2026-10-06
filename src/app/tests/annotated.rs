@@ -209,8 +209,6 @@ fn written(got: &Got) -> String {
     }
 }
 
-/// #307. Every annotation in `tests/fixtures` holds: the failures are listed together, each as
-/// `fixture/file:line`, what it wants and what `d` showed.
 #[test]
 fn d_answers_every_annotation_in_the_fixtures() {
     let cases = cases();
@@ -239,7 +237,6 @@ fn check(case: &Case) -> Option<String> {
         Ok(want) => want,
         Err(e) => return Some(format!("{here}: {e}")),
     };
-    // A panic is one failure among the others, not the end of the report.
     let Ok((got, status)) = std::panic::catch_unwind(|| play(case)) else {
         return Some(format!("{here}: `d` panicked"));
     };

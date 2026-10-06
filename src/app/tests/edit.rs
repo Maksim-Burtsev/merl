@@ -99,21 +99,26 @@ fn tab_follows_the_file_and_unicode_edits_stay_on_boundaries() {
     assert_eq!(a.line_str(), "\tif x:");
 }
 
-/// #185: Backspace and Delete take a whole emoji, never its selector or half of a ZWJ join.
 #[test]
 fn backspace_and_delete_take_a_whole_emoji() {
     let mut a = app("\u{26a0}\u{fe0f}x\u{1f468}\u{200d}\u{1f4bb}");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     press(&mut a, KeyCode::End, KeyModifiers::NONE);
     press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
-    assert_eq!(a.line_str(), "\u{26a0}\u{fe0f}x");
+    assert_eq!(
+        a.line_str(),
+        "\u{26a0}\u{fe0f}x",
+        "Backspace takes the whole ZWJ join"
+    );
     press(&mut a, KeyCode::Home, KeyModifiers::NONE);
     press(&mut a, KeyCode::Delete, KeyModifiers::NONE);
-    assert_eq!(a.line_str(), "x");
+    assert_eq!(
+        a.line_str(),
+        "x",
+        "Delete takes the emoji with its selector"
+    );
 }
 
-/// #176: Tab went through `insert`, so over a selection of several lines it replaced them
-/// with one indent and autosave wrote the file without them.
 #[test]
 fn tab_over_a_selection_of_several_lines_indents_them() {
     let mut a = app("a = 1\nb = 2\nc = 3\n");
@@ -215,8 +220,6 @@ fn alt_backspace_and_alt_delete_take_a_word_in_one_undo_step() {
     );
 }
 
-/// #455: Alt+Delete at the end of the file and Alt+Backspace at its start take nothing: no undo
-/// step, the file not edited, and the column Up / Down aim at stays where it was.
 #[test]
 fn an_alt_delete_with_nothing_to_take_changes_nothing() {
     let mut a = app("abcdef\nxy");
@@ -226,7 +229,11 @@ fn an_alt_delete_with_nothing_to_take_changes_nothing() {
     assert_eq!((a.line, a.col), (1, 2));
     press(&mut a, KeyCode::Delete, KeyModifiers::ALT);
     press(&mut a, KeyCode::Up, KeyModifiers::NONE);
-    assert_eq!((a.line, a.col), (0, 6));
+    assert_eq!(
+        (a.line, a.col),
+        (0, 6),
+        "Alt+Delete at the end of the file keeps the column Up aims at"
+    );
     let mut a = app("\nabcdef");
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);
     press(&mut a, KeyCode::End, KeyModifiers::NONE);
@@ -235,8 +242,15 @@ fn an_alt_delete_with_nothing_to_take_changes_nothing() {
     assert_eq!((a.line, a.col), (0, 0));
     press(&mut a, KeyCode::Backspace, KeyModifiers::ALT);
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);
-    assert_eq!((a.line, a.col), (1, 6));
-    assert!(a.undo.is_empty() && !a.dirty);
+    assert_eq!(
+        (a.line, a.col),
+        (1, 6),
+        "Alt+Backspace at the start of the file keeps the column Down aims at"
+    );
+    assert!(
+        a.undo.is_empty() && !a.dirty,
+        "nothing taken: no undo step, the file not edited"
+    );
 }
 
 #[test]
@@ -781,8 +795,6 @@ fn edits_that_cannot_be_saved_keep_merl_on_the_file() {
     assert!(press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
 }
 
-/// #507: a save that fails says why in a few words, as a file that does not open does (#403),
-/// not with the OS text and its `(os error N)`.
 #[test]
 #[cfg(unix)]
 fn a_save_that_fails_says_why_in_a_few_words() {
@@ -794,13 +806,14 @@ fn a_save_that_fails_says_why_in_a_few_words() {
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     // As root every file is writable, and there is nothing to assert.
     if a.dirty {
-        assert_eq!(a.message, "save failed: permission denied");
+        assert_eq!(
+            a.message, "save failed: permission denied",
+            "a few words, not the OS text and its `(os error N)`"
+        );
     }
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
-/// README: a file that changes on disk under unsaved edits is "neither reloaded nor
-/// overwritten". Deleted or renamed is changed: only Ctrl+S puts it back.
 #[test]
 fn autosave_does_not_recreate_a_file_that_is_gone() {
     let (path, mut a) = temp_file("gone-save", "one\n");
@@ -810,10 +823,17 @@ fn autosave_does_not_recreate_a_file_that_is_gone() {
     a.last_edit = Some(Instant::now() - a.autosave);
     assert!(a.tick());
     assert!(!a.flush());
-    assert!(!path.exists());
+    assert!(
+        !path.exists(),
+        "deleted under unsaved edits is changed on disk: neither reloaded nor overwritten"
+    );
     assert!(a.conflict && a.dirty);
     press(&mut a, KeyCode::Char('s'), KeyModifiers::CONTROL);
-    assert_eq!(std::fs::read_to_string(&path).unwrap(), "Xone\n");
+    assert_eq!(
+        std::fs::read_to_string(&path).unwrap(),
+        "Xone\n",
+        "only Ctrl+S puts it back"
+    );
     assert!(!a.conflict && !a.dirty);
     typed(&mut a, "Y");
     std::fs::remove_file(&path).unwrap();
@@ -883,8 +903,6 @@ fn ctrl(a: &mut App, c: char) {
     press(a, KeyCode::Char(c), KeyModifiers::CONTROL);
 }
 
-/// #122, the issue's steps: a write from outside is one step of the history, as in VS Code.
-/// Ctrl+Z takes it back first, then the edits before it, and Ctrl+Y replays both.
 #[test]
 fn a_reload_is_an_undo_step_over_the_edits_before_it() {
     let (path, mut a) = temp_file("undo-reload", "one\ntwo\n");
@@ -907,15 +925,17 @@ fn a_reload_is_an_undo_step_over_the_edits_before_it() {
         "undo lands where the file changed"
     );
     ctrl(&mut a, 'z');
-    assert_eq!(a.buf.lines.join("|"), "one|two");
+    assert_eq!(a.buf.lines.join("|"), "one|two", "then the edits before it");
     ctrl(&mut a, 'y');
     ctrl(&mut a, 'y');
-    assert_eq!(a.buf.lines.join("|"), "MINEone|two|agent line");
+    assert_eq!(
+        a.buf.lines.join("|"),
+        "MINEone|two|agent line",
+        "Ctrl+Y replays both"
+    );
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
-/// #163, the issue's steps: a file left keeps its history, as a VS Code tab does. Written on
-/// disk while away, it comes back with the write as one more step on top.
 #[test]
 fn leaving_a_file_keeps_its_undo_history() {
     let (dir, mut a) = project_app(
@@ -948,13 +968,16 @@ fn leaving_a_file_keeps_its_undo_history() {
     std::fs::write(dir.join("a.py"), "MINEx = 1\nhelper()\nagent line\n").unwrap();
     press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
     ctrl(&mut a, 'z');
-    assert_eq!(a.buf.lines.join("|"), "MINEx = 1|helper()");
+    assert_eq!(
+        a.buf.lines.join("|"),
+        "MINEx = 1|helper()",
+        "written on disk while away, it comes back with the write as one more step on top"
+    );
     ctrl(&mut a, 'z');
     assert_eq!(a.buf.lines.join("|"), "x = 1|helper()");
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// What is typed after a reload is a step of its own, also where the reload's step ends.
 #[test]
 fn typing_after_a_reload_is_a_step_of_its_own() {
     let (path, mut a) = temp_file("undo-reload-typing", "one\ntwo\n");
@@ -967,13 +990,16 @@ fn typing_after_a_reload_is_a_step_of_its_own() {
     assert_eq!((a.line, a.col), (1, 0));
     typed(&mut a, "x");
     ctrl(&mut a, 'z');
-    assert_eq!(a.buf.lines.join("|"), "|ONE|two");
+    assert_eq!(
+        a.buf.lines.join("|"),
+        "|ONE|two",
+        "typed where the reload's step ends, still a step of its own"
+    );
     ctrl(&mut a, 'z');
     assert_eq!(a.buf.lines.join("|"), "|one|two");
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
-/// A UTF-8 BOM is not text: the first edit at 1:1 goes after it, and it stays the first bytes.
 #[test]
 fn a_bom_stays_the_first_bytes_of_the_file() {
     let mut a = app("\u{feff}x = 1\n");
@@ -995,8 +1021,6 @@ fn a_bom_stays_the_first_bytes_of_the_file() {
     );
 }
 
-/// Undoing a reload puts the file's format back with its text. A reload to what no save can
-/// write back as it came is undone, never redone; one from it starts a new history.
 #[test]
 fn undoing_a_reload_puts_the_format_back() {
     let (path, mut a) = temp_file("undo-format", "a\r\nb\r\n");
@@ -1018,21 +1042,24 @@ fn undoing_a_reload_puts_the_format_back() {
     ctrl(&mut a, 'z');
     assert_eq!(
         (a.buf.readonly, a.buf.to_bytes()),
-        (None, b"a\nb\nc".to_vec())
+        (None, b"a\nb\nc".to_vec()),
+        "a reload to what no save can write back as it came is undone"
     );
     ctrl(&mut a, 'y');
-    assert_eq!(a.message, "nothing to redo");
+    assert_eq!(a.message, "nothing to redo", "never redone");
     assert!(a.tick());
     std::fs::write(&path, "\0").unwrap();
     a.reload(false);
     std::fs::write(&path, "t\n").unwrap();
     a.reload(false);
     ctrl(&mut a, 'z');
-    assert_eq!(a.message, "nothing to undo");
+    assert_eq!(
+        a.message, "nothing to undo",
+        "a reload from what no save can write starts a new history"
+    );
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
-/// A dependency changed on disk (a `pip install -U`) or reloaded with Ctrl+R stays read-only.
 #[test]
 fn a_reload_keeps_a_file_outside_the_project_read_only() {
     let (path, mut a) = temp_file("reload-outside", "x\n");
@@ -1041,7 +1068,11 @@ fn a_reload_keeps_a_file_outside_the_project_read_only() {
     a.jump_to(&outside, 1);
     std::fs::write(&outside, "def y(): pass\n").unwrap();
     a.reload(false);
-    assert_eq!(a.buf.readonly, Some("outside the project"));
+    assert_eq!(
+        a.buf.readonly,
+        Some("outside the project"),
+        "a dependency changed on disk, by a `pip install -U`, stays read-only"
+    );
     std::fs::remove_file(&outside).unwrap();
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
