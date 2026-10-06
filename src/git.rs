@@ -67,12 +67,11 @@ pub struct AddedRun {
 
 /// What one file's diff looks like from the editor: marks per 0-based line, and, in review
 /// mode, the deleted text as ghost lines keyed by the line they sit above (`lines.len()` for
-/// the end of the file) plus the first line of every hunk, for `c` / `C`.
+/// the end of the file) plus the line of every hunk `c` / `C` stop on.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Diff {
     pub marks: HashMap<usize, Mark>,
     pub ghosts: BTreeMap<usize, Vec<String>>,
-    /// Review: the first line of every hunk, deleted when the hunk starts with a deletion.
     pub hunks: Vec<TextLine>,
     /// Review: the 0-based base-file line of the first ghost at each key; the ghosts under one
     /// key are consecutive base lines.
@@ -148,7 +147,9 @@ fn parse(diff: &str, review: bool) -> Diff {
             if !deleted.is_empty() {
                 let ghosts = out.ghosts.entry(at).or_default();
                 let offset = ghosts.len();
-                first = TextLine::Deleted(at, offset);
+                if added.is_empty() {
+                    first = TextLine::Deleted(at, offset);
+                }
                 // `a` of `-a,b` is 1-based; a hunk with deleted lines never has `a == 0`.
                 out.ghost_from.entry(at).or_insert(old_start - 1);
                 for (i, j) in crate::intraline::pair(&deleted, &added) {
@@ -999,7 +1000,7 @@ mod tests {
                     @@ -8,2 +9,0 @@\n-c\n-d\n\\ No newline at end of file\n";
         let d = parse(diff, true);
         use TextLine::{Deleted, File};
-        assert_eq!(d.hunks, vec![Deleted(0, 0), File(3), Deleted(9, 0)]);
+        assert_eq!(d.hunks, vec![File(0), File(3), Deleted(9, 0)]);
         assert_eq!(d.ghosts[&0], vec!["x"]);
         assert_eq!(d.ghosts[&9], vec!["c", "d"]);
         assert_eq!(d.ghosts.get(&3), None);
@@ -1008,10 +1009,7 @@ mod tests {
         assert_eq!(d.marks.len(), 3, "{:?}", d.marks);
         // A deletion right after a changed last line is one stop, not two.
         let d = parse("@@ -5 +5 @@\n-a\n+b\n@@ -6,2 +5,0 @@\n-c\n-d\n", true);
-        assert_eq!(
-            (d.hunks.clone(), d.ghosts[&5].len()),
-            (vec![Deleted(4, 0)], 2)
-        );
+        assert_eq!((d.hunks.clone(), d.ghosts[&5].len()), (vec![File(4)], 2));
     }
 
     #[test]
@@ -1083,8 +1081,7 @@ mod tests {
         let d = diff(&dir, &dir.join("f"), Some("HEAD"), None);
         std::fs::remove_dir_all(&dir).unwrap();
         assert_eq!(m, HashMap::from([(2, Mark::Changed), (5, Mark::Changed)]));
-        use TextLine::Deleted;
-        assert_eq!(d.hunks, vec![Deleted(2, 0), Deleted(5, 0)]);
+        assert_eq!(d.hunks, vec![TextLine::File(2), TextLine::File(5)]);
         assert_eq!(d.ghosts[&5], vec!["6"]);
     }
 
@@ -1217,11 +1214,11 @@ mod tests {
             Some(&r.merge_base),
             moved.old.as_deref(),
         );
-        use TextLine::{Deleted, File};
-        assert_eq!(d.hunks, vec![Deleted(9, 0)]);
+        use TextLine::File;
+        assert_eq!(d.hunks, vec![File(9)]);
         assert_eq!(d.ghosts[&9], vec!["m10"]);
         let d = diff(&dir, &dir.join("src/a.rs"), Some(&r.merge_base), None);
-        assert_eq!(d.hunks, vec![Deleted(1, 0), File(3)]);
+        assert_eq!(d.hunks, vec![File(1), File(3)]);
         assert_eq!(d.ghosts[&1], vec!["b"]);
         assert_eq!(r.base_bytes(&dir, Path::new("gone")).unwrap(), b"x\n");
         assert!(
