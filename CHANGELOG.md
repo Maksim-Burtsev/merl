@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Line numbers and the `‹` `›` `…` marks read at 3:1 on the background in every theme: a theme
+  whose own gutter colour is fainter has it lightened (darkened in a light theme) in its own hue
+  until it gets there, never past the theme's comments. 50 of the 94 themes change, the default
+  among them (1.3:1 before); the rest draw as before. (#555)
 - `d` outside the project in JavaScript and TypeScript lists a declaration once when another
   package keeps a copy of its own: a line of the copy of `typescript` another package keeps is no
   longer listed beside the same line of the copy Node loads from the open file. A member is

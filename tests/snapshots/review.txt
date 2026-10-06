@@ -53,7 +53,7 @@ aeeeeeeeeeeeeeeeeeaaaaaaaaaaaacccddddddddHHHHHHdmaaaagaaaaaaaaamaaaamdkkkddddddd
 JJJJJJJJKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
-c fg #32374f bg #222436
+c fg #6b6f80 bg #222436
 d fg #c8d3f5 bg #222436
 e fg #7d849f bg #222436
 f fg #86e1fc bg #222436
@@ -68,7 +68,7 @@ n fg #636da6 bg #222436 ITALIC
 o fg #65bcff bg #222436
 p fg #ffc777 bg #222436
 q fg #ff966c bg #222436
-r fg #32374f bg #1b1d2c
+r fg #6b6f80 bg #1b1d2c
 s fg red bg #1b1d2c
 t fg #c8d3f5 bg #31222e
 u fg #ff757f bg #31222e
@@ -210,7 +210,7 @@ afffffffffffffffffaaaaaaaaaaaaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 JJJJJJJJKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
-c fg #32374f bg #222436
+c fg #6b6f80 bg #222436
 d fg #636da6 bg #222436 ITALIC
 e fg #c8d3f5 bg #222436
 f fg #7d849f bg #222436
@@ -225,7 +225,7 @@ n fg #9abdf5 bg #222436
 o fg #65bcff bg #222436
 p fg #ffc777 bg #222436
 q fg #ff966c bg #222436
-r fg #32374f bg #1b1d2c
+r fg #6b6f80 bg #1b1d2c
 s fg red bg #1b1d2c
 t fg #c8d3f5 bg #31222e
 u fg #ff757f bg #31222e
@@ -420,7 +420,7 @@ afffffffffffffffffaaaaaaaaaaaaccceeeeeeeeeeeeeeeekeaaaaaakaaaaanneeeeeeeeeeeeeee
 OOOOOOOOPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
-c fg #32374f bg #222436
+c fg #6b6f80 bg #222436
 d fg #636da6 bg #222436 ITALIC
 e fg #c8d3f5 bg #222436
 f fg #7d849f bg #222436
@@ -435,7 +435,7 @@ n fg #9abdf5 bg #222436
 o fg #65bcff bg #222436
 p fg #ffc777 bg #222436
 q fg #ff966c bg #222436
-r fg #32374f bg #1b1d2c
+r fg #6b6f80 bg #1b1d2c
 s fg red bg #1b1d2c
 t fg #c8d3f5 bg #31222e
 u fg #ff757f bg #31222e

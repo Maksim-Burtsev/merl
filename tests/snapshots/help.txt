@@ -322,7 +322,7 @@ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccceeggggggggggggggggggggggggggggggggggggghhhhhhhh
 mmmmmmmmlllllllllllllllllllllllllleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeellllllllllllllllllllllllllllllllll
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
-c fg #32374f bg #222436
+c fg #6b6f80 bg #222436
 d fg #636da6 bg #222436 ITALIC
 e fg #c8d3f5 bg #222436
 f fg #86e1fc bg #222436
@@ -330,7 +330,7 @@ g fg #c8d3f5 bg #222436 BOLD
 h fg #7d849f bg #222436
 i fg #c099ff bg #222436
 j fg #c8d3f5 bg #1e2031
-k fg #32374f bg #1b1d2c
+k fg #6b6f80 bg #1b1d2c
 l fg #c8d3f5 bg #1b1d2c
 m fg #82aaff bg #1b1d2c BOLD
 
