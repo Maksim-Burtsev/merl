@@ -9,8 +9,8 @@ class Basket : public Priced {
  public:
   int price() const override { return tariff_.rate() + coupon_.rate(); }
   //                                  ^ d: src/checkout.cc:16
-  //                                          ^ d: picker include/shop/offers.hh:11, include/shop/offers.hh:20; want include/shop/offers.hh:11 (#389)
-  //                                                           ^ d: picker include/shop/offers.hh:11, include/shop/offers.hh:20; want include/shop/offers.hh:20 (#389)
+  //                                          ^ d: include/shop/offers.hh:11
+  //                                                           ^ d: include/shop/offers.hh:20
 
  private:
   Tariff tariff_{1};
@@ -21,20 +21,20 @@ class Basket : public Priced {
 
 int total(const Tariff& t, const Coupon& c) {
   return t.rate() + c.rate();
-  //       ^ d: picker include/shop/offers.hh:11, include/shop/offers.hh:20; want include/shop/offers.hh:11 (#389)
-  //                  ^ d: picker include/shop/offers.hh:11, include/shop/offers.hh:20; want include/shop/offers.hh:20 (#389)
+  //       ^ d: include/shop/offers.hh:11
+  //                  ^ d: include/shop/offers.hh:20
 }
 
 std::string label(const Tariff& t) {
   return t.describe();
-  //       ^ d: picker include/shop/offers.hh:21, src/offers.cc:5; want src/offers.cc:5 (#389)
+  //       ^ d: src/offers.cc:5
 }
 
 int charge(Priced* p) { return p->price(); }
-//                                ^ d: picker src/checkout.cc:10, include/shop/offers.hh:26; want include/shop/offers.hh:26 (#389)
+//                                ^ d: include/shop/offers.hh:26
 
 void wipe(std::vector<int>* v) { v->clear(); }
-//                                  ^ d: include/shop/offers.hh:43; want none (#389)
+//                                  ^ d: none
 
 Offer pick() { return Offer::Cut; }
 //^ d: include/shop/offers.hh:29
@@ -56,5 +56,40 @@ int weight() {
   //                  ^ d: picker src/checkout.cc:5, …
   //                        ^ d: src/checkout.cc:7
 }
+
+int voucher(Voucher* v) { return v->rate(); }
+//                                  ^ d: include/shop/offers.hh:20
+
+int held(std::unique_ptr<Tariff> t) { return t->rate(); }
+//                                              ^ d: include/shop/offers.hh:11
+
+int till(Till* t) { return t->tariff.rate(); }
+//                                   ^ d: include/shop/offers.hh:11
+//                                   status: rate → Tariff::rate (via t: Till → tariff: Tariff)
+
+int guess() {
+  auto t = make();
+  return t.rate();
+  //       ^ d: picker include/shop/offers.hh:11, include/shop/offers.hh:20
+}
+
+namespace sh = shop;
+int aliased(sh::Tariff* t) { return t->rate(); }
+//                                     ^ d: include/shop/offers.hh:11
+
+int maybe(std::optional<Tariff> o) { return o->rate(); }
+//                                             ^ d: picker include/shop/offers.hh:11, include/shop/offers.hh:20
+
+int walked(std::vector<Tariff>::iterator it) { return it->rate(); }
+//                                                        ^ d: picker include/shop/offers.hh:11, include/shop/offers.hh:20
+
+int racked(Rack& r) { return r[0].tariff.rate(); }
+//                                       ^ d: picker include/shop/offers.hh:11, include/shop/offers.hh:20
+
+void drop(std::vector<Tariff>* ts) { ts->clear(); }
+//                                       ^ d: none
+
+void reset(std::optional<std::string> s) { s->clear(); }
+//                                            ^ d: none
 
 }  // namespace shop

@@ -77,11 +77,6 @@ pub fn swift_local_decl(line: &str, name: &str) -> bool {
         .captures(&uncommented(Kind::Swift, line))
         .is_some_and(|c| &c[1] == name)
 }
-/// Where 1-based `line` of a Swift file sits, told by indentation (#371): the 1-based line of the
-/// nearest `func`, `init`, `subscript`, `deinit` or accessor around it, or of a type's header when
-/// that comes first, or 0 at the top of the file; and whether a `let` or a `var` there is a local,
-/// which is when the block right around it is no type's body and not the file's top level.
-/// `literal` is [`literal_lines`] of the file.
 pub fn swift_scope<S: AsRef<str>>(lines: &[S], literal: &[bool], line: usize) -> (usize, bool) {
     let Some(target) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
         return (0, false);
@@ -126,8 +121,6 @@ pub fn swift_type_header(line: &str) -> Option<(String, String, Option<String>, 
         t.contains(" where "),
     ))
 }
-/// The 1-based line of the header of the Swift type whose body holds 1-based `line`, through
-/// the functions and closures around it; `None` at the top of a file (#380).
 pub fn swift_enclosing_type<S: AsRef<str>>(
     lines: &[S],
     literal: &[bool],
@@ -144,8 +137,6 @@ pub fn swift_enclosing_type<S: AsRef<str>>(
         }
     }
 }
-/// Whether a Swift line declares a `func`, a `let` or a `var` with no `static` or `class` among
-/// its modifiers, a member only a value reaches (#380).
 pub fn swift_instance_member(line: &str) -> bool {
     swift_static_member(line) == Some(false)
 }
@@ -257,10 +248,6 @@ fn swift_decl_binds(rest: &str, name: &str) -> Option<bool> {
 pub(super) fn swift_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     swift_walk(lines, at, name).unwrap_or_default()
 }
-/// Whether the walk of [`swift_bindings`] from 1-based `line` proves that no local of the
-/// enclosing function or type names `name`: it reached a type's body, or the parameters of a
-/// function right inside one, and found no binding. A walk that stopped proves nothing (#380), and
-/// so does one that went past a function inside another (#564).
 pub fn swift_no_local(text: &str, line: usize, name: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     line.checked_sub(1)
@@ -289,8 +276,6 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
         rule(format!(r"(?:^|[^\w.]){n}\b")),
         rule(format!(r"\b{n}\s*:")),
     );
-    // A generic parameter of a type, `func`, `init`, `subscript` or `typealias` header binds its
-    // name for the declaration (#375): `func f<T>(_ x: T)` on the cursor's own line too.
     let generic = |text: &str| swift_generics(text).iter().any(|g| g == name);
     let decls = |open: usize, depth: usize| {
         let lines: Vec<usize> = (open + 1..lines.len())
@@ -375,8 +360,6 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
             if generic(&text) {
                 return found(i + 1);
             }
-            // A nested function reads the bindings of the function around it above its header,
-            // as a closure does (#564): the walk goes on out, and a type's body stops it.
             typed = (0..i)
                 .rev()
                 .find(|&j| swift_code(lines, &literal, j) && indent(lines[j]) < indent(lines[i]))
@@ -486,9 +469,6 @@ fn swift_header_binds(head: &str, text: &str, last: &str, name: &str) -> Option<
         Some(false)
     }
 }
-/// Whether a Swift line, read on its own, binds `name` for what follows it the way no
-/// declaration pattern reads (#525): a `for`, an `if let`, a `guard let`, a closure's parameter,
-/// a `catch let`, a `case let` of a `switch`; and a function's parameter in its header (#533).
 pub fn swift_binds_on(line: &str, name: &str) -> bool {
     let t = uncommented(Kind::Swift, line).trim().to_owned();
     if SWIFT_FUNC.is_match(&t) && swift_params_bind(&t, name) {
@@ -696,9 +676,6 @@ pub fn swift_given(line: &str, name: &str) -> Option<SwiftGiven> {
     let value = split_top(Kind::Swift, rest, b',')[0].trim();
     (!value.is_empty()).then(|| SwiftGiven::Value(value.to_owned()))
 }
-/// The type a Swift annotation names, when it names one type (#384): `Instant`, `Cache?` and
-/// `T!` read as `T`, `Box<Int>` as `Box`. `None` for `any P`, `some P`, a tuple, a closure, a
-/// collection, a composition, a path, `Self` and `Any`.
 pub fn swift_type_name(written: &str) -> Option<String> {
     let mut t = written.trim();
     t = t.strip_prefix("inout ").unwrap_or(t).trim_start();
@@ -779,7 +756,6 @@ pub fn swift_returns(text: &str, line: usize) -> Option<String> {
     let ret = ret.split(" where ").next().unwrap_or(ret).trim();
     (!ret.is_empty()).then(|| ret.to_owned())
 }
-/// A Swift expression as the receiver rules read it (#384).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SwiftExpr {
     /// A call, a construction among them, of the callee as written: `FormEncoder`,

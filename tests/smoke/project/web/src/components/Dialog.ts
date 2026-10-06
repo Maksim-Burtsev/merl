@@ -33,3 +33,11 @@ export function whenClosed(dialog: Dialog, done: () => void): void {
 
 import { ParcelState } from "../orders/types";
 export const shippedState = ParcelState.Shipped;
+
+type Closing = {
+  target: Dialog;
+};
+
+export function closeOn({ target }: Closing): void {
+  target.close();
+}

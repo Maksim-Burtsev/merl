@@ -1,0 +1,79 @@
+# id	targets: path:line joined by ; (project-relative; empty: none in reach)	skip: why the row is not scored	note (judged by reading the code: no language server ran for this language)
+commonlisp0000	src/completion.lisp:30		&key parameter of completion
+commonlisp0001	src/common/timer.lisp:189		on-decl: method parameter
+commonlisp0002			outside the project: CL with-output-to-string
+commonlisp0003	frontends/server/main.lisp:616		defun in same file
+commonlisp0004	src/command-line-arguments.lisp:33		defun (function namespace; the condition of the same name is at 17)
+commonlisp0005	src/region.lisp:6		on-decl: defgeneric lambda-list parameter
+commonlisp0006	frontends/ncurses/clipboard.lisp:56		method parameter
+commonlisp0007	src/buffer/internal/tmlanguage.lisp:123		defun in same file
+commonlisp0008	src/common/queue.lisp:12;src/common/queue.lisp:26;src/common/queue.lisp:53		defgeneric and its methods
+commonlisp0009			outside the project: cl-ppcre scan
+commonlisp0010			outside the project: rove testing
+commonlisp0011	extensions/lisp-mode/repl.lisp:267		function parameter
+commonlisp0012			outside the project: CL nil
+commonlisp0013	src/modeline.lisp:148		on-decl: method parameter
+commonlisp0014	extensions/lisp-mode/ext/package-inferred-system.lisp:27		defun in same file
+commonlisp0015	extensions/terminal/terminal.lisp:634		let binding
+commonlisp0016	src/ext/frame-multiplexer.lisp:38		defvar in same file
+commonlisp0017	extensions/legit/porcelain-hg.lisp:44		defun in same file
+commonlisp0018	src/keymap.lisp:288		defmethod (no defgeneric), exported from lem
+commonlisp0019			outside the project: CL code-char
+commonlisp0020	src/buffer/file.lisp:169		let* binding
+commonlisp0021			outside the project: cl-charms charms/ll
+commonlisp0022	extensions/encodings/gb2312.lisp:10		loop for binding
+commonlisp0023	src/buffer/internal/basic.lisp:53		defun in lem core
+commonlisp0024			outside the project: cl-sdl2 render-fill-rect
+commonlisp0025	src/mode.lisp:138		defmacro in lem core
+commonlisp0026	extensions/scheme-mode/errors.lisp:1		defpackage lem-scheme-mode.errors (cursor on the part after the dot)
+commonlisp0027	src/window/virtual-line.lisp:82		defun in same file
+commonlisp0028	extensions/skk-mode/state.lisp:30;extensions/skk-mode/state.lisp:33		slot preedit, :accessor skk-preedit
+commonlisp0029	src/external-packages.lisp:1		package prefix: uiop:define-package :lem
+commonlisp0030	src/window/window.lisp:767		on-decl: function parameter
+commonlisp0031	src/external-packages.lisp:1		package prefix: uiop:define-package :lem
+commonlisp0032	src/common/ring.lisp:86		method parameter of (setf ring-ref)
+commonlisp0033	extensions/language-server/controller/language-features.lisp:251		destructuring-bind binding
+commonlisp0034	src/ext/directory-mode/internal.lisp:173		function parameter
+commonlisp0035	src/key.lisp:19;src/key.lisp:16		setf place: (setf key-to-character) defun; reader defun at 16
+commonlisp0036	src/external-packages.lisp:1		package prefix: uiop:define-package :lem
+commonlisp0037	extensions/mcp-server/server.lisp:223		on-decl: function parameter
+commonlisp0038	extensions/go-mode/call-graph-provider.lisp:62;extensions/go-mode/call-graph-provider.lisp:63		slot calls-query, :accessor (go package's own class)
+commonlisp0039	src/buffer/line.lisp:298		on-decl: function parameter
+commonlisp0040	extensions/coalton-mode/coalton-mode.lisp:326		on-decl: destructuring-bind binding
+commonlisp0041			outside the project: CL code-char
+commonlisp0042	extensions/living-canvas/living-canvas.lisp:214		on-decl: define-command parameter
+commonlisp0043	src/commands/file.lisp:255		define-editor-variable in same file
+commonlisp0044	extensions/vi-mode/tests/utils.lisp:124		let binding
+commonlisp0045	src/mouse.lisp:59		defun in lem-core
+commonlisp0046	extensions/scheme-mode/swank-connection.lisp:786		let binding
+commonlisp0047	frontends/server/main.lisp:123		defun in same file
+commonlisp0048	extensions/copilot/sign-in.lisp:49		on-decl: let* binding
+commonlisp0049	extensions/lisp-mode/ext/eval.lisp:126		defun in lem-lisp-mode/eval
+commonlisp0050	src/buffer/internal/editor-variables.lisp:3		quoted editor variable: define-editor-variable tab-width
+commonlisp0051	extensions/skk-mode/romaji.lisp:129		loop :for binding
+commonlisp0052	src/buffer/internal/buffer.lisp:150		defun in lem (the language-server make-buffer is another package)
+commonlisp0053	frontends/sdl2/view.lisp:92		on-decl: method parameter
+commonlisp0054	extensions/scheme-mode/syntax-data.lisp:1		defpackage lem-scheme-syntax.data (cursor on the part after the dot)
+commonlisp0055	specs/001-multi-language-canvas/contracts/provider-interface.lisp:395		on-decl: lambda parameter
+commonlisp0056	frontends/webview/main.lisp:41		cffi:defcallback parameter
+commonlisp0057			outside the project: rove ok
+commonlisp0058			outside the project: micros create-server
+commonlisp0059	src/ext/listener-mode.lisp:1		package prefix: defpackage lem/listener-mode
+commonlisp0060	src/ext/abbrev.lisp:15		defun in same file
+commonlisp0061	src/interface.lisp:52		let binding
+commonlisp0062			outside the project: CL finish-output
+commonlisp0063	extensions/call-graph/tests/types-test.lisp:80		on-decl: let binding
+commonlisp0064	src/internal-packages.lisp:31		package prefix: uiop:define-package :lem-core
+commonlisp0065	src/buffer/file-utils.lisp:141		defun in lem core
+commonlisp0066	extensions/scheme-mode/repl.lisp:478		multiple-value-bind binding
+commonlisp0067	src/buffer/internal/basic.lisp:322		defun in lem core
+commonlisp0068	src/external-packages.lisp:1		package prefix: uiop:define-package :lem
+commonlisp0069			outside the project: CL maphash
+commonlisp0070	src/buffer/internal/buffer.lisp:316		defun in same file
+commonlisp0071			outside the project: trivial-gray-streams stream-force-output
+commonlisp0072	extensions/vi-mode/tests/utils.lisp:361		defun in used package lem-vi-mode/tests/utils
+commonlisp0073	src/event-queue.lisp:8		defun in lem core
+commonlisp0074	frontends/server/main.lisp:215		method parameter
+commonlisp0075			outside the project: uiop
+commonlisp0076	src/buffer/internal/basic.lisp:450		defun in lem core
+commonlisp0077	extensions/clojure-mode/test-runner.lisp:55		let binding

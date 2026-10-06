@@ -1,11 +1,5 @@
-//! `/`: find in the open file.
-
 use super::*;
 
-/// The most chars a `/` query holds (#267): nobody searches a file for a longer literal. Ignoring
-/// case, 1,000 Cyrillic letters compile to about 200 KiB, Greek iotas (four case forms, the worst
-/// found) to 330 KiB: far below the `regex` crate's 10 MiB limit, which some 60,000 Cyrillic
-/// letters went past.
 const FIND_CAP: usize = 1_000;
 
 impl App {
@@ -92,8 +86,6 @@ impl App {
         self.find_query = self.prompt.to_string();
     }
 
-    /// Every line of the text in order, from `from` on: the file's and, in a review, the ones
-    /// the branch deleted, which `/` searches as it searches the file's (#439).
     fn lines_from(&self, from: TextLine) -> impl Iterator<Item = (TextLine, &str)> {
         std::iter::successors(Some(from), |&t| self.next_line(t)).map(|t| (t, self.text(t)))
     }
@@ -138,7 +130,6 @@ impl App {
         }
     }
 
-    /// First match starting at or after `(line, col)`, searching down the file.
     fn match_at_or_after(
         &self,
         re: &Regex,
@@ -153,7 +144,6 @@ impl App {
         None
     }
 
-    /// Last match starting strictly before `(line, col)`, searching up the file.
     fn match_before(
         &self,
         re: &Regex,

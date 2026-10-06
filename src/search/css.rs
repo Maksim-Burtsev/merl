@@ -1,6 +1,3 @@
-//! HTML, CSS, SCSS and Less for `d` (#415): the class, the id or the path under the cursor, the
-//! rules of a stylesheet and the names they style, the declarations of a stylesheet's names.
-
 use regex::Regex;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -101,9 +98,6 @@ struct Frame {
 /// In SCSS and Less an `&` followed by a name composes it with the class the enclosing rule ends
 /// in: `&__title` inside `.card` styles `.card__title`. A `#{…}` or `@{…}` interpolation is part
 /// of the selector, and a name it is glued to is none.
-///
-/// ponytail: Sass's indented syntax has no braces and is not read; its variables and mixins are
-/// still found by their declaration lines.
 pub fn rules(text: &str) -> Vec<Rule> {
     let b = text.as_bytes();
     let (mut i, mut line, mut paren) = (0, 1, 0usize);
@@ -179,6 +173,57 @@ pub fn rules(text: &str) -> Vec<Rule> {
         }
         line += usize::from(c == b'\n');
         i += 1;
+    }
+    out
+}
+
+pub fn sass_rules(text: &str) -> Vec<Rule> {
+    let indent = |l: &str| l.len() - l.trim_start().len();
+    let lines: Vec<String> = text.lines().map(css_code).collect();
+    let mut comment: Option<usize> = None;
+    let code: Vec<Option<&str>> = (text.lines().zip(&lines))
+        .map(|(raw, l)| {
+            let depth = indent(raw);
+            if comment.is_some_and(|c| depth > c) || raw.trim().is_empty() {
+                return None;
+            }
+            comment = None;
+            let t = raw.trim_start();
+            if t.starts_with("//") || t.starts_with("/*") {
+                comment = Some(depth);
+            }
+            Some(l.trim_end()).filter(|l| !l.trim().is_empty())
+        })
+        .collect();
+    let mut stack: Vec<(usize, Frame)> = Vec::new();
+    let mut buf: Vec<(u8, usize)> = Vec::new();
+    let mut depth = 0;
+    let mut out = Vec::new();
+    for (i, l) in code.iter().enumerate() {
+        let Some(l) = l else { continue };
+        if buf.is_empty() {
+            depth = indent(l);
+            while stack.last().is_some_and(|(d, _)| *d >= depth) {
+                stack.pop();
+            }
+        }
+        let t = l.trim_start();
+        let t = match t.as_bytes().first() {
+            Some(b'=') => format!("@mixin {}", &t[1..]),
+            Some(b'+') => format!("@include {}", &t[1..]),
+            _ => t.to_owned(),
+        };
+        buf.extend(t.bytes().map(|c| (c, i + 1)));
+        buf.push((b'\n', i + 1));
+        if t.ends_with(',') {
+            continue;
+        }
+        let body = code[i + 1..].iter().flatten().next();
+        if body.is_some_and(|n| indent(n) > depth) {
+            let frame = open(&buf, stack.last().map(|(_, f)| f), &mut out);
+            stack.push((depth, frame));
+        }
+        buf.clear();
     }
     out
 }
@@ -341,6 +386,28 @@ pub fn styles_in(path: &Path) -> Option<bool> {
         "html" | "htm" | "vue" | "svelte" | "astro" => Some(false),
         _ => None,
     }
+}
+
+pub fn css_builtin(name: &str) -> bool {
+    const NAMES: &str = "\
+        abs acos asin atan atan2 attr blur brightness calc clamp color color-mix conic-gradient \
+        contrast cos counter counters cubic-bezier drop-shadow element env exp fit-content \
+        format grayscale hsl hsla hue-rotate hwb hypot image-set invert lab lch light-dark \
+        linear-gradient local log matrix matrix3d max min minmax mod oklab oklch opacity \
+        perspective pow radial-gradient rem repeat repeating-conic-gradient \
+        repeating-linear-gradient repeating-radial-gradient rgb rgba rotate rotate3d rotateX \
+        rotateY rotateZ round saturate scale scale3d scaleX scaleY scaleZ sepia sign sin skew \
+        skewX skewY sqrt steps tan translate translate3d translateX translateY translateZ url \
+        var adjust-color adjust-hue alpha append blue call ceil change-color comparable \
+        complement content-exists darken desaturate fade-in fade-out feature-exists floor \
+        function-exists get-function green hue ie-hex-str if index inspect is-bracketed \
+        is-superselector join keywords length lighten lightness list-separator map-get \
+        map-has-key map-keys map-merge map-remove map-values mix mixin-exists nth opacify \
+        percentage quote random red saturation scale-color selector-append selector-extend \
+        selector-nest selector-parse selector-replace selector-unify set-nth simple-selectors \
+        str-index str-insert str-length str-slice to-lower-case to-upper-case transparentize \
+        type-of unique-id unit unitless unquote variable-exists zip";
+    NAMES.split_whitespace().any(|n| n == name)
 }
 
 /// What the cursor in a stylesheet stands on, for `d`.

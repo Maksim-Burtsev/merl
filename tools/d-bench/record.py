@@ -7,8 +7,9 @@
 The project is LANG's row of projects.tsv, cloned into the cache by `run` first
 ($D_BENCH_CACHE or ~/.cache/merl-d-bench). The servers come from install-servers.sh
 ($D_BENCH_SERVERS or <cache>/servers). `oracle` resumes from the answers already written.
-Java, Kotlin, C#, Ruby, Groovy and Jenkins (a Groovy shared library, its own row) have no server
-here: their answers were judged by reading the code.
+Java, Kotlin, C#, Ruby, Nix, Groovy, Jenkins (a Groovy shared library, its own row), Emacs Lisp,
+Scheme and Common Lisp have no server here: their answers were judged by reading the code, as are
+the classes of CSS's Astro templates, which no server answers (`judge` in the note).
 """
 import json, os, random, re, select, subprocess, sys, time
 from collections import defaultdict
@@ -83,6 +84,8 @@ yield Task List String""".split(),
 in module next nil not or redo rescue retry return self super then true undef unless until when
 while yield require require_relative include extend attr_accessor attr_reader attr_writer private
 protected public puts raise new lambda proc""".split(),
+    "nix": """let in with rec inherit if then else assert or import true false null builtins lib pkgs
+config throw abort toString map""".split(),
     "groovy": """abstract as assert boolean break byte case catch char class const continue def default
 do double else enum extends false final finally float for goto if implements import in instanceof
 int interface long native new null package private protected public return short static strictfp
@@ -101,7 +104,48 @@ KW["julia"] = """abstract baremodule begin break catch const continue do else el
 finally for function global if import in isa let local macro module mutable primitive quote return
 struct true try type using where while nothing missing Any Int Int64 Float64 String Bool Symbol
 Nothing Vector Matrix Array Tuple Dict println print length size eltype""".split()
+KW["clojure"] = """def defn defn- defmacro defonce defmulti defmethod defprotocol defrecord deftype declare
+ns require import use refer let letfn fn if if-not if-let if-some when when-not when-let when-some cond
+condp case do loop recur try catch finally throw quote var new set! and or not nil true false binding
+for doseq dotimes doto some-> some->> cond-> cond->> as-> str map mapv filter remove reduce first second
+rest next cons conj assoc assoc-in dissoc get get-in update update-in keys vals count seq vec vector list
+hash-map hash-set into apply partial comp identity println prn print format nil? some? empty? not=
+inc dec merge concat range take drop keyword symbol name meta atom deref swap! reset! instance? fn?
+map? vector? string? keyword? symbol? seq? coll? number? int? boolean? ex-info ex-data this""".split()
+KW["elisp"] = """defun defmacro defsubst defvar defvar-local defcustom defconst defface defgroup defalias let
+let* if when unless cond progn prog1 prog2 setq setq-local setf lambda and or not nil t while dolist
+dotimes condition-case ignore-errors unwind-protect save-excursion save-restriction save-match-data
+with-current-buffer with-temp-buffer interactive car cdr cadr cddr cons list append concat format message
+error user-error funcall apply mapcar mapc memq member assq assoc push pop require provide
+declare-function declare eq eql equal null pcase pcase-let pcase-dolist if-let if-let* when-let
+when-let* and-let* catch throw quote function cl-loop cl-case cl-defun cl-defmethod cl-defgeneric
+insert point goto-char forward-line string-match match-string substring length nth nthcdr
+buffer-substring-no-properties current-buffer get-buffer-create""".split()
+KW["scheme"] = """define define-syntax define-record-type define-library define-values lambda let let*
+letrec letrec* let-values let*-values let-syntax letrec-syntax if cond case when unless begin do set!
+quote quasiquote unquote and or not else import export include include-ci syntax-rules
+er-macro-transformer car cdr cadr cddr cons list null? pair? list? eq? eqv? equal? apply map for-each
+vector string length append reverse error display newline values call-with-values call/cc
+call-with-current-continuation dynamic-wind assq assv assoc memq member vector-ref vector-set!
+string-ref string-length number? string? symbol? procedure? zero? exact inexact""".split()
+KW["racket"] = KW["scheme"] + """racket lang base define/contract define/public define/private define/override
+define/augment struct require provide module module+ module* for for/list for/fold for/hash for/and
+for/or for*/list match match-define send new class class* object% this super-new init init-field field
+inherit public private override augment hash hash-ref hash-set! void parameterize with-handlers
+contract-out all-defined-out only-in prefix-in except-in rename-in submod case-lambda
+define-syntax-rule syntax-parse syntax-case syntax quasisyntax first second rest empty empty? cons*
+printf format eprintf string-append""".split()
+KW["commonlisp"] = """defun defmacro defvar defparameter defconstant defclass defmethod defgeneric defstruct
+deftype define-condition defpackage in-package let let* flet labels macrolet lambda if when unless cond
+case ecase typecase etypecase progn prog1 setf setq incf decf loop do dolist dotimes and or not nil t
+declare ignore ignorable type optimize funcall apply list cons car cdr first second rest push pop format
+error values multiple-value-bind destructuring-bind handler-case handler-bind unwind-protect with-slots
+with-accessors return return-from block eq eql equal gethash make-instance make-hash-table function
+quote length nth elt aref string= null listp consp stringp numberp mapcar mapc remove find position
+member assoc append nreverse reverse concatenate coerce use export import-from shadow""".split()
 KW["js"] = KW["ts"]
+for _c in ("vue", "svelte", "astro"):
+    KW[_c] = KW["ts"] + "each then key html snippet render debug".split()
 KW["jenkins"] = KW["groovy"]
 KW["objc"] = C_KW + """self super nil Nil YES NO id instancetype BOOL SEL Class IMP NSInteger NSUInteger
 CGFloat interface implementation end property protocol optional required synthesize dynamic
@@ -127,6 +171,7 @@ SPEC = {
     "kotlin": dict(exts=(".kt", ".kts"), lc=("//",), bc=("/*", "*/"), triple=True),
     "csharp": dict(exts=(".cs",), lc=("//",), bc=("/*", "*/"), triple=True),
     "ruby": dict(exts=(".rb",), lc=("#",), bc=None),
+    "nix": dict(exts=(".nix",), lc=(), nix=True, word=r"[A-Za-z_][A-Za-z0-9_'-]*"),
     "groovy": dict(exts=(".groovy", ".gvy", ".gradle", "Jenkinsfile"), lc=("//",), bc=("/*", "*/"),
                    triple=True, dollar_slashy=True),
     "solidity": dict(exts=(".sol",), lc=("//",), bc=("/*", "*/")),
@@ -134,14 +179,61 @@ SPEC = {
     "julia": dict(exts=(".jl",), lc=("#",), bc=("#=", "=#"), triple=True, adjoint=True,
                   word=r"[A-Za-z_][A-Za-z0-9_]*(?:!(?!=))?", decl={"macro", "using"}),
 }
+NIX_PATH = re.compile(r"(?:^|(?<=[\s(\[{=;]))(?:\.{1,2}|[\w.+-]*)(?:/[\w.+-]+)+/?")
+NIX_BINDS = re.compile(r"\s*(?:\.\s*[\w'-]*\s*)*=(?!=)")
+for _c in ("vue", "svelte", "astro"):
+    SPEC[_c] = dict(SPEC["ts"], exts=(f".{_c}",), component=True)
 SPEC["jenkins"] = SPEC["groovy"]
+LISP_WORD = r"(?![0-9])[A-Za-z0-9_{0}]*[A-Za-z][A-Za-z0-9_{0}]*"
+SPEC["clojure"] = dict(exts=(".clj", ".cljs", ".cljc", ".bb"), lc=(";",), bc=None, lisp="\\",
+                       word=LISP_WORD.format(r"?!*+<>=\-"))
+SPEC["elisp"] = dict(exts=(".el",), lc=(";",), bc=None, lisp="?", word=LISP_WORD.format(r"?!*+<>=/\-"))
+SPEC["scheme"] = dict(exts=(".scm", ".sld", ".ss"), lc=(";",), bc=("#|", "|#"), lisp="#\\",
+                      word=LISP_WORD.format(r"?!*+<>=/:\-"))
+SPEC["racket"] = {**SPEC["scheme"], "exts": (".rkt",)}
+SPEC["commonlisp"] = dict(exts=(".lisp", ".lsp", ".cl", ".asd"), lc=(";",), bc=("#|", "|#"), lisp="#\\",
+                          word=LISP_WORD.format(r"?!*+<>=/%\-"))
 SKIP_DIRS = {".git", "node_modules", "vendor", "third_party", "dist", "build", "target", ".venv",
              "venv", "__pycache__", "migrations", "deps", "public", "static", "locale", "locales",
              "generated", ".build", "Pods", "fixtures", "testdata"}
 
 
+def nix_mask(text):
+    """Blanks Nix's comments and strings, nested in `${}` included, keeping the code inside `${}`."""
+    out, stack, i, n = list(text), [0], 0, len(text)
+
+    def blank(a, b):
+        out[a:b] = [ch if ch == "\n" else " " for ch in text[a:b]]
+
+    while i < n:
+        top = stack[-1]
+        if top in ('"', "''"):
+            if text.startswith("${", i):
+                blank(i, i + 2); stack.append(0); i += 2; continue
+            if top == '"' and text[i] == "\\":
+                blank(i, i + 2); i += 2; continue
+            if top == '"' and text[i] == '"' or top == "''" and text.startswith("''", i) and text[i + 2:i + 3] not in ("'", "$", "\\"):
+                blank(i, i + len(top)); stack.pop(); i += len(top); continue
+            k = 3 if top == "''" and text.startswith("''", i) else 1
+            blank(i, i + k); i += k; continue
+        if text[i] == "#" or text.startswith("/*", i):
+            j = text.find("\n", i) if text[i] == "#" else text.find("*/", i + 2) + 2
+            j = n if j < 2 else j
+            blank(i, j); i = j; continue
+        if text.startswith("''", i) or text[i] == '"':
+            k = 2 if text[i] == "'" else 1
+            stack.append(text[i:i + k]); blank(i, i + k); i += k; continue
+        if text[i] == "}" and top == 0 and len(stack) > 1:
+            blank(i, i + 1); stack.pop(); i += 1; continue
+        stack[-1] += {"{": 1, "}": -1}.get(text[i], 0)
+        i += 1
+    return "".join(out)
+
+
 def code_tokens(text, spec):
     """(line1, col, word, before, after) for identifiers outside comments and strings."""
+    if spec.get("nix"):
+        text = nix_mask(text)
     out = []
     state = None  # None | 'block' | ('str', closer)
     for n, line in enumerate(text.split("\n"), 1):
@@ -170,13 +262,23 @@ def code_tokens(text, spec):
                 masked[i:] = " " * (L - i); break
             if spec.get("triple") and (line.startswith('"""', i) or line.startswith("'''", i)):
                 state = ("str", line[i:i + 3]); masked[i:i + 3] = "   "; i += 3; continue
+            if spec.get("nix") and c == "'":
+                i += 1; continue
             if spec.get("dollar_slashy") and line.startswith("$/", i):
                 state = ("str", "/$"); masked[i:i + 2] = "  "; i += 2; continue
             if spec.get("tmpl") and c == spec["tmpl"]:
                 state = ("str", c); masked[i] = " "; i += 1; continue
             if spec.get("adjoint") and c == "'" and i and (line[i - 1].isalnum() or line[i - 1] in "_)]}'."):
                 i += 1; continue
-            if c in "\"'":
+            if spec.get("lisp") and c == '"':
+                state = ("str", c); masked[i] = " "; i += 1; continue
+            ch = spec.get("lisp")
+            if ch and line.startswith(ch, i) and (ch != "?" or i == 0 or line[i - 1] in " \t()[]{}'`,"):
+                j = i + len(ch) + (ch == "?" and line[i + 1:i + 2] == "\\") + 1
+                while j < L and line[j].isalpha() and line[j - 1].isalpha():
+                    j += 1
+                masked[i:min(j, L)] = " " * (min(j, L) - i); i = j; continue
+            if c in "\"'" and not ch:
                 if spec.get("rust") and c == "'" and not re.match(r"'(\\.|[^\\'])'", line[i:i + 4] if line[i + 1:i + 2] != "\\" else line[i:i + 5]):
                     i += 1; continue  # a lifetime
                 j = i + 1
@@ -187,12 +289,79 @@ def code_tokens(text, spec):
         m = "".join(masked)
         if not m.isascii():
             continue
+        if spec.get("nix"):
+            for t in NIX_PATH.finditer(m):
+                out.append((n, t.start(), t.group(), m[:t.start()], m[t.end():]))
+            m = NIX_PATH.sub(lambda t: " " * len(t.group()), m)
         for t in re.finditer(spec.get("word", r"[A-Za-z_][A-Za-z0-9_]*"), m):
             s, e = t.span()
             if s > 0 and (m[s - 1].isdigit() or m[s - 1] in "$@#"):
                 continue
             out.append((n, s, t.group(), m[:s], m[e:]))
     return out
+
+
+def lisp_shape(before, word):
+    if before.endswith(("(.", "[.", " .")):
+        return "member"
+    if before.endswith("(") and not before.endswith(("((", "[(")):
+        return "call"
+    if before.endswith(("/", ":")):
+        return "path"
+    return "type" if word[0].isupper() else "name"
+
+
+def blank(text, a, b):
+    return text[:a] + re.sub(r"[^\n]", " ", text[a:b]) + text[b:]
+
+
+def braces(text):
+    out, depth, start, q, i = [], 0, 0, None, 0
+    while i < len(text):
+        c = text[i]
+        if q:
+            if c == "\\":
+                i += 1
+            elif c == q or c == "\n" and q != "`":
+                q = None
+        elif depth and c in "\"'`":
+            q = c
+        elif c == "{":
+            depth += 1
+            if depth == 1:
+                start = i + 1
+        elif c == "}" and depth:
+            depth -= 1
+            if not depth:
+                out.append((start, i))
+        i += 1
+    return out
+
+
+def component_code(text, lang):
+    kept = re.sub(r"[^\n]", " ", text)
+    keep = lambda a, b: kept[:a] + text[a:b] + kept[b:]
+    tpl = text
+    for m in re.finditer(r"<script\b[^>]*>(.*?)</script>", text, re.S):
+        kept = keep(*m.span(1))
+        tpl = blank(tpl, *m.span())
+    if lang == "astro":
+        m = re.match(r"---\n(.*?)\n---", text, re.S)
+        if m:
+            kept = keep(*m.span(1))
+            tpl = blank(tpl, *m.span())
+    for m in re.finditer(r"<style\b.*?</style>|<!--.*?-->", tpl, re.S):
+        tpl = blank(tpl, *m.span())
+    if lang == "vue":
+        spans = [m.span(1) for m in re.finditer(r"\{\{(.*?)\}\}", tpl, re.S)]
+        spans += [m.span(1) for m in re.finditer(
+            r"\s(?:v-[\w-]+(?::[\w.\[\]-]+)?|[:@#][\w.\[\]-]*)=\"([^\"]*)\"", tpl)]
+    else:
+        spans = braces(tpl)
+    spans += [m.span(1) for m in re.finditer(r"</?([A-Z][\w.]*)", tpl)]
+    for a, b in spans:
+        kept = keep(a, b)
+    return kept
 
 
 def shape(before, after, lang):
@@ -206,7 +375,62 @@ def shape(before, after, lang):
     return None  # decided by the word
 
 
+CSS_SHAPES = [
+    ("name", re.compile(r"\$([A-Za-z_][\w-]*)(?!\s*:)")),
+    ("call", re.compile(r"@include\s+([A-Za-z_][\w-]*)")),
+    ("call", re.compile(r"(?<![\w$@.#%-])([A-Za-z_][\w-]*)\((?=[^)]*\$)")),
+    ("path", re.compile(r"@(?:import|use|forward)\s+[\"']([^\"']+)[\"']")),
+]
+
+
+def sample_css(project, root, n, out, exclude=()):
+    """Stylesheet names in scss/ (variables, mixins, functions, imports, for the oracle) and the
+    classes of site/'s Astro templates (judged by reading the stylesheets)."""
+    buckets = defaultdict(list)
+    declared = set(re.findall(r"@function\s+([\w-]+)", subprocess.run(
+        ["grep", "-rh", "@function", os.path.join(root, "scss")], capture_output=True, text=True).stdout))
+    for d, dirs, files in os.walk(root):
+        dirs[:] = [x for x in dirs if x not in SKIP_DIRS and x not in exclude and not x.startswith(".")]
+        rel_dir = os.path.relpath(d, root)
+        for f in files:
+            rel = os.path.normpath(os.path.join(rel_dir, f))
+            text = open(os.path.join(d, f), encoding="utf-8", errors="replace").read()
+            if rel.startswith("scss/") and f.endswith(".scss"):
+                for ln, line in enumerate(text.split("\n"), 1):
+                    code = line.split("//", 1)[0]
+                    if not code.isascii():
+                        continue
+                    for sh, rx in CSS_SHAPES:
+                        for m in rx.finditer(code):
+                            if rx is CSS_SHAPES[2][1] and m.group(1) not in declared:
+                                continue
+                            if sh == "name" and re.match(r"\s*\$[\w-]+\s*:", code) and m.start() == code.index("$"):
+                                continue
+                            buckets[sh].append((rel, ln, m.start(1), sh, m.group(1)))
+            elif rel.startswith("site/") and f.endswith(".astro"):
+                for ln, line in enumerate(text.split("\n"), 1):
+                    if not line.isascii():
+                        continue
+                    for m in re.finditer(r'\bclass="([^"{}]*)"', line):
+                        for w in re.finditer(r"[^\s]+", m.group(1)):
+                            buckets["class"].append((rel, ln, m.start(1) + w.start(), "class", w.group()))
+    rnd = random.Random(20261002)
+    mix = {"name": 0.4, "call": 0.25, "path": 0.1, "class": 0.25}
+    chosen = []
+    for sh, frac in mix.items():
+        pool = buckets.get(sh, [])
+        chosen += rnd.sample(pool, min(len(pool), round(n * frac)))
+    rnd.shuffle(chosen)
+    with open(out, "w") as fh:
+        fh.write("# id\tproject\tfile\tline\tcol (0-based)\tshape\tword\n")
+        for i, (rel, ln, col, sh, w) in enumerate(chosen):
+            fh.write(f"css{i:04d}\t{project}\t{rel}\t{ln}\t{col}\t{sh}\t{w}\n")
+    print({k: len(v) for k, v in buckets.items()}, "->", len(chosen), file=sys.stderr)
+
+
 def sample(lang, project, root, n, out, exclude=()):
+    if lang == "css":
+        return sample_css(project, root, n, out, exclude)
     spec = SPEC[lang]
     kw = set(KW[lang])
     buckets = defaultdict(list)
@@ -217,14 +441,31 @@ def sample(lang, project, root, n, out, exclude=()):
                 continue
             p = os.path.join(d, f)
             try:
-                text = open(p, encoding="utf-8").read()
+                text = open(p, encoding="utf-8", newline="").read()
             except Exception:
                 continue
             if len(text) > 400_000:
                 continue
             rel = os.path.relpath(p, root)
+            if spec.get("component"):
+                text = component_code(text, lang)
             for (ln, col, w, before, after) in code_tokens(text, spec):
                 if w in kw or len(w) < 2:
+                    continue
+                if spec.get("lisp"):
+                    head = re.search(spec["word"] + r"[\s(]*$", before)
+                    if (w.startswith(":") or re.search(r"(^|[^A-Za-z0-9_*+!?<>=/%-]):+$", before)
+                            or head and re.match(r"(cl-)?def|define", head.group())):
+                        continue
+                    buckets[lisp_shape(before, w)].append((rel, ln, col, lisp_shape(before, w), w))
+                    continue
+                if "/" in w:
+                    buckets["path"].append((rel, ln, col, "path", w))
+                    continue
+                if lang == "nix" and NIX_BINDS.match(after):
+                    continue
+                if spec.get("component") and (re.search(r"</?$", before) and w[0].islower()
+                                              or re.match(r"=[\"'{]|-[a-z]", after)):
                     continue
                 prev = re.findall(r"[A-Za-z_]+", before)
                 decl = (DECL | SOL_DECL if lang == "solidity" else DECL) | spec.get("decl", set())
@@ -234,6 +475,8 @@ def sample(lang, project, root, n, out, exclude=()):
                 buckets[sh].append((rel, ln, col, sh, w))
     rnd = random.Random(20260928)
     mix = {"member": 0.35, "call": 0.25, "type": 0.2, "name": 0.1, "path": 0.1}
+    if spec.get("lisp"):
+        mix = {"call": 0.5, "name": 0.35, "path": 0.1, "member": 0.025, "type": 0.025}
     chosen = []
     for sh, frac in mix.items():
         pool = buckets.get(sh, [])
@@ -253,7 +496,7 @@ class Lsp:
                                   env={**os.environ, **(env or {})})
         self.id, self.buf, self.progress, self.settings = 0, b"", {}, settings or {}
         self.last_progress = time.time()
-        self.opened = set()
+        self.opened, self.diagnosed = set(), set()
         root_uri = "file://" + root
         caps = {"textDocument": {"definition": {"linkSupport": True},
                                  "declaration": {"linkSupport": True},
@@ -305,6 +548,8 @@ class Lsp:
             elif meth == "workspace/workspaceFolders":
                 res = []
             self.send({"jsonrpc": "2.0", "id": m["id"], "result": res})
+        elif meth == "textDocument/publishDiagnostics":
+            self.diagnosed.add(m["params"]["uri"])
         elif meth == "$/progress":
             tok, v = str(m["params"]["token"]), m["params"]["value"]
             self.last_progress = time.time()
@@ -363,8 +608,10 @@ class Lsp:
 LANG_ID = {".py": "python", ".ts": "typescript", ".tsx": "typescriptreact", ".js": "javascript",
            ".jsx": "javascriptreact", ".mjs": "javascript", ".cjs": "javascript", ".go": "go",
            ".rs": "rust", ".c": "c", ".h": "cpp", ".cc": "cpp", ".cpp": "cpp", ".hpp": "cpp",
-           ".php": "php", ".swift": "swift", ".m": "objective-c", ".sol": "solidity", ".bzl": "starlark",
-           ".bazel": "starlark", ".jl": "julia"}
+           ".php": "php", ".swift": "swift", ".m": "objective-c", ".css": "css", ".scss": "scss",
+           ".less": "less", ".vue": "vue", ".svelte": "svelte", ".astro": "astro", ".sol": "solidity",
+           ".bzl": "starlark", ".bazel": "starlark", ".jl": "julia", ".clj": "clojure", ".cljs": "clojure",
+           ".cljc": "clojure", ".bb": "clojure", ".rkt": "racket"}
 
 
 def server(lang, root):
@@ -380,6 +627,15 @@ def server(lang, root):
     if lang in ("ts", "js"):
         return Lsp([node, os.path.join(nm, "typescript-language-server", "lib", "cli.mjs"), "--stdio"], root,
                    init_options={"tsserver": {"path": os.path.join(nm, "typescript", "lib", "tsserver.js")}})
+    tsdk = {"typescript": {"tsdk": os.path.join(nm, "typescript", "lib")}}
+    if lang == "vue":
+        return Lsp([node, os.path.join(nm, "@vue", "language-server", "bin", "vue-language-server.js"), "--stdio"],
+                   root, init_options={**tsdk, "vue": {"hybridMode": False}})
+    if lang == "svelte":
+        return Lsp([node, os.path.join(nm, "svelte-language-server", "bin", "server.js"), "--stdio"], root)
+    if lang == "astro":
+        return Lsp([node, os.path.join(nm, "@astrojs", "language-server", "bin", "nodeServer.js"), "--stdio"], root,
+                   init_options=tsdk)
     if lang == "go":
         return Lsp([os.path.join(LSP, "bin", "gopls")], root, env={"GOFLAGS": "-mod=mod"})
     if lang == "rust":
@@ -394,11 +650,21 @@ def server(lang, root):
                    init_options={"storagePath": st, "globalStoragePath": st})
     if lang == "swift":
         return Lsp(["xcrun", "sourcekit-lsp"], root)
+    if lang == "css":
+        return Lsp([os.path.join(nm, ".bin", "vscode-css-language-server"), "--stdio"], root)
     if lang == "solidity":
         server = os.path.join(nm, "@nomicfoundation", "solidity-language-server", "out", "index.js")
         return Lsp([node, server, "--stdio"], root)
     if lang == "starlark":
         return Lsp([os.path.join(LSP, "bin", "starpls"), "server"], root)
+    if lang == "clojure":
+        edn = open(os.path.join(root, "deps.edn")).read()
+        paths = re.findall(r'"([^"]+)"', " ".join(re.findall(r":(?:extra-)?paths\s*\[([^\]]*)\]", edn)))
+        cp = ":".join(dict.fromkeys(p for p in paths if os.path.isdir(os.path.join(root, p))))
+        return Lsp(["clojure-lsp"], root, init_options={
+            "project-specs": [{"project-path": "deps.edn", "classpath-cmd": ["echo", cp]}]})
+    if lang == "racket":
+        return Lsp(["racket", "-l", "racket-langserver"], root)
     if lang == "julia":
         return Lsp(["julia", "--project=@ls", "-e", "using LanguageServer; runserver(stdin, stdout, pwd())"], root,
                    env={"HOME": os.path.join(LSP, "julia-home")})
@@ -458,7 +724,14 @@ def oracle_run(lang, root, rows, out, warm):
         for k, r in enumerate(rows):
             cid, _, rel, line, col = r[:5]
             p = os.path.join(root, rel)
+            if lang == "css" and r[5] == "class":
+                fh.write(f"{cid}\t\t\tjudge\n")
+                continue
             s.open(p, LANG_ID.get(os.path.splitext(p)[1], lang))
+            if lang == "racket":
+                end = time.time() + 300
+                while "file://" + p not in s.diagnosed and time.time() < end:
+                    s.pump(1)
             pos = {"textDocument": {"uri": "file://" + p}, "position": {"line": int(line) - 1, "character": int(col)}}
             got = locs(s.request("textDocument/definition", pos, timeout=60))
             if lang in ("c", "cpp", "objc"):

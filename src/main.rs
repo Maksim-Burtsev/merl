@@ -147,8 +147,6 @@ fn run() -> Result<()> {
         Some(branch) => {
             root = git_toplevel(&root).context("--review needs a git repository")?;
             let mut branch = Some(branch.as_str()).filter(|b| !b.is_empty());
-            // A branch another worktree has checked out is reviewed there, as it stands:
-            // nothing is fetched, switched or reset in someone else's worktree (#396).
             if let Some(wt) = branch.and_then(|b| git::worktree_of(&root, b)) {
                 let rel = |f: PathBuf| Some(wt.join(f.strip_prefix(&root).ok()?));
                 file = file.and_then(rel).filter(|f| f.is_file());
@@ -374,6 +372,7 @@ fn event_loop(
             dirty |= p.tick();
         }
         dirty |= app.tick();
+        app.warm_up();
         rewatch(watcher.as_mut(), &mut watched, app);
         if std::mem::take(&mut app.want_diff)
             && let Some(path) = app.buf.path.clone()
@@ -588,7 +587,6 @@ fn resolve(target: Option<&str>) -> Result<(PathBuf, bool, Option<PathBuf>, Opti
     if !path.exists() {
         anyhow::bail!("{}: no such file or directory", path.display());
     }
-    // A FIFO, a socket or a device: reading one can wait forever (#405).
     if !path.is_file() {
         anyhow::bail!("{}: not a regular file", path.display());
     }
@@ -596,8 +594,6 @@ fn resolve(target: Option<&str>) -> Result<(PathBuf, bool, Option<PathBuf>, Opti
         .canonicalize()
         .with_context(|| format!("{}", path.display()))?;
     let dir = path.parent().unwrap_or(Path::new(".")).to_path_buf();
-    // Outside a repository nothing names a project, and the directory of `~/.zshrc` is the
-    // whole home: the project is the files next to this one (#182).
     let (root, shallow) = git_toplevel(&dir).map_or((dir, true), |top| (top, false));
     Ok((root, shallow, Some(path), line))
 }
@@ -642,11 +638,6 @@ fn base64(bytes: &[u8]) -> String {
     out
 }
 
-/// Inside tmux (`$TMUX` set): the question whether tmux takes the OSC 52 merl writes itself,
-/// and the calls that hand it copied text on stdin when it does not: tmux's default
-/// `set-clipboard external` drops the OSC 52 (#395). With `-w` (tmux 3.2) tmux keeps a paste
-/// buffer and sets the outer terminal's clipboard itself; an older tmux refuses `-w`, and the
-/// plain call at least fills a buffer, for prefix `]`.
 fn tmux_copy(tmux: Option<&OsStr>) -> Option<(Command, [Command; 2])> {
     tmux.filter(|t| !t.is_empty())?;
     // Its usage, or an error, must not draw over merl's screen.
@@ -932,8 +923,8 @@ mod tests {
     /// A listed file that shrinks lowers its number in the same change; one under the limit
     /// leaves the list.
     const LONG_FILES: &[(&str, usize)] = &[
-        ("src/app/definition.rs", 2613),
-        ("src/search/bindings.rs", 1749),
+        ("src/app/definition.rs", 2369),
+        ("src/search/bindings.rs", 1623),
     ];
     const MAX_LINES: usize = 1500;
 
@@ -999,7 +990,7 @@ mod tests {
         assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
     }
 
-    const COMMENT_LINES: usize = 9258;
+    const COMMENT_LINES: usize = 7507;
 
     fn comment_lines(text: &str) -> usize {
         let b = text.as_bytes();

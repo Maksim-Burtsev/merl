@@ -1,21 +1,20 @@
-wait void crc_reset
-┌orders──────────────────────┐1 typedef struct client {
-│▸ .github                   │2     int flags;
-│▸ .venv                     │3 } client;
-│▸ app                       │4
-│▸ data                      │5 struct job {
-│▸ deploy                    │6     int flags;
-│▸ docs                      │7 };
-│▸ scripts                   │8
-│▸ tests                     │9 void crc_reset(client *c) { c->flags = 0; }
-│▸ web                       │
-│▾ worker                    │
-│  ▾ internal                │
-│    ▾ crc                   │
-│        client.c            │
-│        crc.c               │
-│        crc.h               │
-│        mode.cc             │
+wait via h: Hasher
+┌orders──────────────────────┐ 1 enum crc_mode {
+│▸ .github                   │ 2     CRC_PLAIN,
+│▸ .venv                     │ 3     CRC_FAST
+│▸ app                       │ 4 };
+│▸ data                      │ 5
+│▸ deploy                    │ 6 struct Hasher {
+│▸ docs                      │ 7     virtual unsigned Sum() const = 0;
+│▸ scripts                   │ 8 };
+│▸ tests                     │ 9
+│▸ web                       │10 struct Fast : Hasher {
+│▾ worker                    │11     unsigned Sum() const override { return 1; }
+│  ▾ internal                │12 };
+│    ▾ crc                   │13
+│        crc.c               │14 template <class H> int crc_pick(H *h) { return h->Sum() ? CRC_FAST : CRC_PLAIN; }
+│        crc.h               │15
+│        mode.cc             │16 int crc_check(Hasher *h) { return h->Sum(); }
 │    ▸ queue                 │
 │    go.mod                  │
 │    main.go                 │
@@ -52,6 +51,7 @@ wait void crc_reset
 │                            │
 │                            │
 │                            │
+│                            │
 └────────────────────────────┘
-worker/internal/crc/client.c  1:1  [code]                                                                                                                                         ? help
-cursor (x,y,shown) 32,0,1
+worker/internal/crc/mode.cc  7:22  [code]  Sum → Hasher::Sum (via h: Hasher)
+cursor (x,y,shown) 54,6,1
