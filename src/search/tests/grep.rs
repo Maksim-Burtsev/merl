@@ -197,6 +197,14 @@ fn a_declaration_outside_is_found_from_the_lines_kept_of_its_file() {
     let dir = std::env::temp_dir().join(format!("merl-shaped-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
+    let past_sniff = format!(
+        "function value() {{}}\n{}\0\nfunction value() {{}}\n",
+        "x\n".repeat(40_000)
+    );
+    let over_cap = format!(
+        "{}function value() {{}}\n",
+        "function other() {}\n".repeat(14_000)
+    );
     let texts = [
         (
             "a.d.ts",
@@ -206,12 +214,13 @@ fn a_declaration_outside_is_found_from_the_lines_kept_of_its_file() {
             "b.js",
             "function first() {}\n\tvalue: function () {},\nfoo(value);\n",
         ),
-        ("c.js", "var value = 1;\n\0binary"),
+        ("c.js", past_sniff.as_str()),
         ("d.js", "\u{feff}function value() {}\n"),
         (
             "e.js",
             "class X {\n  static value = async (a) => a;\n  constructor(private value: V) {}\n}\n",
         ),
+        ("f.js", over_cap.as_str()),
     ];
     for (name, text) in texts {
         std::fs::write(dir.join(name), text).unwrap();
@@ -243,6 +252,10 @@ fn a_declaration_outside_is_found_from_the_lines_kept_of_its_file() {
             plain
         );
     }
+    assert!(
+        kept.lock().unwrap()[&dir.join("f.js")].is_none(),
+        "lines over the cap are not kept"
+    );
     assert!(ts_shape("value", "value").is_none());
     assert!(ts_shape("vä", &def_patterns(Kind::TsJs, "vä").join("|")).is_none());
     std::fs::remove_file(dir.join("b.js")).unwrap();

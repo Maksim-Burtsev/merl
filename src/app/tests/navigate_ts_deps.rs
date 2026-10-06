@@ -212,3 +212,38 @@ fn a_reexport_from_a_nested_copy_lands_in_that_copy() {
         "other's own copy of lib is the one its re-export names"
     );
 }
+
+#[test]
+fn a_dependency_merl_saved_is_read_again() {
+    let place = "node_modules/lib/index.d.ts";
+    let (dir, mut a) = project_app(
+        "ts-saved",
+        &[
+            ("src/main.ts", "import { pick } from \"lib\";\n\npick();\n"),
+            (place, "export declare function pick(): void;\n"),
+        ],
+    );
+    let landed = |line: usize| jump("pick: via import lib", &format!("{place}:{line}"));
+    d_on(&mut a, "src/main.ts", "^pick");
+    assert_eq!(shown(&mut a), landed(1));
+    a.line = 0;
+    a.col = 0;
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    a.save();
+    assert!(
+        std::fs::read_to_string(dir.join(place))
+            .unwrap()
+            .starts_with('\n'),
+        "{}",
+        a.message
+    );
+    d_on(&mut a, "src/main.ts", "^pick");
+    assert_eq!(
+        shown(&mut a),
+        landed(2),
+        "the lines kept of a file merl saved are not the file any more"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}

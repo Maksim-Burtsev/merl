@@ -106,10 +106,7 @@ fn shaped_lines(
         return known.clone();
     }
     let read = std::fs::read(path).ok().and_then(|bytes| {
-        let plain = !bytes.contains(&0)
-            && !bytes.starts_with(&[0xef])
-            && !bytes.starts_with(&[0xfe])
-            && !bytes.starts_with(&[0xff]);
+        let plain = !bytes.contains(&0);
         let mut kept = Shaped {
             text: Vec::new(),
             lines: Vec::new(),
