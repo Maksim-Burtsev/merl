@@ -40,7 +40,14 @@ impl App {
             &a[..end.unwrap_or(a.len())]
         });
         let (ns, name) = match (target.filter(|t| !t.is_empty()), before.strip_suffix('/')) {
-            (Some(name), _) => (qualifier(&format!("{before}{word}")), name),
+            (Some(name), _) => {
+                let ns = qualifier(&format!("{before}{word}"));
+                let alias = requires.iter().any(|(n, ns)| n == word && ns != word);
+                if !alias && search::clojure_ns_files(&ns, &self.files).is_empty() {
+                    return None;
+                }
+                (ns, name)
+            }
             (None, Some(b)) => (qualifier(b), word),
             (None, None)
                 if search::bindings(Kind::Clojure, text, self.line + 1, word).is_empty() =>
