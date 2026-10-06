@@ -71,8 +71,13 @@ fn braced(s: &str) -> Option<(&str, &str)> {
     None
 }
 
-/// Each `@tag {T} rest` of the JSDoc lines `doc`: the tag, `T`, and the rest of its line.
-fn tags(doc: &[&str]) -> Vec<(String, String, String)> {
+struct Tag {
+    name: String,
+    braced_type: String,
+    rest_of_line: String,
+}
+
+fn tags(doc: &[&str]) -> Vec<Tag> {
     let mut out = Vec::new();
     for l in doc {
         let l = l.trim().trim_start_matches("/**").trim_start_matches('*');
@@ -84,7 +89,11 @@ fn tags(doc: &[&str]) -> Vec<(String, String, String)> {
         let Some((ty, rest)) = braced(&at[tag.len()..]) else {
             continue;
         };
-        out.push((tag, ty.to_owned(), rest.trim().to_owned()));
+        out.push(Tag {
+            name: tag,
+            braced_type: ty.to_owned(),
+            rest_of_line: rest.trim().to_owned(),
+        });
     }
     out
 }
@@ -99,10 +108,10 @@ fn tag_name(rest: &str) -> Option<&str> {
     (end > 0 && !rest[end..].starts_with('.')).then(|| &rest[..end])
 }
 
-/// The lines of the JSDoc block `/** … */` that closes right above 0-based line `k`: none when a
-/// blank line, code or a comment of another kind stands between them.
-fn block_above(lines: &[&str], k: usize) -> Option<Range<usize>> {
-    let end = k.checked_sub(1)?;
+/// The lines of the JSDoc block `/** … */` that closes right above `line0`: none when a blank
+/// line, code or a comment of another kind stands between them.
+fn block_above(lines: &[&str], line0: usize) -> Option<Range<usize>> {
+    let end = line0.checked_sub(1)?;
     if !lines[end].trim_end().ends_with("*/") {
         return None;
     }
@@ -114,51 +123,49 @@ fn block_above(lines: &[&str], k: usize) -> Option<Range<usize>> {
     .then_some(start..end + 1)
 }
 
-/// The type JSDoc writes for `name` bound on 1-based `line` of `text`: the `@type {T}` of a
-/// `const`, `let` or `var` declaring it, on its line or right above it; else the `@param {T}
-/// name` of the function whose header starts on the line.
-pub fn jsdoc_binding(text: &str, line: usize, name: &str) -> Option<String> {
+/// The type JSDoc writes for `name` bound on `line1` of `text`: the `@type {T}` of a `const`,
+/// `let` or `var` declaring it, on its line or right above it; else the `@param {T} name` of the
+/// function whose header starts on the line.
+pub fn jsdoc_binding(text: &str, line1: usize, name: &str) -> Option<String> {
     let lines: Vec<&str> = text.lines().collect();
-    let k = line.checked_sub(1)?;
+    let k = line1.checked_sub(1)?;
     let own = lines.get(k)?;
     let declares = Regex::new(&format!(
         r"^\s*(?:/\*\*.*?\*/\s*)?(?:export\s+)?(?:const|let|var)\s+{}(?:[^\w$]|$)",
         regex::escape(name)
     ))
     .ok()?;
-    // `/** @type {T} */ let x;` writes the type on the line itself.
-    let inline = own
+    let doc_on_the_line = own
         .trim_start()
         .starts_with("/**")
         .then(|| own.split_once("*/").map(|(doc, _)| doc))
         .flatten();
-    let doc: Vec<&str> = match (inline, block_above(&lines, k)) {
+    let doc: Vec<&str> = match (doc_on_the_line, block_above(&lines, k)) {
         (Some(doc), _) => vec![doc],
         (None, Some(block)) => lines[block].to_vec(),
         (None, None) => return None,
     };
     let tags = tags(&doc);
     if declares.is_match(own) {
-        let (_, ty, _) = tags.iter().find(|(tag, ..)| tag == "type")?;
-        return jsdoc_type(ty);
+        let tag = tags.iter().find(|t| t.name == "type")?;
+        return jsdoc_type(&tag.braced_type);
     }
-    // `@param {T} [name=default]` names an optional one.
-    let (_, ty, _) = tags
+    let tag = tags
         .iter()
-        .find(|(tag, _, rest)| tag == "param" && tag_name(rest) == Some(name))?;
-    jsdoc_type(ty)
+        .find(|t| t.name == "param" && tag_name(&t.rest_of_line) == Some(name))?;
+    jsdoc_type(&tag.braced_type)
 }
 
 /// The `@returns {T}` or `@return {T}` of the JSDoc block right above the function or method
-/// declared on 1-based `decl` of `text`.
-pub fn jsdoc_returns(text: &str, decl: usize) -> Option<String> {
+/// declared on `decl_line1` of `text`.
+pub fn jsdoc_returns(text: &str, decl_line1: usize) -> Option<String> {
     let lines: Vec<&str> = text.lines().collect();
-    let block = block_above(&lines, decl.checked_sub(1)?)?;
+    let block = block_above(&lines, decl_line1.checked_sub(1)?)?;
     let tags = tags(&lines[block]);
-    let (_, ty, _) = tags
+    let tag = tags
         .iter()
-        .find(|(tag, ..)| tag == "returns" || tag == "return")?;
-    jsdoc_type(ty)
+        .find(|t| t.name == "returns" || t.name == "return")?;
+    jsdoc_type(&tag.braced_type)
 }
 
 /// The `@typedef {T} Name` a JSDoc line writes: `T` and `Name`.
@@ -190,44 +197,44 @@ pub fn jsdoc_object(written: &str) -> bool {
     matches!(written, "Object" | "object")
 }
 
-/// The name of the `@typedef {Object}` whose block holds the `@property` on 0-based `k`.
-pub fn jsdoc_owner_name<'a>(lines: &[&'a str], k: usize) -> Option<&'a str> {
-    let i = jsdoc_owner(lines, k)?;
+/// The name of the `@typedef {Object}` whose block holds the `@property` on `line0`.
+pub fn jsdoc_owner_name<'a>(lines: &[&'a str], line0: usize) -> Option<&'a str> {
+    let i = jsdoc_owner(lines, line0)?;
     typedef(lines[i]).map(|(_, name)| name)
 }
 
-/// The 0-based line of the `@typedef {Object}` whose block holds the `@property` on 0-based `k`.
-pub fn jsdoc_owner(lines: &[&str], k: usize) -> Option<usize> {
-    if !lines[k].contains("@prop") {
+/// The 0-based line of the `@typedef {Object}` whose block holds the `@property` on `line0`.
+pub fn jsdoc_owner(lines: &[&str], line0: usize) -> Option<usize> {
+    if !lines[line0].contains("@prop") {
         return None;
     }
-    for i in (0..=k).rev() {
+    for i in (0..=line0).rev() {
         if let Some((ty, _)) = typedef(lines[i]) {
             return jsdoc_object(ty).then_some(i);
         }
         let t = lines[i].trim_start();
-        if !t.starts_with('*') || (i < k && t.contains("*/")) {
+        if !t.starts_with('*') || (i < line0 && t.contains("*/")) {
             return None;
         }
     }
     None
 }
 
-/// The fields `name` the `@typedef {Object}` on 0-based line `k` declares: each `@property {T}
-/// name` or `@property {T} [name]` of its block, with `T` when it is one plain name. `None` when
-/// the line writes no such typedef.
-pub fn jsdoc_properties(lines: &[&str], k: usize, name: &str) -> Option<Vec<Binding>> {
-    typedef(lines[k]).filter(|(ty, _)| jsdoc_object(ty))?;
+/// The fields `name` the `@typedef {Object}` on `line0` declares: each `@property {T} name` or
+/// `@property {T} [name]` of its block, with `T` when it is one plain name. `None` when the line
+/// writes no such typedef.
+pub fn jsdoc_properties(lines: &[&str], line0: usize, name: &str) -> Option<Vec<Binding>> {
+    typedef(lines[line0]).filter(|(ty, _)| jsdoc_object(ty))?;
     let mut out = Vec::new();
-    for (i, l) in lines.iter().enumerate().skip(k + 1) {
+    for (i, l) in lines.iter().enumerate().skip(line0 + 1) {
         if typedef(l).is_some() || !l.trim_start().starts_with('*') {
             break;
         }
-        if let [(tag, ty, rest)] = &tags(&[l])[..]
-            && (tag == "property" || tag == "prop")
-            && tag_name(rest) == Some(name)
+        if let [tag] = &tags(&[l])[..]
+            && (tag.name == "property" || tag.name == "prop")
+            && tag_name(&tag.rest_of_line) == Some(name)
         {
-            let value = jsdoc_type(ty).map_or(Value::Unknown, Value::Type);
+            let value = jsdoc_type(&tag.braced_type).map_or(Value::Unknown, Value::Type);
             out.push(Binding { line: i + 1, value });
         }
         if l.contains("*/") {

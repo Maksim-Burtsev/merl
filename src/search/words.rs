@@ -4,14 +4,14 @@ use regex::Regex;
 
 use super::*;
 
-/// The name a reader knows the declaration on 1-based `line` of `text` by: `name` behind what it
+/// The name a reader knows the declaration on `line1` of `text` by: `name` behind what it
 /// is declared in, `UserRepository.delete_user` for a method, `Outer.Inner.run` for a nested
 /// one, the receiver type of a Go method, the type a Rust `impl … for Type` is for. `None` at
 /// the top level. The enclosing declarations are the lines above indented less, named by the
 /// [`SYMBOLS`] rows a file of `kind` is read with; the walk stops at the first enclosing line
 /// they name nothing on (a `return {`, an `if`), so a declaration stays unqualified rather than
 /// wrongly qualified. YAML is never qualified (see [`nests`]).
-pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<String> {
+pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<String> {
     static RECEIVER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^func\s+\(\s*(?:\w+\s+)?\*?\s*([A-Za-z_]\w*)").unwrap()
     });
@@ -20,10 +20,10 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     });
     static GO_TYPE: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^type\s+([A-Za-z_]\w*)").unwrap());
-    // The line that opens a struct written in place: `range []struct {`, `x := struct {`.
-    static GO_ANONYMOUS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:\]|=|\(|,)\s*struct\s*\{\s*(?://.*)?$").unwrap()
-    });
+    static GO_STRUCT_WRITTEN_IN_PLACE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| {
+            Regex::new(r"(?:\]|=|\(|,)\s*struct\s*\{\s*(?://.*)?$").unwrap()
+        });
     static RUST_FN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#"^\s*(?:(?:pub(?:\([^)]*\))?|async|unsafe|const|extern(?:\s+"[^"]*")?|default)\s+)*fn\s+([A-Za-z_]\w*)"#).unwrap()
     });
@@ -56,10 +56,10 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     }
     let sep = separator(kind);
     let lines: Vec<&str> = text.lines().collect();
-    let target = *lines.get(line.checked_sub(1)?)?;
+    let target = *lines.get(line1.checked_sub(1)?)?;
     // A `@property` of a JavaScript `@typedef {Object}` is its typedef's field (#347).
     if kind == Kind::TsJs
-        && let Some(owner) = jsdoc_owner_name(&lines, line - 1)
+        && let Some(owner) = jsdoc_owner_name(&lines, line1 - 1)
     {
         return Some(format!("{owner}{sep}{name}"));
     }
@@ -72,14 +72,14 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         return Some(format!("{}{sep}{name}", &c[1]));
     }
     if kind == Kind::Jvm
-        && let Some(receiver) = jvm_receiver_at(text, line, name)
+        && let Some(receiver) = jvm_receiver_at(text, line1, name)
     {
         return Some(format!("{receiver}{sep}{name}"));
     }
     if kind == Kind::Jvm
         && let Some(f) = jvm_function(target).filter(|f| f != name && target.contains(name))
     {
-        let owner = qualified(kind, text, line, &f).unwrap_or(f);
+        let owner = qualified(kind, text, line1, &f).unwrap_or(f);
         return Some(format!("{owner}{sep}{name}"));
     }
     if kind == Kind::Go && go_one_line_field(target, name) {
@@ -91,17 +91,17 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     // A field declared inside a method or in a constructor's parameters is the class's:
     // `Issue.repo`, not `Issue.__init__.repo`.
     if field_like(kind, target.trim_start(), name)
-        && let Some(decl) = enclosing_type(kind, &lines, line - 1)
+        && let Some(decl) = enclosing_type(kind, &lines, line1 - 1)
         && field_bindings(kind, text, decl, name)
             .iter()
-            .any(|b| b.line == line)
+            .any(|b| b.line == line1)
         && let Some(ty) = type_name(kind, lines[decl - 1])
     {
         let owner = qualified(kind, text, decl, &ty).unwrap_or(ty);
         return Some(format!("{owner}{sep}{name}"));
     }
     if kind == Kind::Php
-        && let Some(class) = php_tag_class(&lines, line - 1)
+        && let Some(class) = php_tag_class(&lines, line1 - 1)
         && let Some(owner) = declared_name(Some(kind), lines[class])
     {
         let owner = qualified(kind, text, class + 1, &owner).unwrap_or(owner);
@@ -110,21 +110,21 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     if kind == Kind::Rust
         && let Some(c) = RUST_FN.captures(target).filter(|c| &c[1] != name)
     {
-        let owner = qualified(kind, text, line, &c[1]).unwrap_or_else(|| c[1].to_owned());
+        let owner = qualified(kind, text, line1, &c[1]).unwrap_or_else(|| c[1].to_owned());
         return Some(format!("{owner}{sep}{name}"));
     }
     // A parameter on a C# method's line reads as a local of its body (#345).
     if kind == Kind::CSharp
         && let Some(m) = cs_parameter_of(target, name)
     {
-        let owner = qualified(kind, text, line, &m).unwrap_or(m);
+        let owner = qualified(kind, text, line1, &m).unwrap_or(m);
         return Some(format!("{owner}{sep}{name}"));
     }
     if kind == Kind::Ruby
         && COLUMN
             .captures(target)
             .is_some_and(|c| c.get(1).or(c.get(2)).is_some_and(|m| m.as_str() == name))
-        && let Some(table) = owner_line(&lines, line - 1).and_then(|o| TABLE.captures(lines[o]))
+        && let Some(table) = owner_line(&lines, line1 - 1).and_then(|o| TABLE.captures(lines[o]))
     {
         let table = table.get(1).or(table.get(2)).map_or("", |m| m.as_str());
         return Some(format!("{table}{sep}{name}"));
@@ -136,7 +136,7 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         _ => None,
     };
     if let Some(c) = def.filter(|c| &c[1] != name) {
-        let owner = qualified(kind, text, line, &c[1]).unwrap_or_else(|| c[1].to_owned());
+        let owner = qualified(kind, text, line1, &c[1]).unwrap_or_else(|| c[1].to_owned());
         return Some(format!("{owner}{sep}{name}"));
     }
     let indent = |s: &str| s.len() - s.trim_start().len();
@@ -155,7 +155,7 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     if cpp {
         names.extend(cpp_namespace(target, name));
     }
-    for (j, l) in lines[..line - 1].iter().enumerate().rev() {
+    for (j, l) in lines[..line1 - 1].iter().enumerate().rev() {
         if depth == 0 {
             break;
         }
@@ -169,7 +169,7 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         }
         // `more = …` under `const fs = …,` is declared where that statement is (#328).
         if kind == Kind::TsJs
-            && ts_declarators(&lines, j).is_some_and(|d| d.iter().any(|(at, _)| *at == line - 1))
+            && ts_declarators(&lines, j).is_some_and(|d| d.iter().any(|(at, _)| *at == line1 - 1))
         {
             return qualified(kind, text, j + 1, name);
         }
@@ -188,7 +188,7 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
                     .map(|c| c[1].to_owned())
             })
             .or_else(|| declared_name(Some(kind), l));
-        if named.is_none() && kind == Kind::Go && GO_ANONYMOUS.is_match(l) {
+        if named.is_none() && kind == Kind::Go && GO_STRUCT_WRITTEN_IN_PLACE.is_match(l) {
             names.push("struct{\u{2026}}".to_owned());
             break;
         }
@@ -223,14 +223,13 @@ pub fn elixir_unalias(text: &str, line: usize, mut chain: Vec<String>) -> Vec<St
     let last = |s: &str| s.rsplit('.').next() == Some(first.as_str());
     let lines: Vec<&str> = text.lines().collect();
     let literal = literal_lines(Kind::Elixir, text);
-    // The least indent from the cursor's line up to the line being read.
-    let mut floor = lines.get(line).map_or(usize::MAX, |l| indent(l));
+    let mut least_indent_since_cursor = lines.get(line).map_or(usize::MAX, |l| indent(l));
     let full = (0..line.min(lines.len()))
         .rev()
         .filter(|&i| !literal[i] && !lines[i].trim().is_empty())
         .find_map(|i| {
-            let open = indent(lines[i]) <= floor;
-            floor = floor.min(indent(lines[i]));
+            let open = indent(lines[i]) <= least_indent_since_cursor;
+            least_indent_since_cursor = least_indent_since_cursor.min(indent(lines[i]));
             let c = ALIAS.captures(lines[i]).filter(|_| open)?;
             let module = &c[1];
             match (c.get(2), c.get(3)) {
@@ -280,13 +279,12 @@ fn cpp_namespace(line: &str, name: &str) -> Vec<String> {
     let Some(c) = spelled.captures(line) else {
         return Vec::new();
     };
-    // Written again before a `(`, the qualified one is a type in front of the name the line
-    // declares: `typedef ns::Foo Foo;` declares a `Foo` of no `ns`.
     let rest = &line[c.get(0).map_or(0, |m| m.end())..];
     let rest = rest.split('(').next().unwrap_or(rest);
     let again = Regex::new(&format!(r"\b{}\b", regex::escape(name)))
         .expect("an escaped name keeps the pattern valid");
-    if again.is_match(rest) {
+    let qualified_one_is_a_type = again.is_match(rest);
+    if qualified_one_is_a_type {
         return Vec::new();
     }
     let mut names: Vec<String> = c[1]
@@ -335,43 +333,41 @@ fn aside(t: &str) -> bool {
 /// trimmed line `t` of a file of `kind`: an [`aside`], or a line that names nothing itself but
 /// belongs to the header above it.
 pub(super) fn steps_over(kind: Option<Kind>, t: &str) -> bool {
-    // A lone `{` opens the body of a declaration wrapped over the lines above it, as prettier
-    // writes a long TypeScript class header; it names nothing itself. Neither does a C++ access
-    // specifier, which is a label inside the class, not a wall in front of it.
-    let access = kind == Some(Kind::C) && matches!(t, "public:" | "private:" | "protected:");
-    // `> extends Base<K> {` closes the type parameters of the header above it.
-    // Python's `):` closes a class header or a signature wrapped over several lines (#100):
-    // what it opens is named on the line the bracket opened on, further up.
-    let closer = kind == Some(Kind::Python) && t.starts_with([')', ']']);
-    aside(t) || t == "{" || (kind == Some(Kind::TsJs) && t.starts_with('>')) || access || closer
+    let opens_a_wrapped_body = t == "{";
+    let cpp_access_specifier =
+        kind == Some(Kind::C) && matches!(t, "public:" | "private:" | "protected:");
+    let closes_ts_type_parameters = kind == Some(Kind::TsJs) && t.starts_with('>');
+    let closes_a_wrapped_python_header = kind == Some(Kind::Python) && t.starts_with([')', ']']);
+    aside(t)
+        || opens_a_wrapped_body
+        || closes_ts_type_parameters
+        || cpp_access_specifier
+        || closes_a_wrapped_python_header
 }
 pub fn enclosing_declarations(kind: Option<Kind>, lines: &[String], line: usize) -> Vec<usize> {
     if !nests(kind) {
         return Vec::new();
     }
     let indent = |s: &str| s.len() - s.trim_start().len();
-    // The tail of a header wrapped over several lines in any language (`) -> Result<()> {`,
-    // `where`) belongs to what its first line opens, further up. `d`'s walk steps over fewer
-    // of them ([`steps_over`]): widening it changes what `d` answers.
-    let tail = |t: &str| t.starts_with([')', ']', '>', '{']) || t == "where";
-    // The code at the top is the first line the walk would not step over; a tail counts, as
-    // it keeps the header it ends.
-    let code = |l: &&String| {
+    let wrapped_header_tail = |t: &str| t.starts_with([')', ']', '>', '{']) || t == "where";
+    let code_or_tail = |l: &&String| {
         let t = l.trim_start();
-        tail(t) || !steps_over(kind, t)
+        wrapped_header_tail(t) || !steps_over(kind, t)
     };
-    let Some(first) = lines.get(line..).and_then(|rest| rest.iter().find(code)) else {
+    let Some(first) = lines
+        .get(line..)
+        .and_then(|rest| rest.iter().find(code_or_tail))
+    else {
         return Vec::new();
     };
-    // On a tail, the header it ends is its scope: the line that opened it is indented as much.
-    let mut depth = indent(first) + usize::from(tail(first.trim_start()));
+    let mut depth = indent(first) + usize::from(wrapped_header_tail(first.trim_start()));
     let mut out = Vec::new();
     for (i, l) in lines[..line].iter().enumerate().rev() {
         if depth == 0 {
             break;
         }
         let t = l.trim_start();
-        if steps_over(kind, t) || tail(t) || indent(l) >= depth {
+        if steps_over(kind, t) || wrapped_header_tail(t) || indent(l) >= depth {
             continue;
         }
         depth = indent(l);
@@ -441,9 +437,8 @@ pub fn qualifier(line: &str, word_start: usize) -> Vec<String> {
         chain.insert(0, rest[start..].to_owned());
         before = &rest[..start];
     }
-    // `f().`, `a[0].`, `a?.` or a line starting with `.` are left; a spread `...` or a range `..`
-    // is not a member access.
-    if before.ends_with('.') && !before.ends_with("..") {
+    let hangs_off_an_expression = before.ends_with('.') && !before.ends_with("..");
+    if hangs_off_an_expression {
         return Vec::new();
     }
     chain
@@ -528,31 +523,29 @@ pub fn call_head(
         fields.insert(0, before[start..].to_owned());
         before = before[..start].strip_suffix('.')?;
     }
-    // The `(` this `)` closes, as a scan that knows strings pairs them.
-    let open = code(kind, before)
+    let paren_this_closes = code(kind, before)
         .filter(|(_, c)| *c == b'(')
         .map(|(i, _)| i)
         .find(|&i| close_of(kind, before, i) == Some(before.len()))?;
-    let mut start = name_start(&before[..open], |c| is_name(c) || c == '.');
+    let mut start = name_start(&before[..paren_this_closes], |c| is_name(c) || c == '.');
     // `.c` in `a.b().c()` is no callee [`value_of`] reads, and nor is nothing at all.
-    let callee = &before[start..open];
+    let callee = &before[start..paren_this_closes];
     if kind == Kind::TsJs
         && let Some(rest) = before[..start].trim_end().strip_suffix("new")
         && !rest.ends_with(is_name)
     {
         start = rest.len();
     }
-    // `(x as T)` is read without its brackets.
     let written = &before[start..];
-    let inner = match callee.is_empty() {
+    let without_cast_brackets = match callee.is_empty() {
         true => &written[1..written.len() - 1],
         false => written,
     };
-    match value_of(kind, inner) {
+    match value_of(kind, without_cast_brackets) {
         Value::Call(name) => Some((format!("{name}()"), Value::Call(name), fields)),
         Value::New(name) => Some((format!("new {name}()"), Value::New(name), fields)),
         value @ (Value::Type(_) | Value::Cast(..)) => {
-            Some((inner.trim().to_owned(), value, fields))
+            Some((without_cast_brackets.trim().to_owned(), value, fields))
         }
         _ => None,
     }
@@ -564,16 +557,14 @@ pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Ra
     {
         return Some((r.clone(), &line[r]));
     }
-    // On TypeScript's `#` and on a Dart `$`, the word is the one right behind it.
-    let hash = |i: usize| match kind {
+    let sigil_of_the_word_behind = |i: usize| match kind {
         Some(Kind::TsJs) => line.as_bytes().get(i) == Some(&b'#'),
         Some(Kind::Dart) => line.as_bytes().get(i) == Some(&b'$'),
         _ => false,
     };
-    let (range, _) = word_at(line, if hash(col) { col + 1 } else { col }, extra)?;
-    // A private name stands behind a `.` or starts a member's line, behind its modifiers. An
-    // issue number in a comment, a CSS id or a hash route in a string is no such name.
-    let private = |i: usize| {
+    let past_sigil = col + usize::from(sigil_of_the_word_behind(col));
+    let (range, _) = word_at(line, past_sigil, extra)?;
+    let stands_where_a_private_name_can = |i: usize| {
         let before = line[..i].trim_end();
         before.ends_with('.')
             || before.split_whitespace().all(|w| {
@@ -586,7 +577,7 @@ pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Ra
     let start = match range
         .start
         .checked_sub(1)
-        .filter(|&i| hash(i) && private(i))
+        .filter(|&i| sigil_of_the_word_behind(i) && stands_where_a_private_name_can(i))
     {
         Some(i) => i,
         None => range.start,
@@ -659,15 +650,15 @@ pub fn dart_name(line: &str, r: Range<usize>) -> Range<usize> {
     }
     start..end
 }
-/// The line 0-based `at` of `lines` stands directly inside: the nearest one above it indented
-/// less that is no blank line or comment.
-fn owner_line(lines: &[&str], at: usize) -> Option<usize> {
-    let depth = indent(lines.get(at)?);
-    (0..at)
+/// The line `line0` of `lines` stands directly inside: the nearest one above it indented less
+/// that is no blank line or comment.
+fn owner_line(lines: &[&str], line0: usize) -> Option<usize> {
+    let depth = indent(lines.get(line0)?);
+    (0..line0)
         .rev()
         .find(|&i| !aside(lines[i].trim_start()) && indent(lines[i]) < depth)
 }
-pub fn ruby_singleton(text: &str, line: usize) -> bool {
+pub fn ruby_singleton(text: &str, line1: usize) -> bool {
     static ON: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(
             r"^\s*(?:def\s+(?:self|[A-Z]\w*)\.|scope\s*\(?\s*:|(?:[mc]attr_\w+|config_accessor)\s)",
@@ -678,13 +669,13 @@ pub fn ruby_singleton(text: &str, line: usize) -> bool {
         Regex::new(r"^\s*(?:extend\s+self|module_function)\s*(?:#|$)").unwrap()
     });
     let lines: Vec<&str> = text.lines().collect();
-    let Some(t) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
+    let Some(t) = line1.checked_sub(1).and_then(|i| lines.get(i)) else {
         return false;
     };
     if ON.is_match(t) {
         return true;
     }
-    let Some(owner) = owner_line(&lines, line - 1) else {
+    let Some(owner) = owner_line(&lines, line1 - 1) else {
         return false;
     };
     let head = lines[owner].trim_start();
@@ -697,9 +688,9 @@ pub fn ruby_singleton(text: &str, line: usize) -> bool {
                 .take_while(|l| l.trim().is_empty() || indent(l) > indent(lines[owner]))
                 .any(|l| MODULE_WIDE.is_match(l)))
 }
-pub fn ruby_concern_class_method(text: &str, line: usize, module: &str) -> bool {
+pub fn ruby_concern_class_method(text: &str, line1: usize, module: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();
-    let Some(owner) = line.checked_sub(1).and_then(|i| owner_line(&lines, i)) else {
+    let Some(owner) = line1.checked_sub(1).and_then(|i| owner_line(&lines, i)) else {
         return false;
     };
     let head = lines[owner].trim_start();
@@ -710,18 +701,18 @@ pub fn ruby_concern_class_method(text: &str, line: usize, module: &str) -> bool 
     };
     let scope = ["scope ", "scope("]
         .iter()
-        .any(|s| lines[line - 1].trim_start().starts_with(s));
+        .any(|s| lines[line1 - 1].trim_start().starts_with(s));
     (head.starts_with("class_methods do") && inside("class_methods"))
         || (head.starts_with("module ClassMethods") && inside("ClassMethods"))
         || (scope && head.starts_with("included do") && inside("included"))
 }
-/// The run of `[A-Za-z0-9_]` and `extra` characters at byte offset `col`, or the one that ends
-/// there when the cursor sits right after a word. `extra` characters do not start or end a word.
-pub fn word_at<'a>(line: &'a str, col: usize, extra: &str) -> Option<(Range<usize>, &'a str)> {
+/// The run of `[A-Za-z0-9_]` and `extra` characters at `byte_col`, or the one that ends there
+/// when the cursor sits right after a word. `extra` characters do not start or end a word.
+pub fn word_at<'a>(line: &'a str, byte_col: usize, extra: &str) -> Option<(Range<usize>, &'a str)> {
     let b = line.as_bytes();
     let word =
         |i: usize| b[i].is_ascii_alphanumeric() || b[i] == b'_' || extra.contains(b[i] as char);
-    let mut i = col.min(b.len());
+    let mut i = byte_col.min(b.len());
     if i == b.len() || !word(i) {
         if i > 0 && word(i - 1) {
             i -= 1;
