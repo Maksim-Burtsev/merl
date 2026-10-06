@@ -102,6 +102,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `in-range?` in the namespace the `ns` form requires under that name, or on the namespace's file
   when it does not define it. It jumped to a local `version` in scope, or said `no definition`.
   (#735)
+- `d` in Common Lisp on a variable `loop` binds, `line` of `(loop for line in data …)`, lands
+  on its `for`, `as` or `with` clause, a destructuring `for (key value) in …` included, where it
+  jumped to a global of the same name or said `no definition`. (#734)
 
 ## [0.8.2] - 2026-10-04
 

@@ -290,6 +290,7 @@ struct Frame<'a> {
     role: Role,
     scope: usize,
     params: bool,
+    loop_var: bool,
 }
 
 const CLOJURE_LETS: &[&str] = &[
@@ -306,6 +307,7 @@ const CLOJURE_LETS: &[&str] = &[
     "dotimes",
 ];
 const LETS: &[&str] = &["let", "let*", "letrec", "letrec*", "flet", "labels"];
+const LOOP_VARS: &[&str] = &["for", "as", "with"];
 const DEFUNS: &[&str] = &[
     "defun",
     "defmacro",
@@ -374,6 +376,7 @@ pub(super) fn lisp_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -
                     role,
                     scope,
                     params: false,
+                    loop_var: false,
                 });
             }
             Tok::Close => {
@@ -391,15 +394,24 @@ pub(super) fn lisp_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -
                 if f.idx == 0 {
                     f.head = Some(a);
                 }
+                let head = f.head.unwrap_or("");
+                let looping = kind == Kind::CommonLisp
+                    && f.role == Role::Plain
+                    && f.idx > 0
+                    && head.eq_ignore_ascii_case("loop");
                 let bound = match f.role {
                     Role::Pairs => f.idx.is_multiple_of(2),
                     Role::Entries | Role::Params | Role::Destructure => true,
                     Role::Define => f.idx >= 1,
                     Role::First => f.idx == 0,
+                    Role::Plain => looping && f.loop_var,
                     _ => false,
                 };
                 if bound && binds(a) && same(a) {
                     found.push((f.scope, pos));
+                }
+                if looping {
+                    f.loop_var = !f.loop_var && LOOP_VARS.iter().any(|k| k.eq_ignore_ascii_case(a));
                 }
                 f.idx += 1;
             }
@@ -429,6 +441,10 @@ fn child_role(clojure: bool, p: &mut Frame, c: u8) -> Role {
         Role::Arity if p.idx == 0 && c == b'[' => return Role::Params,
         Role::Plain => {}
         _ => return Role::Plain,
+    }
+    if p.loop_var {
+        p.loop_var = false;
+        return Role::Destructure;
     }
     if clojure {
         if c == b'[' && p.idx == 1 && CLOJURE_LETS.contains(&h) {
