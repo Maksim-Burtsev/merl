@@ -22,15 +22,18 @@ fn ignore_case_finds_every_spelling() {
         ("a.py".into(), 12),
         ("b.go".into(), 5),
     ];
-    // `total`, `total_foobar` and Go's `Total`, whichever letters of the query are capitals:
-    // `sameCancel` typed from memory must find `SameCancel`.
     assert_eq!(lines(&grep(&dir, &files, "total", false, true)), all);
     assert_eq!(lines(&grep(&dir, &files, "Total", false, true)), all);
-    assert_eq!(lines(&grep(&dir, &files, "tOTAL", false, true)), all);
-    // `u` and `d` look for a word taken from the code: they keep its case.
+    assert_eq!(
+        lines(&grep(&dir, &files, "tOTAL", false, true)),
+        all,
+        "whichever letters of the query are capitals: `sameCancel` typed from memory finds \
+         `SameCancel`"
+    );
     assert_eq!(
         lines(&grep(&dir, &files, "Total", false, false)),
-        [("b.go".into(), 5)]
+        [("b.go".into(), 5)],
+        "`u` and `d` look for a word taken from the code: they keep its case"
     );
     assert_eq!(lines(&grep(&dir, &files, "invoice", false, false)), []);
     std::fs::remove_dir_all(&dir).unwrap();
@@ -135,7 +138,6 @@ fn tests_mocks_fixtures_and_generated_files_rank_last() {
         ("api/users.pb.go", true),
         ("api/users.gen.go", true),
         ("api/users.generated.ts", true),
-        // The near-misses: the letters are there, the pattern is not.
         ("src/contest.rs", false),
         ("latest/users.py", false),
         ("src/testimonials.py", false),
@@ -166,13 +168,15 @@ fn a_declaration_comes_first_and_the_nearest_directory_next() {
     assert_eq!(
         order.iter().map(|&(_, p)| p).collect::<Vec<_>>(),
         [
-            "src/users/repo.py",       // the declaration
-            "src/users/service.py",    // the open file
-            "src/users/repo.py",       // the same directory
-            "src/users/admin/view.py", // one below
-            "src/api/admin.py",        // one up and one down
-            "tests/test_service.py",   // a test file, whatever its distance
-        ]
+            "src/users/repo.py",
+            "src/users/service.py",
+            "src/users/repo.py",
+            "src/users/admin/view.py",
+            "src/api/admin.py",
+            "tests/test_service.py",
+        ],
+        "the declaration, the open file, the same directory, one below, one up and one down, \
+         and a test file whatever its distance"
     );
     let test = Path::new("tests/test_service.py");
     assert_eq!(
@@ -180,8 +184,11 @@ fn a_declaration_comes_first_and_the_nearest_directory_next() {
         Tier::Open,
         "the open file is never demoted, even when it is a test file itself"
     );
-    // `d` asks for the tier alone: every candidate of its own is a declaration.
-    assert_eq!(rank(test, None, true).0, Tier::Tests);
+    assert_eq!(
+        rank(test, None, true).0,
+        Tier::Tests,
+        "`d` asks for the tier alone: every candidate of its own is a declaration"
+    );
     assert_eq!(rank(here, None, true).0, Tier::Declaration);
 }
 

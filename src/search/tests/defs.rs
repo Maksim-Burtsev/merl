@@ -1,24 +1,24 @@
-//! What `d`'s patterns match: the shared rules, and Python, Rust, TypeScript,
-//! JavaScript, Java, Kotlin and Ruby.
-
 use super::*;
 
 #[test]
 fn python_def_patterns_find_declarations_only() {
     let (dir, files) = project("py");
     let py = files[..1].to_vec();
-    // The `def` line, not the `total_foobar` assignment.
-    assert_eq!(defs(&dir, &py, Kind::Python, "total"), [2]);
+    assert_eq!(
+        defs(&dir, &py, Kind::Python, "total"),
+        [2],
+        "the `def` line, not the `total_foobar` assignment"
+    );
     assert_eq!(defs(&dir, &py, Kind::Python, "parse"), [6]);
-    // `^W\s*(:[^=]*)?=` catches module constants, annotated or not.
-    assert_eq!(defs(&dir, &py, Kind::Python, "DEFAULT_LIMIT"), [10]);
+    assert_eq!(
+        defs(&dir, &py, Kind::Python, "DEFAULT_LIMIT"),
+        [10],
+        "a module constant, annotated or not"
+    );
     assert_eq!(defs(&dir, &py, Kind::Python, "NAME_RE"), [13]);
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A project's `.venv` is read, never run: its `bin/python` is a file the repository may ship.
-/// The packages are its `site-packages`, the standard library the one beside the interpreter
-/// `pyvenv.cfg` names, reached through a symlinked prefix as Homebrew's `opt` is (#183).
 #[test]
 #[cfg(unix)]
 fn python_roots_read_the_venv_and_never_run_it() {
@@ -47,9 +47,14 @@ fn python_roots_read_the_venv_and_never_run_it() {
         [
             dir.canonicalize().unwrap().join("cellar/lib/python3.99"),
             dir.join(".venv/lib/python3.99/site-packages"),
-        ]
+        ],
+        "the standard library beside the interpreter `pyvenv.cfg` names, through a symlinked \
+         prefix as Homebrew's `opt` is, then the venv's `site-packages`"
     );
-    assert!(!dir.join("ran").exists());
+    assert!(
+        !dir.join("ran").exists(),
+        "the venv's `bin/python` is a file the repository may ship: read, never run"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -121,10 +126,6 @@ fn a_root_inside_another_is_walked_once() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A toolchain is asked from outside the project, so no file of it picks the toolchain: a
-/// `rust-toolchain.toml` whose `path` is a `rustc` of its own is not run under rustup, and a
-/// `go.mod` asking for a Go that does not exist neither sends Go to download it nor leaves `d`
-/// without the standard library (#183). Each half is skipped where its toolchain is missing.
 #[test]
 #[cfg(unix)]
 fn toolchains_are_not_picked_by_the_project() {
@@ -138,12 +139,20 @@ fn toolchains_are_not_picked_by_the_project() {
     let toml = format!("[toolchain]\npath = \"{}\"\n", dir.join("tc").display());
     std::fs::write(dir.join("rust-toolchain.toml"), toml).unwrap();
     external_roots(Kind::Rust, &dir);
-    assert!(!dir.join("ran").exists());
+    assert!(
+        !dir.join("ran").exists(),
+        "a `rust-toolchain.toml` whose `path` is a `rustc` of its own is not run under rustup"
+    );
     let installed = external_roots(Kind::Go, Path::new("/"));
     if installed.is_empty() {
         eprintln!("no go, skipped");
     } else {
-        assert_eq!(external_roots(Kind::Go, &dir).first(), installed.first());
+        assert_eq!(
+            external_roots(Kind::Go, &dir).first(),
+            installed.first(),
+            "a `go.mod` asking for a Go that does not exist neither sends Go to download it \
+             nor leaves `d` without the standard library"
+        );
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -153,13 +162,26 @@ const PY_MEMBERS: &str = "import asyncio\n\n\nclass UserRepository:\n    async d
 #[test]
 fn python_members_are_indented_defs_sync_or_async() {
     let (dir, files) = scratch("py-members", &[("repos.py", PY_MEMBERS)]);
-    // `async def` is a declaration for a bare word too, at the top level or in a class.
-    assert_eq!(defs(&dir, &files, Kind::Python, "delete_user"), [5, 20]);
-    assert_eq!(defs(&dir, &files, Kind::Python, "main"), [16]);
-    // `x.delete_user` reaches the method, not the module-level name of the same spelling.
-    assert_eq!(members(&dir, &files, Kind::Python, "delete_user"), [5]);
-    // `x.find_user` reaches the method; the module-level function takes an import.
-    assert_eq!(members(&dir, &files, Kind::Python, "find_user"), [8]);
+    assert_eq!(
+        defs(&dir, &files, Kind::Python, "delete_user"),
+        [5, 20],
+        "`async def` in a class declares for a bare word too"
+    );
+    assert_eq!(
+        defs(&dir, &files, Kind::Python, "main"),
+        [16],
+        "so does a top-level `async def`"
+    );
+    assert_eq!(
+        members(&dir, &files, Kind::Python, "delete_user"),
+        [5],
+        "`x.delete_user` reaches the method, not the module-level name of the same spelling"
+    );
+    assert_eq!(
+        members(&dir, &files, Kind::Python, "find_user"),
+        [8],
+        "`x.find_user` reaches the method; the module-level function takes an import"
+    );
     assert_eq!(defs(&dir, &files, Kind::Python, "find_user"), [8, 12]);
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -170,45 +192,64 @@ const TS_MEMBERS: &str = "export interface Repo {\n  deleteUser(id: string): Pro
 fn ts_members_include_signatures_without_a_body() {
     let (dir, files) = scratch("ts-members", &[("repo.ts", TS_MEMBERS)]);
     let m = |w| members(&dir, &files, Kind::TsJs, w);
-    // The interface signature, the abstract one and the object-literal method; not the
-    // `const` arrow function, a local to whoever reads `deleteUser` bare.
-    assert_eq!(m("deleteUser"), [2, 9, 18]);
+    assert_eq!(
+        m("deleteUser"),
+        [2, 9, 18],
+        "the interface signature, the abstract one and the object-literal method; not the \
+         `const` arrow function, a local to whoever reads `deleteUser` bare"
+    );
     assert_eq!(
         defs(&dir, &files, Kind::TsJs, "deleteUser"),
         [2, 9, 13, 18],
         "a bare word reads the `const` too"
     );
-    // An optional generic signature with no `;`, not the call statement or the ternary.
-    assert_eq!(m("findUser"), [3]);
+    assert_eq!(
+        m("findUser"),
+        [3],
+        "an optional generic signature with no `;`, not the call statement or the ternary"
+    );
     assert_eq!(m("onChange"), [4], "a property holding a function");
     assert_eq!(m("size"), [10], "a getter signature");
-    // A plain field has no rule, and an annotated arrow argument is not a signature.
-    assert_eq!(m("name"), Vec::<usize>::new());
-    assert_eq!(m("run"), Vec::<usize>::new());
-    // A call whose arguments hold `) :` or `):` is not one either; a signature whose
-    // parameter is a function type, and a rest parameter, are.
-    assert_eq!(m("append"), [26], "not the call on line 22");
-    assert_eq!(m("log"), Vec::<usize>::new());
-    assert_eq!(m("on"), [25]);
-    // An empty body on the method's line, not a call whose last argument is one.
-    assert_eq!(m("close"), [29]);
-    assert_eq!(m("noop"), Vec::<usize>::new());
-    // A constructor parameter behind an access modifier is a property of the class.
-    assert_eq!(m("worker"), [34]);
+    assert_eq!(m("name"), Vec::<usize>::new(), "a plain field has no rule");
+    assert_eq!(
+        m("run"),
+        Vec::<usize>::new(),
+        "an annotated arrow argument is not a signature"
+    );
+    assert_eq!(
+        m("append"),
+        [26],
+        "a signature whose parameter is a function type, not the call on line 22"
+    );
+    assert_eq!(
+        m("log"),
+        Vec::<usize>::new(),
+        "a call whose arguments hold `) :` or `):` is no signature"
+    );
+    assert_eq!(m("on"), [25], "a signature with a rest parameter");
+    assert_eq!(m("close"), [29], "an empty body on the method's line");
+    assert_eq!(
+        m("noop"),
+        Vec::<usize>::new(),
+        "a call whose last argument is an empty body is no method"
+    );
+    assert_eq!(
+        m("worker"),
+        [34],
+        "a constructor parameter behind an access modifier is a property of the class"
+    );
     assert_eq!(m("inline"), [38]);
     assert_eq!(m("other"), [38]);
-    // Type parameters may nest.
-    assert_eq!(m("pong"), [41]);
+    assert_eq!(m("pong"), [41], "type parameters may nest");
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A literal ends where the language ends it (#151): `"\\"` on its second quote, while a Rust
-/// lifetime and a C++ digit separator open none, and a char literal still hides what it holds.
 #[test]
 fn a_literal_ends_where_the_language_ends_it() {
     assert_eq!(
         uncommented(Kind::Python, "sep = \"\\\\\"  # note"),
-        "sep = \"\\\\\"  "
+        "sep = \"\\\\\"  ",
+        "`\"\\\\\"` ends on its second quote"
     );
     assert_eq!(
         returns(
@@ -220,15 +261,18 @@ fn a_literal_ends_where_the_language_ends_it() {
     );
     assert_eq!(
         uncommented(Kind::Rust, "fn f<'a>(x: &str) // note"),
-        "fn f<'a>(x: &str) "
+        "fn f<'a>(x: &str) ",
+        "a Rust lifetime opens no literal"
     );
     assert_eq!(
         uncommented(Kind::C, "int n = 1'000; // note"),
-        "int n = 1'000; "
+        "int n = 1'000; ",
+        "nor does a C++ digit separator"
     );
     assert_eq!(
         uncommented(Kind::Rust, "let q = '\"'; // note"),
-        "let q = '\"'; "
+        "let q = '\"'; ",
+        "a char literal still hides what it holds"
     );
     assert_eq!(close_of(Kind::Rust, "f('\\\\', ')')", 1), Some(12));
 }
@@ -245,38 +289,61 @@ fn lines_inside_a_literal_or_a_block_comment_are_told() {
     assert_eq!(inside(Kind::Go, go), [2, 3, 6, 7]);
     let ts = "const q = `\n  find(id: string): User;\n  ${x}`;\nclass A {\n  find(id: string): User {}\n}\n";
     assert_eq!(inside(Kind::TsJs, ts), [2, 3]);
-    // A template writes a backtick as `\``, where a Go raw string, which has no escapes, ends
-    // (#325).
     let ts = "const q = `\\`\nfunction ghost() {}\n`;\nfunction real() {}\n";
-    assert_eq!(inside(Kind::TsJs, ts), [2, 3]);
-    assert!(inside(Kind::Go, "const q = `\\`\nfunc real() {}\n").is_empty());
-    // A template inside a template's `${…}` closes there, and so does the `${…}` (#328).
+    assert_eq!(
+        inside(Kind::TsJs, ts),
+        [2, 3],
+        "a template writes a backtick as `\\``"
+    );
+    assert!(
+        inside(Kind::Go, "const q = `\\`\nfunc real() {}\n").is_empty(),
+        "a Go raw string has no escapes: it ends at the `\\``"
+    );
     let ts = "const a = `${b ? `${c}/` : \"\"}${d}`;\nfunction real() {}\nconst e = `\n${`\nnested`}\n`;\nclass After {}\n";
-    assert_eq!(inside(Kind::TsJs, ts), [4, 5, 6]);
-    // A regex's `\{` or `\}` in a `${…}` is no brace of it: the file below stays code.
+    assert_eq!(
+        inside(Kind::TsJs, ts),
+        [4, 5, 6],
+        "a template inside a template's `${{…}}` closes there, and so does the `${{…}}`"
+    );
     let ts = "const a = `${s.replace(/\\{/g, \"\")}`;\nfunction real() {}\nconst b = `${t.split(/\\}/)}`;\nclass After {}\n";
-    assert!(inside(Kind::TsJs, ts).is_empty());
-    // A migration embeds SQL, and a raw or a verbatim string is where it puts it. `""` is how
-    // a verbatim string writes a quote, so it does not close one.
+    assert!(
+        inside(Kind::TsJs, ts).is_empty(),
+        "a regex's `\\{{` or `\\}}` in a `${{…}}` is no brace of it"
+    );
     let cs = "var q = \"\"\"\n    WHERE EXISTS(SELECT 1 FROM t)\n    \"\"\";\nvar v = @\"\n    SELECT MIN(\"\"rowid\"\") FROM t\n    \";\npublic int Real() => 1;\n";
-    assert_eq!(inside(Kind::CSharp, cs), [2, 3, 5, 6]);
-    // A backslash escapes nothing in a verbatim string (#475), `$@"` and `@$"` included, and
-    // escapes a quote in a regular one: the `/*` after `\"` is inside the string.
+    assert_eq!(
+        inside(Kind::CSharp, cs),
+        [2, 3, 5, 6],
+        "the SQL of a raw and a verbatim string, where `\"\"` writes a quote and closes nothing"
+    );
     let cs = "var a = @\"C:\\\";\nvar b = $@\"{d}\\\";\nvar c = @$\"\n    {d}\\\";\nvar e = \"a\\\" /* b\";\nvoid Real() {}\n";
-    assert_eq!(inside(Kind::CSharp, cs), [4]);
+    assert_eq!(
+        inside(Kind::CSharp, cs),
+        [4],
+        "a backslash escapes nothing in a verbatim string, `$@\"` and `@$\"` included, and \
+         escapes a quote in a regular one: the `/*` after `\\\"` is inside the string"
+    );
     let sw = "let doc = \"\"\"\n    class Ghost {}\n    \"\"\"\nclass Real {}\n";
     assert_eq!(inside(Kind::Swift, sw), [2, 3]);
-    // A heredoc ends on the line that repeats its label, and only there.
     let php = "$sql = <<<SQL\n    function ghost() {}\n    class Ghost {}\nSQL;\n$n = <<<'TXT'\n    class Nowdoc {}\nTXT;\nclass Real {}\n";
-    assert_eq!(inside(Kind::Php, php), [2, 3, 6]);
-    // `#` is a line comment as `//` is (#488), but `#[` opens an attribute, whose `/*` does.
+    assert_eq!(
+        inside(Kind::Php, php),
+        [2, 3, 6],
+        "a heredoc ends on the line that repeats its label, and only there"
+    );
     let php =
         "<?php\n# loads lib/*\nfunction below() {}\n#[Route('/api')] /*\nfunction ghost() {}\n*/\n";
-    assert_eq!(inside(Kind::Php, php), [5, 6]);
-    // Outside `<?php … ?>` a `#` is HTML's, CSS's or JS's, and a comment ends at `?>`: the
-    // template and the CSS comment after them still hide what they hold.
+    assert_eq!(
+        inside(Kind::Php, php),
+        [5, 6],
+        "`#` is a line comment as `//` is, but `#[` opens an attribute, whose `/*` does"
+    );
     let php = "<?php # render ?><script>const t = `\nfunction ghost() {}\n`;</script>\n<style>#a { color: red; } /*\nfunction ghost() {}\n*/</style>\n<script>class W {\n  #tpl = `\n<b></b>\n`;\n}</script>\n<?php\nfunction real() {}\n";
-    assert_eq!(inside(Kind::Php, php), [2, 3, 5, 6, 9, 10]);
+    assert_eq!(
+        inside(Kind::Php, php),
+        [2, 3, 5, 6, 9, 10],
+        "outside `<?php … ?>` a `#` is HTML's, CSS's or JS's, and a comment ends at `?>`"
+    );
 }
 
 /// The 1-based lines of `text` that start inside a literal of `kind`.
@@ -285,8 +352,6 @@ fn inside(kind: Kind, text: &str) -> Vec<usize> {
     (1..=lines.len()).filter(|&n| lines[n - 1]).collect()
 }
 
-/// #346. A Rust string runs over lines to the `"` no `\` escapes, a raw one to its `"#`; a
-/// lifetime and a char literal open nothing, and `/*` inside a string opens no comment.
 #[test]
 fn a_rust_string_runs_over_lines() {
     let rs = "const A: &str = \"\\\\\";\nfn real() {}\nconst U: &str = \"a \\\" /* \\\nfn ghost() {}\n\";\nfn f<'a>(x: &'a str) -> &'a str { let r#type = x; r#type }\nconst R: &str = r#\"say \"hi\"\nfn ghost() {}\n\"#;\nlet c = '\"'; let g = \"**/*.rs\"; let e = '\\u{1F600}'; let b = br##\"#\"##;\nfn real2() {}\n/// [`Foo`] \"doc\nfn documented() {}\n";
@@ -306,22 +371,30 @@ fn a_rust_string_runs_over_lines() {
     assert!(!in_string(Kind::TsJs, "const s = \"ghost\";", 12));
 }
 
-/// #379. Ruby's `#` comment, heredocs (two on a line, in order; a plain `<<X` closed only by `X`
-/// at the margin), `=begin` blocks and `__END__`; `<<` that opens no heredoc, a regex's `#`.
 #[test]
 fn ruby_literals_are_read_as_ruby_writes_them() {
     let rb = "# don't `touch\ndef a; end\nx = <<~SQL + <<-'B' # two\n  def ghost1\nSQL\n  def ghost2\n  B\ndef b; end\nlist << item\nclass << self\ndef c; end\ny = <<X\n  X\ndef ghost3\nX\np = /#/ && <<~Q\ndef ghost4\nQ\n=begin\ndef ghost5\n=end\ndef d; end\n`echo #{1} '`\ndef e; end\n__END__\ndef ghost6\n";
-    assert_eq!(inside(Kind::Ruby, rb), [4, 6, 13, 14, 17, 20, 26, 27]);
-    // No backtick template, no `/* */` block: neither hides the lines below.
-    assert!(inside(Kind::Ruby, "# `\n/* x\ndef a; end\n").is_empty());
+    assert_eq!(
+        inside(Kind::Ruby, rb),
+        [4, 6, 13, 14, 17, 20, 26, 27],
+        "two heredocs on a line in order, a plain `<<X` closed only by `X` at the margin, \
+         `=begin` and `__END__`; not a `<<` that opens no heredoc, nor a regex's `#`"
+    );
+    assert!(
+        inside(Kind::Ruby, "# `\n/* x\ndef a; end\n").is_empty(),
+        "no backtick template, no `/* */` block"
+    );
 }
 
-/// #465. C++'s raw string, with a delimiter and behind an encoding prefix, runs to `)`, the
-/// delimiter and `"`; an `R` that ends a longer name opens nothing.
 #[test]
 fn a_cpp_raw_string_runs_to_its_delimiter() {
     let cc = "auto a = R\"(\nstruct Ghost {\n)\";\nauto b = u8R\"x(a )\" b\nstruct Ghost2 {\n)x\";\nauto c = LR\"(x)\"; int real;\nauto d = FOOR\"(\";\nstruct Real {};\n";
-    assert_eq!(inside(Kind::C, cc), [2, 3, 5, 6]);
+    assert_eq!(
+        inside(Kind::C, cc),
+        [2, 3, 5, 6],
+        "with a delimiter and behind an encoding prefix; an `R` that ends a longer name opens \
+         nothing"
+    );
 }
 
 #[test]
@@ -341,8 +414,11 @@ fn go_def_patterns_cover_receivers_types_and_short_vars() {
     for (word, line) in [("Invoice", 3), ("Total", 5), ("Parse", 7), ("Limit", 9)] {
         assert_eq!(defs(&dir, &go, Kind::Go, word), [line], "{word}");
     }
-    // `inv := Parse("x")` is the closest thing Go has to a definition of `inv`.
-    assert_eq!(defs(&dir, &go, Kind::Go, "inv"), [12]);
+    assert_eq!(
+        defs(&dir, &go, Kind::Go, "inv"),
+        [12],
+        "`inv := Parse(\"x\")` is the closest thing Go has to a definition of `inv`"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -350,8 +426,12 @@ fn go_def_patterns_cover_receivers_types_and_short_vars() {
 fn rust_def_patterns_cover_items_behind_prefixes() {
     let (dir, files) = project("rs");
     let rs = files[2..3].to_vec();
+    assert_eq!(
+        defs(&dir, &rs, Kind::Rust, "Order"),
+        [1],
+        "the struct, not the `impl` block or the `Order {{ .. }}` literal"
+    );
     for (word, line) in [
-        ("Order", 1), // the struct, not the `impl` block or the `Order { .. }` literal
         ("sum", 6),
         ("MAX_ORDERS", 9),
         ("parse_order", 11),
@@ -359,15 +439,17 @@ fn rust_def_patterns_cover_items_behind_prefixes() {
     ] {
         assert_eq!(defs(&dir, &rs, Kind::Rust, word), [line], "{word}");
     }
-    // The macro, not the `let mut` binding: a local is its block's, never found by name (#353).
-    assert_eq!(defs(&dir, &rs, Kind::Rust, "order"), [17]);
+    assert_eq!(
+        defs(&dir, &rs, Kind::Rust, "order"),
+        [17],
+        "the macro, not the `let mut` binding: a local is its block's, never found by name"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
 #[test]
 fn ts_def_patterns_cover_declarations_methods_and_arrows() {
     let (dir, files) = project("ts");
-    // `.ts` and `.js` are one kind: the JS helpers are found from the TS file.
     let ts_js = files[3..].to_vec();
     for (word, file, line) in [
         ("Order", "d.ts", 1),
@@ -377,7 +459,7 @@ fn ts_def_patterns_cover_declarations_methods_and_arrows() {
         ("load", "d.ts", 14),
         ("sum", "d.ts", 19),
         ("parseOrder", "d.ts", 22),
-        ("render", "d.ts", 24), // the declaration, not the `render(o);` call
+        ("render", "d.ts", 24),
         ("n", "d.ts", 25),
         ("ids", "d.ts", 28),
         ("parse", "e.js", 2),
@@ -387,11 +469,14 @@ fn ts_def_patterns_cover_declarations_methods_and_arrows() {
         assert_eq!(
             lines(&grep(&dir, &ts_js, &pat, false, false)),
             [(file.into(), line)],
-            "{word}"
+            "{word}: one kind for `.ts` and `.js`, and the declaration, never a call such as \
+             `render(o);`"
         );
     }
-    // A plain field is not a declaration the rules know: `d` has no definition for it.
-    assert!(defs(&dir, &ts_js, Kind::TsJs, "cache").is_empty());
+    assert!(
+        defs(&dir, &ts_js, Kind::TsJs, "cache").is_empty(),
+        "a plain field is not a declaration the rules know"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -483,13 +568,19 @@ fun interface Handler {
 fn java_def_patterns_cover_types_methods_and_fields() {
     let (dir, files) = scratch("java", &[("Invoice.java", JAVA)]);
     let d = |w| defs(&dir, &files, Kind::Jvm, w);
-    // The class and the constructor; the caller shows a picker.
-    assert_eq!(d("Invoice"), [3, 7]);
+    assert_eq!(
+        d("Invoice"),
+        [3, 7],
+        "the class and the constructor; the caller shows a picker"
+    );
     assert_eq!(d("LIMIT"), [4]);
     assert_eq!(d("items"), [5], "not the `compute(items)` call");
     assert_eq!(d("total"), [12], "behind its annotation and modifiers");
-    // The declaration, not the `return compute(items);` call above it.
-    assert_eq!(d("compute"), [16]);
+    assert_eq!(
+        d("compute"),
+        [16],
+        "not the `return compute(items);` call above it"
+    );
     assert_eq!(d("onSave"), [20], "no modifier, but a return type");
     assert_eq!(d("run"), [22]);
     assert_eq!(d("Store"), [27]);
@@ -497,9 +588,11 @@ fn java_def_patterns_cover_types_methods_and_fields() {
     assert_eq!(d("Point"), [31]);
     assert_eq!(d("Status"), [33]);
     assert_eq!(d("rows"), Vec::<usize>::new(), "a parameter has no rule");
-    // `new Runnable() {` opens an anonymous class: a use of the interface, not a
-    // declaration of it.
-    assert_eq!(d("Runnable"), Vec::<usize>::new());
+    assert_eq!(
+        d("Runnable"),
+        Vec::<usize>::new(),
+        "`new Runnable() {{` opens an anonymous class: a use of the interface"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -514,8 +607,11 @@ fn kotlin_def_patterns_cover_declarations_and_receivers() {
     assert_eq!(d("parse"), [12], "not the `return parse(id)` call");
     assert_eq!(d("slug"), [15], "an extension function, past its receiver");
     assert_eq!(d("screen"), [20]);
-    // The `fun`, not the two `Card(title = …) {` calls with a trailing lambda.
-    assert_eq!(d("Card"), [17]);
+    assert_eq!(
+        d("Card"),
+        [17],
+        "the `fun`, not the two `Card(title = …) {{` calls with a trailing lambda"
+    );
     assert_eq!(
         d("withContext"),
         Vec::<usize>::new(),
@@ -542,9 +638,6 @@ fn java_and_kotlin_find_each_other() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #416. Scala's declarations behind its modifiers, and the lines that only use a name: a
-/// construction, a call, an import, a type, a pattern, Java's `switch` labels, an anonymous
-/// `given`, a method's parameter and a case class's on a line of its own.
 #[test]
 fn scala_declares_and_refuses() {
     let declares = |word: &str, line: &str| {
@@ -619,22 +712,25 @@ fn scala_declares_and_refuses() {
     }
 }
 
-/// #416. What Scala added to the scope walk leaves Java and Kotlin alone: a variable called
-/// `trait` opens no type, a named Kotlin `object` does, and `package object` is no package.
 #[test]
 fn scala_scopes_and_packages() {
     let kt = "fun f(trait: List<Int>) {\n    trait.let {\n        val count = it.size\n    }\n}\n";
     assert!(
         jvm_local_block(kt, 3).is_some(),
-        "a lambda's local stays a local"
+        "a Kotlin variable called `trait` opens no type: a lambda's local stays a local"
     );
     let obj = "object Config {\n    val limit = 3\n}\n";
     assert_eq!(
         jvm_local_block(obj, 2),
         None,
-        "an object's member is no local"
+        "a named Kotlin `object` opens a type: its member is no local"
     );
-    assert_eq!(jvm_package("package object shop {\n  val x = 1\n}\n"), None);
+    assert_eq!(
+        jvm_package("package object shop {\n  val x = 1\n}\n"),
+        None,
+        "`package object` is no package"
+    );
+
     assert_eq!(
         jvm_package("package ledger\n\npackage object teller {\n"),
         Some("ledger".into())
@@ -699,14 +795,15 @@ fn ruby_def_patterns_find_methods_attributes_and_assignments() {
     assert_eq!(d("Billing"), [1]);
     assert_eq!(d("LIMIT"), [2], "a constant, indented in its module");
     assert_eq!(d("Invoice"), [4]);
-    // The accessor -- not `total == other.total`; the setter itself is `total=` (#387). The
-    // `@total` it sets is a word of its own (#383).
-    assert_eq!(d("total"), [5]);
-    assert_eq!(d("@total"), [20]);
-    assert_eq!(d("total="), [5, 19]);
+    assert_eq!(d("total"), [5], "the accessor, not `total == other.total`");
+    assert_eq!(
+        d("@total"),
+        [20],
+        "the `@total` the setter sets is a word of its own"
+    );
+    assert_eq!(d("total="), [5, 19], "the setter itself is `total=`");
     assert_eq!(d("customer"), [6], "second in the `attr_reader` list");
-    // `id => 1,` is a hash pair, not an assignment.
-    assert_eq!(d("id"), [6]);
+    assert_eq!(d("id"), [6], "`id => 1,` is a hash pair, not an assignment");
     assert_eq!(d("@id"), [11]);
     assert_eq!(d("@@count"), [8], "a class variable");
     assert_eq!(d("count"), Vec::<usize>::new());
@@ -715,9 +812,8 @@ fn ruby_def_patterns_find_methods_attributes_and_assignments() {
     assert_eq!(d("parse"), [15], "`def self.parse`");
     assert_eq!(d("cache"), [23]);
     assert_eq!(d("@cache"), [24], "the `||=` it memoises with");
-    // `?` is part of the name (#387), and `@rows.empty?` is a call.
-    assert_eq!(d("empty?"), [27]);
-    assert_eq!(d("empty"), Vec::<usize>::new());
+    assert_eq!(d("empty?"), [27], "`?` is part of the name");
+    assert_eq!(d("empty"), Vec::<usize>::new(), "`@rows.empty?` is a call");
     assert_eq!(d("rows"), Vec::<usize>::new());
     assert_eq!(d("@rows"), [12]);
     assert_eq!(d("blank?"), [41]);
@@ -727,9 +823,8 @@ fn ruby_def_patterns_find_methods_attributes_and_assignments() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Review of #521: a function that runs at load puts what it declares at the top of its script,
-/// in every wrapper's spelling; a function inside one of its functions stays a local (#339).
 #[test]
+
 fn an_iife_or_a_umd_factory_declares_at_the_top_of_its_script() {
     let nested = |text: &str, line| ts_nested_local(&text.lines().collect::<Vec<_>>(), line);
     for head in [
@@ -745,5 +840,8 @@ fn an_iife_or_a_umd_factory_declares_at_the_top_of_its_script() {
         assert!(!nested(&js, 2), "{head}");
         assert!(nested(&js, 3), "{head}");
     }
-    assert!(nested("function f() {\n  function g() {}\n}\n", 2));
+    assert!(
+        nested("function f() {\n  function g() {}\n}\n", 2),
+        "a function inside one of its functions stays a local"
+    );
 }

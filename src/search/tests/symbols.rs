@@ -1,5 +1,3 @@
-//! The names `D` lists.
-
 use super::*;
 
 #[test]
@@ -71,8 +69,11 @@ fn shell_symbol_names() {
         Some("helper"),
         "nested, like the rest"
     );
-    // The `function` forms are listed by the generic pattern instead, so each shows once.
-    assert_eq!(sh("function deploy {"), None);
+    assert_eq!(
+        sh("function deploy {"),
+        None,
+        "the generic pattern lists the `function` forms, so each shows once"
+    );
     assert_eq!(sh("function check() {"), None);
     assert_eq!(symbol(None, "function deploy {").as_deref(), Some("deploy"));
     assert_eq!(symbol(None, "function check() {").as_deref(), Some("check"));
@@ -145,7 +146,6 @@ fn sql_symbol_names() {
 #[test]
 fn jvm_symbol_names() {
     let jvm = |line| one(Kind::Jvm, line);
-    // What either language declares with a keyword, behind annotations and modifiers.
     for (line, name) in [
         ("public final class Invoice {", Some("Invoice")),
         ("interface Store {", Some("Store")),
@@ -161,7 +161,6 @@ fn jvm_symbol_names() {
         ("object Registry {", Some("Registry")),
         ("typealias Rows = List<Order>", Some("Rows")),
         ("fun interface Handler {", Some("Handler")),
-        // An extension function is listed under its own name, past the receiver.
         ("fun String.slug(): String = lowercase()", Some("slug")),
         ("fun <T> List<T>.second(): T = this[1]", Some("second")),
         (
@@ -183,14 +182,12 @@ fn jvm_symbol_names() {
             "    @Override public static <T> List<T> of(T one) {",
             Some("of"),
         ),
-        // A constant behind `const`; a plain property or field is not a symbol.
         ("const val LIMIT = 10", Some("LIMIT")),
         ("    private const val TAG = \"Invoice\"", Some("TAG")),
         ("        const val MAX = 1", Some("MAX")),
         ("    val all = listOf<Order>()", None),
         ("    private static final int LIMIT = 10;", None),
         ("    static final Invoice EMPTY = new Invoice(0);", None),
-        // `companion object` names nothing, and a call is not a declaration.
         ("    companion object {", None),
         ("    return compute(items);", None),
         // A Kotlin test named in backticks is no symbol called after its first word (#416).
@@ -330,7 +327,6 @@ fn c_symbol_names() {
         ("    return compute(inv);", None),
         ("        fmt::format_to(out, \"{}\", 42);", None),
         ("template <typename Context = context, typename... T,", None),
-        // A type, a namespace and an alias.
         ("struct invoice {", Some("invoice")),
         (
             "struct __attribute__ ((__packed__)) sdshdr8 {",
@@ -343,7 +339,6 @@ fn c_symbol_names() {
             Some("formatter"),
         ),
         ("struct client;", None),
-        // A nested type defined through its outer one declares the inner name (#368).
         ("struct DBImpl::Writer {", Some("Writer")),
         ("struct SkipList<K, C>::Node {", Some("Node")),
         ("union value {", Some("value")),
@@ -370,7 +365,6 @@ fn c_symbol_names() {
         ("    } offset;", None),
         ("} while (0);", None),
         ("};", None),
-        // A macro, function-like or not.
         ("#define LRU_BITS 24", Some("LRU_BITS")),
         ("#  define FMT_THROW(x) throw x", Some("FMT_THROW")),
         ("#ifndef INVOICE_H", None),
@@ -401,7 +395,6 @@ fn c_symbol_names() {
 fn csharp_symbol_names() {
     let cs = |line| one(Kind::CSharp, line);
     for (line, name) in [
-        // A type, past its attributes, its modifiers and the generics it declares.
         (
             "public sealed partial class Invoice<T> : Base, IEnumerable<T>",
             Some("Invoice"),
@@ -436,7 +429,6 @@ fn csharp_symbol_names() {
             "    private static Rows Compute(int id) => new Rows();",
             Some("Compute"),
         ),
-        // A property, by its accessors, its expression body, or the brace on the next line.
         ("    public int Total { get; private set; }", Some("Total")),
         ("    public string Name => _name;", Some("Name")),
         ("    public IReadOnlyList<int> Rows", Some("Rows")),
@@ -452,7 +444,6 @@ fn csharp_symbol_names() {
         ("    public Invoice(int n)", None),
         ("using Rows = System.Collections.Generic.List<int>;", None),
         ("using System.Text.Json;", None),
-        // A call, a statement and a block header are not declarations.
         ("        var rows = Compute(id);", None),
         ("        if (Check(rows))", None),
         ("        Console.WriteLine(rows);", None),
@@ -513,7 +504,6 @@ fn swift_symbol_names() {
             "    public static func == (lhs: Self, rhs: Self) -> Bool {",
             None,
         ),
-        // A call, a binding and a pattern are not declarations.
         ("        let request = Request(url)", None),
         ("        queue.async {", None),
         ("        if let delegate = delegate {", None),
@@ -556,7 +546,6 @@ fn php_symbol_names() {
             "    public const STATUS_OPEN = 'open';",
             Some("STATUS_OPEN"),
         ),
-        // A typed constant under its name, not its type (#344).
         ("    private const int LIMIT = 500;", Some("LIMIT")),
         ("    const ?string LABEL = null;", Some("LABEL")),
         ("    public const A|B UNION = 1;", Some("UNION")),
@@ -587,10 +576,11 @@ fn php_symbol_names() {
 
 #[test]
 fn the_shared_pattern_skips_the_kinds_with_rows_of_their_own() {
-    // Java, Kotlin, Ruby, C, C++, Lua and Elixir are listed from their own rows only, so
-    // nothing is listed twice, `def self.parse` is not `self` and `function M.setup(` is
-    // not `M`.
-    assert!(!shared_symbols(Some(Kind::Jvm)));
+    assert!(
+        !shared_symbols(Some(Kind::Jvm)),
+        "a kind with rows of its own is listed from them only, so nothing twice, `def \
+         self.parse` is not `self` and `function M.setup(` is not `M`"
+    );
     assert!(!shared_symbols(Some(Kind::Ruby)));
     assert!(!shared_symbols(Some(Kind::C)));
     assert!(!shared_symbols(Some(Kind::CSharp)));
@@ -599,12 +589,16 @@ fn the_shared_pattern_skips_the_kinds_with_rows_of_their_own() {
     assert!(!shared_symbols(Some(Kind::Lua)));
     assert!(!shared_symbols(Some(Kind::Elixir)));
     assert!(!shared_symbols(Some(Kind::Graphql)));
-    // Shell and SQL rows complement the shared pattern instead, and it reads every other
-    // file, known kind or not.
-    assert!(shared_symbols(Some(Kind::Shell)));
+    assert!(
+        shared_symbols(Some(Kind::Shell)),
+        "Shell and SQL rows complement the shared pattern"
+    );
     assert!(shared_symbols(Some(Kind::Sql)));
     assert!(shared_symbols(Some(Kind::Python)));
-    assert!(shared_symbols(None));
+    assert!(
+        shared_symbols(None),
+        "the shared pattern reads every file without rows of its own, known kind or not"
+    );
 }
 
 #[test]
@@ -613,7 +607,6 @@ fn infra_symbol_names() {
     assert_eq!(make("build test: deps $(SRC)").as_deref(), Some("build"));
     assert_eq!(make("deps::").as_deref(), Some("deps"));
     assert_eq!(make("build-release:").as_deref(), Some("build-release"));
-    // #468: a `define` is a variable, listed as a target is.
     for (line, name) in [
         ("define discount", "discount"),
         ("export define run-tests :=", "run-tests"),
