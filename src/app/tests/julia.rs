@@ -101,16 +101,9 @@ fn u_tells_a_julia_bang_function_from_its_namesake() {
     };
     assert_eq!(
         rows(&mut a, 1, "sort!"),
-        [
-            "declaration  src/sort.jl:1:",
-            "             src/use.jl:1:",
-            "             src/use.jl:3:"
-        ]
+        ["src/sort.jl:1:", "src/use.jl:1:", "src/use.jl:3:"]
     );
-    assert_eq!(
-        rows(&mut a, 2, "sort"),
-        ["declaration  src/sort.jl:3:", "             src/use.jl:2:"]
-    );
+    assert_eq!(rows(&mut a, 2, "sort"), ["src/sort.jl:3:", "src/use.jl:2:"]);
     std::fs::remove_dir_all(&dir).unwrap();
 }
 

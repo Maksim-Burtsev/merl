@@ -19,10 +19,6 @@ pub fn cluster_width(g: &str) -> usize {
     }
 }
 
-/// A char that changes how a line reads without being seen (#401): the bidirectional controls
-/// behind "Trojan Source" and the zero-width chars that stand alone. Each is a grapheme cluster
-/// of its own, so a ZWJ inside an emoji or a ZWNJ in Persian, which are not on the list, stay
-/// as they are. A BOM at the start of a file never reaches a line (#177); one further on does.
 pub fn hidden(c: char) -> bool {
     matches!(
         c,
@@ -123,10 +119,6 @@ pub fn wrap_line(line: &str, width: usize) -> Vec<Range<usize>> {
     rows
 }
 
-/// The rows `line` is drawn in when wrapped: [`wrap_line`] over what
-/// [`crate::buffer::shown_str`] shows of it. A line cut there ends in a `…` right after its last
-/// char (#283); when its last row has no room left for it, the `…` gets a row of its own, an
-/// empty one at the end of the text, so it never covers a char.
 pub fn wrap_shown(line: &str, width: usize) -> Vec<Range<usize>> {
     let shown = crate::buffer::shown_str(line);
     let mut rows = wrap_line(shown, width);
@@ -149,7 +141,6 @@ fn breaks_after(c: char) -> bool {
     matches!(c, '/' | '.' | ',' | ';' | ')' | ']' | '}')
 }
 
-/// Byte offset where the word starting at `i` ends: the next space or tab, or the end of `line`.
 fn word_end(line: &str, i: usize) -> usize {
     line[i..].find([' ', '\t']).map_or(line.len(), |n| i + n)
 }
@@ -228,8 +219,11 @@ mod tests {
         assert_eq!(width("abc\u{200b}def"), 12);
         assert_eq!(width("\u{1f468}\u{200d}\u{1f4bb}"), 2);
         assert_eq!(width("\u{0645}\u{06cc}\u{200c}\u{062e}"), 3);
-        // A tag moves to the next row whole, as a wide char does.
-        assert_eq!(wrap_line("ab\u{202e}cd", 7), vec![0..2, 2..6, 6..7]);
+        assert_eq!(
+            wrap_line("ab\u{202e}cd", 7),
+            vec![0..2, 2..6, 6..7],
+            "a tag moves to the next row whole, as a wide char does"
+        );
         assert_eq!(cut("ab\u{202e}cd", 0, 8), (0..5, 0));
     }
 
@@ -238,43 +232,87 @@ mod tests {
         assert_eq!(cut("abcdefgh", 0, 4), (0..4, 0));
         assert_eq!(cut("abcdefgh", 2, 5), (2..5, 0));
         assert_eq!(cut("abcdefgh", 6, 20), (6..8, 0));
-        // A line that ends left of the window shows nothing.
-        assert_eq!(cut("abc", 5, 9), (3..3, 0));
+        assert_eq!(
+            cut("abc", 5, 9),
+            (3..3, 0),
+            "a line that ends left of the window shows nothing"
+        );
         assert_eq!(cut("", 0, 9), (0..0, 0));
-        // Cyrillic is two bytes a char.
-        assert_eq!(cut("сбоев", 1, 3), (2..6, 0));
-        // A tab (four columns) straddling the left edge leaves its visible part blank; a wide
-        // char that does not fit at the right edge is left out.
-        assert_eq!(cut("\tab", 2, 8), (1..3, 2));
-        assert_eq!(cut("a\u{4e2d}b", 0, 2), (0..1, 0));
-        // A tab or a wide char straddling the left edge at the end of the line: the line ends
-        // past its blank part, where a cut line's `…` goes.
-        assert_eq!(cut("a\t", 2, 8), (2..2, 3));
-        assert_eq!(cut("a\u{4e2d}", 2, 8), (4..4, 1));
+        assert_eq!(
+            cut("сбоев", 1, 3),
+            (2..6, 0),
+            "Cyrillic is two bytes a char"
+        );
+        assert_eq!(
+            cut("\tab", 2, 8),
+            (1..3, 2),
+            "a tab straddling the left edge leaves its visible part blank"
+        );
+        assert_eq!(
+            cut("a\u{4e2d}b", 0, 2),
+            (0..1, 0),
+            "a wide char that does not fit at the right edge is left out"
+        );
+        assert_eq!(
+            cut("a\t", 2, 8),
+            (2..2, 3),
+            "a tab straddling the left edge at the end of the line: the line ends past its blank \
+             part, where a cut line's `…` goes"
+        );
+        assert_eq!(
+            cut("a\u{4e2d}", 2, 8),
+            (4..4, 1),
+            "a wide char straddling the left edge at the end of the line"
+        );
     }
 
     #[test]
     fn breaks_between_words() {
-        // The space stays at the end of the upper row, so the lower one starts with a word.
-        assert_eq!(wrap_line("foo bar baz", 9), vec![0..8, 8..11]);
-        // Cyrillic is two bytes a char.
-        assert_eq!(wrap_line("сбоев лимит", 8), vec![0..11, 11..21]);
-        // Spaces that do not fit hang past the edge instead of opening a row.
-        assert_eq!(wrap_line("foo  bar", 3), vec![0..5, 5..8]);
-        // A no-break space is part of the word.
-        assert_eq!(wrap_line("a\u{a0}bc d", 3), vec![0..4, 4..7]);
+        assert_eq!(
+            wrap_line("foo bar baz", 9),
+            vec![0..8, 8..11],
+            "the space stays at the end of the upper row, so the lower one starts with a word"
+        );
+        assert_eq!(
+            wrap_line("сбоев лимит", 8),
+            vec![0..11, 11..21],
+            "Cyrillic is two bytes a char"
+        );
+        assert_eq!(
+            wrap_line("foo  bar", 3),
+            vec![0..5, 5..8],
+            "spaces that do not fit hang past the edge instead of opening a row"
+        );
+        assert_eq!(
+            wrap_line("a\u{a0}bc d", 3),
+            vec![0..4, 4..7],
+            "a no-break space is part of the word"
+        );
     }
 
     #[test]
     fn a_word_longer_than_a_row_starts_in_place() {
-        // It breaks after punctuation inside it when it can, by char when it cannot.
-        assert_eq!(wrap_line("see a/b/c/d", 6), vec![0..6, 6..11]);
+        assert_eq!(
+            wrap_line("see a/b/c/d", 6),
+            vec![0..6, 6..11],
+            "it breaks after punctuation inside it when it can"
+        );
         assert_eq!(wrap_line("sum: 0123456789", 8), vec![0..8, 8..15]);
-        assert_eq!(wrap_line("a bcdefgh", 4), vec![0..4, 4..8, 8..9]);
-        // A word that fits a row moves down whole, dot and all.
-        assert_eq!(wrap_line("read CLAUDE.md now", 13), vec![0..5, 5..18]);
-        // Indentation wider than the row breaks by char rather than leave a blank row.
-        assert_eq!(wrap_line("    abcdef", 6), vec![0..6, 6..10]);
+        assert_eq!(
+            wrap_line("a bcdefgh", 4),
+            vec![0..4, 4..8, 8..9],
+            "by char when it cannot"
+        );
+        assert_eq!(
+            wrap_line("read CLAUDE.md now", 13),
+            vec![0..5, 5..18],
+            "a word that fits a row moves down whole, dot and all"
+        );
+        assert_eq!(
+            wrap_line("    abcdef", 6),
+            vec![0..6, 6..10],
+            "indentation wider than the row breaks by char rather than leave a blank row"
+        );
     }
 
     #[test]
@@ -283,14 +321,23 @@ mod tests {
         assert_eq!(indent("- item", 20), 2);
         assert_eq!(indent("  12. item", 20), 6);
         assert_eq!(indent("\t* item", 20), 6);
-        // Not list items: an SQL comment, a negative number, a decimal.
-        assert_eq!(indent("-- note", 20), 0);
-        assert_eq!(indent("-1 + x", 20), 0);
-        assert_eq!(indent("1.5 m", 20), 0);
-        // More than half the width would leave the rows too little room.
-        assert_eq!(indent("        deep", 15), 0);
-        // So rows after the first get less room: "  - aa ", "bb ", "cc".
-        assert_eq!(wrap_line("  - aa bb cc", 8), vec![0..7, 7..10, 10..12]);
+        for not_an_item in ["-- note", "-1 + x", "1.5 m"] {
+            assert_eq!(
+                indent(not_an_item, 20),
+                0,
+                "{not_an_item:?} is no list item"
+            );
+        }
+        assert_eq!(
+            indent("        deep", 15),
+            0,
+            "more than half the width would leave the rows too little room"
+        );
+        assert_eq!(
+            wrap_line("  - aa bb cc", 8),
+            vec![0..7, 7..10, 10..12],
+            "rows after the first get less room: \"  - aa \", \"bb \", \"cc\""
+        );
     }
 
     #[test]
@@ -302,36 +349,50 @@ mod tests {
 
     #[test]
     fn cjk_at_boundary() {
-        // Each CJK char is 2 columns wide and 3 bytes long.
-        assert_eq!(wrap_line("漢字漢", 4), vec![0..6, 6..9]);
-        // A width-2 char that does not fit moves to the next row, leaving a ragged edge.
-        assert_eq!(wrap_line("a漢", 2), vec![0..1, 1..4]);
+        assert_eq!(
+            wrap_line("漢字漢", 4),
+            vec![0..6, 6..9],
+            "each CJK char is 2 columns wide and 3 bytes long"
+        );
+        assert_eq!(
+            wrap_line("a漢", 2),
+            vec![0..1, 1..4],
+            "a width-2 char that does not fit moves to the next row, leaving a ragged edge"
+        );
         assert_eq!(wrap_line("a漢字", 3), vec![0..4, 4..7]);
     }
 
     #[test]
     fn combining_chars_attach() {
-        // "e" + U+0301 combining acute: one column, two chars.
         let s = "e\u{301}e\u{301}e\u{301}";
-        assert_eq!(width(s), 3);
+        assert_eq!(
+            width(s),
+            3,
+            "e + U+0301 combining acute: one column, two chars"
+        );
         assert_eq!(wrap_line(s, 2), vec![0..6, 6..9]);
-        // A leading combining char cannot open its own row.
-        assert_eq!(wrap_line("\u{301}ab", 1), vec![0..3, 3..4]);
+        assert_eq!(
+            wrap_line("\u{301}ab", 1),
+            vec![0..3, 3..4],
+            "a leading combining char cannot open its own row"
+        );
     }
 
     #[test]
     fn an_emoji_of_several_code_points_is_one_cell_pair() {
-        // A selector, a skin tone, a ZWJ join and a keycap: two columns each, as drawn.
         for e in [
             "\u{26a0}\u{fe0f}",
             "\u{1f44d}\u{1f3fd}",
             "\u{1f468}\u{200d}\u{1f4bb}",
             "1\u{fe0f}\u{20e3}",
         ] {
-            assert_eq!(width(e), 2, "{e:?}");
+            assert_eq!(width(e), 2, "{e:?} is not two columns, as drawn");
         }
-        // "⚠️" is six bytes: it and `a` fill a row of three, `b` goes down.
-        assert_eq!(wrap_line("\u{26a0}\u{fe0f}ab", 3), vec![0..7, 7..8]);
+        assert_eq!(
+            wrap_line("\u{26a0}\u{fe0f}ab", 3),
+            vec![0..7, 7..8],
+            "\"⚠️\" is six bytes: it and `a` fill a row of three, `b` goes down"
+        );
         assert_eq!(cut("\u{26a0}\u{fe0f}ab", 0, 2), (0..6, 0));
         assert_eq!(cut("\u{26a0}\u{fe0f}ab", 1, 4), (6..8, 1));
     }
@@ -351,8 +412,11 @@ mod tests {
     #[test]
     fn width_one_splits_every_char() {
         assert_eq!(wrap_line("abc", 1), vec![0..1, 1..2, 2..3]);
-        // Width 2 cannot fit in a 1-column pane: keep it rather than loop forever.
-        assert_eq!(wrap_line("漢漢", 1), vec![0..3, 3..6]);
+        assert_eq!(
+            wrap_line("漢漢", 1),
+            vec![0..3, 3..6],
+            "width 2 cannot fit in a 1-column pane: keep it rather than loop forever"
+        );
         assert_eq!(wrap_line("abc", 0), wrap_line("abc", 1));
     }
 
@@ -371,7 +435,6 @@ mod tests {
                 for r in 0..rows.len() {
                     assert_eq!(col_to_row(&rows, row_to_col(&rows, r)), r, "{line:?} w={w}");
                 }
-                // Every byte boundary maps into the row that contains it.
                 for (i, _) in line
                     .char_indices()
                     .chain(std::iter::once((line.len(), ' ')))
@@ -379,7 +442,7 @@ mod tests {
                     let r = col_to_row(&rows, i);
                     assert!(
                         rows[r].start <= i && i <= rows[r].end,
-                        "{line:?} w={w} i={i}"
+                        "{line:?} w={w}: byte {i} maps outside the row that contains it"
                     );
                 }
             }

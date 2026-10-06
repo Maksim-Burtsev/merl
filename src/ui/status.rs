@@ -68,10 +68,7 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
             format!(
                 "{}  {}[{pane}]{}{}{}{}",
                 if app.dirty { " \u{25cf}" } else { "" },
-                // With no file open there is no cursor to place (#285). On a line the branch
-                // deleted, its number in the file at the base, negative (#439).
                 match app.deleted {
-                    // A fold shows no text to place a cursor in (#243).
                     _ if app.buf.path.is_none() || app.folded_here().is_some() => String::new(),
                     Some((k, i)) => {
                         let from = app.diff.ghost_from.get(&k).copied().unwrap_or(0);
@@ -115,7 +112,6 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
     // With nothing to report, the right edge keeps `?` discoverable.
     const HINT: &str = "? help ";
     let hint = app.message.is_empty() && area.width as usize > HINT.len();
-    // The path is what gives way to the rest of the line and to the hint (#235).
     let rest = spans[1..]
         .iter()
         .map(|s| wrap::width(&s.content))
@@ -126,8 +122,6 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         (area.width as usize).saturating_sub(rest),
     )
     .into();
-    // Then a message about a file gives way the same way, keeping its reason (#403): the
-    // path is the part its maker said it is.
     if let Some((_, len)) = app.message_path.as_ref().filter(|(m, _)| *m == app.message) {
         let before = spans[..spans.len() - 1]
             .iter()

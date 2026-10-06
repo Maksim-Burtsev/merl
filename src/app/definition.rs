@@ -4,9 +4,6 @@ use super::python::{assigns, python_functions};
 use super::*;
 
 impl App {
-    /// The word under the cursor as `d` and `u` ask about it: [`search::definition_word`], and
-    /// a Ruby setter call `x.name = v` as the setter `name=` (#387); `def self.name = v` is a
-    /// method of one line.
     pub(super) fn definition_word(
         &self,
         kind: Option<Kind>,
@@ -58,16 +55,12 @@ impl App {
     /// definition": `u` lists the uses.
     pub(super) fn goto_definition(&mut self) {
         let kind = self.kind();
-        // Markdown declares nothing: `d` follows the link under the cursor (#421), on a deleted
-        // line too, where it reads the line as the review draws it.
         if kind == Some(Kind::Markdown)
             && let Some(here) = self.rel_current()
         {
             self.follow_markdown(&here);
             return;
         }
-        // Base code, a deleted line or a deleted file's, is looked up in the project as the base
-        // had it (#440).
         if self.probe.is_none()
             && let Some((path, line)) = self.base_place()
         {
@@ -168,7 +161,6 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // An Elixir `alias` names the module a qualifier stands for (#459).
         let chain = match kind {
             Kind::Elixir => search::elixir_unalias(&text, self.line, chain),
             _ => chain,
@@ -254,8 +246,6 @@ impl App {
             self.show_definitions(kind, &word, &here, found, broke.as_deref());
             return;
         }
-        // A word in the module path of an import line names that module and nothing else
-        // (#333): the project's, else the one outside, and never a namesake found by name.
         if kind == Kind::Python
             && let Some(module) = search::python_import_module(self.line_str(), range.start)
         {
@@ -263,15 +253,11 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // A key of a Go composite literal is a field of the literal's type (#327). A literal whose
-        // type is not read offers what the name finds, and never jumps to one.
         let go_key = match kind == Kind::Go && !dotted {
             true => search::go_key(&text, self.line + 1, range.start, range.end),
             false => search::GoKey::No,
         };
         let go_keyed = go_key != search::GoKey::No;
-        // A receiver's or a literal's type may be declared outside the project, and is read
-        // from the files walked there (#334).
         if kind == Kind::Go && (dotted || matches!(go_key, search::GoKey::Of(_))) {
             self.external_files(kind);
         }
@@ -284,7 +270,6 @@ impl App {
                 Ok(None) => {}
                 Err(()) => self.offer_only = true,
             },
-            // A struct written in place: its body is on the lines above (#330).
             search::GoKey::Struct(line) => {
                 let ty = typed::anonymous(&here, line);
                 let found = self
@@ -301,8 +286,6 @@ impl App {
             search::GoKey::Unknown => self.offer_only = true,
             search::GoKey::No | search::GoKey::Value => {}
         }
-        // A Ruby `@name` or `@@name` is a variable of the class around the cursor, assigned in
-        // its methods (#383): a word of its own, never the bare `name`, and never another class's.
         let lead = &self.line_str()[..range.start];
         if kind == Kind::Ruby && lead.ends_with('@') {
             let sigil = match lead.ends_with("@@") {
@@ -341,13 +324,7 @@ impl App {
             || (kind == Kind::Elixir
                 && !dotted
                 && (before.ends_with(':') || (after.starts_with(':') && !after.starts_with("::"))));
-        // `super` is no local, whatever the member lookup reads it as; Lua has no `super`. A name
-        // of a destructuring or a parameter list wrapped over several lines is on a line of its
-        // own (#393).
-        // A Rust macro, a path and its segments are no local, nor a field a literal or a pattern
-        // names with `w:` (a format string's `{w:?}` is the local), save on the line that
-        // declares the local (#353). On the pattern of a
-        // `let` the word is that local itself.
+        // `super` is no local, whatever the member lookup reads it as; Lua has no `super`.
         let after = self.line_str()[range.end..].trim_start();
         let rust_path = kind == Kind::Rust
             && (before.ends_with("::")
@@ -355,11 +332,6 @@ impl App {
                 || (after.starts_with('!') && !after.starts_with("!=")));
         let rust_field =
             kind == Kind::Rust && after.starts_with(':') && !after.starts_with("::") && !captured;
-        // On the name a Swift `for`, `if let`, closure or function header declares on the
-        // cursor's own line, the word is at a declaration, as on a `let` (#525, #533): the
-        // occurrence the line no longer binds the name without. A read in front of it, `cache`
-        // in `if cache.isEmpty, let cache = load() {`, is looked up as on any other line, and an
-        // outer binding of the name is a namesake, never the answer.
         let line = self.line_str();
         let swift_binds_here = kind == Kind::Swift
             && !dotted
@@ -371,8 +343,6 @@ impl App {
             );
         let declared = swift_binds_here
             || (chain.is_empty() && search::binds_at(kind, self.line_str(), range.start, &word));
-        // A TypeScript bare word is a value a `class`, `function`, `type`, `interface` or `enum`
-        // of its scope declares as well as a `const` (#337); the first name of a chain is not.
         let bare = kind == Kind::TsJs && !dotted && chain.is_empty();
         let required = match kind {
             Kind::TsJs => search::ts_import_lines(&text, first),
@@ -407,13 +377,10 @@ impl App {
                     Kind::CSharp => search::cs_written_line(&self.buf.lines, n, first),
                     _ => n,
                 })
-                // `const { helper } = require("./m")` binds an import, as `import` does (#328).
-                .filter(|n| !required.contains(n))
+                .filter(|n| !required.contains(n) && !self.template_shadows(&here, first))
                 .collect()
         };
         let mut locals = locals_at(&text, self.line + 1);
-        // A Go parameter read in a body on its function's own line is that parameter, whatever
-        // the scopes around it bind (#524).
         let go_own = kind == Kind::Go
             && locals.contains(&(self.line + 1))
             && search::go_binds_here(self.line_str(), &word, range.start);
@@ -426,15 +393,10 @@ impl App {
                 locals = module;
             }
         }
-        // An arrow function on the cursor's line whose body holds the cursor binds the word
-        // there, whatever the scopes around it declare (#531).
         let own_arrow = kind == Kind::TsJs
             && !dotted
             && locals.contains(&(self.line + 1))
             && search::ts_arrow_binds(self.line_str(), &word, range.start);
-        // On a parameter an arrow on the cursor's line declares, the word is at a declaration
-        // (#534): that line is its binding, as a function's parameter list is, and the
-        // namesakes are left to the search by name below.
         let arrow_param = kind == Kind::TsJs
             && !dotted
             && search::ts_arrow_param(self.line_str(), &word, range.start);
@@ -444,10 +406,6 @@ impl App {
         if !locals.is_empty() {
             imports.retain(|(name, _)| name != first);
         }
-        // A Python builtin nothing in the file binds has no source to land on (#336): not the
-        // project's namesake in another module, which the bare name does not reach without an
-        // import, nor a method of a dependency. A `*` import may bind it, and so may the class
-        // body the cursor is in: `render = format` beside its `def format`.
         let star = kind == Kind::Python && imports.iter().any(|(name, _)| name == "*");
         let unbound = kind == Kind::Python
             && !dotted
@@ -566,11 +524,6 @@ impl App {
                 return;
             }
         }
-        // A Go package qualifier, `db` in `db.Get`, is declared by the import line of this file
-        // (#100), unless a local hides it (taken out above, or one the walk may have missed:
-        // the function mentions the name other than as a qualifier) or the package declares the
-        // name itself: an import's name is read off its path, and a package may be called
-        // otherwise.
         if kind == Kind::Go
             && !dotted
             && self.line_str()[range.end..].starts_with('.')
@@ -619,8 +572,6 @@ impl App {
         let referenced = kind == Kind::Jvm
             && before.ends_with("::")
             && chain.first().is_some_and(|f| f != "super");
-        // PHP reaches a member with `->` alone, whatever the chain starts with: `Offer::Cut->value`
-        // is a value's member too (#348). Behind `->` a call is a method, anything else a property.
         let php_members = (kind == Kind::Php && dotted).then(|| {
             let call = self.line_str()[range.end..].trim_start().starts_with('(');
             search::php_member_patterns(&word, call).join("|")
@@ -636,8 +587,6 @@ impl App {
                 .map(|m| m.join("|")),
         };
         let mut patterns = search::def_patterns(kind, &word);
-        // Where only a C# type can stand, only a type's rules count (#360): a type, a delegate, an
-        // alias, and no constructor, property or namespace of the name (save a constant, #581).
         let cs_type = kind == Kind::CSharp
             && !dotted
             && chain.is_empty()
@@ -645,18 +594,12 @@ impl App {
         if cs_type {
             patterns = search::cs_type_patterns(&word);
         }
-        // A Ruby local is seen from its own method or block alone, and a value has none: its
-        // assignments are this file's where the cursor sees them, below, never a search by name
-        // (#383). A constant is the project's.
         let ruby_local =
             kind == Kind::Ruby && word.starts_with(|c: char| c.is_ascii_lowercase() || c == '_');
         if kind == Kind::Ruby && (dotted || ruby_local) {
             let assignment = search::ruby_assignment(&word);
             patterns.retain(|p| *p != assignment);
         }
-        // A Ruby call with no receiver that no local names, and `self.meth`, is a method of
-        // `self`: its class, the modules it mixes in, its superclasses, in that order, before any
-        // namesake by name (#365).
         if ruby_local
             && locals.is_empty()
             && ((!dotted && chain.is_empty() && !before.ends_with("::")) || own)
@@ -674,7 +617,7 @@ impl App {
         if kind == Kind::Elixir && dotted {
             patterns.retain(|p| !p.starts_with(r"^\s*@"));
         }
-        search::narrow_patterns(kind, &mut patterns, &text, self.line_str(), range.clone());
+        self.narrow(kind, &mut patterns, &text, range.clone());
         if patterns.is_empty() {
             self.message = self.no_rules();
             return;
@@ -687,7 +630,6 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // `x.word` in Rust on a receiver whose type is proven (#377): the word of that type.
         let mut rust_broke = None;
         if kind == Kind::Rust
             && dotted
@@ -709,14 +651,12 @@ impl App {
                 Err(at) => rust_broke = (chain.len() > 1).then_some(at),
             }
         }
-        // Rust's attributes, fields and variants, which the lines below cannot tell (#370).
         if kind == Kind::Rust
             && let Some(found) = self.rust_early(&here, &text, &word, range.clone(), dotted)
         {
             self.show_definitions(kind, &word, &here, found, rust_broke.as_deref());
             return;
         }
-        // `x.word(…)` in Rust on a value whose type is not known (#358).
         if kind == Kind::Rust
             && on_value
             && word.starts_with(|c: char| c.is_alphabetic() || c == '_')
@@ -726,8 +666,6 @@ impl App {
             self.show_definitions(kind, &word, &here, found, rust_broke.as_deref());
             return;
         }
-        // On the declaration of a member of an interface, a protocol, an abstract or a base
-        // class, `d` offers what implements it (#68, step 6).
         // A `#private` member is nobody's to override.
         if !dotted && !word.starts_with('#') {
             let found = self.implementations(kind, &here, &text, &word);
@@ -736,16 +674,11 @@ impl App {
                 return;
             }
         }
-        // On the name a field's declaration gives it, the other fields and members of the name
-        // are namesakes (#104). `self.repo = repo` is decided below, by where `self.repo` leads.
         if !dotted && search::field_decl_at(kind, &text, self.line + 1, range.start, &word) {
             let found = self.field_namesakes(kind, &here, &word);
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // A bare Go name is a local, a name of the file's package, of a dot import or a
-        // predeclared one, and nothing else (#332). A literal's key, a name an import binds and
-        // the declaration under the cursor keep their lookup.
         let mut declaring = search::def_patterns(kind, &word);
         declaring.extend(search::member_or_signature(kind, &word).unwrap_or_default());
         let declares_here =
@@ -761,8 +694,6 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // A key of an object literal the file binds to a `const`, `X.key`, is declared inside
-        // that literal (#341).
         if kind == Kind::TsJs
             && dotted
             && let [name] = chain.as_slice()
@@ -783,8 +714,6 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // A bare Swift word in a type's body, once the walk proves it no local, is a member of
-        // that type through the implicit `self`, or of the class it extends, first (#380).
         if kind == Kind::Swift
             && !dotted
             && chain.is_empty()
@@ -796,8 +725,6 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // A Swift receiver whose type is proven: that type's member, or on a type from outside
-        // that only the project's extensions reach, those or nothing (#384).
         if kind == Kind::Swift
             && dotted
             && !chain.is_empty()
@@ -812,12 +739,8 @@ impl App {
             }
             return;
         }
-        // A receiver whose type is proven narrows the member to that type (#68, steps 2 to 4).
         let mut broke = None;
         let mut cs_walked = None;
-        // C# writes its types everywhere: a member of an object initializer's type, or of the
-        // type a receiver is declared with; a type the project does not declare is the
-        // framework's, and so is its member (#352).
         if kind == Kind::CSharp {
             let answer = match dotted {
                 false => self.cs_initializer(&here, &word, &range).map(Ok),
@@ -851,7 +774,6 @@ impl App {
                 }
             }
         }
-        // A chain with no name to start from may hang off a call: `make_uow().users.word` (#100).
         let head = (dotted && chain.is_empty())
             .then(|| search::call_head(kind, &written, start))
             .flatten();
@@ -873,9 +795,6 @@ impl App {
                     self.show_definitions(kind, &word, &here, found, None);
                     return;
                 }
-                // What the class lacks can come from its bases outside the project, or from a
-                // project class extending it, which may set it on `self` (#342): only those
-                // subclasses' declarations of the name are candidates.
                 Ok(_) => {
                     if let Some(ty) = self.inherited_outside(kind, &here, &chain, head.as_ref()) {
                         let found = self.subclass_members(kind, &here, &word, &pattern, &ty);
@@ -885,7 +804,6 @@ impl App {
                 }
                 // With one name in front of the word, `by name` already says where.
                 Err(at) => {
-                    // A value proven to be a builtin type: its members have no source (#336).
                     if let Some(via) = self.builtin_receiver(kind, &here, &chain, head.as_ref()) {
                         self.offer_only = false;
                         self.truncated.set(false);
@@ -897,9 +815,6 @@ impl App {
                 }
             }
         }
-        // A Rust path's first name names the crate searched first, and in it the module the path
-        // spells (#350): a `use` of `std::fs::File` takes `File::open` to the standard library,
-        // whatever `open` the project declares.
         if kind == Kind::Rust
             && !dotted
             && locals.is_empty()
@@ -925,9 +840,6 @@ impl App {
                 )
             })
             .flatten();
-        // A barrel of the project that hands the name on from a package, `export { x } from
-        // "lodash"`, leads into that package, as an import straight from it does (#527), when
-        // nothing of the project answers the import.
         let barrel = import
             .as_deref()
             .and_then(|path| self.barrel_package(kind, &here, &word, &chain, path));
@@ -942,10 +854,6 @@ impl App {
             }
             None => import,
         };
-        // A package no `node_modules` holds, no workspace package is called and no `declare
-        // module` types is not installed (#392): nothing says what it declares, and the project's namesakes are not it. The
-        // import line is where the name comes from, as far as anything tells. A copy of it among
-        // the files outside, wherever they have it, is what the lookup outside reads, as before.
         if kind == Kind::TsJs
             && let Some((_, module)) = import.as_ref().and_then(|p| p.split_last())
             && search::package_missing(
@@ -976,14 +884,11 @@ impl App {
         let mut own_module = false;
         // The import names a module of the project that was read.
         let mut project_read = false;
-        // The module outside holding the value the import names, whose members are not read
-        // (#560).
         let mut value: Option<Vec<String>> = None;
         let mut found = match import {
             Some(path) => {
                 let project = self.imported_definitions(kind, &here, &word, &chain, &path);
                 project_read = project.is_some();
-                // The name itself, bare or as a qualifier, bound to a module outside (#333).
                 if project.is_none()
                     && kind == Kind::Python
                     && !dotted
@@ -994,10 +899,6 @@ impl App {
                     self.show_definitions(kind, &word, &here, found, None);
                     return;
                 }
-                // `User.objects` behind an import from outside, `User` a class of the module
-                // (#342): a member of `User` there, never a top-level `objects` anywhere. A value
-                // the module holds, Django's `settings` (#560): no namesake outside is its member,
-                // the project's search by name answers, as Django reads the project's settings.
                 if project.is_none() && kind == Kind::Python && dotted && chain.len() == 1 {
                     match self.outside_class_member(&word, &path) {
                         Some(Some(found)) => {
@@ -1037,10 +938,6 @@ impl App {
             }
             None => Vec::new(),
         };
-        // Go's `pkg.X` is declared in `pkg`'s directory or nowhere: Go has no re-exports (#332).
-        // Cgo's `C` has no directory. `pkg.Var.Method` goes through a value, and a package the
-        // lookup could not map while the project holds its directory (a `vendor/` copy) was not
-        // read: both keep the search by name.
         let go_qualified = kind == Kind::Go
             && chain.len() == 1
             && bound(&imports, &chain[0]).is_some_and(|p| {
@@ -1051,8 +948,6 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // A member of a JavaScript or DOM global that no scope, import or declaration of the
-        // project binds, `JSON.parse`, is [`Self::js_global_members`], never a class's (#341).
         if kind == Kind::TsJs
             && locals.is_empty()
             && let [global] = chain.as_slice()
@@ -1071,7 +966,6 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // A bare Rust variant behind a glob `use` of its enum (#370).
         if kind == Kind::Rust && !dotted && chain.is_empty() && locals.is_empty() {
             let found = self.rust_glob_variant(&here, &text, &word, &imports);
             if !found.is_empty() {
@@ -1079,7 +973,6 @@ impl App {
                 return;
             }
         }
-        // A bare Rust name is an item of this file where the cursor sees it (#363).
         if kind == Kind::Rust && !dotted && chain.is_empty() && !before.ends_with("::") {
             let found = self.rust_file_items(&here, &text, &word, range.clone());
             if !found.is_empty() {
@@ -1087,9 +980,6 @@ impl App {
                 return;
             }
         }
-        // Python's `Cls.CONST`, an `Enum` member, a dataclass field (#100): the qualifier is a
-        // class the file declares or imports, no value of the scope, and the word is what the
-        // class body declares, or a class above it.
         // A class or an import inside a function is not the one the top of the file names.
         let nested = |a: &Self| {
             search::bindings(kind, &text, a.line + 1, first)
@@ -1135,17 +1025,8 @@ impl App {
                 return;
             }
         }
-        // A member in the project first. A qualifier no import names can still be a class, a
-        // namespace or a module of the project, which declares the word at its top level.
-        // A qualifier that is no value and no import can be what declares the word: a namespace,
-        // a class with a static member, a nested class. A declaration that reads `Outer.find`
-        // is the answer then, and a method `find` of some other class is not.
-        // The chain is joined as the kind qualifies a name (#129): Rust and C++ write the path
-        // with `::`, where no `.` stands in front of the word, and a `.` there is a value's.
         let sep = search::separator(kind);
         let path = chain.join(sep);
-        // Ruby writes a constant's path with `::` and a method's with `.` (#387). The name a
-        // `class A::B` line declares is no use of the path.
         let declared = !self.line_str()[range.end..].starts_with("::")
             && Regex::new(r"^\s*(?:class|module)\s+[\w:]*$").is_ok_and(|re| re.is_match(before));
         let colons = kind == Kind::Ruby && before.ends_with("::") && !declared;
@@ -1153,15 +1034,7 @@ impl App {
             "." => on_value || colons,
             _ => self.line_str()[..range.start].ends_with(&format!("{path}{sep}")),
         };
-        // A type's name is no proof of which type (#129): in a `::` kind the project has to
-        // declare it once, and a `use` of the file must not bind the path's first name to
-        // somewhere outside, whatever `io.rs` the project has beside `std::io`. A Rust type the
-        // project declares more than once is proven by the file of the module a `use crate::…`
-        // takes it from (#227): an `impl` at the top of that file is for the type the path
-        // names, declared there or handed on, and nothing else is offered then.
         let mut home: Option<Vec<PathBuf>> = None;
-        // `Type::w` where this file declares the `Type` its scope sees, and another file one
-        // too: this file's `Type` is the one, and its `Type::w` is looked for here first (#363).
         let seen = match kind == Kind::Rust && pathed && locals.is_empty() && chain.len() == 1 {
             true => search::rust_scope_items(
                 &text,
@@ -1237,9 +1110,6 @@ impl App {
                 self.truncated.set(false);
                 !outside && (declared.len() == 1 || home.is_some())
             });
-        // Ruby's `Const.meth` is a class method (#387): a `def` of the class's instances is no
-        // answer, and nor is a method of some other class found by name. `Const.new` runs the
-        // class's `initialize`.
         // A constant in capitals holds a value, not a class: `REDIS_CONFIGURATION.cache`. An
         // acronym module (`JSON.parse`) reads so too, and stays the search by name.
         let class_method = kind == Kind::Ruby
@@ -1266,7 +1136,6 @@ impl App {
                     .unwrap_or_default(),
                 None => self.project_definitions(kind, &here, &word, &pattern),
             };
-            // `Mode::Auto`: an enum variant, which has no line pattern of its own (#370).
             if kind == Kind::Rust {
                 let variants = self.rust_variants(&here, &word);
                 hits.extend(
@@ -1306,9 +1175,6 @@ impl App {
                     hit,
                 })
                 .collect();
-            // Every row names the one `Drawer::Scanner`, so its forward declaration in the class
-            // yields to its body, `struct Drawer::Scanner {` (#508): read as outside any class.
-            // On the body itself, the declaration is the other end to go to.
             let on_row = named
                 .iter()
                 .any(|c| c.hit.path == here && c.hit.line == self.line + 1);
@@ -1326,8 +1192,6 @@ impl App {
                 }
                 false => named,
             };
-            // Swift's `Type.word` reaches a case or a `static` member: an instance member needs a
-            // value (#380). A type with only instance members of the name keeps them.
             let named = match kind == Kind::Swift
                 && named
                     .iter()
@@ -1343,8 +1207,6 @@ impl App {
                 self.show_definitions(kind, &word, &here, named, None);
                 return;
             }
-            // Java's and Kotlin's `Offer.CUT`: a constant of the enum the project declares once
-            // (#457).
             if let (Kind::Jvm, [owner]) = (kind, chain.as_slice()) {
                 let found = self.enum_constant(kind, &here, owner, &word);
                 if !found.is_empty() {
@@ -1364,8 +1226,6 @@ impl App {
             // alone finds is offered, not jumped to.
             self.offer_only |= colons;
         }
-        // An Elixir qualifier a dependency declares as a module names that package, as an import
-        // does elsewhere: its `def` there comes before a namesake of the project's (#437).
         if kind == Kind::Elixir && dotted && !chain.is_empty() && locals.is_empty() {
             let found = self
                 .external_definitions(kind, &word, &chain, dotted, &imports, true)
@@ -1375,11 +1235,6 @@ impl App {
                 return;
             }
         }
-        // An Elixir call or attribute is its own module's first (#460). On a declaration of the
-        // name, its namesakes are offered as before. A call is never an attribute nor a struct's
-        // field, and an attribute is nothing else. Past an `import` that may bring the name in
-        // (no `only:`, or one listing it) a call is looked up by name, as on master: which of
-        // the two it means turns on an arity this rule does not count.
         let attribute = before.ends_with('@');
         let imported = !attribute
             && text.lines().any(|l| {
@@ -1417,8 +1272,6 @@ impl App {
                 return;
             }
         }
-        // A C# `Offer.Cut` whose qualifier is an `enum` of the project is a member its body
-        // lists (#466).
         if kind == Kind::CSharp
             && pathed
             && locals.is_empty()
@@ -1427,9 +1280,6 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // A C# `Task.Delay` whose first name the project declares nowhere, in no form, is a
-        // member of a type outside it (#355): NuGet ships assemblies, so nothing names what the
-        // project's namesakes are not. A lowercase first name is a value of an unknown type.
         if kind == Kind::CSharp
             && dotted
             && locals.is_empty()
@@ -1442,24 +1292,18 @@ impl App {
         }
         // A parameter or a local in front of the word is a value for certain: it has members,
         // and a function or a variable at the top of a module is not one of them.
-        // Nor is anything but a member one of PHP's, where `$x->` is always a value (#348).
         let hits = members
             .as_ref()
             .map(|m| self.members_by_name(kind, &here, &word, m))
             .filter(|hits| !hits.is_empty() || !locals.is_empty() || kind == Kind::Php)
             .unwrap_or_else(|| {
                 if own {
-                    // `self.word` whose class is not read to the end: the declarations of the name,
-                    // and the fields too (#104). PHP's `$this->word` is a member (#348).
                     let pattern = php_members.as_ref().unwrap_or(&pattern);
                     self.members_by_name(kind, &here, &word, pattern)
                 } else {
                     self.project_definitions(kind, &here, &word, &pattern)
                 }
             });
-        // A bare Python name never calls a method (#522): a `def` in a class is reached through a
-        // value or the class, or seen bare from that class's own body. On a declaration of the
-        // name its namesakes stay.
         let mut hits = hits;
         if kind == Kind::Python
             && !dotted
@@ -1491,9 +1335,6 @@ impl App {
                 hits = kept;
             }
         }
-        // A Swift implicit member, `.word` with no name in front, is an enum case or a `static`
-        // member of the type expected there, and in a `case` pattern a case alone (#380). When
-        // the project declares none of them, the answer is outside it and the rows stay.
         if kind == Kind::Swift && dotted && chain.is_empty() && word != "init" {
             let dot = &written[..start - 1];
             let lead = dot.trim_end();
@@ -1521,10 +1362,6 @@ impl App {
         if kind == Kind::Swift && !dotted && chain.is_empty() {
             self.swift_nested_unseen(&mut hits);
         }
-        // A Lua `local` inside a block is seen by that block alone, where the bindings above
-        // found it already: anywhere else, and behind a dot, it is no candidate (#461). What is
-        // left was a namesake beside it on master, and is offered, never jumped to. The cursor's
-        // own line stays, standing on a declaration.
         if ruby_local && !dotted && chain.is_empty() {
             hits.extend(
                 search::ruby_locals(&text, self.line + 1, &word)
@@ -1538,7 +1375,6 @@ impl App {
                     }),
             );
         }
-        // What a C# name reaches of its namesakes (#355, #360).
         if kind == Kind::CSharp {
             let chain = dotted.then_some(chain.as_slice());
             hits = self.cs_reachable(&here, &word, chain, cs_walked.as_deref(), hits);
@@ -1553,13 +1389,6 @@ impl App {
             });
             self.offer_only |= hits.len() < all && hits.iter().any(|h| !at(h));
         }
-        // A Swift function's `let` or `var` is seen inside that function and the functions
-        // nested in it alone (#371): behind a `.` it is no member, and for a bare word anywhere
-        // else it is another function's local.
-        // The cursor's own line alone is offered rather than jumped to when others went: the
-        // word may be a use on the line of a declaration of its name (#317).
-        // The parameter itself is among its namesakes, so they are offered, never jumped to
-        // (#534).
         if arrow_param
             && !hits
                 .iter()
@@ -1640,14 +1469,12 @@ impl App {
         let hits = match kind == Kind::C && !dotted && !before.ends_with("->") {
             true => {
                 let (before, after) = (before.trim_end(), &self.line_str()[range.end..]);
-                // `before` ends in the keyword `k` itself, not in a name ending so.
                 let keyword = |k: &str| {
                     before.strip_suffix(k).is_some_and(|b| {
                         !b.ends_with(|c: char| c.is_ascii_alphanumeric() || c == '_')
                     })
                 };
                 let construction = after.trim_start().starts_with(['(', '{']) || keyword("new");
-                // A value is followed by `->` or `.`, and is never a type (#378).
                 let after = after.trim_start();
                 let value = locals.is_empty()
                     && (after.starts_with("->")
@@ -1669,8 +1496,6 @@ impl App {
                     .iter()
                     .any(|h| h.path == here && h.line == self.line + 1);
                 let hits = search::c_file_local(&word, &here, &text, hits, |p| self.text_of(p), on);
-                // On an out-of-line `R X::name(…) {`, the other end is what X's body declares of
-                // the name, overloads included, and no namesake by name (#373).
                 let line = self.line_str();
                 let declared: Vec<Option<String>> = hits
                     .iter()
@@ -1738,10 +1563,6 @@ impl App {
                 found = self.package_assignments(&word, module);
             }
         }
-        // A Swift `extension X` declares no `X` (#371). With the type in the project the
-        // extensions are no candidates; with only extensions, `X` is declared outside: in a
-        // dependency, else in Foundation or the standard library, which ship no source, and the
-        // extensions are offered then, never jumped to.
         if kind == Kind::Swift && !found.is_empty() {
             let extends = |c: &Candidate| search::swift_extension(&c.hit.text);
             if found.iter().any(|c| !extends(c)) {
@@ -1767,12 +1588,8 @@ impl App {
                 .filter(|p| kind != Kind::TsJs || search::declaration_file(p))
                 .cloned()
                 .collect();
-            // One method outside is no proof while a field of the name is declared outside
-            // too, which is never listed (#342): the one method is offered, counted `1+`.
-            let (external, field) = match kind {
-                Kind::Python => self.python_members(&files, &imports, members, &word),
-                _ => (self.external_grep(kind, &files, members), false),
-            };
+            let (external, field) =
+                self.outside_members(kind, &all, &files, &imports, members, &word);
             if found.is_empty() && external.len() == 1 && field {
                 self.truncated.set(true);
             }
@@ -1796,15 +1613,12 @@ impl App {
         {
             // After the project, outside as the import names the module, every installed copy
             // of it: what a workspace package linked in hands on from a dependency is there.
-            // A bare Python name nothing binds is no method, and outside the project only a
-            // module the file `*`-imports can bind it (#336).
             found = match unbound && !search::PYTHON_BUILTINS.contains(&word.as_str()) {
                 true => self.star_imported(&word, &imports),
                 false => self
                     .external_definitions(kind, &word, &chain, dotted, &imports, false)
                     .unwrap_or_default(),
             };
-            // `group->pel` opens no system `struct group` (#378).
             let after = self.line_str()[range.end..].trim_start();
             if kind == Kind::C
                 && locals.is_empty()
@@ -1820,8 +1634,6 @@ impl App {
                 }
             }
         }
-        // A Zig local is no candidate outside its function, nor a declaration without `pub`
-        // outside its file (#469); the one under the cursor stays, its own answer.
         if kind == Kind::Zig {
             found.retain(|c| {
                 (c.hit.path == here && c.hit.line == self.line + 1)
@@ -1848,7 +1660,6 @@ impl App {
         if found.is_empty() && self.probe.is_none() {
             found = self.deleted_definitions(kind, &word, &here);
         }
-        // A Ruby value's member: what Ruby's core and the gems declare too, offered (#369, #390).
         if kind == Kind::Ruby && on_value {
             self.ruby_member_outside(&word, &pattern, &mut found);
         }
@@ -1903,8 +1714,6 @@ impl App {
         // A callee whose receiver's type the project does not declare, or one of whose candidates
         // lies outside the project, where nothing is read, may be a library's namesake: its
         // parameter is offered, never jumped to. A typed chain that broke says so for Python.
-        // A Rust struct outside is read for its fields: a literal of it names only `pub` ones
-        // (#529).
         let reads_outside = kind == Kind::Rust && *owner == search::Owner::Typed;
         let offer = std::mem::take(&mut self.offer_only)
             || (!reads_outside && owners.iter().any(|c| c.hit.path.is_absolute()))
@@ -2031,9 +1840,6 @@ impl App {
         none
     }
 
-    /// The declarations of `word` by name (`pattern`, and the fields), in `ty` and the project
-    /// classes that extend it, four levels down (#342). `ty` itself counts for what the typed
-    /// walk does not read: a nested class, a `def` under an `if`.
     fn subclass_members(
         &mut self,
         kind: Kind,
@@ -2060,10 +1866,6 @@ impl App {
             .collect()
     }
 
-    /// The field `word` of the Go struct a literal `written{…}` builds, `file` the file writing it
-    /// (#327): only the struct's own fields, since Go takes no promoted field as a key. An empty
-    /// list is a struct without the field, `None` a type that is no struct (a named map or slice,
-    /// whose keys are values), `Err` a type the rules do not find or read.
     fn literal_field(
         &self,
         kind: Kind,
@@ -2116,9 +1918,6 @@ impl App {
         }
     }
 
-    /// Where a bare Go name no scope of the file declares is declared (#332): at the top level
-    /// of the file's package, else in the package of a dot import, else in GOROOT's
-    /// `builtin/builtin.go`, the predeclared `len` and `error`.
     fn go_bare(
         &mut self,
         here: &Path,
@@ -2170,10 +1969,6 @@ impl App {
         )
     }
 
-    /// `word` as a constant of the Java or Kotlin enum `owner`, when the project declares one type
-    /// of that name and it is an `enum` (#457), and this file sees it: it is in the enum's package,
-    /// or imports the enum or its whole package (`.*`). `import java.util.concurrent.TimeUnit`, or
-    /// `java.util.concurrent.*` alone, is not the project's `TimeUnit`.
     fn enum_constant(&self, kind: Kind, here: &Path, owner: &str, word: &str) -> Vec<Candidate> {
         let owners = search::def_patterns(kind, owner).join("|");
         let declared = self.project_definitions(kind, here, owner, &owners);
@@ -2247,11 +2042,8 @@ impl App {
         // Standing on one of the definitions is not a reason to go nowhere. But what is left are
         // namesakes nothing ties to this one, so they are offered, never jumped to: a second `d`
         // after a proven jump would walk out of the type it has just proven (#68).
-        // A line inside a raw string, a docstring or a block comment declares nothing. Past a
-        // few hundred candidates the picker is a list to filter, and reading every file is not
-        // worth what it would drop.
-        // `it("works", async () => {` and `check(` over `line,` over `);` are calls shaped like
-        // a method's header (#343), however many: a test suite has thousands of `it(`.
+        // Past a few hundred candidates the picker is a list to filter, and reading every file
+        // is not worth what it would drop.
         if kind == Kind::TsJs {
             let head = search::ts_method_head(word);
             found.retain(|c| {
@@ -2265,9 +2057,6 @@ impl App {
             found.retain(|c| {
                 let lines = (literal.entry((c.hit.path.clone(), c.hit.deleted.is_some())))
                     .or_insert_with(|| self.hidden_now(kind, &c.hit));
-                // `register<` over its type arguments over `>(1);` is a call prettier wrapped.
-                // A type's header wrapped so declares the type: `class User extends Model<`,
-                // `export interface Context<` (#331).
                 let call = kind == Kind::TsJs
                     && c.hit.text.trim_end().ends_with('<')
                     && !search::declares_type(kind, &c.hit.text)
@@ -2278,15 +2067,12 @@ impl App {
                         .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line));
                 // A tag of a PHP class's docblock (#344) or of a JavaScript `@typedef` (#347)
                 // is a declaration inside a comment.
-                // A name a component's template binds is declared there (#413).
                 let literal = lines.get(c.hit.line - 1).copied().unwrap_or(false)
                     && !self.doc_tag(kind, &c.hit)
                     && !(c.reason == Reason::Local && search::component(&c.hit.path));
                 !call && !literal
             });
         }
-        // A Ruby superclass, right of the `<` of a `class` line, is a use of the name (#387): the
-        // line declares another class.
         let superclass = kind == Kind::Ruby
             && search::definition_word(Some(kind), self.line_str(), self.col).is_some_and(
                 |(r, _)| {
@@ -2300,8 +2086,6 @@ impl App {
         if kind == Kind::C {
             self.c_rows(word, here, &mut found);
         }
-        // A Go parameter's type named like the method it is a parameter of, `Send(msg Send)`, is
-        // looked up as a type (#536); with no type found, the namesakes stay offered.
         let as_type = kind == Kind::Go
             && search::definition_word(Some(kind), self.line_str(), self.col).is_some_and(
                 |(r, w)| w == word && search::go_param_type(self.line_str(), word, r.start),
@@ -2341,10 +2125,6 @@ impl App {
                 .iter()
                 .any(|c| c.hit.line != self.line + 1 || c.hit.path != here)
             && self.on_declared_name(kind, word, false);
-        // Off the name of the line's declaration (#317), a bare word whose lone namesake nothing
-        // proves and is declared as this line declares it, `let courier` of another function, is
-        // as likely another scope's copy as what the word means: offered, as before, never
-        // jumped to. Behind a `.` it is a member, which no local is.
         let extra = search::word_chars(Some(kind), true);
         let form = |t: &str| t[..word_col(t, word, extra)].trim().to_owned();
         let copy = found.len() < all
@@ -2352,10 +2132,6 @@ impl App {
             && search::definition_word(Some(kind), self.line_str(), self.col)
                 .is_some_and(|(r, _)| !self.line_str()[..r.start].ends_with('.'))
             && matches!(found.as_slice(), [c] if !c.reason.proven() && form(&c.hit.text) == form(self.line_str()));
-        // Tests, mocks, fixtures, generated and vendored copies of a declaration come last here
-        // too (#81) — except in the file on screen, which is what the reader is reading. The sort
-        // is stable and every candidate is a declaration, so the rest keep the order the search
-        // found them in, standard library and all.
         found.sort_by_cached_key(|c| search::rank(&c.hit.path, Some(here), true).0);
         // The project and the outside are each cut at MAX_HITS; the picker holds that many.
         found.truncate(search::MAX_HITS);
@@ -2411,13 +2187,6 @@ impl App {
         }
     }
 
-    /// Whether the cursor stands on the name its line declares, not only on that line (#317):
-    /// `let request = session.request(url)` declares the first `request`, and the second is a
-    /// method looked up as on any other line. The declared one is the occurrence of `word` the
-    /// line no longer reads as a declaration without; a line no pattern reads (a parameter)
-    /// declares its first. A word the line does not spell as is (a Ruby setter) is on it, and
-    /// so is another occurrence of a shape #317 does not name (see below), unless `exact`: what
-    /// implements a member is asked on its declared name alone (#517).
     pub(super) fn on_declared_name(&self, kind: Kind, word: &str, exact: bool) -> bool {
         let line = self.line_str();
         let Some((r, _)) = search::definition_word(Some(kind), line, self.col) else {
@@ -2466,12 +2235,6 @@ impl App {
         if exact {
             return false;
         }
-        // Off the declared name, only the shapes #317 is about are looked up as on any other
-        // line: a word in front of it (the type of C#'s `Courier Courier`), a member
-        // (`session.request`, `$this->chime`), and a call on a line that declares no function
-        // (`let chime = chime(total)`). Anything else, a shadowed parameter in `let chime =
-        // chime + 1` or the recursion of a one-line `fun fact(n) = … fact(n - 1)`, nothing here
-        // tells from another scope's namesake: offered, as on master.
         let called = |i: usize| line[i + word.len()..].trim_start().starts_with('(');
         let before = line[..r.start].trim_end();
         let member = before.ends_with(['.', '>']) || before.ends_with("::");
@@ -2489,7 +2252,6 @@ impl App {
     ) -> Vec<Hit> {
         let hits = self.project_grep(kind, here, pattern);
         let mut hits = self.declaring(kind, word, hits);
-        // Another file's function locals are not in sight from here (#339).
         if kind == Kind::TsJs {
             let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
             hits.retain(|h| {
@@ -2506,9 +2268,6 @@ impl App {
         if kind == Kind::Make {
             let mut recipe = self.make_recipe_rule(Some(here), word);
             hits.retain(|h| recipe(h).unwrap_or(true));
-            // `X += …` and `release: X := 1.0` set the variable only when nothing else does
-            // (#499), so a jump to a plain assignment never becomes a picker. A recipe's `X+=1`
-            // declares nothing, not even for the shell: `/bin/sh` has no `+=`.
             if hits.is_empty() {
                 let fallback = search::make_fallback_patterns(word).join("|");
                 hits = self
@@ -2523,7 +2282,6 @@ impl App {
         if kind == Kind::Swift {
             self.swift_unseen(here, &mut hits);
         }
-        // A Shell `local` belongs to its function: no candidate from any other (#470).
         if kind == Kind::Shell {
             let lines: Vec<&str> = self.buf.lines.iter().map(String::as_str).collect();
             let mine = search::shell_function_at(&lines, self.line);
@@ -2540,8 +2298,6 @@ impl App {
                 }
             });
         }
-        // A common table expression is a declaration only inside its own statement, where it
-        // hides a table of its name (#472). On a declaration's own line nothing changes.
         if kind == Kind::Sql
             && !hits
                 .iter()

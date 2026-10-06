@@ -11,7 +11,6 @@ fn cs_app(tag: &str, files: &[(&str, &str)]) -> (PathBuf, App) {
 
 const REDIRECT: &str = "public interface IRedirectService\n{\n    string ExtractRedirectUri(string url);\n}\n\npublic class RedirectService : IRedirectService\n{\n    public string ExtractRedirectUri(string url) => url;\n}\n";
 
-/// The repros of the issue: a local constructed with `new`, and an initializer's member.
 #[test]
 fn a_typed_local_and_an_initializer_member_jump_to_their_type() {
     let (dir, mut a) = cs_app(
@@ -56,7 +55,6 @@ fn a_typed_local_and_an_initializer_member_jump_to_their_type() {
             "ScopeViewModel.cs:4"
         )
     );
-    // A target-typed `new()` takes the type the method returns.
     d_on(
         &mut a,
         "DeviceController.cs",
@@ -67,11 +65,14 @@ fn a_typed_local_and_an_initializer_member_jump_to_their_type() {
         jump(
             "Checked \u{2192} ScopeViewModel.Checked (via new ScopeViewModel)",
             "ScopeViewModel.cs:4"
-        )
+        ),
+        "A target-typed `new()` takes the type the method returns"
     );
-    // An anonymous type declares its members where it stands: the search by name, as before.
     d_on(&mut a, "DeviceController.cs", "new { |Checked");
-    assert!(matches!(shown(&mut a), Shown::Picker(..)));
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(..)),
+        "An anonymous type declares its members where it stands: the search by name, as before"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -114,11 +115,10 @@ fn a_member_of_a_framework_type_has_no_definition_but_its_extension_method() {
             "BadgeView.cs:5"
         )
     );
-    // Not in the class, whose base is the framework's.
     d_on(&mut a, "BadgeView.cs", "this.|Opacity");
     assert_eq!(
-        a.message,
-        "no definition for Opacity in the project (via this: BadgeView)"
+        a.message, "no definition for Opacity in the project (via this: BadgeView)",
+        "Not in the class, whose base is the framework's"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -162,9 +162,11 @@ fn a_chain_a_base_and_an_awaited_call_are_followed() {
             "Repos.cs:3"
         )
     );
-    // A type parameter proves nothing: the search by name, as before.
     d_on(&mut a, "Service.cs", "item.|Delete");
-    assert!(matches!(shown(&mut a), Shown::Picker(..)));
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(..)),
+        "A type parameter proves nothing: the search by name, as before"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -206,8 +208,6 @@ fn a_partial_type_or_a_type_parameter_leaves_the_member_to_the_name() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #349, the repro of the issue: a file of `Shop.App` sees its own project, not `Shop.Api`'s
-/// namesake, until `Shop.App.csproj` references `Shop.Api`.
 #[test]
 fn a_file_sees_its_own_project_and_the_ones_it_references() {
     let files = |app: &'static str| {

@@ -1,3 +1,4 @@
+/
 Esc
 Picker: Enter
 Picker: Esc
@@ -5,3 +6,4 @@ Picker: Esc
 q
 s
 t
+v

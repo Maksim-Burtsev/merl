@@ -1,5 +1,3 @@
-//! Tests for [`crate::ui::preview`].
-
 use std::path::PathBuf;
 
 use ratatui::Terminal;
@@ -103,7 +101,6 @@ fn a_megabyte_line_in_a_code_block_draws_at_once() {
     }
 }
 
-/// Code blocks are highlighted as far as the screen reaches: a long block costs what is drawn.
 #[test]
 fn a_long_code_block_is_highlighted_as_far_as_it_is_drawn() {
     let body = "let x = 1;\n".repeat(1000);

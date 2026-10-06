@@ -1,5 +1,3 @@
-//! What a name is bound to around the cursor.
-
 use super::*;
 
 #[test]
@@ -494,4 +492,37 @@ return m.run()
     ] {
         assert_eq!(lua_required(value), Some("a.b"), "{value}");
     }
+}
+
+#[test]
+fn ts_destructured_parameters_calls_loops_and_rests_354() {
+    let text = r#"function Row({ apiKey, document: doc }: Props) {
+  const { auth } = useStores();
+  for (const m of doc.memberships) {
+    use(m);
+  }
+  const { id, ...rest } = doc;
+  use(rest, apiKey, auth);
+}
+function Wrapped({
+  apiKey,
+  plain = 1,
+  nested: { deep },
+}: Props) {
+  use(apiKey, plain, deep);
+}
+"#;
+    let at = |line, name| bound_at(Kind::TsJs, text, line, name);
+    let member = |head: Value, f: &str| Value::Member(Box::new(head), f.into());
+    assert_eq!(at(7, "apiKey"), [(1, member(ty("Props"), "apiKey"))]);
+    assert_eq!(at(4, "doc"), [(1, member(ty("Props"), "document"))]);
+    assert_eq!(
+        at(7, "auth"),
+        [(2, member(Value::Call("useStores".into()), "auth"))]
+    );
+    assert_eq!(at(4, "m"), [(3, Value::Element("doc.memberships".into()))]);
+    assert_eq!(at(7, "rest"), [(6, Value::Unknown)]);
+    assert_eq!(at(14, "apiKey"), [(9, member(ty("Props"), "apiKey"))]);
+    assert_eq!(at(14, "plain"), [(9, Value::Unknown)]);
+    assert_eq!(at(14, "deep"), [(9, Value::Unknown)]);
 }

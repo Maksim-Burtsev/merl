@@ -12,11 +12,11 @@ wait Search (3 hits)
 11       {{- include "orders.selectorLabels" . | nindent 6 }}
 12   template:     ┌Search (3 hits)───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 13     metadata:   │s> replicaCount                                                                                                                                   │
-14       labels:   │deploy/helm/orders/templates/deployment.yaml:8: replicas: {{ .Values.replicaCount }}                                                              │
-15         {{- incl│deploy/helm/orders/values.yaml:1: replicaCount: 2                                                                                                 │
-16     spec:       │deploy/helm/orders/values.yaml:16: replicaCount: 1                                                                                                │
-17       containers│                                                                                                                                                  │
-18         - name: │                                                                                                                                                  │
+14       labels:   │deploy/helm/orders/templates/deployment.yaml                                                                                                      │
+15         {{- incl│   8  replicas: {{ .Values.replicaCount }}                                                                                                        │
+16     spec:       │deploy/helm/orders/values.yaml                                                                                                                    │
+17       containers│   1  replicaCount: 2                                                                                                                             │
+18         - name: │  16  replicaCount: 1                                                                                                                             │
 19           image:│                                                                                                                                                  │
 20           imageP│                                                                                                                                                  │
 21           ports:│                                                                                                                                                  │

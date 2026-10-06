@@ -4,7 +4,7 @@ use std::num::NonZeroU16;
 
 use ratatui::Frame;
 use ratatui::buffer::{CellDiffOption, CellWidth};
-use ratatui::layout::{Constraint, Layout};
+use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::text::Span;
 use ratatui::widgets::Block;
@@ -29,7 +29,6 @@ use welcome::draw_welcome;
 #[cfg(test)]
 mod tests;
 
-/// Width of the file tree pane.
 const TREE_W: u16 = 30;
 
 pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
@@ -37,9 +36,6 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     let base = Style::new().bg(theme.bg).fg(theme.fg);
     frame.render_widget(Block::new().style(base), area);
 
-    // The lesson panel is 0 rows tall outside `--tutor` and `--drill`, so nothing else moves.
-    // In them it takes as many rows as its text wraps to at the pane's width, never fewer than
-    // a title and two rows, so a short text does not move the code (#261).
     let panel = lesson_panel(app, theme, area.width, base);
     let lesson_h = panel.as_ref().map_or(0, |p| {
         u16::try_from(p.line_count(area.width))
@@ -78,7 +74,19 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     // task can start with the help open. The panel and the status bar stay in sight.
     let over = if app.tutor.is_some() { main } else { area };
     if app.picker.is_some() {
-        draw_picker(frame, app, theme, over, base);
+        let (list, share) = if app.show_tree && code.width >= 80 {
+            (
+                Rect {
+                    x: code.x,
+                    width: code.width,
+                    ..over
+                },
+                90,
+            )
+        } else {
+            (over, 80)
+        };
+        draw_picker(frame, app, theme, list, share, base);
     }
     if app.mode == Mode::Help {
         draw_help(frame, app, theme, over, base);
@@ -114,8 +122,6 @@ pub(super) fn expand(s: &str) -> std::borrow::Cow<'_, str> {
     out.into()
 }
 
-/// `s` drawn in `style` onto `out`, each hidden char a span of its own in `tag` (#401), so it is
-/// on screen and plainly not text. An empty `s` still pushes its (empty) span.
 pub(super) fn tagged<'a>(out: &mut Vec<Span<'a>>, s: &'a str, style: Style, tag: Style) {
     let mut pos = 0;
     for (i, c) in s.char_indices().filter(|&(_, c)| wrap::hidden(c)) {

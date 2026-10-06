@@ -1,0 +1,271 @@
+# id	targets: path:line joined by ; (project-relative; ~/ or / outside the project; empty: the oracle found none)	skip: why the row is not scored	note
+vue0000	web_src/js/modules/gitea-actions.ts:76		
+vue0001	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:412;node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:6		
+vue0002		builtin: the server's own stub	
+vue0003	web_src/js/components/SvgIcon.vue:1		
+vue0004	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:419;node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:418		
+vue0005	web_src/js/components/DashboardRepoList.vue:268		
+vue0006	web_src/js/components/RepoContributors.vue:250		
+vue0007	web_src/js/components/ActionRunJobView.vue:1		
+vue0008	node_modules/.pnpm/chartjs-plugin-zoom@2.2.0_chart.js@4.5.1/node_modules/chartjs-plugin-zoom/types/index.d.ts:22;node_modules/.pnpm/chart.js@4.5.1/node_modules/chart.js/dist/types/index.d.ts:494		
+vue0009	web_src/js/components/ActionRunView.ts:207		
+vue0010	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:412;node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:6		
+vue0011	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:444		
+vue0012	web_src/js/components/ActionRunJobView.vue:38		
+vue0013		builtin: the server's own stub	
+vue0014	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:419;node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:418		
+vue0015	web_src/js/components/RepoBranchTagSelector.vue:15		
+vue0016	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:419;node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:418		
+vue0017	web_src/js/components/RepoActionView.vue:90		
+vue0018	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:419;node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:418		
+vue0019	web_src/js/components/WorkflowGraph.vue:47		
+vue0020	web_src/js/components/DashboardRepoList.vue:15		
+vue0021	web_src/js/components/SvgIcon.vue:1		
+vue0022		builtin: the server's own stub	
+vue0023	node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:750		
+vue0024	node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:378		
+vue0025	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:419;node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:418		
+vue0026	web_src/js/modules/diff-file.ts:209		
+vue0027	web_src/js/components/ActionRunJobView.vue:234		
+vue0028	web_src/js/components/ActionRunJobView.vue:125		
+vue0029	web_src/js/components/ActionRunJobView.vue:24		
+vue0030	web_src/js/components/ActionRunJobView.vue:211		
+vue0031	web_src/js/components/WorkflowGraph.utils.ts:8		
+vue0032	web_src/js/modules/diff-file.ts:62		
+vue0033	web_src/js/components/SvgIcon.vue:1		
+vue0034	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:412;node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:6		
+vue0035	node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:1561		
+vue0036	web_src/js/modules/diff-file.ts:39		
+vue0037	web_src/js/modules/diff-file.ts:39		
+vue0038	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:464		
+vue0039		builtin: the server's own stub	
+vue0040	web_src/js/components/SvgIcon.vue:1		
+vue0041	web_src/js/components/DashboardRepoList.vue:43		
+vue0042	web_src/js/components/WorkflowGraph.vue:203		
+vue0043		builtin: the server's own stub	
+vue0044		builtin: the server's own stub	
+vue0045		builtin: the server's own stub	
+vue0046	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:444		
+vue0047	web_src/js/globals.d.ts:22		
+vue0048	web_src/js/components/DashboardRepoList.vue:136		
+vue0049	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:412;node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:6		
+vue0050	web_src/js/components/DashboardRepoList.vue:268		
+vue0051	node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:1519		
+vue0052	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:419;node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:418		
+vue0053	web_src/js/types.ts:2		
+vue0054	web_src/js/components/DashboardRepoList.vue:173		
+vue0055	web_src/js/components/RepoBranchTagSelector.vue:23		
+vue0056	web_src/js/components/DiffFileTree.vue:58		
+vue0057		builtin: the server's own stub	
+vue0058		builtin: the server's own stub	
+vue0059	web_src/js/components/ActionStatusIcon.vue:1		
+vue0060	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:419;node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:418		
+vue0061	web_src/js/components/RepoRecentCommits.vue:49		
+vue0062	web_src/js/components/SvgIcon.vue:1		
+vue0063	web_src/js/components/SvgIcon.vue:1		
+vue0064		builtin: the server's own stub	
+vue0065		builtin: the server's own stub	
+vue0066	web_src/js/components/RepoActionView.vue:247		
+vue0067	web_src/js/modules/diff-file.ts:50		
+vue0068	web_src/js/components/DiffCommitSelector.vue:7		
+vue0069		builtin: the server's own stub	
+vue0070	web_src/js/components/RepoRecentCommits.vue:40		
+vue0071	web_src/js/utils/time.ts:46		
+vue0072	web_src/js/utils/time.ts:45		
+vue0073		builtin: the server's own stub	
+vue0074	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:412;node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:6		
+vue0075	web_src/js/components/RepoActionView.vue:29		
+vue0076	web_src/js/components/DashboardRepoList.vue:17		
+vue0077	web_src/js/components/DiffCommitSelector.vue:165		
+vue0078		builtin: the server's own stub	
+vue0079	web_src/js/modules/fetch.ts:30		
+vue0080	web_src/js/modules/user-settings.ts:68		
+vue0081		builtin: the server's own stub	
+vue0082	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:419;node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:418		
+vue0083	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:419;node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:418		
+vue0084		builtin: the server's own stub	
+vue0085	web_src/js/components/DashboardRepoList.vue:69		
+vue0086	web_src/js/components/WorkflowGraph.utils.ts:26		
+vue0087	web_src/js/components/ActivityHeatmap.vue:8		
+vue0088	web_src/js/components/ActionRunJobView.vue:57		
+vue0089	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:441		
+vue0090	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:412;node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:6		
+vue0091	web_src/js/components/DashboardRepoList.vue:10		
+vue0092		builtin: the server's own stub	
+vue0093	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:419;node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:418		
+vue0094	web_src/js/components/ActionRunJobView.vue:385		
+vue0095	node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:1521		
+vue0096	web_src/js/components/WorkflowGraph.vue:225		
+vue0097	web_src/js/components/ActivityHeatmap.vue:16		
+vue0098		builtin: the server's own stub	
+vue0099	web_src/js/components/RepoContributors.vue:264		
+vue0100	web_src/js/components/DashboardRepoList.vue:44		
+vue0101	web_src/js/components/ActivityHeatmap.vue:10		
+vue0102	web_src/js/modules/fetch.ts:29		
+vue0103	web_src/js/components/ViewFileTreeItem.vue:9		
+vue0104	web_src/js/components/ActionRunJobView.vue:239		
+vue0105	web_src/js/modules/i18n.ts:4		
+vue0106		builtin: the server's own stub	
+vue0107		builtin: the server's own stub	
+vue0108	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:419;node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:418		
+vue0109	web_src/js/components/ViewFileTreeStore.ts:11		
+vue0110	web_src/js/components/ChartCanvas.vue:46		
+vue0111	web_src/js/modules/fetch.ts:29		
+vue0112	web_src/js/components/DiffCommitSelector.vue:35		
+vue0113	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:563		
+vue0114	node_modules/.pnpm/chart.js@4.5.1/node_modules/chart.js/dist/types/index.d.ts:3184	object-literal key is itself a declaration; oracle gives its contextual type	
+vue0115	web_src/js/components/ActionRunSummaryView.vue:15		
+vue0116		builtin: the server's own stub	
+vue0117	web_src/js/components/WorkflowGraph.utils.ts:15		
+vue0118	web_src/js/components/ActionRunJobView.vue:211		
+vue0119	web_src/js/modules/tippy.ts:94		
+vue0120	web_src/js/modules/gitea-actions.ts:60		
+vue0121	node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:750		
+vue0122	web_src/js/components/SvgIcon.vue:31		
+vue0123	web_src/js/components/RepoBranchTagSelector.vue:62		
+vue0124	web_src/js/components/RepoFileSearch.vue:34		
+vue0125	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:464		
+vue0126	web_src/js/components/DashboardRepoList.vue:29		
+vue0127	web_src/js/utils/dom.ts:281		
+vue0128	web_src/js/utils/url.ts:43		
+vue0129		builtin: the server's own stub	
+vue0130	web_src/js/modules/diff-file.ts:57		
+vue0131		builtin: the server's own stub	
+vue0132	web_src/js/components/RepoContributors.vue:84		
+vue0133	web_src/js/components/ViewFileTreeStore.ts:20		
+vue0134	web_src/js/utils/dom.ts:45		
+vue0135	web_src/js/components/RepoContributors.vue:127		
+vue0136	web_src/js/components/DiffCommitSelector.vue:175		
+vue0137	web_src/js/components/DiffFileTree.vue:15		
+vue0138	node_modules/.pnpm/chart.js@4.5.1/node_modules/chart.js/dist/core/core.adapters.d.ts:19	object-literal key is itself a declaration; oracle gives its contextual type	
+vue0139	web_src/js/components/ActionRunSummaryView.vue:28		
+vue0140		builtin: the server's own stub	
+vue0141	web_src/js/components/RepoActivityTopAuthors.vue:55		
+vue0142	web_src/js/components/WorkflowGraph.utils.ts:104		
+vue0143		builtin: the server's own stub	
+vue0144	web_src/js/components/RepoContributors.vue:32		
+vue0145	web_src/js/components/RepoActionView.vue:50		
+vue0146	node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:750		
+vue0147	web_src/js/components/SvgIcon.vue:1		
+vue0148	web_src/js/modules/diff-file.ts:37		
+vue0149	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:419;node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:418		
+vue0150	web_src/js/modules/gitea-actions.ts:8		
+vue0151	node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:753		
+vue0152	node_modules/.pnpm/dayjs@1.11.23/node_modules/dayjs/index.d.ts:5;node_modules/.pnpm/dayjs@1.11.23/node_modules/dayjs/plugin/quarterOfYear.d.ts:6;node_modules/.pnpm/dayjs@1.11.23/node_modules/dayjs/plugin/utc.d.ts:6;node_modules/.pnpm/dayjs@1.11.23/node_modules/dayjs/index.d.ts:11;node_modules/.pnpm/dayjs@1.11.23/node_modules/dayjs/index.d.ts:9;node_modules/.pnpm/dayjs@1.11.23/node_modules/dayjs/index.d.ts:7		
+vue0153	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:419;node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:418		
+vue0154	web_src/js/components/RepoContributors.vue:48		
+vue0155		builtin: the server's own stub	
+vue0156	web_src/js/components/PullRequestMergeForm.vue:46		
+vue0157	web_src/js/modules/gitea-actions.ts:46		
+vue0158		builtin: the server's own stub	
+vue0159	node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:750		
+vue0160	web_src/js/components/DiffFileTree.vue:13		
+vue0161	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:419;node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:418		
+vue0162	web_src/js/modules/gitea-actions.ts:71		
+vue0163	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:419;node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:418		
+vue0164	node_modules/.pnpm/chart.js@4.5.1/node_modules/chart.js/dist/types/index.d.ts:3794		
+vue0165	web_src/js/components/ChartCanvas.vue:1		
+vue0166		builtin: the server's own stub	
+vue0167	web_src/js/modules/diff-file.ts:33		
+vue0168	web_src/js/components/RepoActionView.vue:104		
+vue0169	web_src/js/modules/diff-file.ts:38		
+vue0170	web_src/js/components/ActivityHeatmap.vue:7		
+vue0171	web_src/js/components/RepoActionView.vue:59		
+vue0172	web_src/js/components/DiffCommitSelector.vue:175		
+vue0173	web_src/js/components/SvgIcon.vue:11		
+vue0174	web_src/js/components/RepoBranchTagSelector.vue:12		
+vue0175	web_src/js/components/PullRequestMergeForm.vue:18		
+vue0176	node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:378		
+vue0177	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:412;node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:6		
+vue0178	node_modules/.pnpm/chart.js@4.5.1/node_modules/chart.js/dist/types/index.d.ts:2679;node_modules/.pnpm/chart.js@4.5.1/node_modules/chart.js/dist/types/index.d.ts:2675		
+vue0179	web_src/js/components/WorkflowGraph.vue:54		
+vue0180	web_src/js/utils/dom.ts:45		
+vue0181	web_src/js/components/PullRequestMergeForm.vue:6		
+vue0182	web_src/js/components/DashboardRepoList.vue:258		
+vue0183	node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:1561		
+vue0184	web_src/js/utils.ts:81		
+vue0185	node_modules/.pnpm/chart.js@4.5.1/node_modules/chart.js/dist/elements/element.point.d.ts:4		
+vue0186	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:419;node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:418		
+vue0187	web_src/js/utils/time.ts:52		
+vue0188	web_src/js/components/WorkflowGraph.vue:21		
+vue0189	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:419;node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:418		
+vue0190	node_modules/.pnpm/dayjs@1.11.23/node_modules/dayjs/index.d.ts:5;node_modules/.pnpm/dayjs@1.11.23/node_modules/dayjs/plugin/quarterOfYear.d.ts:6;node_modules/.pnpm/dayjs@1.11.23/node_modules/dayjs/plugin/utc.d.ts:6;node_modules/.pnpm/dayjs@1.11.23/node_modules/dayjs/index.d.ts:11;node_modules/.pnpm/dayjs@1.11.23/node_modules/dayjs/index.d.ts:9;node_modules/.pnpm/dayjs@1.11.23/node_modules/dayjs/index.d.ts:7		
+vue0191		builtin: the server's own stub	
+vue0192	web_src/js/components/RepoActionView.vue:60		
+vue0193	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:419;node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:418		
+vue0194	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:563		
+vue0195	web_src/js/globals.d.ts:42		
+vue0196	node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:750		
+vue0197	web_src/js/components/DashboardRepoList.vue:258		
+vue0198	node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:750		
+vue0199	web_src/js/components/WorkflowGraph.utils.ts:6		
+vue0200		builtin: the server's own stub	
+vue0201	web_src/js/components/WorkflowGraph.utils.ts:38		
+vue0202	web_src/js/components/RepoActionView.vue:45		
+vue0203	web_src/js/modules/gitea-actions.ts:2		
+vue0204	web_src/js/components/RepoContributors.vue:87		
+vue0205	web_src/js/components/RepoBranchTagSelector.vue:13		
+vue0206		builtin: the server's own stub	
+vue0207	web_src/js/modules/gitea-actions.ts:44		
+vue0208	node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:1561		
+vue0209	web_src/js/components/DiffFileTreeItem.vue:14		
+vue0210	web_src/js/components/ActionRunJobView.vue:24		
+vue0211	web_src/js/components/ActionRunJobView.vue:30		
+vue0212	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:210		
+vue0213		builtin: the server's own stub	
+vue0214	web_src/js/components/ActionRunView.ts:215		
+vue0215		builtin: the server's own stub	
+vue0216		builtin: the server's own stub	
+vue0217	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:419;node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:418		
+vue0218	web_src/js/components/ActivityHeatmap.vue:16		
+vue0219	web_src/js/components/DashboardRepoList.vue:342		
+vue0220	web_src/js/components/SvgIcon.vue:1		
+vue0221	web_src/js/components/RepoBranchTagSelector.vue:18		
+vue0222	web_src/js/components/WorkflowGraph.vue:47		
+vue0223	web_src/js/components/RepoContributors.vue:141		
+vue0224	web_src/js/components/DashboardRepoList.vue:68		
+vue0225	web_src/js/modules/diff-file.ts:48		
+vue0226		builtin: the server's own stub	
+vue0227		builtin: the server's own stub	
+vue0228		builtin: the server's own stub	
+vue0229	node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:1841;node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:1392		
+vue0230		builtin: the server's own stub	
+vue0231		builtin: the server's own stub	
+vue0232	web_src/js/components/RepoCodeFrequency.vue:52		
+vue0233	node_modules/.pnpm/chart.js@4.5.1/node_modules/chart.js/dist/types/index.d.ts:230;node_modules/.pnpm/chart.js@4.5.1/node_modules/chart.js/dist/types/index.d.ts:229		
+vue0234		builtin: the server's own stub	
+vue0235	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:444		
+vue0236	web_src/js/components/ViewFileTreeStore.ts:53		
+vue0237	web_src/js/components/ActionRunSummaryView.vue:23		
+vue0238	web_src/js/components/ActivityHeatmap.vue:45		
+vue0239	web_src/js/modules/gitea-actions.ts:72		
+vue0240	web_src/js/utils/time.ts:77		
+vue0241	web_src/js/modules/diff-file.ts:209		
+vue0242	web_src/js/components/ActionRunJobView.vue:206		
+vue0243		builtin: the server's own stub	
+vue0244	web_src/js/modules/diff-file.ts:19		
+vue0245		builtin: the server's own stub	
+vue0246	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:412;node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:6		
+vue0247	web_src/js/components/PullRequestMergeForm.vue:51		
+vue0248	web_src/js/components/RepoContributors.vue:264		
+vue0249		builtin: the server's own stub	
+vue0250	node_modules/.pnpm/chart.js@4.5.1/node_modules/chart.js/dist/types/index.d.ts:2249		
+vue0251	web_src/js/components/DashboardRepoList.vue:25		
+vue0252	web_src/js/components/SvgIcon.vue:1		
+vue0253	web_src/js/components/ActionRunSummaryView.vue:12		
+vue0254	web_src/js/components/ViewFileTreeItem.vue:9		
+vue0255	web_src/js/components/DashboardRepoList.vue:45		
+vue0256		builtin: the server's own stub	
+vue0257		builtin: the server's own stub	
+vue0258	node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:753		
+vue0259	web_src/js/components/SvgIcon.vue:1		
+vue0260	node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:1561		
+vue0261		builtin: the server's own stub	
+vue0262	node_modules/.pnpm/@vue+runtime-core@3.5.43/node_modules/@vue/runtime-core/dist/runtime-core.d.ts:1561		
+vue0263	web_src/js/components/DashboardRepoList.vue:161		
+vue0264	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:444		
+vue0265	web_src/js/components/DashboardRepoList.vue:27		
+vue0266	web_src/js/modules/diff-file.ts:62		
+vue0267	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:419;node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:418		
+vue0268	web_src/js/components/WorkflowGraph.utils.ts:25		
+vue0269	node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:419;node_modules/.pnpm/@vue+reactivity@3.5.43/node_modules/@vue/reactivity/dist/reactivity.d.ts:418		

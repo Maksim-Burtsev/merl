@@ -1,0 +1,101 @@
+# id	targets: path:line joined by ; (project-relative; empty: none in reach)	skip: why the row is not scored	note (judged by reading the code: no language server ran for this language)
+nix0000			outside the project: nixpkgs lib.types.bool
+nix0001	modules/lib/write-text.nix:1		function argument
+nix0002	modules/services/buildkite-agents.nix:41		option `package` of the agent submodule; cfg is mapAgents' lambda argument
+nix0003	modules/documentation/default.nix:6		let binding
+nix0004			outside the project: nixpkgs lib.escapeShellArgs
+nix0005			outside the project: nixpkgs lib.mkIf (with lib)
+nix0006	doc/manual/default.nix:8		function argument `prefix ? ../..`
+nix0007			outside the project: nixpkgs lib.types
+nix0008	modules/documentation/default.nix:57		option documentation.enable; cfg = config.documentation
+nix0009			outside the project: builtins.concatStringsSep
+nix0010	modules/system/defaults-write.nix:25		let binding
+nix0011	modules/launchd/types.nix:60		let binding
+nix0012			outside the project: nixpkgs lib.optionalString (with lib)
+nix0013	tests/nixpkgs-config-allow-unfree.nix:1		path import
+nix0014	modules/system/defaults-write.nix:25		let binding
+nix0015			outside the project: nixpkgs lib.types.nonEmptyListOf (with types)
+nix0016	modules/system/defaults-write.nix:29		let binding
+nix0017	modules/system/defaults-write.nix:31		let binding
+nix0018	modules/services/mail/offlineimap.nix:12		option services.offlineimap.package
+nix0019			outside the project: nixpkgs lib.types.listOf
+nix0020	flake.nix:9		let binding
+nix0021			outside the project: nixpkgs lib.filterAttrs (with lib)
+nix0022	modules/system/defaults-write.nix:46		let binding
+nix0023	modules/system/defaults-write.nix:30		let binding
+nix0024			outside the project: nixpkgs vimPlugins (with pkgs.vimPlugins)
+nix0025	modules/nix/default.nix:9		let binding
+nix0026			outside the project: nixpkgs lib.optionalString (with lib)
+nix0027			outside the project: nixpkgs lib.trivial.revisionWithDefault
+nix0028			outside the project: nixpkgs lib.optionals (with lib)
+nix0029	tests/services-aerospace.nix:1		path import
+nix0030	modules/system/defaults-write.nix:31		let binding
+nix0031	modules/system/activation-scripts.nix:48		option system.activationScripts; cfg = config.system
+nix0032			outside the project: nixpkgs lib.mapAttrsToList (with lib)
+nix0033	modules/system/version.nix:34		option system.stateVersion
+nix0034	modules/system/defaults-write.nix:26		let binding
+nix0035			outside the project: nixpkgs lib.types.oneOf
+nix0036	modules/system/defaults-write.nix:46		let binding
+nix0037			outside the project: nixpkgs lib.optionalString (with lib)
+nix0038	modules/services/synapse-bt.nix:6		let binding
+nix0039		an option group: cfg.plugins.dir is the option, `plugins` only its prefix	
+nix0040	modules/users/default.nix:14		let binding
+nix0041	modules/system/defaults-write.nix:48		let binding
+nix0042	modules/system/defaults-write.nix:48		let binding
+nix0043			outside the project: nixpkgs lib.types (with lib)
+nix0044			outside the project: nixpkgs lib.optional (with lib)
+nix0045			outside the project: nixpkgs pkgs.writeShellScriptBin
+nix0046	modules/nix/nix-darwin.nix:1		path import
+nix0047			outside the project: nixpkgs lib.types.path
+nix0048		an option namespace (config.system): declared across many modules	
+nix0049			outside the project: nixpkgs lib.types (with lib)
+nix0050			outside the project: nixpkgs lib.optionalString (with lib)
+nix0051	modules/services/monitoring/netdata.nix:1		path import
+nix0052	modules/system/defaults-write.nix:30		let binding
+nix0053	modules/networking/applicationFirewall.nix:1		path import
+nix0054			outside the project: nixpkgs lib.concatStrings (with lib)
+nix0055			outside the project: nixpkgs pkgs.runCommand
+nix0056	modules/power/sleep.nix:49		option power.sleep.allowSleepByPowerButton
+nix0057			outside the project: nixpkgs lib.types.nullOr
+nix0058		an option namespace (config.networking): declared across many modules	
+nix0059	release.nix:28		option `out` the test harness declares
+nix0060			outside the project: nixpkgs lib.optionalString
+nix0061	pkgs/darwin-uninstaller/default.nix:1		path import of a directory: its default.nix
+nix0062			outside the project: nixpkgs lib.escapeShellArg (with lib)
+nix0063			outside the project: nixpkgs lib.concatMapStringsSep (with lib)
+nix0064	modules/services/hercules-ci-agent/default.nix:17		option services.hercules-ci-agent.logFile
+nix0065	modules/system/defaults-write.nix:45		let binding
+nix0066	modules/services/sketchybar/default.nix:4		inherit (lib) in the let block
+nix0067			outside the project: nixpkgs lib.optionals (with lib)
+nix0068		an attribute of environment.variables, set by several modules	
+nix0069	modules/lib/write-text.nix:9		lambda argument on the same line
+nix0070		an attribute of environment.variables, set by several modules	
+nix0071			outside the project: nixpkgs lib.types.str
+nix0072			outside the project: nixpkgs lib.types.nullOr
+nix0073	modules/system/version.nix:1		path import
+nix0074	eval-config.nix:86		let binding
+nix0075			outside the project: nixpkgs lib.concatStringsSep (with lib)
+nix0076	modules/programs/fish.nix:66		option programs.fish.useBabelfish
+nix0077	tests/services-netdata.nix:1		path import
+nix0078	modules/nix/default.nix:142		let binding
+nix0079	modules/system/defaults-write.nix:26		let binding
+nix0080		an option namespace (config.system): declared across many modules	
+nix0081		an attribute of environment.variables, set by several modules	
+nix0082			outside the project: nixpkgs lib.types (with lib)
+nix0083			outside the project: nixpkgs pkgs.runCommand
+nix0084	tests/programs-devenv.nix:1		path import
+nix0085	modules/services/gitlab-runner.nix:5		let binding
+nix0086	modules/services/buildkite-agents.nix:199		let binding
+nix0087	release.nix:28		option `out` the test harness declares
+nix0088	pkgs/nix-tools/darwin-rebuild.sh:1		path import
+nix0089	modules/meta.nix:10		lambda argument on the same line
+nix0090	modules/system/defaults-write.nix:45		let binding
+nix0091			outside the project: nixpkgs lib.types.enum
+nix0092			outside the project: nixpkgs lib.types.str
+nix0093			outside the project: nixpkgs lib.types.submodule
+nix0094			outside the project: nixpkgs lib.types.listOf
+nix0095	modules/misc/ids.nix:19		option ids.uids
+nix0096			outside the project: nixpkgs lib.optional
+nix0097			outside the project: builtins.mapAttrs (with builtins)
+nix0098			outside the project: nixpkgs lib.mkIf (with lib)
+nix0099			outside the project: nixpkgs lib.optional (with lib)
