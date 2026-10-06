@@ -1,5 +1,3 @@
-//! Go: its signatures, its packages and the files a platform is built from.
-
 use super::*;
 
 #[test]
@@ -156,7 +154,6 @@ fn a_go_package_block_is_read_at_its_level_and_a_mention_may_declare() {
             value: Value::Type("AuditLog".into())
         }]
     );
-    // The cursor is on the last `repo.Do()` of each.
     for (code, want) in [
         ("var x = repo.Do()\n", false),
         (
@@ -178,7 +175,6 @@ fn a_go_package_block_is_read_at_its_level_and_a_mention_may_declare() {
             "func Label() {\n\trepo := 1\nretry: // again\n\trepo.Do()\n}\n",
             true,
         ),
-        // On the line itself.
         ("func One(repo *A, fn func()) { repo.Do() }\n", true),
         (
             "func If() {\n\tif repo := get(); repo.Do() {\n\t}\n}\n",

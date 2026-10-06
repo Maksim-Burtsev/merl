@@ -1,5 +1,3 @@
-//! The drawing tests, one file per drawing module.
-//!
 //! The items below are what the tests reach for as `super::…`, so a test moved here from
 //! `src/ui.rs` keeps the paths it was written with.
 

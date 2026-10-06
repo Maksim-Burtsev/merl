@@ -116,3 +116,13 @@ key :
 type 5
 key Enter f
 wait ⋯ </section>
+# A destructured parameter has the type of its field in the parameter's written type (#354):
+# `target.close` in `closeOn({ target }: Closing)` lands on Dialog.close through `Closing`.
+key o
+type Dialog
+key Enter
+wait web/src/components/Dialog.ts  1:1
+key /
+type target.close
+key Enter Right Right Right Right Right Right Right d
+wait close → Dialog.close (via target: Dialog)

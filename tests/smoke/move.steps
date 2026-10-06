@@ -70,3 +70,12 @@ key o
 type READMEmd
 key Enter f
 wait README.md  1:1  [code]
+# A fourth `v` selects the whole file, the cursor at its end (#635).
+key o
+type appservice
+key Enter :
+type 13
+key Enter M-Right v v v
+wait app/service.py  15:33  [code]
+key v
+wait app/service.py  36:21  [code]

@@ -1,6 +1,3 @@
-//! The C# projects of a solution (#349): a file compiles against its own `.csproj` and the
-//! projects that one references, and a declaration in any other project is out of its sight.
-
 use std::path::{Component, Path, PathBuf};
 
 use regex::Regex;

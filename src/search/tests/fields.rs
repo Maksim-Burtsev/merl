@@ -41,9 +41,12 @@ fn a_field_by_name_is_the_declaration_in_its_type() {
         qualified(Kind::Python, def, 2, "x").as_deref(),
         Some("build.x")
     );
-    // A tuple target is a declaration, and the later plain assignment stands for it.
     let tuple = "class Point:\n    def __init__(self):\n        self.x, self.offset = 0, 0\n\n    def move(self):\n        self.offset = 5\n";
-    assert_eq!(found(Kind::Python, tuple, "offset"), one(3, "Point.offset"));
+    assert_eq!(
+        found(Kind::Python, tuple, "offset"),
+        one(3, "Point.offset"),
+        "a tuple target is a declaration, and the later plain assignment stands for it"
+    );
     let doc = "class Comment:\n    \"\"\"\n    body : str\n    \"\"\"\n\n    def __init__(self, body):\n        self.body = body\n";
     assert_eq!(found(Kind::Python, doc, "body"), one(7, "Comment.body"));
     let ts = "export class Issue extends Base {\n  posterId = 0;\n\n  constructor(\n    private repo: Repo,\n    @Inject(Log) private log: Log,\n  ) {\n    super();\n    this.title = \"\";\n  }\n\n  resize(opts: {\n    readonly width: number;\n  }): void {\n    const box = {\n      grow() {\n        this.height = 1;\n      },\n    };\n  }\n}\nexport function tally(): void {\n  const sums = {\n    total: 0,\n  };\n  total = 2;\n}\nexport const config: {\n  readonly timeout: number;\n} = { timeout: 1 };\n";
@@ -53,9 +56,16 @@ fn a_field_by_name_is_the_declaration_in_its_type() {
     assert_eq!(found(Kind::TsJs, ts, "title"), one(9, "Issue.title"));
     assert_eq!(found(Kind::TsJs, ts, "width"), vec![]);
     assert_eq!(found(Kind::TsJs, ts, "height"), vec![]);
-    // Nor are they named after the class.
-    assert_eq!(qualified(Kind::TsJs, ts, 13, "width"), None);
-    assert_eq!(qualified(Kind::TsJs, ts, 17, "height"), None);
+    assert_eq!(
+        qualified(Kind::TsJs, ts, 13, "width"),
+        None,
+        "a type literal's member is not named after the class"
+    );
+    assert_eq!(
+        qualified(Kind::TsJs, ts, 17, "height"),
+        None,
+        "a `this` that is no class's is not named after the class"
+    );
     assert_eq!(found(Kind::TsJs, ts, "total"), vec![]);
     assert_eq!(found(Kind::TsJs, ts, "timeout"), vec![]);
     assert_eq!(
@@ -145,13 +155,13 @@ fn python_fields_come_from_the_class_body_and_self_in_its_methods() {
         self.repo = make_repo()
 ";
     let at = |name| fields(Kind::Python, text, 1, name);
-    // An argument of a call is no binding.
     assert_eq!(
         at("repo"),
         [
             (6, Value::Name("repo".into())),
             (16, Value::Call("make_repo".into()))
-        ]
+        ],
+        "an argument of a call is no binding"
     );
     assert_eq!(at("audit"), [(2, ty("AuditLog"))]);
     assert_eq!(at("cache"), [(3, Value::Call("Cache".into()))]);
@@ -197,15 +207,21 @@ fn a_python_property_is_a_field_of_its_declared_return_type() {
         def nested(self) -> Nested: ...
 ";
     let at = |name| fields(Kind::Python, text, 1, name);
-    // The setter declares no type of its own.
-    assert_eq!(at("users"), [(3, ty("UserRepository"))]);
+    assert_eq!(
+        at("users"),
+        [(3, ty("UserRepository"))],
+        "the setter declares no type of its own"
+    );
     assert_eq!(at("audit"), [(11, ty("\"AuditLog\""))]);
     assert_eq!(at("jobs"), [(18, ty("Jobs"))]);
     assert_eq!(at("mixins"), [(21, Value::Unknown)]);
     assert_eq!(at("plain"), []);
     assert_eq!(at("inner"), []);
-    // A property nested in a method is no field of the class.
-    assert_eq!(at("nested"), []);
+    assert_eq!(
+        at("nested"),
+        [],
+        "a property nested in a method is no field of the class"
+    );
 }
 
 #[test]
@@ -234,8 +250,11 @@ fn a_ts_getter_is_a_field_of_its_declared_type() {
     assert_eq!(at("audit"), [(8, ty("AuditLog | null"))]);
     assert_eq!(at("jobs"), [(9, ty("Jobs"))]);
     assert_eq!(at("mixins"), [(10, Value::Unknown)]);
-    // An object literal's getter inside a method is no field of the class.
-    assert_eq!(at("nested"), []);
+    assert_eq!(
+        at("nested"),
+        [],
+        "an object literal's getter inside a method is no field of the class"
+    );
 }
 
 #[test]
@@ -270,8 +289,11 @@ export interface Store extends Reader, Writer<T> {
     );
     assert_eq!(at(1, "store"), [(4, ty("Store | null"))]);
     assert_eq!(at(1, "repo"), [(7, ty("UserRepository"))]);
-    // A parameter without a modifier is no field; the assignment is.
-    assert_eq!(at(1, "notifier"), [(11, Value::Name("notifier".into()))]);
+    assert_eq!(
+        at(1, "notifier"),
+        [(11, Value::Name("notifier".into()))],
+        "a parameter without a modifier is no field; the assignment is"
+    );
     assert_eq!(at(18, "db"), [(19, ty("Database"))]);
     assert_eq!(at(18, "send"), []);
     assert_eq!(bases(Kind::TsJs, text, 1), ["Base<Repo>"]);

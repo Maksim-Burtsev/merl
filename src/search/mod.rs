@@ -52,6 +52,7 @@ mod starlark;
 mod swift;
 mod symbols;
 mod syntax;
+mod ts_patterns;
 mod types;
 mod words;
 
@@ -99,6 +100,7 @@ pub use starlark::*;
 pub use swift::*;
 pub use symbols::*;
 pub use syntax::*;
+pub use ts_patterns::*;
 pub use types::*;
 pub use words::*;
 

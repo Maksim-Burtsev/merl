@@ -113,7 +113,7 @@ d fg #787b7e bg #ffffff
 │ │   Edit: Ctrl+X                      Cut the selection, or the line                                                │
 │ │   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
 │ │ Selection                                                                                                         │
-│ │   v                                 Select the word, then the line, then the paragraph                            │
+│ │   v                                 Select the word, then the line, then the paragraph, then the whole file       │
 │ │   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
 │ │   Shift+Left / Shift+Right          Extend the selection by a char                                                │
 │ │   Alt+Shift+Left / Right            Extend the selection by a word                                                │
@@ -148,7 +148,7 @@ accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccc
 accbbbbbbbbbbccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -191,7 +191,7 @@ accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccc
 accbbbbbbbbbbccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -234,7 +234,7 @@ h fg #6639ba bg #e7eaf0 BOLD
 │                            │24  │   Edit: Ctrl+X                      Cut the selection, or the line                                                │
 │                            │25  │   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
 │                            │26  │ Selection                                                                                                         │
-│                            │27  │   v                                 Select the word, then the line, then the paragraph                            │
+│                            │27  │   v                                 Select the word, then the line, then the paragraph, then the whole file       │
 │                            │28  │   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
 │                            │29  │   Shift+Left / Shift+Right          Extend the selection by a char                                                │
 │                            │30  │   Alt+Shift+Left / Right            Extend the selection by a word                                                │
@@ -291,7 +291,7 @@ aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhh
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceebbbbbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
@@ -361,7 +361,7 @@ addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggg
 addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggggggggggggggggggggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddbbbbbbbbbbdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggdddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd

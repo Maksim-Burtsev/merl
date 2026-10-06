@@ -1,6 +1,3 @@
-//! Objective-C, read as part of the C kind (#417): the lines that declare a class, a protocol, a
-//! method, a property or an `NS_ENUM`, and which files read the SDK's frameworks.
-
 use regex::Regex;
 use std::path::Path;
 use std::sync::LazyLock;

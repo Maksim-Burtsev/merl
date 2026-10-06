@@ -31,17 +31,8 @@ fn u_reads_a_dotted_and_a_backticked_r_name_whole() {
         press(a, KeyCode::Esc, KeyModifiers::NONE);
         rows
     };
-    assert_eq!(
-        rows(&mut a, 1, "invoice"),
-        ["declaration  R/money.R:1:", "             R/use.R:1:"]
-    );
-    assert_eq!(
-        rows(&mut a, 3, "onLoad"),
-        ["declaration  R/money.R:3:", "             R/use.R:3:"]
-    );
-    assert_eq!(
-        rows(&mut a, 5, "%+%"),
-        ["declaration  R/money.R:4:", "             R/use.R:5:"]
-    );
+    assert_eq!(rows(&mut a, 1, "invoice"), ["R/money.R:1:", "R/use.R:1:"]);
+    assert_eq!(rows(&mut a, 3, "onLoad"), ["R/money.R:3:", "R/use.R:3:"]);
+    assert_eq!(rows(&mut a, 5, "%+%"), ["R/money.R:4:", "R/use.R:5:"]);
     std::fs::remove_dir_all(&dir).unwrap();
 }

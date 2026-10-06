@@ -12,36 +12,36 @@ wait Search (179 hits)
 11 class OrderService:
 12     def __init__┌Search (179 hits)─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 13         self.rep│s> Order                                                                                                                                          │
-14         self.uow│app/service.py:2: from app.models import Order, OrderStatus                                                                                       │
-15         self.set│app/service.py:3: from app.repos import OrderRepo                                                                                                 │
-16                 │app/service.py:7: class OrderNotFound(Exception):                                                                                                 │
-17     def get(self│app/service.py:11: class OrderService:                                                                                                            │
-18         order = │app/service.py:12: def __init__(self, repo: OrderRepo, uow: UnitOfWork, settings: Settings):                                                      │
-19         if order│app/service.py:17: def get(self, order_id: int) -> Order:                                                                                         │
-20             rais│app/service.py:18: order = self.repo.get(order_id)                                                                                                │
-21         return o│app/service.py:19: if order is None:                                                                                                              │
-22                 │app/service.py:20: raise OrderNotFound(order_id)                                                                                                  │
-23     def mark_pai│app/service.py:21: return order                                                                                                                   │
-24         order = │app/service.py:23: def mark_paid(self, order_id: int) -> Order:                                                                                   │
-25         order.st│app/service.py:24: order = self.get(order_id)                                                                                                     │
-26         self.rep│app/service.py:25: order.status = OrderStatus.PAID                                                                                                │
-27         return o│app/service.py:26: self.repo.save(order)                                                                                                          │
-28                 │app/service.py:27: return order                                                                                                                   │
-29     def cancel(s│app/service.py:29: def cancel(self, order_id: int) -> Order:                                                                                      │
-30         order = │app/service.py:30: order = self.get(order_id)                                                                                                     │
-31         if not o│app/service.py:31: if not order.can_cancel():                                                                                                     │
-32             rais│app/service.py:32: raise ValueError(f"order {order_id} is {order.status.value}")                                                                  │
-33         order.st│app/service.py:33: order.status = OrderStatus.CANCELLED                                                                                           │
-34         with sel│app/service.py:35: self.uow.orders.save(order)                                                                                                    │
-35             self│app/service.py:36: return order                                                                                                                   │
-36         return o│README.md:1: # orders                                                                                                                             │
-                   │README.md:3: The orders API (Python, `app/`), the worker that ships and syncs orders (Go, `worker/`) and the                                      │
-                   │README.md:10: Deployed with the Helm chart in `deploy/helm/orders`; `docker compose up` runs it all locally.                                      │
-                   │app/__init__.py:1: """The orders service: what the API and the worker share."""                                                                   │
-                   │app/__init__.py:2: from app.service import OrderService                                                                                           │
-                   │app/__init__.py:4: __all__ = ["OrderService"]                                                                                                     │
-                   │app/api.py:5: from app.service import OrderNotFound, OrderService                                                                                 │
-                   │app/api.py:8: def order_json(order) -> str:                                                                                                       │
+14         self.uow│app/service.py                                                                                                                                    │
+15         self.set│   2  from app.models import Order, OrderStatus                                                                                                   │
+16                 │   3  from app.repos import OrderRepo                                                                                                             │
+17     def get(self│   7  class OrderNotFound(Exception):                                                                                                             │
+18         order = │  11  class OrderService:                                                                                                                         │
+19         if order│  12  def __init__(self, repo: OrderRepo, uow: UnitOfWork, settings: Settings):                                                                   │
+20             rais│  17  def get(self, order_id: int) -> Order:                                                                                                      │
+21         return o│  18  order = self.repo.get(order_id)                                                                                                             │
+22                 │  19  if order is None:                                                                                                                           │
+23     def mark_pai│  20  raise OrderNotFound(order_id)                                                                                                               │
+24         order = │  21  return order                                                                                                                                │
+25         order.st│  23  def mark_paid(self, order_id: int) -> Order:                                                                                                │
+26         self.rep│  24  order = self.get(order_id)                                                                                                                  │
+27         return o│  25  order.status = OrderStatus.PAID                                                                                                             │
+28                 │  26  self.repo.save(order)                                                                                                                       │
+29     def cancel(s│  27  return order                                                                                                                                │
+30         order = │  29  def cancel(self, order_id: int) -> Order:                                                                                                   │
+31         if not o│  30  order = self.get(order_id)                                                                                                                  │
+32             rais│  31  if not order.can_cancel():                                                                                                                  │
+33         order.st│  32  raise ValueError(f"order {order_id} is {order.status.value}")                                                                               │
+34         with sel│  33  order.status = OrderStatus.CANCELLED                                                                                                        │
+35             self│  35  self.uow.orders.save(order)                                                                                                                 │
+36         return o│  36  return order                                                                                                                                │
+                   │README.md                                                                                                                                         │
+                   │   1  # orders                                                                                                                                    │
+                   │   3  The orders API (Python, `app/`), the worker that ships and syncs orders (Go, `worker/`) and the                                             │
+                   │  10  Deployed with the Helm chart in `deploy/helm/orders`; `docker compose up` runs it all locally.                                              │
+                   │app/__init__.py                                                                                                                                   │
+                   │   1  """The orders service: what the API and the worker share."""                                                                                │
+                   │   2  from app.service import OrderService                                                                                                        │
                    └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
 

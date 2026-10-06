@@ -54,8 +54,6 @@ pub fn build(root: &Path, shallow: bool) -> (Tree, Vec<PathBuf>) {
 pub fn build_ordered(root: &Path, shallow: bool, order: &Order) -> (Tree, Vec<PathBuf>) {
     // Dotfiles are walked: `.github/`, `.env` and `.dockerignore` are part of a project.
     // `.gitignore` still prunes caches; a version-control store is never content.
-    // A link to a directory is not followed (#404): the level it is in lists it, a directory
-    // read when it is expanded, so a link to `..` or `/` loops nothing and pulls nothing in.
     let walked: Vec<(PathBuf, bool)> = WalkBuilder::new(root)
         .hidden(false)
         .require_git(false)
@@ -109,9 +107,6 @@ fn is_store(name: &OsStr) -> bool {
     matches!(name.to_str(), Some(".git" | ".hg" | ".svn"))
 }
 
-/// Is it a row: a directory, a regular file, a link to one, or a link that leads nowhere, a row
-/// as `ls` shows it, which fails to open at once. A FIFO, a socket or a device is not code, and
-/// opening one blocks until something writes to it (#405). `kind` is the entry's own type.
 pub fn listable(path: &Path, kind: Option<FileType>) -> bool {
     let plain = |t: FileType| t.is_dir() || t.is_file();
     kind.is_some_and(plain)

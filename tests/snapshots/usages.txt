@@ -8,14 +8,14 @@ merl snapshot: usages
 │  export.csv                │11 class Config:
 │  Makef┌Usages of load_config: 1 declaration, 4 in code (5/5)─────────┐I."""
 │  model│>                                                             │
-│  notes│declaration  config.py:18: def load_config(path: Path | None =│
-│  PLAN.│             cli.py:6: from config import load_config         │
-│  store│             cli.py:30: store = NoteStore(load_config())      │
-│       │             store.py:5: from config import Config, load_confi│
-│       │             store.py:13: self.config = config or load_config(│e) ->
-│       │                                                              │
-│       │                                                              │le,
-│       │                                                              │
+│  notes│config.py                                                     │
+│  PLAN.│  18  def load_config(path: Path | None = None) -> Config:    │
+│  store│cli.py                                                        │
+│       │   6  from config import load_config                          │
+│       │  30  store = NoteStore(load_config())                        │e) ->
+│       │store.py                                                      │
+│       │   5  from config import Config, load_config                  │le,
+│       │  13  self.config = config or load_config()                   │
 │       │                                                              │):
 │       │                                                              │
 │       │                                                              │
@@ -34,23 +34,23 @@ aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccfeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccjjjjjekkkkkkgeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbaaaaaaaaaallllleee
 aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
-aeeeeeeeammmmmmmmmmmmmmmmmmmmmmmmmmmnnnmooooooooooopqqqqrmmmmmmrmssssmraeeeeeeee
-aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeetttteeeeeeeetttttteeeeeeeeeeeeeeeeeeeeeaeeeeeeee
-aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeefeaaaaaaaaagaaaaaaaaaaagggeeeeeeaeeeeeeee
-aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeetttteeeeeeeetttttteeeeeeefeeeeeeeeeeeaeeeeeeee
-aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeuuuufeeeeeeefeeeeeeeejjeaaaaaaaaaaagaspmrrmmm
-aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeammmmmmmm
-aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeealllleeee
-aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeaaaaaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeammmmmmnnnopppppppppppqrrrrsoooooosottttosottttqossoooooooqooooaeeeeeeee
+aeeeeeeeaaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeauuuuuuvvvveeeeeeeevvvvvveeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeauuuuuueeeeeefeaaaaaaaaagaaaaaaaaaaagggeeeeeeeeeeeeeeeeeeeeeeeeatqossooo
+aeeeeeeeaaaaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaoooooooo
+aeeeeeeeauuuuuuvvvveeeeeeeevvvvvveeeeeeefeeeeeeeeeeeeeeeeeeeeeeeeeeeeeealllleeee
+aeeeeeeeauuuuuuwwwwfeeeeeeefeeeeeeeejjeaaaaaaaaaaaggeeeeeeeeeeeeeeeeeeeaeeeeeeee
 aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaggeeeeee
 aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
 aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
 aeeeeeeeaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaeeeeeeee
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeevvvvvveaaaaaageeeeeeeeeeeeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccaaaaaaaawwwwfaaaagaaafaaagfhhhhffaeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeexxxxxxeaaaaaageeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccaaaaaaaayyyyfaaaagaaafaaagfhhhhffaeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeddddddddddddggfeeeeeeeeeeeeeeeeeeeeeeee
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccaaaaaaaawwwwwwwwwfkkkgaaafaaagfhhhhhhhhhffaeeee
-xxxxxxxxxmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccaaaaaaaayyyyyyyyyfkkkgaaafaaagfhhhhhhhhhffaeeee
+zzzzzzzzzooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #32374f bg #222436
@@ -63,18 +63,20 @@ i fg #c8d3f5 bg #1e2031
 j fg #c099ff bg #222436
 k fg #0db9d7 bg #222436
 l fg #636da6 bg #222436 ITALIC
-m fg #c8d3f5 bg #1b1d2c
+m fg #7d849f bg #1b1d2c
 n fg #c099ff bg #1b1d2c
-o fg #82aaff bg #1b1d2c
-p fg #9abdf5 bg #1b1d2c
-q fg #ffc777 bg #1b1d2c
-r fg #89ddff bg #1b1d2c
-s fg #ff966c bg #1b1d2c
-t fg #86e1fc bg #222436
-u fg #ff757f bg #222436
-v fg #c099ff bg #222436 ITALIC
-w fg #ffc777 bg #222436
-x fg #82aaff bg #1b1d2c BOLD
+o fg #c8d3f5 bg #1b1d2c
+p fg #82aaff bg #1b1d2c
+q fg #9abdf5 bg #1b1d2c
+r fg #ffc777 bg #1b1d2c
+s fg #89ddff bg #1b1d2c
+t fg #ff966c bg #1b1d2c
+u fg #7d849f bg #222436
+v fg #86e1fc bg #222436
+w fg #ff757f bg #222436
+x fg #c099ff bg #222436 ITALIC
+y fg #ffc777 bg #222436
+z fg #82aaff bg #1b1d2c BOLD
 
 ==== 80x24 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddedddddddddddddeddfffffffffffdddddd
@@ -84,14 +86,14 @@ aggggggggggggggggggggggggggggacccddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaccceeeeedhhhhhhddddddddddddddddddddddddddddddddddd
 adddddddabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbaaaaaaaaaaiidddddd
 adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
-adddddddajjjjjjjjjjjjjjjjjjjjjjjjjjjkkkjllllllllllljjjjjjjjjjjjkjmmmmjkadddddddd
-adddddddadddddddddddddddddddddddeeeeddddddddeeeeeedddddddddddddddddddddadddddddd
-adddddddaddddddddddddddddddddddddddddddedddddddddddddddddddddddddddddddadddddddd
-adddddddadddddddddddddddddddddddddeeeeddddddddeeeeeedddddddddddddddddddadddddddd
-adddddddaddddddddddddddddddddddddddddddddddddddeddddddddeedddddddddddddamjjjjjjj
-adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddajjjjjjjj
-adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddaiiiidddd
-adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+adddddddaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+adddddddajjjjjjkkklmmmmmmmmmmmllllllllllllklnnnnlklnnnnlllllllllllllllladddddddd
+adddddddaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+adddddddaooooooeeeeddddddddeeeeeeddddddddddddddddddddddddddddddddddddddadddddddd
+adddddddaooooooddddddedddddddddddddddddddddddddddddddddddddddddddddddddanlllllll
+adddddddaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddallllllll
+adddddddaooooooeeeeddddddddeeeeeeddddddddddddddddddddddddddddddddddddddaiiiidddd
+adddddddaooooooddddddddddddeddddddddeedddddddddddddddddddddddddddddddddadddddddd
 adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
 adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
 adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
@@ -100,7 +102,7 @@ addddddddddddddddddddddddddddacccddddeeeeeeddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddddddddddddeddddddddddddddffffdddddddddddddddd
 addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddehhhddddddddddfffffffffddddddd
-nnnnnnnnnjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ppppppppplllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #6e7781 bg #ffffff
@@ -110,13 +112,15 @@ f fg #0a3069 bg #ffffff
 g fg #1f2328 bg #f3f4f7
 h fg #953800 bg #ffffff
 i fg #57606a bg #ffffff
-j fg #1f2328 bg #e7eaf0
+j fg #787b7e bg #e7eaf0
 k fg #cf222e bg #e7eaf0
-l fg #6639ba bg #e7eaf0
-m fg #0550ae bg #e7eaf0
-n fg #6639ba bg #e7eaf0 BOLD
+l fg #1f2328 bg #e7eaf0
+m fg #6639ba bg #e7eaf0
+n fg #0550ae bg #e7eaf0
+o fg #787b7e bg #ffffff
+p fg #6639ba bg #e7eaf0 BOLD
 
-==== 120x33 tokyonight-moon text, cursor 15,8
+==== 120x33 tokyonight-moon text, cursor 38,8
 ┌notes───────────────────────┐ 2
 │▸ tests                     │ 3 import json
 │  cli.py                    │ 4 from dataclasses import dataclass
@@ -124,25 +128,25 @@ n fg #6639ba bg #e7eaf0 BOLD
 │  export.csv                │ 6
 │  Makefile                  │ 7 DEFAULT_PATH = Path.home() / ".notes.json"
 │  models.py                 │ 8
-│  notes.jso┌Usages of load_config: 1 declaration, 4 in code (5/5)─────────────────────────────────────────┐
-│  PLAN.md  │>                                                                                             │
-│  store.py │declaration  config.py:18: def load_config(path: Path | None = None) -> Config:               │
-│           │             cli.py:6: from config import load_config                                         │
-│           │             cli.py:30: store = NoteStore(load_config())                                      │
-│           │             store.py:5: from config import Config, load_config                               │
-│           │             store.py:13: self.config = config or load_config()                               │
-│           │                                                                                              │
-│           │                                                                                              │
-│           │                                                                                              │
-│           │                                                                                              │
-│           │                                                                                              │
-│           │                                                                                              │
-│           │                                                                                              │
-│           │                                                                                              │
-│           │                                                                                              │
-│           │                                                                                              │
-│           │                                                                                              │
-│           └──────────────────────────────────────────────────────────────────────────────────────────────┘
+│  notes.json                │ 9   ┌Usages of load_config: 1 declaration, 4 in code (5/5)──────────────────────────┐
+│  PLAN.md                   │10 @d│>                                                                              │
+│  store.py                  │11 cl│config.py                                                                      │
+│                            │12   │  18  def load_config(path: Path | None = None) -> Config:                     │
+│                            │13   │cli.py                                                                         │
+│                            │14   │   6  from config import load_config                                           │
+│                            │15   │  30  store = NoteStore(load_config())                                         │
+│                            │16   │store.py                                                                       │
+│                            │17   │   5  from config import Config, load_config                                   │
+│                            │18 de│  13  self.config = config or load_config()                                    │
+│                            │19   │                                                                               │
+│                            │20   │                                                                               │
+│                            │21   │                                                                               │
+│                            │22   │                                                                               │
+│                            │23   │                                                                               │
+│                            │24   │                                                                               │
+│                            │25   │                                                                               │
+│                            │26   │                                                                               │
+│                            │     └───────────────────────────────────────────────────────────────────────────────┘
 │                            │
 │                            │
 │                            │
@@ -159,32 +163,32 @@ affffffffffffffffffffffffffffaccceeeedddddddddeeeeeedddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccggggggggggggdhdaaaahaaaaiidhdhjjjjjjjjjjjhddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-adddddddddddabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddakkkkkkkkkkkkkkkkkkkkkkkkkkklllkmmmmmmmmmmmnoooopkkkkkkpkqqqqkpkqqqqnkppkkkkkkknkkkkkkkkkkkkkkkadddddddddddd
-adddddddddddadddddddddddddddddddddddeeeeddddddddeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddhdaaaaaaaaaiaaaaaaaaaaaiiiddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddadddddddddddddddddddddddddeeeeddddddddeeeeeedddddddhdddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddrrrrhdddddddhddddddddssdaaaaaaaaaaaiidddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddakkkkkkkkkkkk
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddd
+addddddddddddddddddddddddddddacccddabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaadddd
+addddddddddddddddddddddddddddaccchdadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddaccckkaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddallllllmmmnooooooooooopqqqqrnnnnnnrnssssnrnsssspnrrnnnnnnnpnnnnnnnnnnnnnnnnnnnnnadddd
+addddddddddddddddddddddddddddacccddaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddatttttteeeeddddddddeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddattttttddddddhdaaaaaaaaaiaaaaaaaaaaaiiidddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddatttttteeeeddddddddeeeeeedddddddhdddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddauuummattttttvvvvhdddddddhddddddddkkdaaaaaaaaaaaiiddddddddddddddddddddddddddddddddddddannnn
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddadddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddd
 addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-tttttttttkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
+wwwwwwwwwnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #32374f bg #222436
@@ -195,16 +199,19 @@ g fg #ff966c bg #222436
 h fg #89ddff bg #222436
 i fg #9abdf5 bg #222436
 j fg #c3e88d bg #222436
-k fg #c8d3f5 bg #1b1d2c
-l fg #c099ff bg #1b1d2c
-m fg #82aaff bg #1b1d2c
-n fg #9abdf5 bg #1b1d2c
-o fg #ffc777 bg #1b1d2c
-p fg #89ddff bg #1b1d2c
-q fg #ff966c bg #1b1d2c
-r fg #ff757f bg #222436
-s fg #c099ff bg #222436
-t fg #82aaff bg #1b1d2c BOLD
+k fg #c099ff bg #222436
+l fg #7d849f bg #1b1d2c
+m fg #c099ff bg #1b1d2c
+n fg #c8d3f5 bg #1b1d2c
+o fg #82aaff bg #1b1d2c
+p fg #9abdf5 bg #1b1d2c
+q fg #ffc777 bg #1b1d2c
+r fg #89ddff bg #1b1d2c
+s fg #ff966c bg #1b1d2c
+t fg #7d849f bg #222436
+u fg #32374f bg #1b1d2c
+v fg #ff757f bg #222436
+w fg #82aaff bg #1b1d2c BOLD
 
 ==== 120x33 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
@@ -214,32 +221,32 @@ affffffffffffffffffffffffffffaccceeeedddddddddeeeeeedddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccdddddddddddddedddddddddddddeddgggggggggggdddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-adddddddddddabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddahhhhhhhhhhhhhhhhhhhhhhhhhhhiiihjjjjjjjjjjjhhhhhhhhhhhhihkkkkhihkkkkhhhhhhhhhhhhhhhhhhhhhhhhhhhadddddddddddd
-adddddddddddadddddddddddddddddddddddeeeeddddddddeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddadddddddddddddddddddddddddeeeeddddddddeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddeddddddddeedddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddahhhhhhhhhhhh
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddd
-adddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddd
+addddddddddddddddddddddddddddacccddabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddaccceeaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddahhhhhhiiijkkkkkkkkkkkjjjjjjjjjjjjijlllljijlllljjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjadddd
+addddddddddddddddddddddddddddacccddaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddammmmmmeeeeddddddddeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddammmmmmddddddeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddammmmmmeeeeddddddddeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddannniiammmmmmddddddddddddeddddddddeeddddddddddddddddddddddddddddddddddddddddddddddddddajjjj
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddadddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddd
 addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-lllllllllhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+ooooooooojjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #6e7781 bg #ffffff
@@ -247,13 +254,16 @@ d fg #1f2328 bg #ffffff
 e fg #cf222e bg #ffffff
 f fg #1f2328 bg #f3f4f7
 g fg #0a3069 bg #ffffff
-h fg #1f2328 bg #e7eaf0
+h fg #787b7e bg #e7eaf0
 i fg #cf222e bg #e7eaf0
-j fg #6639ba bg #e7eaf0
-k fg #0550ae bg #e7eaf0
-l fg #6639ba bg #e7eaf0 BOLD
+j fg #1f2328 bg #e7eaf0
+k fg #6639ba bg #e7eaf0
+l fg #0550ae bg #e7eaf0
+m fg #787b7e bg #ffffff
+n fg #6e7781 bg #e7eaf0
+o fg #6639ba bg #e7eaf0 BOLD
 
-==== 185x55 tokyonight-moon text, cursor 22,12
+==== 185x55 tokyonight-moon text, cursor 41,12
 ┌notes───────────────────────┐ 1 """Configuration: where the notes live and how many are listed at once."""
 │▸ tests                     │ 2
 │  cli.py                    │ 3 import json
@@ -265,39 +275,39 @@ l fg #6639ba bg #e7eaf0 BOLD
 │  PLAN.md                   │ 9
 │  store.py                  │10 @dataclass
 │                            │11 class Config:
-│                  ┌Usages of load_config: 1 declaration, 4 in code (5/5)─────────────────────────────────────────────────────────────────────────────────────────────┐
-│                  │>                                                                                                                                                 │
-│                  │declaration  config.py:18: def load_config(path: Path | None = None) -> Config:                                                                   │
-│                  │             cli.py:6: from config import load_config                                                                                             │
-│                  │             cli.py:30: store = NoteStore(load_config())                                                                                          │
-│                  │             store.py:5: from config import Config, load_config                                                                                   │
-│                  │             store.py:13: self.config = config or load_config()                                                                                   │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  │                                                                                                                                                  │
-│                  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+│                            │12     "┌Usages of load_config: 1 declaration, 4 in code (5/5)────────────────────────────────────────────────────────────────────────────────────┐
+│                            │13      │>                                                                                                                                        │
+│                            │14     p│config.py                                                                                                                                │
+│                            │15     p│  18  def load_config(path: Path | None = None) -> Config:                                                                               │
+│                            │16      │cli.py                                                                                                                                   │
+│                            │17      │   6  from config import load_config                                                                                                     │
+│                            │18 def l│  30  store = NoteStore(load_config())                                                                                                   │
+│                            │19     "│store.py                                                                                                                                 │
+│                            │20     i│   5  from config import Config, load_config                                                                                             │
+│                            │21      │  13  self.config = config or load_config()                                                                                              │
+│                            │22     r│                                                                                                                                         │
+│                            │23     r│                                                                                                                                         │
+│                            │24      │                                                                                                                                         │
+│                            │25      │                                                                                                                                         │
+│                            │26     )│                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 │                            │
 │                            │
 │                            │
@@ -322,39 +332,39 @@ aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccclllllemmmmmmjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeannnnnnnnnnnnnnnnnnnnnnnnnnnooonpppppppppppqrrrrsnnnnnnsnttttnsnttttqnssnnnnnnnqnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeffffeeeeeeeeffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeieaaaaaaaaajaaaaaaaaaaajjjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeffffeeeeeeeeffffffeeeeeeeieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeuuuuieeeeeeeieeeeeeeelleaaaaaaaaaaajjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeannnnnnnnnnnnnnnnnn
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeedabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaaaaaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeannnnnnooopqqqqqqqqqqqrsssstpppppptpuuuuptpuuuurpttppppppprpppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeavvvvvvffffeeeeeeeeffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeawwwooopqavvvvvveeeeeeieaaaaaaaaajaaaaaaaaaaajjjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeapppppppp
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeedaaaaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeelavvvvvvffffeeeeeeeeffffffeeeeeeeieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeavvvvvvxxxxieeeeeeeieeeeeeeelleaaaaaaaaaaajjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeyaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccaaaajaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
@@ -365,7 +375,7 @@ aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-vvvvvvvvvnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+zzzzzzzzzpppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #32374f bg #222436
@@ -379,15 +389,19 @@ j fg #9abdf5 bg #222436
 k fg #c3e88d bg #222436
 l fg #c099ff bg #222436
 m fg #0db9d7 bg #222436
-n fg #c8d3f5 bg #1b1d2c
+n fg #7d849f bg #1b1d2c
 o fg #c099ff bg #1b1d2c
-p fg #82aaff bg #1b1d2c
-q fg #9abdf5 bg #1b1d2c
-r fg #ffc777 bg #1b1d2c
-s fg #89ddff bg #1b1d2c
-t fg #ff966c bg #1b1d2c
-u fg #ff757f bg #222436
-v fg #82aaff bg #1b1d2c BOLD
+p fg #c8d3f5 bg #1b1d2c
+q fg #82aaff bg #1b1d2c
+r fg #9abdf5 bg #1b1d2c
+s fg #ffc777 bg #1b1d2c
+t fg #89ddff bg #1b1d2c
+u fg #ff966c bg #1b1d2c
+v fg #7d849f bg #222436
+w fg #32374f bg #1b1d2c
+x fg #ff757f bg #222436
+y fg #c099ff bg #222436 ITALIC
+z fg #82aaff bg #1b1d2c BOLD
 
 ==== 185x55 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
@@ -401,39 +415,39 @@ addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccfffffdiiiiiidddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddajjjjjjjjjjjjjjjjjjjjjjjjjjjkkkjllllllllllljjjjjjjjjjjjkjmmmmjkjmmmmjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjadddddddddddddddddd
-addddddddddddddddddadddddddddddddddddddddddffffddddddddffffffdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddfdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddadddddddddddddddddddddddddffffddddddddffffffdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddfddddddddffdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddajjjjjjjjjjjjjjjjjj
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddddddddddddd
-addddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddajjjjjjkkklmmmmmmmmmmmllllllllllllklnnnnlklnnnnllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllladddddddd
+addddddddddddddddddddddddddddacccdddddaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddaooooooffffddddddddffffffdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddapppkkklmaooooooddddddfddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddallllllll
+addddddddddddddddddddddddddddacccdddddaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccddddfaooooooffffddddddddffffffdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddaooooooddddddddddddfddddddddffddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccddddfadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddaddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddaddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddaddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddaddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddaddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddaddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddaddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddaddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddaddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddaddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddaddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddaddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddaddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddaddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddaddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddaddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddaddddddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddaddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddd
 addddddddddddddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
@@ -444,7 +458,7 @@ addddddddddddddddddddddddddddadddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-nnnnnnnnnjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+qqqqqqqqqllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #6e7781 bg #ffffff
@@ -454,8 +468,11 @@ f fg #cf222e bg #ffffff
 g fg #1f2328 bg #f3f4f7
 h fg #0a3069 bg #ffffff
 i fg #953800 bg #ffffff
-j fg #1f2328 bg #e7eaf0
+j fg #787b7e bg #e7eaf0
 k fg #cf222e bg #e7eaf0
-l fg #6639ba bg #e7eaf0
-m fg #0550ae bg #e7eaf0
-n fg #6639ba bg #e7eaf0 BOLD
+l fg #1f2328 bg #e7eaf0
+m fg #6639ba bg #e7eaf0
+n fg #0550ae bg #e7eaf0
+o fg #787b7e bg #ffffff
+p fg #6e7781 bg #e7eaf0
+q fg #6639ba bg #e7eaf0 BOLD

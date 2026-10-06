@@ -10,39 +10,39 @@ wait github-light
 │    repos.py                │ 9     PAID = "paid"
 │    service.py              │10     SHIPPED = "shipped"
 │    uow.py                  │11     CANCELLED = "cancelled"
-│▸ data            ┌Themes (94/94)────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│▸ deploy          │>                                                                                                                                                 │
-│▸ docs            │jellybeans                                                                                                                                        │
-│▸ scripts         │koda-dark                                                                                                                                         │
-│▸ tests           │lackluster                                                                                                                                        │
-│▸ web             │mellifluous                                                                                                                                       │
-│▸ worker          │mellow                                                                                                                                            │
-│  .env            │miasma                                                                                                                                            │
-│  .gitignore      │minischeme                                                                                                                                        │
-│  docker-compose.y│moonfly                                                                                                                                           │
-│  Dockerfile      │nightfly                                                                                                                                          │
-│  Makefile        │papercolor                                                                                                                                        │
-│  pyproject.toml  │pencil                                                                                                                                            │
-│  README.md       │selenized                                                                                                                                         │
-│                  │soviet-dark                                                                                                                                       │
-│                  │srcery                                                                                                                                            │
-│                  │token                                                                                                                                             │
-│                  │vague                                                                                                                                             │
-│                  │vesper                                                                                                                                            │
-│                  │rose-pine-dawn                                                                                                                                    │
-│                  │kanagawa-lotus                                                                                                                                    │
-│                  │everforest-light                                                                                                                                  │
-│                  │flexoki-light                                                                                                                                     │
-│                  │catppuccin-latte                                                                                                                                  │
-│                  │gruvbox-material-light                                                                                                                            │
-│                  │gruvbox-light                                                                                                                                     │
-│                  │melange-light                                                                                                                                     │
-│                  │dawnfox                                                                                                                                           │
-│                  │dayfox                                                                                                                                            │
-│                  │tokyonight-day                                                                                                                                    │
-│                  │onedark-light                                                                                                                                     │
-│                  │github-light                                                                                                                                      │
-│                  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+│▸ data                      │12     R┌Themes (94/94)───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│▸ deploy                    │13      │>                                                                                                                                        │
+│▸ docs                      │14      │jellybeans                                                                                                                               │
+│▸ scripts                   │15 @data│koda-dark                                                                                                                                │
+│▸ tests                     │16 class│lackluster                                                                                                                               │
+│▸ web                       │17     i│mellifluous                                                                                                                              │
+│▸ worker                    │18     c│mellow                                                                                                                                   │
+│  .env                      │19     t│miasma                                                                                                                                   │
+│  .gitignore                │20     s│minischeme                                                                                                                               │
+│  docker-compose.yml        │21     c│moonfly                                                                                                                                  │
+│  Dockerfile                │22      │nightfly                                                                                                                                 │
+│  Makefile                  │23     d│papercolor                                                                                                                               │
+│  pyproject.toml            │24      │pencil                                                                                                                                   │
+│  README.md                 │        │selenized                                                                                                                                │
+│                            │        │soviet-dark                                                                                                                              │
+│                            │        │srcery                                                                                                                                   │
+│                            │        │token                                                                                                                                    │
+│                            │        │vague                                                                                                                                    │
+│                            │        │vesper                                                                                                                                   │
+│                            │        │rose-pine-dawn                                                                                                                           │
+│                            │        │kanagawa-lotus                                                                                                                           │
+│                            │        │everforest-light                                                                                                                         │
+│                            │        │flexoki-light                                                                                                                            │
+│                            │        │catppuccin-latte                                                                                                                         │
+│                            │        │gruvbox-material-light                                                                                                                   │
+│                            │        │gruvbox-light                                                                                                                            │
+│                            │        │melange-light                                                                                                                            │
+│                            │        │dawnfox                                                                                                                                  │
+│                            │        │dayfox                                                                                                                                   │
+│                            │        │tokyonight-day                                                                                                                           │
+│                            │        │onedark-light                                                                                                                            │
+│                            │        │github-light                                                                                                                             │
+│                            │        └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 │                            │
 │                            │
 │                            │
@@ -54,4 +54,4 @@ wait github-light
 │                            │
 └────────────────────────────┘
 app/models.py  1:1  [code]                                                                                                                                                        ? help
-cursor (x,y,shown) 22,12,1
+cursor (x,y,shown) 41,12,1

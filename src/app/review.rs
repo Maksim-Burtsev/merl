@@ -24,10 +24,11 @@ impl App {
                 self.hist_note(true);
             }
         }
-        // `main` opens the first file with a hunk; say so when that is not the first file.
+        let mut read_through = vec![];
         if let (Some(r), Some(rel)) = (&self.review, self.rel_current()) {
             let skipped = r.files.iter().take_while(|f| !f.has_hunks()).count();
             if r.files.get(skipped).is_some_and(|f| f.path == rel) {
+                read_through = self.nothing_to_read(&r.files[..skipped]);
                 self.say_skipped(skipped);
             }
         }
@@ -37,11 +38,10 @@ impl App {
         }
         // And marks that cannot be read, more than both.
         self.load_viewed();
+        self.mark_viewed(read_through);
         self.open_session();
     }
 
-    /// Review stats (#242): a session of the review as it stands now starts here, its stops
-    /// counted on a thread.
     fn open_session(&mut self) {
         if let Some(r) = &self.review {
             let (repo, branch) = (self.root_name(), r.branch_or_commit(&self.root));
@@ -85,9 +85,6 @@ impl App {
         Some((rel, i + 1))
     }
 
-    /// Review stats (#242): a press at `at` done as `action`, the cursor at `from` before it, or
-    /// with no `at` a jump that came after its press (`s` answering an Enter that did not wait).
-    /// `quit`: the press quits merl.
     pub(super) fn review_count(
         &mut self,
         at: Option<Instant>,
@@ -133,8 +130,6 @@ impl App {
         rows
     }
 
-    /// `c` / `C`: the next / previous hunk, crossing into the next file of the review. From a
-    /// file outside it, back to the hunk they last stopped on (#239).
     pub(super) fn hunk(&mut self, dir: isize) {
         let Some(r) = self.review.clone() else {
             return;
@@ -155,20 +150,19 @@ impl App {
         let mut read = self
             .rel_current()
             .filter(|rel| dir > 0 && r.file(rel).is_some());
-        // Files with nothing to read (binary, a mode change, a pure rename, a submodule) are not
-        // stops. Nor is one that does not open: the walk goes on, and the status says why.
-        let (mut skipped, mut failed) = (0, None);
+        let (mut skipped, mut failed, mut passed) = (0, None, vec![]);
         for f in self.ahead(&r, dir) {
             if !f.has_hunks() {
                 skipped += 1;
+                passed.push(f);
             } else if self.open_review_file(f, dir < 0) {
                 self.remember_hunk();
                 match failed {
                     Some(why) => self.message = why,
                     None => self.say_skipped(skipped),
                 }
-                // After the walk's word: a mark that could not be saved says so over it.
-                self.mark_viewed(read.take());
+                let read_through = self.nothing_to_read(passed);
+                self.mark_viewed(read.take().into_iter().chain(read_through));
                 return;
             } else if self.dirty {
                 // Edits that could not be saved hold merl on this file, whatever is ahead.
@@ -181,11 +175,21 @@ impl App {
             let end = if dir > 0 { "last" } else { "first" };
             format!("{end} hunk of the review")
         });
-        self.mark_viewed(read.take());
+        let read_through = self.nothing_to_read(passed);
+        self.mark_viewed(read.take().into_iter().chain(read_through));
     }
 
-    /// The hunk of the open file `c` (`dir` 1) or `C` (-1) goes to; `None` when it goes on to
-    /// another file. A fold is one stop: the walk goes on from it (#243).
+    fn nothing_to_read<'f>(
+        &self,
+        files: impl IntoIterator<Item = &'f git::ReviewFile>,
+    ) -> Vec<PathBuf> {
+        let unseen = |f: &git::ReviewFile| f.binary || self.root.join(&f.path).is_dir();
+        (files.into_iter())
+            .filter(|f| !f.has_hunks() && !unseen(f))
+            .map(|f| f.path.clone())
+            .collect()
+    }
+
     pub(super) fn hunk_ahead(&self, dir: isize) -> Option<TextLine> {
         if self.folded_here().is_some() {
             return None;
@@ -285,11 +289,15 @@ impl App {
         }
     }
 
-    fn mark_viewed(&mut self, rel: Option<PathBuf>) {
-        if let Some(rel) = rel {
+    fn mark_viewed(&mut self, rels: impl IntoIterator<Item = PathBuf>) {
+        let mut any = false;
+        for rel in rels {
             let hash = self.disk_hash(&rel);
             self.hidden.remove(&rel);
             self.viewed.insert(rel, hash);
+            any = true;
+        }
+        if any {
             self.save_viewed();
         }
     }
@@ -430,8 +438,6 @@ impl App {
         self.buf.path.as_deref() == Some(&path)
     }
 
-    /// Opens `path` on the first line of a hunk, `h`: its first deleted line when it starts
-    /// with a deletion (#439). The view is centred on it.
     fn jump_to_hunk(&mut self, path: &Path, h: TextLine) {
         self.jump_to(path, h.key() + 1);
         if self.buf.path.as_deref() == Some(path) {
@@ -528,8 +534,6 @@ fn count_stops(
         .collect()
 }
 
-/// Is `f` folded: generated (#243), with lines to read, and its diff not loaded with Enter in
-/// this review. A binary file, a mode change or a pure rename has nothing to fold.
 fn folded(f: &git::ReviewFile, unfolded: &HashSet<PathBuf>) -> bool {
     f.generated && f.has_hunks() && !unfolded.contains(&f.path)
 }
@@ -633,8 +637,6 @@ fn write_viewed<'a>(
 mod tests {
     use super::*;
 
-    /// #240: the 30 days, on a fixed day: a review written 29 days ago is read and kept by a
-    /// write, one written 30 or 31 days ago is neither.
     #[test]
     fn a_review_is_forgotten_on_its_thirtieth_day() {
         let dir = std::env::temp_dir().join(format!("merl-viewededge-{}", std::process::id()));
