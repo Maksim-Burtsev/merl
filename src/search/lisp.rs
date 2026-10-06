@@ -816,8 +816,9 @@ pub fn scheme_foreign_branch(
             }
         }
     }
-    branches.iter().any(|(e, span, _)| {
+    branches.iter().any(|(e, span, own)| {
         span.contains(&at)
+            && !own
             && (branches.iter()).any(|(o, other, here)| o == e && other != span && *here)
     })
 }
