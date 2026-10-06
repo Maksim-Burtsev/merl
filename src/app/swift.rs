@@ -1,14 +1,6 @@
-//! `d` in Swift on a bare word: a member of the type around the cursor (#380), and the
-//! declarations the compiler cannot see from the cursor, which are no candidates (#375).
-
 use super::*;
 
 impl App {
-    /// What a bare Swift `word` names among the members of the type whose body holds the cursor
-    /// (#380): what its body and every extension of it declare, `via self: Type`; else, for a
-    /// class, what the class its header extends first declares, when the project declares that
-    /// as a class once, and so on up. `None` when none of them does, and in an extension a
-    /// `where` constrains, whose members may be another type's.
     pub(super) fn swift_self_members(
         &self,
         here: &Path,
@@ -71,10 +63,6 @@ impl App {
         }
     }
 
-    /// Of `hits`, the declarations of a Swift name looked up from the cursor in `here`, drop
-    /// what the compiler cannot see there (#375): a test target's from outside the test targets,
-    /// another file's `private` or `fileprivate`, a type declared inside a function from anywhere
-    /// but that function. A line the rules cannot place stays.
     pub(super) fn swift_unseen(&self, here: &Path, hits: &mut Vec<Hit>) {
         let tests = search::swift_test_dirs(&self.root);
         let in_tests = |p: &Path| {
@@ -104,9 +92,6 @@ impl App {
         });
     }
 
-    /// Of `hits`, the declarations of a bare Swift name, drop the types nested in another that the
-    /// cursor does not see bare (#375): only `Outer`'s body, an extension of it and a class whose
-    /// superclass it is see `Outer.Name` as `Name`.
     pub(super) fn swift_nested_unseen(&self, hits: &mut Vec<Hit>) {
         let literal = search::literal_lines(Kind::Swift, &self.buf.lines.join("\n"));
         hits.retain(|h| {

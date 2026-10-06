@@ -25,7 +25,7 @@ wait This help
 │  pyproject.toml            │    │   Edit: Ctrl+X                      Cut the selection, or the line                                                │
 │  README.md                 │    │   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
 │                            │    │ Selection                                                                                                         │
-│                            │    │   v                                 Select the word, then the line, then the paragraph                            │
+│                            │    │   v                                 Select the word, then the line, then the paragraph, then the whole file       │
 │                            │    │   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
 │                            │    │   Shift+Left / Shift+Right          Extend the selection by a char                                                │
 │                            │    │   Alt+Shift+Left / Right            Extend the selection by a word                                                │

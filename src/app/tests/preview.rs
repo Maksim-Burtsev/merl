@@ -1,5 +1,3 @@
-//! `p`: the preview of a Markdown file, its keys, and the file changing under it.
-
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 
@@ -32,7 +30,6 @@ fn key(a: &mut App, code: KeyCode) {
     press(a, code, KeyModifiers::NONE);
 }
 
-/// The cursor row, the top row, and the cursor row's text.
 fn at_row(a: &App) -> (usize, usize, String) {
     let p = a.preview.as_ref().expect("a preview");
     (p.row, p.top, p.doc.rows[p.row].text.clone())
@@ -41,24 +38,36 @@ fn at_row(a: &App) -> (usize, usize, String) {
 #[test]
 fn p_shows_the_file_rendered_and_the_source_again_at_the_same_place() {
     let (dir, mut a) = md_app("toggle", PLAN);
-    // The table's row, fourth on screen.
     a.line = 11;
     (a.top_line, a.top_row) = (8, 0);
     key(&mut a, KeyCode::Char('p'));
     assert!(a.previewing());
-    assert_eq!(at_row(&a), (12, 9, "\u{2502} 1 \u{2502} 2 \u{2502}".into()));
-    // Down past the table onto the blank row under it.
+    assert_eq!(
+        at_row(&a),
+        (12, 9, "\u{2502} 1 \u{2502} 2 \u{2502}".into()),
+        "the table's row, fourth on screen"
+    );
     key(&mut a, KeyCode::Down);
     key(&mut a, KeyCode::Down);
-    assert_eq!(at_row(&a).0, 14);
+    assert_eq!(
+        at_row(&a).0,
+        14,
+        "down past the table onto the blank row under it"
+    );
     assert_eq!((a.line, a.col), (12, 0));
-    // The source has the cursor on that blank line, sixth on screen as the row was.
     key(&mut a, KeyCode::Char('p'));
     assert!(!a.previewing());
-    assert_eq!((a.line, a.top_line, a.top_row), (12, 7, 0));
-    // And back to the very row the preview left, the cursor not having moved.
+    assert_eq!(
+        (a.line, a.top_line, a.top_row),
+        (12, 7, 0),
+        "the source has the cursor on that blank line, sixth on screen as the row was"
+    );
     key(&mut a, KeyCode::Char('p'));
-    assert_eq!(at_row(&a).0, 14);
+    assert_eq!(
+        at_row(&a).0,
+        14,
+        "back to the very row the preview left, the cursor not having moved"
+    );
     assert_eq!(a.message, "");
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -82,8 +91,11 @@ fn enter_edits_the_source_where_the_preview_stands() {
     key(&mut a, KeyCode::Enter);
     assert!(!a.previewing());
     assert_eq!(a.mode, Mode::Edit);
-    // On the item's text, past its marker.
-    assert_eq!((a.line, a.col), (7, 3));
+    assert_eq!(
+        (a.line, a.col),
+        (7, 3),
+        "on the item's text, past its marker"
+    );
     key(&mut a, KeyCode::Char('X'));
     assert_eq!(a.buf.lines[7], "2. Xtwo");
     let _ = std::fs::remove_dir_all(&dir);
@@ -127,9 +139,12 @@ fn reading_keys_move_the_cursor_row() {
             (0, 0),
         ]
     );
-    // The cursor follows in the source, so the status bar, `[` and `]` see where the reader is.
     key(&mut a, KeyCode::Char('}'));
-    assert_eq!((a.line, a.col), (3, 0));
+    assert_eq!(
+        (a.line, a.col),
+        (3, 0),
+        "the cursor follows in the source, so the status bar, `[` and `]` see where the reader is"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -354,11 +369,10 @@ fn from_the_tree_the_preview_still_refuses_what_it_refuses() {
     key(&mut a, KeyCode::Char('w'));
     key(&mut a, KeyCode::Char('/'));
     assert!(!a.nowrap() && a.mode == Mode::Normal);
-    // `}` reads on in the preview, Down moves the tree.
     key(&mut a, KeyCode::Char('}'));
-    assert_eq!(at_row(&a).0, 3);
+    assert_eq!(at_row(&a).0, 3, "`}}` reads on in the preview");
     key(&mut a, KeyCode::Down);
-    assert_eq!(at_row(&a).0, 3);
+    assert_eq!(at_row(&a).0, 3, "Down moves the tree");
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -384,7 +398,6 @@ fn reading_the_preview_adds_no_history_stop() {
     assert_eq!(a.history.len(), before);
     let _ = std::fs::remove_dir_all(&dir);
 
-    // A row that stands for a dozen lines no row shows: a step over it is still reading.
     let mut text = String::from("Top [r0].\n\n");
     text += &(0..12)
         .map(|i| format!("[r{i}]: http://x\n"))
@@ -394,7 +407,11 @@ fn reading_the_preview_adds_no_history_stop() {
     key(&mut a, KeyCode::Char('p'));
     let before = a.history.len();
     key(&mut a, KeyCode::Down);
-    assert_eq!((a.line, a.history.len()), (14, before));
+    assert_eq!(
+        (a.line, a.history.len()),
+        (14, before),
+        "a row that stands for a dozen lines no row shows: a step over it is still reading"
+    );
     key(&mut a, KeyCode::Up);
     assert_eq!((a.line, a.history.len()), (0, before));
     let _ = std::fs::remove_dir_all(&dir);
@@ -409,7 +426,6 @@ fn reading_the_preview_adds_no_history_stop() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// `p`, `p` returns to the very row the preview left, a rule under a heading too.
 #[test]
 fn p_twice_returns_to_the_row_it_left() {
     let (dir, mut a) = md_app("exact", PLAN);
@@ -422,7 +438,6 @@ fn p_twice_returns_to_the_row_it_left() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// A jump to a line centres its row, as it centres the line in the source.
 #[test]
 fn a_jump_centres_its_row() {
     let (dir, mut a) = md_app("centre", PLAN);
@@ -546,9 +561,11 @@ fn another_width_keeps_the_code_highlighted() {
     a.show_tree = false;
     let before = draw(&mut a, 40);
     assert_eq!(before.len(), 1);
-    // Drawn at another width, the spans are the very ones kept, not highlighted again.
     a.preview.as_mut().unwrap().code[0].hl[0].clear();
-    assert!(draw(&mut a, 30)[0].is_empty());
+    assert!(
+        draw(&mut a, 30)[0].is_empty(),
+        "drawn at another width, the spans are the very ones kept, not highlighted again"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -670,7 +687,6 @@ fn a_jump_shows_the_row_of_its_line() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// The rendered text of the preview, row after row.
 fn preview_text(a: &App) -> String {
     let p = a.preview.as_ref().unwrap();
     p.doc

@@ -1,13 +1,6 @@
-//! `d` in Ruby: the methods a `self` answers to and the lines that assign an `@ivar`, over the
-//! class, its modules and its superclasses (#365, #383), and the class methods a concern gives
-//! (#387).
-
 use super::*;
 
 impl App {
-    /// Of `hits`, the declarations of a Ruby method that a concern included by the class
-    /// `chain` spells gives it as a class method (#387): `include Searchable` in a file declaring
-    /// the class, and the method in `Searchable`'s `class_methods do` or `module ClassMethods`.
     pub(super) fn concern_class_methods(
         &self,
         kind: Kind,
@@ -83,11 +76,6 @@ impl App {
         }
     }
 
-    /// `x.word` on a Ruby value of no known type, `found` the candidates so far: what Ruby's core
-    /// and the gems declare of the name joins them (#369), so the project's one namesake is no
-    /// longer alone. Whatever is read, one candidate proves nothing of a value whose type is not
-    /// known, an ActiveRecord column's reader is declared nowhere: it is offered rather than
-    /// jumped to (#390).
     pub(super) fn ruby_member_outside(
         &mut self,
         word: &str,
@@ -105,8 +93,6 @@ impl App {
         }
     }
 
-    /// The declarations of `word` that `pattern` finds outside the project, in Ruby's core, its
-    /// standard library and the gems, by name (#369).
     fn ruby_outside(&mut self, word: &str, pattern: &str) -> Vec<Candidate> {
         let files = self.external_files(Kind::Ruby);
         let hits = self.external_grep(Kind::Ruby, &files, pattern);
@@ -119,11 +105,6 @@ impl App {
             .collect()
     }
 
-    /// The methods named `word` a Ruby `self` at the cursor answers to (#365): those its class
-    /// declares, in any file that opens it, then those of the modules it `include`s (or, when
-    /// `self` is the class, `extend`s), then its superclass's, walked up. When `self` is the
-    /// class, only the class's own methods count. Empty when none declares it, or at the top of a
-    /// file.
     pub(super) fn ruby_self_methods(&self, here: &Path, text: &str, word: &str) -> Vec<Candidate> {
         let class = search::ruby_class_path(text, self.line + 1);
         if class.is_empty() {

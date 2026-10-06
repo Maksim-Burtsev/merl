@@ -19,7 +19,7 @@ wait Close an overlay, leave edit mode
 │▸ worker                    │18  │   Edit: Ctrl+X                      Cut the selection, or the line                                                │
 │  .env                      │19  │   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
 │  .gitignore                │20  │ Selection                                                                                                         │
-│  docker-compose.yml        │    │   v                                 Select the word, then the line, then the paragraph                            │
+│  docker-compose.yml        │    │   v                                 Select the word, then the line, then the paragraph, then the whole file       │
 │  Dockerfile                │    │   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
 │  Makefile                  │    │   Shift+Left / Shift+Right          Extend the selection by a char                                                │
 │  pyproject.toml            │    │   Alt+Shift+Left / Right            Extend the selection by a word                                                │

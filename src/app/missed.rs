@@ -272,7 +272,7 @@ impl App {
             return None;
         }
         let hunks = &self.diff.hunks;
-        let (from, to) = (run.from.at(), self.at());
+        let (from, to) = (self.hunk_place(run.from.at()), self.hunk_place(self.at()));
         let (&start, key) = match to.cmp(&from) {
             std::cmp::Ordering::Greater => (hunks.iter().find(|&&h| h > from)?, "c"),
             std::cmp::Ordering::Less => (hunks.iter().rev().find(|&&h| h < from)?, "C"),

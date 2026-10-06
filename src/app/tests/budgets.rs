@@ -63,7 +63,6 @@ const D_NEXT: u64 = 3_000;
 /// `--review` of the branch with [`CHANGED`] files, to the first frame [310 ms].
 const REVIEW: u64 = 1_000;
 
-/// The index in [`D_CURSORS`] of the press that finds nothing on purpose.
 const D_FINDS_NOTHING: usize = 1;
 
 /// `d` cursors in paperless-ngx (`file`, 1-based line, byte column), from the #308 bench's
@@ -251,7 +250,6 @@ fn paperless() -> Option<PathBuf> {
     dir.join(D_CURSORS[0].0).exists().then_some(dir)
 }
 
-/// [`REPS`] runs of `f` after a dropped one, in milliseconds.
 fn timed(mut f: impl FnMut() -> std::time::Duration) -> Vec<f64> {
     f();
     (0..REPS).map(|_| f().as_secs_f64() * 1000.0).collect()

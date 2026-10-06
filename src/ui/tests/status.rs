@@ -1,5 +1,3 @@
-//! Tests for [`crate::ui::status`].
-
 use std::path::PathBuf;
 
 use ratatui::Terminal;
@@ -61,31 +59,29 @@ fn a_long_path_gives_way_to_the_column_read_only_and_the_reason() {
         status(STDLIB, why, 80),
         "\u{2026}/python3.13/json/__init__.py  185:5  [code]  read-only  dumps: via import json"
     );
-    // A deep path in the project gives way the same.
     assert_eq!(
         status(
             "/work/app/services/billing/src/providers/stripe/webhooks/handlers/paid.py",
             why,
             80
         ),
-        "\u{2026}/webhooks/handlers/paid.py  185:5  [code]  read-only  dumps: via import json"
+        "\u{2026}/webhooks/handlers/paid.py  185:5  [code]  read-only  dumps: via import json",
+        "a deep path in the project gives way the same"
     );
-    // With nothing to report, the `? help` at the right edge is kept clear as well.
     let bare = status(STDLIB, "", 80);
     assert!(
         bare.starts_with(
             "\u{2026}/3.13/lib/python3.13/json/__init__.py  185:5  [code]  read-only  "
         ) && bare.ends_with("  ? help"),
-        "{bare:?}"
+        "with nothing to report, the `? help` at the right edge is kept clear: {bare:?}"
     );
-    // The file's name is never cut: in a pane too narrow for it, the end of the line goes.
     assert_eq!(
         status(STDLIB, why, 50),
-        "\u{2026}/__init__.py  185:5  [code]  read-only  dumps: vi"
+        "\u{2026}/__init__.py  185:5  [code]  read-only  dumps: vi",
+        "the file's name is never cut: in a pane too narrow for it, the end of the line goes"
     );
 }
 
-/// A path that fits is drawn whole.
 #[test]
 fn a_path_that_fits_is_left_whole() {
     assert_eq!(
@@ -94,7 +90,6 @@ fn a_path_that_fits_is_left_whole() {
     );
 }
 
-/// The path is measured in columns, not in characters: each of these takes two.
 #[test]
 fn a_wide_path_is_cut_by_the_columns_it_takes() {
     let line = status(
@@ -130,7 +125,6 @@ fn a_message_naming_a_long_path_keeps_its_reason() {
         status_about("/work/app/paid.py", file, ": permission denied", 80),
         "paid.py  185:5  [code]  read-only  \u{2026}/webhooks/locked.txt: permission denied"
     );
-    // A message that fits is left whole.
     assert_eq!(
         status_about(
             "/work/app/paid.py",
@@ -138,9 +132,9 @@ fn a_message_naming_a_long_path_keeps_its_reason() {
             ": permission denied",
             80
         ),
-        "paid.py  185:5  [code]  read-only  src/locked.txt: permission denied"
+        "paid.py  185:5  [code]  read-only  src/locked.txt: permission denied",
+        "a message that fits is left whole"
     );
-    // The path is the part the message's maker says it is, a space in it included.
     assert_eq!(
         status_about(
             "/work/app/paid.py",
@@ -148,15 +142,16 @@ fn a_message_naming_a_long_path_keeps_its_reason() {
             ": permission denied",
             80
         ),
-        "paid.py  185:5  [code]  read-only  \u{2026}/stripe/webhooks/a.md: permission denied"
+        "paid.py  185:5  [code]  read-only  \u{2026}/stripe/webhooks/a.md: permission denied",
+        "the path is the part the message's maker says it is, a space in it included"
     );
-    // Any other message is left as it is, a `/` in its first word or not: a GraphQL `#import`.
     assert_eq!(
         status(
             "/work/app/paid.py",
             "../fragments/shared/user/profile/fields.graphql: path, 1 match",
             80
         ),
-        "paid.py  185:5  [code]  read-only  ../fragments/shared/user/profile/fields.graph"
+        "paid.py  185:5  [code]  read-only  ../fragments/shared/user/profile/fields.graph",
+        "any other message is left as it is, a `/` in its first word or not: a GraphQL `#import`"
     );
 }

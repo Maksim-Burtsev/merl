@@ -1,5 +1,3 @@
-//! `u`: the usages of the word under the cursor.
-
 use super::*;
 
 /// The rows of the open result picker, each split into its mark and the `path:line` it
@@ -7,19 +5,24 @@ use super::*;
 fn usage_rows(a: &mut App) -> Vec<(String, String)> {
     let picker = a.picker.as_mut().expect("a picker");
     picker.settle();
+    let declarations = picker
+        .title
+        .split_once(": ")
+        .and_then(|(_, counts)| counts.split_once(" declaration"))
+        .map_or(0, |(n, _)| n.parse().unwrap());
     picker
         .window(50)
         .0
         .into_iter()
-        .map(|r| {
-            let head = r.item.label[..r.item.code_at.unwrap()].trim_end();
-            let (mark, place) = head.rsplit_once(' ').unwrap_or(("", head));
-            (mark.trim().into(), place.trim_end_matches(':').into())
+        .enumerate()
+        .map(|(i, r)| {
+            let head = r.item.label[..r.item.code_at.unwrap()].trim();
+            let mark = if i < declarations { "declaration" } else { "" };
+            (mark.into(), head.trim_end_matches(':').into())
         })
         .collect()
 }
 
-/// Puts the cursor on `word` in `file` at `line` and presses `u`.
 fn usages_at(a: &mut App, dir: &Path, file: &str, line: usize, word: &str) {
     a.jump_to(&dir.join(file), line);
     a.col = a.line_str().find(word).expect(word);
@@ -136,17 +139,23 @@ fn the_usages_title_splits_the_counts_and_omits_what_is_not_there() {
             ),
         ],
     );
-    for (file, line, word, title) in [
+    for (name, file, line, word, title) in [
         (
+            "a declaration, code and tests",
             "src/admin.py",
             5,
             "delete_user",
             "Usages of delete_user: 1 declaration, 1 in code, 1 in tests",
         ),
-        // Two declarations and nothing else: only the one part, and it is plural.
-        ("src/repo.py", 1, "Repo", "Usages of Repo: 2 declarations"),
-        // A name no rule declares: no declaration part at all.
         (
+            "two declarations and nothing else: only the one part, and it is plural",
+            "src/repo.py",
+            1,
+            "Repo",
+            "Usages of Repo: 2 declarations",
+        ),
+        (
+            "a name no rule declares: no declaration part at all",
             "src/admin.py",
             4,
             "info",
@@ -156,7 +165,7 @@ fn the_usages_title_splits_the_counts_and_omits_what_is_not_there() {
         usages_at(&mut a, &dir, file, line, word);
         let p = a.picker.as_mut().unwrap();
         p.settle();
-        assert_eq!(p.title, title);
+        assert_eq!(p.title, title, "{name}");
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     }
     std::fs::remove_dir_all(&dir).unwrap();
@@ -185,13 +194,16 @@ fn d_offers_the_test_copy_of_a_declaration_last() {
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
     assert_eq!(rows(&mut a), ["src/repo.py:1", "spec/repo.py:1"]);
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-    // Read from inside `spec/` and that file is not a test copy, it is what is on screen:
-    // its declaration stays first.
     a.jump_to(&dir.join("spec/repo.py"), 2);
     a.col = 4;
     a.buf.lines[1] = "    delete_user(id)".into();
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
-    assert_eq!(rows(&mut a), ["spec/repo.py:1", "src/repo.py:1"]);
+    assert_eq!(
+        rows(&mut a),
+        ["spec/repo.py:1", "src/repo.py:1"],
+        "read from inside `spec/` and that file is not a test copy, it is what is on screen: its \
+         declaration stays first"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -240,28 +252,28 @@ fn the_usages_mark_is_only_for_a_declaration_d_would_offer() {
         "Usages of delete_user: 1 declaration, 2 in code"
     );
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-    // Terraform declares no bare `count`: with no rule there is no mark and no column for it.
     usages_at(&mut a, &dir, "main.tf", 2, "count");
     assert_eq!(
         usage_rows(&mut a),
         [
             (String::new(), "main.tf:2".to_string()),
             (String::new(), "other.tf:2".into()),
-        ]
+        ],
+        "Terraform declares no bare `count`: with no rule there is no mark and no column for it"
     );
     assert_eq!(
         a.picker.as_ref().unwrap().title,
         "Usages of count: 2 in code"
     );
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-    // A word declared only in a test file: the declaration is a test row, marked as neither.
     usages_at(&mut a, &dir, "src/admin.py", 5, "make_repo");
     assert_eq!(
         usage_rows(&mut a),
         [
             (String::new(), "src/admin.py:5".to_string()),
             (String::new(), "tests/test_repo.py:1".into()),
-        ]
+        ],
+        "a word declared only in a test file: the declaration is a test row, marked as neither"
     );
     assert_eq!(
         a.picker.as_ref().unwrap().title,

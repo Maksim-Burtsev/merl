@@ -41,6 +41,7 @@ wait [{"id":1,"customer_id":1327,"total":"853.34"
 key C-End
 wait {"i…
 key w End
+# The `1` and the `‹` in the gutter colour, at 3:1 on the background in its shot (#555).
 wait 1 ‹
 # A binary file is an empty pane with one centred, dimmed note, no line number, no cursor (#287).
 key o

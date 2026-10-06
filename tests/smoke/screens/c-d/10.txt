@@ -1,4 +1,4 @@
-wait via c: client
+wait void crc_reset
 ┌orders──────────────────────┐1 typedef struct client {
 │▸ .github                   │2     int flags;
 │▸ .venv                     │3 } client;
@@ -53,5 +53,5 @@ wait via c: client
 │                            │
 │                            │
 └────────────────────────────┘
-worker/internal/crc/client.c  2:9  [code]  flags: via c: client
-cursor (x,y,shown) 40,1,1
+worker/internal/crc/client.c  1:1  [code]                                                                                                                                         ? help
+cursor (x,y,shown) 32,0,1

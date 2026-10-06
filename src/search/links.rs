@@ -1,6 +1,3 @@
-//! Markdown's links for `d` (#421): what the cursor stands on, and the anchors GitHub gives a
-//! file's headings. Read with the parser the preview (`p`) lays Markdown out with.
-
 use std::collections::HashMap;
 use std::ops::Range;
 
@@ -37,7 +34,6 @@ fn inert(text: &str, ev: &Event, r: &Range<usize>) -> bool {
     }
 }
 
-/// What byte `at` of the Markdown `text` stands on.
 pub fn markdown_at(text: &str, at: usize) -> MdAt {
     static HREF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#"(?is)<a\s[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')[^>]*>.*?</a>"#).unwrap()
@@ -161,7 +157,6 @@ pub fn anchor_line(text: &str, anchor: &str) -> Option<usize> {
         .map(|c| line(c.get(0).unwrap().start()))
 }
 
-/// `s` with its `%XX` escapes decoded: `my%20notes.md` is `my notes.md`.
 pub fn percent_decoded(s: &str) -> String {
     let b = s.as_bytes();
     let mut out = Vec::with_capacity(b.len());

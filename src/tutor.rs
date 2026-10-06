@@ -140,8 +140,6 @@ pub fn check(app: &mut App, action: Option<&str>) {
 /// Sets the current lesson, or the drill's first task, up on a fresh App; past the last lesson
 /// nothing changes.
 pub fn begin(app: &mut App) -> Result<()> {
-    // A theme picked in the tutor or the drill lasts the session and never overwrites the
-    // learner's config (#278).
     app.config = None;
     if app.tutor.as_ref().is_some_and(|t| t.drill.is_some()) {
         return drill::next(app);

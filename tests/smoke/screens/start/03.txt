@@ -2,7 +2,7 @@ wait merl exited: 0
 Edit: Ctrl+X           0       0    0  never  Cut the selection, or the line
 Edit: Alt+Backspace    0       0    0  never  Delete the word before / after the cursor
 Edit: Alt+Delete       0       0    0  never  Delete the word before / after the cursor
-v                      0       0    0  never  Select the word, then the line, then the paragraph
+v                      0       0    0  never  Select the word, then the line, then the paragraph, then the whole file
 Shift+Up               0       0    0  never  Extend the selection by a screen row
 Shift+Down             0       0    0  never  Extend the selection by a screen row
 Shift+Left             0       0    0  never  Extend the selection by a char

@@ -24,7 +24,6 @@ pub struct Preview {
 }
 
 impl App {
-    /// The open file is shown rendered.
     pub fn previewing(&self) -> bool {
         self.buf
             .path
@@ -62,8 +61,6 @@ impl App {
                 .min(self.view_h.saturating_sub(1)),
         };
         self.previewed.insert(path);
-        // The preview shows no deleted line: a cursor on one stands on the line below it, which
-        // the cursor row shows and Enter and Ctrl+C act on (#596).
         if self.deleted.is_some() {
             self.go((self.line, 0));
         }
@@ -195,7 +192,6 @@ impl App {
             KeyCode::Down if plain => ((row + 1).min(last), 0, true),
             KeyCode::PageUp if plain => (row.saturating_sub(h), 0, true),
             KeyCode::PageDown if plain => ((row + h).min(last), 0, true),
-            // Half a screen, the view with the cursor, as in the source.
             KeyCode::Char('u') if ctrl => (row.saturating_sub(half), -1, true),
             KeyCode::Char('d') if ctrl => ((row + half).min(last), 1, true),
             KeyCode::Home if ctrl => (0, 0, false),

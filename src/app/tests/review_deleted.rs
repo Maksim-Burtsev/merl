@@ -97,7 +97,6 @@ fn orders_review(tag: &str) -> (PathBuf, App) {
     (dir, a)
 }
 
-/// The cursor on `word` of the deleted line of `file` that holds `line`.
 fn on_deleted(a: &mut App, file: &Path, line: &str, word: &str) {
     a.jump_to(file, 1);
     while !a.line_str().contains(line) || a.deleted.is_none() {
@@ -176,40 +175,41 @@ fn d_prefers_the_branch_over_a_deleted_namesake() {
 fn d_on_a_deleted_line_answers_from_the_base() {
     let (dir, mut a) = orders_review("d-base");
     let repo = dir.join("app/repositories/orders.py");
-    // `self.get` on the repository's deleted line.
     on_deleted(&mut a, &repo, "order = self.get", "get(");
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
     assert_eq!(
         (a.at(), a.picker.is_none()),
         (File(1), true),
-        "{}",
+        "`self.get` on the repository's deleted line: {}",
         a.message
     );
-    // The call of `fmt` is deleted with it, and the branch's `fmt` in `app/format.py` says
-    // `repr`: the answer is the `fmt` the call called.
     let service = dir.join("app/services/orders.py");
     on_deleted(&mut a, &service, "[fmt(o)", "fmt");
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
     assert_eq!(
         (a.buf.path.as_deref(), a.line_str()),
         (Some(&*service), "def fmt(order):"),
-        "{}",
+        "the call of `fmt` is deleted with it, and the branch's `fmt` in `app/format.py` says \
+         `repr`: the answer is the `fmt` the call called: {}",
         a.message
     );
     assert!(a.deleted.is_some());
-    // `self.total` on a deleted line: the method under the block, on its line of the file.
     on_deleted(&mut a, &service, "self.total", "total");
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
     assert_eq!(
         (a.buf.path.as_deref(), a.at(), a.line_str()),
         (Some(&*service), File(10), "    def total(self, order_id):"),
-        "{}",
+        "`self.total` on a deleted line: the method under the block, on its line of the file: {}",
         a.message
     );
-    // `order` is bound by the deleted line above it, in the block deleted with it.
     on_deleted(&mut a, &repo, "return order", "order");
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
-    assert_eq!(a.at(), Deleted(3, 2), "{}", a.message);
+    assert_eq!(
+        a.at(),
+        Deleted(3, 2),
+        "`order` is bound by the deleted line above it, in the block deleted with it: {}",
+        a.message
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -271,8 +271,6 @@ fn s_keeps_its_row_apart_from_a_deleted_line_of_the_same_number() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// `u` lists the deleted uses beside the branch's, a deleted declaration marked as one; `D` lists
-/// the deleted declarations.
 #[test]
 fn u_and_capital_d_list_deleted_lines() {
     let (dir, mut a) = orders_review("u-deleted");
@@ -289,15 +287,18 @@ fn u_and_capital_d_list_deleted_lines() {
     ] {
         assert!(has(row), "{row} in {listed:#?}");
     }
-    assert!(
-        listed
-            .iter()
-            .any(|r| r.starts_with("declaration") && r.contains("app/legacy.py:1: def get(key):")),
-        "{listed:#?}"
-    );
+    let legacy = listed
+        .iter()
+        .position(|r| r.contains("app/legacy.py:1: def get(key):"))
+        .expect("the deleted declaration");
+    let title = &a.picker.as_ref().unwrap().title;
+    let declarations: usize = title
+        .split_once(": ")
+        .and_then(|(_, counts)| counts.split_once(" declaration"))
+        .map_or(0, |(n, _)| n.parse().unwrap());
+    assert!(legacy < declarations, "{title}: {listed:#?}");
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
 
-    // From the deleted call, its uses: both deleted.
     on_deleted(
         &mut a,
         &dir.join("app/services/orders.py"),
@@ -305,7 +306,12 @@ fn u_and_capital_d_list_deleted_lines() {
         "get_order_with_items",
     );
     press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
-    assert_eq!(rows(&mut a).len(), 2, "{}", a.message);
+    assert_eq!(
+        rows(&mut a).len(),
+        2,
+        "from the deleted call, its uses: both deleted: {}",
+        a.message
+    );
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
 
     press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
@@ -336,7 +342,7 @@ fn a_deleted_row_carries_a_red_mark() {
     let mut t = Terminal::new(TestBackend::new(90, 12)).unwrap();
     t.draw(|f| crate::ui::draw(f, &mut a, &theme)).unwrap();
     let buf = t.backend().buffer();
-    let label = "app/services/orders.py:9: self.total(order_id)";
+    let label = "  9  self.total(order_id)";
     let (x, y) = (0..buf.area.height)
         .find_map(|y| {
             let text: String = (0..buf.area.width).map(|x| buf[(x, y)].symbol()).collect();
@@ -674,14 +680,17 @@ fn each_worktree_keeps_its_own_base_and_an_edit_leaves_it_alone() {
             "main",
         ],
     );
-    // Another merge base: a commit of its own under the other branch.
     std::fs::write(wt.join("svc.py"), "X = 3\n").unwrap();
     git(&wt, &["commit", "-qam", "base 2"]);
     git(&wt, &["branch", "base2"]);
     std::fs::write(wt.join("svc.py"), "X = 4\n").unwrap();
     git(&wt, &["commit", "-qam", "other"]);
     let other = git::Review::open(&wt, None, Some("base2")).unwrap();
-    assert_ne!(other.merge_base, a.review.as_ref().unwrap().merge_base);
+    assert_ne!(
+        other.merge_base,
+        a.review.as_ref().unwrap().merge_base,
+        "another merge base: a commit of its own under the other branch"
+    );
     let theirs = other.base_tree(&wt).unwrap();
     assert!(base.join("keep.py").exists() && theirs.join("svc.py").exists());
     let _ = std::fs::remove_dir_all(&wt);
@@ -890,12 +899,15 @@ fn a_base_picker_keeps_its_title_and_marks_its_deleted_row() {
         ("\u{258e}", Color::Red)
     );
     assert_eq!(buf[(xb - 1, yb)].symbol(), " ");
-    // `def` of the deleted row is coloured as `def` of the other.
     let def = |x: u16, y: u16| {
         let row: String = (x..buf.area.width).map(|x| buf[(x, y)].symbol()).collect();
         buf[(x + row.find("def").unwrap() as u16, y)].fg
     };
-    assert_eq!(def(xa, ya), def(xb, yb));
+    assert_eq!(
+        def(xa, ya),
+        def(xb, yb),
+        "`def` of the deleted row is coloured as `def` of the other"
+    );
     assert_ne!(def(xa, ya), buf[(xa, ya)].fg);
     let _ = std::fs::remove_dir_all(dir);
 }
@@ -987,5 +999,34 @@ fn symbols_of_a_review_skip_a_deleted_template_line() {
     a.jump_to(&dir.join("Card.vue"), 1);
     press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
     assert_eq!(rows(&mut a), ["save  Card.vue:2"]);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_base_picker_row_of_a_renamed_file_names_the_file_it_has_now() {
+    let (dir, mut a) = repo_review(
+        "d-picker-renamed",
+        &[
+            ("a.py", "class A:\n    def run(self):\n        return 1\n"),
+            ("b.py", "class B:\n    def run(self):\n        return 2\n"),
+            ("main.py", "def go(x):\n    return x.run()\n"),
+        ],
+        &[
+            ("b.py", None),
+            (
+                "lib/beta.py",
+                Some("class B:\n    def run(self):\n        return 2\n"),
+            ),
+            ("main.py", Some("def go(x):\n    return x\n")),
+        ],
+    );
+    on_deleted(&mut a, &dir.join("main.py"), "x.run()", "run");
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    let p = a.picker.as_mut().expect("a picker");
+    p.settle();
+    let paths: Vec<String> = (p.window(9).0.iter())
+        .map(|r| r.item.label[r.item.path_at.clone().unwrap()].to_string())
+        .collect();
+    assert_eq!(paths, ["a.py", "lib/beta.py"]);
     let _ = std::fs::remove_dir_all(dir);
 }

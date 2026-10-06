@@ -1,5 +1,3 @@
-//! A generated file of the review, folded (#243): a box in the code pane instead of its text.
-
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
 use ratatui::style::{Modifier, Style};

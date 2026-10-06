@@ -1,7 +1,3 @@
-//! `merl --drill [N]` (#209): N tasks of [`POOL`], each asking for what to do and never naming
-//! the key, the keys left unpressed in real work asked most often. A task is checked by its
-//! effect as the tutor checks it; a hit needs its action routed as well.
-
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::io::Write as _;
@@ -37,7 +33,6 @@ const AGAIN: usize = 3;
 type Attempt = (&'static str, Option<u32>);
 
 pub struct Drill {
-    /// Tasks in the session.
     n: usize,
     /// This session's answers: the task, as an index into [`POOL`], and its time.
     answers: Vec<(usize, Option<u32>)>,
@@ -362,7 +357,6 @@ mod tests {
     use crate::tutor::press;
     use crate::tutor::tests::{app, dir};
 
-    /// The task that trains `key`.
     fn task(key: &str) -> usize {
         POOL.iter().position(|t| t.key == key).unwrap()
     }
@@ -477,8 +471,11 @@ mod tests {
         let asked = session(&mut d, &[]);
         assert_eq!(asked[..3], fresh);
         assert_eq!(asked.len(), 20);
-        // With nothing attempted, the first session is the start of the tour.
-        assert_eq!(session(&mut drill(20), &[]), in_keys_order()[..20]);
+        assert_eq!(
+            session(&mut drill(20), &[]),
+            in_keys_order()[..20],
+            "with nothing attempted, the first session is the start of the tour"
+        );
     }
 
     /// Weighted random over a long session with a fixed seed: the heavy key is asked more often
@@ -513,7 +510,6 @@ mod tests {
         assert_eq!(asked, want);
     }
 
-    /// The panel's title and text.
     fn on_screen(a: &App) -> (String, &'static str) {
         a.tutor.as_ref().unwrap().drill.as_ref().unwrap().panel()
     }
@@ -585,8 +581,10 @@ mod tests {
         );
         assert!(logged(&log)[1].starts_with("o\t"), "{:?}", logged(&log));
         assert!(a.tutor.as_ref().unwrap().drill.as_ref().unwrap().over());
-        // Nothing of it reaches the key stats.
-        assert!(a.pressed.is_empty() && a.missed.is_empty());
+        assert!(
+            a.pressed.is_empty() && a.missed.is_empty(),
+            "the drill reaches the key stats"
+        );
         clean_up("drill-miss", &log);
     }
 
@@ -638,12 +636,11 @@ mod tests {
         let mut d = drill(20);
         d.answer(task("o"), Some(1000)).unwrap();
         assert_eq!(d.summary(), "drill: 1 task in 0:00\nno weak keys\n");
-        // A key longer than the column still has two spaces after it.
         d.answer(task("Edit: Alt+Backspace"), None).unwrap();
         assert!(
             d.summary()
                 .contains("\n  Edit: Alt+Backspace  1 miss     Delete a word\n"),
-            "{}",
+            "a key longer than the column still has two spaces after it: {}",
             d.summary()
         );
     }
