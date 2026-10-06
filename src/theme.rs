@@ -178,6 +178,7 @@ pub struct Theme {
     /// one without a new key.
     pub accent: Color,
     pub selection: Color,
+    pub selection_fg: Option<Color>,
     /// Review, GitHub's diff colours over this theme: the rows the branch deleted and added, the
     /// words that changed on them, and those rows under the cursor (`_hl`, over `line_hl`). A
     /// deleted file is all deleted rows, so they can be the cursor line too.
@@ -307,19 +308,7 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         .map(|percent| blend(toward, fg, percent))
         .find(|&c| contrast(c, tag_bg) >= WORD_CONTRAST)
         .unwrap_or(rgb(toward));
-    let raw_selection = s
-        .selection
-        .map_or_else(|| mix(fg, bg, 25), |c| composite(c, bg));
-    let mut selection = shown(raw_selection, fg, bg);
-    for percent in [35, 45, 55, 65] {
-        if [line_hl, add_bg, add_bg_hl, del_bg, del_bg_hl]
-            .into_iter()
-            .all(|c| apart(selection, c))
-        {
-            break;
-        }
-        selection = shown(mix(fg, bg, percent), fg, bg);
-    }
+    let selection = s.selection.map_or_else(|| blend(fg, bg, 25), over_bg);
 
     Ok(Theme {
         bg: rgb(bg),
@@ -340,6 +329,7 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
                 .max_by(|&a, &b| contrast(a, find_bg).total_cmp(&contrast(b, find_bg))),
         },
         selection,
+        selection_fg: s.selection_foreground.map(over_bg),
         del_bg,
         del_bg_hl,
         del_word_bg: words[0],
@@ -442,21 +432,6 @@ const GHOST_MAX: u32 = 85;
 /// The contrast a changed word's text keeps on its tint: WCAG AA for body text.
 const WORD_CONTRAST: f64 = 4.5;
 
-const SELECTION_CONTRAST: f64 = 1.4;
-
-fn shown(selection: SynColor, fg: SynColor, bg: SynColor) -> Color {
-    let back = rgb(bg);
-    let toward_fg = (0..=100)
-        .map(|percent| mix(fg, selection, percent))
-        .find(|&c| contrast(rgb(c), back) >= SELECTION_CONTRAST)
-        .unwrap_or(fg);
-    let readable = (0..=100)
-        .map(|percent| mix(bg, toward_fg, percent))
-        .take_while(|&c| contrast(rgb(c), back) >= SELECTION_CONTRAST)
-        .find(|&c| contrast(rgb(fg), rgb(c)) >= WORD_CONTRAST);
-    rgb(readable.unwrap_or(toward_fg))
-}
-
 const GUTTER_CONTRAST: f64 = 3.0;
 
 /// WCAG relative luminance, 0.0 (black) to 1.0 (white).
@@ -477,15 +452,6 @@ fn luminance(c: Color) -> f64 {
 fn contrast(a: Color, b: Color) -> f64 {
     let (a, b) = (luminance(a), luminance(b));
     (a.max(b) + 0.05) / (a.min(b) + 0.05)
-}
-
-/// Whether two chrome colours read as two colours: at least 12 points apart on one channel, the
-/// distance `every_theme_has_the_basics` requires of the selection and the cursor line.
-fn apart(a: Color, b: Color) -> bool {
-    let (Color::Rgb(r1, g1, b1), Color::Rgb(r2, g2, b2)) = (a, b) else {
-        return true;
-    };
-    r1.abs_diff(r2) >= 12 || g1.abs_diff(g2) >= 12 || b1.abs_diff(b2) >= 12
 }
 
 fn mix(fg: SynColor, bg: SynColor, percent: u32) -> SynColor {
@@ -585,9 +551,15 @@ mod tests {
     use super::*;
     use crate::buffer::Buffer;
 
-    /// A broken port fails here: the chrome colours are set, the selection does not pass for the
-    /// cursor line, and comment, keyword, string and function are not painted in one or two
-    /// colours between them.
+    fn apart(a: Color, b: Color) -> bool {
+        let (Color::Rgb(r1, g1, b1), Color::Rgb(r2, g2, b2)) = (a, b) else {
+            return true;
+        };
+        r1.abs_diff(r2) >= 12 || g1.abs_diff(g2) >= 12 || b1.abs_diff(b2) >= 12
+    }
+
+    /// A broken port fails here: the chrome colours are set, and comment, keyword, string and
+    /// function are not painted in one or two colours between them.
     #[test]
     fn every_theme_has_the_basics() {
         for name in names() {
@@ -596,19 +568,6 @@ mod tests {
             assert!(s.background.is_some(), "{name} has no background");
             assert!(s.foreground.is_some(), "{name} has no foreground");
             assert!(s.line_highlight.is_some(), "{name} has no lineHighlight");
-            // The selection is drawn on top of the cursor line highlight (#62), so a selection
-            // inside the cursor line is only as visible as these two colours are apart. #48 was
-            // reported on a pair 5 apart; 12 is where it reads as two colours.
-            let (Color::Rgb(r, g, b), Color::Rgb(r2, g2, b2)) = (t.selection, t.line_hl) else {
-                panic!("{name}: chrome colours are not RGB");
-            };
-            let apart = [r.abs_diff(r2), g.abs_diff(g2), b.abs_diff(b2)];
-            assert!(
-                apart.iter().any(|d| *d >= 12),
-                "{name}: the selection {:?} passes for the cursor line {:?}",
-                t.selection,
-                t.line_hl
-            );
             let highlighter = Highlighter::new(&t.syntect);
             let colours: HashSet<_> = ["comment", "keyword", "string", "entity.name.function"]
                 .into_iter()
@@ -891,7 +850,7 @@ mod tests {
 
     /// Review's diff colours are derived, never set per theme, so this is what keeps them working
     /// on every palette: the rows stand off what is under them, the changed words off their row,
-    /// the words' text reads on them, and a selection on an added or a deleted row still shows.
+    /// and the words' text reads on them.
     #[test]
     fn diff_colours_read_in_every_theme() {
         for name in names() {
@@ -907,13 +866,6 @@ mod tests {
                 assert!(
                     c >= WORD_CONTRAST,
                     "{name}: changed text at {c:.2} on {word:?}"
-                );
-            }
-            for row in [t.add_bg, t.add_bg_hl, t.del_bg, t.del_bg_hl] {
-                assert!(
-                    apart(t.selection, row),
-                    "{name}: selection {:?} on {row:?}",
-                    t.selection
                 );
             }
         }
@@ -947,15 +899,13 @@ mod tests {
     }
 
     #[test]
-    fn the_selection_shows_and_its_text_reads_in_every_theme() {
+    fn the_selection_is_the_themes_own_in_every_theme() {
         for name in names() {
             let t = load(name).unwrap();
-            let (row, text) = (contrast(t.selection, t.bg), contrast(t.fg, t.selection));
-            assert!(row >= SELECTION_CONTRAST, "{name}: selection at {row:.2}");
-            assert!(
-                text >= WORD_CONTRAST || contrast(t.fg, t.bg) < WORD_CONTRAST * SELECTION_CONTRAST,
-                "{name}: text at {text:.2} on the selection at {row:.2}"
-            );
+            let (s, bg) = (&t.syntect.settings, t.syntect.settings.background.unwrap());
+            let own = |c: SynColor| rgb(composite(c, bg));
+            assert_eq!(Some(t.selection), s.selection.map(own), "{name}");
+            assert_eq!(t.selection_fg, s.selection_foreground.map(own), "{name}");
         }
     }
 

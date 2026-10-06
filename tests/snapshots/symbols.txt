@@ -58,8 +58,8 @@ d fg #c8d3f5 bg #222436
 e fg #86e1fc bg #222436
 f fg #89ddff bg #222436
 g fg #636da6 bg #222436 ITALIC
-h fg #c8d3f5 bg #453755 BOLD
-i fg #c8d3f5 bg #453755
+h fg #c8d3f5 bg #2d3f76 BOLD
+i fg #c8d3f5 bg #2d3f76
 j fg #c8d3f5 bg #222436 BOLD
 k fg #c8d3f5 bg #1e2031
 l fg #ff966c bg #222436
@@ -105,8 +105,8 @@ c fg #6e7781 bg #ffffff
 d fg #1f2328 bg #ffffff
 e fg #cf222e bg #ffffff
 f fg #57606a bg #ffffff
-g fg #1f2328 bg #ccdbea BOLD
-h fg #1f2328 bg #ccdbea
+g fg #1f2328 bg #dae9f9 BOLD
+h fg #1f2328 bg #dae9f9
 i fg #1f2328 bg #ffffff BOLD
 j fg #1f2328 bg #f3f4f7
 k fg #0550ae bg #ffffff
@@ -192,8 +192,8 @@ f fg #86e1fc bg #222436
 g fg #89ddff bg #222436
 h fg #c099ff bg #222436
 i fg #c8d3f5 bg #1e2031
-j fg #c8d3f5 bg #453755 BOLD
-k fg #c8d3f5 bg #453755
+j fg #c8d3f5 bg #2d3f76 BOLD
+k fg #c8d3f5 bg #2d3f76
 l fg #c8d3f5 bg #222436 BOLD
 m fg #6b6f80 bg #1b1d2c
 n fg #c8d3f5 bg #1b1d2c
@@ -247,8 +247,8 @@ d fg #1f2328 bg #ffffff
 e fg #57606a bg #ffffff
 f fg #cf222e bg #ffffff
 g fg #1f2328 bg #f3f4f7
-h fg #1f2328 bg #ccdbea BOLD
-i fg #1f2328 bg #ccdbea
+h fg #1f2328 bg #dae9f9 BOLD
+i fg #1f2328 bg #dae9f9
 j fg #1f2328 bg #ffffff BOLD
 k fg #6e7781 bg #e7eaf0
 l fg #1f2328 bg #e7eaf0
@@ -382,8 +382,8 @@ j fg #9abdf5 bg #222436
 k fg #c8d3f5 bg #1e2031
 l fg #6b6f80 bg #1b1d2c
 m fg #c8d3f5 bg #1b1d2c
-n fg #c8d3f5 bg #453755 BOLD
-o fg #c8d3f5 bg #453755
+n fg #c8d3f5 bg #2d3f76 BOLD
+o fg #c8d3f5 bg #2d3f76
 p fg #c8d3f5 bg #222436 BOLD
 q fg #ff757f bg #222436
 r fg #c099ff bg #222436 ITALIC
@@ -457,8 +457,8 @@ g fg #953800 bg #ffffff
 h fg #1f2328 bg #f3f4f7
 i fg #6e7781 bg #e7eaf0
 j fg #1f2328 bg #e7eaf0
-k fg #1f2328 bg #ccdbea BOLD
-l fg #1f2328 bg #ccdbea
+k fg #1f2328 bg #dae9f9 BOLD
+l fg #1f2328 bg #dae9f9
 m fg #1f2328 bg #ffffff BOLD
 n fg #0550ae bg #ffffff
 o fg #6639ba bg #e7eaf0 BOLD

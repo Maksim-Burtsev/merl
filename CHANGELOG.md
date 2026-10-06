@@ -71,10 +71,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   already searched and selected so typing replaces it; without a selection, or with one over
   several lines, they open as before. (#410)
 - The selected row of every picker (`o`, `s`, `u`, `D`, `d`'s choices, `T`) and the tree's cursor
-  while the tree has the keys take the theme's selection colour instead of the cursor line's,
-  which could barely be seen (1.09:1 in the default theme). Where that colour sits too close to
-  the background it moves toward the text colour until it stands at 1.4:1, and where the text
-  would not read on it, back toward the background. (#556)
+  while the tree has the keys take the theme's selection colour as it is, as LazyVim's picker
+  and tree do, instead of the cursor line's, which could barely be seen (1.09:1 in the default
+  theme). Eight themes take their selection back from their Neovim original: tokyonight-moon
+  selects in its blue, rose-pine-moon, rose-pine-dawn, nightfox, nordfox, gruvbox-material-light,
+  solarized-light and material-light in their own colour. Selected code is no longer repainted
+  grey over a review's added and deleted rows. (#556)
 
 ### Fixed
 
@@ -99,8 +101,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` on `Shuttle` in a Groovy `new Shuttle(m)` lands on `Shuttle(@Named("cfg") Map<K, V> m)`
   instead of offering a picker with `Shuttle(String s, int n)`: an annotation with arguments no
   longer hides the commas of a generic type, or a default value, behind it. (#679)
-- Selected code reads in every theme: srcery and lackluster painted it in the text's own colour.
-  The code view's selection follows the same rule as the pickers' selected row. (#686)
+- Selected text takes the colour its theme's Neovim original gives it: srcery and lackluster
+  painted it in the selection's own colour, so it could not be read; solarized, material,
+  hojicha, neomodern-light, miasma and papercolor change their selected text too. (#686)
 
 ## [0.8.2] - 2026-10-04
 

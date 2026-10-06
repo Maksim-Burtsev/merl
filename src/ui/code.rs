@@ -44,7 +44,10 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     let tag = Style::new().bg(theme.tag_bg).fg(theme.tag_fg);
     let hl = base.bg(theme.line_hl);
     let hl_gutter = gutter_style.bg(theme.line_hl);
-    let sel = base.bg(theme.selection);
+    let sel = theme
+        .selection_fg
+        .map_or(base, |fg| base.fg(fg))
+        .bg(theme.selection);
     let ellipsis = |bg: Style| Span::styled("\u{2026}", bg.fg(theme.gutter_fg));
     // Selected lines above the selection's last line are selected through their newline, so
     // their background runs to the right edge like VS Code's.
@@ -123,7 +126,10 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 &finds,
                 find_style,
             );
-            let plain = with_find(syntax, &finds, find_style);
+            let plain = match theme.selection_fg {
+                Some(_) => Vec::new(),
+                None => with_find(syntax, &finds, find_style),
+            };
             let selected = app
                 .selected_bytes(line)
                 .map(|r| r.start..r.end.min(text.len()));
@@ -208,7 +214,10 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             &finds,
             find_style,
         );
-        let plain = with_find(syntax, &finds, find_style);
+        let plain = match theme.selection_fg {
+            Some(_) => Vec::new(),
+            None => with_find(syntax, &finds, find_style),
+        };
         let g = if cursor_line { hl_gutter } else { gutter_style };
         let t = match (tint, lit) {
             (Some((_, row)), true) | (Some((row, _)), false) => base.bg(row),

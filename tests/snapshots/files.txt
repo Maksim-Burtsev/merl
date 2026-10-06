@@ -54,10 +54,10 @@ iiiiiijjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #c8d3f5 bg #222436
-d fg #82aaff bg #453755
+d fg #82aaff bg #2d3f76
 e fg #6c94fc bg #222436
-f fg #c8d3f5 bg #453755 BOLD
-g fg #c8d3f5 bg #453755
+f fg #c8d3f5 bg #2d3f76 BOLD
+g fg #c8d3f5 bg #2d3f76
 h fg #c8d3f5 bg #222436 BOLD
 i fg #82aaff bg #1b1d2c BOLD
 j fg #c8d3f5 bg #1b1d2c
@@ -90,10 +90,10 @@ iiiiiijjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #1f2328 bg #ffffff
-d fg #6639ba bg #ccdbea
+d fg #6639ba bg #dae9f9
 e fg #6c94fc bg #ffffff
-f fg #1f2328 bg #ccdbea BOLD
-g fg #1f2328 bg #ccdbea
+f fg #1f2328 bg #dae9f9 BOLD
+g fg #1f2328 bg #dae9f9
 h fg #1f2328 bg #ffffff BOLD
 i fg #6639ba bg #e7eaf0 BOLD
 j fg #1f2328 bg #e7eaf0
@@ -170,9 +170,9 @@ hhhhhhiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #c8d3f5 bg #222436
-d fg #82aaff bg #453755
-e fg #c8d3f5 bg #453755 BOLD
-f fg #c8d3f5 bg #453755
+d fg #82aaff bg #2d3f76
+e fg #c8d3f5 bg #2d3f76 BOLD
+f fg #c8d3f5 bg #2d3f76
 g fg #c8d3f5 bg #222436 BOLD
 h fg #82aaff bg #1b1d2c BOLD
 i fg #c8d3f5 bg #1b1d2c
@@ -214,9 +214,9 @@ hhhhhhiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #1f2328 bg #ffffff
-d fg #6639ba bg #ccdbea
-e fg #1f2328 bg #ccdbea BOLD
-f fg #1f2328 bg #ccdbea
+d fg #6639ba bg #dae9f9
+e fg #1f2328 bg #dae9f9 BOLD
+f fg #1f2328 bg #dae9f9
 g fg #1f2328 bg #ffffff BOLD
 h fg #6639ba bg #e7eaf0 BOLD
 i fg #1f2328 bg #e7eaf0
@@ -337,9 +337,9 @@ hhhhhhiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #c8d3f5 bg #222436
-d fg #82aaff bg #453755
-e fg #c8d3f5 bg #453755 BOLD
-f fg #c8d3f5 bg #453755
+d fg #82aaff bg #2d3f76
+e fg #c8d3f5 bg #2d3f76 BOLD
+f fg #c8d3f5 bg #2d3f76
 g fg #c8d3f5 bg #222436 BOLD
 h fg #82aaff bg #1b1d2c BOLD
 i fg #c8d3f5 bg #1b1d2c
@@ -403,9 +403,9 @@ hhhhhhiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #1f2328 bg #ffffff
-d fg #6639ba bg #ccdbea
-e fg #1f2328 bg #ccdbea BOLD
-f fg #1f2328 bg #ccdbea
+d fg #6639ba bg #dae9f9
+e fg #1f2328 bg #dae9f9 BOLD
+f fg #1f2328 bg #dae9f9
 g fg #1f2328 bg #ffffff BOLD
 h fg #6639ba bg #e7eaf0 BOLD
 i fg #1f2328 bg #e7eaf0
