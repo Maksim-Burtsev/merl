@@ -9,7 +9,7 @@ use ratatui::style::Style;
 use ratatui::text::Span;
 use ratatui::widgets::Block;
 
-use crate::app::{App, Mode};
+use crate::app::{App, Focus, Mode};
 use crate::theme::Theme;
 use crate::wrap;
 
@@ -48,14 +48,24 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
         Constraint::Length(1),
     ])
     .areas(area);
-    let tree_w = if app.show_tree { TREE_W } else { 0 };
+    if app.focus != Focus::Tree {
+        app.tree_wide = false;
+    }
+    let wide = (main.width / 2).max(TREE_W);
+    let tree_w = match (app.show_tree, app.tree_wide) {
+        (false, _) => 0,
+        (true, true) => wide,
+        (true, false) => TREE_W,
+    };
     let [tree, code] =
         Layout::horizontal([Constraint::Length(tree_w), Constraint::Min(1)]).areas(main);
 
-    let whole = match app.show_tree {
-        true => draw_tree(frame, app, theme, tree, base),
-        false => None,
-    };
+    let cut = app.show_tree && draw_tree(frame, app, theme, tree, base);
+    if cut && app.focus == Focus::Tree && !app.tree_wide && wide > TREE_W {
+        app.tree_wide = true;
+        frame.render_widget(ratatui::widgets::Clear, frame.area());
+        return draw(frame, app, theme);
+    }
     if app.previewing() {
         draw_preview(frame, app, theme, code, base);
     } else if app.folded_here().is_some() {
@@ -63,13 +73,9 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     } else if app.buf.binary() {
         draw_binary(frame, theme, code, base);
     } else if app.buf.path.is_some() {
-        draw_code(frame, app, theme, code, base, whole.as_ref().map(|w| w.0));
+        draw_code(frame, app, theme, code, base);
     } else {
         draw_welcome(frame, theme, code, base);
-    }
-    if let Some((at, line)) = whole {
-        frame.render_widget(ratatui::widgets::Clear, at);
-        frame.render_widget(ratatui::widgets::Paragraph::new(line).style(base), at);
     }
     if let Some(panel) = panel {
         frame.render_widget(panel, lesson);

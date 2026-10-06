@@ -87,7 +87,7 @@ pub(super) fn draw_tree(
     theme: &Theme,
     area: Rect,
     base: Style,
-) -> Option<(Rect, Line<'static>)> {
+) -> bool {
     let accent = base.fg(theme.accent);
     let title = match &app.review {
         Some(r) => format!("{} \u{2190} {}", r.branch, r.base),
@@ -131,20 +131,19 @@ pub(super) fn draw_tree(
         .unwrap_or(0);
     app.tree_top = app.tree_top.min(at).max((at + 1).saturating_sub(height));
 
-    let mut whole = None;
+    let mut cut_any = false;
     let rows: Vec<Line> = visible
         .iter()
         .skip(app.tree_top)
         .take(height)
-        .enumerate()
-        .map(|(y, &i)| {
+        .map(|&i| {
             let n = &app.tree.nodes[i];
             let depth = app.tree.drawn_depth(i);
             let full = app.tree.row_name(i);
             let room = name_room(app.review.as_ref(), n, depth, width).max(0) as usize;
             let cut = wrap::width(&full) > room;
             let joined = full.contains('/');
-            let whole_row = focused && i == app.tree.cursor && cut && (room < NAME_ROOM || joined);
+            cut_any |= cut;
             // Directories carry the accent: they are what the eye scans the tree by. What
             // `.gitignore` leaves out is dim, directory or not.
             let row = if n.ignored {
@@ -191,15 +190,6 @@ pub(super) fn draw_tree(
                         let fits = wrap::cut(&name, 0, room.saturating_sub(1)).0;
                         name = format!("{}\u{2026}", &name[fits]);
                     }
-                    if whole_row {
-                        let mut line = spans.clone();
-                        line.extend([
-                            Span::styled(f.status.to_string(), style),
-                            Span::styled(format!(" {full}  "), style),
-                            Span::styled(counts.clone(), dim),
-                        ]);
-                        whole = Some((y, Line::from(line)));
-                    }
                     let gap =
                         width.saturating_sub(used + wrap::width(&name) + wrap::width(&counts));
                     spans.extend([
@@ -216,11 +206,6 @@ pub(super) fn draw_tree(
                         (true, false) => "\u{25b8} ",
                         (false, _) => "  ",
                     };
-                    if whole_row {
-                        let mut line = spans.clone();
-                        line.push(Span::styled(format!("{marker}{full} "), style));
-                        whole = Some((y, Line::from(line)));
-                    }
                     let name = match cut && joined {
                         true => cut_at_slash(&full, room),
                         false => full,
@@ -234,9 +219,7 @@ pub(super) fn draw_tree(
         })
         .collect();
     frame.render_widget(Paragraph::new(rows).style(base), inner);
-    let (y, line) = whole?;
-    let w = (line.width() as u16).min(frame.area().width.saturating_sub(inner.x));
-    (w > inner.width).then(|| (Rect::new(inner.x, inner.y + y as u16, w, 1), line))
+    cut_any
 }
 
 const NAME_ROOM: usize = 12;
