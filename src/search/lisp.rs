@@ -322,6 +322,7 @@ const LETS: &[&str] = &[
     "pcase-let*",
 ];
 const SEQUENTIAL: &[&str] = &["let*", "when-let*", "if-let*", "and-let*", "pcase-let*"];
+const LAMBDAS: &[&str] = &["lambda", "opt-lambda"];
 const CLASSES: &[&str] = &["class", "class*", "mixin"];
 const CLAUSES: &[&str] = &["inherit", "inherit-field", "init-field", "field"];
 const LOOP_VARS: &[&str] = &["for", "as", "with"];
@@ -545,7 +546,7 @@ fn child_role(clojure: bool, p: &mut Frame, c: u8) -> Role {
     match p.idx {
         1 if LETS.contains(&h) => Role::Entries,
         2 if h == "let" && p.named => Role::Entries,
-        1 if h == "lambda" => Role::Params,
+        1 if LAMBDAS.contains(&h) => Role::Params,
         1 if DEFINES.contains(&h) => Role::Define,
         2 if DEFUNS.contains(&h) => Role::Params,
         _ => Role::Plain,
@@ -718,4 +719,76 @@ pub fn lisp_files(kind: Kind, dir: &Path, module: &str, files: &[PathBuf]) -> Ve
             .cloned()
             .collect(),
     }
+}
+
+pub fn scheme_foreign_branch(
+    text: &str,
+    line: usize,
+    includes_here: impl Fn(&str) -> bool,
+) -> bool {
+    struct Open<'a> {
+        head: Option<&'a str>,
+        idx: usize,
+        start: usize,
+        own: Option<usize>,
+        branch_of: Option<usize>,
+        here: bool,
+    }
+    let code = String::from_utf8_lossy(&lex(Kind::Scheme, text).code).into_owned();
+    let Some(at) = std::iter::once(0)
+        .chain(text.match_indices('\n').map(|(i, _)| i + 1))
+        .nth(line.saturating_sub(1))
+    else {
+        return false;
+    };
+    let at = at + text[at..].len() - text[at..].trim_start().len();
+    let mut stack: Vec<Open> = Vec::new();
+    let mut expands = 0;
+    let mut branches: Vec<(usize, Range<usize>, bool)> = Vec::new();
+    for (tok, pos) in tokens(&code) {
+        match tok {
+            Tok::Open(_) => {
+                let branch_of = stack.last().and_then(|p| p.own.filter(|_| p.idx >= 1));
+                stack.push(Open {
+                    head: None,
+                    idx: 0,
+                    start: pos,
+                    own: None,
+                    branch_of,
+                    here: false,
+                });
+            }
+            Tok::Close => {
+                let Some(f) = stack.pop() else { continue };
+                if let Some(e) = f.branch_of {
+                    branches.push((e, f.start..pos, f.here));
+                }
+                if let Some(p) = stack.last_mut() {
+                    p.idx += 1;
+                }
+            }
+            Tok::Atom(a) => {
+                let Some(f) = stack.last_mut() else { continue };
+                if f.idx == 0 && a == "cond-expand" {
+                    f.own = Some(expands);
+                    expands += 1;
+                }
+                let include = f.idx > 0 && matches!(f.head, Some("include" | "include-ci"));
+                f.head = f.head.or(Some(a));
+                f.idx += 1;
+                if include
+                    && a == "\"\""
+                    && let Some(end) = text[pos + 1..].find('"')
+                    && includes_here(&text[pos + 1..pos + 1 + end])
+                    && let Some(b) = stack.iter_mut().rev().find(|o| o.branch_of.is_some())
+                {
+                    b.here = true;
+                }
+            }
+        }
+    }
+    branches.iter().any(|(e, span, _)| {
+        span.contains(&at)
+            && (branches.iter()).any(|(o, other, here)| o == e && other != span && *here)
+    })
 }

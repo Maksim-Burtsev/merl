@@ -112,6 +112,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in Racket on a variable of a named `let`, `(let loop ([xs xs] [n 0]) …)`, or on a name an
   `inherit`, `inherit-field`, `init-field` or `field` clause of the class around binds, lands on
   that binding, where it jumped to a namesake elsewhere in the project. (#733)
+- `d` in an R7RS project (chibi-scheme) on a parameter of an `opt-lambda` lands on it; a
+  definition in a `cond-expand` branch other than the one that includes the file is no longer
+  jumped to; and a `.scm` or `.sld` file no longer searches Racket's collections, where `d`
+  offered their files. (#732)
 
 ## [0.8.2] - 2026-10-04
 
