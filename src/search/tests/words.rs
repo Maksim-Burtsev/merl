@@ -24,7 +24,6 @@ fn kinds_come_from_the_file_name() {
         ("ledger.hpp", Some(Kind::C)),
         ("ledger.hh", Some(Kind::C)),
         ("ledger.hxx", Some(Kind::C)),
-        // Objective-C and Objective-C++ (#417).
         ("Ledger.m", Some(Kind::C)),
         ("Ledger.mm", Some(Kind::C)),
         ("Invoice.cs", Some(Kind::CSharp)),
@@ -91,22 +90,38 @@ fn qualifier_is_the_chain_in_front_of_the_word() {
     assert!(q("load(fp)", 0).is_empty());
     assert!(q("x = load(fp)", 4).is_empty());
     assert_eq!(q("this.#root.insert(p)", 11), ["this", "#root"]);
-    // A chain that hangs off a call, an index or `?.` has no name to start from.
-    assert!(q("x = make_uow().users.delete_user()", 21).is_empty());
+    assert!(
+        q("x = make_uow().users.delete_user()", 21).is_empty(),
+        "a chain that hangs off a call, an index or `?.` has no name to start from"
+    );
     assert!(q("a[0].users.find()", 11).is_empty());
     assert!(q("a?.users.find()", 9).is_empty());
     assert!(q("  .users.find()", 9).is_empty());
-    // Python's `super()` is one name, as TypeScript's `super` is; `my_super()` is a call.
-    assert_eq!(q("        super().store(item)", 16), ["super"]);
+    assert_eq!(
+        q("        super().store(item)", 16),
+        ["super"],
+        "Python's `super()` is one name, as TypeScript's `super` is"
+    );
     assert_eq!(q("    print(super().label)", 18), ["super"]);
-    assert!(q("    my_super().store(item)", 15).is_empty());
+    assert!(
+        q("    my_super().store(item)", 15).is_empty(),
+        "`my_super()` is a call"
+    );
     assert!(q("    a.super().store(item)", 14).is_empty());
-    // A spread and a range are no member access.
-    assert_eq!(q("f(...this.repo.find())", 15), ["this", "repo"]);
-    assert_eq!(q("for i in 0..v.len() {", 14), ["v"]);
-    // A character outside ASCII in front of the word is no name char, and the chain is read
-    // without slicing inside it (#150).
-    assert!(q("    данные.load(x)", 17).is_empty());
+    assert_eq!(
+        q("f(...this.repo.find())", 15),
+        ["this", "repo"],
+        "a spread is no member access"
+    );
+    assert_eq!(
+        q("for i in 0..v.len() {", 14),
+        ["v"],
+        "a range is no member access"
+    );
+    assert!(
+        q("    данные.load(x)", 17).is_empty(),
+        "a character outside ASCII in front of the word is no name char"
+    );
     assert!(q("  café.load(x)", 8).is_empty());
 }
 
@@ -115,9 +130,12 @@ fn word_at_covers_the_run_under_and_before_the_cursor() {
     let line = "    inv = parse_it(\"x\")";
     assert_eq!(word_at(line, 4, ""), Some((4..7, "inv")));
     assert_eq!(word_at(line, 6, ""), Some((4..7, "inv")));
-    // Right after a word counts as being on it; on a space it does not.
-    assert_eq!(word_at(line, 7, ""), Some((4..7, "inv")));
-    assert_eq!(word_at(line, 8, ""), None);
+    assert_eq!(
+        word_at(line, 7, ""),
+        Some((4..7, "inv")),
+        "right after a word counts as being on it"
+    );
+    assert_eq!(word_at(line, 8, ""), None, "on a space it does not");
     assert_eq!(word_at(line, 10, ""), Some((10..18, "parse_it")));
     assert_eq!(word_at(line, line.len(), ""), None);
     assert_eq!(word_at("", 0, ""), None);
@@ -130,9 +148,16 @@ fn extra_word_chars_join_names_but_do_not_start_them() {
     assert_eq!(word_at(line, 17, ""), Some((15..17, "my")));
     assert_eq!(word_at(line, 17, "-"), Some((15..24, "my-region")));
     assert_eq!(word_at(line, 12, "-."), Some((11..24, "var.my-region")));
-    // A flag's dashes and a trailing dot are not part of the name.
-    assert_eq!(word_at("COPY --from=build", 8, "-"), Some((7..11, "from")));
-    assert_eq!(word_at("x = var.", 6, "-."), Some((4..7, "var")));
+    assert_eq!(
+        word_at("COPY --from=build", 8, "-"),
+        Some((7..11, "from")),
+        "a flag's dashes are not part of the name"
+    );
+    assert_eq!(
+        word_at("x = var.", 6, "-."),
+        Some((4..7, "var")),
+        "nor is a trailing dot"
+    );
     assert_eq!(word_at("- db", 0, "-"), None);
     assert_eq!(word_chars(Some(Kind::Terraform), true), "-.");
     assert_eq!(word_chars(Some(Kind::Terraform), false), "-");
@@ -140,10 +165,6 @@ fn extra_word_chars_join_names_but_do_not_start_them() {
     assert_eq!(word_chars(None, false), "");
 }
 
-/// #248: the declarations the code pane pins over the text, for every line of a file: those
-/// around it, outermost first. A loop moves the walk out without being pinned, a function
-/// declared earlier in the same body is not one the line stands in, and the tail of a wrapped
-/// signature, a blank line or a comment at the left edge keeps the header of the code around it.
 #[test]
 fn enclosing_declarations_are_the_headers_a_line_stands_in() {
     let pins = |kind, text: &str| -> Vec<Vec<usize>> {
@@ -179,7 +200,9 @@ fn next() {
         [
             none, imp, imp, method, method, method, method, method, method, method, method, method,
             imp, none, none, none, next, none
-        ]
+        ],
+        "outermost first; a loop is not pinned, nor a fn declared earlier in the body; a wrapped \
+         signature's tail, a blank line and a comment at the left edge keep the header around them"
     );
     let py = "\
 class Store:
@@ -196,7 +219,6 @@ class Store:
         pins(Kind::Python, py),
         [none, class, class, def, def, def, class, class]
     );
-    // A C++ access specifier at the left edge is a label inside the class, as `d` reads it.
     let cpp = "\
 class Store {
 public:
@@ -208,12 +230,13 @@ public:
     let (class, method): (&[usize], &[usize]) = (&[0], &[0, 2]);
     assert_eq!(
         pins(Kind::C, cpp),
-        [none, class, class, method, class, none]
+        [none, class, class, method, class, none],
+        "a C++ access specifier at the left edge is a label inside the class, as `d` reads it"
     );
-    // A YAML anchor names a value, not a container: nothing is pinned.
     assert_eq!(
         pins(Kind::Yaml, "base: &base\n  a: 1\n  b: 2\n"),
-        [none, none, none]
+        [none, none, none],
+        "a YAML anchor names a value, not a container"
     );
 }
 
