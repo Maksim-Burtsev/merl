@@ -70,6 +70,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/` and `s` open with the selected text as the query when the selection is within one line,
   already searched and selected so typing replaces it; without a selection, or with one over
   several lines, they open as before. (#410)
+- Undo steps close as in VS Code: a cursor move ends the step, so typing after the cursor went
+  away and came back is undone on its own; so does a switch between typing and deleting, and a
+  space typed after a word starts one. A cut, a paste and Tab are steps of their own; Enter starts
+  a step that the typing after it joins. (#478)
 - The selected row of every picker (`o`, `s`, `u`, `D`, `d`'s choices, `T`) and the tree's cursor
   while the tree has the keys take the theme's selection colour as it is, as LazyVim's picker
   and tree do, instead of the cursor line's, which could barely be seen (1.09:1 in the default

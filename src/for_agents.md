@@ -1,6 +1,6 @@
 # merl, for an agent
 
-merl is the terminal code editor your user reads and reviews code in. It knows git and nothing
+merl is the terminal code navigator your user reads and reviews code in. It knows git and nothing
 else: no language server, no model, no forge. It is full-screen, so you never run it yourself
 (this guide is the one exception). You prepare things in the repository, and the user opens merl
 in a terminal of their own.
