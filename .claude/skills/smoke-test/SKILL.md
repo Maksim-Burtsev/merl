@@ -69,20 +69,29 @@ for the release PR to commit, so the next release compares against them.
   A `d` row failing as two times (#640) that comes back under ~8 is a NO-GO: `d` on a fresh
   merl takes a slow path at random.
 
-## 3. Look at every checkpoint
+## 3. Look at the checkpoints that changed
 
 The report compares screens as text: colour, contrast and alignment in text that did not change
 never reach it (#144's deleted lines nearly invisible, #146's 1.6:1 contrast were found by
-people). So every checkpoint of the new build gets looked at, in two themes:
+people). So the checkpoints whose screen changed since the last release get looked at, in two
+themes:
 
 ```sh
-tests/smoke/run.py --all-shots   # ~2 min: the new build alone, every scenario in each theme
+tests/smoke/run.py --all-shots   # ~4 min: both builds, every scenario in each theme
 ```
 
 It writes `/tmp/merl-smoke/shots/shots.md`, which lists the PNGs beside it:
 `default/SCENARIO/NN.png` in merl's default theme on a dark terminal, `github-light/SCENARIO/NN.png`
-in a light theme on a light one, each screen headed by its checkpoint. A play that did not end ok
-is named there with its `last.png`; step 2 already judges it. Open every PNG and look for:
+in a light theme on a light one. A PNG is drawn only for a checkpoint whose screen, colours
+included, differs from the last release's (`changed`: the last release above, the new build
+below) or that the last release never reaches (`new`); the rest were looked at on their own
+release, and `shots.md` counts them. A play that did not end ok is named there with its
+`last.png`; step 2 already judges it.
+
+Hand the PNGs to subagents, about ten each, every batch in a fresh context: an image stays in
+its agent's context and is read again on every turn, so one agent over hundreds of them costs
+the square (0.8.2's 973 PNGs in three agents: ~600M tokens, #707). Each opens its PNGs and
+looks for:
 
 - text cut at an edge, of the screen or of a panel;
 - panels overlapping;
@@ -90,13 +99,12 @@ is named there with its `last.png`; step 2 already judges it. Open every PNG and
 - the cursor off its word;
 - a state drawn in the wrong colour: an added line in red, a status letter, an error.
 
-A finding is a regression only when the last release does not have it. Look at the same
-checkpoint on it: `tests/smoke/run.py --all-shots --new ~/.cache/merl-smoke/TAG/merl --only NAME
---out /tmp/merl-smoke/shots-old` (step 1 fetched it; it stops at the first wait for what it
-lacks, so a checkpoint it never reaches is new). A regression goes to step 4 as one. Every other
-finding is an issue and does not block: search the open ones first (`gh issue list --search`),
-else file a `bug` per AGENTS.md `## Issues`, its PNG uploaded to `media` as
-`issues/<slug>.png` (a name not taken yet) and the scenario's steps up to the checkpoint.
+A finding is a regression only when the last release does not have it: on a `changed` PNG, look
+at its upper screen; a `new` checkpoint is one the last release never reaches. A regression goes
+to step 4 as one. Every other finding is an issue and does not block: search the open ones first
+(`gh issue list --search`), else file a `bug` per AGENTS.md `## Issues`, its PNG uploaded to
+`media` as `issues/<slug>.png` (a name not taken yet) and the scenario's steps up to the
+checkpoint.
 
 ## 4. Give the verdict
 
@@ -130,7 +138,7 @@ Smoke test: merl 0.8.0 (abc1234) against v0.7.0, 16 scenarios, wall 150 s, load 
 | scenario `review` | intended (#165) | differences 1-3: the diff tints, review/04.png |
 | scenario `edit` | PASS | |
 | timed steps | none slower | `d` on gitea 48 ms / 51 ms |
-| every checkpoint, two themes | 2 findings, not regressions | 212 PNGs; #460, #461 filed |
+| changed checkpoints, two themes | 2 findings, not regressions | 64 PNGs, 812 the same; #460, #461 filed |
 | time budgets | all within | `s` done 550 ms / 460 ms (budget 2,000), review 260 ms / 310 ms |
 | #165 review paints the diff as GitHub does | seen working in `review` | |
 | #227 `d` on `Type::name` in Rust | not checked | no scenario reads Rust |

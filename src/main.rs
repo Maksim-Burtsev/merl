@@ -147,8 +147,6 @@ fn run() -> Result<()> {
         Some(branch) => {
             root = git_toplevel(&root).context("--review needs a git repository")?;
             let mut branch = Some(branch.as_str()).filter(|b| !b.is_empty());
-            // A branch another worktree has checked out is reviewed there, as it stands:
-            // nothing is fetched, switched or reset in someone else's worktree (#396).
             if let Some(wt) = branch.and_then(|b| git::worktree_of(&root, b)) {
                 let rel = |f: PathBuf| Some(wt.join(f.strip_prefix(&root).ok()?));
                 file = file.and_then(rel).filter(|f| f.is_file());
@@ -374,6 +372,7 @@ fn event_loop(
             dirty |= p.tick();
         }
         dirty |= app.tick();
+        app.warm_up();
         rewatch(watcher.as_mut(), &mut watched, app);
         if std::mem::take(&mut app.want_diff)
             && let Some(path) = app.buf.path.clone()
@@ -588,7 +587,6 @@ fn resolve(target: Option<&str>) -> Result<(PathBuf, bool, Option<PathBuf>, Opti
     if !path.exists() {
         anyhow::bail!("{}: no such file or directory", path.display());
     }
-    // A FIFO, a socket or a device: reading one can wait forever (#405).
     if !path.is_file() {
         anyhow::bail!("{}: not a regular file", path.display());
     }
@@ -596,8 +594,6 @@ fn resolve(target: Option<&str>) -> Result<(PathBuf, bool, Option<PathBuf>, Opti
         .canonicalize()
         .with_context(|| format!("{}", path.display()))?;
     let dir = path.parent().unwrap_or(Path::new(".")).to_path_buf();
-    // Outside a repository nothing names a project, and the directory of `~/.zshrc` is the
-    // whole home: the project is the files next to this one (#182).
     let (root, shallow) = git_toplevel(&dir).map_or((dir, true), |top| (top, false));
     Ok((root, shallow, Some(path), line))
 }
@@ -642,11 +638,6 @@ fn base64(bytes: &[u8]) -> String {
     out
 }
 
-/// Inside tmux (`$TMUX` set): the question whether tmux takes the OSC 52 merl writes itself,
-/// and the calls that hand it copied text on stdin when it does not: tmux's default
-/// `set-clipboard external` drops the OSC 52 (#395). With `-w` (tmux 3.2) tmux keeps a paste
-/// buffer and sets the outer terminal's clipboard itself; an older tmux refuses `-w`, and the
-/// plain call at least fills a buffer, for prefix `]`.
 fn tmux_copy(tmux: Option<&OsStr>) -> Option<(Command, [Command; 2])> {
     tmux.filter(|t| !t.is_empty())?;
     // Its usage, or an error, must not draw over merl's screen.
@@ -932,31 +923,32 @@ mod tests {
     /// A listed file that shrinks lowers its number in the same change; one under the limit
     /// leaves the list.
     const LONG_FILES: &[(&str, usize)] = &[
-        ("src/app/definition.rs", 2613),
-        ("src/search/bindings.rs", 1759),
+        ("src/app/definition.rs", 2369),
+        ("src/search/bindings.rs", 1623),
     ];
     const MAX_LINES: usize = 1500;
 
     /// #544: a large file costs an agent context and makes parallel branches conflict at the
     /// same spot. Test code is not counted: files under a `tests/` folder, and a file's inline
     /// `#[cfg(test)] mod tests { … }`, which clippy keeps at its end.
-    #[test]
-    fn no_source_file_grows_past_its_size() {
-        fn walk(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
-            for entry in std::fs::read_dir(dir).unwrap() {
-                let path = entry.unwrap().path();
-                if path.is_dir() {
-                    if !path.ends_with("tests") {
-                        walk(&path, out);
-                    }
-                } else if path.extension().is_some_and(|e| e == "rs") {
-                    out.push(path);
+    fn rust_files(dir: &Path, with_tests: bool, out: &mut Vec<std::path::PathBuf>) {
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                if with_tests || !path.ends_with("tests") {
+                    rust_files(&path, with_tests, out);
                 }
+            } else if path.extension().is_some_and(|e| e == "rs") {
+                out.push(path);
             }
         }
+    }
+
+    #[test]
+    fn no_source_file_grows_past_its_size() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
         let mut files = Vec::new();
-        walk(&root.join("src"), &mut files);
+        rust_files(&root.join("src"), false, &mut files);
         let mut wrong = Vec::new();
         for path in files {
             let name = path
@@ -996,5 +988,134 @@ mod tests {
             }
         }
         assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
+    }
+
+    const COMMENT_LINES: usize = 7507;
+
+    fn comment_lines(text: &str) -> usize {
+        let b = text.as_bytes();
+        let (mut i, mut line, mut count, mut marked) = (0, 0, 0, None);
+        let mut mark = |line: usize| {
+            if marked != Some(line) {
+                marked = Some(line);
+                count += 1;
+            }
+        };
+        while i < b.len() {
+            match b[i] {
+                b'\n' => line += 1,
+                b'/' if b.get(i + 1) == Some(&b'/') => {
+                    mark(line);
+                    while b.get(i + 1).is_some_and(|&c| c != b'\n') {
+                        i += 1;
+                    }
+                }
+                b'/' if b.get(i + 1) == Some(&b'*') => {
+                    let mut depth = 0;
+                    loop {
+                        mark(line);
+                        if b[i..].starts_with(b"/*") {
+                            depth += 1;
+                            i += 1;
+                        } else if b[i..].starts_with(b"*/") {
+                            depth -= 1;
+                            i += 1;
+                            if depth == 0 {
+                                break;
+                            }
+                        } else if b[i] == b'\n' {
+                            line += 1;
+                        }
+                        i += 1;
+                        if i >= b.len() {
+                            break;
+                        }
+                    }
+                }
+                b'"' => {
+                    i += 1;
+                    while i < b.len() && b[i] != b'"' {
+                        if b[i] == b'\\' {
+                            i += 1;
+                        }
+                        line += usize::from(b.get(i) == Some(&b'\n'));
+                        i += 1;
+                    }
+                }
+                b'\'' => {
+                    let close = if b.get(i + 1) == Some(&b'\\') {
+                        b.get(i + 3..)
+                            .and_then(|r| r.iter().position(|&c| c == b'\''))
+                            .map(|n| i + 3 + n)
+                    } else {
+                        text[i + 1..]
+                            .chars()
+                            .next()
+                            .map(|c| i + 1 + c.len_utf8())
+                            .filter(|&e| b.get(e) == Some(&b'\''))
+                    };
+                    if let Some(close) = close {
+                        i = close;
+                    }
+                }
+                c if c.is_ascii_alphanumeric() || c == b'_' => {
+                    let start = i;
+                    while b
+                        .get(i + 1)
+                        .is_some_and(|c| c.is_ascii_alphanumeric() || *c == b'_')
+                    {
+                        i += 1;
+                    }
+                    let hashes = b[i + 1..].iter().take_while(|&&c| c == b'#').count();
+                    if matches!(&b[start..=i], b"r" | b"br" | b"cr")
+                        && b.get(i + 1 + hashes) == Some(&b'"')
+                    {
+                        let end = [&b"\""[..], &b"#".repeat(hashes)].concat();
+                        let body = i + 2 + hashes;
+                        let close = b[body..]
+                            .windows(end.len())
+                            .position(|w| w == end)
+                            .map_or(b.len(), |n| body + n + end.len() - 1);
+                        line += b[i..close].iter().filter(|&&c| c == b'\n').count();
+                        i = close;
+                    }
+                }
+                _ => {}
+            }
+            i += 1;
+        }
+        count
+    }
+
+    #[test]
+    fn comment_lines_count_comments_not_strings() {
+        let text = r##"fn f<'a>(s: &'a str) -> char { // one
+    /* two
+       three /* nested */ */
+    let _ = ("// no", r#"// "no" "#, br"/* no", b"\"// no", '"', '\'', '/');
+    let _ = "a
+// no
+b";
+    /// four
+    'x'
+}
+"##;
+        assert_eq!(comment_lines(text), 4);
+    }
+
+    #[test]
+    fn comment_lines_do_not_grow() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut files = Vec::new();
+        rust_files(&root.join("src"), true, &mut files);
+        let count: usize = files
+            .iter()
+            .map(|path| comment_lines(&std::fs::read_to_string(path).unwrap()))
+            .sum();
+        assert!(
+            count <= COMMENT_LINES,
+            "src/ holds {count} comment lines, over COMMENT_LINES ({COMMENT_LINES}): code carries no \
+             comments; move the why into the commit message and the what into a name or a test"
+        );
     }
 }

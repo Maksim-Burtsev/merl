@@ -12,6 +12,10 @@ a release build of master, and the commit trailers. Read `AGENTS.md` in your wor
 - The laptop is shared: run cargo as `CARGO_BUILD_JOBS=2 nice -n 15 cargo …`, tests with
   `-- --test-threads=2`. Before a release build, a smoke run or a bench, read `sysctl -n
   vm.loadavg` and wait while it is over 16.
+- The heavy runs go one at a time on the whole machine: start `tools/d-bench/run`,
+  `tools/fold-bench/run`, `tests/smoke/run.py` and the `no_panic` sweep under `lockf -k
+  /tmp/merl-heavy.lock …`, which waits for the run another agent holds. Skip the lock only when
+  your task file says the owner lifted the limit.
 - Commit work in progress; `git stash` is shared by every worktree of the repository, and
   another agent's `pop` takes yours.
 - `tools/d-bench/run` gets `--cache` pointing at a private folder of symlinks to

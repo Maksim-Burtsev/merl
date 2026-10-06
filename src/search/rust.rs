@@ -1,5 +1,3 @@
-//! Rust's own rules for `d`: the words of an attribute, struct fields and enum variants (#370).
-
 use std::ops::Range;
 use std::sync::LazyLock;
 
@@ -94,10 +92,6 @@ pub fn rust_attribute(lines: &[String], line: usize, start: usize, end: usize) -
             RustAttr::Derive
         });
     }
-    // In a nested argument list a word is nothing only where the compiler reads it (`cfg`,
-    // `allow`, …) or where it is a key (`rename_all = …`). An attribute macro may take a project
-    // type there, `#[diesel(belongs_to(User))]`, `#[enum_dispatch(Shape)]`: the lookup that
-    // follows answers it, as before #370.
     if !inner.is_empty() {
         let after = cur[end..].trim_start();
         let key = after.starts_with('=') && !after[1..].starts_with(['=', '>']);
@@ -115,10 +109,6 @@ pub fn rust_attribute(lines: &[String], line: usize, start: usize, end: usize) -
         RustAttr::Nothing
     })
 }
-/// Whether the word at byte `start` of 0-based `line` of `lines` stands in a string an attribute
-/// takes as a value, `#[serde(default = "default_port")]`, that holds a path: serde's `default`,
-/// `with`, `serialize_with` and `skip_serializing_if` name code so. Not in a compiler attribute's
-/// (`#[doc = "…"]`), nor in a string of prose (#346).
 pub fn rust_attribute_path(lines: &[String], line: usize, start: usize) -> bool {
     static PATH: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\w+(?:::\w+)*$").unwrap());
     let Some((text, stack, in_string)) = frames(lines, line, start) else {
@@ -464,14 +454,6 @@ pub enum RustNamespace {
     Path,
     Other,
 }
-/// The 1-based lines of the Rust `text` that declare the item `word` a name at 1-based `line`
-/// sees without a path (#363): the items directly in the body of the function around it (a nested
-/// `fn`), else those directly in its module, the innermost inline `mod` around it or the file,
-/// and through a `use super::*;` directly in that `mod`, those of the module around it. Another
-/// file's items are out of sight without a `use` or a path, and a `use` of the name beside an
-/// item of it does not compile (E0255). `ns` picks the kinds of item: a `macro_rules!` above the
-/// line for a macro, a type, a trait or an inline `mod` for a path's head, any but a macro else.
-///
 /// Empty wherever something else may be what the name means, so the caller goes on as before:
 /// on the item's own line; for a `mod word;`, whose declaration is its file; when any `use` of
 /// the file names the word; when a generic parameter list around it declares the word; when a
@@ -600,7 +582,6 @@ pub fn rust_scope_items(text: &str, line: usize, word: &str, ns: RustNamespace) 
         false => items.into_iter().map(|i| i + 1).collect(),
     }
 }
-// ---- locals and parameters (#353) -----------------------------------------------------------
 /// The byte index of the first of `stops` in the Rust code `s` outside brackets, `<…>` included,
 /// and strings. The `:` of a `::` is none, nor the `=` of `==`, `=>`, `!=`, `<=`, `>=`.
 fn top_stop(s: &str, stops: &[u8]) -> Option<usize> {
@@ -626,7 +607,6 @@ fn top_stop(s: &str, stops: &[u8]) -> Option<usize> {
     }
     None
 }
-/// The parts of a Rust list: `s` cut at its top-level commas.
 fn top_split(mut s: &str) -> Vec<&str> {
     let mut out = Vec::new();
     while let Some(i) = top_stop(s, b",") {
@@ -668,8 +648,6 @@ fn let_pattern(line: &str) -> Option<Range<usize>> {
     let from = LET.find(line)?.end();
     top_stop(&line[from..], b":=;").map(|end| from..from + end)
 }
-/// Whether the word `name` at byte `start` of the Rust `line` stands in the pattern of its `let`:
-/// the local's own declaration (#353).
 pub fn rust_let_declares(line: &str, start: usize, name: &str) -> bool {
     let_pattern(line).is_some_and(|p| p.contains(&start) && binds(&line[p], name))
 }
@@ -736,17 +714,6 @@ fn rust_param(lines: &[&str], f: usize, name: &str) -> Option<usize> {
         .find(|&i| declared.is_match(&uncommented(Kind::Rust, lines[i])))
         .or_else(|| (f..=last).find(|&i| names(lines[i], name)))
 }
-/// Rust's locals (#353): what binds `name` for 0-based line `at` of `lines`. The blocks around the
-/// line are told by indentation, which rustfmt keeps, from the innermost out to the function's
-/// parameters; a nested function sees nothing of the one around it. The nearest binding wins,
-/// since Rust shadows: a `let` of the block the walk is in, above the line, else what the header
-/// of that block binds for it (an `if let`, a `for`, an arm, a closure, the parameters). What the
-/// line itself binds counts too and hides nothing, standing before the word or after it: a
-/// closure `|w| w`, an arm, an `if let`. A `let` binds from the line below, so in
-/// `let x = x.trim();` the right-hand `x` is the earlier one.
-///
-/// Empty for a name no pattern binds (a path, a type, `self`), and when a `let` whose pattern goes
-/// on past its line mentions the name: a binding the rules cannot read proves nothing.
 pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     const KEYWORDS: &[&str] = &[
         "self", "mut", "ref", "box", "crate", "super", "true", "false",
@@ -849,8 +816,6 @@ pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
     }
     out
 }
-/// The line pattern of a Rust method `word`: an indented `fn word` behind the prefixes the
-/// declaration patterns take. A method only when [`rust_method_at`] reads one (#358).
 pub fn rust_method_pattern(word: &str) -> String {
     format!(
         r#"^\s+(?:(?:pub(?:\([^)]*\))?|async|unsafe|const|extern(?:\s+"[^"]*")?|default)\s+)*fn\s+{}\b"#,
@@ -1000,7 +965,6 @@ fn quoted_names(s: &str) -> impl Iterator<Item = String> + '_ {
         .step_by(2)
         .filter_map(|q| q.split_whitespace().next().map(str::to_owned))
 }
-/// The `name` of the `[package]` a `Cargo.toml` declares.
 pub fn cargo_package_name(toml: &str) -> Option<String> {
     let mut in_package = false;
     for l in toml.lines() {
@@ -1025,7 +989,6 @@ pub fn rust_stability(lines: &[&str], line: usize) -> bool {
         .take_while(|t| t.starts_with("//") || !(t.is_empty() || t.ends_with(['{', '}', ';'])))
         .any(|t| t.starts_with("#[stable(") || t.starts_with("#[unstable("))
 }
-// ---- the type of a receiver (#377) ----------------------------------------------------------
 /// The Rust type written at the start of `s`, up to the `,`, `)`, `|`, `=`, `{`, `;` or `where`
 /// that ends it outside brackets.
 fn type_at(s: &str) -> &str {
@@ -1117,7 +1080,6 @@ pub fn rust_impl_type(line: &str) -> Option<String> {
     });
     IMPL.captures(line).map(|c| c[1].to_owned())
 }
-/// The trait an `impl<…> Tr for T` header on `line` implements.
 pub fn rust_impl_trait(line: &str) -> Option<String> {
     static FOR: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:\w+::)*([A-Za-z_]\w*)(?:<[^{]*?>)?\s+for\s").unwrap()
@@ -1164,7 +1126,6 @@ pub fn rust_generic(text: &str, name: &str) -> bool {
     ))
     .is_ok_and(|re| re.is_match(text))
 }
-/// What the binding of `name` on 0-based line `at` of `lines` says it holds (#377).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RustHolds {
     /// A type as written: `x: &T`, `|x: T|`, `let x: T = …`.
@@ -1199,7 +1160,6 @@ pub fn rust_holds(lines: &[&str], at: usize, name: &str) -> Option<RustHolds> {
         if c[1].starts_with(':') {
             return Some(RustHolds::Type(type_at(rest).to_owned()));
         }
-        // The statement, to its `;`.
         let mut statement = rest.to_owned();
         let mut i = at;
         while !statement.trim_end().ends_with(';') {
@@ -1322,7 +1282,6 @@ pub fn rust_struct_field(lines: &[&str], decl: usize, word: &str) -> Option<(usi
     }
     None
 }
-/// The line pattern of a Rust `struct`, `enum` or `union` called `name`.
 pub fn rust_type_decl_pattern(name: &str) -> String {
     format!(
         r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:struct|enum|union)\s+{}\b",

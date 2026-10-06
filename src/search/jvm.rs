@@ -65,11 +65,6 @@ pub fn jvm_private(line: &str) -> bool {
         .is_some_and(|m| m.as_str().split_whitespace().any(|w| w == "private"))
 }
 
-/// The receiver type a Kotlin extension on `line` declares `name` for, as written but for its
-/// type arguments and a `?`: `Topic` for `fun Topic.asExternalModel()` and `val Topic.testTag`,
-/// `List` for `fun <T> List<T>.second()` (#362), and the type of a Scala 3 extension's parameter
-/// for the method written on its line: `String` for `extension (s: String) def slug` (#416).
-/// `None` for any other line.
 pub fn jvm_receiver(line: &str, name: &str) -> Option<String> {
     static EXTENSION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(concat!(
@@ -87,8 +82,6 @@ pub fn jvm_receiver(line: &str, name: &str) -> Option<String> {
     (declared == name).then(|| receiver.as_str().to_owned())
 }
 
-/// [`jvm_receiver`] for the declaration on 1-based `line` of `text`, and for a Scala 3
-/// extension's method on a line of its own, the type of the `extension (s: T)` above it (#416).
 pub fn jvm_receiver_at(text: &str, line: usize, name: &str) -> Option<String> {
     static BLOCK: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*extension\s*(?:\[[^\]]*\]\s*)?\(\s*\w+\s*:\s*([\w.]+)[^)]*\)\s*(?:\(\s*using\b[^)]*\)\s*)?(?://.*)?$").unwrap()
@@ -130,12 +123,6 @@ pub fn jvm_this_owner(text: &str, line: usize) -> Option<String> {
     }
 }
 
-/// Scala's rules of the Jvm kind (#416), behind its modifiers ([`scala_mods`]) and with the name
-/// in backticks where a keyword has to be. Each needs a word Java and Kotlin never write at the
-/// front of a declaration (`def`, `trait`, `type`, `given`, a Scala-only modifier, `case`), or
-/// reads a form whose Kotlin spelling the rules before already find, so a `.java` or a `.kt`
-/// line answers as before. Operators (`def +(…)`) have no rule, and a reserved word is a name
-/// only in backticks: a constructor's `def this(…)` declares no `this`.
 pub(super) fn scala_patterns(word: &str) -> Vec<String> {
     const RESERVED: &[&str] = &[
         "class",
@@ -188,7 +175,6 @@ pub(super) fn scala_patterns(word: &str) -> Vec<String> {
         ),
     ]
 }
-// ---- the scope walk of `d` (#376) ------------------------------------------------------------
 
 /// The names one parameter or one lambda parameter of a Java or Kotlin list binds: `x` for
 /// `x: Int`, `vararg x: Int`, `final String x`, `String... x`, `(a, x)`, `x`; none for `_` or
@@ -268,7 +254,6 @@ fn lambda_names(line: &str) -> Vec<String> {
     out.retain(|n| n != "_");
     out
 }
-/// Whether `s` is one name.
 fn ident(s: &str) -> bool {
     s.starts_with(|c: char| c.is_alphabetic() || c == '_')
         && s.chars().all(|c| c.is_alphanumeric() || c == '_')
@@ -565,7 +550,6 @@ pub fn jvm_bases(text: &str, decl: usize, scala: bool) -> Vec<String> {
     let Some(k) = decl.checked_sub(1).filter(|&k| k < lines.len()) else {
         return Vec::new();
     };
-    // The header up to the `{` of its body, over the lines it is wrapped on.
     let mut header = String::new();
     for l in lines[k..].iter().take(20) {
         let code = uncommented(Kind::Jvm, l);
@@ -665,8 +649,6 @@ pub fn jvm_imports(text: &str) -> Vec<(String, Vec<String>)> {
         .collect()
 }
 
-/// The package the `package` line of Java or Kotlin `text` declares (#372); `None` without one.
-/// Scala's `package object shop` declares an object, no package (#416).
 pub fn jvm_package(text: &str) -> Option<String> {
     static PACKAGE: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"(?m)^[ \t]*package\s+([\w.]*\w)").unwrap());
@@ -675,8 +657,6 @@ pub fn jvm_package(text: &str) -> Option<String> {
         .map(|c| c[1].to_owned())
         .find(|p| p != "object")
 }
-
-// ---- the receiver's type (#388, #391) and Lombok's accessors (#381) ----------------------------
 
 const CAST_OPERAND: &str = r"(?:[\w.!?]|\([^()]*\))+";
 const GENERIC: &str = r"(?:<(?:[^<>]|<(?:[^<>]|<[^<>]*>)*>)*>)?";
@@ -712,9 +692,6 @@ pub fn jvm_declared_type(line: &str, name: &str, kotlin: bool) -> Option<String>
     })
 }
 
-/// Whether Scala `text` declares `name` as a type parameter, in the `[…]` after the name of a
-/// `def`, a `class`, a `trait`, a `type` or a `given`, or after `extension` (#416): `A` in `def
-/// f[A: Ordering](a: A)`, `F` in `trait Repo[F[_]]`, `T` in `class Box[+T]`.
 pub fn scala_type_parameter(text: &str, name: &str) -> bool {
     static LIST: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:\b(?:def|class|trait|type|given)\s+`?\w+`?\s*|\bextension\s*)\[([^\[\]]*(?:\[[^\[\]]*\][^\[\]]*)*)\]").unwrap()
@@ -871,20 +848,21 @@ pub fn jvm_parameters(text: &str, line: usize, word: &str, groovy: bool) -> Opti
     };
     let b = inner.as_bytes();
     let mut angles = Vec::new();
-    let generic_open = |i: usize| {
-        i > 0
-            && (b[i - 1].is_ascii_alphanumeric() || b[i - 1] == b'_')
-            && !matches!(b.get(i + 1), Some(b'<' | b'='))
+    let generic_opens = |i: usize, top: &str| {
+        let name = b[..i].iter().rev();
+        let name = name.take_while(|c| c.is_ascii_alphanumeric() || **c == b'_');
+        !groovy
+            || !DEFAULT.is_match(top)
+            || (name.last().is_some_and(u8::is_ascii_uppercase)
+                && !matches!(b.get(i + 1), Some(b'<' | b'=')))
     };
     for (i, c) in code(Kind::Jvm, &inner) {
         match c {
-            b'<' if groovy && !generic_open(i) => {}
-            b'>' if groovy && angles.last() != Some(&depth) => {}
-            b'<' => {
+            b'<' if depth == angles.len() as i32 && generic_opens(i, &top) => {
                 depth += 1;
                 angles.push(depth);
             }
-            b'>' => {
+            b'>' if angles.last() == Some(&depth) => {
                 angles.pop();
                 depth -= 1;
             }

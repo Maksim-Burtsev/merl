@@ -1,6 +1,3 @@
-//! `d` in Rust, what the shared lookup cannot read off a line: the words of an attribute, a
-//! field access, an enum variant (#370).
-
 use super::*;
 
 impl App {
@@ -37,7 +34,6 @@ impl App {
         {
             return Some(self.rust_fields(here, word));
         }
-        // On the variant's own name, behind its attributes at most.
         let before = self.line_str()[..range.start].trim();
         let variant = (before.is_empty() || (before.starts_with("#[") && before.ends_with(']')))
             && Regex::new(&search::rust_variant_pattern(word))
@@ -195,9 +191,6 @@ impl App {
         found
     }
 
-    /// A bare `word` at `range` of the cursor's line is the item this file declares where the
-    /// cursor sees it ([`search::rust_scope_items`], #363). A struct literal's or a pattern's
-    /// `word:` names a field, no item.
     pub(super) fn rust_file_items(
         &self,
         here: &Path,
@@ -231,14 +224,6 @@ impl App {
             .collect()
     }
 
-    /// `x.word(…)` on a value whose type is not known (#358): the methods `word` of the project,
-    /// the standard library and the dependencies, each an indented `fn word` directly in an
-    /// `impl` or a `trait` ([`search::rust_method_at`]), less what the cursor cannot reach: an
-    /// inherent method without `pub` outside its module (its file and the directory below it),
-    /// a `pub(crate)` one outside its crate (the directory of its `Cargo.toml`), and a crate the
-    /// cursor's does not reach through `Cargo.lock`. The traits' own methods come first. When
-    /// every candidate is the method of one trait or of an `impl` of it, that method is where
-    /// every call lands, `via trait Tr`.
     pub(super) fn rust_methods(&mut self, here: &Path, word: &str) -> Vec<Candidate> {
         let kind = Kind::Rust;
         let pattern = search::rust_method_pattern(word);
@@ -418,17 +403,6 @@ impl App {
             .collect()
     }
 
-    /// Where a Rust path is declared, by the crate its first name names (#350): a `use` of the
-    /// file binds that name, or it is written out (`std::fs::File::create`). `crate`, `self`
-    /// and `super` are the project's crate and module, a `[package]` or `[lib]` name of a
-    /// `Cargo.toml` of the project is that crate, `std`, `core`, `alloc` and `proc_macro` are
-    /// the sysroot's, any other name a crate of `Cargo.lock` in the registry. In the crate, the
-    /// longest module the path spells, `a::b` being `src/a/b.rs` or `src/a/b/mod.rs`, is read
-    /// first, then the files under its directory, then the whole crate (a `pub use` from
-    /// elsewhere); a name the path takes further through a type, `File::open`, is kept only
-    /// where [`search::qualified`] names it so. What `std` does not declare it hands on from
-    /// `core` or `alloc`. A primitive in front, `usize::MAX`, names an item of `core`, by name.
-    /// `None` when no crate is named or nothing is found there: the lookup goes on as before.
     pub(super) fn rust_crate_path(
         &mut self,
         here: &Path,
@@ -690,7 +664,6 @@ impl App {
         hits
     }
 
-    /// The `src/` of the sysroot's crate `name` (`std`, `core`…) and its files.
     fn sysroot_crate(&mut self, name: &str) -> Option<(PathBuf, Vec<PathBuf>)> {
         let all = self.external_files(Kind::Rust);
         let roots = self.external.get(&Kind::Rust)?.0.clone();
@@ -762,14 +735,6 @@ impl App {
             })
     }
 
-    /// `d` on `x.word` in Rust when the type of `x` is proven (#377): `self` is the type of the
-    /// `impl` around the method, a parameter or a `let` says what it holds by its written type, a
-    /// struct literal, a call of an associated function of `T` that returns `Self` or `T`, or a
-    /// call of a function the file sees declared once with its `-> T`. Each name of the chain
-    /// after it is a field of the struct before it, up to six names. The word is a method of the
-    /// last type (`call`), in the `impl T` and `impl Tr for T` blocks of its crate, else a method
-    /// with a body in a trait it implements; or its field. `Err` names the first name that is not
-    /// proven, an empty list a type without the word: both leave the word to the search by name.
     pub(super) fn rust_typed(
         &self,
         here: &Path,
@@ -866,8 +831,6 @@ impl App {
                     if !search::bindings(Kind::Rust, text, at + 1, &parts[0]).is_empty() {
                         return None;
                     }
-                    // Declared at the top of the file or through a `use`, else an item the
-                    // line sees, as a `fn` in the test module around it (#363).
                     let decl = match self.declaration(Kind::Rust, file, &parts) {
                         Some(decl) => decl,
                         None => {
@@ -967,7 +930,6 @@ impl App {
         <[Hit; 1]>::try_from(decls).ok().map(|[hit]| typed(hit))
     }
 
-    /// The field `word` the struct `ty` declares, and its type as written.
     fn rust_field(&self, ty: &Typed, word: &str) -> Option<(Hit, String)> {
         let text = self.text_of(&ty.path)?;
         let lines: Vec<&str> = text.lines().collect();

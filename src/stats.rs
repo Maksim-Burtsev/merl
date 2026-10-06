@@ -1,7 +1,3 @@
-//! Key stats (#207): how often each action of [`KEYS`] is pressed in real work, and missed
-//! (#210), a line per UTC day and action in `~/.local/state/merl/keys.tsv`, which `merl --keys`
-//! prints.
-
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -141,8 +137,6 @@ pub fn day(s: &str) -> Option<i64> {
     (date(n) == s).then_some(n)
 }
 
-/// `YYYY-MM-DD<TAB>action<TAB>presses<TAB>misses` lines; a line #207 wrote has no misses and
-/// reads as none. One that is neither, or names an action no longer in `KEYS`, is dropped.
 fn parse(text: &str) -> Rows {
     let mut rows = Rows::new();
     for line in text.lines() {
@@ -295,9 +289,9 @@ mod tests {
     /// Each side of a `KEYS` row is an action; the second side takes the first side's prefix
     /// and modifiers, and the five aliases fold into their primaries.
     #[test]
-    fn keys_split_into_69_actions() {
+    fn keys_split_into_75_actions() {
         let names: Vec<&str> = ACTIONS.iter().map(|a| a.name.as_str()).collect();
-        assert_eq!(names.len(), 69, "{names:?}");
+        assert_eq!(names.len(), 75, "{names:?}");
         assert_eq!(names.iter().collect::<HashSet<_>>().len(), names.len());
         for name in [
             "[",
@@ -390,10 +384,10 @@ mod tests {
                 "}                      2       0    17  3 days ago   Previous / next paragraph \
                  (blank line)",
                 "v                      0       0     3  41 days ago  Select the word, then the line, \
-                 then the paragraph",
+                 then the paragraph, then the whole file",
             ]
         );
-        assert_eq!(lines.len(), 1 + 69);
+        assert_eq!(lines.len(), 1 + 75);
         assert!(lines[4..].iter().all(|l| l.contains("  never  ")), "{out}");
         assert_eq!(
             lines[4],

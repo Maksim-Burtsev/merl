@@ -1,0 +1,271 @@
+# id	targets: path:line joined by ; (project-relative; ~/ or / outside the project; empty: the oracle found none)	skip: why the row is not scored	note
+clojure0000	src/babashka/impl/clojure/zip.clj:6		
+clojure0001	resources/src/babashka/babashka/impl/mvn/pom.clj:104		
+clojure0002			
+clojure0003	impl-java/src/babashka/impl/reify2.clj:39		
+clojure0004			
+clojure0005			
+clojure0006	examples/htmx_todoapp.clj:166		
+clojure0007			
+clojure0008	resources/src/babashka/clojure/tools/deps.clj:288		
+clojure0009	resources/src/babashka/clojure/spec/alpha.clj:1157		
+clojure0010			
+clojure0011			
+clojure0012			
+clojure0013			
+clojure0014			
+clojure0015	resources/src/babashka/nrepl/config.clj:62		
+clojure0016			
+clojure0017	test/babashka/java_net_http_test.clj:9		
+clojure0018	script/mvn_oracle/profile_test.clj:121		
+clojure0019			
+clojure0020			
+clojure0021			
+clojure0022			
+clojure0023	resources/src/babashka/orchard/pp.clj:70		
+clojure0024	resources/src/babashka/clojure/tools/deps/edn.clj:213		
+clojure0025	~/.cache/clojure-lsp/jdk/java.base/java/lang/reflect/Method.java:1		
+clojure0026			
+clojure0027			
+clojure0028	src/babashka/impl/clojure/core/server.clj:46		
+clojure0029			
+clojure0030			
+clojure0031	src/babashka/main.clj:739		
+clojure0032			
+clojure0033			
+clojure0034	resources/src/babashka/clojure/spec/alpha.clj:964		
+clojure0035	script/mvn_oracle/checksum_test.clj:147		
+clojure0036	~/.cache/clojure-lsp/jdk/java.base/java/util/AbstractMap.java:1		
+clojure0037			
+clojure0038			
+clojure0039			
+clojure0040	script/mvn_oracle/pom_repositories_test.clj:14		
+clojure0041	src/babashka/impl/clojure/java/io.clj:11		
+clojure0042			
+clojure0043	resources/src/babashka/babashka/impl/mvn/repo.clj:213		
+clojure0044	resources/src/babashka/babashka/nrepl/impl/cider.clj:62		
+clojure0045			
+clojure0046			
+clojure0047	resources/src/babashka/babashka/nrepl/impl/client.clj:28		
+clojure0048			
+clojure0049	resources/src/babashka/clojure/spec/gen/alpha.clj:95		
+clojure0050	script/mvn_oracle/local_pom_test.clj:45		
+clojure0051			
+clojure0052	test/babashka/impl/repl_test.clj:19		
+clojure0053			
+clojure0054			
+clojure0055	resources/src/babashka/orchard/misc.clj:164		
+clojure0056			
+clojure0057	resources/src/babashka/clojure/spec/alpha.clj:144		
+clojure0058			
+clojure0059	~/.cache/clojure-lsp/jdk/java.base/java/lang/Integer.java:482		
+clojure0060	doc/adr/0001-jline-providers/snake.clj:91		
+clojure0061	resources/src/babashka/babashka/impl/mvn/tools_deps.clj:26		
+clojure0062	src/babashka/impl/socket_repl.clj:41		
+clojure0063	resources/src/babashka/orchard/inspect/analytics.clj:142		
+clojure0064	resources/src/babashka/orchard/inspect.clj:910		
+clojure0065			
+clojure0066			
+clojure0067	test/babashka/test_utils.clj:113		
+clojure0068	resources/src/babashka/babashka/impl/mvn/metadata.clj:268		
+clojure0069	~/.cache/clojure-lsp/jdk/java.base/java/util/concurrent/LinkedBlockingQueue.java:1		
+clojure0070			
+clojure0071	resources/src/babashka/clojure/spec/gen/alpha.clj:55		
+clojure0072			
+clojure0073	src/babashka/impl/repl.clj:155		
+clojure0074			
+clojure0075	test/babashka/test_utils.clj:113		
+clojure0076	resources/src/babashka/orchard/print.clj:272		
+clojure0077	resources/src/babashka/nrepl/misc.clj:82		
+clojure0078			
+clojure0079	test/babashka/main_test.clj:16		
+clojure0080	resources/src/babashka/orchard/inspect.clj:304		
+clojure0081	resources/src/babashka/clojure/spec/alpha.clj:144		
+clojure0082			
+clojure0083	src/babashka/impl/clojure/data.clj:112		
+clojure0084			
+clojure0085	examples/tetris.clj:105		
+clojure0086			
+clojure0087	resources/src/babashka/orchard/pp.clj:269		
+clojure0088			
+clojure0089	resources/src/babashka/babashka/impl/mvn/repo.clj:198		
+clojure0090			
+clojure0091	resources/src/babashka/orchard/pp.clj:49		
+clojure0092	script/vendor_bundled_sources.clj:194		
+clojure0093			
+clojure0094	impl-java/src/babashka/impl/reify2.clj:37		
+clojure0095	~/.cache/clojure-lsp/jdk/java.base/java/io/PushbackReader.java:1		
+clojure0096			
+clojure0097	resources/src/babashka/nrepl/transport.clj:42		
+clojure0098	test/babashka/error_test.clj:19		
+clojure0099			
+clojure0100	src/babashka/impl/repl.clj:490		
+clojure0101			
+clojure0102	script/mvn_oracle/run.clj:24		
+clojure0103	resources/src/babashka/clojure/spec/alpha.clj:75		
+clojure0104	src/babashka/impl/deftype.clj:36		
+clojure0105			
+clojure0106			
+clojure0107			
+clojure0108	src/babashka/impl/tasks.clj:492		
+clojure0109			
+clojure0110	~/.cache/clojure-lsp/jdk/java.base/java/time/DayOfWeek.java:115		
+clojure0111	resources/src/babashka/babashka/impl/mvn/metadata.clj:295		
+clojure0112			
+clojure0113	resources/src/babashka/nrepl/server.clj:207		
+clojure0114			
+clojure0115	test/babashka/impl/nrepl_server_test.clj:370		
+clojure0116			
+clojure0117			
+clojure0118	resources/src/babashka/clojure/tools/deps.clj:304		
+clojure0119			
+clojure0120			
+clojure0121			
+clojure0122	examples/tetris.clj:87		
+clojure0123			
+clojure0124			
+clojure0125			
+clojure0126			
+clojure0127			
+clojure0128	script/mvn_oracle/install_test.clj:36		
+clojure0129			
+clojure0130	test/babashka/test_utils.clj:98		
+clojure0131	~/.cache/clojure-lsp/jdk/java.base/java/io/OutputStreamWriter.java:1		
+clojure0132	resources/src/babashka/nrepl/config.clj:72		
+clojure0133			
+clojure0134	src/babashka/impl/repl.clj:183		
+clojure0135	resources/src/babashka/orchard/inspect.clj:874		
+clojure0136	~/.cache/clojure-lsp/jdk/java.base/java/io/Writer.java:1		
+clojure0137			
+clojure0138			
+clojure0139			
+clojure0140			
+clojure0141			
+clojure0142	resources/src/babashka/nrepl/socket.clj:42		
+clojure0143	resources/src/babashka/babashka/impl/mvn/version.clj:115		
+clojure0144	test/babashka/test_utils.clj:113		
+clojure0145	script/mvn_oracle/settings_test.clj:107		
+clojure0146			
+clojure0147	src/babashka/impl/clojure/tools/reader.clj:32		
+clojure0148	src/babashka/impl/repl.clj:173		
+clojure0149			
+clojure0150	resources/src/babashka/babashka/impl/mvn/coords.clj:24		
+clojure0151			
+clojure0152	resources/src/babashka/nrepl/misc.clj:1		
+clojure0153	src/babashka/impl/repl.clj:316		
+clojure0154			
+clojure0155			
+clojure0156	resources/src/babashka/babashka/impl/mvn/repo.clj:227		
+clojure0157	src/babashka/impl/clojure/spec/alpha.clj:1231		
+clojure0158			
+clojure0159			
+clojure0160	test/babashka/impl/nrepl_server_test.clj:65		
+clojure0161			
+clojure0162	resources/src/babashka/nrepl/socket.clj:115		
+clojure0163	src/babashka/impl/clojure/core/server.clj:51		
+clojure0164			
+clojure0165			
+clojure0166			
+clojure0167			
+clojure0168			
+clojure0169	resources/src/babashka/clojure/tools/deps/extensions/deps.clj:10;resources/src/babashka/clojure/tools/deps/extensions/deps.clj:1		reviewed: a namespace's file next to its ns name
+clojure0170	src/babashka/impl/clojure/core/server.clj:181		
+clojure0171	resources/src/babashka/clojure/spec/alpha.clj:183		
+clojure0172	script/mvn_oracle/pom_test.clj:10		
+clojure0173			
+clojure0174			
+clojure0175			
+clojure0176	src/babashka/impl/tasks.clj:1		
+clojure0177			
+clojure0178	test/babashka/error_test.clj:19		
+clojure0179	src/babashka/impl/uberscript.clj:64		
+clojure0180	src/babashka/impl/clojure/spec/alpha.clj:59		
+clojure0181	test/babashka/main_test.clj:16		
+clojure0182	~/.cache/clojure-lsp/jdk/java.base/java/util/concurrent/atomic/AtomicInteger.java:1		
+clojure0183			
+clojure0184	test/babashka/impl/nrepl/sci_test.clj:63		
+clojure0185			
+clojure0186			
+clojure0187	resources/src/babashka/babashka/impl/mvn/repo.clj:138		
+clojure0188	examples/htmx_todoapp.clj:87		
+clojure0189			
+clojure0190	script/add_libtest.clj:22		
+clojure0191	resources/src/babashka/clojure/tools/deps.clj:179		
+clojure0192	resources/src/babashka/clojure/tools/namespace/dependency.cljc:152		
+clojure0193			
+clojure0194			
+clojure0195			
+clojure0196			
+clojure0197			
+clojure0198	src/babashka/impl/clojure/core/server.clj:113		
+clojure0199	test/babashka/impl/repl_test.clj:115		
+clojure0200	resources/src/babashka/clojure/spec/alpha.clj:64		
+clojure0201			
+clojure0202	test/babashka/impl/nrepl_server_test.clj:307		
+clojure0203	test/babashka/error_test.clj:2		
+clojure0204			
+clojure0205	resources/src/babashka/nrepl/middleware/session.clj:114		
+clojure0206	resources/src/babashka/clojure/spec/alpha.clj:221		
+clojure0207			
+clojure0208	src/babashka/impl/clojure/test.clj:382		
+clojure0209	~/.cache/clojure-lsp/jdk/java.base/java/util/Set.java:1		
+clojure0210	doc/adr/0007-native-image-size-analysis/compare-reports.bb:60		
+clojure0211	src/babashka/impl/clojure/core/async.clj:97		
+clojure0212			
+clojure0213	src/babashka/impl/repl.clj:76		
+clojure0214	src/babashka/impl/clojure/java/browse.clj:1		
+clojure0215	resources/src/babashka/clojure/spec/alpha.clj:1184		
+clojure0216			
+clojure0217	resources/src/babashka/babashka/impl/mvn/settings.clj:113		
+clojure0218	src/babashka/impl/clojure/main.clj:17;src/babashka/impl/clojure/main.clj:1		reviewed: a namespace's file next to its ns name
+clojure0219	script/mvn_oracle/settings_test.clj:151		
+clojure0220	test/babashka/uberjar_test.clj:70		
+clojure0221	src/babashka/impl/tasks.clj:215		
+clojure0222			
+clojure0223			
+clojure0224			
+clojure0225			
+clojure0226			
+clojure0227			
+clojure0228			
+clojure0229			
+clojure0230	src/babashka/impl/clojure/core/server.clj:113		
+clojure0231			
+clojure0232			
+clojure0233	resources/src/babashka/clojure/spec/alpha.clj:1867		
+clojure0234	script/mvn_oracle/snapshot_test.clj:38		
+clojure0235			
+clojure0236	resources/src/babashka/babashka/nrepl/impl/server.clj:127		
+clojure0237	script/mvn_oracle/pom_repositories_test.clj:28		
+clojure0238			
+clojure0239	src/babashka/impl/clojure/main.clj:151		
+clojure0240			
+clojure0241			
+clojure0242	resources/src/babashka/orchard/util/io.clj:43		
+clojure0243			
+clojure0244			
+clojure0245			
+clojure0246	resources/src/babashka/nrepl/middleware/completion.clj:36		
+clojure0247			
+clojure0248	resources/src/babashka/babashka/impl/mvn/http.clj:64		
+clojure0249			
+clojure0250	src/babashka/impl/data_json.clj:1		
+clojure0251			
+clojure0252	script/mvn_oracle/checksum_test.clj:210		
+clojure0253	src/babashka/impl/clojure/spec/alpha.clj:1267		
+clojure0254			
+clojure0255			
+clojure0256			
+clojure0257	src/babashka/impl/nrepl_server.clj:9		
+clojure0258			
+clojure0259			
+clojure0260			
+clojure0261			
+clojure0262	src/babashka/nrepl/server.clj:41		
+clojure0263	resources/src/babashka/babashka/impl/mvn/version.clj:210;resources/src/babashka/babashka/impl/mvn/version.clj:1		reviewed: the alias version of version/in-range?, its namespace's file next to the var
+clojure0264			
+clojure0265			
+clojure0266	test/babashka/classpath_test.clj:105		
+clojure0267			
+clojure0268			
+clojure0269	src/babashka/impl/clojure/core/server.clj:36		

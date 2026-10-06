@@ -6,6 +6,8 @@ Arrows
 Ctrl+D
 Ctrl+End
 Ctrl+Home
+Ctrl+Shift+End
+Ctrl+Shift+Home
 Ctrl+Shift+Left
 Ctrl+Shift+Right
 Ctrl+U
@@ -13,7 +15,12 @@ End
 Esc
 Home
 Picker: Enter
+Shift+Down
+Shift+End
+Shift+Home
 Shift+Left
+Shift+PgDn
+Shift+PgUp
 Shift+Right
 Shift+Up
 f

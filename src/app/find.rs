@@ -1,11 +1,5 @@
-//! `/`: find in the open file.
-
 use super::*;
 
-/// The most chars a `/` query holds (#267): nobody searches a file for a longer literal. Ignoring
-/// case, 1,000 Cyrillic letters compile to about 200 KiB, Greek iotas (four case forms, the worst
-/// found) to 330 KiB: far below the `regex` crate's 10 MiB limit, which some 60,000 Cyrillic
-/// letters went past.
 const FIND_CAP: usize = 1_000;
 
 impl App {
@@ -19,18 +13,24 @@ impl App {
         }
     }
 
-    /// Starts an incremental search from the current cursor position. The selection is set aside
-    /// meanwhile, so it does not stretch to every match the cursor visits. A pattern still active
-    /// comes back selected, as Cmd+F in a browser: typing replaces it, an arrow edits it.
     pub(super) fn start_find(&mut self) {
         self.mode = Mode::Find;
+        let seed = self.one_line_selection();
         let last = self.find_re.as_ref().map_or("", |_| &self.find_query);
-        self.prompt = LineEdit::selected(last).capped(FIND_CAP);
+        self.prompt = LineEdit::selected(seed.as_deref().unwrap_or(last)).capped(FIND_CAP);
         self.find_anchor = (self.at(), self.col);
         self.find_sel = self.anchor.take();
-        if let Some(re) = &self.find_re {
+        if seed.is_some() {
+            self.refresh_find();
+        } else if let Some(re) = &self.find_re {
             self.message = self.match_count(re);
         }
+    }
+
+    pub(super) fn one_line_selection(&self) -> Option<String> {
+        let (start, end) = self.selection()?;
+        let text = self.selected_text().filter(|_| start.0 == end.0)?;
+        Some(text.chars().take(FIND_CAP).collect())
     }
 
     pub(super) fn find_key(&mut self, key: KeyEvent) {
@@ -92,8 +92,6 @@ impl App {
         self.find_query = self.prompt.to_string();
     }
 
-    /// Every line of the text in order, from `from` on: the file's and, in a review, the ones
-    /// the branch deleted, which `/` searches as it searches the file's (#439).
     fn lines_from(&self, from: TextLine) -> impl Iterator<Item = (TextLine, &str)> {
         std::iter::successors(Some(from), |&t| self.next_line(t)).map(|t| (t, self.text(t)))
     }
@@ -138,7 +136,6 @@ impl App {
         }
     }
 
-    /// First match starting at or after `(line, col)`, searching down the file.
     fn match_at_or_after(
         &self,
         re: &Regex,
@@ -153,7 +150,6 @@ impl App {
         None
     }
 
-    /// Last match starting strictly before `(line, col)`, searching up the file.
     fn match_before(
         &self,
         re: &Regex,

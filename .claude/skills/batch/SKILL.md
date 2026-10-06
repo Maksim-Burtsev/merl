@@ -34,8 +34,8 @@ then `P2`, `P3`. Read each with its comments. Leave out an issue with a question
 (move it to `needs-owner`) and a visible one without a picked `## Proposal`.
 
 Fill the hours: a small fix is ~15 minutes of one agent, an ordinary issue ~30, a large one ~60;
-four agents work at once, and an epic costs ~1.5 hours on top for integration, its review and
-CI. Correct these from the ledgers of earlier runs when there are any.
+two agents work at once at night and four by day (see **Calm**), and an epic costs ~1.5 hours
+on top for integration, its review and CI. Correct these from the ledgers of earlier runs when there are any.
 
 Show one table and wait for the owner's word to start:
 
@@ -75,8 +75,11 @@ Each implementer is one agent whose prompt is two lines: read `.claude/skills/ba
 and its task file (kind, issue, worktree, branch, base, scratch folder, the master build, the
 commit trailers).
 
-- **Calm.** At most 4 agents building at once. While `sysctl -n vm.loadavg` reads over 16, start
-  nothing. Other sessions share the laptop: their processes are theirs.
+- **Calm.** At night at most 2 agents at once, by day 4: a night has hours to spare, and more
+  agents only queue on the Mac mini's 10 cores and run its fan all night. The owner may lift it
+  for a run ("без ограничения", a big batch to finish by morning): then 4, and the task files say
+  so. While `sysctl -n vm.loadavg` reads over 16, start nothing. Other sessions share the
+  machine: their processes are theirs.
 - **Epic issues.** The agent pushes its branch: no PR, no review. Read its diff, merge the
   branch into the epic (`--no-ff`), and check each conflict hunk by hand: fixes for different
   languages add helpers at the same spot, and a careless union drops a closing brace. When

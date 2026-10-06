@@ -833,8 +833,11 @@ fn review_paints_the_word_that_changed_on_both_rows() {
         let c = &t.backend().buffer()[(x, y)];
         (c.fg, c.bg)
     };
-    // The cursor is on the hunk, which starts with the deleted row (#439): that row is the
-    // cursor line. Down, and the added row is.
+    // The cursor is on the hunk's added row (#690). Up, and the deleted row is the cursor line
+    // (#439); Down, and the added row is again.
+    assert_eq!(app.at(), TextLine::File(1));
+    app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(app.at(), TextLine::Deleted(1, 0));
     assert_eq!(cell(&terminal, 23, 1).1, theme.del_bg_hl);
     assert_eq!(cell(&terminal, 23, 2).1, theme.add_bg);
@@ -1052,12 +1055,12 @@ fn a_hunk_inside_a_long_function_lands_below_the_pinned_header() {
     assert_eq!(screen[0], "1 def long():");
     let buf = terminal.backend().buffer();
     assert!((0..30).all(|x| buf[(x, 0)].bg == theme.line_hl));
-    // On the deleted line the hunk starts with (#439), under the band.
+    // On the hunk's added line (#690), its deleted line above it under the band.
     assert_eq!(
-        screen[y..=y + 1],
+        screen[y - 1..=y],
         ["\u{258e}    a20 = 20", "22\u{258e}    a20 = 200"]
     );
-    assert!(y > 0, "the deleted line is under the band");
+    assert!(y > 1, "the deleted line is under the band");
     let _ = std::fs::remove_dir_all(dir);
 }
 

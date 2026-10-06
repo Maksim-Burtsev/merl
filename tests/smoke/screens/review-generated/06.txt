@@ -53,5 +53,5 @@ wait hunk 2/3  file 1/2
 │                            │
 │                            │
 └ 2 files · +5 −3 ───────────┘
-web/package-lock.json  -23:1  [code]  hunk 2/3  file 1/2                                                                                                                          ? help
-cursor (x,y,shown) 33,23,1
+web/package-lock.json  23:1  [code]  hunk 2/3  file 1/2                                                                                                                           ? help
+cursor (x,y,shown) 33,24,1

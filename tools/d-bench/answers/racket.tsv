@@ -1,0 +1,237 @@
+# id	targets: path:line joined by ; (project-relative; ~/ or / outside the project; empty: the oracle found none)	skip: why the row is not scored	note
+racket0000	drracket-core-lib/drracket/private/module-browser.rkt:106		
+racket0001			
+racket0002	drracket-core-lib/drracket/private/debug.rkt:2540		
+racket0003			
+racket0004	drracket-core-lib/drracket/private/unit.rkt:137		
+racket0005	drracket-core-lib/drracket/private/get-defs.rkt:207		
+racket0006	drracket-test/tests/drracket/private/randomly-click.rkt:71		
+racket0007	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/ffi/unsafe/atomic.rkt:21		
+racket0008	drracket-core-lib/drracket/private/local-member-names.rkt:50		
+racket0009			
+racket0010	drracket-core-lib/drracket/private/language-configuration.rkt:1797		
+racket0011	drracket-test/tests/drracket/language-test.rkt:1438		
+racket0012	drracket-core-lib/drracket/private/unit.rkt:3235		
+racket0013			
+racket0014			
+racket0015	drracket-test/tests/drracket/language-test.rkt:1452		
+racket0016	drracket-core-lib/drracket/private/frame.rkt:560		
+racket0017			
+racket0018	drracket-tool-text-lib/drracket/private/syncheck/traversals.rkt:1179		
+racket0019			
+racket0020	drracket/browser/private/html.rkt:1	a method name in send: the oracle answers the file's #lang racket/unit line	
+racket0021			
+racket0022	drracket-core-lib/drracket/private/multi-file-search.rkt:645		
+racket0023			
+racket0024	drracket-core-lib/drracket/private/syncheck/gui.rkt:1400		
+racket0025	drracket-core-lib/drracket/private/key-lang-support.rkt:10		
+racket0026			
+racket0027	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/class-internal.rkt:4397		
+racket0028			
+racket0029	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/for.rkt:2554;/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/for.rkt:757		reviewed: the procedure in-list next to the sequence syntax *in-list a for clause renames it from
+racket0030	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/net/url-structs.rkt:4		
+racket0031			
+racket0032	drracket-core-lib/drracket/private/language-configuration.rkt:1995		
+racket0033			
+racket0034			
+racket0035			
+racket0036			
+racket0037	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/class-internal.rkt:281		
+racket0038			
+racket0039			
+racket0040			
+racket0041			
+racket0042			
+racket0043	drracket/gui-debugger/debug-tool.rkt:76		
+racket0044	drracket-core-lib/drracket/private/get-defs.rkt:153		
+racket0045	drracket-core-lib/drracket/private/unit.rkt:1395		
+racket0046			
+racket0047			
+racket0048			
+racket0049			
+racket0050	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/for.rkt:2554;/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/for.rkt:757		reviewed: the procedure in-list next to the sequence syntax *in-list a for clause renames it from
+racket0051			
+racket0052			
+racket0053			
+racket0054	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/pkgs/gui-lib/framework/preferences.rkt:447		
+racket0055	drracket/gui-debugger/marks.rkt:8		
+racket0056			
+racket0057	drracket-core-lib/drracket/private/syncheck/gui.rkt:2019		
+racket0058			
+racket0059			
+racket0060	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/define-struct.rkt:1136		
+racket0061	drracket-core-lib/drracket/private/insert-large-letters.rkt:96		
+racket0062	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/pkgs/gui-lib/mrlib/graph.rkt:26		
+racket0063			
+racket0064	drracket-test/tests/drracket/teachpack.rkt:12		
+racket0065			
+racket0066	drracket-test/tests/drracket/language-test.rkt:1752		
+racket0067			
+racket0068			
+racket0069	drracket-core-lib/drracket/private/debug.rkt:1560		
+racket0070	drracket/browser/private/option-snip.rkt:17		
+racket0071			
+racket0072			
+racket0073			
+racket0074			
+racket0075			
+racket0076	drracket-test/tests/drracket/private/drracket-test-util.rkt:163		
+racket0077	drracket-core-lib/drracket/private/debug.rkt:378		
+racket0078	drracket-tool-text-lib/drracket/private/syncheck/xref.rkt:21		
+racket0079	drracket-tool-lib/drracket/private/standalone-module-browser.rkt:702		
+racket0080			
+racket0081			
+racket0082			
+racket0083			
+racket0084			
+racket0085			
+racket0086			
+racket0087	drracket-core-lib/drracket/private/expanding-place.rkt:363		
+racket0088			
+racket0089			
+racket0090			
+racket0091	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/class-internal.rkt:281		
+racket0092			
+racket0093	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/pkgs/string-constants-lib/string-constants/string-constant.rkt:280		
+racket0094			
+racket0095	drracket/version/tool.rkt:31		
+racket0096	drracket-core-lib/drracket/private/stack-checkpoint.rkt:205		
+racket0097			
+racket0098	drracket-core-lib/drracket/private/colored-errors.rkt:177		
+racket0099			
+racket0100	drracket-tool-test/tests/check-syntax/contract-check-syntax.rkt:62		
+racket0101	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/pkgs/drracket-tool-text-lib/drracket/private/syncheck/syncheck-local-member-names.rkt:13		
+racket0102	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/class-internal.rkt:280		
+racket0103	drracket-core-lib/drracket/private/eval.rkt:191		
+racket0104	drracket-core-lib/drracket/private/stack-checkpoint.rkt:369		
+racket0105	drracket/gui-debugger/debug-tool.rkt:214		
+racket0106	drracket-test/tests/drracket/private/drracket-test-util.rkt:135		
+racket0107			
+racket0108			
+racket0109	drracket/browser/private/hyper.rkt:1020		
+racket0110			
+racket0111	drracket/gui-debugger/debug-tool.rkt:337		
+racket0112			
+racket0113			
+racket0114	drracket-core-lib/drracket/private/syncheck/gui.rkt:2221		
+racket0115			
+racket0116			
+racket0117			
+racket0118			
+racket0119	drracket-core-lib/drracket/private/syncheck/gui.rkt:2022		
+racket0120	drracket-core-lib/drracket/private/stack-checkpoint.rkt:104		
+racket0121			
+racket0122			
+racket0123	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/for.rkt:2554;/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/for.rkt:757		reviewed: the procedure in-list next to the sequence syntax *in-list a for clause renames it from
+racket0124			
+racket0125	drracket/help/private/bug-report-controls.rkt:32		
+racket0126	drracket-core-lib/drracket/private/unit.rkt:1094		
+racket0127	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/pkgs/rackunit-lib/rackunit/private/check.rkt:260		
+racket0128	drracket-core-lib/drracket/private/syncheck/gui.rkt:363		
+racket0129			
+racket0130	drracket-core-lib/drracket/private/syncheck/gui.rkt:2563		
+racket0131			
+racket0132			
+racket0133	drracket/macro-debugger/tool.rkt:141;drracket-core-lib/drracket/private/unit.rkt:2095		reviewed: an inherited method, its define/public next to the inherit clause
+racket0134	drracket/browser/private/hyper.rkt:87		
+racket0135	drracket-test/tests/drracket/private/drracket-test-util.rkt:499		
+racket0136	drracket-test/tests/drracket/language-test.rkt:1752		
+racket0137	drracket-tool-text-lib/drracket/private/syncheck/traversals.rkt:36		
+racket0138			
+racket0139	drracket-tool-lib/drracket/private/standalone-module-browser.rkt:982		
+racket0140			
+racket0141	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/file.rkt:135		
+racket0142			
+racket0143	drracket-core-lib/drracket/private/syncheck/gui.rkt:1625		
+racket0144	drracket/macro-debugger/tool.rkt:341		
+racket0145			
+racket0146	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/pkgs/gui-lib/mred/private/mrpanel.rkt:134		
+racket0147			
+racket0148	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/path.rkt:129		
+racket0149	drracket/help/bug-report.rkt:229		
+racket0150			
+racket0151	drracket/browser/private/hyper.rkt:86		
+racket0152			
+racket0153			
+racket0154	drracket-test/tests/drracket/syncheck-test.rkt:38		
+racket0155	drracket-tool-lib/drracket/private/standalone-module-browser.rkt:111		
+racket0156	drracket/gui-debugger/debug-tool.rkt:862		
+racket0157	drracket-core-lib/browser/external.rkt:261		
+racket0158			
+racket0159	drracket-tool-lib/drracket/private/standalone-module-browser.rkt:806		
+racket0160	drracket-core-lib/drracket/private/syncheck/gui.rkt:1855		
+racket0161	drracket-tool-text-lib/drracket/private/syncheck/traversals.rkt:448		
+racket0162	drracket-core-lib/drracket/private/stack-checkpoint.rkt:417		
+racket0163	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/list.rkt:43		
+racket0164			
+racket0165			
+racket0166	drracket-core-lib/drracket/private/unit.rkt:272		
+racket0167			
+racket0168			
+racket0169			
+racket0170	drracket-tool-text-lib/drracket/private/syncheck/traversals.rkt:178		
+racket0171	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/pkgs/scribble-lib/scribble/base.rkt:594		
+racket0172	drracket-tool-text-lib/drracket/private/syncheck/traversals.rkt:261		
+racket0173			
+racket0174			
+racket0175	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/for.rkt:2554;/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/for.rkt:757		reviewed: the procedure in-list next to the sequence syntax *in-list a for clause renames it from
+racket0176			
+racket0177	drracket-tool-text-lib/drracket/private/syncheck/contract-traversal.rkt:107		
+racket0178			
+racket0179	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/for.rkt:2488;/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/for.rkt:691		reviewed: the procedure in-range next to the sequence syntax a for clause renames it from
+racket0180			
+racket0181			
+racket0182	drracket-test/tests/drracket/private/randomly-click.rkt:141		
+racket0183			
+racket0184	drracket-tool-text-lib/drracket/private/syncheck/traversals.rkt:720		
+racket0185			
+racket0186	drracket/macro-debugger/tool.rkt:459		
+racket0187	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/pkgs/string-constants-lib/string-constants/string-constant.rkt:280		
+racket0188	drracket/help/bug-report.rkt:59		
+racket0189			
+racket0190	drracket-core-lib/drracket/private/pict-snip.rkt:86		
+racket0191	drracket/browser/private/btree.rkt:116		
+racket0192			
+racket0193	drracket-core-lib/drracket/private/honu-logo.rkt:8		
+racket0194			
+racket0195	drracket-core-lib/drracket/private/syncheck/gui.rkt:1487		
+racket0196	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/for.rkt:2488;/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/for.rkt:691		reviewed: the procedure in-range next to the sequence syntax a for clause renames it from
+racket0197	drracket-core-lib/drracket/private/tools.rkt:218		
+racket0198	drracket-core-lib/drracket/private/unit.rkt:604		
+racket0199			
+racket0200			
+racket0201	drracket/browser/private/html.rkt:1	a method name in send: the oracle answers the file's #lang racket/unit line	
+racket0202			
+racket0203			
+racket0204			
+racket0205			
+racket0206			
+racket0207			
+racket0208	drracket-test/tests/drracket/io.rkt:42		
+racket0209	drracket-core/scribblings/tools/example-src.rkt:8		
+racket0210			
+racket0211			
+racket0212	drracket-core-lib/drracket/private/pict-snip.rkt:32		
+racket0213	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/pkgs/gui-lib/framework/preferences.rkt:505		
+racket0214	drracket-core-lib/drracket/private/multi-file-search.rkt:77		
+racket0215			
+racket0216	drracket-core-lib/drracket/private/unit.rkt:4995		
+racket0217			
+racket0218	drracket-core-lib/drracket/private/debug.rkt:589		
+racket0219			
+racket0220			
+racket0221	drracket/browser/private/hyper.rkt:503		
+racket0222			
+racket0223			
+racket0224	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/pkgs/string-constants-lib/string-constants/string-constant.rkt:280		
+racket0225			
+racket0226			
+racket0227	drracket-core-lib/drracket/private/unit.rkt:4951		
+racket0228	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/class-internal.rkt:3393		
+racket0229	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/class-internal.rkt:280		
+racket0230			
+racket0231	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/pkgs/gui-lib/framework/main.rkt:32		
+racket0232	drracket-core-lib/drracket/private/module-language-tools.rkt:325;drracket-core-lib/drracket/private/module-language.rkt:2622		reviewed: an inherited method, its define/public next to the inherit clause
+racket0233	drracket-core-lib/drracket/private/debug.rkt:1677		
+racket0234	drracket-core-lib/drracket/private/app.rkt:90		
+racket0235	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/set-types.rkt:1003		

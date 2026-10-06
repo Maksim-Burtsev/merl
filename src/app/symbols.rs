@@ -1,5 +1,3 @@
-//! `D`: the project's declarations, listed and filtered by name.
-
 use super::*;
 
 impl App {
@@ -56,6 +54,7 @@ impl App {
                 line: h.line,
                 col,
                 code_at: None,
+                path_at: None,
             })
             .collect()
     }

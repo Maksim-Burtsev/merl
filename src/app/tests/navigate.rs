@@ -99,13 +99,99 @@ fn definitions_outside_the_project_come_from_the_standard_library() {
 #[test]
 fn empty_external_roots_are_asked_again() {
     let (dir, mut a) = project_app("roots-again", &[("index.php", "<?php\n")]);
+    a.jump_to(&dir.join("index.php"), 1);
+    a.warm_up();
     assert!(a.external_files(Kind::Php).is_empty());
+    a.warm_up();
+    assert!(
+        a.warming[&Kind::Php].is_none(),
+        "a d that found no roots starts no walk ahead"
+    );
     std::fs::create_dir_all(dir.join("vendor/acme")).unwrap();
     std::fs::write(dir.join("vendor/acme/Client.php"), "<?php\n").unwrap();
     assert_eq!(
         *a.external_files(Kind::Php),
         [dir.join("vendor/acme/Client.php")]
     );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn opening_a_file_walks_its_kind_outside_for_the_first_d() {
+    let (dir, mut a) = project_app(
+        "warm-up",
+        &[
+            ("index.php", "<?php\n"),
+            ("vendor/acme/Client.php", "<?php\n"),
+        ],
+    );
+    a.jump_to(&dir.join("index.php"), 1);
+    a.warm_up();
+    let walk = a.warming[&Kind::Php].as_ref().unwrap().thread().id();
+    a.warm_up();
+    assert_eq!(
+        a.warming[&Kind::Php].as_ref().unwrap().thread().id(),
+        walk,
+        "one walk per kind"
+    );
+    while !a.warming[&Kind::Php].as_ref().unwrap().is_finished() {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    std::fs::remove_file(dir.join("vendor/acme/Client.php")).unwrap();
+    assert_eq!(
+        *a.external_files(Kind::Php),
+        [dir.join("vendor/acme/Client.php")]
+    );
+    assert!(a.warming[&Kind::Php].is_none());
+    a.warm_up();
+    assert!(
+        a.warming[&Kind::Php].is_none(),
+        "a kind walked once is not walked again"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn roots_that_appear_after_the_file_opened_are_walked_by_the_first_d() {
+    let (dir, mut a) = project_app(
+        "roots-later",
+        &[
+            ("main.py", "import acme\n"),
+            ("py/bin/python3.12", ""),
+            ("py/lib/python3.12/os.py", ""),
+        ],
+    );
+    std::fs::create_dir_all(dir.join(".venv/lib/python3.12")).unwrap();
+    let cfg = format!("home = {}\n", dir.join("py/bin").display());
+    std::fs::write(dir.join(".venv/pyvenv.cfg"), cfg).unwrap();
+    a.jump_to(&dir.join("main.py"), 1);
+    a.warm_up();
+    while !a.warming[&Kind::Python].as_ref().unwrap().is_finished() {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    let site = dir.join(".venv/lib/python3.12/site-packages");
+    std::fs::create_dir_all(&site).unwrap();
+    std::fs::write(site.join("acme.py"), "").unwrap();
+    let mut files = a.external_files(Kind::Python).to_vec();
+    files.sort();
+    let os = dir.join("py/lib/python3.12/os.py").canonicalize().unwrap();
+    let mut want = vec![os, site.join("acme.py")];
+    want.sort();
+    assert_eq!(files, want);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_kind_whose_roots_follow_the_open_file_is_not_walked_ahead() {
+    let (dir, mut a) = project_app(
+        "warm-skip",
+        &[("index.ts", ""), ("lib.ex", ""), ("Token.sol", "")],
+    );
+    for file in ["index.ts", "lib.ex", "Token.sol"] {
+        a.jump_to(&dir.join(file), 1);
+        a.warm_up();
+        assert!(a.warming.is_empty(), "{file}");
+    }
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -459,11 +545,10 @@ fn a_path_in_front_of_the_word_is_joined_as_the_kind_qualifies() {
             "Bare::open",
             picker("open: by name, 4 declarations", &cpp),
         ),
-        // A value called like a type, behind a `.`: a `lid`, whatever `crate::open` reads.
         (
             "depot.cpp",
             "crate.open",
-            picker("open: by name, 4 declarations", &cpp),
+            jump("open \u{2192} lid::open (via crate: lid)", "depot.cpp:20"),
         ),
     ];
     for (file, code, want) in cases {

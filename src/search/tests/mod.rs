@@ -103,7 +103,6 @@ fn members(dir: &Path, files: &[PathBuf], kind: Kind, word: &str) -> Vec<usize> 
         .collect()
 }
 
-/// The bindings of `name` on `line` of `text`, as (line, value) pairs.
 fn bound_at(kind: Kind, text: &str, line: usize, name: &str) -> Vec<(usize, Value)> {
     bindings(kind, text, line, name)
         .into_iter()
@@ -132,7 +131,6 @@ fn listed(kind: Kind, line: &str) -> Vec<String> {
         .collect()
 }
 
-/// The one name `D` lists, and no second one.
 fn one(kind: Kind, line: &str) -> Option<String> {
     let names = listed(kind, line);
     assert!(names.len() <= 1, "{line}: listed as {names:?}");

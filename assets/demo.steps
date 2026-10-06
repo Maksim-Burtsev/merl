@@ -48,7 +48,7 @@ sleep 1.6
 key s
 sleep 0.7
 type@0.13 QueueSettings{}
-wait queue.go:49
+wait setting/queue.go
 sleep 1.8
 key Enter
 wait modules/setting/queue.go

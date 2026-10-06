@@ -1,6 +1,3 @@
-//! `d` in HTML, CSS, SCSS and Less, and on a class or an id attribute of a JSX, Vue, Svelte or
-//! Astro template (#415).
-
 use super::definition::resolution;
 use super::links::in_project;
 use super::*;
@@ -21,8 +18,6 @@ impl App {
         search::attr_at(self.line_str(), self.col, !markup)
     }
 
-    /// The word `u` reads where `d` reads one of its own (#415): a class or an id of an
-    /// attribute, `-` and all, and a custom property with its `--`.
     pub(super) fn css_word(&self) -> Option<String> {
         let kind = self.kind();
         if let Some((Attr::Class | Attr::Id, range)) = self.attr_here(kind) {
@@ -37,8 +32,6 @@ impl App {
             .then(|| format!("--{word}"))
     }
 
-    /// `d` where #415 answers: a class or an id attribute in any file with markup, and anything
-    /// in a stylesheet or an HTML file. False leaves the cursor to the kind's own rules.
     pub(super) fn css_definition(&mut self, kind: Option<Kind>, here: &Path) -> bool {
         let line = self.line_str().to_owned();
         match self.attr_here(kind) {
@@ -71,6 +64,7 @@ impl App {
                     return true;
                 }
             }
+            Some(Kind::TsJs) => return self.css_module(here),
             _ => return false,
         }
         let less = here.extension().is_some_and(|e| e == "less");
@@ -84,7 +78,6 @@ impl App {
         true
     }
 
-    /// "no definition for" the word under the cursor, read with `-`.
     fn no_definition(&mut self, line: &str) {
         self.message = match search::word_at(line, self.col, "-") {
             Some((_, word)) => resolution(word, None, &[], None, false),
@@ -92,19 +85,62 @@ impl App {
         };
     }
 
-    /// The rules that style the class (or the id) `name`, in the project's stylesheets and the
-    /// `<style>` blocks of its markup, never outside the project.
     fn styled_by(&mut self, here: &Path, name: &str, id: bool) {
-        // A file that composes the name with `&` holds its last piece at least. Every file is
-        // read, with no grep and so no cap on its hits: Bootstrap writes `btn` thousands of times.
-        let piece = name
-            .rsplit(['-', '_'])
-            .find(|p| !p.is_empty())
-            .unwrap_or(name);
         let files: Vec<PathBuf> = (self.files.iter())
             .filter(|p| search::styles_in(p).is_some())
             .cloned()
             .collect();
+        self.styled_in(here, name, id, files, Reason::ByName);
+    }
+
+    fn css_module(&mut self, here: &Path) -> bool {
+        let line = self.line_str();
+        let Some((range, word)) = search::word_at(line, self.col, "") else {
+            return false;
+        };
+        let chain = search::qualifier(line, range.start);
+        let object = match (chain.as_slice(), line[..range.start].ends_with('.')) {
+            ([head], true) => Some(head.as_str()),
+            ([], false) => None,
+            _ => return false,
+        };
+        let name = object.unwrap_or(word);
+        let text = self.buf.lines.join("\n");
+        let code = search::script_text(here, &text, Some(self.line));
+        if !search::bindings(Kind::TsJs, &code, self.line + 1, name).is_empty() {
+            return false;
+        }
+        let imports = search::imports(Kind::TsJs, &text);
+        let found = imports.iter().find_map(|(name, path)| {
+            let (taken, module) = path.split_last()?;
+            let whole = taken == "default" || taken == "*";
+            let class = match object {
+                Some(o) => (whole && name == o).then(|| word.to_owned()),
+                None => (!whole && name == word).then(|| taken.clone()),
+            }?;
+            let file = search::css_module_file(&self.root, &self.files, here, module)?;
+            Some((class, file))
+        });
+        let Some((class, file)) = found else {
+            return false;
+        };
+        let reason = Reason::Import(file.display().to_string());
+        self.styled_in(here, &class, false, vec![file], reason);
+        true
+    }
+
+    fn styled_in(
+        &mut self,
+        here: &Path,
+        name: &str,
+        id: bool,
+        files: Vec<PathBuf>,
+        reason: Reason,
+    ) {
+        let piece = name
+            .rsplit(['-', '_'])
+            .find(|p| !p.is_empty())
+            .unwrap_or(name);
         let mut found: Vec<Candidate> = Vec::new();
         for path in files {
             let Some(text) = self.file_text(&path).filter(|t| t.contains(piece)) else {
@@ -114,8 +150,12 @@ impl App {
                 Some(true) => text.clone(),
                 _ => search::style_blocks(&text),
             };
+            let rules = match path.extension().is_some_and(|e| e == "sass") {
+                true => search::sass_rules(&styles),
+                false => search::rules(&styles),
+            };
             let lines: Vec<&str> = text.lines().collect();
-            for rule in search::rules(&styles) {
+            for rule in rules {
                 let names = if id { &rule.ids } else { &rule.classes };
                 let fresh = found
                     .last()
@@ -133,7 +173,7 @@ impl App {
                                 .unwrap_or_default()
                                 .to_owned(),
                         },
-                        reason: Reason::ByName,
+                        reason: reason.clone(),
                     });
                 }
             }
@@ -172,21 +212,53 @@ impl App {
                     })
             })
             .collect();
-        if found.is_empty() {
-            let wanted = |p: &Path| {
-                let ext = p.extension().and_then(|e| e.to_str()).unwrap_or_default();
-                match sheet {
-                    Sheet::LessVar(_) => ext == "less",
-                    Sheet::Var(..)
-                    | Sheet::Mixin(..)
-                    | Sheet::Function(..)
-                    | Sheet::Placeholder(_) => ext == "scss" || ext == "sass",
-                    _ => search::styles_in(p).is_some(),
+        let wanted = |p: &Path| {
+            let ext = p.extension().and_then(|e| e.to_str()).unwrap_or_default();
+            match sheet {
+                Sheet::LessVar(_) => ext == "less",
+                Sheet::Var(..) | Sheet::Mixin(..) | Sheet::Function(..) | Sheet::Placeholder(_) => {
+                    ext == "scss" || ext == "sass"
                 }
-            };
+                _ => search::styles_in(p).is_some(),
+            }
+        };
+        if found.is_empty() {
             found = (self.files.iter())
                 .filter(|p| wanted(p))
                 .flat_map(|p| self.matching_lines(p, &re, search::styles_in(p) == Some(false)))
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::ByName,
+                })
+                .collect();
+        }
+        let dialect = here
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or_default();
+        let no_source = match sheet {
+            Sheet::Function(None, n) => search::css_builtin(n),
+            Sheet::Function(Some(_), _) | Sheet::Var(Some(_), _) | Sheet::Mixin(Some(_), _) => {
+                module.is_none()
+            }
+            _ => false,
+        };
+        let outside = !no_source
+            && match sheet {
+                Sheet::Var(..) | Sheet::Mixin(..) | Sheet::Function(..) => {
+                    dialect == "scss" || dialect == "sass"
+                }
+                Sheet::LessVar(_) => dialect == "less",
+                _ => false,
+            };
+        if found.is_empty() && outside {
+            let files: Vec<PathBuf> = (self.external_files(Kind::Css).iter())
+                .filter(|p| wanted(p))
+                .cloned()
+                .collect();
+            found = (self.grep_in(re.as_str(), &files).into_iter())
+                .filter(|_| !files.is_empty())
+                .filter(|hit| re.is_match(&search::css_code(&hit.text)))
                 .map(|hit| Candidate {
                     hit,
                     reason: Reason::ByName,

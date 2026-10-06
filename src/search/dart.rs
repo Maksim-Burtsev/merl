@@ -1,6 +1,3 @@
-//! Dart's rules for `d` and `D` (#414): what declares a name, what an import binds and which file
-//! it names, and where the pub cache and the SDK keep their sources.
-
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
@@ -20,7 +17,6 @@ macro_rules! dart_annotations {
         r"(?:@[\w$.]+(?:\([^)]*\))?\s+)*"
     };
 }
-/// The modifiers in front of a member.
 macro_rules! dart_mods {
     () => {
         r"(?:(?:static|external|abstract|override)\s+)*"
@@ -300,7 +296,6 @@ fn unescape(s: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
-/// The SDK of the `dart` on the PATH: [`dart_sdk_of`].
 pub fn dart_sdk() -> Option<PathBuf> {
     let path = std::env::var_os("PATH")?;
     let dart = std::env::split_paths(&path)
