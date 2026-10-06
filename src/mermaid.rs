@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::{self, Write};
 use std::sync::Arc;
@@ -16,6 +16,8 @@ const SCALE: f32 = 2.0;
 const FONT_PX: f32 = 16.0;
 const TEXT_IN_CELL: f32 = 0.85;
 const LEAST_SHRINK: f32 = 0.5;
+const RENDERS: usize = 2;
+pub const THREAD: &str = "mermaid";
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Key {
@@ -31,19 +33,25 @@ pub struct Job {
 
 pub struct Done {
     key: Key,
-    pic: Option<Pic>,
+    drawn: Option<Drawn>,
+}
+
+struct Drawn {
+    png: Vec<u8>,
+    natural: (u32, u32),
+    h: u32,
 }
 
 pub struct Pic {
     id: u32,
     png: Vec<u8>,
-    w: u32,
     h: u32,
 }
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct Place {
     pub id: u32,
+    pub placement: u32,
     pub x: u16,
     pub y: u16,
     pub cols: u16,
@@ -59,21 +67,25 @@ pub struct Diagrams {
     pics: HashMap<Key, Option<Arc<Pic>>>,
     sizes: HashMap<u64, Option<(u32, u32)>>,
     asked: HashSet<Key>,
-    jobs: Vec<Job>,
+    queue: VecDeque<Job>,
+    running: usize,
+    next_id: u32,
     pub laid: u64,
     pub want: Vec<Place>,
     shown: Vec<Place>,
     sent: HashSet<u32>,
+    stale: Vec<u32>,
 }
 
 impl Diagrams {
     pub fn detect() -> Self {
         let env = |k: &str| std::env::var(k).ok();
-        if !supported(&env) {
-            return Self::default();
-        }
+        Self::with_cell(supported(&env).then(cell).flatten())
+    }
+
+    pub fn with_cell(cell: Option<(u32, u32)>) -> Self {
         Self {
-            cell: cell(),
+            cell,
             ..Self::default()
         }
     }
@@ -94,9 +106,30 @@ impl Diagrams {
     }
 
     pub fn theme(&mut self, theme: &Theme, label_bg: Color) {
-        if self.on() {
-            self.colours = colours(theme, label_bg);
+        if !self.on() {
+            return;
         }
+        let colours = colours(theme, label_bg);
+        if colours == self.colours {
+            return;
+        }
+        let now = hash(&colours);
+        self.colours = colours;
+        let old: Vec<Key> = self
+            .pics
+            .keys()
+            .filter(|k| k.colours != now)
+            .copied()
+            .collect();
+        for key in old {
+            if let Some(Some(pic)) = self.pics.remove(&key)
+                && self.sent.remove(&pic.id)
+            {
+                self.stale.push(pic.id);
+            }
+        }
+        self.asked.retain(|k| k.colours == now);
+        self.queue.retain(|j| j.key.colours == now);
     }
 
     pub fn fit(&mut self, src: &str, room: usize) -> Option<(u16, u16)> {
@@ -133,7 +166,7 @@ impl Diagrams {
     fn ask(&mut self, src: &str) {
         let key = self.key(src);
         if self.asked.insert(key) {
-            self.jobs.push(Job {
+            self.queue.push_back(Job {
                 key,
                 src: src.to_string(),
                 colours: self.colours.clone(),
@@ -142,33 +175,52 @@ impl Diagrams {
     }
 
     pub fn jobs(&mut self) -> Vec<Job> {
-        std::mem::take(&mut self.jobs)
+        let n = RENDERS.saturating_sub(self.running).min(self.queue.len());
+        self.running += n;
+        self.queue.drain(..n).collect()
     }
 
     pub fn done(&mut self, done: Done) {
-        let size = done.pic.as_ref().map(|p| css(p.w, p.h));
+        self.running = self.running.saturating_sub(1);
+        let size = done.drawn.as_ref().map(|d| d.natural);
         if self.sizes.insert(done.key.src, size).is_none() {
             self.laid += 1;
         }
-        self.pics.insert(done.key, done.pic.map(Arc::new));
+        if done.key.colours != hash(&self.colours) {
+            return;
+        }
+        let pic = done.drawn.map(|d| {
+            self.next_id += 1;
+            Arc::new(Pic {
+                id: self.next_id,
+                png: d.png,
+                h: d.h,
+            })
+        });
+        self.pics.insert(done.key, pic);
     }
 
     pub fn flush(&mut self, out: &mut impl Write) -> io::Result<()> {
-        if self.want == self.shown {
+        if self.want == self.shown && self.stale.is_empty() {
             return Ok(());
         }
         let mut buf = String::from("\x1b7\x1b_Ga=d,d=a,q=2\x1b\\");
+        for id in self.stale.drain(..) {
+            buf += &format!("\x1b_Ga=d,d=I,i={id},q=2\x1b\\");
+        }
         for p in &self.want {
-            if self.sent.insert(p.id)
+            if !self.sent.contains(&p.id)
                 && let Some(pic) = self.pics.values().flatten().find(|q| q.id == p.id)
             {
                 transmit(&mut buf, pic);
+                self.sent.insert(p.id);
             }
             buf += &format!(
-                "\x1b[{};{}H\x1b_Ga=p,i={},p=1,y={},h={},c={},r={},C=1,z=-1,q=2\x1b\\",
+                "\x1b[{};{}H\x1b_Ga=p,i={},p={},y={},h={},c={},r={},C=1,z=-1,q=2\x1b\\",
                 p.y + 1,
                 p.x + 1,
                 p.id,
+                p.placement,
                 p.crop_y,
                 p.crop_h,
                 p.cols,
@@ -183,7 +235,7 @@ impl Diagrams {
     }
 
     pub fn clear(&self, out: &mut impl Write) -> io::Result<()> {
-        if !self.sent.is_empty() {
+        if !self.sent.is_empty() || !self.stale.is_empty() {
             out.write_all(b"\x1b_Ga=d,d=A,q=2\x1b\\")?;
             out.flush()?;
         }
@@ -199,6 +251,15 @@ impl Pic {
     pub fn height(&self) -> u32 {
         self.h
     }
+}
+
+pub fn keep_panics_inside() {
+    let hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        if std::thread::current().name() != Some(THREAD) {
+            hook(info);
+        }
+    }));
 }
 
 pub fn supported(env: &dyn Fn(&str) -> Option<String>) -> bool {
@@ -221,10 +282,6 @@ fn cell() -> Option<(u32, u32)> {
         u32::from(ws.width) / u32::from(ws.columns),
         u32::from(ws.height) / u32::from(ws.rows),
     ))
-}
-
-fn css(w: u32, h: u32) -> (u32, u32) {
-    ((w as f32 / SCALE) as u32, (h as f32 / SCALE) as u32)
 }
 
 pub fn cells(natural: (u32, u32), cell: (u32, u32), room: usize) -> Option<(u16, u16)> {
@@ -330,16 +387,15 @@ pub fn with_colours(src: &str, colours: &str) -> String {
 }
 
 pub fn render(job: Job) -> Done {
-    let pic = draw(&with_colours(&job.src, &job.colours)).map(|(png, w, h)| Pic {
-        id: (job.key.src ^ job.key.colours.rotate_left(17)) as u32 & 0x00ff_ffff | 1,
-        png,
-        w,
-        h,
-    });
-    Done { key: job.key, pic }
+    let src = with_colours(&job.src, &job.colours);
+    let drawn = std::panic::catch_unwind(|| draw(&src)).ok().flatten();
+    Done {
+        key: job.key,
+        drawn,
+    }
 }
 
-fn draw(src: &str) -> Option<(Vec<u8>, u32, u32)> {
+fn draw(src: &str) -> Option<Drawn> {
     let layout = LayoutOptions {
         viewport_width: 800.0,
         viewport_height: 600.0,
@@ -359,6 +415,7 @@ fn draw(src: &str) -> Option<(Vec<u8>, u32, u32)> {
     )
     .ok()??;
     let svg = merman::render::svg_resvg_safe(&svg).ok()?;
+    let (vw, vh) = view_box(&svg)?;
     let options = merman::render::raster::RasterOptions {
         scale: SCALE,
         background: Some("transparent".into()),
@@ -367,7 +424,26 @@ fn draw(src: &str) -> Option<(Vec<u8>, u32, u32)> {
     let png = merman::render::raster::svg_to_png(&svg, &options).ok()?;
     let size = |at: usize| png.get(at..at + 4)?.try_into().ok().map(u32::from_be_bytes);
     let (w, h) = (size(16)?, size(20)?);
-    png.starts_with(b"\x89PNG").then_some((png, w, h))
+    let whole = w as f32 >= (vw * SCALE).floor() - 1.0 && h as f32 >= (vh * SCALE).floor() - 1.0;
+    (png.starts_with(b"\x89PNG") && whole).then(|| Drawn {
+        png,
+        natural: (vw.ceil() as u32, vh.ceil() as u32),
+        h,
+    })
+}
+
+fn view_box(svg: &str) -> Option<(f32, f32)> {
+    let at = svg.find("viewBox=\"")? + "viewBox=\"".len();
+    let rest = &svg[at..];
+    let nums: Vec<f32> = rest[..rest.find('"')?]
+        .split([' ', ','])
+        .filter(|n| !n.is_empty())
+        .filter_map(|n| n.parse().ok())
+        .collect();
+    match nums[..] {
+        [_, _, w, h] if w > 0.0 && h > 0.0 => Some((w, h)),
+        _ => None,
+    }
 }
 
 fn transmit(buf: &mut String, pic: &Pic) {

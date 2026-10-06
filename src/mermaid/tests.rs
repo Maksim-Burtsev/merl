@@ -13,6 +13,11 @@ fn pictures_need_a_terminal_that_draws_them_and_no_multiplexer() {
     assert!(supported(&env(&[("TERM", "xterm-ghostty")])));
     assert!(supported(&env(&[("TERM", "xterm-kitty")])));
     assert!(supported(&env(&[("TERM_PROGRAM", "WezTerm")])));
+    assert!(supported(&env(&[("TERM_PROGRAM", "ghostty")])));
+    assert!(!supported(&env(&[
+        ("TERM", "xterm-kitty"),
+        ("ZELLIJ", "0")
+    ])));
     assert!(supported(&env(&[("KITTY_WINDOW_ID", "1")])));
     assert!(!supported(&env(&[("TERM", "xterm-256color")])));
     assert!(!supported(&env(&[
@@ -68,29 +73,41 @@ fn a_diagram_draws_and_a_broken_one_does_not() {
         colours: String::new(),
     };
     let done = render(job("graph TD\n  A[Start] --> B[Done]"));
-    let pic = done.pic.expect("a flowchart draws");
-    assert!(pic.w > 0 && pic.h > pic.w / 10);
-    assert!(render(job("graph TD\n  A[Start --> ")).pic.is_none());
+    let drawn = done.drawn.expect("a flowchart draws");
+    assert!(drawn.natural.0 > 0 && drawn.natural.1 > 0);
+    assert!(drawn.h >= drawn.natural.1);
+    assert!(render(job("graph TD\n  A[Start --> ")).drawn.is_none());
+}
+
+fn drawn() -> Option<Drawn> {
+    Some(Drawn {
+        png: vec![1, 2, 3],
+        natural: (20, 10),
+        h: 20,
+    })
+}
+
+fn flushed(d: &mut Diagrams) -> String {
+    let mut out = Vec::new();
+    d.flush(&mut out).unwrap();
+    String::from_utf8(out).unwrap()
+}
+
+fn on() -> Diagrams {
+    Diagrams::with_cell(Some((10, 20)))
 }
 
 #[test]
 fn a_picture_is_sent_once_and_placed_again_only_when_it_moves() {
-    let mut d = Diagrams {
-        cell: Some((10, 20)),
-        ..Default::default()
-    };
-    let key = Key { src: 1, colours: 2 };
+    let mut d = on();
     d.done(Done {
-        key,
-        pic: Some(Pic {
-            id: 7,
-            png: vec![1, 2, 3],
-            w: 40,
-            h: 20,
-        }),
+        key: d.key("graph TD"),
+        drawn: drawn(),
     });
+    let id = d.pic("graph TD").unwrap().id();
     let place = Place {
-        id: 7,
+        id,
+        placement: 1,
         x: 3,
         y: 4,
         cols: 2,
@@ -98,25 +115,135 @@ fn a_picture_is_sent_once_and_placed_again_only_when_it_moves() {
         crop_y: 0,
         crop_h: 20,
     };
-    let flush = |d: &mut Diagrams| {
-        let mut out = Vec::new();
-        d.flush(&mut out).unwrap();
-        String::from_utf8(out).unwrap()
-    };
     d.want = vec![place.clone()];
-    let first = flush(&mut d);
-    assert!(first.contains("a=t,f=100,i=7"));
-    assert!(first.contains("\x1b[5;4H\x1b_Ga=p,i=7"));
-    assert_eq!(flush(&mut d), "");
+    let first = flushed(&mut d);
+    assert!(first.contains(&format!("a=t,f=100,i={id},")));
+    assert!(first.contains(&format!("\x1b[5;4H\x1b_Ga=p,i={id},p=1,")));
+    assert_eq!(flushed(&mut d), "");
     d.want = vec![Place { y: 9, ..place }];
-    let moved = flush(&mut d);
-    assert!(moved.contains("a=d,d=a") && moved.contains("a=p,i=7") && !moved.contains("a=t"));
+    let moved = flushed(&mut d);
+    assert!(moved.contains("a=d,d=a") && moved.contains("a=p,") && !moved.contains("a=t"));
     d.want.clear();
-    let gone = flush(&mut d);
+    let gone = flushed(&mut d);
     assert!(gone.contains("a=d,d=a") && !gone.contains("a=p"));
     let mut out = Vec::new();
     d.clear(&mut out).unwrap();
     assert_eq!(out, b"\x1b_Ga=d,d=A,q=2\x1b\\");
+}
+
+#[test]
+fn the_same_diagram_twice_is_placed_twice() {
+    let mut d = on();
+    d.done(Done {
+        key: d.key("graph TD"),
+        drawn: drawn(),
+    });
+    let id = d.pic("graph TD").unwrap().id();
+    let place = |placement, y| Place {
+        id,
+        placement,
+        x: 0,
+        y,
+        cols: 2,
+        rows: 1,
+        crop_y: 0,
+        crop_h: 20,
+    };
+    d.want = vec![place(1, 0), place(2, 5)];
+    let out = flushed(&mut d);
+    assert!(out.contains(&format!("a=p,i={id},p=1,")));
+    assert!(out.contains(&format!("a=p,i={id},p=2,")));
+    assert_eq!(out.matches("a=t,").count(), 1);
+}
+
+#[test]
+fn every_picture_gets_an_id_of_its_own() {
+    let mut d = on();
+    for src in ["graph TD", "graph LR", "graph BT"] {
+        d.done(Done {
+            key: d.key(src),
+            drawn: drawn(),
+        });
+    }
+    let ids: HashSet<u32> = ["graph TD", "graph LR", "graph BT"]
+        .iter()
+        .map(|s| d.pic(s).unwrap().id())
+        .collect();
+    assert_eq!(ids.len(), 3);
+}
+
+#[test]
+fn another_theme_drops_the_old_pictures_and_frees_the_sent_ones() {
+    let theme = |name| crate::theme::load(name).unwrap();
+    let mut d = on();
+    let dark = theme("tokyonight-moon");
+    d.theme(&dark, dark.line_hl_dim);
+    d.done(Done {
+        key: d.key("graph TD"),
+        drawn: drawn(),
+    });
+    let id = d.pic("graph TD").unwrap().id();
+    d.want = vec![Place {
+        id,
+        placement: 1,
+        x: 0,
+        y: 0,
+        cols: 2,
+        rows: 1,
+        crop_y: 0,
+        crop_h: 20,
+    }];
+    flushed(&mut d);
+    let light = theme("github-light");
+    d.theme(&light, light.line_hl_dim);
+    assert!(d.pic("graph TD").is_none());
+    assert_eq!(d.jobs().len(), 1);
+    d.want.clear();
+    assert!(flushed(&mut d).contains(&format!("a=d,d=I,i={id},")));
+    d.theme(&light, light.line_hl_dim);
+    assert!(d.jobs().is_empty());
+}
+
+#[test]
+fn at_most_two_diagrams_render_at_once() {
+    let mut d = on();
+    for src in ["graph TD", "graph LR", "graph BT", "graph RL"] {
+        d.fit(src, 100);
+    }
+    let first = d.jobs();
+    assert_eq!(first.len(), 2);
+    assert!(d.jobs().is_empty());
+    d.done(render(first.into_iter().next().unwrap()));
+    assert_eq!(d.jobs().len(), 1);
+}
+
+#[test]
+fn a_render_that_answers_for_old_colours_is_not_kept() {
+    let theme = crate::theme::load("tokyonight-moon").unwrap();
+    let mut d = on();
+    let key = d.key("graph TD");
+    d.theme(&theme, theme.line_hl_dim);
+    d.done(Done {
+        key,
+        drawn: drawn(),
+    });
+    assert!(d.pic("graph TD").is_none());
+    assert!(d.fit("graph TD", 100).is_some());
+}
+
+#[test]
+fn a_diagram_the_rasterizer_has_to_shrink_stays_source() {
+    let chain: Vec<String> = (0..400).map(|i| format!("  N{i} --> N{}", i + 1)).collect();
+    let src = format!("graph TD\n{}", chain.join("\n"));
+    let job = Job {
+        key: Key {
+            src: hash(&src),
+            colours: 0,
+        },
+        src,
+        colours: String::new(),
+    };
+    assert!(render(job).drawn.is_none());
 }
 
 #[test]

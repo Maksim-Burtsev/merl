@@ -93,9 +93,6 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     if app.mode == Mode::Help {
         draw_help(frame, app, theme, over, base);
     }
-    if app.picker.is_some() || app.mode == Mode::Help {
-        app.diagrams.want.clear();
-    }
     // ratatui/ratatui#2651 in ratatui-crossterm 0.1.2: the diff sends the second column of an
     // emoji with U+FE0F as a cell of its own, and the backend prints it right after the emoji
     // without a move, so the rest of the row lands a column late. A forced width keeps the diff
@@ -112,6 +109,10 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
 
 /// Tabs drawn as [`crate::buffer::TAB`] and hidden chars as their [`wrap::tag`], as wide as
 /// [`wrap::width`] counts them; a piece with neither is borrowed as it is.
+pub(super) fn covers_code(app: &App) -> bool {
+    app.picker.is_some() || app.mode == Mode::Help
+}
+
 pub(super) fn expand(s: &str) -> std::borrow::Cow<'_, str> {
     if !s.contains(|c| c == '\t' || wrap::hidden(c)) {
         return s.into();

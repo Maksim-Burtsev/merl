@@ -109,6 +109,9 @@ pub(super) fn draw_preview(
 }
 
 fn place_pictures(app: &mut App, area: Rect, gutter_w: usize, end: usize) {
+    if super::covers_code(app) {
+        return;
+    }
     let Some(p) = &app.preview else {
         return;
     };
@@ -128,17 +131,18 @@ fn place_pictures(app: &mut App, area: Rect, gutter_w: usize, end: usize) {
         let (from, to) = (first.max(p.top), (first + rows as usize).min(end));
         if from < to {
             let lead = wrap::width(&p.doc.rows[first].text) + 1;
-            wanted.push((code.lines.join("\n"), first, from, to, cols, rows, lead));
+            wanted.push((b, code.lines.join("\n"), first, from, to, cols, rows, lead));
         }
     }
     let top = p.top;
-    for (src, first, from, to, cols, rows, lead) in wanted {
+    for (b, src, first, from, to, cols, rows, lead) in wanted {
         let Some(pic) = app.diagrams.pic(&src) else {
             continue;
         };
         let (h, rows) = (pic.height(), u32::from(rows));
         app.diagrams.want.push(crate::mermaid::Place {
             id: pic.id(),
+            placement: b as u32 + 1,
             x: area.x + (gutter_w + lead) as u16,
             y: area.y + (from - top) as u16,
             cols,

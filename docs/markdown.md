@@ -36,7 +36,8 @@ A Mermaid diagram is a picture in Ghostty, kitty and WezTerm, which draw picture
 graphics protocol; inside tmux, screen or zellij, over mosh, and in a terminal that draws none,
 the block stays its source. The picture's text is the size of the terminal's: a diagram narrower
 than the pane is drawn as it is, a wider one shrinks to the pane down to half its size, and one
-wider still stays its source, as does a diagram the renderer cannot read (#727). A tall diagram
+wider still stays its source, as does a diagram the renderer cannot read or has to shrink
+below its size to draw at all (#727). A tall diagram
 runs over as many rows as it takes. Its rows stand for the block's lines, as a table's rows stand
 for its lines: the cursor row runs across it, Enter edits the line it stands for, and `p` shows
 the source there. The first diagram of a run is drawn in up to a second, the rest in a tenth; the

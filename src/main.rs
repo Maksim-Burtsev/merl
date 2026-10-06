@@ -241,6 +241,8 @@ fn run() -> Result<()> {
         }));
     }
 
+    mermaid::keep_panics_inside();
+
     // The key reader must start after the enhancement query, which blocks on a pending read.
     let (tx, rx) = mpsc::channel();
     let keys: Sender<Msg> = tx.clone();
@@ -455,9 +457,11 @@ fn event_loop(
         }
         for job in app.diagrams.jobs() {
             let tx = diff_tx.clone();
-            std::thread::spawn(move || {
-                let _ = tx.send(Msg::Diagram(mermaid::render(job)));
-            });
+            let _ = std::thread::Builder::new()
+                .name(mermaid::THREAD.into())
+                .spawn(move || {
+                    let _ = tx.send(Msg::Diagram(mermaid::render(job)));
+                });
         }
         let idle = if app.picker.is_some() { 10 } else { 100 };
         match rx.recv_timeout(Duration::from_millis(idle)) {
