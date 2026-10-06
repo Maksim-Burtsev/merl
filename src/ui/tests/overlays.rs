@@ -1116,3 +1116,54 @@ fn the_wide_tree_stays_wide_until_the_keys_leave_it() {
     app.focus = crate::app::Focus::Code;
     assert_eq!(tree_width(&mut app, 92).0, 30);
 }
+
+#[test]
+fn a_visit_to_the_wide_tree_leaves_the_code_where_it_was() {
+    for (name, text) in [
+        ("/tmp/a.csv", format!("{}\n", "x".repeat(110)).repeat(40)),
+        ("/tmp/a.rs", format!("{}\n", "x ".repeat(80)).repeat(40)),
+    ] {
+        let mut app = deep_app();
+        app.tree.reveal(std::path::Path::new(
+            "a/b/c/d/e/f/g/h/TotpAuthenticationManager.java",
+        ));
+        app.buf = Buffer::from_bytes(PathBuf::from(name), text.as_bytes());
+        app.goto_line(30);
+        app.col = 70;
+        tree_width(&mut app, 120);
+        let before = (app.left, app.top_line, app.top_row);
+        app.focus = crate::app::Focus::Tree;
+        assert_eq!(tree_width(&mut app, 120).0, 60);
+        app.focus = crate::app::Focus::Code;
+        assert_eq!(tree_width(&mut app, 120).0, 30);
+        assert_eq!((app.left, app.top_line, app.top_row), before, "{name}");
+    }
+}
+
+#[test]
+fn a_visit_to_the_code_leaves_the_tree_cursor_where_it_was() {
+    let d = "application/src/main/java/run/halo/app/security/authentication/twofactor/totp";
+    let filter = format!("{d}/TotpAuthenticationFilter.java");
+    let mut app = review_app(&[(&filter, 'M', 1, 1)]);
+    app.focus = crate::app::Focus::Tree;
+    assert_eq!(tree_width(&mut app, 120).0, 60);
+    let main = std::path::Path::new("application/src/main");
+    app.tree.cursor = app.tree.nodes.iter().position(|n| n.path == main).unwrap();
+    tree_width(&mut app, 120);
+    app.focus = crate::app::Focus::Code;
+    assert_eq!(tree_width(&mut app, 120).0, 30);
+    app.focus = crate::app::Focus::Tree;
+    assert_eq!(tree_width(&mut app, 120).0, 60);
+    assert_eq!(app.tree.selected().unwrap().path, main);
+}
+
+#[test]
+fn a_terminal_too_narrow_to_widen_keeps_the_tree_at_30_columns() {
+    let mut app = deep_app();
+    app.tree.reveal(std::path::Path::new(
+        "a/b/c/d/e/f/g/h/TotpAuthenticationManager.java",
+    ));
+    app.focus = crate::app::Focus::Tree;
+    assert_eq!(tree_width(&mut app, 60).0, 30);
+    assert!(!app.tree_wide);
+}

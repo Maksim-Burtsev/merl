@@ -415,9 +415,18 @@ impl Tree {
                 *lift += levels;
             }
         }
-        while self.folded.contains(&self.cursor) {
-            self.cursor += 1;
+    }
+
+    pub fn shown(&self) -> usize {
+        let mut i = self.cursor;
+        while self.folded.contains(&i) {
+            i += 1;
         }
+        i
+    }
+
+    pub fn settle(&mut self) {
+        self.cursor = self.shown();
     }
 
     pub fn drawn_depth(&self, i: usize) -> usize {
@@ -1147,9 +1156,12 @@ mod tests {
     }
 
     #[test]
-    fn the_cursor_never_rests_on_a_folded_directory() {
+    fn a_fold_shows_the_cursor_on_its_row_and_a_key_settles_it_there() {
         let mut t = from_files(&["a/b/c/d/x.rs".into()]);
         t.fold(narrow(0));
+        assert_eq!(t.nodes[t.shown()].path, Path::new("a/b/c/d"));
+        assert_eq!(t.selected().unwrap().path, Path::new("a"));
+        t.settle();
         assert_eq!(t.selected().unwrap().path, Path::new("a/b/c/d"));
     }
 

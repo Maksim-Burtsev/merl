@@ -178,6 +178,9 @@ impl App {
             || ctrl && matches!(key.code, KeyCode::Char('d' | 'u'));
         let before = (self.at(), self.col);
         let fold = self.focus == Focus::Code && self.folded_here().is_some();
+        if self.focus == Focus::Tree {
+            self.tree.settle();
+        }
         self.action = (self.focus == Focus::Tree)
             .then(|| named("Tree: ", key))
             .flatten()
