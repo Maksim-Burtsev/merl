@@ -105,6 +105,48 @@ pub(super) fn draw_preview(
         lines.push(Line::from(spans));
     }
     frame.render_widget(Paragraph::new(lines).style(base), area);
+    place_pictures(app, area, gutter_w, end);
+}
+
+fn place_pictures(app: &mut App, area: Rect, gutter_w: usize, end: usize) {
+    let Some(p) = &app.preview else {
+        return;
+    };
+    let mut wanted = Vec::new();
+    for (b, code) in p.doc.code.iter().enumerate() {
+        let Some((cols, rows)) = code.picture else {
+            continue;
+        };
+        let Some(first) = p
+            .doc
+            .rows
+            .iter()
+            .position(|r| matches!(r.kind, Kind::Code { block, .. } if block == b))
+        else {
+            continue;
+        };
+        let (from, to) = (first.max(p.top), (first + rows as usize).min(end));
+        if from < to {
+            let lead = wrap::width(&p.doc.rows[first].text) + 1;
+            wanted.push((code.lines.join("\n"), first, from, to, cols, rows, lead));
+        }
+    }
+    let top = p.top;
+    for (src, first, from, to, cols, rows, lead) in wanted {
+        let Some(pic) = app.diagrams.pic(&src) else {
+            continue;
+        };
+        let (h, rows) = (pic.height(), u32::from(rows));
+        app.diagrams.want.push(crate::mermaid::Place {
+            id: pic.id(),
+            x: area.x + (gutter_w + lead) as u16,
+            y: area.y + (from - top) as u16,
+            cols,
+            rows: (to - from) as u16,
+            crop_y: (from - first) as u32 * h / rows,
+            crop_h: (to - from) as u32 * h / rows,
+        });
+    }
 }
 
 /// `text` in spans, each byte in `base` patched with the style every layer gives it, in order;

@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `p` draws a Markdown file's Mermaid diagrams as pictures, in the theme's colours, in place of
+  their source, in terminals that draw pictures (Ghostty, kitty, WezTerm; not inside tmux). A
+  diagram wider than the pane shrinks to it, down to half its size; a wider one, one the renderer
+  cannot read, and every diagram in other terminals stay their source. Building merl needs Rust
+  1.95. (#727)
 - `d` on a C++ member reads the class its receiver is declared as: `key.size()` with a
   `const Slice& key` lands on `Slice::size` (`via key: Slice`) instead of offering every `size`
   of the project. The receiver is a parameter, a local (`auto x = new T(…)` included), a field

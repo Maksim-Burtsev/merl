@@ -33,6 +33,8 @@ const TREE_W: u16 = 30;
 
 pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     let area = frame.area();
+    app.diagrams.want.clear();
+    app.diagrams.theme(theme, theme.line_hl_dim);
     let base = Style::new().bg(theme.bg).fg(theme.fg);
     frame.render_widget(Block::new().style(base), area);
 
@@ -90,6 +92,9 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     }
     if app.mode == Mode::Help {
         draw_help(frame, app, theme, over, base);
+    }
+    if app.picker.is_some() || app.mode == Mode::Help {
+        app.diagrams.want.clear();
     }
     // ratatui/ratatui#2651 in ratatui-crossterm 0.1.2: the diff sends the second column of an
     // emoji with U+FE0F as a cell of its own, and the backend prints it right after the emoji

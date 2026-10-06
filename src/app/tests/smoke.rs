@@ -24,10 +24,16 @@ const NOT_SMOKED: &[(&str, &str)] = &[
     ),
 ];
 
-const UNSMOKED: &[(u32, &str)] = &[(
-    318,
-    "a speed-up of d outside the project: the scenarios have no installed dependencies to time it on; the d bench measures it",
-)];
+const UNSMOKED: &[(u32, &str)] = &[
+    (
+        318,
+        "a speed-up of d outside the project: the scenarios have no installed dependencies to time it on; the d bench measures it",
+    ),
+    (
+        727,
+        "Mermaid pictures: the scenarios play in tmux, which passes no kitty graphics, so merl draws the source there; src/mermaid/tests.rs and the layout tests cover the pictures",
+    ),
+];
 
 fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))

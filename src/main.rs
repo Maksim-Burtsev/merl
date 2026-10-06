@@ -8,6 +8,7 @@ mod intraline;
 mod line_edit;
 mod live;
 mod markdown;
+mod mermaid;
 mod picker;
 mod reviews;
 mod search;
@@ -58,6 +59,7 @@ enum Msg {
     Diff(PathBuf, git::Diff),
     /// The grep with this number finished: the rows it found.
     Search(u64, Vec<PickItem>),
+    Diagram(mermaid::Done),
     /// SIGTERM, SIGHUP or SIGINT from outside: save and leave as `q` does.
     Quit,
 }
@@ -188,6 +190,7 @@ fn run() -> Result<()> {
     };
     let dir = root.clone();
     let mut app = App::new(root, tree, files, buf, line);
+    app.diagrams = mermaid::Diagrams::detect();
     app.shallow = shallow;
     app.tree_order = tree_order;
     app.ignored = ignored;
@@ -269,6 +272,7 @@ fn run() -> Result<()> {
         });
     }
     let result = event_loop(&mut terminal, &mut app, theme, &rx, tx, project);
+    let _ = app.diagrams.clear(&mut stdout());
 
     if enhanced {
         let _ = execute!(stdout(), PopKeyboardEnhancementFlags);
@@ -446,7 +450,14 @@ fn event_loop(
         }
         if dirty {
             terminal.draw(|f| ui::draw(f, app, &theme))?;
+            app.diagrams.flush(&mut stdout())?;
             dirty = false;
+        }
+        for job in app.diagrams.jobs() {
+            let tx = diff_tx.clone();
+            std::thread::spawn(move || {
+                let _ = tx.send(Msg::Diagram(mermaid::render(job)));
+            });
         }
         let idle = if app.picker.is_some() { 10 } else { 100 };
         match rx.recv_timeout(Duration::from_millis(idle)) {
@@ -487,7 +498,14 @@ fn event_loop(
                 return Ok(());
             }
             Ok(Msg::Search(seq, items)) => dirty |= app.search_done(seq, items),
-            Ok(Msg::Resize) => dirty = true,
+            Ok(Msg::Resize) => {
+                app.diagrams.resized();
+                dirty = true;
+            }
+            Ok(Msg::Diagram(done)) => {
+                app.diagrams.done(done);
+                dirty = true;
+            }
             Ok(Msg::Fs(ev)) => {
                 // A reload that found the file as merl knows it is not worth a frame: the
                 // project watch reports every namesake under the root.

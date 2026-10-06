@@ -1,0 +1,146 @@
+use super::*;
+
+fn env(pairs: &[(&str, &str)]) -> impl Fn(&str) -> Option<String> {
+    let pairs: Vec<(String, String)> = pairs
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+    move |k| pairs.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone())
+}
+
+#[test]
+fn pictures_need_a_terminal_that_draws_them_and_no_multiplexer() {
+    assert!(supported(&env(&[("TERM", "xterm-ghostty")])));
+    assert!(supported(&env(&[("TERM", "xterm-kitty")])));
+    assert!(supported(&env(&[("TERM_PROGRAM", "WezTerm")])));
+    assert!(supported(&env(&[("KITTY_WINDOW_ID", "1")])));
+    assert!(!supported(&env(&[("TERM", "xterm-256color")])));
+    assert!(!supported(&env(&[
+        ("TERM", "xterm-ghostty"),
+        ("TMUX", "/tmp/x")
+    ])));
+    assert!(!supported(&env(&[
+        ("TERM_PROGRAM", "ghostty"),
+        ("STY", "1")
+    ])));
+    assert!(!supported(&env(&[("TERM_PROGRAM", "Apple_Terminal")])));
+}
+
+#[test]
+fn a_narrow_diagram_draws_at_the_size_of_the_text() {
+    let cell = (10, 20);
+    let (cols, rows) = cells((160, 80), cell, 100).unwrap();
+    assert_eq!((cols, rows), (17, 5));
+}
+
+#[test]
+fn a_wide_diagram_shrinks_to_the_pane_down_to_half_its_size() {
+    let cell = (10, 20);
+    let natural = cells((1000, 100), cell, 1000).unwrap();
+    assert_eq!(natural.0, 107);
+    let shrunk = cells((1000, 100), cell, 60).unwrap();
+    assert_eq!(shrunk.0, 60);
+    assert!(shrunk.1 < natural.1);
+    assert_eq!(cells((1000, 100), cell, 50), None);
+}
+
+#[test]
+fn colours_go_after_front_matter_and_before_everything_else() {
+    let init = "%%{init: {}}%%";
+    assert_eq!(
+        with_colours("graph TD\n  A-->B", init),
+        format!("{init}\ngraph TD\n  A-->B")
+    );
+    assert_eq!(
+        with_colours("---\ntitle: T\n---\ngraph TD\n  A-->B", init),
+        format!("---\ntitle: T\n---\n{init}\ngraph TD\n  A-->B")
+    );
+}
+
+#[test]
+fn a_diagram_draws_and_a_broken_one_does_not() {
+    let job = |src: &str| Job {
+        key: Key {
+            src: hash(src),
+            colours: 0,
+        },
+        src: src.into(),
+        colours: String::new(),
+    };
+    let done = render(job("graph TD\n  A[Start] --> B[Done]"));
+    let pic = done.pic.expect("a flowchart draws");
+    assert!(pic.w > 0 && pic.h > pic.w / 10);
+    assert!(render(job("graph TD\n  A[Start --> ")).pic.is_none());
+}
+
+#[test]
+fn a_picture_is_sent_once_and_placed_again_only_when_it_moves() {
+    let mut d = Diagrams {
+        cell: Some((10, 20)),
+        ..Default::default()
+    };
+    let key = Key { src: 1, colours: 2 };
+    d.done(Done {
+        key,
+        pic: Some(Pic {
+            id: 7,
+            png: vec![1, 2, 3],
+            w: 40,
+            h: 20,
+        }),
+    });
+    let place = Place {
+        id: 7,
+        x: 3,
+        y: 4,
+        cols: 2,
+        rows: 1,
+        crop_y: 0,
+        crop_h: 20,
+    };
+    let flush = |d: &mut Diagrams| {
+        let mut out = Vec::new();
+        d.flush(&mut out).unwrap();
+        String::from_utf8(out).unwrap()
+    };
+    d.want = vec![place.clone()];
+    let first = flush(&mut d);
+    assert!(first.contains("a=t,f=100,i=7"));
+    assert!(first.contains("\x1b[5;4H\x1b_Ga=p,i=7"));
+    assert_eq!(flush(&mut d), "");
+    d.want = vec![Place { y: 9, ..place }];
+    let moved = flush(&mut d);
+    assert!(moved.contains("a=d,d=a") && moved.contains("a=p,i=7") && !moved.contains("a=t"));
+    d.want.clear();
+    let gone = flush(&mut d);
+    assert!(gone.contains("a=d,d=a") && !gone.contains("a=p"));
+    let mut out = Vec::new();
+    d.clear(&mut out).unwrap();
+    assert_eq!(out, b"\x1b_Ga=d,d=A,q=2\x1b\\");
+}
+
+#[test]
+fn a_size_that_arrives_lays_the_preview_out_again() {
+    let mut d = Diagrams {
+        cell: Some((10, 20)),
+        ..Default::default()
+    };
+    assert_eq!(d.fit("graph TD\n  A-->B", 100), None);
+    let jobs = d.jobs();
+    assert_eq!(jobs.len(), 1);
+    assert_eq!(d.fit("graph TD\n  A-->B", 100), None);
+    assert!(d.jobs().is_empty());
+    let before = d.laid;
+    let done = render(jobs.into_iter().next().unwrap());
+    d.done(done);
+    assert_eq!(d.laid, before + 1);
+    assert!(d.fit("graph TD\n  A-->B", 100).is_some());
+}
+
+#[test]
+fn off_draws_nothing_and_asks_for_nothing() {
+    let mut d = Diagrams::default();
+    assert_eq!(d.fit("graph TD\n  A-->B", 100), None);
+    assert!(d.pic("graph TD\n  A-->B").is_none());
+    assert!(d.jobs().is_empty());
+}

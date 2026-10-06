@@ -44,7 +44,7 @@ curl -fsSL https://github.com/Maksim-Burtsev/merl/releases/latest/download/merl-
 sudo mv merl /usr/local/bin/
 ```
 
-Or build it (Rust 1.88 or newer):
+Or build it (Rust 1.95 or newer):
 
 ```sh
 cargo install --git https://github.com/Maksim-Burtsev/merl
