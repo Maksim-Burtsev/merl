@@ -590,6 +590,45 @@ fn external_go_files_are_what_an_import_reaches() {
 }
 
 #[test]
+fn the_rust_sysroot_leaves_out_its_tests_and_benches() {
+    let base = std::env::temp_dir().join(format!("merl-ext-rs-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    let sysroot = base.join("lib/rustlib/src/rust/library");
+    let registry = base.join("registry/serde-1.0.0");
+    let files = [
+        "core/src/option.rs",
+        "core/src/iter/mod.rs",
+        "coretests/tests/option.rs",
+        "alloctests/lib.rs",
+        "std/tests/env.rs",
+        "std/benches/hash.rs",
+        "vendor/hashbrown-0.17.1/src/map.rs",
+    ];
+    for f in files {
+        std::fs::create_dir_all(sysroot.join(f).parent().unwrap()).unwrap();
+        std::fs::write(sysroot.join(f), "").unwrap();
+    }
+    for f in ["src/de.rs", "tests/de.rs", "benches/de.rs", "vendor/x.rs"] {
+        std::fs::create_dir_all(registry.join(f).parent().unwrap()).unwrap();
+        std::fs::write(registry.join(f), "").unwrap();
+    }
+    let mut found = external_files(Kind::Rust, &[sysroot.clone(), registry.clone()]);
+    found.sort();
+    let mut want = vec![
+        sysroot.join("core/src/iter/mod.rs"),
+        sysroot.join("core/src/option.rs"),
+        sysroot.join("vendor/hashbrown-0.17.1/src/map.rs"),
+        registry.join("benches/de.rs"),
+        registry.join("src/de.rs"),
+        registry.join("tests/de.rs"),
+        registry.join("vendor/x.rs"),
+    ];
+    want.sort();
+    assert_eq!(found, want);
+    std::fs::remove_dir_all(&base).unwrap();
+}
+
+#[test]
 fn rust_use_files_follow_the_crate_and_super_paths() {
     let files: Vec<PathBuf> = [
         "Cargo.toml",

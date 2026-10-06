@@ -837,12 +837,14 @@ pub fn jvm_parameters(text: &str, line: usize, word: &str) -> Option<(usize, usi
     if inner.trim().is_empty() {
         return Some((0, 0));
     }
-    let (mut depth, mut count) = (0i32, 1);
+    let (mut depth, mut angles, mut count) = (0i32, 0i32, 1);
     for (_, c) in code(Kind::Jvm, &inner) {
         match c {
-            b'(' | b'[' | b'{' | b'<' => depth += 1,
-            b')' | b']' | b'}' | b'>' => depth -= 1,
-            b',' if depth == 0 => count += 1,
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth -= 1,
+            b'<' if depth == 0 => angles += 1,
+            b'>' if depth == 0 && angles > 0 => angles -= 1,
+            b',' if depth == 0 && angles == 0 => count += 1,
             _ => {}
         }
     }

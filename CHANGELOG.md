@@ -30,12 +30,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `d` outside the project in JavaScript and TypeScript lists a declaration once when another
+  package keeps a copy of its own: a line of the copy of `typescript` another package keeps is no
+  longer listed beside the same line of the copy Node loads from the open file. A member is
+  looked for in the packages the file imports before every installed one, so its picker lists
+  those alone. (#318)
 - `v` grows on to the whole file: a fourth press, after the word, the line and the paragraph,
   selects every line of the file, the cursor at its end; Ctrl+C then copies it all. (#635)
-- Line numbers and the `‹` `›` `…` marks read at 3:1 on the background in every theme: a theme
-  whose own gutter colour is fainter has it lightened (darkened in a light theme) in its own hue
-  until it gets there, never past the theme's comments. 50 of the 94 themes change, the default
-  among them (1.3:1 before); the rest draw as before. (#555)
+- The lists of `u`, `s` and `d`'s choices name a file once, above its rows, and each row shows
+  the line number and the code: `polar/license_key/endpoints.py` over `242  license_key = await …`
+  instead of the path repeated on every row. A row still too wide for the list wraps under its
+  code instead of stopping at the border mid-word. `u` no longer writes `declaration` before
+  its first rows: the title counts them. With the tree open and the code at least 80 columns
+  wide, every list sits over the code instead of over the tree, its text where the code starts. (#479)
+- The first `d` that leaves the project no longer waits for the walk of the standard library and
+  the dependencies (about 0.9 s for Rust): merl walks them in the background once a file of that
+  language opens. Rust's standard library is read without its tests and benches. (#318)
 - `d` in TypeScript and JavaScript reads the type of a receiver in five more places. In
   `function Row({ apiKey }: Props)` `apiKey.id` lands on the `id` its `Props` field's type
   declares, as `auth.user` does after `const { auth } = useStores()`, `membership.permission`
@@ -45,12 +55,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   string }` lands on the `href` of the literal, where it jumped to another class's `href`, and `d`
   on `rest` after `const { id, ...rest } = document` lands on that line, where it said "no
   definition". (#354)
+- `/` and `s` open with the selected text as the query when the selection is within one line,
+  already searched and selected so typing replaces it; without a selection, or with one over
+  several lines, they open as before. (#410)
+- Line numbers and the `‹` `›` `…` marks read at 3:1 on the background in every theme: a theme
+  whose own gutter colour is fainter has it lightened (darkened in a light theme) in its own hue
+  until it gets there, never past the theme's comments. 50 of the 94 themes change, the default
+  among them (1.3:1 before); the rest draw as before. (#555)
 
 ### Fixed
 
 - `--review`: a file with nothing to read that `c` or `C` walks past, or the review opens past
   (an empty `__init__.py`, a pure rename, a mode change), gets its viewed tick; a binary file or a
   submodule stays unticked until `m`. (#715)
+- `d` on a Java or Groovy call lands on the right overload when a parameter's annotation or
+  default value holds a comparison: the `<` of `@Max(LOW < HIGH ? 1 : 2)` or of
+  `boolean fast = pace<1` no longer hides the parameters after it. (#700)
 - `d` in PHP on a relative namespace segment in a file of several `namespace` blocks, `Legacy` in
   `Legacy\Entry::OPEN`, reads it in the block it stands in. It read it in the file's first block
   and said `no definition`. (#617)
@@ -338,12 +358,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- The lists of `u`, `s` and `d`'s choices name a file once, above its rows, and each row shows
-  the line number and the code: `polar/license_key/endpoints.py` over `242  license_key = await …`
-  instead of the path repeated on every row. A row still too wide for the list wraps under its
-  code instead of stopping at the border mid-word. `u` no longer writes `declaration` before
-  its first rows: the title counts them. With the tree open and the code at least 80 columns
-  wide, every list sits over the code instead of over the tree, its text where the code starts. (#479)
 - The `?` overlay on a screen narrower than 118 columns wraps an action too long for its row
   onto the next row, under its own column, instead of cutting it at the border (#458).
 - `d` in Python reads a dependency's modules as Python imports them (#329). `pytest.fixture` lands

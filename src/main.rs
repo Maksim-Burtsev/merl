@@ -372,6 +372,7 @@ fn event_loop(
             dirty |= p.tick();
         }
         dirty |= app.tick();
+        app.warm_up();
         rewatch(watcher.as_mut(), &mut watched, app);
         if std::mem::take(&mut app.want_diff)
             && let Some(path) = app.buf.path.clone()
@@ -922,7 +923,7 @@ mod tests {
     /// A listed file that shrinks lowers its number in the same change; one under the limit
     /// leaves the list.
     const LONG_FILES: &[(&str, usize)] = &[
-        ("src/app/definition.rs", 2371),
+        ("src/app/definition.rs", 2369),
         ("src/search/bindings.rs", 1623),
     ];
     const MAX_LINES: usize = 1500;
@@ -989,7 +990,7 @@ mod tests {
         assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
     }
 
-    const COMMENT_LINES: usize = 7510;
+    const COMMENT_LINES: usize = 7507;
 
     fn comment_lines(text: &str) -> usize {
         let b = text.as_bytes();

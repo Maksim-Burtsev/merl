@@ -1,7 +1,7 @@
 # `d` bench
 
-How often `d` lands where a language server would, per language, in 24 real projects pinned to a
-commit: 5,334 cursors, each with an answer recorded once and reviewed, and the table master
+How often `d` lands where a language server would, per language, in 29 real projects pinned to a
+commit: 6,069 cursors, each with an answer recorded once and reviewed, and the table master
 scores on them (`baseline.md`). A `d` change runs it and shows no language worse than master
 (`AGENTS.md`, `## Changing d`).
 
@@ -147,6 +147,29 @@ answers inside the workspace and fetches no external repository, so a name a `lo
 `@bazel_skylib` or another repository is `no-answer`, as is a builtin (`ctx.actions`,
 `attr.label`): 166 cursors, and 20 more stand on their declaration. Of the three misses, all are keyword arguments, which
 starpls takes to the callee's parameter and `d` refuses on purpose (#431).
+
+## Lisp, 2026-10-06
+
+Five rows, one per dialect merl reads (#428). Their cursors skip keywords (`:key`, `#:key`) and
+the name a defining form introduces; a word right after `(` is a `call`, after `ns/` or `pkg:` a
+`path`, and the rest mostly `name`.
+
+- **clojure** (babashka): clojure-lsp, with no `clojure` or `lein` on the machine to compute a
+  classpath, so `oracle` hands it one, every `:paths` and `:extra-paths` directory of `deps.edn`
+  that exists. The submodules (sci, babashka.fs, ...) are not cloned and `test-resources/`, the
+  tests of third-party libraries, is excluded from the sample (`--exclude test-resources`): what
+  comes from them, and `clojure.core`, which clojure-lsp answers inside a jar, is `no-answer`.
+- **racket** (drracket): racket-langserver from minimal-racket, which answers only once a file has
+  expanded (`oracle` waits for the file's diagnostics). drracket's own collections are not
+  installed, so the clone's packages go on `PLTCOLLECTS` after the defaults, and the packages
+  drracket-core-lib needs and minimal-racket lacks (images-lib, typed-racket-more,
+  macro-debugger, ...) went into a scratch `PLTADDONDIR` with `raco pkg install --scope user`. A
+  name the installed drracket-tool-lib also has is answered in that copy, matched by its path.
+- **elisp** (magit), **scheme** (chibi-scheme), **commonlisp** (lem): no server; an agent judged
+  80 cursors each by reading the code, as for Java. A dependency (transient, compat, Quicklisp
+  libraries), the builtins and a primitive chibi implements only in C are `no-answer`; a generic
+  function's answer is its `defgeneric` and every method. `sample` reads files with `newline=""`
+  since magit-diff.el holds a lone CR, which Python would count as a line break and merl does not.
 
 ## History
 
