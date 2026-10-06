@@ -712,6 +712,12 @@ impl App {
     /// needs a restart.
     pub(super) fn external_files(&mut self, kind: Kind) -> Arc<Vec<PathBuf>> {
         if kind == Kind::Scheme
+            && self
+                .buf
+                .path
+                .as_ref()
+                .and_then(|p| p.extension())
+                .is_none_or(|e| e != "rkt")
             && !self
                 .buf
                 .lines

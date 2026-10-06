@@ -52,6 +52,7 @@ fn d_on_a_require_the_project_lacks_opens_it_in_the_roots() {
             ("main.rkt", "#lang racket\n(require racket/list)\n"),
             ("lib.scm", "(define (second-of l) (rest l))\n"),
             ("racket.ss", "#lang racket\n(define (tail-of l) (rest l))\n"),
+            ("bare.rkt", "(module bare racket\n  (define (head-of l) (rest l)))\n"),
         ],
     );
     let root = external_root(
@@ -96,6 +97,11 @@ fn d_on_a_require_the_project_lacks_opens_it_in_the_roots() {
         ),
         (
             "racket.ss",
+            "rest",
+            jump("rest: by name, 1 match", &at("collects/racket/list.rkt:2")),
+        ),
+        (
+            "bare.rkt",
             "rest",
             jump("rest: by name, 1 match", &at("collects/racket/list.rkt:2")),
         ),
