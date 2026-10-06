@@ -747,8 +747,18 @@ fn php_class_names_resolve_and_map_to_files() {
         let start = line.rfind(word).unwrap();
         php_class_at(line, start..start + word.len())
     };
-    let class = |w: &str| Some((w.to_owned(), false));
-    let member = |w: &str| Some((w.to_owned(), true));
+    let class = |w: &str| {
+        Some(PhpClassAt {
+            written: w.to_owned(),
+            member: false,
+        })
+    };
+    let member = |w: &str| {
+        Some(PhpClassAt {
+            written: w.to_owned(),
+            member: true,
+        })
+    };
     assert_eq!(at("        Song::query();", "Song"), class("Song"));
     assert_eq!(at("        Song::query();", "query"), member("Song"));
     assert_eq!(at("        \\A\\Song::$all;", "all"), member("\\A\\Song"));
@@ -779,7 +789,10 @@ fn php_class_names_resolve_and_map_to_files() {
     assert_eq!(at("        Song::class;", "class"), None);
 
     let text = "<?php\nnamespace App\\Repos;\n\nuse App\\Models\\Song;\nuse App\\Models\\Album as Record;\nuse App\\Http\\{Kernel, Request};\nuse function App\\helpers\\Tag;\n";
-    let resolve = |w: &str| php_resolve(text, w).unwrap();
+    let resolve = |w: &str| {
+        let r = php_resolve(text, w).unwrap();
+        (r.full, r.imported)
+    };
     assert_eq!(resolve("Song"), ("App\\Models\\Song".into(), true));
     assert_eq!(resolve("Record"), ("App\\Models\\Album".into(), true));
     assert_eq!(
@@ -791,7 +804,13 @@ fn php_class_names_resolve_and_map_to_files() {
     assert_eq!(php_resolve(text, "Kernel"), None);
     assert_eq!(php_resolve(text, "Request\\Part"), None);
     assert_eq!(resolve("Tag"), ("App\\Repos\\Tag".into(), false));
-    assert_eq!(php_resolve("<?php\n", "Song"), Some(("Song".into(), false)));
+    assert_eq!(
+        php_resolve("<?php\n", "Song"),
+        Some(PhpResolved {
+            full: "Song".into(),
+            imported: false
+        })
+    );
 
     let dir = std::env::temp_dir().join(format!("merl-psr4-{}", std::process::id()));
     std::fs::create_dir_all(dir.join("api")).unwrap();
@@ -809,16 +828,16 @@ fn php_class_names_resolve_and_map_to_files() {
     let file = |full: &str| php_psr4_file(&map, full, |f| files.iter().any(|g| Path::new(g) == f));
     assert_eq!(
         file("App\\Models\\Song"),
-        Some(Ok("api/app/Models/Song.php".into()))
+        Psr4File::Found("api/app/Models/Song.php".into())
     );
     assert_eq!(
         file("App\\Tests\\Unit"),
-        Some(Ok("api/more/Unit.php".into()))
+        Psr4File::Found("api/more/Unit.php".into())
     );
-    assert_eq!(file("App\\Models\\Gone"), Some(Err(())));
+    assert_eq!(file("App\\Models\\Gone"), Psr4File::Missing);
     // The empty prefix covers only a name whose file is there.
-    assert_eq!(file("Legacy"), Some(Ok("api/lib/Legacy.php".into())));
-    assert_eq!(file("Illuminate\\Support\\Arr"), None);
+    assert_eq!(file("Legacy"), Psr4File::Found("api/lib/Legacy.php".into()));
+    assert_eq!(file("Illuminate\\Support\\Arr"), Psr4File::OutsideProject);
     assert!(php_psr4(&dir, Path::new("elsewhere")).is_empty());
     std::fs::remove_dir_all(&dir).unwrap();
 }

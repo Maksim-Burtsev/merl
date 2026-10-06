@@ -1346,24 +1346,33 @@ fn csharp_type_positions_namespace_segments_and_arity() {
         let start = line.find(word).unwrap();
         cs_namespace_prefix(line, start, start + word.len())
     };
+    let certain = |prefix: &str| {
+        Some(CsNamespacePrefix {
+            prefix: prefix.to_owned(),
+            certain: true,
+        })
+    };
     assert_eq!(
         prefix(
             "using Microsoft.EntityFrameworkCore.Migrations;",
             "EntityFrameworkCore"
         ),
-        Some(("Microsoft.EntityFrameworkCore".to_owned(), true))
+        certain("Microsoft.EntityFrameworkCore")
     );
     assert_eq!(
         prefix("global using Microsoft.Extensions.Options;", "Options"),
-        Some(("Microsoft.Extensions.Options".to_owned(), true))
+        certain("Microsoft.Extensions.Options")
     );
     assert_eq!(
         prefix("namespace Shop.Catalog {", "Catalog"),
-        Some(("Shop.Catalog".to_owned(), true))
+        certain("Shop.Catalog")
     );
     assert_eq!(
         prefix("    global::Shop.Pricing.Tariff t;", "Pricing"),
-        Some(("Shop.Pricing".to_owned(), false))
+        Some(CsNamespacePrefix {
+            prefix: "Shop.Pricing".to_owned(),
+            certain: false
+        })
     );
     assert_eq!(prefix("using Rows = List<int>;", "List"), None);
     assert_eq!(prefix("using static System.Math;", "Math"), None);
@@ -1382,7 +1391,9 @@ fn csharp_type_positions_namespace_segments_and_arity() {
     assert_eq!(args("return Equals;"), None);
     assert_eq!(args("return Equals(a < b, c > d);"), None);
     assert_eq!(args("return Equals(a,"), None);
-    let params = |line: &str| cs_parameters(line, 1, "Equals");
+    let params = |line: &str| {
+        cs_parameters(line, 1, "Equals").map(|a| (a.fewest, a.most_unless_params, a.extension_this))
+    };
     assert_eq!(
         params("public bool Equals(object other)"),
         Some((1, Some(1), false))

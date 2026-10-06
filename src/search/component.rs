@@ -16,48 +16,47 @@ pub fn script_lines(path: &Path, text: &str) -> Option<Vec<bool>> {
         return None;
     }
     let astro = path.extension().is_some_and(|e| e == "astro");
-    // Where a line stands: outside, inside a `<script` tag wrapped over lines, in the script.
     #[derive(PartialEq)]
     enum At {
-        Out,
-        Tag,
-        Script,
-        Front,
+        Outside,
+        InWrappedScriptTag,
+        InScript,
+        InFrontmatter,
     }
-    let mut at = At::Out;
+    let mut at = At::Outside;
     let mut out = Vec::new();
     for (i, line) in text.lines().enumerate() {
         // A file saved with a BOM opens with it, read from the disk.
         let t = line.trim().trim_start_matches('\u{feff}');
         let code = match at {
-            At::Out if astro && i == 0 && t == "---" => {
-                at = At::Front;
+            At::Outside if astro && i == 0 && t == "---" => {
+                at = At::InFrontmatter;
                 false
             }
-            At::Out if t.starts_with("<script") && t[7..].starts_with([' ', '>', '\t']) => {
+            At::Outside if t.starts_with("<script") && t[7..].starts_with([' ', '>', '\t']) => {
                 at = script_open(t);
                 false
             }
-            At::Out if t == "<script" => {
-                at = At::Tag;
+            At::Outside if t == "<script" => {
+                at = At::InWrappedScriptTag;
                 false
             }
-            At::Out => false,
-            At::Tag => {
+            At::Outside => false,
+            At::InWrappedScriptTag => {
                 if let Some(close) = t.find('>') {
                     at = script_open(&t[close..]);
                 }
                 false
             }
-            At::Script if t.starts_with("</script") => {
-                at = At::Out;
+            At::InScript if t.starts_with("</script") => {
+                at = At::Outside;
                 false
             }
-            At::Front if t == "---" => {
-                at = At::Out;
+            At::InFrontmatter if t == "---" => {
+                at = At::Outside;
                 false
             }
-            At::Script | At::Front => true,
+            At::InScript | At::InFrontmatter => true,
         };
         out.push(code);
     }
@@ -67,9 +66,9 @@ pub fn script_lines(path: &Path, text: &str) -> Option<Vec<bool>> {
     /// (`<script src="x"></script>`) or its tag goes on to the next line.
     fn script_open(t: &str) -> At {
         match (t.contains("</script"), t.contains('>')) {
-            (true, _) => At::Out,
-            (false, true) => At::Script,
-            (false, false) => At::Tag,
+            (true, _) => At::Outside,
+            (false, true) => At::InScript,
+            (false, false) => At::InWrappedScriptTag,
         }
     }
 }

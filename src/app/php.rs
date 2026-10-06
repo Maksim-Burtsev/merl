@@ -75,21 +75,22 @@ impl App {
     ) -> Option<Vec<Candidate>> {
         let line = self.line_str();
         let word = line[range.clone()].to_owned();
-        let (written, member) = search::php_class_at(line, range)?;
+        let search::PhpClassAt { written, member } = search::php_class_at(line, range)?;
         let map = search::php_psr4(&self.root, here.parent().unwrap_or(Path::new("")));
         if map.is_empty() {
             return None;
         }
-        let (full, used) = search::php_resolve(search::php_block(text, self.line), &written)?;
+        let search::PhpResolved { full, imported } =
+            search::php_resolve(search::php_block(text, self.line), &written)?;
         let (ns, short) = match full.rsplit_once('\\') {
             Some((ns, short)) => (ns, short),
             None => ("", full.as_str()),
         };
         let path = match search::php_psr4_file(&map, &full, |f| self.files.iter().any(|p| p == f)) {
-            Some(Ok(path)) => path,
-            Some(Err(())) => return None,
+            search::Psr4File::Found(path) => path,
+            search::Psr4File::Missing => return None,
             // Outside the project: what `vendor/` declares under that path, before any namesake.
-            None => {
+            search::Psr4File::OutsideProject => {
                 let imports = [(
                     short.to_owned(),
                     full.split('\\').map(str::to_owned).collect(),
@@ -116,12 +117,12 @@ impl App {
         let literal = search::literal_lines(Kind::Php, &t);
         let class = (0..lines.len()).find(|&i| {
             literal.get(i) != Some(&true)
-                && search::php_class_header(lines[i]).is_some_and(|(_, n, _)| n == short)
+                && search::php_class_header(lines[i]).is_some_and(|h| h.name == short)
         })?;
         if search::php_namespace(search::php_block(&t, class)).unwrap_or_default() != ns {
             return None;
         }
-        let reason = match used {
+        let reason = match imported {
             true => Reason::Import(path.display().to_string()),
             false if member || ns.is_empty() => Reason::Path(short.to_owned()),
             false => Reason::Path(ns.to_owned()),
@@ -164,7 +165,11 @@ impl App {
     ) -> Option<Vec<Candidate>> {
         let lines: Vec<&str> = text.lines().collect();
         let class = search::php_enclosing_class(&lines, self.line)?;
-        let (keyword, name, parent) = search::php_class_header(lines[class])?;
+        let search::PhpClassHeader {
+            keyword,
+            name,
+            extends: parent,
+        } = search::php_class_header(lines[class])?;
         if keyword == "trait" {
             return None;
         }
@@ -242,7 +247,7 @@ impl App {
                 other => return other,
             }
         }
-        match search::php_class_header(lines[class]).and_then(|(_, _, parent)| parent) {
+        match search::php_class_header(lines[class]).and_then(|h| h.extends) {
             Some(parent) => self.php_walk_class(path, block, parent, re, depth + 1, seen),
             None => Walk::Nowhere(false),
         }
@@ -277,7 +282,7 @@ impl App {
         name: &str,
     ) -> (Option<String>, Vec<(PathBuf, String, usize)>) {
         let kind = Kind::Php;
-        let full = search::php_resolve(text, name).map(|(full, _)| full);
+        let full = search::php_resolve(text, name).map(|r| r.full);
         let short = full.as_deref().unwrap_or(name);
         let short = short.rsplit('\\').next().unwrap_or(short);
         let pattern = format!(
@@ -361,7 +366,7 @@ impl App {
 
     fn php_class_name(&self, (_, text, line): &PhpClass) -> Option<String> {
         let l = text.lines().nth(*line)?;
-        search::php_class_header(l).map(|(_, name, _)| name.to_owned())
+        search::php_class_header(l).map(|h| h.name.to_owned())
     }
 
     /// The class 0-based line `at` of `text`, the file `path`, stands in: `$this` and `self`
@@ -369,8 +374,8 @@ impl App {
     fn php_self(&self, path: &Path, text: &str, at: usize) -> Option<PhpClass> {
         let lines: Vec<&str> = text.lines().collect();
         let class = search::php_enclosing_class(&lines, at)?;
-        let (keyword, _, _) = search::php_class_header(lines[class])?;
-        (keyword != "trait").then(|| (path.to_path_buf(), text.to_owned(), class))
+        let header = search::php_class_header(lines[class])?;
+        (header.keyword != "trait").then(|| (path.to_path_buf(), text.to_owned(), class))
     }
 
     fn php_type(&mut self, path: &Path, text: &str, at: usize, written: &str) -> Option<PhpClass> {
@@ -404,17 +409,17 @@ impl App {
                 search::PhpBinding::Type(t) | search::PhpBinding::New(t) => {
                     (self.php_type(here, text, at, &t)?, None)
                 }
-                search::PhpBinding::Static(on, method) => {
+                search::PhpBinding::StaticCall { class: on, method } => {
                     let class = self.php_type(here, text, at, &on)?;
                     let (ty, returns) = self.php_returns(class, &method)?;
                     (ty, Some(format!("{on}::{method}(): {returns}")))
                 }
-                search::PhpBinding::This(method) => {
+                search::PhpBinding::ThisCall(method) => {
                     let class = self.php_self(here, text, at)?;
                     let (ty, returns) = self.php_returns(class, &method)?;
                     (ty, Some(format!("$this->{method}(): {returns}")))
                 }
-                search::PhpBinding::Function(f) => {
+                search::PhpBinding::FunctionCall(f) => {
                     let (ty, returns) = self.php_function_returns(here, &f)?;
                     (ty, Some(format!("{f}(): {returns}")))
                 }
@@ -526,7 +531,7 @@ impl App {
             }
             let lines: Vec<&str> = t.lines().collect();
             let Some(class) = (0..lines.len())
-                .find(|&i| search::php_class_header(lines[i]).is_some_and(|(_, n, _)| n == short))
+                .find(|&i| search::php_class_header(lines[i]).is_some_and(|h| h.name == short))
             else {
                 continue;
             };
