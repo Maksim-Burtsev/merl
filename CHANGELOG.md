@@ -86,6 +86,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `const` of the script above, `theme` in `{{ settings.theme }}` under `v-for="settings in
   rows"`, no longer jumps to the key of the script's `const settings = { theme }`: the item is
   another value, and `d` searches the member by name. (#618)
+- Ctrl+Shift+D no longer opens the symbols list, as `D` does, in Ghostty, kitty and WezTerm:
+  a Ctrl chord with Shift is never read as the bare letter, and one merl does not bind does
+  nothing. (#688)
+- In `--review`, a file the branch deleted draws the red `▎` of a deleted line on every line,
+  where it drew the `▁` that marks lines deleted below one. (#642)
+- `d` on `Shuttle` in a Groovy `new Shuttle(m)` lands on `Shuttle(@Named("cfg") Map<K, V> m)`
+  instead of offering a picker with `Shuttle(String s, int n)`: an annotation with arguments no
+  longer hides the commas of a generic type, or a default value, behind it. (#679)
 
 ## [0.8.2] - 2026-10-04
 

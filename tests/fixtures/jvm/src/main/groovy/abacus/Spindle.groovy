@@ -65,3 +65,25 @@ class Loom {
         //  ^ d: src/main/groovy/abacus/Spindle.groovy:41
     }
 }
+
+class Treadle {
+    Treadle(@Named("cfg") Map<String, Object> m) {  }
+
+    Treadle(String s, int n) {  }
+
+    def fly(Map<String, Object> m) {
+        new Treadle(m)
+        //  ^ d: src/main/groovy/abacus/Spindle.groovy:70
+    }
+}
+
+class Pirn {
+    Pirn(Closure c = { -> 1 }, int b) {  }
+
+    Pirn(String s) {  }
+
+    def wind(Closure c) {
+        new Pirn(c, 1)
+        //  ^ d: src/main/groovy/abacus/Spindle.groovy:81
+    }
+}

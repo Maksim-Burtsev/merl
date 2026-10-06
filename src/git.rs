@@ -15,8 +15,8 @@ use anyhow::{Context, Result, bail};
 pub enum Mark {
     Added,
     Changed,
-    /// Lines were removed right below this one.
     DeletedBelow,
+    Deleted,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

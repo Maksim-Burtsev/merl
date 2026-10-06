@@ -86,7 +86,12 @@ impl App {
             self.session = session;
             return !overlay && self.key(key);
         }
-        // In kitty mode `:`, `?` and `D` arrive with SHIFT set; legacy sends none.
+        if let KeyCode::Char(c) = key.code
+            && key.modifiers.contains(KeyModifiers::CONTROL)
+            && (key.modifiers.contains(KeyModifiers::SHIFT) || !c.is_ascii_lowercase())
+        {
+            return false;
+        }
         if matches!(key.code, KeyCode::Char(_)) {
             key.modifiers.remove(KeyModifiers::SHIFT);
         }
