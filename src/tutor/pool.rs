@@ -474,6 +474,59 @@ pub const POOL: &[Task] = &[
         done: |a| selected(a) == Some("load_config()"),
     },
     Task {
+        key: "Shift+PgUp",
+        title: "Select a screen up",
+        tutor: "Shift+PgUp extends the selection a whole screen up. Press it.",
+        drill: "Select a whole screen up from the cursor.",
+        start: Some(("notes.json", NOTES_END, "")),
+        keys: "",
+        answer: "<S-PgUp>",
+        done: |a| {
+            at(a, "notes.json")
+                && a.selection().is_some_and(|(f, t)| {
+                    f.0.key() + 1 + a.view_h <= NOTES_END && t.0.key() + 1 == NOTES_END
+                })
+        },
+    },
+    Task {
+        key: "Shift+PgDn",
+        title: "Select a screen down",
+        tutor: "Shift+PgDn extends the selection a whole screen down. Press it.",
+        drill: "Select a whole screen down from the cursor.",
+        start: Some(("notes.json", 1, "")),
+        keys: "",
+        answer: "<S-PgDn>",
+        done: |a| {
+            at(a, "notes.json")
+                && a.selection()
+                    .is_some_and(|(f, t)| f.0.key() == 0 && t.0.key() >= a.view_h)
+        },
+    },
+    Task {
+        key: "Ctrl+Shift+Home",
+        title: "Select to the file start",
+        tutor: "Ctrl+Shift+Home extends the selection to the start of the file. Press it.",
+        drill: "Select everything from the start of the file to the cursor.",
+        start: Some(("store.py", 42, "")),
+        keys: "",
+        answer: "<C-S-Home>",
+        done: |a| at(a, "store.py") && lines_selected(a, 1, 42) && (a.line, a.col) == (0, 0),
+    },
+    Task {
+        key: "Ctrl+Shift+End",
+        title: "Select to the file end",
+        tutor: "Ctrl+Shift+End extends the selection to the end of the file. Press it.",
+        drill: "Select everything from the cursor to the end of the file.",
+        start: Some(("store.py", CLASS_LINE, "")),
+        keys: "",
+        answer: "<C-S-End>",
+        done: |a| {
+            at(a, "store.py")
+                && lines_selected(a, CLASS_LINE, a.buf.lines.len())
+                && a.col == a.line_str().len()
+        },
+    },
+    Task {
         key: "v",
         title: "Select",
         tutor: "`v` selects the word under the cursor, again the line, again the paragraph: in \

@@ -60,6 +60,14 @@ fn a_held_arrow_misses_the_key_that_covers_the_distance() {
             "Alt+Right",
         ),
         (
+            "two screens selected: Shift+PgDn twice",
+            lines.as_str(),
+            KeyCode::Down,
+            KeyModifiers::SHIFT,
+            20,
+            "Shift+PgDn",
+        ),
+        (
             "`alpha` selected: Alt+Shift+Right, and `v` too, which comes later in the list",
             words,
             KeyCode::Right,

@@ -118,7 +118,7 @@ d fg #787b7e bg #ffffff
 │ │   Shift+Left / Shift+Right          Extend the selection by a char                                                │
 │ │   Alt+Shift+Left / Right            Extend the selection by a word                                                │
 │ │   Ctrl+Shift+Left / Right           Extend the selection to the start / end of the screen row, then of the line   │
-└─│ Movement                                                                                                          │
+└─│   Shift+Home / Shift+End            Extend the selection to the start / end of the screen row, then of the line   │
 st└───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
 ==== 120x33 tokyonight-moon styles
@@ -153,7 +153,7 @@ accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccc
-aacbbbbbbbbbcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+aacdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccc
 hhcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccg
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
@@ -196,7 +196,7 @@ accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccc
-aacbbbbbbbbbcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+aacdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccc
 hhcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccg
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
@@ -239,29 +239,29 @@ h fg #6639ba bg #e7eaf0 BOLD
 │                            │29  │   Shift+Left / Shift+Right          Extend the selection by a char                                                │
 │                            │30  │   Alt+Shift+Left / Right            Extend the selection by a word                                                │
 │                            │31  │   Ctrl+Shift+Left / Right           Extend the selection to the start / end of the screen row, then of the line   │
-│                            │32  │ Movement                                                                                                          │
-│                            │33  │   Arrows                            Move the cursor; Up / Down go by screen row                                   │
-│                            │34  │   Alt+Left / Alt+Right              Move one word                                                                 │
-│                            │35  │   Home / End                        Start / end of the screen row, then of the line                               │
-│                            │36  │   Ctrl+Home / Ctrl+End              Start / end of the file                                                       │
-│                            │37  │   { / }                             Previous / next paragraph (blank line)                                        │
-│                            │38  │   Ctrl+D / Ctrl+U                   Move half a screen down / up                                                  │
-│                            │39  │   PgUp / PgDn                       Move one screen                                                               │
-│                            │40  │ Panels                                                                                                            │
-│                            │41  │   t                                 Show or hide the file tree                                                    │
-│                            │42  │   Tab                               Switch focus between tree and code                                            │
-│                            │43  │   Tree: Up / Down                   Move                                                                          │
-│                            │44  │   Tree: Enter                       Open the file, or expand the directory                                        │
-│                            │45  │   Tree: Left / Right                Collapse / expand                                                             │
-│                            │46  │   Picker: Up / Down                 Move                                                                          │
-│                            │47  │   Picker: PgUp / PgDn               Move one page                                                                 │
-│                            │48  │   Picker: Enter                     Accept                                                                        │
-│                            │49  │   Picker: Esc                       Cancel                                                                        │
-│                            │50  │   ?                                 This help                                                                     │
-│                            │51  │   Help: Up / Down                   Scroll                                                                        │
-│                            │52  │ General                                                                                                           │
-│                            │53  │   w                                 Wrap long lines, or cut them at the edge and scroll sideways                  │
-└────────────────────────────┘54  │   p                                 Show a Markdown file rendered, or its source again                            │
+│                            │32  │   Shift+Home / Shift+End            Extend the selection to the start / end of the screen row, then of the line   │
+│                            │33  │   Shift+PgUp / Shift+PgDn           Extend the selection by a screen                                              │
+│                            │34  │   Ctrl+Shift+Home / Ctrl+Shift+End  Extend the selection to the start / end of the file                           │
+│                            │35  │ Movement                                                                                                          │
+│                            │36  │   Arrows                            Move the cursor; Up / Down go by screen row                                   │
+│                            │37  │   Alt+Left / Alt+Right              Move one word                                                                 │
+│                            │38  │   Home / End                        Start / end of the screen row, then of the line                               │
+│                            │39  │   Ctrl+Home / Ctrl+End              Start / end of the file                                                       │
+│                            │40  │   { / }                             Previous / next paragraph (blank line)                                        │
+│                            │41  │   Ctrl+D / Ctrl+U                   Move half a screen down / up                                                  │
+│                            │42  │   PgUp / PgDn                       Move one screen                                                               │
+│                            │43  │ Panels                                                                                                            │
+│                            │44  │   t                                 Show or hide the file tree                                                    │
+│                            │45  │   Tab                               Switch focus between tree and code                                            │
+│                            │46  │   Tree: Up / Down                   Move                                                                          │
+│                            │47  │   Tree: Enter                       Open the file, or expand the directory                                        │
+│                            │48  │   Tree: Left / Right                Collapse / expand                                                             │
+│                            │49  │   Picker: Up / Down                 Move                                                                          │
+│                            │50  │   Picker: PgUp / PgDn               Move one page                                                                 │
+│                            │51  │   Picker: Enter                     Accept                                                                        │
+│                            │52  │   Picker: Esc                       Cancel                                                                        │
+│                            │53  │   ?                                 This help                                                                     │
+└────────────────────────────┘54  │   Help: Up / Down                   Scroll                                                                        │
 store.py  13:33  [code]           └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                           ? help
 
 ==== 185x55 tokyonight-moon styles
@@ -296,6 +296,9 @@ aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhh
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceebbbbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
@@ -315,10 +318,7 @@ aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhh
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceebbbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccceeggggggggggggggggggggggggggggggggggggghhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 mmmmmmmmlllllllllllllllllllllllllleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeellllllllllllllllllllllllllllllllll
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
@@ -366,6 +366,9 @@ addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggg
 addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggdddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggdddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddbbbbbbbbbddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggggggggggggggggggggggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
@@ -385,10 +388,7 @@ addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggg
 addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddacccddbbbbbbbbdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddd
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccddfffffffffffffffffffffffffffffffffffffggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 kkkkkkkkjjjjjjjjjjjjjjjjjjjjjjjjjjdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD

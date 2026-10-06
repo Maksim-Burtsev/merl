@@ -45,6 +45,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (#690)
 - `v` grows on to the whole file: a fourth press, after the word, the line and the paragraph,
   selects every line of the file, the cursor at its end; Ctrl+C then copies it all. (#635)
+- Shift+PgUp / Shift+PgDn, Shift+Home / Shift+End and Ctrl+Shift+Home / Ctrl+Shift+End extend
+  the selection over everything the cursor passes, as Shift with an arrow does, where they moved
+  the cursor and dropped the selection; the same moves without Shift drop it, as in VS Code.
+  (#687)
 - The lists of `u`, `s` and `d`'s choices name a file once, above its rows, and each row shows
   the line number and the code: `polar/license_key/endpoints.py` over `242  license_key = await …`
   instead of the path repeated on every row. A row still too wide for the list wraps under its
