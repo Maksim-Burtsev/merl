@@ -26,8 +26,6 @@ impl App {
     ) -> Option<Vec<Candidate>> {
         let mut patterns = search::def_patterns(kind, word);
         self.spelling_cut(kind, word, &mut patterns);
-        // A Ruby local is seen from its own method alone, never found by name (#383): outside
-        // the project only a constant's assignment declares.
         if kind == Kind::Ruby && word.starts_with(|c: char| c.is_ascii_lowercase() || c == '_') {
             let assignment = search::ruby_assignment(word);
             patterns.retain(|p| *p != assignment);
@@ -62,8 +60,6 @@ impl App {
             .map_or(chain.len(), Vec::len)
             .saturating_sub(1)
             .max(1);
-        // A Go import names its package's directory in full, so down to its length a file has
-        // to be in that directory, and anything shorter is a search by name (#100).
         let package = bound_path
             .as_ref()
             .filter(|_| kind == Kind::Go)
@@ -80,8 +76,6 @@ impl App {
             return None;
         }
         let all = self.external_files(kind);
-        // Of a package installed more than once, the files of the copy Node loads (#141); a name
-        // only another copy declares is found by name below.
         let copy = match (&bound_path, self.external.get(&kind)) {
             (Some(path), Some((roots, _))) if kind == Kind::TsJs && narrow => {
                 search::package_copy(&self.root, roots, &all, &self.files, path)
@@ -103,8 +97,7 @@ impl App {
         }
         let mut module = match chain.first() {
             // A C++ `std::` or `detail::` qualifier names a namespace, and no directory of the
-            // system headers is called that, so narrowing by it would find nothing at all. Ruby's
-            // `require` binds no name and a constant is no path: `I18n` is in `i18n.rb` (#369).
+            // system headers is called that, so narrowing by it would find nothing at all.
             // A Dart qualifier is a prefix, a class or a value, never a directory (#414).
             Some(_) if matches!(kind, Kind::C | Kind::Ruby | Kind::Dart) => None,
             Some(first) => {
@@ -126,8 +119,7 @@ impl App {
                     .module(m)
                     .or_else(|| search::module_among(&all, m, package)),
             };
-            // An import of something not installed: nothing outside says what it is. A Go
-            // package is its own directory, never one above it (#332).
+            // An import of something not installed: nothing outside says what it is.
             let Some((n, found)) = found.filter(|(n, _)| package.is_none_or(|k| *n >= k)) else {
                 return Some(Vec::new());
             };
@@ -203,7 +195,6 @@ impl App {
                 walked = true;
             }
         }
-        // Go has no re-exports: a package that does not declare the name is the answer (#332).
         if hits.is_empty() && imported && kind == Kind::Go {
             return Some(Vec::new());
         }
@@ -254,12 +245,8 @@ impl App {
         Some(found)
     }
 
-    /// Where the Elixir module `module`, or the one it is nested in, is among `all`, with how many
-    /// of its parts that is (#437): the files declaring it when `pattern` finds the word there,
-    /// else every file of their package, where a `use` may inject it. A module is no path:
-    /// `Phoenix.LiveView` is `phoenix_live_view/lib/phoenix_live_view.ex`, so the package is the
-    /// directory under `deps/` whose file declares it. `None` when none does: `Enum` and `String`
-    /// ship compiled, and no dependency's namesake is theirs.
+    /// `None` when no file declares the module: `Enum` and `String` ship compiled, and no
+    /// dependency's namesake is theirs (#437).
     fn elixir_module(
         &self,
         all: &[PathBuf],
@@ -434,8 +421,6 @@ impl App {
             .map(|(_, f)| f.clone())
     }
 
-    /// A grep that came back full stopped at the cap: what `d` counts from it is a lower bound,
-    /// also after a filter has made the list short (#100).
     pub(super) fn note_cut(&self, hits: &[Hit]) {
         if hits.len() >= search::MAX_HITS {
             self.truncated.set(true);
@@ -552,11 +537,8 @@ impl App {
         hits
     }
 
-    /// The methods `members` matches in the Python `files` outside, and whether a field `word`
-    /// is declared there too (#342): a class-body `word = …` or `word: T`, a `self.word = …` in a
-    /// method, read as [`search::field_rows`] reads the project's. One pass over the files for
-    /// both. Fields outside are never listed, there are too many: a few hundred candidate lines
-    /// are enough to tell whether one declares a field.
+    /// Fields outside are never listed, there are too many: a few hundred candidate lines are
+    /// enough to tell whether one declares a field.
     pub(super) fn external_methods(
         &self,
         files: &[PathBuf],
@@ -575,7 +557,6 @@ impl App {
         .unwrap_or_default();
         let (mut methods, candidates): (Vec<Hit>, Vec<Hit>) =
             hits.into_iter().partition(|h| method.is_match(&h.text));
-        // A `def` in a function's body is a local of it, no method (#338).
         let mut texts: HashMap<PathBuf, Option<String>> = HashMap::new();
         methods.retain(|h| {
             let text = texts
@@ -809,9 +790,8 @@ impl App {
         if kind != Kind::C {
             return files;
         }
-        // A `.c` file cannot include a C++ header: no `c++/` directory is its (#382). Only an
-        // Objective-C file reads the frameworks and `Pods/` (#417): any other keeps the files
-        // it had before them.
+        // Only an Objective-C file reads the frameworks and `Pods/` (#417): any other keeps the
+        // files it had before them.
         let key = (self.c_source(), self.objc_file());
         if let Some((from, kept)) = self.c_files.get(&key)
             && Arc::ptr_eq(from, &files)
@@ -847,8 +827,7 @@ impl App {
     }
 
     /// Of `hits` of the [`search::def_patterns`] of `word`, the lines that declare it where they
-    /// sit ([`search::declares_where`]). An Objective-C line declares for an Objective-C file
-    /// alone: a C++ `load` is no `+ (void)load;` of `objc/NSObject.h` (#417).
+    /// sit ([`search::declares_where`]).
     pub(super) fn declaring(&self, kind: Kind, word: &str, mut hits: Vec<Hit>) -> Vec<Hit> {
         // One file holds thousands of GraphQL `id` fields, so each file is split once.
         let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
@@ -891,8 +870,6 @@ impl App {
         }
     }
 
-    /// The text `h` was read from: the file as the search read it, or for a line the branch
-    /// deleted, the file at the base, under the name it had there (#440).
     pub(super) fn hit_text(&self, h: &Hit) -> Option<String> {
         let text = self.hit_file_text(h)?;
         Some(search::script_text(&h.path, &text, None).into_owned())
@@ -927,8 +904,6 @@ impl App {
         if search::android_source(&h.path) {
             return Vec::new();
         }
-        // A rule of a component's `<style>` block is no script's: it is lexed as a stylesheet
-        // (#415).
         match search::component(&h.path) && kind != Kind::Css {
             true => self.hidden_of(kind, h),
             false => (self.file_text(&h.path))
@@ -936,8 +911,6 @@ impl App {
         }
     }
 
-    /// The lines the branch deleted that `D` lists: a component's, only those of its script at
-    /// the base (#413).
     pub(super) fn symbol_deleted(&self) -> Arc<Vec<git::DeletedLine>> {
         let all = self.deleted_lines();
         let mut code: HashMap<PathBuf, Vec<bool>> = HashMap::new();
@@ -1091,7 +1064,6 @@ fn package_dirs(root: &Path) -> usize {
             rest.len() < v.len() && rest.starts_with('.')
         })
     };
-    // A gem's `lib` is the gem's (#369): `rack-attack-6.7.0/lib`.
     if name == "lib" {
         return root.parent().map_or(0, |gem| match package_dirs(gem) {
             0 => 0,
