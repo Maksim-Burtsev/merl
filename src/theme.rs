@@ -7,7 +7,7 @@ use std::io::Cursor;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
-use ratatui::style::{Color, Modifier};
+use ratatui::style::{Color, Modifier, Style};
 use serde::Deserialize;
 use syntect::highlighting::{Color as SynColor, FontStyle, Highlighter, ThemeSet};
 use syntect::parsing::Scope;
@@ -213,6 +213,14 @@ fn load_configured_from(dir: Option<&Path>, config: Option<&Path>, name: &str) -
     match config {
         Some(path) => theme.with_context(|| format!("theme \"{name}\" from {}", path.display())),
         None => theme,
+    }
+}
+
+impl Theme {
+    pub fn selected(&self, style: Style) -> Style {
+        self.selection_fg
+            .map_or(style, |fg| style.fg(fg))
+            .bg(self.selection)
     }
 }
 

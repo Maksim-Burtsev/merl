@@ -138,10 +138,7 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             let style = if i != app.tree.cursor {
                 row
             } else if focused {
-                theme
-                    .selection_fg
-                    .map_or(row, |fg| row.fg(fg))
-                    .bg(theme.selection)
+                theme.selected(row)
             } else {
                 // The tree keeps its place while the code pane has the keys. Only the
                 // background fades: the file name must stay readable (issue #8).
@@ -303,10 +300,7 @@ pub(super) fn draw_picker(
             base
         };
         let style = if i == selected {
-            theme
-                .selection_fg
-                .map_or(base, |fg| base.fg(fg))
-                .bg(theme.selection)
+            theme.selected(base)
         } else {
             base
         };
@@ -342,6 +336,7 @@ pub(super) fn draw_picker(
                 c = chars.end;
                 let mut style = style;
                 if let (Some((hl, off)), Some(at)) = (&code, row.item.code_at)
+                    && !(i == selected && theme.selection_fg.is_some())
                     && b >= at
                     && let Some((s, _)) = hl.iter().find(|(_, r)| r.contains(&(b - at + off)))
                 {
