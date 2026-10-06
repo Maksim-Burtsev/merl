@@ -5,28 +5,30 @@ use regex::Regex;
 
 use super::*;
 
-/// What a call of the function declared on 1-based `decl` of `text` gives: its declared return
+/// What a call of the function declared on `decl_line1` of `text` gives: its declared return
 /// type (Python `-> T`, TypeScript `): T`, Go's result or its first one), or in TypeScript without
 /// one, the `new T()` that every `return` of the body, or an arrow's expression, agrees on.
-pub fn returns(kind: Kind, text: &str, decl: usize) -> Option<Value> {
+pub fn returns(kind: Kind, text: &str, decl_line1: usize) -> Option<Value> {
     static PY_DEF: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:async\s+)?def\s+\w+\s*\(").unwrap());
-    // A function, a `const` holding one, or a method of a class or an interface.
-    static TS_FUNCTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:(?:export|default|declare|async)\s+)*(?:function\*?\s*[\w$]*|(?:const|let|var)\s+[\w$]+\s*(?::[^=]+)?=\s*(?:async\s+)?(?:function\*?\s*[\w$]*)?)\s*(?:<[^>]*>)?\s*\(|^\s*(?:(?:public|private|protected|static|override|abstract|async)\s+)*#?[\w$]+\??\s*(?:<[^>]*>)?\s*\(").unwrap()
-    });
+    static TS_FUNCTION_CONST_OR_METHOD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(
+        || {
+            Regex::new(r"^\s*(?:(?:export|default|declare|async)\s+)*(?:function\*?\s*[\w$]*|(?:const|let|var)\s+[\w$]+\s*(?::[^=]+)?=\s*(?:async\s+)?(?:function\*?\s*[\w$]*)?)\s*(?:<[^>]*>)?\s*\(|^\s*(?:(?:public|private|protected|static|override|abstract|async)\s+)*#?[\w$]+\??\s*(?:<[^>]*>)?\s*\(").unwrap()
+        },
+    );
     static TS_RETURN: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^\s*:\s*(.+?)\s*(?:\{|=>|;|$)").unwrap());
-    // A function, a method behind its receiver, or the method line of an interface.
-    static GO_FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:func\s*(?:\([^)]*\)\s*)?|\s+)[A-Za-z_]\w*\s*(?:\[[^\]]*\])?\s*\(").unwrap()
-    });
+    static GO_FUNC_METHOD_OR_INTERFACE_METHOD: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| {
+            Regex::new(r"^(?:func\s*(?:\([^)]*\)\s*)?|\s+)[A-Za-z_]\w*\s*(?:\[[^\]]*\])?\s*\(")
+                .unwrap()
+        });
     let lines: Vec<&str> = text.lines().collect();
-    let k = decl.checked_sub(1).filter(|&i| i < lines.len())?;
+    let k = decl_line1.checked_sub(1).filter(|&i| i < lines.len())?;
     let opener = match kind {
         Kind::Python => &PY_DEF,
-        Kind::TsJs => &TS_FUNCTION,
-        Kind::Go => &GO_FUNC,
+        Kind::TsJs => &TS_FUNCTION_CONST_OR_METHOD,
+        Kind::Go => &GO_FUNC_METHOD_OR_INTERFACE_METHOD,
         _ => return None,
     };
     let open = opener.find(lines[k])?.end() - 1;
@@ -38,7 +40,7 @@ pub fn returns(kind: Kind, text: &str, decl: usize) -> Option<Value> {
             match parts[0].trim().strip_prefix("->") {
                 Some(t) => (parts.len() > 1 && !t.trim().is_empty())
                     .then(|| Value::Type(t.trim().to_owned())),
-                None => python_constructs(text, &lines, k, end),
+                None => python_class_every_return_calls(text, &lines, k, end),
             }
         }
         Kind::TsJs => {
@@ -82,10 +84,9 @@ pub fn returns(kind: Kind, text: &str, decl: usize) -> Option<Value> {
             let first = match result.strip_prefix('(') {
                 Some(list) => {
                     let first = split_top(kind, list.strip_suffix(')')?, b',')[0].trim();
-                    // `(r *Repo, err error)` names its results.
                     first
                         .split_once(char::is_whitespace)
-                        .map_or(first, |(_, t)| t.trim())
+                        .map_or(first, |(_result_name, t)| t.trim())
                 }
                 None => result,
             };
@@ -134,27 +135,30 @@ fn ts_returned_local(
         false => constructed,
     }
 }
-/// What an undecorated Python `def` on line `k`, its signature ending on line `end`, returns when
-/// it declares nothing: the class every `return` of its body calls, `return Repo(…)`. A bare
-/// `return`, a `yield` or any other value leaves it unknown; a decorator may return anything.
-fn python_constructs(text: &str, lines: &[&str], k: usize, end: usize) -> Option<Value> {
-    let base = indent(lines[k]);
-    // The nearest line above at the `def`'s indent that is no closer: `@retry(` of a decorator
-    // written over several lines, whose arguments and `)` come first on the way up.
-    let decorated = lines[..k]
+fn python_decorated(lines: &[&str], def_line: usize) -> bool {
+    let base = indent(lines[def_line]);
+    let comment_or_closing_bracket = |t: &str| t.starts_with(['#', ')', ']', '}']);
+    lines[..def_line]
         .iter()
         .rev()
         .map(|l| (indent(l), l.trim()))
-        .find(|(ind, t)| !t.is_empty() && !t.starts_with(['#', ')', ']', '}']) && *ind <= base)
-        .is_some_and(|(ind, t)| ind == base && t.starts_with('@'));
-    if decorated {
+        .find(|(ind, t)| !t.is_empty() && !comment_or_closing_bracket(t) && *ind <= base)
+        .is_some_and(|(ind, t)| ind == base && t.starts_with('@'))
+}
+fn python_class_every_return_calls(
+    text: &str,
+    lines: &[&str],
+    def_line: usize,
+    signature_end: usize,
+) -> Option<Value> {
+    let base = indent(lines[def_line]);
+    if python_decorated(lines, def_line) {
         return None;
     }
     let literal = literal_lines(Kind::Python, text);
     let mut constructed: Option<String> = None;
-    // A function or a class inside the body returns for itself.
-    let mut skip: Option<usize> = None;
-    for (i, l) in lines.iter().enumerate().skip(end + 1) {
+    let mut nested_def_or_class_indent: Option<usize> = None;
+    for (i, l) in lines.iter().enumerate().skip(signature_end + 1) {
         let code = uncommented(Kind::Python, l);
         let (t, ind) = (code.trim(), indent(l));
         if t.is_empty() || literal.get(i).copied().unwrap_or(false) {
@@ -163,16 +167,16 @@ fn python_constructs(text: &str, lines: &[&str], k: usize, end: usize) -> Option
         if ind <= base {
             break;
         }
-        if skip.is_some_and(|s| ind > s) {
+        if nested_def_or_class_indent.is_some_and(|s| ind > s) {
             continue;
         }
         let inner = ["def ", "async def ", "class "];
-        skip = inner.iter().any(|p| t.starts_with(p)).then_some(ind);
+        nested_def_or_class_indent = inner.iter().any(|p| t.starts_with(p)).then_some(ind);
         if names(t, "yield") {
             return None;
         }
-        // `if flag: return A()` returns behind something the rules do not read.
-        if names(t, "return") && !t.starts_with("return") {
+        let return_behind_condition = names(t, "return") && !t.starts_with("return");
+        if return_behind_condition {
             return None;
         }
         if t == "return" || t.starts_with("return ") {
@@ -187,24 +191,23 @@ fn python_constructs(text: &str, lines: &[&str], k: usize, end: usize) -> Option
     }
     constructed.map(Value::New)
 }
-/// The written types a class header lists between its commas: `Base, Generic[T]`. A default
-/// (`T = int`) is a type parameter, not a base.
 pub(super) fn type_list(kind: Kind, s: &str) -> Vec<String> {
+    let type_parameter_default = |b: &str| b.contains('=');
     split_top(kind, s, b',')
         .into_iter()
         .map(str::trim)
-        .filter(|b| !b.is_empty() && !b.contains('='))
+        .filter(|b| !b.is_empty() && !type_parameter_default(b))
         .map(str::to_owned)
         .collect()
 }
-/// The types the class, interface or struct declared on 1-based `decl` of `text` extends or
+/// The types the class, interface or struct declared on `decl_line1` of `text` extends or
 /// embeds, as written: Python's bases, TypeScript's `extends`, Go's embedded fields.
-pub fn bases(kind: Kind, text: &str, decl: usize) -> Vec<String> {
+pub fn bases(kind: Kind, text: &str, decl_line1: usize) -> Vec<String> {
     static TS_EXTENDS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\bextends\s+(.+?)\s*(?:\bimplements\b|\{|$)").unwrap()
     });
     let lines: Vec<&str> = text.lines().collect();
-    let Some(k) = decl.checked_sub(1).filter(|&i| i < lines.len()) else {
+    let Some(k) = decl_line1.checked_sub(1).filter(|&i| i < lines.len()) else {
         return Vec::new();
     };
     let list = |s: &str| type_list(kind, s);
@@ -236,14 +239,15 @@ pub fn bases(kind: Kind, text: &str, decl: usize) -> Vec<String> {
         _ => Vec::new(),
     }
 }
-pub fn interfaces(kind: Kind, text: &str, decl: usize) -> Vec<String> {
+pub fn interfaces(kind: Kind, text: &str, decl_line1: usize) -> Vec<String> {
     static TS_IMPLEMENTS: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"\bimplements\s+(.+?)\s*(?:\{|$)").unwrap());
     if kind != Kind::TsJs {
         return Vec::new();
     }
     let lines: Vec<&str> = text.lines().collect();
-    decl.checked_sub(1)
+    decl_line1
+        .checked_sub(1)
         .filter(|&k| k < lines.len())
         .and_then(|k| {
             TS_IMPLEMENTS
@@ -252,24 +256,30 @@ pub fn interfaces(kind: Kind, text: &str, decl: usize) -> Vec<String> {
         })
         .unwrap_or_default()
 }
-/// The 1-based line of the type declaration the member on 1-based `line` of `text` is written
+/// The 1-based line of the type declaration the member on `member_line1` of `text` is written
 /// inside: the nearest line above indented less, when it [`declares_type`]. `None` for a Go
 /// method, which stands beside its type at the top level, and for a function nested in another
 /// one, whose nearest enclosing line declares no type.
-pub fn owner_decl(kind: Kind, text: &str, line: usize) -> Option<usize> {
+pub fn owner_decl(kind: Kind, text: &str, member_line1: usize) -> Option<usize> {
     let lines: Vec<&str> = text.lines().collect();
-    let depth = indent(lines.get(line.checked_sub(1)?)?);
-    let (i, above) = lines[..line - 1].iter().enumerate().rev().find(|(_, l)| {
-        let t = l.trim_start();
-        // Python's `):` ends a header wrapped over several lines, which starts further up, as
-        // TypeScript's `> extends Base<K> {` does.
-        let closer = match kind {
-            Kind::Python => t.starts_with([')', ']']),
-            Kind::TsJs => t.starts_with('>'),
-            _ => false,
-        };
-        !t.is_empty() && t.trim_end() != "{" && !comment(kind, t) && !closer && indent(l) < depth
-    })?;
+    let depth = indent(lines.get(member_line1.checked_sub(1)?)?);
+    let (i, above) = lines[..member_line1 - 1]
+        .iter()
+        .enumerate()
+        .rev()
+        .find(|(_, l)| {
+            let t = l.trim_start();
+            let ends_a_wrapped_header = match kind {
+                Kind::Python => t.starts_with([')', ']']),
+                Kind::TsJs => t.starts_with('>'),
+                _ => false,
+            };
+            !t.is_empty()
+                && t.trim_end() != "{"
+                && !comment(kind, t)
+                && !ends_a_wrapped_header
+                && indent(l) < depth
+        })?;
     declares_type(kind, above).then_some(i + 1)
 }
 /// The name a line declaring a type gives it: `Foo` for `class Foo(Base):`,
@@ -283,13 +293,13 @@ pub fn type_name(kind: Kind, line: &str) -> Option<String> {
         .flatten()
         .map(|c| c[1].to_owned())
 }
-/// The 1-based line the type declaration covering 1-based `line` of `text` starts on: `line`
+/// The 1-based line the type declaration covering `line1` of `text` starts on: `line1`
 /// itself when it [`declares_type`], else the nearest line above it that does, when nothing but
 /// the rest of a header stands in between — `export class X` over `    extends Y` over `{`, as
 /// prettier wraps a long one. `None` when the lines above end a statement first.
-pub fn type_decl_at(kind: Kind, text: &str, line: usize) -> Option<usize> {
+pub fn type_decl_at(kind: Kind, text: &str, line1: usize) -> Option<usize> {
     let lines: Vec<&str> = text.lines().collect();
-    let k = line.checked_sub(1).filter(|&k| k < lines.len())?;
+    let k = line1.checked_sub(1).filter(|&k| k < lines.len())?;
     // ponytail: eight lines of header, which covers the widest prettier writes.
     for i in (k.saturating_sub(8)..=k).rev() {
         if declares_type(kind, lines[i]) {
@@ -302,25 +312,25 @@ pub fn type_decl_at(kind: Kind, text: &str, line: usize) -> Option<usize> {
     }
     None
 }
-/// The 1-based line on which the type declared on 1-based `decl` of `text` declares the member
+/// The 1-based line on which the type declared on `decl_line1` of `text` declares the member
 /// `word` itself: a method, or a signature with no body. `None` when it does not declare one, so
 /// a subclass that inherits the member is no implementation of it.
-pub fn member_decl(kind: Kind, text: &str, decl: usize, word: &str) -> Option<usize> {
+pub fn member_decl(kind: Kind, text: &str, decl_line1: usize, word: &str) -> Option<usize> {
     let patterns = member_or_signature(kind, word)?;
     let re = Regex::new(&patterns.join("|")).ok()?;
     let lines: Vec<&str> = text.lines().collect();
-    let k = decl.checked_sub(1).filter(|&k| k < lines.len())?;
+    let k = decl_line1.checked_sub(1).filter(|&k| k < lines.len())?;
     body_of(kind, &lines, k)
-        .find(|&i| re.is_match(lines[i]) && owner_decl(kind, text, i + 1) == Some(decl))
+        .find(|&i| re.is_match(lines[i]) && owner_decl(kind, text, i + 1) == Some(decl_line1))
         .map(|i| i + 1)
 }
-/// How many parameters the declaration on 1-based `line` of `text` writes: what stands between
+/// How many parameters the declaration on `line1` of `text` writes: what stands between
 /// its brackets, cut at the commas outside brackets and strings, over the lines they span. Go's
 /// `a, b string` counts two, as an implementation of the same interface method writes two of its
 /// own, and a Go method's receiver is not a parameter.
-pub fn params(kind: Kind, text: &str, line: usize) -> Option<usize> {
+pub fn params(kind: Kind, text: &str, line1: usize) -> Option<usize> {
     let lines: Vec<&str> = text.lines().collect();
-    let k = line.checked_sub(1).filter(|&k| k < lines.len())?;
+    let k = line1.checked_sub(1).filter(|&k| k < lines.len())?;
     let mut opens = code(kind, lines[k])
         .filter(|&(_, c)| c == b'(')
         .map(|(i, _)| i);
@@ -334,16 +344,16 @@ pub fn params(kind: Kind, text: &str, line: usize) -> Option<usize> {
             .count(),
     )
 }
-/// The types a Go declaration on 1-based `line` takes and what it returns, as written but for
+/// The types a Go declaration on `line1` takes and what it returns, as written but for
 /// the package in front of a name and the spaces: `a, b string` is two `string`s, `ctx
 /// context.Context` is `Context`. An implementation of an interface method writes the same ones,
 /// whatever it calls its parameters. `None` when the result names its values or cannot be read.
-pub fn go_signature(text: &str, line: usize) -> Option<(Vec<String>, String)> {
+pub fn go_signature(text: &str, line1: usize) -> Option<(Vec<String>, String)> {
     static PKG: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"\b\w+\.").unwrap());
     let kind = Kind::Go;
     let lines: Vec<&str> = text.lines().collect();
-    let k = line.checked_sub(1).filter(|&k| k < lines.len())?;
+    let k = line1.checked_sub(1).filter(|&k| k < lines.len())?;
     let mut opens = code(kind, lines[k])
         .filter(|&(_, c)| c == b'(')
         .map(|(i, _)| i);
@@ -376,7 +386,6 @@ pub fn go_signature(text: &str, line: usize) -> Option<(Vec<String>, String)> {
     }
     types.reverse();
     let result = rest.split('{').next().unwrap_or_default().trim();
-    // `(n int, err error)` names its values, and an implementation may not.
     let names_values = result.starts_with('(')
         && split_top(kind, result.trim_matches(['(', ')']), b',')
             .iter()
@@ -455,8 +464,12 @@ pub fn type_path(kind: Kind, written: &str) -> Option<Vec<String>> {
 /// `Array<T>`, `Set<T>`, Go's `[]T`, `[4]T` and `map[K]T`. A Python `dict` and a TypeScript `Map`
 /// hand out keys or pairs, and anything else is not known to hand out anything.
 pub fn element_type(kind: Kind, written: &str) -> Option<String> {
-    // `Head<A, B>` or `Head[A, B]` as the last name of its head and its arguments.
-    fn generic(kind: Kind, t: &str, open: char, close: char) -> Option<(&str, Vec<&str>)> {
+    fn last_head_name_and_args(
+        kind: Kind,
+        t: &str,
+        open: char,
+        close: char,
+    ) -> Option<(&str, Vec<&str>)> {
         let i = t.find(open).filter(|_| t.ends_with(close))?;
         let head = t[..i].trim_end();
         let args = split_top(kind, &t[i + 1..t.len() - 1], b',');
@@ -464,7 +477,8 @@ pub fn element_type(kind: Kind, written: &str) -> Option<String> {
     }
     let t = written.trim().trim_end_matches([';', ',']).trim();
     let element = match kind {
-        Kind::Python => match generic(kind, t.trim_matches(['"', '\'']), '[', ']')? {
+        Kind::Python => match last_head_name_and_args(kind, t.trim_matches(['"', '\'']), '[', ']')?
+        {
             ("tuple" | "Tuple", args) if args.len() == 2 && args[1].trim() == "..." => args[0],
             (
                 "list" | "List" | "Sequence" | "MutableSequence" | "Iterable" | "Iterator"
@@ -476,7 +490,10 @@ pub fn element_type(kind: Kind, written: &str) -> Option<String> {
         },
         Kind::TsJs => {
             let t = t.strip_prefix("readonly ").unwrap_or(t).trim();
-            match (t.strip_suffix("[]"), generic(kind, t, '<', '>')) {
+            match (
+                t.strip_suffix("[]"),
+                last_head_name_and_args(kind, t, '<', '>'),
+            ) {
                 (Some(one), _) => one,
                 (
                     None,
@@ -499,22 +516,20 @@ pub fn element_type(kind: Kind, written: &str) -> Option<String> {
     let element = element.trim();
     (!element.is_empty()).then(|| element.to_owned())
 }
-pub fn enum_constants(text: &str, decl: usize) -> Vec<(String, usize)> {
+pub fn enum_constants(text: &str, decl_line1: usize) -> Vec<(String, usize)> {
     let mut out = Vec::new();
     let mut chars = text.chars().peekable();
     let mut line = 1;
-    while line < decl {
+    while line < decl_line1 {
         match chars.next() {
             Some('\n') => line += 1,
             Some(_) => {}
             None => return out,
         }
     }
-    // `None` before the body's `{`: the name, a Kotlin constructor, `implements …`, with
-    // `parens` open in front of it.
-    let mut depth: Option<usize> = None;
-    let mut parens = 0usize;
-    let mut expect = false;
+    let mut body_depth: Option<usize> = None;
+    let mut parens_before_body = 0usize;
+    let mut expect_constant = false;
     let mut annotation = false;
     while let Some(c) = chars.next() {
         match c {
@@ -541,36 +556,35 @@ pub fn enum_constants(text: &str, decl: usize) -> Vec<(String, usize)> {
                     escaped = d == '\\' && !escaped;
                 }
             }
-            '{' if depth.is_none() && parens == 0 => {
-                depth = Some(0);
-                expect = true;
+            '{' if body_depth.is_none() && parens_before_body == 0 => {
+                body_depth = Some(0);
+                expect_constant = true;
             }
-            '(' | '{' | '[' => match depth.as_mut() {
+            '(' | '{' | '[' => match body_depth.as_mut() {
                 Some(d) => *d += 1,
-                None => parens += 1,
+                None => parens_before_body += 1,
             },
-            ')' | '}' | ']' => match depth {
+            ')' | '}' | ']' => match body_depth {
                 Some(0) => break,
-                Some(d) => depth = Some(d - 1),
-                None => parens = parens.saturating_sub(1),
+                Some(d) => body_depth = Some(d - 1),
+                None => parens_before_body = parens_before_body.saturating_sub(1),
             },
-            ';' if depth == Some(0) => break,
-            ',' if depth == Some(0) => expect = true,
-            '@' if depth == Some(0) => annotation = true,
-            c if depth == Some(0) && (c.is_alphabetic() || c == '_') => {
+            ';' if body_depth == Some(0) => break,
+            ',' if body_depth == Some(0) => expect_constant = true,
+            '@' if body_depth == Some(0) => annotation = true,
+            c if body_depth == Some(0) && (c.is_alphabetic() || c == '_') => {
                 let mut name = c.to_string();
-                // An annotation's name may be qualified, `@java.lang.Deprecated`.
-                let dot = annotation;
-                while let Some(c) =
-                    chars.next_if(|&c| c.is_alphanumeric() || c == '_' || (dot && c == '.'))
-                {
+                let dotted_name_allowed = annotation;
+                while let Some(c) = chars.next_if(|&c| {
+                    c.is_alphanumeric() || c == '_' || (dotted_name_allowed && c == '.')
+                }) {
                     name.push(c);
                 }
                 if annotation {
                     annotation = false;
-                } else if expect {
+                } else if expect_constant {
                     out.push((name, line));
-                    expect = false;
+                    expect_constant = false;
                 }
             }
             _ => {}
