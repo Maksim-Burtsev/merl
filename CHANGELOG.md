@@ -98,6 +98,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` on `Shuttle` in a Groovy `new Shuttle(m)` lands on `Shuttle(@Named("cfg") Map<K, V> m)`
   instead of offering a picker with `Shuttle(String s, int n)`: an annotation with arguments no
   longer hides the commas of a generic type, or a default value, behind it. (#679)
+- `d` in Clojure on the alias before `/`, `version` in `(version/in-range? v version)`, lands on
+  `in-range?` in the namespace the `ns` form requires under that name, or on the namespace's file
+  when it does not define it. It jumped to a local `version` in scope, or said `no definition`.
+  (#735)
+- `d` in Common Lisp on a variable `loop` binds, `line` of `(loop for line in data …)`, lands
+  on its `for`, `as` or `with` clause, a destructuring `for (key value) in …` included, where it
+  jumped to a global of the same name or said `no definition`. (#734)
+- `d` in Emacs Lisp on a variable bound earlier in the same `when-let*`, `if-let*`, `and-let*`,
+  `pcase-let*` or `let*` list, `limit` in `(when-let* ((limit limit) (limit (* 2 limit))) …)`,
+  lands on the binding just above it, where it jumped to an outer `let` of the same name. A
+  binding's own value still reads the one outside it. (#731)
+- `d` in Racket on a variable of a named `let`, `(let loop ([xs xs] [n 0]) …)`, or on a name an
+  `inherit`, `inherit-field`, `init-field` or `field` clause of the class around binds, lands on
+  that binding, where it jumped to a namesake elsewhere in the project. (#733)
+- `d` in an R7RS project (chibi-scheme) on a parameter of an `opt-lambda` lands on it; a
+  definition in a `cond-expand` branch other than the one that includes the file is no longer
+  jumped to; and a `.scm` or `.sld` file no longer searches Racket's collections, where `d`
+  offered their files. (#732)
 
 ## [0.8.2] - 2026-10-04
 

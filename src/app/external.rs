@@ -710,6 +710,11 @@ impl App {
     /// ponytail: lives for the session, unlike the project walk. A `pip install` mid-session
     /// needs a restart.
     pub(super) fn external_files(&mut self, kind: Kind) -> Arc<Vec<PathBuf>> {
+        if kind == Kind::Scheme
+            && (self.buf.path.as_ref().and_then(|p| p.extension())).is_none_or(|e| e != "rkt")
+        {
+            return Arc::new(Vec::new());
+        }
         let here = self.buf.path.as_ref().and_then(|p| p.parent());
         if let Some(here) = here.filter(|_| kind == Kind::TsJs)
             && (self.node_modules_of.is_some()
@@ -837,6 +842,16 @@ impl App {
                     })
                 })
         });
+        if kind == Kind::Scheme
+            && let Some(here) = self.rel_current()
+        {
+            hits.retain(|h| {
+                let dir = h.path.parent().unwrap_or(Path::new(""));
+                !self.text_of(&h.path).is_some_and(|text| {
+                    search::scheme_foreign_branch(&text, h.line, |f| dir.join(f) == here)
+                })
+            });
+        }
         hits
     }
 
