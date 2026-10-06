@@ -60,6 +60,14 @@ fn a_held_arrow_misses_the_key_that_covers_the_distance() {
             "Alt+Right",
         ),
         (
+            "two screens selected: Shift+PgDn twice",
+            lines.as_str(),
+            KeyCode::Down,
+            KeyModifiers::SHIFT,
+            20,
+            "Shift+PgDn",
+        ),
+        (
             "`alpha` selected: Alt+Shift+Right, and `v` too, which comes later in the list",
             words,
             KeyCode::Right,
@@ -375,7 +383,8 @@ fn review_runs_into_a_hunk_or_o_to_the_next_file_miss_c() {
     assert_eq!(
         a.line_str(),
         "f",
-        "src/a.rs: hunks on `B` and `F`, lines 2 and 6, each under the line it rewrites (#439)"
+        "src/a.rs: hunks on `B` and `F`, lines 2 and 6, each under the line it rewrites (#439), \
+         where `c` stands (#690); a run onto the rewritten line is into the hunk too"
     );
     hold(&mut a, KeyCode::Up, NONE, 4, FAST);
     assert_eq!(a.line_str(), "B");

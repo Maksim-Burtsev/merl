@@ -18,3 +18,12 @@ key Enter
 wait app/config.py  18:
 key [
 wait app/service.py  1:1
+# A selection in one line seeds / and s (#410): v on OrderRepo, then / opens on it, already
+# searched, and so does s.
+key /
+type OrderRepo
+key Enter Escape v /
+wait /OrderRepo
+key Escape s
+wait s> OrderRepo
+key Escape

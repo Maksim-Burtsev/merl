@@ -1,7 +1,3 @@
-//! `d` in C and C++ on the members a line pattern cannot tell from a function, a macro or a
-//! global of the same name: `x->word`, `x.word`, a constructor's initializer list (#359), a bare
-//! member inside a method and a value that is no type (#378).
-
 use super::*;
 
 impl App {
@@ -265,8 +261,6 @@ impl App {
         called: bool,
         outside: bool,
     ) -> Vec<Candidate> {
-        // `self.word` in Objective-C reads a property, or calls a getter (#417), which no C
-        // line declares.
         let mut pattern = search::c_field_pattern(word);
         if self.objc_file() {
             pattern = format!("{pattern}|{}", search::objc_member(word));
@@ -609,8 +603,7 @@ impl App {
     }
 
     /// Whether `hit` declares `word` as a type: a struct, union, enum or class tag, a namespace,
-    /// a `typedef` or a `using` alias. A word followed by `->` or `.` is a value, none of these
-    /// (#378).
+    /// a `typedef` or a `using` alias.
     pub(super) fn c_type_line(word: &str, hit: &Hit) -> bool {
         let p = search::def_patterns(Kind::C, word);
         Regex::new(&[&p[2], &p[4], &p[6]].map(String::as_str).join("|"))

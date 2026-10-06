@@ -1005,11 +1005,11 @@ fn opener_bindings(
             }
         }
         Kind::CSharp => {
-            let (binds, hides) = cs_opener(header, name);
-            if binds {
+            let opener = cs_opener(header, name);
+            if opener.binds {
                 unknown(out);
             }
-            own = hides;
+            own = opener.hides_outer_scopes;
         }
         Kind::Go => {
             let count = out.len();

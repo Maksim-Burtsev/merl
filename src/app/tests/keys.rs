@@ -49,6 +49,25 @@ fn shift_on_char_is_stripped() {
 }
 
 #[test]
+fn ctrl_shift_letter_is_never_the_bare_letter() {
+    let mut a = app(&"x\n".repeat(200));
+    let ctrl_shift = KeyModifiers::CONTROL | KeyModifiers::SHIFT;
+    for code in [KeyCode::Char('D'), KeyCode::Char('d'), KeyCode::Char('U')] {
+        press(&mut a, code, ctrl_shift);
+        assert!(a.picker.is_none() && a.message.is_empty());
+        assert_eq!((a.mode, a.line), (Mode::Normal, 0));
+    }
+    for c in ['D', '?', ':', '}'] {
+        press(&mut a, KeyCode::Char(c), KeyModifiers::CONTROL);
+        assert!(a.picker.is_none() && a.message.is_empty(), "Ctrl+{c}");
+        assert_eq!((a.mode, a.line), (Mode::Normal, 0), "Ctrl+{c}");
+    }
+    assert!(!press(&mut a, KeyCode::Char('q'), ctrl_shift));
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::CONTROL);
+    assert_ne!(a.line, 0);
+}
+
+#[test]
 fn aliases_reach_the_same_actions() {
     let mut a = app("foo bar\n");
     // Not on disk: the grep for usages has nothing to read.

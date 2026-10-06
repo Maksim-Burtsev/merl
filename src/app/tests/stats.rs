@@ -399,8 +399,8 @@ fn a_stop_past_the_hunks_the_review_opened_with_does_not_count() {
     );
     std::fs::write(dir.join("src/a.rs"), "a\nB\nc\nD\ne\nF\n").unwrap();
     a.reload(false);
-    use TextLine::Deleted;
-    assert_eq!(a.diff.hunks, [Deleted(1, 0), Deleted(3, 0), Deleted(5, 0)]);
+    use TextLine::File;
+    assert_eq!(a.diff.hunks, [File(1), File(3), File(5)]);
     for _ in 0..3 {
         press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     }

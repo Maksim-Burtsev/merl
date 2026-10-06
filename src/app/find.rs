@@ -13,18 +13,24 @@ impl App {
         }
     }
 
-    /// Starts an incremental search from the current cursor position. The selection is set aside
-    /// meanwhile, so it does not stretch to every match the cursor visits. A pattern still active
-    /// comes back selected, as Cmd+F in a browser: typing replaces it, an arrow edits it.
     pub(super) fn start_find(&mut self) {
         self.mode = Mode::Find;
+        let seed = self.one_line_selection();
         let last = self.find_re.as_ref().map_or("", |_| &self.find_query);
-        self.prompt = LineEdit::selected(last).capped(FIND_CAP);
+        self.prompt = LineEdit::selected(seed.as_deref().unwrap_or(last)).capped(FIND_CAP);
         self.find_anchor = (self.at(), self.col);
         self.find_sel = self.anchor.take();
-        if let Some(re) = &self.find_re {
+        if seed.is_some() {
+            self.refresh_find();
+        } else if let Some(re) = &self.find_re {
             self.message = self.match_count(re);
         }
+    }
+
+    pub(super) fn one_line_selection(&self) -> Option<String> {
+        let (start, end) = self.selection()?;
+        let text = self.selected_text().filter(|_| start.0 == end.0)?;
+        Some(text.chars().take(FIND_CAP).collect())
     }
 
     pub(super) fn find_key(&mut self, key: KeyEvent) {

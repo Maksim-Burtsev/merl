@@ -289,9 +289,9 @@ mod tests {
     /// Each side of a `KEYS` row is an action; the second side takes the first side's prefix
     /// and modifiers, and the five aliases fold into their primaries.
     #[test]
-    fn keys_split_into_69_actions() {
+    fn keys_split_into_75_actions() {
         let names: Vec<&str> = ACTIONS.iter().map(|a| a.name.as_str()).collect();
-        assert_eq!(names.len(), 69, "{names:?}");
+        assert_eq!(names.len(), 75, "{names:?}");
         assert_eq!(names.iter().collect::<HashSet<_>>().len(), names.len());
         for name in [
             "[",
@@ -387,7 +387,7 @@ mod tests {
                  then the paragraph, then the whole file",
             ]
         );
-        assert_eq!(lines.len(), 1 + 69);
+        assert_eq!(lines.len(), 1 + 75);
         assert!(lines[4..].iter().all(|l| l.contains("  never  ")), "{out}");
         assert_eq!(
             lines[4],

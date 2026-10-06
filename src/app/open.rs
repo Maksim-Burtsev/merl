@@ -158,9 +158,8 @@ impl App {
         let file = rel.and_then(|rel| r.file(rel));
         self.diff = match file {
             Some(f) if f.status == 'D' => git::Diff {
-                // A deleted file is all ghost: every line marked, nothing to step through.
                 marks: (0..self.buf.lines.len())
-                    .map(|l| (l, git::Mark::DeletedBelow))
+                    .map(|l| (l, git::Mark::Deleted))
                     .collect(),
                 ..Default::default()
             },

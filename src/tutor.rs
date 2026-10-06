@@ -303,6 +303,8 @@ mod tests {
         "C",
         "m",
         "Fold: Enter",
+        "Shift+Home",
+        "Shift+End",
     ];
 
     /// The copy of the sample project a test works in, apart from the other tests' copies.

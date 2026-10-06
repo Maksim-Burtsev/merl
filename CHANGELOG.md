@@ -30,13 +30,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Line numbers and the `‹` `›` `…` marks read at 3:1 on the background in every theme: a theme
+  whose own gutter colour is fainter has it lightened (darkened in a light theme) in its own hue
+  until it gets there, never past the theme's comments. 50 of the 94 themes change, the default
+  among them (1.3:1 before); the rest draw as before. (#555)
 - `d` outside the project in JavaScript and TypeScript lists a declaration once when another
   package keeps a copy of its own: a line of the copy of `typescript` another package keeps is no
   longer listed beside the same line of the copy Node loads from the open file. A member is
   looked for in the packages the file imports before every installed one, so its picker lists
   those alone. (#318)
+- `c` and `C` in `--review` stand on the first line a hunk added, where they stood on the first
+  line it deleted: on a hunk that rewrites code, the cursor is on the new code, the old code
+  above it, a key Up away. A hunk that only deletes still stands on its first deleted line.
+  (#690)
 - `v` grows on to the whole file: a fourth press, after the word, the line and the paragraph,
   selects every line of the file, the cursor at its end; Ctrl+C then copies it all. (#635)
+- Shift+PgUp / Shift+PgDn, Shift+Home / Shift+End and Ctrl+Shift+Home / Ctrl+Shift+End extend
+  the selection over everything the cursor passes, as Shift with an arrow does, where they moved
+  the cursor and dropped the selection; the same moves without Shift drop it, as in VS Code.
+  (#687)
 - The lists of `u`, `s` and `d`'s choices name a file once, above its rows, and each row shows
   the line number and the code: `polar/license_key/endpoints.py` over `242  license_key = await …`
   instead of the path repeated on every row. A row still too wide for the list wraps under its
@@ -55,6 +67,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   string }` lands on the `href` of the literal, where it jumped to another class's `href`, and `d`
   on `rest` after `const { id, ...rest } = document` lands on that line, where it said "no
   definition". (#354)
+- `/` and `s` open with the selected text as the query when the selection is within one line,
+  already searched and selected so typing replaces it; without a selection, or with one over
+  several lines, they open as before. (#410)
 
 ### Fixed
 
@@ -71,6 +86,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `const` of the script above, `theme` in `{{ settings.theme }}` under `v-for="settings in
   rows"`, no longer jumps to the key of the script's `const settings = { theme }`: the item is
   another value, and `d` searches the member by name. (#618)
+- Ctrl+Shift+D no longer opens the symbols list, as `D` does, in Ghostty, kitty and WezTerm:
+  a Ctrl chord with Shift is never read as the bare letter, and one merl does not bind does
+  nothing. (#688)
+- In `--review`, a file the branch deleted draws the red `▎` of a deleted line on every line,
+  where it drew the `▁` that marks lines deleted below one. (#642)
+- `d` on `Shuttle` in a Groovy `new Shuttle(m)` lands on `Shuttle(@Named("cfg") Map<K, V> m)`
+  instead of offering a picker with `Shuttle(String s, int n)`: an annotation with arguments no
+  longer hides the commas of a generic type, or a default value, behind it. (#679)
 
 ## [0.8.2] - 2026-10-04
 
