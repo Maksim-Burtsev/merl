@@ -298,7 +298,8 @@ impl App {
             return;
         }
         if kind == Kind::Clojure
-            && let Some(found) = self.clojure_qualified(&text, before, &word)
+            && let Some(found) =
+                self.clojure_qualified(&text, before, &word, &self.line_str()[range.end..])
         {
             self.show_definitions(kind, &word, &here, found, None);
             return;

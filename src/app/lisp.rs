@@ -6,32 +6,42 @@ impl App {
         text: &str,
         before: &str,
         word: &str,
+        after: &str,
     ) -> Option<Vec<Candidate>> {
         let requires = search::clojure_requires(text);
-        let ns = match before.strip_suffix('/') {
-            Some(b) => {
-                let at = b
-                    .rfind(|c: char| c.is_whitespace() || "()[]{}'`#@~^\"".contains(c))
-                    .map_or(0, |i| i + 1);
-                let q = &b[at..];
-                requires
-                    .iter()
-                    .find(|(n, _)| n == q)
-                    .map_or(q, |(_, ns)| ns)
-            }
-            None if search::bindings(Kind::Clojure, text, self.line + 1, word).is_empty() => {
-                &requires.iter().find(|(n, ns)| n == word && ns != word)?.1
-            }
-            None => return None,
+        let qualifier = |b: &str| {
+            let at = b
+                .rfind(|c: char| c.is_whitespace() || "()[]{}'`#@~^\"".contains(c))
+                .map_or(0, |i| i + 1);
+            let q = &b[at..];
+            requires
+                .iter()
+                .find(|(n, _)| n == q)
+                .map_or(q.to_owned(), |(_, ns)| ns.clone())
         };
-        let files = search::clojure_ns_files(ns, &self.files);
-        let pattern = search::def_patterns(Kind::Clojure, word).join("|");
+        let target = after.strip_prefix('/').map(|a| {
+            let end = a.find(|c: char| c.is_whitespace() || "()[]{}\"".contains(c));
+            &a[..end.unwrap_or(a.len())]
+        });
+        let (ns, name) = match (target.filter(|t| !t.is_empty()), before.strip_suffix('/')) {
+            (Some(name), _) => (qualifier(&format!("{before}{word}")), name),
+            (None, Some(b)) => (qualifier(b), word),
+            (None, None)
+                if search::bindings(Kind::Clojure, text, self.line + 1, word).is_empty() =>
+            {
+                let ns = requires.iter().find(|(n, ns)| n == word && ns != word)?;
+                (ns.1.clone(), word)
+            }
+            (None, None) => return None,
+        };
+        let files = search::clojure_ns_files(&ns, &self.files);
+        let pattern = search::def_patterns(Kind::Clojure, name).join("|");
         let hits = match files.is_empty() {
             true => Vec::new(),
-            false => self.declaring(Kind::Clojure, word, self.grep_in(&pattern, &files)),
+            false => self.declaring(Kind::Clojure, name, self.grep_in(&pattern, &files)),
         };
         if hits.is_empty() && !files.is_empty() {
-            return None;
+            return (name != word).then(|| self.module_candidates(files));
         }
         let found = hits.into_iter().map(|hit| Candidate {
             reason: Reason::Import(hit.path.display().to_string()),

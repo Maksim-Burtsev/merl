@@ -98,6 +98,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` on `Shuttle` in a Groovy `new Shuttle(m)` lands on `Shuttle(@Named("cfg") Map<K, V> m)`
   instead of offering a picker with `Shuttle(String s, int n)`: an annotation with arguments no
   longer hides the commas of a generic type, or a default value, behind it. (#679)
+- `d` in Clojure on the alias before `/`, `version` in `(version/in-range? v version)`, lands on
+  `in-range?` in the namespace the `ns` form requires under that name, or on the namespace's file
+  when it does not define it. It jumped to a local `version` in scope, or said `no definition`.
+  (#735)
 
 ## [0.8.2] - 2026-10-04
 
