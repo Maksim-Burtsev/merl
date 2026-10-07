@@ -1009,7 +1009,7 @@ impl App {
         let literal = search::literal_lines(Kind::Swift, text);
         let around = search::swift_enclosing_type(&lines, &literal, line);
         if name == "self" {
-            let (_, own, ..) = search::swift_type_header(lines[around? - 1])?;
+            let own = search::swift_type_header(lines[around? - 1])?.name;
             return Some((own, None));
         }
         match search::bindings(Kind::Swift, text, line, name).as_slice() {
@@ -1030,7 +1030,7 @@ impl App {
                 if top == 0 || (top..line).any(|l| search::swift_may_bind(lines[l - 1], name)) {
                     return None;
                 }
-                let (_, own, ..) = search::swift_type_header(lines[at - 1])?;
+                let own = search::swift_type_header(lines[at - 1])?.name;
                 let ty = self.swift_type(here, &own)?;
                 self.swift_field(here, &ty, name, hops)
             }
@@ -1176,8 +1176,8 @@ impl App {
                 continue;
             }
             match search::swift_type_header(&h.text) {
-                Some((k, n, ..)) if k == "extension" => extended |= n == name,
-                Some((k, n, b, _)) if n == name => decls.push((h, k, b)),
+                Some(t) if t.keyword == "extension" => extended |= t.name == name,
+                Some(t) if t.name == name => decls.push((h, t.keyword, t.first_inherited)),
                 Some(_) => {}
                 // `typealias Name`, `associatedtype Name`: no type of its own.
                 None if !h.text.contains("func ")
