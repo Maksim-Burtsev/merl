@@ -1,57 +1,57 @@
 wait 5▎    token = "abcdef"
-┌orders──────────────────────┐1 def is_admin(user):
-│▸ .github                   │2     access_level = "user<202e> <2066>// Check if admin<2069> <2066>"
-│▸ .venv                     │3     if access_level != "user<202e> <2066>// Check if admin<2069> <2066>":
-│▸ app                       │4         return True
-│▸ data                      │5▎    token = "abcdef"
-│▸ deploy                    │6     return False
-│▸ docs                      │
-│▾ scripts                   │
-│  ▸ payouts                 │
-│    grant_admin.py          │
-│    invoices.php            │
-│    refund_by_hand.py       │
-│▸ tests                     │
-│▸ web                       │
-│▸ worker                    │
-│  .env                      │
-│  .gitignore                │
-│  docker-compose.yml        │
-│  Dockerfile                │
-│  Makefile                  │
-│  pyproject.toml            │
-│  README.md                 │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-└────────────────────────────┘
+1 def is_admin(user):
+2     access_level = "user<202e> <2066>// Check if admin<2069> <2066>"
+3     if access_level != "user<202e> <2066>// Check if admin<2069> <2066>":
+4         return True
+5▎    token = "abcdef"
+6     return False
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 scripts/grant_admin.py  5:17  [code]                                                                                                                                              ? help
-cursor (x,y,shown) 48,4,1
+cursor (x,y,shown) 18,4,1

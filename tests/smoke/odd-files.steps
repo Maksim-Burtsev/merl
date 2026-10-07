@@ -54,6 +54,7 @@ wait binary file, not shown
 run printf 'def is_admin(user):\n    access_level = "user\342\200\256 \342\201\246// Check if admin\342\201\251 \342\201\246"\n    if access_level != "user\342\200\256 \342\201\246// Check if admin\342\201\251 \342\201\246":\n        return True\n    token = "abc\342\200\213def"\n    return False\n' > scripts/grant_admin.py && git add scripts/grant_admin.py && git commit -qm "scripts: grant_admin"
 merl scripts/grant_admin.py:5:17
 wait def is_admin(user):
+key t
 wait access_level = "user<202e> <2066>// Check if admin<2069> <2066>"
 key Right
 wait scripts/grant_admin.py  5:23
