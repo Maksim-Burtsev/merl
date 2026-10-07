@@ -2132,7 +2132,7 @@ impl App {
             && search::definition_word(Some(kind), self.line_str(), self.col)
                 .is_some_and(|(r, _)| !self.line_str()[..r.start].ends_with('.'))
             && matches!(found.as_slice(), [c] if !c.reason.proven() && form(&c.hit.text) == form(self.line_str()));
-        found.sort_by_cached_key(|c| search::rank(&c.hit.path, Some(here), true).0);
+        found.sort_by_cached_key(|c| search::rank(&c.hit.path, Some(here), true).tier);
         // The project and the outside are each cut at MAX_HITS; the picker holds that many.
         found.truncate(search::MAX_HITS);
         if let Some(probe) = &mut self.probe {

@@ -199,7 +199,7 @@ impl App {
             a.cmp(b)
                 .then_with(|| (&x.path, x.place()).cmp(&(&y.path, y.place())))
         });
-        let ranked = ranked.into_iter().map(|((tier, _), h)| (tier, h)).collect();
+        let ranked = ranked.into_iter().map(|(rank, h)| (rank.tier, h)).collect();
         (ranked, cut)
     }
 
