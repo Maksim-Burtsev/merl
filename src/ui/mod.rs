@@ -20,7 +20,7 @@ mod preview;
 mod status;
 mod welcome;
 
-use code::{draw_binary, draw_code};
+use code::{draw_binary, draw_code, draw_empty};
 use overlays::{draw_help, draw_picker, draw_tree, lesson_panel};
 use preview::draw_preview;
 use status::draw_status;
@@ -81,6 +81,8 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
             draw_preview(frame, app, theme, code, base);
         } else if app.folded_here().is_some() {
             fold::draw_fold(frame, app, theme, code, base);
+        } else if let Some(note) = app.empty_note() {
+            draw_empty(frame, theme, code, base, note);
         } else if app.buf.binary() {
             draw_binary(frame, theme, code, base);
         } else if app.buf.path.is_some() {

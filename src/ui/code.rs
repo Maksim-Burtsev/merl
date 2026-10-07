@@ -339,13 +339,27 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
 }
 
 pub(super) fn draw_binary(frame: &mut Frame, theme: &Theme, area: Rect, base: Style) {
-    let [_, row] = Layout::vertical([
+    let note = Line::styled("binary file, not shown", base.fg(theme.ghost_fg));
+    draw_note(frame, area, base, vec![note]);
+}
+
+pub(super) fn draw_empty(frame: &mut Frame, theme: &Theme, area: Rect, base: Style, note: String) {
+    let dim = base.fg(theme.ghost_fg);
+    let key = Line::from(vec![
+        Span::styled("c", base.add_modifier(Modifier::BOLD)),
+        Span::styled("  next file", dim),
+    ]);
+    let lines = vec![Line::styled(note, dim), Line::default(), key];
+    draw_note(frame, area, base, lines);
+}
+
+fn draw_note(frame: &mut Frame, area: Rect, base: Style, lines: Vec<Line>) {
+    let [_, rows] = Layout::vertical([
         Constraint::Length(area.height.saturating_sub(1) * 2 / 5),
-        Constraint::Length(1),
+        Constraint::Length(lines.len() as u16),
     ])
     .areas(area);
-    let note = Line::styled("binary file, not shown", base.fg(theme.ghost_fg)).centered();
-    frame.render_widget(Paragraph::new(note).style(base), row);
+    frame.render_widget(Paragraph::new(lines).style(base).centered(), rows);
 }
 
 fn pinned_lines<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -> Vec<Line<'a>> {

@@ -1,0 +1,28 @@
+# review-empty: the agent's branch turns scripts/ into a package with an empty __init__.py,
+# touches app/service.py and worker/main.go, and adds an empty py.typed, the review's last file.
+# c stops on every file in turn, the empty ones included, and ticks each as it leaves it; the
+# last c ticks py.typed and ends the review. C walks back through them the same way. An empty
+# file's stop says `empty file, added` and `c  next file` where its text would be. Then a branch
+# that deletes an empty scripts/__init__.py, its first file: the review opens on it (#720).
+merl README.md
+wait # orders
+run git switch -q -c typed && : > scripts/__init__.py && : > py.typed && printf '\n# Refunds go through the service.\n' >> app/service.py && printf '\n// Retries back off: see the queue.\n' >> worker/main.go && git add -A && git commit -qm typed
+merl --review
+wait hunk 1/1  file 1/4
+caption c stops on the empty scripts/__init__.py like on any other file, and says it is empty (#720)
+key c
+wait scripts/__init__.py  1:1
+key c
+wait hunk 1/1  file 3/4
+caption the review's last file is empty: c opens it, c again ticks it and ends the review
+key c
+wait py.typed  1:1
+key c
+wait last hunk of the review
+caption C walks back through the empty file too
+key C C
+wait scripts/__init__.py  1:1
+caption a review whose first file is deleted opens on it: here an empty one (#720)
+run git switch -q main && : > scripts/__init__.py && git add -A && git commit -qm init && git push -q origin main && git switch -q -c ungone && git rm -q scripts/__init__.py && printf '\n// Retries back off: see the queue.\n' >> worker/main.go && git commit -qam ungone
+merl --review
+wait empty file, deleted

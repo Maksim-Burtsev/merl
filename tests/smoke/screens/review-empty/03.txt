@@ -1,0 +1,57 @@
+wait scripts/__init__.py  1:1
+┌typed ← origin/main─────────┐
+│  ▾ app                     │
+│✓   M service.py       +2 −0│
+│  ▾ scripts                 │
+│    A __init__.py      +0 −0│
+│  ▾ worker                  │
+│    M main.go          +2 −0│
+│  A py.typed           +0 −0│
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │                                                                     empty file, added
+│                            │
+│                            │                                                                       c  next file
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└ 4 files · +4 −0 ───────────┘
+scripts/__init__.py  1:1  [code]  hunk 0/0  file 2/4                                                                                                                              ? help
+cursor (x,y,shown) 52,54,0

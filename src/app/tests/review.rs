@@ -1262,8 +1262,6 @@ fn the_hunk_left_is_found_by_its_place_in_its_file() {
     write(&mut a, "src/a.rs", "p1\na\nB\nc\nd\ne\nf\n");
     big_c(&mut a);
     assert_eq!(here(&a), on("B"));
-    // `new` emptied: an added file with nothing in it is listed, but no stop, and neither is
-    // its top, which only a deleted file's is.
     a.jump_to(&dir.join("gone"), 1);
     c(&mut a);
     assert_eq!(at(&a), (dir.join("new"), 0));
@@ -1271,7 +1269,7 @@ fn the_hunk_left_is_found_by_its_place_in_its_file() {
     let r = a.review.as_ref().unwrap();
     assert!(r.file(Path::new("new")).is_some_and(|f| !f.has_hunks()));
     c(&mut a);
-    assert_eq!(at(&a), (src.clone(), 0));
+    assert_eq!(at(&a), (dir.join("new"), 0));
     // crlf.txt as it was at the base: the review drops the file.
     a.jump_to(&src, 3);
     c(&mut a);
@@ -1294,10 +1292,8 @@ fn the_hunk_left_is_found_by_its_place_in_its_file() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #239: a file empty at the base, filled on the branch and then deleted by the agent is
-/// listed with nothing to read: the walk passes it, and so does the way back.
 #[test]
-fn a_deleted_file_with_nothing_to_read_is_not_gone_back_to() {
+fn a_deleted_file_with_nothing_to_read_is_gone_back_to() {
     let (dir, mut a) = review_app("reviewbackempty");
     let git = |args: &[&str]| {
         let mut cmd = std::process::Command::new("git");
@@ -1323,7 +1319,8 @@ fn a_deleted_file_with_nothing_to_read_is_not_gone_back_to() {
     let f = a.review.as_ref().unwrap().file(Path::new("empty")).unwrap();
     assert!(f.status == 'D' && !f.has_hunks());
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
-    assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
+    assert_eq!(at(&a), (dir.join("empty"), 0));
+    assert_eq!(a.buf.readonly, Some("deleted in this branch"));
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -1749,9 +1746,9 @@ fn a_fold_keeps_a_jumps_line_and_never_covers_text_in_sight() {
 }
 
 #[test]
-fn review_ticks_the_empty_files_it_walks_past_and_not_the_binary_ones() {
+fn review_stops_on_every_empty_file_and_walks_past_a_binary_one() {
     let png: &[u8] = b"\x89PNG\0\0";
-    let extra: &[(&str, &[u8])] = &[("e", b""), ("z.png", png), ("zz", b"")];
+    let extra: &[(&str, &[u8])] = &[("e", b""), ("z.png", png), ("zy", b""), ("zz", b"")];
     let (dir, mut a) = review_app_with("reviewempty", extra);
     let order = |a: &App| -> Vec<_> {
         let r = a.review.as_ref().unwrap();
@@ -1760,26 +1757,130 @@ fn review_ticks_the_empty_files_it_walks_past_and_not_the_binary_ones() {
     assert_eq!(
         order(&a),
         [
-            "src/a.rs", "crlf.txt", "e", "gone", "new", "tail", "z.png", "zz"
+            "src/a.rs", "crlf.txt", "e", "gone", "new", "tail", "z.png", "zy", "zz"
         ]
         .map(PathBuf::from)
     );
     let viewed = |a: &App, p: &str| a.viewed.contains_key(Path::new(p));
-    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
-    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
+    c(&mut a);
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("zy"), 0));
+    assert_eq!(a.message, "skipped 1 file without hunks");
+    assert!(viewed(&a, "tail") && !viewed(&a, "zy"));
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("zz"), 0));
+    assert!(viewed(&a, "zy") && !viewed(&a, "zz"));
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("zz"), 0));
     assert_eq!(a.message, "last hunk of the review");
-    assert!(viewed(&a, "zz") && viewed(&a, "tail"));
-    assert!(!viewed(&a, "z.png"));
+    assert!(viewed(&a, "zz") && !viewed(&a, "z.png"));
+    a.jump_to(&dir.join("src/keep.rs"), 1);
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("zz"), 0));
+    let mut back = vec![];
     while at(&a) != (dir.join("crlf.txt"), 1) {
         press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+        back.push(at(&a).0.strip_prefix(&dir).unwrap().to_path_buf());
     }
-    assert!(viewed(&a, "e"));
+    assert_eq!(
+        back,
+        ["zy", "tail", "new", "gone", "e", "crlf.txt"].map(PathBuf::from)
+    );
 
     std::fs::write(dir.join("src/__init__.py"), "").unwrap();
     let mut a = review_start(&dir, None);
-    a.buf = Buffer::load(&dir.join("src/a.rs")).unwrap();
+    a.buf = Buffer::empty();
     a.start_review(git::Review::open(&dir, None, None).unwrap());
     assert_eq!(order(&a)[0], Path::new("src/__init__.py"));
-    assert_eq!(a.message, "skipped 1 file without hunks");
-    assert!(viewed(&a, "src/__init__.py"));
+    assert_eq!(at(&a), (dir.join("src/__init__.py"), 0));
+}
+
+fn branch_repo(tag: &str, base: &[(&str, &str)], work: &[&[&str]]) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("merl-{tag}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let git = |args: &[&str]| {
+        let mut cmd = std::process::Command::new("git");
+        let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    for (name, text) in base {
+        let path = dir.join(name);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    }
+    git(&["init", "-q", "-b", "main"]);
+    git(&["config", "user.email", "t@t"]);
+    git(&["config", "user.name", "t"]);
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "base"]);
+    git(&["switch", "-q", "-c", "feature"]);
+    for args in work {
+        git(args);
+    }
+    git(&["commit", "-qam", "work"]);
+    dir
+}
+
+fn started_as_main_starts(dir: &Path) -> App {
+    let r = git::Review::open(dir, None, None).unwrap();
+    let buf = (r.first_file(dir)).map_or_else(Buffer::empty, |p| Buffer::load(&p).unwrap());
+    let paths: Vec<PathBuf> = r.files.iter().map(|f| f.path.clone()).collect();
+    let (_, files) = crate::tree::build(dir, false);
+    let mut a = App::new(
+        dir.to_path_buf(),
+        crate::tree::from_listing(&paths),
+        files,
+        buf,
+        None,
+    );
+    a.start_review(r);
+    a
+}
+
+#[test]
+fn a_review_whose_first_file_is_deleted_opens_on_it() {
+    let base = [("a/empty", ""), ("a/gone.py", "g\n"), ("b.py", "x\n")];
+    for (gone, note) in [
+        ("a/empty", Some("empty file, deleted")),
+        ("a/gone.py", None),
+    ] {
+        let dir = branch_repo("reviewfirstgone", &base, &[&["rm", "-q", gone]]);
+        std::fs::write(dir.join("b.py"), "y\n").unwrap();
+        let mut a = started_as_main_starts(&dir);
+        assert_eq!(at(&a), (dir.join(gone), 0));
+        assert_eq!(a.buf.readonly, Some("deleted in this branch"));
+        assert_eq!(a.empty_note().as_deref(), note);
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("b.py"), 0));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+}
+
+#[test]
+fn an_empty_file_of_the_review_shows_its_note_until_it_has_text() {
+    let base = [("a.py", "x\n"), ("old", ""), ("keep.py", "k\n")];
+    let moves: &[&[&str]] = &[&["mv", "old", "new"], &["mv", "keep.py", "kept.py"]];
+    let dir = branch_repo("reviewnote", &base, moves);
+    std::fs::write(dir.join("a.py"), "y\n").unwrap();
+    std::fs::write(dir.join("e"), "").unwrap();
+    let mut a = started_as_main_starts(&dir);
+    assert_eq!(a.empty_note(), None);
+    let note = |a: &mut App, file: &str| {
+        a.jump_to(&dir.join(file), 1);
+        a.empty_note()
+    };
+    assert_eq!(note(&mut a, "new").unwrap(), "empty file, renamed from old");
+    assert_eq!(note(&mut a, "kept.py"), None);
+    assert_eq!(note(&mut a, "e").unwrap(), "empty file, added");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('x'), KeyModifiers::NONE);
+    assert_eq!(a.buf.lines, ["x"]);
+    assert_eq!(a.empty_note(), None);
+
+    let (plain_dir, mut plain) = project_app("emptynote", &[("blank", "")]);
+    plain.jump_to(&plain_dir.join("blank"), 1);
+    assert_eq!(plain.empty_note(), None);
+    let _ = std::fs::remove_dir_all(plain_dir);
+    let _ = std::fs::remove_dir_all(dir);
 }

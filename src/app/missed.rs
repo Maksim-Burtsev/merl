@@ -449,7 +449,7 @@ impl App {
             .and_then(|r| {
                 let back = self.hunk_left(r).map(|(rel, _)| rel);
                 back.or_else(|| {
-                    let f = self.ahead(r, 1).into_iter().find(|f| f.has_hunks());
+                    let f = self.ahead(r, 1).into_iter().find(|f| f.is_stop(&self.root));
                     f.map(|f| f.path.clone())
                 })
             });

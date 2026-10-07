@@ -91,7 +91,8 @@ const STATES: &[State] = &[
         at(a, "PLAN.md", 1, "");
         press(a, "p");
     }),
-    ("review", review),
+    ("review", |a| review(a, &[], Some("store.py"))),
+    ("review-empty", |a| review(a, &["tests/__init__.py"], None)),
     // Below 185 columns the lesson loses what passes its two rows (#261).
     ("tutor", |a| {
         a.tutor = Some(Tutor {
@@ -119,9 +120,7 @@ fn at(a: &mut App, file: &str, line: usize, word: &str) {
     a.sync_want_x();
 }
 
-/// The sample project made a repository whose `feature` branch changed `store.py`, added
-/// `tags.py` and deleted `Makefile`; the review of it, on `store.py`.
-fn review(a: &mut App) {
+fn review(a: &mut App, empty: &[&str], open: Option<&str>) {
     let dir = a.root.clone();
     let git = |args: &[&str]| {
         let out = std::process::Command::new("git")
@@ -146,6 +145,9 @@ fn review(a: &mut App) {
     std::fs::write(dir.join("store.py"), store).unwrap();
     std::fs::write(dir.join("tags.py"), "TAGS = [\"work\", \"home\"]\n").unwrap();
     std::fs::remove_file(dir.join("Makefile")).unwrap();
+    for name in empty {
+        std::fs::write(dir.join(name), "").unwrap();
+    }
     git(&["add", "-A"]);
     git(&["commit", "-q", "-m", "work"]);
 
@@ -156,7 +158,7 @@ fn review(a: &mut App) {
         dir.clone(),
         crate::tree::from_files(&paths),
         files,
-        Buffer::load(&dir.join("store.py")).unwrap(),
+        open.map_or_else(Buffer::empty, |f| Buffer::load(&dir.join(f)).unwrap()),
         None,
     );
     (new.theme, new.theme_dir) = (a.theme.clone(), None);
@@ -396,6 +398,7 @@ snapshots! {
     snapshot_nowrap: "nowrap",
     snapshot_preview: "preview",
     snapshot_review: "review",
+    snapshot_review_empty: "review-empty",
     snapshot_tutor: "tutor",
     snapshot_drill: "drill",
 }

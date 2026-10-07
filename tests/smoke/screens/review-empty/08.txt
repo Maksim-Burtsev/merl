@@ -1,0 +1,57 @@
+wait empty file, deleted
+┌ungone ← origin/main────────┐
+│  ▾ scripts                 │
+│    D __init__.py      +0 −0│
+│  ▾ worker                  │
+│    M main.go          +2 −0│
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │                                                                    empty file, deleted
+│                            │
+│                            │                                                                       c  next file
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└ 2 files · +2 −0 ───────────┘
+scripts/__init__.py  1:1  [code]  read-only  hunk 0/0  file 1/2                                                                                                                   ? help
+cursor (x,y,shown) 185,54,0
