@@ -1,6 +1,3 @@
-//! The line patterns `D` lists a project's declarations with: one row per language,
-//! and the name read out of a row that matched.
-
 use regex::Regex;
 use std::path::Path;
 
@@ -22,12 +19,14 @@ macro_rules! sql_create {
 pub(super) use sql_create;
 
 /// Everything that can stand before a declaration in Java or Kotlin: annotations, Java's access
-/// and class modifiers, Kotlin's own. The argument is the repetition the run takes: `"*"` for a
-/// rule that reads them if they are there, `"+"` for one that needs at least one of them. A
-/// macro, so [`def_patterns`] and the [`SYMBOLS`] rows share one spelling of it.
+/// and class modifiers, Kotlin's own. A macro, so [`def_patterns`] and the [`SYMBOLS`] rows
+/// share one spelling of it.
 macro_rules! jvm_mods {
     () => {
         jvm_mods!("*")
+    };
+    (at_least_one) => {
+        jvm_mods!("+")
     };
     ($rep:literal) => {
         concat!(
@@ -41,10 +40,6 @@ macro_rules! jvm_mods {
     };
 }
 pub(super) use jvm_mods;
-/// [`jvm_mods`] and Scala's own modifiers (#416): `implicit`, `lazy`, `case`, `transparent`,
-/// `opaque`, and an access qualified by a scope, `private[shop]`, `protected[this]`. None of them
-/// stands before a Java or a Kotlin declaration, so a rule that reads them finds nothing new
-/// there.
 macro_rules! scala_mods {
     () => {
         concat!(
@@ -58,9 +53,6 @@ macro_rules! scala_mods {
     };
 }
 pub(super) use scala_mods;
-/// What a named Scala `given` writes after its name (#416): type parameters, `using` clauses,
-/// then the `:` of its type. An anonymous one, `given Ordering[User] = …`, writes its type where
-/// the name would stand, with no `:` after it, and declares no name.
 macro_rules! scala_given_tail {
     () => {
         r"\s*(?:\[[^\]]*\]\s*)?(?:\([^)]*\)\s*)*:"
@@ -84,8 +76,6 @@ pub(super) use jvm_return_type;
 /// `fun interface` stands before `fun`, so a Kotlin functional interface is listed under its own
 /// name; `companion object` has no name and falls out on the `\s+` before it. A `val` counts
 /// behind `const` only: the rest are fields and locals, which no kind lists.
-/// Scala's declarations share the row (#416): its modifiers, `trait`, `type` and `package
-/// object`; a Scala-only word never stands on a Java or a Kotlin line.
 const JVM_DECL_SYMBOL: &str = concat!(
     scala_mods!(),
     r"(?:class|interface|enum|record|typealias|@interface|object|trait|type|package\s+object",
@@ -93,15 +83,11 @@ const JVM_DECL_SYMBOL: &str = concat!(
     r"(?:[\w.]+(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?\??\.)?",
     r"(?P<name>[A-Za-z_]\w*)"
 );
-/// A Scala `given` with a name (#416), beside the declarations of [`JVM_DECL_SYMBOL`]; an
-/// anonymous one names its type, which it does not declare.
 const SCALA_GIVEN_SYMBOL: &str = concat!(
     scala_mods!(),
     r"given\s+`?(?P<name>[A-Za-z_]\w*)`?",
     scala_given_tail!()
 );
-/// Scala's methods, a row of their own (#416): a project holds far more of them than types, and
-/// the cap of `D` is counted per row. A Scala 3 extension's `def` stands on the `extension` line.
 const SCALA_DEF_SYMBOL: &str = concat!(
     "(?:",
     scala_mods!(),
@@ -174,25 +160,18 @@ const C_TYPE_SYMBOL: &str = concat!(
 /// list, as a field does in every other kind.
 const C_TYPEDEF_SYMBOL: &str =
     r"^(?:\s*typedef\s+[^;]*?|\}\s*[\w\s,*]*)\b(?P<name>[A-Za-z_]\w*)\s*(?:\[[^\]]*\])?\s*;\s*$";
-/// An object- or function-like macro.
 const C_MACRO_SYMBOL: &str = r"^\s*#\s*define\s+(?P<name>[A-Za-z_]\w*)";
 
 /// Everything that can stand before a C# declaration: the attribute lists written on the same
-/// line (`[Fact] public void …`) and the modifiers, which come in any order. The argument is the
-/// repetition the run takes: `"*"` for a rule that reads them if they are there, `"+"` for one
-/// that needs at least one. A macro, so [`def_patterns`] and the [`SYMBOLS`] rows share one
-/// spelling of it.
+/// line (`[Fact] public void …`) and the modifiers, which come in any order. A macro, so
+/// [`def_patterns`] and the [`SYMBOLS`] rows share one spelling of it.
 macro_rules! cs_mods {
     () => {
-        cs_mods!("*")
-    };
-    ($rep:literal) => {
         concat!(
             r"^\s*(?:\[[^\]]*\]\s*)*",
             r"(?:(?:public|private|protected|internal|file|static|readonly|const|sealed|abstract",
             r"|virtual|override|partial|async|extern|unsafe|new|volatile|event|required|fixed",
-            r"|implicit|explicit|ref)\s+)",
-            $rep
+            r"|implicit|explicit|ref)\s+)*"
         )
     };
     // A constructor is told from a call by its modifiers alone, so its run is the access ones
@@ -255,14 +234,10 @@ const CS_MEMBER_SYMBOL: &str = concat!(
 
 /// Everything that can stand before a Swift declaration: its attributes and property wrappers,
 /// and the modifiers, which come in any order. `class` is one of them — `class func load()` is
-/// Swift's static method — and the keyword alternations below read past it. The argument is the
-/// repetition the run takes, as [`cs_mods`]. A macro, so [`def_patterns`] and the [`SYMBOLS`] row
-/// share one spelling of it.
+/// Swift's static method — and the keyword alternations below read past it. A macro, so
+/// [`def_patterns`] and the [`SYMBOLS`] row share one spelling of it.
 macro_rules! swift_mods {
     () => {
-        swift_mods!("*")
-    };
-    ($rep:literal) => {
         concat!(
             r"^\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*",
             r"(?:(?:public|private|fileprivate|internal|open|package|static|class|final|override",
@@ -270,8 +245,7 @@ macro_rules! swift_mods {
             r"|optional|prefix|postfix|infix|nonisolated|distributed|borrowing|consuming)",
             // `private(set)`: the setter's own access, the one place Swift parenthesises a
             // modifier. Without it the run stops at the `(` and the declaration is never read.
-            r"(?:\(set\))?\s+)",
-            $rep
+            r"(?:\(set\))?\s+)*"
         )
     };
 }
@@ -287,8 +261,9 @@ const SWIFT_DECL_SYMBOL: &str = concat!(
 );
 
 /// Everything that can stand before a PHP declaration: its attributes and the modifiers a class
-/// member carries. The argument is the repetition the run takes, as [`cs_mods`]. A macro, so
-/// [`def_patterns`] and the [`SYMBOLS`] row share one spelling of it.
+/// member carries. The argument is the repetition the run takes: `"*"` for a rule that reads them
+/// if they are there, `"+"` for one that needs at least one. A macro, so [`def_patterns`] and the
+/// [`SYMBOLS`] row share one spelling of it.
 macro_rules! php_mods {
     () => {
         php_mods!("*")
@@ -302,11 +277,6 @@ macro_rules! php_mods {
     };
 }
 pub(super) use php_mods;
-/// The PHP half of [`SYMBOLS`], first half: what the language declares with a keyword other than
-/// `function`, behind the modifiers a member carries. A namespace is listed under its last part,
-/// the one `d` finds it by, and a typed constant under its name, not its type (#344). A property
-/// is a field, which no kind lists, and an `enum` case is what a type holds, as in every other
-/// kind; `define('X', …)` has no keyword before the name and is left out with them.
 const PHP_DECL_SYMBOL: &str = concat!(
     php_mods!(),
     r"(?:(?:class|interface|trait|enum)\s+|const\s+(?:[\w\\|&?()]+\s+)?|namespace\s+(?:[\w\\]+\\)?)",
@@ -361,14 +331,15 @@ const ZIG_TEST_SYMBOL: &str = r#"^\s*test\s+"(?P<name>[^"]*)""#;
 /// project. They are directives, so [`def_patterns`] has no rule for the name itself. A list of
 /// known names is all a line pattern can have here: any library may define an attribute, and
 /// `@tag :slow` and `@timeout 5_000` are the same line.
-pub(super) const ELIXIR_DIRECTIVES: &[&str] = &[
-    // ExUnit and Mix, which every project in the language meets.
+pub(super) const EXUNIT_AND_MIX_DIRECTIVES: &[&str] = &[
     "describetag",
     "endpoint",
     "moduletag",
     "shortdoc",
     "switches",
     "tag",
+];
+pub(super) const ELIXIR_DIRECTIVES: &[&str] = &[
     "after_compile",
     "before_compile",
     "behaviour",
@@ -394,10 +365,7 @@ pub(super) const ELIXIR_DIRECTIVES: &[&str] = &[
     "typep",
     "vsn",
 ];
-/// A name in a `CREATE` statement, as written: bare, `"quoted"` or `` `backticked` ``, and
-/// optionally schema-qualified (`public.orders`).
-pub(super) const SQL_NAME: &str = r#"(?:"[^"]+"|`[^`]+`|\w+)"#;
-/// The SQL half of [`SYMBOLS`]: every `CREATE`d object, listed under its written name.
+pub(super) const SQL_NAME_PART: &str = r#"(?:"[^"]+"|`[^`]+`|\w+)"#;
 const SQL_CREATE_SYMBOL: &str = concat!(
     sql_create!(),
     r#"(?P<name>(?:"[^"]+"|`[^`]+`|\w+)(?:\.(?:"[^"]+"|`[^`]+`|\w+))?)"#
@@ -411,13 +379,7 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     // `name ()`, the form without the `function` keyword: a `function name` line is already
     // listed by [`SYMBOL_PATTERN`], and requiring no keyword here keeps it off the list twice.
     (Some(Kind::Shell), r"^\s*(?P<name>[A-Za-z_]\w*)\s*\(\s*\)"),
-    // A function and a filter under the whole `Verb-Noun` name, which the shared pattern cuts at
-    // its `-`; a class and an enum (#420).
     (Some(Kind::PowerShell), POWERSHELL_SYMBOL),
-    // Dart from rows of its own (#414): the shared pattern lists `abstract interface class Repo`
-    // as `class`, and knows no function without a keyword. The types first, so the methods of
-    // the first files cannot crowd them off the list, then the functions and methods, then the
-    // getters and setters.
     (Some(Kind::Dart), DART_TYPE_SYMBOL),
     (Some(Kind::Dart), DART_FUNCTION_SYMBOL),
     (Some(Kind::Dart), DART_ACCESSOR_SYMBOL),
@@ -466,7 +428,6 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::C), C_TYPE_SYMBOL),
     (Some(Kind::C), C_TYPEDEF_SYMBOL),
     (Some(Kind::C), C_MACRO_SYMBOL),
-    // Objective-C's classes, protocols and methods (#417); no property, as no field.
     (Some(Kind::C), OBJC_TYPE_SYMBOL),
     (Some(Kind::C), OBJC_METHOD_SYMBOL),
     // C# likewise: `public sealed partial class Foo<T>` stands behind modifiers the shared
@@ -525,8 +486,6 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
         Some(Kind::Graphql),
         r"^(?:(?:type|interface|input|enum|union|scalar|fragment|query|mutation|subscription)\s+|directive\s+@)(?P<name>[A-Za-z_]\w*)",
     ),
-    // A stylesheet's mixins, functions, placeholders and keyframes under their names (#415). No
-    // selector, custom property or variable: Bootstrap alone has thousands of selectors.
     (
         Some(Kind::Css),
         r"^\s*(?:@(?:mixin|function|(?:-[a-z]+-)?keyframes)\s+|%)(?P<name>[A-Za-z_-][\w-]*)",

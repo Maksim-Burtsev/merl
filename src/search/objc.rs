@@ -1,6 +1,3 @@
-//! Objective-C, read as part of the C kind (#417): the lines that declare a class, a protocol, a
-//! method, a property or an `NS_ENUM`, and which files read the SDK's frameworks.
-
 use regex::Regex;
 use std::path::Path;
 use std::sync::LazyLock;
@@ -51,12 +48,10 @@ pub fn objc_member(word: &str) -> String {
     )
 }
 
-/// Where the head of a `for` loop, what its brackets hold, binds `name` by fast enumeration:
-/// `for (NSString *key in dict)`, `for (id<Coder>coder in coders)`.
-pub fn objc_for_in(inner: &str, name: &str) -> Option<usize> {
+pub fn objc_for_in(inside_for_parens: &str, name: &str) -> Option<usize> {
     let w = regex::escape(name);
     let re = Regex::new(&format!(r"^\s*[A-Za-z_][\w\s*<>,]*?[\s*>]({w})\s+in\b")).ok()?;
-    Some(re.captures(inner)?.get(1)?.start())
+    Some(re.captures(inside_for_parens)?.get(1)?.start())
 }
 
 /// [`super::def_patterns`] as a file reads them: Objective-C's declare for an Objective-C file

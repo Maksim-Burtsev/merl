@@ -20,6 +20,18 @@ fn at(terminal: &Terminal<TestBackend>, needle: &str) -> Color {
     cell(terminal, needle).fg
 }
 
+fn cell_at(terminal: &Terminal<TestBackend>, needle: &str) -> (u16, u16) {
+    let buf = terminal.backend().buffer();
+    let n = needle.chars().count() as u16;
+    (0..buf.area.height)
+        .find_map(|y| {
+            (0..=buf.area.width.saturating_sub(n))
+                .find(|&x| (0..n).map(|i| buf[(x + i, y)].symbol()).collect::<String>() == needle)
+                .map(|x| (x, y))
+        })
+        .unwrap_or_else(|| panic!("{needle:?} is not on screen"))
+}
+
 /// The first cell of `needle`, a char a cell, the first time it is on screen.
 fn cell(terminal: &Terminal<TestBackend>, needle: &str) -> Cell {
     let buf = terminal.backend().buffer();
@@ -262,14 +274,12 @@ fn hit_picker_rows_keep_the_syntax_colours_of_their_line() {
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
 
     let buf = terminal.backend().buffer();
-    let row = 4;
-    let x0 = (0..buf.area.width)
-        .find(|&x| buf[(x, row)].symbol() == "s")
-        .expect("row starts with src/wrap.rs");
-    let prefix = "src/wrap.rs:1: ";
-    let code_x = x0 + prefix.len() as u16;
-    assert_eq!(buf[(code_x, row)].symbol(), "/");
-    assert_ne!(buf[(code_x, row)].fg, buf[(x0, row)].fg);
+    let path = cell_at(&terminal, "src/wrap.rs");
+    let (x, y) = cell_at(&terminal, "1  //!");
+    assert_eq!(path.1 + 1, y);
+    let code_x = x + 3;
+    assert_eq!(buf[(code_x, y)].symbol(), "/");
+    assert_ne!(buf[(code_x, y)].fg, theme.fg);
 }
 
 #[test]
@@ -300,14 +310,11 @@ fn hit_picker_rows_keep_their_colours_past_a_tab() {
     std::fs::remove_dir_all(&dir).unwrap();
 
     let buf = terminal.backend().buffer();
-    let row = 4;
-    let hash = (0..buf.area.width)
-        .find(|&x| buf[(x, row)].symbol() == "#")
-        .expect("the quoted line");
+    let (hash, row) = cell_at(&terminal, "#define");
     // The tab is drawn four wide, and `10` past it keeps the colour the code view gives it.
     let ten = hash + "#define MAX".len() as u16 + 4;
     assert_eq!(buf[(ten, row)].symbol(), "1");
-    assert_ne!(buf[(ten, row)].fg, buf[(hash - 2, row)].fg);
+    assert_ne!(buf[(ten, row)].fg, theme.fg);
 }
 
 /// The tree pane and the status bar frame the overlay; the overlay itself is the border,
@@ -730,6 +737,225 @@ fn the_lesson_panel_grows_to_its_text() {
     assert!(tallest > 3, "no lesson wraps past two rows at 80 columns");
 }
 
+fn hits_app(name: &str, hits: &[(&str, usize, &str)]) -> App {
+    let dir = std::env::temp_dir().join(format!("merl-{name}-{}", std::process::id()));
+    let mut app = App::new(dir, Tree::default(), Vec::new(), Buffer::empty(), None);
+    let hits = hits
+        .iter()
+        .map(|&(path, line, text)| crate::search::Hit {
+            path: PathBuf::from(path),
+            line,
+            col: 0,
+            text: text.into(),
+            deleted: None,
+        })
+        .collect();
+    app.show_picker(crate::app::PickerKind::Usages, App::hit_items(hits));
+    app.picker.as_mut().unwrap().settle();
+    app
+}
+
+fn inside(terminal: &Terminal<TestBackend>) -> Vec<String> {
+    let rows: Vec<Vec<String>> = rows(terminal)
+        .iter()
+        .map(|r| r.chars().map(String::from).collect())
+        .collect();
+    let (top, left) = rows
+        .iter()
+        .enumerate()
+        .find_map(|(y, r)| {
+            (0..r.len().saturating_sub(1))
+                .find(|&x| r[x] == "\u{250c}" && r[x + 1] == "U")
+                .map(|x| (y, x))
+        })
+        .expect("the picker");
+    rows[top + 1..]
+        .iter()
+        .take_while(|r| r.get(left).is_some_and(|c| c == "\u{2502}"))
+        .map(|r| {
+            r[left + 1..]
+                .iter()
+                .take_while(|c| *c != "\u{2502}")
+                .map(String::as_str)
+                .collect::<String>()
+                .trim_end()
+                .to_string()
+        })
+        .collect()
+}
+
+#[test]
+fn hits_of_one_file_sit_under_its_path_and_a_long_one_wraps_whole() {
+    let long =
+        "total = compute(alpha, beta, gamma, delta, epsilon, zeta, eta, theta, iota, kappa, omega)";
+    let mut app = hits_app(
+        "grouped",
+        &[
+            ("pkg/a.py", 1, "x = total"),
+            ("pkg/a.py", 20, long),
+            ("pkg/b.py", 3, "total"),
+        ],
+    );
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let list = inside(&terminal);
+    let at = list
+        .iter()
+        .position(|r| r == "pkg/a.py")
+        .expect("a.py's header");
+    assert_eq!(list[at + 1], "   1  x = total");
+    assert!(
+        list[at + 2].starts_with("  20  total = compute("),
+        "{list:#?}"
+    );
+    let wrapped: Vec<&str> = list[at + 3..]
+        .iter()
+        .take_while(|r| r.starts_with("      "))
+        .map(|r| r.trim())
+        .collect();
+    assert!(!wrapped.is_empty(), "{list:#?}");
+    assert_eq!(
+        format!(
+            "{} {}",
+            list[at + 2].trim_start_matches("  20  "),
+            wrapped.join(" ")
+        ),
+        long
+    );
+    let next = at + 3 + wrapped.len();
+    assert_eq!(list[next..next + 2], ["pkg/b.py", "   3  total"]);
+    assert_eq!(list.iter().filter(|r| r.starts_with("pkg/")).count(), 2);
+}
+
+#[test]
+fn moving_down_a_grouped_list_keeps_the_row_on_screen_under_its_path() {
+    let hits: Vec<(&str, usize, &str)> = (1..=6)
+        .map(|n| (["a.py", "b.py", "c.py"][(n - 1) / 2], n, "total"))
+        .collect();
+    let mut app = hits_app("scroll", &hits);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(80, 12)).unwrap();
+    for _ in 0..5 {
+        app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        let list = inside(&terminal);
+        let at = 1;
+        assert!(list[at].ends_with(".py"), "{list:#?}");
+        let picked = app.picker.as_ref().unwrap().current().unwrap().line;
+        assert!(
+            list.iter().any(|r| r.trim() == format!("{picked}  total")),
+            "{list:#?}"
+        );
+    }
+    let list = inside(&terminal);
+    assert!(list.iter().any(|r| r == "c.py"), "{list:#?}");
+    assert!(!list.iter().any(|r| r == "a.py"), "{list:#?}");
+}
+
+#[test]
+fn a_path_with_no_room_for_its_rows_is_not_drawn_last() {
+    let mut app = hits_app(
+        "dangling",
+        &[
+            ("a.py", 1, "total"),
+            ("a.py", 2, "total"),
+            ("a.py", 3, "total"),
+            ("b.py", 4, "total"),
+        ],
+    );
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(80, 12)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let list = inside(&terminal);
+    assert_eq!(
+        list[1..],
+        ["a.py", "  1  total", "  2  total", "  3  total", ""]
+    );
+}
+
+fn three_files() -> App {
+    let hits: Vec<(&str, usize, &str)> = (1..=6)
+        .map(|n| (["a.py", "b.py", "c.py"][(n - 1) / 2], n, "total"))
+        .collect();
+    hits_app("three-files", &hits)
+}
+
+fn picked_is_shown(app: &mut App, terminal: &mut Terminal<TestBackend>) -> Vec<String> {
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+    let list = inside(terminal);
+    let picked = app.picker.as_ref().unwrap().current().unwrap().line;
+    assert!(
+        list.iter().any(|r| r.trim() == format!("{picked}  total")),
+        "{list:#?}"
+    );
+    list
+}
+
+#[test]
+fn page_down_from_mid_list_lands_on_a_row_on_screen() {
+    let mut app = three_files();
+    let mut terminal = Terminal::new(TestBackend::new(80, 12)).unwrap();
+    picked_is_shown(&mut app, &mut terminal);
+    for _ in 0..2 {
+        app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+    }
+    picked_is_shown(&mut app, &mut terminal);
+    app.key(KeyEvent::new(KeyCode::PageDown, KeyModifiers::NONE));
+    picked_is_shown(&mut app, &mut terminal);
+    assert_eq!(app.picker.as_ref().unwrap().current().unwrap().line, 6);
+    app.key(KeyEvent::new(KeyCode::PageUp, KeyModifiers::NONE));
+    let list = picked_is_shown(&mut app, &mut terminal);
+    assert_eq!(list[1], "b.py");
+}
+
+#[test]
+fn moving_up_after_scrolling_down_keeps_the_row_on_screen_under_its_path() {
+    let mut app = three_files();
+    let mut terminal = Terminal::new(TestBackend::new(80, 12)).unwrap();
+    for _ in 0..5 {
+        app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+    }
+    picked_is_shown(&mut app, &mut terminal);
+    for _ in 0..5 {
+        app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+        let list = picked_is_shown(&mut app, &mut terminal);
+        assert!(list[1].ends_with(".py"), "{list:#?}");
+    }
+    let list = picked_is_shown(&mut app, &mut terminal);
+    assert_eq!(list[1..4], ["a.py", "  1  total", "  2  total"]);
+}
+
+#[test]
+fn a_file_heads_each_run_of_its_rows() {
+    let mut app = hits_app(
+        "runs",
+        &[
+            ("a.py", 1, "total"),
+            ("b.py", 2, "total"),
+            ("a.py", 3, "total"),
+        ],
+    );
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+    let list = picked_is_shown(&mut app, &mut terminal);
+    let heads: Vec<&str> = list
+        .iter()
+        .filter(|r| r.ends_with(".py"))
+        .map(|r| r.as_str())
+        .collect();
+    assert_eq!(heads, ["a.py", "b.py", "a.py"]);
+}
+
+#[test]
+fn a_list_one_line_tall_shows_the_picked_row() {
+    let mut app = three_files();
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(80, 6)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(inside(&terminal), [">", "a.py:1: total"]);
+}
+
 /// `?` at 80 columns wraps an action too long for its row instead of cutting it (#458).
 #[test]
 fn help_wraps_every_action_whole_at_80_columns() {
@@ -749,4 +975,205 @@ fn help_wraps_every_action_whole_at_80_columns() {
     for (_, action, _) in crate::app::KEYS {
         assert!(text.contains(&words(action)), "{action}\n{text}");
     }
+}
+
+#[test]
+fn a_deep_review_folds_its_chain_and_keeps_both_file_names() {
+    let d = "application/src/main/java/run/halo/app/security/authentication/twofactor/totp";
+    let filter = format!("{d}/TotpAuthenticationFilter.java");
+    let converter = format!("{d}/TotpCodeAuthenticationConverter.java");
+    let mut app = review_app(&[(&filter, 'M', 1, 1), (&converter, 'A', 1, 0)]);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(92, 10)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let r: Vec<String> = rows(&terminal)
+        .iter()
+        .map(|l| l.chars().take(30).collect())
+        .collect();
+    assert_eq!(
+        r[1..6],
+        [
+            "\u{2502}  \u{25be} application             \u{2502}",
+            "\u{2502}    \u{25be} src                   \u{2502}",
+            "\u{2502}      \u{25be} \u{2026}/twofactor/totp    \u{2502}",
+            "\u{2502}        M TotpAuthent\u{2026} +1 \u{2212}1\u{2502}",
+            "\u{2502}        A TotpCodeAut\u{2026} +1 \u{2212}0\u{2502}",
+        ],
+        "{r:#?}"
+    );
+}
+
+#[test]
+fn a_chain_that_fits_keeps_a_row_per_directory() {
+    let mut app = review_app(&[
+        ("binding/form_mapping.go", 'M', 1, 0),
+        ("internal/bytesconv/bytesconv.go", 'M', 1, 0),
+    ]);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(92, 10)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let text = rows(&terminal).join("\n");
+    assert!(text.contains("\u{25be} internal "), "{text}");
+    assert!(text.contains("\u{25be} bytesconv "), "{text}");
+}
+
+fn deep_app() -> App {
+    let mut files: Vec<String> = Vec::new();
+    let mut dir = String::new();
+    for d in ["a", "b", "c", "d", "e", "f", "g", "h"] {
+        dir.push_str(d);
+        dir.push('/');
+        files.push(format!("{dir}x.rs"));
+    }
+    files.push(format!("{dir}TotpAuthenticationManager.java"));
+    let mut app = review_app(
+        &files
+            .iter()
+            .map(|f| (f.as_str(), 'M', 1, 1))
+            .collect::<Vec<_>>(),
+    );
+    app.review = None;
+    app.buf = Buffer::from_bytes(PathBuf::from("/tmp/a.rs"), "x\n".repeat(40).as_bytes());
+    app
+}
+
+fn tree_width(app: &mut App, w: u16) -> (usize, String) {
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(w, 30)).unwrap();
+    terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+    let r = rows(&terminal);
+    let width = r[0].chars().position(|c| c == '\u{2510}').unwrap() + 1;
+    (width, r.join("\n"))
+}
+
+#[test]
+fn the_tree_widens_with_the_keys_to_its_longest_row_on_screen() {
+    let mut app = deep_app();
+    app.tree.reveal(std::path::Path::new(
+        "a/b/c/d/e/f/g/h/TotpAuthenticationManager.java",
+    ));
+    let (w, text) = tree_width(&mut app, 120);
+    assert_eq!(w, 30, "{text}");
+    assert!(!text.contains("TotpAuthenticationManager.java"), "{text}");
+    app.focus = crate::app::Focus::Tree;
+    let (w, text) = tree_width(&mut app, 120);
+    assert_eq!(w, 2 + 2 * 8 + 2 + 30, "{text}");
+    assert!(
+        text.contains("TotpAuthenticationManager.java\u{2502}"),
+        "{text}"
+    );
+    assert!(
+        text.lines()
+            .skip(1)
+            .all(|l| l.chars().nth(29) != Some('\u{2502}')),
+        "{text}"
+    );
+    app.focus = crate::app::Focus::Code;
+    assert_eq!(tree_width(&mut app, 120).0, 30);
+}
+
+#[test]
+fn the_tree_keeps_its_30_columns_where_every_name_fits() {
+    let mut app = review_app(&[
+        ("binding/form_mapping.go", 'M', 1, 0),
+        ("internal/bytesconv/bytesconv.go", 'M', 1, 0),
+    ]);
+    app.focus = crate::app::Focus::Tree;
+    let (w, text) = tree_width(&mut app, 92);
+    assert_eq!(w, 30, "{text}");
+    assert_eq!(app.tree_width, Some(30));
+}
+
+#[test]
+fn the_wide_tree_never_passes_half_the_screen() {
+    let mut deep = review_app(&[("a/b/c/d/e/f/g/h/i/j/abcdefghij.rs", 'M', 1, 0)]);
+    deep.focus = crate::app::Focus::Tree;
+    assert_eq!(
+        tree_width(&mut deep, 120).0,
+        2 + 2 + 2 * 10 + 2 + 13 + 1 + 5
+    );
+    let long = format!("a/{}.rs", "x".repeat(120));
+    let mut long = review_app(&[(&long, 'M', 1, 0)]);
+    long.focus = crate::app::Focus::Tree;
+    assert_eq!(tree_width(&mut long, 120).0, 60);
+}
+
+#[test]
+fn the_width_is_chosen_once_a_visit() {
+    let mut app = deep_app();
+    let top = |app: &mut App| {
+        app.tree.cursor = app
+            .tree
+            .nodes
+            .iter()
+            .position(|n| n.path == std::path::Path::new("a"))
+            .unwrap();
+        app.tree.collapse();
+    };
+    top(&mut app);
+    app.focus = crate::app::Focus::Tree;
+    assert_eq!(tree_width(&mut app, 92).0, 30);
+    app.tree.reveal(std::path::Path::new(
+        "a/b/c/d/e/f/g/h/TotpAuthenticationManager.java",
+    ));
+    assert_eq!(tree_width(&mut app, 92).0, 30);
+    app.focus = crate::app::Focus::Code;
+    tree_width(&mut app, 92);
+    app.focus = crate::app::Focus::Tree;
+    assert_eq!(tree_width(&mut app, 92).0, 46);
+    top(&mut app);
+    assert_eq!(tree_width(&mut app, 92).0, 46);
+    app.focus = crate::app::Focus::Code;
+    assert_eq!(tree_width(&mut app, 92).0, 30);
+}
+
+#[test]
+fn a_visit_to_the_wide_tree_leaves_the_code_where_it_was() {
+    for (name, text) in [
+        ("/tmp/a.csv", format!("{}\n", "x".repeat(110)).repeat(40)),
+        ("/tmp/a.rs", format!("{}\n", "x ".repeat(80)).repeat(40)),
+    ] {
+        let mut app = deep_app();
+        app.tree.reveal(std::path::Path::new(
+            "a/b/c/d/e/f/g/h/TotpAuthenticationManager.java",
+        ));
+        app.buf = Buffer::from_bytes(PathBuf::from(name), text.as_bytes());
+        app.goto_line(30);
+        app.col = 70;
+        tree_width(&mut app, 120);
+        let before = (app.left, app.top_line, app.top_row);
+        app.focus = crate::app::Focus::Tree;
+        assert_eq!(tree_width(&mut app, 120).0, 50);
+        app.focus = crate::app::Focus::Code;
+        assert_eq!(tree_width(&mut app, 120).0, 30);
+        assert_eq!((app.left, app.top_line, app.top_row), before, "{name}");
+    }
+}
+
+#[test]
+fn a_visit_to_the_code_leaves_the_tree_cursor_where_it_was() {
+    let d = "application/src/main/java/run/halo/app/security/authentication/twofactor/totp";
+    let filter = format!("{d}/TotpAuthenticationFilter.java");
+    let mut app = review_app(&[(&filter, 'M', 1, 1)]);
+    app.focus = crate::app::Focus::Tree;
+    assert_eq!(tree_width(&mut app, 120).0, 60);
+    let main = std::path::Path::new("application/src/main");
+    app.tree.cursor = app.tree.nodes.iter().position(|n| n.path == main).unwrap();
+    tree_width(&mut app, 120);
+    app.focus = crate::app::Focus::Code;
+    assert_eq!(tree_width(&mut app, 120).0, 30);
+    app.focus = crate::app::Focus::Tree;
+    assert_eq!(tree_width(&mut app, 120).0, 60);
+    assert_eq!(app.tree.selected().unwrap().path, main);
+}
+
+#[test]
+fn a_terminal_too_narrow_to_widen_keeps_the_tree_at_30_columns() {
+    let mut app = deep_app();
+    app.tree.reveal(std::path::Path::new(
+        "a/b/c/d/e/f/g/h/TotpAuthenticationManager.java",
+    ));
+    app.focus = crate::app::Focus::Tree;
+    assert_eq!(tree_width(&mut app, 60).0, 30);
+    assert_eq!(app.tree_width, Some(30));
 }

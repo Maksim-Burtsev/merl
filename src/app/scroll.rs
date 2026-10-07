@@ -7,9 +7,28 @@ use super::*;
 const MAX_PINNED: usize = 2;
 
 impl App {
+    pub fn drawn_aside(&mut self, draw: impl FnOnce(&mut Self)) {
+        let kept = (
+            self.top_line,
+            self.top_row,
+            self.left,
+            self.view_w,
+            self.view_h,
+            self.center,
+        );
+        draw(self);
+        (
+            self.top_line,
+            self.top_row,
+            self.left,
+            self.view_w,
+            self.view_h,
+            self.center,
+        ) = kept;
+    }
+
     /// Scrolls the minimum amount that puts the cursor back on screen.
     pub fn clamp_scroll(&mut self) {
-        // A wider or narrower pane wraps the top line into other rows (#412).
         self.clamp_top();
         self.clamp_left();
         let cur = self.cursor_at();
@@ -24,9 +43,6 @@ impl App {
         (self.top_line, self.top_row) = self.fit_top((self.top_line, self.top_row), cur);
     }
 
-    /// The declarations the code pane pins over the text with `top` as the first line of the
-    /// view (#248): those enclosing it whose own line has scrolled off above, outermost first,
-    /// the innermost [`MAX_PINNED`] of them. A short pane keeps its rows for the code.
     pub fn pinned(&self, top: usize) -> Vec<usize> {
         let max = self.max_pinned();
         if max == 0 || top >= self.buf.lines.len() {

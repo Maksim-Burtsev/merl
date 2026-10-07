@@ -1,5 +1,3 @@
-//! Editing the buffer: typing, pasting, undo, reload and saving.
-
 use super::*;
 
 #[test]
@@ -12,17 +10,22 @@ fn a_paste_types_into_prompts_and_pickers_but_not_navigation() {
     a.paste("parse_it\r\nsecond line");
     assert_eq!(a.mode, Mode::Picker(PickerKind::Search));
     assert_eq!(&*a.picker.as_ref().unwrap().query, "parse_it");
-    // In one go: one search for the paste, not one per char (#267).
-    assert_eq!(a.search_seq, seq + 1);
+    assert_eq!(
+        a.search_seq,
+        seq + 1,
+        "in one go: one search for the paste, not one per char (#267)"
+    );
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
     a.paste("app.rs");
     assert_eq!(&*a.picker.as_ref().unwrap().query, "app.rs");
-    // `:` takes the digits only, as typed; Ctrl+N takes the path.
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     press(&mut a, KeyCode::Char(':'), KeyModifiers::NONE);
     a.paste("4a2");
-    assert_eq!(&*a.prompt, "42");
+    assert_eq!(
+        &*a.prompt, "42",
+        "`:` takes the digits only, as typed; Ctrl+N takes the path"
+    );
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('n'), KeyModifiers::CONTROL);
     a.paste("src/new.rs\nmore");
@@ -45,11 +48,14 @@ fn enter_edits_and_letters_are_text_until_esc() {
     typed(&mut a, "  # sq");
     assert_eq!(a.line_str(), "def f():  # sq");
     assert!(a.dirty);
-    // Enter keeps the indentation of the line it leaves; Backspace at column 0 joins.
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);
     press(&mut a, KeyCode::End, KeyModifiers::NONE);
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    assert_eq!((a.line, a.col), (2, 4));
+    assert_eq!(
+        (a.line, a.col),
+        (2, 4),
+        "Enter keeps the indentation of the line it leaves; Backspace at column 0 joins"
+    );
     assert_eq!(a.buf.lines[2], "    ");
     press(&mut a, KeyCode::Tab, KeyModifiers::NONE);
     typed(&mut a, "x");
@@ -60,10 +66,13 @@ fn enter_edits_and_letters_are_text_until_esc() {
     press(&mut a, KeyCode::Delete, KeyModifiers::NONE);
     press(&mut a, KeyCode::Delete, KeyModifiers::NONE);
     assert_eq!(a.buf.lines[1], "    pass      x");
-    // Delete at the end of the last line has nothing to join.
     press(&mut a, KeyCode::End, KeyModifiers::NONE);
     press(&mut a, KeyCode::Delete, KeyModifiers::NONE);
-    assert_eq!(a.buf.lines.len(), 2);
+    assert_eq!(
+        a.buf.lines.len(),
+        2,
+        "Delete at the end of the last line has nothing to join"
+    );
     assert!(
         !press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE),
         "q types"
@@ -90,21 +99,26 @@ fn tab_follows_the_file_and_unicode_edits_stay_on_boundaries() {
     assert_eq!(a.line_str(), "\tif x:");
 }
 
-/// #185: Backspace and Delete take a whole emoji, never its selector or half of a ZWJ join.
 #[test]
 fn backspace_and_delete_take_a_whole_emoji() {
     let mut a = app("\u{26a0}\u{fe0f}x\u{1f468}\u{200d}\u{1f4bb}");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     press(&mut a, KeyCode::End, KeyModifiers::NONE);
     press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
-    assert_eq!(a.line_str(), "\u{26a0}\u{fe0f}x");
+    assert_eq!(
+        a.line_str(),
+        "\u{26a0}\u{fe0f}x",
+        "Backspace takes the whole ZWJ join"
+    );
     press(&mut a, KeyCode::Home, KeyModifiers::NONE);
     press(&mut a, KeyCode::Delete, KeyModifiers::NONE);
-    assert_eq!(a.line_str(), "x");
+    assert_eq!(
+        a.line_str(),
+        "x",
+        "Delete takes the emoji with its selector"
+    );
 }
 
-/// #176: Tab went through `insert`, so over a selection of several lines it replaced them
-/// with one indent and autosave wrote the file without them.
 #[test]
 fn tab_over_a_selection_of_several_lines_indents_them() {
     let mut a = app("a = 1\nb = 2\nc = 3\n");
@@ -112,28 +126,38 @@ fn tab_over_a_selection_of_several_lines_indents_them() {
     press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
     press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
     press(&mut a, KeyCode::Tab, KeyModifiers::NONE);
-    // The line the selection ends on at column 0 is not indented, as in VS Code.
-    assert_eq!(a.buf.lines, ["    a = 1", "    b = 2", "c = 3"]);
-    // The same lines are still selected, so a second Tab indents them again.
-    assert_eq!(a.file_selection(), Some(((0, 0), (2, 0))));
+    assert_eq!(
+        a.buf.lines,
+        ["    a = 1", "    b = 2", "c = 3"],
+        "the line the selection ends on at column 0 is not indented, as in VS Code"
+    );
+    assert_eq!(
+        a.file_selection(),
+        Some(((0, 0), (2, 0))),
+        "the same lines are still selected, so a second Tab indents them again"
+    );
     press(&mut a, KeyCode::Tab, KeyModifiers::NONE);
     assert_eq!(a.buf.lines, ["        a = 1", "        b = 2", "c = 3"]);
-    // One undo step each, and the lines are never lost.
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
-    assert_eq!(a.buf.lines, ["    a = 1", "    b = 2", "c = 3"]);
+    assert_eq!(
+        a.buf.lines,
+        ["    a = 1", "    b = 2", "c = 3"],
+        "one undo step each, and the lines are never lost"
+    );
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
     assert_eq!(a.buf.lines, ["a = 1", "b = 2", "c = 3"]);
-    // Redo lands where the Tab left the cursor, at the start of `c`, not after `    b = 2`
-    // (#456).
     press(&mut a, KeyCode::Char('y'), KeyModifiers::CONTROL);
     assert_eq!(a.buf.lines, ["    a = 1", "    b = 2", "c = 3"]);
-    assert_eq!((a.line, a.col), (2, 0));
+    assert_eq!(
+        (a.line, a.col),
+        (2, 0),
+        "redo lands where the Tab left the cursor, at the start of `c`, not after `    b = 2` \
+         (#456)"
+    );
 }
 
 #[test]
 fn tab_indents_from_the_file_own_indent_and_keeps_the_selected_text() {
-    // Ends that stand inside a line move with the text they stand in: the selection below
-    // starts after `a` and ends after `b`, and it still does once both lines are indented.
     let mut a = app("a = 1\nb = 2\nc = 3\n");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     press(&mut a, KeyCode::Right, KeyModifiers::NONE);
@@ -142,20 +166,30 @@ fn tab_indents_from_the_file_own_indent_and_keeps_the_selected_text() {
     assert_eq!(a.file_selection(), Some(((0, 1), (1, 2))));
     press(&mut a, KeyCode::Tab, KeyModifiers::NONE);
     assert_eq!(a.buf.lines, ["    a = 1", "    b = 2", "c = 3"]);
-    assert_eq!(a.file_selection(), Some(((0, 5), (1, 6))));
-    // A file written with tabs is indented with a tab.
+    assert_eq!(
+        a.file_selection(),
+        Some(((0, 5), (1, 6))),
+        "ends that stand inside a line move with the text they stand in: the selection below \
+         starts after `a` and ends after `b`, and it still does once both lines are indented"
+    );
     let mut a = app("\tif x:\n\t\tpass\nend\n");
-    assert!(a.buf.tabs);
+    assert!(
+        a.buf.tabs,
+        "a file written with tabs is indented with a tab"
+    );
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
     press(&mut a, KeyCode::Tab, KeyModifiers::NONE);
     assert_eq!(a.buf.lines, ["\t\tif x:", "\t\tpass", "end"]);
-    // A selection inside one line is still replaced, as any typed letter replaces it.
     let mut a = app("a = 1\nb = 2\n");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
     press(&mut a, KeyCode::Tab, KeyModifiers::NONE);
-    assert_eq!(a.buf.lines, ["     = 1", "b = 2"]);
+    assert_eq!(
+        a.buf.lines,
+        ["     = 1", "b = 2"],
+        "a selection inside one line is still replaced, as any typed letter replaces it"
+    );
 }
 
 #[test]
@@ -166,25 +200,26 @@ fn alt_backspace_and_alt_delete_take_a_word_in_one_undo_step() {
     typed(&mut a, "!");
     press(&mut a, KeyCode::Backspace, KeyModifiers::ALT);
     assert_eq!(a.buf.lines[0], "x_1 = да ");
-    // The word alone comes back, with the cursor where the key was pressed.
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
     assert_eq!(
         (a.buf.lines[0].as_str(), a.col),
-        ("x_1 = да мир;!", "x_1 = да мир;!".len())
+        ("x_1 = да мир;!", "x_1 = да мир;!".len()),
+        "the word alone comes back, with the cursor where the key was pressed"
     );
     press(&mut a, KeyCode::Home, KeyModifiers::NONE);
     press(&mut a, KeyCode::Delete, KeyModifiers::ALT);
     press(&mut a, KeyCode::Delete, KeyModifiers::ALT);
     assert_eq!(a.buf.lines[0], " мир;!");
-    // At the start of a line it joins the line above, as Alt+Left goes there.
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);
     press(&mut a, KeyCode::Home, KeyModifiers::NONE);
     press(&mut a, KeyCode::Backspace, KeyModifiers::ALT);
-    assert_eq!(a.buf.lines, vec![" мир;!next"]);
+    assert_eq!(
+        a.buf.lines,
+        vec![" мир;!next"],
+        "at the start of a line it joins the line above, as Alt+Left goes there"
+    );
 }
 
-/// #455: Alt+Delete at the end of the file and Alt+Backspace at its start take nothing: no undo
-/// step, the file not edited, and the column Up / Down aim at stays where it was.
 #[test]
 fn an_alt_delete_with_nothing_to_take_changes_nothing() {
     let mut a = app("abcdef\nxy");
@@ -194,7 +229,11 @@ fn an_alt_delete_with_nothing_to_take_changes_nothing() {
     assert_eq!((a.line, a.col), (1, 2));
     press(&mut a, KeyCode::Delete, KeyModifiers::ALT);
     press(&mut a, KeyCode::Up, KeyModifiers::NONE);
-    assert_eq!((a.line, a.col), (0, 6));
+    assert_eq!(
+        (a.line, a.col),
+        (0, 6),
+        "Alt+Delete at the end of the file keeps the column Up aims at"
+    );
     let mut a = app("\nabcdef");
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);
     press(&mut a, KeyCode::End, KeyModifiers::NONE);
@@ -203,8 +242,15 @@ fn an_alt_delete_with_nothing_to_take_changes_nothing() {
     assert_eq!((a.line, a.col), (0, 0));
     press(&mut a, KeyCode::Backspace, KeyModifiers::ALT);
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);
-    assert_eq!((a.line, a.col), (1, 6));
-    assert!(a.undo.is_empty() && !a.dirty);
+    assert_eq!(
+        (a.line, a.col),
+        (1, 6),
+        "Alt+Backspace at the start of the file keeps the column Down aims at"
+    );
+    assert!(
+        a.undo.is_empty() && !a.dirty,
+        "nothing taken: no undo step, the file not edited"
+    );
 }
 
 #[test]
@@ -219,9 +265,8 @@ fn undo_groups_typing_and_redo_replays_it() {
     typed(&mut a, "34");
     press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
     assert_eq!(a.buf.lines, vec!["ab12", "3", "cd"]);
-    // A run of keystrokes on one line is one step; the split and the next run are others.
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
-    assert_eq!(a.buf.lines, vec!["ab12", "", "cd"]);
+    assert_eq!(a.buf.lines, vec!["ab12", "34", "cd"]);
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
     assert_eq!(
         (a.buf.lines.clone(), a.line, a.col),
@@ -234,25 +279,140 @@ fn undo_groups_typing_and_redo_replays_it() {
     press(&mut a, KeyCode::Char('y'), KeyModifiers::CONTROL);
     assert_eq!(
         (a.buf.lines.clone(), a.line, a.col),
-        (vec!["ab12".to_string(), "".into(), "cd".into()], 1, 0)
+        (vec!["ab12".to_string(), "34".into(), "cd".into()], 1, 2)
     );
-    // A new edit drops the redo stack; a cursor move starts a new step.
     typed(&mut a, "x");
     press(&mut a, KeyCode::Char('y'), KeyModifiers::CONTROL);
-    assert_eq!(a.message, "nothing to redo");
+    assert_eq!(
+        a.message, "nothing to redo",
+        "a new edit drops the redo stack; a cursor move starts a new step"
+    );
     press(&mut a, KeyCode::Up, KeyModifiers::NONE);
     typed(&mut a, "!");
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
-    assert_eq!(a.buf.lines, vec!["ab12", "x", "cd"]);
-    // Leaving and re-entering edit mode also ends the step; undo works from navigation.
+    assert_eq!(a.buf.lines, vec!["ab12", "34x", "cd"]);
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     typed(&mut a, "y");
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
-    assert_eq!(a.buf.lines, vec!["ab12", "x", "cd"]);
+    assert_eq!(
+        a.buf.lines,
+        vec!["ab12", "34x", "cd"],
+        "leaving and re-entering edit mode also ends the step; undo works from navigation"
+    );
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
-    assert_eq!(a.buf.lines, vec!["ab12", "", "cd"]);
+    assert_eq!(a.buf.lines, vec!["ab12", "34", "cd"]);
+}
+
+#[test]
+fn undo_steps_close_as_in_vs_code() {
+    let undone = |keys: &dyn Fn(&mut App)| {
+        let mut a = app("\n");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        keys(&mut a);
+        press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+        a.buf.lines.join("/")
+    };
+    let key = |a: &mut App, code| _ = press(a, code, KeyModifiers::NONE);
+    let moved = undone(&|a| {
+        typed(a, "abc");
+        (0..3).for_each(|_| key(a, KeyCode::Left));
+        (0..3).for_each(|_| key(a, KeyCode::Right));
+        typed(a, "def");
+    });
+    assert_eq!(moved, "abc", "a cursor move closes the step");
+    assert_eq!(undone(&|a| typed(a, "abcdef")), "");
+    assert_eq!(
+        undone(&|a| typed(a, "ab cd")),
+        "ab",
+        "a space after a word opens one"
+    );
+    assert_eq!(undone(&|a| typed(a, "ab  ")), "ab");
+    let enter = undone(&|a| {
+        typed(a, "ab");
+        key(a, KeyCode::Enter);
+        typed(a, "cd");
+    });
+    assert_eq!(enter, "ab", "Enter opens a step the typing after it joins");
+    let deleted = undone(&|a| {
+        typed(a, "abc");
+        key(a, KeyCode::Backspace);
+        key(a, KeyCode::Backspace);
+    });
+    assert_eq!(deleted, "abc", "deleting after typing is a step of its own");
+    let typed_after = undone(&|a| {
+        typed(a, "abc");
+        key(a, KeyCode::Backspace);
+        typed(a, "d");
+    });
+    assert_eq!(typed_after, "ab");
+    let cut = undone(&|a| {
+        typed(a, "abc");
+        press(a, KeyCode::Char('x'), KeyModifiers::CONTROL);
+    });
+    assert_eq!(cut, "abc", "a cut is a step of its own");
+    let tab = undone(&|a| {
+        typed(a, "ab");
+        key(a, KeyCode::Tab);
+    });
+    assert_eq!(tab, "ab");
+    let pasted = undone(&|a| {
+        typed(a, "ab");
+        a.paste("cd");
+    });
+    assert_eq!(pasted, "ab");
+    let still = undone(&|a| {
+        typed(a, "ab");
+        key(a, KeyCode::End);
+        typed(a, "cd");
+    });
+    assert_eq!(
+        still, "ab",
+        "a move key closes the step even where the cursor stays"
+    );
+    assert_eq!(undone(&|a| typed(a, "ab  cd")), "ab  ");
+    let reset = undone(&|a| {
+        typed(a, "a ");
+        press(a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+        typed(a, " b");
+    });
+    assert_eq!(
+        reset, "a",
+        "undo resets the kind: the space after it is a first one"
+    );
+    let left_right = undone(&|a| {
+        typed(a, "abcd");
+        (0..2).for_each(|_| key(a, KeyCode::Left));
+        key(a, KeyCode::Backspace);
+        key(a, KeyCode::Delete);
+    });
+    assert_eq!(left_right, "acd");
+    let tab_after_space = undone(&|a| {
+        typed(a, "ab ");
+        key(a, KeyCode::Tab);
+    });
+    assert_eq!(tab_after_space, "ab ");
+}
+
+#[test]
+fn a_line_join_and_the_backspaces_after_it_are_one_step() {
+    let mut a = app("ab\ncd\n");
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+    assert_eq!(a.buf.lines, vec!["acd"]);
+    press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+    assert_eq!(
+        (a.buf.lines.clone(), a.line, a.col),
+        (vec!["ab".to_string(), "cd".into()], 1, 0)
+    );
+    press(&mut a, KeyCode::Char('y'), KeyModifiers::CONTROL);
+    assert_eq!(
+        (a.buf.lines.clone(), a.line, a.col),
+        (vec!["acd".to_string()], 0, 1)
+    );
 }
 
 #[test]
@@ -273,7 +433,6 @@ fn typing_replaces_the_selection_and_the_clipboard_keys_copy_or_cut() {
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
     assert_eq!(a.buf.lines, vec!["abc", "def", "ghi"], "one step");
     assert_eq!((a.line, a.col), (1, 1), "undo puts the cursor where it was");
-    // Delete on a selection removes it; Ctrl+X without one cuts the line.
     press(&mut a, KeyCode::Up, KeyModifiers::NONE);
     press(
         &mut a,
@@ -281,7 +440,10 @@ fn typing_replaces_the_selection_and_the_clipboard_keys_copy_or_cut() {
         KeyModifiers::SHIFT | KeyModifiers::CONTROL,
     );
     press(&mut a, KeyCode::Delete, KeyModifiers::NONE);
-    assert_eq!(a.buf.lines[0], "a");
+    assert_eq!(
+        a.buf.lines[0], "a",
+        "Delete on a selection removes it; Ctrl+X without one cuts the line"
+    );
     press(&mut a, KeyCode::Char('x'), KeyModifiers::CONTROL);
     assert_eq!(a.clipboard.take().as_deref(), Some("a\n"));
     assert_eq!(a.buf.lines, vec!["def", "ghi"]);
@@ -294,10 +456,13 @@ fn typing_replaces_the_selection_and_the_clipboard_keys_copy_or_cut() {
         "the last line goes with its break"
     );
     assert_eq!((a.line, a.col), (0, 0));
-    // Pasted text is inserted only while editing, with CRLF normalised.
     press(&mut a, KeyCode::End, KeyModifiers::NONE);
     a.paste("\r\np\r\nq");
-    assert_eq!(a.buf.lines, vec!["def", "p", "q"]);
+    assert_eq!(
+        a.buf.lines,
+        vec!["def", "p", "q"],
+        "pasted text is inserted only while editing, with CRLF normalised"
+    );
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     a.paste("nope");
     assert_eq!(a.buf.lines, vec!["def", "p", "q"]);
@@ -331,12 +496,15 @@ fn the_last_line_is_copied_and_cut_whole_and_a_lone_line_is_emptied() {
     press(&mut a, KeyCode::Char('y'), KeyModifiers::CONTROL);
     assert_eq!(a.buf.lines, vec!["abc", "defgh"]);
     assert_eq!((a.line, a.col), (1, 2), "redo lands where the cut did");
-    // A file of one line keeps one line, emptied.
     let mut a = app("xyz\n");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     press(&mut a, KeyCode::End, KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('x'), KeyModifiers::CONTROL);
-    assert_eq!(a.clipboard.take().as_deref(), Some("xyz\n"));
+    assert_eq!(
+        a.clipboard.take().as_deref(),
+        Some("xyz\n"),
+        "a file of one line keeps one line, emptied"
+    );
     assert_eq!(a.buf.lines, vec![""]);
     assert_eq!((a.line, a.col), (0, 0));
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
@@ -386,32 +554,44 @@ fn readonly_and_clipped_lines_refuse_to_edit() {
 fn overlays_opened_while_editing_go_back_to_editing() {
     let mut a = app("one\ntwo\nthree two\n");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    // Find, Enter: editing goes on at the match.
     press(&mut a, KeyCode::Char('f'), KeyModifiers::CONTROL);
     typed(&mut a, "two");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    assert_eq!((a.mode, a.line), (Mode::Edit, 1));
+    assert_eq!(
+        (a.mode, a.line),
+        (Mode::Edit, 1),
+        "find, Enter: editing goes on at the match"
+    );
     typed(&mut a, "d");
     assert_eq!(a.buf.lines[1], "dtwo");
-    // Find, Esc: the cursor goes back, and so does the mode.
     press(&mut a, KeyCode::Char('f'), KeyModifiers::CONTROL);
     typed(&mut a, "three");
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-    assert_eq!((a.mode, a.line, a.col), (Mode::Edit, 1, 1));
-    // Goto and a cancelled prompt.
+    assert_eq!(
+        (a.mode, a.line, a.col),
+        (Mode::Edit, 1, 1),
+        "find, Esc: the cursor goes back, and so does the mode"
+    );
     press(&mut a, KeyCode::Char('g'), KeyModifiers::CONTROL);
     typed(&mut a, "3");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    assert_eq!((a.mode, a.line), (Mode::Edit, 2));
+    assert_eq!(
+        (a.mode, a.line),
+        (Mode::Edit, 2),
+        "goto and a cancelled prompt"
+    );
     press(&mut a, KeyCode::Char('g'), KeyModifiers::CONTROL);
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     assert_eq!(a.mode, Mode::Edit);
-    // Opened from navigation, find still ends in navigation.
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
     typed(&mut a, "one");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    assert_eq!((a.mode, a.line), (Mode::Normal, 0));
+    assert_eq!(
+        (a.mode, a.line),
+        (Mode::Normal, 0),
+        "opened from navigation, find still ends in navigation"
+    );
 }
 
 #[test]
@@ -433,18 +613,19 @@ fn autosave_esc_and_quit_reach_the_disk() {
     typed(&mut a, "y");
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     assert_eq!(std::fs::read(&path).unwrap(), b"xya\r\nb\r\n");
-    // Undo from navigation dirties the buffer again; quitting flushes it.
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
-    assert!(a.dirty);
+    assert!(
+        a.dirty,
+        "undo from navigation dirties the buffer again; quitting flushes it"
+    );
     assert!(press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
     assert_eq!(
         std::fs::read(&path).unwrap(),
         b"a\r\nb\r\n",
         "x and y were one step"
     );
-    // merl's own save is not a change to react to.
     a.reload(false);
-    assert_eq!(a.message, "");
+    assert_eq!(a.message, "", "merl's own save is not a change to react to");
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
@@ -469,7 +650,6 @@ fn a_change_under_unsaved_edits_is_a_conflict() {
     press(&mut a, KeyCode::Char('s'), KeyModifiers::CONTROL);
     assert!(!a.conflict && !a.dirty);
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "mine one\n");
-    // Ctrl+R takes the disk's version, edits and all.
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     typed(&mut a, "again ");
     let dropped = a.line_str().to_string();
@@ -479,12 +659,16 @@ fn a_change_under_unsaved_edits_is_a_conflict() {
     press(&mut a, KeyCode::Char('r'), KeyModifiers::CONTROL);
     assert_eq!(
         (a.conflict, a.dirty, a.line_str()),
-        (false, false, "theirs")
+        (false, false, "theirs"),
+        "Ctrl+R takes the disk's version, edits and all"
     );
-    // #122: the reload is a step, so the edits Ctrl+R dropped are one Ctrl+Z away, and then
-    // they are edits like any other: the autosave writes them over the disk's version.
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
-    assert_eq!((a.dirty, a.line_str()), (true, dropped.as_str()));
+    assert_eq!(
+        (a.dirty, a.line_str()),
+        (true, dropped.as_str()),
+        "#122: the reload is a step, so the edits Ctrl+R dropped are one Ctrl+Z away, and then \
+         they are edits like any other: the autosave writes them over the disk's version"
+    );
     assert!(a.tick());
     assert_eq!(
         std::fs::read_to_string(&path).unwrap(),
@@ -509,24 +693,27 @@ fn switching_files_flushes_and_leaves_edit_mode() {
 #[test]
 fn read_only_buffers_are_never_changed_or_written() {
     let (path, mut a) = temp_file("readonly", "one\n");
-    // Another tool re-encodes the file while it is in edit mode with nothing unsaved.
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     std::fs::write(&path, b"caf\xe9\n").unwrap();
     a.reload(false);
     typed(&mut a, "x");
     assert_eq!(
         (a.dirty, a.message.as_str()),
-        (false, "read-only: not UTF-8")
+        (false, "read-only: not UTF-8"),
+        "another tool re-encodes the file while it is in edit mode with nothing unsaved"
     );
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('s'), KeyModifiers::CONTROL);
     assert_eq!(a.message, "read-only: not UTF-8");
     assert_eq!(std::fs::read(&path).unwrap(), b"caf\xe9\n");
-    // Nor does a binary file's placeholder text reach the disk.
     std::fs::write(&path, b"\x89PNG\0\x01").unwrap();
     a.reload(false);
     press(&mut a, KeyCode::Char('s'), KeyModifiers::CONTROL);
-    assert_eq!(std::fs::read(&path).unwrap(), b"\x89PNG\0\x01");
+    assert_eq!(
+        std::fs::read(&path).unwrap(),
+        b"\x89PNG\0\x01",
+        "nor does a binary file's placeholder text reach the disk"
+    );
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
@@ -539,12 +726,12 @@ fn edits_that_touch_or_make_a_clipped_line_are_refused() {
         (a.line_str(), a.message.as_str()),
         ("ab", "line too long to edit")
     );
-    // A join into a line exactly as long as the screen shows.
     press(&mut a, KeyCode::End, KeyModifiers::NONE);
     press(&mut a, KeyCode::Delete, KeyModifiers::NONE);
     assert_eq!(
         (a.buf.lines.len(), a.message.as_str()),
-        (2, "line too long to edit")
+        (2, "line too long to edit"),
+        "a join into a line exactly as long as the screen shows"
     );
     assert!(!a.dirty);
 }
@@ -554,15 +741,19 @@ fn a_save_never_overwrites_a_change_it_has_not_seen() {
     let (path, mut a) = temp_file("unseen", "one\n");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     typed(&mut a, "mine ");
-    // The other write lands before its watcher event is handled, or with no watcher at all.
     std::fs::write(&path, "theirs\n").unwrap();
     a.autosave = Duration::ZERO;
     a.tick();
-    assert!(a.conflict);
+    assert!(
+        a.conflict,
+        "the other write lands before its watcher event is handled, or with no watcher at all"
+    );
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "theirs\n");
-    // With the conflict on screen, Ctrl+S is the answer that overwrites.
     press(&mut a, KeyCode::Char('s'), KeyModifiers::CONTROL);
-    assert!(!a.conflict && !a.dirty);
+    assert!(
+        !a.conflict && !a.dirty,
+        "with the conflict on screen, Ctrl+S is the answer that overwrites"
+    );
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "mine one\n");
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
@@ -577,30 +768,33 @@ fn edits_that_cannot_be_saved_keep_merl_on_the_file() {
     std::fs::write(&path, "theirs\n").unwrap();
     a.reload(false);
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-    // In a conflict another file does not open over the edits, and the first quit is refused.
     a.jump_to(&other, 1);
-    assert_eq!((at(&a).0, a.line_str()), (path.clone(), "mine one"));
+    assert_eq!(
+        (at(&a).0, a.line_str()),
+        (path.clone(), "mine one"),
+        "in a conflict another file does not open over the edits, and the first quit is refused"
+    );
     assert!(!press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
     assert!(a.message.contains("q again"), "{}", a.message);
     assert!(press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "theirs\n");
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 
-    // A save that fails holds merl the same way, and a key in between asks again.
     let (path, mut a) = temp_file("keep-gone", "one\n");
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     typed(&mut a, "x");
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     assert!(a.message.starts_with("save failed"), "{}", a.message);
-    assert!(!press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
+    assert!(
+        !press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE),
+        "a save that fails holds merl the same way, and a key in between asks again"
+    );
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);
     assert!(!press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
     assert!(press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
 }
 
-/// #507: a save that fails says why in a few words, as a file that does not open does (#403),
-/// not with the OS text and its `(os error N)`.
 #[test]
 #[cfg(unix)]
 fn a_save_that_fails_says_why_in_a_few_words() {
@@ -612,13 +806,14 @@ fn a_save_that_fails_says_why_in_a_few_words() {
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     // As root every file is writable, and there is nothing to assert.
     if a.dirty {
-        assert_eq!(a.message, "save failed: permission denied");
+        assert_eq!(
+            a.message, "save failed: permission denied",
+            "a few words, not the OS text and its `(os error N)`"
+        );
     }
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
-/// README: a file that changes on disk under unsaved edits is "neither reloaded nor
-/// overwritten". Deleted or renamed is changed: only Ctrl+S puts it back.
 #[test]
 fn autosave_does_not_recreate_a_file_that_is_gone() {
     let (path, mut a) = temp_file("gone-save", "one\n");
@@ -628,25 +823,36 @@ fn autosave_does_not_recreate_a_file_that_is_gone() {
     a.last_edit = Some(Instant::now() - a.autosave);
     assert!(a.tick());
     assert!(!a.flush());
-    assert!(!path.exists());
+    assert!(
+        !path.exists(),
+        "deleted under unsaved edits is changed on disk: neither reloaded nor overwritten"
+    );
     assert!(a.conflict && a.dirty);
     press(&mut a, KeyCode::Char('s'), KeyModifiers::CONTROL);
-    assert_eq!(std::fs::read_to_string(&path).unwrap(), "Xone\n");
+    assert_eq!(
+        std::fs::read_to_string(&path).unwrap(),
+        "Xone\n",
+        "only Ctrl+S puts it back"
+    );
     assert!(!a.conflict && !a.dirty);
-    // Back as merl last saw it (a writer's delete-then-write) is no conflict any more.
     typed(&mut a, "Y");
     std::fs::remove_file(&path).unwrap();
     a.save();
     assert!(a.conflict);
     std::fs::write(&path, "Xone\n").unwrap();
     a.reload(false);
-    assert!(!a.conflict && a.dirty);
-    // Ctrl+R has no disk version to take; the edits go all the same, or nothing but
-    // writing the file back would let merl off it.
+    assert!(
+        !a.conflict && a.dirty,
+        "back as merl last saw it (a writer's delete-then-write) is no conflict any more"
+    );
     std::fs::remove_file(&path).unwrap();
     a.save();
     press(&mut a, KeyCode::Char('r'), KeyModifiers::CONTROL);
-    assert!(!a.conflict && !a.dirty && !path.exists());
+    assert!(
+        !a.conflict && !a.dirty && !path.exists(),
+        "Ctrl+R has no disk version to take; the edits go all the same, or nothing but writing \
+         the file back would let merl off it"
+    );
     assert!(a.flush());
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
@@ -669,15 +875,19 @@ fn reload_clamps_the_cursor_into_a_shrunken_file() {
     a.line = 9;
     a.col = 4;
 
-    // An event that changes nothing must not even report a reload.
     a.reload(false);
-    assert_eq!(a.message, "");
+    assert_eq!(
+        a.message, "",
+        "an event that changes nothing must not even report a reload"
+    );
 
-    // Outside a review the cursor keeps its line number when lines are written above it.
     a.line = 3;
     std::fs::write(&path, "new\n".to_string() + &"line\n".repeat(10)).unwrap();
     a.reload(false);
-    assert_eq!(a.line, 3);
+    assert_eq!(
+        a.line, 3,
+        "outside a review the cursor keeps its line number when lines are written above it"
+    );
     a.line = 9;
 
     std::fs::write(&path, "a\nb\nc\n").unwrap();
@@ -693,8 +903,6 @@ fn ctrl(a: &mut App, c: char) {
     press(a, KeyCode::Char(c), KeyModifiers::CONTROL);
 }
 
-/// #122, the issue's steps: a write from outside is one step of the history, as in VS Code.
-/// Ctrl+Z takes it back first, then the edits before it, and Ctrl+Y replays both.
 #[test]
 fn a_reload_is_an_undo_step_over_the_edits_before_it() {
     let (path, mut a) = temp_file("undo-reload", "one\ntwo\n");
@@ -717,15 +925,17 @@ fn a_reload_is_an_undo_step_over_the_edits_before_it() {
         "undo lands where the file changed"
     );
     ctrl(&mut a, 'z');
-    assert_eq!(a.buf.lines.join("|"), "one|two");
+    assert_eq!(a.buf.lines.join("|"), "one|two", "then the edits before it");
     ctrl(&mut a, 'y');
     ctrl(&mut a, 'y');
-    assert_eq!(a.buf.lines.join("|"), "MINEone|two|agent line");
+    assert_eq!(
+        a.buf.lines.join("|"),
+        "MINEone|two|agent line",
+        "Ctrl+Y replays both"
+    );
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
-/// #163, the issue's steps: a file left keeps its history, as a VS Code tab does. Written on
-/// disk while away, it comes back with the write as one more step on top.
 #[test]
 fn leaving_a_file_keeps_its_undo_history() {
     let (dir, mut a) = project_app(
@@ -758,13 +968,16 @@ fn leaving_a_file_keeps_its_undo_history() {
     std::fs::write(dir.join("a.py"), "MINEx = 1\nhelper()\nagent line\n").unwrap();
     press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
     ctrl(&mut a, 'z');
-    assert_eq!(a.buf.lines.join("|"), "MINEx = 1|helper()");
+    assert_eq!(
+        a.buf.lines.join("|"),
+        "MINEx = 1|helper()",
+        "written on disk while away, it comes back with the write as one more step on top"
+    );
     ctrl(&mut a, 'z');
     assert_eq!(a.buf.lines.join("|"), "x = 1|helper()");
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// What is typed after a reload is a step of its own, also where the reload's step ends.
 #[test]
 fn typing_after_a_reload_is_a_step_of_its_own() {
     let (path, mut a) = temp_file("undo-reload-typing", "one\ntwo\n");
@@ -777,13 +990,16 @@ fn typing_after_a_reload_is_a_step_of_its_own() {
     assert_eq!((a.line, a.col), (1, 0));
     typed(&mut a, "x");
     ctrl(&mut a, 'z');
-    assert_eq!(a.buf.lines.join("|"), "|ONE|two");
+    assert_eq!(
+        a.buf.lines.join("|"),
+        "|ONE|two",
+        "typed where the reload's step ends, still a step of its own"
+    );
     ctrl(&mut a, 'z');
     assert_eq!(a.buf.lines.join("|"), "|one|two");
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
-/// A UTF-8 BOM is not text: the first edit at 1:1 goes after it, and it stays the first bytes.
 #[test]
 fn a_bom_stays_the_first_bytes_of_the_file() {
     let mut a = app("\u{feff}x = 1\n");
@@ -805,8 +1021,6 @@ fn a_bom_stays_the_first_bytes_of_the_file() {
     );
 }
 
-/// Undoing a reload puts the file's format back with its text. A reload to what no save can
-/// write back as it came is undone, never redone; one from it starts a new history.
 #[test]
 fn undoing_a_reload_puts_the_format_back() {
     let (path, mut a) = temp_file("undo-format", "a\r\nb\r\n");
@@ -828,21 +1042,24 @@ fn undoing_a_reload_puts_the_format_back() {
     ctrl(&mut a, 'z');
     assert_eq!(
         (a.buf.readonly, a.buf.to_bytes()),
-        (None, b"a\nb\nc".to_vec())
+        (None, b"a\nb\nc".to_vec()),
+        "a reload to what no save can write back as it came is undone"
     );
     ctrl(&mut a, 'y');
-    assert_eq!(a.message, "nothing to redo");
+    assert_eq!(a.message, "nothing to redo", "never redone");
     assert!(a.tick());
     std::fs::write(&path, "\0").unwrap();
     a.reload(false);
     std::fs::write(&path, "t\n").unwrap();
     a.reload(false);
     ctrl(&mut a, 'z');
-    assert_eq!(a.message, "nothing to undo");
+    assert_eq!(
+        a.message, "nothing to undo",
+        "a reload from what no save can write starts a new history"
+    );
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
-/// A dependency changed on disk (a `pip install -U`) or reloaded with Ctrl+R stays read-only.
 #[test]
 fn a_reload_keeps_a_file_outside_the_project_read_only() {
     let (path, mut a) = temp_file("reload-outside", "x\n");
@@ -851,7 +1068,11 @@ fn a_reload_keeps_a_file_outside_the_project_read_only() {
     a.jump_to(&outside, 1);
     std::fs::write(&outside, "def y(): pass\n").unwrap();
     a.reload(false);
-    assert_eq!(a.buf.readonly, Some("outside the project"));
+    assert_eq!(
+        a.buf.readonly,
+        Some("outside the project"),
+        "a dependency changed on disk, by a `pip install -U`, stays read-only"
+    );
     std::fs::remove_file(&outside).unwrap();
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }

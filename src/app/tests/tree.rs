@@ -1,5 +1,3 @@
-//! The file tree and the new file prompt.
-
 use super::*;
 
 #[test]
@@ -12,10 +10,12 @@ fn tree_focus_keys_do_not_move_the_code_cursor() {
     assert_eq!(a.focus, Focus::Code);
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);
     assert_eq!(a.line, 1);
-    // `t` hides the tree and hands the keys to the code pane for good.
     a.focus = Focus::Tree;
     press(&mut a, KeyCode::Char('t'), KeyModifiers::NONE);
-    assert!(!a.show_tree);
+    assert!(
+        !a.show_tree,
+        "`t` hides the tree and hands the keys to the code pane for good"
+    );
     assert_eq!(a.focus, Focus::Code);
     press(&mut a, KeyCode::Tab, KeyModifiers::NONE);
     assert_eq!(a.focus, Focus::Code);
@@ -52,14 +52,19 @@ fn ctrl_n_creates_a_file_next_to_the_open_one_and_edits_it() {
     let made = dir.join("src/sub/b.py");
     assert_eq!(std::fs::read_to_string(&made).unwrap(), "");
     assert_eq!((a.buf.path.as_deref(), a.mode), (Some(&*made), Mode::Edit));
-    // In the file list and the tree at once, with no watcher to wait for.
     let rel = Path::new("src/sub/b.py");
-    assert!(a.files.iter().any(|f| f == rel));
+    assert!(
+        a.files.iter().any(|f| f == rel),
+        "in the file list and the tree at once, with no watcher to wait for"
+    );
     assert_eq!(a.tree.selected().map(|n| &*n.path), Some(rel));
-    // `[` is the way back.
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
-    assert_eq!(a.buf.path.as_deref(), Some(&*dir.join("src/a.py")));
+    assert_eq!(
+        a.buf.path.as_deref(),
+        Some(&*dir.join("src/a.py")),
+        "`[` is the way back"
+    );
 }
 
 #[test]
@@ -109,9 +114,12 @@ fn ctrl_n_never_overwrites_and_never_leaves_the_project() {
         typed(a, path);
         press(a, KeyCode::Enter, KeyModifiers::NONE);
     };
-    // A file that is there opens as it is.
     new(&mut a, "README.md");
-    assert_eq!(a.buf.path.as_deref(), Some(&*dir.join("README.md")));
+    assert_eq!(
+        a.buf.path.as_deref(),
+        Some(&*dir.join("README.md")),
+        "a file that is there opens as it is"
+    );
     assert_eq!(
         std::fs::read_to_string(dir.join("README.md")).unwrap(),
         "hi\n"
@@ -127,14 +135,10 @@ fn ctrl_n_never_overwrites_and_never_leaves_the_project() {
         assert_eq!(a.message, why, "{path}");
     }
     assert!(!dir.parent().unwrap().join("out.py").exists());
-    // An empty prompt is a cancel, as in `:`.
     new(&mut a, "");
-    assert_eq!(a.message, "");
+    assert_eq!(a.message, "", "an empty prompt is a cancel, as in `:`");
 }
 
-/// #404: the directories on the typed path that exist are resolved, links included. A link out
-/// of the project is refused as a `..` out of it is, and nothing is created; a link that stays
-/// inside is followed.
 #[cfg(unix)]
 #[test]
 fn ctrl_n_resolves_the_links_on_the_path() {
@@ -156,19 +160,32 @@ fn ctrl_n_resolves_the_links_on_the_path() {
         "src/../out/x.txt",
     ] {
         new(&mut a, path);
-        assert_eq!(a.message, "outside the project", "{path}");
+        assert_eq!(
+            a.message, "outside the project",
+            "{path}: a link out of the project is refused as a `..` out of it is"
+        );
     }
-    assert_eq!(std::fs::read_dir(&outside).unwrap().count(), 0);
-    // A link to a file out there is refused as well, not opened (#448).
+    assert_eq!(
+        std::fs::read_dir(&outside).unwrap().count(),
+        0,
+        "nothing is created"
+    );
     std::fs::write(outside.join("far.py"), "far = 1\n").unwrap();
     std::os::unix::fs::symlink(outside.join("far.py"), dir.join("far.py")).unwrap();
     new(&mut a, "far.py");
-    assert_eq!(a.message, "outside the project");
+    assert_eq!(
+        a.message, "outside the project",
+        "a link to a file out there is refused as well, not opened (#448)"
+    );
     assert_eq!(a.buf.path.as_deref(), Some(&*dir.join("src/a.py")));
     new(&mut a, "inside/b.py");
     let made = dir.join("src/b.py");
     assert!(made.is_file());
-    assert_eq!((a.buf.path.as_deref(), a.mode), (Some(&*made), Mode::Edit));
+    assert_eq!(
+        (a.buf.path.as_deref(), a.mode),
+        (Some(&*made), Mode::Edit),
+        "a link that stays inside is followed"
+    );
     assert_eq!(
         a.tree.selected().map(|n| &*n.path),
         Some(Path::new("src/b.py"))
@@ -177,8 +194,6 @@ fn ctrl_n_resolves_the_links_on_the_path() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #507: a file that cannot be made is named from the root with the reason in a few words, as a
-/// file that does not open is (#403), not with the OS text and its `(os error N)`.
 #[cfg(unix)]
 #[test]
 fn ctrl_n_in_a_folder_merl_may_not_write_says_why_in_a_few_words() {
@@ -193,15 +208,15 @@ fn ctrl_n_in_a_folder_merl_may_not_write_says_why_in_a_few_words() {
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     // As root every folder is writable, and there is nothing to assert.
     if !locked.join("new.txt").exists() {
-        assert_eq!(a.message, "locked/new.txt: permission denied");
+        assert_eq!(
+            a.message, "locked/new.txt: permission denied",
+            "from the root, the reason in a few words, not the OS text and its `(os error N)`"
+        );
     }
     std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o755)).unwrap();
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #405: Ctrl+N on the name of a FIFO that is there opens it as it opens any file that is
-/// there, and reading one waited for a writer forever, on the UI thread. Here it runs on a thread
-/// of its own, so a wait fails the test instead of hanging it.
 #[cfg(unix)]
 #[test]
 fn ctrl_n_on_a_fifo_does_not_read_it() {
@@ -219,14 +234,13 @@ fn ctrl_n_on_a_fifo_does_not_read_it() {
         let _ = tx.send((a.message.clone(), a.buf.path.clone()));
         std::fs::remove_dir_all(&dir).unwrap();
     });
-    let (message, open) = rx.recv_timeout(std::time::Duration::from_secs(60)).unwrap();
+    let (message, open) = rx
+        .recv_timeout(std::time::Duration::from_secs(60))
+        .expect("reading a FIFO waits for a writer forever");
     assert_eq!(message, "pipe: not a regular file");
     assert!(open.is_some_and(|p| p.ends_with("src/a.py")));
 }
 
-/// #404: a symlink to a directory expands in the tree, and its files open; one that resolves
-/// outside the project opens read-only, as a file `d` reaches out there does. A file behind a
-/// link that stays inside opens by its own path: under the link's, `s` and `u` counted it twice.
 #[cfg(unix)]
 #[test]
 fn the_files_behind_a_link_to_a_directory_open_from_the_tree() {
@@ -251,17 +265,18 @@ fn the_files_behind_a_link_to_a_directory_open_from_the_tree() {
         assert_eq!(
             a.buf.path.as_deref(),
             Some(&*dir.join(file)),
-            "{}",
+            "a file behind a link that stays inside opens by its own path: {}",
             a.message
         );
-        assert_eq!(a.buf.readonly, readonly, "{file}");
+        assert_eq!(
+            a.buf.readonly, readonly,
+            "{file}: behind a link out, read-only as a file `d` reaches out there"
+        );
     }
     std::fs::remove_dir_all(&outside).unwrap();
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #448: a link to a file that resolves outside the project opens read-only, as a file behind a
-/// directory link out does, though the walk lists it. One to a file inside stays editable.
 #[cfg(unix)]
 #[test]
 fn a_link_to_a_file_outside_the_project_opens_read_only() {

@@ -34,14 +34,14 @@ wait Props: local
 33
 34 import { ParcelState } from "../orders/types";
 35 export const shippedState = ParcelState.Shipped;
-
-
-
-
-
-
-
-
+36
+37 type Closing = {
+38   target: Dialog;
+39 };
+40
+41 export function closeOn({ target }: Closing): void {
+42   target.close();
+43 }
 
 
 

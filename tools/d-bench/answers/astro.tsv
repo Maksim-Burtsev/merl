@@ -1,0 +1,271 @@
+# id	targets: path:line joined by ; (project-relative; ~/ or / outside the project; empty: the oracle found none)	skip: why the row is not scored	note
+astro0000	packages/starlight/src/components/PageFrame.astro:23		
+astro0001	docs/src/components/showcase-card.astro:1		
+astro0002		builtin: the server's own stub	
+astro0003	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__06e3a9546e97a7b8c2043f66baa00b4c/node_modules/astro/dist/core/errors/errors.d.ts:101;node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__06e3a9546e97a7b8c2043f66baa00b4c/node_modules/astro/dist/core/errors/errors.d.ts:94		
+astro0004		builtin: the server's own stub	
+astro0005	docs/src/components/theme-designer/preview.astro:11		
+astro0006	packages/starlight/src/global.ts:51		
+astro0007		builtin: the server's own stub	
+astro0008		builtin: the server's own stub	
+astro0009			
+astro0010	docs/src/components/showcase-card.astro:17		
+astro0011	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/types/public/context.d.ts:351		
+astro0012			
+astro0013	docs/src/components/youtube-grid.astro:6		
+astro0014	packages/starlight/src/global.ts:46		
+astro0015		builtin: the server's own stub	
+astro0016	packages/starlight/src/user-components/Icon.astro:1		
+astro0017	packages/starlight/src/utils/navigation.ts:495		
+astro0018		builtin: the server's own stub	
+astro0019	packages/starlight/src/components/Hero.astro:8		
+astro0020		builtin: the server's own stub	
+astro0021		builtin: the server's own stub	
+astro0022	packages/starlight/src/global.ts:46		
+astro0023		builtin: the server's own stub	
+astro0024		builtin: the server's own stub	
+astro0025	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__06e3a9546e97a7b8c2043f66baa00b4c/node_modules/astro/astro-jsx.d.ts:1570	a custom element's tag: the oracle gives JSX's catch-all signature	
+astro0026	packages/docsearch/src/DocSearch.astro:11		
+astro0027	packages/starlight/src/user-components/Icon.astro:1		
+astro0028		builtin: the server's own stub	
+astro0029		builtin: the server's own stub	
+astro0030	packages/starlight/src/utils/routing/types.ts:68		
+astro0031	docs/src/components/showcase-card.astro:1		
+astro0032	docs/src/components/showcase-card.astro:1		
+astro0033		builtin: the server's own stub	
+astro0034	packages/starlight/src/user-components/Icon.astro:1		
+astro0035	packages/starlight/src/utils/routing/types.ts:26		
+astro0036	docs/src/components/showcase-card.astro:1		
+astro0037		builtin: the server's own stub	
+astro0038	packages/starlight/src/user-components/Tabs.astro:1		
+astro0039	docs/src/components/theme-designer/store.ts:42		
+astro0040	packages/starlight/src/user-components/file-tree-processor.ts:22		
+astro0041	node_modules/.pnpm/@astrojs+internal-helpers@0.11.0/node_modules/@astrojs/internal-helpers/dist/markdown.d.ts:32		
+astro0042	node_modules/.pnpm/@types+culori@4.0.1/node_modules/@types/culori/src/converter.d.ts:6;docs/src/components/theme-designer/color-lib.ts:13		
+astro0043	packages/starlight/src/components/ThemeSelect.astro:50		
+astro0044	docs/src/components/theme-designer/store.ts:26		
+astro0045	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/assets/types.d.ts:46		
+astro0046			
+astro0047	packages/starlight/src/components/ThemeSelect.astro:31		
+astro0048	packages/starlight/src/utils/routing/types.ts:12		
+astro0049	packages/starlight/src/components/ThemeSelect.astro:1;packages/starlight/virtual.d.ts:112		
+astro0050		builtin: the server's own stub	
+astro0051		builtin: the server's own stub	
+astro0052	docs/src/components/theme-designer/atom.ts:15		
+astro0053			
+astro0054	packages/starlight/src/utils/user-config.ts:197		
+astro0055	docs/src/components/showcase-card.astro:1		
+astro0056		builtin: the server's own stub	
+astro0057		builtin: the server's own stub	
+astro0058	packages/starlight/src/user-components/steps-processor.ts:16		
+astro0059		builtin: the server's own stub	
+astro0060		builtin: the server's own stub	
+astro0061		builtin: the server's own stub	
+astro0062		builtin: the server's own stub	
+astro0063	packages/starlight/src/utils/routing/index.ts:99		
+astro0064	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/types/public/context.d.ts:422		
+astro0065		builtin: the server's own stub	
+astro0066			
+astro0067	packages/docsearch/src/DocSearch.astro:11		
+astro0068		builtin: the server's own stub	
+astro0069		builtin: the server's own stub	
+astro0070	packages/starlight/src/utils/user-config.ts:271		
+astro0071	packages/starlight/src/schemas/sidebar.ts:143		
+astro0072	packages/starlight/src/user-components/Badge.astro:1		
+astro0073	docs/src/components/sidebar-preview.astro:15		
+astro0074		builtin: the server's own stub	
+astro0075	packages/starlight/src/integrations/aside-utils.ts:20		
+astro0076	packages/starlight/src/global.ts:46		
+astro0077	packages/starlight/src/global.ts:46		
+astro0078	docs/src/components/showcase-card.astro:1		
+astro0079	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/types/public/context.d.ts:422		
+astro0080	docs/src/components/icons-list.astro:37		
+astro0081	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/types/public/context.d.ts:422		
+astro0082	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/types/public/context.d.ts:422		
+astro0083	docs/src/components/carbon-comparison.astro:6		
+astro0084	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/types/public/extendables.d.ts:16;node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__ffe89ade1a4a9313497bb4ba38357e49/node_modules/astro/env.d.ts:16;node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__ffe89ade1a4a9313497bb4ba38357e49/node_modules/astro/env.d.ts:7		
+astro0085	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/types/public/context.d.ts:351		
+astro0086	docs/src/components/theme-designer/value-slider.astro:26		
+astro0087	docs/src/components/showcase-card.astro:1		
+astro0088	packages/starlight/src/components/ThemeSelect.astro:50		
+astro0089	packages/starlight/virtual.d.ts:125		
+astro0090		builtin: the server's own stub	
+astro0091	node_modules/.pnpm/ultrahtml@1.6.0/node_modules/ultrahtml/dist/transformers/sanitize.d.ts:68		
+astro0092		builtin: the server's own stub	
+astro0093	docs/src/components/showcase-card.astro:1		
+astro0094		builtin: the server's own stub	
+astro0095		builtin: the server's own stub	
+astro0096	docs/src/components/theme-designer/store.ts:27		
+astro0097	packages/starlight/src/components/SocialIcons.astro:5		
+astro0098		builtin: the server's own stub	
+astro0099	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/virtual-modules/i18n.d.ts:29		
+astro0100	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__06e3a9546e97a7b8c2043f66baa00b4c/node_modules/astro/dist/core/errors/errors.d.ts:101;node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__06e3a9546e97a7b8c2043f66baa00b4c/node_modules/astro/dist/core/errors/errors.d.ts:94		
+astro0101		builtin: the server's own stub	
+astro0102	packages/starlight/src/global.ts:46		
+astro0103	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/types/public/context.d.ts:422		
+astro0104	docs/src/components/theme-designer/store.ts:42		
+astro0105	packages/starlight/src/components/Search.astro:140		
+astro0106		builtin: the server's own stub	
+astro0107		builtin: the server's own stub	
+astro0108	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/client.d.ts:529		
+astro0109			
+astro0110		builtin: the server's own stub	
+astro0111		builtin: the server's own stub	
+astro0112		builtin: the server's own stub	
+astro0113	docs/src/components/theme-designer/color-lib.ts:49		
+astro0114	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/types/public/extendables.d.ts:16;node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__ffe89ade1a4a9313497bb4ba38357e49/node_modules/astro/env.d.ts:16;node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__ffe89ade1a4a9313497bb4ba38357e49/node_modules/astro/env.d.ts:7		
+astro0115	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/types/public/context.d.ts:422		
+astro0116		builtin: the server's own stub	
+astro0117			
+astro0118	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/types/public/context.d.ts:351		
+astro0119	packages/starlight/src/constants.ts:4		
+astro0120	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/types/public/context.d.ts:351		
+astro0121		builtin: the server's own stub	
+astro0122	packages/starlight/src/components/DraftContentNotice.astro:1;packages/starlight/virtual.d.ts:70		
+astro0123	packages/starlight/src/user-components/Tabs.astro:197		
+astro0124	packages/starlight/src/components/Pagination.astro:5		
+astro0125	packages/starlight/src/components/DraftContentNotice.astro:1;packages/starlight/virtual.d.ts:70		
+astro0126	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/types/public/extendables.d.ts:16;node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__ffe89ade1a4a9313497bb4ba38357e49/node_modules/astro/env.d.ts:16;node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__ffe89ade1a4a9313497bb4ba38357e49/node_modules/astro/env.d.ts:7		
+astro0127		builtin: the server's own stub	
+astro0128		builtin: the server's own stub	
+astro0129		builtin: the server's own stub	
+astro0130		builtin: the server's own stub	
+astro0131	packages/starlight/src/components/LanguageSelect.astro:10		
+astro0132		builtin: the server's own stub	
+astro0133		builtin: the server's own stub	
+astro0134	packages/starlight/src/components/ContentNotice.astro:1		
+astro0135	docs/src/components/showcase-card.astro:1		
+astro0136	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__06e3a9546e97a7b8c2043f66baa00b4c/node_modules/astro/dist/core/errors/errors.d.ts:101;node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__06e3a9546e97a7b8c2043f66baa00b4c/node_modules/astro/dist/core/errors/errors.d.ts:94		
+astro0137	packages/starlight/src/components/ThemeSelect.astro:35		
+astro0138	docs/src/components/carbon-comparison.astro:104		
+astro0139	packages/starlight/src/components/ThemeSelect.astro:31		
+astro0140	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/types/public/context.d.ts:422		
+astro0141	packages/starlight/src/user-components/Tabs.astro:163		
+astro0142	docs/src/components/fluid-grid.astro:1		
+astro0143	packages/starlight/src/components/PageFrame.astro:33		
+astro0144		builtin: the server's own stub	
+astro0145	docs/src/components/showcase-card.astro:1		
+astro0146	node_modules/.pnpm/ultrahtml@1.6.0/node_modules/ultrahtml/dist/index.d.ts:78		
+astro0147	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/types/public/context.d.ts:422		
+astro0148		builtin: the server's own stub	
+astro0149		builtin: the server's own stub	
+astro0150	packages/starlight/src/components/MobileTableOfContents.astro:115		
+astro0151		builtin: the server's own stub	
+astro0152			
+astro0153	packages/starlight/src/components/Hero.astro:18		
+astro0154		builtin: the server's own stub	
+astro0155	packages/starlight/src/components/MobileTableOfContents.astro:125		
+astro0156		builtin: the server's own stub	
+astro0157	packages/starlight/src/user-components/LinkButton.astro:16		
+astro0158	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/assets/types.d.ts:44		
+astro0159	docs/src/components/theme-image.astro:14		
+astro0160		builtin: the server's own stub	
+astro0161	packages/starlight/src/components/MobileTableOfContents.astro:125		
+astro0162	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/types/public/context.d.ts:64		
+astro0163		builtin: the server's own stub	
+astro0164	docs/src/components/sidebar-preview.astro:21		
+astro0165	node_modules/.pnpm/@astrojs+internal-helpers@0.11.0/node_modules/@astrojs/internal-helpers/dist/markdown.d.ts:31		
+astro0166	docs/src/components/sidebar-preview.astro:22		
+astro0167	node_modules/.pnpm/@docsearch+js@3.6.0_@algolia+client-search@4.20.0/node_modules/@docsearch/js/dist/esm/docsearch.d.ts:6;packages/docsearch/src/DocSearch.astro:132		
+astro0168		builtin: the server's own stub	
+astro0169	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__06e3a9546e97a7b8c2043f66baa00b4c/node_modules/astro/dist/core/errors/errors.d.ts:101;node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__06e3a9546e97a7b8c2043f66baa00b4c/node_modules/astro/dist/core/errors/errors.d.ts:94		
+astro0170			
+astro0171		builtin: the server's own stub	
+astro0172	docs/src/components/carbon-comparison.astro:98	object-literal key is itself a declaration; oracle gives its contextual type	
+astro0173		builtin: the server's own stub	
+astro0174	packages/starlight/src/components/ThemeSelect.astro:35		
+astro0175		builtin: the server's own stub	
+astro0176		builtin: the server's own stub	
+astro0177	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/types/public/context.d.ts:422		
+astro0178	packages/starlight/src/components/Search.astro:132;packages/starlight/src/components/Search.astro:133		
+astro0179	packages/starlight/src/components/SidebarPersister.astro:47		
+astro0180		builtin: the server's own stub	
+astro0181		builtin: the server's own stub	
+astro0182		builtin: the server's own stub	
+astro0183		builtin: the server's own stub	
+astro0184	packages/starlight/src/user-components/Tabs.astro:216		
+astro0185			
+astro0186	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__ffe89ade1a4a9313497bb4ba38357e49/node_modules/astro/astro-jsx.d.ts:626;node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__06e3a9546e97a7b8c2043f66baa00b4c/node_modules/astro/astro-jsx.d.ts:626	an attribute of the markup inside an expression, not a name	
+astro0187	docs/src/components/showcase-card.astro:1		
+astro0188	docs/src/components/theme-designer/store.ts:32		
+astro0189	packages/starlight/src/components/ThemeSelect.astro:39		
+astro0190		builtin: the server's own stub	
+astro0191	packages/starlight/src/user-components/Badge.astro:1		
+astro0192	docs/src/components/showcase-card.astro:1		
+astro0193	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/types/public/context.d.ts:351		
+astro0194		builtin: the server's own stub	
+astro0195	packages/docsearch/src/DocSearch.astro:133		
+astro0196	docs/src/components/logo-grid/logo-grid.astro:14		
+astro0197	packages/starlight/src/components/Page.astro:46		
+astro0198			
+astro0199		builtin: the server's own stub	
+astro0200	packages/starlight/src/user-components/tabs-processor.ts:42		
+astro0201	packages/starlight/src/components/Select.astro:6		
+astro0202			
+astro0203	packages/starlight/src/user-components/Tabs.astro:59		
+astro0204	docs/src/components/theme-designer/color-lib.ts:25		
+astro0205	docs/src/components/showcase-card.astro:1		
+astro0206		builtin: the server's own stub	
+astro0207	packages/starlight/src/components/Search.astro:1;packages/starlight/virtual.d.ts:100		
+astro0208	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/components/Image.astro:1;node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/client.d.ts:56		
+astro0209			
+astro0210	packages/starlight/src/components/Search.astro:132;packages/starlight/src/components/Search.astro:133		
+astro0211	packages/starlight/src/utils/starlight-page.ts:102		
+astro0212	packages/starlight/src/components/SidebarSublist.astro:18		
+astro0213	packages/starlight/src/components-internals/Icons.ts:390		
+astro0214	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/components/Image.astro:1;node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/client.d.ts:56		
+astro0215	packages/starlight/src/user-components/Icon.astro:8		
+astro0216	packages/starlight/src/components/PageFrame.astro:23		
+astro0217	docs/src/components/theme-designer/color-lib.ts:25		
+astro0218	packages/starlight/src/utils/routing/data.ts:30		
+astro0219	packages/starlight/src/utils/routing/middleware.ts:11		
+astro0220	packages/starlight/src/components/MarkdownContent.astro:1;packages/starlight/virtual.d.ts:125		
+astro0221	packages/docsearch/src/DocSearch.astro:11		
+astro0222	docs/src/components/theme-designer/color-editor.astro:1		
+astro0223	packages/docsearch/src/DocSearch.astro:11		
+astro0224	docs/src/components/testimonial.astro:14		
+astro0225	docs/src/components/sidebar-preview.astro:21		
+astro0226	packages/starlight/src/user-components/Tabs.astro:33		
+astro0227	packages/starlight/src/utils/routing/middleware.ts:11		
+astro0228	node_modules/.pnpm/astro-expressive-code@0.44.0_astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color_96c3c6b9525f3b06d5f53942a3f804f8/node_modules/astro-expressive-code/components/index.ts:17		
+astro0229	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/types/public/context.d.ts:422		
+astro0230	packages/starlight/src/components/ThemeSelect.astro:50		
+astro0231		builtin: the server's own stub	
+astro0232		builtin: the server's own stub	
+astro0233		builtin: the server's own stub	
+astro0234	packages/starlight/src/components/LanguageSelect.astro:21		
+astro0235		builtin: the server's own stub	
+astro0236	packages/starlight/src/components/EditLink.astro:4		
+astro0237		builtin: the server's own stub	
+astro0238	packages/starlight/src/components/Search.astro:99		
+astro0239	docs/src/components/showcase-card.astro:1		
+astro0240			
+astro0241		builtin: the server's own stub	
+astro0242	packages/starlight/src/components/Search.astro:149		
+astro0243	packages/starlight/src/routes/common.astro:20		
+astro0244	packages/starlight/src/components/MarkdownContent.astro:1;packages/starlight/virtual.d.ts:125		
+astro0245		builtin: the server's own stub	
+astro0246	docs/src/components/showcase-card.astro:1		
+astro0247	packages/starlight/src/utils/routing/types.ts:68		
+astro0248	packages/starlight/src/components/Search.astro:107		
+astro0249	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/types/public/context.d.ts:422		
+astro0250		builtin: the server's own stub	
+astro0251		builtin: the server's own stub	
+astro0252	docs/src/components/theme-designer/preview.astro:10		
+astro0253	docs/src/components/theme-image.astro:18		
+astro0254	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/types/public/extendables.d.ts:16;node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__ffe89ade1a4a9313497bb4ba38357e49/node_modules/astro/env.d.ts:16;node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__ffe89ade1a4a9313497bb4ba38357e49/node_modules/astro/env.d.ts:7		
+astro0255	docs/src/components/showcase-card.astro:1		
+astro0256	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__06e3a9546e97a7b8c2043f66baa00b4c/node_modules/astro/dist/core/errors/errors.d.ts:101;node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__06e3a9546e97a7b8c2043f66baa00b4c/node_modules/astro/dist/core/errors/errors.d.ts:94		
+astro0257	packages/starlight/src/components/Search.astro:107		
+astro0258	packages/starlight/src/utils/navigation.ts:490		
+astro0259	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/types/public/context.d.ts:422		
+astro0260	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__06e3a9546e97a7b8c2043f66baa00b4c/node_modules/astro/astro-jsx.d.ts:1570	a custom element's tag: the oracle gives JSX's catch-all signature	
+astro0261		builtin: the server's own stub	
+astro0262	packages/docsearch/src/DocSearch.astro:11		
+astro0263		builtin: the server's own stub	
+astro0264	packages/starlight/src/utils/routing/types.ts:10		
+astro0265	node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__23f381da4f61f9426b47f37f9c88922b/node_modules/astro/dist/types/public/extendables.d.ts:16;node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__ffe89ade1a4a9313497bb4ba38357e49/node_modules/astro/env.d.ts:16;node_modules/.pnpm/astro@7.2.10_@astrojs+markdown-remark@7.3.0_supports-color@10.2.2__@emnapi+core@1.11.1__ffe89ade1a4a9313497bb4ba38357e49/node_modules/astro/env.d.ts:7		
+astro0266	packages/starlight/src/utils/routing/data.ts:23		
+astro0267	packages/starlight/src/utils/error-map.ts:27		
+astro0268	packages/starlight/src/utils/routing/types.ts:68		
+astro0269		builtin: the server's own stub	

@@ -1,15 +1,5 @@
-//! `d` on a field, and the types a class inherits one from.
-
 use super::*;
 
-/// #104 over the same project in three languages. A field is a target: behind a receiver whose
-/// type is proven, the type's declaration of the field, found through the classes it extends
-/// and the structs it embeds, is one jump that names the receiver; an assignment in a method
-/// stands for the field only when no type declares it, and then the base-most one does. On a
-/// value whose type is not known, each type's declaration of a field of that name is a
-/// candidate by name, so a common name is a picker; a local, a literal's key or a `var` block
-/// of that name is none. On the declaration itself the other fields of the name are its
-/// namesakes, but only on the name the line declares.
 #[test]
 fn a_field_is_a_target() {
     let namesakes = |word: &str, row: (&str, &str)| {
@@ -18,9 +8,9 @@ fn a_field_is_a_target() {
             &[row],
         )
     };
-    let cases: Vec<(&str, &str, &str, Shown)> = vec![
-        // Annotated in the class body, with a value and without.
+    let cases: Vec<(&str, &str, &str, &str, Shown)> = vec![
         (
+            "Annotated in the class body, with a value and without",
             "python",
             "fields.py",
             "issue.poster_id",
@@ -30,6 +20,7 @@ fn a_field_is_a_target() {
             ),
         ),
         (
+            "Annotated in the class body, with a value and without",
             "python",
             "fields.py",
             "issue.title",
@@ -38,8 +29,8 @@ fn a_field_is_a_target() {
                 "fields.py:15",
             ),
         ),
-        // Assigned in the `__init__` of the base class, and again in a method of `Issue`.
         (
+            "Assigned in the `__init__` of the base class, and again in a method of `Issue`",
             "python",
             "fields.py",
             "issue.audit",
@@ -48,8 +39,8 @@ fn a_field_is_a_target() {
                 "fields.py:8",
             ),
         ),
-        // A field of `Issue` before a method of `Base`.
         (
+            "A field of `Issue` before a method of `Base`",
             "python",
             "fields.py",
             "issue.summary",
@@ -59,13 +50,14 @@ fn a_field_is_a_target() {
             ),
         ),
         (
+            "",
             "python",
             "fields.py",
             "await self.repo",
             jump("repo \u{2192} Issue.repo (via self: Issue)", "fields.py:21"),
         ),
-        // A later assignment is not the declaration.
         (
+            "A later assignment is not the declaration",
             "python",
             "fields.py",
             "^            self.labels",
@@ -75,6 +67,7 @@ fn a_field_is_a_target() {
             ),
         ),
         (
+            "",
             "python",
             "chains.py",
             "self.uow.users",
@@ -84,6 +77,7 @@ fn a_field_is_a_target() {
             ),
         ),
         (
+            "",
             "python",
             "fields.py",
             "comment.poster_id",
@@ -95,8 +89,8 @@ fn a_field_is_a_target() {
                 ],
             ),
         ),
-        // `body : str` in the docstring declares nothing.
         (
+            "`body : str` in the docstring declares nothing",
             "python",
             "fields.py",
             "comment.body",
@@ -105,15 +99,15 @@ fn a_field_is_a_target() {
                 "fields.py:41",
             ),
         ),
-        // `total: int = 0` is a local.
         (
+            "`total: int = 0` is a local",
             "python",
             "fields.py",
             "comment.total",
             jump("no definition for total", "fields.py:52"),
         ),
-        // The first binding of `Point.offset` is a tuple target.
         (
+            "The first binding of `Point.offset` is a tuple target",
             "python",
             "fields.py",
             "p.offset",
@@ -126,34 +120,35 @@ fn a_field_is_a_target() {
             ),
         ),
         (
+            "",
             "python",
             "fields.py",
             "^    poster_id",
             namesakes("poster_id", ("Comment.poster_id", "fields.py:40")),
         ),
         (
+            "",
             "python",
             "fields.py",
             "^        self.poster_id",
             namesakes("poster_id", ("Issue.poster_id", "fields.py:16")),
         ),
-        // The parameter handed on, not the field it is handed to, and named so (#100).
         (
+            "The parameter handed on, not the field it is handed to, and named so (#100)",
             "python",
             "fields.py",
             "self.repo = repo",
             jump("repo \u{2192} Issue.__init__.repo (local)", "fields.py:19"),
         ),
-        // A class whose base is outside the project and that does not declare the field: it
-        // comes from outside or from a subclass, and no other class's namesake is it (#342).
-        // A nested class of its own is found as before.
         (
+            "A class whose base is outside the project and that does not declare the field: it comes from outside or from a subclass, and no other class's namesake is it (#342). A nested class of its own is found as before",
             "python",
             "fields.py",
             "if self.poster_id",
             jump("no definition for poster_id", "fields.py:61"),
         ),
         (
+            "A class whose base is outside the project and that does not declare the field: it comes from outside or from a subclass, and no other class's namesake is it (#342). A nested class of its own is found as before",
             "python",
             "fields.py",
             "self.Options",
@@ -163,6 +158,7 @@ fn a_field_is_a_target() {
             ),
         ),
         (
+            "",
             "typescript",
             "fields.ts",
             "issue.posterId",
@@ -172,6 +168,7 @@ fn a_field_is_a_target() {
             ),
         ),
         (
+            "",
             "typescript",
             "fields.ts",
             "issue.title",
@@ -180,8 +177,8 @@ fn a_field_is_a_target() {
                 "fields.ts:8",
             ),
         ),
-        // `Issue.close` assigns it again.
         (
+            "`Issue.close` assigns it again",
             "typescript",
             "fields.ts",
             "issue.audit",
@@ -190,14 +187,15 @@ fn a_field_is_a_target() {
                 "fields.ts:4",
             ),
         ),
-        // A parameter of a constructor wrapped over several lines.
         (
+            "A parameter of a constructor wrapped over several lines",
             "typescript",
             "fields.ts",
             "this.repo",
             jump("repo \u{2192} Issue.repo (via this: Issue)", "fields.ts:13"),
         ),
         (
+            "",
             "typescript",
             "fields.ts",
             "this.title",
@@ -206,8 +204,8 @@ fn a_field_is_a_target() {
                 "fields.ts:8",
             ),
         ),
-        // Both sides of `this.close = this.close.bind(this)` are the method.
         (
+            "Both sides of `this.close = this.close.bind(this)` are the method",
             "typescript",
             "fields.ts",
             "this.close",
@@ -217,6 +215,7 @@ fn a_field_is_a_target() {
             ),
         ),
         (
+            "Both sides of `this.close = this.close.bind(this)` are the method",
             "typescript",
             "fields.ts",
             "= this.close",
@@ -225,8 +224,8 @@ fn a_field_is_a_target() {
                 "fields.ts:21",
             ),
         ),
-        // A `case` block is no object literal: `this` is still the class.
         (
+            "A `case` block is no object literal: `this` is still the class",
             "typescript",
             "fields.ts",
             "String(this.posterId",
@@ -236,6 +235,7 @@ fn a_field_is_a_target() {
             ),
         ),
         (
+            "A `case` block is no object literal: `this` is still the class",
             "typescript",
             "fields.ts",
             "return this.title",
@@ -244,8 +244,8 @@ fn a_field_is_a_target() {
                 "fields.ts:8",
             ),
         ),
-        // But the literal a `case` returns is: its `this` is not the class.
         (
+            "But the literal a `case` returns is: its `this` is not the class",
             "typescript",
             "fields.ts",
             "`${this.posterId",
@@ -258,6 +258,7 @@ fn a_field_is_a_target() {
             ),
         ),
         (
+            "",
             "typescript",
             "chains.ts",
             "this.uow.users",
@@ -267,6 +268,7 @@ fn a_field_is_a_target() {
             ),
         ),
         (
+            "",
             "typescript",
             "fields.ts",
             "comment.posterId",
@@ -279,6 +281,7 @@ fn a_field_is_a_target() {
             ),
         ),
         (
+            "",
             "typescript",
             "fields.ts",
             "comment.body",
@@ -287,20 +290,22 @@ fn a_field_is_a_target() {
                 "fields.ts:48",
             ),
         ),
-        // `let total` is a local, and `total: 0` the key of an object literal.
         (
+            "`let total` is a local, and `total: 0` the key of an object literal",
             "typescript",
             "fields.ts",
             "comment.total",
             jump("no definition for total", "fields.ts:62"),
         ),
         (
+            "",
             "typescript",
             "fields.ts",
             "^  posterId",
             namesakes("posterId", ("Comment.posterId", "fields.ts:47")),
         ),
         (
+            "",
             "go",
             "fields.go",
             "issue.PosterID",
@@ -309,8 +314,8 @@ fn a_field_is_a_target() {
                 "fields.go:14",
             ),
         ),
-        // The second name of `Title, Body string`.
         (
+            "The second name of `Title, Body string`",
             "go",
             "fields.go",
             "issue.Body",
@@ -319,8 +324,8 @@ fn a_field_is_a_target() {
                 "fields.go:15",
             ),
         ),
-        // Promoted from the embedded `Base`, and the embedded struct by its name.
         (
+            "Promoted from the embedded `Base`, and the embedded struct by its name",
             "go",
             "fields.go",
             "issue.Audit",
@@ -330,6 +335,7 @@ fn a_field_is_a_target() {
             ),
         ),
         (
+            "Promoted from the embedded `Base`, and the embedded struct by its name",
             "go",
             "fields.go",
             "issue.Base",
@@ -339,18 +345,21 @@ fn a_field_is_a_target() {
             ),
         ),
         (
+            "",
             "go",
             "fields.go",
             "i.repo",
             jump("repo \u{2192} Issue.repo (via i: Issue)", "fields.go:16"),
         ),
         (
+            "",
             "go",
             "chains.go",
             "h.uow",
             jump("uow \u{2192} Deps.uow (via h: Handler)", "chains.go:25"),
         ),
         (
+            "",
             "go",
             "chains.go",
             "h.uow.Users",
@@ -359,8 +368,8 @@ fn a_field_is_a_target() {
                 "chains.go:4",
             ),
         ),
-        // The variable of a `range` over a channel, which the rules do not read.
         (
+            "The variable of a `range` over a channel, which the rules do not read",
             "go",
             "fields.go",
             "c.PosterID",
@@ -373,6 +382,7 @@ fn a_field_is_a_target() {
             ),
         ),
         (
+            "The variable of a `range` over a channel, which the rules do not read",
             "go",
             "fields.go",
             "c.Text",
@@ -381,50 +391,47 @@ fn a_field_is_a_target() {
                 "fields.go:21",
             ),
         ),
-        // `Host string` in a `var` block is a local.
         (
+            "`Host string` in a `var` block is a local",
             "go",
             "fields.go",
             "r.Host",
             jump("no definition for Host", "fields.go:40"),
         ),
-        // A field named like its type: on the type, `d` goes to the type.
         (
+            "A field named like its type: on the type, `d` goes to the type",
             "go",
             "fields.go",
             "^\tIssue    *Issue",
             jump("Issue: by name, 1 match", "fields.go:12"),
         ),
-        // An embedded struct's name is its type's: `d` there goes to the type.
         (
+            "An embedded struct's name is its type's: `d` there goes to the type",
             "go",
             "fields.go",
             "^\tBase",
             jump("Base: by name, 1 match", "fields.go:8"),
         ),
         (
+            "",
             "go",
             "fields.go",
             "^\tPosterID",
             namesakes("PosterID", ("Comment.PosterID", "fields.go:20")),
         ),
     ];
-    for (fixture, file, code, want) in cases {
+    for (name, fixture, file, code, want) in cases {
         let mut a = fixture_app(fixture);
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        assert_eq!(shown(&mut a), want, "{name}: {fixture}: {file}: {code}");
     }
 }
 
-/// #100: `super().m()` / `super.m()` is `self` / `this` with the walk started one level up, so
-/// an override leads to what it overrides and never to itself. Go has no `super`: its
-/// `i.Base.M()` is a chain through the embedded struct. Under several Python bases only what
-/// needs no method resolution order is proven.
 #[test]
 fn super_starts_one_level_up() {
-    let cases: Vec<(&str, &str, &str, Shown)> = vec![
-        // One base: the nearest declaration above the class, a method or a declared field.
+    let cases: Vec<(&str, &str, &str, &str, Shown)> = vec![
         (
+            "One base: the nearest declaration above the class, a method or a declared field",
             "python",
             "supers.py",
             "super().__init__",
@@ -434,6 +441,7 @@ fn super_starts_one_level_up() {
             ),
         ),
         (
+            "One base: the nearest declaration above the class, a method or a declared field",
             "python",
             "supers.py",
             "super().store|(item)",
@@ -442,8 +450,8 @@ fn super_starts_one_level_up() {
                 "supers.py:15",
             ),
         ),
-        // An override leads to what it overrides, never to itself; `Generic[T]` declares nothing.
         (
+            "An override leads to what it overrides, never to itself; `Generic[T]` declares nothing",
             "python",
             "supers.py",
             "super().store|(item + 1)",
@@ -453,6 +461,7 @@ fn super_starts_one_level_up() {
             ),
         ),
         (
+            "An override leads to what it overrides, never to itself; `Generic[T]` declares nothing",
             "python",
             "supers.py",
             "super().flush|()",
@@ -462,6 +471,7 @@ fn super_starts_one_level_up() {
             ),
         ),
         (
+            "An override leads to what it overrides, never to itself; `Generic[T]` declares nothing",
             "python",
             "supers.py",
             "super().label",
@@ -470,8 +480,8 @@ fn super_starts_one_level_up() {
                 "supers.py:10",
             ),
         ),
-        // A function inside the method: `super()` has no arguments to find there.
         (
+            "A function inside the method: `super()` has no arguments to find there",
             "python",
             "supers.py",
             "super().flush|(), \"no arg",
@@ -485,8 +495,8 @@ fn super_starts_one_level_up() {
                 ],
             ),
         ),
-        // Several bases: the first one declaring the member itself is first in any order.
         (
+            "Several bases: the first one declaring the member itself is first in any order",
             "python",
             "supers.py",
             "super().store|(item + 2)",
@@ -496,6 +506,7 @@ fn super_starts_one_level_up() {
             ),
         ),
         (
+            "Several bases: the first one declaring the member itself is first in any order",
             "python",
             "supers.py",
             "super().stamp",
@@ -504,8 +515,8 @@ fn super_starts_one_level_up() {
                 "supers.py:47",
             ),
         ),
-        // Only one of the bases leads to a `flush`.
         (
+            "Only one of the bases leads to a `flush`",
             "python",
             "supers.py",
             "super().flush|(), \"one base",
@@ -514,9 +525,8 @@ fn super_starts_one_level_up() {
                 "supers.py:18",
             ),
         ),
-        // `Left` leads to `Archive.flush`, `Right` declares its own, and Python asks `Right` first: a
-        // walk by depth would jump to the wrong one, so none is proven.
         (
+            "`Left` leads to `Archive.flush`, `Right` declares its own, and Python asks `Right` first: a walk by depth would jump to the wrong one, so none is proven",
             "python",
             "supers.py",
             "super().flush|(), \"Right",
@@ -530,8 +540,8 @@ fn super_starts_one_level_up() {
                 ],
             ),
         ),
-        // `json.JSONEncoder` is outside the project and may declare the member first.
         (
+            "`json.JSONEncoder` is outside the project and may declare the member first",
             "python",
             "supers.py",
             "super().store|(item + 3)",
@@ -548,6 +558,7 @@ fn super_starts_one_level_up() {
             ),
         ),
         (
+            "`json.JSONEncoder` is outside the project and may declare the member first",
             "python",
             "supers.py",
             "super().default",
@@ -559,9 +570,8 @@ fn super_starts_one_level_up() {
                 ],
             ),
         ),
-        // A name between `super()` and the word is not followed: the word is not looked for
-        // above the class as if it stood behind `super()` itself.
         (
+            "A name between `super()` and the word is not followed: the word is not looked for above the class as if it stood behind `super()` itself",
             "python",
             "supers.py",
             "super().audit.store",
@@ -577,8 +587,8 @@ fn super_starts_one_level_up() {
                 ],
             ),
         ),
-        // TypeScript: one `extends`.
         (
+            "TypeScript: one `extends`",
             "typescript",
             "supers.ts",
             "super.store|(item);",
@@ -588,6 +598,7 @@ fn super_starts_one_level_up() {
             ),
         ),
         (
+            "TypeScript: one `extends`",
             "typescript",
             "supers.ts",
             "super.store|(item + 1)",
@@ -597,6 +608,7 @@ fn super_starts_one_level_up() {
             ),
         ),
         (
+            "TypeScript: one `extends`",
             "typescript",
             "supers.ts",
             "super.flush",
@@ -605,8 +617,8 @@ fn super_starts_one_level_up() {
                 "supers.ts:10",
             ),
         ),
-        // An arrow function passes `super` through as it does `this`.
         (
+            "An arrow function passes `super` through as it does `this`",
             "typescript",
             "supers.ts",
             "super.store|(n)",
@@ -615,8 +627,8 @@ fn super_starts_one_level_up() {
                 "supers.ts:18",
             ),
         ),
-        // In an object literal `super` is the literal's prototype, not the class around it.
         (
+            "In an object literal `super` is the literal's prototype, not the class around it",
             "typescript",
             "supers.ts",
             "super.toString",
@@ -628,9 +640,8 @@ fn super_starts_one_level_up() {
                 ],
             ),
         ),
-        // The same conditions hold at every level the answer is found through: a diamond
-        // or an outside base under the one direct base proves nothing either.
         (
+            "The same conditions hold at every level the answer is found through: a diamond or an outside base under the one direct base proves nothing either",
             "python",
             "supers.py",
             "super().drain|(), \"a diamond",
@@ -647,6 +658,7 @@ fn super_starts_one_level_up() {
             ),
         ),
         (
+            "The same conditions hold at every level the answer is found through: a diamond or an outside base under the one direct base proves nothing either",
             "python",
             "supers.py",
             "super().drain|(), \"an outside",
@@ -662,8 +674,8 @@ fn super_starts_one_level_up() {
                 ],
             ),
         ),
-        // Two bases that lead to the same declaration, and `ABC`, which declares nothing.
         (
+            "Two bases that lead to the same declaration, and `ABC`, which declares nothing",
             "python",
             "supers.py",
             "super().drain|(), \"both",
@@ -673,6 +685,7 @@ fn super_starts_one_level_up() {
             ),
         ),
         (
+            "Two bases that lead to the same declaration, and `ABC`, which declares nothing",
             "python",
             "supers.py",
             "super().drain|(), \"ABC",
@@ -681,22 +694,22 @@ fn super_starts_one_level_up() {
                 "supers.py:89",
             ),
         ),
-        // `d` on the word itself is what it was: `super` is no local.
         (
+            "`d` on the word itself is what it was: `super` is no local",
             "python",
             "supers.py",
             "super|().stamp",
             jump("no definition for super", "supers.py:54"),
         ),
         (
+            "`d` on the word itself is what it was: `super` is no local",
             "typescript",
             "supers.ts",
             "super|.flush",
             jump("no definition for super", "supers.ts:26"),
         ),
-        // `super.open()` returns what the base's `open` declares, not the override's
-        // narrower type: a call on `super` is not read as a call on `this`.
         (
+            "`super.open()` returns what the base's `open` declares, not the override's narrower type: a call on `super` is not read as a call on `this`",
             "typescript",
             "supers.ts",
             "opened.store",
@@ -710,6 +723,7 @@ fn super_starts_one_level_up() {
             ),
         ),
         (
+            "`super.open()` returns what the base's `open` declares, not the override's narrower type: a call on `super` is not read as a call on `this`",
             "typescript",
             "supers.ts",
             "super.open().store",
@@ -723,15 +737,13 @@ fn super_starts_one_level_up() {
             ),
         ),
     ];
-    for (fixture, file, code, want) in cases {
+    for (name, fixture, file, code, want) in cases {
         let mut a = fixture_app(fixture);
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        assert_eq!(shown(&mut a), want, "{name}: {fixture}: {file}: {code}");
     }
 }
 
-/// #175: a field assigned from a call on itself, `this.close = this.close.bind(this)` or
-/// `self.model = self.model.to(device)`, ends; its other assignments still prove its type.
 #[test]
 fn a_field_rebound_from_itself_ends() {
     let mut a = fixture_app("typescript");
@@ -741,7 +753,8 @@ fn a_field_rebound_from_itself_ends() {
         jump(
             "no definition for bind (chain broke at close)",
             "fields.ts:18"
-        )
+        ),
+        "a field assigned from a call on itself ends the chain"
     );
     let mut a = fixture_app("python");
     d_on(&mut a, "trainer.py", "self.model.forward");
@@ -751,5 +764,6 @@ fn a_field_rebound_from_itself_ends() {
             "forward \u{2192} Model.forward (via self.model: Model)",
             "trainer.py:5",
         ),
+        "the field's other assignments still prove its type",
     );
 }

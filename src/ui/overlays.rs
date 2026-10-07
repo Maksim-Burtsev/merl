@@ -14,7 +14,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::app::{App, Focus, Mode, PickerKind};
 use crate::buffer::{Buffer, Spans};
 use crate::git::{Mark, Review};
-use crate::picker::PickItem;
+use crate::picker::{PickItem, Picker, Row};
 use crate::search::MAX_HITS;
 use crate::theme::Theme;
 use crate::wrap;
@@ -81,7 +81,13 @@ pub(super) fn draw_help(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     );
 }
 
-pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
+pub(super) fn draw_tree(
+    frame: &mut Frame,
+    app: &mut App,
+    theme: &Theme,
+    area: Rect,
+    base: Style,
+) -> Option<usize> {
     let accent = base.fg(theme.accent);
     let title = match &app.review {
         Some(r) => format!("{} \u{2190} {}", r.branch, r.base),
@@ -110,22 +116,37 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     frame.render_widget(block, area);
 
     let focused = app.focus == Focus::Tree;
+    let width = inner.width as usize;
+    let review = app.review.as_ref();
+    app.tree.fold(|n, depth| {
+        let need = wrap::width(&n.name()).min(NAME_ROOM) as isize;
+        need.saturating_sub(name_room(review, n, depth, width))
+            .max(0) as usize
+    });
     let visible = app.tree.visible();
     let height = inner.height as usize;
-    let at = visible
-        .iter()
-        .position(|&i| i == app.tree.cursor)
-        .unwrap_or(0);
-    // Scroll the minimum amount that keeps the cursor row on screen.
+    let shown = app.tree.shown();
+    let at = visible.iter().position(|&i| i == shown).unwrap_or(0);
     app.tree_top = app.tree_top.min(at).max((at + 1).saturating_sub(height));
 
-    let width = inner.width as usize;
+    let mut cut_any = false;
+    let mut need = 0;
     let rows: Vec<Line> = visible
         .iter()
         .skip(app.tree_top)
         .take(height)
         .map(|&i| {
             let n = &app.tree.nodes[i];
+            let depth = app.tree.drawn_depth(i);
+            let full = app.tree.row_name(i);
+            let room = name_room(app.review.as_ref(), n, depth, width).max(0) as usize;
+            let cut = wrap::width(&full) > room;
+            let joined = full.contains('/');
+            cut_any |= cut;
+            for j in app.tree.row_nodes(i) {
+                let m = &app.tree.nodes[j];
+                need = need.max(used(app.review.as_ref(), m, m.depth) + wrap::width(&m.name()));
+            }
             // Directories carry the accent: they are what the eye scans the tree by. What
             // `.gitignore` leaves out is dim, directory or not.
             let row = if n.ignored {
@@ -135,7 +156,7 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             } else {
                 base
             };
-            let style = if i != app.tree.cursor {
+            let style = if i != shown {
                 row
             } else if focused {
                 row.bg(theme.line_hl)
@@ -151,10 +172,9 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 (Some(_), true) => "\u{2713} ",
             };
             let width = width.saturating_sub(wrap::width(tick));
-            let indent = "  ".repeat(n.depth);
             let mut spans = vec![
                 Span::styled(tick, style.fg(theme.accent)),
-                Span::styled(indent, style),
+                Span::styled("  ".repeat(depth), style),
             ];
             match app.review.as_ref().and_then(|r| r.file(&n.path)) {
                 // Review: `M name  +6 −2`, the status in place of the marker.
@@ -166,17 +186,10 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                         true => style.fg(theme.ghost_fg),
                         false => style,
                     };
-                    let counts = if f.binary {
-                        "bin".to_string()
-                    } else {
-                        format!("+{} \u{2212}{}", f.added, f.deleted)
-                    };
-                    // The counts stay; a long name gives way, with the cut marked. Before the
-                    // name: the indent, the letter and a space.
-                    let used = 2 * n.depth + 2;
-                    let room = width.saturating_sub(used + wrap::width(&counts) + 1);
-                    let mut name = n.name();
-                    if wrap::width(&name) > room {
+                    let counts = counts(f);
+                    let used = 2 * depth + 2;
+                    let mut name = full.clone();
+                    if cut {
                         let fits = wrap::cut(&name, 0, room.saturating_sub(1)).0;
                         name = format!("{}\u{2026}", &name[fits]);
                     }
@@ -197,7 +210,11 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                         (false, _, Some(&mark)) => mark,
                         (false, _, None) => ' ',
                     };
-                    spans.push(Span::styled(format!("{marker} {}", n.name()), style));
+                    let name = match cut && joined {
+                        true => cut_at_slash(&full, room),
+                        false => full,
+                    };
+                    spans.push(Span::styled(format!("{marker} {name}"), style));
                 }
             }
             let used: usize = spans[1..].iter().map(|s| wrap::width(&s.content)).sum();
@@ -206,6 +223,35 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         })
         .collect();
     frame.render_widget(Paragraph::new(rows).style(base), inner);
+    cut_any.then_some(need)
+}
+
+const NAME_ROOM: usize = 12;
+
+fn counts(f: &crate::git::ReviewFile) -> String {
+    match f.binary {
+        true => "bin".to_string(),
+        false => format!("+{} \u{2212}{}", f.added, f.deleted),
+    }
+}
+
+fn used(review: Option<&Review>, n: &crate::tree::Node, depth: usize) -> usize {
+    match review {
+        None => 2 * depth + 2,
+        Some(r) => 2 + 2 * depth + 2 + r.file(&n.path).map_or(0, |f| wrap::width(&counts(f)) + 1),
+    }
+}
+
+fn name_room(review: Option<&Review>, n: &crate::tree::Node, depth: usize, width: usize) -> isize {
+    width as isize - used(review, n, depth) as isize
+}
+
+fn cut_at_slash(path: &str, room: usize) -> String {
+    let parts: Vec<&str> = path.split('/').collect();
+    (1..parts.len())
+        .map(|k| format!("\u{2026}/{}", parts[k..].join("/")))
+        .find(|t| wrap::width(t) <= room)
+        .unwrap_or_else(|| parts[parts.len() - 1].to_string())
 }
 
 pub(super) fn draw_picker(
@@ -213,6 +259,7 @@ pub(super) fn draw_picker(
     app: &mut App,
     theme: &Theme,
     area: Rect,
+    share: u16,
     base: Style,
 ) {
     let pending = app.search_pending();
@@ -221,7 +268,7 @@ pub(super) fn draw_picker(
     let Some(picker) = &mut app.picker else {
         return;
     };
-    let [area] = Layout::horizontal([Constraint::Percentage(80)])
+    let [area] = Layout::horizontal([Constraint::Percentage(share)])
         .flex(Flex::Center)
         .areas(area);
     let [area] = Layout::vertical([Constraint::Percentage(60)])
@@ -261,11 +308,8 @@ pub(super) fn draw_picker(
     let prefix = if search { "s> " } else { "> " };
     draw_prompt(frame, prefix, &picker.query, base, prompt);
 
-    let (rows, selected) = picker.window(list.height as usize);
     let width = list.width as usize;
     let files = app.mode == Mode::Picker(PickerKind::Files);
-    // Review (#246): `o` puts the review's files first, each with its panel letter; `u` and `s`
-    // give each row the gutter's `▎` when the branch added or changed its line.
     let review = app.review.as_ref();
     let letters = review.filter(|_| files && app.review_open_files_first);
     let marks = review.filter(|_| {
@@ -280,58 +324,61 @@ pub(super) fn draw_picker(
                 )
             )
     });
-    let lines: Vec<Line> = rows
-        .iter()
-        .enumerate()
-        .map(|(i, row)| {
-            // An ignored file is dim, as in the tree.
-            let base = if files && app.ignored.contains(&row.item.path) {
-                base.fg(theme.ghost_fg)
-            } else {
-                base
+    let grouped = matches!(
+        app.mode,
+        Mode::Picker(PickerKind::Usages | PickerKind::Search | PickerKind::Definitions)
+    );
+    let height = list.height as usize;
+    let prefix_w = usize::from(marks.is_some());
+    let (rows, places, selected) = match grouped && height > 1 {
+        true => group_window(picker, height, width, prefix_w),
+        false => {
+            let (rows, selected) = picker.window(height);
+            let places = rows.iter().map(|_| None).collect();
+            (rows, places, selected)
+        }
+    };
+    let mut lines: Vec<Line> = Vec::new();
+    let mut headers = Vec::new();
+    for (i, (row, place)) in rows.iter().zip(&places).enumerate() {
+        let base = if files && app.ignored.contains(&row.item.path) {
+            base.fg(theme.ghost_fg)
+        } else {
+            base
+        };
+        let style = if i == selected {
+            base.bg(theme.line_hl)
+        } else {
+            base
+        };
+        let mut prefix = Vec::new();
+        if let Some(r) = letters {
+            prefix.push(match r.file(&row.item.path) {
+                Some(f) => Span::styled(format!("{} ", f.status), style),
+                None => Span::styled("  ", style),
+            });
+        }
+        if let Some(r) = marks {
+            let colour = match row.item.deleted {
+                true => Some(Color::Red),
+                false => match review_mark(&mut picker.marks, r, &app.root, &row.item) {
+                    Some(Mark::Added) => Some(Color::Green),
+                    Some(Mark::Changed) => Some(Color::Blue),
+                    _ => None,
+                },
             };
-            let style = if i == selected {
-                base.bg(theme.line_hl)
-            } else {
-                base
-            };
-            let label = &row.item.label;
-            let mut spans = Vec::new();
-            if let Some(r) = letters {
-                spans.push(match r.file(&row.item.path) {
-                    Some(f) => Span::styled(format!("{} ", f.status), style),
-                    None => Span::styled("  ", style),
-                });
-            }
-            // A line the branch deleted differs from the others only by its mark's colour
-            // (#440).
-            if let Some(r) = marks {
-                let colour = match row.item.deleted {
-                    true => Some(Color::Red),
-                    false => match review_mark(&mut picker.marks, r, &app.root, &row.item) {
-                        Some(Mark::Added) => Some(Color::Green),
-                        Some(Mark::Changed) => Some(Color::Blue),
-                        _ => None,
-                    },
-                };
-                spans.push(match colour {
-                    Some(c) => Span::styled("\u{258e}", style.fg(c)),
-                    None => Span::styled(" ", style),
-                });
-            }
-            let used: usize = spans.iter().map(|s| wrap::width(&s.content)).sum();
-            let code = code_hl(
-                &mut picker.bufs,
-                &app.root,
-                app.review.as_ref(),
-                &row.item,
-                theme,
-            );
-            // A span per cluster: ratatui measures each span apart, so an emoji split from its
-            // selector would be drawn one column narrower than `wrap::width` counts it.
-            let mut c = 0;
-            spans.extend(label.grapheme_indices(true).map(|(b, g)| {
-                // The matcher numbers chars; a cluster is bold when any of its chars matched.
+            prefix.push(match colour {
+                Some(c) => Span::styled("\u{258e}", style.fg(c)),
+                None => Span::styled(" ", style),
+            });
+        }
+        let code = code_hl(&mut picker.bufs, &app.root, review, &row.item, theme);
+        let mut c = 0;
+        let cells: Vec<(usize, Span)> = row
+            .item
+            .label
+            .grapheme_indices(true)
+            .map(|(b, g)| {
                 let chars = c..c + g.chars().count() as u32;
                 c = chars.end;
                 let mut style = style;
@@ -347,18 +394,186 @@ pub(super) fn draw_picker(
                 {
                     style = style.add_modifier(Modifier::BOLD);
                 }
-                // Quoted code keeps its tabs, as the buffer does; `expand` draws them.
-                Span::styled(expand(g).into_owned(), style)
-            }));
-            spans.push(Span::styled(
-                " ".repeat(width.saturating_sub(used + wrap::width(label))),
+                (b, Span::styled(expand(g).into_owned(), style))
+            })
+            .collect();
+        let Some(place) = place else {
+            lines.push(padded(
+                prefix.into_iter().chain(cells.into_iter().map(|(_, s)| s)),
+                width,
                 style,
             ));
-            Line::from(spans)
-        })
-        .collect();
+            continue;
+        };
+        let bold = |s: &Span| s.style.add_modifier.contains(Modifier::BOLD);
+        if place.header {
+            let lead = Span::styled(" ".repeat(prefix_w + place.head_w), base);
+            let path = cells
+                .iter()
+                .filter(|(b, _)| place.path.contains(b))
+                .map(|(_, s)| {
+                    let accent = base.fg(theme.accent);
+                    match bold(s) {
+                        true => {
+                            Span::styled(s.content.clone(), accent.add_modifier(Modifier::BOLD))
+                        }
+                        false => Span::styled(s.content.clone(), accent),
+                    }
+                });
+            lines.push(padded([lead].into_iter().chain(path), width, base));
+            headers.push(lines.len());
+        }
+        let code_at = place.code_at;
+        let matched_num = cells
+            .iter()
+            .any(|(b, s)| (place.path.end..code_at).contains(b) && bold(s));
+        let num_style = match matched_num {
+            true => style.fg(theme.ghost_fg).add_modifier(Modifier::BOLD),
+            false => style.fg(theme.ghost_fg),
+        };
+        let num = Span::styled(
+            format!("  {:>w$}  ", row.item.line, w = place.num_w),
+            num_style,
+        );
+        let in_row = |r: &std::ops::Range<usize>| {
+            cells
+                .iter()
+                .filter(|(b, _)| *b >= code_at + r.start && *b < code_at + r.end)
+                .map(|(_, s)| s.clone())
+                .collect::<Vec<_>>()
+        };
+        let head = cells
+            .iter()
+            .filter(|(b, _)| *b < place.path.start)
+            .map(|(_, s)| s.clone());
+        let first = prefix
+            .into_iter()
+            .chain(head)
+            .chain([num])
+            .chain(in_row(&place.code_rows[0]));
+        lines.push(padded(first, width, style));
+        for r in &place.code_rows[1..] {
+            let lead = Span::styled(" ".repeat(place.code_col), style);
+            lines.push(padded([lead].into_iter().chain(in_row(r)), width, style));
+        }
+    }
+    lines.truncate(height);
+    if headers.contains(&lines.len()) {
+        lines.pop();
+    }
     frame.render_widget(Paragraph::new(lines).style(base), list);
 }
+
+fn padded<'a>(spans: impl IntoIterator<Item = Span<'a>>, width: usize, style: Style) -> Line<'a> {
+    let mut spans: Vec<Span> = spans.into_iter().collect();
+    let used: usize = spans.iter().map(|s| wrap::width(&s.content)).sum();
+    spans.push(Span::styled(" ".repeat(width.saturating_sub(used)), style));
+    Line::from(spans)
+}
+
+struct Place {
+    header: bool,
+    head_w: usize,
+    path: std::ops::Range<usize>,
+    code_at: usize,
+    num_w: usize,
+    code_col: usize,
+    code_rows: Vec<std::ops::Range<usize>>,
+}
+
+impl Place {
+    fn lines(&self) -> usize {
+        usize::from(self.header) + self.code_rows.len()
+    }
+}
+
+fn group_window(
+    picker: &mut Picker,
+    height: usize,
+    width: usize,
+    prefix_w: usize,
+) -> (Vec<Row>, Vec<Option<Place>>, usize) {
+    if picker.clamp_selected() == 0 {
+        picker.first = 0;
+        return (Vec::new(), Vec::new(), 0);
+    }
+    let height = height.max(1);
+    picker.first = picker.first.clamp(
+        (picker.selected + 1).saturating_sub(height),
+        picker.selected,
+    );
+    loop {
+        let rows = picker.rows(picker.first, height);
+        let places = places(&rows, width, prefix_w);
+        let selected = picker.selected - picker.first;
+        let lines = |n: usize| -> usize {
+            places[..n]
+                .iter()
+                .map(|p| p.as_ref().map_or(1, Place::lines))
+                .sum()
+        };
+        if lines(selected + 1) <= height || picker.first == picker.selected {
+            let shown = (0..=rows.len())
+                .take_while(|&n| lines(n) <= height)
+                .last()
+                .unwrap_or(0);
+            picker.set_page(shown);
+            return (rows, places, selected);
+        }
+        picker.first += 1;
+    }
+}
+
+fn places(rows: &[Row], width: usize, prefix_w: usize) -> Vec<Option<Place>> {
+    let paths: Vec<Option<(std::ops::Range<usize>, usize)>> = rows
+        .iter()
+        .map(|r| {
+            let (path, code_at) = (r.item.path_at.clone()?, r.item.code_at?);
+            r.item.label.get(path.clone())?;
+            (!path.is_empty() && path.end <= code_at).then_some((path, code_at))
+        })
+        .collect();
+    let num_w = rows
+        .iter()
+        .zip(&paths)
+        .filter(|(_, p)| p.is_some())
+        .map(|(r, _)| r.item.line.to_string().len())
+        .max()
+        .unwrap_or(0);
+    let mut last: Option<&str> = None;
+    rows.iter()
+        .zip(paths)
+        .map(|(r, split)| {
+            let Some((path, code_at)) = split else {
+                last = None;
+                return None;
+            };
+            let label = &r.item.label;
+            let text = &label[path.clone()];
+            let header = last != Some(text);
+            last = Some(text);
+            let head_w = wrap::width(&label[..path.start]);
+            let code_col = prefix_w + head_w + 2 + num_w + 2;
+            let code = &label[code_at..];
+            let room = width.saturating_sub(code_col);
+            let code_rows = match wrap::width(code) > room && room >= MIN_WRAP {
+                true => wrap::wrap_line(code, room),
+                false => std::iter::once(0..code.len()).collect(),
+            };
+            Some(Place {
+                header,
+                head_w,
+                path,
+                code_at,
+                num_w,
+                code_col,
+                code_rows,
+            })
+        })
+        .collect()
+}
+
+const MIN_WRAP: usize = 20;
 
 /// Review: the gutter mark of the line an item points at, from the diff of its file against
 /// the merge base, taken once per file a picker draws. A file outside the review has none.

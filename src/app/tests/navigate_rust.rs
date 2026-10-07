@@ -1,10 +1,5 @@
-//! `d` in Rust against a standard library and dependencies on disk: what the fixtures, which
-//! have none, cannot show.
-
 use super::*;
 
-/// #370: a word inside an attribute is a macro outside the project or nothing, never a project
-/// item of its name; a field access with nothing in the project reads the `pub` fields outside.
 #[test]
 fn attributes_name_macros_and_fields_reach_outside() {
     let (dir, mut a) = project_app(
@@ -121,9 +116,6 @@ fn attributes_name_macros_and_fields_reach_outside() {
     std::fs::remove_dir_all(&std).unwrap();
 }
 
-/// #358: `x.method()` of a type `d` does not know is every method of the name the cursor can
-/// reach, in the project, the standard library and the dependencies, and the one trait's method
-/// when every candidate declares or implements it.
 #[test]
 fn a_method_of_an_unknown_type_is_every_reachable_one() {
     let lock = "version = 3\n\n[[package]]\nname = \"dep\"\nversion = \"1.0.0\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\n\n[[package]]\nname = \"far\"\nversion = \"1.0.0\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\n\n[[package]]\nname = \"other\"\nversion = \"0.1.0\"\ndependencies = [\n \"far\",\n]\n\n[[package]]\nname = \"repro\"\nversion = \"0.1.0\"\ndependencies = [\n \"dep\",\n]\n";
@@ -266,8 +258,6 @@ fn a_method_of_an_unknown_type_is_every_reachable_one() {
     std::fs::remove_dir_all(&registry).unwrap();
 }
 
-/// #358, after the review: each rule of what `x.method()` can reach, with a namesake it must keep
-/// or drop.
 #[test]
 fn each_reach_rule_keeps_or_drops_its_namesake() {
     let stable = "#[stable(feature = \"rust1\", since = \"1.0.0\")]";
@@ -356,12 +346,15 @@ fn each_reach_rule_keeps_or_drops_its_namesake() {
     use_roots(&mut a, Kind::Rust, &[library.clone(), registry.clone()]);
     let row = |name: &str, place: &str| (name.to_owned(), "by name".to_owned(), place.to_owned());
     let none = |w: &str| Shown::Jump(format!("no definition for {w}"), String::new());
-    for (file, code, want) in [
-        // `pub(crate)` of another crate of the project.
-        ("src/lib.rs", "x.inner", none("inner")),
-        // The project's own, a package the lock does not list (`vend`) and a transitive
-        // dependency (`mid`); not the registry copy of the workspace's `near`, nor `far`.
+    for (name, file, code, want) in [
         (
+            "`pub(crate)` of another crate of the project",
+            "src/lib.rs",
+            "x.inner",
+            none("inner"),
+        ),
+        (
+            "the project's own, a package the lock does not list (`vend`) and a transitive dependency (`mid`); not the registry copy of the workspace's `near`, nor `far`",
             "src/lib.rs",
             "x.kick",
             Shown::Picker(
@@ -373,14 +366,14 @@ fn each_reach_rule_keeps_or_drops_its_namesake() {
                 ],
             ),
         ),
-        // A private trait of the project.
         (
+            "a private trait of the project",
             "src/lib.rs",
             "n.loc",
             jump("loc \u{2192} Local::loc (via trait Local)", "src/lib.rs:4"),
         ),
-        // Two traits of one name: no jump.
         (
+            "two traits of one name: no jump",
             "src/lib.rs",
             "n.dup",
             Shown::Picker(
@@ -391,22 +384,26 @@ fn each_reach_rule_keeps_or_drops_its_namesake() {
                 ],
             ),
         ),
-        // A header wrapped before its `for`, and a method a macro writes: read as unreadable,
-        // kept however private.
         (
+            "a header wrapped before its `for`: read as unreadable, kept however private",
             "src/lib.rs",
             "n.wr",
             jump("wr: by name, 1 match", "src/extra.rs:9"),
         ),
         (
+            "a method a macro writes: read as unreadable, kept however private",
             "src/lib.rs",
             "n.mac",
             jump("mac: by name, 1 match", "src/extra.rs:14"),
         ),
-        // The standard library's own trait, with no stability attribute, and its `impl`.
-        ("src/lib.rs", "n.wide", none("wide")),
-        // `#[unstable]` is offered.
         (
+            "the standard library's own trait, with no stability attribute, and its `impl`",
+            "src/lib.rs",
+            "n.wide",
+            none("wide"),
+        ),
+        (
+            "`#[unstable]` is offered",
             "src/lib.rs",
             "v.unst",
             jump(
@@ -414,8 +411,8 @@ fn each_reach_rule_keeps_or_drops_its_namesake() {
                 "alloc/src/vec.rs:8",
             ),
         ),
-        // The call on a one-line delegation is no declaration of its own.
         (
+            "the call on a one-line delegation is no declaration of its own",
             "src/lib.rs",
             "self.0.is_empty",
             jump(
@@ -423,19 +420,20 @@ fn each_reach_rule_keeps_or_drops_its_namesake() {
                 "alloc/src/vec.rs:3",
             ),
         ),
-        // A child module sees its parent's private items, and its crate's `pub(crate)` ones.
         (
+            "a child module sees its parent's private items",
             "src/extra/sub.rs",
             "e.hidden",
             jump("hidden \u{2192} E::hidden (via e: E)", "src/extra.rs:4"),
         ),
         (
+            "a child module sees its crate's `pub(crate)` items",
             "src/extra/sub.rs",
             "w.shared",
             jump("shared \u{2192} W::shared (via w: W)", "src/lib.rs:26"),
         ),
-        // A crate root of `tests/` has its directory.
         (
+            "a crate root of `tests/` has its directory",
             "tests/helper.rs",
             "t.zorb",
             jump("zorb \u{2192} T::zorb (via t: T)", "tests/it.rs:6"),
@@ -458,15 +456,13 @@ fn each_reach_rule_keeps_or_drops_its_namesake() {
                     .collect(),
             ),
         };
-        assert_eq!(got, want, "{code}");
+        assert_eq!(got, want, "{name}: {code}");
     }
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&std).unwrap();
     std::fs::remove_dir_all(&registry).unwrap();
 }
 
-/// #529: a struct literal's key lands on the field of the literal's type, the project's or a
-/// dependency's, and never on a method of the name.
 #[test]
 fn a_literal_key_is_its_struct_field_inside_and_out() {
     let (dir, mut a) = project_app(
@@ -489,16 +485,23 @@ fn a_literal_key_is_its_struct_field_inside_and_out() {
     let knobs = registry.join("knobs-1.0.0");
     use_roots(&mut a, Kind::Rust, std::slice::from_ref(&knobs));
     d_on(&mut a, "src/lib.rs", "Printer { hyperlink|: 1");
-    assert_eq!(at(&a), (dir.join("src/lib.rs"), 3), "{}", a.message);
+    assert_eq!(
+        at(&a),
+        (dir.join("src/lib.rs"), 3),
+        "the field of the literal's type, never a method of the name: {}",
+        a.message
+    );
     d_on(&mut a, "src/lib.rs", "Opts { depth|: 2");
-    assert_eq!(at(&a), (knobs.join("src/lib.rs"), 1), "{}", a.message);
+    assert_eq!(
+        at(&a),
+        (knobs.join("src/lib.rs"), 1),
+        "a dependency's field: {}",
+        a.message
+    );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&registry).unwrap();
 }
 
-/// #350: the first name of a path names the crate searched first, a `use` of the file or the
-/// path written out, and in it the module the path spells; a project namesake found by name is
-/// no answer then.
 #[test]
 fn a_path_is_looked_up_in_the_crate_its_first_name_names() {
     let (dir, mut a) = project_app(
@@ -562,77 +565,92 @@ fn a_path_is_looked_up_in_the_crate_its_first_name_names() {
     let memmap = std.join("registry/memmap2-0.9.0");
     use_roots(&mut a, Kind::Rust, &[library.clone(), memmap.clone()]);
     let lib = |p: &str| library.join(p);
-    for (code, place, status) in [
+    for (name, code, place, status) in [
         (
+            "",
             "File::open|(p)",
             lib("std/src/fs.rs"),
             4,
             "via import std::fs",
         ),
-        ("-> io|::Result", lib("std/src/lib.rs"), 2, "via import std"),
         (
+            "",
+            "-> io|::Result",
+            lib("std/src/lib.rs"),
+            2,
+            "via import std",
+        ),
+        (
+            "",
             "    norm|(1)",
             dir.join("src/helpers.rs"),
             1,
             "via import crate::helpers",
         ),
         (
+            "",
             "_e: io::Error",
             lib("std/src/io/error.rs"),
             3,
             "via import std::io",
         ),
         (
+            "",
             "m: Match",
             dir.join("crates/matcher/src/lib.rs"),
             1,
             "via import grep_matcher",
         ),
-        ("-> std::fs|::File", lib("std/src/lib.rs"), 1, "via std"),
+        ("", "-> std::fs|::File", lib("std/src/lib.rs"), 1, "via std"),
         (
+            "",
             "std::fs::File::create",
             lib("std/src/fs.rs"),
             5,
             "via std::fs",
         ),
         (
+            "",
             "std::sync::Arc",
             lib("alloc/src/sync.rs"),
             1,
             "via alloc::sync",
         ),
         (
+            "",
             "usize::MAX",
             lib("core/src/num/uint_macros.rs"),
             3,
             "by name",
         ),
-        // A glob `use` of the block hides the file's `use` of the name.
         (
+            "A glob `use` of the block hides the file's `use` of the name",
             "        Match|(n)",
             dir.join("src/lib.rs"),
             51,
             "Kind::Match",
         ),
         (
+            "",
             "dyn StdError",
             lib("core/src/error.rs"),
             1,
             "via import core::error",
         ),
         (
+            "",
             "memmap2::Mmap::map",
             memmap.join("src/lib.rs"),
             4,
             "via memmap2",
         ),
     ]
-    .map(|(c, p, l, s)| (c, (p, l), s))
+    .map(|(n, c, p, l, s)| (n, c, (p, l), s))
     {
         d_on(&mut a, "src/lib.rs", code);
         let (path, line) = at(&a);
-        assert_eq!((path, line + 1), place, "{code}: {}", a.message);
-        assert!(a.message.contains(status), "{code}: {}", a.message);
+        assert_eq!((path, line + 1), place, "{name}: {code}: {}", a.message);
+        assert!(a.message.contains(status), "{name}: {code}: {}", a.message);
     }
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&std).unwrap();

@@ -1,7 +1,3 @@
-//! `d` in C and C++ on the members a line pattern cannot tell from a function, a macro or a
-//! global of the same name: `x->word`, `x.word`, a constructor's initializer list (#359), a bare
-//! member inside a method and a value that is no type (#378).
-
 use super::*;
 
 impl App {
@@ -30,13 +26,22 @@ impl App {
             && word.starts_with(|c: char| c.is_alphabetic() || c == '_')
             && !line.trim_start().starts_with('#')
         {
-            // A receiver whose struct is proven narrows the member to its field (#386).
-            let broke = match self.c_receiver_field(here, text, before, word) {
+            let before = before.to_owned();
+            let mut broke = match self.c_receiver_field(here, text, &before, word) {
                 Ok(Some(found)) => return Some((vec![found], None)),
                 Ok(None) => None,
                 Err(at) => Some(at),
             };
-            return Some((self.c_members(here, word, called), broke));
+            if !self.c_source() && !self.objc_file() {
+                match self.cpp_typed(here, text, &before, word) {
+                    cpp::CppAnswer::Found(found) => return Some((found, None)),
+                    cpp::CppAnswer::Outside => {
+                        return Some((self.c_members(here, word, called, true), None));
+                    }
+                    cpp::CppAnswer::ByName(at) => broke = broke.or(at),
+                }
+            }
+            return Some((self.c_members(here, word, called, false), broke));
         }
         let class = after
             .starts_with(['(', '{'])
@@ -249,9 +254,13 @@ impl App {
     /// follow `->` or `.`: no function, `#define`, type or global is offered. The files outside
     /// the project are searched the same way when the project has none: a system struct's field
     /// stays findable, and system headers' generic names do not crowd a project's own.
-    pub(super) fn c_members(&mut self, here: &Path, word: &str, called: bool) -> Vec<Candidate> {
-        // `self.word` in Objective-C reads a property, or calls a getter (#417), which no C
-        // line declares.
+    pub(super) fn c_members(
+        &mut self,
+        here: &Path,
+        word: &str,
+        called: bool,
+        outside: bool,
+    ) -> Vec<Candidate> {
         let mut pattern = search::c_field_pattern(word);
         if self.objc_file() {
             pattern = format!("{pattern}|{}", search::objc_member(word));
@@ -263,7 +272,10 @@ impl App {
                 search::c_member_decl(Some(word))
             );
         }
-        let hits = self.project_definitions(Kind::C, here, word, &pattern);
+        let hits = match outside {
+            true => Vec::new(),
+            false => self.project_definitions(Kind::C, here, word, &pattern),
+        };
         let mut found = self.c_member_rows(word, hits, called);
         // A property another `.m` file declares, in a class extension of its own, is that
         // file's: no other file sees it (#417).
@@ -591,8 +603,7 @@ impl App {
     }
 
     /// Whether `hit` declares `word` as a type: a struct, union, enum or class tag, a namespace,
-    /// a `typedef` or a `using` alias. A word followed by `->` or `.` is a value, none of these
-    /// (#378).
+    /// a `typedef` or a `using` alias.
     pub(super) fn c_type_line(word: &str, hit: &Hit) -> bool {
         let p = search::def_patterns(Kind::C, word);
         Regex::new(&[&p[2], &p[4], &p[6]].map(String::as_str).join("|"))
@@ -623,15 +634,14 @@ fn normal(path: &Path) -> PathBuf {
     out
 }
 
-/// Whether `path` is a C or C++ header.
-fn c_header(path: &Path) -> bool {
+pub(super) fn c_header(path: &Path) -> bool {
     path.extension()
         .is_some_and(|e| ["h", "hh", "hpp", "hxx"].iter().any(|h| e == *h))
 }
 
 /// A C++ method called `word`: indented with its body opening on the line, as in a class body,
 /// or an out-of-line `R Type::word(` in column zero.
-fn method_pattern(word: &str) -> String {
+pub(super) fn method_pattern(word: &str) -> String {
     let w = regex::escape(word);
     format!(r"^\s+[^;(){{}}=]*\w[\s*&]+{w}\s*\([^;{{}}]*\)[^;{{}}=]*\{{|^\w[^;(){{}}=]*::{w}\s*\(")
 }

@@ -3,7 +3,6 @@
 use super::*;
 
 impl App {
-    /// The open file's path relative to the root, for sorting and labels.
     pub(super) fn rel_current(&self) -> Option<PathBuf> {
         let path = self.buf.path.as_ref()?;
         Some(path.strip_prefix(&self.root).unwrap_or(path).to_path_buf())
@@ -52,7 +51,6 @@ impl App {
         }
     }
 
-    /// In a review, every line the branch deleted (#440); outside one, none.
     pub(super) fn deleted_lines(&self) -> Arc<Vec<git::DeletedLine>> {
         self.review
             .as_ref()
@@ -76,27 +74,34 @@ impl App {
             .map(|h| {
                 let label = format!("{}: ", at_label(&h.path, h.line));
                 let code_at = Some(label.len());
+                let path_at = Some(0..h.path.display().to_string().len());
                 PickItem {
                     col: h.col,
                     label: label + &clip(h.text.trim(), MAX_LABEL_TEXT),
                     path: h.path,
                     line: h.line,
                     code_at,
+                    path_at,
                     deleted: h.deleted.is_some(),
                 }
             })
             .collect()
     }
 
-    /// `s`: the result picker, empty, with the query as its input line. The hits are a grep for
-    /// the query as typed, ignoring case, over every file, refreshed as it changes. Literal like
-    /// `/`: `foo(` finds the calls and the definition, not a regex error.
     pub(super) fn start_search(&mut self) {
+        let seed = self.one_line_selection();
         self.show_picker(PickerKind::Search, Vec::new());
         if let Some(p) = &mut self.picker {
             p.live = true;
+            if let Some(seed) = &seed {
+                p.query = LineEdit::selected(seed);
+            }
         }
         self.drop_pending_search();
+        if seed.is_some() {
+            self.search_typed();
+            self.search_due = Some(Instant::now());
+        }
     }
 
     /// Forgets the grep on its way: its answer belongs to a picker that is gone, and its number
@@ -149,9 +154,6 @@ impl App {
         }
     }
 
-    /// Enter in the `s` picker, on the hits of the query on screen, whether they were in before
-    /// the key or came after it: the jump to `item`. With no hit there is no jump, and the list
-    /// stays open with its query, as every list does (#288).
     pub(super) fn search_jump(&mut self, item: PickItem) {
         self.picker = None;
         self.mode = Mode::Normal;
@@ -177,12 +179,9 @@ impl App {
         let selected = old
             .current()
             .and_then(|cur| {
-                items
-                    .iter()
-                    // A deleted line keeps the base's number: its 12 is not the file's 12 (#440).
-                    .position(|it| {
-                        (&it.path, it.line, it.deleted) == (&cur.path, cur.line, cur.deleted)
-                    })
+                items.iter().position(|it| {
+                    (&it.path, it.line, it.deleted) == (&cur.path, cur.line, cur.deleted)
+                })
             })
             .unwrap_or(0);
         let mut new = Picker::new(old.title.clone(), items, false);
@@ -201,9 +200,6 @@ impl App {
         // Matched before it is shown: nothing is pending from here on, so an empty list must
         // mean the grep found nothing, and Enter and the cursor must see the rows it found.
         new.settle();
-        // An Enter that waited for the answer opens the row an Enter after it would: the one
-        // under the cursor once nucleo has ranked the rows (#293). With no hit it is spent, and
-        // the list shows the answer.
         if std::mem::take(&mut self.search_enter)
             && let Some(item) = new.current().cloned()
         {
@@ -232,8 +228,6 @@ impl App {
     }
 }
 
-/// `path:line`; a line the branch deleted is numbered as the file had it at the base, and only
-/// its mark's colour tells it apart in a list (#440).
 pub(super) fn at_label(path: &Path, line: usize) -> String {
     format!("{}:{line}", path.display())
 }

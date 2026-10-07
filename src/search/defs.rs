@@ -1,6 +1,3 @@
-//! The line patterns `d` looks a declaration up with, per kind and per word, and the
-//! reason a candidate is offered under.
-
 use super::php::{php_constants, php_method, php_namespace_line, php_properties, php_tags};
 use super::*;
 use regex::Regex;
@@ -29,11 +26,7 @@ pub enum Reason {
     /// The file of the module of the project an import binds the word to: `views` in `from
     /// shop import views`.
     Module(String),
-    /// An item the file on screen declares where a bare Rust name sees it: no other file's item
-    /// is in sight without a `use` or a path (#363).
     File,
-    /// The method of the one trait every candidate of `x.word()` declares or implements
-    /// (#358): whatever `x` is, the call reaches that declaration.
     Trait(String),
     /// What a named argument, a literal's key or a JSX attribute names (#316): `parameter of
     /// followTopic`, `field of Opts`.
@@ -61,7 +54,6 @@ impl std::fmt::Display for Reason {
         }
     }
 }
-/// A declaration `d` can land on, and why it is offered.
 #[derive(Debug, Clone)]
 pub struct Candidate {
     pub hit: Hit,
@@ -83,8 +75,6 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"^type\s+{w}\b"),
             format!(r"^(var|const)\s+{w}\b"),
             format!(r"^\s*{w}\s*:="),
-            // A member of a column-0 `const (`, `var (` or `type (` block (#326): `W …`, `W = …`,
-            // `A, W T`, `W[T any] …`, a bare iota `W`. [`declares_where`] checks the opener.
             // ASCII classes: Unicode's `\w` makes each grep build a DFA many times the size.
             format!(
                 r"^\t(?:[A-Za-z_][A-Za-z0-9_]*[ \t]*,[ \t]*)*{w}(?:[ \t]*,[ \t]*[A-Za-z_][A-Za-z0-9_]*)*(?:[ \t]*=[^=]|[ \t]+[^ \t:=]|\[|[ \t]*$)"
@@ -106,8 +96,6 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(
                     r"{pre}(?:function\*?|class|interface|(?:const\s+)?enum|namespace|module)\s+{w}\b"
                 ),
-                // An alias goes on as `=` or `<`: `type NodeSpec,` in a wrapped import list is
-                // one of its names (#343).
                 format!(r"{pre}type\s+{w}\s*[=<]"),
                 // Arrow functions assigned to a name land here too.
                 format!(r"{pre}(?:const|let|var)\s+{w}\b"),
@@ -117,7 +105,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         }
         Kind::Jvm => {
             let (mods, ret) = (jvm_mods!(), jvm_return_type!());
-            let mods_one = jvm_mods!("+");
+            let mods_at_least_one = jvm_mods!(at_least_one);
             let mut patterns = vec![
                 format!(
                     r"{mods}(?:class|interface|fun\s+interface|enum|record|@interface|object|typealias)\s+{w}\b"
@@ -135,16 +123,18 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 // `Card(title) {` is a Kotlin call with a trailing lambda and `new Runnable() {`
                 // an anonymous class, so a bare name before `(` is never a declaration here; a
                 // method is found by the return type in the rule below, brace or no brace.
-                format!(r"{mods_one}{w}\s*\([^;]*\)\s*(?:throws [\w.,\s]+)?\{{\s*$"),
+                format!(r"{mods_at_least_one}{w}\s*\([^;]*\)\s*(?:throws [\w.,\s]+)?\{{\s*$"),
                 // Java: a constructor whose parameters wrap, `Name(` at the end of the line or
                 // followed by parameters that end in `,` (#367).
-                format!(r"{mods_one}{w}\s*\((?:[^;()]*,)?\s*$"),
+                format!(r"{mods_at_least_one}{w}\s*\((?:[^;()]*,)?\s*$"),
                 // Java: a record's component, on a one-line header (#367), or on a line of a
                 // header wrapped over lines, which [`declares_where`] checks.
                 format!(
                     r"{mods}record\s+\w+\s*(?:<[^>]*>)?\s*\((?:[^)]*,)?\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*{ret}\s+{w}\s*[,)]"
                 ),
-                format!(r"{COMPONENT_HEAD}{ret}\s+{w}\s*(?:,\s*$|\)\s*(?:implements\b[^{{]*)?\{{)"),
+                format!(
+                    r"{RECORD_COMPONENT_ANNOTATIONS}{ret}\s+{w}\s*(?:,\s*$|\)\s*(?:implements\b[^{{]*)?\{{)"
+                ),
                 // Kotlin: a property of a primary constructor on its class's line, `val` or
                 // `var` after the `(` or a `,`; a plain parameter is no property (#367).
                 format!(
@@ -158,12 +148,6 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             patterns.extend(groovy_patterns(word));
             patterns
         }
-        // Ruby declares everything on one line. A constant lives indented inside its class, so
-        // the assignment rule is not anchored at column zero as Python's is. An instance or class
-        // variable is its own word, `@name` or `@@name`, and its assignment declares nothing else
-        // (#383). The Rails DSL declares the name it is given (#374); `define_method` has no
-        // rule. `name?`, `name!` and the setter `name=` are methods of their own (#387): the
-        // word carries its suffix, and a bare `name` is none of them.
         Kind::Ruby => {
             let end = r"(?:[^\w?!=]|$)";
             // `delegate :a, :b, to: :x` declares `a` and `b`, on a line of its own that closes
@@ -171,15 +155,12 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             // say so on a line below.
             let option = r"(?:(?:to|allow_nil|private):|prefix:\s*false\b)[^,#]*";
             let method = vec![
-                // A method: `def name`, `def self.name`, `def Klass.name`, and in the core's RBS
-                // signatures `def name: …` and `def self?.name: …` (#369).
                 format!(r"^\s*def\s+(?:self\??\.|[A-Z]\w*\.)?{w}{end}"),
                 format!(r"^\s*alias(?:_method)?\s+:?{w}{end}"),
                 format!(
                     r"^\s*delegate\s*\(?\s*(?::[\w?!]+\s*,\s*)*:{w}\s*,\s*(?::[\w?!]+\s*,\s*)*{option}(?:,\s*{option})*(?:#.*)?$"
                 ),
             ];
-            // Rails' class-level accessors too, `mattr_accessor` and the like (#369).
             let attr = |which: &str, name: &str| {
                 format!(
                     r"^\s*(?:[mc]?attr_(?:accessor|{which})|config_accessor)\s+(?:[:\w]+\s*,\s*)*:{name}\b"
@@ -212,30 +193,15 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 .concat(),
             }
         }
-        // C and C++ have no statements at the top level, so a line in column zero that is shaped
-        // like a declaration is one — a definition, a prototype and a signature that wraps alike.
-        // Indented, only a line that opens a body can be told from a call, or a line that the
-        // body around it tells (#373): `NAME,` declares an enum constant in an `enum` body and
-        // nothing in an initializer list, and `T name(…);` a member in a class body and a local
-        // object in a function's. [`declares_where`] reads the opener of that body.
         Kind::C => {
             let (mods, macros) = (c_mods!(), c_mods!(macros));
             vec![
-                // A function, and the out-of-line definition of a method (`Type::name(`). GNU
-                // style puts the return type on the line above, so the run before the name is
-                // optional: in column zero a bare `name(` is a declaration all the same.
-                // The run may hold one call of a reserved-name macro, `void *
-                // __sized_by_or_null(__size) malloc(` (#382).
                 format!(
                     r"^(?:\w[^;(){{}}=]*(?:\b(?:__\w+|_[A-Z][A-Z0-9_]*)\s*\([^()]*\)[^;(){{}}=]*)?[\s*&:])?{w}\s*\("
                 ),
                 // The same indented — a method in a class body, a function in an indented
                 // namespace — when the body opens on the line.
                 format!(r"^[^;(){{}}=]*\w[\s*&]+{w}\s*\([^;{{}}]*\)[^;{{}}=]*\{{"),
-                // A type. What follows the name — the body, a base list, a `<` of a template
-                // specialization, a `;` or the end of the line — keeps the `struct dict *d;` that
-                // uses one out. A nested type defined through its outer one, `struct Table::Rep {`,
-                // declares `Rep` (#368): the `:` of a `::` is no base list.
                 format!(
                     r"^\s*{mods}(?:typedef\s+)?(?:struct|class|union|enum\s+class|enum\s+struct|enum|namespace)\s+{macros}(?:\w+(?:<[^<>]*>)?::)*{w}\s*(?:[{{;<]|:(?:[^:]|$)|final\b|$)"
                 ),
@@ -255,7 +221,6 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                     r"^(?:\}}|(?:[^\s{{}}]|\s*typedef\b)[^{{}}]*\{{[^{{}}]*\}})\s*[\w\s,*]*\b{w}\s*[,;]"
                 ),
                 format!(r"^\s*(?:template\s*<[^>]*>\s*)?using\s+{w}\s*="),
-                // An object- or function-like macro.
                 format!(r"^\s*#\s*define\s+{w}\b"),
                 // A global, with the array bounds it can carry. In column zero again, so an
                 // assignment inside a function body is not one; no angle brackets, or a
@@ -349,7 +314,6 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(r"{mods}(?:class|interface|trait|enum)\s+{w}\b"),
                 php_namespace_line(&w),
                 constant,
-                // The `define()` of a global.
                 format!(r#"^\s*define\s*\(\s*['"]{w}['"]"#),
                 case,
                 property,
@@ -380,9 +344,6 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         // which is which, the way a C++ overload set is offered.
         Kind::Elixir => {
             let mut patterns = vec![
-                // Every `def` form. A clause is written `def name(x) do`, `def name do` or
-                // `def name, do: x`. A trailing `?` or `!` is part of the word (#459), so
-                // `ship` never finds `def ship!`.
                 format!(
                     r"^\s*def(?:p|macro|macrop|guard|guardp|delegate)?\s+{w}\s*(?:\(|,|do\b|$)"
                 ),
@@ -398,7 +359,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             // The attributes the language itself gives a meaning to are directives, not names a
             // project declares — `@spec parse(t) :: t` is a promise about `parse`, not a
             // declaration of `spec` — so `d` on one of them has nothing to find, and says so.
-            if !ELIXIR_DIRECTIVES.contains(&word) {
+            if !ELIXIR_DIRECTIVES.contains(&word) && !EXUNIT_AND_MIX_DIRECTIVES.contains(&word) {
                 patterns.push(format!(r"^\s*@{w}\s+[^\s|]"));
             }
             patterns.extend(erlang_patterns(&w));
@@ -453,8 +414,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         Kind::Sql => {
             let create = sql_create!();
             vec![
-                // The name, not a schema: `shop.tariffs` declares `tariffs`, so no `.` may follow (#471).
-                format!(r#"{create}(?:{SQL_NAME}\.)?(?:"{w}"|`{w}`|{w}\b)(?:[^.]|$)"#),
+                format!(r#"{create}(?:{SQL_NAME_PART}\.)?(?:"{w}"|`{w}`|{w}\b)(?:[^.]|$)"#),
                 sql_cte(word),
             ]
         }
@@ -489,7 +449,6 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"(^|\s)&{w}(\s|$)"),
             format!(r"^\s*\.?{w}:\s*(#.*)?$"),
         ],
-        // A link is followed before any pattern is asked for (#421); a heading is prose.
         Kind::Markdown => Vec::new(),
         // A definition of the type system, an operation or a fragment starts its line. `extend
         // type X {` is a use of `X`, as a Rust `impl` is. The indented rule is a field, one whose
@@ -503,23 +462,21 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"^directive\s+@{w}\b"),
             format!(r"^\s+{w}\s*(?:[:(@#,]|$)"),
         ],
-        // What `u` marks as a declaration; `d` reads a stylesheet with [`sheet_at`] (#415).
         Kind::Css => css_patterns(word),
         // An HTML file declares an id, which `d` reads from the attribute under the cursor.
         Kind::Html => Vec::new(),
     }
 }
-/// [`def_patterns`] cut to what the word at `range` of `line` can be: a PHP namespace's
-/// ([`php_namespace_patterns`]), a PowerShell variable's or not ([`powershell_sigil`]).
 pub fn narrow_patterns(
     kind: Kind,
     p: &mut Vec<String>,
     text: &str,
+    row: usize,
     line: &str,
     r: std::ops::Range<usize>,
 ) {
     match kind {
-        Kind::Php => php_namespace_patterns(p, text, line, r),
+        Kind::Php => php_namespace_patterns(p, php_block(text, row), line, r),
         Kind::PowerShell => powershell_sigil(p, &line[..r.start], &line[r.end..]),
         Kind::Dart => dart_narrow(p, line, r),
         Kind::Julia => julia_narrow(p, line, r),
@@ -531,17 +488,17 @@ pub fn narrow_patterns(
 /// - a forward declaration at namespace scope (`class X;`) yields to the one body of `X`; one
 ///   inside a class body declares a nested type and stays, and two bodies keep every row;
 /// - a constructor or destructor (`X::X(`, `explicit X(` in the class) is not the type, unless
-///   the word under the cursor is `construction`, called or braced;
+///   the word under the cursor is called or braced;
 /// - C's `typedef struct X { … } X;` is one type: a bare `X` lands on the `} X;` line, the
-///   `tag` `struct X` on the opening one.
+///   tag `struct X` on the opening one.
 ///
 /// The caller runs it only where a type can be meant: never behind `.` or `->` (#359).
 pub fn c_type_rows(
     word: &str,
     hits: Vec<Hit>,
     text_of: impl Fn(&Path) -> Option<String>,
-    construction: bool,
-    tag: bool,
+    word_constructs: bool,
+    word_is_struct_tag: bool,
 ) -> Vec<Hit> {
     let (w, mods, macros) = (regex::escape(word), c_mods!(), c_mods!(macros));
     let ty = format!(
@@ -563,8 +520,7 @@ pub fn c_type_rows(
         return hits;
     }
     let one_body = hits.iter().filter(|h| is_body(h)).count() == 1;
-    // `typedef struct X {` and the `} X;` after it in the same file: the one of the pair to drop.
-    let paired: Vec<(PathBuf, usize)> = hits
+    let typedef_halves_to_drop: Vec<(PathBuf, usize)> = hits
         .iter()
         .filter(|o| opens.is_match(&o.text))
         .filter_map(|o| {
@@ -572,7 +528,7 @@ pub fn c_type_rows(
                 .iter()
                 .filter(|c| c.path == o.path && c.line > o.line && closes.is_match(&c.text))
                 .min_by_key(|c| c.line)?;
-            Some(match tag {
+            Some(match word_is_struct_tag {
                 true => (close.path.clone(), close.line),
                 false => (o.path.clone(), o.line),
             })
@@ -580,10 +536,13 @@ pub fn c_type_rows(
         .collect();
     hits.into_iter()
         .filter(|h| {
-            if paired.iter().any(|(p, l)| *p == h.path && *l == h.line) {
+            if typedef_halves_to_drop
+                .iter()
+                .any(|(p, l)| *p == h.path && *l == h.line)
+            {
                 return false;
             }
-            if !construction && ctor.is_match(&h.text) && !typed(h) {
+            if !word_constructs && ctor.is_match(&h.text) && !typed(h) {
                 return false;
             }
             !(one_body
@@ -592,21 +551,19 @@ pub fn c_type_rows(
         })
         .collect()
 }
-/// Whether 1-based `line` of a C++ `text` sits in a class, struct or union body: the nearest line
-/// above indented less, past blanks, comments, directives and access specifiers, opens one.
-fn in_class_body(text: &str, line: usize) -> bool {
+fn in_class_body(text: &str, line1: usize) -> bool {
     static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:template\s*<.*>\s*)?(?:class|struct|union)\b[^;]*$").unwrap()
     });
     let lines: Vec<&str> = text.lines().collect();
-    let Some(depth) = line
+    let Some(depth) = line1
         .checked_sub(1)
         .and_then(|k| lines.get(k))
         .map(|l| indent(l))
     else {
         return false;
     };
-    lines[..line - 1]
+    lines[..line1 - 1]
         .iter()
         .rev()
         .filter(|l| {
@@ -625,7 +582,7 @@ fn in_class_body(text: &str, line: usize) -> bool {
 /// visible in no other file: those rows go, unless `here` `#include`s that file or that file
 /// `#include`s `here`. A header's rows stay, as do types (an opaque struct's body lives in one source
 /// file). In `here` itself a file-scope `static` hides every other declaration of the name, so
-/// it is the answer — unless the cursor stands `on` a candidate, where the others are offered as
+/// it is the answer — unless the cursor stands on a candidate, where the others are offered as
 /// namesakes.
 pub fn c_file_local(
     word: &str,
@@ -633,7 +590,7 @@ pub fn c_file_local(
     here_text: &str,
     hits: Vec<Hit>,
     text_of: impl Fn(&Path) -> Option<String>,
-    on: bool,
+    cursor_on_candidate: bool,
 ) -> Vec<Hit> {
     static INCLUDE: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r#"^\s*#\s*include\s*"([^"]+)""#).unwrap());
@@ -647,7 +604,7 @@ pub fn c_file_local(
     ))
     .expect("an escaped name keeps the pattern valid");
     let local = |h: &Hit| STATIC.is_match(&h.text) && !ty.is_match(&h.text);
-    if !on && hits.iter().any(|h| h.path == here && local(h)) {
+    if !cursor_on_candidate && hits.iter().any(|h| h.path == here && local(h)) {
         return hits
             .into_iter()
             .filter(|h| h.path == here && local(h))
@@ -692,16 +649,15 @@ pub fn c_file_local(
         })
         .collect()
 }
-/// Whether 1-based `line` of a C++ `text` sits inside an unnamed `namespace {`, by the braces
-/// above it outside strings and comments.
-fn in_unnamed_namespace(text: &str, line: usize) -> bool {
+fn in_unnamed_namespace(text: &str, line1: usize) -> bool {
     static UNNAMED: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^\s*namespace\s*(?:\{|$)").unwrap());
     let literal = literal_lines(Kind::C, text);
     let (mut open, mut unnamed) = (Vec::new(), false);
-    for (i, l) in text.lines().enumerate().take(line.saturating_sub(1)) {
-        // A brace of a `#define` is the macro's, its body hidden as a literal (#382).
-        if literal.get(i).copied().unwrap_or(false) || l.trim_start().starts_with('#') {
+    for (i, l) in text.lines().enumerate().take(line1.saturating_sub(1)) {
+        let directive_or_its_body =
+            l.trim_start().starts_with('#') || literal.get(i).copied().unwrap_or(false);
+        if directive_or_its_body {
             continue;
         }
         unnamed |= UNNAMED.is_match(l);
@@ -720,9 +676,9 @@ fn in_unnamed_namespace(text: &str, line: usize) -> bool {
     }
     open.contains(&true)
 }
-/// Whether the C line `line` of `text` defines `word` only where nothing else does: a
+/// Whether the C line `line1` of `text` defines `word` only where nothing else does: a
 /// `#define word` right under `#ifndef word` or `#if !defined(word)` (#364).
-pub fn c_fallback(text: &str, line: usize, word: &str) -> bool {
+pub fn c_fallback(text: &str, line1: usize, word: &str) -> bool {
     let w = regex::escape(word);
     let re = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
     let define = re(format!(r"^\s*#\s*define\s+{w}\b"));
@@ -730,7 +686,7 @@ pub fn c_fallback(text: &str, line: usize, word: &str) -> bool {
         r"^\s*#\s*(?:ifndef\s+{w}\b|if\s+!\s*defined\s*\(?\s*{w}\b)"
     ));
     let lines: Vec<&str> = text.lines().collect();
-    let Some(k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
+    let Some(k) = line1.checked_sub(1).filter(|&k| k < lines.len()) else {
         return false;
     };
     define.is_match(lines[k])
@@ -763,6 +719,15 @@ fn c_param_type(p: &str) -> String {
     };
     p.split_whitespace().collect()
 }
+struct CShape {
+    declares: CDeclares,
+    defines: bool,
+}
+#[derive(PartialEq)]
+enum CDeclares {
+    Function { params: Vec<String> },
+    Variable,
+}
 /// When the C or C++ candidates for `word` are one function — its definition and its prototypes,
 /// all taking the same parameters — or one variable — its definition and its `extern`
 /// declarations — the index of the one definition, and what was set aside for the status line:
@@ -786,7 +751,6 @@ pub fn c_one_definition(
     if hits.len() < 2 || hits.iter().any(|h| other.is_match(&h.text)) {
         return None;
     }
-    // Per candidate: the parameters it takes (`None` for a variable), and whether it defines.
     let mut shapes = Vec::new();
     for h in hits {
         shapes.push(match call.find(&h.text) {
@@ -811,21 +775,28 @@ pub fn c_one_definition(
                 let body = code(Kind::C, &s[close..])
                     .find(|(_, c)| matches!(c, b'{' | b';'))
                     .is_some_and(|(_, c)| c == b'{');
-                (Some(params), body)
+                CShape {
+                    declares: CDeclares::Function { params },
+                    defines: body,
+                }
             }
-            None if global.is_match(&h.text) => (None, !h.text.starts_with("extern")),
+            None if global.is_match(&h.text) => CShape {
+                declares: CDeclares::Variable,
+                defines: !h.text.starts_with("extern"),
+            },
             None => return None,
         });
     }
-    if shapes.iter().any(|(p, _)| *p != shapes[0].0) {
+    if shapes.iter().any(|s| s.declares != shapes[0].declares) {
         return None;
     }
-    let mut defs = shapes.iter().enumerate().filter(|(_, (_, body))| *body);
+    let mut defs = shapes.iter().enumerate().filter(|(_, s)| s.defines);
     let (Some((at, _)), None) = (defs.next(), defs.next()) else {
         return None;
     };
     let n = hits.len() - 1;
-    let what = match (shapes[0].0.is_some(), n) {
+    let function = matches!(shapes[0].declares, CDeclares::Function { .. });
+    let what = match (function, n) {
         (true, 1) => "prototype",
         (true, _) => "prototypes",
         (false, 1) => "declaration",
@@ -833,12 +804,10 @@ pub fn c_one_definition(
     };
     Some((at, format!("1 definition, {n} {what}")))
 }
-/// Whether 1-based `line` of the C or C++ `text` only declares `word`, defined elsewhere: a
-/// forward declaration `struct conn;`, a prototype `int f(int);`, an `extern` variable (#382).
-pub fn c_declaration_only(word: &str, text: &str, line: usize) -> bool {
+pub fn c_declaration_only(word: &str, text: &str, line1: usize) -> bool {
     let w = regex::escape(word);
     let re = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
-    let Some(l) = text.lines().nth(line.saturating_sub(1)) else {
+    let Some(l) = text.lines().nth(line1.saturating_sub(1)) else {
         return false;
     };
     let forward = re(format!(
@@ -852,7 +821,7 @@ pub fn c_declaration_only(word: &str, text: &str, line: usize) -> bool {
     };
     let s: String = text
         .lines()
-        .skip(line - 1)
+        .skip(line1 - 1)
         .take(30)
         .collect::<Vec<_>>()
         .join("\n");
@@ -863,13 +832,13 @@ pub fn c_declaration_only(word: &str, text: &str, line: usize) -> bool {
         .find(|(_, c)| matches!(c, b'{' | b';'))
         .is_some_and(|(_, c)| c == b';')
 }
-/// Whether `word` is a parameter of the C function 1-based `line` of `text` stands in: named
+/// Whether `word` is a parameter of the C function line `line1` of `text` stands in: named
 /// after the `(` of the nearest line above in column zero that opens no brace of its own, as
 /// a function's header does, the return type on the line above or not. The rules read no C
 /// parameter yet (#378), and one definition must not hide that a parameter was meant.
-pub fn c_parameter(text: &str, line: usize, word: &str) -> bool {
+pub fn c_parameter(text: &str, line1: usize, word: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();
-    let Some(k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
+    let Some(k) = line1.checked_sub(1).filter(|&k| k < lines.len()) else {
         return false;
     };
     lines[..=k]
@@ -882,11 +851,6 @@ pub fn c_parameter(text: &str, line: usize, word: &str) -> bool {
         .and_then(|l| l.split_once('('))
         .is_some_and(|(_, params)| names(params, word))
 }
-/// GitLab CI's `stage: build` names an entry of the file's top-level `stages:` list, not a job
-/// named after its stage (#473): the 1-based lines listing `word`, in the flow form (`stages:
-/// [build, test]`) or the block form (`- build` under `stages:`), none when the file lists no
-/// such stage. `None` when `before`, the line in front of the word, is no `stage:` key.
-///
 /// ponytail: a flow list wrapped over several lines is not read.
 pub fn stage_entries(before: &str, text: &str, word: &str) -> Option<Vec<usize>> {
     let key = regex::Regex::new(r#"^\s*stage:\s*["']?$"#).expect("a fixed pattern is valid");
@@ -901,16 +865,32 @@ pub fn stage_entries(before: &str, text: &str, word: &str) -> Option<Vec<usize>>
     let opens = regex::Regex::new(r"^stages:\s*(#.*)?$").expect("a fixed pattern is valid");
     let mut found = Vec::new();
     let mut in_block = false;
+    let continues_block = |l: &str| l.trim().is_empty() || l.starts_with([' ', '\t', '-', '#']);
     for (i, l) in text.lines().enumerate() {
-        // The block runs while its lines are indented, entries at the key's own column, blank or
-        // comments.
-        in_block &= l.trim().is_empty() || l.starts_with([' ', '\t', '-', '#']);
+        in_block &= continues_block(l);
         if in_block && entry.is_match(l) || flow.is_match(l) {
             found.push(i + 1);
         }
         in_block |= opens.is_match(l);
     }
     Some(found)
+}
+const SHAPE_WORD: &str = "MerlShapeWord";
+fn ts_shapes(word: &str) -> [String; 3] {
+    let def = def_patterns(Kind::TsJs, word);
+    let members = member_patterns(Kind::TsJs, word).unwrap_or_default();
+    let mut global = def.clone();
+    global.extend(member_or_signature(Kind::TsJs, word).unwrap_or_default());
+    [def.join("|"), members.join("|"), global.join("|")]
+}
+pub fn ts_shape(word: &str, pattern: &str) -> Option<&'static grep_regex::RegexMatcher> {
+    static SHAPE: std::sync::LazyLock<grep_regex::RegexMatcher> = std::sync::LazyLock::new(|| {
+        let [.., every] = ts_shapes(SHAPE_WORD);
+        super::shape_matcher(&every.replace(SHAPE_WORD, "[A-Za-z0-9_$]+"))
+    });
+    let plain = !word.is_empty()
+        && (word.bytes()).all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'$');
+    (plain && ts_shapes(word).iter().any(|p| p == pattern)).then(|| &*SHAPE)
 }
 /// [`member_patterns`] and, in Go, the method lines of an interface, which carry no receiver:
 /// every form in which a type declares a member called `word`.
@@ -930,15 +910,9 @@ pub fn member_or_signature(kind: Kind, word: &str) -> Option<Vec<String>> {
     }
     Some(patterns)
 }
-/// Whether the Ruby line `text` of the file `path` is a column outside `db/schema.rb`, which
-/// declares nothing (#374): `t.string "language"` declares one in `db/schema.rb` alone, where
-/// every `t.` line is inside a `create_table` block. A migration's is history, and
-/// `db/structure.sql` is not read.
 fn ruby_column_elsewhere(path: &Path, text: &str) -> bool {
     text.trim_start().starts_with("t.") && !path.ends_with("db/schema.rb")
 }
-/// A Ruby assignment of `word`, `||=` included; `==`, `=~` and `=>` are not one. The word
-/// carries its sigil: `@name =` assigns `@name`, never `name` (#383).
 pub fn ruby_assignment(word: &str) -> String {
     format!(r"^\s*{}\s*(?:\|\|)?=($|[^=~>])", regex::escape(word))
 }
@@ -955,10 +929,6 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         Kind::TsJs => {
             let mods = r"^\s*(?:(?:public|private|protected|static|readonly|abstract|override|async|get|set)\s+)*";
             vec![
-                // A class or object-literal method: `foo(` at the end of the line, `foo(..) {`,
-                // or an empty `foo(): void {}`. A `;` on the line means it was a call statement,
-                // save inside a type literal, `foo({ a }: { a: A; b: B }) {` (#528).
-                // An optional one, `foo?(` over its parameters over `): void;` (#343).
                 format!(
                     r"{mods}{w}\??\s*(?:<.*>)?\((?:(?:[^;]|:\s*\{{[^{{}}]*\}})*\{{\s*\}}?)?\s*$"
                 ),
@@ -1035,8 +1005,6 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
 pub fn field_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
     let w = regex::escape(word);
     Some(match kind {
-        // `name: T` or `name = …` in a class body, `self.name = …` in a method, `self.name` in a
-        // tuple, a `with` or a `for` target; behind a header or a `;` on its line (#131).
         Kind::Python => vec![
             format!(r"^\s+(?:[^#]*[:;]\s*)?(?:self\.)?{w}\s*(?::|=[^=])"),
             format!(r"\bself\.{w}\b.*[^=!<>]=[^=]|\bas\s+self\.{w}\b|^\s*for\s.*\bself\.{w}\b"),
@@ -1077,17 +1045,6 @@ fn terraform_patterns(address: &str) -> Vec<String> {
     };
     vec![pattern]
 }
-/// Whether a line a pattern of [`def_patterns`] for `word` matched, 1-based `line` of a file of
-/// `kind` whose text is `line_text`, declares the word where it sits. Every consumer of the
-/// patterns asks it, so `d` and `u` agree on what declares (#419). Where the line alone cannot
-/// tell, the lines above it can: a Terraform local is `x = ...` directly inside `locals { }`,
-/// as every other attribute is inside its block, and an indented GraphQL line is a field or an
-/// enum value directly inside a type and a selection anywhere else. An indented Go line that is
-/// no `W :=` is a member of a grouped `const (`, `var (` or `type (` only directly inside one at
-/// column 0: a struct's field and a line inside a function are not. A C line of enum constants
-/// or a C++ member function with no body declares only in an enum's or a class's body (#373).
-/// A Ruby column declares only in `db/schema.rb` ([`ruby_column_elsewhere`]), for `u` as for `d`.
-/// `lines` reads the file `path`, and only for those.
 pub fn declares_where<'a, S: AsRef<str> + 'a>(
     kind: Kind,
     path: &Path,
@@ -1096,8 +1053,6 @@ pub fn declares_where<'a, S: AsRef<str> + 'a>(
     line_text: &str,
     lines: impl FnOnce() -> &'a [S],
 ) -> bool {
-    // A component's line outside its script declares nothing (#413): `lines` are the script's,
-    // the rest left blank.
     if component(path) {
         let lines = lines();
         let code = lines
@@ -1107,7 +1062,6 @@ pub fn declares_where<'a, S: AsRef<str> + 'a>(
     }
     declares_by_kind(kind, path, word, line, line_text, lines)
 }
-/// [`declares_where`] by the rules of `kind`.
 fn declares_by_kind<'a, S: AsRef<str> + 'a>(
     kind: Kind,
     path: &Path,
@@ -1137,7 +1091,7 @@ fn declares_by_kind<'a, S: AsRef<str> + 'a>(
                     .any(|o| directly_inside(lines, line, o))
             }
         }
-        Kind::Jvm if record_component(line_text) => in_record_header(lines(), line),
+        Kind::Jvm if shaped_as_record_component(line_text) => in_record_header(lines(), line),
         Kind::Jvm => groovy_declares(path, word, line, line_text, lines).unwrap_or(true),
         Kind::C => c_declares_where(line, line_text, lines),
         Kind::Ruby if ruby_column_elsewhere(path, line_text) => false,
@@ -1155,23 +1109,18 @@ fn declares_by_kind<'a, S: AsRef<str> + 'a>(
         _ => def_block(kind, word).is_none_or(|block| directly_inside(lines(), line, block)),
     }
 }
-/// The front of a line that holds one Java record component alone: its annotations (#367).
-const COMPONENT_HEAD: &str = r"^\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*";
-/// Whether `line` is shaped as a record component on a line of its own, `Type name,` or
-/// `Type name) {`, as a wrapped method's parameter is too (#367).
-fn record_component(line: &str) -> bool {
+const RECORD_COMPONENT_ANNOTATIONS: &str = r"^\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*";
+fn shaped_as_record_component(line: &str) -> bool {
     static SHAPE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
         regex::Regex::new(&format!(
-            r"{COMPONENT_HEAD}{}\s+\w+\s*(?:,\s*$|\)\s*(?:implements\b[^{{]*)?\{{)",
+            r"{RECORD_COMPONENT_ANNOTATIONS}{}\s+\w+\s*(?:,\s*$|\)\s*(?:implements\b[^{{]*)?\{{)",
             jvm_return_type!()
         ))
         .unwrap()
     });
     SHAPE.is_match(line) && !line.trim_start().starts_with("return ")
 }
-/// Whether 1-based `line` of `lines` stands in a header that opens with `record Name(`: the
-/// lines above it up to that one are components and their annotations.
-fn in_record_header<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
+fn in_record_header<S: AsRef<str>>(lines: &[S], line1: usize) -> bool {
     static RECORD: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
         regex::Regex::new(concat!(
             jvm_mods!(),
@@ -1179,7 +1128,7 @@ fn in_record_header<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
         ))
         .unwrap()
     });
-    let above = lines[..line.saturating_sub(1).min(lines.len())]
+    let above = lines[..line1.saturating_sub(1).min(lines.len())]
         .iter()
         .rev();
     for l in above.take(40) {
@@ -1191,7 +1140,7 @@ fn in_record_header<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
         if !(t.is_empty()
             || t.starts_with("//")
             || t.starts_with('@')
-            || (record_component(l) && t.ends_with(',')))
+            || (shaped_as_record_component(l) && t.ends_with(',')))
         {
             return false;
         }
@@ -1204,13 +1153,6 @@ fn in_record_header<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
 pub fn def_block(kind: Kind, word: &str) -> Option<&'static str> {
     (kind == Kind::Terraform && word.starts_with("local.")).then_some("locals")
 }
-/// Whether the TypeScript declaration on 1-based `line` of `lines` is a local no other file sees
-/// (#339): a `const`, `let`, `var`, `function` or `class` inside a function, a method or a block.
-/// One at indent 0, behind `export`, or directly inside a `namespace`, `module` or `declare
-/// global` body is at the top of its module, and so is one directly inside a function that runs
-/// at load: an IIFE, `(function () {`, `!function () {`, `(() => {`, or a UMD wrapper's factory,
-/// `})(this, function (exports) {`, which is how a script or a bundle publishes its functions.
-/// Members are none of these forms.
 pub fn ts_nested_local<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
     static DECL: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
         regex::Regex::new(
@@ -1250,11 +1192,6 @@ pub fn ts_nested_local<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
         })
         .is_some_and(|l| SCOPE.is_match(l) || AT_LOAD.is_match(l))
 }
-/// The 1-based line of `lines` that declares `key` directly inside the object literal a
-/// TypeScript or JavaScript `const name` on 1-based `line` binds (#341): `key:`, `key(`, `async
-/// key(`, `get key(` or the shorthand `key,`, on a line of its own or on the `const` line itself,
-/// `const m = { messageId: "", suggest: [] };`. A key of a nested literal, a `let` or `var`
-/// literal and one behind a call or a cast (`Object.freeze({`) are none.
 pub fn ts_literal_key<S: AsRef<str>>(
     lines: &[S],
     line: usize,
@@ -1274,16 +1211,18 @@ pub fn ts_literal_key<S: AsRef<str>>(
         r"^(?:(?:async|get|set|static)\s+)*\*?(?:{k}|'{k}'|\x22{k}\x22)\s*(?:[:(,}}]|$)"
     ))
     .ok()?;
-    // The parts at the literal's own level on the `const` line, up to its closing `}`.
-    let rest = &head[open..];
+    let literal_on_head = &head[open..];
     let mut depth = 0i32;
     let mut part = 0;
-    for (i, c) in rest.char_indices().chain([(rest.len(), ',')]) {
+    for (i, c) in literal_on_head
+        .char_indices()
+        .chain([(literal_on_head.len(), ',')])
+    {
         match c {
             '{' | '[' | '(' => depth += 1,
             '}' | ']' | ')' if depth > 0 => depth -= 1,
             ',' | '}' if depth == 0 => {
-                if form.is_match(rest[part..i].trim()) {
+                if form.is_match(literal_on_head[part..i].trim()) {
                     return Some(line);
                 }
                 if c == '}' {
@@ -1294,10 +1233,16 @@ pub fn ts_literal_key<S: AsRef<str>>(
             _ => {}
         }
     }
-    // Wrapped: the lines one level in, up to the one that closes the literal.
-    let outer = indent(head);
+    key_on_wrapped_lines(lines, line, &form)
+}
+fn key_on_wrapped_lines<S: AsRef<str>>(
+    lines: &[S],
+    head_line1: usize,
+    form: &Regex,
+) -> Option<usize> {
+    let outer = indent(lines[head_line1 - 1].as_ref());
     let mut level = None;
-    for (n, l) in lines.iter().enumerate().skip(line) {
+    for (n, l) in lines.iter().enumerate().skip(head_line1) {
         let l = l.as_ref();
         if l.trim().is_empty() {
             continue;
@@ -1312,21 +1257,15 @@ pub fn ts_literal_key<S: AsRef<str>>(
     }
     None
 }
-/// The first line of the block 1-based `line` of `text` sits directly inside: the nearest
-/// non-blank line above it that is indented less.
-pub fn owner_line(text: &str, line: usize) -> Option<&str> {
+pub fn owner_line(text: &str, line1: usize) -> Option<&str> {
     let lines: Vec<&str> = text.lines().collect();
-    let depth = indent(lines.get(line.checked_sub(1)?)?);
-    lines[..line - 1]
+    let depth = indent(lines.get(line1.checked_sub(1)?)?);
+    lines[..line1 - 1]
         .iter()
         .rev()
         .find(|l| !l.trim().is_empty() && indent(l) < depth)
         .copied()
 }
-/// Whether 1-based `line` of a TypeScript or JavaScript `text` declares into the global scope,
-/// where a member of `window` or `globalThis` can be the project's own (#341): inside `declare
-/// global { … }`, or in a script (no `import` or `export` at the top of the file) at its top level,
-/// either through `interface` and `namespace` blocks alone. A class's member is none.
 pub fn ts_global_scope(text: &str, line: usize) -> bool {
     static MODULE: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"(?m)^(?:import|export)\b").unwrap());
@@ -1354,28 +1293,18 @@ pub fn ts_global_scope(text: &str, line: usize) -> bool {
     }
     !MODULE.is_match(text)
 }
-/// Whether 1-based `line` of `lines` sits directly inside a block whose first line starts with
-/// `opener`: the nearest non-blank line above it that is indented less. `terraform fmt` indents
-/// every block, so the indentation is the nesting.
-pub fn directly_inside<S: AsRef<str>>(lines: &[S], line: usize, opener: &str) -> bool {
-    let Some(target) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
+pub fn directly_inside<S: AsRef<str>>(lines: &[S], line1: usize, opener: &str) -> bool {
+    let Some(target) = line1.checked_sub(1).and_then(|i| lines.get(i)) else {
         return false;
     };
     let depth = indent(target.as_ref());
-    lines[..line - 1]
+    lines[..line1 - 1]
         .iter()
         .map(AsRef::as_ref)
         .rev()
         .find(|l| !l.trim().is_empty() && indent(l) < depth)
         .is_some_and(|l| l.trim_start().starts_with(opener))
 }
-/// Whether the Zig declaration on 1-based `line` of `text` can be what a name elsewhere names
-/// (#469): no function or test holds it, whose local it would be — the blocks around it, told by
-/// indentation, lead to a container (the file, a `struct`, an `enum`, a `union`, an `opaque`)
-/// before any `fn` or `test`; a block the walk cannot name (`comptime {`) is looked past. From
-/// another file (`same_file` false) it is `pub`, since each file is a struct only whose `pub`
-/// members leave it. An `export` is a symbol of the whole program, the one thing its name can
-/// mean anywhere, and stays.
 pub fn zig_visible(text: &str, line: usize, same_file: bool) -> bool {
     static CONTAINER: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
         regex::Regex::new(
@@ -1387,13 +1316,11 @@ pub fn zig_visible(text: &str, line: usize, same_file: bool) -> bool {
     let Some(target) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
         return false;
     };
-    // The header of each block around the line, innermost first; `) u32 {` closes a header
-    // wrapped over the lines above it, which starts back at its indent.
-    let (mut depth, mut wrapped) = (indent(target), false);
+    let (mut depth, mut header_wraps_above) = (indent(target), false);
     for l in lines[..line - 1].iter().rev() {
         let code = uncommented(Kind::Zig, l);
         let t = code.trim();
-        if t.is_empty() || indent(l) > depth || (indent(l) == depth && !wrapped) {
+        if t.is_empty() || indent(l) > depth || (indent(l) == depth && !header_wraps_above) {
             continue;
         }
         depth = indent(l);
@@ -1403,24 +1330,24 @@ pub fn zig_visible(text: &str, line: usize, same_file: bool) -> bool {
         if ZIG_BODY.is_match(t) {
             return false;
         }
-        wrapped = t.starts_with(')');
+        header_wraps_above = t.starts_with(')');
     }
     let open = target.trim_start();
     same_file || open.starts_with("pub ") || open.starts_with("export ")
 }
-/// Whether 1-based `line` of `lines`, a GraphQL file, declares a field or an enum value: the
+/// Whether line `line1` of `lines`, a GraphQL file, declares a field or an enum value: the
 /// nearest line above it indented less, past blanks and `#` comments, opens a `type`, an
 /// `interface`, an `input` or an `enum`, or an `extend` of one, which declares fields all the
 /// same. A selection of an operation or a fragment is the same line one level down elsewhere.
-pub fn graphql_member<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
+pub fn graphql_member<S: AsRef<str>>(lines: &[S], line1: usize) -> bool {
     static OPENER: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
         regex::Regex::new(r"^(?:extend\s+)?(?:type|interface|input|enum)\s").unwrap()
     });
-    let Some(target) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
+    let Some(target) = line1.checked_sub(1).and_then(|i| lines.get(i)) else {
         return false;
     };
     let depth = indent(target.as_ref());
-    lines[..line - 1]
+    lines[..line1 - 1]
         .iter()
         .map(AsRef::as_ref)
         .rev()
@@ -1441,8 +1368,6 @@ pub fn subtype_patterns(kind: Kind, names: &[String]) -> Option<String> {
     let any: Vec<String> = names.iter().map(|n| regex::escape(n)).collect();
     let any = any.join("|");
     match kind {
-        // Not only the `class` line: black writes one base to a line under it (#100). Such a
-        // line holds names and commas alone, and the caller reads the header it belongs to.
         Kind::Python => Some(format!(
             r#"^\s*class\s+\w+\s*\(.*\b({any})\b|^\s+[\w.\[\]"', ]*\b({any})\b[\w.\[\]"', ]*(?:\)\s*:)?\s*(?:#.*)?$"#
         )),

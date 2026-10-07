@@ -9,6 +9,8 @@
 #                   reviewer's clone would not have: `merl --review=agent/refund` fetches it.
 #   DIR/agent-wt    a worktree of orders on `agent/page-size`, an agent's at work: one commit and a
 #                   file not committed yet. `merl -r agent/page-size` reviews it there (#396).
+#   DIR/agent-totp  a worktree on `agent/totp`: two files of a Java package eleven directories
+#                   deep, the review panel's one-child chain (#399).
 #   DIR/home        the HOME merl runs with: empty but for a .zshrc to open outside a repository.
 #
 # No network. Fixed names and dates, so the commits and their hashes are the same on every run,
@@ -72,3 +74,11 @@ sed -i.bak 's/page_size: int = 50/page_size: int = 100/' ../agent-wt/app/config.
 rm ../agent-wt/app/config.py.bak
 GIT_AUTHOR_NAME=agent git -C ../agent-wt commit -qam "config: a page of 100 orders"
 printf '# Paging\n\nA page holds 100 orders unless PAGE_SIZE says otherwise.\n' > ../agent-wt/docs/paging.md
+
+d=application/src/main/java/run/halo/app/security/authentication/twofactor/totp
+git worktree add -q --relative-paths -b agent/totp ../agent-totp
+mkdir -p ../agent-totp/$d
+printf 'class TotpAuthenticationFilter {}\n' > ../agent-totp/$d/TotpAuthenticationFilter.java
+printf 'class TotpCodeAuthenticationConverter {}\n' > ../agent-totp/$d/TotpCodeAuthenticationConverter.java
+git -C ../agent-totp add -A
+GIT_AUTHOR_NAME=agent git -C ../agent-totp commit -qm "totp: a filter and a converter"

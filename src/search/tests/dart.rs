@@ -1,6 +1,3 @@
-//! Dart's rules (#414): what declares a name and what does not, what `D` lists, the literals that
-//! run over lines, a `$` in a name, the imports and the files they name, and the roots.
-
 use super::*;
 
 /// Whether `word` is declared on line 1-based `at` of `text` by `d`'s patterns and where it sits.
@@ -54,20 +51,33 @@ fn dart_declaration_forms() {
     ] {
         assert!(one(line, word), "{line} declares {word}");
     }
-    // A constructor and an enum value declare inside their type's body.
     let user = "class User {\n  const User({required this.id});\n  factory User.fromJson(Map<String, dynamic> json) =>\n  User.guest() : id = 0;\n  User(this.id);\n}\nenum Level {\n  low,\n  high('h');\n}\n";
     assert!(declares(user, 2, "User"));
     assert!(declares(user, 3, "fromJson"));
     assert!(declares(user, 4, "guest"));
-    assert!(declares(user, 5, "User"));
-    assert!(declares(user, 8, "low"));
+    assert!(
+        declares(user, 5, "User"),
+        "a constructor declares inside its type's body"
+    );
+    assert!(
+        declares(user, 8, "low"),
+        "an enum value declares inside its enum's body"
+    );
     assert!(declares(user, 9, "high"));
-    // A constructor with typed or `super.` parameters, and under an owner annotated on its line.
     let more = "@immutable class Shop {\n  const Shop();\n  Shop.named(String name, int id);\n  Shop.copy(super.key);\n}\n@JsonEnum() enum Mode {\n  @JsonValue('o')\n  open,\n}\n";
     assert!(declares(more, 2, "Shop"));
-    assert!(declares(more, 3, "named"));
-    assert!(declares(more, 4, "copy"));
-    assert!(declares(more, 8, "open"));
+    assert!(
+        declares(more, 3, "named"),
+        "a constructor with typed parameters"
+    );
+    assert!(
+        declares(more, 4, "copy"),
+        "a constructor with `super.` parameters"
+    );
+    assert!(
+        declares(more, 8, "open"),
+        "a value under an enum annotated on its line"
+    );
 }
 
 #[test]
@@ -88,13 +98,20 @@ fn dart_refusals() {
     ] {
         assert!(!one(line, word), "{line} declares no {word}");
     }
-    // A call shaped like a constructor or a value is none outside a type's or an enum's body.
     let body = "void f() {\n  const SizedBox(height: 8);\n  open,\n}\n";
-    assert!(!declares(body, 2, "SizedBox"));
-    assert!(!declares(body, 3, "open"));
-    // A parameter wrapped onto a line of its own is no field.
+    assert!(
+        !declares(body, 2, "SizedBox"),
+        "a call shaped like a constructor is none outside a type's body"
+    );
+    assert!(
+        !declares(body, 3, "open"),
+        "a value is none outside an enum's body"
+    );
     let params = "void f({\n  int retries = 3,\n  String name,\n}) {}\n";
-    assert!(!declares(params, 2, "retries"));
+    assert!(
+        !declares(params, 2, "retries"),
+        "a parameter wrapped onto a line of its own is no field"
+    );
     assert!(!declares(params, 3, "name"));
     let positional = "void f(\n  int retries,\n) {}\n";
     assert!(!declares(positional, 2, "retries"));
@@ -163,8 +180,11 @@ fn dart_literals_run_over_lines() {
         .filter(|(_, l)| **l)
         .map(|(i, _)| i + 1)
         .collect();
-    // A backtick opens nothing: `class D` is code.
-    assert_eq!(literal, [2, 3, 5, 6, 8, 9]);
+    assert_eq!(
+        literal,
+        [2, 3, 5, 6, 8, 9],
+        "a backtick opens nothing: `class D` is code"
+    );
 }
 
 #[test]
@@ -179,8 +199,11 @@ fn a_dart_name_keeps_its_dollar() {
         word("final u = _$UserFromJson(j);", 14).as_deref(),
         Some("_$UserFromJson")
     );
-    // In a string, `$name` interpolates `name`.
-    assert_eq!(word("print('hi $name');", 12).as_deref(), Some("name"));
+    assert_eq!(
+        word("print('hi $name');", 12).as_deref(),
+        Some("name"),
+        "in a string, `$name` interpolates `name`"
+    );
     assert_eq!(word("print('$a$b');", 10).as_deref(), Some("b"));
     assert_eq!(word("final x = y$;", 10).as_deref(), Some("y"));
 }
@@ -202,7 +225,6 @@ fn dart_imports_bind_a_prefix_and_shown_names() {
 
 #[test]
 fn dart_uris_name_files() {
-    // A space in the pub cache's path is `%20` in its URI.
     let cache = std::env::temp_dir().join(format!("merl dart cache-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&cache);
     std::fs::create_dir_all(cache.join("http-1.2.0/lib")).unwrap();
@@ -257,7 +279,8 @@ fn dart_uris_name_files() {
     );
     assert_eq!(
         file("package:http/http.dart"),
-        Some(cache.join("http-1.2.0/lib/http.dart"))
+        Some(cache.join("http-1.2.0/lib/http.dart")),
+        "a space in the pub cache's path is `%20` in its URI"
     );
     assert_eq!(file("dart:async"), Some(sdk.join("lib/async/async.dart")));
     assert_eq!(file("package:missing/x.dart"), None);
@@ -265,16 +288,15 @@ fn dart_uris_name_files() {
         file("../lib/money.dart"),
         Some(PathBuf::from("app/lib/money.dart"))
     );
-    // A path dependency of the project is a project file.
     assert_eq!(
         file("package:core/x.dart"),
-        Some(PathBuf::from("packages/core/lib/x.dart"))
+        Some(PathBuf::from("packages/core/lib/x.dart")),
+        "a path dependency of the project is a project file"
     );
     assert_eq!(
         file("dart:ui"),
         Some(cache.join("sky_engine/lib/ui/ui.dart"))
     );
-    // The packages outside the project and the SDK's `lib/`; the project's own is not one.
     assert_eq!(
         dart_roots(&root, Some(sdk.clone())),
         [
@@ -282,9 +304,9 @@ fn dart_uris_name_files() {
             cache.join("sky_engine/lib/"),
             cache.join("path-1.9.0/lib/"),
             sdk.join("lib")
-        ]
+        ],
+        "the packages outside the project and the SDK's `lib/`, not the project's own"
     );
-    // Flutter's `bin/dart` stands beside `bin/cache/dart-sdk`; a plain SDK's is in its `bin/`.
     std::fs::create_dir_all(cache.join("flutter/bin/cache/dart-sdk")).unwrap();
     std::fs::write(cache.join("flutter/bin/dart"), "").unwrap();
     std::fs::create_dir_all(sdk.join("bin")).unwrap();
@@ -292,9 +314,14 @@ fn dart_uris_name_files() {
     let real = |p: PathBuf| std::fs::canonicalize(p).unwrap();
     assert_eq!(
         dart_sdk_of(&cache.join("flutter/bin/dart")),
-        Some(real(cache.join("flutter/bin/cache/dart-sdk")))
+        Some(real(cache.join("flutter/bin/cache/dart-sdk"))),
+        "Flutter's `bin/dart` stands beside `bin/cache/dart-sdk`"
     );
-    assert_eq!(dart_sdk_of(&sdk.join("bin/dart")), Some(real(sdk)));
+    assert_eq!(
+        dart_sdk_of(&sdk.join("bin/dart")),
+        Some(real(sdk)),
+        "a plain SDK's is in its `bin/`"
+    );
     let _ = std::fs::remove_dir_all(&cache);
     let _ = std::fs::remove_dir_all(&root);
 }

@@ -1,6 +1,8 @@
 /
 :
+Alt+Left
 Alt+Shift+Right
+Arrows
 Ctrl+C
 Ctrl+End
 Ctrl+N

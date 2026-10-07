@@ -1,0 +1,57 @@
+wait via key: Slice
+┌orders──────────────────────┐1 struct Slice {
+│▸ .github                   │2     unsigned long size() const { return n; }
+│▸ .venv                     │3     unsigned long n;
+│▸ app                       │4 };
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▾ worker                    │
+│  ▾ internal                │
+│    ▾ crc                   │
+│      A block.h             │
+│      A client.c            │
+│      A crc.c               │
+│      A crc.h               │
+│      A CrcStamp.h          │
+│      A CrcStamp.m          │
+│      A log.c               │
+│      A mode.cc             │
+│      A slice.h             │
+│      A use.cc              │
+│    ▸ queue                 │
+│    go.mod                  │
+│    main.go                 │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+worker/internal/crc/slice.h  2:19  [code]  size → Slice::size (via key: Slice)
+cursor (x,y,shown) 50,1,1

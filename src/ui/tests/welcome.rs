@@ -1,5 +1,3 @@
-//! Tests for [`crate::ui::welcome`].
-
 use std::path::PathBuf;
 
 use ratatui::Terminal;
@@ -11,8 +9,6 @@ use crate::tree::Tree;
 
 use super::rows;
 
-/// Every welcome action still exists in `KEYS`, the screen shows the key next to it, and a
-/// pane too small for the logo drops the logo before it drops the keys.
 #[test]
 fn welcome_screen_lists_keys_and_shrinks_before_it_clips() {
     let hints = super::welcome_hints();

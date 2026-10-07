@@ -1,5 +1,3 @@
-//! `u`: the usages of the word under the cursor.
-
 use super::*;
 
 /// The rows of the open result picker, each split into its mark and the `path:line` it
@@ -7,28 +5,30 @@ use super::*;
 fn usage_rows(a: &mut App) -> Vec<(String, String)> {
     let picker = a.picker.as_mut().expect("a picker");
     picker.settle();
+    let declarations = picker
+        .title
+        .split_once(": ")
+        .and_then(|(_, counts)| counts.split_once(" declaration"))
+        .map_or(0, |(n, _)| n.parse().unwrap());
     picker
         .window(50)
         .0
         .into_iter()
-        .map(|r| {
-            let head = r.item.label[..r.item.code_at.unwrap()].trim_end();
-            let (mark, place) = head.rsplit_once(' ').unwrap_or(("", head));
-            (mark.trim().into(), place.trim_end_matches(':').into())
+        .enumerate()
+        .map(|(i, r)| {
+            let head = r.item.label[..r.item.code_at.unwrap()].trim();
+            let mark = if i < declarations { "declaration" } else { "" };
+            (mark.into(), head.trim_end_matches(':').into())
         })
         .collect()
 }
 
-/// Puts the cursor on `word` in `file` at `line` and presses `u`.
 fn usages_at(a: &mut App, dir: &Path, file: &str, line: usize, word: &str) {
     a.jump_to(&dir.join(file), line);
     a.col = a.line_str().find(word).expect(word);
     press(a, KeyCode::Char('u'), KeyModifiers::NONE);
 }
 
-/// #81: the declaration first and marked as one, then the open file, then the rest of the
-/// project's code nearest first, then the tests — a test file next door still sorts below
-/// code a package away.
 #[test]
 fn usages_put_the_declaration_first_and_the_tests_last() {
     let (dir, mut a) = project_app(
@@ -65,7 +65,9 @@ fn usages_put_the_declaration_first_and_the_tests_last() {
             (String::new(), "src/api/view.py:2".into()),
             (String::new(), "src/users/repo_test.py:2".into()),
             (String::new(), "tests/test_repo.py:2".into()),
-        ]
+        ],
+        "the declaration, the open file, the project's code nearest first, then the tests: a \
+         test file next door sorts below code a package away"
     );
     assert_eq!(
         a.picker.as_ref().unwrap().title,
@@ -74,9 +76,6 @@ fn usages_put_the_declaration_first_and_the_tests_last() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #405: a FIFO in the project is not read. `u`, `D` and `s` opened it and waited for a writer
-/// forever, `u` and `D` on the UI thread. Here they run on a thread of their own, so a wait
-/// fails the test instead of hanging it.
 #[test]
 #[cfg(unix)]
 fn a_fifo_in_the_project_stalls_no_search() {
@@ -110,12 +109,14 @@ fn a_fifo_in_the_project_stalls_no_search() {
     ] {
         // `D` in a debug build takes seconds on a loaded machine; the wait on a FIFO is forever.
         let got = rx.recv_timeout(std::time::Duration::from_secs(60));
-        assert_eq!(got.as_deref(), Ok(want));
+        assert_eq!(
+            got.as_deref(),
+            Ok(want),
+            "a FIFO in the project is not read, or the search waits for a writer forever"
+        );
     }
 }
 
-/// The title says how the list splits, and a part with no hits is left out rather than
-/// printed as a zero.
 #[test]
 fn the_usages_title_splits_the_counts_and_omits_what_is_not_there() {
     let (dir, mut a) = project_app(
@@ -136,17 +137,23 @@ fn the_usages_title_splits_the_counts_and_omits_what_is_not_there() {
             ),
         ],
     );
-    for (file, line, word, title) in [
+    for (name, file, line, word, title) in [
         (
+            "a declaration, code and tests",
             "src/admin.py",
             5,
             "delete_user",
             "Usages of delete_user: 1 declaration, 1 in code, 1 in tests",
         ),
-        // Two declarations and nothing else: only the one part, and it is plural.
-        ("src/repo.py", 1, "Repo", "Usages of Repo: 2 declarations"),
-        // A name no rule declares: no declaration part at all.
         (
+            "two declarations and nothing else: only the one part, and it is plural",
+            "src/repo.py",
+            1,
+            "Repo",
+            "Usages of Repo: 2 declarations",
+        ),
+        (
+            "a name no rule declares: no declaration part at all",
             "src/admin.py",
             4,
             "info",
@@ -156,14 +163,12 @@ fn the_usages_title_splits_the_counts_and_omits_what_is_not_there() {
         usages_at(&mut a, &dir, file, line, word);
         let p = a.picker.as_mut().unwrap();
         p.settle();
-        assert_eq!(p.title, title);
+        assert_eq!(p.title, title, "{name}");
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #81: the candidates of `d` share the demotion — the copy of the declaration under `spec/`
-/// is offered last, though its path sorts first.
 #[test]
 fn d_offers_the_test_copy_of_a_declaration_last() {
     let (dir, mut a) = project_app(
@@ -183,21 +188,25 @@ fn d_offers_the_test_copy_of_a_declaration_last() {
     a.jump_to(&dir.join("src/admin.py"), 2);
     a.col = a.line_str().find("delete_user").unwrap();
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
-    assert_eq!(rows(&mut a), ["src/repo.py:1", "spec/repo.py:1"]);
+    assert_eq!(
+        rows(&mut a),
+        ["src/repo.py:1", "spec/repo.py:1"],
+        "the copy under `spec/` comes last, though its path sorts first"
+    );
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-    // Read from inside `spec/` and that file is not a test copy, it is what is on screen:
-    // its declaration stays first.
     a.jump_to(&dir.join("spec/repo.py"), 2);
     a.col = 4;
     a.buf.lines[1] = "    delete_user(id)".into();
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
-    assert_eq!(rows(&mut a), ["spec/repo.py:1", "src/repo.py:1"]);
+    assert_eq!(
+        rows(&mut a),
+        ["spec/repo.py:1", "src/repo.py:1"],
+        "read from inside `spec/` and that file is not a test copy, it is what is on screen: its \
+         declaration stays first"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #81: the mark says what `d` would call a declaration — not a `def` line inside a
-/// docstring, nothing at all where the kind has no rule for the word, and nothing in a file
-/// the list demotes, whose count belongs to the tests.
 #[test]
 fn the_usages_mark_is_only_for_a_declaration_d_would_offer() {
     let (dir, mut a) = project_app(
@@ -233,35 +242,36 @@ fn the_usages_mark_is_only_for_a_declaration_d_would_offer() {
             ("declaration".to_string(), "src/repo.py:2".to_string()),
             (String::new(), "src/admin.py:2".into()),
             (String::new(), "docs/guide.py:4".into()),
-        ]
+        ],
+        "a `def` line inside a docstring is no declaration"
     );
     assert_eq!(
         a.picker.as_ref().unwrap().title,
         "Usages of delete_user: 1 declaration, 2 in code"
     );
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-    // Terraform declares no bare `count`: with no rule there is no mark and no column for it.
     usages_at(&mut a, &dir, "main.tf", 2, "count");
     assert_eq!(
         usage_rows(&mut a),
         [
             (String::new(), "main.tf:2".to_string()),
             (String::new(), "other.tf:2".into()),
-        ]
+        ],
+        "Terraform declares no bare `count`: with no rule there is no mark and no column for it"
     );
     assert_eq!(
         a.picker.as_ref().unwrap().title,
         "Usages of count: 2 in code"
     );
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-    // A word declared only in a test file: the declaration is a test row, marked as neither.
     usages_at(&mut a, &dir, "src/admin.py", 5, "make_repo");
     assert_eq!(
         usage_rows(&mut a),
         [
             (String::new(), "src/admin.py:5".to_string()),
             (String::new(), "tests/test_repo.py:1".into()),
-        ]
+        ],
+        "a word declared only in a test file: the declaration is a test row, marked as neither"
     );
     assert_eq!(
         a.picker.as_ref().unwrap().title,
@@ -270,9 +280,6 @@ fn the_usages_mark_is_only_for_a_declaration_d_would_offer() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #281: to grep `-` ends a word, so `db-main` also found `db-main-2` and `db-main-replica`.
-/// Where `-` is part of a name (Make, YAML) those lines go; in Python, where `db-main-2` is a
-/// subtraction, the line stays.
 #[test]
 fn usages_of_a_hyphenated_name_leave_out_longer_names() {
     let (dir, mut a) = project_app(
@@ -297,13 +304,13 @@ fn usages_of_a_hyphenated_name_leave_out_longer_names() {
             ("declaration".into(), "app.yaml:2".into()),
             (String::new(), "Makefile:7".into()),
             (String::new(), "calc.py:1".into()),
-        ]
+        ],
+        "where `-` is part of a name, Make and YAML, `db-main-2` and `db-main-replica` go; in \
+         Python `db-main-2` is a subtraction and stays"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #504: in a Makefile `u` marks what `d` counts. A recipe's `GO=$(GO) cmd` sets a variable of
-/// one shell command, not make's; `+=` declares a name nothing assigns plainly, and only then.
 #[test]
 fn makefile_usages_mark_the_declarations_d_jumps_to() {
     let (dir, mut a) = project_app(
@@ -324,17 +331,25 @@ fn makefile_usages_mark_the_declarations_d_jumps_to() {
         rows
     };
     let row = |mark: &str, line: usize| (mark.to_string(), format!("Makefile:{line}"));
-    assert_eq!(rows(&mut a, "GO"), [row("declaration", 1), row("", 7)]);
-    assert_eq!(rows(&mut a, "CFLAGS"), [row("declaration", 2), row("", 7)]);
+    assert_eq!(
+        rows(&mut a, "GO"),
+        [row("declaration", 1), row("", 7)],
+        "on make's `$(GO)`: a recipe's `GO=$(GO) cmd` sets a variable of one shell command, not \
+         make's"
+    );
+    assert_eq!(
+        rows(&mut a, "CFLAGS"),
+        [row("declaration", 2), row("", 7)],
+        "`+=` declares a name nothing assigns plainly"
+    );
     assert_eq!(
         rows(&mut a, "LDFLAGS"),
-        [row("declaration", 3), row("", 4), row("", 7)]
+        [row("declaration", 3), row("", 4), row("", 7)],
+        "`+=` declares nothing beside a plain assignment"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #281: a grep that stopped at its cap stays marked as cut after the filter drops the longer
-/// names, or the hits past the cap would look absent.
 #[test]
 fn a_cut_usages_list_says_so_after_the_filter() {
     let make = format!("db-main:\n{}", "\tdb-main-2\n".repeat(search::MAX_HITS));
@@ -343,12 +358,14 @@ fn a_cut_usages_list_says_so_after_the_filter() {
     let picker = a.picker.as_mut().expect("a picker");
     picker.settle();
     assert_eq!(picker.counts().0, 1);
-    assert!(picker.title.ends_with("(first 5000)"), "{}", picker.title);
+    assert!(
+        picker.title.ends_with("(first 5000)"),
+        "the filter dropped the longer names, and the list is still cut: {}",
+        picker.title
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #387: `u` reads a Ruby name as `d` does, its `?`, `!` or setter `=` included, so the method it
-/// asks about is the one its own `def` or `attr_writer` declares, and that row comes first.
 #[test]
 fn usages_of_a_ruby_suffixed_method_put_its_declaration_first() {
     let (dir, mut a) = project_app(
@@ -369,7 +386,7 @@ fn usages_of_a_ruby_suffixed_method_put_its_declaration_first() {
                 ("declaration".to_string(), format!("app/user.rb:{declared}")),
                 (String::new(), format!("app/use.rb:{line}")),
             ],
-            "{word}"
+            "{word} with its `?`, `!` or setter `=`: its own `def` or `attr_writer` first"
         );
         assert!(
             a.picker
@@ -385,8 +402,6 @@ fn usages_of_a_ruby_suffixed_method_put_its_declaration_first() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #383: `u` on a Ruby `@total` lists every `total` as before, and marks its assignment
-/// `@total = 0` a declaration beside `def total`; on a bare `total` only the `def` declares.
 #[test]
 fn usages_of_a_ruby_ivar_mark_its_assignment() {
     let (dir, mut a) = project_app(
@@ -405,16 +420,19 @@ fn usages_of_a_ruby_ivar_mark_its_assignment() {
     };
     assert_eq!(
         marked(usage_rows(&mut a)),
-        ["app/cart.rb:3", "app/cart.rb:6"]
+        ["app/cart.rb:3", "app/cart.rb:6"],
+        "on `@total`, `@total = 0` declares beside `def total`"
     );
     a.picker = None;
     usages_at(&mut a, &dir, "app/cart.rb", 6, "total");
-    assert_eq!(marked(usage_rows(&mut a)), ["app/cart.rb:6"]);
+    assert_eq!(
+        marked(usage_rows(&mut a)),
+        ["app/cart.rb:6"],
+        "on a bare `total`, only the `def`"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #459: `u` reads an Elixir name as `d` does, its `?` or `!` included, so the `def` of `ship!`
-/// is its declaration and comes first.
 #[test]
 fn usages_of_an_elixir_suffixed_function_put_its_declaration_first() {
     let (dir, mut a) = project_app(
@@ -435,15 +453,13 @@ fn usages_of_an_elixir_suffixed_function_put_its_declaration_first() {
                 ("declaration".to_string(), format!("lib/w.ex:{declared}")),
                 (String::new(), format!("lib/use.ex:{line}")),
             ],
-            "{word}"
+            "{word} with its `?` or `!`: its `def` first"
         );
         a.picker = None;
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #419: `u` asks what declares a GraphQL field as `d` does. An indented `email` is a field only
-/// directly inside a type; a selection of a query, in the file on screen or not, is a use.
 #[test]
 fn usages_in_graphql_mark_the_field_not_the_selection() {
     let (dir, mut a) = project_app(
@@ -459,14 +475,12 @@ fn usages_in_graphql_mark_the_field_not_the_selection() {
         [
             ("declaration".to_string(), "schema.graphql:2".to_string()),
             (String::new(), "ops.graphql:3".into()),
-        ]
+        ],
+        "an indented `email` is a field only directly inside a type; a query's selection is a use"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Review of #515: `u` asks the rule `d` asks. A recipe's `ARCH=x86` declares the shell variable
-/// of its own command, `$${ARCH}`, for both; a recipe's `X += 1` declares nothing, even with no
-/// other line setting `X`.
 #[test]
 fn makefile_usages_ask_the_rule_d_asks() {
     let (dir, mut a) = project_app(
@@ -478,20 +492,30 @@ fn makefile_usages_ask_the_rule_d_asks() {
     );
     let row = |mark: &str, line: usize| (mark.to_string(), format!("Makefile:{line}"));
     usages_at(&mut a, &dir, "Makefile", 2, "ARCH");
-    assert_eq!(usage_rows(&mut a), [row("declaration", 2)]);
+    assert_eq!(
+        usage_rows(&mut a),
+        [row("declaration", 2)],
+        "a recipe's `ARCH=x86` declares the shell variable of its own command"
+    );
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     usages_at(&mut a, &dir, "Makefile", 4, "X");
-    assert_eq!(usage_rows(&mut a), [row("", 3), row("", 4)]);
+    assert_eq!(
+        usage_rows(&mut a),
+        [row("", 3), row("", 4)],
+        "a recipe's `X += 1` declares nothing, even with no other line setting `X`"
+    );
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     a.jump_to(&dir.join("Makefile"), 2);
     a.col = a.line_str().rfind("ARCH").unwrap();
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
-    assert_eq!(at(&a), (dir.join("Makefile"), 1));
+    assert_eq!(
+        at(&a),
+        (dir.join("Makefile"), 1),
+        "`d` on `$${{ARCH}}` asks the same rule"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #353 took the Rust `let` out of `def_patterns`, since `d` reads a local by scope; `u` still
-/// marks a `let` of the word as its declaration, as on master.
 #[test]
 fn usages_mark_a_rust_let_as_a_declaration() {
     let (dir, mut a) = project_app(
@@ -512,8 +536,6 @@ fn usages_mark_a_rust_let_as_a_declaration() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Review of #374: a Rails column declares only in `db/schema.rb`, for `u` as for `d` (#504); a
-/// migration's `t.string :language` is history, a use.
 #[test]
 fn usages_mark_a_rails_column_only_in_the_schema() {
     let (dir, mut a) = project_app(
@@ -539,14 +561,11 @@ fn usages_mark_a_rails_column_only_in_the_schema() {
     assert_eq!(
         marked,
         [&("declaration".to_string(), "db/schema.rb:3".to_string())],
-        "{rows:?}"
+        "a migration's `t.string :language` is history, a use: {rows:?}"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #415: `u` on a class of a JSX `className` reads it whole, `-` and all, and marks the rule
-/// that styles it; on `var(--brand)` it reads the custom property with its dashes. A TypeScript
-/// `id = "x"` stays an assignment, read as TypeScript reads a word.
 #[test]
 fn usages_of_a_class_and_a_custom_property_read_them_whole() {
     let (dir, mut a) = project_app(
@@ -569,9 +588,9 @@ fn usages_of_a_class_and_a_custom_property_read_them_whole() {
             ("declaration".to_string(), "src/styles.css:4".to_string()),
             (String::new(), "src/Button.tsx:1".into()),
             (String::new(), "src/Button.tsx:3".into()),
-            // It styles `.icon`, so `d` does not offer it, and neither is it marked.
             (String::new(), "src/styles.css:9".into()),
-        ]
+        ],
+        "a JSX `className` read whole, `-` and all; `.btn-primary .icon` styles `.icon`, unmarked"
     );
     a.picker = None;
     usages_at(&mut a, &dir, "src/styles.css", 5, "brand");
@@ -580,17 +599,19 @@ fn usages_of_a_class_and_a_custom_property_read_them_whole() {
         [
             ("declaration".to_string(), "src/styles.css:2".to_string()),
             (String::new(), "src/styles.css:5".into()),
-        ]
+        ],
+        "`var(--brand)` reads the custom property with its dashes"
     );
     a.picker = None;
     usages_at(&mut a, &dir, "src/Button.tsx", 3, "primary");
     let title = &a.picker.as_ref().expect("a picker").title;
-    assert!(title.starts_with("Usages of primary:"), "{title}");
+    assert!(
+        title.starts_with("Usages of primary:"),
+        "a TypeScript `id=\"x\"` is read as TypeScript reads a word: {title}"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #413: a component's template and `<style>` declare nothing, whatever they look like; its
-/// script declares as a `.ts` file does, and the template's uses are uses.
 #[test]
 fn usages_in_a_component_count_its_script_alone_as_declaring() {
     let (dir, mut a) = project_app(
@@ -609,7 +630,8 @@ fn usages_in_a_component_count_its_script_alone_as_declaring() {
         rows.iter()
             .filter(|(m, _)| m == "declaration")
             .collect::<Vec<_>>(),
-        [&("declaration".to_string(), "names.ts:1".to_string())]
+        [&("declaration".to_string(), "names.ts:1".to_string())],
+        "a component's template declares nothing, whatever it looks like"
     );
     assert!(rows.iter().any(|(_, p)| p == "Card.vue:5"), "{rows:?}");
     assert!(rows.iter().any(|(_, p)| p == "Card.vue:6"), "{rows:?}");

@@ -1,5 +1,3 @@
-//! How far a definition is looked for.
-
 use super::*;
 
 #[test]
@@ -33,45 +31,52 @@ fn definition_scope_follows_the_kind() {
         Path::new("Makefile"),
         Path::new("a.py")
     ));
-    // `.tsx` finds its types in `.ts` and its helpers in `.js`.
-    assert!(in_def_scope(
-        Kind::TsJs,
-        Path::new("ui/app.tsx"),
-        Path::new("lib/types.ts")
-    ));
-    assert!(in_def_scope(
-        Kind::TsJs,
-        Path::new("ui/app.tsx"),
-        Path::new("e.js")
-    ));
+    assert!(
+        in_def_scope(
+            Kind::TsJs,
+            Path::new("ui/app.tsx"),
+            Path::new("lib/types.ts")
+        ),
+        "`.tsx` finds its types in `.ts`"
+    );
+    assert!(
+        in_def_scope(Kind::TsJs, Path::new("ui/app.tsx"), Path::new("e.js")),
+        "and its helpers in `.js`"
+    );
     assert!(!in_def_scope(
         Kind::Rust,
         Path::new("src/main.rs"),
         Path::new("build.py")
     ));
-    // A Kotlin file finds the Java class it calls, and the other way round.
-    assert!(in_def_scope(
-        Kind::Jvm,
-        Path::new("app/src/App.kt"),
-        Path::new("lib/src/Invoice.java")
-    ));
+    assert!(
+        in_def_scope(
+            Kind::Jvm,
+            Path::new("app/src/App.kt"),
+            Path::new("lib/src/Invoice.java")
+        ),
+        "a Kotlin file finds the Java class it calls"
+    );
     assert!(!in_def_scope(
         Kind::Jvm,
         Path::new("app/src/App.kt"),
         Path::new("lib/src/invoice.py")
     ));
-    // A Rakefile finds the class it drives in the library it loads.
-    assert!(in_def_scope(
-        Kind::Ruby,
-        Path::new("Rakefile"),
-        Path::new("lib/invoice.rb")
-    ));
-    // A migration finds the table it alters in whatever file created it.
-    assert!(in_def_scope(
-        Kind::Sql,
-        Path::new("migrations/002.sql"),
-        Path::new("schema.ddl")
-    ));
+    assert!(
+        in_def_scope(
+            Kind::Ruby,
+            Path::new("Rakefile"),
+            Path::new("lib/invoice.rb")
+        ),
+        "a Rakefile finds the class it drives in the library it loads"
+    );
+    assert!(
+        in_def_scope(
+            Kind::Sql,
+            Path::new("migrations/002.sql"),
+            Path::new("schema.ddl")
+        ),
+        "a migration finds the table it alters in whatever file created it"
+    );
     assert!(!in_def_scope(
         Kind::Sql,
         Path::new("migrations/002.sql"),
@@ -79,9 +84,6 @@ fn definition_scope_follows_the_kind() {
     ));
 }
 
-/// #369: Ruby's roots come from `Gemfile.lock`, `.bundle/config` and `.ruby-version`, read and
-/// never run: the gems at the versions it locks, a `GIT` gem's checkout, the Ruby a version
-/// manager in `HOME` installed, with its standard library and the newest `rbs` gem's `core/`.
 #[test]
 fn ruby_roots_are_the_locked_gems_of_the_ruby_the_project_names() {
     let tmp = std::env::temp_dir().join(format!("merl-ruby-roots-{}", std::process::id()));
@@ -105,7 +107,6 @@ fn ruby_roots_are_the_locked_gems_of_the_ruby_the_project_names() {
     let gems = ruby.join("gems/3.3.0");
     for dir in [
         bundle.join("gems/rack-attack-6.7.0"),
-        // A version the lockfile does not name is not read.
         gems.join("gems/rack-attack-6.6.0"),
         gems.join("gems/rack-attack-6.7.0"),
         gems.join("gems/rack-3.1.0/lib"),
@@ -128,15 +129,15 @@ fn ruby_roots_are_the_locked_gems_of_the_ruby_the_project_names() {
             gems.join("gems/rbs-3.10.0/core"),
             ruby.join("3.3.0"),
             gems.join("bundler/gems/devise-0123456789ab"),
-            // A gem is read from its `lib`, when it has one.
             gems.join("gems/rack-3.1.0/lib"),
-            // `BUNDLE_PATH` comes before the Ruby's own gems.
             bundle.join("gems/rack-attack-6.7.0"),
             gems.join("gems/nokogiri-1.16.0-arm64-darwin"),
-        ]
+        ],
+        "the newest `rbs` gem's `core/`, the standard library of the Ruby `.ruby-version` names, \
+         a `GIT` gem's checkout, then the gems at the versions the lockfile locks: a gem's `lib` \
+         when it has one, `BUNDLE_PATH` before the Ruby's own gems, no other version"
     );
     assert!(!asked.get(), "a version manager's Ruby needs no `ruby` run");
-    // Without that Ruby the one on the PATH is asked: its standard library, then its gem path.
     std::fs::remove_dir_all(home.join(".rbenv")).unwrap();
     let path = tmp.join("gem-path");
     let said = format!("{}\n{}\n", tmp.join("lib").display(), path.display());
@@ -148,9 +149,9 @@ fn ruby_roots_are_the_locked_gems_of_the_ruby_the_project_names() {
             tmp.join("lib"),
             path.join("gems/rack-3.1.0"),
             bundle.join("gems/rack-attack-6.7.0"),
-        ]
+        ],
+        "without that Ruby the one on the PATH is asked: its standard library, then its gem path"
     );
-    // `GEM_HOME` and `GEM_PATH` come after `BUNDLE_PATH`, before the Ruby's own gem path.
     let env = tmp.join("env-gems");
     std::fs::create_dir_all(env.join("gems/rack-3.1.0")).unwrap();
     let roots = ruby_roots(&root, &home, std::slice::from_ref(&env), || {
@@ -160,27 +161,38 @@ fn ruby_roots_are_the_locked_gems_of_the_ruby_the_project_names() {
             path.display()
         ))
     });
-    assert_eq!(roots[1], env.join("gems/rack-3.1.0"));
-    // With none of the locked gems installed there are no roots at all, whatever Ruby, standard
-    // library and core signatures are there: `d` stays in the project, as before #369.
+    assert_eq!(
+        roots[1],
+        env.join("gems/rack-3.1.0"),
+        "`GEM_HOME` and `GEM_PATH` come after `BUNDLE_PATH`, before the Ruby's own gem path"
+    );
     write(
         &root.join("Gemfile.lock"),
         "GEM\n  specs:\n    missing (1.0.0)\n",
     );
     std::fs::create_dir_all(path.join("gems/rbs-3.9.1/core")).unwrap();
     let said = format!("{}\n{}\n", tmp.join("lib").display(), path.display());
-    assert!(ruby_roots(&root, &home, &[], || Some(said)).is_empty());
+    assert!(
+        ruby_roots(&root, &home, &[], || Some(said)).is_empty(),
+        "with none of the locked gems installed there are no roots, whatever Ruby, standard \
+         library and core signatures are there"
+    );
     write(
         &root.join("Gemfile.lock"),
         "GEM\n  specs:\n    rack-attack (6.7.0)\n",
     );
-    // A `BUNDLE_PATH` beside the project is read without its `..`.
     let beside = tmp.join("bundle/ruby/3.3.0/gems/rack-attack-6.7.0");
     std::fs::create_dir_all(&beside).unwrap();
     write(&root.join(".bundle/config"), "BUNDLE_PATH: '../bundle'\n");
-    assert_eq!(ruby_roots(&root, &home, &[], || None).last(), Some(&beside));
-    // No lockfile: nothing outside, and nothing is asked.
+    assert_eq!(
+        ruby_roots(&root, &home, &[], || None).last(),
+        Some(&beside),
+        "a `BUNDLE_PATH` beside the project is read without its `..`"
+    );
     std::fs::remove_file(root.join("Gemfile.lock")).unwrap();
-    assert!(ruby_roots(&root, &home, &[], || panic!("asked")).is_empty());
+    assert!(
+        ruby_roots(&root, &home, &[], || panic!("asked")).is_empty(),
+        "no lockfile: nothing outside"
+    );
     std::fs::remove_dir_all(&tmp).unwrap();
 }

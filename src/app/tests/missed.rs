@@ -21,7 +21,6 @@ fn missed(of: &[(&'static str, u64)]) -> HashMap<&'static str, u64> {
     HashMap::from_iter(of.iter().copied())
 }
 
-/// `o`, the query, Enter.
 fn open_by_name(a: &mut App, query: &str) {
     press(a, KeyCode::Char('o'), NONE);
     typed(a, query);
@@ -29,20 +28,45 @@ fn open_by_name(a: &mut App, query: &str) {
     press(a, KeyCode::Enter, NONE);
 }
 
-/// A held arrow or Shift+arrow misses the key that covers the same distance in the fewest
-/// presses, pressed again and followed by arrows if need be.
 #[test]
 fn a_held_arrow_misses_the_key_that_covers_the_distance() {
     let lines = "x\n".repeat(60);
     let words = "alpha beta gamma delta\n";
-    for (text, code, m, n, key) in [
-        // Two screens of ten rows: PgDn twice.
-        (lines.as_str(), KeyCode::Down, NONE, 20, "PgDn"),
-        // Half a screen and two rows: Ctrl+D Down Down, three presses of seven.
-        (lines.as_str(), KeyCode::Down, NONE, 7, "Ctrl+D"),
-        (words, KeyCode::Right, NONE, 10, "Alt+Right"),
-        // `alpha` selected: Alt+Shift+Right, and `v` too, which comes later in the list.
+    for (name, text, code, m, n, key) in [
         (
+            "two screens of ten rows: PgDn twice",
+            lines.as_str(),
+            KeyCode::Down,
+            NONE,
+            20,
+            "PgDn",
+        ),
+        (
+            "half a screen and two rows: Ctrl+D Down Down, three presses of seven",
+            lines.as_str(),
+            KeyCode::Down,
+            NONE,
+            7,
+            "Ctrl+D",
+        ),
+        (
+            "two words and a gap",
+            words,
+            KeyCode::Right,
+            NONE,
+            10,
+            "Alt+Right",
+        ),
+        (
+            "two screens selected: Shift+PgDn twice",
+            lines.as_str(),
+            KeyCode::Down,
+            KeyModifiers::SHIFT,
+            20,
+            "Shift+PgDn",
+        ),
+        (
+            "`alpha` selected: Alt+Shift+Right, and `v` too, which comes later in the list",
             words,
             KeyCode::Right,
             KeyModifiers::SHIFT,
@@ -52,11 +76,14 @@ fn a_held_arrow_misses_the_key_that_covers_the_distance() {
     ] {
         let mut a = app(text);
         hold(&mut a, code, m, n, FAST);
-        assert_eq!(a.missed, missed(&[(key, 1)]), "{n} × {m:?} {code:?}");
+        assert_eq!(
+            a.missed,
+            missed(&[(key, 1)]),
+            "{name}: {n} × {m:?} {code:?}"
+        );
     }
 }
 
-/// In edit mode a held Backspace or Delete that took a word misses Alt+Backspace / Alt+Delete.
 #[test]
 fn a_held_backspace_or_delete_misses_the_word_chord() {
     for (col, code, key) in [
@@ -68,11 +95,14 @@ fn a_held_backspace_or_delete_misses_the_word_chord() {
         press(&mut a, KeyCode::Enter, NONE);
         hold(&mut a, code, NONE, 10, FAST);
         assert_eq!(a.line_str(), "let name = ;");
-        assert_eq!(a.missed, missed(&[(key, 1)]), "{code:?}");
+        assert_eq!(
+            a.missed,
+            missed(&[(key, 1)]),
+            "{code:?} held in edit mode took a word"
+        );
     }
 }
 
-/// A held arrow in a picker misses Picker: PgDn.
 #[test]
 fn a_held_arrow_in_a_picker_misses_its_page_key() {
     let names: Vec<String> = (0..30).map(|i| format!("f{i:02}.txt")).collect();
@@ -82,17 +112,18 @@ fn a_held_arrow_in_a_picker_misses_its_page_key() {
     a.picker.as_mut().unwrap().settle();
     hold(&mut a, KeyCode::Down, NONE, 20, FAST);
     assert_eq!(a.missed, missed(&[("Picker: PgDn", 1)]));
-    // The same rows read one by one count nothing.
     a.missed.clear();
     press(&mut a, KeyCode::Char('o'), NONE);
     a.picker.as_mut().unwrap().settle();
     hold(&mut a, KeyCode::Down, NONE, 20, SLOW);
-    assert!(a.missed.is_empty(), "{:?}", a.missed);
+    assert!(
+        a.missed.is_empty(),
+        "the same rows read one by one count nothing: {:?}",
+        a.missed
+    );
     std::fs::remove_dir_all(dir).unwrap();
 }
 
-/// No miss for a run read line by line, for one where the key saves fewer than three presses,
-/// for a deletion no count of the word chord matches, or for a key the run's mode types.
 #[test]
 fn a_run_that_is_slow_short_or_needs_a_typed_key_counts_nothing() {
     let lines = "x\n".repeat(60);
@@ -102,32 +133,43 @@ fn a_run_that_is_slow_short_or_needs_a_typed_key_counts_nothing() {
     let mut a = app(&lines);
     hold(&mut a, KeyCode::Down, NONE, 4, FAST);
     assert!(a.missed.is_empty(), "Ctrl+D Up saves two: {:?}", a.missed);
-    // Held on the last line but one: one press moved, and the rest are no presses spent.
     let mut a = app(&lines);
     a.line = 58;
     hold(&mut a, KeyCode::Down, NONE, 10, FAST);
-    assert_eq!(a.line, 59);
+    assert_eq!(
+        a.line, 59,
+        "held on the last line but one: one press moved, and the rest are no presses spent"
+    );
     assert!(a.missed.is_empty(), "past the end: {:?}", a.missed);
-    // `here` alone: Alt+Backspace takes all of `value_here`.
     let mut a = app("let name = value_here;\n");
     a.col = 21;
     press(&mut a, KeyCode::Enter, NONE);
     hold(&mut a, KeyCode::Backspace, NONE, 4, FAST);
-    assert!(a.missed.is_empty(), "mid-word: {:?}", a.missed);
-    // Onto the blank line: `}` in navigation, nothing in edit mode, where `}` types. A screen
-    // of forty rows puts the paging keys far past it.
+    assert!(
+        a.missed.is_empty(),
+        "`here` alone: Alt+Backspace takes all of `value_here`: mid-word: {:?}",
+        a.missed
+    );
     let text = format!("{}\n{}", "x\n".repeat(8), "x\n".repeat(30));
     let mut a = app(&text);
     a.view_h = 40;
     hold(&mut a, KeyCode::Down, NONE, 8, FAST);
-    assert_eq!(a.missed, missed(&[("}", 1)]));
+    assert_eq!(
+        a.missed,
+        missed(&[("}", 1)]),
+        "onto the blank line: `}}` in navigation, nothing in edit mode, where `}}` types. A \
+         screen of forty rows puts the paging keys far past it"
+    );
     let mut a = app(&text);
     a.view_h = 40;
     press(&mut a, KeyCode::Enter, NONE);
     hold(&mut a, KeyCode::Down, NONE, 8, FAST);
     assert!(a.missed.is_empty(), "edit mode: {:?}", a.missed);
-    // Nor is it tried there: a try would have typed it.
-    assert_eq!(a.buf.lines.join("\n") + "\n", text);
+    assert_eq!(
+        a.buf.lines.join("\n") + "\n",
+        text,
+        "nor is it tried there: a try would have typed it"
+    );
 }
 
 const HANDLER: &str = "def handler(x):\n    pass\n\nhandler(1)\nhandler(2)\nHandler = 3\n";
@@ -148,28 +190,33 @@ fn s(a: &mut App, dir: &Path, query: &str, downs: usize, settle: bool) {
     a.settle_search();
 }
 
-/// `s` with the word under the cursor as the query, case ignored, then Enter: on the word's
-/// declaration that was `d`, on a use `u` lists it was `u` and the arrows to its row.
 #[test]
 fn s_for_the_word_under_the_cursor_misses_d_or_u() {
     let (dir, mut a) = project_app("missed-s", &[("app.py", HANDLER)]);
-    // Nine presses to the declaration; `d` is one.
     s(&mut a, &dir, "handler", 0, true);
     assert_eq!(at(&a), (dir.join("app.py"), 0));
-    assert_eq!(a.missed, missed(&[("d", 1)]));
-    // The same with the Enter ahead of the grep.
+    assert_eq!(
+        a.missed,
+        missed(&[("d", 1)]),
+        "nine presses to the declaration; `d` is one"
+    );
     s(&mut a, &dir, "handler", 0, false);
     assert_eq!(at(&a), (dir.join("app.py"), 0));
-    assert_eq!(a.missed, missed(&[("d", 2)]));
-    // Eleven presses to `handler(2)`, the third row of `u`: `u` Down Down Enter is four.
+    assert_eq!(
+        a.missed,
+        missed(&[("d", 2)]),
+        "the same with the Enter ahead of the grep"
+    );
     s(&mut a, &dir, "Handler", 2, true);
     assert_eq!(at(&a), (dir.join("app.py"), 4));
-    assert_eq!(a.missed, missed(&[("d", 2), ("u", 1)]));
+    assert_eq!(
+        a.missed,
+        missed(&[("d", 2), ("u", 1)]),
+        "eleven presses to `handler(2)`, the third row of `u`: `u` Down Down Enter is four"
+    );
     std::fs::remove_dir_all(dir).unwrap();
 }
 
-/// No miss for `s` with another query, for a hit `u` does not list (another case), or when
-/// the key saves fewer than three presses.
 #[test]
 fn s_for_another_word_or_hit_counts_nothing() {
     let (dir, mut a) = project_app("missed-s-not", &[("app.py", HANDLER)]);
@@ -177,8 +224,11 @@ fn s_for_another_word_or_hit_counts_nothing() {
     assert_eq!(at(&a), (dir.join("app.py"), 0));
     s(&mut a, &dir, "handler", 3, true);
     assert_eq!(a.line_str(), "Handler = 3");
-    assert!(a.missed.is_empty(), "{:?}", a.missed);
-    // `s x Enter` to `def x`: three presses, `d` saves two.
+    assert!(
+        a.missed.is_empty(),
+        "another query, and a hit `u` does not list, of another case: {:?}",
+        a.missed
+    );
     let (dir2, mut a) = project_app(
         "missed-s-short",
         &[("app.py", "def x():\n    pass\n\nx()\n")],
@@ -189,12 +239,15 @@ fn s_for_another_word_or_hit_counts_nothing() {
     a.settle_search();
     press(&mut a, KeyCode::Enter, NONE);
     assert_eq!(at(&a), (dir2.join("app.py"), 0));
-    assert!(a.missed.is_empty(), "{:?}", a.missed);
+    assert!(
+        a.missed.is_empty(),
+        "`s x Enter` to `def x`: three presses, `d` saves two: {:?}",
+        a.missed
+    );
     std::fs::remove_dir_all(dir).unwrap();
     std::fs::remove_dir_all(dir2).unwrap();
 }
 
-/// A Nix name keeps its trailing primes (#648): `s discount'` from a use of `discount'` was `d`.
 #[test]
 fn s_for_a_primed_name_under_the_cursor_misses_d() {
     let text = "let\n  discount' = 4;\n  discount = 5;\nin\n  discount' + discount\n";
@@ -207,11 +260,14 @@ fn s_for_a_primed_name_under_the_cursor_misses_d() {
     press(&mut a, KeyCode::Enter, NONE);
     a.settle_search();
     assert_eq!(at(&a), (dir.join("default.nix"), 1));
-    assert_eq!(a.missed, missed(&[("d", 1)]));
+    assert_eq!(
+        a.missed,
+        missed(&[("d", 1)]),
+        "a Nix name keeps its trailing primes"
+    );
     std::fs::remove_dir_all(dir).unwrap();
 }
 
-/// On a Ruby `@subtotal` the word is `u`'s, `@subtotal`, and `s subtotal` is the query for it.
 #[test]
 fn s_for_a_ruby_instance_variable_under_the_cursor_misses_d() {
     let text = "class Cart\n  def initialize\n    @subtotal = 0\n  end\n\n  def add(x)\n    @subtotal += x\n  end\nend\n";
@@ -224,12 +280,14 @@ fn s_for_a_ruby_instance_variable_under_the_cursor_misses_d() {
     press(&mut a, KeyCode::Enter, NONE);
     a.settle_search();
     assert_eq!(at(&a), (dir.join("cart.rb"), 2));
-    assert_eq!(a.missed, missed(&[("d", 1)]));
+    assert_eq!(
+        a.missed,
+        missed(&[("d", 1)]),
+        "on `@subtotal`, `s subtotal` is the query for the word"
+    );
     std::fs::remove_dir_all(dir).unwrap();
 }
 
-/// `D` with the word under the cursor as the query, then Enter: that was `d`. Another query,
-/// or a word too short to save three presses, counts nothing.
 #[test]
 fn symbols_for_the_word_under_the_cursor_miss_d() {
     let text = "def handler(x):\n    pass\n\ndef handle(y):\n    pass\n\nhandler(1)\ndef x():\n    pass\nx()\n";
@@ -242,17 +300,20 @@ fn symbols_for_the_word_under_the_cursor_miss_d() {
         press(a, KeyCode::Enter, NONE);
     };
     symbols(&mut a, 7, "handl");
-    assert!(a.missed.is_empty(), "{:?}", a.missed);
+    assert!(a.missed.is_empty(), "another query: {:?}", a.missed);
     symbols(&mut a, 10, "x");
     assert_eq!(at(&a), (dir.join("app.py"), 7));
-    assert!(a.missed.is_empty(), "{:?}", a.missed);
+    assert!(
+        a.missed.is_empty(),
+        "a word too short to save three presses: {:?}",
+        a.missed
+    );
     symbols(&mut a, 7, "handler");
     assert_eq!(at(&a), (dir.join("app.py"), 0));
     assert_eq!(a.missed, missed(&[("d", 1)]));
     std::fs::remove_dir_all(dir).unwrap();
 }
 
-/// `o` to the file of a jump-history stop one to three steps away misses `[` or `]`.
 #[test]
 fn o_to_a_file_of_the_jump_history_misses_the_brackets() {
     let (dir, mut a) = project_app("missed-o", &[("a.rs", "x\n"), ("b.rs", "x\n")]);
@@ -261,17 +322,18 @@ fn o_to_a_file_of_the_jump_history_misses_the_brackets() {
     open_by_name(&mut a, "a.rs");
     assert_eq!(at(&a), (dir.join("a.rs"), 0));
     assert_eq!(a.missed, missed(&[("[", 1)]));
-    // Back to the first stop, `b.rs` one step forward.
     press(&mut a, KeyCode::Char('['), NONE);
     press(&mut a, KeyCode::Char('['), NONE);
     open_by_name(&mut a, "b.rs");
     assert_eq!(at(&a), (dir.join("b.rs"), 0));
-    assert_eq!(a.missed, missed(&[("[", 1), ("]", 1)]));
+    assert_eq!(
+        a.missed,
+        missed(&[("[", 1), ("]", 1)]),
+        "back to the first stop, `b.rs` one step forward"
+    );
     std::fs::remove_dir_all(dir).unwrap();
 }
 
-/// No miss for `o` to a stop four steps back, for a query too short to save three presses, or
-/// from edit mode, where `[` types.
 #[test]
 fn o_too_far_too_short_or_from_edit_mode_counts_nothing() {
     let names = ["alpha.rs", "bravo.rs", "cedar.rs", "dune.rs", "kiwi.rs"];
@@ -280,56 +342,78 @@ fn o_too_far_too_short_or_from_edit_mode_counts_nothing() {
     for name in names {
         a.jump_to(&dir.join(name), 1);
     }
-    // Ten presses, and `[` four times would save six, but four steps is past the reach.
     open_by_name(&mut a, "alpha.rs");
-    assert_eq!(at(&a), (dir.join("alpha.rs"), 0));
-    // `kiwi` is one step back, and `o k` Enter is three presses.
+    assert_eq!(
+        at(&a),
+        (dir.join("alpha.rs"), 0),
+        "ten presses, and `[` four times would save six, but four steps is past the reach"
+    );
     open_by_name(&mut a, "k");
-    assert_eq!(at(&a), (dir.join("kiwi.rs"), 0));
-    // `dune` is three steps back, nine presses away, but from edit mode.
+    assert_eq!(
+        at(&a),
+        (dir.join("kiwi.rs"), 0),
+        "`kiwi` is one step back, and `o k` Enter is three presses"
+    );
     press(&mut a, KeyCode::Enter, NONE);
     press(&mut a, KeyCode::Char('e'), KeyModifiers::CONTROL);
     typed(&mut a, "dune.rs");
     a.picker.as_mut().unwrap().settle();
     press(&mut a, KeyCode::Enter, NONE);
-    assert_eq!(at(&a), (dir.join("dune.rs"), 0));
+    assert_eq!(
+        at(&a),
+        (dir.join("dune.rs"), 0),
+        "`dune` is three steps back, nine presses away, but from edit mode"
+    );
     assert!(a.missed.is_empty(), "{:?}", a.missed);
     std::fs::remove_dir_all(dir).unwrap();
 }
 
-/// Review: a run of arrows that ends in the next / previous hunk misses `c` / `C`, and `o` to
-/// the next file of the review past the last hunk, or from outside the review to the file of
-/// the hunk `c` left, misses `c`.
 #[test]
 fn review_runs_into_a_hunk_or_o_to_the_next_file_miss_c() {
     let (dir, mut a) = review_app("missed-review");
-    // `new` is open on its only hunk: `c` goes on to `tail`.
     open_by_name(&mut a, "tail");
     assert_eq!(a.rel_path(), "tail");
-    assert_eq!(a.missed, missed(&[("c", 1)]));
-    // src/a.rs: hunks on `B` and `F`, lines 2 and 6, each under the line it rewrites (#439).
+    assert_eq!(
+        a.missed,
+        missed(&[("c", 1)]),
+        "`new` is open on its only hunk: `c` goes on to `tail`"
+    );
     a.jump_to(&dir.join("src/a.rs"), 2);
     hold(&mut a, KeyCode::Down, NONE, 4, FAST);
-    assert_eq!(a.line_str(), "f");
+    assert_eq!(
+        a.line_str(),
+        "f",
+        "src/a.rs: hunks on `B` and `F`, lines 2 and 6, each under the line it rewrites (#439), \
+         where `c` stands (#690); a run onto the rewritten line is into the hunk too"
+    );
     hold(&mut a, KeyCode::Up, NONE, 4, FAST);
     assert_eq!(a.line_str(), "B");
-    assert_eq!(a.missed, missed(&[("c", 2), ("C", 1)]));
-    // #239: from a file outside the review, `c` goes back to the hunk it left, in crlf.txt.
+    assert_eq!(
+        a.missed,
+        missed(&[("c", 2), ("C", 1)]),
+        "a run of arrows into the next hunk misses `c`, into the previous one `C`"
+    );
     press(&mut a, KeyCode::Char('c'), NONE);
     press(&mut a, KeyCode::Char('c'), NONE);
     assert_eq!(a.rel_path(), "crlf.txt");
     a.jump_to(&dir.join("src/keep.rs"), 1);
     open_by_name(&mut a, "src/a.rs");
     assert_eq!(a.rel_path(), "src/a.rs");
-    assert_eq!(a.missed["c"], 2, "{:?}", a.missed);
+    assert_eq!(
+        a.missed["c"], 2,
+        "#239: from a file outside the review, `c` goes back to the hunk it left, in crlf.txt: {:?}",
+        a.missed
+    );
     a.jump_to(&dir.join("src/keep.rs"), 1);
     open_by_name(&mut a, "crlf.txt");
-    assert_eq!(a.missed["c"], 3, "{:?}", a.missed);
+    assert_eq!(
+        a.missed["c"], 3,
+        "`o` from outside the review to the file of the hunk `c` left: {:?}",
+        a.missed
+    );
     std::fs::remove_dir_all(dir).unwrap();
 }
 
-/// No `c` for a run read line by line, for one that passes the hunk, in edit mode, or for `o`
-/// to the next file while a hunk is still below.
 #[test]
 fn review_runs_that_are_slow_pass_the_hunk_or_type_count_no_c() {
     let (dir, mut a) = review_app("missed-review-not");
@@ -339,23 +423,28 @@ fn review_runs_that_are_slow_pass_the_hunk_or_type_count_no_c() {
     a.jump_to(&dir.join("src/a.rs"), 1);
     hold(&mut a, KeyCode::Down, NONE, 4, FAST);
     assert_eq!(a.line_str(), "d");
-    assert!(a.missed.is_empty(), "{:?}", a.missed);
+    assert!(
+        a.missed.is_empty(),
+        "a run read line by line, and one that passes the hunk: {:?}",
+        a.missed
+    );
     a.jump_to(&dir.join("src/a.rs"), 2);
     press(&mut a, KeyCode::Enter, NONE);
     hold(&mut a, KeyCode::Down, NONE, 4, FAST);
     assert_eq!(a.line_str(), "f");
     assert!(!a.missed.contains_key("c"), "edit mode: {:?}", a.missed);
     a.missed.clear();
-    // `crlf.txt` comes after `src/a.rs`, but `c` still has `B` and `F` to go to.
     a.jump_to(&dir.join("src/a.rs"), 1);
     open_by_name(&mut a, "crlf.txt");
     assert_eq!(a.rel_path(), "crlf.txt");
-    assert!(a.missed.is_empty(), "{:?}", a.missed);
+    assert!(
+        a.missed.is_empty(),
+        "`crlf.txt` comes after `src/a.rs`, but `c` still has `B` and `F` to go to: {:?}",
+        a.missed
+    );
     std::fs::remove_dir_all(dir).unwrap();
 }
 
-/// #243: on a fold `c` goes on to the next file whatever hunks it hides, so `o` to that file
-/// misses `c`.
 #[test]
 fn o_from_a_fold_to_the_next_file_misses_c() {
     let (dir, mut a) = review_app_with_lock("missed-fold");
@@ -364,6 +453,10 @@ fn o_from_a_fold_to_the_next_file_misses_c() {
     a.missed.clear();
     open_by_name(&mut a, "tail");
     assert_eq!(a.rel_path(), "tail");
-    assert_eq!(a.missed, missed(&[("c", 1)]));
+    assert_eq!(
+        a.missed,
+        missed(&[("c", 1)]),
+        "on a fold `c` goes on to the next file, whatever hunks the fold hides"
+    );
     std::fs::remove_dir_all(dir).unwrap();
 }

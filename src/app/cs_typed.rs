@@ -1,8 +1,3 @@
-//! C#'s typed lookup (#352): the type of a receiver as C# writes it, and of an object
-//! initializer, and the members that type declares. And what a C# name can reach: the projects
-//! its file compiles against (#349), the class around it first, a namespace on a `using` line,
-//! an overload that takes the call's arguments (#360).
-
 use super::*;
 
 /// A C# type a name is proven to hold.
@@ -38,8 +33,6 @@ enum Up {
 }
 
 impl App {
-    /// `word` on the C# receiver `chain`, `x.f.g`, each link proven (#352). `Err` names the name
-    /// the chain broke at, and leaves the word to the search by name.
     pub(super) fn cs_typed(
         &self,
         here: &Path,
@@ -69,8 +62,6 @@ impl App {
             .ok_or_else(|| chain.last().cloned().unwrap_or_default())
     }
 
-    /// `Word` of an object initializer on the cursor's line, `new T { Word = … }` (#352). `None`
-    /// when the cursor is on no initializer's member, or its type is not proven.
     pub(super) fn cs_initializer(
         &self,
         here: &Path,
@@ -105,7 +96,6 @@ impl App {
         let (walked, outside) = match ty {
             CsType::Outside(name) => (vec![name.clone()], true),
             CsType::Project(t) => match self.cs_up(t, word, 0) {
-                // An overload that cannot take the call's arguments is none (#360), unless none can.
                 Up::Found(hits) => {
                     let fit = self.cs_fit(word, self.cs_args(), Some(""), hits.clone());
                     let hits = if fit.is_empty() { hits } else { fit };
@@ -251,7 +241,7 @@ impl App {
     ) -> Option<(CsType, String)> {
         let owner = || {
             let decl = search::cs_owner(text, line)?;
-            let (_, n) = search::cs_type_decl(text.lines().nth(decl - 1)?)?;
+            let n = search::cs_type_decl(text.lines().nth(decl - 1)?)?.name;
             Some(Typed {
                 name: n,
                 path: file.to_path_buf(),
@@ -316,7 +306,7 @@ impl App {
         let owner = match receiver {
             [] => {
                 let decl = search::cs_owner(text, line)?;
-                let (_, n) = search::cs_type_decl(text.lines().nth(decl - 1)?)?;
+                let n = search::cs_type_decl(text.lines().nth(decl - 1)?)?.name;
                 Typed {
                     name: n,
                     path: file.to_path_buf(),
@@ -366,7 +356,7 @@ impl App {
         let hits = self.project_definitions(Kind::CSharp, file, &name, &pattern);
         let (types, other): (Vec<&Hit>, Vec<&Hit>) = hits
             .iter()
-            .partition(|h| search::cs_type_decl(&h.text).is_some_and(|(_, n)| n == name));
+            .partition(|h| search::cs_type_decl(&h.text).is_some_and(|d| d.name == name));
         let found = match (types.as_slice(), other.is_empty()) {
             ([one], true) => Some(CsType::Project(Typed {
                 name: name.clone(),
@@ -382,8 +372,6 @@ impl App {
 }
 
 impl App {
-    /// The projects a C# file `here` sees (#349); `None` for another kind, or when they cannot be
-    /// told and every file stays in sight.
     pub(super) fn cs_sight(&self, kind: Kind, here: &Path) -> Option<search::CsProjects> {
         if kind != Kind::CSharp {
             return None;
@@ -393,8 +381,6 @@ impl App {
         })
     }
 
-    /// Whether the C# project declares `name` in any form (#355): a rule of `d` matches it, or a
-    /// `namespace` line has it as one of its parts.
     pub(super) fn cs_declares(&self, here: &Path, name: &str) -> bool {
         let cut = self.truncated.get();
         let n = regex::escape(name);
@@ -413,10 +399,6 @@ impl App {
         declared
     }
 
-    /// A C# `Offer.Cut` whose qualifier is an `enum` of the project: the member its body lists
-    /// (#466). A bare `Cut` has no rule: in C# only a `using static` brings it in. The enum's
-    /// namespace has to be one this file sees, or a namesake the SDK brings in (MAUI's
-    /// `PermissionStatus`) would pass for the project's. `path` is the chain as written.
     pub(super) fn cs_enum_member(
         &self,
         here: &Path,
@@ -481,15 +463,12 @@ impl App {
         Some(named)
     }
 
-    /// On a namespace segment (#360), the `namespace` lines in sight that declare that namespace
-    /// or one inside it, and never a type or a member. `None` off a segment, and in a `global::`
-    /// path that no namespace answers: its last name may be a type.
     pub(super) fn cs_namespace_segment(
         &self,
         here: &Path,
         range: &std::ops::Range<usize>,
     ) -> Option<Vec<Candidate>> {
-        let (prefix, certain) =
+        let search::CsNamespacePrefix { prefix, certain } =
             search::cs_namespace_prefix(self.line_str(), range.start, range.end)?;
         let p = regex::escape(&prefix);
         let pattern = format!(r"^\u{{feff}}?\s*namespace\s+{p}(?:\.[\w.]+)?\s*[;{{]?\s*$");
@@ -504,9 +483,6 @@ impl App {
         (certain || !found.is_empty()).then_some(found)
     }
 
-    /// Whether the bare C# `word` at `range` of the cursor's line is looked up as a type alone
-    /// (#360). After `is` a constant pattern may stand too, `x is Max` with a `const int Max`
-    /// (#581): a type of the name in sight still wins, and with none it is the search by name.
     pub(super) fn cs_types_only(
         &self,
         here: &Path,
@@ -565,7 +541,7 @@ impl App {
         let mut around = Vec::new();
         let mut at = search::cs_owner(&text, self.line + 1);
         while let Some(decl) = at.filter(|_| around.len() < 8) {
-            let (_, name) = search::cs_type_decl(lines[decl - 1]).ok_or(None)?;
+            let name = search::cs_type_decl(lines[decl - 1]).ok_or(None)?.name;
             around.push(Typed {
                 name,
                 path: here.to_path_buf(),
@@ -733,7 +709,7 @@ impl App {
             .buf
             .lines
             .iter()
-            .filter_map(|l| search::cs_type_decl(l).map(|(_, name)| name))
+            .filter_map(|l| search::cs_type_decl(l).map(|d| d.name))
             .collect();
         let statics = r"^\u{feff}?\s*global\s+using\s+static\b";
         let walked = walked.filter(|_| {
@@ -785,8 +761,6 @@ impl App {
         self.cs_fit(word, self.cs_args(), receiver, hits)
     }
 
-    /// How many arguments the call of the C# word under the cursor passes (#360); `None` off a
-    /// call, or for a list not read.
     pub(super) fn cs_args(&self) -> Option<usize> {
         let (range, word) = self.definition_word(Some(Kind::CSharp))?;
         // The name a declaration declares is followed by its parameters, not by arguments.
@@ -817,7 +791,12 @@ impl App {
                 let Some(text) = self.text_of(&h.path) else {
                     return true;
                 };
-                let Some((min, max, this)) = search::cs_parameters(&text, h.line, word) else {
+                let Some(search::CsArity {
+                    fewest: min,
+                    most_unless_params: max,
+                    extension_this: this,
+                }) = search::cs_parameters(&text, h.line, word)
+                else {
                     return true;
                 };
                 let owner = match search::cs_place(&text, h.line, word) {
@@ -839,7 +818,6 @@ struct Level {
     on: (PathBuf, usize),
 }
 
-/// Whether two proven types are one.
 fn same(a: &CsType, b: &CsType) -> bool {
     match (a, b) {
         (CsType::Project(a), CsType::Project(b)) => a.path == b.path && a.line == b.line,

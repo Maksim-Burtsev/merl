@@ -1,0 +1,57 @@
+wait app/money.py  1:8  [code]
+┌orders──────────────────────┐1 abc ghi
+│▸ .github                   │
+│▸ .venv                     │
+│▾ app                       │
+│    __init__.py             │
+│    api.py                  │
+│  M config.py               │
+│  M models.py               │
+│  A money.py                │
+│    repos.py                │
+│    service.py              │
+│    uow.py                  │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│M README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+app/money.py  1:8  [code]                                                                                                                                                         ? help
+cursor (x,y,shown) 39,0,1

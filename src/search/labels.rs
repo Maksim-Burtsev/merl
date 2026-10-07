@@ -19,7 +19,6 @@ pub enum Owner {
     /// `const x: T = { word: … }`: a field of `T`.
     Typed,
 }
-/// A word in a label position.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Label {
     /// What the status line calls the word: `argument label` or `key`.
@@ -35,11 +34,10 @@ static TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         .unwrap()
 });
 
-/// How far back the bracket around a label is looked for.
 // ponytail: 80 lines; a call or a literal written over more is read as no label.
-const REACH: usize = 80;
+const LINES_BACK_TO_THE_BRACKET: usize = 80;
 
-/// Whether the word at `range` of 0-based `line` of `text` stands in a label position, and what
+/// Whether the word at `range` of `line0` of `text` stands in a label position, and what
 /// it is a label of:
 /// - Python and Kotlin `f(name = …)`, Swift, C#, PHP and Ruby `f(name: …)`: behind the `(` or a
 ///   `,` of a call, whose callee is no declaration (`def`, `func`, `init`, `case`…) and no control
@@ -52,11 +50,11 @@ pub fn label_at(
     kind: Kind,
     java: bool,
     text: &str,
-    line: usize,
+    line0: usize,
     range: Range<usize>,
 ) -> Option<Label> {
     let lines: Vec<&str> = text.lines().collect();
-    let l = *lines.get(line)?;
+    let l = *lines.get(line0)?;
     let tight = &l[range.end..];
     let after = match kind {
         // `a ? b : c` spaces its `:`; a Ruby label never does.
@@ -76,24 +74,35 @@ pub fn label_at(
     }
     let literal = literal_lines(kind, text);
     if kind == Kind::TsJs && sep == b'=' {
-        return jsx(kind, &lines, &literal, line, range.start);
+        return jsx(kind, &lines, &literal, line0, range.start);
     }
-    let (at, open, bracket, prev, _) = open_bracket(kind, &lines, &literal, line, range.start)?;
-    if prev != Some(bracket) && prev != Some(b',') {
+    let OpenBracket {
+        line0: at,
+        byte: open,
+        bracket,
+        first_met,
+        ..
+    } = open_bracket(kind, &lines, &literal, line0, range.start)?;
+    if first_met != Some(bracket) && first_met != Some(b',') {
         return None;
     }
     let key = |owner| Some(Label { what: "key", owner });
     match (kind, bracket) {
         (Kind::TsJs, b'{') => {
-            let (bl, bi, b) = back(kind, &lines, &literal, at, open).next()?;
+            let CodeByte {
+                line0: bl,
+                index: bi,
+                byte: b,
+            } = back(kind, &lines, &literal, at, open).next()?;
             let before = &lines[bl][..bi];
             match b {
                 b'(' | b',' => {
-                    let (cl, ci, c, _, n) = open_bracket(kind, &lines, &literal, at, open)?;
-                    let owner = (c == b'(' && !declares(&lines[cl][..ci]))
+                    let call = open_bracket(kind, &lines, &literal, at, open)?;
+                    let (cl, ci) = (call.line0, call.byte);
+                    let owner = (call.bracket == b'(' && !declares(&lines[cl][..ci]))
                         .then(|| callee(kind, lines[cl], ci))
                         .flatten()
-                        .map(|col| (cl, col, Owner::Object(n)));
+                        .map(|col| (cl, col, Owner::Object(call.commas)));
                     key(owner)
                 }
                 b'=' if !before.ends_with([
@@ -129,8 +138,6 @@ pub fn label_at(
                 _ => None,
             }
         }
-        // `Type { name: … }`, `path::Type { name: … }`: a field of `Type` (#529). The `{` of a
-        // declaration opens no literal, nor does a struct-like variant's inside an `enum`.
         (Kind::Rust, b'{') => {
             static LITERAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
                 Regex::new(r"(?:^|[^\w:])(?:\w+::)*([A-Z]\w*|Self)\s*$").unwrap()
@@ -144,7 +151,12 @@ pub fn label_at(
                 return None;
             }
             let mut up = open_bracket(kind, &lines, &literal, at, ty.start());
-            if let Some((el, ei, b'{', ..)) = up
+            if let Some(OpenBracket {
+                line0: el,
+                byte: ei,
+                bracket: b'{',
+                ..
+            }) = up
                 && lines[el][..ei].contains("enum ")
             {
                 return None;
@@ -157,8 +169,14 @@ pub fn label_at(
                 Regex::new(r"^\s*(?:unsafe\s+)?impl\b.*?(?:\bfor\s+)?(?:\w+::)*(\w+)\s*(?:<[^{]*>)?\s*(?:where\b.*)?$")
                     .unwrap()
             });
-            while let Some((el, ei, c, ..)) = up {
-                if c == b'{'
+            while let Some(OpenBracket {
+                line0: el,
+                byte: ei,
+                bracket,
+                ..
+            }) = up
+            {
+                if bracket == b'{'
                     && let Some(m) = IMPL.captures(&lines[el][..ei]).and_then(|c| c.get(1))
                 {
                     return key(Some((el, m.end() - 1, Owner::Typed)));
@@ -171,8 +189,9 @@ pub fn label_at(
             // `each { |x| … }` and `f(x) { … }` open a block; a line of its own a hash.
             let block = back(kind, &lines, &literal, at, open)
                 .next()
-                .is_some_and(|(l, _, b)| {
-                    l == at && (b == b')' || b.is_ascii_alphanumeric() || b == b'_')
+                .is_some_and(|c| {
+                    c.line0 == at
+                        && (c.byte == b')' || c.byte.is_ascii_alphanumeric() || c.byte == b'_')
                 });
             (!block).then_some(Label {
                 what: "key",
@@ -242,8 +261,7 @@ fn callee(kind: Kind, line: &str, open: usize) -> Option<usize> {
         })?;
         s = s[..lt.0].trim_end();
     }
-    // `for (…)`, `return (…)`: a statement's brackets, or a tuple's, are no call.
-    const KEYWORDS: &[&str] = &[
+    const STATEMENT_KEYWORDS: &[&str] = &[
         "if",
         "elif",
         "for",
@@ -270,16 +288,15 @@ fn callee(kind: Kind, line: &str, open: usize) -> Option<usize> {
     if let Some(w) = s
         .rsplit(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
         .next()
-        && KEYWORDS.contains(&w)
+        && STATEMENT_KEYWORDS.contains(&w)
         && !s[..s.len() - w.len()].ends_with('.')
     {
         return None;
     }
     let last = s.chars().next_back()?;
     let named = last.is_alphanumeric() || last == '_' || last == '$';
-    // On the name itself, which takes a Ruby `!` or `?` with it.
-    let ruby = kind == Kind::Ruby && matches!(last, '!' | '?') && s.len() > 1;
-    match (named, ruby) {
+    let ruby_name_with_its_suffix = kind == Kind::Ruby && matches!(last, '!' | '?') && s.len() > 1;
+    match (named, ruby_name_with_its_suffix) {
         (true, _) => Some(s.len() - last.len_utf8()),
         (false, true) => Some(s.len() - 2),
         _ => None,
@@ -303,44 +320,76 @@ fn events(kind: Kind, line: &str) -> Vec<(usize, u8)> {
     out
 }
 
-/// The code bytes in front of byte `end` of 0-based line `at`, nearest first, as `(line, byte
-/// index, byte)`, over the lines above as far as [`REACH`]; a line inside a literal has none.
+struct CodeByte {
+    line0: usize,
+    index: usize,
+    byte: u8,
+}
+
+/// The code bytes in front of byte `end` of `line0`, nearest first, over the lines above as far as
+/// [`LINES_BACK_TO_THE_BRACKET`]; a line inside a literal has none.
 fn back<'a>(
     kind: Kind,
     lines: &'a [&'a str],
     literal: &'a [bool],
-    at: usize,
+    line0: usize,
     end: usize,
-) -> impl Iterator<Item = (usize, usize, u8)> + 'a {
-    (at.saturating_sub(REACH)..=at).rev().flat_map(move |li| {
-        let ev = match literal.get(li) {
-            Some(true) => Vec::new(),
-            _ => events(kind, lines[li]),
-        };
-        ev.into_iter()
-            .filter(move |&(i, _)| li != at || i < end)
-            .rev()
-            .map(move |(i, c)| (li, i, c))
-    })
+) -> impl Iterator<Item = CodeByte> + 'a {
+    (line0.saturating_sub(LINES_BACK_TO_THE_BRACKET)..=line0)
+        .rev()
+        .flat_map(move |li| {
+            let ev = match literal.get(li) {
+                Some(true) => Vec::new(),
+                _ => events(kind, lines[li]),
+            };
+            ev.into_iter()
+                .filter(move |&(i, _)| li != line0 || i < end)
+                .rev()
+                .map(move |(i, c)| CodeByte {
+                    line0: li,
+                    index: i,
+                    byte: c,
+                })
+        })
 }
 
-/// The bracket still open in front of byte `end` of line `at`: its line, byte and character, the
-/// first code byte met on the way back, and the commas at the bracket's own level. A `;` at that
-/// level ends the statement first.
+struct OpenBracket {
+    line0: usize,
+    byte: usize,
+    bracket: u8,
+    first_met: Option<u8>,
+    commas: usize,
+}
+
+/// The bracket still open in front of byte `end` of `line0`, the commas counted line0 its own level. A
+/// `;` line0 that level ends the statement first.
 fn open_bracket(
     kind: Kind,
     lines: &[&str],
     literal: &[bool],
-    at: usize,
+    line0: usize,
     end: usize,
-) -> Option<(usize, usize, u8, Option<u8>, usize)> {
-    let (mut depth, mut prev, mut commas) = (0usize, None, 0);
-    for (li, i, c) in back(kind, lines, literal, at, end) {
-        prev.get_or_insert(c);
+) -> Option<OpenBracket> {
+    let (mut depth, mut first_met, mut commas) = (0usize, None, 0);
+    for CodeByte {
+        line0: li,
+        index: i,
+        byte: c,
+    } in back(kind, lines, literal, line0, end)
+    {
+        first_met.get_or_insert(c);
         match c {
             b')' | b']' | b'}' => depth += 1,
             b'(' | b'[' | b'{' if depth > 0 => depth -= 1,
-            b'(' | b'[' | b'{' => return Some((li, i, c, prev, commas)),
+            b'(' | b'[' | b'{' => {
+                return Some(OpenBracket {
+                    line0: li,
+                    byte: i,
+                    bracket: c,
+                    first_met,
+                    commas,
+                });
+            }
             b',' if depth == 0 => commas += 1,
             b';' if depth == 0 => return None,
             _ => {}
@@ -351,12 +400,17 @@ fn open_bracket(
 
 /// `name=` inside a JSX tag `<Tag … name={…}>`: the tag is the owner when it is a component, a
 /// capitalised name; an element's attribute (`<input value=…>`) has none.
-fn jsx(kind: Kind, lines: &[&str], literal: &[bool], at: usize, start: usize) -> Option<Label> {
-    if !lines[at][..start].is_empty() && !lines[at][..start].ends_with(char::is_whitespace) {
+fn jsx(kind: Kind, lines: &[&str], literal: &[bool], line0: usize, start: usize) -> Option<Label> {
+    if !lines[line0][..start].is_empty() && !lines[line0][..start].ends_with(char::is_whitespace) {
         return None;
     }
     let mut depth = 0usize;
-    for (li, i, c) in back(kind, lines, literal, at, start) {
+    for CodeByte {
+        line0: li,
+        index: i,
+        byte: c,
+    } in back(kind, lines, literal, line0, start)
+    {
         match c {
             b')' | b']' | b'}' => depth += 1,
             b'(' | b'[' | b'{' if depth > 0 => depth -= 1,
@@ -388,33 +442,30 @@ fn jsx(kind: Kind, lines: &[&str], literal: &[bool], at: usize, start: usize) ->
     None
 }
 
-/// The 1-based lines of what the declaration on 1-based `decl` of `text` names `word` as, when
+/// The 1-based lines of what the declaration on `decl_line1` of `text` names `word` as, when
 /// `name` there is the owner of a label: a parameter of the function, or of the constructors of
 /// the type ([`Owner::Args`]); a key of the object parameter `n` ([`Owner::Object`]); a field of
 /// the type ([`Owner::Typed`]).
 pub fn label_lines(
     kind: Kind,
     text: &str,
-    decl: usize,
+    decl_line1: usize,
     name: &str,
     word: &str,
     owner: &Owner,
 ) -> Vec<usize> {
     let lines: Vec<&str> = text.lines().collect();
-    let Some(k) = decl.checked_sub(1).filter(|&k| k < lines.len()) else {
+    let Some(k) = decl_line1.checked_sub(1).filter(|&k| k < lines.len()) else {
         return Vec::new();
     };
-    // The type's own name: an alias or an import may call it otherwise.
-    let ty = TYPE.captures(lines[k]).map(|c| c[1].to_owned());
-    match (owner, ty.as_deref()) {
+    let types_own_name = TYPE.captures(lines[k]).map(|c| c[1].to_owned());
+    match (owner, types_own_name.as_deref()) {
         (Owner::Args, Some(name)) => {
             let n = regex::escape(name);
-            // Kotlin's and C#'s primary constructor is on the class's own line; Python's
-            // brackets there hold its bases.
-            let primary = matches!(kind, Kind::Jvm | Kind::CSharp)
+            let kotlin_or_csharp_primary_constructor = matches!(kind, Kind::Jvm | Kind::CSharp)
                 .then(|| params(kind, &lines, k, name, |p| param_named(kind, p, word)))
                 .flatten();
-            if let Some(line) = primary {
+            if let Some(line) = kotlin_or_csharp_primary_constructor {
                 return vec![line];
             }
             let ctor = match kind {
@@ -493,10 +544,10 @@ pub fn label_lines(
     }
 }
 
-/// The 1-based line of the type the 0-based `line` of `text` stands inside, for a constructor
-/// the type calls by no name of its own: PHP's `new self(…)` and `new static(…)`, Python's
-/// `cls(…)`, Swift's `Self(…)`.
-pub fn own_type(kind: Kind, text: &str, line: usize, name: &str) -> Option<usize> {
+/// The 1-based line of the type `line0` of `text` stands inside, for a constructor the type calls
+/// by no name of its own: PHP's `new self(…)` and `new static(…)`, Python's `cls(…)`, Swift's
+/// `Self(…)`.
+pub fn own_type(kind: Kind, text: &str, line0: usize, name: &str) -> Option<usize> {
     let own = match kind {
         Kind::Php => matches!(name, "self" | "static"),
         Kind::Python => name == "cls",
@@ -507,8 +558,8 @@ pub fn own_type(kind: Kind, text: &str, line: usize, name: &str) -> Option<usize
         return None;
     }
     let lines: Vec<&str> = text.lines().collect();
-    let mut depth = indent(lines.get(line)?);
-    for i in (0..line).rev() {
+    let mut depth = indent(lines.get(line0)?);
+    for i in (0..line0).rev() {
         let l = lines[i];
         if matches!(l.trim(), "" | "{") || indent(l) >= depth {
             continue;
@@ -521,15 +572,21 @@ pub fn own_type(kind: Kind, text: &str, line: usize, name: &str) -> Option<usize
     None
 }
 
-/// The name the object parameter `n` of the function declared on 1-based `decl` is typed by,
+/// The name the object parameter `n` of the function declared on `decl_line1` is typed by,
 /// `Props` of `({ a }: Props)` or `(p: Props)`: where its keys are declared when the parameter
 /// does not spell them.
-pub fn object_type(kind: Kind, text: &str, decl: usize, name: &str, n: usize) -> Option<String> {
+pub fn object_type(
+    kind: Kind,
+    text: &str,
+    decl_line1: usize,
+    name: &str,
+    n: usize,
+) -> Option<String> {
     static TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r":\s*([A-Za-z_$][\w$]*)\s*(?:<[^>]*>)?\s*(?:=.*)?$").unwrap()
     });
     let lines: Vec<&str> = text.lines().collect();
-    let k = decl.checked_sub(1).filter(|&k| k < lines.len())?;
+    let k = decl_line1.checked_sub(1).filter(|&k| k < lines.len())?;
     let mut seen = 0;
     let mut found = None;
     params(kind, &lines, k, name, |p| {
@@ -542,12 +599,12 @@ pub fn object_type(kind: Kind, text: &str, decl: usize, name: &str, n: usize) ->
     found
 }
 
-/// The lines of the members directly inside the declaration on 0-based line `k`: its body's
-/// lines at the indent of the first of them.
-fn members(lines: &[&str], k: usize) -> Vec<usize> {
+/// The lines of the members directly inside the declaration on `decl_line0`: its body's lines at
+/// the indent of the first of them.
+fn members(lines: &[&str], decl_line0: usize) -> Vec<usize> {
     // A lone `{` under a C# or PHP header opens the body.
     let member = |i: &usize| !matches!(lines[*i].trim(), "" | "{");
-    let body = body_of(Kind::Swift, lines, k);
+    let body = body_of(Kind::Swift, lines, decl_line0);
     let Some(depth) = body.clone().find(member).map(|i| indent(lines[i])) else {
         return Vec::new();
     };
@@ -556,27 +613,27 @@ fn members(lines: &[&str], k: usize) -> Vec<usize> {
 }
 
 /// The first 1-based line on which `find` finds something in a parameter of the declaration on
-/// 0-based line `k`, reading the brackets that open after `name` there. `find` takes each
-/// parameter in turn, as written, and answers the byte in it that it found.
+/// `decl_line0`, reading the brackets that open after `name` there. `find` takes each parameter
+/// in turn, as written, and answers the byte in it that it found.
 fn params(
     kind: Kind,
     lines: &[&str],
-    k: usize,
+    decl_line0: usize,
     name: &str,
     mut find: impl FnMut(&str) -> Option<usize>,
 ) -> Option<usize> {
     let from = match name {
         "" => 0,
-        _ => lines[k].find(name).map_or(0, |i| i + name.len()),
+        _ => lines[decl_line0].find(name).map_or(0, |i| i + name.len()),
     };
-    let open = code(kind, lines[k])
+    let open = code(kind, lines[decl_line0])
         .find(|&(i, c)| i >= from && c == b'(')
         .map(|(i, _)| i)?;
-    let (inner, ..) = group(kind, lines, k, open)?;
+    let (inner, ..) = group(kind, lines, decl_line0, open)?;
     let base = inner.as_ptr() as usize;
     split_top(kind, &inner, b',').into_iter().find_map(|p| {
         let at = find(p)? + (p.as_ptr() as usize - base);
-        Some(k + 1 + inner[..at].matches('\n').count())
+        Some(decl_line0 + 1 + inner[..at].matches('\n').count())
     })
 }
 
@@ -649,14 +706,22 @@ mod tests {
             Some(("followTopic".into(), Owner::Args))
         );
         assert_eq!(label(Kind::Jvm, kt, "Int = 1"), None);
-        // A control keyword's brackets, or a tuple's, are no call's.
         let tuple = "return (count: n, total: t);\nvar p = f(count: n);\n";
-        assert_eq!(label(Kind::CSharp, tuple, "count: n,"), None);
+        assert_eq!(
+            label(Kind::CSharp, tuple, "count: n,"),
+            None,
+            "a control keyword's brackets, or a tuple's, are no call's"
+        );
         assert!(label(Kind::CSharp, tuple, "count: n)").is_some());
-        // Java has no named arguments; only an annotation's brackets hold labels.
         let java = "for (i = 0; i < n; i++) {}\n@Size(max = 3)\n";
-        assert!(label_at(Kind::Jvm, true, java, 0, 5..6).is_none());
-        assert!(label_at(Kind::Jvm, true, java, 1, 6..9).is_some());
+        assert!(
+            label_at(Kind::Jvm, true, java, 0, 5..6).is_none(),
+            "Java has no named arguments"
+        );
+        assert!(
+            label_at(Kind::Jvm, true, java, 1, 6..9).is_some(),
+            "only an annotation's brackets hold labels"
+        );
         assert!(label_at(Kind::Jvm, false, java, 1, 6..9).is_some());
         let swift = "let w = RefreshWindow.init(interval: 30, maximumAttempts: 1)\nlet v = RefreshWindow(interval: 30)\ninit(interval: Double) {}\nlet t = a ? b : c\nx = self.init(name: 1)\n";
         assert_eq!(

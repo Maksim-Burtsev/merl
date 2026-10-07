@@ -1,10 +1,7 @@
-//! The shell's locals: the function a line is in, and what a `local` declares there (#470).
-
 use regex::Regex;
 
 use super::*;
 
-/// [`bindings`] in a Shell script: a `local` above 0-based `at` in the function around it.
 pub(super) fn shell_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     shell_function_at(lines, at).map_or_else(Vec::new, |f| {
         (f + 1..=at)

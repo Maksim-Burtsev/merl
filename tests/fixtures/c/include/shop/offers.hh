@@ -49,4 +49,15 @@ struct __attribute__((__packed__)) Label {
 
 using Cents = long;
 
+class Voucher : public Coupon {};
+
+struct Till {
+  Tariff tariff;
+};
+
+struct Rack {
+  Till& operator[](int i);
+  Coupon tariff;
+};
+
 }  // namespace shop

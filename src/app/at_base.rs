@@ -1,7 +1,3 @@
-//! `d` on a line the branch deleted (#440): the code a reviewer reads there is the base's, so the
-//! word is looked up in the project as the base had it, by the same `d`, and what that finds is
-//! shown where the review draws it now.
-
 use super::*;
 use search_job::deleted_hits;
 
@@ -20,11 +16,6 @@ impl App {
         Some((file.and_then(|f| f.old.clone()).unwrap_or(rel), line))
     }
 
-    /// `d` on base code (#440). A second `App` over the base's tree
-    /// ([`git::Review::base_tree`]) presses `d` at `line` of `path` as the base had it, and its
-    /// answer, whatever it is, is shown here where the review draws it: a jump or a picker row
-    /// on a line the branch kept lands on that line now, on a line it deleted on the red line,
-    /// on a definition it moved unchanged on the live copy. The status is the lookup's own.
     pub(super) fn definition_at_base(&mut self, path: PathBuf, line: usize) {
         // The answer is mapped onto the files as saved: a buffer ahead of its file is saved
         // first, and one that cannot be leaves its reason on the status bar, as a jump does.
@@ -150,6 +141,11 @@ impl App {
             {
                 *code = *code + now.len() - was.len();
             }
+            if let Some(path) = &mut it.path_at
+                && path.start == at
+            {
+                path.end = at + hit.path.display().to_string().len();
+            }
         }
         (it.path, it.line, it.deleted) = (hit.path, hit.line, hit.deleted.is_some());
         it
@@ -268,10 +264,6 @@ impl App {
         found
     }
 
-    /// `f` run with the cursor's deleted line read where the review draws it (#440): the lines
-    /// the branch deleted there are put back into the open file above the line they were
-    /// deleted from, the cursor on its own, as the file's text for everything `f` reads. The
-    /// text is the file's again afterwards.
     pub(super) fn on_drawn<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
         let Some((k, i)) = self.deleted else {
             return f(self);

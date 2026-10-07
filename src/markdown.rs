@@ -1,15 +1,3 @@
-//! Markdown rendered for reading (#249): `p` shows a `.md` file as the rows laid out here.
-//!
-//! Every row carries the source position it starts at, so the preview and the source keep one
-//! place both ways. The layout depends on the text and the width only; the colours are the
-//! theme's, looked up as a row is drawn ([`Palette`]), so `T` repaints without laying out again.
-//! Prose reflows with [`wrap`], which measures emoji and CJK as the screen does; a table wider
-//! than the pane narrows its widest columns and wraps inside their cells, so it stays whole.
-//!
-//! The rows come in source order: every row's lines start at or after those of the rows above
-//! it. A footnote definition is drawn where it is written, not gathered at the end, so moving
-//! down the rows never moves back up the source.
-
 use std::collections::HashMap;
 use std::ops::Range;
 use std::path::Path;
@@ -25,7 +13,6 @@ use unicase::UniCase;
 use crate::theme::Theme;
 use crate::wrap;
 
-/// Whether `path` is a Markdown file, which `p` shows rendered.
 pub fn is_markdown(path: &Path) -> bool {
     path.extension()
         .is_some_and(|e| e.eq_ignore_ascii_case("md") || e.eq_ignore_ascii_case("markdown"))
@@ -45,7 +32,6 @@ pub enum Ink {
     /// Inline code and code blocks, on a tint.
     Code,
     Link,
-    /// A quote's text.
     Quote,
     /// What is shown as it is written: front matter, HTML, an image's alt text.
     Dim,
@@ -66,7 +52,6 @@ impl Ink {
     }
 }
 
-/// One screen row of the preview.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Row {
     pub text: String,
@@ -106,6 +91,7 @@ pub enum Kind {
 pub struct Code {
     pub lang: String,
     pub lines: Vec<String>,
+    pub picture: Option<(u16, u16)>,
 }
 
 /// A Markdown file laid out for one width.
@@ -153,8 +139,9 @@ impl Doc {
     }
 }
 
-/// `text` laid out in rows of `width` columns.
-pub fn layout(lines: &[String], width: usize) -> Doc {
+pub type Fit<'a> = &'a mut dyn FnMut(&str, usize) -> Option<(u16, u16)>;
+
+pub fn layout(lines: &[String], width: usize, fit: Fit) -> Doc {
     let src = lines.join("\n");
     let mut starts = vec![0];
     starts.extend(src.match_indices('\n').map(|(i, _)| i + 1));
@@ -162,6 +149,7 @@ pub fn layout(lines: &[String], width: usize) -> Doc {
         src: &src,
         starts,
         width: width.max(1),
+        fit: Some(fit),
         ..Default::default()
     };
     let opts = Options::ENABLE_TABLES
@@ -196,7 +184,6 @@ pub fn layout(lines: &[String], width: usize) -> Doc {
 /// position: to the row that shows or owns the line above it, and above every row to the row
 /// that shows the next line. With no row that shows a line, the first row takes them all.
 fn cover(rows: &mut [Row], n: usize) {
-    // The first and the last row that show each line.
     let (mut first, mut last) = (vec![None; n], vec![None; n]);
     for (i, r) in rows.iter().enumerate() {
         for l in r.lines.clone().filter(|&l| l < n) {
@@ -297,6 +284,7 @@ struct Table {
 #[derive(Default)]
 struct Lay<'a> {
     src: &'a str,
+    fit: Option<Fit<'a>>,
     /// The byte each source line starts at.
     starts: Vec<usize>,
     width: usize,
@@ -646,7 +634,6 @@ impl Lay<'_> {
         Look { ink, mods }
     }
 
-    /// Text of the event at source bytes `r`.
     fn text(&mut self, s: &str, look: Look, r: Range<usize>) {
         let raw = &self.src[r.clone()];
         let inline = self.inline.get_or_insert_with(|| {
@@ -721,7 +708,6 @@ impl Lay<'_> {
         self.width.saturating_sub(w).max(1)
     }
 
-    /// Adds a row: the containers' prefix, then `text` with `looks` over it.
     fn push(
         &mut self,
         text: String,
@@ -790,7 +776,6 @@ impl Lay<'_> {
         }
     }
 
-    /// The row just added is drawn for no line of its own.
     fn shows_nothing(&mut self) {
         if let Some(r) = self.rows.last_mut() {
             r.lines.end = r.lines.start;
@@ -868,6 +853,28 @@ impl Lay<'_> {
         let block = self.code.len();
         let first = self.rows.len();
         let room = self.avail().saturating_sub(2).max(1);
+        if b.lang == "mermaid"
+            && let Some(picture) = self.picture(&b, room)
+        {
+            for i in 0..picture.1 as usize {
+                let k = i * b.lines.len() / picture.1 as usize;
+                let (_, at, _) = b.lines[k];
+                let kind = Kind::Code {
+                    block,
+                    line: k,
+                    from: 0,
+                    at: 0,
+                };
+                self.push(String::new(), Vec::new(), at, kind);
+            }
+            self.span_fences(first, &b.span);
+            self.code.push(Code {
+                lang: b.lang,
+                lines: b.lines.into_iter().map(|(raw, _, _)| raw).collect(),
+                picture: Some(picture),
+            });
+            return;
+        }
         let mut drawn = Vec::with_capacity(b.lines.len());
         for (k, (raw, (l, c), added)) in b.lines.iter().enumerate() {
             let line = raw.replace('\t', crate::buffer::TAB);
@@ -888,17 +895,27 @@ impl Lay<'_> {
             }
             drawn.push(line);
         }
-        let rows = &mut self.rows;
-        if let Some(r) = rows.get_mut(first) {
-            r.lines.start = r.lines.start.min(b.span.start);
-        }
-        if let Some(r) = rows.last_mut() {
-            r.lines.end = r.lines.end.max(b.span.end);
-        }
+        self.span_fences(first, &b.span);
         self.code.push(Code {
             lang: b.lang,
             lines: drawn,
+            picture: None,
         });
+    }
+
+    fn picture(&mut self, b: &Block, room: usize) -> Option<(u16, u16)> {
+        let src: Vec<&str> = b.lines.iter().map(|(raw, _, _)| raw.as_str()).collect();
+        let fit = self.fit.as_mut()?;
+        fit(&src.join("\n"), room).filter(|&(_, rows)| rows > 0)
+    }
+
+    fn span_fences(&mut self, first: usize, span: &Range<usize>) {
+        if let Some(r) = self.rows.get_mut(first) {
+            r.lines.start = r.lines.start.min(span.start);
+        }
+        if let Some(r) = self.rows.last_mut() {
+            r.lines.end = r.lines.end.max(span.end);
+        }
     }
 
     /// A table in box drawing, each column aligned as its `:---:` says. Wider than the room it
@@ -1104,7 +1121,6 @@ pub struct Palette {
     line: Color,
     /// Note, Tip, Important, Warning, Caution.
     alerts: [Color; 5],
-    /// Behind code.
     pub code_bg: Color,
 }
 
@@ -1143,7 +1159,7 @@ impl Palette {
             ),
             quote: theme.ghost_fg,
             bullet: theme.accent,
-            line: theme.gutter_fg,
+            line: theme.own_gutter_fg,
             alerts,
             code_bg: theme.line_hl_dim,
         }

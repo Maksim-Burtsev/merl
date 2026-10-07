@@ -24,10 +24,16 @@ const NOT_SMOKED: &[(&str, &str)] = &[
     ),
 ];
 
-const UNSMOKED: &[(u32, &str)] = &[(
-    318,
-    "a speed-up of d outside the project: the scenarios have no installed dependencies to time it on; the d bench measures it",
-)];
+const UNSMOKED: &[(u32, &str)] = &[
+    (
+        318,
+        "a speed-up of d outside the project: the scenarios have no installed dependencies to time it on; the d bench measures it",
+    ),
+    (
+        727,
+        "Mermaid pictures: the scenarios play in tmux, which passes no kitty graphics, so merl draws the source there; src/mermaid/tests.rs and the layout tests cover the pictures",
+    ),
+];
 
 fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -216,4 +222,110 @@ fn an_entry_passes_by_any_issue_it_cites_that_a_scenario_plays() {
     let wrong = unplayed(log, &BTreeSet::from([2]), &[3]);
     assert_eq!(wrong.len(), 2, "{wrong:?}");
     assert!(wrong[0].contains("cites #4,") && wrong[1].contains("cites no issue"));
+}
+
+fn released(changelog: &str) -> Vec<(String, String)> {
+    let mut sections: Vec<(String, String)> = Vec::new();
+    for line in changelog.lines() {
+        if line.starts_with('[') && line.contains("]: ") {
+            break;
+        }
+        if let Some(heading) = line.strip_prefix("## [") {
+            let version = heading.split(']').next().unwrap_or("").to_string();
+            sections.push((version, String::new()));
+        }
+        if let Some((_, text)) = sections.last_mut() {
+            text.push_str(line);
+            text.push('\n');
+        }
+    }
+    sections.retain(|(version, _)| version != "Unreleased");
+    sections
+}
+
+fn changed_releases(at_release: &str, now: &str) -> Vec<String> {
+    let then = released(at_release);
+    released(now)
+        .into_iter()
+        .filter(|s| then.iter().any(|t| t.0 == s.0) && !then.contains(s))
+        .map(|(version, _)| version)
+        .collect()
+}
+
+fn git(args: &[&str]) -> String {
+    git_in(&root(), args)
+}
+
+fn git_in(dir: &Path, args: &[&str]) -> String {
+    let out = std::process::Command::new("git")
+        .args(args)
+        .current_dir(dir)
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "git {args:?}: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    String::from_utf8(out.stdout).unwrap()
+}
+
+fn last_release_on_master(dir: &Path) -> String {
+    let base = git_in(dir, &["merge-base", "HEAD", "origin/master"]);
+    let log = git_in(dir, &["log", "--format=%H %s", base.trim()]);
+    log.lines()
+        .filter_map(|l| l.split_once(' '))
+        .find(|(_, subject)| subject.starts_with("release: "))
+        .map(|(hash, _)| hash.to_string())
+        .expect("no `release: X.Y.Z` commit in the history: a shallow clone needs fetch-depth: 0")
+}
+
+#[test]
+fn released_changelog_sections_stay_as_released() {
+    let release = last_release_on_master(&root());
+    let at_release = git(&["show", &format!("{release}:CHANGELOG.md")]);
+    let now = std::fs::read_to_string(root().join("CHANGELOG.md")).unwrap();
+    let wrong = changed_releases(&at_release, &now);
+    assert!(
+        wrong.is_empty(),
+        "CHANGELOG.md's [{}] differ from release commit {release}: a merge of master after a \
+         release moves a branch's entries under the released heading; move them back to \
+         [Unreleased]",
+        wrong.join("], [")
+    );
+}
+
+#[test]
+fn a_release_branch_keeps_its_own_section_open_until_master_has_it() {
+    let dir = std::env::temp_dir().join(format!("merl-last-release-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let git = |args: &[&str]| {
+        let mut all = vec!["-c", "user.email=t@t", "-c", "user.name=t"];
+        all.extend_from_slice(args);
+        git_in(&dir, &all).trim().to_string()
+    };
+    git(&["init", "-q", "-b", "master"]);
+    git(&["commit", "-q", "--allow-empty", "-m", "release: 0.1.0 (#1)"]);
+    let released = git(&["rev-parse", "HEAD"]);
+    git(&["update-ref", "refs/remotes/origin/master", "HEAD"]);
+    git(&["switch", "-q", "-c", "release/0.2.0"]);
+    git(&["commit", "-q", "--allow-empty", "-m", "release: 0.2.0"]);
+    let releasing = git(&["rev-parse", "HEAD"]);
+    git(&["commit", "-q", "--allow-empty", "-m", "fix: a panic"]);
+    assert_eq!(last_release_on_master(&dir), released);
+    git(&["update-ref", "refs/remotes/origin/master", "HEAD"]);
+    assert_eq!(last_release_on_master(&dir), releasing);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_released_section_counts_as_changed_by_any_line_but_a_new_one_does_not() {
+    let then = "## [Unreleased]\n\n## [0.2.0] - 2026-01-02\n\n- B. (#2)\n\n\
+                ## [0.1.0] - 2026-01-01\n\n- A. (#1)\n\n[0.2.0]: url\n";
+    let now = "## [Unreleased]\n\n- D. (#4)\n\n## [0.3.0] - 2026-01-03\n\n- C. (#3)\n\n\
+               ## [0.2.0] - 2026-01-02\n\n- B. (#2)\n- D. (#4)\n\n\
+               ## [0.1.0] - 2026-01-01\n\n- A. (#1)\n\n[0.3.0]: url\n[0.2.0]: url\n";
+    assert_eq!(changed_releases(then, now), ["0.2.0"]);
+    assert!(changed_releases(then, then).is_empty());
 }

@@ -290,6 +290,12 @@ struct Frame<'a> {
     role: Role,
     scope: usize,
     params: bool,
+    named: bool,
+    loop_var: bool,
+    sequential: bool,
+    recursive: bool,
+    tests: bool,
+    entry: Option<usize>,
 }
 
 const CLOJURE_LETS: &[&str] = &[
@@ -305,7 +311,25 @@ const CLOJURE_LETS: &[&str] = &[
     "if-some",
     "dotimes",
 ];
-const LETS: &[&str] = &["let", "let*", "letrec", "letrec*", "flet", "labels"];
+const LETS: &[&str] = &[
+    "let",
+    "let*",
+    "letrec",
+    "letrec*",
+    "flet",
+    "labels",
+    "when-let*",
+    "if-let*",
+    "and-let*",
+    "pcase-let*",
+];
+const SEQUENTIAL: &[&str] = &["let*", "when-let*", "if-let*", "and-let*", "pcase-let*"];
+const RECURSIVE: &[&str] = &["letrec", "letrec*", "labels"];
+const TESTS: &[&str] = &["when-let*", "if-let*", "and-let*"];
+const LAMBDAS: &[&str] = &["lambda", "opt-lambda"];
+const CLASSES: &[&str] = &["class", "class*", "mixin"];
+const CLAUSES: &[&str] = &["inherit", "inherit-field", "init-field", "field"];
+const LOOP_VARS: &[&str] = &["for", "as", "with"];
 const DEFUNS: &[&str] = &[
     "defun",
     "defmacro",
@@ -329,7 +353,27 @@ fn binds(atom: &str) -> bool {
     !atom.starts_with([':', '&', '"', '#']) && atom != "."
 }
 
-pub(super) fn lisp_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+pub fn lisp_bindings_at(
+    kind: Kind,
+    text: &str,
+    line: usize,
+    col: usize,
+    name: &str,
+) -> Vec<Binding> {
+    let lines: Vec<&str> = text.lines().collect();
+    match line.checked_sub(1).filter(|&i| i < lines.len()) {
+        Some(at) => lisp_bindings(kind, &lines, at, Some(col), name),
+        None => Vec::new(),
+    }
+}
+
+pub(super) fn lisp_bindings(
+    kind: Kind,
+    lines: &[&str],
+    at: usize,
+    col: Option<usize>,
+    name: &str,
+) -> Vec<Binding> {
     let text = lines.join("\n");
     let code = String::from_utf8_lossy(&lex(kind, &text).code).into_owned();
     let starts: Vec<usize> = std::iter::once(0)
@@ -349,7 +393,7 @@ pub(super) fn lisp_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -
     };
     let clojure = kind == Kind::Clojure;
     let mut scopes: Vec<(usize, Option<usize>)> = Vec::new();
-    let mut found: Vec<(usize, usize)> = Vec::new();
+    let mut found: Vec<(usize, usize, usize)> = Vec::new();
     let mut stack: Vec<Frame> = Vec::new();
     for (tok, pos) in tokens(&code[starts[top]..]) {
         let pos = pos + starts[top];
@@ -361,6 +405,30 @@ pub(super) fn lisp_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -
                 let role = stack
                     .last_mut()
                     .map_or(Role::Plain, |p| child_role(clojure, p, c));
+                let (sequential, entry) = match stack.last() {
+                    Some(p) if role == Role::Entries => (
+                        SEQUENTIAL.contains(&p.head.unwrap_or("").to_ascii_lowercase().as_str()),
+                        None,
+                    ),
+                    Some(p) if p.role == Role::Entries && p.sequential => {
+                        (false, Some(found.len()))
+                    }
+                    _ => (false, None),
+                };
+                let recursive = match stack.last() {
+                    Some(p) if role == Role::Entries => {
+                        RECURSIVE.contains(&p.head.unwrap_or("").to_ascii_lowercase().as_str())
+                    }
+                    Some(p) => p.role == Role::Letfn || (p.role == Role::Entries && p.recursive),
+                    None => false,
+                };
+                let tests = match stack.last() {
+                    Some(p) if role == Role::Entries => {
+                        TESTS.contains(&p.head.unwrap_or("").to_ascii_lowercase().as_str())
+                    }
+                    Some(p) => p.role == Role::Entries && p.tests,
+                    None => false,
+                };
                 let scope = match (role, stack.last()) {
                     (Role::Plain | Role::Arity, _) | (_, None) => {
                         scopes.push((pos, None));
@@ -374,6 +442,12 @@ pub(super) fn lisp_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -
                     role,
                     scope,
                     params: false,
+                    named: false,
+                    loop_var: false,
+                    sequential,
+                    recursive,
+                    tests,
+                    entry,
                 });
             }
             Tok::Close => {
@@ -381,37 +455,77 @@ pub(super) fn lisp_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -
                 if matches!(f.role, Role::Plain | Role::Arity) {
                     scopes[f.scope].1 = Some(pos);
                 }
+                if let Some(from) = f.entry.filter(|_| f.tests && f.idx < 2) {
+                    found.truncate(from);
+                }
+                if let Some(from) = f.entry {
+                    for e in found[from..].iter_mut().filter(|e| e.2 == usize::MAX) {
+                        e.2 = pos;
+                    }
+                }
                 match stack.last_mut() {
                     Some(p) => p.idx += 1,
                     None => break,
                 }
             }
             Tok::Atom(a) => {
+                let class = match stack.len() {
+                    n if n >= 2 && kind == Kind::Scheme => (stack[n - 2].head)
+                        .filter(|h| CLASSES.contains(h))
+                        .map(|_| stack[n - 2].scope),
+                    _ => None,
+                };
+                let pending = stack.last().is_some_and(|f| f.entry.is_some());
                 let Some(f) = stack.last_mut() else { break };
                 if f.idx == 0 {
                     f.head = Some(a);
                 }
+                let head = f.head.unwrap_or("");
+                let looping = kind == Kind::CommonLisp
+                    && f.role == Role::Plain
+                    && f.idx > 0
+                    && head.eq_ignore_ascii_case("loop");
+                let named =
+                    kind == Kind::Scheme && f.role == Role::Plain && f.idx == 1 && head == "let";
                 let bound = match f.role {
                     Role::Pairs => f.idx.is_multiple_of(2),
-                    Role::Entries | Role::Params | Role::Destructure => true,
+                    Role::Entries => !f.tests,
+                    Role::Params | Role::Destructure => true,
                     Role::Define => f.idx >= 1,
                     Role::First => f.idx == 0,
+                    Role::Plain => (looping && f.loop_var) || named,
                     _ => false,
                 };
                 if bound && binds(a) && same(a) {
-                    found.push((f.scope, pos));
+                    let visible = match (f.recursive, pending) {
+                        (true, _) => 0,
+                        (false, true) => usize::MAX,
+                        (false, false) => pos,
+                    };
+                    found.push((f.scope, pos, visible));
+                }
+                if looping {
+                    f.loop_var = !f.loop_var && LOOP_VARS.iter().any(|k| k.eq_ignore_ascii_case(a));
+                }
+                f.named |= named;
+                if let Some(scope) = class.filter(|_| f.idx == 0 && CLAUSES.contains(&a)) {
+                    f.role = Role::Entries;
+                    f.scope = scope;
                 }
                 f.idx += 1;
             }
         }
     }
+    let open_at =
+        |scope: usize, at: usize| scopes[scope].0 < at && scopes[scope].1.is_none_or(|c| c >= at);
     found
         .into_iter()
-        .filter(|&(scope, pos)| {
-            pos >= here || (scopes[scope].0 < here && scopes[scope].1.is_none_or(|c| c >= here))
+        .filter(|&(scope, pos, visible)| match col {
+            None => pos >= here || open_at(scope, here),
+            Some(col) => pos == here + col || (visible < here + col && open_at(scope, here + col)),
         })
-        .max_by_key(|&(scope, pos)| (scopes[scope].0, pos))
-        .map(|(_, pos)| Binding {
+        .max_by_key(|&(scope, pos, _)| (scopes[scope].0, pos))
+        .map(|(_, pos, _)| Binding {
             line: line_of(&text, pos),
             value: Value::Unknown,
         })
@@ -429,6 +543,10 @@ fn child_role(clojure: bool, p: &mut Frame, c: u8) -> Role {
         Role::Arity if p.idx == 0 && c == b'[' => return Role::Params,
         Role::Plain => {}
         _ => return Role::Plain,
+    }
+    if p.loop_var {
+        p.loop_var = false;
+        return Role::Destructure;
     }
     if clojure {
         if c == b'[' && p.idx == 1 && CLOJURE_LETS.contains(&h) {
@@ -456,7 +574,8 @@ fn child_role(clojure: bool, p: &mut Frame, c: u8) -> Role {
     let h = h.as_str();
     match p.idx {
         1 if LETS.contains(&h) => Role::Entries,
-        1 if h == "lambda" => Role::Params,
+        2 if h == "let" && p.named => Role::Entries,
+        1 if LAMBDAS.contains(&h) => Role::Params,
         1 if DEFINES.contains(&h) => Role::Define,
         2 if DEFUNS.contains(&h) => Role::Params,
         _ => Role::Plain,
@@ -629,4 +748,77 @@ pub fn lisp_files(kind: Kind, dir: &Path, module: &str, files: &[PathBuf]) -> Ve
             .cloned()
             .collect(),
     }
+}
+
+pub fn scheme_foreign_branch(
+    text: &str,
+    line: usize,
+    includes_here: impl Fn(&str) -> bool,
+) -> bool {
+    struct Open<'a> {
+        head: Option<&'a str>,
+        idx: usize,
+        start: usize,
+        own: Option<usize>,
+        branch_of: Option<usize>,
+        here: bool,
+    }
+    let code = String::from_utf8_lossy(&lex(Kind::Scheme, text).code).into_owned();
+    let Some(at) = std::iter::once(0)
+        .chain(text.match_indices('\n').map(|(i, _)| i + 1))
+        .nth(line.saturating_sub(1))
+    else {
+        return false;
+    };
+    let at = at + text[at..].len() - text[at..].trim_start().len();
+    let mut stack: Vec<Open> = Vec::new();
+    let mut expands = 0;
+    let mut branches: Vec<(usize, Range<usize>, bool)> = Vec::new();
+    for (tok, pos) in tokens(&code) {
+        match tok {
+            Tok::Open(_) => {
+                let branch_of = stack.last().and_then(|p| p.own.filter(|_| p.idx >= 1));
+                stack.push(Open {
+                    head: None,
+                    idx: 0,
+                    start: pos,
+                    own: None,
+                    branch_of,
+                    here: false,
+                });
+            }
+            Tok::Close => {
+                let Some(f) = stack.pop() else { continue };
+                if let Some(e) = f.branch_of {
+                    branches.push((e, f.start..pos, f.here));
+                }
+                if let Some(p) = stack.last_mut() {
+                    p.idx += 1;
+                }
+            }
+            Tok::Atom(a) => {
+                let Some(f) = stack.last_mut() else { continue };
+                if f.idx == 0 && a == "cond-expand" {
+                    f.own = Some(expands);
+                    expands += 1;
+                }
+                let include = f.idx > 0 && matches!(f.head, Some("include" | "include-ci"));
+                f.head = f.head.or(Some(a));
+                f.idx += 1;
+                if include
+                    && a == "\"\""
+                    && let Some(end) = text[pos + 1..].find('"')
+                    && includes_here(&text[pos + 1..pos + 1 + end])
+                    && let Some(b) = stack.iter_mut().rev().find(|o| o.branch_of.is_some())
+                {
+                    b.here = true;
+                }
+            }
+        }
+    }
+    branches.iter().any(|(e, span, own)| {
+        span.contains(&at)
+            && !own
+            && (branches.iter()).any(|(o, other, here)| o == e && other != span && *here)
+    })
 }

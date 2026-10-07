@@ -19,6 +19,7 @@ bar says `[preview]` where it says `[code]`, and `p` on a file that is not Markd
 | `**bold**`, `*italic*`, `~~strike~~` | bold, italic, crossed out |
 | `` `code` `` | on a tint |
 | fenced and indented code blocks | highlighted by the info string (`rust`, `py`, …) in the theme's colours, on a tint, no fences |
+| ```` ```mermaid ```` blocks | the diagram, in the theme's colours, on a tint (below) |
 | `-` / `1.` lists, nested | `•` / numbers; a wrapped line goes on under the item's text |
 | `- [ ]` / `- [x]` | `☐` / `☑` |
 | `> quote`, GitHub alerts (`> [!NOTE]`) | a `│` bar; an alert's title and bar in its colour |
@@ -29,7 +30,18 @@ bar says `[preview]` where it says `[code]`, and `p` on a file that is not Markd
 | footnotes | the reference as `[1]`; the note where it is written, beside its `[1]` |
 | YAML front matter, raw HTML | as written, dim |
 
-Images, heading sizes, Mermaid and math stay text: a terminal has no way to draw them.
+Images, heading sizes and math stay text.
+
+A Mermaid diagram is a picture in Ghostty, kitty and WezTerm, which draw pictures with the kitty
+graphics protocol; inside tmux, screen or zellij, over mosh, and in a terminal that draws none,
+the block stays its source. The picture's text is the size of the terminal's: a diagram narrower
+than the pane is drawn as it is, a wider one shrinks to the pane down to half its size, and one
+wider still stays its source, as does a diagram the renderer cannot read or has to shrink
+below its size to draw at all (#727). A tall diagram
+runs over as many rows as it takes. Its rows stand for the block's lines, as a table's rows stand
+for its lines: the cursor row runs across it, Enter edits the line it stands for, and `p` shows
+the source there. The first diagram of a run is drawn in up to a second, the rest in a tenth; the
+source shows until then. An overlay (`?`, a picker) hides the pictures while it is open.
 
 The preview is rendered from the open buffer, not from the disk: an edit shows in it, and a file
 an agent rewrites (merl reloads it) renders again. Prose reflows to the width of the pane, emoji
@@ -49,7 +61,8 @@ the source line, nothing on a row that shows none. What acts on a word, a column
 (`/`, `n`, `v`, `d`, `u`, Home / End, Shift or Alt with an arrow, `w`) has nothing to act on in the
 preview and does nothing; `p` or Enter take you to the source for it.
 
-In `--review` the diff lives on the source: `p` on a file of the review does nothing and says
-`in review`, and a file shown rendered that the branch comes to change shows its source again.
-A file outside the review renders as anywhere; `c` / `C` there leave the preview and walk the
-review from the source.
+In `--review` the diff lives on the source: `p` on a Markdown file of the review renders it as
+it stands now (a deleted one as it was) without the diff's marks, and `p` again shows the source
+with its diff. A file shown rendered that the branch comes to change stays rendered; a file of the
+review opened again shows its source. A file outside the review renders as anywhere; `c` / `C`
+there leave the preview and walk the review from the source.

@@ -33,17 +33,11 @@ fn u_reads_a_lisp_name_whole_with_its_marks() {
     };
     assert_eq!(
         rows(&mut a, 2, "format-price"),
-        [
-            "declaration  src/shop/money.clj:2:",
-            "             src/shop/cart.clj:2:"
-        ]
+        ["src/shop/money.clj:2:", "src/shop/cart.clj:2:"]
     );
     assert_eq!(
         rows(&mut a, 2, "price 1"),
-        [
-            "declaration  src/shop/money.clj:4:",
-            "             src/shop/cart.clj:2:"
-        ]
+        ["src/shop/money.clj:4:", "src/shop/cart.clj:2:"]
     );
     assert_eq!(rows(&mut a, 3, "empty?"), ["src/shop/cart.clj:3:"]);
     std::fs::remove_dir_all(&dir).unwrap();
@@ -56,13 +50,22 @@ fn d_on_a_require_the_project_lacks_opens_it_in_the_roots() {
         &[
             ("init.el", "(require 'magit)\n(require 'missing)\n"),
             ("main.rkt", "#lang racket\n(require racket/list)\n"),
+            ("lib.scm", "(define (second-of l) (rest l))\n"),
+            ("racket.ss", "#lang racket\n(define (tail-of l) (rest l))\n"),
+            (
+                "bare.rkt",
+                "(module bare racket\n  (define (head-of l) (rest l)))\n",
+            ),
         ],
     );
     let root = external_root(
         "lisp",
         &[
             ("elpa/magit-4.1/magit.el", ";;; magit.el\n"),
-            ("collects/racket/list.rkt", "#lang racket/base\n"),
+            (
+                "collects/racket/list.rkt",
+                "#lang racket/base\n(define (rest l) (cdr l))\n",
+            ),
         ],
     );
     use_roots(&mut a, Kind::EmacsLisp, &[root.join("elpa")]);
@@ -89,6 +92,21 @@ fn d_on_a_require_the_project_lacks_opens_it_in_the_roots() {
                 &format!("racket/list.rkt: module {}", at("collects/racket/list.rkt")),
                 &at("collects/racket/list.rkt:1"),
             ),
+        ),
+        (
+            "lib.scm",
+            "rest",
+            jump("no definition for rest", "lib.scm:1"),
+        ),
+        (
+            "racket.ss",
+            "rest",
+            jump("rest: by name, 1 match", &at("collects/racket/list.rkt:2")),
+        ),
+        (
+            "bare.rkt",
+            "rest",
+            jump("rest: by name, 1 match", &at("collects/racket/list.rkt:2")),
         ),
     ] {
         d_on(&mut a, file, code);

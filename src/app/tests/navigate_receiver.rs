@@ -1,18 +1,12 @@
-//! `d` on a member: found by name, or in the type of the receiver.
-
 use super::*;
 
-/// Steps 7 and 1 of #68 over the same project in three languages: on `x.word` with `x` a
-/// value whose type is not known, one member declaration of the name jumps and says it was
-/// found by name; several open a picker whose rows say what each is declared in and why it
-/// is there.
 #[test]
 fn a_member_of_a_value_is_found_by_name_and_says_so() {
     let two =
         |status: &str, first: (&str, &str), second: (&str, &str)| picker(status, &[first, second]);
-    let cases: [(&str, &str, &str, Shown); 6] = [
-        // A parameter with no annotation.
+    let cases: [(&str, &str, &str, &str, Shown); 6] = [
         (
+            "A parameter with no annotation",
             "python",
             "factories.py",
             "repo.find_user",
@@ -21,8 +15,8 @@ fn a_member_of_a_value_is_found_by_name_and_says_so() {
                 "repos.py:5",
             ),
         ),
-        // Two classes declare the method: a picker, never a guess.
         (
+            "Two classes declare the method: a picker, never a guess",
             "python",
             "factories.py",
             "return repo.delete_user",
@@ -32,8 +26,8 @@ fn a_member_of_a_value_is_found_by_name_and_says_so() {
                 ("AuditLog.delete_user", "repos.py:13"),
             ),
         ),
-        // `any` is no type of the project.
         (
+            "`any` is no type of the project",
             "typescript",
             "factories.ts",
             "repo.findUser",
@@ -43,6 +37,7 @@ fn a_member_of_a_value_is_found_by_name_and_says_so() {
             ),
         ),
         (
+            "`any` is no type of the project",
             "typescript",
             "factories.ts",
             "void repo.deleteUser",
@@ -52,8 +47,8 @@ fn a_member_of_a_value_is_found_by_name_and_says_so() {
                 ("AuditLog.deleteUser", "repos.ts:16"),
             ),
         ),
-        // The variable of a `range` over a channel, which the rules do not read.
         (
+            "The variable of a `range` over a channel, which the rules do not read",
             "go",
             "factories.go",
             "repo.FindUser",
@@ -63,6 +58,7 @@ fn a_member_of_a_value_is_found_by_name_and_says_so() {
             ),
         ),
         (
+            "The variable of a `range` over a channel, which the rules do not read",
             "go",
             "factories.go",
             "^\t\trepo.DeleteUser",
@@ -73,24 +69,20 @@ fn a_member_of_a_value_is_found_by_name_and_says_so() {
             ),
         ),
     ];
-    for (fixture, file, code, want) in cases {
+    for (name, fixture, file, code, want) in cases {
         let mut a = fixture_app(fixture);
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{fixture}: {code}");
+        assert_eq!(shown(&mut a), want, "{name}: {fixture}: {code}");
     }
-    // The picker is titled with what the status line says.
     let mut a = fixture_app("go");
     d_on(&mut a, "factories.go", "^\t\trepo.DeleteUser");
     assert_eq!(
         a.picker.as_ref().unwrap().title,
-        "DeleteUser: by name, 2 declarations"
+        "DeleteUser: by name, 2 declarations",
+        "The picker is titled with what the status line says"
     );
 }
 
-/// Found by the acceptance pass of #68. On a declaration, the other declarations of the name
-/// are namesakes nothing ties to it: a second `d` after a proven jump used to leave
-/// `UserRepository.delete_user` for `AuditLog.delete_user` on its own, with `1 match`. They
-/// are offered in a picker that says where the cursor stands, even when there is one.
 #[test]
 fn a_declaration_does_not_jump_to_its_namesake() {
     let cases = [
@@ -128,7 +120,7 @@ fn a_declaration_does_not_jump_to_its_namesake() {
         assert_eq!(
             status,
             format!("{word}: at a declaration, 1 other by name"),
-            "{fixture}"
+            "{fixture}: the namesakes are offered in a picker that says where the cursor stands, even when there is one"
         );
         assert_eq!(rows.len(), 1, "{fixture}");
         assert_eq!(rows[0].0, other, "{fixture}");
@@ -140,16 +132,11 @@ fn a_declaration_does_not_jump_to_its_namesake() {
     }
 }
 
-/// Steps 2 and 3 of #68 over the same project in three languages. A receiver whose every
-/// declaration in scope reads one type, directly or through the return type of one call, has
-/// its member looked up in that type: one jump, which says the link it followed. Two
-/// declarations that disagree, or a call whose return type is not written, leave the member
-/// to the search by name: a picker of two.
 #[test]
 fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
-    let cases: Vec<(&str, &str, &str, Shown)> = vec![
-        // Two same-named methods: each field lands on its own class's.
+    let cases: Vec<(&str, &str, &str, &str, Shown)> = vec![
         (
+            "Two same-named methods: each field lands on its own class's",
             "python",
             "service.py",
             "self.repo.delete_user",
@@ -159,6 +146,7 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
             ),
         ),
         (
+            "Two same-named methods: each field lands on its own class's",
             "python",
             "service.py",
             "self.audit.delete_user",
@@ -167,8 +155,8 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
                 "repos.py:13",
             ),
         ),
-        // The declared type's method, not its implementations (step 6).
         (
+            "The declared type's method, not its implementations (step 6)",
             "python",
             "service.py",
             "self.notifier.send",
@@ -177,9 +165,8 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
                 "repos.py:18",
             ),
         ),
-        // Shadowing: below the nested function only the outer `repo` is in scope; inside it
-        // the inner one hides it (#100).
         (
+            "Shadowing: below the nested function only the outer `repo` is in scope; inside it the inner one hides it (#100)",
             "python",
             "service.py",
             "^    repo.delete_user",
@@ -189,6 +176,7 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
             ),
         ),
         (
+            "Shadowing: below the nested function only the outer `repo` is in scope; inside it the inner one hides it (#100)",
             "python",
             "service.py",
             "await repo.delete_user",
@@ -198,6 +186,7 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
             ),
         ),
         (
+            "",
             "python",
             "factories.py",
             "repo.delete_user",
@@ -206,8 +195,8 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
                 "repos.py:8",
             ),
         ),
-        // No return type, but every `return` constructs one (#100).
         (
+            "No return type, but every `return` constructs one (#100)",
             "python",
             "factories.py",
             "audit.delete_user",
@@ -216,8 +205,8 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
                 "repos.py:13",
             ),
         ),
-        // The return type is resolved where the function is declared.
         (
+            "The return type is resolved where the function is declared",
             "python",
             "factories.py",
             "session.close",
@@ -227,6 +216,7 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
             ),
         ),
         (
+            "",
             "typescript",
             "service.ts",
             "this.repo.deleteUser",
@@ -236,6 +226,7 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
             ),
         ),
         (
+            "",
             "typescript",
             "service.ts",
             "this.audit.deleteUser",
@@ -245,6 +236,7 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
             ),
         ),
         (
+            "",
             "typescript",
             "service.ts",
             "this.notifier.send",
@@ -254,6 +246,7 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
             ),
         ),
         (
+            "",
             "typescript",
             "service.ts",
             "^  repo.deleteUser",
@@ -263,6 +256,7 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
             ),
         ),
         (
+            "",
             "typescript",
             "service.ts",
             "await repo.deleteUser",
@@ -272,6 +266,7 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
             ),
         ),
         (
+            "",
             "typescript",
             "factories.ts",
             "await repo.deleteUser",
@@ -280,8 +275,8 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
                 "repos.ts:10",
             ),
         ),
-        // No return type, but the body constructs one.
         (
+            "No return type, but the body constructs one",
             "typescript",
             "factories.ts",
             "audit.deleteUser",
@@ -291,6 +286,7 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
             ),
         ),
         (
+            "",
             "typescript",
             "factories.ts",
             "session.close",
@@ -300,6 +296,7 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
             ),
         ),
         (
+            "",
             "go",
             "service.go",
             "s.repo.DeleteUser",
@@ -309,6 +306,7 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
             ),
         ),
         (
+            "",
             "go",
             "service.go",
             "s.audit.DeleteUser",
@@ -317,8 +315,8 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
                 "repos.go:21",
             ),
         ),
-        // An interface's method line.
         (
+            "An interface's method line",
             "go",
             "service.go",
             "s.notifier.Send",
@@ -328,6 +326,7 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
             ),
         ),
         (
+            "",
             "go",
             "service.go",
             "^\trepo.DeleteUser",
@@ -337,6 +336,7 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
             ),
         ),
         (
+            "",
             "go",
             "service.go",
             "^\t\trepo.DeleteUser",
@@ -346,6 +346,7 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
             ),
         ),
         (
+            "",
             "go",
             "factories.go",
             "repo.DeleteUser",
@@ -354,8 +355,8 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
                 "repos.go:15",
             ),
         ),
-        // The first result of two.
         (
+            "The first result of two",
             "go",
             "factories.go",
             "audit.DeleteUser",
@@ -364,8 +365,8 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
                 "repos.go:21",
             ),
         ),
-        // A function of an imported package, whose result is a type of that package.
         (
+            "A function of an imported package, whose result is a type of that package",
             "go",
             "factories.go",
             "session.Close",
@@ -375,18 +376,13 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
             ),
         ),
     ];
-    for (fixture, file, code, want) in cases {
+    for (name, fixture, file, code, want) in cases {
         let mut a = fixture_app(fixture);
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        assert_eq!(shown(&mut a), want, "{name}: {fixture}: {file}: {code}");
     }
 }
 
-/// Step 4 of #68 over the same project in three languages. A chain is followed one field at a
-/// time, each through the type before it (a Go field may be promoted from an embedded struct),
-/// and a jump lists the links. A link that cannot be proven, or a seventh name, falls back to
-/// the search by name and says where the chain broke. A chain that hangs off a call has no
-/// names to follow.
 #[test]
 fn a_chain_is_followed_link_by_link() {
     let by_name = |status: &str, rows: &[(&str, &str)]| picker(status, rows);
@@ -406,9 +402,9 @@ fn a_chain_is_followed_link_by_link() {
         ("UserRepository.DeleteUser", "repos.go:15"),
         ("AuditLog.DeleteUser", "repos.go:21"),
     ];
-    let cases: Vec<(&str, &str, &str, Shown)> = vec![
-        // A parameter, then a field handed on from a constructor parameter, twice.
+    let cases: Vec<(&str, &str, &str, &str, Shown)> = vec![
         (
+            "A parameter, then a field handed on from a constructor parameter, twice",
             "python",
             "service.py",
             "app.services.users.remove",
@@ -417,8 +413,8 @@ fn a_chain_is_followed_link_by_link() {
                 "service.py:10",
             ),
         ),
-        // Two same-named methods: each field of the unit of work lands on its own.
         (
+            "Two same-named methods: each field of the unit of work lands on its own",
             "python",
             "chains.py",
             "self.uow.users.delete_user",
@@ -428,6 +424,7 @@ fn a_chain_is_followed_link_by_link() {
             ),
         ),
         (
+            "Two same-named methods: each field of the unit of work lands on its own",
             "python",
             "chains.py",
             "self.uow.audit.delete_user",
@@ -436,8 +433,8 @@ fn a_chain_is_followed_link_by_link() {
                 "repos.py:13",
             ),
         ),
-        // A type parameter is not the type argument.
         (
+            "A type parameter is not the type argument",
             "python",
             "chains.py",
             "self.box.item.delete_user",
@@ -446,9 +443,8 @@ fn a_chain_is_followed_link_by_link() {
                 &py_both,
             ),
         ),
-        // Not the local `users`: the chain hangs off a call, whose declared return type
-        // starts it (#100).
         (
+            "Not the local `users`: the chain hangs off a call, whose declared return type starts it (#100)",
             "python",
             "chains.py",
             "make_uow().users.delete_user",
@@ -458,12 +454,14 @@ fn a_chain_is_followed_link_by_link() {
             ),
         ),
         (
+            "",
             "python",
             "chains.py",
             "folder.parent.parent.parent.parent.parent.root",
             jump(&folders("root", "parent", "Folder"), "chains.py:23"),
         ),
         (
+            "",
             "python",
             "chains.py",
             "folder.parent.parent.parent.parent.parent.parent.root",
@@ -472,9 +470,8 @@ fn a_chain_is_followed_link_by_link() {
                 "chains.py:23",
             ),
         ),
-        // A `@cached_property` with a return type is a field of that type; a `@property`
-        // without one is not read, nor the typed one of the base class it overrides.
         (
+            "A `@cached_property` with a return type is a field of that type; a `@property` without one is not read, nor the typed one of the base class it overrides",
             "python",
             "chains.py",
             "self.registry.users.delete_user",
@@ -484,6 +481,7 @@ fn a_chain_is_followed_link_by_link() {
             ),
         ),
         (
+            "A `@cached_property` with a return type is a field of that type; a `@property` without one is not read, nor the typed one of the base class it overrides",
             "python",
             "chains.py",
             "self.registry.audit.delete_user",
@@ -493,6 +491,7 @@ fn a_chain_is_followed_link_by_link() {
             ),
         ),
         (
+            "",
             "typescript",
             "service.ts",
             "app.services.users.remove",
@@ -502,6 +501,7 @@ fn a_chain_is_followed_link_by_link() {
             ),
         ),
         (
+            "",
             "typescript",
             "chains.ts",
             "this.uow.users.deleteUser",
@@ -511,6 +511,7 @@ fn a_chain_is_followed_link_by_link() {
             ),
         ),
         (
+            "",
             "typescript",
             "chains.ts",
             "this.uow.audit.deleteUser",
@@ -520,6 +521,7 @@ fn a_chain_is_followed_link_by_link() {
             ),
         ),
         (
+            "",
             "typescript",
             "chains.ts",
             "this.box.item.deleteUser",
@@ -529,6 +531,7 @@ fn a_chain_is_followed_link_by_link() {
             ),
         ),
         (
+            "",
             "typescript",
             "chains.ts",
             "makeUow().users.deleteUser",
@@ -538,12 +541,14 @@ fn a_chain_is_followed_link_by_link() {
             ),
         ),
         (
+            "",
             "typescript",
             "chains.ts",
             "folder.parent.parent.parent.parent.parent.root",
             jump(&folders("root", "parent", "Folder"), "chains.ts:15"),
         ),
         (
+            "",
             "typescript",
             "chains.ts",
             "folder.parent.parent.parent.parent.parent.parent.root",
@@ -553,6 +558,7 @@ fn a_chain_is_followed_link_by_link() {
             ),
         ),
         (
+            "",
             "typescript",
             "chains.ts",
             "this.registry.users.deleteUser",
@@ -562,6 +568,7 @@ fn a_chain_is_followed_link_by_link() {
             ),
         ),
         (
+            "",
             "typescript",
             "chains.ts",
             "this.registry.audit.deleteUser",
@@ -570,8 +577,8 @@ fn a_chain_is_followed_link_by_link() {
                 &ts_both,
             ),
         ),
-        // Pointer fields.
         (
+            "Pointer fields",
             "go",
             "service.go",
             "app.Services.Users.Remove",
@@ -580,8 +587,8 @@ fn a_chain_is_followed_link_by_link() {
                 "service.go:11",
             ),
         ),
-        // A field promoted from the embedded `*Deps`.
         (
+            "A field promoted from the embedded `*Deps`",
             "go",
             "chains.go",
             "h.uow.Users.DeleteUser",
@@ -590,8 +597,8 @@ fn a_chain_is_followed_link_by_link() {
                 "repos.go:15",
             ),
         ),
-        // The embedded struct named as a link.
         (
+            "The embedded struct named as a link",
             "go",
             "chains.go",
             "h.Deps.uow.Audit.DeleteUser",
@@ -601,6 +608,7 @@ fn a_chain_is_followed_link_by_link() {
             ),
         ),
         (
+            "",
             "go",
             "chains.go",
             "h.box.Item.DeleteUser",
@@ -610,6 +618,7 @@ fn a_chain_is_followed_link_by_link() {
             ),
         ),
         (
+            "",
             "go",
             "chains.go",
             "NewUnitOfWork().Users.DeleteUser",
@@ -619,12 +628,14 @@ fn a_chain_is_followed_link_by_link() {
             ),
         ),
         (
+            "",
             "go",
             "chains.go",
             "folder.Parent.Parent.Parent.Parent.Parent.Root",
             jump(&folders("Root", "Parent", "Folder"), "chains.go:16"),
         ),
         (
+            "",
             "go",
             "chains.go",
             "folder.Parent.Parent.Parent.Parent.Parent.Parent.Root",
@@ -634,9 +645,9 @@ fn a_chain_is_followed_link_by_link() {
             ),
         ),
     ];
-    for (fixture, file, code, want) in cases {
+    for (name, fixture, file, code, want) in cases {
         let mut a = fixture_app(fixture);
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        assert_eq!(shown(&mut a), want, "{name}: {fixture}: {file}: {code}");
     }
 }

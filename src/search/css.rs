@@ -1,6 +1,3 @@
-//! HTML, CSS, SCSS and Less for `d` (#415): the class, the id or the path under the cursor, the
-//! rules of a stylesheet and the names they style, the declarations of a stylesheet's names.
-
 use regex::Regex;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -15,7 +12,7 @@ pub enum Attr {
     Src,
 }
 
-/// The attribute value byte `col` of `line` stands in, and the range `d` reads there: the
+/// The attribute value `byte_col` of `line` stands in, and the range `d` reads there: the
 /// space-separated word of a `class`, `className` or `id` value, the whole value of a `href` or a
 /// `src`. `className={'a b'}` is a class value, and so is Svelte's `class:active`; Vue's `:class`
 /// binds an expression, which is not one.
@@ -23,7 +20,7 @@ pub enum Attr {
 /// `jsx` reads a line of a JavaScript or TypeScript file, where `id = "main"` is an assignment:
 /// an attribute there has no blank around its `=`, and a `class` or an `id` stands in a tag, or
 /// first on a line of the tag's attributes.
-pub fn attr_at(line: &str, col: usize, jsx: bool) -> Option<(Attr, Range<usize>)> {
+pub fn attr_at(line: &str, byte_col: usize, jsx: bool) -> Option<(Attr, Range<usize>)> {
     static ATTR: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(
             r#"(?:^|[\s<{(])(class|className|id|href|src)\s*=\s*(?:\{\s*)?(?:"([^"]*)"|'([^']*)'|`([^`$]*)`)"#,
@@ -33,7 +30,7 @@ pub fn attr_at(line: &str, col: usize, jsx: bool) -> Option<(Attr, Range<usize>)
     static SVELTE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\bclass:([\w-]+)").unwrap());
     for c in ATTR.captures_iter(line) {
         let v = c.get(2).or_else(|| c.get(3)).or_else(|| c.get(4))?;
-        if col < v.start() || col > v.end() {
+        if byte_col < v.start() || byte_col > v.end() {
             continue;
         }
         let name = c.get(1)?;
@@ -56,7 +53,7 @@ pub fn attr_at(line: &str, col: usize, jsx: bool) -> Option<(Attr, Range<usize>)
                 .then(|| (attr, start..v.start() + v.as_str().trim_end().len()));
         }
         let b = line.as_bytes();
-        let mut start = col.min(v.end());
+        let mut start = byte_col.min(v.end());
         let mut end = start;
         while start > v.start() && !b[start - 1].is_ascii_whitespace() {
             start -= 1;
@@ -73,7 +70,7 @@ pub fn attr_at(line: &str, col: usize, jsx: bool) -> Option<(Attr, Range<usize>)
     SVELTE
         .captures_iter(line)
         .filter_map(|c| c.get(1))
-        .find(|m| m.start() <= col && col <= m.end())
+        .find(|m| m.start() <= byte_col && byte_col <= m.end())
         .map(|m| (Attr::Class, m.range()))
 }
 
@@ -89,10 +86,8 @@ pub struct Rule {
 
 /// What the rule a `{` opens is to the rules inside it.
 struct Frame {
-    /// The class each selector of the list ends in, which an `&-suffix` inside composes with.
-    trailing: Vec<String>,
-    /// Inside `@keyframes`, `@font-face` or a nested property: nothing in it is a selector.
-    opaque: bool,
+    class_each_selector_ends_in: Vec<String>,
+    no_selector_inside: bool,
 }
 
 /// The rules of a stylesheet `text`, in order. A selector is the text before a `{` since the
@@ -101,9 +96,6 @@ struct Frame {
 /// In SCSS and Less an `&` followed by a name composes it with the class the enclosing rule ends
 /// in: `&__title` inside `.card` styles `.card__title`. A `#{…}` or `@{…}` interpolation is part
 /// of the selector, and a name it is glued to is none.
-///
-/// ponytail: Sass's indented syntax has no braces and is not read; its variables and mixins are
-/// still found by their declaration lines.
 pub fn rules(text: &str) -> Vec<Rule> {
     let b = text.as_bytes();
     let (mut i, mut line, mut paren) = (0, 1, 0usize);
@@ -183,19 +175,72 @@ pub fn rules(text: &str) -> Vec<Rule> {
     out
 }
 
+pub fn sass_rules(text: &str) -> Vec<Rule> {
+    let indent = |l: &str| l.len() - l.trim_start().len();
+    let lines: Vec<String> = text.lines().map(css_code).collect();
+    let mut comment_indent: Option<usize> = None;
+    let code: Vec<Option<&str>> = (text.lines().zip(&lines))
+        .map(|(raw, l)| {
+            let depth = indent(raw);
+            if comment_indent.is_some_and(|c| depth > c) || raw.trim().is_empty() {
+                return None;
+            }
+            comment_indent = None;
+            let t = raw.trim_start();
+            if t.starts_with("//") || t.starts_with("/*") {
+                comment_indent = Some(depth);
+            }
+            Some(l.trim_end()).filter(|l| !l.trim().is_empty())
+        })
+        .collect();
+    let mut stack: Vec<(usize, Frame)> = Vec::new();
+    let mut buf: Vec<(u8, usize)> = Vec::new();
+    let mut depth = 0;
+    let mut out = Vec::new();
+    for (i, l) in code.iter().enumerate() {
+        let Some(l) = l else { continue };
+        if buf.is_empty() {
+            depth = indent(l);
+            while stack.last().is_some_and(|(d, _)| *d >= depth) {
+                stack.pop();
+            }
+        }
+        let t = l.trim_start();
+        let t = match t.as_bytes().first() {
+            Some(b'=') => format!("@mixin {}", &t[1..]),
+            Some(b'+') => format!("@include {}", &t[1..]),
+            _ => t.to_owned(),
+        };
+        buf.extend(t.bytes().map(|c| (c, i + 1)));
+        buf.push((b'\n', i + 1));
+        if t.ends_with(',') {
+            continue;
+        }
+        let body = code[i + 1..].iter().flatten().next();
+        if body.is_some_and(|n| indent(n) > depth) {
+            let frame = open(&buf, stack.last().map(|(_, f)| f), &mut out);
+            stack.push((depth, frame));
+        }
+        buf.clear();
+    }
+    out
+}
+
 /// The frame a `{` after the selector text `buf` opens, with the rules it adds to `out`.
 fn open(buf: &[(u8, usize)], parent: Option<&Frame>, out: &mut Vec<Rule>) -> Frame {
     let text: String = buf.iter().map(|&(c, _)| c as char).collect();
     let head = text.trim();
     let inherited = || Frame {
-        trailing: parent.map(|p| p.trailing.clone()).unwrap_or_default(),
-        opaque: parent.is_some_and(|p| p.opaque),
+        class_each_selector_ends_in: parent
+            .map(|p| p.class_each_selector_ends_in.clone())
+            .unwrap_or_default(),
+        no_selector_inside: parent.is_some_and(|p| p.no_selector_inside),
     };
     let opaque = Frame {
-        trailing: Vec::new(),
-        opaque: true,
+        class_each_selector_ends_in: Vec::new(),
+        no_selector_inside: true,
     };
-    if parent.is_some_and(|p| p.opaque) {
+    if parent.is_some_and(|p| p.no_selector_inside) {
         return opaque;
     }
     if let Some(at) = head.strip_prefix('@') {
@@ -210,8 +255,8 @@ fn open(buf: &[(u8, usize)], parent: Option<&Frame>, out: &mut Vec<Rule>) -> Fra
             }
             // A mixin's body styles whatever includes it; its `&` is unknown here.
             "mixin" => Frame {
-                trailing: Vec::new(),
-                opaque: false,
+                class_each_selector_ends_in: Vec::new(),
+                no_selector_inside: false,
             },
             _ => opaque,
         };
@@ -220,9 +265,10 @@ fn open(buf: &[(u8, usize)], parent: Option<&Frame>, out: &mut Vec<Rule>) -> Fra
     if head.is_empty() || head.ends_with(':') || head.starts_with('%') && head.contains(':') {
         return opaque;
     }
-    let parents = parent.map(|p| p.trailing.as_slice()).unwrap_or_default();
+    let parents = parent
+        .map(|p| p.class_each_selector_ends_in.as_slice())
+        .unwrap_or_default();
     let mut trailing = Vec::new();
-    // Each selector of the list, split where no bracket is open.
     let (mut depth, mut start) = (0i32, 0);
     let mut parts = Vec::new();
     for (k, &(c, _)) in buf.iter().enumerate() {
@@ -241,15 +287,19 @@ fn open(buf: &[(u8, usize)], parent: Option<&Frame>, out: &mut Vec<Rule>) -> Fra
         let Some((compound, line)) = last_compound(part) else {
             continue;
         };
-        let (classes, ids, ends_in) = names(&compound, parents);
-        trailing.extend(ends_in);
+        let CompoundNames {
+            classes,
+            ids,
+            classes_it_ends_in,
+        } = names(&compound, parents);
+        trailing.extend(classes_it_ends_in);
         if !classes.is_empty() || !ids.is_empty() {
             out.push(Rule { line, classes, ids });
         }
     }
     Frame {
-        trailing,
-        opaque: false,
+        class_each_selector_ends_in: trailing,
+        no_selector_inside: false,
     }
 }
 
@@ -272,51 +322,58 @@ fn last_compound(part: &[(u8, usize)]) -> Option<(String, usize)> {
     Some((rest.iter().map(|&(c, _)| c as char).collect(), line))
 }
 
-/// The classes and ids the compound writes, `&-suffix` composed with each of `parents`, and the
-/// classes it ends in for the rules nested inside it to compose with.
-fn names(compound: &str, parents: &[String]) -> (Vec<String>, Vec<String>, Vec<String>) {
+struct CompoundNames {
+    classes: Vec<String>,
+    ids: Vec<String>,
+    classes_it_ends_in: Vec<String>,
+}
+
+/// An `&-suffix` composes with each of `parents`.
+fn names(compound: &str, parents: &[String]) -> CompoundNames {
     static NAME: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"([.#])([\w-]+)").unwrap());
     static SUFFIX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^&([\w-]+)").unwrap());
-    // What a `:not(…)`, an `[attr]` or a Less mixin's parameters hold styles nothing.
-    let mut plain = String::new();
+    let mut outside_brackets = String::new();
     let mut depth = 0;
     for c in compound.chars() {
         match c {
             '(' | '[' => depth += 1,
             ')' | ']' => depth -= 1,
-            _ if depth == 0 => plain.push(c),
+            _ if depth == 0 => outside_brackets.push(c),
             _ => {}
         }
     }
     let (mut classes, mut ids, mut ends_in) = (Vec::new(), Vec::new(), Vec::new());
-    if let Some(c) = SUFFIX.captures(&plain) {
-        let glued = plain[c[0].len()..].starts_with(['#', '@']);
+    if let Some(c) = SUFFIX.captures(&outside_brackets) {
+        let glued = outside_brackets[c[0].len()..].starts_with(['#', '@']);
         if !glued {
             for p in parents {
                 classes.push(format!("{p}{}", &c[1]));
             }
-            if plain.len() == c[0].len() {
+            if outside_brackets.len() == c[0].len() {
                 ends_in.clone_from(&classes);
             }
         }
     }
-    for m in NAME.captures_iter(&plain) {
+    for m in NAME.captures_iter(&outside_brackets) {
         let whole = m.get(0).unwrap();
-        // `.col-#{$i}`: an interpolation finishes the name, which is then nobody's.
-        if plain[whole.end()..].starts_with(['#', '@', '$'])
-            || m[2].starts_with(|c: char| c.is_ascii_digit())
-        {
+        let finished_by_interpolation =
+            outside_brackets[whole.end()..].starts_with(['#', '@', '$']);
+        if finished_by_interpolation || m[2].starts_with(|c: char| c.is_ascii_digit()) {
             continue;
         }
         match &m[1] {
             "." => classes.push(m[2].to_owned()),
             _ => ids.push(m[2].to_owned()),
         }
-        if &m[1] == "." && whole.end() == plain.len() {
+        if &m[1] == "." && whole.end() == outside_brackets.len() {
             ends_in = vec![m[2].to_owned()];
         }
     }
-    (classes, ids, ends_in)
+    CompoundNames {
+        classes,
+        ids,
+        classes_it_ends_in: ends_in,
+    }
 }
 
 /// `text` with everything outside its `<style>` blocks blanked, the lines kept: the stylesheet
@@ -344,6 +401,28 @@ pub fn styles_in(path: &Path) -> Option<bool> {
     }
 }
 
+pub fn css_builtin(name: &str) -> bool {
+    const NAMES: &str = "\
+        abs acos asin atan atan2 attr blur brightness calc clamp color color-mix conic-gradient \
+        contrast cos counter counters cubic-bezier drop-shadow element env exp fit-content \
+        format grayscale hsl hsla hue-rotate hwb hypot image-set invert lab lch light-dark \
+        linear-gradient local log matrix matrix3d max min minmax mod oklab oklch opacity \
+        perspective pow radial-gradient rem repeat repeating-conic-gradient \
+        repeating-linear-gradient repeating-radial-gradient rgb rgba rotate rotate3d rotateX \
+        rotateY rotateZ round saturate scale scale3d scaleX scaleY scaleZ sepia sign sin skew \
+        skewX skewY sqrt steps tan translate translate3d translateX translateY translateZ url \
+        var adjust-color adjust-hue alpha append blue call ceil change-color comparable \
+        complement content-exists darken desaturate fade-in fade-out feature-exists floor \
+        function-exists get-function green hue ie-hex-str if index inspect is-bracketed \
+        is-superselector join keywords length lighten lightness list-separator map-get \
+        map-has-key map-keys map-merge map-remove map-values mix mixin-exists nth opacify \
+        percentage quote random red saturation scale-color selector-append selector-extend \
+        selector-nest selector-parse selector-replace selector-unify set-nth simple-selectors \
+        str-index str-insert str-length str-slice to-lower-case to-upper-case transparentize \
+        type-of unique-id unit unitless unquote variable-exists zip";
+    NAMES.split_whitespace().any(|n| n == name)
+}
+
 /// What the cursor in a stylesheet stands on, for `d`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Sheet {
@@ -363,8 +442,8 @@ pub enum Sheet {
     Import(String),
 }
 
-/// What byte `col` of the stylesheet line `line` stands on; `less` reads `@name` as a variable.
-pub fn sheet_at(line: &str, col: usize, less: bool) -> Option<Sheet> {
+/// What `byte_col` of the stylesheet line `line` stands on; `less` reads `@name` as a variable.
+pub fn sheet_at(line: &str, byte_col: usize, less: bool) -> Option<Sheet> {
     static IMPORT: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\s*@(?:import|use|forward|require)\b").unwrap());
     static QUOTED: LazyLock<Regex> =
@@ -375,10 +454,11 @@ pub fn sheet_at(line: &str, col: usize, less: bool) -> Option<Sheet> {
     if IMPORT.is_match(line) {
         return QUOTED.captures_iter(line).find_map(|c| {
             let m = c.get(1).or_else(|| c.get(2)).or_else(|| c.get(3))?;
-            (m.start() <= col && col <= m.end()).then(|| Sheet::Import(m.as_str().to_owned()))
+            (m.start() <= byte_col && byte_col <= m.end())
+                .then(|| Sheet::Import(m.as_str().to_owned()))
         });
     }
-    let (range, word) = super::word_at(line, col, "-")?;
+    let (range, word) = super::word_at(line, byte_col, "-")?;
     let word = word.to_owned();
     let before = &line[..range.start];
     let after = &line[range.end..];
@@ -415,27 +495,26 @@ pub fn sheet_at(line: &str, col: usize, less: bool) -> Option<Sheet> {
     if ANIMATION.is_match(line) && before.contains(':') {
         return Some(Sheet::Keyframes(word));
     }
-    // A Less mixin call is a statement, `.bordered();` or `.bordered;`: the class lookup.
     let statement = after.trim_start().starts_with(';')
         || (after.starts_with('(') && after.trim_end().ends_with(';'));
-    if before.trim_start() == "." && statement && less {
+    let less_mixin_call = before.trim_start() == "." && statement && less;
+    if less_mixin_call {
         return Some(Sheet::Class(word));
     }
-    // A function call in a value: `tint-color($c, 10%)`, `math.div(…)`.
-    if after.starts_with('(') && (before.contains(':') || before.trim_start().starts_with('@')) {
+    let call_in_a_value =
+        after.starts_with('(') && (before.contains(':') || before.trim_start().starts_with('@'));
+    if call_in_a_value {
         return Some(Sheet::Function(ns(before), word));
     }
-    // Selector text: a line that opens a rule or continues its list, and holds no declaration.
     let t = line.trim_end();
-    let selector = (t.ends_with('{') || t.ends_with(',')) && !t.contains(';');
+    let opens_or_lists_selectors = (t.ends_with('{') || t.ends_with(',')) && !t.contains(';');
     match before.chars().last() {
-        Some('.') if selector => Some(Sheet::Class(word)),
-        Some('#') if selector => Some(Sheet::Id(word)),
+        Some('.') if opens_or_lists_selectors => Some(Sheet::Class(word)),
+        Some('#') if opens_or_lists_selectors => Some(Sheet::Id(word)),
         _ => None,
     }
 }
 
-/// The line patterns that declare what `sheet` names.
 pub fn sheet_patterns(sheet: &Sheet) -> Vec<String> {
     let w = |n: &str| regex::escape(n);
     let end = r"(?:[^\w-]|$)";
@@ -603,12 +682,12 @@ fn named_patterns(word: &str) -> Vec<String> {
     .collect()
 }
 
-/// Whether 1-based `line` of a stylesheet, which one of [`css_patterns`] matched, declares
-/// `word`: a selector only when its rule styles the class or the id, as `d` reads it; any other
-/// declaration line as it stands. `text` reads the file, and only for a selector.
+/// Whether `line1` of a stylesheet, which one of [`css_patterns`] matched, declares `word`: a
+/// selector only when its rule styles the class or the id, as `d` reads it; any other declaration
+/// line as it stands. `text` reads the file, and only for a selector.
 pub fn css_declares(
     word: &str,
-    line: usize,
+    line1: usize,
     line_text: &str,
     text: impl FnOnce() -> String,
 ) -> bool {
@@ -616,7 +695,7 @@ pub fn css_declares(
     named
         || rules(&text())
             .iter()
-            .any(|r| r.line == line && r.classes.iter().chain(&r.ids).any(|n| n == word))
+            .any(|r| r.line == line1 && r.classes.iter().chain(&r.ids).any(|n| n == word))
 }
 
 /// `line` of a stylesheet without its comments: a `/* … */` on it, and what follows a `//` outside

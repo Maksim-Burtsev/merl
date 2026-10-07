@@ -1,5 +1,3 @@
-//! One project grep, owned by the thread that runs it.
-
 use super::*;
 
 /// How long the `s` query has to stand still before it is grepped.
@@ -17,7 +15,6 @@ pub struct SearchJob {
     pub(super) symbols: bool,
     pub(super) current: Option<PathBuf>,
     pub(super) unsaved: Option<Vec<u8>>,
-    /// In a review, the lines the branch deleted: `s` and `D` list them too (#440).
     pub(super) deleted: Arc<Vec<git::DeletedLine>>,
 }
 
@@ -101,7 +98,6 @@ impl SearchJob {
             // Each row has the cap to itself, so a cut is this row's, never the total's: on a
             // project whose kinds add up past it with none of them cut, the list is whole.
             cut |= hits.len() >= search::MAX_HITS;
-            // A component's rows are its script's (#413).
             let read = |path: &Path| match (&self.unsaved, &self.current) {
                 (Some(t), Some(c)) if c.as_path() == path => {
                     String::from_utf8_lossy(t).into_owned()
@@ -164,8 +160,6 @@ impl SearchJob {
     }
 }
 
-/// The lines the branch deleted, in files `wanted` takes, where `find` finds the byte a row lands
-/// on (#440). Nothing outside a review.
 pub(super) fn deleted_hits(
     lines: &[git::DeletedLine],
     wanted: impl Fn(&Path) -> bool,

@@ -1,11 +1,5 @@
-//! `d` in Ruby outside the project: the gems `Gemfile.lock` names, the standard library and the
-//! core's RBS signatures (#369).
-
 use super::*;
 
-/// The repro of #369: a class method a gem declares, called bare in the project's reopening of
-/// the gem's class, is that gem's, at the version the lockfile names, opened read-only. Before,
-/// Ruby had no roots and `d` said `no definition for throttle`.
 #[test]
 fn a_call_no_project_declaration_answers_goes_into_the_locked_gems() {
     let gem = "vendor/bundle/ruby/3.3.0/gems/rack-attack-6.7.0/lib/rack/attack.rb";
@@ -22,7 +16,6 @@ fn a_call_no_project_declaration_answers_goes_into_the_locked_gems() {
                 gem,
                 "module Rack\n  class Attack\n    class << self\n      def throttle(name, options, &block)\n        throttles[name] = Throttle.new(name, options, &block)\n      end\n    end\n  end\nend\n",
             ),
-            // A version the lockfile does not name is not read.
             (
                 "vendor/bundle/ruby/3.3.0/gems/rack-attack-6.6.0/lib/rack/attack.rb",
                 "module Rack\n  class Attack\n    def self.throttle(name)\n    end\n  end\nend\n",
@@ -41,16 +34,17 @@ fn a_call_no_project_declaration_answers_goes_into_the_locked_gems() {
         jump(
             "throttle \u{2192} Rack.Attack.throttle (by name, 1 match)",
             &format!("{gem}:4")
-        )
+        ),
+        "a class method a gem declares, called bare in the project's reopening of the gem's class, is that gem's, at the version the lockfile names; a version it does not name is not read"
     );
-    assert_eq!(a.buf.readonly, Some("outside the project"));
+    assert_eq!(
+        a.buf.readonly,
+        Some("outside the project"),
+        "a gem's file is opened read-only"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #369: the core is read from the `rbs` gem's signatures, `def name: …` in a `class` and
-/// `def self?.name: …` in a module, and the
-/// standard library's hits come before the gems'. A member found by name in the project gets
-/// the ones outside beside it, so the project's one namesake is offered, never jumped to.
 #[test]
 fn the_core_signatures_and_the_standard_library_come_first() {
     let (dir, mut a) = project_app(
@@ -126,7 +120,8 @@ fn the_core_signatures_and_the_standard_library_come_first() {
                 ("Settings.fetch", "app/models/settings.rb:2"),
                 ("Hash.fetch", "hash.rbs:2"),
             ]
-        )
+        ),
+        "the core's `def name: …` in a `class` is read from the `rbs` gem's signatures; a member found by name in the project gets the ones outside beside it, so the project's one namesake is offered, never jumped to"
     );
     d_on(&mut a, "app/lib/run.rb", ".info");
     assert_eq!(
@@ -140,29 +135,27 @@ fn the_core_signatures_and_the_standard_library_come_first() {
                     "semantic_logger-4.15.0/lib/semantic_logger/base.rb:3"
                 ),
             ]
-        )
+        ),
+        "the standard library's hits come before the gems'"
     );
-    // A constant's path names no file: `Errno` is no directory of the core, and the name is
-    // looked for by name, offered as any `::` path no declaration of the project spells.
     d_on(&mut a, "app/lib/run.rb", "Errno::ENOENT");
     assert_eq!(
         shown(&mut a),
         picker(
             "ENOENT: by name, 1 match",
             &[("Errno.ENOENT", "errno.rbs:2")]
-        )
+        ),
+        "A constant's path names no file: `Errno` is no directory of the core, and the name is looked for by name, offered as any `::` path no declaration of the project spells"
     );
-    // A class method the project's class does not declare: ActiveRecord's, by name.
     d_on(&mut a, "app/lib/run.rb", "Account.find");
     assert_eq!(
         shown(&mut a),
         jump(
             "find \u{2192} ActiveRecord.Core.ClassMethods.find (by name, 1 match)",
             &at("gems/activerecord-8.0.0/lib/active_record/core.rb:4")
-        )
+        ),
+        "A class method the project's class does not declare: ActiveRecord's, by name"
     );
-    // `mattr_accessor` declares its name as `attr_accessor` does. On a value of no known type
-    // the one row is offered, as without the gems (#390).
     d_on(&mut a, "app/lib/run.rb", ".send_email_changed_notification");
     assert_eq!(
         shown(&mut a),
@@ -172,36 +165,37 @@ fn the_core_signatures_and_the_standard_library_come_first() {
                 "Devise.send_email_changed_notification",
                 "devise-4.9.4/lib/devise.rb:2"
             )]
-        )
+        ),
+        "`mattr_accessor` declares its name as `attr_accessor` does. On a value of no known type the one row is offered, as without the gems (#390)"
     );
-    // A local of a gem's method declares nothing by name (#383): `name = 'devise'` is no answer.
     d_on(&mut a, "app/lib/run.rb", "options.name");
     assert_eq!(
         shown(&mut a),
-        jump("no definition for name", "app/lib/run.rb:7")
+        jump("no definition for name", "app/lib/run.rb:7"),
+        "A local of a gem's method declares nothing by name (#383): `name = 'devise'` is no answer"
     );
-    // A class-level accessor is the class's own: the project's `MyGem.api_key`, never Devise's.
     d_on(&mut a, "app/lib/run.rb", "MyGem.api_key");
     assert_eq!(
         shown(&mut a),
         jump(
             "api_key \u{2192} MyGem.api_key (via MyGem)",
             "lib/my_gem.rb:2"
-        )
+        ),
+        "A class-level accessor is the class's own: the project's `MyGem.api_key`, never Devise's"
     );
-    // `def self?.puts:` declares Kernel's `puts`.
     d_on(&mut a, "app/lib/run.rb", "  puts");
     assert_eq!(
         shown(&mut a),
         jump(
             "puts \u{2192} Kernel.puts (by name, 1 match)",
             &at("rbs-3.4.0/core/kernel.rbs:2")
-        )
+        ),
+        "`def self?.puts:` declares Kernel's `puts`"
     );
-    // Opened, a core signature is named from its root and read as Ruby.
     assert_eq!(
         a.rel_path_of(&root.join("rbs-3.4.0/core/kernel.rbs")),
-        "kernel.rbs"
+        "kernel.rbs",
+        "Opened, a core signature is named from its root and read as Ruby"
     );
     assert_eq!(a.kind(), Some(Kind::Ruby));
     std::fs::remove_dir_all(&dir).unwrap();

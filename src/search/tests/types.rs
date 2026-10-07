@@ -1,8 +1,5 @@
-//! Types: what a declaration writes, what it returns and what a chain comes down to.
-
 use super::*;
 
-/// #68 step 6: the forms the implementations of a member are found through.
 const PY_IMPLS: &str = "class Notifier(Protocol):
     def send(self, text: str) -> None: ...
 
@@ -80,8 +77,11 @@ fn interfaces_read_what_a_typescript_class_implements() {
     );
     assert_eq!(bases(Kind::TsJs, TS_IMPLS, 5), ["Other"], "extends alone");
     assert_eq!(interfaces(Kind::TsJs, TS_IMPLS, 11), [] as [String; 0]);
-    // A wrapped header carries each clause on a line of its own.
-    assert_eq!(bases(Kind::TsJs, TS_IMPLS, 14), ["Base"]);
+    assert_eq!(
+        bases(Kind::TsJs, TS_IMPLS, 14),
+        ["Base"],
+        "a wrapped header carries each clause on a line of its own"
+    );
     assert_eq!(interfaces(Kind::TsJs, TS_IMPLS, 15), ["Notifier"]);
     assert_eq!(interfaces(Kind::Python, PY_IMPLS, 5), [] as [String; 0]);
     assert_eq!(bases(Kind::Python, PY_IMPLS, 5), ["Notifier"]);
@@ -184,16 +184,16 @@ fn returns_read_the_declared_type_or_what_typescript_constructs() {
     let py = "def make_repo() -> UserRepository:\n    return UserRepository()\n\nasync def connect(\n    url: str,\n) -> \"Session\":\n    ...\n\ndef untyped():\n    return Repo()\n\ndef stub() -> Repo: ...\n\ndef documented() -> Annotated[Repo, \"doc: x\"]: ...\n";
     assert_eq!(returns(Kind::Python, py, 1), Some(ty("UserRepository")));
     assert_eq!(returns(Kind::Python, py, 4), Some(ty("\"Session\"")));
-    // No annotation: what every `return` constructs (#100).
     assert_eq!(
         returns(Kind::Python, py, 9),
-        Some(Value::New("Repo".into()))
+        Some(Value::New("Repo".into())),
+        "no annotation: what every `return` constructs"
     );
     assert_eq!(returns(Kind::Python, py, 12), Some(ty("Repo")));
-    // A `: ` inside a string is not the end of the annotation.
     assert_eq!(
         returns(Kind::Python, py, 14),
-        Some(ty("Annotated[Repo, \"doc: x\"]"))
+        Some(ty("Annotated[Repo, \"doc: x\"]")),
+        "a `: ` inside a string is not the end of the annotation"
     );
     let ts = "export function makeRepo(): UserRepository {
   return new UserRepository();
@@ -297,8 +297,11 @@ fn returns_read_methods_and_what_an_unannotated_python_def_constructs() {
     let ts = "export class Depot {\n  async repo<T>(id: T): Promise<Repo> {\n    return load(id);\n  }\n  private static trail() {\n    return new Trail();\n  }\n  find = (id: number): Repo => load(id);\n}\ninterface Source {\n  source(): Repo;\n  maybe?(): Repo\n}\n";
     assert_eq!(returns(Kind::TsJs, ts, 2), Some(ty("Promise<Repo>")));
     assert_eq!(returns(Kind::TsJs, ts, 5), new("Trail"));
-    // A property holding a function is not read.
-    assert_eq!(returns(Kind::TsJs, ts, 8), None);
+    assert_eq!(
+        returns(Kind::TsJs, ts, 8),
+        None,
+        "a property holding a function is not read"
+    );
     assert_eq!(returns(Kind::TsJs, ts, 11), Some(ty("Repo")));
     assert_eq!(returns(Kind::TsJs, ts, 12), Some(ty("Repo")));
     let go = "func (d *Depot) Repo(id int) *Repo {\n\treturn d.people\n}\nfunc (d Depot) Trail() (Trail, error) {\n\treturn Trail{}, nil\n}\ntype Source interface {\n\tSource() *Repo\n\tClose()\n}\n";
@@ -308,13 +311,14 @@ fn returns_read_methods_and_what_an_unannotated_python_def_constructs() {
     assert_eq!(returns(Kind::Go, go, 9), None);
 }
 
-/// Found by the hand pass of #100 in mealie: a string continued with a backslash swallowed
-/// the end of its line, the answer came out a line short, and `d` anywhere in such a Python
-/// file indexed past it and crashed.
 #[test]
 fn a_backslash_at_the_end_of_a_line_keeps_the_line_count() {
     let py = "log(\"a \\\n    b\")\nledger = A()\nledger.go()";
-    assert_eq!(literal_lines(Kind::Python, py), [false; 4]);
+    assert_eq!(
+        literal_lines(Kind::Python, py),
+        [false; 4],
+        "a string continued with a backslash swallows no end of a line"
+    );
     let found = bindings(Kind::Python, py, 4, "ledger");
     assert_eq!(found.len(), 1);
 }
@@ -338,10 +342,13 @@ fn a_python_line_is_cut_into_its_simple_statements() {
     for (line, want) in cases {
         assert_eq!(python_statements(line, false), want, "{line}");
     }
-    // The last line of a wrapped header, whatever the line above it ends in.
     for continues in [false, true] {
         let got = python_statements("flag): x = 1; y = 2", continues);
-        assert_eq!(got, ["x = 1", "y = 2"]);
+        assert_eq!(
+            got,
+            ["x = 1", "y = 2"],
+            "the last line of a wrapped header, whatever the line above it ends in"
+        );
     }
     let continued: [(&str, &[&str]); 3] = [
         ("b=2, x = 1", &[]),
@@ -371,8 +378,11 @@ fn a_cast_is_read_as_the_type_it_writes() {
     assert_eq!(v(Kind::TsJs, "load(id) as unknown as Repo"), ty("Repo"));
     assert_eq!(v(Kind::TsJs, "{ a: 1 } as const"), ty("const"));
     assert_eq!(v(Kind::TsJs, "await load(a, b) as Repo"), ty("Repo"));
-    // `as` takes the operand next to it, not the whole expression.
-    assert_eq!(v(Kind::TsJs, "ok ? a : b as Repo"), Value::Unknown);
+    assert_eq!(
+        v(Kind::TsJs, "ok ? a : b as Repo"),
+        Value::Unknown,
+        "`as` takes the operand next to it, not the whole expression"
+    );
     assert_eq!(v(Kind::TsJs, "a ?? b as Repo"), Value::Unknown);
     assert_eq!(v(Kind::TsJs, "() => row as Repo"), Value::Unknown);
     assert_eq!(
@@ -380,10 +390,10 @@ fn a_cast_is_read_as_the_type_it_writes() {
         Value::Unknown
     );
     assert_eq!(v(Kind::TsJs, "new Wrapper(x as Foo) as Repo"), ty("Repo"));
-    // An `as` inside brackets or a string casts something else.
     assert_eq!(
         v(Kind::TsJs, "load(row as Repo)"),
-        Value::Call("load".into())
+        Value::Call("load".into()),
+        "an `as` inside brackets or a string casts something else"
     );
     assert_eq!(
         v(Kind::TsJs, "pick(\"x as Repo\")"),
@@ -398,19 +408,25 @@ fn a_cast_is_read_as_the_type_it_writes() {
     assert_eq!(at(4), [(2, ty("*Repo"))]);
     assert_eq!(at(6), [(2, Value::Unknown)]);
     assert_eq!(at(8), [(2, Value::Unknown)]);
-    // Past a plain `switch` inside the arm, and not the closed type switch above.
-    assert_eq!(at(14), [(10, ty("*Audit"))]);
-    // No type switch: nothing the rules read binds `v` here.
-    assert_eq!(at(19), []);
-    // A `select` ends its `case` as a `switch` does: the closed type switch above it is not
-    // read with the `case` of the `select`, and the parameter `v` stays what it is.
+    assert_eq!(
+        at(14),
+        [(10, ty("*Audit"))],
+        "past a plain `switch` inside the arm, and not the closed type switch above"
+    );
+    assert_eq!(
+        at(19),
+        [],
+        "no type switch: nothing the rules read binds `v` here"
+    );
     let chans = "func f(v *Repo, x any, ch chan int) {\n\tswitch v := x.(type) {\n\tcase *Audit:\n\t\tv.Go()\n\t}\n\tselect {\n\tcase <-ch:\n\t\tv.Go()\n\t}\n}\n";
-    assert_eq!(bound_at(Kind::Go, chans, 8, "v"), [(1, ty("*Repo"))]);
+    assert_eq!(
+        bound_at(Kind::Go, chans, 8, "v"),
+        [(1, ty("*Repo"))],
+        "a `select` ends its `case` as a `switch` does: the closed type switch above it is not \
+         read with the `case` of the `select`, and the parameter `v` stays what it is"
+    );
 }
 
-/// #178: `cast(`, `new(` and `make(` read their arguments, and the three of them sliced the line
-/// up to its last byte. A call black, ruff or gofmt wrapped onto the next lines has no closing
-/// bracket there, so the range ran backwards and `d` aborted the process.
 #[test]
 fn a_call_wrapped_onto_the_next_lines_reads_no_arguments() {
     let v = |kind, e| value_of(kind, e);
@@ -419,23 +435,26 @@ fn a_call_wrapped_onto_the_next_lines_reads_no_arguments() {
     assert_eq!(v(Kind::Go, "new("), Value::Unknown);
     assert_eq!(v(Kind::Go, "make("), Value::Unknown);
     assert_eq!(v(Kind::Go, "make([]*Repo,"), Value::Unknown);
-    // A call that is not read for a type still names its callee, wrapped or not.
-    assert_eq!(v(Kind::Python, "load("), Value::Call("load".into()));
-    // The same calls closed on their line keep writing the type they always did.
+    assert_eq!(
+        v(Kind::Python, "load("),
+        Value::Call("load".into()),
+        "a call that is not read for a type still names its callee, wrapped or not"
+    );
     assert_eq!(
         v(Kind::Python, "cast(Repo, row)"),
-        Value::Cast("cast".into(), "Repo".into())
+        Value::Cast("cast".into(), "Repo".into()),
+        "the same calls closed on their line keep writing the type they always did"
     );
     assert_eq!(v(Kind::Go, "new(Repo)"), Value::New("Repo".into()));
     assert_eq!(v(Kind::Go, "make([]*Repo, 0, 10)"), ty("[]*Repo"));
-    // What the panic was reached through: `d` on a name bound by a wrapped call answers instead.
     let py = "def handler(container):\n    repo = cast(\n        Repo, container.get(\"repo\")\n    )\n    repo.save()\n";
     assert_eq!(
         bindings(Kind::Python, py, 5, "repo"),
         [Binding {
             line: 2,
             value: Value::Unknown
-        }]
+        }],
+        "`d` on a name bound by a wrapped call answers"
     );
     let go = "func f() {\n\trepos := make(\n\t\t[]*Repo, 0, 10,\n\t)\n\trepos[0].Save()\n}\n";
     assert_eq!(
@@ -500,21 +519,38 @@ fn a_chain_may_hang_off_the_call_that_starts_it() {
             String::new()
         ))
     );
-    // Brackets around a call are read through, as an `await` in front of one is.
     assert_eq!(
         head(Kind::TsJs, "  (await load()).find()"),
-        call("load()", "load", "")
+        call("load()", "load", ""),
+        "brackets around a call are read through, as an `await` in front of one is"
     );
-    // A call of a call, an index, a generic call, a condition, a plain name.
-    assert_eq!(head(Kind::Go, "\tOpen().Repo().Delete()"), None);
-    assert_eq!(head(Kind::Python, "    make()[0].delete()"), None);
-    assert_eq!(head(Kind::Python, "    items[0].load().delete()"), None);
-    assert_eq!(head(Kind::TsJs, "  load<Repo>(id).find()"), None);
-    assert_eq!(head(Kind::TsJs, "  if (ok).find()"), None);
-    assert_eq!(head(Kind::Python, "    repo.find()"), None);
-    // A callee or a field with a character outside ASCII: no name to read, and no slice inside
-    // the character either (#150).
-    assert_eq!(head(Kind::TsJs, "  void café().word"), None);
+    assert_eq!(
+        head(Kind::Go, "\tOpen().Repo().Delete()"),
+        None,
+        "a call of a call"
+    );
+    assert_eq!(
+        head(Kind::Python, "    make()[0].delete()"),
+        None,
+        "an index"
+    );
+    assert_eq!(
+        head(Kind::Python, "    items[0].load().delete()"),
+        None,
+        "an index"
+    );
+    assert_eq!(
+        head(Kind::TsJs, "  load<Repo>(id).find()"),
+        None,
+        "a generic call"
+    );
+    assert_eq!(head(Kind::TsJs, "  if (ok).find()"), None, "a condition");
+    assert_eq!(head(Kind::Python, "    repo.find()"), None, "a plain name");
+    assert_eq!(
+        head(Kind::TsJs, "  void café().word"),
+        None,
+        "a callee or a field with a character outside ASCII: no name to read"
+    );
     assert_eq!(head(Kind::Python, "    café.users.delete(1)"), None);
 }
 

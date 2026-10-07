@@ -1,12 +1,5 @@
-//! `d` over wrapped headers, broken chains and the shapes of a name.
-
 use super::*;
 
-/// #100, TypeScript: a class header prettier wraps is still the class's header. A list of type
-/// parameters over several lines ends in `> extends Base<K> {`, the clauses may stand on lines
-/// of their own over a lone `{`; `this`, `super`, the fields and what the class extends are
-/// read through both. The parameters of a function behind a wrapped `<…>` hide a module's
-/// namesake.
 #[test]
 fn a_wrapped_class_header_is_a_header() {
     let user = |via: &str| {
@@ -27,60 +20,60 @@ fn a_wrapped_class_header_is_a_header() {
             "headers.ts:12",
         )
     };
-    let cases: Vec<(&str, Shown)> = vec![
-        // Under `> extends Crate<K> {`: a field of the class, one of its base, a method of
-        // the base through `this` and through `super`, a constructor parameter.
+    let cases: Vec<(&str, &str, Shown)> = vec![
         (
+            "Under `> extends Crate<K> {`: a field of the class, one of its base, a method of the base through `this` and through `super`, a constructor parameter",
             "this.repo.deleteUser|(id)",
             user("this.repo: UserRepository"),
         ),
         (
+            "",
             "this.audit.deleteUser|(id + 1)",
             audit("this.audit: AuditLog"),
         ),
-        ("this.seal|(key)", seal("this: Shelf")),
-        ("super.seal|(key)", seal("super of Shelf")),
+        ("", "this.seal|(key)", seal("this: Shelf")),
+        ("", "super.seal|(key)", seal("super of Shelf")),
         (
+            "",
             "this.spare|)",
             jump(
                 "spare \u{2192} Shelf.spare (via this: Shelf)",
                 "headers.ts:34",
             ),
         ),
-        // Under `extends` and `implements` on their own lines and a lone `{`.
         (
+            "Under `extends` and `implements` on their own lines and a lone `{`",
             "this.repo.deleteUser|(id + 2)",
             user("this.repo: UserRepository"),
         ),
         (
+            "",
             "this.audit.deleteUser|(id + 3)",
             audit("this.audit: AuditLog"),
         ),
         (
+            "",
             "super.seal|(key + \"!\")",
             seal("super of LongNamedShelfOfStrings"),
         ),
-        // `implements Sealable` on its own line is read; the constraint `S extends Sealable`
-        // of `Bin` implements nothing.
         (
+            "`implements Sealable` on its own line is read; the constraint `S extends Sealable` of `Bin` implements nothing",
             "seal|(key: string): void;",
             jump(
                 "seal \u{2192} LongNamedShelfOfStrings.seal (implementations of Sealable.seal)",
                 "headers.ts:70",
             ),
         ),
-        // A method whose own type parameters are wrapped, `stash<` over `>(a: A, b: B)`; a
-        // call written so inside a method is no declaration of it.
         (
+            "A method whose own type parameters are wrapped, `stash<` over `>(a: A, b: B)`; a call written so inside a method is no declaration of it",
             "this.stash|(key, this.spare)",
             jump(
                 "stash \u{2192} Crate.stash (via this: Shelf)",
                 "headers.ts:18",
             ),
         ),
-        // What overrides a method of the base, and a field found by name, are told to be
-        // the class's under `> extends … {` too.
         (
+            "What overrides a method of the base, and a field found by name, are told to be the class's under `> extends … {` too",
             "^  open|(): void {}",
             jump(
                 "open \u{2192} Shelf.open (implementations of Crate.open)",
@@ -88,6 +81,7 @@ fn a_wrapped_class_header_is_a_header() {
             ),
         ),
         (
+            "",
             "found.spare|)",
             jump(
                 "spare \u{2192} Shelf.spare (by name, 1 match)",
@@ -95,11 +89,12 @@ fn a_wrapped_class_header_is_a_header() {
             ),
         ),
         (
+            "",
             "found.one|)",
             jump("one \u{2192} Bin.one (by name, 1 match)", "headers.ts:81"),
         ),
-        // `other: T` is typed by a parameter of the wrapped list: the chain breaks there.
         (
+            "`other: T` is typed by a parameter of the wrapped list: the chain breaks there",
             "this.other.seal|(key)",
             picker(
                 "seal: by name, 4 declarations (chain broke at other)",
@@ -111,8 +106,8 @@ fn a_wrapped_class_header_is_a_header() {
                 ],
             ),
         ),
-        // `type Loose = any;` has no body: the fields of the class under it are not its.
         (
+            "`type Loose = any;` has no body: the fields of the class under it are not its",
             "loose.audit.deleteUser|(id + 5)",
             picker(
                 "deleteUser: by name, 2 declarations (chain broke at audit)",
@@ -122,37 +117,35 @@ fn a_wrapped_class_header_is_a_header() {
                 ],
             ),
         ),
-        // A lone `{` under a statement, with no `;`, is a block, and the statement still binds.
         (
+            "A lone `{` under a statement, with no `;`, is a block, and the statement still binds",
             "void repo.deleteUser|(id + 4)",
             user("repo: UserRepository"),
         ),
-        // `>(repo: UserRepository, …` binds the parameter: the module's `repo` is hidden.
         (
+            "`>(repo: UserRepository, …` binds the parameter: the module's `repo` is hidden",
             "void repo.deleteUser|(key.length)",
             user("repo: UserRepository"),
         ),
-        ("^  repo.deleteUser|(id)", audit("repo: AuditLog")),
-        // `(repo: AuditLog) => void` among wrapped type parameters, or wrapped type
-        // arguments, types the function's `repo` no more than it does on one line.
+        ("", "^  repo.deleteUser|(id)", audit("repo: AuditLog")),
         (
+            "`(repo: AuditLog) => void` among wrapped type parameters, or wrapped type arguments, types the function's `repo` no more than it does on one line",
             "void repo.deleteUser|(visit.length);",
             user("repo: UserRepository"),
         ),
         (
+            "",
             "void repo.deleteUser|(visit.length + 1)",
             user("repo: UserRepository"),
         ),
     ];
-    for (code, want) in cases {
+    for (name, code, want) in cases {
         let mut a = fixture_app("typescript");
         d_on(&mut a, "headers.ts", code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
 }
 
-/// #100, TypeScript: a member access prettier broke in front of its dots reads as the one line
-/// it is; a comment at the end of the line above names no receiver.
 #[test]
 fn a_member_access_broken_over_lines_is_one_chain() {
     let user = |via: &str| {
@@ -170,13 +163,14 @@ fn a_member_access_broken_over_lines_is_one_chain() {
             ],
         )
     };
-    let cases: Vec<(&str, Shown)> = vec![
-        // One break, two breaks with a comment between them, and the name in the middle.
+    let cases: Vec<(&str, &str, Shown)> = vec![
         (
+            "One break, two breaks with a comment between them, and the name in the middle",
             "      .deleteUser|(id);",
             user("this.uow: UnitOfWork \u{2192} users: UserRepository"),
         ),
         (
+            "",
             "      .deleteUser|(id + 1);",
             jump(
                 "deleteUser \u{2192} AuditLog.deleteUser (via this.uow: UnitOfWork \u{2192} audit: AuditLog)",
@@ -184,18 +178,20 @@ fn a_member_access_broken_over_lines_is_one_chain() {
             ),
         ),
         (
+            "",
             "      .audit",
             jump(
                 "audit \u{2192} UnitOfWork.audit (via this.uow: UnitOfWork)",
                 "chains.ts:5",
             ),
         ),
-        // Off a method's call and off a function's, as on one line.
         (
+            "Off a method's call and off a function's, as on one line",
             "      .deleteUser|(id + 2);",
             user("this.depot.peopleRepo(): UserRepository"),
         ),
         (
+            "",
             "      .peopleRepo|()",
             jump(
                 "peopleRepo \u{2192} Depot.peopleRepo (via this.depot: Depot)",
@@ -203,35 +199,42 @@ fn a_member_access_broken_over_lines_is_one_chain() {
             ),
         ),
         (
+            "",
             "      .people.deleteUser|(id + 3);",
             user("openDepot(): Depot \u{2192} people: UserRepository"),
         ),
         (
+            "",
             "      .people|.deleteUser(id + 3);",
             jump(
                 "people \u{2192} Depot.people (via openDepot(): Depot)",
                 "calls.ts:8",
             ),
         ),
-        // `found // note`: the module's `note` is an `AuditLog`, and no receiver here.
-        ("      .deleteUser|(id + 4);", by_name()),
-        // A call of a call, and a call closed on a line of its own, stay by name.
-        ("      .deleteUser|(id + 5);", by_name()),
-        ("      .deleteUser|(id + 6);", by_name()),
         (
+            "`found // note`: the module's `note` is an `AuditLog`, and no receiver here",
+            "      .deleteUser|(id + 4);",
+            by_name(),
+        ),
+        (
+            "A call of a call, and a call closed on a line of its own, stay by name",
+            "      .deleteUser|(id + 5);",
+            by_name(),
+        ),
+        ("", "      .deleteUser|(id + 6);", by_name()),
+        (
+            "",
             "      .length",
             jump("no definition for length", "fluent.ts:39"),
         ),
     ];
-    for (code, want) in cases {
+    for (name, code, want) in cases {
         let mut a = fixture_app("typescript");
         d_on(&mut a, "fluent.ts", code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
 }
 
-/// #100, TypeScript: `r!.m()` and `a?.b.m()` have the type of the plain access for a member
-/// lookup.
 #[test]
 fn a_non_null_or_optional_access_is_the_plain_one() {
     let user = |via: &str| {
@@ -247,36 +250,40 @@ fn a_non_null_or_optional_access_is_the_plain_one() {
         )
     };
     let users = "this.uow: UnitOfWork \u{2192} users: UserRepository";
-    let cases: Vec<(&str, Shown)> = vec![
+    let cases: Vec<(&str, &str, Shown)> = vec![
         (
+            "",
             "this.repo!.deleteUser|(id)",
             user("this.repo: UserRepository"),
         ),
         (
+            "",
             "this.repo?.deleteUser|(id + 1)",
             user("this.repo: UserRepository"),
         ),
-        ("this.uow?.users.deleteUser|(id + 2)", user(users)),
+        ("", "this.uow?.users.deleteUser|(id + 2)", user(users)),
         (
+            "",
             "this.uow?.users|.deleteUser(id + 2)",
             jump(
                 "users \u{2192} UnitOfWork.users (via this.uow: UnitOfWork)",
                 "chains.ts:4",
             ),
         ),
-        // Two marks in one chain, and two around a name of one letter.
         (
+            "Two marks in one chain, and two around a name of one letter",
             "this.uow!.audit!.deleteUser|(id + 3)",
             audit("this.uow: UnitOfWork \u{2192} audit: AuditLog"),
         ),
         (
+            "",
             "u!.users!.deleteUser|(id + 9)",
             user("u.users: UserRepository"),
         ),
-        ("spare?.deleteUser|(id + 4)", audit("spare: AuditLog")),
-        ("spare!.deleteUser|(id + 5)", audit("spare: AuditLog")),
-        // A receiver nobody typed stays by name.
+        ("", "spare?.deleteUser|(id + 4)", audit("spare: AuditLog")),
+        ("", "spare!.deleteUser|(id + 5)", audit("spare: AuditLog")),
         (
+            "A receiver nobody typed stays by name",
             "found?.deleteUser|(id + 6)",
             picker(
                 "deleteUser: by name, 2 declarations",
@@ -286,34 +293,37 @@ fn a_non_null_or_optional_access_is_the_plain_one() {
                 ],
             ),
         ),
-        ("!note.deleteUser|.length", audit("note: AuditLog")),
+        ("", "!note.deleteUser|.length", audit("note: AuditLog")),
     ];
-    for (code, want) in cases {
+    for (name, code, want) in cases {
         let mut a = fixture_app("typescript");
         d_on(&mut a, "optional.ts", code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
 }
 
-/// #100, TypeScript: a `#private` member is the word with its `#`, on the `#` and on the name.
 #[test]
 fn a_private_name_keeps_its_hash() {
     let private = jump(
         "#addRoute \u{2192} Router.#addRoute (via this: Router)",
         "privates.ts:12",
     );
-    let cases: Vec<(&str, Shown)> = vec![
-        // On the name and on the `#`: the private method, not the public `addRoute`.
-        ("this.#addRoute|(path);", private),
+    let cases: Vec<(&str, &str, Shown)> = vec![
         (
+            "On the name and on the `#`: the private method, not the public `addRoute`",
+            "this.#addRoute|(path);",
+            private,
+        ),
+        (
+            "",
             "this.|#addRoute(path + \"/\")",
             jump(
                 "#addRoute \u{2192} Router.#addRoute (via this: Router)",
                 "privates.ts:12",
             ),
         ),
-        // A private field, as a target and as a link.
         (
+            "A private field, as a target and as a link",
             "this.#repo|.deleteUser(id)",
             jump(
                 "#repo \u{2192} Router.#repo (via this: Router)",
@@ -321,6 +331,7 @@ fn a_private_name_keeps_its_hash() {
             ),
         ),
         (
+            "",
             "console.log(this.#audit|)",
             jump(
                 "#audit \u{2192} Router.#audit (via this: Router)",
@@ -328,14 +339,15 @@ fn a_private_name_keeps_its_hash() {
             ),
         ),
         (
+            "",
             "other.#repo.deleteUser|(id + 2)",
             jump(
                 "deleteUser \u{2192} UserRepository.deleteUser (via other.#repo: UserRepository)",
                 "repos.ts:10",
             ),
         ),
-        // The public name never reaches a private one, by name or through a type.
         (
+            "The public name never reaches a private one, by name or through a type",
             "found.addRoute|(path)",
             jump(
                 "addRoute \u{2192} Router.addRoute (by name, 1 match)",
@@ -343,22 +355,23 @@ fn a_private_name_keeps_its_hash() {
             ),
         ),
         (
+            "",
             "this.addRoute|(path);",
             jump(
                 "addRoute \u{2192} Router.addRoute (via this: SubRouter)",
                 "privates.ts:16",
             ),
         ),
-        // `route#addRoute` in a string is no private name.
         (
+            "`route#addRoute` in a string is no private name",
             "see route#addRoute|",
             jump(
                 "addRoute \u{2192} Router.addRoute (by name, 1 match)",
                 "privates.ts:16",
             ),
         ),
-        // A subclass's `#addRoute` is its own, and implements nothing of the base's.
         (
+            "A subclass's `#addRoute` is its own, and implements nothing of the base's",
             "this.#addRoute|(path, 1)",
             jump(
                 "#addRoute \u{2192} SubRouter.#addRoute (via this: SubRouter)",
@@ -366,6 +379,7 @@ fn a_private_name_keeps_its_hash() {
             ),
         ),
         (
+            "",
             "^  #addRoute|(path: string): void {",
             picker(
                 "#addRoute: at a declaration, 1 other by name",
@@ -373,16 +387,13 @@ fn a_private_name_keeps_its_hash() {
             ),
         ),
     ];
-    for (code, want) in cases {
+    for (name, code, want) in cases {
         let mut a = fixture_app("typescript");
         d_on(&mut a, "privates.ts", code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
 }
 
-/// #100, TypeScript: a NestJS service. Its dependencies are constructor parameters wrapped one
-/// to a line, decorated or not; `const { repo } = this` hands fields on; a class may stand
-/// behind namespaces, of an import or of the file itself.
 #[test]
 fn a_nest_service_reads_its_dependencies() {
     let user = |via: &str| {
@@ -409,40 +420,46 @@ fn a_nest_service_reads_its_dependencies() {
             &format!("nest_parts.ts:{line}"),
         )
     };
-    let cases: Vec<(&str, Shown)> = vec![
-        // The wrapped constructor: a decorated parameter, a plain one, one under its
-        // decorator's line; as a link and as a target.
+    let cases: Vec<(&str, &str, Shown)> = vec![
         (
+            "The wrapped constructor: a decorated parameter, a plain one, one under its decorator's line; as a link and as a target",
             "this.repo.deleteUser|(id)",
             user("this.repo: UserRepository"),
         ),
         (
+            "",
             "this.audit.deleteUser|(id + 1)",
             audit("this.audit: AuditLog"),
         ),
         (
+            "",
             "this.uow.users.deleteUser|(id + 2)",
             user("this.uow: UnitOfWork \u{2192} users: UserRepository"),
         ),
-        ("console.log(this.repo|,", field("repo", 15)),
-        ("console.log(this.repo, this.audit|,", field("audit", 16)),
+        ("", "console.log(this.repo|,", field("repo", 15)),
         (
+            "",
+            "console.log(this.repo, this.audit|,",
+            field("audit", 16),
+        ),
+        (
+            "",
             "console.log(this.repo, this.audit, this.uow|)",
             field("uow", 18),
         ),
-        // `const { repo, audit: trail } = this` and `const { users } = this.uow`; the
-        // module's `repo` is an `AuditLog`.
         (
+            "`const { repo, audit: trail } = this` and `const { users } = this.uow`; the module's `repo` is an `AuditLog`",
             "void repo.deleteUser|(id + 3)",
             user("repo: UserRepository"),
         ),
-        ("trail.deleteUser|(id + 4)", audit("trail: AuditLog")),
+        ("", "trail.deleteUser|(id + 4)", audit("trail: AuditLog")),
         (
+            "",
             "void users.deleteUser|(id + 5)",
             user("users: UserRepository"),
         ),
-        // A default may be what the name holds.
         (
+            "A default may be what the name holds",
             "uow.audit.deleteUser|(id + 6)",
             picker(
                 "deleteUser: by name, 2 declarations (chain broke at uow)",
@@ -452,26 +469,29 @@ fn a_nest_service_reads_its_dependencies() {
                 ],
             ),
         ),
-        ("^  repo.deleteUser|(id + 7)", audit("repo: AuditLog")),
-        // Namespaces of an import, of a module taken whole, and of the file itself, where a
-        // `Tool` and a `Widget` outside them are other classes.
+        ("", "^  repo.deleteUser|(id + 7)", audit("repo: AuditLog")),
         (
+            "Namespaces of an import, of a module taken whole, and of the file itself, where a `Tool` and a `Widget` outside them are other classes",
             "widget.spin|(id)",
             spin("widget: Widget", "Outer.Inner.Widget", 4),
         ),
         (
+            "",
             "new Outer.Inner.Widget().spin|(id + 1)",
             spin("new Outer.Inner.Widget(): Widget", "Outer.Inner.Widget", 4),
         ),
         (
+            "",
             "other.spin|(id + 2)",
             spin("other: Widget", "Outer.Inner.Widget", 4),
         ),
         (
+            "",
             "gadget.spin|(id + 3)",
             spin("gadget: Gadget", "Outer.Gadget", 11),
         ),
         (
+            "",
             "tool.turn|(id)",
             jump(
                 "turn \u{2192} Local.Tool.turn (via tool: Tool)",
@@ -479,6 +499,7 @@ fn a_nest_service_reads_its_dependencies() {
             ),
         ),
         (
+            "",
             "new Local.Tool().turn|(id + 1)",
             jump(
                 "turn \u{2192} Local.Tool.turn (via new Local.Tool(): Tool)",
@@ -486,6 +507,7 @@ fn a_nest_service_reads_its_dependencies() {
             ),
         ),
         (
+            "",
             "new Tool().turn|(id + 2)",
             jump(
                 "turn \u{2192} Tool.turn (via new Tool(): Tool)",
@@ -493,15 +515,13 @@ fn a_nest_service_reads_its_dependencies() {
             ),
         ),
     ];
-    for (code, want) in cases {
+    for (name, code, want) in cases {
         let mut a = fixture_app("typescript");
         d_on(&mut a, "nest.ts", code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
 }
 
-/// #131, TypeScript: a destructuring prettier wrapped over several lines binds its names, so
-/// the module's `ledger`, an `AuditLog`, does not answer for them.
 #[test]
 fn a_wrapped_destructuring_binds_its_names() {
     let user = jump(
@@ -517,22 +537,28 @@ fn a_wrapped_destructuring_binds_its_names() {
             ],
         )
     };
-    let cases: Vec<(&str, Shown)> = vec![
-        // Out of `deps: Deps`, whose `ledger` is a `UserRepository`; from a block below too.
-        ("ledger.deleteUser|(id + 13)", user),
+    let cases: Vec<(&str, &str, Shown)> = vec![
         (
+            "Out of `deps: Deps`, whose `ledger` is a `UserRepository`; from a block below too",
+            "ledger.deleteUser|(id + 13)",
+            user,
+        ),
+        (
+            "",
             "ledger.deleteUser|(id + 14)",
             jump(
                 "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
                 "repos.ts:10",
             ),
         ),
-        // With a type literal behind the pattern, and an array's pattern: nothing is read,
-        // and nothing outside answers.
-        ("ledger.deleteUser|(count + 15)", by_name()),
-        ("ledger.deleteUser|(16)", by_name()),
-        // Any statement closed so is read whole, once: `const ledger = {` … `} as T;`.
         (
+            "With a type literal behind the pattern, and an array's pattern: nothing is read, and nothing outside answers",
+            "ledger.deleteUser|(count + 15)",
+            by_name(),
+        ),
+        ("", "ledger.deleteUser|(16)", by_name()),
+        (
+            "Any statement closed so is read whole, once: `const ledger = {` … `} as T;`",
             "ledger.deleteUser|(id + 17)",
             jump(
                 "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
@@ -540,15 +566,13 @@ fn a_wrapped_destructuring_binds_its_names() {
             ),
         ),
     ];
-    for (code, want) in cases {
+    for (name, code, want) in cases {
         let mut a = fixture_app("typescript");
         d_on(&mut a, "scopes.ts", code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
 }
 
-/// #100, TypeScript workspaces: a file sees the `node_modules` of every directory above it, the
-/// nearest first, and not those of the package beside it.
 #[test]
 fn a_workspace_package_sees_the_node_modules_above_it() {
     let main = "import { pick } from \"lib\";\n\npick(1);\n";
@@ -585,7 +609,6 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
             "packages/api/node_modules/lib/index.d.ts:2",
         )
     };
-    // Back in `api` after `web`: each file has its own view, and no directory is walked twice.
     for (file, want) in [
         ("packages/api/src/main.ts", api()),
         ("packages/web/src/main.ts", top()),
@@ -595,9 +618,11 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
         d_on(&mut a, file, "^pick");
         assert_eq!(shown(&mut a), want, "{file}");
     }
-    assert_eq!(a.walked_roots.len(), 2);
-    // From inside a dependency, its own `node_modules` is the nearest, and the one it lies
-    // in is not listed twice.
+    assert_eq!(
+        a.walked_roots.len(),
+        2,
+        "Back in `api` after `web`: each file has its own view, and no directory is walked twice"
+    );
     d_on(
         &mut a,
         "packages/api/node_modules/lib/index.d.ts",
@@ -608,13 +633,17 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
         jump(
             "deep: via import deep",
             "packages/api/node_modules/lib/node_modules/deep/index.d.ts:1"
-        )
+        ),
+        "From inside a dependency, its own `node_modules` is the nearest, and the one it lies in is not listed twice"
     );
     assert_eq!(a.buf.readonly, Some("outside the project"));
-    // A dependency of `api` is outside the project from wherever `d` was pressed last.
     d_on(&mut a, "packages/web/src/main.ts", "^pick");
     a.jump_to(&dir.join("packages/api/node_modules/lib/index.d.ts"), 1);
-    assert_eq!(a.buf.readonly, Some("outside the project"));
+    assert_eq!(
+        a.buf.readonly,
+        Some("outside the project"),
+        "A dependency of `api` is outside the project from wherever `d` was pressed last"
+    );
     d_on(
         &mut a,
         "packages/api/node_modules/lib/index.d.ts",
@@ -633,16 +662,11 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #141: a package installed more than once is the copy Node and TypeScript load, the one in
-/// the nearest `node_modules` that has it or its `@types`, and not a copy another package
-/// depends on. A name only another copy declares is found by name.
 #[test]
 fn an_imported_package_is_the_copy_node_loads() {
     let main = "import { pick, onlyFar } from \"lib\";\nimport { part } from \"lib/sub\";\nimport { nest } from \"nested\";\nimport { typed } from \"typed\";\nimport { scoped } from \"@scope/pkg\";\nimport { readFile } from \"fs\";\nimport { Buffer } from \"buffer\";\nimport { parse } from \"cookie\";\nimport { DatabaseSync } from \"node:sqlite\";\nimport { parseX } from \"multi/sub\";\nimport { Box } from \"boxed\";\nimport { extra, alsoNear } from \"lib/extra\";\nimport { lonely } from \"nested/gone\";\nimport { onlyNested } from \"lib/nested\";\nimport { useState } from \"react\";\nimport { shipped } from \"shipped\";\nimport { jsfn } from \"jsonly\";\nimport { jsown } from \"jsowned\";\nimport { tsf } from \"tssrc\";\nimport * as ck from \"cookie\";\nimport { rparse } from \"rlib\";\nimport { rjsfn } from \"rjs\";\nimport { mfn } from \"mainpkg\";\nimport { ifn } from \"idxpkg\";\nimport { solo, soloRen } from \"solo\";\nimport { both } from \"dual\";\nimport { deeper } from \"lib/nothere\";\nimport dparse from \"dflt\";\nimport dlocal from \"./dflt\";\n\npick(1);\nonlyFar(1);\npart(1);\nnest(1);\ntyped(1);\nscoped(1);\nreadFile(1);\nBuffer.from(1);\nparse(1);\nDatabaseSync.name;\nparseX(1);\nBox.open(1);\nalsoNear(1);\nlonely(1);\nonlyNested(1);\nuseState(1);\nshipped(1);\njsfn(1);\njsown(1);\ntsf(1);\nck.parse(1);\nrparse(1);\nrjsfn(1);\nmfn(1);\nifn(1);\nsolo(1);\nsoloRen(1);\nboth(1);\ndeeper(1);\ndparse(1);\ndlocal(1);\nextra(1);\n";
     let file = "packages/api/src/main.ts";
     let line = |code: &str| main.lines().position(|l| l.starts_with(code)).unwrap() + 1;
-    // What a default import binds is its own name for the default export, whatever the module
-    // exports under that name otherwise.
     let dflt = "function x() {}\nexport { x as dlocal };\nexport default function other() {}\n";
     let (dir, mut a) = project_app(
         "copies",
@@ -657,18 +681,13 @@ fn an_imported_package_is_the_copy_node_loads() {
             "node_modules/lib/index.d.ts",
             &["pick", "onlyFar", "extra", "onlyNested", "deeper"],
         ),
-        // `lib/nested` is only in a copy another package depends on.
         (
             "node_modules/other/node_modules/lib/nested.d.ts",
             &["onlyNested"],
         ),
-        // A module only the root's copy has, one of whose names the nearer copy declares.
         ("node_modules/lib/extra.d.ts", &["extra", "alsoNear"]),
-        // A namesake of `onlyFar` and `deeper` in a package no import names.
         ("node_modules/unrelated/index.d.ts", &["onlyFar", "deeper"]),
-        // A package installed only as another's dependency: no root has it.
         ("node_modules/other/node_modules/solo/index.d.ts", &["solo"]),
-        // A package and its types at one level, and another copy further up.
         (
             "packages/api/node_modules/@types/dual/index.d.ts",
             &["both"],
@@ -676,14 +695,12 @@ fn an_imported_package_is_the_copy_node_loads() {
         ("node_modules/dual/index.d.ts", &["both"]),
         ("packages/api/node_modules/lib/sub.d.ts", &["part"]),
         ("node_modules/lib/sub.d.ts", &["part"]),
-        // A copy another package depends on, and a package the copy itself depends on.
         ("node_modules/nested/index.d.ts", &["nest", "lonely"]),
         (
             "node_modules/other/node_modules/nested/index.d.ts",
             &["nest", "lonely"],
         ),
         ("node_modules/nested/node_modules/dep/index.d.ts", &["nest"]),
-        // Types with no package beside them, a scoped package's among them.
         (
             "packages/api/node_modules/@types/typed/index.d.ts",
             &["typed"],
@@ -694,7 +711,6 @@ fn an_imported_package_is_the_copy_node_loads() {
             &["scoped"],
         ),
         ("node_modules/@scope/pkg/index.d.ts", &["scoped"]),
-        // No package is called `fs`: it is Node's own, typed by `@types/node`.
         ("node_modules/@types/node/fs.d.ts", &["readFile"]),
     ] {
         let text: String = names
@@ -705,7 +721,6 @@ fn an_imported_package_is_the_copy_node_loads() {
         std::fs::write(dir.join(path), text).unwrap();
     }
     for (path, text) in [
-        // `buffer` is Node's own too, whatever npm polyfill of that name is installed.
         (
             "node_modules/buffer/index.d.ts",
             "export declare class Buffer {\n}\n",
@@ -714,7 +729,6 @@ fn an_imported_package_is_the_copy_node_loads() {
             "node_modules/@types/node/buffer.d.ts",
             "declare module \"buffer\" {\n    export class Buffer {\n    }\n}\n",
         ),
-        // JavaScript alone beside the file, its types further up, as a workspace keeps them.
         (
             "packages/api/node_modules/react/index.js",
             "export function useState() {}\n",
@@ -727,7 +741,6 @@ fn an_imported_package_is_the_copy_node_loads() {
             "node_modules/react/index.js",
             "export function useState() {}\n",
         ),
-        // Outside a copy, as on master: no renamed export is followed.
         (
             "node_modules/other/node_modules/solo/renamed.d.ts",
             "declare function soloImpl(): void;\nexport { soloImpl as soloRen };\n",
@@ -744,7 +757,6 @@ fn an_imported_package_is_the_copy_node_loads() {
             "packages/api/node_modules/buffer/index.d.ts",
             "export declare class Buffer {\n}\n",
         ),
-        // JavaScript alone beside the file, the package's own types further up.
         (
             "packages/api/node_modules/jsonly/index.js",
             "export function jsfn() {}\n",
@@ -753,12 +765,10 @@ fn an_imported_package_is_the_copy_node_loads() {
             "node_modules/jsonly/index.d.ts",
             "export declare function jsfn(): void;\n",
         ),
-        // Only the declarations are borrowed, not the JavaScript beside them.
         (
             "node_modules/jsonly/index.js",
             "export function jsfn() {}\n",
         ),
-        // TypeScript source is what TypeScript reads: nothing is borrowed.
         (
             "packages/api/node_modules/tssrc/index.ts",
             "export function tsf() {}\n",
@@ -767,7 +777,6 @@ fn an_imported_package_is_the_copy_node_loads() {
             "node_modules/tssrc/index.d.ts",
             "export declare function tsf(): void;\n",
         ),
-        // Further up both a package with its own types and its `@types`: the package's own.
         (
             "packages/api/node_modules/jsowned/index.js",
             "export function jsown() {}\n",
@@ -780,7 +789,6 @@ fn an_imported_package_is_the_copy_node_loads() {
             "node_modules/@types/jsowned/index.d.ts",
             "export declare function jsown(): void;\n",
         ),
-        // A package that ships its own types takes none from further up.
         (
             "packages/api/node_modules/shipped/index.d.ts",
             "export declare function shipped(): void;\n",
@@ -789,8 +797,6 @@ fn an_imported_package_is_the_copy_node_loads() {
             "node_modules/@types/shipped/index.d.ts",
             "export declare function shipped(): void;\n",
         ),
-        // A renamed export is looked for in the module the import names, and only for what
-        // the import takes: `Box.open` is a member of `Box`.
         (
             "packages/api/node_modules/multi/sub.d.ts",
             "declare function parse(): void;\nexport { parse as parseX };\n",
@@ -803,7 +809,6 @@ fn an_imported_package_is_the_copy_node_loads() {
             "packages/api/node_modules/boxed/index.d.ts",
             "declare function openImpl(): void;\nexport { openImpl as open };\nexport declare class Box {\n    static open(): void;\n}\n",
         ),
-        // `node:sqlite` is Node's own, whatever npm package is called `sqlite`.
         (
             "node_modules/sqlite/index.d.ts",
             "export declare class DatabaseSync {\n}\n",
@@ -812,8 +817,6 @@ fn an_imported_package_is_the_copy_node_loads() {
             "node_modules/@types/node/sqlite.d.ts",
             "declare module \"node:sqlite\" {\n    export class DatabaseSync {\n    }\n}\n",
         ),
-        // The copy loaded declares `parse` under another name, which another copy has.
-        // As `cookie@1.1.1` lays itself out: the entry `types` names renames what it declares.
         (
             "packages/api/node_modules/cookie/package.json",
             "{ \"name\": \"cookie\", \"types\": \"dist/index.d.ts\", \"main\": \"dist/index.js\" }\n",
@@ -826,7 +829,6 @@ fn an_imported_package_is_the_copy_node_loads() {
             "packages/api/node_modules/cookie/dist/index.js",
             "function parseCookie() {}\nexports.parse = parseCookie;\n",
         ),
-        // A file the package's entry does not load renames nothing it exports.
         (
             "node_modules/rlib/index.d.ts",
             "export { rparse } from \"rparse-core\";\n",
@@ -855,8 +857,6 @@ fn an_imported_package_is_the_copy_node_loads() {
             "node_modules/rjs-core/index.d.ts",
             "export declare function rjsfn(): void;\n",
         ),
-        // The entry `main` names, with the declarations beside it; with no `package.json`, the
-        // `index` files.
         (
             "node_modules/mainpkg/package.json",
             "{ \"name\": \"mainpkg\", \"main\": \"lib/index.js\" }\n",
@@ -881,8 +881,9 @@ fn an_imported_package_is_the_copy_node_loads() {
         std::fs::create_dir_all(dir.join(path).parent().unwrap()).unwrap();
         std::fs::write(dir.join(path), text).unwrap();
     }
-    for (code, want) in [
+    for (name, code, want) in [
         (
+            "",
             "^pick",
             jump(
                 "pick: via import lib",
@@ -890,10 +891,12 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "a namesake of `onlyFar` and `deeper` in a package no import names",
             "^onlyFar",
             jump("onlyFar: by name, 1 match", "node_modules/lib/index.d.ts:2"),
         ),
         (
+            "",
             "^part",
             jump(
                 "part: via import lib/sub",
@@ -901,6 +904,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "a copy another package depends on, and a package the copy itself depends on",
             "^nest",
             jump(
                 "nest: via import nested",
@@ -908,6 +912,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "types with no package beside them, a scoped package's among them",
             "^typed",
             jump(
                 "typed: via import typed",
@@ -915,6 +920,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^scoped",
             jump(
                 "scoped: via import @scope/pkg",
@@ -922,6 +928,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "no package is called `fs`: it is Node's own, typed by `@types/node`",
             "^readFile",
             jump(
                 "readFile: via import fs",
@@ -929,10 +936,10 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "`buffer` is Node's own too, whatever npm polyfill of that name is installed; the nearer root's first",
             "^Buffer",
             Shown::Picker(
                 "Buffer: via import buffer, 3 declarations".into(),
-                // The nearer root's first.
                 [
                     "packages/api/node_modules/buffer/index.d.ts:1",
                     "@types/node/buffer.d.ts:2",
@@ -943,6 +950,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "`node:sqlite` is Node's own, whatever npm package is called `sqlite`",
             "^DatabaseSync",
             Shown::Picker(
                 "DatabaseSync: via import sqlite, 2 declarations".into(),
@@ -951,17 +959,16 @@ fn an_imported_package_is_the_copy_node_loads() {
                     .to_vec(),
             ),
         ),
-        // Only the root's copy has `lib/extra`: Node goes on to it past the nearer one.
         (
+            "Only the root's copy has `lib/extra`: Node goes on to it past the nearer one",
             "^extra",
             jump(
                 "extra: via import lib/extra",
                 "node_modules/lib/extra.d.ts:1",
             ),
         ),
-        // No copy has `nested/gone`: the nearest that has the package decides, past a root
-        // without it.
         (
+            "No copy has `nested/gone`: the nearest that has the package decides, past a root without it",
             "^lonely",
             jump(
                 "lonely: via import nested",
@@ -969,6 +976,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "`lib/nested` is only in a copy another package depends on",
             "^onlyNested",
             jump(
                 "onlyNested: by name, 1 match",
@@ -976,6 +984,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "a module only the root's copy has, one of whose names the nearer copy declares",
             "^alsoNear",
             jump(
                 "alsoNear: via import lib/extra",
@@ -983,6 +992,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "JavaScript alone beside the file, its types further up, as a workspace keeps them",
             "^useState",
             Shown::Picker(
                 "useState: via import react, 2 declarations".into(),
@@ -995,6 +1005,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "JavaScript alone beside the file, the package's own types further up; only the declarations are borrowed, not the JavaScript beside them",
             "^jsfn",
             Shown::Picker(
                 "jsfn: via import jsonly, 2 declarations".into(),
@@ -1007,6 +1018,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "TypeScript source is what TypeScript reads: nothing is borrowed",
             "^tsf",
             jump(
                 "tsf: via import tssrc",
@@ -1014,6 +1026,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "further up both a package with its own types and its `@types`: the package's own",
             "^jsown",
             Shown::Picker(
                 "jsown: via import jsowned, 2 declarations".into(),
@@ -1026,6 +1039,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "a package that ships its own types takes none from further up",
             "^shipped",
             jump(
                 "shipped: via import shipped",
@@ -1033,6 +1047,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "what a default import binds is its own name for the default export, whatever the module exports under that name otherwise",
             "^dparse",
             jump(
                 "no definition for dparse",
@@ -1040,6 +1055,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "",
             "^dlocal",
             jump(
                 "dlocal: via import packages/api/src/dflt.ts",
@@ -1047,6 +1063,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "a package installed only as another's dependency: no root has it",
             "^solo",
             jump(
                 "solo: via import solo",
@@ -1054,6 +1071,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "outside a copy, as on master: no renamed export is followed",
             "^soloRen",
             jump(
                 "no definition for soloRen",
@@ -1061,6 +1079,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "a package and its types at one level, and another copy further up",
             "^both",
             Shown::Picker(
                 "both: via import dual, 2 declarations".into(),
@@ -1072,12 +1091,13 @@ fn an_imported_package_is_the_copy_node_loads() {
                 .to_vec(),
             ),
         ),
-        // The other copies of `lib/nothere` are those of `lib`, as the module is shortened.
         (
+            "The other copies of `lib/nothere` are those of `lib`, as the module is shortened",
             "^deeper",
             jump("deeper: by name, 1 match", "node_modules/lib/index.d.ts:5"),
         ),
         (
+            "a renamed export is looked for in the module the import names, and only for what the import takes",
             "^parseX",
             jump(
                 "parseX: via import multi/sub",
@@ -1085,14 +1105,15 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "`Box.open` is a member of `Box`",
             "^Box.open",
             jump(
                 "no definition for open",
                 &format!("{file}:{}", line("Box.open")),
             ),
         ),
-        // A name in the module a `* as ck` import names is followed through its renaming too.
         (
+            "A name in the module a `* as ck` import names is followed through its renaming too",
             "ck.parse",
             jump(
                 "parse: via import cookie",
@@ -1100,6 +1121,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "the copy loaded declares `parse` under another name, which another copy has: as `cookie@1.1.1` lays itself out, the entry `types` names renames what it declares",
             "^parse",
             jump(
                 "parse: via import cookie",
@@ -1107,6 +1129,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "the entry `main` names, with the declarations beside it",
             "^mfn",
             Shown::Picker(
                 "mfn: via import mainpkg, 2 declarations".into(),
@@ -1116,10 +1139,12 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "with no `package.json`, the `index` files",
             "^ifn",
             jump("ifn: via import idxpkg", "node_modules/idxpkg/index.d.ts:1"),
         ),
         (
+            "a file the package's entry does not load renames nothing it exports",
             "^rparse",
             jump(
                 "rparse: by name, 1 match",
@@ -1127,6 +1152,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
+            "a file the package's entry does not load renames nothing it exports",
             "^rjsfn",
             jump(
                 "rjsfn: by name, 1 match",
@@ -1135,14 +1161,11 @@ fn an_imported_package_is_the_copy_node_loads() {
         ),
     ] {
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #141, pnpm: `node_modules/lib` links the version of the store a file loads. A workspace
-/// package linked in is the project's own, found in its source by name, and not in a published
-/// copy another package depends on. A package linked out of the walk is looked for as before.
 #[cfg(unix)]
 #[test]
 fn a_linked_package_is_the_version_it_links() {
@@ -1175,12 +1198,9 @@ fn a_linked_package_is_the_version_it_links() {
             "shared",
         ),
         ("node_modules/other/node_modules/far/index.d.ts", "reach"),
-        // What the workspace package hands on from a dependency.
         ("node_modules/zod/index.d.ts", "z"),
         ("node_modules/zod/schemas.d.ts", "string"),
         ("node_modules/helpers/index.d.ts", "helper"),
-        // `cookie` links a store directory of another name; another package depends on a
-        // `cookie` of that name.
         (
             "node_modules/.pnpm/cookie-es@1.0.0/node_modules/cookie-es/index.d.ts",
             "parse",
@@ -1205,13 +1225,11 @@ fn a_linked_package_is_the_version_it_links() {
         )
         .unwrap();
     }
-    // An old published copy declares a name the workspace package no longer has.
     std::fs::write(
         dir.join("node_modules/other/node_modules/@app/shared/index.d.ts"),
         "export declare function shared(): void;\nexport declare function gone(): void;\n",
     )
     .unwrap();
-    // A method of the name is no answer for what the import takes.
     std::fs::write(
         dir.join("node_modules/other/index.d.ts"),
         "export declare class Other {\n    z(): void;\n}\n",
@@ -1235,8 +1253,9 @@ fn a_linked_package_is_the_version_it_links() {
     ] {
         std::os::unix::fs::symlink(to, dir.join(at)).unwrap();
     }
-    for (code, want) in [
+    for (name, code, want) in [
         (
+            "",
             "^pin",
             jump(
                 "pin: via import pinned",
@@ -1244,23 +1263,25 @@ fn a_linked_package_is_the_version_it_links() {
             ),
         ),
         (
+            "",
             "^shared",
             jump("shared: by name, 1 match", "packages/shared/index.ts:1"),
         ),
         (
+            "what the workspace package hands on from a dependency; a method of the name is no answer for what the import takes",
             "^z|.string",
             jump("z: by name, 1 match", "node_modules/zod/index.d.ts:1"),
         ),
-        // After the project, outside as the import names it: the chain and all.
         (
+            "After the project, outside as the import names it: the chain and all",
             "^z.string",
             jump(
                 "string: by name, 1 match",
                 "node_modules/zod/schemas.d.ts:1",
             ),
         ),
-        // Nothing outside is proven the import's: the copy it loads is the project's own.
         (
+            "Nothing outside is proven the import's: the copy it loads is the project's own; an old published copy declares a name the workspace package no longer has",
             "^gone",
             jump(
                 "gone: by name, 1 match",
@@ -1268,22 +1289,23 @@ fn a_linked_package_is_the_version_it_links() {
             ),
         ),
         (
+            "",
             "sh.helper",
             jump(
                 "helper: by name, 1 match",
                 "node_modules/helpers/index.d.ts:1",
             ),
         ),
-        // The copy is the package, whatever its store directory is called.
         (
+            "The copy is the package, whatever its store directory is called; `cookie` links a store directory of another name; another package depends on a `cookie` of that name",
             "^parse",
             jump(
                 "parse: via import cookie",
                 "node_modules/.pnpm/cookie-es@1.0.0/node_modules/cookie-es/index.d.ts:1",
             ),
         ),
-        // A path in it is below the store directory, whatever that is called.
         (
+            "A path in it is below the store directory, whatever that is called",
             "^subfn",
             jump(
                 "subfn: via import cookie/sub",
@@ -1291,6 +1313,7 @@ fn a_linked_package_is_the_version_it_links() {
             ),
         ),
         (
+            "",
             "^reach",
             jump(
                 "reach: via import far",
@@ -1299,14 +1322,12 @@ fn a_linked_package_is_the_version_it_links() {
         ),
     ] {
         d_on(&mut a, "src/main.ts", code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&store).unwrap();
 }
 
-/// #392: a package is not installed only when nothing in the project supplies it: an alias of a
-/// JavaScript project's `jsconfig.json`, a name under `baseUrl`, a `declare module` all do.
 #[test]
 fn what_the_project_supplies_is_no_missing_package() {
     let (js, mut a) = project_app(
@@ -1369,9 +1390,6 @@ fn what_the_project_supplies_is_no_missing_package() {
     std::fs::remove_dir_all(&ts).unwrap();
 }
 
-/// #141: `@/lib`, `~/lib` and `#lib` are aliases of the project's own modules, no npm scope or
-/// package: what the project does not declare is looked for outside by name, and an alias never
-/// narrows into a scoped package such as `@mui`.
 #[test]
 fn an_alias_is_the_projects_own() {
     let (dir, mut a) = project_app(
@@ -1440,15 +1458,13 @@ fn an_alias_is_the_projects_own() {
         d_on(&mut a, "src/main.ts", code);
         assert_eq!(shown(&mut a), want, "{code}");
     }
-    // A named alias is no scope either: its barrel hands `clsx` on from the package, which is
-    // followed there (#527).
     d_on(&mut a, "src/other.ts", "^clsx");
     assert_eq!(
         shown(&mut a),
-        jump("clsx: via import clsx", "node_modules/clsx/clsx.d.ts:1")
+        jump("clsx: via import clsx", "node_modules/clsx/clsx.d.ts:1"),
+        "A named alias is no scope either: its barrel hands `clsx` on from the package, which is followed there (#527)"
     );
     std::fs::remove_dir_all(&dir).unwrap();
-    // No tsconfig says what `@/` is: the project's `Button`, and not `@mui`'s.
     let (dir, mut a) = project_app(
         "alias-bare",
         &[
@@ -1465,14 +1481,12 @@ fn an_alias_is_the_projects_own() {
     d_on(&mut a, "src/main.ts", "^Button");
     assert_eq!(
         shown(&mut a),
-        jump("Button: by name, 1 match", "src/components/Button.tsx:1")
+        jump("Button: by name, 1 match", "src/components/Button.tsx:1"),
+        "No tsconfig says what `@/` is: the project's `Button`, and not `@mui`'s"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #141: the grep for `as Widget` only says which files to read for a renamed export, so a cut
-/// in it cuts nothing shown. Python has no renamed exports: a docstring that shows one is no
-/// answer for `Thing`.
 #[test]
 fn a_grep_for_where_to_read_cuts_nothing_shown() {
     let casts = "export const w = x as unknown as Widget;\n".repeat(search::MAX_HITS);
@@ -1510,15 +1524,19 @@ fn a_grep_for_where_to_read_cuts_nothing_shown() {
         jump(
             "Widget: by name, 1 match",
             "node_modules/widgets/index.d.ts:1"
-        )
+        ),
+        "the grep for `as Widget` only says which files to read for a renamed export, so a cut in it cuts nothing shown"
     );
     d_on(&mut a, "main.py", "^Thing");
-    assert_eq!(shown(&mut a), jump("no definition for Thing", "main.py:3"));
+    assert_eq!(
+        shown(&mut a),
+        jump("no definition for Thing", "main.py:3"),
+        "Python has no renamed exports: a docstring that shows one is no answer for `Thing`"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();
 }
 
-/// #141: `node:util` is Node's own, never the project's `src/util.ts` under `"baseUrl": "src"`.
 #[test]
 fn a_node_import_is_never_a_project_file() {
     let (dir, mut a) = project_app(
@@ -1553,9 +1571,6 @@ fn a_node_import_is_never_a_project_file() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #141: the copy is chosen first, a workspace package linked in as any other: Node goes on
-/// past a package that lacks the path and has no `exports` map, and stops at one whose files are
-/// out of the walk. Only a chosen copy of the project's own leaves the answer to the project.
 #[cfg(unix)]
 #[test]
 fn a_linked_copy_is_chosen_as_any_other() {
@@ -1565,7 +1580,6 @@ fn a_linked_copy_is_chosen_as_any_other() {
         &[
             ("packages/api/src/main.ts", main),
             ("packages/wlib/index.ts", "export function ex() {}\n"),
-            // Only its TypeScript and JavaScript say what paths it has.
             ("packages/wlib/extra.md", "# extra\n"),
             ("packages/wlib/extra.json", "{}\n"),
             ("packages/ui/old.ts", "export function Old() {}\n"),
@@ -1604,7 +1618,6 @@ fn a_linked_copy_is_chosen_as_any_other() {
             "node_modules/x/node_modules/outl/index.d.ts",
             "export declare function reachOut(): void;\n",
         ),
-        // `exports` maps `.` alone, and `sub2` is only in the root's copy: as without a copy.
         (
             "packages/api/node_modules/elib/package.json",
             "{ \"name\": \"elib\", \"exports\": { \".\": \"./index.js\" } }\n",
@@ -1617,8 +1630,6 @@ fn a_linked_copy_is_chosen_as_any_other() {
             "node_modules/elib/sub2.d.ts",
             "export declare function esub(): void;\n",
         ),
-        // An `exports` that is `null`, or no top-level key: Node goes on past them, to the root's
-        // copy and not the one another package depends on.
         (
             "packages/api/node_modules/nl1/package.json",
             "{ \"name\": \"nl1\", \"exports\": null }\n",
@@ -1681,25 +1692,25 @@ fn a_linked_copy_is_chosen_as_any_other() {
         std::os::unix::fs::symlink(to, dir.join(at)).unwrap();
     }
     let outl = |at: &str| ("reachOut".into(), "via import outl".into(), at.into());
-    for (code, want) in [
-        // The linked `wlib` lacks `extra`: on to the root's.
+    for (name, code, want) in [
         (
+            "The linked `wlib` lacks `extra`: on to the root's; only its TypeScript and JavaScript say what paths it has",
             "^ex",
             jump(
                 "ex: via import wlib/extra",
                 "node_modules/wlib/extra.d.ts:1",
             ),
         ),
-        // `exports` maps `./old`: the nearer copy, whatever `old` lies further up.
         (
+            "`exports` maps `./old`: the nearer copy, whatever `old` lies further up",
             "^Old",
             jump(
                 "Old: via import @app/ui",
                 "packages/api/node_modules/@app/ui/dist/legacy.d.ts:1",
             ),
         ),
-        // Neither has `missing`: the nearer, which is no project's own.
         (
+            "Neither has `missing`: the nearer, which is no project's own",
             "^thing",
             jump(
                 "thing: via import both",
@@ -1707,6 +1718,7 @@ fn a_linked_copy_is_chosen_as_any_other() {
             ),
         ),
         (
+            "`exports` maps `.` alone, and `sub2` is only in the root's copy: as without a copy",
             "^esub",
             jump(
                 "esub: via import elib/sub2",
@@ -1714,6 +1726,7 @@ fn a_linked_copy_is_chosen_as_any_other() {
             ),
         ),
         (
+            "an `exports` that is `null`, or no top-level key: Node goes on past them, to the root's copy and not the one another package depends on",
             "^nl1f",
             jump(
                 "nl1f: via import nl1/extra",
@@ -1721,6 +1734,7 @@ fn a_linked_copy_is_chosen_as_any_other() {
             ),
         ),
         (
+            "",
             "^nl2f",
             jump(
                 "nl2f: via import nl2/extra",
@@ -1728,14 +1742,15 @@ fn a_linked_copy_is_chosen_as_any_other() {
             ),
         ),
         (
+            "",
             "^nl3f",
             jump(
                 "nl3f: via import nl3/extra",
                 "node_modules/nl3/extra.d.ts:1",
             ),
         ),
-        // A link out of the walk is the level, of no file: every copy, as without one.
         (
+            "A link out of the walk is the level, of no file: every copy, as without one",
             "^reachOut",
             Shown::Picker(
                 "reachOut: via import outl, 2 declarations".into(),
@@ -1747,14 +1762,12 @@ fn a_linked_copy_is_chosen_as_any_other() {
         ),
     ] {
         d_on(&mut a, "packages/api/src/main.ts", code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&store).unwrap();
 }
 
-/// #141: a workspace package linked in, with no other copy of it installed, hands on what it
-/// re-exports: after the project, outside as master looks, by name.
 #[cfg(unix)]
 #[test]
 fn a_linked_package_alone_hands_its_names_on() {
@@ -1825,8 +1838,6 @@ fn a_linked_package_alone_hands_its_names_on() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #141 is npm's rule. Python puts a namespace package together from every root that has a
-/// part of it, so `google.cloud` is found behind a `google` in the first root.
 #[test]
 fn a_python_namespace_package_spans_its_roots() {
     let (dir, mut a) = project_app(
@@ -1855,20 +1866,19 @@ fn a_python_namespace_package_spans_its_roots() {
         jump(
             "Client: via import google.cloud.storage",
             &format!("{}:1", at.display())
-        )
+        ),
+        "Python puts a namespace package together from every root that has a part of it"
     );
     for d in [dir, first, second] {
         std::fs::remove_dir_all(d).unwrap();
     }
 }
 
-/// #100, TypeScript: `export { Trunk as TrunkBase }` is followed to the class the module
-/// declares under its own name, as hono exports the `HonoBase` its `Hono` extends. A re-export
-/// from another module under a new name is not.
 #[test]
 fn an_export_under_another_name_is_followed() {
-    let cases: Vec<(&str, Shown)> = vec![
+    let cases: Vec<(&str, &str, Shown)> = vec![
         (
+            "",
             "super.lock|()",
             jump(
                 "lock \u{2192} Trunk.lock (via super of Boot)",
@@ -1876,6 +1886,7 @@ fn an_export_under_another_name_is_followed() {
             ),
         ),
         (
+            "",
             "this.audit.deleteUser|(1)",
             jump(
                 "deleteUser \u{2192} AuditLog.deleteUser (via this.audit: AuditLog)",
@@ -1883,6 +1894,7 @@ fn an_export_under_another_name_is_followed() {
             ),
         ),
         (
+            "",
             "trunk.lock|()",
             jump(
                 "lock \u{2192} Trunk.lock (via trunk: Trunk)",
@@ -1890,16 +1902,17 @@ fn an_export_under_another_name_is_followed() {
             ),
         ),
         (
+            "",
             "extends TrunkBase|",
             jump("TrunkBase: via import aliased.ts", "aliased.ts:4"),
         ),
-        // The re-export under another name is followed to the class it renames (#335).
         (
+            "The re-export under another name is followed to the class it renames (#335)",
             "import { HatchBase|",
             jump("HatchBase: via import repos.ts", "repos.ts:5"),
         ),
-        // `HatchBase` is the `UserRepository` of `repos`, not the one `aliased` declares.
         (
+            "`HatchBase` is the `UserRepository` of `repos`, not the one `aliased` declares",
             "hatch.deleteUser|(2)",
             jump(
                 "deleteUser \u{2192} UserRepository.deleteUser (via hatch: UserRepository)",
@@ -1907,15 +1920,13 @@ fn an_export_under_another_name_is_followed() {
             ),
         ),
     ];
-    for (code, want) in cases {
+    for (name, code, want) in cases {
         let mut a = fixture_app("typescript");
         d_on(&mut a, "aliased_use.ts", code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
 }
 
-/// What the Punchcard review of the TypeScript items (#100, #131) found: each row was a wrong
-/// jump, a lost one or a picker of doubles on the first build of them.
 #[test]
 fn what_the_review_of_the_typescript_items_found() {
     let user = |via: &str| {
@@ -1939,10 +1950,9 @@ fn what_the_review_of_the_typescript_items_found() {
             "privates.ts:16",
         )
     };
-    let cases: Vec<(&str, &str, Shown)> = vec![
-        // `svc.list()` is the namespace's function, until a parameter `svc` hides it: as a
-        // callee and as the namespace of `new svc.Tool()`.
+    let cases: Vec<(&str, &str, &str, Shown)> = vec![
         (
+            "`svc.list()` is the namespace's function, until a parameter `svc` hides it: as a callee and as the namespace of `new svc.Tool()`",
             "shadowed.ts",
             "log.deleteUser|(id)",
             jump(
@@ -1950,8 +1960,9 @@ fn what_the_review_of_the_typescript_items_found() {
                 "repos.ts:16",
             ),
         ),
-        ("shadowed.ts", "r.deleteUser|(id + 1)", by_name()),
+        ("", "shadowed.ts", "r.deleteUser|(id + 1)", by_name()),
         (
+            "",
             "shadowed.ts",
             "tool.turn|(String(id + 2))",
             picker(
@@ -1963,8 +1974,8 @@ fn what_the_review_of_the_typescript_items_found() {
                 ],
             ),
         ),
-        // A statement closed by `}` is one declaration, not its first line and itself.
         (
+            "A statement closed by `}` is one declaration, not its first line and itself",
             "scopes.ts",
             "void ledger|.deleteUser(id + 17)",
             jump(
@@ -1972,8 +1983,8 @@ fn what_the_review_of_the_typescript_items_found() {
                 "scopes.ts:129",
             ),
         ),
-        // `this.stash<` over its type arguments over `>(key, this.spare);` is a call.
         (
+            "`this.stash<` over its type arguments over `>(key, this.spare);` is a call",
             "headers.ts",
             "found.stash|(1, {})",
             jump(
@@ -1981,24 +1992,26 @@ fn what_the_review_of_the_typescript_items_found() {
                 "headers.ts:18",
             ),
         ),
-        // #131 under a name commented out at the margin, and behind another name's default.
         (
+            "#131 under a name commented out at the margin, and behind another name's default",
             "scopes.ts",
             "ledger.deleteUser|(18)",
             user("ledger: UserRepository"),
         ),
-        ("scopes.ts", "ledger?.deleteUser|(id + 19)", by_name()),
-        // A `#` in a comment or a string starts no private name.
-        ("privates.ts", "// As #addRoute|", public()),
-        ("privates.ts", "console.log(\"#addRoute|", public()),
+        ("", "scopes.ts", "ledger?.deleteUser|(id + 19)", by_name()),
+        (
+            "A `#` in a comment or a string starts no private name",
+            "privates.ts",
+            "// As #addRoute|",
+            public(),
+        ),
+        ("", "privates.ts", "console.log(\"#addRoute|", public()),
     ];
-    for (file, code, want) in cases {
+    for (name, file, code, want) in cases {
         let mut a = fixture_app("typescript");
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{file}: {code}");
+        assert_eq!(shown(&mut a), want, "{name}: {file}: {code}");
     }
-    // A JSX tag's `>` closes no header: the parameter of an attribute's callback is not the
-    // children's `repo`.
     let (dir, mut a) = project_app(
         "jsx",
         &[
@@ -2020,13 +2033,12 @@ fn what_the_review_of_the_typescript_items_found() {
         jump(
             "deleteUser \u{2192} UserRepository.deleteUser (via repo: UserRepository)",
             "repos.ts:2"
-        )
+        ),
+        "A JSX tag's `>` closes no header: the parameter of an attribute's callback is not the children's `repo`"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A call statement shaped like a method header declares nothing (#343): one that passes a
-/// callback or opens with a string, and one wrapped after its `(` whose closer is `);`.
 #[test]
 fn a_call_statement_is_no_method_header() {
     let mut a = fixture_app("typescript");

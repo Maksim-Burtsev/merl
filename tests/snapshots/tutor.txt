@@ -51,7 +51,7 @@ bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 xxxxxxxxmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
-a fg #32374f bg #222436
+a fg #6b6f80 bg #222436
 b fg #c8d3f5 bg #222436
 c fg #86e1fc bg #222436
 d fg #89ddff bg #222436
@@ -62,7 +62,7 @@ h fg #636da6 bg #222436 ITALIC
 i fg #65bcff bg #222436
 j fg #ffc777 bg #222436
 k fg #ff966c bg #222436
-l fg #32374f bg #1b1d2c
+l fg #6b6f80 bg #1b1d2c
 m fg #c8d3f5 bg #1b1d2c
 n fg #ff757f bg #1b1d2c
 o fg #89ddff bg #1b1d2c
@@ -184,7 +184,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 xxxxxxxxmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
-a fg #32374f bg #222436
+a fg #6b6f80 bg #222436
 b fg #636da6 bg #222436 ITALIC
 c fg #c8d3f5 bg #222436
 d fg #86e1fc bg #222436
@@ -195,7 +195,7 @@ h fg #9abdf5 bg #222436
 i fg #65bcff bg #222436
 j fg #ffc777 bg #222436
 k fg #ff966c bg #222436
-l fg #32374f bg #1b1d2c
+l fg #6b6f80 bg #1b1d2c
 m fg #c8d3f5 bg #1b1d2c
 n fg #ff757f bg #1b1d2c
 o fg #89ddff bg #1b1d2c
@@ -370,7 +370,7 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 xxxxxxxxmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
-a fg #32374f bg #222436
+a fg #6b6f80 bg #222436
 b fg #636da6 bg #222436 ITALIC
 c fg #c8d3f5 bg #222436
 d fg #86e1fc bg #222436
@@ -381,7 +381,7 @@ h fg #9abdf5 bg #222436
 i fg #65bcff bg #222436
 j fg #ffc777 bg #222436
 k fg #ff966c bg #222436
-l fg #32374f bg #1b1d2c
+l fg #6b6f80 bg #1b1d2c
 m fg #c8d3f5 bg #1b1d2c
 n fg #ff757f bg #1b1d2c
 o fg #89ddff bg #1b1d2c
