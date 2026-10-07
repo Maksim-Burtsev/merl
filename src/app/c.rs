@@ -416,7 +416,11 @@ impl App {
         }
         let edges = |text: &str, from: &Path| -> Vec<PathBuf> {
             let mut out = Vec::new();
-            for (inc, quoted) in search::c_includes(text) {
+            for search::CInclude {
+                as_written: inc,
+                quoted_not_angled: quoted,
+            } in search::c_includes(text)
+            {
                 // libc++'s frozen copy for C++03, behind an `#if` no later standard takes: each
                 // std name would come back twice.
                 if inc.starts_with("__cxx03/") {

@@ -11,17 +11,23 @@ use super::{Binding, Value};
 static ACCESS_LABELS: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^\s*(?:(?:public|private|protected)\s*:\s*)+").unwrap());
 
-/// The files the `#include` lines of the C or C++ `text` name, as written, each with whether it
-/// is quoted, `"…"`, rather than `<…>`. A line under `#if` counts as any other: whichever branch
-/// a build takes, the file reaches no fewer headers.
-pub fn c_includes(text: &str) -> Vec<(String, bool)> {
+/// The files the `#include` lines of the C or C++ `text` name. A line under `#if` counts as any
+/// other: whichever branch a build takes, the file reaches no fewer headers.
+pub fn c_includes(text: &str) -> Vec<CInclude> {
     static INCLUDE: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r#"(?m)^[ \t]*#[ \t]*(?:include|include_next|import)[ \t]*([<"])([^>"\n]+)[>"]"#)
             .unwrap()
     });
     (INCLUDE.captures_iter(text))
-        .map(|c| (c[2].trim().to_owned(), &c[1] == "\""))
+        .map(|c| CInclude {
+            as_written: c[2].trim().to_owned(),
+            quoted_not_angled: &c[1] == "\"",
+        })
         .collect()
+}
+pub struct CInclude {
+    pub as_written: String,
+    pub quoted_not_angled: bool,
 }
 
 /// `text` of a C or C++ file as code alone: comments, string and character literals (raw strings
