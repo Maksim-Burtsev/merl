@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::ops::Range;
+use std::path::Path;
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -17,6 +18,7 @@ use crate::intraline;
 use crate::theme::Theme;
 use crate::wrap;
 
+use super::status::fit_path;
 use super::tagged;
 
 const FOLDED: &str = " \u{22ef} ";
@@ -345,12 +347,100 @@ pub(super) fn draw_binary(frame: &mut Frame, theme: &Theme, area: Rect, base: St
 
 pub(super) fn draw_empty(frame: &mut Frame, theme: &Theme, area: Rect, base: Style, note: String) {
     let dim = base.fg(theme.ghost_fg);
-    let key = Line::from(vec![
+    let lines = vec![
+        Line::styled(note, dim),
+        Line::default(),
+        next_file(base, dim),
+    ];
+    draw_note(frame, area, base, lines);
+}
+
+pub(super) fn draw_renamed(
+    frame: &mut Frame,
+    theme: &Theme,
+    area: Rect,
+    base: Style,
+    old: &Path,
+    new: &Path,
+) {
+    let (old, new) = (old.display().to_string(), new.display().to_string());
+    let dim = base.fg(theme.ghost_fg);
+    let changed = renamed_part(&old, &new);
+    let del = base.bg(theme.del_word_bg).fg(theme.word_fg);
+    let add = base.bg(theme.add_word_bg).fg(theme.word_fg);
+    let room = (area.width as usize).saturating_sub(2);
+    let mut lines = match wrap::width(&old) + 5 + wrap::width(&new) > room {
+        false => {
+            let mut row = tinted(&old, changed, base, del, room);
+            row.push(Span::styled("  \u{2192}  ", dim));
+            row.extend(tinted(&new, changed, base, add, room));
+            vec![Line::from(row)]
+        }
+        true => {
+            let mut second = vec![Span::styled("\u{2192}  ", dim)];
+            second.extend(tinted(&new, changed, base, add, room.saturating_sub(3)));
+            vec![
+                Line::from(tinted(&old, changed, base, del, room)),
+                Line::from(second),
+            ]
+        }
+    };
+    lines.extend([
+        Line::styled("renamed, no changes", dim),
+        Line::default(),
+        next_file(base, dim),
+    ]);
+    draw_note(frame, area, base, lines);
+}
+
+fn next_file(base: Style, dim: Style) -> Line<'static> {
+    Line::from(vec![
         Span::styled("c", base.add_modifier(Modifier::BOLD)),
         Span::styled("  next file", dim),
-    ]);
-    let lines = vec![Line::styled(note, dim), Line::default(), key];
-    draw_note(frame, area, base, lines);
+    ])
+}
+
+fn renamed_part(old: &str, new: &str) -> (usize, usize) {
+    let (o, n): (Vec<char>, Vec<char>) = (old.chars().collect(), new.chars().collect());
+    let word = |c: char| c.is_alphanumeric() || c == '_' || c == '-';
+    let inside = |s: &[char], i: usize| 0 < i && i < s.len() && word(s[i - 1]) && word(s[i]);
+    let mut pre = o.iter().zip(&n).take_while(|(a, b)| a == b).count();
+    while pre > 0 && (inside(&o, pre) || inside(&n, pre)) {
+        pre -= 1;
+    }
+    let same_end = o
+        .iter()
+        .rev()
+        .zip(n.iter().rev())
+        .take_while(|(a, b)| a == b);
+    let mut suf = same_end.count().min(o.len().min(n.len()) - pre);
+    while suf > 0 && (inside(&o, o.len() - suf) || inside(&n, n.len() - suf)) {
+        suf -= 1;
+    }
+    (pre, suf)
+}
+
+fn tinted(
+    path: &str,
+    (pre, suf): (usize, usize),
+    base: Style,
+    word: Style,
+    room: usize,
+) -> Vec<Span<'static>> {
+    let shown: Vec<char> = fit_path(path, room).chars().collect();
+    let whole = path.chars().count();
+    let (lead, cut) = match shown.len() == whole {
+        true => (0, 0),
+        false => (1, whole + 1 - shown.len()),
+    };
+    let start = lead + pre.saturating_sub(cut);
+    let end = shown.len() - suf.min(whole - cut);
+    let part = |r: Range<usize>, style| Span::styled(shown[r].iter().collect::<String>(), style);
+    vec![
+        part(0..start, base),
+        part(start..end, word),
+        part(end..shown.len(), base),
+    ]
 }
 
 fn draw_note(frame: &mut Frame, area: Rect, base: Style, lines: Vec<Line>) {

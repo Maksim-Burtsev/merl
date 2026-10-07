@@ -1884,3 +1884,53 @@ fn an_empty_file_of_the_review_shows_its_note_until_it_has_text() {
     let _ = std::fs::remove_dir_all(plain_dir);
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn a_file_renamed_without_changes_hides_its_text_and_takes_only_the_keys_that_leave_it() {
+    let moved = "def f():\n    return 1\n\n\ndef g():\n    return 2\n\n\ndef h():\n    return 3\n";
+    let base = [
+        ("a.py", "x\n"),
+        ("text.py", "def t():\n    pass\n"),
+        ("c.py", moved),
+        ("old", ""),
+    ];
+    let work: &[&[&str]] = &[
+        &["mv", "text.py", "words.py"],
+        &["mv", "c.py", "d.py"],
+        &["mv", "old", "new"],
+    ];
+    let dir = branch_repo("reviewrename", &base, work);
+    std::fs::write(dir.join("a.py"), "y\n").unwrap();
+    std::fs::write(
+        dir.join("d.py"),
+        format!("{moved}\n\ndef i():\n    return 4\n"),
+    )
+    .unwrap();
+    let mut a = started_as_main_starts(&dir);
+    let open = |a: &mut App, file: &str| {
+        a.jump_to(&dir.join(file), 1);
+        a.renamed_here()
+            .map(|(o, n)| (o.to_path_buf(), n.to_path_buf()))
+    };
+    assert_eq!(open(&mut a, "d.py"), None);
+    assert_eq!(open(&mut a, "new"), None);
+    assert_eq!(a.empty_note().unwrap(), "empty file, renamed from old");
+    let words = Some((PathBuf::from("text.py"), PathBuf::from("words.py")));
+    assert_eq!(open(&mut a, "words.py"), words);
+    assert_eq!(a.review_status().unwrap(), "hunk 0/0  file 4/4");
+    for code in [
+        KeyCode::Down,
+        KeyCode::Enter,
+        KeyCode::Char('x'),
+        KeyCode::Char('d'),
+    ] {
+        press(&mut a, code, KeyModifiers::NONE);
+    }
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
+    assert_eq!((at(&a), a.mode), ((dir.join("words.py"), 0), Mode::Normal));
+    assert_eq!(a.buf.lines, ["def t():", "    pass"]);
+    press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+    assert_ne!(at(&a).0, dir.join("words.py"));
+    assert_eq!(a.renamed_here(), None);
+    let _ = std::fs::remove_dir_all(dir);
+}

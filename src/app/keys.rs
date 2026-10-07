@@ -107,8 +107,7 @@ impl App {
         if ctrl && key.code == KeyCode::Char('c') && self.mode != Mode::Edit {
             // Ctrl+C is copy everywhere and never quits; a prompt or picker has nothing to copy.
             self.action = named("", key);
-            // A preview row that shows no line has none to copy, nor does a fold.
-            let shown = !self.preview_blank() && self.folded_here().is_none();
+            let shown = !self.preview_blank() && !self.text_hidden();
             if self.mode == Mode::Normal && self.picker.is_none() && shown {
                 self.copy();
             }
@@ -178,6 +177,7 @@ impl App {
             || ctrl && matches!(key.code, KeyCode::Char('d' | 'u'));
         let before = (self.at(), self.col);
         let fold = self.focus == Focus::Code && self.folded_here().is_some();
+        let hidden = self.focus == Focus::Code && self.text_hidden();
         if self.focus == Focus::Tree {
             self.tree.settle();
         }
@@ -195,7 +195,7 @@ impl App {
                 self.help_top = 0;
             }
             KeyCode::Enter if fold => self.unfold(),
-            _ if fold && !leaves_the_text(key) => {}
+            _ if hidden && !leaves_the_text(key) => {}
             KeyCode::Esc => {
                 if self.find_re.take().is_some() {
                     self.message = "find cleared".into();

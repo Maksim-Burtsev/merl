@@ -145,7 +145,7 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
 
 /// `path` in `room` columns: cut from the left at a `/` when it is wider, `…/json/__init__.py`,
 /// but never into the file's name, however little room there is.
-fn fit_path(path: &str, room: usize) -> String {
+pub(super) fn fit_path(path: &str, room: usize) -> String {
     if wrap::width(path) <= room {
         return path.to_owned();
     }

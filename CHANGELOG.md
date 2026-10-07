@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `--review`: a file renamed without changes shows, where its text would be, the old and the
+  new path with the part that changed on the review's word tints
+  (`app/util/text.py  →  lib/text.py`), `renamed, no changes` and `c  next file`, as GitHub and
+  GitLab hide its text; the line breaks in two when the pane is too narrow. Keys that act on the
+  text do nothing there; `c`, `C`, `o`, `s`, the panel, `?` and `q` work as anywhere. (#746)
+
 ## [0.8.3] - 2026-10-07
 
 ### Added
