@@ -1,12 +1,9 @@
-wait scripts/__init__.py  1:1
-┌typed ← origin/main─────────┐
-│  ▾ app                     │
-│✓   M service.py       +2 −0│
+wait empty file, deleted
+┌ungone ← origin/main────────┐
 │  ▾ scripts                 │
-│✓   A __init__.py      +0 −0│
+│    D __init__.py      +0 −0│
 │  ▾ worker                  │
-│✓   M main.go          +2 −0│
-│✓ A py.typed           +0 −0│
+│    M main.go          +2 −0│
 │                            │
 │                            │
 │                            │
@@ -20,7 +17,10 @@ wait scripts/__init__.py  1:1
 │                            │
 │                            │
 │                            │
-│                            │                                                                     empty file, added
+│                            │
+│                            │
+│                            │
+│                            │                                                                    empty file, deleted
 │                            │
 │                            │                                                                       c  next file
 │                            │
@@ -52,6 +52,6 @@ wait scripts/__init__.py  1:1
 │                            │
 │                            │
 │                            │
-└ 4 files · +4 −0 ───────────┘
-scripts/__init__.py  1:1  [code]  hunk 0/0  file 2/4                                                                                                                              ? help
-cursor (x,y,shown) 52,54,0
+└ 2 files · +2 −0 ───────────┘
+scripts/__init__.py  1:1  [code]  read-only  hunk 0/0  file 1/2                                                                                                                   ? help
+cursor (x,y,shown) 185,54,0

@@ -73,8 +73,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   definition". (#354)
 - `--review`: `c` and `C` stop on every file of the review, an empty one included (a new
   `__init__.py`, a pure rename, a mode change), and the review opens on one when it comes first,
-  a deleted one too; `c` ticks it when it leaves it, as any other file. Only binary files and
-  submodules, which merl cannot show, are still walked past. (#715, #720)
+  a deleted one too; `c` ticks it when it leaves it, as any other file. An empty file's stop
+  says `empty file, added` (or `deleted`, `renamed from …`) and `c  next file` where its text
+  would be. Only binary files and submodules, which merl cannot show, are still walked past.
+  (#715, #720)
 - `/` and `s` open with the selected text as the query when the selection is within one line,
   already searched and selected so typing replaces it; without a selection, or with one over
   several lines, they open as before. (#410)
@@ -85,6 +87,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `--review` opens on its first file when the branch deleted it, where it opened on the second
+  and only `C` reached the first. (#720)
 - `d` on a Java or Groovy call lands on the right overload when a parameter's annotation or
   default value holds a comparison: the `<` of `@Max(LOW < HIGH ? 1 : 2)` or of
   `boolean fast = pace<1` no longer hides the parameters after it. (#700)

@@ -1795,3 +1795,92 @@ fn review_stops_on_every_empty_file_and_walks_past_a_binary_one() {
     assert_eq!(order(&a)[0], Path::new("src/__init__.py"));
     assert_eq!(at(&a), (dir.join("src/__init__.py"), 0));
 }
+
+fn branch_repo(tag: &str, base: &[(&str, &str)], work: &[&[&str]]) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("merl-{tag}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let git = |args: &[&str]| {
+        let mut cmd = std::process::Command::new("git");
+        let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    for (name, text) in base {
+        let path = dir.join(name);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    }
+    git(&["init", "-q", "-b", "main"]);
+    git(&["config", "user.email", "t@t"]);
+    git(&["config", "user.name", "t"]);
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "base"]);
+    git(&["switch", "-q", "-c", "feature"]);
+    for args in work {
+        git(args);
+    }
+    git(&["commit", "-qam", "work"]);
+    dir
+}
+
+fn started_as_main_starts(dir: &Path) -> App {
+    let r = git::Review::open(dir, None, None).unwrap();
+    let buf = (r.first_file(dir)).map_or_else(Buffer::empty, |p| Buffer::load(&p).unwrap());
+    let paths: Vec<PathBuf> = r.files.iter().map(|f| f.path.clone()).collect();
+    let (_, files) = crate::tree::build(dir, false);
+    let mut a = App::new(
+        dir.to_path_buf(),
+        crate::tree::from_listing(&paths),
+        files,
+        buf,
+        None,
+    );
+    a.start_review(r);
+    a
+}
+
+#[test]
+fn a_review_whose_first_file_is_deleted_opens_on_it() {
+    let base = [("a/empty", ""), ("a/gone.py", "g\n"), ("b.py", "x\n")];
+    for (gone, note) in [
+        ("a/empty", Some("empty file, deleted")),
+        ("a/gone.py", None),
+    ] {
+        let dir = branch_repo("reviewfirstgone", &base, &[&["rm", "-q", gone]]);
+        std::fs::write(dir.join("b.py"), "y\n").unwrap();
+        let mut a = started_as_main_starts(&dir);
+        assert_eq!(at(&a), (dir.join(gone), 0));
+        assert_eq!(a.buf.readonly, Some("deleted in this branch"));
+        assert_eq!(a.empty_note().as_deref(), note);
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("b.py"), 0));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+}
+
+#[test]
+fn an_empty_file_of_the_review_shows_its_note_until_it_has_text() {
+    let base = [("a.py", "x\n"), ("old", ""), ("keep.py", "k\n")];
+    let moves: &[&[&str]] = &[&["mv", "old", "new"], &["mv", "keep.py", "kept.py"]];
+    let dir = branch_repo("reviewnote", &base, moves);
+    std::fs::write(dir.join("a.py"), "y\n").unwrap();
+    std::fs::write(dir.join("e"), "").unwrap();
+    let mut a = started_as_main_starts(&dir);
+    assert_eq!(a.empty_note(), None);
+    let note = |a: &mut App, file: &str| {
+        a.jump_to(&dir.join(file), 1);
+        a.empty_note()
+    };
+    assert_eq!(note(&mut a, "new").unwrap(), "empty file, renamed from old");
+    assert_eq!(note(&mut a, "kept.py"), None);
+    assert_eq!(note(&mut a, "e").unwrap(), "empty file, added");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('x'), KeyModifiers::NONE);
+    assert_eq!(a.buf.lines, ["x"]);
+    assert_eq!(a.empty_note(), None);
+
+    let (plain_dir, mut plain) = project_app("emptynote", &[("blank", "")]);
+    plain.jump_to(&plain_dir.join("blank"), 1);
+    assert_eq!(plain.empty_note(), None);
+    let _ = std::fs::remove_dir_all(plain_dir);
+    let _ = std::fs::remove_dir_all(dir);
+}

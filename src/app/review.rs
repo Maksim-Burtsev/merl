@@ -257,6 +257,21 @@ impl App {
         folded(f, &self.unfolded).then_some(f)
     }
 
+    pub fn empty_note(&self) -> Option<String> {
+        let rel = self.rel_current()?;
+        let f = self.review.as_ref()?.file(&rel)?;
+        let blank = matches!(self.buf.lines.as_slice(), [l] if l.is_empty());
+        if f.has_hunks() || f.binary || !blank {
+            return None;
+        }
+        Some(match (f.status, &f.old) {
+            ('A', _) => "empty file, added".into(),
+            ('D', _) => "empty file, deleted".into(),
+            (_, Some(old)) => format!("empty file, renamed from {}", old.display()),
+            _ => "empty file".into(),
+        })
+    }
+
     /// Enter on a fold: the diff loads, and the file stays unfolded in this review and the next
     /// ones of the branch. The walk left the cursor on a hunk: it starts at the first one. A jump
     /// (`d`, `u`, `s`, `D`, `[`) left it on its line: the line is kept.
