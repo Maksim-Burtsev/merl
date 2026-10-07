@@ -1,5 +1,3 @@
-//! #352: `d` in C# reads the type a receiver or an object initializer is written with.
-
 use super::*;
 
 fn cs_app(tag: &str, files: &[(&str, &str)]) -> (PathBuf, App) {
@@ -76,9 +74,6 @@ fn a_typed_local_and_an_initializer_member_jump_to_their_type() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A receiver of a type the project does not declare is the framework's: its member has no
-/// definition here, not the project's namesake (eShop's `_badgeIndicator.Text` on a MAUI `Label`).
-/// An extension method the project declares for it is the answer.
 #[test]
 fn a_member_of_a_framework_type_has_no_definition_but_its_extension_method() {
     let (dir, mut a) = cs_app(
@@ -96,8 +91,8 @@ fn a_member_of_a_framework_type_has_no_definition_but_its_extension_method() {
     );
     d_on(&mut a, "BadgeView.cs", "_badgeIndicator.|Text");
     assert_eq!(
-        a.message,
-        "no definition for Text in the project (via _badgeIndicator: Label)"
+        a.message, "no definition for Text in the project (via _badgeIndicator: Label)",
+        "a receiver of a type the project does not declare is the framework's: its member has no definition here, not the project's namesake"
     );
     d_on(&mut a, "BadgeView.cs", "_badgeIndicator.|Pulse");
     assert_eq!(
@@ -105,7 +100,8 @@ fn a_member_of_a_framework_type_has_no_definition_but_its_extension_method() {
         jump(
             "Pulse \u{2192} LabelExtensions.Pulse (via _badgeIndicator: Label)",
             "LabelExtensions.cs:3"
-        )
+        ),
+        "an extension method the project declares for it is the answer"
     );
     d_on(&mut a, "BadgeView.cs", "this.|Text");
     assert_eq!(
@@ -123,8 +119,6 @@ fn a_member_of_a_framework_type_has_no_definition_but_its_extension_method() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A chain of fields and properties, a member inherited from a base, a call's awaited return
-/// type and a primary constructor's parameter.
 #[test]
 fn a_chain_a_base_and_an_awaited_call_are_followed() {
     let (dir, mut a) = cs_app(
@@ -152,7 +146,8 @@ fn a_chain_a_base_and_an_awaited_call_are_followed() {
         jump(
             "Delete \u{2192} AuditLog.Delete (via uow: Uow \u{2192} Audit: AuditLog)",
             "Repos.cs:12"
-        )
+        ),
+        "a primary constructor's parameter"
     );
     d_on(&mut a, "Service.cs", "loaded.Users.|Delete");
     assert_eq!(
@@ -170,8 +165,6 @@ fn a_chain_a_base_and_an_awaited_call_are_followed() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A partial type may have a part a source generator writes, and a type parameter is no type:
-/// neither proves a member is the framework's, and the search by name answers, as before.
 #[test]
 fn a_partial_type_or_a_type_parameter_leaves_the_member_to_the_name() {
     let (dir, mut a) = cs_app(
@@ -196,14 +189,18 @@ fn a_partial_type_or_a_type_parameter_leaves_the_member_to_the_name() {
         ],
     );
     d_on(&mut a, "Tests.cs", "model.|Order");
-    assert!(matches!(shown(&mut a), Shown::Picker(s, _) if s == "Order: by name, 2 declarations"));
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(s, _) if s == "Order: by name, 2 declarations"),
+        "a partial type may have a part a source generator writes: it proves no member is the framework's"
+    );
     d_on(&mut a, "Tests.cs", "element.|Number");
     assert_eq!(
         shown(&mut a),
         jump(
             "Number \u{2192} Order.Number (by name, 1 match)",
             "Order.cs:3"
-        )
+        ),
+        "a type parameter is no type: it proves no member is the framework's"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -254,9 +251,6 @@ fn a_file_sees_its_own_project_and_the_ones_it_references() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #581: after `is` a constant of the class around is found when the walk by type reaches no type
-/// of the name, a public type nested in another class included; a declaration pattern keeps the
-/// lookup by type.
 #[test]
 fn a_constant_after_is_is_found_when_no_type_of_the_name_is_reached() {
     let (_dir, mut a) = cs_app(
@@ -275,8 +269,13 @@ fn a_constant_after_is_is_found_when_no_type_of_the_name_is_reached() {
     d_on(&mut a, "Gauge.cs", "n is |Max");
     assert_eq!(
         shown(&mut a),
-        jump("Max \u{2192} Gauge.Max (via Gauge)", "Gauge.cs:5")
+        jump("Max \u{2192} Gauge.Max (via Gauge)", "Gauge.cs:5"),
+        "a public type nested in another class is no type the walk by type reaches"
     );
     d_on(&mut a, "Gauge.cs", "o is |Max m");
-    assert_eq!(shown(&mut a), jump("no definition for Max", "Gauge.cs:9"));
+    assert_eq!(
+        shown(&mut a),
+        jump("no definition for Max", "Gauge.cs:9"),
+        "a declaration pattern keeps the lookup by type"
+    );
 }

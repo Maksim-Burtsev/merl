@@ -1,7 +1,5 @@
 use super::*;
 
-/// The find prompt is edited in place: text typed in front of the query narrows the search
-/// at once, and a selected query goes with one Backspace, which puts the cursor back.
 #[test]
 fn find_prompt_is_edited_at_the_cursor() {
     let mut a = app("now()\nfunc now()\n");
@@ -13,7 +11,11 @@ fn find_prompt_is_edited_at_the_cursor() {
     for c in "func ".chars() {
         press(&mut a, KeyCode::Char(c), KeyModifiers::NONE);
     }
-    assert_eq!((&*a.prompt, a.line, a.col), ("func now", 1, 0));
+    assert_eq!(
+        (&*a.prompt, a.line, a.col),
+        ("func now", 1, 0),
+        "text typed in front of the query narrows the search at once"
+    );
     press(&mut a, KeyCode::Char('b'), KeyModifiers::ALT);
     assert_eq!(
         (a.mode, a.prompt.cursor()),
@@ -24,7 +26,11 @@ fn find_prompt_is_edited_at_the_cursor() {
     press(&mut a, KeyCode::Right, KeyModifiers::NONE);
     press(&mut a, KeyCode::End, KeyModifiers::SHIFT);
     press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
-    assert_eq!((&*a.prompt, a.line), ("func ", 1));
+    assert_eq!(
+        (&*a.prompt, a.line),
+        ("func ", 1),
+        "a selected part of the query goes with one Backspace"
+    );
     press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
     assert_eq!(
         (&*a.prompt, a.line, a.mode),
@@ -148,13 +154,15 @@ fn next_and_prev_wrap_around() {
     assert_eq!(a.message, "no match");
 }
 
-/// #82: a key that cannot act says why, so "not found" never reads as "not pressed".
 #[test]
 fn no_key_is_silent_on_an_empty_line() {
     let mut a = app("\nfoo\n");
     for key in ['d', 'u', 'D', 'n', 'N', '[', ']'] {
         press(&mut a, KeyCode::Char(key), KeyModifiers::NONE);
-        assert!(!a.message.is_empty(), "`{key}` said nothing");
+        assert!(
+            !a.message.is_empty(),
+            "`{key}` said nothing, and \"not found\" reads as \"not pressed\""
+        );
         assert_eq!(a.mode, Mode::Normal, "`{key}`");
     }
     a.message.clear();
@@ -216,9 +224,6 @@ fn esc_restores_the_anchor() {
     assert_eq!((a.line, a.col), (2, 1));
 }
 
-/// The query holds at most 1,000 chars (#267): typing past them does nothing, a paste is cut to
-/// what fits. The worst case, 1,000 Cyrillic letters, compiles ignoring case: uncapped, some
-/// 60,000 went past the `regex` crate's size limit and aborted merl.
 #[test]
 fn the_query_is_capped_so_it_always_compiles() {
     let mut a = app("яяя\n");
@@ -226,15 +231,21 @@ fn the_query_is_capped_so_it_always_compiles() {
     a.paste(&"Я".repeat(70_000));
     assert_eq!(
         (a.prompt.chars().count(), a.message.as_str()),
-        (1_000, "no match")
+        (1_000, "no match"),
+        "a paste is cut to the 1,000 chars that fit"
     );
     assert!(
         a.find_re
             .as_ref()
-            .is_some_and(|re| re.is_match(&"я".repeat(1_000)))
+            .is_some_and(|re| re.is_match(&"я".repeat(1_000))),
+        "1,000 Cyrillic letters compile ignoring case, under the `regex` crate's size limit"
     );
     typed(&mut a, "я");
-    assert_eq!(a.prompt.chars().count(), 1_000);
+    assert_eq!(
+        a.prompt.chars().count(),
+        1_000,
+        "typing past the cap does nothing"
+    );
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
     a.paste(&"я".repeat(1_001));

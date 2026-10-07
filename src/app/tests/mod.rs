@@ -1,5 +1,3 @@
-//! The tests, following the code they cover.
-
 use super::definition::resolution;
 use super::open::carried;
 use super::*;

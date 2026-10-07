@@ -35,14 +35,17 @@ fn a_word_is_letters_of_any_script() {
     assert_eq!(a.selected_text().as_deref(), Some("мир"));
 }
 
-/// Ghostty, iTerm and Terminal.app send Option+Left / Right as Esc b / Esc f.
 #[test]
 fn alt_b_and_alt_f_are_the_word_jump_and_do_not_leave_edit_mode() {
     let mut a = app("foo bar baz");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('f'), KeyModifiers::ALT);
     press(&mut a, KeyCode::Char('f'), KeyModifiers::ALT);
-    assert_eq!((a.col, a.mode), (7, Mode::Edit));
+    assert_eq!(
+        (a.col, a.mode),
+        (7, Mode::Edit),
+        "Ghostty, iTerm and Terminal.app send Option+Right as Esc f"
+    );
     press(&mut a, KeyCode::Char('b'), KeyModifiers::ALT);
     assert_eq!((a.col, a.mode), (4, Mode::Edit));
     assert_eq!(a.buf.lines, vec!["foo bar baz"], "nothing was typed");
@@ -329,8 +332,6 @@ fn ctrl_shift_left_right_select_to_the_line_edges() {
     );
 }
 
-/// #687: Shift on PgUp / PgDn, Home / End and Ctrl+Home / Ctrl+End extends the selection over
-/// all the move covers, as on an arrow; the move without Shift drops it.
 #[test]
 fn shift_far_moves_extend_the_selection() {
     let text: String = (0..40).map(|i| format!("line {i}\n")).collect();
@@ -353,7 +354,7 @@ fn shift_far_moves_extend_the_selection() {
     press(&mut a, KeyCode::Home, ctrl_shift);
     assert_eq!(a.file_selection(), Some(((0, 0), (1, 1))));
     press(&mut a, KeyCode::PageDown, KeyModifiers::NONE);
-    assert_eq!(a.file_selection(), None);
+    assert_eq!(a.file_selection(), None, "the move without Shift drops it");
 }
 
 #[test]
@@ -418,13 +419,16 @@ fn half_page_counts_screen_rows() {
 
 #[test]
 fn up_and_down_walk_screen_rows_and_keep_the_column() {
-    // At 20 columns the first line is two rows: "aaaa bbbb cccc dddd " and "eeee ffff".
     let mut a = app("aaaa bbbb cccc dddd eeee ffff\nx\n");
     for _ in 0..7 {
         press(&mut a, KeyCode::Right, KeyModifiers::NONE);
     }
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);
-    assert_eq!((a.line, a.col), (0, 27), "the second row of the same line");
+    assert_eq!(
+        (a.line, a.col),
+        (0, 27),
+        "at 20 columns, the second row of the same line, `eeee ffff`"
+    );
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);
     assert_eq!((a.line, a.col), (1, 1), "a shorter row: its end");
     press(&mut a, KeyCode::Up, KeyModifiers::NONE);
@@ -473,25 +477,26 @@ fn ctrl_end_goes_to_last_line() {
     assert_eq!((a.line, a.col), (0, 0));
 }
 
-/// #185: an emoji written with a selector, a skin tone or a ZWJ is one step and two columns.
 #[test]
 fn an_emoji_is_one_step_and_two_columns() {
     let mut a = app("\u{26a0}\u{fe0f}ab\n\u{1f468}\u{200d}\u{1f4bb}\u{1f44d}\u{1f3fd}");
     press(&mut a, KeyCode::End, KeyModifiers::NONE);
     press(&mut a, KeyCode::Left, KeyModifiers::NONE);
-    assert_eq!((a.col, a.cursor_x(), a.display_col()), (7, 3, 4));
+    assert_eq!(
+        (a.col, a.cursor_x(), a.display_col()),
+        (7, 3, 4),
+        "an emoji with a selector is one step and two columns"
+    );
     press(&mut a, KeyCode::Left, KeyModifiers::NONE);
     press(&mut a, KeyCode::Left, KeyModifiers::NONE);
     assert_eq!(a.col, 0);
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);
     press(&mut a, KeyCode::Right, KeyModifiers::NONE);
-    assert_eq!((a.col, a.cursor_x()), (11, 2));
+    assert_eq!((a.col, a.cursor_x()), (11, 2), "a ZWJ join");
     press(&mut a, KeyCode::Right, KeyModifiers::NONE);
-    assert_eq!((a.col, a.cursor_x()), (19, 4));
+    assert_eq!((a.col, a.cursor_x()), (19, 4), "a skin tone");
 }
 
-/// #284: a line longer than merl draws holds the cursor to the part on screen, whatever moves it
-/// there, and Right / Alt+Right from the last drawn char go on to the next line.
 #[test]
 fn the_cursor_stays_on_the_drawn_part_of_a_cut_line() {
     let text = format!("{}THE END\nTHE END", "ab ".repeat(10_000));
@@ -557,13 +562,18 @@ fn the_cursor_stays_on_the_drawn_part_of_a_cut_line() {
         (1, end),
         "Ctrl+End on a file that ends in the cut line"
     );
-    assert_eq!(key(&mut a, KeyCode::Right, KeyModifiers::NONE), (1, end));
-    assert_eq!(key(&mut a, KeyCode::Right, KeyModifiers::ALT), (1, end));
+    assert_eq!(
+        key(&mut a, KeyCode::Right, KeyModifiers::NONE),
+        (1, end),
+        "Right from the last drawn char goes on to the next line"
+    );
+    assert_eq!(
+        key(&mut a, KeyCode::Right, KeyModifiers::ALT),
+        (1, end),
+        "so does Alt+Right"
+    );
 }
 
-/// #284: a selection that ends where a cut line's drawn part ends copies the line to its real
-/// end, as Ctrl+C with no selection does: `v v` or Shift+Ctrl+Right, then Ctrl+C, never copies a
-/// line cut at 20 KB.
 #[test]
 fn a_selection_to_the_end_of_a_cut_line_copies_all_of_it() {
     let line = format!("{}THE END", "ab ".repeat(10_000));
@@ -571,7 +581,11 @@ fn a_selection_to_the_end_of_a_cut_line_copies_all_of_it() {
     press(&mut a, KeyCode::Char('v'), KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('v'), KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
-    assert_eq!(a.clipboard.take().as_deref(), Some(line.as_str()));
+    assert_eq!(
+        a.clipboard.take().as_deref(),
+        Some(line.as_str()),
+        "`v v` then Ctrl+C: the line to its real end, not cut at 20 KB"
+    );
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     press(&mut a, KeyCode::Home, KeyModifiers::CONTROL);
     let to_end = KeyModifiers::SHIFT | KeyModifiers::CONTROL;
@@ -579,10 +593,13 @@ fn a_selection_to_the_end_of_a_cut_line_copies_all_of_it() {
     press(&mut a, KeyCode::Right, to_end);
     assert!(a.file_selection().is_some());
     press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
-    assert_eq!(a.clipboard.take().as_deref(), Some(line.as_str()));
+    assert_eq!(
+        a.clipboard.take().as_deref(),
+        Some(line.as_str()),
+        "Shift+Ctrl+Right then Ctrl+C: the line to its real end"
+    );
 }
 
-/// #284: `merl file:1:25000` on a line cut at 20 KB opens on the drawn end.
 #[test]
 fn opening_at_a_column_past_the_cut_lands_on_the_drawn_end() {
     let (path, a) = temp_file("cut-open", &format!("{}THE END\n", "ab ".repeat(10_000)));

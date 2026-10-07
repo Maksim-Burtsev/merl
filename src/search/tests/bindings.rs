@@ -35,7 +35,6 @@ fn a_loop_hands_out_elements_only_where_the_type_says_so() {
         let got = element_type(kind, written);
         assert_eq!(got.as_deref(), want, "{written}");
     }
-    // The loops that hand out something else are unknown.
     let element = |name: &str| Value::Element(name.into());
     let py = "async def f(repos):\n    for r in repos:\n        r\n    async for r in repos:\n        r\n    for i, r in pairs:\n        r\n    for r in load():\n        r\n";
     let at = |kind, text, line, name| bound_at(kind, text, line, name);
@@ -46,7 +45,8 @@ fn a_loop_hands_out_elements_only_where_the_type_says_so() {
             (4, Value::Unknown),
             (6, Value::Unknown),
             (8, Value::Unknown)
-        ]
+        ],
+        "the loops that hand out something else are unknown"
     );
     let ts = "for (const r of repos) {\n  r;\n}\nfor (const k in repos) {\n  k;\n}\nfor (const [k, r] of pairs) {\n  r;\n}\nfor (const r of load()) {\n  r;\n}\n";
     assert_eq!(at(Kind::TsJs, ts, 2, "r"), [(1, element("repos"))]);
@@ -96,35 +96,47 @@ class Service:
 import os.path, store.sessions as sessions
 "#;
     let at = |line, name| bound_at(Kind::Python, text, line, name);
-    // A parameter over a multi-line signature hides the module's `repo` above.
-    assert_eq!(at(14, "repo"), [(11, ty("UserRepository"))]);
+    assert_eq!(
+        at(14, "repo"),
+        [(11, ty("UserRepository"))],
+        "a parameter over a multi-line signature hides the module's `repo` above"
+    );
     assert_eq!(at(1, "repo"), [(3, Value::Call("UserRepository".into()))]);
     assert_eq!(at(14, "cache"), [(12, ty("\"Cache | None\""))]);
     assert_eq!(at(14, "local"), [(15, ty("Optional[Repo]"))]);
     assert_eq!(at(24, "self"), [(21, Value::Class(6))]);
-    // A static method's first parameter is no `self`, and an unannotated one is unknown.
-    assert_eq!(at(19, "first"), [(18, Value::Unknown)]);
+    assert_eq!(
+        at(19, "first"),
+        [(18, Value::Unknown)],
+        "a static method's first parameter is no `self`, and an unannotated one is unknown"
+    );
     assert_eq!(at(19, "second"), [(18, ty("int"))]);
     assert_eq!(at(23, "item"), [(22, Value::Element("items".into()))]);
-    // A comprehension or a lambda binds on its own line only.
-    assert_eq!(at(25, "r"), [(25, Value::Unknown)]);
-    assert_eq!(at(24, "r"), []);
-    // Unknown where it is written, it hides the module's `repo` and proves nothing.
-    assert_eq!(at(26, "repo"), [(26, Value::Unknown)]);
-    // A tuple and `as` are unknown; a keyword argument is no binding.
-    assert_eq!(at(29, "a"), [(27, Value::Unknown)]);
-    assert_eq!(at(29, "fh"), [(28, Value::Unknown)]);
-    assert_eq!(at(30, "level"), []);
-    // An import binds the names it imports, not the modules on their path.
-    assert_eq!(at(14, "UserRepository"), [(1, Value::Unknown)]);
-    assert_eq!(at(14, "repos"), []);
+    assert_eq!(
+        at(25, "r"),
+        [(25, Value::Unknown)],
+        "a comprehension or a lambda binds on its own line"
+    );
+    assert_eq!(at(24, "r"), [], "only");
+    assert_eq!(
+        at(26, "repo"),
+        [(26, Value::Unknown)],
+        "unknown where it is written, it hides the module's `repo` and proves nothing"
+    );
+    assert_eq!(at(29, "a"), [(27, Value::Unknown)], "a tuple is unknown");
+    assert_eq!(at(29, "fh"), [(28, Value::Unknown)], "so is `as`");
+    assert_eq!(at(30, "level"), [], "a keyword argument is no binding");
+    assert_eq!(
+        at(14, "UserRepository"),
+        [(1, Value::Unknown)],
+        "an import binds the names it imports"
+    );
+    assert_eq!(at(14, "repos"), [], "not the modules on their path");
     assert_eq!(at(14, "os"), [(32, Value::Unknown)]);
     assert_eq!(at(14, "path"), []);
     assert_eq!(at(14, "sessions"), [(32, Value::Unknown)]);
 }
 
-/// Comments and strings hold brackets, quotes and commas that are no code: fastapi writes a
-/// `# type: ignore` on a signature line and `Doc("""…""")` texts through its signatures.
 #[test]
 fn bindings_read_past_comments_strings_and_long_signatures() {
     let filler: String = (0..70).map(|i| format!("    p{i}: int,\n")).collect();
@@ -172,14 +184,20 @@ fn python_bindings_see_the_enclosing_functions_but_not_the_nested_ones() {
     let text = "def cleanup(user_id: int) -> None:\n    repo = AuditLog()\n\n    async def purge() -> None:\n        repo = UserRepository()\n        await repo.delete_user(user_id)\n\n    repo.delete_user(user_id)\n    repo = make_repo()  # later\n";
     let at = |line, name| bound_at(Kind::Python, text, line, name);
     let call = |c: &str| Value::Call(c.into());
-    // The innermost function binding the name hides the one around it.
-    assert_eq!(at(6, "repo"), [(5, call("UserRepository"))]);
-    // One that does not bind it reads the enclosing function's.
-    assert_eq!(at(6, "user_id"), [(1, ty("int"))]);
-    // The whole function counts, the lines after the cursor too.
+    assert_eq!(
+        at(6, "repo"),
+        [(5, call("UserRepository"))],
+        "the innermost function binding the name hides the one around it"
+    );
+    assert_eq!(
+        at(6, "user_id"),
+        [(1, ty("int"))],
+        "one that does not bind it reads the enclosing function's"
+    );
     assert_eq!(
         at(8, "repo"),
-        [(2, call("AuditLog")), (9, call("make_repo"))]
+        [(2, call("AuditLog")), (9, call("make_repo"))],
+        "the whole function counts, the lines after the cursor too"
     );
     assert_eq!(at(6, "user_id"), [(1, ty("int"))]);
 }
@@ -228,8 +246,11 @@ export function cleanup(id: number): void {
 "#;
     let at = |line, name| bound_at(Kind::TsJs, text, line, name);
     let new = |t: &str| Value::New(t.into());
-    // `this` passes a constructor over several lines, an arrow and a method.
-    assert_eq!(at(11, "this"), [(5, Value::Class(5))]);
+    assert_eq!(
+        at(11, "this"),
+        [(5, Value::Class(5))],
+        "`this` passes a constructor over several lines, an arrow and a method"
+    );
     assert_eq!(at(26, "this"), [(5, Value::Class(5))]);
     assert_eq!(at(23, "this"), [(22, Value::Unknown)]);
     assert_eq!(at(11, "repo"), [(8, ty("UserRepository"))]);
@@ -239,37 +260,50 @@ export function cleanup(id: number): void {
     assert_eq!(at(28, "made"), [(16, Value::Call("createRepo".into()))]);
     assert_eq!(at(28, "shared"), [(3, new("AuditLog"))]);
     assert_eq!(at(18, "item"), [(17, Value::Element("items".into()))]);
-    // A destructuring hands on a field of what stands on its right (#100).
     assert_eq!(
         at(28, "a"),
-        [(20, Value::Field(vec!["user".into()], "a".into()))]
+        [(20, Value::Field(vec!["user".into()], "a".into()))],
+        "a destructuring hands on a field of what stands on its right"
     );
     assert_eq!(at(21, "x"), [(21, ty("Item"))]);
-    // The innermost block around the cursor that declares the name; the inner `repo` is
-    // gone below its arrow.
-    assert_eq!(at(36, "repo"), [(35, new("UserRepository"))]);
-    assert_eq!(at(38, "repo"), [(33, new("AuditLog"))]);
+    assert_eq!(
+        at(36, "repo"),
+        [(35, new("UserRepository"))],
+        "the innermost block around the cursor that declares the name"
+    );
+    assert_eq!(
+        at(38, "repo"),
+        [(33, new("AuditLog"))],
+        "the inner `repo` is gone below its arrow"
+    );
 }
 
 #[test]
 fn what_a_header_binds_for_another_body_hides_nothing() {
     let new = |t: &str| Value::New(t.into());
-    // A loop and a one-name arrow inside a callback on the line that opens a literal or
-    // another callback: the cursor below is in neither, and the outer `repo` still counts.
     let ts = "const repo = new AuditLog();\nrun(() => { for (const repo of repos) { use(repo); } }, {\n  done: repo.x(),\n});\nrepos.map(repo => repo.id).forEach((id) => {\n  repo.y(id);\n});\nrepos.forEach(repo => {\n  repo.z();\n});\n";
     let at = |line| bound_at(Kind::TsJs, ts, line, "repo");
     assert_eq!(
         at(3),
-        [(2, Value::Element("repos".into())), (1, new("AuditLog"))]
+        [(2, Value::Element("repos".into())), (1, new("AuditLog"))],
+        "a loop inside a callback on the line that opens a literal: the cursor below is not in \
+         it, and the outer `repo` still counts"
     );
-    assert_eq!(at(6), [(5, Value::Unknown), (1, new("AuditLog"))]);
-    // The arrow whose body the line opens is the cursor's own.
-    assert_eq!(at(9), [(8, Value::Unknown)]);
-    // A declaration inside a raw string over several lines is none.
+    assert_eq!(
+        at(6),
+        [(5, Value::Unknown), (1, new("AuditLog"))],
+        "so with a one-name arrow on the line that opens another callback"
+    );
+    assert_eq!(
+        at(9),
+        [(8, Value::Unknown)],
+        "the arrow whose body the line opens is the cursor's own"
+    );
     let go = "func f() {\n\trepo := NewAudit()\n\tif ok {\n\t\tconst doc = `\n\t\trepo := NewRepo()\n\t\t`\n\t\trepo.Go(doc)\n\t}\n}\n";
     assert_eq!(
         bound_at(Kind::Go, go, 7, "repo"),
-        [(2, Value::Call("NewAudit".into()))]
+        [(2, Value::Call("NewAudit".into()))],
+        "a declaration inside a raw string over several lines is none"
     );
 }
 
@@ -305,8 +339,11 @@ func (s *UserService) Remove(id int, a, b *Repo) (n int, err error) {
     assert_eq!(at(21, "b"), [(5, ty("*Repo"))]);
     assert_eq!(at(21, "n"), [(5, ty("int"))]);
     assert_eq!(at(21, "made"), [(7, Value::Call("NewRepo".into()))]);
-    // The second name of a `:=` is not the call's first result.
-    assert_eq!(at(21, "err"), [(7, Value::Unknown), (5, ty("error"))]);
+    assert_eq!(
+        at(21, "err"),
+        [(7, Value::Unknown), (5, ty("error"))],
+        "the second name of a `:=` is not the call's first result"
+    );
     assert_eq!(at(21, "typed"), [(8, ty("store.Session"))]);
     assert_eq!(at(21, "built"), [(9, new("Repo"))]);
     assert_eq!(at(21, "fresh"), [(10, new("Repo"))]);
@@ -419,20 +456,25 @@ end
     assert_eq!(at(6, "fee"), [2]);
     assert_eq!(at(6, "sum"), [3]);
     assert_eq!(at(6, "part"), [5]);
-    // A default, a guard and a key bind nothing, nor does a sibling clause.
-    assert!(at(6, "rate").is_empty());
-    assert!(at(6, "other").is_empty());
+    assert!(
+        at(6, "rate").is_empty(),
+        "a default, a guard and a key bind nothing"
+    );
+    assert!(at(6, "other").is_empty(), "nor does a sibling clause");
     assert_eq!(at(8, "other"), [7]);
-    // Parameters wrapped over several lines.
-    assert_eq!(at(16, "first"), [13]);
+    assert_eq!(
+        at(16, "first"),
+        [13],
+        "parameters wrapped over several lines"
+    );
     assert_eq!(at(16, "second"), [14]);
     assert!(at(16, "key").is_empty());
-    // Nothing outside a `def` is a local.
-    assert!(at(12, "pay").is_empty());
+    assert!(
+        at(12, "pay").is_empty(),
+        "nothing outside a `def` is a local"
+    );
 }
 
-/// Review of #515: a `for` or `with` binds the left of its `<-`, over a namesake above it; a
-/// one-line `fn x ->` binds on the cursor's own line; a pinned `^x` binds nothing.
 #[test]
 fn elixir_generators_and_one_line_fns_bind() {
     let text = "\
@@ -458,16 +500,21 @@ end
             .map(|b| b.line)
             .collect::<Vec<_>>()
     };
-    assert_eq!(at(5, "x"), [4]);
-    assert_eq!(at(9, "z"), [8]);
-    assert_eq!(at(11, "x"), [11]);
+    assert_eq!(
+        at(5, "x"),
+        [4],
+        "a `for` binds the left of its `<-`, over a namesake above it"
+    );
+    assert_eq!(at(9, "z"), [8], "so does a `with`");
+    assert_eq!(
+        at(11, "x"),
+        [11],
+        "a one-line `fn x ->` binds on the cursor's own line"
+    );
     assert_eq!(at(13, "x"), [3], "a pin binds nothing");
     assert_eq!(at(13, "w"), [12]);
 }
 
-/// Review of #515: a `for` or a `function(…)` on the cursor's own line may bind the qualifier,
-/// and then the file's `local m = require(…)` says nothing; below them it does. `require` takes
-/// its module with or without parentheses and either quote.
 #[test]
 fn a_lua_qualifier_bound_on_its_own_line_is_no_require() {
     let text = "\
@@ -478,11 +525,20 @@ end
 local f = function(m) return m.run() end
 return m.run()
 ";
-    assert_eq!(lua_local_value(text, 3, "m"), None);
-    assert_eq!(lua_local_value(text, 5, "m"), None);
+    assert_eq!(
+        lua_local_value(text, 3, "m"),
+        None,
+        "a `for` on the cursor's own line binds the qualifier: the file's `require` says nothing"
+    );
+    assert_eq!(
+        lua_local_value(text, 5, "m"),
+        None,
+        "so does a `function(…)`"
+    );
     assert_eq!(
         lua_local_value(text, 6, "m").as_deref(),
-        Some("require(\"x\")")
+        Some("require(\"x\")"),
+        "below them the `require` does"
     );
     for value in [
         "require(\"a.b\")",
@@ -490,7 +546,11 @@ return m.run()
         "require 'a.b'",
         "require('a.b')",
     ] {
-        assert_eq!(lua_required(value), Some("a.b"), "{value}");
+        assert_eq!(
+            lua_required(value),
+            Some("a.b"),
+            "with or without parentheses, either quote: {value}"
+        );
     }
 }
 

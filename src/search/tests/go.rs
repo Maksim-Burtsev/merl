@@ -70,19 +70,25 @@ fn qualified_names_come_from_the_declarations_around() {
     assert_eq!(q(Kind::Go, go, 6, "Parse"), None);
     assert_eq!(q(Kind::Go, go, 8, "Send").as_deref(), Some("Notifier.Send"));
     assert_eq!(q(Kind::Rust, RS, 6, "sum").as_deref(), Some("Order::sum"));
-    // A Rust `impl` is named after the type it is for.
     let rs = "impl std::fmt::Display for Reason {\n    fn fmt(&self) {}\n}\nimpl<T> From<T> for Order {\n    fn from(t: T) -> Self {}\n}\n";
-    assert_eq!(q(Kind::Rust, rs, 2, "fmt").as_deref(), Some("Reason::fmt"));
+    assert_eq!(
+        q(Kind::Rust, rs, 2, "fmt").as_deref(),
+        Some("Reason::fmt"),
+        "a Rust `impl` is named after the type it is for"
+    );
     assert_eq!(q(Kind::Rust, rs, 5, "from").as_deref(), Some("Order::from"));
-    // An enclosing line that names nothing stops the walk: the object literal's `get` is
-    // not `Api.get`.
     let lit = "class Api {\n  build() {\n    return {\n      get() {\n      },\n    };\n  }\n}\n";
-    assert_eq!(q(Kind::TsJs, lit, 4, "get"), None);
-    // A comment indented less than the method is skipped, not taken for a container.
+    assert_eq!(
+        q(Kind::TsJs, lit, 4, "get"),
+        None,
+        "an enclosing line that names nothing stops the walk: the object literal's `get` is not \
+         `Api.get`"
+    );
     let commented = "class A:\n# note\n    def run(self):\n        pass\n";
     assert_eq!(
         q(Kind::Python, commented, 3, "run").as_deref(),
-        Some("A.run")
+        Some("A.run"),
+        "a comment indented less than the method is skipped, not taken for a container"
     );
     let yaml = "x-common: &defaults\n  env: prod\n";
     assert_eq!(q(Kind::Yaml, yaml, 2, "env"), None);
@@ -91,15 +97,16 @@ fn qualified_names_come_from_the_declarations_around() {
         q(Kind::Ruby, rb, 3, "total").as_deref(),
         Some("Billing.Invoice.total")
     );
-    // #387: `class << self` opens the class around it, and a path written into the line counts.
     let rb = "module Billing\n  class Invoice\n    class << self\n      def parse\n      end\n    end\n  end\nend\nclass Api::V1::Invoice\n  def total\n  end\nend\ndef Invoice.blank\nend\n";
     assert_eq!(
         q(Kind::Ruby, rb, 4, "parse").as_deref(),
-        Some("Billing.Invoice.parse")
+        Some("Billing.Invoice.parse"),
+        "`class << self` opens the class around it"
     );
     assert_eq!(
         q(Kind::Ruby, rb, 9, "Invoice").as_deref(),
-        Some("Api.V1.Invoice")
+        Some("Api.V1.Invoice"),
+        "a path written into the line counts"
     );
     assert_eq!(
         q(Kind::Ruby, rb, 10, "total").as_deref(),
@@ -109,26 +116,27 @@ fn qualified_names_come_from_the_declarations_around() {
         q(Kind::Ruby, rb, 13, "blank").as_deref(),
         Some("Invoice.blank")
     );
-    // #535: an owner written into the `def` that is the class around it is not named twice, nor
-    // is it for a parameter; another owner is still read inside that class.
     let rb = "module Shop\n  class User\n    def User.build(arg)\n    end\n    def Other.make\n    end\n  end\nend\n";
     assert_eq!(
         q(Kind::Ruby, rb, 3, "build").as_deref(),
-        Some("Shop.User.build")
+        Some("Shop.User.build"),
+        "an owner written into the `def` that is the class around it is not named twice"
     );
     assert_eq!(
         q(Kind::Ruby, rb, 3, "arg").as_deref(),
-        Some("Shop.User.build.arg")
+        Some("Shop.User.build.arg"),
+        "nor is it for a parameter"
     );
     assert_eq!(
         q(Kind::Ruby, rb, 5, "make").as_deref(),
-        Some("Shop.User.Other.make")
+        Some("Shop.User.Other.make"),
+        "another owner is still read inside that class"
     );
-    // #374: a column of `db/schema.rb` is its table's, and a DSL line its class's.
     let schema = "ActiveRecord::Schema[7.1].define(version: 1) do\n  create_table \"collections\", force: :cascade do |t|\n    t.string \"language\"\n  end\n  create_table :drafts do |t|\n    t.text :summary\n  end\nend\n";
     assert_eq!(
         q(Kind::Ruby, schema, 3, "language").as_deref(),
-        Some("collections.language")
+        Some("collections.language"),
+        "a column of `db/schema.rb` is its table's"
     );
     assert_eq!(
         q(Kind::Ruby, schema, 6, "summary").as_deref(),
@@ -137,16 +145,19 @@ fn qualified_names_come_from_the_declarations_around() {
     let rb = "class Account < ApplicationRecord\n  has_many :followers\nend\n";
     assert_eq!(
         q(Kind::Ruby, rb, 2, "followers").as_deref(),
-        Some("Account.followers")
+        Some("Account.followers"),
+        "a DSL line is its class's"
     );
 }
 
-/// #100. A `var (` block declares what stands at its own level; a function may declare a
-/// name wherever it mentions it other than in front of a `.`.
 #[test]
 fn a_go_package_block_is_read_at_its_level_and_a_mention_may_declare() {
     let block = "var (\n\tcfg struct {\n\t\trepo *B\n\t}\n\n\t// the audit log\n\taudit AuditLog // shared\n)\n\nfunc f() {\n\trepo := 1\n}\n\ntype T struct {\n\taudit *B\n}\n";
-    assert_eq!(package_bindings(block, "repo"), vec![]);
+    assert_eq!(
+        package_bindings(block, "repo"),
+        vec![],
+        "a `var (` block declares what stands at its own level"
+    );
     assert_eq!(
         package_bindings(block, "audit"),
         vec![Binding {
@@ -193,7 +204,6 @@ fn a_go_package_block_is_read_at_its_level_and_a_mention_may_declare() {
     }
 }
 
-/// #100. A Go package is the one directory its import path ends at.
 #[test]
 fn a_go_package_is_one_directory() {
     let parts = |p: &str| -> Vec<String> { p.split('/').map(str::to_owned).collect() };
@@ -252,9 +262,6 @@ fn a_go_package_is_one_directory() {
     }
 }
 
-/// #100, #137. A Go file is compiled for a platform by its name and its `//go:build` line,
-/// where a tag is set as a plain `go build` sets it: a tag of the project's own is not, until
-/// `GOFLAGS` names it.
 #[test]
 fn a_go_file_is_built_for_a_platform_by_its_name_and_its_build_line() {
     let built = |name: &str, line: &str, os: &'static str, arch: &'static str| {
@@ -425,15 +432,21 @@ fn a_go_file_is_built_for_a_platform_by_its_name_and_its_build_line() {
             "{name} {line} on {os}/{arch}"
         );
     }
-    // The host is spelled as Go spells it.
     let host = GoBuild::host();
     let (os, arch) = (host.os, host.arch);
-    assert!(GO_UNIX.contains(&os) || GO_OS.contains(&os), "{os}");
+    assert!(
+        GO_UNIX.contains(&os) || GO_OS.contains(&os),
+        "the host is spelled as Go spells it: {os}"
+    );
     assert!(GO_ARCH.contains(&arch), "{arch}");
-    // The environment is read as `go build` reads it: the last `-tags` of `GOFLAGS`.
     let env = host.env(Some("0"), Some("-mod=mod -tags=old --tags=gogit,bindata"));
     let tagged = |line: &str| go_built(Path::new("c.go"), &format!("{line}\npackage p\n"), &env);
-    assert_eq!(tagged("//go:build gogit"), Some(true));
+    assert_eq!(
+        tagged("//go:build gogit"),
+        Some(true),
+        "a tag of the project's own is set once `GOFLAGS` names it, read as `go build` reads it: \
+         its last `-tags`"
+    );
     assert_eq!(tagged("//go:build !bindata"), Some(false));
     assert_eq!(tagged("//go:build old || cgo"), Some(false));
     assert!(GoBuild::host().env(Some("1"), None).cgo);
@@ -442,15 +455,20 @@ fn a_go_file_is_built_for_a_platform_by_its_name_and_its_build_line() {
         arch: "amd64",
         ..GoBuild::host()
     };
-    // So is one inside a block comment above it.
     let block = "/*\n//go:build windows\n*/\n\npackage p\n";
-    assert_eq!(go_built(Path::new("c.go"), block, &linux), Some(true));
-    // A `//go:build` under the package clause is a comment.
+    assert_eq!(
+        go_built(Path::new("c.go"), block, &linux),
+        Some(true),
+        "a `//go:build` inside a block comment is a comment"
+    );
     let late = "package p\n\n//go:build windows\n";
-    assert_eq!(go_built(Path::new("c.go"), late, &linux), Some(true));
+    assert_eq!(
+        go_built(Path::new("c.go"), late, &linux),
+        Some(true),
+        "a `//go:build` under the package clause is a comment"
+    );
 }
 
-/// #536: which occurrence of a method's name in its own parameter list is a type.
 #[test]
 fn a_go_parameter_type_named_like_its_method() {
     let at = |line: &str, n: usize| line.match_indices("Send").nth(n).unwrap().0;

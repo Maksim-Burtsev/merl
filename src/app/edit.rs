@@ -408,6 +408,9 @@ impl App {
         let bytes = self.buf.to_bytes();
         match std::fs::write(path, &bytes) {
             Ok(()) => {
+                if let Ok(mut kept) = self.shaped.lock() {
+                    kept.remove(path);
+                }
                 self.buf.disk = buffer::hash(&bytes);
                 self.dirty = false;
                 self.conflict = false;

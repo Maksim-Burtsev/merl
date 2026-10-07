@@ -19,12 +19,14 @@ macro_rules! sql_create {
 pub(super) use sql_create;
 
 /// Everything that can stand before a declaration in Java or Kotlin: annotations, Java's access
-/// and class modifiers, Kotlin's own. The argument is the repetition the run takes: `"*"` for a
-/// rule that reads them if they are there, `"+"` for one that needs at least one of them. A
-/// macro, so [`def_patterns`] and the [`SYMBOLS`] rows share one spelling of it.
+/// and class modifiers, Kotlin's own. A macro, so [`def_patterns`] and the [`SYMBOLS`] rows
+/// share one spelling of it.
 macro_rules! jvm_mods {
     () => {
         jvm_mods!("*")
+    };
+    (at_least_one) => {
+        jvm_mods!("+")
     };
     ($rep:literal) => {
         concat!(
@@ -161,21 +163,15 @@ const C_TYPEDEF_SYMBOL: &str =
 const C_MACRO_SYMBOL: &str = r"^\s*#\s*define\s+(?P<name>[A-Za-z_]\w*)";
 
 /// Everything that can stand before a C# declaration: the attribute lists written on the same
-/// line (`[Fact] public void …`) and the modifiers, which come in any order. The argument is the
-/// repetition the run takes: `"*"` for a rule that reads them if they are there, `"+"` for one
-/// that needs at least one. A macro, so [`def_patterns`] and the [`SYMBOLS`] rows share one
-/// spelling of it.
+/// line (`[Fact] public void …`) and the modifiers, which come in any order. A macro, so
+/// [`def_patterns`] and the [`SYMBOLS`] rows share one spelling of it.
 macro_rules! cs_mods {
     () => {
-        cs_mods!("*")
-    };
-    ($rep:literal) => {
         concat!(
             r"^\s*(?:\[[^\]]*\]\s*)*",
             r"(?:(?:public|private|protected|internal|file|static|readonly|const|sealed|abstract",
             r"|virtual|override|partial|async|extern|unsafe|new|volatile|event|required|fixed",
-            r"|implicit|explicit|ref)\s+)",
-            $rep
+            r"|implicit|explicit|ref)\s+)*"
         )
     };
     // A constructor is told from a call by its modifiers alone, so its run is the access ones
@@ -238,14 +234,10 @@ const CS_MEMBER_SYMBOL: &str = concat!(
 
 /// Everything that can stand before a Swift declaration: its attributes and property wrappers,
 /// and the modifiers, which come in any order. `class` is one of them — `class func load()` is
-/// Swift's static method — and the keyword alternations below read past it. The argument is the
-/// repetition the run takes, as [`cs_mods`]. A macro, so [`def_patterns`] and the [`SYMBOLS`] row
-/// share one spelling of it.
+/// Swift's static method — and the keyword alternations below read past it. A macro, so
+/// [`def_patterns`] and the [`SYMBOLS`] row share one spelling of it.
 macro_rules! swift_mods {
     () => {
-        swift_mods!("*")
-    };
-    ($rep:literal) => {
         concat!(
             r"^\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*",
             r"(?:(?:public|private|fileprivate|internal|open|package|static|class|final|override",
@@ -253,8 +245,7 @@ macro_rules! swift_mods {
             r"|optional|prefix|postfix|infix|nonisolated|distributed|borrowing|consuming)",
             // `private(set)`: the setter's own access, the one place Swift parenthesises a
             // modifier. Without it the run stops at the `(` and the declaration is never read.
-            r"(?:\(set\))?\s+)",
-            $rep
+            r"(?:\(set\))?\s+)*"
         )
     };
 }
@@ -270,8 +261,9 @@ const SWIFT_DECL_SYMBOL: &str = concat!(
 );
 
 /// Everything that can stand before a PHP declaration: its attributes and the modifiers a class
-/// member carries. The argument is the repetition the run takes, as [`cs_mods`]. A macro, so
-/// [`def_patterns`] and the [`SYMBOLS`] row share one spelling of it.
+/// member carries. The argument is the repetition the run takes: `"*"` for a rule that reads them
+/// if they are there, `"+"` for one that needs at least one. A macro, so [`def_patterns`] and the
+/// [`SYMBOLS`] row share one spelling of it.
 macro_rules! php_mods {
     () => {
         php_mods!("*")
@@ -339,14 +331,15 @@ const ZIG_TEST_SYMBOL: &str = r#"^\s*test\s+"(?P<name>[^"]*)""#;
 /// project. They are directives, so [`def_patterns`] has no rule for the name itself. A list of
 /// known names is all a line pattern can have here: any library may define an attribute, and
 /// `@tag :slow` and `@timeout 5_000` are the same line.
-pub(super) const ELIXIR_DIRECTIVES: &[&str] = &[
-    // ExUnit and Mix, which every project in the language meets.
+pub(super) const EXUNIT_AND_MIX_DIRECTIVES: &[&str] = &[
     "describetag",
     "endpoint",
     "moduletag",
     "shortdoc",
     "switches",
     "tag",
+];
+pub(super) const ELIXIR_DIRECTIVES: &[&str] = &[
     "after_compile",
     "before_compile",
     "behaviour",
@@ -372,9 +365,7 @@ pub(super) const ELIXIR_DIRECTIVES: &[&str] = &[
     "typep",
     "vsn",
 ];
-/// A name in a `CREATE` statement, as written: bare, `"quoted"` or `` `backticked` ``, and
-/// optionally schema-qualified (`public.orders`).
-pub(super) const SQL_NAME: &str = r#"(?:"[^"]+"|`[^`]+`|\w+)"#;
+pub(super) const SQL_NAME_PART: &str = r#"(?:"[^"]+"|`[^`]+`|\w+)"#;
 const SQL_CREATE_SYMBOL: &str = concat!(
     sql_create!(),
     r#"(?P<name>(?:"[^"]+"|`[^`]+`|\w+)(?:\.(?:"[^"]+"|`[^`]+`|\w+))?)"#

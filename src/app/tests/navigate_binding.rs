@@ -1,11 +1,5 @@
-//! `d` on a value: which binding wins, and what it was assigned.
-
 use super::*;
 
-/// #100: the innermost scope that binds a name decides what it is. A module-level or
-/// package-level name, a variable of the function around a closure and one of the block
-/// around a block are hidden, where they used to disagree with the inner one. What hides may
-/// be unknown, and then nothing behind it answers; two bindings of one scope still disagree.
 #[test]
 fn the_innermost_binding_wins() {
     let cases: Vec<(&str, &str, &str, &str, Shown)> = vec![
@@ -397,10 +391,6 @@ fn the_innermost_binding_wins() {
     }
 }
 
-/// #100: a loop variable is an element of what it loops over, where that collection's type is
-/// written: `list[T]`, `T[]`, `[]T`, `map[K]T`, as an annotation or as the return type of the
-/// function it came from. The collection itself is no `T`, and keys, pairs, a tuple target
-/// and a collection declared twice stay unknown.
 #[test]
 fn a_loop_variable_is_an_element_of_a_written_collection() {
     let cases: Vec<(&str, &str, &str, &str, Shown)> = vec![

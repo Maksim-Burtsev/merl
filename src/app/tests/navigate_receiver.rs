@@ -1,11 +1,5 @@
-//! `d` on a member: found by name, or in the type of the receiver.
-
 use super::*;
 
-/// Steps 7 and 1 of #68 over the same project in three languages: on `x.word` with `x` a
-/// value whose type is not known, one member declaration of the name jumps and says it was
-/// found by name; several open a picker whose rows say what each is declared in and why it
-/// is there.
 #[test]
 fn a_member_of_a_value_is_found_by_name_and_says_so() {
     let two =
@@ -89,10 +83,6 @@ fn a_member_of_a_value_is_found_by_name_and_says_so() {
     );
 }
 
-/// Found by the acceptance pass of #68. On a declaration, the other declarations of the name
-/// are namesakes nothing ties to it: a second `d` after a proven jump used to leave
-/// `UserRepository.delete_user` for `AuditLog.delete_user` on its own, with `1 match`. They
-/// are offered in a picker that says where the cursor stands, even when there is one.
 #[test]
 fn a_declaration_does_not_jump_to_its_namesake() {
     let cases = [
@@ -130,7 +120,7 @@ fn a_declaration_does_not_jump_to_its_namesake() {
         assert_eq!(
             status,
             format!("{word}: at a declaration, 1 other by name"),
-            "{fixture}"
+            "{fixture}: the namesakes are offered in a picker that says where the cursor stands, even when there is one"
         );
         assert_eq!(rows.len(), 1, "{fixture}");
         assert_eq!(rows[0].0, other, "{fixture}");
@@ -142,11 +132,6 @@ fn a_declaration_does_not_jump_to_its_namesake() {
     }
 }
 
-/// Steps 2 and 3 of #68 over the same project in three languages. A receiver whose every
-/// declaration in scope reads one type, directly or through the return type of one call, has
-/// its member looked up in that type: one jump, which says the link it followed. Two
-/// declarations that disagree, or a call whose return type is not written, leave the member
-/// to the search by name: a picker of two.
 #[test]
 fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
     let cases: Vec<(&str, &str, &str, &str, Shown)> = vec![
@@ -398,11 +383,6 @@ fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
     }
 }
 
-/// Step 4 of #68 over the same project in three languages. A chain is followed one field at a
-/// time, each through the type before it (a Go field may be promoted from an embedded struct),
-/// and a jump lists the links. A link that cannot be proven, or a seventh name, falls back to
-/// the search by name and says where the chain broke. A chain that hangs off a call has no
-/// names to follow.
 #[test]
 fn a_chain_is_followed_link_by_link() {
     let by_name = |status: &str, rows: &[(&str, &str)]| picker(status, rows);

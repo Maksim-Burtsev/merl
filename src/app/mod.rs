@@ -331,6 +331,7 @@ pub struct App {
     /// that kind under them; filled the first time `d` leaves the project.
     external: HashMap<Kind, (Vec<PathBuf>, Arc<Vec<PathBuf>>)>,
     walked_roots: HashMap<PathBuf, Arc<Vec<PathBuf>>>,
+    shaped: search::ShapedFiles,
     warming: HashMap<Kind, Option<std::thread::JoinHandle<Walked>>>,
     node_modules_of: Option<PathBuf>,
     otp: Option<Vec<PathBuf>>,
@@ -535,6 +536,7 @@ impl App {
             ignored,
             external: HashMap::new(),
             walked_roots: HashMap::new(),
+            shaped: Default::default(),
             warming: HashMap::new(),
             node_modules_of: None,
             otp: None,

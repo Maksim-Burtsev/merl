@@ -432,7 +432,6 @@ impl Model {
 
     fn replace(&mut self, from: Pos, to: Pos, text: &str, kind: &'static str) -> bool {
         self.fresh |= kind == "other";
-        // Nothing to take and nothing to put: no step, the redo kept (#455).
         if from == to && text.is_empty() {
             return false;
         }
@@ -524,7 +523,6 @@ impl Model {
         self.anchor = anchor.map(moved);
         self.cur = moved(cur);
         self.sync_x();
-        // Redo lands where the Tab left the cursor (#456).
         self.undo.last_mut().unwrap().after = self.cur;
     }
 
