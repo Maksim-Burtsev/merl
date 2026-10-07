@@ -1047,7 +1047,7 @@ fn tree_width(app: &mut App, w: u16) -> (usize, String) {
 }
 
 #[test]
-fn the_tree_goes_wide_with_the_keys_when_a_row_is_cut() {
+fn the_tree_widens_with_the_keys_to_its_longest_row_on_screen() {
     let mut app = deep_app();
     app.tree.reveal(std::path::Path::new(
         "a/b/c/d/e/f/g/h/TotpAuthenticationManager.java",
@@ -1057,8 +1057,11 @@ fn the_tree_goes_wide_with_the_keys_when_a_row_is_cut() {
     assert!(!text.contains("TotpAuthenticationManager.java"), "{text}");
     app.focus = crate::app::Focus::Tree;
     let (w, text) = tree_width(&mut app, 120);
-    assert_eq!(w, 60, "{text}");
-    assert!(text.contains("TotpAuthenticationManager.java"), "{text}");
+    assert_eq!(w, 2 + 2 * 8 + 2 + 30, "{text}");
+    assert!(
+        text.contains("TotpAuthenticationManager.java\u{2502}"),
+        "{text}"
+    );
     assert!(
         text.lines()
             .skip(1)
@@ -1078,22 +1081,25 @@ fn the_tree_keeps_its_30_columns_where_every_name_fits() {
     app.focus = crate::app::Focus::Tree;
     let (w, text) = tree_width(&mut app, 92);
     assert_eq!(w, 30, "{text}");
-    assert!(!app.tree_wide);
+    assert_eq!(app.tree_width, Some(30));
 }
 
 #[test]
-fn the_wide_tree_is_half_the_screen_however_long_its_names() {
-    let mut short = review_app(&[("a/b/c/d/e/f/g/h/i/j/abcdefghij.rs", 'M', 1, 0)]);
+fn the_wide_tree_never_passes_half_the_screen() {
+    let mut deep = review_app(&[("a/b/c/d/e/f/g/h/i/j/abcdefghij.rs", 'M', 1, 0)]);
+    deep.focus = crate::app::Focus::Tree;
+    assert_eq!(
+        tree_width(&mut deep, 120).0,
+        2 + 2 + 2 * 10 + 2 + 13 + 1 + 5
+    );
     let long = format!("a/{}.rs", "x".repeat(120));
     let mut long = review_app(&[(&long, 'M', 1, 0)]);
-    for app in [&mut short, &mut long] {
-        app.focus = crate::app::Focus::Tree;
-        assert_eq!(tree_width(app, 120).0, 60);
-    }
+    long.focus = crate::app::Focus::Tree;
+    assert_eq!(tree_width(&mut long, 120).0, 60);
 }
 
 #[test]
-fn the_wide_tree_stays_wide_until_the_keys_leave_it() {
+fn the_width_is_chosen_once_a_visit() {
     let mut app = deep_app();
     let top = |app: &mut App| {
         app.tree.cursor = app
@@ -1110,6 +1116,10 @@ fn the_wide_tree_stays_wide_until_the_keys_leave_it() {
     app.tree.reveal(std::path::Path::new(
         "a/b/c/d/e/f/g/h/TotpAuthenticationManager.java",
     ));
+    assert_eq!(tree_width(&mut app, 92).0, 30);
+    app.focus = crate::app::Focus::Code;
+    tree_width(&mut app, 92);
+    app.focus = crate::app::Focus::Tree;
     assert_eq!(tree_width(&mut app, 92).0, 46);
     top(&mut app);
     assert_eq!(tree_width(&mut app, 92).0, 46);
@@ -1133,7 +1143,7 @@ fn a_visit_to_the_wide_tree_leaves_the_code_where_it_was() {
         tree_width(&mut app, 120);
         let before = (app.left, app.top_line, app.top_row);
         app.focus = crate::app::Focus::Tree;
-        assert_eq!(tree_width(&mut app, 120).0, 60);
+        assert_eq!(tree_width(&mut app, 120).0, 50);
         app.focus = crate::app::Focus::Code;
         assert_eq!(tree_width(&mut app, 120).0, 30);
         assert_eq!((app.left, app.top_line, app.top_row), before, "{name}");
@@ -1165,5 +1175,5 @@ fn a_terminal_too_narrow_to_widen_keeps_the_tree_at_30_columns() {
     ));
     app.focus = crate::app::Focus::Tree;
     assert_eq!(tree_width(&mut app, 60).0, 30);
-    assert!(!app.tree_wide);
+    assert_eq!(app.tree_width, Some(30));
 }

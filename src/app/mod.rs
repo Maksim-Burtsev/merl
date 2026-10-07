@@ -353,7 +353,7 @@ pub struct App {
     reading: std::cell::RefCell<Vec<(PathBuf, usize)>>,
     pub focus: Focus,
     pub show_tree: bool,
-    pub tree_wide: bool,
+    pub tree_width: Option<u16>,
     /// First visible row of the tree pane, clamped by `ui`.
     pub tree_top: usize,
     pub picker: Option<Picker>,
@@ -554,7 +554,7 @@ impl App {
             reading: Default::default(),
             focus,
             show_tree: true,
-            tree_wide: false,
+            tree_width: None,
             tree_top: 0,
             picker: None,
             search_seq: 0,

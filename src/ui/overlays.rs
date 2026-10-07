@@ -87,7 +87,7 @@ pub(super) fn draw_tree(
     theme: &Theme,
     area: Rect,
     base: Style,
-) -> bool {
+) -> Option<usize> {
     let accent = base.fg(theme.accent);
     let title = match &app.review {
         Some(r) => format!("{} \u{2190} {}", r.branch, r.base),
@@ -130,6 +130,7 @@ pub(super) fn draw_tree(
     app.tree_top = app.tree_top.min(at).max((at + 1).saturating_sub(height));
 
     let mut cut_any = false;
+    let mut need = 0;
     let rows: Vec<Line> = visible
         .iter()
         .skip(app.tree_top)
@@ -142,6 +143,10 @@ pub(super) fn draw_tree(
             let cut = wrap::width(&full) > room;
             let joined = full.contains('/');
             cut_any |= cut;
+            for j in app.tree.row_nodes(i) {
+                let m = &app.tree.nodes[j];
+                need = need.max(used(app.review.as_ref(), m, m.depth) + wrap::width(&m.name()));
+            }
             // Directories carry the accent: they are what the eye scans the tree by. What
             // `.gitignore` leaves out is dim, directory or not.
             let row = if n.ignored {
@@ -217,7 +222,7 @@ pub(super) fn draw_tree(
         })
         .collect();
     frame.render_widget(Paragraph::new(rows).style(base), inner);
-    cut_any
+    cut_any.then_some(need)
 }
 
 const NAME_ROOM: usize = 12;
@@ -229,12 +234,15 @@ fn counts(f: &crate::git::ReviewFile) -> String {
     }
 }
 
-fn name_room(review: Option<&Review>, n: &crate::tree::Node, depth: usize, width: usize) -> isize {
-    let used = match review {
+fn used(review: Option<&Review>, n: &crate::tree::Node, depth: usize) -> usize {
+    match review {
         None => 2 * depth + 2,
         Some(r) => 2 + 2 * depth + 2 + r.file(&n.path).map_or(0, |f| wrap::width(&counts(f)) + 1),
-    };
-    width as isize - used as isize
+    }
+}
+
+fn name_room(review: Option<&Review>, n: &crate::tree::Node, depth: usize, width: usize) -> isize {
+    width as isize - used(review, n, depth) as isize
 }
 
 fn cut_at_slash(path: &str, room: usize) -> String {

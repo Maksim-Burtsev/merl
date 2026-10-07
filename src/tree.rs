@@ -434,9 +434,16 @@ impl Tree {
     }
 
     pub fn row_name(&self, i: usize) -> String {
-        let joined = (0..i).rev().take_while(|j| self.folded.contains(j)).count();
-        let parts: Vec<String> = self.nodes[i - joined..=i].iter().map(Node::name).collect();
+        let parts: Vec<String> = self.nodes[self.row_nodes(i)]
+            .iter()
+            .map(Node::name)
+            .collect();
         parts.join("/")
+    }
+
+    pub fn row_nodes(&self, i: usize) -> std::ops::RangeInclusive<usize> {
+        let joined = (0..i).rev().take_while(|j| self.folded.contains(j)).count();
+        i - joined..=i
     }
 
     fn only_dir_child(&self, i: usize) -> bool {

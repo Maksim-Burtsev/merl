@@ -49,22 +49,30 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     ])
     .areas(area);
     if app.focus != Focus::Tree {
-        app.tree_wide = false;
+        app.tree_width = None;
     }
-    let wide = (main.width / 2).max(TREE_W);
-    let tree_w = match (app.show_tree, app.tree_wide) {
+    let half = (main.width / 2).max(TREE_W);
+    let tree_w = match (app.show_tree, app.tree_width) {
         (false, _) => 0,
-        (true, true) => wide,
-        (true, false) => TREE_W,
+        (true, Some(w)) => w.min(half),
+        (true, None) => TREE_W,
     };
     let [tree, code] =
         Layout::horizontal([Constraint::Length(tree_w), Constraint::Min(1)]).areas(main);
 
-    let cut = app.show_tree && draw_tree(frame, app, theme, tree, base);
-    if cut && app.focus == Focus::Tree && !app.tree_wide && wide > TREE_W {
-        app.tree_wide = true;
-        frame.render_widget(ratatui::widgets::Clear, frame.area());
-        return draw(frame, app, theme);
+    let need = match app.show_tree {
+        true => draw_tree(frame, app, theme, tree, base),
+        false => None,
+    };
+    if app.show_tree && app.focus == Focus::Tree && app.tree_width.is_none() {
+        let w = need.map_or(TREE_W, |n| {
+            (u16::try_from(n + 2).unwrap_or(u16::MAX)).clamp(TREE_W, half)
+        });
+        app.tree_width = Some(w);
+        if w > TREE_W {
+            frame.render_widget(ratatui::widgets::Clear, frame.area());
+            return draw(frame, app, theme);
+        }
     }
     let mut pane = |app: &mut App| {
         if app.previewing() {
@@ -79,7 +87,7 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
             draw_welcome(frame, theme, code, base);
         }
     };
-    match app.tree_wide {
+    match app.tree_width.is_some_and(|w| w > TREE_W) {
         true => app.drawn_aside(pane),
         false => pane(app),
     }
