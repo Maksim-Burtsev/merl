@@ -106,7 +106,12 @@ pub fn diff(root: &Path, path: &Path, base: Option<&str>, old: Option<&Path>) ->
 
 fn new_to_git(root: &Path, path: &Path, head: bool) -> bool {
     let path = path.to_string_lossy();
-    let mut args = vec!["--literal-pathspecs", "ls-files", "--others", "--exclude-standard"];
+    let mut args = vec![
+        "--literal-pathspecs",
+        "ls-files",
+        "--others",
+        "--exclude-standard",
+    ];
     if !head {
         args.push("--cached");
     }
@@ -1097,7 +1102,15 @@ mod tests {
         git(&["init", "-q"]);
         std::fs::write(dir.join("f"), "a\nb\nc\n").unwrap();
         git(&["add", "f"]);
-        git(&["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base"]);
+        git(&[
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@t",
+            "commit",
+            "-qm",
+            "base",
+        ]);
         std::fs::write(dir.join("f"), "a\nB\nc\nd\n").unwrap();
         let m = diff(&dir, &dir.join("f"), None, None).marks;
         std::fs::remove_dir_all(&dir).unwrap();
@@ -1118,7 +1131,8 @@ mod tests {
                 .output();
             assert!(out.unwrap().status.success(), "git {args:?}");
         };
-        let write = |at: &Path, name: &str, text: &str| std::fs::write(at.join(name), text).unwrap();
+        let write =
+            |at: &Path, name: &str, text: &str| std::fs::write(at.join(name), text).unwrap();
         for at in [&dir, &fresh] {
             std::fs::create_dir_all(at).unwrap();
             git(at, &["init", "-q"]);
