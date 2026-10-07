@@ -965,7 +965,7 @@ mod tests {
     /// A listed file that shrinks lowers its number in the same change; one under the limit
     /// leaves the list.
     const LONG_FILES: &[(&str, usize)] = &[
-        ("src/app/definition.rs", 2367),
+        ("src/app/definition.rs", 2363),
         ("src/search/bindings.rs", 1619),
     ];
     const MAX_LINES: usize = 1500;
@@ -1032,7 +1032,7 @@ mod tests {
         assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
     }
 
-    const COMMENT_LINES: usize = 5723;
+    const COMMENT_LINES: usize = 5707;
 
     fn comment_lines(text: &str) -> usize {
         let b = text.as_bytes();

@@ -470,7 +470,13 @@ fn a_call_wrapped_onto_the_next_lines_reads_no_arguments() {
 fn a_chain_may_hang_off_the_call_that_starts_it() {
     let head = |kind, line: &str| {
         let at = line.rfind('.').unwrap() + 1;
-        call_head(kind, line, at).map(|(label, value, fields)| (label, value, fields.join(".")))
+        call_head(kind, line, at).map(|h| {
+            (
+                h.call_without_arguments,
+                h.value,
+                h.fields_to_word.join("."),
+            )
+        })
     };
     let call = |label: &str, callee: &str, fields: &str| {
         Some((

@@ -876,12 +876,11 @@ pub enum Tier {
     Tests,
 }
 /// How a hit in `path` sorts, with the open file at `here` and `declaration` telling whether the
-/// line declares the word: its [`Tier`], then how many directories away from the open file it
-/// lives, the nearest first. The caller breaks a tie by path and line.
+/// line declares the word. The caller breaks a tie by path and line.
 ///
 /// `u` ranks its hits with this, and `d` demotes the candidates in [`Tier::Tests`] with it, so
 /// one table decides for both. The open file is never demoted: it is what the reader is reading.
-pub fn rank(path: &Path, here: Option<&Path>, declaration: bool) -> (Tier, usize) {
+pub fn rank(path: &Path, here: Option<&Path>, declaration: bool) -> Rank {
     let name = path
         .file_name()
         .and_then(|n| n.to_str())
@@ -921,7 +920,15 @@ pub fn rank(path: &Path, here: Option<&Path>, declaration: bool) -> (Tier, usize
             .count();
         dirs(path) + dirs(h) - 2 * shared
     });
-    (tier, steps)
+    Rank {
+        tier,
+        dirs_from_open_file: steps,
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Rank {
+    pub tier: Tier,
+    pub dirs_from_open_file: usize,
 }
 /// What decides whether `go build` compiles a file: the platform, cgo, and the tags of `-tags`.
 pub struct GoBuild {

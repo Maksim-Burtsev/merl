@@ -11,17 +11,23 @@ use super::{Binding, Value};
 static ACCESS_LABELS: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^\s*(?:(?:public|private|protected)\s*:\s*)+").unwrap());
 
-/// The files the `#include` lines of the C or C++ `text` name, as written, each with whether it
-/// is quoted, `"…"`, rather than `<…>`. A line under `#if` counts as any other: whichever branch
-/// a build takes, the file reaches no fewer headers.
-pub fn c_includes(text: &str) -> Vec<(String, bool)> {
+/// The files the `#include` lines of the C or C++ `text` name. A line under `#if` counts as any
+/// other: whichever branch a build takes, the file reaches no fewer headers.
+pub fn c_includes(text: &str) -> Vec<CInclude> {
     static INCLUDE: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r#"(?m)^[ \t]*#[ \t]*(?:include|include_next|import)[ \t]*([<"])([^>"\n]+)[>"]"#)
             .unwrap()
     });
     (INCLUDE.captures_iter(text))
-        .map(|c| (c[2].trim().to_owned(), &c[1] == "\""))
+        .map(|c| CInclude {
+            as_written: c[2].trim().to_owned(),
+            quoted_not_angled: &c[1] == "\"",
+        })
         .collect()
+}
+pub struct CInclude {
+    pub as_written: String,
+    pub quoted_not_angled: bool,
 }
 
 /// `text` of a C or C++ file as code alone: comments, string and character literals (raw strings
@@ -978,20 +984,22 @@ pub enum CType {
     Body(usize),
 }
 /// The receiver in front of a C member, `before` being its line up to the member and ending in
-/// `->` or `.`: the name it starts from, whether that name is called (`lookupClient(x)->`), and
-/// the fields between it and the member. `a->b.c->` gives `a` with `b`, `c`; an index is read past
-/// (`c->argv[j]->`). `None` for a receiver that starts with anything else: a cast, a bracketed
-/// expression, a call of a call or of a field, `this`.
-pub fn c_receiver(before: &str) -> Option<(String, bool, Vec<String>)> {
+/// `->` or `.`. `a->b.c->` gives `a` with `b`, `c`; an index is read past (`c->argv[j]->`), and
+/// `lookupClient(x)->` is a called head. `None` for a receiver that starts with anything else: a
+/// cast, a bracketed expression, a call of a call or of a field, `this`.
+pub fn c_receiver(before: &str) -> Option<CReceiver> {
     receiver(before, false)
 }
-pub fn cpp_receiver(before: &str) -> Option<(String, Vec<String>)> {
-    match receiver(before, true)? {
-        (head, false, fields) => Some((head, fields)),
-        _ => None,
-    }
+#[derive(Debug, PartialEq)]
+pub struct CReceiver {
+    pub head: String,
+    pub head_called: bool,
+    pub fields: Vec<String>,
 }
-fn receiver(before: &str, cpp: bool) -> Option<(String, bool, Vec<String>)> {
+pub fn cpp_receiver(before: &str) -> Option<CReceiver> {
+    receiver(before, true).filter(|r| !r.head_called)
+}
+fn receiver(before: &str, cpp: bool) -> Option<CReceiver> {
     let code = c_code(before);
     let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
     let mut rest = code.trim_end();
@@ -1027,7 +1035,13 @@ fn receiver(before: &str, cpp: bool) -> Option<(String, bool, Vec<String>)> {
         let member = rest.ends_with("->") || rest.ends_with('.') && !rest.ends_with("..");
         match (member, called) {
             (true, false) => fields.insert(0, name.to_owned()),
-            (false, _) => return Some((name.to_owned(), called, fields)),
+            (false, _) => {
+                return Some(CReceiver {
+                    head: name.to_owned(),
+                    head_called: called,
+                    fields,
+                });
+            }
             // A call of a field is a function pointer's, whose return type is not read.
             (true, true) => return None,
         }

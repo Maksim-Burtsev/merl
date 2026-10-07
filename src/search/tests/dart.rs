@@ -211,7 +211,11 @@ fn a_dart_name_keeps_its_dollar() {
 #[test]
 fn dart_imports_bind_a_prefix_and_shown_names() {
     let text = "import 'package:http/http.dart' as http;\nimport \"a.dart\"\n    show A, B hide C;\nimport 'dart:async';\nimport 'x.dart' deferred as x;\n";
-    let bound = |name: &str, uri: &str, prefix| (name.to_owned(), uri.to_owned(), prefix);
+    let bound = |name: &str, uri: &str, is_prefix| DartImport {
+        name: name.to_owned(),
+        uri_as_written: uri.to_owned(),
+        is_prefix,
+    };
     assert_eq!(
         dart_imports(text),
         [

@@ -97,9 +97,8 @@ pub fn swift_scope<S: AsRef<str>>(lines: &[S], literal: &[bool], line: usize) ->
     }
     (0, local.unwrap_or(false))
 }
-/// A Swift type's header (#380): its keyword (`class`, `extension`, …), the type it names, the
-/// first type its header inherits, and whether a `where` constrains it.
-pub fn swift_type_header(line: &str) -> Option<(String, String, Option<String>, bool)> {
+/// A Swift type's header (#380).
+pub fn swift_type_header(line: &str) -> Option<SwiftTypeHeader> {
     static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(&format!(
             r"{}(class|struct|enum|protocol|actor|extension)\s+`?([\w.]+)`?(?:<[^>]*>)?\s*(?::\s*([\w.]+))?",
@@ -112,12 +111,18 @@ pub fn swift_type_header(line: &str) -> Option<(String, String, Option<String>, 
         return None;
     }
     let c = HEADER.captures(&t)?;
-    Some((
-        c[1].to_owned(),
-        c[2].to_owned(),
-        c.get(3).map(|m| m.as_str().to_owned()),
-        t.contains(" where "),
-    ))
+    Some(SwiftTypeHeader {
+        keyword: c[1].to_owned(),
+        name: c[2].to_owned(),
+        first_inherited: c.get(3).map(|m| m.as_str().to_owned()),
+        where_constrained: t.contains(" where "),
+    })
+}
+pub struct SwiftTypeHeader {
+    pub keyword: String,
+    pub name: String,
+    pub first_inherited: Option<String>,
+    pub where_constrained: bool,
 }
 pub fn swift_enclosing_type<S: AsRef<str>>(
     lines: &[S],
@@ -565,14 +570,16 @@ pub fn swift_type_place(text: &str, line1: usize) -> Option<SwiftTypePlace> {
         // Only a class, struct, enum or actor is certainly nested: a protocol's `typealias` is seen
         // by every type that conforms to it.
         false
-            if !swift_type_header(lines[line1 - 1]).is_some_and(|(k, ..)| {
-                matches!(k.as_str(), "class" | "struct" | "enum" | "actor")
+            if !swift_type_header(lines[line1 - 1]).is_some_and(|h| {
+                matches!(h.keyword.as_str(), "class" | "struct" | "enum" | "actor")
             }) =>
         {
             None
         }
-        false => swift_type_header(&header).and_then(|(_, outer, ..)| {
-            Some(SwiftTypePlace::Nested(outer.rsplit('.').next()?.to_owned()))
+        false => swift_type_header(&header).and_then(|h| {
+            Some(SwiftTypePlace::Nested(
+                h.name.rsplit('.').next()?.to_owned(),
+            ))
         }),
     }
 }
@@ -603,7 +610,12 @@ pub fn swift_sees_nested<S: AsRef<str>>(
 ) -> bool {
     let mut at = line1;
     while let Some(header) = swift_enclosing_type(lines, literal, at) {
-        if let Some((keyword, name, base, _)) = swift_type_header(lines[header - 1].as_ref())
+        if let Some(SwiftTypeHeader {
+            keyword,
+            name,
+            first_inherited: base,
+            ..
+        }) = swift_type_header(lines[header - 1].as_ref())
             && (name.split('.').any(|n| n == outer)
                 || (keyword == "class"
                     && base.is_some_and(|b| b.rsplit('.').next() == Some(outer))))

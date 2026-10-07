@@ -358,6 +358,21 @@ impl App {
         self.want_x = 0;
         self.center = true;
     }
+
+    /// The cursor's line as `d` reads it: a member access broken over lines reads as the one
+    /// line it is, in its plain access form.
+    pub(super) fn written(&self, kind: Option<Kind>, start: usize) -> search::LineAsRead {
+        let joined = kind
+            .and_then(|k| search::unbroken(k, &self.buf.lines, self.line, start))
+            .unwrap_or_else(|| search::LineAsRead {
+                line: self.line_str().to_owned(),
+                word_start: start,
+            });
+        match kind {
+            Some(k) => search::plain_access(k, &joined.line, joined.word_start),
+            None => joined,
+        }
+    }
 }
 
 /// Where Alt+Right lands from `i` inside `s`: past the gap, then past the word.

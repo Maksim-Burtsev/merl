@@ -1138,7 +1138,11 @@ fn c_receiver_cuts_at_a_character() {
     assert_eq!(c_receiver("$ßar->"), None);
     assert_eq!(
         c_receiver("ß = bar->"),
-        Some(("bar".to_owned(), false, vec![]))
+        Some(CReceiver {
+            head: "bar".to_owned(),
+            head_called: false,
+            fields: vec![]
+        })
     );
 }
 

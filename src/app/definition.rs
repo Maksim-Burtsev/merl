@@ -10,7 +10,10 @@ impl App {
     ) -> Option<(std::ops::Range<usize>, String)> {
         let (range, word) = self.word_here(kind)?;
         let mut word = word.to_owned();
-        let (written, start) = self.written(kind, range.start);
+        let search::LineAsRead {
+            line: written,
+            word_start: start,
+        } = self.written(kind, range.start);
         let before = &written[..start];
         let after = self.line_str()[range.end..].trim_start();
         if kind == Some(Kind::Ruby)
@@ -24,18 +27,6 @@ impl App {
             word.push('=');
         }
         Some((range, word))
-    }
-
-    /// The cursor's line as `d` reads it, with where the word at byte `start` of it moved to: a
-    /// member access broken over lines reads as the one line it is, in its plain access form.
-    fn written(&self, kind: Option<Kind>, start: usize) -> (String, usize) {
-        let (written, start) = kind
-            .and_then(|k| search::unbroken(k, &self.buf.lines, self.line, start))
-            .unwrap_or_else(|| (self.line_str().to_owned(), start));
-        match kind {
-            Some(k) => search::plain_access(k, &written, start),
-            None => (written, start),
-        }
     }
 
     /// `d` / F12. A file of a known [`Kind`] gets its declaration patterns. A word or a qualifier
@@ -88,7 +79,10 @@ impl App {
             self.message = "no word".into();
             return;
         };
-        let (written, start) = self.written(kind, range.start);
+        let search::LineAsRead {
+            line: written,
+            word_start: start,
+        } = self.written(kind, range.start);
         let before = &written[..start];
         let dotted = before.ends_with('.') && !before.ends_with("..");
         let chain = search::qualifier(&written, start);
@@ -808,7 +802,9 @@ impl App {
                         self.message = format!("{word}: builtin, no source (via {via})");
                         return;
                     }
-                    let names = head.as_ref().map_or(chain.len(), |(_, _, f)| f.len() + 1);
+                    let names = head
+                        .as_ref()
+                        .map_or(chain.len(), |h| h.fields_to_word.len() + 1);
                     broke = (names > 1).then_some(at);
                 }
             }
@@ -2130,7 +2126,7 @@ impl App {
             && search::definition_word(Some(kind), self.line_str(), self.col)
                 .is_some_and(|(r, _)| !self.line_str()[..r.start].ends_with('.'))
             && matches!(found.as_slice(), [c] if !c.reason.proven() && form(&c.hit.text) == form(self.line_str()));
-        found.sort_by_cached_key(|c| search::rank(&c.hit.path, Some(here), true).0);
+        found.sort_by_cached_key(|c| search::rank(&c.hit.path, Some(here), true).tier);
         // The project and the outside are each cut at MAX_HITS; the picker holds that many.
         found.truncate(search::MAX_HITS);
         if let Some(probe) = &mut self.probe {
