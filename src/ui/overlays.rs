@@ -349,10 +349,16 @@ pub(super) fn draw_picker(
                 // Quoted code keeps its tabs, as the buffer does; `expand` draws them.
                 Span::styled(expand(g).into_owned(), style)
             }));
+            let row_at = picker.selected + i - selected;
+            let tag = picker.labels.iter().find(|(at, _)| *at == row_at).map(|t| t.1);
+            let tag_w = tag.map_or(0, |t| t.len() + 1);
             spans.push(Span::styled(
-                " ".repeat(width.saturating_sub(used + wrap::width(label))),
+                " ".repeat(width.saturating_sub(used + wrap::width(label) + tag_w)),
                 style,
             ));
+            if let Some(t) = tag {
+                spans.push(Span::styled(format!("{t} "), style.fg(theme.ghost_fg)));
+            }
             Line::from(spans)
         })
         .collect();

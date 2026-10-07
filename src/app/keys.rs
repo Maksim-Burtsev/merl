@@ -242,6 +242,9 @@ impl App {
                 };
             }
             KeyCode::Char('o') if !ctrl => self.open_files_picker(),
+            KeyCode::Char('r') if !ctrl && super::recent::mode() == "recent" => {
+                self.open_recent_picker()
+            }
             KeyCode::Char('e') if ctrl => self.open_files_picker(),
             KeyCode::Char('[') => self.hist_go(-1),
             KeyCode::Char(']') => self.hist_go(1),

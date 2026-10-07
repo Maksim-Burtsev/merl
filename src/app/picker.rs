@@ -34,20 +34,10 @@ impl App {
             .collect();
         let mut picker = Picker::new(PickerKind::Files.title(), items, true);
         if self.review.is_none() {
-            picker.lead_with(&self.recent_first(&listed));
+            picker.lead = self.lead_406(&listed);
         }
         self.picker = Some(picker);
         self.mode = Mode::Picker(PickerKind::Files);
-    }
-
-    fn recent_first(&self, listed: &[&PathBuf]) -> Vec<u32> {
-        let at: HashMap<&Path, u32> = (listed.iter().enumerate())
-            .map(|(i, p)| (p.as_path(), i as u32))
-            .collect();
-        (self.left_files.iter().rev())
-            .filter(|f| self.buf.path.as_ref() != Some(*f))
-            .filter_map(|f| at.get(f.strip_prefix(&self.root).ok()?).copied())
-            .collect()
     }
 
     pub(crate) fn show_picker(&mut self, kind: PickerKind, items: Vec<PickItem>) {

@@ -29,10 +29,7 @@ impl App {
                     self.lock_unwritable(&mut buf);
                     let old = std::mem::replace(&mut self.buf, buf);
                     self.swap_collapsed(&old, path);
-                    if let Some(p) = &old.path {
-                        self.left_files.retain(|f| f != p);
-                        self.left_files.push(p.clone());
-                    }
+                    self.note_recent(path);
                     let (undo, redo) = (
                         std::mem::take(&mut self.undo),
                         std::mem::take(&mut self.redo),

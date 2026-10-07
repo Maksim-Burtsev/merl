@@ -61,17 +61,33 @@ pub struct Picker {
     /// Review: the gutter marks of the review's files drawn so far, filled lazily by `ui` like
     /// `bufs` (#246).
     pub marks: HashMap<PathBuf, HashMap<usize, Mark>>,
-    blank_order: Vec<u32>,
+    pub lead: Lead,
+    order: Option<Vec<Ref>>,
+    order_key: (String, u32),
+    pub labels: Vec<(usize, &'static str)>,
 }
 
-fn nth<'a>(
-    snap: &'a Snapshot<PickItem>,
-    blank_order: &[u32],
-    n: u32,
-) -> Option<Item<'a, PickItem>> {
-    match blank_order.get(n as usize) {
-        Some(&i) if snap.pattern().is_empty() && n < snap.matched_item_count() => snap.get_item(i),
-        _ => snap.get_matched_item(n),
+#[derive(Clone, Debug, Default)]
+pub enum Lead {
+    #[default]
+    None,
+    VsCode(Vec<u32>, bool),
+    Smart(Vec<(u32, u32)>),
+}
+
+#[derive(Clone, Copy, Debug)]
+enum Ref {
+    Item(u32),
+    Matched(u32),
+}
+
+fn get<'a>(snap: &'a Snapshot<PickItem>, order: &Option<Vec<Ref>>, n: u32) -> Option<Item<'a, PickItem>> {
+    match order {
+        None => snap.get_matched_item(n),
+        Some(o) => match *o.get(n as usize)? {
+            Ref::Item(i) => snap.get_item(i),
+            Ref::Matched(m) => snap.get_matched_item(m),
+        },
     }
 }
 
@@ -103,15 +119,107 @@ impl Picker {
             page: 10,
             bufs: HashMap::new(),
             marks: HashMap::new(),
-            blank_order: Vec::new(),
+            lead: Lead::None,
+            order: None,
+            order_key: (String::from("\u{0}"), 0),
+            labels: Vec::new(),
         }
     }
 
-    pub fn lead_with(&mut self, first: &[u32]) {
-        let total = self.nucleo.injector().injected_items();
-        let lead: std::collections::HashSet<&u32> = first.iter().collect();
-        let rest = (0..total).filter(|i| !lead.contains(i));
-        self.blank_order = first.iter().copied().chain(rest).collect();
+    fn refresh_order(&mut self) {
+        if matches!(self.lead, Lead::None) {
+            return;
+        }
+        let snap = self.nucleo.snapshot();
+        let query = self.query.to_string();
+        let key = (query.clone(), snap.matched_item_count());
+        if key == self.order_key && self.order.is_some() {
+            return;
+        }
+        self.order_key = key;
+        self.labels.clear();
+        let matched = snap.matched_item_count();
+        let empty = snap.pattern().is_empty();
+        let mut order = Vec::new();
+        match &self.lead {
+            Lead::None => {}
+            Lead::VsCode(recent, current_first) if empty => {
+                order.extend(recent.iter().map(|&i| Ref::Item(i)));
+                if !order.is_empty() {
+                    self.labels.push((0, "recently opened"));
+                }
+                if order.len() > 1 && *current_first {
+                    self.selected = 1;
+                }
+            }
+            Lead::VsCode(recent, _) => {
+                let pat = nucleo::pattern::Pattern::parse(
+                    &query,
+                    CaseMatching::Ignore,
+                    Normalization::Smart,
+                );
+                let mut buf = Vec::new();
+                let mut hits: Vec<(u32, u32)> = recent
+                    .iter()
+                    .filter_map(|&i| {
+                        let item = snap.get_item(i)?;
+                        let label = &item.data.label;
+                        let hay = if query.contains('/') {
+                            label.as_str()
+                        } else {
+                            label.rsplit('/').next().unwrap_or(label)
+                        };
+                        let s = pat.score(nucleo::Utf32Str::new(hay, &mut buf), &mut self.matcher)?;
+                        Some((i, s))
+                    })
+                    .collect();
+                hits.sort_by_key(|&(_, s)| std::cmp::Reverse(s));
+                let shown: std::collections::HashSet<&PathBuf> = hits
+                    .iter()
+                    .filter_map(|&(i, _)| snap.get_item(i).map(|it| &it.data.path))
+                    .collect();
+                order.extend(hits.iter().map(|&(i, _)| Ref::Item(i)));
+                if !order.is_empty() {
+                    self.labels.push((0, "recently opened"));
+                }
+                let k = order.len();
+                order.extend(
+                    (0..matched)
+                        .filter(|&m| {
+                            snap.get_matched_item(m)
+                                .is_some_and(|it| !shown.contains(&it.data.path))
+                        })
+                        .map(Ref::Matched),
+                );
+                if order.len() > k {
+                    self.labels.push((k, "file results"));
+                }
+            }
+            Lead::Smart(recent) if empty => {
+                let lead: std::collections::HashSet<u32> = recent.iter().map(|r| r.0).collect();
+                order.extend(recent.iter().map(|&(i, _)| Ref::Item(i)));
+                let mut rest: Vec<u32> = (0..snap.item_count()).filter(|i| !lead.contains(i)).collect();
+                rest.sort_by_key(|&i| snap.get_item(i).map_or(0, |it| it.data.label.len()));
+                order.extend(rest.into_iter().map(Ref::Item));
+            }
+            Lead::Smart(recent) => {
+                let bonus: HashMap<&PathBuf, u32> = recent
+                    .iter()
+                    .filter_map(|&(i, b)| Some((&snap.get_item(i)?.data.path, b)))
+                    .collect();
+                let mut scored: Vec<(u32, u32, usize)> = (0..matched)
+                    .filter_map(|m| {
+                        let it = snap.get_matched_item(m)?;
+                        let s = snap.pattern().score(it.matcher_columns, &mut self.matcher)?;
+                        let b = bonus.get(&it.data.path).copied().unwrap_or(0);
+                        Some((m, s + b, it.data.label.len()))
+                    })
+                    .collect();
+                scored.sort_by_key(|&(_, s, len)| (std::cmp::Reverse(s), len));
+                order.extend(scored.iter().map(|&(m, _, _)| Ref::Matched(m)));
+            }
+        }
+        self.order = Some(order);
     }
 
     /// Rows a PgUp / PgDn moves: the list's height in the last frame.
@@ -123,6 +231,7 @@ impl Picker {
     pub fn settle(&mut self) {
         for _ in 0..100 {
             if !self.nucleo.tick(10).running {
+                self.refresh_order();
                 return;
             }
         }
@@ -130,27 +239,34 @@ impl Picker {
 
     /// Lets the matcher work for up to 10 ms. Returns `true` when the results changed.
     pub fn tick(&mut self) -> bool {
-        self.nucleo.tick(10).changed
+        let changed = self.nucleo.tick(10).changed;
+        let before = self.order_key.clone();
+        self.refresh_order();
+        changed || before != self.order_key
     }
 
     /// `(matched, total)` for the overlay title.
     pub fn counts(&self) -> (u32, u32) {
         let snap = self.nucleo.snapshot();
-        (snap.matched_item_count(), snap.item_count())
+        match &self.order {
+            Some(o) => (o.len() as u32, snap.item_count()),
+            None => (snap.matched_item_count(), snap.item_count()),
+        }
     }
 
     /// The rows to draw for a list `height` tall, plus the selected row's offset in them.
     pub fn window(&mut self, height: usize) -> (Vec<Row>, usize) {
         self.page = height.max(1);
+        self.refresh_order();
+        let total = self.counts().0 as usize;
         let Self {
             nucleo,
             matcher,
             selected,
-            blank_order,
+            order,
             ..
         } = self;
         let snap = nucleo.snapshot();
-        let total = snap.matched_item_count() as usize;
         if total == 0 {
             *selected = 0;
             return (Vec::new(), 0);
@@ -161,7 +277,7 @@ impl Picker {
         let start = (*selected + 1).saturating_sub(height).min(total - height);
         let pattern = snap.pattern().column_pattern(0);
         let rows = (start as u32..(start + height) as u32)
-            .filter_map(|n| nth(snap, blank_order, n))
+            .filter_map(|n| get(snap, order, n))
             .map(|item| {
                 let mut matched = Vec::new();
                 // Indices are only needed for what is on screen; scoring the whole list would
@@ -181,7 +297,7 @@ impl Picker {
     /// The item under the cursor, if the query matches anything.
     pub fn current(&self) -> Option<&PickItem> {
         let snap = self.nucleo.snapshot();
-        nth(snap, &self.blank_order, self.selected as u32).map(|item| item.data)
+        get(snap, &self.order, self.selected as u32).map(|item| item.data)
     }
 
     /// Enter with nothing matched does nothing, as in VS Code's quick open: the list and the
