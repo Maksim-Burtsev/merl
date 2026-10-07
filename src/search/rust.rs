@@ -936,13 +936,18 @@ pub struct RustMethod {
     pub vis: RustVis,
     pub owner_line1: usize,
 }
-/// A package of a `Cargo.lock`: its directory name in a registry, `name-version`, and its name.
-pub type LockPackage = (String, String);
+pub struct LockPackage {
+    pub registry_dir: String,
+    pub name: String,
+}
+pub struct CargoReach {
+    pub reached: Vec<String>,
+    pub every_locked: Vec<LockPackage>,
+}
 /// The crates of `lock`, a `Cargo.lock`, that the package `from` reaches: itself and its
-/// `dependencies` lists followed transitively (normal, dev and build alike), by name; with every
-/// package the lock lists, to tell a registry crate by. `None` when the lock does not list
-/// `from`.
-pub fn cargo_reach(lock: &str, from: &str) -> Option<(Vec<String>, Vec<LockPackage>)> {
+/// `dependencies` lists followed transitively (normal, dev and build alike), by name. `None` when
+/// the lock does not list `from`.
+pub fn cargo_reach(lock: &str, from: &str) -> Option<CargoReach> {
     let mut packages: Vec<(String, String, Vec<String>)> = Vec::new();
     let mut in_deps = false;
     for l in lock.lines() {
@@ -983,11 +988,17 @@ pub fn cargo_reach(lock: &str, from: &str) -> Option<(Vec<String>, Vec<LockPacka
         }
         i += 1;
     }
-    let dirs = packages
+    let every_locked = packages
         .into_iter()
-        .map(|(n, v, _)| (format!("{n}-{v}"), n))
+        .map(|(n, v, _)| LockPackage {
+            registry_dir: format!("{n}-{v}"),
+            name: n,
+        })
         .collect();
-    Some((reached, dirs))
+    Some(CargoReach {
+        reached,
+        every_locked,
+    })
 }
 /// The crate names of a `Cargo.lock` dependency list: `"memchr"`, `"serde 1.0.1"`, `"x 1.0
 /// (registry+…)"` are `memchr`, `serde`, `x`.

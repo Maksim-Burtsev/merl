@@ -266,11 +266,14 @@ impl App {
                 true => {
                     let listed = h.path.ancestors().find_map(|a| {
                         let dir = a.file_name()?.to_str()?;
-                        let dirs = reach
+                        let locked = reach
                             .as_ref()
-                            .map(|(_, d)| d.as_slice())
+                            .map(|r| r.every_locked.as_slice())
                             .unwrap_or_default();
-                        dirs.iter().find(|(d, _)| d == dir).map(|(_, n)| n.clone())
+                        locked
+                            .iter()
+                            .find(|p| p.registry_dir == dir)
+                            .map(|p| p.name.clone())
                     });
                     if listed.as_ref().is_some_and(|n| workspace.contains(n)) {
                         return false;
@@ -279,10 +282,14 @@ impl App {
                 }
                 false => crate_of(&h.path).as_deref().and_then(package),
             };
-            let Some((reached, dirs)) = &reach else {
+            let Some(search::CargoReach {
+                reached,
+                every_locked,
+            }) = &reach
+            else {
                 return true;
             };
-            name.is_none_or(|n| reached.contains(&n) || !dirs.iter().any(|(_, m)| *m == n))
+            name.is_none_or(|n| reached.contains(&n) || !every_locked.iter().any(|p| p.name == n))
         };
         // A module's private items are its own and its children's: `src/foo.rs` has `src/foo/`.
         // A crate root has its directory: `lib.rs`, `main.rs`, `mod.rs`, `build.rs`, and a file
