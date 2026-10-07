@@ -18,8 +18,6 @@ fn goto_prompt_clamps() {
     assert!(press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
 }
 
-/// `merl FILE:LINE:COL` (#161): the column counts chars, as compilers do, and a column past
-/// the end of the line is its end. The first stop in the jump history has it too.
 #[test]
 fn command_line_column_counts_chars() {
     let path = PathBuf::from("/tmp/merl-column.txt");
@@ -34,9 +32,21 @@ fn command_line_column_counts_chars() {
         )
     };
     let a = at(2, 3);
-    assert_eq!((a.line, a.col, a.display_col()), (1, 3, 3));
-    assert_eq!(a.history, [(path.clone(), TextLine::File(1), 3)]);
-    assert_eq!(at(2, 99).col, "héllo".len());
+    assert_eq!(
+        (a.line, a.col, a.display_col()),
+        (1, 3, 3),
+        "`merl FILE:LINE:COL` counts chars, as compilers do"
+    );
+    assert_eq!(
+        a.history,
+        [(path.clone(), TextLine::File(1), 3)],
+        "the first stop in the jump history has the column too"
+    );
+    assert_eq!(
+        at(2, 99).col,
+        "héllo".len(),
+        "a column past the end of the line is its end"
+    );
 }
 
 #[test]
@@ -100,32 +110,38 @@ fn help_scrolls_and_reopens_at_the_top() {
     assert_eq!(a.help_top, 0);
 }
 
-/// Alt+letter is Esc then the letter. Over a picker or a prompt the Esc closes it and the
-/// letter is dropped: Alt+q must not quit, Alt+d must not run go-to-definition.
 #[test]
 fn alt_letter_over_an_overlay_only_closes_it() {
     let mut a = app("foo\n");
     press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
-    assert!(!press(&mut a, KeyCode::Char('q'), KeyModifiers::ALT));
+    assert!(
+        !press(&mut a, KeyCode::Char('q'), KeyModifiers::ALT),
+        "Alt+q over a picker must not quit"
+    );
     assert!((a.picker.is_none(), a.mode) == (true, Mode::Normal));
     press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('d'), KeyModifiers::ALT);
-    assert_eq!((a.mode, a.message.as_str()), (Mode::Normal, ""));
+    assert_eq!(
+        (a.mode, a.message.as_str()),
+        (Mode::Normal, ""),
+        "Alt+d over a prompt closes it and must not run go-to-definition"
+    );
     assert!(
         press(&mut a, KeyCode::Char('q'), KeyModifiers::ALT),
         "in normal mode the letter still counts"
     );
 }
 
-/// Edit mode is not an overlay for an Esc to close: Option+letter mid-word must not drop
-/// into navigation, where the rest of the word runs as commands and its `q` quits.
 #[test]
 fn an_unbound_alt_letter_while_editing_is_ignored() {
     let mut a = app("foo\n");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('p'), KeyModifiers::ALT);
     assert!(!press(&mut a, KeyCode::Char('q'), KeyModifiers::ALT));
-    assert!(!press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
+    assert!(
+        !press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE),
+        "Option+letter mid-word must not drop into navigation, where `q` quits"
+    );
     assert_eq!((a.mode, a.buf.lines[0].as_str()), (Mode::Edit, "qfoo"));
 }
 
@@ -150,8 +166,6 @@ fn help_opens_and_closes_and_esc_clears_the_find() {
     assert_eq!(a.message, "find cleared");
 }
 
-/// The README's every-key tables are `KEYS`, group by group in its order, and the table above
-/// them lists real bindings only.
 #[test]
 fn readme_documents_every_key() {
     let readme = include_str!("../../../README.md");
@@ -189,13 +203,15 @@ fn readme_documents_every_key() {
     }
 }
 
-/// Each group of `KEYS` is one run of rows, so `?` and the README head it once.
 #[test]
 fn every_group_of_keys_is_one_run() {
     let mut runs: Vec<&str> = Vec::new();
     for (_, _, g) in KEYS {
         if runs.last() != Some(g) {
-            assert!(!runs.contains(g), "{g} is split in two");
+            assert!(
+                !runs.contains(g),
+                "{g} is split in two, and `?` and the README head a group once"
+            );
             runs.push(g);
         }
     }

@@ -294,8 +294,6 @@ fn d_presses(project: &Path) -> (Vec<f64>, Vec<f64>) {
     (first.split_off(1), next.split_off(1))
 }
 
-/// Prints the table beside the last release's numbers, saves this run's on request, and fails
-/// on a median over its budget.
 fn report(rows: &[(&str, u64, Vec<f64>)]) {
     let saved = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/budgets.tsv");
     let last: HashMap<String, String> = std::fs::read_to_string(&saved)

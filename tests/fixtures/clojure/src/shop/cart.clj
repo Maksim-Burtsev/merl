@@ -25,3 +25,7 @@
   (money/describe s "x"))
 ;            ^ d: src/shop/shapes.clj:8
 ; status: by name, 1 match
+
+(defn shape-name [s]
+  (money/describe s "y"))
+;  ^ d: src/shop/money.clj:1

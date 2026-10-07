@@ -125,7 +125,6 @@ fn reading_keys_move_the_cursor_row() {
     assert_eq!(
         rows,
         [
-            // `}` and `{` stop on the blank rows between blocks.
             (3, 0),
             (8, 1),
             (3, 1),
@@ -134,10 +133,11 @@ fn reading_keys_move_the_cursor_row() {
             (0, 0),
             (8, 1),
             (0, 0),
-            // Half a screen, the view with the cursor.
             (4, 4),
             (0, 0),
-        ]
+        ],
+        "`}}` and `{{` stop on the blank rows between blocks; Ctrl+D and Ctrl+U move half a screen, \
+         the view with the cursor"
     );
     key(&mut a, KeyCode::Char('}'));
     assert_eq!(
@@ -189,7 +189,6 @@ fn a_jump_moves_the_cursor_row_to_its_line() {
         key(&mut a, KeyCode::Char(c));
     }
     key(&mut a, KeyCode::Enter);
-    // What a frame does before it draws.
     a.preview_sync();
     a.preview_clamp();
     assert_eq!(at_row(&a), (17, 10, "End.".into()));
@@ -248,8 +247,6 @@ fn md_review(tag: &str, base: &str, branch: &str) -> (PathBuf, App) {
     (dir, a)
 }
 
-/// Every way into edit mode leaves the preview: Ctrl+N on the file shown rendered edits its
-/// source, on screen.
 #[test]
 fn ctrl_n_on_a_previewed_file_edits_its_source() {
     let (dir, mut a) = md_app("ctrl-n", PLAN);
@@ -266,8 +263,6 @@ fn ctrl_n_on_a_previewed_file_edits_its_source() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// A selection made before `p` goes: the preview cannot show it, and Ctrl+C copies the line of
-/// the cursor row, as with nothing selected.
 #[test]
 fn p_drops_the_selection_so_ctrl_c_copies_the_rows_line() {
     let (dir, mut a) = md_app("copy", PLAN);
@@ -276,16 +271,20 @@ fn p_drops_the_selection_so_ctrl_c_copies_the_rows_line() {
     key(&mut a, KeyCode::Char('v'));
     assert!(a.selection().is_some());
     key(&mut a, KeyCode::Char('p'));
-    assert!(a.selection().is_none());
+    assert!(
+        a.selection().is_none(),
+        "the preview cannot show a selection"
+    );
     key(&mut a, KeyCode::Down);
     press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
-    assert_eq!(a.clipboard.as_deref(), Some("2. two\n"));
+    assert_eq!(
+        a.clipboard.as_deref(),
+        Some("2. two\n"),
+        "Ctrl+C copies the line of the cursor row, as with nothing selected"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// Ctrl+C on a row that shows no line, the rule under a heading, copies nothing. A jump off it,
-/// before the preview has found the row of the new line, and `p` back to the source copy the
-/// cursor's line again.
 #[test]
 fn ctrl_c_on_a_row_of_no_line_copies_nothing() {
     let (dir, mut a) = md_app("copy-rule", PLAN);
@@ -293,10 +292,14 @@ fn ctrl_c_on_a_row_of_no_line_copies_nothing() {
     key(&mut a, KeyCode::Down);
     assert!(at_row(&a).2.starts_with('\u{2501}'));
     press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
-    assert_eq!(a.clipboard, None);
+    assert_eq!(a.clipboard, None, "the rule under a heading shows no line");
     crate::tutor::press(&mut a, ":3<Enter>");
     press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
-    assert_eq!(a.clipboard.as_deref(), Some("Intro line.\n"));
+    assert_eq!(
+        a.clipboard.as_deref(),
+        Some("Intro line.\n"),
+        "a jump off it, before the preview has found the row of the new line, copies that line"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 
     let (dir, mut a) = md_app("copy-back", PLAN);
@@ -304,12 +307,14 @@ fn ctrl_c_on_a_row_of_no_line_copies_nothing() {
     key(&mut a, KeyCode::Down);
     key(&mut a, KeyCode::Char('p'));
     press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
-    assert_eq!(a.clipboard.as_deref(), Some("Intro line.\n"));
+    assert_eq!(
+        a.clipboard.as_deref(),
+        Some("Intro line.\n"),
+        "`p` back to the source copies the cursor's line"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// A narrower pane lays the file out again: every row fits, and the cursor row stays on its
-/// place, as far down the pane.
 #[test]
 fn a_narrower_pane_lays_the_preview_out_again() {
     let text = "# Plan\n\nA paragraph long enough to take two rows at forty columns wide.\n\n\
@@ -328,14 +333,19 @@ fn a_narrower_pane_lays_the_preview_out_again() {
     a.preview_sync();
     a.preview_clamp();
     let p = a.preview.as_ref().unwrap();
-    assert!(p.doc.rows.iter().all(|r| wrap::width(&r.text) <= 20));
-    assert_eq!(p.row - p.top, 5);
+    assert!(
+        p.doc.rows.iter().all(|r| wrap::width(&r.text) <= 20),
+        "every row fits"
+    );
+    assert_eq!(
+        p.row - p.top,
+        5,
+        "the cursor row stays as far down the pane"
+    );
     assert_eq!(p.doc.rows[p.row].text, "Then the one the");
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// The row a jump or `p` lands on is the line the keys act on, at column 0 of a list item or a
-/// heading too: Enter edits it.
 #[test]
 fn the_row_of_a_line_is_the_one_that_shows_it() {
     let (dir, mut a) = md_app("row-of-line", PLAN);
@@ -355,11 +365,14 @@ fn the_row_of_a_line_is_the_one_that_shows_it() {
     a.preview_sync();
     assert_eq!(at_row(&a).2, "1. one");
     key(&mut a, KeyCode::Enter);
-    assert_eq!((a.mode, a.line), (Mode::Edit, 6));
+    assert_eq!(
+        (a.mode, a.line),
+        (Mode::Edit, 6),
+        "Enter edits the line the row shows, at column 0 of a list item too"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// With the tree focused, the tree keeps its keys, and what the preview refuses stays refused.
 #[test]
 fn from_the_tree_the_preview_still_refuses_what_it_refuses() {
     let (dir, mut a) = md_app("tree-focus", PLAN);
@@ -368,7 +381,10 @@ fn from_the_tree_the_preview_still_refuses_what_it_refuses() {
     assert_eq!(a.focus, Focus::Tree);
     key(&mut a, KeyCode::Char('w'));
     key(&mut a, KeyCode::Char('/'));
-    assert!(!a.nowrap() && a.mode == Mode::Normal);
+    assert!(
+        !a.nowrap() && a.mode == Mode::Normal,
+        "what the preview refuses stays refused"
+    );
     key(&mut a, KeyCode::Char('}'));
     assert_eq!(at_row(&a).0, 3, "`}}` reads on in the preview");
     key(&mut a, KeyCode::Down);
@@ -376,9 +392,6 @@ fn from_the_tree_the_preview_still_refuses_what_it_refuses() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// Reading in the preview adds no stop to the jump history: the rows are in source order, a
-/// footnote in its place, so a row moves the source line as little as a line does in the
-/// source. Ctrl+End and Ctrl+Home add one as in the source, so `[` goes back.
 #[test]
 fn reading_the_preview_adds_no_history_stop() {
     let mut text = String::from("Claim[^n].\n\n[^n]: The note.\n\n");
@@ -395,7 +408,12 @@ fn reading_the_preview_adds_no_history_stop() {
     for _ in 0..40 {
         key(&mut a, KeyCode::Up);
     }
-    assert_eq!(a.history.len(), before);
+    assert_eq!(
+        a.history.len(),
+        before,
+        "the rows are in source order, a footnote in its place: a row moves the source line as \
+         little as a line does in the source"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 
     let mut text = String::from("Top [r0].\n\n");
@@ -422,7 +440,11 @@ fn reading_the_preview_adds_no_history_stop() {
     assert_eq!(a.line, 38);
     key(&mut a, KeyCode::Char('['));
     a.preview_sync();
-    assert_eq!((a.line, at_row(&a).0), (0, 0), "back to the top");
+    assert_eq!(
+        (a.line, at_row(&a).0),
+        (0, 0),
+        "Ctrl+End adds a stop as in the source: `[` goes back to the top"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -452,7 +474,6 @@ fn a_jump_centres_its_row() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// The keys of a word or a column say nothing either: no message, no picker, no mode.
 #[test]
 fn keys_of_a_word_say_nothing_in_the_preview() {
     let (dir, mut a) = md_app("silent", PLAN);
@@ -478,7 +499,6 @@ fn keys_of_a_word_say_nothing_in_the_preview() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// Back in the source, Up and Down aim at the column the preview's row put the cursor on.
 #[test]
 fn back_in_the_source_up_keeps_the_column() {
     let (dir, mut a) = md_app("want-x", PLAN);
@@ -488,11 +508,14 @@ fn back_in_the_source_up_keeps_the_column() {
     }
     key(&mut a, KeyCode::Char('p'));
     key(&mut a, KeyCode::Up);
-    assert_eq!((a.line, a.col), (6, 3));
+    assert_eq!(
+        (a.line, a.col),
+        (6, 3),
+        "Up aims at the column the preview's row put the cursor on"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// A held arrow in the preview is no missed key: its rows are not the source's.
 #[test]
 fn a_held_arrow_in_the_preview_misses_nothing() {
     let (dir, mut a) = md_app("missed", &"para\n\n".repeat(40));
@@ -508,12 +531,14 @@ fn a_held_arrow_in_the_preview_misses_nothing() {
         KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE),
         t0 + Duration::from_millis(2000),
     );
-    assert!(a.missed.is_empty(), "{:?}", a.missed);
+    assert!(
+        a.missed.is_empty(),
+        "the preview's rows are not the source's: {:?}",
+        a.missed
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// Only the keys the preview names do anything in it: no other key, with or without Ctrl,
-/// selects, finds, flips the wrapping or changes the text behind it.
 #[test]
 fn only_the_keys_the_preview_names_act_in_it() {
     let (dir, mut a) = md_app("allow", PLAN);
@@ -547,7 +572,6 @@ fn only_the_keys_the_preview_names_act_in_it() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// A narrower pane keeps the colours of the code on screen: the text is the same.
 #[test]
 fn another_width_keeps_the_code_highlighted() {
     let (dir, mut a) = md_app("keep-hl", "```rust\nfn main() {}\n```\n");
@@ -569,8 +593,6 @@ fn another_width_keeps_the_code_highlighted() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// A new layout keeps the cursor on the row it was on, where rows share a position: a table's
-/// header and its top border, a heading and its rule, a bottom border.
 #[test]
 fn a_new_layout_keeps_the_row() {
     let text = "# Plan\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\nEnd.\n";
@@ -601,28 +623,27 @@ fn a_new_layout_keeps_the_row() {
         a.preview_sync();
         assert!(
             at_row(&a).2.starts_with(first),
-            "{want:?} became {:?}",
+            "rows that share a position keep the cursor: {want:?} became {:?}",
             at_row(&a).2
         );
     }
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// `p` on a code block that cites a file, as Cursor does, shows it coloured as that file.
 #[test]
 fn a_fence_that_cites_a_file_renders() {
     let (dir, mut a) = md_app("cite", "```12:15:src/main.rs\nfn main() {}\n```\n");
     key(&mut a, KeyCode::Char('p'));
     assert!(a.previewing());
     let p = a.preview.as_ref().unwrap();
-    assert_eq!(p.code[0].lines, ["fn main() {}"]);
+    assert_eq!(
+        p.code[0].lines,
+        ["fn main() {}"],
+        "a fence that cites a file, as Cursor writes them, shows the code"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// Enter on the row of an empty code block edits its fence; on a row that shows no line (a blank
-/// row with no blank line under it, a table's border) it edits the first line the block below
-/// shows, a fence, a table's header, never the end of the fence above nor a line no row shows;
-/// with nothing below, at the end of the file.
 #[test]
 fn enter_on_rows_of_no_text_edits_where_they_are() {
     let (dir, mut a) = md_app("empty-block", "Para.\n\n```\n```\n\nEnd.\n");
@@ -630,14 +651,22 @@ fn enter_on_rows_of_no_text_edits_where_they_are() {
     key(&mut a, KeyCode::Down);
     key(&mut a, KeyCode::Down);
     key(&mut a, KeyCode::Enter);
-    assert_eq!((a.mode, a.line, a.col), (Mode::Edit, 2, 0));
+    assert_eq!(
+        (a.mode, a.line, a.col),
+        (Mode::Edit, 2, 0),
+        "an empty code block edits its fence"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 
     let (dir, mut a) = md_app("tight-gap", "```\ncode\n```\nText after.\n");
     key(&mut a, KeyCode::Char('p'));
     key(&mut a, KeyCode::Char('}'));
     key(&mut a, KeyCode::Enter);
-    assert_eq!((a.mode, a.line, a.col), (Mode::Edit, 3, 0));
+    assert_eq!(
+        (a.mode, a.line, a.col),
+        (Mode::Edit, 3, 0),
+        "a blank row with no blank line under it edits the line below, never the fence above"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 
     let (dir, mut a) = md_app("end-border", "Text.\n\n| a |\n|---|\n| 1 |\n");
@@ -645,7 +674,11 @@ fn enter_on_rows_of_no_text_edits_where_they_are() {
     press(&mut a, KeyCode::End, KeyModifiers::CONTROL);
     assert!(at_row(&a).2.starts_with('\u{2514}'), "{:?}", at_row(&a));
     key(&mut a, KeyCode::Enter);
-    assert_eq!((a.mode, a.line, a.col), (Mode::Edit, 4, 5));
+    assert_eq!(
+        (a.mode, a.line, a.col),
+        (Mode::Edit, 4, 5),
+        "a border with nothing below edits the end of the file"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 
     let (dir, mut a) = md_app("fence-below", "Intro.\n```py\nx = 1\n```\n");
@@ -653,7 +686,11 @@ fn enter_on_rows_of_no_text_edits_where_they_are() {
     key(&mut a, KeyCode::Down);
     assert_eq!(at_row(&a).2, "");
     key(&mut a, KeyCode::Enter);
-    assert_eq!((a.mode, a.line, a.col), (Mode::Edit, 1, 0));
+    assert_eq!(
+        (a.mode, a.line, a.col),
+        (Mode::Edit, 1, 0),
+        "a blank row over a code block edits its fence"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 
     let (dir, mut a) = md_app("top-border", "[x]: http://a\n\n| a |\n|---|\n| 1 |\n");
@@ -661,13 +698,14 @@ fn enter_on_rows_of_no_text_edits_where_they_are() {
     press(&mut a, KeyCode::Home, KeyModifiers::CONTROL);
     assert!(at_row(&a).2.starts_with('\u{250c}'), "{:?}", at_row(&a));
     key(&mut a, KeyCode::Enter);
-    assert_eq!((a.mode, a.line, a.col), (Mode::Edit, 2, 0));
+    assert_eq!(
+        (a.mode, a.line, a.col),
+        (Mode::Edit, 2, 0),
+        "a table's top border edits its header, not a line no row shows"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// A jump to a line shows the row of that line, found anew, not the row the cursor stood on
-/// because it shares the line's position: from the second row of a wrapped table row, `:` to
-/// its line shows its first row.
 #[test]
 fn a_jump_shows_the_row_of_its_line() {
     let text = "| a | b |\n|---|---|\n| x | a cell long enough to wrap in two rows |\n";
@@ -683,7 +721,11 @@ fn a_jump_shows_the_row_of_its_line() {
     }
     key(&mut a, KeyCode::Enter);
     a.preview_sync();
-    assert_eq!(at_row(&a).0, first);
+    assert_eq!(
+        at_row(&a).0,
+        first,
+        "from the second row of a wrapped table row, `:` to its line shows its first row"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -706,16 +748,16 @@ fn git_in(dir: &Path, args: &[&str]) {
     assert!(out.unwrap().status.success(), "git {args:?}");
 }
 
-/// In `--review`, `p` on a Markdown file of the review renders it as it stands now, without the
-/// diff's marks (#596): a changed file as the branch has it, a deleted one as it was. `p` again
-/// shows the source with its diff.
 #[test]
 fn p_renders_a_file_of_the_review_as_it_stands_now() {
     let (dir, mut a) = md_review("in-review", "# Doc\n\nOld.\n", "# Doc\n\nNew.\n");
     key(&mut a, KeyCode::Char('p'));
     assert!(a.previewing(), "{}", a.message);
     let text = preview_text(&a);
-    assert!(text.contains("New.") && !text.contains("Old."), "{text}");
+    assert!(
+        text.contains("New.") && !text.contains("Old."),
+        "a changed file as the branch has it, without the diff's marks: {text}"
+    );
     key(&mut a, KeyCode::Char('p'));
     assert!(!a.previewing());
     assert!(!a.diff.ghosts.is_empty(), "the source keeps its diff");
@@ -735,7 +777,7 @@ fn p_renders_a_file_of_the_review_as_it_stands_now() {
     assert!(a.previewing(), "{}", a.message);
     assert!(
         preview_text(&a).starts_with("Notes"),
-        "{}",
+        "a deleted file as it was: {}",
         preview_text(&a)
     );
     let _ = std::fs::remove_dir_all(&dir);
@@ -743,8 +785,6 @@ fn p_renders_a_file_of_the_review_as_it_stands_now() {
 
 const NOTES: &str = "# Notes\n\nKept.\n";
 
-/// A file shown rendered that an agent changes joins the review and stays rendered, its new text
-/// on screen.
 #[test]
 fn a_file_that_joins_the_review_stays_rendered() {
     let (dir, mut a) = md_review("joins", "# Doc\n\nOld.\n", "# Doc\n\nNew.\n");
@@ -764,15 +804,16 @@ fn a_file_that_joins_the_review_stays_rendered() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// A review opens a file on its first hunk, here on the line the branch deleted; the preview
-/// shows no deleted line, so `p` puts the cursor on the line below it, the row it highlights,
-/// where Enter edits and Ctrl+C copies (#596).
 #[test]
 fn p_from_a_deleted_line_stands_on_the_line_below() {
     let (dir, mut a) = md_review("ghost", "# Doc\n\nOld.\n\nKeep.\n", "# Doc\n\nKeep.\n");
     assert!(a.deleted.is_some(), "the review opens on the deleted line");
     key(&mut a, KeyCode::Char('p'));
-    assert_eq!((a.deleted, at_row(&a).2.as_str()), (None, "Keep."));
+    assert_eq!(
+        (a.deleted, at_row(&a).2.as_str()),
+        (None, "Keep."),
+        "the preview shows no deleted line: `p` stands on the line below it"
+    );
     press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
     assert_eq!(a.clipboard.as_deref(), Some("Keep.\n"));
     key(&mut a, KeyCode::Enter);
@@ -780,16 +821,17 @@ fn p_from_a_deleted_line_stands_on_the_line_below() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// A file of the review rendered on an earlier visit opens on its source, with its diff: `c`
-/// lands on its hunk there, and a file the branch comes to generate shows its fold, where Enter
-/// loads the diff (#596).
 #[test]
 fn a_file_of_the_review_opens_on_its_source() {
     let (dir, mut a) = md_review("reopen", "# Doc\n\nOld.\n", "# Doc\n\nNew.\n");
     key(&mut a, KeyCode::Char('p'));
     crate::tutor::press(&mut a, "onotes.md<Enter>");
     key(&mut a, KeyCode::Char('c'));
-    assert_eq!((a.rel_path(), a.previewing()), ("doc.md".into(), false));
+    assert_eq!(
+        (a.rel_path(), a.previewing()),
+        ("doc.md".into(), false),
+        "a file rendered on an earlier visit opens on its source, where `c` lands on its hunk"
+    );
 
     crate::tutor::press(&mut a, "onotes.md<Enter>");
     key(&mut a, KeyCode::Char('p'));
@@ -801,15 +843,19 @@ fn a_file_of_the_review_opens_on_its_source() {
     git_in(&dir, &["commit", "-q", "-m", "generated"]);
     a.review_refreshed(git::Review::open(&dir, None, None).unwrap());
     crate::tutor::press(&mut a, "onotes.md<Enter>");
-    assert!(a.folded_here().is_some() && !a.previewing());
+    assert!(
+        a.folded_here().is_some() && !a.previewing(),
+        "a file the branch comes to generate shows its fold"
+    );
     key(&mut a, KeyCode::Enter);
-    assert_eq!((a.folded_here(), a.mode), (None, Mode::Normal));
+    assert_eq!(
+        (a.folded_here(), a.mode),
+        (None, Mode::Normal),
+        "Enter on the fold loads the diff"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// `p` on a file outside the review list whose diff has lines deleted after its last one, the
-/// cursor on them (#439), returns on the row of the file's last line: the list lags the file (it
-/// waits out a debounce, or auto-reload is off and Ctrl+R took the file).
 #[test]
 fn p_past_the_last_line_of_a_file_the_list_lags_returns() {
     // A merl that hangs cannot be stopped from here: the App lives on a thread of its own.
@@ -834,11 +880,13 @@ fn p_past_the_last_line_of_a_file_the_list_lags_returns() {
         .expect("`p` did not return");
     assert!(scrolled, "the cursor was on the deleted lines");
     assert!(previewing);
-    assert_eq!(row.as_deref(), Some("Kept."));
+    assert_eq!(
+        row.as_deref(),
+        Some("Kept."),
+        "on the row of the file's last line"
+    );
 }
 
-/// `c` in the preview of a file outside the review leaves the preview and walks on from the
-/// source: to the review's hunk, and `[` comes back to the source.
 #[test]
 fn c_in_a_preview_leaves_it_for_the_source() {
     let (dir, mut a) = md_review("c-leaves", "# Doc\n\nOld.\n", "# Doc\n\nNew.\n");
@@ -846,9 +894,13 @@ fn c_in_a_preview_leaves_it_for_the_source() {
     key(&mut a, KeyCode::Char('p'));
     assert!(a.previewing());
     key(&mut a, KeyCode::Char('c'));
-    assert_eq!((a.rel_path().as_str(), a.line), ("doc.md", 2));
+    assert_eq!(
+        (a.rel_path().as_str(), a.line),
+        ("doc.md", 2),
+        "`c` walks on from the source to the review's hunk"
+    );
     key(&mut a, KeyCode::Char('['));
     assert_eq!(a.rel_path(), "notes.md");
-    assert!(!a.previewing());
+    assert!(!a.previewing(), "`[` comes back to the source");
     let _ = std::fs::remove_dir_all(&dir);
 }

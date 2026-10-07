@@ -51,6 +51,7 @@ impl App {
                         }
                     }
                     self.undo_break = true;
+                    self.edit_kind = edit::Kind::Other;
                     self.anchor = None;
                     self.preview = None;
                     let rel = path.strip_prefix(&self.root).ok();
@@ -281,6 +282,7 @@ impl App {
                 .extend(reload_step(&old.lines, old.format(), &self.buf));
         }
         self.undo_break = true;
+        self.edit_kind = edit::Kind::Other;
         self.refresh_diff();
         if let Some(reading) = reading {
             self.find_deleted_again(reading);

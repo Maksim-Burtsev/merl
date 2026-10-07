@@ -72,19 +72,19 @@ const COMPILER_ATTRIBUTES: &[&str] = &[
 /// other, or in an attribute macro's nested argument list, which may name a project type.
 pub fn rust_attribute(lines: &[String], line: usize, start: usize, end: usize) -> Option<RustAttr> {
     let cur = lines.get(line)?;
-    let (text, stack, _) = frames(lines, line, start)?;
+    let Frames { text, stack, .. } = frames(lines, line, start)?;
     let pathed = cur[end..].trim_start().starts_with("::");
-    if stack.iter().any(|f| f.name == "cfg!") {
+    if stack.iter().any(|f| f.callee == "cfg!") {
         return Some(RustAttr::Nothing);
     }
     let a = stack.iter().rposition(|f| f.attr)?;
     let inner = &stack[a + 1..];
-    if stack[a..].iter().any(|f| f.value) {
+    if stack[a..].iter().any(|f| f.in_value) {
         return None;
     }
     if inner
         .last()
-        .is_some_and(|f| f.open == b'(' && f.name == "derive")
+        .is_some_and(|f| f.open == b'(' && f.callee == "derive")
     {
         return Some(if pathed {
             RustAttr::Nothing
@@ -97,13 +97,13 @@ pub fn rust_attribute(lines: &[String], line: usize, start: usize, end: usize) -
         let key = after.starts_with('=') && !after[1..].starts_with(['=', '>']);
         return (key || compiler(&text, &stack[a..])).then_some(RustAttr::Nothing);
     }
-    // The attribute's own name: nothing but a path stands between the `#[` and the word.
-    static PATH: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*(\w+\s*::\s*)*$").unwrap());
-    let head = &text[stack[a].at..];
+    static ONLY_A_PATH: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s*(\w+\s*::\s*)*$").unwrap());
+    let head = &text[stack[a].content_start..];
     let word = &cur[start..end];
-    let own = PATH.is_match(head) && !pathed;
+    let attributes_own_name = ONLY_A_PATH.is_match(head) && !pathed;
     let compiler = head.trim().is_empty() && COMPILER_ATTRIBUTES.contains(&word);
-    Some(if own && !compiler {
+    Some(if attributes_own_name && !compiler {
         RustAttr::Macro
     } else {
         RustAttr::Nothing
@@ -111,7 +111,12 @@ pub fn rust_attribute(lines: &[String], line: usize, start: usize, end: usize) -
 }
 pub fn rust_attribute_path(lines: &[String], line: usize, start: usize) -> bool {
     static PATH: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\w+(?:::\w+)*$").unwrap());
-    let Some((text, stack, in_string)) = frames(lines, line, start) else {
+    let Some(Frames {
+        text,
+        stack,
+        in_string,
+    }) = frames(lines, line, start)
+    else {
         return false;
     };
     let Some(a) = stack.iter().rposition(|f| f.attr) else {
@@ -123,53 +128,52 @@ pub fn rust_attribute_path(lines: &[String], line: usize, start: usize) -> bool 
         Some(&cur[open + 1..start + close])
     });
     in_string
-        && stack.last().is_some_and(|f| f.value)
+        && stack.last().is_some_and(|f| f.in_value)
         && !compiler(&text, &stack[a..])
         && content.is_some_and(|c| PATH.is_match(c))
 }
 /// Whether the attribute of `stack` (its `#[` frame first) is one the compiler reads: its own
 /// name, or the name of an argument list in it, `cfg_attr(test, allow(…))`.
 fn compiler(text: &str, stack: &[Frame]) -> bool {
-    let head = text[stack[0].at..].trim_start();
+    let head = text[stack[0].content_start..].trim_start();
     let name = &head[..head
         .find(|c: char| !(c.is_alphanumeric() || c == '_'))
         .unwrap_or(head.len())];
     COMPILER_ATTRIBUTES.contains(&name)
         || stack[1..]
             .iter()
-            .any(|f| COMPILER_ATTRIBUTES.contains(&f.name.as_str()))
+            .any(|f| COMPILER_ATTRIBUTES.contains(&f.callee.as_str()))
 }
 struct Frame {
-    /// `#[`, `[`, `(` or `{`.
     open: u8,
     attr: bool,
-    /// The name in front of a `(`, with its `!`.
-    name: String,
-    /// An `=` since the last `,` of this frame: a value.
-    value: bool,
-    /// Where the frame's content starts in the text [`frames`] reads.
-    at: usize,
+    callee: String,
+    in_value: bool,
+    content_start: usize,
 }
-/// The brackets open before byte `start` of 0-based `line` of `lines`, read from the attribute a
-/// line above opens when rustfmt wrapped one; with the text read and whether `start` stands in a
-/// `"…"` string.
-fn frames(lines: &[String], line: usize, start: usize) -> Option<(String, Vec<Frame>, bool)> {
-    let cur = lines.get(line)?;
-    // An attribute rustfmt wrapped starts on a line of its own, and the lines between it and
-    // the cursor end in what opens or goes on with a list, or are comments. Any other line above
-    // is left out: it may stand inside a string opened further up.
+struct Frames {
+    text: String,
+    stack: Vec<Frame>,
+    in_string: bool,
+}
+fn wrapped_attribute_start(lines: &[String], line: usize) -> usize {
     // ponytail: at most eight lines above the cursor.
-    let mut from = line;
     for i in (line.saturating_sub(8)..line).rev() {
         let t = lines[i].trim();
         if t.starts_with("#[") || t.starts_with("#![") {
-            from = i;
-            break;
+            return i;
         }
         if !t.ends_with([',', '(', '[']) && !t.starts_with("//") {
             break;
         }
     }
+    line
+}
+/// The brackets open before byte `start` of 0-based `line` of `lines`, read from the attribute a
+/// line above opens when rustfmt wrapped one.
+fn frames(lines: &[String], line: usize, start: usize) -> Option<Frames> {
+    let cur = lines.get(line)?;
+    let from = wrapped_attribute_start(lines, line);
     let mut text = lines[from..line].join("\n");
     text.push('\n');
     text.push_str(&cur[..start]);
@@ -206,9 +210,9 @@ fn frames(lines: &[String], line: usize, start: usize) -> Option<(String, Vec<Fr
                 stack.push(Frame {
                     open: b'[',
                     attr: true,
-                    name: String::new(),
-                    value: false,
-                    at: i + 1,
+                    callee: String::new(),
+                    in_value: false,
+                    content_start: i + 1,
                 });
             }
             b'[' | b'(' | b'{' => {
@@ -219,13 +223,13 @@ fn frames(lines: &[String], line: usize, start: usize) -> Option<(String, Vec<Fr
                 stack.push(Frame {
                     open: c,
                     attr: false,
-                    name: if c == b'(' {
+                    callee: if c == b'(' {
                         before[name_at..].to_owned()
                     } else {
                         String::new()
                     },
-                    value: false,
-                    at: i + 1,
+                    in_value: false,
+                    content_start: i + 1,
                 });
             }
             b']' | b')' | b'}' => {
@@ -233,7 +237,7 @@ fn frames(lines: &[String], line: usize, start: usize) -> Option<(String, Vec<Fr
             }
             b',' => {
                 if let Some(f) = stack.last_mut() {
-                    f.value = false;
+                    f.in_value = false;
                 }
             }
             b'=' => {
@@ -242,14 +246,18 @@ fn frames(lines: &[String], line: usize, start: usize) -> Option<(String, Vec<Fr
                 let compare = matches!(prev, Some(b'=' | b'!' | b'<' | b'>'))
                     || matches!(next, Some(b'=' | b'>'));
                 if !compare && let Some(f) = stack.last_mut() {
-                    f.value = true;
+                    f.in_value = true;
                 }
             }
             _ => {}
         }
         i += 1;
     }
-    Some((text, stack, in_string))
+    Some(Frames {
+        text,
+        stack,
+        in_string,
+    })
 }
 /// The lines `d` greps outside the project for the macro a word of an attribute names: a
 /// `pub macro W` (the standard library declares every built-in derive and attribute so), and a
@@ -265,11 +273,11 @@ pub fn rust_macro_patterns(attr: RustAttr, word: &str) -> Vec<String> {
     }
     out
 }
-/// Whether 1-based `line` of `text`, a hit of [`rust_macro_patterns`], declares the macro: a
+/// Whether `line1` of `text`, a hit of [`rust_macro_patterns`], declares the macro: a
 /// `pub fn` counts only with `#[proc_macro_attribute]` among the attributes right above it.
-pub fn rust_proc_macro(text: &str, line: usize) -> bool {
+pub fn rust_proc_macro(text: &str, line1: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
-    let Some(k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
+    let Some(k) = line1.checked_sub(1).filter(|&k| k < lines.len()) else {
         return false;
     };
     if !lines[k].trim_start().starts_with("pub fn") {
@@ -288,8 +296,7 @@ static STRUCT: LazyLock<Regex> = LazyLock::new(|| {
 });
 static ENUM: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?enum\s+[A-Za-z_]\w*").unwrap());
-/// A struct-like variant's own line, `Name {`.
-static BRACED: LazyLock<Regex> =
+static STRUCT_LIKE_VARIANT_LINE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^\s+(?:#\[[^\]]*\]\s*)*[A-Za-z_]\w*\s*\{\s*$").unwrap());
 
 /// The 0-based line the Rust item or variant on 0-based line `k` of `lines` is declared in: the
@@ -312,17 +319,17 @@ pub fn rust_field_pattern(word: &str, public: bool) -> String {
     };
     format!(r"^\s+{vis}{}\s*:[^:]", regex::escape(word))
 }
-/// Whether 1-based `line` of `text`, a hit of [`rust_field_pattern`], declares a field: it sits
+/// Whether `line1` of `text`, a hit of [`rust_field_pattern`], declares a field: it sits
 /// directly in a `struct`, a `union` or a struct-like variant `Name {` of an `enum`. A struct
 /// literal's field, a parameter of a wrapped signature and a `let` sit in something else.
-pub fn rust_field_at(text: &str, line: usize) -> bool {
+pub fn rust_field_at(text: &str, line1: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
-    let Some(k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
+    let Some(k) = line1.checked_sub(1).filter(|&k| k < lines.len()) else {
         return false;
     };
     rust_parent(&lines, k).is_some_and(|p| {
         STRUCT.is_match(lines[p])
-            || (BRACED.is_match(lines[p])
+            || (STRUCT_LIKE_VARIANT_LINE.is_match(lines[p])
                 && rust_parent(&lines, p).is_some_and(|e| ENUM.is_match(lines[e])))
     })
 }
@@ -334,11 +341,12 @@ pub fn rust_variant_pattern(word: &str) -> String {
         regex::escape(word)
     )
 }
-/// Whether 1-based `line` of `text` sits directly in an `enum`: with [`rust_variant_pattern`],
+/// Whether `line1` of `text` sits directly in an `enum`: with [`rust_variant_pattern`],
 /// the line declares a variant.
-pub fn rust_variant_at(text: &str, line: usize) -> bool {
+pub fn rust_variant_at(text: &str, line1: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
-    line.checked_sub(1)
+    line1
+        .checked_sub(1)
         .filter(|&k| k < lines.len())
         .and_then(|k| rust_parent(&lines, k))
         .is_some_and(|p| ENUM.is_match(lines[p]))
@@ -406,16 +414,16 @@ fn rust_block_end(lines: &[&str], h: usize) -> usize {
         .find(|&i| indent(lines[i]) <= base && lines[i].trim_start().starts_with('}'))
         .unwrap_or(lines.len())
 }
-/// The glob `use`s a bare word at 1-based `line` of the Rust `text` can see a variant through,
+/// The glob `use`s a bare word at `line1` of the Rust `text` can see a variant through,
 /// as the paths in front of their `*`: those of the function around it, an indented `use` between
 /// its `fn` line and the cursor, else those directly in its module, the innermost inline `mod`
 /// around it or the file. The second value says it is the function's.
-pub fn rust_glob_uses(text: &str, line: usize) -> (Vec<Vec<String>>, bool) {
+pub fn rust_glob_uses(text: &str, line1: usize) -> (Vec<Vec<String>>, bool) {
     static GLOB: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+((?:\w+\s*::\s*)+)\*\s*;").unwrap()
     });
     let lines: Vec<&str> = text.lines().collect();
-    let Some(k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
+    let Some(k) = line1.checked_sub(1).filter(|&k| k < lines.len()) else {
         return (Vec::new(), false);
     };
     let literal = literal_lines(Kind::Rust, text);
@@ -461,9 +469,9 @@ pub enum RustNamespace {
 /// a block, in an outer function); and for a lowercase word, when the function mentions it before
 /// the cursor, or on the cursor's line, other than as `word(`, `word!` or `word::`: a local the
 /// rules cannot read counts as a local (#353 reads them).
-pub fn rust_scope_items(text: &str, line: usize, word: &str, ns: RustNamespace) -> Vec<usize> {
+pub fn rust_scope_items(text: &str, line1: usize, word: &str, ns: RustNamespace) -> Vec<usize> {
     let lines: Vec<&str> = text.lines().collect();
-    let Some(k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
+    let Some(k) = line1.checked_sub(1).filter(|&k| k < lines.len()) else {
         return Vec::new();
     };
     let w = regex::escape(word);
@@ -495,16 +503,15 @@ pub fn rust_scope_items(text: &str, line: usize, word: &str, ns: RustNamespace) 
         })
         .collect();
     let around = rust_around(&lines, k, &literal);
-    // A `use` in a block around the cursor, the file's included: another block's is not in sight.
     let code = code.join("\n");
-    let in_sight = uses.find_iter(&code).any(|m| {
+    let use_in_a_block_around = uses.find_iter(&code).any(|m| {
         let at = m.start() + m.as_str().find("use").unwrap_or(0);
         let u = code[..at].matches('\n').count();
         rust_around(&lines, u, &literal)
             .first()
             .is_none_or(|b| around.contains(b))
     });
-    if in_sight {
+    if use_in_a_block_around {
         return Vec::new();
     }
     let functions: Vec<usize> = around
@@ -616,9 +623,8 @@ fn top_split(mut s: &str) -> Vec<&str> {
     out.push(s);
     out
 }
-/// A parameter's pattern: `p` without its `: Type`.
-fn untyped(p: &str) -> &str {
-    top_stop(p, b":").map_or(p, |i| &p[..i])
+fn without_type(param: &str) -> &str {
+    top_stop(param, b":").map_or(param, |i| &param[..i])
 }
 /// Whether the Rust pattern `pat` binds `name`: `w`, `mut w`, `ref w`, `&w`, `w @ …`, the `w` of
 /// `(a, w)`, `Some(w)`, `Point { w, .. }` and `Point { x: w }`. A path, a variant, a macro
@@ -651,10 +657,15 @@ fn let_pattern(line: &str) -> Option<Range<usize>> {
 pub fn rust_let_declares(line: &str, start: usize, name: &str) -> bool {
     let_pattern(line).is_some_and(|p| p.contains(&start) && binds(&line[p], name))
 }
-/// Whether the Rust code `t`, a line or a block's header, binds `name` for what follows it: an
-/// `if let`, a `while let` or a `let` of a chain, a `for`, a `match` arm, a closure. `open` asks
-/// for a header, whose closure binds only when its body is the block the header opens.
-fn line_binds(t: &str, name: &str, open: bool) -> bool {
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CodeShape {
+    Line,
+    BlockHeader,
+}
+/// Whether the Rust code `t` binds `name` for what follows it: an `if let`, a `while let` or a
+/// `let` of a chain, a `for`, a `match` arm, a closure. A block header's closure binds only when
+/// its body is the block the header opens.
+fn line_binds(t: &str, name: &str, shape: CodeShape) -> bool {
     static LET: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"(?:\bif|\bwhile|&&)\s+let\s+").unwrap());
     static FOR: LazyLock<Regex> =
@@ -669,7 +680,10 @@ fn line_binds(t: &str, name: &str, open: bool) -> bool {
     });
     let each = FOR.captures(t).is_some_and(|c| binds(&c[1], name));
     let closure = CLOSURE.captures_iter(t).any(|c| {
-        (!open || c.get(2).is_some()) && top_split(&c[1]).iter().any(|p| binds(untyped(p), name))
+        (shape == CodeShape::Line || c.get(2).is_some())
+            && top_split(&c[1])
+                .iter()
+                .any(|p| binds(without_type(p), name))
     });
     // `Some(w) =>`, behind a guard `if …` at most; not a `match` on one line, nor a macro's rule.
     let arm = t.find("=>").is_some_and(|end| {
@@ -687,25 +701,15 @@ fn line_binds(t: &str, name: &str, open: bool) -> bool {
 fn rust_param(lines: &[&str], f: usize, name: &str) -> Option<usize> {
     static FN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\bfn\s+\w+\s*").unwrap());
     let line = uncommented(Kind::Rust, lines[f]);
-    let mut open = FN.find(&line)?.end();
-    // `fn get<T: Fn(u32)>(`: past the generics.
-    if line[open..].starts_with('<') {
-        let mut depth = 0i32;
-        let (end, _) = line[open..].char_indices().find(|&(i, c)| {
-            match c {
-                '<' => depth += 1,
-                '>' if !line[..open + i].ends_with('-') => depth -= 1,
-                _ => {}
-            }
-            depth == 0
-        })?;
-        open += end + 1;
-    }
+    let open = past_generics(&line, FN.find(&line)?.end())?;
     if !line[open..].starts_with('(') {
         return None;
     }
     let (inner, last, _) = group(Kind::Rust, lines, f, open)?;
-    if !top_split(&inner).iter().any(|p| binds(untyped(p), name)) {
+    if !top_split(&inner)
+        .iter()
+        .any(|p| binds(without_type(p), name))
+    {
         return None;
     }
     let declared = Regex::new(&format!(r"\b{}\s*:(?:[^:]|$)", regex::escape(name)))
@@ -713,6 +717,21 @@ fn rust_param(lines: &[&str], f: usize, name: &str) -> Option<usize> {
     (f..=last)
         .find(|&i| declared.is_match(&uncommented(Kind::Rust, lines[i])))
         .or_else(|| (f..=last).find(|&i| names(lines[i], name)))
+}
+fn past_generics(line: &str, at: usize) -> Option<usize> {
+    if !line[at..].starts_with('<') {
+        return Some(at);
+    }
+    let mut depth = 0i32;
+    let (end, _) = line[at..].char_indices().find(|&(i, c)| {
+        match c {
+            '<' => depth += 1,
+            '>' if !line[..at + i].ends_with('-') => depth -= 1,
+            _ => {}
+        }
+        depth == 0
+    })?;
+    Some(at + end + 1)
 }
 pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     const KEYWORDS: &[&str] = &[
@@ -733,7 +752,7 @@ pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
     if FN_LINE.is_match(lines[at]) {
         return rust_param(lines, at, name).map(found).into_iter().collect();
     }
-    let mut out: Vec<Binding> = line_binds(&code(at), name, false)
+    let mut out: Vec<Binding> = line_binds(&code(at), name, CodeShape::Line)
         .then(|| found(at))
         .into_iter()
         .collect();
@@ -784,7 +803,7 @@ pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
             })
         };
         if t.starts_with('}') {
-            if line_binds(&t, name, true) {
+            if line_binds(&t, name, CodeShape::BlockHeader) {
                 out.push(found(i));
                 return out;
             }
@@ -808,7 +827,7 @@ pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
             return out;
         }
         let header: Vec<String> = (i..=end).map(code).collect();
-        if line_binds(&header.join(" "), name, true) {
+        if line_binds(&header.join(" "), name, CodeShape::BlockHeader) {
             out.push(found(i));
             return out;
         }
@@ -844,13 +863,13 @@ pub enum RustVis {
     /// No `pub`: its module and the modules below it.
     Private,
 }
-/// Whether 1-based `line` of `lines`, a hit of [`rust_method_pattern`], declares a method: the
+/// Whether `line1` of `lines`, a hit of [`rust_method_pattern`], declares a method: the
 /// nearest line above it indented less opens an `impl` or a `trait`, or it stands in a macro's
 /// body, which an `impl` may expand it in (`Unreadable`). Its owner, its visibility (a trait
 /// method's the trait's) and the 1-based line of the `impl`, `trait` or macro arm around it.
 /// `None` for a `fn` at the top level, nested in a function, or in a `mod` block: none of them
 /// can follow a `.`.
-pub fn rust_method_at(lines: &[&str], line: usize) -> Option<(RustOwner, RustVis, usize)> {
+pub fn rust_method_at(lines: &[&str], line1: usize) -> Option<(RustOwner, RustVis, usize)> {
     static TRAIT: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|auto)\s+)*trait\s+([A-Za-z_]\w*)").unwrap()
     });
@@ -867,27 +886,25 @@ pub fn rust_method_at(lines: &[&str], line: usize) -> Option<(RustOwner, RustVis
     static MACRO: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:#\[[^\]]*\]\s*)*(?:pub(?:\([^)]*\))?\s+)?macro(?:_rules!|\s)").unwrap()
     });
-    let k = line.checked_sub(1).filter(|&k| k < lines.len())?;
+    let k = line1.checked_sub(1).filter(|&k| k < lines.len())?;
     let at = rust_parent(lines, k)?;
     let parent = lines[at];
     let owner = if let Some(c) = TRAIT.captures(parent) {
         RustOwner::Trait(c[1].to_owned())
     } else if !IMPL.is_match(parent) {
-        // Inside a `macro_rules!` or a `macro`, at any depth of its arms.
-        let mut up = at;
-        while !MACRO.is_match(lines[up]) {
-            up = rust_parent(lines, up)?;
+        let mut enclosing_macro = at;
+        while !MACRO.is_match(lines[enclosing_macro]) {
+            enclosing_macro = rust_parent(lines, enclosing_macro)?;
         }
         RustOwner::Unreadable
     } else if let Some(c) = IMPL_FOR.captures(parent) {
         RustOwner::ImplOf(c[1].to_owned())
     } else {
-        // The whole header on its line, or its `where` on the next: no `for` further down.
-        let whole = parent.trim_end().ends_with('{')
+        let no_for_further_down = parent.trim_end().ends_with('{')
             || lines
                 .get(at + 1)
                 .is_some_and(|l| l.trim_start().starts_with("where"));
-        match whole && !parent.contains(" for ") && INHERENT.is_match(parent) {
+        match no_for_further_down && !parent.contains(" for ") && INHERENT.is_match(parent) {
             true => RustOwner::Inherent,
             false => RustOwner::Unreadable,
         }
@@ -978,11 +995,11 @@ pub fn cargo_package_name(toml: &str) -> Option<String> {
     }
     None
 }
-/// Whether the item on 1-based `line` of `lines` carries a `#[stable(…)]` or `#[unstable(…)]`
+/// Whether the item on `line1` of `lines` carries a `#[stable(…)]` or `#[unstable(…)]`
 /// among the attributes and doc comments right above it: the standard library marks so every
 /// item it offers outside (the `missing_stability` check), and what has neither is its own.
-pub fn rust_stability(lines: &[&str], line: usize) -> bool {
-    lines[..line.saturating_sub(1).min(lines.len())]
+pub fn rust_stability(lines: &[&str], line1: usize) -> bool {
+    lines[..line1.saturating_sub(1).min(lines.len())]
         .iter()
         .rev()
         .map(|l| l.trim())
@@ -1171,8 +1188,7 @@ pub fn rust_holds(lines: &[&str], at: usize, name: &str) -> Option<RustHolds> {
             statement.push_str(uncommented(Kind::Rust, lines[i]).trim());
         }
         let e = statement.trim().trim_end_matches(';').trim_end();
-        // The bracket a match opens closes at the end of the expression.
-        let whole = |open: usize| {
+        let closes_at_the_end = |open: usize| {
             let mut depth = 0i32;
             for (i, c) in e.char_indices().skip_while(|&(i, _)| i < open) {
                 match c {
@@ -1190,37 +1206,37 @@ pub fn rust_holds(lines: &[&str], at: usize, name: &str) -> Option<RustHolds> {
         };
         if let Some(c) = LITERAL.captures(e) {
             let open = c.get(0)?.end() - 1;
-            return whole(open).then(|| RustHolds::Literal(e[..open].trim().to_owned()));
+            return closes_at_the_end(open)
+                .then(|| RustHolds::Literal(e[..open].trim().to_owned()));
         }
         if let Some(c) = ASSOC.captures(e) {
             let open = c.get(0)?.end() - 1;
-            return whole(open).then(|| RustHolds::Assoc(c[1].to_owned(), c[2].to_owned()));
+            return closes_at_the_end(open)
+                .then(|| RustHolds::Assoc(c[1].to_owned(), c[2].to_owned()));
         }
         if let Some(c) = CALL.captures(e) {
             let open = c.get(0)?.end() - 1;
             let path = c[1].split("::").map(str::to_owned).collect();
-            return whole(open).then_some(RustHolds::Call(path));
+            return closes_at_the_end(open).then_some(RustHolds::Call(path));
         }
         return None;
     }
-    // A closure's typed parameter, `|dir: Dir, mut cmd: TestCommand|`.
-    let closure = Regex::new(&format!(
+    let closure_typed_param = Regex::new(&format!(
         r"\|(?:[^|]*?[\s(,])?(?:mut\s+)?{n}\s*:([^:][^|]*)\|"
     ))
     .expect("an escaped name keeps the pattern valid");
-    if let Some(c) = closure.captures(&line) {
+    if let Some(c) = closure_typed_param.captures(&line) {
         return Some(RustHolds::Type(type_at(&c[1]).to_owned()));
     }
-    // A function's parameter, on the `fn` line or on a line of its wrapped list.
-    let param = Regex::new(&format!(r"(?:^|[(,])\s*(?:mut\s+)?{n}\s*:([^:].*)"))
+    let fn_param = Regex::new(&format!(r"(?:^|[(,])\s*(?:mut\s+)?{n}\s*:([^:].*)"))
         .expect("an escaped name keeps the pattern valid");
-    let signature = FN_LINE.is_match(&line)
+    let in_fn_signature = FN_LINE.is_match(&line)
         || (0..at)
             .rev()
             .map(|i| lines[i])
             .take_while(|l| !l.trim_end().ends_with(['{', '}', ';']))
             .any(|l| FN_LINE.is_match(l));
-    if signature && let Some(c) = param.captures(&line) {
+    if in_fn_signature && let Some(c) = fn_param.captures(&line) {
         return Some(RustHolds::Type(type_at(&c[1]).to_owned()));
     }
     None
@@ -1237,20 +1253,21 @@ pub fn rust_return_type(lines: &[&str], f: usize) -> Option<String> {
             break;
         }
     }
-    // The `->` after the parameters: the last one outside brackets.
     let b = signature.as_bytes();
     let mut depth = 0i32;
-    let mut arrow = None;
+    let mut after_last_top_level_arrow = None;
     for (i, &c) in b.iter().enumerate() {
         match c {
             b'(' | b'[' => depth += 1,
             b')' | b']' => depth -= 1,
             b'{' | b';' if depth == 0 => break,
-            b'-' if depth == 0 && b.get(i + 1) == Some(&b'>') => arrow = Some(i + 2),
+            b'-' if depth == 0 && b.get(i + 1) == Some(&b'>') => {
+                after_last_top_level_arrow = Some(i + 2)
+            }
             _ => {}
         }
     }
-    let t = type_at(&signature[arrow?..]);
+    let t = type_at(&signature[after_last_top_level_arrow?..]);
     (!t.is_empty()).then(|| t.to_owned())
 }
 /// The field `word` directly in the `struct` or `union` declared on 0-based line `decl` of

@@ -1,6 +1,3 @@
-//! Vue, Svelte and Astro components: which lines are the script, and what the template binds
-//! (#413).
-
 use super::*;
 
 #[test]

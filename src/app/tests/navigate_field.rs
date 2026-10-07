@@ -1,15 +1,5 @@
-//! `d` on a field, and the types a class inherits one from.
-
 use super::*;
 
-/// #104 over the same project in three languages. A field is a target: behind a receiver whose
-/// type is proven, the type's declaration of the field, found through the classes it extends
-/// and the structs it embeds, is one jump that names the receiver; an assignment in a method
-/// stands for the field only when no type declares it, and then the base-most one does. On a
-/// value whose type is not known, each type's declaration of a field of that name is a
-/// candidate by name, so a common name is a picker; a local, a literal's key or a `var` block
-/// of that name is none. On the declaration itself the other fields of the name are its
-/// namesakes, but only on the name the line declares.
 #[test]
 fn a_field_is_a_target() {
     let namesakes = |word: &str, row: (&str, &str)| {
@@ -437,10 +427,6 @@ fn a_field_is_a_target() {
     }
 }
 
-/// #100: `super().m()` / `super.m()` is `self` / `this` with the walk started one level up, so
-/// an override leads to what it overrides and never to itself. Go has no `super`: its
-/// `i.Base.M()` is a chain through the embedded struct. Under several Python bases only what
-/// needs no method resolution order is proven.
 #[test]
 fn super_starts_one_level_up() {
     let cases: Vec<(&str, &str, &str, &str, Shown)> = vec![
@@ -758,8 +744,6 @@ fn super_starts_one_level_up() {
     }
 }
 
-/// #175: a field assigned from a call on itself, `this.close = this.close.bind(this)` or
-/// `self.model = self.model.to(device)`, ends; its other assignments still prove its type.
 #[test]
 fn a_field_rebound_from_itself_ends() {
     let mut a = fixture_app("typescript");
@@ -769,7 +753,8 @@ fn a_field_rebound_from_itself_ends() {
         jump(
             "no definition for bind (chain broke at close)",
             "fields.ts:18"
-        )
+        ),
+        "a field assigned from a call on itself ends the chain"
     );
     let mut a = fixture_app("python");
     d_on(&mut a, "trainer.py", "self.model.forward");
@@ -779,5 +764,6 @@ fn a_field_rebound_from_itself_ends() {
             "forward \u{2192} Model.forward (via self.model: Model)",
             "trainer.py:5",
         ),
+        "the field's other assignments still prove its type",
     );
 }

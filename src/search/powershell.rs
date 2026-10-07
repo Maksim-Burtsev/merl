@@ -16,30 +16,42 @@ const TYPES: &str = r"(?:\[[^\]]*\]\s*)*";
 /// opens its line, an alias, a static property and an environment variable. A call, a named
 /// argument, a hashtable key (no `$`), a property or element write and a comparison (`-eq`,
 /// never `=`) match none. [`powershell_declares`] keeps the indented shapes to where they
-/// declare, and [`powershell_sigil`] picks the ones the word's own spelling allows, by index.
+/// declare, and [`powershell_sigil`] picks the ones the word's own spelling allows.
 pub fn powershell_patterns(word: &str) -> Vec<String> {
     let w = regex::escape(word);
-    vec![
-        format!(r"(?i)^\s*(?:function|filter)\s+{SCOPE}{w}\s*(?:[({{#]|$)"),
-        format!(r"(?i)^\s*{TYPES}(?:class|enum)\s+{w}\s*(?:[:{{#]|$)"),
-        // An assignment, `$Count += 1` and `[string]$Name = 'x'` included, and a property, whose
-        // value is optional: `hidden [int]$Count = 0`, `[string] $Name`.
-        format!(
-            r"(?i)^\s*(?:(?:hidden|static)\s+)*{TYPES}\${SCOPE}{w}\s*(?:[-+*/%]?=(?:[^=]|$)|;|#|$)"
-        ),
-        // A method or a constructor: `[decimal] Total() {`, `Invoice([string] $id) {`.
-        format!(r"(?i)^\s*(?:(?:hidden|static)\s+)*{TYPES}{w}\s*\("),
-        // An enum member: `Active`, `Closed = 2`.
-        format!(r"(?i)^\s+{w}\s*(?:=\s*[^=\s]|#|$)"),
-        format!(r#"(?i)^\s*(?:Set|New)-Alias\s+(?:-Name\s+)?["']?{w}["']?(?:\s|$)"#),
-        // A static property, the one `[Type]::Name` reaches: `static [int]$Max = 5`.
-        format!(
-            r"(?i)^\s*(?:hidden\s+)*static\s+(?:hidden\s+)*{TYPES}\${w}\s*(?:=(?:[^=]|$)|;|#|$)"
-        ),
-        // An environment variable, set only as `$env:Name`, which no other spelling declares.
-        format!(r"(?i)^\s*\$env:{w}\s*[-+]?=(?:[^=]|$)"),
-    ]
+    let mut out = vec![String::new(); SHAPES];
+    out[Shape::FunctionOrFilter as usize] =
+        format!(r"(?i)^\s*(?:function|filter)\s+{SCOPE}{w}\s*(?:[({{#]|$)");
+    out[Shape::ClassOrEnum as usize] =
+        format!(r"(?i)^\s*{TYPES}(?:class|enum)\s+{w}\s*(?:[:{{#]|$)");
+    out[Shape::AssignmentOrProperty as usize] = format!(
+        r"(?i)^\s*(?:(?:hidden|static)\s+)*{TYPES}\${SCOPE}{w}\s*(?:[-+*/%]?=(?:[^=]|$)|;|#|$)"
+    );
+    out[Shape::MethodOrConstructor as usize] =
+        format!(r"(?i)^\s*(?:(?:hidden|static)\s+)*{TYPES}{w}\s*\(");
+    out[Shape::EnumMember as usize] = format!(r"(?i)^\s+{w}\s*(?:=\s*[^=\s]|#|$)");
+    out[Shape::Alias as usize] =
+        format!(r#"(?i)^\s*(?:Set|New)-Alias\s+(?:-Name\s+)?["']?{w}["']?(?:\s|$)"#);
+    out[Shape::StaticProperty as usize] = format!(
+        r"(?i)^\s*(?:hidden\s+)*static\s+(?:hidden\s+)*{TYPES}\${w}\s*(?:=(?:[^=]|$)|;|#|$)"
+    );
+    out[Shape::EnvironmentVariable as usize] = format!(r"(?i)^\s*\$env:{w}\s*[-+]?=(?:[^=]|$)");
+    out
 }
+
+#[derive(Clone, Copy)]
+enum Shape {
+    FunctionOrFilter,
+    ClassOrEnum,
+    AssignmentOrProperty,
+    MethodOrConstructor,
+    EnumMember,
+    Alias,
+    StaticProperty,
+    EnvironmentVariable,
+}
+
+const SHAPES: usize = Shape::EnvironmentVariable as usize + 1;
 
 /// [`powershell_patterns`] cut to what the word between `before` and `after` names: a
 /// variable behind `$`, a scope's `$script:` or a splat's `@` is assigned or a property, never
@@ -51,19 +63,33 @@ pub fn powershell_sigil(patterns: &mut Vec<String>, before: &str, after: &str) {
     static SIGIL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?i)(?:[$@]|\$(?:global|script|local|private|using):)$").unwrap()
     });
-    if patterns.len() != 8 {
+    use Shape::*;
+    if patterns.len() != SHAPES {
         return;
     }
-    let keep: &[usize] = match before {
-        b if b.to_ascii_lowercase().ends_with("$env:") => &[7],
-        b if SIGIL.is_match(b) => &[2],
-        b if b.ends_with('.') => &[2, 3],
-        b if b.ends_with("::") => &[0, 1, 3, 4, 5, 6],
-        _ if after.starts_with("]::new(") => &[0, 1, 3, 4, 5],
-        _ => &[0, 1, 4, 5],
+    let keep: &[Shape] = match before {
+        b if b.to_ascii_lowercase().ends_with("$env:") => &[EnvironmentVariable],
+        b if SIGIL.is_match(b) => &[AssignmentOrProperty],
+        b if b.ends_with('.') => &[AssignmentOrProperty, MethodOrConstructor],
+        b if b.ends_with("::") => &[
+            FunctionOrFilter,
+            ClassOrEnum,
+            MethodOrConstructor,
+            EnumMember,
+            Alias,
+            StaticProperty,
+        ],
+        _ if after.starts_with("]::new(") => &[
+            FunctionOrFilter,
+            ClassOrEnum,
+            MethodOrConstructor,
+            EnumMember,
+            Alias,
+        ],
+        _ => &[FunctionOrFilter, ClassOrEnum, EnumMember, Alias],
     };
     let all = std::mem::take(patterns);
-    patterns.extend(keep.iter().map(|&i| all[i].clone()));
+    patterns.extend(keep.iter().map(|&s| all[s as usize].clone()));
 }
 
 /// Whether the PowerShell `line` declares `word` where it first stands whole in it: the
@@ -91,28 +117,24 @@ pub fn powershell_argument(before: &str) -> bool {
         .is_some_and(|b| b.is_empty() || b.ends_with([' ', '\t', '(']))
 }
 
-/// Whether 1-based `line` of `lines`, matched by [`powershell_patterns`], declares where it sits:
+/// Whether `line1` of `lines`, matched by [`powershell_patterns`], declares where it sits:
 /// an enum member directly inside an `enum`, a method directly inside a `class`, and no variable
 /// or property inside a `param(` block, which is a parameter: [`powershell_params`] reads it, in
 /// its own file only.
-pub fn powershell_declares<S: AsRef<str>>(lines: &[S], line: usize, line_text: &str) -> bool {
+pub fn powershell_declares<S: AsRef<str>>(lines: &[S], line1: usize, line_text: &str) -> bool {
     static KEYWORD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?i)^\s*(?:(?:function|filter)\s|(?:\[[^\]]*\]\s*)*(?:class|enum)\s|(?:Set|New)-Alias\s)").unwrap()
     });
     if KEYWORD.is_match(line_text) {
         return true;
     }
-    // A variable or a property behind its modifiers, attributes and type, which may hold a `(`:
-    // `[ValidateRange(1, 9)][int]$Retries = 3`.
     if VARIABLE.is_match(line_text) {
-        return !in_param_block(lines, line);
+        return !in_param_block(lines, line1);
     }
-    // A name and its `(`: a method; a name alone, whatever its value or comment holds: an enum
-    // member.
-    match METHOD.is_match(line_text) {
-        true => in_class(lines, line),
-        false => owner(lines, line).is_some_and(|o| opens(o, "enum")),
+    if METHOD.is_match(line_text) {
+        return in_class(lines, line1);
     }
+    member_of_an_enum(lines, line1)
 }
 
 /// A line that opens with a variable, behind `hidden`, `static`, attributes and a type.
@@ -135,34 +157,41 @@ fn opens(l: &str, keyword: &str) -> bool {
         .is_some_and(|c| c[1].eq_ignore_ascii_case(keyword))
 }
 
-fn in_class<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
-    owner(lines, line).is_some_and(|o| opens(o, "class"))
+fn in_class<S: AsRef<str>>(lines: &[S], line1: usize) -> bool {
+    owner(lines, line1).is_some_and(|o| opens(o, "class"))
 }
 
-/// The byte of the `(` that opens a parameter list on 0-based line `i` of `lines`: a `param(`, a
+fn member_of_an_enum<S: AsRef<str>>(lines: &[S], line1: usize) -> bool {
+    owner(lines, line1).is_some_and(|o| opens(o, "enum"))
+}
+
+/// The byte of the `(` that opens a parameter list on `line0` of `lines`: a `param(`, a
 /// `function Name(` header, or a method's or a constructor's header directly inside a class.
-fn params_at<S: AsRef<str>>(lines: &[S], i: usize) -> Option<usize> {
-    let l = lines[i].as_ref();
+fn params_at<S: AsRef<str>>(lines: &[S], line0: usize) -> Option<usize> {
+    let l = lines[line0].as_ref();
     PARAM
         .find(l)
-        .or_else(|| METHOD.find(l).filter(|_| in_class(lines, i + 1)))
+        .or_else(|| METHOD.find(l).filter(|_| in_class(lines, line0 + 1)))
         .map(|m| m.end() - 1)
 }
 
-/// The nearest line above 1-based `line` of `lines` that is indented less, past blanks and
-/// comments.
-fn owner<S: AsRef<str>>(lines: &[S], line: usize) -> Option<&str> {
-    let depth = indent(lines.get(line.checked_sub(1)?)?.as_ref());
-    lines[..line - 1].iter().map(AsRef::as_ref).rev().find(|l| {
-        let t = l.trim_start();
-        !t.is_empty() && !t.starts_with('#') && indent(l) < depth
-    })
+/// The nearest line above `line1` of `lines` that is indented less, past blanks and comments.
+fn owner<S: AsRef<str>>(lines: &[S], line1: usize) -> Option<&str> {
+    let depth = indent(lines.get(line1.checked_sub(1)?)?.as_ref());
+    lines[..line1 - 1]
+        .iter()
+        .map(AsRef::as_ref)
+        .rev()
+        .find(|l| {
+            let t = l.trim_start();
+            !t.is_empty() && !t.starts_with('#') && indent(l) < depth
+        })
 }
 
-/// Whether 1-based `line` of `lines` starts inside a `param(` block: the brackets the nearest
-/// `param(` above it opened are not all closed when the line starts.
-fn in_param_block<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
-    let Some(k) = line.checked_sub(1) else {
+/// Whether `line1` of `lines` starts inside a `param(` block: the brackets the nearest `param(`
+/// above it opened are not all closed when the line starts.
+fn in_param_block<S: AsRef<str>>(lines: &[S], line1: usize) -> bool {
+    let Some(k) = line1.checked_sub(1) else {
         return false;
     };
     let Some(open) = (0..k)
@@ -206,25 +235,25 @@ fn brackets(s: &str) -> i32 {
     depth
 }
 
-/// The parameter `name` of the `param(` blocks above 0-based `at` in the blocks around it, told
+/// The parameter `name` of the `param(` blocks above `cursor_line0` in the blocks around it, told
 /// by indentation, innermost first: a function's, a script block's or the script's, or the list
-/// of a `function Name($a) {` header or of a method or a constructor of a class. A function beside the cursor's, at its level or deeper,
-/// is not around it, nor are its parameters.
-pub fn powershell_params(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+/// of a `function Name($a) {` header or of a method or a constructor of a class. A function
+/// beside the cursor's, at its level or deeper, is not around it, nor are its parameters.
+pub fn powershell_params(lines: &[&str], cursor_line0: usize, name: &str) -> Vec<Binding> {
     let var = Regex::new(&format!(r"(?i)\${}(?:[^\w-]|$)", regex::escape(name)))
         .expect("an escaped name keeps the pattern valid");
-    let mut depth = indent(lines[at]);
-    for i in (0..=at).rev() {
+    let mut depth = indent(lines[cursor_line0]);
+    for i in (0..=cursor_line0).rev() {
         let l = lines[i];
         if l.trim().is_empty() || indent(l) > depth {
             continue;
         }
         let open = params_at(lines, i);
-        // A function or a method beside the cursor's, at its level: none of its parameters.
-        let header = HEADER.is_match(l) || (METHOD.is_match(l) && in_class(lines, i + 1));
-        let beside = i != at && indent(l) == depth && header;
+        let function_or_method =
+            HEADER.is_match(l) || (METHOD.is_match(l) && in_class(lines, i + 1));
+        let beside_the_cursors = i != cursor_line0 && indent(l) == depth && function_or_method;
         depth = indent(l);
-        let Some(from) = open.filter(|_| !beside) else {
+        let Some(from) = open.filter(|_| !beside_the_cursors) else {
             continue;
         };
         let mut open = 0;
@@ -249,9 +278,9 @@ static HEADER: std::sync::LazyLock<Regex> =
     std::sync::LazyLock::new(|| Regex::new(r"(?i)^\s*(?:function|filter)\s").unwrap());
 
 /// The path a dot-source (`. ./helpers.ps1`, `. $PSScriptRoot/helpers.ps1`), an `Import-Module
-/// ./Shop/Users.psm1` or a `using module ./Shop.psm1` on `line` names, when byte `col` stands on
+/// ./Shop/Users.psm1` or a `using module ./Shop.psm1` on `line` names, when `byte_col` stands on
 /// it, relative to the file's directory: `$PSScriptRoot` is that directory.
-pub fn powershell_import(line: &str, col: usize) -> Option<String> {
+pub fn powershell_import(line: &str, byte_col: usize) -> Option<String> {
     static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(
             r#"(?i)^\s*(?:\.|Import-Module|using\s+module)\s+(?:-Name\s+)?(["']?)([^"'\s;|]+\.ps[dm]?1)["']?"#,
@@ -260,7 +289,7 @@ pub fn powershell_import(line: &str, col: usize) -> Option<String> {
     });
     let c = IMPORT.captures(line)?;
     let path = c.get(2)?;
-    if !(c.get(1)?.start() <= col && col <= path.end()) {
+    if !(c.get(1)?.start() <= byte_col && byte_col <= path.end()) {
         return None;
     }
     let p = path.as_str().replace('\\', "/");

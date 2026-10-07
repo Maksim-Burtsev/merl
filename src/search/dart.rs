@@ -43,13 +43,14 @@ macro_rules! dart_any_type {
 const ANNOTATIONS: &str = dart_annotations!();
 const TYPE: &str = dart_type!();
 const ANY_TYPE: &str = dart_any_type!();
-/// What may follow a name that ends it: a `$` belongs to the name, as `_$UserFromJson` shows.
-const END: &str = r"(?:[^\w$]|$)";
+const NAME_END_PAST_DOLLAR: &str = r"(?:[^\w$]|$)";
 
-/// Line patterns that declare `word` in a Dart file, in this order (indexes [`dart_narrow`] and
-/// [`dart_declares`] go by): a type, a top-level function, a method, a getter or a setter, a
-/// constructor of the class `word`, a named constructor `X.word`, a variable or a field, an
-/// `enum` value on the `enum` line and one on a line of its own.
+const DART_PATTERN_COUNT: usize = 9;
+const DART_CONSTRUCTOR_PATTERN: usize = 4;
+
+/// In this order: a type, a top-level function, a method, a getter or a setter, a constructor of
+/// the class `word`, a named constructor `X.word`, a variable or a field, an `enum` value on the
+/// `enum` line and one on a line of its own.
 pub fn dart_patterns(word: &str) -> Vec<String> {
     let w = regex::escape(word);
     let mods = dart_mods!();
@@ -64,14 +65,16 @@ pub fn dart_patterns(word: &str) -> Vec<String> {
         // `class` behind its modifiers, `mixin`, `enum`, a named `extension … on`, an
         // `extension type`, a `typedef` new (`= …`) and old (`void Callback(int code)`).
         format!(
-            r"^\s*{ANNOTATIONS}(?:(?:(?:abstract|sealed|base|final|interface|mixin)\s+)*(?:class|mixin|enum)\s+{w}{END}|extension\s+{w}\s*{generics}\s+on\s|extension\s+type\s+(?:const\s+)?{w}\s*[<(.]|typedef\s+(?:[^=;(]*\s)?{w}\s*(?:<[^>]*>)?\s*[=(])"
+            r"^\s*{ANNOTATIONS}(?:(?:(?:abstract|sealed|base|final|interface|mixin)\s+)*(?:class|mixin|enum)\s+{w}{NAME_END_PAST_DOLLAR}|extension\s+{w}\s*{generics}\s+on\s|extension\s+type\s+(?:const\s+)?{w}\s*[<(.]|typedef\s+(?:[^=;(]*\s)?{w}\s*(?:<[^>]*>)?\s*[=(])"
         ),
         // In column zero Dart has declarations and directives only, so a name before its `(`
         // there is a function: `main() {`, `T first<T>(…)`.
         format!(r"^(?:external\s+)?(?:{ANY_TYPE}\s+)?{w}\s*(?:<[^()]*>)?\s*\("),
         // Indented, the type before the name tells a method from a call, as in Java.
         format!(r"^\s+{ANNOTATIONS}{mods}{TYPE}\s+(?:operator\s*)?{w}\s*(?:<[^()]*>)?\s*\("),
-        format!(r"^\s*{ANNOTATIONS}{mods}(?:{ANY_TYPE}\s+)?(?:get\s+{w}{END}|set\s+{w}\s*\()"),
+        format!(
+            r"^\s*{ANNOTATIONS}{mods}(?:{ANY_TYPE}\s+)?(?:get\s+{w}{NAME_END_PAST_DOLLAR}|set\s+{w}\s*\()"
+        ),
         format!(r"^\s+{ANNOTATIONS}(?:(?:(?:const|factory|external)\s+)+{w}\s*\(|{w}\s*{params})"),
         format!(
             r"^\s+{ANNOTATIONS}(?:(?:(?:const|factory|external)\s+)+[A-Za-z_$][\w$]*\.{w}\s*\(|[A-Za-z_$][\w$]*\.{w}\s*{params})"
@@ -86,27 +89,23 @@ pub fn dart_patterns(word: &str) -> Vec<String> {
     ]
 }
 
-/// Whether the Dart `line_text`, 1-based `line` of `lines`, matched by [`dart_patterns`],
-/// declares where it sits: a constructor directly inside a class, an enum or an extension type;
-/// an `enum` value on a line of its own directly inside an `enum`; a variable nowhere in a
-/// parameter list wrapped over lines (`  int retries = 3,` under `void f({`), where it is a
-/// parameter.
-pub fn dart_declares<S: AsRef<str>>(lines: &[S], line: usize, line_text: &str) -> bool {
+/// A constructor directly inside a class, an enum or an extension type; an `enum` value on a line
+/// of its own directly inside an `enum`; a variable nowhere in a parameter list wrapped over lines
+/// (`  int retries = 3,` under `void f({`), where it is a parameter.
+pub fn dart_declares<S: AsRef<str>>(lines: &[S], line1: usize, line_text: &str) -> bool {
     static BODY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(&format!(
             r"^\s*{ANNOTATIONS}(?:(?:abstract|sealed|base|final|interface|mixin)\s+)*(?:class|enum|mixin|extension\s+type)\s"
         ))
         .unwrap()
     });
-    static ANNOTATION: std::sync::LazyLock<Regex> =
+    static ANNOTATION_LINE: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:@[\w$.]+(?:\([^)]*\))?\s*)+$").unwrap());
     static ENUM: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(&format!(r"^\s*{ANNOTATIONS}enum\s")).unwrap());
-    // The nearest line above indented less, past comments and annotations on lines of their
-    // own; `@immutable class User {` is the class itself.
-    let owner = || {
+    let nearest_outer_line = || {
         let depth = indent(line_text);
-        lines[..line.saturating_sub(1).min(lines.len())]
+        lines[..line1.saturating_sub(1).min(lines.len())]
             .iter()
             .map(AsRef::as_ref)
             .rev()
@@ -114,51 +113,63 @@ pub fn dart_declares<S: AsRef<str>>(lines: &[S], line: usize, line_text: &str) -
                 let t = l.trim_start();
                 !t.is_empty()
                     && !t.starts_with("//")
-                    && !ANNOTATION.is_match(t)
+                    && !ANNOTATION_LINE.is_match(t)
                     && indent(l) < depth
             })
             .map(str::to_owned)
     };
-    let shape = |i: usize| SHAPES[i].is_match(line_text);
-    // Each pattern's own shape, word aside, in [`dart_patterns`]' order.
-    if shape(0) || shape(1) || shape(2) || shape(3) {
+    let shape = |s: Shape| SHAPES[s as usize].is_match(line_text);
+    if [Shape::Type, Shape::Function, Shape::Method, Shape::Accessor]
+        .into_iter()
+        .any(shape)
+    {
         return true;
     }
-    if shape(4) {
-        return owner().is_some_and(|o| BODY.is_match(&o));
+    if shape(Shape::Constructor) {
+        return nearest_outer_line().is_some_and(|o| BODY.is_match(&o));
     }
-    if shape(5) {
-        let o = owner();
-        return !o.as_deref().is_some_and(|o| {
+    if shape(Shape::Variable) {
+        let in_wrapped_param_list = nearest_outer_line().as_deref().is_some_and(|o| {
             let t = o.trim_end();
             t.ends_with(['(', '[', ',']) || t.ends_with("({") || t.ends_with("[{")
         });
+        return !in_wrapped_param_list;
     }
-    if shape(6) {
+    if shape(Shape::EnumValueOnEnumLine) {
         return true;
     }
-    owner().is_some_and(|o| ENUM.is_match(&o))
+    nearest_outer_line().is_some_and(|o| ENUM.is_match(&o))
 }
 
-/// [`dart_patterns`] for any name, to tell which shape a line has.
+#[derive(Clone, Copy)]
+enum Shape {
+    Type,
+    Function,
+    Method,
+    Accessor,
+    Constructor,
+    Variable,
+    EnumValueOnEnumLine,
+}
+
 static SHAPES: std::sync::LazyLock<Vec<Regex>> = std::sync::LazyLock::new(|| {
     let p = dart_patterns("NAME");
     let any = |s: &str| s.replace("NAME", r"[A-Za-z_$][\w$]*");
     [&p[0], &p[1], &p[2], &p[3]]
         .into_iter()
         .chain([&format!("{}|{}", p[4], p[5])])
-        .chain([&p[6], &p[7], &p[8]])
+        .chain([&p[6], &p[7]])
         .map(|s| Regex::new(&any(s)).unwrap())
         .collect()
 });
 
-/// [`dart_patterns`] cut to what the word at `r` of `line` can be: the class's own constructor
-/// only where the class is built, `User(…)`, and the type itself everywhere.
-pub fn dart_narrow(patterns: &mut Vec<String>, line: &str, r: std::ops::Range<usize>) {
+/// The class's own constructor only where the class is built, `User(…)`, and the type itself
+/// everywhere.
+pub fn dart_narrow(patterns: &mut Vec<String>, line: &str, word: std::ops::Range<usize>) {
     static CALLED: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:<[^()]*>)?\s*\(").unwrap());
-    if patterns.len() == 9 && !CALLED.is_match(&line[r.end..]) {
-        patterns.remove(4);
+    if patterns.len() == DART_PATTERN_COUNT && !CALLED.is_match(&line[word.end..]) {
+        patterns.remove(DART_CONSTRUCTOR_PATTERN);
     }
 }
 
@@ -217,8 +228,8 @@ pub fn dart_uri_file(root: &Path, here: &Path, uri: &str, sdk: Option<&Path>) ->
     };
     if let Some(lib) = uri.strip_prefix("dart:") {
         if lib == "ui" {
-            let (_, dir) = packages().into_iter().find(|(n, _)| n == "sky_engine")?;
-            return found(dir.join("ui/ui.dart"));
+            let sky = packages().into_iter().find(|p| p.name == "sky_engine")?;
+            return found(sky.package_uri_dir.join("ui/ui.dart"));
         }
         return found(sdk?.join("lib").join(lib).join(format!("{lib}.dart")));
     }
@@ -236,14 +247,18 @@ pub fn dart_uri_file(root: &Path, here: &Path, uri: &str, sdk: Option<&Path>) ->
             return found(dir.join("lib").join(path));
         }
     }
-    let (_, dir) = packages().into_iter().find(|(n, _)| n == name)?;
-    found(dir.join(path))
+    let package = packages().into_iter().find(|p| p.name == name)?;
+    found(package.package_uri_dir.join(path))
 }
 
-/// Each package `package_config.json` lists, with the directory its `package:` URIs start in:
-/// the `rootUri` (a `file://` URI, or a path relative to the file's directory) joined with the
-/// `packageUri` (`lib/`).
-pub(super) fn dart_packages(config: &Path) -> Vec<(String, PathBuf)> {
+pub(super) struct DartPackage {
+    name: String,
+    package_uri_dir: PathBuf,
+}
+
+/// `package_uri_dir` is the `rootUri` (a `file://` URI, or a path relative to the file's
+/// directory) joined with the `packageUri` (`lib/`).
+pub(super) fn dart_packages(config: &Path) -> Vec<DartPackage> {
     static ENTRY: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"\{[^{}]*\}").unwrap());
     static KEY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -264,16 +279,18 @@ pub(super) fn dart_packages(config: &Path) -> Vec<(String, PathBuf)> {
             let name = get("name")?;
             let root = get("rootUri")?;
             let root = match root.strip_prefix("file://") {
-                Some(p) => PathBuf::from(unescape(p)),
-                None => lexical(&base.join(unescape(&root)))?,
+                Some(p) => PathBuf::from(percent_decode(p)),
+                None => lexical(&base.join(percent_decode(&root)))?,
             };
-            Some((name, root.join(get("packageUri").unwrap_or_default())))
+            Some(DartPackage {
+                name,
+                package_uri_dir: root.join(get("packageUri").unwrap_or_default()),
+            })
         })
         .collect()
 }
 
-/// A URI's path with its `%XX` escapes decoded: `%20` is a space.
-fn unescape(s: &str) -> String {
+fn percent_decode(s: &str) -> String {
     let b = s.as_bytes();
     let mut out = Vec::with_capacity(b.len());
     let mut i = 0;
@@ -320,8 +337,7 @@ pub(super) fn dart_sdk_of(dart: &Path) -> Option<PathBuf> {
 /// directories down, as a Flutter app's `app/` is) lists outside `root`, and the SDK's `lib/`.
 /// No `pub get` yet, no packages.
 pub(super) fn dart_roots(root: &Path, sdk: Option<PathBuf>) -> Vec<PathBuf> {
-    // Sorted, so the roots come in the same order on every machine.
-    let children = |d: &Path| -> Vec<PathBuf> {
+    let sorted_subdirs = |d: &Path| -> Vec<PathBuf> {
         let mut dirs: Vec<PathBuf> = std::fs::read_dir(d)
             .into_iter()
             .flatten()
@@ -338,14 +354,14 @@ pub(super) fn dart_roots(root: &Path, sdk: Option<PathBuf>) -> Vec<PathBuf> {
         dirs
     };
     let mut dirs = vec![root.to_path_buf()];
-    for d in children(root) {
-        dirs.extend(children(&d));
+    for d in sorted_subdirs(root) {
+        dirs.extend(sorted_subdirs(&d));
         dirs.push(d);
     }
     let mut out: Vec<PathBuf> = dirs
         .iter()
         .flat_map(|d| dart_packages(&d.join(".dart_tool/package_config.json")))
-        .map(|(_, dir)| dir)
+        .map(|p| p.package_uri_dir)
         .filter(|dir| !dir.starts_with(root))
         .collect();
     out.extend(sdk.map(|s| s.join("lib")));

@@ -1,12 +1,5 @@
-//! The fields of a type: the search by name and the bindings.
-
 use super::*;
 
-/// #104. What the search by name offers for a field — the lines [`field_patterns`] match,
-/// through [`field_rows`] — is each type's declaration of it once, named after the type and
-/// not after the method it is assigned in. A later assignment stands for the declaration; a
-/// local, the key of a literal, a docstring, a `var` block, a field of an anonymous struct, a
-/// member of a type literal and a `this` that is no class are none.
 #[test]
 fn a_field_by_name_is_the_declaration_in_its_type() {
     let found = |kind: Kind, text: &str, name: &str| -> Vec<(usize, String)> {
@@ -28,15 +21,26 @@ fn a_field_by_name_is_the_declaration_in_its_type() {
         found(Kind::Python, py, "poster_id"),
         one(2, "Issue.poster_id")
     );
-    assert_eq!(found(Kind::Python, py, "repo"), one(8, "Issue.repo"));
-    assert_eq!(found(Kind::Python, py, "total"), vec![]);
+    assert_eq!(
+        found(Kind::Python, py, "repo"),
+        one(8, "Issue.repo"),
+        "each type's declaration once, named after the type, not the method it is assigned in"
+    );
+    assert_eq!(
+        found(Kind::Python, py, "total"),
+        vec![],
+        "a local and the key of a literal are none"
+    );
     assert_eq!(
         qualified(Kind::Python, py, 12, "repo").as_deref(),
         Some("Issue.repo")
     );
-    // Outside a class `self` is a parameter like any other.
     let def = "def build(self):\n    self.x = 1\n";
-    assert_eq!(found(Kind::Python, def, "x"), vec![]);
+    assert_eq!(
+        found(Kind::Python, def, "x"),
+        vec![],
+        "outside a class `self` is a parameter like any other"
+    );
     assert_eq!(
         qualified(Kind::Python, def, 2, "x").as_deref(),
         Some("build.x")
@@ -48,7 +52,11 @@ fn a_field_by_name_is_the_declaration_in_its_type() {
         "a tuple target is a declaration, and the later plain assignment stands for it"
     );
     let doc = "class Comment:\n    \"\"\"\n    body : str\n    \"\"\"\n\n    def __init__(self, body):\n        self.body = body\n";
-    assert_eq!(found(Kind::Python, doc, "body"), one(7, "Comment.body"));
+    assert_eq!(
+        found(Kind::Python, doc, "body"),
+        one(7, "Comment.body"),
+        "a docstring is none"
+    );
     let ts = "export class Issue extends Base {\n  posterId = 0;\n\n  constructor(\n    private repo: Repo,\n    @Inject(Log) private log: Log,\n  ) {\n    super();\n    this.title = \"\";\n  }\n\n  resize(opts: {\n    readonly width: number;\n  }): void {\n    const box = {\n      grow() {\n        this.height = 1;\n      },\n    };\n  }\n}\nexport function tally(): void {\n  const sums = {\n    total: 0,\n  };\n  total = 2;\n}\nexport const config: {\n  readonly timeout: number;\n} = { timeout: 1 };\n";
     assert_eq!(found(Kind::TsJs, ts, "posterId"), one(2, "Issue.posterId"));
     assert_eq!(found(Kind::TsJs, ts, "repo"), one(5, "Issue.repo"));
@@ -77,13 +85,14 @@ fn a_field_by_name_is_the_declaration_in_its_type() {
     assert_eq!(found(Kind::Go, go, "Body"), one(6, "Issue.Body"));
     assert_eq!(found(Kind::Go, go, "Base"), one(4, "Issue.Base"));
     assert_eq!(found(Kind::Go, go, "Stats"), one(7, "Issue.Stats"));
-    assert_eq!(found(Kind::Go, go, "Total"), vec![]);
-    assert_eq!(found(Kind::Go, go, "Host"), vec![]);
+    assert_eq!(
+        found(Kind::Go, go, "Total"),
+        vec![],
+        "a field of an anonymous struct is none"
+    );
+    assert_eq!(found(Kind::Go, go, "Host"), vec![], "a `var` block is none");
 }
 
-/// #104. The search by name greps for [`member_patterns`] and [`field_patterns`] and then keeps
-/// the fields [`field_bindings`] reads; a form the grep does not know would drop its type from
-/// the list, so every line the rules read must be one the grep finds.
 #[test]
 fn the_grep_finds_every_line_the_field_rules_read() {
     let py = "class A:\n    a: int\n    b = 1\n\n    def __init__(self):\n        self.c = 1\n        self.d: int = 1\n        self.e, self.f = 1, 2\n        (self.g, x) = 1, 2\n        with open(p) as self.h:\n            pass\n        for self.i in xs:\n            pass\n        if p: self.k = 1\n\n    if p: m: int = 1\n\n    @property\n    def j(self) -> int:\n        return 1\n";
@@ -120,7 +129,8 @@ fn the_grep_finds_every_line_the_field_rules_read() {
             for n in read {
                 assert!(
                     re.is_match(lines[n - 1]),
-                    "{kind:?}: {name}: {}",
+                    "{kind:?}: {name}: the grep misses a line the field rules read, so the \
+                     search by name would drop its type: {}",
                     lines[n - 1]
                 );
             }
