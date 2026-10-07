@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `f` folds Objective-C, `.m` files and the `.h` headers that hold Objective-C, where it said
+  `no fold rules for .m`: on top of C's folds, an `@interface`, `@implementation` or `@protocol`
+  to its `@end`, a method, a method declaration or `@property` wrapped over lines, a block, an
+  `@[…]` or `@{…}` literal, `@try` with its `@catch` and `@finally`, and `@autoreleasepool`.
+  (#625)
+
 ## [0.8.3] - 2026-10-07
 
 ### Added

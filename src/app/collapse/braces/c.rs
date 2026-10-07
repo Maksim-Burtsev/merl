@@ -1,6 +1,6 @@
-use super::{K, Lexer, Model};
+use super::{K, Lang, Lexer, Model};
 
-const CONTROL: &[&str] = &["if", "for", "while", "switch", "catch"];
+const CONTROL: &[&str] = &["if", "for", "while", "switch", "catch", "@synchronized"];
 const ACCESS: &[&str] = &["public", "private", "protected"];
 const NOT_ELEMENT: &[&str] = &[
     "return",
@@ -13,7 +13,7 @@ const NOT_ELEMENT: &[&str] = &[
 ];
 
 #[derive(Clone, Copy, PartialEq)]
-enum Ctx {
+pub(super) enum Ctx {
     Decl,
     Code,
     Switch,
@@ -78,12 +78,14 @@ impl Lexer<'_> {
 }
 
 impl Model<'_, '_> {
-    pub(super) fn c_family(&mut self, cpp: bool, lines: &[String]) {
+    pub(super) fn c_family(&mut self, lang: Lang, lines: &[String]) {
+        let (cpp, objc) = (lang == Lang::Cpp, lang == Lang::ObjC);
         self.c_preproc(lines);
         let n = self.toks.len();
         let mut ctx = vec![Ctx::Decl; n];
         let mut marked: Vec<Option<Ctx>> = vec![None; n];
         let mut stack: Vec<usize> = Vec::new();
+        let mut container_end = 0;
         for k in 0..n {
             let up = stack.last().map_or(Ctx::Decl, |&p| ctx[p]);
             let t = self.toks[k];
@@ -91,13 +93,23 @@ impl Model<'_, '_> {
                 stack.pop();
                 continue;
             }
+            if objc && up == Ctx::Decl {
+                if let Some(end) = self.objc_container(k, &mut marked) {
+                    container_end = end;
+                } else if k < container_end {
+                    self.objc_method(k, &mut marked);
+                }
+            }
             if t.kind == K::Word && up != Ctx::Init {
-                self.c_word(k, up, cpp, &mut marked);
+                self.c_word(k, up, lang, &mut marked);
             }
             if !self.opener(k) {
                 continue;
             }
             stack.push(k);
+            if objc && t.text == "[" && self.before(k) == "@" {
+                self.add(t.line, self.closing(k), false);
+            }
             if t.text == "["
                 && cpp
                 && up != Ctx::Decl
@@ -114,13 +126,13 @@ impl Model<'_, '_> {
                 ctx[k] = c;
                 continue;
             }
-            let (c, fold) = self.c_brace(k, up, cpp);
+            let (c, fold) = self.c_brace(k, up, lang);
             ctx[k] = c;
             if !fold {
                 continue;
             }
             if up == Ctx::Decl && c == Ctx::Code {
-                let start = self.function_start(k, cpp);
+                let start = self.function_start(k, lang);
                 self.add(self.toks[start].line, self.closing(k), true);
             } else {
                 self.add(t.line, self.closing(k), false);
@@ -128,15 +140,16 @@ impl Model<'_, '_> {
         }
     }
 
-    fn c_word(&mut self, k: usize, up: Ctx, cpp: bool, marked: &mut [Option<Ctx>]) {
+    fn c_word(&mut self, k: usize, up: Ctx, lang: Lang, marked: &mut [Option<Ctx>]) {
+        let (cpp, objc) = (lang == Lang::Cpp, lang == Lang::ObjC);
         let t = self.toks[k];
         let code = matches!(up, Ctx::Code | Ctx::Switch);
         match t.text {
-            "if" | "for" | "while" | "switch" | "do" | "try" if code => {
+            "if" | "for" | "while" | "switch" | "do" | "try" | "@try" if code => {
                 if self.loop_tail(k, "do") {
                     return;
                 }
-                if matches!(t.text, "do" | "try" | "else") || self.punct(k + 1, "{") {
+                if matches!(t.text, "do" | "try" | "@try" | "else") || self.punct(k + 1, "{") {
                     marked[k + 1] = Some(Ctx::Code);
                 } else if let Some(c) = self.paren_after(k).and_then(|o| self.pair[o])
                     && self.punct(c + 1, "{")
@@ -151,7 +164,15 @@ impl Model<'_, '_> {
                 self.add(t.line, Some(self.end_of(end)), false);
             }
             "else" if code && self.punct(k + 1, "{") => marked[k + 1] = Some(Ctx::Code),
-            "catch" if cpp => {
+            "@finally" | "@autoreleasepool" if objc && self.punct(k + 1, "{") => {
+                marked[k + 1] = Some(Ctx::Code);
+                self.add(t.line, self.closing(k + 1), false);
+            }
+            "@throw" | "@property" if objc => {
+                let end = self.c_stmt_end(k);
+                self.add(t.line, Some(self.end_of(end)), false);
+            }
+            "catch" | "@catch" if cpp || objc => {
                 if let Some(c) = self.paren_after(k).and_then(|o| self.pair[o])
                     && self.punct(c + 1, "{")
                 {
@@ -234,11 +255,18 @@ impl Model<'_, '_> {
         None
     }
 
-    fn c_brace(&self, k: usize, up: Ctx, cpp: bool) -> (Ctx, bool) {
+    fn c_brace(&self, k: usize, up: Ctx, lang: Lang) -> (Ctx, bool) {
+        let cpp = lang == Lang::Cpp;
         let Some(p) = k.checked_sub(1) else {
             return (Ctx::Code, up == Ctx::Decl);
         };
         let pt = self.toks[p];
+        if lang == Lang::ObjC && pt.text == "@" {
+            return (Ctx::Init, true);
+        }
+        if lang == Lang::ObjC && self.block_literal(p) {
+            return (Ctx::Code, true);
+        }
         match up {
             Ctx::Init => (Ctx::Init, true),
             Ctx::Decl => match pt.text {
@@ -306,12 +334,18 @@ impl Model<'_, '_> {
                 }
                 e
             }
-            "try" => {
+            "try" | "@try" => {
                 let mut e = self.c_stmt_end(k + 1);
-                while self.tx(e + 1) == "catch" {
-                    match self.paren_after(e + 1).and_then(|o| self.pair[o]) {
-                        Some(c) => e = self.c_stmt_end(c + 1),
-                        None => break,
+                loop {
+                    match self.tx(e + 1) {
+                        "catch" | "@catch" => {
+                            match self.paren_after(e + 1).and_then(|o| self.pair[o]) {
+                                Some(c) => e = self.c_stmt_end(c + 1),
+                                None => break,
+                            }
+                        }
+                        "@finally" => e = self.c_stmt_end(e + 2),
+                        _ => break,
                     }
                 }
                 e
@@ -422,7 +456,8 @@ impl Model<'_, '_> {
         None
     }
 
-    fn function_start(&self, k: usize, cpp: bool) -> usize {
+    fn function_start(&self, k: usize, lang: Lang) -> usize {
+        let cpp = lang == Lang::Cpp;
         let mut j = k;
         while j > 0 {
             j -= 1;
@@ -434,7 +469,7 @@ impl Model<'_, '_> {
                 }
                 continue;
             }
-            if matches!(t, ";" | "{" | "}") {
+            if matches!(t, ";" | "{" | "}" | "@end") {
                 return j + 1;
             }
             if t == ":" && j > 0 && ACCESS.contains(&self.before(j)) {
@@ -480,7 +515,7 @@ impl Model<'_, '_> {
                 last += 1;
             }
             match directive.as_ref().map(|(w, r)| (*w, r.as_str())) {
-                Some(("include", _)) => {
+                Some(("include" | "import", _)) => {
                     includes = Some((includes.map_or(n, |r| r.0), n));
                 }
                 _ if line.is_empty() => {}

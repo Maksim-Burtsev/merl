@@ -37,8 +37,9 @@ impl App {
         if let Some(spans) = spans {
             return Some(Folds::Spans(spans));
         }
-        let syntax = self.buf.path.as_deref().and_then(braces::syntax_of);
-        match syntax.filter(|_| !self.objc_file()) {
+        let syntax = (self.buf.path.as_deref().and_then(braces::syntax_of))
+            .map(|s| if self.objc_file() { braces::OBJC } else { s });
+        match syntax {
             Some(syntax) => Some(Folds::Indent(Box::new(Shape::braces(lines, syntax)))),
             None => every_kind().then(|| Folds::Indent(Box::new(Shape::plain(lines)))),
         }

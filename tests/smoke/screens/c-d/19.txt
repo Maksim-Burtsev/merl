@@ -1,0 +1,57 @@
+wait job { ⋯ }
+┌orders──────────────────────┐ 1 #import "CrcStamp.h"
+│▸ .github                   │ 2
+│▸ .venv                     │ 3 @implementation CrcStamp
+│▸ app                       │ 4 - (unsigned int)stampJob:(NSData *)job { ⋯ }
+│▸ data                      │ 7
+│▸ deploy                    │ 8 - (void)log {
+│▸ docs                      │ 9     [self stampJob:nil];
+│▸ scripts                   │10 }
+│▸ tests                     │11 @end
+│▸ web                       │
+│▾ worker                    │
+│  ▾ internal                │
+│    ▾ crc                   │
+│      A block.h             │
+│      A client.c            │
+│      A crc.c               │
+│      A crc.h               │
+│      A CrcStamp.h          │
+│      A CrcStamp.m          │
+│      A log.c               │
+│      A mode.cc             │
+│      A slice.h             │
+│      A use.cc              │
+│    ▸ queue                 │
+│    go.mod                  │
+│    main.go                 │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+worker/internal/crc/CrcStamp.m  4:1  [code]                                                                                                                                       ? help
+cursor (x,y,shown) 33,3,1
