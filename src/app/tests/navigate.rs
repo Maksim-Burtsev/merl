@@ -1,5 +1,3 @@
-//! `d`: where a definition is looked for, and what is out of its scope.
-
 use super::*;
 
 #[test]
@@ -20,16 +18,24 @@ fn infra_definitions_stay_in_their_scope() {
             ("other.yml", "db-main:\n  x: 1\n"),
         ],
     );
-    // On `region` in `var.region`: the variable of this module, not the other one.
     a.jump_to(&dir.join("app/main.tf"), 2);
     a.col = 16;
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
-    assert_eq!(at(&a), (dir.join("app/variables.tf"), 0), "{}", a.message);
-    // On `db-main`, dash and all: the service in this file only.
+    assert_eq!(
+        at(&a),
+        (dir.join("app/variables.tf"), 0),
+        "on `region` in `var.region`: the variable of this module, not the other one: {}",
+        a.message
+    );
     a.jump_to(&dir.join("compose.yml"), 3);
     a.col = 20;
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
-    assert_eq!(at(&a), (dir.join("compose.yml"), 3), "{}", a.message);
+    assert_eq!(
+        at(&a),
+        (dir.join("compose.yml"), 3),
+        "on `db-main`, dash and all: the service in this file only: {}",
+        a.message
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -48,22 +54,27 @@ fn a_rust_field_is_its_struct_line_and_locals_must_be_direct() {
             ),
         ],
     );
-    // A Rust field is its line in the struct (#370).
     a.jump_to(&dir.join("order.rs"), 5);
     a.col = 10;
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
-    assert_eq!(at(&a), (dir.join("order.rs"), 1));
+    assert_eq!(
+        at(&a),
+        (dir.join("order.rs"), 1),
+        "a Rust field is its line in the struct"
+    );
     assert_eq!(a.message, "items \u{2192} Order::items (via order: Order)");
-    // Of the two `name =` lines, only the one directly inside `locals` is `local.name`.
     a.jump_to(&dir.join("main.tf"), 8);
     a.col = 17;
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
-    assert_eq!(at(&a), (dir.join("main.tf"), 1), "{}", a.message);
+    assert_eq!(
+        at(&a),
+        (dir.join("main.tf"), 1),
+        "of the two `name =` lines, only the one directly inside `locals` is `local.name`: {}",
+        a.message
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// `json.load` is not declared in the project: `d` follows it into the standard library of
-/// the `python3` on this machine and opens it read-only. Skipped where there is none.
 #[test]
 fn definitions_outside_the_project_come_from_the_standard_library() {
     let stdlib = search::external_roots(Kind::Python, Path::new("/"));
@@ -89,13 +100,15 @@ fn definitions_outside_the_project_come_from_the_standard_library() {
         a.message
     );
     assert!(a.line_str().starts_with("def load("), "{}", a.line_str());
-    assert_eq!(a.buf.readonly, Some("outside the project"));
+    assert_eq!(
+        a.buf.readonly,
+        Some("outside the project"),
+        "the standard library is opened read-only"
+    );
     assert_eq!(a.message, "load: via import json");
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Roots that come back empty are looked for again on the next `d`: a toolchain that failed to
-/// answer once does not leave the rest of the session without them (#183).
 #[test]
 fn empty_external_roots_are_asked_again() {
     let (dir, mut a) = project_app("roots-again", &[("index.php", "<?php\n")]);
@@ -111,7 +124,8 @@ fn empty_external_roots_are_asked_again() {
     std::fs::write(dir.join("vendor/acme/Client.php"), "<?php\n").unwrap();
     assert_eq!(
         *a.external_files(Kind::Php),
-        [dir.join("vendor/acme/Client.php")]
+        [dir.join("vendor/acme/Client.php")],
+        "a toolchain that failed to answer once does not leave the rest of the session without its roots"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -195,7 +209,6 @@ fn a_kind_whose_roots_follow_the_open_file_is_not_walked_ahead() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Found by the acceptance pass of #68: three ways `d` claimed more than it knew.
 #[test]
 fn a_local_name_is_not_an_import_and_a_member_is_not_a_module_level_name() {
     let (dir, mut a) = project_app(
@@ -203,17 +216,14 @@ fn a_local_name_is_not_an_import_and_a_member_is_not_a_module_level_name() {
         &[
             ("pkg/__init__.py", ""),
             ("pkg/b.py", "def helper():\n    pass\n"),
-            // A parameter called like an imported module, a local called like an import.
             (
                 "shadow.py",
                 "import json\nfrom pkg.b import helper\n\n\ndef handler(json):\n    return json.loads(1)\n\n\ndef f():\n    helper = 3\n    return helper\n",
             ),
-            // Module-level names are no members of a value.
             (
                 "member.py",
                 "zqwidget = 5\n\n\ndef zqmake(x):\n    return x\n\n\ndef g(client):\n    client.zqwidget\n    return client.zqmake(1)\n",
             ),
-            // The package's own `pick` is native; a method of that name is not it.
             (
                 "outside.py",
                 "import fakelib\nfrom fakelib import pick\nfrom fakelib.core import make\n\nlimit = 3\n\n\ndef run():\n    make()\n    fakelib.pick(1)\n    make(\n        limit=1,\n    )\n    return pick(1)\n",
@@ -233,38 +243,54 @@ fn a_local_name_is_not_an_import_and_a_member_is_not_a_module_level_name() {
     );
     use_roots(&mut a, Kind::Python, std::slice::from_ref(&root));
     d_on(&mut a, "shadow.py", "json.loads");
-    assert!(!a.message.contains("via import"), "{}", a.message);
+    assert!(
+        !a.message.contains("via import"),
+        "a parameter called like an imported module is no import: {}",
+        a.message
+    );
     d_on(&mut a, "shadow.py", "return helper");
-    assert!(!a.message.contains("via import"), "{}", a.message);
+    assert!(
+        !a.message.contains("via import"),
+        "a local called like an import is no import: {}",
+        a.message
+    );
     assert_eq!(a.rel_path(), "shadow.py");
     for code in ["client.zqwidget", "client.zqmake"] {
         d_on(&mut a, "member.py", code);
         assert!(
             a.message.starts_with("no definition for zq"),
-            "{}",
+            "module-level names are no members of a value: {}",
             a.message
         );
     }
     let native = format!("{}:1", root.join("fakelib/__init__.py").display());
     d_on(&mut a, "outside.py", "return pick");
-    assert_eq!(shown(&mut a), jump("pick: via import fakelib", &native));
-    // Behind the module's name as well: `fakelib.pick` is no method of a class in it.
+    assert_eq!(
+        shown(&mut a),
+        jump("pick: via import fakelib", &native),
+        "the package's own `pick` is native; a method of that name is not it"
+    );
     d_on(&mut a, "outside.py", "fakelib.pick");
-    assert_eq!(shown(&mut a), jump("pick: via import fakelib", &native));
-    // A keyword argument names a parameter of a callee outside the project, and the variable
-    // spelled so is no answer (#315).
+    assert_eq!(
+        shown(&mut a),
+        jump("pick: via import fakelib", &native),
+        "behind the module's name as well: `fakelib.pick` is no method of a class in it"
+    );
     d_on(&mut a, "outside.py", "    limit");
     assert!(a.picker.is_none(), "{}", a.message);
-    assert_eq!(a.message, "limit: argument label");
-    // What the module does declare at its top is still found through the import.
+    assert_eq!(
+        a.message, "limit: argument label",
+        "a keyword argument names a parameter of a callee outside the project, and the variable spelled so is no answer"
+    );
     d_on(&mut a, "outside.py", "    make");
-    assert_eq!(a.message, "make: via import fakelib.core");
+    assert_eq!(
+        a.message, "make: via import fakelib.core",
+        "what the module does declare at its top is still found through the import"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();
 }
 
-/// Found by the acceptance pass of #68: a line inside a raw string, a docstring or a block
-/// comment declares nothing, however much it reads like a declaration.
 #[test]
 fn a_declaration_inside_a_literal_is_not_one() {
     let (dir, mut a) = project_app(
@@ -289,20 +315,24 @@ fn a_declaration_inside_a_literal_is_not_one() {
         a.external.insert(kind, (Vec::new(), Arc::new(Vec::new())));
     }
     d_on(&mut a, "use.go", "t.InString");
-    assert_eq!(a.message, "no definition for InString");
+    assert_eq!(
+        a.message, "no definition for InString",
+        "a line inside a raw string declares nothing"
+    );
     d_on(&mut a, "use.go", "t.InBlock");
-    assert_eq!(a.message, "no definition for InBlock");
+    assert_eq!(
+        a.message, "no definition for InBlock",
+        "a line inside a block comment declares nothing"
+    );
     d_on(&mut a, "a.py", "g.ghost");
     assert_eq!(
         shown(&mut a),
-        jump("ghost \u{2192} Real.ghost (by name, 1 match)", "a.py:9")
+        jump("ghost \u{2192} Real.ghost (by name, 1 match)", "a.py:9"),
+        "a line inside a docstring declares nothing"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #488: PHP's `#` is a line comment, so the `/*` of a glob in one opens nothing. #475: a C#
-/// verbatim string has no escapes, so `@"C:\"` ends at its second `"`. The declarations below
-/// both are found.
 #[test]
 fn a_php_hash_comment_or_a_csharp_verbatim_backslash_hides_nothing() {
     let (dir, mut a) = project_app(
@@ -322,17 +352,20 @@ fn a_php_hash_comment_or_a_csharp_verbatim_backslash_hides_nothing() {
         a.external.insert(kind, (Vec::new(), Arc::new(Vec::new())));
     }
     d_on(&mut a, "a.php", "return below");
-    assert_eq!(shown(&mut a), jump("below: by name, 1 match", "a.php:3"));
+    assert_eq!(
+        shown(&mut a),
+        jump("below: by name, 1 match", "a.php:3"),
+        "PHP's `#` is a line comment, so the `/*` of a glob in one opens nothing"
+    );
     d_on(&mut a, "a.cs", "{ Below");
     assert_eq!(
         shown(&mut a),
-        jump("Below \u{2192} A.Below (via A)", "a.cs:3")
+        jump("Below \u{2192} A.Below (via A)", "a.cs:3"),
+        "a C# verbatim string has no escapes, so `@\"C:\\\"` ends at its second `\"`"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Found by the acceptance pass of #68: `Outer.find` names what `Outer` declares, and a
-/// method `find` of some class elsewhere used to take the jump with `1 match`.
 #[test]
 fn a_namespace_or_a_class_in_front_of_the_word_names_where_it_is_declared() {
     let (dir, mut a) = project_app(
@@ -353,14 +386,12 @@ fn a_namespace_or_a_class_in_front_of_the_word_names_where_it_is_declared() {
     d_on(&mut a, "ns.ts", "Outer.find");
     assert_eq!(
         shown(&mut a),
-        jump("find \u{2192} Outer.find (via Outer)", "ns.ts:2")
+        jump("find \u{2192} Outer.find (via Outer)", "ns.ts:2"),
+        "`Outer.find` names what `Outer` declares, not a method `find` of some class elsewhere"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #129. The chain in front of the word is joined as the kind qualifies a name, `Depot::open`
-/// in Rust and C++, so a declaration that reads so is the answer there as `Outer.find` is
-/// elsewhere. A type nothing declares the word in, `Self`, and a value's method stay by name.
 #[test]
 fn a_path_in_front_of_the_word_is_joined_as_the_kind_qualifies() {
     let (dir, mut a) = project_app(
@@ -426,16 +457,19 @@ fn a_path_in_front_of_the_word_is_joined_as_the_kind_qualifies() {
     ];
     let cases = [
         (
+            "",
             "depot.rs",
             "= Depot::open",
             jump("open \u{2192} Depot::open (via Depot)", "depot.rs:4"),
         ),
         (
+            "",
             "depot.rs",
             "depot::Shed::open",
             jump("open \u{2192} Shed::open (via depot::Shed)", "depot.rs:16"),
         ),
         (
+            "",
             "depot.rs",
             "crate::depot::Shed::open",
             jump(
@@ -443,8 +477,8 @@ fn a_path_in_front_of_the_word_is_joined_as_the_kind_qualifies() {
                 "depot.rs:16",
             ),
         ),
-        // A directory of the project.
         (
+            "a directory of the project",
             "depot.rs",
             "store::Shelf::stock",
             jump(
@@ -452,15 +486,14 @@ fn a_path_in_front_of_the_word_is_joined_as_the_kind_qualifies() {
                 "store/shelf.rs:4",
             ),
         ),
-        // A `use` of the project's own type is no reason to doubt it.
         (
+            "a `use` of the project's own type is no reason to doubt it",
             "main.rs",
             "= Depot::open",
             jump("open \u{2192} Depot::open (via Depot)", "depot.rs:4"),
         ),
-        // Two types called `Config`, and the derive of the imported one supplies `parse`:
-        // the name of a type is no proof of which one.
         (
+            "two types called `Config`, and the derive of the imported one supplies `parse`: the name of a type is no proof of which one",
             "main.rs",
             "Config::parse",
             jump(
@@ -468,31 +501,32 @@ fn a_path_in_front_of_the_word_is_joined_as_the_kind_qualifies() {
                 "settings.rs:4",
             ),
         ),
-        // `io` is `std::io` by the file's `use`, whatever `io.rs` the project has.
         (
+            "`io` is `std::io` by the file's `use`, whatever `io.rs` the project has",
             "main.rs",
             "io::Error::new",
             jump("new \u{2192} Error::new (by name, 1 match)", "error.rs:4"),
         ),
-        // A glob may bring in an `Error` of its own; so may a C++ `using`.
         (
+            "a glob may bring in an `Error` of its own; so may a C++ `using`",
             "glob.rs",
             "Error::new",
             jump("new \u{2192} Error::new (by name, 1 match)", "error.rs:4"),
         ),
         (
+            "a glob may bring in an `Error` of its own; so may a C++ `using`",
             "using.cpp",
             "    Depot::open",
             picker("open: by name, 4 declarations", &cpp),
         ),
-        // PHP: the class of the project, one spelled out in another namespace, one a
-        // grouped `use` brings in.
         (
+            "PHP: the class of the project, one spelled out in another namespace, one a grouped `use` brings in",
             "app/Yard.php",
             "    Yard::open",
             jump("open \u{2192} Yard::open (via Yard)", "app/Yard.php:6"),
         ),
         (
+            "PHP: the class of the project, one spelled out in another namespace, one a grouped `use` brings in",
             "app/Far.php",
             "Pkg\\Yard::open",
             jump(
@@ -501,6 +535,7 @@ fn a_path_in_front_of_the_word_is_joined_as_the_kind_qualifies() {
             ),
         ),
         (
+            "PHP: the class of the project, one spelled out in another namespace, one a grouped `use` brings in",
             "app/Grouped.php",
             "Yard::open|( )",
             jump(
@@ -508,60 +543,62 @@ fn a_path_in_front_of_the_word_is_joined_as_the_kind_qualifies() {
                 "app/Yard.php:6",
             ),
         ),
-        // No name in front of the `::`.
         (
+            "no name in front of the `::`",
             "depot.rs",
             "<Shed>::open",
             picker("open: by name, 2 declarations", &rs),
         ),
-        // No file or directory of the project is called `vendored`.
         (
+            "no file or directory of the project is called `vendored`",
             "depot.rs",
             "vendored::Shed::open",
             picker("open: by name, 2 declarations", &rs),
         ),
         (
+            "",
             "depot.rs",
             "Bare::open",
             picker("open: by name, 2 declarations", &rs),
         ),
         (
+            "",
             "depot.rs",
             "Self::open",
             picker("open: by name, 2 declarations", &rs),
         ),
         (
+            "",
             "depot.rs",
             "shed.open",
             jump("open \u{2192} Shed::open (via shed: Shed)", "depot.rs:16"),
         ),
         (
+            "",
             "depot.cpp",
             "    Depot::open",
             jump("open \u{2192} Depot::open (via Depot)", "depot.cpp:2"),
         ),
         (
+            "",
             "depot.cpp",
             "Bare::open",
             picker("open: by name, 4 declarations", &cpp),
         ),
         (
+            "",
             "depot.cpp",
             "crate.open",
             jump("open \u{2192} lid::open (via crate: lid)", "depot.cpp:20"),
         ),
     ];
-    for (file, code, want) in cases {
+    for (name, file, code, want) in cases {
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{file}: {code}");
+        assert_eq!(shown(&mut a), want, "{name} {file}: {code}");
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #227, #350. A Rust type the project declares twice is proven by the module a `use crate::…`
-/// or `use super::…` takes it from, through the `pub use` of a module that hands it on; a `use`
-/// in another function and a type of an inline `mod` are out of sight. A binary's crate and a
-/// module with no file of its own stay by name.
 #[test]
 fn a_use_of_the_crate_says_which_of_two_types_it_is() {
     let cache = |name: &str| {
@@ -641,6 +678,7 @@ fn a_use_of_the_crate_says_which_of_two_types_it_is() {
     ];
     let cases = [
         (
+            "",
             "src/main.rs",
             "Cache::new",
             jump(
@@ -649,6 +687,7 @@ fn a_use_of_the_crate_says_which_of_two_types_it_is() {
             ),
         ),
         (
+            "",
             "src/net/client.rs",
             "Cache::new",
             jump(
@@ -657,6 +696,7 @@ fn a_use_of_the_crate_says_which_of_two_types_it_is() {
             ),
         ),
         (
+            "",
             "src/app/mod.rs",
             "Cache::new",
             jump(
@@ -665,6 +705,7 @@ fn a_use_of_the_crate_says_which_of_two_types_it_is() {
             ),
         ),
         (
+            "",
             "src/app/grouped.rs",
             "Cache::new",
             jump(
@@ -673,11 +714,13 @@ fn a_use_of_the_crate_says_which_of_two_types_it_is() {
             ),
         ),
         (
+            "",
             "src/bin/tool.rs",
             "Cache::new",
             picker("new: by name, 3 declarations", &three),
         ),
         (
+            "",
             "src/twice.rs",
             "Cache::new",
             jump(
@@ -686,6 +729,7 @@ fn a_use_of_the_crate_says_which_of_two_types_it_is() {
             ),
         ),
         (
+            "",
             "src/own.rs",
             "Cache::new",
             jump(
@@ -694,6 +738,7 @@ fn a_use_of_the_crate_says_which_of_two_types_it_is() {
             ),
         ),
         (
+            "",
             "src/aisle.rs",
             "Cache::new",
             jump(
@@ -701,8 +746,8 @@ fn a_use_of_the_crate_says_which_of_two_types_it_is() {
                 "src/store.rs:4",
             ),
         ),
-        // A module that hands `Cache` on and implements it.
         (
+            "a module that hands `Cache` on and implements it",
             "src/till.rs",
             "Cache::fresh",
             jump(
@@ -710,8 +755,8 @@ fn a_use_of_the_crate_says_which_of_two_types_it_is() {
                 "src/counter.rs:4",
             ),
         ),
-        // `rack.rs` hands `Cache` on and declares another one only in its tests.
         (
+            "`rack.rs` hands `Cache` on and declares another one only in its tests",
             "src/stall.rs",
             "Cache::new",
             jump(
@@ -720,20 +765,19 @@ fn a_use_of_the_crate_says_which_of_two_types_it_is() {
             ),
         ),
         (
+            "",
             "src/far.rs",
             "Cache::new",
             picker("new: by name, 3 declarations", &three),
         ),
     ];
-    for (file, code, want) in cases {
+    for (name, file, code, want) in cases {
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{file}: {code}");
+        assert_eq!(shown(&mut a), want, "{name} {file}: {code}");
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Found by the acceptance pass of #68: a Go method of the same name and as many parameters,
-/// of other types, was the one implementation `d` jumped to.
 #[test]
 fn a_go_method_of_other_types_implements_nothing() {
     let (dir, mut a) = project_app(
@@ -758,20 +802,21 @@ fn a_go_method_of_other_types_implements_nothing() {
         jump(
             "Ferry \u{2192} Real.Ferry (implementations of Solo.Ferry)",
             "iface.go:13"
-        )
+        ),
+        "a Go method of the same name and as many parameters, of other types, implements nothing"
     );
-    // With no implementation at all, the methods of other types are namesakes to offer.
     d_on(&mut a, "duo.go", "\tCarry");
     let Shown::Picker(status, rows) = shown(&mut a) else {
         panic!("a jump: {}", a.message);
     };
-    assert_eq!(status, "Carry: at a declaration, 2 others by name");
+    assert_eq!(
+        status, "Carry: at a declaration, 2 others by name",
+        "with no implementation at all, the methods of other types are namesakes to offer"
+    );
     assert_eq!(rows.len(), 2);
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Found by the acceptance pass of #68: two interfaces of one name in two files, and the
-/// class that implements the other one was the implementation `d` jumped to.
 #[test]
 fn an_implementation_of_a_namesake_interface_is_not_one_of_ours() {
     let iface = "export interface Notifier {\n  send(to: string): void;\n}\n";
@@ -785,8 +830,6 @@ fn an_implementation_of_a_namesake_interface_is_not_one_of_ours() {
     let (mail, sms, push, deep, loose) = (
         class("MailNotifier", "a"),
         class("SmsNotifier", "index"),
-        // `type Notifier,` on a line of a wrapped list declares no alias, in the class's
-        // file and in the barrel alike.
         class("PushNotifier", "named").replace("{ Notifier }", "{\n  type Notifier,\n}"),
         class("DeepNotifier", "deep"),
         class("LooseNotifier", "renamed"),
@@ -796,8 +839,6 @@ fn an_implementation_of_a_namesake_interface_is_not_one_of_ours() {
         &[
             ("a.ts", iface),
             ("b.ts", iface),
-            // Barrels (#100): everything of `a`, the name out of `b`, a barrel of a barrel,
-            // and one that hands on another interface under this name, which is not followed.
             ("index.ts", "export * from \"./a\";\n"),
             ("named.ts", "export {\n  type Notifier,\n} from \"./b\";\n"),
             ("deep.ts", "export * from \"./named\";\n"),
@@ -809,11 +850,9 @@ fn an_implementation_of_a_namesake_interface_is_not_one_of_ours() {
                 "renamed.ts",
                 "export { Thing as Notifier } from \"./things\";\n",
             ),
-            // Two barrels that export each other lead nowhere, and end.
             ("loop_a.ts", "export * from \"./loop_b\";\n"),
             ("loop_b.ts", "export * from \"./loop_a\";\n"),
             ("looped.ts", &looped),
-            // A barrel that declares a `Notifier` of its own, whatever else it hands on.
             (
                 "own.ts",
                 "export interface Notifier {\n  send(to: string): void;\n}\nexport * from \"./loop_a\";\n",
@@ -828,8 +867,9 @@ fn an_implementation_of_a_namesake_interface_is_not_one_of_ours() {
     );
     a.external
         .insert(Kind::TsJs, (Vec::new(), Arc::new(Vec::new())));
-    for (file, want) in [
+    for (name, file, want) in [
         (
+            "everything of `a` through a barrel",
             "a.ts",
             [
                 ("SmsNotifier.send", "barrel.ts:4"),
@@ -839,6 +879,7 @@ fn an_implementation_of_a_namesake_interface_is_not_one_of_ours() {
             ],
         ),
         (
+            "the name out of `b`, a barrel of a barrel, and `type Notifier,` on a line of a wrapped list, which declares no alias, in the class's file and in the barrel alike",
             "b.ts",
             [
                 ("DeepNotifier.send", "deep_impl.ts:4"),
@@ -860,13 +901,14 @@ fn an_implementation_of_a_namesake_interface_is_not_one_of_ours() {
             .iter()
             .map(|(n, _, at)| (n.as_str(), at.as_str()))
             .collect();
-        assert_eq!(rows, want, "{file}");
+        assert_eq!(
+            rows, want,
+            "{name}; two barrels that export each other lead nowhere, and end; a barrel that declares a `Notifier` of its own keeps it, whatever else it hands on; one that hands on another interface under this name is not followed: {file}"
+        );
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Found by the acceptance pass of #68 in hono: a member written as a property was missing
-/// from the implementations, and the one left was jumped to as if it were the only one.
 #[test]
 fn a_property_holding_the_function_implements_the_method() {
     let (dir, mut a) = project_app(
@@ -893,12 +935,14 @@ fn a_property_holding_the_function_implements_the_method() {
         "match: implementations of Router.match, 2 declarations"
     );
     let places: Vec<&str> = rows.iter().map(|r| r.2.as_str()).collect();
-    assert_eq!(places, ["impl.ts:6", "impl.ts:10"]);
+    assert_eq!(
+        places,
+        ["impl.ts:6", "impl.ts:10"],
+        "a member written as a property is one of the implementations"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Found by the acceptance pass of #68: a name imported from two modules, one per branch of
-/// a `try`, jumped to the first as if there were no second.
 #[test]
 fn a_name_imported_from_two_modules_offers_both() {
     let (dir, mut a) = project_app(
@@ -919,13 +963,15 @@ fn a_name_imported_from_two_modules_offers_both() {
     let Shown::Picker(status, rows) = shown(&mut a) else {
         panic!("{}", a.message);
     };
-    assert_eq!(status, "pick: 2 declarations");
+    assert_eq!(
+        status, "pick: 2 declarations",
+        "a name imported from two modules, one per branch of a `try`"
+    );
     let places: Vec<&str> = rows.iter().map(|r| r.2.as_str()).collect();
     assert_eq!(places, ["pkg/a.py:1", "pkg/b.py:1"]);
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A declaration with no namesake is its own answer, as it was before the namesake rule.
 #[test]
 fn a_lone_declaration_stays_where_it_is() {
     let (dir, mut a) = project_app(
@@ -945,8 +991,6 @@ fn a_lone_declaration_stays_where_it_is() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A qualifier bound by a relative import, or a class of the project, is no value: `d`
-/// finds the module-level declaration and does not add a dependency's same-named methods.
 #[test]
 fn a_module_or_a_class_in_front_of_the_word_is_not_a_value() {
     let (dir, mut a) = project_app(
@@ -978,7 +1022,6 @@ fn a_module_or_a_class_in_front_of_the_word_is_not_a_value() {
                 "site/admin.py",
                 "class AdminSite:\n    def index(self, request):\n        pass\n",
             ),
-            // A dependency with a `views` package must not answer for the project's `views`.
             (
                 "django/views/generic.py",
                 "def missing(request):\n    pass\n",
@@ -991,39 +1034,39 @@ fn a_module_or_a_class_in_front_of_the_word_is_not_a_value() {
     );
     use_roots(&mut a, Kind::Python, std::slice::from_ref(&root));
     use_roots(&mut a, Kind::TsJs, std::slice::from_ref(&root));
-    for (file, code, want) in [
+    for (name, file, code, want) in [
         (
+            "a qualifier bound by a relative import is no value: the module-level declaration, and no dependency's same-named method",
             "shop/urls.py",
             "views.index",
             jump("index: via import shop/views.py", "shop/views.py:1"),
         ),
         (
+            "a dependency with a `views` package must not answer for the project's `views`",
             "shop/urls.py",
             "views.missing",
             jump("no definition for missing", "shop/urls.py:3"),
         ),
         (
+            "a qualifier bound by a relative import is no value: the module-level declaration, and no dependency's same-named method",
             "web/app.ts",
             "utils.formatDate",
             jump("formatDate: via import web/utils.ts", "web/utils.ts:1"),
         ),
         (
+            "a class of the project is no value",
             "shapes.py",
             "Outer.Inner",
             jump("Inner \u{2192} Outer.Inner (via Outer)", "shapes.py:2"),
         ),
     ] {
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();
 }
 
-/// A name an import binds to a module of the project opens the module (#280): its file at line
-/// 1, a package's `__init__.py`, a package over a module of the same name beside it. A name
-/// the package's `__init__.py` binds itself keeps what it leads to, and a module outside the
-/// project is not the project's.
 #[test]
 fn a_name_bound_to_a_project_module_opens_the_module() {
     let (dir, mut a) = project_app(
@@ -1036,21 +1079,16 @@ fn a_name_bound_to_a_project_module_opens_the_module() {
                 "shop/urls.py",
                 "from . import views\n\nurls = [views.index]\n",
             ),
-            // A package beside a module of the same name is what Python imports.
             ("shop/forms.py", "x = 1\n"),
             ("shop/forms/__init__.py", "y = 2\n"),
-            // A package whose `__init__.py` imports its module itself.
             ("cart/__init__.py", "from . import lines\n"),
             ("cart/lines.py", "def total():\n    pass\n"),
-            // A package that declares the name keeps its declaration, and a name it binds some
-            // other way is left to the search by name.
             ("desk/chairs.py", "z = 3\n"),
             (
                 "desk/__init__.py",
                 "def chairs():\n    pass\n\n\nif True:\n    stools = 1\n",
             ),
             ("desk/stools.py", "w = 4\n"),
-            // A namesake elsewhere does not answer for the module.
             ("other.py", "def views():\n    pass\n"),
             (
                 "main.py",
@@ -1063,76 +1101,86 @@ fn a_name_bound_to_a_project_module_opens_the_module() {
         let file = place.split(':').next().unwrap();
         jump(&format!("{word}: module {file}"), place)
     };
-    for (file, code, want) in [
+    for (name, file, code, want) in [
         (
+            "a namesake elsewhere does not answer for the module",
             "main.py",
             "import shop.views",
             module("views", "shop/views.py:1"),
         ),
         (
+            "",
             "main.py",
             "from shop import views",
             module("views", "shop/views.py:1"),
         ),
         (
+            "",
             "main.py",
             "from shop import api",
             module("api", "shop/api/__init__.py:1"),
         ),
         (
+            "",
             "main.py",
             "^import shop",
             module("shop", "shop/__init__.py:1"),
         ),
         (
+            "",
             "main.py",
             "^views|.index",
             module("views", "shop/views.py:1"),
         ),
         (
+            "",
             "main.py",
             "views.index",
             jump("index: via import shop/views.py", "shop/views.py:1"),
         ),
         (
+            "",
             "shop/urls.py",
             "from . import views",
             module("views", "shop/views.py:1"),
         ),
         (
+            "a package beside a module of the same name is what Python imports",
             "main.py",
             "from shop import forms",
             module("forms", "shop/forms/__init__.py:1"),
         ),
         (
+            "a package whose `__init__.py` imports its module itself",
             "main.py",
             "from cart import lines",
             module("lines", "cart/lines.py:1"),
         ),
         (
+            "a package that declares the name keeps its declaration",
             "main.py",
             "from desk import chairs",
             jump("chairs: via import desk/__init__.py", "desk/__init__.py:1"),
         ),
         (
+            "a module outside the project is not the project's",
             "main.py",
             "import json",
             jump("no definition for json", "main.py:8"),
         ),
         (
+            "a name the package binds some other way is left to the search by name",
             "main.py",
             "from desk import stools",
             jump("no definition for stools", "main.py:9"),
         ),
     ] {
         d_on(&mut a, file, code);
-        assert_eq!(shown(&mut a), want, "{code}");
+        assert_eq!(shown(&mut a), want, "{name}: {code}");
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A comment inside a bracketed import drops no name after it (#280): `b` is proven through
-/// the import, whatever namesake another module declares.
 #[test]
 fn a_comment_in_a_bracketed_import_keeps_the_next_name() {
     let (dir, mut a) = project_app(
@@ -1153,14 +1201,12 @@ fn a_comment_in_a_bracketed_import_keeps_the_next_name() {
     d_on(&mut a, "app/main.py", "^b|()");
     assert_eq!(
         shown(&mut a),
-        jump("b: via import app/models.py", "app/models.py:5")
+        jump("b: via import app/models.py", "app/models.py:5"),
+        "`b` is proven through the import, whatever namesake another module declares"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A module that imports a name from itself and declares it keeps the proof master gave: the
-/// guard for `from . import views` in a package's `__init__.py` (#280) skips the module's own
-/// file only when it does not declare the name.
 #[test]
 fn a_module_importing_its_own_declaration_is_proven() {
     let (dir, mut a) = project_app(
@@ -1177,14 +1223,12 @@ fn a_module_importing_its_own_declaration_is_proven() {
     d_on(&mut a, "app.py", "import create_app");
     assert_eq!(
         shown(&mut a),
-        jump("create_app: via import app.py", "app.py:4")
+        jump("create_app: via import app.py", "app.py:4"),
+        "the guard for `from . import views` in a package's `__init__.py` skips the module's own file only when it does not declare the name"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Two modules of the project an import may mean are a picker of both (#280), each row named
-/// after the word and not read off the module's first line: `def index(request):` there would
-/// make it `index.views`.
 #[test]
 fn two_modules_an_import_may_mean_are_a_picker_of_modules() {
     let (dir, mut a) = project_app(
@@ -1206,15 +1250,12 @@ fn two_modules_an_import_may_mean_are_a_picker_of_modules() {
             ("views", "module scripts/views.py", "scripts/views.py:1"),
             ("views", "module tools/views.py", "tools/views.py:1"),
         ]
-        .map(|(n, r, p)| (n.to_string(), r.to_string(), p.to_string()))
+        .map(|(n, r, p)| (n.to_string(), r.to_string(), p.to_string())),
+        "each row named after the word and not read off the module's first line, which would make it `index.views`"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #477. A recipe line is a shell command: `GO=$(GO) ./build.sh` sets a variable of that one
-/// command and declares nothing make knows, so `d` on `$(GO)` jumps to the `?=` above the rules,
-/// from that line too. A shell variable, `$${ARCH}`, is still declared by the command it is used
-/// in, and a tab-indented assignment inside an `ifeq` before any rule is make's own.
 #[test]
 fn a_makefile_recipe_line_declares_no_variable() {
     let (dir, mut a) = project_app(
@@ -1231,27 +1272,40 @@ fn a_makefile_recipe_line_declares_no_variable() {
         ],
     );
     d_on(&mut a, "Makefile", "\t$(GO");
-    assert_eq!(shown(&mut a), jump("GO: by name, 1 match", "Makefile:1"));
+    assert_eq!(
+        shown(&mut a),
+        jump("GO: by name, 1 match", "Makefile:1"),
+        "a recipe line is a shell command: `GO=$(GO) ./build.sh` sets a variable of that one command and declares nothing make knows"
+    );
     d_on(&mut a, "Makefile", "GO=$(GO");
-    assert_eq!(shown(&mut a), jump("GO: by name, 1 match", "Makefile:1"));
+    assert_eq!(
+        shown(&mut a),
+        jump("GO: by name, 1 match", "Makefile:1"),
+        "from the recipe line that sets it too"
+    );
     d_on(&mut a, "tools.mk", "echo $${ARCH");
     assert_eq!(
         shown(&mut a),
-        jump("ARCH → all.ARCH (by name, 1 match)", "tools.mk:7")
+        jump("ARCH → all.ARCH (by name, 1 match)", "tools.mk:7"),
+        "a shell variable, `$${{ARCH}}`, is still declared by the command it is used in"
     );
-    // The next command runs in a shell of its own, where nothing set `ARCH`.
     a.jump_to(&dir.join("tools.mk"), 9);
     a.col = 9;
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
-    assert_eq!(shown(&mut a), jump("no definition for ARCH", "tools.mk:9"));
+    assert_eq!(
+        shown(&mut a),
+        jump("no definition for ARCH", "tools.mk:9"),
+        "the next command runs in a shell of its own, where nothing set `ARCH`"
+    );
     d_on(&mut a, "tools.mk", "x $(EXE");
-    assert_eq!(shown(&mut a), jump("EXE: by name, 1 match", "tools.mk:2"));
+    assert_eq!(
+        shown(&mut a),
+        jump("EXE: by name, 1 match", "tools.mk:2"),
+        "a tab-indented assignment inside an `ifeq` before any rule is make's own"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #505. With unsaved edits the recipe filter reads the buffer the grep matched, not the disk:
-/// with the two `echo` lines cut, buffer line 2 is `DFLAGS += -Wall`, which on disk is a recipe
-/// line.
 #[test]
 fn a_makefile_recipe_line_is_judged_on_the_unsaved_buffer() {
     let (dir, mut a) = project_app(
@@ -1270,13 +1324,12 @@ fn a_makefile_recipe_line_is_judged_on_the_unsaved_buffer() {
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
     assert_eq!(
         shown(&mut a),
-        jump("DFLAGS: by name, 1 match", "dirty.mk:2")
+        jump("DFLAGS: by name, 1 match", "dirty.mk:2"),
+        "with the two `echo` lines cut, buffer line 2 is `DFLAGS += -Wall`, which on disk is a recipe line"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #421. `d` on a Markdown link says why nothing opens where the fixture's annotations cannot
-/// (their answers are no places, or name a file with a space), and `D` lists nothing of a README.
 #[test]
 fn markdown_links_outside_to_a_directory_and_to_a_spaced_name() {
     let (dir, mut a) = project_app(
@@ -1309,7 +1362,6 @@ fn markdown_links_outside_to_a_directory_and_to_a_spaced_name() {
             "{word}"
         );
     }
-    // A declaration in a README's code block is an example, not one of the project.
     press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
     let picker = a.picker.as_mut().unwrap();
     picker.settle();
@@ -1319,14 +1371,14 @@ fn markdown_links_outside_to_a_directory_and_to_a_spaced_name() {
         .into_iter()
         .map(|r| r.item.label.clone())
         .collect();
-    assert!(rows.iter().all(|r| !r.contains("README.md")), "{rows:?}");
+    assert!(
+        rows.iter().all(|r| !r.contains("README.md")),
+        "a declaration in a README's code block is an example, not one of the project: {rows:?}"
+    );
     assert!(rows.iter().any(|r| r.contains("serve")), "{rows:?}");
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #359. `x->word` in C names a field: the function, the macro and the type of the name are
-/// none. With no field of the name in the project, the files outside are searched for fields
-/// only, so a system struct's field is found and its namesakes there are not.
 #[test]
 fn a_c_member_the_project_lacks_is_a_field_outside() {
     let (dir, mut a) = project_app(
@@ -1351,16 +1403,18 @@ fn a_c_member_the_project_lacks_is_a_field_outside() {
         jump(
             "st_size \u{2192} stat::st_size (by name, 1 match)",
             &format!("{}:4", stat.display())
-        )
+        ),
+        "with no field of the name in the project, the files outside are searched for fields only: a system struct's field is found and its namesakes there are not"
     );
     d_on(&mut a, "size.c", "st->st_mode");
-    assert_eq!(a.message, "no definition for st_mode");
+    assert_eq!(
+        a.message, "no definition for st_mode",
+        "`x->word` in C names a field: the function and the macro of the name are none"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();
 }
 
-/// #378. A word followed by `->` or `.` is a value: a system `struct group` is no answer for
-/// `group->gr_name`, and a parameter of the name is.
 #[test]
 fn a_c_value_is_never_a_system_struct() {
     let (dir, mut a) = project_app(
@@ -1376,17 +1430,20 @@ fn a_c_value_is_never_a_system_struct() {
     );
     use_roots(&mut a, Kind::C, std::slice::from_ref(&root));
     d_on(&mut a, "who.c", "return group");
-    assert_eq!(a.message, "no definition for group");
+    assert_eq!(
+        a.message, "no definition for group",
+        "a word followed by `->` is a value: a system `struct group` is no answer"
+    );
     d_on(&mut a, "who.c", "    return group");
-    assert_eq!(shown(&mut a), jump("group: local", "who.c:5"));
+    assert_eq!(
+        shown(&mut a),
+        jump("group: local", "who.c:5"),
+        "a parameter of the name is"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();
 }
 
-/// #382. Outside the project a C or C++ word is looked for in the headers the file includes
-/// first, and a header linked under a second name is one row. libc++'s headers have no extension
-/// and are read, never for a `.c` file; a class behind `_LIBCPP_` macros and a function behind a
-/// reserved-name macro call are declarations.
 #[test]
 fn c_outside_reads_what_the_file_includes() {
     let (dir, mut a) = project_app(
@@ -1441,53 +1498,64 @@ fn c_outside_reads_what_the_file_includes() {
         jump(
             "pthread_equal: by name, 1 match",
             &at("pthread/pthread.h", 1)
-        )
+        ),
+        "a header linked under a second name is one row"
     );
     d_on(&mut a, "main.c", "return printf");
     assert_eq!(
         shown(&mut a),
-        jump("printf: by name, 1 match", &at("stdio.h", 1))
+        jump("printf: by name, 1 match", &at("stdio.h", 1)),
+        "outside the project a word is looked for in the headers the file includes first"
     );
     d_on(&mut a, "main.c", "return malloc");
     assert_eq!(
         shown(&mut a),
-        jump("malloc: by name, 1 match", &at("stdlib.h", 1))
+        jump("malloc: by name, 1 match", &at("stdlib.h", 1)),
+        "a function behind a reserved-name macro call is a declaration"
     );
     d_on(&mut a, "main.c", "return shared");
     assert_eq!(shown(&mut a), jump("shared: by name, 1 match", "a.h:1"));
-    // A `.c` file reads nothing under `c++/`.
     d_on(&mut a, "main.c", "return mutex_init");
-    assert_eq!(a.message, "no definition for mutex_init");
+    assert_eq!(
+        a.message, "no definition for mutex_init",
+        "a `.c` file reads nothing under `c++/`"
+    );
     d_on(&mut a, "m.cc", "std::mutex");
     assert_eq!(
         shown(&mut a),
-        jump("mutex: by name, 1 match", &at("c++/v1/__mutex/mutex.h", 1))
+        jump("mutex: by name, 1 match", &at("c++/v1/__mutex/mutex.h", 1)),
+        "a class behind `_LIBCPP_` macros is a declaration"
     );
     d_on(&mut a, "m.cc", "return mutex_init");
     assert_eq!(
         shown(&mut a),
-        jump("mutex_init: by name, 1 match", &at("c++/v1/mutex", 3))
+        jump("mutex_init: by name, 1 match", &at("c++/v1/mutex", 3)),
+        "libc++'s headers have no extension and are read"
     );
     assert_eq!(search::kind_of(&root.join("c++/v1/mutex")), Some(Kind::C));
-    // A file that includes none keeps every declaration, a header linked twice as one.
     d_on(&mut a, "other.c", "return pthread_equal");
     assert_eq!(
         shown(&mut a),
         jump(
             "pthread_equal: by name, 1 match",
             &at("pthread/pthread.h", 1)
-        )
+        ),
+        "a file that includes none sees a header linked twice as one"
     );
     d_on(&mut a, "other.c", "return printf");
-    assert!(matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2));
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2),
+        "a file that includes none keeps every declaration"
+    );
     d_on(&mut a, "other.c", "return shared");
-    assert!(matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2));
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2),
+        "a file that includes none keeps every declaration"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();
 }
 
-/// #382, the review of its PR: what the include graph decides inside the project and for a
-/// member outside, and the lookups the new rules must leave as master answered them.
 #[test]
 fn c_includes_narrow_no_further_than_they_should() {
     let (dir, mut a) = project_app(
@@ -1561,50 +1629,75 @@ fn c_includes_narrow_no_further_than_they_should() {
         Shown::Jump(_, place) => place,
         picker => format!("{picker:?}"),
     };
-    // A `_Name` tag is no macro: the variable is a file's own static, and a value.
     d_on(&mut a, "a.c", "return use(&ctx");
-    assert_eq!(shown(&mut a), jump("ctx: by name, 1 match", "a.c:2"));
+    assert_eq!(
+        shown(&mut a),
+        jump("ctx: by name, 1 match", "a.c:2"),
+        "a `_Name` tag is no macro: the variable is a file's own static, and a value"
+    );
     d_on(&mut a, "config.c", "return config");
-    assert_eq!(place(shown(&mut a)), "config.c:2");
-    // An indented one-line typedef declares its name.
+    assert_eq!(
+        place(shown(&mut a)),
+        "config.c:2",
+        "a `_Name` tag is no macro"
+    );
     d_on(&mut a, "box.hpp", "    Color");
-    assert_eq!(place(shown(&mut a)), "box.hpp:2");
-    // A forward declaration the file reaches yields to the body it does not.
+    assert_eq!(
+        place(shown(&mut a)),
+        "box.hpp:2",
+        "an indented one-line typedef declares its name"
+    );
     d_on(&mut a, "x.c", "struct conn");
-    assert_eq!(place(shown(&mut a)), "conn.h:1");
-    // And a prototype it reaches to the definition it does not.
+    assert_eq!(
+        place(shown(&mut a)),
+        "conn.h:1",
+        "a forward declaration the file reaches yields to the body it does not"
+    );
     d_on(&mut a, "x.c", "return calc");
-    assert!(matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2));
-    // A macro's braces inside `namespace {` close nothing of the namespace's.
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2),
+        "a prototype the file reaches yields to the definition it does not"
+    );
     d_on(&mut a, "bar.cc", "{ Bar");
-    assert!(matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2));
-    // `"u.h"` is the one beside the file.
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2),
+        "a macro's braces inside `namespace {{` close nothing of the namespace's"
+    );
     d_on(&mut a, "x/main.c", "return util");
-    assert_eq!(place(shown(&mut a)), "x/u.h:1");
-    // The open header keeps its own declaration beside the one it includes.
+    assert_eq!(
+        place(shown(&mut a)),
+        "x/u.h:1",
+        "`\"u.h\"` is the one beside the file"
+    );
     d_on(&mut a, "h1.h", "return shared7");
-    assert!(matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2));
-    // `<assert.h>` is the system's, not a project file of that name deep in a dependency.
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2),
+        "the open header keeps its own declaration beside the one it includes"
+    );
     d_on(&mut a, "s.c", "{ assert_fail");
-    assert!(matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2));
-    // A member outside: the struct of a header the file includes.
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2),
+        "`<assert.h>` is the system's, not a project file of that name deep in a dependency"
+    );
     d_on(&mut a, "a.c", "get()->len");
     assert_eq!(
         place(shown(&mut a)),
-        format!("{}:2", root.join("len.h").display())
+        format!("{}:2", root.join("len.h").display()),
+        "a member outside: the struct of a header the file includes"
     );
-    // A header's includes edited in the session are read again.
     d_on(&mut a, "e.c", "return edited");
     assert_eq!(place(shown(&mut a)), "e1.h:1");
     std::fs::write(dir.join("e.h"), "#include \"e2.h\"\n").unwrap();
     d_on(&mut a, "e.c", "return edited");
-    assert_eq!(place(shown(&mut a)), "e2.h:1");
+    assert_eq!(
+        place(shown(&mut a)),
+        "e2.h:1",
+        "a header's includes edited in the session are read again"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();
 }
 
-/// PHP's `$x->name` is a member access (#348): a method for a call, a property otherwise, in the
-/// project and in `vendor/` alike, and never a local, a function or a class of the name.
 #[test]
 fn php_arrow_reaches_members_only() {
     let other = "<?php\n\nnamespace App\\Services;\n\nclass Other\n{\n    public function run(): void\n    {\n        $where = ['a' => 1];\n        $title = 'x';\n    }\n\n    public function on(string $event): void\n    {\n    }\n}\n";
@@ -1640,7 +1733,6 @@ fn php_arrow_reaches_members_only() {
             "JoinClause::on",
             "laravel/framework/src/Illuminate/Database/Query/JoinClause.php:7",
         );
-        // Not the local `$where` of another class, with `vendor/` or without.
         let (where_, on) = match vendor {
             true => (
                 jump(
@@ -1654,25 +1746,31 @@ fn php_arrow_reaches_members_only() {
                 jump("on \u{2192} Other::on (by name, 1 match)", on.1),
             ),
         };
-        assert_eq!(d("$join->where"), where_, "vendor: {vendor}");
-        // Not the local `$title`.
-        assert_eq!(d("$song->title"), none("title", 10), "vendor: {vendor}");
-        // The project's first.
-        assert_eq!(d("$join->on"), on, "vendor: {vendor}");
-        // A call wants a method: the property `$input` is none.
-        assert_eq!(d("$request->input"), none("input", 12), "vendor: {vendor}");
+        assert_eq!(
+            d("$join->where"),
+            where_,
+            "not the local `$where` of another class: vendor: {vendor}"
+        );
+        assert_eq!(
+            d("$song->title"),
+            none("title", 10),
+            "not the local `$title`: vendor: {vendor}"
+        );
+        assert_eq!(d("$join->on"), on, "the project's first: vendor: {vendor}");
+        assert_eq!(
+            d("$request->input"),
+            none("input", 12),
+            "a call wants a method: the property `$input` is none: vendor: {vendor}"
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 }
 
-/// A walk from `$this` that leaves the project reads the parent's file in `vendor/`, the one its
-/// import names, and never another class's namesake (#356).
 #[test]
 fn php_this_walks_into_vendor_and_no_further() {
     let crate_ = "<?php\n\nnamespace App;\n\nuse Symfony\\Component\\Console\\Command\\Command;\n\nfinal class Crate extends Command\n{\n    public function pack(): void\n    {\n        $this->run();\n        $this->seal();\n        self::SUCCESS;\n    }\n}\n";
     let rack = "<?php\n\nnamespace App;\n\nclass Rack\n{\n    public function run(): void\n    {\n    }\n\n    public function seal(): void\n    {\n    }\n}\n";
     let command = "<?php\n\nnamespace Symfony\\Component\\Console\\Command;\n\nclass Command\n{\n    public const SUCCESS = 0;\n\n    public function run(): int\n    {\n    }\n}\n";
-    // Another `Command.php` in another namespace: the import names the one to read.
     let other = "<?php\n\nnamespace Other;\n\nclass Command\n{\n    public function run(): int\n    {\n    }\n}\n";
     let (dir, mut a) = project_app(
         "php-this-vendor",
@@ -1694,7 +1792,8 @@ fn php_this_walks_into_vendor_and_no_further() {
         jump(
             "run \u{2192} Command::run (via $this: Crate)",
             &format!("vendor/{vendored}:9")
-        )
+        ),
+        "another `Command.php` in another namespace: the import names the one to read"
     );
     assert_eq!(
         d("self::SUCCESS"),
@@ -1703,16 +1802,14 @@ fn php_this_walks_into_vendor_and_no_further() {
             &format!("vendor/{vendored}:7")
         )
     );
-    // Not `Rack::seal`.
     assert_eq!(
         d("$this->seal"),
-        jump("no definition for seal", "app/Crate.php:12")
+        jump("no definition for seal", "app/Crate.php:12"),
+        "not `Rack::seal`"
     );
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// Review of #515 (#317): off the declared name, a recursive call is a namesake nothing here tells
-/// from the line's own: offered, as on master. A Rust value is the local it names (#353).
 #[test]
 fn off_the_declared_name_a_value_or_a_recursion_stays_a_picker() {
     let (dir, mut a) = project_app(
@@ -1729,11 +1826,11 @@ fn off_the_declared_name_a_value_or_a_recursion_stays_a_picker() {
             ("src/B.kt", "fun fact(n: Int): Int = n\n"),
         ],
     );
-    // Since #353 Rust reads its locals: the right-hand `chime` is the parameter it shadows.
     d_on(&mut a, "src/a.rs", "let chime = chime");
     assert_eq!(
         shown(&mut a),
-        jump("chime \u{2192} rebate::chime (local)", "src/a.rs:2")
+        jump("chime \u{2192} rebate::chime (local)", "src/a.rs:2"),
+        "a Rust value is the local it names: the right-hand `chime` is the parameter it shadows"
     );
     d_on(&mut a, "src/A.kt", "n * fact");
     assert_eq!(
@@ -1741,14 +1838,12 @@ fn off_the_declared_name_a_value_or_a_recursion_stays_a_picker() {
         picker(
             "fact: at a declaration, 1 other by name",
             &[("fact", "src/B.kt:1")]
-        )
+        ),
+        "off the declared name, a recursive call is a namesake nothing here tells from the line's own: offered"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Review of #515 (#460): an Elixir call or capture is its module's function, never its
-/// attribute, and an attribute is nothing else. Past an `import` that lists the name, the call
-/// is looked up by name, as on master.
 #[test]
 fn an_elixir_call_is_no_attribute_and_an_import_leaves_it_to_the_search() {
     let (dir, mut a) = project_app(
@@ -1770,15 +1865,18 @@ fn an_elixir_call_is_no_attribute_and_an_import_leaves_it_to_the_search() {
     };
     assert_eq!(
         d("    timeout|() +"),
-        jump("timeout → C.timeout (in this file)", "lib/c.ex:7")
+        jump("timeout → C.timeout (in this file)", "lib/c.ex:7"),
+        "an Elixir call is its module's function, never its attribute"
     );
     assert_eq!(
         d("do: @timeout"),
-        jump("timeout → C.timeout (in this file)", "lib/c.ex:3")
+        jump("timeout → C.timeout (in this file)", "lib/c.ex:3"),
+        "an attribute is nothing else"
     );
     assert_eq!(
         d("&timeout"),
-        jump("timeout → C.timeout (in this file)", "lib/c.ex:7")
+        jump("timeout → C.timeout (in this file)", "lib/c.ex:7"),
+        "a capture is its module's function, never its attribute"
     );
     assert!(
         matches!(d("() + discount"), Shown::Picker(..)),
@@ -1787,9 +1885,6 @@ fn an_elixir_call_is_no_attribute_and_an_import_leaves_it_to_the_search() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #351. A PHP class name resolves as PHP resolves it, through the file's `use`, else its
-/// `namespace`, and `composer.json`'s PSR-4 map says which file declares it. A name the map does
-/// not cover is outside the project: `vendor/` first, before a namesake of the project's.
 #[test]
 fn php_names_resolve_through_use_namespace_and_psr4() {
     let method = |ns: &str, class: &str, m: &str| {
@@ -1843,7 +1938,7 @@ fn php_names_resolve_through_use_namespace_and_psr4() {
                 "query \u{2192} Song::query (via import app/Models/Song.php)",
                 "app/Models/Song.php:7"
             ),
-            "vendor: {vendor}"
+            "through the file's `use`, and `composer.json`'s PSR-4 map says which file declares it: vendor: {vendor}"
         );
         assert_eq!(
             d(repo, "    Song|::query"),
@@ -1862,7 +1957,7 @@ fn php_names_resolve_through_use_namespace_and_psr4() {
                 "toArray \u{2192} AlbumResource::toArray (via AlbumResource)",
                 "app/Http/Subsonic/AlbumResource.php:7"
             ),
-            "vendor: {vendor}"
+            "with no `use`, through the file's `namespace`: vendor: {vendor}"
         );
         let get = match vendor {
             true => jump(
@@ -1874,15 +1969,15 @@ fn php_names_resolve_through_use_namespace_and_psr4() {
                 "app/Repos/SongRepository.php:10",
             ),
         };
-        assert_eq!(d(repo, "Arr::get"), get, "vendor: {vendor}");
+        assert_eq!(
+            d(repo, "Arr::get"),
+            get,
+            "a name the map does not cover is outside the project: `vendor/` first, before a namesake of the project's: vendor: {vendor}"
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 }
 
-/// Review of #573 (#351): where nothing proves the class, `d` answers as master did. A name a
-/// group `use` binds, a mapped file missing or of another namespace, a member the walk finds
-/// nowhere (Eloquent's `where`, forwarded by `__callStatic`), a `vendor/` hit by name or of another
-/// namespace, and a project with no `composer.json`.
 #[test]
 fn php_names_fall_back_where_nothing_proves_the_class() {
     let class = |ns: &str, head: &str, body: &str| {
@@ -1906,7 +2001,6 @@ fn php_names_fall_back_where_nothing_proves_the_class() {
         "class Disc",
         "    public static function spin(): void\n    {\n    }\n",
     );
-    // A `where` of the project's own, which master's search by name offers.
     let query = class(
         "App\\Support",
         "class Query",
@@ -1950,7 +2044,6 @@ fn php_names_fall_back_where_nothing_proves_the_class() {
         ("app/Http/Subsonic/Caller.php", caller),
         ("app/Http/Resources/AlbumResource.php", resources.as_str()),
         ("app/Http/Subsonic/AlbumResource.php", subsonic.as_str()),
-        // Neither at its PSR-4 path nor in its namespace there.
         ("app/Legacy/all.php", tune.as_str()),
         ("app/Models/Disc.php", disc.as_str()),
         ("app/Models/Track.php", track),
@@ -1993,7 +2086,7 @@ fn php_names_fall_back_where_nothing_proves_the_class() {
         assert_eq!(
             d(caller, "AlbumResource::make"),
             picker("make: by name, 2 declarations", &makes),
-            "vendor: {vendor}"
+            "a name a group `use` binds: vendor: {vendor}"
         );
         assert_eq!(
             d(caller, "Tune::play"),
@@ -2001,7 +2094,7 @@ fn php_names_fall_back_where_nothing_proves_the_class() {
                 "play \u{2192} Tune::play (by name, 1 match)",
                 "app/Legacy/all.php:6"
             ),
-            "vendor: {vendor}"
+            "a mapped file missing: `Tune` is neither at its PSR-4 path nor in its namespace there: vendor: {vendor}"
         );
         assert_eq!(
             d(caller, "Disc::spin"),
@@ -2009,7 +2102,7 @@ fn php_names_fall_back_where_nothing_proves_the_class() {
                 "spin \u{2192} Disc::spin (by name, 1 match)",
                 "app/Models/Disc.php:6"
             ),
-            "vendor: {vendor}"
+            "a mapped file of another namespace: vendor: {vendor}"
         );
         assert_eq!(
             d(caller, "Track::where"),
@@ -2017,7 +2110,7 @@ fn php_names_fall_back_where_nothing_proves_the_class() {
                 "where \u{2192} Query::where (by name, 1 match)",
                 "app/Support/Query.php:6"
             ),
-            "vendor: {vendor}"
+            "a member the walk finds nowhere (Eloquent's `where`, forwarded by `__callStatic`): the project's own `where`, which master's search by name offers: vendor: {vendor}"
         );
         assert_eq!(
             d(caller, "Route::get"),
@@ -2025,7 +2118,7 @@ fn php_names_fall_back_where_nothing_proves_the_class() {
                 "get \u{2192} Caller::get (by name, 1 match)",
                 &format!("{caller}:12")
             ),
-            "vendor: {vendor}"
+            "a `vendor/` class that declares no such member: vendor: {vendor}"
         );
         assert_eq!(
             d("lib/show.php", "Helper::format"),
@@ -2033,11 +2126,10 @@ fn php_names_fall_back_where_nothing_proves_the_class() {
                 "format \u{2192} Helper::format (via Helper)",
                 "lib/Helper.php:5"
             ),
-            "vendor: {vendor}"
+            "a `vendor/` hit of another namespace: vendor: {vendor}"
         );
         let _ = std::fs::remove_dir_all(dir);
     }
-    // No composer.json: the `use` reads as on master, with `vendor/` or without.
     let repo = "<?php\nnamespace App;\n\nuse Illuminate\\Support\\Arr;\n\nclass Repo\n{\n    public function get(): void\n    {\n        Arr::get([], 'x');\n    }\n}\n";
     let (dir, mut a) = project_app(
         "php-no-composer",
@@ -2056,16 +2148,12 @@ fn php_names_fall_back_where_nothing_proves_the_class() {
         jump(
             "get \u{2192} Repo::get (by name, 1 match)",
             "app/Repo.php:8"
-        )
+        ),
+        "no composer.json: the `use` reads as on master"
     );
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #417. An Objective-C file reads the SDK's frameworks, `<Foundation/NSString.h>` being
-/// `Foundation.framework/Headers/NSString.h`, and an imported one first: Kit's namesake is not
-/// what Foundation's import reaches. A C file and a header with no Objective-C in it read none of
-/// them, and a system header linked into a framework stays the C file's; a header with an
-/// `#import` does read them.
 #[test]
 fn objc_reads_the_frameworks_and_c_does_not() {
     let (dir, mut a) = project_app(
@@ -2109,7 +2197,6 @@ fn objc_reads_the_frameworks_and_c_does_not() {
         ],
     );
     let frameworks = root.join("System/Library/Frameworks");
-    // The SDK's `usr/include/tcl.h` is a link into `Tcl.framework`: a C file keeps it.
     std::os::unix::fs::symlink(
         frameworks.join("Tcl.framework/Headers/tcl.h"),
         root.join("include/tcl.h"),
@@ -2125,12 +2212,15 @@ fn objc_reads_the_frameworks_and_c_does_not() {
                 "NSString: by name, 1 match",
                 &format!("{}:1", nsstring.display())
             ),
-            "{file}"
+            "an Objective-C file, or a header with an `#import`, reads the SDK's frameworks, an imported one first: Kit's namesake is not what Foundation's import reaches: {file}"
         );
     }
     for file in ["shop.c", "plain.h"] {
         d_on(&mut a, file, "NSString");
-        assert_eq!(a.message, "no definition for NSString", "{file}");
+        assert_eq!(
+            a.message, "no definition for NSString",
+            "a C file and a header with no Objective-C in it read no framework: {file}"
+        );
     }
     d_on(&mut a, "shop.c", "Tcl_Init");
     assert_eq!(
@@ -2138,7 +2228,8 @@ fn objc_reads_the_frameworks_and_c_does_not() {
         jump(
             "Tcl_Init: by name, 1 match",
             &format!("{}:1", root.join("include/tcl.h").display())
-        )
+        ),
+        "the SDK's `usr/include/tcl.h` is a link into `Tcl.framework`: a C file keeps it"
     );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();

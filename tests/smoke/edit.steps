@@ -1,10 +1,10 @@
-# edit: the few lines a person still types. Enter, a new value, Esc: saved, and the gutter marks
-# the line. That edit undone after a trip to another file and redone: each file keeps its own
-# history (#163). Alt+Backspace deletes the word before the cursor (#120). Shift+Down selects
-# two lines and Tab indents them (#3, #176), Ctrl+Z takes it back; Alt+Shift+Right grows a
-# selection by words (#4) and Ctrl+C puts it on the clipboard through OSC 52. Ctrl+F while
-# editing finds and stays in edit mode (#56). Ctrl+N makes a file. A secret typed into the
-# ignored .env is saved there and copied nowhere under HOME. The pane closed (SIGHUP) under
+# edit: the few lines a person still types. Enter, a new value, Esc: saved, and the gutter marks the
+# line. That edit, two undo steps since #478, undone after a trip to another file and redone: each
+# file keeps its own history (#163). Alt+Backspace deletes the word before the cursor (#120).
+# Shift+Down selects two lines and Tab indents them (#3, #176), Ctrl+Z takes it back;
+# Alt+Shift+Right grows a selection by words (#4) and Ctrl+C puts it on the clipboard through OSC
+# 52. Ctrl+F while editing finds and stays in edit mode (#56). Ctrl+N makes a file. A secret typed
+# into the ignored .env is saved there and copied nowhere under HOME. The pane closed (SIGHUP) under
 # typing not yet saved: merl saves it and exits 0 (#80). Under tmux's default `set-clipboard
 # external`, which drops OSC 52, Ctrl+C still puts the line in a tmux buffer (#395).
 # A checkpoint after an edit waits for the gutter as the save and its git diff leave it (#518).
@@ -32,9 +32,9 @@ key o
 type config.py
 key Enter
 wait 10▎    page_size: int = 100
-key C-z
+key C-z C-z
 wait 10     page_size: int = 50
-key C-y
+key C-y C-y
 wait 10▎    page_size: int = 100
 # the default DSN points at compose's db service: localhost deleted by word, db typed
 key /
@@ -98,3 +98,16 @@ wait copied 1 line
 key Escape
 wait app/money.py  1:1  [code]
 run ! grep -q Decimal app/money.py
+# Undo steps close as in VS Code (#478): `def` typed after the cursor went away and came back is
+# undone alone, and a cut after typing is undone without the typing.
+key Enter
+type abc
+key Left Left Left Right Right Right
+type def
+key C-z
+wait app/money.py  1:4  [edit]
+key Space
+type ghi
+key M-Left M-S-Right C-x C-z Escape
+wait app/money.py  1:8  [code]
+run grep -q 'abc ghi' app/money.py

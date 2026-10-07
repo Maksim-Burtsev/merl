@@ -13,15 +13,14 @@ fn imports_bind_names_to_module_paths() {
             ("os".into(), p(&["os"])),
             ("OrderedDict".into(), p(&["collections", "OrderedDict"])),
             ("dq".into(), p(&["collections", "deque"])),
-            // A relative import is a project file, marked by its leading `.` part.
             ("local".into(), p(&[".", "local"])),
-            // Each dot past the first is a directory up.
             ("Note".into(), p(&["..", "models", "Note"])),
             ("Any".into(), p(&["typing", "Any"])),
             ("Final".into(), p(&["typing", "Final"])),
-        ]
+        ],
+        "a relative import is a project file, marked by its leading `.` part; each dot past the \
+         first is a directory up"
     );
-    // A comment inside the brackets is no name, and a `)` in it does not close them (#280).
     let py = "from .models import (\n    a,  # noqa: F401, (see #1)\n    b,\n)\nfrom x import c  # d, e\n";
     assert_eq!(
         imports(Kind::Python, py),
@@ -29,12 +28,13 @@ fn imports_bind_names_to_module_paths() {
             ("a".into(), p(&[".", "models", "a"])),
             ("b".into(), p(&[".", "models", "b"])),
             ("c".into(), p(&["x", "c"])),
-        ]
+        ],
+        "a comment inside the brackets is no name, and a `)` in it does not close them"
     );
-    // Nor after a plain `import` (#298).
     assert_eq!(
         imports(Kind::Python, "import a, b  # c, d\n"),
-        [("a".into(), p(&["a"])), ("b".into(), p(&["b"]))]
+        [("a".into(), p(&["a"])), ("b".into(), p(&["b"]))],
+        "nor is one after a plain `import`"
     );
     let rs = "use std::fs;\nuse std::collections::{HashMap, hash_map::Entry};\nuse regex::Regex as Re;\nuse crate::buffer::Buffer;\npub(crate) use anyhow::{self, Context};\nuse std::{\n    io::Write,\n    path::Path,\n};\n";
     let got = imports(Kind::Rust, rs);
@@ -64,22 +64,19 @@ fn imports_bind_names_to_module_paths() {
             ("toml".into(), p(&["github.com", "BurntSushi", "toml"])),
             ("chi".into(), p(&["github.com", "go-chi", "chi", "v5"])),
             ("v5".into(), p(&["github.com", "go-chi", "chi", "v5"])),
-            // The package name without the decorations its module path carries.
             ("yaml".into(), p(&["gopkg.in", "yaml.v3"])),
             ("sqlite3".into(), p(&["github.com", "mattn", "go-sqlite3"])),
             ("nats".into(), p(&["github.com", "nats-io", "nats.go"])),
             ("core".into(), p(&["k8s.io", "api", "core", "v1"])),
             ("v1".into(), p(&["k8s.io", "api", "core", "v1"])),
-        ]
+        ],
+        "the package name without the decorations its module path carries"
     );
     let ts = "import fs from 'node:fs';\nimport { join, resolve as res } from \"path\";\nimport * as React from 'react';\nimport type { Foo } from '@scope/pkg/sub';\nimport local from './local';\nconst chalk = require('chalk');\nconst { a, b } = await import('lib');\nimport cp = require('child_process');\nconst utils = require('../lib/utils');\nimport def, { type Bar, baz as qux } from './mixed';\n";
     let got = imports(Kind::TsJs, ts);
     assert_eq!(
         got,
         [
-            // The last part is what the import takes: the default export, a name, or the
-            // whole module.
-            // `node:` stays: the module is Node's own, whatever is installed under its name.
             ("fs".into(), p(&["node:fs", "default"])),
             ("join".into(), p(&["path", "join"])),
             ("res".into(), p(&["path", "resolve"])),
@@ -94,7 +91,9 @@ fn imports_bind_names_to_module_paths() {
             ("def".into(), p(&[".", "mixed", "default"])),
             ("Bar".into(), p(&[".", "mixed", "Bar"])),
             ("qux".into(), p(&[".", "mixed", "baz"])),
-        ]
+        ],
+        "the last part is what the import takes: the default export, a name, or the whole \
+         module; `node:` stays, the module is Node's own whatever is installed under its name"
     );
 }
 
@@ -149,22 +148,34 @@ fn module_files_are_the_project_files_an_import_names() {
         found(py, "main.py", &["app", "store"]),
         ["src/app/store/__init__.py"]
     );
-    // A module inside the `app` package is `app.json`, not the top-level `json`.
-    assert!(found(py, "main.py", &["json"]).is_empty());
+    assert!(
+        found(py, "main.py", &["json"]).is_empty(),
+        "a module inside the `app` package is `app.json`, not the top-level `json`"
+    );
     let memory = "src/app/store/backends/memory.py";
     assert_eq!(found(py, memory, &[".."]), ["src/app/store/__init__.py"]);
     assert_eq!(found(py, memory, &["...", "repos"]), ["src/app/repos.py"]);
     assert!(found(py, "main.py", &["..", "repos"]).is_empty());
     let page = "web/src/page.ts";
-    // The TypeScript file before the JavaScript one, also behind a `.js` specifier.
-    assert_eq!(found(ts, page, &[".", "x"]), ["web/src/x.ts"]);
-    assert_eq!(found(ts, page, &[".", "x.js"]), ["web/src/x.ts"]);
+    assert_eq!(
+        found(ts, page, &[".", "x"]),
+        ["web/src/x.ts"],
+        "the TypeScript file before the JavaScript one"
+    );
+    assert_eq!(
+        found(ts, page, &[".", "x.js"]),
+        ["web/src/x.ts"],
+        "also behind a `.js` specifier"
+    );
     assert_eq!(found(ts, page, &[".", "types"]), ["web/src/types.d.ts"]);
     assert_eq!(found(ts, page, &[".", "ui"]), ["web/src/ui/index.tsx"]);
     assert_eq!(found(ts, page, &["@", "ui"]), ["web/src/ui/index.tsx"]);
     assert_eq!(found(ts, page, &["@lib"]), ["web/lib/index.ts"]);
-    // A name no alias matches, under `baseUrl`.
-    assert_eq!(found(ts, page, &["src", "x"]), ["web/src/x.ts"]);
+    assert_eq!(
+        found(ts, page, &["src", "x"]),
+        ["web/src/x.ts"],
+        "a name no alias matches, under `baseUrl`"
+    );
     assert!(found(ts, page, &["react"]).is_empty());
     assert!(found(ts, "page.ts", &["..", "x"]).is_empty());
     assert_eq!(
@@ -208,24 +219,28 @@ fn in_module_follows_the_parts_through_versions_and_escapes() {
         "/node_modules/@types/scope__pkg/sub.d.ts",
         &["@scope", "pkg", "sub"]
     ));
-    // The types of a scoped package are not an unscoped namesake's, nor another scope's, and
-    // only `@types` spells a scope so.
-    assert!(!m(
-        "/node_modules/@types/babel__traverse/index.d.ts",
-        &["traverse"]
-    ));
-    assert!(!m(
-        "/node_modules/@types/other__pkg/index.d.ts",
-        &["@scope", "pkg"]
-    ));
+    assert!(
+        !m(
+            "/node_modules/@types/babel__traverse/index.d.ts",
+            &["traverse"]
+        ),
+        "the types of a scoped package are not an unscoped namesake's"
+    );
+    assert!(
+        !m(
+            "/node_modules/@types/other__pkg/index.d.ts",
+            &["@scope", "pkg"]
+        ),
+        "nor another scope's"
+    );
     assert!(!m(
         "/node_modules/@types/scope__other/index.d.ts",
         &["@scope", "pkg"]
     ));
-    assert!(!m(
-        "/node_modules/scope__pkg/index.d.ts",
-        &["@scope", "pkg"]
-    ));
+    assert!(
+        !m("/node_modules/scope__pkg/index.d.ts", &["@scope", "pkg"]),
+        "only `@types` spells a scope so"
+    );
 }
 
 #[test]
@@ -234,13 +249,23 @@ fn typescript_spellings_are_read_in_typescript_only() {
         "    repo".to_owned(),
         "        .find(1)?.name!.x".to_owned(),
     ];
-    // A line led by a dot, `?.`, `!.` and a `#` are what they are in every other language: a
-    // Python chain in brackets, Rust's `?`, a C `#define`.
     for kind in [Kind::Python, Kind::Go, Kind::Rust, Kind::C] {
-        assert_eq!(unbroken(kind, &lines, 1, 9), None);
-        assert_eq!(plain_access(kind, &lines[1], 24), (lines[1].clone(), 24));
+        assert_eq!(
+            unbroken(kind, &lines, 1, 9),
+            None,
+            "outside TypeScript a line led by a dot is not joined to the one above"
+        );
+        assert_eq!(
+            plain_access(kind, &lines[1], 24),
+            (lines[1].clone(), 24),
+            "outside TypeScript `?.` and `!.` stay: Rust's `?`"
+        );
         let word = definition_word(Some(kind), "#define LIMIT", 1);
-        assert_eq!(word, Some((1..7, "define")));
+        assert_eq!(
+            word,
+            Some((1..7, "define")),
+            "outside TypeScript a `#` is no name char: a C `#define`"
+        );
     }
     assert_eq!(
         unbroken(Kind::TsJs, &lines, 1, 9),
@@ -291,7 +316,6 @@ fn typescript_spellings_are_read_in_typescript_only() {
         "export {\n  Hatch,\n  type Trunk as TrunkBase,\n};\nexport { A as B } from \"./x\";\n";
     assert_eq!(exported_as(alias, "TrunkBase"), Some("Trunk".to_owned()));
     assert_eq!(exported_as(alias, "B"), None);
-    // A header with brackets and a `{}` default in it ends at the `{` of its body.
     let header = [
         "class Vault<S = {}>",
         "  extends mixin(Crate, { sealed: true })",
@@ -303,7 +327,8 @@ fn typescript_spellings_are_read_in_typescript_only() {
         (
             "class Vault extends mixin(Crate, { sealed: true }) implements Sealable {".to_owned(),
             3
-        )
+        ),
+        "a header with brackets and a `{{}}` default in it ends at the `{{` of its body"
     );
 }
 
@@ -375,14 +400,15 @@ fn a_package_is_the_copy_in_the_nearest_node_modules_that_has_it() {
             files
         })
     };
-    // The nearest copy, unless only a farther one has the whole path, which Node goes on to.
     assert_eq!(
         copy(&["lib", "sub"]),
-        Some(vec![api.join("lib/index.d.ts")])
+        Some(vec![api.join("lib/index.d.ts")]),
+        "the nearest copy"
     );
     assert_eq!(
         copy(&["lib", "extra"]),
-        Some(vec![top.join("lib/extra.d.ts"), top.join("lib/index.d.ts")])
+        Some(vec![top.join("lib/extra.d.ts"), top.join("lib/index.d.ts")]),
+        "unless only a farther one has the whole path, which Node goes on to"
     );
     assert_eq!(
         copy(&["typed"]),
@@ -399,8 +425,11 @@ fn a_package_is_the_copy_in_the_nearest_node_modules_that_has_it() {
         ])
     );
     assert_eq!(copy(&["fs"]), Some(vec![]));
-    // A workspace package linked in is the project's own.
-    assert_eq!(copy(&["@app", "shared"]), None);
+    assert_eq!(
+        copy(&["@app", "shared"]),
+        None,
+        "a workspace package linked in is the project's own"
+    );
     let copy = [top.join("lib")];
     assert!(in_copy(&top.join("lib/dist/index.d.ts"), &copy));
     assert!(!in_copy(
@@ -467,13 +496,21 @@ fn a_package_is_missing_when_nothing_installs_or_declares_it() {
         package_missing(&root, &files, Path::new(dir), &module)
     };
     let missing = |spec: &str| missing_from("web/src", spec);
-    // What the project supplies: a `declare module`, an alias of `jsconfig.json`, `baseUrl`.
-    assert!(!missing("untyped-lib"));
+    assert!(
+        !missing("untyped-lib"),
+        "the project supplies what a `declare module` declares"
+    );
     assert!(!missing("icons/logo.svg"));
     assert!(missing("untyped-lib/sub"));
-    assert!(!missing_from("js/src", "@components/Button"));
+    assert!(
+        !missing_from("js/src", "@components/Button"),
+        "and an alias of `jsconfig.json`"
+    );
     assert!(missing_from("js/src", "@widgets/Button"));
-    assert!(!missing_from("base/src/pages", "components/Button"));
+    assert!(
+        !missing_from("base/src/pages", "components/Button"),
+        "and a name under `baseUrl`"
+    );
     assert!(missing_from("base/src/pages", "widgets/Button"));
     assert!(missing("mobx-react"));
     assert!(missing("@other/pkg"));
@@ -505,8 +542,11 @@ fn a_ts_import_line_is_the_line_of_the_name() {
     assert_eq!(ts_import_line(text, "a"), Some(1));
     assert_eq!(ts_import_line(text, "seen"), Some(5));
     assert_eq!(ts_import_line(text, "observable"), Some(4));
-    // `obs` is taken under another name, and `observable` only starts with it.
-    assert_eq!(ts_import_line(text, "obs"), None);
+    assert_eq!(
+        ts_import_line(text, "obs"),
+        None,
+        "`obs` is taken under another name, and `observable` only starts with it"
+    );
     assert_eq!(ts_import_line(text, "req"), Some(7));
     assert_eq!(ts_import_line(text, "nothing"), None);
 }
@@ -800,10 +840,17 @@ fn php_class_names_resolve_and_map_to_files() {
         ("App\\Models\\Song\\Part".into(), true)
     );
     assert_eq!(resolve("\\Other\\Song"), ("Other\\Song".into(), false));
-    // A group `use` is not read, and `use function` binds no class.
-    assert_eq!(php_resolve(text, "Kernel"), None);
+    assert_eq!(
+        php_resolve(text, "Kernel"),
+        None,
+        "a group `use` is not read"
+    );
     assert_eq!(php_resolve(text, "Request\\Part"), None);
-    assert_eq!(resolve("Tag"), ("App\\Repos\\Tag".into(), false));
+    assert_eq!(
+        resolve("Tag"),
+        ("App\\Repos\\Tag".into(), false),
+        "`use function` binds no class"
+    );
     assert_eq!(
         php_resolve("<?php\n", "Song"),
         Some(PhpResolved {
@@ -835,9 +882,16 @@ fn php_class_names_resolve_and_map_to_files() {
         Psr4File::Found("api/more/Unit.php".into())
     );
     assert_eq!(file("App\\Models\\Gone"), Psr4File::Missing);
-    // The empty prefix covers only a name whose file is there.
-    assert_eq!(file("Legacy"), Psr4File::Found("api/lib/Legacy.php".into()));
-    assert_eq!(file("Illuminate\\Support\\Arr"), Psr4File::OutsideProject);
+    assert_eq!(
+        file("Legacy"),
+        Psr4File::Found("api/lib/Legacy.php".into()),
+        "the empty prefix covers a name whose file is there"
+    );
+    assert_eq!(
+        file("Illuminate\\Support\\Arr"),
+        Psr4File::OutsideProject,
+        "and only such a name"
+    );
     assert!(php_psr4(&dir, Path::new("elsewhere")).is_empty());
     std::fs::remove_dir_all(&dir).unwrap();
 }

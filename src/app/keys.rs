@@ -314,6 +314,19 @@ impl App {
         if !extending {
             self.drop_selection_if_moved(before);
         }
+        let moves = paging
+            || matches!(
+                key.code,
+                KeyCode::Up
+                    | KeyCode::Down
+                    | KeyCode::Left
+                    | KeyCode::Right
+                    | KeyCode::Home
+                    | KeyCode::End
+            );
+        if moves || (self.at(), self.col) != before {
+            self.undo_break = true;
+        }
         if paging && let (Some(pos), Some(cur)) = (self.pos(), self.history.get_mut(self.hist_idx))
         {
             *cur = pos;

@@ -229,23 +229,31 @@ pub(super) fn go_embedded(t: &str) -> Option<&str> {
 /// the enclosing lines, each indented less than the last, until one declares a type. `None` when
 /// the walk reaches the top level first.
 pub fn enclosing_type(kind: Kind, lines: &[&str], k: usize) -> Option<usize> {
+    enclosing_at(kind, lines, &levels(kind, lines), k)
+}
+fn levels(kind: Kind, lines: &[&str]) -> Vec<Option<usize>> {
+    (lines.iter())
+        .map(|l| {
+            let t = l.trim();
+            let skip = t.is_empty()
+                || t == "{"
+                || comment(kind, t)
+                || t.starts_with([')', ']'])
+                || (kind == Kind::TsJs && (t.starts_with('>') || t.starts_with("}>")));
+            (!skip).then(|| indent(l))
+        })
+        .collect()
+}
+fn enclosing_at(kind: Kind, lines: &[&str], levels: &[Option<usize>], k: usize) -> Option<usize> {
     let mut depth = indent(lines[k]);
     for i in (0..k).rev() {
         if depth == 0 {
             break;
         }
-        let t = lines[i].trim();
-        // A closer at a lower indent ends a signature or a header wrapped over several lines.
-        if t.is_empty()
-            || t == "{"
-            || comment(kind, t)
-            || t.starts_with([')', ']'])
-            || (kind == Kind::TsJs && (t.starts_with('>') || t.starts_with("}>")))
-            || indent(lines[i]) >= depth
-        {
+        let Some(level) = levels[i].filter(|&l| l < depth) else {
             continue;
-        }
-        depth = indent(lines[i]);
+        };
+        depth = level;
         if declares_type(kind, lines[i]) {
             return Some(i + 1);
         }
@@ -287,6 +295,7 @@ pub fn field_rows(kind: Kind, text: &str, hits: &[usize], name: &str, jsdoc: boo
     let lines: Vec<&str> = text.lines().collect();
     let mut types: HashMap<usize, Vec<Binding>> = HashMap::new();
     let mut out = Vec::new();
+    let mut levels_of = None;
     for &line in hits {
         let Some(k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
             continue;
@@ -295,7 +304,10 @@ pub fn field_rows(kind: Kind, text: &str, hits: &[usize], name: &str, jsdoc: boo
             .then(|| jsdoc_owner(&lines, k))
             .flatten()
             .map(|i| i + 1);
-        let Some(decl) = owner.or_else(|| enclosing_type(kind, &lines, k)) else {
+        let Some(decl) = owner.or_else(|| {
+            let levels = levels_of.get_or_insert_with(|| levels(kind, &lines));
+            enclosing_at(kind, &lines, levels, k)
+        }) else {
             continue;
         };
         let bindings = types

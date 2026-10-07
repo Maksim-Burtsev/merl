@@ -1,5 +1,7 @@
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result};
 
@@ -53,7 +55,75 @@ pub fn grep_project(
         .word(whole_word)
         .build(pattern)
         .with_context(|| format!("bad pattern `{pattern}`"))?;
-    Ok(collect(root, files, &matcher, current, unsaved, |_| true))
+    Ok(collect(
+        root,
+        files,
+        &matcher,
+        current,
+        unsaved,
+        None,
+        |_| true,
+    ))
+}
+pub type ShapedFiles = Mutex<HashMap<PathBuf, Option<Arc<Shaped>>>>;
+pub struct Shaped {
+    text: Vec<u8>,
+    lines: Vec<usize>,
+}
+const SHAPED_BYTES: usize = 1 << 18;
+pub fn grep_shaped(
+    files: &[PathBuf],
+    pattern: &str,
+    shape: &RegexMatcher,
+    shaped: &ShapedFiles,
+) -> Result<Vec<Hit>> {
+    let matcher = RegexMatcherBuilder::new()
+        .build(pattern)
+        .with_context(|| format!("bad pattern `{pattern}`"))?;
+    let root = Path::new("");
+    Ok(collect(
+        root,
+        files,
+        &matcher,
+        None,
+        None,
+        Some((shape, shaped)),
+        |_| true,
+    ))
+}
+pub fn shape_matcher(pattern: &str) -> RegexMatcher {
+    RegexMatcherBuilder::new()
+        .build(pattern)
+        .expect("built-in patterns compile")
+}
+fn shaped_lines(
+    searcher: &mut Searcher,
+    shape: &RegexMatcher,
+    shaped: &ShapedFiles,
+    path: &Path,
+) -> Option<Arc<Shaped>> {
+    if let Some(known) = shaped.lock().ok()?.get(path) {
+        return known.clone();
+    }
+    let read = std::fs::read(path).ok().and_then(|bytes| {
+        let plain = !bytes.contains(&0);
+        let mut kept = Shaped {
+            text: Vec::new(),
+            lines: Vec::new(),
+        };
+        let sink = grep_searcher::sinks::Bytes(|n, line| {
+            kept.text.extend_from_slice(line);
+            if !line.ends_with(b"\n") {
+                kept.text.push(b'\n');
+            }
+            kept.lines.push(n as usize);
+            Ok(kept.text.len() <= SHAPED_BYTES)
+        });
+        searcher.search_slice(shape, &bytes, sink).ok()?;
+        (plain && kept.text.len() <= SHAPED_BYTES).then(|| Arc::new(kept))
+    });
+    shaped.lock().ok()?.insert(path.to_path_buf(), read.clone());
+    read
 }
 /// Greps `pattern` over `files`, keeping only the lines `keep` takes. The filter runs before the
 /// [`MAX_HITS`] cut, so what the cut drops are matches of the query, not whatever the walk
@@ -69,14 +139,16 @@ pub fn grep_filtered(
     let matcher = RegexMatcherBuilder::new()
         .build(pattern)
         .with_context(|| format!("bad pattern `{pattern}`"))?;
-    Ok(collect(root, files, &matcher, current, unsaved, keep))
+    Ok(collect(root, files, &matcher, current, unsaved, None, keep))
 }
+#[allow(clippy::too_many_arguments)]
 fn collect(
     root: &Path,
     files: &[PathBuf],
     matcher: &RegexMatcher,
     current: Option<&Path>,
     unsaved: Option<&[u8]>,
+    shape: Option<(&RegexMatcher, &ShapedFiles)>,
     keep: impl Fn(&str) -> bool + Sync,
 ) -> Vec<Hit> {
     let next = AtomicUsize::new(0);
@@ -92,16 +164,20 @@ fn collect(
             let Some(rel) = files.get(file) else {
                 break;
             };
+            let shaped =
+                shape.and_then(|(m, known)| shaped_lines(&mut searcher, m, known, &root.join(rel)));
             let sink = Collect {
                 file,
                 path: rel,
                 matcher,
                 hits: &mut hits,
                 keep: &keep,
+                lines: shaped.as_ref().map(|s| s.lines.as_slice()),
             };
-            let _ = match unsaved.filter(|_| current == Some(rel.as_path())) {
-                Some(text) => searcher.search_slice(matcher, text, sink),
-                None => searcher.search_path(matcher, root.join(rel), sink),
+            let _ = match (unsaved.filter(|_| current == Some(rel.as_path())), &shaped) {
+                (Some(text), _) => searcher.search_slice(matcher, text, sink),
+                (None, Some(s)) => searcher.search_slice(matcher, &s.text, sink),
+                (None, None) => searcher.search_path(matcher, root.join(rel), sink),
             };
             if hits.len() >= MAX_HITS {
                 full.store(true, Ordering::Relaxed);
@@ -133,6 +209,7 @@ struct Collect<'a> {
     matcher: &'a RegexMatcher,
     hits: &'a mut Vec<(usize, Hit)>,
     keep: &'a dyn Fn(&str) -> bool,
+    lines: Option<&'a [usize]>,
 }
 impl Sink for Collect<'_> {
     type Error = std::io::Error;
@@ -148,7 +225,11 @@ impl Sink for Collect<'_> {
                 self.file,
                 Hit {
                     path: self.path.to_path_buf(),
-                    line: m.line_number().unwrap_or(0) as usize,
+                    line: {
+                        let n = m.line_number().unwrap_or(0) as usize;
+                        self.lines
+                            .map_or(n, |l| l.get(n.wrapping_sub(1)).copied().unwrap_or(0))
+                    },
                     col: col.map_or(0, |m| m.start()),
                     text: text.to_string(),
                     deleted: None,

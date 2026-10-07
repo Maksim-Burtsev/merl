@@ -174,7 +174,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         Kind::Julia => julia_bindings(&lines, at, name),
         Kind::Gdscript => gdscript_bindings(&lines, at, name),
         Kind::Solidity => solidity_bindings(&lines, at, name),
-        k if lisp(k) => lisp_bindings(k, &lines, at, name),
+        k if lisp(k) => lisp_bindings(k, &lines, at, None, name),
         _ => Vec::new(),
     }
 }

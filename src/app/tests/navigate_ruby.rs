@@ -1,11 +1,5 @@
-//! `d` in Ruby outside the project: the gems `Gemfile.lock` names, the standard library and the
-//! core's RBS signatures (#369).
-
 use super::*;
 
-/// The repro of #369: a class method a gem declares, called bare in the project's reopening of
-/// the gem's class, is that gem's, at the version the lockfile names, opened read-only. Before,
-/// Ruby had no roots and `d` said `no definition for throttle`.
 #[test]
 fn a_call_no_project_declaration_answers_goes_into_the_locked_gems() {
     let gem = "vendor/bundle/ruby/3.3.0/gems/rack-attack-6.7.0/lib/rack/attack.rb";
@@ -22,7 +16,6 @@ fn a_call_no_project_declaration_answers_goes_into_the_locked_gems() {
                 gem,
                 "module Rack\n  class Attack\n    class << self\n      def throttle(name, options, &block)\n        throttles[name] = Throttle.new(name, options, &block)\n      end\n    end\n  end\nend\n",
             ),
-            // A version the lockfile does not name is not read.
             (
                 "vendor/bundle/ruby/3.3.0/gems/rack-attack-6.6.0/lib/rack/attack.rb",
                 "module Rack\n  class Attack\n    def self.throttle(name)\n    end\n  end\nend\n",
@@ -41,16 +34,17 @@ fn a_call_no_project_declaration_answers_goes_into_the_locked_gems() {
         jump(
             "throttle \u{2192} Rack.Attack.throttle (by name, 1 match)",
             &format!("{gem}:4")
-        )
+        ),
+        "a class method a gem declares, called bare in the project's reopening of the gem's class, is that gem's, at the version the lockfile names; a version it does not name is not read"
     );
-    assert_eq!(a.buf.readonly, Some("outside the project"));
+    assert_eq!(
+        a.buf.readonly,
+        Some("outside the project"),
+        "a gem's file is opened read-only"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #369: the core is read from the `rbs` gem's signatures, `def name: …` in a `class` and
-/// `def self?.name: …` in a module, and the
-/// standard library's hits come before the gems'. A member found by name in the project gets
-/// the ones outside beside it, so the project's one namesake is offered, never jumped to.
 #[test]
 fn the_core_signatures_and_the_standard_library_come_first() {
     let (dir, mut a) = project_app(
@@ -126,7 +120,8 @@ fn the_core_signatures_and_the_standard_library_come_first() {
                 ("Settings.fetch", "app/models/settings.rb:2"),
                 ("Hash.fetch", "hash.rbs:2"),
             ]
-        )
+        ),
+        "the core's `def name: …` in a `class` is read from the `rbs` gem's signatures; a member found by name in the project gets the ones outside beside it, so the project's one namesake is offered, never jumped to"
     );
     d_on(&mut a, "app/lib/run.rb", ".info");
     assert_eq!(
@@ -140,7 +135,8 @@ fn the_core_signatures_and_the_standard_library_come_first() {
                     "semantic_logger-4.15.0/lib/semantic_logger/base.rb:3"
                 ),
             ]
-        )
+        ),
+        "the standard library's hits come before the gems'"
     );
     d_on(&mut a, "app/lib/run.rb", "Errno::ENOENT");
     assert_eq!(

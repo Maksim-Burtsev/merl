@@ -1,6 +1,3 @@
-//! HTML, CSS, SCSS and Less (#415): the attribute under the cursor, the rules of a stylesheet,
-//! what a stylesheet's cursor stands on.
-
 use super::*;
 
 fn styled(text: &str, class: &str) -> Vec<usize> {
@@ -53,8 +50,11 @@ fn a_class_attribute_is_read_in_markup_and_jsx_only() {
         at("<p class:active={on}>", "active", false),
         Some((Attr::Class, "active"))
     );
-    // An assignment is no attribute.
-    assert_eq!(at(r#"const id = "main""#, "main", true), None);
+    assert_eq!(
+        at(r#"const id = "main""#, "main", true),
+        None,
+        "an assignment is no attribute"
+    );
     assert_eq!(at(r#"let id="main""#, "main", true), None);
     assert_eq!(
         at(r#"<p class = "x">"#, "x\"", false),
@@ -115,9 +115,16 @@ fn a_stylesheet_cursor_says_which_lookup_applies() {
         at("@import url(base.css);", "base", false),
         Some(Sheet::Import(s("base.css")))
     );
-    // A value is no selector, and a map key declares nothing.
-    assert_eq!(at("  background: url(i.svg#check);", "check", false), None);
-    assert_eq!(at("  \"primary\": $blue,", "primary", false), None);
+    assert_eq!(
+        at("  background: url(i.svg#check);", "check", false),
+        None,
+        "a value is no selector"
+    );
+    assert_eq!(
+        at("  \"primary\": $blue,", "primary", false),
+        None,
+        "a map key declares nothing"
+    );
     assert_eq!(at("  color: #fff;", "fff", false), None);
 }
 
