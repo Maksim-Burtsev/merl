@@ -12,10 +12,10 @@ wait void crc_reset
 │▾ worker                    │
 │  ▾ internal                │
 │    ▾ crc                   │
-│        client.c            │
-│        crc.c               │
-│        crc.h               │
-│        mode.cc             │
+│      A client.c            │
+│      A crc.c               │
+│      A crc.h               │
+│      A mode.cc             │
 │    ▸ queue                 │
 │    go.mod                  │
 │    main.go                 │

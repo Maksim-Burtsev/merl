@@ -19,7 +19,7 @@ mod tutor;
 mod ui;
 mod wrap;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::io::{Write, stdout};
 use std::path::{Path, PathBuf};
@@ -55,6 +55,7 @@ enum Msg {
     Project(tree::Tree, Vec<PathBuf>),
     /// The branch under review was listed again, or why git could not.
     Review(Result<git::Review, String>),
+    Marks(HashMap<PathBuf, char>),
     /// `git diff` finished for the file at this path.
     Diff(PathBuf, git::Diff),
     /// The grep with this number finished: the rows it found.
@@ -346,12 +347,14 @@ fn event_loop(
     if let Some(w) = &mut project_watcher {
         project.watch(w, &mut project_watched);
     }
-    // The review panel follows the same events, and the branch inside `.git`.
-    let mut review = (app.review.as_ref())
-        .and_then(|_| git::dirs(&app.root))
-        .map(|(git_dir, common_dir)| live::Review::new(&git_dir, &common_dir));
-    if let (Some(r), Some(w)) = (&review, &mut project_watcher) {
+    let mut repo =
+        git::dirs(&app.root).map(|(git_dir, common_dir)| live::Repo::new(&git_dir, &common_dir));
+    if let (Some(r), Some(w)) = (&repo, &mut project_watcher) {
         r.watch(w);
+    }
+    if let Some(r) = repo.as_mut().filter(|_| app.review.is_none()) {
+        r.listing();
+        list_marks(diff_tx.clone(), app.root.clone());
     }
 
     // Inside tmux a thread hands it each copied text too, in order: a slow or missing tmux
@@ -403,15 +406,19 @@ fn event_loop(
                 let _ = tx.send(Msg::Project(tree, files));
             });
         }
-        if let (Some(live), Some(r)) = (&mut review, &app.review)
+        if let Some(live) = &mut repo
             && live.list_due(Instant::now())
         {
-            // In a thread, like the marks: four git commands over the whole branch.
-            let (tx, root, r) = (diff_tx.clone(), app.root.clone(), r.clone());
-            std::thread::spawn(move || {
-                let fresh = r.refresh(&root).map_err(|e| app::error_text(&e));
-                let _ = tx.send(Msg::Review(fresh));
-            });
+            let (tx, root) = (diff_tx.clone(), app.root.clone());
+            match app.review.clone() {
+                Some(r) => {
+                    std::thread::spawn(move || {
+                        let fresh = r.refresh(&root).map_err(|e| app::error_text(&e));
+                        let _ = tx.send(Msg::Review(fresh));
+                    });
+                }
+                None => list_marks(tx, root),
+            }
         }
         if let Some(job) = app.search_tick() {
             // In a thread: a grep over a large project takes longer than a keystroke.
@@ -515,7 +522,7 @@ fn event_loop(
                 // project watch reports every namesake under the root.
                 dirty |= concerns_open_file(app, &ev) && app.reload(false);
                 project.event(&ev, Instant::now());
-                if let Some(r) = &mut review {
+                if let Some(r) = &mut repo {
                     r.event(&ev, project.touched(&ev), Instant::now());
                 }
             }
@@ -527,13 +534,20 @@ fn event_loop(
                 if let Some(w) = &mut project_watcher {
                     project.watch(w, &mut project_watched);
                 }
-                if let Some(r) = &mut review {
+                if let Some(r) = &mut repo {
                     r.touch(Instant::now());
                 }
                 dirty = true;
             }
+            Ok(Msg::Marks(marks)) => {
+                if let Some(r) = &mut repo {
+                    r.listed();
+                }
+                dirty |= app.marks != marks;
+                app.marks = marks;
+            }
             Ok(Msg::Review(fresh)) => {
-                if let Some(r) = &mut review {
+                if let Some(r) = &mut repo {
                     r.listed();
                 }
                 // What git could not list stays as it was until the next event, and says so:
@@ -550,6 +564,12 @@ fn event_loop(
             Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
         }
     }
+}
+
+fn list_marks(tx: Sender<Msg>, root: PathBuf) {
+    std::thread::spawn(move || {
+        let _ = tx.send(Msg::Marks(git::changed_files(&root)));
+    });
 }
 
 /// Watches the parent directory of the open file, non-recursively: editors save by writing a

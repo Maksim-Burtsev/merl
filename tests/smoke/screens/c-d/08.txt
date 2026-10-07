@@ -12,9 +12,9 @@ wait Sum: by name, 2 declarations
 │▾ worker                    │11     unsigned Sum() const override { return 1; }
 │  ▾ internal                │12 };   ┌Sum: by name, 2 declarations (2/2)───────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │    ▾ crc                   │13      │>                                                                                                                                        │
-│        crc.c               │14 templ│                      worker/internal/crc/mode.cc                                                                                        │
-│        crc.h               │15      │Hasher::Sum  by name     7  virtual unsigned Sum() const = 0;                                                                            │
-│        mode.cc             │16 int c│Fast::Sum    by name    11  unsigned Sum() const override { return 1; }                                                                  │
+│      A crc.c               │14 templ│                      worker/internal/crc/mode.cc                                                                                        │
+│      A crc.h               │15      │Hasher::Sum  by name     7  virtual unsigned Sum() const = 0;                                                                            │
+│      A mode.cc             │16 int c│Fast::Sum    by name    11  unsigned Sum() const override { return 1; }                                                                  │
 │    ▸ queue                 │        │                                                                                                                                         │
 │    go.mod                  │        │                                                                                                                                         │
 │    main.go                 │        │                                                                                                                                         │

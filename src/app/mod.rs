@@ -449,6 +449,7 @@ pub struct App {
     pub want_diff: bool,
     /// `--review`: the branch under review. The tree pane then lists its files.
     pub review: Option<git::Review>,
+    pub marks: HashMap<PathBuf, char>,
     pub viewed: HashMap<PathBuf, u64>,
     /// Review: the marks without a tick, of files changed since they were viewed or that the
     /// listing does not have now (a rebase stopped before their commit, a file reverted), kept
@@ -611,6 +612,7 @@ impl App {
             base: None,
             want_diff: true,
             review: None,
+            marks: HashMap::new(),
             viewed: HashMap::new(),
             hidden: HashMap::new(),
             unfolded: HashSet::new(),

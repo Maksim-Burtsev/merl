@@ -4,8 +4,8 @@ wait Outbox.cs
 │▸ .venv                     │ 3 public static class Refunds
 │▸ app                       │ 4 {
 │▾ billing                   │ 5     public static void Register(IServiceCollection services, string callbackUrl)
-│    Outbox.cs               │ 6     {
-│    Refunds.cs              │ 7         services.AddAuthentication(options =>
+│  A Outbox.cs               │ 6     {
+│  A Refunds.cs              │ 7         services.AddAuthentication(options =>
 │▸ data                      │ 8         {
 │▸ deploy                    │ 9             options.RedirectUri = callbackUrl;
 │▸ docs                      │10         });

@@ -9,10 +9,10 @@ wait total → Ledger::total (via Ledger)
 │▾ scripts                   │ 8         return 0;
 │  ▾ billing                 │ 9     }
 │    ▸ Legacy                │10 }
-│      Ledger.php            │
-│      Month.php             │
+│    A Ledger.php            │
+│    A Month.php             │
 │  ▸ payouts                 │
-│    composer.json           │
+│  A composer.json           │
 │    invoices.php            │
 │    refund_by_hand.py       │
 │▸ tests                     │

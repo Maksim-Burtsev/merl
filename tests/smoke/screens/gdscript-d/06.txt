@@ -8,9 +8,9 @@ wait pick_up.direction (local)
 │▸ docs                      │
 │▾ godotshop                 │
 │  ▾ actors                  │
-│      player.gd             │
+│    A player.gd             │
 │  ▸ globals                 │
-│    project.godot           │
+│  A project.godot           │
 │▸ scripts                   │
 │▸ tests                     │
 │▸ web                       │

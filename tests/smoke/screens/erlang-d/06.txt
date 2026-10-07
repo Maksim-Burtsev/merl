@@ -8,10 +8,10 @@ wait order: by name, 1 match
 │▸ docs                      │
 │▾ erlshop                   │
 │  ▾ include                 │
-│      shop.hrl              │
+│    A shop.hrl              │
 │  ▸ lib                     │
 │  ▾ src                     │
-│      shop_order.erl        │
+│    A shop_order.erl        │
 │▸ scripts                   │
 │▸ tests                     │
 │▸ web                       │

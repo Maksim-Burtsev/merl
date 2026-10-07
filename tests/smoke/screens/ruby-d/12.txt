@@ -9,7 +9,7 @@ wait then  ⋯ fi
 │▸ docs                      │
 │▾ scripts                   │
 │  ▸ payouts                 │
-│    deploy.sh               │
+│  A deploy.sh               │
 │    invoices.php            │
 │    refund_by_hand.py       │
 │▸ tests                     │
@@ -19,7 +19,7 @@ wait then  ⋯ fi
 │  .gitignore                │
 │  docker-compose.yml        │
 │  Dockerfile                │
-│  Gemfile.lock              │
+│A Gemfile.lock              │
 │  Makefile                  │
 │  pyproject.toml            │
 │  README.md                 │

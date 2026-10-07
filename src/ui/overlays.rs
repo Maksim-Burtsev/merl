@@ -204,16 +204,17 @@ pub(super) fn draw_tree(
                     ]);
                 }
                 None => {
-                    let marker = match (n.is_dir, n.expanded) {
-                        (true, true) => "\u{25be} ",
-                        (true, false) => "\u{25b8} ",
-                        (false, _) => "  ",
+                    let marker = match (n.is_dir, n.expanded, app.marks.get(&n.path)) {
+                        (true, true, _) => '\u{25be}',
+                        (true, false, _) => '\u{25b8}',
+                        (false, _, Some(&mark)) => mark,
+                        (false, _, None) => ' ',
                     };
                     let name = match cut && joined {
                         true => cut_at_slash(&full, room),
                         false => full,
                     };
-                    spans.push(Span::styled(format!("{marker}{name}"), style));
+                    spans.push(Span::styled(format!("{marker} {name}"), style));
                 }
             }
             let used: usize = spans[1..].iter().map(|s| wrap::width(&s.content)).sum();

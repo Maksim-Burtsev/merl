@@ -39,6 +39,9 @@ const STATES: &[State] = &[
     }),
     ("tree", |a| {
         on_call(a);
+        a.marks = [("store.py", 'M'), ("PLAN.md", 'A')]
+            .map(|(p, m)| (p.into(), m))
+            .into();
         press(a, "<Tab><Up><Up>");
     }),
     // Below 118 columns an action too long for its row wraps under its own column (#458).

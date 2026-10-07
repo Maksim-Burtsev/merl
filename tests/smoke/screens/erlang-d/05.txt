@@ -10,7 +10,7 @@ wait -module(shop_order)
 │  ▸ include                 │ 9 total(#order{total = Total}) ->
 │  ▸ lib                     │10     Total.
 │  ▾ src                     │
-│      shop_order.erl        │
+│    A shop_order.erl        │
 │▸ scripts                   │
 │▸ tests                     │
 │▸ web                       │

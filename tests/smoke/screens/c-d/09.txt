@@ -12,9 +12,9 @@ wait via h: Hasher
 │▾ worker                    │11     unsigned Sum() const override { return 1; }
 │  ▾ internal                │12 };
 │    ▾ crc                   │13
-│        crc.c               │14 template <class H> int crc_pick(H *h) { return h->Sum() ? CRC_FAST : CRC_PLAIN; }
-│        crc.h               │15
-│        mode.cc             │16 int crc_check(Hasher *h) { return h->Sum(); }
+│      A crc.c               │14 template <class H> int crc_pick(H *h) { return h->Sum() ? CRC_FAST : CRC_PLAIN; }
+│      A crc.h               │15
+│      A mode.cc             │16 int crc_check(Hasher *h) { return h->Sum(); }
 │    ▸ queue                 │
 │    go.mod                  │
 │    main.go                 │

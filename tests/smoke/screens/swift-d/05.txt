@@ -7,8 +7,8 @@ wait extension Lock
 │▸ deploy                    │ 6     func around() {
 │▸ docs                      │ 7         lock() // held
 │▾ ios                       │ 8     }
-│    Protected.swift         │ 9 }
-│    Retry.swift             │10
+│  A Protected.swift         │ 9 }
+│  A Retry.swift             │10
 │▸ scripts                   │11 final class UnfairLock {
 │▸ tests                     │12     private let lock = 0
 │▸ web                       │13 }

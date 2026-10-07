@@ -12,13 +12,13 @@ wait @implementation CrcStamp
 │▾ worker                    │11 @end
 │  ▾ internal                │
 │    ▾ crc                   │
-│        client.c            │
-│        crc.c               │
-│        crc.h               │
-│        CrcStamp.h          │
-│        CrcStamp.m          │
-│        log.c               │
-│        mode.cc             │
+│      A client.c            │
+│      A crc.c               │
+│      A crc.h               │
+│      A CrcStamp.h          │
+│      A CrcStamp.m          │
+│      A log.c               │
+│      A mode.cc             │
 │    ▸ queue                 │
 │    go.mod                  │
 │    main.go                 │

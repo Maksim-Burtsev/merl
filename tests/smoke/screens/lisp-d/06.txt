@@ -6,8 +6,8 @@ wait (local)
 │▾ cljshop                   │5   (let [total (reduce + cart)]
 │  ▾ src                     │6     (str "Total: " (money/format-price total))))
 │    ▾ shop                  │
-│        cart.clj            │
-│        money.clj           │
+│      A cart.clj            │
+│      A money.clj           │
 │▸ data                      │
 │▸ deploy                    │
 │▸ docs                      │

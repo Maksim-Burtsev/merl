@@ -9,8 +9,8 @@ wait module Shop.Cart
 │▾ mlshop                    │
 │  ▸ lib                     │
 │  ▾ src                     │
-│      Cart.fs               │
-│      Money.fs              │
+│    A Cart.fs               │
+│    A Money.fs              │
 │▸ scripts                   │
 │▸ tests                     │
 │▸ web                       │

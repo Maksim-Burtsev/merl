@@ -9,7 +9,7 @@ wait defmodule Shop.Report
 │▾ erlshop                   │
 │  ▸ include                 │
 │  ▾ lib                     │
-│      report.ex             │
+│    A report.ex             │
 │  ▸ src                     │
 │▸ scripts                   │
 │▸ tests                     │

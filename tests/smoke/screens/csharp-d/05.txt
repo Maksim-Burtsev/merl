@@ -4,7 +4,7 @@ wait callbackUrl → Refunds.Register.callbackUrl (local)
 │▸ .venv                     │ 3 public static class Refunds
 │▸ app                       │ 4 {
 │▾ billing                   │ 5     public static void Register(IServiceCollection services, string callbackUrl)
-│    Refunds.cs              │ 6     {
+│  A Refunds.cs              │ 6     {
 │▸ data                      │ 7         services.AddAuthentication(options =>
 │▸ deploy                    │ 8         {
 │▸ docs                      │ 9             options.RedirectUri = callbackUrl;

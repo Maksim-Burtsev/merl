@@ -9,8 +9,8 @@ wait formatPrice: by name, 1 match
 │▾ mlshop                    │
 │  ▸ lib                     │
 │  ▾ src                     │
-│      Cart.fs               │
-│      Money.fs              │
+│    A Cart.fs               │
+│    A Money.fs              │
 │▸ scripts                   │
 │▸ tests                     │
 │▸ web                       │

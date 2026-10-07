@@ -5,10 +5,10 @@ wait shop_binary: via import
 │▸ app                       │4 SHOP_VISIBILITY = ["//visibility:public"]
 │▾ bazelshop                 │
 │  ▾ api                     │
-│      BUILD.bazel           │
+│    A BUILD.bazel           │
 │  ▾ tools                   │
-│      defs.bzl              │
-│    MODULE.bazel            │
+│    A defs.bzl              │
+│  A MODULE.bazel            │
 │▸ data                      │
 │▸ deploy                    │
 │▸ docs                      │

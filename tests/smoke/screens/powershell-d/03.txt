@@ -8,7 +8,7 @@ wait get-shopuser -Id
 │▸ docs                      │
 │▾ ops                       │
 │  ▸ Shop                    │
-│    sync.ps1                │
+│  A sync.ps1                │
 │▸ scripts                   │
 │▸ tests                     │
 │▸ web                       │

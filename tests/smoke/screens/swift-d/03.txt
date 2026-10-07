@@ -7,7 +7,7 @@ wait func retry(
 │▸ deploy                    │6     for attempt in 0..<times {
 │▸ docs                      │7         print(attempt)
 │▾ ios                       │8     }
-│    Retry.swift             │9 }
+│  A Retry.swift             │9 }
 │▸ scripts                   │
 │▸ tests                     │
 │▸ web                       │

@@ -12,13 +12,13 @@ wait stampJob: by name, 2 declarations
 │▾ worker                    │11 @end
 │  ▾ internal                │        ┌stampJob: by name, 2 declarations (2/2)──────────────────────────────────────────────────────────────────────────────────────────────────┐
 │    ▾ crc                   │        │>                                                                                                                                        │
-│        client.c            │        │                   worker/internal/crc/CrcStamp.m                                                                                        │
-│        crc.c               │        │stampJob  by name    4  - (unsigned int)stampJob:(NSData *)job {                                                                         │
-│        crc.h               │        │                   worker/internal/crc/CrcStamp.h                                                                                        │
-│        CrcStamp.h          │        │stampJob  by name    4  - (unsigned int)stampJob:(NSData *)job;                                                                          │
-│        CrcStamp.m          │        │                                                                                                                                         │
-│        log.c               │        │                                                                                                                                         │
-│        mode.cc             │        │                                                                                                                                         │
+│      A client.c            │        │                   worker/internal/crc/CrcStamp.m                                                                                        │
+│      A crc.c               │        │stampJob  by name    4  - (unsigned int)stampJob:(NSData *)job {                                                                         │
+│      A crc.h               │        │                   worker/internal/crc/CrcStamp.h                                                                                        │
+│      A CrcStamp.h          │        │stampJob  by name    4  - (unsigned int)stampJob:(NSData *)job;                                                                          │
+│      A CrcStamp.m          │        │                                                                                                                                         │
+│      A log.c               │        │                                                                                                                                         │
+│      A mode.cc             │        │                                                                                                                                         │
 │    ▸ queue                 │        │                                                                                                                                         │
 │    go.mod                  │        │                                                                                                                                         │
 │    main.go                 │        │                                                                                                                                         │

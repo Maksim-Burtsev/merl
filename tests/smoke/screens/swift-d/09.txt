@@ -7,10 +7,10 @@ wait typealias Handler
 │▸ deploy                    │6     struct Value {}
 │▸ docs                      │7     _ = Value()
 │▾ ios                       │8 }
-│    Instant.swift           │
-│    Protected.swift         │
-│    Publisher.swift         │
-│    Retry.swift             │
+│  A Instant.swift           │
+│  A Protected.swift         │
+│  A Publisher.swift         │
+│  A Retry.swift             │
 │▸ scripts                   │
 │▸ tests                     │
 │▸ web                       │

@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The tree marks a file changed since the last commit with `M` and a new one with `A`, staged or
+  not, in the review panel's column before the name, and follows the disk as an agent writes
+  (#402).
 - `p` draws a Markdown file's Mermaid diagrams as pictures, in the theme's colours, in place of
   their source, in terminals that draw pictures (Ghostty, kitty, WezTerm; not inside tmux). A
   diagram wider than the pane shrinks to it, down to half its size; a wider one, one the renderer

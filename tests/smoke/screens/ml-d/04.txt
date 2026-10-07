@@ -8,8 +8,8 @@ wait format_price: via Money
 │▸ docs                      │
 │▾ mlshop                    │
 │  ▾ lib                     │
-│      cart.ml               │
-│      money.ml              │
+│    A cart.ml               │
+│    A money.ml              │
 │  ▸ src                     │
 │▸ scripts                   │
 │▸ tests                     │

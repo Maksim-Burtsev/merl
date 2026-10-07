@@ -12,16 +12,16 @@ wait via key: Slice
 │▾ worker                    │
 │  ▾ internal                │
 │    ▾ crc                   │
-│        block.h             │
-│        client.c            │
-│        crc.c               │
-│        crc.h               │
-│        CrcStamp.h          │
-│        CrcStamp.m          │
-│        log.c               │
-│        mode.cc             │
-│        slice.h             │
-│        use.cc              │
+│      A block.h             │
+│      A client.c            │
+│      A crc.c               │
+│      A crc.h               │
+│      A CrcStamp.h          │
+│      A CrcStamp.m          │
+│      A log.c               │
+│      A mode.cc             │
+│      A slice.h             │
+│      A use.cc              │
 │    ▸ queue                 │
 │    go.mod                  │
 │    main.go                 │

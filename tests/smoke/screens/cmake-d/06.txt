@@ -5,8 +5,8 @@ wait ShopHelpers: module
 │▸ app                       │
 │▾ cmakeshop                 │
 │  ▾ cmake                   │
-│      ShopHelpers.cmake     │
-│    CMakeLists.txt          │
+│    A ShopHelpers.cmake     │
+│  A CMakeLists.txt          │
 │▸ data                      │
 │▸ deploy                    │
 │▸ docs                      │

@@ -5,7 +5,7 @@ wait [{"id":1,"customer_id":1327,"total":"853.34"
 │▸ app                       │  "created_at":"2026-07-02T07:02:00Z","items":[{"sku":"SKU-17455","qty":2},{"sku":"SKU-54937","qty":1},{"sku":"SKU-70868","qty":1}]},{"id":4,
 │▾ data                      │  "customer_id":2339,"total":"281.09","status":"paid","created_at":"2026-02-19T18:40:00Z","items":[{"sku":"SKU-48810","qty":1}]},{"id":5,
 │    orders.min.json         │  "customer_id":2244,"total":"642.34","status":"refunded","created_at":"2026-01-20T06:31:00Z","items":[{"sku":"SKU-69693","qty":2},{"sku":"SKU-41175",
-│    refunds-2026-08.csv     │  "qty":2},{"sku":"SKU-76750","qty":2}]},{"id":6,"customer_id":1482,"total":"273.29","status":"paid","created_at":"2026-04-03T18:19:00Z",
+│  M refunds-2026-08.csv     │  "qty":2},{"sku":"SKU-76750","qty":2}]},{"id":6,"customer_id":1482,"total":"273.29","status":"paid","created_at":"2026-04-03T18:19:00Z",
 │▸ deploy                    │  "items":[{"sku":"SKU-64895","qty":2},{"sku":"SKU-95609","qty":2},{"sku":"SKU-37740","qty":3}]},{"id":7,"customer_id":300,"total":"110.67",
 │▸ docs                      │  "status":"cancelled","created_at":"2026-03-25T10:09:00Z","items":[{"sku":"SKU-55272","qty":1},{"sku":"SKU-87584","qty":1}]},{"id":8,"customer_id":2286,
 │▸ scripts                   │  "total":"517.86","status":"shipped","created_at":"2026-06-23T11:38:00Z","items":[{"sku":"SKU-76008","qty":2},{"sku":"SKU-09012","qty":1}]},{"id":9,

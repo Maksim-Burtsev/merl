@@ -8,9 +8,9 @@ wait format_price: by name, 1 match
 │▸ docs                      │
 │▾ jlshop                    │
 │  ▾ scripts                 │
-│      report.jl             │
+│    A report.jl             │
 │  ▾ src                     │
-│      money.jl              │
+│    A money.jl              │
 │▸ scripts                   │
 │▸ tests                     │
 │▸ web                       │

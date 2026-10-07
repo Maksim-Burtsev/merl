@@ -8,10 +8,10 @@ wait new::self (local)
 │▸ docs                      │ 7     return bless $self, $class;
 │▾ perlshop                  │ 8 }
 │  ▾ bin                     │ 9
-│      report.pl             │10 sub total { $_[0]{total} }
+│    A report.pl             │10 sub total { $_[0]{total} }
 │  ▾ lib                     │11
 │    ▾ Shop                  │12 1;
-│        Order.pm            │
+│      A Order.pm            │
 │▸ scripts                   │
 │▸ tests                     │
 │▸ web                       │
