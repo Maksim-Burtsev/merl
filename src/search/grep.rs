@@ -151,16 +151,16 @@ fn collect(
     shape: Option<(&RegexMatcher, &ShapedFiles)>,
     keep: impl Fn(&str) -> bool + Sync,
 ) -> Vec<Hit> {
-    let next = AtomicUsize::new(0);
-    let full = AtomicBool::new(false);
-    let work = || {
+    let next_file = AtomicUsize::new(0);
+    let cap_reached = AtomicBool::new(false);
+    let search_until_cap = || {
         let mut searcher = SearcherBuilder::new()
             .line_number(true)
             .binary_detection(BinaryDetection::quit(0))
             .build();
         let mut hits = Vec::new();
-        while !full.load(Ordering::Relaxed) {
-            let file = next.fetch_add(1, Ordering::Relaxed);
+        while !cap_reached.load(Ordering::Relaxed) {
+            let file = next_file.fetch_add(1, Ordering::Relaxed);
             let Some(rel) = files.get(file) else {
                 break;
             };
@@ -180,7 +180,7 @@ fn collect(
                 (None, None) => searcher.search_path(matcher, root.join(rel), sink),
             };
             if hits.len() >= MAX_HITS {
-                full.store(true, Ordering::Relaxed);
+                cap_reached.store(true, Ordering::Relaxed);
             }
         }
         hits
@@ -190,8 +190,8 @@ fn collect(
         .min(MAX_THREADS)
         .min(files.len().div_ceil(FILES_PER_THREAD));
     let mut hits: Vec<(usize, Hit)> = std::thread::scope(|s| {
-        let others: Vec<_> = (1..threads).map(|_| s.spawn(work)).collect();
-        let mut hits = work();
+        let others: Vec<_> = (1..threads).map(|_| s.spawn(search_until_cap)).collect();
+        let mut hits = search_until_cap();
         for t in others {
             hits.extend(t.join().unwrap_or_else(|e| std::panic::resume_unwind(e)));
         }

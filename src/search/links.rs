@@ -21,10 +21,7 @@ fn options() -> Options {
     Options::ENABLE_TABLES | Options::ENABLE_FOOTNOTES | Options::ENABLE_YAML_STYLE_METADATA_BLOCKS
 }
 
-/// Whether the element at `r` of `text` is code, a comment or the front matter, where a link is
-/// text: a fenced code block, an HTML comment, the `---` block at the top. An indented block is
-/// not one: a list item's continuation is indented the same way.
-fn inert(text: &str, ev: &Event, r: &Range<usize>) -> bool {
+fn fenced_code_html_comment_or_front_matter(text: &str, ev: &Event, r: &Range<usize>) -> bool {
     match ev {
         Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(_)) | Tag::MetadataBlock(_)) => true,
         Event::Start(Tag::HtmlBlock) | Event::InlineHtml(_) | Event::Html(_) => {
@@ -51,7 +48,7 @@ pub fn markdown_at(text: &str, at: usize) -> MdAt {
         if !r.contains(&at) {
             continue;
         }
-        if inert(text, &ev, &r) {
+        if fenced_code_html_comment_or_front_matter(text, &ev, &r) {
             return MdAt::Nothing;
         }
         match ev {
@@ -85,12 +82,11 @@ pub fn markdown_at(text: &str, at: usize) -> MdAt {
         .map_or(MdAt::Nothing, |m| MdAt::Link(m.as_str().to_owned()))
 }
 
-/// The 1-based lines of `text` inside a fenced code block, an HTML comment or the front matter.
 pub(super) fn markdown_literal_lines(text: &str) -> Vec<bool> {
     let mut out = vec![false; text.split('\n').count()];
     let line = |at: usize| text[..at].matches('\n').count();
     for (ev, r) in Parser::new_ext(text, options()).into_offset_iter() {
-        if !r.is_empty() && inert(text, &ev, &r) {
+        if !r.is_empty() && fenced_code_html_comment_or_front_matter(text, &ev, &r) {
             out[line(r.start)..=line(r.end - 1)].fill(true);
         }
     }
