@@ -9,7 +9,7 @@ use ratatui::style::Style;
 use ratatui::text::Span;
 use ratatui::widgets::Block;
 
-use crate::app::{App, Mode};
+use crate::app::{App, Focus, Mode};
 use crate::theme::Theme;
 use crate::wrap;
 
@@ -50,23 +50,48 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
         Constraint::Length(1),
     ])
     .areas(area);
-    let tree_w = if app.show_tree { TREE_W } else { 0 };
+    if app.focus != Focus::Tree {
+        app.tree_width = None;
+    }
+    let half = (main.width / 2).max(TREE_W);
+    let tree_w = match (app.show_tree, app.tree_width) {
+        (false, _) => 0,
+        (true, Some(w)) => w.min(half),
+        (true, None) => TREE_W,
+    };
     let [tree, code] =
         Layout::horizontal([Constraint::Length(tree_w), Constraint::Min(1)]).areas(main);
 
-    if app.show_tree {
-        draw_tree(frame, app, theme, tree, base);
+    let need = match app.show_tree {
+        true => draw_tree(frame, app, theme, tree, base),
+        false => None,
+    };
+    if app.show_tree && app.focus == Focus::Tree && app.tree_width.is_none() {
+        let w = need.map_or(TREE_W, |n| {
+            (u16::try_from(n + 2).unwrap_or(u16::MAX)).clamp(TREE_W, half)
+        });
+        app.tree_width = Some(w);
+        if w > TREE_W {
+            frame.render_widget(ratatui::widgets::Clear, frame.area());
+            return draw(frame, app, theme);
+        }
     }
-    if app.previewing() {
-        draw_preview(frame, app, theme, code, base);
-    } else if app.folded_here().is_some() {
-        fold::draw_fold(frame, app, theme, code, base);
-    } else if app.buf.binary() {
-        draw_binary(frame, theme, code, base);
-    } else if app.buf.path.is_some() {
-        draw_code(frame, app, theme, code, base);
-    } else {
-        draw_welcome(frame, theme, code, base);
+    let mut pane = |app: &mut App| {
+        if app.previewing() {
+            draw_preview(frame, app, theme, code, base);
+        } else if app.folded_here().is_some() {
+            fold::draw_fold(frame, app, theme, code, base);
+        } else if app.buf.binary() {
+            draw_binary(frame, theme, code, base);
+        } else if app.buf.path.is_some() {
+            draw_code(frame, app, theme, code, base);
+        } else {
+            draw_welcome(frame, theme, code, base);
+        }
+    };
+    match app.tree_width.is_some_and(|w| w > TREE_W) {
+        true => app.drawn_aside(pane),
+        false => pane(app),
     }
     if let Some(panel) = panel {
         frame.render_widget(panel, lesson);
@@ -76,11 +101,12 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     // task can start with the help open. The panel and the status bar stay in sight.
     let over = if app.tutor.is_some() { main } else { area };
     if app.picker.is_some() {
-        let (list, share) = if app.show_tree && code.width >= 80 {
+        let home = main.width.saturating_sub(TREE_W);
+        let (list, share) = if app.show_tree && home >= 80 {
             (
                 Rect {
-                    x: code.x,
-                    width: code.width,
+                    x: main.x + TREE_W,
+                    width: home,
                     ..over
                 },
                 90,

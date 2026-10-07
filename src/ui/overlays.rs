@@ -81,7 +81,13 @@ pub(super) fn draw_help(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     );
 }
 
-pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
+pub(super) fn draw_tree(
+    frame: &mut Frame,
+    app: &mut App,
+    theme: &Theme,
+    area: Rect,
+    base: Style,
+) -> Option<usize> {
     let accent = base.fg(theme.accent);
     let title = match &app.review {
         Some(r) => format!("{} \u{2190} {}", r.branch, r.base),
@@ -110,22 +116,37 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     frame.render_widget(block, area);
 
     let focused = app.focus == Focus::Tree;
+    let width = inner.width as usize;
+    let review = app.review.as_ref();
+    app.tree.fold(|n, depth| {
+        let need = wrap::width(&n.name()).min(NAME_ROOM) as isize;
+        need.saturating_sub(name_room(review, n, depth, width))
+            .max(0) as usize
+    });
     let visible = app.tree.visible();
     let height = inner.height as usize;
-    let at = visible
-        .iter()
-        .position(|&i| i == app.tree.cursor)
-        .unwrap_or(0);
-    // Scroll the minimum amount that keeps the cursor row on screen.
+    let shown = app.tree.shown();
+    let at = visible.iter().position(|&i| i == shown).unwrap_or(0);
     app.tree_top = app.tree_top.min(at).max((at + 1).saturating_sub(height));
 
-    let width = inner.width as usize;
+    let mut cut_any = false;
+    let mut need = 0;
     let rows: Vec<Line> = visible
         .iter()
         .skip(app.tree_top)
         .take(height)
         .map(|&i| {
             let n = &app.tree.nodes[i];
+            let depth = app.tree.drawn_depth(i);
+            let full = app.tree.row_name(i);
+            let room = name_room(app.review.as_ref(), n, depth, width).max(0) as usize;
+            let cut = wrap::width(&full) > room;
+            let joined = full.contains('/');
+            cut_any |= cut;
+            for j in app.tree.row_nodes(i) {
+                let m = &app.tree.nodes[j];
+                need = need.max(used(app.review.as_ref(), m, m.depth) + wrap::width(&m.name()));
+            }
             // Directories carry the accent: they are what the eye scans the tree by. What
             // `.gitignore` leaves out is dim, directory or not.
             let row = if n.ignored {
@@ -135,7 +156,7 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             } else {
                 base
             };
-            let style = if i != app.tree.cursor {
+            let style = if i != shown {
                 row
             } else if focused {
                 row.bg(theme.line_hl)
@@ -151,10 +172,9 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 (Some(_), true) => "\u{2713} ",
             };
             let width = width.saturating_sub(wrap::width(tick));
-            let indent = "  ".repeat(n.depth);
             let mut spans = vec![
                 Span::styled(tick, style.fg(theme.accent)),
-                Span::styled(indent, style),
+                Span::styled("  ".repeat(depth), style),
             ];
             match app.review.as_ref().and_then(|r| r.file(&n.path)) {
                 // Review: `M name  +6 −2`, the status in place of the marker.
@@ -166,17 +186,10 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                         true => style.fg(theme.ghost_fg),
                         false => style,
                     };
-                    let counts = if f.binary {
-                        "bin".to_string()
-                    } else {
-                        format!("+{} \u{2212}{}", f.added, f.deleted)
-                    };
-                    // The counts stay; a long name gives way, with the cut marked. Before the
-                    // name: the indent, the letter and a space.
-                    let used = 2 * n.depth + 2;
-                    let room = width.saturating_sub(used + wrap::width(&counts) + 1);
-                    let mut name = n.name();
-                    if wrap::width(&name) > room {
+                    let counts = counts(f);
+                    let used = 2 * depth + 2;
+                    let mut name = full.clone();
+                    if cut {
                         let fits = wrap::cut(&name, 0, room.saturating_sub(1)).0;
                         name = format!("{}\u{2026}", &name[fits]);
                     }
@@ -196,7 +209,11 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                         (true, false) => "\u{25b8} ",
                         (false, _) => "  ",
                     };
-                    spans.push(Span::styled(format!("{marker}{}", n.name()), style));
+                    let name = match cut && joined {
+                        true => cut_at_slash(&full, room),
+                        false => full,
+                    };
+                    spans.push(Span::styled(format!("{marker}{name}"), style));
                 }
             }
             let used: usize = spans[1..].iter().map(|s| wrap::width(&s.content)).sum();
@@ -205,6 +222,35 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         })
         .collect();
     frame.render_widget(Paragraph::new(rows).style(base), inner);
+    cut_any.then_some(need)
+}
+
+const NAME_ROOM: usize = 12;
+
+fn counts(f: &crate::git::ReviewFile) -> String {
+    match f.binary {
+        true => "bin".to_string(),
+        false => format!("+{} \u{2212}{}", f.added, f.deleted),
+    }
+}
+
+fn used(review: Option<&Review>, n: &crate::tree::Node, depth: usize) -> usize {
+    match review {
+        None => 2 * depth + 2,
+        Some(r) => 2 + 2 * depth + 2 + r.file(&n.path).map_or(0, |f| wrap::width(&counts(f)) + 1),
+    }
+}
+
+fn name_room(review: Option<&Review>, n: &crate::tree::Node, depth: usize, width: usize) -> isize {
+    width as isize - used(review, n, depth) as isize
+}
+
+fn cut_at_slash(path: &str, room: usize) -> String {
+    let parts: Vec<&str> = path.split('/').collect();
+    (1..parts.len())
+        .map(|k| format!("\u{2026}/{}", parts[k..].join("/")))
+        .find(|t| wrap::width(t) <= room)
+        .unwrap_or_else(|| parts[parts.len() - 1].to_string())
 }
 
 pub(super) fn draw_picker(

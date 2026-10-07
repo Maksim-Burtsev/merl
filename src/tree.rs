@@ -39,6 +39,8 @@ pub struct Tree {
     away: HashSet<PathBuf>,
     /// Where the ignored directories are read from; empty in the review panel, which has none.
     root: PathBuf,
+    folded: HashSet<usize>,
+    lift: Vec<usize>,
 }
 
 /// Walks `root` once and returns the tree plus the flat list of files, both sorted the same
@@ -278,6 +280,15 @@ impl Tree {
             .find_map(|&i| index.get(self.nodes[i].path.as_path()).copied())
             .unwrap_or(0);
         fresh.cursor = cursor;
+        let folded: HashSet<&Path> = self
+            .folded
+            .iter()
+            .map(|&i| self.nodes[i].path.as_path())
+            .collect();
+        fresh.folded = (fresh.nodes.iter().enumerate())
+            .filter(|(_, n)| folded.contains(n.path.as_path()))
+            .map(|(i, _)| i)
+            .collect();
         *self = fresh;
     }
 
@@ -286,6 +297,7 @@ impl Tree {
     /// disk again. An expanded directory among the forgotten rows is expanded again when its
     /// parent is read.
     fn sync_ignored(&mut self) {
+        let len = self.nodes.len();
         let mut i = 0;
         while let Some(n) = self.nodes.get(i) {
             if !(n.ignored && n.is_dir) {
@@ -315,6 +327,9 @@ impl Tree {
             }
             i += 1;
         }
+        if self.nodes.len() != len {
+            self.folded.clear();
+        }
     }
 
     /// The directories the walk went into, relative to the root: not the ignored ones.
@@ -342,7 +357,6 @@ impl Tree {
         files.map(|n| n.path.clone()).collect()
     }
 
-    /// Indices of the nodes whose ancestors are all expanded, in display order.
     pub fn visible(&self) -> Vec<usize> {
         let mut out = Vec::new();
         let mut hidden_below = usize::MAX;
@@ -351,12 +365,106 @@ impl Tree {
                 continue;
             }
             hidden_below = usize::MAX;
-            out.push(i);
+            if !self.folded.contains(&i) {
+                out.push(i);
+            }
             if n.is_dir && !n.expanded {
                 hidden_below = n.depth;
             }
         }
         out
+    }
+
+    pub fn fold(&mut self, lacks: impl Fn(&Node, usize) -> usize) {
+        self.folded.clear();
+        self.lift = vec![0; self.nodes.len()];
+        let mut chains = Vec::new();
+        let mut top = 0;
+        while top < self.nodes.len() {
+            let mut head = top;
+            while self.only_dir_child(head) {
+                head += 1;
+            }
+            if head > top {
+                chains.push((top, head));
+            }
+            top = head + 1;
+        }
+        for (top, head) in chains.into_iter().rev() {
+            let end = self.end(head);
+            let shown_below = match self.nodes[head].expanded {
+                true => usize::MAX,
+                false => self.nodes[head].depth + 1,
+            };
+            let mut hidden_below = usize::MAX;
+            let mut lack = 0;
+            for j in head + 1..end {
+                let n = &self.nodes[j];
+                if n.depth > hidden_below || n.depth > shown_below {
+                    continue;
+                }
+                hidden_below = usize::MAX;
+                if n.is_dir && !n.expanded {
+                    hidden_below = n.depth;
+                }
+                lack = lack.max(lacks(n, n.depth - self.lift[j]));
+            }
+            let levels = lack.div_ceil(2).min(head - top);
+            self.folded.extend(head - levels..head);
+            for lift in &mut self.lift[head..end] {
+                *lift += levels;
+            }
+        }
+    }
+
+    pub fn shown(&self) -> usize {
+        let mut i = self.cursor;
+        while self.folded.contains(&i) {
+            i += 1;
+        }
+        i
+    }
+
+    pub fn settle(&mut self) {
+        self.cursor = self.shown();
+    }
+
+    pub fn drawn_depth(&self, i: usize) -> usize {
+        self.nodes[i].depth - self.lift.get(i).copied().unwrap_or(0)
+    }
+
+    pub fn row_name(&self, i: usize) -> String {
+        let parts: Vec<String> = self.nodes[self.row_nodes(i)]
+            .iter()
+            .map(Node::name)
+            .collect();
+        parts.join("/")
+    }
+
+    pub fn row_nodes(&self, i: usize) -> std::ops::RangeInclusive<usize> {
+        let joined = (0..i).rev().take_while(|j| self.folded.contains(j)).count();
+        i - joined..=i
+    }
+
+    fn only_dir_child(&self, i: usize) -> bool {
+        let n = &self.nodes[i];
+        let child = self.nodes.get(i + 1);
+        n.is_dir
+            && !n.ignored
+            && n.expanded
+            && child.is_some_and(|c| c.is_dir && !c.ignored && c.depth == n.depth + 1)
+            && self.end(i + 1) == self.end(i)
+    }
+
+    fn end(&self, i: usize) -> usize {
+        let depth = self.nodes[i].depth;
+        let below = self.nodes[i + 1..].iter().position(|n| n.depth <= depth);
+        below.map_or(self.nodes.len(), |b| i + 1 + b)
+    }
+
+    fn parent(&self, i: usize) -> Option<usize> {
+        let depth = self.nodes[i].depth;
+        self.nodes[..i].iter().rposition(|n| n.depth + 1 == depth)
     }
 
     pub fn selected(&self) -> Option<&Node> {
@@ -400,23 +508,21 @@ impl Tree {
         self.sync_ignored();
     }
 
-    /// Collapses an expanded directory; otherwise jumps to the parent directory.
     pub fn collapse(&mut self) {
         match self.nodes.get_mut(self.cursor) {
             Some(n) if n.is_dir && n.expanded => {
                 n.expanded = false;
                 self.sync_ignored();
             }
-            Some(n) if n.depth > 0 => {
-                let depth = n.depth;
-                if let Some(p) = self.nodes[..self.cursor]
-                    .iter()
-                    .rposition(|n| n.depth == depth - 1)
-                {
+            Some(_) => {
+                while let Some(p) = self.parent(self.cursor) {
                     self.cursor = p;
+                    if !self.folded.contains(&p) {
+                        break;
+                    }
                 }
             }
-            _ => {}
+            None => {}
         }
     }
 
@@ -941,6 +1047,145 @@ mod tests {
             ]
         );
         assert!(t.dirs() == HashSet::from([PathBuf::from("docs")]));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    fn narrow(width: usize) -> impl Fn(&Node, usize) -> usize {
+        move |n, depth| (2 * depth + 2 + n.name().len().min(12)).saturating_sub(width)
+    }
+
+    fn drawn(t: &Tree) -> Vec<String> {
+        let vis = t.visible();
+        let row = |&i: &usize| format!("{}{}", "  ".repeat(t.drawn_depth(i)), t.row_name(i));
+        vis.iter().map(row).collect()
+    }
+
+    #[test]
+    fn a_one_child_chain_keeps_its_rows_while_the_names_below_fit() {
+        let mut t = from_files(&["a/b/c/d/x.rs".into(), "a/b/c/d/y.rs".into()]);
+        t.fold(narrow(14));
+        assert_eq!(
+            drawn(&t),
+            [
+                "a",
+                "  b",
+                "    c",
+                "      d",
+                "        x.rs",
+                "        y.rs"
+            ]
+        );
+    }
+
+    #[test]
+    fn the_lowest_directories_of_a_chain_share_a_row_as_few_as_give_the_names_room() {
+        let mut t = from_files(&["a/b/c/d/x.rs".into(), "a/b/c/d/y.rs".into()]);
+        t.fold(narrow(10));
+        assert_eq!(drawn(&t), ["a", "  b/c/d", "    x.rs", "    y.rs"]);
+        t.fold(narrow(0));
+        assert_eq!(drawn(&t), ["a/b/c/d", "  x.rs", "  y.rs"]);
+    }
+
+    #[test]
+    fn left_and_right_work_on_a_shared_row() {
+        let mut t = from_files(&["a/b/c/d/x.rs".into(), "a/b/c/d/y.rs".into()]);
+        t.fold(narrow(10));
+        t.down();
+        assert_eq!(t.selected().unwrap().path, Path::new("a/b/c/d"));
+        t.collapse();
+        t.fold(narrow(10));
+        assert_eq!(drawn(&t), ["a", "  b/c/d"]);
+        t.collapse();
+        assert_eq!(t.selected().unwrap().path, Path::new("a"));
+        t.down();
+        t.expand();
+        t.fold(narrow(10));
+        assert_eq!(drawn(&t), ["a", "  b/c/d", "    x.rs", "    y.rs"]);
+        t.down();
+        t.collapse();
+        assert_eq!(t.selected().unwrap().path, Path::new("a/b/c/d"));
+    }
+
+    #[test]
+    fn collapsing_a_high_directory_of_a_chain_leaves_the_rows_above_it_alone() {
+        let mut t = from_files(&["a/b/c/d/e/x.rs".into(), "a/b/c/d/e/y.rs".into()]);
+        t.fold(narrow(12));
+        assert_eq!(
+            drawn(&t),
+            ["a", "  b", "    c/d/e", "      x.rs", "      y.rs"]
+        );
+        t.down();
+        t.collapse();
+        t.fold(narrow(12));
+        assert_eq!(drawn(&t), ["a", "  b"]);
+        t.expand();
+        t.fold(narrow(12));
+        assert_eq!(
+            drawn(&t),
+            ["a", "  b", "    c/d/e", "      x.rs", "      y.rs"]
+        );
+    }
+
+    #[test]
+    fn an_odd_lack_folds_one_more_level() {
+        let mut t = from_files(&["a/b/c/d/x.rs".into()]);
+        t.fold(narrow(11));
+        assert_eq!(drawn(&t), ["a", "  b/c/d", "    x.rs"]);
+    }
+
+    #[test]
+    fn a_lower_chain_folds_before_the_one_above_it() {
+        let mut t = from_files(&["a/b/c/d/e/x.rs".into(), "a/b/z.rs".into()]);
+        t.fold(narrow(14));
+        assert_eq!(
+            drawn(&t),
+            ["a", "  b", "    c", "      d/e", "        x.rs", "    z.rs"]
+        );
+    }
+
+    #[test]
+    fn a_refresh_keeps_the_rows_folded_until_the_next_draw() {
+        let dir = project("refold", &["a/b/c/d/x.rs", "z.rs"]);
+        let (mut t, _) = build(&dir, false);
+        t.reveal(Path::new("a/b/c/d/x.rs"));
+        t.fold(narrow(10));
+        let before = drawn(&t);
+        t.refresh(build(&dir, false).0);
+        assert_eq!(t.visible().len(), before.len());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_directory_with_two_children_ends_the_chain_and_its_children_never_fold() {
+        let mut t = from_files(&["a/b/c/e/x.rs".into(), "a/b/d/f/y.rs".into()]);
+        t.fold(narrow(0));
+        assert_eq!(drawn(&t), ["a/b", "  c/e", "    x.rs", "  d/f", "    y.rs"]);
+    }
+
+    #[test]
+    fn a_fold_shows_the_cursor_on_its_row_and_a_key_settles_it_there() {
+        let mut t = from_files(&["a/b/c/d/x.rs".into()]);
+        t.fold(narrow(0));
+        assert_eq!(t.nodes[t.shown()].path, Path::new("a/b/c/d"));
+        assert_eq!(t.selected().unwrap().path, Path::new("a"));
+        t.settle();
+        assert_eq!(t.selected().unwrap().path, Path::new("a/b/c/d"));
+    }
+
+    #[test]
+    fn an_ignored_directory_stays_a_row_of_its_own() {
+        let dir = project("chain", &[".gitignore", "a/b/gen/deep/x.py"]);
+        std::fs::write(dir.join(".gitignore"), "gen/\n").unwrap();
+        let (mut t, _) = build(&dir, false);
+        t.reveal(Path::new("a/b/gen"));
+        t.expand();
+        t.down();
+        t.expand();
+        t.fold(narrow(0));
+        assert_eq!(
+            drawn(&t),
+            ["a/b", "  gen", "    deep", "      x.py", ".gitignore"]
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

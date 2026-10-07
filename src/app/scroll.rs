@@ -7,6 +7,26 @@ use super::*;
 const MAX_PINNED: usize = 2;
 
 impl App {
+    pub fn drawn_aside(&mut self, draw: impl FnOnce(&mut Self)) {
+        let kept = (
+            self.top_line,
+            self.top_row,
+            self.left,
+            self.view_w,
+            self.view_h,
+            self.center,
+        );
+        draw(self);
+        (
+            self.top_line,
+            self.top_row,
+            self.left,
+            self.view_w,
+            self.view_h,
+            self.center,
+        ) = kept;
+    }
+
     /// Scrolls the minimum amount that puts the cursor back on screen.
     pub fn clamp_scroll(&mut self) {
         self.clamp_top();
