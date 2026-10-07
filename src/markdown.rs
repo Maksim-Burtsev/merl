@@ -91,6 +91,7 @@ pub enum Kind {
 pub struct Code {
     pub lang: String,
     pub lines: Vec<String>,
+    pub picture: Option<(u16, u16)>,
 }
 
 /// A Markdown file laid out for one width.
@@ -138,7 +139,9 @@ impl Doc {
     }
 }
 
-pub fn layout(lines: &[String], width: usize) -> Doc {
+pub type Fit<'a> = &'a mut dyn FnMut(&str, usize) -> Option<(u16, u16)>;
+
+pub fn layout(lines: &[String], width: usize, fit: Fit) -> Doc {
     let src = lines.join("\n");
     let mut starts = vec![0];
     starts.extend(src.match_indices('\n').map(|(i, _)| i + 1));
@@ -146,6 +149,7 @@ pub fn layout(lines: &[String], width: usize) -> Doc {
         src: &src,
         starts,
         width: width.max(1),
+        fit: Some(fit),
         ..Default::default()
     };
     let opts = Options::ENABLE_TABLES
@@ -280,6 +284,7 @@ struct Table {
 #[derive(Default)]
 struct Lay<'a> {
     src: &'a str,
+    fit: Option<Fit<'a>>,
     /// The byte each source line starts at.
     starts: Vec<usize>,
     width: usize,
@@ -848,6 +853,28 @@ impl Lay<'_> {
         let block = self.code.len();
         let first = self.rows.len();
         let room = self.avail().saturating_sub(2).max(1);
+        if b.lang == "mermaid"
+            && let Some(picture) = self.picture(&b, room)
+        {
+            for i in 0..picture.1 as usize {
+                let k = i * b.lines.len() / picture.1 as usize;
+                let (_, at, _) = b.lines[k];
+                let kind = Kind::Code {
+                    block,
+                    line: k,
+                    from: 0,
+                    at: 0,
+                };
+                self.push(String::new(), Vec::new(), at, kind);
+            }
+            self.span_fences(first, &b.span);
+            self.code.push(Code {
+                lang: b.lang,
+                lines: b.lines.into_iter().map(|(raw, _, _)| raw).collect(),
+                picture: Some(picture),
+            });
+            return;
+        }
         let mut drawn = Vec::with_capacity(b.lines.len());
         for (k, (raw, (l, c), added)) in b.lines.iter().enumerate() {
             let line = raw.replace('\t', crate::buffer::TAB);
@@ -868,17 +895,27 @@ impl Lay<'_> {
             }
             drawn.push(line);
         }
-        let rows = &mut self.rows;
-        if let Some(r) = rows.get_mut(first) {
-            r.lines.start = r.lines.start.min(b.span.start);
-        }
-        if let Some(r) = rows.last_mut() {
-            r.lines.end = r.lines.end.max(b.span.end);
-        }
+        self.span_fences(first, &b.span);
         self.code.push(Code {
             lang: b.lang,
             lines: drawn,
+            picture: None,
         });
+    }
+
+    fn picture(&mut self, b: &Block, room: usize) -> Option<(u16, u16)> {
+        let src: Vec<&str> = b.lines.iter().map(|(raw, _, _)| raw.as_str()).collect();
+        let fit = self.fit.as_mut()?;
+        fit(&src.join("\n"), room).filter(|&(_, rows)| rows > 0)
+    }
+
+    fn span_fences(&mut self, first: usize, span: &Range<usize>) {
+        if let Some(r) = self.rows.get_mut(first) {
+            r.lines.start = r.lines.start.min(span.start);
+        }
+        if let Some(r) = self.rows.last_mut() {
+            r.lines.end = r.lines.end.max(span.end);
+        }
     }
 
     /// A table in box drawing, each column aligned as its `:---:` says. Wider than the room it

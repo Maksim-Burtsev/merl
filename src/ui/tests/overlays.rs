@@ -976,3 +976,204 @@ fn help_wraps_every_action_whole_at_80_columns() {
         assert!(text.contains(&words(action)), "{action}\n{text}");
     }
 }
+
+#[test]
+fn a_deep_review_folds_its_chain_and_keeps_both_file_names() {
+    let d = "application/src/main/java/run/halo/app/security/authentication/twofactor/totp";
+    let filter = format!("{d}/TotpAuthenticationFilter.java");
+    let converter = format!("{d}/TotpCodeAuthenticationConverter.java");
+    let mut app = review_app(&[(&filter, 'M', 1, 1), (&converter, 'A', 1, 0)]);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(92, 10)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let r: Vec<String> = rows(&terminal)
+        .iter()
+        .map(|l| l.chars().take(30).collect())
+        .collect();
+    assert_eq!(
+        r[1..6],
+        [
+            "\u{2502}  \u{25be} application             \u{2502}",
+            "\u{2502}    \u{25be} src                   \u{2502}",
+            "\u{2502}      \u{25be} \u{2026}/twofactor/totp    \u{2502}",
+            "\u{2502}        M TotpAuthent\u{2026} +1 \u{2212}1\u{2502}",
+            "\u{2502}        A TotpCodeAut\u{2026} +1 \u{2212}0\u{2502}",
+        ],
+        "{r:#?}"
+    );
+}
+
+#[test]
+fn a_chain_that_fits_keeps_a_row_per_directory() {
+    let mut app = review_app(&[
+        ("binding/form_mapping.go", 'M', 1, 0),
+        ("internal/bytesconv/bytesconv.go", 'M', 1, 0),
+    ]);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(92, 10)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let text = rows(&terminal).join("\n");
+    assert!(text.contains("\u{25be} internal "), "{text}");
+    assert!(text.contains("\u{25be} bytesconv "), "{text}");
+}
+
+fn deep_app() -> App {
+    let mut files: Vec<String> = Vec::new();
+    let mut dir = String::new();
+    for d in ["a", "b", "c", "d", "e", "f", "g", "h"] {
+        dir.push_str(d);
+        dir.push('/');
+        files.push(format!("{dir}x.rs"));
+    }
+    files.push(format!("{dir}TotpAuthenticationManager.java"));
+    let mut app = review_app(
+        &files
+            .iter()
+            .map(|f| (f.as_str(), 'M', 1, 1))
+            .collect::<Vec<_>>(),
+    );
+    app.review = None;
+    app.buf = Buffer::from_bytes(PathBuf::from("/tmp/a.rs"), "x\n".repeat(40).as_bytes());
+    app
+}
+
+fn tree_width(app: &mut App, w: u16) -> (usize, String) {
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(w, 30)).unwrap();
+    terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+    let r = rows(&terminal);
+    let width = r[0].chars().position(|c| c == '\u{2510}').unwrap() + 1;
+    (width, r.join("\n"))
+}
+
+#[test]
+fn the_tree_widens_with_the_keys_to_its_longest_row_on_screen() {
+    let mut app = deep_app();
+    app.tree.reveal(std::path::Path::new(
+        "a/b/c/d/e/f/g/h/TotpAuthenticationManager.java",
+    ));
+    let (w, text) = tree_width(&mut app, 120);
+    assert_eq!(w, 30, "{text}");
+    assert!(!text.contains("TotpAuthenticationManager.java"), "{text}");
+    app.focus = crate::app::Focus::Tree;
+    let (w, text) = tree_width(&mut app, 120);
+    assert_eq!(w, 2 + 2 * 8 + 2 + 30, "{text}");
+    assert!(
+        text.contains("TotpAuthenticationManager.java\u{2502}"),
+        "{text}"
+    );
+    assert!(
+        text.lines()
+            .skip(1)
+            .all(|l| l.chars().nth(29) != Some('\u{2502}')),
+        "{text}"
+    );
+    app.focus = crate::app::Focus::Code;
+    assert_eq!(tree_width(&mut app, 120).0, 30);
+}
+
+#[test]
+fn the_tree_keeps_its_30_columns_where_every_name_fits() {
+    let mut app = review_app(&[
+        ("binding/form_mapping.go", 'M', 1, 0),
+        ("internal/bytesconv/bytesconv.go", 'M', 1, 0),
+    ]);
+    app.focus = crate::app::Focus::Tree;
+    let (w, text) = tree_width(&mut app, 92);
+    assert_eq!(w, 30, "{text}");
+    assert_eq!(app.tree_width, Some(30));
+}
+
+#[test]
+fn the_wide_tree_never_passes_half_the_screen() {
+    let mut deep = review_app(&[("a/b/c/d/e/f/g/h/i/j/abcdefghij.rs", 'M', 1, 0)]);
+    deep.focus = crate::app::Focus::Tree;
+    assert_eq!(
+        tree_width(&mut deep, 120).0,
+        2 + 2 + 2 * 10 + 2 + 13 + 1 + 5
+    );
+    let long = format!("a/{}.rs", "x".repeat(120));
+    let mut long = review_app(&[(&long, 'M', 1, 0)]);
+    long.focus = crate::app::Focus::Tree;
+    assert_eq!(tree_width(&mut long, 120).0, 60);
+}
+
+#[test]
+fn the_width_is_chosen_once_a_visit() {
+    let mut app = deep_app();
+    let top = |app: &mut App| {
+        app.tree.cursor = app
+            .tree
+            .nodes
+            .iter()
+            .position(|n| n.path == std::path::Path::new("a"))
+            .unwrap();
+        app.tree.collapse();
+    };
+    top(&mut app);
+    app.focus = crate::app::Focus::Tree;
+    assert_eq!(tree_width(&mut app, 92).0, 30);
+    app.tree.reveal(std::path::Path::new(
+        "a/b/c/d/e/f/g/h/TotpAuthenticationManager.java",
+    ));
+    assert_eq!(tree_width(&mut app, 92).0, 30);
+    app.focus = crate::app::Focus::Code;
+    tree_width(&mut app, 92);
+    app.focus = crate::app::Focus::Tree;
+    assert_eq!(tree_width(&mut app, 92).0, 46);
+    top(&mut app);
+    assert_eq!(tree_width(&mut app, 92).0, 46);
+    app.focus = crate::app::Focus::Code;
+    assert_eq!(tree_width(&mut app, 92).0, 30);
+}
+
+#[test]
+fn a_visit_to_the_wide_tree_leaves_the_code_where_it_was() {
+    for (name, text) in [
+        ("/tmp/a.csv", format!("{}\n", "x".repeat(110)).repeat(40)),
+        ("/tmp/a.rs", format!("{}\n", "x ".repeat(80)).repeat(40)),
+    ] {
+        let mut app = deep_app();
+        app.tree.reveal(std::path::Path::new(
+            "a/b/c/d/e/f/g/h/TotpAuthenticationManager.java",
+        ));
+        app.buf = Buffer::from_bytes(PathBuf::from(name), text.as_bytes());
+        app.goto_line(30);
+        app.col = 70;
+        tree_width(&mut app, 120);
+        let before = (app.left, app.top_line, app.top_row);
+        app.focus = crate::app::Focus::Tree;
+        assert_eq!(tree_width(&mut app, 120).0, 50);
+        app.focus = crate::app::Focus::Code;
+        assert_eq!(tree_width(&mut app, 120).0, 30);
+        assert_eq!((app.left, app.top_line, app.top_row), before, "{name}");
+    }
+}
+
+#[test]
+fn a_visit_to_the_code_leaves_the_tree_cursor_where_it_was() {
+    let d = "application/src/main/java/run/halo/app/security/authentication/twofactor/totp";
+    let filter = format!("{d}/TotpAuthenticationFilter.java");
+    let mut app = review_app(&[(&filter, 'M', 1, 1)]);
+    app.focus = crate::app::Focus::Tree;
+    assert_eq!(tree_width(&mut app, 120).0, 60);
+    let main = std::path::Path::new("application/src/main");
+    app.tree.cursor = app.tree.nodes.iter().position(|n| n.path == main).unwrap();
+    tree_width(&mut app, 120);
+    app.focus = crate::app::Focus::Code;
+    assert_eq!(tree_width(&mut app, 120).0, 30);
+    app.focus = crate::app::Focus::Tree;
+    assert_eq!(tree_width(&mut app, 120).0, 60);
+    assert_eq!(app.tree.selected().unwrap().path, main);
+}
+
+#[test]
+fn a_terminal_too_narrow_to_widen_keeps_the_tree_at_30_columns() {
+    let mut app = deep_app();
+    app.tree.reveal(std::path::Path::new(
+        "a/b/c/d/e/f/g/h/TotpAuthenticationManager.java",
+    ));
+    app.focus = crate::app::Focus::Tree;
+    assert_eq!(tree_width(&mut app, 60).0, 30);
+    assert_eq!(app.tree_width, Some(30));
+}

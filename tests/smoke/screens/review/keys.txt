@@ -6,6 +6,7 @@ Esc
 PgDn
 Picker: Enter
 Picker: Esc
+Tab
 [
 c
 d

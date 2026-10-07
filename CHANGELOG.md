@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `p` draws a Markdown file's Mermaid diagrams as pictures, in the theme's colours, in place of
+  their source, in terminals that draw pictures (Ghostty, kitty, WezTerm; not inside tmux). A
+  diagram wider than the pane shrinks to it, down to half its size; a wider one, one the renderer
+  cannot read, and every diagram in other terminals stay their source. Building merl needs Rust
+  1.95. (#727)
 - `d` on a C++ member reads the class its receiver is declared as: `key.size()` with a
   `const Slice& key` lands on `Slice::size` (`via key: Slice`) instead of offering every `size`
   of the project. The receiver is a parameter, a local (`auto x = new T(…)` included), a field
@@ -30,6 +35,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- A tree too narrow for its names widens while it has the keys: on Tab, when a row on its screen
+  is cut at 30 columns, the tree widens to the longest row on its screen, at most half the
+  screen, and keeps that width until Tab back to the code returns it to 30 columns; a longer
+  name found during the visit widens it on the next Tab. Where every name fits, nothing moves.
+  A chain of directories that each hold only the next one, too deep for the names below it to
+  keep 12 columns, shares one row from its lowest directories, cut from the left at a `/`
+  (`…/twofactor/totp`); Left, Right and Enter work on the shared row. (#399)
 - Line numbers and the `‹` `›` `…` marks read at 3:1 on the background in every theme: a theme
   whose own gutter colour is fainter has it lightened (darkened in a light theme) in its own hue
   until it gets there, never past the theme's comments. 50 of the 94 themes change, the default

@@ -353,6 +353,7 @@ pub struct App {
     reading: std::cell::RefCell<Vec<(PathBuf, usize)>>,
     pub focus: Focus,
     pub show_tree: bool,
+    pub tree_width: Option<u16>,
     /// First visible row of the tree pane, clamped by `ui`.
     pub tree_top: usize,
     pub picker: Option<Picker>,
@@ -391,6 +392,7 @@ pub struct App {
     previewed: HashSet<PathBuf>,
     /// The open file rendered, while it is one of `previewed`: laid out by the first frame.
     pub preview: Option<Preview>,
+    pub diagrams: crate::mermaid::Diagrams,
     pub mode: Mode,
     /// What has been typed into the `:` or `/` prompt.
     pub prompt: LineEdit,
@@ -553,6 +555,7 @@ impl App {
             reading: Default::default(),
             focus,
             show_tree: true,
+            tree_width: None,
             tree_top: 0,
             picker: None,
             search_seq: 0,
@@ -574,6 +577,7 @@ impl App {
             collapsed_stash: HashMap::new(),
             wrap_toggled: HashSet::new(),
             previewed: HashSet::new(),
+            diagrams: crate::mermaid::Diagrams::default(),
             preview: None,
             mode: Mode::Normal,
             prompt: LineEdit::default(),

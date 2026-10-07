@@ -2,7 +2,7 @@ use super::*;
 
 fn doc(text: &str, width: usize) -> Doc {
     let lines: Vec<String> = text.lines().map(String::from).collect();
-    layout(&lines, width)
+    layout(&lines, width, &mut |_, _| None)
 }
 
 fn texts(d: &Doc) -> Vec<&str> {
@@ -600,4 +600,59 @@ fn alerts_take_githubs_light_or_dark_colours_as_the_theme_is() {
     };
     assert_eq!(note("github-light"), Some(Color::from_u32(0x0969da)));
     assert_eq!(note("tokyonight-moon"), Some(Color::from_u32(0x4493f8)));
+}
+
+fn with_pictures(text: &str, width: usize, size: (u16, u16)) -> (Doc, Vec<(String, usize)>) {
+    let lines: Vec<String> = text.lines().map(String::from).collect();
+    let mut asked = Vec::new();
+    let doc = layout(&lines, width, &mut |src, room| {
+        asked.push((src.to_string(), room));
+        Some(size)
+    });
+    (doc, asked)
+}
+
+#[test]
+fn a_mermaid_block_is_rows_for_its_picture_standing_for_its_lines() {
+    let text = "Intro\n\n```mermaid\ngraph TD\n  A-->B\n  B-->C\n```\n\nAfter";
+    let (d, asked) = with_pictures(text, 40, (12, 6));
+    assert_eq!(asked, vec![("graph TD\n  A-->B\n  B-->C".to_string(), 38)]);
+    assert_eq!(d.code[0].picture, Some((12, 6)));
+    let pics: Vec<&Row> = d
+        .rows
+        .iter()
+        .filter(|r| matches!(r.kind, Kind::Code { block: 0, .. }))
+        .collect();
+    assert_eq!(pics.len(), 6);
+    assert!(pics.iter().all(|r| r.text.is_empty()));
+    assert_eq!(pics[0].lines.start, 2);
+    assert_eq!(pics[5].lines.end, 7);
+    let at: Vec<usize> = pics.iter().map(|r| r.src.0).collect();
+    assert!(at.windows(2).all(|w| w[0] <= w[1]));
+    assert_eq!((at[0], at[5]), (3, 5));
+    assert!(texts(&d).contains(&"After"));
+    let first = d
+        .rows
+        .iter()
+        .position(|r| r.text.is_empty() && matches!(r.kind, Kind::Code { .. }));
+    assert_eq!(d.row_at((4, 0)), first.unwrap() + 2);
+}
+
+#[test]
+fn only_mermaid_blocks_ask_for_a_picture() {
+    let (d, asked) = with_pictures(
+        "```rust\nfn main() {}\n```\n\n```\ngraph TD\n```",
+        40,
+        (5, 2),
+    );
+    assert!(asked.is_empty());
+    assert!(d.code.iter().all(|c| c.picture.is_none()));
+    assert!(texts(&d).iter().any(|t| t.contains("fn main()")));
+}
+
+#[test]
+fn a_mermaid_block_without_a_picture_is_its_source() {
+    let d = doc("```mermaid\ngraph TD\n  A-->B\n```", 40);
+    assert_eq!(d.code[0].picture, None);
+    assert!(texts(&d).iter().any(|t| t.contains("A-->B")));
 }
