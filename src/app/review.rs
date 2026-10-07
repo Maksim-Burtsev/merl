@@ -277,7 +277,8 @@ impl App {
         let f = self.review.as_ref()?.file(&rel)?;
         let blank = matches!(self.buf.lines.as_slice(), [l] if l.is_empty());
         let pure = f.status == 'R' && !f.has_hunks() && !f.binary && !self.buf.binary();
-        (pure && !blank).then_some((f.old.as_deref()?, f.path.as_path()))
+        let in_use = self.mode == Mode::Edit || self.dirty || self.previewing();
+        (pure && !blank && !in_use).then_some((f.old.as_deref()?, f.path.as_path()))
     }
 
     pub fn text_hidden(&self) -> bool {

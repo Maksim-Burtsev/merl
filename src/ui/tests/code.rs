@@ -1710,6 +1710,16 @@ fn a_rename_without_changes_tints_the_part_of_each_path_that_changed() {
     let (_, del, add) = shown(80, "src/old_name.py", "src/new_name.py");
     assert_eq!((del.as_str(), add.as_str()), ("old_name", "new_name"));
 
+    let (_, del, add) = shown(80, "src/user_old.py", "src/user_new.py");
+    assert_eq!((del.as_str(), add.as_str()), ("user_old", "user_new"));
+
+    let (text, del, add) = shown(80, "lib/x.py", "lib/x/x.py");
+    assert_eq!(text[0], "lib/x.py  \u{2192}  lib/x/x.py");
+    assert_eq!((del.as_str(), add.as_str()), ("", "/x"));
+
+    let (text, del, _) = shown(9, "a/foo.py", "b/foo.py");
+    assert_eq!((text[0].as_str(), del.as_str()), ("\u{2026}/foo.py", ""));
+
     let (old, new) = (
         "src/shop/payments/providers/stripe_client.py",
         "src/shop/billing/providers/stripe_client.py",

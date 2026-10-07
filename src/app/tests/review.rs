@@ -1927,10 +1927,24 @@ fn a_file_renamed_without_changes_hides_its_text_and_takes_only_the_keys_that_le
         press(&mut a, code, KeyModifiers::NONE);
     }
     press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
+    assert_eq!(a.clipboard, None);
     assert_eq!((at(&a), a.mode), ((dir.join("words.py"), 0), Mode::Normal));
     assert_eq!(a.buf.lines, ["def t():", "    pass"]);
     press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
     assert_ne!(at(&a).0, dir.join("words.py"));
     assert_eq!(a.renamed_here(), None);
+    a.jump_to(&dir.join("d.py"), 1);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    std::fs::write(dir.join("d.py"), moved).unwrap();
+    a.review_refreshed(git::Review::open(&dir, None, None).unwrap());
+    assert!(
+        !a.review
+            .as_ref()
+            .unwrap()
+            .file(Path::new("d.py"))
+            .unwrap()
+            .has_hunks()
+    );
+    assert_eq!((a.mode, a.renamed_here()), (Mode::Edit, None));
     let _ = std::fs::remove_dir_all(dir);
 }

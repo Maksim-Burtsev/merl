@@ -427,9 +427,10 @@ fn tinted(
     word: Style,
     room: usize,
 ) -> Vec<Span<'static>> {
-    let shown: Vec<char> = fit_path(path, room).chars().collect();
+    let fitted = fit_path(path, room);
+    let shown: Vec<char> = fitted.chars().collect();
     let whole = path.chars().count();
-    let (lead, cut) = match shown.len() == whole {
+    let (lead, cut) = match fitted == path {
         true => (0, 0),
         false => (1, whole + 1 - shown.len()),
     };
