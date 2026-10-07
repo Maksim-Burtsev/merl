@@ -81,30 +81,45 @@ pub struct Diff {
     pub pairs: HashMap<usize, (usize, usize)>,
 }
 
-/// The diff of `path` in the working tree against the index, or against `base` when given
-/// (review mode: ghosts and hunks are only kept then). `old` is the name the file had at the
-/// base when the branch renamed it: with both names in the pathspec git pairs them.
-/// `--inter-hunk-context=0` beats a user's `diff.interHunkContext`, which would join nearby
-/// edits into one hunk with the unchanged lines between them.
 pub fn diff(root: &Path, path: &Path, base: Option<&str>, old: Option<&Path>) -> Diff {
     let mut cmd = Command::new("git");
     // The names are files, not patterns: `[id].tsx` is not `d.tsx` too.
     cmd.arg("--literal-pathspecs");
     cmd.arg("-C")
         .arg(root)
-        .args(["diff", "-U0", "-M", "--no-color", "--no-ext-diff"])
-        .arg("--inter-hunk-context=0");
-    if let Some(base) = base {
-        cmd.arg(base);
-    }
+        .args(["diff", "-U0", "--no-color", "--no-ext-diff"])
+        .arg("--inter-hunk-context=0")
+        .arg(if base.is_some() { "-M" } else { "--no-renames" })
+        .arg(base.unwrap_or("HEAD"));
     cmd.arg("--").arg(path);
     if let Some(old) = old {
         cmd.arg(old);
     }
-    let out = cmd.output();
-    match out {
-        Ok(o) if o.status.success() => parse(&String::from_utf8_lossy(&o.stdout), base.is_some()),
+    match cmd.output() {
+        Ok(o) if o.status.success() && (base.is_some() || !o.stdout.is_empty()) => {
+            parse(&String::from_utf8_lossy(&o.stdout), base.is_some())
+        }
+        Ok(o) if base.is_none() && new_to_git(root, path, o.status.success()) => all_added(path),
         _ => Diff::default(),
+    }
+}
+
+fn new_to_git(root: &Path, path: &Path, head: bool) -> bool {
+    let path = path.to_string_lossy();
+    let mut args = vec!["--literal-pathspecs", "ls-files", "--others", "--exclude-standard"];
+    if !head {
+        args.push("--cached");
+    }
+    args.extend(["--", &path]);
+    git(root, &args).is_ok_and(|listed| !listed.is_empty())
+}
+
+fn all_added(path: &Path) -> Diff {
+    let n = count_lines(path).map_or(0, |(_, n)| n);
+    Diff {
+        marks: (0..n).map(|l| (l, Mark::Added)).collect(),
+        hunks: Vec::from_iter((n > 0).then_some(TextLine::File(0))),
+        ..Default::default()
     }
 }
 
@@ -363,14 +378,7 @@ impl Review {
     /// `file` is its row, when it has one. An untracked file is one hunk of added lines.
     pub fn diff(&self, root: &Path, path: &Path, file: Option<&ReviewFile>) -> Diff {
         match file {
-            Some(f) if f.untracked => {
-                let n = count_lines(path).map_or(0, |(_, n)| n);
-                Diff {
-                    marks: (0..n).map(|l| (l, Mark::Added)).collect(),
-                    hunks: Vec::from_iter((n > 0).then_some(TextLine::File(0))),
-                    ..Default::default()
-                }
-            }
+            Some(f) if f.untracked => all_added(path),
             _ => diff(
                 root,
                 path,
@@ -1089,10 +1097,81 @@ mod tests {
         git(&["init", "-q"]);
         std::fs::write(dir.join("f"), "a\nb\nc\n").unwrap();
         git(&["add", "f"]);
+        git(&["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base"]);
         std::fs::write(dir.join("f"), "a\nB\nc\nd\n").unwrap();
         let m = diff(&dir, &dir.join("f"), None, None).marks;
         std::fs::remove_dir_all(&dir).unwrap();
         assert_eq!(m, HashMap::from([(1, Mark::Changed), (3, Mark::Added)]));
+    }
+
+    #[test]
+    fn the_gutter_marks_every_line_that_differs_from_head() {
+        let root = std::env::temp_dir().join(format!("merl-gutter-head-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let (dir, fresh) = (root.join("repo"), root.join("fresh"));
+        let git = |at: &Path, args: &[&str]| {
+            let out = Command::new("git")
+                .arg("-C")
+                .arg(at)
+                .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+                .args(args)
+                .output();
+            assert!(out.unwrap().status.success(), "git {args:?}");
+        };
+        let write = |at: &Path, name: &str, text: &str| std::fs::write(at.join(name), text).unwrap();
+        for at in [&dir, &fresh] {
+            std::fs::create_dir_all(at).unwrap();
+            git(at, &["init", "-q"]);
+        }
+        for name in ["staged", "twice", "moved", "same"] {
+            write(&dir, name, "a\nb\nc\n");
+        }
+        write(&dir, ".gitignore", "ignored\n");
+        git(&dir, &["add", "."]);
+        git(&dir, &["commit", "-qm", "base"]);
+        write(&dir, "staged", "a\nB\nc\n");
+        write(&dir, "twice", "A\nb\nc\n");
+        git(&dir, &["add", "staged", "twice"]);
+        write(&dir, "twice", "A\nb\nC\n");
+        write(&dir, "untracked", "x\ny\n");
+        write(&dir, "added", "x\ny\n");
+        git(&dir, &["add", "added"]);
+        git(&dir, &["mv", "moved", "renamed"]);
+        write(&dir, "ignored", "x\n");
+        write(&fresh, "staged", "x\ny\n");
+        write(&fresh, "untracked", "x\ny\n");
+        git(&fresh, &["add", "staged"]);
+        let marks = |at: &Path, name: &str| {
+            let mut m = Vec::from_iter(diff(at, &at.join(name), None, None).marks);
+            m.sort_unstable_by_key(|&(l, _)| l);
+            (name.to_string(), m)
+        };
+        let got = vec![
+            marks(&dir, "staged"),
+            marks(&dir, "twice"),
+            marks(&dir, "untracked"),
+            marks(&dir, "added"),
+            marks(&dir, "renamed"),
+            marks(&dir, "ignored"),
+            marks(&dir, "same"),
+            marks(&fresh, "staged"),
+            marks(&fresh, "untracked"),
+        ];
+        std::fs::remove_dir_all(&root).unwrap();
+        let (changed, both_added) = (Mark::Changed, vec![(0, Mark::Added), (1, Mark::Added)]);
+        let all_three = vec![(0, Mark::Added), (1, Mark::Added), (2, Mark::Added)];
+        let want = vec![
+            ("staged".to_string(), vec![(1, changed)]),
+            ("twice".to_string(), vec![(0, changed), (2, changed)]),
+            ("untracked".to_string(), both_added.clone()),
+            ("added".to_string(), both_added.clone()),
+            ("renamed".to_string(), all_three),
+            ("ignored".to_string(), vec![]),
+            ("same".to_string(), vec![]),
+            ("staged".to_string(), both_added.clone()),
+            ("untracked".to_string(), both_added),
+        ];
+        assert_eq!(got, want);
     }
 
     /// A user's `diff.interHunkContext` joins nearby edits into one hunk with the unchanged

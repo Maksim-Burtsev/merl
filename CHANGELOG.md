@@ -38,6 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The bars beside the line numbers mark what differs from the last commit, as the tree's `M` and
+  `A` do: a change staged with `git add` keeps its bars, and a new file, staged or not, is green
+  on every line. A file `.gitignore` leaves out stays bare. (#749)
 - A tree too narrow for its names widens while it has the keys: on Tab, when a row on its screen
   is cut at 30 columns, the tree widens to the longest row on its screen, at most half the
   screen, and keeps that width until Tab back to the code returns it to 30 columns; a longer

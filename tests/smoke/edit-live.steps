@@ -58,3 +58,16 @@ wait A notify.py
 # The agent commits: HEAD moves and nothing in the project is written, and the letters go (#402).
 run git add -A && git commit -qm "orders: notify"
 wait │    notify.py
+# The gutter compares the file with HEAD, as the tree's letters do: a file the agent created is
+# green on every line, and a change it staged keeps its bars (#749).
+run printf 'def audit(order):\n    return order.id\n' > app/audit.py
+wait A audit.py
+key Escape o
+type audit
+key Enter
+wait ▎def audit(order):
+run perl -pi -e 's/"refunded"/"refund"/' app/models.py && git add app/models.py
+key Escape o
+type app/models
+key Enter
+wait ▎    REFUNDED = "refund"

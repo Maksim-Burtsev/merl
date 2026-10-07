@@ -1,0 +1,57 @@
+wait ▎def audit(order):
+┌orders──────────────────────┐1▎def audit(order):
+│▸ .github                   │2▎    return order.id
+│▸ .venv                     │
+│▾ app                       │
+│    __init__.py             │
+│    api.py                  │
+│  A audit.py                │
+│    config.py               │
+│    models.py               │
+│    notify.py               │
+│    repos.py                │
+│    service.py              │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+app/audit.py  1:1  [code]                                                                                                                                                         ? help
+cursor (x,y,shown) 32,0,1
