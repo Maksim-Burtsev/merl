@@ -1,6 +1,3 @@
-//! PowerShell's rules (#420): names with a `-`, what `D` lists, the literals that run over lines,
-//! the paths `d` follows and the module directories.
-
 use super::*;
 
 #[test]
@@ -8,9 +5,12 @@ fn a_powershell_name_holds_its_dashes() {
     let line = "$user = get-shopuser -Id $Id";
     let word = |col| definition_word(Some(Kind::PowerShell), line, col).map(|(_, w)| w);
     assert_eq!(word(12), Some("get-shopuser"));
-    // A named argument's `-` is no part of its name, nor is the `$` of a variable.
-    assert_eq!(word(23), Some("Id"));
-    assert_eq!(word(27), Some("Id"));
+    assert_eq!(
+        word(23),
+        Some("Id"),
+        "a named argument's `-` is no part of its name"
+    );
+    assert_eq!(word(27), Some("Id"), "nor is the `$` of a variable");
 }
 
 #[test]
@@ -40,9 +40,12 @@ fn powershell_literals_run_over_lines() {
         .filter(|(_, l)| **l)
         .map(|(i, _)| i + 1)
         .collect();
-    // The help block, the here-strings' bodies; a backtick continues a line and opens nothing,
-    // and a `<#` in a comment opens nothing either.
-    assert_eq!(literal, [2, 3, 4, 6, 9]);
+    assert_eq!(
+        literal,
+        [2, 3, 4, 6, 9],
+        "the help block, the here-strings' bodies; a backtick continues a line and opens nothing, \
+         and a `<#` in a comment opens nothing either"
+    );
 }
 
 #[test]
@@ -71,12 +74,14 @@ fn u_marks_what_the_spelling_declares() {
     ));
     assert!(powershell_declares_here("$Tariff = 1", "Tariff"));
     assert!(powershell_declares_here("$env:Path = 1", "Path"));
-    // `$env:Path` is set only so: a plain `$Path` declares no environment variable.
     let mut env = powershell_patterns("Path");
     powershell_sigil(&mut env, "$env:", "");
     let env = Regex::new(&env.join("|")).unwrap();
     assert!(env.is_match("$env:Path += ':/x'"));
-    assert!(!env.is_match("$Path = 1"));
+    assert!(
+        !env.is_match("$Path = 1"),
+        "a plain `$Path` declares no environment variable"
+    );
 }
 
 #[test]
@@ -123,7 +128,6 @@ fn powershell_module_directories() {
             PathBuf::from("/usr/local/share/powershell/Modules"),
         ]
     );
-    // An empty `PSModulePath` is none, and the `Modules` beside `pwsh` is the real file's.
     let dir = std::env::temp_dir().join(format!("merl-pwsh-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("opt/7")).unwrap();
@@ -134,8 +138,11 @@ fn powershell_module_directories() {
     let real = std::fs::canonicalize(dir.join("opt/7"))
         .unwrap()
         .join("Modules");
-    assert_eq!(roots.len(), 3);
-    assert_eq!(roots[2], real);
+    assert_eq!(roots.len(), 3, "an empty `PSModulePath` is none");
+    assert_eq!(
+        roots[2], real,
+        "the `Modules` beside `pwsh` is the real file's"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 

@@ -22,15 +22,18 @@ fn ignore_case_finds_every_spelling() {
         ("a.py".into(), 12),
         ("b.go".into(), 5),
     ];
-    // `total`, `total_foobar` and Go's `Total`, whichever letters of the query are capitals:
-    // `sameCancel` typed from memory must find `SameCancel`.
     assert_eq!(lines(&grep(&dir, &files, "total", false, true)), all);
     assert_eq!(lines(&grep(&dir, &files, "Total", false, true)), all);
-    assert_eq!(lines(&grep(&dir, &files, "tOTAL", false, true)), all);
-    // `u` and `d` look for a word taken from the code: they keep its case.
+    assert_eq!(
+        lines(&grep(&dir, &files, "tOTAL", false, true)),
+        all,
+        "whichever letters of the query are capitals: `sameCancel` typed from memory finds \
+         `SameCancel`"
+    );
     assert_eq!(
         lines(&grep(&dir, &files, "Total", false, false)),
-        [("b.go".into(), 5)]
+        [("b.go".into(), 5)],
+        "`u` and `d` look for a word taken from the code: they keep its case"
     );
     assert_eq!(lines(&grep(&dir, &files, "invoice", false, false)), []);
     std::fs::remove_dir_all(&dir).unwrap();
@@ -135,7 +138,6 @@ fn tests_mocks_fixtures_and_generated_files_rank_last() {
         ("api/users.pb.go", true),
         ("api/users.gen.go", true),
         ("api/users.generated.ts", true),
-        // The near-misses: the letters are there, the pattern is not.
         ("src/contest.rs", false),
         ("latest/users.py", false),
         ("src/testimonials.py", false),
@@ -166,13 +168,15 @@ fn a_declaration_comes_first_and_the_nearest_directory_next() {
     assert_eq!(
         order.iter().map(|&(_, p)| p).collect::<Vec<_>>(),
         [
-            "src/users/repo.py",       // the declaration
-            "src/users/service.py",    // the open file
-            "src/users/repo.py",       // the same directory
-            "src/users/admin/view.py", // one below
-            "src/api/admin.py",        // one up and one down
-            "tests/test_service.py",   // a test file, whatever its distance
-        ]
+            "src/users/repo.py",
+            "src/users/service.py",
+            "src/users/repo.py",
+            "src/users/admin/view.py",
+            "src/api/admin.py",
+            "tests/test_service.py",
+        ],
+        "the declaration, the open file, the same directory, one below, one up and one down, \
+         and a test file whatever its distance"
     );
     let test = Path::new("tests/test_service.py");
     assert_eq!(
@@ -180,7 +184,87 @@ fn a_declaration_comes_first_and_the_nearest_directory_next() {
         Tier::Open,
         "the open file is never demoted, even when it is a test file itself"
     );
-    // `d` asks for the tier alone: every candidate of its own is a declaration.
-    assert_eq!(rank(test, None, true).0, Tier::Tests);
+    assert_eq!(
+        rank(test, None, true).0,
+        Tier::Tests,
+        "`d` asks for the tier alone: every candidate of its own is a declaration"
+    );
     assert_eq!(rank(here, None, true).0, Tier::Declaration);
+}
+
+#[test]
+fn a_declaration_outside_is_found_from_the_lines_kept_of_its_file() {
+    let dir = std::env::temp_dir().join(format!("merl-shaped-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let past_sniff = format!(
+        "function value() {{}}\n{}\0\nfunction value() {{}}\n",
+        "x\n".repeat(40_000)
+    );
+    let over_cap = format!(
+        "{}function value() {{}}\n",
+        "function other() {}\n".repeat(14_000)
+    );
+    let texts = [
+        (
+            "a.d.ts",
+            "export declare function value(x: number): string;\nconst value$ = 1\n  value(): void;\n  value: string;\r\n  value<\n    T,\n  >(x: T): this {\nlet values = 2;\nexport { value as other };\n  value = () => 1",
+        ),
+        (
+            "b.js",
+            "function first() {}\n\tvalue: function () {},\nfoo(value);\n",
+        ),
+        ("c.js", past_sniff.as_str()),
+        ("d.js", "\u{feff}function value() {}\n"),
+        (
+            "e.js",
+            "class X {\n  static value = async (a) => a;\n  constructor(private value: V) {}\n}\n",
+        ),
+        ("f.js", over_cap.as_str()),
+    ];
+    for (name, text) in texts {
+        std::fs::write(dir.join(name), text).unwrap();
+    }
+    let files: Vec<PathBuf> = texts.iter().map(|(n, _)| dir.join(n)).collect();
+    let rows = |hits: Vec<Hit>| -> Vec<(PathBuf, usize, usize, String)> {
+        hits.into_iter()
+            .map(|h| (h.path, h.line, h.col, h.text))
+            .collect()
+    };
+    let kept = ShapedFiles::default();
+    let mut every = def_patterns(Kind::TsJs, "value");
+    every.extend(member_or_signature(Kind::TsJs, "value").unwrap());
+    for pattern in [
+        def_patterns(Kind::TsJs, "value").join("|"),
+        member_patterns(Kind::TsJs, "value").unwrap().join("|"),
+        every.join("|"),
+    ] {
+        let shape = ts_shape("value", &pattern).expect("a pattern of `d`");
+        let plain =
+            rows(grep_project(Path::new(""), &files, &pattern, false, false, None, None).unwrap());
+        assert!(plain.len() >= 5, "{plain:?}");
+        assert_eq!(
+            rows(grep_shaped(&files, &pattern, shape, &kept).unwrap()),
+            plain
+        );
+        assert_eq!(
+            rows(grep_shaped(&files, &pattern, shape, &kept).unwrap()),
+            plain
+        );
+    }
+    assert!(
+        kept.lock().unwrap()[&dir.join("f.js")].is_none(),
+        "lines over the cap are not kept"
+    );
+    assert!(ts_shape("value", "value").is_none());
+    assert!(ts_shape("vä", &def_patterns(Kind::TsJs, "vä").join("|")).is_none());
+    std::fs::remove_file(dir.join("b.js")).unwrap();
+    let pattern = def_patterns(Kind::TsJs, "first").join("|");
+    let shape = ts_shape("first", &pattern).unwrap();
+    assert_eq!(
+        lines(&grep_shaped(&files, &pattern, shape, &kept).unwrap()),
+        [(dir.join("b.js").display().to_string(), 1)],
+        "read from the lines kept, not the disk"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
 }

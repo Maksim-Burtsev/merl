@@ -14,11 +14,6 @@ impl App {
             return;
         }
         let tiers: Vec<Tier> = ranked.iter().map(|(t, _)| *t).collect();
-        // The grep's column is the first match it calls a whole word, and to it `-` ends one: in a
-        // Makefile that is the start of `build-image-arm` for `build-image`. Every row lands on
-        // the word whole both as `u` read it under the cursor and as the row's own language reads
-        // it, the rule that listed the row (#281): `build-image` of a Makefile in a shell script,
-        // `app` of Python on `my-app app` in YAML.
         let hits = ranked
             .into_iter()
             .map(|(_, h)| {
@@ -98,9 +93,6 @@ impl App {
     /// with its tier, and whether the grep stopped at its cap: the filter below can make a cut
     /// list short, and it is still cut.
     pub(super) fn usage_hits(&self, word: &str, here: Option<&Path>) -> (Vec<(Tier, Hit)>, bool) {
-        // To grep `-` ends a word, so `db-main` also finds `db-main-2`: a hit goes when its own
-        // file's language counts that `-` as part of a word and no occurrence in the line stands
-        // whole (#281). In code `db-main-2` is a subtraction and stays.
         // A Ruby setter `name=` is called as `x.name = v`: the rows hold its bare name. On a Ruby
         // `@x` they are every `x`, as on a bare `x`, and its assignment `@x =` declares it too.
         let ivar = word.starts_with('@').then_some(word);
@@ -110,8 +102,6 @@ impl App {
             .grep(&regex::escape(text), true, false, |_| true)
             .unwrap_or_default();
         let cut = hits.len() >= search::MAX_HITS;
-        // In a review, the lines the branch deleted too (#440), where the word stands whole as the
-        // grep reads a word.
         // A word past the matcher's size limit finds none, as the grep's does.
         let deleted = self.deleted_lines();
         if !deleted.is_empty()
@@ -132,8 +122,7 @@ impl App {
             }
         });
         // What tells a declaration of the word from a use of it is `def_patterns`, and which
-        // ones apply is the hit file's own kind: one regex per kind met, built once. A Rust `let`
-        // declares its local here too, though `d` reads it by scope and never by name (#353).
+        // ones apply is the hit file's own kind: one regex per kind met, built once.
         let mut rules: HashMap<Option<Kind>, Option<Regex>> = HashMap::new();
         let objc = self.objc_file();
         // A deleted line is read in the file at the base, apart from the file on disk.
@@ -189,9 +178,6 @@ impl App {
                 (kind, declares, h)
             })
             .collect();
-        // In a Makefile `u` marks what `d` counts (#504): a recipe line declares only what
-        // `make_recipe_rule` says, and `X += …` or `release: X := 1.0` declare `X` only when no
-        // plain line among the hits does (#499).
         let mut recipe = self.make_recipe_rule(here, word);
         let make = Some(Kind::Make);
         for (kind, declares, h) in &mut marked {
@@ -217,11 +203,6 @@ impl App {
         (ranked, cut)
     }
 
-    /// A Makefile line a declaration pattern matched, as `d` and `u` both count it (#504): `None`
-    /// off a recipe, else whether it still declares `word`. `GO=$(GO) ./build.sh` in a recipe
-    /// sets a variable of one shell command (#477): it declares the word only for a shell
-    /// variable of the command under the cursor, `$${ARCH}`, and never for make's own `$(GO)`.
-    /// The file on screen is read as it is, which is what the grep matched (#505).
     pub(super) fn make_recipe_rule<'a>(
         &'a self,
         here: Option<&Path>,

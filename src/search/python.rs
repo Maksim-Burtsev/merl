@@ -178,6 +178,16 @@ pub const PYTHON_BUILTIN_TYPES: &[&str] = &[
     "memoryview",
     "slice",
 ];
+#[derive(Clone, Copy)]
+enum Scope {
+    Def(usize),
+    Module,
+}
+
+fn closes_a_wrapped_header(t: &str) -> bool {
+    t.starts_with([')', ']'])
+}
+
 pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     static DEF: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^(?:async\s+)?def\s+(\w+)\s*\(").unwrap());
@@ -195,46 +205,47 @@ pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bind
     let inline = rule(format!(
         r"\bfor\s+[^=]*?\b{n}\b[^=]*?\s+in\b|\blambda\b[^:]*\b{n}\b"
     ));
-    // A plain loop over a plain name; `async for`, a tuple target and a call are unknown.
-    let element = rule(format!(r"^for\s+{n}\s+in\s+([A-Za-z_]\w*)\s*:"));
-    // `first = repo = …`: the value is behind the last `=`, which the rules do not look for.
-    let chained = rule(format!(r"^(?:[\w.\[\]]+\s*=\s*)+{n}\s*=[^=]"));
-    // `a, repo = …` or `(a, repo) = …`, not the keyword argument of a call.
-    let tuple = Regex::new(r"^(\(?[\w\s,.*\[\]]+\)?)\s*=[^=]").unwrap();
+    let plain_loop_over_a_name = rule(format!(r"^for\s+{n}\s+in\s+([A-Za-z_]\w*)\s*:"));
+    let chained_assignment = rule(format!(r"^(?:[\w.\[\]]+\s*=\s*)+{n}\s*=[^=]"));
+    let tuple_target = Regex::new(r"^(\(?[\w\s,.*\[\]]+\)?)\s*=[^=]").unwrap();
 
-    // The functions around the cursor, innermost first; `None` is the module.
-    let mut scopes = Vec::new();
+    let mut scopes_innermost_first = Vec::new();
     let mut depth = indent(lines[at]);
     for i in (0..at).rev() {
         let t = lines[i].trim_start();
         if depth == 0 {
             break;
         }
-        // A closer at a lower indent ends a multi-line signature; its `def` is further up.
-        if t.is_empty() || t.starts_with(['#', ')', ']']) || indent(lines[i]) >= depth {
+        if t.is_empty()
+            || t.starts_with('#')
+            || closes_a_wrapped_header(t)
+            || indent(lines[i]) >= depth
+        {
             continue;
         }
         depth = indent(lines[i]);
         if DEF.is_match(t) {
-            scopes.push(Some(i));
+            scopes_innermost_first.push(Scope::Def(i));
         }
     }
-    scopes.push(None);
+    scopes_innermost_first.push(Scope::Module);
 
     let literal = literal_lines(Kind::Python, &lines.join("\n"));
     let mut out = Vec::new();
     // `super()` is the class of the method it is written in, and nothing in a function inside
     // that method, where the call has no arguments to find.
     if name == "super" {
-        if let Some(line) = scopes[0].and_then(|d| python_class_of(lines, d)) {
+        if let Scope::Def(d) = scopes_innermost_first[0]
+            && let Some(line) = python_class_of(lines, d)
+        {
             let value = Value::Class(line);
             out.push(Binding { line, value });
         }
         return out;
     }
-    for scope in scopes {
+    for scope in scopes_innermost_first {
         let (start, base) = match scope {
-            Some(d) => {
+            Scope::Def(d) => {
                 let open = lines[d].find('(').expect("a def has a parameter list");
                 let Some((params, end, _)) = group(Kind::Python, lines, d, open) else {
                     continue;
@@ -242,10 +253,9 @@ pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bind
                 python_params(lines, d, &params, name, &mut out);
                 (end + 1, Some(indent(lines[d])))
             }
-            None => (0, None),
+            Scope::Module => (0, None),
         };
-        // A nested function or class is skipped down to the lines back at its indent.
-        let mut skip: Option<usize> = None;
+        let mut nested_def_or_class_indent: Option<usize> = None;
         for (i, l) in lines.iter().enumerate().skip(start) {
             let code = uncommented(Kind::Python, l);
             let t = code.trim();
@@ -257,11 +267,11 @@ pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bind
             if base.is_some_and(|b| ind <= b) {
                 break;
             }
-            if let Some(k) = skip {
-                if ind > k || t.starts_with([')', ']']) {
+            if let Some(k) = nested_def_or_class_indent {
+                if ind > k || closes_a_wrapped_header(t) {
                     continue;
                 }
-                skip = None;
+                nested_def_or_class_indent = None;
             }
             if let Some(c) = SCOPE.captures(t) {
                 if &c[1] == name {
@@ -270,23 +280,23 @@ pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bind
                         value: Value::Unknown,
                     });
                 }
-                skip = Some(ind);
+                nested_def_or_class_indent = Some(ind);
                 continue;
             }
-            let value = if let Some(c) = element.captures(t) {
+            let value = if let Some(c) = plain_loop_over_a_name.captures(t) {
                 Some(Value::Element(c[1].to_owned()))
             } else if unknown.is_match(t) || (i == at && inline.is_match(t)) {
                 Some(Value::Unknown)
             } else {
                 for s in python_statements(t, continued(Kind::Python, lines, i)) {
-                    let value = if unknown.is_match(s) || chained.is_match(s) {
+                    let value = if unknown.is_match(s) || chained_assignment.is_match(s) {
                         Some(Value::Unknown)
                     } else if let Some(c) = annotated.captures(s) {
                         Some(Value::Type(c[1].to_owned()))
                     } else if let Some(c) = assigned.captures(s) {
                         Some(value_of(Kind::Python, &c[1]))
                     } else {
-                        tuple
+                        tuple_target
                             .captures(s)
                             .filter(|c| c[1].contains(',') && names(&c[1], name))
                             .map(|_| Value::Unknown)
@@ -301,7 +311,6 @@ pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bind
                 out.push(Binding { line: i + 1, value });
             }
         }
-        // The innermost function that binds the name is the one the cursor reads.
         if !out.is_empty() {
             break;
         }
@@ -321,17 +330,17 @@ pub(super) fn python_statements(t: &str, continues: bool) -> Vec<&str> {
         )
         .unwrap()
     });
-    // The `:` right behind a closer the line did not open ends a wrapped header; one further
-    // on is a lambda's or a slice's behind the end of a call's arguments.
-    let (mut depth, header, mut closed) = (0i32, HEADER.is_match(t), None);
+    let (mut depth, header, mut end_of_unopened_closer) = (0i32, HEADER.is_match(t), None);
     let colon = code(Kind::Python, t).find(|&(i, c)| {
         match c {
             b'(' | b'[' | b'{' => depth += 1,
-            b')' | b']' | b'}' if depth == 0 => closed = Some(i + 1),
+            b')' | b']' | b'}' if depth == 0 => end_of_unopened_closer = Some(i + 1),
             b')' | b']' | b'}' => depth -= 1,
             _ => {}
         }
-        let ends = header || closed.is_some_and(|k| k <= i && t[k..i].trim().is_empty());
+        let right_behind_unopened_closer =
+            end_of_unopened_closer.is_some_and(|k| k <= i && t[k..i].trim().is_empty());
+        let ends = header || right_behind_unopened_closer;
         c == b':' && ends && depth == 0 && !t[i + 1..].starts_with('=')
     });
     let rest = match colon {
@@ -350,7 +359,7 @@ pub(super) fn python_statements(t: &str, continues: bool) -> Vec<&str> {
 /// of the module.
 pub fn python_module_level(text: &str) -> String {
     let literal = literal_lines(Kind::Python, text);
-    let mut skip: Option<usize> = None;
+    let mut def_or_class_indent: Option<usize> = None;
     let mut out = String::new();
     for (i, l) in text.lines().enumerate() {
         let t = l.trim_start();
@@ -359,19 +368,17 @@ pub fn python_module_level(text: &str) -> String {
         if literal[i] {
             continue;
         }
-        if let Some(k) = skip {
-            // A closer at the header's indent ends a signature wrapped over several lines, and
-            // a comment at the margin ends no body.
-            if t.is_empty() || indent(l) > k || t.starts_with([')', ']', '#']) {
+        if let Some(k) = def_or_class_indent {
+            if t.is_empty() || indent(l) > k || closes_a_wrapped_header(t) || t.starts_with('#') {
                 continue;
             }
-            skip = None;
+            def_or_class_indent = None;
         }
         if ["def ", "async def ", "class "]
             .iter()
             .any(|k| t.starts_with(k))
         {
-            skip = Some(indent(l));
+            def_or_class_indent = Some(indent(l));
             continue;
         }
         out.push_str(l);
@@ -379,16 +386,22 @@ pub fn python_module_level(text: &str) -> String {
     }
     out
 }
-/// The binding of `name` among the parameters of the `def` on line `d`, on the line the parameter
-/// is written on: its annotation, the class for the first parameter of a method, else unknown.
-fn python_params(lines: &[&str], d: usize, params: &str, name: &str, out: &mut Vec<Binding>) {
+/// The binding of `name` among the parameters of the `def` on `def_line0`, on the line the
+/// parameter is written on: its annotation, the class for the first parameter of a method, else
+/// unknown.
+fn python_params(
+    lines: &[&str],
+    def_line0: usize,
+    params: &str,
+    name: &str,
+    out: &mut Vec<Binding>,
+) {
     for (i, p) in split_top(Kind::Python, params, b',')
         .into_iter()
         .enumerate()
     {
-        // The line the name is written on: a wrapped signature puts one on each (#338).
         let at = p.as_ptr() as usize - params.as_ptr() as usize + p.len() - p.trim_start().len();
-        let line = d + 1 + params[..at].matches('\n').count();
+        let line_written_on = def_line0 + 1 + params[..at].matches('\n').count();
         let head = split_top(Kind::Python, p, b'=')[0]
             .trim()
             .trim_start_matches('*');
@@ -401,18 +414,23 @@ fn python_params(lines: &[&str], d: usize, params: &str, name: &str, out: &mut V
         }
         let value = match annotation {
             Some(t) => Value::Type(t.to_owned()),
-            None if i == 0 => python_class_of(lines, d).map_or(Value::Unknown, Value::Class),
+            None if i == 0 => {
+                python_class_of(lines, def_line0).map_or(Value::Unknown, Value::Class)
+            }
             None => Value::Unknown,
         };
-        out.push(Binding { line, value });
+        out.push(Binding {
+            line: line_written_on,
+            value,
+        });
     }
 }
-/// Whether the body of the Python class that 1-based `line` sits in binds `name`: a `def`, a
-/// class or an assignment of the body's own, which a name read in that body sees before the
-/// module's and the builtins. `false` in a method, which does not see them, and outside a class.
-pub fn python_class_binds(text: &str, line: usize, name: &str) -> bool {
+/// Whether the body of the Python class that `line1` sits in binds `name`: a `def`, a class or an
+/// assignment of the body's own, which a name read in that body sees before the module's and the
+/// builtins. `false` in a method, which does not see them, and outside a class.
+pub fn python_class_binds(text: &str, line1: usize, name: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();
-    let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
         return false;
     };
     let mut depth = indent(lines[at]);
@@ -421,7 +439,11 @@ pub fn python_class_binds(text: &str, line: usize, name: &str) -> bool {
         if depth == 0 {
             break;
         }
-        if t.is_empty() || t.starts_with(['#', ')', ']']) || indent(lines[i]) >= depth {
+        if t.is_empty()
+            || t.starts_with('#')
+            || closes_a_wrapped_header(t)
+            || indent(lines[i]) >= depth
+        {
             continue;
         }
         depth = indent(lines[i]);
@@ -429,21 +451,23 @@ pub fn python_class_binds(text: &str, line: usize, name: &str) -> bool {
             return false;
         }
         if t.starts_with("class ") {
-            // The body runs down to the first code line back at the class's indent.
-            let end = (i + 1..lines.len())
+            let body_end = (i + 1..lines.len())
                 .find(|&j| {
                     let t = lines[j].trim_start();
-                    !t.is_empty() && !t.starts_with(['#', ')', ']']) && indent(lines[j]) <= depth
+                    !t.is_empty()
+                        && !t.starts_with('#')
+                        && !closes_a_wrapped_header(t)
+                        && indent(lines[j]) <= depth
                 })
                 .unwrap_or(lines.len());
-            return !python_bindings(&lines[i + 1..end], at - i - 1, name).is_empty();
+            return !python_bindings(&lines[i + 1..body_end], at - i - 1, name).is_empty();
         }
     }
     false
 }
-pub fn python_method(text: &str, line: usize) -> bool {
+pub fn python_method(text: &str, line1: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
-    let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
         return false;
     };
     let literal = literal_lines(Kind::Python, text);
@@ -459,9 +483,9 @@ pub fn python_method(text: &str, line: usize) -> bool {
         })
         .is_some_and(|i| lines[i].trim_start().starts_with("class "))
 }
-pub fn python_in_function(text: &str, line: usize) -> bool {
+pub fn python_in_function(text: &str, line1: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
-    let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
         return false;
     };
     let literal = literal_lines(Kind::Python, text);
@@ -485,9 +509,9 @@ pub fn python_in_function(text: &str, line: usize) -> bool {
     }
     false
 }
-pub fn python_overload(text: &str, line: usize) -> bool {
+pub fn python_overload(text: &str, line1: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
-    let Some(d) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
+    let Some(d) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
         return false;
     };
     lines[..d]
@@ -498,17 +522,17 @@ pub fn python_overload(text: &str, line: usize) -> bool {
         .take_while(|t| t.starts_with('@'))
         .any(|t| t == "@overload" || t == "@typing.overload")
 }
-/// The 1-based line of the class the `def` on line `d` is a method of, unless it is a
+/// The 1-based line of the class the `def` on `def_line0` is a method of, unless it is a
 /// `@staticmethod`.
-fn python_class_of(lines: &[&str], d: usize) -> Option<usize> {
-    let ind = indent(lines[d]);
+fn python_class_of(lines: &[&str], def_line0: usize) -> Option<usize> {
+    let ind = indent(lines[def_line0]);
     let mut decorators = true;
-    for i in (0..d).rev() {
+    for i in (0..def_line0).rev() {
         let t = lines[i].trim();
         if t.is_empty() || t.starts_with('#') {
             continue;
         }
-        if indent(lines[i]) < ind && !t.starts_with([')', ']']) {
+        if indent(lines[i]) < ind && !closes_a_wrapped_header(t) {
             return t.starts_with("class ").then_some(i + 1);
         }
         if decorators && indent(lines[i]) == ind && t.starts_with('@') {
@@ -521,12 +545,12 @@ fn python_class_of(lines: &[&str], d: usize) -> Option<usize> {
     }
     None
 }
-/// Whether the word at `range` of 1-based `line` names a keyword argument of a Python call:
+/// Whether the word at `range` of `line1` names a keyword argument of a Python call:
 /// `recipe_yield=…` behind a `(` or a `,`, or at the start of a line that continues a call. It
 /// names a parameter of whatever is called, and no variable of that spelling.
-pub fn keyword_argument(text: &str, line: usize, range: &std::ops::Range<usize>) -> bool {
+pub fn keyword_argument(text: &str, line1: usize, range: &std::ops::Range<usize>) -> bool {
     let lines: Vec<&str> = text.lines().collect();
-    let Some(l) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
+    let Some(l) = line1.checked_sub(1).and_then(|i| lines.get(i)) else {
         return false;
     };
     let after = l[range.end..].trim_start();
@@ -534,5 +558,5 @@ pub fn keyword_argument(text: &str, line: usize, range: &std::ops::Range<usize>)
     after.starts_with('=')
         && !after.starts_with("==")
         && (before.ends_with(['(', ','])
-            || (before.is_empty() && continued(Kind::Python, &lines, line - 1)))
+            || (before.is_empty() && continued(Kind::Python, &lines, line1 - 1)))
 }

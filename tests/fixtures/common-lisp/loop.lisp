@@ -4,4 +4,10 @@
 (defun shop-lines (data)
   (loop for line in data
         collect (first line)))
-;                      ^ d: loop.lisp:3; want loop.lisp:5 (#734)
+;                      ^ d: loop.lisp:5
+(defun shop-pairs (pairs)
+  (loop for (key value) in pairs
+        with total = 0
+        collect (list value total)))
+;                     ^ d: loop.lisp:9
+;                           ^ d: loop.lisp:10
