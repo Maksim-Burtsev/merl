@@ -141,7 +141,11 @@ impl App {
             if !found.is_empty() {
                 return found;
             }
-            let (supers, includes, extends) = self.ruby_parents(here, &c);
+            let search::RubyParents {
+                superclasses: supers,
+                includes,
+                extends,
+            } = self.ruby_parents(here, &c);
             let mixed = match side {
                 true => extends,
                 false => includes,
@@ -162,15 +166,14 @@ impl App {
         Vec::new()
     }
 
-    /// The superclasses, `include`d and `extend`ed modules of the Ruby class or module `path`, as
-    /// written, over every file of the project that opens it.
-    fn ruby_parents(&self, here: &Path, path: &str) -> (Vec<String>, Vec<String>, Vec<String>) {
-        let mut out = (Vec::new(), Vec::new(), Vec::new());
+    /// What the Ruby class or module `path` inherits over every file of the project that opens it.
+    fn ruby_parents(&self, here: &Path, path: &str) -> search::RubyParents {
+        let mut out = search::RubyParents::default();
         for (h, t) in self.ruby_declarations(here, path) {
-            let (s, i, e) = search::ruby_class_parents(&t, h.line);
-            out.0.extend(s);
-            out.1.extend(i);
-            out.2.extend(e);
+            let one = search::ruby_class_parents(&t, h.line);
+            out.superclasses.extend(one.superclasses);
+            out.includes.extend(one.includes);
+            out.extends.extend(one.extends);
         }
         out
     }
@@ -255,7 +258,11 @@ impl App {
             if !found.is_empty() {
                 return found;
             }
-            let (supers, includes, _) = self.ruby_parents(here, &c);
+            let search::RubyParents {
+                superclasses: supers,
+                includes,
+                ..
+            } = self.ruby_parents(here, &c);
             for name in includes.into_iter().chain(supers) {
                 let paths = self.ruby_resolve(here, &name);
                 unread |= paths.is_empty();
