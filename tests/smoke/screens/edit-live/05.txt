@@ -1,4 +1,4 @@
-wait app/service.py  32:1  [code]
+wait 32             raise ValueError(f"order {order_id} is
  9
 10
 11 class OrderService:
