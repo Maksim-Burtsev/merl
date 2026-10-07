@@ -445,15 +445,9 @@ pub fn qualifier(line: &str, word_start: usize) -> Vec<String> {
 }
 /// The line a member access reads as when prettier has broken it in front of its dots (#100):
 /// `return this.db` over `  .selectFrom(` is `return this.db.selectFrom(`, and a PHP chain
-/// broken in front of its arrows, `$query` over `    ->where(` (#348). Gives the lines joined,
-/// without their comments, and where the word that starts at byte `word_start` of line `at`
-/// stands in them; `None` for a line that does not start with a dot or an arrow.
-pub fn unbroken(
-    kind: Kind,
-    lines: &[String],
-    at: usize,
-    word_start: usize,
-) -> Option<(String, usize)> {
+/// broken in front of its arrows, `$query` over `    ->where(` (#348), without their comments.
+/// `None` for a line that does not start with a dot or an arrow.
+pub fn unbroken(kind: Kind, lines: &[String], at: usize, word_start: usize) -> Option<LineAsRead> {
     let led = |l: &str| {
         let t = l.trim_start();
         match kind {
@@ -481,25 +475,40 @@ pub fn unbroken(
         start += code.len();
         joined.insert_str(0, code);
         if !led(code) {
-            return Some((joined, start));
+            return Some(LineAsRead {
+                line: joined,
+                word_start: start,
+            });
         }
     }
     None
 }
+#[derive(Debug, PartialEq)]
+pub struct LineAsRead {
+    pub line: String,
+    pub word_start: usize,
+}
 /// A TypeScript or Swift line with `a?.b` and `a!.b` in front of byte `start` written as the plain `a.b`
-/// they are for a member lookup (#100), and where `start` stands in it. A PHP line likewise with
-/// its `->` and `?->` as `.` (#348), and its own `.`, which concatenates, as a space: `$a.foo()`
-/// calls the function `foo`.
-pub fn plain_access(kind: Kind, line: &str, start: usize) -> (String, usize) {
+/// they are for a member lookup (#100). A PHP line likewise with its `->` and `?->` as `.`
+/// (#348), and its own `.`, which concatenates, as a space: `$a.foo()` calls the function `foo`.
+pub fn plain_access(kind: Kind, line: &str, start: usize) -> LineAsRead {
     let before = match kind {
         Kind::TsJs | Kind::Swift => line[..start].replace("?.", ".").replace("!.", "."),
         Kind::Php => line[..start]
             .replace('.', " ")
             .replace("?->", ".")
             .replace("->", "."),
-        _ => return (line.to_owned(), start),
+        _ => {
+            return LineAsRead {
+                line: line.to_owned(),
+                word_start: start,
+            };
+        }
     };
-    (format!("{before}{}", &line[start..]), before.len())
+    LineAsRead {
+        line: format!("{before}{}", &line[start..]),
+        word_start: before.len(),
+    }
 }
 /// The call a member access hangs off, where [`qualifier`] has no name to start from:
 /// `pkg.New(x).word`, `make_uow().users.word`, `new Repo().word`, or the cast: `(x as T).word`,
