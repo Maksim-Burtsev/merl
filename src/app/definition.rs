@@ -298,7 +298,8 @@ impl App {
             return;
         }
         if kind == Kind::Clojure
-            && let Some(found) = self.clojure_qualified(&text, before, &word)
+            && let Some(found) =
+                self.clojure_qualified(&text, before, &word, &self.line_str()[range.end..])
         {
             self.show_definitions(kind, &word, &here, found, None);
             return;
@@ -357,10 +358,7 @@ impl App {
         let locals_at = |text: &str, line: usize| -> Vec<usize> {
             let binding: Vec<usize> = match declared {
                 true => vec![self.line + 1],
-                false => search::bindings(kind, text, line, first)
-                    .iter()
-                    .map(|b| b.line)
-                    .collect(),
+                false => self.binding_lines(kind, text, line, range.start, chain.is_empty(), first),
             };
             binding
                 .into_iter()
@@ -1588,10 +1586,8 @@ impl App {
                 .filter(|p| kind != Kind::TsJs || search::declaration_file(p))
                 .cloned()
                 .collect();
-            let (external, field) = match kind {
-                Kind::Python => self.python_members(&files, &imports, members, &word),
-                _ => (self.external_grep(kind, &files, members), false),
-            };
+            let (external, field) =
+                self.outside_members(kind, &all, &files, &imports, members, &word);
             if found.is_empty() && external.len() == 1 && field {
                 self.truncated.set(true);
             }

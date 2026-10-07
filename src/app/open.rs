@@ -51,6 +51,7 @@ impl App {
                         }
                     }
                     self.undo_break = true;
+                    self.edit_kind = edit::Kind::Other;
                     self.anchor = None;
                     self.preview = None;
                     let rel = path.strip_prefix(&self.root).ok();
@@ -158,9 +159,8 @@ impl App {
         let file = rel.and_then(|rel| r.file(rel));
         self.diff = match file {
             Some(f) if f.status == 'D' => git::Diff {
-                // A deleted file is all ghost: every line marked, nothing to step through.
                 marks: (0..self.buf.lines.len())
-                    .map(|l| (l, git::Mark::DeletedBelow))
+                    .map(|l| (l, git::Mark::Deleted))
                     .collect(),
                 ..Default::default()
             },
@@ -282,6 +282,7 @@ impl App {
                 .extend(reload_step(&old.lines, old.format(), &self.buf));
         }
         self.undo_break = true;
+        self.edit_kind = edit::Kind::Other;
         self.refresh_diff();
         if let Some(reading) = reading {
             self.find_deleted_again(reading);

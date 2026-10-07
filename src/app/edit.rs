@@ -2,6 +2,25 @@
 
 use super::*;
 
+#[derive(Clone, Copy, PartialEq)]
+pub(super) enum Kind {
+    Other,
+    Typing,
+    FirstSpace,
+    Spaces,
+    DeletingLeft,
+    DeletingRight,
+}
+
+impl Kind {
+    fn spaces(self) -> Self {
+        match self {
+            Kind::FirstSpace => Kind::Spaces,
+            k => k,
+        }
+    }
+}
+
 impl App {
     /// Enter in the code pane: the cursor becomes a text cursor.
     pub(super) fn start_edit(&mut self) {
@@ -114,7 +133,7 @@ impl App {
                 let last = self.selection().is_none() && self.line + 1 == self.buf.lines.len();
                 let (from, to) = self.copy();
                 let want = self.want_x;
-                if code == KeyCode::Char('x') && self.replace(from, to, "") && last {
+                if code == KeyCode::Char('x') && self.replace(from, to, "", Kind::Other) && last {
                     // The last line cut: the cursor goes up onto the line above, aiming at the
                     // column it had; redo lands there too.
                     self.want_x = want;
@@ -122,11 +141,11 @@ impl App {
                     self.undo.last_mut().unwrap().after = (self.line, self.col);
                 }
             }
-            KeyCode::Char(c) if !ctrl => self.insert(&c.to_string()),
+            KeyCode::Char(c) if !ctrl => self.insert(&c.to_string(), Kind::Typing),
             KeyCode::Enter => {
                 let head = &self.line_str()[..self.col];
                 let indent = &head[..head.len() - head.trim_start().len()];
-                self.insert(&format!("\n{indent}"));
+                self.insert(&format!("\n{indent}"), Kind::Typing);
             }
             KeyCode::Tab => {
                 let indent = if self.buf.tabs { "\t" } else { buffer::TAB };
@@ -134,10 +153,16 @@ impl App {
                     // Over lines Tab indents them, as in VS Code; over a piece of one line it
                     // is typed in place of it, as any other letter is.
                     Some((from, to)) if to.0 > from.0 => self.indent(from, to, indent),
-                    _ => self.insert(indent),
+                    _ => self.insert(indent, Kind::Other),
                 }
             }
-            KeyCode::Backspace | KeyCode::Delete if self.selection().is_some() => self.insert(""),
+            KeyCode::Backspace | KeyCode::Delete if self.selection().is_some() => {
+                let kind = match code {
+                    KeyCode::Backspace => Kind::DeletingLeft,
+                    _ => Kind::DeletingRight,
+                };
+                self.insert("", kind);
+            }
             // Option+Backspace / Option+Delete: up to where Alt+Left / Right would land.
             KeyCode::Backspace | KeyCode::Delete if alt => {
                 let (at, want) = ((self.line, self.col), self.want_x);
@@ -152,9 +177,7 @@ impl App {
                 // column Up / Down aim at stays too (#455).
                 self.go(at);
                 self.want_x = want;
-                self.undo_break = true;
-                self.replace(at.min(to), at.max(to), "");
-                self.undo_break = true;
+                self.replace(at.min(to), at.max(to), "", Kind::Other);
             }
             KeyCode::Backspace => {
                 let from = if self.col > 0 {
@@ -164,7 +187,7 @@ impl App {
                 } else {
                     return true;
                 };
-                self.replace(from, (self.line, self.col), "");
+                self.replace(from, (self.line, self.col), "", Kind::DeletingLeft);
             }
             KeyCode::Delete => {
                 let to = if self.col < self.line_str().len() {
@@ -174,7 +197,7 @@ impl App {
                 } else {
                     return true;
                 };
-                self.replace((self.line, self.col), to, "");
+                self.replace((self.line, self.col), to, "", Kind::DeletingRight);
             }
             _ => return false,
         }
@@ -182,11 +205,11 @@ impl App {
     }
 
     /// Inserts `text` at the cursor, or in place of the selection; a `\n` in it splits the line.
-    fn insert(&mut self, text: &str) {
+    fn insert(&mut self, text: &str, kind: Kind) {
         let (from, to) = self
             .file_selection()
             .unwrap_or(((self.line, self.col), (self.line, self.col)));
-        self.replace(from, to, text);
+        self.replace(from, to, text, kind);
     }
 
     /// Tab over a selection of more than one line: one indent at the start of every line the
@@ -201,11 +224,7 @@ impl App {
         let (anchor, cursor) = (self.anchor, (self.line, self.col));
         let anchor = anchor.map(|(t, c)| (t.key(), c));
         let end = (last, self.buf.lines[last].len());
-        // One step of its own: not merged into the typing before it, and not extended by the
-        // typing after it.
-        self.undo_break = true;
-        let indented = self.replace((from.0, 0), end, &text);
-        self.undo_break = true;
+        let indented = self.replace((from.0, 0), end, &text, Kind::Other);
         // The selection keeps the text it had. A position at the start of a line stays there,
         // so the lines stay whole and a second Tab indents the same ones again.
         let moved = |(l, c): (usize, usize)| match (from.0..=last).contains(&l) && c > 0 {
@@ -226,7 +245,7 @@ impl App {
         if self.mode == Mode::Edit && self.on_deleted() {
             self.message = "deleted".into();
         } else if self.mode == Mode::Edit {
-            self.insert(&text);
+            self.insert(&text, Kind::Other);
         } else if let Some(picker) = &mut self.picker {
             if let Pick::Typed = picker.paste(line) {
                 self.search_typed();
@@ -245,12 +264,16 @@ impl App {
         }
     }
 
-    /// The one way the text changes: what lies between `from` and `to` (ordered (line, col))
-    /// becomes `text`, and the cursor lands after it. Recorded for undo; typing that carries
-    /// on where the previous step ended extends that step, as VS Code groups keystrokes. Refused,
-    /// with the reason in the status bar, where `locked` says the text cannot change; returns
-    /// whether the text changed, which a caller that moves the cursor itself has to know.
-    fn replace(&mut self, from: (usize, usize), to: (usize, usize), text: &str) -> bool {
+    fn replace(
+        &mut self,
+        from: (usize, usize),
+        to: (usize, usize),
+        text: &str,
+        kind: Kind,
+    ) -> bool {
+        if kind == Kind::Other {
+            self.undo_break = true;
+        }
         if self.deleted.is_some() {
             self.message = "deleted".into();
             return false;
@@ -284,18 +307,31 @@ impl App {
             after: (self.line, self.col),
             format: None,
         };
-        let continues = !self.undo_break
-            && self.undo.last().is_some_and(|e| {
-                e.after == before && e.new.len() == 1 && edit.old.len() == 1 && edit.new.len() == 1
-            });
-        if continues {
-            let last = self.undo.last_mut().unwrap();
-            last.new = edit.new;
-            last.after = edit.after;
-        } else {
-            self.undo.push(edit);
+        let prev = self.edit_kind;
+        let kind = match kind {
+            Kind::Typing if text == " " && prev.spaces() == Kind::Spaces => Kind::Spaces,
+            Kind::Typing if text == " " => Kind::FirstSpace,
+            k => k,
+        };
+        let stops = match kind {
+            Kind::DeletingLeft | Kind::DeletingRight => prev != kind || from.0 != to.0,
+            _ if text.contains('\n') => true,
+            _ => prev != Kind::FirstSpace && prev.spaces() != kind.spaces(),
+        };
+        match self.undo.last_mut() {
+            Some(last)
+                if !stops
+                    && !self.undo_break
+                    && last.after == before
+                    && edit.line <= last.line + last.new.len()
+                    && last.line <= edit.line + edit.old.len() =>
+            {
+                last.merge(edit)
+            }
+            _ => self.undo.push(edit),
         }
-        self.undo_break = false;
+        self.undo_break = kind == Kind::Other;
+        self.edit_kind = kind;
         self.redo.clear();
         self.touched(from.0);
         true
@@ -327,6 +363,7 @@ impl App {
         }
         self.touched(edit.line);
         self.undo_break = true;
+        self.edit_kind = Kind::Other;
         // A reload to what no save can write back as it came (binary, not UTF-8, mixed line
         // endings) is not redone: it would be an edit left on screen for good.
         if back && edit.format.is_some_and(|(_, is)| is.readonly.is_some()) {
@@ -371,6 +408,9 @@ impl App {
         let bytes = self.buf.to_bytes();
         match std::fs::write(path, &bytes) {
             Ok(()) => {
+                if let Ok(mut kept) = self.shaped.lock() {
+                    kept.remove(path);
+                }
                 self.buf.disk = buffer::hash(&bytes);
                 self.dirty = false;
                 self.conflict = false;
@@ -403,5 +443,23 @@ impl App {
         }
         self.save();
         true
+    }
+}
+
+impl Edit {
+    fn merge(&mut self, next: Edit) {
+        let (a1, b1) = (self.line, self.line + self.new.len());
+        let (a2, b2) = (next.line, next.line + next.old.len());
+        let lo = a1.min(a2);
+        let between: Vec<String> = (lo..b1.max(b2))
+            .map(|i| match (a1..b1).contains(&i) {
+                true => self.new[i - a1].clone(),
+                false => next.old[i - a2].clone(),
+            })
+            .collect();
+        self.old = [&between[..a1 - lo], &self.old, &between[b1 - lo..]].concat();
+        self.new = [&between[..a2 - lo], &next.new, &between[b2 - lo..]].concat();
+        self.line = lo;
+        self.after = next.after;
     }
 }

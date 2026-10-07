@@ -1,5 +1,3 @@
-//! The tests, following the code they cover.
-
 use super::definition::resolution;
 use super::open::carried;
 use super::*;
@@ -34,6 +32,7 @@ mod navigate_receiver;
 mod navigate_ruby;
 mod navigate_rust;
 mod navigate_syntax;
+mod navigate_ts_deps;
 mod nix;
 mod no_panic;
 mod open;

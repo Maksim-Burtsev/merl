@@ -30,8 +30,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Line numbers and the `‹` `›` `…` marks read at 3:1 on the background in every theme: a theme
+  whose own gutter colour is fainter has it lightened (darkened in a light theme) in its own hue
+  until it gets there, never past the theme's comments. 50 of the 94 themes change, the default
+  among them (1.3:1 before); the rest draw as before. (#555)
+- `d` outside the project in JavaScript and TypeScript lists a declaration once when another
+  package keeps a copy of its own: a line of the copy of `typescript` another package keeps is no
+  longer listed beside the same line of the copy Node loads from the open file. A member is
+  looked for in the packages the file imports before every installed one, so its picker lists
+  those alone. (#318)
+- `c` and `C` in `--review` stand on the first line a hunk added, where they stood on the first
+  line it deleted: on a hunk that rewrites code, the cursor is on the new code, the old code
+  above it, a key Up away. A hunk that only deletes still stands on its first deleted line.
+  (#690)
 - `v` grows on to the whole file: a fourth press, after the word, the line and the paragraph,
   selects every line of the file, the cursor at its end; Ctrl+C then copies it all. (#635)
+- Shift+PgUp / Shift+PgDn, Shift+Home / Shift+End and Ctrl+Shift+Home / Ctrl+Shift+End extend
+  the selection over everything the cursor passes, as Shift with an arrow does, where they moved
+  the cursor and dropped the selection; the same moves without Shift drop it, as in VS Code.
+  (#687)
+- The lists of `u`, `s` and `d`'s choices name a file once, above its rows, and each row shows
+  the line number and the code: `polar/license_key/endpoints.py` over `242  license_key = await …`
+  instead of the path repeated on every row. A row still too wide for the list wraps under its
+  code instead of stopping at the border mid-word. `u` no longer writes `declaration` before
+  its first rows: the title counts them. With the tree open and the code at least 80 columns
+  wide, every list sits over the code instead of over the tree, its text where the code starts. (#479)
+- The first `d` that leaves the project no longer waits for the walk of the standard library and
+  the dependencies (about 0.9 s for Rust): merl walks them in the background once a file of that
+  language opens. Rust's standard library is read without its tests and benches. (#318)
+- A `d` in JavaScript or TypeScript that searches the dependencies by name no longer reads all of
+  `node_modules` again on every press: the lines of each file that could declare something are
+  kept after the first. On eslint, 9 in 10 presses take under 160 ms, where they took up to
+  400 ms. (#318)
 - `d` in TypeScript and JavaScript reads the type of a receiver in five more places. In
   `function Row({ apiKey }: Props)` `apiKey.id` lands on the `id` its `Props` field's type
   declares, as `auth.user` does after `const { auth } = useStores()`, `membership.permission`
@@ -45,9 +75,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `__init__.py`, a pure rename, a mode change), and the review opens on one when it comes first,
   a deleted one too; `c` ticks it when it leaves it, as any other file. Only binary files and
   submodules, which merl cannot show, are still walked past. (#715, #720)
+- `/` and `s` open with the selected text as the query when the selection is within one line,
+  already searched and selected so typing replaces it; without a selection, or with one over
+  several lines, they open as before. (#410)
+- Undo steps close as in VS Code: a cursor move ends the step, so typing after the cursor went
+  away and came back is undone on its own; so does a switch between typing and deleting, and a
+  space typed after a word starts one. A cut, a paste and Tab are steps of their own; Enter starts
+  a step that the typing after it joins. (#478)
 
 ### Fixed
 
+- `d` on a Java or Groovy call lands on the right overload when a parameter's annotation or
+  default value holds a comparison: the `<` of `@Max(LOW < HIGH ? 1 : 2)` or of
+  `boolean fast = pace<1` no longer hides the parameters after it. (#700)
 - `d` in PHP on a relative namespace segment in a file of several `namespace` blocks, `Legacy` in
   `Legacy\Entry::OPEN`, reads it in the block it stands in. It read it in the file's first block
   and said `no definition`. (#617)
@@ -55,6 +95,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `const` of the script above, `theme` in `{{ settings.theme }}` under `v-for="settings in
   rows"`, no longer jumps to the key of the script's `const settings = { theme }`: the item is
   another value, and `d` searches the member by name. (#618)
+- Ctrl+Shift+D no longer opens the symbols list, as `D` does, in Ghostty, kitty and WezTerm:
+  a Ctrl chord with Shift is never read as the bare letter, and one merl does not bind does
+  nothing. (#688)
+- In `--review`, a file the branch deleted draws the red `▎` of a deleted line on every line,
+  where it drew the `▁` that marks lines deleted below one. (#642)
+- `d` on `Shuttle` in a Groovy `new Shuttle(m)` lands on `Shuttle(@Named("cfg") Map<K, V> m)`
+  instead of offering a picker with `Shuttle(String s, int n)`: an annotation with arguments no
+  longer hides the commas of a generic type, or a default value, behind it. (#679)
+- `d` in Clojure on the alias before `/`, `version` in `(version/in-range? v version)`, lands on
+  `in-range?` in the namespace the `ns` form requires under that name, or on the namespace's file
+  when it does not define it. It jumped to a local `version` in scope, or said `no definition`.
+  (#735)
+- `d` in Common Lisp on a variable `loop` binds, `line` of `(loop for line in data …)`, lands
+  on its `for`, `as` or `with` clause, a destructuring `for (key value) in …` included, where it
+  jumped to a global of the same name or said `no definition`. (#734)
+- `d` in Emacs Lisp on a variable bound earlier in the same `when-let*`, `if-let*`, `and-let*`,
+  `pcase-let*` or `let*` list, `limit` in `(when-let* ((limit limit) (limit (* 2 limit))) …)`,
+  lands on the binding just above it, where it jumped to an outer `let` of the same name. A
+  binding's own value still reads the one outside it. (#731)
+- `d` in Racket on a variable of a named `let`, `(let loop ([xs xs] [n 0]) …)`, or on a name an
+  `inherit`, `inherit-field`, `init-field` or `field` clause of the class around binds, lands on
+  that binding, where it jumped to a namesake elsewhere in the project. (#733)
+- `d` in an R7RS project (chibi-scheme) on a parameter of an `opt-lambda` lands on it; a
+  definition in a `cond-expand` branch other than the one that includes the file is no longer
+  jumped to; and a `.scm` or `.sld` file no longer searches Racket's collections, where `d`
+  offered their files. (#732)
 
 ## [0.8.2] - 2026-10-04
 
@@ -335,12 +401,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- The lists of `u`, `s` and `d`'s choices name a file once, above its rows, and each row shows
-  the line number and the code: `polar/license_key/endpoints.py` over `242  license_key = await …`
-  instead of the path repeated on every row. A row still too wide for the list wraps under its
-  code instead of stopping at the border mid-word. `u` no longer writes `declaration` before
-  its first rows: the title counts them. With the tree open and the code at least 80 columns
-  wide, every list sits over the code instead of over the tree, its text where the code starts. (#479)
 - The `?` overlay on a screen narrower than 118 columns wraps an action too long for its row
   onto the next row, under its own column, instead of cutting it at the border (#458).
 - `d` in Python reads a dependency's modules as Python imports them (#329). `pytest.fixture` lands

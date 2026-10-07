@@ -1,6 +1,5 @@
 use super::*;
 
-/// The rows of the Go section of #100, each on the `go` fixture.
 fn go_rows(cases: Vec<(&str, &str, &str, Shown)>) {
     for (name, file, code, want) in cases {
         let mut a = fixture_app("go");
@@ -14,8 +13,6 @@ const BOTH_DELETE_USER: [(&str, &str); 2] = [
     ("AuditLog.DeleteUser", "repos.go:21"),
 ];
 
-/// #100. A Go name no scope of the file declares is the package's: a `var` of another file,
-/// of a `var (` block, or below the cursor. A local of the name hides it, readable or not.
 #[test]
 fn a_go_package_level_name_is_read_in_every_file_of_the_package() {
     let repo = |via: &str| {
@@ -133,8 +130,6 @@ fn a_go_package_level_name_is_read_in_every_file_of_the_package() {
     ]);
 }
 
-/// #100. Go's `type X = Y` is followed to `Y`, through a second alias and into another
-/// package; `type X Y` declares a type with methods of its own.
 #[test]
 fn a_go_alias_is_the_type_it_names() {
     go_rows(vec![
@@ -210,10 +205,6 @@ fn a_go_alias_is_the_type_it_names() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #100. A Go type declared once per platform (`clock_windows.go` beside a
-/// `//go:build !windows` file) is the one the host builds, and one declared under a tag of
-/// the project's own is the one a plain `go build` compiles, or the one `-tags` asks for
-/// (#137). From inside a file that is not built nothing is preferred.
 #[test]
 fn a_go_declaration_per_platform_is_the_hosts() {
     let (mine, other) = match cfg!(windows) {
@@ -324,8 +315,6 @@ fn a_go_declaration_per_platform_is_the_hosts() {
         ),
         "`GOFLAGS=-tags=fast` builds the other one"
     );
-    // Asked from inside the file the host does not build, a method per platform is both;
-    // and where no declaration is built (`gate_windows.go`, `gate_plan9.go`), all stay.
     if !cfg!(windows) {
         let mut a = fixture_app("go");
         d_on(&mut a, "platform/timer_windows.go", "t.Tick");
@@ -338,7 +327,8 @@ fn a_go_declaration_per_platform_is_the_hosts() {
                     row("platform/timer_windows.go:3"),
                     row("platform/timer_other.go:5")
                 ],
-            )
+            ),
+            "asked from inside the file the host does not build, a method per platform is both"
         );
         d_on(&mut a, "platforms_gate.go", "gate.Lift");
         assert_eq!(
@@ -348,7 +338,8 @@ fn a_go_declaration_per_platform_is_the_hosts() {
                 "Gate.Lift",
                 "platform/gate_plan9.go:5",
                 "platform/gate_windows.go:6",
-            )
+            ),
+            "where no declaration is built (`gate_windows.go`, `gate_plan9.go`), all stay"
         );
         d_on(&mut a, "platforms_gate.go", "platform.NewGate");
         assert_eq!(a.message, "NewGate: via import platform/, 2 declarations");
@@ -367,9 +358,6 @@ fn a_go_declaration_per_platform_is_the_hosts() {
     }
 }
 
-/// #100. `d` on a Go package qualifier is the import line of the open file. A local of the
-/// name is the local, and a name the package declares itself is not the import its path
-/// happens to spell.
 #[test]
 fn a_go_package_qualifier_is_its_import_line() {
     go_rows(vec![
@@ -436,8 +424,6 @@ fn a_go_package_qualifier_is_its_import_line() {
     ]);
 }
 
-/// #100. A named result or a parameter of a Go function is named after the function, as a
-/// local of its body is: `Reload.err`, not `UserRepository.err`, which would be a field.
 #[test]
 fn a_go_named_result_is_named_after_its_function() {
     go_rows(vec![
@@ -468,11 +454,6 @@ fn a_go_named_result_is_named_after_its_function() {
     ]);
 }
 
-/// Step 6 of #68 over the same project in three languages: on the declaration of a member of
-/// an interface, a protocol, an abstract or a base class, `d` offers what implements it,
-/// labelled with the member it comes from. A type that inherits the member without declaring
-/// it, a member of another number of parameters and a declaration nothing implements are left
-/// out, and the last of those falls back to the search by name.
 #[test]
 fn implementations_are_offered_on_the_declaration_they_implement() {
     let impls = |status: &str, member: &str, rows: &[(&str, &str)]| {
@@ -485,7 +466,7 @@ fn implementations_are_offered_on_the_declaration_they_implement() {
     };
     let cases: [(&str, &str, &str, &str, Shown); 9] = [
         (
-            "A base class: the subclasses that override it, `NightlyJob` two levels down. `QuietJob` inherits `run` without declaring it and is no implementation",
+            "A base class: the subclasses that override it, `NightlyJob` two levels down. `QuietJob` inherits `run` without declaring it and is no implementation. `WrappedJob`: a header black wrapped, one base to a line, and a class below it; `Roster` has a `BaseJob,` line too, an argument of a call",
             "python",
             "impls.py",
             "def run",
@@ -495,8 +476,6 @@ fn implementations_are_offered_on_the_declaration_they_implement() {
                 &[
                     ("ImportJob.run", "impls.py:10"),
                     ("ExportJob.run", "impls.py:15"),
-                    // A header black wrapped, one base to a line (#100), and a class
-                    // below it. `Roster` has a `BaseJob,` line too, an argument of a call.
                     ("WrappedJob.run", "impls.py:57"),
                     ("NightlyJob.run", "impls.py:24"),
                     ("DeepJob.run", "impls.py:81"),
@@ -520,7 +499,7 @@ fn implementations_are_offered_on_the_declaration_they_implement() {
             ),
         ),
         (
-            "",
+            "A header prettier wrapped over three lines is read all the same",
             "typescript",
             "impls.ts",
             "^  run",
@@ -530,7 +509,6 @@ fn implementations_are_offered_on_the_declaration_they_implement() {
                 &[
                     ("ImportJob.run", "impls.ts:8"),
                     ("ExportJob.run", "impls.ts:12"),
-                    // A header prettier wrapped over three lines is read all the same.
                     ("WrappedJob.run", "impls.ts:39"),
                     ("NightlyJob.run", "impls.ts:18"),
                 ],
@@ -622,9 +600,6 @@ fn implementations_are_offered_on_the_declaration_they_implement() {
     }
 }
 
-/// #517. Implementations answer only on the name a member's line declares: another occurrence
-/// of the word on that line, a namesake its one-line body calls, a parameter or a type its
-/// signature names, is looked up as on any other line.
 #[test]
 fn implementations_answer_only_on_the_declared_name() {
     let (dir, mut a) = project_app(
@@ -645,9 +620,9 @@ fn implementations_answer_only_on_the_declared_name() {
             ),
         ],
     );
-    // Off the declared name, the search by name answers, as on a line nothing implements.
     let cases = [
         (
+            "",
             "jobs.py",
             "def run",
             "return run",
@@ -657,6 +632,7 @@ fn implementations_answer_only_on_the_declared_name() {
             ),
         ),
         (
+            "",
             "jobs.ts",
             "^  run",
             "(run",
@@ -666,24 +642,24 @@ fn implementations_answer_only_on_the_declared_name() {
             ),
         ),
         (
+            "a parameter's type is looked up as a type",
             "jobs.go",
             "\tSend",
             "(msg Send",
-            // A parameter's type is looked up as a type (#536).
             jump("Send: by name, 1 match", "jobs.go:3"),
         ),
         (
+            "with no type of that name, the namesakes are offered",
             "jobs.go",
             "\tWave",
             "(w Wave",
-            // With no type of that name, the namesakes are offered, as before #536.
             picker(
                 "Wave: at a declaration, 1 other by name",
                 &[("Email.Wave", "jobs.go:14")],
             ),
         ),
     ];
-    for (file, declared, other, want) in cases {
+    for (name, file, declared, other, want) in cases {
         d_on(&mut a, file, declared);
         assert!(
             a.message.contains("implementations of"),
@@ -691,14 +667,15 @@ fn implementations_answer_only_on_the_declared_name() {
             a.message
         );
         d_on(&mut a, file, other);
-        assert_eq!(shown(&mut a), want, "{file}: {other}");
+        assert_eq!(
+            shown(&mut a),
+            want,
+            "{name}: {file}: {other}: off the declared name, the search by name answers, as on a line nothing implements"
+        );
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// The two presses #68 step 6 is reached by: `d` on a call of an interface method lands on
-/// the declaration with the cursor on its name, and a second `d` there lists what implements
-/// it. A jump that left the cursor at the start of the line would answer nothing.
 #[test]
 fn a_second_d_on_the_declaration_a_jump_landed_on_lists_the_implementations() {
     let mut a = fixture_app("python");
@@ -708,7 +685,11 @@ fn a_second_d_on_the_declaration_a_jump_landed_on_lists_the_implementations() {
         "send \u{2192} Notifier.send (via self.notifier: Notifier)"
     );
     assert_eq!(format!("{}:{}", a.rel_path(), a.line + 1), "repos.py:18");
-    assert_eq!(&a.line_str()[a.col..a.col + 4], "send", "on the word");
+    assert_eq!(
+        &a.line_str()[a.col..a.col + 4],
+        "send",
+        "on the word: a jump that left the cursor at the start of the line would answer nothing"
+    );
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
     assert_eq!(
         a.message,
@@ -716,8 +697,6 @@ fn a_second_d_on_the_declaration_a_jump_landed_on_lists_the_implementations() {
     );
 }
 
-/// #325. A Go raw string has no escapes, so a backslash before its closing backtick is a
-/// backslash: the declarations after `` `\` ``, `` `C:\` `` and `` `{\\\}\\\\` `` are found.
 #[test]
 fn a_go_raw_string_ending_in_a_backslash_ends_there() {
     let (dir, mut a) = project_app(
@@ -769,8 +748,6 @@ fn a_go_raw_string_ending_in_a_backslash_ends_there() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #476. Go's blank identifier names nothing: `d` on `_` says so without a search, and jumps to
-/// no earlier `_`. In Python `_` is a name like any other and is still found.
 #[test]
 fn the_go_blank_identifier_has_no_definition() {
     let (dir, mut a) = project_app(
@@ -787,15 +764,20 @@ fn the_go_blank_identifier_has_no_definition() {
     a.external
         .insert(Kind::Go, (Vec::new(), Arc::new(Vec::new())));
     d_on(&mut a, "main.go", "\t_|, b");
-    assert_eq!(shown(&mut a), jump("no definition for _", "main.go:7"));
+    assert_eq!(
+        shown(&mut a),
+        jump("no definition for _", "main.go:7"),
+        "says so without a search, and jumps to no earlier `_`"
+    );
     d_on(&mut a, "tr.py", "print(_");
-    assert_eq!(shown(&mut a), jump("_: local", "tr.py:1"));
+    assert_eq!(
+        shown(&mut a),
+        jump("_: local", "tr.py:1"),
+        "in Python `_` is a name like any other and is still found"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #326. A member of a column-0 `const (`, `var (` or `type (` block is a top-level declaration,
-/// in the project and in a package outside it; a field of a struct inside `type (` and a `var (`
-/// block inside a function are not.
 #[test]
 fn a_go_grouped_declaration_is_top_level() {
     let (dir, mut a) = project_app(
@@ -849,10 +831,6 @@ fn a_go_grouped_declaration_is_top_level() {
     std::fs::remove_dir_all(&goroot).unwrap();
 }
 
-/// #327. A key of a composite literal is a field of the literal's type: written in front of the
-/// `{`, or the element type of the literal around an elided `{`. A map's keys are values, and so
-/// are a slice expression's, a label and a `case`; a literal whose type is outside the project
-/// offers what the name finds.
 #[test]
 fn a_go_literal_key_is_a_field_of_the_literals_type() {
     let (dir, mut a) = project_app(
@@ -936,9 +914,6 @@ fn a_go_literal_key_is_a_field_of_the_literals_type() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #332. A bare Go name is a local, a top-level name of the file's own package, a name of a dot
-/// import or a predeclared one, and `pkg.X` is declared in `pkg`'s directory or nowhere: no
-/// namesake of another package is offered.
 #[test]
 fn a_go_name_is_looked_up_in_its_own_package() {
     let (dir, mut a) = project_app(
@@ -1047,10 +1022,6 @@ fn a_go_name_is_looked_up_in_its_own_package() {
     std::fs::remove_dir_all(&goroot).unwrap();
 }
 
-/// #330. The scope walk reads a table test: the variable of `range []struct {…}{…}` and of a
-/// range over `tests := []struct {…}{…}` is the struct written in place, and a key of one of its
-/// elements is its field. A label opens no block, and a `:=` that redeclares a name reuses the
-/// one its block declared first.
 #[test]
 fn a_go_table_test_struct_is_a_type() {
     let (dir, mut a) = project_app(
@@ -1074,7 +1045,7 @@ fn a_go_table_test_struct_is_a_type() {
         shown(&mut a)
     };
     let sb = || jump("sb \u{2192} labelled.sb (local)", "shop/shop.go:6");
-    assert_eq!(d("\t\tsb|.WriteString"), sb());
+    assert_eq!(d("\t\tsb|.WriteString"), sb(), "a label opens no block");
     assert_eq!(d("return sb|.String"), sb());
     let field = |word: &str, place: &str| {
         jump(
@@ -1100,14 +1071,12 @@ fn a_go_table_test_struct_is_a_type() {
     );
     assert_eq!(
         d("\terr| = first"),
-        jump("err \u{2192} redeclared.err (local)", "shop/shop.go:35")
+        jump("err \u{2192} redeclared.err (local)", "shop/shop.go:35"),
+        "a `:=` that redeclares a name reuses the one its block declared first"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #334. A receiver whose type is declared in the standard library or a module is proven there:
-/// a struct's field and method, an interface's method line, a method of an embedded type, a
-/// type reached through one call, and a literal's key.
 #[test]
 fn a_go_type_outside_the_project_is_proven() {
     let (dir, mut a) = project_app(
@@ -1234,8 +1203,6 @@ fn a_go_type_outside_the_project_is_proven() {
     std::fs::remove_dir_all(&root).unwrap();
 }
 
-/// A Go local named `from` is a local: `from ` starts an import line in Python, not in Go, so the
-/// package's `var from` in another file is not the answer (#521 review).
 #[test]
 fn a_go_local_named_from_is_the_local() {
     let (dir, mut a) = project_app(
@@ -1254,14 +1221,12 @@ fn a_go_local_named_from_is_the_local() {
     d_on(&mut a, "main.go", "to.Sub(from");
     assert_eq!(
         shown(&mut a),
-        jump("from \u{2192} span.from (local)", "main.go:6")
+        jump("from \u{2192} span.from (local)", "main.go:6"),
+        "`from ` starts an import line in Python, not in Go: the package's `var from` in another file is not the answer"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Go's `pkg.X` ends at `pkg`'s directory only when that directory was read (#332): a chain
-/// through a package's value, and a package the lookup cannot map, such as one committed under
-/// `vendor/`, keep the search by name (#521 review).
 #[test]
 fn a_go_chain_or_a_vendored_package_keeps_the_search_by_name() {
     let (dir, mut a) = project_app(
@@ -1290,7 +1255,8 @@ fn a_go_chain_or_a_vendored_package_keeps_the_search_by_name() {
         jump(
             "Do \u{2192} Client.Do (by name, 1 match)",
             "client/client.go:9"
-        )
+        ),
+        "a chain through a package's value keeps the search by name"
     );
     d_on(&mut a, "main.go", "errs.Wrap");
     assert_eq!(
@@ -1298,7 +1264,8 @@ fn a_go_chain_or_a_vendored_package_keeps_the_search_by_name() {
         jump(
             "Wrap: by name, 1 match",
             "vendor/github.com/zzfake/errs/errs.go:3"
-        )
+        ),
+        "a package the lookup cannot map, committed under `vendor/`, keeps the search by name"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }

@@ -1086,13 +1086,14 @@ fn review_walks_hunks_across_files_and_opens_deleted_files_from_the_base() {
     assert_eq!(at(&a), (dir.join("gone"), 0));
     assert_eq!(a.buf.lines, vec!["x", "y"]);
     assert_eq!(a.diff.marks.len(), 2);
+    assert!(a.diff.marks.values().all(|m| *m == git::Mark::Deleted));
     assert_eq!(a.buf.readonly, Some("deleted in this branch"));
     assert!(a.review_status().unwrap().starts_with("hunk 0/0"));
     // A read-only buffer that the branch did not delete keeps its real diff.
     big_c(&mut a);
     assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
     assert_eq!(a.buf.readonly, Some("mixed line endings"));
-    assert_eq!(a.diff.hunks, vec![TextLine::Deleted(1, 0)]);
+    assert_eq!(a.diff.hunks, vec![TextLine::File(1)]);
     assert_eq!(a.diff.marks.len(), 1);
     big_c(&mut a);
     assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
@@ -1133,8 +1134,7 @@ fn review_walks_hunks_across_files_and_opens_deleted_files_from_the_base() {
     a.focus = Focus::Tree;
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
-    // From the deleted `b` the hunk starts with (#439), over `B` onto `c`.
-    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    // From `B`, the hunk's added line (#690), down onto `c`.
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);
     a.focus = Focus::Tree;
     a.tree.reveal(Path::new("src/a.rs"));
@@ -1230,7 +1230,7 @@ fn the_hunk_left_is_found_by_its_place_in_its_file() {
         std::fs::write(dir.join(name), text).unwrap();
         refresh(a);
     };
-    // The hunk by the file line it rewrites: `c` stands on the deleted line above it (#439).
+    // The hunk by the file line it rewrites, where `c` stands (#690).
     let here = |a: &App| (at(a).0, a.buf.lines[a.line].clone());
     let src = dir.join("src/a.rs");
     let on = |word: &str| (src.clone(), word.to_string());
@@ -1246,12 +1246,7 @@ fn the_hunk_left_is_found_by_its_place_in_its_file() {
     a.jump_to(&outside, 2);
     refresh(&mut a);
     c(&mut a);
-    assert_eq!(here(&a), on("F"));
-    assert_eq!(
-        a.line_str(),
-        "f",
-        "back on the deleted line the hunk starts with"
-    );
+    assert_eq!((here(&a), a.line_str()), (on("F"), "F"));
     // Deleted above while away: `B` goes from line 6 up to 2 and `D`, unread, to 4, both past
     // the line `B` was left on. `c` goes back to `B`, and the next one to `D`.
     write(&mut a, "src/a.rs", "p1\np2\np3\np4\np5\na\nB\nc\nD\ne\nF\n");
@@ -1429,9 +1424,9 @@ fn review_marks_changed_rows_in_u_and_s_and_lists_its_files_first_in_o() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #439: the lines a branch deleted are lines of the text. `c` stands on the first line of a
-/// hunk, a deleted one when it starts with a deletion; `/` finds them, Ctrl+C copies them as they
-/// were, and nothing edits them.
+/// #439: the lines a branch deleted are lines of the text. `c` and `C` stand on the first added
+/// line of a hunk, its first deleted one when it adds none (#690); Up reaches the deleted lines
+/// above, `/` finds them, Ctrl+C copies them as they were, and nothing edits them.
 #[test]
 fn deleted_lines_are_lines_of_the_text() {
     use TextLine::{Deleted, File};
@@ -1441,11 +1436,24 @@ fn deleted_lines_are_lines_of_the_text() {
     // src/a.rs reads a, [b], B, c, d, e, [f], F: `b` and `f` are deleted.
     a.jump_to(&dir.join("src/a.rs"), 1);
     key(&mut a, KeyCode::Char('c'));
-    assert_eq!((a.at(), a.line_str()), (Deleted(1, 0), "b"));
+    assert_eq!((a.at(), a.line_str()), (File(1), "B"));
     key(&mut a, KeyCode::Char('c'));
-    assert_eq!((a.at(), a.line_str()), (Deleted(5, 0), "f"));
+    assert_eq!((a.at(), a.line_str()), (File(5), "F"));
     key(&mut a, KeyCode::Char('C'));
-    assert_eq!(a.at(), Deleted(1, 0));
+    assert_eq!((a.at(), a.line_str()), (File(1), "B"));
+    assert_eq!(a.review_status().unwrap(), "hunk 1/2  file 1/5");
+    key(&mut a, KeyCode::Up);
+    assert_eq!((a.at(), a.line_str()), (Deleted(1, 0), "b"));
+    assert_eq!(a.review_status().unwrap(), "hunk 1/2  file 1/5");
+    // From a rewritten line, `c` and `C` go on to the next and the previous hunk.
+    key(&mut a, KeyCode::Char('c'));
+    assert_eq!((a.at(), a.line_str()), (File(5), "F"));
+    key(&mut a, KeyCode::Up);
+    assert_eq!((a.at(), a.line_str()), (Deleted(5, 0), "f"));
+    assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/5");
+    key(&mut a, KeyCode::Char('C'));
+    assert_eq!((a.at(), a.line_str()), (File(1), "B"));
+    key(&mut a, KeyCode::Up);
 
     // `/` finds the deleted `b` and the added `B` alike, in the order they are drawn.
     key(&mut a, KeyCode::Up);
@@ -1520,6 +1528,13 @@ fn deleted_lines_are_lines_of_the_text() {
     assert_eq!((a.at(), a.line_str()), (Deleted(1, 0), "t2"));
     press(&mut a, KeyCode::End, KeyModifiers::CONTROL);
     assert_eq!(a.line_str(), "t3");
+    key(&mut a, KeyCode::Char('C'));
+    assert_eq!((a.at(), a.line_str()), (Deleted(1, 0), "t2"));
+    // A hunk that only adds: `new` reads n.
+    key(&mut a, KeyCode::Char('C'));
+    assert_eq!((at(&a), a.at()), ((dir.join("new"), 0), File(0)));
+    key(&mut a, KeyCode::Char('c'));
+    assert_eq!((a.line_str(), a.at()), ("t2", Deleted(1, 0)));
     let _ = std::fs::remove_dir_all(dir);
 }
 

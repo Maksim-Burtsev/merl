@@ -86,7 +86,12 @@ impl App {
             self.session = session;
             return !overlay && self.key(key);
         }
-        // In kitty mode `:`, `?` and `D` arrive with SHIFT set; legacy sends none.
+        if let KeyCode::Char(c) = key.code
+            && key.modifiers.contains(KeyModifiers::CONTROL)
+            && (key.modifiers.contains(KeyModifiers::SHIFT) || !c.is_ascii_lowercase())
+        {
+            return false;
+        }
         if matches!(key.code, KeyCode::Char(_)) {
             key.modifiers.remove(KeyModifiers::SHIFT);
         }
@@ -155,12 +160,17 @@ impl App {
             self.hist_note(false);
             return false;
         }
+        let far = matches!(
+            key.code,
+            KeyCode::PageUp | KeyCode::PageDown | KeyCode::Home | KeyCode::End
+        );
         let extending = key.code == KeyCode::Char('v')
             || shift
-                && matches!(
-                    key.code,
-                    KeyCode::Up | KeyCode::Down | KeyCode::Left | KeyCode::Right
-                );
+                && (far
+                    || matches!(
+                        key.code,
+                        KeyCode::Up | KeyCode::Down | KeyCode::Left | KeyCode::Right
+                    ));
         // Ctrl+D/U and PageUp/Down are how merl scrolls, and a page is always farther than
         // `HIST_NEAR`: the current stop follows the cursor anyway, so paging through a file adds
         // no stops and drops no forward history.
@@ -275,24 +285,44 @@ impl App {
             KeyCode::Right if alt => self.word_right(),
             KeyCode::Left => self.left(),
             KeyCode::Right => self.right(),
-            KeyCode::PageUp => self.move_rows(-(self.page_rows(false) as isize)),
-            KeyCode::PageDown => self.move_rows(self.page_rows(true) as isize),
-            KeyCode::Home if ctrl => {
-                self.set_at(self.first_line());
-                self.col = 0;
-                self.want_x = 0;
+            _ if far => {
+                if shift {
+                    self.anchor.get_or_insert((self.at(), self.col));
+                }
+                match key.code {
+                    KeyCode::PageUp => self.move_rows(-(self.page_rows(false) as isize)),
+                    KeyCode::PageDown => self.move_rows(self.page_rows(true) as isize),
+                    KeyCode::Home if ctrl => {
+                        self.set_at(self.first_line());
+                        self.col = 0;
+                        self.want_x = 0;
+                    }
+                    KeyCode::End if ctrl => {
+                        self.set_at(self.last_line());
+                        self.col = self.shown_len();
+                        self.sync_want_x();
+                    }
+                    KeyCode::Home => self.line_start(),
+                    _ => self.line_end(),
+                }
             }
-            KeyCode::End if ctrl => {
-                self.set_at(self.last_line());
-                self.col = self.shown_len();
-                self.sync_want_x();
-            }
-            KeyCode::Home => self.line_start(),
-            KeyCode::End => self.line_end(),
             _ => {}
         }
         if !extending {
             self.drop_selection_if_moved(before);
+        }
+        let moves = paging
+            || matches!(
+                key.code,
+                KeyCode::Up
+                    | KeyCode::Down
+                    | KeyCode::Left
+                    | KeyCode::Right
+                    | KeyCode::Home
+                    | KeyCode::End
+            );
+        if moves || (self.at(), self.col) != before {
+            self.undo_break = true;
         }
         if paging && let (Some(pos), Some(cur)) = (self.pos(), self.history.get_mut(self.hist_idx))
         {

@@ -110,7 +110,9 @@ with its issue closed, or waits under `needs-owner` (see `## Merging`).
    worktree and a target of its own too.
 4. Keep scratch files (fixtures, GIFs, harnesses) in a folder named after the issue: parallel
    runs share a scratchpad and overwrite each other's `before.gif`.
-5. Before a push, run what `.github/workflows/ci.yml` runs. A change a user can see adds its
+5. Before a push, `tools/ci-local`: every job of `.github/workflows/ci.yml`, which calls it step
+   by step (`tools/ci-local clippy tests` runs only those), stopping non-zero at the first that
+   fails. A change a user can see adds its
    entry under `## [Unreleased]` in `CHANGELOG.md`, citing the issue as `(#N)`; docs, refactors,
    tests and tooling get none. What the change moves in the tests, the bullets at the top
    saying how:
@@ -131,11 +133,21 @@ with its issue closed, or waits under `needs-owner` (see `## Merging`).
 6. Commits are in English and carry the reasoning. The repo squashes with the PR's commit
    messages, so a commit written with Claude keeps its `Co-Authored-By: Claude …` trailer.
 7. Record the screencast, open the PR, and check `gh pr diff --name-only` holds only your files.
+   The PR says `Closes #N` only when the issue's own example now does what the issue wants: run
+   it on the build. Otherwise it says `Part of #N`, and what is left is filed as an issue.
 8. Once the whole task is in the PR, review it with Punchcard, once. Fix every finding on the
    branch's own change in this PR; a finding outside it becomes an issue. Do not review again:
    with the fixes pushed and CI green, go on as `## Merging` says. A docs-only PR needs no review.
 
 Everything on GitHub (issues, PR bodies, reviews, comments) is in English.
+
+## Features that read code
+
+`d` and `f` are two of the features that infer the structure of code; the rule below holds for
+every one of them, new ones included. A wrong answer is worse than "don't know", and that is
+proven on a bench of real projects against a reference, not argued from a few examples. A
+comparison with another editor ("VS Code folds this") cites the source that was opened: a file
+and line of its code, or a run of it, never a recollection.
 
 ## Changing `f`
 

@@ -174,7 +174,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         Kind::Julia => julia_bindings(&lines, at, name),
         Kind::Gdscript => gdscript_bindings(&lines, at, name),
         Kind::Solidity => solidity_bindings(&lines, at, name),
-        k if lisp(k) => lisp_bindings(k, &lines, at, name),
+        k if lisp(k) => lisp_bindings(k, &lines, at, None, name),
         _ => Vec::new(),
     }
 }
@@ -1005,11 +1005,11 @@ fn opener_bindings(
             }
         }
         Kind::CSharp => {
-            let (binds, hides) = cs_opener(header, name);
-            if binds {
+            let opener = cs_opener(header, name);
+            if opener.binds {
                 unknown(out);
             }
-            own = hides;
+            own = opener.hides_outer_scopes;
         }
         Kind::Go => {
             let count = out.len();

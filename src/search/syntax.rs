@@ -77,89 +77,99 @@ fn lex_literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     }
     if kind == Kind::Css && text.contains("<style") {
         let html = html_literal_lines(text);
-        let mut out = scan(kind, &style_blocks(text), usize::MAX).0;
+        let mut out = scan(kind, &style_blocks(text), usize::MAX).lines_in_literal;
         for (o, h) in out.iter_mut().zip(html) {
             *o |= h;
         }
         return out;
     }
-    let mut out = scan(kind, text, usize::MAX).0;
-    // The body of a multi-line C `#define` declares nothing (#382): a `typedef ret name##_t
-    // args;` there names a macro's parameter. The `#define` line itself declares the macro.
+    let mut out = scan(kind, text, usize::MAX).lines_in_literal;
     if kind == Kind::C {
-        let mut define = false;
-        for (i, l) in text.lines().enumerate() {
-            let open = define;
-            if !open {
-                define = !out.get(i).copied().unwrap_or(false)
-                    && l.trim_start()
-                        .strip_prefix('#')
-                        .is_some_and(|d| d.trim_start().starts_with("define"));
-            }
-            if open && let Some(hidden) = out.get_mut(i) {
-                *hidden = true;
-            }
-            define &= l.trim_end().ends_with('\\');
-        }
+        hide_c_define_bodies(text, &mut out);
     }
     out
 }
-pub fn in_string(kind: Kind, text: &str, at: usize) -> bool {
-    kind == Kind::Rust && scan(kind, text, at).1
+fn hide_c_define_bodies(text: &str, out: &mut [bool]) {
+    let mut define = false;
+    for (i, l) in text.lines().enumerate() {
+        let open = define;
+        if !open {
+            define = !out.get(i).copied().unwrap_or(false)
+                && l.trim_start()
+                    .strip_prefix('#')
+                    .is_some_and(|d| d.trim_start().starts_with("define"));
+        }
+        if open && let Some(hidden) = out.get_mut(i) {
+            *hidden = true;
+        }
+        define &= l.trim_end().ends_with('\\');
+    }
 }
-/// [`literal_lines`], and whether byte `at` is inside a Rust string.
-fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
-    let (heredoc, long_bracket, template, block_comment, line_comments): (_, _, _, _, &[&str]) =
-        match kind {
-            Kind::Python | Kind::Starlark | Kind::Elixir | Kind::Gdscript => {
-                (true, false, false, false, &["#"])
-            }
-            Kind::Lua => (false, true, false, false, &["--"]),
-            Kind::Zig => (false, false, false, false, &["//"]),
-            Kind::Swift | Kind::CSharp => (true, false, true, true, &["//"]),
-            // A YAML block scalar (`filters: |`) hides nothing: the keys dorny/paths-filter reads
-            // out of one are what `steps.changes.outputs.backend` names.
-            Kind::Shell | Kind::Make | Kind::Docker | Kind::Yaml => {
-                (false, false, false, false, &["#"])
-            }
-            Kind::Sql => (false, false, false, true, &["--", "//"]),
-            Kind::PowerShell => (false, false, false, false, &["#"]),
-            Kind::Terraform => (false, false, false, true, &["#", "//"]),
-            // GraphQL writes its descriptions in `"""` block strings, and nothing else runs
-            // over lines: no `'''`, no `/* */`, no backtick.
-            Kind::Graphql => (true, false, false, false, &["#"]),
-            // The C family's comments, and no backtick: a Protocol Buffers string ends with its
-            // line.
-            Kind::Proto | Kind::Solidity => (false, false, false, true, &["//"]),
-            // `/* */` in all four stylesheet languages and `//` in SCSS, Sass and Less: one kind
-            // reads `//` in a `.css` file too, at the cost of a `/*` after a `url(//…)` on its
-            // line (#415). A string ends with its line, and a backtick is nothing.
-            Kind::Css => (false, false, false, true, &["//"]),
-            Kind::Php => (false, false, true, true, &["//", "#"]),
-            Kind::Rust => (false, false, false, true, &["//"]),
-            Kind::Ruby => (false, false, false, false, &["#"]),
-            // A Kotlin raw string and a Java text block run over lines between `"""`; neither
-            // language has a backtick template: Kotlin's backticks quote a name (#367).
-            Kind::Jvm => (true, false, false, true, &["//"]),
-            Kind::Dart => (true, false, false, true, &["//"]),
-            Kind::Cmake => (false, true, false, false, &["#"]),
-            _ => (false, false, true, true, &["//"]),
-        };
-    // The forms one language each has: C#'s verbatim string, which closes on a `"` that no
-    // second `"` follows, since `""` is how it writes a quote, and PHP's `<<<ID`, which closes on
-    // the line that repeats its label, as the shell's `<<ID` does in a script, a Dockerfile's
-    // `RUN` and Terraform.
-    let (verbatim_strings, labelled) = (kind == Kind::CSharp, kind == Kind::Php);
+pub fn in_string(kind: Kind, text: &str, at: usize) -> bool {
+    kind == Kind::Rust && scan(kind, text, at).at_in_rust_string
+}
+struct Scan {
+    lines_in_literal: Vec<bool>,
+    at_in_rust_string: bool,
+}
+struct Heredoc {
+    label: Vec<u8>,
+    end: HeredocEnd,
+}
+enum HeredocEnd {
+    LabelLeadsLine,
+    LabelAloneOnLine { may_indent: bool },
+}
+fn scan(kind: Kind, text: &str, at: usize) -> Scan {
+    let (triple_quotes, long_bracket, template, block_comment, line_comments): (
+        _,
+        _,
+        _,
+        _,
+        &[&str],
+    ) = match kind {
+        Kind::Python | Kind::Starlark | Kind::Elixir | Kind::Gdscript => {
+            (true, false, false, false, &["#"])
+        }
+        Kind::Lua => (false, true, false, false, &["--"]),
+        Kind::Zig => (false, false, false, false, &["//"]),
+        Kind::Swift | Kind::CSharp => (true, false, true, true, &["//"]),
+        // A YAML block scalar (`filters: |`) hides nothing: the keys dorny/paths-filter reads
+        // out of one are what `steps.changes.outputs.backend` names.
+        Kind::Shell | Kind::Make | Kind::Docker | Kind::Yaml => {
+            (false, false, false, false, &["#"])
+        }
+        Kind::Sql => (false, false, false, true, &["--", "//"]),
+        Kind::PowerShell => (false, false, false, false, &["#"]),
+        Kind::Terraform => (false, false, false, true, &["#", "//"]),
+        // GraphQL writes its descriptions in `"""` block strings, and nothing else runs
+        // over lines: no `'''`, no `/* */`, no backtick.
+        Kind::Graphql => (true, false, false, false, &["#"]),
+        // The C family's comments, and no backtick: a Protocol Buffers string ends with its
+        // line.
+        Kind::Proto | Kind::Solidity => (false, false, false, true, &["//"]),
+        // `/* */` in all four stylesheet languages and `//` in SCSS, Sass and Less: one kind
+        // reads `//` in a `.css` file too, at the cost of a `/*` after a `url(//…)` on its
+        // line (#415). A string ends with its line, and a backtick is nothing.
+        Kind::Css => (false, false, false, true, &["//"]),
+        Kind::Php => (false, false, true, true, &["//", "#"]),
+        Kind::Rust => (false, false, false, true, &["//"]),
+        Kind::Ruby => (false, false, false, false, &["#"]),
+        // A Kotlin raw string and a Java text block run over lines between `"""`; neither
+        // language has a backtick template: Kotlin's backticks quote a name (#367).
+        Kind::Jvm => (true, false, false, true, &["//"]),
+        Kind::Dart => (true, false, false, true, &["//"]),
+        Kind::Cmake => (false, true, false, false, &["#"]),
+        _ => (false, false, true, true, &["//"]),
+    };
+    let (csharp_verbatim_strings, php_heredocs) = (kind == Kind::CSharp, kind == Kind::Php);
     let shell_heredoc = matches!(kind, Kind::Shell | Kind::Docker | Kind::Terraform);
-    // In a shell script, as in a Dockerfile, a `#` opens a comment only where a word starts: `$#`
-    // and `${f##*/}` are no comments. A shell quote ends with its line, as every other kind's
-    // does: the scan cannot follow a `"…"` inside `"$( … )"`, so a quote it carried over lines
-    // would hide the rest of the file behind one misread, and what `eval '…'` holds the shell
-    // does declare.
-    let word_comment = matches!(kind, Kind::Shell | Kind::Docker | Kind::PowerShell);
+    // A shell quote ends with its line, as every other kind's does: the scan cannot follow a
+    // `"…"` inside `"$( … )"`, so a quote it carried over lines would hide the rest of the file
+    // behind one misread, and what `eval '…'` holds the shell does declare.
+    let comment_only_at_word_start = matches!(kind, Kind::Shell | Kind::Docker | Kind::PowerShell);
     let powershell = kind == Kind::PowerShell;
-    // Whether the scan of a PHP file is between `<?php` (or `<?=`) and `?>`.
-    let mut php_code = false;
+    let mut in_php_tags = false;
     let b = text.as_bytes();
     let ident = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
     let token_at = |at: usize, prefixes: &[&[u8]]| {
@@ -170,27 +180,23 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
         })
     };
     let mut out = vec![false];
-    // The multi-line literal the scan is in, by its closing bytes, and, for a long bracket, the
-    // number of `=` its closer carries; a one-line quote. A heredoc has no closing bytes at all:
-    // `label` holds the word its last line repeats, `exact` whether that line must hold it alone
-    // (Ruby's, and whether indented), and `verbatim` marks a `@"…"`, `raw` a Rust string with no
-    // escapes. Ruby's heredocs opened on the line read so far wait in `pending`, in order.
-    let (mut block, mut level, mut quote, mut i): (Option<Cow<[u8]>>, usize, Option<u8>, usize) =
-        (None, 0, None, 0);
-    let (mut verbatim, mut raw, mut label, mut exact) = (false, false, Vec::new(), None);
-    let mut pending: Vec<(Vec<u8>, bool)> = Vec::new();
-    // The braces open in each TypeScript template substitution the scan is in, innermost last.
-    let mut holes: Vec<usize> = Vec::new();
-    // Where the Rust string the scan is in opened, and whether `at` is inside one.
-    let (mut string_from, mut inside) = (None, false);
-    let comment = if kind == Kind::Cmake {
+    let mut literal_closer: Option<Cow<[u8]>> = None;
+    let mut long_bracket_level = 0;
+    let mut line_quote: Option<u8> = None;
+    let mut i = 0;
+    let (mut in_verbatim_string, mut in_raw_string) = (false, false);
+    let mut heredoc: Option<Heredoc> = None;
+    let mut ruby_heredocs_from_next_line: Vec<Heredoc> = Vec::new();
+    let mut template_substitution_braces: Vec<usize> = Vec::new();
+    let (mut rust_string_start, mut at_in_rust_string) = (None, false);
+    let long_comment_open = if kind == Kind::Cmake {
         &b"#["[..]
     } else {
         b"--["
     };
     let opens = |at: usize| -> Option<(usize, usize)> {
-        let open = if b[at..].starts_with(comment) {
-            at + comment.len() - 1
+        let open = if b[at..].starts_with(long_comment_open) {
+            at + long_comment_open.len() - 1
         } else {
             at
         };
@@ -204,45 +210,42 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
         let c = b[i];
         let line_start = i == 0 || b[i - 1] == b'\n';
         if c == b'\n' {
-            quote = None;
-            // Ruby's heredoc starts on the line after the one that opened it.
-            if label.is_empty() && !pending.is_empty() {
-                let (word, indented) = pending.remove(0);
-                (label, exact, block) = (word, Some(indented), Some(b"".into()));
+            line_quote = None;
+            if heredoc.is_none() && !ruby_heredocs_from_next_line.is_empty() {
+                heredoc = Some(ruby_heredocs_from_next_line.remove(0));
+                literal_closer = Some(b"".into());
             }
-            // A heredoc ends on the line that repeats its label, as `ID;`, `ID,` or `ID)`; a
-            // Ruby one on the line that is the label alone, indented only after `<<~` or `<<-`.
-            if !label.is_empty() {
+            if let Some(Heredoc { label, end }) = &heredoc {
                 let rest = &b[i + 1..];
                 let word = rest
                     .iter()
                     .position(|c| !c.is_ascii_whitespace())
                     .map_or(rest, |n| &rest[n..]);
-                let ends = match exact {
-                    Some(indented) => {
+                let ends = match *end {
+                    HeredocEnd::LabelAloneOnLine { may_indent } => {
                         let line = rest.split(|&c| c == b'\n').next().unwrap_or(rest);
-                        line.trim_ascii() == label && (indented || line.starts_with(&label))
+                        line.trim_ascii() == label && (may_indent || line.starts_with(label))
                     }
-                    None => {
+                    HeredocEnd::LabelLeadsLine => {
                         word.starts_with(&label[..])
                             && !word[label.len()..].first().is_some_and(|&c| ident(c))
                     }
                 };
                 if ends {
-                    label.clear();
-                    block = None;
+                    heredoc = None;
+                    literal_closer = None;
                 }
             }
-            out.push(block.is_some());
-        } else if let Some(end) = block.as_deref()
+            out.push(literal_closer.is_some());
+        } else if let Some(end) = literal_closer.as_deref()
             && !(kind == Kind::TsJs
                 && end == b"`"
                 && b[i..].starts_with(b"${")
                 && b[i - 1] != b'\\')
         {
-            let doubled = verbatim && c == b'"' && b.get(i + 1) == Some(&b'"');
+            let doubled = in_verbatim_string && c == b'"' && b.get(i + 1) == Some(&b'"');
             let escape = matches!(kind, Kind::Rust | Kind::Cmake)
-                && !raw
+                && !in_raw_string
                 && end == b"\""
                 && c == b'\\'
                 && b.get(i + 1) != Some(&b'\n');
@@ -251,56 +254,60 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
                 c == b']'
                     && b[i + 1..]
                         .iter()
-                        .take(level)
+                        .take(long_bracket_level)
                         .filter(|&&c| c == b'=')
                         .count()
-                        == level
-                    && b.get(i + 1 + level) == Some(&b']')
+                        == long_bracket_level
+                    && b.get(i + 1 + long_bracket_level) == Some(&b']')
             } else {
-                label.is_empty()
+                heredoc.is_none()
                     && !doubled
                     && b[i..].starts_with(end)
                     && (end.len() > 1
                         || matches!(kind, Kind::Go | Kind::Rust | Kind::Cmake)
-                        || verbatim
+                        || in_verbatim_string
                         || b[i - 1] != b'\\')
             };
             let skip = end.len().saturating_sub(1);
             if escape {
                 i += 1;
             } else if closes {
-                block = None;
-                verbatim = false;
-                if let Some(from) = string_from.take() {
-                    inside |= from < at && at < i;
+                literal_closer = None;
+                in_verbatim_string = false;
+                if let Some(from) = rust_string_start.take() {
+                    at_in_rust_string |= from < at && at < i;
                 }
-                i += if bracket { level + 1 } else { skip };
+                i += if bracket {
+                    long_bracket_level + 1
+                } else {
+                    skip
+                };
             } else if doubled {
                 i += 1;
             }
-        } else if block.is_some() {
+        } else if literal_closer.is_some() {
             // A template's `${` opens code, up to the `}` that closes it: a template in there
             // is one of its own, `${a ? `${b}/` : ""}`, and the rest of the outer one follows.
-            holes.push(0);
-            block = None;
+            template_substitution_braces.push(0);
+            literal_closer = None;
             i += 1;
-        } else if !holes.is_empty()
-            && quote.is_none()
+        } else if !template_substitution_braces.is_empty()
+            && line_quote.is_none()
             && (c == b'{' || c == b'}')
             && b[i - 1] != b'\\'
         {
             // A regex's `\{` is no brace (`${s.replace(/\{/g, "")}`). ponytail: the `{` of
             // `/[{]/` still counts; skip regex literals in a hole if one shows up.
-            let depth = holes.last_mut().expect("not empty");
+            let depth = template_substitution_braces.last_mut().expect("not empty");
             match (c, *depth) {
                 (b'{', _) => *depth += 1,
                 (_, 0) => {
-                    holes.pop();
-                    block = Some(b"`".into());
+                    template_substitution_braces.pop();
+                    literal_closer = Some(b"`".into());
                 }
                 _ => *depth -= 1,
             }
-        } else if let Some(q) = quote {
+        } else if let Some(q) = line_quote {
             // A backslash escapes the next byte, but the end of a line is still one. PowerShell
             // escapes with a backtick, and only in a `"…"`.
             let escape = match powershell {
@@ -310,9 +317,9 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             if escape && b.get(i + 1) != Some(&b'\n') {
                 i += 1;
             } else if c == q {
-                quote = None;
+                line_quote = None;
             }
-        } else if heredoc
+        } else if triple_quotes
             && (b[i..].starts_with(b"\"\"\"")
                 || (matches!(
                     kind,
@@ -324,13 +331,13 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
                         | Kind::Gdscript
                 ) && b[i..].starts_with(b"'''")))
         {
-            block = Some(if c == b'"' { b"\"\"\"" } else { b"'''" }.into());
+            literal_closer = Some(if c == b'"' { b"\"\"\"" } else { b"'''" }.into());
             i += 2;
         } else if kind == Kind::Jvm && b[i..].starts_with(b"$/") && token_at(i, &[]) {
-            block = Some(b"/$".into());
+            literal_closer = Some(b"/$".into());
             i += 1;
         } else if powershell && b[i..].starts_with(b"<#") {
-            block = Some(b"#>".into());
+            literal_closer = Some(b"#>".into());
             i += 1;
         } else if powershell
             && (b[i..].starts_with(b"@\"") || b[i..].starts_with(b"@'"))
@@ -341,7 +348,11 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
         {
             // A here-string, `@"` or `@'` at the end of its line, closes on the line that starts
             // with `"@` or `'@`.
-            (block, label, exact) = (Some(b"".into()), vec![b[i + 1], b'@'], None);
+            literal_closer = Some(b"".into());
+            heredoc = Some(Heredoc {
+                label: vec![b[i + 1], b'@'],
+                end: HeredocEnd::LabelLeadsLine,
+            });
             i += 1;
         } else if powershell && c == b'`' {
             // An escape outside a string: `` `" `` opens nothing, `` `# `` no comment. At the end
@@ -349,12 +360,14 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             if !matches!(b.get(i + 1), Some(b'\n' | b'\r')) {
                 i += 1;
             }
-        } else if verbatim_strings && (b[i..].starts_with(b"@\"") || b[i..].starts_with(b"@$\"")) {
+        } else if csharp_verbatim_strings
+            && (b[i..].starts_with(b"@\"") || b[i..].starts_with(b"@$\""))
+        {
             // `$@"` is read from its `@"`.
-            block = Some(b"\"".into());
-            verbatim = true;
+            literal_closer = Some(b"\"".into());
+            in_verbatim_string = true;
             i += if b[i + 1] == b'$' { 2 } else { 1 };
-        } else if labelled && b[i..].starts_with(b"<<<") {
+        } else if php_heredocs && b[i..].starts_with(b"<<<") {
             // `<<<SQL`, `<<<"SQL"` or `<<<'SQL'`: the label is what ends it.
             let word: Vec<u8> = b[i + 3..]
                 .iter()
@@ -364,8 +377,11 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
                 .collect();
             if !word.is_empty() {
                 i += 2;
-                block = Some(b"".into());
-                label = word;
+                literal_closer = Some(b"".into());
+                heredoc = Some(Heredoc {
+                    label: word,
+                    end: HeredocEnd::LabelLeadsLine,
+                });
             }
         } else if shell_heredoc && b[i..].starts_with(b"<<") {
             // `<<EOF`, `<<-EOF` or `<< 'EOF'`, read past both `<`, so that the shell's `<<<`, a
@@ -383,28 +399,32 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             if word.first().is_some_and(|c| !c.is_ascii_digit())
                 && !b[line..i].windows(2).any(|w| w == b"((")
             {
-                block = Some(b"".into());
-                label = word;
+                literal_closer = Some(b"".into());
+                heredoc = Some(Heredoc {
+                    label: word,
+                    end: HeredocEnd::LabelLeadsLine,
+                });
             }
             i += 1;
         } else if let Some((eq, skip)) = long_bracket.then(|| opens(i)).flatten() {
-            block = Some(b"]]".into());
-            level = eq;
+            literal_closer = Some(b"]]".into());
+            long_bracket_level = eq;
             i += skip;
         } else if template && c == b'`' {
             // ponytail: `/`/` is a regex, told by the slash in front; a division by a template
             // is not written.
             if i == 0 || b[i - 1] != b'/' {
-                block = Some(b"`".into());
+                literal_closer = Some(b"`".into());
             }
         } else if block_comment && b[i..].starts_with(b"/*") {
-            block = Some(b"*/".into());
+            literal_closer = Some(b"*/".into());
             i += 1;
         } else if kind == Kind::Rust && c == b'"' {
             // `"…"`, `b"…"` and `c"…"` run over lines; a `\` at the end of one continues it.
-            (block, raw, string_from) = (Some(b"\"".into()), false, Some(i));
+            (literal_closer, in_raw_string, rust_string_start) =
+                (Some(b"\"".into()), false, Some(i));
         } else if kind == Kind::Cmake && c == b'"' {
-            block = Some(b"\"".into());
+            literal_closer = Some(b"\"".into());
         } else if let Some(hashes) = (kind == Kind::Rust && c == b'r' && token_at(i, &[b"b", b"c"]))
             .then(|| b[i + 1..].iter().take_while(|&&c| c == b'#').count())
             .filter(|n| b.get(i + 1 + n) == Some(&b'"'))
@@ -412,7 +432,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             // `r"…"`, `r#"…"#`, `br##"…"##`: closed by a `"` and as many `#`. `r#type` is a name.
             let mut end = vec![b'"'];
             end.resize(hashes + 1, b'#');
-            (block, raw, string_from) = (Some(end.into()), true, Some(i));
+            (literal_closer, in_raw_string, rust_string_start) = (Some(end.into()), true, Some(i));
             i += hashes + 1;
         } else if kind == Kind::Rust && c == b'\'' {
             // A char literal, `'x'`, `'é'`, `'\n'` or `'\u{1F600}'`, closes within a few bytes; a
@@ -444,7 +464,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
         .filter(|d| !d.iter().any(|c| b" )\\\t\n".contains(c)))
         {
             // C++'s `R"(…)"`, `R"sql(…)sql"`: closed by `)`, the delimiter and `"`, no escapes.
-            block = Some([&b")"[..], delim, b"\""].concat().into());
+            literal_closer = Some([&b")"[..], delim, b"\""].concat().into());
             i += delim.len() + 2;
         } else if kind == Kind::Ruby && line_start && b[i..].starts_with(b"__END__") && {
             let rest = &b[i + 7..];
@@ -458,7 +478,11 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             && b[i..].starts_with(b"=begin")
             && b.get(i + 6).is_none_or(|c| c.is_ascii_whitespace())
         {
-            (block, label, exact) = (Some(b"".into()), b"=end".to_vec(), None);
+            literal_closer = Some(b"".into());
+            heredoc = Some(Heredoc {
+                label: b"=end".to_vec(),
+                end: HeredocEnd::LabelLeadsLine,
+            });
         } else if kind == Kind::Ruby && b[i..].starts_with(b"<<") {
             // `<<~SQL`, `<<-SQL`, `<<SQL`, `<<~'SQL'`: a bare `<<` needs a capital or a quote, so
             // `list << x` and `class << self` open nothing. The rest of the line is code.
@@ -472,7 +496,10 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
                 && (flag || q.is_some() || first.is_some_and(|c| c.is_ascii_uppercase()))
                 && (q.is_none() || b.get(from + len).copied() == q)
             {
-                pending.push((b[from..from + len].to_vec(), flag));
+                ruby_heredocs_from_next_line.push(Heredoc {
+                    label: b[from..from + len].to_vec(),
+                    end: HeredocEnd::LabelAloneOnLine { may_indent: flag },
+                });
                 i = from + len + usize::from(q.is_some()) - 1;
             } else {
                 i += 1;
@@ -485,20 +512,20 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
                 .is_none_or(|p| b"\n(,=~!|&;{[".contains(p))
         {
             // A regex, `=~ /#/`: its `#` is no comment.
-            quote = Some(c);
+            line_quote = Some(c);
         } else if c == b'"'
             || (c == b'\'' && kind != Kind::Cmake)
             || (matches!(kind, Kind::Sql | Kind::Ruby) && c == b'`')
         {
-            quote = Some(c);
+            line_quote = Some(c);
         } else if kind == Kind::Php && (b[i..].starts_with(b"<?") || b[i..].starts_with(b"?>")) {
-            php_code = c == b'<';
+            in_php_tags = c == b'<';
             i += 1;
         } else if line_comments
             .iter()
             .any(|m| b[i..].starts_with(m.as_bytes()))
-            && !(word_comment && i > 0 && !b" \t\n;&|()<>".contains(&b[i - 1]))
-            && !(kind == Kind::Php && c == b'#' && (!php_code || b[i..].starts_with(b"#[")))
+            && !(comment_only_at_word_start && i > 0 && !b" \t\n;&|()<>".contains(&b[i - 1]))
+            && !(kind == Kind::Php && c == b'#' && (!in_php_tags || b[i..].starts_with(b"#[")))
         {
             while i + 1 < b.len()
                 && b[i + 1] != b'\n'
@@ -509,10 +536,13 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
         }
         i += 1;
     }
-    if let Some(from) = string_from {
-        inside |= from < at && at <= b.len();
+    if let Some(from) = rust_string_start {
+        at_in_rust_string |= from < at && at <= b.len();
     }
-    (out, inside)
+    Scan {
+        lines_in_literal: out,
+        at_in_rust_string,
+    }
 }
 /// The bytes of `s` a scan for brackets and separators reads, with their indexes. String literals
 /// are skipped; a comment (`#` in Python, `//` elsewhere) yields its first byte as `0` and is

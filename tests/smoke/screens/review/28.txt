@@ -1,4 +1,4 @@
-wait app/config.py  -10:1  [code]  hunk 1/1  file 1/2
+wait [code]  hunk 1/1  file 1/2
 ┌agent/page-size ← origin/mai┐ 1 """Settings, read from the environment once at startup."""
 │  ▾ app                     │ 2 import os
 │    M config.py        +1 −1│ 3 from dataclasses import dataclass
@@ -53,5 +53,5 @@ wait app/config.py  -10:1  [code]  hunk 1/1  file 1/2
 │                            │
 │                            │
 └ 2 files · +4 −1 ───────────┘
-app/config.py  -10:1  [code]  hunk 1/1  file 1/2                                                                                                                                  ? help
-cursor (x,y,shown) 33,9,1
+app/config.py  10:1  [code]  hunk 1/1  file 1/2                                                                                                                                   ? help
+cursor (x,y,shown) 33,10,1

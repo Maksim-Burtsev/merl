@@ -1,11 +1,5 @@
-//! `d` through the return type of a call, and through a cast.
-
 use super::*;
 
-/// #100: one more hop on a call. A method called on a receiver whose type is proven gives
-/// what it declares to return, a Python function or method with no annotation what every
-/// `return` of it constructs, and a chain may hang off a call that starts the expression.
-/// A call of a call, returns that differ and an unproven receiver stay by name.
 #[test]
 fn a_call_is_one_more_hop() {
     let cases: Vec<(&str, &str, &str, &str, Shown)> = vec![
@@ -405,10 +399,6 @@ fn a_call_is_one_more_hop() {
     }
 }
 
-/// #100: a cast writes the type. `typing.cast(T, x)`, `x as T`, `v, ok := i.(T)`, and the
-/// variable of `switch v := x.(type)` inside a `case T:`, assigned to a name or with the chain
-/// hanging off the cast itself. A cast to a type the project does not declare, a `case` of
-/// several types and `default` prove nothing.
 #[test]
 fn a_cast_writes_the_type() {
     let cases: Vec<(&str, &str, &str, &str, Shown)> = vec![

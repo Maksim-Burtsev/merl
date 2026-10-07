@@ -1,12 +1,5 @@
-//! `d` over wrapped headers, broken chains and the shapes of a name.
-
 use super::*;
 
-/// #100, TypeScript: a class header prettier wraps is still the class's header. A list of type
-/// parameters over several lines ends in `> extends Base<K> {`, the clauses may stand on lines
-/// of their own over a lone `{`; `this`, `super`, the fields and what the class extends are
-/// read through both. The parameters of a function behind a wrapped `<…>` hide a module's
-/// namesake.
 #[test]
 fn a_wrapped_class_header_is_a_header() {
     let user = |via: &str| {
@@ -153,8 +146,6 @@ fn a_wrapped_class_header_is_a_header() {
     }
 }
 
-/// #100, TypeScript: a member access prettier broke in front of its dots reads as the one line
-/// it is; a comment at the end of the line above names no receiver.
 #[test]
 fn a_member_access_broken_over_lines_is_one_chain() {
     let user = |via: &str| {
@@ -311,7 +302,6 @@ fn a_non_null_or_optional_access_is_the_plain_one() {
     }
 }
 
-/// #100, TypeScript: a `#private` member is the word with its `#`, on the `#` and on the name.
 #[test]
 fn a_private_name_keeps_its_hash() {
     let private = jump(
@@ -404,9 +394,6 @@ fn a_private_name_keeps_its_hash() {
     }
 }
 
-/// #100, TypeScript: a NestJS service. Its dependencies are constructor parameters wrapped one
-/// to a line, decorated or not; `const { repo } = this` hands fields on; a class may stand
-/// behind namespaces, of an import or of the file itself.
 #[test]
 fn a_nest_service_reads_its_dependencies() {
     let user = |via: &str| {
@@ -535,8 +522,6 @@ fn a_nest_service_reads_its_dependencies() {
     }
 }
 
-/// #131, TypeScript: a destructuring prettier wrapped over several lines binds its names, so
-/// the module's `ledger`, an `AuditLog`, does not answer for them.
 #[test]
 fn a_wrapped_destructuring_binds_its_names() {
     let user = jump(
@@ -588,8 +573,6 @@ fn a_wrapped_destructuring_binds_its_names() {
     }
 }
 
-/// #100, TypeScript workspaces: a file sees the `node_modules` of every directory above it, the
-/// nearest first, and not those of the package beside it.
 #[test]
 fn a_workspace_package_sees_the_node_modules_above_it() {
     let main = "import { pick } from \"lib\";\n\npick(1);\n";
@@ -679,16 +662,11 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #141: a package installed more than once is the copy Node and TypeScript load, the one in
-/// the nearest `node_modules` that has it or its `@types`, and not a copy another package
-/// depends on. A name only another copy declares is found by name.
 #[test]
 fn an_imported_package_is_the_copy_node_loads() {
     let main = "import { pick, onlyFar } from \"lib\";\nimport { part } from \"lib/sub\";\nimport { nest } from \"nested\";\nimport { typed } from \"typed\";\nimport { scoped } from \"@scope/pkg\";\nimport { readFile } from \"fs\";\nimport { Buffer } from \"buffer\";\nimport { parse } from \"cookie\";\nimport { DatabaseSync } from \"node:sqlite\";\nimport { parseX } from \"multi/sub\";\nimport { Box } from \"boxed\";\nimport { extra, alsoNear } from \"lib/extra\";\nimport { lonely } from \"nested/gone\";\nimport { onlyNested } from \"lib/nested\";\nimport { useState } from \"react\";\nimport { shipped } from \"shipped\";\nimport { jsfn } from \"jsonly\";\nimport { jsown } from \"jsowned\";\nimport { tsf } from \"tssrc\";\nimport * as ck from \"cookie\";\nimport { rparse } from \"rlib\";\nimport { rjsfn } from \"rjs\";\nimport { mfn } from \"mainpkg\";\nimport { ifn } from \"idxpkg\";\nimport { solo, soloRen } from \"solo\";\nimport { both } from \"dual\";\nimport { deeper } from \"lib/nothere\";\nimport dparse from \"dflt\";\nimport dlocal from \"./dflt\";\n\npick(1);\nonlyFar(1);\npart(1);\nnest(1);\ntyped(1);\nscoped(1);\nreadFile(1);\nBuffer.from(1);\nparse(1);\nDatabaseSync.name;\nparseX(1);\nBox.open(1);\nalsoNear(1);\nlonely(1);\nonlyNested(1);\nuseState(1);\nshipped(1);\njsfn(1);\njsown(1);\ntsf(1);\nck.parse(1);\nrparse(1);\nrjsfn(1);\nmfn(1);\nifn(1);\nsolo(1);\nsoloRen(1);\nboth(1);\ndeeper(1);\ndparse(1);\ndlocal(1);\nextra(1);\n";
     let file = "packages/api/src/main.ts";
     let line = |code: &str| main.lines().position(|l| l.starts_with(code)).unwrap() + 1;
-    // What a default import binds is its own name for the default export, whatever the module
-    // exports under that name otherwise.
     let dflt = "function x() {}\nexport { x as dlocal };\nexport default function other() {}\n";
     let (dir, mut a) = project_app(
         "copies",
@@ -703,18 +681,13 @@ fn an_imported_package_is_the_copy_node_loads() {
             "node_modules/lib/index.d.ts",
             &["pick", "onlyFar", "extra", "onlyNested", "deeper"],
         ),
-        // `lib/nested` is only in a copy another package depends on.
         (
             "node_modules/other/node_modules/lib/nested.d.ts",
             &["onlyNested"],
         ),
-        // A module only the root's copy has, one of whose names the nearer copy declares.
         ("node_modules/lib/extra.d.ts", &["extra", "alsoNear"]),
-        // A namesake of `onlyFar` and `deeper` in a package no import names.
         ("node_modules/unrelated/index.d.ts", &["onlyFar", "deeper"]),
-        // A package installed only as another's dependency: no root has it.
         ("node_modules/other/node_modules/solo/index.d.ts", &["solo"]),
-        // A package and its types at one level, and another copy further up.
         (
             "packages/api/node_modules/@types/dual/index.d.ts",
             &["both"],
@@ -722,14 +695,12 @@ fn an_imported_package_is_the_copy_node_loads() {
         ("node_modules/dual/index.d.ts", &["both"]),
         ("packages/api/node_modules/lib/sub.d.ts", &["part"]),
         ("node_modules/lib/sub.d.ts", &["part"]),
-        // A copy another package depends on, and a package the copy itself depends on.
         ("node_modules/nested/index.d.ts", &["nest", "lonely"]),
         (
             "node_modules/other/node_modules/nested/index.d.ts",
             &["nest", "lonely"],
         ),
         ("node_modules/nested/node_modules/dep/index.d.ts", &["nest"]),
-        // Types with no package beside them, a scoped package's among them.
         (
             "packages/api/node_modules/@types/typed/index.d.ts",
             &["typed"],
@@ -740,7 +711,6 @@ fn an_imported_package_is_the_copy_node_loads() {
             &["scoped"],
         ),
         ("node_modules/@scope/pkg/index.d.ts", &["scoped"]),
-        // No package is called `fs`: it is Node's own, typed by `@types/node`.
         ("node_modules/@types/node/fs.d.ts", &["readFile"]),
     ] {
         let text: String = names
@@ -751,7 +721,6 @@ fn an_imported_package_is_the_copy_node_loads() {
         std::fs::write(dir.join(path), text).unwrap();
     }
     for (path, text) in [
-        // `buffer` is Node's own too, whatever npm polyfill of that name is installed.
         (
             "node_modules/buffer/index.d.ts",
             "export declare class Buffer {\n}\n",
@@ -760,7 +729,6 @@ fn an_imported_package_is_the_copy_node_loads() {
             "node_modules/@types/node/buffer.d.ts",
             "declare module \"buffer\" {\n    export class Buffer {\n    }\n}\n",
         ),
-        // JavaScript alone beside the file, its types further up, as a workspace keeps them.
         (
             "packages/api/node_modules/react/index.js",
             "export function useState() {}\n",
@@ -773,7 +741,6 @@ fn an_imported_package_is_the_copy_node_loads() {
             "node_modules/react/index.js",
             "export function useState() {}\n",
         ),
-        // Outside a copy, as on master: no renamed export is followed.
         (
             "node_modules/other/node_modules/solo/renamed.d.ts",
             "declare function soloImpl(): void;\nexport { soloImpl as soloRen };\n",
@@ -790,7 +757,6 @@ fn an_imported_package_is_the_copy_node_loads() {
             "packages/api/node_modules/buffer/index.d.ts",
             "export declare class Buffer {\n}\n",
         ),
-        // JavaScript alone beside the file, the package's own types further up.
         (
             "packages/api/node_modules/jsonly/index.js",
             "export function jsfn() {}\n",
@@ -799,12 +765,10 @@ fn an_imported_package_is_the_copy_node_loads() {
             "node_modules/jsonly/index.d.ts",
             "export declare function jsfn(): void;\n",
         ),
-        // Only the declarations are borrowed, not the JavaScript beside them.
         (
             "node_modules/jsonly/index.js",
             "export function jsfn() {}\n",
         ),
-        // TypeScript source is what TypeScript reads: nothing is borrowed.
         (
             "packages/api/node_modules/tssrc/index.ts",
             "export function tsf() {}\n",
@@ -813,7 +777,6 @@ fn an_imported_package_is_the_copy_node_loads() {
             "node_modules/tssrc/index.d.ts",
             "export declare function tsf(): void;\n",
         ),
-        // Further up both a package with its own types and its `@types`: the package's own.
         (
             "packages/api/node_modules/jsowned/index.js",
             "export function jsown() {}\n",
@@ -826,7 +789,6 @@ fn an_imported_package_is_the_copy_node_loads() {
             "node_modules/@types/jsowned/index.d.ts",
             "export declare function jsown(): void;\n",
         ),
-        // A package that ships its own types takes none from further up.
         (
             "packages/api/node_modules/shipped/index.d.ts",
             "export declare function shipped(): void;\n",
@@ -835,8 +797,6 @@ fn an_imported_package_is_the_copy_node_loads() {
             "node_modules/@types/shipped/index.d.ts",
             "export declare function shipped(): void;\n",
         ),
-        // A renamed export is looked for in the module the import names, and only for what
-        // the import takes: `Box.open` is a member of `Box`.
         (
             "packages/api/node_modules/multi/sub.d.ts",
             "declare function parse(): void;\nexport { parse as parseX };\n",
@@ -849,7 +809,6 @@ fn an_imported_package_is_the_copy_node_loads() {
             "packages/api/node_modules/boxed/index.d.ts",
             "declare function openImpl(): void;\nexport { openImpl as open };\nexport declare class Box {\n    static open(): void;\n}\n",
         ),
-        // `node:sqlite` is Node's own, whatever npm package is called `sqlite`.
         (
             "node_modules/sqlite/index.d.ts",
             "export declare class DatabaseSync {\n}\n",
@@ -858,8 +817,6 @@ fn an_imported_package_is_the_copy_node_loads() {
             "node_modules/@types/node/sqlite.d.ts",
             "declare module \"node:sqlite\" {\n    export class DatabaseSync {\n    }\n}\n",
         ),
-        // The copy loaded declares `parse` under another name, which another copy has.
-        // As `cookie@1.1.1` lays itself out: the entry `types` names renames what it declares.
         (
             "packages/api/node_modules/cookie/package.json",
             "{ \"name\": \"cookie\", \"types\": \"dist/index.d.ts\", \"main\": \"dist/index.js\" }\n",
@@ -872,7 +829,6 @@ fn an_imported_package_is_the_copy_node_loads() {
             "packages/api/node_modules/cookie/dist/index.js",
             "function parseCookie() {}\nexports.parse = parseCookie;\n",
         ),
-        // A file the package's entry does not load renames nothing it exports.
         (
             "node_modules/rlib/index.d.ts",
             "export { rparse } from \"rparse-core\";\n",
@@ -901,8 +857,6 @@ fn an_imported_package_is_the_copy_node_loads() {
             "node_modules/rjs-core/index.d.ts",
             "export declare function rjsfn(): void;\n",
         ),
-        // The entry `main` names, with the declarations beside it; with no `package.json`, the
-        // `index` files.
         (
             "node_modules/mainpkg/package.json",
             "{ \"name\": \"mainpkg\", \"main\": \"lib/index.js\" }\n",
@@ -937,7 +891,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
-            "",
+            "a namesake of `onlyFar` and `deeper` in a package no import names",
             "^onlyFar",
             jump("onlyFar: by name, 1 match", "node_modules/lib/index.d.ts:2"),
         ),
@@ -950,7 +904,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
-            "",
+            "a copy another package depends on, and a package the copy itself depends on",
             "^nest",
             jump(
                 "nest: via import nested",
@@ -958,7 +912,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
-            "",
+            "types with no package beside them, a scoped package's among them",
             "^typed",
             jump(
                 "typed: via import typed",
@@ -974,7 +928,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
-            "",
+            "no package is called `fs`: it is Node's own, typed by `@types/node`",
             "^readFile",
             jump(
                 "readFile: via import fs",
@@ -982,11 +936,10 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
-            "",
+            "`buffer` is Node's own too, whatever npm polyfill of that name is installed; the nearer root's first",
             "^Buffer",
             Shown::Picker(
                 "Buffer: via import buffer, 3 declarations".into(),
-                // The nearer root's first.
                 [
                     "packages/api/node_modules/buffer/index.d.ts:1",
                     "@types/node/buffer.d.ts:2",
@@ -997,7 +950,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
-            "",
+            "`node:sqlite` is Node's own, whatever npm package is called `sqlite`",
             "^DatabaseSync",
             Shown::Picker(
                 "DatabaseSync: via import sqlite, 2 declarations".into(),
@@ -1023,7 +976,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
-            "",
+            "`lib/nested` is only in a copy another package depends on",
             "^onlyNested",
             jump(
                 "onlyNested: by name, 1 match",
@@ -1031,7 +984,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
-            "",
+            "a module only the root's copy has, one of whose names the nearer copy declares",
             "^alsoNear",
             jump(
                 "alsoNear: via import lib/extra",
@@ -1039,7 +992,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
-            "",
+            "JavaScript alone beside the file, its types further up, as a workspace keeps them",
             "^useState",
             Shown::Picker(
                 "useState: via import react, 2 declarations".into(),
@@ -1052,7 +1005,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
-            "",
+            "JavaScript alone beside the file, the package's own types further up; only the declarations are borrowed, not the JavaScript beside them",
             "^jsfn",
             Shown::Picker(
                 "jsfn: via import jsonly, 2 declarations".into(),
@@ -1065,7 +1018,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
-            "",
+            "TypeScript source is what TypeScript reads: nothing is borrowed",
             "^tsf",
             jump(
                 "tsf: via import tssrc",
@@ -1073,7 +1026,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
-            "",
+            "further up both a package with its own types and its `@types`: the package's own",
             "^jsown",
             Shown::Picker(
                 "jsown: via import jsowned, 2 declarations".into(),
@@ -1086,7 +1039,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
-            "",
+            "a package that ships its own types takes none from further up",
             "^shipped",
             jump(
                 "shipped: via import shipped",
@@ -1094,7 +1047,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
-            "",
+            "what a default import binds is its own name for the default export, whatever the module exports under that name otherwise",
             "^dparse",
             jump(
                 "no definition for dparse",
@@ -1110,7 +1063,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
-            "",
+            "a package installed only as another's dependency: no root has it",
             "^solo",
             jump(
                 "solo: via import solo",
@@ -1118,7 +1071,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
-            "",
+            "outside a copy, as on master: no renamed export is followed",
             "^soloRen",
             jump(
                 "no definition for soloRen",
@@ -1126,7 +1079,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
-            "",
+            "a package and its types at one level, and another copy further up",
             "^both",
             Shown::Picker(
                 "both: via import dual, 2 declarations".into(),
@@ -1144,7 +1097,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             jump("deeper: by name, 1 match", "node_modules/lib/index.d.ts:5"),
         ),
         (
-            "",
+            "a renamed export is looked for in the module the import names, and only for what the import takes",
             "^parseX",
             jump(
                 "parseX: via import multi/sub",
@@ -1152,7 +1105,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
-            "",
+            "`Box.open` is a member of `Box`",
             "^Box.open",
             jump(
                 "no definition for open",
@@ -1168,7 +1121,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
-            "",
+            "the copy loaded declares `parse` under another name, which another copy has: as `cookie@1.1.1` lays itself out, the entry `types` names renames what it declares",
             "^parse",
             jump(
                 "parse: via import cookie",
@@ -1176,7 +1129,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
-            "",
+            "the entry `main` names, with the declarations beside it",
             "^mfn",
             Shown::Picker(
                 "mfn: via import mainpkg, 2 declarations".into(),
@@ -1186,12 +1139,12 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
-            "",
+            "with no `package.json`, the `index` files",
             "^ifn",
             jump("ifn: via import idxpkg", "node_modules/idxpkg/index.d.ts:1"),
         ),
         (
-            "",
+            "a file the package's entry does not load renames nothing it exports",
             "^rparse",
             jump(
                 "rparse: by name, 1 match",
@@ -1199,7 +1152,7 @@ fn an_imported_package_is_the_copy_node_loads() {
             ),
         ),
         (
-            "",
+            "a file the package's entry does not load renames nothing it exports",
             "^rjsfn",
             jump(
                 "rjsfn: by name, 1 match",
@@ -1213,9 +1166,6 @@ fn an_imported_package_is_the_copy_node_loads() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #141, pnpm: `node_modules/lib` links the version of the store a file loads. A workspace
-/// package linked in is the project's own, found in its source by name, and not in a published
-/// copy another package depends on. A package linked out of the walk is looked for as before.
 #[cfg(unix)]
 #[test]
 fn a_linked_package_is_the_version_it_links() {
@@ -1248,12 +1198,9 @@ fn a_linked_package_is_the_version_it_links() {
             "shared",
         ),
         ("node_modules/other/node_modules/far/index.d.ts", "reach"),
-        // What the workspace package hands on from a dependency.
         ("node_modules/zod/index.d.ts", "z"),
         ("node_modules/zod/schemas.d.ts", "string"),
         ("node_modules/helpers/index.d.ts", "helper"),
-        // `cookie` links a store directory of another name; another package depends on a
-        // `cookie` of that name.
         (
             "node_modules/.pnpm/cookie-es@1.0.0/node_modules/cookie-es/index.d.ts",
             "parse",
@@ -1278,13 +1225,11 @@ fn a_linked_package_is_the_version_it_links() {
         )
         .unwrap();
     }
-    // An old published copy declares a name the workspace package no longer has.
     std::fs::write(
         dir.join("node_modules/other/node_modules/@app/shared/index.d.ts"),
         "export declare function shared(): void;\nexport declare function gone(): void;\n",
     )
     .unwrap();
-    // A method of the name is no answer for what the import takes.
     std::fs::write(
         dir.join("node_modules/other/index.d.ts"),
         "export declare class Other {\n    z(): void;\n}\n",
@@ -1323,7 +1268,7 @@ fn a_linked_package_is_the_version_it_links() {
             jump("shared: by name, 1 match", "packages/shared/index.ts:1"),
         ),
         (
-            "",
+            "what the workspace package hands on from a dependency; a method of the name is no answer for what the import takes",
             "^z|.string",
             jump("z: by name, 1 match", "node_modules/zod/index.d.ts:1"),
         ),
@@ -1336,7 +1281,7 @@ fn a_linked_package_is_the_version_it_links() {
             ),
         ),
         (
-            "Nothing outside is proven the import's: the copy it loads is the project's own",
+            "Nothing outside is proven the import's: the copy it loads is the project's own; an old published copy declares a name the workspace package no longer has",
             "^gone",
             jump(
                 "gone: by name, 1 match",
@@ -1352,7 +1297,7 @@ fn a_linked_package_is_the_version_it_links() {
             ),
         ),
         (
-            "The copy is the package, whatever its store directory is called",
+            "The copy is the package, whatever its store directory is called; `cookie` links a store directory of another name; another package depends on a `cookie` of that name",
             "^parse",
             jump(
                 "parse: via import cookie",
@@ -1383,8 +1328,6 @@ fn a_linked_package_is_the_version_it_links() {
     std::fs::remove_dir_all(&store).unwrap();
 }
 
-/// #392: a package is not installed only when nothing in the project supplies it: an alias of a
-/// JavaScript project's `jsconfig.json`, a name under `baseUrl`, a `declare module` all do.
 #[test]
 fn what_the_project_supplies_is_no_missing_package() {
     let (js, mut a) = project_app(
@@ -1447,9 +1390,6 @@ fn what_the_project_supplies_is_no_missing_package() {
     std::fs::remove_dir_all(&ts).unwrap();
 }
 
-/// #141: `@/lib`, `~/lib` and `#lib` are aliases of the project's own modules, no npm scope or
-/// package: what the project does not declare is looked for outside by name, and an alias never
-/// narrows into a scoped package such as `@mui`.
 #[test]
 fn an_alias_is_the_projects_own() {
     let (dir, mut a) = project_app(
@@ -1547,9 +1487,6 @@ fn an_alias_is_the_projects_own() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #141: the grep for `as Widget` only says which files to read for a renamed export, so a cut
-/// in it cuts nothing shown. Python has no renamed exports: a docstring that shows one is no
-/// answer for `Thing`.
 #[test]
 fn a_grep_for_where_to_read_cuts_nothing_shown() {
     let casts = "export const w = x as unknown as Widget;\n".repeat(search::MAX_HITS);
@@ -1587,10 +1524,15 @@ fn a_grep_for_where_to_read_cuts_nothing_shown() {
         jump(
             "Widget: by name, 1 match",
             "node_modules/widgets/index.d.ts:1"
-        )
+        ),
+        "the grep for `as Widget` only says which files to read for a renamed export, so a cut in it cuts nothing shown"
     );
     d_on(&mut a, "main.py", "^Thing");
-    assert_eq!(shown(&mut a), jump("no definition for Thing", "main.py:3"));
+    assert_eq!(
+        shown(&mut a),
+        jump("no definition for Thing", "main.py:3"),
+        "Python has no renamed exports: a docstring that shows one is no answer for `Thing`"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();
 }
@@ -1629,9 +1571,6 @@ fn a_node_import_is_never_a_project_file() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #141: the copy is chosen first, a workspace package linked in as any other: Node goes on
-/// past a package that lacks the path and has no `exports` map, and stops at one whose files are
-/// out of the walk. Only a chosen copy of the project's own leaves the answer to the project.
 #[cfg(unix)]
 #[test]
 fn a_linked_copy_is_chosen_as_any_other() {
@@ -1641,7 +1580,6 @@ fn a_linked_copy_is_chosen_as_any_other() {
         &[
             ("packages/api/src/main.ts", main),
             ("packages/wlib/index.ts", "export function ex() {}\n"),
-            // Only its TypeScript and JavaScript say what paths it has.
             ("packages/wlib/extra.md", "# extra\n"),
             ("packages/wlib/extra.json", "{}\n"),
             ("packages/ui/old.ts", "export function Old() {}\n"),
@@ -1680,7 +1618,6 @@ fn a_linked_copy_is_chosen_as_any_other() {
             "node_modules/x/node_modules/outl/index.d.ts",
             "export declare function reachOut(): void;\n",
         ),
-        // `exports` maps `.` alone, and `sub2` is only in the root's copy: as without a copy.
         (
             "packages/api/node_modules/elib/package.json",
             "{ \"name\": \"elib\", \"exports\": { \".\": \"./index.js\" } }\n",
@@ -1693,8 +1630,6 @@ fn a_linked_copy_is_chosen_as_any_other() {
             "node_modules/elib/sub2.d.ts",
             "export declare function esub(): void;\n",
         ),
-        // An `exports` that is `null`, or no top-level key: Node goes on past them, to the root's
-        // copy and not the one another package depends on.
         (
             "packages/api/node_modules/nl1/package.json",
             "{ \"name\": \"nl1\", \"exports\": null }\n",
@@ -1759,7 +1694,7 @@ fn a_linked_copy_is_chosen_as_any_other() {
     let outl = |at: &str| ("reachOut".into(), "via import outl".into(), at.into());
     for (name, code, want) in [
         (
-            "The linked `wlib` lacks `extra`: on to the root's",
+            "The linked `wlib` lacks `extra`: on to the root's; only its TypeScript and JavaScript say what paths it has",
             "^ex",
             jump(
                 "ex: via import wlib/extra",
@@ -1783,7 +1718,7 @@ fn a_linked_copy_is_chosen_as_any_other() {
             ),
         ),
         (
-            "",
+            "`exports` maps `.` alone, and `sub2` is only in the root's copy: as without a copy",
             "^esub",
             jump(
                 "esub: via import elib/sub2",
@@ -1791,7 +1726,7 @@ fn a_linked_copy_is_chosen_as_any_other() {
             ),
         ),
         (
-            "",
+            "an `exports` that is `null`, or no top-level key: Node goes on past them, to the root's copy and not the one another package depends on",
             "^nl1f",
             jump(
                 "nl1f: via import nl1/extra",
@@ -1833,8 +1768,6 @@ fn a_linked_copy_is_chosen_as_any_other() {
     std::fs::remove_dir_all(&store).unwrap();
 }
 
-/// #141: a workspace package linked in, with no other copy of it installed, hands on what it
-/// re-exports: after the project, outside as master looks, by name.
 #[cfg(unix)]
 #[test]
 fn a_linked_package_alone_hands_its_names_on() {
@@ -1905,8 +1838,6 @@ fn a_linked_package_alone_hands_its_names_on() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #141 is npm's rule. Python puts a namespace package together from every root that has a
-/// part of it, so `google.cloud` is found behind a `google` in the first root.
 #[test]
 fn a_python_namespace_package_spans_its_roots() {
     let (dir, mut a) = project_app(
@@ -1935,16 +1866,14 @@ fn a_python_namespace_package_spans_its_roots() {
         jump(
             "Client: via import google.cloud.storage",
             &format!("{}:1", at.display())
-        )
+        ),
+        "Python puts a namespace package together from every root that has a part of it"
     );
     for d in [dir, first, second] {
         std::fs::remove_dir_all(d).unwrap();
     }
 }
 
-/// #100, TypeScript: `export { Trunk as TrunkBase }` is followed to the class the module
-/// declares under its own name, as hono exports the `HonoBase` its `Hono` extends. A re-export
-/// from another module under a new name is not.
 #[test]
 fn an_export_under_another_name_is_followed() {
     let cases: Vec<(&str, &str, Shown)> = vec![
@@ -1998,8 +1927,6 @@ fn an_export_under_another_name_is_followed() {
     }
 }
 
-/// What the Punchcard review of the TypeScript items (#100, #131) found: each row was a wrong
-/// jump, a lost one or a picker of doubles on the first build of them.
 #[test]
 fn what_the_review_of_the_typescript_items_found() {
     let user = |via: &str| {
@@ -2112,8 +2039,6 @@ fn what_the_review_of_the_typescript_items_found() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A call statement shaped like a method header declares nothing (#343): one that passes a
-/// callback or opens with a string, and one wrapped after its `(` whose closer is `);`.
 #[test]
 fn a_call_statement_is_no_method_header() {
     let mut a = fixture_app("typescript");

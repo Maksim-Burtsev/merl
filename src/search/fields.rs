@@ -229,45 +229,60 @@ pub(super) fn go_embedded(t: &str) -> Option<&str> {
 /// the enclosing lines, each indented less than the last, until one declares a type. `None` when
 /// the walk reaches the top level first.
 pub fn enclosing_type(kind: Kind, lines: &[&str], k: usize) -> Option<usize> {
+    enclosing_at(kind, lines, &levels(kind, lines), k)
+}
+fn levels(kind: Kind, lines: &[&str]) -> Vec<Option<usize>> {
+    (lines.iter())
+        .map(|l| {
+            let t = l.trim();
+            let skip = t.is_empty()
+                || t == "{"
+                || comment(kind, t)
+                || t.starts_with([')', ']'])
+                || (kind == Kind::TsJs && (t.starts_with('>') || t.starts_with("}>")));
+            (!skip).then(|| indent(l))
+        })
+        .collect()
+}
+fn enclosing_at(kind: Kind, lines: &[&str], levels: &[Option<usize>], k: usize) -> Option<usize> {
     let mut depth = indent(lines[k]);
     for i in (0..k).rev() {
         if depth == 0 {
             break;
         }
-        let t = lines[i].trim();
-        // A closer at a lower indent ends a signature or a header wrapped over several lines.
-        if t.is_empty()
-            || t == "{"
-            || comment(kind, t)
-            || t.starts_with([')', ']'])
-            || (kind == Kind::TsJs && (t.starts_with('>') || t.starts_with("}>")))
-            || indent(lines[i]) >= depth
-        {
+        let Some(level) = levels[i].filter(|&l| l < depth) else {
             continue;
-        }
-        depth = indent(lines[i]);
+        };
+        depth = level;
         if declares_type(kind, lines[i]) {
             return Some(i + 1);
         }
     }
     None
 }
-/// The line among `bindings`, the [`field_bindings`] of one type over `lines`, that declares the
-/// field: the first that is no assignment inside a method, else the first assignment, which the
-/// second value says.
-fn declaring(lines: &[&str], bindings: &[Binding], name: &str) -> Option<(usize, bool)> {
+pub struct FieldLine {
+    pub line: usize,
+    pub assigned_in_method: bool,
+}
+
+/// The first of the [`field_bindings`] of one type that is no assignment inside a method, else
+/// the first assignment.
+fn declaring(lines: &[&str], bindings: &[Binding], name: &str) -> Option<FieldLine> {
     let assigned = |b: &&Binding| in_method(lines[b.line - 1], name);
+    let line = |b: &Binding, assigned_in_method| FieldLine {
+        line: b.line,
+        assigned_in_method,
+    };
     bindings
         .iter()
         .find(|b| !assigned(b))
-        .map(|b| (b.line, false))
-        .or_else(|| bindings.first().map(|b| (b.line, true)))
+        .map(|b| line(b, false))
+        .or_else(|| bindings.first().map(|b| line(b, true)))
 }
-/// The line on which the type declared on 1-based `decl` of `text` declares its field `name` —
+/// The line on which the type declared on 1-based `decl` of `text` declares its field `name`:
 /// the class-body annotation, a constructor parameter, the struct field, else the first
-/// `self.name = …` — and whether that line is an assignment inside a method. `None` when the type
-/// has no field of that name.
-pub fn field_line(kind: Kind, text: &str, decl: usize, name: &str) -> Option<(usize, bool)> {
+/// `self.name = …`. `None` when the type has no field of that name.
+pub fn field_line(kind: Kind, text: &str, decl: usize, name: &str) -> Option<FieldLine> {
     let lines: Vec<&str> = text.lines().collect();
     declaring(&lines, &field_bindings(kind, text, decl, name), name)
 }
@@ -280,6 +295,7 @@ pub fn field_rows(kind: Kind, text: &str, hits: &[usize], name: &str, jsdoc: boo
     let lines: Vec<&str> = text.lines().collect();
     let mut types: HashMap<usize, Vec<Binding>> = HashMap::new();
     let mut out = Vec::new();
+    let mut levels_of = None;
     for &line in hits {
         let Some(k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
             continue;
@@ -288,14 +304,17 @@ pub fn field_rows(kind: Kind, text: &str, hits: &[usize], name: &str, jsdoc: boo
             .then(|| jsdoc_owner(&lines, k))
             .flatten()
             .map(|i| i + 1);
-        let Some(decl) = owner.or_else(|| enclosing_type(kind, &lines, k)) else {
+        let Some(decl) = owner.or_else(|| {
+            let levels = levels_of.get_or_insert_with(|| levels(kind, &lines));
+            enclosing_at(kind, &lines, levels, k)
+        }) else {
             continue;
         };
         let bindings = types
             .entry(decl)
             .or_insert_with(|| field_bindings(kind, text, decl, name));
         if bindings.iter().any(|b| b.line == line)
-            && let Some((first, _)) = declaring(&lines, bindings, name)
+            && let Some(FieldLine { line: first, .. }) = declaring(&lines, bindings, name)
             && !out.contains(&first)
         {
             out.push(first);

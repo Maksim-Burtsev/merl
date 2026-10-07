@@ -746,6 +746,7 @@ fn git_marks_sit_between_the_number_and_the_text() {
         (0, Mark::Added),
         (1, Mark::Changed),
         (2, Mark::DeletedBelow),
+        (3, Mark::Deleted),
     ]
     .into();
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
@@ -756,11 +757,12 @@ fn git_marks_sit_between_the_number_and_the_text() {
     assert_eq!(head(0), "1\u{258e}a");
     assert_eq!(head(1), "2\u{258e}b");
     assert_eq!(head(2), "3\u{2581}c");
-    assert_eq!(head(3), "4 d");
+    assert_eq!(head(3), "4\u{258e}d");
     let buf = terminal.backend().buffer();
     assert_eq!(buf[(1, 0)].fg, Color::Green);
     assert_eq!(buf[(1, 1)].fg, Color::Blue);
     assert_eq!(buf[(1, 2)].fg, Color::Red);
+    assert_eq!(buf[(1, 3)].fg, Color::Red);
 }
 
 #[test]
@@ -831,8 +833,11 @@ fn review_paints_the_word_that_changed_on_both_rows() {
         let c = &t.backend().buffer()[(x, y)];
         (c.fg, c.bg)
     };
-    // The cursor is on the hunk, which starts with the deleted row (#439): that row is the
-    // cursor line. Down, and the added row is.
+    // The cursor is on the hunk's added row (#690). Up, and the deleted row is the cursor line
+    // (#439); Down, and the added row is again.
+    assert_eq!(app.at(), TextLine::File(1));
+    app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(app.at(), TextLine::Deleted(1, 0));
     assert_eq!(cell(&terminal, 23, 1).1, theme.del_bg_hl);
     assert_eq!(cell(&terminal, 23, 2).1, theme.add_bg);
@@ -881,7 +886,7 @@ fn review_paints_the_word_that_changed_on_both_rows() {
     // A file the branch deleted is all deleted rows.
     app.jump_to(&dir.join("gone.py"), 0);
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!(rows(&terminal)[0], "1\u{2581}x = 1");
+    assert_eq!(rows(&terminal)[0], "1\u{258e}x = 1");
     assert_eq!(cell(&terminal, 23, 0).1, theme.del_bg_hl);
     let _ = std::fs::remove_dir_all(dir);
 }
@@ -1050,12 +1055,12 @@ fn a_hunk_inside_a_long_function_lands_below_the_pinned_header() {
     assert_eq!(screen[0], "1 def long():");
     let buf = terminal.backend().buffer();
     assert!((0..30).all(|x| buf[(x, 0)].bg == theme.line_hl));
-    // On the deleted line the hunk starts with (#439), under the band.
+    // On the hunk's added line (#690), its deleted line above it under the band.
     assert_eq!(
-        screen[y..=y + 1],
+        screen[y - 1..=y],
         ["\u{258e}    a20 = 20", "22\u{258e}    a20 = 200"]
     );
-    assert!(y > 0, "the deleted line is under the band");
+    assert!(y > 1, "the deleted line is under the band");
     let _ = std::fs::remove_dir_all(dir);
 }
 

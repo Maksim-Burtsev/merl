@@ -1,7 +1,3 @@
-//! PHP's own rules for `d`: the tags of a class's docblock and the segments of a namespace (#344),
-//! the members `->` reaches (#348), and the class `$this`, `self`, `static` and `parent` name
-//! (#356).
-
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -13,13 +9,10 @@ use super::syntax::close_of;
 use super::words::steps_over;
 use super::{Kind, indent};
 
-/// A function or a method, behind its attributes and modifiers; `&` returns by reference.
 pub(super) fn php_method(w: &str) -> String {
     format!(r"{}function\s+&?\s*{w}\s*\(", php_mods!())
 }
 
-/// A property, with the type it can carry between its modifiers and the `$`, and a constructor
-/// parameter promoted to one, wherever it sits in the constructor's list.
 pub(super) fn php_properties(w: &str) -> [String; 2] {
     [
         format!(r"{}(?:\??[\w\\|]+\s+)?\${w}\b", php_mods!("+")),
@@ -29,9 +22,8 @@ pub(super) fn php_properties(w: &str) -> [String; 2] {
     ]
 }
 
-/// A constant, the `const` of a class or a file with its type or without (#344), and an enum
-/// case. A `case X:` of a `switch` matches against a constant, so what follows the name must
-/// not be a `:`.
+/// A `case X:` of a `switch` matches against a constant, so what follows the name must not be a
+/// `:`.
 pub(super) fn php_constants(w: &str) -> [String; 2] {
     [
         format!(r"{}const\s+(?:[\w\\|&?()]+\s+)?{w}\b", php_mods!()),
@@ -39,9 +31,6 @@ pub(super) fn php_constants(w: &str) -> [String; 2] {
     ]
 }
 
-/// The tags of a class's docblock (#344): a property, `-read` and `-write` ones included, and a
-/// method, `static` or not. A tag of any other docblock declares nothing: [`php_tag_class`]
-/// keeps the ones right above a class.
 pub(super) fn php_tags(w: &str) -> [String; 2] {
     [
         format!(r"^\s*\*\s*@property(?:-read|-write)?\s+(?:[^$]*\s)?\${w}\b"),
@@ -49,10 +38,7 @@ pub(super) fn php_tags(w: &str) -> [String; 2] {
     ]
 }
 
-/// The line patterns of what `$x->word` reaches (#348): a `call`, `->word(`, is a method or an
-/// `@method` tag, since PHP calls a closure a property holds as `($x->word)(…)`; anything else a
-/// property, promoted or tagged. A method is indented: a `function` in column 0 is a global one.
-/// Never a local, a class, a constant or a namespace.
+/// A method is indented: a `function` in column 0 is a global one.
 pub fn php_member_patterns(word: &str, call: bool) -> Vec<String> {
     let w = regex::escape(word);
     let [property, promoted] = php_properties(&w);
@@ -69,10 +55,6 @@ pub(super) fn php_namespace_line(w: &str) -> String {
     format!(r"{NAMESPACE_HEAD}(?:[\w\\]+\\)?{w}\s*[;{{]")
 }
 
-/// The 0-based line of the `class`, `trait`, `interface` or `enum` whose docblock holds the
-/// `@property`, `@property-read`, `@property-write` or `@method` tag on 0-based line `at` of
-/// `lines` (#344): the `/** … */` around the tag ends right above that line, `#[…]` attributes
-/// aside. `None` for any other line, and for a tag of a function's docblock or a loose comment.
 pub fn php_tag_class<S: AsRef<str>>(lines: &[S], at: usize) -> Option<usize> {
     static TAG: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\s*\*\s*@(?:property(?:-read|-write)?|method)\s").unwrap());
@@ -89,7 +71,6 @@ pub fn php_tag_class<S: AsRef<str>>(lines: &[S], at: usize) -> Option<usize> {
         return None;
     }
     let end = (at..lines.len()).find(|&i| line(i).contains("*/"))?;
-    // An attribute can be wrapped over lines, `#[Guarded([` over `'id',` over `])]`.
     // ponytail: brackets counted as written, a `[` inside a string of an attribute included.
     let mut depth = 0;
     let class = (end + 1..lines.len()).find(|&i| {
@@ -140,8 +121,6 @@ pub fn php_namespace_patterns(
     *patterns = vec![format!(r"{NAMESPACE_HEAD}{}\s*[;{{]", regex::escape(&name))];
 }
 
-/// How a PHP member is reached, which says what can declare it (#356): a call is a method, a
-/// `->name` or a `::$name` a property, a `::NAME` a constant or an enum case.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PhpAccess {
     Call,
@@ -149,8 +128,6 @@ pub enum PhpAccess {
     Constant,
 }
 
-/// The line patterns of what `access` reaches of a class, wherever the line sits:
-/// [`php_class_members`] keeps the ones directly in the class.
 pub fn php_access_patterns(word: &str, access: PhpAccess) -> Vec<String> {
     let w = regex::escape(word);
     let [property, promoted] = php_properties(&w);
@@ -162,23 +139,25 @@ pub fn php_access_patterns(word: &str, access: PhpAccess) -> Vec<String> {
     }
 }
 
-/// A `class`, `trait`, `interface` or `enum` line: its keyword, its name and the class it
-/// `extends`, as written.
-pub fn php_class_header(line: &str) -> Option<(&str, &str, Option<&str>)> {
+pub struct PhpClassHeader<'a> {
+    pub keyword: &'a str,
+    pub name: &'a str,
+    pub extends: Option<&'a str>,
+}
+
+pub fn php_class_header(line: &str) -> Option<PhpClassHeader<'_>> {
     static HEADER: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:(?:abstract|final|readonly)\s+)*(class|trait|interface|enum)\s+(\w+)(?:\s*:\s*\w+)?(?:\s+extends\s+([\w\\]+))?").unwrap()
     });
     let c = HEADER.captures(line)?;
-    Some((
-        c.get(1)?.as_str(),
-        c.get(2)?.as_str(),
-        c.get(3).map(|m| m.as_str()),
-    ))
+    Some(PhpClassHeader {
+        keyword: c.get(1)?.as_str(),
+        name: c.get(2)?.as_str(),
+        extends: c.get(3).map(|m| m.as_str()),
+    })
 }
 
-/// The line 0-based `at` of `lines` stands directly inside: the nearest one above it indented
-/// less, past blank lines, comments, attributes and a lone `{`.
-fn php_owner<S: AsRef<str>>(lines: &[S], at: usize) -> Option<usize> {
+fn php_outer_line<S: AsRef<str>>(lines: &[S], at: usize) -> Option<usize> {
     let depth = indent(lines.get(at)?.as_ref());
     (0..at).rev().find(|&i| {
         let l = lines[i].as_ref();
@@ -186,14 +165,11 @@ fn php_owner<S: AsRef<str>>(lines: &[S], at: usize) -> Option<usize> {
     })
 }
 
-/// The 0-based line of the class, trait, interface or enum the 0-based line `at` of `lines` is
-/// in, walking out through the lines each one stands inside (#356). `None` at the top level, and
-/// inside an anonymous class, `new class(…) extends X {`, whose `$this` is that class.
 pub fn php_enclosing_class<S: AsRef<str>>(lines: &[S], at: usize) -> Option<usize> {
     static ANONYMOUS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\bnew\s+class\b").unwrap());
     let mut at = at;
     loop {
-        at = php_owner(lines, at)?;
+        at = php_outer_line(lines, at)?;
         let l = lines[at].as_ref();
         if ANONYMOUS.is_match(l) {
             return None;
@@ -204,31 +180,26 @@ pub fn php_enclosing_class<S: AsRef<str>>(lines: &[S], at: usize) -> Option<usiz
     }
 }
 
-/// The 0-based lines of `lines` that `re` matches and that declare a member of the class on
-/// 0-based line `class` (#356): directly in its body, a constructor parameter promoted on a line
-/// of its own, or a tag of its docblock ([`php_tag_class`]).
 pub fn php_class_members<S: AsRef<str>>(lines: &[S], class: usize, re: &Regex) -> Vec<usize> {
     static CONSTRUCTOR: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"\bfunction\s+__construct\s*\(").unwrap());
     (0..lines.len())
         .filter(|&i| re.is_match(lines[i].as_ref()))
-        .filter(|&i| match php_owner(lines, i) {
+        .filter(|&i| match php_outer_line(lines, i) {
             Some(o) if o == class => true,
             Some(o) if CONSTRUCTOR.is_match(lines[o].as_ref()) => {
-                php_owner(lines, o) == Some(class)
+                php_outer_line(lines, o) == Some(class)
             }
             _ => php_tag_class(lines, i) == Some(class),
         })
         .collect()
 }
 
-/// The traits the body of the class on 0-based line `class` pulls in, as written: an indented
-/// `use A;` or `use A, B;` directly inside it, not the imports at the top of the file.
 pub fn php_class_traits<S: AsRef<str>>(lines: &[S], class: usize) -> Vec<String> {
     static USE: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\s+use\s+([\w\\]+(?:\s*,\s*[\w\\]+)*)\s*[;{]").unwrap());
     (class + 1..lines.len())
-        .filter(|&i| php_owner(lines, i) == Some(class))
+        .filter(|&i| php_outer_line(lines, i) == Some(class))
         .filter_map(|i| USE.captures(lines[i].as_ref()))
         .flat_map(|c| {
             c[1].split(',')
@@ -271,13 +242,13 @@ pub fn php_block(text: &str, line: usize) -> &str {
     &text[lines[declared[i]]..end]
 }
 
-/// The class name the word at `range` of `line` belongs to, as written (`\A\B`, `B`), and
-/// whether the word is a member of it, `B::word`, rather than the name itself (#351). Only where
-/// PHP reads a class name: before `::`, after `new`, `extends`, `implements`, `instanceof`,
-/// `insteadof` and `catch (`, a type in front of a `$parameter`, a return type, and the last part
-/// of a column-0 `use` line. A function or a constant falls back to the global namespace, so no
-/// other position is read as a class.
-pub fn php_class_at(line: &str, range: Range<usize>) -> Option<(String, bool)> {
+#[derive(Debug, PartialEq, Eq)]
+pub struct PhpClassAt {
+    pub written: String,
+    pub member: bool,
+}
+
+pub fn php_class_at(line: &str, range: Range<usize>) -> Option<PhpClassAt> {
     static AFTER: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?:\b(?:new|extends|implements|instanceof|insteadof)|\bcatch\s*\(|\)\s*:\s*\??|\bimplements\s.*,)\s*$").unwrap()
     });
@@ -304,7 +275,10 @@ pub fn php_class_at(line: &str, range: Range<usize>) -> Option<(String, bool)> {
         .or_else(|| before.strip_suffix("::"))
     {
         let (at, written) = name_back(b);
-        return (word != "class" && is_class(at, &written)).then_some((written, true));
+        return (word != "class" && is_class(at, &written)).then_some(PhpClassAt {
+            written,
+            member: true,
+        });
     }
     if after.starts_with(|c: char| c == '\\' || c.is_ascii_alphanumeric() || c == '_') {
         return None;
@@ -329,22 +303,28 @@ pub fn php_class_at(line: &str, range: Range<usize>) -> Option<(String, bool)> {
             true => format!("\\{written}"),
             false => written,
         })
-        .map(|w| (w, false))
+        .map(|written| PhpClassAt {
+            written,
+            member: false,
+        })
 }
 
-/// The fully qualified name, with no leading `\`, of the class `written` names in the file
-/// `text`, as PHP resolves it, and whether a `use` bound it (#351): a leading `\` spells it in
-/// full, else the file's column-0 `use` that binds its first part (`use A\B\C;`, `use A\B\C as
-/// D;`; `use function` and `use const` bind no class), else the file's
-/// namespace in front of it. `None` for a name a group `use` binds: one clause binds several
-/// names there, and the rules do not read it.
-pub fn php_resolve(text: &str, written: &str) -> Option<(String, bool)> {
+#[derive(Debug, PartialEq, Eq)]
+pub struct PhpResolved {
+    pub full: String,
+    pub imported: bool,
+}
+
+pub fn php_resolve(text: &str, written: &str) -> Option<PhpResolved> {
     static USE: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"(?m)^use\s+([\w\\\s,]+?)\s*;").unwrap());
     static GROUP: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"(?m)^use\s+[^;{]*\{([^}]*)\}").unwrap());
     if let Some(full) = written.strip_prefix('\\') {
-        return Some((full.to_owned(), false));
+        return Some(PhpResolved {
+            full: full.to_owned(),
+            imported: false,
+        });
     }
     let (first, rest) = match written.split_once('\\') {
         Some((first, rest)) => (first, Some(rest)),
@@ -375,14 +355,15 @@ pub fn php_resolve(text: &str, written: &str) -> Option<(String, bool)> {
         })
     };
     let tail = rest.map_or(String::new(), |r| format!("\\{r}"));
-    Some(match used {
+    let (full, imported) = match used {
         Some(path) => (format!("{path}{tail}"), true),
         None if grouped() => return None,
         None => match php_namespace(text) {
             Some(ns) => (format!("{ns}\\{written}"), false),
             None => (written.to_owned(), false),
         },
-    })
+    };
+    Some(PhpResolved { full, imported })
 }
 
 pub fn php_psr4(root: &Path, dir: &Path) -> Vec<(String, Vec<PathBuf>)> {
@@ -425,15 +406,18 @@ pub fn php_psr4(root: &Path, dir: &Path) -> Vec<(String, Vec<PathBuf>)> {
     map
 }
 
-/// Where the PSR-4 `map` puts the class `full` (#351): `Some(Ok(file))` for the first mapped
-/// file `has` holds, `Some(Err(()))` for a name a prefix covers whose file is missing, `None` for
-/// a name the map does not cover: one outside the project. The empty prefix maps any name, so it
-/// covers only a name whose file exists under it.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Psr4File {
+    Found(PathBuf),
+    Missing,
+    OutsideProject,
+}
+
 pub fn php_psr4_file(
     map: &[(String, Vec<PathBuf>)],
     full: &str,
     has: impl Fn(&Path) -> bool,
-) -> Option<Result<PathBuf, ()>> {
+) -> Psr4File {
     let mut covered = false;
     for (prefix, dirs) in map {
         let Some(rest) = full.strip_prefix(prefix.as_str()) else {
@@ -445,29 +429,24 @@ pub fn php_psr4_file(
             .map(|d| d.join(format!("{}.php", rest.replace('\\', "/"))))
             .find(|f| has(f))
         {
-            return Some(Ok(file));
+            return Psr4File::Found(file);
         }
     }
-    covered.then_some(Err(()))
+    match covered {
+        true => Psr4File::Missing,
+        false => Psr4File::OutsideProject,
+    }
 }
 
-/// What a line binding PHP's `$name` says of its type (#361).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PhpBinding {
-    /// A type written in front of it: a parameter, a promoted one, a property, a `catch`.
     Type(String),
-    /// `$name = new T(…)`; `self` is the class around the line.
     New(String),
-    /// `$name = T::m(…)`, `self::m(…)` among them.
-    Static(String, String),
-    /// `$name = $this->m(…)`.
-    This(String),
-    /// `$name = f(…)`.
-    Function(String),
+    StaticCall { class: String, method: String },
+    ThisCall(String),
+    FunctionCall(String),
 }
 
-/// Names that stand where a class does and are none: the types of no single class, what refers
-/// to a class that can be a subclass, and the keywords a `$name` can follow on its line.
 const NO_CLASS: &[&str] = &[
     "array",
     "bool",
@@ -518,10 +497,6 @@ const NO_CLASS: &[&str] = &[
     "match",
 ];
 
-/// The one class written as the type of `$name` on `line`, `?` dropped: `UserUnsubscribed $event`,
-/// `private readonly ?Podcast $podcast`. `None` for no type, a union or an intersection
-/// (`A|B`, `A&B`), a variadic `T ...$xs`, and a type that is no single class (`mixed`, `array`,
-/// `static`…). `self` is returned as written.
 pub fn php_written_type(line: &str, name: &str) -> Option<String> {
     let re = Regex::new(&format!(r"(\??[\w\\]+)\s+&?\${}\b", regex::escape(name))).ok()?;
     let c = re.captures(line)?;
@@ -536,10 +511,6 @@ pub fn php_written_type(line: &str, name: &str) -> Option<String> {
         .then(|| written.to_owned())
 }
 
-/// The class `statement` binds `$name` to, the statement starting on the line that binds it and
-/// running on over the lines below: a type written in front of it, or an assignment whose whole
-/// value is `new T(…)`, `T::m(…)`, `$this->m(…)` or `f(…)`. `None` for anything else: a
-/// `foreach` target, a `list(…)`, a call on a call, `new static`, `static::m()`.
 pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
     static NEW: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^new\s+([\w\\]+)\s*").unwrap());
     static STATIC: LazyLock<Regex> =
@@ -555,9 +526,7 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
     }
     let at = assign.captures(first)?.get(1)?.start();
     let value = statement[at..].trim_start();
-    // The whole value, up to the `;` that ends it: a call whose result is called on, or a
-    // construction followed by anything, is some other value.
-    let ends = |open: usize| {
+    let call_ends_statement = |open: usize| {
         let close = close_of(Kind::Php, value, open)?;
         value[close..].trim_start().starts_with(';').then_some(())
     };
@@ -565,7 +534,7 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
         let class = c[1].to_owned();
         let rest = c.get(0)?.end();
         match value[rest..].starts_with('(') {
-            true => ends(rest)?,
+            true => call_ends_statement(rest)?,
             false => value[rest..].starts_with(';').then_some(())?,
         }
         let lower = class.to_ascii_lowercase();
@@ -573,14 +542,16 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
             .then_some(PhpBinding::New(class));
     }
     let open = value.find('(')?;
-    ends(open)?;
+    call_ends_statement(open)?;
     if let Some(c) = STATIC.captures(value) {
         let lower = c[1].to_ascii_lowercase();
-        return (lower != "static" && lower != "parent")
-            .then(|| PhpBinding::Static(c[1].to_owned(), c[2].to_owned()));
+        return (lower != "static" && lower != "parent").then(|| PhpBinding::StaticCall {
+            class: c[1].to_owned(),
+            method: c[2].to_owned(),
+        });
     }
     if let Some(c) = THIS.captures(value) {
-        return Some(PhpBinding::This(c[1].to_owned()));
+        return Some(PhpBinding::ThisCall(c[1].to_owned()));
     }
     let c = FUNCTION.captures(value)?;
     let short = c[1]
@@ -588,12 +559,9 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
         .next()
         .unwrap_or(&c[1])
         .to_ascii_lowercase();
-    (!NO_CLASS.contains(&short.as_str())).then(|| PhpBinding::Function(c[1].to_owned()))
+    (!NO_CLASS.contains(&short.as_str())).then(|| PhpBinding::FunctionCall(c[1].to_owned()))
 }
 
-/// The one class a function or a method declares it returns, `?` dropped, in `header`: its line
-/// and the lines below it, which its parameters can wrap over. `self` is returned as written;
-/// `static`, a union, an intersection and no return type give `None`.
 pub fn php_return_type(header: &str) -> Option<String> {
     static RETURNS: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\s*:\s*\??([\w\\]+)\s*(?:\{|;|$)").unwrap());

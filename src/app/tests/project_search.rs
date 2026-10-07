@@ -17,8 +17,6 @@ fn project_search_is_literal_not_a_regex() {
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
-/// The hits follow the query. An answer to a query that has changed since is dropped, and
-/// the cursor stays on its hit while the new query still finds it.
 #[test]
 fn project_search_refreshes_while_typing() {
     let (path, mut a) = temp_file(
@@ -49,7 +47,11 @@ foo
     press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
     a.settle_search();
     let p = a.picker.as_ref().unwrap();
-    assert_eq!((p.counts().1, p.current().unwrap().line), (3, 2));
+    assert_eq!(
+        (p.counts().1, p.current().unwrap().line),
+        (3, 2),
+        "the cursor stays on its hit while the new query still finds it"
+    );
     press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
     assert!(
         a.search_tick().is_none(),
@@ -60,7 +62,6 @@ foo
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
-/// Enter before the hits of the query on screen: the jump waits for them.
 #[test]
 fn enter_waits_for_the_project_search() {
     let (path, mut a) = temp_file(
@@ -75,7 +76,8 @@ two
     a.settle_search();
     assert_eq!(
         (a.picker.is_none(), a.mode, a.line),
-        (true, Mode::Normal, 1)
+        (true, Mode::Normal, 1),
+        "the jump waited for the hits"
     );
 
     press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
@@ -104,8 +106,6 @@ two
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
-/// Enter once the hits are in: the same jump as an Enter that came before them. A query that
-/// found nothing, or no query, keeps the list open with its query (#288).
 #[test]
 fn enter_after_the_project_search_answered() {
     let (path, mut a) = temp_file("enter-late-s", "one\ntwo\n");
@@ -128,7 +128,8 @@ fn enter_after_the_project_search_answered() {
     let query = a.picker.as_ref().map(|p| p.query.to_string());
     assert_eq!(
         (query.as_deref(), a.mode, &*a.message),
-        (Some("three"), Mode::Picker(PickerKind::Search), "")
+        (Some("three"), Mode::Picker(PickerKind::Search), ""),
+        "a query that found nothing keeps the list open with its query"
     );
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
 
@@ -145,15 +146,13 @@ fn enter_after_the_project_search_answered() {
         assert_eq!(
             (a.picker.is_some(), a.mode, &*a.message),
             (true, Mode::Picker(PickerKind::Search), ""),
-            "{keys:?}"
+            "no query, {keys:?}: the list stays open"
         );
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     }
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
-/// The grep stops at MAX_HITS. The open file's hits sort to the top, so they are read first
-/// and never the ones cut, even when other files alone fill the cap.
 #[test]
 fn the_cap_never_cuts_the_open_files_hits() {
     let dir = std::env::temp_dir().join(format!("merl-cap-{}", std::process::id()));
@@ -168,13 +167,15 @@ fn the_cap_never_cuts_the_open_files_hits() {
     a.settle_search();
     let p = a.picker.as_ref().unwrap();
     let top = p.current().unwrap();
-    assert_eq!((top.path.as_path(), top.line), (Path::new("z.py"), 2));
+    assert_eq!(
+        (top.path.as_path(), top.line),
+        (Path::new("z.py"), 2),
+        "the open file's hits sort to the top, read first, though `a.py` alone fills the cap"
+    );
     assert_eq!(p.counts().1 as usize, search::MAX_HITS);
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A hidden or ignored file is not in the startup walk, but it is still the file under
-/// the cursor: `u` finds the usages in it.
 #[test]
 fn the_open_file_is_searched_even_when_the_walk_skipped_it() {
     let (dir, mut a) = files_app("hidden");
@@ -209,4 +210,43 @@ fn a_truncated_result_list_says_so_in_its_title() {
     );
     assert_eq!(p.counts().1 as usize, search::MAX_HITS);
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_selection_in_one_line_seeds_the_project_search() {
+    let (path, mut a) = temp_file(
+        "seed-s",
+        "raise Not authenticated now\nnot authenticated\nnot\n",
+    );
+    a.col = 6;
+    for _ in 0..3 {
+        press(
+            &mut a,
+            KeyCode::Right,
+            KeyModifiers::ALT | KeyModifiers::SHIFT,
+        );
+    }
+    press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+    let p = a.picker.as_ref().unwrap();
+    assert_eq!(
+        (&*p.query, p.query.selection()),
+        ("Not authenticated now", Some(0..21))
+    );
+    assert!(a.search_tick().is_some(), "the grep goes out at once");
+    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+}
+
+#[test]
+fn without_a_one_line_selection_the_project_search_opens_empty() {
+    let (path, mut a) = temp_file("seed-none-s", "foo\nbar\n");
+    for shift_down in [false, true] {
+        if shift_down {
+            press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+        }
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+        assert_eq!(&*a.picker.as_ref().unwrap().query, "");
+        assert!(!a.search_pending());
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    }
+    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }

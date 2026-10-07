@@ -79,3 +79,25 @@ key Enter M-Right v v v
 wait app/service.py  15:33  [code]
 key v
 wait app/service.py  36:21  [code]
+# Shift extends End, PgDn, Home, Ctrl+Home, PgUp and Ctrl+End as it does an arrow: the selection
+# grows over all the cursor passes, from where it started (#687).
+key Escape o
+type appservice
+key Enter :
+type 13
+key Enter S-Down S-Down
+wait app/service.py  15:1  [code]
+key S-End
+wait app/service.py  15:33  [code]
+key S-NPage
+wait app/service.py  36:21  [code]
+key S-Home
+wait app/service.py  36:1  [code]
+key C-S-Home
+wait app/service.py  1:1  [code]
+key Escape :
+type 20
+key Enter End S-PPage
+wait app/service.py  1:32  [code]
+key Escape C-S-End
+wait app/service.py  36:21  [code]

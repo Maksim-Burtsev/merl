@@ -360,6 +360,59 @@ pub fn node_modules(root: &Path, file: &Path) -> Vec<PathBuf> {
         .filter(|dir| dir.is_dir())
         .collect()
 }
+pub fn drop_farther_copies(roots: &[PathBuf], hits: Vec<Hit>) -> Vec<Hit> {
+    let real: Vec<PathBuf> = roots.iter().filter_map(|r| r.canonicalize().ok()).collect();
+    let rows: std::collections::HashSet<(PathBuf, String)> = (hits.iter())
+        .filter_map(|h| Some((h.path.canonicalize().ok()?, h.text.trim().to_owned())))
+        .collect();
+    let mut loaded: std::collections::HashMap<PathBuf, Option<PathBuf>> =
+        std::collections::HashMap::new();
+    (hits.into_iter())
+        .filter(|h| {
+            !nested_packages(roots, &h.path)
+                .into_iter()
+                .any(|(dir, name)| {
+                    let nearest = loaded.entry(dir.clone()).or_insert_with(|| {
+                        let n = (roots.iter()).find_map(|r| r.join(&name).canonicalize().ok())?;
+                        let other = dir.canonicalize().ok() != Some(n.clone());
+                        (other && real.iter().any(|r| n.starts_with(r))).then_some(n)
+                    });
+                    nearest.as_ref().is_some_and(|n| {
+                        let row = |rel: &Path| (n.join(rel), h.text.trim().to_owned());
+                        (h.path.strip_prefix(&dir)).is_ok_and(|rel| rows.contains(&row(rel)))
+                    })
+                })
+        })
+        .collect()
+}
+fn nested_packages(roots: &[PathBuf], file: &Path) -> Vec<(PathBuf, PathBuf)> {
+    let Some(root) = roots.iter().find(|r| file.starts_with(r)) else {
+        return Vec::new();
+    };
+    let parts: Vec<_> = file
+        .strip_prefix(root)
+        .unwrap_or(file)
+        .components()
+        .collect();
+    let mut dir = root.clone();
+    let mut found = Vec::new();
+    for (i, part) in parts.iter().enumerate() {
+        dir.push(part);
+        if part.as_os_str() != "node_modules" || roots.contains(&dir) {
+            continue;
+        }
+        let scoped =
+            (parts.get(i + 1)).is_some_and(|p| p.as_os_str().to_string_lossy().starts_with('@'));
+        let name: PathBuf = parts[i + 1..]
+            .iter()
+            .take(1 + usize::from(scoped))
+            .collect();
+        if parts.len() > i + 1 + name.components().count() {
+            found.push((dir.join(&name), name));
+        }
+    }
+    found
+}
 pub fn mix_deps(root: &Path, file: &Path) -> Vec<PathBuf> {
     file.ancestors()
         .take_while(|dir| dir.starts_with(root))
@@ -694,6 +747,7 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
         // Of an SDK's frameworks, each one's `Headers`, a link into `Versions/Current` that is
         // walked through, so a header is read once (#417).
         let frameworks = kind == Kind::C && objc_frameworks(dir);
+        let sysroot = kind == Kind::Rust && dir.ends_with("lib/rustlib/src/rust/library");
         let walk = ignore::WalkBuilder::new(dir)
             .filter_entry(move |e| {
                 let is_dir = e.depth() > 0 && e.file_type().is_some_and(|t| t.is_dir());
@@ -705,6 +759,10 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
                     && e.depth() == 1
                     && (e.file_name() == "site-packages" || e.file_name() == "dist-packages");
                 let nested = is_dir && others.iter().any(|o| o == e.path());
+                let untaken = sysroot && is_dir && {
+                    let name = e.file_name().to_string_lossy();
+                    name == "benches" || name.ends_with("tests")
+                };
                 let header = match e.depth() {
                     1 => e.file_name().to_string_lossy().ends_with(".framework"),
                     2 => e.file_name() == "Headers",
@@ -713,6 +771,7 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
                 !unreachable
                     && !base_packages
                     && !nested
+                    && !untaken
                     && (!frameworks || header)
                     && (e.depth() != 1 || Some(e.file_name()) != copy.as_deref())
             })

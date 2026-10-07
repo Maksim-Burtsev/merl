@@ -4,7 +4,7 @@
 
 <h1 align="center">merl</h1>
 
-<p align="center"><b>The one editor you need when agents write the code.</b></p>
+<p align="center"><b>The one code navigator you need when agents write the code.</b></p>
 
 <p align="center">
   <a href="https://github.com/Maksim-Burtsev/merl/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Maksim-Burtsev/merl/ci.yml?branch=master&label=ci" alt="CI"></a>
@@ -16,9 +16,9 @@
   <img src="https://img.shields.io/badge/platforms-macOS%20%7C%20Linux-lightgrey" alt="macOS and Linux">
 </p>
 
-An agent works in one terminal split. merl sits in the other. You read what the agent wrote, walk
-its branch hunk by hunk, jump from a changed line into the code around it, fix the one line that
-is wrong, and go back to reading.
+Agents write the code now. What is left to you is reading it: finding your way around a project
+you did not write, and reviewing what changed, in an agent's branch, a pull request or a
+colleague's work.
 
 That is the whole tool: find your way around a project, review a diff with the code around it,
 and now and then type a secret into a `.env`. No setup, no config, no modes. It runs wherever a
@@ -57,14 +57,9 @@ merl                 # the current directory
 merl FILE:LINE[:COL] # what compilers, linters and grep print, pasted straight in
 merl --review        # the branch you are on, as a diff over the real files
 merl --tutor         # every key, hands on, in about ten minutes
-merl --drill [N]     # N tasks (20) that name what to do, not the key; the keys you skip come most
-merl --keys          # how often you press each key and miss it, the unused last
-merl --reviews       # your reviews of the last 30 days: their size, their time, the jumps out
 ```
 
-The long flags have short forms: `-r` for `--review`, `-b` for `--base`, `-t` for `--theme`,
-`-d` for `--drill` and `-k` for `--keys`, so `merl -r feature -b origin/dev` reviews `feature`
-against `origin/dev`.
+`merl --help` has the rest.
 
 ## Why
 
@@ -179,6 +174,9 @@ counts stay on your machine.
 | Shift+Left / Shift+Right | Extend the selection by a char |
 | Alt+Shift+Left / Right | Extend the selection by a word |
 | Ctrl+Shift+Left / Right | Extend the selection to the start / end of the screen row, then of the line |
+| Shift+Home / Shift+End | Extend the selection to the start / end of the screen row, then of the line |
+| Shift+PgUp / Shift+PgDn | Extend the selection by a screen |
+| Ctrl+Shift+Home / Ctrl+Shift+End | Extend the selection to the start / end of the file |
 
 **Movement**
 
@@ -223,9 +221,16 @@ counts stay on your machine.
 
 ## Languages
 
-`d`, `u` and `D` work in all of these, with no language server and no index: a project works the
-moment you open it. In Python, TypeScript and Go, `d` also follows the type of the receiver
-(`self.repo.save`), and it always says how it found its target.
+`d`, `u` and `D` work in the languages below, with no language server and no index: a project
+works the moment you open it. In Python, TypeScript and Go, `d` also follows the type of the
+receiver (`self.repo.save`), and it always says how it found its target.
+
+When `d` cannot tell, it lists the candidates or says it does not know rather than guess. Every
+change to it is checked on 6,069 places in 29 real projects, and may not make one of them worse:
+[how often it lands today](tools/d-bench/baseline.md).
+
+<details>
+<summary>The languages, and where <code>d</code> reaches outside the project</summary>
 
 | Language | `d` also reaches |
 |---|---|
@@ -258,6 +263,8 @@ moment you open it. In Python, TypeScript and Go, `d` also follows the type of t
 | Markdown | the file or the heading a link names, and a file a code span names |
 | HTML, CSS, SCSS, Less | the rule a class or an id of HTML, JSX, Vue or Svelte names, the file a path names, a package's stylesheet in `node_modules` |
 
+</details>
+
 What each rule reads and what it refuses to guess: [docs/navigation.md](docs/navigation.md).
 
 ## Themes
@@ -273,6 +280,9 @@ hours: no neon, and light themes that look like paper.
 There is none to write: every setting has a default, and `T` saves the theme you pick. To change
 the rest, edit `~/.config/merl/config.toml`.
 
+<details>
+<summary>The settings</summary>
+
 | Setting | Default | What it does |
 |---|---|---|
 | `theme` | `"tokyonight-moon"` | The colour theme; `T` picks it and writes it here |
@@ -287,6 +297,8 @@ For example, to save sooner and keep review's rows unmarked:
 autosave_delay_ms = 300
 review_list_marks = false
 ```
+
+</details>
 
 ## Terminals
 
