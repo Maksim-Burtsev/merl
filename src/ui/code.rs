@@ -44,7 +44,7 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     let tag = Style::new().bg(theme.tag_bg).fg(theme.tag_fg);
     let hl = base.bg(theme.line_hl);
     let hl_gutter = gutter_style.bg(theme.line_hl);
-    let sel = base.bg(theme.selection);
+    let sel = theme.selected(base);
     let ellipsis = |bg: Style| Span::styled("\u{2026}", bg.fg(theme.gutter_fg));
     // Selected lines above the selection's last line are selected through their newline, so
     // their background runs to the right edge like VS Code's.
@@ -123,7 +123,15 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 &finds,
                 find_style,
             );
-            let plain = with_find(syntax, &finds, find_style);
+            let plain = with_find(
+                if theme.selection_fg.is_some() {
+                    &[]
+                } else {
+                    syntax
+                },
+                &finds,
+                find_style,
+            );
             let selected = app
                 .selected_bytes(line)
                 .map(|r| r.start..r.end.min(text.len()));
@@ -208,7 +216,15 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             &finds,
             find_style,
         );
-        let plain = with_find(syntax, &finds, find_style);
+        let plain = with_find(
+            if theme.selection_fg.is_some() {
+                &[]
+            } else {
+                syntax
+            },
+            &finds,
+            find_style,
+        );
         let g = if cursor_line { hl_gutter } else { gutter_style };
         let t = match (tint, lit) {
             (Some((_, row)), true) | (Some((row, _)), false) => base.bg(row),
@@ -290,13 +306,12 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 row.push(ellipsis(pad_style));
             }
             if let Some((gap, tail)) = fold {
-                let chip = if cursor_line {
-                    theme.selection
-                } else {
-                    theme.line_hl
+                let chip = match cursor_line {
+                    true => theme.selected(t.fg(theme.fg)),
+                    false => t.bg(theme.line_hl).fg(theme.fg),
                 };
                 row.push(Span::styled(*gap, t));
-                row.push(Span::styled(FOLDED, t.bg(chip).fg(theme.fg)));
+                row.push(Span::styled(FOLDED, chip));
                 row.push(Span::styled(*tail, t));
             }
             if cursor_line || pad_selected || after || tint.is_some() {
@@ -419,9 +434,6 @@ fn ellipsis_in_view(app: &App, text: &str, before: bool, after: bool) -> bool {
 /// Styled byte ranges of one line, sorted and disjoint, as [`row_spans`] reads them.
 type Spans = [(Style, Range<usize>)];
 
-/// Row `r` of `text` on the background `bg`, the part of it in `selected` on the selection's
-/// `sel`: there it keeps its syntax colours and find matches (`plain`) but not the changed words
-/// the rest of it has (`spans`).
 fn selected_row<'a>(
     text: &'a str,
     (spans, plain): (&Spans, &Spans),

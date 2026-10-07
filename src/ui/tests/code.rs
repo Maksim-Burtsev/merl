@@ -1638,3 +1638,37 @@ fn a_fold_draws_its_tail_and_the_lines_under_it_in_colour() {
         "line 33 is drawn uncoloured"
     );
 }
+
+#[test]
+fn selected_code_takes_the_themes_selected_text_colour_and_keeps_find_matches() {
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/demo/f.py"), b"x = 1\n"),
+        None,
+    );
+    app.show_tree = false;
+    for _ in 0..5 {
+        app.key(KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT));
+    }
+    let theme = crate::theme::load("srcery").unwrap();
+    let selected_fg = theme.selection_fg.expect("srcery sets selectionForeground");
+    let mut terminal = Terminal::new(TestBackend::new(12, 3)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let cell = |terminal: &Terminal<TestBackend>, x: u16| {
+        let c = &terminal.backend().buffer()[(x, 0)];
+        (c.symbol().to_string(), c.fg, c.bg)
+    };
+    assert_eq!(
+        cell(&terminal, 6),
+        ("1".into(), selected_fg, theme.selection)
+    );
+    app.find_re = Some(regex::Regex::new("=").unwrap());
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(cell(&terminal, 4).2, theme.find_bg);
+    assert_eq!(
+        cell(&terminal, 6),
+        ("1".into(), selected_fg, theme.selection)
+    );
+}

@@ -50,14 +50,15 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccc
-ggggggffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+gggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #c8d3f5 bg #222436
-d fg #82aaff bg #1b1d2c
+d fg #82aaff bg #2d3f76
 e fg #6c94fc bg #222436
-f fg #c8d3f5 bg #1b1d2c
+f fg #c8d3f5 bg #2d3f76
 g fg #82aaff bg #1b1d2c BOLD
+h fg #c8d3f5 bg #1b1d2c
 
 ==== 80x24 github-light text, cursor 11,6
 ┌notes───────────────────────┐
@@ -109,14 +110,15 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccc
-ggggggffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+gggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #1f2328 bg #ffffff
-d fg #6639ba bg #e7eaf0
+d fg #6639ba bg #dae9f9
 e fg #6c94fc bg #ffffff
-f fg #1f2328 bg #e7eaf0
+f fg #1f2328 bg #dae9f9
 g fg #6639ba bg #e7eaf0 BOLD
+h fg #1f2328 bg #e7eaf0
 
 ==== 120x33 tokyonight-moon text, cursor 38,8
 ┌notes───────────────────────┐
@@ -186,13 +188,14 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-ffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+ffffffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #c8d3f5 bg #222436
-d fg #82aaff bg #1b1d2c
-e fg #c8d3f5 bg #1b1d2c
+d fg #82aaff bg #2d3f76
+e fg #c8d3f5 bg #2d3f76
 f fg #82aaff bg #1b1d2c BOLD
+g fg #c8d3f5 bg #1b1d2c
 
 ==== 120x33 github-light text, cursor 38,8
 ┌notes───────────────────────┐
@@ -262,13 +265,14 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-ffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+ffffffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #1f2328 bg #ffffff
-d fg #6639ba bg #e7eaf0
-e fg #1f2328 bg #e7eaf0
+d fg #6639ba bg #dae9f9
+e fg #1f2328 bg #dae9f9
 f fg #6639ba bg #e7eaf0 BOLD
+g fg #1f2328 bg #e7eaf0
 
 ==== 185x55 tokyonight-moon text, cursor 41,12
 ┌notes───────────────────────┐
@@ -382,13 +386,14 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-ffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+ffffffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #c8d3f5 bg #222436
-d fg #82aaff bg #1b1d2c
-e fg #c8d3f5 bg #1b1d2c
+d fg #82aaff bg #2d3f76
+e fg #c8d3f5 bg #2d3f76
 f fg #82aaff bg #1b1d2c BOLD
+g fg #c8d3f5 bg #1b1d2c
 
 ==== 185x55 github-light text, cursor 41,12
 ┌notes───────────────────────┐
@@ -502,10 +507,11 @@ accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-ffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+ffffffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #1f2328 bg #ffffff
-d fg #6639ba bg #e7eaf0
-e fg #1f2328 bg #e7eaf0
+d fg #6639ba bg #dae9f9
+e fg #1f2328 bg #dae9f9
 f fg #6639ba bg #e7eaf0 BOLD
+g fg #1f2328 bg #e7eaf0

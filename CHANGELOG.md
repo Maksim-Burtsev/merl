@@ -96,6 +96,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   away and came back is undone on its own; so does a switch between typing and deleting, and a
   space typed after a word starts one. A cut, a paste and Tab are steps of their own; Enter starts
   a step that the typing after it joins. (#478)
+- The selected row of every picker (`o`, `s`, `u`, `D`, `d`'s choices, `T`) and the tree's cursor
+  while the tree has the keys take the theme's selection colour as it is, as LazyVim's picker
+  and tree do, instead of the cursor line's, which could barely be seen (1.09:1 in the default
+  theme). Eight themes take their selection back from their Neovim original: tokyonight-moon
+  selects in its blue, rose-pine-moon, rose-pine-dawn, nightfox, nordfox, gruvbox-material-light,
+  solarized-light and material-light in their own colour. Selected code is no longer repainted
+  grey over a review's added and deleted rows. (#556)
 
 ### Fixed
 
@@ -137,6 +144,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   definition in a `cond-expand` branch other than the one that includes the file is no longer
   jumped to; and a `.scm` or `.sld` file no longer searches Racket's collections, where `d`
   offered their files. (#732)
+- Selected text takes the colour its theme's Neovim original gives it: srcery and lackluster
+  painted it in the selection's own colour, so it could not be read; solarized, material,
+  hojicha, neomodern-light, miasma and papercolor change their selected text too. (#686)
 
 ## [0.8.2] - 2026-10-04
 

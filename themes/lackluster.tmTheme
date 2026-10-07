@@ -23,6 +23,8 @@
 				<string>#191919</string>
 				<key>selection</key>
 				<string>#CCCCCC</string>
+				<key>selectionForeground</key>
+				<string>#000000</string>
 			</dict>
 		</dict>
 		<dict>

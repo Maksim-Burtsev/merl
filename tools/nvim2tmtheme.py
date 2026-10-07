@@ -18,6 +18,7 @@ GLOBALS = [
     ("foreground", "Normal", "fg"),
     ("lineHighlight", "CursorLine", "bg"),
     ("selection", "Visual", "bg"),
+    ("selectionForeground", "Visual", "fg"),
     ("findHighlight", "Search", "bg"),
     ("findHighlightForeground", "Search", "fg"),
     ("gutterForeground", "LineNr", "fg"),

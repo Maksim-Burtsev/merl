@@ -283,6 +283,39 @@ fn hit_picker_rows_keep_the_syntax_colours_of_their_line() {
 }
 
 #[test]
+fn the_selected_hit_row_takes_the_themes_selected_text_colour() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let mut app = App::new(root, Tree::default(), Vec::new(), Buffer::empty(), None);
+    let hits = vec![crate::search::Hit {
+        path: PathBuf::from("src/wrap.rs"),
+        line: 1,
+        col: 0,
+        text: std::fs::read_to_string(app.root.join("src/wrap.rs"))
+            .unwrap()
+            .lines()
+            .next()
+            .unwrap()
+            .to_string(),
+        deleted: None,
+    }];
+    app.show_picker(crate::app::PickerKind::Usages, App::hit_items(hits));
+    app.picker.as_mut().unwrap().settle();
+
+    let theme = crate::theme::load("srcery").unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(80, 12)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+
+    let buf = terminal.backend().buffer();
+    let (x, y) = cell_at(&terminal, "1  //!");
+    let code = &buf[(x + 3, y)];
+    assert_eq!(code.symbol(), "/");
+    assert_eq!(
+        (code.fg, code.bg),
+        (theme.selection_fg.unwrap(), theme.selection)
+    );
+}
+
+#[test]
 fn hit_picker_rows_keep_their_colours_past_a_tab() {
     let dir = std::env::temp_dir().join(format!("merl-tab-row-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
