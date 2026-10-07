@@ -1,24 +1,24 @@
 wait track → SessionsController.track (via SessionsController)
- 1 class SessionsController
- 2   def on_success(user)
- 3     track(user)
- 4   end
- 5
- 6   def track(user)
- 7     user
- 8   end
- 9 end
-10
-11 class AdminController
-12   def show
-13     user = User.find(1)
-14     track(user)
-15   end
-16
-17   def track(user)
-18     nil
-19   end
-20 end
+ 1▎class SessionsController
+ 2▎  def on_success(user)
+ 3▎    track(user)
+ 4▎  end
+ 5▎
+ 6▎  def track(user)
+ 7▎    user
+ 8▎  end
+ 9▎end
+10▎
+11▎class AdminController
+12▎  def show
+13▎    user = User.find(1)
+14▎    track(user)
+15▎  end
+16▎
+17▎  def track(user)
+18▎    nil
+19▎  end
+20▎end
 
 
 

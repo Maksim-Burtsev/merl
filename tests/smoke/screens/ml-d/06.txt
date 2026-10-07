@@ -1,9 +1,9 @@
 wait formatPrice: by name, 1 match
-┌orders──────────────────────┐1 module Shop.Money
-│▸ .github                   │2
-│▸ .venv                     │3 type Money = { Cents: int }
-│▸ app                       │4
-│▸ data                      │5 let formatPrice (m: Money) = string m.Cents
+┌orders──────────────────────┐1▎module Shop.Money
+│▸ .github                   │2▎
+│▸ .venv                     │3▎type Money = { Cents: int }
+│▸ app                       │4▎
+│▸ data                      │5▎let formatPrice (m: Money) = string m.Cents
 │▸ deploy                    │
 │▸ docs                      │
 │▾ mlshop                    │

@@ -1,17 +1,17 @@
 wait via self: Lock
- 1 protocol Lock {
- 2     func lock()
- 3 }
- 4
- 5 extension Lock {
- 6     func around() {
- 7         lock() // held
- 8     }
- 9 }
-10
-11 final class UnfairLock {
-12     private let lock = 0
-13 }
+ 1▎protocol Lock {
+ 2▎    func lock()
+ 3▎}
+ 4▎
+ 5▎extension Lock {
+ 6▎    func around() {
+ 7▎        lock() // held
+ 8▎    }
+ 9▎}
+10▎
+11▎final class UnfairLock {
+12▎    private let lock = 0
+13▎}
 
 
 

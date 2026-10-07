@@ -1,6 +1,6 @@
 wait Address: by name, 1 match
-┌orders──────────────────────┐1 namespace Shop.App;
-│▸ .github                   │2 public class Address { }
+┌orders──────────────────────┐1▎namespace Shop.App;
+│▸ .github                   │2▎public class Address { }
 │▸ .venv                     │
 │▸ app                       │
 │▾ billing                   │

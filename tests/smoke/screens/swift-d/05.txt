@@ -1,17 +1,17 @@
 wait extension Lock
-┌orders──────────────────────┐ 1 protocol Lock {
-│▸ .github                   │ 2     func lock()
-│▸ .venv                     │ 3 }
-│▸ app                       │ 4
-│▸ data                      │ 5 extension Lock {
-│▸ deploy                    │ 6     func around() {
-│▸ docs                      │ 7         lock() // held
-│▾ ios                       │ 8     }
-│  A Protected.swift         │ 9 }
-│  A Retry.swift             │10
-│▸ scripts                   │11 final class UnfairLock {
-│▸ tests                     │12     private let lock = 0
-│▸ web                       │13 }
+┌orders──────────────────────┐ 1▎protocol Lock {
+│▸ .github                   │ 2▎    func lock()
+│▸ .venv                     │ 3▎}
+│▸ app                       │ 4▎
+│▸ data                      │ 5▎extension Lock {
+│▸ deploy                    │ 6▎    func around() {
+│▸ docs                      │ 7▎        lock() // held
+│▾ ios                       │ 8▎    }
+│  A Protected.swift         │ 9▎}
+│  A Retry.swift             │10▎
+│▸ scripts                   │11▎final class UnfairLock {
+│▸ tests                     │12▎    private let lock = 0
+│▸ web                       │13▎}
 │▸ worker                    │
 │  .env                      │
 │  .gitignore                │

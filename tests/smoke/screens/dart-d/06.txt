@@ -1,5 +1,5 @@
 wait via import coupon.dart
-┌orders──────────────────────┐1 double discount(double total) => total * 0.9;
+┌orders──────────────────────┐1▎double discount(double total) => total * 0.9;
 │▸ .github                   │
 │▸ .venv                     │
 │▸ app                       │

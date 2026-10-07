@@ -1,12 +1,12 @@
 wait typealias Handler
-┌orders──────────────────────┐1 struct StreamPublisher<Value: Sendable> {
-│▸ .github                   │2     typealias Handler = (Value) -> Void
-│▸ .venv                     │3 }
-│▸ app                       │4
-│▸ data                      │5 func encode() {
-│▸ deploy                    │6     struct Value {}
-│▸ docs                      │7     _ = Value()
-│▾ ios                       │8 }
+┌orders──────────────────────┐1▎struct StreamPublisher<Value: Sendable> {
+│▸ .github                   │2▎    typealias Handler = (Value) -> Void
+│▸ .venv                     │3▎}
+│▸ app                       │4▎
+│▸ data                      │5▎func encode() {
+│▸ deploy                    │6▎    struct Value {}
+│▸ docs                      │7▎    _ = Value()
+│▾ ios                       │8▎}
 │  A Instant.swift           │
 │  A Protected.swift         │
 │  A Publisher.swift         │

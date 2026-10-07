@@ -1,8 +1,8 @@
 wait project(shop CXX)
-┌orders──────────────────────┐1 project(shop CXX)
-│▸ .github                   │2 include(ShopHelpers)
-│▸ .venv                     │3
-│▸ app                       │4 shop_add_library(shop_core src/order.cpp)
+┌orders──────────────────────┐1▎project(shop CXX)
+│▸ .github                   │2▎include(ShopHelpers)
+│▸ .venv                     │3▎
+│▸ app                       │4▎shop_add_library(shop_core src/order.cpp)
 │▾ cmakeshop                 │
 │  ▸ cmake                   │
 │  A CMakeLists.txt          │

@@ -1,25 +1,25 @@
 wait public class Outbox
-┌orders──────────────────────┐ 1 public class Mailer
-│▸ .github                   │ 2 {
-│▸ .venv                     │ 3     public void Send(string to) { }
-│▸ app                       │ 4 }
-│▾ billing                   │ 5
-│  A Outbox.cs               │ 6 public class Fax
-│  A Refunds.cs              │ 7 {
-│▸ data                      │ 8     public void Send(string to) { }
-│▸ deploy                    │ 9     public void AppendLine(int n) { }
-│▸ docs                      │10 }
-│▸ scripts                   │11
-│▸ tests                     │12 public class Outbox
-│▸ web                       │13 {
-│▸ worker                    │14     public void Flush()
-│  .env                      │15     {
-│  .gitignore                │16         var mailer = new Mailer();
-│  docker-compose.yml        │17         mailer.Send("ops");
-│  Dockerfile                │18         var sb = new StringBuilder();
-│  Makefile                  │19         sb.AppendLine("sent");
-│  pyproject.toml            │20     }
-│  README.md                 │21 }
+┌orders──────────────────────┐ 1▎public class Mailer
+│▸ .github                   │ 2▎{
+│▸ .venv                     │ 3▎    public void Send(string to) { }
+│▸ app                       │ 4▎}
+│▾ billing                   │ 5▎
+│  A Outbox.cs               │ 6▎public class Fax
+│  A Refunds.cs              │ 7▎{
+│▸ data                      │ 8▎    public void Send(string to) { }
+│▸ deploy                    │ 9▎    public void AppendLine(int n) { }
+│▸ docs                      │10▎}
+│▸ scripts                   │11▎
+│▸ tests                     │12▎public class Outbox
+│▸ web                       │13▎{
+│▸ worker                    │14▎    public void Flush()
+│  .env                      │15▎    {
+│  .gitignore                │16▎        var mailer = new Mailer();
+│  docker-compose.yml        │17▎        mailer.Send("ops");
+│  Dockerfile                │18▎        var sb = new StringBuilder();
+│  Makefile                  │19▎        sb.AppendLine("sent");
+│  pyproject.toml            │20▎    }
+│  README.md                 │21▎}
 │                            │
 │                            │
 │                            │

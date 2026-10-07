@@ -1,9 +1,9 @@
 wait use Shop::Order
-┌orders──────────────────────┐1 use lib "lib";
-│▸ .github                   │2 use Shop::Order;
-│▸ .venv                     │3
-│▸ app                       │4 my $order = Shop::Order->new(total => 12);
-│▸ data                      │5 print $order->total, "\n";
+┌orders──────────────────────┐1▎use lib "lib";
+│▸ .github                   │2▎use Shop::Order;
+│▸ .venv                     │3▎
+│▸ app                       │4▎my $order = Shop::Order->new(total => 12);
+│▸ data                      │5▎print $order->total, "\n";
 │▸ deploy                    │
 │▸ docs                      │
 │▾ perlshop                  │

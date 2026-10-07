@@ -1,13 +1,13 @@
 wait (local)
-1 struct Stats {
-2     let attempt: Int
-3 }
-4
-5 func retry(times: Int) {
-6     for attempt in 0..<times {
-7         print(attempt)
-8     }
-9 }
+1▎struct Stats {
+2▎    let attempt: Int
+3▎}
+4▎
+5▎func retry(times: Int) {
+6▎    for attempt in 0..<times {
+7▎        print(attempt)
+8▎    }
+9▎}
 
 
 

@@ -1,5 +1,5 @@
 wait copied 1 line
-┌orders──────────────────────┐1
+┌orders──────────────────────┐1▎
 │▸ .github                   │
 │▸ .venv                     │
 │▾ app                       │

@@ -1,5 +1,5 @@
 wait app/money.py ●
-┌orders──────────────────────┐1  decimal import Decimal
+┌orders──────────────────────┐1▎ decimal import Decimal
 │▸ .github                   │
 │▸ .venv                     │
 │▾ app                       │

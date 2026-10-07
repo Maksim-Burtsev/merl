@@ -1,8 +1,8 @@
 wait shop_binary: via import
-┌orders──────────────────────┐1 def shop_binary(name, srcs, **kwargs):
-│▸ .github                   │2     native.genrule(name = name + "_gen", srcs = srcs, outs = [name + ".out"])
-│▸ .venv                     │3
-│▸ app                       │4 SHOP_VISIBILITY = ["//visibility:public"]
+┌orders──────────────────────┐1▎def shop_binary(name, srcs, **kwargs):
+│▸ .github                   │2▎    native.genrule(name = name + "_gen", srcs = srcs, outs = [name + ".out"])
+│▸ .venv                     │3▎
+│▸ app                       │4▎SHOP_VISIBILITY = ["//visibility:public"]
 │▾ bazelshop                 │
 │  ▾ api                     │
 │    A BUILD.bazel           │

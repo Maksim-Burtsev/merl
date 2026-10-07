@@ -1,13 +1,13 @@
 wait BaseUri: by name, 1 match
-┌orders──────────────────────┐1 function Get-ShopUser {
-│▸ .github                   │2     param(
-│▸ .venv                     │3         [Parameter(Mandatory)][string]$Id
-│▸ app                       │4     )
-│▸ data                      │5     $Uri = "$script:BaseUri/users/$Id"
-│▸ deploy                    │6     Invoke-RestMethod -Uri $Uri
-│▸ docs                      │7 }
-│▾ ops                       │8
-│  ▾ Shop                    │9 $script:BaseUri = "https://shop.test"
+┌orders──────────────────────┐1▎function Get-ShopUser {
+│▸ .github                   │2▎    param(
+│▸ .venv                     │3▎        [Parameter(Mandatory)][string]$Id
+│▸ app                       │4▎    )
+│▸ data                      │5▎    $Uri = "$script:BaseUri/users/$Id"
+│▸ deploy                    │6▎    Invoke-RestMethod -Uri $Uri
+│▸ docs                      │7▎}
+│▾ ops                       │8▎
+│  ▾ Shop                    │9▎$script:BaseUri = "https://shop.test"
 │    A Users.psm1            │
 │  A sync.ps1                │
 │▸ scripts                   │

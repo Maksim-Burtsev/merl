@@ -1,5 +1,5 @@
 wait app/money.py  1:4  [edit]
-┌orders──────────────────────┐1 abc
+┌orders──────────────────────┐1▎abc
 │▸ .github                   │
 │▸ .venv                     │
 │▾ app                       │

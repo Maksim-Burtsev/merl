@@ -1,7 +1,7 @@
 wait unsigned long crc_len
-┌orders──────────────────────┐1 #include "slice.h"
-│▸ .github                   │2
-│▸ .venv                     │3 unsigned long crc_len(const Slice& key) { return key.size(); }
+┌orders──────────────────────┐1▎#include "slice.h"
+│▸ .github                   │2▎
+│▸ .venv                     │3▎unsigned long crc_len(const Slice& key) { return key.size(); }
 │▸ app                       │
 │▸ data                      │
 │▸ deploy                    │

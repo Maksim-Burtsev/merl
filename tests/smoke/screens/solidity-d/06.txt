@@ -1,15 +1,15 @@
 wait ShopToken.Minted (by name, 1 match)
-┌orders──────────────────────┐ 1 contract ShopToken {
-│▸ .github                   │ 2     event Minted(address to, uint256 amount);
-│▸ .venv                     │ 3
-│▸ app                       │ 4     modifier withinSupply(uint256 amount) {
-│▸ data                      │ 5         _;
-│▸ deploy                    │ 6     }
-│▸ docs                      │ 7
-│▸ scripts                   │ 8     function mint(address to, uint256 amount) external withinSupply(amount) {
-│▾ solshop                   │ 9         emit Minted(to, amount);
-│  A ShopToken.sol           │10     }
-│▸ tests                     │11 }
+┌orders──────────────────────┐ 1▎contract ShopToken {
+│▸ .github                   │ 2▎    event Minted(address to, uint256 amount);
+│▸ .venv                     │ 3▎
+│▸ app                       │ 4▎    modifier withinSupply(uint256 amount) {
+│▸ data                      │ 5▎        _;
+│▸ deploy                    │ 6▎    }
+│▸ docs                      │ 7▎
+│▸ scripts                   │ 8▎    function mint(address to, uint256 amount) external withinSupply(amount) {
+│▾ solshop                   │ 9▎        emit Minted(to, amount);
+│  A ShopToken.sol           │10▎    }
+│▸ tests                     │11▎}
 │▸ web                       │
 │▸ worker                    │
 │  .env                      │

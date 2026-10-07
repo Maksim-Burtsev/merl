@@ -1,10 +1,10 @@
 wait pick_up.direction (local)
-┌orders──────────────────────┐1 class_name Player
-│▸ .github                   │2 extends CharacterBody2D
-│▸ .venv                     │3
-│▸ app                       │4 func pick_up(value: int) -> void:
-│▸ data                      │5     var direction := value
-│▸ deploy                    │6     GameState.add_coins(direction)
+┌orders──────────────────────┐1▎class_name Player
+│▸ .github                   │2▎extends CharacterBody2D
+│▸ .venv                     │3▎
+│▸ app                       │4▎func pick_up(value: int) -> void:
+│▸ data                      │5▎    var direction := value
+│▸ deploy                    │6▎    GameState.add_coins(direction)
 │▸ docs                      │
 │▾ godotshop                 │
 │  ▾ actors                  │

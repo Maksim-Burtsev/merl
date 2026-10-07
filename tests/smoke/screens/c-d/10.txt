@@ -1,13 +1,13 @@
 wait void crc_reset
-┌orders──────────────────────┐1 typedef struct client {
-│▸ .github                   │2     int flags;
-│▸ .venv                     │3 } client;
-│▸ app                       │4
-│▸ data                      │5 struct job {
-│▸ deploy                    │6     int flags;
-│▸ docs                      │7 };
-│▸ scripts                   │8
-│▸ tests                     │9 void crc_reset(client *c) { c->flags = 0; }
+┌orders──────────────────────┐1▎typedef struct client {
+│▸ .github                   │2▎    int flags;
+│▸ .venv                     │3▎} client;
+│▸ app                       │4▎
+│▸ data                      │5▎struct job {
+│▸ deploy                    │6▎    int flags;
+│▸ docs                      │7▎};
+│▸ scripts                   │8▎
+│▸ tests                     │9▎void crc_reset(client *c) { c->flags = 0; }
 │▸ web                       │
 │▾ worker                    │
 │  ▾ internal                │

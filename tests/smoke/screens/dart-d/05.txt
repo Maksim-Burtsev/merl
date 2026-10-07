@@ -1,13 +1,13 @@
 wait class Cart
-┌orders──────────────────────┐1 import 'money.dart';
-│▸ .github                   │2 import 'coupon.dart' as c;
-│▸ .venv                     │3
-│▸ app                       │4 class Cart {
-│▸ data                      │5   int total = 0;
-│▸ deploy                    │6   String label() => formatPrice(total);
-│▸ docs                      │7   double cut() => c.discount(1.0);
-│▸ scripts                   │8   double discount(double x) => x;
-│▾ shop                      │9 }
+┌orders──────────────────────┐1▎import 'money.dart';
+│▸ .github                   │2▎import 'coupon.dart' as c;
+│▸ .venv                     │3▎
+│▸ app                       │4▎class Cart {
+│▸ data                      │5▎  int total = 0;
+│▸ deploy                    │6▎  String label() => formatPrice(total);
+│▸ docs                      │7▎  double cut() => c.discount(1.0);
+│▸ scripts                   │8▎  double discount(double x) => x;
+│▾ shop                      │9▎}
 │  ▾ lib                     │
 │    A cart.dart             │
 │    A coupon.dart           │

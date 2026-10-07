@@ -1,13 +1,13 @@
 wait func retry(
-┌orders──────────────────────┐1 struct Stats {
-│▸ .github                   │2     let attempt: Int
-│▸ .venv                     │3 }
-│▸ app                       │4
-│▸ data                      │5 func retry(times: Int) {
-│▸ deploy                    │6     for attempt in 0..<times {
-│▸ docs                      │7         print(attempt)
-│▾ ios                       │8     }
-│  A Retry.swift             │9 }
+┌orders──────────────────────┐1▎struct Stats {
+│▸ .github                   │2▎    let attempt: Int
+│▸ .venv                     │3▎}
+│▸ app                       │4▎
+│▸ data                      │5▎func retry(times: Int) {
+│▸ deploy                    │6▎    for attempt in 0..<times {
+│▸ docs                      │7▎        print(attempt)
+│▾ ios                       │8▎    }
+│  A Retry.swift             │9▎}
 │▸ scripts                   │
 │▸ tests                     │
 │▸ web                       │

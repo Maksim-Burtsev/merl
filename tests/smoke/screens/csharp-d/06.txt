@@ -1,24 +1,24 @@
 wait Outbox.cs
-┌orders──────────────────────┐ 1 namespace Orders.Billing;
-│▸ .github                   │ 2
-│▸ .venv                     │ 3 public static class Refunds
-│▸ app                       │ 4 {
-│▾ billing                   │ 5     public static void Register(IServiceCollection services, string callbackUrl)
-│  A Outbox.cs               │ 6     {
-│  A Refunds.cs              │ 7         services.AddAuthentication(options =>
-│▸ data                      │ 8         {
-│▸ deploy                    │ 9             options.RedirectUri = callbackUrl;
-│▸ docs                      │10         });
-│▸ scripts                   │11     }
-│▸ tests                     │12 }
-│▸ web                       │13
-│▸ worker                    │14 public class Audit
-│  .env                      │15 {
-│  .gitignore                │16     public void Load()
-│  docker-compose.yml        │17     {
-│  Dockerfile                │18         var options = new JsonSerializerOptions();
-│  Makefile                  │19     }
-│  pyproject.toml            │20 }
+┌orders──────────────────────┐ 1▎namespace Orders.Billing;
+│▸ .github                   │ 2▎
+│▸ .venv                     │ 3▎public static class Refunds
+│▸ app                       │ 4▎{
+│▾ billing                   │ 5▎    public static void Register(IServiceCollection services, string callbackUrl)
+│  A Outbox.cs               │ 6▎    {
+│  A Refunds.cs              │ 7▎        services.AddAuthentication(options =>
+│▸ data                      │ 8▎        {
+│▸ deploy                    │ 9▎            options.RedirectUri = callbackUrl;
+│▸ docs                      │10▎        });
+│▸ scripts                   │11▎    }
+│▸ tests                     │12▎}
+│▸ web                       │13▎
+│▸ worker                    │14▎public class Audit
+│  .env                      │15▎{
+│  .gitignore                │16▎    public void Load()
+│  docker-compose.yml        │17▎    {
+│  Dockerfile                │18▎        var options = new JsonSerializerOptions();
+│  Makefile                  │19▎    }
+│  pyproject.toml            │20▎}
 │  README.md                 │
 │                            │
 │                            │

@@ -1,25 +1,25 @@
 wait shop.app
-┌orders──────────────────────┐ 1 public class Mailer
-│▸ .github                   │ 2 {
-│▸ .venv                     │ 3     public void Send(string to) { }
-│▸ app                       │ 4 }
-│▾ billing                   │ 5
-│  A Outbox.cs               │ 6 public class Fax
-│  A Refunds.cs              │ 7 {
-│▸ data                      │ 8     public void Send(string to) { }
-│▸ deploy                    │ 9     public void AppendLine(int n) { }
-│▸ docs                      │10 }
-│▸ scripts                   │11
-│▸ shop.api                  │12 public class Outbox
-│▸ shop.app                  │13 {
-│▸ tests                     │14     public void Flush()
-│▸ web                       │15     {
-│▸ worker                    │16         var mailer = new Mailer();
-│  .env                      │17         mailer.Send("ops");
-│  .gitignore                │18         var sb = new StringBuilder();
-│  docker-compose.yml        │19         sb.AppendLine("sent");
-│  Dockerfile                │20     }
-│  Makefile                  │21 }
+┌orders──────────────────────┐ 1▎public class Mailer
+│▸ .github                   │ 2▎{
+│▸ .venv                     │ 3▎    public void Send(string to) { }
+│▸ app                       │ 4▎}
+│▾ billing                   │ 5▎
+│  A Outbox.cs               │ 6▎public class Fax
+│  A Refunds.cs              │ 7▎{
+│▸ data                      │ 8▎    public void Send(string to) { }
+│▸ deploy                    │ 9▎    public void AppendLine(int n) { }
+│▸ docs                      │10▎}
+│▸ scripts                   │11▎
+│▸ shop.api                  │12▎public class Outbox
+│▸ shop.app                  │13▎{
+│▸ tests                     │14▎    public void Flush()
+│▸ web                       │15▎    {
+│▸ worker                    │16▎        var mailer = new Mailer();
+│  .env                      │17▎        mailer.Send("ops");
+│  .gitignore                │18▎        var sb = new StringBuilder();
+│  docker-compose.yml        │19▎        sb.AppendLine("sent");
+│  Dockerfile                │20▎    }
+│  Makefile                  │21▎}
 │  pyproject.toml            │
 │  README.md                 │
 │                            │

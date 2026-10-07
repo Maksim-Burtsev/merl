@@ -1,7 +1,7 @@
 wait defmodule Shop.Report
-┌orders──────────────────────┐1 defmodule Shop.Report do
-│▸ .github                   │2   def summary(id), do: :shop_order.total(:shop_order.new(id))
-│▸ .venv                     │3 end
+┌orders──────────────────────┐1▎defmodule Shop.Report do
+│▸ .github                   │2▎  def summary(id), do: :shop_order.total(:shop_order.new(id))
+│▸ .venv                     │3▎end
 │▸ app                       │
 │▸ data                      │
 │▸ deploy                    │

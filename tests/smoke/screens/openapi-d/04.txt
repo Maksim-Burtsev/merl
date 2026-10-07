@@ -1,9 +1,9 @@
 wait Order: via
-┌orders──────────────────────┐1 Order:
-│▸ .github                   │2   type: object
-│▸ .venv                     │3   properties:
-│▾ api                       │4     id:
-│  ▾ schemas                 │5       type: string
+┌orders──────────────────────┐1▎Order:
+│▸ .github                   │2▎  type: object
+│▸ .venv                     │3▎  properties:
+│▾ api                       │4▎    id:
+│  ▾ schemas                 │5▎      type: string
 │    A order.yaml            │
 │  A openapi.yaml            │
 │▸ app                       │

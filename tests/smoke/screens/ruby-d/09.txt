@@ -1,12 +1,12 @@
 wait class Checkout
-┌orders──────────────────────┐1 class Checkout
-│▸ .bundle                   │2   def call(user)
-│▸ .github                   │3     if user.admin?
-│▸ .venv                     │4       grant(user)
-│▾ app                       │5     end
-│  ▾ ruby                    │6     charge(user)
-│    A attack.rb             │7   end
-│    A checkout.rb           │8 end
+┌orders──────────────────────┐1▎class Checkout
+│▸ .bundle                   │2▎  def call(user)
+│▸ .github                   │3▎    if user.admin?
+│▸ .venv                     │4▎      grant(user)
+│▾ app                       │5▎    end
+│  ▾ ruby                    │6▎    charge(user)
+│    A attack.rb             │7▎  end
+│    A checkout.rb           │8▎end
 │    A feed.rb               │
 │    A sessions.rb           │
 │    __init__.py             │

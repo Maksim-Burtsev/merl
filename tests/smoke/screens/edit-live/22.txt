@@ -1,0 +1,57 @@
+wait ▎    REFUNDED = "refund"
+┌orders──────────────────────┐ 1 from dataclasses import dataclass, field
+│▸ .github                   │ 2 from datetime import datetime, timezone
+│▸ .venv                     │ 3 from decimal import Decimal
+│▾ app                       │ 4 from enum import Enum
+│    __init__.py             │ 5
+│    api.py                  │ 6
+│  A audit.py                │ 7 class OrderStatus(Enum):
+│    config.py               │ 8     PENDING = "pending"
+│  M models.py               │ 9     PAID = "paid"
+│    notify.py               │10     SHIPPED = "shipped"
+│    repos.py                │11     CANCELLED = "cancelled"
+│    service.py              │12▎    REFUNDED = "refund"
+│▸ data                      │13
+│▸ deploy                    │14
+│▸ docs                      │15 @dataclass
+│▸ scripts                   │16 class Order:
+│▸ tests                     │17     id: int
+│▸ web                       │18     customer_id: int
+│▸ worker                    │19     total: Decimal
+│  .env                      │20     status: OrderStatus = OrderStatus.PENDING
+│  .gitignore                │21     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+│  docker-compose.yml        │22
+│  Dockerfile                │23     def can_cancel(self) -> bool:
+│  Makefile                  │24         return self.status in (OrderStatus.PENDING, OrderStatus.PAID)
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+app/models.py  1:1  [code]                                                                                                                                                        ? help
+cursor (x,y,shown) 33,0,1

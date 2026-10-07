@@ -1,13 +1,13 @@
 wait function close
-┌orders──────────────────────┐1 <?php
-│▸ .github                   │2 namespace Billing;
-│▸ .venv                     │3
-│▸ app                       │4 use Billing\Legacy\Ledger as OldLedger;
-│▸ data                      │5
-│▸ deploy                    │6 function close(): int
-│▸ docs                      │7 {
-│▾ scripts                   │8     return Ledger::total() - OldLedger::total();
-│  ▾ billing                 │9 }
+┌orders──────────────────────┐1▎<?php
+│▸ .github                   │2▎namespace Billing;
+│▸ .venv                     │3▎
+│▸ app                       │4▎use Billing\Legacy\Ledger as OldLedger;
+│▸ data                      │5▎
+│▸ deploy                    │6▎function close(): int
+│▸ docs                      │7▎{
+│▾ scripts                   │8▎    return Ledger::total() - OldLedger::total();
+│  ▾ billing                 │9▎}
 │    ▸ Legacy                │
 │    A Ledger.php            │
 │    A Month.php             │

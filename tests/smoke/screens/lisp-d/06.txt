@@ -1,10 +1,10 @@
 wait (local)
-┌orders──────────────────────┐1 (ns shop.cart
-│▸ .github                   │2   (:require [shop.money :as money]))
-│▸ .venv                     │3
-│▸ app                       │4 (defn label [cart]
-│▾ cljshop                   │5   (let [total (reduce + cart)]
-│  ▾ src                     │6     (str "Total: " (money/format-price total))))
+┌orders──────────────────────┐1▎(ns shop.cart
+│▸ .github                   │2▎  (:require [shop.money :as money]))
+│▸ .venv                     │3▎
+│▸ app                       │4▎(defn label [cart]
+│▾ cljshop                   │5▎  (let [total (reduce + cart)]
+│  ▾ src                     │6▎    (str "Total: " (money/format-price total))))
 │    ▾ shop                  │
 │      A cart.clj            │
 │      A money.clj           │

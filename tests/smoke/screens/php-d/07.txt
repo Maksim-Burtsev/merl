@@ -1,14 +1,14 @@
 wait total → Ledger::total (via Ledger)
-┌orders──────────────────────┐ 1 <?php
-│▸ .github                   │ 2 namespace Billing;
-│▸ .venv                     │ 3
-│▸ app                       │ 4 class Ledger
-│▸ data                      │ 5 {
-│▸ deploy                    │ 6     public static function total(): int
-│▸ docs                      │ 7     {
-│▾ scripts                   │ 8         return 0;
-│  ▾ billing                 │ 9     }
-│    ▸ Legacy                │10 }
+┌orders──────────────────────┐ 1▎<?php
+│▸ .github                   │ 2▎namespace Billing;
+│▸ .venv                     │ 3▎
+│▸ app                       │ 4▎class Ledger
+│▸ data                      │ 5▎{
+│▸ deploy                    │ 6▎    public static function total(): int
+│▸ docs                      │ 7▎    {
+│▾ scripts                   │ 8▎        return 0;
+│  ▾ billing                 │ 9▎    }
+│    ▸ Legacy                │10▎}
 │    A Ledger.php            │
 │    A Month.php             │
 │  ▸ payouts                 │

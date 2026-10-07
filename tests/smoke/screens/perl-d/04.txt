@@ -1,16 +1,16 @@
 wait new: via Shop::Order
-┌orders──────────────────────┐ 1 package Shop::Order;
-│▸ .github                   │ 2 use strict;
-│▸ .venv                     │ 3
-│▸ app                       │ 4 sub new {
-│▸ data                      │ 5     my ($class, %args) = @_;
-│▸ deploy                    │ 6     my $self = { total => $args{total} // 0 };
-│▸ docs                      │ 7     return bless $self, $class;
-│▾ perlshop                  │ 8 }
-│  ▾ bin                     │ 9
-│    A report.pl             │10 sub total { $_[0]{total} }
-│  ▾ lib                     │11
-│    ▾ Shop                  │12 1;
+┌orders──────────────────────┐ 1▎package Shop::Order;
+│▸ .github                   │ 2▎use strict;
+│▸ .venv                     │ 3▎
+│▸ app                       │ 4▎sub new {
+│▸ data                      │ 5▎    my ($class, %args) = @_;
+│▸ deploy                    │ 6▎    my $self = { total => $args{total} // 0 };
+│▸ docs                      │ 7▎    return bless $self, $class;
+│▾ perlshop                  │ 8▎}
+│  ▾ bin                     │ 9▎
+│    A report.pl             │10▎sub total { $_[0]{total} }
+│  ▾ lib                     │11▎
+│    ▾ Shop                  │12▎1;
 │      A Order.pm            │
 │▸ scripts                   │
 │▸ tests                     │

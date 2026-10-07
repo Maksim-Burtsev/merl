@@ -1,5 +1,5 @@
 wait formatPrice: by name, 1 match
-┌orders──────────────────────┐1 String formatPrice(int cents) => cents.toString();
+┌orders──────────────────────┐1▎String formatPrice(int cents) => cents.toString();
 │▸ .github                   │
 │▸ .venv                     │
 │▸ app                       │

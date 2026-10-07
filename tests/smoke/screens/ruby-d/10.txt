@@ -1,10 +1,10 @@
 wait admin?  ⋯ end
-┌orders──────────────────────┐1 class Checkout
-│▸ .bundle                   │2   def call(user)
-│▸ .github                   │3     if user.admin?  ⋯ end
-│▸ .venv                     │6     charge(user)
-│▾ app                       │7   end
-│  ▾ ruby                    │8 end
+┌orders──────────────────────┐1▎class Checkout
+│▸ .bundle                   │2▎  def call(user)
+│▸ .github                   │3▎    if user.admin?  ⋯ end
+│▸ .venv                     │6▎    charge(user)
+│▾ app                       │7▎  end
+│  ▾ ruby                    │8▎end
 │    A attack.rb             │
 │    A checkout.rb           │
 │    A feed.rb               │

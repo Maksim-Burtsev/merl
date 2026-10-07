@@ -1,7 +1,7 @@
 wait class Rack::Attack
-┌orders──────────────────────┐1 class Rack::Attack
-│▸ .bundle                   │2   throttle('logins/ip', limit: 5)
-│▸ .github                   │3 end
+┌orders──────────────────────┐1▎class Rack::Attack
+│▸ .bundle                   │2▎  throttle('logins/ip', limit: 5)
+│▸ .github                   │3▎end
 │▸ .venv                     │
 │▾ app                       │
 │  ▾ ruby                    │

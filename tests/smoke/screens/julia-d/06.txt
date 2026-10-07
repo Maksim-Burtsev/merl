@@ -1,10 +1,10 @@
 wait report.m (local)
-┌orders──────────────────────┐1 include("../src/money.jl")
-│▸ .github                   │2
-│▸ .venv                     │3 function report(xs)
-│▸ app                       │4     m = Money(sum(xs))
-│▸ data                      │5     println(format_price(m))
-│▸ deploy                    │6 end
+┌orders──────────────────────┐1▎include("../src/money.jl")
+│▸ .github                   │2▎
+│▸ .venv                     │3▎function report(xs)
+│▸ app                       │4▎    m = Money(sum(xs))
+│▸ data                      │5▎    println(format_price(m))
+│▸ deploy                    │6▎end
 │▸ docs                      │
 │▾ jlshop                    │
 │  ▾ scripts                 │

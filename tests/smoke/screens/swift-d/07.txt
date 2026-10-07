@@ -1,15 +1,15 @@
 wait struct Clock
-┌orders──────────────────────┐ 1 struct Instant {
-│▸ .github                   │ 2     let value: Double
-│▸ .venv                     │ 3
-│▸ app                       │ 4     static func - (lhs: Instant, rhs: Instant) -> Double {
-│▸ data                      │ 5         lhs.value - rhs.value
-│▸ deploy                    │ 6     }
-│▸ docs                      │ 7 }
-│▾ ios                       │ 8
-│  A Instant.swift           │ 9 struct Clock {
-│  A Protected.swift         │10     let value: Int
-│  A Retry.swift             │11 }
+┌orders──────────────────────┐ 1▎struct Instant {
+│▸ .github                   │ 2▎    let value: Double
+│▸ .venv                     │ 3▎
+│▸ app                       │ 4▎    static func - (lhs: Instant, rhs: Instant) -> Double {
+│▸ data                      │ 5▎        lhs.value - rhs.value
+│▸ deploy                    │ 6▎    }
+│▸ docs                      │ 7▎}
+│▾ ios                       │ 8▎
+│  A Instant.swift           │ 9▎struct Clock {
+│  A Protected.swift         │10▎    let value: Int
+│  A Retry.swift             │11▎}
 │▸ scripts                   │
 │▸ tests                     │
 │▸ web                       │

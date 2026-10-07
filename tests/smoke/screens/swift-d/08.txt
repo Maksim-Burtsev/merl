@@ -1,15 +1,15 @@
 wait value → Instant.value
- 1 struct Instant {
- 2     let value: Double
- 3
- 4     static func - (lhs: Instant, rhs: Instant) -> Double {
- 5         lhs.value - rhs.value
- 6     }
- 7 }
- 8
- 9 struct Clock {
-10     let value: Int
-11 }
+ 1▎struct Instant {
+ 2▎    let value: Double
+ 3▎
+ 4▎    static func - (lhs: Instant, rhs: Instant) -> Double {
+ 5▎        lhs.value - rhs.value
+ 6▎    }
+ 7▎}
+ 8▎
+ 9▎struct Clock {
+10▎    let value: Int
+11▎}
 
 
 

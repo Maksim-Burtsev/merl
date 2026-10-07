@@ -1,8 +1,8 @@
 wait format-price: via import
-┌orders──────────────────────┐1 (ns shop.money)
-│▸ .github                   │2
-│▸ .venv                     │3 (defn format-price [cents]
-│▸ app                       │4   (format "$%.2f" (/ cents 100.0)))
+┌orders──────────────────────┐1▎(ns shop.money)
+│▸ .github                   │2▎
+│▸ .venv                     │3▎(defn format-price [cents]
+│▸ app                       │4▎  (format "$%.2f" (/ cents 100.0)))
 │▾ cljshop                   │
 │  ▾ src                     │
 │    ▾ shop                  │

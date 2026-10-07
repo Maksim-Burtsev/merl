@@ -1,14 +1,14 @@
 wait R6Class
-┌orders──────────────────────┐ 1 source("R/money.R")
-│▸ .github                   │ 2
-│▸ .venv                     │ 3 Cart <- R6::R6Class("Cart",
-│▸ app                       │ 4   public = list(
-│▸ data                      │ 5     total = 0,
-│▸ deploy                    │ 6     label = function() format_price(self$total)
-│▸ docs                      │ 7   )
-│▾ rshop                     │ 8 )
-│  ▾ R                       │ 9
-│    A cart.R                │10 kept <- dplyr::filter(rows, TRUE)
+┌orders──────────────────────┐ 1▎source("R/money.R")
+│▸ .github                   │ 2▎
+│▸ .venv                     │ 3▎Cart <- R6::R6Class("Cart",
+│▸ app                       │ 4▎  public = list(
+│▸ data                      │ 5▎    total = 0,
+│▸ deploy                    │ 6▎    label = function() format_price(self$total)
+│▸ docs                      │ 7▎  )
+│▾ rshop                     │ 8▎)
+│  ▾ R                       │ 9▎
+│    A cart.R                │10▎kept <- dplyr::filter(rows, TRUE)
 │    A money.R               │
 │▸ scripts                   │
 │▸ tests                     │

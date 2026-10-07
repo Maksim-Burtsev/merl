@@ -67,6 +67,7 @@ type audit
 key Enter
 wait ▎def audit(order):
 run perl -pi -e 's/"refunded"/"refund"/' app/models.py && git add app/models.py
+wait M models.py
 key Escape o
 type app/models
 key Enter

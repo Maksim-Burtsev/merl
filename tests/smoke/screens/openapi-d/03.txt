@@ -1,14 +1,14 @@
 wait openapi: 3.1.0
-┌orders──────────────────────┐ 1 openapi: 3.1.0
-│▸ .github                   │ 2 paths:
-│▸ .venv                     │ 3   /orders:
-│▾ api                       │ 4     get:
-│  ▸ schemas                 │ 5       responses:
-│  A openapi.yaml            │ 6         "200":
-│▸ app                       │ 7           content:
-│▸ data                      │ 8             application/json:
-│▸ deploy                    │ 9               schema:
-│▸ docs                      │10                 $ref: './schemas/order.yaml#/Order'
+┌orders──────────────────────┐ 1▎openapi: 3.1.0
+│▸ .github                   │ 2▎paths:
+│▸ .venv                     │ 3▎  /orders:
+│▾ api                       │ 4▎    get:
+│  ▸ schemas                 │ 5▎      responses:
+│  A openapi.yaml            │ 6▎        "200":
+│▸ app                       │ 7▎          content:
+│▸ data                      │ 8▎            application/json:
+│▸ deploy                    │ 9▎              schema:
+│▸ docs                      │10▎                $ref: './schemas/order.yaml#/Order'
 │▸ scripts                   │
 │▸ tests                     │
 │▸ web                       │

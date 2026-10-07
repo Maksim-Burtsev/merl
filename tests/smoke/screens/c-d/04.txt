@@ -1,26 +1,26 @@
 wait i → crc32::i (local)
-┌orders──────────────────────┐ 1 #include "crc.h"
-│▸ .github                   │ 2
-│▸ .venv                     │ 3 static void crc_fill(struct crc_table *table)
-│▸ app                       │ 4 {
-│▸ data                      │ 5     for (unsigned int n = 0; n < 256; n++) {
-│▸ deploy                    │ 6         unsigned int c = n;
-│▸ docs                      │ 7         for (int k = 0; k < 8; k++)
-│▸ scripts                   │ 8             c = c & 1 ? 0xedb88320 ^ (c >> 1) : c >> 1;
-│▸ tests                     │ 9         table->entries[n] = c;
-│▸ web                       │10     }
-│▾ worker                    │11     table->ready = 1;
-│  ▾ internal                │12 }
-│    ▾ crc                   │13
-│      A crc.c               │14 unsigned int crc32(struct crc_table *table, const unsigned char *buf, int len)
-│      A crc.h               │15 {
-│    ▸ queue                 │16     unsigned int crc = 0xffffffff;
-│    go.mod                  │17     if (!table->ready)
-│    main.go                 │18         crc_fill(table);
-│  .env                      │19     for (int i = 0; i < len; i++)
-│  .gitignore                │20         crc = table->entries[(crc ^ buf[i]) & 0xff] ^ (crc >> 8);
-│  docker-compose.yml        │21     return crc ^ 0xffffffff;
-│  Dockerfile                │22 }
+┌orders──────────────────────┐ 1▎#include "crc.h"
+│▸ .github                   │ 2▎
+│▸ .venv                     │ 3▎static void crc_fill(struct crc_table *table)
+│▸ app                       │ 4▎{
+│▸ data                      │ 5▎    for (unsigned int n = 0; n < 256; n++) {
+│▸ deploy                    │ 6▎        unsigned int c = n;
+│▸ docs                      │ 7▎        for (int k = 0; k < 8; k++)
+│▸ scripts                   │ 8▎            c = c & 1 ? 0xedb88320 ^ (c >> 1) : c >> 1;
+│▸ tests                     │ 9▎        table->entries[n] = c;
+│▸ web                       │10▎    }
+│▾ worker                    │11▎    table->ready = 1;
+│  ▾ internal                │12▎}
+│    ▾ crc                   │13▎
+│      A crc.c               │14▎unsigned int crc32(struct crc_table *table, const unsigned char *buf, int len)
+│      A crc.h               │15▎{
+│    ▸ queue                 │16▎    unsigned int crc = 0xffffffff;
+│    go.mod                  │17▎    if (!table->ready)
+│    main.go                 │18▎        crc_fill(table);
+│  .env                      │19▎    for (int i = 0; i < len; i++)
+│  .gitignore                │20▎        crc = table->entries[(crc ^ buf[i]) & 0xff] ^ (crc >> 8);
+│  docker-compose.yml        │21▎    return crc ^ 0xffffffff;
+│  Dockerfile                │22▎}
 │  Makefile                  │
 │  pyproject.toml            │
 │  README.md                 │

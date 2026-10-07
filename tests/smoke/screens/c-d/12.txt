@@ -1,7 +1,7 @@
 wait void crc_log
-┌orders──────────────────────┐1 #include <stdio.h>
-│▸ .github                   │2
-│▸ .venv                     │3 void crc_log(void) { printf("crc"); }
+┌orders──────────────────────┐1▎#include <stdio.h>
+│▸ .github                   │2▎
+│▸ .venv                     │3▎void crc_log(void) { printf("crc"); }
 │▸ app                       │
 │▸ data                      │
 │▸ deploy                    │

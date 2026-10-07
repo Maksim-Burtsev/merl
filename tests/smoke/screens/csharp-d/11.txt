@@ -1,24 +1,24 @@
 wait public class Page
-┌orders──────────────────────┐ 1 namespace Shop.App;
-│▸ .github                   │ 2
-│▸ .venv                     │ 3 public class ViewModelBase
-│▸ app                       │ 4 {
-│▾ billing                   │ 5     protected void IsBusyFor(int n) { }
-│  A Outbox.cs               │ 6 }
-│  A Refunds.cs              │ 7
-│▸ data                      │ 8 public class Page : ViewModelBase
-│▸ deploy                    │ 9 {
-│▸ docs                      │10     public Address Home()
-│▸ scripts                   │11     {
-│▸ shop.api                  │12         IsBusyFor(1);
-│▾ shop.app                  │13         return new Address();
-│  A Address.cs              │14     }
-│  A Page.cs                 │15 }
-│  A Shop.App.csproj         │16
-│▸ tests                     │17 public class Spinner
-│▸ web                       │18 {
-│▸ worker                    │19     public void IsBusyFor(int n) { }
-│  .env                      │20 }
+┌orders──────────────────────┐ 1▎namespace Shop.App;
+│▸ .github                   │ 2▎
+│▸ .venv                     │ 3▎public class ViewModelBase
+│▸ app                       │ 4▎{
+│▾ billing                   │ 5▎    protected void IsBusyFor(int n) { }
+│  A Outbox.cs               │ 6▎}
+│  A Refunds.cs              │ 7▎
+│▸ data                      │ 8▎public class Page : ViewModelBase
+│▸ deploy                    │ 9▎{
+│▸ docs                      │10▎    public Address Home()
+│▸ scripts                   │11▎    {
+│▸ shop.api                  │12▎        IsBusyFor(1);
+│▾ shop.app                  │13▎        return new Address();
+│  A Address.cs              │14▎    }
+│  A Page.cs                 │15▎}
+│  A Shop.App.csproj         │16▎
+│▸ tests                     │17▎public class Spinner
+│▸ web                       │18▎{
+│▸ worker                    │19▎    public void IsBusyFor(int n) { }
+│  .env                      │20▎}
 │  .gitignore                │
 │  docker-compose.yml        │
 │  Dockerfile                │

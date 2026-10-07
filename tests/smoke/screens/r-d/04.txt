@@ -1,8 +1,8 @@
 wait format_price: by name, 1 match
-┌orders──────────────────────┐1 format_price <- function(cents) {
-│▸ .github                   │2   sprintf("$%.2f", cents / 100)
-│▸ .venv                     │3 }
-│▸ app                       │4 filter <- function(rows, keep) rows[keep]
+┌orders──────────────────────┐1▎format_price <- function(cents) {
+│▸ .github                   │2▎  sprintf("$%.2f", cents / 100)
+│▸ .venv                     │3▎}
+│▸ app                       │4▎filter <- function(rows, keep) rows[keep]
 │▸ data                      │
 │▸ deploy                    │
 │▸ docs                      │

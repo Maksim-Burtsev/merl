@@ -1,13 +1,13 @@
 wait recent → Account.recent
-1 class Feed
-2   def call
-3     Account.recent
-4   end
-5 end
-6
-7 class Account < ApplicationRecord
-8   scope :recent, -> { all }
-9 end
+1▎class Feed
+2▎  def call
+3▎    Account.recent
+4▎  end
+5▎end
+6▎
+7▎class Account < ApplicationRecord
+8▎  scope :recent, -> { all }
+9▎end
 
 
 

@@ -1,6 +1,6 @@
 wait get-shopuser -Id
-┌orders──────────────────────┐1 Import-Module ./Shop/Users.psm1
-│▸ .github                   │2 $user = get-shopuser -Id 42
+┌orders──────────────────────┐1▎Import-Module ./Shop/Users.psm1
+│▸ .github                   │2▎$user = get-shopuser -Id 42
 │▸ .venv                     │
 │▸ app                       │
 │▸ data                      │

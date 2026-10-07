@@ -1,12 +1,12 @@
 wait Value: local
-1 struct StreamPublisher<Value: Sendable> {
-2     typealias Handler = (Value) -> Void
-3 }
-4
-5 func encode() {
-6     struct Value {}
-7     _ = Value()
-8 }
+1▎struct StreamPublisher<Value: Sendable> {
+2▎    typealias Handler = (Value) -> Void
+3▎}
+4▎
+5▎func encode() {
+6▎    struct Value {}
+7▎    _ = Value()
+8▎}
 
 
 

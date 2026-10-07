@@ -1,7 +1,7 @@
 wait shop_add_library: by name, 1 match
-┌orders──────────────────────┐1 function(shop_add_library name)
-│▸ .github                   │2   add_library(${name} STATIC ${ARGN})
-│▸ .venv                     │3 endfunction()
+┌orders──────────────────────┐1▎function(shop_add_library name)
+│▸ .github                   │2▎  add_library(${name} STATIC ${ARGN})
+│▸ .venv                     │3▎endfunction()
 │▸ app                       │
 │▾ cmakeshop                 │
 │  ▾ cmake                   │

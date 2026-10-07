@@ -1,5 +1,5 @@
 wait copied 1 line
-┌orders──────────────────────┐1 from decimal import Decimal
+┌orders──────────────────────┐1▎from decimal import Decimal
 │▸ .github                   │
 │▸ .venv                     │
 │▾ app                       │

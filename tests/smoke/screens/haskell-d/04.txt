@@ -1,10 +1,10 @@
 wait formatPrice: via import
-┌orders──────────────────────┐1 module Shop.Money (Money (..), formatPrice) where
-│▸ .github                   │2
-│▸ .venv                     │3 newtype Money = Money { cents :: Int }
-│▸ app                       │4
-│▸ data                      │5 formatPrice :: Money -> String
-│▸ deploy                    │6 formatPrice (Money c) = show c
+┌orders──────────────────────┐1▎module Shop.Money (Money (..), formatPrice) where
+│▸ .github                   │2▎
+│▸ .venv                     │3▎newtype Money = Money { cents :: Int }
+│▸ app                       │4▎
+│▸ data                      │5▎formatPrice :: Money -> String
+│▸ deploy                    │6▎formatPrice (Money c) = show c
 │▸ docs                      │
 │▾ hsshop                    │
 │  ▾ src                     │

@@ -1,9 +1,9 @@
 wait deploy() {
-┌orders──────────────────────┐1 deploy() {
-│▸ .bundle                   │2   if [ -n "$1" ]; then
-│▸ .github                   │3     echo "$1"
-│▸ .venv                     │4   fi
-│▸ app                       │5 }
+┌orders──────────────────────┐1▎deploy() {
+│▸ .bundle                   │2▎  if [ -n "$1" ]; then
+│▸ .github                   │3▎    echo "$1"
+│▸ .venv                     │4▎  fi
+│▸ app                       │5▎}
 │▸ data                      │
 │▸ deploy                    │
 │▸ docs                      │
