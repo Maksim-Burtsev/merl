@@ -320,8 +320,6 @@ build. If something in a PR is off, we'll fix it together.
 
 ## License
 
-MIT, so do whatever you want with merl: fork it, change it, make it yours.
-
-Syntax definitions come from [bat](https://github.com/sharkdp/bat) via
+MIT. Syntax definitions come from [bat](https://github.com/sharkdp/bat) via
 [two-face](https://github.com/CosmicHorrorDev/two-face); the themes keep
 [their authors' licences](docs/themes.md#licences).
