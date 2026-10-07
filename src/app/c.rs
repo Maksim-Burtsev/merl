@@ -64,7 +64,12 @@ impl App {
         word: &str,
     ) -> Result<Option<Candidate>, String> {
         let c = here.extension().is_some_and(|e| e == "c" || e == "h");
-        let Some((head, called, fields)) = c.then(|| search::c_receiver(before)).flatten() else {
+        let Some(search::CReceiver {
+            head,
+            head_called: called,
+            fields,
+        }) = c.then(|| search::c_receiver(before)).flatten()
+        else {
             return Ok(None);
         };
         let broke = |at: &str| match fields.is_empty() {

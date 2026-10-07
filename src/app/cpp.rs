@@ -24,7 +24,7 @@ impl App {
         before: &str,
         word: &str,
     ) -> CppAnswer {
-        let Some((head, fields)) = search::cpp_receiver(before) else {
+        let Some(search::CReceiver { head, fields, .. }) = search::cpp_receiver(before) else {
             return CppAnswer::ByName(None);
         };
         let broke = |at: &str| CppAnswer::ByName((!fields.is_empty()).then(|| at.to_owned()));
