@@ -865,11 +865,9 @@ pub enum RustVis {
 }
 /// Whether `line1` of `lines`, a hit of [`rust_method_pattern`], declares a method: the
 /// nearest line above it indented less opens an `impl` or a `trait`, or it stands in a macro's
-/// body, which an `impl` may expand it in (`Unreadable`). Its owner, its visibility (a trait
-/// method's the trait's) and the 1-based line of the `impl`, `trait` or macro arm around it.
-/// `None` for a `fn` at the top level, nested in a function, or in a `mod` block: none of them
-/// can follow a `.`.
-pub fn rust_method_at(lines: &[&str], line1: usize) -> Option<(RustOwner, RustVis, usize)> {
+/// body, which an `impl` may expand it in (`Unreadable`). `None` for a `fn` at the top level,
+/// nested in a function, or in a `mod` block: none of them can follow a `.`.
+pub fn rust_method_at(lines: &[&str], line1: usize) -> Option<RustMethod> {
     static TRAIT: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|auto)\s+)*trait\s+([A-Za-z_]\w*)").unwrap()
     });
@@ -909,17 +907,25 @@ pub fn rust_method_at(lines: &[&str], line1: usize) -> Option<(RustOwner, RustVi
             false => RustOwner::Unreadable,
         }
     };
-    // A trait's method has no `pub` of its own: it reaches as far as the trait.
-    let at_vis = match owner {
+    let line_whose_pub_reaches = match owner {
         RustOwner::Trait(_) => parent,
         _ => lines[k],
     };
-    let vis = match VIS.captures(at_vis) {
+    let vis = match VIS.captures(line_whose_pub_reaches) {
         Some(c) if c.get(1).is_some() => RustVis::Crate,
         Some(_) => RustVis::Pub,
         None => RustVis::Private,
     };
-    Some((owner, vis, at + 1))
+    Some(RustMethod {
+        owner,
+        vis,
+        owner_line1: at + 1,
+    })
+}
+pub struct RustMethod {
+    pub owner: RustOwner,
+    pub vis: RustVis,
+    pub owner_line1: usize,
 }
 /// A package of a `Cargo.lock`: its directory name in a registry, `name-version`, and its name.
 pub type LockPackage = (String, String);

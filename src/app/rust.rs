@@ -313,7 +313,12 @@ impl App {
                 texts.insert(h.path.clone(), text);
             }
             let lines: Vec<&str> = texts[&h.path].lines().collect();
-            let Some((owner, vis, owner_line)) = search::rust_method_at(&lines, h.line) else {
+            let Some(search::RustMethod {
+                owner,
+                vis,
+                owner_line1: owner_line,
+            }) = search::rust_method_at(&lines, h.line)
+            else {
                 continue;
             };
             let inside = !h.path.is_absolute();
@@ -976,7 +981,7 @@ impl App {
                         let lines: Vec<&str> = t.lines().collect();
                         search::literal_lines(Kind::Rust, &t).get(h.line - 1) != Some(&true)
                             && search::rust_method_at(&lines, h.line)
-                                .is_some_and(|(o, _, at)| owner(&o, lines[at - 1]))
+                                .is_some_and(|m| owner(&m.owner, lines[m.owner_line1 - 1]))
                     })
                 })
                 .collect::<Vec<Hit>>()
