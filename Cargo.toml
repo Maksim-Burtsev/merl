@@ -1,6 +1,6 @@
 [package]
 name = "merl"
-version = "0.8.2"
+version = "0.8.3"
 edition = "2024"
 rust-version = "1.95"
 description = "Keyboard-only code navigator for the terminal"
