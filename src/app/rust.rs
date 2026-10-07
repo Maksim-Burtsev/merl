@@ -142,7 +142,10 @@ impl App {
         imports: &[(String, Vec<String>)],
     ) -> Vec<Candidate> {
         let kind = Kind::Rust;
-        let (globs, own) = search::rust_glob_uses(text, self.line + 1);
+        let search::RustGlobUses {
+            paths_before_star: globs,
+            own_to_function: own,
+        } = search::rust_glob_uses(text, self.line + 1);
         if globs.is_empty() {
             return Vec::new();
         }

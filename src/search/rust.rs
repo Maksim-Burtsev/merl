@@ -414,17 +414,19 @@ fn rust_block_end(lines: &[&str], h: usize) -> usize {
         .find(|&i| indent(lines[i]) <= base && lines[i].trim_start().starts_with('}'))
         .unwrap_or(lines.len())
 }
-/// The glob `use`s a bare word at `line1` of the Rust `text` can see a variant through,
-/// as the paths in front of their `*`: those of the function around it, an indented `use` between
-/// its `fn` line and the cursor, else those directly in its module, the innermost inline `mod`
-/// around it or the file. The second value says it is the function's.
-pub fn rust_glob_uses(text: &str, line1: usize) -> (Vec<Vec<String>>, bool) {
+/// The glob `use`s a bare word at `line1` of the Rust `text` can see a variant through:
+/// those of the function around it, an indented `use` between its `fn` line and the cursor, else
+/// those directly in its module, the innermost inline `mod` around it or the file.
+pub fn rust_glob_uses(text: &str, line1: usize) -> RustGlobUses {
     static GLOB: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+((?:\w+\s*::\s*)+)\*\s*;").unwrap()
     });
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = line1.checked_sub(1).filter(|&k| k < lines.len()) else {
-        return (Vec::new(), false);
+        return RustGlobUses {
+            paths_before_star: Vec::new(),
+            own_to_function: false,
+        };
     };
     let literal = literal_lines(Kind::Rust, text);
     let around = rust_around(&lines, k, &literal);
@@ -442,17 +444,24 @@ pub fn rust_glob_uses(text: &str, line1: usize) -> (Vec<Vec<String>>, bool) {
     if let Some(&f) = around.iter().find(|&&i| FN_LINE.is_match(lines[i])) {
         let own = globs(&mut (f + 1..k));
         if !own.is_empty() {
-            return (own, true);
+            return RustGlobUses {
+                paths_before_star: own,
+                own_to_function: true,
+            };
         }
     }
     let module = around
         .iter()
         .copied()
         .find(|&i| MOD_LINE.is_match(lines[i]));
-    (
-        globs(&mut rust_direct(&lines, module, &literal).into_iter()),
-        false,
-    )
+    RustGlobUses {
+        paths_before_star: globs(&mut rust_direct(&lines, module, &literal).into_iter()),
+        own_to_function: false,
+    }
+}
+pub struct RustGlobUses {
+    pub paths_before_star: Vec<Vec<String>>,
+    pub own_to_function: bool,
 }
 /// Which of Rust's namespaces a name is looked up in: a macro call `w!`, the head of a path
 /// `w::…` (a module or a type), or a value or a type anywhere else.
