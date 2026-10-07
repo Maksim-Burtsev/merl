@@ -9,7 +9,7 @@ impl App {
         here: &Path,
         word: &str,
         chain: &[String],
-        head: Option<&(String, search::Value, Vec<String>)>,
+        head: Option<&search::CallHead>,
     ) -> Result<Vec<Candidate>, String> {
         if kind == Kind::Python {
             self.external_files(kind);
@@ -87,12 +87,16 @@ impl App {
         kind: Kind,
         here: &Path,
         chain: &[String],
-        head: Option<&(String, search::Value, Vec<String>)>,
+        head: Option<&search::CallHead>,
     ) -> Result<(Typed, Vec<String>), String> {
         let (text, line) = self.scope(here, chain.first())?;
         match head {
             // The chain hangs off a call: `make_uow().users.word`.
-            Some((call, value, fields)) => {
+            Some(search::CallHead {
+                call_without_arguments: call,
+                value,
+                fields_to_word: fields,
+            }) => {
                 let value = value.clone();
                 // A cast is its own link, as written: `via (repo as UserRepository)`.
                 let cast = matches!(value, search::Value::Type(_) | search::Value::Cast(..))
@@ -112,7 +116,7 @@ impl App {
         kind: Kind,
         here: &Path,
         chain: &[String],
-        head: Option<&(String, search::Value, Vec<String>)>,
+        head: Option<&search::CallHead>,
     ) -> Option<String> {
         if kind != Kind::Python || head.is_some() {
             return None;
@@ -229,7 +233,7 @@ impl App {
         kind: Kind,
         here: &Path,
         chain: &[String],
-        head: Option<&(String, search::Value, Vec<String>)>,
+        head: Option<&search::CallHead>,
     ) -> Option<Typed> {
         if kind != Kind::Python || chain.first().is_some_and(|f| f == "super") {
             return None;

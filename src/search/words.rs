@@ -503,15 +503,9 @@ pub fn plain_access(kind: Kind, line: &str, start: usize) -> (String, usize) {
 }
 /// The call a member access hangs off, where [`qualifier`] has no name to start from:
 /// `pkg.New(x).word`, `make_uow().users.word`, `new Repo().word`, or the cast: `(x as T).word`,
-/// `i.(T).word`, `cast(T, x).word`. Gives the call without its arguments (a cast as written), what
-/// it is worth ([`Value::Call`], [`Value::New`] or the [`Value::Type`] of a cast) and the names
-/// between it and the word. Only a call that starts the expression: `a.b().c().word` hangs off a
-/// call of a value nobody typed.
-pub fn call_head(
-    kind: Kind,
-    line: &str,
-    word_start: usize,
-) -> Option<(String, Value, Vec<String>)> {
+/// `i.(T).word`, `cast(T, x).word`. Only a call that starts the expression: `a.b().c().word`
+/// hangs off a call of a value nobody typed.
+pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> {
     let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$';
     let mut before = line[..word_start].strip_suffix('.')?;
     let mut fields = Vec::new();
@@ -541,14 +535,25 @@ pub fn call_head(
         true => &written[1..written.len() - 1],
         false => written,
     };
-    match value_of(kind, without_cast_brackets) {
-        Value::Call(name) => Some((format!("{name}()"), Value::Call(name), fields)),
-        Value::New(name) => Some((format!("new {name}()"), Value::New(name), fields)),
+    let (call_without_arguments, value) = match value_of(kind, without_cast_brackets) {
+        Value::Call(name) => (format!("{name}()"), Value::Call(name)),
+        Value::New(name) => (format!("new {name}()"), Value::New(name)),
         value @ (Value::Type(_) | Value::Cast(..)) => {
-            Some((without_cast_brackets.trim().to_owned(), value, fields))
+            (without_cast_brackets.trim().to_owned(), value)
         }
-        _ => None,
-    }
+        _ => return None,
+    };
+    Some(CallHead {
+        call_without_arguments,
+        value,
+        fields_to_word: fields,
+    })
+}
+#[derive(Debug, PartialEq)]
+pub struct CallHead {
+    pub call_without_arguments: String,
+    pub value: Value,
+    pub fields_to_word: Vec<String>,
 }
 pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Range<usize>, &str)> {
     let extra = word_chars(kind, true);

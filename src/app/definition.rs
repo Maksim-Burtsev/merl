@@ -808,7 +808,9 @@ impl App {
                         self.message = format!("{word}: builtin, no source (via {via})");
                         return;
                     }
-                    let names = head.as_ref().map_or(chain.len(), |(_, _, f)| f.len() + 1);
+                    let names = head
+                        .as_ref()
+                        .map_or(chain.len(), |h| h.fields_to_word.len() + 1);
                     broke = (names > 1).then_some(at);
                 }
             }
