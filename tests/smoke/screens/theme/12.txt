@@ -1,0 +1,57 @@
+wait Files (
+┌orders──────────────────────┐ 1 from dataclasses import dataclass, field
+│▸ .github                   │ 2 from datetime import datetime, timezone
+│▸ .venv                     │ 3 from decimal import Decimal
+│▾ app                       │ 4 from enum import Enum
+│    __init__.py             │ 5
+│    api.py                  │ 6
+│    config.py               │ 7 class OrderStatus(Enum):
+│    models.py               │ 8     PENDING = "pending"
+│    repos.py                │ 9     PAID = "paid"
+│    service.py              │10     SHIPPED = "shipped"
+│    uow.py                  │11     CANCELLED = "cancelled"
+│▸ data                      │12     R┌Files (61/61)────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│▸ deploy                    │13      │>                                                                                                                                        │
+│▸ docs                      │14      │.github/workflows/ci.yml                                                                                                                 │
+│▸ scripts                   │15 @data│app/__init__.py                                                                                                                          │
+│▸ tests                     │16 class│app/api.py                                                                                                                               │
+│▸ web                       │17     i│app/config.py                                                                                                                            │
+│▸ worker                    │18     c│app/models.py                                                                                                                            │
+│  .env                      │19     t│app/repos.py                                                                                                                             │
+│  .gitignore                │20     s│app/service.py                                                                                                                           │
+│  docker-compose.yml        │21     c│app/uow.py                                                                                                                               │
+│  Dockerfile                │22      │data/orders.min.json                                                                                                                     │
+│  Makefile                  │23     d│data/refunds-2026-08.csv                                                                                                                 │
+│  pyproject.toml            │24      │deploy/helm/orders/templates/_helpers.tpl                                                                                                │
+│  README.md                 │        │deploy/helm/orders/templates/deployment.yaml                                                                                             │
+│                            │        │deploy/helm/orders/Chart.yaml                                                                                                            │
+│                            │        │deploy/helm/orders/values.yaml                                                                                                           │
+│                            │        │docs/architecture.png                                                                                                                    │
+│                            │        │docs/notes.md                                                                                                                            │
+│                            │        │scripts/payouts/src/ledger.rs                                                                                                            │
+│                            │        │scripts/payouts/src/main.rs                                                                                                              │
+│                            │        │scripts/payouts/src/summary.rs                                                                                                           │
+│                            │        │scripts/payouts/Cargo.toml                                                                                                               │
+│                            │        │scripts/invoices.php                                                                                                                     │
+│                            │        │scripts/refund_by_hand.py                                                                                                                │
+│                            │        │tests/test_service.py                                                                                                                    │
+│                            │        │web/android/gradle/libs.versions.toml                                                                                                    │
+│                            │        │web/android/src/main/java/courier/app/scan/Parcel.java                                                                                   │
+│                            │        │web/android/src/main/java/courier/app/ParcelSync.java                                                                                    │
+│                            │        │web/android/src/main/java/courier/app/Scale.java                                                                                         │
+│                            │        │web/android/src/main/kotlin/courier/app/ship/Parcel.kt                                                                                   │
+│                            │        │web/android/src/main/kotlin/courier/app/Notice.kt                                                                                        │
+│                            │        │web/android/src/main/kotlin/courier/app/ParcelList.kt                                                                                    │
+│                            │        └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+app/models.py  3:1  [code]                                                                                                                                                        ? help
+cursor (x,y,shown) 41,12,1

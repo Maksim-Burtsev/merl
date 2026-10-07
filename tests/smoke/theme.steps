@@ -22,3 +22,12 @@ merl --theme github-light app/models.py
 wait class OrderStatus(Enum):
 key T
 wait github-light
+# The selected code and a picker's selected row take the theme's selection colour, made to show:
+# srcery painted selected code in its own text colour (#556, #686).
+key Escape
+merl --theme srcery app/models.py
+wait class OrderStatus(Enum):
+key S-Down S-Down
+wait app/models.py  3:1
+key o
+wait Files (
