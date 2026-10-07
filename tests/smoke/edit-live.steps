@@ -14,7 +14,7 @@ wait app/service.py  36:1  [code]  reloaded
 key C-z
 wait raise ValueError(f"order {order_id} is {order.status.value}")
 key C-s
-wait app/service.py  32:1  [code]
+wait 32             raise ValueError(f"order {order_id} is
 key /
 type return order
 key Enter End Enter Enter

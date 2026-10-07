@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-10-07
+
 ### Added
 
 - The tree marks a file changed since the last commit with `M` and a new one with `A`, staged or
@@ -2097,7 +2099,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scroll position, the jump history and the find pattern.
 - Help overlay on `?`, listing every binding; Esc in normal mode clears the find highlights.
 
-[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.8.3...HEAD
+[0.8.3]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.8.3
 [0.8.2]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.8.2
 [0.8.1]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.8.1
 [0.8.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.8.0
