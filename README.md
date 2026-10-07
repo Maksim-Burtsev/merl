@@ -310,10 +310,18 @@ In Ghostty, `keybind = performable:cmd+c=copy_to_clipboard:mixed` makes Cmd+C an
 ## Status
 
 I use merl every working day. 1.0 is next, and what is left for it is in the
-[milestone](https://github.com/Maksim-Burtsev/merl/milestone/1). Issues are welcome.
+[milestone](https://github.com/Maksim-Burtsev/merl/milestone/1).
+
+## Contributing
+
+Something broken, or a feature you miss: open an issue. Want to take one of the open issues: go
+ahead, no need to ask, just open a PR. The ones labelled `agent-ok` are settled and ready to
+build. If something in a PR is off, we'll fix it together.
 
 ## License
 
-MIT. Syntax definitions come from [bat](https://github.com/sharkdp/bat) via
+MIT, so do whatever you want with merl: fork it, change it, make it yours.
+
+Syntax definitions come from [bat](https://github.com/sharkdp/bat) via
 [two-face](https://github.com/CosmicHorrorDev/two-face); the themes keep
 [their authors' licences](docs/themes.md#licences).
