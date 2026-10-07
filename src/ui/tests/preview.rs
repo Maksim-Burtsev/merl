@@ -147,3 +147,60 @@ fn the_preview_status_says_no_nowrap() {
         "{status}"
     );
 }
+
+fn settle(app: &mut App, terminal: &mut Terminal<TestBackend>, theme: &crate::theme::Theme) {
+    for _ in 0..3 {
+        terminal.draw(|f| super::draw(f, app, theme)).unwrap();
+        for job in app.diagrams.jobs() {
+            app.diagrams.done(crate::mermaid::render(job));
+        }
+    }
+    terminal.draw(|f| super::draw(f, app, theme)).unwrap();
+}
+
+#[test]
+fn a_mermaid_picture_is_placed_on_its_rows_cut_by_the_pane_and_hidden_under_an_overlay() {
+    let text = "# Flow\n\n> ```mermaid\n> graph TD\n>   A[Start] --> B[Done]\n> ```\n";
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/demo/flow.md"), text.as_bytes()),
+        None,
+    );
+    app.show_tree = false;
+    app.diagrams = crate::mermaid::Diagrams::with_cell(Some((10, 20)));
+    let theme = crate::theme::load("tokyonight-moon").unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(60, 8)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    app.key(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::NONE));
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert!(app.diagrams.want.is_empty());
+    assert!(rows(&terminal).iter().any(|r| r.contains("A[Start]")));
+
+    settle(&mut app, &mut terminal, &theme);
+    let shown = rows(&terminal);
+    assert!(!shown.iter().any(|r| r.contains("A[Start]")), "{shown:?}");
+    let want = app.diagrams.want.clone();
+    let [place] = &want[..] else {
+        panic!("one picture: {want:?}");
+    };
+    assert_eq!(
+        (place.placement, place.x, place.y, place.crop_y),
+        (1, 5, 2, 0)
+    );
+    assert_eq!(place.rows, 5);
+    assert!(place.cols > 3);
+    let pic = app
+        .diagrams
+        .pic("graph TD\n  A[Start] --> B[Done]")
+        .unwrap();
+    assert!(
+        place.crop_h < pic.height(),
+        "the pane's bottom cuts the picture"
+    );
+
+    app.key(KeyEvent::new(KeyCode::Char('?'), KeyModifiers::NONE));
+    settle(&mut app, &mut terminal, &theme);
+    assert!(app.diagrams.want.is_empty());
+}

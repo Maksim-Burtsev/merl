@@ -391,6 +391,7 @@ pub struct App {
     previewed: HashSet<PathBuf>,
     /// The open file rendered, while it is one of `previewed`: laid out by the first frame.
     pub preview: Option<Preview>,
+    pub diagrams: crate::mermaid::Diagrams,
     pub mode: Mode,
     /// What has been typed into the `:` or `/` prompt.
     pub prompt: LineEdit,
@@ -574,6 +575,7 @@ impl App {
             collapsed_stash: HashMap::new(),
             wrap_toggled: HashSet::new(),
             previewed: HashSet::new(),
+            diagrams: crate::mermaid::Diagrams::default(),
             preview: None,
             mode: Mode::Normal,
             prompt: LineEdit::default(),

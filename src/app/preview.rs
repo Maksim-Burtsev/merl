@@ -10,7 +10,7 @@ use crate::markdown::{self, Doc, Kind};
 pub struct Preview {
     pub doc: Doc,
     /// What `doc` was laid out from: a hash of the lines, and the width.
-    key: (u64, usize),
+    key: (u64, usize, u64),
     pub row: usize,
     pub top: usize,
     /// The source position the cursor row was found for, or put the cursor at. A cursor found
@@ -82,7 +82,7 @@ impl App {
     pub(crate) fn preview_sync(&mut self) -> bool {
         let mut h = std::collections::hash_map::DefaultHasher::new();
         self.buf.lines.hash(&mut h);
-        let key = (h.finish(), self.view_w);
+        let key = (h.finish(), self.view_w, self.diagrams.laid);
         let pos = (self.line, self.col);
         match &mut self.preview {
             Some(p) if p.key == key => {
@@ -97,7 +97,10 @@ impl App {
                 // screen, the same row when the cursor has not moved.
                 let old = slot.take();
                 let off = old.as_ref().map_or(0, |p| p.row.saturating_sub(p.top));
-                let mut doc = markdown::layout(&self.buf.lines, self.view_w);
+                let diagrams = &mut self.diagrams;
+                let doc = markdown::layout(&self.buf.lines, self.view_w, &mut |src, room| {
+                    diagrams.fit(src, room)
+                });
                 let row = match &old {
                     Some(p) if p.at == Some(pos) => doc.same_row(&p.doc, p.row, pos),
                     _ => doc.row_at(pos),
@@ -107,8 +110,8 @@ impl App {
                     Some(p) if p.key.0 == key.0 => (p.code, p.theme),
                     _ => (
                         doc.code
-                            .drain(..)
-                            .map(|c| Buffer::block(&c.lang, c.lines))
+                            .iter()
+                            .map(|c| Buffer::block(&c.lang, c.lines.clone()))
                             .collect(),
                         String::new(),
                     ),
