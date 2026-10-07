@@ -5,7 +5,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::sync::Arc;
 
 use crate::tree::Order;
@@ -96,10 +96,52 @@ pub fn diff(root: &Path, path: &Path, base: Option<&str>, old: Option<&Path>) ->
         cmd.arg(old);
     }
     match cmd.output() {
+        Ok(o) if base.is_none() && unindexed(&o.stdout) && path.is_file() => {
+            against_head(root, path)
+        }
         Ok(o) if o.status.success() && (base.is_some() || !o.stdout.is_empty()) => {
             parse(&String::from_utf8_lossy(&o.stdout), base.is_some())
         }
         Ok(o) if base.is_none() && new_to_git(root, path, o.status.success()) => all_added(path),
+        _ => Diff::default(),
+    }
+}
+
+fn unindexed(diff: &[u8]) -> bool {
+    String::from_utf8_lossy(diff).contains("\ndeleted file mode ")
+}
+
+fn against_head(root: &Path, path: &Path) -> Diff {
+    let Ok(rel) = path.strip_prefix(root) else {
+        return Diff::default();
+    };
+    let spec = format!("HEAD:./{}", rel.to_string_lossy());
+    let show = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["show", &spec])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn();
+    let Ok(mut show) = show else {
+        return Diff::default();
+    };
+    let Some(head) = show.stdout.take() else {
+        return Diff::default();
+    };
+    let out = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["diff", "--no-index", "-U0", "--no-color", "--no-ext-diff"])
+        .args(["--inter-hunk-context=0", "--", "-"])
+        .arg(path)
+        .stdin(head)
+        .output();
+    let shown = show.wait().is_ok_and(|s| s.success());
+    match out {
+        Ok(o) if shown && matches!(o.status.code(), Some(0 | 1)) => {
+            parse(&String::from_utf8_lossy(&o.stdout), false)
+        }
         _ => Diff::default(),
     }
 }
@@ -1137,7 +1179,7 @@ mod tests {
             std::fs::create_dir_all(at).unwrap();
             git(at, &["init", "-q"]);
         }
-        for name in ["staged", "twice", "moved", "same"] {
+        for name in ["staged", "twice", "moved", "same", "unindexed", "recreated"] {
             write(&dir, name, "a\nb\nc\n");
         }
         write(&dir, ".gitignore", "ignored\n");
@@ -1152,6 +1194,11 @@ mod tests {
         git(&dir, &["add", "added"]);
         git(&dir, &["mv", "moved", "renamed"]);
         write(&dir, "ignored", "x\n");
+        git(&dir, &["rm", "-q", "--cached", "unindexed"]);
+        git(&dir, &["rm", "-q", "recreated"]);
+        write(&dir, "recreated", "a\nB\nc\n");
+        write(&fresh, ".gitignore", "ignored\n");
+        write(&fresh, "ignored", "x\n");
         write(&fresh, "staged", "x\ny\n");
         write(&fresh, "untracked", "x\ny\n");
         git(&fresh, &["add", "staged"]);
@@ -1168,8 +1215,11 @@ mod tests {
             marks(&dir, "renamed"),
             marks(&dir, "ignored"),
             marks(&dir, "same"),
+            marks(&dir, "unindexed"),
+            marks(&dir, "recreated"),
             marks(&fresh, "staged"),
             marks(&fresh, "untracked"),
+            marks(&fresh, "ignored"),
         ];
         std::fs::remove_dir_all(&root).unwrap();
         let (changed, both_added) = (Mark::Changed, vec![(0, Mark::Added), (1, Mark::Added)]);
@@ -1182,8 +1232,11 @@ mod tests {
             ("renamed".to_string(), all_three),
             ("ignored".to_string(), vec![]),
             ("same".to_string(), vec![]),
+            ("unindexed".to_string(), vec![]),
+            ("recreated".to_string(), vec![(1, changed)]),
             ("staged".to_string(), both_added.clone()),
             ("untracked".to_string(), both_added),
+            ("ignored".to_string(), vec![]),
         ];
         assert_eq!(got, want);
     }
@@ -1240,6 +1293,15 @@ mod tests {
         git(&["add", "."]);
         git(&["commit", "-q", "-m", "base"]);
         std::fs::write(dir.join("app/d.tsx"), "a\nB\n").unwrap();
+        std::fs::write(dir.join("app/i.tsx"), "a\n").unwrap();
+        let untracked = diff(&dir, &dir.join("app/i.tsx"), Some("HEAD"), None);
+        assert_eq!(untracked, Diff::default(), "untracked i.tsx against HEAD");
+        let unknown = diff(&dir, &dir.join("app/d.tsx"), Some("no-such-rev"), None);
+        assert_eq!(
+            unknown,
+            Diff::default(),
+            "d.tsx against a base git cannot read"
+        );
         for base in [None, Some("HEAD")] {
             for f in ["app/[id].tsx", "app/*.tsx"] {
                 let d = diff(&dir, &dir.join(f), base, None);
