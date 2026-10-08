@@ -375,6 +375,12 @@ fn picture_review(tag: &str) -> (PathBuf, App) {
     png(&root.join("shot.png"), 300, 120);
     png(&root.join("gone.png"), 100, 50);
     png(&root.join("cut.png"), 20, 10);
+    let big: Vec<u8> = (0..4000u32).map(|i| (i * 7 % 251) as u8).collect();
+    std::fs::write(root.join("big.png"), &big).unwrap();
+    std::fs::write(root.join("same.png"), b"s\0same").unwrap();
+    std::fs::write(root.join("blob.bin"), b"b\0").unwrap();
+    std::fs::write(root.join("keep.txt"), "k\n").unwrap();
+    std::fs::write(root.join("z.txt"), "z\n").unwrap();
     git(&["add", "."]);
     git(&["commit", "-q", "-m", "base"]);
     git(&["switch", "-q", "-c", "feature"]);
@@ -386,6 +392,15 @@ fn picture_review(tag: &str) -> (PathBuf, App) {
         b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR\0\0\0\x10",
     )
     .unwrap();
+    git(&["mv", "same.png", "moved.png"]);
+    std::fs::remove_file(root.join("big.png")).unwrap();
+    std::fs::write(
+        root.join("big2.png"),
+        [&big[..3990], b"0123456789"].concat(),
+    )
+    .unwrap();
+    std::fs::write(root.join("blob.bin"), b"c\0").unwrap();
+    std::fs::write(root.join("z.txt"), "Z\n").unwrap();
     git(&["add", "-A"]);
     git(&["commit", "-q", "-m", "work"]);
     let review = crate::git::Review::open(&root, None, None).unwrap();
@@ -479,4 +494,68 @@ fn halves_leave_a_gap_and_a_frame_hugs_its_picture() {
         [Rect::new(30, 0, 49, 40), Rect::new(82, 0, 49, 40)]
     );
     assert_eq!(framed(Rect::new(5, 3, 10, 4)), Rect::new(4, 2, 12, 6));
+}
+
+#[test]
+fn only_an_image_whose_bytes_changed_is_a_stop_and_only_where_pictures_are_drawn() {
+    let (root, mut app) = picture_review("reviewstops");
+    let r = app.review.clone().unwrap();
+    let f = |name: &str| {
+        r.file(Path::new(name))
+            .unwrap_or_else(|| panic!("{name}: {:#?}", r.files))
+    };
+    assert_eq!(f("big2.png").status, 'R', "{:?}", r.files);
+    assert!(f("moved.png").binary && !f("moved.png").is_stop(&root, true));
+    assert!(!f("blob.bin").is_stop(&root, true));
+    assert!(f("shot.png").is_stop(&root, true) && !f("shot.png").is_stop(&root, false));
+    assert_eq!(r.first_file(&root, true), Some(root.join("big2.png")));
+    assert_eq!(r.first_file(&root, false), Some(root.join("z.txt")));
+    assert_eq!(app.buf.path, Some(root.join("big2.png")));
+    let sides = app.picture_sides().unwrap();
+    let old = sides[0].path.as_ref().unwrap();
+    assert!(sides[0].old && old.ends_with("big.png"), "{old:?}");
+    let mut walk = vec![];
+    for _ in 0..5 {
+        press(&mut app, 'c');
+        let at = app.buf.path.clone().unwrap();
+        walk.push(at.strip_prefix(&root).unwrap().display().to_string());
+    }
+    assert_eq!(
+        walk,
+        ["cut.png", "gone.png", "new.png", "shot.png", "z.txt"]
+    );
+    press(&mut app, 'C');
+    app.jump_to(&root.join("keep.txt"), 1);
+    press(&mut app, 'c');
+    assert_eq!(
+        app.buf.path,
+        Some(root.join("shot.png")),
+        "back to the image left"
+    );
+    paint(&mut app, 100, 30);
+    assert_eq!(app.diagrams.want.len(), 2);
+    press(&mut app, '?');
+    paint(&mut app, 100, 30);
+    assert!(
+        app.diagrams.want.is_empty(),
+        "an overlay hides both pictures"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn a_side_git_cannot_give_says_why_in_the_status_bar() {
+    let (root, mut app) = picture_review("reviewnobase");
+    app.jump_to(&root.join("shot.png"), 1);
+    let r = app.review.as_mut().unwrap();
+    r.merge_base = "0".repeat(40);
+    let terminal = paint(&mut app, 100, 30);
+    let rows = rows(&terminal);
+    assert_eq!(app.diagrams.want.len(), 1, "the new side is drawn");
+    assert!(
+        rows.iter().any(|r| r.contains("binary file, not shown")),
+        "{rows:#?}"
+    );
+    assert!(rows[29].contains("fatal"), "{}", rows[29]);
+    let _ = std::fs::remove_dir_all(&root);
 }

@@ -209,6 +209,7 @@ pub struct ReviewFile {
     /// Not in git yet: listed as added, and its diff is the whole file.
     pub untracked: bool,
     pub generated: bool,
+    pub same_bytes: bool,
 }
 
 impl ReviewFile {
@@ -217,7 +218,7 @@ impl ReviewFile {
     }
 
     pub fn is_picture(&self) -> bool {
-        self.binary && crate::picture::raster_name(&self.path).is_some()
+        self.binary && !self.same_bytes && crate::picture::raster_name(&self.path).is_some()
     }
 
     pub fn is_stop(&self, root: &Path, pictures: bool) -> bool {
@@ -291,7 +292,8 @@ impl Review {
         let merge_base = git(&["merge-base", &base, "HEAD"])
             .with_context(|| format!("no merge base between {base} and HEAD"))?;
         // `-z`: NUL-separated and unquoted, so a non-ASCII name is the name on disk.
-        let mut files = parse_name_status(&git(&["diff", "--name-status", "-z", &merge_base])?);
+        let raw = ["diff", "--raw", "--no-abbrev", "-z", &merge_base];
+        let mut files = parse_name_status(&git(&raw)?);
         let numstat = [
             "diff",
             "--numstat",
@@ -419,15 +421,27 @@ impl Review {
     }
 
     pub fn base_file(&self, root: &Path, rel: &Path) -> Result<PathBuf> {
-        let git_dir = dirs(root).context("no git directory")?.worktree_head_dir;
-        let path = git_dir.join("merl/old").join(&self.merge_base).join(rel);
-        if !path.is_file() {
-            let bytes = self.base_bytes(root, rel)?;
-            let tmp = path.with_file_name(format!(".{}", std::process::id()));
-            std::fs::create_dir_all(path.parent().context("no parent")?)?;
-            std::fs::write(&tmp, bytes)?;
-            std::fs::rename(&tmp, &path)?;
+        let parent = dirs(root)
+            .context("no git directory")?
+            .worktree_head_dir
+            .join("merl/old");
+        let path = parent.join(&self.merge_base).join(rel);
+        if path.is_file() {
+            return Ok(path);
         }
+        let bytes = self.base_bytes(root, rel)?;
+        if let Ok(old) = std::fs::read_dir(&parent) {
+            for e in old.flatten().filter(|e| e.file_name() != *self.merge_base) {
+                let _ = std::fs::remove_dir_all(e.path());
+            }
+        }
+        std::fs::create_dir_all(path.parent().context("no parent")?)?;
+        let tmp = path.with_file_name(format!(".{}", std::process::id()));
+        let written = std::fs::write(&tmp, bytes).and_then(|()| std::fs::rename(&tmp, &path));
+        if written.is_err() {
+            let _ = std::fs::remove_file(&tmp);
+        }
+        written?;
         Ok(path)
     }
 
@@ -780,6 +794,7 @@ fn untracked(root: &Path, path: &Path) -> ReviewFile {
         binary,
         untracked: true,
         generated: false,
+        same_bytes: false,
     }
 }
 
@@ -908,8 +923,14 @@ fn count_lines(path: &Path) -> std::io::Result<(bool, usize)> {
 fn parse_name_status(out: &str) -> Vec<ReviewFile> {
     let mut files = Vec::new();
     let mut it = out.split('\0');
-    while let Some(status) = it.next().filter(|s| !s.is_empty()) {
+    while let Some(head) = it.next().filter(|s| !s.is_empty()) {
         let Some(path) = it.next() else { break };
+        let fields: Vec<&str> = head.split(' ').collect();
+        let status = fields.last().copied().unwrap_or("M");
+        let same_bytes = match fields[..] {
+            [_, _, a, b, _] => a == b && b.bytes().any(|c| c != b'0'),
+            _ => false,
+        };
         let status_char = status.chars().next().unwrap_or('M');
         let old = matches!(status_char, 'R' | 'C').then(|| PathBuf::from(path));
         let path = match &old {
@@ -925,6 +946,7 @@ fn parse_name_status(out: &str) -> Vec<ReviewFile> {
             binary: false,
             untracked: false,
             generated: false,
+            same_bytes,
         });
     }
     files

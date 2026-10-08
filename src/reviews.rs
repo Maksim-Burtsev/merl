@@ -449,6 +449,7 @@ mod tests {
             binary: false,
             untracked: false,
             generated: false,
+            same_bytes: false,
         };
         let review = git::Review {
             branch: "feat/x".into(),

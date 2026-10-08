@@ -22,10 +22,11 @@ pub enum Status {
 
 pub(super) fn status(app: &App) -> Option<Status> {
     if let Some(sides) = app.picture_sides() {
-        let why = (sides.iter())
-            .filter_map(|s| s.path.as_deref())
-            .find_map(|p| app.diagrams.file_failed(p));
-        return Some(why.map_or(Status::Size(String::new()), |w| Status::Why(w.to_string())));
+        let why = sides.iter().find_map(|s| match &s.path {
+            Ok(p) => app.diagrams.file_failed(p).map(str::to_string),
+            Err(why) => Some(why.clone()),
+        });
+        return Some(why.map_or(Status::Size(String::new()), Status::Why));
     }
     let path = app.picture_here()?;
     if let Some(why) = app.diagrams.file_failed(&path) {
@@ -66,12 +67,10 @@ pub(super) fn draw_review(
     for (i, (side, half)) in sides.iter().zip(halves(area, sides.len())).enumerate() {
         let border = Style::new().fg(if side.old { Color::Red } else { Color::Green });
         let note = Style::new().fg(note_fg);
-        let failed = side
-            .path
-            .as_deref()
-            .is_none_or(|p| app.diagrams.file_failed(p).is_some());
+        let path = side.path.as_deref().ok();
+        let failed = path.is_none_or(|p| app.diagrams.file_failed(p).is_some());
         if failed {
-            let text = (side.path.as_deref())
+            let text = path
                 .and_then(picture::not_shown_note)
                 .unwrap_or_else(|| "binary file, not shown".into());
             let room = Rect {
@@ -89,7 +88,7 @@ pub(super) fn draw_review(
             Line::styled(text, note).centered().render(row, buf);
             continue;
         }
-        let Some(path) = side.path.as_deref() else {
+        let Some(path) = path else {
             continue;
         };
         let inner = Rect {
@@ -97,6 +96,9 @@ pub(super) fn draw_review(
             height: half.height.saturating_sub(3),
             ..half
         };
+        if inner.is_empty() || inner.width < 3 {
+            continue;
+        }
         let placement = FILE_PLACEMENT + i as u32;
         if let Some((at, (w, h))) = draw_picture(buf, &mut app.diagrams, path, inner, placement) {
             let framed = framed(at);

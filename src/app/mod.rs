@@ -71,6 +71,7 @@ use external::Walked;
 pub(crate) use open::error_text;
 pub use preview::Preview;
 use project_search::at_label;
+use review::OldPicture;
 pub use review::Side;
 pub use search_job::SearchJob;
 use search_job::{SEARCH_PAUSE, Typed, deleted_hits};
@@ -393,6 +394,7 @@ pub struct App {
     /// The open file rendered, while it is one of `previewed`: laid out by the first frame.
     pub preview: Option<Preview>,
     pub diagrams: crate::mermaid::Diagrams,
+    old_picture: std::cell::RefCell<Option<OldPicture>>,
     pub mode: Mode,
     /// What has been typed into the `:` or `/` prompt.
     pub prompt: LineEdit,
@@ -575,6 +577,7 @@ impl App {
             wrap_opposite_of_kind: HashSet::new(),
             previewed: HashSet::new(),
             diagrams: crate::mermaid::Diagrams::default(),
+            old_picture: Default::default(),
             preview: None,
             mode: Mode::Normal,
             prompt: LineEdit::default(),

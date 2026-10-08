@@ -299,17 +299,32 @@ impl App {
         let f = r.file(&rel).filter(|f| f.is_picture())?;
         let old = || Side {
             old: true,
-            path: (r.base_file(&self.root, f.old.as_deref().unwrap_or(&f.path))).ok(),
+            path: self.old_picture(r, f.old.as_deref().unwrap_or(&f.path)),
         };
         let new = || Side {
             old: false,
-            path: Some(self.root.join(&f.path)).filter(|p| p.is_file()),
+            path: Some(self.root.join(&f.path))
+                .filter(|p| p.is_file())
+                .ok_or_else(|| "not on disk".to_string()),
         };
         Some(match f.status {
             'A' => vec![new()],
             'D' => vec![old()],
             _ => vec![old(), new()],
         })
+    }
+
+    fn old_picture(&self, r: &git::Review, rel: &Path) -> Result<PathBuf, String> {
+        let key = (r.merge_base.clone(), rel.to_path_buf());
+        let mut memo = self.old_picture.borrow_mut();
+        match &*memo {
+            Some((k, got)) if *k == key => got.clone(),
+            _ => {
+                let got = (r.base_file(&self.root, rel)).map_err(|e| super::error_text(&e));
+                *memo = Some((key, got.clone()));
+                got
+            }
+        }
     }
 
     pub fn text_hidden(&self) -> bool {
@@ -590,8 +605,10 @@ impl App {
 
 pub struct Side {
     pub old: bool,
-    pub path: Option<PathBuf>,
+    pub path: Result<PathBuf, String>,
 }
+
+pub(super) type OldPicture = ((String, PathBuf), Result<PathBuf, String>);
 
 /// The stops `c` can make in each file of `r`, by path; `None` when a file failed to count.
 fn count_stops(
