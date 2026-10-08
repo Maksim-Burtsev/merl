@@ -593,20 +593,15 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
     let literal = literal_lines(kind, &lines.join("\n"));
     let mut depth = indent(lines[at]);
     let mut i = at;
-    // Whether a declaration of the block the walk is in, or of its header, has been found.
-    let mut scoped = false;
-    // A C# walk out of a member into its type's body: the lines there are fields, properties
-    // and other members, never statements that declare a local (#345).
-    let in_type = |i: usize| {
+    let mut declared_in_block = false;
+    let in_cs_type_body = |i: usize| {
         kind == Kind::CSharp
             && cs_enclosing(lines, i).is_some_and(|e| cs_type_decl(lines[e]).is_some())
     };
-    let mut members = in_type(at);
+    let mut among_cs_members = in_cs_type_body(at);
     let mut arm: Option<Vec<String>> = None;
-    // The first line of a statement already read whole, from the line that closes it.
-    let mut read: Option<usize> = None;
-    // Where in `out` the Go statement of the block the walk is in that declares the name stands.
-    let mut statement: Option<usize> = None;
+    let mut first_line_read_whole: Option<usize> = None;
+    let mut go_block_statement_at: Option<usize> = None;
     let type_switch = Regex::new(&format!(
         r"^switch\s+(?:[^;{{]*;\s*)?{}\s*:=\s*[^;{{]+\.\(type\)\s*\{{$",
         regex::escape(name)
@@ -623,13 +618,12 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                     && !l.is_empty()
                     && l.chars().all(|c| c.is_alphanumeric() || c == '_')
             });
-        // A C# preprocessor line (`#if`, `#region`) may stand at any indent.
-        let directive = kind == Kind::CSharp && t.starts_with('#');
-        if t.is_empty() || comment(kind, t) || ind > depth || literal[i] || label || directive {
+        let cs_directive = kind == Kind::CSharp && t.starts_with('#');
+        if t.is_empty() || comment(kind, t) || ind > depth || literal[i] || label || cs_directive {
             continue;
         }
         if ind == depth {
-            if !this && !members {
+            if !this && !among_cs_members {
                 let before = out.len();
                 let opener = (kind == Kind::TsJs && t.starts_with(['}', ']']))
                     .then(|| {
@@ -645,9 +639,9 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                         let whole = uncommented(kind, &whole.join("\n")).replace('\n', " ");
                         statement_bindings(kind, &whole, j + 1, name, &mut out);
                         // Its first line alone would read `const repo = {` again, as less.
-                        read = Some(j);
+                        first_line_read_whole = Some(j);
                     }
-                    None if read == Some(i) => {}
+                    None if first_line_read_whole == Some(i) => {}
                     None => match ts_declarators(lines, i).filter(|_| kind == Kind::TsJs) {
                         Some(each) => {
                             for (at, d) in each {
@@ -658,10 +652,10 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                     },
                 }
                 if kind == Kind::Go && out.len() > before {
-                    if let Some(k) = statement.filter(|&k| k < before) {
+                    if let Some(k) = go_block_statement_at.filter(|&k| k < before) {
                         out.remove(k);
                     }
-                    statement = Some(out.len() - 1);
+                    go_block_statement_at = Some(out.len() - 1);
                 }
                 // In `case *Repo:` the variable of a type switch is a `*Repo`; under several
                 // types or `default` it is whatever came in. A `switch` met with no `case` on
@@ -676,25 +670,24 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                 if t.starts_with("switch ") || t.starts_with("select ") {
                     arm = None;
                 }
-                scoped |= out.len() > before;
+                declared_in_block |= out.len() > before;
             }
             continue;
         }
         // A header over several lines ends in a closer (`) {`, `} else {`) and starts at the
         // line above that is back at its indent.
         let end = i;
-        // The line the closer is back at the indent of.
-        let opener = (0..i)
+        let line_back_at_indent = (0..i)
             .rev()
             .find(|&j| !lines[j].trim().is_empty() && indent(lines[j]) <= ind);
-        let body = t == "{" && opener.is_some_and(|j| declares_type(kind, lines[j]));
-        // A `>` closes type parameters, a line ending in `<`; the `>` of a JSX tag closes no header.
-        let params = kind == Kind::TsJs
+        let body = t == "{" && line_back_at_indent.is_some_and(|j| declares_type(kind, lines[j]));
+        let closes_type_params = kind == Kind::TsJs
             && t.starts_with('>')
-            && opener.is_some_and(|j| lines[j].trim_end().ends_with('<'));
-        // C# opens a block on a line of its own, under the header it belongs to.
-        let wrapped = params || (kind == Kind::TsJs && body) || (kind == Kind::CSharp && t == "{");
-        if t.starts_with([')', '}', ']']) || wrapped {
+            && line_back_at_indent.is_some_and(|j| lines[j].trim_end().ends_with('<'));
+        let header_above = closes_type_params
+            || (kind == Kind::TsJs && body)
+            || (kind == Kind::CSharp && t == "{");
+        if t.starts_with([')', '}', ']']) || header_above {
             while i > 0 && (lines[i - 1].trim().is_empty() || indent(lines[i - 1]) > ind) {
                 i -= 1;
             }
@@ -720,13 +713,13 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
             .any(|k| t.trim_start_matches('}').trim_start().starts_with(k));
         // So do the type parameters between `route<` and `>(repo: Repo) {`: the parameter of an
         // arrow among them, `H extends (repo: Log) => void,`, is none of the function's.
-        let header: Vec<&str> = match (sibling || params) && end > i {
+        let header: Vec<&str> = match (sibling || closes_type_params) && end > i {
             true => vec![lines[i].trim(), t],
             false => lines[i..=end].iter().map(|l| l.trim()).collect(),
         };
         let header = uncommented(kind, &header.join("\n"));
         depth = ind.min(indent(lines[i]));
-        statement = None;
+        go_block_statement_at = None;
         if !this {
             if kind == Kind::Go {
                 let types = header
@@ -743,7 +736,7 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
             // callback elsewhere on the header's lines (`if (xs.some((repo: Repo) => …)) {`,
             // `register((repo: Repo) => repo, {`) is a function the cursor is not in, as one on
             // the cursor's own line may be: its parameters count, and hide nothing.
-            if opener_bindings(kind, &header, i + 1, name, &mut out) || scoped {
+            if opener_bindings(kind, &header, i + 1, name, &mut out) || declared_in_block {
                 break;
             }
             // Past a C# type's header the walk is out of its body; past a member's, in it.
@@ -751,7 +744,7 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                 if cs_type_decl(lines[i]).is_some() || cs_namespace_line(lines[i]) {
                     break;
                 }
-                members |= in_type(i);
+                among_cs_members |= in_cs_type_body(i);
             }
         } else if let Some(value) = this_opener(&header, i + 1) {
             out.push(Binding { line: i + 1, value });
@@ -787,7 +780,7 @@ fn this_opener(header: &str, line: usize) -> Option<Value> {
 pub fn ts_arrow_binds(line: &str, name: &str, at: usize) -> bool {
     ts_arrows(line, name)
         .iter()
-        .any(|&(decl, start, end)| decl < at && at > start && at < end)
+        .any(|a| a.param_at < at && at > a.body_start && at < a.body_end)
 }
 pub fn ts_arrow_param(line: &str, name: &str, at: usize) -> bool {
     let before = line[..at].trim_end();
@@ -799,12 +792,14 @@ pub fn ts_arrow_param(line: &str, name: &str, at: usize) -> bool {
     let slot = (after.starts_with("=>") && !returned)
         || before.ends_with(['(', ','])
         || before.ends_with("...");
-    slot && ts_arrows(line, name).iter().any(|&(decl, ..)| decl == at)
+    slot && ts_arrows(line, name).iter().any(|a| a.param_at == at)
 }
-/// Each arrow function on `line` whose parameters name `name`: where the name stands in the
-/// parameters, and where the body starts (its `=>`) and ends. Nothing when the line ends inside a
-/// string, where the brackets are unknown.
-fn ts_arrows(line: &str, name: &str) -> Vec<(usize, usize, usize)> {
+struct TsArrow {
+    param_at: usize,
+    body_start: usize,
+    body_end: usize,
+}
+fn ts_arrows(line: &str, name: &str) -> Vec<TsArrow> {
     let Ok(word) = Regex::new(&format!(r"(?:^|[^\w$.]){}\b", regex::escape(name))) else {
         return Vec::new();
     };
@@ -819,8 +814,7 @@ fn ts_arrows(line: &str, name: &str) -> Vec<(usize, usize, usize)> {
     let bytes: Vec<(usize, u8)> = code(Kind::TsJs, line)
         .take_while(|&(_, c)| c != 0)
         .collect();
-    // The last bracket opened before `upto` and still open there.
-    let unclosed = |upto: usize| {
+    let last_open_bracket_before = |upto: usize| {
         let mut stack = Vec::new();
         for &(i, c) in bytes.iter().take_while(|&&(i, _)| i < upto) {
             match c {
@@ -833,11 +827,9 @@ fn ts_arrows(line: &str, name: &str) -> Vec<(usize, usize, usize)> {
         }
         stack.last().copied()
     };
-    // The `=>` right after the parameters, which end before `from`: a lone name's at once, a
-    // list's behind a return type, `): T =>`.
-    let arrow = |from: usize, typed: bool| {
-        let t = line[from..].trim_start();
-        let t = match t.strip_prefix(':').filter(|_| typed) {
+    let arrow_after_params = |params_end: usize, behind_return_type: bool| {
+        let t = line[params_end..].trim_start();
+        let t = match t.strip_prefix(':').filter(|_| behind_return_type) {
             Some(ty) => ty
                 .find("=>")
                 .filter(|&e| !ty[..e].contains([';', '{', '}', '(', ')']))
@@ -849,17 +841,16 @@ fn ts_arrows(line: &str, name: &str) -> Vec<(usize, usize, usize)> {
     word.find_iter(line)
         .map(|m| m.end() - name.len())
         .filter_map(|decl| {
-            let start = arrow(decl + name.len(), false).or_else(|| {
-                let open = unclosed(decl).filter(|&p| b[p] == b'(')?;
+            let start = arrow_after_params(decl + name.len(), false).or_else(|| {
+                let open = last_open_bracket_before(decl).filter(|&p| b[p] == b'(')?;
                 let before = line[..open].trim_end();
                 if return_type(before) || before.ends_with('<') {
                     return None;
                 }
-                arrow(close_of(Kind::TsJs, line, open)?, true)
+                arrow_after_params(close_of(Kind::TsJs, line, open)?, true)
             });
             let start = start?;
-            // `ternary` counts the `?` of the body still waiting for their `:`.
-            let (mut depth, mut ternary) = (0i32, 0i32);
+            let (mut depth, mut ternaries_awaiting_colon) = (0i32, 0i32);
             let end = bytes
                 .iter()
                 .skip_while(|&&(i, _)| i < start + 2)
@@ -876,12 +867,12 @@ fn ts_arrows(line: &str, name: &str) -> Vec<(usize, usize, usize)> {
                     b'?' if depth == 0 => {
                         // `?.` and `??` are no ternary.
                         let chain = b[i - 1] == b'?' || matches!(b.get(i + 1), Some(b'.' | b'?'));
-                        ternary += i32::from(!chain);
+                        ternaries_awaiting_colon += i32::from(!chain);
                         false
                     }
                     b':' if depth == 0 => {
-                        ternary -= 1;
-                        ternary < 0
+                        ternaries_awaiting_colon -= 1;
+                        ternaries_awaiting_colon < 0
                     }
                     // An assignment; `=>`, a comparison and a JSX attribute, `key={x}`, are not.
                     b'=' if depth == 0 => {
@@ -891,7 +882,11 @@ fn ts_arrows(line: &str, name: &str) -> Vec<(usize, usize, usize)> {
                     _ => false,
                 })
                 .map_or(line.len(), |&(i, _)| i);
-            Some((decl, start, end))
+            Some(TsArrow {
+                param_at: decl,
+                body_start: start,
+                body_end: end,
+            })
         })
         .collect()
 }
@@ -918,9 +913,7 @@ fn opener_bindings(
     });
     static TS_BODY: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^(?::.*)?\{").unwrap());
-    // What follows the parameters of the function whose body ends the header: a return type,
-    // an arrow, the brace.
-    static TS_OPENS: std::sync::LazyLock<Regex> =
+    static TS_RETURN_TYPE_ARROW_BRACE: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^(?::[^(){}]+?)?\s*(?:=>)?\s*\{?\s*$").unwrap());
     static GO_ASSIGN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:^|\belse\s+)(?:if|for|switch|case)\s+([^;{]*?)\s*:=").unwrap()
@@ -941,10 +934,7 @@ fn opener_bindings(
         let value = Value::Element(rule.captures(header)?[1].to_owned());
         Some(Binding { line, value })
     };
-    // Whether a binding is made for the block under the header: by the loop, the `catch` or the
-    // Go statement the header is, or by the function whose body ends it. A callback elsewhere on
-    // these lines, `if (xs.some((repo: Repo) => …)) {`, binds for a body the cursor is not in.
-    let mut own = false;
+    let mut binds_for_body = false;
     match kind {
         Kind::TsJs => {
             let starts = |l: &str| {
@@ -963,7 +953,7 @@ fn opener_bindings(
             {
                 unknown(out);
             }
-            own |= is_loop && out.len() > count;
+            binds_for_body |= is_loop && out.len() > count;
             for (open, _) in header.match_indices('(') {
                 let Some(close) = close_of(kind, header, open) else {
                     continue;
@@ -986,7 +976,8 @@ fn opener_bindings(
                 if TS_ARROW.is_match(after) || TS_FUNCTION.is_match(before) || method {
                     let count = out.len();
                     ts_params(&header[open + 1..close - 1], line, name, out);
-                    own |= out.len() > count && TS_OPENS.is_match(after);
+                    binds_for_body |=
+                        out.len() > count && TS_RETURN_TYPE_ARROW_BRACE.is_match(after);
                 }
             }
             let arrow = Regex::new(&format!(
@@ -1001,7 +992,7 @@ fn opener_bindings(
                 .filter(|c| !return_type(&header[..c.get(0).map_or(0, |m| m.start())]))
             {
                 unknown(out);
-                own |= c.get(1).is_some();
+                binds_for_body |= c.get(1).is_some();
             }
         }
         Kind::CSharp => {
@@ -1009,7 +1000,7 @@ fn opener_bindings(
             if opener.binds {
                 unknown(out);
             }
-            own = opener.hides_outer_scopes;
+            binds_for_body = opener.hides_outer_scopes;
         }
         Kind::Go => {
             let count = out.len();
@@ -1029,7 +1020,7 @@ fn opener_bindings(
             } else if GO_ASSIGN.captures_iter(header).any(|c| names(&c[1], name)) {
                 unknown(out);
             }
-            own |= out.len() > count;
+            binds_for_body |= out.len() > count;
             if let Some(c) = GO_FUNC.captures_iter(header).last() {
                 let count = out.len();
                 if let Some(receiver) = c.get(1) {
@@ -1047,13 +1038,14 @@ fn opener_bindings(
                     // Between the parameters and the `{` that ends the header stand results
                     // only: another brace there closes this function or opens a literal.
                     let body = results.trim_end().strip_suffix('{');
-                    own |= out.len() > count && body.is_some_and(|r| !r.contains(['{', '}']));
+                    binds_for_body |=
+                        out.len() > count && body.is_some_and(|r| !r.contains(['{', '}']));
                 }
             }
         }
         _ => {}
     }
-    own
+    binds_for_body
 }
 pub fn go_binds_here(line: &str, name: &str, at: usize) -> bool {
     // The brackets open at the cursor, and every `func` before it that writes a type: inside a
@@ -1107,27 +1099,26 @@ pub fn go_param_type(line: &str, name: &str, at: usize) -> bool {
     if at < open {
         return false;
     }
-    // Where the item under the cursor starts, and whether the list closes behind it on the line.
-    let (mut depth, mut item, mut close) = (0usize, open, None);
+    let (mut depth, mut item_start, mut list_close) = (0usize, open, None);
     for (i, c) in code(Kind::Go, &line[open..]) {
         match c {
             b'(' | b'[' | b'{' => depth += 1,
             b')' if depth == 0 => {
-                close = Some(open + i);
+                list_close = Some(open + i);
                 break;
             }
             b')' | b']' | b'}' => depth = depth.saturating_sub(1),
-            b',' if depth == 0 && open + i < at => item = open + i + 1,
+            b',' if depth == 0 && open + i < at => item_start = open + i + 1,
             _ => {}
         }
     }
-    let Some(close) = close.filter(|&c| at < c) else {
+    let Some(close) = list_close.filter(|&c| at < c) else {
         return false;
     };
     let named = split_top(Kind::Go, &line[open..close], b',')
         .iter()
         .any(|i| i.trim().contains(char::is_whitespace));
-    !named || !line[item..at].trim().is_empty()
+    !named || !line[item_start..at].trim().is_empty()
 }
 /// Whether what `before` ends in writes a return type: the nearest `:` in front, at its bracket
 /// depth, follows the `)` of a parameter list, `): A | B`. A `:` after a key, `onClick: e =>`,
@@ -1359,8 +1350,7 @@ pub(super) fn ts_header(lines: &[&str], k: usize) -> (String, usize) {
     let text = uncommented(Kind::TsJs, &lines[k..lines.len().min(k + 40)].join("\n"));
     let b = text.as_bytes();
     let (mut depth, mut angle) = (0i32, 0i32);
-    // The type parameters: the first `<…>` outside brackets, when no clause comes before it.
-    let (mut from, mut to) = (None, None);
+    let (mut type_params_from, mut type_params_to) = (None, None);
     let mut open = None;
     for (i, c) in code(Kind::TsJs, &text) {
         match c {
@@ -1379,16 +1369,16 @@ pub(super) fn ts_header(lines: &[&str], k: usize) -> (String, usize) {
             b'(' | b'[' | b'{' => depth += 1,
             b')' | b']' | b'}' => depth -= 1,
             b'<' if depth == 0 => {
-                if angle == 0 && from.is_none() && !names(&text[..i], "extends") {
-                    from = Some(i);
+                if angle == 0 && type_params_from.is_none() && !names(&text[..i], "extends") {
+                    type_params_from = Some(i);
                 }
                 angle += 1;
             }
             // The `>` of a `=>` closes nothing.
             b'>' if depth == 0 && angle > 0 && b[i - 1] != b'=' => {
                 angle -= 1;
-                if angle == 0 && from.is_some() && to.is_none() {
-                    to = Some(i + 1);
+                if angle == 0 && type_params_from.is_some() && type_params_to.is_none() {
+                    type_params_to = Some(i + 1);
                 }
             }
             _ => {}
@@ -1399,7 +1389,7 @@ pub(super) fn ts_header(lines: &[&str], k: usize) -> (String, usize) {
     };
     let last = k + text[..open].matches('\n').count();
     let mut header = text[..=open].to_owned();
-    if let (Some(from), Some(to)) = (from, to) {
+    if let (Some(from), Some(to)) = (type_params_from, type_params_to) {
         header.replace_range(from..to, "");
     }
     (
@@ -1453,25 +1443,24 @@ pub fn go_may_declare(text: &str, line: usize, name: &str) -> bool {
 pub fn package_bindings(text: &str, name: &str) -> Vec<Binding> {
     let literal = literal_lines(Kind::Go, text);
     let mut out = Vec::new();
-    let mut block = false;
-    // The indent of the open block's entries: that of its first line.
-    let mut level = None;
+    let mut in_var_block = false;
+    let mut entry_indent = None;
     for (i, l) in text.lines().enumerate() {
         let code = uncommented(Kind::Go, l);
         let t = code.trim();
         if literal[i] || t.is_empty() {
             continue;
         }
-        match (indent(l), block) {
-            (0, _) if t == "var (" => (block, level) = (true, None),
+        match (indent(l), in_var_block) {
+            (0, _) if t == "var (" => (in_var_block, entry_indent) = (true, None),
             (0, _) => {
-                block = false;
+                in_var_block = false;
                 statement_bindings(Kind::Go, t, i + 1, name, &mut out);
             }
             // gofmt aligns the `=` of a block with spaces, which one `var` line never has. A
             // deeper line belongs to an entry's value or type, `cfg struct {` / `repo *Repo`.
-            (n, true) if Some(n) == level.or(Some(n)) => {
-                level = Some(n);
+            (n, true) if Some(n) == entry_indent.or(Some(n)) => {
+                entry_indent = Some(n);
                 let words: Vec<&str> = t.split_whitespace().collect();
                 let t = format!("var {}", words.join(" "));
                 statement_bindings(Kind::Go, &t, i + 1, name, &mut out);
@@ -1492,9 +1481,7 @@ pub fn php_variable(text: &str, line: usize, name: &str) -> Option<Vec<usize>> {
     let raw: Vec<&str> = text.lines().collect();
     let at = line.checked_sub(1).filter(|&i| i < raw.len())?;
     let literal = literal_lines(Kind::Php, text);
-    // Strings and comments blanked out: a `$name` there binds nothing, and a brace there opens
-    // nothing.
-    let lines: Vec<String> = raw.iter().map(|l| php_code(l)).collect();
+    let code_lines: Vec<String> = raw.iter().map(|l| php_code(l)).collect();
     let n = regex::escape(name);
     let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
     let var = rule(format!(r"(?:^|[^\w$:>])\${n}\b"));
@@ -1504,12 +1491,12 @@ pub fn php_variable(text: &str, line: usize, name: &str) -> Option<Vec<usize>> {
     // is a property's declaration, whose namesakes the search by name offers (#104).
     let mut top = at;
     while top > 0 && at - top < 50 && !literal[top - 1] && {
-        let t = lines[top - 1].trim();
+        let t = code_lines[top - 1].trim();
         !t.is_empty() && !t.ends_with([';', '{', '}'])
     } {
         top -= 1;
     }
-    let statement = lines[top..=at].join("\n");
+    let statement = code_lines[top..=at].join("\n");
     let head = Regex::new(r"(?:^|[^\w$:>])(?:function|fn)\b([^{]*?)(?:\{|=>|$)").unwrap();
     if let Some(at_var) = head
         .captures_iter(&statement)
@@ -1520,7 +1507,7 @@ pub fn php_variable(text: &str, line: usize, name: &str) -> Option<Vec<usize>> {
         let promoted = rule(format!(
             r"(?:(?:public|private|protected|readonly)\s+)+(?:\??[\w\\|]+\s+)?\${n}\b"
         ));
-        return (bound != at || !promoted.is_match(&lines[at])).then(|| vec![bound + 1]);
+        return (bound != at || !promoted.is_match(&code_lines[at])).then(|| vec![bound + 1]);
     }
     let binds = [
         format!(r"(?:^|[^\w$:>])\${n}\s*=(?:[^=>]|$)"),
@@ -1530,15 +1517,19 @@ pub fn php_variable(text: &str, line: usize, name: &str) -> Option<Vec<usize>> {
         format!(r"(?:^|[^\w$])(?:list\s*\(|\[)[^;=]*\${n}\b[^;=]*[\])]\s*=(?:[^=>]|$)"),
     ]
     .map(rule);
-    let scope = php_scope(&lines, &literal, at);
+    let scope = php_scope(&code_lines, &literal, at);
     let mut out = Vec::new();
     let from = match scope {
         PhpScope::Class => return None,
-        PhpScope::Top => 0,
+        PhpScope::TopOrNamespace => 0,
         // The parameters and the `use` list, read from the last `function` of the header on.
-        PhpScope::Function(start, open, brace) => {
+        PhpScope::Function {
+            header_line: start,
+            body_line: open,
+            brace_byte: brace,
+        } => {
             let mut seen = false;
-            for (i, l) in lines.iter().enumerate().take(open + 1).skip(start) {
+            for (i, l) in code_lines.iter().enumerate().take(open + 1).skip(start) {
                 let l = if i == open { &l[..brace] } else { &l[..] };
                 let l = match FUNCTION.find_iter(l).last() {
                     Some(m) => {
@@ -1556,22 +1547,23 @@ pub fn php_variable(text: &str, line: usize, name: &str) -> Option<Vec<usize>> {
     };
     out.extend(
         (from..=at)
-            .filter(|&i| !literal[i] && binds.iter().any(|b| b.is_match(&lines[i])))
-            .filter(|&i| i == at || php_scope(&lines, &literal, i) == scope)
+            .filter(|&i| !literal[i] && binds.iter().any(|b| b.is_match(&code_lines[i])))
+            .filter(|&i| i == at || php_scope(&code_lines, &literal, i) == scope)
             .map(|i| i + 1),
     );
     Some(out)
 }
 static FUNCTION: std::sync::LazyLock<Regex> =
     std::sync::LazyLock::new(|| Regex::new(r"(?:^|[^\w$:>])function\b").unwrap());
-/// Where a line of PHP stands: at the top of the file (or in a `namespace { }`), in a class body,
-/// or in the function whose header starts on the first 0-based line and opens its body on the
-/// second, at the byte the third names.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PhpScope {
-    Top,
+    TopOrNamespace,
     Class,
-    Function(usize, usize, usize),
+    Function {
+        header_line: usize,
+        body_line: usize,
+        brace_byte: usize,
+    },
 }
 /// The scope 0-based line `at` of `lines` (code only, [`php_code`]) stands in: the innermost
 /// brace above it left open whose header is a function, a class or a namespace. An `if`, a loop,
@@ -1606,18 +1598,22 @@ fn php_scope(lines: &[String], literal: &[bool], at: usize) -> PhpScope {
                         header = format!("{t}\n{header}");
                     }
                     if FUNCTION.is_match(&header) {
-                        return PhpScope::Function(start, i, pos);
+                        return PhpScope::Function {
+                            header_line: start,
+                            body_line: i,
+                            brace_byte: pos,
+                        };
                     }
                     if CLASS.is_match(&header) {
                         return PhpScope::Class;
                     }
                     if header.trim_start().starts_with("namespace") {
-                        return PhpScope::Top;
+                        return PhpScope::TopOrNamespace;
                     }
                 }
                 _ => {}
             }
         }
     }
-    PhpScope::Top
+    PhpScope::TopOrNamespace
 }

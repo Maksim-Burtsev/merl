@@ -64,7 +64,12 @@ impl App {
         word: &str,
     ) -> Result<Option<Candidate>, String> {
         let c = here.extension().is_some_and(|e| e == "c" || e == "h");
-        let Some((head, called, fields)) = c.then(|| search::c_receiver(before)).flatten() else {
+        let Some(search::CReceiver {
+            head,
+            head_called: called,
+            fields,
+        }) = c.then(|| search::c_receiver(before)).flatten()
+        else {
             return Ok(None);
         };
         let broke = |at: &str| match fields.is_empty() {
@@ -411,7 +416,11 @@ impl App {
         }
         let edges = |text: &str, from: &Path| -> Vec<PathBuf> {
             let mut out = Vec::new();
-            for (inc, quoted) in search::c_includes(text) {
+            for search::CInclude {
+                as_written: inc,
+                quoted_not_angled: quoted,
+            } in search::c_includes(text)
+            {
                 // libc++'s frozen copy for C++03, behind an `#if` no later standard takes: each
                 // std name would come back twice.
                 if inc.starts_with("__cxx03/") {

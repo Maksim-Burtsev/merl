@@ -173,10 +173,10 @@ pub fn dart_narrow(patterns: &mut Vec<String>, line: &str, word: std::ops::Range
     }
 }
 
-/// What a Dart file's imports bind: the prefix of `import '…' as p;` (`true`) and each name of
-/// `import '…' show A, B;` (`false`), with the URI as written. A plain `import` binds no name, as
-/// Swift's makes a whole module visible.
-pub fn dart_imports(text: &str) -> Vec<(String, String, bool)> {
+/// What a Dart file's imports bind: the prefix of `import '…' as p;` and each name of
+/// `import '…' show A, B;`. A plain `import` binds no name, as Swift's makes a whole module
+/// visible.
+pub fn dart_imports(text: &str) -> Vec<DartImport> {
     static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#"(?m)^\s*import\s+(?:'([^']*)'|"([^"]*)")([^;]*);"#).unwrap()
     });
@@ -189,15 +189,29 @@ pub fn dart_imports(text: &str) -> Vec<(String, String, bool)> {
         let uri = c.get(1).or_else(|| c.get(2)).map_or("", |m| m.as_str());
         let rest = &c[3];
         if let Some(p) = PREFIX.captures(rest) {
-            out.push((p[1].to_owned(), uri.to_owned(), true));
+            out.push(DartImport {
+                name: p[1].to_owned(),
+                uri_as_written: uri.to_owned(),
+                is_prefix: true,
+            });
         } else if let Some(s) = SHOW.captures(rest) {
             // `show A, B hide C` ends the list at the next keyword.
             for name in s[1].split(',').filter_map(|n| n.split_whitespace().next()) {
-                out.push((name.to_owned(), uri.to_owned(), false));
+                out.push(DartImport {
+                    name: name.to_owned(),
+                    uri_as_written: uri.to_owned(),
+                    is_prefix: false,
+                });
             }
         }
     }
     out
+}
+#[derive(Debug, PartialEq)]
+pub struct DartImport {
+    pub name: String,
+    pub uri_as_written: String,
+    pub is_prefix: bool,
 }
 
 /// The file a Dart import's `uri` names from `here`, project-relative when it is the project's,

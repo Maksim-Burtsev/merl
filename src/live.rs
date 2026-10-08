@@ -18,21 +18,29 @@ const MAX_WAIT: Duration = Duration::from_secs(1);
 /// Collects a burst of events into one refresh.
 #[derive(Default)]
 pub struct Debounce {
-    /// The first and the last event since the last refresh.
-    pending: Option<(Instant, Instant)>,
+    pending: Option<Burst>,
+}
+
+#[derive(Clone, Copy)]
+struct Burst {
+    first_event: Instant,
+    last_event: Instant,
 }
 
 impl Debounce {
     pub fn touch(&mut self, now: Instant) {
-        let first = self.pending.map_or(now, |(first, _)| first);
-        self.pending = Some((first, now));
+        let first_event = self.pending.map_or(now, |b| b.first_event);
+        self.pending = Some(Burst {
+            first_event,
+            last_event: now,
+        });
     }
 
     /// Is a refresh due? Answers `true` once per burst.
     pub fn due(&mut self, now: Instant) -> bool {
         let due = self
             .pending
-            .is_some_and(|(first, last)| now - last >= QUIET || now - first >= MAX_WAIT);
+            .is_some_and(|b| now - b.last_event >= QUIET || now - b.first_event >= MAX_WAIT);
         if due {
             self.pending = None;
         }
@@ -205,8 +213,8 @@ pub struct Repo {
 }
 
 impl Repo {
-    /// `git_dir` and `common_dir` as `git::dirs` answers: one directory, or two in a worktree.
-    pub fn new(git_dir: &Path, common_dir: &Path) -> Self {
+    pub fn new(dirs: &crate::git::GitDirs) -> Self {
+        let (git_dir, common_dir) = (&dirs.worktree_head_dir, &dirs.common_refs_dir);
         Self {
             head: git_dir.join("HEAD"),
             refs: common_dir.join("refs"),
@@ -513,7 +521,10 @@ mod tests {
     fn a_commit_asks_for_a_listing_and_the_index_does_not() {
         // A linked worktree: `HEAD` is its own, the refs are the repository's.
         let common = Path::new("/repo/.git");
-        let mut r = Repo::new(&common.join("worktrees/wt"), common);
+        let mut r = Repo::new(&crate::git::GitDirs {
+            worktree_head_dir: common.join("worktrees/wt"),
+            common_refs_dir: common.to_path_buf(),
+        });
         let rename = EventKind::Modify(ModifyKind::Name(RenameMode::Any));
         for (path, want) in [
             ("worktrees/wt/HEAD", true),

@@ -396,7 +396,7 @@ impl App {
         // Gone (deleted, renamed) is changed too: only Ctrl+S puts the file back. Any other read
         // error, its directory gone among them, is left to the write below to report and retry.
         let changed = match std::fs::read(path) {
-            Ok(b) => buffer::hash(&b) != self.buf.disk,
+            Ok(b) => buffer::hash(&b) != self.buf.disk_hash,
             Err(e) => {
                 e.kind() == std::io::ErrorKind::NotFound && path.parent().is_some_and(Path::exists)
             }
@@ -411,7 +411,7 @@ impl App {
                 if let Ok(mut kept) = self.shaped.lock() {
                     kept.remove(path);
                 }
-                self.buf.disk = buffer::hash(&bytes);
+                self.buf.disk_hash = buffer::hash(&bytes);
                 self.dirty = false;
                 self.conflict = false;
                 self.last_edit = None;

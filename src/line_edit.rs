@@ -11,12 +11,10 @@ use crate::app::{is_word, next_char, prev_char};
 #[derive(Default)]
 pub struct LineEdit {
     text: String,
-    /// Byte index of the cursor, always on a char boundary.
-    cur: usize,
+    cursor_byte: usize,
     /// Where the selection started; it runs from here to the cursor.
     anchor: Option<usize>,
-    /// The most chars the line holds, if it has a limit.
-    cap: Option<usize>,
+    max_chars: Option<usize>,
 }
 
 impl Deref for LineEdit {
@@ -31,9 +29,9 @@ impl LineEdit {
     pub fn selected(text: &str) -> Self {
         Self {
             text: text.into(),
-            cur: text.len(),
+            cursor_byte: text.len(),
             anchor: Some(0),
-            cap: None,
+            max_chars: None,
         }
     }
 
@@ -49,7 +47,7 @@ impl LineEdit {
     /// cut to what fits.
     pub fn capped(self, chars: usize) -> Self {
         Self {
-            cap: Some(chars),
+            max_chars: Some(chars),
             ..self
         }
     }
@@ -59,13 +57,13 @@ impl LineEdit {
     }
 
     pub fn cursor(&self) -> usize {
-        self.cur
+        self.cursor_byte
     }
 
     /// The selected bytes; None when the cursor stands on the anchor.
     pub fn selection(&self) -> Option<Range<usize>> {
-        let a = self.anchor.filter(|&a| a != self.cur)?;
-        Some(a.min(self.cur)..a.max(self.cur))
+        let a = self.anchor.filter(|&a| a != self.cursor_byte)?;
+        Some(a.min(self.cursor_byte)..a.max(self.cursor_byte))
     }
 
     /// Applies one key. True when the text changed, so the caller knows to search again; a move,
@@ -80,24 +78,30 @@ impl LineEdit {
             KeyCode::Char('e') if ctrl => self.go(end, false),
             KeyCode::Char('u') if ctrl => return self.cut(0..end),
             KeyCode::Char('w') if ctrl => {
-                let range = self.selection().unwrap_or(self.word_left()..self.cur);
+                let range = self
+                    .selection()
+                    .unwrap_or(self.word_left()..self.cursor_byte);
                 return self.cut(range);
             }
             KeyCode::Backspace if alt => {
-                let range = self.selection().unwrap_or(self.word_left()..self.cur);
+                let range = self
+                    .selection()
+                    .unwrap_or(self.word_left()..self.cursor_byte);
                 return self.cut(range);
             }
             KeyCode::Char(c) if !ctrl => return self.insert(c.encode_utf8(&mut [0; 4])),
             KeyCode::Backspace => {
-                let range = self.selection().unwrap_or(self.left()..self.cur);
+                let range = self.selection().unwrap_or(self.left()..self.cursor_byte);
                 return self.cut(range);
             }
             KeyCode::Delete if alt => {
-                let range = self.selection().unwrap_or(self.cur..self.word_right());
+                let range = self
+                    .selection()
+                    .unwrap_or(self.cursor_byte..self.word_right());
                 return self.cut(range);
             }
             KeyCode::Delete => {
-                let range = self.selection().unwrap_or(self.cur..self.right());
+                let range = self.selection().unwrap_or(self.cursor_byte..self.right());
                 return self.cut(range);
             }
             KeyCode::Home => self.go(0, shift),
@@ -116,7 +120,7 @@ impl LineEdit {
         false
     }
 
-    /// Puts `text` in place of the selection, or at the cursor, as far as the cap lets it. True
+    /// Puts `text` in place of the selection, or at the cursor, as far as `max_chars` lets it. True
     /// when the text changed; empty `text` changes nothing, not even the selection.
     pub fn insert(&mut self, text: &str) -> bool {
         if text.is_empty() {
@@ -125,47 +129,47 @@ impl LineEdit {
         let cut = self.selection().map(|range| self.cut(range)).is_some();
         // A selection stretched and shrunk back to nothing leaves its anchor behind.
         self.anchor = None;
-        let room = self.cap.map_or(usize::MAX, |cap| {
+        let room = self.max_chars.map_or(usize::MAX, |cap| {
             cap.saturating_sub(self.text.chars().count())
         });
         let fits = text.char_indices().nth(room).map_or(text.len(), |(i, _)| i);
-        self.text.insert_str(self.cur, &text[..fits]);
-        self.cur += fits;
+        self.text.insert_str(self.cursor_byte, &text[..fits]);
+        self.cursor_byte += fits;
         cut || fits > 0
     }
 
     fn go(&mut self, to: usize, extend: bool) {
         if extend {
-            self.anchor.get_or_insert(self.cur);
+            self.anchor.get_or_insert(self.cursor_byte);
         } else {
             self.anchor = None;
         }
-        self.cur = to;
+        self.cursor_byte = to;
     }
 
     fn cut(&mut self, range: Range<usize>) -> bool {
         self.anchor = None;
-        self.cur = range.start;
+        self.cursor_byte = range.start;
         let changed = !range.is_empty();
         self.text.replace_range(range, "");
         changed
     }
 
     fn left(&self) -> usize {
-        prev_char(&self.text, self.cur)
+        prev_char(&self.text, self.cursor_byte)
     }
 
     fn right(&self) -> usize {
-        next_char(&self.text, self.cur)
+        next_char(&self.text, self.cursor_byte)
     }
 
     fn word_left(&self) -> usize {
-        let head = self.text[..self.cur].trim_end_matches(|c| !is_word(c));
+        let head = self.text[..self.cursor_byte].trim_end_matches(|c| !is_word(c));
         head.trim_end_matches(is_word).len()
     }
 
     fn word_right(&self) -> usize {
-        let tail = &self.text[self.cur..];
+        let tail = &self.text[self.cursor_byte..];
         let tail = tail.trim_start_matches(|c| !is_word(c));
         self.text.len() - tail.trim_start_matches(is_word).len()
     }

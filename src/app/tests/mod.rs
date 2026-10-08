@@ -50,6 +50,12 @@ mod symbols;
 mod tree;
 mod usages;
 
+fn test_threads() -> usize {
+    std::env::var("RUST_TEST_THREADS")
+        .ok()
+        .and_then(|n| n.parse().ok())
+        .unwrap_or_else(|| std::thread::available_parallelism().map_or(1, usize::from))
+}
 fn app(text: &str) -> App {
     // Edits get saved, so each test has a file of its own.
     let name = std::thread::current()

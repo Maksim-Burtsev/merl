@@ -533,13 +533,16 @@ fn f_folds_a_jsx_element_in_a_jsx_file() {
 }
 
 #[test]
-fn f_survives_every_prefix_of_the_swift_php_and_objc_fixtures() {
+fn f_survives_every_prefix_of_the_swift_php_objc_c_and_cpp_fixtures() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/folds");
-    for (ext, name) in [
+    let fixtures = [
         ("swift", "swift.swift"),
         ("php", "php.php"),
         ("m", "objc.m"),
-    ] {
+        ("c", "c.c"),
+        ("cc", "cpp.cc"),
+    ];
+    for (ext, name) in fixtures {
         let text = std::fs::read_to_string(dir.join(name)).unwrap();
         let mut a = app_as(ext, "");
         let path = a.buf.path.clone().unwrap();

@@ -9,8 +9,7 @@ use crate::markdown::{self, Doc, Kind};
 /// row at the top of the pane.
 pub struct Preview {
     pub doc: Doc,
-    /// What `doc` was laid out from: a hash of the lines, and the width.
-    key: (u64, usize, u64),
+    laid_out_from: LayoutInput,
     pub row: usize,
     pub top: usize,
     /// The source position the cursor row was found for, or put the cursor at. A cursor found
@@ -21,6 +20,13 @@ pub struct Preview {
     /// names, as the source is highlighted: a block costs what is drawn of it.
     pub code: Vec<Buffer>,
     pub theme: String,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct LayoutInput {
+    lines_hash: u64,
+    width: usize,
+    diagrams_laid: u64,
 }
 
 impl App {
@@ -82,10 +88,14 @@ impl App {
     pub(crate) fn preview_sync(&mut self) -> bool {
         let mut h = std::collections::hash_map::DefaultHasher::new();
         self.buf.lines.hash(&mut h);
-        let key = (h.finish(), self.view_w, self.diagrams.laid);
+        let input = LayoutInput {
+            lines_hash: h.finish(),
+            width: self.view_w,
+            diagrams_laid: self.diagrams.laid,
+        };
         let pos = (self.line, self.col);
         match &mut self.preview {
-            Some(p) if p.key == key => {
+            Some(p) if p.laid_out_from == input => {
                 if p.at == Some(pos) {
                     return false;
                 }
@@ -107,7 +117,7 @@ impl App {
                 };
                 // Code keeps its colours across another width: the text is the same.
                 let (code, theme) = match old {
-                    Some(p) if p.key.0 == key.0 => (p.code, p.theme),
+                    Some(p) if p.laid_out_from.lines_hash == input.lines_hash => (p.code, p.theme),
                     _ => (
                         doc.code
                             .iter()
@@ -118,7 +128,7 @@ impl App {
                 };
                 *slot = Some(Preview {
                     doc,
-                    key,
+                    laid_out_from: input,
                     row,
                     top: row.saturating_sub(off),
                     at: Some(pos),

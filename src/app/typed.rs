@@ -9,7 +9,7 @@ impl App {
         here: &Path,
         word: &str,
         chain: &[String],
-        head: Option<&(String, search::Value, Vec<String>)>,
+        head: Option<&search::CallHead>,
     ) -> Result<Vec<Candidate>, String> {
         if kind == Kind::Python {
             self.external_files(kind);
@@ -87,12 +87,16 @@ impl App {
         kind: Kind,
         here: &Path,
         chain: &[String],
-        head: Option<&(String, search::Value, Vec<String>)>,
+        head: Option<&search::CallHead>,
     ) -> Result<(Typed, Vec<String>), String> {
         let (text, line) = self.scope(here, chain.first())?;
         match head {
             // The chain hangs off a call: `make_uow().users.word`.
-            Some((call, value, fields)) => {
+            Some(search::CallHead {
+                call_without_arguments: call,
+                value,
+                fields_to_word: fields,
+            }) => {
                 let value = value.clone();
                 // A cast is its own link, as written: `via (repo as UserRepository)`.
                 let cast = matches!(value, search::Value::Type(_) | search::Value::Cast(..))
@@ -112,7 +116,7 @@ impl App {
         kind: Kind,
         here: &Path,
         chain: &[String],
-        head: Option<&(String, search::Value, Vec<String>)>,
+        head: Option<&search::CallHead>,
     ) -> Option<String> {
         if kind != Kind::Python || head.is_some() {
             return None;
@@ -229,7 +233,7 @@ impl App {
         kind: Kind,
         here: &Path,
         chain: &[String],
-        head: Option<&(String, search::Value, Vec<String>)>,
+        head: Option<&search::CallHead>,
     ) -> Option<Typed> {
         if kind != Kind::Python || chain.first().is_some_and(|f| f == "super") {
             return None;
@@ -1005,7 +1009,7 @@ impl App {
         let literal = search::literal_lines(Kind::Swift, text);
         let around = search::swift_enclosing_type(&lines, &literal, line);
         if name == "self" {
-            let (_, own, ..) = search::swift_type_header(lines[around? - 1])?;
+            let own = search::swift_type_header(lines[around? - 1])?.name;
             return Some((own, None));
         }
         match search::bindings(Kind::Swift, text, line, name).as_slice() {
@@ -1026,7 +1030,7 @@ impl App {
                 if top == 0 || (top..line).any(|l| search::swift_may_bind(lines[l - 1], name)) {
                     return None;
                 }
-                let (_, own, ..) = search::swift_type_header(lines[at - 1])?;
+                let own = search::swift_type_header(lines[at - 1])?.name;
                 let ty = self.swift_type(here, &own)?;
                 self.swift_field(here, &ty, name, hops)
             }
@@ -1172,8 +1176,8 @@ impl App {
                 continue;
             }
             match search::swift_type_header(&h.text) {
-                Some((k, n, ..)) if k == "extension" => extended |= n == name,
-                Some((k, n, b, _)) if n == name => decls.push((h, k, b)),
+                Some(t) if t.keyword == "extension" => extended |= t.name == name,
+                Some(t) if t.name == name => decls.push((h, t.keyword, t.first_inherited)),
                 Some(_) => {}
                 // `typealias Name`, `associatedtype Name`: no type of its own.
                 None if !h.text.contains("func ")

@@ -34,8 +34,8 @@ impl App {
         let bound = |name: &str, prefix: bool| {
             imports
                 .iter()
-                .find(|(n, _, p)| n == name && *p == prefix)
-                .map(|(_, uri, _)| uri.clone())
+                .find(|i| i.name == name && i.is_prefix == prefix)
+                .map(|i| i.uri_as_written.clone())
         };
         let (uri, within) = match chain {
             [] if before.trim_end().ends_with('.') => return None,

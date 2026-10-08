@@ -302,10 +302,10 @@ pub enum Focus {
     Code,
 }
 
-/// A plain cursor move closer than this many lines to the current stop updates it instead of
-/// adding a new one. VS Code's `TEXT_EDITOR_SELECTION_THRESHOLD`.
 /// Columns kept between the cursor and the pane edge while scrolling sideways.
 const SIDE_OFF: usize = 8;
+/// A plain cursor move closer than this many lines to the current stop updates it instead of
+/// adding a new one. VS Code's `TEXT_EDITOR_SELECTION_THRESHOLD`.
 const HIST_NEAR: usize = 10;
 const HIST_MAX: usize = 50;
 
@@ -386,8 +386,7 @@ pub struct App {
     pub left: usize,
     pub collapsed: Vec<(usize, usize)>,
     collapsed_stash: HashMap<PathBuf, Vec<(usize, String)>>,
-    /// Files `w` was pressed on: their wrapping is the opposite of what their kind gets.
-    wrap_toggled: HashSet<PathBuf>,
+    wrap_opposite_of_kind: HashSet<PathBuf>,
     /// Markdown files `p` shows rendered, until `p` again or merl quits.
     previewed: HashSet<PathBuf>,
     /// The open file rendered, while it is one of `previewed`: laid out by the first frame.
@@ -463,19 +462,15 @@ pub struct App {
     viewed_branch: Option<String>,
     last_hunk: Option<(PathBuf, usize)>,
     pub session: Option<crate::reviews::Session>,
-    /// The sessions a `git switch` closed, each with the files marked viewed then.
-    closed: Vec<(crate::reviews::Session, Vec<PathBuf>)>,
+    sessions_closed_by_switch_with_viewed: Vec<(crate::reviews::Session, Vec<PathBuf>)>,
     /// The theme in use, by name. Set by `main`; the theme picker previews others over it.
     pub theme: String,
     /// Where Enter in the theme picker saves the choice. Set by `main`; `None` saves nothing.
     pub config: Option<PathBuf>,
     /// Where the theme picker finds the user's own themes.
     pub theme_dir: Option<PathBuf>,
-    /// A quit was just refused over edits that could not be saved: quitting again right away
-    /// leaves them behind.
-    quit_again: bool,
-    /// The `KEYS` action the key being handled was routed to, named by `key_inner` for `key`.
-    action: Option<&'static str>,
+    quit_again_drops_unsaved: bool,
+    keys_action_of_key_in_hand: Option<&'static str>,
     /// Real work's presses by action, since merl started: `main` adds them to the key stats on
     /// exit. The tutorial counts nothing.
     pub pressed: HashMap<&'static str, u64>,
@@ -576,7 +571,7 @@ impl App {
             left: 0,
             collapsed: Vec::new(),
             collapsed_stash: HashMap::new(),
-            wrap_toggled: HashSet::new(),
+            wrap_opposite_of_kind: HashSet::new(),
             previewed: HashSet::new(),
             diagrams: crate::mermaid::Diagrams::default(),
             preview: None,
@@ -619,12 +614,12 @@ impl App {
             viewed_branch: None,
             last_hunk: None,
             session: None,
-            closed: Vec::new(),
+            sessions_closed_by_switch_with_viewed: Vec::new(),
             theme: crate::theme::DEFAULT.to_string(),
             config: None,
             theme_dir: crate::theme::user_dir(),
-            quit_again: false,
-            action: None,
+            quit_again_drops_unsaved: false,
+            keys_action_of_key_in_hand: None,
             pressed: HashMap::new(),
             missed: HashMap::new(),
             watch: Default::default(),
@@ -632,13 +627,12 @@ impl App {
         // The file named on the command line is asked the same question as one opened later.
         lock_no_write(&mut buf);
         app.buf = buf;
-        if let Some((n, c)) = at {
+        if let Some((n, char_col1)) = at {
             app.goto_line(n);
-            // 1-based in chars, as compilers count; past the end of the line is its end.
             let s = app.buf.shown(app.line);
             app.col = s
                 .char_indices()
-                .nth(c.saturating_sub(1))
+                .nth(char_col1.saturating_sub(1))
                 .map_or(s.len(), |(i, _)| i);
             app.sync_want_x();
         }
@@ -794,7 +788,7 @@ impl App {
         let table = path
             .extension()
             .is_some_and(|e| e.eq_ignore_ascii_case("csv") || e.eq_ignore_ascii_case("tsv"));
-        table != self.wrap_toggled.contains(path)
+        table != self.wrap_opposite_of_kind.contains(path)
     }
 
     /// `w`: wrap the open file or stop wrapping it.
@@ -802,8 +796,8 @@ impl App {
         let Some(path) = self.buf.path.clone() else {
             return;
         };
-        if !self.wrap_toggled.remove(&path) {
-            self.wrap_toggled.insert(path);
+        if !self.wrap_opposite_of_kind.remove(&path) {
+            self.wrap_opposite_of_kind.insert(path);
         }
         // The top row and the column Up / Down aim at were counted in the other layout.
         self.clamp_top();
@@ -932,27 +926,25 @@ pub fn is_word(c: char) -> bool {
 }
 
 /// The byte where `word` first stands whole in `line`, 0 when it does not: where a jump to a
-/// line that declares or uses it puts the cursor. `extra` are the characters the line's language
-/// counts as part of a word besides letters, digits and `_` ([`search::word_chars`]): the `-` of
-/// a Makefile target.
-pub(super) fn word_col(line: &str, word: &str, extra: &str) -> usize {
+/// line that declares or uses it puts the cursor.
+pub(super) fn word_col(line: &str, word: &str, word_chars_past_alnum: &str) -> usize {
     // `attr_writer :name` declares Ruby's setter `name=` under its bare name.
-    whole_at(line, word, extra)
-        .or_else(|| whole_at(line, word.strip_suffix('=')?, extra))
+    whole_at(line, word, word_chars_past_alnum)
+        .or_else(|| whole_at(line, word.strip_suffix('=')?, word_chars_past_alnum))
         .or_else(|| {
             whole_at(
                 &line.to_ascii_lowercase(),
                 &word.to_ascii_lowercase(),
-                extra,
+                word_chars_past_alnum,
             )
         })
         .unwrap_or(0)
 }
 
-/// The byte where `word` first stands whole in `line` with `extra` counted as word characters,
-/// `None` when every occurrence runs into one: `db-main` in `db-main-2:` of a Makefile.
-pub(super) fn whole_at(line: &str, word: &str, extra: &str) -> Option<usize> {
-    let part = |c: char| is_word(c) || extra.contains(c);
+/// `None` when every occurrence runs into a word character: `db-main` in `db-main-2:` of a
+/// Makefile.
+pub(super) fn whole_at(line: &str, word: &str, word_chars_past_alnum: &str) -> Option<usize> {
+    let part = |c: char| is_word(c) || word_chars_past_alnum.contains(c);
     let whole = |(i, _): &(usize, &str)| {
         !line[..*i].ends_with(part) && !line[i + word.len()..].starts_with(part)
     };

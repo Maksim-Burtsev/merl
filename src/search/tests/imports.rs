@@ -257,7 +257,10 @@ fn typescript_spellings_are_read_in_typescript_only() {
         );
         assert_eq!(
             plain_access(kind, &lines[1], 24),
-            (lines[1].clone(), 24),
+            LineAsRead {
+                line: lines[1].clone(),
+                word_start: 24
+            },
             "outside TypeScript `?.` and `!.` stay: Rust's `?`"
         );
         let word = definition_word(Some(kind), "#define LIMIT", 1);
@@ -269,11 +272,17 @@ fn typescript_spellings_are_read_in_typescript_only() {
     }
     assert_eq!(
         unbroken(Kind::TsJs, &lines, 1, 9),
-        Some(("    repo.find(1)?.name!.x".to_owned(), 9))
+        Some(LineAsRead {
+            line: "    repo.find(1)?.name!.x".to_owned(),
+            word_start: 9
+        })
     );
     assert_eq!(
         plain_access(Kind::TsJs, "    repo.find(1)?.name!.x", 24),
-        ("    repo.find(1).name.x".to_owned(), 22)
+        LineAsRead {
+            line: "    repo.find(1).name.x".to_owned(),
+            word_start: 22
+        }
     );
     let field = |from: &[&str], name: &str| {
         Some(Value::Field(

@@ -11,7 +11,12 @@ impl App {
         let lines: Vec<&str> = text.lines().collect();
         let literal = search::literal_lines(Kind::Swift, text);
         let at = search::swift_enclosing_type(&lines, &literal, self.line + 1)?;
-        let (mut keyword, own, mut base, constrained) = search::swift_type_header(lines[at - 1])?;
+        let search::SwiftTypeHeader {
+            mut keyword,
+            name: own,
+            first_inherited: mut base,
+            where_constrained: constrained,
+        } = search::swift_type_header(lines[at - 1])?;
         if constrained {
             return None;
         }
@@ -53,9 +58,16 @@ impl App {
                 )
                 .iter()
                 .filter_map(|h| search::swift_type_header(&h.text))
-                .filter(|(k, n, ..)| k == "class" && *n == next)
+                .filter(|h| h.keyword == "class" && h.name == next)
                 .collect();
-            let [(k, _, b, _)] = classes.as_slice() else {
+            let [
+                search::SwiftTypeHeader {
+                    keyword: k,
+                    first_inherited: b,
+                    ..
+                },
+            ] = classes.as_slice()
+            else {
                 self.truncated.set(cut);
                 return None;
             };
