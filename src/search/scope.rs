@@ -816,18 +816,26 @@ pub fn cpp_dirs(roots: &[PathBuf]) -> Vec<PathBuf> {
         .filter(|d| d.is_dir())
         .collect()
 }
-pub fn c_spelled(path: &Path, dirs: &[(PathBuf, PathBuf)]) -> PathBuf {
+pub fn c_spelled(path: &Path, dirs: &[RealDir]) -> PathBuf {
     let Ok(real) = path.canonicalize() else {
         return path.to_path_buf();
     };
     dirs.iter()
-        .find_map(|(d, r)| Some(d.join(real.strip_prefix(r).ok()?)))
+        .find_map(|d| Some(d.spelled.join(real.strip_prefix(&d.links_followed).ok()?)))
         .unwrap_or_else(|| path.to_path_buf())
 }
-/// Each of `dirs` with the directory it is once its links are followed.
-pub fn real_dirs(dirs: &[PathBuf]) -> Vec<(PathBuf, PathBuf)> {
+pub struct RealDir {
+    pub spelled: PathBuf,
+    pub links_followed: PathBuf,
+}
+pub fn real_dirs(dirs: &[PathBuf]) -> Vec<RealDir> {
     (dirs.iter())
-        .filter_map(|d| Some((d.clone(), d.canonicalize().ok()?)))
+        .filter_map(|d| {
+            Some(RealDir {
+                spelled: d.clone(),
+                links_followed: d.canonicalize().ok()?,
+            })
+        })
         .collect()
 }
 /// Whether `path` is one of the RBS signatures of Ruby's core, `core/*.rbs` of the `rbs` gem
