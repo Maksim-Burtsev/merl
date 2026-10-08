@@ -651,10 +651,10 @@ impl App {
     }
 }
 
-/// Whether the Python class declared on 1-based `decl` of `text` is a `typing.Protocol`, which
+/// Whether the Python class declared on `decl1` of `text` is a `typing.Protocol`, which
 /// anything with its members implements without naming it.
-fn is_protocol(text: &str, decl: usize) -> bool {
-    search::bases(Kind::Python, text, decl)
+fn is_protocol(text: &str, decl1: usize) -> bool {
+    search::bases(Kind::Python, text, decl1)
         .iter()
         .filter_map(|b| search::type_path(Kind::Python, b))
         .any(|p| p.last().is_some_and(|n| n == "Protocol"))

@@ -57,9 +57,8 @@ impl App {
             .map_or_else(Default::default, |r| r.deleted.clone())
     }
 
-    /// The word under the cursor, with `extra` characters counting as part of it.
-    pub(super) fn word_under(&self, extra: &str) -> Option<String> {
-        search::word_at(self.line_str(), self.col, extra).map(|(_, w)| w.to_string())
+    pub(super) fn word_under(&self, word_chars: &str) -> Option<String> {
+        search::word_at(self.line_str(), self.col, word_chars).map(|(_, w)| w.to_string())
     }
 
     pub(super) fn kind(&self) -> Option<Kind> {

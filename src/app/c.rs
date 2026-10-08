@@ -100,7 +100,7 @@ impl App {
                 },
             };
             links.push(link);
-            let Some(at) = search::c_body_field(&body.code, body.open, name) else {
+            let Some(at) = search::c_body_field(&body.code, body.brace_in_code, name) else {
                 return match i == fields.len() {
                     true => Ok(None),
                     false => broke(name),
@@ -194,7 +194,7 @@ impl App {
                 path: path.to_path_buf(),
                 text,
                 code,
-                open,
+                brace_in_code: open,
             })
         };
         let name = match &ty.1 {
@@ -204,18 +204,17 @@ impl App {
         let mut bodies = Vec::new();
         self.c_bodies(here, name, 0, &mut bodies);
         if bodies.len() > 1 {
-            bodies.retain(|(p, _)| p == here || c_header(p));
+            bodies.retain(|b| b.path == here || c_header(&b.path));
         }
         match bodies.as_slice() {
-            [(path, open)] => read(path, *open),
+            [body] => read(&body.path, body.byte),
             _ => None,
         }
     }
 
-    /// Into `bodies`, each struct or union body the type `name` has in the project, as a path and
-    /// the byte of its `{`: `struct name {`, `typedef struct … { … } name;`, and through a
+    /// Into `bodies`, each struct or union body the type `name` has in the project: `struct name {`, `typedef struct … { … } name;`, and through a
     /// `typedef struct TAG name;` the bodies of `TAG`, a few typedefs deep.
-    fn c_bodies(&self, here: &Path, name: &str, depth: usize, bodies: &mut Vec<(PathBuf, usize)>) {
+    fn c_bodies(&self, here: &Path, name: &str, depth: usize, bodies: &mut Vec<BraceAt>) {
         let p = search::def_patterns(Kind::C, name);
         let pattern = [&p[2], &p[4], &p[5]].map(String::as_str).join("|");
         let mut aliases = Vec::new();
@@ -236,8 +235,10 @@ impl App {
                 .into_iter()
                 .find_map(|at| search::c_type_def(code, at));
             match def {
-                Some(search::CType::Body(open)) if !bodies.contains(&(h.path.clone(), open)) => {
-                    bodies.push((h.path, open))
+                Some(search::CType::Body(byte))
+                    if !bodies.iter().any(|b| b.path == h.path && b.byte == byte) =>
+                {
+                    bodies.push(BraceAt { path: h.path, byte })
                 }
                 Some(search::CType::Name(alias)) if !aliases.contains(&alias) => {
                     aliases.push(alias)
@@ -285,7 +286,7 @@ impl App {
         // A property another `.m` file declares, in a class extension of its own, is that
         // file's: no other file sees it (#417).
         let property = Regex::new(&search::objc_property(word)).expect("an escaped name");
-        found.retain(|(h, _)| {
+        found.retain(|MemberRow { hit: h, .. }| {
             h.path == here
                 || !property.is_match(&h.text)
                 || !h.path.extension().is_some_and(|e| e == "m" || e == "mm")
@@ -295,7 +296,7 @@ impl App {
             found = self.c_outside(
                 here,
                 &files,
-                |(h, _)| h,
+                |row| &row.hit,
                 |this, files| {
                     let hits = this.external_grep(Kind::C, files, &pattern);
                     this.c_member_rows(word, hits, called)
@@ -304,7 +305,7 @@ impl App {
         }
         found
             .into_iter()
-            .map(|(hit, _)| Candidate {
+            .map(|MemberRow { hit, .. }| Candidate {
                 hit,
                 reason: Reason::ByName,
             })
@@ -312,8 +313,8 @@ impl App {
     }
 
     /// Of `hits` for `word`, the fields (a `called` word: only a function pointer) and, when
-    /// `called`, the methods: each with the name of the type it is a field of, `""` for a method.
-    fn c_member_rows(&self, word: &str, hits: Vec<Hit>, called: bool) -> Vec<(Hit, String)> {
+    /// `called`, the methods.
+    fn c_member_rows(&self, word: &str, hits: Vec<Hit>, called: bool) -> Vec<MemberRow> {
         let w = regex::escape(word);
         let re = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
         let method = re(method_pattern(word));
@@ -337,16 +338,16 @@ impl App {
             for h in hits {
                 match fields.iter().find(|(l, _)| *l == h.line) {
                     Some((_, owner)) if !called || pointer.is_match(&h.text) => {
-                        rows.push((h, owner.clone()))
+                        rows.push(MemberRow::field_of(h, owner))
                     }
-                    None if called && method.is_match(&h.text) => rows.push((h, String::new())),
-                    None if objc && member.is_match(&h.text) => rows.push((h, String::new())),
+                    None if called && method.is_match(&h.text) => rows.push(MemberRow::method(h)),
+                    None if objc && member.is_match(&h.text) => rows.push(MemberRow::method(h)),
                     // A member declared with no body, a pure virtual among them (#373).
                     None if called
                         && declared.is_match(&h.text)
                         && search::c_member_class(&text, h.line, word).is_some() =>
                     {
-                        rows.push((h, String::new()))
+                        rows.push(MemberRow::method(h))
                     }
                     _ => {}
                 }
@@ -368,10 +369,10 @@ impl App {
     ) -> Vec<Candidate> {
         let hits = self.project_definitions(Kind::C, here, word, &search::c_field_pattern(word));
         let rows = self.c_member_rows(word, hits, false);
-        let own = rows.iter().any(|(_, owner)| owner == class);
+        let own = rows.iter().any(|row| row.is_field_of(class));
         rows.into_iter()
-            .filter(|(_, owner)| owner == class || (by_name && !own))
-            .map(|(hit, _)| Candidate {
+            .filter(|row| row.is_field_of(class) || (by_name && !own))
+            .map(|MemberRow { hit, .. }| Candidate {
                 hit,
                 reason: match own {
                     true => Reason::Receiver(class.to_owned()),
@@ -523,9 +524,12 @@ impl App {
 
     /// Whether `h` is on a line of code: what a raw string, a block comment or a macro's body
     /// holds declares nothing ([`App::show_definitions`] drops it again, for every kind).
-    /// `literal` keeps each file's [`search::literal_lines`].
-    pub(super) fn c_code_line(&self, literal: &mut HashMap<PathBuf, Vec<bool>>, h: &Hit) -> bool {
-        let lines = literal.entry(h.path.clone()).or_insert_with(|| {
+    pub(super) fn c_code_line(
+        &self,
+        literal_lines: &mut HashMap<PathBuf, Vec<bool>>,
+        h: &Hit,
+    ) -> bool {
+        let lines = literal_lines.entry(h.path.clone()).or_insert_with(|| {
             (self.text_of(&h.path)).map_or_else(Vec::new, |t| search::literal_lines(Kind::C, &t))
         });
         !lines.get(h.line - 1).copied().unwrap_or(false)
@@ -620,12 +624,39 @@ impl App {
     }
 }
 
-/// A struct or union body of a C file: the byte of its `{` in the file's [`search::c_code`].
 struct CBody {
     path: PathBuf,
     text: String,
     code: String,
-    open: usize,
+    brace_in_code: usize,
+}
+
+struct BraceAt {
+    path: PathBuf,
+    byte: usize,
+}
+
+struct MemberRow {
+    hit: Hit,
+    field_of: Option<String>,
+}
+
+impl MemberRow {
+    fn field_of(hit: Hit, owner: &str) -> Self {
+        let field_of = Some(owner.to_owned());
+        MemberRow { hit, field_of }
+    }
+
+    fn method(hit: Hit) -> Self {
+        MemberRow {
+            hit,
+            field_of: None,
+        }
+    }
+
+    fn is_field_of(&self, class: &str) -> bool {
+        self.field_of.as_deref() == Some(class)
+    }
 }
 
 /// `path` with its `.` and `..` resolved as written, no link followed.

@@ -198,7 +198,7 @@ impl App {
         let module = ns.and_then(|ns| {
             let uses = search::sass_uses(&self.buf.lines.join("\n"));
             let (_, module) = uses.into_iter().find(|(n, _)| n.as_deref() == Some(ns))?;
-            self.sheet_module(here, &module, false)
+            self.sheet_module(here, &module)
         });
         let mut found: Vec<Candidate> = module
             .iter()
@@ -269,13 +269,12 @@ impl App {
         self.show_definitions(Kind::Css, word, here, found, None);
     }
 
-    /// The lines of `path`, from the root, that `re` matches; in a
-    /// `<style>` block only, when `blocks`.
-    fn matching_lines(&self, path: &Path, re: &Regex, blocks: bool) -> Vec<Hit> {
+    /// The lines of `path`, from the root, that `re` matches.
+    fn matching_lines(&self, path: &Path, re: &Regex, in_style_blocks_only: bool) -> Vec<Hit> {
         let Some(text) = self.file_text(path) else {
             return Vec::new();
         };
-        let styles = match blocks {
+        let styles = match in_style_blocks_only {
             true => search::style_blocks(&text),
             false => text.clone(),
         };
@@ -296,14 +295,14 @@ impl App {
 
     /// The file a stylesheet's import of `module` is: beside the importing file `here`, then in
     /// the `node_modules` of its directories up to the root, as a package. Sass tries its
-    /// partials and index files, Less adds `.less`; `css` reads a plain CSS `@import`.
-    fn sheet_module(&self, here: &Path, module: &str, css: bool) -> Option<PathBuf> {
+    /// partials and index files, Less adds `.less`.
+    fn sheet_module(&self, here: &Path, module: &str) -> Option<PathBuf> {
         let ext = here
             .extension()
             .and_then(|e| e.to_str())
             .unwrap_or_default();
         let candidates = match ext {
-            "scss" | "sass" if !css => search::sass_candidates(module),
+            "scss" | "sass" => search::sass_candidates(module),
             _ => search::import_candidates(module, ext == "less"),
         };
         let dir = here.parent().unwrap_or(Path::new(""));
@@ -334,7 +333,7 @@ impl App {
             self.message = format!("{module}: builtin, no source");
             return;
         }
-        match self.sheet_module(here, module, false) {
+        match self.sheet_module(here, module) {
             Some(path) => {
                 let status = format!("path {}", path.display());
                 self.open_link(&self.root.join(&path), 1, status);
