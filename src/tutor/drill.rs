@@ -389,7 +389,6 @@ mod tests {
             .collect()
     }
 
-    /// One key per row of the table, from a `keys.tsv` and a `drill.tsv` on disk.
     #[test]
     fn a_weight_is_the_work_factor_times_the_drill_factor() {
         let dir = dir("weights");
@@ -479,8 +478,6 @@ mod tests {
         );
     }
 
-    /// Weighted random over a long session with a fixed seed: the heavy key is asked more often
-    /// than its share, and no key twice within two tasks of itself.
     #[test]
     fn a_key_waits_two_other_tasks_before_it_is_asked_again() {
         let mut d = drill(400);
@@ -500,8 +497,6 @@ mod tests {
         assert!(s > 2 * 400 / POOL.len(), "`s` asked {s} times");
     }
 
-    /// Slot 0 is missed and asked again at slot 3, missed again and asked at slot 6; slot 17's
-    /// miss would come back at slot 20, past the end of the session.
     #[test]
     fn a_miss_comes_back_three_tasks_later_within_the_session() {
         let asked = session(&mut drill(20), &[0, 3, 17]);
@@ -539,8 +534,6 @@ mod tests {
         let _ = std::fs::remove_file(log);
     }
 
-    /// #516: a log merl cannot write says why in a few words after the path, never with the OS
-    /// text's `(os error N)`: here the log's path is a folder.
     #[test]
     fn a_log_that_cannot_be_written_says_why_in_a_few_words() {
         let (mut a, log) = drill_app("drill-io", 2);
@@ -556,8 +549,6 @@ mod tests {
         clean_up("drill-io", &log);
     }
 
-    /// Backspace x11 in place of Alt+Backspace: a miss, then the same task again with its key
-    /// named, which is no attempt and not logged; the counter moves on after it.
     #[test]
     fn a_task_done_another_way_is_a_miss_and_its_redo_is_not_logged() {
         let (mut a, log) = drill_app("drill-miss", 2);
@@ -589,8 +580,6 @@ mod tests {
         clean_up("drill-miss", &log);
     }
 
-    /// `?` opened during a task makes it a miss, whatever keys did it; Shift+F12 on the `u`
-    /// task is `u`, a hit.
     #[test]
     fn the_help_opened_is_a_miss_and_an_alias_is_a_hit() {
         let (mut a, log) = drill_app("drill-help", 20);
@@ -612,7 +601,6 @@ mod tests {
         clean_up("drill-help", &log);
     }
 
-    /// This session's misses, then its hits over 1.5 x the median, the slowest first.
     #[test]
     fn the_summary_lists_the_sessions_misses_then_its_slow_hits() {
         let mut d = drill(20);

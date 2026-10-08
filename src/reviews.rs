@@ -350,8 +350,6 @@ mod tests {
         session_over(at, &[])
     }
 
-    /// A gap up to five minutes counts in full, a longer one as five minutes, and it goes to
-    /// where the cursor stood during it.
     #[test]
     fn a_long_gap_counts_five_minutes() {
         let t0 = Instant::now();
@@ -366,8 +364,6 @@ mod tests {
         assert_eq!((s.presses_but_quit, s.back_presses), (3, 1));
     }
 
-    /// The key that quits is no press: a session of `q` alone has no line, though the reading
-    /// before a `q` counts in one that has.
     #[test]
     fn the_key_that_quits_is_no_press() {
         let t0 = Instant::now();
@@ -381,9 +377,6 @@ mod tests {
         assert_eq!(columns.split('\t').nth(4), Some("45"), "{columns}");
     }
 
-    /// `d` out of the review, a usage picked and a `d` further on, `[ [ [` back: one excursion
-    /// of three jumps. A jump within the review, one that did not move, and one out that did not
-    /// start from the review are none.
     #[test]
     fn an_excursion_counts_once_with_its_jumps() {
         let mut s = session(Instant::now());
@@ -408,8 +401,6 @@ mod tests {
         assert_eq!((s.excursions, s.jumps, s.back_presses), (1, 3, 3));
     }
 
-    /// A jump that lands back on a file of the review ends the excursion and is none of its
-    /// jumps.
     #[test]
     fn a_jump_back_into_the_review_is_no_excursion_jump() {
         let mut s = session(Instant::now());
@@ -426,9 +417,6 @@ mod tests {
         );
     }
 
-    /// A stop on a hunk the review did not have when it opened, or in a file it did not list,
-    /// does not count, nor does a file marked viewed that it did not list: neither is ever more
-    /// than the hunks or the files.
     #[test]
     fn stops_and_viewed_never_outnumber_the_review() {
         let t0 = Instant::now();
@@ -448,8 +436,6 @@ mod tests {
         );
     }
 
-    /// A session's line goes into the file under the head's names, and `merl --reviews` reads
-    /// back what went in.
     #[test]
     fn a_line_round_trips_through_the_file() {
         let file = scratch("roundtrip");
@@ -536,8 +522,6 @@ mod tests {
         let _ = std::fs::remove_dir_all(file.ancestors().nth(3).unwrap());
     }
 
-    /// The median of an odd count is the middle one once sorted, of an even count the mean of
-    /// the middle two.
     #[test]
     fn the_median_sorts_first() {
         assert_eq!(median(vec![900, 100, 500]), Some(500));
@@ -545,9 +529,6 @@ mod tests {
         assert_eq!(median(Vec::new()), None);
     }
 
-    /// The first session of a branch is round 1, the next one round 2; another branch, or the
-    /// same branch in another repository, counts its own. A session of the last 30 days, today
-    /// included, is kept; an older one is dropped on the next write and no longer counts.
     #[test]
     fn rounds_count_per_branch_and_old_sessions_go() {
         let file = scratch("rounds");
@@ -588,8 +569,6 @@ mod tests {
         let _ = std::fs::remove_dir_all(file.ancestors().nth(3).unwrap());
     }
 
-    /// `merl --reviews`: the last 30 days newest first, lines as added and deleted together,
-    /// active as the time on the review plus elsewhere, then the medians by round.
     #[test]
     fn the_report_lists_sessions_newest_first_with_medians() {
         let text = format!(

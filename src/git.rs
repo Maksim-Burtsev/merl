@@ -193,8 +193,6 @@ fn start_and_count(s: &str) -> Option<(usize, usize)> {
     }
 }
 
-// ---- review mode -----------------------------------------------------------
-
 /// One file of the branch under review.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReviewFile {
@@ -1103,8 +1101,6 @@ mod tests {
         assert_eq!(m, HashMap::from([(1, Mark::Changed), (3, Mark::Added)]));
     }
 
-    /// A user's `diff.interHunkContext` joins nearby edits into one hunk with the unchanged
-    /// lines between them: each edit stays its own hunk.
     #[test]
     fn nearby_edits_stay_apart_under_inter_hunk_context() {
         let dir = std::env::temp_dir().join(format!("merl-interhunk-{}", std::process::id()));
@@ -1133,7 +1129,6 @@ mod tests {
         assert_eq!(d.ghosts[&5], vec!["6"]);
     }
 
-    /// #221: a name is the file, not a pattern: `[id].tsx` would match `d.tsx` too.
     #[test]
     fn a_name_with_glob_characters_is_that_file_alone() {
         let dir = std::env::temp_dir().join(format!("merl-glob-{}", std::process::id()));
@@ -1304,7 +1299,6 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// #396: `-r BRANCH` for a branch an agent's worktree has checked out reviews it there.
     #[test]
     fn a_branch_checked_out_in_another_worktree_is_reviewed_there() {
         let tmp = std::env::temp_dir().canonicalize().unwrap();
@@ -1470,7 +1464,6 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// #76: a branch whose only change is not in git yet is a review.
     #[test]
     fn untracked_files_are_rows_of_the_review() {
         let dir = std::env::temp_dir().join(format!("merl-untracked-{}", std::process::id()));
@@ -1590,7 +1583,6 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// #181: `--review feat` reads the branch and the base as `origin` has them.
     #[test]
     fn a_named_review_reads_what_was_pushed() {
         let dir = std::env::temp_dir().join(format!("merl-pushed-{}", std::process::id()));
@@ -1690,7 +1682,6 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// #271: `-r origin/feat` is `-r feat` that origin must have.
     #[test]
     fn a_review_of_origin_slash_branch_reads_the_pushed_branch() {
         let dir = std::env::temp_dir().join(format!("merl-origin-{}", std::process::id()));
@@ -1850,9 +1841,6 @@ mod tests {
         );
     }
 
-    /// #243: generated as both GitHub and GitLab have it: a name both fold, a directory both
-    /// fold, Go's header in the first 40 lines, or `.gitattributes`, which also keeps a lock
-    /// file open.
     #[test]
     fn generated_files_are_known_by_name_attribute_and_header() {
         let dir = std::env::temp_dir().join(format!("merl-generated-{}", std::process::id()));

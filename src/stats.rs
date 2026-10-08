@@ -299,8 +299,6 @@ mod tests {
 
     use super::*;
 
-    /// Each side of a `KEYS` row is an action; the second side takes the first side's prefix
-    /// and modifiers, and the five aliases fold into their primaries.
     #[test]
     fn keys_split_into_75_actions() {
         let names: Vec<&str> = ACTIONS.iter().map(|a| a.name.as_str()).collect();
@@ -350,8 +348,6 @@ mod tests {
         }
     }
 
-    /// Two merl instances quitting one after the other both keep their numbers; a line of an
-    /// action no longer in `KEYS`, or no line at all, is dropped.
     #[test]
     fn two_writers_add_up_and_unknown_actions_are_dropped() {
         let dir = std::env::temp_dir().join(format!("merl-keys-merge-{}", std::process::id()));
@@ -378,8 +374,6 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// `merl --keys`: strongest first by the last 30 days, the never pressed last, every action
-    /// listed.
     #[test]
     fn the_weakest_keys_are_printed_last() {
         let rows = parse(
@@ -408,8 +402,6 @@ mod tests {
         );
     }
 
-    /// Misses are a fourth column: a line of three reads as none missed, both numbers add up, and
-    /// `merl --keys` shows the misses of the last 30 days, a key missed but never pressed too.
     #[test]
     fn misses_are_a_fourth_column() {
         let dir = std::env::temp_dir().join(format!("merl-keys-missed-{}", std::process::id()));

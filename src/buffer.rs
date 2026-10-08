@@ -420,8 +420,6 @@ mod tests {
         Buffer::from_bytes(PathBuf::from("x"), bytes)
     }
 
-    /// A Markdown code block gets the grammar a file of its language gets: `dockerfile` the
-    /// bash-scoped Dockerfile grammar, whose spans match the file's own; an extension as a name.
     #[test]
     fn a_code_block_is_highlighted_as_a_file_of_its_language() {
         let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
@@ -441,8 +439,6 @@ mod tests {
         assert_eq!(name(""), None);
     }
 
-    /// An info string names its language, or cites a file by its extension: never a path, never
-    /// a panic, whatever the word holds.
     #[test]
     fn a_code_block_is_named_by_its_info_string() {
         let name = |token: &str| Buffer::block(token, vec![]).syntax.map(|s| s.name.as_str());
@@ -474,8 +470,6 @@ mod tests {
         assert!(Buffer::block("rust", vec!["x".into()]).syntax.is_some());
     }
 
-    /// A code block's grammar is found by its name alone: a file named after the block in the
-    /// directory merl runs in is never read.
     #[test]
     fn a_code_block_grammar_is_never_read_from_a_file() {
         let token = format!("zz{}", std::process::id());
@@ -495,8 +489,6 @@ mod tests {
         );
     }
 
-    /// A line too long to be shown whole is drawn plain in a code block too, never parsed: a
-    /// one-line JSON dump of a megabyte would stall the frame.
     #[test]
     fn a_code_block_line_too_long_to_show_is_not_parsed() {
         let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();

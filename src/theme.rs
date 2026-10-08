@@ -651,8 +651,6 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// A configured theme that does not load at start names `config.toml` and the theme set
-    /// there, the way back, beside the cause (#277).
     #[test]
     fn a_broken_configured_theme_names_the_config() {
         let dir = std::env::temp_dir().join(format!("merl-configured-{}", std::process::id()));
@@ -697,8 +695,6 @@ mod tests {
         }
     }
 
-    /// The infrastructure half of a repo (#16): a grammar that highlights, under a theme with no
-    /// rule for its scopes, looks like no highlighting at all.
     #[test]
     fn every_theme_colours_infra_files() {
         const SAMPLES: &[(&str, &str)] = &[
@@ -807,8 +803,6 @@ mod tests {
         }
     }
 
-    /// Names, keys and sections the infrastructure grammars emit. A theme with no rule for one
-    /// paints it in the default foreground, which reads as no highlighting at all.
     #[test]
     fn infra_scopes_are_coloured_in_every_theme() {
         // Whole stacks as the grammars emit them: a parent such as `meta.tag` often carries the
@@ -877,8 +871,6 @@ mod tests {
         }
     }
 
-    /// A hidden char's tag stands off every row it can sit on and off the red of a deleted
-    /// word, and its text reads (#401).
     #[test]
     fn a_tag_reads_on_every_row_in_every_theme() {
         for name in names() {
