@@ -10,8 +10,9 @@ a release build of master, and the commit trailers. Read `AGENTS.md` in your wor
 - Work only in your worktree, built into its own `target/`. The main checkout and other
   worktrees belong to others.
 - The laptop is shared: run cargo as `CARGO_BUILD_JOBS=2 nice -n 15 cargo …`, tests with
-  `-- --test-threads=2`. Before a release build, a smoke run or a bench, read `sysctl -n
-  vm.loadavg` and wait while it is over 16.
+  `RUST_TEST_THREADS=2` in the environment (the sweeps that spawn threads of their own read only
+  the variable, never `--test-threads`). Before a release build, a smoke run or a bench, read
+  `sysctl -n vm.loadavg` and wait while it is over 16.
 - The heavy runs go one at a time on the whole machine: start `tools/d-bench/run`,
   `tools/fold-bench/run`, `tests/smoke/run.py` and the `no_panic` sweep under `lockf -k
   /tmp/merl-heavy.lock …`, which waits for the run another agent holds. Skip the lock only when
