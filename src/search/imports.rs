@@ -208,8 +208,8 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<Import> {
             out.extend(
                 rust_uses(text)
                     .into_iter()
-                    .filter(|(_, p, _)| !matches!(p[0].as_str(), "crate" | "super"))
-                    .map(|(name, path, _)| Import { name, path }),
+                    .filter(|u| !matches!(u.path[0].as_str(), "crate" | "super"))
+                    .map(|u| Import { name: u.name, path: u.path }),
             );
         }
         Kind::Go => {
@@ -584,32 +584,33 @@ pub fn go_import_line(text: &str, name: &str) -> Option<usize> {
     let binds = |l: &str| imports(Kind::Go, l).iter().any(|i| i.name == name);
     text.lines().position(binds).map(|i| i + 1)
 }
-/// What every `use` of the Rust file `text` binds, as [`imports`] reads it, with the in-crate
-/// `crate::` and `super::` paths kept, and whether the `use` starts in column zero: at the top
-/// of the file, not in a function or an inline `mod`.
-pub fn rust_uses(text: &str) -> Vec<(String, Vec<String>, bool)> {
-    rust_uses_at(text)
-        .into_iter()
-        .map(|(name, path, at)| (name, path, at == 0 || text[..at].ends_with('\n')))
-        .collect()
+pub struct RustUse {
+    pub name: String,
+    pub path: Vec<String>,
+    pub start_byte: usize,
+    pub in_column_zero: bool,
 }
-/// [`rust_uses`], with the byte of `text` each `use` starts at.
-pub fn rust_uses_at(text: &str) -> Vec<(String, Vec<String>, usize)> {
+/// What every `use` of the Rust file `text` binds, as [`imports`] reads it, with the in-crate
+/// `crate::` and `super::` paths kept. A `use` in column zero is at the top of the file, not in a
+/// function or an inline `mod`.
+pub fn rust_uses(text: &str) -> Vec<RustUse> {
     static USE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?ms)^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+([^;]+);").unwrap()
     });
     let mut out = Vec::new();
     for c in USE.captures_iter(text) {
-        let at = c
+        let start_byte = c
             .get(0)
             .map_or(0, |m| m.end() - m.as_str().trim_start().len());
+        let in_column_zero = start_byte == 0 || text[..start_byte].ends_with('\n');
         let mut bound = Vec::new();
         use_tree(&c[1], &[], &mut bound);
-        out.extend(
-            bound
-                .into_iter()
-                .map(|Import { name, path }| (name, path, at)),
-        );
+        out.extend(bound.into_iter().map(|Import { name, path }| RustUse {
+            name,
+            path,
+            start_byte,
+            in_column_zero,
+        }));
     }
     out
 }
@@ -621,8 +622,16 @@ pub fn rust_uses_at(text: &str) -> Vec<(String, Vec<String>, usize)> {
 /// under `src/bin/` is a crate of its own). Only the paths a module's file sits at by default
 /// are tried: an inline `mod` or a `#[path]` leaves the caller nothing to prove.
 pub fn rust_use_files(files: &[PathBuf], here: &Path, text: &str, name: &str) -> Vec<PathBuf> {
-    let mut bound = rust_uses(text).into_iter().filter(|(n, _, _)| n == name);
-    let (Some((_, path, true)), None) = (bound.next(), bound.next()) else {
+    let mut bound = rust_uses(text).into_iter().filter(|u| u.name == name);
+    let (
+        Some(RustUse {
+            path,
+            in_column_zero: true,
+            ..
+        }),
+        None,
+    ) = (bound.next(), bound.next())
+    else {
         return Vec::new();
     };
     let Some((src, mut module)) = rust_module_of(files, here) else {

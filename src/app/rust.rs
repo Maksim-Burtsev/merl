@@ -479,10 +479,10 @@ impl App {
                         .all(|l| l.trim().is_empty() || indent(l) >= depth))
         };
         let depth_at = |at: usize| indent(lines[text[..at].matches('\n').count()]);
-        let mut bound: Vec<(Vec<String>, usize)> = search::rust_uses_at(text)
+        let mut bound: Vec<(Vec<String>, usize)> = search::rust_uses(text)
             .into_iter()
-            .filter(|(n, _, at)| n == first && use_reaches_cursor(*at))
-            .map(|(_, p, at)| (p, depth_at(at)))
+            .filter(|u| u.name == first && use_reaches_cursor(u.start_byte))
+            .map(|u| (u.path, depth_at(u.start_byte)))
             .collect();
         bound.dedup();
         // A glob `use` of a block nearer the cursor than the `use` of the name may bring in a
@@ -649,8 +649,8 @@ impl App {
             let text = self.text_of(f)?;
             let mut bound = search::rust_uses(&text)
                 .into_iter()
-                .filter(|(n, _, top)| n == first && *top)
-                .map(|(_, p, _)| p);
+                .filter(|u| u.name == *first && u.in_column_zero)
+                .map(|u| u.path);
             let p = bound.next()?;
             let to: Vec<String> = match p.first()?.as_str() {
                 "crate" => p[1..].to_vec(),
