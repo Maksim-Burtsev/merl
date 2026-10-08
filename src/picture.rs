@@ -227,7 +227,7 @@ fn animation<'a>(d: impl AnimationDecoder<'a>, name: &str) -> Result<Vec<Frame>,
         }
         let f = f.map_err(|_| broken())?;
         let (n, d) = f.delay().numer_denom_ms();
-        let ms = if d == 0 { 0 } else { n / d };
+        let ms = n.checked_div(d).unwrap_or(0);
         let ms = if ms <= 10 { 100 } else { ms };
         let buf = f.into_buffer();
         let natural = buf.dimensions();

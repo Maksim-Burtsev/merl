@@ -73,7 +73,9 @@ fn a_diagram_draws_and_a_broken_one_does_not() {
         colours: String::new(),
     };
     let done = render(job("graph TD\n  A[Start] --> B[Done]"));
-    let drawn = done.drawn.ok().expect("a flowchart draws");
+    let Ok(drawn) = done.drawn else {
+        panic!("a flowchart draws")
+    };
     assert!(drawn.natural.0 > 0 && drawn.natural.1 > 0);
     assert!(drawn.h >= drawn.natural.1);
     assert!(render(job("graph TD\n  A[Start --> ")).drawn.is_err());
