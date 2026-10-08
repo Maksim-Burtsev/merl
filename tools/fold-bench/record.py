@@ -49,6 +49,7 @@ LANGS = {
     "html": (EVERY, {"html": "html", "htm": "html"}),
     "css": (EVERY, {"css": "css", "scss": "scss"}),
     "markdown": (EVERY, {"md": "markdown"}),
+    "xml": (EVERY, {"xml": "xml"}),
 }
 
 
