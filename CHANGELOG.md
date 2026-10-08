@@ -154,6 +154,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `default`(``; in PHP a `#` comment right after a word, `$y# note }`, no longer ends the block
   at its `}`, and an anonymous class, `new readonly class extends Base {`, no longer folds as a
   declared one. (#625)
+- `f` no longer crashes merl in a C or C++ file whose last word is `do`, `try` or `else`, as a
+  file left half-written ends. (#756)
 
 ## [0.8.2] - 2026-10-04
 
