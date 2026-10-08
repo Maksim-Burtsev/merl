@@ -340,7 +340,7 @@ impl App {
             || (chain.is_empty() && search::binds_at(kind, self.line_str(), range.start, &word));
         let bare = kind == Kind::TsJs && !dotted && chain.is_empty();
         let required = match kind {
-            Kind::TsJs => search::ts_import_lines(&text, first),
+            Kind::TsJs => search::ts_import_lines1(&text, first),
             _ => Vec::new(),
         };
         let closure = |n: usize| {
@@ -396,9 +396,9 @@ impl App {
             locals = vec![self.line + 1];
         }
         if !locals.is_empty() {
-            imports.retain(|(name, _)| name != first);
+            imports.retain(|i| i.name != first);
         }
-        let star = kind == Kind::Python && imports.iter().any(|(name, _)| name == "*");
+        let star = kind == Kind::Python && imports.iter().any(|i| i.name == "*");
         let unbound = kind == Kind::Python
             && !dotted
             && chain.is_empty()
@@ -520,7 +520,7 @@ impl App {
             && !dotted
             && self.line_str()[range.end..].starts_with('.')
             && let Some(path) = bound(&imports, &word)
-            && let Some(line) = search::go_import_line(&text, &word)
+            && let Some(line) = search::go_import_line1(&text, &word)
             && !search::go_may_declare(&text, self.line + 1, &word)
             && self
                 .package_declarations(kind, &here, &word, None)
@@ -834,9 +834,9 @@ impl App {
             .and_then(|path| self.barrel_package(kind, &here, &word, &chain, path));
         let import = match barrel {
             Some(package) => {
-                for (name, p) in &mut imports {
-                    if name.as_str() == first {
-                        *p = package.clone();
+                for i in &mut imports {
+                    if i.name == first {
+                        i.path = package.clone();
                     }
                 }
                 Some(package)
@@ -855,7 +855,7 @@ impl App {
                 let parts = if module[0].starts_with('@') { 2 } else { 1 };
                 search::in_module(f, &module[..parts.min(module.len())])
             })
-            && let Some(line) = search::ts_import_line(&text, first)
+            && let Some(line) = search::ts_import_line1(&text, first)
         {
             let hit = Hit {
                 deleted: None,
@@ -880,7 +880,7 @@ impl App {
                     && kind == Kind::Python
                     && !dotted
                     && chain.is_empty()
-                    && imports.iter().filter(|(name, _)| *name == word).count() == 1
+                    && imports.iter().filter(|i| i.name == word).count() == 1
                     && let Some(found) = self.bound_module(&path)
                 {
                     self.show_definitions(kind, &word, &here, found, None);
@@ -912,8 +912,8 @@ impl App {
                 // two sources: both are offered, and which one ran is not for `d` to guess.
                 let others: Vec<Vec<String>> = imports
                     .iter()
-                    .filter(|(name, other)| name == first && *other != path)
-                    .map(|(_, other)| other.clone())
+                    .filter(|i| i.name == first && i.path != path)
+                    .map(|i| i.path.clone())
                     .collect();
                 for other in others {
                     let more = self
@@ -969,7 +969,7 @@ impl App {
         let nested_binding = |a: &Self| {
             search::bindings(kind, &text, a.line + 1, first)
                 .iter()
-                .any(|b| a.buf.lines[b.line - 1].starts_with([' ', '\t']))
+                .any(|b| a.buf.lines[b.line1 - 1].starts_with([' ', '\t']))
         };
         if kind == Kind::Python && locals.is_empty() && !chain.is_empty() && !nested_binding(self) {
             let found = self.class_attribute(kind, &here, &chain, &word);
@@ -1905,12 +1905,7 @@ impl App {
         }
     }
 
-    fn go_bare(
-        &mut self,
-        here: &Path,
-        word: &str,
-        imports: &[(String, Vec<String>)],
-    ) -> Vec<Candidate> {
+    fn go_bare(&mut self, here: &Path, word: &str, imports: &[search::Import]) -> Vec<Candidate> {
         let kind = Kind::Go;
         let by = |hits: Vec<Hit>, reason: Reason| -> Vec<Candidate> {
             hits.into_iter()
@@ -1926,11 +1921,14 @@ impl App {
             return by(own, Reason::ByName);
         }
         let dot = [".".to_owned()];
-        for (_, path) in imports.iter().filter(|(name, _)| name == ".") {
+        for search::Import { path, .. } in imports.iter().filter(|i| i.name == ".") {
             let found = match self.imported_definitions(kind, here, word, &dot, path) {
                 Some(found) => found,
                 None => {
-                    let only = [(".".to_owned(), path.clone())];
+                    let only = [search::Import {
+                        name: ".".to_owned(),
+                        path: path.clone(),
+                    }];
                     self.external_definitions(kind, word, &dot, false, &only, true)
                         .unwrap_or_default()
                 }

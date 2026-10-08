@@ -99,7 +99,7 @@ pub(super) fn gdscript_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bi
     let literal = literal_lines(Kind::Gdscript, &lines.join("\n"));
     let found = |line: usize| {
         vec![Binding {
-            line,
+            line1: line,
             value: Value::Unknown,
         }]
     };

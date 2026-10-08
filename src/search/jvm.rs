@@ -370,7 +370,7 @@ fn declares_local(t: &str, name: &str) -> bool {
 /// reads them; the walk stops at a type's body, whose members are [`jvm_members_of`]'s.
 pub(super) fn jvm_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let binding = |line| Binding {
-        line,
+        line1: line,
         value: Value::Unknown,
     };
     if matches!(name, "this" | "super" | "it") {

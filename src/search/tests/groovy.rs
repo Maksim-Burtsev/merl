@@ -114,11 +114,11 @@ fn d_lists_groovy_methods_and_gradle_tasks_but_no_variables() {
 #[test]
 fn an_untyped_parameter_is_bound_only_on_a_groovy_def() {
     let groovy = "def deploy(env, Map config = [:]) {\n    echo env\n    echo config\n}\n";
-    assert_eq!(bindings(Kind::Jvm, groovy, 2, "env")[0].line, 1);
-    assert_eq!(bindings(Kind::Jvm, groovy, 3, "config")[0].line, 1);
+    assert_eq!(bindings(Kind::Jvm, groovy, 2, "env")[0].line1, 1);
+    assert_eq!(bindings(Kind::Jvm, groovy, 3, "config")[0].line1, 1);
     let kotlin =
         "fun f() {\n    val seen = load()\n    check(\n        Item(id = 1, seen),\n    )\n}\n";
-    assert_eq!(bindings(Kind::Jvm, kotlin, 4, "seen")[0].line, 2);
+    assert_eq!(bindings(Kind::Jvm, kotlin, 4, "seen")[0].line1, 2);
 }
 
 #[test]

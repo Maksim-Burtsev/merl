@@ -4,7 +4,7 @@ use super::*;
 fn imports_bind_names_to_module_paths() {
     let p = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
     let py = "import json\nimport numpy as np\nimport os.path\nfrom collections import OrderedDict, deque as dq\nfrom . import local\nfrom ..models import Note\nfrom typing import (\n    Any,\n    Final,\n)\n";
-    let got = imports(Kind::Python, py);
+    let got = pairs(imports(Kind::Python, py));
     assert_eq!(
         got,
         [
@@ -23,7 +23,7 @@ fn imports_bind_names_to_module_paths() {
     );
     let py = "from .models import (\n    a,  # noqa: F401, (see #1)\n    b,\n)\nfrom x import c  # d, e\n";
     assert_eq!(
-        imports(Kind::Python, py),
+        pairs(imports(Kind::Python, py)),
         [
             ("a".into(), p(&[".", "models", "a"])),
             ("b".into(), p(&[".", "models", "b"])),
@@ -32,12 +32,12 @@ fn imports_bind_names_to_module_paths() {
         "a comment inside the brackets is no name, and a `)` in it does not close them"
     );
     assert_eq!(
-        imports(Kind::Python, "import a, b  # c, d\n"),
+        pairs(imports(Kind::Python, "import a, b  # c, d\n")),
         [("a".into(), p(&["a"])), ("b".into(), p(&["b"]))],
         "nor is one after a plain `import`"
     );
     let rs = "use std::fs;\nuse std::collections::{HashMap, hash_map::Entry};\nuse regex::Regex as Re;\nuse crate::buffer::Buffer;\npub(crate) use anyhow::{self, Context};\nuse std::{\n    io::Write,\n    path::Path,\n};\n";
-    let got = imports(Kind::Rust, rs);
+    let got = pairs(imports(Kind::Rust, rs));
     assert_eq!(
         got,
         [
@@ -55,7 +55,7 @@ fn imports_bind_names_to_module_paths() {
         ]
     );
     let go = "package x\n\nimport \"strings\"\n\nimport (\n\t\"fmt\"\n\ttoml \"github.com/BurntSushi/toml\"\n\t\"github.com/go-chi/chi/v5\"\n\t\"gopkg.in/yaml.v3\"\n\t\"github.com/mattn/go-sqlite3\"\n\t\"github.com/nats-io/nats.go\"\n\t\"k8s.io/api/core/v1\"\n)\n";
-    let got = imports(Kind::Go, go);
+    let got = pairs(imports(Kind::Go, go));
     assert_eq!(
         got,
         [
@@ -73,7 +73,7 @@ fn imports_bind_names_to_module_paths() {
         "the package name without the decorations its module path carries"
     );
     let ts = "import fs from 'node:fs';\nimport { join, resolve as res } from \"path\";\nimport * as React from 'react';\nimport type { Foo } from '@scope/pkg/sub';\nimport local from './local';\nconst chalk = require('chalk');\nconst { a, b } = await import('lib');\nimport cp = require('child_process');\nconst utils = require('../lib/utils');\nimport def, { type Bar, baz as qux } from './mixed';\n";
-    let got = imports(Kind::TsJs, ts);
+    let got = pairs(imports(Kind::TsJs, ts));
     assert_eq!(
         got,
         [
@@ -548,22 +548,22 @@ fn a_package_is_missing_when_nothing_installs_or_declares_it() {
 #[test]
 fn a_ts_import_line_is_the_line_of_the_name() {
     let text = "import a from \"a\";\n\nimport {\n  observable,\n  obs as seen,\n} from \"mobx\";\nconst req = require(\"x\");\n";
-    assert_eq!(ts_import_line(text, "a"), Some(1));
-    assert_eq!(ts_import_line(text, "seen"), Some(5));
-    assert_eq!(ts_import_line(text, "observable"), Some(4));
+    assert_eq!(ts_import_line1(text, "a"), Some(1));
+    assert_eq!(ts_import_line1(text, "seen"), Some(5));
+    assert_eq!(ts_import_line1(text, "observable"), Some(4));
     assert_eq!(
-        ts_import_line(text, "obs"),
+        ts_import_line1(text, "obs"),
         None,
         "`obs` is taken under another name, and `observable` only starts with it"
     );
-    assert_eq!(ts_import_line(text, "req"), Some(7));
-    assert_eq!(ts_import_line(text, "nothing"), None);
+    assert_eq!(ts_import_line1(text, "req"), Some(7));
+    assert_eq!(ts_import_line1(text, "nothing"), None);
 }
 
 #[test]
 fn a_require_binds_only_the_module_itself_or_a_name_of_it() {
     let text = "const { a, b: c } = require(\"./m\");\nconst d = require(\"debug\")(\"app\");\nconst e = require(\"./m\").e;\nconst f = require(\"./m\").create();\nconst g = require(\"./g\"),\n  h = require(\"./h\"),\n  LIMIT = 10;\nh = require(\"./i\");\n";
-    let got = imports(Kind::TsJs, text);
+    let got = pairs(imports(Kind::TsJs, text));
     let path = |p: &[&str]| p.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>();
     assert_eq!(
         got,
@@ -575,23 +575,32 @@ fn a_require_binds_only_the_module_itself_or_a_name_of_it() {
             ("h".to_owned(), path(&[".", "h", "*"])),
         ]
     );
-    assert_eq!(ts_import_line(text, "h"), Some(6));
+    assert_eq!(ts_import_line1(text, "h"), Some(6));
 }
 
 #[test]
 fn module_exports_is_one_assignment_or_nothing_known() {
     assert_eq!(
         module_exports("class S {}\n\nmodule.exports = S;\n"),
-        Some(Some((3, Some("S".to_owned()))))
+        Some(ModuleExports::OneAssignment {
+            line1: 3,
+            name: Some("S".to_owned())
+        })
     );
     assert_eq!(
         module_exports("module.exports = {\n  a,\n};\n"),
-        Some(Some((1, None)))
+        Some(ModuleExports::OneAssignment {
+            line1: 1,
+            name: None
+        })
     );
-    assert_eq!(module_exports("exports.a = a;\n"), Some(None));
+    assert_eq!(
+        module_exports("exports.a = a;\n"),
+        Some(ModuleExports::Piecemeal)
+    );
     assert_eq!(
         module_exports("module.exports = a;\nmodule.exports = b;\n"),
-        Some(None)
+        Some(ModuleExports::Piecemeal)
     );
     assert_eq!(module_exports("export default a;\n"), None);
 }

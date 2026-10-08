@@ -113,7 +113,7 @@ fn ts_returned_local(
             return None;
         }
         for b in found {
-            if !body.contains(&(b.line - 1)) || !matches!(b.value, Value::New(_)) {
+            if !body.contains(&(b.line1 - 1)) || !matches!(b.value, Value::New(_)) {
                 return None;
             }
             if constructed.as_ref().is_some_and(|c| *c != b.value) {

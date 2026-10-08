@@ -185,7 +185,7 @@ pub(super) fn ruby_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
     ))
     .expect("an escaped name keeps the pattern valid");
     let found = |line: usize| Binding {
-        line: line + 1,
+        line1: line + 1,
         value: Value::Unknown,
     };
     if def_binds(lines, at, name) || block_binds(lines[at], name) {

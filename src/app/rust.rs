@@ -174,7 +174,7 @@ impl App {
         here: &Path,
         text: &str,
         word: &str,
-        imports: &[(String, Vec<String>)],
+        imports: &[search::Import],
     ) -> Vec<Candidate> {
         let kind = Kind::Rust;
         let search::RustGlobUses {
@@ -479,10 +479,10 @@ impl App {
                         .all(|l| l.trim().is_empty() || indent(l) >= depth))
         };
         let depth_at = |at: usize| indent(lines[text[..at].matches('\n').count()]);
-        let mut bound: Vec<(Vec<String>, usize)> = search::rust_uses_at(text)
+        let mut bound: Vec<(Vec<String>, usize)> = search::rust_uses(text)
             .into_iter()
-            .filter(|(n, _, at)| n == first && use_reaches_cursor(*at))
-            .map(|(_, p, at)| (p, depth_at(at)))
+            .filter(|u| u.name == first && use_reaches_cursor(u.start_byte))
+            .map(|u| (u.path, depth_at(u.start_byte)))
             .collect();
         bound.dedup();
         // A glob `use` of a block nearer the cursor than the `use` of the name may bring in a
@@ -539,7 +539,10 @@ impl App {
         }
         let (krate, start_module, name) = match root.as_str() {
             "crate" | "self" | "super" => {
-                let (src, mut module) = search::rust_module_of(&self.files, here)?;
+                let search::RustModule {
+                    crate_src: src,
+                    path: mut module,
+                } = search::rust_module_of(&self.files, here)?;
                 match root.as_str() {
                     "crate" => module.clear(),
                     "super" => {
@@ -649,8 +652,8 @@ impl App {
             let text = self.text_of(f)?;
             let mut bound = search::rust_uses(&text)
                 .into_iter()
-                .filter(|(n, _, top)| n == first && *top)
-                .map(|(_, p, _)| p);
+                .filter(|u| u.name == *first && u.in_column_zero)
+                .map(|u| u.path);
             let p = bound.next()?;
             let to: Vec<String> = match p.first()?.as_str() {
                 "crate" => p[1..].to_vec(),
@@ -865,7 +868,7 @@ impl App {
         let bindings = search::bindings(Kind::Rust, text, line0 + 1, name);
         let mut found: Option<(Typed, String)> = None;
         for b in &bindings {
-            let at = b.line - 1;
+            let at = b.line1 - 1;
             let this = match search::rust_holds(&lines, at, name)? {
                 search::RustHolds::Type(w) | search::RustHolds::Literal(w) => {
                     let ty = self.rust_resolve(file, &w, at)?;

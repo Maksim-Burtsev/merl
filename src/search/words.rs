@@ -94,7 +94,7 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
         && let Some(decl) = enclosing_type(kind, &lines, line1 - 1)
         && field_bindings(kind, text, decl, name)
             .iter()
-            .any(|b| b.line == line1)
+            .any(|b| b.line1 == line1)
         && let Some(ty) = type_name(kind, lines[decl - 1])
     {
         let owner = qualified(kind, text, decl, &ty).unwrap_or(ty);

@@ -107,7 +107,13 @@ impl App {
                 let cast = matches!(value, search::Value::Type(_) | search::Value::Cast(..))
                     .then(|| call.clone());
                 let TypeVia { ty, call_signature } = self
-                    .binding_type(kind, here, &text, &search::Binding { line, value }, 1)
+                    .binding_type(
+                        kind,
+                        here,
+                        &text,
+                        &search::Binding { line1: line, value },
+                        1,
+                    )
                     .ok_or_else(|| call.clone())?;
                 let start = TypeVia {
                     ty,
@@ -148,7 +154,7 @@ impl App {
                 search::Value::Type(t) => (builtin(t)?, None),
                 search::Value::Call(callee) => {
                     let first = callee.split('.').next().unwrap_or(callee);
-                    if hidden(kind, &file, &text, b.line, first) {
+                    if hidden(kind, &file, &text, b.line1, first) {
                         return None;
                     }
                     let (t, at) = self.declared_return(kind, &file, callee)?;
@@ -219,7 +225,7 @@ impl App {
         let search::Value::Type(written) = &b.value else {
             return None;
         };
-        let (line, literal) = search::ts_literal_member(&text, b.line, written, word)?;
+        let (line, literal) = search::ts_literal_member(&text, b.line1, written, word)?;
         links.push(format!("{}: {literal}", chain.last()?));
         let hit = Hit {
             text: text.lines().nth(line - 1)?.to_owned(),
@@ -430,7 +436,7 @@ impl App {
         // files (#100); each is read in the file that writes it, and they have to agree. An
         // empty list is no proof of that: the walk misses locals, so the function around the
         // line must not so much as mention the name, and an import of the file is no variable.
-        let imported = search::imports(kind, text).iter().any(|(n, _)| n == name);
+        let imported = search::imports(kind, text).iter().any(|i| i.name == name);
         if imported || search::go_may_declare(text, line1, name) {
             return None;
         }
@@ -477,7 +483,7 @@ impl App {
     ) -> Option<TypeVia> {
         let mut found: Option<TypeVia> = None;
         for b in bindings {
-            let at = (file.to_path_buf(), b.line);
+            let at = (file.to_path_buf(), b.line1);
             if self.reading.borrow().contains(&at) {
                 continue;
             }
@@ -508,7 +514,7 @@ impl App {
             search::Value::Type(t) | search::Value::New(t) => {
                 // `new api.Tool()` on a parameter `api` names no namespace of the file.
                 let path = search::type_path(kind, t).filter(|p| p.len() > 1);
-                if path.is_some_and(|p| hidden(kind, file, text, b.line, &p[0])) {
+                if path.is_some_and(|p| hidden(kind, file, text, b.line1, &p[0])) {
                     return None;
                 }
                 self.type_decl(kind, file, t).map(|ty| TypeVia {
@@ -516,7 +522,7 @@ impl App {
                     call_signature: None,
                 })
             }
-            search::Value::Class(line) => {
+            search::Value::Class { decl_line1: line } => {
                 let decl = text.lines().nth(line - 1)?;
                 let name = decl
                     .split("class")
@@ -535,7 +541,7 @@ impl App {
                     call_signature: None,
                 })
             }
-            search::Value::Call(callee) => self.call_type(kind, file, text, b.line, callee, hops),
+            search::Value::Call(callee) => self.call_type(kind, file, text, b.line1, callee, hops),
             search::Value::Struct(line) => Some(TypeVia {
                 ty: anonymous(file, *line),
                 call_signature: None,
@@ -545,7 +551,7 @@ impl App {
             search::Value::Cast(callee, t) => {
                 let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
                 match self.declaration(kind, file, &parts) {
-                    Some(_) => self.call_type(kind, file, text, b.line, callee, hops),
+                    Some(_) => self.call_type(kind, file, text, b.line1, callee, hops),
                     None => self.type_decl(kind, file, t).map(|ty| TypeVia {
                         ty,
                         call_signature: None,
@@ -553,7 +559,7 @@ impl App {
                 }
             }
             search::Value::Name(n) if hops > 0 => {
-                self.value_type(kind, file, text, b.line, n, hops - 1)
+                self.value_type(kind, file, text, b.line1, n, hops - 1)
             }
             // An element of a collection whose every declaration writes its type: an
             // annotation, or the return type of the function it was assigned from.
@@ -562,12 +568,12 @@ impl App {
                     None => (
                         file.to_path_buf(),
                         text.to_owned(),
-                        self.bindings_of(kind, file, text, b.line, n),
+                        self.bindings_of(kind, file, text, b.line1, n),
                     ),
                     Some((chain, last)) => {
                         let chain: Vec<String> = chain.split('.').map(str::to_owned).collect();
                         let (ty, _) = self
-                            .chain_type(kind, file, text, b.line, &chain, hops - 1)
+                            .chain_type(kind, file, text, b.line1, &chain, hops - 1)
                             .ok()?;
                         self.hierarchy(kind, &ty, 0, &mut |t| {
                             let text = self.text_of(&t.path)?;
@@ -585,7 +591,7 @@ impl App {
                         }
                         search::Value::Call(callee) => {
                             let first = callee.split('.').next().unwrap_or(callee);
-                            if hidden(kind, file, text, c.line, first) {
+                            if hidden(kind, file, text, c.line1, first) {
                                 return None;
                             }
                             let (t, at) = self.declared_return(kind, file, callee)?;
@@ -613,7 +619,7 @@ impl App {
                         None => named(&written)?,
                     };
                     let (ty, call_signature) = match kind == Kind::Go && element == "struct" {
-                        true => (anonymous(&at, c.line), None),
+                        true => (anonymous(&at, c.line1), None),
                         false => (self.type_decl(kind, &at, &element)?, Some(link)),
                     };
                     match &found {
@@ -629,7 +635,7 @@ impl App {
             // `const { repo } = this`: the field of what the chain on the right proves.
             search::Value::Field(from, field) if hops > 0 => {
                 let (ty, _) = self
-                    .chain_type(kind, file, text, b.line, from, hops - 1)
+                    .chain_type(kind, file, text, b.line1, from, hops - 1)
                     .ok()?;
                 let TypeVia { ty, .. } = self
                     .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
@@ -641,7 +647,7 @@ impl App {
             }
             search::Value::Member(head, field) => {
                 let at = search::Binding {
-                    line: b.line,
+                    line1: b.line1,
                     value: (**head).clone(),
                 };
                 let TypeVia { ty, .. } = self.binding_type(kind, file, text, &at, hops)?;
@@ -811,7 +817,7 @@ impl App {
         let mut bindings = search::bindings(kind, text, line1, name);
         if search::reads_jsdoc(kind, file) {
             for b in &mut bindings {
-                if let Some(t) = search::jsdoc_binding(text, b.line, name)
+                if let Some(t) = search::jsdoc_binding(text, b.line1, name)
                     .filter(|t| self.jsdoc_resolves(kind, file, t))
                 {
                     b.value = search::Value::Type(t);
@@ -868,7 +874,7 @@ impl App {
         }
         let c = IMPORTED.captures(written)?;
         let import = format!("import {{ {} }} from \"{}\";", &c[2], &c[1]);
-        let (_, path) = search::imports(kind, &import).pop()?;
+        let path = search::imports(kind, &import).pop()?.path;
         let (taken, module) = path.split_last()?;
         let files = search::module_files(kind, &self.root, &self.files, file, module);
         let [module] = &files[..] else {
@@ -923,7 +929,7 @@ fn hidden(kind: Kind, file: &Path, text: &str, line1: usize, name: &str) -> bool
     ))
     .expect("an escaped name keeps the pattern valid");
     search::bindings(kind, text, line1, name).iter().any(|b| {
-        lines.get(b.line - 1).is_some_and(|l| {
+        lines.get(b.line1 - 1).is_some_and(|l| {
             !names_itself(kind, l, name)
                 && !(search::reads_jsdoc(kind, file) && required.is_match(l))
         })
@@ -1050,8 +1056,8 @@ impl App {
         }
         match search::bindings(Kind::Swift, text, line1, name).as_slice() {
             [b] => {
-                let given = search::swift_given(lines.get(b.line - 1)?, name)?;
-                self.swift_given_type(here, file, text, b.line, given, hops)
+                let given = search::swift_given(lines.get(b.line1 - 1)?, name)?;
+                self.swift_given_type(here, file, text, b.line1, given, hops)
             }
             [] => {
                 let at = around?;

@@ -451,7 +451,7 @@ fn a_call_wrapped_onto_the_next_lines_reads_no_arguments() {
     assert_eq!(
         bindings(Kind::Python, py, 5, "repo"),
         [Binding {
-            line: 2,
+            line1: 2,
             value: Value::Unknown
         }],
         "`d` on a name bound by a wrapped call answers"
@@ -460,7 +460,7 @@ fn a_call_wrapped_onto_the_next_lines_reads_no_arguments() {
     assert_eq!(
         bindings(Kind::Go, go, 5, "repos"),
         [Binding {
-            line: 2,
+            line1: 2,
             value: Value::Unknown
         }]
     );

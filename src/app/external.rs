@@ -21,7 +21,7 @@ impl App {
         word: &str,
         chain: &[String],
         dotted: bool,
-        imports: &[(String, Vec<String>)],
+        imports: &[search::Import],
         narrow: bool,
     ) -> Option<Vec<Candidate>> {
         let mut patterns = search::def_patterns(kind, word);
@@ -114,11 +114,11 @@ impl App {
                     .or_else(|| search::module_among(&all, m, package)),
             };
             // An import of something not installed: nothing outside says what it is.
-            let Some((n, found)) = found.filter(|(n, _)| package.is_none_or(|k| *n >= k)) else {
+            let Some(found) = found.filter(|f| package.is_none_or(|k| f.matched_parts >= k)) else {
                 return Some(Vec::new());
             };
-            m.truncate(n);
-            files = found;
+            m.truncate(found.matched_parts);
+            files = found.files;
         }
         let by_name = |hits: Vec<Hit>| -> Vec<Candidate> {
             hits.into_iter()
@@ -163,7 +163,7 @@ impl App {
         // `export { parseCookie as parse }` is the import's own `parse`, as in the project.
         if hits.is_empty() && narrowed_to_copy && word_is_export_name {
             // The package itself is its entry, not every file in it: a chunk, a legacy module.
-            let within = match module.len() <= copy.parts {
+            let within = match module.len() <= copy.name_parts {
                 true => copy.entries(),
                 false => files,
             };
@@ -194,7 +194,7 @@ impl App {
         if hits.is_empty() && imported {
             if narrowed_to_copy {
                 let others = search::module_among(&all, &named.unwrap_or_default(), package);
-                let others = others.map(|(_, files)| files).unwrap_or_default();
+                let others = others.map(|m| m.files).unwrap_or_default();
                 hits = at_top(self, declarations_in(self, &others));
             }
             if hits.is_empty() {
@@ -245,7 +245,7 @@ impl App {
         all: &[PathBuf],
         module: &[String],
         pattern: &str,
-    ) -> Option<(usize, Vec<PathBuf>)> {
+    ) -> Option<search::ModuleFiles<PathBuf>> {
         let roots = self
             .external
             .get(&Kind::Elixir)
@@ -264,7 +264,10 @@ impl App {
                 return None;
             }
             if !self.external_grep(Kind::Elixir, &own, pattern).is_empty() {
-                return Some((n, own));
+                return Some(search::ModuleFiles {
+                    matched_parts: n,
+                    files: own,
+                });
             }
             let packages: Vec<PathBuf> = own
                 .iter()
@@ -276,7 +279,10 @@ impl App {
             let files = all
                 .iter()
                 .filter(|f| packages.iter().any(|p| f.starts_with(p)));
-            Some((n, files.cloned().collect()))
+            Some(search::ModuleFiles {
+                matched_parts: n,
+                files: files.cloned().collect(),
+            })
         })
     }
 
@@ -284,7 +290,7 @@ impl App {
         &self,
         all: &[PathBuf],
         module: &[String],
-    ) -> Option<(usize, Vec<PathBuf>)> {
+    ) -> Option<search::ModuleFiles<PathBuf>> {
         let roots = self
             .external
             .get(&Kind::Python)
@@ -303,7 +309,10 @@ impl App {
                 })
                 .map(|(_, f)| (*f).clone())
                 .collect();
-            (!found.is_empty()).then_some((n, found))
+            (!found.is_empty()).then_some(search::ModuleFiles {
+                matched_parts: n,
+                files: found,
+            })
         })
     }
 
@@ -312,7 +321,7 @@ impl App {
         kind: Kind,
         all: &[PathBuf],
         files: &[PathBuf],
-        imports: &[(String, Vec<String>)],
+        imports: &[search::Import],
         members: &str,
         word: &str,
     ) -> (Vec<Hit>, bool) {
@@ -329,12 +338,12 @@ impl App {
     fn ts_imported_members(
         &self,
         all: &[PathBuf],
-        imports: &[(String, Vec<String>)],
+        imports: &[search::Import],
         members: &str,
     ) -> Option<Vec<Hit>> {
         let (roots, _) = self.external.get(&Kind::TsJs)?;
         let mut packages: Vec<&[String]> = (imports.iter())
-            .filter_map(|(_, path)| {
+            .filter_map(|search::Import { path, .. }| {
                 let first = path.first().filter(|f| !f.starts_with(['.', '/']))?;
                 let parts = 1 + usize::from(first.starts_with('@'));
                 path.get(..parts).filter(|_| path.len() > parts)
@@ -356,7 +365,7 @@ impl App {
     fn python_members(
         &self,
         files: &[PathBuf],
-        imports: &[(String, Vec<String>)],
+        imports: &[search::Import],
         members: &str,
         word: &str,
     ) -> (Vec<Hit>, bool) {
@@ -367,20 +376,16 @@ impl App {
         }
     }
 
-    fn python_imported(
-        &self,
-        files: &[PathBuf],
-        imports: &[(String, Vec<String>)],
-    ) -> Vec<PathBuf> {
+    fn python_imported(&self, files: &[PathBuf], imports: &[search::Import]) -> Vec<PathBuf> {
         let mut packages: Vec<&String> = (imports.iter())
-            .filter_map(|(_, path)| path.first())
+            .filter_map(|i| i.path.first())
             .filter(|p| !p.starts_with('.'))
             .collect();
         packages.sort();
         packages.dedup();
         (packages.into_iter())
             .filter_map(|p| self.python_module_among(files, std::slice::from_ref(p)))
-            .flat_map(|(_, found)| found)
+            .flat_map(|m| m.files)
             .collect()
     }
 

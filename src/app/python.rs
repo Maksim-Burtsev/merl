@@ -43,7 +43,7 @@ impl App {
         let class = text
             .lines()
             .any(|l| search::type_name(kind, l).as_deref() == Some(name))
-            || imports.iter().any(|(n, _)| n == name || n == "*");
+            || imports.iter().any(|i| i.name == *name || i.name == "*");
         if !class {
             return Some(None);
         }
@@ -79,9 +79,9 @@ impl App {
     pub(super) fn package_assignments(&mut self, word: &str, module: &[String]) -> Vec<Candidate> {
         let kind = Kind::Python;
         let all = self.external_files(kind);
-        let Some((_, files)) = self
+        let Some(search::ModuleFiles { files, .. }) = self
             .python_module_among(&all, module)
-            .filter(|(n, _)| *n == module.len())
+            .filter(|m| m.matched_parts == module.len())
         else {
             return Vec::new();
         };
@@ -100,12 +100,12 @@ impl App {
     pub(super) fn star_imported(
         &mut self,
         word: &str,
-        imports: &[(String, Vec<String>)],
+        imports: &[search::Import],
     ) -> Vec<Candidate> {
         let kind = Kind::Python;
         let pattern = search::def_patterns(kind, word).join("|");
         let mut found = Vec::new();
-        for (_, path) in imports.iter().filter(|(name, _)| name == "*") {
+        for search::Import { path, .. } in imports.iter().filter(|i| i.name == "*") {
             let module = &path[..path.len() - 1];
             if module.is_empty() || module[0].starts_with('.') {
                 continue;
@@ -161,15 +161,17 @@ impl App {
         let import = |l: &str| l.starts_with("from ") || l.starts_with("import ");
         let other = search::bindings(kind, &text, 1, name).iter().any(|b| {
             !lines
-                .get(b.line - 1)
+                .get(b.line1 - 1)
                 .is_some_and(|l| import(l.trim_start()))
         });
         if other || depth >= 4 {
             return Vec::new();
         }
         let mut found: Vec<Candidate> = Vec::new();
-        for (bound, mut path) in
-            search::imports_as_written(kind, &search::python_module_level(&text))
+        for search::Import {
+            name: bound,
+            mut path,
+        } in search::imports_as_written(kind, &search::python_module_level(&text))
         {
             let taken = match bound.as_str() {
                 "*" => name.to_owned(),

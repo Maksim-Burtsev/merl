@@ -235,7 +235,10 @@ pub fn jsdoc_properties(lines: &[&str], line0: usize, name: &str) -> Option<Vec<
             && tag_name(&tag.rest_of_line) == Some(name)
         {
             let value = jsdoc_type(&tag.braced_type).map_or(Value::Unknown, Value::Type);
-            out.push(Binding { line: i + 1, value });
+            out.push(Binding {
+                line1: i + 1,
+                value,
+            });
         }
         if l.contains("*/") {
             break;

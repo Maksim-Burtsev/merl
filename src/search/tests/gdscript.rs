@@ -68,7 +68,7 @@ fn gdscript_declares_its_forms_and_no_local() {
 fn bound(line: usize, name: &str) -> Vec<usize> {
     bindings(Kind::Gdscript, SCRIPT, line, name)
         .iter()
-        .map(|b| b.line)
+        .map(|b| b.line1)
         .collect()
 }
 

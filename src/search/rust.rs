@@ -755,7 +755,7 @@ pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
     let literal = literal_lines(Kind::Rust, &lines.join("\n"));
     let code = |i: usize| uncommented(Kind::Rust, lines[i]).trim().to_owned();
     let found = |i: usize| Binding {
-        line: i + 1,
+        line1: i + 1,
         value: Value::Unknown,
     };
     if FN_LINE.is_match(lines[at]) {
