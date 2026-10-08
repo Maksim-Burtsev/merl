@@ -237,7 +237,12 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         let pad_selected = sel_lines
             .is_some_and(|(first, last)| first <= TextLine::File(l) && TextLine::File(l) < last);
         let indent = wrap::indent(clipped, app.view_w);
-        let (before, shown, cut_lead, after) = cut_unwrapped(app, &app.buf.lines[l]);
+        let UnwrappedRow {
+            left_mark: before,
+            bytes: shown,
+            lead: cut_lead,
+            right_mark: after,
+        } = cut_unwrapped(app, &app.buf.lines[l]);
         let (before, after) = (nowrap && before, nowrap && after);
         let rows = if nowrap { vec![shown] } else { app.rows(l) };
         let last = rows.len() - 1;
@@ -369,9 +374,19 @@ fn pinned_lines<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -
         .iter()
         .map(|&p| {
             let text = app.buf.shown(p);
-            let (before, r, lead, after) = match app.nowrap() {
+            let UnwrappedRow {
+                left_mark: before,
+                bytes: r,
+                lead,
+                right_mark: after,
+            } = match app.nowrap() {
                 true => cut_unwrapped(app, &app.buf.lines[p]),
-                false => (false, app.rows(p).swap_remove(0), 0, false),
+                false => UnwrappedRow {
+                    left_mark: false,
+                    bytes: app.rows(p).swap_remove(0),
+                    lead: 0,
+                    right_mark: false,
+                },
             };
             // Only a first row is pinned: wrapped, the end of a cut line is never on it.
             let ell = app.nowrap()
@@ -407,10 +422,9 @@ fn pinned_lines<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -
 
 /// The one row of `text` shown when lines are not wrapped: the columns from `left` on, less a
 /// column at either edge that has text beyond it, where `‹` and `›` stand, so a cut line never
-/// reads as whole. Whether `‹` stands, the bytes shown, the blank columns before them (a wide
-/// character cut at the edge) and whether `›` stands. `raw` is the whole line: one cut at
-/// [`Buffer::shown`] takes a column more, for its `…`.
-fn cut_unwrapped(app: &App, raw: &str) -> (bool, std::ops::Range<usize>, usize, bool) {
+/// reads as whole. `raw` is the whole line: one cut at [`Buffer::shown`] takes a column more,
+/// for its `…`.
+fn cut_unwrapped(app: &App, raw: &str) -> UnwrappedRow {
     let text = shown_str(raw);
     let w = wrap::width(text) + usize::from(Buffer::clips(raw));
     let before = app.left > 0 && w > 0;
@@ -420,7 +434,19 @@ fn cut_unwrapped(app: &App, raw: &str) -> (bool, std::ops::Range<usize>, usize, 
         app.left + usize::from(before),
         (app.left + app.view_w).saturating_sub(usize::from(after)),
     );
-    (before, r, lead, after)
+    UnwrappedRow {
+        left_mark: before,
+        bytes: r,
+        lead,
+        right_mark: after,
+    }
+}
+
+struct UnwrappedRow {
+    left_mark: bool,
+    bytes: Range<usize>,
+    lead: usize,
+    right_mark: bool,
 }
 
 /// Not wrapped: whether the column after `text`, where a cut line's `…` stands, is in view,

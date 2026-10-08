@@ -247,10 +247,10 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
     let fg = s.foreground.unwrap_or(SynColor::WHITE);
     // tmTheme colors carry an alpha byte; flattening it over the background is what an editor
     // shows. Without this tokyonight's `lineHighlight` (#00000030) paints pure black.
-    let over_bg = |c: SynColor| rgb(composite(c, bg));
+    let over_bg = |c: SynColor| rgb(over_at_own_alpha(c, bg));
     let line_hl_syn = s
         .line_highlight
-        .map_or_else(|| mix(fg, bg, 12), |c| composite(c, bg));
+        .map_or_else(|| mix(fg, bg, 12), |c| over_at_own_alpha(c, bg));
     let line_hl = rgb(line_hl_syn);
     // The chrome colours are derived, so on a palette that barely varies two of them can land on
     // the same value and the row they paint stops reading as marked. Each fallback below pushes
@@ -265,16 +265,16 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
     // As grey as still reads: the weakest mix that reaches 4:1 against the background. A theme
     // whose own text is below ~5.4:1 never reaches it, so there the mix stops at 85 %, which keeps
     // the ghost greyer than the text and within a quarter of the text's own contrast.
-    let ghost_fg = (50..=GHOST_MAX)
+    let ghost_fg = (50..=GHOST_MAX_TEXT_PERCENT)
         .step_by(5)
         .map(|percent| blend(fg, bg, percent))
-        .find(|&c| contrast(c, rgb(bg)) >= GHOST_CONTRAST)
-        .unwrap_or_else(|| blend(fg, bg, GHOST_MAX));
+        .find(|&c| wcag_contrast(c, rgb(bg)) >= GHOST_TARGET_CONTRAST)
+        .unwrap_or_else(|| blend(fg, bg, GHOST_MAX_TEXT_PERCENT));
     // Review: GitHub's diff hues laid over this background at GitHub's own strength, so every
     // theme has them without a key of its own. A dark theme takes Primer dark's (`#f85149` at 10 %
     // for a row and 40 % for a word, `#2ea043` at 15 and 40); a light one the strengths that lay
     // Primer light's pinks and mints over white.
-    let light = luminance(rgb(bg)) > luminance(rgb(fg));
+    let light = wcag_luminance(rgb(bg)) > wcag_luminance(rgb(fg));
     let hue = |r, g, b| SynColor { r, g, b, a: 255 };
     let ((del, del_row, del_word), (add, add_row, add_word)) = if light {
         (
@@ -303,18 +303,22 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
     let word_fg = (0..=100)
         .step_by(10)
         .map(|percent| blend(toward, fg, percent))
-        .find(|&c| words.iter().all(|&w| contrast(c, w) >= WORD_CONTRAST))
+        .find(|&c| {
+            words
+                .iter()
+                .all(|&w| wcag_contrast(c, w) >= WORD_ON_TINT_CONTRAST_WCAG_AA)
+        })
         .unwrap_or(rgb(toward));
     let own_gutter = s
         .gutter_foreground
-        .map_or_else(|| mix(fg, bg, 45), |c| composite(c, bg));
+        .map_or_else(|| mix(fg, bg, 45), |c| over_at_own_alpha(c, bg));
     let find_bg = s.find_highlight.map_or_else(|| blend(fg, bg, 35), over_bg);
     // Primer's attention yellow, at the strength of a changed word.
     let tag_bg = blend(hue(0xd2, 0x99, 0x22), bg, if light { 45 } else { 40 });
     let tag_fg = (0..=100)
         .step_by(10)
         .map(|percent| blend(toward, fg, percent))
-        .find(|&c| contrast(c, tag_bg) >= WORD_CONTRAST)
+        .find(|&c| wcag_contrast(c, tag_bg) >= WORD_ON_TINT_CONTRAST_WCAG_AA)
         .unwrap_or(rgb(toward));
     let selection = s.selection.map_or_else(|| blend(fg, bg, 25), over_bg);
 
@@ -334,7 +338,7 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
             (Some(_), None) => None,
             (None, None) => [rgb(fg), rgb(bg)]
                 .into_iter()
-                .max_by(|&a, &b| contrast(a, find_bg).total_cmp(&contrast(b, find_bg))),
+                .max_by(|&a, &b| wcag_contrast(a, find_bg).total_cmp(&wcag_contrast(b, find_bg))),
         },
         selection,
         selection_fg: s.selection_foreground.map(over_bg),
@@ -381,7 +385,7 @@ fn comment_color(theme: &syntect::highlighting::Theme) -> Color {
 }
 
 fn gutter_fg(start: SynColor, bg: SynColor, comment: Color, toward: SynColor) -> Color {
-    let on_bg = |c: Color| contrast(c, rgb(bg));
+    let on_bg = |c: Color| wcag_contrast(c, rgb(bg));
     let cap = on_bg(comment);
     let mut out = rgb(start);
     if on_bg(out) >= GUTTER_CONTRAST || on_bg(out) >= cap {
@@ -420,30 +424,25 @@ fn rgb(c: SynColor) -> Color {
     Color::Rgb(c.r, c.g, c.b)
 }
 
-/// `fg` over `bg` at `fg`'s own alpha.
-fn composite(c: SynColor, bg: SynColor) -> SynColor {
+fn over_at_own_alpha(c: SynColor, bg: SynColor) -> SynColor {
     if c.a == 255 {
         return c;
     }
     mix(c, bg, c.a as u32 * 100 / 255)
 }
 
-/// `fg` over `bg` at `percent` opacity, as a ratatui color.
 fn blend(fg: SynColor, bg: SynColor, percent: u32) -> Color {
     rgb(mix(fg, bg, percent))
 }
 
-/// The contrast `ghost_fg` aims for, and the most of the text colour it may take to get there.
-const GHOST_CONTRAST: f64 = 4.0;
-const GHOST_MAX: u32 = 85;
+const GHOST_TARGET_CONTRAST: f64 = 4.0;
+const GHOST_MAX_TEXT_PERCENT: u32 = 85;
 
-/// The contrast a changed word's text keeps on its tint: WCAG AA for body text.
-const WORD_CONTRAST: f64 = 4.5;
+const WORD_ON_TINT_CONTRAST_WCAG_AA: f64 = 4.5;
 
 const GUTTER_CONTRAST: f64 = 3.0;
 
-/// WCAG relative luminance, 0.0 (black) to 1.0 (white).
-fn luminance(c: Color) -> f64 {
+fn wcag_luminance(c: Color) -> f64 {
     let Color::Rgb(r, g, b) = c else { return 0.0 };
     let lin = |v: u8| {
         let v = v as f64 / 255.0;
@@ -456,9 +455,8 @@ fn luminance(c: Color) -> f64 {
     0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
 }
 
-/// WCAG contrast ratio of two colours, 1.0 (the same) to 21.0 (black on white).
-fn contrast(a: Color, b: Color) -> f64 {
-    let (a, b) = (luminance(a), luminance(b));
+fn wcag_contrast(a: Color, b: Color) -> f64 {
+    let (a, b) = (wcag_luminance(a), wcag_luminance(b));
     (a.max(b) + 0.05) / (a.min(b) + 0.05)
 }
 
@@ -604,8 +602,8 @@ mod tests {
             }
             assert_eq!(t.find_fg.is_none(), s.find_highlight.is_some(), "{name}");
             let text = t.find_fg.unwrap_or(t.fg);
-            let c = contrast(text, t.find_bg);
-            assert!(c >= WORD_CONTRAST, "{name}: {c:.2}:1");
+            let c = wcag_contrast(text, t.find_bg);
+            assert!(c >= WORD_ON_TINT_CONTRAST_WCAG_AA, "{name}: {c:.2}:1");
         }
     }
 
@@ -653,8 +651,6 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// A configured theme that does not load at start names `config.toml` and the theme set
-    /// there, the way back, beside the cause (#277).
     #[test]
     fn a_broken_configured_theme_names_the_config() {
         let dir = std::env::temp_dir().join(format!("merl-configured-{}", std::process::id()));
@@ -699,8 +695,6 @@ mod tests {
         }
     }
 
-    /// The infrastructure half of a repo (#16): a grammar that highlights, under a theme with no
-    /// rule for its scopes, looks like no highlighting at all.
     #[test]
     fn every_theme_colours_infra_files() {
         const SAMPLES: &[(&str, &str)] = &[
@@ -809,8 +803,6 @@ mod tests {
         }
     }
 
-    /// Names, keys and sections the infrastructure grammars emit. A theme with no rule for one
-    /// paints it in the default foreground, which reads as no highlighting at all.
     #[test]
     fn infra_scopes_are_coloured_in_every_theme() {
         // Whole stacks as the grammars emit them: a parent such as `meta.tag` often carries the
@@ -870,17 +862,15 @@ mod tests {
             ] {
                 assert!(apart(row, under), "{name}: row {row:?} on {under:?}");
                 assert!(apart(word, row), "{name}: word {word:?} on its row {row:?}");
-                let c = contrast(t.word_fg, word);
+                let c = wcag_contrast(t.word_fg, word);
                 assert!(
-                    c >= WORD_CONTRAST,
+                    c >= WORD_ON_TINT_CONTRAST_WCAG_AA,
                     "{name}: changed text at {c:.2} on {word:?}"
                 );
             }
         }
     }
 
-    /// A hidden char's tag stands off every row it can sit on and off the red of a deleted
-    /// word, and its text reads (#401).
     #[test]
     fn a_tag_reads_on_every_row_in_every_theme() {
         for name in names() {
@@ -901,8 +891,11 @@ mod tests {
                     t.tag_bg
                 );
             }
-            let c = contrast(t.tag_fg, t.tag_bg);
-            assert!(c >= WORD_CONTRAST, "{name}: tag text at {c:.2}");
+            let c = wcag_contrast(t.tag_fg, t.tag_bg);
+            assert!(
+                c >= WORD_ON_TINT_CONTRAST_WCAG_AA,
+                "{name}: tag text at {c:.2}"
+            );
         }
     }
 
@@ -911,7 +904,7 @@ mod tests {
         for name in names() {
             let t = load(name).unwrap();
             let (s, bg) = (&t.syntect.settings, t.syntect.settings.background.unwrap());
-            let own = |c: SynColor| rgb(composite(c, bg));
+            let own = |c: SynColor| rgb(over_at_own_alpha(c, bg));
             assert_eq!(Some(t.selection), s.selection.map(own), "{name}");
             assert_eq!(t.selection_fg, s.selection_foreground.map(own), "{name}");
         }
@@ -930,7 +923,7 @@ mod tests {
     fn deleted_lines_are_grey_but_readable_in_every_theme() {
         for name in names() {
             let t = load(name).unwrap();
-            let (text, ghost) = (contrast(t.fg, t.bg), contrast(t.ghost_fg, t.bg));
+            let (text, ghost) = (wcag_contrast(t.fg, t.bg), wcag_contrast(t.ghost_fg, t.bg));
             assert!(
                 ghost <= text * 0.9,
                 "{name}: ghost {ghost:.2} vs text {text:.2} is not clearly weaker than live text"
@@ -938,7 +931,7 @@ mod tests {
             // Readable: 4:1, or, where the theme's own text is too soft for a grey of it to
             // get there (material-light is 2.5:1 itself), most of what the text has.
             assert!(
-                ghost >= GHOST_CONTRAST || ghost >= text * 0.7,
+                ghost >= GHOST_TARGET_CONTRAST || ghost >= text * 0.7,
                 "{name}: ghost {ghost:.2} vs text {text:.2}"
             );
             assert!(ghost >= 2.0, "{name}: ghost {ghost:.2}");
@@ -951,8 +944,8 @@ mod tests {
         for name in names() {
             let t = load(name).unwrap();
             let own = t.own_gutter_fg;
-            let (before, after) = (contrast(own, t.bg), contrast(t.gutter_fg, t.bg));
-            let comments = contrast(comment_color(&t.syntect), t.bg);
+            let (before, after) = (wcag_contrast(own, t.bg), wcag_contrast(t.gutter_fg, t.bg));
+            let comments = wcag_contrast(comment_color(&t.syntect), t.bg);
             if before >= GUTTER_CONTRAST || before >= comments {
                 assert_eq!(t.gutter_fg, own, "{name}");
                 continue;

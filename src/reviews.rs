@@ -25,9 +25,12 @@ pub fn path() -> Option<PathBuf> {
     Some(stats::path()?.with_file_name("reviews.tsv"))
 }
 
-/// The open file, the cursor's line in it (a deleted one included), and whether the file is one
-/// of the review's.
-pub type Spot = (Option<PathBuf>, git::TextLine, bool);
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Spot {
+    pub open_file: Option<PathBuf>,
+    pub cursor_line: git::TextLine,
+    pub file_in_review: bool,
+}
 
 /// A stop of the review walk, as the status bar's `hunk i/n` numbers it: the file relative to
 /// the root and the hunk's place in it, from 1; the top of a deleted file is its one stop.
@@ -49,20 +52,16 @@ pub struct Session {
     deleted: usize,
     counting: Option<Counting>,
     stops_in: Option<HashMap<PathBuf, usize>>,
-    /// The last press, or the start of the review.
-    last: Instant,
-    /// Left the review by a jump and not back on one of its files yet.
-    out: bool,
-    /// The presses but the one that quits.
-    presses: u64,
+    last_press_or_start: Instant,
+    jumped_out_not_back_yet: bool,
+    presses_but_quit: u64,
     on_review: Duration,
     elsewhere: Duration,
     /// Jumps (`d`, `u`, `D`, a picker's Enter) from a file of the review to a file outside it,
     /// and the jumps outside they took, the first included.
     excursions: u64,
     jumps: u64,
-    /// `[` presses.
-    back: u64,
+    back_presses: u64,
     stops: HashSet<Stop>,
     last_hunk: bool,
 }
@@ -86,14 +85,14 @@ impl Session {
             deleted: lines(|f| f.deleted),
             counting: Some(counting),
             stops_in: None,
-            last: at,
-            out: false,
-            presses: 0,
+            last_press_or_start: at,
+            jumped_out_not_back_yet: false,
+            presses_but_quit: 0,
             on_review: Duration::ZERO,
             elsewhere: Duration::ZERO,
             excursions: 0,
             jumps: 0,
-            back: 0,
+            back_presses: 0,
             stops: HashSet::from_iter(stop),
             last_hunk: false,
         }
@@ -103,14 +102,16 @@ impl Session {
     /// there, [`IDLE`] at most. The key that quits (`quit`) is no press of its own, so a session
     /// of `q` alone is none; the reading before it still counts.
     pub fn pressed(&mut self, at: Instant, from: &Spot, quit: bool) {
-        let gap = at.saturating_duration_since(self.last).min(IDLE);
-        let total = match from.2 {
+        let gap = at
+            .saturating_duration_since(self.last_press_or_start)
+            .min(IDLE);
+        let total = match from.file_in_review {
             true => &mut self.on_review,
             false => &mut self.elsewhere,
         };
         *total += gap;
-        self.last = at;
-        self.presses += u64::from(!quit);
+        self.last_press_or_start = at;
+        self.presses_but_quit += u64::from(!quit);
     }
 
     /// `action` (a `KEYS` action) took the cursor from `from` to `to`; `stop`: the review walk
@@ -124,15 +125,15 @@ impl Session {
         end: bool,
     ) {
         let jump = from != to && matches!(action, Some("d" | "u" | "D" | "Picker: Enter"));
-        if jump && from.2 && !to.2 {
+        if jump && from.file_in_review && !to.file_in_review {
             self.excursions += 1;
-            self.out = true;
+            self.jumped_out_not_back_yet = true;
         }
-        if jump && self.out && !to.2 {
+        if jump && self.jumped_out_not_back_yet && !to.file_in_review {
             self.jumps += 1;
         }
-        self.out &= !to.2;
-        self.back += u64::from(action == Some("["));
+        self.jumped_out_not_back_yet &= !to.file_in_review;
+        self.back_presses += u64::from(action == Some("["));
         self.stops.extend(stop);
         self.last_hunk |= end;
     }
@@ -142,7 +143,7 @@ impl Session {
     /// does not count, so neither is ever more than the hunks or the files. `None` for a
     /// session without a press, or when counting the stops failed.
     pub fn columns<'a>(&mut self, viewed: impl Iterator<Item = &'a PathBuf>) -> Option<String> {
-        if self.presses == 0 {
+        if self.presses_but_quit == 0 {
             return None;
         }
         if let Some(counting) = self.counting.take() {
@@ -161,7 +162,7 @@ impl Session {
             self.elsewhere.as_secs() as usize,
             self.excursions as usize,
             self.jumps as usize,
-            self.back as usize,
+            self.back_presses as usize,
             stops,
             viewed.filter(|path| stops_in.contains_key(*path)).count(),
             usize::from(self.last_hunk),
@@ -178,7 +179,10 @@ pub fn add(path: &Path, today: i64, repo: &str, branch: &str, columns: &str) -> 
     let clean = |s: &str| s.replace(['\t', '\n'], " ");
     let (repo, branch) = (clean(repo), clean(branch));
     let text = stats::read(path)?;
-    let kept: Vec<&str> = text.lines().filter(|l| recent(l, today)).collect();
+    let kept: Vec<&str> = text
+        .lines()
+        .filter(|l| is_session_in_window(l, today))
+        .collect();
     let round = 1 + kept
         .iter()
         .filter(|l| {
@@ -200,8 +204,7 @@ pub fn add(path: &Path, today: i64, repo: &str, branch: &str, columns: &str) -> 
     stats::write(path, &out)
 }
 
-/// A session of the last [`WINDOW`] days; the head is none.
-fn recent(line: &str, today: i64) -> bool {
+fn is_session_in_window(line: &str, today: i64) -> bool {
     (line.split('\t').next())
         .and_then(stats::day)
         .is_some_and(|day| today - day < WINDOW)
@@ -212,8 +215,7 @@ pub fn report(path: &Path, today: i64) -> Result<String> {
     Ok(table(&stats::read(path)?, today))
 }
 
-/// `9:05`: minutes and seconds.
-fn clock(secs: u64) -> String {
+fn minutes_colon_seconds(secs: u64) -> String {
     format!("{}:{:02}", secs / 60, secs % 60)
 }
 
@@ -233,7 +235,11 @@ fn table(text: &str, today: i64) -> String {
     ];
     let mut cells = vec![head.map(String::from)];
     let (mut first, mut later) = (Vec::new(), Vec::new());
-    for line in text.lines().rev().filter(|l| recent(l, today)) {
+    for line in text
+        .lines()
+        .rev()
+        .filter(|l| is_session_in_window(l, today))
+    {
         let cols: Vec<&str> = line.split('\t').collect();
         let nums = cols.get(3..11).and_then(|n| {
             n.iter()
@@ -254,8 +260,8 @@ fn table(text: &str, today: i64) -> String {
             files.to_string(),
             hunks.to_string(),
             (added + deleted).to_string(),
-            clock(on + off),
-            clock(on),
+            minutes_colon_seconds(on + off),
+            minutes_colon_seconds(on),
             excursions.to_string(),
         ]);
     }
@@ -263,7 +269,7 @@ fn table(text: &str, today: i64) -> String {
     let mut summary = format!("{WINDOW} days: {n} session{}", plural(n));
     for (what, times) in [("median first round", first), ("later rounds", later)] {
         if let Some(m) = median(times) {
-            _ = write!(summary, " · {what} {}", clock(m));
+            _ = write!(summary, " · {what} {}", minutes_colon_seconds(m));
         }
     }
     if n == 0 {
@@ -315,7 +321,11 @@ mod tests {
     }
 
     fn spot(file: &str, line: usize, on: bool) -> Spot {
-        (Some(PathBuf::from(file)), git::TextLine::File(line), on)
+        Spot {
+            open_file: Some(PathBuf::from(file)),
+            cursor_line: git::TextLine::File(line),
+            file_in_review: on,
+        }
     }
 
     fn session_over(at: Instant, stops_in: &[(&str, usize)]) -> Session {
@@ -340,8 +350,6 @@ mod tests {
         session_over(at, &[])
     }
 
-    /// A gap up to five minutes counts in full, a longer one as five minutes, and it goes to
-    /// where the cursor stood during it.
     #[test]
     fn a_long_gap_counts_five_minutes() {
         let t0 = Instant::now();
@@ -353,11 +361,9 @@ mod tests {
         s.moved(Some("["), &lib, &a, None, false);
         s.pressed(t0 + Duration::from_secs(40 + 4 * 3600 + 7), &a, false);
         assert_eq!((s.on_review.as_secs(), s.elsewhere.as_secs()), (47, 300));
-        assert_eq!((s.presses, s.back), (3, 1));
+        assert_eq!((s.presses_but_quit, s.back_presses), (3, 1));
     }
 
-    /// The key that quits is no press: a session of `q` alone has no line, though the reading
-    /// before a `q` counts in one that has.
     #[test]
     fn the_key_that_quits_is_no_press() {
         let t0 = Instant::now();
@@ -371,9 +377,6 @@ mod tests {
         assert_eq!(columns.split('\t').nth(4), Some("45"), "{columns}");
     }
 
-    /// `d` out of the review, a usage picked and a `d` further on, `[ [ [` back: one excursion
-    /// of three jumps. A jump within the review, one that did not move, and one out that did not
-    /// start from the review are none.
     #[test]
     fn an_excursion_counts_once_with_its_jumps() {
         let mut s = session(Instant::now());
@@ -395,11 +398,9 @@ mod tests {
             s.moved(Some(action), &from, &to, None, false);
             from = to;
         }
-        assert_eq!((s.excursions, s.jumps, s.back), (1, 3, 3));
+        assert_eq!((s.excursions, s.jumps, s.back_presses), (1, 3, 3));
     }
 
-    /// A jump that lands back on a file of the review ends the excursion and is none of its
-    /// jumps.
     #[test]
     fn a_jump_back_into_the_review_is_no_excursion_jump() {
         let mut s = session(Instant::now());
@@ -410,12 +411,12 @@ mod tests {
         );
         s.moved(Some("d"), &a, &lib, None, false);
         s.moved(Some("Picker: Enter"), &lib, &b, None, false);
-        assert_eq!((s.excursions, s.jumps, s.out), (1, 1, false));
+        assert_eq!(
+            (s.excursions, s.jumps, s.jumped_out_not_back_yet),
+            (1, 1, false)
+        );
     }
 
-    /// A stop on a hunk the review did not have when it opened, or in a file it did not list,
-    /// does not count, nor does a file marked viewed that it did not list: neither is ever more
-    /// than the hunks or the files.
     #[test]
     fn stops_and_viewed_never_outnumber_the_review() {
         let t0 = Instant::now();
@@ -435,8 +436,6 @@ mod tests {
         );
     }
 
-    /// A session's line goes into the file under the head's names, and `merl --reviews` reads
-    /// back what went in.
     #[test]
     fn a_line_round_trips_through_the_file() {
         let file = scratch("roundtrip");
@@ -523,8 +522,6 @@ mod tests {
         let _ = std::fs::remove_dir_all(file.ancestors().nth(3).unwrap());
     }
 
-    /// The median of an odd count is the middle one once sorted, of an even count the mean of
-    /// the middle two.
     #[test]
     fn the_median_sorts_first() {
         assert_eq!(median(vec![900, 100, 500]), Some(500));
@@ -532,9 +529,6 @@ mod tests {
         assert_eq!(median(Vec::new()), None);
     }
 
-    /// The first session of a branch is round 1, the next one round 2; another branch, or the
-    /// same branch in another repository, counts its own. A session of the last 30 days, today
-    /// included, is kept; an older one is dropped on the next write and no longer counts.
     #[test]
     fn rounds_count_per_branch_and_old_sessions_go() {
         let file = scratch("rounds");
@@ -575,8 +569,6 @@ mod tests {
         let _ = std::fs::remove_dir_all(file.ancestors().nth(3).unwrap());
     }
 
-    /// `merl --reviews`: the last 30 days newest first, lines as added and deleted together,
-    /// active as the time on the review plus elsewhere, then the medians by round.
     #[test]
     fn the_report_lists_sessions_newest_first_with_medians() {
         let text = format!(
