@@ -1,6 +1,7 @@
 use super::*;
 
 mod braces;
+mod elixir;
 mod spans;
 mod words;
 
@@ -10,10 +11,20 @@ impl App {
         if self.kind() == Some(Kind::Python) {
             return Some(Folds::Indent(Box::new(Shape::python(lines))));
         }
-        let words = match self.fold_kind() {
+        let name = (self.buf.path.as_deref())
+            .and_then(|p| p.file_name()?.to_str())
+            .unwrap_or("");
+        let words = match self.kind() {
+            Some(Kind::Ruby) if name.ends_with(".rbs") => Some(words::rbs(lines)),
             Some(Kind::Ruby) => Some(words::ruby(lines)),
             Some(Kind::Lua) => Some(words::lua(lines)),
-            Some(Kind::Shell) => Some(words::shell(lines)),
+            Some(Kind::Shell) => Some(words::shell(
+                lines,
+                name.ends_with(".zsh") || name.starts_with(".z"),
+            )),
+            Some(Kind::Elixir) if name.ends_with(".ex") || name.ends_with(".exs") => {
+                Some(elixir::elixir(lines))
+            }
             _ => None,
         };
         if let Some(blocks) = words {
@@ -74,15 +85,6 @@ impl App {
         self.anchor = None;
         self.set_at(TextLine::File(h));
         self.apply_want_x(0);
-    }
-
-    fn fold_kind(&self) -> Option<Kind> {
-        let name = self.buf.path.as_deref()?.file_name()?.to_str()?;
-        match self.kind()? {
-            Kind::Ruby if name.ends_with(".rbs") => None,
-            Kind::Shell if name.ends_with(".zsh") || name.starts_with(".z") => None,
-            kind => Some(kind),
-        }
     }
 
     pub fn hidden(&self, l: usize) -> bool {

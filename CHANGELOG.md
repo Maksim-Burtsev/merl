@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   to its `@end`, a method, a method declaration or `@property` wrapped over lines, a block, an
   `@[…]` or `@{…}` literal, `@try` with its `@catch` and `@finally`, and `@autoreleasepool`.
   (#625)
+- `f` folds Elixir (`.ex`, `.exs`), where it said `no fold rules for .ex`: a `do` … `end` block,
+  an `fn` … `end`, a `case` or `fn` clause through its body, a call's arguments wrapped over
+  lines, `@doc """` and a list, map or tuple. (#626)
+- `f` folds RBS signatures (`.rbs`), a `class`, `module` or `interface` to its `end`, and zsh
+  (`.zsh`, `.zshrc`), as shell plus an anonymous function `() {` and `{ … } always { … }`,
+  where both said `no fold rules`. (#626)
 
 ### Changed
 
