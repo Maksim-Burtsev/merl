@@ -257,7 +257,10 @@ fn a_fold_inside_a_callback_is_the_same_fold_after_a_reload() {
 
 #[test]
 fn an_erlang_file_has_no_fold_rules_though_elixir_does() {
-    let mut a = app_as("erl", "f(X) ->\n    case X of\n        1 -> one\n    end.\n");
+    let mut a = app_as(
+        "erl",
+        "f(X) ->\n    case X of\n        1 -> one\n    end.\n",
+    );
     key(&mut a, KeyCode::Char('f'));
     assert!(a.collapsed.is_empty());
     assert_eq!(a.message, "no fold rules for .erl");
