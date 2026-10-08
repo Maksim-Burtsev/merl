@@ -7,6 +7,7 @@ mod c;
 mod csharp;
 mod java;
 mod kotlin;
+mod objc;
 mod php;
 mod rust;
 mod swift;
@@ -22,6 +23,7 @@ pub(crate) enum Lang {
     Kotlin,
     C,
     Cpp,
+    ObjC,
     Swift,
     Php,
 }
@@ -31,6 +33,11 @@ pub(crate) struct Syntax {
     lang: Lang,
     jsx: bool,
 }
+
+pub(crate) const OBJC: Syntax = Syntax {
+    lang: Lang::ObjC,
+    jsx: false,
+};
 
 pub(crate) fn syntax_of(path: &Path) -> Option<Syntax> {
     let ext = path.extension()?.to_str()?;
@@ -47,6 +54,7 @@ pub(crate) fn syntax_of(path: &Path) -> Option<Syntax> {
         (_, "java") => (Lang::Java, false),
         (_, "kt" | "kts") => (Lang::Kotlin, false),
         (_, "c") => (Lang::C, false),
+        (_, "m") => (Lang::ObjC, false),
         (_, "h" | "cc" | "cpp" | "cxx" | "c++" | "hh" | "hpp" | "hxx" | "h++" | "ipp") => {
             (Lang::Cpp, false)
         }
@@ -78,8 +86,7 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
         Lang::Rust => model.rust(lines),
         Lang::Java => model.java(lines),
         Lang::Kotlin => model.kotlin(),
-        Lang::C => model.c_family(false, lines),
-        Lang::Cpp => model.c_family(true, lines),
+        Lang::C | Lang::Cpp | Lang::ObjC => model.c_family(syntax.lang, lines),
         Lang::Swift => model.swift(lines),
         Lang::Php => model.php(lines),
         lang => model.ecma(lang == Lang::Ts),
@@ -282,7 +289,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn c_family(&self) -> bool {
-        matches!(self.syntax.lang, Lang::C | Lang::Cpp)
+        matches!(self.syntax.lang, Lang::C | Lang::Cpp | Lang::ObjC)
     }
 
     fn ecma(&self) -> bool {

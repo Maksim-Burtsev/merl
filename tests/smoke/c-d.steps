@@ -82,3 +82,11 @@ type size()
 key Enter d
 wait via key: Slice
 key Escape
+# f folds Objective-C (#625): on a method's line in a `.m` file, f folds the method to its `}`.
+merl worker/internal/crc/CrcStamp.m
+wait @implementation CrcStamp
+key :
+type 4
+key Enter f
+wait job { ⋯ }
+key f

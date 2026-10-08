@@ -176,17 +176,29 @@ fn f_on_a_line_ending_in_a_colon_folds_that_block() {
 }
 
 #[test]
-fn an_objective_c_header_has_no_fold_rules_and_a_c_header_folds_as_cpp() {
+fn an_objective_c_header_folds_as_objective_c_and_a_c_header_as_cpp() {
     let objc = "@interface Box : NSObject\n- (void)open {\n  go();\n}\n@end\n";
     let mut a = app_as("h", objc);
     a.go((2, 2));
     key(&mut a, KeyCode::Char('f'));
-    assert!(a.collapsed.is_empty());
-    assert_eq!(a.message, "no fold rules for .h");
+    assert_eq!(a.collapsed, vec![(1, 3)]);
+    a.collapsed.clear();
+    a.go((0, 0));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(0, 4)]);
     let mut a = app_as("h", "namespace a {\nclass B {\n  int c;\n};\n}\n");
     a.go((1, 0));
     key(&mut a, KeyCode::Char('f'));
     assert_eq!(a.collapsed, vec![(1, 3)]);
+    let objcpp = "#import \"a.h\"\nnamespace a {\nclass B {\n  void c() {\n    go();\n  }\n};\n}\n@class D;\n";
+    let mut a = app_as("h", objcpp);
+    a.go((2, 0));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(
+        a.collapsed,
+        vec![(2, 6)],
+        "a C++ class in an Objective-C++ header"
+    );
 }
 
 #[test]
@@ -521,11 +533,12 @@ fn f_folds_a_jsx_element_in_a_jsx_file() {
 }
 
 #[test]
-fn f_survives_every_prefix_of_the_swift_php_c_and_cpp_fixtures() {
+fn f_survives_every_prefix_of_the_swift_php_objc_c_and_cpp_fixtures() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/folds");
     let fixtures = [
         ("swift", "swift.swift"),
         ("php", "php.php"),
+        ("m", "objc.m"),
         ("c", "c.c"),
         ("cc", "cpp.cc"),
     ];

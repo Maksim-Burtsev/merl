@@ -75,3 +75,5 @@ union u {
 typedef struct {  // f: 75-77
     int a;  // f: 75-77
 } T;  // f: 75-77
+#include "z.h"  // f: none
+#import "y.h"  // f: none
