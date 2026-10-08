@@ -152,3 +152,20 @@ function &ref(  // f: 142-148
 {  // f: 151-154
     return 1;  // f: 151-154
 }  // f: 151-154
+<?php function glued($y)  // f: 155-162
+{  // f: 155-162
+    if ($y) {  // f: 157-160
+        $z = $y# note } f: 155-162
+        ;  // f: 155-162
+    }  // f: 155-162
+    return $z;  // f: 155-162
+}  // f: 155-162
+$o = new readonly class extends Base {  // f: none
+    public function g()  // f: 164-167
+    {  // f: 164-167
+        return 1;  // f: 164-167
+    }  // f: 164-167
+};
+$q = new #[Pure] readonly class implements Contract {  // f: none
+    public $a;  // f: none
+};
