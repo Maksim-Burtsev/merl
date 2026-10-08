@@ -79,3 +79,7 @@ ts	outline/server/routes/api/comments/comments.test.ts:776	wrong
 ts	outline/server/routes/api/middlewares/pagination.ts:21	wrong
 yaml	halo/application/src/main/resources/extensions/role-template-anonymous.yaml:22	wrong
 yaml	halo/application/src/main/resources/extensions/role-template-anonymous.yaml:24	wrong
+zsh	ohmyzsh/plugins/battery/battery.plugin.zsh:268	wrong
+zsh	ohmyzsh/plugins/pip/pip.plugin.zsh:104	wrong
+zsh	ohmyzsh/plugins/ssh-agent/ssh-agent.plugin.zsh:5	wrong
+zsh	ohmyzsh/plugins/zsh-autosuggestions/src/async.zsh:6	wrong
