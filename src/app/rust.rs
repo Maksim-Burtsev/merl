@@ -868,7 +868,7 @@ impl App {
         let bindings = search::bindings(Kind::Rust, text, line0 + 1, name);
         let mut found: Option<(Typed, String)> = None;
         for b in &bindings {
-            let at = b.line - 1;
+            let at = b.line1 - 1;
             let this = match search::rust_holds(&lines, at, name)? {
                 search::RustHolds::Type(w) | search::RustHolds::Literal(w) => {
                     let ty = self.rust_resolve(file, &w, at)?;

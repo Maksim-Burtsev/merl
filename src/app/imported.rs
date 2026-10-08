@@ -434,7 +434,7 @@ impl App {
             |l: &str| l.trim_start().starts_with("from ") || l.trim_start().starts_with("import ");
         if search::bindings(kind, &text, 1, first)
             .iter()
-            .any(|b| !lines.get(b.line - 1).is_some_and(|l| import(l)))
+            .any(|b| !lines.get(b.line1 - 1).is_some_and(|l| import(l)))
         {
             return Vec::new();
         }

@@ -969,7 +969,7 @@ impl App {
         let nested_binding = |a: &Self| {
             search::bindings(kind, &text, a.line + 1, first)
                 .iter()
-                .any(|b| a.buf.lines[b.line - 1].starts_with([' ', '\t']))
+                .any(|b| a.buf.lines[b.line1 - 1].starts_with([' ', '\t']))
         };
         if kind == Kind::Python && locals.is_empty() && !chain.is_empty() && !nested_binding(self) {
             let found = self.class_attribute(kind, &here, &chain, &word);

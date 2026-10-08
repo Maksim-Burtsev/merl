@@ -285,7 +285,7 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
     let code = |i: usize| uncommented(Kind::Swift, lines[i]).trim().to_owned();
     let found = |line: usize| {
         Some(vec![Binding {
-            line,
+            line1: line,
             value: Value::Unknown,
         }])
     };
@@ -309,7 +309,7 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
             .filter(|&j| indent(lines[j]) == depth && swift_local_decl(lines[j], name))
             .collect();
         let bindings = lines.iter().map(|&j| Binding {
-            line: j + 1,
+            line1: j + 1,
             value: Value::Unknown,
         });
         Some(bindings.collect::<Vec<_>>()).filter(|b| !b.is_empty() && !lines.contains(&at))

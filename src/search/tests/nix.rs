@@ -91,7 +91,7 @@ fn nix_let_bindings_declare_only_in_their_own_file() {
 fn local(text: &str, line: usize, name: &str) -> Vec<usize> {
     bindings(Kind::Nix, text, line, name)
         .iter()
-        .map(|b| b.line)
+        .map(|b| b.line1)
         .collect()
 }
 

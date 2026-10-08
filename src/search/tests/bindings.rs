@@ -104,7 +104,7 @@ import os.path, store.sessions as sessions
     assert_eq!(at(1, "repo"), [(3, Value::Call("UserRepository".into()))]);
     assert_eq!(at(14, "cache"), [(12, ty("\"Cache | None\""))]);
     assert_eq!(at(14, "local"), [(15, ty("Optional[Repo]"))]);
-    assert_eq!(at(24, "self"), [(21, Value::Class(6))]);
+    assert_eq!(at(24, "self"), [(21, Value::Class { decl_line1: 6 })]);
     assert_eq!(
         at(19, "first"),
         [(18, Value::Unknown)],
@@ -159,7 +159,7 @@ def delete(
 "
     );
     let at = |line, name| bound_at(Kind::Python, &py, line, name);
-    assert_eq!(at(6, "self"), [(3, Value::Class(1))]);
+    assert_eq!(at(6, "self"), [(3, Value::Class { decl_line1: 1 })]);
     assert_eq!(at(6, "repo"), [(5, ty("Repo"))]);
     assert_eq!(at(85, "repo"), [(83, ty("Repo"))]);
     assert_eq!(
@@ -248,10 +248,10 @@ export function cleanup(id: number): void {
     let new = |t: &str| Value::New(t.into());
     assert_eq!(
         at(11, "this"),
-        [(5, Value::Class(5))],
+        [(5, Value::Class { decl_line1: 5 })],
         "`this` passes a constructor over several lines, an arrow and a method"
     );
-    assert_eq!(at(26, "this"), [(5, Value::Class(5))]);
+    assert_eq!(at(26, "this"), [(5, Value::Class { decl_line1: 5 })]);
     assert_eq!(at(23, "this"), [(22, Value::Unknown)]);
     assert_eq!(at(11, "repo"), [(8, ty("UserRepository"))]);
     assert_eq!(at(15, "id"), [(14, ty("number"))]);
@@ -380,7 +380,7 @@ fn java_and_kotlin_bind_locals_parameters_and_loop_variables_in_their_block() {
     let lines = |name: &str, at: usize| -> Vec<usize> {
         bindings(Kind::Jvm, java, at, name)
             .iter()
-            .map(|b| b.line)
+            .map(|b| b.line1)
             .collect()
     };
     assert_eq!(lines("total", 9), [6], "a local of the block around");
@@ -409,7 +409,7 @@ fn java_and_kotlin_bind_locals_parameters_and_loop_variables_in_their_block() {
     let lines = |name: &str, at: usize| -> Vec<usize> {
         bindings(Kind::Jvm, kotlin, at, name)
             .iter()
-            .map(|b| b.line)
+            .map(|b| b.line1)
             .collect()
     };
     assert_eq!(lines("right", 6), [5], "a destructured loop variable");
@@ -449,7 +449,7 @@ end
     let at = |line, name| {
         bindings(Kind::Elixir, text, line, name)
             .iter()
-            .map(|b| b.line)
+            .map(|b| b.line1)
             .collect::<Vec<_>>()
     };
     assert_eq!(at(6, "total"), [2]);
@@ -497,7 +497,7 @@ end
     let at = |line, name| {
         bindings(Kind::Elixir, text, line, name)
             .iter()
-            .map(|b| b.line)
+            .map(|b| b.line1)
             .collect::<Vec<_>>()
     };
     assert_eq!(

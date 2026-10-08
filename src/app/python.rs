@@ -161,7 +161,7 @@ impl App {
         let import = |l: &str| l.starts_with("from ") || l.starts_with("import ");
         let other = search::bindings(kind, &text, 1, name).iter().any(|b| {
             !lines
-                .get(b.line - 1)
+                .get(b.line1 - 1)
                 .is_some_and(|l| import(l.trim_start()))
         });
         if other || depth >= 4 {

@@ -699,7 +699,7 @@ pub fn c_bindings(text: &str, line1: usize, name: &str) -> Vec<Binding> {
     c_bindings_at(text, line1, name)
         .into_iter()
         .map(|(line, _)| Binding {
-            line,
+            line1: line,
             value: Value::Unknown,
         })
         .collect()

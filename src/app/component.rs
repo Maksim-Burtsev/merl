@@ -50,7 +50,7 @@ impl App {
         let (past_end, end) = self.script_end(here);
         let script_binds = |name: &str| -> Vec<usize> {
             (search::bindings(Kind::TsJs, &past_end, end, name).iter())
-                .map(|b| b.line)
+                .map(|b| b.line1)
                 .collect()
         };
         let bound = search::template_binds(&self.buf.lines, &code, word);

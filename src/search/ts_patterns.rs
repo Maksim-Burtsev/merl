@@ -11,7 +11,7 @@ pub(super) fn ts_params(params: &str, line: usize, name: &str, out: &mut Vec<Bin
         if p.starts_with(['{', '[']) {
             if names(&p.replace("...", " "), name) {
                 let value = typed_pattern(&p, name).unwrap_or(Value::Unknown);
-                out.push(Binding { line, value });
+                out.push(Binding { line1: line, value });
             }
             continue;
         }
@@ -28,7 +28,7 @@ pub(super) fn ts_params(params: &str, line: usize, name: &str, out: &mut Vec<Bin
             (None, Some(default)) => value_of(Kind::TsJs, default),
             (None, None) => Value::Unknown,
         };
-        out.push(Binding { line, value });
+        out.push(Binding { line1: line, value });
     }
 }
 

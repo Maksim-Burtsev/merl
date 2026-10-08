@@ -161,7 +161,7 @@ fn a_go_package_block_is_read_at_its_level_and_a_mention_may_declare() {
     assert_eq!(
         package_bindings(block, "audit"),
         vec![Binding {
-            line: 7,
+            line1: 7,
             value: Value::Type("AuditLog".into())
         }]
     );

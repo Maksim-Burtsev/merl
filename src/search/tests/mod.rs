@@ -110,7 +110,7 @@ fn members(dir: &Path, files: &[PathBuf], kind: Kind, word: &str) -> Vec<usize> 
 fn bound_at(kind: Kind, text: &str, line: usize, name: &str) -> Vec<(usize, Value)> {
     bindings(kind, text, line, name)
         .into_iter()
-        .map(|b| (b.line, b.value))
+        .map(|b| (b.line1, b.value))
         .collect()
 }
 

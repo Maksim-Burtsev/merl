@@ -237,7 +237,7 @@ pub(super) fn julia_imports(text: &str, out: &mut Vec<Import>) {
 pub(super) fn julia_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let binding = |line: usize| {
         vec![Binding {
-            line: line + 1,
+            line1: line + 1,
             value: Value::Unknown,
         }]
     };

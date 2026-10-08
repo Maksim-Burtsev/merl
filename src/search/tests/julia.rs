@@ -209,7 +209,7 @@ fn julia_locals_stay_in_their_function() {
     let at = |line: usize, name: &str| {
         bindings(Kind::Julia, &lines.join("\n"), line, name)
             .iter()
-            .map(|b| b.line)
+            .map(|b| b.line1)
             .collect::<Vec<_>>()
     };
     assert_eq!(at(5, "m"), [3]);
@@ -268,7 +268,7 @@ fn julia_locals_of_blocks_outside_functions() {
     let at = |line: usize, name: &str| {
         bindings(Kind::Julia, &lines.join("\n"), line, name)
             .iter()
-            .map(|b| b.line)
+            .map(|b| b.line1)
             .collect::<Vec<_>>()
     };
     assert_eq!(at(12, "res"), [7]);

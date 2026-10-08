@@ -453,7 +453,7 @@ public class Cart
     let lines = |name: &str, line: usize| -> Vec<usize> {
         bindings(Kind::CSharp, text, line, name)
             .iter()
-            .map(|b| b.line)
+            .map(|b| b.line1)
             .collect()
     };
     assert_eq!(

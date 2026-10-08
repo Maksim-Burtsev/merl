@@ -189,7 +189,7 @@ impl App {
         let lines: Vec<&str> = text.lines().collect();
         let bindings: Vec<usize> = search::bindings(Kind::Jvm, text, line1, name)
             .iter()
-            .map(|b| b.line)
+            .map(|b| b.line1)
             .collect();
         let declared = match bindings.is_empty() {
             true => search::jvm_enclosing_types(text, line1)

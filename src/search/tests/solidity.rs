@@ -334,7 +334,7 @@ contract Shop {
     let local = |line: usize, name: &str| -> Vec<usize> {
         bindings(Kind::Solidity, text, line, name)
             .iter()
-            .map(|b| b.line)
+            .map(|b| b.line1)
             .collect()
     };
     assert_eq!(local(6, "left"), [3]);
@@ -365,7 +365,7 @@ contract Shop {
     let local = |line: usize, name: &str| -> Vec<usize> {
         bindings(Kind::Solidity, tuple, line, name)
             .iter()
-            .map(|b| b.line)
+            .map(|b| b.line1)
             .collect()
     };
     assert_eq!(local(9, "isAdmin"), [3]);
@@ -389,7 +389,7 @@ contract Shop {
     let local = |line: usize, name: &str| -> Vec<usize> {
         bindings(Kind::Solidity, allman, line, name)
             .iter()
-            .map(|b| b.line)
+            .map(|b| b.line1)
             .collect()
     };
     assert!(local(2, "onlyOwner").is_empty());

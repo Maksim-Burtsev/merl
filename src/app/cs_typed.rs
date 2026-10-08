@@ -281,7 +281,7 @@ impl App {
         }
         let mut found: Option<Proven> = None;
         for b in bindings {
-            let at = search::cs_written_line(&lines, b.line, name);
+            let at = search::cs_written_line(&lines, b.line1, name);
             let value = search::cs_declared(lines.get(at - 1)?, name);
             let (ty, written) = match value {
                 search::CsValue::Type(w) => (self.cs_resolve(file, text, at, &w)?, w),
