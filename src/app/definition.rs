@@ -340,7 +340,7 @@ impl App {
             || (chain.is_empty() && search::binds_at(kind, self.line_str(), range.start, &word));
         let bare = kind == Kind::TsJs && !dotted && chain.is_empty();
         let required = match kind {
-            Kind::TsJs => search::ts_import_lines(&text, first),
+            Kind::TsJs => search::ts_import_lines1(&text, first),
             _ => Vec::new(),
         };
         let closure = |n: usize| {
@@ -520,7 +520,7 @@ impl App {
             && !dotted
             && self.line_str()[range.end..].starts_with('.')
             && let Some(path) = bound(&imports, &word)
-            && let Some(line) = search::go_import_line(&text, &word)
+            && let Some(line) = search::go_import_line1(&text, &word)
             && !search::go_may_declare(&text, self.line + 1, &word)
             && self
                 .package_declarations(kind, &here, &word, None)
@@ -855,7 +855,7 @@ impl App {
                 let parts = if module[0].starts_with('@') { 2 } else { 1 };
                 search::in_module(f, &module[..parts.min(module.len())])
             })
-            && let Some(line) = search::ts_import_line(&text, first)
+            && let Some(line) = search::ts_import_line1(&text, first)
         {
             let hit = Hit {
                 deleted: None,

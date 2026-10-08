@@ -548,16 +548,16 @@ fn a_package_is_missing_when_nothing_installs_or_declares_it() {
 #[test]
 fn a_ts_import_line_is_the_line_of_the_name() {
     let text = "import a from \"a\";\n\nimport {\n  observable,\n  obs as seen,\n} from \"mobx\";\nconst req = require(\"x\");\n";
-    assert_eq!(ts_import_line(text, "a"), Some(1));
-    assert_eq!(ts_import_line(text, "seen"), Some(5));
-    assert_eq!(ts_import_line(text, "observable"), Some(4));
+    assert_eq!(ts_import_line1(text, "a"), Some(1));
+    assert_eq!(ts_import_line1(text, "seen"), Some(5));
+    assert_eq!(ts_import_line1(text, "observable"), Some(4));
     assert_eq!(
-        ts_import_line(text, "obs"),
+        ts_import_line1(text, "obs"),
         None,
         "`obs` is taken under another name, and `observable` only starts with it"
     );
-    assert_eq!(ts_import_line(text, "req"), Some(7));
-    assert_eq!(ts_import_line(text, "nothing"), None);
+    assert_eq!(ts_import_line1(text, "req"), Some(7));
+    assert_eq!(ts_import_line1(text, "nothing"), None);
 }
 
 #[test]
@@ -575,7 +575,7 @@ fn a_require_binds_only_the_module_itself_or_a_name_of_it() {
             ("h".to_owned(), path(&[".", "h", "*"])),
         ]
     );
-    assert_eq!(ts_import_line(text, "h"), Some(6));
+    assert_eq!(ts_import_line1(text, "h"), Some(6));
 }
 
 #[test]

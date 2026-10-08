@@ -105,13 +105,13 @@ fn ts_continued(text: &str) -> std::borrow::Cow<'_, str> {
         false => text.into(),
     }
 }
-/// The 1-based line of the TypeScript import in `text` that binds `name`, as [`imports`] reads
+/// The line of the TypeScript import in `text` that binds `name`, as [`imports`] reads
 /// it: in an import wrapped over several lines, the line the name is written on.
-pub fn ts_import_line(text: &str, name: &str) -> Option<usize> {
-    ts_import_lines(text, name).first().copied()
+pub fn ts_import_line1(text: &str, name: &str) -> Option<usize> {
+    ts_import_lines1(text, name).first().copied()
 }
-/// Every line [`ts_import_line`] could name: each import of `text` that binds `name`.
-pub fn ts_import_lines(text: &str, name: &str) -> Vec<usize> {
+/// Every line [`ts_import_line1`] could name: each import of `text` that binds `name`.
+pub fn ts_import_lines1(text: &str, name: &str) -> Vec<usize> {
     let ident = |c: Option<char>| c.is_some_and(|c| c.is_alphanumeric() || c == '_' || c == '$');
     let text = ts_continued(text);
     let text = text.as_ref();
@@ -591,8 +591,7 @@ pub fn reexported(text: &str, name: &str) -> Vec<Reexport> {
         })
         .collect()
 }
-/// The 1-based line of the Go file `text` whose import binds `name`, as [`imports`] reads it.
-pub fn go_import_line(text: &str, name: &str) -> Option<usize> {
+pub fn go_import_line1(text: &str, name: &str) -> Option<usize> {
     let binds = |l: &str| imports(Kind::Go, l).iter().any(|i| i.name == name);
     text.lines().position(binds).map(|i| i + 1)
 }
