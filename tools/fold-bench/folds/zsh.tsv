@@ -1,0 +1,267 @@
+# NVIM v0.12.5, nvim-treesitter 910fdf6: 1596 folds in 265 files, 63 files left out for a syntax error
+# path (project/file)	each fold as line:last hidden line, 1-based
+ohmyzsh/lib/async_prompt.zsh	28:43 32:35 38:42 46:107 53:106 60:77 67:76 110:142 116:134 127:130
+ohmyzsh/lib/bzr.zsh	3:14 7:13 9:11
+ohmyzsh/lib/compfix.zsh	5:44 27:43
+ohmyzsh/lib/completion.zsh	17:25 20:24 34:38 61:75 62:69
+ohmyzsh/lib/correction.zsh	1:10
+ohmyzsh/lib/directories.zsh	27:33 28:32
+ohmyzsh/lib/history.zsh	2:26 7:25 29:35
+ohmyzsh/lib/key-bindings.zsh	7:16 8:10 11:13 22:26 28:32 41:45 54:58 61:65 67:71 74:78 85:97
+ohmyzsh/lib/misc.zsh	4:16 5:15 6:14 7:10 23:28 34:38
+ohmyzsh/lib/nvm.zsh	2:6
+ohmyzsh/lib/prompt_info_functions.zsh	13:27 31:37 44:46
+ohmyzsh/lib/spectrum.zsh	18:26 29:35 32:34 38:44 41:43
+ohmyzsh/lib/tests/cli.test.zsh	3:58 61:99 73:76 78:82 84:92 85:89
+ohmyzsh/lib/vcs_info.zsh	48:52
+ohmyzsh/plugins/1password/1password.plugin.zsh	6:10 13:16
+ohmyzsh/plugins/alias-finder/alias-finder.plugin.zsh	1:60 5:15 6:14 28:30 33:59 37:44 39:41 46:50 52:56 62:67 64:66
+ohmyzsh/plugins/ansible/ansible.plugin.zsh	2:4 6:15 7:14
+ohmyzsh/plugins/arcanist/arcanist.plugin.zsh	31:34 36:39
+ohmyzsh/plugins/arduino-cli/arduino-cli.plugin.zsh	1:3 7:11 15:18
+ohmyzsh/plugins/argocd/argocd.plugin.zsh	2:4 8:12 15:18
+ohmyzsh/plugins/asdf/asdf.plugin.zsh	10:14 16:19
+ohmyzsh/plugins/autoenv/autoenv.plugin.zsh	2:59 4:58 6:8 11:31 26:29 34:39 36:38 42:51 43:49 53:57 66:80 69:79 70:78 75:77
+ohmyzsh/plugins/autojump/autojump.plugin.zsh	22:28 23:27 31:37 33:36
+ohmyzsh/plugins/battery/battery.plugin.zsh	23:266 24:26 27:29 30:32 33:39 34:38 40:52 42:51 44:48 53:71 55:70 57:63 66:68 74:76 77:81 78:80 82:88 83:87 89:97 92:96 98:113 101:112 104:110 115:117 118:129 130:136 131:135 138:153 141:152 144:150 155:157 158:160 161:167 162:166 168:176 171:175 177:192 180:191 183:189 195:201 196:200 202:230 203:229 231:237 232:236 238:242 239:241 243:258 246:257 249:255 262:265 268:272 286:301 290:296
+ohmyzsh/plugins/bazel/bazel.plugin.zsh	7:9
+ohmyzsh/plugins/bbedit/bbedit.plugin.zsh	10:21 11:20 16:19
+ohmyzsh/plugins/bgnotify/bgnotify.plugin.zsh	13:16 18:34 45:60 55:59 62:78 63:77 81:110 84:109 112:116 113:115 118:124 119:123 126:142 130:141
+ohmyzsh/plugins/bower/bower.plugin.zsh	7:9 10:82 47:50 52:80
+ohmyzsh/plugins/branch/branch.plugin.zsh	5:35 8:34 10:14 17:30 18:22 24:26
+ohmyzsh/plugins/brew/brew.plugin.zsh	1:24 2:17 3:6 26:31 37:41 38:40 43:45 84:95
+ohmyzsh/plugins/buf/buf.plugin.zsh	2:4 7:11 15:18
+ohmyzsh/plugins/bun/bun.plugin.zsh	2:4 8:12 15:18
+ohmyzsh/plugins/bundler/bundler.plugin.zsh	61:70 63:68 64:66 72:83 73:76 78:82 85:95 92:94
+ohmyzsh/plugins/cabal/cabal.plugin.zsh	1:10 3:9 4:8 12:51 16:48 55:91 59:88
+ohmyzsh/plugins/cake/cake.plugin.zsh	7:9 11:20 13:15 22:31 23:30 24:29
+ohmyzsh/plugins/cakephp3/cakephp3.plugin.zsh	2:4 6:8 10:12 14:30 17:29 18:20 21:23 24:28 25:27
+ohmyzsh/plugins/capistrano/capistrano.plugin.zsh	4:11 5:10
+ohmyzsh/plugins/cask/cask.plugin.zsh	1:26 4:7 15:17 20:25 21:24
+ohmyzsh/plugins/catimg/catimg.plugin.zsh	11:19 12:18
+ohmyzsh/plugins/charm/charm.plugin.zsh	2:4 8:12 15:18
+ohmyzsh/plugins/chezmoi/chezmoi.plugin.zsh	2:4 8:12 15:18
+ohmyzsh/plugins/chruby/chruby.plugin.zsh	3:16 9:11 13:15 18:23 25:44 30:38 61:69 64:68 71:73 76:81 78:80 87:90
+ohmyzsh/plugins/chucknorris/chucknorris.plugin.zsh	1:24 10:12 16:20
+ohmyzsh/plugins/codex/codex.plugin.zsh	2:4 8:12 15:18
+ohmyzsh/plugins/coffee/coffee.plugin.zsh	4:6 8:10
+ohmyzsh/plugins/colemak/colemak.plugin.zsh	33:37
+ohmyzsh/plugins/colorize/colorize.plugin.zsh	8:30 12:21 13:20 23:29 32:69 33:35 40:43 46:53 47:51 57:68 58:67 60:64 73:114 74:76 78:100 102:113
+ohmyzsh/plugins/command-not-found/command-not-found.plugin.zsh	17:21 29:42 30:41 31:40 45:55 46:54 47:50 58:62 59:61 65:69 66:68 72:76 73:75 79:83 80:82
+ohmyzsh/plugins/common-aliases/common-aliases.plugin.zsh	56:84 58:61 66:69
+ohmyzsh/plugins/compleat/compleat.plugin.zsh	8:20 12:19 13:16
+ohmyzsh/plugins/composer/composer.plugin.zsh	3:31 4:27 9:26 55:61 68:71
+ohmyzsh/plugins/conda-env/conda-env.plugin.zsh	1:4
+ohmyzsh/plugins/copybuffer/copybuffer.plugin.zsh	4:10 5:9
+ohmyzsh/plugins/copyfile/copyfile.plugin.zsh	4:19 7:10 12:15
+ohmyzsh/plugins/copypath/copypath.plugin.zsh	3:15
+ohmyzsh/plugins/cp/cp.plugin.zsh	1:3
+ohmyzsh/plugins/dash/dash.plugin.zsh	5:84 8:10 24:80 27:74 31:33 35:37 40:70 43:69 44:68 46:67 48:51 53:57 59:62 64:66 77:79
+ohmyzsh/plugins/deno/deno.plugin.zsh	16:18 22:26 29:32
+ohmyzsh/plugins/dircycle/dircycle.plugin.zsh	13:31 15:19 24:30 33:41 37:39 44:52 48:50 55:63 59:61 66:74 70:72
+ohmyzsh/plugins/direnv/direnv.plugin.zsh	2:5 7:11 13:15 17:19
+ohmyzsh/plugins/dirhistory/dirhistory.plugin.zsh	22:28 24:27 30:36 32:35 40:48 42:44 45:47 50:58 52:54 55:57 63:70 66:69 72:76 79:98 85:89 92:97 102:110 106:109 114:119 121:126 131:169 138:145 147:149 157:164 166:168 176:178 181:183 187:191 193:197 202:234 209:213 215:217 225:229 231:233
+ohmyzsh/plugins/dirpersist/dirpersist.plugin.zsh	8:12 16:21
+ohmyzsh/plugins/dnf/dnf.plugin.zsh	20:28
+ohmyzsh/plugins/doctl/doctl.plugin.zsh	7:9 11:15 18:21
+ohmyzsh/plugins/dotnet/dotnet.plugin.zsh	5:9
+ohmyzsh/plugins/droplr/droplr.plugin.zsh	4:15 5:8 10:14
+ohmyzsh/plugins/emacs/emacs.plugin.zsh	40:48 52:62 56:59 66:70
+ohmyzsh/plugins/emoji-clock/emoji-clock.plugin.zsh	10:33 17:31
+ohmyzsh/plugins/emoji/emoji.plugin.zsh	14:48 54:71 57:61 66:70 77:108 80:84 88:99 89:93 95:97 101:107 102:106
+ohmyzsh/plugins/emotty/emotty.plugin.zsh	30:43 45:55 48:50 52:54
+ohmyzsh/plugins/encode64/encode64.plugin.zsh	1:7 2:6 9:16 10:15 18:24 19:23
+ohmyzsh/plugins/eza/eza.plugin.zsh	1:4 9:72 13:20 21:23 24:26 27:29 30:32 34:41 43:45 46:48 49:51 53:55 57:59 61:63 64:71 66:70 76:80
+ohmyzsh/plugins/fancy-ctrl-z/fancy-ctrl-z.plugin.zsh	1:9 2:8
+ohmyzsh/plugins/fasd/fasd.plugin.zsh	2:4 7:10
+ohmyzsh/plugins/fastfile/fastfile.plugin.zsh	23:36 46:48 58:60 70:72 80:88 81:87 98:102 107:114 108:113
+ohmyzsh/plugins/fbterm/fbterm.plugin.zsh	3:7 4:6
+ohmyzsh/plugins/firewalld/firewalld.plugin.zsh	6:17 11:13
+ohmyzsh/plugins/flutter/flutter.plugin.zsh	21:23 27:31 34:37
+ohmyzsh/plugins/fluxcd/fluxcd.plugin.zsh	2:4 8:12 15:18
+ohmyzsh/plugins/fnm/fnm.plugin.zsh	1:3 7:11 14:17 19:25 21:23
+ohmyzsh/plugins/foot/foot.plugin.zsh	1:6 3:5 8:10
+ohmyzsh/plugins/forklift/forklift.plugin.zsh	17:128 18:26 20:22 23:25 27:127
+ohmyzsh/plugins/fossil/fossil.plugin.zsh	15:34 24:26 36:53 39:52 45:49
+ohmyzsh/plugins/frontend-search/frontend-search.plugin.zsh	32:43 33:42 34:36 38:41 45:119 84:97 100:110
+ohmyzsh/plugins/fzf/fzf.plugin.zsh	1:12 14:73 19:46 30:35 31:34 37:45 38:44 41:43 48:50 53:57 60:62 65:67 70:72 76:120 77:80 87:107 89:92 98:101 110:112 115:117 122:149 134:136 139:141 144:146 151:170 157:159 161:163 165:167 172:194 174:176 184:186 189:191 196:218 198:200 208:210 213:215 220:244 229:231 234:236 239:241 247:252 248:251 266:274 267:273
+ohmyzsh/plugins/gcloud/gcloud.plugin.zsh	6:31 24:29 25:28 33:52 35:37 44:47
+ohmyzsh/plugins/gcx/gcx.plugin.zsh	2:4 8:12 15:18
+ohmyzsh/plugins/gem/gem.plugin.zsh	5:7 11:15 21:23
+ohmyzsh/plugins/gh/gh.plugin.zsh	2:4 8:12 15:18
+ohmyzsh/plugins/git-auto-fetch/git-auto-fetch.plugin.zsh	8:34 11:13 16:19 24:26 36:47 42:46 52:63 54:56 59:62
+ohmyzsh/plugins/git-commit/git-commit.plugin.zsh	2:4 24:58 27:30
+ohmyzsh/plugins/git-flow-avh/git-flow-avh.plugin.zsh	1:64 10:63 32:61 66:142 75:141 94:139 144:210 153:209 171:207 212:306 221:305 244:303 308:402 317:401 340:399 404:446 413:445 425:443 447:456 458:467 469:478 480:495 490:494 497:506 508:516 518:524 519:522
+ohmyzsh/plugins/git-hubflow/git-hubflow.plugin.zsh	8:58 17:57 34:55 60:115 69:114 88:112 117:174 126:173 146:171 176:263 185:262 208:260 265:274 276:285 287:302 297:301 304:313 315:323 325:331 326:329
+ohmyzsh/plugins/git-lfs/git-lfs.plugin.zsh	14:17
+ohmyzsh/plugins/git-prompt/git-prompt.plugin.zsh	9:11 13:19 14:18 21:26 22:25 35:57 52:56 59:94 61:93 63:65 66:68 70:72 73:75 76:78 79:81 82:84 85:87 88:90
+ohmyzsh/plugins/gitfast/gitfast.plugin.zsh	8:11
+ohmyzsh/plugins/github/github.plugin.zsh	5:7 17:24 30:50 56:65 74:78
+ohmyzsh/plugins/glab/glab.plugin.zsh	2:4 8:12 15:18
+ohmyzsh/plugins/globalias/globalias.plugin.zsh	1:11 6:9
+ohmyzsh/plugins/gnu-utils/gnu-utils.plugin.zsh	9:11 13:54 41:51 56:60 72:74
+ohmyzsh/plugins/golang/golang.plugin.zsh	6:9 41:47
+ohmyzsh/plugins/gpg-agent/gpg-agent.plugin.zsh	5:7 12:17 14:16
+ohmyzsh/plugins/gradle/gradle.plugin.zsh	4:22 8:14 9:12 17:21
+ohmyzsh/plugins/grails/grails.plugin.zsh	1:44 6:9 13:19 15:18 22:25 28:42 46:58 47:55 50:54
+ohmyzsh/plugins/grc/grc.plugin.zsh	13:18 14:17
+ohmyzsh/plugins/gulp/gulp.plugin.zsh	22:27
+ohmyzsh/plugins/hasura/hasura.plugin.zsh	1:3 7:17 13:16
+ohmyzsh/plugins/hcloud/hcloud.plugin.zsh	4:6 10:14 17:20
+ohmyzsh/plugins/helm/helm.plugin.zsh	1:3 7:17 13:16
+ohmyzsh/plugins/herdr/herdr.plugin.zsh	5:8 10:12 30:53 35:38 41:49 58:62 65:68
+ohmyzsh/plugins/hermes/hermes.plugin.zsh	1:3 5:9 12:15
+ohmyzsh/plugins/heroku-alias/heroku-alias.plugin.zsh	26:34 31:33
+ohmyzsh/plugins/heroku/heroku.plugin.zsh	1:5
+ohmyzsh/plugins/history-substring-search/history-substring-search.plugin.zsh	7:11 18:21 22:25
+ohmyzsh/plugins/hitchhiker/hitchhiker.plugin.zsh	12:26 14:16 19:23
+ohmyzsh/plugins/hitokoto/hitokoto.plugin.zsh	1:4 6:18
+ohmyzsh/plugins/homestead/homestead.plugin.zsh	2:4 6:8
+ohmyzsh/plugins/invoke/invoke.plugin.zsh	3:5
+ohmyzsh/plugins/istioctl/istioctl.plugin.zsh	1:4
+ohmyzsh/plugins/iterm2/iterm2.plugin.zsh	8:79 11:19 25:40 34:37 47:59 65:69 75:77
+ohmyzsh/plugins/iterm2/iterm2_shell_integration.zsh	15:178 16:177 20:26 21:25 28:30 38:42 39:41 44:52 46:48 55:58 61:63 66:68 108:127 118:124 129:145 131:138 134:137 142:144 148:153 159:167 160:166 163:165
+ohmyzsh/plugins/jake-node/jake-node.plugin.zsh	8:12 9:11
+ohmyzsh/plugins/jenv/jenv.plugin.zsh	4:9 5:8 11:15 12:14 17:34 21:24 26:28 30:33
+ohmyzsh/plugins/jira/jira.plugin.zsh	5:19 6:18 24:43 32:37 38:42 45:137 48:58 60:69 71:79 82:136 97:101 104:108 121:126 129:134 139:148 140:147 150:158 153:157 160:183 164:173 175:178
+ohmyzsh/plugins/jj/jj.plugin.zsh	2:4 8:12 15:18 20:27 23:25 30:32 34:38
+ohmyzsh/plugins/juju/juju.plugin.zsh	75:98 78:81 83:97 101:130 102:105 108:111 117:121 125:129 133:154 137:142 145:147 157:166 169:190 175:178 183:186 193:198
+ohmyzsh/plugins/k9s/k9s.plugin.zsh	1:3 6:10 15:18
+ohmyzsh/plugins/kamal/kamal.plugin.zsh	2:8 3:7 10:16 11:15
+ohmyzsh/plugins/kate/kate.plugin.zsh	6:9
+ohmyzsh/plugins/kind/kind.plugin.zsh	1:3 7:11 15:18
+ohmyzsh/plugins/kitty/kitty.plugin.zsh	5:16
+ohmyzsh/plugins/kn/kn.plugin.zsh	5:8
+ohmyzsh/plugins/knife_ssh/knife_ssh.plugin.zsh	1:4 6:16 7:15 8:11
+ohmyzsh/plugins/kompose/kompose.plugin.zsh	1:3
+ohmyzsh/plugins/kops/kops.plugin.zsh	1:3
+ohmyzsh/plugins/kube-ps1/kube-ps1.plugin.zsh	45:54 48:52 56:98 63:67 70:76 71:75 78:97 100:131 102:114 116:129 122:128 133:164 135:147 149:162 155:161 166:168 170:223 187:215 198:214 200:206 218:222 225:229 231:260 236:243 248:257 249:255 262:307 267:276 278:285 292:299 295:298 301:304 309:335 314:318 325:328 332:334 337:346 338:345 342:344 348:369 350:358 351:355 374:385 375:384 387:398 388:397 400:413 401:410 415:429 416:426 432:500 449:453 458:460 463:474 465:467 469:473 477:487 478:480 482:486 490:494
+ohmyzsh/plugins/kubectl/kubectl.plugin.zsh	1:3 7:11 14:17 113:115 196:209
+ohmyzsh/plugins/laravel4/laravel4.plugin.zsh	2:4 6:10 7:9
+ohmyzsh/plugins/laravel5/laravel5.plugin.zsh	8:10 12:16 13:15
+ohmyzsh/plugins/last-working-dir/last-working-dir.plugin.zsh	7:13 16:20 29:31
+ohmyzsh/plugins/lighthouse/lighthouse.plugin.zsh	1:10 2:5
+ohmyzsh/plugins/localstack/localstack.plugin.zsh	4:15 5:14 30:37 31:34
+ohmyzsh/plugins/lxd/lxd.plugin.zsh	1:3 5:7 9:24 16:23
+ohmyzsh/plugins/macos/macos.plugin.zsh	8:14 9:13 21:24 26:32 27:31 34:99 41:98 43:48 50:61 63:70 72:81 84:88 90:94 101:159 107:158 108:118 120:130 132:142 144:148 150:154 161:220 167:219 168:179 181:191 193:203 205:209 211:215 222:228 223:227 230:241 231:240 243:245 247:249 251:260 252:258 262:264 266:268 270:277 274:276 280:282 285:287 290:302 291:298 304:308
+ohmyzsh/plugins/magic-enter/magic-enter.plugin.zsh	6:21 9:11 14:20 28:40 31:34 36:39
+ohmyzsh/plugins/man/man.plugin.zsh	15:33 28:32
+ohmyzsh/plugins/marked2/marked2.plugin.zsh	5:7
+ohmyzsh/plugins/marktext/marktext.plugin.zsh	5:7
+ohmyzsh/plugins/mercurial/mercurial.plugin.zsh	24:26 28:30 33:43 35:41 36:39 45:47 49:61 51:53 55:58 63:74 65:67 69:71 76:91 78:80 82:86 93:118 95:97 101:109 102:104 106:108 112:115
+ohmyzsh/plugins/microk8s/microk8s.plugin.zsh	7:14 9:11 20:22 24:26 35:37 39:41 50:54 51:53 64:68 65:67
+ohmyzsh/plugins/minikube/minikube.plugin.zsh	1:3 7:11 14:17
+ohmyzsh/plugins/mise/mise.plugin.zsh	1:7 15:19 23:26
+ohmyzsh/plugins/mix-fast/mix-fast.plugin.zsh	1:8 2:4 10:12 14:16 18:27 19:26 20:23
+ohmyzsh/plugins/molecule/molecule.plugin.zsh	2:4 8:12 15:18
+ohmyzsh/plugins/mongo-atlas/mongo-atlas.plugin.zsh	2:4 8:12 15:18
+ohmyzsh/plugins/n98-magerun/n98-magerun.plugin.zsh	10:12 15:24 18:23
+ohmyzsh/plugins/nats/nats.plugin.zsh	1:15 4:8 11:14 17:31 20:24 27:30
+ohmyzsh/plugins/nestjs/nestjs.plugin.zsh	4:6
+ohmyzsh/plugins/ngrok/ngrok.plugin.zsh	2:4 8:12 15:18
+ohmyzsh/plugins/node/node.plugin.zsh	3:6
+ohmyzsh/plugins/nodenv/nodenv.plugin.zsh	6:29 13:19 14:18 21:28 22:27 23:26 31:41 33:35 38:40
+ohmyzsh/plugins/npm/npm.plugin.zsh	4:12 79:110 82:106 86:104
+ohmyzsh/plugins/nvm/nvm.plugin.zsh	6:17 7:16 13:15 19:21 23:37 26:35 27:34 39:72 40:43 47:65 52:64 55:59 74:99
+ohmyzsh/plugins/oc/oc.plugin.zsh	5:8
+ohmyzsh/plugins/octozen/octozen.plugin.zsh	4:7
+ohmyzsh/plugins/opentofu/opentofu.plugin.zsh	6:20 10:13 23:28
+ohmyzsh/plugins/operator-sdk/operator-sdk.plugin.zsh	1:4
+ohmyzsh/plugins/pass-cli/pass-cli.plugin.zsh	2:4 8:12 15:18
+ohmyzsh/plugins/paver/paver.plugin.zsh	1:5 7:14 8:13 9:11
+ohmyzsh/plugins/per-directory-history/per-directory-history.plugin.zsh	68:82 69:81 72:74 78:80 96:117 99:116 113:115 119:133 121:132 126:131 135:147 136:146 139:145 149:158 154:157 160:169 165:168
+ohmyzsh/plugins/per-directory-history/per-directory-history.zsh	68:82 69:81 72:74 78:80 96:117 99:116 113:115 119:133 121:132 126:131 135:147 136:146 139:145 149:158 154:157 160:169 165:168
+ohmyzsh/plugins/percol/percol.plugin.zsh	3:8 14:25 15:20
+ohmyzsh/plugins/perl/perl.plugin.zsh	31:41 48:50 54:56 59:65 61:63
+ohmyzsh/plugins/perms/perms.plugin.zsh	9:11 14:16 22:82 25:41 26:38 43:47 51:54 59:62 68:79 84:87
+ohmyzsh/plugins/phing/phing.plugin.zsh	1:5 2:4
+ohmyzsh/plugins/pip/pip.plugin.zsh	12:16 19:22 24:26 28:46 29:31 33:45 37:42 52:83 63:67 78:82 85:89 104:117 120:122 126:128 132:134
+ohmyzsh/plugins/pipenv/pipenv.plugin.zsh	1:3 16:20 27:51 29:34 40:44 47:50 53:86 55:81 57:68 58:67 63:66 71:80 72:79 74:78
+ohmyzsh/plugins/pj/pj.plugin.zsh	3:23 7:13 16:19 25:32
+ohmyzsh/plugins/please/please.plugin.zsh	1:3
+ohmyzsh/plugins/podman/podman.plugin.zsh	1:3 7:11 14:17
+ohmyzsh/plugins/poetry-env/poetry-env.plugin.zsh	1:38 5:7 10:22 12:14 16:21 25:37 28:30 32:36
+ohmyzsh/plugins/poetry/poetry.plugin.zsh	30:32 36:40 43:46
+ohmyzsh/plugins/postgres/postgres.plugin.zsh	3:5
+ohmyzsh/plugins/pre-commit/pre-commit.plugin.zsh	2:8
+ohmyzsh/plugins/procs/procs.plugin.zsh	1:3 7:11 14:25 19:23
+ohmyzsh/plugins/profiles/profiles.plugin.zsh	6:12 9:11
+ohmyzsh/plugins/pulumi/pulumi.plugin.zsh	1:3 7:11 14:17
+ohmyzsh/plugins/pyenv/pyenv.plugin.zsh	5:24 10:23 30:36 39:66 41:46 42:45 48:54 49:53 50:52 57:65 68:105 69:73 76:79 85:87 89:95 91:93 98:104 99:101
+ohmyzsh/plugins/python/python.plugin.zsh	9:14 19:41 26:40 60:88 61:71 63:69 65:68 76:79 81:84 92:99 101:122 103:119 106:108 110:118 112:117
+ohmyzsh/plugins/qodana/qodana.plugin.zsh	2:4 8:12 15:18
+ohmyzsh/plugins/qrcode/qrcode.plugin.zsh	3:5 7:11 13:17
+ohmyzsh/plugins/rails/rails.plugin.zsh	2:14 3:13 20:30 21:29 114:127 118:124 149:151
+ohmyzsh/plugins/rand-quote/rand-quote.plugin.zsh	1:4 6:23
+ohmyzsh/plugins/rbenv/rbenv.plugin.zsh	6:15 8:14 9:13 17:24 18:23 19:22 26:66 32:34 36:38 40:47 49:54 61:65
+ohmyzsh/plugins/rbw/rbw.plugin.zsh	1:3 7:11 14:17 21:54 22:25 27:30 32:35 56:60
+ohmyzsh/plugins/rclone/rclone.plugin.zsh	2:4 8:12 15:18
+ohmyzsh/plugins/ruff/ruff.plugin.zsh	2:4 16:20 24:27
+ohmyzsh/plugins/rust/rust.plugin.zsh	1:3 7:11 15:19 23:26 27:30
+ohmyzsh/plugins/rvm/rvm.plugin.zsh	33:38 42:44 47:56
+ohmyzsh/plugins/safe-paste/safe-paste.plugin.zsh	13:17 49:55 58:63 68:76 71:73 79:81 84:90 87:89 93:99 96:98
+ohmyzsh/plugins/scd/scd.plugin.zsh	7:11 15:17
+ohmyzsh/plugins/screen/screen.plugin.zsh	3:60 8:10 11:13 35:44 46:52 54:59
+ohmyzsh/plugins/scw/scw.plugin.zsh	1:3 5:12 8:10
+ohmyzsh/plugins/sdk/sdk.plugin.zsh	5:56 6:55 12:31 34:46 37:41 49:53
+ohmyzsh/plugins/sfffe/sfffe.plugin.zsh	9:12 14:16 18:20 22:24 26:28
+ohmyzsh/plugins/shell-proxy/shell-proxy.plugin.zsh	38:42
+ohmyzsh/plugins/shopify/shopify.plugin.zsh	4:6 11:21 13:19 14:17 27:52 31:49 32:35 38:41 43:46 55:99 66:72 68:71 75:77 79:96 81:84 91:94 103:115 105:112 107:110 118:152 122:151 155:162 157:160 165:175 167:170 171:174 178:201 179:185 187:197 190:194
+ohmyzsh/plugins/skaffold/skaffold.plugin.zsh	2:4 8:12 15:18
+ohmyzsh/plugins/sops/sops.plugin.zsh	2:4 8:12 15:18
+ohmyzsh/plugins/sprunge/sprunge.plugin.zsh	1:52 2:30 3:28 32:51 34:47 36:42
+ohmyzsh/plugins/ssh-agent/ssh-agent.plugin.zsh	5:10 14:42 16:18 21:26 28:31 44:109 50:52 56:62 58:61 65:70 66:69 73:81 77:80 84:86 99:106 100:105 112:131 114:128 115:119 134:136
+ohmyzsh/plugins/ssh/ssh.plugin.zsh	6:17 23:28 33:41 38:40 45:53 50:52
+ohmyzsh/plugins/starship/starship.plugin.zsh	1:8
+ohmyzsh/plugins/stripe/stripe.plugin.zsh	1:3 7:11 14:17
+ohmyzsh/plugins/sublime-merge/sublime-merge.plugin.zsh	3:56 5:54 16:25 17:24 33:40 34:39 46:53 47:52
+ohmyzsh/plugins/sublime/sublime.plugin.zsh	17:60 18:36 62:68 63:67 73:97 77:79 81:94 85:87 89:93 99:124 102:107 111:123
+ohmyzsh/plugins/svcat/svcat.plugin.zsh	4:6
+ohmyzsh/plugins/svn-fast-info/svn-fast-info.plugin.zsh	1:31 6:30 33:36 38:42 44:46 48:50 52:74 55:57 58:60 61:63 64:66 67:69 70:72
+ohmyzsh/plugins/svn/svn.plugin.zsh	1:22 5:9 24:26 28:33 35:55 57:59 61:63 65:75 68:74 77:79 81:89 82:88
+ohmyzsh/plugins/symfony/symfony.plugin.zsh	3:5 7:11 8:10
+ohmyzsh/plugins/systemd/systemd.plugin.zsh	70:73 75:78 80:82 104:125 106:124 109:113 115:121
+ohmyzsh/plugins/tailscale/tailscale.plugin.zsh	1:3 7:16 11:15 21:23 26:29
+ohmyzsh/plugins/task/task.plugin.zsh	2:4 7:11 15:18
+ohmyzsh/plugins/textastic/textastic.plugin.zsh	6:17 7:16 12:15
+ohmyzsh/plugins/textmate/textmate.plugin.zsh	5:14 6:13
+ohmyzsh/plugins/thefuck/thefuck.plugin.zsh	1:5 11:16
+ohmyzsh/plugins/timer/timer.plugin.zsh	3:6 8:14 16:18 20:34 21:33 25:32 27:31
+ohmyzsh/plugins/timoni/timoni.plugin.zsh	2:4 8:12 15:18
+ohmyzsh/plugins/tldr/tldr.plugin.zsh	1:14
+ohmyzsh/plugins/tmux/tmux.plugin.zsh	1:4 29:33 37:41 43:49 54:76 91:95 103:108 111:162 112:115 126:135 138:142 145:157 146:150 152:156 159:161 165:171 178:195 200:206 202:205 209:212
+ohmyzsh/plugins/toolbox/toolbox.plugin.zsh	1:3 5:13
+ohmyzsh/plugins/torrent/torrent.plugin.zsh	5:17 10:14
+ohmyzsh/plugins/transfer/transfer.plugin.zsh	7:97 9:25 10:23 27:30 42:48 44:47 50:88 52:56 60:63 65:87 74:78 82:86
+ohmyzsh/plugins/tt/tt.plugin.zsh	6:21 7:20 9:14
+ohmyzsh/plugins/ubuntu/ubuntu.plugin.zsh	2:8 15:19 67:80 68:72 74:76 90:116 91:115 119:130 133:138
+ohmyzsh/plugins/universalarchive/universalarchive.plugin.zsh	1:80 12:15 22:25 29:35 38:40 46:49 51:79 53:62
+ohmyzsh/plugins/urltools/urltools.plugin.zsh	7:9 11:40 30:39
+ohmyzsh/plugins/uv-env/uv-env.plugin.zsh	1:23 3:5 7:11 13:22 17:21
+ohmyzsh/plugins/uv/uv.plugin.zsh	2:4 32:36 38:42 47:50 51:54
+ohmyzsh/plugins/vagrant-prompt/vagrant-prompt.plugin.zsh	1:18 2:4 9:16 10:15
+ohmyzsh/plugins/vault/vault.plugin.zsh	2:4
+ohmyzsh/plugins/vi-mode/vi-mode.plugin.zsh	28:44 33:42 46:50 53:64 56:59 67:76 71:74 81:87 90:94 121:148 129:147 131:145 150:162 167:169 172:174
+ohmyzsh/plugins/vim-interaction/vim-interaction.plugin.zsh	7:61 8:19 9:17 28:30 35:45 37:44
+ohmyzsh/plugins/virtualenv/virtualenv.plugin.zsh	1:4
+ohmyzsh/plugins/volta/volta.plugin.zsh	2:4 8:12 15:18
+ohmyzsh/plugins/vscode/vscode.plugin.zsh	9:12 15:27 16:26 29:35 30:34
+ohmyzsh/plugins/vundle/vundle.plugin.zsh	1:12 2:5 7:11 14:17 19:22 24:27
+ohmyzsh/plugins/wakeonlan/wakeonlan.plugin.zsh	1:14 3:6 8:11
+ohmyzsh/plugins/web-search/web-search.plugin.zsh	3:72 50:53 56:69 121:128 124:126
+ohmyzsh/plugins/wp-cli/wp-cli.plugin.zsh	107:122 113:121
+ohmyzsh/plugins/yarn/yarn.plugin.zsh	1:11 41:64
+ohmyzsh/plugins/yii/yii.plugin.zsh	3:5 7:11 8:10
+ohmyzsh/plugins/yii2/yii2.plugin.zsh	3:5 7:27 8:26 13:25 19:21
+ohmyzsh/plugins/zbell/zbell.plugin.zsh	44:50 47:49 55:58 61:64 68:92 82:89 85:88
+ohmyzsh/plugins/zoxide/zoxide.plugin.zsh	1:5
+ohmyzsh/plugins/zsh-autosuggestions/src/async.zsh	6:43 12:32 18:31 21:30 60:77 65:72
+ohmyzsh/plugins/zsh-autosuggestions/src/fetch.zsh	9:27 17:26
+ohmyzsh/plugins/zsh-autosuggestions/src/strategies/completion.zsh	8:14 16:43 31:39 47:70 53:62 54:61 72:76 78:94 87:90 96:137 116:121
+ohmyzsh/plugins/zsh-autosuggestions/src/strategies/history.zsh	9:32 25:27
+ohmyzsh/plugins/zsh-autosuggestions/src/strategies/match_prev_cmd.zsh	23:66 36:38 52:62 58:61
+ohmyzsh/plugins/zsh-autosuggestions/src/util.zsh	6:11
+ohmyzsh/plugins/zsh-navigation-tools/zsh-navigation-tools.plugin.zsh	24:27 33:35 37:39 49:60 54:58 55:57
+ohmyzsh/plugins/zsh-syntax-highlighting/highlighters/cursor/cursor-highlighter.zsh	35:39 42:47
+ohmyzsh/plugins/zsh-syntax-highlighting/highlighters/line/line-highlighter.zsh	35:38 41:44
+ohmyzsh/plugins/zsh-syntax-highlighting/highlighters/regexp/regexp-highlighter.zsh	35:38 41:48 45:47 50:62 56:61

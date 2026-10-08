@@ -1,0 +1,250 @@
+# NVIM v0.12.5, nvim-treesitter 910fdf6: 926 folds in 248 files, 98 files left out for a syntax error
+# path (project/file)	each fold as line:last hidden line, 1-based
+rbs/core/binding.rbs	32:148
+rbs/core/comparable.rbs	58:172 176:184 188:192
+rbs/core/complex.rbs	141:805
+rbs/core/enumerator/arithmetic_sequence.rbs	9:70
+rbs/core/errno.rbs	50:682 51:53 55:57 59:61 63:65 67:69 71:73 75:77 79:81 83:85 87:89 91:93 95:97 99:101 103:105 107:109 111:113 115:117 119:121 123:125 127:129 131:133 135:137 139:141 143:145 147:149 151:153 155:157 159:161 163:165 167:169 171:173 175:177 179:181 183:185 187:189 191:193 195:197 199:201 203:205 207:209 211:213 215:217 219:221 223:225 227:229 231:233 235:237 239:241 243:245 247:249 251:253 255:257 259:261 263:265 267:269 271:273 275:277 279:281 283:285 287:289 291:293 295:297 299:301 303:305 307:309 311:313 315:317 319:321 323:325 327:329 331:333 335:337 339:341 343:345 347:349 351:353 355:357 359:361 363:365 367:369 371:373 375:377 379:381 383:385 387:389 391:393 395:397 399:401 403:405 407:409 411:413 415:417 419:421 423:425 427:429 431:433 435:437 439:441 443:445 447:449 451:453 455:457 459:461 463:465 467:469 471:473 475:477 479:481 483:485 487:489 491:493 495:497 499:501 503:505 507:509 511:513 515:517 519:521 523:525 527:529 531:533 535:537 539:541 543:545 547:549 551:553 555:557 559:561 563:565 567:569 571:573 575:577 579:581 583:585 587:589 591:593 595:597 599:601 603:605 607:609 611:613 615:617 619:621 623:625 627:629 631:633 635:637 639:641 643:645 647:649 651:653 655:657 659:661 663:665 667:669 671:673 675:677 679:681
+rbs/core/exception.rbs	56:485
+rbs/core/false_class.rbs	6:82
+rbs/core/fiber.rbs	78:570
+rbs/core/fiber_error.rbs	10:11
+rbs/core/file_constants.rbs	310:463
+rbs/core/file_test.rbs	6:331
+rbs/core/float.rbs	128:1075
+rbs/core/integer.rbs	95:1374
+rbs/core/io/wait.rbs	2:48
+rbs/core/match_data.rbs	48:637
+rbs/core/method.rbs	25:422
+rbs/core/nil_class.rbs	32:210
+rbs/core/numeric.rbs	158:832
+rbs/core/object.rbs	106:108
+rbs/core/object_space/weak_key_map.rbs	2:166 60:165
+rbs/core/proc.rbs	359:905 360:362
+rbs/core/process.rbs	408:1515 1731:1842 1859:2035 2043:2184 2191:2300 2305:2306 2308:2310
+rbs/core/range.rbs	238:1209
+rbs/core/rbs/unnamed/main_class.rbs	1:123 2:122 3:121
+rbs/core/refinement.rbs	6:59
+rbs/core/ruby.rbs	7:53
+rbs/core/rubygems/basic_specification.rbs	5:6
+rbs/core/rubygems/config_file.rbs	37:38
+rbs/core/rubygems/dependency_installer.rbs	4:6
+rbs/core/rubygems/errors.rbs	96:112 102:103 110:111
+rbs/core/rubygems/installer.rbs	14:15
+rbs/core/rubygems/path_support.rbs	5:6
+rbs/core/rubygems/platform.rbs	6:7
+rbs/core/rubygems/request_set.rbs	14:15 48:49
+rbs/core/rubygems/requirement.rbs	2:138 10:137 16:17
+rbs/core/rubygems/rubygems.rbs	96:1108 97:99
+rbs/core/rubygems/source_list.rbs	14:15
+rbs/core/rubygems/specification.rbs	30:31
+rbs/core/rubygems/stream_ui.rbs	4:5
+rbs/core/rubygems/uninstaller.rbs	9:10
+rbs/core/rubygems/version.rbs	2:133 3:132
+rbs/core/signal.rbs	38:110 107:109
+rbs/core/struct.rbs	107:668
+rbs/core/thread_group.rbs	11:79
+rbs/core/time.rbs	446:1789 453:459 462:465
+rbs/core/true_class.rbs	15:98
+rbs/core/unbound_method.rbs	48:337
+rbs/core/warning.rbs	32:87
+rbs/sig/ancestor_graph.rbs	1:60 20:59 21:24 26:29
+rbs/sig/annotate/annotations.rbs	1:102 2:101 3:100 27:39 50:64 73:99
+rbs/sig/annotate/formatter.rbs	1:24 2:23 3:22
+rbs/sig/annotate/rdoc_annotater.rbs	1:85 2:84 3:83 16:18 20:22 66:68 76:80
+rbs/sig/annotate/rdoc_source.rbs	1:32 2:31 3:30
+rbs/sig/annotation.rbs	1:27 2:26 12:25
+rbs/sig/ast/ruby/comment_block.rbs	3:127 4:126 5:125 28:124 97:103
+rbs/sig/ast/ruby/declarations.rbs	1:158 2:157 3:156 4:155 7:16 18:63 19:39 65:88 90:120 122:154
+rbs/sig/ast/ruby/helpers/constant_helper.rbs	1:11 2:10 3:9 4:8 5:7
+rbs/sig/ast/ruby/helpers/location_helper.rbs	1:15 2:14 3:13 4:12 5:11 6:8
+rbs/sig/ast/ruby/members.rbs	1:198 2:197 3:196 4:195 5:13 21:80 22:50 82:108 110:126 128:129 131:132 134:135 137:157 159:160 162:163 165:166 168:180 182:194
+rbs/sig/builtin_names.rbs	1:44 2:43 3:21
+rbs/sig/cli.rbs	1:95 2:94 3:16 18:26
+rbs/sig/cli/colored_io.rbs	1:15 2:14 3:13
+rbs/sig/cli/diff.rbs	1:15 2:14 3:13
+rbs/sig/cli/validate.rbs	1:47 2:46 3:45 4:26
+rbs/sig/collection.rbs	1:4 2:3
+rbs/sig/collection/cleaner.rbs	1:13 2:12 3:11
+rbs/sig/collection/installer.rbs	1:17 2:16 3:15
+rbs/sig/comment.rbs	1:26 2:25 11:24
+rbs/sig/constant.rbs	1:21 2:20
+rbs/sig/declarations.rbs	1:274 2:273 3:272 6:7 9:11 13:19 21:28 30:84 31:49 86:140 87:104 142:173 175:195 197:215 217:235 237:263 265:267 269:271
+rbs/sig/definition.rbs	1:232 2:231 5:24 26:153 30:80 155:177 158:170 172:176 179:187 189:194
+rbs/sig/diff.rbs	1:28 2:27
+rbs/sig/directives.rbs	1:77 2:76 3:75 6:7 13:58 16:33 35:47 60:74
+rbs/sig/environment/class_entry.rbs	1:58 2:57 10:56
+rbs/sig/environment/module_entry.rbs	1:67 2:66 11:65
+rbs/sig/environment_loader.rbs	1:111 26:110 27:31 33:38
+rbs/sig/factory.rbs	1:5 2:4
+rbs/sig/file_finder.rbs	1:28 2:27
+rbs/sig/locator.rbs	1:56 4:55
+rbs/sig/members.rbs	1:258 2:257 3:256 12:13 17:78 18:36 80:100 102:105 107:110 112:115 117:138 140:143 145:148 150:153 155:188 190:193 195:198 200:203 205:211 213:216 218:221 223:255
+rbs/sig/method_types.rbs	1:58 2:57
+rbs/sig/parser.rbs	1:164 2:163 4:9 12:19 161:162
+rbs/sig/prototype/helpers.rbs	1:29 2:28 3:27
+rbs/sig/prototype/node_usage.rbs	1:20 2:19 3:18
+rbs/sig/rbs.rbs	1:21
+rbs/sig/rdoc/rbs.rbs	1:6 2:5 3:4 8:67 9:66 10:65 47:49
+rbs/sig/resolver/constant_resolver.rbs	1:92 2:91 3:90 22:41
+rbs/sig/resolver/context.rbs	1:34 2:33
+rbs/sig/resolver/type_name_resolver.rbs	1:61 2:60 8:59
+rbs/sig/rewriter.rbs	1:45 9:44
+rbs/sig/shims/bundler.rbs	1:41 2:3 5:9 11:17 19:23 25:31 37:40 38:39
+rbs/sig/shims/rubygems.rbs	1:19 2:10 12:14 16:18
+rbs/sig/sorter.rbs	1:42 2:41
+rbs/sig/source.rbs	1:48 2:47 5:22 24:46
+rbs/sig/substitution.rbs	1:48 11:47
+rbs/sig/subtractor.rbs	1:37 2:36
+rbs/sig/test.rbs	1:82 2:81 36:62 64:74
+rbs/sig/test/errors.rbs	1:68 2:67 3:66 8:9 12:13 16:17 20:21 24:25 28:29 32:33 36:37 40:41
+rbs/sig/test/guranteed.rbs	1:9 2:8 3:7 4:6
+rbs/sig/test/type_check.rbs	1:135 2:134 3:133 17:40 44:65 69:73 75:81
+rbs/sig/type_alias_regularity.rbs	1:98 34:97 59:65
+rbs/sig/types.rbs	1:588 2:587 5:58 65:67 69:71 73:81 83:85 87:137 88:105 107:108 110:111 113:117 119:120 122:123 125:126 128:129 131:133 135:136 139:170 172:192 194:216 218:236 244:264 266:285 287:300 302:327 329:342 344:357 359:372 374:471 375:386 388:392 475:520 524:542 544:546 548:564 566:586
+rbs/sig/unit_test/convertibles.rbs	1:154 2:153 3:152 8:12 15:21 24:30 33:39 42:48 51:57 60:66 69:75 78:84 87:93 96:102 105:111 114:120 123:129 132:142 145:151
+rbs/sig/unit_test/spy.rbs	1:22 2:21 3:20 7:19
+rbs/sig/unit_test/type_assertions.rbs	1:212 2:211 29:210 32:46 48:83
+rbs/sig/unit_test/with_aliases.rbs	1:136 2:135 17:134 20:64
+rbs/sig/use_map.rbs	1:35 2:34 9:33 10:18
+rbs/sig/util.rbs	1:9 2:8
+rbs/sig/validator.rbs	1:63 2:62
+rbs/sig/variance_calculator.rbs	1:87 19:86 45:63
+rbs/sig/version.rbs	1:3
+rbs/sig/visitor.rbs	1:47 2:46 3:45
+rbs/sig/wasm/deserializer.rbs	1:66 2:65 5:64
+rbs/sig/wasm/serialization_schema.rbs	1:13 2:12 4:11
+rbs/stdlib/abbrev/0/abbrev.rbs	37:66
+rbs/stdlib/abbrev/0/array.rbs	2:26
+rbs/stdlib/base64/0/base64.rbs	182:355
+rbs/stdlib/bigdecimal-math/0/big_math.rbs	13:280
+rbs/stdlib/cgi-escape/0/escape.rbs	14:171 22:170
+rbs/stdlib/cgi/0/core.rbs	14:911 475:648 653:654 674:863 865:910
+rbs/stdlib/coverage/0/coverage.rbs	147:266
+rbs/stdlib/date/0/date.rbs	71:1530
+rbs/stdlib/date/0/date_time.rbs	133:610
+rbs/stdlib/date/0/time.rbs	2:26
+rbs/stdlib/delegate/0/kernel.rbs	2:47
+rbs/stdlib/delegate/0/simple_delegator.rbs	69:96
+rbs/stdlib/did_you_mean/0/did_you_mean.rbs	73:329 78:81 79:80 83:92 99:125 127:138 140:147 149:163 165:167 169:199 201:215 217:231 233:257 259:273 279:293 295:328 332:334 337:339 342:344
+rbs/stdlib/erb/0/erb.rbs	581:933 813:875 908:917 925:932
+rbs/stdlib/etc/0/etc.rbs	28:884 684:738 791:883
+rbs/stdlib/find/0/find.rbs	23:53
+rbs/stdlib/forwardable/0/forwardable.rbs	97:194 223:280
+rbs/stdlib/ipaddr/0/ipaddr.rbs	23:374 380:381 386:387 394:395 400:401
+rbs/stdlib/kconv/0/kconv.rbs	4:166
+rbs/stdlib/logger/0/formatter.rbs	2:43 6:38 40:42
+rbs/stdlib/logger/0/log_device.rbs	2:100 6:99
+rbs/stdlib/logger/0/period.rbs	1:17
+rbs/stdlib/logger/0/severity.rbs	4:34
+rbs/stdlib/minitest/0/kernel.rbs	2:42
+rbs/stdlib/minitest/0/minitest/abstract_reporter.rbs	5:52
+rbs/stdlib/minitest/0/minitest/assertion.rbs	4:17
+rbs/stdlib/minitest/0/minitest/assertions.rbs	10:590
+rbs/stdlib/minitest/0/minitest/backtrace_filter.rbs	6:23
+rbs/stdlib/minitest/0/minitest/bench_spec.rbs	4:102
+rbs/stdlib/minitest/0/minitest/benchmark.rbs	7:259
+rbs/stdlib/minitest/0/minitest/composite_reporter.rbs	4:25
+rbs/stdlib/minitest/0/minitest/compress.rbs	4:13
+rbs/stdlib/minitest/0/minitest/error_on_warning.rbs	1:3
+rbs/stdlib/minitest/0/minitest/expectation.rbs	1:2
+rbs/stdlib/minitest/0/minitest/expectations.rbs	20:21
+rbs/stdlib/minitest/0/minitest/guard.rbs	16:64
+rbs/stdlib/minitest/0/minitest/mock.rbs	6:64
+rbs/stdlib/minitest/0/minitest/parallel.rbs	1:2
+rbs/stdlib/minitest/0/minitest/parallel/executor.rbs	4:46
+rbs/stdlib/minitest/0/minitest/parallel/test.rbs	1:3
+rbs/stdlib/minitest/0/minitest/parallel/test/class_methods.rbs	1:5
+rbs/stdlib/minitest/0/minitest/pride_lol.rbs	6:19
+rbs/stdlib/minitest/0/minitest/progress_reporter.rbs	8:11
+rbs/stdlib/minitest/0/minitest/reportable.rbs	5:53
+rbs/stdlib/minitest/0/minitest/reporter.rbs	1:5
+rbs/stdlib/minitest/0/minitest/result.rbs	7:28
+rbs/stdlib/minitest/0/minitest/skip.rbs	4:6
+rbs/stdlib/minitest/0/minitest/spec.rbs	6:11
+rbs/stdlib/minitest/0/minitest/spec/dsl/instance_methods.rbs	4:48
+rbs/stdlib/minitest/0/minitest/statistics_reporter.rbs	21:81
+rbs/stdlib/minitest/0/minitest/summary_reporter.rbs	9:18
+rbs/stdlib/minitest/0/minitest/test/lifecycle_hooks.rbs	6:92
+rbs/stdlib/minitest/0/minitest/unexpected_error.rbs	4:12
+rbs/stdlib/minitest/0/minitest/unexpected_warning.rbs	4:6
+rbs/stdlib/minitest/0/minitest/unit.rbs	1:4
+rbs/stdlib/minitest/0/minitest/unit/test_case.rbs	1:3
+rbs/stdlib/monitor/0/monitor.rbs	12:115 195:302 310:363
+rbs/stdlib/mutex_m/0/mutex_m.rbs	30:102
+rbs/stdlib/net-protocol/0/net-protocol.rbs	1:63 2:4 6:7 9:10 12:13 15:16 18:19 21:22 24:25 27:28 34:35 37:38 40:41 47:48 54:55 61:62
+rbs/stdlib/net-smtp/0/net-smtp.rbs	1:55 3:9 12:14 17:19 22:24 27:29 32:34 37:39 41:49 51:52
+rbs/stdlib/nkf/0/nkf.rbs	345:365
+rbs/stdlib/objspace/0/objspace.rbs	12:470
+rbs/stdlib/observable/0/observable.rbs	131:217
+rbs/stdlib/open3/0/open3.rbs	50:606
+rbs/stdlib/pathname/0/pathname.rbs	2:56
+rbs/stdlib/pp/0/pp.rbs	55:286 61:67 69:71 73:79 84:215 218:220 222:230 289:296 299:301 304:314
+rbs/stdlib/psych/0/core_ext.rbs	2:12
+rbs/stdlib/psych/0/dbm.rbs	2:237 16:236
+rbs/stdlib/psych/0/psych.rbs	203:455 431:432 434:448 450:451 453:454
+rbs/stdlib/psych/0/store.rbs	33:57
+rbs/stdlib/pty/0/pty.rbs	57:240 246:254
+rbs/stdlib/random-formatter/0/random-formatter.rbs	1:277 2:276 3:275 280:285
+rbs/stdlib/rdoc/0/code_object.rbs	2:52 30:51
+rbs/stdlib/rdoc/0/comment.rbs	2:61 12:60
+rbs/stdlib/rdoc/0/markup.rbs	2:117 102:116 103:112 114:115
+rbs/stdlib/rdoc/0/options.rbs	2:76 73:75
+rbs/stdlib/rdoc/0/parser.rbs	2:56 32:55
+rbs/stdlib/rdoc/0/ri.rbs	2:17 8:16 9:15
+rbs/stdlib/rdoc/0/store.rbs	2:48 22:47
+rbs/stdlib/resolv/0/resolv.rbs	28:138 160:376 392:414 421:422 427:428 430:431 433:434 436:438 440:458 460:528 530:556 558:580 582:656 658:659 671:675 677:678 716:726 728:740 742:746 748:752 757:758 760:764 766:776 778:782 784:796 798:806 808:825 833:834 838:839 843:862 864:885 887:911 915:916 920:939 945:964 970:971 977:978 984:985 991:992 998:999 1005:1006 1012:1013 1019:1020 1026:1027 1033:1087 1093:1094 1100:1132 1138:1192 1196:1219 1223:1247 1251:1252 1256:1257 1261:1314 1318:1344 1351:1411 1421:1462 1477:1518 1555:1556 1561:1600 1610:1656 1666:1705 1721:1755 1780:1781 1786:1787
+rbs/stdlib/ripper/0/ripper.rbs	74:1654 139:212 214:458 215:255 257:324 460:848 850:910 912:956 915:916 918:919 921:933 935:936 958:960
+rbs/stdlib/securerandom/0/securerandom.rbs	37:49
+rbs/stdlib/shellwords/0/shellwords.rbs	66:195 198:209 212:233
+rbs/stdlib/singleton/0/singleton.rbs	92:117 100:106 109:111 113:115
+rbs/stdlib/socket/0/addrinfo.rbs	5:666
+rbs/stdlib/socket/0/basic_socket.rbs	4:590
+rbs/stdlib/socket/0/constants.rbs	9:2295
+rbs/stdlib/socket/0/ip_socket.rbs	4:94
+rbs/stdlib/socket/0/socket_error.rbs	4:5
+rbs/stdlib/socket/0/tcp_server.rbs	29:192
+rbs/stdlib/socket/0/tcp_socket.rbs	16:87
+rbs/stdlib/socket/0/udp_socket.rbs	4:133
+rbs/stdlib/socket/0/unix_server.rbs	4:169
+rbs/stdlib/socket/0/unix_socket.rbs	4:168
+rbs/stdlib/stringio/0/stringio.rbs	511:1700
+rbs/stdlib/strscan/0/string_scanner.rbs	426:1644 1653:1654
+rbs/stdlib/time/0/time.rbs	2:436 5:11
+rbs/stdlib/timeout/0/timeout.rbs	24:114 119:120 125:129
+rbs/stdlib/tmpdir/0/tmpdir.rbs	2:69
+rbs/stdlib/tsort/0/cyclic.rbs	2:8 6:7
+rbs/stdlib/tsort/0/interfaces.rbs	2:20 3:11 13:15 17:19
+rbs/stdlib/tsort/0/tsort.rbs	116:414
+rbs/stdlib/uri/0/common.rbs	4:5 10:11 16:17 22:23 115:565 118:120 633:654
+rbs/stdlib/uri/0/file.rbs	2:118 6:117
+rbs/stdlib/uri/0/ftp.rbs	2:141 11:140
+rbs/stdlib/uri/0/http.rbs	2:104 11:103
+rbs/stdlib/uri/0/https.rbs	2:14 8:13
+rbs/stdlib/uri/0/ldap.rbs	2:236 6:235
+rbs/stdlib/uri/0/ldaps.rbs	2:14 8:13
+rbs/stdlib/uri/0/mailto.rbs	2:120 6:119
+rbs/stdlib/uri/0/rfc2396_parser.rbs	2:230 6:46 10:45 53:229
+rbs/stdlib/uri/0/rfc3986_parser.rbs	1:36
+rbs/stdlib/uri/0/ws.rbs	2:68 11:67
+rbs/stdlib/uri/0/wss.rbs	2:13 7:12
+rbs/stdlib/zlib/0/buf_error.rbs	2:10 8:9
+rbs/stdlib/zlib/0/data_error.rbs	2:10 8:9
+rbs/stdlib/zlib/0/deflate.rbs	2:211 7:210
+rbs/stdlib/zlib/0/error.rbs	2:20 18:19
+rbs/stdlib/zlib/0/gzip_file.rbs	2:156 37:155
+rbs/stdlib/zlib/0/gzip_reader.rbs	2:293 51:292
+rbs/stdlib/zlib/0/gzip_writer.rbs	2:169 32:168
+rbs/stdlib/zlib/0/in_progress_error.rbs	2:16 14:15
+rbs/stdlib/zlib/0/inflate.rbs	2:180 8:179
+rbs/stdlib/zlib/0/mem_error.rbs	2:10 8:9
+rbs/stdlib/zlib/0/need_dict.rbs	2:13 11:12
+rbs/stdlib/zlib/0/stream_end.rbs	2:11 9:10
+rbs/stdlib/zlib/0/stream_error.rbs	2:11 9:10
+rbs/stdlib/zlib/0/version_error.rbs	2:11 9:10
+rbs/stdlib/zlib/0/zlib.rbs	69:234
+rbs/stdlib/zlib/0/zstream.rbs	2:200 59:199
+rbs/test/assets/test-gem/sig/amber.rbs	1:3
+rbs/test/typecheck/eval/test.rbs	1:7 9:11
+rbs/test/typecheck/hash_pair/test.rbs	1:5 7:14 16:18
+rbs/test/typecheck/symbol_match/a.rbs	2:4
