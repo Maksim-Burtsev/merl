@@ -150,6 +150,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Selected text takes the colour its theme's Neovim original gives it: srcery and lackluster
   painted it in the selection's own colour, so it could not be read; solarized, material,
   hojicha, neomodern-light, miasma and papercolor change their selected text too. (#686)
+- `f` in Swift no longer folds the parameters of a function named in backticks, ``func
+  `default`(``; in PHP a `#` comment right after a word, `$y# note }`, no longer ends the block
+  at its `}`, and an anonymous class, `new readonly class extends Base {`, no longer folds as a
+  declared one. (#625)
+- `f` no longer crashes merl in a C or C++ file whose last word is `do`, `try` or `else`, as a
+  file left half-written ends. (#756)
 
 ## [0.8.2] - 2026-10-04
 

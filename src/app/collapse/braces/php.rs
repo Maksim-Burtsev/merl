@@ -141,7 +141,8 @@ impl Model<'_, '_> {
                     self.add(self.toks[start].line, end.map(|e| self.end_of(e)), true);
                 }
                 "class" | "interface" | "trait" | "enum"
-                    if self.word_next(k) && !matches!(self.before(k), "new" | "::") =>
+                    if self.word_next(k)
+                        && !matches!(self.before(self.php_decl_start(k)), "new" | "::") =>
                 {
                     let start = self.php_decl_start(k);
                     let body = (k..n).find(|&j| self.punct(j, "{"));
