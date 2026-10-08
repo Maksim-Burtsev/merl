@@ -18,8 +18,7 @@ pub const TAB: &str = "    ";
 const CHECKPOINT: usize = 64;
 /// The UTF-8 byte order mark: kept apart from the text, so no edit can move it off the front.
 const BOM: &[u8] = b"\xEF\xBB\xBF";
-/// How far in we look for a NUL before calling a file binary.
-const SNIFF: usize = 8 * 1024;
+const NUL_SNIFF_BYTES: usize = 8 * 1024;
 const BINARY: &str = "binary file";
 /// ponytail: syntect is sequential, so a huge file would have to be parsed from line 1 before
 /// anything can be drawn. Past these limits merl shows plain text instead of stalling.
@@ -51,17 +50,13 @@ pub struct Buffer {
     trailing_newline: bool,
     /// Indentation uses tabs: what Tab inserts, as VS Code's `detectIndentation`.
     pub tabs: bool,
-    /// [`hash`] of the bytes last read from or written to `path`: tells merl's own saves and
-    /// no-op events apart from a change made by someone else.
-    pub disk: u64,
+    pub disk_hash: u64,
     /// Highlighted prefix: one entry per already-highlighted line, spans in byte ranges.
     pub hl: Vec<Spans>,
     /// `None` when this buffer is not highlighted at all (binary, or too large).
     syntax: Option<&'static SyntaxReference>,
-    /// syntect's carry-over state at the end of `hl`.
-    state: Option<(ParseState, HighlightState)>,
-    /// `checkpoints[i]` is the state before line `i * CHECKPOINT`.
-    checkpoints: Vec<(ParseState, HighlightState)>,
+    state_after_hl: Option<(ParseState, HighlightState)>,
+    state_before_every_checkpoint: Vec<(ParseState, HighlightState)>,
 }
 
 /// What a file is besides its lines: how they go back to disk, what Tab inserts, whether they
@@ -99,7 +94,7 @@ impl Buffer {
     }
 
     pub fn from_bytes(path: PathBuf, bytes: &[u8]) -> Self {
-        if bytes[..bytes.len().min(SNIFF)].contains(&0) {
+        if bytes[..bytes.len().min(NUL_SNIFF_BYTES)].contains(&0) {
             let mut b = Self::new(Some(path), vec![String::new()], None);
             b.readonly = Some(BINARY);
             return b;
@@ -136,7 +131,7 @@ impl Buffer {
             None
         };
         b.tabs = b.lines.iter().any(|l| l.starts_with('\t'));
-        b.disk = hash(bytes);
+        b.disk_hash = hash(bytes);
         b
     }
 
@@ -174,8 +169,8 @@ impl Buffer {
             return;
         }
         self.hl.truncate(n * CHECKPOINT);
-        self.checkpoints.truncate(n + 1);
-        self.state = self.checkpoints.last().cloned();
+        self.state_before_every_checkpoint.truncate(n + 1);
+        self.state_after_hl = self.state_before_every_checkpoint.last().cloned();
     }
 
     fn new(
@@ -191,11 +186,11 @@ impl Buffer {
             crlf: false,
             trailing_newline: true,
             tabs: false,
-            disk: 0,
+            disk_hash: 0,
             hl: Vec::new(),
             syntax,
-            state: None,
-            checkpoints: Vec::new(),
+            state_after_hl: None,
+            state_before_every_checkpoint: Vec::new(),
         }
     }
 
@@ -227,8 +222,8 @@ impl Buffer {
     /// spans carry the colours of the theme they were made with.
     pub fn clear_hl(&mut self) {
         self.hl.clear();
-        self.checkpoints.clear();
-        self.state = None;
+        self.state_before_every_checkpoint.clear();
+        self.state_after_hl = None;
     }
 
     /// Extends the highlighted prefix so that `last` (a file line index) is covered.
@@ -242,7 +237,7 @@ impl Buffer {
             return;
         }
         let highlighter = Highlighter::new(&theme.syntect);
-        let state = self.state.get_or_insert_with(|| {
+        let state = self.state_after_hl.get_or_insert_with(|| {
             (
                 ParseState::new(syntax),
                 HighlightState::new(&highlighter, ScopeStack::new()),
@@ -250,9 +245,9 @@ impl Buffer {
         });
         while self.hl.len() <= last {
             if self.hl.len().is_multiple_of(CHECKPOINT)
-                && self.checkpoints.len() == self.hl.len() / CHECKPOINT
+                && self.state_before_every_checkpoint.len() == self.hl.len() / CHECKPOINT
             {
-                self.checkpoints.push(state.clone());
+                self.state_before_every_checkpoint.push(state.clone());
             }
             let spans = line_spans(state, &self.lines[self.hl.len()], &highlighter);
             self.hl.push(spans);
@@ -301,11 +296,10 @@ pub fn hash(bytes: &[u8]) -> u64 {
 /// What [`Buffer::shown`] draws of a line, for a line that is not in a buffer (a review
 /// ghost): the whole line, or its first [`MAX_SHOWN_BYTES`] bytes on a char boundary.
 pub(crate) fn shown_str(s: &str) -> &str {
-    &s[..floor_boundary(s, MAX_SHOWN_BYTES)]
+    &s[..floor_char_boundary(s, MAX_SHOWN_BYTES)]
 }
 
-/// Largest byte index <= `max` that is a char boundary of `s`.
-fn floor_boundary(s: &str, max: usize) -> usize {
+fn floor_char_boundary(s: &str, max: usize) -> usize {
     if s.len() <= max {
         return s.len();
     }
@@ -426,8 +420,6 @@ mod tests {
         Buffer::from_bytes(PathBuf::from("x"), bytes)
     }
 
-    /// A Markdown code block gets the grammar a file of its language gets: `dockerfile` the
-    /// bash-scoped Dockerfile grammar, whose spans match the file's own; an extension as a name.
     #[test]
     fn a_code_block_is_highlighted_as_a_file_of_its_language() {
         let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
@@ -447,8 +439,6 @@ mod tests {
         assert_eq!(name(""), None);
     }
 
-    /// An info string names its language, or cites a file by its extension: never a path, never
-    /// a panic, whatever the word holds.
     #[test]
     fn a_code_block_is_named_by_its_info_string() {
         let name = |token: &str| Buffer::block(token, vec![]).syntax.map(|s| s.name.as_str());
@@ -480,8 +470,6 @@ mod tests {
         assert!(Buffer::block("rust", vec!["x".into()]).syntax.is_some());
     }
 
-    /// A code block's grammar is found by its name alone: a file named after the block in the
-    /// directory merl runs in is never read.
     #[test]
     fn a_code_block_grammar_is_never_read_from_a_file() {
         let token = format!("zz{}", std::process::id());
@@ -501,8 +489,6 @@ mod tests {
         );
     }
 
-    /// A line too long to be shown whole is drawn plain in a code block too, never parsed: a
-    /// one-line JSON dump of a megabyte would stall the frame.
     #[test]
     fn a_code_block_line_too_long_to_show_is_not_parsed() {
         let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
@@ -685,11 +671,11 @@ mod tests {
         let src = "x = 1\n".repeat(200);
         let mut b = Buffer::from_bytes(PathBuf::from("a.py"), src.as_bytes());
         b.highlight_to(199, &theme);
-        assert_eq!(b.checkpoints.len(), 4);
+        assert_eq!(b.state_before_every_checkpoint.len(), 4);
         b.lines[150] = "# comment".into();
         b.edited(150);
         assert_eq!(b.hl.len(), 128);
-        assert_eq!(b.checkpoints.len(), 3);
+        assert_eq!(b.state_before_every_checkpoint.len(), 3);
         b.highlight_to(199, &theme);
         assert_eq!(b.hl.len(), 200);
         assert_ne!(b.hl[150][0].0.fg, b.hl[151][0].0.fg);

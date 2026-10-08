@@ -414,17 +414,19 @@ fn rust_block_end(lines: &[&str], h: usize) -> usize {
         .find(|&i| indent(lines[i]) <= base && lines[i].trim_start().starts_with('}'))
         .unwrap_or(lines.len())
 }
-/// The glob `use`s a bare word at `line1` of the Rust `text` can see a variant through,
-/// as the paths in front of their `*`: those of the function around it, an indented `use` between
-/// its `fn` line and the cursor, else those directly in its module, the innermost inline `mod`
-/// around it or the file. The second value says it is the function's.
-pub fn rust_glob_uses(text: &str, line1: usize) -> (Vec<Vec<String>>, bool) {
+/// The glob `use`s a bare word at `line1` of the Rust `text` can see a variant through:
+/// those of the function around it, an indented `use` between its `fn` line and the cursor, else
+/// those directly in its module, the innermost inline `mod` around it or the file.
+pub fn rust_glob_uses(text: &str, line1: usize) -> RustGlobUses {
     static GLOB: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+((?:\w+\s*::\s*)+)\*\s*;").unwrap()
     });
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = line1.checked_sub(1).filter(|&k| k < lines.len()) else {
-        return (Vec::new(), false);
+        return RustGlobUses {
+            paths_before_star: Vec::new(),
+            own_to_function: false,
+        };
     };
     let literal = literal_lines(Kind::Rust, text);
     let around = rust_around(&lines, k, &literal);
@@ -442,17 +444,24 @@ pub fn rust_glob_uses(text: &str, line1: usize) -> (Vec<Vec<String>>, bool) {
     if let Some(&f) = around.iter().find(|&&i| FN_LINE.is_match(lines[i])) {
         let own = globs(&mut (f + 1..k));
         if !own.is_empty() {
-            return (own, true);
+            return RustGlobUses {
+                paths_before_star: own,
+                own_to_function: true,
+            };
         }
     }
     let module = around
         .iter()
         .copied()
         .find(|&i| MOD_LINE.is_match(lines[i]));
-    (
-        globs(&mut rust_direct(&lines, module, &literal).into_iter()),
-        false,
-    )
+    RustGlobUses {
+        paths_before_star: globs(&mut rust_direct(&lines, module, &literal).into_iter()),
+        own_to_function: false,
+    }
+}
+pub struct RustGlobUses {
+    pub paths_before_star: Vec<Vec<String>>,
+    pub own_to_function: bool,
 }
 /// Which of Rust's namespaces a name is looked up in: a macro call `w!`, the head of a path
 /// `w::…` (a module or a type), or a value or a type anywhere else.
@@ -865,11 +874,9 @@ pub enum RustVis {
 }
 /// Whether `line1` of `lines`, a hit of [`rust_method_pattern`], declares a method: the
 /// nearest line above it indented less opens an `impl` or a `trait`, or it stands in a macro's
-/// body, which an `impl` may expand it in (`Unreadable`). Its owner, its visibility (a trait
-/// method's the trait's) and the 1-based line of the `impl`, `trait` or macro arm around it.
-/// `None` for a `fn` at the top level, nested in a function, or in a `mod` block: none of them
-/// can follow a `.`.
-pub fn rust_method_at(lines: &[&str], line1: usize) -> Option<(RustOwner, RustVis, usize)> {
+/// body, which an `impl` may expand it in (`Unreadable`). `None` for a `fn` at the top level,
+/// nested in a function, or in a `mod` block: none of them can follow a `.`.
+pub fn rust_method_at(lines: &[&str], line1: usize) -> Option<RustMethod> {
     static TRAIT: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|auto)\s+)*trait\s+([A-Za-z_]\w*)").unwrap()
     });
@@ -909,25 +916,38 @@ pub fn rust_method_at(lines: &[&str], line1: usize) -> Option<(RustOwner, RustVi
             false => RustOwner::Unreadable,
         }
     };
-    // A trait's method has no `pub` of its own: it reaches as far as the trait.
-    let at_vis = match owner {
+    let line_whose_pub_reaches = match owner {
         RustOwner::Trait(_) => parent,
         _ => lines[k],
     };
-    let vis = match VIS.captures(at_vis) {
+    let vis = match VIS.captures(line_whose_pub_reaches) {
         Some(c) if c.get(1).is_some() => RustVis::Crate,
         Some(_) => RustVis::Pub,
         None => RustVis::Private,
     };
-    Some((owner, vis, at + 1))
+    Some(RustMethod {
+        owner,
+        vis,
+        owner_line1: at + 1,
+    })
 }
-/// A package of a `Cargo.lock`: its directory name in a registry, `name-version`, and its name.
-pub type LockPackage = (String, String);
+pub struct RustMethod {
+    pub owner: RustOwner,
+    pub vis: RustVis,
+    pub owner_line1: usize,
+}
+pub struct LockPackage {
+    pub registry_dir: String,
+    pub name: String,
+}
+pub struct CargoReach {
+    pub reached: Vec<String>,
+    pub every_locked: Vec<LockPackage>,
+}
 /// The crates of `lock`, a `Cargo.lock`, that the package `from` reaches: itself and its
-/// `dependencies` lists followed transitively (normal, dev and build alike), by name; with every
-/// package the lock lists, to tell a registry crate by. `None` when the lock does not list
-/// `from`.
-pub fn cargo_reach(lock: &str, from: &str) -> Option<(Vec<String>, Vec<LockPackage>)> {
+/// `dependencies` lists followed transitively (normal, dev and build alike), by name. `None` when
+/// the lock does not list `from`.
+pub fn cargo_reach(lock: &str, from: &str) -> Option<CargoReach> {
     let mut packages: Vec<(String, String, Vec<String>)> = Vec::new();
     let mut in_deps = false;
     for l in lock.lines() {
@@ -968,11 +988,17 @@ pub fn cargo_reach(lock: &str, from: &str) -> Option<(Vec<String>, Vec<LockPacka
         }
         i += 1;
     }
-    let dirs = packages
+    let every_locked = packages
         .into_iter()
-        .map(|(n, v, _)| (format!("{n}-{v}"), n))
+        .map(|(n, v, _)| LockPackage {
+            registry_dir: format!("{n}-{v}"),
+            name: n,
+        })
         .collect();
-    Some((reached, dirs))
+    Some(CargoReach {
+        reached,
+        every_locked,
+    })
 }
 /// The crate names of a `Cargo.lock` dependency list: `"memchr"`, `"serde 1.0.1"`, `"x 1.0
 /// (registry+…)"` are `memchr`, `serde`, `x`.

@@ -137,7 +137,9 @@ impl Model<'_, '_> {
                     return;
                 }
                 if matches!(t.text, "do" | "try" | "else") || self.punct(k + 1, "{") {
-                    marked[k + 1] = Some(Ctx::Code);
+                    if let Some(m) = marked.get_mut(k + 1) {
+                        *m = Some(Ctx::Code);
+                    }
                 } else if let Some(c) = self.paren_after(k).and_then(|o| self.pair[o])
                     && self.punct(c + 1, "{")
                 {

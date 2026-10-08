@@ -180,7 +180,6 @@ fn review(a: &mut App, empty: &[&str], moved: Option<(&str, &str)>, open: Option
     *a = new;
 }
 
-/// A fresh copy of the sample project, `notes/` under a directory of `state`'s own.
 fn notes(state: &str) -> PathBuf {
     let dir = std::env::temp_dir()
         .join(format!("merl-snapshots-{}", std::process::id()))
@@ -194,7 +193,6 @@ fn notes(state: &str) -> PathBuf {
     dir
 }
 
-/// `state` in `theme` at `w`×`h`, drawn as `main` draws it.
 fn frame(state: &State, theme: &str, (w, h): (u16, u16)) -> Terminal<TestBackend> {
     let dir = notes(state.0);
     let (tree, files) = crate::tree::build(&dir, false);
@@ -242,7 +240,6 @@ fn text(t: &Terminal<TestBackend>) -> String {
     out
 }
 
-/// One code per cell, and the legend: each code's foreground, background and modifiers.
 fn styles(t: &Terminal<TestBackend>) -> String {
     let buf = t.backend().buffer();
     let mut seen: Vec<String> = Vec::new();
@@ -306,7 +303,6 @@ fn dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/snapshots")
 }
 
-/// The lines of `old` and `new` that differ, by their longest common run, a few at most.
 fn diff(old: &str, new: &str) -> String {
     let (a, b): (Vec<&str>, Vec<&str>) = (old.lines().collect(), new.lines().collect());
     // lcs[i][j]: the longest common subsequence of a[i..] and b[j..].
@@ -346,7 +342,6 @@ fn diff(old: &str, new: &str) -> String {
     out
 }
 
-/// Compares `state` with its golden file, or writes it under `MERL_UPDATE_SNAPSHOTS=1`.
 fn check(name: &str) {
     let state = STATES.iter().find(|s| s.0 == name).unwrap();
     let path = dir().join(format!("{name}.txt"));
@@ -372,12 +367,11 @@ macro_rules! snapshots {
             check($name);
         })*
 
-        /// Every state has its test, and every golden file its state.
         #[test]
         fn snapshots_match_the_states() {
             let tested = [$($name),*];
             let states: Vec<&str> = STATES.iter().map(|s| s.0).collect();
-            assert_eq!(states, tested);
+            assert_eq!(states, tested, "every state has its test");
             let mut files: Vec<String> = std::fs::read_dir(dir())
                 .unwrap()
                 .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())

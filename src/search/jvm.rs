@@ -717,9 +717,9 @@ pub fn jvm_type_parameter(text: &str, name: &str) -> bool {
     })
 }
 
-/// The fields a Lombok accessor `word` may read, and whether it is a setter (#381): `title` for
-/// `getTitle` and `setTitle`, `active` or `isActive` for `isActive`. `None` for any other name.
-pub fn jvm_accessor(word: &str) -> Option<(Vec<String>, bool)> {
+/// The Lombok accessor `word` (#381): `title` for `getTitle` and `setTitle`, `active` or
+/// `isActive` for `isActive`. `None` for any other name.
+pub fn jvm_accessor(word: &str) -> Option<JvmAccessor> {
     [("get", false), ("is", false), ("set", true)]
         .into_iter()
         .find_map(|(prefix, setter)| {
@@ -730,8 +730,15 @@ pub fn jvm_accessor(word: &str) -> Option<(Vec<String>, bool)> {
             if prefix == "is" {
                 names.push(word.to_owned());
             }
-            Some((names, setter))
+            Some(JvmAccessor {
+                fields_it_may_read: names,
+                setter,
+            })
         })
+}
+pub struct JvmAccessor {
+    pub fields_it_may_read: Vec<String>,
+    pub setter: bool,
 }
 
 /// Lombok writes the accessor `word` for a field when the file imports `lombok.` (#381), and the
@@ -739,7 +746,11 @@ pub fn jvm_accessor(word: &str) -> Option<(Vec<String>, bool)> {
 /// `@Value` or `@Getter`, or `@Data` or `@Setter`. A `static` field, and one marked
 /// `AccessLevel.NONE`, gets none.
 pub fn jvm_lombok_fields(text: &str, decl_line1: usize, word: &str) -> Vec<usize> {
-    let Some((names, setter)) = jvm_accessor(word) else {
+    let Some(JvmAccessor {
+        fields_it_may_read: names,
+        setter,
+    }) = jvm_accessor(word)
+    else {
         return Vec::new();
     };
     if !text

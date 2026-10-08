@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   GitLab hide its text; the line breaks in two when the pane is too narrow. Keys that act on the
   text do nothing there; `c`, `C`, `o`, `s`, the panel, `?` and `q` work as anywhere. (#746)
 
+### Fixed
+
+- `f` in Swift no longer folds the parameters of a function named in backticks, ``func
+  `default`(``; in PHP a `#` comment right after a word, `$y# note }`, no longer ends the block
+  at its `}`, and an anonymous class, `new readonly class extends Base {`, no longer folds as a
+  declared one. (#625)
+- `f` no longer crashes merl in a C or C++ file whose last word is `do` or `try`, as a file left
+  half-written ends. (#756)
+
 ## [0.8.3] - 2026-10-07
 
 ### Added

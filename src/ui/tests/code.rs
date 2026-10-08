@@ -1,5 +1,3 @@
-//! Tests for [`crate::ui::code`].
-
 use std::path::PathBuf;
 
 use ratatui::Terminal;
@@ -15,8 +13,6 @@ use crate::tree::Tree;
 
 use super::rows;
 
-/// `w` cuts long lines at the edge: `\u{203a}` and `\u{2039}` say there is more, End brings the
-/// end of the line into view and Home the start.
 #[test]
 fn unwrapped_lines_are_cut_at_the_edge_and_follow_the_cursor() {
     let mut app = App::new(
@@ -46,23 +42,26 @@ fn unwrapped_lines_are_cut_at_the_edge_and_follow_the_cursor() {
         paint(&mut app, KeyCode::Char('w')),
         ["1 0123456789a\u{203a}", "2 short", ""]
     );
-    // The end of the line stops at the right edge, the cursor in the last cell.
     assert_eq!(
         paint(&mut app, KeyCode::End),
-        ["1 \u{2039}efghijKLMN", "2 \u{2039}", ""]
+        ["1 \u{2039}efghijKLMN", "2 \u{2039}", ""],
+        "End stops the end of the line at the right edge"
     );
-    assert_eq!((app.left, app.cursor_x()), (13, 24));
+    assert_eq!(
+        (app.left, app.cursor_x()),
+        (13, 24),
+        "the cursor in the last cell"
+    );
     assert_eq!(
         paint(&mut app, KeyCode::Home),
         ["1 0123456789a\u{203a}", "2 short", ""]
     );
-    // Wrapped again, nothing stays scrolled.
     paint(&mut app, KeyCode::End);
     assert_eq!(
         paint(&mut app, KeyCode::Char('w')),
         ["1 0123456789ab", "cdefghijKLMN", "2 short"]
     );
-    assert_eq!(app.left, 0);
+    assert_eq!(app.left, 0, "wrapped again, nothing stays scrolled");
 }
 
 #[test]
@@ -104,7 +103,6 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
             })
             .collect()
     };
-    // The line above the selection stays clean; the cursor line keeps its highlight.
     assert_eq!(
         paint(&mut app),
         [
@@ -112,7 +110,8 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
             "....########",
             "..##########",
             "--##--------"
-        ]
+        ],
+        "the line above the selection stays clean; the cursor line keeps its highlight"
     );
     // Ending at the start of the cursor line selects none of its text: highlighted in the
     // gutter only, as in VS Code, or past the selection it would pass for selected text.
@@ -121,7 +120,6 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
         KeyModifiers::SHIFT | KeyModifiers::CONTROL,
     ));
     assert_eq!(paint(&mut app)[3], "--..........");
-    // Back on the anchor nothing is selected, and the cursor line is highlighted again.
     for (code, m) in [
         (KeyCode::Esc, KeyModifiers::NONE),
         (KeyCode::Up, KeyModifiers::NONE),
@@ -131,11 +129,18 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
     ] {
         app.key(KeyEvent::new(code, m));
     }
-    assert_eq!(paint(&mut app)[1], "------------");
-    // With no selection at all, too.
+    assert_eq!(
+        paint(&mut app)[1],
+        "------------",
+        "back on the anchor nothing is selected, and the cursor line is highlighted again"
+    );
     app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
     assert_eq!(app.selection(), None);
-    assert_eq!(paint(&mut app)[1], "------------");
+    assert_eq!(
+        paint(&mut app)[1],
+        "------------",
+        "with no selection at all, the cursor line is highlighted"
+    );
 }
 
 #[test]
@@ -182,15 +187,12 @@ z
         paint(&mut app)[..3],
         ["----------", "----------", "----------"]
     );
-    // Shift+Up selects half a row up to the cursor; the rest of the line stays highlighted
-    // instead of flashing back to the plain background.
     app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::SHIFT));
     assert_eq!(
         paint(&mut app),
-        ["------####", "--####----", "----------", ".........."]
+        ["------####", "--####----", "----------", ".........."],
+        "Shift+Up selects half a row up to the cursor, the rest of the line stays highlighted"
     );
-    // The same from below: Shift+Up out of the start of the next line selects the tail of
-    // the wrapped line, and its rows above the cursor keep the highlight too.
     for (code, m) in [
         (KeyCode::Esc, KeyModifiers::NONE),
         (KeyCode::Down, KeyModifiers::NONE),
@@ -204,7 +206,8 @@ z
     assert_eq!(app.file_selection(), Some(((0, 16), (1, 0))));
     assert_eq!(
         paint(&mut app),
-        ["----------", "----------", "--########", ".........."]
+        ["----------", "----------", "--########", ".........."],
+        "Shift+Up from the start of the next line: the rows above the cursor keep the highlight"
     );
 }
 
@@ -229,12 +232,11 @@ fn find_spans_cut_the_syntax_spans_they_cover() {
             (find, 5..6),
         ]
     );
-    // A match across a span's end is cut there, each part over its own text.
     assert_eq!(
         super::with_find(&[(syntax, 0..4)], &[0..2, 2..6], find),
-        [(lit, 0..2), (lit, 2..4), (find, 4..6)]
+        [(lit, 0..2), (lit, 2..4), (find, 4..6)],
+        "a match across a span's end is cut there"
     );
-    // A theme's own match foreground wins over the syntax colour.
     let named = find.fg(Color::Black);
     assert_eq!(
         super::with_find(&[(syntax, 0..4)], &[1..2, 5..6], named),
@@ -244,7 +246,8 @@ fn find_spans_cut_the_syntax_spans_they_cover() {
             (syntax, 2..4),
             (Style::new(), 4..5),
             (named, 5..6)
-        ]
+        ],
+        "a theme's own match foreground wins over the syntax colour"
     );
     assert_eq!(
         super::with_find(&[(syntax, 0..4)], &[], find),
@@ -252,8 +255,6 @@ fn find_spans_cut_the_syntax_spans_they_cover() {
     );
 }
 
-/// A line past the render clip: the cursor still sits on a drawn row of that line, not on
-/// the row of the next line, so End on a minified file does not lose the cursor.
 #[test]
 fn cursor_stays_on_a_drawn_row_of_a_clipped_line() {
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -285,8 +286,6 @@ fn cursor_stays_on_a_drawn_row_of_a_clipped_line() {
     );
 }
 
-/// #185: merl measured `⚠️` one column wide, ratatui draws it two, so the last letter of a
-/// full row was on no row and the cursor stood a cell to the left of its char.
 #[test]
 fn an_emoji_with_a_selector_wraps_and_holds_the_cursor_as_drawn() {
     let mut app = App::new(
@@ -311,12 +310,13 @@ fn an_emoji_with_a_selector_wraps_and_holds_the_cursor_as_drawn() {
     app.key(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
     app.key(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!(terminal.get_cursor_position().unwrap().x, 2 + 3);
+    assert_eq!(
+        terminal.get_cursor_position().unwrap().x,
+        2 + 3,
+        "on the `b`: the emoji is two columns wide, as ratatui draws it"
+    );
 }
 
-/// #206: a redraw sent the second column of `✔️` as a cell of its own, the backend printed it
-/// right after the emoji without moving the cursor (ratatui/ratatui#2651), and the rest of the
-/// row landed a column late. That column is never sent, so the backend moves past it.
 #[test]
 fn a_redraw_never_sends_the_column_under_an_emoji_with_a_selector() {
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
@@ -342,7 +342,11 @@ fn a_redraw_never_sends_the_column_under_an_emoji_with_a_selector() {
         .map(|(x, ..)| x)
         .collect();
     // Gutter is two cells; the emoji covers 2 and 3, and `e` at 6 did not change.
-    assert_eq!(sent, [2, 4, 5, 7, 8, 9]);
+    assert_eq!(
+        sent,
+        [2, 4, 5, 7, 8, 9],
+        "the emoji's second column is never sent: ratatui/ratatui#2651 prints it in place"
+    );
 }
 
 #[test]
@@ -398,15 +402,16 @@ fn wrapped_rows_and_the_cursor_on_them_start_under_the_text() {
     let cursor = terminal.get_cursor_position().unwrap();
     let buf = terminal.backend().buffer();
     let row = |y: u16| (0..20).map(|x| buf[(x, y)].symbol()).collect::<String>();
-    // "tasks" fits a row, so it moves down whole, and the row starts past the list marker.
     assert_eq!(row(0), "1 - Celery lost     ");
-    assert_eq!(row(1), "    tasks on restart");
+    assert_eq!(
+        row(1),
+        "    tasks on restart",
+        "`tasks` moves down whole, the row starts past the list marker"
+    );
     // On the "s" of "tasks": gutter 2, indent 2, "ta" 2.
     assert_eq!((cursor.x, cursor.y), (6, 1));
 }
 
-/// The lines a review deleted are drawn above the line that replaced them, and the cursor walks
-/// them as it walks the file's own (#439).
 #[test]
 fn ghost_lines_draw_above_their_line_and_the_cursor_walks_them() {
     let mut app = App::new(
@@ -434,7 +439,6 @@ fn ghost_lines_draw_above_their_line_and_the_cursor_walks_them() {
     let o = (0..8).find(|x| buf[(*x, 1)].symbol() == "o").unwrap();
     assert_eq!((buf[(o, 1)].fg, buf[(o, 1)].bg), (theme.fg, theme.del_bg));
     assert!(!buf[(o, 1)].modifier.contains(ratatui::style::Modifier::DIM));
-    // Down steps onto each deleted line, then onto `b`; Up comes back the same way.
     let key = |app: &mut App, c| app.key(KeyEvent::new(c, KeyModifiers::NONE));
     for (c, at, y) in [
         (KeyCode::Down, TextLine::Deleted(1, 0), 1),
@@ -451,18 +455,17 @@ fn ghost_lines_draw_above_their_line_and_the_cursor_walks_them() {
             (at, y)
         );
     }
-    // The cursor's deleted line is the cursor line, on the deleted tint: gutter and row.
     key(&mut app, KeyCode::Down);
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     let buf = terminal.backend().buffer();
     assert_eq!(
         (buf[(0, 1)].bg, buf[(7, 1)].bg),
-        (theme.line_hl, theme.del_bg_hl)
+        (theme.line_hl, theme.del_bg_hl),
+        "the cursor's deleted line is the cursor line, on the deleted tint: gutter and row"
     );
     assert_eq!(buf[(7, 2)].bg, theme.del_bg);
 }
 
-/// Up in a pane too short for the ghosts scrolls them in one row at a time, the cursor on each.
 #[test]
 fn up_scrolls_onto_the_ghosts_one_row_at_a_time() {
     let mut app = App::new(
@@ -519,8 +522,6 @@ fn down_walks_the_ghosts_then_lands_on_the_first_text_row() {
     assert_eq!((app.at(), app.col), (TextLine::File(1), 0));
 }
 
-/// Down, PgDn and Ctrl+D go on from the last line onto the lines deleted after it, down to the
-/// last of them, which Ctrl+End lands on (#179).
 #[test]
 fn every_ghost_after_the_last_line_can_be_walked_to() {
     let mut app = App::new(
@@ -566,7 +567,6 @@ fn every_ghost_after_the_last_line_can_be_walked_to() {
     assert_eq!(terminal.get_cursor_position().unwrap().y, 2);
 }
 
-/// Up and Down walk a ghost that wraps row by row, as they walk a wrapped line of the file.
 #[test]
 fn up_and_down_walk_a_wrapped_ghost_row_by_row() {
     let mut app = App::new(
@@ -599,8 +599,6 @@ fn up_and_down_walk_a_wrapped_ghost_row_by_row() {
     }
 }
 
-/// Up in a pane shorter than a wrapped ghost scrolls its rows in one at a time, the cursor on
-/// each.
 #[test]
 fn up_scrolls_a_wrapped_ghost_in_one_row_at_a_time() {
     let mut app = App::new(
@@ -704,11 +702,18 @@ fn a_ghost_longer_than_the_pane_wraps_and_the_text_follows() {
         rows(&terminal)[..4],
         ["1 a", "\u{258e}  one two", "\u{258e}  three four", "2 b"]
     );
-    // On the deleted tint on both rows, out to the right edge.
     let buf = terminal.backend().buffer();
     let t = |y: u16| (0..14).find(|x| buf[(*x, y)].symbol() == "t").unwrap();
-    assert_eq!(buf[(t(2), 2)].bg, theme.del_bg);
-    assert_eq!(buf[(13, 1)].bg, theme.del_bg);
+    assert_eq!(
+        buf[(t(2), 2)].bg,
+        theme.del_bg,
+        "the second row on the deleted tint"
+    );
+    assert_eq!(
+        buf[(13, 1)].bg,
+        theme.del_bg,
+        "the deleted tint out to the right edge"
+    );
 }
 
 #[test]
@@ -728,8 +733,11 @@ fn a_long_ghost_stays_one_row_when_the_file_is_not_wrapped() {
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut terminal = Terminal::new(TestBackend::new(14, 4)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    // Cut at the pane's right edge like a text line, with `b` right under it.
-    assert_eq!(rows(&terminal)[..3], ["1 a", "\u{258e}one two thre", "2 b"]);
+    assert_eq!(
+        rows(&terminal)[..3],
+        ["1 a", "\u{258e}one two thre", "2 b"],
+        "cut at the pane's right edge like a text line, with `b` right under it"
+    );
 }
 
 #[test]
@@ -774,8 +782,6 @@ fn gutter_width() {
     assert_eq!(super::digits(1000), 4);
 }
 
-/// A repository whose `main` has `f.py` and `gone.py`, and a `feature` branch checked out that
-/// deleted `gone.py` and changed one operator of `f.py` in the working tree: a real review.
 fn review_of_one_operator(tag: &str) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -812,9 +818,6 @@ fn review_of_one_operator(tag: &str) -> (PathBuf, App) {
     (dir, app)
 }
 
-/// Review paints the diff as GitHub does (#165): the deleted and the added row on their tints out
-/// to the right edge, the ghost in the base file's syntax colours, and the word that changed on a
-/// stronger tint in `word_fg`. A selection and a find match win over a changed word.
 #[test]
 fn review_paints_the_word_that_changed_on_both_rows() {
     let (dir, mut app) = review_of_one_operator("words");
@@ -833,13 +836,15 @@ fn review_paints_the_word_that_changed_on_both_rows() {
         let c = &t.backend().buffer()[(x, y)];
         (c.fg, c.bg)
     };
-    // The cursor is on the hunk's added row (#690). Up, and the deleted row is the cursor line
-    // (#439); Down, and the added row is again.
-    assert_eq!(app.at(), TextLine::File(1));
+    assert_eq!(app.at(), TextLine::File(1), "on the hunk's added row");
     app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(app.at(), TextLine::Deleted(1, 0));
-    assert_eq!(cell(&terminal, 23, 1).1, theme.del_bg_hl);
+    assert_eq!(
+        cell(&terminal, 23, 1).1,
+        theme.del_bg_hl,
+        "Up: the deleted row is the cursor line"
+    );
     assert_eq!(cell(&terminal, 23, 2).1, theme.add_bg);
     app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
@@ -868,30 +873,42 @@ fn review_paints_the_word_that_changed_on_both_rows() {
     assert_ne!(keyword, theme.fg);
     assert_eq!(cell(&terminal, ret, 1), (keyword, theme.del_bg));
     assert_eq!(cell(&terminal, ret, 2).1, theme.add_bg_hl);
-    // Off the cursor line the added row takes the plain tints.
     app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!(cell(&terminal, gt, 2), (theme.word_fg, theme.add_word_bg));
+    assert_eq!(
+        cell(&terminal, gt, 2),
+        (theme.word_fg, theme.add_word_bg),
+        "off the cursor line the added row takes the plain tints"
+    );
     assert_eq!(cell(&terminal, 23, 2).1, theme.add_bg);
-    // Selected, the changed word shows the selection; a find match on it shows the match.
     app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
     app.col = app.buf.lines[1].find('>').unwrap();
     app.key(KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT));
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!(cell(&terminal, gt, 2).1, theme.selection);
+    assert_eq!(
+        cell(&terminal, gt, 2).1,
+        theme.selection,
+        "a selection wins over a changed word"
+    );
     app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
     app.find_re = Some(regex::Regex::new(">").unwrap());
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!(cell(&terminal, gt, 2).1, theme.find_bg);
-    // A file the branch deleted is all deleted rows.
+    assert_eq!(
+        cell(&terminal, gt, 2).1,
+        theme.find_bg,
+        "a find match wins over a changed word"
+    );
     app.jump_to(&dir.join("gone.py"), 0);
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!(rows(&terminal)[0], "1\u{258e}x = 1");
+    assert_eq!(
+        rows(&terminal)[0],
+        "1\u{258e}x = 1",
+        "a file the branch deleted is all deleted rows"
+    );
     assert_eq!(cell(&terminal, 23, 0).1, theme.del_bg_hl);
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// Outside a review the gutter marks lines against the index, and nothing is tinted.
 #[test]
 fn outside_a_review_added_lines_are_not_tinted() {
     let mut app = App::new(
@@ -910,8 +927,6 @@ fn outside_a_review_added_lines_are_not_tinted() {
     assert_eq!(terminal.backend().buffer()[(2, 1)].bg, theme.bg);
 }
 
-/// The changed word of a wrapped ghost is painted on whichever row it lands, and with `w` it
-/// moves with the text when the view scrolls sideways.
 #[test]
 fn a_changed_word_is_painted_on_a_wrapped_or_scrolled_ghost() {
     let mut app = App::new(
@@ -938,21 +953,20 @@ fn a_changed_word_is_painted_on_a_wrapped_or_scrolled_ghost() {
     let d = (0..14).find(|x| buf[(*x, 2)].symbol() == "d").unwrap();
     assert_eq!(buf[(d, 2)].bg, theme.del_word_bg);
     assert_eq!(buf[(d - 2, 2)].bg, theme.del_bg, "`gamma` is kept");
-    // Not wrapped and scrolled to the end of the line, `delta` is painted where it now stands.
     app.key(KeyEvent::new(KeyCode::Char('w'), KeyModifiers::NONE));
     app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
     app.key(KeyEvent::new(KeyCode::End, KeyModifiers::NONE));
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     let buf = terminal.backend().buffer();
     let d = (0..14).find(|x| buf[(*x, 1)].symbol() == "d").unwrap();
-    assert_eq!(buf[(d, 1)].bg, theme.del_word_bg);
+    assert_eq!(
+        buf[(d, 1)].bg,
+        theme.del_word_bg,
+        "not wrapped and scrolled to the end, `delta` is painted where it now stands"
+    );
     assert!(app.left > 0);
 }
 
-/// #248: inside a long function its first line stays pinned on top on a band of the cursor
-/// line's colour, and the code starts below it. The cursor walking down and back up is always on
-/// a row of its own line under the band, so no line is ever behind the pinned ones; on the
-/// function's own line the pin goes.
 #[test]
 fn the_enclosing_function_stays_pinned_above_the_code() {
     let mut text = String::from("fn long() {\n");
@@ -994,17 +1008,18 @@ fn the_enclosing_function_stays_pinned_above_the_code() {
             assert!(screen[y].starts_with(&format!("{} ", app.line + 1)));
         }
         if code == KeyCode::Down {
-            // On the bottom row, the rows above it start right under the band.
             let (screen, y, _) = press(&mut app, KeyCode::Null);
             assert_eq!((app.line, y), (20, 10));
-            assert_eq!(screen[1], "12     let a10 = 10;");
+            assert_eq!(
+                screen[1], "12     let a10 = 10;",
+                "on the bottom row, the rows above it start right under the band"
+            );
         }
     }
     let (screen, _, _) = press(&mut app, KeyCode::Null);
     assert_eq!(screen[..2], ["1 fn long() {", "2     let a0 = 0;"]);
 }
 
-/// #248: `c` puts the hunk under the pinned header, its deleted line with it, not behind it.
 #[test]
 fn a_hunk_inside_a_long_function_lands_below_the_pinned_header() {
     let dir = std::env::temp_dir().join(format!("merl-pinned-hunk-{}", std::process::id()));
@@ -1055,16 +1070,15 @@ fn a_hunk_inside_a_long_function_lands_below_the_pinned_header() {
     assert_eq!(screen[0], "1 def long():");
     let buf = terminal.backend().buffer();
     assert!((0..30).all(|x| buf[(x, 0)].bg == theme.line_hl));
-    // On the hunk's added line (#690), its deleted line above it under the band.
     assert_eq!(
         screen[y - 1..=y],
-        ["\u{258e}    a20 = 20", "22\u{258e}    a20 = 200"]
+        ["\u{258e}    a20 = 20", "22\u{258e}    a20 = 200"],
+        "on the hunk's added line, its deleted line above it"
     );
     assert!(y > 1, "the deleted line is under the band");
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// An app on `text` as a Rust file, the tree hidden, and a `w`×`h` terminal to draw it on.
 fn pinned_app(text: &str, w: u16, h: u16) -> (App, Terminal<TestBackend>) {
     let mut app = App::new(
         PathBuf::from("/demo"),
@@ -1077,7 +1091,6 @@ fn pinned_app(text: &str, w: u16, h: u16) -> (App, Terminal<TestBackend>) {
     (app, Terminal::new(TestBackend::new(w, h)).unwrap())
 }
 
-/// Presses `code`, draws, and gives back the screen and the cursor's row on it.
 fn press(
     app: &mut App,
     terminal: &mut Terminal<TestBackend>,
@@ -1092,13 +1105,10 @@ fn press(
     )
 }
 
-/// The number a screen row starts with, the line it shows.
 fn line_no(row: &str) -> usize {
     row.split(' ').next().unwrap().parse().unwrap()
 }
 
-/// #248: under a pinned header a page is the rows of code, not the pane: paging down and back up
-/// through a long function shows every line of it, each page starting where the last one ended.
 #[test]
 fn a_page_under_a_pinned_header_skips_no_line() {
     let mut text = String::from("fn long() {\n");
@@ -1127,10 +1137,6 @@ fn a_page_under_a_pinned_header_skips_no_line() {
     assert_eq!(app.top_line, 0);
 }
 
-/// #248: the top a jump scrolls to is the first that shows the cursor under its own pins, even
-/// where they fall as the top moves down: from the last line of one method (two pins) to its
-/// `}` (one). A jump from the top of the file to `b13` in the next method puts the top on that
-/// `}`, the cursor on the bottom row, not a row further with the cursor a row above it.
 #[test]
 fn a_jump_scrolls_to_the_first_top_that_fits_under_its_pins() {
     let mut text = String::from("impl S {\n    fn m() {\n");
@@ -1148,12 +1154,14 @@ fn a_jump_scrolls_to_the_first_top_that_fits_under_its_pins() {
     // 0-based 47 is `let b13`; the `}` of `m` is 32.
     app.line = 47;
     let (screen, y) = press(&mut app, &mut terminal, KeyCode::Null);
-    assert_eq!((app.top_line, y), (32, 16));
+    assert_eq!(
+        (app.top_line, y),
+        (32, 16),
+        "the top on the `}}` of `m`, the cursor on the bottom row"
+    );
     assert_eq!(screen[..2], ["1 impl S {", "33     }"]);
 }
 
-/// #248: a pane under 8 rows keeps them all for the code; from 16 up it pins two, the innermost:
-/// the `impl` and the `fn`, not the `mod` around them.
 #[test]
 fn a_short_pane_pins_nothing_and_a_tall_one_the_two_innermost() {
     let mut text = String::from("mod m {\n    impl S {\n        fn f() {\n");
@@ -1173,12 +1181,14 @@ fn a_short_pane_pins_nothing_and_a_tall_one_the_two_innermost() {
         press(&mut app, &mut terminal, KeyCode::Down);
     }
     let (screen, _) = press(&mut app, &mut terminal, KeyCode::Null);
-    assert_eq!(screen[..2], ["2     impl S {", "3         fn f() {"]);
+    assert_eq!(
+        screen[..2],
+        ["2     impl S {", "3         fn f() {"],
+        "the two innermost pinned, not the `mod` around them"
+    );
     assert_eq!(line_no(&screen[2]), app.top_line + 1);
 }
 
-/// #248: not wrapped and scrolled sideways, the pinned header is cut at the columns the code
-/// under it is, with `‹` and `›` where it goes on past the edges.
 #[test]
 fn an_unwrapped_pinned_header_is_cut_where_the_code_is() {
     let mut text = String::from("fn long(first: usize, second: usize) {\n");
@@ -1202,8 +1212,6 @@ fn an_unwrapped_pinned_header_is_cut_where_the_code_is() {
     );
 }
 
-/// An app on `text`, the tree hidden, drawn on a `w`×`h` terminal with the cursor at the start
-/// of `line`.
 fn cut_app(text: &str, w: u16, h: u16, line: usize) -> (App, Terminal<TestBackend>) {
     let (mut app, mut terminal) = pinned_app(text, w, h);
     app.line = line;
@@ -1211,8 +1219,6 @@ fn cut_app(text: &str, w: u16, h: u16, line: usize) -> (App, Terminal<TestBacken
     (app, terminal)
 }
 
-/// #283: a line longer than merl draws ends in a dim `…` right after its last drawn char. When
-/// its last wrapped row is full, the `…` takes a row of its own rather than cover a char.
 #[test]
 fn a_cut_line_ends_in_a_dim_ellipsis_when_wrapped() {
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
@@ -1225,36 +1231,48 @@ fn a_cut_line_ends_in_a_dim_ellipsis_when_wrapped() {
         (buf[(3, 1)].fg, buf[(3, 1)].bg),
         (theme.gutter_fg, theme.bg)
     );
-    // Selected through the line's end, the `…` is on the selection, as the newline is.
     app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::SHIFT));
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     let buf = terminal.backend().buffer();
     assert_eq!(
         (buf[(3, 1)].symbol(), buf[(3, 1)].bg),
-        ("\u{2026}", theme.selection)
+        ("\u{2026}", theme.selection),
+        "selected through the line's end, the `…` is on the selection, as the newline is"
     );
-    // Ten columns: the last row is full, and the `…` stands alone under it.
     let (mut app, mut terminal) = cut_app(&text, 12, 4, 1);
-    assert_eq!(rows(&terminal)[..3], ["aaaaaaaaaa", "\u{2026}", "2 second"]);
-    // That row is one of the line's: Up lands on it, and the end of the drawn part is the `…`.
+    assert_eq!(
+        rows(&terminal)[..3],
+        ["aaaaaaaaaa", "\u{2026}", "2 second"],
+        "ten columns: the last row is full, and the `…` stands alone under it"
+    );
     let (_, y) = press(&mut app, &mut terminal, KeyCode::Up);
-    assert_eq!((app.line, y), (0, 1));
+    assert_eq!((app.line, y), (0, 1), "Up lands on the row of the `…`");
     app.col = app.buf.shown(0).len();
     press(&mut app, &mut terminal, KeyCode::Null);
-    assert_eq!(terminal.get_cursor_position().unwrap(), (2, 1).into());
-    // An indented line's rows after the first start under its text: a last row full at that
-    // indent puts the `…` on a row of its own, under the text too.
+    assert_eq!(
+        terminal.get_cursor_position().unwrap(),
+        (2, 1).into(),
+        "the end of the drawn part is the `…`"
+    );
     let text = format!("    {}\nsecond\n", "a".repeat(19_999));
     let (_, terminal) = cut_app(&text, 10, 4, 1);
-    assert_eq!(rows(&terminal)[..3], ["aaaa", "\u{2026}", "2 second"]);
-    assert_eq!(terminal.backend().buffer()[(6, 1)].symbol(), "\u{2026}");
-    // A line of exactly what is drawn is not cut and has no `…`.
+    assert_eq!(
+        rows(&terminal)[..3],
+        ["aaaa", "\u{2026}", "2 second"],
+        "a last row full at its indent puts the `…` on a row of its own"
+    );
+    assert_eq!(
+        terminal.backend().buffer()[(6, 1)].symbol(),
+        "\u{2026}",
+        "the `…` under the text of an indented line"
+    );
     let (_, terminal) = cut_app(&"a".repeat(20_000), 9, 3, 0);
-    assert!(!rows(&terminal).concat().contains('\u{2026}'));
+    assert!(
+        !rows(&terminal).concat().contains('\u{2026}'),
+        "a line of exactly what is drawn is not cut"
+    );
 }
 
-/// #283: not wrapped, the `…` shows while the end of the cut line is on screen, and counts as a
-/// column of the line: where it would fall past the edge, `›` says the line goes on.
 #[test]
 fn a_cut_line_ends_in_a_dim_ellipsis_when_not_wrapped() {
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
@@ -1262,32 +1280,34 @@ fn a_cut_line_ends_in_a_dim_ellipsis_when_not_wrapped() {
     let (mut app, mut terminal) = cut_app(&text, 12, 3, 1);
     press(&mut app, &mut terminal, KeyCode::Char('w'));
     assert_eq!(rows(&terminal)[1], "2 bbbbbbbbb\u{203a}");
-    // The end of the drawn part in view: the `…` in the column after it, on the cursor line.
     app.col = app.buf.shown(1).len();
     let (screen, _) = press(&mut app, &mut terminal, KeyCode::Null);
-    assert_eq!(screen[1], "2 \u{2039}bbbbbbbb\u{2026}");
+    assert_eq!(
+        screen[1], "2 \u{2039}bbbbbbbb\u{2026}",
+        "the end of the drawn part in view: the `…` in the column after it"
+    );
     let buf = terminal.backend().buffer();
     assert_eq!(
         (buf[(11, 1)].fg, buf[(11, 1)].bg),
-        (theme.gutter_fg, theme.line_hl)
+        (theme.gutter_fg, theme.line_hl),
+        "the `…` dim, on the cursor line"
     );
-    // The text reaching the right edge exactly: no room for the `…`, so `›` stands there.
     app.left = 19_990;
     app.col = 19_995;
     let (screen, _) = press(&mut app, &mut terminal, KeyCode::Null);
     assert_eq!(app.left, 19_990);
-    assert_eq!(screen[1], "2 \u{2039}bbbbbbbb\u{203a}");
+    assert_eq!(
+        screen[1], "2 \u{2039}bbbbbbbb\u{203a}",
+        "the text reaching the right edge exactly: no room for the `…`, so `›` stands there"
+    );
 }
 
-/// #283: a deleted line in a review is cut as a text line is, and ends in the same `…`, wrapped
-/// or not.
 #[test]
 fn a_cut_ghost_ends_in_a_dim_ellipsis() {
     let long = |c: &str| c.repeat(20_005);
     let text = format!("top\n{}\n", long("b"));
     let (mut app, mut terminal) = pinned_app(&text, 9, 4);
     app.diff.ghosts.insert(1, vec![long("a")]);
-    // Wrapped, the last rows of the ghost are right above its line.
     app.line = 1;
     press(&mut app, &mut terminal, KeyCode::Null);
     app.top_line = 1;
@@ -1295,18 +1315,18 @@ fn a_cut_ghost_ends_in_a_dim_ellipsis() {
     let (screen, _) = press(&mut app, &mut terminal, KeyCode::Null);
     assert_eq!(
         screen[..3],
-        ["\u{258e}aaaaaaa", "\u{258e}a\u{2026}", "2 bbbbbbb"]
+        ["\u{258e}aaaaaaa", "\u{258e}a\u{2026}", "2 bbbbbbb"],
+        "wrapped, the last rows of the ghost are right above its line"
     );
-    // Not wrapped and scrolled to the end, the ghost's end is on screen too.
     press(&mut app, &mut terminal, KeyCode::Char('w'));
     app.col = app.buf.shown(1).len();
     app.top_row = 0;
     let (screen, _) = press(&mut app, &mut terminal, KeyCode::Null);
     assert_eq!(
         screen[..2],
-        ["\u{258e}aaaaaa\u{2026}", "2 \u{2039}bbbbb\u{2026}"]
+        ["\u{258e}aaaaaa\u{2026}", "2 \u{2039}bbbbb\u{2026}"],
+        "not wrapped and scrolled to the end, the ghost's end is on screen too"
     );
-    // A full last row puts the ghost's `…` on a row of its own too.
     let (mut app, mut terminal) = pinned_app(&text, 12, 4);
     app.diff.ghosts.insert(1, vec![long("a")]);
     app.line = 1;
@@ -1316,11 +1336,11 @@ fn a_cut_ghost_ends_in_a_dim_ellipsis() {
     let (screen, _) = press(&mut app, &mut terminal, KeyCode::Null);
     assert_eq!(
         screen[..3],
-        ["\u{258e}aaaaaaaaaa", "\u{258e}\u{2026}", "2 bbbbbbbbbb"]
+        ["\u{258e}aaaaaaaaaa", "\u{258e}\u{2026}", "2 bbbbbbbbbb"],
+        "a full last row puts the ghost's `…` on a row of its own"
     );
 }
 
-/// #283: not wrapped, a pinned header cut at 20 KB ends in the `…` as its line does.
 #[test]
 fn a_cut_pinned_header_ends_in_a_dim_ellipsis() {
     let mut text = format!("fn long() {{ // {}\n", "x".repeat(20_005));
@@ -1336,8 +1356,6 @@ fn a_cut_pinned_header_ends_in_a_dim_ellipsis() {
     assert_eq!(screen[y], "22 \u{2039}bbbbbbb\u{2026}");
 }
 
-/// #283: not wrapped, the `…` stands on the column after the text whenever that column is in
-/// view, with no char of the line left in view too: `left` follows the cursor on a wider line.
 #[test]
 fn a_cut_line_scrolled_to_its_end_still_shows_its_ellipsis() {
     let text = format!(
@@ -1356,23 +1374,23 @@ fn a_cut_line_scrolled_to_its_end_still_shows_its_ellipsis() {
         assert_eq!(app.left, left);
         screen[..2].to_vec()
     };
-    // The wide char at the end straddles `‹`: the `…` comes after its hidden half.
     assert_eq!(
         at(19_997, 5_002),
-        ["1 \u{2039} \u{2026}", "\u{258e}aaa\u{2026}"]
+        ["1 \u{2039} \u{2026}", "\u{258e}aaa\u{2026}"],
+        "the wide char at the end straddles `‹`: the `…` comes after its hidden half"
     );
     assert_eq!(
         at(19_998, 5_003),
         ["1 \u{2039}\u{2026}", "\u{258e}aa\u{2026}"]
     );
-    // Past the end of line 0, `‹` alone; the ghost has no `‹`, so its `…` is in column 0.
     assert_eq!(at(19_999, 5_004), ["1 \u{2039}", "\u{258e}a\u{2026}"]);
-    assert_eq!(at(20_000, 5_004), ["1 \u{2039}", "\u{258e}\u{2026}"]);
+    assert_eq!(
+        at(20_000, 5_004),
+        ["1 \u{2039}", "\u{258e}\u{2026}"],
+        "past the end of line 0, `‹` alone; the ghost has no `‹`, so its `…` is in column 0"
+    );
 }
 
-/// A deletion taller than the pane is read line by line: Down draws every one of its lines
-/// (#279), and PgDn, PgUp, Ctrl+D and Ctrl+U move a page or half of one over it (#296). On
-/// one, the status bar reads its number in the file at the base, negative.
 #[test]
 fn a_deletion_taller_than_the_pane_is_walked_and_paged() {
     let mut app = App::new(
@@ -1424,8 +1442,6 @@ fn a_deletion_taller_than_the_pane_is_walked_and_paged() {
     );
 }
 
-/// The lines deleted above the first line of a file: Ctrl+Home lands on the first of them, Up
-/// from the first line goes onto the last of them.
 #[test]
 fn a_deletion_above_the_first_line_is_the_top_of_the_text() {
     let mut app = App::new(
@@ -1449,8 +1465,6 @@ fn a_deletion_above_the_first_line_is_the_top_of_the_text() {
     assert_eq!(app.at(), TextLine::Deleted(0, 1));
 }
 
-/// A move across a tall deletion is a far one for the jump history: `[` comes back to where it
-/// started, however few file lines it passed.
 #[test]
 fn a_move_across_a_tall_deletion_is_a_stop_of_its_own() {
     let dir = std::env::temp_dir().join(format!("merl-439-hist-{}", std::process::id()));
@@ -1474,13 +1488,14 @@ fn a_move_across_a_tall_deletion_is_a_stop_of_its_own() {
     key(&mut app, KeyCode::End, KeyModifiers::CONTROL);
     assert_eq!(app.at(), TextLine::File(0));
     key(&mut app, KeyCode::Char('['), KeyModifiers::NONE);
-    assert_eq!(app.at(), TextLine::Deleted(0, 0));
+    assert_eq!(
+        app.at(),
+        TextLine::Deleted(0, 0),
+        "`[` comes back across the deletion, though no file line was passed"
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #412: scrolled into a line that wraps, `t` widens the pane and the line takes fewer rows. The
-/// top inside it is made valid for the new wrap first, so the cursor is drawn on the line the
-/// status bar names, and a letter typed there lands on the line it is drawn on.
 #[test]
 fn a_wider_pane_draws_the_cursor_on_its_own_line() {
     let words: Vec<String> = (0..60).map(|i| format!("word{i:03}")).collect();
@@ -1502,18 +1517,21 @@ fn a_wider_pane_draws_the_cursor_on_its_own_line() {
     }
     assert_eq!((app.line, app.top_line, app.top_row), (10, 0, 7));
     let (screen, y) = press(&mut app, &mut terminal, KeyCode::Char('t'));
-    assert_eq!(screen[y], "11 line 11");
+    assert_eq!(
+        screen[y], "11 line 11",
+        "`t`: the cursor drawn on the line the status bar names"
+    );
     for code in [KeyCode::Enter, KeyCode::Char('X'), KeyCode::Esc] {
         press(&mut app, &mut terminal, code);
     }
     let (screen, y) = press(&mut app, &mut terminal, KeyCode::Null);
     assert_eq!(screen[y], "11 Xline 11");
-    assert_eq!(app.buf.lines[10], "Xline 11");
+    assert_eq!(
+        app.buf.lines[10], "Xline 11",
+        "a letter typed lands on the line it is drawn on"
+    );
 }
 
-/// Every hidden char on #401's list is drawn as its tag, on the tag's amber, and takes the
-/// columns of it; the ZWJ inside an emoji stays part of the emoji. A deleted line in a review
-/// shows its tags too.
 #[test]
 fn hidden_chars_are_drawn_as_their_tags() {
     let all = [
@@ -1556,8 +1574,6 @@ fn hidden_chars_are_drawn_as_their_tags() {
     assert_eq!(buf[(5, y as u16)].symbol(), "!");
 }
 
-/// The cursor steps over a tag in one press and lands after all of its columns; Delete takes
-/// the hidden char out whole (#401).
 #[test]
 fn the_cursor_steps_over_a_tag_and_delete_removes_it() {
     let mut app = App::new(
@@ -1582,8 +1598,6 @@ fn the_cursor_steps_over_a_tag_and_delete_removes_it() {
     assert_eq!(app.buf.lines[0], "ab");
 }
 
-/// #287: a binary file shows no line of text and no gutter, only a dimmed note in the middle
-/// of the pane; the status bar says `read-only` as before.
 #[test]
 fn a_binary_file_is_an_empty_pane_with_a_centred_note() {
     let mut app = App::new(

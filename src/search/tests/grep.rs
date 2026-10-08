@@ -146,7 +146,7 @@ fn tests_mocks_fixtures_and_generated_files_rank_last() {
         ("src/protest.go", false),
         ("src/specs.py", false),
     ] {
-        let tier = rank(Path::new(path), Some(here), false).0;
+        let tier = rank(Path::new(path), Some(here), false).tier;
         assert_eq!(tier == Tier::Tests, last, "{path} ranked {tier:?}");
     }
 }
@@ -180,16 +180,16 @@ fn a_declaration_comes_first_and_the_nearest_directory_next() {
     );
     let test = Path::new("tests/test_service.py");
     assert_eq!(
-        rank(test, Some(test), false).0,
+        rank(test, Some(test), false).tier,
         Tier::Open,
         "the open file is never demoted, even when it is a test file itself"
     );
     assert_eq!(
-        rank(test, None, true).0,
+        rank(test, None, true).tier,
         Tier::Tests,
         "`d` asks for the tier alone: every candidate of its own is a declaration"
     );
-    assert_eq!(rank(here, None, true).0, Tier::Declaration);
+    assert_eq!(rank(here, None, true).tier, Tier::Declaration);
 }
 
 #[test]

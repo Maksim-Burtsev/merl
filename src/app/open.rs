@@ -231,7 +231,7 @@ impl App {
             return true;
         };
         if !force {
-            if buffer::hash(&bytes) == self.buf.disk {
+            if buffer::hash(&bytes) == self.buf.disk_hash {
                 // Gone and back as merl last saw it (a writer's delete-then-write): no conflict.
                 return std::mem::take(&mut self.conflict);
             }
@@ -487,7 +487,7 @@ impl App {
 /// that changed the file in several places the lines between them are off by what changed
 /// above them; a line diff would place those too.
 pub(super) fn carried(old: &[String], new: &[String], l: usize) -> usize {
-    let (_, tail) = common_ends(old, new);
+    let (_, tail) = lines_alike_at_start_and_end(old, new);
     if l >= old.len() - tail {
         l + new.len() - old.len()
     } else {
@@ -495,9 +495,7 @@ pub(super) fn carried(old: &[String], new: &[String], l: usize) -> usize {
     }
 }
 
-/// How many lines `old` and `new` start with alike, and then end with alike: what lies between
-/// is what changed, found as VS Code's `ModelService._computeEdits` finds it.
-fn common_ends(old: &[String], new: &[String]) -> (usize, usize) {
+fn lines_alike_at_start_and_end(old: &[String], new: &[String]) -> (usize, usize) {
     let same = |(a, b): &(&String, &String)| a == b;
     let head = old.iter().zip(new).take_while(same).count();
     let ends = old.iter().rev().zip(new.iter().rev());
@@ -513,7 +511,7 @@ fn common_ends(old: &[String], new: &[String]) -> (usize, usize) {
 /// changed.
 fn reload_step(old: &[String], was: buffer::Format, buf: &Buffer) -> Option<Edit> {
     let (new, is) = (&buf.lines, buf.format());
-    let (head, tail) = common_ends(old, new);
+    let (head, tail) = lines_alike_at_start_and_end(old, new);
     if head == old.len() && head == new.len() && was == is {
         return None;
     }

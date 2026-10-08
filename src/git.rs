@@ -113,9 +113,7 @@ pub fn diff(root: &Path, path: &Path, base: Option<&str>, old: Option<&Path>) ->
 fn parse(diff: &str, review: bool) -> Diff {
     let mut out = Diff::default();
     let mut lines = diff.lines().peekable();
-    // Review: the key right after the last hunk's lines. A hunk that starts there reads on from
-    // it, with no line between them, and is no stop of its own.
-    let mut after = None;
+    let mut key_after_last_hunk = None;
     while let Some(line) = lines.next() {
         if !line.starts_with("@@ ") {
             continue;
@@ -123,14 +121,17 @@ fn parse(diff: &str, review: bool) -> Diff {
         let Some((old, new)) = line[3..].split_once(" +") else {
             continue;
         };
-        let (Some((old_start, old_n)), Some((new_start, new_n))) = (
-            range(old.trim_start_matches('-')),
-            range(new.split(' ').next().unwrap_or("")),
+        let (Some((old_start1, old_n)), Some((new_start1, new_n))) = (
+            start_and_count(old.trim_start_matches('-')),
+            start_and_count(new.split(' ').next().unwrap_or("")),
         ) else {
             continue;
         };
-        // 0-based line the hunk's new text starts on; a pure deletion sits above `new_start + 1`.
-        let at = if new_n == 0 { new_start } else { new_start - 1 };
+        let first_new_line = if new_n == 0 {
+            new_start1
+        } else {
+            new_start1 - 1
+        };
         if review {
             let mut deleted = Vec::new();
             let mut added = Vec::new();
@@ -143,33 +144,34 @@ fn parse(diff: &str, review: bool) -> Diff {
                     added.push(text.to_string());
                 }
             }
-            let mut first = TextLine::File(at);
+            let mut first = TextLine::File(first_new_line);
             if !deleted.is_empty() {
-                let ghosts = out.ghosts.entry(at).or_default();
+                let ghosts = out.ghosts.entry(first_new_line).or_default();
                 let offset = ghosts.len();
                 if added.is_empty() {
-                    first = TextLine::Deleted(at, offset);
+                    first = TextLine::Deleted(first_new_line, offset);
                 }
-                // `a` of `-a,b` is 1-based; a hunk with deleted lines never has `a == 0`.
-                out.ghost_from.entry(at).or_insert(old_start - 1);
+                out.ghost_from
+                    .entry(first_new_line)
+                    .or_insert(old_start1 - 1);
                 for (i, j) in crate::intraline::pair(&deleted, &added) {
-                    out.pairs.insert(at + j, (at, offset + i));
+                    out.pairs
+                        .insert(first_new_line + j, (first_new_line, offset + i));
                 }
                 ghosts.extend(deleted);
             }
-            if after != Some(at) {
+            if key_after_last_hunk != Some(first_new_line) {
                 out.hunks.push(first);
             }
-            after = Some(at + new_n);
-            for l in at..at + new_n {
+            key_after_last_hunk = Some(first_new_line + new_n);
+            for l in first_new_line..first_new_line + new_n {
                 out.marks.insert(l, Mark::Added);
             }
             continue;
         }
         if new_n == 0 {
-            // A pure deletion after 1-based line `new_start`; after "line 0" means above line 1.
             out.marks
-                .insert(new_start.saturating_sub(1), Mark::DeletedBelow);
+                .insert(new_start1.saturating_sub(1), Mark::DeletedBelow);
             continue;
         }
         let mark = if old_n == 0 {
@@ -177,22 +179,19 @@ fn parse(diff: &str, review: bool) -> Diff {
         } else {
             Mark::Changed
         };
-        for l in new_start - 1..new_start - 1 + new_n {
+        for l in new_start1 - 1..new_start1 - 1 + new_n {
             out.marks.insert(l, mark);
         }
     }
     out
 }
 
-/// `start,count` or `start` → (start, count).
-fn range(s: &str) -> Option<(usize, usize)> {
+fn start_and_count(s: &str) -> Option<(usize, usize)> {
     match s.split_once(',') {
         Some((a, b)) => Some((a.parse().ok()?, b.parse().ok()?)),
         None => Some((s.parse().ok()?, 1)),
     }
 }
-
-// ---- review mode -----------------------------------------------------------
 
 /// One file of the branch under review.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -325,9 +324,10 @@ impl Review {
         let order = match (branch.as_str(), dirs(root)) {
             _ if !crate::tree::orders_on() => Order::default(),
             ("HEAD", _) | (_, None) => Order::default(),
-            (b, Some((_, common))) => {
-                Order::read(&common.join("merl").join("review").join(b), Path::new(""))
-            }
+            (b, Some(dirs)) => Order::read(
+                &dirs.common_refs_dir.join("merl").join("review").join(b),
+                Path::new(""),
+            ),
         };
         files.sort_by_cached_key(|f| crate::tree::sort_key(&f.path, false, &order));
         // The prefixes are spelled out: a user's `diff.noprefix` would read the patch otherwise.
@@ -419,7 +419,7 @@ impl Review {
     /// The folders git ignores (`.venv`, `node_modules`) are links to the real ones, so a lookup
     /// reaches the dependencies it reaches on disk. Built again when the branch's files change.
     pub fn base_tree(&self, root: &Path) -> Result<PathBuf> {
-        let (git_dir, _) = dirs(root).context("no git directory")?;
+        let git_dir = dirs(root).context("no git directory")?.worktree_head_dir;
         // An untracked file the base has (`git rm --cached`) is not the base's either.
         let changed: std::collections::HashSet<&Path> = (self.files.iter())
             .map(|f| f.old.as_deref().unwrap_or(&f.path))
@@ -658,12 +658,19 @@ fn git(root: &Path, args: &[&str]) -> Result<String> {
         .to_string())
 }
 
-/// The git directory of the worktree at `root` (where `HEAD` is) and the repository's common
-/// one (where the refs are), canonical. They are the same `.git` outside a linked worktree.
-pub fn dirs(root: &Path) -> Option<(PathBuf, PathBuf)> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GitDirs {
+    pub worktree_head_dir: PathBuf,
+    pub common_refs_dir: PathBuf,
+}
+
+pub fn dirs(root: &Path) -> Option<GitDirs> {
     let out = git(root, &["rev-parse", "--git-dir", "--git-common-dir"]).ok()?;
     let mut dirs = out.lines().map(|d| root.join(d).canonicalize().ok());
-    Some((dirs.next()??, dirs.next()??))
+    Some(GitDirs {
+        worktree_head_dir: dirs.next()??,
+        common_refs_dir: dirs.next()??,
+    })
 }
 
 pub fn changed_files(root: &Path) -> HashMap<PathBuf, char> {
@@ -915,8 +922,7 @@ fn parse_numstat(out: &str) -> Vec<(PathBuf, Option<(usize, usize)>)> {
             continue;
         };
         let path = if p.is_empty() {
-            // Rename: old, then new, in the next two fields.
-            it.next();
+            let _renamed_from = it.next();
             it.next().unwrap_or("")
         } else {
             p
@@ -1095,8 +1101,6 @@ mod tests {
         assert_eq!(m, HashMap::from([(1, Mark::Changed), (3, Mark::Added)]));
     }
 
-    /// A user's `diff.interHunkContext` joins nearby edits into one hunk with the unchanged
-    /// lines between them: each edit stays its own hunk.
     #[test]
     fn nearby_edits_stay_apart_under_inter_hunk_context() {
         let dir = std::env::temp_dir().join(format!("merl-interhunk-{}", std::process::id()));
@@ -1125,7 +1129,6 @@ mod tests {
         assert_eq!(d.ghosts[&5], vec!["6"]);
     }
 
-    /// #221: a name is the file, not a pattern: `[id].tsx` would match `d.tsx` too.
     #[test]
     fn a_name_with_glob_characters_is_that_file_alone() {
         let dir = std::env::temp_dir().join(format!("merl-glob-{}", std::process::id()));
@@ -1271,8 +1274,15 @@ mod tests {
         let _ = std::fs::remove_dir_all(&wt);
         git(&["worktree", "add", "-q", "-b", "wt", wt.to_str().unwrap()]);
         let common = real.join(".git");
-        assert_eq!(dirs(&dir), Some((common.clone(), common.clone())));
-        let (git_dir, common_dir) = dirs(&wt).unwrap();
+        let same = GitDirs {
+            worktree_head_dir: common.clone(),
+            common_refs_dir: common.clone(),
+        };
+        assert_eq!(dirs(&dir), Some(same));
+        let GitDirs {
+            worktree_head_dir: git_dir,
+            common_refs_dir: common_dir,
+        } = dirs(&wt).unwrap();
         assert!(git_dir.starts_with(common.join("worktrees")) && git_dir.join("HEAD").exists());
         assert_eq!(common_dir, common);
         std::fs::remove_dir_all(&wt).unwrap();
@@ -1289,7 +1299,6 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// #396: `-r BRANCH` for a branch an agent's worktree has checked out reviews it there.
     #[test]
     fn a_branch_checked_out_in_another_worktree_is_reviewed_there() {
         let tmp = std::env::temp_dir().canonicalize().unwrap();
@@ -1455,7 +1464,6 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// #76: a branch whose only change is not in git yet is a review.
     #[test]
     fn untracked_files_are_rows_of_the_review() {
         let dir = std::env::temp_dir().join(format!("merl-untracked-{}", std::process::id()));
@@ -1575,7 +1583,6 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// #181: `--review feat` reads the branch and the base as `origin` has them.
     #[test]
     fn a_named_review_reads_what_was_pushed() {
         let dir = std::env::temp_dir().join(format!("merl-pushed-{}", std::process::id()));
@@ -1675,7 +1682,6 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// #271: `-r origin/feat` is `-r feat` that origin must have.
     #[test]
     fn a_review_of_origin_slash_branch_reads_the_pushed_branch() {
         let dir = std::env::temp_dir().join(format!("merl-origin-{}", std::process::id()));
@@ -1835,9 +1841,6 @@ mod tests {
         );
     }
 
-    /// #243: generated as both GitHub and GitLab have it: a name both fold, a directory both
-    /// fold, Go's header in the first 40 lines, or `.gitattributes`, which also keeps a lock
-    /// file open.
     #[test]
     fn generated_files_are_known_by_name_attribute_and_header() {
         let dir = std::env::temp_dir().join(format!("merl-generated-{}", std::process::id()));

@@ -243,9 +243,9 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         // not there: the toolchain ships it compiled, with `.swiftinterface` stubs beside it and
         // no `.swift` file to read.
         Kind::Swift => vec![root.join(".build/checkouts")],
-        // The `ruby` on the PATH is asked once a session: it answers the same every time.
         Kind::Ruby => {
-            static ASKED: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+            static RUBY_ANSWER_THIS_SESSION: std::sync::OnceLock<Option<String>> =
+                std::sync::OnceLock::new();
             let env: Vec<PathBuf> = ["GEM_HOME", "GEM_PATH"]
                 .into_iter()
                 .filter_map(std::env::var_os)
@@ -253,7 +253,9 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
                 .collect();
             let script = "puts RbConfig::CONFIG['rubylibdir'], Gem.path";
             ruby_roots(root, &home, &env, || {
-                ASKED.get_or_init(|| run("ruby", &["-e", script])).clone()
+                RUBY_ANSWER_THIS_SESSION
+                    .get_or_init(|| run("ruby", &["-e", script]))
+                    .clone()
             })
         }
         Kind::PowerShell => {
@@ -507,21 +509,20 @@ pub fn package_copy(
     if linked {
         return None;
     }
-    // What TypeScript reads: declarations, and TypeScript source a package may ship instead.
-    let typed = |f: &PathBuf| {
+    let typescript_reads = |f: &PathBuf| {
         f.extension()
             .is_some_and(|e| ["ts", "tsx", "mts", "cts"].iter().any(|t| e == *t))
     };
     let declarations = |d: &PathBuf| -> Vec<PathBuf> {
         files
             .iter()
-            .filter(|f| typed(f) && in_copy(f, std::slice::from_ref(d)))
+            .filter(|f| typescript_reads(f) && in_copy(f, std::slice::from_ref(d)))
             .cloned()
             .collect()
     };
     // A copy of JavaScript alone borrows the nearest declarations further up, a package's own
     // before its `@types`, as TypeScript reads them there; only those, not the JavaScript beside.
-    if !copy.files.is_empty() && !copy.files.iter().any(typed) {
+    if !copy.files.is_empty() && !copy.files.iter().any(typescript_reads) {
         let further = roots[i + 1..].iter().find_map(|r| {
             [&name, &types]
                 .iter()
@@ -684,11 +685,11 @@ impl PackageCopy {
         if self.files.is_empty() {
             return None;
         }
-        let below: Vec<Below> = self
+        let below: Vec<CopyFile> = self
             .files
             .iter()
-            .map(|file| Below {
-                path: self
+            .map(|file| CopyFile {
+                below_dir: self
                     .dirs
                     .iter()
                     .find_map(|d| file.strip_prefix(d).ok())
@@ -706,15 +707,14 @@ impl PackageCopy {
         })
     }
 }
-/// A file of a copy, matched by its path below the copy's directory.
 #[derive(Clone)]
-struct Below<'a> {
-    path: &'a Path,
+struct CopyFile<'a> {
+    below_dir: &'a Path,
     file: &'a PathBuf,
 }
-impl AsRef<Path> for Below<'_> {
+impl AsRef<Path> for CopyFile<'_> {
     fn as_ref(&self) -> &Path {
-        self.path
+        self.below_dir
     }
 }
 /// Whether `path` is a file of the package in the directories `copy`, and not of a package it
@@ -740,9 +740,7 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
     let real = real_dirs(&spelled);
     let mut files = Vec::new();
     for dir in dirs {
-        // Homebrew's Rust ships the sysroot `library` with a copy of itself inside; every
-        // definition would come up twice.
-        let copy = dir.file_name().map(std::ffi::OsStr::to_owned);
+        let copy_of_itself = dir.file_name().map(std::ffi::OsStr::to_owned);
         let others: Vec<PathBuf> = dirs.iter().filter(|o| *o != dir).cloned().collect();
         // Of an SDK's frameworks, each one's `Headers`, a link into `Versions/Current` that is
         // walked through, so a header is read once (#417).
@@ -773,7 +771,7 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
                     && !nested
                     && !untaken
                     && (!frameworks || header)
-                    && (e.depth() != 1 || Some(e.file_name()) != copy.as_deref())
+                    && (e.depth() != 1 || Some(e.file_name()) != copy_of_itself.as_deref())
             })
             .follow_links(kind == Kind::Proto || kind == Kind::Cmake || frameworks)
             .hidden(false)
@@ -841,7 +839,7 @@ fn core_signature(kind: Kind, path: &Path) -> bool {
                     .is_some_and(|n| n.to_string_lossy().starts_with("rbs-"))
         })
 }
-const LAST: &[&str] = &[
+const DEMOTED_DIRS: &[&str] = &[
     "test/",
     "tests/",
     "__tests__/",
@@ -854,15 +852,16 @@ const LAST: &[&str] = &[
     "__mocks__/",
     "vendor/",
     "third_party/",
-    // A test file, by the naming every language settled on: `test_user.py`, `user_test.go`,
-    // `user_spec.rb`, `user.test.ts`, `user.spec.ts`.
+];
+const TEST_FILES: &[&str] = &[
     "test_*",
     "conftest.py",
     "*_test.*",
     "*_spec.*",
     "*.test.*",
     "*.spec.*",
-    // Generated: protobuf, and the `.gen.`/`.generated.` convention the code generators use.
+];
+const GENERATED_FILES: &[&str] = &[
     "*_pb2.py",
     "*_pb2_grpc.py",
     "*.pb.go",
@@ -871,38 +870,37 @@ const LAST: &[&str] = &[
 ];
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Tier {
-    /// A line that declares the word, by the [`def_patterns`] of the file's kind.
     Declaration,
-    /// The file on screen.
     Open,
-    /// The rest of the project's code.
     Code,
-    /// A file of [`LAST`].
     Tests,
 }
 /// How a hit in `path` sorts, with the open file at `here` and `declaration` telling whether the
-/// line declares the word: its [`Tier`], then how many directories away from the open file it
-/// lives, the nearest first. The caller breaks a tie by path and line.
+/// line declares the word. The caller breaks a tie by path and line.
 ///
 /// `u` ranks its hits with this, and `d` demotes the candidates in [`Tier::Tests`] with it, so
 /// one table decides for both. The open file is never demoted: it is what the reader is reading.
-pub fn rank(path: &Path, here: Option<&Path>, declaration: bool) -> (Tier, usize) {
+pub fn rank(path: &Path, here: Option<&Path>, declaration: bool) -> Rank {
     let name = path
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or_default();
-    let last = LAST.iter().any(|row| match row.strip_suffix('/') {
-        Some(dir) => path
-            .parent()
-            .is_some_and(|p| p.iter().any(|c| c == std::ffi::OsStr::new(dir))),
-        None => match (row.strip_prefix('*'), row.strip_suffix('*')) {
-            (Some(_), Some(_)) => name.contains(row.trim_matches('*')),
-            (Some(suffix), None) => name.ends_with(suffix),
-            (None, Some(prefix)) => name.starts_with(prefix),
-            (None, None) => name == *row,
-        },
-    });
-    let tier = if last && here != Some(path) {
+    let rows = [DEMOTED_DIRS, TEST_FILES, GENERATED_FILES];
+    let demoted = rows
+        .iter()
+        .flat_map(|rows| rows.iter())
+        .any(|row| match row.strip_suffix('/') {
+            Some(dir) => path
+                .parent()
+                .is_some_and(|p| p.iter().any(|c| c == std::ffi::OsStr::new(dir))),
+            None => match (row.strip_prefix('*'), row.strip_suffix('*')) {
+                (Some(_), Some(_)) => name.contains(row.trim_matches('*')),
+                (Some(suffix), None) => name.ends_with(suffix),
+                (None, Some(prefix)) => name.starts_with(prefix),
+                (None, None) => name == *row,
+            },
+        });
+    let tier = if demoted && here != Some(path) {
         Tier::Tests
     } else if declaration {
         Tier::Declaration
@@ -922,21 +920,15 @@ pub fn rank(path: &Path, here: Option<&Path>, declaration: bool) -> (Tier, usize
             .count();
         dirs(path) + dirs(h) - 2 * shared
     });
-    (tier, steps)
+    Rank {
+        tier,
+        dirs_from_open_file: steps,
+    }
 }
-/// The `GOOS` and `GOARCH` of the machine merl runs on, which is what `go build` targets there.
-pub fn go_host() -> (&'static str, &'static str) {
-    let os = match std::env::consts::OS {
-        "macos" => "darwin",
-        os => os,
-    };
-    let arch = match std::env::consts::ARCH {
-        "x86_64" => "amd64",
-        "aarch64" => "arm64",
-        "x86" => "386",
-        arch => arch,
-    };
-    (os, arch)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Rank {
+    pub tier: Tier,
+    pub dirs_from_open_file: usize,
 }
 /// What decides whether `go build` compiles a file: the platform, cgo, and the tags of `-tags`.
 pub struct GoBuild {
@@ -947,12 +939,18 @@ pub struct GoBuild {
 }
 
 impl GoBuild {
-    /// A plain `go build` on this machine: its platform, cgo on, no tag set.
     pub fn host() -> Self {
-        let (os, arch) = go_host();
         Self {
-            os,
-            arch,
+            os: match std::env::consts::OS {
+                "macos" => "darwin",
+                os => os,
+            },
+            arch: match std::env::consts::ARCH {
+                "x86_64" => "amd64",
+                "aarch64" => "arm64",
+                "x86" => "386",
+                arch => arch,
+            },
             cgo: true,
             tags: Vec::new(),
         }
@@ -1061,34 +1059,33 @@ pub fn go_built(path: &Path, text: &str, build: &GoBuild) -> Option<bool> {
         // The constraint of before Go 1.17 is not read: undecided, never "no constraint".
         return (!head().any(|l| l.starts_with("// +build"))).then_some(true);
     };
-    // `!` binds tightest, then `&&`, then `||`.
     static TOKEN: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"&&|\|\||[!()]|[\w.]+").unwrap());
     let tokens: Vec<&str> = TOKEN.find_iter(expr).map(|m| m.as_str()).collect();
     type Tag<'a> = &'a dyn Fn(&str) -> bool;
-    fn any(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
-        let mut value = all(t, i, tag)?;
+    fn or_of_ands(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
+        let mut value = and_of_unaries(t, i, tag)?;
         while t.get(*i) == Some(&"||") {
             *i += 1;
-            value |= all(t, i, tag)?;
+            value |= and_of_unaries(t, i, tag)?;
         }
         Some(value)
     }
-    fn all(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
-        let mut value = one(t, i, tag)?;
+    fn and_of_unaries(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
+        let mut value = unary(t, i, tag)?;
         while t.get(*i) == Some(&"&&") {
             *i += 1;
-            value &= one(t, i, tag)?;
+            value &= unary(t, i, tag)?;
         }
         Some(value)
     }
-    fn one(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
+    fn unary(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
         let token = *t.get(*i)?;
         *i += 1;
         match token {
-            "!" => one(t, i, tag).map(|v| !v),
+            "!" => unary(t, i, tag).map(|v| !v),
             "(" => {
-                let value = any(t, i, tag);
+                let value = or_of_ands(t, i, tag);
                 *i += 1;
                 value
             }
@@ -1096,5 +1093,5 @@ pub fn go_built(path: &Path, text: &str, build: &GoBuild) -> Option<bool> {
             name => Some(tag(name)),
         }
     }
-    any(&tokens, &mut 0, &tag)
+    or_of_ands(&tokens, &mut 0, &tag)
 }

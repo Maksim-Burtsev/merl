@@ -147,7 +147,7 @@ pub fn layout(lines: &[String], width: usize, fit: Fit) -> Doc {
     starts.extend(src.match_indices('\n').map(|(i, _)| i + 1));
     let mut lay = Lay {
         src: &src,
-        starts,
+        line_starts: starts,
         width: width.max(1),
         fit: Some(fit),
         ..Default::default()
@@ -208,11 +208,14 @@ fn cover(rows: &mut [Row], n: usize) {
 /// A container the rows inside it are drawn in.
 enum Frame {
     Quote(Option<BlockQuoteKind>),
-    /// The next number of an ordered list, and whether its items are paragraphs apart.
-    List(Option<u64>, bool),
-    /// A list item or a footnote: the marker its first row still has to show, and how wide the
-    /// marker is, which the rows after the first are indented by.
-    Item(Option<(String, Look)>, usize),
+    List {
+        next_number: Option<u64>,
+        loose: bool,
+    },
+    Item {
+        first_row_marker: Option<(String, Look)>,
+        marker_width: usize,
+    },
 }
 
 /// A paragraph, heading or table cell being read: its text, the looks over it, and where each
@@ -221,8 +224,12 @@ enum Frame {
 struct Inline {
     text: String,
     looks: Vec<(Look, Range<usize>)>,
-    /// (byte in `text`, source bytes) of each piece.
-    map: Vec<(usize, Range<usize>)>,
+    pieces: Vec<Piece>,
+}
+
+struct Piece {
+    text_at: usize,
+    src: Range<usize>,
 }
 
 impl Inline {
@@ -236,12 +243,18 @@ impl Inline {
         for (k, part) in s.split('\t').enumerate() {
             if k > 0 {
                 let tab = literal.map_or(at..at + raw.len(), |b| b + o - 1..b + o);
-                self.map.push((self.text.len(), tab));
+                self.pieces.push(Piece {
+                    text_at: self.text.len(),
+                    src: tab,
+                });
                 self.text.push_str(crate::buffer::TAB);
             }
             if !part.is_empty() {
                 let src = literal.map_or(at..at + raw.len(), |b| b + o..b + o + part.len());
-                self.map.push((self.text.len(), src));
+                self.pieces.push(Piece {
+                    text_at: self.text.len(),
+                    src,
+                });
                 self.text.push_str(part);
             }
             o += part.len() + 1;
@@ -255,47 +268,50 @@ impl Inline {
 
     /// The source byte text byte `i` came from, as near as the piece holding it says.
     fn src_at(&self, i: usize) -> usize {
-        let k = self.map.partition_point(|(t, _)| *t <= i).saturating_sub(1);
-        self.map
+        let k = (self.pieces.partition_point(|p| p.text_at <= i)).saturating_sub(1);
+        self.pieces
             .get(k)
-            .map_or(0, |(t, r)| (r.start + (i - t)).min(r.end))
+            .map_or(0, |p| (p.src.start + (i - p.text_at)).min(p.src.end))
     }
+}
+
+struct BlockLine {
+    as_written: String,
+    src_line_col: (usize, usize),
+    tab_spaces_parser_added: usize,
 }
 
 /// A code block being read.
 struct Block {
-    /// The first word of the info string.
-    lang: String,
-    /// Its lines as written, each with the source position it starts at and how many bytes in
-    /// front of it the parser added, the spaces of a tab a container took part of.
-    lines: Vec<(String, (usize, usize), usize)>,
-    /// The last line has not had its `\n` yet.
-    open: bool,
+    info_first_word: String,
+    lines: Vec<BlockLine>,
+    last_line_unended: bool,
     /// The source lines of the block, its fences included.
     span: Range<usize>,
 }
 
 struct Table {
     aligns: Vec<Alignment>,
-    /// The source line of each row, the header first, and its cells.
-    rows: Vec<(usize, Vec<Inline>)>,
+    rows: Vec<TableRow>,
+}
+
+struct TableRow {
+    src_line: usize,
+    cells: Vec<Inline>,
 }
 
 #[derive(Default)]
 struct Lay<'a> {
     src: &'a str,
     fit: Option<Fit<'a>>,
-    /// The byte each source line starts at.
-    starts: Vec<usize>,
+    line_starts: Vec<usize>,
     width: usize,
     rows: Vec<Row>,
     code: Vec<Code>,
     stack: Vec<Frame>,
-    /// A blank row goes before the next block.
-    gap: bool,
+    gap_before_next_block: bool,
     inline: Option<Inline>,
-    /// `inline` is a tight list item's text, which comes with no paragraph around it.
-    implicit: bool,
+    inline_is_tight_item_text: bool,
     bold: usize,
     italic: usize,
     strike: usize,
@@ -304,11 +320,8 @@ struct Lay<'a> {
     heading: Option<HeadingLevel>,
     table: Option<Table>,
     block: Option<Block>,
-    /// Inside front matter, which is drawn from its source lines.
-    meta: bool,
-    /// Footnote labels, numbered as they are first met, and matched as the parser matches a
-    /// reference to its note: case folded.
-    numbers: HashMap<UniCase<String>, usize>,
+    in_front_matter: bool,
+    footnote_numbers_case_folded: HashMap<UniCase<String>, usize>,
 }
 
 impl Lay<'_> {
@@ -316,14 +329,14 @@ impl Lay<'_> {
         match ev {
             Event::Start(tag) => self.start(tag, r),
             Event::End(tag) => self.end(tag, r),
-            Event::Text(_) if self.meta => {}
+            Event::Text(_) if self.in_front_matter => {}
             Event::Text(t) if self.block.is_some() => {
                 // Code comes as text that ends its lines with `\n`: a block at the top in one
                 // event, one inside a container an event a line, and the spaces of a tab the
                 // container took part of as an event of their own in front of the line.
                 let mut off = 0;
                 for piece in t.split_inclusive('\n') {
-                    let at = self.pos((r.start + off).min(r.end));
+                    let at = self.line_and_byte_col((r.start + off).min(r.end));
                     off += piece.len();
                     let Some(b) = &mut self.block else {
                         return;
@@ -332,13 +345,22 @@ impl Lay<'_> {
                     // Text with no source bytes is the parser's own.
                     let added = if r.is_empty() { text.len() } else { 0 };
                     match b.lines.last_mut() {
-                        Some((line, _, n)) if b.open => {
-                            *n += if line.len() == *n { added } else { 0 };
-                            line.push_str(text);
+                        Some(line) if b.last_line_unended => {
+                            let n = &mut line.tab_spaces_parser_added;
+                            *n += if line.as_written.len() == *n {
+                                added
+                            } else {
+                                0
+                            };
+                            line.as_written.push_str(text);
                         }
-                        _ => b.lines.push((text.to_string(), at, added)),
+                        _ => b.lines.push(BlockLine {
+                            as_written: text.to_string(),
+                            src_line_col: at,
+                            tab_spaces_parser_added: added,
+                        }),
                     }
-                    b.open = !piece.ends_with('\n');
+                    b.last_line_unended = !piece.ends_with('\n');
                 }
             }
             Event::Text(t) => self.text(&t, self.look(), r),
@@ -352,7 +374,7 @@ impl Lay<'_> {
             Event::InlineMath(t) | Event::DisplayMath(t) => self.text(&t, self.look(), r),
             Event::Html(t) => {
                 // A raw HTML block, a line an event: shown as it is written.
-                let at = self.pos(r.start);
+                let at = self.line_and_byte_col(r.start);
                 let line = t.trim_end_matches(['\n', '\r']);
                 self.lines(line, Ink::Dim.plain(), at);
             }
@@ -369,14 +391,18 @@ impl Lay<'_> {
             Event::HardBreak => self.text("\n", self.look(), r),
             Event::Rule => {
                 self.block_start(r.start);
-                self.rule(self.pos(r.start));
-                self.gap = true;
+                self.rule(self.line_and_byte_col(r.start));
+                self.gap_before_next_block = true;
             }
             Event::TaskListMarker(done) => {
-                if let Some(Frame::Item(marker, w)) = self.stack.last_mut() {
+                if let Some(Frame::Item {
+                    first_row_marker,
+                    marker_width,
+                }) = self.stack.last_mut()
+                {
                     let bullet = if done { "\u{2611} " } else { "\u{2610} " };
-                    *marker = Some((bullet.into(), Ink::Bullet.plain()));
-                    *w = 2;
+                    *first_row_marker = Some((bullet.into(), Ink::Bullet.plain()));
+                    *marker_width = 2;
                 }
             }
         }
@@ -386,8 +412,7 @@ impl Lay<'_> {
         match tag {
             Tag::Paragraph => {
                 self.block_start(r.start);
-                // A list whose items hold paragraphs is loose: blank rows between its items.
-                if let [.., Frame::List(_, loose), Frame::Item(..)] = &mut self.stack[..] {
+                if let [.., Frame::List { loose, .. }, Frame::Item { .. }] = &mut self.stack[..] {
                     *loose = true;
                 }
                 self.inline = Some(Inline::default());
@@ -412,14 +437,13 @@ impl Lay<'_> {
                         ink: Ink::Alert(kind),
                         mods: Modifier::BOLD,
                     };
-                    let at = self.pos(r.start);
+                    let at = self.line_and_byte_col(r.start);
                     self.push(title.into(), vec![(look, 0..title.len())], at, Kind::Text);
                 }
             }
             Tag::CodeBlock(kind) => {
                 self.block_start(r.start);
-                // `rust,ignore` and `py title=x` name the language by their first word.
-                let lang = match kind {
+                let info_first_word = match kind {
                     CodeBlockKind::Fenced(info) => info
                         .split(|c: char| c == ',' || c.is_whitespace())
                         .next()
@@ -427,32 +451,39 @@ impl Lay<'_> {
                         .into(),
                     CodeBlockKind::Indented => String::new(),
                 };
-                let span = self.pos(r.start).0..self.pos(r.end.saturating_sub(1)).0 + 1;
+                let span = self.line_and_byte_col(r.start).0
+                    ..self.line_and_byte_col(r.end.saturating_sub(1)).0 + 1;
                 self.block = Some(Block {
-                    lang,
+                    info_first_word,
                     lines: Vec::new(),
-                    open: false,
+                    last_line_unended: false,
                     span,
                 });
             }
             Tag::HtmlBlock => self.block_start(r.start),
             Tag::List(first) => {
                 self.block_start(r.start);
-                self.stack.push(Frame::List(first, false));
+                self.stack.push(Frame::List {
+                    next_number: first,
+                    loose: false,
+                });
             }
             Tag::Item => {
                 self.flush_implicit();
                 // Items of a tight list follow each other; a loose list's are paragraphs apart.
-                let loose = matches!(self.stack.last(), Some(Frame::List(_, true)));
-                self.gap &= loose;
+                let loose = matches!(self.stack.last(), Some(Frame::List { loose: true, .. }));
+                self.gap_before_next_block &= loose;
                 self.block_start(r.start);
                 let depth = self
                     .stack
                     .iter()
-                    .filter(|f| matches!(f, Frame::List(..)))
+                    .filter(|f| matches!(f, Frame::List { .. }))
                     .count();
                 let marker = match self.stack.last_mut() {
-                    Some(Frame::List(Some(n), _)) => {
+                    Some(Frame::List {
+                        next_number: Some(n),
+                        ..
+                    }) => {
                         *n += 1;
                         format!("{}. ", *n - 1)
                     }
@@ -463,18 +494,20 @@ impl Lay<'_> {
                     }
                     .into(),
                 };
-                let w = wrap::width(&marker);
-                self.stack
-                    .push(Frame::Item(Some((marker, Ink::Bullet.plain())), w));
+                self.stack.push(Frame::Item {
+                    marker_width: wrap::width(&marker),
+                    first_row_marker: Some((marker, Ink::Bullet.plain())),
+                });
             }
             // A footnote is drawn where it is written, a block of its own under its label.
             Tag::FootnoteDefinition(label) => {
                 self.block_start(r.start);
                 let n = self.number(&label);
                 let marker = format!("[{n}] ");
-                let w = wrap::width(&marker);
-                self.stack
-                    .push(Frame::Item(Some((marker, Ink::Link.plain())), w));
+                self.stack.push(Frame::Item {
+                    marker_width: wrap::width(&marker),
+                    first_row_marker: Some((marker, Ink::Link.plain())),
+                });
             }
             Tag::Table(aligns) => {
                 self.block_start(r.start);
@@ -484,9 +517,12 @@ impl Lay<'_> {
                 });
             }
             Tag::TableHead | Tag::TableRow => {
-                let line = self.pos(r.start).0;
+                let line = self.line_and_byte_col(r.start).0;
                 if let Some(t) = &mut self.table {
-                    t.rows.push((line, Vec::new()));
+                    t.rows.push(TableRow {
+                        src_line: line,
+                        cells: Vec::new(),
+                    });
                 }
             }
             Tag::TableCell => self.inline = Some(Inline::default()),
@@ -501,8 +537,11 @@ impl Lay<'_> {
             }
             Tag::MetadataBlock(_) => {
                 self.block_start(r.start);
-                self.meta = true;
-                let (first, last) = (self.pos(r.start).0, self.pos(r.end.saturating_sub(1)).0);
+                self.in_front_matter = true;
+                let (first, last) = (
+                    self.line_and_byte_col(r.start).0,
+                    self.line_and_byte_col(r.end.saturating_sub(1)).0,
+                );
                 for l in first..=last {
                     let text = self.line(l).to_string();
                     self.lines(&text, Ink::Dim.plain(), (l, 0));
@@ -520,7 +559,7 @@ impl Lay<'_> {
         match tag {
             TagEnd::Paragraph => {
                 self.flush();
-                self.gap = true;
+                self.gap_before_next_block = true;
             }
             TagEnd::Heading(level) => {
                 let shown = self.flush();
@@ -539,12 +578,12 @@ impl Lay<'_> {
                     self.shows_nothing();
                 }
                 // What a heading heads follows it without a blank row: the terminal has few.
-                self.gap = false;
+                self.gap_before_next_block = false;
             }
             TagEnd::BlockQuote(_) | TagEnd::List(_) => {
                 self.flush_implicit();
                 self.stack.pop();
-                self.gap = true;
+                self.gap_before_next_block = true;
             }
             TagEnd::Item => {
                 self.flush_implicit();
@@ -553,33 +592,39 @@ impl Lay<'_> {
             TagEnd::FootnoteDefinition => {
                 self.flush_implicit();
                 // An empty note still shows its label.
-                if let Some(Frame::Item(Some(_), _)) = self.stack.last() {
-                    let at = self.pos(r.start);
+                if let Some(Frame::Item {
+                    first_row_marker: Some(_),
+                    ..
+                }) = self.stack.last()
+                {
+                    let at = self.line_and_byte_col(r.start);
                     self.push(String::new(), Vec::new(), at, Kind::Text);
                 }
                 self.stack.pop();
-                self.gap = true;
+                self.gap_before_next_block = true;
             }
             TagEnd::CodeBlock => {
                 if let Some(block) = self.block.take() {
                     self.code_block(block);
                 }
-                self.gap = true;
+                self.gap_before_next_block = true;
             }
-            TagEnd::HtmlBlock => self.gap = true,
+            TagEnd::HtmlBlock => self.gap_before_next_block = true,
             TagEnd::MetadataBlock(_) => {
-                self.meta = false;
-                self.gap = true;
+                self.in_front_matter = false;
+                self.gap_before_next_block = true;
             }
             TagEnd::Table => {
                 if let Some(t) = self.table.take() {
                     self.table(t);
                 }
-                self.gap = true;
+                self.gap_before_next_block = true;
             }
             TagEnd::TableCell => {
                 let cell = self.inline.take().unwrap_or_default();
-                if let Some((_, cells)) = self.table.as_mut().and_then(|t| t.rows.last_mut()) {
+                if let Some(TableRow { cells, .. }) =
+                    self.table.as_mut().and_then(|t| t.rows.last_mut())
+                {
                     cells.push(cell);
                 }
             }
@@ -637,27 +682,32 @@ impl Lay<'_> {
     fn text(&mut self, s: &str, look: Look, r: Range<usize>) {
         let raw = &self.src[r.clone()];
         let inline = self.inline.get_or_insert_with(|| {
-            self.implicit = true;
+            self.inline_is_tight_item_text = true;
             Inline::default()
         });
         inline.push(s, look, raw, r.start);
     }
 
-    /// 0-based line and byte column of source byte `i`.
-    fn pos(&self, i: usize) -> (usize, usize) {
-        let l = self.starts.partition_point(|&s| s <= i).saturating_sub(1);
-        (l, i - self.starts[l])
+    fn line_and_byte_col(&self, i: usize) -> (usize, usize) {
+        let l = self
+            .line_starts
+            .partition_point(|&s| s <= i)
+            .saturating_sub(1);
+        (l, i - self.line_starts[l])
     }
 
     fn line(&self, l: usize) -> &str {
-        let end = self.starts.get(l + 1).map_or(self.src.len(), |&s| s - 1);
-        &self.src[self.starts[l]..end]
+        let end = self
+            .line_starts
+            .get(l + 1)
+            .map_or(self.src.len(), |&s| s - 1);
+        &self.src[self.line_starts[l]..end]
     }
 
     fn number(&mut self, label: &str) -> usize {
-        let next = self.numbers.len() + 1;
+        let next = self.footnote_numbers_case_folded.len() + 1;
         *self
-            .numbers
+            .footnote_numbers_case_folded
             .entry(UniCase::new(label.into()))
             .or_insert(next)
     }
@@ -681,14 +731,17 @@ impl Lay<'_> {
                     let ink = kind.map_or(Ink::Line, Ink::Alert);
                     looks.push((ink.plain(), at..at + "\u{2502}".len()));
                 }
-                Frame::Item(marker, w) => match marker.take_if(|_| first) {
+                Frame::Item {
+                    first_row_marker,
+                    marker_width,
+                } => match first_row_marker.take_if(|_| first) {
                     Some((m, look)) => {
                         s.push_str(&m);
                         looks.push((look, at..s.len()));
                     }
-                    None => s.push_str(&" ".repeat(*w)),
+                    None => s.push_str(&" ".repeat(*marker_width)),
                 },
-                Frame::List(..) => {}
+                Frame::List { .. } => {}
             }
         }
         (s, looks)
@@ -701,8 +754,8 @@ impl Lay<'_> {
             .iter()
             .map(|f| match f {
                 Frame::Quote(_) => 2,
-                Frame::Item(_, w) => *w,
-                Frame::List(..) => 0,
+                Frame::Item { marker_width, .. } => *marker_width,
+                Frame::List { .. } => 0,
             })
             .sum::<usize>();
         self.width.saturating_sub(w).max(1)
@@ -760,8 +813,8 @@ impl Lay<'_> {
     /// block, when the source has one.
     fn block_start(&mut self, next: usize) {
         self.flush_implicit();
-        if std::mem::take(&mut self.gap) && !self.rows.is_empty() {
-            let l = self.pos(next).0;
+        if std::mem::take(&mut self.gap_before_next_block) && !self.rows.is_empty() {
+            let l = self.line_and_byte_col(next).0;
             let above = self.after();
             match l.checked_sub(1) {
                 Some(b) if b > above.0 && self.line(b).trim().is_empty() => {
@@ -785,15 +838,15 @@ impl Lay<'_> {
     /// A tight item's text that made rows is followed by what the item holds next, with no
     /// blank row between; text of nothing but spaces makes no rows and changes nothing.
     fn flush_implicit(&mut self) {
-        if self.implicit && self.flush() {
-            self.gap = false;
+        if self.inline_is_tight_item_text && self.flush() {
+            self.gap_before_next_block = false;
         }
     }
 
     /// Lays the text read so far out: wrapped to the room the containers leave, a hard break
     /// starting a new row. Returns whether it made any rows.
     fn flush(&mut self) -> bool {
-        self.implicit = false;
+        self.inline_is_tight_item_text = false;
         let Some(inline) = self.inline.take() else {
             return false;
         };
@@ -810,9 +863,9 @@ impl Lay<'_> {
                     continue;
                 }
                 let (text, looks) = cut(&inline.text, &inline.looks, r.clone());
-                let at = self.pos(inline.src_at(r.start));
+                let at = self.line_and_byte_col(inline.src_at(r.start));
                 let last = self
-                    .pos(inline.src_at(r.end.saturating_sub(1).max(r.start)))
+                    .line_and_byte_col(inline.src_at(r.end.saturating_sub(1).max(r.start)))
                     .0;
                 self.push(text, looks, at, Kind::Text);
                 if let Some(row) = self.rows.last_mut() {
@@ -848,17 +901,21 @@ impl Lay<'_> {
     fn code_block(&mut self, mut b: Block) {
         // An empty block's row goes back to its opening fence.
         if b.lines.is_empty() {
-            b.lines.push((String::new(), (b.span.start, 0), 0));
+            b.lines.push(BlockLine {
+                as_written: String::new(),
+                src_line_col: (b.span.start, 0),
+                tab_spaces_parser_added: 0,
+            });
         }
         let block = self.code.len();
         let first = self.rows.len();
         let room = self.avail().saturating_sub(2).max(1);
-        if b.lang == "mermaid"
+        if b.info_first_word == "mermaid"
             && let Some(picture) = self.picture(&b, room)
         {
             for i in 0..picture.1 as usize {
                 let k = i * b.lines.len() / picture.1 as usize;
-                let (_, at, _) = b.lines[k];
+                let at = b.lines[k].src_line_col;
                 let kind = Kind::Code {
                     block,
                     line: k,
@@ -869,14 +926,15 @@ impl Lay<'_> {
             }
             self.span_fences(first, &b.span);
             self.code.push(Code {
-                lang: b.lang,
-                lines: b.lines.into_iter().map(|(raw, _, _)| raw).collect(),
+                lang: b.info_first_word,
+                lines: b.lines.into_iter().map(|l| l.as_written).collect(),
                 picture: Some(picture),
             });
             return;
         }
         let mut drawn = Vec::with_capacity(b.lines.len());
-        for (k, (raw, (l, c), added)) in b.lines.iter().enumerate() {
+        for (k, block_line) in b.lines.iter().enumerate() {
+            let (raw, (l, c)) = (&block_line.as_written, block_line.src_line_col);
             let line = raw.replace('\t', crate::buffer::TAB);
             let mut tabs = Tabs::new(raw);
             let indent = wrap::indent(&line, room);
@@ -890,21 +948,23 @@ impl Lay<'_> {
                     from: r.start,
                     at: lead,
                 };
-                let col = tabs.raw(r.start).saturating_sub(*added);
-                self.push(text, vec![(Ink::Code.plain(), 0..n)], (*l, c + col), kind);
+                let col = tabs
+                    .raw(r.start)
+                    .saturating_sub(block_line.tab_spaces_parser_added);
+                self.push(text, vec![(Ink::Code.plain(), 0..n)], (l, c + col), kind);
             }
             drawn.push(line);
         }
         self.span_fences(first, &b.span);
         self.code.push(Code {
-            lang: b.lang,
+            lang: b.info_first_word,
             lines: drawn,
             picture: None,
         });
     }
 
     fn picture(&mut self, b: &Block, room: usize) -> Option<(u16, u16)> {
-        let src: Vec<&str> = b.lines.iter().map(|(raw, _, _)| raw.as_str()).collect();
+        let src: Vec<&str> = b.lines.iter().map(|l| l.as_written.as_str()).collect();
         let fit = self.fit.as_mut()?;
         fit(&src.join("\n"), room).filter(|&(_, rows)| rows > 0)
     }
@@ -924,7 +984,7 @@ impl Lay<'_> {
         let n = t
             .rows
             .iter()
-            .map(|(_, cells)| cells.len())
+            .map(|row| row.cells.len())
             .max()
             .unwrap_or(0)
             .max(t.aligns.len());
@@ -933,7 +993,7 @@ impl Lay<'_> {
         }
         // Each column's widest cell, and its widest word: a path or a name reads best whole.
         let (mut natural, mut words) = (vec![1; n], vec![1; n]);
-        for (_, cells) in &t.rows {
+        for TableRow { cells, .. } in &t.rows {
             for (j, c) in cells.iter().enumerate() {
                 natural[j] = natural[j].max(wrap::width(&c.text));
                 let word = c.text.split(' ').map(wrap::width).max().unwrap_or(0);
@@ -948,13 +1008,13 @@ impl Lay<'_> {
             format!("{l}{}{r}", cols.join(m))
         };
         let line = Ink::Line.plain();
-        let first = t.rows.first().map_or(0, |(l, _)| *l);
+        let first = t.rows.first().map_or(0, |row| row.src_line);
         let top = border("\u{250c}", "\u{252c}", "\u{2510}");
         let len = top.len();
         self.push(top, vec![(line, 0..len)], (first, 0), Kind::Text);
         self.shows_nothing();
         let empty = Inline::default();
-        for (i, (l, cells)) in t.rows.iter().enumerate() {
+        for (i, TableRow { src_line: l, cells }) in t.rows.iter().enumerate() {
             // Every cell's rows: byte ranges of its text.
             let wrapped: Vec<Vec<Range<usize>>> = (0..n)
                 .map(|j| {
@@ -1013,7 +1073,7 @@ impl Lay<'_> {
         }
         let bottom = border("\u{2514}", "\u{2534}", "\u{2518}");
         let len = bottom.len();
-        let last = t.rows.last().map_or(0, |(l, _)| *l);
+        let last = t.rows.last().map_or(0, |row| row.src_line);
         self.push(bottom, vec![(line, 0..len)], (last, usize::MAX), Kind::Text);
     }
 }

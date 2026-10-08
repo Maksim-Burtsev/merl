@@ -213,7 +213,7 @@ fn written(got: &Got) -> String {
 fn d_answers_every_annotation_in_the_fixtures() {
     let cases = cases();
     assert!(!cases.is_empty(), "no annotations in tests/fixtures");
-    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let threads = super::test_threads();
     let chunk = cases.len().div_ceil(threads);
     let failures: Vec<String> = std::thread::scope(|s| {
         let runs: Vec<_> = cases

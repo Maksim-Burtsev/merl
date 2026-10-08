@@ -330,6 +330,14 @@ impl<'a> Lexer<'a> {
             {
                 continue;
             }
+            if c == b'`'
+                && self.syntax.lang == Lang::Swift
+                && let Some(len) = s[i + 1..].iter().position(|&b| b == b'`')
+            {
+                self.emit(l, i, len + 2, K::Word, l);
+                self.i += len + 2;
+                continue;
+            }
             if c == b'`' {
                 if self.ecma() {
                     self.template();
@@ -394,7 +402,11 @@ impl<'a> Lexer<'a> {
                 continue;
             }
             if word(c) {
-                let len = s[i..].iter().take_while(|&&b| word(b)).count();
+                let php = self.syntax.lang == Lang::Php;
+                let len = 1
+                    + (s[i + 1..].iter())
+                        .take_while(|&&b| word(b) && !(php && b == b'#'))
+                        .count();
                 self.emit(l, i, len, K::Word, l);
                 self.i += len;
                 continue;
