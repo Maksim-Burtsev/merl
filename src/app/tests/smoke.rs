@@ -51,7 +51,6 @@ fn played_keys() -> BTreeSet<String> {
     keys
 }
 
-/// The arguments of the `merl ARGS` steps of a scenario and of the files it includes.
 fn starts(path: &Path, out: &mut Vec<Vec<String>>) {
     for line in std::fs::read_to_string(path).unwrap().lines() {
         let mut words = line
@@ -141,7 +140,6 @@ fn every_key_and_flag_is_smoked_or_skipped_on_purpose() {
     );
 }
 
-/// The issues `text` cites as `#N`.
 fn cited(text: &str) -> BTreeSet<u32> {
     regex::Regex::new(r"#(\d+)\b")
         .unwrap()
@@ -150,8 +148,6 @@ fn cited(text: &str) -> BTreeSet<u32> {
         .collect()
 }
 
-/// The `### Added` and `### Changed` entries of the changelog's `## [Unreleased]` that cite no
-/// issue in `played`, nor one listed in `skipped`.
 fn unplayed(changelog: &str, played: &BTreeSet<u32>, skipped: &[u32]) -> Vec<String> {
     let unreleased = changelog
         .split("## [")

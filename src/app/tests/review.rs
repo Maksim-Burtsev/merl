@@ -1,5 +1,3 @@
-//! Review mode.
-
 use super::*;
 
 #[test]
@@ -12,9 +10,12 @@ fn review_walks_past_files_without_hunks() {
     assert!(!r.files[2].binary && r.files[2].has_hunks());
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!(at(&a), (dir.join("tail"), 0));
-    // Only z.png is left: not a stop.
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
-    assert_eq!(at(&a), (dir.join("tail"), 0));
+    assert_eq!(
+        at(&a),
+        (dir.join("tail"), 0),
+        "only z.png is left: not a stop"
+    );
     assert_eq!(a.message, "last hunk of the review");
     for _ in 0..3 {
         press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
@@ -27,8 +28,6 @@ fn review_walks_past_files_without_hunks() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #162: `c` leaving a file forward marks it as viewed, the last file on the press that has
-/// nowhere to go; `C` marks nothing, `m` toggles, and a changed file loses its tick.
 #[test]
 fn viewed_marks_follow_the_walk_the_key_and_the_disk() {
     let (dir, mut a) = review_app("viewed");
@@ -38,7 +37,6 @@ fn viewed_marks_follow_the_walk_the_key_and_the_disk() {
         v.sort();
         v
     };
-    // The review opens on `new`; `C` walks back to the first hunk and marks nothing.
     while a.message != "first hunk of the review" {
         press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
     }
@@ -70,22 +68,30 @@ fn viewed_marks_follow_the_walk_the_key_and_the_disk() {
     assert_eq!(a.message, "viewed");
     // #240: FNV-1a of `t1\n`. The hashes are kept on disk: a new one takes every kept tick off.
     assert_eq!(a.viewed[Path::new("tail")], 0x5634_7619_43bd_e994);
-    // The panel's row, not the open file; a directory is not a file of the review.
     a.focus = Focus::Tree;
     a.tree.reveal(Path::new("new"));
     press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
-    assert!(!a.viewed.contains_key(Path::new("new")) && a.viewed.contains_key(Path::new("tail")));
+    assert!(
+        !a.viewed.contains_key(Path::new("new")) && a.viewed.contains_key(Path::new("tail")),
+        "`m` marks the panel's row, not the open file"
+    );
     a.tree.reveal(Path::new("src"));
     a.message.clear();
     let before = viewed(&a);
     press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
-    assert_eq!((viewed(&a), a.message.as_str()), (before, ""));
+    assert_eq!(
+        (viewed(&a), a.message.as_str()),
+        (before, ""),
+        "a directory is not a file of the review"
+    );
 
-    // The agent rewrites a viewed line: the counts are the same, the content is not.
     let text = std::fs::read_to_string(dir.join("tail")).unwrap();
     std::fs::write(dir.join("tail"), text.to_uppercase()).unwrap();
     let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
-    assert!(a.review_refreshed(fresh), "the tick goes");
+    assert!(
+        a.review_refreshed(fresh),
+        "the tick goes when a viewed line is rewritten with the same counts"
+    );
     assert!(!a.viewed.contains_key(Path::new("tail")));
     assert!(
         a.hidden.contains_key(Path::new("tail")),
@@ -98,23 +104,29 @@ fn viewed_marks_follow_the_walk_the_key_and_the_disk() {
         a.hidden.contains_key(Path::new("tail")),
         "no tick until viewed again"
     );
-    // Written back as it was viewed, it is viewed again; rewritten, no tick again.
     std::fs::write(dir.join("tail"), &text).unwrap();
     let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
     assert!(a.review_refreshed(fresh));
-    assert!(a.viewed.contains_key(Path::new("tail")) && a.hidden.is_empty());
+    assert!(
+        a.viewed.contains_key(Path::new("tail")) && a.hidden.is_empty(),
+        "written back as it was viewed, it is viewed again"
+    );
     std::fs::write(dir.join("tail"), text.to_uppercase()).unwrap();
     let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
     assert!(a.review_refreshed(fresh));
-    assert!(a.hidden.contains_key(Path::new("tail")));
-    // Viewed again, it has its tick.
+    assert!(
+        a.hidden.contains_key(Path::new("tail")),
+        "rewritten, no tick again"
+    );
     a.tree.reveal(Path::new("tail"));
     press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
-    assert!(a.viewed.contains_key(Path::new("tail")) && a.hidden.is_empty());
+    assert!(
+        a.viewed.contains_key(Path::new("tail")) && a.hidden.is_empty(),
+        "viewed again, it has its tick"
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// The files viewed and those with a hidden mark, sorted.
 fn marks(a: &App) -> (Vec<PathBuf>, Vec<PathBuf>) {
     let sorted = |m: &HashMap<PathBuf, u64>| {
         let mut v: Vec<_> = m.keys().cloned().collect();
@@ -124,9 +136,6 @@ fn marks(a: &App) -> (Vec<PathBuf>, Vec<PathBuf>) {
     (sorted(&a.viewed), sorted(&a.hidden))
 }
 
-/// #240: the marks outlive the session, per branch and base. On the next start a file changed
-/// since has no tick, and does not get it back from a mark written for another file; an
-/// unchanged one keeps its tick.
 #[test]
 fn viewed_marks_outlive_the_session_and_a_changed_file_loses_its_tick() {
     let (dir, mut a) = review_app("viewedkept");
@@ -143,27 +152,35 @@ fn viewed_marks_outlive_the_session_and_a_changed_file_loses_its_tick() {
     }
     let a = review_start(&dir, None);
     assert_eq!(marks(&a), (paths(&["src/a.rs", "tail"]), vec![]));
-    // The same branch against another base is another review.
     git(&["branch", "dev", "main"]);
     let a = review_start(&dir, Some("dev"));
-    assert_eq!(marks(&a), (vec![], vec![]));
+    assert_eq!(
+        marks(&a),
+        (vec![], vec![]),
+        "the same branch against another base is another review"
+    );
 
-    // Between two starts the agent rewrites `tail` and commits.
     std::fs::write(dir.join("tail"), "t1\nfixed\n").unwrap();
     git(&["commit", "-qam", "fix"]);
     let mut a = review_start(&dir, None);
     assert_eq!(marks(&a), (paths(&["src/a.rs"]), paths(&["tail"])));
-    // A mark written for another file does not bring back the tick at the next start.
     press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
     let mut a = review_start(&dir, None);
-    assert_eq!(marks(&a), (paths(&["new", "src/a.rs"]), paths(&["tail"])));
-    // Viewed again, `tail` is viewed at what it is now.
+    assert_eq!(
+        marks(&a),
+        (paths(&["new", "src/a.rs"]), paths(&["tail"])),
+        "a mark written for another file does not bring back the tick at the next start"
+    );
     a.focus = Focus::Tree;
     a.tree.reveal(Path::new("tail"));
     press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
     let mut a = review_start(&dir, None);
     let all = (paths(&["new", "src/a.rs", "tail"]), vec![]);
-    assert_eq!(marks(&a), all);
+    assert_eq!(
+        marks(&a),
+        all,
+        "viewed again, `tail` is viewed at what it is now"
+    );
     // Another branch checked out under a live review is another review, and back is this one.
     // The listing is the one reading of HEAD: taken on `other`, it is `other`'s review, even
     // with HEAD back on `feature` by the time it arrives, and the next listing brings `feature`.
@@ -179,11 +196,14 @@ fn viewed_marks_outlive_the_session_and_a_changed_file_loses_its_tick() {
     assert_eq!(marks(&a), (vec![], vec![]));
     refresh(&mut a);
     assert_eq!(marks(&a), all);
-    // A tick taken off stays off.
     press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
     assert_eq!(a.message, "not viewed");
     let a = review_start(&dir, None);
-    assert_eq!(marks(&a), (paths(&["src/a.rs", "tail"]), vec![]));
+    assert_eq!(
+        marks(&a),
+        (paths(&["src/a.rs", "tail"]), vec![]),
+        "a tick taken off stays off"
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -250,10 +270,6 @@ fn the_agents_order_moves_the_files_and_leaves_the_viewed_marks_alone() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #240: the marks are a branch's, never `HEAD`'s. A tag named like the branch changes nothing;
-/// a live review keeps its ticks through a detached HEAD, and a mark made then is the branch's;
-/// a review started detached keeps its marks in memory for its whole life, and reads and writes
-/// nothing, not under a branch checked out later either.
 #[test]
 fn viewed_marks_are_the_branch_s_through_a_detached_head_and_a_namesake_tag() {
     let (dir, mut a) = review_app("viewedhead");
@@ -278,7 +294,11 @@ fn viewed_marks_are_the_branch_s_through_a_detached_head_and_a_namesake_tag() {
     git(&["tag", "feature"]);
     refresh(&mut a);
     assert_eq!(a.review.as_ref().unwrap().branch, "feature");
-    assert_eq!(marks(&a).0, paths(&["src/a.rs", "tail"]));
+    assert_eq!(
+        marks(&a).0,
+        paths(&["src/a.rs", "tail"]),
+        "a tag named like the branch changes nothing"
+    );
     let mut a = review_start(&dir, None);
     assert_eq!(marks(&a).0, paths(&["src/a.rs", "tail"]));
 
@@ -296,7 +316,6 @@ fn viewed_marks_are_the_branch_s_through_a_detached_head_and_a_namesake_tag() {
     assert_eq!(marks(&a).0, all);
     assert_eq!(marks(&review_start(&dir, None)).0, all);
 
-    // Started detached, on a commit of no branch: nothing read, nothing written.
     let store = dir.join(".git/merl/viewed");
     let kept = std::fs::read_to_string(&store).unwrap();
     git(&["switch", "-q", "--detach"]);
@@ -304,7 +323,11 @@ fn viewed_marks_are_the_branch_s_through_a_detached_head_and_a_namesake_tag() {
     git(&["commit", "-qam", "elsewhere"]);
     let mut a = review_start(&dir, None);
     assert_eq!(a.review.as_ref().unwrap().branch, "HEAD");
-    assert_eq!(marks(&a), (vec![], vec![]));
+    assert_eq!(
+        marks(&a),
+        (vec![], vec![]),
+        "started detached, on a commit of no branch: nothing read"
+    );
     a.focus = Focus::Tree;
     a.tree.reveal(Path::new("src/a.rs"));
     press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
@@ -325,14 +348,10 @@ fn viewed_marks_are_the_branch_s_through_a_detached_head_and_a_namesake_tag() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #240: a mark that cannot be saved says so, over the walk's word and over `m`'s, and a store
-/// that cannot be read is left as it is.
 #[test]
 fn a_viewed_mark_that_cannot_be_saved_says_so() {
     let png: &[u8] = b"\x89PNG\0\0";
     let (dir, mut a) = review_app_with("viewedunsaved", &[("o.png", png)]);
-    // After the start, another hand leaves a store that is not UTF-8: it cannot be read, so it
-    // is not written.
     let store = dir.join(".git/merl/viewed");
     std::fs::create_dir_all(store.parent().unwrap()).unwrap();
     std::fs::write(&store, b"\xff\n").unwrap();
@@ -347,14 +366,20 @@ fn a_viewed_mark_that_cannot_be_saved_says_so() {
             a.message
         );
     }
-    assert_eq!(std::fs::read(&store).unwrap(), b"\xff\n");
-    // The marks it could not save stay for the session: a new listing on the same branch does
-    // not read the store again.
+    assert_eq!(
+        std::fs::read(&store).unwrap(),
+        b"\xff\n",
+        "a store left not UTF-8 after the start cannot be read, so it is not written"
+    );
     std::fs::write(dir.join("zz.txt"), "z\n").unwrap();
     let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
     a.review_refreshed(fresh);
     let both = vec![PathBuf::from("new"), PathBuf::from("tail")];
-    assert_eq!(marks(&a).0, both);
+    assert_eq!(
+        marks(&a).0,
+        both,
+        "the unsaved marks stay through a new listing on the same branch"
+    );
     for _ in 0..2 {
         press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
         assert!(
@@ -367,8 +392,6 @@ fn a_viewed_mark_that_cannot_be_saved_says_so() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #516: a viewed store merl cannot read or write says why in a few words, never with the OS
-/// text's `(os error N)`: here the store's path is a folder.
 #[test]
 fn a_viewed_store_that_fails_says_why_in_a_few_words() {
     let (dir, _) = review_app("viewedio");
@@ -394,8 +417,6 @@ fn a_viewed_store_that_fails_says_why_in_a_few_words() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #240: a store that cannot be read when the review starts gives no marks and says so once;
-/// the review keeps its marks in memory and never writes over the store.
 #[test]
 fn a_viewed_store_that_cannot_be_read_is_not_taken_for_an_empty_one() {
     let (dir, _) = review_app("viewedunread");
@@ -419,8 +440,6 @@ fn a_viewed_store_that_cannot_be_read_is_not_taken_for_an_empty_one() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #240: on a refresh where git cannot say where the store is, the key stays and nothing is
-/// written; the next listing takes the branch checked out.
 #[test]
 fn a_refresh_that_cannot_find_the_store_keeps_the_key() {
     let (dir, mut a) = review_app("viewedgitless");
@@ -451,7 +470,6 @@ fn a_refresh_that_cannot_find_the_store_keeps_the_key() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #240: a name that holds a newline is not written, rather than read back as another file.
 #[test]
 fn a_name_with_a_newline_is_not_kept_as_another_file() {
     let (dir, mut a) = review_app_with("viewednl", &[("new\nx", b"x\n")]);
@@ -465,8 +483,6 @@ fn a_name_with_a_newline_is_not_kept_as_another_file() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #240: a start that changes no mark leaves the store as it is, so a review opened and not
-/// marked does not start its 30 days again.
 #[test]
 fn a_start_leaves_the_viewed_store_as_it_is() {
     let (dir, mut a) = review_app("viewedstart");
@@ -474,18 +490,18 @@ fn a_start_leaves_the_viewed_store_as_it_is() {
     let store = dir.join(".git/merl/viewed");
     let today = crate::stats::today();
     let text = std::fs::read_to_string(&store).unwrap();
-    // As if written ten days ago.
     let old = text.replace(&crate::stats::date(today), &crate::stats::date(today - 10));
     std::fs::write(&store, &old).unwrap();
     let a = review_start(&dir, None);
     assert_eq!(marks(&a).0, [PathBuf::from("new")]);
-    assert_eq!(std::fs::read_to_string(&store).unwrap(), old);
+    assert_eq!(
+        std::fs::read_to_string(&store).unwrap(),
+        old,
+        "a start without a new mark does not start the store's 30 days again"
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #240: an agent's rebase stopped on a conflict lists only what it has replayed. A file of a
-/// later commit keeps its tick, unseen, through a mark made meanwhile, and has it back when the
-/// rebase is done. A review started during the stop is the rebased branch's.
 #[test]
 fn a_stopped_rebase_keeps_the_ticks_of_files_not_replayed_yet() {
     let (dir, _) = review_app("viewedrebase");
@@ -528,9 +544,6 @@ fn a_stopped_rebase_keeps_the_ticks_of_files_not_replayed_yet() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #240: a write keeps the lines of the same branch against another base, and a name ending in
-/// `\r` (macOS's `Icon\r`) reads back as itself, from this review's lines and from those a
-/// write of another review carries over.
 #[test]
 fn the_viewed_store_keeps_other_bases_and_names_as_they_are() {
     let (dir, mut a) = review_app_with("viewedbases", &[("cr\r", b"x\n")]);
@@ -557,8 +570,6 @@ fn the_viewed_store_keeps_other_bases_and_names_as_they_are() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #240: the store is in the repository's common git dir, so a worktree's review of the branch
-/// has the marks made in the main checkout, and the other way round.
 #[test]
 fn a_worktree_review_shares_the_viewed_marks() {
     let (dir, mut a) = review_app("viewedwt");
@@ -582,15 +593,13 @@ fn a_worktree_review_shares_the_viewed_marks() {
         !dir.join(".git/worktrees")
             .join(wt.file_name().unwrap())
             .join("merl")
-            .exists()
+            .exists(),
+        "the store is in the common git dir, not the worktree's"
     );
     let _ = std::fs::remove_dir_all(wt);
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #240: a review whose marks nobody wrote for 30 days is not read, and leaves the store the
-/// next time it is written (the edge, with a fixed day, is in `review.rs`). The store is
-/// replaced whole: a merl reading it meanwhile has the old one entire.
 #[test]
 fn the_viewed_store_forgets_old_reviews_and_is_replaced_whole() {
     let (dir, _) = review_app("viewedstore");
@@ -621,7 +630,11 @@ fn the_viewed_store_forgets_old_reviews_and_is_replaced_whole() {
     assert!(text.contains(&line(10, "recent")), "{text}");
     let mark = "\tfeature\tmain\t";
     assert!(text.contains(mark) && text.ends_with("\tnew\n"), "{text}");
-    assert_eq!(std::fs::read_to_string(&reader).unwrap(), old);
+    assert_eq!(
+        std::fs::read_to_string(&reader).unwrap(),
+        old,
+        "replaced whole: a merl reading it meanwhile has the old one entire"
+    );
     let left: Vec<_> = std::fs::read_dir(store.parent().unwrap())
         .unwrap()
         .collect();
@@ -629,8 +642,6 @@ fn the_viewed_store_forgets_old_reviews_and_is_replaced_whole() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #76: the review is left open next to an agent. What `main` does on a change is
-/// `Review::refresh` and `review_refreshed`; the open file, the cursor and both scrolls stay.
 #[test]
 fn a_live_review_follows_edits_untracked_files_and_commits() {
     let (dir, mut a) = review_app("livereview");
@@ -639,6 +650,7 @@ fn a_live_review_follows_edits_untracked_files_and_commits() {
         let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
         assert!(out.status.success(), "git {args:?}");
     };
+    // What `main` does on a change.
     let refresh = |a: &mut App| {
         let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
         a.review_refreshed(fresh)
@@ -650,7 +662,6 @@ fn a_live_review_follows_edits_untracked_files_and_commits() {
             .collect()
     };
     let row = |s: char, p: &str, n: usize, m: usize| (s, p.to_string(), n, m);
-    // Where the reader is: the code pane, the panel cursor and its row on screen.
     let place = |a: &App| {
         let vis = a.tree.visible();
         let row = vis.iter().position(|&i| i == a.tree.cursor).unwrap();
@@ -663,8 +674,6 @@ fn a_live_review_follows_edits_untracked_files_and_commits() {
     let before = place(&a);
     assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 4/5");
 
-    // The agent touches a file for the first time, writes a module in a new directory and
-    // one at the root, neither added, and a log that is ignored.
     std::fs::write(dir.join("src/keep.rs"), "k1\nk2\nK\nk3\n").unwrap();
     std::fs::create_dir(dir.join("pkg")).unwrap();
     std::fs::write(dir.join("pkg/mod.py"), "x = 1\ny = 2\n").unwrap();
@@ -697,7 +706,6 @@ fn a_live_review_follows_edits_untracked_files_and_commits() {
             .any(|&i| a.tree.nodes[i].path == Path::new(p))
     };
     assert!(shown(&a, "pkg/mod.py"), "a new directory comes open");
-    // A directory the reader closed stays closed.
     a.tree.reveal(Path::new("src"));
     a.tree.collapse();
     a.tree.reveal(Path::new("new"));
@@ -705,19 +713,21 @@ fn a_live_review_follows_edits_untracked_files_and_commits() {
     assert!(refresh(&mut a));
     assert_eq!(rows(&a)[1], row('A', "pkg/mod.py", 1, 0));
     assert!(a.review.as_ref().unwrap().files[0].binary);
-    assert!(!shown(&a, "src/a.rs"));
+    assert!(
+        !shown(&a, "src/a.rs"),
+        "a directory the reader closed stays closed"
+    );
 
-    // `c` walks into the untracked file as into any added one: every line is added.
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!(at(&a), (dir.join("zz.py"), 0));
     assert_eq!(
         (a.diff.marks.len(), &a.diff.hunks),
-        (3, &vec![TextLine::File(0)])
+        (3, &vec![TextLine::File(0)]),
+        "`c` walks into the untracked file as into any added one: every line is added"
     );
     assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 10/10");
 
-    // A reverted file leaves the panel. The open one stays open, without marks.
     a.jump_to(&dir.join("src/keep.rs"), 3);
     assert_eq!(a.diff.marks.len(), 1);
     std::fs::write(dir.join("src/keep.rs"), "k1\nk2\nk3\n").unwrap();
@@ -728,15 +738,16 @@ fn a_live_review_follows_edits_untracked_files_and_commits() {
             .as_ref()
             .unwrap()
             .file(Path::new("src/keep.rs"))
-            .is_none()
+            .is_none(),
+        "a reverted file leaves the panel"
     );
     assert_eq!(at(&a), (dir.join("src/keep.rs"), 2));
-    assert!(a.diff.marks.is_empty());
+    assert!(
+        a.diff.marks.is_empty(),
+        "the open one stays open, without marks"
+    );
     assert_eq!(a.review_status(), None);
 
-    // The agent commits: the rows are the same ones, tracked now. Then the base moves up to
-    // the branch's first commit, and only the second one is left to review; `new`, open
-    // and not touched on disk, loses its marks.
     a.jump_to(&dir.join("new"), 1);
     assert_eq!(a.diff.marks.len(), 1);
     let listed = rows(&a);
@@ -760,9 +771,11 @@ fn a_live_review_follows_edits_untracked_files_and_commits() {
         ]
     );
     assert_eq!(at(&a), (dir.join("new"), 0));
-    assert!(a.diff.marks.is_empty());
+    assert!(
+        a.diff.marks.is_empty(),
+        "`new`, open and not touched on disk, loses its marks"
+    );
     assert_eq!(a.review_status(), None);
-    // The base caught up with the branch: an empty panel, and keys that find no row.
     git(&["branch", "-f", "main", "HEAD"]);
     assert!(refresh(&mut a));
     assert_eq!(a.review_status(), None);
@@ -770,12 +783,14 @@ fn a_live_review_follows_edits_untracked_files_and_commits() {
     for key in [KeyCode::Down, KeyCode::Enter, KeyCode::Char('c')] {
         press(&mut a, key, KeyModifiers::NONE);
     }
-    assert_eq!(at(&a), (dir.join("new"), 0));
+    assert_eq!(
+        at(&a),
+        (dir.join("new"), 0),
+        "the base caught up with the branch: keys find no row"
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #76: the marks of the open file are read again when the base moves under it or its row
-/// changes kind, with no write to the file itself, which is what `reload` answers.
 #[test]
 fn the_open_file_gets_new_marks_when_only_the_branch_changed() {
     let (dir, mut a) = review_app("livemarks");
@@ -796,12 +811,13 @@ fn the_open_file_gets_new_marks_when_only_the_branch_changed() {
     assert!(refresh(&mut a));
     a.jump_to(&keep, 1);
     assert_eq!(a.diff.marks.len(), 2);
-    // The base moves up to `second`: the row stays `M`, one mark is left.
     git(&["branch", "-f", "main", "HEAD~1"]);
     assert!(refresh(&mut a));
-    assert_eq!(a.diff.marks.len(), 1);
-    // The file leaves the index: the same merge base, a row of another kind, every line
-    // added. One row: the file on disk, not the deletion.
+    assert_eq!(
+        a.diff.marks.len(),
+        1,
+        "the base moves up to `second`: one mark is left"
+    );
     git(&["rm", "-q", "--cached", "src/keep.rs"]);
     assert!(refresh(&mut a));
     let rows = a.review.as_ref().unwrap().files.iter();
@@ -810,15 +826,14 @@ fn the_open_file_gets_new_marks_when_only_the_branch_changed() {
         .collect();
     assert_eq!(
         (rows.len(), rows[0].status, rows[0].untracked),
-        (1, 'A', true)
+        (1, 'A', true),
+        "the file left the index: one row, the file on disk, not the deletion"
     );
-    assert_eq!(a.diff.marks.len(), 3);
+    assert_eq!(a.diff.marks.len(), 3, "every line added");
     assert_eq!(at(&a), (keep, 0));
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #76: the branch deleted `gone` and the agent writes it again, not added: git lists the
-/// path as deleted and as untracked. It is one row, read from disk, and `c` walks past it.
 #[test]
 fn a_deleted_file_written_again_is_one_row() {
     let (dir, mut a) = review_app("liveagain");
@@ -844,8 +859,6 @@ fn a_deleted_file_written_again_is_one_row() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #76: the reader is in the second hunk when the agent adds one above it. The cursor and
-/// the scroll go down with the text, so the hunk is still the current one and `c` goes on.
 #[test]
 fn the_current_hunk_stays_current_when_one_is_added_above() {
     let (dir, mut a) = review_app("livehunk");
@@ -864,9 +877,16 @@ fn the_current_hunk_stays_current_when_one_is_added_above() {
         (7, 5, "F")
     );
     assert_eq!(a.review_status().unwrap(), "hunk 3/3  file 1/5");
-    // What is selected is still selected, and the history stop is still under the cursor.
-    assert_eq!(a.anchor, Some((TextLine::File(6), 0)));
-    assert_eq!(stop(&a), (dir.join("src/a.rs"), TextLine::File(7), 0));
+    assert_eq!(
+        a.anchor,
+        Some((TextLine::File(6), 0)),
+        "what is selected is still selected"
+    );
+    assert_eq!(
+        stop(&a),
+        (dir.join("src/a.rs"), TextLine::File(7), 0),
+        "the history stop is still under the cursor"
+    );
     a.anchor = None;
     // A block deleted above the pane, from a file longer than what is left of it: the
     // scroll is carried from where it was, not from where the shorter file clamps it.
@@ -906,8 +926,6 @@ fn the_current_hunk_stays_current_when_one_is_added_above() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// A submodule is a gitlink, which `git diff --numstat` counts as one added line: listed,
-/// not a stop. And a file that does not open is walked past with the reason, not retried.
 #[test]
 fn review_walks_past_a_submodule_and_a_file_that_does_not_open() {
     let (dir, mut a) = review_app("reviewsub");
@@ -931,39 +949,44 @@ fn review_walks_past_a_submodule_and_a_file_that_does_not_open() {
     // Panel order: src/a.rs, crlf.txt, gone, new, sub, tail.
     let r = a.review.as_ref().unwrap();
     assert_eq!(r.files[4].path, Path::new("sub"));
-    assert!(!r.files[4].has_hunks());
+    assert!(!r.files[4].has_hunks(), "a submodule is listed, not a stop");
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!(at(&a), (dir.join("tail"), 0));
     assert_eq!(a.message, "skipped 1 file without hunks");
     assert!(a.viewed.contains_key(Path::new("new")) && !a.viewed.contains_key(Path::new("sub")));
-    // `new` stops opening: `c` from `gone` goes past it to `tail`, and the status says
-    // what happened to `new`.
     std::fs::remove_file(dir.join("new")).unwrap();
     std::fs::create_dir(dir.join("new")).unwrap();
     a.jump_to(&dir.join("gone"), 1);
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!(at(&a), (dir.join("tail"), 0));
-    assert!(a.message.contains("new: "), "{}", a.message);
-    // Edits that cannot be saved hold merl on the file; what the status says stays.
+    assert!(
+        a.message.contains("new: "),
+        "the status says why `new` does not open: {}",
+        a.message
+    );
     a.jump_to(&dir.join("gone"), 1);
     (a.dirty, a.conflict) = (true, true);
     a.message = "save failed: x".into();
     a.hunk(1);
-    assert_eq!(at(&a), (dir.join("gone"), 0));
-    assert_eq!(a.message, "save failed: x");
+    assert_eq!(
+        at(&a),
+        (dir.join("gone"), 0),
+        "edits that cannot be saved hold merl on the file"
+    );
+    assert_eq!(a.message, "save failed: x", "what the status says stays");
     (a.dirty, a.conflict) = (false, false);
-    // Nothing ahead opens: the reason again, not a retry that hides it.
     std::fs::remove_file(dir.join("tail")).unwrap();
     a.jump_to(&dir.join("gone"), 1);
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!(at(&a), (dir.join("gone"), 0));
-    assert!(a.message.contains("tail: "), "{}", a.message);
+    assert!(
+        a.message.contains("tail: "),
+        "nothing ahead opens: the reason again, not a retry: {}",
+        a.message
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #404: git counts a symlink as one line, where it points, and a link to a directory has no
-/// text to read: the review opens on the first file with a hunk, and `c` and `C` pass the link
-/// as they pass a submodule, whether it comes first, in the middle or last.
 #[cfg(unix)]
 #[test]
 fn review_walks_past_a_link_to_a_directory_wherever_it_is() {
@@ -998,7 +1021,6 @@ fn review_walks_past_a_link_to_a_directory_wherever_it_is() {
             None,
         );
         a.start_review(r);
-        // Every stop, forward and back: never the link, and no error on the way.
         let mut walk = |key: char, end: &str| {
             let mut stops = vec![a.rel_current().unwrap()];
             loop {
@@ -1024,8 +1046,6 @@ fn review_walks_past_a_link_to_a_directory_wherever_it_is() {
     }
 }
 
-/// #449: Enter on the panel row of a link to a directory opens nothing: the file shown and the
-/// status bar stay as they were, with no OS error and no absolute path.
 #[cfg(unix)]
 #[test]
 fn enter_on_a_link_to_a_directory_in_the_review_panel_opens_nothing() {
@@ -1070,30 +1090,38 @@ fn review_walks_hunks_across_files_and_opens_deleted_files_from_the_base() {
     // Files in panel order: src/a.rs (M), crlf.txt (M), gone (D), new (A), tail (M).
     assert_eq!(at(&a), (dir.join("new"), 0));
     assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 4/5");
-    // A deletion at the end of `tail` is a stop on its last line, with the ghosts under it.
     c(&mut a);
     assert_eq!(at(&a), (dir.join("tail"), 0));
-    assert_eq!(a.diff.ghosts[&1], vec!["t2", "t3"]);
+    assert_eq!(
+        a.diff.ghosts[&1],
+        vec!["t2", "t3"],
+        "a deletion at the end of `tail` is a stop on its last line, with the ghosts under it"
+    );
     assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 5/5");
     c(&mut a);
     assert_eq!(at(&a), (dir.join("tail"), 0));
     assert_eq!(a.message, "last hunk of the review");
-    // A file crossing is one stop: `[` goes straight back to the previous file.
     press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
-    assert_eq!(at(&a), (dir.join("new"), 0));
-    // Back over the deleted file: read from the base, read-only, all marked.
+    assert_eq!(
+        at(&a),
+        (dir.join("new"), 0),
+        "a file crossing is one stop: `[` goes straight back to the previous file"
+    );
     big_c(&mut a);
     assert_eq!(at(&a), (dir.join("gone"), 0));
-    assert_eq!(a.buf.lines, vec!["x", "y"]);
+    assert_eq!(a.buf.lines, vec!["x", "y"], "read from the base");
     assert_eq!(a.diff.marks.len(), 2);
     assert!(a.diff.marks.values().all(|m| *m == git::Mark::Deleted));
     assert_eq!(a.buf.readonly, Some("deleted in this branch"));
     assert!(a.review_status().unwrap().starts_with("hunk 0/0"));
-    // A read-only buffer that the branch did not delete keeps its real diff.
     big_c(&mut a);
     assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
     assert_eq!(a.buf.readonly, Some("mixed line endings"));
-    assert_eq!(a.diff.hunks, vec![TextLine::File(1)]);
+    assert_eq!(
+        a.diff.hunks,
+        vec![TextLine::File(1)],
+        "a read-only buffer that the branch did not delete keeps its real diff"
+    );
     assert_eq!(a.diff.marks.len(), 1);
     big_c(&mut a);
     assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
@@ -1105,10 +1133,12 @@ fn review_walks_hunks_across_files_and_opens_deleted_files_from_the_base() {
     assert_eq!(a.message, "first hunk of the review");
     c(&mut a);
     assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
-    // `[` walks back through the same stops.
     press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
-    assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
-    // The panel lists only the branch's files.
+    assert_eq!(
+        at(&a),
+        (dir.join("src/a.rs"), 1),
+        "`[` walks back through the same stops"
+    );
     let names: Vec<_> = a
         .tree
         .nodes
@@ -1117,7 +1147,8 @@ fn review_walks_hunks_across_files_and_opens_deleted_files_from_the_base() {
         .collect();
     assert_eq!(
         names,
-        vec!["src", "src/a.rs", "crlf.txt", "gone", "new", "tail"]
+        vec!["src", "src/a.rs", "crlf.txt", "gone", "new", "tail"],
+        "the panel lists only the branch's files"
     );
     assert_eq!(
         a.review
@@ -1129,36 +1160,43 @@ fn review_walks_hunks_across_files_and_opens_deleted_files_from_the_base() {
             .collect::<Vec<_>>(),
         vec!['M', 'M', 'D', 'A', 'M']
     );
-    // Enter in the panel opens a file on its first hunk; on the open file it stays put.
     a.tree.reveal(Path::new("src/a.rs"));
     a.focus = Focus::Tree;
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
-    // From `B`, the hunk's added line (#690), down onto `c`.
+    assert_eq!(
+        at(&a),
+        (dir.join("src/a.rs"), 1),
+        "Enter in the panel opens a file on its first hunk"
+    );
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);
     a.focus = Focus::Tree;
     a.tree.reveal(Path::new("src/a.rs"));
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    assert_eq!((at(&a), a.line_str()), ((dir.join("src/a.rs"), 2), "c"));
-    // Opening a shorter file from far down a long one (Enter in the panel, #61 follow-up):
-    // the viewport of the old file must not be read against the new one.
+    assert_eq!(
+        (at(&a), a.line_str()),
+        ((dir.join("src/a.rs"), 2), "c"),
+        "Enter on the open file stays put"
+    );
     a.jump_to(&dir.join("src/a.rs"), 6);
     (a.top_line, a.top_row) = (5, 0);
     a.jump_to(&dir.join("new"), 0);
-    assert_eq!((at(&a), a.top_line), ((dir.join("new"), 0), 0));
-    // Outside the project (the standard library, a dependency) nothing is marked deleted.
+    assert_eq!(
+        (at(&a), a.top_line),
+        ((dir.join("new"), 0), 0),
+        "a shorter file opened from far down a long one does not read the old viewport"
+    );
     let outside = std::env::temp_dir().join(format!("merl-outside-{}", std::process::id()));
     std::fs::write(&outside, "fn x() {}\n").unwrap();
     a.jump_to(&outside, 1);
     assert_eq!(a.buf.readonly, Some("outside the project"));
-    assert!(a.diff.marks.is_empty() && a.diff.hunks.is_empty());
+    assert!(
+        a.diff.marks.is_empty() && a.diff.hunks.is_empty(),
+        "outside the project nothing is marked deleted"
+    );
     std::fs::remove_file(&outside).unwrap();
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #239: `d` from a hunk into a file outside the review, then `c`: back on the hunk `c` last
-/// stopped on, and the next `c` goes on from there; `C` the same, backwards. Before the first
-/// `c`, and from another file of the review, the walk is what it always was.
 #[test]
 fn c_and_big_c_from_outside_the_review_go_back_to_the_hunk_left() {
     let (dir, mut a) = review_app("reviewback");
@@ -1167,14 +1205,20 @@ fn c_and_big_c_from_outside_the_review_go_back_to_the_hunk_left() {
     // Files in panel order: src/a.rs (M), crlf.txt (M), gone (D), new (A), tail (M);
     // src/keep.rs is not one of them.
     let outside = dir.join("src/keep.rs");
-    // Nothing to go back to yet: `c` starts from the first file.
     a.jump_to(&outside, 2);
     c(&mut a);
-    assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
-    // Back to `B` itself, not to `F` after it.
+    assert_eq!(
+        at(&a),
+        (dir.join("src/a.rs"), 1),
+        "nothing to go back to yet: `c` starts from the first file"
+    );
     a.jump_to(&outside, 2);
     c(&mut a);
-    assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
+    assert_eq!(
+        at(&a),
+        (dir.join("src/a.rs"), 1),
+        "back to `B` itself, not to `F` after it"
+    );
     c(&mut a);
     assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
     a.jump_to(&outside, 2);
@@ -1189,31 +1233,34 @@ fn c_and_big_c_from_outside_the_review_go_back_to_the_hunk_left() {
     assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
     c(&mut a);
     assert_eq!(at(&a), (dir.join("gone"), 0), "on from the hunk left");
-    // A deleted file is one stop at its top: `C` goes back there, then on backwards.
     a.jump_to(&outside, 2);
     big_c(&mut a);
-    assert_eq!(at(&a), (dir.join("gone"), 0));
+    assert_eq!(
+        at(&a),
+        (dir.join("gone"), 0),
+        "a deleted file is one stop at its top"
+    );
     big_c(&mut a);
     assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
     big_c(&mut a);
     assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
-    // Walked back into src/a.rs onto its second hunk: the way back is the second hunk too.
     a.jump_to(&outside, 2);
     c(&mut a);
-    assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
-    // An excursion into another file of the review walks on from the cursor there.
+    assert_eq!(
+        at(&a),
+        (dir.join("src/a.rs"), 5),
+        "walked back onto the second hunk: the way back is the second hunk too"
+    );
     a.jump_to(&dir.join("tail"), 1);
     big_c(&mut a);
-    assert_eq!(at(&a), (dir.join("new"), 0));
+    assert_eq!(
+        at(&a),
+        (dir.join("new"), 0),
+        "an excursion into another file of the review walks on from the cursor there"
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #239: the hunk left is found again by its place among its file's hunks. Lines an agent
-/// writes or deletes around the hunks move them, not their order: written while the reader is
-/// still in the file, or deleted above while away, and no unread hunk is passed. When fewer
-/// hunks are left, the file's last; a deleted file's one stop is its top. A file that left the
-/// review, or that the walk no longer stops at, is not gone back to: `c` and `C` walk as they
-/// did before there was a hunk to go back to.
 #[test]
 fn the_hunk_left_is_found_by_its_place_in_its_file() {
     let (dir, mut a) = review_app("reviewbackgone");
@@ -1224,7 +1271,6 @@ fn the_hunk_left_is_found_by_its_place_in_its_file() {
         let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
         a.review_refreshed(fresh);
     };
-    // The agent writes `name` while the reader is in src/keep.rs, and the review is listed again.
     let write = |a: &mut App, name: &str, text: &str| {
         a.jump_to(&outside, 2);
         std::fs::write(dir.join(name), text).unwrap();
@@ -1270,15 +1316,17 @@ fn the_hunk_left_is_found_by_its_place_in_its_file() {
     assert!(r.file(Path::new("new")).is_some_and(|f| !f.has_hunks()));
     c(&mut a);
     assert_eq!(at(&a), (dir.join("new"), 0));
-    // crlf.txt as it was at the base: the review drops the file.
     a.jump_to(&src, 3);
     c(&mut a);
     assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
     write(&mut a, "crlf.txt", "one\r\ntwo\n");
     big_c(&mut a);
     assert_eq!(at(&a), (dir.join("tail"), 0));
-    assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 4/4");
-    // A stop on `F`, line 5, then the agent deletes the file: back to its top.
+    assert_eq!(
+        a.review_status().unwrap(),
+        "hunk 1/1  file 4/4",
+        "crlf.txt as it was at the base: the review drops the file"
+    );
     write(&mut a, "src/a.rs", "a\nB\nc\nd\ne\nF\n");
     a.jump_to(&src, 2);
     c(&mut a);
@@ -1287,7 +1335,11 @@ fn the_hunk_left_is_found_by_its_place_in_its_file() {
     std::fs::remove_file(&src).unwrap();
     refresh(&mut a);
     big_c(&mut a);
-    assert_eq!(at(&a), (src.clone(), 0));
+    assert_eq!(
+        at(&a),
+        (src.clone(), 0),
+        "the agent deleted the file: back to its top"
+    );
     assert_eq!(a.buf.readonly, Some("deleted in this branch"));
     let _ = std::fs::remove_dir_all(dir);
 }
@@ -1324,9 +1376,6 @@ fn a_deleted_file_with_nothing_to_read_is_gone_back_to() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #246: in a review `u` and `s` give a row on a line the branch added or changed the gutter's
-/// `▎` in its colour, an untouched line a blank column; `o` lists the review's files first, with
-/// their panel letter, then the rest. Either config key off draws its list as before.
 #[test]
 fn review_marks_changed_rows_in_u_and_s_and_lists_its_files_first_in_o() {
     use ratatui::Terminal;
@@ -1337,7 +1386,6 @@ fn review_marks_changed_rows_in_u_and_s_and_lists_its_files_first_in_o() {
     // Line 2 changed, line 3 as at the base; both hold a whole `c`.
     std::fs::write(dir.join("src/a.rs"), "a\nB c\nc\nd\ne\nF\n").unwrap();
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-    // Each row of the screen with the colours of its cells.
     let screen = |a: &mut App| {
         if let Some(p) = &mut a.picker {
             p.settle();
@@ -1404,13 +1452,12 @@ fn review_marks_changed_rows_in_u_and_s_and_lists_its_files_first_in_o() {
         "{:#?}",
         rows.iter().map(|(t, _)| t).collect::<Vec<_>>()
     );
-    // The letter in the row's style, as the panel draws it (#450): the name's colour.
     let (t, c) = rows
         .iter()
         .find(|(t, _)| t.contains("\u{2502}M src/a.rs"))
         .unwrap();
     let at = t[..t.find("\u{2502}M src/a.rs").unwrap()].chars().count() + 1;
-    assert_eq!(c[at], c[at + 2]);
+    assert_eq!(c[at], c[at + 2], "the letter takes the name's colour");
     esc(&mut a);
 
     a.review_list_marks = false;
@@ -1424,9 +1471,6 @@ fn review_marks_changed_rows_in_u_and_s_and_lists_its_files_first_in_o() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #439: the lines a branch deleted are lines of the text. `c` and `C` stand on the first added
-/// line of a hunk, its first deleted one when it adds none (#690); Up reaches the deleted lines
-/// above, `/` finds them, Ctrl+C copies them as they were, and nothing edits them.
 #[test]
 fn deleted_lines_are_lines_of_the_text() {
     use TextLine::{Deleted, File};
@@ -1455,30 +1499,34 @@ fn deleted_lines_are_lines_of_the_text() {
     assert_eq!((a.at(), a.line_str()), (File(1), "B"));
     key(&mut a, KeyCode::Up);
 
-    // `/` finds the deleted `b` and the added `B` alike, in the order they are drawn.
     key(&mut a, KeyCode::Up);
     key(&mut a, KeyCode::Char('/'));
     typed(&mut a, "b");
     assert_eq!((a.at(), a.message.as_str()), (Deleted(1, 0), "1/2"));
     key(&mut a, KeyCode::Enter);
     key(&mut a, KeyCode::Char('n'));
-    assert_eq!((a.at(), a.message.as_str()), (File(1), "2/2"));
+    assert_eq!(
+        (a.at(), a.message.as_str()),
+        (File(1), "2/2"),
+        "`/` finds the deleted `b` and the added `B` alike, in the order they are drawn"
+    );
     key(&mut a, KeyCode::Char('n'));
     assert_eq!(a.at(), Deleted(1, 0));
     key(&mut a, KeyCode::Esc);
 
-    // Ctrl+C copies the deleted line; a selection from it into the added one copies both.
     press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
     assert_eq!(
         (a.clipboard.take().as_deref(), a.message.as_str()),
-        (Some("b\n"), "copied 1 line")
+        (Some("b\n"), "copied 1 line"),
+        "Ctrl+C copies the deleted line"
     );
     press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
     press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
     press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
     assert_eq!(
         (a.clipboard.take().as_deref(), a.message.as_str()),
-        (Some("b\nB"), "copied 2 lines")
+        (Some("b\nB"), "copied 2 lines"),
+        "a selection from the deleted line into the added one copies both"
     );
 
     // Nothing edits a deleted line: not Enter on it, not typing after moving onto it, not the
@@ -1507,19 +1555,21 @@ fn deleted_lines_are_lines_of_the_text() {
     key(&mut a, KeyCode::Backspace);
     assert_eq!(a.message, "deleted", "a selection from `a` over `b`");
     assert_eq!(a.buf.lines, file);
-    // The file's own lines are edited as ever.
     key(&mut a, KeyCode::End);
     key(&mut a, KeyCode::Char('!'));
-    assert_eq!(a.buf.lines[1], "B!");
+    assert_eq!(
+        a.buf.lines[1], "B!",
+        "the file's own lines are edited as ever"
+    );
     key(&mut a, KeyCode::Esc);
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
 
-    // `d` reads the word on a deleted line (#440): nothing declares `b`.
     key(&mut a, KeyCode::Up);
     key(&mut a, KeyCode::Char('d'));
     assert_eq!(
         (a.at(), a.message.as_str()),
-        (Deleted(1, 0), "no definition for b")
+        (Deleted(1, 0), "no definition for b"),
+        "`d` reads the word on a deleted line: nothing declares `b`"
     );
 
     // The lines deleted at the end of a file are lines too: `tail` reads t1, [t2], [t3].
@@ -1538,10 +1588,6 @@ fn deleted_lines_are_lines_of_the_text() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #439, each way into a deleted line on its own: a selection inside one line of a file with
-/// deleted lines is copied and typed over as anywhere; paste refuses a deleted line, `u` and F12
-/// read it (#440); Esc from `/` and `N` come back to one; a reload finds the deleted line the
-/// cursor was on.
 #[test]
 fn a_deleted_line_is_refused_and_returned_to_every_way() {
     use TextLine::{Deleted, File};
@@ -1559,18 +1605,20 @@ fn a_deleted_line_is_refused_and_returned_to_every_way() {
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
     key(&mut a, KeyCode::Esc);
 
-    // A paste over a selection that holds the deleted `b` is refused.
     let file = a.buf.lines.clone();
     a.jump_to(&dir.join("src/a.rs"), 1);
     shift(&mut a, KeyCode::Down);
     shift(&mut a, KeyCode::Down);
     key(&mut a, KeyCode::Enter);
     a.paste("zz");
-    assert_eq!((a.message.as_str(), &a.buf.lines), ("deleted", &file));
+    assert_eq!(
+        (a.message.as_str(), &a.buf.lines),
+        ("deleted", &file),
+        "a paste over a selection that holds the deleted `b` is refused"
+    );
     key(&mut a, KeyCode::Esc);
     key(&mut a, KeyCode::Esc);
 
-    // `u` and F12 read the word on a deleted line (#440): `b` is only there.
     a.jump_to(&dir.join("src/a.rs"), 2);
     key(&mut a, KeyCode::Up);
     assert_eq!(a.at(), Deleted(1, 0));
@@ -1578,20 +1626,28 @@ fn a_deleted_line_is_refused_and_returned_to_every_way() {
     let p = a.picker.as_mut().expect("the uses of b");
     p.settle();
     let rows: Vec<String> = p.window(9).0.iter().map(|r| r.item.label.clone()).collect();
-    assert_eq!(rows, ["src/a.rs:2: b"]);
+    assert_eq!(
+        rows,
+        ["src/a.rs:2: b"],
+        "`u` reads the word on a deleted line: `b` is only there"
+    );
     key(&mut a, KeyCode::Esc);
     key(&mut a, KeyCode::F(12));
     assert_eq!(
         (a.message.as_str(), a.picker.is_none()),
-        ("no definition for b", true)
+        ("no definition for b", true),
+        "F12 reads the word on a deleted line"
     );
 
-    // Esc from `/` puts the cursor back on the deleted line it started from.
     key(&mut a, KeyCode::Char('/'));
     typed(&mut a, "d");
     assert_ne!(a.at(), Deleted(1, 0));
     key(&mut a, KeyCode::Esc);
-    assert_eq!(a.at(), Deleted(1, 0));
+    assert_eq!(
+        a.at(),
+        Deleted(1, 0),
+        "Esc from `/` puts the cursor back on the deleted line it started from"
+    );
 
     // `N` goes back over the end of the file onto the lines deleted there: tail reads t1,
     // [t2], [t3].
@@ -1616,9 +1672,6 @@ fn a_deleted_line_is_refused_and_returned_to_every_way() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #243: a generated file is folded, as on GitHub and GitLab. `c` stops on the fold once and
-/// goes on, ticking it; `C` comes back to it; the keys that read the text do nothing on it;
-/// Enter loads the diff, and `c` walks its hunks. It stays unfolded when the review opens again.
 #[test]
 fn a_generated_file_is_one_stop_until_enter_loads_its_diff() {
     let (dir, mut a) = review_app_with_lock("reviewfold");
@@ -1661,11 +1714,14 @@ fn a_generated_file_is_one_stop_until_enter_loads_its_diff() {
         a.message, "",
         "no definition looked up, no hidden line copied"
     );
-    // The panel works as anywhere: Enter there opens its row, and the fold stays.
     key(&mut a, KeyCode::Tab);
     a.tree.reveal(Path::new("tail"));
     key(&mut a, KeyCode::Enter);
-    assert_eq!(at(&a).0, dir.join("tail"));
+    assert_eq!(
+        at(&a).0,
+        dir.join("tail"),
+        "Enter in the panel opens its row"
+    );
     key(&mut a, KeyCode::Char('C'));
     assert!(a.folded_here().is_some(), "the panel's Enter loads no diff");
     key(&mut a, KeyCode::Enter);
@@ -1679,16 +1735,15 @@ fn a_generated_file_is_one_stop_until_enter_loads_its_diff() {
     assert_eq!(a.review_status().unwrap(), "hunk 1/3  file 5/6");
     key(&mut a, KeyCode::Char('c'));
     assert_eq!(at(&a), (lock.clone(), 4));
-    // Loaded stays loaded when the branch is reviewed again.
     let mut again = review_start(&dir, None);
     again.jump_to(&lock, 1);
-    assert!(again.folded_here().is_none());
+    assert!(
+        again.folded_here().is_none(),
+        "loaded stays loaded when the branch is reviewed again"
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #243: Enter on a fold a jump reached keeps the jump's line; a file with nothing to fold (a
-/// pure rename) is not folded; a file whose text is on screen is not folded under the user by a
-/// refresh that comes to list it as generated.
 #[test]
 fn a_fold_keeps_a_jumps_line_and_never_covers_text_in_sight() {
     let (dir, _) = review_app("reviewfold2");
@@ -1711,22 +1766,22 @@ fn a_fold_keeps_a_jumps_line_and_never_covers_text_in_sight() {
     git(&["mv", "uv.lock", "src/uv.lock"]);
     git(&["commit", "-qam", "bump"]);
     let mut a = review_start(&dir, None);
-    // A jump onto line 6 of the folded lock file: Enter shows it there.
     let lock = dir.join("poetry.lock");
     a.jump_to(&lock, 6);
     assert!(a.folded_here().is_some());
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     assert!(a.folded_here().is_none());
     assert_eq!(at(&a), (lock, 5), "the jump's line, not the first hunk");
-    // A renamed lock file has nothing to fold.
     a.jump_to(&dir.join("src/uv.lock"), 1);
     let r = a.review.as_ref().unwrap();
     assert!(
         r.file(Path::new("src/uv.lock"))
             .is_some_and(|f| f.generated)
     );
-    assert!(a.folded_here().is_none());
-    // Cargo.lock, not in the branch, edited in sight: the refresh that lists it keeps it shown.
+    assert!(
+        a.folded_here().is_none(),
+        "a renamed lock file has nothing to fold"
+    );
     a.jump_to(&dir.join("Cargo.lock"), 1);
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!(a.mode, Mode::Edit);
@@ -1739,7 +1794,10 @@ fn a_fold_keeps_a_jumps_line_and_never_covers_text_in_sight() {
             .is_some_and(|f| f.generated)
     );
     a.review_refreshed(fresh);
-    assert!(a.folded_here().is_none());
+    assert!(
+        a.folded_here().is_none(),
+        "a file edited in sight stays shown when a refresh lists it as generated"
+    );
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     assert!(a.folded_here().is_none(), "still in sight after the edit");
     let _ = std::fs::remove_dir_all(dir);
