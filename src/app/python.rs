@@ -307,14 +307,13 @@ impl App {
     }
 }
 
-/// The `def` lines, 1-based and innermost first, of the Python functions 1-based `line` sits
-/// in, told by indentation: a name bound in one of them is seen from `line`, and from nowhere
-/// outside it.
-pub(super) fn python_functions(text: &str, line: usize) -> Vec<usize> {
+/// The `def` lines, 1-based and innermost first, of the Python functions `line1` sits in, told
+/// by indentation: a name bound in one of them is seen from `line1`, and from nowhere outside it.
+pub(super) fn python_functions(text: &str, line1: usize) -> Vec<usize> {
     let lines: Vec<&str> = text.lines().collect();
     let literal = search::literal_lines(Kind::Python, text);
     let indent = |l: &str| l.len() - l.trim_start().len();
-    let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
         return Vec::new();
     };
     let (mut depth, mut out) = (indent(lines[at]), Vec::new());

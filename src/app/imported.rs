@@ -117,23 +117,23 @@ impl App {
             |module: &[String]| search::module_files(kind, &self.root, &self.files, here, module);
         let mut exports = None;
         let mut instance = None;
-        // The names from the module down to the word: what the import takes, then the chain.
-        let tail = |mut names: Vec<String>| {
+        let names_down_to_word = |mut taken: Vec<String>| {
             if let Some((_, after)) = chain.split_first() {
-                names.extend(after.iter().cloned());
-                names.push(word.to_owned());
+                taken.extend(after.iter().cloned());
+                taken.push(word.to_owned());
             }
-            names
+            taken
         };
         let whole_module = || {
-            let found = self.module_candidates(self.project_module(here, &tail(path.to_vec())));
+            let found = self
+                .module_candidates(self.project_module(here, &names_down_to_word(path.to_vec())));
             (!found.is_empty()).then_some(found)
         };
         let (files, inside) = match kind {
             // `from a import b` takes a module or a name from `a`: the longest module that exists,
             // never shorter than the one the import names.
             Kind::Python => {
-                let target = tail(path.to_vec());
+                let target = names_down_to_word(path.to_vec());
                 let floor = path.len().saturating_sub(1).max(1);
                 // A module importing from itself (`from . import views` in a package's
                 // `__init__.py`) takes a module of the package, unless it declares the name
@@ -194,7 +194,7 @@ impl App {
                             names.push(word.to_owned());
                             names
                         }
-                        _ => tail(Vec::new()),
+                        _ => names_down_to_word(Vec::new()),
                     },
                     "default" if chain.len() == 1 => {
                         match files
@@ -210,11 +210,11 @@ impl App {
                     }
                     "default" if !chain.is_empty() => return Some(Vec::new()),
                     "default" => vec![word.to_owned()],
-                    name => tail(vec![name.to_owned()]),
+                    name => names_down_to_word(vec![name.to_owned()]),
                 };
                 (files, inside)
             }
-            Kind::Go => (module_files(path), tail(Vec::new())),
+            Kind::Go => (module_files(path), names_down_to_word(Vec::new())),
             Kind::Julia if path.first().is_some_and(|p| !p.starts_with('.')) => return None,
             // No module rules: the search by name, then outside the project, as before.
             _ => return Some(Vec::new()),

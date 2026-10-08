@@ -21,15 +21,23 @@ pub(super) enum CsAnswer {
 /// What a member lookup up a type's hierarchy found.
 enum Up {
     Found(Vec<Hit>),
-    /// Not in the project's types; a base is outside the project and may declare it. The names of
-    /// the types walked, for the extension methods.
-    Outside(Vec<String>),
+    /// Not in the project's types; a base is outside the project and may declare it.
+    Outside {
+        walked: Vec<String>,
+    },
     /// Not in the project's types, which are all read: the rules missed it, or it is an
-    /// extension method. The names of the types walked.
-    Missing(Vec<String>),
+    /// extension method.
+    Missing {
+        walked: Vec<String>,
+    },
     /// Not in the project's types, and a type the rules cannot read may declare it: a base
     /// they cannot tell, or a partial type's generated part.
     Unknown,
+}
+
+struct Proven {
+    ty: CsType,
+    link: String,
 }
 
 impl App {
@@ -41,7 +49,7 @@ impl App {
     ) -> Result<CsAnswer, String> {
         let text = self.buf.lines.join("\n");
         let (first, fields) = chain.split_first().ok_or_else(|| word.to_owned())?;
-        let (mut ty, link) = self
+        let Proven { mut ty, link } = self
             .cs_name_type(here, &text, self.line + 1, first, 1)
             .ok_or_else(|| first.clone())?;
         let mut links = vec![link];
@@ -53,7 +61,8 @@ impl App {
             let CsType::Project(t) = &ty else {
                 return Err(field.clone());
             };
-            let (next, link) = self.cs_field_type(t, field).ok_or_else(|| field.clone())?;
+            let Proven { ty: next, link } =
+                self.cs_field_type(t, field).ok_or_else(|| field.clone())?;
             links.push(link);
             ty = next;
         }
@@ -77,8 +86,8 @@ impl App {
             CsType::Outside(_) => Some(CsAnswer::Outside(label)),
             CsType::Project(t) => match self.cs_up(&t, word, 0) {
                 Up::Found(hits) => Some(CsAnswer::Found(receivers(hits, &label))),
-                Up::Outside(_) => Some(CsAnswer::Outside(label)),
-                Up::Missing(_) | Up::Unknown => None,
+                Up::Outside { .. } => Some(CsAnswer::Outside(label)),
+                Up::Missing { .. } | Up::Unknown => None,
             },
         }
     }
@@ -101,8 +110,8 @@ impl App {
                     let hits = if fit.is_empty() { hits } else { fit };
                     return Some(CsAnswer::Found(receivers(hits, label)));
                 }
-                Up::Outside(walked) => (walked, true),
-                Up::Missing(walked) => (walked, false),
+                Up::Outside { walked } => (walked, true),
+                Up::Missing { walked } => (walked, false),
                 Up::Unknown => return None,
             },
         };
@@ -134,17 +143,17 @@ impl App {
         let mut outside = false;
         // ponytail: eight levels up, which also ends a cycle.
         let Some(text) = self.text_of(&ty.path).filter(|_| depth < 8) else {
-            return Up::Outside(walked);
+            return Up::Outside { walked };
         };
         for base in search::cs_bases(&text, ty.line) {
             match self.cs_resolve(&ty.path, &text, ty.line, &base) {
                 Some(CsType::Project(b)) => match self.cs_up(&b, word, depth + 1) {
                     Up::Found(hits) => return Up::Found(hits),
-                    Up::Outside(more) => {
+                    Up::Outside { walked: more } => {
                         outside = true;
                         walked.extend(more);
                     }
-                    Up::Missing(more) => walked.extend(more),
+                    Up::Missing { walked: more } => walked.extend(more),
                     Up::Unknown => return Up::Unknown,
                 },
                 Some(CsType::Outside(name)) => {
@@ -164,8 +173,8 @@ impl App {
         });
         match (partial, outside) {
             (true, _) => Up::Unknown,
-            (false, true) => Up::Outside(walked),
-            (false, false) => Up::Missing(walked),
+            (false, true) => Up::Outside { walked },
+            (false, false) => Up::Missing { walked },
         }
     }
 
@@ -212,7 +221,7 @@ impl App {
     }
 
     /// The type of the field or property `field` that `ty`, or a type above it, declares.
-    fn cs_field_type(&self, ty: &Typed, field: &str) -> Option<(CsType, String)> {
+    fn cs_field_type(&self, ty: &Typed, field: &str) -> Option<Proven> {
         let Up::Found(hits) = self.cs_up(ty, field, 0) else {
             return None;
         };
@@ -223,24 +232,23 @@ impl App {
             return None;
         };
         let text = self.text_of(&hit.path)?;
-        let found = self.cs_resolve(&hit.path, &text, hit.line, &written)?;
+        let ty = self.cs_resolve(&hit.path, &text, hit.line, &written)?;
         let link = format!("{field}: {}", search::cs_type_name(&written)?);
-        Some((found, link))
+        Some(Proven { ty, link })
     }
 
-    /// The type of the name `name` on 1-based `line` of `text`, the text of `file`, and the link
-    /// that proves it: `this`, `base`, a local or a parameter the scopes around bind, else a field
+    /// The type of the name `name` on `line1` of `text`, the text of `file`: `this`, `base`, a local or a parameter the scopes around bind, else a field
     /// or a property of the type around the line.
     fn cs_name_type(
         &self,
         file: &Path,
         text: &str,
-        line: usize,
+        line1: usize,
         name: &str,
         hops: usize,
-    ) -> Option<(CsType, String)> {
+    ) -> Option<Proven> {
         let owner = || {
-            let decl = search::cs_owner(text, line)?;
+            let decl = search::cs_owner(text, line1)?;
             let n = search::cs_type_decl(text.lines().nth(decl - 1)?)?.name;
             Some(Typed {
                 name: n,
@@ -252,22 +260,26 @@ impl App {
             "this" => {
                 let t = owner()?;
                 let link = format!("this: {}", t.name);
-                return Some((CsType::Project(t), link));
+                return Some(Proven {
+                    ty: CsType::Project(t),
+                    link,
+                });
             }
             "base" => {
                 let t = owner()?;
                 let base = search::cs_bases(text, t.line).into_iter().next()?;
-                let found = self.cs_resolve(file, text, t.line, &base)?;
-                return Some((found, format!("base: {}", search::cs_type_name(&base)?)));
+                let ty = self.cs_resolve(file, text, t.line, &base)?;
+                let link = format!("base: {}", search::cs_type_name(&base)?);
+                return Some(Proven { ty, link });
             }
             _ => {}
         }
         let lines: Vec<&str> = text.lines().collect();
-        let bindings = search::bindings(Kind::CSharp, text, line, name);
+        let bindings = search::bindings(Kind::CSharp, text, line1, name);
         if bindings.is_empty() {
             return self.cs_field_type(&owner()?, name);
         }
-        let mut found: Option<(CsType, String)> = None;
+        let mut found: Option<Proven> = None;
         for b in bindings {
             let at = search::cs_written_line(&lines, b.line, name);
             let value = search::cs_declared(lines.get(at - 1)?, name);
@@ -280,15 +292,15 @@ impl App {
             };
             let link = format!("{name}: {}", search::cs_type_name(&written)?);
             match &found {
-                Some((one, _)) if !same(one, &ty) => return None,
+                Some(one) if !same(&one.ty, &ty) => return None,
                 Some(_) => {}
-                None => found = Some((ty, link)),
+                None => found = Some(Proven { ty, link }),
             }
         }
         found
     }
 
-    /// What a call of `callee` on 1-based `line` of `file` gives: the declared return type of the
+    /// What a call of `callee` on `line1` of `file` gives: the declared return type of the
     /// one method of the name that the type around the line, the receiver's type or the type the
     /// callee names declares; `Task<T>` and `ValueTask<T>` under `await` read as `T`. The type,
     /// and the return type as written.
@@ -296,7 +308,7 @@ impl App {
         &self,
         file: &Path,
         text: &str,
-        line: usize,
+        line1: usize,
         callee: &str,
         awaited: bool,
         hops: usize,
@@ -305,7 +317,7 @@ impl App {
         let (method, receiver) = parts.split_last()?;
         let owner = match receiver {
             [] => {
-                let decl = search::cs_owner(text, line)?;
+                let decl = search::cs_owner(text, line1)?;
                 let n = search::cs_type_decl(text.lines().nth(decl - 1)?)?.name;
                 Typed {
                     name: n,
@@ -313,11 +325,17 @@ impl App {
                     line: decl,
                 }
             }
-            [one] => match self.cs_name_type(file, text, line, one, hops) {
-                Some((CsType::Project(t), _)) => t,
-                Some((CsType::Outside(_), _)) => return None,
+            [one] => match self.cs_name_type(file, text, line1, one, hops) {
+                Some(Proven {
+                    ty: CsType::Project(t),
+                    ..
+                }) => t,
+                Some(Proven {
+                    ty: CsType::Outside(_),
+                    ..
+                }) => return None,
                 // `Factory.Create()`: a static method of a type the project declares.
-                None => match self.cs_resolve(file, text, line, one)? {
+                None => match self.cs_resolve(file, text, line1, one)? {
                     CsType::Project(t) => t,
                     CsType::Outside(_) => return None,
                 },
@@ -340,13 +358,13 @@ impl App {
         Some((ty, written))
     }
 
-    /// The type written as `written` on 1-based `line` of `text`, the text of `file`: the one
+    /// The type written as `written` on `line1` of `text`, the text of `file`: the one
     /// type of that name the project declares, or one it declares nowhere. `None` for a type
     /// parameter, `dynamic`, an array, and a name the project declares more than once or as
     /// something else (an alias, a namespace).
-    fn cs_resolve(&self, file: &Path, text: &str, line: usize, written: &str) -> Option<CsType> {
+    fn cs_resolve(&self, file: &Path, text: &str, line1: usize, written: &str) -> Option<CsType> {
         let name = search::cs_type_name(written)?;
-        if search::cs_generic_param(text, line, &name) {
+        if search::cs_generic_param(text, line1, &name) {
             return None;
         }
         let cut = self.truncated.get();
@@ -558,7 +576,8 @@ impl App {
                     .expect("an escaped name keeps the pattern valid")
             }),
             args: self.cs_args(),
-            on: (here.to_path_buf(), self.line + 1),
+            cursor_file: here.to_path_buf(),
+            cursor_line1: self.line + 1,
         };
         let mut walked = Vec::new();
         let mut unknown = false;
@@ -647,7 +666,10 @@ impl App {
                     search::CsPlace::Local { .. }
                 )
             });
-            if own.iter().any(|h| (h.path.clone(), h.line) == level.on) {
+            if own
+                .iter()
+                .any(|h| h.path == level.cursor_file && h.line == level.cursor_line1)
+            {
                 return own;
             }
             // A base's private member is out of reach, and so is an overload that cannot take
@@ -811,11 +833,12 @@ impl App {
 }
 
 /// What a level of the C# class-first walk keeps (#360): only types where a type stands, only
-/// overloads that take the call's `args`, and the cursor's own line, a declaration, as is.
+/// overloads that take the call's `args`, and a declaration on the cursor's line as is.
 struct Level {
     types: Option<Regex>,
     args: Option<usize>,
-    on: (PathBuf, usize),
+    cursor_file: PathBuf,
+    cursor_line1: usize,
 }
 
 fn same(a: &CsType, b: &CsType) -> bool {
