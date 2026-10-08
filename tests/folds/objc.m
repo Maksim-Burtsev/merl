@@ -66,3 +66,32 @@ API_AVAILABLE(ios(13.0))  // f: 13-19
 static void after(void) {  // f: 66-68
     go();  // f: 66-68
 }  // f: 66-68
+
+static Protocol *proto = @protocol(Opening);  // f: none
+@protocol Lid, Hinge;  // f: none
+@interface Box () {  // f: 72-75
+    int _a;  // f: 72-75
+}  // f: 72-75
+@end  // f: 72-75
+@interface Crate : NSObject<NSString *> {  // f: 76-79
+    int _b;  // f: 76-79
+}  // f: 76-79
+@end  // f: 76-79
+NS_SWIFT_NAME(Chest) API_AVAILABLE(ios(13.0))  // f: none
+@interface Box (Chest) <Opening>  // f: 81-83
+- (void)shut  // f: 81-83
+@end  // f: 81-83
+@implementation Crate  // f: 84-88
+static void helper(void) {  // f: 85-87
+    go();  // f: 85-87
+}  // f: 85-87
+@end  // f: 84-88
+@interface Pool <KeyType, ObjectType> () {  // f: 89-92
+    int _c;  // f: 89-92
+}  // f: 89-92
+@end  // f: 89-92
+@interface Bag : NSObject  // f: 93-97
+{  // f: 93-97
+    int _d;  // f: 93-97
+}  // f: 93-97
+@end  // f: 93-97

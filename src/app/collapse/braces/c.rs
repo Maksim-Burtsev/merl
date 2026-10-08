@@ -79,8 +79,8 @@ impl Lexer<'_> {
 
 impl Model<'_, '_> {
     pub(super) fn c_family(&mut self, lang: Lang, lines: &[String]) {
-        let (cpp, objc) = (lang == Lang::Cpp, lang == Lang::ObjC);
-        self.c_preproc(lines);
+        let (cpp, objc) = (lang != Lang::C, lang == Lang::ObjC);
+        self.c_preproc(lines, objc);
         let n = self.toks.len();
         let mut ctx = vec![Ctx::Decl; n];
         let mut marked: Vec<Option<Ctx>> = vec![None; n];
@@ -141,7 +141,7 @@ impl Model<'_, '_> {
     }
 
     fn c_word(&mut self, k: usize, up: Ctx, lang: Lang, marked: &mut [Option<Ctx>]) {
-        let (cpp, objc) = (lang == Lang::Cpp, lang == Lang::ObjC);
+        let (cpp, objc) = (lang != Lang::C, lang == Lang::ObjC);
         let t = self.toks[k];
         let code = matches!(up, Ctx::Code | Ctx::Switch);
         match t.text {
@@ -150,7 +150,9 @@ impl Model<'_, '_> {
                     return;
                 }
                 if matches!(t.text, "do" | "try" | "@try" | "else") || self.punct(k + 1, "{") {
-                    marked[k + 1] = Some(Ctx::Code);
+                    if let Some(m) = marked.get_mut(k + 1) {
+                        *m = Some(Ctx::Code);
+                    }
                 } else if let Some(c) = self.paren_after(k).and_then(|o| self.pair[o])
                     && self.punct(c + 1, "{")
                 {
@@ -172,7 +174,7 @@ impl Model<'_, '_> {
                 let end = self.c_stmt_end(k);
                 self.add(t.line, Some(self.end_of(end)), false);
             }
-            "catch" | "@catch" if cpp || objc => {
+            "catch" | "@catch" if cpp => {
                 if let Some(c) = self.paren_after(k).and_then(|o| self.pair[o])
                     && self.punct(c + 1, "{")
                 {
@@ -256,7 +258,7 @@ impl Model<'_, '_> {
     }
 
     fn c_brace(&self, k: usize, up: Ctx, lang: Lang) -> (Ctx, bool) {
-        let cpp = lang == Lang::Cpp;
+        let cpp = lang != Lang::C;
         let Some(p) = k.checked_sub(1) else {
             return (Ctx::Code, up == Ctx::Decl);
         };
@@ -457,7 +459,7 @@ impl Model<'_, '_> {
     }
 
     fn function_start(&self, k: usize, lang: Lang) -> usize {
-        let cpp = lang == Lang::Cpp;
+        let cpp = lang != Lang::C;
         let mut j = k;
         while j > 0 {
             j -= 1;
@@ -469,8 +471,14 @@ impl Model<'_, '_> {
                 }
                 continue;
             }
-            if matches!(t, ";" | "{" | "}" | "@end") {
+            if matches!(t, ";" | "{" | "}") {
                 return j + 1;
+            }
+            if t.len() > 1 && t.starts_with('@') {
+                let line = self.toks[j].line;
+                return (j + 1..k)
+                    .find(|&i| self.toks[i].line > line)
+                    .unwrap_or(j + 1);
             }
             if t == ":" && j > 0 && ACCESS.contains(&self.before(j)) {
                 return j + 1;
@@ -499,7 +507,7 @@ impl Model<'_, '_> {
         false
     }
 
-    fn c_preproc(&mut self, lines: &[String]) {
+    fn c_preproc(&mut self, lines: &[String], objc: bool) {
         let mut stack = Vec::new();
         let mut includes: Option<(usize, usize)> = None;
         let mut n = 0;
@@ -515,7 +523,7 @@ impl Model<'_, '_> {
                 last += 1;
             }
             match directive.as_ref().map(|(w, r)| (*w, r.as_str())) {
-                Some(("include" | "import", _)) => {
+                Some((w, _)) if w == "include" || (objc && w == "import") => {
                     includes = Some((includes.map_or(n, |r| r.0), n));
                 }
                 _ if line.is_empty() => {}

@@ -15,14 +15,18 @@ impl Model<'_, '_> {
             .filter(|&w| self.word_at(w) && self.first[w]);
         let start = attribute.map_or(t.line, |w| self.toks[w].line);
         self.add(start, Some(self.toks[end].line), true);
+        let header = |j: usize| {
+            self.toks[j].line == t.line
+                && (self.word_at(j) || matches!(self.tx(j), ":" | "<" | ">" | "," | "*"))
+        };
         let mut j = k + 1;
-        while j < end && (self.word_at(j) || matches!(self.tx(j), ":" | "<" | ">" | "," | "*")) {
+        while j < end && header(j) {
             j += 1;
         }
         if self.punct(j, "(") {
             j = self.pair[j].map_or(j, |c| c + 1);
         }
-        while j < end && (self.word_at(j) || matches!(self.tx(j), "<" | ">" | ",")) {
+        while j < end && header(j) {
             j += 1;
         }
         if self.punct(j, "{") {

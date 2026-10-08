@@ -190,6 +190,15 @@ fn an_objective_c_header_folds_as_objective_c_and_a_c_header_as_cpp() {
     a.go((1, 0));
     key(&mut a, KeyCode::Char('f'));
     assert_eq!(a.collapsed, vec![(1, 3)]);
+    let objcpp = "#import \"a.h\"\nnamespace a {\nclass B {\n  void c() {\n    go();\n  }\n};\n}\n@class D;\n";
+    let mut a = app_as("h", objcpp);
+    a.go((2, 0));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(
+        a.collapsed,
+        vec![(2, 6)],
+        "a C++ class in an Objective-C++ header"
+    );
 }
 
 #[test]
@@ -524,9 +533,13 @@ fn f_folds_a_jsx_element_in_a_jsx_file() {
 }
 
 #[test]
-fn f_survives_every_prefix_of_the_swift_and_php_fixtures() {
+fn f_survives_every_prefix_of_the_swift_php_and_objc_fixtures() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/folds");
-    for (ext, name) in [("swift", "swift.swift"), ("php", "php.php")] {
+    for (ext, name) in [
+        ("swift", "swift.swift"),
+        ("php", "php.php"),
+        ("m", "objc.m"),
+    ] {
         let text = std::fs::read_to_string(dir.join(name)).unwrap();
         let mut a = app_as(ext, "");
         let path = a.buf.path.clone().unwrap();
