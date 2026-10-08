@@ -17,7 +17,7 @@ pub fn changes(old: &str, new: &str) -> (Vec<Range<usize>>, Vec<Range<usize>>) {
     let (kept_a, kept_b) = if mid_a.len() * mid_b.len() > 250_000 {
         (vec![false; mid_a.len()], vec![false; mid_b.len()])
     } else {
-        lcs(&texts(old, mid_a), &texts(new, mid_b))
+        in_lcs(&texts(old, mid_a), &texts(new, mid_b))
     };
     (changed(mid_a, &kept_a), changed(mid_b, &kept_b))
 }
@@ -30,17 +30,17 @@ pub fn similarity(old: &str, new: &str) -> f64 {
     let mut kept: usize = a[..pre]
         .iter()
         .chain(&a[a.len() - suf..])
-        .map(|t| non_ws(old, t))
+        .map(|t| non_space_chars(old, t))
         .sum();
     // ponytail: the same ceiling as `changes`; over it, only the prefix and suffix count as
     // kept.
     if mid_a.len() * mid_b.len() <= 250_000 {
-        let (kept_a, _) = lcs(&texts(old, mid_a), &texts(new, mid_b));
+        let (kept_a, _) = in_lcs(&texts(old, mid_a), &texts(new, mid_b));
         kept += mid_a
             .iter()
             .zip(&kept_a)
             .filter(|&(_, k)| *k)
-            .map(|(t, _)| non_ws(old, t))
+            .map(|(t, _)| non_space_chars(old, t))
             .sum::<usize>();
     }
     let total = non_ws_len(old) + non_ws_len(new);
@@ -134,8 +134,7 @@ fn texts<'a>(s: &'a str, tokens: &[Range<usize>]) -> Vec<&'a str> {
     tokens.iter().map(|t| &s[t.start..t.end]).collect()
 }
 
-/// The longest common subsequence of two token lists, as which tokens of each are in it.
-fn lcs(a: &[&str], b: &[&str]) -> (Vec<bool>, Vec<bool>) {
+fn in_lcs(a: &[&str], b: &[&str]) -> (Vec<bool>, Vec<bool>) {
     let (m, n) = (a.len(), b.len());
     let mut len = vec![vec![0u32; n + 1]; m + 1];
     for i in (0..m).rev() {
@@ -180,9 +179,7 @@ fn changed(tokens: &[Range<usize>], kept: &[bool]) -> Vec<Range<usize>> {
     out
 }
 
-/// The characters of a token that count toward similarity: all of them, or none for a
-/// whitespace one.
-fn non_ws(s: &str, t: &Range<usize>) -> usize {
+fn non_space_chars(s: &str, t: &Range<usize>) -> usize {
     let text = &s[t.start..t.end];
     if text.starts_with(char::is_whitespace) {
         0
@@ -201,8 +198,7 @@ fn non_ws_len(s: &str) -> usize {
 mod tests {
     use super::*;
 
-    /// Expected ranges found in the strings, not counted by hand.
-    fn parts(s: &str, needles: &[&str]) -> Vec<Range<usize>> {
+    fn found_ranges(s: &str, needles: &[&str]) -> Vec<Range<usize>> {
         needles
             .iter()
             .map(|n| {
@@ -225,7 +221,7 @@ mod tests {
         let new = "return [n for n in notes if q in n.title.lower()]";
         assert_eq!(
             changes(old, new),
-            (parts(old, &["text"]), parts(new, &["title"]))
+            (found_ranges(old, &["text"]), found_ranges(new, &["title"]))
         );
     }
 
@@ -236,8 +232,8 @@ mod tests {
         assert_eq!(
             changes(old, new),
             (
-                parts(old, &["isinstance", ", _SupportsRead"]),
-                parts(new, &["_t.has_read"])
+                found_ranges(old, &["isinstance", ", _SupportsRead"]),
+                found_ranges(new, &["_t.has_read"])
             )
         );
     }
@@ -246,7 +242,7 @@ mod tests {
     fn a_removed_tail_is_old_only() {
         let old = r#"__version__ = "2.34.0.dev1""#;
         let new = r#"__version__ = "2.34.0""#;
-        assert_eq!(changes(old, new), (parts(old, &[".dev1"]), vec![]));
+        assert_eq!(changes(old, new), (found_ranges(old, &[".dev1"]), vec![]));
     }
 
     #[test]
@@ -268,7 +264,7 @@ mod tests {
         let new = "    raise TypeError('max-age')";
         assert_eq!(
             changes(old, new),
-            (parts(old, &["pass"]), vec![4..new.len()])
+            (found_ranges(old, &["pass"]), vec![4..new.len()])
         );
     }
 
@@ -278,7 +274,7 @@ mod tests {
         let new = "привет world";
         assert_eq!(
             changes(old, new),
-            (parts(old, &["мир"]), parts(new, &["world"]))
+            (found_ranges(old, &["мир"]), found_ranges(new, &["world"]))
         );
     }
 
