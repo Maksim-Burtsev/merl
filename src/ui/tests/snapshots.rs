@@ -94,8 +94,13 @@ const STATES: &[State] = &[
         at(a, "PLAN.md", 1, "");
         press(a, "p");
     }),
-    ("review", |a| review(a, &[], Some("store.py"))),
-    ("review-empty", |a| review(a, &["tests/__init__.py"], None)),
+    ("review", |a| review(a, &[], None, Some("store.py"))),
+    ("review-empty", |a| {
+        review(a, &["tests/__init__.py"], None, None)
+    }),
+    ("review-rename", |a| {
+        review(a, &[], Some(("config.py", "app/settings.py")), None);
+    }),
     // Below 185 columns the lesson loses what passes its two rows (#261).
     ("tutor", |a| {
         a.tutor = Some(Tutor {
@@ -123,7 +128,7 @@ fn at(a: &mut App, file: &str, line: usize, word: &str) {
     a.sync_want_x();
 }
 
-fn review(a: &mut App, empty: &[&str], open: Option<&str>) {
+fn review(a: &mut App, empty: &[&str], moved: Option<(&str, &str)>, open: Option<&str>) {
     let dir = a.root.clone();
     let git = |args: &[&str]| {
         let out = std::process::Command::new("git")
@@ -150,6 +155,10 @@ fn review(a: &mut App, empty: &[&str], open: Option<&str>) {
     std::fs::remove_file(dir.join("Makefile")).unwrap();
     for name in empty {
         std::fs::write(dir.join(name), "").unwrap();
+    }
+    if let Some((from, to)) = moved {
+        std::fs::create_dir_all(dir.join(to).parent().unwrap()).unwrap();
+        std::fs::rename(dir.join(from), dir.join(to)).unwrap();
     }
     git(&["add", "-A"]);
     git(&["commit", "-q", "-m", "work"]);
@@ -396,6 +405,7 @@ snapshots! {
     snapshot_preview: "preview",
     snapshot_review: "review",
     snapshot_review_empty: "review-empty",
+    snapshot_review_rename: "review-rename",
     snapshot_tutor: "tutor",
     snapshot_drill: "drill",
 }
