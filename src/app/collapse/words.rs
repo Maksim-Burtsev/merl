@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+const NEST_MAX: usize = 20;
+
 #[derive(Default)]
 pub(crate) struct Blocks {
     spans: HashMap<usize, usize>,
@@ -7,6 +9,54 @@ pub(crate) struct Blocks {
 }
 
 impl Blocks {
+    pub(crate) fn from_nodes(
+        mut nodes: Vec<(usize, usize)>,
+        funcs: Vec<(usize, usize)>,
+        len: usize,
+    ) -> Self {
+        nodes.retain(|&(h, e)| e > h && e < len);
+        nodes.sort_unstable();
+        nodes.dedup();
+        let mut enter = vec![0usize; len];
+        let mut leave = vec![0usize; len];
+        for &(h, e) in &nodes {
+            enter[h] += 1;
+            leave[e] += 1;
+        }
+        let mut levels = Vec::with_capacity(len);
+        let (mut level, mut left) = (0usize, 0usize);
+        for l in 0..len {
+            let mut gone = leave[l];
+            let mut now = (level + enter[l]).saturating_sub(left);
+            if enter[l] > 0 && gone > 0 {
+                now = now.saturating_sub(gone);
+                gone = 0;
+            }
+            let starts = enter[l] > 0 && now <= NEST_MAX;
+            levels.push((starts, now.min(NEST_MAX)));
+            left = gone;
+            level = now;
+        }
+        let mut spans = HashMap::new();
+        for h in 0..len {
+            let (starts, n) = levels[h];
+            if !starts || n == 0 {
+                continue;
+            }
+            let mut e = h;
+            while let Some(&(s, m)) = levels.get(e + 1) {
+                if m < n || (s && m == n) {
+                    break;
+                }
+                e += 1;
+            }
+            if e > h {
+                spans.insert(h, e);
+            }
+        }
+        Blocks { spans, funcs }
+    }
+
     pub(crate) fn region(&self, h: usize) -> Option<usize> {
         self.spans.get(&h).copied()
     }
@@ -477,6 +527,41 @@ fn endless(rest: &str) -> bool {
     r.starts_with('=') && !r.starts_with("==") && !r.starts_with("=~") && !r.starts_with("=>")
 }
 
+pub(crate) fn rbs(lines: &[String]) -> Blocks {
+    let mut b = Build::new(lines);
+    for (n, line) in lines.iter().enumerate() {
+        let mut t = line.trim_start();
+        while let Some(rest) = t.strip_prefix("%a") {
+            let Some(open) = rest.bytes().next() else {
+                break;
+            };
+            let close = closing(open) as char;
+            let Some(e) = rest[1..].find(close) else {
+                break;
+            };
+            t = rest[e + 2..].trim_start();
+        }
+        let w = &t[..word_at(t.as_bytes(), 0)];
+        let rest = &t[w.len()..];
+        if rest.starts_with(':') {
+            continue;
+        }
+        match w {
+            "class" | "module" | "interface" => {
+                let name = rest.trim_start();
+                let after =
+                    name.trim_start_matches(|c: char| c.is_alphanumeric() || "_:".contains(c));
+                if !after.trim_start().starts_with('=') {
+                    b.open(n, "class", true, true, false);
+                }
+            }
+            "end" => b.close(n, &["class"]),
+            _ => {}
+        }
+    }
+    b.blocks
+}
+
 pub(crate) fn lua(lines: &[String]) -> Blocks {
     let mut b = Build::new(lines);
     let mut long: Option<usize> = None;
@@ -622,8 +707,9 @@ fn long_end(line: &str, from: usize, level: usize) -> Option<usize> {
         .map(|j| from + j + close.len())
 }
 
-pub(crate) fn shell(lines: &[String]) -> Blocks {
+pub(crate) fn shell(lines: &[String], zsh: bool) -> Blocks {
     let mut b = Build::new(lines);
+    let mut closed = false;
     let mut quote: Option<(u8, bool)> = None;
     let mut heredocs: Vec<(String, bool, usize)> = Vec::new();
     let mut heredoc: Option<(String, bool, usize)> = None;
@@ -698,6 +784,10 @@ pub(crate) fn shell(lines: &[String]) -> Blocks {
                     cmd = !(next == b'>' || (i > 0 && matches!(s[i - 1], b'>' | b'<')));
                     i += 1;
                 }
+                b'(' if zsh && cmd && next == b')' => {
+                    func = Some(n);
+                    i += 2;
+                }
                 b'(' => {
                     cmd = true;
                     i += 1;
@@ -756,6 +846,11 @@ pub(crate) fn shell(lines: &[String]) -> Blocks {
                     i = j;
                     let was = cmd;
                     cmd = false;
+                    let after_brace = std::mem::replace(&mut closed, w == "}");
+                    if zsh && w == "always" && after_brace {
+                        cmd = true;
+                        continue;
+                    }
                     if w == "in" && b.stack.last().is_some_and(|o| o.word == "case" && o.armed) {
                         b.stack.last_mut().unwrap().armed = false;
                         pattern = true;

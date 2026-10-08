@@ -256,16 +256,14 @@ fn a_fold_inside_a_callback_is_the_same_fold_after_a_reload() {
 }
 
 #[test]
-fn rbs_signatures_and_zsh_have_no_fold_rules_yet() {
-    for (ext, text) in [
-        ("rbs", "class Foo\n  def bar: () -> void\nend\n"),
-        ("zsh", "f() {\n  () {\n    x\n  }\n}\n"),
-    ] {
-        let mut a = app_as(ext, text);
-        key(&mut a, KeyCode::Char('f'));
-        assert!(a.collapsed.is_empty());
-        assert_eq!(a.message, format!("no fold rules for .{ext}"));
-    }
+fn an_erlang_file_has_no_fold_rules_though_elixir_does() {
+    let mut a = app_as(
+        "erl",
+        "f(X) ->\n    case X of\n        1 -> one\n    end.\n",
+    );
+    key(&mut a, KeyCode::Char('f'));
+    assert!(a.collapsed.is_empty());
+    assert_eq!(a.message, "no fold rules for .erl");
 }
 
 #[test]
@@ -533,9 +531,12 @@ fn f_folds_a_jsx_element_in_a_jsx_file() {
 }
 
 #[test]
-fn f_survives_every_prefix_of_the_swift_php_objc_c_and_cpp_fixtures() {
+fn f_survives_every_prefix_of_the_swift_php_objc_c_cpp_elixir_rbs_and_zsh_fixtures() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/folds");
     let fixtures = [
+        ("ex", "elixir.ex"),
+        ("rbs", "rbs.rbs"),
+        ("zsh", "zsh.zsh"),
         ("swift", "swift.swift"),
         ("php", "php.php"),
         ("m", "objc.m"),

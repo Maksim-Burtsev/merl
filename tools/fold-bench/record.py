@@ -9,8 +9,9 @@ For every file of a language it opens the file in headless Neovim (nvim 0.11+, `
 injections), lets treesitter fold it and, on every line where a fold starts, closes the fold as
 `zc` would and writes the line and the last line it hides to folds/LANG.tsv. A file whose tree
 has a syntax error is left out. A language draws from the projects LANGS names; one with no
-project of its own (yaml, json, markdown, …) from every project of projects.tsv. A language's
-files are taken in the order of the hash of their path until FOLDS folds are recorded.
+project of its own (yaml, json, markdown, …) from every project of projects.tsv. FOLD_ONLY holds
+the projects of the languages the `d` bench has none for, kept out of projects.tsv because
+tools/d-bench/run reads cursors for every project there. A language's files are taken in the order of the hash of their path until FOLDS folds are recorded.
 """
 import argparse, hashlib, os, subprocess, sys, tempfile
 
@@ -18,6 +19,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 FOLDS = 6000
 EVERY = None
+FOLD_ONLY = {
+    "plug": ["plug", "elixir", "https://github.com/elixir-plug/plug.git", "73404f851852a00ffb2014be95d4598900fa77b8", "-"],
+    "rbs": ["rbs", "rbs", "https://github.com/ruby/rbs.git", "c78451b753cc6de113be8d096d09418d8170e9c6", "-"],
+    "ohmyzsh": ["ohmyzsh", "zsh", "https://github.com/ohmyzsh/ohmyzsh.git", "60c9a7a839b790cd905d0fd4419435124fd1bdc0", "-"],
+}
 LANGS = {
     "go": (["caddy"], {"go": "go"}),
     "rust": (["ripgrep"], {"rs": "rust"}),
@@ -32,6 +38,9 @@ LANGS = {
     "csharp": (["eShop"], {"cs": "c_sharp"}),
     "ruby": (["mastodon"], {"rb": "ruby", "rake": "ruby"}),
     "objc": (["SDWebImage"], {"m": "objc", "h": "objc"}),
+    "elixir": (["plug"], {"ex": "elixir", "exs": "elixir"}),
+    "rbs": (["rbs"], {"rbs": "rbs"}),
+    "zsh": (["ohmyzsh"], {"zsh": "zsh"}),
     "shell": (EVERY, {"sh": "bash", "bash": "bash"}),
     "lua": (EVERY, {"lua": "lua"}),
     "yaml": (EVERY, {"yml": "yaml", "yaml": "yaml"}),
@@ -45,7 +54,7 @@ LANGS = {
 
 def projects():
     rows = open(os.path.join(ROOT, "tools/d-bench/projects.tsv")).read().splitlines()
-    return {r.split("\t")[0]: r.split("\t") for r in rows if not r.startswith("#")}
+    return {**{r.split("\t")[0]: r.split("\t") for r in rows if not r.startswith("#")}, **FOLD_ONLY}
 
 
 def ensure(cache, name, url, commit):
@@ -63,7 +72,7 @@ def files(cache, lang):
     names, exts = LANGS[lang]
     every = projects()
     out = []
-    for name in names or every:
+    for name in names or [n for n in every if n not in FOLD_ONLY]:
         _, _, url, commit, _ = every[name]
         d = ensure(cache, name, url, commit)
         for f in subprocess.run(["git", "-C", d, "ls-files"], capture_output=True, text=True).stdout.splitlines():
