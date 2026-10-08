@@ -634,7 +634,11 @@ pub fn rust_use_files(files: &[PathBuf], here: &Path, text: &str, name: &str) ->
     else {
         return Vec::new();
     };
-    let Some((src, mut module)) = rust_module_of(files, here) else {
+    let Some(RustModule {
+        crate_src: src,
+        path: mut module,
+    }) = rust_module_of(files, here)
+    else {
         return Vec::new();
     };
     let Some((_, parts)) = path.split_last() else {
@@ -663,11 +667,14 @@ pub fn rust_use_files(files: &[PathBuf], here: &Path, text: &str, name: &str) ->
     };
     wanted.into_iter().filter(|f| files.contains(f)).collect()
 }
-/// The `src/` of the crate the Rust file `here` is in, and the module `here` is in it:
+pub struct RustModule {
+    pub crate_src: PathBuf,
+    pub path: Vec<String>,
+}
 /// `src/a/b.rs` and `src/a/b/mod.rs` are `[a, b]`, `lib.rs` and `main.rs` the crate's root, `[]`.
 /// `None` outside the `src/` of a `Cargo.toml`, and in a binary under `src/bin/`, a crate of its
 /// own.
-pub fn rust_module_of(files: &[PathBuf], here: &Path) -> Option<(PathBuf, Vec<String>)> {
+pub fn rust_module_of(files: &[PathBuf], here: &Path) -> Option<RustModule> {
     let src = here.ancestors().skip(1).find(|d| {
         d.file_name().is_some_and(|n| n == "src")
             && files.contains(&d.parent().unwrap_or(Path::new("")).join("Cargo.toml"))
@@ -686,7 +693,10 @@ pub fn rust_module_of(files: &[PathBuf], here: &Path) -> Option<(PathBuf, Vec<St
     {
         module.pop();
     }
-    Some((src.to_path_buf(), module))
+    Some(RustModule {
+        crate_src: src.to_path_buf(),
+        path: module,
+    })
 }
 /// One `use` tree: `a::b::{c, d as e, f::*}` binds `c`, `e` and every name of `f`.
 fn use_tree(tree: &str, prefix: &[String], out: &mut Vec<Import>) {

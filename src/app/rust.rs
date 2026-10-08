@@ -539,7 +539,10 @@ impl App {
         }
         let (krate, start_module, name) = match root.as_str() {
             "crate" | "self" | "super" => {
-                let (src, mut module) = search::rust_module_of(&self.files, here)?;
+                let search::RustModule {
+                    crate_src: src,
+                    path: mut module,
+                } = search::rust_module_of(&self.files, here)?;
                 match root.as_str() {
                     "crate" => module.clear(),
                     "super" => {
