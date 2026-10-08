@@ -93,7 +93,6 @@ pub(super) fn draw_preview(
             t,
             Style::new().bg(theme.tag_bg).fg(theme.tag_fg),
         ));
-        // A code block's tint and the cursor row reach the right edge.
         let fill = match (bg, row.kind) {
             (Some(_), _) => Some(t),
             (None, Kind::Code { block, .. }) if p.doc.code[block].image.is_some() => None,

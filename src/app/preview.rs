@@ -139,7 +139,6 @@ impl App {
                     Some(p) if p.at == Some(pos) => doc.same_row(&p.doc, p.row, pos),
                     _ => doc.row_at(pos),
                 };
-                // Code keeps its colours across another width: the text is the same.
                 let (code, theme) = match old {
                     Some(p)
                         if p.laid_out_from.lines_hash == input.lines_hash

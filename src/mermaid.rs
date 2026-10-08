@@ -189,7 +189,11 @@ impl Diagrams {
     pub fn file_pic(&mut self, path: &Path) -> Option<Arc<Pic>> {
         self.cell?;
         let key = file_key(path)?;
-        let frames = self.pics.get(&key)?.as_ref()?;
+        let Some(frames) = self.pics.get(&key) else {
+            self.ask(key, Src::File(path.to_path_buf()));
+            return None;
+        };
+        let frames = frames.as_ref()?;
         if frames.len() < 2 {
             return frames.first().cloned();
         }

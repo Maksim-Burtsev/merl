@@ -566,7 +566,6 @@ impl Lay<'_> {
             Tag::Strikethrough => self.strike += 1,
             Tag::Link { .. } => self.link += 1,
             Tag::Image { dest_url, .. } => {
-                // The picture cannot be drawn: its alt text stands in, marked.
                 let at = self.line_and_byte_col(r.start);
                 self.para_images.push((dest_url.to_string(), None, at));
                 self.image += 1;
