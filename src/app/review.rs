@@ -24,8 +24,12 @@ impl App {
                 self.hist_note(true);
             }
         }
-        let first = (self.review.as_ref())
-            .and_then(|r| r.files.iter().find(|f| f.is_stop(&self.root)).cloned());
+        let first = (self.review.as_ref()).and_then(|r| {
+            r.files
+                .iter()
+                .find(|f| f.is_stop(&self.root, self.diagrams.on()))
+                .cloned()
+        });
         if self.buf.path.is_none()
             && let Some(f) = first
         {
@@ -36,7 +40,7 @@ impl App {
             let skipped = r
                 .files
                 .iter()
-                .take_while(|f| !f.is_stop(&self.root))
+                .take_while(|f| !f.is_stop(&self.root, self.diagrams.on()))
                 .count();
             if r.files.get(skipped).is_some_and(|f| f.path == rel) {
                 self.say_skipped(skipped);
@@ -164,7 +168,7 @@ impl App {
             .filter(|rel| dir > 0 && r.file(rel).is_some());
         let (mut skipped, mut failed) = (0, None);
         for f in self.ahead(&r, dir) {
-            if !f.is_stop(&self.root) {
+            if !f.is_stop(&self.root, self.diagrams.on()) {
                 skipped += 1;
             } else if self.open_review_file(f, dir < 0) {
                 self.remember_hunk();
@@ -244,7 +248,9 @@ impl App {
             return None;
         }
         let (rel, i) = self.last_hunk.clone()?;
-        let f = r.file(&rel).filter(|f| f.is_stop(&self.root))?;
+        let f = r
+            .file(&rel)
+            .filter(|f| f.is_stop(&self.root, self.diagrams.on()))?;
         let hunks = review_hunks(&self.root, r, f);
         let h = hunks.get(i).or(hunks.last()).copied();
         Some((rel, h.unwrap_or(TextLine::File(0))))
@@ -282,6 +288,28 @@ impl App {
         let pure = f.status == 'R' && !f.has_hunks() && !f.binary && !self.buf.binary();
         let in_use = self.mode == Mode::Edit || self.dirty || self.previewing();
         (pure && !blank && !in_use).then_some((f.old.as_deref()?, f.path.as_path()))
+    }
+
+    pub fn picture_sides(&self) -> Option<Vec<Side>> {
+        if !self.diagrams.on() {
+            return None;
+        }
+        let rel = self.rel_current()?;
+        let r = self.review.as_ref()?;
+        let f = r.file(&rel).filter(|f| f.is_picture())?;
+        let old = || Side {
+            old: true,
+            path: (r.base_file(&self.root, f.old.as_deref().unwrap_or(&f.path))).ok(),
+        };
+        let new = || Side {
+            old: false,
+            path: Some(self.root.join(&f.path)).filter(|p| p.is_file()),
+        };
+        Some(match f.status {
+            'A' => vec![new()],
+            'D' => vec![old()],
+            _ => vec![old(), new()],
+        })
     }
 
     pub fn text_hidden(&self) -> bool {
@@ -558,6 +586,11 @@ impl App {
         self.recheck_viewed();
         true
     }
+}
+
+pub struct Side {
+    pub old: bool,
+    pub path: Option<PathBuf>,
 }
 
 /// The stops `c` can make in each file of `r`, by path; `None` when a file failed to count.

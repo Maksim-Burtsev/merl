@@ -156,6 +156,7 @@ fn run() -> Result<()> {
     } else {
         resolve(cli.target.as_deref())?
     };
+    let diagrams = mermaid::Diagrams::detect();
     let review = match &cli.review {
         Some(branch) => {
             root = git_toplevel(&root).context("--review needs a git repository")?;
@@ -167,7 +168,7 @@ fn run() -> Result<()> {
             }
             let r = git::Review::open(&root, branch, cli.base.as_deref())?;
             if file.is_none() {
-                file = r.first_file(&root);
+                file = r.first_file(&root, diagrams.on());
             }
             Some(r)
         }
@@ -201,7 +202,7 @@ fn run() -> Result<()> {
     };
     let dir = root.clone();
     let mut app = App::new(root, tree, files, buf, line);
-    app.diagrams = mermaid::Diagrams::detect();
+    app.diagrams = diagrams;
     app.shallow = shallow;
     app.tree_order = tree_order;
     app.ignored = ignored;

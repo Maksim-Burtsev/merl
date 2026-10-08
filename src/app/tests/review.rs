@@ -29,6 +29,29 @@ fn review_walks_past_files_without_hunks() {
 }
 
 #[test]
+fn review_stops_on_an_image_where_the_terminal_draws_pictures() {
+    let png: &[u8] = b"\x89PNG\0\0";
+    let (dir, mut a) = review_app_with("reviewpics", &[("a.png", png), ("z.png", png)]);
+    a.diagrams = crate::mermaid::Diagrams::with_cell(Some((10, 20)));
+    let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("tail"), 0));
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("z.png"), 0));
+    assert_eq!(a.message, "");
+    c(&mut a);
+    assert_eq!(a.message, "last hunk of the review");
+    while at(&a) != (dir.join("crlf.txt"), 1) {
+        press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+    }
+    press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+    assert_eq!(at(&a), (dir.join("a.png"), 0));
+    let r = a.review.clone().unwrap();
+    assert!(r.files[1].is_stop(&dir, true) && !r.files[1].is_stop(&dir, false));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
 fn viewed_marks_follow_the_walk_the_key_and_the_disk() {
     let (dir, mut a) = review_app("viewed");
     let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
@@ -1008,7 +1031,7 @@ fn review_walks_past_a_link_to_a_directory_wherever_it_is() {
         let r = git::Review::open(&dir, None, None).unwrap();
         assert!(!r.file(Path::new(link)).unwrap().has_hunks(), "{link}");
         // The file `main` opens.
-        let first = r.first_file(&dir).unwrap();
+        let first = r.first_file(&dir, false).unwrap();
         assert_eq!(first, dir.join("src/a.rs"), "{link}");
         let (_, files) = crate::tree::build(&dir, false);
         let panel: Vec<_> = r.files.iter().map(|f| f.path.clone()).collect();
@@ -1065,7 +1088,7 @@ fn enter_on_a_link_to_a_directory_in_the_review_panel_opens_nothing() {
     let r = git::Review::open(&dir, None, None).unwrap();
     let (_, files) = crate::tree::build(&dir, false);
     let panel: Vec<_> = r.files.iter().map(|f| f.path.clone()).collect();
-    let first = r.first_file(&dir).unwrap();
+    let first = r.first_file(&dir, false).unwrap();
     let mut a = App::new(
         dir.clone(),
         crate::tree::from_files(&panel),
@@ -1882,7 +1905,7 @@ fn branch_repo(tag: &str, base: &[(&str, &str)], work: &[&[&str]]) -> PathBuf {
 
 fn started_as_main_starts(dir: &Path) -> App {
     let r = git::Review::open(dir, None, None).unwrap();
-    let buf = (r.first_file(dir)).map_or_else(Buffer::empty, |p| Buffer::load(&p).unwrap());
+    let buf = (r.first_file(dir, false)).map_or_else(Buffer::empty, |p| Buffer::load(&p).unwrap());
     let paths: Vec<PathBuf> = r.files.iter().map(|f| f.path.clone()).collect();
     let (_, files) = crate::tree::build(dir, false);
     let mut a = App::new(

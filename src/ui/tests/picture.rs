@@ -5,6 +5,7 @@ use ratatui::backend::TestBackend;
 use ratatui::buffer::Buffer as Cells;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::layout::Rect;
+use ratatui::style::Color;
 
 use crate::app::App;
 use crate::buffer::Buffer;
@@ -355,4 +356,127 @@ fn an_image_rewritten_on_disk_is_drawn_anew() {
     assert!(rows[23].contains("60\u{d7}12"), "{}", rows[23]);
     assert_eq!(app.diagrams.want[0].cols, before * 2);
     let _ = std::fs::remove_dir_all(&root);
+}
+
+fn picture_review(tag: &str) -> (PathBuf, App) {
+    let root = dir(tag);
+    let git = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&root)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    git(&["init", "-q", "-b", "main"]);
+    git(&["config", "user.email", "t@t"]);
+    git(&["config", "user.name", "t"]);
+    png(&root.join("shot.png"), 300, 120);
+    png(&root.join("gone.png"), 100, 50);
+    png(&root.join("cut.png"), 20, 10);
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "base"]);
+    git(&["switch", "-q", "-c", "feature"]);
+    png(&root.join("shot.png"), 200, 100);
+    png(&root.join("new.png"), 40, 20);
+    std::fs::remove_file(root.join("gone.png")).unwrap();
+    std::fs::write(
+        root.join("cut.png"),
+        b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR\0\0\0\x10",
+    )
+    .unwrap();
+    git(&["add", "-A"]);
+    git(&["commit", "-q", "-m", "work"]);
+    let review = crate::git::Review::open(&root, None, None).unwrap();
+    let mut app = App::new(
+        root.clone(),
+        Tree::default(),
+        Vec::new(),
+        Buffer::empty(),
+        None,
+    );
+    app.diagrams = Diagrams::with_cell(Some((10, 20)));
+    app.start_review(review);
+    app.show_tree = false;
+    (root, app)
+}
+
+fn frame_colour(terminal: &Terminal<TestBackend>, place: &crate::mermaid::Place) -> Color {
+    let cell = &terminal.backend().buffer()[(place.x - 1, place.y - 1)];
+    assert_eq!(cell.symbol(), "\u{250c}");
+    cell.fg
+}
+
+#[test]
+fn a_changed_image_is_its_old_picture_in_red_beside_its_new_one_in_green() {
+    let (root, mut app) = picture_review("review2up");
+    app.jump_to(&root.join("shot.png"), 1);
+    let terminal = paint(&mut app, 100, 30);
+    let [old, new] = &app.diagrams.want[..] else {
+        panic!("{:?}", app.diagrams.want)
+    };
+    assert!(old.x + old.cols < 50 && new.x > 50, "{old:?} {new:?}");
+    assert_eq!(frame_colour(&terminal, old), Color::Red);
+    assert_eq!(frame_colour(&terminal, new), Color::Green);
+    let rows = rows(&terminal);
+    let under = |p: &crate::mermaid::Place| rows[usize::from(p.y + p.rows + 1)].clone();
+    assert!(under(old).starts_with("300\u{d7}120"), "{rows:#?}");
+    assert!(under(new).ends_with("200\u{d7}100"), "{rows:#?}");
+    assert!(!rows[29].contains("1:1"), "{}", rows[29]);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn an_added_image_stands_alone_in_green_and_a_deleted_one_in_red() {
+    let (root, mut app) = picture_review("reviewalone");
+    for (file, colour) in [("new.png", Color::Green), ("gone.png", Color::Red)] {
+        app.jump_to(&root.join(file), 1);
+        let terminal = paint(&mut app, 100, 30);
+        let [place] = &app.diagrams.want[..] else {
+            panic!("{file}: {:?}", app.diagrams.want)
+        };
+        assert_eq!(place.x, (100 - place.cols) / 2, "{file}");
+        assert_eq!(frame_colour(&terminal, place), colour, "{file}");
+    }
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn a_side_that_cannot_be_read_shows_the_note_in_its_frame_and_the_other_is_drawn() {
+    let (root, mut app) = picture_review("reviewcut");
+    app.jump_to(&root.join("cut.png"), 1);
+    let terminal = paint(&mut app, 100, 30);
+    let [old] = &app.diagrams.want[..] else {
+        panic!("{:?}", app.diagrams.want)
+    };
+    assert!(old.x + old.cols < 50);
+    let rows = rows(&terminal);
+    let note = rows
+        .iter()
+        .position(|r| r.ends_with("\u{2502} binary file, not shown \u{2502}"));
+    let note = note.unwrap_or_else(|| panic!("{rows:#?}"));
+    let buf = terminal.backend().buffer();
+    let x = (50..100)
+        .find(|&x| buf[(x, note as u16)].symbol() == "\u{2502}")
+        .unwrap();
+    assert_eq!(buf[(x, note as u16)].fg, Color::Green);
+    assert!(
+        rows[29].contains("PNG not drawn: broken file"),
+        "{}",
+        rows[29]
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn halves_leave_a_gap_and_a_frame_hugs_its_picture() {
+    use crate::ui::picture::{framed, halves};
+    let area = Rect::new(30, 0, 101, 40);
+    assert_eq!(halves(area, 1), [area]);
+    assert_eq!(
+        halves(area, 2),
+        [Rect::new(30, 0, 49, 40), Rect::new(82, 0, 49, 40)]
+    );
+    assert_eq!(framed(Rect::new(5, 3, 10, 4)), Rect::new(4, 2, 12, 6));
 }

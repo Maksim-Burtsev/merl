@@ -71,6 +71,7 @@ use external::Walked;
 pub(crate) use open::error_text;
 pub use preview::Preview;
 use project_search::at_label;
+pub use review::Side;
 pub use search_job::SearchJob;
 use search_job::{SEARCH_PAUSE, Typed, deleted_hits};
 

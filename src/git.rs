@@ -216,8 +216,14 @@ impl ReviewFile {
         self.added + self.deleted > 0
     }
 
-    pub fn is_stop(&self, root: &Path) -> bool {
-        self.has_hunks() || !(self.binary || root.join(&self.path).is_dir())
+    pub fn is_picture(&self) -> bool {
+        self.binary && crate::picture::raster_name(&self.path).is_some()
+    }
+
+    pub fn is_stop(&self, root: &Path, pictures: bool) -> bool {
+        self.has_hunks()
+            || pictures && self.is_picture()
+            || !(self.binary || root.join(&self.path).is_dir())
     }
 }
 
@@ -257,8 +263,8 @@ impl Review {
         Ok(Self { note, ..r })
     }
 
-    pub fn first_file(&self, root: &Path) -> Option<PathBuf> {
-        if let Some(f) = self.files.iter().find(|f| f.is_stop(root)) {
+    pub fn first_file(&self, root: &Path, pictures: bool) -> Option<PathBuf> {
+        if let Some(f) = self.files.iter().find(|f| f.is_stop(root, pictures)) {
             return (f.status != 'D').then(|| root.join(&f.path));
         }
         (self.files.iter().filter(|f| f.status != 'D'))
@@ -410,6 +416,19 @@ impl Review {
             bail!("{}", String::from_utf8_lossy(&out.stderr).trim());
         }
         Ok(out.stdout)
+    }
+
+    pub fn base_file(&self, root: &Path, rel: &Path) -> Result<PathBuf> {
+        let git_dir = dirs(root).context("no git directory")?.worktree_head_dir;
+        let path = git_dir.join("merl/old").join(&self.merge_base).join(rel);
+        if !path.is_file() {
+            let bytes = self.base_bytes(root, rel)?;
+            let tmp = path.with_file_name(format!(".{}", std::process::id()));
+            std::fs::create_dir_all(path.parent().context("no parent")?)?;
+            std::fs::write(&tmp, bytes)?;
+            std::fs::rename(&tmp, &path)?;
+        }
+        Ok(path)
     }
 
     /// The project as the base had it, for `d` on a deleted line (#440), in this worktree's own
@@ -1574,7 +1593,11 @@ mod tests {
         std::os::unix::fs::symlink("docs", dir.join("alink")).unwrap();
         git(&["add", "."]);
         git(&["commit", "-q", "-m", "link"]);
-        let first = |dir: &Path| Review::open(dir, None, None).unwrap().first_file(dir);
+        let first = |dir: &Path| {
+            Review::open(dir, None, None)
+                .unwrap()
+                .first_file(dir, false)
+        };
         assert_eq!(first(&dir), None);
         std::fs::write(dir.join("logo.png"), b"\x89PNG\0\n").unwrap();
         assert_eq!(first(&dir), Some(dir.join("logo.png")));
