@@ -187,7 +187,7 @@ fn notes(state: &str) -> PathBuf {
         .join("notes");
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("tests")).unwrap();
-    for (name, text) in crate::tutor::FILES {
+    for (name, text) in crate::tutor::SAMPLE_FILES {
         std::fs::write(dir.join(name), text).unwrap();
     }
     dir

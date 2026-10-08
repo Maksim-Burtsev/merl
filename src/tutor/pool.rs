@@ -1,6 +1,6 @@
 //! The task pool the tutor and the drill share: one task per action of `KEYS`.
 
-use super::{Task, at, edited, selected};
+use super::{Task, at, edited_since_unpacked, selected_on_one_line};
 use crate::app::{App, Focus, Mode, PickerKind};
 
 /// 1-based lines of the sample project the tasks start on or land on.
@@ -26,15 +26,13 @@ const NOTES_END: usize = 297;
 
 const TEST_FILE: &str = "tests/test_store.py";
 
-/// Half a screen, as Ctrl+D / Ctrl+U move.
-fn half(a: &App) -> usize {
+fn half_screen(a: &App) -> usize {
     (a.view_h / 2).max(1)
 }
 
-/// The selection runs over the 1-based lines `from` to `to`.
-fn lines_selected(a: &App, from: usize, to: usize) -> bool {
+fn lines_selected(a: &App, from1: usize, to1: usize) -> bool {
     a.selection()
-        .is_some_and(|(f, t)| (f.0.key() + 1, t.0.key() + 1) == (from, to))
+        .is_some_and(|(f, t)| (f.0.key() + 1, t.0.key() + 1) == (from1, to1))
 }
 
 fn picker_row(a: &App, kind: PickerKind) -> Option<usize> {
@@ -42,7 +40,6 @@ fn picker_row(a: &App, kind: PickerKind) -> Option<usize> {
     Some(p.selected)
 }
 
-/// The tree's cursor is on `path` and the focus in the tree.
 fn tree_on(a: &App, path: &str) -> bool {
     a.focus == Focus::Tree
         && a.show_tree
@@ -58,7 +55,6 @@ fn folder_open(a: &App, path: &str) -> bool {
         .any(|n| n.path.as_os_str() == path && n.expanded)
 }
 
-/// Line 13 of `store.py` in edit mode, with `load_config` gone from it.
 fn word_deleted(a: &App) -> bool {
     a.mode == Mode::Edit && a.buf.lines[CALL_LINE - 1].trim() == "self.config = config or ()"
 }
@@ -269,7 +265,7 @@ pub const POOL: &[Task] = &[
         start: Some((TEST_FILE, 1, "")),
         keys: "",
         answer: "<Enter>#hi<Esc>",
-        done: |a| a.mode == Mode::Normal && edited(a),
+        done: |a| a.mode == Mode::Normal && edited_since_unpacked(a),
     },
     Task {
         key: "Ctrl+Z",
@@ -280,7 +276,7 @@ pub const POOL: &[Task] = &[
         start: Some((TEST_FILE, 1, "")),
         keys: "<Enter>#hi<Esc>",
         answer: "<C-z>",
-        done: |a| at(a, TEST_FILE) && a.mode == Mode::Normal && !edited(a),
+        done: |a| at(a, TEST_FILE) && a.mode == Mode::Normal && !edited_since_unpacked(a),
     },
     Task {
         key: "Ctrl+Y",
@@ -291,7 +287,7 @@ pub const POOL: &[Task] = &[
         start: Some((TEST_FILE, 1, "")),
         keys: "<Enter>#hi<Esc><C-z>",
         answer: "<C-y>",
-        done: |a| at(a, TEST_FILE) && a.mode == Mode::Normal && edited(a),
+        done: |a| at(a, TEST_FILE) && a.mode == Mode::Normal && edited_since_unpacked(a),
     },
     Task {
         key: "Ctrl+C",
@@ -389,7 +385,7 @@ pub const POOL: &[Task] = &[
         start: Some(("store.py", CALL_LINE, "()")),
         keys: "",
         answer: "<S-Left>",
-        done: |a| selected(a) == Some("g"),
+        done: |a| selected_on_one_line(a) == Some("g"),
     },
     Task {
         key: "Shift+Right",
@@ -400,7 +396,7 @@ pub const POOL: &[Task] = &[
         start: Some(("store.py", CALL_LINE, "()")),
         keys: "",
         answer: "<S-Right>",
-        done: |a| selected(a) == Some("("),
+        done: |a| selected_on_one_line(a) == Some("("),
     },
     Task {
         key: "Alt+Left",
@@ -438,7 +434,7 @@ pub const POOL: &[Task] = &[
         start: Some(("store.py", CALL_LINE, "()")),
         keys: "",
         answer: "<A-S-Left><A-S-Left><A-S-Left>",
-        done: |a| selected(a) == Some("config or load_config"),
+        done: |a| selected_on_one_line(a) == Some("config or load_config"),
     },
     Task {
         key: "Alt+Shift+Right",
@@ -449,7 +445,7 @@ pub const POOL: &[Task] = &[
         start: Some(("store.py", CALL_LINE, "config or")),
         keys: "",
         answer: "<A-S-Right><A-S-Right><A-S-Right>",
-        done: |a| selected(a) == Some("config or load_config"),
+        done: |a| selected_on_one_line(a) == Some("config or load_config"),
     },
     Task {
         key: "Ctrl+Shift+Left",
@@ -460,7 +456,7 @@ pub const POOL: &[Task] = &[
         start: Some(("store.py", CALL_LINE, "load_config")),
         keys: "",
         answer: "<C-S-Left>",
-        done: |a| selected(a) == Some("        self.config = config or "),
+        done: |a| selected_on_one_line(a) == Some("        self.config = config or "),
     },
     Task {
         key: "Ctrl+Shift+Right",
@@ -471,7 +467,7 @@ pub const POOL: &[Task] = &[
         start: Some(("store.py", CALL_LINE, "load_config")),
         keys: "",
         answer: "<C-S-Right>",
-        done: |a| selected(a) == Some("load_config()"),
+        done: |a| selected_on_one_line(a) == Some("load_config()"),
     },
     Task {
         key: "Shift+PgUp",
@@ -546,7 +542,7 @@ pub const POOL: &[Task] = &[
         start: Some(("notes.json", 1, "")),
         keys: "",
         answer: "<C-d>",
-        done: |a| at(a, "notes.json") && a.line >= half(a),
+        done: |a| at(a, "notes.json") && a.line >= half_screen(a),
     },
     Task {
         key: "Ctrl+U",
@@ -556,7 +552,7 @@ pub const POOL: &[Task] = &[
         start: Some(("notes.json", NOTES_END, "")),
         keys: "",
         answer: "<C-u>",
-        done: |a| at(a, "notes.json") && a.line + 1 + half(a) <= NOTES_END,
+        done: |a| at(a, "notes.json") && a.line + 1 + half_screen(a) <= NOTES_END,
     },
     Task {
         key: "{",

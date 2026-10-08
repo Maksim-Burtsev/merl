@@ -79,8 +79,7 @@ pub const TUTOR: &[&str] = &[
     "Esc",
 ];
 
-/// The sample project, as it sits in `tutor/notes/`.
-pub const FILES: &[(&str, &str)] = &[
+pub const SAMPLE_FILES: &[(&str, &str)] = &[
     ("Makefile", include_str!("../tutor/notes/Makefile")),
     ("PLAN.md", include_str!("../tutor/notes/PLAN.md")),
     ("cli.py", include_str!("../tutor/notes/cli.py")),
@@ -95,10 +94,9 @@ pub const FILES: &[(&str, &str)] = &[
     ),
 ];
 
-/// Shown once every lesson is done.
-pub const DONE: &str = "That is all of merl. Everything else is a VS Code habit. `q` quits.";
+pub const ALL_LESSONS_DONE: &str =
+    "That is all of merl. Everything else is a VS Code habit. `q` quits.";
 
-/// The lesson at `step` of the tutorial, `None` past its end.
 pub fn lesson(step: usize) -> Option<&'static Task> {
     let key = TUTOR.get(step)?;
     POOL.iter().find(|t| t.key == *key)
@@ -249,18 +247,16 @@ fn chord(name: &str) -> (KeyCode, KeyModifiers) {
     (code, mods)
 }
 
-/// Unpacks the sample project into `dir`, over whatever is there.
 fn unpack(dir: &Path) -> Result<()> {
     let _ = std::fs::remove_dir_all(dir);
     std::fs::create_dir_all(dir.join("tests"))?;
-    for (name, text) in FILES {
+    for (name, text) in SAMPLE_FILES {
         std::fs::write(dir.join(name), text)?;
     }
     Ok(())
 }
 
-/// Unpacks the sample project into a fresh temporary directory.
-pub fn extract() -> Result<PathBuf> {
+pub fn unpack_to_temp_dir() -> Result<PathBuf> {
     let dir = std::env::temp_dir().join(format!("merl-tutor-{}", std::process::id()));
     unpack(&dir)?;
     Ok(dir)
@@ -270,16 +266,14 @@ fn at(app: &App, file: &str) -> bool {
     app.rel_path() == file
 }
 
-/// The open file no longer reads like the sample it was unpacked from.
-fn edited(app: &App) -> bool {
-    FILES
+fn edited_since_unpacked(app: &App) -> bool {
+    SAMPLE_FILES
         .iter()
         .find(|(name, _)| at(app, name))
         .is_some_and(|(_, text)| text.lines().ne(app.buf.lines.iter().map(String::as_str)))
 }
 
-/// The selected text, when the selection sits on one line.
-fn selected(a: &App) -> Option<&str> {
+fn selected_on_one_line(a: &App) -> Option<&str> {
     let ((l1, c1), (l2, c2)) = a.selection()?;
     (l1 == l2).then(|| &a.text(l1)[c1..c2])
 }
@@ -334,7 +328,7 @@ mod tests {
             .picker
             .as_ref()
             .map_or(String::new(), |p| format!(" picker row {}", p.selected));
-        let sel = selected(a).map_or(String::new(), |s| format!(" sel {s:?}"));
+        let sel = selected_on_one_line(a).map_or(String::new(), |s| format!(" sel {s:?}"));
         format!(
             "{}:{}:{} {:?}{picker}{sel} {:?}",
             a.rel_path(),
@@ -472,7 +466,10 @@ mod tests {
 
     #[test]
     fn the_sample_project_has_exactly_one_todo() {
-        let todos: usize = FILES.iter().map(|(_, t)| t.matches("TODO").count()).sum();
+        let todos: usize = SAMPLE_FILES
+            .iter()
+            .map(|(_, t)| t.matches("TODO").count())
+            .sum();
         assert_eq!(todos, 1, "the `s` task searches for the single TODO");
     }
 }

@@ -1,9 +1,6 @@
-//! Moving the cursor and growing the selection.
-
 use super::*;
 
 impl App {
-    /// Remembers the screen column the cursor stands on, for Up / Down to aim at.
     pub(crate) fn sync_want_x(&mut self) {
         self.want_x = self.cursor_x();
     }
@@ -110,7 +107,6 @@ impl App {
         }
     }
 
-    /// Bytes of line `t` inside the selection.
     pub fn selected_bytes(&self, t: TextLine) -> Option<std::ops::Range<usize>> {
         let (start, end) = self.selection()?;
         if t < start.0 || t > end.0 {

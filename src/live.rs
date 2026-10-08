@@ -15,7 +15,6 @@ const QUIET: Duration = Duration::from_millis(200);
 /// A stream of events that never pauses still gets a refresh this often.
 const MAX_WAIT: Duration = Duration::from_secs(1);
 
-/// Collects a burst of events into one refresh.
 #[derive(Default)]
 pub struct Debounce {
     pending: Option<Burst>,
@@ -56,8 +55,7 @@ pub struct Project {
     root: PathBuf,
     /// The walk lists only the files right in the root, and nothing below it is watched.
     shallow: bool,
-    /// The directories of the last walk, relative to the root.
-    dirs: HashSet<PathBuf>,
+    walked_dirs_rel: HashSet<PathBuf>,
     /// The rows of its tree: its directories and files, and the ignored ones in them.
     listed: HashSet<PathBuf>,
     /// The ignored directories expanded in the tree on screen, and the rows read into them. The
@@ -74,7 +72,7 @@ impl Project {
         let mut p = Self {
             root: root.canonicalize().unwrap_or_else(|_| root.to_path_buf()),
             shallow,
-            dirs: HashSet::new(),
+            walked_dirs_rel: HashSet::new(),
             listed: HashSet::new(),
             open: HashSet::new(),
             read: HashSet::new(),
@@ -86,7 +84,7 @@ impl Project {
     }
 
     fn list(&mut self, tree: &Tree) {
-        self.dirs = tree.dirs();
+        self.walked_dirs_rel = tree.dirs();
         self.listed = tree.nodes.iter().map(|n| n.path.clone()).collect();
     }
 
@@ -140,7 +138,7 @@ impl Project {
     fn in_walk<'a>(&self, p: &'a Path) -> Option<&'a Path> {
         let rel = p.strip_prefix(&self.root).ok()?;
         let dir = rel.parent().unwrap_or(rel);
-        let seen = self.dirs.contains(dir) || self.open.contains(dir);
+        let seen = self.walked_dirs_rel.contains(dir) || self.open.contains(dir);
         (dir.as_os_str().is_empty() || seen).then_some(rel)
     }
 
@@ -163,9 +161,9 @@ impl Project {
     /// it was listed (or, on Linux, watched) reported nothing: a new directory is one more walk.
     pub fn walked(&mut self, tree: &Tree, now: Instant) {
         self.walking = false;
-        let known = std::mem::take(&mut self.dirs);
+        let known = std::mem::take(&mut self.walked_dirs_rel);
         self.list(tree);
-        if !self.dirs.is_subset(&known) {
+        if !self.walked_dirs_rel.is_subset(&known) {
             self.changed.touch(now);
         }
     }
@@ -187,7 +185,7 @@ impl Project {
             }
             return;
         }
-        let mut want: HashSet<PathBuf> = self.dirs.union(&self.open).cloned().collect();
+        let mut want: HashSet<PathBuf> = self.walked_dirs_rel.union(&self.open).cloned().collect();
         want.insert(PathBuf::new());
         // A deleted directory is an error here; one that became ignored loses its watch.
         for d in watched.difference(&want) {
@@ -225,9 +223,8 @@ impl Repo {
         }
     }
 
-    /// `in_project`: what [`Project::touched`] said of this event.
-    pub fn event(&mut self, ev: &notify::Event, in_project: bool, now: Instant) {
-        if in_project || self.moves_the_branch(ev) {
+    pub fn event(&mut self, ev: &notify::Event, project_touched: bool, now: Instant) {
+        if project_touched || self.moves_the_branch(ev) {
             self.changed.touch(now);
         }
     }
