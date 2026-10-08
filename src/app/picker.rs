@@ -1,10 +1,7 @@
-//! The file and theme pickers and the keys typed into a picker.
-
 use super::*;
 
 impl App {
     pub fn open_files_picker(&mut self) {
-        // Review: the review's files first, in the panel's order, then the rest as usual (#246).
         let order: HashMap<&PathBuf, usize> = match &self.review {
             Some(r) if self.review_open_files_first => r
                 .files
@@ -112,8 +109,6 @@ impl App {
                 return;
             }
             Pick::Accept(item) if self.mode == Mode::Picker(PickerKind::Themes) => {
-                // A theme that does not load is not saved: the next start would exit on it
-                // (#277). The picker stays open on the error, the one the preview shows.
                 if let Err(e) = crate::theme::load_from(self.theme_dir.as_deref(), &item.label) {
                     self.message = super::error_text(&e);
                     return;

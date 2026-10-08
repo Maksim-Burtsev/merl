@@ -1,5 +1,3 @@
-//! Tests for [`crate::ui::overlays`].
-
 use std::path::PathBuf;
 
 use ratatui::Terminal;
@@ -15,7 +13,6 @@ use crate::tree::Tree;
 
 use super::rows;
 
-/// The colour of the first cell of `needle`, the first time it is on screen.
 fn at(terminal: &Terminal<TestBackend>, needle: &str) -> Color {
     cell(terminal, needle).fg
 }
@@ -47,7 +44,6 @@ fn cell(terminal: &Terminal<TestBackend>, needle: &str) -> Cell {
     panic!("{needle:?} is not on screen");
 }
 
-/// #157: what `.gitignore` leaves out is dim, in the tree and in `o`.
 #[test]
 fn ignored_rows_are_dim_in_the_tree_and_in_the_file_picker() {
     let dir = std::env::temp_dir().join(format!("merl-ui-ignored-{}", std::process::id()));
@@ -66,7 +62,11 @@ fn ignored_rows_are_dim_in_the_tree_and_in_the_file_picker() {
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut terminal = Terminal::new(TestBackend::new(80, 12)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!(at(&terminal, "node_modules"), theme.ghost_fg);
+    assert_eq!(
+        at(&terminal, "node_modules"),
+        theme.ghost_fg,
+        "what `.gitignore` leaves out is dim"
+    );
     assert_eq!(at(&terminal, ".env"), theme.ghost_fg);
     assert_eq!(at(&terminal, "app.py"), theme.fg);
 
@@ -159,18 +159,19 @@ fn search_title_hides_the_count_until_the_grep_answers() {
     assert_eq!(title(&mut app), "Search (…)");
     app.settle_search();
     assert_eq!(title(&mut app), "Search (0 hits)");
-    // With the project files in, one line matches.
     app.files = crate::tree::build(&app.root, false).1;
     app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
     for c in "sfromisoformat".chars() {
         app.key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
     }
     app.settle_search();
-    assert_eq!(title(&mut app), "Search (1 hit)");
+    assert_eq!(
+        title(&mut app),
+        "Search (1 hit)",
+        "with the project files in, one line matches"
+    );
 }
 
-/// A `D` list the cap cut short never reads as the project's symbols: the title says what
-/// the rows are, and once a query is typed it counts the answer to that query.
 #[test]
 fn symbol_title_says_the_list_is_cut_until_the_query_answers() {
     let dir = std::env::temp_dir().join(format!("merl-ui-cap-{}", std::process::id()));
@@ -197,25 +198,30 @@ fn symbol_title_says_the_list_is_cut_until_the_query_answers() {
     app.picker.as_mut().unwrap().settle();
     assert_eq!(
         title(&mut app),
-        format!("Symbols (first {MAX_HITS}, type to search all)")
+        format!("Symbols (first {MAX_HITS}, type to search all)"),
+        "a list the cap cut short never reads as the project's symbols"
     );
     for c in "zebra".chars() {
         app.key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
     }
     assert_eq!(title(&mut app), "Symbols (…)");
     app.settle_search();
-    assert_eq!(title(&mut app), "Symbols (1 hit)");
-    // The query greps like `s`, but the picker is `D`'s and its prompt says so.
+    assert_eq!(
+        title(&mut app),
+        "Symbols (1 hit)",
+        "the answer to the query"
+    );
     let prompt = rows(&terminal)
         .into_iter()
         .find(|r| r.contains("zebra"))
         .expect("the query on screen");
-    assert!(prompt.contains("│> zebra"), "not `s> `: {prompt}");
+    assert!(
+        prompt.contains("│> zebra"),
+        "the query greps like `s`, but the prompt is `D`'s, not `s> `: {prompt}"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// The `s` picker has a prompt of its own, and its title counts hits: one, many, or as many
-/// as the grep stops at, which is a floor.
 #[test]
 fn search_picker_prompt_and_hit_count() {
     let dir = std::env::temp_dir().join(format!("merl-ui-hits-{}", std::process::id()));
@@ -247,8 +253,6 @@ fn search_picker_prompt_and_hit_count() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A usages row is drawn with the colours of the file line it quotes: the `//!` comment
-/// in the row must not be painted like the `path:line:` prefix in front of it.
 #[test]
 fn hit_picker_rows_keep_the_syntax_colours_of_their_line() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -279,7 +283,11 @@ fn hit_picker_rows_keep_the_syntax_colours_of_their_line() {
     assert_eq!(path.1 + 1, y);
     let code_x = x + 3;
     assert_eq!(buf[(code_x, y)].symbol(), "/");
-    assert_ne!(buf[(code_x, y)].fg, theme.fg);
+    assert_ne!(
+        buf[(code_x, y)].fg,
+        theme.fg,
+        "the `//!` comment is not painted like the `path:line:` prefix"
+    );
 }
 
 #[test]
@@ -368,7 +376,6 @@ const SNAPSHOT: [&str; 12] = [
     "demo/  [tree]                                        ? help",
 ];
 
-/// `?` on a terminal shorter than the key list scrolls instead of clipping.
 #[test]
 fn help_scrolls_to_the_last_binding() {
     let mut app = App::new(
@@ -441,13 +448,12 @@ fn review_panel_counts_end_at_the_border() {
         "{}",
         r[1]
     );
-    // #162: a viewed file has a tick in the column before the status.
     app.viewed.insert("a.rs".into(), 0);
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     let r = rows(&terminal);
     assert!(
         r[1].starts_with("\u{2502}\u{2713} M a.rs               +6 \u{2212}2\u{2502}"),
-        "{}",
+        "a viewed file has a tick in the column before the status: {}",
         r[1]
     );
 }
@@ -523,9 +529,6 @@ fn review_app(files: &[(&str, char, usize, usize)]) -> App {
     app
 }
 
-/// #250: the counts are dim, `bin` too, and the name keeps the text colour. The status letter
-/// takes the row's style, plain like the name: coloured, it read differently on every theme
-/// (#450).
 #[test]
 fn review_panel_dims_the_counts_and_leaves_the_status_plain() {
     let mut app = review_app(&[
@@ -540,21 +543,25 @@ fn review_panel_dims_the_counts_and_leaves_the_status_plain() {
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     for needle in ["A new.rs", "M store.rs", "D gone.rs", "R moved.rs"] {
         let c = cell(&terminal, needle);
-        assert_eq!(c.fg, theme.fg, "{needle}");
+        assert_eq!(
+            c.fg, theme.fg,
+            "{needle}: the status letter is plain, like the name"
+        );
         assert!(!c.modifier.contains(Modifier::BOLD), "{needle}");
     }
     assert_eq!(at(&terminal, "store.rs"), theme.fg);
     assert_eq!(at(&terminal, "+7 \u{2212}1"), theme.ghost_fg);
     assert_eq!(at(&terminal, "bin"), theme.ghost_fg);
-    // #172: the tick column is untouched.
     app.viewed.insert("store.rs".into(), 0);
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!(at(&terminal, "\u{2713} M store.rs"), theme.accent);
+    assert_eq!(
+        at(&terminal, "\u{2713} M store.rs"),
+        theme.accent,
+        "the tick column is untouched"
+    );
     assert_eq!(cell(&terminal, "M store.rs").fg, theme.fg);
 }
 
-/// #250: the branch totals sit dim on the bottom border, as `feature ← main` on the top one; a
-/// binary file counts as a file and adds no lines.
 #[test]
 fn review_panel_shows_the_branch_totals_on_the_bottom_border() {
     let mut app = review_app(&[
@@ -569,7 +576,7 @@ fn review_panel_shows_the_branch_totals_on_the_bottom_border() {
     let bottom = &r[r.len() - 2];
     assert!(
         bottom.starts_with("\u{2514} 3 files \u{b7} +13 \u{2212}1 \u{2500}"),
-        "{bottom}"
+        "a binary file counts as a file and adds no lines: {bottom}"
     );
     let c = cell(&terminal, "3 files");
     assert_eq!(c.fg, theme.ghost_fg);
@@ -585,8 +592,6 @@ fn review_panel_shows_the_branch_totals_on_the_bottom_border() {
     );
 }
 
-/// #250: `review_panel_colours = false` draws the panel as before: the letter and the counts in
-/// the row's colours, no totals on the bottom border.
 #[test]
 fn review_panel_colours_off_draws_the_plain_panel() {
     let mut app = review_app(&[("new.rs", 'A', 6, 0), ("store.rs", 'M', 7, 1)]);
@@ -599,12 +604,18 @@ fn review_panel_colours_off_draws_the_plain_panel() {
         assert_eq!(c.fg, theme.fg, "{needle}");
         assert!(!c.modifier.contains(Modifier::BOLD), "{needle}");
     }
-    assert_eq!(at(&terminal, "+7 \u{2212}1"), theme.fg);
+    assert_eq!(
+        at(&terminal, "+7 \u{2212}1"),
+        theme.fg,
+        "the counts in the row's colours"
+    );
     let r = rows(&terminal);
-    assert!(!r[r.len() - 2].contains("file"), "{r:#?}");
+    assert!(
+        !r[r.len() - 2].contains("file"),
+        "no totals on the bottom border: {r:#?}"
+    );
 }
 
-/// #250: on a border too narrow for them the totals go whole, never cut mid-number.
 #[test]
 fn review_panel_drops_the_totals_that_do_not_fit() {
     let mut app = review_app(&[("store.rs", 'M', 123_456, 654_321)]);
@@ -619,11 +630,12 @@ fn review_panel_drops_the_totals_that_do_not_fit() {
     let r = rows(&terminal);
     let bottom = &r[r.len() - 2];
     assert!(!bottom.contains("file"), "{bottom}");
-    assert!(bottom.starts_with("\u{2514}\u{2500}"), "{bottom}");
+    assert!(
+        bottom.starts_with("\u{2514}\u{2500}"),
+        "the totals go whole, never cut mid-number: {bottom}"
+    );
 }
 
-/// #250: totals exactly as wide as the border are shown whole; on a panel one column narrower
-/// they are left out whole, never cut at the corner.
 #[test]
 fn review_panel_keeps_totals_that_just_fit_and_drops_them_one_column_short() {
     // ` 1 file · +1234567 −7654321 `: 28 columns, the border of the 30-column panel.
@@ -640,11 +652,12 @@ fn review_panel_keeps_totals_that_just_fit_and_drops_them_one_column_short() {
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     let r = rows(&terminal);
     let empty = format!("\u{2514}{}\u{2518}", "\u{2500}".repeat(27));
-    assert!(r[r.len() - 2].starts_with(&empty), "{r:#?}");
+    assert!(
+        r[r.len() - 2].starts_with(&empty),
+        "one column short, left out whole, never cut at the corner: {r:#?}"
+    );
 }
 
-/// #250: a name of wide or multi-byte chars puts the counts at the border, and a long one is
-/// cut by columns, never inside a char.
 #[test]
 fn review_panel_measures_a_non_ascii_name_in_columns() {
     let mut app = review_app(&[
@@ -674,12 +687,10 @@ fn review_panel_measures_a_non_ascii_name_in_columns() {
     let long = &rows(&terminal)[2];
     assert!(
         long.contains('\u{2026}') && !long.contains("\u{540d}"),
-        "{long}"
+        "a long name is cut by columns, never inside a char: {long}"
     );
 }
 
-/// #250: a file below the top level has its counts at the border too: the room for its name
-/// counts the indent.
 #[test]
 fn review_panel_puts_a_nested_file_counts_at_the_border() {
     let mut app = review_app(&[("src/deep/store.rs", 'M', 7, 1), ("top.rs", 'A', 1, 0)]);
@@ -691,12 +702,13 @@ fn review_panel_puts_a_nested_file_counts_at_the_border() {
         .iter()
         .find(|l| l.contains("M store.rs"))
         .expect("store.rs row");
-    assert!(nested.contains("+7 \u{2212}1\u{2502}"), "{r:#?}");
+    assert!(
+        nested.contains("+7 \u{2212}1\u{2502}"),
+        "the room for a nested name counts the indent: {r:#?}"
+    );
     assert!(nested.starts_with("\u{2502}      M store.rs"), "{r:#?}");
 }
 
-/// A task can start with the help or a picker open (`Esc`, `Help: Down`, `Picker: PgDn`): the
-/// overlay stops above the panel, so the task stays readable.
 #[test]
 fn overlays_leave_the_tutor_panel_in_sight() {
     let files = ["src/app.rs", "src/wrap.rs"].map(PathBuf::from).to_vec();
@@ -720,7 +732,7 @@ fn overlays_leave_the_tutor_panel_in_sight() {
         assert!(text.contains(overlay), "{overlay}:\n{text}");
         assert!(
             text.contains("Tutor 1/"),
-            "{overlay} hides the panel:\n{text}"
+            "{overlay} hides the panel, and a task that starts with it open is unreadable:\n{text}"
         );
     };
     app.mode = crate::app::Mode::Help;
@@ -731,9 +743,6 @@ fn overlays_leave_the_tutor_panel_in_sight() {
     shows(&mut app, "Files (");
 }
 
-/// At 80 columns six tutor texts wrap to three or four rows: the panel grows to them, so the
-/// key a lesson names is never on a row that is not drawn (#261). A short text keeps the
-/// panel at a title and two rows.
 #[test]
 fn the_lesson_panel_grows_to_its_text() {
     let mut app = App::new(
@@ -763,8 +772,16 @@ fn the_lesson_panel_grows_to_its_text() {
             .rsplit(' ')
             .next()
             .unwrap();
-        assert!(panel.ends_with(last), "lesson {}:\n{r:#?}", step + 1);
-        assert!(r.len() - 1 - top >= 3, "lesson {}:\n{r:#?}", step + 1);
+        assert!(
+            panel.ends_with(last),
+            "lesson {}: its last word is drawn:\n{r:#?}",
+            step + 1
+        );
+        assert!(
+            r.len() - 1 - top >= 3,
+            "lesson {}: a title and two rows at least:\n{r:#?}",
+            step + 1
+        );
         tallest = tallest.max(r.len() - 1 - top);
     }
     assert!(tallest > 3, "no lesson wraps past two rows at 80 columns");
@@ -989,7 +1006,6 @@ fn a_list_one_line_tall_shows_the_picked_row() {
     assert_eq!(inside(&terminal), [">", "a.py:1: total"]);
 }
 
-/// `?` at 80 columns wraps an action too long for its row instead of cutting it (#458).
 #[test]
 fn help_wraps_every_action_whole_at_80_columns() {
     let mut app = App::new(

@@ -1,5 +1,3 @@
-//! The fuzzy-picker overlay: one nucleo matcher over a list of labelled targets.
-
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -25,8 +23,6 @@ pub struct PickItem {
     /// starts, so the row can be drawn with that line's syntax colours. `None`: no code text.
     pub code_at: Option<usize>,
     pub path_at: Option<std::ops::Range<usize>>,
-    /// A line the branch under review deleted (#440): `line` is its number in the file at the
-    /// base, drawn red, and Enter lands on it.
     pub deleted: bool,
 }
 
@@ -36,7 +32,6 @@ pub struct Row {
     pub matched: Vec<u32>,
 }
 
-/// What a key did to the picker.
 pub enum Pick {
     Stay,
     Cancel,
@@ -59,8 +54,6 @@ pub struct Picker {
     /// Files of the rows drawn so far, highlighted up to the deepest row shown. Filled lazily by
     /// `ui`, so a picker over thousands of hits only ever parses what is on screen.
     pub bufs: HashMap<PathBuf, Buffer>,
-    /// Review: the gutter marks of the review's files drawn so far, filled lazily by `ui` like
-    /// `bufs` (#246).
     pub marks: HashMap<PathBuf, HashMap<usize, Mark>>,
     pub first: usize,
 }
@@ -97,7 +90,6 @@ impl Picker {
         }
     }
 
-    /// Rows a PgUp / PgDn moves: the list's height in the last frame.
     pub fn page(&self) -> usize {
         self.page
     }
@@ -111,7 +103,6 @@ impl Picker {
         }
     }
 
-    /// Lets the matcher work for up to 10 ms. Returns `true` when the results changed.
     pub fn tick(&mut self) -> bool {
         self.nucleo.tick(10).changed
     }
@@ -175,8 +166,6 @@ impl Picker {
             .map(|item| item.data)
     }
 
-    /// Enter with nothing matched does nothing, as in VS Code's quick open: the list and the
-    /// query stay, so a typo costs a Backspace, not the query (#288). Only Esc closes.
     fn accept(&self) -> Pick {
         match self.current() {
             Some(item) => Pick::Accept(item.clone()),
@@ -184,10 +173,8 @@ impl Picker {
         }
     }
 
-    /// Hands the query to nucleo, read as it is written in every list (#293, #519): none of
-    /// nucleo's pattern syntax, spaces still separating words matched in any order. `append`:
-    /// the new pattern extends the old one, so nucleo can refine the previous result set instead
-    /// of rescoring everything.
+    /// `append`: the new pattern extends the old one, so nucleo can refine the previous result
+    /// set instead of rescoring everything.
     pub(crate) fn requery(&mut self, append: bool) {
         let mut words: Vec<&str> = self.query.split(' ').collect();
         // A `\` ending a word would escape the space behind it: that word goes last, as the
@@ -229,7 +216,6 @@ impl Picker {
         Pick::Stay
     }
 
-    /// Text pasted into the query, taken in one go.
     pub fn paste(&mut self, text: &str) -> Pick {
         let old = self.query.to_string();
         match self.query.insert(text) {
@@ -238,8 +224,6 @@ impl Picker {
         }
     }
 
-    /// The query changed from `old`: a live picker's owner searches again, any other picker
-    /// filters itself.
     fn edited(&mut self, old: &str) -> Pick {
         if self.live {
             return Pick::Typed;
@@ -312,7 +296,6 @@ mod tests {
         assert_eq!(p.counts().0, 3, "backspacing widens the result set again");
     }
 
-    /// A capital in the query does not make it exact: `sameCancel` finds `SameCancel` (#174).
     #[test]
     fn a_capital_in_the_query_still_ignores_case() {
         let mut p = picker(&["SameCancel", "Walk"]);
@@ -324,14 +307,15 @@ mod tests {
         assert_eq!(p.window(5).0[0].item.label, "SameCancel");
     }
 
-    /// `tick` is what the event loop polls; it must report the new results after a query
-    /// change, or the list on screen stays one keystroke behind.
     #[test]
     fn tick_reports_a_changed_result_set() {
         let mut p = picker(&["src/wrap.rs", "src/app.rs"]);
         p.key(KeyCode::Char('w').into());
         let changed = (0..100).any(|_| p.tick());
-        assert!(changed);
+        assert!(
+            changed,
+            "the event loop polls tick: without the change the list stays a keystroke behind"
+        );
         assert_eq!(p.counts().0, 1);
     }
 
@@ -351,7 +335,6 @@ mod tests {
         assert!(matches!(p.key(KeyCode::Esc.into()), Pick::Cancel));
     }
 
-    /// A query that matches nothing: Enter keeps the list and the query (#288).
     #[test]
     fn enter_with_nothing_matched_stays() {
         let mut p = picker(&["store.py", "cli.py"]);
