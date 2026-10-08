@@ -439,7 +439,7 @@ pub fn package_copy(
     own: &[PathBuf],
     module: &[String],
 ) -> Option<PackageCopy> {
-    let (name, parts) = match module {
+    let (name, name_parts) = match module {
         [scope, pkg, ..] if scope.starts_with('@') => (format!("{scope}/{pkg}"), 2),
         [pkg, ..] if !NODE_BUILTINS.contains(&pkg.as_str()) => (pkg.clone(), 1),
         _ => return Some(PackageCopy::default()),
@@ -462,7 +462,7 @@ pub fn package_copy(
             .cloned()
             .collect(),
         dirs,
-        parts,
+        name_parts,
     };
     let mut chosen = None;
     for (i, level) in roots.iter().enumerate() {
@@ -488,7 +488,9 @@ pub fn package_copy(
             }
             false => copy_in(files, dirs.iter().filter_map(|d| spelled(d)).collect()),
         };
-        let whole = copy.module(module).is_some_and(|(n, _)| n == module.len());
+        let whole = copy
+            .module(module)
+            .is_some_and(|m| m.matched_parts == module.len());
         let exports = std::fs::read_to_string(level.join(&name).join("package.json"))
             .is_ok_and(|text| exports_map(&text));
         // The map is what Node loads the path from, and it is not read here: as without a copy.
@@ -623,12 +625,12 @@ fn exports_map(text: &str) -> bool {
     false
 }
 /// A copy of an npm package [`package_copy`] finds: the directories it is in (the package's and
-/// its types'), its walked files there, and how many parts of a module path its name is.
+/// its types'), its walked files there.
 #[derive(Debug, Default, PartialEq)]
 pub struct PackageCopy {
     pub dirs: Vec<PathBuf>,
     pub files: Vec<PathBuf>,
-    pub parts: usize,
+    pub name_parts: usize,
 }
 impl PackageCopy {
     /// The files an import of the package itself loads, in each of its directories: those its
@@ -676,12 +678,11 @@ impl PackageCopy {
         }
         entries
     }
-    /// The files of the copy `module` names, with how many of its parts that is. The package's
-    /// own parts are the copy, whatever its directory is called (pnpm's alias `cookie` links a
+    /// The files of the copy `module` names. The package's own parts are the copy, whatever its directory is called (pnpm's alias `cookie` links a
     /// store directory called `cookie-es`); the rest of the path is matched below the copy's
     /// directories and shortened from its end as [`module_among`] shortens it, down to the whole
     /// copy. `None` for a copy of no files.
-    pub fn module(&self, module: &[String]) -> Option<(usize, Vec<PathBuf>)> {
+    pub fn module(&self, module: &[String]) -> Option<ModuleFiles<PathBuf>> {
         if self.files.is_empty() {
             return None;
         }
@@ -697,13 +698,16 @@ impl PackageCopy {
                 file,
             })
             .collect();
-        let rest = module.get(self.parts..).unwrap_or_default();
+        let rest = module.get(self.name_parts..).unwrap_or_default();
         Some(match module_among(&below, rest, None) {
-            Some((n, found)) => (
-                self.parts + n,
-                found.iter().map(|b| b.file.clone()).collect(),
-            ),
-            None => (self.parts, self.files.clone()),
+            Some(found) => ModuleFiles {
+                matched_parts: self.name_parts + found.matched_parts,
+                files: found.files.iter().map(|b| b.file.clone()).collect(),
+            },
+            None => ModuleFiles {
+                matched_parts: self.name_parts,
+                files: self.files.clone(),
+            },
         })
     }
 }

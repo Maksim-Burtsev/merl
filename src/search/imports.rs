@@ -1120,15 +1120,19 @@ fn normalized_module_part(s: &str) -> String {
         .map_or(s, |(i, _)| &s[..i]);
     s.replace('!', "").replace('-', "_").to_ascii_lowercase()
 }
-/// The files among `files` of `module`, shortened from its end until some match, with how many
-/// of its parts that left: `from json import load` is `json/load`, then `json`. A Go import of
+pub struct ModuleFiles<P> {
+    pub matched_parts: usize,
+    pub files: Vec<P>,
+}
+/// The files among `files` of `module`, shortened from its end until some match:
+/// `from json import load` is `json/load`, then `json`. A Go import of
 /// `package` parts names one directory, so down to that length a file has to be in it
 /// ([`in_package`]). `None` when not even the first part matches.
 pub fn module_among<P: AsRef<Path> + Clone>(
     files: &[P],
     module: &[String],
     package: Option<usize>,
-) -> Option<(usize, Vec<P>)> {
+) -> Option<ModuleFiles<P>> {
     (1..=module.len()).rev().find_map(|n| {
         let m = &module[..n];
         let found: Vec<P> = files
@@ -1139,7 +1143,10 @@ pub fn module_among<P: AsRef<Path> + Clone>(
             })
             .cloned()
             .collect();
-        (!found.is_empty()).then_some((n, found))
+        (!found.is_empty()).then_some(ModuleFiles {
+            matched_parts: n,
+            files: found,
+        })
     })
 }
 pub fn in_package(path: &Path, parts: &[String]) -> bool {

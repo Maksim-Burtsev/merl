@@ -45,7 +45,9 @@ impl App {
             .iter()
             .filter(|f| !spelled || f.as_os_str().to_string_lossy().contains(last.as_str()))
             .collect();
-        let Some((_, files)) = search::module_among(&near, path, Some(path.len())) else {
+        let Some(search::ModuleFiles { files, .. }) =
+            search::module_among(&near, path, Some(path.len()))
+        else {
             return Vec::new();
         };
         let files: Vec<PathBuf> = files.into_iter().cloned().collect();

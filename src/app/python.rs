@@ -79,9 +79,9 @@ impl App {
     pub(super) fn package_assignments(&mut self, word: &str, module: &[String]) -> Vec<Candidate> {
         let kind = Kind::Python;
         let all = self.external_files(kind);
-        let Some((_, files)) = self
+        let Some(search::ModuleFiles { files, .. }) = self
             .python_module_among(&all, module)
-            .filter(|(n, _)| *n == module.len())
+            .filter(|m| m.matched_parts == module.len())
         else {
             return Vec::new();
         };
