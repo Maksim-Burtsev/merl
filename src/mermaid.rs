@@ -265,7 +265,12 @@ impl Diagrams {
         }
         for p in &self.want {
             if !self.sent.contains(&p.id)
-                && let Some(pic) = self.pics.values().flatten().flatten().find(|q| q.id == p.id)
+                && let Some(pic) = self
+                    .pics
+                    .values()
+                    .flatten()
+                    .flatten()
+                    .find(|q| q.id == p.id)
             {
                 transmit(&mut buf, pic);
                 self.sent.insert(p.id);

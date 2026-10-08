@@ -117,7 +117,9 @@ impl App {
                 let old = slot.take();
                 let off = old.as_ref().map_or(0, |p| p.row.saturating_sub(p.top));
                 let diagrams = &mut self.diagrams;
-                let file = self.root.join(self.buf.path.as_deref().unwrap_or(Path::new("")));
+                let file = self
+                    .root
+                    .join(self.buf.path.as_deref().unwrap_or(Path::new("")));
                 let root = &self.root;
                 let doc = markdown::layout(
                     &self.buf.lines,
@@ -139,7 +141,12 @@ impl App {
                 };
                 // Code keeps its colours across another width: the text is the same.
                 let (code, theme) = match old {
-                    Some(p) if p.laid_out_from.lines_hash == input.lines_hash => (p.code, p.theme),
+                    Some(p)
+                        if p.laid_out_from.lines_hash == input.lines_hash
+                            && p.code.len() == doc.code.len() =>
+                    {
+                        (p.code, p.theme)
+                    }
                     _ => (
                         doc.code
                             .iter()

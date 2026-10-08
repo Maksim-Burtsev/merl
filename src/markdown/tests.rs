@@ -691,7 +691,10 @@ fn a_local_image_on_its_own_line_is_rows_for_its_picture() {
     assert_eq!(asked, vec!["docs/logo.png None"]);
     let rows = image_rows(&d);
     assert_eq!(rows.len(), 3);
-    assert!(rows.iter().all(|r| r.0 == "docs/logo.png" && r.1 == 2 && r.2.is_empty()));
+    assert!(
+        rows.iter()
+            .all(|r| r.0 == "docs/logo.png" && r.1 == 2 && r.2.is_empty())
+    );
     assert_eq!(d.code[0].picture, Some((10, 3)));
     assert!(!texts(&d).iter().any(|t| t.contains('\u{25a3}')));
     assert!(texts(&d).contains(&"After"));
@@ -714,7 +717,10 @@ fn an_image_in_a_sentence_or_from_the_web_stays_its_alt_text() {
 fn several_images_in_one_paragraph_go_one_under_another() {
     let (d, _) = with_images("[![a](a.png)](https://x.org)\n![b](b.png)", false);
     let dests: Vec<String> = image_rows(&d).into_iter().map(|r| r.0).collect();
-    assert_eq!(dests, ["a.png", "a.png", "a.png", "b.png", "b.png", "b.png"]);
+    assert_eq!(
+        dests,
+        ["a.png", "a.png", "a.png", "b.png", "b.png", "b.png"]
+    );
 }
 
 #[test]
@@ -731,7 +737,10 @@ fn an_html_image_takes_its_width_and_centres_under_align_center() {
         "the tags around a drawn image go: {:?}",
         texts(&d)
     );
-    let (web, _) = with_images("<p align=\"center\">\n<img src=\"https://x.org/a.png\">\n</p>", false);
+    let (web, _) = with_images(
+        "<p align=\"center\">\n<img src=\"https://x.org/a.png\">\n</p>",
+        false,
+    );
     assert_eq!(texts(&web)[1], "<img src=\"https://x.org/a.png\">");
 }
 
@@ -743,10 +752,17 @@ fn the_theme_picks_the_variant_of_a_picture_and_of_gh_mode_only() {
         let rows = image_rows(&d);
         assert_eq!(rows.len(), 3, "{light}");
         assert!(rows.iter().all(|r| r.0 == want && r.1 == 3), "{rows:?}");
-        assert!(!texts(&d).iter().any(|t| t.contains('<')), "{:?}", texts(&d));
+        assert!(
+            !texts(&d).iter().any(|t| t.contains('<')),
+            "{:?}",
+            texts(&d)
+        );
     }
     let modes = "![l](l.png#gh-light-mode-only)\n![d](d.png#gh-dark-mode-only)";
-    for (light, want) in [(false, "d.png#gh-dark-mode-only"), (true, "l.png#gh-light-mode-only")] {
+    for (light, want) in [
+        (false, "d.png#gh-dark-mode-only"),
+        (true, "l.png#gh-light-mode-only"),
+    ] {
         let (d, _) = with_images(modes, light);
         let dests: Vec<String> = image_rows(&d).into_iter().map(|r| r.0).collect();
         assert_eq!(dests, [want, want, want]);
@@ -759,5 +775,9 @@ fn an_img_tag_over_several_lines_draws_once_and_hides_its_lines() {
     let (d, asked) = with_images(text, false);
     assert_eq!(asked, vec!["a.png Some(Percent(50.0))"]);
     assert_eq!(image_rows(&d).len(), 3);
-    assert!(texts(&d).iter().all(|t| t.trim().is_empty()), "{:?}", texts(&d));
+    assert!(
+        texts(&d).iter().all(|t| t.trim().is_empty()),
+        "{:?}",
+        texts(&d)
+    );
 }

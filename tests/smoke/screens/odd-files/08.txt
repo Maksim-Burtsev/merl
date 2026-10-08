@@ -1,4 +1,4 @@
-wait binary file
+wait not shown
 
 
 
@@ -20,7 +20,7 @@ wait binary file
 
 
 
-                                                                                 binary file, not shown
+                                                                                  PNG 48×32, not shown
 
 
 

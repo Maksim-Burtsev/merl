@@ -106,7 +106,12 @@ pub fn only_tags(line: &str) -> bool {
 
 pub fn centred(html: &str) -> bool {
     let lower = html.to_ascii_lowercase();
-    ["align=\"center\"", "align='center'", "align=center", "<center"]
-        .iter()
-        .any(|a| lower.contains(a))
+    [
+        "align=\"center\"",
+        "align='center'",
+        "align=center",
+        "<center",
+    ]
+    .iter()
+    .any(|a| lower.contains(a))
 }

@@ -1020,7 +1020,13 @@ impl Lay<'_> {
         fit(Ask::Image(dest, width), room).filter(|&(_, rows)| rows > 0)
     }
 
-    fn image_rows(&mut self, dest: String, (cols, rows): (u16, u16), at: (usize, usize), centre: bool) {
+    fn image_rows(
+        &mut self,
+        dest: String,
+        (cols, rows): (u16, u16),
+        at: (usize, usize),
+        centre: bool,
+    ) {
         let block = self.code.len();
         let lead = match centre {
             true => self.avail().saturating_sub(cols as usize) / 2,
@@ -1099,8 +1105,9 @@ impl Lay<'_> {
             let here: Vec<usize> = (0..imgs.len())
                 .filter(|&k| span.contains(&imgs[k].tag.start))
                 .collect();
-            let inside = (0..imgs.len())
-                .any(|k| drawn(k) && imgs[k].tag.start < span.start && span.start < imgs[k].tag.end);
+            let inside = (0..imgs.len()).any(|k| {
+                drawn(k) && imgs[k].tag.start < span.start && span.start < imgs[k].tag.end
+            });
             if !here.is_empty() && here.iter().all(|&k| drawn(k)) {
                 for k in here {
                     if let Some(fit) = fits[k] {

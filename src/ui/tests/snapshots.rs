@@ -94,6 +94,19 @@ const STATES: &[State] = &[
         at(a, "PLAN.md", 1, "");
         press(a, "p");
     }),
+    ("image", |a| {
+        let path = a.root.join("logo.png");
+        let alpha = |x: u32| if x < 48 { 255 } else { 0 };
+        image::RgbaImage::from_fn(96, 48, |x, _| image::Rgba([0, 0, 0, alpha(x)]))
+            .save(&path)
+            .unwrap();
+        a.diagrams = crate::mermaid::Diagrams::with_cell(Some((10, 20)));
+        a.jump_to(&path, 1);
+        a.diagrams.file_size(&path);
+        for job in a.diagrams.jobs() {
+            a.diagrams.done(crate::mermaid::render(job));
+        }
+    }),
     ("review", |a| review(a, &[], None, Some("store.py"))),
     ("review-empty", |a| {
         review(a, &["tests/__init__.py"], None, None)
@@ -403,6 +416,7 @@ snapshots! {
     snapshot_selection: "selection",
     snapshot_nowrap: "nowrap",
     snapshot_preview: "preview",
+    snapshot_image: "image",
     snapshot_review: "review",
     snapshot_review_empty: "review-empty",
     snapshot_review_rename: "review-rename",

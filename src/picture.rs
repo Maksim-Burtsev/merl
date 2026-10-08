@@ -179,7 +179,8 @@ pub fn decode(path: &Path) -> Result<Drawn, String> {
             name,
         )?,
         ImageFormat::WebP => {
-            let d = image::codecs::webp::WebPDecoder::new(Cursor::new(&bytes)).map_err(not_drawn)?;
+            let d =
+                image::codecs::webp::WebPDecoder::new(Cursor::new(&bytes)).map_err(not_drawn)?;
             match d.has_animation() {
                 true => animation(d, name)?,
                 false => Vec::new(),
@@ -191,7 +192,10 @@ pub fn decode(path: &Path) -> Result<Drawn, String> {
         let natural = frames[0].1;
         let h = frames[0].2;
         return Ok(Drawn {
-            frames: frames.into_iter().map(|(png, _, _, ms)| (png, ms)).collect(),
+            frames: frames
+                .into_iter()
+                .map(|(png, _, _, ms)| (png, ms))
+                .collect(),
             natural,
             h,
         });

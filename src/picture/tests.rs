@@ -30,7 +30,10 @@ fn a_picture_larger_than_the_room_shrinks_until_the_whole_fits() {
     assert_eq!(rows, 20);
     assert!(cols < 10, "{cols}");
     let (_, tall) = cells((400, 4000), None, cell, 80, None);
-    assert!(tall > 20, "without a height to fit, only the width shrinks it: {tall}");
+    assert!(
+        tall > 20,
+        "without a height to fit, only the width shrinks it: {tall}"
+    );
 }
 
 #[test]
@@ -40,7 +43,10 @@ fn a_width_attribute_sets_the_size_and_a_percent_takes_the_room() {
     let (cols, rows) = cells((400, 200), Some(Width::Px(100.0)), cell, 200, None);
     assert_eq!(cols, (100.0 * px / 10.0_f32).round() as u16);
     assert_eq!(rows, (50.0 * px / 20.0_f32).round() as u16);
-    assert_eq!(cells((400, 200), Some(Width::Percent(50.0)), cell, 40, None).0, 20);
+    assert_eq!(
+        cells((400, 200), Some(Width::Percent(50.0)), cell, 40, None).0,
+        20
+    );
 }
 
 #[test]
@@ -85,7 +91,11 @@ fn a_gif_keeps_every_frame_and_its_delay() {
     let drawn = decode(&path).unwrap();
     assert_eq!(drawn.natural, (4, 3));
     let ms: Vec<u32> = drawn.frames.iter().map(|f| f.1).collect();
-    assert_eq!(ms, vec![200, 100], "a delay of 0 plays at 100 ms, as browsers do");
+    assert_eq!(
+        ms,
+        vec![200, 100],
+        "a delay of 0 plays at 100 ms, as browsers do"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -137,7 +147,10 @@ fn a_markdown_image_is_found_beside_the_file_or_from_the_root_and_never_on_the_w
         resolve(&root, &file, "/logo.png#gh-dark-mode-only"),
         Some(root.join("logo.png"))
     );
-    assert_eq!(resolve(&root, &file, "../logo.png"), Some(root.join("docs/../logo.png")));
+    assert_eq!(
+        resolve(&root, &file, "../logo.png"),
+        Some(root.join("docs/../logo.png"))
+    );
     assert_eq!(resolve(&root, &file, "https://example.com/logo.png"), None);
     assert_eq!(resolve(&root, &file, "//example.com/logo.png"), None);
     assert_eq!(resolve(&root, &file, "img/missing.png"), None);

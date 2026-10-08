@@ -90,7 +90,11 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
         } else if let Some((old, new)) = app.renamed_here() {
             draw_renamed(frame, theme, code, base, old, new);
         } else if app.buf.binary() {
-            let note = app.buf.path.as_deref().and_then(crate::picture::not_shown_note);
+            let note = app
+                .buf
+                .path
+                .as_deref()
+                .and_then(crate::picture::not_shown_note);
             draw_binary(frame, theme, code, base, note);
         } else if app.buf.path.is_some() {
             draw_code(frame, app, theme, code, base);

@@ -45,7 +45,13 @@ pub(super) fn status(app: &App) -> Option<Status> {
 
 pub(super) fn draw_file(frame: &mut Frame, app: &mut App, area: Rect, path: &Path) {
     if !super::covers_code(app) {
-        draw_picture(frame.buffer_mut(), &mut app.diagrams, path, area, FILE_PLACEMENT);
+        draw_picture(
+            frame.buffer_mut(),
+            &mut app.diagrams,
+            path,
+            area,
+            FILE_PLACEMENT,
+        );
     }
 }
 
@@ -67,7 +73,10 @@ pub fn draw_picture(
     placement: u32,
 ) -> Option<(u32, u32)> {
     let natural = diagrams.file_size(path)?;
-    let room = (area.width.saturating_sub(2).max(1) as usize, area.height.max(1) as usize);
+    let room = (
+        area.width.saturating_sub(2).max(1) as usize,
+        area.height.max(1) as usize,
+    );
     let fit = picture::cells(natural, None, diagrams.cell()?, room.0, Some(room.1));
     let at = centred(area, fit);
     checker(buf, at);

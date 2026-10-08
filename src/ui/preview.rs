@@ -142,7 +142,9 @@ fn place_pictures(app: &mut App, area: Rect, gutter_w: usize, end: usize) {
         }
     }
     let top = p.top;
-    let file = app.root.join(app.buf.path.as_deref().unwrap_or(Path::new("")));
+    let file = app
+        .root
+        .join(app.buf.path.as_deref().unwrap_or(Path::new("")));
     for (b, src, first, from, to, cols, rows, lead) in wanted {
         let pic = match src {
             Ok(src) => app.diagrams.pic(&src),
