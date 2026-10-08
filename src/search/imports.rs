@@ -410,7 +410,12 @@ pub fn default_class(text: &str) -> Option<String> {
     .ok()?;
     Some(bound.captures(text)?[1].to_owned())
 }
-pub fn module_exports(text: &str) -> Option<Option<(usize, Option<String>)>> {
+#[derive(Debug, PartialEq)]
+pub enum ModuleExports {
+    OneAssignment { line1: usize, name: Option<String> },
+    Piecemeal,
+}
+pub fn module_exports(text: &str) -> Option<ModuleExports> {
     static WHOLE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?m)^[ \t]*module\.exports\s*=\s*([^=\n][^\n]*)$").unwrap()
     });
@@ -426,11 +431,11 @@ pub fn module_exports(text: &str) -> Option<Option<(usize, Option<String>)>> {
     }
     Some(match (whole.as_slice(), part) {
         ([one], false) => {
-            let line = text[..one.get(0).unwrap().start()].matches('\n').count() + 1;
+            let line1 = text[..one.get(0).unwrap().start()].matches('\n').count() + 1;
             let name = NAME.captures(one[1].trim()).map(|c| c[1].to_owned());
-            Some((line, name))
+            ModuleExports::OneAssignment { line1, name }
         }
-        _ => None,
+        _ => ModuleExports::Piecemeal,
     })
 }
 /// A TypeScript method header's start, up to its `(`, for [`ts_call_statement`]: `word(`,

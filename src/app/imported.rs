@@ -187,11 +187,18 @@ impl App {
                 };
                 let inside = match taken.as_str() {
                     "*" => match (exports.as_ref().map(|(_, e)| e), chain.is_empty()) {
-                        (Some(Some((_, name))), true) => {
+                        (Some(search::ModuleExports::OneAssignment { name, .. }), true) => {
                             vec![name.clone().unwrap_or_else(|| word.to_owned())]
                         }
-                        (Some(None), true) => vec![word.to_owned()],
-                        (Some(Some((_, Some(name)))), false) if class(name) => {
+                        (Some(search::ModuleExports::Piecemeal), true) => {
+                            vec![word.to_owned()]
+                        }
+                        (
+                            Some(search::ModuleExports::OneAssignment {
+                                name: Some(name), ..
+                            }),
+                            false,
+                        ) if class(name) => {
                             let mut names = vec![name.clone()];
                             names.extend(chain[1..].iter().cloned());
                             names.push(word.to_owned());
@@ -270,9 +277,9 @@ impl App {
         // `const utils = require("./m")` over `module.exports = { helper };`: that line.
         if hits.is_empty()
             && chain.is_empty()
-            && let Some((file, Some((line, _)))) = &exports
+            && let Some((file, search::ModuleExports::OneAssignment { line1, .. })) = &exports
         {
-            let line = *line;
+            let line = *line1;
             hits = vec![Hit {
                 deleted: None,
                 text: self
@@ -284,10 +291,9 @@ impl App {
                 col: 0,
             }];
         }
-        // One that builds its exports line by line hands out itself: its file, as a module.
         if hits.is_empty()
             && chain.is_empty()
-            && let Some((file, None)) = &exports
+            && let Some((file, search::ModuleExports::Piecemeal)) = &exports
         {
             return Some(self.module_candidates(vec![file.clone()]));
         }

@@ -582,16 +582,25 @@ fn a_require_binds_only_the_module_itself_or_a_name_of_it() {
 fn module_exports_is_one_assignment_or_nothing_known() {
     assert_eq!(
         module_exports("class S {}\n\nmodule.exports = S;\n"),
-        Some(Some((3, Some("S".to_owned()))))
+        Some(ModuleExports::OneAssignment {
+            line1: 3,
+            name: Some("S".to_owned())
+        })
     );
     assert_eq!(
         module_exports("module.exports = {\n  a,\n};\n"),
-        Some(Some((1, None)))
+        Some(ModuleExports::OneAssignment {
+            line1: 1,
+            name: None
+        })
     );
-    assert_eq!(module_exports("exports.a = a;\n"), Some(None));
+    assert_eq!(
+        module_exports("exports.a = a;\n"),
+        Some(ModuleExports::Piecemeal)
+    );
     assert_eq!(
         module_exports("module.exports = a;\nmodule.exports = b;\n"),
-        Some(None)
+        Some(ModuleExports::Piecemeal)
     );
     assert_eq!(module_exports("export default a;\n"), None);
 }
