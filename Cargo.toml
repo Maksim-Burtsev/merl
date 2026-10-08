@@ -18,12 +18,14 @@ grep-matcher = "0.1"
 grep-regex = "0.1"
 grep-searcher = "0.1"
 ignore = "0.4"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "ico", "tiff"] }
 merman = { version = "0.7", default-features = false, features = ["raster"] }
 notify = "8"
 nucleo = "0.5"
 pulldown-cmark = { version = "0.13", default-features = false }
 ratatui = { version = "0.30", features = ["unstable-rendered-line-info"] }
 regex = "1"
+resvg = "0.46"
 serde = { version = "1", features = ["derive"] }
 signal-hook = "0.4"
 syntect = "5.3"

@@ -2,6 +2,7 @@
 //! cursor row. The git marks stay on the source, where the diff is.
 
 use std::ops::Range;
+use std::path::Path;
 
 use ratatui::Frame;
 use ratatui::layout::Rect;
@@ -95,6 +96,7 @@ pub(super) fn draw_preview(
         // A code block's tint and the cursor row reach the right edge.
         let fill = match (bg, row.kind) {
             (Some(_), _) => Some(t),
+            (None, Kind::Code { block, .. }) if p.doc.code[block].image.is_some() => None,
             (None, Kind::Code { .. }) => Some(base.bg(pal.code_bg)),
             _ => None,
         };
@@ -130,13 +132,24 @@ fn place_pictures(app: &mut App, area: Rect, gutter_w: usize, end: usize) {
         };
         let (from, to) = (first.max(p.top), (first + rows as usize).min(end));
         if from < to {
-            let lead = wrap::width(&p.doc.rows[first].text) + 1;
-            wanted.push((b, code.lines.join("\n"), first, from, to, cols, rows, lead));
+            let lead = wrap::width(&p.doc.rows[first].text);
+            let src = match &code.image {
+                Some(dest) => Err(dest.clone()),
+                None => Ok(code.lines.join("\n")),
+            };
+            let lead = lead + usize::from(src.is_ok());
+            wanted.push((b, src, first, from, to, cols, rows, lead));
         }
     }
     let top = p.top;
+    let file = app.root.join(app.buf.path.as_deref().unwrap_or(Path::new("")));
     for (b, src, first, from, to, cols, rows, lead) in wanted {
-        let Some(pic) = app.diagrams.pic(&src) else {
+        let pic = match src {
+            Ok(src) => app.diagrams.pic(&src),
+            Err(dest) => crate::picture::resolve(&app.root, &file, &dest)
+                .and_then(|path| app.diagrams.file_pic(&path)),
+        };
+        let Some(pic) = pic else {
             continue;
         };
         let (h, rows) = (pic.height(), u32::from(rows));

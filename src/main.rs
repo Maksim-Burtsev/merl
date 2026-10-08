@@ -10,6 +10,7 @@ mod live;
 mod markdown;
 mod mermaid;
 mod picker;
+mod picture;
 mod reviews;
 mod search;
 mod stats;
@@ -479,8 +480,9 @@ fn event_loop(
                     let _ = tx.send(Msg::Diagram(mermaid::render(job)));
                 });
         }
-        let idle = if app.picker.is_some() { 10 } else { 100 };
-        match rx.recv_timeout(Duration::from_millis(idle)) {
+        let idle = Duration::from_millis(if app.picker.is_some() { 10 } else { 100 });
+        let idle = app.diagrams.wake.map_or(idle, |w| w.min(idle));
+        match rx.recv_timeout(idle) {
             Ok(Msg::Key(k)) => {
                 if app.key(k) {
                     return Ok(());
@@ -569,7 +571,7 @@ fn event_loop(
                     }
                 };
             }
-            Err(mpsc::RecvTimeoutError::Timeout) => {}
+            Err(mpsc::RecvTimeoutError::Timeout) => dirty |= app.diagrams.wake.is_some(),
             Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
         }
     }

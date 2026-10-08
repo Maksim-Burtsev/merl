@@ -69,19 +69,19 @@ fn a_diagram_draws_and_a_broken_one_does_not() {
             src: hash(src),
             colours: 0,
         },
-        src: src.into(),
+        src: Src::Diagram(src.into()),
         colours: String::new(),
     };
     let done = render(job("graph TD\n  A[Start] --> B[Done]"));
-    let drawn = done.drawn.expect("a flowchart draws");
+    let drawn = done.drawn.ok().expect("a flowchart draws");
     assert!(drawn.natural.0 > 0 && drawn.natural.1 > 0);
     assert!(drawn.h >= drawn.natural.1);
-    assert!(render(job("graph TD\n  A[Start --> ")).drawn.is_none());
+    assert!(render(job("graph TD\n  A[Start --> ")).drawn.is_err());
 }
 
-fn drawn() -> Option<Drawn> {
-    Some(Drawn {
-        png: vec![1, 2, 3],
+fn drawn() -> Result<Drawn, String> {
+    Ok(Drawn {
+        frames: vec![(vec![1, 2, 3], 0)],
         natural: (20, 10),
         h: 20,
     })
@@ -240,10 +240,10 @@ fn a_diagram_the_rasterizer_has_to_shrink_stays_source() {
             src: hash(&src),
             colours: 0,
         },
-        src,
+        src: Src::Diagram(src),
         colours: String::new(),
     };
-    assert!(render(job).drawn.is_none());
+    assert!(render(job).drawn.is_err());
 }
 
 #[test]

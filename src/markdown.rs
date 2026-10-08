@@ -10,8 +10,11 @@ use syntect::highlighting::Highlighter;
 use syntect::parsing::Scope;
 use unicase::UniCase;
 
+use crate::picture::Width;
 use crate::theme::Theme;
 use crate::wrap;
+
+pub mod images;
 
 pub fn is_markdown(path: &Path) -> bool {
     path.extension()
@@ -92,6 +95,7 @@ pub struct Code {
     pub lang: String,
     pub lines: Vec<String>,
     pub picture: Option<(u16, u16)>,
+    pub image: Option<String>,
 }
 
 /// A Markdown file laid out for one width.
@@ -139,9 +143,14 @@ impl Doc {
     }
 }
 
-pub type Fit<'a> = &'a mut dyn FnMut(&str, usize) -> Option<(u16, u16)>;
+pub enum Ask<'a> {
+    Diagram(&'a str),
+    Image(&'a str, Option<Width>),
+}
 
-pub fn layout(lines: &[String], width: usize, fit: Fit) -> Doc {
+pub type Fit<'a> = &'a mut dyn FnMut(Ask, usize) -> Option<(u16, u16)>;
+
+pub fn layout(lines: &[String], width: usize, light: bool, fit: Fit) -> Doc {
     let src = lines.join("\n");
     let mut starts = vec![0];
     starts.extend(src.match_indices('\n').map(|(i, _)| i + 1));
@@ -150,6 +159,7 @@ pub fn layout(lines: &[String], width: usize, fit: Fit) -> Doc {
         line_starts: starts,
         width: width.max(1),
         fit: Some(fit),
+        light,
         ..Default::default()
     };
     let opts = Options::ENABLE_TABLES
@@ -317,6 +327,11 @@ struct Lay<'a> {
     strike: usize,
     link: usize,
     image: usize,
+    light: bool,
+    para_images: Vec<(String, Option<Width>, (usize, usize))>,
+    para_html: String,
+    para_text: bool,
+    html: Option<Vec<(String, (usize, usize))>>,
     heading: Option<HeadingLevel>,
     table: Option<Table>,
     block: Option<Block>,
@@ -363,8 +378,12 @@ impl Lay<'_> {
                     b.last_line_unended = !piece.ends_with('\n');
                 }
             }
-            Event::Text(t) => self.text(&t, self.look(), r),
+            Event::Text(t) => {
+                self.para_text |= self.image == 0 && !t.trim().is_empty();
+                self.text(&t, self.look(), r)
+            }
             Event::Code(t) => {
+                self.para_text = true;
                 let look = Look {
                     ink: Ink::Code,
                     ..self.look()
@@ -372,13 +391,23 @@ impl Lay<'_> {
                 self.text(&t, look, r);
             }
             Event::InlineMath(t) | Event::DisplayMath(t) => self.text(&t, self.look(), r),
+            Event::Html(t) if self.html.is_some() => {
+                let at = self.line_and_byte_col(r.start);
+                let line = t.trim_end_matches(['\n', '\r']).to_string();
+                if let Some(h) = &mut self.html {
+                    h.push((line, at));
+                }
+            }
             Event::Html(t) => {
                 // A raw HTML block, a line an event: shown as it is written.
                 let at = self.line_and_byte_col(r.start);
                 let line = t.trim_end_matches(['\n', '\r']);
                 self.lines(line, Ink::Dim.plain(), at);
             }
-            Event::InlineHtml(t) => self.text(&t, Ink::Dim.plain(), r),
+            Event::InlineHtml(t) => {
+                self.para_html.push_str(&t);
+                self.text(&t, Ink::Dim.plain(), r)
+            }
             Event::FootnoteReference(label) => {
                 let n = self.number(&label);
                 let look = Look {
@@ -416,6 +445,9 @@ impl Lay<'_> {
                     *loose = true;
                 }
                 self.inline = Some(Inline::default());
+                self.para_images.clear();
+                self.para_html.clear();
+                self.para_text = false;
             }
             Tag::Heading { level, .. } => {
                 self.block_start(r.start);
@@ -460,7 +492,10 @@ impl Lay<'_> {
                     span,
                 });
             }
-            Tag::HtmlBlock => self.block_start(r.start),
+            Tag::HtmlBlock => {
+                self.block_start(r.start);
+                self.html = Some(Vec::new());
+            }
             Tag::List(first) => {
                 self.block_start(r.start);
                 self.stack.push(Frame::List {
@@ -530,8 +565,10 @@ impl Lay<'_> {
             Tag::Strong => self.bold += 1,
             Tag::Strikethrough => self.strike += 1,
             Tag::Link { .. } => self.link += 1,
-            Tag::Image { .. } => {
+            Tag::Image { dest_url, .. } => {
                 // The picture cannot be drawn: its alt text stands in, marked.
+                let at = self.line_and_byte_col(r.start);
+                self.para_images.push((dest_url.to_string(), None, at));
                 self.image += 1;
                 self.text("\u{25a3} ", self.look(), r.start..r.start);
             }
@@ -558,7 +595,9 @@ impl Lay<'_> {
     fn end(&mut self, tag: TagEnd, r: Range<usize>) {
         match tag {
             TagEnd::Paragraph => {
-                self.flush();
+                if !self.pictures_of_paragraph(r.start) {
+                    self.flush();
+                }
                 self.gap_before_next_block = true;
             }
             TagEnd::Heading(level) => {
@@ -609,7 +648,11 @@ impl Lay<'_> {
                 }
                 self.gap_before_next_block = true;
             }
-            TagEnd::HtmlBlock => self.gap_before_next_block = true,
+            TagEnd::HtmlBlock => {
+                let lines = self.html.take().unwrap_or_default();
+                self.html_block(lines);
+                self.gap_before_next_block = true;
+            }
             TagEnd::MetadataBlock(_) => {
                 self.in_front_matter = false;
                 self.gap_before_next_block = true;
@@ -929,6 +972,7 @@ impl Lay<'_> {
                 lang: b.info_first_word,
                 lines: b.lines.into_iter().map(|l| l.as_written).collect(),
                 picture: Some(picture),
+                image: None,
             });
             return;
         }
@@ -960,13 +1004,113 @@ impl Lay<'_> {
             lang: b.info_first_word,
             lines: drawn,
             picture: None,
+            image: None,
         });
     }
 
     fn picture(&mut self, b: &Block, room: usize) -> Option<(u16, u16)> {
         let src: Vec<&str> = b.lines.iter().map(|l| l.as_written.as_str()).collect();
         let fit = self.fit.as_mut()?;
-        fit(&src.join("\n"), room).filter(|&(_, rows)| rows > 0)
+        fit(Ask::Diagram(&src.join("\n")), room).filter(|&(_, rows)| rows > 0)
+    }
+
+    fn image_fit(&mut self, dest: &str, width: Option<Width>) -> Option<(u16, u16)> {
+        let room = self.avail();
+        let fit = self.fit.as_mut()?;
+        fit(Ask::Image(dest, width), room).filter(|&(_, rows)| rows > 0)
+    }
+
+    fn image_rows(&mut self, dest: String, (cols, rows): (u16, u16), at: (usize, usize), centre: bool) {
+        let block = self.code.len();
+        let lead = match centre {
+            true => self.avail().saturating_sub(cols as usize) / 2,
+            false => 0,
+        };
+        for _ in 0..rows {
+            let kind = Kind::Code {
+                block,
+                line: 0,
+                from: 0,
+                at: 0,
+            };
+            self.push(" ".repeat(lead), Vec::new(), at, kind);
+        }
+        self.code.push(Code {
+            lang: String::new(),
+            lines: vec![String::new()],
+            picture: Some((cols, rows)),
+            image: Some(dest),
+        });
+    }
+
+    fn pictures_of_paragraph(&mut self, start: usize) -> bool {
+        let mut all = std::mem::take(&mut self.para_images);
+        let at = self.line_and_byte_col(start);
+        let html = std::mem::take(&mut self.para_html);
+        all.extend(
+            images::html_images(&html, self.light)
+                .into_iter()
+                .map(|i| (i.dest, i.width, at)),
+        );
+        let shown: Vec<_> = all
+            .into_iter()
+            .filter(|(dest, ..)| images::variant_shown(dest, self.light))
+            .collect();
+        if self.para_text || shown.is_empty() || self.inline.is_none() {
+            return false;
+        }
+        let mut fits = Vec::new();
+        for (dest, width, _) in &shown {
+            match self.image_fit(dest, *width) {
+                Some(fit) => fits.push(fit),
+                None => return false,
+            }
+        }
+        self.inline = None;
+        for ((dest, _, at), fit) in shown.into_iter().zip(fits) {
+            self.image_rows(dest, fit, at, false);
+        }
+        true
+    }
+
+    fn html_block(&mut self, lines: Vec<(String, (usize, usize))>) {
+        let mut all = String::new();
+        let mut starts = Vec::new();
+        for (line, _) in &lines {
+            starts.push(all.len());
+            all.push_str(line);
+            all.push('\n');
+        }
+        let imgs = images::html_images(&all, self.light);
+        let fits: Vec<Option<(u16, u16)>> = imgs
+            .iter()
+            .map(|i| i.shown.then(|| self.image_fit(&i.dest, i.width)).flatten())
+            .collect();
+        let drawn = |k: usize| fits[k].is_some() || !imgs[k].shown;
+        if !fits.iter().any(Option::is_some) {
+            for (line, at) in lines {
+                self.lines(&line, Ink::Dim.plain(), at);
+            }
+            return;
+        }
+        let centre = images::centred(&all);
+        for (n, (line, at)) in lines.into_iter().enumerate() {
+            let span = starts[n]..starts[n] + line.len();
+            let here: Vec<usize> = (0..imgs.len())
+                .filter(|&k| span.contains(&imgs[k].tag.start))
+                .collect();
+            let inside = (0..imgs.len())
+                .any(|k| drawn(k) && imgs[k].tag.start < span.start && span.start < imgs[k].tag.end);
+            if !here.is_empty() && here.iter().all(|&k| drawn(k)) {
+                for k in here {
+                    if let Some(fit) = fits[k] {
+                        self.image_rows(imgs[k].dest.clone(), fit, at, centre);
+                    }
+                }
+            } else if !(inside || here.is_empty() && images::only_tags(&line)) {
+                self.lines(&line, Ink::Dim.plain(), at);
+            }
+        }
     }
 
     fn span_fences(&mut self, first: usize, span: &Range<usize>) {

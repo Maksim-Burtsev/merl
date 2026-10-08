@@ -3,7 +3,7 @@
 use std::hash::{Hash, Hasher};
 
 use super::*;
-use crate::markdown::{self, Doc, Kind};
+use crate::markdown::{self, Ask, Doc, Kind};
 
 /// The preview of the open file: its rows at the pane's width, the row the cursor is on and the
 /// row at the top of the pane.
@@ -27,6 +27,7 @@ struct LayoutInput {
     lines_hash: u64,
     width: usize,
     diagrams_laid: u64,
+    light: bool,
 }
 
 impl App {
@@ -43,6 +44,13 @@ impl App {
         let Some(path) = self.buf.path.clone() else {
             return;
         };
+        let svg = crate::picture::is_svg(&path);
+        if svg && self.diagrams.on() {
+            if !self.previewed.remove(&path) {
+                self.previewed.insert(path);
+            }
+            return;
+        }
         if self.previewed.remove(&path) {
             let off = self
                 .preview
@@ -92,6 +100,7 @@ impl App {
             lines_hash: h.finish(),
             width: self.view_w,
             diagrams_laid: self.diagrams.laid,
+            light: self.diagrams.light,
         };
         let pos = (self.line, self.col);
         match &mut self.preview {
@@ -108,9 +117,22 @@ impl App {
                 let old = slot.take();
                 let off = old.as_ref().map_or(0, |p| p.row.saturating_sub(p.top));
                 let diagrams = &mut self.diagrams;
-                let doc = markdown::layout(&self.buf.lines, self.view_w, &mut |src, room| {
-                    diagrams.fit(src, room)
-                });
+                let file = self.root.join(self.buf.path.as_deref().unwrap_or(Path::new("")));
+                let root = &self.root;
+                let doc = markdown::layout(
+                    &self.buf.lines,
+                    self.view_w,
+                    input.light,
+                    &mut |ask, room| match ask {
+                        Ask::Diagram(src) => diagrams.fit(src, room),
+                        Ask::Image(dest, width) => {
+                            let path = crate::picture::resolve(root, &file, dest)?;
+                            let natural = diagrams.file_size(&path)?;
+                            let cell = diagrams.cell()?;
+                            Some(crate::picture::cells(natural, width, cell, room, None))
+                        }
+                    },
+                );
                 let row = match &old {
                     Some(p) if p.at == Some(pos) => doc.same_row(&p.doc, p.row, pos),
                     _ => doc.row_at(pos),
@@ -189,6 +211,12 @@ impl App {
         };
         if elsewhere || tree && self.focus == Focus::Tree {
             return false;
+        }
+        if self.buf.path.as_deref().is_some_and(crate::picture::is_svg) {
+            if key.code == KeyCode::Enter && plain {
+                self.start_edit();
+            }
+            return true;
         }
         self.preview_sync();
         let Some(p) = &self.preview else {

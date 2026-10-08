@@ -11,6 +11,8 @@ use crate::line_edit::LineEdit;
 use crate::theme::Theme;
 use crate::wrap;
 
+use super::picture::Status;
+
 /// A prompt line: the prefix, the text with its selection reversed, the cursor where it stands.
 pub(super) fn draw_prompt(
     frame: &mut Frame,
@@ -59,6 +61,11 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         _ if app.previewing() => "preview",
         _ => "code",
     };
+    let picture = super::picture::status(app);
+    let size = match &picture {
+        Some(Status::Size(size)) => Some(size),
+        _ => None,
+    };
     let mut spans = vec![
         Span::styled(
             app.rel_path(),
@@ -70,6 +77,9 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
                 if app.dirty { " \u{25cf}" } else { "" },
                 match app.deleted {
                     _ if app.buf.path.is_none() || app.folded_here().is_some() => String::new(),
+                    _ if size.is_some() => size
+                        .filter(|s| !s.is_empty())
+                        .map_or(String::new(), |s| format!("{s}  ")),
                     Some((k, i)) => {
                         let from = app.diff.ghost_from.get(&k).copied().unwrap_or(0);
                         format!("-{}:{}  ", from + i + 1, app.display_col())
@@ -82,10 +92,13 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
                     ""
                 },
                 // Enter on such a file says why (`read-only: not UTF-8`): once is enough.
-                if app.buf.readonly.is_some() && !app.message.starts_with("read-only") {
-                    "  read-only"
-                } else {
-                    ""
+                match &picture {
+                    Some(Status::Size(_)) => String::new(),
+                    Some(Status::Why(why)) => format!("  {why}"),
+                    None if app.buf.readonly.is_some() && !app.message.starts_with("read-only") => {
+                        "  read-only".into()
+                    }
+                    None => String::new(),
                 },
                 if app.no_watch { "  no auto-reload" } else { "" },
                 if app.nowrap() && !app.previewing() {
