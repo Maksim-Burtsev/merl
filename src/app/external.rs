@@ -32,15 +32,11 @@ impl App {
         }
         let pattern = &patterns.join("|");
         let mut bound_path = bound(imports, chain.first().map_or(word, String::as_str));
-        // What a TypeScript import takes (a name, `default`, `*`) is no part of a file's path.
-        let taken = match kind {
+        let ts_import_item = match kind {
             Kind::TsJs => bound_path.as_mut().and_then(Vec::pop),
             _ => None,
         };
-        // The word is a name the import takes by that name, or a name in the module a `* as ns`
-        // import names: what the module declares, under its own name or another. A default
-        // import's name is the importer's own.
-        let whole = match taken.as_deref() {
+        let word_is_export_name = match ts_import_item.as_deref() {
             Some("*") => chain.len() == 1,
             Some("default") | None => false,
             Some(_) => chain.is_empty(),
@@ -86,9 +82,7 @@ impl App {
         // name, finds its source, where a published copy outside would be a stale one; the
         // caller searches outside by name only after it.
         let copy = copy?;
-        // Only a lookup narrowed to a copy follows the copy's rules below: a renamed export and
-        // the module's other copies. Any other matches modules as it always has.
-        let narrowed = !copy.files.is_empty();
+        let narrowed_to_copy = !copy.files.is_empty();
         // `node:sqlite` is looked for, and named, as `sqlite`.
         if let Some(first) = bound_path.as_mut().and_then(|p| p.first_mut())
             && let Some(bare) = first.strip_prefix("node:")
@@ -134,9 +128,8 @@ impl App {
                 })
                 .collect()
         };
-        // What the patterns match, of the lines that declare the word where they sit.
         let erlang = self.buf.path.as_deref().is_some_and(search::erlang);
-        let grep = |this: &Self, files: &[PathBuf]| {
+        let declarations_in = |this: &Self, files: &[PathBuf]| {
             let mut hits = this.declaring(
                 kind,
                 word,
@@ -148,8 +141,8 @@ impl App {
         let Some(module) = module else {
             return Some(by_name(
                 match self.rel_current().filter(|_| kind == Kind::C) {
-                    Some(here) => self.c_outside(&here, &all, |h| h, grep),
-                    None => grep(self, &all),
+                    Some(here) => self.c_outside(&here, &all, |h| h, declarations_in),
+                    None => declarations_in(self, &all),
                 },
             ));
         };
@@ -166,9 +159,9 @@ impl App {
             }
             hits
         };
-        let mut hits = at_top(self, grep(self, &files));
+        let mut hits = at_top(self, declarations_in(self, &files));
         // `export { parseCookie as parse }` is the import's own `parse`, as in the project.
-        if hits.is_empty() && narrowed && whole {
+        if hits.is_empty() && narrowed_to_copy && word_is_export_name {
             // The package itself is its entry, not every file in it: a chunk, a legacy module.
             let within = match module.len() <= copy.parts {
                 true => copy.entries(),
@@ -199,13 +192,13 @@ impl App {
             return Some(Vec::new());
         }
         if hits.is_empty() && imported {
-            if narrowed {
+            if narrowed_to_copy {
                 let others = search::module_among(&all, &named.unwrap_or_default(), package);
                 let others = others.map(|(_, files)| files).unwrap_or_default();
-                hits = at_top(self, grep(self, &others));
+                hits = at_top(self, declarations_in(self, &others));
             }
             if hits.is_empty() {
-                hits = at_top(self, grep(self, &all));
+                hits = at_top(self, declarations_in(self, &all));
             }
             self.offer_only |= walked && !hits.is_empty();
             return Some(by_name(hits));

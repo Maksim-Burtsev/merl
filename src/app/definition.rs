@@ -262,7 +262,7 @@ impl App {
                     return;
                 }
                 Ok(None) => {}
-                Err(()) => self.offer_only = true,
+                Err(GoTypeUnread) => self.offer_only = true,
             },
             search::GoKey::Struct(line) => {
                 let ty = typed::anonymous(&here, line);
@@ -319,7 +319,7 @@ impl App {
             || (kind == Kind::Elixir
                 && !dotted
                 && (before.ends_with(':') || (after.starts_with(':') && !after.starts_with("::"))));
-        // `super` is no local, whatever the member lookup reads it as; Lua has no `super`.
+        let super_keyword = !dotted && word == "super" && kind != Kind::Lua;
         let after = self.line_str()[range.end..].trim_start();
         let rust_path = kind == Kind::Rust
             && (before.ends_with("::")
@@ -358,7 +358,7 @@ impl App {
                 .into_iter()
                 .filter(|&n| {
                     let l = &self.buf.lines[n - 1];
-                    !key && (dotted || word != "super" || kind == Kind::Lua)
+                    !key && !super_keyword
                         && !(import_line(kind, l)
                             || (!bare && names_itself(kind, l, first) && !closure(n)))
                         && !rust_path
@@ -628,8 +628,7 @@ impl App {
             && word.starts_with(|c: char| c.is_alphabetic() || c == '_')
             && word != "await"
             && chain.first().is_some_and(|f| bound(&imports, f).is_none())
-            // A tuple field, `self.0`, has no rule.
-            && chain.iter().all(|n| n.starts_with(|c: char| c.is_alphabetic() || c == '_'))
+            && !chain.iter().any(|n| rust::tuple_field(n))
         {
             let after = &self.line_str()[range.end..];
             let call = after.starts_with('(') || after.starts_with("::<");
@@ -658,8 +657,8 @@ impl App {
             self.show_definitions(kind, &word, &here, found, rust_broke.as_deref());
             return;
         }
-        // A `#private` member is nobody's to override.
-        if !dotted && !word.starts_with('#') {
+        let js_private_member = word.starts_with('#');
+        if !dotted && !js_private_member {
             let found = self.implementations(kind, &here, &text, &word);
             if !found.is_empty() {
                 self.show_definitions(kind, &word, &here, found, None);
@@ -813,11 +812,7 @@ impl App {
             && !dotted
             && locals.is_empty()
             && let Some(found) = self.rust_crate_path(&here, &text, &word, &chain, {
-                let after = self.line_str()[range.end..].trim_start();
-                match after.starts_with('!') && !after.starts_with("!=") {
-                    true => Some(true),
-                    false => after.starts_with(['(', ':']).then_some(false),
-                }
+                rust::MacroUse::after_word(&self.line_str()[range.end..])
             })
         {
             self.show_definitions(kind, &word, &here, found, None);
@@ -874,15 +869,13 @@ impl App {
             return;
         }
         let mut outside = false;
-        // The import names a module of the project's own: a workspace package linked in, an alias.
-        let mut own_module = false;
-        // The import names a module of the project that was read.
-        let mut project_read = false;
+        let mut import_is_linked_package_or_alias = false;
+        let mut import_read = false;
         let mut value: Option<Vec<String>> = None;
         let mut found = match import {
             Some(path) => {
                 let project = self.imported_definitions(kind, &here, &word, &chain, &path);
-                project_read = project.is_some();
+                import_read = project.is_some();
                 if project.is_none()
                     && kind == Kind::Python
                     && !dotted
@@ -912,7 +905,7 @@ impl App {
                     let found =
                         self.external_definitions(kind, &word, &chain, dotted, &imports, true);
                     outside = found.is_some();
-                    own_module = found.is_none();
+                    import_is_linked_package_or_alias = found.is_none();
                     found.unwrap_or_default()
                 });
                 // `try: from a import pick` / `except ImportError: from b import pick` names
@@ -935,8 +928,7 @@ impl App {
         let go_qualified = kind == Kind::Go
             && chain.len() == 1
             && bound(&imports, &chain[0]).is_some_and(|p| {
-                p != ["C"]
-                    && (project_read || !self.files.iter().any(|f| search::in_package(f, &p)))
+                p != ["C"] && (import_read || !self.files.iter().any(|f| search::in_package(f, &p)))
             });
         if !found.is_empty() || go_qualified {
             self.show_definitions(kind, &word, &here, found, None);
@@ -974,13 +966,12 @@ impl App {
                 return;
             }
         }
-        // A class or an import inside a function is not the one the top of the file names.
-        let nested = |a: &Self| {
+        let nested_binding = |a: &Self| {
             search::bindings(kind, &text, a.line + 1, first)
                 .iter()
                 .any(|b| a.buf.lines[b.line - 1].starts_with([' ', '\t']))
         };
-        if kind == Kind::Python && locals.is_empty() && !chain.is_empty() && !nested(self) {
+        if kind == Kind::Python && locals.is_empty() && !chain.is_empty() && !nested_binding(self) {
             let found = self.class_attribute(kind, &here, &chain, &word);
             if !found.is_empty() {
                 self.show_definitions(kind, &word, &here, found, None);
@@ -1028,7 +1019,7 @@ impl App {
             "." => on_value || colons,
             _ => self.line_str()[..range.start].ends_with(&format!("{path}{sep}")),
         };
-        let mut home: Option<Vec<PathBuf>> = None;
+        let mut answer_files: Option<Vec<PathBuf>> = None;
         let seen = match kind == Kind::Rust && pathed && locals.is_empty() && chain.len() == 1 {
             true => search::rust_scope_items(
                 &text,
@@ -1058,7 +1049,7 @@ impl App {
             _ => None,
         };
         if mine.is_some() {
-            home = Some(vec![here.clone()]);
+            answer_files = Some(vec![here.clone()]);
         }
         let pathed = pathed
             && !chain.is_empty()
@@ -1098,11 +1089,11 @@ impl App {
                     && !declared.iter().any(|h| h.path == here)
                 {
                     let files = search::rust_use_files(&self.files, &here, &text, owner);
-                    home = (!files.is_empty()).then_some(files);
+                    answer_files = (!files.is_empty()).then_some(files);
                 }
                 // A cut in this grep says nothing about the list shown in the end.
                 self.truncated.set(false);
-                !outside && (declared.len() == 1 || home.is_some())
+                !outside && (declared.len() == 1 || answer_files.is_some())
             });
         // A constant in capitals holds a value, not a class: `REDIS_CONFIGURATION.cache`. An
         // acronym module (`JSON.parse`) reads so too, and stays the search by name.
@@ -1121,10 +1112,8 @@ impl App {
         };
         if pathed && locals.is_empty() && !chain.is_empty() {
             let full = format!("{path}{sep}{word}");
-            // `depot::Shed::open` has the modules of the project in front of `Shed::open`.
-            let in_project = sep != "." && self.names_module(&chain[0]);
-            // Only the files of the module a `use` names can hold the answer then.
-            let mut hits = match &home {
+            let starts_with_project_module = sep != "." && self.names_module(&chain[0]);
+            let mut hits = match &answer_files {
                 Some(files) => self
                     .grep(&pattern, false, false, |p| files.iter().any(|f| f == p))
                     .unwrap_or_default(),
@@ -1132,11 +1121,11 @@ impl App {
             };
             if kind == Kind::Rust {
                 let variants = self.rust_variants(&here, &word);
-                hits.extend(
-                    variants
-                        .into_iter()
-                        .filter(|v| home.as_ref().is_none_or(|files| files.contains(&v.path))),
-                );
+                hits.extend(variants.into_iter().filter(|v| {
+                    answer_files
+                        .as_ref()
+                        .is_none_or(|files| files.contains(&v.path))
+                }));
             }
             let singleton = class_method && word != "initialize";
             let concerns = singleton.then(|| hits.clone());
@@ -1146,22 +1135,25 @@ impl App {
                     let Some(t) = self.text_of(&h.path) else {
                         return false;
                     };
-                    search::qualified(kind, &t, h.line, &word).is_some_and(|q| match &home {
-                        Some(files) if mine.is_some() => {
-                            mine.as_ref()
-                                .is_some_and(|o| q == format!("{o}{sep}{word}"))
-                                && files.contains(&h.path)
-                        }
-                        Some(files) => q == full && files.contains(&h.path),
-                        None => {
-                            q == full
-                                || q.ends_with(&format!("{sep}{full}"))
-                                || (in_project && full.ends_with(&format!("{sep}{q}")))
-                        }
-                    }) && (!singleton || search::ruby_singleton(&t, h.line))
+                    search::qualified(kind, &t, h.line, &word).is_some_and(
+                        |q| match &answer_files {
+                            Some(files) if mine.is_some() => {
+                                mine.as_ref()
+                                    .is_some_and(|o| q == format!("{o}{sep}{word}"))
+                                    && files.contains(&h.path)
+                            }
+                            Some(files) => q == full && files.contains(&h.path),
+                            None => {
+                                q == full
+                                    || q.ends_with(&format!("{sep}{full}"))
+                                    || (starts_with_project_module
+                                        && full.ends_with(&format!("{sep}{q}")))
+                            }
+                        },
+                    ) && (!singleton || search::ruby_singleton(&t, h.line))
                 })
                 .map(|hit| Candidate {
-                    reason: match home {
+                    reason: match answer_files {
                         Some(_) if mine.is_some() => Reason::Path(path.clone()),
                         Some(_) => Reason::Import(hit.path.display().to_string()),
                         None => Reason::Path(path.clone()),
@@ -1622,7 +1614,7 @@ impl App {
             }
             // The module the import loads is the project's, searched already: nothing outside is
             // proven to be what it hands on.
-            if own_module {
+            if import_is_linked_package_or_alias {
                 for c in &mut found {
                     c.reason = Reason::ByName;
                 }
@@ -1664,26 +1656,26 @@ impl App {
         }
     }
 
-    /// Where the label `word` lands (#316): `d` resolves the name at 0-based `line` and byte
-    /// `col` as it would there, and each declaration of it in the project gives the parameter
-    /// or the field the label names. Several are overloads; none leaves the label unresolved.
+    /// Where the label `word` lands (#316): `d` resolves the name at `line0` and `byte_col` as it
+    /// would there, and each declaration of it in the project gives the parameter or the field
+    /// the label names. Several are overloads; none leaves the label unresolved.
     fn label_targets(
         &mut self,
         kind: Kind,
         here: &Path,
         word: &str,
-        line: usize,
-        col: usize,
+        line0: usize,
+        byte_col: usize,
         owner: &search::Owner,
     ) -> Vec<Candidate> {
-        let (line0, col0) = (self.line, self.col);
+        let (cursor_line, cursor_col) = (self.line, self.col);
         let message = std::mem::take(&mut self.message);
-        (self.line, self.col) = (line, col);
+        (self.line, self.col) = (line0, byte_col);
         let name = self.definition_word(Some(kind)).map(|(_, w)| w);
         let text = self.buf.lines.join("\n");
         let owners = match name
             .as_deref()
-            .and_then(|n| search::own_type(kind, &text, line, n))
+            .and_then(|n| search::own_type(kind, &text, line0, n))
         {
             // `new self(…)`: the class the cursor is in.
             Some(decl) => vec![Candidate {
@@ -1702,7 +1694,7 @@ impl App {
                 self.probe.take().unwrap_or_default()
             }
         };
-        (self.line, self.col, self.message) = (line0, col0, message);
+        (self.line, self.col, self.message) = (cursor_line, cursor_col, message);
         // A callee found only by name, or one of whose candidates lies outside the project, where
         // nothing is read, may be another namesake's: its parameter is offered, never jumped to.
         // A callee whose receiver's type the project does not declare, or one of whose candidates
@@ -1714,7 +1706,7 @@ impl App {
             || (owners.iter().all(|c| !c.reason.proven())
                 && name
                     .as_deref()
-                    .is_some_and(|n| self.receiver_outside(kind, here, line, col, n)));
+                    .is_some_and(|n| self.receiver_outside(kind, here, line0, byte_col, n)));
         self.truncated.set(false);
         let Some(name) = name else {
             return Vec::new();
@@ -1728,7 +1720,7 @@ impl App {
             // Outside the project nothing is read; the line under the cursor declares nothing
             // it calls.
             if (c.hit.path.is_absolute() && !reads_outside)
-                || (c.hit.path == here && c.hit.line == line0 + 1)
+                || (c.hit.path == here && c.hit.line == cursor_line + 1)
             {
                 continue;
             }
@@ -1788,20 +1780,20 @@ impl App {
         out
     }
 
-    /// Whether the receiver of the call whose callee `name` ends at byte `col` of 0-based `line`
-    /// has a type written for it that the project does not declare: `client` of `client.get(`,
-    /// declared `client: HttpClient` or `HttpClient client` on a line above.
+    /// Whether the receiver of the call whose callee `name` ends at `byte_col` of `line0` has a
+    /// type written for it that the project does not declare: `client` of `client.get(`, declared
+    /// `client: HttpClient` or `HttpClient client` on a line above.
     fn receiver_outside(
         &self,
         kind: Kind,
         here: &Path,
-        line: usize,
-        col: usize,
+        line0: usize,
+        byte_col: usize,
         name: &str,
     ) -> bool {
         let lines = &self.buf.lines;
-        let Some(head) = lines[line]
-            .get(..col + 1)
+        let Some(head) = lines[line0]
+            .get(..byte_col + 1)
             .and_then(|h| h.strip_suffix(name))
             .and_then(|h| h.strip_suffix('.'))
         else {
@@ -1817,7 +1809,7 @@ impl App {
         )) else {
             return false;
         };
-        let ty = lines[..=line].iter().rev().find_map(|l| {
+        let ty = lines[..=line0].iter().rev().find_map(|l| {
             let c = re.captures(l)?;
             let t = c.get(1).or(c.get(2))?.as_str();
             t.rsplit('.').next().map(str::to_owned)
@@ -1866,7 +1858,7 @@ impl App {
         file: &Path,
         written: &str,
         word: &str,
-    ) -> Result<Option<Vec<Candidate>>, ()> {
+    ) -> Result<Option<Vec<Candidate>>, GoTypeUnread> {
         let Some(ty) = self.struct_decl(kind, file, written, 0)? else {
             return Ok(None);
         };
@@ -1886,22 +1878,23 @@ impl App {
     }
 
     /// The Go struct the type written as `written` in `file` is: itself, or what a defined
-    /// `type X Y` is over, eight deep. `None` for a type that is no struct, `Err` for one the
-    /// rules do not find or read.
+    /// `type X Y` is over, eight deep. `None` for a type that is no struct.
     pub(super) fn struct_decl(
         &self,
         kind: Kind,
         file: &Path,
         written: &str,
         depth: usize,
-    ) -> Result<Option<Typed>, ()> {
+    ) -> Result<Option<Typed>, GoTypeUnread> {
         static DEFINED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
             Regex::new(r"^type\s+[A-Za-z_]\w*(?:\[[^\]]*\])?\s+([^/{]*)").unwrap()
         });
-        let ty = self.type_decl(kind, file, written).ok_or(())?;
-        let text = self.text_of(&ty.path).ok_or(())?;
-        let line = text.lines().nth(ty.line - 1).ok_or(())?;
-        let over = DEFINED.captures(line).ok_or(())?[1].trim().to_owned();
+        let ty = self.type_decl(kind, file, written).ok_or(GoTypeUnread)?;
+        let text = self.text_of(&ty.path).ok_or(GoTypeUnread)?;
+        let line = text.lines().nth(ty.line - 1).ok_or(GoTypeUnread)?;
+        let over = DEFINED.captures(line).ok_or(GoTypeUnread)?[1]
+            .trim()
+            .to_owned();
         if over.starts_with("struct") {
             return Ok(Some(ty));
         }
@@ -2119,8 +2112,8 @@ impl App {
                 .iter()
                 .any(|c| c.hit.line != self.line + 1 || c.hit.path != here)
             && self.on_declared_name(kind, word, false);
-        let extra = search::word_chars(Some(kind), true);
-        let form = |t: &str| t[..word_col(t, word, extra)].trim().to_owned();
+        let word_chars = search::word_chars(Some(kind), true);
+        let form = |t: &str| t[..word_col(t, word, word_chars)].trim().to_owned();
         let copy = found.len() < all
             && !namesakes
             && search::definition_word(Some(kind), self.line_str(), self.col)
@@ -2150,8 +2143,7 @@ impl App {
                 // second `d` there asks the next question about the same name: what
                 // implements the declaration it just landed on (#68, step 6). A row of the
                 // picker below lands there too, the word read by the rules `d` read it with.
-                let extra = search::word_chars(Some(kind), true);
-                let col = word_col(&one.hit.text, &name, extra);
+                let col = word_col(&one.hit.text, &name, word_chars);
                 match one.hit.deleted {
                     Some(_) => self.jump_to_deleted(&path, one.hit.line, col),
                     None => self.jump_to_col(&path, one.hit.line, col),
@@ -2200,8 +2192,7 @@ impl App {
         let re = Regex::new(&patterns.join("|"))
             .ok()
             .filter(|re| re.is_match(line));
-        // Another word of the same shape, capitals where it has them: a C# type still reads as one.
-        let other: String = word
+        let same_shape_word: String = word
             .chars()
             .map(|c| match c {
                 'q' => 'z',
@@ -2218,7 +2209,11 @@ impl App {
             .copied()
             .filter(|&i| {
                 re.as_ref().is_some_and(|re| {
-                    !re.is_match(&format!("{}{other}{}", &line[..i], &line[i + word.len()..]))
+                    !re.is_match(&format!(
+                        "{}{same_shape_word}{}",
+                        &line[..i],
+                        &line[i + word.len()..]
+                    ))
                 })
             })
             .collect();
@@ -2361,3 +2356,5 @@ pub(super) fn resolution(
         format!("{word}: {n} declarations{note}")
     }
 }
+
+pub(super) struct GoTypeUnread;
