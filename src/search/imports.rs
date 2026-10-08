@@ -4,15 +4,19 @@ use regex::Regex;
 
 use super::*;
 
-/// The names a file binds by importing, each with the module path it comes from, as the parts
-/// a file system would spell it in. `import numpy as np` binds `np` to `[numpy]`; `from json
-/// import load` binds `load` to `[json, load]` (a module or a name in one, the caller relaxes
-/// the path until a file matches). A relative import (`from ..models import X`, `./utils`) binds
+#[derive(Debug, Clone, PartialEq)]
+pub struct Import {
+    pub name: String,
+    pub path: Vec<String>,
+}
+/// `path` as the parts a file system would spell it in. `import numpy as np` binds `np` to
+/// `[numpy]`; `from json import load` binds `load` to `[json, load]` (a module or a name in one,
+/// the caller relaxes the path until a file matches). A relative import (`from ..models import X`, `./utils`) binds
 /// too, with its dots as the leading part: it names a project file, never one outside. A
 /// TypeScript path ends in what the import takes from the module: the name, `default`, or `*`
 /// for the whole module (`* as ns`, `require`), and a `node:` module keeps the prefix that makes
 /// it Node's own. Rust's in-crate `crate::` and `super::` paths are left out.
-pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
+pub fn imports(kind: Kind, text: &str) -> Vec<Import> {
     // A Python import in a docstring's example binds nothing of the file.
     if matches!(kind, Kind::Python | Kind::Julia) {
         let literal = literal_lines(kind, text);
@@ -116,7 +120,7 @@ pub fn ts_import_lines(text: &str, name: &str) -> Vec<usize> {
         .filter_map(|c| {
             let binds = imports_as_written(Kind::TsJs, &c[0])
                 .iter()
-                .any(|(n, _)| n == name);
+                .any(|i| i.name == name);
             let clause = c.get(1).or_else(|| c.get(2)).or_else(|| c.get(3))?;
             let s = clause.as_str();
             let at = s.match_indices(name).map(|(i, _)| i).find(|&i| {
@@ -129,7 +133,7 @@ pub fn ts_import_lines(text: &str, name: &str) -> Vec<usize> {
 }
 /// [`imports`] over every line of `text`, a docstring's too: what a reader inside the docstring's
 /// example goes by.
-pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
+pub fn imports_as_written(kind: Kind, text: &str) -> Vec<Import> {
     let mut out = Vec::new();
     let parts = |module: &str, sep: &str| -> Vec<String> {
         module
@@ -180,7 +184,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
                         if let Some((alias, name)) = alias_and_name(item.trim()) {
                             let mut path = base.clone();
                             path.push(name);
-                            out.push((alias, path));
+                            out.push(Import { name: alias, path });
                         }
                     }
                 } else if let Some(list) = c.get(3) {
@@ -190,9 +194,9 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
                             // `import a.b.c` binds `a`; `import a.b.c as d` binds `d` to `a.b.c`.
                             if alias == name {
                                 let first = name.split('.').next().unwrap_or(&name).to_owned();
-                                out.push((first.clone(), vec![first]));
+                                out.push(Import { name: first.clone(), path: vec![first] });
                             } else {
-                                out.push((alias, parts(&name, ".")));
+                                out.push(Import { name: alias, path: parts(&name, ".") });
                             }
                         }
                     }
@@ -205,7 +209,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
                 rust_uses(text)
                     .into_iter()
                     .filter(|(_, p, _)| !matches!(p[0].as_str(), "crate" | "super"))
-                    .map(|(name, path, _)| (name, path)),
+                    .map(|(name, path, _)| Import { name, path }),
             );
         }
         Kind::Go => {
@@ -217,7 +221,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
             for c in IMPORT.captures_iter(text) {
                 let path = parts(&c[2], "/");
                 if let Some(alias) = c.get(1) {
-                    out.push((alias.as_str().to_owned(), path));
+                    out.push(Import { name: alias.as_str().to_owned(), path });
                     continue;
                 }
                 // The package name is the last element that is not a major version, without the
@@ -235,9 +239,9 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
                 }
                 name = name.strip_prefix("go-").unwrap_or(name);
                 name = name.strip_suffix("-go").unwrap_or(name);
-                out.push((name.to_owned(), path.clone()));
+                out.push(Import { name: name.to_owned(), path: path.clone() });
                 if let Some(v) = path.last().filter(|p| version(p)) {
-                    out.push((v.clone(), path.clone()));
+                    out.push(Import { name: v.clone(), path: path.clone() });
                 }
             }
         }
@@ -275,8 +279,8 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
                 };
                 for item in outside.split(',').map(str::trim).filter(|i| !i.is_empty()) {
                     match item.strip_prefix("* as ") {
-                        Some(ns) => out.push((ns.trim().to_owned(), with("*"))),
-                        None => out.push((item.to_owned(), with(whole))),
+                        Some(ns) => out.push(Import { name: ns.trim().to_owned(), path: with("*") }),
+                        None => out.push(Import { name: item.to_owned(), path: with(whole) }),
                     }
                 }
                 for item in named.split(',') {
@@ -285,12 +289,12 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
                     if let Some((name, alias)) = item.split_once(':') {
                         let (name, alias) = (name.trim(), alias.trim());
                         if !name.is_empty() && !alias.is_empty() {
-                            out.push((alias.to_owned(), with(name)));
+                            out.push(Import { name: alias.to_owned(), path: with(name) });
                         }
                         continue;
                     }
                     if let Some((alias, name)) = alias_and_name(item) {
-                        out.push((alias, with(&name)));
+                        out.push(Import { name: alias, path: with(&name) });
                     }
                 }
             }
@@ -309,7 +313,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
                     if let Some((alias, name)) = alias_and_name(item.trim()) {
                         let path = parts(&name, "\\");
                         if let Some(last) = path.last().cloned() {
-                            out.push((if alias == name { last } else { alias }, path));
+                            out.push(Import { name: if alias == name { last } else { alias }, path });
                         }
                     }
                 }
@@ -577,7 +581,7 @@ pub fn reexported(text: &str, name: &str) -> Vec<(Vec<String>, String)> {
 }
 /// The 1-based line of the Go file `text` whose import binds `name`, as [`imports`] reads it.
 pub fn go_import_line(text: &str, name: &str) -> Option<usize> {
-    let binds = |l: &str| imports(Kind::Go, l).iter().any(|(n, _)| n == name);
+    let binds = |l: &str| imports(Kind::Go, l).iter().any(|i| i.name == name);
     text.lines().position(binds).map(|i| i + 1)
 }
 /// What every `use` of the Rust file `text` binds, as [`imports`] reads it, with the in-crate
@@ -601,7 +605,11 @@ pub fn rust_uses_at(text: &str) -> Vec<(String, Vec<String>, usize)> {
             .map_or(0, |m| m.end() - m.as_str().trim_start().len());
         let mut bound = Vec::new();
         use_tree(&c[1], &[], &mut bound);
-        out.extend(bound.into_iter().map(|(name, path)| (name, path, at)));
+        out.extend(
+            bound
+                .into_iter()
+                .map(|Import { name, path }| (name, path, at)),
+        );
     }
     out
 }
@@ -672,7 +680,7 @@ pub fn rust_module_of(files: &[PathBuf], here: &Path) -> Option<(PathBuf, Vec<St
     Some((src.to_path_buf(), module))
 }
 /// One `use` tree: `a::b::{c, d as e, f::*}` binds `c`, `e` and every name of `f`.
-fn use_tree(tree: &str, prefix: &[String], out: &mut Vec<(String, Vec<String>)>) {
+fn use_tree(tree: &str, prefix: &[String], out: &mut Vec<Import>) {
     let tree = tree.trim();
     if tree.is_empty() {
         return;
@@ -714,7 +722,10 @@ fn use_tree(tree: &str, prefix: &[String], out: &mut Vec<(String, Vec<String>)>)
     let Some(last) = path.last().cloned() else {
         return;
     };
-    out.push((alias.unwrap_or(last), path));
+    out.push(Import {
+        name: alias.unwrap_or(last),
+        path,
+    });
 }
 /// The project files of the module an import in `here` spells as `module`, the parts
 /// [`imports`] gives without what a TypeScript import takes from it; empty when the module is not

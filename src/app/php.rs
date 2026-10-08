@@ -106,10 +106,10 @@ impl App {
             search::Psr4File::Missing => return None,
             // Outside the project: what `vendor/` declares under that path, before any namesake.
             search::Psr4File::OutsideProject => {
-                let imports = [(
-                    short.to_owned(),
-                    full.split('\\').map(str::to_owned).collect(),
-                )];
+                let imports = [search::Import {
+                    name: short.to_owned(),
+                    path: full.split('\\').map(str::to_owned).collect(),
+                }];
                 let (word, chain) = match member {
                     true => (word, vec![short.to_owned()]),
                     false => (short.to_owned(), Vec::new()),

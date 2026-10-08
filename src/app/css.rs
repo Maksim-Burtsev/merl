@@ -111,7 +111,7 @@ impl App {
             return false;
         }
         let imports = search::imports(Kind::TsJs, &text);
-        let found = imports.iter().find_map(|(name, path)| {
+        let found = imports.iter().find_map(|search::Import { name, path }| {
             let (taken, module) = path.split_last()?;
             let whole = taken == "default" || taken == "*";
             let class = match object {

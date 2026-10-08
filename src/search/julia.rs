@@ -173,7 +173,7 @@ pub fn julia_include(line: &str, col: usize) -> Option<String> {
         .map(|c| c[1].to_owned())
 }
 
-pub(super) fn julia_imports(text: &str, out: &mut Vec<(String, Vec<String>)>) {
+pub(super) fn julia_imports(text: &str, out: &mut Vec<Import>) {
     static IMPORT: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"(?m)^\s*(?:using|import)\s+([^\n#]+)").unwrap());
     let path = |m: &str| -> Vec<String> {
@@ -206,7 +206,10 @@ pub(super) fn julia_imports(text: &str, out: &mut Vec<(String, Vec<String>)>) {
                 for (alias, name) in items.split(',').filter_map(|i| named(i.trim())) {
                     let mut p = base.clone();
                     p.push(name);
-                    out.push((alias, p));
+                    out.push(Import {
+                        name: alias,
+                        path: p,
+                    });
                 }
             }
             None => {
@@ -221,7 +224,10 @@ pub(super) fn julia_imports(text: &str, out: &mut Vec<(String, Vec<String>)>) {
                             _ => continue,
                         },
                     };
-                    out.push((alias, p));
+                    out.push(Import {
+                        name: alias,
+                        path: p,
+                    });
                 }
             }
         }

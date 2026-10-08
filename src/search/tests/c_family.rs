@@ -987,7 +987,7 @@ fn php_scope_roots_imports_and_names() {
     assert!(in_def_scope(Kind::Php, here, Path::new("views/show.phtml")));
     assert!(!in_def_scope(Kind::Php, here, Path::new("main.rs")));
     assert_eq!(
-        imports(Kind::Php, PHP),
+        pairs(imports(Kind::Php, PHP)),
         [
             (
                 "Str".to_owned(),

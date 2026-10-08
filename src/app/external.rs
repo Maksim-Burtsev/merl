@@ -21,7 +21,7 @@ impl App {
         word: &str,
         chain: &[String],
         dotted: bool,
-        imports: &[(String, Vec<String>)],
+        imports: &[search::Import],
         narrow: bool,
     ) -> Option<Vec<Candidate>> {
         let mut patterns = search::def_patterns(kind, word);
@@ -312,7 +312,7 @@ impl App {
         kind: Kind,
         all: &[PathBuf],
         files: &[PathBuf],
-        imports: &[(String, Vec<String>)],
+        imports: &[search::Import],
         members: &str,
         word: &str,
     ) -> (Vec<Hit>, bool) {
@@ -329,12 +329,12 @@ impl App {
     fn ts_imported_members(
         &self,
         all: &[PathBuf],
-        imports: &[(String, Vec<String>)],
+        imports: &[search::Import],
         members: &str,
     ) -> Option<Vec<Hit>> {
         let (roots, _) = self.external.get(&Kind::TsJs)?;
         let mut packages: Vec<&[String]> = (imports.iter())
-            .filter_map(|(_, path)| {
+            .filter_map(|search::Import { path, .. }| {
                 let first = path.first().filter(|f| !f.starts_with(['.', '/']))?;
                 let parts = 1 + usize::from(first.starts_with('@'));
                 path.get(..parts).filter(|_| path.len() > parts)
@@ -356,7 +356,7 @@ impl App {
     fn python_members(
         &self,
         files: &[PathBuf],
-        imports: &[(String, Vec<String>)],
+        imports: &[search::Import],
         members: &str,
         word: &str,
     ) -> (Vec<Hit>, bool) {
@@ -367,13 +367,9 @@ impl App {
         }
     }
 
-    fn python_imported(
-        &self,
-        files: &[PathBuf],
-        imports: &[(String, Vec<String>)],
-    ) -> Vec<PathBuf> {
+    fn python_imported(&self, files: &[PathBuf], imports: &[search::Import]) -> Vec<PathBuf> {
         let mut packages: Vec<&String> = (imports.iter())
-            .filter_map(|(_, path)| path.first())
+            .filter_map(|i| i.path.first())
             .filter(|p| !p.starts_with('.'))
             .collect();
         packages.sort();

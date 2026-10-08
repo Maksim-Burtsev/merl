@@ -174,7 +174,7 @@ impl App {
         here: &Path,
         text: &str,
         word: &str,
-        imports: &[(String, Vec<String>)],
+        imports: &[search::Import],
     ) -> Vec<Candidate> {
         let kind = Kind::Rust;
         let search::RustGlobUses {

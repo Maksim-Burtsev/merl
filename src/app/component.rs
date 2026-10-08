@@ -65,7 +65,7 @@ impl App {
             *word = search::component_name(&self.line_str()[tag]);
             if search::imports(Kind::TsJs, &script)
                 .iter()
-                .any(|(n, _)| n == word)
+                .any(|i| i.name == *word)
             {
                 return false;
             }

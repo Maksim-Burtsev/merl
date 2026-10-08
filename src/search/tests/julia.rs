@@ -285,7 +285,7 @@ fn julia_imports_bind_names_and_modules() {
     let got = imports(Kind::Julia, text);
     let has = |name: &str, path: &[&str]| {
         got.iter()
-            .any(|(n, p)| n == name && p.iter().map(String::as_str).eq(path.iter().copied()))
+            .any(|i| i.name == name && i.path.iter().map(String::as_str).eq(path.iter().copied()))
     };
     assert!(has("DataFrames", &["DataFrames"]));
     assert!(has("CSV", &["CSV"]));
@@ -297,13 +297,13 @@ fn julia_imports_bind_names_and_modules() {
     assert!(has("Shop", &["..", "Shop"]));
     assert!(has("show", &["Base", "show"]));
     assert!(has("test", &["Test", "test"]));
-    assert!(!got.iter().any(|(n, _)| n == "Hidden"));
+    assert!(!got.iter().any(|i| i.name == "Hidden"));
     let documented = imports(
         Kind::Julia,
         "\"\"\"\n    using Example\n\"\"\"\nusing Real\n",
     );
-    assert!(!documented.iter().any(|(n, _)| n == "Example"));
-    assert!(documented.iter().any(|(n, _)| n == "Real"));
+    assert!(!documented.iter().any(|i| i.name == "Example"));
+    assert!(documented.iter().any(|i| i.name == "Real"));
 }
 
 #[test]

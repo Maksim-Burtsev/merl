@@ -430,7 +430,7 @@ impl App {
         // files (#100); each is read in the file that writes it, and they have to agree. An
         // empty list is no proof of that: the walk misses locals, so the function around the
         // line must not so much as mention the name, and an import of the file is no variable.
-        let imported = search::imports(kind, text).iter().any(|(n, _)| n == name);
+        let imported = search::imports(kind, text).iter().any(|i| i.name == name);
         if imported || search::go_may_declare(text, line1, name) {
             return None;
         }
@@ -868,7 +868,7 @@ impl App {
         }
         let c = IMPORTED.captures(written)?;
         let import = format!("import {{ {} }} from \"{}\";", &c[2], &c[1]);
-        let (_, path) = search::imports(kind, &import).pop()?;
+        let path = search::imports(kind, &import).pop()?.path;
         let (taken, module) = path.split_last()?;
         let files = search::module_files(kind, &self.root, &self.files, file, module);
         let [module] = &files[..] else {

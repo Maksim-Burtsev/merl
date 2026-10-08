@@ -428,7 +428,7 @@ impl App {
         let chain = &names[..names.len() - 1];
         search::imports_as_written(kind, &search::python_module_level(&text))
             .into_iter()
-            .filter_map(|(name, mut path)| {
+            .filter_map(|search::Import { name, mut path }| {
                 if name == "*" {
                     path.pop();
                     path.push(first.clone());

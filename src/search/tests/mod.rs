@@ -70,6 +70,10 @@ fn grep(dir: &Path, files: &[PathBuf], pat: &str, word: bool, smart: bool) -> Ve
     grep_project(dir, files, pat, word, smart, None, None).unwrap()
 }
 
+fn pairs(imports: Vec<Import>) -> Vec<(String, Vec<String>)> {
+    imports.into_iter().map(|i| (i.name, i.path)).collect()
+}
+
 fn lines(hits: &[Hit]) -> Vec<(String, usize)> {
     hits.iter()
         .map(|h| (h.path.display().to_string(), h.line))

@@ -43,7 +43,7 @@ impl App {
         let class = text
             .lines()
             .any(|l| search::type_name(kind, l).as_deref() == Some(name))
-            || imports.iter().any(|(n, _)| n == name || n == "*");
+            || imports.iter().any(|i| i.name == *name || i.name == "*");
         if !class {
             return Some(None);
         }
@@ -100,12 +100,12 @@ impl App {
     pub(super) fn star_imported(
         &mut self,
         word: &str,
-        imports: &[(String, Vec<String>)],
+        imports: &[search::Import],
     ) -> Vec<Candidate> {
         let kind = Kind::Python;
         let pattern = search::def_patterns(kind, word).join("|");
         let mut found = Vec::new();
-        for (_, path) in imports.iter().filter(|(name, _)| name == "*") {
+        for search::Import { path, .. } in imports.iter().filter(|i| i.name == "*") {
             let module = &path[..path.len() - 1];
             if module.is_empty() || module[0].starts_with('.') {
                 continue;
@@ -168,8 +168,10 @@ impl App {
             return Vec::new();
         }
         let mut found: Vec<Candidate> = Vec::new();
-        for (bound, mut path) in
-            search::imports_as_written(kind, &search::python_module_level(&text))
+        for search::Import {
+            name: bound,
+            mut path,
+        } in search::imports_as_written(kind, &search::python_module_level(&text))
         {
             let taken = match bound.as_str() {
                 "*" => name.to_owned(),
