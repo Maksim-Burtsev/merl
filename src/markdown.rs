@@ -390,7 +390,10 @@ impl Lay<'_> {
                 };
                 self.text(&t, look, r);
             }
-            Event::InlineMath(t) | Event::DisplayMath(t) => self.text(&t, self.look(), r),
+            Event::InlineMath(t) | Event::DisplayMath(t) => {
+                self.para_text = true;
+                self.text(&t, self.look(), r)
+            }
             Event::Html(t) if self.html.is_some() => {
                 let at = self.line_and_byte_col(r.start);
                 let line = t.trim_end_matches(['\n', '\r']).to_string();
@@ -409,6 +412,7 @@ impl Lay<'_> {
                 self.text(&t, Ink::Dim.plain(), r)
             }
             Event::FootnoteReference(label) => {
+                self.para_text = true;
                 let n = self.number(&label);
                 let look = Look {
                     ink: Ink::Link,
@@ -1057,13 +1061,13 @@ impl Lay<'_> {
                 .into_iter()
                 .map(|i| (i.dest, i.width, at)),
         );
+        if self.para_text || all.is_empty() || self.inline.is_none() {
+            return false;
+        }
         let shown: Vec<_> = all
             .into_iter()
             .filter(|(dest, ..)| images::variant_shown(dest, self.light))
             .collect();
-        if self.para_text || shown.is_empty() || self.inline.is_none() {
-            return false;
-        }
         let mut fits = Vec::new();
         for (dest, width, _) in &shown {
             match self.image_fit(dest, *width) {
@@ -1107,7 +1111,13 @@ impl Lay<'_> {
             let inside = (0..imgs.len()).any(|k| {
                 drawn(k) && imgs[k].tag.start < span.start && span.start < imgs[k].tag.end
             });
-            if !here.is_empty() && here.iter().all(|&k| drawn(k)) {
+            let mut rest = line.clone();
+            for &k in here.iter().rev() {
+                let tag = imgs[k].tag.start.max(span.start)..imgs[k].tag.end.min(span.end);
+                rest.replace_range(tag.start - span.start..tag.end - span.start, "");
+            }
+            let alone = images::only_tags(&rest);
+            if !here.is_empty() && alone && here.iter().all(|&k| drawn(k)) {
                 for k in here {
                     if let Some(fit) = fits[k] {
                         self.image_rows(imgs[k].dest.clone(), fit, at, centre);

@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use ratatui::Frame;
 use ratatui::buffer::Buffer;
@@ -17,20 +17,8 @@ pub enum Status {
     Why(String),
 }
 
-fn picture_file(app: &App) -> Option<PathBuf> {
-    let path = app.buf.path.as_ref()?;
-    let raster = picture::raster_name(path).is_some() && app.buf.binary();
-    let svg = picture::is_svg(path) && app.previewing();
-    (raster || svg).then(|| app.root.join(path))
-}
-
-pub(super) fn shown(app: &App) -> Option<PathBuf> {
-    let path = picture_file(app)?;
-    (app.diagrams.on() && app.diagrams.file_failed(&path).is_none()).then_some(path)
-}
-
 pub(super) fn status(app: &App) -> Option<Status> {
-    let path = picture_file(app)?;
+    let path = app.picture_here()?;
     if let Some(why) = app.diagrams.file_failed(&path) {
         return Some(Status::Why(why.to_string()));
     }

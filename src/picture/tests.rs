@@ -157,3 +157,71 @@ fn a_markdown_image_is_found_beside_the_file_or_from_the_root_and_never_on_the_w
     assert_eq!(resolve(&root, &file, "README.md"), None);
     let _ = std::fs::remove_dir_all(&root);
 }
+
+#[test]
+fn a_gif_whose_canvas_passes_the_bound_is_not_drawn() {
+    let dir = dir("canvas");
+    let path = dir.join("huge.gif");
+    let mut gif = b"GIF89a".to_vec();
+    gif.extend(60000u16.to_le_bytes());
+    gif.extend(60000u16.to_le_bytes());
+    gif.extend([0x80, 0, 0, 0, 0, 0, 255, 255, 255]);
+    gif.extend([0x2c, 0, 0, 0, 0, 1, 0, 1, 0, 0, 2, 2, 0x44, 0x01, 0, 0x3b]);
+    std::fs::write(&path, gif).unwrap();
+    assert_eq!(decode(&path).err().unwrap(), "GIF not drawn: too large");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_photo_turns_as_its_exif_says() {
+    let dir = dir("exif");
+    let path = dir.join("photo.jpg");
+    let mut jpeg = Vec::new();
+    image::RgbImage::from_pixel(4, 2, image::Rgb([200, 10, 10]))
+        .write_to(&mut Cursor::new(&mut jpeg), ImageFormat::Jpeg)
+        .unwrap();
+    let tiff = b"MM\0*\0\0\0\x08\0\x01\x01\x12\0\x03\0\0\0\x01\0\x06\0\0\0\0\0\0";
+    let mut app1 = b"Exif\0\0".to_vec();
+    app1.extend(tiff);
+    let mut out = jpeg[..2].to_vec();
+    out.extend([0xff, 0xe1]);
+    out.extend(((app1.len() + 2) as u16).to_be_bytes());
+    out.extend(app1);
+    out.extend(&jpeg[2..]);
+    std::fs::write(&path, out).unwrap();
+    assert_eq!(header(&path), Some(("JPEG", 2, 4)));
+    assert_eq!(decode(&path).unwrap().natural, (2, 4));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_picture_past_the_size_bound_is_sent_shrunk_and_keeps_its_size() {
+    let dir = dir("shrink");
+    let path = dir.join("wide.png");
+    png(&path, 9000, 10);
+    let drawn = decode(&path).unwrap();
+    assert_eq!(drawn.natural, (9000, 10));
+    let png = &drawn.frames[0].0;
+    let side = |at: usize| u32::from_be_bytes(png[at..at + 4].try_into().unwrap());
+    assert_eq!(side(16), MAX_SIDE);
+    assert_eq!(side(20), drawn.h);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn an_svg_draws_with_an_embedded_or_a_present_linked_image() {
+    let dir = dir("svg-links");
+    png(&dir.join("dot.png"), 2, 2);
+    let path = dir.join("logo.svg");
+    for image in [
+        "<image href=\"data:image/png;base64,AAAA\" width=\"2\" height=\"2\"/>",
+        "<image xlink:href=\"dot.png\" width=\"2\" height=\"2\"/>",
+    ] {
+        let svg = format!(
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"4\" height=\"4\">{image}</svg>"
+        );
+        std::fs::write(&path, svg).unwrap();
+        assert!(decode(&path).is_ok(), "{image}");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}

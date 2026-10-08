@@ -34,8 +34,7 @@ const TREE_W: u16 = 30;
 
 pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     let area = frame.area();
-    app.diagrams.want.clear();
-    app.diagrams.wake = None;
+    app.diagrams.begin();
     app.diagrams.theme(theme, theme.line_hl_dim);
     let base = Style::new().bg(theme.bg).fg(theme.fg);
     frame.render_widget(Block::new().style(base), area);
@@ -79,7 +78,7 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
         }
     }
     let mut pane = |app: &mut App| {
-        if let Some(path) = picture::shown(app) {
+        if let Some(path) = app.picture_shown() {
             picture::draw_file(frame, app, code, &path);
         } else if app.previewing() && !app.buf.path.as_deref().is_some_and(crate::picture::is_svg) {
             draw_preview(frame, app, theme, code, base);

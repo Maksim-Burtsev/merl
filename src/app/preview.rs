@@ -38,6 +38,18 @@ impl App {
             .is_some_and(|p| self.previewed.contains(p))
     }
 
+    pub fn picture_here(&self) -> Option<PathBuf> {
+        let path = self.buf.path.as_ref()?;
+        let raster = crate::picture::raster_name(path).is_some() && self.buf.binary();
+        let svg = crate::picture::is_svg(path) && self.previewing();
+        (raster || svg).then(|| self.root.join(path))
+    }
+
+    pub fn picture_shown(&self) -> Option<PathBuf> {
+        let path = self.picture_here()?;
+        (self.diagrams.on() && self.diagrams.file_failed(&path).is_none()).then_some(path)
+    }
+
     /// `p`: the open Markdown file rendered, or its source again. The cursor row stays as far
     /// down the pane, on the same place of the file.
     pub(super) fn toggle_preview(&mut self) {
@@ -142,7 +154,7 @@ impl App {
                 let (code, theme) = match old {
                     Some(p)
                         if p.laid_out_from.lines_hash == input.lines_hash
-                            && p.code.len() == doc.code.len() =>
+                            && same_blocks(&p.doc, &doc) =>
                     {
                         (p.code, p.theme)
                     }
@@ -219,6 +231,9 @@ impl App {
             return false;
         }
         if self.buf.path.as_deref().is_some_and(crate::picture::is_svg) {
+            if self.picture_shown().is_none() {
+                return false;
+            }
             if key.code == KeyCode::Enter && plain {
                 self.start_edit();
             }
@@ -294,4 +309,9 @@ impl App {
             p.at = None;
         }
     }
+}
+
+fn same_blocks(old: &Doc, new: &Doc) -> bool {
+    let block = |c: &markdown::Code| (c.lang.clone(), c.lines.clone());
+    old.code.iter().map(block).eq(new.code.iter().map(block))
 }

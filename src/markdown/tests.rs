@@ -781,3 +781,37 @@ fn an_img_tag_over_several_lines_draws_once_and_hides_its_lines() {
         texts(&d)
     );
 }
+
+#[test]
+fn text_beside_a_drawn_image_stays_as_written() {
+    let header = "<h1 align=\"center\"><img src=\"logo.png\" width=\"64\"><br>merl</h1>";
+    let (d, _) = with_images(header, false);
+    assert!(image_rows(&d).is_empty());
+    assert_eq!(texts(&d).concat(), header);
+    let (d, _) = with_images("![a](a.png)[^1]\n\n[^1]: note", false);
+    assert!(image_rows(&d).is_empty());
+    assert!(texts(&d)[0].contains("\u{25a3} a[1]"), "{:?}", texts(&d));
+}
+
+#[test]
+fn a_paragraph_of_a_variant_the_theme_hides_shows_nothing() {
+    let (d, asked) = with_images("![dark logo](d.png#gh-dark-mode-only)\n\nAfter", true);
+    assert!(asked.is_empty());
+    assert_eq!(texts(&d), ["After"]);
+}
+
+#[test]
+fn an_img_in_a_paragraph_of_inline_html_draws() {
+    let text = "<a href=\"https://x.org\"><img src=\"a.png\" width=\"50%\"></a>";
+    let (d, asked) = with_images(text, false);
+    assert_eq!(asked, vec!["a.png Some(Percent(50.0))"]);
+    assert_eq!(image_rows(&d).len(), 3);
+}
+
+#[test]
+fn a_picture_without_the_themes_source_takes_its_img() {
+    let text = "<picture>\n<source media=\"(prefers-color-scheme: dark)\" srcset=\"dark.png\">\n<img src=\"fallback.png\">\n</picture>";
+    let (d, _) = with_images(text, true);
+    let dests: Vec<String> = image_rows(&d).into_iter().map(|r| r.0).collect();
+    assert_eq!(dests, ["fallback.png", "fallback.png", "fallback.png"]);
+}

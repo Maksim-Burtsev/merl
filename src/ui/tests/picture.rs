@@ -45,7 +45,11 @@ fn open(root: &Path, file: &str, pictures: bool) -> App {
 }
 
 fn paint(app: &mut App, w: u16, h: u16) -> Terminal<TestBackend> {
-    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    paint_in(app, w, h, crate::theme::DEFAULT)
+}
+
+fn paint_in(app: &mut App, w: u16, h: u16, theme: &str) -> Terminal<TestBackend> {
+    let theme = crate::theme::load(theme).unwrap();
     let mut terminal = Terminal::new(TestBackend::new(w, h)).unwrap();
     for _ in 0..3 {
         terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
@@ -253,5 +257,102 @@ fn the_preview_draws_a_local_image_where_its_line_stands() {
         rows.iter().any(|r| r.contains("\u{25a3} shot")),
         "{rows:#?}"
     );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+fn key(app: &mut App, code: KeyCode) {
+    app.key(KeyEvent::new(code, KeyModifiers::NONE));
+}
+
+#[test]
+fn keys_move_through_an_svg_whose_picture_failed() {
+    let root = dir("svg-failed");
+    let lines: String = (0..40).map(|i| format!("<!-- {i} -->\n")).collect();
+    let svg = format!(
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"9\" height=\"9\">\n<image href=\"gone.png\"/>\n{lines}</svg>\n"
+    );
+    std::fs::write(root.join("x.svg"), svg).unwrap();
+    let mut app = open(&root, "x.svg", true);
+    press(&mut app, 'p');
+    let rows = rows(&paint(&mut app, 80, 24));
+    assert!(
+        rows[23].contains("SVG not drawn: a linked file is missing"),
+        "{}",
+        rows[23]
+    );
+    key(&mut app, KeyCode::Down);
+    key(&mut app, KeyCode::Down);
+    assert_eq!(app.line, 2);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn a_theme_round_trip_keeps_each_code_block_its_own_colours() {
+    let root = dir("round-trip");
+    png(&root.join("d.png"), 20, 20);
+    png(&root.join("l.png"), 20, 20);
+    let text = "![d](d.png#gh-dark-mode-only)\n\n```\n\u{436}\u{436}\u{436}\u{436}\n```\n\n```rust\nlet x = 1;\n```\n\n![l](l.png#gh-light-mode-only)\n";
+    std::fs::write(root.join("README.md"), text).unwrap();
+    let mut app = open(&root, "README.md", true);
+    press(&mut app, 'p');
+    for theme in [crate::theme::DEFAULT, "github-light", crate::theme::DEFAULT] {
+        let rows = rows(&paint_in(&mut app, 80, 24, theme));
+        assert!(
+            rows.iter().any(|r| r.contains("let x = 1;")),
+            "{theme}: {rows:#?}"
+        );
+    }
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn a_centred_preview_image_stands_past_the_gutter_and_its_lead_without_a_tint() {
+    let root = dir("lead");
+    png(&root.join("shot.png"), 64, 64);
+    let text = "<p align=\"center\">\n<img src=\"shot.png\">\n</p>\n";
+    std::fs::write(root.join("README.md"), text).unwrap();
+    let mut app = open(&root, "README.md", true);
+    press(&mut app, 'p');
+    let terminal = paint(&mut app, 80, 24);
+    let place = app.diagrams.want.first().cloned().expect("placed");
+    let gutter = 2;
+    let room = 80 - gutter;
+    assert_eq!(place.x, gutter + (room - place.cols) / 2);
+    let buf = terminal.backend().buffer();
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let tint = crate::markdown::Palette::new(&theme).code_bg;
+    let last = place.y + place.rows - 1;
+    assert_eq!(buf[(79, last)].bg, theme.bg);
+    assert_ne!(buf[(79, last)].bg, tint);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn the_preview_takes_the_variant_of_the_theme_it_is_drawn_in() {
+    let root = dir("variant");
+    png(&root.join("dark.png"), 20, 20);
+    png(&root.join("light.png"), 40, 20);
+    let text = "<picture>\n<source media=\"(prefers-color-scheme: dark)\" srcset=\"dark.png\">\n<img src=\"light.png\">\n</picture>\n";
+    std::fs::write(root.join("README.md"), text).unwrap();
+    let mut app = open(&root, "README.md", true);
+    press(&mut app, 'p');
+    paint(&mut app, 80, 24);
+    let dark = app.diagrams.want[0].cols;
+    paint_in(&mut app, 80, 24, "github-light");
+    assert_eq!(app.diagrams.want[0].cols, dark * 2);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn an_image_rewritten_on_disk_is_drawn_anew() {
+    let root = dir("rewrite");
+    png(&root.join("shot.png"), 30, 12);
+    let mut app = open(&root, "shot.png", true);
+    paint(&mut app, 80, 24);
+    let before = app.diagrams.want[0].cols;
+    png(&root.join("shot.png"), 60, 12);
+    let rows = rows(&paint(&mut app, 80, 24));
+    assert!(rows[23].contains("60\u{d7}12"), "{}", rows[23]);
+    assert_eq!(app.diagrams.want[0].cols, before * 2);
     let _ = std::fs::remove_dir_all(&root);
 }

@@ -26,6 +26,7 @@ const NAMES: &[(&str, &str)] = &[
 const MAX_SIDE: u32 = 8192;
 const MAX_PIXELS: u64 = 16_000_000;
 const MAX_FRAMES: usize = 1000;
+const MAX_CANVAS: u64 = 64_000_000;
 const SVG_SCALE: f32 = 2.0;
 
 pub struct Drawn {
@@ -218,8 +219,15 @@ pub fn decode(path: &Path) -> Result<Drawn, String> {
 
 type Frame = (Vec<u8>, (u32, u32), u32, u32);
 
-fn animation<'a>(d: impl AnimationDecoder<'a>, name: &str) -> Result<Vec<Frame>, String> {
+fn animation<'a>(
+    d: impl AnimationDecoder<'a> + ImageDecoder,
+    name: &str,
+) -> Result<Vec<Frame>, String> {
     let broken = || format!("{name} not drawn: broken file");
+    let (w, h) = d.dimensions();
+    if u64::from(w) * u64::from(h) > MAX_CANVAS {
+        return Err(format!("{name} not drawn: too large"));
+    }
     let mut out = Vec::new();
     for f in d.into_frames() {
         if out.len() == MAX_FRAMES {

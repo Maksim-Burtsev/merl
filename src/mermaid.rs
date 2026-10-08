@@ -19,6 +19,7 @@ const SCALE: f32 = 2.0;
 pub const FONT_PX: f32 = 16.0;
 pub const TEXT_IN_CELL: f32 = 0.85;
 const FILE: u64 = 0;
+const KEEP_FILES: usize = 4;
 const LEAST_SHRINK: f32 = 0.5;
 const RENDERS: usize = 2;
 pub const THREAD: &str = "mermaid";
@@ -72,6 +73,8 @@ pub struct Diagrams {
     sizes: HashMap<u64, Option<(u32, u32)>>,
     why: HashMap<u64, String>,
     started: HashMap<Key, Instant>,
+    recent: VecDeque<Key>,
+    used: HashSet<Key>,
     pub wake: Option<Duration>,
     pub light: bool,
     asked: HashSet<Key>,
@@ -127,11 +130,7 @@ impl Diagrams {
         let keep = |k: &Key| k.colours == now || k.colours == FILE;
         let old: Vec<Key> = self.pics.keys().filter(|k| !keep(k)).copied().collect();
         for key in old {
-            for pic in self.pics.remove(&key).flatten().into_iter().flatten() {
-                if self.sent.remove(&pic.id) {
-                    self.stale.push(pic.id);
-                }
-            }
+            self.drop_pics(&key);
         }
         self.asked.retain(keep);
         self.queue.retain(|j| keep(&j.key));
@@ -194,6 +193,11 @@ impl Diagrams {
             return None;
         };
         let frames = frames.as_ref()?;
+        if let Some(i) = self.recent.iter().position(|k| *k == key) {
+            self.recent.remove(i);
+        }
+        self.recent.push_front(key);
+        self.used.insert(key);
         if frames.len() < 2 {
             return frames.first().cloned();
         }
@@ -203,6 +207,28 @@ impl Diagrams {
         let left = Duration::from_millis(left.max(10));
         self.wake = Some(self.wake.map_or(left, |w| w.min(left)));
         Some(frames[i].clone())
+    }
+
+    pub fn begin(&mut self) {
+        self.want.clear();
+        self.wake = None;
+        let keep = KEEP_FILES.max(self.used.len());
+        self.used.clear();
+        while self.recent.len() > keep {
+            if let Some(key) = self.recent.pop_back() {
+                self.drop_pics(&key);
+                self.asked.remove(&key);
+                self.started.remove(&key);
+            }
+        }
+    }
+
+    fn drop_pics(&mut self, key: &Key) {
+        for pic in self.pics.remove(key).flatten().into_iter().flatten() {
+            if self.sent.remove(&pic.id) {
+                self.stale.push(pic.id);
+            }
+        }
     }
 
     fn key(&self, src: &str) -> Key {
