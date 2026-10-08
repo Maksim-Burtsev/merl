@@ -68,11 +68,14 @@ impl App {
         }
     }
 
-    /// The open file, the cursor's line, and whether the file is one of the review's.
     pub(super) fn review_spot(&self) -> Spot {
         let r = self.review.as_ref();
-        let on = (self.rel_current()).is_some_and(|rel| r.is_some_and(|r| r.file(&rel).is_some()));
-        (self.buf.path.clone(), self.at(), on)
+        Spot {
+            open_file: self.buf.path.clone(),
+            cursor_line: self.at(),
+            file_in_review: (self.rel_current())
+                .is_some_and(|rel| r.is_some_and(|r| r.file(&rel).is_some())),
+        }
     }
 
     /// The stop the cursor stands on, numbered as [`stops_in`] counts them: the hunk as the
@@ -128,7 +131,7 @@ impl App {
 
     /// Every session's line, oldest first: those a `git switch` closed, then the one under way.
     pub fn review_rows(&mut self) -> Vec<(String, String, String)> {
-        let closed = std::mem::take(&mut self.closed).into_iter();
+        let closed = std::mem::take(&mut self.sessions_closed_by_switch_with_viewed).into_iter();
         let mut rows: Vec<_> = closed
             .filter_map(|(mut s, viewed)| {
                 let columns = s.columns(viewed.iter())?;
@@ -356,13 +359,13 @@ impl App {
     /// Where the viewed marks of every review of the repository are kept: in its common git dir,
     /// so a worktree's review shares them and a deleted clone takes them along.
     fn viewed_store(&self) -> Option<PathBuf> {
-        git::dirs(&self.root).map(|(_, common)| common.join("merl/viewed"))
+        git::dirs(&self.root).map(|d| d.common_refs_dir.join("merl/viewed"))
     }
 
     /// Where the unfolded files are kept, beside the viewed marks and in their format, with no
     /// hash: a file stays unfolded whatever is written into it.
     fn unfolded_store(&self) -> Option<PathBuf> {
-        git::dirs(&self.root).map(|(_, common)| common.join("merl/unfolded"))
+        git::dirs(&self.root).map(|d| d.common_refs_dir.join("merl/unfolded"))
     }
 
     /// The marks the review's branch left, sorted by what is on disk now; loading writes nothing.
@@ -526,7 +529,8 @@ impl App {
         let closed = if switched { self.session.take() } else { None };
         let reopen = closed.is_some();
         if let Some(s) = closed {
-            self.closed.push((s, self.viewed.keys().cloned().collect()));
+            self.sessions_closed_by_switch_with_viewed
+                .push((s, self.viewed.keys().cloned().collect()));
         }
         self.follow_branch();
         if let Some(rel) = shown

@@ -11,23 +11,16 @@ use crate::app::{App, Mode, plural};
 use crate::stats;
 
 // Named constants, to recheck after two weeks of real data (#193).
-/// In use in real work: at least this many presses in the last [`stats::WINDOW`] days.
-const IN_USE: u64 = 3;
-/// The work factor of a key missed in real work more often than pressed, and of one unused.
-const MISSED_IN_WORK: u32 = 5;
-const UNUSED: u32 = 4;
-/// The key's last attempts the drill factor reads.
-const LAST: usize = 3;
-/// The drill factor of a miss among them, and of their median over [`SLOW`] × the typical hit.
-const MISSED: u32 = 3;
-const SLOWER: u32 = 2;
-/// Slow: over this many times the median of the last [`HITS`] hits, across all keys.
-const SLOW: f64 = 1.5;
-const HITS: usize = 100;
-/// A key is not asked again until this many other tasks have passed.
-const GAP: usize = 2;
-/// A missed task comes back, its key not named, this many tasks later.
-const AGAIN: usize = 3;
+const MIN_PRESSES_IN_USE_IN_WINDOW: u64 = 3;
+const WORK_FACTOR_MISSED_MORE_THAN_PRESSED: u32 = 5;
+const WORK_FACTOR_UNUSED: u32 = 4;
+const LAST_ATTEMPTS_READ: usize = 3;
+const DRILL_FACTOR_MISS_AMONG_LAST: u32 = 3;
+const DRILL_FACTOR_SLOW_MEDIAN_OF_LAST: u32 = 2;
+const SLOW_TIMES_TYPICAL_HIT: f64 = 1.5;
+const TYPICAL_HIT_OF_LAST_HITS: usize = 100;
+const OTHER_TASKS_BEFORE_KEY_AGAIN: usize = 2;
+const MISSED_TASK_BACK_UNNAMED_AFTER: usize = 3;
 
 /// An attempt: the action a task trains and its time in ms, `None` for a miss.
 type Attempt = (&'static str, Option<u32>);
@@ -95,42 +88,50 @@ impl Drill {
     fn weight(&self, key: &str) -> u32 {
         let (pressed, missed) = self.work.get(key).copied().unwrap_or_default();
         let work = if missed > pressed {
-            MISSED_IN_WORK
-        } else if pressed < IN_USE {
-            UNUSED
+            WORK_FACTOR_MISSED_MORE_THAN_PRESSED
+        } else if pressed < MIN_PRESSES_IN_USE_IN_WINDOW {
+            WORK_FACTOR_UNUSED
         } else {
             1
         };
         let last: Vec<Option<u32>> = (self.attempts.iter().rev())
             .filter(|a| a.0 == key)
-            .take(LAST)
+            .take(LAST_ATTEMPTS_READ)
             .map(|a| a.1)
             .collect();
         let drill = if last.contains(&None) {
-            MISSED
+            DRILL_FACTOR_MISS_AMONG_LAST
         } else if median(last.into_iter().flatten().collect()).is_some_and(|ms| self.slow(ms)) {
-            SLOWER
+            DRILL_FACTOR_SLOW_MEDIAN_OF_LAST
         } else {
             1
         };
         work * drill
     }
 
-    /// Over [`SLOW`] × the median of the last [`HITS`] hits, as many as there are.
     fn slow(&self, ms: u32) -> bool {
-        let hits = self.attempts.iter().rev().filter_map(|a| a.1).take(HITS);
-        median(hits.collect()).is_some_and(|typical| f64::from(ms) > SLOW * f64::from(typical))
+        let hits = self
+            .attempts
+            .iter()
+            .rev()
+            .filter_map(|a| a.1)
+            .take(TYPICAL_HIT_OF_LAST_HITS);
+        median(hits.collect())
+            .is_some_and(|typical| f64::from(ms) > SLOW_TIMES_TYPICAL_HIT * f64::from(typical))
     }
 
-    /// The next slot's task: the one missed [`AGAIN`] slots before, else the first never
-    /// attempted in `KEYS` order, else one at random by weight among those [`GAP`] slots clear;
-    /// `None` once all N are answered.
+    /// The next slot's task: the one missed [`MISSED_TASK_BACK_UNNAMED_AFTER`] slots before,
+    /// else the first never attempted in `KEYS` order, else one at random by weight among those
+    /// [`OTHER_TASKS_BEFORE_KEY_AGAIN`] slots clear; `None` once all N are answered.
     fn pick(&mut self) -> Option<usize> {
         let slot = self.answers.len();
         if slot >= self.n {
             return None;
         }
-        if let Some(&(task, None)) = slot.checked_sub(AGAIN).map(|s| &self.answers[s]) {
+        if let Some(&(task, None)) = slot
+            .checked_sub(MISSED_TASK_BACK_UNNAMED_AFTER)
+            .map(|s| &self.answers[s])
+        {
             return Some(task);
         }
         let unseen = stats::ACTIONS
@@ -140,7 +141,7 @@ impl Drill {
         if unseen.is_some() {
             return unseen;
         }
-        let recent: Vec<usize> = self.answers[slot.saturating_sub(GAP)..]
+        let recent: Vec<usize> = self.answers[slot.saturating_sub(OTHER_TASKS_BEFORE_KEY_AGAIN)..]
             .iter()
             .map(|a| a.0)
             .collect();

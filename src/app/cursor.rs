@@ -352,9 +352,8 @@ impl App {
         shown_str(self.line_str()).len()
     }
 
-    /// Jumps to a 1-based line number of the file, clamped to it, and centers the view.
-    pub fn goto_line(&mut self, n: usize) {
-        self.go((n.max(1).min(self.buf.lines.len()) - 1, 0));
+    pub fn goto_line(&mut self, line1: usize) {
+        self.go((line1.max(1).min(self.buf.lines.len()) - 1, 0));
         self.want_x = 0;
         self.center = true;
     }

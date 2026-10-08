@@ -190,12 +190,10 @@ pub fn cut(line: &str, from: usize, to: usize) -> (Range<usize>, usize) {
     }
 }
 
-/// Index of the row containing byte offset `col` (the last row for `col == line.len()`).
-pub fn col_to_row(rows: &[Range<usize>], col: usize) -> usize {
-    rows.iter().rposition(|r| r.start <= col).unwrap_or(0)
+pub fn col_to_row(rows: &[Range<usize>], byte_col: usize) -> usize {
+    rows.iter().rposition(|r| r.start <= byte_col).unwrap_or(0)
 }
 
-/// Byte offset where `row` starts. Out-of-range rows clamp to the last row.
 pub fn row_to_col(rows: &[Range<usize>], row: usize) -> usize {
     rows[row.min(rows.len() - 1)].start
 }
