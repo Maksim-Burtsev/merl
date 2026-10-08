@@ -1022,9 +1022,9 @@ pub(super) const GO_ARCH: &[&str] = &[
 /// `_GOOS_GOARCH` endings of its name and its `//go:build` line, read as `go build` reads them. A
 /// tag is set when it is the platform, `cgo`, the compiler (`gc`), a release (`go1.21`: the
 /// toolchain that builds the project has it) or one of `-tags`; any other (`gogit`, `ignore`) is
-/// unset. `None` for a constraint that is not read: the `// +build` of before Go 1.17, a line
-/// that does not parse.
-pub fn go_built(path: &Path, text: &str, build: &GoBuild) -> Option<bool> {
+/// unset. A constraint that is not read: the `// +build` of before Go 1.17, a line that does not
+/// parse.
+pub fn go_built(path: &Path, text: &str, build: &GoBuild) -> GoBuilt {
     let is_os = |t: &str| GO_UNIX.contains(&t) || GO_OS.contains(&t);
     let tag = |t: &str| -> bool {
         match t {
@@ -1048,7 +1048,7 @@ pub fn go_built(path: &Path, text: &str, build: &GoBuild) -> Option<bool> {
         named &= os == build.os;
     }
     if !named {
-        return Some(false);
+        return GoBuilt::Excluded;
     }
     // A line inside a `/* */` block in front of the package clause is a comment's.
     let literal = literal_lines(Kind::Go, text);
@@ -1060,8 +1060,10 @@ pub fn go_built(path: &Path, text: &str, build: &GoBuild) -> Option<bool> {
             .map(|(_, l)| l)
     };
     let Some(expr) = head().find_map(|l| l.strip_prefix("//go:build ")) else {
-        // The constraint of before Go 1.17 is not read: undecided, never "no constraint".
-        return (!head().any(|l| l.starts_with("// +build"))).then_some(true);
+        return match head().any(|l| l.starts_with("// +build")) {
+            true => GoBuilt::Unread,
+            false => GoBuilt::Compiled,
+        };
     };
     static TOKEN: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"&&|\|\||[!()]|[\w.]+").unwrap());
@@ -1097,5 +1099,15 @@ pub fn go_built(path: &Path, text: &str, build: &GoBuild) -> Option<bool> {
             name => Some(tag(name)),
         }
     }
-    or_of_ands(&tokens, &mut 0, &tag)
+    match or_of_ands(&tokens, &mut 0, &tag) {
+        Some(true) => GoBuilt::Compiled,
+        Some(false) => GoBuilt::Excluded,
+        None => GoBuilt::Unread,
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GoBuilt {
+    Compiled,
+    Excluded,
+    Unread,
 }
