@@ -3,7 +3,8 @@
 # c stops on every file in turn, the empty ones included, and ticks each as it leaves it; the
 # last c ticks py.typed and ends the review. C walks back through them the same way. An empty
 # file's stop says `empty file, added` and `c  next file` where its text would be. Then a branch
-# that deletes an empty scripts/__init__.py, its first file: the review opens on it (#720).
+# that deletes an empty scripts/__init__.py, its first file: the review opens on it (#720). Last, a
+# branch that moves scripts/refund_by_hand.py without changes: its stop shows the move (#746).
 merl README.md
 wait # orders
 run git switch -q -c typed && : > scripts/__init__.py && : > py.typed && printf '\n# Refunds go through the service.\n' >> app/service.py && printf '\n// Retries back off: see the queue.\n' >> worker/main.go && git add -A && git commit -qm typed
@@ -26,3 +27,9 @@ caption a review whose first file is deleted opens on it: here an empty one (#72
 run git switch -q main && : > scripts/__init__.py && git add -A && git commit -qm init && git push -q origin main && git switch -q -c ungone && git rm -q scripts/__init__.py && printf '\n// Retries back off: see the queue.\n' >> worker/main.go && git commit -qam ungone
 merl --review
 wait empty file, deleted
+caption a file moved without changes shows its old and new path in place of its text (#746)
+run git switch -q main && git switch -q -c moved && mkdir -p tools && git mv scripts/refund_by_hand.py tools/refund_by_hand.py && printf '\n// Retries back off: see the queue.\n' >> worker/main.go && git commit -qam moved
+merl --review
+wait renamed, no changes
+key c
+wait hunk 1/1  file 2/2

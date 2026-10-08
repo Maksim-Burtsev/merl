@@ -1686,3 +1686,68 @@ fn selected_code_takes_the_themes_selected_text_colour_and_keeps_find_matches() 
         ("1".into(), selected_fg, theme.selection)
     );
 }
+
+#[test]
+fn a_rename_without_changes_tints_the_part_of_each_path_that_changed() {
+    use ratatui::style::Style;
+    use std::path::Path;
+    let theme = crate::theme::load_from(None, crate::theme::DEFAULT).unwrap();
+    let base = Style::new().bg(theme.bg).fg(theme.fg);
+    let shown = |w: u16, old: &str, new: &str| {
+        let mut t = Terminal::new(TestBackend::new(w, 12)).unwrap();
+        t.draw(|f| {
+            let (old, new) = (Path::new(old), Path::new(new));
+            super::super::code::draw_renamed(f, &theme, f.area(), base, old, new);
+        })
+        .unwrap();
+        let buf = t.backend().buffer().clone();
+        let on = |bg| {
+            buf.content()
+                .iter()
+                .filter(|c| c.bg == bg)
+                .map(|c| c.symbol())
+                .collect::<String>()
+        };
+        let text: Vec<String> = rows(&t).into_iter().filter(|r| !r.is_empty()).collect();
+        (text, on(theme.del_word_bg), on(theme.add_word_bg))
+    };
+    let tail = ["renamed, no changes", "c  next file"].map(String::from);
+
+    let (text, del, add) = shown(80, "app/util/text.py", "lib/text.py");
+    assert_eq!(text[0], "app/util/text.py  \u{2192}  lib/text.py");
+    assert_eq!(text[1..], tail);
+    assert_eq!((del.as_str(), add.as_str()), ("app/util", "lib"));
+
+    let (_, del, add) = shown(80, "pkg/helpers.py", "pkg/money.py");
+    assert_eq!((del.as_str(), add.as_str()), ("helpers", "money"));
+
+    let (_, del, add) = shown(80, "src/old_name.py", "src/new_name.py");
+    assert_eq!((del.as_str(), add.as_str()), ("old_name", "new_name"));
+
+    let (_, del, add) = shown(80, "src/user_old.py", "src/user_new.py");
+    assert_eq!((del.as_str(), add.as_str()), ("user_old", "user_new"));
+
+    let (text, del, add) = shown(80, "lib/x.py", "lib/x/x.py");
+    assert_eq!(text[0], "lib/x.py  \u{2192}  lib/x/x.py");
+    assert_eq!((del.as_str(), add.as_str()), ("", "/x"));
+
+    let (text, del, _) = shown(9, "a/foo.py", "b/foo.py");
+    assert_eq!((text[0].as_str(), del.as_str()), ("\u{2026}/foo.py", ""));
+
+    let (old, new) = (
+        "src/shop/payments/providers/stripe_client.py",
+        "src/shop/billing/providers/stripe_client.py",
+    );
+    let (text, del, add) = shown(80, old, new);
+    assert_eq!(text[..2], [old.to_string(), format!("\u{2192}  {new}")]);
+    assert_eq!((del.as_str(), add.as_str()), ("payments", "billing"));
+
+    let (old, new) = (
+        "aaaaaaaaaa/bbbbbbbbbb/old_name.py",
+        "aaaaaaaaaa/bbbbbbbbbb/new_name.py",
+    );
+    let (text, del, add) = shown(30, old, new);
+    assert_eq!(text[0], "\u{2026}/bbbbbbbbbb/old_name.py");
+    assert_eq!(text[1], "\u{2192}  \u{2026}/bbbbbbbbbb/new_name.py");
+    assert_eq!((del.as_str(), add.as_str()), ("old_name", "new_name"));
+}

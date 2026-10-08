@@ -275,6 +275,19 @@ impl App {
         })
     }
 
+    pub fn renamed_here(&self) -> Option<(&Path, &Path)> {
+        let rel = self.rel_current()?;
+        let f = self.review.as_ref()?.file(&rel)?;
+        let blank = matches!(self.buf.lines.as_slice(), [l] if l.is_empty());
+        let pure = f.status == 'R' && !f.has_hunks() && !f.binary && !self.buf.binary();
+        let in_use = self.mode == Mode::Edit || self.dirty || self.previewing();
+        (pure && !blank && !in_use).then_some((f.old.as_deref()?, f.path.as_path()))
+    }
+
+    pub fn text_hidden(&self) -> bool {
+        self.folded_here().is_some() || self.renamed_here().is_some()
+    }
+
     /// Enter on a fold: the diff loads, and the file stays unfolded in this review and the next
     /// ones of the branch. The walk left the cursor on a hunk: it starts at the first one. A jump
     /// (`d`, `u`, `s`, `D`, `[`) left it on its line: the line is kept.
