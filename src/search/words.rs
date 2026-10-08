@@ -445,15 +445,9 @@ pub fn qualifier(line: &str, word_start: usize) -> Vec<String> {
 }
 /// The line a member access reads as when prettier has broken it in front of its dots (#100):
 /// `return this.db` over `  .selectFrom(` is `return this.db.selectFrom(`, and a PHP chain
-/// broken in front of its arrows, `$query` over `    ->where(` (#348). Gives the lines joined,
-/// without their comments, and where the word that starts at byte `word_start` of line `at`
-/// stands in them; `None` for a line that does not start with a dot or an arrow.
-pub fn unbroken(
-    kind: Kind,
-    lines: &[String],
-    at: usize,
-    word_start: usize,
-) -> Option<(String, usize)> {
+/// broken in front of its arrows, `$query` over `    ->where(` (#348), without their comments.
+/// `None` for a line that does not start with a dot or an arrow.
+pub fn unbroken(kind: Kind, lines: &[String], at: usize, word_start: usize) -> Option<LineAsRead> {
     let led = |l: &str| {
         let t = l.trim_start();
         match kind {
@@ -481,37 +475,46 @@ pub fn unbroken(
         start += code.len();
         joined.insert_str(0, code);
         if !led(code) {
-            return Some((joined, start));
+            return Some(LineAsRead {
+                line: joined,
+                word_start: start,
+            });
         }
     }
     None
 }
+#[derive(Debug, PartialEq)]
+pub struct LineAsRead {
+    pub line: String,
+    pub word_start: usize,
+}
 /// A TypeScript or Swift line with `a?.b` and `a!.b` in front of byte `start` written as the plain `a.b`
-/// they are for a member lookup (#100), and where `start` stands in it. A PHP line likewise with
-/// its `->` and `?->` as `.` (#348), and its own `.`, which concatenates, as a space: `$a.foo()`
-/// calls the function `foo`.
-pub fn plain_access(kind: Kind, line: &str, start: usize) -> (String, usize) {
+/// they are for a member lookup (#100). A PHP line likewise with its `->` and `?->` as `.`
+/// (#348), and its own `.`, which concatenates, as a space: `$a.foo()` calls the function `foo`.
+pub fn plain_access(kind: Kind, line: &str, start: usize) -> LineAsRead {
     let before = match kind {
         Kind::TsJs | Kind::Swift => line[..start].replace("?.", ".").replace("!.", "."),
         Kind::Php => line[..start]
             .replace('.', " ")
             .replace("?->", ".")
             .replace("->", "."),
-        _ => return (line.to_owned(), start),
+        _ => {
+            return LineAsRead {
+                line: line.to_owned(),
+                word_start: start,
+            };
+        }
     };
-    (format!("{before}{}", &line[start..]), before.len())
+    LineAsRead {
+        line: format!("{before}{}", &line[start..]),
+        word_start: before.len(),
+    }
 }
 /// The call a member access hangs off, where [`qualifier`] has no name to start from:
 /// `pkg.New(x).word`, `make_uow().users.word`, `new Repo().word`, or the cast: `(x as T).word`,
-/// `i.(T).word`, `cast(T, x).word`. Gives the call without its arguments (a cast as written), what
-/// it is worth ([`Value::Call`], [`Value::New`] or the [`Value::Type`] of a cast) and the names
-/// between it and the word. Only a call that starts the expression: `a.b().c().word` hangs off a
-/// call of a value nobody typed.
-pub fn call_head(
-    kind: Kind,
-    line: &str,
-    word_start: usize,
-) -> Option<(String, Value, Vec<String>)> {
+/// `i.(T).word`, `cast(T, x).word`. Only a call that starts the expression: `a.b().c().word`
+/// hangs off a call of a value nobody typed.
+pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> {
     let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$';
     let mut before = line[..word_start].strip_suffix('.')?;
     let mut fields = Vec::new();
@@ -541,14 +544,25 @@ pub fn call_head(
         true => &written[1..written.len() - 1],
         false => written,
     };
-    match value_of(kind, without_cast_brackets) {
-        Value::Call(name) => Some((format!("{name}()"), Value::Call(name), fields)),
-        Value::New(name) => Some((format!("new {name}()"), Value::New(name), fields)),
+    let (call_without_arguments, value) = match value_of(kind, without_cast_brackets) {
+        Value::Call(name) => (format!("{name}()"), Value::Call(name)),
+        Value::New(name) => (format!("new {name}()"), Value::New(name)),
         value @ (Value::Type(_) | Value::Cast(..)) => {
-            Some((without_cast_brackets.trim().to_owned(), value, fields))
+            (without_cast_brackets.trim().to_owned(), value)
         }
-        _ => None,
-    }
+        _ => return None,
+    };
+    Some(CallHead {
+        call_without_arguments,
+        value,
+        fields_to_word: fields,
+    })
+}
+#[derive(Debug, PartialEq)]
+pub struct CallHead {
+    pub call_without_arguments: String,
+    pub value: Value,
+    pub fields_to_word: Vec<String>,
 }
 pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Range<usize>, &str)> {
     let extra = word_chars(kind, true);

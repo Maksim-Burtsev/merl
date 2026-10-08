@@ -249,10 +249,9 @@ pub fn ruby_declared_path(text: &str, line1: usize) -> Option<String> {
     })
 }
 
-/// What the Ruby class or module declared on `line1` of `text` inherits, as written: its
-/// superclass (`class A < B`), and the modules its body `include`s (or `prepend`s) and `extend`s
-/// directly.
-pub fn ruby_class_parents(text: &str, line1: usize) -> (Option<String>, Vec<String>, Vec<String>) {
+/// What the Ruby class or module declared on `line1` of `text` inherits, as written: a `prepend`
+/// counts as an `include`, and only what its body says directly.
+pub fn ruby_class_parents(text: &str, line1: usize) -> RubyParents {
     static SUPER: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\s*class\s+[\w:]+\s*<\s*(?:::)?([A-Z][\w:]*)").unwrap());
     static MIX: LazyLock<Regex> = LazyLock::new(|| {
@@ -261,9 +260,13 @@ pub fn ruby_class_parents(text: &str, line1: usize) -> (Option<String>, Vec<Stri
     });
     let lines: Vec<&str> = text.lines().collect();
     let Some(head) = line1.checked_sub(1).and_then(|i| lines.get(i)) else {
-        return (None, Vec::new(), Vec::new());
+        return RubyParents::default();
     };
-    let superclass = SUPER.captures(head).map(|c| c[1].to_owned());
+    let superclasses = SUPER
+        .captures(head)
+        .map(|c| c[1].to_owned())
+        .into_iter()
+        .collect();
     let literal = literal_lines(Kind::Ruby, text);
     let (mut includes, mut extends) = (Vec::new(), Vec::new());
     for i in line1..lines.len() {
@@ -291,7 +294,17 @@ pub fn ruby_class_parents(text: &str, line1: usize) -> (Option<String>, Vec<Stri
             _ => includes.extend(names),
         }
     }
-    (superclass, includes, extends)
+    RubyParents {
+        superclasses,
+        includes,
+        extends,
+    }
+}
+#[derive(Default)]
+pub struct RubyParents {
+    pub superclasses: Vec<String>,
+    pub includes: Vec<String>,
+    pub extends: Vec<String>,
 }
 
 pub fn ruby_on_class(text: &str, line1: usize) -> bool {

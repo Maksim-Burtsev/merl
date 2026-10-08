@@ -1,6 +1,3 @@
-//! What is drawn over or beside the code: the `?` keymap, the file tree, the picker and
-//! the tutor's lesson panel.
-
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -37,8 +34,6 @@ pub(super) fn draw_help(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     let [area] = Layout::horizontal([Constraint::Length((w + 4).min(area.width))])
         .flex(Flex::Center)
         .areas(area);
-    // A screen too narrow for an action wraps it at a space onto rows under its own column,
-    // keeping a blank column before the border (#458).
     let room = (area.width as usize).saturating_sub(2 + lead + 1);
     let bold = base.add_modifier(Modifier::BOLD);
     let mut lines: Vec<Line> = Vec::new();
@@ -165,7 +160,6 @@ pub(super) fn draw_tree(
                 // background fades: the file name must stay readable (issue #8).
                 row.bg(theme.line_hl_dim)
             };
-            // Review: a column of ticks for the viewed files, before every row.
             let tick = match (&app.review, app.viewed.contains_key(&n.path)) {
                 (None, _) => "",
                 (Some(_), false) => "  ",
@@ -177,11 +171,7 @@ pub(super) fn draw_tree(
                 Span::styled("  ".repeat(depth), style),
             ];
             match app.review.as_ref().and_then(|r| r.file(&n.path)) {
-                // Review: `M name  +6 −2`, the status in place of the marker.
                 Some(f) => {
-                    // The letter takes the row's style: coloured by the terminal's palette or by the
-                    // theme's, it read differently on every theme, and on some it clashed (#450).
-                    // The counts are dim unless `review_panel_colours = false`.
                     let dim = match app.review_panel_colours {
                         true => style.fg(theme.ghost_fg),
                         false => style,
@@ -198,8 +188,6 @@ pub(super) fn draw_tree(
                     spans.extend([
                         Span::styled(f.status.to_string(), style),
                         Span::styled(format!(" {name}{}", " ".repeat(gap)), style),
-                        // Dim, in the readable grey (#146): the name reads first, the numbers
-                        // are there when looked for.
                         Span::styled(counts, dim),
                     ]);
                 }
@@ -602,7 +590,6 @@ fn code_hl<'a>(
     theme: &Theme,
 ) -> Option<(&'a Spans, usize)> {
     let quoted = item.label[item.code_at?..].trim_end_matches('\u{2026}');
-    // A deleted line is coloured as the file the base had reads (#440).
     let key = match item.deleted {
         true => item.path.join("\0base"),
         false => item.path.clone(),
@@ -629,7 +616,6 @@ fn code_hl<'a>(
     Some((buf.hl.get(idx)?, off))
 }
 
-/// `--tutor`'s current lesson, or `--drill`'s task, three rows above the status bar.
 /// The tutor's and the drill's lesson panel at `width`: a title bar, then the task's text,
 /// wrapped. `None` outside `--tutor` and `--drill`.
 pub(super) fn lesson_panel(

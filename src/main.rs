@@ -141,8 +141,18 @@ fn run() -> Result<()> {
         None => (theme::load_configured(&config.theme)?, config.theme),
     };
 
-    let (mut root, shallow, mut file, line) = if cli.tutor || cli.drill.is_some() {
-        (tutor::extract()?, false, None, None)
+    let Opened {
+        project_root: mut root,
+        shallow,
+        mut file,
+        at: line,
+    } = if cli.tutor || cli.drill.is_some() {
+        Opened {
+            project_root: tutor::extract()?,
+            shallow: false,
+            file: None,
+            at: None,
+        }
     } else {
         resolve(cli.target.as_deref())?
     };
@@ -166,8 +176,8 @@ fn run() -> Result<()> {
     let tree_order = (git_toplevel(&root))
         .zip(git::dirs(&root))
         .filter(|_| tree::orders_on() && review.is_none())
-        .map(|(top, (_, common))| tree::OrderFile {
-            file: common.join("merl").join("tree"),
+        .map(|(top, dirs)| tree::OrderFile {
+            file: dirs.common_refs_dir.join("merl").join("tree"),
             under: root
                 .strip_prefix(&top)
                 .unwrap_or(Path::new(""))
@@ -347,8 +357,7 @@ fn event_loop(
     if let Some(w) = &mut project_watcher {
         project.watch(w, &mut project_watched);
     }
-    let mut repo =
-        git::dirs(&app.root).map(|(git_dir, common_dir)| live::Repo::new(&git_dir, &common_dir));
+    let mut repo = git::dirs(&app.root).map(|dirs| live::Repo::new(&dirs));
     if let (Some(r), Some(w)) = (&repo, &mut project_watcher) {
         r.watch(w);
     }
@@ -616,15 +625,28 @@ fn concerns_open_file(app: &App, ev: &notify::Event) -> bool {
 /// A 1-based line and column, as compilers print them.
 type LineCol = (usize, usize);
 
-/// Turns the CLI target into `(project root, shallow, file to open, where in it)`.
-fn resolve(target: Option<&str>) -> Result<(PathBuf, bool, Option<PathBuf>, Option<LineCol>)> {
+#[derive(Debug)]
+struct Opened {
+    project_root: PathBuf,
+    shallow: bool,
+    file: Option<PathBuf>,
+    at: Option<LineCol>,
+}
+
+fn resolve(target: Option<&str>) -> Result<Opened> {
+    let dir = |project_root| Opened {
+        project_root,
+        shallow: false,
+        file: None,
+        at: None,
+    };
     let Some(target) = target else {
-        return Ok((std::env::current_dir()?, false, None, None));
+        return Ok(dir(std::env::current_dir()?));
     };
     let (path, line) = split_line(target);
     let path = PathBuf::from(path);
     if path.is_dir() {
-        return Ok((path.canonicalize()?, false, None, None));
+        return Ok(dir(path.canonicalize()?));
     }
     if !path.exists() {
         anyhow::bail!("{}: no such file or directory", path.display());
@@ -636,8 +658,13 @@ fn resolve(target: Option<&str>) -> Result<(PathBuf, bool, Option<PathBuf>, Opti
         .canonicalize()
         .with_context(|| format!("{}", path.display()))?;
     let dir = path.parent().unwrap_or(Path::new(".")).to_path_buf();
-    let (root, shallow) = git_toplevel(&dir).map_or((dir, true), |top| (top, false));
-    Ok((root, shallow, Some(path), line))
+    let (project_root, shallow) = git_toplevel(&dir).map_or((dir, true), |top| (top, false));
+    Ok(Opened {
+        project_root,
+        shallow,
+        file: Some(path),
+        at: line,
+    })
 }
 
 /// Splits `FILE:LINE[:COL]`, as compilers print it, into the path and `(line, column)`. The path
@@ -901,7 +928,12 @@ mod tests {
         }
         let real = dir.canonicalize().unwrap();
         let walk = |target: &Path| {
-            let (root, shallow, file, _) = super::resolve(target.to_str()).unwrap();
+            let super::Opened {
+                project_root: root,
+                shallow,
+                file,
+                ..
+            } = super::resolve(target.to_str()).unwrap();
             assert_eq!(root, real);
             (file, crate::tree::build(&root, shallow).1)
         };
@@ -965,8 +997,8 @@ mod tests {
     /// A listed file that shrinks lowers its number in the same change; one under the limit
     /// leaves the list.
     const LONG_FILES: &[(&str, usize)] = &[
-        ("src/app/definition.rs", 2367),
-        ("src/search/bindings.rs", 1623),
+        ("src/app/definition.rs", 2363),
+        ("src/search/bindings.rs", 1619),
     ];
     const MAX_LINES: usize = 1500;
 
@@ -1032,7 +1064,7 @@ mod tests {
         assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
     }
 
-    const COMMENT_LINES: usize = 5785;
+    const COMMENT_LINES: usize = 5129;
 
     fn comment_lines(text: &str) -> usize {
         let b = text.as_bytes();

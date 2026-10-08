@@ -259,7 +259,7 @@ impl App {
                 reason: Reason::ByName,
             })
             .collect();
-        found.sort_by_cached_key(|c| search::rank(&c.hit.path, Some(here), true).0);
+        found.sort_by_cached_key(|c| search::rank(&c.hit.path, Some(here), true).tier);
         found.truncate(search::MAX_HITS);
         found
     }

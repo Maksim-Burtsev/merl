@@ -249,7 +249,7 @@ impl App {
             .ok()?;
         let mk = m.path.extension().is_none_or(|e| e != "java");
         let written = search::jvm_return_type(&m.text, call, mk).or_else(|| {
-            let (names, _) = search::jvm_accessor(call)?;
+            let names = search::jvm_accessor(call)?.fields_it_may_read;
             names
                 .iter()
                 .find_map(|n| search::jvm_declared_type(&m.text, n, mk))
@@ -445,7 +445,7 @@ impl App {
         chain: &[String],
         word: &str,
     ) -> Vec<Candidate> {
-        let Some((names, _)) = search::jvm_accessor(word) else {
+        let Some(names) = search::jvm_accessor(word).map(|a| a.fields_it_may_read) else {
             return Vec::new();
         };
         if let [owner] = chain

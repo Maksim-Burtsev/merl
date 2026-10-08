@@ -352,11 +352,25 @@ impl App {
         shown_str(self.line_str()).len()
     }
 
-    /// Jumps to a 1-based line number of the file, clamped to it, and centers the view.
-    pub fn goto_line(&mut self, n: usize) {
-        self.go((n.max(1).min(self.buf.lines.len()) - 1, 0));
+    pub fn goto_line(&mut self, line1: usize) {
+        self.go((line1.max(1).min(self.buf.lines.len()) - 1, 0));
         self.want_x = 0;
         self.center = true;
+    }
+
+    /// The cursor's line as `d` reads it: a member access broken over lines reads as the one
+    /// line it is, in its plain access form.
+    pub(super) fn written(&self, kind: Option<Kind>, start: usize) -> search::LineAsRead {
+        let joined = kind
+            .and_then(|k| search::unbroken(k, &self.buf.lines, self.line, start))
+            .unwrap_or_else(|| search::LineAsRead {
+                line: self.line_str().to_owned(),
+                word_start: start,
+            });
+        match kind {
+            Some(k) => search::plain_access(k, &joined.line, joined.word_start),
+            None => joined,
+        }
     }
 }
 

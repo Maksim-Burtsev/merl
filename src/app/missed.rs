@@ -9,12 +9,9 @@ use super::*;
 /// A run of one key counts only while every gap is shorter: a held or fast-tapped key, not
 /// reading line by line.
 const RUN_GAP: Duration = Duration::from_millis(200);
-/// The missed key takes at most one press in this many of those spent,
-const SHARE: usize = 2;
-/// and saves at least this many.
-const SAVED: usize = 3;
-/// The steps of the jump history `[` / `]` are offered for, either way.
-const REACH: usize = 3;
+const SPENT_PER_MISSED_PRESS: usize = 2;
+const MIN_PRESSES_SAVED: usize = 3;
+const HISTORY_STEPS_OFFERED_EITHER_WAY: usize = 3;
 
 /// The keys a run of arrows or Shift+arrows may have missed. A tie goes to the first.
 const SHORTCUTS: [(KeyCode, KeyModifiers); 21] = [
@@ -61,8 +58,7 @@ const PAGES: [(KeyCode, KeyModifiers); 2] = [
 /// What the keys so far left open.
 #[derive(Default)]
 pub(super) struct Watch {
-    /// When the previous key came.
-    last: Option<Instant>,
+    previous_key_at: Option<Instant>,
     run: Option<Run>,
     trip: Option<Trip>,
 }
@@ -73,31 +69,22 @@ struct Run {
     mode: Mode,
     path: Option<PathBuf>,
     lines: usize,
-    /// Where things stood before the first press.
-    from: Spot,
-    /// Backspace or Delete: the line before the first press.
-    text: String,
-    /// Where the last press left things, and how many presses moved them: Down on the last line
-    /// is no press spent on the way.
-    at: End,
-    moved: usize,
+    before_first_press: Spot,
+    deleting_line_before_first_press: String,
+    last_end: End,
+    presses_that_moved: usize,
 }
 
 /// A picker `s`, `D` or `o` opened from navigation, and the presses since, its own included.
 struct Trip {
     kind: PickerKind,
     n: usize,
-    /// The file and the line it was opened on, and the file relative to the root.
-    from: (PathBuf, TextLine),
-    here: Option<PathBuf>,
-    /// The word under the cursor there.
-    word: Option<String>,
-    /// The query as the last key found it.
-    query: String,
-    /// `o`: the file of every stop of the jump history up to [`REACH`] steps away, by step.
-    stops: Vec<(isize, PathBuf)>,
-    /// `o` in review past the last hunk: the file `c` goes on to.
-    next: Option<PathBuf>,
+    opened_at: (PathBuf, TextLine),
+    opened_at_rel: Option<PathBuf>,
+    word_at_open: Option<String>,
+    last_query: String,
+    history_files_by_step: Vec<(isize, PathBuf)>,
+    file_c_goes_on_to: Option<PathBuf>,
 }
 
 /// All a moving key changes: the cursor, the selection's anchor, the view, a picker's row.
@@ -125,10 +112,8 @@ impl Spot {
 /// Where a run ends: the cursor and a selection's anchor, or a picker's row (as a line's).
 type End = ((TextLine, usize), Option<(TextLine, usize)>);
 
-/// The most presses a missed key may take when `spent` were: at most one in [`SHARE`], saving
-/// at least [`SAVED`]; 0 when no key can.
-fn budget(spent: usize) -> usize {
-    (spent / SHARE).min(spent.saturating_sub(SAVED))
+fn max_missed_presses(spent: usize) -> usize {
+    (spent / SPENT_PER_MISSED_PRESS).min(spent.saturating_sub(MIN_PRESSES_SAVED))
 }
 
 impl App {
@@ -136,18 +121,18 @@ impl App {
     pub(super) fn watch_before(&mut self, key: KeyEvent, at: Instant) {
         let fast = self
             .watch
-            .last
+            .previous_key_at
             .is_some_and(|t| at.saturating_duration_since(t) < RUN_GAP);
-        self.watch.last = Some(at);
+        self.watch.previous_key_at = Some(at);
         let query = self.picker.as_ref().map(|p| p.query.to_string());
         if let Some(trip) = &mut self.watch.trip {
             trip.n += 1;
-            trip.query = query.unwrap_or_default();
+            trip.last_query = query.unwrap_or_default();
         }
         let end = self.end();
         if let Some(run) = &mut self.watch.run {
-            if run.at != end {
-                (run.at, run.moved) = (end, run.moved + 1);
+            if run.last_end != end {
+                (run.last_end, run.presses_that_moved) = (end, run.presses_that_moved + 1);
             }
             if fast && run.key == (key.code, key.modifiers) {
                 return;
@@ -215,24 +200,24 @@ impl App {
             mode: self.mode,
             path: self.buf.path.clone(),
             lines: self.buf.lines.len(),
-            from: self.spot(),
-            text: if deleting {
+            before_first_press: self.spot(),
+            deleting_line_before_first_press: if deleting {
                 self.line_str().to_string()
             } else {
                 String::new()
             },
-            at: self.end(),
-            moved: 0,
+            last_end: self.end(),
+            presses_that_moved: 0,
         })
     }
 
     fn judge_run(&mut self, run: Run) {
-        let from = (run.from.at(), run.from.col);
+        let from = (run.before_first_press.at(), run.before_first_press.col);
         // The file changed under the run, or went: there is no same end to reach.
-        let deleting = !run.text.is_empty();
+        let deleting = !run.deleting_line_before_first_press.is_empty();
         if run.mode != self.mode
             || run.path != self.buf.path
-            || run.from.row.is_some() != self.picker.is_some()
+            || run.before_first_press.row.is_some() != self.picker.is_some()
             || !deleting && (run.lines != self.buf.lines.len() || self.clamp_place(from) != from)
         {
             return;
@@ -240,7 +225,7 @@ impl App {
         let found = if deleting {
             self.word_chord(&run)
         } else {
-            let budget = budget(run.moved);
+            let budget = max_missed_presses(run.presses_that_moved);
             if budget == 0 {
                 return;
             }
@@ -272,7 +257,10 @@ impl App {
             return None;
         }
         let hunks = &self.diff.hunks;
-        let (from, to) = (self.hunk_place(run.from.at()), self.hunk_place(self.at()));
+        let (from, to) = (
+            self.hunk_place(run.before_first_press.at()),
+            self.hunk_place(self.at()),
+        );
         let (&start, key) = match to.cmp(&from) {
             std::cmp::Ordering::Greater => (hunks.iter().find(|&&h| h > from)?, "c"),
             std::cmp::Ordering::Less => (hunks.iter().rev().find(|&&h| h < from)?, "C"),
@@ -311,7 +299,7 @@ impl App {
             _ => return None,
         };
         let arrows = [KeyEvent::new(code, m), KeyEvent::new(back, m)];
-        let (scope, keys) = match run.from.row {
+        let (scope, keys) = match run.before_first_press.row {
             Some(_) => ("Picker: ", &PAGES[..]),
             None => ("", &SHORTCUTS[..]),
         };
@@ -330,7 +318,7 @@ impl App {
             }
             let key = KeyEvent::new(kc, km);
             let limit = best.map_or(budget, |(cost, _)| cost - 1);
-            if let Some(cost) = self.presses(&run.from, &end, key, arrows, limit)
+            if let Some(cost) = self.presses(&run.before_first_press, &end, key, arrows, limit)
                 && let Some(action) = named(scope, key)
             {
                 best = Some((cost, action));
@@ -338,7 +326,7 @@ impl App {
         }
         self.put(&now);
         (self.history, self.hist_idx, self.message) = kept;
-        self.action = None;
+        self.keys_action_of_key_in_hand = None;
         best
     }
 
@@ -403,10 +391,14 @@ impl App {
     /// Arrows delete nothing, so none follow. The presses spent are the chars taken: Backspace
     /// at the start of the file takes none.
     fn word_chord(&self, run: &Run) -> Option<(usize, &'static str)> {
-        if self.line != run.from.line || self.buf.lines.len() != run.lines {
+        if self.line != run.before_first_press.line || self.buf.lines.len() != run.lines {
             return None;
         }
-        let (s, now, from) = (run.text.as_str(), self.line_str(), run.from.col);
+        let (s, now, from) = (
+            run.deleting_line_before_first_press.as_str(),
+            self.line_str(),
+            run.before_first_press.col,
+        );
         let gone = s.len().checked_sub(now.len())?;
         let (to, step): (usize, fn(&str, usize) -> usize) = match run.key.0 {
             KeyCode::Backspace => (self.col, word_start),
@@ -417,7 +409,7 @@ impl App {
             return None;
         }
         let mut at = from;
-        for m in 1..=budget(s[lo..hi].graphemes(true).count()) {
+        for m in 1..=max_missed_presses(s[lo..hi].graphemes(true).count()) {
             at = step(s, at);
             if at == to {
                 let key = KeyEvent::new(run.key.0, KeyModifiers::ALT);
@@ -433,7 +425,7 @@ impl App {
         else {
             return None;
         };
-        let reach = REACH as isize;
+        let reach = HISTORY_STEPS_OFFERED_EITHER_WAY as isize;
         let stops = (1..=reach)
             .flat_map(|k| [-k, k])
             .filter_map(|k| {
@@ -456,21 +448,21 @@ impl App {
         Some(Trip {
             kind,
             n: 1,
-            from: (self.buf.path.clone()?, self.at()),
-            here: self.rel_current(),
-            word: (!self.previewing()).then(|| self.usage_word()).flatten(),
-            query: String::new(),
-            stops,
-            next,
+            opened_at: (self.buf.path.clone()?, self.at()),
+            opened_at_rel: self.rel_current(),
+            word_at_open: (!self.previewing()).then(|| self.usage_word()).flatten(),
+            last_query: String::new(),
+            history_files_by_step: stops,
+            file_c_goes_on_to: next,
         })
     }
 
     fn judge_trip(&mut self, trip: Trip) {
-        let budget = budget(trip.n);
+        let budget = max_missed_presses(trip.n);
         let Some(path) = self.buf.path.clone() else {
             return;
         };
-        if budget == 0 || (&path, self.at()) == (&trip.from.0, trip.from.1) {
+        if budget == 0 || (&path, self.at()) == (&trip.opened_at.0, trip.opened_at.1) {
             return;
         }
         let found = match trip.kind {
@@ -487,13 +479,13 @@ impl App {
 
     /// `o` to the file `c` goes on to, or to the file of a history stop.
     fn to_file(&self, trip: &Trip, path: &Path) -> Option<(usize, &'static str)> {
-        if trip.next.is_some() && trip.next == self.rel_current() {
+        if trip.file_c_goes_on_to.is_some() && trip.file_c_goes_on_to == self.rel_current() {
             return Some((1, "c"));
         }
-        if *path == trip.from.0 {
+        if *path == trip.opened_at.0 {
             return None;
         }
-        trip.stops
+        trip.history_files_by_step
             .iter()
             .filter(|(_, p)| p == path)
             .map(|&(k, _)| (k.unsigned_abs(), if k < 0 { "[" } else { "]" }))
@@ -501,19 +493,20 @@ impl App {
     }
 
     fn to_word(&self, trip: &Trip) -> Option<(usize, &'static str)> {
-        let word = (trip.word.as_ref())
-            .filter(|w| super::usages::bare_name(w).to_lowercase() == trip.query.to_lowercase())?;
+        let word = (trip.word_at_open.as_ref()).filter(|w| {
+            super::usages::bare_name(w).to_lowercase() == trip.last_query.to_lowercase()
+        })?;
         let landed = self.rel_current()?;
-        let (hits, _) = self.usage_hits(word, trip.here.as_deref());
+        let (hits, _) = self.usage_hits(word, trip.opened_at_rel.as_deref());
         let row = hits
             .iter()
             .position(|(_, h)| h.path == landed && h.place() == self.at())?;
         // From base code `d` answers as the base had it, and a deleted declaration is where it
         // lands only when the branch has none (#440): neither is a place `d` is proven to reach
         // from the branch's `u` list.
-        let from_base = matches!(trip.from.1, TextLine::Deleted(..))
+        let from_base = matches!(trip.opened_at.1, TextLine::Deleted(..))
             || (self.review.as_ref())
-                .zip(trip.here.as_deref())
+                .zip(trip.opened_at_rel.as_deref())
                 .and_then(|(r, here)| r.file(here))
                 .is_some_and(|f| f.status == 'D');
         match hits[row].0 {

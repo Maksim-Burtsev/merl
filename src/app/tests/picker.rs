@@ -1,7 +1,5 @@
 use super::*;
 
-/// `T` previews the theme under the cursor without committing to it: Esc puts the one in
-/// use back, Enter keeps the new one.
 #[test]
 fn theme_picker_previews_reverts_and_keeps() {
     let names: Vec<&str> = crate::theme::names().collect();
@@ -19,13 +17,21 @@ fn theme_picker_previews_reverts_and_keeps() {
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);
     assert_eq!((a.shown_theme(), a.theme.as_str()), (names[3], names[2]));
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-    assert_eq!((a.shown_theme(), a.picker.is_none()), (names[2], true));
+    assert_eq!(
+        (a.shown_theme(), a.picker.is_none()),
+        (names[2], true),
+        "Esc puts the theme in use back"
+    );
 
     press(&mut a, KeyCode::Char('T'), KeyModifiers::NONE);
     a.picker.as_mut().unwrap().settle();
     press(&mut a, KeyCode::Up, KeyModifiers::NONE);
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    assert_eq!((a.shown_theme(), a.theme.as_str()), (names[1], names[1]));
+    assert_eq!(
+        (a.shown_theme(), a.theme.as_str()),
+        (names[1], names[1]),
+        "Enter keeps the new one"
+    );
     // Named from the table, so reordering or renaming a theme cannot fail this test.
     let kept = format!("theme {}", names[1]);
     assert_eq!((a.mode, a.message.as_str()), (Mode::Normal, kept.as_str()));
@@ -50,8 +56,6 @@ fn enter_in_the_theme_picker_writes_the_config() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Enter on a user theme that does not load saves nothing: the next start would exit on it
-/// (#277). The picker stays open with the load error in the status bar.
 #[test]
 fn enter_on_a_broken_theme_keeps_the_picker_and_saves_nothing() {
     let dir = std::env::temp_dir().join(format!("merl-theme-broken-{}", std::process::id()));
@@ -68,7 +72,8 @@ fn enter_on_a_broken_theme_keeps_the_picker_and_saves_nothing() {
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!(
         std::fs::read_to_string(&config).unwrap(),
-        "theme = \"dayfox\"\n"
+        "theme = \"dayfox\"\n",
+        "a theme that does not load is not saved: the next start would exit on it"
     );
     assert_eq!(a.mode, Mode::Picker(PickerKind::Themes));
     assert_eq!((a.picker.is_some(), a.theme.as_str()), (true, "dayfox"));
@@ -76,8 +81,6 @@ fn enter_on_a_broken_theme_keeps_the_picker_and_saves_nothing() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #516: a theme file merl may not read, and a config it cannot write, say why in a few words
-/// after the path, never with the OS text's `(os error N)`.
 #[test]
 #[cfg(unix)]
 fn a_theme_that_cannot_be_read_or_saved_says_why_in_a_few_words() {
@@ -111,8 +114,6 @@ fn a_theme_that_cannot_be_read_or_saved_says_why_in_a_few_words() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A repository class, a fake of it in the tests and a service that calls both of its methods:
-/// the project of #236's table, cut down.
 fn orders_app(tag: &str) -> (PathBuf, App) {
     project_app(
         tag,
@@ -142,13 +143,10 @@ fn cursor_on(a: &mut App, file: &str, line: usize, word: &str) {
     a.col = a.line_str().find(word).expect(word);
 }
 
-/// Where the cursor is, as the status line says it: the file, then line and column from 1.
 fn landed(a: &App) -> (String, usize, usize) {
     (a.rel_path(), a.line + 1, a.col + 1)
 }
 
-/// Enter on a row of `d`'s `by name` picker lands on the declared name, as a jump with one
-/// match does (#236), so the next `d` asks about that name: here, its namesake in the fake.
 #[test]
 fn enter_on_a_definition_row_lands_on_the_name() {
     let (dir, mut a) = orders_app("pick-d-col");
@@ -156,17 +154,19 @@ fn enter_on_a_definition_row_lands_on_the_name() {
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
     a.picker.as_mut().expect("the by name picker").settle();
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    assert_eq!(landed(&a), ("app/repos.py".into(), 2, 9));
+    assert_eq!(
+        landed(&a),
+        ("app/repos.py".into(), 2, 9),
+        "lands on the declared name, as a jump with one match does"
+    );
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
     assert_eq!(
-        a.message,
-        "find_by_customer: at a declaration, 1 other by name"
+        a.message, "find_by_customer: at a declaration, 1 other by name",
+        "the next d asks about that name: its namesake in the fake"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Enter on a row of `u` lands on the word in that line: the name on the declaration row, the
-/// use on the others, so `u` there lists the same uses again (#236).
 #[test]
 fn enter_on_a_usage_row_lands_on_the_use() {
     let (dir, mut a) = orders_app("pick-u-col");
@@ -183,7 +183,6 @@ fn enter_on_a_usage_row_lands_on_the_use() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Enter on a row of `D` lands on the name the row lists (#236).
 #[test]
 fn enter_on_a_symbol_row_lands_on_the_name() {
     let (dir, mut a) = orders_app("pick-sym-col");
@@ -196,8 +195,6 @@ fn enter_on_a_symbol_row_lands_on_the_name() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Enter on a row of `s` lands where the hit starts, found as the grep found it, in any case
-/// (#236).
 #[test]
 fn enter_on_a_search_row_lands_on_the_hit() {
     let (dir, mut a) = orders_app("pick-s-col");
@@ -211,12 +208,14 @@ fn enter_on_a_search_row_lands_on_the_hit() {
     typed(&mut a, "Order.Customer");
     a.settle_search();
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    assert_eq!(landed(&a), ("app/service.py".into(), 3, 34));
+    assert_eq!(
+        landed(&a),
+        ("app/service.py".into(), 3, 34),
+        "the hit found in any case"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// `[` and `]` come back to the word a row landed on, not to the start of its line: the column
-/// is set before the jump's stop is made.
 #[test]
 fn back_and_forward_return_to_the_word_a_row_landed_on() {
     let (dir, mut a) = orders_app("pick-hist-col");
@@ -231,8 +230,6 @@ fn back_and_forward_return_to_the_word_a_row_landed_on() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A `D` row whose name is not a `name` of its pattern lands on it too: a Terraform block on
-/// its first label, a YAML anchor on its name after the `&`.
 #[test]
 fn enter_on_a_terraform_or_yaml_symbol_row_lands_on_its_name() {
     let (dir, mut a) = project_app(
@@ -260,8 +257,6 @@ fn enter_on_a_terraform_or_yaml_symbol_row_lands_on_its_name() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A file cut shorter between the search and Enter: the row's column is past its line's end,
-/// and the cursor stops at the end rather than aborting merl.
 #[test]
 fn a_row_whose_line_got_shorter_lands_at_its_end() {
     let (dir, mut a) = orders_app("pick-shorter");
@@ -271,7 +266,11 @@ fn a_row_whose_line_got_shorter_lands_at_its_end() {
     a.settle_search();
     std::fs::write(dir.join("app/repos.py"), "class OrderRepo:\n  я\n").unwrap();
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    assert_eq!(landed(&a), ("app/repos.py".into(), 2, "  я".len() + 1));
+    assert_eq!(
+        landed(&a),
+        ("app/repos.py".into(), 2, "  я".len() + 1),
+        "the line got shorter after the search: the cursor stops at its end"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -314,8 +313,6 @@ fn a_huge_search_query_lands_on_its_hit() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A query that ends in a space lands on its hit at the end of a line: the blanks the row's text
-/// is trimmed of are still the line's.
 #[test]
 fn a_search_query_ending_in_a_space_lands_on_the_hit() {
     let (dir, mut a) = project_app("pick-s-space", &[("limits.py", "ROWS = 10 \n")]);
@@ -324,11 +321,14 @@ fn a_search_query_ending_in_a_space_lands_on_the_hit() {
     typed(&mut a, "10 ");
     a.settle_search();
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    assert_eq!(landed(&a), ("limits.py".into(), 1, 8));
+    assert_eq!(
+        landed(&a),
+        ("limits.py".into(), 1, 8),
+        "the blanks the row's text is trimmed of are still the line's"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Moves the open picker to the row of `file` at `line`, from 1, and presses Enter on it.
 fn enter_on_row(a: &mut App, file: &str, line: usize) {
     let picker = a.picker.as_mut().expect("a picker");
     picker.settle();
@@ -349,8 +349,6 @@ fn enter_on_row(a: &mut App, file: &str, line: usize) {
     press(a, KeyCode::Enter, KeyModifiers::NONE);
 }
 
-/// In a Makefile `-` is part of a word, as `u` reads the word under the cursor there: a row for
-/// `build-image` lands on that target, not on the start of `build-image-arm` before it.
 #[test]
 fn enter_on_a_usage_row_in_a_makefile_lands_on_the_whole_target() {
     let (dir, mut a) = project_app(
@@ -364,15 +362,14 @@ fn enter_on_a_usage_row_in_a_makefile_lands_on_the_whole_target() {
     cursor_on(&mut a, "Makefile", 4, "build-image");
     press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
     enter_on_row(&mut a, "Makefile", 7);
-    assert_eq!(landed(&a), ("Makefile".into(), 7, 26));
+    assert_eq!(
+        landed(&a),
+        ("Makefile".into(), 7, 26),
+        "in a Makefile `-` is part of a word: on build-image, not inside build-image-arm"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A `u` row in a file of another language lands on the word whole as `u` read it under the
-/// cursor and as the row's own file reads it: `build-image` from a Makefile in a shell script.
-/// The row's own language decides whether it is listed: YAML reads `my-app` as one name, so
-/// `app` from Python has no row for it, and a row listed for a whole `app` beside it lands on
-/// that one (#281).
 #[test]
 fn a_usage_row_in_a_file_of_another_language_lands_on_the_word() {
     let (dir, mut a) = project_app(
@@ -393,12 +390,20 @@ fn a_usage_row_in_a_file_of_another_language_lands_on_the_word() {
     cursor_on(&mut a, "Makefile", 4, "build-image");
     press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
     enter_on_row(&mut a, "release.sh", 1);
-    assert_eq!(landed(&a), ("release.sh".into(), 1, 22));
+    assert_eq!(
+        landed(&a),
+        ("release.sh".into(), 1, 22),
+        "build-image from a Makefile, whole in a shell script"
+    );
     cursor_on(&mut a, "app.py", 1, "app");
     press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
     let picker = a.picker.as_mut().expect("a picker");
     picker.settle();
-    assert_eq!(picker.counts().0, 2, "app.py:1 and ci.yml:3");
+    assert_eq!(
+        picker.counts().0,
+        2,
+        "YAML reads my-app as one name: app.py:1 and ci.yml:3"
+    );
     enter_on_row(&mut a, "ci.yml", 3);
     assert_eq!(
         landed(&a),
@@ -408,9 +413,6 @@ fn a_usage_row_in_a_file_of_another_language_lands_on_the_word() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// `d` reads a Makefile target with its `-`, and lands on it by the same rule: on `build-image`
-/// of `build-image-arm build-image:`, not on the start of the line, whether it jumps at once or
-/// from a row of its `by name` list.
 #[test]
 fn d_lands_on_a_makefile_target_after_a_longer_one() {
     let rule = "build-image-arm build-image:\n\tdocker build .\n\n";
@@ -431,12 +433,14 @@ fn d_lands_on_a_makefile_target_after_a_longer_one() {
     cursor_on(&mut a, "Makefile", 4, "build-image");
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
     enter_on_row(&mut a, "Makefile", 6);
-    assert_eq!(landed(&a), ("Makefile".into(), 6, 17));
+    assert_eq!(
+        landed(&a),
+        ("Makefile".into(), 6, 17),
+        "from a row of the by name list"
+    );
     std::fs::remove_dir_all(&two).unwrap();
 }
 
-/// Enter in a list with nothing matched does nothing: the list and its query stay, and Esc
-/// still closes it (#288).
 #[test]
 fn enter_with_nothing_matched_keeps_the_list_and_its_query() {
     let mut a = app("x\n");
@@ -451,6 +455,10 @@ fn enter_with_nothing_matched_keeps_the_list_and_its_query() {
             (Mode::Picker(kind), Some("qqqqzz"))
         );
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-        assert_eq!((a.mode, a.picker.is_none()), (Mode::Normal, true));
+        assert_eq!(
+            (a.mode, a.picker.is_none()),
+            (Mode::Normal, true),
+            "Esc still closes it"
+        );
     }
 }

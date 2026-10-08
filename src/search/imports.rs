@@ -30,8 +30,7 @@ pub fn python_import_module(line: &str, at: usize) -> Option<Vec<String>> {
         std::sync::LazyLock::new(|| Regex::new(r"^\s*from\s+([\w.]+)\s+import\b").unwrap());
     static IMPORT: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^\s*import\s+([^#;]+)").unwrap());
-    // Each module path the line spells, with where it starts.
-    let paths: Vec<(usize, &str)> = match FROM.captures(line) {
+    let starts_and_paths: Vec<(usize, &str)> = match FROM.captures(line) {
         Some(c) => c
             .get(1)
             .map(|m| (m.start(), m.as_str()))
@@ -51,7 +50,7 @@ pub fn python_import_module(line: &str, at: usize) -> Option<Vec<String>> {
             out
         }
     };
-    let (start, path) = paths
+    let (start, path) = starts_and_paths
         .into_iter()
         .find(|&(s, p)| (s..s + p.len()).contains(&at))?;
     let end = path[at - start..]
@@ -139,8 +138,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
             .map(str::to_owned)
             .collect()
     };
-    // `name`, or `name as alias`: the alias is what the file uses.
-    let bound = |item: &str| -> Option<(String, String)> {
+    let alias_and_name = |item: &str| -> Option<(String, String)> {
         let mut it = item.split_whitespace();
         let name = it
             .next()?
@@ -179,7 +177,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
                         .trim_matches(|c| c == '(' || c == ')')
                         .split(',')
                     {
-                        if let Some((alias, name)) = bound(item.trim()) {
+                        if let Some((alias, name)) = alias_and_name(item.trim()) {
                             let mut path = base.clone();
                             path.push(name);
                             out.push((alias, path));
@@ -188,7 +186,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
                 } else if let Some(list) = c.get(3) {
                     let list = list.as_str().split('#').next().unwrap_or_default();
                     for item in list.split(',') {
-                        if let Some((alias, name)) = bound(item.trim()) {
+                        if let Some((alias, name)) = alias_and_name(item.trim()) {
                             // `import a.b.c` binds `a`; `import a.b.c as d` binds `d` to `a.b.c`.
                             if alias == name {
                                 let first = name.split('.').next().unwrap_or(&name).to_owned();
@@ -291,7 +289,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
                         }
                         continue;
                     }
-                    if let Some((alias, name)) = bound(item) {
+                    if let Some((alias, name)) = alias_and_name(item) {
                         out.push((alias, with(&name)));
                     }
                 }
@@ -308,7 +306,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
             });
             for c in USE.captures_iter(text) {
                 for item in c[1].split(',') {
-                    if let Some((alias, name)) = bound(item.trim()) {
+                    if let Some((alias, name)) = alias_and_name(item.trim()) {
                         let path = parts(&name, "\\");
                         if let Some(last) = path.last().cloned() {
                             out.push((if alias == name { last } else { alias }, path));
@@ -365,13 +363,13 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
     }
     out
 }
-/// Whether 1-based `line` of `text`, a TypeScript line ending in `name<`, declares a method: the
-/// `>` that closes the type parameters is followed by a parameter list and then a body or a
-/// return type. prettier writes a call with long type arguments the same way, and its
-/// `>(…)` ends in `);` or goes on as an expression.
-pub fn declares_wrapped_generic(text: &str, line: usize) -> bool {
+/// Whether `line1` of `text`, a TypeScript line ending in `name<`, declares a method: the `>`
+/// that closes the type parameters is followed by a parameter list and then a body or a return
+/// type. prettier writes a call with long type arguments the same way, and its `>(…)` ends in
+/// `);` or goes on as an expression.
+pub fn declares_wrapped_generic(text: &str, line1: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
-    let Some(k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
+    let Some(k) = line1.checked_sub(1).filter(|&k| k < lines.len()) else {
         return false;
     };
     let ind = indent(lines[k]);
@@ -440,25 +438,23 @@ pub fn ts_method_head(word: &str) -> Regex {
     ))
     .expect("an escaped name keeps the pattern valid")
 }
-/// `head` is [`ts_method_head`] of the word, `l` the line, and `text` reads the file, only for a
-/// line that ends in its `(`.
 pub fn ts_call_statement(
-    head: &Regex,
-    l: &str,
-    line: usize,
-    text: impl FnOnce() -> Option<String>,
+    method_head: &Regex,
+    line_text: &str,
+    line1: usize,
+    read_file: impl FnOnce() -> Option<String>,
 ) -> bool {
-    let Some(m) = head.find(l) else {
+    let Some(m) = method_head.find(line_text) else {
         return false;
     };
-    let rest = l[m.end()..].trim_start();
+    let rest = line_text[m.end()..].trim_start();
     if rest.is_empty() {
-        let Some(text) = text() else {
+        let Some(text) = read_file() else {
             return false;
         };
         let lines: Vec<&str> = text.lines().collect();
-        let ind = indent(l);
-        let closer = (line..lines.len().min(line + 60))
+        let ind = indent(line_text);
+        let closer = (line1..lines.len().min(line1 + 60))
             .find(|&i| !lines[i].trim().is_empty() && indent(lines[i]) <= ind);
         return closer.is_some_and(|i| {
             lines[i]
@@ -935,24 +931,36 @@ pub fn css_module_file(
 /// nearest setting winning; `paths` are relative to `baseUrl` when there is one, else to the
 /// config that declares them. Comments and trailing commas are fine: only these keys are read.
 fn ts_aliases(root: &Path, dir: &Path, spec: &str) -> Vec<PathBuf> {
-    let (paths, url) = ts_config(root, dir, spec);
-    paths.into_iter().chain(url.map(|u| u.join(spec))).collect()
+    let TsConfig {
+        path_targets,
+        base_url,
+    } = ts_config(root, dir, spec);
+    path_targets
+        .into_iter()
+        .chain(base_url.map(|u| u.join(spec)))
+        .collect()
 }
 /// Whether an entry of the `compilerOptions.paths` [`ts_aliases`] reads matches `spec`, or
 /// `baseUrl` has a file or a directory of its first part: the project's own module, no package.
 pub(super) fn ts_alias(root: &Path, files: &[PathBuf], dir: &Path, spec: &str) -> bool {
-    let (paths, url) = ts_config(root, dir, spec);
+    let TsConfig {
+        path_targets,
+        base_url,
+    } = ts_config(root, dir, spec);
     let first = spec.split('/').next().unwrap_or(spec);
-    !paths.is_empty()
-        || url.is_some_and(|u| {
+    !path_targets.is_empty()
+        || base_url.is_some_and(|u| {
             let base = u.join(first);
             files
                 .iter()
                 .any(|f| f.starts_with(&base) || f.with_extension("") == base)
         })
 }
-/// The targets of the `paths` entries `spec` matches, most specific first, and `baseUrl`.
-fn ts_config(root: &Path, dir: &Path, spec: &str) -> (Vec<PathBuf>, Option<PathBuf>) {
+struct TsConfig {
+    path_targets: Vec<PathBuf>,
+    base_url: Option<PathBuf>,
+}
+fn ts_config(root: &Path, dir: &Path, spec: &str) -> TsConfig {
     static COMMENT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#""(?:[^"\\]|\\.)*"|//[^\n]*|/\*(?s:.*?)\*/"#).unwrap()
     });
@@ -1023,7 +1031,10 @@ fn ts_config(root: &Path, dir: &Path, spec: &str) -> (Vec<PathBuf>, Option<PathB
         }
     }
     targets.sort_by_key(|(rank, _)| std::cmp::Reverse(*rank));
-    (targets.into_iter().map(|(_, t)| t).collect(), url)
+    TsConfig {
+        path_targets: targets.into_iter().map(|(_, t)| t).collect(),
+        base_url: url,
+    }
 }
 /// `path` with its `.` and `..` parts folded away, `None` when it climbs above where it starts.
 pub(super) fn lexical(path: &Path) -> Option<PathBuf> {
@@ -1048,7 +1059,7 @@ pub(super) fn lexical(path: &Path) -> Option<PathBuf> {
 /// `_` as `-`: those are ignored. The types of `@scope/pkg` are `@types/scope__pkg`, read so when
 /// the scope and the name are those.
 pub fn in_module(path: &Path, parts: &[String]) -> bool {
-    let want: Vec<String> = parts.iter().map(|p| module_part(p)).collect();
+    let want: Vec<String> = parts.iter().map(|p| normalized_module_part(p)).collect();
     let mut components = path
         .components()
         .map(|c| c.as_os_str().to_string_lossy())
@@ -1065,13 +1076,12 @@ pub fn in_module(path: &Path, parts: &[String]) -> bool {
                 components.next();
                 i += 2;
             }
-            _ => i += usize::from(want[i] == module_part(&c)),
+            _ => i += usize::from(want[i] == normalized_module_part(&c)),
         }
     }
     i == parts.len()
 }
-/// A directory or a part of a module path without what only one of the two carries.
-fn module_part(s: &str) -> String {
+fn normalized_module_part(s: &str) -> String {
     let s = s.split('@').next().unwrap_or(s);
     let s = s.split('.').next().unwrap_or(s);
     let s = s
@@ -1107,9 +1117,9 @@ pub fn in_package(path: &Path, parts: &[String]) -> bool {
         .parent()
         .into_iter()
         .flat_map(Path::components)
-        .map(|c| module_part(&c.as_os_str().to_string_lossy()))
+        .map(|c| normalized_module_part(&c.as_os_str().to_string_lossy()))
         .collect();
-    let want: Vec<String> = parts.iter().map(|p| module_part(p)).collect();
+    let want: Vec<String> = parts.iter().map(|p| normalized_module_part(p)).collect();
     let std = parts.first().is_some_and(|p| !p.contains('.'));
     dirs.strip_suffix(want.as_slice())
         .is_some_and(|above| !std || above.last().is_some_and(|d| d == "src" || d == "vendor"))

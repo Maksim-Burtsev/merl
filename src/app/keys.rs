@@ -25,7 +25,7 @@ impl App {
         if self.mode != Mode::Find {
             self.reveal_cursor();
         }
-        let action = self.action.take();
+        let action = self.keys_action_of_key_in_hand.take();
         if let Some(from) = from {
             self.review_count(Some(at), from, action, quit);
         }
@@ -41,19 +41,20 @@ impl App {
             self.resume_edit = was == Mode::Edit && self.mode != Mode::Normal;
         }
         if !quit {
-            self.quit_again = false;
+            self.quit_again_drops_unsaved = false;
             tutor::check(self, action);
             return false;
         }
-        if self.flush() || std::mem::replace(&mut self.quit_again, true) {
+        if self.flush() || std::mem::replace(&mut self.quit_again_drops_unsaved, true) {
             return true;
         }
         self.message = "unsaved edits: Ctrl+S saves, Ctrl+R drops them, q again quits".into();
         false
     }
 
-    /// Routes the key, and names in `action` the `KEYS` action it was routed to, with an effect
-    /// or without: `d` on a word with no definition counts, typing counts nothing.
+    /// Routes the key, and names in `keys_action_of_key_in_hand` the `KEYS` action it was routed
+    /// to, with an effect or without: `d` on a word with no definition counts, typing counts
+    /// nothing.
     pub(super) fn key_inner(&mut self, key: KeyEvent) -> bool {
         if key.kind != KeyEventKind::Press {
             return false;
@@ -106,7 +107,7 @@ impl App {
 
         if ctrl && key.code == KeyCode::Char('c') && self.mode != Mode::Edit {
             // Ctrl+C is copy everywhere and never quits; a prompt or picker has nothing to copy.
-            self.action = named("", key);
+            self.keys_action_of_key_in_hand = named("", key);
             // A preview row that shows no line has none to copy, nor does a fold.
             let shown = !self.preview_blank() && self.folded_here().is_none();
             if self.mode == Mode::Normal && self.picker.is_none() && shown {
@@ -115,13 +116,13 @@ impl App {
             return false;
         }
         if self.picker.is_some() {
-            self.action = named("Picker: ", key);
+            self.keys_action_of_key_in_hand = named("Picker: ", key);
             self.picker_key(key);
             return false;
         }
         // A prompt takes every key but the Esc that closes it as typing.
         if matches!(self.mode, Mode::Goto | Mode::Find | Mode::New) {
-            self.action = named("", key).filter(|a| *a == "Esc");
+            self.keys_action_of_key_in_hand = named("", key).filter(|a| *a == "Esc");
         }
         match self.mode {
             Mode::Goto => {
@@ -137,7 +138,7 @@ impl App {
                 return false;
             }
             Mode::Help => {
-                self.action = named("Help: ", key)
+                self.keys_action_of_key_in_hand = named("Help: ", key)
                     .or_else(|| named("", key).filter(|a| matches!(*a, "Esc" | "?" | "q")));
                 match key.code {
                     KeyCode::Esc | KeyCode::Char('?') | KeyCode::Char('q') => {
@@ -155,7 +156,7 @@ impl App {
         self.message.clear();
         if self.mode == Mode::Edit && self.edit_key(key.code, ctrl, alt) {
             // Typing counts nothing: edit mode's own chords do, and the Esc that leaves it.
-            self.action = named("Edit: ", key)
+            self.keys_action_of_key_in_hand = named("Edit: ", key)
                 .or_else(|| named("", key).filter(|a| matches!(*a, "Esc" | "Ctrl+C")));
             self.hist_note(false);
             return false;
@@ -181,7 +182,7 @@ impl App {
         if self.focus == Focus::Tree {
             self.tree.settle();
         }
-        self.action = (self.focus == Focus::Tree)
+        self.keys_action_of_key_in_hand = (self.focus == Focus::Tree)
             .then(|| named("Tree: ", key))
             .flatten()
             .or_else(|| fold.then(|| named("Fold: ", key)).flatten())

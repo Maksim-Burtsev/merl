@@ -34,11 +34,10 @@ impl Node {
 pub struct Tree {
     pub nodes: Vec<Node>,
     pub cursor: usize,
-    /// Expanded directories the last walk did not list. A walk can land in the middle of a
-    /// `git stash` and `pop`: what comes back comes back expanded.
-    away: HashSet<PathBuf>,
-    /// Where the ignored directories are read from; empty in the review panel, which has none.
-    root: PathBuf,
+    /// A walk can land in the middle of a `git stash` and `pop`: what comes back comes back
+    /// expanded.
+    expanded_but_not_walked: HashSet<PathBuf>,
+    ignored_dirs_read_from: PathBuf,
     folded: HashSet<usize>,
     lift: Vec<usize>,
 }
@@ -99,7 +98,7 @@ pub fn build_ordered(root: &Path, shallow: bool, order: &Order) -> (Tree, Vec<Pa
     }
     let tree = Tree {
         nodes,
-        root: root.to_path_buf(),
+        ignored_dirs_read_from: root.to_path_buf(),
         ..Tree::default()
     };
     (tree, files)
@@ -255,14 +254,14 @@ impl Tree {
     /// nearest one above. A directory that was not listed before comes as `fresh` has it:
     /// closed in the project tree, open in the review panel.
     pub fn refresh(&mut self, mut fresh: Tree) {
-        let mut expanded = std::mem::take(&mut self.away);
+        let mut expanded = std::mem::take(&mut self.expanded_but_not_walked);
         let open = self.nodes.iter().filter(|n| n.expanded);
         expanded.extend(open.map(|n| n.path.clone()));
         let known: HashSet<&Path> = self.nodes.iter().map(|n| n.path.as_path()).collect();
         for n in &mut fresh.nodes {
             n.expanded = expanded.remove(&n.path) || n.expanded && !known.contains(&*n.path);
         }
-        fresh.away = expanded;
+        fresh.expanded_but_not_walked = expanded;
         // The walk leaves every ignored directory unread; an expanded one is read again.
         fresh.sync_ignored();
         let index: HashMap<&Path, usize> = fresh
@@ -313,12 +312,12 @@ impl Tree {
                     .nodes
                     .drain(i + 1..i + 1 + below)
                     .filter(|c| c.expanded);
-                self.away.extend(open.map(|c| c.path));
+                self.expanded_but_not_walked.extend(open.map(|c| c.path));
             } else if n.expanded && below == 0 {
-                let mut level: Vec<Node> = read_level(&self.root, &n.path)
+                let mut level: Vec<Node> = read_level(&self.ignored_dirs_read_from, &n.path)
                     .into_iter()
                     .map(|(p, is_dir)| Node {
-                        expanded: self.away.remove(&p),
+                        expanded: self.expanded_but_not_walked.remove(&p),
                         ..node(p, is_dir, true)
                     })
                     .collect();

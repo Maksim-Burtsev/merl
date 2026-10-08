@@ -104,11 +104,7 @@ fn no_panic_on_d_u_or_shift_d_anywhere() {
     assert!(!jobs.is_empty(), "shard {shard}/{shards} holds no file");
     let jobs = std::sync::Mutex::new(jobs);
     let fails = std::sync::Mutex::new(Vec::new());
-    // `RUST_TEST_THREADS` holds it back on a shared machine, as it does the other tests.
-    let threads = std::env::var("RUST_TEST_THREADS")
-        .ok()
-        .and_then(|n| n.parse().ok())
-        .unwrap_or_else(|| std::thread::available_parallelism().map_or(1, usize::from));
+    let threads = super::test_threads();
     std::thread::scope(|s| {
         for _ in 0..threads {
             s.spawn(|| {

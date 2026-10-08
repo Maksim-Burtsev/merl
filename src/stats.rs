@@ -228,30 +228,43 @@ pub fn month(path: &Path, today: i64) -> Result<HashMap<&'static str, (u64, u64)
     Ok(month)
 }
 
-/// An action with its presses in the last 30 days, its misses in them, its presses in all, the
-/// day of the last press, and what it does.
-type Tally = (&'static str, u64, u64, u64, Option<i64>, &'static str);
+#[derive(Clone, Copy)]
+struct Tally {
+    action: &'static str,
+    presses_in_window: u64,
+    misses_in_window: u64,
+    presses_ever: u64,
+    last_press_day: Option<i64>,
+    description: &'static str,
+}
 
 /// Every action's [`Tally`], strongest first: the never pressed come last, right above the
 /// prompt.
 fn table(rows: &Rows, today: i64) -> String {
     let mut keys: Vec<Tally> = ACTIONS
         .iter()
-        .map(|a| (a.name.as_str(), 0, 0, 0, None, a.what))
+        .map(|a| Tally {
+            action: a.name.as_str(),
+            presses_in_window: 0,
+            misses_in_window: 0,
+            presses_ever: 0,
+            last_press_day: None,
+            description: a.what,
+        })
         .collect();
     for (&(day, action), &(n, missed)) in rows {
-        if let Some(k) = keys.iter_mut().find(|k| k.0 == action) {
+        if let Some(k) = keys.iter_mut().find(|k| k.action == action) {
             if today - day < WINDOW {
-                k.1 += n;
-                k.2 += missed;
+                k.presses_in_window += n;
+                k.misses_in_window += missed;
             }
-            k.3 += n;
+            k.presses_ever += n;
             if n > 0 {
-                k.4 = k.4.max(Some(day));
+                k.last_press_day = k.last_press_day.max(Some(day));
             }
         }
     }
-    keys.sort_by_key(|k| std::cmp::Reverse((k.1, k.3)));
+    keys.sort_by_key(|k| std::cmp::Reverse((k.presses_in_window, k.presses_ever)));
     let last = |day: Option<i64>| match day.map(|d| today - d) {
         None => "never".to_string(),
         Some(..=0) => "today".to_string(),
@@ -259,14 +272,14 @@ fn table(rows: &Rows, today: i64) -> String {
     };
     let head = ["key", "30d", "missed", "all", "last", "what"].map(String::from);
     let cells: Vec<[String; 6]> = std::iter::once(head)
-        .chain(keys.iter().map(|&(name, month, missed, all, day, what)| {
+        .chain(keys.iter().map(|k| {
             [
-                name.into(),
-                month.to_string(),
-                missed.to_string(),
-                all.to_string(),
-                last(day),
-                what.into(),
+                k.action.into(),
+                k.presses_in_window.to_string(),
+                k.misses_in_window.to_string(),
+                k.presses_ever.to_string(),
+                last(k.last_press_day),
+                k.description.into(),
             ]
         }))
         .collect();
@@ -286,8 +299,6 @@ mod tests {
 
     use super::*;
 
-    /// Each side of a `KEYS` row is an action; the second side takes the first side's prefix
-    /// and modifiers, and the five aliases fold into their primaries.
     #[test]
     fn keys_split_into_75_actions() {
         let names: Vec<&str> = ACTIONS.iter().map(|a| a.name.as_str()).collect();
@@ -337,8 +348,6 @@ mod tests {
         }
     }
 
-    /// Two merl instances quitting one after the other both keep their numbers; a line of an
-    /// action no longer in `KEYS`, or no line at all, is dropped.
     #[test]
     fn two_writers_add_up_and_unknown_actions_are_dropped() {
         let dir = std::env::temp_dir().join(format!("merl-keys-merge-{}", std::process::id()));
@@ -365,8 +374,6 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// `merl --keys`: strongest first by the last 30 days, the never pressed last, every action
-    /// listed.
     #[test]
     fn the_weakest_keys_are_printed_last() {
         let rows = parse(
@@ -395,8 +402,6 @@ mod tests {
         );
     }
 
-    /// Misses are a fourth column: a line of three reads as none missed, both numbers add up, and
-    /// `merl --keys` shows the misses of the last 30 days, a key missed but never pressed too.
     #[test]
     fn misses_are_a_fourth_column() {
         let dir = std::env::temp_dir().join(format!("merl-keys-missed-{}", std::process::id()));

@@ -681,7 +681,7 @@ pub(super) fn declared_as(kind: Kind, word: &str, text: &str) -> String {
         return word.to_owned();
     }
     search::jvm_accessor(word)
-        .and_then(|(names, _)| names.into_iter().find(|n| whole_at(text, n, "").is_some()))
+        .and_then(|a| (a.fields_it_may_read.into_iter()).find(|n| whole_at(text, n, "").is_some()))
         .unwrap_or_else(|| word.to_owned())
 }
 
