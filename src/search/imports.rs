@@ -542,11 +542,15 @@ pub fn exported_as(text: &str, name: &str) -> Option<String> {
 pub fn reexports(text: &str, name: &str) -> Vec<Vec<String>> {
     reexported(text, name)
         .into_iter()
-        .filter(|(_, taken)| taken == name)
-        .map(|(module, _)| module)
+        .filter(|r| r.name_in_module == name)
+        .map(|r| r.module)
         .collect()
 }
-pub fn reexported(text: &str, name: &str) -> Vec<(Vec<String>, String)> {
+pub struct Reexport {
+    pub module: Vec<String>,
+    pub name_in_module: String,
+}
+pub fn reexported(text: &str, name: &str) -> Vec<Reexport> {
     static EXPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#"(?m)^\s*export\s+(?:type\s+)?(\*|\{[^}]*\})\s*from\s*['"]([^'"]+)['"]"#)
             .unwrap()
@@ -575,7 +579,10 @@ pub fn reexported(text: &str, name: &str) -> Vec<(Vec<String>, String)> {
             if c[2].starts_with('/') {
                 path.insert(0, ".".to_owned());
             }
-            Some((path, taken))
+            Some(Reexport {
+                module: path,
+                name_in_module: taken,
+            })
         })
         .collect()
 }

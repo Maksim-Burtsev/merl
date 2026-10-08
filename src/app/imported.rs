@@ -59,19 +59,22 @@ impl App {
         };
         files(here, module).iter().find_map(|f| {
             let text = self.text_of(f)?;
-            search::reexported(&text, taken)
-                .into_iter()
-                .find_map(|(mut module, taken)| {
+            search::reexported(&text, taken).into_iter().find_map(
+                |search::Reexport {
+                     mut module,
+                     name_in_module,
+                 }| {
                     let outside = files(f, &module).is_empty();
                     let package = module
                         .first()
                         .is_some_and(|m| !m.starts_with(['.', '~', '#']) && m != "@");
-                    module.push(taken);
+                    module.push(name_in_module);
                     match outside {
                         true => package.then_some(module),
                         false => self.package_behind(f, &module, depth + 1),
                     }
-                })
+                },
+            )
         })
     }
 
@@ -334,8 +337,12 @@ impl App {
                 let Some(text) = self.text_of(f) else {
                     continue;
                 };
-                for (mut module, taken) in search::reexported(&text, first) {
-                    module.push(taken);
+                for search::Reexport {
+                    mut module,
+                    name_in_module,
+                } in search::reexported(&text, first)
+                {
+                    module.push(name_in_module);
                     let more = self
                         .imported_at(kind, f, &word, &chain, &module, depth + 1)
                         .unwrap_or_default();
