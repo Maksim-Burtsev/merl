@@ -156,7 +156,7 @@ fn def_binds(lines: &[&str], def_line0: usize, name: &str) -> bool {
     let rest = &lines[def_line0][head.end()..];
     let list = match rest.strip_prefix('(') {
         Some(_) => match group(Kind::Ruby, lines, def_line0, head.end()) {
-            Some((inner, _, _)) => inner,
+            Some(g) => g.inner_uncommented,
             None => return false,
         },
         // `def m a, b`: up to a `;` or a comment. `def m = …` has none.

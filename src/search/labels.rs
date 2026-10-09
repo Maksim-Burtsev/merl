@@ -629,7 +629,10 @@ fn params(
     let open = code(kind, lines[decl_line0])
         .find(|&(i, c)| i >= from && c == b'(')
         .map(|(i, _)| i)?;
-    let (inner, ..) = group(kind, lines, decl_line0, open)?;
+    let Group {
+        inner_uncommented: inner,
+        ..
+    } = group(kind, lines, decl_line0, open)?;
     let base = inner.as_ptr() as usize;
     split_top(kind, &inner, b',').into_iter().find_map(|p| {
         let at = find(p)? + (p.as_ptr() as usize - base);

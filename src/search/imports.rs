@@ -383,10 +383,14 @@ pub fn declares_wrapped_generic(text: &str, line1: usize) -> bool {
         return false;
     };
     let open = lines[i].find('(').unwrap_or(0);
-    group(Kind::TsJs, &lines, i, open).is_some_and(|(_, _, rest)| {
-        let rest = rest.trim();
-        rest.starts_with(':') || rest.starts_with('{')
-    })
+    group(Kind::TsJs, &lines, i, open).is_some_and(
+        |Group {
+             after_close: rest, ..
+         }| {
+            let rest = rest.trim();
+            rest.starts_with(':') || rest.starts_with('{')
+        },
+    )
 }
 pub fn default_name(line: &str) -> Option<String> {
     static DEFAULT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {

@@ -714,7 +714,11 @@ fn rust_param(lines: &[&str], f: usize, name: &str) -> Option<usize> {
     if !line[open..].starts_with('(') {
         return None;
     }
-    let (inner, last, _) = group(Kind::Rust, lines, f, open)?;
+    let Group {
+        inner_uncommented: inner,
+        close_line: last,
+        ..
+    } = group(Kind::Rust, lines, f, open)?;
     if !top_split(&inner)
         .iter()
         .any(|p| binds(without_type(p), name))

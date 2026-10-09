@@ -310,7 +310,12 @@ fn param_lists_line1_binding(lines: &[&str], from: usize, name: &str) -> Option<
     let groovy = DEF.is_match(lines[from]);
     let mut open = params_open_byte(lines[from])?;
     let mut at = from;
-    while let Some((inner, last, rest)) = group(Kind::Jvm, lines, at, open) {
+    while let Some(Group {
+        inner_uncommented: inner,
+        close_line: last,
+        after_close: rest,
+    }) = group(Kind::Jvm, lines, at, open)
+    {
         if split_top(Kind::Jvm, &inner, b',')
             .iter()
             .any(|e| param_names(e, groovy).iter().any(|p| p == name))
@@ -475,11 +480,16 @@ fn primary_constructor_property_on_header(lines: &[&str], k: usize, name: &str) 
         return false;
     };
     !anonymous(lines[k])
-        && group(Kind::Jvm, lines, k, open).is_some_and(|(inner, ..)| {
-            split_top(Kind::Jvm, &inner, b',')
-                .iter()
-                .any(|e| PROPERTY.captures(e).is_some_and(|c| &c[1] == name))
-        })
+        && group(Kind::Jvm, lines, k, open).is_some_and(
+            |Group {
+                 inner_uncommented: inner,
+                 ..
+             }| {
+                split_top(Kind::Jvm, &inner, b',')
+                    .iter()
+                    .any(|e| PROPERTY.captures(e).is_some_and(|c| &c[1] == name))
+            },
+        )
         && PROPERTY.captures_iter(lines[k]).any(|c| &c[1] == name)
 }
 
@@ -840,7 +850,10 @@ pub fn jvm_parameters(text: &str, line: usize, word: &str, groovy: bool) -> Opti
     let at = line.checked_sub(1)?;
     let head = Regex::new(&format!(r"\b{}\s*\(", regex::escape(word))).ok()?;
     let open = head.find(rows.get(at)?)?.end() - 1;
-    let (inner, _, _) = group(Kind::Jvm, &rows, at, open)?;
+    let Group {
+        inner_uncommented: inner,
+        ..
+    } = group(Kind::Jvm, &rows, at, open)?;
     if inner.trim().is_empty() {
         return Some((0, 0));
     }

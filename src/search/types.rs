@@ -32,7 +32,11 @@ pub fn returns(kind: Kind, text: &str, decl_line1: usize) -> Option<Value> {
         _ => return None,
     };
     let open = opener.find(lines[k])?.end() - 1;
-    let (_, end, after) = group(kind, &lines, k, open)?;
+    let Group {
+        close_line: end,
+        after_close: after,
+        ..
+    } = group(kind, &lines, k, open)?;
     match kind {
         // `-> T:` ends at the first colon outside strings and brackets; a body may follow it.
         Kind::Python => {
@@ -218,7 +222,7 @@ pub fn bases(kind: Kind, text: &str, decl_line1: usize) -> Vec<String> {
             .then(|| lines[k].find('('))
             .flatten()
             .and_then(|open| group(kind, &lines, k, open))
-            .map_or_else(Vec::new, |(inner, ..)| list(&inner)),
+            .map_or_else(Vec::new, |g| list(&g.inner_uncommented)),
         Kind::TsJs => TS_EXTENDS
             .captures(&ts_header(&lines, k).0)
             .map_or_else(Vec::new, |c| list(&c[1])),
@@ -336,7 +340,10 @@ pub fn params(kind: Kind, text: &str, line1: usize) -> Option<usize> {
         .map(|(i, _)| i);
     let receiver = kind == Kind::Go && lines[k].trim_start().starts_with("func (");
     let open = if receiver { opens.nth(1) } else { opens.next() }?;
-    let (inner, ..) = group(kind, &lines, k, open)?;
+    let Group {
+        inner_uncommented: inner,
+        ..
+    } = group(kind, &lines, k, open)?;
     Some(
         split_top(kind, &inner, b',')
             .iter()
@@ -359,7 +366,11 @@ pub fn go_signature(text: &str, line1: usize) -> Option<(Vec<String>, String)> {
         .map(|(i, _)| i);
     let receiver = lines[k].trim_start().starts_with("func (");
     let open = if receiver { opens.nth(1) } else { opens.next() }?;
-    let (inner, _, rest) = group(kind, &lines, k, open)?;
+    let Group {
+        inner_uncommented: inner,
+        after_close: rest,
+        ..
+    } = group(kind, &lines, k, open)?;
     let plain = |t: &str| {
         PKG.replace_all(t, "")
             .split_whitespace()
