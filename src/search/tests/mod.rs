@@ -28,6 +28,7 @@ mod other_languages;
 mod perl;
 mod powershell;
 mod r;
+mod rust;
 mod scope;
 mod solidity;
 mod starlark;

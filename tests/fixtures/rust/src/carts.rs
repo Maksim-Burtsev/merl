@@ -66,3 +66,16 @@ impl Sled {
         //    ^ d: src/carts.rs:19
     }
 }
+
+pub fn make<F>(g: F) -> Wagon
+where
+    F: Fn() -> Sled,
+{
+    Wagon
+}
+
+pub fn bounded() -> u32 {
+    let cart = make(|| Sled);
+    cart.roll()
+    //   ^ d: src/carts.rs:19; want src/carts.rs:7 (#785)
+}
