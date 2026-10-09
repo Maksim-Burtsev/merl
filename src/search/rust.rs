@@ -1055,12 +1055,16 @@ fn type_at(s: &str) -> &str {
     }
     s.trim()
 }
-/// The name of the type whose methods and fields a value written as `written` has, and the path
-/// it is spelled behind (`crate::a::`): `&`, `&mut`, lifetimes, `mut`, `Box<T>`, `Rc<T>` and
-/// `Arc<T>` are stripped, since a method call derefs through them, and a type's own arguments
-/// dropped. `None` for what the project cannot declare the methods of: a primitive, a tuple, a
-/// slice, a `dyn` or `impl` trait, a function, and the standard library's own types.
-pub fn rust_type_name(written: &str) -> Option<(Vec<String>, String)> {
+pub struct RustTypeName {
+    pub path: Vec<String>,
+    pub name: String,
+}
+/// The type whose methods and fields a value written as `written` has: `&`, `&mut`, lifetimes,
+/// `mut`, `Box<T>`, `Rc<T>` and `Arc<T>` are stripped, since a method call derefs through them,
+/// and a type's own arguments dropped. `None` for what the project cannot declare the methods
+/// of: a primitive, a tuple, a slice, a `dyn` or `impl` trait, a function, and the standard
+/// library's own types.
+pub fn rust_type_name(written: &str) -> Option<RustTypeName> {
     const STD: &[&str] = &[
         "Option",
         "Result",
@@ -1118,7 +1122,7 @@ pub fn rust_type_name(written: &str) -> Option<(Vec<String>, String)> {
         .filter(|p| !p.is_empty())
         .map(str::to_owned)
         .collect();
-    Some((path, name))
+    Some(RustTypeName { path, name })
 }
 /// The type an `impl` header on `line` is for: `T` of `impl<…> T` and of `impl<…> Tr for T`.
 pub fn rust_impl_type(line: &str) -> Option<String> {

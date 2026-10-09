@@ -882,10 +882,11 @@ impl App {
                         Ok([decl]) => {
                             let t = self.text_of(&decl.path)?;
                             let l: Vec<&str> = t.lines().collect();
-                            let (_, n) = search::rust_type_name(&search::rust_return_type(
+                            let n = search::rust_type_name(&search::rust_return_type(
                                 &l,
                                 decl.line - 1,
-                            )?)?;
+                            )?)?
+                            .name;
                             n == "Self" || n == ty.name
                         }
                         Err(none) => none.is_empty() && f == "default",
@@ -944,7 +945,7 @@ impl App {
     /// a type outside the project and one declared twice with nothing to tell which are none.
     fn rust_resolve(&self, file: &Path, written: &str, line0: usize) -> Option<Typed> {
         let text = self.text_of(file)?;
-        let (path, mut name) = search::rust_type_name(written)?;
+        let search::RustTypeName { path, mut name } = search::rust_type_name(written)?;
         if name == "Self" && path.is_empty() {
             let lines: Vec<&str> = text.lines().collect();
             let (t, _) = search::rust_self_type(&lines, line0)?;
