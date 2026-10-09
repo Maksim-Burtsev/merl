@@ -1,8 +1,3 @@
-//! Embedded `.tmTheme` palettes and user config.
-//!
-//! Everything outside this module sees a [`Theme`] of ratatui colors plus the parsed syntect
-//! theme the highlighter needs.
-
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 
@@ -12,8 +7,6 @@ use serde::Deserialize;
 use syntect::highlighting::{Color as SynColor, FontStyle, Highlighter, ThemeSet};
 use syntect::parsing::Scope;
 
-/// Every theme merl ships, in the order shown to the user. `tools/port-theme.sh` prints the row
-/// for a new one.
 #[rustfmt::skip]
 const THEMES: &[(&str, &[u8])] = &[
     ("tokyonight-moon", include_bytes!("../themes/tokyonight-moon.tmTheme")),
@@ -122,9 +115,6 @@ pub fn user_dir() -> Option<PathBuf> {
     Some(dirs::home_dir()?.join(".config/merl/themes"))
 }
 
-/// Every theme that can be loaded: the built-ins in their order, then the user's files in `dir`
-/// by name. A file named after a built-in replaces it, in its place, which is what [`load`] reads
-/// too.
 pub fn entries_in(dir: Option<&Path>) -> Vec<String> {
     let mut names: Vec<String> = names().map(str::to_string).collect();
     let mut user = user_names(dir);
@@ -134,7 +124,6 @@ pub fn entries_in(dir: Option<&Path>) -> Vec<String> {
     names
 }
 
-/// The names of the `.tmTheme` files in `dir`. A missing or unreadable directory has none.
 fn user_names(dir: Option<&Path>) -> Vec<String> {
     let Some(dir) = dir else {
         return Vec::new();
@@ -154,8 +143,6 @@ fn user_path(dir: Option<&Path>, name: &str) -> Option<PathBuf> {
         .filter(|p| p.is_file())
 }
 
-/// The colors the editor chrome needs, resolved to opaque RGB. Syntax colors come from
-/// [`Theme::syntect`] via [`style`].
 #[derive(Debug, Clone)]
 pub struct Theme {
     pub bg: Color,
@@ -163,25 +150,15 @@ pub struct Theme {
     pub gutter_fg: Color,
     pub own_gutter_fg: Color,
     pub line_hl: Color,
-    /// The tree cursor row while the code pane has the keys: `line_hl` at half strength.
     pub line_hl_dim: Color,
-    /// Review's deleted lines: the text colour greyed toward the background, but never below a
-    /// contrast a reviewer can read. `gutter_fg` is too faint for text in most themes.
     pub ghost_fg: Color,
     pub status_bg: Color,
     pub status_fg: Color,
     pub find_bg: Color,
     pub find_fg: Option<Color>,
-    /// The theme's signature colour, painted on the chrome the user navigates by: directory
-    /// names, the tree and picker frames, the file name in the status bar. Taken from the colour
-    /// the theme gives function names, or the first other scope it colours, so every theme has
-    /// one without a new key.
     pub accent: Color,
     pub selection: Color,
     pub selection_fg: Option<Color>,
-    /// Review, GitHub's diff colours over this theme: the rows the branch deleted and added, the
-    /// words that changed on them, and those rows under the cursor (`_hl`, over `line_hl`). A
-    /// deleted file is all deleted rows, so they can be the cursor line too.
     pub del_bg: Color,
     pub del_bg_hl: Color,
     pub del_word_bg: Color,
@@ -189,13 +166,9 @@ pub struct Theme {
     pub add_bg_hl: Color,
     pub add_word_bg: Color,
     pub add_word_bg_hl: Color,
-    /// The text of a changed word, which GitHub draws in the plain text colour: `fg`, pushed
-    /// toward white on a dark theme or black on a light one until it reads on every word tint.
     pub word_fg: Color,
     pub tag_bg: Color,
     pub tag_fg: Color,
-    /// The background is lighter than the text: what picks GitHub's light colours over its dark
-    /// ones, for the review's diff and the Markdown preview's alerts.
     pub light: bool,
     pub syntect: syntect::highlighting::Theme,
 }
@@ -225,8 +198,6 @@ impl Theme {
 }
 
 pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
-    // A user file shadows the built-in of the same name; a broken one is an error, never a
-    // silent fall back to the built-in it shadows.
     let (bytes, ctx) = match user_path(dir, name) {
         Some(path) => {
             let ctx = path.display().to_string();
@@ -245,16 +216,11 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
     let s = &syntect.settings;
     let bg = s.background.unwrap_or(SynColor::BLACK);
     let fg = s.foreground.unwrap_or(SynColor::WHITE);
-    // tmTheme colors carry an alpha byte; flattening it over the background is what an editor
-    // shows. Without this tokyonight's `lineHighlight` (#00000030) paints pure black.
     let over_bg = |c: SynColor| rgb(over_at_own_alpha(c, bg));
     let line_hl_syn = s
         .line_highlight
         .map_or_else(|| mix(fg, bg, 12), |c| over_at_own_alpha(c, bg));
     let line_hl = rgb(line_hl_syn);
-    // The chrome colours are derived, so on a palette that barely varies two of them can land on
-    // the same value and the row they paint stops reading as marked. Each fallback below pushes
-    // the collision apart instead of leaving the chrome flat.
     let mut line_hl_dim = blend(line_hl_syn, bg, 50);
     for percent in [7, 12, 20] {
         if line_hl_dim != rgb(bg) && line_hl_dim != line_hl {
@@ -262,18 +228,11 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         }
         line_hl_dim = blend(fg, bg, percent);
     }
-    // As grey as still reads: the weakest mix that reaches 4:1 against the background. A theme
-    // whose own text is below ~5.4:1 never reaches it, so there the mix stops at 85 %, which keeps
-    // the ghost greyer than the text and within a quarter of the text's own contrast.
     let ghost_fg = (50..=GHOST_MAX_TEXT_PERCENT)
         .step_by(5)
         .map(|percent| blend(fg, bg, percent))
         .find(|&c| wcag_contrast(c, rgb(bg)) >= GHOST_TARGET_CONTRAST)
         .unwrap_or_else(|| blend(fg, bg, GHOST_MAX_TEXT_PERCENT));
-    // Review: GitHub's diff hues laid over this background at GitHub's own strength, so every
-    // theme has them without a key of its own. A dark theme takes Primer dark's (`#f85149` at 10 %
-    // for a row and 40 % for a word, `#2ea043` at 15 and 40); a light one the strengths that lay
-    // Primer light's pinks and mints over white.
     let light = wcag_luminance(rgb(bg)) > wcag_luminance(rgb(fg));
     let hue = |r, g, b| SynColor { r, g, b, a: 255 };
     let ((del, del_row, del_word), (add, add_row, add_word)) = if light {
@@ -294,7 +253,6 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         blend(add, bg, add_word),
         blend(add, line_hl_syn, add_word),
     ];
-    // A theme whose text is soft by design (solarized, e-ink) loses most of it on a 40 % tint.
     let toward = if light {
         SynColor::BLACK
     } else {
@@ -313,7 +271,6 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         .gutter_foreground
         .map_or_else(|| mix(fg, bg, 45), |c| over_at_own_alpha(c, bg));
     let find_bg = s.find_highlight.map_or_else(|| blend(fg, bg, 35), over_bg);
-    // Primer's attention yellow, at the strength of a changed word.
     let tag_bg = blend(hue(0xd2, 0x99, 0x22), bg, if light { 45 } else { 40 });
     let tag_fg = (0..=100)
         .step_by(10)
@@ -358,9 +315,6 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
     })
 }
 
-/// The theme's signature colour: what it paints function names with, or — for the minimal themes
-/// that leave functions in the plain text colour — the first other scope it does colour. `None`
-/// when a theme paints every one of them like plain text.
 fn accent_color(theme: &syntect::highlighting::Theme) -> Option<SynColor> {
     let highlighter = Highlighter::new(theme);
     [
@@ -404,8 +358,6 @@ fn gutter_fg(start: SynColor, bg: SynColor, comment: Color, toward: SynColor) ->
     out
 }
 
-/// Converts one syntect span style into a ratatui style. The span background is ignored: merl
-/// paints its own (theme background, or the cursor-line highlight).
 pub fn style(s: syntect::highlighting::Style) -> ratatui::style::Style {
     let mut out = ratatui::style::Style::new().fg(rgb(s.foreground));
     for (flag, modifier) in [
@@ -475,7 +427,6 @@ fn mix(fg: SynColor, bg: SynColor, percent: u32) -> SynColor {
 pub struct Config {
     #[serde(default = "default_theme")]
     pub theme: String,
-    /// Edits are written this long after the last keystroke; VS Code's `files.autoSaveDelay`.
     #[serde(default = "default_autosave")]
     pub autosave_delay_ms: u64,
     #[serde(default = "default_true")]
@@ -514,8 +465,6 @@ pub fn config_path() -> Option<PathBuf> {
     Some(dirs::home_dir()?.join(".config/merl/config.toml"))
 }
 
-/// Writes `theme = "NAME"` into the config file at `path`: over its `theme` line, or appended,
-/// so the rest of the file and its comments stay as they were. A missing file is created.
 pub fn save(path: &Path, name: &str) -> Result<()> {
     let ctx = || format!("{}", path.display());
     let text = match std::fs::read_to_string(path) {
@@ -538,12 +487,15 @@ pub fn save(path: &Path, name: &str) -> Result<()> {
     std::fs::write(path, text).with_context(ctx)
 }
 
-/// Reads `~/.config/merl/config.toml`. A missing file is not an error; a broken one is.
 pub fn config() -> Result<Config> {
-    let Some(path) = config_path() else {
+    config_from(config_path().as_deref())
+}
+
+fn config_from(path: Option<&Path>) -> Result<Config> {
+    let Some(path) = path else {
         return Ok(Config::default());
     };
-    match std::fs::read_to_string(&path) {
+    match std::fs::read_to_string(path) {
         Ok(text) => toml::from_str(&text).with_context(|| format!("{}", path.display())),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Config::default()),
         Err(e) => Err(e).with_context(|| format!("{}", path.display())),
@@ -623,6 +575,11 @@ mod tests {
         std::fs::write(dir.join("mine.tmTheme"), &light).unwrap();
         std::fs::write(dir.join(format!("{DEFAULT}.tmTheme")), &light).unwrap();
 
+        assert_eq!(
+            entries_in(Some(&dir.join("missing"))),
+            names().collect::<Vec<_>>(),
+            "a missing directory adds none"
+        );
         let entries = entries_in(Some(&dir));
         assert_eq!(
             entries.len(),
@@ -724,6 +681,42 @@ mod tests {
                 assert!(colours.len() >= 3, "{name} paints {file} in {colours:?}");
             }
         }
+    }
+
+    #[test]
+    fn a_missing_config_is_the_defaults_and_a_broken_one_an_error() {
+        let dir = std::env::temp_dir().join(format!("merl-config-read-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("config.toml");
+        assert_eq!(config_from(Some(&path)).unwrap().theme, DEFAULT);
+        assert_eq!(config_from(None).unwrap().theme, DEFAULT);
+        std::fs::write(&path, "theme = ").unwrap();
+        let e = format!("{:#}", config_from(Some(&path)).unwrap_err());
+        assert!(e.contains("config.toml"), "{e}");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn light_is_a_background_lighter_than_the_text() {
+        assert!(!load_from(None, "tokyonight-moon").unwrap().light);
+        assert!(load_from(None, "dayfox").unwrap().light);
+    }
+
+    #[test]
+    fn a_span_keeps_its_colour_and_font_but_not_its_background() {
+        let red = SynColor { r: 255, g: 0, b: 0, a: 255 };
+        let out = style(syntect::highlighting::Style {
+            foreground: red,
+            background: SynColor::WHITE,
+            font_style: FontStyle::BOLD | FontStyle::ITALIC,
+        });
+        assert_eq!(
+            out,
+            Style::new()
+                .fg(Color::Rgb(255, 0, 0))
+                .add_modifier(Modifier::BOLD | Modifier::ITALIC)
+        );
     }
 
     #[test]
