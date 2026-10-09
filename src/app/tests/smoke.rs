@@ -33,6 +33,10 @@ const UNSMOKED: &[(u32, &str)] = &[
         727,
         "Mermaid pictures: the scenarios play in tmux, which passes no kitty graphics, so merl draws the source there; src/mermaid/tests.rs and the layout tests cover the pictures",
     ),
+    (
+        769,
+        "review's images side by side: tmux passes no kitty graphics, and without pictures images stay binary non-stops as before; src/ui/tests/picture.rs and the review stop test cover them",
+    ),
 ];
 
 fn root() -> PathBuf {

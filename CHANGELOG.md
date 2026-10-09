@@ -39,6 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `f` folds Scala (`.scala`, `.sc`), where it said `no fold rules for .scala`: a class, trait or
   object with its annotations, a `def` or `val` through its body, a wrapped `import`, `for`,
   `while`, `try` and `match`, and a block passed to a call (`xs.map { x =>`). (#625)
+- `--review` with pictures: a changed image shows its old picture on the left in a red frame and
+  its new one on the right in a green frame, each with its size under it, `960×468`; an added
+  image stands alone in green, a deleted one alone in red. `c` and `C` stop on them. A side merl
+  cannot read whole shows its note in its frame and the status bar says why. Where no pictures
+  are drawn, images stay `binary file, not shown` and the walk passes them. (#769)
 
 ### Changed
 

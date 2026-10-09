@@ -3,14 +3,17 @@ use std::path::Path;
 use ratatui::Frame;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::style::Color;
+use ratatui::style::{Color, Style};
+use ratatui::text::Line;
+use ratatui::widgets::{Block, Widget};
 
-use crate::app::App;
+use crate::app::{App, Side};
 use crate::mermaid::{Diagrams, Place};
 use crate::picture;
 
 pub const CHECKER: [Color; 2] = [Color::Rgb(0x99, 0x99, 0x99), Color::Rgb(0x66, 0x66, 0x66)];
 const FILE_PLACEMENT: u32 = 1 << 20;
+const GAP: u16 = 2;
 
 pub enum Status {
     Size(String),
@@ -18,6 +21,13 @@ pub enum Status {
 }
 
 pub(super) fn status(app: &App) -> Option<Status> {
+    if let Some(sides) = app.picture_sides() {
+        let why = sides.iter().find_map(|s| match &s.path {
+            Ok(p) => app.diagrams.file_failed(p).map(str::to_string),
+            Err(why) => Some(why.clone()),
+        });
+        return Some(why.map_or(Status::Size(String::new()), Status::Why));
+    }
     let path = app.picture_here()?;
     if let Some(why) = app.diagrams.file_failed(&path) {
         return Some(Status::Why(why.to_string()));
@@ -43,6 +53,90 @@ pub(super) fn draw_file(frame: &mut Frame, app: &mut App, area: Rect, path: &Pat
     }
 }
 
+pub(super) fn draw_review(
+    frame: &mut Frame,
+    app: &mut App,
+    area: Rect,
+    sides: &[Side],
+    note_fg: Color,
+) {
+    if super::covers_code(app) {
+        return;
+    }
+    let buf = frame.buffer_mut();
+    for (i, (side, half)) in sides.iter().zip(halves(area, sides.len())).enumerate() {
+        let border = Style::new().fg(if side.old { Color::Red } else { Color::Green });
+        let note = Style::new().fg(note_fg);
+        let path = side.path.as_deref().ok();
+        let failed = path.is_none_or(|p| app.diagrams.file_failed(p).is_some());
+        if failed {
+            let text = path
+                .and_then(picture::not_shown_note)
+                .unwrap_or_else(|| "binary file, not shown".into());
+            let room = Rect {
+                height: half.height.saturating_sub(1),
+                ..half
+            };
+            let at = centred(room, (text.chars().count() as u16 + 4, 3));
+            Block::bordered().border_style(border).render(at, buf);
+            let row = Rect {
+                y: at.y + 1,
+                height: 1,
+                ..at
+            }
+            .inner(ratatui::layout::Margin::new(1, 0));
+            Line::styled(text, note).centered().render(row, buf);
+            continue;
+        }
+        let Some(path) = path else {
+            continue;
+        };
+        let inner = Rect {
+            y: half.y + 1,
+            height: half.height.saturating_sub(3),
+            ..half
+        };
+        if inner.is_empty() || inner.width < 3 {
+            continue;
+        }
+        let placement = FILE_PLACEMENT + i as u32;
+        if let Some((at, (w, h))) = draw_picture(buf, &mut app.diagrams, path, inner, placement) {
+            let framed = framed(at);
+            Block::bordered().border_style(border).render(framed, buf);
+            let row = Rect {
+                y: framed.bottom(),
+                height: 1,
+                ..half
+            };
+            Line::styled(format!("{w}\u{d7}{h}"), note)
+                .centered()
+                .render(row.intersection(buf.area), buf);
+        }
+    }
+}
+
+pub fn halves(area: Rect, n: usize) -> Vec<Rect> {
+    if n < 2 {
+        return vec![area];
+    }
+    let w = area.width.saturating_sub(GAP) / 2;
+    let right = Rect {
+        x: area.right() - w,
+        width: w,
+        ..area
+    };
+    vec![Rect { width: w, ..area }, right]
+}
+
+pub fn framed(at: Rect) -> Rect {
+    Rect {
+        x: at.x.saturating_sub(1),
+        y: at.y.saturating_sub(1),
+        width: at.width + 2,
+        height: at.height + 2,
+    }
+}
+
 pub fn centred(area: Rect, (cols, rows): (u16, u16)) -> Rect {
     let (w, h) = (cols.min(area.width), rows.min(area.height));
     Rect {
@@ -59,7 +153,7 @@ pub fn draw_picture(
     path: &Path,
     area: Rect,
     placement: u32,
-) -> Option<(u32, u32)> {
+) -> Option<(Rect, (u32, u32))> {
     let natural = diagrams.file_size(path)?;
     let room = (
         area.width.saturating_sub(2).max(1) as usize,
@@ -80,7 +174,7 @@ pub fn draw_picture(
             crop_h: pic.height(),
         });
     }
-    Some(natural)
+    Some((at, natural))
 }
 
 pub fn checker(buf: &mut Buffer, at: Rect) {
