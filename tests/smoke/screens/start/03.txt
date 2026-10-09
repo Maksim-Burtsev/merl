@@ -47,7 +47,7 @@ Picker: Esc            0       0    0  never  Cancel
 Help: Up               0       0    0  never  Scroll
 Help: Down             0       0    0  never  Scroll
 w                      0       0    0  never  Wrap long lines, or cut them at the edge and scroll sideways
-p                      0       0    0  never  Show a Markdown file rendered, or its source again
+p                      0       0    0  never  Show a file rendered: Markdown, CSV/TSV, JSONL, Mermaid
 f                      0       0    0  never  Fold the function or block at the cursor into its first line, or unfold it
 T                      0       0    0  never  Pick a theme (live preview)
 Esc                    0       0    0  never  Close an overlay, leave edit mode, or clear selection and find

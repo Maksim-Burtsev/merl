@@ -243,7 +243,7 @@ pub const KEYS: &[(&str, &str, &str)] = &[
     ),
     (
         "p",
-        "Show a Markdown file rendered, or its source again",
+        "Show a file rendered: Markdown, CSV/TSV, JSONL, Mermaid",
         "General",
     ),
     (
