@@ -170,14 +170,14 @@ impl App {
                 let names = if id { &rule.ids } else { &rule.classes };
                 let fresh = found
                     .last()
-                    .is_none_or(|c| c.hit.path != path || c.hit.line != rule.line);
+                    .is_none_or(|c| c.hit.path != path || c.hit.line1 != rule.line);
                 if fresh && names.iter().any(|n| n == name) {
                     found.push(Candidate {
                         hit: Hit {
                             deleted: None,
                             path: path.clone(),
-                            line: rule.line,
-                            col: 0,
+                            line1: rule.line,
+                            byte_col: None,
                             text: lines
                                 .get(rule.line - 1)
                                 .copied()
@@ -305,8 +305,8 @@ impl App {
             .map(|(i, (_, t))| Hit {
                 deleted: None,
                 path: path.to_path_buf(),
-                line: i + 1,
-                col: 0,
+                line1: i + 1,
+                byte_col: None,
                 text: t.to_owned(),
             })
             .collect()

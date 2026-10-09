@@ -76,8 +76,8 @@ fn hit_at(path: &Path, line: usize, text: Option<&str>) -> Hit {
     Hit {
         deleted: None,
         path: path.to_owned(),
-        line,
-        col: 0,
+        line1: line,
+        byte_col: None,
         text: text.unwrap_or_default().to_owned(),
     }
 }

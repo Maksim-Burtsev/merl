@@ -263,8 +263,8 @@ fn a_jump_or_a_find_match_drops_the_selection() {
     press(&mut a, KeyCode::Up, KeyModifiers::SHIFT);
     let hit = Hit {
         path: a.buf.path.clone().unwrap(),
-        line: 4,
-        col: 0,
+        line1: 4,
+        byte_col: None,
         text: "jkl".into(),
         deleted: None,
     };

@@ -119,8 +119,8 @@ impl App {
                 } = search::c_place(&body.code, at);
                 let hit = Hit {
                     path: body.path,
-                    line,
-                    col,
+                    line1: line,
+                    byte_col: Some(col),
                     text: body
                         .text
                         .lines()
@@ -168,7 +168,7 @@ impl App {
             return None;
         };
         let code = search::c_code(&self.text_of(&h.path)?);
-        let t = search::c_words_on_line(&code, h.line, name, None)
+        let t = search::c_words_on_line(&code, h.line1, name, None)
             .into_iter()
             .find_map(|at| search::c_decl_type(&code, at))?;
         matches!(t, search::CType::Name(_)).then(|| CTypeIn {
@@ -188,7 +188,7 @@ impl App {
                 return None;
             }
             let code = search::c_code(&self.text_of(&h.path)?);
-            let t = search::c_words_on_line(&code, h.line, name, Some('('))
+            let t = search::c_words_on_line(&code, h.line1, name, Some('('))
                 .into_iter()
                 .find_map(|at| search::c_decl_type(&code, at));
             let Some(search::CType::Name(t)) = t else {
@@ -251,7 +251,7 @@ impl App {
                 .find(|(p, _)| *p == h.path)
                 .expect("pushed above")
                 .1;
-            let def = search::c_words_on_line(code, h.line, name, None)
+            let def = search::c_words_on_line(code, h.line1, name, None)
                 .into_iter()
                 .find_map(|at| search::c_type_def(code, at));
             match def {
@@ -353,10 +353,10 @@ impl App {
             let Some(text) = self.text_of(&path) else {
                 continue;
             };
-            let lines: Vec<usize> = hits.iter().map(|h| h.line).collect();
+            let lines: Vec<usize> = hits.iter().map(|h| h.line1).collect();
             let fields = search::c_field_rows(&text, &lines, word);
             for h in hits {
-                match fields.iter().find(|f| f.line1 == h.line) {
+                match fields.iter().find(|f| f.line1 == h.line1) {
                     Some(search::CFieldRow {
                         owner_type: owner, ..
                     }) if !called || pointer.is_match(&h.text) => {
@@ -367,7 +367,7 @@ impl App {
                     // A member declared with no body, a pure virtual among them (#373).
                     None if called
                         && declared.is_match(&h.text)
-                        && search::c_member_class(&text, h.line, word).is_some() =>
+                        && search::c_member_class(&text, h.line1, word).is_some() =>
                     {
                         rows.push(MemberRow::method(h))
                     }
@@ -554,7 +554,7 @@ impl App {
         let lines = literal_lines.entry(h.path.clone()).or_insert_with(|| {
             (self.text_of(&h.path)).map_or_else(Vec::new, |t| search::literal_lines(Kind::C, &t))
         });
-        !lines.get(h.line - 1).copied().unwrap_or(false)
+        !lines.get(h.line1 - 1).copied().unwrap_or(false)
     }
 
     /// Of the project's `hits` for `word`, those in headers the C or C++ file `here` does not
@@ -573,7 +573,7 @@ impl App {
         }
         let reached = self.c_reached(here);
         let defines = |h: &Hit| {
-            !(self.text_of(&h.path)).is_some_and(|t| search::c_declaration_only(word, &t, h.line))
+            !(self.text_of(&h.path)).is_some_and(|t| search::c_declaration_only(word, &t, h.line1))
         };
         let (near, far): (Vec<&Hit>, Vec<&Hit>) = (hits.iter())
             .filter(|h| header(h))
@@ -584,9 +584,9 @@ impl App {
         let defined = near.iter().any(|h| defines(h));
         let gone: Vec<(PathBuf, usize)> = (far.into_iter())
             .filter(|h| defined || !defines(h))
-            .map(|h| (h.path.clone(), h.line))
+            .map(|h| (h.path.clone(), h.line1))
             .collect();
-        hits.retain(|h| !gone.contains(&(h.path.clone(), h.line)));
+        hits.retain(|h| !gone.contains(&(h.path.clone(), h.line1)));
         hits
     }
 
@@ -604,12 +604,12 @@ impl App {
                 .iter()
                 .map(|c| {
                     self.text_of(&c.hit.path)
-                        .and_then(|t| search::c_member_class(&t, c.hit.line, word))
+                        .and_then(|t| search::c_member_class(&t, c.hit.line1, word))
                 })
                 .collect();
             let defined = |scopes: &[String]| {
                 found.iter().any(|c| {
-                    (c.hit.line != self.line + 1 || c.hit.path != here)
+                    (c.hit.line1 != self.line + 1 || c.hit.path != here)
                         && search::c_defines_member(&c.hit.text, scopes, word)
                 })
             };

@@ -112,7 +112,7 @@ impl App {
                 continue;
             };
             let code = search::c_code(&text);
-            let Some(open) = search::cpp_class_body(&code, h.line, name) else {
+            let Some(open) = search::cpp_class_body(&code, h.line1, name) else {
                 continue;
             };
             if bodies
@@ -122,7 +122,7 @@ impl App {
                 continue;
             }
             let lines: Vec<&str> = text.lines().collect();
-            let nested = search::c_class_around(&lines, h.line);
+            let nested = search::c_class_around(&lines, h.line1);
             let class = Class {
                 path: h.path,
                 text: text.clone(),
@@ -201,8 +201,8 @@ impl App {
                 Candidate {
                     hit: Hit {
                         path: owner.path.clone(),
-                        line,
-                        col,
+                        line1: line,
+                        byte_col: Some(col),
                         text,
                         deleted: None,
                     },
@@ -211,7 +211,7 @@ impl App {
             })
             .collect();
         let scopes: Vec<Vec<String>> = (found.iter())
-            .filter_map(|c| search::c_member_class(&owner.text, c.hit.line, word))
+            .filter_map(|c| search::c_member_class(&owner.text, c.hit.line1, word))
             .collect();
         if scopes.is_empty() {
             return found;
@@ -227,7 +227,7 @@ impl App {
                 .filter(|h| {
                     !found
                         .iter()
-                        .any(|c| c.hit.path == h.path && c.hit.line == h.line)
+                        .any(|c| c.hit.path == h.path && c.hit.line1 == h.line1)
                 })
                 .map(|hit| Candidate {
                     hit,

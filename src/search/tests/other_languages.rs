@@ -846,7 +846,7 @@ fn make_fallback_patterns_find_appends_and_target_variables() {
     let pat = make_fallback_patterns("CFLAGS").join("|");
     let lines: Vec<usize> = grep(&dir, &files, &pat, false, false)
         .iter()
-        .map(|h| h.line)
+        .map(|h| h.line1)
         .collect();
     assert_eq!(
         lines,

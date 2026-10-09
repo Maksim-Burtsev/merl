@@ -111,7 +111,7 @@ impl SearchJob {
                     || (script.entry(h.path.clone()).or_insert_with(|| {
                         search::script_lines(&h.path, &read(&h.path)).unwrap_or_default()
                     }))
-                    .get(h.line - 1)
+                    .get(h.line1 - 1)
                     .copied()
                     .unwrap_or(false)
             });
@@ -123,7 +123,7 @@ impl SearchJob {
                         search::HaskellCode::new(&text.lines().collect::<Vec<_>>())
                     });
                     search::symbol_name(&re, &h.text)
-                        .is_some_and(|n| search::haskell_symbol(code, h.line, &n))
+                        .is_some_and(|n| search::haskell_symbol(code, h.line1, &n))
                 });
             }
             let reserved = |t: &str| {
@@ -145,7 +145,7 @@ impl SearchJob {
                         }
                     });
                     let lines: Vec<&str> = text.lines().collect();
-                    search::ml_symbol_kept(k, &h.path, &lines, h.line)
+                    search::ml_symbol_kept(k, &h.path, &lines, h.line1)
                 });
             }
             // The declarations the branch deleted, of the files this row is written for.
@@ -174,9 +174,9 @@ pub(super) fn deleted_hits(
         .filter(|d| wanted(&d.path))
         .filter_map(|d| {
             Some(Hit {
-                col: find(&d.text)?,
+                byte_col: Some(find(&d.text)?),
                 path: d.path.clone(),
-                line: d.line,
+                line1: d.line,
                 text: d.text.clone(),
                 deleted: Some(d.at),
             })
@@ -184,7 +184,6 @@ pub(super) fn deleted_hits(
         .collect()
 }
 
-#[derive(Debug, Clone, PartialEq)]
 pub(super) struct FileLine {
     pub(super) path: PathBuf,
     pub(super) line1: usize,
@@ -196,4 +195,13 @@ pub(super) struct Typed {
     pub(super) name: String,
     pub(super) path: PathBuf,
     pub(super) line: usize,
+}
+
+impl Typed {
+    pub(super) fn decl(&self) -> FileLine {
+        FileLine {
+            path: self.path.clone(),
+            line1: self.line,
+        }
+    }
 }

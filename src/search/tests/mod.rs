@@ -76,7 +76,7 @@ fn pairs(imports: Vec<Import>) -> Vec<(String, Vec<String>)> {
 
 fn lines(hits: &[Hit]) -> Vec<(String, usize)> {
     hits.iter()
-        .map(|h| (h.path.display().to_string(), h.line))
+        .map(|h| (h.path.display().to_string(), h.line1))
         .collect()
 }
 
@@ -92,9 +92,9 @@ fn defs(dir: &Path, files: &[PathBuf], kind: Kind, word: &str) -> Vec<usize> {
             }
             let text = std::fs::read_to_string(dir.join(&h.path)).unwrap_or_default();
             let lines: Vec<&str> = text.lines().collect();
-            declares_where(kind, &h.path, word, h.line, &h.text, || &lines)
+            declares_where(kind, &h.path, word, h.line1, &h.text, || &lines)
         })
-        .map(|h| h.line)
+        .map(|h| h.line1)
         .collect()
 }
 
@@ -103,7 +103,7 @@ fn members(dir: &Path, files: &[PathBuf], kind: Kind, word: &str) -> Vec<usize> 
     let pat = member_patterns(kind, word).unwrap().join("|");
     grep(dir, files, &pat, false, false)
         .iter()
-        .map(|h| h.line)
+        .map(|h| h.line1)
         .collect()
 }
 

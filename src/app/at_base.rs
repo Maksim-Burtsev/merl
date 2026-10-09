@@ -82,16 +82,16 @@ impl App {
             (None, Some((Some(to), line, col))) => {
                 let mut hit = Hit {
                     path: to,
-                    line,
-                    col,
+                    line1: line,
+                    byte_col: Some(col),
                     text: String::new(),
                     deleted: None,
                 };
                 self.to_review(&r, &base, &mut hit);
                 let path = self.root.join(&hit.path);
                 match hit.deleted {
-                    Some(_) => self.jump_to_deleted(&path, hit.line, col),
-                    None => self.jump_to_col(&path, hit.line, col),
+                    Some(_) => self.jump_to_deleted(&path, hit.line1, col),
+                    None => self.jump_to_col(&path, hit.line1, col),
                 }
                 // A refused jump leaves its own reason, not a resolution nobody followed.
                 if self.buf.path.as_deref() == Some(path.as_path()) {
@@ -120,8 +120,8 @@ impl App {
     fn item_to_review(&self, r: &git::Review, base: &Path, mut it: PickItem) -> PickItem {
         let mut hit = Hit {
             path: it.path.clone(),
-            line: it.line,
-            col: it.col,
+            line1: it.line,
+            byte_col: None,
             text: String::new(),
             deleted: None,
         };
@@ -134,7 +134,7 @@ impl App {
             ),
             _ => (
                 at_label(&rel(&it.path), it.line),
-                at_label(&hit.path, hit.line),
+                at_label(&hit.path, hit.line1),
             ),
         };
         if let Some(at) = it.label.find(&was) {
@@ -150,7 +150,7 @@ impl App {
                 path.end = at + hit.path.display().to_string().len();
             }
         }
-        (it.path, it.line, it.deleted) = (hit.path, hit.line, hit.deleted.is_some());
+        (it.path, it.line, it.deleted) = (hit.path, hit.line1, hit.deleted.is_some());
         it
     }
 
@@ -167,16 +167,16 @@ impl App {
             return;
         };
         h.path = file.path.clone();
-        if let Some(d) = (r.deleted.iter()).find(|d| d.path == h.path && d.line == h.line) {
+        if let Some(d) = (r.deleted.iter()).find(|d| d.path == h.path && d.line == h.line1) {
             match self.moved_copy(r, d) {
-                Some((path, line)) => (h.path, h.line) = (path, line),
+                Some((path, line)) => (h.path, h.line1) = (path, line),
                 None => h.deleted = Some(d.at),
             }
             return;
         }
         let diff = r.diff(&self.root, &self.root.join(&file.path), Some(file));
-        if let Some(now) = kept_line(&diff, h.line) {
-            h.line = now;
+        if let Some(now) = kept_line(&diff, h.line1) {
+            h.line1 = now;
         }
     }
 
@@ -254,8 +254,8 @@ impl App {
                     let literal = self.hidden_of(kind, h);
                     (text.lines().map(str::to_owned).collect(), literal)
                 });
-                !literal.get(h.line - 1).copied().unwrap_or(false)
-                    && search::declares_where(kind, &h.path, word, h.line, &h.text, || lines)
+                !literal.get(h.line1 - 1).copied().unwrap_or(false)
+                    && search::declares_where(kind, &h.path, word, h.line1, &h.text, || lines)
             })
             .map(|hit| Candidate {
                 hit,

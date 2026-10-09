@@ -169,8 +169,8 @@ impl App {
                     hit: Hit {
                         deleted: None,
                         path: here.clone(),
-                        line,
-                        col: 0,
+                        line1: line,
+                        byte_col: None,
                         text: self.buf.lines[line - 1].clone(),
                     },
                     reason: Reason::ByName,
@@ -223,8 +223,8 @@ impl App {
                     hit: Hit {
                         deleted: None,
                         path: here.clone(),
-                        line,
-                        col: 0,
+                        line1: line,
+                        byte_col: None,
                         text: self.buf.lines[line - 1].clone(),
                     },
                     reason: Reason::Local,
@@ -449,8 +449,8 @@ impl App {
                     hit: Hit {
                         deleted: None,
                         path: here.clone(),
-                        line,
-                        col: 0,
+                        line1: line,
+                        byte_col: None,
                         text: self.buf.lines[line - 1].clone(),
                     },
                     reason: Reason::Local,
@@ -510,7 +510,7 @@ impl App {
                 _ => chain.clone(),
             };
             let found = self.lua_qualified(&here, &text, &chain, &word);
-            let on = |c: &Candidate| c.hit.path == here && c.hit.line == self.line + 1;
+            let on = |c: &Candidate| c.hit.path == here && c.hit.line1 == self.line + 1;
             if !found.iter().all(on) {
                 self.show_definitions(kind, &word, &here, found, None);
                 return;
@@ -529,8 +529,8 @@ impl App {
             let hit = Hit {
                 deleted: None,
                 path: here.clone(),
-                line,
-                col: 0,
+                line1: line,
+                byte_col: None,
                 text: self.buf.lines[line - 1].clone(),
             };
             let reason = Reason::Import(path.join("/"));
@@ -694,8 +694,8 @@ impl App {
             let hit = Hit {
                 deleted: None,
                 path: here.clone(),
-                line,
-                col: 0,
+                line1: line,
+                byte_col: None,
                 text: self.buf.lines[line - 1].clone(),
             };
             let found = vec![Candidate {
@@ -776,7 +776,7 @@ impl App {
                 // `self.repo` that leads to this very line is the field's declaration.
                 Ok(found)
                     if own
-                        && matches!(found.as_slice(), [c] if c.hit.line == self.line + 1 && c.hit.path == here) =>
+                        && matches!(found.as_slice(), [c] if c.hit.line1 == self.line + 1 && c.hit.path == here) =>
                 {
                     let found = self.field_namesakes(kind, &here, &word);
                     self.show_definitions(kind, &word, &here, found, None);
@@ -860,8 +860,8 @@ impl App {
             let hit = Hit {
                 deleted: None,
                 path: here.clone(),
-                line,
-                col: 0,
+                line1: line,
+                byte_col: None,
                 text: self.buf.lines[line - 1].clone(),
             };
             let reason = Reason::Import(format!("{} (not installed)", module.join("/")));
@@ -1000,8 +1000,8 @@ impl App {
                     hit: Hit {
                         deleted: None,
                         path: here.clone(),
-                        line: i + 1,
-                        col: 0,
+                        line1: i + 1,
+                        byte_col: None,
                         text: l.to_owned(),
                     },
                     reason: Reason::Path("this".to_owned()),
@@ -1141,22 +1141,21 @@ impl App {
                     let Some(t) = self.text_of(&h.path) else {
                         return false;
                     };
-                    search::qualified(kind, &t, h.line, &word).is_some_and(
-                        |q| match &answer_files {
-                            Some(files) if mine.is_some() => {
-                                mine.as_ref()
-                                    .is_some_and(|o| q == format!("{o}{sep}{word}"))
-                                    && files.contains(&h.path)
-                            }
-                            Some(files) => q == full && files.contains(&h.path),
-                            None => {
-                                q == full
-                                    || q.ends_with(&format!("{sep}{full}"))
-                                    || (starts_with_project_module
-                                        && full.ends_with(&format!("{sep}{q}")))
-                            }
-                        },
-                    ) && (!singleton || search::ruby_singleton(&t, h.line))
+                    let qualified = search::qualified(kind, &t, h.line1, &word);
+                    qualified.is_some_and(|q| match &answer_files {
+                        Some(files) if mine.is_some() => {
+                            mine.as_ref()
+                                .is_some_and(|o| q == format!("{o}{sep}{word}"))
+                                && files.contains(&h.path)
+                        }
+                        Some(files) => q == full && files.contains(&h.path),
+                        None => {
+                            q == full
+                                || q.ends_with(&format!("{sep}{full}"))
+                                || (starts_with_project_module
+                                    && full.ends_with(&format!("{sep}{q}")))
+                        }
+                    }) && (!singleton || search::ruby_singleton(&t, h.line1))
                 })
                 .map(|hit| Candidate {
                     reason: match answer_files {
@@ -1169,7 +1168,7 @@ impl App {
                 .collect();
             let on_row = named
                 .iter()
-                .any(|c| c.hit.path == here && c.hit.line == self.line + 1);
+                .any(|c| c.hit.path == here && c.hit.line1 == self.line + 1);
             let named = match kind == Kind::C && !on_row {
                 true => {
                     let rows: Vec<Hit> = named.iter().map(|c| c.hit.clone()).collect();
@@ -1186,7 +1185,7 @@ impl App {
                         .into_iter()
                         .filter(|c| {
                             kept.iter()
-                                .any(|h| h.path == c.hit.path && h.line == c.hit.line)
+                                .any(|h| h.path == c.hit.path && h.line1 == c.hit.line1)
                         })
                         .collect()
                 }
@@ -1261,8 +1260,8 @@ impl App {
                         hit: Hit {
                             deleted: None,
                             path: here.clone(),
-                            line,
-                            col: 0,
+                            line1: line,
+                            byte_col: None,
                             text: self.buf.lines[line - 1].clone(),
                         },
                         reason: Reason::File,
@@ -1318,7 +1317,7 @@ impl App {
                 !(d.starts_with("def ") || d.starts_with("async def "))
                     || !self
                         .text_of(&h.path)
-                        .is_some_and(|t| search::python_method(&t, h.line))
+                        .is_some_and(|t| search::python_method(&t, h.line1))
             });
             // The one row left when its rivals went is jumped to, so the name must reach it
             // from the cursor: at module level, or in a function around the cursor. Another
@@ -1328,7 +1327,7 @@ impl App {
             let unreachable = |h: &Hit| {
                 let inside = self
                     .text_of(&h.path)
-                    .and_then(|t| python_functions(&t, h.line).first().copied());
+                    .and_then(|t| python_functions(&t, h.line1).first().copied());
                 inside.is_some_and(|f| h.path != here || !around.contains(&f))
             };
             if !matches!(kept.as_slice(), [h] if all > 1 && unreachable(h)) {
@@ -1371,8 +1370,8 @@ impl App {
                     .map(|line| Hit {
                         deleted: None,
                         path: here.clone(),
-                        line,
-                        col: 0,
+                        line1: line,
+                        byte_col: None,
                         text: self.buf.lines[line - 1].clone(),
                     }),
             );
@@ -1382,7 +1381,7 @@ impl App {
             hits = self.cs_reachable(&here, &word, chain, cs_walked.as_deref(), hits);
         }
         if kind == Kind::Lua {
-            let at = |h: &Hit| h.path == here && h.line == self.line + 1;
+            let at = |h: &Hit| h.path == here && h.line1 == self.line + 1;
             let all = hits.len();
             hits.retain(|h| {
                 !h.text.starts_with([' ', '\t'])
@@ -1394,12 +1393,12 @@ impl App {
         if arrow_param
             && !hits
                 .iter()
-                .any(|h| h.path == here && h.line == self.line + 1)
+                .any(|h| h.path == here && h.line1 == self.line + 1)
         {
             hits.push(Hit {
                 path: here.clone(),
-                line: self.line + 1,
-                col: 0,
+                line1: self.line + 1,
+                byte_col: None,
                 text: self.line_str().to_owned(),
                 deleted: None,
             });
@@ -1409,15 +1408,15 @@ impl App {
             // line joins the namesakes found by name, as a `let` line does by its pattern.
             let own = Hit {
                 path: here.clone(),
-                line: self.line + 1,
-                col: 0,
+                line1: self.line + 1,
+                byte_col: None,
                 text: self.line_str().to_owned(),
                 deleted: None,
             };
             if swift_binds_here
                 && !hits
                     .iter()
-                    .any(|h| h.path == own.path && h.line == own.line)
+                    .any(|h| h.path == own.path && h.line1 == own.line1)
             {
                 hits.push(own);
             }
@@ -1441,13 +1440,13 @@ impl App {
                     let literal = search::literal_lines(kind, &t);
                     (t.lines().map(str::to_owned).collect(), literal)
                 });
-                match search::swift_local(lines, literal, h.line) {
+                match search::swift_local(lines, literal, h.line1) {
                     Some(at) => !dotted && h.path == here && scopes.contains(&at),
                     None => true,
                 }
             });
             self.offer_only |= hits.len() < all
-                && matches!(hits.as_slice(), [h] if h.path == here && h.line == self.line + 1);
+                && matches!(hits.as_slice(), [h] if h.path == here && h.line1 == self.line + 1);
         }
         let hits = match kind {
             Kind::Jvm => {
@@ -1505,7 +1504,7 @@ impl App {
                 let hits = self.c_reached_only(&here, &word, hits);
                 let on = hits
                     .iter()
-                    .any(|h| h.path == here && h.line == self.line + 1);
+                    .any(|h| h.path == here && h.line1 == self.line + 1);
                 let hits = search::c_file_local(&word, &here, &text, hits, |p| self.text_of(p), on);
                 let line = self.line_str();
                 let declared: Vec<Option<String>> = hits
@@ -1514,7 +1513,7 @@ impl App {
                         let scopes = self
                             .text_of(&h.path)
                             .filter(|_| on && before.ends_with("::"))
-                            .and_then(|t| search::c_member_class(&t, h.line, &word))?;
+                            .and_then(|t| search::c_member_class(&t, h.line1, &word))?;
                         search::c_defines_member(line, &scopes, &word)
                             .then(|| scopes.last().cloned())
                             .flatten()
@@ -1536,7 +1535,7 @@ impl App {
                 }
                 let (fallback, hits): (Vec<Hit>, Vec<Hit>) = hits.into_iter().partition(|h| {
                     self.text_of(&h.path)
-                        .is_some_and(|t| search::c_fallback(&t, h.line, &word))
+                        .is_some_and(|t| search::c_fallback(&t, h.line1, &word))
                 });
                 // With nothing else in the project, the search outside runs first.
                 if hits.is_empty() {
@@ -1649,10 +1648,10 @@ impl App {
         }
         if kind == Kind::Zig {
             found.retain(|c| {
-                (c.hit.path == here && c.hit.line == self.line + 1)
+                (c.hit.path == here && c.hit.line1 == self.line + 1)
                     || self
                         .text_of(&c.hit.path)
-                        .is_some_and(|t| search::zig_visible(&t, c.hit.line, c.hit.path == here))
+                        .is_some_and(|t| search::zig_visible(&t, c.hit.line1, c.hit.path == here))
             });
         }
         if found.is_empty() {
@@ -1709,8 +1708,8 @@ impl App {
                 hit: Hit {
                     deleted: None,
                     path: here.to_path_buf(),
-                    line: decl,
-                    col: 0,
+                    line1: decl,
+                    byte_col: None,
                     text: self.buf.lines[decl - 1].clone(),
                 },
                 reason: Reason::File,
@@ -1747,16 +1746,16 @@ impl App {
             // Outside the project nothing is read; the line under the cursor declares nothing
             // it calls.
             if (c.hit.path.is_absolute() && !reads_outside)
-                || (c.hit.path == here && c.hit.line == cursor_line + 1)
+                || (c.hit.path == here && c.hit.line1 == cursor_line + 1)
             {
                 continue;
             }
             let Some(text) = self.text_of(&c.hit.path) else {
                 continue;
             };
-            let of = search::qualified(kind, &text, c.hit.line, &name).unwrap_or(name.clone());
+            let of = search::qualified(kind, &text, c.hit.line1, &name).unwrap_or(name.clone());
             let mut at: Vec<(PathBuf, usize, String)> =
-                search::label_lines(kind, &text, c.hit.line, &name, word, owner)
+                search::label_lines(kind, &text, c.hit.line1, &name, word, owner)
                     .into_iter()
                     .map(|l| (c.hit.path.clone(), l, of.clone()))
                     .collect();
@@ -1764,7 +1763,7 @@ impl App {
             // declares one `Props`.
             if at.is_empty()
                 && let search::Owner::Object(n) = owner
-                && let Some(ty) = search::object_type(kind, &text, c.hit.line, &name, *n)
+                && let Some(ty) = search::object_type(kind, &text, c.hit.line1, &name, *n)
             {
                 let cut = self.truncated.get();
                 let pattern = search::def_patterns(kind, &ty).join("|");
@@ -1773,7 +1772,7 @@ impl App {
                 if let [d] = decls.as_slice()
                     && let Some(t) = self.text_of(&d.path)
                 {
-                    at = search::label_lines(kind, &t, d.line, &ty, word, &search::Owner::Typed)
+                    at = search::label_lines(kind, &t, d.line1, &ty, word, &search::Owner::Typed)
                         .into_iter()
                         .map(|l| (d.path.clone(), l, ty.clone()))
                         .collect();
@@ -1784,7 +1783,10 @@ impl App {
                 false => ", found by name",
             };
             for (path, line, of) in at {
-                if out.iter().any(|o| o.hit.path == path && o.hit.line == line) {
+                if out
+                    .iter()
+                    .any(|o| o.hit.path == path && o.hit.line1 == line)
+                {
                     continue;
                 }
                 let text = self
@@ -1795,8 +1797,8 @@ impl App {
                     hit: Hit {
                         deleted: None,
                         path,
-                        line,
-                        col: 0,
+                        line1: line,
+                        byte_col: None,
                         text,
                     },
                     reason: Reason::Label(format!("{what} of {of}{by_name}")),
@@ -1851,39 +1853,6 @@ impl App {
             .is_empty();
         self.truncated.set(cut);
         none
-    }
-
-    fn subclass_members(
-        &mut self,
-        kind: Kind,
-        here: &Path,
-        word: &str,
-        pattern: &str,
-        ty: &Typed,
-    ) -> Vec<Candidate> {
-        let mut owners = self.subtypes(kind, here, ty);
-        owners.push(FileLine {
-            path: ty.path.clone(),
-            line1: ty.line,
-        });
-        self.members_by_name(kind, here, word, pattern)
-            .into_iter()
-            .filter(|h| {
-                self.text_of(&h.path).is_some_and(|t| {
-                    let lines: Vec<&str> = t.lines().collect();
-                    search::enclosing_type(kind, &lines, h.line - 1).is_some_and(|d| {
-                        owners.contains(&FileLine {
-                            path: h.path.clone(),
-                            line1: d,
-                        })
-                    })
-                })
-            })
-            .map(|hit| Candidate {
-                hit,
-                reason: Reason::ByName,
-            })
-            .collect()
     }
 
     fn literal_field(
@@ -2016,7 +1985,7 @@ impl App {
         if kind == Kind::TsJs {
             let head = search::ts_method_head(word);
             found.retain(|c| {
-                !search::ts_call_statement(&head, &c.hit.text, c.hit.line, || {
+                !search::ts_call_statement(&head, &c.hit.text, c.hit.line1, || {
                     self.text_of(&c.hit.path)
                 })
             });
@@ -2033,10 +2002,10 @@ impl App {
                         .is_ok_and(|re| re.is_match(&c.hit.text))
                     && self
                         .text_of(&c.hit.path)
-                        .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line));
+                        .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line1));
                 // A tag of a PHP class's docblock (#344) or of a JavaScript `@typedef` (#347)
                 // is a declaration inside a comment.
-                let literal = lines.get(c.hit.line - 1).copied().unwrap_or(false)
+                let literal = lines.get(c.hit.line1 - 1).copied().unwrap_or(false)
                     && !self.doc_tag(kind, &c.hit)
                     && !(c.reason == Reason::Local && search::component(&c.hit.path));
                 !call && !literal
@@ -2050,7 +2019,7 @@ impl App {
                 },
             );
         if superclass {
-            found.retain(|c| c.hit.line != self.line + 1 || c.hit.path != here);
+            found.retain(|c| c.hit.line1 != self.line + 1 || c.hit.path != here);
         }
         if kind == Kind::C {
             self.c_rows(word, here, &mut found);
@@ -2070,7 +2039,7 @@ impl App {
         }
         let all = found.len();
         if all > 1 {
-            found.retain(|c| c.hit.line != self.line + 1 || c.hit.path != here);
+            found.retain(|c| c.hit.line1 != self.line + 1 || c.hit.path != here);
         }
         // The line of an interface method is a declaration no pattern of `d` lists, so nothing
         // was dropped above, and what is found is its namesakes all the same.
@@ -2092,7 +2061,7 @@ impl App {
             // Alone, the declaration under the cursor is its own answer.
             && found
                 .iter()
-                .any(|c| c.hit.line != self.line + 1 || c.hit.path != here)
+                .any(|c| c.hit.line1 != self.line + 1 || c.hit.path != here)
             && self.on_declared_name(kind, word, false);
         let word_chars = search::word_chars(Some(kind), true);
         let form = |t: &str| t[..word_col(t, word, word_chars)].trim().to_owned();
@@ -2119,7 +2088,7 @@ impl App {
                 let target = self
                     .hit_text(&one.hit)
                     .filter(|_| !matches!(one.reason, Reason::Module(_) | Reason::Label(_)))
-                    .and_then(|text| search::qualified(kind, &text, one.hit.line, &name));
+                    .and_then(|text| search::qualified(kind, &text, one.hit.line1, &name));
                 let status = resolution(word, target.as_deref(), &found, broke, false);
                 // The cursor lands on the word rather than at the start of the line, so a
                 // second `d` there asks the next question about the same name: what
@@ -2127,8 +2096,8 @@ impl App {
                 // picker below lands there too, the word read by the rules `d` read it with.
                 let col = word_col(&one.hit.text, &name, word_chars);
                 match one.hit.deleted {
-                    Some(_) => self.jump_to_deleted(&path, one.hit.line, col),
-                    None => self.jump_to_col(&path, one.hit.line, col),
+                    Some(_) => self.jump_to_deleted(&path, one.hit.line1, col),
+                    None => self.jump_to_col(&path, one.hit.line1, col),
                 }
                 // A refused jump (edits that cannot be saved) leaves its own reason, not a
                 // resolution nobody followed.
@@ -2232,7 +2201,7 @@ impl App {
                             self.text_of(&h.path)
                                 .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
                         }),
-                        h.line,
+                        h.line1,
                     )
             });
         }
@@ -2261,7 +2230,7 @@ impl App {
                     return true;
                 };
                 let lines: Vec<&str> = text.lines().collect();
-                let at = h.line - 1;
+                let at = h.line1 - 1;
                 match lines.get(at).and_then(|l| search::shell_local_of(l)) {
                     Some(_) => search::shell_function_at(&lines, at)
                         .is_none_or(|f| h.path == here && Some(f) == mine),
@@ -2272,12 +2241,12 @@ impl App {
         if kind == Kind::Sql
             && !hits
                 .iter()
-                .any(|h| h.path == here && h.line == self.line + 1)
+                .any(|h| h.path == here && h.line1 == self.line + 1)
         {
             let cte = Regex::new(&search::sql_cte(word)).expect("an escaped name keeps it valid");
             let text = self.text_of(here).unwrap_or_default();
             let sees = |h: &Hit| match h.path == here {
-                true => search::sql_cte_sees(&text, h.line, word, self.line + 1, self.col),
+                true => search::sql_cte_sees(&text, h.line1, word, self.line + 1, self.col),
                 false => Some(false),
             };
             // A CTE whose scope has no known end leaves the candidates as they are.

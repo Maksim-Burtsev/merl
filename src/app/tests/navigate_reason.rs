@@ -527,8 +527,8 @@ fn a_jump_says_how_the_target_was_found() {
         vec![Candidate {
             hit: Hit {
                 path: PathBuf::from("x"),
-                line: 1,
-                col: 0,
+                line1: 1,
+                byte_col: None,
                 text: String::new(),
                 deleted: None,
             },

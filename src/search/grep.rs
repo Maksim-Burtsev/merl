@@ -16,16 +16,15 @@ use grep_searcher::{BinaryDetection, Searcher, SearcherBuilder, Sink, SinkMatch}
 pub const MAX_HITS: usize = 5_000;
 const MAX_THREADS: usize = 8;
 const FILES_PER_THREAD: usize = 64;
-/// One matching line. `path` is relative to the project root, `line` is 1-based.
+/// One matching line. `path` is relative to the project root.
 #[derive(Debug, Clone)]
 pub struct Hit {
     pub path: PathBuf,
-    pub line: usize,
-    /// The byte of the line where the pattern's match starts: where `s` lands on the row. 0 for a
-    /// line found some other way.
-    pub col: usize,
+    pub line1: usize,
+    /// Where the pattern's match starts: where `s` lands on the row.
+    pub byte_col: Option<usize>,
     pub text: String,
-    /// A line the branch under review deleted (#440): where the review draws it. `line` is then
+    /// A line the branch under review deleted (#440): where the review draws it. `line1` is then
     /// its number in the file at the base.
     pub deleted: Option<TextLine>,
 }
@@ -33,7 +32,7 @@ pub struct Hit {
 impl Hit {
     /// The line of the text the hit is on, as a review orders them.
     pub fn place(&self) -> TextLine {
-        self.deleted.unwrap_or(TextLine::File(self.line - 1))
+        self.deleted.unwrap_or(TextLine::File(self.line1 - 1))
     }
 }
 /// Greps `pattern` over `files` (paths relative to `root`).
@@ -197,10 +196,10 @@ fn collect(
         }
         hits
     });
-    hits.sort_by_key(|(file, h)| (*file, h.line));
+    hits.sort_by_key(|(file, h)| (*file, h.line1));
     hits.truncate(MAX_HITS);
     let mut hits: Vec<Hit> = hits.into_iter().map(|(_, h)| h).collect();
-    hits.sort_by_cached_key(|h| (current != Some(h.path.as_path()), h.path.clone(), h.line));
+    hits.sort_by_cached_key(|h| (current != Some(h.path.as_path()), h.path.clone(), h.line1));
     hits
 }
 struct Collect<'a> {
@@ -225,12 +224,12 @@ impl Sink for Collect<'_> {
                 self.file,
                 Hit {
                     path: self.path.to_path_buf(),
-                    line: {
+                    line1: {
                         let n = m.line_number().unwrap_or(0) as usize;
                         self.lines
                             .map_or(n, |l| l.get(n.wrapping_sub(1)).copied().unwrap_or(0))
                     },
-                    col: col.map_or(0, |m| m.start()),
+                    byte_col: col.map(|m| m.start()),
                     text: text.to_string(),
                     deleted: None,
                 },

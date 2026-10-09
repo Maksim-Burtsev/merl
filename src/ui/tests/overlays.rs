@@ -259,8 +259,8 @@ fn hit_picker_rows_keep_the_syntax_colours_of_their_line() {
     let mut app = App::new(root, Tree::default(), Vec::new(), Buffer::empty(), None);
     let hits = vec![crate::search::Hit {
         path: PathBuf::from("src/wrap.rs"),
-        line: 1,
-        col: 0,
+        line1: 1,
+        byte_col: None,
         text: std::fs::read_to_string(app.root.join("src/wrap.rs"))
             .unwrap()
             .lines()
@@ -296,8 +296,8 @@ fn the_selected_hit_row_takes_the_themes_selected_text_colour() {
     let mut app = App::new(root, Tree::default(), Vec::new(), Buffer::empty(), None);
     let hits = vec![crate::search::Hit {
         path: PathBuf::from("src/wrap.rs"),
-        line: 1,
-        col: 0,
+        line1: 1,
+        byte_col: None,
         text: std::fs::read_to_string(app.root.join("src/wrap.rs"))
             .unwrap()
             .lines()
@@ -337,8 +337,8 @@ fn hit_picker_rows_keep_their_colours_past_a_tab() {
     );
     let hits = vec![crate::search::Hit {
         path: PathBuf::from("a.c"),
-        line: 1,
-        col: 0,
+        line1: 1,
+        byte_col: None,
         text: "#define MAX\t10".into(),
         deleted: None,
     }];
@@ -794,8 +794,8 @@ fn hits_app(name: &str, hits: &[(&str, usize, &str)]) -> App {
         .iter()
         .map(|&(path, line, text)| crate::search::Hit {
             path: PathBuf::from(path),
-            line,
-            col: 0,
+            line1: line,
+            byte_col: None,
             text: text.into(),
             deleted: None,
         })

@@ -94,8 +94,8 @@ impl App {
                 hit: Hit {
                     deleted: None,
                     path: here.to_path_buf(),
-                    line,
-                    col: 0,
+                    line1: line,
+                    byte_col: None,
                     text: self.buf.lines[line - 1].clone(),
                 },
                 reason: Reason::Local,

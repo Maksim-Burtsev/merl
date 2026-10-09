@@ -201,8 +201,8 @@ impl App {
         let literal = search::literal_lines(Kind::CSharp, &text);
         let hit = |line: usize| Hit {
             path: ty.path.clone(),
-            line,
-            col: 0,
+            line1: line,
+            byte_col: None,
             text: lines[line - 1].to_owned(),
             deleted: None,
         };
@@ -239,7 +239,7 @@ impl App {
             return None;
         };
         let text = self.text_of(&hit.path)?;
-        let ty = self.cs_resolve(&hit.path, &text, hit.line, &written)?;
+        let ty = self.cs_resolve(&hit.path, &text, hit.line1, &written)?;
         let link = format!("{field}: {}", search::cs_type_name(&written)?);
         Some(Proven { ty, link })
     }
@@ -363,7 +363,7 @@ impl App {
             false => written,
         };
         let at = self.text_of(&hit.path)?;
-        let ty = self.cs_resolve(&hit.path, &at, hit.line, &written)?;
+        let ty = self.cs_resolve(&hit.path, &at, hit.line1, &written)?;
         Some(CsWrittenType { ty, written })
     }
 
@@ -388,7 +388,7 @@ impl App {
             ([one], true) => Some(CsType::Project(Typed {
                 name: name.clone(),
                 path: one.path.clone(),
-                line: one.line,
+                line: one.line1,
             })),
             ([], true) => Some(CsType::Outside(name)),
             _ => None,
@@ -442,13 +442,13 @@ impl App {
             .into_iter()
             .filter_map(|h| {
                 let text = self.text_of(&h.path)?;
-                let (line, col) = search::enum_member(kind, &text, h.line, word)?;
+                let (line, col) = search::enum_member(kind, &text, h.line1, word)?;
                 let hit = Hit {
                     deleted: None,
                     text: text.lines().nth(line - 1)?.to_owned(),
                     path: h.path,
-                    line,
-                    col,
+                    line1: line,
+                    byte_col: Some(col),
                 };
                 let reason = Reason::Path(path.to_owned());
                 Some((Candidate { hit, reason }, search::cs_namespace(&text, line)))
@@ -595,7 +595,7 @@ impl App {
             // On a declaration of the name, its namesakes are offered, as before.
             if hits
                 .iter()
-                .any(|h| h.path == here && h.line == self.line + 1)
+                .any(|h| h.path == here && h.line1 == self.line + 1)
             {
                 return Err(None);
             }
@@ -654,12 +654,12 @@ impl App {
             for h in self.project_grep(Kind::CSharp, &ty.path, &pattern) {
                 let same = self
                     .text_of(&h.path)
-                    .is_some_and(|t| search::cs_namespace(&t, h.line) == namespace);
-                if same && (h.path != ty.path || h.line != ty.line) {
+                    .is_some_and(|t| search::cs_namespace(&t, h.line1) == namespace);
+                if same && (h.path != ty.path || h.line1 != ty.line) {
                     parts.push(Typed {
                         name: ty.name.clone(),
                         path: h.path,
-                        line: h.line,
+                        line: h.line1,
                     });
                 }
             }
@@ -671,13 +671,13 @@ impl App {
             let text = self.text_of(&part.path).unwrap_or_default();
             own.retain(|h| {
                 !matches!(
-                    search::cs_place(&text, h.line, word),
+                    search::cs_place(&text, h.line1, word),
                     search::CsPlace::Local { .. }
                 )
             });
             if own
                 .iter()
-                .any(|h| h.path == level.cursor_file && h.line == level.cursor_line1)
+                .any(|h| h.path == level.cursor_file && h.line1 == level.cursor_line1)
             {
                 return own;
             }
@@ -685,7 +685,7 @@ impl App {
             // the call's arguments: the walk goes on up to the bases then (#360).
             own.retain(|h| {
                 let private = matches!(
-                    search::cs_place(&text, h.line, word),
+                    search::cs_place(&text, h.line1, word),
                     search::CsPlace::Member { private: true, .. }
                 );
                 !(depth > 0 && private)
@@ -752,9 +752,9 @@ impl App {
         });
         let mut hits = hits;
         hits.retain(|h| {
-            let place = self
-                .text_of(&h.path)
-                .map_or(search::CsPlace::Top, |t| search::cs_place(&t, h.line, word));
+            let place = self.text_of(&h.path).map_or(search::CsPlace::Top, |t| {
+                search::cs_place(&t, h.line1, word)
+            });
             match place {
                 search::CsPlace::Member { owner, .. }
                     if walked.is_some_and(|w| !w.contains(&owner)) =>
@@ -775,7 +775,7 @@ impl App {
         // a declaration of the name, both stay its namesakes.
         if !hits
             .iter()
-            .any(|h| h.path == here && h.line == self.line + 1)
+            .any(|h| h.path == here && h.line1 == self.line + 1)
         {
             let patterns = search::def_patterns(Kind::CSharp, word);
             let ty = Regex::new(&patterns[0]).expect("an escaped name keeps the pattern valid");
@@ -826,11 +826,11 @@ impl App {
                     fewest: min,
                     most_unless_params: max,
                     extension_this: this,
-                }) = search::cs_parameters(&text, h.line, word)
+                }) = search::cs_parameters(&text, h.line1, word)
                 else {
                     return true;
                 };
-                let owner = match search::cs_place(&text, h.line, word) {
+                let owner = match search::cs_place(&text, h.line1, word) {
                     search::CsPlace::Member { owner, .. } => owner,
                     _ => String::new(),
                 };

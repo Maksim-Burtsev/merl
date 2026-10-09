@@ -63,11 +63,11 @@ impl App {
                     label: format!(
                         "{name}{}  {}",
                         " ".repeat(width.saturating_sub(wrap::width(&name))),
-                        at_label(&h.path, h.line),
+                        at_label(&h.path, h.line1),
                     ),
                     deleted: h.deleted.is_some(),
                     path: h.path,
-                    line: h.line,
+                    line: h.line1,
                     col,
                     code_at: None,
                     path_at: None,
