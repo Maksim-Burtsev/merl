@@ -493,12 +493,22 @@ pub fn narrow_patterns(
 ///   tag `struct X` on the opening one.
 ///
 /// The caller runs it only where a type can be meant: never behind `.` or `->` (#359).
+#[derive(Clone, Copy)]
+pub struct CTypeWord {
+    pub constructs: bool,
+    pub struct_tag: bool,
+}
+impl CTypeWord {
+    pub const NAMED: CTypeWord = CTypeWord {
+        constructs: false,
+        struct_tag: false,
+    };
+}
 pub fn c_type_rows(
     word: &str,
     hits: Vec<Hit>,
     text_of: impl Fn(&Path) -> Option<String>,
-    word_constructs: bool,
-    word_is_struct_tag: bool,
+    used: CTypeWord,
 ) -> Vec<Hit> {
     let (w, mods, macros) = (regex::escape(word), c_mods!(), c_mods!(macros));
     let ty = format!(
@@ -528,7 +538,7 @@ pub fn c_type_rows(
                 .iter()
                 .filter(|c| c.path == o.path && c.line > o.line && closes.is_match(&c.text))
                 .min_by_key(|c| c.line)?;
-            Some(match word_is_struct_tag {
+            Some(match used.struct_tag {
                 true => (close.path.clone(), close.line),
                 false => (o.path.clone(), o.line),
             })
@@ -542,7 +552,7 @@ pub fn c_type_rows(
             {
                 return false;
             }
-            if !word_constructs && ctor.is_match(&h.text) && !typed(h) {
+            if !used.constructs && ctor.is_match(&h.text) && !typed(h) {
                 return false;
             }
             !(one_body

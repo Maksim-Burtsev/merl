@@ -1078,8 +1078,12 @@ impl App {
                 // A class is declared once, whatever its forward declarations and constructors
                 // (#368).
                 if kind == Kind::C {
-                    declared =
-                        search::c_type_rows(owner, declared, |p| self.text_of(p), false, false);
+                    declared = search::c_type_rows(
+                        owner,
+                        declared,
+                        |p| self.text_of(p),
+                        search::CTypeWord::NAMED,
+                    );
                 }
                 // A type of the same name in this file is the one its own scope sees.
                 if !outside
@@ -1167,7 +1171,15 @@ impl App {
             let named = match kind == Kind::C && !on_row {
                 true => {
                     let rows: Vec<Hit> = named.iter().map(|c| c.hit.clone()).collect();
-                    let kept = search::c_type_rows(&word, rows, |_| None, true, false);
+                    let kept = search::c_type_rows(
+                        &word,
+                        rows,
+                        |_| None,
+                        search::CTypeWord {
+                            constructs: true,
+                            struct_tag: false,
+                        },
+                    );
                     named
                         .into_iter()
                         .filter(|c| {
@@ -1479,7 +1491,15 @@ impl App {
                 let hits: Vec<Hit> = (hits.into_iter())
                     .filter(|h| self.c_code_line(&mut literal, h))
                     .collect();
-                let hits = search::c_type_rows(&word, hits, |p| self.text_of(p), construction, tag);
+                let hits = search::c_type_rows(
+                    &word,
+                    hits,
+                    |p| self.text_of(p),
+                    search::CTypeWord {
+                        constructs: construction,
+                        struct_tag: tag,
+                    },
+                );
                 let hits = self.c_reached_only(&here, &word, hits);
                 let on = hits
                     .iter()
