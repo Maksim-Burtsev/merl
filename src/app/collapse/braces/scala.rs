@@ -1,3 +1,4 @@
+use super::super::indent;
 use super::{K, Lexer, Model};
 
 const MODIFIERS: &[&str] = &[
@@ -60,7 +61,7 @@ const CONT_END: &[&str] = &[
     "return", "throw", "new", "with", "extends",
 ];
 const INDENT: &[&str] = &[
-    "=", "=>", "else", "then", "do", "yield", "try", "finally", "return",
+    "=", "=>", "else", "then", "do", "yield", "try", "finally", "return", "match", ":",
 ];
 const CONT_START: &[&str] = &[
     ".", "else", "catch", "finally", "match", "with", "extends", "yield", "then", "do", "=>", "|",
@@ -191,14 +192,14 @@ impl Model<'_, '_> {
                 }
                 continue;
             }
-            if t.kind != K::Word || self.before(k) == "." {
+            if t.kind != K::Word || (self.before(k) == "." && t.text != "match") {
                 continue;
             }
             match t.text {
                 "class" | "trait" | "object" => {
                     let start = self.toks[self.sc_start(k)].line;
-                    let end = self.sc_template_end(k);
-                    self.add(start, Some(self.end_of(end)), true);
+                    let end = self.sc_template_end(k, lines);
+                    self.add(start, Some(end), true);
                 }
                 "def" => {
                     let start = self.toks[self.sc_start(k)].line;
@@ -227,6 +228,11 @@ impl Model<'_, '_> {
                 "match" if self.punct(k + 1, "{") => {
                     let start = self.toks[self.sc_scrutinee(k)].line;
                     self.add(start, self.closing(k + 1), false);
+                }
+                "match" if self.sc_braceless(k, lines) => {
+                    let start = self.toks[self.sc_scrutinee(k)].line;
+                    let end = self.sc_indented_end(k + 1, indent(&lines[t.line]), true, lines);
+                    self.add(start, Some(end), false);
                 }
                 _ => {}
             }
@@ -284,16 +290,20 @@ impl Model<'_, '_> {
         }
     }
 
-    fn sc_template_end(&self, k: usize) -> usize {
+    fn sc_template_end(&self, k: usize, lines: &[String]) -> usize {
         let (mut j, mut last) = (k + 1, k);
+        let head = indent(&lines[self.toks[k].line]);
         while j < self.toks.len() {
             if self.punct(j, "{") {
-                return self.pair[j].unwrap_or(j);
+                return self.end_of(self.pair[j].unwrap_or(j));
             }
             if j > k + 1 && self.toks[j].line > self.toks[last].end {
+                if self.tx(last) == ":" && indent(&lines[self.toks[j].line]) > head {
+                    return self.sc_indented_end(j, head, false, lines);
+                }
                 let cont = CONT_START.contains(&self.tx(j)) || CONT_END.contains(&self.tx(last));
                 if !cont {
-                    return last;
+                    return self.end_of(last);
                 }
             }
             if self.opener(j)
@@ -303,11 +313,58 @@ impl Model<'_, '_> {
                 continue;
             }
             if self.closer(j) || self.punct(j, ";") {
-                return last;
+                return self.end_of(last);
             }
             (last, j) = (j, j + 1);
         }
-        last
+        self.end_of(last)
+    }
+
+    fn sc_indented_end(&self, mut j: usize, head: usize, cases: bool, lines: &[String]) -> usize {
+        while j < self.toks.len() {
+            let starts = self.toks[j - 1].end < self.toks[j].line;
+            let at = indent(&lines[self.toks[j].line]);
+            let case = cases && at == head && self.tx(j) == "case";
+            if self.closer(j) || (starts && at <= head && !case) {
+                return self.sc_outdent(j, head, lines);
+            }
+            j = match self.pair[j] {
+                Some(c) if self.opener(j) => c + 1,
+                _ => j + 1,
+            };
+        }
+        lines.len() - 1
+    }
+
+    fn sc_outdent(&self, j: usize, head: usize, lines: &[String]) -> usize {
+        let (line, at) = (self.toks[j].line, indent(&lines[self.toks[j].line]));
+        if self.sc_marker(j) && at == head {
+            return line;
+        }
+        line - usize::from(at == 0 && self.first[j])
+    }
+
+    fn sc_braceless(&self, k: usize, lines: &[String]) -> bool {
+        let line = self.toks[k].line;
+        self.toks.get(k + 1).is_some_and(|t| {
+            let (at, head) = (indent(&lines[t.line]), indent(&lines[line]));
+            t.line > line && (at > head || (at == head && t.text == "case"))
+        })
+    }
+
+    fn sc_wildcard(&self, j: usize) -> bool {
+        self.tx(j) == "*" && self.before(j) == "."
+    }
+
+    fn sc_marker(&self, j: usize) -> bool {
+        let line = self.toks[j].line;
+        self.tx(j) == "end"
+            && self.first[j]
+            && self
+                .toks
+                .get(j + 1)
+                .is_some_and(|t| t.kind == K::Word && t.line == line)
+            && self.toks.get(j + 2).is_none_or(|t| t.line > line)
     }
 
     fn sc_def_end(&self, k: usize, lines: &[String]) -> Option<usize> {
@@ -339,21 +396,31 @@ impl Model<'_, '_> {
 
     fn sc_expr_end(&self, from: usize, lines: &[String]) -> usize {
         let n = self.toks.len();
-        let col = |j: usize| super::super::indent(&lines[self.toks[j].line]);
+        let col = |j: usize| indent(&lines[self.toks[j].line]);
+        let head = col(from.min(n - 1));
         let (mut j, mut last) = (from, from.min(n - 1));
         let mut blocks: Vec<usize> = Vec::new();
         let outdent = |j: usize| self.toks[j].line - usize::from(col(j) == 0);
         while j < n {
             if j > from && self.toks[j].line > self.toks[last].end {
+                let hollow = self.tx(last) == "=>"
+                    && lines[self.toks[last].line]
+                        .trim_start()
+                        .starts_with("case ")
+                    && col(j) < col(last);
+                let marker = last > 0 && self.sc_marker(last - 1);
                 let cond = self.tx(last) == ")"
                     && self.back[last]
                         .is_some_and(|o| matches!(self.before(o), "if" | "while" | "for"));
-                let opens = cond || INDENT.contains(&self.tx(last));
-                let cont = opens
-                    || CONT_END.contains(&self.tx(last))
-                    || CONT_START.contains(&self.tx(j))
-                    || (self.tx(last) == "}"
-                        && self.back[last].is_some_and(|o| self.before(o) == "for"));
+                let opens = !marker && !hollow && (cond || INDENT.contains(&self.tx(last)));
+                let cont = !marker
+                    && (opens
+                        || (!hollow
+                            && CONT_END.contains(&self.tx(last))
+                            && !self.sc_wildcard(last))
+                        || CONT_START.contains(&self.tx(j))
+                        || (self.tx(last) == "}"
+                            && self.back[last].is_some_and(|o| self.before(o) == "for")));
                 let at = col(j);
                 if cont {
                     blocks.retain(|&c| c <= at);
@@ -364,7 +431,10 @@ impl Model<'_, '_> {
                     let had = !blocks.is_empty();
                     blocks.retain(|&c| c <= at);
                     if blocks.is_empty() {
-                        return if had { outdent(j) } else { self.toks[last].end };
+                        return match had {
+                            true => self.sc_outdent(j, head, lines),
+                            false => self.toks[last].end,
+                        };
                     }
                 }
             }
@@ -385,7 +455,10 @@ impl Model<'_, '_> {
             }
             (last, j) = (j, j + 1);
         }
-        self.toks[last].end
+        match j >= n && !blocks.is_empty() {
+            true => lines.len() - 1,
+            false => self.toks[last].end,
+        }
     }
 
     fn sc_scrutinee(&self, k: usize) -> usize {

@@ -81,6 +81,84 @@ def sign(x: Int): Int =  // f: 78-83
   else  // f: 78-83
     -1  // f: 78-83
 
-def twice(x: Int): Int =  // f: 84-86
-  val y = x  // f: 84-86
-  y * 2  // f: 84-86
+def twice(x: Int): Int =  // f: 84-87
+  val y = x  // f: 84-87
+  y * 2  // f: 84-87
+
+object Main:  // f: 88-98
+  def run(x: Int): Int =  // f: 89-92
+    val y = x  // f: 89-92
+    y * 2  // f: 89-92
+
+  def other(): Unit =  // f: 93-95
+    println(x)  // f: 93-95
+  end other  // f: 93-95
+  val z = 1  // f: 88-98
+// a comment at the margin  // f: 88-98
+
+class Box(x: Int) extends Shape:  // f: 99-101
+  def area: Double = x  // f: 99-101
+end Box  // f: 99-101
+
+object Outer:  // f: 103-106
+  def f =  // f: 104-105
+    1  // f: 104-105
+end Outer  // f: 103-106
+
+def kind(x: Int): String = x match  // f: 108-111
+  case 1 => "one"  // f: 108-111
+  case _ => "many"  // f: 108-111
+
+def loop(xs: Seq[Int]): Unit =  // f: 112-120
+  while xs.isEmpty do  // f: 113-115
+    wait()  // f: 112-120
+  end while  // f: 112-120
+  xs.head match  // f: 116-119
+    case 1 => go()  // f: 112-120
+    case _ => stop()  // f: 112-120
+  end match  // f: 112-120
+end loop  // f: 112-120
+
+def plus(x: Int): Int =  // f: 122-125
+  val y = x  // f: 122-125
+  y + 1  // f: 122-125
+end plus  // f: 122-125
+
+object Text:  // f: 127-132
+  val s = """  // f: 128-130
+a
+""".stripMargin  // f: 127-132
+  val t = 1  // f: 127-132
+
+import a.b.*  // f: none
+import c.*  // f: none
+
+object Wild:  // f: 136-138
+  val w = 1  // f: 136-138
+
+class Phase:  // f: 139-161
+  def loop(t: Int): Int = t match  // f: 140-144
+    case 1 =>  // f: 140-144
+      2  // f: 140-144
+    case _ =>  // f: 140-144
+
+  def make = new Runnable:  // f: 145-149
+    import a.*  // f: 145-149
+
+    def run(): Unit = ()  // f: 145-149
+
+  def same(x: Int) =  // f: 150-154
+    x match  // f: 151-154
+    case 1 => 2  // f: 150-154
+    case _ => 3  // f: 150-154
+
+  def dotted(x: Int) = x  // f: 155-160
+    || x.match  // f: 156-160
+      case 1 => true  // f: 155-160
+      case _ => false  // f: 155-160
+
+  val last = 1  // f: 155-160
+
+trait Last:  // f: 162-164
+  def a: Int  // f: 162-164
+
