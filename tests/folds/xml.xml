@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"> <!-- f: 2-27 -->
+  <!-- a comment f: 2-27 -->
+  <!-- f: 4-6
+    a comment over three lines folds
+  -->
+  <modules> <!-- f: 7-10 -->
+    <module>core</module> <!-- f: 7-10 -->
+    <Module>Core</Module> <!-- f: 7-10 -->
+  </modules> <!-- f: 7-10 -->
+  <androidx.constraintlayout.widget.ConstraintLayout
+      android:tag=" f: 11-15"
+      android:text="a > b"> <!-- f: 11-15 -->
+    <br/> <!-- f: 11-15 -->
+  </androidx.constraintlayout.widget.ConstraintLayout> <!-- f: 11-15 -->
+  <script> <!-- f: 16-18 -->
+    <![CDATA[ if (a < b) { "</project>" } f: 16-18 ]]>
+  </script> <!-- f: 16-18 -->
+  <meta name="a"> <!-- f: 19-21 -->
+    <link/> <!-- f: 19-21 -->
+  </meta> <!-- f: 19-21 -->
+  <Item> <!-- f: 22-23 -->
+  </Item> <!-- f: 22-23 -->
+  <item> <!-- f: 24-26 -->
+    <item>one line</item> <!-- f: 24-26 -->
+  </item> <!-- f: 24-26 -->
+</project> <!-- f: 2-27 -->
+<root/> <!-- f: none -->
+<a><b> <!-- f: 29-30 -->
+</b> <!-- f: 29-30 -->
+</a> <!-- f: 29-31 -->
+<!DOCTYPE note [ <!-- f: 32-35 -->
+  <!ELEMENT note (#PCDATA)> <!-- f: 32-35 -->
+  <!ATTLIST note a CDATA "> f: 32-35">
+]> <!-- f: 32-35 -->
+<path android:tag=" f: 36-38"
+    android:a="1 f: 36-38"
+    android:b="/> f: 36-38" /> <!-- f: 36-38 -->
+<path/> <!-- f: none -->

@@ -42,6 +42,7 @@ impl App {
             Some("yml" | "yaml") => Some(spans::yaml(lines)),
             Some("toml") => Some(spans::toml(lines)),
             Some("html" | "htm") => Some(spans::html(lines)),
+            Some("xml") => Some(spans::xml(lines)),
             Some("md" | "markdown") => Some(spans::markdown(lines)),
             _ => None,
         };
