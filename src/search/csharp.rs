@@ -251,9 +251,8 @@ pub(super) fn cs_statement(t: &str, name: &str) -> bool {
 }
 
 fn cs_deconstructs(t: &str, name: &str) -> bool {
-    static START: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:^|\bforeach\s*\(\s*)(var\s*)?\(").unwrap()
-    });
+    static START: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"(?:^|\bforeach\s*\(\s*)(var\s*)?\(").unwrap());
     static IN: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^in\b").unwrap());
     START.captures_iter(t).any(|c| {
@@ -285,8 +284,15 @@ fn cs_tuple_names(inner: &str, bare: bool, name: &str) -> bool {
             return cs_tuple_names(nested, true, name);
         }
         let words: Vec<&str> = e.split_whitespace().collect();
-        let declares = if bare { words.len() == 1 } else { words.len() >= 2 };
-        declares && words.last().is_some_and(|w| w.trim_start_matches('@') == name)
+        let declares = if bare {
+            words.len() == 1
+        } else {
+            words.len() >= 2
+        };
+        declares
+            && words
+                .last()
+                .is_some_and(|w| w.trim_start_matches('@') == name)
     })
 }
 

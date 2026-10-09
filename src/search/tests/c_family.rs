@@ -494,7 +494,11 @@ public class Cart
         "the object initialiser's `new Order(seed)` over `{{` is no signature: `seed` is Fill's"
     );
     assert_eq!(lines("order", 11), [7]);
-    assert_eq!(lines("left", 13), [12], "a deconstruction declares its names");
+    assert_eq!(
+        lines("left", 13),
+        [12],
+        "a deconstruction declares its names"
+    );
     assert!(
         lines("item", 13).is_empty(),
         "a field of the class is no local"
