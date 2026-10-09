@@ -25,3 +25,8 @@ pub fn coral() -> Tint {
     Coral
     // ^ d: src/tints.rs:9
 }
+
+pub fn hauled<Wagon: Default>(c: crate::carts::Wagon, _w: Wagon) -> u32 {
+    c.roll()
+    //^ d: picker src/carts.rs:7, src/carts.rs:19, src/hauls/yard.rs:4
+}

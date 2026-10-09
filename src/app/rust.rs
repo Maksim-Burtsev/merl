@@ -36,16 +36,6 @@ struct InCrate {
 }
 
 impl App {
-    /// What `d` on `word` at `range` of the cursor's line answers before any other lookup, in a
-    /// Rust file: `None` leaves the word to the rest of [`App::goto_definition`].
-    ///
-    /// - A word inside an attribute is a macro or nothing ([`search::rust_attribute`]): a derive
-    ///   is a `pub macro W` or a `#[proc_macro_derive(W` line, an attribute's own name a `pub
-    ///   macro W` or a `pub fn W` under `#[proc_macro_attribute]`, and a `cfg` predicate or a
-    ///   compiler attribute is declared nowhere. No project `struct`, `fn`, `let` or `mod` is one.
-    /// - `x.w` with no `(` or `::<` behind it is a field: Rust never calls a field and never
-    ///   reads a method without its `()`.
-    /// - An enum variant's own line is a declaration, answered as any other.
     pub(super) fn rust_early(
         &mut self,
         here: &Path,
@@ -99,8 +89,6 @@ impl App {
         None
     }
 
-    /// The macros a word of an attribute names, outside the project and, for a proc-macro
-    /// crate of its own, in it.
     fn rust_macros(&mut self, attr: search::RustAttr, word: &str) -> Vec<Candidate> {
         let kind = Kind::Rust;
         let patterns = search::rust_macro_patterns(attr, word);
@@ -123,9 +111,6 @@ impl App {
             .collect()
     }
 
-    /// The fields `word` a `x.word` can read: the project's, one row per struct, else the `pub`
-    /// ones of the standard library and the dependencies. A private field outside the project
-    /// cannot be reached.
     fn rust_fields(&mut self, here: &Path, word: &str) -> Vec<Candidate> {
         let kind = Kind::Rust;
         let field = |this: &Self, h: &Hit| {
@@ -165,10 +150,6 @@ impl App {
         hits
     }
 
-    /// A bare `word` behind a `use …::E::*;` in scope ([`search::rust_glob_uses`]) is the
-    /// variant `word` of `E`, when `E` declares one: the enum this file declares, else every
-    /// enum of the project so called. A column-zero glob gives way to a `use` that names the
-    /// word and to an item of the file so called; the function's own glob hides both.
     pub(super) fn rust_glob_variant(
         &self,
         here: &Path,
@@ -268,8 +249,6 @@ impl App {
         let mut hits = self.project_definitions(kind, here, word, &pattern);
         let files = self.external_files(kind);
         hits.extend(self.external_grep(kind, &files, &pattern));
-        // Behind a `.` the word is never the declaration on its own line: a one-line
-        // `fn is_empty(&self) -> bool { self.0.is_empty() }` calls another.
         hits.retain(|h| h.path != here || h.line1 != self.line + 1);
         let crate_of = |p: &Path| {
             p.ancestors()
@@ -287,15 +266,12 @@ impl App {
             .as_deref()
             .and_then(package)
             .and_then(|name| search::cargo_reach(&lock, &name));
-        // The packages the project's own `Cargo.toml`s declare: a registry copy of one of them
-        // is not the one built.
         let workspace: Vec<String> = self
             .files
             .iter()
             .filter(|f| f.file_name().is_some_and(|n| n == "Cargo.toml"))
             .filter_map(|f| f.parent().and_then(package))
             .collect();
-        // A crate the lock does not list, the standard library's, is always reached.
         let reached = |h: &Hit| {
             let name = match h.path.is_absolute() {
                 true => {
@@ -326,9 +302,6 @@ impl App {
             };
             name.is_none_or(|n| reached.contains(&n) || !every_locked.iter().any(|p| p.name == n))
         };
-        // A module's private items are its own and its children's: `src/foo.rs` has `src/foo/`.
-        // A crate root has its directory: `lib.rs`, `main.rs`, `mod.rs`, `build.rs`, and a file
-        // directly in `tests/`, `benches/`, `examples/` or `src/bin/`.
         let below = |p: &Path| {
             let parent = p.parent().unwrap_or(Path::new(""));
             let root_file = p
@@ -367,15 +340,10 @@ impl App {
                 continue;
             };
             let inside = !h.path.is_absolute();
-            // Outside, a crate's tests, benches and examples are crates of their own, and a
-            // method of the standard library with no stability attribute is internal to it.
             let rel = roots
                 .iter()
                 .find_map(|r| h.path.strip_prefix(r).ok())
                 .unwrap_or(&h.path);
-            // The standard library marks what it offers `#[stable]` or `#[unstable]`: an inherent
-            // method, or a trait, with neither is its own (compiler-builtins' `Int`, a vendored
-            // `gimli`). A method a macro writes has the attributes the macro is handed.
             let sysroot = h
                 .path
                 .to_string_lossy()
@@ -397,7 +365,6 @@ impl App {
             let visible = !internal
                 && match (&owner, vis) {
                     (search::RustOwner::ImplOf(_), _) => true,
-                    // A trait outside the project that is not `pub` is its crate's own.
                     (search::RustOwner::Trait(_), search::RustVis::Pub) => true,
                     (search::RustOwner::Trait(_), _) => inside,
                     (_, search::RustVis::Pub) => true,
@@ -414,7 +381,6 @@ impl App {
                 rows.push((h, owner));
             }
         }
-        // The `impl`s outside the project of a trait out of reach are as far out of reach.
         let kept: Vec<String> = rows
             .iter()
             .filter_map(|(_, o)| match o {
@@ -485,9 +451,6 @@ impl App {
             .map(|u| (u.path, depth_at(u.start_byte)))
             .collect();
         bound.dedup();
-        // A glob `use` of a block nearer the cursor than the `use` of the name may bring in a
-        // name of its own that hides it (`use self::Strategy::*;` then `Regex(ref s) =>`): a
-        // bare name is left to the lookup after this one then.
         let glob = Regex::new(r"(?m)^[ \t]+use\s[^;]*\*\s*;").expect("a valid pattern");
         if let [(_, depth)] = bound.as_slice()
             && chain.is_empty()
@@ -512,7 +475,6 @@ impl App {
         if rest.is_empty() {
             return None;
         }
-        // A module of this file's own, `mod log {` or `mod log;`, is no crate `log`.
         let own_mod = Regex::new(&format!(
             r"(?m)^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+{}\b",
             regex::escape(root)
@@ -569,7 +531,6 @@ impl App {
         };
         let rest: Vec<String> = rest.iter().filter(|p| *p != "super").cloned().collect();
         let sep = "::";
-        // A name the crate declares only somewhere else than the path says is found by name.
         let reason = |crate_name: &str, module: Vec<String>, proven: bool| {
             let mut shown = vec![crate_name.to_owned()];
             shown.extend(module);
@@ -589,7 +550,6 @@ impl App {
         {
             return Some(by(hits, reason(&name, module, proven)));
         }
-        // `std` hands on what `core` and `alloc` declare: `std::sync::Arc` is `alloc`'s.
         if root == "std" {
             for other in ["core", "alloc"] {
                 let Some(krate) = self.sysroot_crate(other) else {
@@ -608,10 +568,6 @@ impl App {
         None
     }
 
-    /// The declarations of the last name of `path` in `krate`, from its module `base`: in the
-    /// longest module `path` spells, then where a `use` there takes the name from in the crate
-    /// (`pub use crate::store::Cache`), then under the module's directory; then, for a name the
-    /// path takes through a type (`Cache::new`), in the whole crate, found by name.
     fn rust_in_crate(
         &self,
         krate: &CrateSrc,
@@ -646,7 +602,6 @@ impl App {
                 proven: true,
             });
         }
-        // A `use` of the module's file that binds the first name left, the crate's own.
         let first = inside.first().unwrap_or(name);
         let taken = here.iter().find_map(|f| {
             let text = self.text_of(f)?;
@@ -662,7 +617,6 @@ impl App {
                     let kept = at.len().checked_sub(up)?;
                     at[..kept].iter().chain(&p[up..]).cloned().collect()
                 }
-                // `self::` is dropped from what a `use` binds: a module below this one.
                 _ => at.iter().chain(&p).cloned().collect(),
             };
             Some(to)
@@ -703,8 +657,6 @@ impl App {
         })
     }
 
-    /// The lines of `files` that declare `name` inside `owner` as [`search::qualified`] names
-    /// it (`File` for `File::open`), or at the top of their module with no `owner`.
     fn rust_declared(
         &self,
         files: &[PathBuf],
@@ -749,7 +701,6 @@ impl App {
         })
     }
 
-    /// The registry crate a path calls `name`, a directory `name-1.2.3` with `_` spelled `-`.
     // ponytail: the first version `Cargo.lock` holds; two versions of one crate are not told apart.
     fn registry_crate(&mut self, name: &str) -> Option<CrateSrc> {
         let all = self.external_files(Kind::Rust);
@@ -772,8 +723,6 @@ impl App {
         })
     }
 
-    /// The crate of the project whose `Cargo.toml` names it `name`, as its `[package]` or its
-    /// `[lib]`, with `-` read as `_`.
     fn workspace_crate(&self, name: &str) -> Option<CrateSrc> {
         self.files
             .iter()
@@ -849,8 +798,6 @@ impl App {
             .collect())
     }
 
-    /// The type of the local, parameter or `self` `name` on `line0` of `text`, the text of `file`,
-    /// and the link that proves it: every binding in scope reads the same type.
     fn rust_value_type(
         &self,
         file: &Path,
@@ -883,7 +830,6 @@ impl App {
                     function: f,
                 } => {
                     let ty = self.rust_resolve(file, &w, at)?;
-                    // `T::default()` is `Default`'s, which a derive declares out of sight.
                     let returns = match <[Hit; 1]>::try_from(self.rust_members(&ty, &f)) {
                         Ok([decl]) => {
                             let t = self.text_of(&decl.path)?;
@@ -904,7 +850,6 @@ impl App {
                     (ty, link)
                 }
                 search::RustHolds::Call(parts) => {
-                    // A local closure named like a function is a value.
                     if !search::bindings(Kind::Rust, text, at + 1, &parts[0]).is_empty() {
                         return None;
                     }
@@ -964,7 +909,6 @@ impl App {
             p.first()
                 .is_some_and(|f| matches!(f.as_str(), "crate" | "self" | "super"))
         };
-        // `io::Error` behind a `use std::io;` is no project type, whatever the project declares.
         if let Some(first) = path.first()
             && !ours(&path)
             && !bound(&imports, first).is_some_and(|p| ours(&p))
@@ -1023,9 +967,6 @@ impl App {
         Some((hit, written))
     }
 
-    /// The methods `word` of the type `ty`: in the `impl T` and `impl Tr for T` blocks of its
-    /// crate, else the ones with a body in the traits those `impl`s name. A crate that declares
-    /// two types of that name keeps to the file of `ty`.
     fn rust_members(&self, ty: &Typed, word: &str) -> Vec<Hit> {
         let crate_of = |p: &Path| {
             p.ancestors()

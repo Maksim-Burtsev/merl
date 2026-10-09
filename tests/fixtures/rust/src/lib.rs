@@ -12,3 +12,5 @@ pub mod locals;
 pub mod receivers;
 pub mod rules;
 pub mod tints;
+pub mod carts;
+pub mod hauls;

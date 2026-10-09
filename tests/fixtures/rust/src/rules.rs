@@ -54,3 +54,18 @@ pub struct Amber;
 pub enum Tint {
     Coral,
 }
+
+pub struct Wagon;
+
+pub struct Sled;
+
+impl Lamp {
+    pub fn polish(&self) -> u32 {
+        0
+    }
+}
+
+pub fn polished(l: &Lamp) -> u32 {
+    l.polish()
+    //^ d: src/rules.rs:63
+}
