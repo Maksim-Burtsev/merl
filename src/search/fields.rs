@@ -11,9 +11,9 @@ use super::*;
 pub(super) fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<usize> {
     let start = match (kind, lines[k].find('(')) {
         (Kind::Python, Some(open)) => {
-            group(kind, lines, k, open).map_or(k + 1, |(_, end, _)| end + 1)
+            group(kind, lines, k, open).map_or(k + 1, |g| g.close_line + 1)
         }
-        (Kind::TsJs, _) => ts_header(lines, k).1 + 1,
+        (Kind::TsJs, _) => ts_header(lines, k).last_line0 + 1,
         _ => k + 1,
     };
     let base = indent(lines[k]);
@@ -55,7 +55,7 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
         return body
             .split(';')
             .filter_map(go_field)
-            .map(|value| Binding { line: decl, value })
+            .map(|value| Binding { line1: decl, value })
             .collect();
     }
     let body = body_of(kind, &lines, k);
@@ -72,7 +72,12 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
     let literal = literal_lines(kind, text);
     let body = body.filter(|&i| !literal.get(i).copied().unwrap_or(false));
     let mut out = Vec::new();
-    let mut push = |i: usize, value: Value| out.push(Binding { line: i + 1, value });
+    let mut push = |i: usize, value: Value| {
+        out.push(Binding {
+            line1: i + 1,
+            value,
+        })
+    };
     match kind {
         Kind::Python => {
             let annotated = rule(format!(r"^(self\.)?{n}\s*:\s*([^=]+?)\s*(?:=.*)?$"));
@@ -153,7 +158,7 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
             let foreign = |i: usize| {
                 bindings(kind, text, i + 1, "this")
                     .iter()
-                    .any(|b| b.value != Value::Class(decl))
+                    .any(|b| b.value != Value::Class { decl_line1: decl })
             };
             for i in body {
                 let (code, ind) = (uncommented(kind, lines[i]), indent(lines[i]));
@@ -268,9 +273,9 @@ pub struct FieldLine {
 /// The first of the [`field_bindings`] of one type that is no assignment inside a method, else
 /// the first assignment.
 fn declaring(lines: &[&str], bindings: &[Binding], name: &str) -> Option<FieldLine> {
-    let assigned = |b: &&Binding| in_method(lines[b.line - 1], name);
+    let assigned = |b: &&Binding| in_method(lines[b.line1 - 1], name);
     let line = |b: &Binding, assigned_in_method| FieldLine {
-        line: b.line,
+        line: b.line1,
         assigned_in_method,
     };
     bindings
@@ -313,7 +318,7 @@ pub fn field_rows(kind: Kind, text: &str, hits: &[usize], name: &str, jsdoc: boo
         let bindings = types
             .entry(decl)
             .or_insert_with(|| field_bindings(kind, text, decl, name));
-        if bindings.iter().any(|b| b.line == line)
+        if bindings.iter().any(|b| b.line1 == line)
             && let Some(FieldLine { line: first, .. }) = declaring(&lines, bindings, name)
             && !out.contains(&first)
         {

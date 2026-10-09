@@ -156,7 +156,7 @@ fn def_binds(lines: &[&str], def_line0: usize, name: &str) -> bool {
     let rest = &lines[def_line0][head.end()..];
     let list = match rest.strip_prefix('(') {
         Some(_) => match group(Kind::Ruby, lines, def_line0, head.end()) {
-            Some((inner, _, _)) => inner,
+            Some(g) => g.inner_uncommented,
             None => return false,
         },
         // `def m a, b`: up to a `;` or a comment. `def m = …` has none.
@@ -185,7 +185,7 @@ pub(super) fn ruby_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
     ))
     .expect("an escaped name keeps the pattern valid");
     let found = |line: usize| Binding {
-        line: line + 1,
+        line1: line + 1,
         value: Value::Unknown,
     };
     if def_binds(lines, at, name) || block_binds(lines[at], name) {

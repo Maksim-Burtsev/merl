@@ -904,12 +904,11 @@ fn signature(kind: Kind, callee: &str, returns: &str) -> String {
     }
 }
 
-/// The module path an import in `imports` binds `name` to.
-fn bound(imports: &[(String, Vec<String>)], name: &str) -> Option<Vec<String>> {
+fn bound(imports: &[search::Import], name: &str) -> Option<Vec<String>> {
     imports
         .iter()
-        .find(|(n, _)| n == name)
-        .map(|(_, p)| p.clone())
+        .find(|i| i.name == name)
+        .map(|i| i.path.clone())
 }
 
 /// Cuts `s` to `max` grapheme clusters, marking the cut.

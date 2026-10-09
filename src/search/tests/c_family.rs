@@ -453,7 +453,7 @@ public class Cart
     let lines = |name: &str, line: usize| -> Vec<usize> {
         bindings(Kind::CSharp, text, line, name)
             .iter()
-            .map(|b| b.line)
+            .map(|b| b.line1)
             .collect()
     };
     assert_eq!(
@@ -637,7 +637,7 @@ protocol Boxed {
         "a closure's, of the wrapped `func` around it"
     );
     assert_eq!(local(19), None, "a protocol's requirement");
-    assert_eq!(swift_scope(&lines, &literal, 13).0, 10);
+    assert_eq!(swift_scope(&lines, &literal, 13).header_line1, 10);
     assert!(swift_extension("public extension Box where T: Equatable {"));
     assert!(!swift_extension("let extensionCount = 1"));
 }
@@ -987,7 +987,7 @@ fn php_scope_roots_imports_and_names() {
     assert!(in_def_scope(Kind::Php, here, Path::new("views/show.phtml")));
     assert!(!in_def_scope(Kind::Php, here, Path::new("main.rs")));
     assert_eq!(
-        imports(Kind::Php, PHP),
+        pairs(imports(Kind::Php, PHP)),
         [
             (
                 "Str".to_owned(),
@@ -1113,7 +1113,10 @@ fn swift_receiver_types_are_read_off_their_lines() {
 #[test]
 fn c_bindings_read_a_head_with_non_ascii_names() {
     let text = "int (r *R\u{e9}po) M\u{e9}thode(int x)\n{\n    return x;\n}\n";
-    assert_eq!(c_bindings_at(text, 3, "x").first().map(|b| b.0), Some(1));
+    assert_eq!(
+        c_bindings_at(text, 3, "x").first().map(|b| b.line1),
+        Some(1)
+    );
 }
 
 #[test]

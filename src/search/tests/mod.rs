@@ -70,6 +70,10 @@ fn grep(dir: &Path, files: &[PathBuf], pat: &str, word: bool, smart: bool) -> Ve
     grep_project(dir, files, pat, word, smart, None, None).unwrap()
 }
 
+fn pairs(imports: Vec<Import>) -> Vec<(String, Vec<String>)> {
+    imports.into_iter().map(|i| (i.name, i.path)).collect()
+}
+
 fn lines(hits: &[Hit]) -> Vec<(String, usize)> {
     hits.iter()
         .map(|h| (h.path.display().to_string(), h.line))
@@ -106,7 +110,7 @@ fn members(dir: &Path, files: &[PathBuf], kind: Kind, word: &str) -> Vec<usize> 
 fn bound_at(kind: Kind, text: &str, line: usize, name: &str) -> Vec<(usize, Value)> {
     bindings(kind, text, line, name)
         .into_iter()
-        .map(|b| (b.line, b.value))
+        .map(|b| (b.line1, b.value))
         .collect()
 }
 

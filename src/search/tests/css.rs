@@ -33,7 +33,11 @@ fn an_ampersand_composes_with_the_rule_it_sits_in() {
 #[test]
 fn a_class_attribute_is_read_in_markup_and_jsx_only() {
     fn at<'a>(line: &'a str, word: &str, jsx: bool) -> Option<(Attr, &'a str)> {
-        attr_at(line, line.find(word).unwrap(), jsx).map(|(a, r)| (a, &line[r]))
+        let read_as = match jsx {
+            true => AttrLine::Jsx,
+            false => AttrLine::Markup,
+        };
+        attr_at(line, line.find(word).unwrap(), read_as).map(|(a, r)| (a, &line[r]))
     }
     let tsx = r#"<b className="btn btn-primary" id="main">"#;
     assert_eq!(at(tsx, "primary", true), Some((Attr::Class, "btn-primary")));
@@ -68,7 +72,13 @@ fn a_class_attribute_is_read_in_markup_and_jsx_only() {
 
 #[test]
 fn a_stylesheet_cursor_says_which_lookup_applies() {
-    let at = |line: &str, word: &str, less: bool| sheet_at(line, line.find(word).unwrap(), less);
+    let at = |line: &str, word: &str, less: bool| {
+        let syntax = match less {
+            true => SheetSyntax::Less,
+            false => SheetSyntax::CssOrSass,
+        };
+        sheet_at(line, line.find(word).unwrap(), syntax)
+    };
     let s = |n: &str| n.to_owned();
     assert_eq!(
         at("  color: var(--brand, #000);", "brand", false),
@@ -152,9 +162,18 @@ fn sass_tries_partials_then_index_files() {
     assert_eq!(
         uses,
         [
-            (Some("v".to_owned()), "variables".to_owned()),
-            (Some("mixins".to_owned()), "src/mixins".to_owned()),
-            (None, "all".to_owned()),
+            SassUse {
+                namespace: SassNamespace::Named("v".to_owned()),
+                module: "variables".to_owned()
+            },
+            SassUse {
+                namespace: SassNamespace::Named("mixins".to_owned()),
+                module: "src/mixins".to_owned()
+            },
+            SassUse {
+                namespace: SassNamespace::FlatAsStar,
+                module: "all".to_owned()
+            },
         ]
     );
 }

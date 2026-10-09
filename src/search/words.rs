@@ -94,7 +94,7 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
         && let Some(decl) = enclosing_type(kind, &lines, line1 - 1)
         && field_bindings(kind, text, decl, name)
             .iter()
-            .any(|b| b.line == line1)
+            .any(|b| b.line1 == line1)
         && let Some(ty) = type_name(kind, lines[decl - 1])
     {
         let owner = qualified(kind, text, decl, &ty).unwrap_or(ty);
@@ -169,7 +169,7 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
         }
         // `more = …` under `const fs = …,` is declared where that statement is (#328).
         if kind == Kind::TsJs
-            && ts_declarators(&lines, j).is_some_and(|d| d.iter().any(|(at, _)| *at == line1 - 1))
+            && ts_declarators(&lines, j).is_some_and(|d| d.iter().any(|d| d.line0 == line1 - 1))
         {
             return qualified(kind, text, j + 1, name);
         }
@@ -547,7 +547,7 @@ pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> 
     let (call_without_arguments, value) = match value_of(kind, without_cast_brackets) {
         Value::Call(name) => (format!("{name}()"), Value::Call(name)),
         Value::New(name) => (format!("new {name}()"), Value::New(name)),
-        value @ (Value::Type(_) | Value::Cast(..)) => {
+        value @ (Value::Type(_) | Value::Cast { .. }) => {
             (without_cast_brackets.trim().to_owned(), value)
         }
         _ => return None,

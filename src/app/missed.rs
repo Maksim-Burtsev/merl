@@ -497,7 +497,7 @@ impl App {
             super::usages::bare_name(w).to_lowercase() == trip.last_query.to_lowercase()
         })?;
         let landed = self.rel_current()?;
-        let (hits, _) = self.usage_hits(word, trip.opened_at_rel.as_deref());
+        let hits = self.usage_hits(word, trip.opened_at_rel.as_deref()).ranked;
         let row = hits
             .iter()
             .position(|(_, h)| h.path == landed && h.place() == self.at())?;

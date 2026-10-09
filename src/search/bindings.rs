@@ -17,28 +17,33 @@ pub enum Value {
     Call(String),
     /// Another name, as `self.repo = repo` hands on a parameter.
     Name(String),
-    /// The class declared on this 1-based line: Python's `self` and `cls`, TypeScript's `this`.
-    Class(usize),
-    /// Python's `cast(T, x)` as written: the callee and `T`. It writes the type when the callee
-    /// is `typing`'s, which only the caller can tell: a project may declare a `cast` of its own.
-    Cast(String, String),
+    /// Python's `self` and `cls`, TypeScript's `this`.
+    Class {
+        decl_line1: usize,
+    },
+    /// Python's `cast(T, x)`: `typing`'s writes the type, a project's own `cast` is a call.
+    Cast {
+        callee: String,
+        written_type: String,
+    },
     /// An element of the named collection, as a loop hands it out: `for r in repos`,
     /// `for (const r of repos)`, `for _, r := range repos`. [`element_type`] reads it off the
     /// collection's written type.
     Element(String),
-    /// A field of a chain of names, as a TypeScript destructuring hands it on: `this` and `repo`
-    /// for `const { repo } = this`, `this.uow` and `users` for `const { users: u } = this.uow`.
-    Field(Vec<String>, String),
+    /// A TypeScript destructuring: `const { users: u } = this.uow`.
+    Field {
+        chain: Vec<String>,
+        field: String,
+    },
     Member(Box<Value>, String),
     Struct(usize),
     /// A declaration whose type the rules cannot read: `for repo in`, a tuple, a parameter with
     /// no annotation.
     Unknown,
 }
-/// A declaration of a name on 1-based `line`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Binding {
-    pub line: usize,
+    pub line1: usize,
     pub value: Value,
 }
 pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
@@ -111,9 +116,10 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
             },
             (true, false) if kind == Kind::Python && matches!(&*name, "cast" | "typing.cast") => {
                 match args {
-                    Some(inner) => {
-                        Value::Cast(name, split_top(kind, inner, b',')[0].trim().to_owned())
-                    }
+                    Some(inner) => Value::Cast {
+                        callee: name,
+                        written_type: split_top(kind, inner, b',')[0].trim().to_owned(),
+                    },
                     None => Value::Unknown,
                 }
             }
@@ -186,7 +192,7 @@ fn elixir_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let code = |i: usize| uncommented(Kind::Elixir, lines[i]).trim().to_owned();
     let found = |line: usize| {
         vec![Binding {
-            line,
+            line1: line,
             value: Value::Unknown,
         }]
     };
@@ -340,7 +346,7 @@ fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let literal = literal_lines(Kind::Lua, &lines.join("\n"));
     let found = |line: usize| {
         vec![Binding {
-            line,
+            line1: line,
             value: Value::Unknown,
         }]
     };
@@ -390,8 +396,7 @@ fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     }
     Vec::new()
 }
-/// A Zig line that opens a function's or a test's body, whose `const`s and `var`s are locals.
-pub(super) static ZIG_BODY: std::sync::LazyLock<Regex> =
+pub(super) static ZIG_FN_OR_TEST_HEAD: std::sync::LazyLock<Regex> =
     std::sync::LazyLock::new(|| Regex::new(r"\bfn\b|^(?:pub\s+)?test\b").unwrap());
 fn zig_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let n = regex::escape(name);
@@ -413,7 +418,7 @@ fn zig_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
         if indent(lines[i]) == depth {
             if decl.is_match(&t) {
                 out.push(Binding {
-                    line: i + 1,
+                    line1: i + 1,
                     value: Value::Unknown,
                 });
             }
@@ -429,11 +434,11 @@ fn zig_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             }
             i = i.saturating_sub(1);
         }
-        if ZIG_BODY.is_match(&code(i)) {
+        if ZIG_FN_OR_TEST_HEAD.is_match(&code(i)) {
             for j in i..=end {
                 if param.is_match(&code(j)) {
                     out.push(Binding {
-                        line: j + 1,
+                        line1: j + 1,
                         value: Value::Unknown,
                     });
                 }
@@ -466,7 +471,7 @@ pub fn lua_local_value(text: &str, line: usize, name: &str) -> Option<String> {
     let re = Regex::new(&format!(r"^\s*local\s+{}\s*=\s*(.+)", regex::escape(name)))
         .expect("an escaped name keeps the pattern valid");
     let at = match bindings(Kind::Lua, text, line, name).first() {
-        Some(b) => b.line - 1,
+        Some(b) => b.line1 - 1,
         None => {
             // The walk reads the lines above the cursor: a `for` or a `function(…)` on its own
             // line may bind the name, and then the file's `local` says nothing.
@@ -644,8 +649,14 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                     None if first_line_read_whole == Some(i) => {}
                     None => match ts_declarators(lines, i).filter(|_| kind == Kind::TsJs) {
                         Some(each) => {
-                            for (at, d) in each {
-                                statement_bindings(kind, &d, at + 1, name, &mut out);
+                            for d in each {
+                                statement_bindings(
+                                    kind,
+                                    &d.as_own_statement,
+                                    d.line0 + 1,
+                                    name,
+                                    &mut out,
+                                );
                             }
                         }
                         None => statement_bindings(kind, t, i + 1, name, &mut out),
@@ -665,7 +676,10 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                         [one] => Value::Type(one.clone()),
                         _ => Value::Unknown,
                     };
-                    out.push(Binding { line: i + 1, value });
+                    out.push(Binding {
+                        line1: i + 1,
+                        value,
+                    });
                 }
                 if t.starts_with("switch ") || t.starts_with("select ") {
                     arm = None;
@@ -747,7 +761,10 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                 among_cs_members |= in_cs_type_body(i);
             }
         } else if let Some(value) = this_opener(&header, i + 1) {
-            out.push(Binding { line: i + 1, value });
+            out.push(Binding {
+                line1: i + 1,
+                value,
+            });
             break;
         }
     }
@@ -761,7 +778,7 @@ fn this_opener(header: &str, line: usize) -> Option<Value> {
         Regex::new(r"^(?:(?:export|default|declare|abstract)\s+)*class\b").unwrap()
     });
     if CLASS.is_match(header) {
-        return Some(Value::Class(line));
+        return Some(Value::Class { decl_line1: line });
     }
     let before = header.strip_suffix('{').map(str::trim_end);
     // `case X: {` and `default: {` open statements, whatever the colon suggests; the `{` of a
@@ -924,7 +941,7 @@ fn opener_bindings(
     });
     let unknown = |out: &mut Vec<Binding>| {
         out.push(Binding {
-            line,
+            line1: line,
             value: Value::Unknown,
         })
     };
@@ -932,7 +949,7 @@ fn opener_bindings(
     let element = |p: String| {
         let rule = Regex::new(&p).expect("an escaped name keeps the pattern valid");
         let value = Value::Element(rule.captures(header)?[1].to_owned());
-        Some(Binding { line, value })
+        Some(Binding { line1: line, value })
     };
     let mut binds_for_body = false;
     match kind {
@@ -1010,7 +1027,7 @@ fn opener_bindings(
             .expect("an escaped name keeps the pattern valid");
             if structs.is_match(header) {
                 out.push(Binding {
-                    line,
+                    line1: line,
                     value: Value::Struct(line),
                 });
             } else if let Some(b) = element(format!(
@@ -1168,7 +1185,7 @@ fn go_params(params: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
                 Some(t) if !t.starts_with("...") => Value::Type(t.to_owned()),
                 _ => Value::Unknown,
             };
-            out.push(Binding { line, value });
+            out.push(Binding { line1: line, value });
         }
     }
 }
@@ -1252,100 +1269,14 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
         Kind::CSharp if cs_statement(t, name) => Value::Unknown,
         _ => return,
     };
-    out.push(Binding { line, value });
+    out.push(Binding { line1: line, value });
 }
-pub(super) fn ts_declarators(lines: &[&str], k: usize) -> Option<Vec<(usize, String)>> {
-    static KEYWORD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:export\s+)?(?:declare\s+)?(?:const|let|var)\s+").unwrap()
-    });
-    let first = uncommented(Kind::TsJs, lines.get(k)?);
-    if !first.trim_end().ends_with(',') {
-        return None;
-    }
-    let keyword = KEYWORD.find(first.trim_start())?.as_str().to_owned();
-    // ponytail: two hundred lines of declarators.
-    let text = blank_comments(&lines[k..lines.len().min(k + 200)].join("\n"));
-    let ind = indent(lines[k]);
-    let (mut depth, mut end) = (0i32, text.len());
-    let mut starts = vec![0];
-    for (i, c) in code(Kind::TsJs, &text) {
-        match c {
-            b'(' | b'[' | b'{' => depth += 1,
-            b')' | b']' | b'}' => depth -= 1,
-            b',' if depth == 0 => starts.push(i + 1),
-            b';' if depth == 0 => {
-                end = i;
-                break;
-            }
-            // Its last line is the one before a line back at its indent.
-            b'\n' if depth == 0 => {
-                let next = text[i + 1..].lines().find(|l| !l.trim().is_empty());
-                if next.is_none_or(|l| indent(l) <= ind) {
-                    end = i;
-                    break;
-                }
-            }
-            _ => {}
-        }
-    }
-    let mut out = Vec::new();
-    for (n, &from) in starts.iter().enumerate() {
-        let to = starts.get(n + 1).map_or(end, |&s| s - 1).min(end);
-        let Some(piece) = text.get(from..to) else {
-            continue;
-        };
-        let lead = piece.len() - piece.trim_start().len();
-        let line = k + text[..from + lead].matches('\n').count();
-        let piece = piece.split_whitespace().collect::<Vec<_>>().join(" ");
-        if piece.is_empty() {
-            continue;
-        }
-        out.push(match n {
-            0 => (line, piece),
-            _ => (line, format!("{keyword}{piece}")),
-        });
-    }
-    (out.len() > 1).then_some(out)
+#[derive(Debug, PartialEq, Eq)]
+pub(super) struct TsHeader {
+    pub one_line_without_type_params: String,
+    pub last_line0: usize,
 }
-/// `s` with its TypeScript comments, `//` and `/* */`, blanked out and its lines kept.
-fn blank_comments(s: &str) -> String {
-    let b = s.as_bytes();
-    let mut out = b.to_vec();
-    let (mut i, mut quote) = (0, None);
-    while i < b.len() {
-        match (quote, b[i]) {
-            (Some(q), c) => {
-                if c == b'\\' {
-                    i += 1;
-                } else if c == q {
-                    quote = None;
-                }
-            }
-            (None, c @ (b'"' | b'\'' | b'`')) => quote = Some(c),
-            (None, b'/') if b.get(i + 1) == Some(&b'/') => {
-                while i < b.len() && b[i] != b'\n' {
-                    out[i] = b' ';
-                    i += 1;
-                }
-                continue;
-            }
-            (None, b'/') if b.get(i + 1) == Some(&b'*') => {
-                let end = s[i + 2..].find("*/").map_or(b.len(), |e| i + 2 + e + 2);
-                for o in &mut out[i..end] {
-                    if *o != b'\n' {
-                        *o = b' ';
-                    }
-                }
-                i = end;
-                continue;
-            }
-            _ => {}
-        }
-        i += 1;
-    }
-    String::from_utf8(out).unwrap_or_else(|_| s.to_owned())
-}
-pub(super) fn ts_header(lines: &[&str], k: usize) -> (String, usize) {
+pub(super) fn ts_header(lines: &[&str], k: usize) -> TsHeader {
     // ponytail: forty lines of header; hono's widest list of type parameters runs to six.
     let text = uncommented(Kind::TsJs, &lines[k..lines.len().min(k + 40)].join("\n"));
     let b = text.as_bytes();
@@ -1385,17 +1316,20 @@ pub(super) fn ts_header(lines: &[&str], k: usize) -> (String, usize) {
         }
     }
     let Some(open) = open else {
-        return (lines[k].to_owned(), k);
+        return TsHeader {
+            one_line_without_type_params: lines[k].to_owned(),
+            last_line0: k,
+        };
     };
     let last = k + text[..open].matches('\n').count();
     let mut header = text[..=open].to_owned();
     if let (Some(from), Some(to)) = (type_params_from, type_params_to) {
         header.replace_range(from..to, "");
     }
-    (
-        header.split_whitespace().collect::<Vec<_>>().join(" "),
-        last,
-    )
+    TsHeader {
+        one_line_without_type_params: header.split_whitespace().collect::<Vec<_>>().join(" "),
+        last_line0: last,
+    }
 }
 pub fn go_may_declare(text: &str, line: usize, name: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();
@@ -1469,151 +1403,4 @@ pub fn package_bindings(text: &str, name: &str) -> Vec<Binding> {
         }
     }
     out
-}
-/// The 1-based lines that bind PHP's `$name` where 1-based `line` of `text` reads it (#464). A
-/// variable belongs to its function or closure, which sees nothing of the scope around it but
-/// what its `use (…)` list names: its parameters (a promoted one included) and that list, and,
-/// above the cursor, a plain `=`, a `foreach` target, a `catch`, a `global` or `static`, a
-/// destructuring. A compound `.=`, `+=` or `??=` reads the variable first and binds nothing.
-/// Outside any function, the lines at the top of the file count. `None` in a class body, where
-/// `$name` declares a property.
-pub fn php_variable(text: &str, line: usize, name: &str) -> Option<Vec<usize>> {
-    let raw: Vec<&str> = text.lines().collect();
-    let at = line.checked_sub(1).filter(|&i| i < raw.len())?;
-    let literal = literal_lines(Kind::Php, text);
-    let code_lines: Vec<String> = raw.iter().map(|l| php_code(l)).collect();
-    let n = regex::escape(name);
-    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
-    let var = rule(format!(r"(?:^|[^\w$:>])\${n}\b"));
-    // A function or an arrow function in the statement the cursor's line ends, whose parameters
-    // or `use` list name the variable: the cursor stands on that declaration, in a header written
-    // over several lines, or in a one-line body. A promoted constructor parameter under the cursor
-    // is a property's declaration, whose namesakes the search by name offers (#104).
-    let mut top = at;
-    while top > 0 && at - top < 50 && !literal[top - 1] && {
-        let t = code_lines[top - 1].trim();
-        !t.is_empty() && !t.ends_with([';', '{', '}'])
-    } {
-        top -= 1;
-    }
-    let statement = code_lines[top..=at].join("\n");
-    let head = Regex::new(r"(?:^|[^\w$:>])(?:function|fn)\b([^{]*?)(?:\{|=>|$)").unwrap();
-    if let Some(at_var) = head
-        .captures_iter(&statement)
-        .filter_map(|c| var.find(&c[1]).map(|m| c.get(1).unwrap().start() + m.end()))
-        .last()
-    {
-        let bound = top + statement[..at_var].matches('\n').count();
-        let promoted = rule(format!(
-            r"(?:(?:public|private|protected|readonly)\s+)+(?:\??[\w\\|]+\s+)?\${n}\b"
-        ));
-        return (bound != at || !promoted.is_match(&code_lines[at])).then(|| vec![bound + 1]);
-    }
-    let binds = [
-        format!(r"(?:^|[^\w$:>])\${n}\s*=(?:[^=>]|$)"),
-        format!(r"\bforeach\s*\(.*\bas\b.*\${n}\b"),
-        format!(r"\bcatch\s*\([^)]*\${n}\b"),
-        format!(r"^\s*(?:global|static)\s+[^;(]*\${n}\b"),
-        format!(r"(?:^|[^\w$])(?:list\s*\(|\[)[^;=]*\${n}\b[^;=]*[\])]\s*=(?:[^=>]|$)"),
-    ]
-    .map(rule);
-    let scope = php_scope(&code_lines, &literal, at);
-    let mut out = Vec::new();
-    let from = match scope {
-        PhpScope::Class => return None,
-        PhpScope::TopOrNamespace => 0,
-        // The parameters and the `use` list, read from the last `function` of the header on.
-        PhpScope::Function {
-            header_line: start,
-            body_line: open,
-            brace_byte: brace,
-        } => {
-            let mut seen = false;
-            for (i, l) in code_lines.iter().enumerate().take(open + 1).skip(start) {
-                let l = if i == open { &l[..brace] } else { &l[..] };
-                let l = match FUNCTION.find_iter(l).last() {
-                    Some(m) => {
-                        seen = true;
-                        &l[m.end()..]
-                    }
-                    None => l,
-                };
-                if seen && var.is_match(l) {
-                    out.push(i + 1);
-                }
-            }
-            open + 1
-        }
-    };
-    out.extend(
-        (from..=at)
-            .filter(|&i| !literal[i] && binds.iter().any(|b| b.is_match(&code_lines[i])))
-            .filter(|&i| i == at || php_scope(&code_lines, &literal, i) == scope)
-            .map(|i| i + 1),
-    );
-    Some(out)
-}
-static FUNCTION: std::sync::LazyLock<Regex> =
-    std::sync::LazyLock::new(|| Regex::new(r"(?:^|[^\w$:>])function\b").unwrap());
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum PhpScope {
-    TopOrNamespace,
-    Class,
-    Function {
-        header_line: usize,
-        body_line: usize,
-        brace_byte: usize,
-    },
-}
-/// The scope 0-based line `at` of `lines` (code only, [`php_code`]) stands in: the innermost
-/// brace above it left open whose header is a function, a class or a namespace. An `if`, a loop,
-/// a `match` is no scope in PHP.
-fn php_scope(lines: &[String], literal: &[bool], at: usize) -> PhpScope {
-    static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:^|[^\w$:>])(?:class|interface|trait|enum)\b").unwrap()
-    });
-    let mut depth = 0usize;
-    for i in (0..at).rev().filter(|&i| !literal[i]) {
-        for (pos, c) in lines[i]
-            .bytes()
-            .enumerate()
-            .collect::<Vec<_>>()
-            .into_iter()
-            .rev()
-        {
-            match c {
-                b'}' => depth += 1,
-                b'{' if depth > 0 => depth -= 1,
-                b'{' => {
-                    let own = &lines[i][..pos];
-                    let cut = own.rfind([';', '{', '}']);
-                    let mut start = i;
-                    let mut header = own[cut.map_or(0, |c| c + 1)..].to_owned();
-                    while cut.is_none() && start > 0 && i - start < 50 {
-                        let t = lines[start - 1].trim();
-                        if literal[start - 1] || t.is_empty() || t.ends_with([';', '{', '}']) {
-                            break;
-                        }
-                        start -= 1;
-                        header = format!("{t}\n{header}");
-                    }
-                    if FUNCTION.is_match(&header) {
-                        return PhpScope::Function {
-                            header_line: start,
-                            body_line: i,
-                            brace_byte: pos,
-                        };
-                    }
-                    if CLASS.is_match(&header) {
-                        return PhpScope::Class;
-                    }
-                    if header.trim_start().starts_with("namespace") {
-                        return PhpScope::TopOrNamespace;
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
-    PhpScope::TopOrNamespace
 }

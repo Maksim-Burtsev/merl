@@ -123,7 +123,7 @@ fn the_grep_finds_every_line_the_field_rules_read() {
             let read: Vec<usize> = decls
                 .iter()
                 .flat_map(|&d| field_bindings(kind, text, d, name))
-                .map(|b| b.line)
+                .map(|b| b.line1)
                 .collect();
             assert!(!read.is_empty(), "{kind:?}: no field {name}");
             for n in read {
@@ -141,7 +141,7 @@ fn the_grep_finds_every_line_the_field_rules_read() {
 fn fields(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<(usize, Value)> {
     field_bindings(kind, text, decl, name)
         .into_iter()
-        .map(|b| (b.line, b.value))
+        .map(|b| (b.line1, b.value))
         .collect()
 }
 

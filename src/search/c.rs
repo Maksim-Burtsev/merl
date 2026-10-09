@@ -245,9 +245,12 @@ pub fn c_field_pattern(word: &str) -> String {
         r"(?:[\w\]>]\s+|[*&,}}>]\s*){w}\s*(?:\[[^\]]*\]\s*)*(?:[;,={{\[]|:(?:[^:]|$)|[A-Z_][A-Z0-9_]*\s*\()|\(\s*\*+\s*{w}\s*\)\s*\("
     )
 }
-/// Of the `hit_lines1` of a C or C++ `text`, the lines that declare `word` as a data member
-/// ([`c_field_owner`]), each with the name of the type it belongs to.
-pub fn c_field_rows(text: &str, hit_lines1: &[usize], word: &str) -> Vec<(usize, String)> {
+pub struct CFieldRow {
+    pub line1: usize,
+    pub owner_type: String,
+}
+/// Of the `hit_lines1`, the lines that declare `word` as a data member ([`c_field_owner`]).
+pub fn c_field_rows(text: &str, hit_lines1: &[usize], word: &str) -> Vec<CFieldRow> {
     let code = c_code(text);
     let starts = line_starts(&code);
     let mut rows = Vec::new();
@@ -263,7 +266,10 @@ pub fn c_field_rows(text: &str, hit_lines1: &[usize], word: &str) -> Vec<(usize,
             whole.then(|| c_field_owner(&code, at, word)).flatten()
         });
         if let Some(owner) = found {
-            rows.push((line, owner));
+            rows.push(CFieldRow {
+                line1: line,
+                owner_type: owner,
+            });
         }
     }
     rows
@@ -698,23 +704,26 @@ fn scope_pos(code: &str, starts: &[usize], line1: usize, name: &str) -> Option<u
 pub fn c_bindings(text: &str, line1: usize, name: &str) -> Vec<Binding> {
     c_bindings_at(text, line1, name)
         .into_iter()
-        .map(|(line, _)| Binding {
-            line,
+        .map(|p| Binding {
+            line1: p.line1,
             value: Value::Unknown,
         })
         .collect()
 }
-/// [`c_bindings`] as the 1-based line and the byte column of each declaration: on a line of one
-/// function the cursor can stand on the parameter or on a use of it.
-pub fn c_bindings_at(text: &str, line1: usize, name: &str) -> Vec<(usize, usize)> {
+/// [`c_bindings`] with columns: on a line of one function the cursor can stand on the parameter
+/// or on a use of it.
+pub fn c_bindings_at(text: &str, line1: usize, name: &str) -> Vec<CPlace> {
     let code = c_code(text);
     let starts = line_starts(&code);
     let Some(pos) = scope_pos(&code, &starts, line1, name) else {
         return Vec::new();
     };
     let place = |at: usize| {
-        let line = starts.partition_point(|&s| s <= at);
-        (line, at - starts[line - 1])
+        let line1 = starts.partition_point(|&s| s <= at);
+        CPlace {
+            line1,
+            byte_col: at - starts[line1 - 1],
+        }
     };
     for Scope {
         open,
@@ -1219,7 +1228,7 @@ pub fn c_value_type(text: &str, line1: usize, name: &str) -> Result<Option<CType
     let starts = line_starts(&code);
     let mut at: Vec<usize> = c_bindings_at(text, line1, name)
         .into_iter()
-        .map(|(l, col)| starts[l - 1] + col)
+        .map(|p| starts[p.line1 - 1] + p.byte_col)
         .collect();
     if at.is_empty() {
         at = block_declarations(&code, 0, code.len(), name);
@@ -1270,10 +1279,17 @@ pub fn c_words_on_line(
         })
         .collect()
 }
-/// The 1-based line and byte column of byte `at` of `code`.
-pub fn c_place(code: &str, at: usize) -> (usize, usize) {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CPlace {
+    pub line1: usize,
+    pub byte_col: usize,
+}
+pub fn c_place(code: &str, at: usize) -> CPlace {
     let line_start = code[..at].rfind('\n').map_or(0, |i| i + 1);
-    (code[..at].matches('\n').count() + 1, at - line_start)
+    CPlace {
+        line1: code[..at].matches('\n').count() + 1,
+        byte_col: at - line_start,
+    }
 }
 /// The name of the struct or union whose body opens at byte `open` of `code`, `""` for an
 /// anonymous one.
@@ -1381,7 +1397,7 @@ pub fn cpp_value_type(text: &str, line1: usize, name: &str) -> Result<Option<Vec
     let starts = line_starts(&code);
     let at: Vec<usize> = c_bindings_at(text, line1, name)
         .into_iter()
-        .map(|(l, col)| starts[l - 1] + col)
+        .map(|p| starts[p.line1 - 1] + p.byte_col)
         .collect();
     let mut types = at.iter().map(|&a| cpp_type_at(&code, a, name.len()));
     let Some(first) = types.next() else {

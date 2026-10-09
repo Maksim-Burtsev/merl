@@ -1,6 +1,7 @@
 use super::*;
 
 mod braces;
+mod elixir;
 mod spans;
 mod words;
 
@@ -10,10 +11,20 @@ impl App {
         if self.kind() == Some(Kind::Python) {
             return Some(Folds::Indent(Box::new(Shape::python(lines))));
         }
-        let words = match self.fold_kind() {
+        let name = (self.buf.path.as_deref())
+            .and_then(|p| p.file_name()?.to_str())
+            .unwrap_or("");
+        let words = match self.kind() {
+            Some(Kind::Ruby) if name.ends_with(".rbs") => Some(words::rbs(lines)),
             Some(Kind::Ruby) => Some(words::ruby(lines)),
             Some(Kind::Lua) => Some(words::lua(lines)),
-            Some(Kind::Shell) => Some(words::shell(lines)),
+            Some(Kind::Shell) => Some(words::shell(
+                lines,
+                name.ends_with(".zsh") || name.starts_with(".z"),
+            )),
+            Some(Kind::Elixir) if name.ends_with(".ex") || name.ends_with(".exs") => {
+                Some(elixir::elixir(lines))
+            }
             _ => None,
         };
         if let Some(blocks) = words {
@@ -31,6 +42,7 @@ impl App {
             Some("yml" | "yaml") => Some(spans::yaml(lines)),
             Some("toml") => Some(spans::toml(lines)),
             Some("html" | "htm") => Some(spans::html(lines)),
+            Some("xml") => Some(spans::xml(lines)),
             Some("md" | "markdown") => Some(spans::markdown(lines)),
             _ => None,
         };
@@ -74,15 +86,6 @@ impl App {
         self.anchor = None;
         self.set_at(TextLine::File(h));
         self.apply_want_x(0);
-    }
-
-    fn fold_kind(&self) -> Option<Kind> {
-        let name = self.buf.path.as_deref()?.file_name()?.to_str()?;
-        match self.kind()? {
-            Kind::Ruby if name.ends_with(".rbs") => None,
-            Kind::Shell if name.ends_with(".zsh") || name.starts_with(".z") => None,
-            kind => Some(kind),
-        }
     }
 
     pub fn hidden(&self, l: usize) -> bool {
@@ -538,4 +541,43 @@ fn closes(t: &str) -> bool {
 
 fn indent(s: &str) -> usize {
     s.len() - s.trim_start().len()
+}
+
+const NEST_MAX: usize = 20;
+
+fn vim_folds(len: usize, ranges: impl Iterator<Item = (usize, usize)>) -> HashMap<usize, usize> {
+    let mut ranges: Vec<_> = ranges.filter(|&(h, e)| e > h && e < len).collect();
+    ranges.sort_unstable();
+    ranges.dedup();
+    let (mut enter, mut leave) = (vec![0usize; len], vec![0usize; len]);
+    for (h, e) in ranges {
+        enter[h] += 1;
+        leave[e] += 1;
+    }
+    let mut levels = Vec::with_capacity(len);
+    let (mut level, mut left) = (0usize, 0usize);
+    for l in 0..len {
+        let mut gone = leave[l];
+        let mut now = (level + enter[l]).saturating_sub(left);
+        if enter[l] > 0 && gone > 0 {
+            now = now.saturating_sub(gone);
+            gone = 0;
+        }
+        levels.push((enter[l] > 0 && now <= NEST_MAX, now.min(NEST_MAX)));
+        left = gone;
+        level = now;
+    }
+    let mut spans = HashMap::new();
+    for (h, &(starts, n)) in levels.iter().enumerate() {
+        if !starts || n == 0 {
+            continue;
+        }
+        let end = (h + 1..len)
+            .take_while(|&l| levels[l].1 >= n && !(levels[l].0 && levels[l].1 == n))
+            .last();
+        if let Some(e) = end {
+            spans.insert(h, e);
+        }
+    }
+    spans
 }

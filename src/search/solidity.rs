@@ -193,7 +193,7 @@ pub(super) fn solidity_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bi
     let literal = literal_lines(Kind::Solidity, &lines.join("\n"));
     let found = |line: usize| {
         vec![Binding {
-            line: line + 1,
+            line1: line + 1,
             value: Value::Unknown,
         }]
     };

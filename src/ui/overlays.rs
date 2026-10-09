@@ -636,7 +636,10 @@ pub(super) fn lesson_panel(
             ),
             t.tutor,
         ),
-        (None, None) => (" Tutor \u{2713} done".to_string(), crate::tutor::DONE),
+        (None, None) => (
+            " Tutor \u{2713} done".to_string(),
+            crate::tutor::ALL_LESSONS_DONE,
+        ),
     };
     // The title row is a bar, so it is padded to the full width.
     let pad = (width as usize).saturating_sub(wrap::width(&title));

@@ -185,7 +185,7 @@ fn lisp_locals_stay_in_their_form() {
     let at = |kind, text: &str, line, name| -> Vec<usize> {
         bindings(kind, text, line, name)
             .iter()
-            .map(|b| b.line)
+            .map(|b| b.line1)
             .collect()
     };
     let clj =

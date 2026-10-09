@@ -7,7 +7,7 @@ pub(super) fn shell_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindi
         (f + 1..=at)
             .filter(|&i| shell_local_of(lines[i]).is_some_and(|names| names.contains(&name)))
             .map(|i| Binding {
-                line: i + 1,
+                line1: i + 1,
                 value: Value::Unknown,
             })
             .collect()

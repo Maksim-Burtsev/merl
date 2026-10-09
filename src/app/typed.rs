@@ -2,6 +2,44 @@
 
 use super::*;
 
+struct TypeVia {
+    ty: Typed,
+    call_signature: Option<String>,
+}
+struct WrittenVia {
+    written: String,
+    call_signature: Option<String>,
+}
+impl WrittenVia {
+    fn plain(written: String) -> Self {
+        WrittenVia {
+            written,
+            call_signature: None,
+        }
+    }
+}
+struct ProvenType {
+    ty: Typed,
+    links: Vec<String>,
+}
+#[derive(PartialEq, Eq)]
+enum Ancestry {
+    ReachesOutsideTheProject,
+    ProjectOnly,
+}
+enum DeclaredField {
+    Typed(TypeVia),
+    UnreadableOrDisagreeing,
+}
+impl DeclaredField {
+    fn typed(self) -> Option<TypeVia> {
+        match self {
+            DeclaredField::Typed(via) => Some(via),
+            DeclaredField::UnreadableOrDisagreeing => None,
+        }
+    }
+}
+
 impl App {
     pub(super) fn typed_definitions(
         &mut self,
@@ -20,7 +58,7 @@ impl App {
             let [_] = chain else {
                 return Err(chain[1].clone());
             };
-            let (ty, _) = self
+            let TypeVia { ty, .. } = self
                 .value_type(kind, here, &text, line, &chain[0], 1)
                 .ok_or_else(|| chain[0].clone())?;
             let hits = self.above(kind, &ty, word, 0)?;
@@ -39,7 +77,7 @@ impl App {
         {
             return Ok(found);
         }
-        let (ty, links) = self.receiver(kind, here, chain, head)?;
+        let ProvenType { ty, links } = self.receiver(kind, here, chain, head)?;
         let declared = self.hierarchy(kind, &ty, 0, &mut |t| {
             let members = self.members_of(kind, t, word);
             if members.is_empty() {
@@ -88,7 +126,7 @@ impl App {
         here: &Path,
         chain: &[String],
         head: Option<&search::CallHead>,
-    ) -> Result<(Typed, Vec<String>), String> {
+    ) -> Result<ProvenType, String> {
         let (text, line) = self.scope(here, chain.first())?;
         match head {
             // The chain hangs off a call: `make_uow().users.word`.
@@ -99,12 +137,21 @@ impl App {
             }) => {
                 let value = value.clone();
                 // A cast is its own link, as written: `via (repo as UserRepository)`.
-                let cast = matches!(value, search::Value::Type(_) | search::Value::Cast(..))
+                let cast = matches!(value, search::Value::Type(_) | search::Value::Cast { .. })
                     .then(|| call.clone());
-                let (ty, link) = self
-                    .binding_type(kind, here, &text, &search::Binding { line, value }, 1)
+                let TypeVia { ty, call_signature } = self
+                    .binding_type(
+                        kind,
+                        here,
+                        &text,
+                        &search::Binding { line1: line, value },
+                        1,
+                    )
                     .ok_or_else(|| call.clone())?;
-                let start = (ty, link.or(cast));
+                let start = TypeVia {
+                    ty,
+                    call_signature: call_signature.or(cast),
+                };
                 self.follow(kind, start, call, false, fields)
             }
             None => self.chain_type(kind, here, &text, line, chain, 1),
@@ -140,7 +187,7 @@ impl App {
                 search::Value::Type(t) => (builtin(t)?, None),
                 search::Value::Call(callee) => {
                     let first = callee.split('.').next().unwrap_or(callee);
-                    if hidden(kind, &file, &text, b.line, first) {
+                    if hidden(kind, &file, &text, b.line1, first) {
                         return None;
                     }
                     let (t, at) = self.declared_return(kind, &file, callee)?;
@@ -186,7 +233,7 @@ impl App {
                 Some((here.to_path_buf(), text, bindings, Vec::new()))
             }
             _ => {
-                let (ty, links) = self.receiver(kind, here, before, None).ok()?;
+                let ProvenType { ty, links } = self.receiver(kind, here, before, None).ok()?;
                 let found = self.hierarchy(kind, &ty, 0, &mut |t| {
                     let text = self.text_of(&t.path)?;
                     let bindings = search::field_bindings(kind, &text, t.line, last);
@@ -211,7 +258,7 @@ impl App {
         let search::Value::Type(written) = &b.value else {
             return None;
         };
-        let (line, literal) = search::ts_literal_member(&text, b.line, written, word)?;
+        let (line, literal) = search::ts_literal_member(&text, b.line1, written, word)?;
         links.push(format!("{}: {literal}", chain.last()?));
         let hit = Hit {
             text: text.lines().nth(line - 1)?.to_owned(),
@@ -238,13 +285,12 @@ impl App {
         if kind != Kind::Python || chain.first().is_some_and(|f| f == "super") {
             return None;
         }
-        let (ty, _) = self.receiver(kind, here, chain, head).ok()?;
-        self.ancestry_outside(&ty, 0)?.then_some(ty)
+        let ProvenType { ty, .. } = self.receiver(kind, here, chain, head).ok()?;
+        (self.python_ancestry(&ty, 0)? == Ancestry::ReachesOutsideTheProject).then_some(ty)
     }
 
-    /// Whether a base of `ty`, or of a project class above it, is imported from outside the
-    /// project; `None` when a base cannot be read.
-    fn ancestry_outside(&self, ty: &Typed, depth: usize) -> Option<bool> {
+    /// `None` when a base cannot be read.
+    fn python_ancestry(&self, ty: &Typed, depth: usize) -> Option<Ancestry> {
         let kind = Kind::Python;
         // ponytail: eight levels up, which also ends a cycle.
         let text = self.text_of(&ty.path).filter(|_| depth < 8)?;
@@ -258,7 +304,9 @@ impl App {
                 continue;
             }
             if let Some(base) = self.type_decl(kind, &ty.path, &base) {
-                outside |= base.path.is_absolute() || self.ancestry_outside(&base, depth + 1)?;
+                outside |= base.path.is_absolute()
+                    || self.python_ancestry(&base, depth + 1)?
+                        == Ancestry::ReachesOutsideTheProject;
                 continue;
             }
             let path = bound(&imports, &parts[0])?;
@@ -271,7 +319,10 @@ impl App {
             }
             outside = true;
         }
-        Some(outside)
+        Some(match outside {
+            true => Ancestry::ReachesOutsideTheProject,
+            false => Ancestry::ProjectOnly,
+        })
     }
 
     /// `word` as the class `chain` names declares it for the class itself: a method, else a line
@@ -341,19 +392,18 @@ impl App {
         false
     }
 
-    /// The type of the chain `x.f.g` on 1-based `line` of `text`, the text of `file`, and the links
-    /// that prove it; `Err` names the first name that is not proven.
+    /// `Err` names the first name of the chain `x.f.g` that is not proven.
     fn chain_type(
         &self,
         kind: Kind,
         file: &Path,
         text: &str,
-        line: usize,
+        line1: usize,
         chain: &[String],
         hops: usize,
-    ) -> Result<(Typed, Vec<String>), String> {
+    ) -> Result<ProvenType, String> {
         let start = self
-            .value_type(kind, file, text, line, &chain[0], hops)
+            .value_type(kind, file, text, line1, &chain[0], hops)
             .ok_or_else(|| chain[0].clone())?;
         self.follow(kind, start, &chain[0], true, &chain[1..])
     }
@@ -364,28 +414,34 @@ impl App {
     fn follow(
         &self,
         kind: Kind,
-        start: (Typed, Option<String>),
+        start: TypeVia,
         name: &str,
         merge: bool,
         fields: &[String],
-    ) -> Result<(Typed, Vec<String>), String> {
-        let (mut ty, call) = start;
-        let mut links = vec![call.unwrap_or_else(|| format!("{name}: {}", ty.name))];
+    ) -> Result<ProvenType, String> {
+        let TypeVia {
+            mut ty,
+            call_signature,
+        } = start;
+        let mut links = vec![call_signature.unwrap_or_else(|| format!("{name}: {}", ty.name))];
         for (i, field) in fields.iter().enumerate() {
             // ponytail: six names in front of the word; a longer chain breaks at the seventh.
             if i == 5 {
                 return Err(field.clone());
             }
-            let (next, call) = self
+            let TypeVia {
+                ty: next,
+                call_signature,
+            } = self
                 .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
-                .flatten()
+                .and_then(DeclaredField::typed)
                 .ok_or_else(|| field.clone())?;
             let first = i == 0 && merge;
             let label = match first {
                 true => format!("{name}.{field}"),
                 false => field.clone(),
             };
-            let link = call.unwrap_or_else(|| format!("{label}: {}", next.name));
+            let link = call_signature.unwrap_or_else(|| format!("{label}: {}", next.name));
             if first {
                 links[0] = link;
             } else {
@@ -393,22 +449,22 @@ impl App {
             }
             ty = next;
         }
-        Ok((ty, links))
+        Ok(ProvenType { ty, links })
     }
 
-    /// The type of `name` on 1-based `line` of `text`, the text of `file`: the one type all its
-    /// declarations in scope read, with the signature of the call it came from, if any. `hops` is
-    /// how many times a declaration may hand over to another name (`self.repo = repo`).
+    /// The type of `name` on `line1` of `text`, the text of `file`: the one type all its
+    /// declarations in scope read. `hops` is how many times a declaration may hand over to another
+    /// name (`self.repo = repo`).
     fn value_type(
         &self,
         kind: Kind,
         file: &Path,
         text: &str,
-        line: usize,
+        line1: usize,
         name: &str,
         hops: usize,
-    ) -> Option<(Typed, Option<String>)> {
-        let bindings = self.bindings_of(kind, file, text, line, name);
+    ) -> Option<TypeVia> {
+        let bindings = self.bindings_of(kind, file, text, line1, name);
         if !bindings.is_empty() || kind != Kind::Go {
             return self.agree(kind, file, text, &bindings, hops);
         }
@@ -416,11 +472,11 @@ impl App {
         // files (#100); each is read in the file that writes it, and they have to agree. An
         // empty list is no proof of that: the walk misses locals, so the function around the
         // line must not so much as mention the name, and an import of the file is no variable.
-        let imported = search::imports(kind, text).iter().any(|(n, _)| n == name);
-        if imported || search::go_may_declare(text, line, name) {
+        let imported = search::imports(kind, text).iter().any(|i| i.name == name);
+        if imported || search::go_may_declare(text, line1, name) {
             return None;
         }
-        let mut found: Option<(Typed, Option<String>)> = None;
+        let mut found: Option<TypeVia> = None;
         for f in self.package_files(kind, file) {
             let Some(text) = self.text_of(&f) else {
                 continue;
@@ -431,7 +487,9 @@ impl App {
             }
             let this = self.agree(kind, &f, &text, &bindings, hops)?;
             match &found {
-                Some((ty, _)) if (&ty.path, ty.line) != (&this.0.path, this.0.line) => return None,
+                Some(one) if (&one.ty.path, one.ty.line) != (&this.ty.path, this.ty.line) => {
+                    return None;
+                }
                 Some(_) => {}
                 None => found = Some(this),
             }
@@ -439,17 +497,13 @@ impl App {
         found
     }
 
-    /// The field `field` as `ty` itself declares it: `None` when it does not, `Some(None)` when
-    /// its declarations cannot be read or disagree.
-    fn field_type(
-        &self,
-        kind: Kind,
-        ty: &Typed,
-        field: &str,
-    ) -> Option<Option<(Typed, Option<String>)>> {
+    fn field_type(&self, kind: Kind, ty: &Typed, field: &str) -> Option<DeclaredField> {
         let text = self.text_of(&ty.path)?;
         let bindings = search::field_bindings(kind, &text, ty.line, field);
-        (!bindings.is_empty()).then(|| self.agree(kind, &ty.path, &text, &bindings, 1))
+        (!bindings.is_empty()).then(|| match self.agree(kind, &ty.path, &text, &bindings, 1) {
+            Some(via) => DeclaredField::Typed(via),
+            None => DeclaredField::UnreadableOrDisagreeing,
+        })
     }
 
     /// The one type every binding reads, or `None` when there is none, one cannot be read or
@@ -463,10 +517,10 @@ impl App {
         text: &str,
         bindings: &[search::Binding],
         hops: usize,
-    ) -> Option<(Typed, Option<String>)> {
-        let mut found: Option<(Typed, Option<String>)> = None;
+    ) -> Option<TypeVia> {
+        let mut found: Option<TypeVia> = None;
         for b in bindings {
-            let at = (file.to_path_buf(), b.line);
+            let at = (file.to_path_buf(), b.line1);
             if self.reading.borrow().contains(&at) {
                 continue;
             }
@@ -475,7 +529,9 @@ impl App {
             self.reading.borrow_mut().pop();
             let this = this?;
             match &found {
-                Some((ty, _)) if (&ty.path, ty.line) != (&this.0.path, this.0.line) => return None,
+                Some(one) if (&one.ty.path, one.ty.line) != (&this.ty.path, this.ty.line) => {
+                    return None;
+                }
                 Some(_) => {}
                 None => found = Some(this),
             }
@@ -483,7 +539,6 @@ impl App {
         found
     }
 
-    /// The type one binding in `file` reads, and the signature of the call it came through.
     fn binding_type(
         &self,
         kind: Kind,
@@ -491,17 +546,20 @@ impl App {
         text: &str,
         b: &search::Binding,
         hops: usize,
-    ) -> Option<(Typed, Option<String>)> {
+    ) -> Option<TypeVia> {
         match &b.value {
             search::Value::Type(t) | search::Value::New(t) => {
                 // `new api.Tool()` on a parameter `api` names no namespace of the file.
                 let path = search::type_path(kind, t).filter(|p| p.len() > 1);
-                if path.is_some_and(|p| hidden(kind, file, text, b.line, &p[0])) {
+                if path.is_some_and(|p| hidden(kind, file, text, b.line1, &p[0])) {
                     return None;
                 }
-                self.type_decl(kind, file, t).map(|ty| (ty, None))
+                self.type_decl(kind, file, t).map(|ty| TypeVia {
+                    ty,
+                    call_signature: None,
+                })
             }
-            search::Value::Class(line) => {
+            search::Value::Class { decl_line1: line } => {
                 let decl = text.lines().nth(line - 1)?;
                 let name = decl
                     .split("class")
@@ -515,21 +573,31 @@ impl App {
                     path: file.to_path_buf(),
                     line: *line,
                 };
-                Some((ty, None))
+                Some(TypeVia {
+                    ty,
+                    call_signature: None,
+                })
             }
-            search::Value::Call(callee) => self.call_type(kind, file, text, b.line, callee, hops),
-            search::Value::Struct(line) => Some((anonymous(file, *line), None)),
-            // `cast(T, x)` writes `T`, unless the project declares the `cast` this file calls:
-            // that one is a function, with whatever it returns.
-            search::Value::Cast(callee, t) => {
+            search::Value::Call(callee) => self.call_type(kind, file, text, b.line1, callee, hops),
+            search::Value::Struct(line) => Some(TypeVia {
+                ty: anonymous(file, *line),
+                call_signature: None,
+            }),
+            search::Value::Cast {
+                callee,
+                written_type: t,
+            } => {
                 let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
                 match self.declaration(kind, file, &parts) {
-                    Some(_) => self.call_type(kind, file, text, b.line, callee, hops),
-                    None => self.type_decl(kind, file, t).map(|ty| (ty, None)),
+                    Some(_) => self.call_type(kind, file, text, b.line1, callee, hops),
+                    None => self.type_decl(kind, file, t).map(|ty| TypeVia {
+                        ty,
+                        call_signature: None,
+                    }),
                 }
             }
             search::Value::Name(n) if hops > 0 => {
-                self.value_type(kind, file, text, b.line, n, hops - 1)
+                self.value_type(kind, file, text, b.line1, n, hops - 1)
             }
             // An element of a collection whose every declaration writes its type: an
             // annotation, or the return type of the function it was assigned from.
@@ -538,12 +606,12 @@ impl App {
                     None => (
                         file.to_path_buf(),
                         text.to_owned(),
-                        self.bindings_of(kind, file, text, b.line, n),
+                        self.bindings_of(kind, file, text, b.line1, n),
                     ),
                     Some((chain, last)) => {
                         let chain: Vec<String> = chain.split('.').map(str::to_owned).collect();
-                        let (ty, _) = self
-                            .chain_type(kind, file, text, b.line, &chain, hops - 1)
+                        let ProvenType { ty, .. } = self
+                            .chain_type(kind, file, text, b.line1, &chain, hops - 1)
                             .ok()?;
                         self.hierarchy(kind, &ty, 0, &mut |t| {
                             let text = self.text_of(&t.path)?;
@@ -553,7 +621,7 @@ impl App {
                     }
                 };
                 let (file, text) = (file.as_path(), text.as_str());
-                let mut found: Option<(Typed, Option<String>)> = None;
+                let mut found: Option<TypeVia> = None;
                 for c in bindings {
                     let (written, at, link) = match &c.value {
                         search::Value::Type(t) => {
@@ -561,7 +629,7 @@ impl App {
                         }
                         search::Value::Call(callee) => {
                             let first = callee.split('.').next().unwrap_or(callee);
-                            if hidden(kind, file, text, c.line, first) {
+                            if hidden(kind, file, text, c.line1, first) {
                                 return None;
                             }
                             let (t, at) = self.declared_return(kind, file, callee)?;
@@ -588,49 +656,55 @@ impl App {
                         Some(element) => (element, at.clone()),
                         None => named(&written)?,
                     };
-                    let (ty, link) = match kind == Kind::Go && element == "struct" {
-                        true => (anonymous(&at, c.line), None),
+                    let (ty, call_signature) = match kind == Kind::Go && element == "struct" {
+                        true => (anonymous(&at, c.line1), None),
                         false => (self.type_decl(kind, &at, &element)?, Some(link)),
                     };
                     match &found {
-                        Some((one, _)) if (&one.path, one.line) != (&ty.path, ty.line) => {
+                        Some(one) if (&one.ty.path, one.ty.line) != (&ty.path, ty.line) => {
                             return None;
                         }
                         Some(_) => {}
-                        None => found = Some((ty, link)),
+                        None => found = Some(TypeVia { ty, call_signature }),
                     }
                 }
                 found
             }
             // `const { repo } = this`: the field of what the chain on the right proves.
-            search::Value::Field(from, field) if hops > 0 => {
-                let (ty, _) = self
-                    .chain_type(kind, file, text, b.line, from, hops - 1)
+            search::Value::Field { chain: from, field } if hops > 0 => {
+                let ProvenType { ty, .. } = self
+                    .chain_type(kind, file, text, b.line1, from, hops - 1)
                     .ok()?;
-                let (ty, _) = self
+                let TypeVia { ty, .. } = self
                     .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
-                    .flatten()?;
-                Some((ty, None))
+                    .and_then(DeclaredField::typed)?;
+                Some(TypeVia {
+                    ty,
+                    call_signature: None,
+                })
             }
             search::Value::Member(head, field) => {
                 let at = search::Binding {
-                    line: b.line,
+                    line1: b.line1,
                     value: (**head).clone(),
                 };
-                let (ty, _) = self.binding_type(kind, file, text, &at, hops)?;
-                let (ty, _) = self
+                let TypeVia { ty, .. } = self.binding_type(kind, file, text, &at, hops)?;
+                let TypeVia { ty, .. } = self
                     .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
-                    .flatten()?;
-                Some((ty, None))
+                    .and_then(DeclaredField::typed)?;
+                Some(TypeVia {
+                    ty,
+                    call_signature: None,
+                })
             }
             search::Value::Name(_)
             | search::Value::Element(_)
-            | search::Value::Field(..)
+            | search::Value::Field { .. }
             | search::Value::Unknown => None,
         }
     }
 
-    /// What a call of `callee` on 1-based `line` of `file` gives: the class it constructs, or the
+    /// What a call of `callee` on `line1` of `file` gives: the class it constructs, or the
     /// declared return type of the function, resolved in the file declaring it. `e.RequestInfo()`
     /// on a receiver whose type is proven is the method of that type, or of one it extends. A
     /// return type is never followed through another call; the receiver may itself come from a
@@ -640,10 +714,10 @@ impl App {
         kind: Kind,
         file: &Path,
         text: &str,
-        line: usize,
+        line1: usize,
         callee: &str,
         hops: usize,
-    ) -> Option<(Typed, Option<String>)> {
+    ) -> Option<TypeVia> {
         let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
         let (method, receiver) = parts.split_last()?;
         // `super.make()` is the base's `make`, which only `typed_definitions` knows how to find:
@@ -653,12 +727,12 @@ impl App {
         }
         let proven = (hops > 0 && !receiver.is_empty())
             .then(|| {
-                self.chain_type(kind, file, text, line, receiver, hops - 1)
+                self.chain_type(kind, file, text, line1, receiver, hops - 1)
                     .ok()
             })
             .flatten();
         let decl = match proven {
-            Some((ty, _)) => {
+            Some(ProvenType { ty, .. }) => {
                 let found = self.hierarchy(kind, &ty, 0, &mut |t| {
                     let members = self.members_of(kind, t, method);
                     (!members.is_empty()).then_some(members)
@@ -668,7 +742,7 @@ impl App {
             None => {
                 // A parameter or a local named like a function or an import is a value: what it
                 // returns when called is not what that function declares.
-                if hidden(kind, file, text, line, &parts[0]) {
+                if hidden(kind, file, text, line1, &parts[0]) {
                     return None;
                 }
                 self.declaration(kind, file, &parts)?
@@ -680,7 +754,10 @@ impl App {
                 path: decl.path,
                 line: decl.line,
             };
-            return Some((ty, None));
+            return Some(TypeVia {
+                ty,
+                call_signature: None,
+            });
         }
         let text = self.text_of(&decl.path)?;
         let (written, signature) = match self.returns_of(kind, &decl.path, &text, decl.line)? {
@@ -695,7 +772,10 @@ impl App {
             _ => return None,
         };
         let ty = self.type_decl(kind, &decl.path, &written)?;
-        Some((ty, Some(signature)))
+        Some(TypeVia {
+            ty,
+            call_signature: Some(signature),
+        })
     }
 
     /// The return type the function `callee` of `file` declares, as written, and the file that
@@ -761,7 +841,7 @@ impl App {
             .is_some()
     }
 
-    /// The declarations of `name` that 1-based `line` of `text`, the text of `file`, reads
+    /// The declarations of `name` that `line1` of `text`, the text of `file`, reads
     /// ([`search::bindings`]), each typed by the JSDoc a JavaScript file writes for it, as an
     /// annotation types it in TypeScript (#347), when that type resolves.
     fn bindings_of(
@@ -769,13 +849,13 @@ impl App {
         kind: Kind,
         file: &Path,
         text: &str,
-        line: usize,
+        line1: usize,
         name: &str,
     ) -> Vec<search::Binding> {
-        let mut bindings = search::bindings(kind, text, line, name);
+        let mut bindings = search::bindings(kind, text, line1, name);
         if search::reads_jsdoc(kind, file) {
             for b in &mut bindings {
-                if let Some(t) = search::jsdoc_binding(text, b.line, name)
+                if let Some(t) = search::jsdoc_binding(text, b.line1, name)
                     .filter(|t| self.jsdoc_resolves(kind, file, t))
                 {
                     b.value = search::Value::Type(t);
@@ -785,7 +865,7 @@ impl App {
         bindings
     }
 
-    /// What the function declared on 1-based `decl` of `text`, the text of `file`, returns
+    /// What the function declared on `decl1` of `text`, the text of `file`, returns
     /// ([`search::returns`]). In a JavaScript file its JSDoc `@returns {T}` says it first, when
     /// `T`, or the element of a `T[]`, is a type the project declares (#347).
     fn returns_of(
@@ -793,15 +873,15 @@ impl App {
         kind: Kind,
         file: &Path,
         text: &str,
-        decl: usize,
+        decl1: usize,
     ) -> Option<search::Value> {
         let declared = search::reads_jsdoc(kind, file)
-            .then(|| search::jsdoc_returns(text, decl))
+            .then(|| search::jsdoc_returns(text, decl1))
             .flatten()
             .filter(|t| self.jsdoc_resolves(kind, file, t));
         match declared {
             Some(t) => Some(search::Value::Type(t)),
-            None => search::returns(kind, text, decl),
+            None => search::returns(kind, text, decl1),
         }
     }
 
@@ -820,7 +900,13 @@ impl App {
             return None;
         }
         let text = self.text_of(file)?;
-        let [(line, written)] = &search::jsdoc_typedefs(&text, name)[..] else {
+        let [
+            search::JsdocTypedef {
+                line1: line,
+                written_type: written,
+            },
+        ] = &search::jsdoc_typedefs(&text, name)[..]
+        else {
             return None;
         };
         if search::jsdoc_object(written) {
@@ -832,7 +918,7 @@ impl App {
         }
         let c = IMPORTED.captures(written)?;
         let import = format!("import {{ {} }} from \"{}\";", &c[2], &c[1]);
-        let (_, path) = search::imports(kind, &import).pop()?;
+        let path = search::imports(kind, &import).pop()?.path;
         let (taken, module) = path.split_last()?;
         let files = search::module_files(kind, &self.root, &self.files, file, module);
         let [module] = &files[..] else {
@@ -875,19 +961,19 @@ pub(super) fn anonymous(file: &Path, line: usize) -> Typed {
     }
 }
 
-/// Whether a parameter or a local binds `name` where 1-based `line` of `text` reads it: a value
+/// Whether a parameter or a local binds `name` where `line1` of `text` reads it: a value
 /// then, whatever function, import or namespace of that name the file can see. In JavaScript a
 /// `const X = require("./x")` is an import (#328), so `X.make()` returns what `make` declares
 /// (#347); TypeScript reads what `require` gives as `any`.
-fn hidden(kind: Kind, file: &Path, text: &str, line: usize, name: &str) -> bool {
+fn hidden(kind: Kind, file: &Path, text: &str, line1: usize, name: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let required = Regex::new(&format!(
         r"^\s*(?:(?:export\s+)?(?:const|let|var)\s+)?{}\s*=\s*require\(",
         regex::escape(name)
     ))
     .expect("an escaped name keeps the pattern valid");
-    search::bindings(kind, text, line, name).iter().any(|b| {
-        lines.get(b.line - 1).is_some_and(|l| {
+    search::bindings(kind, text, line1, name).iter().any(|b| {
+        lines.get(b.line1 - 1).is_some_and(|l| {
             !names_itself(kind, l, name)
                 && !(search::reads_jsdoc(kind, file) && required.is_match(l))
         })
@@ -939,9 +1025,11 @@ impl App {
             // A value reaches the instance members; a `static` one needs the type.
             if rows
                 .iter()
-                .any(|h| search::swift_static_member(&h.text) == Some(false))
+                .any(|h| search::swift_member_kind(&h.text) == Some(search::SwiftMember::Instance))
             {
-                rows.retain(|h| search::swift_static_member(&h.text) != Some(true));
+                rows.retain(|h| {
+                    search::swift_member_kind(&h.text) != Some(search::SwiftMember::StaticOrClass)
+                });
             }
             let label = links.join(" \u{2192} ");
             Some(
@@ -958,18 +1046,21 @@ impl App {
         found
     }
 
-    /// The type written for the last of `names` on 1-based `line` of `text`, the text of `file`,
+    /// The type written for the last of `names` on `line1` of `text`, the text of `file`,
     /// as written, and the links that prove it.
     fn swift_chain(
         &self,
         here: &Path,
         file: &Path,
         text: &str,
-        line: usize,
+        line1: usize,
         names: &[String],
         hops: usize,
     ) -> Option<(String, Vec<String>)> {
-        let (mut written, link) = self.swift_value(here, file, text, line, &names[0], hops)?;
+        let WrittenVia {
+            mut written,
+            call_signature: link,
+        } = self.swift_value(here, file, text, line1, &names[0], hops)?;
         let shown = |w: &str| search::swift_type_name(w).unwrap_or_else(|| w.to_owned());
         let mut links = vec![link.unwrap_or_else(|| format!("{}: {}", names[0], shown(&written)))];
         for (i, field) in names[1..].iter().enumerate() {
@@ -978,7 +1069,10 @@ impl App {
                 return None;
             }
             let ty = self.swift_type(here, &written)?;
-            let (next, link) = self.swift_field(here, &ty, field, hops)?;
+            let WrittenVia {
+                written: next,
+                call_signature: link,
+            } = self.swift_field(here, &ty, field, hops)?;
             let link = link.unwrap_or_else(|| match i == 0 && names[0] == "self" {
                 true => format!("self.{field}: {}", shown(&next)),
                 false => format!("{field}: {}", shown(&next)),
@@ -992,42 +1086,41 @@ impl App {
         Some((written, links))
     }
 
-    /// The type `name` holds on 1-based `line` of `text`, the text of `file`, as written, with
-    /// the signature of the call it came from: `self` is the type around the line; a local or a
-    /// parameter what its one binding gives it; else a property of the type around the line,
-    /// when nothing in its function may bind the name unread.
+    /// `self` is the type around the line; a local or a parameter what its one binding gives it;
+    /// else a property of the type around the line, when nothing in its function may bind the
+    /// name unread.
     fn swift_value(
         &self,
         here: &Path,
         file: &Path,
         text: &str,
-        line: usize,
+        line1: usize,
         name: &str,
         hops: usize,
-    ) -> Option<(String, Option<String>)> {
+    ) -> Option<WrittenVia> {
         let lines: Vec<&str> = text.lines().collect();
         let literal = search::literal_lines(Kind::Swift, text);
-        let around = search::swift_enclosing_type(&lines, &literal, line);
+        let around = search::swift_enclosing_type(&lines, &literal, line1);
         if name == "self" {
             let own = search::swift_type_header(lines[around? - 1])?.name;
-            return Some((own, None));
+            return Some(WrittenVia::plain(own));
         }
-        match search::bindings(Kind::Swift, text, line, name).as_slice() {
+        match search::bindings(Kind::Swift, text, line1, name).as_slice() {
             [b] => {
-                let given = search::swift_given(lines.get(b.line - 1)?, name)?;
-                self.swift_given_type(here, file, text, b.line, given, hops)
+                let given = search::swift_given(lines.get(b.line1 - 1)?, name)?;
+                self.swift_given_type(here, file, text, b.line1, given, hops)
             }
             [] => {
                 let at = around?;
-                // The lines of the function under the type, down to `line`.
-                let mut top = search::swift_scope(&lines, &literal, line).0;
+                // The lines of the function under the type, down to `line1`.
+                let mut top = search::swift_scope(&lines, &literal, line1).header_line1;
                 while top > at {
-                    match search::swift_scope(&lines, &literal, top).0 {
+                    match search::swift_scope(&lines, &literal, top).header_line1 {
                         up if up > at => top = up,
                         _ => break,
                     }
                 }
-                if top == 0 || (top..line).any(|l| search::swift_may_bind(lines[l - 1], name)) {
+                if top == 0 || (top..line1).any(|l| search::swift_may_bind(lines[l - 1], name)) {
                     return None;
                 }
                 let own = search::swift_type_header(lines[at - 1])?.name;
@@ -1038,59 +1131,61 @@ impl App {
         }
     }
 
-    /// What `given` on 1-based `line` of `file` reads as a type, as written. A type named by a
+    /// What `given` on `line1` of `file` reads as a type, as written. A type named by a
     /// generic parameter in scope there is no type the project declares.
     fn swift_given_type(
         &self,
         here: &Path,
         file: &Path,
         text: &str,
-        line: usize,
+        line1: usize,
         given: search::SwiftGiven,
         hops: usize,
-    ) -> Option<(String, Option<String>)> {
-        let (written, link) = match given {
-            search::SwiftGiven::Type(t) => (t, None),
-            search::SwiftGiven::Value(e) => self.swift_expr(here, file, text, line, &e, hops)?,
+    ) -> Option<WrittenVia> {
+        let via = match given {
+            search::SwiftGiven::Type(t) => WrittenVia::plain(t),
+            search::SwiftGiven::Value(e) => self.swift_expr(here, file, text, line1, &e, hops)?,
             search::SwiftGiven::Element(e) => {
-                let (w, link) = self.swift_expr(here, file, text, line, &e, hops)?;
-                (search::swift_element(&w)?, link)
+                let collection = self.swift_expr(here, file, text, line1, &e, hops)?;
+                WrittenVia {
+                    written: search::swift_element(&collection.written)?,
+                    call_signature: collection.call_signature,
+                }
             }
         };
-        let name = search::swift_type_name(&written)
-            .or_else(|| search::swift_element(&written))
+        let name = search::swift_type_name(&via.written)
+            .or_else(|| search::swift_element(&via.written))
             .unwrap_or_default();
         let lines: Vec<&str> = text.lines().collect();
         let literal = search::literal_lines(Kind::Swift, text);
-        let mut at = line;
+        let mut at = line1;
         while at > 0 {
             if search::swift_generics(lines[at - 1]).contains(&name) {
                 return None;
             }
-            at = search::swift_scope(&lines, &literal, at).0;
+            at = search::swift_scope(&lines, &literal, at).header_line1;
         }
-        Some((written, link))
+        Some(via)
     }
 
-    /// The type the Swift expression `e` on 1-based `line` of `file` gives, as written: a
-    /// construction of a type the project declares, the `-> Type` of the one function or method
-    /// called, a cast, or the chain of names it is.
+    /// A construction of a type the project declares, the `-> Type` of the one function or
+    /// method called, a cast, or the chain of names it is.
     fn swift_expr(
         &self,
         here: &Path,
         file: &Path,
         text: &str,
-        line: usize,
+        line1: usize,
         e: &str,
         hops: usize,
-    ) -> Option<(String, Option<String>)> {
+    ) -> Option<WrittenVia> {
         let callee = match search::swift_expr(e)? {
-            search::SwiftExpr::Cast(t) => return Some((t, None)),
+            search::SwiftExpr::Cast(t) => return Some(WrittenVia::plain(t)),
             search::SwiftExpr::Chain(c) => {
                 let names: Vec<String> = c.split('.').map(str::to_owned).collect();
                 let (w, _) =
-                    self.swift_chain(here, file, text, line, &names, hops.checked_sub(1)?)?;
-                return Some((w, None));
+                    self.swift_chain(here, file, text, line1, &names, hops.checked_sub(1)?)?;
+                return Some(WrittenVia::plain(w));
             }
             search::SwiftExpr::Call(callee) => callee,
         };
@@ -1100,13 +1195,13 @@ impl App {
             && (parts.len() == 1 || parts[1] == "init")
             && let Some(t) = self.swift_type(here, ty)
         {
-            return t.keyword.is_some().then_some((t.name, None));
+            return t.keyword.is_some().then_some(WrittenVia::plain(t.name));
         }
         let (method, receiver) = parts.split_last()?;
         let (decl, owner) = match receiver {
             // A function of the file's module, which no local or parameter hides.
             [] => {
-                if !search::bindings(Kind::Swift, text, line, method).is_empty() {
+                if !search::bindings(Kind::Swift, text, line1, method).is_empty() {
                     return None;
                 }
                 let pattern = search::def_patterns(Kind::Swift, method).join("|");
@@ -1126,7 +1221,7 @@ impl App {
             }
             _ => {
                 let (w, _) =
-                    self.swift_chain(here, file, text, line, receiver, hops.checked_sub(1)?)?;
+                    self.swift_chain(here, file, text, line1, receiver, hops.checked_sub(1)?)?;
                 let ty = self.swift_type(here, &w)?;
                 let rows = self.swift_member_rows(here, &ty, method)?;
                 let [decl] = <[Hit; 1]>::try_from(rows).ok()?;
@@ -1142,21 +1237,23 @@ impl App {
             _ => returns,
         };
         let link = format!("{callee}() -> {returns}");
-        Some((returns, Some(link)))
+        Some(WrittenVia {
+            written: returns,
+            call_signature: Some(link),
+        })
     }
 
-    /// The property `name` of `ty`, or of what it extends, as written, with the signature of the
-    /// call it came from: one `let` or `var` line.
+    /// The property `name` of `ty`, or of what it extends: one `let` or `var` line.
     fn swift_field(
         &self,
         here: &Path,
         ty: &SwiftType,
         name: &str,
         hops: usize,
-    ) -> Option<(String, Option<String>)> {
+    ) -> Option<WrittenVia> {
         let rows = self.swift_member_rows(here, ty, name)?;
         let [row] = <[Hit; 1]>::try_from(rows).ok()?;
-        if search::swift_static_member(&row.text).is_none() || row.text.contains("func ") {
+        if search::swift_member_kind(&row.text).is_none() || row.text.contains("func ") {
             return None;
         }
         let text = self.text_of(&row.path)?;
@@ -1181,7 +1278,7 @@ impl App {
                 Some(_) => {}
                 // `typealias Name`, `associatedtype Name`: no type of its own.
                 None if !h.text.contains("func ")
-                    && search::swift_static_member(&h.text).is_none()
+                    && search::swift_member_kind(&h.text).is_none()
                     && !search::swift_case(&h.text) =>
                 {
                     return None;

@@ -523,12 +523,15 @@ pub fn shared_symbols(kind: Option<Kind>) -> bool {
 /// The name `D` lists for a line matched by `re`, one of the [`SYMBOLS`] patterns: Terraform
 /// blocks by the address they are referenced with, YAML anchors with their `&`.
 pub fn symbol_name(re: &Regex, line: &str) -> Option<String> {
-    symbol_at(re, line).map(|(_, name)| name)
+    symbol_at(re, line).map(|s| s.name)
 }
-/// [`symbol_name`], with the byte of `line` its name starts at in front: where Enter on the `D`
-/// row puts the cursor. A Terraform block's is its first label, a YAML anchor's the name after
-/// the `&`.
-pub fn symbol_at(re: &Regex, line: &str) -> Option<(usize, String)> {
+/// Where Enter on the `D` row puts the cursor: a Terraform block's first label, a YAML anchor's
+/// name after the `&`.
+pub struct SymbolAt {
+    pub byte_col: usize,
+    pub name: String,
+}
+pub fn symbol_at(re: &Regex, line: &str) -> Option<SymbolAt> {
     let c = re.captures(line)?;
     let group = |name: &str| c.name(name).map(|m| m.as_str());
     let col = ["name", "a", "anchor"]
@@ -543,12 +546,18 @@ pub fn symbol_at(re: &Regex, line: &str) -> Option<(usize, String)> {
             ("module" | "output", None) => format!("{block}.{a}"),
             _ => return None,
         };
-        return Some((col, name));
+        return Some(SymbolAt {
+            byte_col: col,
+            name,
+        });
     }
     group("anchor")
         .map(|a| format!("&{a}"))
         .or_else(|| group("name").map(str::to_owned))
-        .map(|name| (col, name))
+        .map(|name| SymbolAt {
+            byte_col: col,
+            name,
+        })
 }
 /// Whether `name` matches `query` as a name: the query's characters in order, ignoring case (as
 /// `/` and `s`: `sameCancel` finds `SameCancel`). `D` past the cap

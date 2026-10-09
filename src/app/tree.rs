@@ -1,5 +1,3 @@
-//! The file tree and the new file prompt.
-
 use super::*;
 
 impl App {

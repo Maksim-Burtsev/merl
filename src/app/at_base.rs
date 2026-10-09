@@ -231,7 +231,7 @@ impl App {
         let Some(r) = &self.review else {
             return Vec::new();
         };
-        let mut patterns = search::def_patterns_for(kind, word, self.objc_file());
+        let mut patterns = search::def_patterns_for(kind, word, self.c_dialect());
         self.spelling_cut(kind, word, &mut patterns);
         patterns.extend(search::member_patterns(kind, word).unwrap_or_default());
         let Ok(re) = Regex::new(&patterns.join("|")) else {
@@ -281,10 +281,10 @@ impl App {
     }
 }
 
-/// The 1-based line of the file now that was line `line` of the file at the base, `None` when
-/// the branch deleted it. Walks the file's lines: the deleted ones drawn above each take base
+/// The line of the file now that was `base_line1` of the file at the base, `None` when the
+/// branch deleted it. Walks the file's lines: the deleted ones drawn above each take base
 /// lines, an added or changed one takes none.
-fn kept_line(diff: &git::Diff, line: usize) -> Option<usize> {
+fn kept_line(diff: &git::Diff, base_line1: usize) -> Option<usize> {
     let mut base = 1;
     let last = diff
         .marks
@@ -295,17 +295,17 @@ fn kept_line(diff: &git::Diff, line: usize) -> Option<usize> {
         .unwrap_or(0);
     for f in 0.. {
         base += diff.ghosts.get(&f).map_or(0, Vec::len);
-        if base > line {
+        if base > base_line1 {
             return None;
         }
         if f > last {
-            return Some(f + 1 + line - base);
+            return Some(f + 1 + base_line1 - base);
         }
         if !matches!(
             diff.marks.get(&f),
             Some(git::Mark::Added | git::Mark::Changed)
         ) {
-            if base == line {
+            if base == base_line1 {
                 return Some(f + 1);
             }
             base += 1;

@@ -14,7 +14,7 @@ impl App {
             true => search::lisp_bindings_at(kind, text, line, col, name),
             false => search::bindings(kind, text, line, name),
         };
-        found.iter().map(|b| b.line).collect()
+        found.iter().map(|b| b.line1).collect()
     }
 
     pub(super) fn clojure_qualified(

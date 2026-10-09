@@ -5,19 +5,75 @@
 use super::*;
 
 impl App {
+    pub(super) fn enum_constant(
+        &self,
+        kind: Kind,
+        here: &Path,
+        owner: &str,
+        word: &str,
+    ) -> Vec<Candidate> {
+        let owners = search::def_patterns(kind, owner).join("|");
+        let declared = self.project_definitions(kind, here, owner, &owners);
+        self.truncated.set(false);
+        let [decl] = declared.as_slice() else {
+            return Vec::new();
+        };
+        let o = regex::escape(owner);
+        let is_enum = Regex::new(&format!(r"\benum\s+(?:class\s+)?{o}\b"))
+            .is_ok_and(|re| re.is_match(&decl.text));
+        let Some(text) = self.text_of(&decl.path).filter(|_| is_enum) else {
+            return Vec::new();
+        };
+        let package = |t: &str| {
+            let re = Regex::new(r"^\s*package\s+([\w.]+)").expect("a fixed pattern");
+            t.lines()
+                .find_map(|l| re.captures(l).map(|c| c[1].to_owned()))
+                .unwrap_or_default()
+        };
+        let import = Regex::new(&format!(r"^\s*import\s+([\w.]+)\.({o}|\*)\s*;?\s*$"))
+            .expect("an escaped name keeps the pattern valid");
+        let home = package(&text);
+        let imports: Vec<(String, bool)> = (self.buf.lines.iter())
+            .filter_map(|l| import.captures(l))
+            .map(|c| (c[1].to_owned(), &c[2] == "*"))
+            .collect();
+        // A type imported by name from elsewhere hides the package's own.
+        let elsewhere = imports.iter().any(|(p, all)| !all && *p != home);
+        let sees =
+            package(&self.buf.lines.join("\n")) == home || imports.iter().any(|(p, _)| *p == home);
+        if elsewhere || !sees {
+            return Vec::new();
+        }
+        let lines: Vec<&str> = text.lines().collect();
+        search::enum_constants(&text, decl.line)
+            .into_iter()
+            .filter(|c| c.name == word)
+            .map(|search::EnumConstant { line1: line, .. }| Candidate {
+                hit: Hit {
+                    deleted: None,
+                    path: decl.path.clone(),
+                    line,
+                    col: 0,
+                    text: lines.get(line - 1).copied().unwrap_or_default().to_owned(),
+                },
+                reason: Reason::Path(owner.to_owned()),
+            })
+            .collect()
+    }
+
     /// What `d` answers for `word`, behind the `chain` written in front of it on the cursor's
     /// line of Java or Kotlin `text`, from the file's imports and the project's packages:
     /// `Some(found)` to show, empty for "no definition"; `None` leaves the word to the rules
-    /// after, as before. `on_import` is the cursor standing on an `import` line.
+    /// after, as before.
     pub(super) fn jvm_imported(
         &self,
         text: &str,
         chain: &[String],
         word: &str,
         range: std::ops::Range<usize>,
-        on_import: bool,
+        cursor_on_import: bool,
     ) -> Option<Vec<Candidate>> {
-        let found = self.jvm_imported_all(text, chain, word, on_import)?;
+        let found = self.jvm_imported_all(text, chain, word, cursor_on_import)?;
         let here = self.rel_current()?;
         Some(self.jvm_fit_candidates(&here, word, range, chain, found))
     }
@@ -138,24 +194,26 @@ impl App {
         text: &str,
         chain: &[String],
         word: &str,
-        on_import: bool,
+        cursor_on_import: bool,
     ) -> Option<Vec<Candidate>> {
         let imports = search::jvm_imports(text);
         let first = chain.first().map_or(word, String::as_str);
-        let bound = imports.iter().find(|(n, _)| n == first).map(|(_, p)| p);
+        let bound = imports
+            .iter()
+            .find(|i| i.bound_name == first)
+            .map(|i| &i.path);
         let capital = word.starts_with(|c: char| c.is_ascii_uppercase());
         let wildcards: Vec<&Vec<String>> = imports
             .iter()
-            .filter(|(n, _)| n == "*")
-            .map(|(_, p)| p)
+            .filter(|i| i.bound_name == "*")
+            .map(|i| &i.path)
             .collect();
         let unbound = chain.is_empty() && (capital || !wildcards.is_empty());
-        if !on_import && bound.is_none() && !unbound {
+        if !cursor_on_import && bound.is_none() && !unbound {
             return None;
         }
         let packages = self.jvm_packages()?;
-        // The package of the project a dotted path starts with, the longest, and what is left.
-        let split = |path: &[String]| {
+        let longest_project_package_and_rest = |path: &[String]| {
             (1..path.len()).rev().find_map(|n| {
                 let files = packages.get(&path[..n].join("."))?;
                 Some((files, path[n..].to_vec()))
@@ -163,17 +221,17 @@ impl App {
         };
         // On an import line a package segment declares nothing, and a class segment is looked for
         // in its package; outside the project, nothing is.
-        if on_import {
+        if cursor_on_import {
             let mut path = chain.to_vec();
             path.push(word.to_owned());
-            let Some((files, names)) = split(&path) else {
+            let Some((files, names)) = longest_project_package_and_rest(&path) else {
                 return Some(Vec::new());
             };
             let found = self.jvm_declared(files, &names);
             return (!found.is_empty()).then_some(found);
         }
         if let Some(path) = bound {
-            let Some((files, mut names)) = split(path) else {
+            let Some((files, mut names)) = longest_project_package_and_rest(path) else {
                 return Some(Vec::new());
             };
             if !chain.is_empty() {
@@ -207,7 +265,7 @@ impl App {
             let names = match packages.get(&base.join(".")) {
                 Some(files) if capital => Some((files, vec![word.to_owned()])),
                 Some(_) => None,
-                None => split(base).map(|(files, mut names)| {
+                None => longest_project_package_and_rest(base).map(|(files, mut names)| {
                     names.push(word.to_owned());
                     (files, names)
                 }),
@@ -417,18 +475,18 @@ const KOTLIN_KEYWORDS: &[&str] = &[
     "actual",
 ];
 
-/// The arguments of the call whose `(` opens at byte `open` of `lines[at]`, across lines: how
+/// The arguments of the call whose `(` is at `open_byte` of `lines[at]`, across lines: how
 /// many top-level ones, and whether they hold a `<` the count cannot read (a generic, a
 /// comparison). Strings, text blocks, character literals and nested brackets are skipped. `None`
 /// when the call does not close within 60 lines.
-fn arguments(lines: &[String], at: usize, open: usize) -> Option<(usize, bool)> {
+fn arguments(lines: &[String], at: usize, open_byte: usize) -> Option<(usize, bool)> {
     let mut depth = 0usize;
     let (mut commas, mut any, mut angle) = (0, false, false);
     // Bytes, not `str`: a step of one byte lands inside a character, and every byte the count
     // reads is ASCII.
     let mut quote: Option<&[u8]> = None;
     for (n, line) in lines.iter().enumerate().skip(at).take(60) {
-        let from = if n == at { open } else { 0 };
+        let from = if n == at { open_byte } else { 0 };
         let b = line.as_bytes();
         let mut i = from;
         while i < b.len() {

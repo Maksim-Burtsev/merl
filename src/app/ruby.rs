@@ -114,17 +114,17 @@ impl App {
         let mut patterns = search::def_patterns(Kind::Ruby, word);
         let assignment = search::ruby_assignment(word);
         patterns.retain(|p| *p != assignment);
-        // Each declaration with its class, whether it is on the class, and whether it is a
-        // method of a module every side of which counts.
-        let owned: Vec<(Hit, String, bool, bool)> = self
+        let owned: Vec<Owned> = self
             .project_definitions(Kind::Ruby, here, word, &patterns.join("|"))
             .into_iter()
             .filter_map(|h| {
                 let t = self.text_of(&h.path)?;
-                let c = search::ruby_class_path(&t, h.line);
-                let on = search::ruby_on_class(&t, h.line);
-                let both = search::ruby_singleton(&t, h.line);
-                Some((h, c, on, both))
+                Some(Owned {
+                    class: search::ruby_class_path(&t, h.line),
+                    on_class: search::ruby_on_class(&t, h.line),
+                    module_method_on_both_sides: search::ruby_singleton(&t, h.line),
+                    hit: h,
+                })
             })
             .collect();
         let mut seen = HashSet::from([class.clone()]);
@@ -132,9 +132,15 @@ impl App {
         while let Some((c, side)) = queue.pop_front() {
             let found: Vec<Candidate> = owned
                 .iter()
-                .filter(|(_, hc, on, both)| *hc == c && if side { *both } else { !*on })
-                .map(|(h, ..)| Candidate {
-                    hit: h.clone(),
+                .filter(|o| {
+                    o.class == c
+                        && match side {
+                            true => o.module_method_on_both_sides,
+                            false => !o.on_class,
+                        }
+                })
+                .map(|o| Candidate {
+                    hit: o.hit.clone(),
                     reason: Reason::Receiver(c.clone()),
                 })
                 .collect();
@@ -284,4 +290,11 @@ impl App {
             false => Vec::new(),
         }
     }
+}
+
+struct Owned {
+    hit: Hit,
+    class: String,
+    on_class: bool,
+    module_method_on_both_sides: bool,
 }

@@ -137,8 +137,6 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     }
 }
 
-/// Tabs drawn as [`crate::buffer::TAB`] and hidden chars as their [`wrap::tag`], as wide as
-/// [`wrap::width`] counts them; a piece with neither is borrowed as it is.
 pub(super) fn covers_code(app: &App) -> bool {
     app.picker.is_some() || app.mode == Mode::Help
 }

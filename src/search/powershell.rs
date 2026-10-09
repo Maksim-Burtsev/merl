@@ -261,7 +261,7 @@ pub fn powershell_params(lines: &[&str], cursor_line0: usize, name: &str) -> Vec
             let from = if n == i { from } else { 0 };
             if var.is_match(&b[from..]) {
                 return vec![Binding {
-                    line: n + 1,
+                    line1: n + 1,
                     value: Value::Unknown,
                 }];
             }

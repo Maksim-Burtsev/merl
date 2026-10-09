@@ -2,6 +2,20 @@
 
 use super::*;
 
+/// Fields outside the project are never listed, there are too many.
+pub(super) struct OutsideMembers {
+    pub methods: Vec<Hit>,
+    pub unlisted_field_declares_it: bool,
+}
+impl OutsideMembers {
+    fn listed(methods: Vec<Hit>) -> Self {
+        OutsideMembers {
+            methods,
+            unlisted_field_declares_it: false,
+        }
+    }
+}
+
 impl App {
     /// `pattern` over the standard library and dependencies of `kind`, in the module the file's
     /// imports bind `chain` (or `word` itself) to. The module path is relaxed from the end until
@@ -21,7 +35,7 @@ impl App {
         word: &str,
         chain: &[String],
         dotted: bool,
-        imports: &[(String, Vec<String>)],
+        imports: &[search::Import],
         narrow: bool,
     ) -> Option<Vec<Candidate>> {
         let mut patterns = search::def_patterns(kind, word);
@@ -32,15 +46,11 @@ impl App {
         }
         let pattern = &patterns.join("|");
         let mut bound_path = bound(imports, chain.first().map_or(word, String::as_str));
-        // What a TypeScript import takes (a name, `default`, `*`) is no part of a file's path.
-        let taken = match kind {
+        let ts_import_item = match kind {
             Kind::TsJs => bound_path.as_mut().and_then(Vec::pop),
             _ => None,
         };
-        // The word is a name the import takes by that name, or a name in the module a `* as ns`
-        // import names: what the module declares, under its own name or another. A default
-        // import's name is the importer's own.
-        let whole = match taken.as_deref() {
+        let word_is_export_name = match ts_import_item.as_deref() {
             Some("*") => chain.len() == 1,
             Some("default") | None => false,
             Some(_) => chain.is_empty(),
@@ -86,9 +96,7 @@ impl App {
         // name, finds its source, where a published copy outside would be a stale one; the
         // caller searches outside by name only after it.
         let copy = copy?;
-        // Only a lookup narrowed to a copy follows the copy's rules below: a renamed export and
-        // the module's other copies. Any other matches modules as it always has.
-        let narrowed = !copy.files.is_empty();
+        let narrowed_to_copy = !copy.files.is_empty();
         // `node:sqlite` is looked for, and named, as `sqlite`.
         if let Some(first) = bound_path.as_mut().and_then(|p| p.first_mut())
             && let Some(bare) = first.strip_prefix("node:")
@@ -120,11 +128,11 @@ impl App {
                     .or_else(|| search::module_among(&all, m, package)),
             };
             // An import of something not installed: nothing outside says what it is.
-            let Some((n, found)) = found.filter(|(n, _)| package.is_none_or(|k| *n >= k)) else {
+            let Some(found) = found.filter(|f| package.is_none_or(|k| f.matched_parts >= k)) else {
                 return Some(Vec::new());
             };
-            m.truncate(n);
-            files = found;
+            m.truncate(found.matched_parts);
+            files = found.files;
         }
         let by_name = |hits: Vec<Hit>| -> Vec<Candidate> {
             hits.into_iter()
@@ -134,9 +142,8 @@ impl App {
                 })
                 .collect()
         };
-        // What the patterns match, of the lines that declare the word where they sit.
         let erlang = self.buf.path.as_deref().is_some_and(search::erlang);
-        let grep = |this: &Self, files: &[PathBuf]| {
+        let declarations_in = |this: &Self, files: &[PathBuf]| {
             let mut hits = this.declaring(
                 kind,
                 word,
@@ -148,8 +155,8 @@ impl App {
         let Some(module) = module else {
             return Some(by_name(
                 match self.rel_current().filter(|_| kind == Kind::C) {
-                    Some(here) => self.c_outside(&here, &all, |h| h, grep),
-                    None => grep(self, &all),
+                    Some(here) => self.c_outside(&here, &all, |h| h, declarations_in),
+                    None => declarations_in(self, &all),
                 },
             ));
         };
@@ -166,11 +173,11 @@ impl App {
             }
             hits
         };
-        let mut hits = at_top(self, grep(self, &files));
+        let mut hits = at_top(self, declarations_in(self, &files));
         // `export { parseCookie as parse }` is the import's own `parse`, as in the project.
-        if hits.is_empty() && narrowed && whole {
+        if hits.is_empty() && narrowed_to_copy && word_is_export_name {
             // The package itself is its entry, not every file in it: a chunk, a legacy module.
-            let within = match module.len() <= copy.parts {
+            let within = match module.len() <= copy.name_parts {
                 true => copy.entries(),
                 false => files,
             };
@@ -199,13 +206,13 @@ impl App {
             return Some(Vec::new());
         }
         if hits.is_empty() && imported {
-            if narrowed {
+            if narrowed_to_copy {
                 let others = search::module_among(&all, &named.unwrap_or_default(), package);
-                let others = others.map(|(_, files)| files).unwrap_or_default();
-                hits = at_top(self, grep(self, &others));
+                let others = others.map(|m| m.files).unwrap_or_default();
+                hits = at_top(self, declarations_in(self, &others));
             }
             if hits.is_empty() {
-                hits = at_top(self, grep(self, &all));
+                hits = at_top(self, declarations_in(self, &all));
             }
             self.offer_only |= walked && !hits.is_empty();
             return Some(by_name(hits));
@@ -252,7 +259,7 @@ impl App {
         all: &[PathBuf],
         module: &[String],
         pattern: &str,
-    ) -> Option<(usize, Vec<PathBuf>)> {
+    ) -> Option<search::ModuleFiles<PathBuf>> {
         let roots = self
             .external
             .get(&Kind::Elixir)
@@ -271,7 +278,10 @@ impl App {
                 return None;
             }
             if !self.external_grep(Kind::Elixir, &own, pattern).is_empty() {
-                return Some((n, own));
+                return Some(search::ModuleFiles {
+                    matched_parts: n,
+                    files: own,
+                });
             }
             let packages: Vec<PathBuf> = own
                 .iter()
@@ -283,7 +293,10 @@ impl App {
             let files = all
                 .iter()
                 .filter(|f| packages.iter().any(|p| f.starts_with(p)));
-            Some((n, files.cloned().collect()))
+            Some(search::ModuleFiles {
+                matched_parts: n,
+                files: files.cloned().collect(),
+            })
         })
     }
 
@@ -291,7 +304,7 @@ impl App {
         &self,
         all: &[PathBuf],
         module: &[String],
-    ) -> Option<(usize, Vec<PathBuf>)> {
+    ) -> Option<search::ModuleFiles<PathBuf>> {
         let roots = self
             .external
             .get(&Kind::Python)
@@ -310,7 +323,10 @@ impl App {
                 })
                 .map(|(_, f)| (*f).clone())
                 .collect();
-            (!found.is_empty()).then_some((n, found))
+            (!found.is_empty()).then_some(search::ModuleFiles {
+                matched_parts: n,
+                files: found,
+            })
         })
     }
 
@@ -319,29 +335,29 @@ impl App {
         kind: Kind,
         all: &[PathBuf],
         files: &[PathBuf],
-        imports: &[(String, Vec<String>)],
+        imports: &[search::Import],
         members: &str,
         word: &str,
-    ) -> (Vec<Hit>, bool) {
+    ) -> OutsideMembers {
         match kind {
             Kind::Python => self.python_members(files, imports, members, word),
             Kind::TsJs => match self.ts_imported_members(all, imports, members) {
-                Some(hits) => (hits, false),
-                None => (self.outside_grep(kind, files, members, Some(word)), false),
+                Some(hits) => OutsideMembers::listed(hits),
+                None => OutsideMembers::listed(self.outside_grep(kind, files, members, Some(word))),
             },
-            _ => (self.external_grep(kind, files, members), false),
+            _ => OutsideMembers::listed(self.external_grep(kind, files, members)),
         }
     }
 
     fn ts_imported_members(
         &self,
         all: &[PathBuf],
-        imports: &[(String, Vec<String>)],
+        imports: &[search::Import],
         members: &str,
     ) -> Option<Vec<Hit>> {
         let (roots, _) = self.external.get(&Kind::TsJs)?;
         let mut packages: Vec<&[String]> = (imports.iter())
-            .filter_map(|(_, path)| {
+            .filter_map(|search::Import { path, .. }| {
                 let first = path.first().filter(|f| !f.starts_with(['.', '/']))?;
                 let parts = 1 + usize::from(first.starts_with('@'));
                 path.get(..parts).filter(|_| path.len() > parts)
@@ -363,31 +379,27 @@ impl App {
     fn python_members(
         &self,
         files: &[PathBuf],
-        imports: &[(String, Vec<String>)],
+        imports: &[search::Import],
         members: &str,
         word: &str,
-    ) -> (Vec<Hit>, bool) {
+    ) -> OutsideMembers {
         let reached = self.python_imported(files, imports);
         match self.external_methods(&reached, members, word) {
-            (methods, field) if methods.len() > 1 => (methods, field),
+            found if found.methods.len() > 1 => found,
             _ => self.external_methods(files, members, word),
         }
     }
 
-    fn python_imported(
-        &self,
-        files: &[PathBuf],
-        imports: &[(String, Vec<String>)],
-    ) -> Vec<PathBuf> {
+    fn python_imported(&self, files: &[PathBuf], imports: &[search::Import]) -> Vec<PathBuf> {
         let mut packages: Vec<&String> = (imports.iter())
-            .filter_map(|(_, path)| path.first())
+            .filter_map(|i| i.path.first())
             .filter(|p| !p.starts_with('.'))
             .collect();
         packages.sort();
         packages.dedup();
         (packages.into_iter())
             .filter_map(|p| self.python_module_among(files, std::slice::from_ref(p)))
-            .flat_map(|(_, found)| found)
+            .flat_map(|m| m.files)
             .collect()
     }
 
@@ -537,16 +549,15 @@ impl App {
         hits
     }
 
-    /// Fields outside are never listed, there are too many: a few hundred candidate lines are
-    /// enough to tell whether one declares a field.
+    /// A few hundred candidate lines are enough to tell whether one declares a field.
     pub(super) fn external_methods(
         &self,
         files: &[PathBuf],
         members: &str,
         word: &str,
-    ) -> (Vec<Hit>, bool) {
+    ) -> OutsideMembers {
         let Some(fields) = search::field_patterns(Kind::Python, word) else {
-            return (self.external_grep(Kind::Python, files, members), false);
+            return OutsideMembers::listed(self.external_grep(Kind::Python, files, members));
         };
         let method = Regex::new(members).expect("built-in patterns compile");
         let pattern = format!("{members}|{}", fields.join("|"));
@@ -586,12 +597,15 @@ impl App {
                 _ => by_file.push((h.path, vec![h.line])),
             }
         }
-        let field = by_file.into_iter().any(|(path, lines)| {
+        let unlisted_field_declares_it = by_file.into_iter().any(|(path, lines)| {
             std::fs::read_to_string(&path).is_ok_and(|t| {
                 !search::field_rows(Kind::Python, &t, &lines, word, false).is_empty()
             })
         });
-        (methods, field)
+        OutsideMembers {
+            methods,
+            unlisted_field_declares_it,
+        }
     }
 
     /// Test helper: nothing is installed outside the project, so a lookup reads no library of
@@ -834,6 +848,12 @@ impl App {
     pub(super) fn objc_file(&self) -> bool {
         (self.buf.path.as_deref())
             .is_some_and(|p| search::objc_file(p, || self.buf.lines.join("\n")))
+    }
+    pub(super) fn c_dialect(&self) -> search::CDialect {
+        match self.objc_file() {
+            true => search::CDialect::ObjectiveC,
+            false => search::CDialect::COrCpp,
+        }
     }
 
     /// Of `hits` of the [`search::def_patterns`] of `word`, the lines that declare it where they

@@ -714,7 +714,11 @@ fn rust_param(lines: &[&str], f: usize, name: &str) -> Option<usize> {
     if !line[open..].starts_with('(') {
         return None;
     }
-    let (inner, last, _) = group(Kind::Rust, lines, f, open)?;
+    let Group {
+        inner_uncommented: inner,
+        close_line: last,
+        ..
+    } = group(Kind::Rust, lines, f, open)?;
     if !top_split(&inner)
         .iter()
         .any(|p| binds(without_type(p), name))
@@ -755,7 +759,7 @@ pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
     let literal = literal_lines(Kind::Rust, &lines.join("\n"));
     let code = |i: usize| uncommented(Kind::Rust, lines[i]).trim().to_owned();
     let found = |i: usize| Binding {
-        line: i + 1,
+        line1: i + 1,
         value: Value::Unknown,
     };
     if FN_LINE.is_match(lines[at]) {
@@ -1051,12 +1055,16 @@ fn type_at(s: &str) -> &str {
     }
     s.trim()
 }
-/// The name of the type whose methods and fields a value written as `written` has, and the path
-/// it is spelled behind (`crate::a::`): `&`, `&mut`, lifetimes, `mut`, `Box<T>`, `Rc<T>` and
-/// `Arc<T>` are stripped, since a method call derefs through them, and a type's own arguments
-/// dropped. `None` for what the project cannot declare the methods of: a primitive, a tuple, a
-/// slice, a `dyn` or `impl` trait, a function, and the standard library's own types.
-pub fn rust_type_name(written: &str) -> Option<(Vec<String>, String)> {
+pub struct RustTypeName {
+    pub path: Vec<String>,
+    pub name: String,
+}
+/// The type whose methods and fields a value written as `written` has: `&`, `&mut`, lifetimes,
+/// `mut`, `Box<T>`, `Rc<T>` and `Arc<T>` are stripped, since a method call derefs through them,
+/// and a type's own arguments dropped. `None` for what the project cannot declare the methods
+/// of: a primitive, a tuple, a slice, a `dyn` or `impl` trait, a function, and the standard
+/// library's own types.
+pub fn rust_type_name(written: &str) -> Option<RustTypeName> {
     const STD: &[&str] = &[
         "Option",
         "Result",
@@ -1114,7 +1122,7 @@ pub fn rust_type_name(written: &str) -> Option<(Vec<String>, String)> {
         .filter(|p| !p.is_empty())
         .map(str::to_owned)
         .collect();
-    Some((path, name))
+    Some(RustTypeName { path, name })
 }
 /// The type an `impl` header on `line` is for: `T` of `impl<…> T` and of `impl<…> Tr for T`.
 pub fn rust_impl_type(line: &str) -> Option<String> {
@@ -1129,15 +1137,17 @@ pub fn rust_impl_trait(line: &str) -> Option<String> {
     });
     FOR.captures(line).map(|c| c[1].to_owned())
 }
-/// The type of `self` on 0-based line `at` of `lines`: the `impl` the method around it sits in,
-/// with its 0-based line. `None` in a trait's default method, where `self` is any implementor,
-/// and outside an `impl`.
-pub fn rust_self_type(lines: &[&str], at: usize) -> Option<(String, usize)> {
+pub struct RustSelfType {
+    pub written: String,
+    pub impl_line0: usize,
+}
+/// `None` in a trait's default method, where `self` is any implementor, and outside an `impl`.
+pub fn rust_self_type(lines: &[&str], line0: usize) -> Option<RustSelfType> {
     static TRAIT: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|auto)\s+)*trait\s").unwrap()
     });
-    let mut depth = indent(lines.get(at)?);
-    for i in (0..at).rev() {
+    let mut depth = indent(lines.get(line0)?);
+    for i in (0..line0).rev() {
         let t = lines[i].trim();
         if depth == 0 {
             break;
@@ -1155,7 +1165,10 @@ pub fn rust_self_type(lines: &[&str], at: usize) -> Option<(String, usize)> {
             return None;
         }
         if let Some(ty) = rust_impl_type(lines[i]) {
-            return Some((ty, i));
+            return Some(RustSelfType {
+                written: ty,
+                impl_line0: i,
+            });
         }
     }
     None
@@ -1175,8 +1188,11 @@ pub enum RustHolds {
     Type(String),
     /// A struct literal of the type written: `let x = T { … }`.
     Literal(String),
-    /// A call of an associated function of the type written: `let x = T::new(…)`.
-    Assoc(String, String),
+    /// `let x = T::new(…)`.
+    AssocCall {
+        written_type: String,
+        function: String,
+    },
     /// A call of the function the path names: `let x = tmpdir()`.
     Call(Vec<String>),
 }
@@ -1237,8 +1253,10 @@ pub fn rust_holds(lines: &[&str], at: usize, name: &str) -> Option<RustHolds> {
         }
         if let Some(c) = ASSOC.captures(e) {
             let open = c.get(0)?.end() - 1;
-            return closes_at_the_end(open)
-                .then(|| RustHolds::Assoc(c[1].to_owned(), c[2].to_owned()));
+            return closes_at_the_end(open).then(|| RustHolds::AssocCall {
+                written_type: c[1].to_owned(),
+                function: c[2].to_owned(),
+            });
         }
         if let Some(c) = CALL.captures(e) {
             let open = c.get(0)?.end() - 1;
@@ -1296,10 +1314,13 @@ pub fn rust_return_type(lines: &[&str], f: usize) -> Option<String> {
     let t = type_at(&signature[after_last_top_level_arrow?..]);
     (!t.is_empty()).then(|| t.to_owned())
 }
-/// The field `word` directly in the `struct` or `union` declared on 0-based line `decl` of
-/// `lines`: its 0-based line and its type as written.
-pub fn rust_struct_field(lines: &[&str], decl: usize, word: &str) -> Option<(usize, String)> {
-    if !STRUCT.is_match(lines.get(decl)?) {
+pub struct RustStructField {
+    pub line0: usize,
+    pub written_type: String,
+}
+/// The field `word` directly in the `struct` or `union`.
+pub fn rust_struct_field(lines: &[&str], decl_line0: usize, word: &str) -> Option<RustStructField> {
+    if !STRUCT.is_match(lines.get(decl_line0)?) {
         return None;
     }
     let field = Regex::new(&format!(
@@ -1307,8 +1328,8 @@ pub fn rust_struct_field(lines: &[&str], decl: usize, word: &str) -> Option<(usi
         regex::escape(word)
     ))
     .expect("an escaped name keeps the pattern valid");
-    let base = indent(lines[decl]);
-    for (i, l) in lines.iter().enumerate().skip(decl + 1) {
+    let base = indent(lines[decl_line0]);
+    for (i, l) in lines.iter().enumerate().skip(decl_line0 + 1) {
         let t = l.trim();
         if !t.is_empty()
             && indent(l) <= base
@@ -1318,9 +1339,12 @@ pub fn rust_struct_field(lines: &[&str], decl: usize, word: &str) -> Option<(usi
             break;
         }
         if let Some(c) = field.captures(l)
-            && rust_parent(lines, i) == Some(decl)
+            && rust_parent(lines, i) == Some(decl_line0)
         {
-            return Some((i, type_at(&c[1]).to_owned()));
+            return Some(RustStructField {
+                line0: i,
+                written_type: type_at(&c[1]).to_owned(),
+            });
         }
     }
     None

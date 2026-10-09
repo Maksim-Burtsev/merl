@@ -153,9 +153,9 @@ and line of its code, or a run of it, never a recollection.
 
 `f` (`src/app/collapse.rs`) folds by the rules decided in #598, in the languages that pass the
 fold bench and nowhere else: Python, the brace languages (`src/app/collapse/braces.rs`), Ruby,
-Lua and shell (`src/app/collapse/words.rs`), and YAML, JSON, TOML, HTML, CSS / SCSS and Markdown
-(`src/app/collapse/spans.rs`) today, the rest in epic #623, each saying `no fold rules for .EXT`
-until then.
+Lua, shell, zsh and RBS (`src/app/collapse/words.rs`), Elixir (`src/app/collapse/elixir.rs`), and
+YAML, JSON, TOML, HTML, XML, CSS / SCSS and Markdown (`src/app/collapse/spans.rs`) today, the rest
+in epic #623, each saying `no fold rules for .EXT` until then.
 
 - **The bench**, `tools/fold-bench/run [--lang go,rust]`: `f` pressed on every line that starts
   a fold in real projects, compared with the reference: Python's own `ast` for Python, and for
