@@ -1357,7 +1357,12 @@ fn blank_comments(s: &str) -> String {
     }
     String::from_utf8(out).unwrap_or_else(|_| s.to_owned())
 }
-pub(super) fn ts_header(lines: &[&str], k: usize) -> (String, usize) {
+#[derive(Debug, PartialEq, Eq)]
+pub(super) struct TsHeader {
+    pub one_line_without_type_params: String,
+    pub last_line0: usize,
+}
+pub(super) fn ts_header(lines: &[&str], k: usize) -> TsHeader {
     // ponytail: forty lines of header; hono's widest list of type parameters runs to six.
     let text = uncommented(Kind::TsJs, &lines[k..lines.len().min(k + 40)].join("\n"));
     let b = text.as_bytes();
@@ -1397,17 +1402,20 @@ pub(super) fn ts_header(lines: &[&str], k: usize) -> (String, usize) {
         }
     }
     let Some(open) = open else {
-        return (lines[k].to_owned(), k);
+        return TsHeader {
+            one_line_without_type_params: lines[k].to_owned(),
+            last_line0: k,
+        };
     };
     let last = k + text[..open].matches('\n').count();
     let mut header = text[..=open].to_owned();
     if let (Some(from), Some(to)) = (type_params_from, type_params_to) {
         header.replace_range(from..to, "");
     }
-    (
-        header.split_whitespace().collect::<Vec<_>>().join(" "),
-        last,
-    )
+    TsHeader {
+        one_line_without_type_params: header.split_whitespace().collect::<Vec<_>>().join(" "),
+        last_line0: last,
+    }
 }
 pub fn go_may_declare(text: &str, line: usize, name: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();

@@ -224,7 +224,7 @@ pub fn bases(kind: Kind, text: &str, decl_line1: usize) -> Vec<String> {
             .and_then(|open| group(kind, &lines, k, open))
             .map_or_else(Vec::new, |g| list(&g.inner_uncommented)),
         Kind::TsJs => TS_EXTENDS
-            .captures(&ts_header(&lines, k).0)
+            .captures(&ts_header(&lines, k).one_line_without_type_params)
             .map_or_else(Vec::new, |c| list(&c[1])),
         Kind::Go if lines[k].contains("struct") || lines[k].contains("interface") => {
             let body = body_of(kind, &lines, k);
@@ -255,7 +255,7 @@ pub fn interfaces(kind: Kind, text: &str, decl_line1: usize) -> Vec<String> {
         .filter(|&k| k < lines.len())
         .and_then(|k| {
             TS_IMPLEMENTS
-                .captures(&ts_header(&lines, k).0)
+                .captures(&ts_header(&lines, k).one_line_without_type_params)
                 .map(|c| type_list(kind, &c[1]))
         })
         .unwrap_or_default()

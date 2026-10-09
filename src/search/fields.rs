@@ -13,7 +13,7 @@ pub(super) fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<u
         (Kind::Python, Some(open)) => {
             group(kind, lines, k, open).map_or(k + 1, |g| g.close_line + 1)
         }
-        (Kind::TsJs, _) => ts_header(lines, k).1 + 1,
+        (Kind::TsJs, _) => ts_header(lines, k).last_line0 + 1,
         _ => k + 1,
     };
     let base = indent(lines[k]);
