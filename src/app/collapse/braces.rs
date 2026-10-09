@@ -99,13 +99,7 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
         Lang::Scala => model.scala(lines),
         lang => model.ecma(lang == Lang::Ts),
     }
-    let levels = levels(lines.len(), &model.nodes);
-    let mut starts = HashMap::new();
-    for h in 0..lines.len() {
-        if let Some(e) = closes_at(&levels, h) {
-            starts.insert(h, e);
-        }
-    }
+    let starts = super::vim_folds(lines.len(), model.nodes.iter().map(|n| (n.0, n.1)));
     let mut defs: Vec<(usize, usize)> = (model.nodes.iter())
         .filter(|n| n.2)
         .filter_map(|n| Some((n.0, *starts.get(&n.0)?)))
@@ -165,49 +159,6 @@ fn heads(
         }
     }
     heads
-}
-
-fn levels(n: usize, nodes: &[(usize, usize, bool)]) -> Vec<(usize, bool)> {
-    let mut ranges: Vec<(usize, usize)> = nodes
-        .iter()
-        .filter(|r| r.1 > r.0 && r.1 < n)
-        .map(|r| (r.0, r.1))
-        .collect();
-    ranges.sort_unstable();
-    ranges.dedup();
-    let (mut enter, mut leave) = (vec![0usize; n], vec![0usize; n]);
-    for (a, b) in ranges {
-        enter[a] += 1;
-        leave[b] += 1;
-    }
-    let mut out = Vec::with_capacity(n);
-    let (mut prev, mut leave_prev) = (0usize, 0usize);
-    for l in 0..n {
-        let mut gone = leave[l];
-        let mut level = (prev + enter[l]).saturating_sub(leave_prev);
-        if enter[l] > 0 && gone > 0 {
-            level = level.saturating_sub(gone);
-            gone = 0;
-        }
-        out.push((level, enter[l] > 0));
-        leave_prev = gone;
-        prev = level;
-    }
-    out
-}
-
-fn closes_at(levels: &[(usize, bool)], h: usize) -> Option<usize> {
-    let (level, start) = levels[h];
-    if !start {
-        return None;
-    }
-    let end = (h + 1..levels.len())
-        .take_while(|&l| {
-            let (x, st) = levels[l];
-            x >= level && !(st && x <= level)
-        })
-        .last()?;
-    Some(end)
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

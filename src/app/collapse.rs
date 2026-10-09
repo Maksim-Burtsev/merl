@@ -542,3 +542,42 @@ fn closes(t: &str) -> bool {
 fn indent(s: &str) -> usize {
     s.len() - s.trim_start().len()
 }
+
+const NEST_MAX: usize = 20;
+
+fn vim_folds(len: usize, ranges: impl Iterator<Item = (usize, usize)>) -> HashMap<usize, usize> {
+    let mut ranges: Vec<_> = ranges.filter(|&(h, e)| e > h && e < len).collect();
+    ranges.sort_unstable();
+    ranges.dedup();
+    let (mut enter, mut leave) = (vec![0usize; len], vec![0usize; len]);
+    for (h, e) in ranges {
+        enter[h] += 1;
+        leave[e] += 1;
+    }
+    let mut levels = Vec::with_capacity(len);
+    let (mut level, mut left) = (0usize, 0usize);
+    for l in 0..len {
+        let mut gone = leave[l];
+        let mut now = (level + enter[l]).saturating_sub(left);
+        if enter[l] > 0 && gone > 0 {
+            now = now.saturating_sub(gone);
+            gone = 0;
+        }
+        levels.push((enter[l] > 0 && now <= NEST_MAX, now.min(NEST_MAX)));
+        left = gone;
+        level = now;
+    }
+    let mut spans = HashMap::new();
+    for (h, &(starts, n)) in levels.iter().enumerate() {
+        if !starts || n == 0 {
+            continue;
+        }
+        let end = (h + 1..len)
+            .take_while(|&l| levels[l].1 >= n && !(levels[l].0 && levels[l].1 == n))
+            .last();
+        if let Some(e) = end {
+            spans.insert(h, e);
+        }
+    }
+    spans
+}

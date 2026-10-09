@@ -27,7 +27,7 @@ object Geometry extends App {  // f: 20-76
     else gcd(b, a % b)  // f: 24-28
 
   def describe(s: Shape): String = s match {  // f: 29-32
-    case Point(x, y) => s"point ${x + y}"  // f: 29-32
+    case Point(x, y) => s"point ${x + "}"}"  // f: 29-32
     case _ => "shape"  // f: 29-32
   }  // f: 29-32
 
@@ -74,3 +74,13 @@ object Geometry extends App {  // f: 20-76
      with a brace { */
   var count = 0  // f: 20-76
 }  // f: 20-76
+
+def sign(x: Int): Int =  // f: 78-83
+  if x > 0 then  // f: 78-83
+    1  // f: 78-83
+  else  // f: 78-83
+    -1  // f: 78-83
+
+def twice(x: Int): Int =  // f: 84-86
+  val y = x  // f: 84-86
+  y * 2  // f: 84-86

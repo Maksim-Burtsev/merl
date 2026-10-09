@@ -1,6 +1,6 @@
 defmodule Shop.Cart do  # f: 1-61
   @moduledoc """
-  A cart: do this, end that.
+  A cart: "do" this, end that. f: 1-61
   """
 
   use Shop.Web, :controller
@@ -36,7 +36,7 @@ defmodule Shop.Cart do  # f: 1-61
         value  # f: 32-42
 
       :error when is_atom(x) ->  # f: 38-40
-        ~s(end)
+        ~r/"end/
         # nothing left
     end
   end
