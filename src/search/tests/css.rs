@@ -68,7 +68,13 @@ fn a_class_attribute_is_read_in_markup_and_jsx_only() {
 
 #[test]
 fn a_stylesheet_cursor_says_which_lookup_applies() {
-    let at = |line: &str, word: &str, less: bool| sheet_at(line, line.find(word).unwrap(), less);
+    let at = |line: &str, word: &str, less: bool| {
+        let syntax = match less {
+            true => SheetSyntax::Less,
+            false => SheetSyntax::CssOrSass,
+        };
+        sheet_at(line, line.find(word).unwrap(), syntax)
+    };
     let s = |n: &str| n.to_owned();
     assert_eq!(
         at("  color: var(--brand, #000);", "brand", false),

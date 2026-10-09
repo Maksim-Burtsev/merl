@@ -67,8 +67,12 @@ impl App {
             Some(Kind::TsJs) => return self.css_module(here),
             _ => return false,
         }
-        let less = here.extension().is_some_and(|e| e == "less");
-        match search::sheet_at(&line, self.col, less) {
+        let syntax = search::SheetSyntax::of_extension(
+            here.extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or_default(),
+        );
+        match search::sheet_at(&line, self.col, syntax) {
             None => self.no_definition(&line),
             Some(Sheet::Import(module)) => self.follow_sheet_import(here, &module),
             Some(Sheet::Class(name)) => self.styled_by(here, &name, false),
@@ -311,7 +315,7 @@ impl App {
             .unwrap_or_default();
         let candidates = match ext {
             "scss" | "sass" => search::sass_candidates(module),
-            _ => search::import_candidates(module, ext == "less"),
+            _ => search::import_candidates(module, search::SheetSyntax::of_extension(ext)),
         };
         let dir = here.parent().unwrap_or(Path::new(""));
         let local = !module.starts_with('~');

@@ -446,8 +446,22 @@ pub enum Sheet {
     Import(String),
 }
 
-/// What `byte_col` of the stylesheet line `line` stands on; `less` reads `@name` as a variable.
-pub fn sheet_at(line: &str, byte_col: usize, less: bool) -> Option<Sheet> {
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum SheetSyntax {
+    Less,
+    CssOrSass,
+}
+impl SheetSyntax {
+    pub fn of_extension(ext: &str) -> Self {
+        match ext {
+            "less" => SheetSyntax::Less,
+            _ => SheetSyntax::CssOrSass,
+        }
+    }
+}
+/// What `byte_col` of the stylesheet line `line` stands on; Less reads `@name` as a variable.
+pub fn sheet_at(line: &str, byte_col: usize, syntax: SheetSyntax) -> Option<Sheet> {
+    let less = syntax == SheetSyntax::Less;
     static IMPORT: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\s*@(?:import|use|forward|require)\b").unwrap());
     static QUOTED: LazyLock<Regex> =
@@ -605,10 +619,10 @@ pub fn sass_candidates(module: &str) -> Vec<PathBuf> {
 
 /// The files a Less or CSS `@import` of `module` may be: as written, and a Less one with
 /// `.less` added when it has no extension.
-pub fn import_candidates(module: &str, less: bool) -> Vec<PathBuf> {
+pub fn import_candidates(module: &str, syntax: SheetSyntax) -> Vec<PathBuf> {
     let module = module.trim_start_matches('~');
     let mut out = vec![PathBuf::from(module)];
-    if less && Path::new(module).extension().is_none() {
+    if syntax == SheetSyntax::Less && Path::new(module).extension().is_none() {
         out.insert(0, PathBuf::from(format!("{module}.less")));
     }
     out
