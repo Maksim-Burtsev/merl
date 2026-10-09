@@ -130,6 +130,35 @@ a
 """.stripMargin  // f: 127-132
   val t = 1  // f: 127-132
 
-trait Last:  // f: 133-135
-  def a: Int  // f: 133-135
+import a.b.*  // f: none
+import c.*  // f: none
+
+object Wild:  // f: 136-138
+  val w = 1  // f: 136-138
+
+class Phase:  // f: 139-161
+  def loop(t: Int): Int = t match  // f: 140-144
+    case 1 =>  // f: 140-144
+      2  // f: 140-144
+    case _ =>  // f: 140-144
+
+  def make = new Runnable:  // f: 145-149
+    import a.*  // f: 145-149
+
+    def run(): Unit = ()  // f: 145-149
+
+  def same(x: Int) =  // f: 150-154
+    x match  // f: 151-154
+    case 1 => 2  // f: 150-154
+    case _ => 3  // f: 150-154
+
+  def dotted(x: Int) = x  // f: 155-160
+    || x.match  // f: 156-160
+      case 1 => true  // f: 155-160
+      case _ => false  // f: 155-160
+
+  val last = 1  // f: 155-160
+
+trait Last:  // f: 162-164
+  def a: Int  // f: 162-164
 

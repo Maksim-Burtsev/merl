@@ -47,8 +47,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `f` no longer crashes merl in a C or C++ file whose last word is `do` or `try`, as a file left
   half-written ends. (#756)
 - `f` in Scala 3 code without braces folds as far as Neovim does: an `object X:`, `class` or
-  `trait` with an indented body, a `def` closed by an `end` marker, and a `match` with its cases
-  on the lines below, where the fold stopped a line or more short. (#774)
+  `trait` with an indented body, a definition closed by an `end` marker, a `match` or `.match`
+  with its cases on the lines below, and a body after `new X:`, where the fold stopped short or
+  ran on; a wildcard import, `import a.*`, no longer folds the lines after it. (#774)
 
 ## [0.8.3] - 2026-10-07
 

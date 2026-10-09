@@ -61,7 +61,7 @@ const CONT_END: &[&str] = &[
     "return", "throw", "new", "with", "extends",
 ];
 const INDENT: &[&str] = &[
-    "=", "=>", "else", "then", "do", "yield", "try", "finally", "return", "match",
+    "=", "=>", "else", "then", "do", "yield", "try", "finally", "return", "match", ":",
 ];
 const CONT_START: &[&str] = &[
     ".", "else", "catch", "finally", "match", "with", "extends", "yield", "then", "do", "=>", "|",
@@ -192,7 +192,7 @@ impl Model<'_, '_> {
                 }
                 continue;
             }
-            if t.kind != K::Word || self.before(k) == "." {
+            if t.kind != K::Word || (self.before(k) == "." && t.text != "match") {
                 continue;
             }
             match t.text {
@@ -231,7 +231,7 @@ impl Model<'_, '_> {
                 }
                 "match" if self.sc_braceless(k, lines) => {
                     let start = self.toks[self.sc_scrutinee(k)].line;
-                    let end = self.sc_indented_end(k + 1, indent(&lines[t.line]), lines);
+                    let end = self.sc_indented_end(k + 1, indent(&lines[t.line]), true, lines);
                     self.add(start, Some(end), false);
                 }
                 _ => {}
@@ -299,7 +299,7 @@ impl Model<'_, '_> {
             }
             if j > k + 1 && self.toks[j].line > self.toks[last].end {
                 if self.tx(last) == ":" && indent(&lines[self.toks[j].line]) > head {
-                    return self.sc_indented_end(j, head, lines);
+                    return self.sc_indented_end(j, head, false, lines);
                 }
                 let cont = CONT_START.contains(&self.tx(j)) || CONT_END.contains(&self.tx(last));
                 if !cont {
@@ -320,10 +320,12 @@ impl Model<'_, '_> {
         self.end_of(last)
     }
 
-    fn sc_indented_end(&self, mut j: usize, head: usize, lines: &[String]) -> usize {
+    fn sc_indented_end(&self, mut j: usize, head: usize, cases: bool, lines: &[String]) -> usize {
         while j < self.toks.len() {
             let starts = self.toks[j - 1].end < self.toks[j].line;
-            if self.closer(j) || (starts && indent(&lines[self.toks[j].line]) <= head) {
+            let at = indent(&lines[self.toks[j].line]);
+            let case = cases && at == head && self.tx(j) == "case";
+            if self.closer(j) || (starts && at <= head && !case) {
                 return self.sc_outdent(j, head, lines);
             }
             j = match self.pair[j] {
@@ -344,9 +346,14 @@ impl Model<'_, '_> {
 
     fn sc_braceless(&self, k: usize, lines: &[String]) -> bool {
         let line = self.toks[k].line;
-        self.toks
-            .get(k + 1)
-            .is_some_and(|t| t.line > line && indent(&lines[t.line]) > indent(&lines[line]))
+        self.toks.get(k + 1).is_some_and(|t| {
+            let (at, head) = (indent(&lines[t.line]), indent(&lines[line]));
+            t.line > line && (at > head || (at == head && t.text == "case"))
+        })
+    }
+
+    fn sc_wildcard(&self, j: usize) -> bool {
+        self.tx(j) == "*" && self.before(j) == "."
     }
 
     fn sc_marker(&self, j: usize) -> bool {
@@ -396,14 +403,21 @@ impl Model<'_, '_> {
         let outdent = |j: usize| self.toks[j].line - usize::from(col(j) == 0);
         while j < n {
             if j > from && self.toks[j].line > self.toks[last].end {
+                let hollow = self.tx(last) == "=>"
+                    && lines[self.toks[last].line]
+                        .trim_start()
+                        .starts_with("case ")
+                    && col(j) < col(last);
                 let marker = last > 0 && self.sc_marker(last - 1);
                 let cond = self.tx(last) == ")"
                     && self.back[last]
                         .is_some_and(|o| matches!(self.before(o), "if" | "while" | "for"));
-                let opens = !marker && (cond || INDENT.contains(&self.tx(last)));
+                let opens = !marker && !hollow && (cond || INDENT.contains(&self.tx(last)));
                 let cont = !marker
                     && (opens
-                        || CONT_END.contains(&self.tx(last))
+                        || (!hollow
+                            && CONT_END.contains(&self.tx(last))
+                            && !self.sc_wildcard(last))
                         || CONT_START.contains(&self.tx(j))
                         || (self.tx(last) == "}"
                             && self.back[last].is_some_and(|o| self.before(o) == "for")));
