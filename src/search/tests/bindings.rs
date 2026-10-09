@@ -592,3 +592,294 @@ function Wrapped({
     assert_eq!(at(14, "plain"), [(9, Value::Unknown)]);
     assert_eq!(at(14, "deep"), [(9, Value::Unknown)]);
 }
+
+#[test]
+fn elixir_patterns_bind_only_their_own_names() {
+    let text = "\
+defmodule Shop do
+  def run(
+    repo,
+    opts
+  ) do
+    repo
+  end
+
+  def pay(x) when repo > 0 do
+    case x do
+      repo = %Repo{} -> repo
+      other -> repo
+    end
+    assert repo.id == 1
+    log(repo(x) == 1)
+    repo
+  end
+
+  def f(x), do: g(repo,
+    repo)
+
+  def g(x)
+      when repo.ok and repo(x) do
+    repo
+  end
+end
+";
+    let at = |line, name| {
+        bindings(Kind::Elixir, text, line, name)
+            .iter()
+            .map(|b| b.line1)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        at(6, "repo"),
+        [3],
+        "`) do` back at the `def`'s indent closes parameters wrapped above it"
+    );
+    assert!(
+        at(12, "repo").is_empty(),
+        "a sibling clause binds for its own body alone"
+    );
+    assert!(
+        at(16, "repo").is_empty(),
+        "a guard, a call and a field access bind nothing"
+    );
+    assert!(at(20, "repo").is_empty(), "nor does a body after `, do:`");
+    assert!(
+        at(24, "repo").is_empty(),
+        "nor a field or a call in a header over lines"
+    );
+}
+
+#[test]
+fn an_elixir_module_holds_its_own_statements_only() {
+    let text = "\
+defmodule A do
+  @moduledoc false
+  def a, do: 1
+
+  defmodule B do
+    def b, do: 2
+  end
+end
+
+defmodule C do
+  def c, do: 3
+end
+";
+    let def = Regex::new(r"^\s*def\s").unwrap();
+    assert_eq!(
+        elixir_module_lines(text, 3, &def),
+        [3],
+        "neither the module nested in it (#460) nor the one after it"
+    );
+}
+
+#[test]
+fn lua_blocks_bind_locals_parameters_and_their_own_function() {
+    let at = |text: &str, line, name| {
+        bindings(Kind::Lua, text, line, name)
+            .iter()
+            .map(|b| b.line1)
+            .collect::<Vec<_>>()
+    };
+    let attribs = "function f()\n  local a <const>, b = 1, 2\n  return a\nend\n";
+    assert_eq!(at(attribs, 3, "a"), [2], "`local a <const>, b` names `a`");
+    let until = "function f()\n  repeat\n    local done = step()\n  until done\nend\n";
+    assert_eq!(
+        at(until, 4, "done"),
+        [3],
+        "an `until` reads the body of its `repeat`"
+    );
+    let own = "local function walk(node)\n  return walk(node.next)\nend\n";
+    assert_eq!(at(own, 2, "walk"), [1], "a `local function` calls itself");
+    assert_eq!(at(own, 2, "node"), [1]);
+    let each = "for i, repo in ipairs(xs) do\n  print(repo)\nend\n";
+    assert_eq!(at(each, 2, "repo"), [1]);
+}
+
+#[test]
+fn lua_tables_keys_and_members() {
+    let table = "local t = {\n  name = 1,\n}\n";
+    assert!(
+        table_key(table, 2, &(2..6)),
+        "a key at the start of a line inside a constructor (#461)"
+    );
+    assert!(table_key("local t = {name = 1}", 1, &(11..15)));
+    assert!(!table_key("local t = {name == 1}", 1, &(11..15)));
+    let local = "local repo = require(\"repo\")\nfunction f()\n  local repo = 2\nend\nfunction g()\n  return repo.load()\nend\n";
+    assert_eq!(
+        lua_local_value(local, 6, "repo").as_deref(),
+        Some("require(\"repo\")"),
+        "a function's `local` is not the file's (#462)"
+    );
+    assert_eq!(
+        lua_returned("local M = {}\nfunction M.f()\n  return x\nend\n"),
+        None,
+        "a function's `return` is not the module's"
+    );
+    let module = "local M = {}\nM.cache = {}\nfunction M.cache.get() end\nfunction M.a() end\nfunction M:b() end\nM.c = function() end\n";
+    assert_eq!(lua_table(module, None, "M").as_deref(), Some("M"));
+    assert_eq!(
+        lua_table(module, Some("M"), "cache").as_deref(),
+        Some("M.cache")
+    );
+    assert_eq!(lua_members(module, "M", "a"), [4]);
+    assert_eq!(lua_members(module, "M", "b"), [5]);
+    assert_eq!(lua_members(module, "M", "c"), [6]);
+    assert!(continued(Kind::Python, &["x = 1 + \\", "    y"], 1));
+    assert!(continued(Kind::Python, &["f(a,", "  b)"], 1));
+    assert!(!continued(Kind::Python, &["x = 1", "y"], 1));
+}
+
+#[test]
+fn zig_parameters_wrapped_over_lines_and_locals_bind() {
+    let text =
+        "fn add(\n    a: u32,\n    b: u32,\n) u32 {\n    const sum = a + b;\n    return sum;\n}\n";
+    let at = |line, name| {
+        bindings(Kind::Zig, text, line, name)
+            .iter()
+            .map(|b| b.line1)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(at(5, "b"), [3], "`) u32 {{` closes the parameters above it");
+    assert_eq!(at(6, "sum"), [5]);
+}
+
+#[test]
+fn ts_headers_and_statements_over_several_lines() {
+    let whole = "function f() {\n  const repo = {\n    a: 1,\n  } as Repo;\n  repo\n}\n";
+    assert_eq!(
+        bound_at(Kind::TsJs, whole, 5, "repo"),
+        [(2, ty("Repo"))],
+        "a statement over lines is read once, whole"
+    );
+    let sibling = "function f(repo: Repo) {\n  if (x) {\n    xs.forEach((repo) => go(repo));\n  } else {\n    repo\n  }\n}\n";
+    assert_eq!(
+        bound_at(Kind::TsJs, sibling, 5, "repo"),
+        [(1, ty("Repo"))],
+        "the block between an `if` and its `}} else {{` is not the cursor's"
+    );
+    let type_params =
+        "function route<\n  H extends (repo: Log) => void,\n>(repo: Repo) {\n  repo\n}\n";
+    assert_eq!(
+        bound_at(Kind::TsJs, type_params, 4, "repo"),
+        [(1, ty("Repo"))],
+        "an arrow among the type parameters is none of the function's"
+    );
+    let returned = "const build = (x): Node => ({\n  kind: Node,\n});\n";
+    assert!(
+        bound_at(Kind::TsJs, returned, 2, "Node").is_empty(),
+        "`): Node => ({{` returns a `Node` (#331)"
+    );
+    let key = "const handlers = { onLoad: repo => {\n  repo\n}};\n";
+    assert_eq!(
+        bound_at(Kind::TsJs, key, 2, "repo"),
+        [(1, Value::Unknown)],
+        "a key's `:` writes no return type (#331)"
+    );
+}
+
+#[test]
+fn what_this_is_under_a_case_and_a_returned_literal() {
+    let case = "class A {\n  m() {\n    switch (x) {\n      case 1: {\n        this\n      }\n    }\n  }\n}\n";
+    assert_eq!(
+        bound_at(Kind::TsJs, case, 5, "this"),
+        [(1, Value::Class { decl_line1: 1 })],
+        "`case 1: {{` opens statements"
+    );
+    let literal = "class A {\n  m() {\n    return {\n      f() { return this; }\n    };\n  }\n}\n";
+    assert_eq!(
+        bound_at(Kind::TsJs, literal, 4, "this"),
+        [(3, Value::Unknown)],
+        "the `{{` behind a `return` is a literal's"
+    );
+}
+
+#[test]
+fn a_csharp_nested_type_does_not_see_its_outer_types_header() {
+    let text = "class Outer(Repo repo) {\n  class Inner {\n    void Run() {\n      repo.Save();\n    }\n  }\n}\n";
+    assert!(bound_at(Kind::CSharp, text, 4, "repo").is_empty());
+}
+
+#[test]
+fn ts_arrow_parameters_and_bodies_on_one_line() {
+    let at = |line: &str| line.rfind("repo").unwrap();
+    assert!(ts_arrow_param("xs.map(repo => repo)", "repo", 7));
+    assert!(
+        !ts_arrow_param("const f = (x): Repo => x;", "Repo", 15),
+        "`): Repo =>` is a return type"
+    );
+    let jsx = "<p>Do {items.map(repo => repo.name)}</p>";
+    assert!(ts_arrow_binds(jsx, "repo", at(jsx)));
+    let open = "<p>Don't {items.map(repo => repo.name)}</p>";
+    assert!(
+        !ts_arrow_binds(open, "repo", at(open)),
+        "a string left open has swallowed the brackets: where the body ends is unknown"
+    );
+    let chain = "const f = flag ? repo => repo?.name : repo;";
+    assert!(
+        !ts_arrow_binds(chain, "repo", at(chain)),
+        "`?.` is no ternary: the `:` ends the body"
+    );
+    let curried = "xs.map(repo => () => repo)";
+    assert!(
+        ts_arrow_binds(curried, "repo", at(curried)),
+        "a `=>` is no assignment"
+    );
+}
+
+#[test]
+fn go_headers_bind_parameters_but_not_types() {
+    let line = "\tf := func(i int) error { return nil }; if ok { use(i) }";
+    assert!(
+        !go_binds_here(line, "i", line.rfind('i').unwrap()),
+        "a brace after the parameters closes that function: its `i` is not the `if`'s"
+    );
+    let line = "func h() func(repo Repo) { use(repo) }";
+    assert!(
+        !go_binds_here(line, "repo", line.rfind("repo").unwrap()),
+        "a result type's parameter binds nothing"
+    );
+    assert!(
+        bound_at(Kind::Go, "func f(int, Repo) {\n\tRepo\n}\n", 2, "Repo").is_empty(),
+        "a list of bare types names nothing"
+    );
+    assert!(
+        bound_at(
+            Kind::Go,
+            "func f() {\n\tconst csp = \"x http://y\"\n\thttp\n}\n",
+            3,
+            "http"
+        )
+        .is_empty(),
+        "a `const` declares its names, not its value's"
+    );
+    let literals = "func f() {\n\trepos := []Repo{}\n\tbyID := map[string]*Repo{}\n\trepos\n}\n";
+    assert_eq!(
+        bound_at(Kind::Go, literals, 4, "repos"),
+        [(2, ty("[]Repo"))]
+    );
+    assert_eq!(
+        bound_at(Kind::Go, literals, 4, "byID"),
+        [(3, ty("map[string]*Repo"))]
+    );
+}
+
+#[test]
+fn a_ts_header_ends_at_its_brace_or_with_its_declaration() {
+    let header = |lines: &[&str]| ts_header(lines, 0);
+    assert_eq!(
+        header(&["type Loose = any;", "class A {", "}"]),
+        TsHeader {
+            one_line_without_type_params: "type Loose = any;".into(),
+            last_line0: 0,
+        }
+    );
+    assert_eq!(
+        header(&["function f<T extends (x: A) => B>(t: T) {", "}"]),
+        TsHeader {
+            one_line_without_type_params: "function f(t: T) {".into(),
+            last_line0: 0,
+        },
+        "the `>` of a `=>` closes no type parameter"
+    );
+}
