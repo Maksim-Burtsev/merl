@@ -9,15 +9,7 @@ pub struct Import {
     pub name: String,
     pub path: Vec<String>,
 }
-/// `path` as the parts a file system would spell it in. `import numpy as np` binds `np` to
-/// `[numpy]`; `from json import load` binds `load` to `[json, load]` (a module or a name in one,
-/// the caller relaxes the path until a file matches). A relative import (`from ..models import X`, `./utils`) binds
-/// too, with its dots as the leading part: it names a project file, never one outside. A
-/// TypeScript path ends in what the import takes from the module: the name, `default`, or `*`
-/// for the whole module (`* as ns`, `require`), and a `node:` module keeps the prefix that makes
-/// it Node's own. Rust's in-crate `crate::` and `super::` paths are left out.
 pub fn imports(kind: Kind, text: &str) -> Vec<Import> {
-    // A Python import in a docstring's example binds nothing of the file.
     if matches!(kind, Kind::Python | Kind::Julia) {
         let literal = literal_lines(kind, text);
         let code: Vec<&str> = text
@@ -105,12 +97,9 @@ fn ts_continued(text: &str) -> std::borrow::Cow<'_, str> {
         false => text.into(),
     }
 }
-/// The line of the TypeScript import in `text` that binds `name`, as [`imports`] reads
-/// it: in an import wrapped over several lines, the line the name is written on.
 pub fn ts_import_line1(text: &str, name: &str) -> Option<usize> {
     ts_import_lines1(text, name).first().copied()
 }
-/// Every line [`ts_import_line1`] could name: each import of `text` that binds `name`.
 pub fn ts_import_lines1(text: &str, name: &str) -> Vec<usize> {
     let ident = |c: Option<char>| c.is_some_and(|c| c.is_alphanumeric() || c == '_' || c == '$');
     let text = ts_continued(text);
@@ -131,8 +120,6 @@ pub fn ts_import_lines1(text: &str, name: &str) -> Vec<usize> {
         })
         .collect()
 }
-/// [`imports`] over every line of `text`, a docstring's too: what a reader inside the docstring's
-/// example goes by.
 pub fn imports_as_written(kind: Kind, text: &str) -> Vec<Import> {
     let mut out = Vec::new();
     let parts = |module: &str, sep: &str| -> Vec<String> {
@@ -191,25 +178,32 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<Import> {
                     let list = list.as_str().split('#').next().unwrap_or_default();
                     for item in list.split(',') {
                         if let Some((alias, name)) = alias_and_name(item.trim()) {
-                            // `import a.b.c` binds `a`; `import a.b.c as d` binds `d` to `a.b.c`.
                             if alias == name {
                                 let first = name.split('.').next().unwrap_or(&name).to_owned();
-                                out.push(Import { name: first.clone(), path: vec![first] });
+                                out.push(Import {
+                                    name: first.clone(),
+                                    path: vec![first],
+                                });
                             } else {
-                                out.push(Import { name: alias, path: parts(&name, ".") });
+                                out.push(Import {
+                                    name: alias,
+                                    path: parts(&name, "."),
+                                });
                             }
                         }
                     }
                 }
             }
         }
-        // Rust's in-crate `crate::` and `super::` paths are [`rust_use_files`]'s.
         Kind::Rust => {
             out.extend(
                 rust_uses(text)
                     .into_iter()
                     .filter(|u| !matches!(u.path[0].as_str(), "crate" | "super"))
-                    .map(|u| Import { name: u.name, path: u.path }),
+                    .map(|u| Import {
+                        name: u.name,
+                        path: u.path,
+                    }),
             );
         }
         Kind::Go => {
@@ -221,13 +215,12 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<Import> {
             for c in IMPORT.captures_iter(text) {
                 let path = parts(&c[2], "/");
                 if let Some(alias) = c.get(1) {
-                    out.push(Import { name: alias.as_str().to_owned(), path });
+                    out.push(Import {
+                        name: alias.as_str().to_owned(),
+                        path,
+                    });
                     continue;
                 }
-                // The package name is the last element that is not a major version, without the
-                // decorations a module path carries: `yaml.v3`, `nats.go`, `go-sqlite3`,
-                // `bar-go`. A major version last can be the package itself
-                // (`k8s.io/api/core/v1`), so it binds as well.
                 let Some(last) = path.iter().rev().find(|p| !version(p)) else {
                     continue;
                 };
@@ -239,9 +232,15 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<Import> {
                 }
                 name = name.strip_prefix("go-").unwrap_or(name);
                 name = name.strip_suffix("-go").unwrap_or(name);
-                out.push(Import { name: name.to_owned(), path: path.clone() });
+                out.push(Import {
+                    name: name.to_owned(),
+                    path: path.clone(),
+                });
                 if let Some(v) = path.last().filter(|p| version(p)) {
-                    out.push(Import { name: v.clone(), path: path.clone() });
+                    out.push(Import {
+                        name: v.clone(),
+                        path: path.clone(),
+                    });
                 }
             }
         }
@@ -254,18 +253,14 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<Import> {
                     continue;
                 }
                 let member = after.split_once('.').map(|(_, m)| m.trim());
-                // `./x` and `../x` keep their dots as the first part; an absolute path gets one.
                 let mut path = parts(module, "/");
                 if module.starts_with('/') {
                     path.insert(0, ".".to_owned());
                 }
-                // A bare `x` is the default export after `import`, the whole module after
-                // `require`. `x`, `* as x`, `{a, type b as c}` and `x, {a}` in one clause.
                 let (clause, whole) = match (c.get(1), c.get(2).or_else(|| c.get(3))) {
                     (Some(m), _) => (m.as_str(), "default"),
                     (None, m) => (m.map_or("", |m| m.as_str()), member.unwrap_or("*")),
                 };
-                // What a destructuring takes out of a member is not read.
                 if member.is_some() && clause.contains('{') {
                     continue;
                 }
@@ -279,8 +274,14 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<Import> {
                 };
                 for item in outside.split(',').map(str::trim).filter(|i| !i.is_empty()) {
                     match item.strip_prefix("* as ") {
-                        Some(ns) => out.push(Import { name: ns.trim().to_owned(), path: with("*") }),
-                        None => out.push(Import { name: item.to_owned(), path: with(whole) }),
+                        Some(ns) => out.push(Import {
+                            name: ns.trim().to_owned(),
+                            path: with("*"),
+                        }),
+                        None => out.push(Import {
+                            name: item.to_owned(),
+                            path: with(whole),
+                        }),
                     }
                 }
                 for item in named.split(',') {
@@ -289,21 +290,22 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<Import> {
                     if let Some((name, alias)) = item.split_once(':') {
                         let (name, alias) = (name.trim(), alias.trim());
                         if !name.is_empty() && !alias.is_empty() {
-                            out.push(Import { name: alias.to_owned(), path: with(name) });
+                            out.push(Import {
+                                name: alias.to_owned(),
+                                path: with(name),
+                            });
                         }
                         continue;
                     }
                     if let Some((alias, name)) = alias_and_name(item) {
-                        out.push(Import { name: alias, path: with(&name) });
+                        out.push(Import {
+                            name: alias,
+                            path: with(&name),
+                        });
                     }
                 }
             }
         }
-        // A `use` names one class, function or constant, and PSR-4 spells a namespace the way a
-        // file system does, so the path is the name split on `\`: `use Illuminate\Support\Str`
-        // binds `Str` to `vendor/…/Illuminate/Support/Str.php`. In column zero only — indented,
-        // `use` pulls a trait into a class body and names no file — and a group `use A\{B, C}`
-        // is left out, since one clause then binds several.
         Kind::Php => {
             static USE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
                 Regex::new(r"(?m)^use\s+(?:function\s+|const\s+)?([^;{]+);").unwrap()
@@ -313,18 +315,16 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<Import> {
                     if let Some((alias, name)) = alias_and_name(item.trim()) {
                         let path = parts(&name, "\\");
                         if let Some(last) = path.last().cloned() {
-                            out.push(Import { name: if alias == name { last } else { alias }, path });
+                            out.push(Import {
+                                name: if alias == name { last } else { alias },
+                                path,
+                            });
                         }
                     }
                 }
             }
         }
         Kind::Julia => julia_imports(text, &mut out),
-        // Nothing to bind without roots to resolve an `import` or a `require` against. A C
-        // `#include` binds no name of its own either: it pastes a file in, and everything the
-        // file declares is then visible unqualified, and a C# `using` opens a whole namespace
-        // the same way. Zig's `const std = @import("std")` does bind one, but `std` is the root
-        // itself, not a directory inside it, so narrowing by it would find nothing.
         Kind::Jvm
         | Kind::Ruby
         | Kind::C
@@ -335,10 +335,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<Import> {
         | Kind::Zig
         | Kind::Proto
         | Kind::Shell
-        // `Import-Module` makes every function the module exports visible and binds no name, as
-        // a C `#include` does; its path is followed as [`file_import`] reads it.
         | Kind::PowerShell
-        // A Dart prefix or `show` name is [`dart_imports`]'s, which `d` reads in its own branch.
         | Kind::Dart
         | Kind::Cmake
         | Kind::Nix
@@ -360,17 +357,12 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<Import> {
         | Kind::Docker
         | Kind::Yaml
         | Kind::Markdown
-        // `#import "./parts.graphql"` pastes the file in and binds no name: [`graphql_import`].
         | Kind::Graphql
         | Kind::Css
         | Kind::Html => {}
     }
     out
 }
-/// Whether `line1` of `text`, a TypeScript line ending in `name<`, declares a method: the `>`
-/// that closes the type parameters is followed by a parameter list and then a body or a return
-/// type. prettier writes a call with long type arguments the same way, and its `>(…)` ends in
-/// `);` or goes on as an expression.
 pub fn declares_wrapped_generic(text: &str, line1: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = line1.checked_sub(1).filter(|&k| k < lines.len()) else {
@@ -442,8 +434,6 @@ pub fn module_exports(text: &str) -> Option<ModuleExports> {
         _ => ModuleExports::Piecemeal,
     })
 }
-/// A TypeScript method header's start, up to its `(`, for [`ts_call_statement`]: `word(`,
-/// `async word<T>(`, `word?(`.
 pub fn ts_method_head(word: &str) -> Regex {
     Regex::new(&format!(
         r"^\s*(?:(?:public|private|protected|static|readonly|abstract|override|async|get|set)\s+)*\*?{}\??\s*(?:<.*?>)?\(",
@@ -479,8 +469,6 @@ pub fn ts_call_statement(
                 })
         });
     }
-    // Each parameter opens with a name, a pattern, a rest or the list's end: an argument that
-    // is a string, a number, a callback or `this.x` makes it a call.
     !split_top(Kind::TsJs, rest, b',').iter().all(|item| {
         let item = item.trim();
         if item.is_empty() || item.starts_with([')', '{', '[', '@']) || item.starts_with("...") {
@@ -493,7 +481,6 @@ pub fn ts_call_statement(
             return false;
         }
         let after = item[name.len()..].trim_start();
-        // `this: Window` and `x?: T` are parameters, whatever the name; a modifier opens one.
         if after.starts_with([':', '?'])
             || matches!(
                 name,
@@ -525,8 +512,6 @@ pub fn ts_call_statement(
                 || (after.starts_with('=') && !after.starts_with("=>") && !after.starts_with("==")))
     })
 }
-/// The name a TypeScript module declares what it exports as `name` under: `Hono` for
-/// `export { Hono as HonoBase }`. A re-export `… from "./x"` declares nothing here.
 pub fn exported_as(text: &str, name: &str) -> Option<String> {
     static EXPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#"(?m)^\s*export\s+(?:type\s+)?\{([^}]*)\}\s*(from\b)?"#).unwrap()
@@ -545,9 +530,6 @@ pub fn exported_as(text: &str, name: &str) -> Option<String> {
             })
         })
 }
-/// The modules a TypeScript barrel hands `name` on from, as [`imports`] spells a module:
-/// `export * from "./a"` and `export { name } from "./a"`. Under another name
-/// (`export { x as name }`) nothing is followed: [`reexported`] has those.
 pub fn reexports(text: &str, name: &str) -> Vec<Vec<String>> {
     reexported(text, name)
         .into_iter()
@@ -605,9 +587,6 @@ pub struct RustUse {
     pub start_byte: usize,
     pub in_column_zero: bool,
 }
-/// What every `use` of the Rust file `text` binds, as [`imports`] reads it, with the in-crate
-/// `crate::` and `super::` paths kept. A `use` in column zero is at the top of the file, not in a
-/// function or an inline `mod`.
 pub fn rust_uses(text: &str) -> Vec<RustUse> {
     static USE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?ms)^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+([^;]+);").unwrap()
@@ -629,13 +608,8 @@ pub fn rust_uses(text: &str) -> Vec<RustUse> {
     }
     out
 }
-/// The files of the crate module a `use crate::…` or `use super::…` of the Rust file `here`
-/// takes `name` from: `src/store.rs` or `src/store/mod.rs` for `use crate::store::Cache;`, the
-/// crate root's `lib.rs` and `main.rs` for `use crate::Cache;`. Empty when the file binds `name`
-/// otherwise, more than once or only inside a function or an inline `mod` (whose `super` is not
-/// the file's), or when `here` is not in the `src/` of a `Cargo.toml` (a binary
-/// under `src/bin/` is a crate of its own). Only the paths a module's file sits at by default
-/// are tried: an inline `mod` or a `#[path]` leaves the caller nothing to prove.
+/// Only the paths a module's file sits at by default are tried: an inline `mod` or a `#[path]`
+/// leaves the caller nothing to prove.
 pub fn rust_use_files(files: &[PathBuf], here: &Path, text: &str, name: &str) -> Vec<PathBuf> {
     let mut bound = rust_uses(text).into_iter().filter(|u| u.name == name);
     let (
@@ -686,9 +660,6 @@ pub struct RustModule {
     pub crate_src: PathBuf,
     pub path: Vec<String>,
 }
-/// `src/a/b.rs` and `src/a/b/mod.rs` are `[a, b]`, `lib.rs` and `main.rs` the crate's root, `[]`.
-/// `None` outside the `src/` of a `Cargo.toml`, and in a binary under `src/bin/`, a crate of its
-/// own.
 pub fn rust_module_of(files: &[PathBuf], here: &Path) -> Option<RustModule> {
     let src = here.ancestors().skip(1).find(|d| {
         d.file_name().is_some_and(|n| n == "src")
@@ -713,7 +684,6 @@ pub fn rust_module_of(files: &[PathBuf], here: &Path) -> Option<RustModule> {
         path: module,
     })
 }
-/// One `use` tree: `a::b::{c, d as e, f::*}` binds `c`, `e` and every name of `f`.
 fn use_tree(tree: &str, prefix: &[String], out: &mut Vec<Import>) {
     let tree = tree.trim();
     if tree.is_empty() {
@@ -761,19 +731,6 @@ fn use_tree(tree: &str, prefix: &[String], out: &mut Vec<Import>) {
         path,
     });
 }
-/// The project files of the module an import in `here` spells as `module`, the parts
-/// [`imports`] gives without what a TypeScript import takes from it; empty when the module is not
-/// the project's. Paths are relative to `root`, and only what the project walk listed in `files`
-/// counts.
-///
-/// - Python: `a/b.py` or the package `a/b/__init__.py`. Relative to the directory of `here` behind
-///   dots, one directory up per dot past the first; otherwise at any depth (the root, `src/`, a
-///   folder of a monorepo) but not inside a package, since `json` is not `myapp/json.py`.
-/// - TypeScript: `./x` from the directory of `here`, an alias from the `paths` of the nearest
-///   `tsconfig.json` (or `jsconfig.json`) or a name under its `baseUrl`, as `x.ts`, `x.tsx`, `x.d.ts`, the JavaScript
-///   forms, then `x/index.*`. `./x.js` is `x.ts` first, as ESM projects write it.
-/// - Go: the directory under the `go.mod` whose `module` the import path starts with (the longest,
-///   for a module nested in another), without its `_test.go` files.
 pub fn module_files(
     kind: Kind,
     root: &Path,
@@ -905,7 +862,6 @@ pub fn module_files(
         | Kind::Markdown
         | Kind::Css
         | Kind::Html => Vec::new(),
-        // The path of an `#import`, a dot-source or an `Import-Module`, relative to the file.
         Kind::Nix => nix_files(dir, &module.join("/"), files),
         Kind::Haskell => haskell_files(&module.join("."), files),
         Kind::R => r_files(dir, &module.join("/"), files),
@@ -938,8 +894,6 @@ pub fn file_import(kind: Kind, line: &str, col: usize) -> Option<String> {
         _ => None,
     }
 }
-/// The path of the `#import "./parts.graphql"` a GraphQL `line` is, when byte `col` stands on it
-/// or its quotes: the convention of `graphql-tag/loader`, which pastes that file in.
 pub fn graphql_import(line: &str, col: usize) -> Option<&str> {
     static IMPORT: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r#"^#\s*import\s+(["'])([^"']+)["']"#).unwrap());
@@ -970,11 +924,6 @@ pub fn css_module_file(
         .filter_map(|b| lexical(b))
         .find(|b| files.contains(b))
 }
-/// Where an aliased TypeScript specifier points, most specific first: the targets of the
-/// `compilerOptions.paths` entries it matches, then the specifier under `baseUrl`. Read from the
-/// `tsconfig.json`, or a JavaScript project's `jsconfig.json`, nearest above `dir` and the configs it `extends` by a relative path, the
-/// nearest setting winning; `paths` are relative to `baseUrl` when there is one, else to the
-/// config that declares them. Comments and trailing commas are fine: only these keys are read.
 fn ts_aliases(root: &Path, dir: &Path, spec: &str) -> Vec<PathBuf> {
     let TsConfig {
         path_targets,
@@ -985,8 +934,6 @@ fn ts_aliases(root: &Path, dir: &Path, spec: &str) -> Vec<PathBuf> {
         .chain(base_url.map(|u| u.join(spec)))
         .collect()
 }
-/// Whether an entry of the `compilerOptions.paths` [`ts_aliases`] reads matches `spec`, or
-/// `baseUrl` has a file or a directory of its first part: the project's own module, no package.
 pub(super) fn ts_alias(root: &Path, files: &[PathBuf], dir: &Path, spec: &str) -> bool {
     let TsConfig {
         path_targets,
@@ -1045,7 +992,6 @@ fn ts_config(root: &Path, dir: &Path, spec: &str) -> TsConfig {
         if table.is_none() {
             table = paths.captures(&text).map(|c| (at.clone(), c[1].to_owned()));
         }
-        // `"extends": "./base"` is `./base.json`.
         config = extends.captures(&text).map(|c| {
             if c[1].ends_with(".json") {
                 at.join(&c[1])
@@ -1058,7 +1004,6 @@ fn ts_config(root: &Path, dir: &Path, spec: &str) -> TsConfig {
     if let Some((at, table)) = &table {
         let from = url.as_ref().unwrap_or(at);
         for e in entry.captures_iter(table) {
-            // An exact key outranks every wildcard; among wildcards the longer prefix wins.
             let matched = match e[1].split_once('*') {
                 Some((pre, post)) => spec
                     .strip_prefix(pre)
@@ -1081,7 +1026,6 @@ fn ts_config(root: &Path, dir: &Path, spec: &str) -> TsConfig {
         base_url: url,
     }
 }
-/// `path` with its `.` and `..` parts folded away, `None` when it climbs above where it starts.
 pub(super) fn lexical(path: &Path) -> Option<PathBuf> {
     let mut out = PathBuf::new();
     for c in path.components() {
@@ -1098,11 +1042,6 @@ pub(super) fn lexical(path: &Path) -> Option<PathBuf> {
     Some(out)
 }
 
-/// Whether `path` is (in) the module spelled by `parts`: every part is a directory or file
-/// stem on it, in order. A package directory carries a version (`regex-1.11.1`,
-/// `toml@v1.2.3`), a Go module escapes upper case (`!burnt!sushi`) and a crate name spells
-/// `_` as `-`: those are ignored. The types of `@scope/pkg` are `@types/scope__pkg`, read so when
-/// the scope and the name are those.
 pub fn in_module(path: &Path, parts: &[String]) -> bool {
     let want: Vec<String> = parts.iter().map(|p| normalized_module_part(p)).collect();
     let mut components = path
@@ -1139,10 +1078,6 @@ pub struct ModuleFiles<P> {
     pub matched_parts: usize,
     pub files: Vec<P>,
 }
-/// The files among `files` of `module`, shortened from its end until some match:
-/// `from json import load` is `json/load`, then `json`. A Go import of
-/// `package` parts names one directory, so down to that length a file has to be in it
-/// ([`in_package`]). `None` when not even the first part matches.
 pub fn module_among<P: AsRef<Path> + Clone>(
     files: &[P],
     module: &[String],
