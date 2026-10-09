@@ -100,8 +100,8 @@ with its issue closed, or waits under `needs-owner` (see `## Merging`).
    sessions work on this repo. Then take it, before anything else: `gh issue edit N --add-label
    in-progress` and a comment naming your branch. If you stop without a PR, take the label off
    and say in a comment what is left.
-2. Branch in a worktree of your own, cut from origin: `git fetch origin && git worktree add
-   ../merl-<topic> -b <branch> origin/master`. The main checkout is shared: other sessions keep
+2. Branch in a worktree of your own, cut from origin: `tools/worktree ../merl-<topic> <branch>`,
+   which also starts its `target/` with master's dependencies built. The main checkout is shared: other sessions keep
    their branches checked out there with uncommitted work, and its `master` can be days behind
    origin or carry commits origin never got. Read code, reviews included, from your worktree.
 3. Build into the worktree's own `target/`. Worktrees sharing a `CARGO_TARGET_DIR` hand you a
