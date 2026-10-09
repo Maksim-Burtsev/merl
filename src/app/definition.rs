@@ -1337,7 +1337,9 @@ impl App {
                 .iter()
                 .filter(|h| {
                     search::swift_case(&h.text)
-                        || (!pattern && search::swift_static_member(&h.text) == Some(true))
+                        || (!pattern
+                            && search::swift_member_kind(&h.text)
+                                == Some(search::SwiftMember::StaticOrClass))
                 })
                 .cloned()
                 .collect();
@@ -1410,9 +1412,10 @@ impl App {
             let literal = search::literal_lines(kind, &text);
             // The cursor's scope and the functions around it, innermost first; a header's scope
             // lies above it, so the walk ends.
-            let mut scopes = vec![search::swift_scope(&lines, &literal, self.line + 1).0];
+            let mut scopes =
+                vec![search::swift_scope(&lines, &literal, self.line + 1).header_line1];
             while let Some(&s @ 1..) = scopes.last() {
-                match search::swift_scope(&lines, &literal, s).0 {
+                match search::swift_scope(&lines, &literal, s).header_line1 {
                     0 => break,
                     up => scopes.push(up),
                 }

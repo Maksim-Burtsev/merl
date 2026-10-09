@@ -637,7 +637,7 @@ protocol Boxed {
         "a closure's, of the wrapped `func` around it"
     );
     assert_eq!(local(19), None, "a protocol's requirement");
-    assert_eq!(swift_scope(&lines, &literal, 13).0, 10);
+    assert_eq!(swift_scope(&lines, &literal, 13).header_line1, 10);
     assert!(swift_extension("public extension Box where T: Equatable {"));
     assert!(!swift_extension("let extensionCount = 1"));
 }

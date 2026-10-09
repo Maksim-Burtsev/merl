@@ -981,9 +981,11 @@ impl App {
             // A value reaches the instance members; a `static` one needs the type.
             if rows
                 .iter()
-                .any(|h| search::swift_static_member(&h.text) == Some(false))
+                .any(|h| search::swift_member_kind(&h.text) == Some(search::SwiftMember::Instance))
             {
-                rows.retain(|h| search::swift_static_member(&h.text) != Some(true));
+                rows.retain(|h| {
+                    search::swift_member_kind(&h.text) != Some(search::SwiftMember::StaticOrClass)
+                });
             }
             let label = links.join(" \u{2192} ");
             Some(
@@ -1062,9 +1064,9 @@ impl App {
             [] => {
                 let at = around?;
                 // The lines of the function under the type, down to `line1`.
-                let mut top = search::swift_scope(&lines, &literal, line1).0;
+                let mut top = search::swift_scope(&lines, &literal, line1).header_line1;
                 while top > at {
-                    match search::swift_scope(&lines, &literal, top).0 {
+                    match search::swift_scope(&lines, &literal, top).header_line1 {
                         up if up > at => top = up,
                         _ => break,
                     }
@@ -1109,7 +1111,7 @@ impl App {
             if search::swift_generics(lines[at - 1]).contains(&name) {
                 return None;
             }
-            at = search::swift_scope(&lines, &literal, at).0;
+            at = search::swift_scope(&lines, &literal, at).header_line1;
         }
         Some((written, link))
     }
@@ -1198,7 +1200,7 @@ impl App {
     ) -> Option<(String, Option<String>)> {
         let rows = self.swift_member_rows(here, ty, name)?;
         let [row] = <[Hit; 1]>::try_from(rows).ok()?;
-        if search::swift_static_member(&row.text).is_none() || row.text.contains("func ") {
+        if search::swift_member_kind(&row.text).is_none() || row.text.contains("func ") {
             return None;
         }
         let text = self.text_of(&row.path)?;
@@ -1223,7 +1225,7 @@ impl App {
                 Some(_) => {}
                 // `typealias Name`, `associatedtype Name`: no type of its own.
                 None if !h.text.contains("func ")
-                    && search::swift_static_member(&h.text).is_none()
+                    && search::swift_member_kind(&h.text).is_none()
                     && !search::swift_case(&h.text) =>
                 {
                     return None;
