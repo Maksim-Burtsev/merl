@@ -381,7 +381,10 @@ mod tests {
     #[test]
     fn a_fresh_app_keeps_what_main_set() {
         let mut a = app("carried", (99, 33));
-        (a.autosave, a.no_watch) = (a.autosave * 3 + std::time::Duration::from_millis(7), !a.no_watch);
+        (a.autosave, a.no_watch) = (
+            a.autosave * 3 + std::time::Duration::from_millis(7),
+            !a.no_watch,
+        );
         let (autosave, no_watch) = (a.autosave, a.no_watch);
         fresh(&mut a).unwrap();
         assert_eq!(

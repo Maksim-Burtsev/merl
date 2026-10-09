@@ -1115,7 +1115,11 @@ mod tests {
         let base = r.base_tree(&dir).unwrap();
         let read = |p: &str| std::fs::read_to_string(base.join(p)).unwrap();
         assert_eq!(read("svc.py"), "X = 1\n");
-        assert_eq!(read("kept.py"), "K = 1\n", "untracked since, the base's own");
+        assert_eq!(
+            read("kept.py"),
+            "K = 1\n",
+            "untracked since, the base's own"
+        );
         assert!(base.join("link.py").is_symlink(), "a link stays a link");
         assert_eq!(
             std::fs::read_link(base.join("venv")).unwrap(),

@@ -705,7 +705,12 @@ mod tests {
 
     #[test]
     fn a_span_keeps_its_colour_and_font_but_not_its_background() {
-        let red = SynColor { r: 255, g: 0, b: 0, a: 255 };
+        let red = SynColor {
+            r: 255,
+            g: 0,
+            b: 0,
+            a: 255,
+        };
         let out = style(syntect::highlighting::Style {
             foreground: red,
             background: SynColor::WHITE,

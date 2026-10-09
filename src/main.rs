@@ -221,7 +221,12 @@ fn run() -> Result<()> {
             Some(n) => {
                 let keys = stats::path();
                 let log = keys.as_ref().map(|k| k.with_file_name("drill.tsv"));
-                Some(Drill::new(n.into(), keys.as_deref(), log, stats::utc_today())?)
+                Some(Drill::new(
+                    n.into(),
+                    keys.as_deref(),
+                    log,
+                    stats::utc_today(),
+                )?)
             }
             None => None,
         };
@@ -892,7 +897,8 @@ mod tests {
         let gone = dir.join("gone");
         let buf = crate::buffer::Buffer::from_bytes(gone.join("x.rs"), b"x\n");
         let app = crate::app::App::new(dir, Default::default(), Vec::new(), buf, None);
-        let mut watcher = notify::recommended_watcher(|_: notify::Result<notify::Event>| {}).unwrap();
+        let mut watcher =
+            notify::recommended_watcher(|_: notify::Result<notify::Event>| {}).unwrap();
         assert!(watcher.watch(&gone, RecursiveMode::NonRecursive).is_err());
         let mut watched = None;
         super::rewatch(Some(&mut watcher), &mut watched, &app);
@@ -1064,7 +1070,7 @@ mod tests {
         assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
     }
 
-    const COMMENT_LINES: usize = 3815;
+    const COMMENT_LINES: usize = 3431;
 
     fn comment_lines(text: &str) -> usize {
         let b = text.as_bytes();
