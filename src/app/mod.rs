@@ -51,6 +51,7 @@ mod perl;
 mod php;
 mod picker;
 mod preview;
+mod preview_data;
 mod project_search;
 mod proto;
 mod python;
@@ -393,6 +394,7 @@ pub struct App {
     previewed: HashSet<PathBuf>,
     /// The open file rendered, while it is one of `previewed`: laid out by the first frame.
     pub preview: Option<Preview>,
+    parse: preview_data::Parse,
     pub diagrams: crate::mermaid::Diagrams,
     old_picture: std::cell::RefCell<Option<OldPicture>>,
     pub mode: Mode,
@@ -579,6 +581,7 @@ impl App {
             diagrams: crate::mermaid::Diagrams::default(),
             old_picture: Default::default(),
             preview: None,
+            parse: Default::default(),
             mode: Mode::Normal,
             prompt: LineEdit::default(),
             find_re: None,

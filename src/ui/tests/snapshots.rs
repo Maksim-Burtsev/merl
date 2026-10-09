@@ -94,6 +94,23 @@ const STATES: &[State] = &[
         at(a, "PLAN.md", 1, "");
         press(a, "p");
     }),
+    ("preview-csv", |a| {
+        at(a, "export.csv", 1, "");
+        press(a, "p");
+        a.settle_parse();
+    }),
+    ("preview-jsonl", |a| {
+        let path = a.root.join("events.jsonl");
+        let records = [
+            r#"{"at":"2026-10-09T21:14:03Z","note":"buy milk","tags":["home"],"done":false}"#,
+            r#"{"at":"2026-10-09T21:15:40Z","note":"call the dentist","tags":[],"meta":{}}"#,
+            r#"[1, 2.50, "three", null, {"four": 4}]"#,
+        ];
+        std::fs::write(&path, records.join("\n") + "\n").unwrap();
+        a.jump_to(&path, 1);
+        press(a, "p");
+        a.settle_parse();
+    }),
     ("image", |a| {
         let path = a.root.join("logo.png");
         let alpha = |x: u32| if x < 48 { 255 } else { 0 };
@@ -416,6 +433,8 @@ snapshots! {
     snapshot_selection: "selection",
     snapshot_nowrap: "nowrap",
     snapshot_preview: "preview",
+    snapshot_preview_csv: "preview-csv",
+    snapshot_preview_jsonl: "preview-jsonl",
     snapshot_image: "image",
     snapshot_review: "review",
     snapshot_review_empty: "review-empty",

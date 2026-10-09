@@ -77,7 +77,7 @@ fn p_on_a_file_that_is_not_markdown_says_so() {
     let mut a = app("plain\n");
     key(&mut a, KeyCode::Char('p'));
     assert!(!a.previewing());
-    assert_eq!(a.message, "not Markdown");
+    assert_eq!(a.message, "no preview for .txt");
 }
 
 #[test]
