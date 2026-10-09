@@ -29,7 +29,7 @@ run python3 -c "d = open('data/refunds-2026-08.csv', 'rb').read(); assert d.star
 key o
 type architecture
 key Enter
-wait binary file
+wait not shown
 merl app/service.py:35:29
 wait app/service.py  35:29
 merl ../home/.zshrc
@@ -47,7 +47,7 @@ wait 1 ‹
 key o
 type architecture
 key Enter
-wait binary file, not shown
+wait , not shown
 # A script an agent wrote with the hidden chars of a "Trojan Source" attack: each is drawn as its
 # code on a warning's amber, the cursor steps over one in a press, and Delete takes it out (#401).
 # The script is written and committed here, not by setup.sh, so the other scenarios' file lists stay as they are.
@@ -69,3 +69,8 @@ type README
 key Enter
 key d
 wait link README.md#orders
+# An image file in a terminal that draws no pictures, as tmux: the note names the picture (#760).
+key o
+type architecture
+key Enter
+wait PNG 48×32, not shown

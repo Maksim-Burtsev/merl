@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   to its `@end`, a method, a method declaration or `@property` wrapped over lines, a block, an
   `@[…]` or `@{…}` literal, `@try` with its `@catch` and `@finally`, and `@autoreleasepool`.
   (#625)
+- Pictures, where merl draws Mermaid (Ghostty, kitty, WezTerm): a PNG, JPEG, GIF, WebP, BMP, ICO
+  or TIFF file opens as the picture, centred in the code pane, shrunk until it fits and never
+  enlarged, its transparent parts over a grey checkerboard, and its size, `1185×960`, in the
+  status bar where the line and column stand. A GIF or an animated WebP plays in a loop. `p` on
+  an SVG draws it, `p` again shows its source. The Markdown preview draws a local image that
+  stands on its own line, `![alt](path)` or an `<img>` tag with its `width` and
+  `align="center"`, taking the theme's variant of a `<picture>` or of `#gh-dark-mode-only`;
+  images from the web and inside a sentence stay `▣ alt`. A file merl cannot read whole stays
+  as before and the status bar says why (`AVIF not drawn`); a terminal that draws no pictures
+  names it in the note, `PNG 1185×960, not shown`. (#760)
 - `f` folds Elixir (`.ex`, `.exs`), where it said `no fold rules for .ex`: a `do` … `end` block,
   an `fn` … `end`, a `case` or `fn` clause through its body, a call's arguments wrapped over
   lines, `@doc """` and a list, map or tuple. (#626)

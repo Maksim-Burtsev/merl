@@ -1,7 +1,9 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::{self, Write};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use merman::render::{
     LayoutOptions, RootBackgroundPostprocessor, SvgPipeline, SvgRenderOptions,
@@ -10,11 +12,14 @@ use merman::render::{
 use merman::{Engine, ParseOptions};
 use ratatui::style::Color;
 
+use crate::picture::{self, Drawn};
 use crate::theme::Theme;
 
 const SCALE: f32 = 2.0;
-const FONT_PX: f32 = 16.0;
-const TEXT_IN_CELL: f32 = 0.85;
+pub const FONT_PX: f32 = 16.0;
+pub const TEXT_IN_CELL: f32 = 0.85;
+const FILE: u64 = 0;
+const KEEP_FILES: usize = 4;
 const LEAST_SHRINK: f32 = 0.5;
 const RENDERS: usize = 2;
 pub const THREAD: &str = "mermaid";
@@ -25,27 +30,27 @@ pub struct Key {
     colours: u64,
 }
 
+pub enum Src {
+    Diagram(String),
+    File(PathBuf),
+}
+
 pub struct Job {
     key: Key,
-    src: String,
+    src: Src,
     colours: String,
 }
 
 pub struct Done {
     key: Key,
-    drawn: Option<Drawn>,
-}
-
-struct Drawn {
-    png: Vec<u8>,
-    natural: (u32, u32),
-    h: u32,
+    drawn: Result<Drawn, String>,
 }
 
 pub struct Pic {
     id: u32,
     png: Vec<u8>,
     h: u32,
+    ms: u32,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -64,8 +69,14 @@ pub struct Place {
 pub struct Diagrams {
     cell: Option<(u32, u32)>,
     colours: String,
-    pics: HashMap<Key, Option<Arc<Pic>>>,
+    pics: HashMap<Key, Option<Vec<Arc<Pic>>>>,
     sizes: HashMap<u64, Option<(u32, u32)>>,
+    why: HashMap<u64, String>,
+    started: HashMap<Key, Instant>,
+    recent: VecDeque<Key>,
+    used: HashSet<Key>,
+    pub wake: Option<Duration>,
+    pub light: bool,
     asked: HashSet<Key>,
     queue: VecDeque<Job>,
     running: usize,
@@ -106,6 +117,7 @@ impl Diagrams {
     }
 
     pub fn theme(&mut self, theme: &Theme, label_bg: Color) {
+        self.light = theme.light;
         if !self.on() {
             return;
         }
@@ -115,21 +127,13 @@ impl Diagrams {
         }
         let now = hash(&colours);
         self.colours = colours;
-        let old: Vec<Key> = self
-            .pics
-            .keys()
-            .filter(|k| k.colours != now)
-            .copied()
-            .collect();
+        let keep = |k: &Key| k.colours == now || k.colours == FILE;
+        let old: Vec<Key> = self.pics.keys().filter(|k| !keep(k)).copied().collect();
         for key in old {
-            if let Some(Some(pic)) = self.pics.remove(&key)
-                && self.sent.remove(&pic.id)
-            {
-                self.stale.push(pic.id);
-            }
+            self.drop_pics(&key);
         }
-        self.asked.retain(|k| k.colours == now);
-        self.queue.retain(|j| j.key.colours == now);
+        self.asked.retain(keep);
+        self.queue.retain(|j| keep(&j.key));
     }
 
     pub fn fit(&mut self, src: &str, room: usize) -> Option<(u16, u16)> {
@@ -137,7 +141,7 @@ impl Diagrams {
         let natural = match self.sizes.get(&hash(src)) {
             Some(size) => (*size)?,
             None => {
-                self.ask(src);
+                self.ask(self.key(src), Src::Diagram(src.to_string()));
                 return None;
             }
         };
@@ -148,10 +152,81 @@ impl Diagrams {
         self.cell?;
         let key = self.key(src);
         match self.pics.get(&key) {
-            Some(pic) => pic.clone(),
+            Some(pic) => pic.as_ref().map(|frames| frames[0].clone()),
             None => {
-                self.ask(src);
+                self.ask(key, Src::Diagram(src.to_string()));
                 None
+            }
+        }
+    }
+
+    pub fn cell(&self) -> Option<(u32, u32)> {
+        self.cell
+    }
+
+    pub fn file_size(&mut self, path: &Path) -> Option<(u32, u32)> {
+        self.cell?;
+        let key = file_key(path)?;
+        match self.sizes.get(&key.src) {
+            Some(size) => *size,
+            None => {
+                self.ask(key, Src::File(path.to_path_buf()));
+                None
+            }
+        }
+    }
+
+    pub fn known_size(&self, path: &Path) -> Option<(u32, u32)> {
+        self.sizes.get(&file_key(path)?.src).copied().flatten()
+    }
+
+    pub fn file_failed(&self, path: &Path) -> Option<&str> {
+        self.cell?;
+        self.why.get(&file_key(path)?.src).map(String::as_str)
+    }
+
+    pub fn file_pic(&mut self, path: &Path) -> Option<Arc<Pic>> {
+        self.cell?;
+        let key = file_key(path)?;
+        let Some(frames) = self.pics.get(&key) else {
+            self.ask(key, Src::File(path.to_path_buf()));
+            return None;
+        };
+        let frames = frames.as_ref()?;
+        if let Some(i) = self.recent.iter().position(|k| *k == key) {
+            self.recent.remove(i);
+        }
+        self.recent.push_front(key);
+        self.used.insert(key);
+        if frames.len() < 2 {
+            return frames.first().cloned();
+        }
+        let ms: Vec<u32> = frames.iter().map(|f| f.ms).collect();
+        let start = *self.started.entry(key).or_insert_with(Instant::now);
+        let (i, left) = picture::frame_at(&ms, start.elapsed().as_millis() as u64);
+        let left = Duration::from_millis(left.max(10));
+        self.wake = Some(self.wake.map_or(left, |w| w.min(left)));
+        Some(frames[i].clone())
+    }
+
+    pub fn begin(&mut self) {
+        self.want.clear();
+        self.wake = None;
+        let keep = KEEP_FILES.max(self.used.len());
+        self.used.clear();
+        while self.recent.len() > keep {
+            if let Some(key) = self.recent.pop_back() {
+                self.drop_pics(&key);
+                self.asked.remove(&key);
+                self.started.remove(&key);
+            }
+        }
+    }
+
+    fn drop_pics(&mut self, key: &Key) {
+        for pic in self.pics.remove(key).flatten().into_iter().flatten() {
+            if self.sent.remove(&pic.id) {
+                self.stale.push(pic.id);
             }
         }
     }
@@ -163,12 +238,11 @@ impl Diagrams {
         }
     }
 
-    fn ask(&mut self, src: &str) {
-        let key = self.key(src);
+    fn ask(&mut self, key: Key, src: Src) {
         if self.asked.insert(key) {
             self.queue.push_back(Job {
                 key,
-                src: src.to_string(),
+                src,
                 colours: self.colours.clone(),
             });
         }
@@ -182,22 +256,33 @@ impl Diagrams {
 
     pub fn done(&mut self, done: Done) {
         self.running = self.running.saturating_sub(1);
-        let size = done.drawn.as_ref().map(|d| d.natural);
+        let size = done.drawn.as_ref().ok().map(|d| d.natural);
         if self.sizes.insert(done.key.src, size).is_none() {
             self.laid += 1;
         }
-        if done.key.colours != hash(&self.colours) {
+        let file = done.key.colours == FILE;
+        if let (true, Err(why)) = (file, &done.drawn) {
+            self.why.insert(done.key.src, why.clone());
+        }
+        if !file && done.key.colours != hash(&self.colours) {
             return;
         }
-        let pic = done.drawn.map(|d| {
-            self.next_id += 1;
-            Arc::new(Pic {
-                id: self.next_id,
-                png: d.png,
-                h: d.h,
-            })
+        let frames = done.drawn.ok().map(|d| {
+            let h = d.h;
+            d.frames
+                .into_iter()
+                .map(|(png, ms)| {
+                    self.next_id += 1;
+                    Arc::new(Pic {
+                        id: self.next_id,
+                        png,
+                        h,
+                        ms,
+                    })
+                })
+                .collect()
         });
-        self.pics.insert(done.key, pic);
+        self.pics.insert(done.key, frames);
     }
 
     pub fn flush(&mut self, out: &mut impl Write) -> io::Result<()> {
@@ -210,7 +295,12 @@ impl Diagrams {
         }
         for p in &self.want {
             if !self.sent.contains(&p.id)
-                && let Some(pic) = self.pics.values().flatten().find(|q| q.id == p.id)
+                && let Some(pic) = self
+                    .pics
+                    .values()
+                    .flatten()
+                    .flatten()
+                    .find(|q| q.id == p.id)
             {
                 transmit(&mut buf, pic);
                 self.sent.insert(p.id);
@@ -387,12 +477,25 @@ pub fn with_colours(src: &str, colours: &str) -> String {
 }
 
 pub fn render(job: Job) -> Done {
-    let src = with_colours(&job.src, &job.colours);
-    let drawn = std::panic::catch_unwind(|| draw(&src)).ok().flatten();
+    let drawn = std::panic::catch_unwind(|| match &job.src {
+        Src::Diagram(src) => draw(&with_colours(src, &job.colours)).ok_or_else(String::new),
+        Src::File(path) => picture::decode(path),
+    })
+    .unwrap_or_else(|_| Err("not drawn".into()));
     Done {
         key: job.key,
         drawn,
     }
+}
+
+fn file_key(path: &Path) -> Option<Key> {
+    let meta = std::fs::metadata(path).ok()?;
+    let mut h = DefaultHasher::new();
+    (path, meta.len(), meta.modified().ok()).hash(&mut h);
+    Some(Key {
+        src: h.finish(),
+        colours: FILE,
+    })
 }
 
 fn draw(src: &str) -> Option<Drawn> {
@@ -426,7 +529,7 @@ fn draw(src: &str) -> Option<Drawn> {
     let (w, h) = (size(16)?, size(20)?);
     let whole = w as f32 >= (vw * SCALE).floor() - 1.0 && h as f32 >= (vh * SCALE).floor() - 1.0;
     (png.starts_with(b"\x89PNG") && whole).then(|| Drawn {
-        png,
+        frames: vec![(png, 0)],
         natural: (vw.ceil() as u32, vh.ceil() as u32),
         h,
     })

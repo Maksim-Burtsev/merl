@@ -3,7 +3,7 @@
 use std::hash::{Hash, Hasher};
 
 use super::*;
-use crate::markdown::{self, Doc, Kind};
+use crate::markdown::{self, Ask, Doc, Kind};
 
 /// The preview of the open file: its rows at the pane's width, the row the cursor is on and the
 /// row at the top of the pane.
@@ -27,6 +27,7 @@ struct LayoutInput {
     lines_hash: u64,
     width: usize,
     diagrams_laid: u64,
+    light: bool,
 }
 
 impl App {
@@ -37,12 +38,31 @@ impl App {
             .is_some_and(|p| self.previewed.contains(p))
     }
 
+    pub fn picture_here(&self) -> Option<PathBuf> {
+        let path = self.buf.path.as_ref()?;
+        let raster = crate::picture::raster_name(path).is_some() && self.buf.binary();
+        let svg = crate::picture::is_svg(path) && self.previewing();
+        (raster || svg).then(|| self.root.join(path))
+    }
+
+    pub fn picture_shown(&self) -> Option<PathBuf> {
+        let path = self.picture_here()?;
+        (self.diagrams.on() && self.diagrams.file_failed(&path).is_none()).then_some(path)
+    }
+
     /// `p`: the open Markdown file rendered, or its source again. The cursor row stays as far
     /// down the pane, on the same place of the file.
     pub(super) fn toggle_preview(&mut self) {
         let Some(path) = self.buf.path.clone() else {
             return;
         };
+        let svg = crate::picture::is_svg(&path);
+        if svg && self.diagrams.on() {
+            if !self.previewed.remove(&path) {
+                self.previewed.insert(path);
+            }
+            return;
+        }
         if self.previewed.remove(&path) {
             let off = self
                 .preview
@@ -92,6 +112,7 @@ impl App {
             lines_hash: h.finish(),
             width: self.view_w,
             diagrams_laid: self.diagrams.laid,
+            light: self.diagrams.light,
         };
         let pos = (self.line, self.col);
         match &mut self.preview {
@@ -108,16 +129,35 @@ impl App {
                 let old = slot.take();
                 let off = old.as_ref().map_or(0, |p| p.row.saturating_sub(p.top));
                 let diagrams = &mut self.diagrams;
-                let doc = markdown::layout(&self.buf.lines, self.view_w, &mut |src, room| {
-                    diagrams.fit(src, room)
-                });
+                let file = self
+                    .root
+                    .join(self.buf.path.as_deref().unwrap_or(Path::new("")));
+                let root = &self.root;
+                let doc = markdown::layout(
+                    &self.buf.lines,
+                    self.view_w,
+                    input.light,
+                    &mut |ask, room| match ask {
+                        Ask::Diagram(src) => diagrams.fit(src, room),
+                        Ask::Image(dest, width) => {
+                            let path = crate::picture::resolve(root, &file, dest)?;
+                            let natural = diagrams.file_size(&path)?;
+                            let cell = diagrams.cell()?;
+                            Some(crate::picture::cells(natural, width, cell, room, None))
+                        }
+                    },
+                );
                 let row = match &old {
                     Some(p) if p.at == Some(pos) => doc.same_row(&p.doc, p.row, pos),
                     _ => doc.row_at(pos),
                 };
-                // Code keeps its colours across another width: the text is the same.
                 let (code, theme) = match old {
-                    Some(p) if p.laid_out_from.lines_hash == input.lines_hash => (p.code, p.theme),
+                    Some(p)
+                        if p.laid_out_from.lines_hash == input.lines_hash
+                            && same_blocks(&p.doc, &doc) =>
+                    {
+                        (p.code, p.theme)
+                    }
                     _ => (
                         doc.code
                             .iter()
@@ -190,6 +230,15 @@ impl App {
         if elsewhere || tree && self.focus == Focus::Tree {
             return false;
         }
+        if self.buf.path.as_deref().is_some_and(crate::picture::is_svg) {
+            if self.picture_shown().is_none() {
+                return false;
+            }
+            if key.code == KeyCode::Enter && plain {
+                self.start_edit();
+            }
+            return true;
+        }
         self.preview_sync();
         let Some(p) = &self.preview else {
             return false;
@@ -260,4 +309,9 @@ impl App {
             p.at = None;
         }
     }
+}
+
+fn same_blocks(old: &Doc, new: &Doc) -> bool {
+    let block = |c: &markdown::Code| (c.lang.clone(), c.lines.clone());
+    old.code.iter().map(block).eq(new.code.iter().map(block))
 }

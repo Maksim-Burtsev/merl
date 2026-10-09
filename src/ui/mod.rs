@@ -16,6 +16,7 @@ use crate::wrap;
 mod code;
 mod fold;
 mod overlays;
+pub mod picture;
 mod preview;
 mod status;
 mod welcome;
@@ -33,7 +34,7 @@ const TREE_W: u16 = 30;
 
 pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     let area = frame.area();
-    app.diagrams.want.clear();
+    app.diagrams.begin();
     app.diagrams.theme(theme, theme.line_hl_dim);
     let base = Style::new().bg(theme.bg).fg(theme.fg);
     frame.render_widget(Block::new().style(base), area);
@@ -77,7 +78,9 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
         }
     }
     let mut pane = |app: &mut App| {
-        if app.previewing() {
+        if let Some(path) = app.picture_shown() {
+            picture::draw_file(frame, app, code, &path);
+        } else if app.previewing() && !app.buf.path.as_deref().is_some_and(crate::picture::is_svg) {
             draw_preview(frame, app, theme, code, base);
         } else if app.folded_here().is_some() {
             fold::draw_fold(frame, app, theme, code, base);
@@ -86,7 +89,12 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
         } else if let Some((old, new)) = app.renamed_here() {
             draw_renamed(frame, theme, code, base, old, new);
         } else if app.buf.binary() {
-            draw_binary(frame, theme, code, base);
+            let note = app
+                .buf
+                .path
+                .as_deref()
+                .and_then(crate::picture::not_shown_note);
+            draw_binary(frame, theme, code, base, note);
         } else if app.buf.path.is_some() {
             draw_code(frame, app, theme, code, base);
         } else {

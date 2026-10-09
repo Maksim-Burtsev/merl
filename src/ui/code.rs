@@ -345,8 +345,15 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     }
 }
 
-pub(super) fn draw_binary(frame: &mut Frame, theme: &Theme, area: Rect, base: Style) {
-    let note = Line::styled("binary file, not shown", base.fg(theme.ghost_fg));
+pub(super) fn draw_binary(
+    frame: &mut Frame,
+    theme: &Theme,
+    area: Rect,
+    base: Style,
+    note: Option<String>,
+) {
+    let note = note.unwrap_or_else(|| "binary file, not shown".into());
+    let note = Line::styled(note, base.fg(theme.ghost_fg));
     draw_note(frame, area, base, vec![note]);
 }
 

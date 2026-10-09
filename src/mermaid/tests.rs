@@ -69,19 +69,21 @@ fn a_diagram_draws_and_a_broken_one_does_not() {
             src: hash(src),
             colours: 0,
         },
-        src: src.into(),
+        src: Src::Diagram(src.into()),
         colours: String::new(),
     };
     let done = render(job("graph TD\n  A[Start] --> B[Done]"));
-    let drawn = done.drawn.expect("a flowchart draws");
+    let Ok(drawn) = done.drawn else {
+        panic!("a flowchart draws")
+    };
     assert!(drawn.natural.0 > 0 && drawn.natural.1 > 0);
     assert!(drawn.h >= drawn.natural.1);
-    assert!(render(job("graph TD\n  A[Start --> ")).drawn.is_none());
+    assert!(render(job("graph TD\n  A[Start --> ")).drawn.is_err());
 }
 
-fn drawn() -> Option<Drawn> {
-    Some(Drawn {
-        png: vec![1, 2, 3],
+fn drawn() -> Result<Drawn, String> {
+    Ok(Drawn {
+        frames: vec![(vec![1, 2, 3], 0)],
         natural: (20, 10),
         h: 20,
     })
@@ -240,10 +242,10 @@ fn a_diagram_the_rasterizer_has_to_shrink_stays_source() {
             src: hash(&src),
             colours: 0,
         },
-        src,
+        src: Src::Diagram(src),
         colours: String::new(),
     };
-    assert!(render(job).drawn.is_none());
+    assert!(render(job).drawn.is_err());
 }
 
 #[test]
@@ -270,4 +272,92 @@ fn off_draws_nothing_and_asks_for_nothing() {
     assert_eq!(d.fit("graph TD\n  A-->B", 100), None);
     assert!(d.pic("graph TD\n  A-->B").is_none());
     assert!(d.jobs().is_empty());
+}
+
+fn file(tag: &str) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!("merl-files-{}-{tag}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("pic.png");
+    std::fs::write(&path, tag).unwrap();
+    path
+}
+
+fn decoded(d: &mut Diagrams, path: &std::path::Path, frames: &[u32]) {
+    d.done(Done {
+        key: file_key(path).unwrap(),
+        drawn: Ok(Drawn {
+            frames: frames.iter().map(|&ms| (vec![1], ms)).collect(),
+            natural: (20, 10),
+            h: 10,
+        }),
+    });
+}
+
+#[test]
+fn a_gif_shows_the_frame_its_clock_has_reached() {
+    let mut d = on();
+    let path = file("frames");
+    decoded(&mut d, &path, &[100, 100]);
+    let first = d.file_pic(&path).unwrap().id();
+    let key = file_key(&path).unwrap();
+    d.started
+        .insert(key, Instant::now() - Duration::from_millis(150));
+    assert_eq!(d.file_pic(&path).unwrap().id(), first + 1);
+    let _ = std::fs::remove_dir_all(path.parent().unwrap());
+}
+
+#[test]
+fn a_file_picture_outlives_a_theme_change() {
+    let mut d = on();
+    let path = file("theme");
+    decoded(&mut d, &path, &[0]);
+    let id = d.file_pic(&path).unwrap().id();
+    let light = crate::theme::load("github-light").unwrap();
+    d.theme(&light, light.line_hl_dim);
+    assert_eq!(d.file_pic(&path).unwrap().id(), id);
+    assert!(d.jobs().is_empty());
+    let _ = std::fs::remove_dir_all(path.parent().unwrap());
+}
+
+#[test]
+fn file_pictures_off_the_screen_go_past_the_last_four() {
+    let mut d = on();
+    let paths: Vec<_> = (0..6).map(|i| file(&format!("lru{i}"))).collect();
+    for p in &paths {
+        decoded(&mut d, p, &[0]);
+    }
+    let first = d.file_pic(&paths[0]).unwrap().id();
+    for p in &paths[1..] {
+        d.file_pic(p).unwrap();
+    }
+    d.want.push(Place {
+        id: first,
+        placement: 1,
+        x: 0,
+        y: 0,
+        cols: 1,
+        rows: 1,
+        crop_y: 0,
+        crop_h: 10,
+    });
+    flushed(&mut d);
+    d.begin();
+    for p in &paths[1..] {
+        d.file_pic(p).unwrap();
+    }
+    d.begin();
+    assert!(
+        d.file_pic(&paths[1]).is_some(),
+        "five on the last screen stay"
+    );
+    assert!(d.file_pic(&paths[0]).is_none(), "the sixth, off it, goes");
+    assert!(flushed(&mut d).contains(&format!("a=d,d=I,i={first},")));
+    assert_eq!(
+        d.jobs().len(),
+        1,
+        "and is asked for again when it comes back"
+    );
+    for p in &paths {
+        let _ = std::fs::remove_dir_all(p.parent().unwrap());
+    }
 }

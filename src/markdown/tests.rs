@@ -2,7 +2,7 @@ use super::*;
 
 fn doc(text: &str, width: usize) -> Doc {
     let lines: Vec<String> = text.lines().map(String::from).collect();
-    layout(&lines, width, &mut |_, _| None)
+    layout(&lines, width, false, &mut |_, _| None)
 }
 
 fn texts(d: &Doc) -> Vec<&str> {
@@ -605,8 +605,10 @@ fn alerts_take_githubs_light_or_dark_colours_as_the_theme_is() {
 fn with_pictures(text: &str, width: usize, size: (u16, u16)) -> (Doc, Vec<(String, usize)>) {
     let lines: Vec<String> = text.lines().map(String::from).collect();
     let mut asked = Vec::new();
-    let doc = layout(&lines, width, &mut |src, room| {
-        asked.push((src.to_string(), room));
+    let doc = layout(&lines, width, false, &mut |ask, room| {
+        if let Ask::Diagram(src) = ask {
+            asked.push((src.to_string(), room));
+        }
         Some(size)
     });
     (doc, asked)
@@ -655,4 +657,161 @@ fn a_mermaid_block_without_a_picture_is_its_source() {
     let d = doc("```mermaid\ngraph TD\n  A-->B\n```", 40);
     assert_eq!(d.code[0].picture, None);
     assert!(texts(&d).iter().any(|t| t.contains("A-->B")));
+}
+
+fn with_images(text: &str, light: bool) -> (Doc, Vec<String>) {
+    let lines: Vec<String> = text.lines().map(String::from).collect();
+    let mut asked = Vec::new();
+    let doc = layout(&lines, 40, light, &mut |ask, _| match ask {
+        Ask::Image(dest, width) => {
+            asked.push(format!("{dest} {width:?}"));
+            (!dest.starts_with("http")).then_some((10, 3))
+        }
+        Ask::Diagram(_) => None,
+    });
+    (doc, asked)
+}
+
+fn image_rows(d: &Doc) -> Vec<(String, usize, String)> {
+    d.rows
+        .iter()
+        .filter_map(|r| match r.kind {
+            Kind::Code { block, .. } => {
+                let dest = d.code[block].image.clone()?;
+                Some((dest, r.src.0, r.text.clone()))
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn a_local_image_on_its_own_line_is_rows_for_its_picture() {
+    let (d, asked) = with_images("Intro\n\n![logo](docs/logo.png)\n\nAfter", false);
+    assert_eq!(asked, vec!["docs/logo.png None"]);
+    let rows = image_rows(&d);
+    assert_eq!(rows.len(), 3);
+    assert!(
+        rows.iter()
+            .all(|r| r.0 == "docs/logo.png" && r.1 == 2 && r.2.is_empty())
+    );
+    assert_eq!(d.code[0].picture, Some((10, 3)));
+    assert!(!texts(&d).iter().any(|t| t.contains('\u{25a3}')));
+    assert!(texts(&d).contains(&"After"));
+}
+
+#[test]
+fn an_image_in_a_sentence_or_from_the_web_stays_its_alt_text() {
+    for text in [
+        "See ![logo](logo.png) here",
+        "![badge](https://img.shields.io/x.svg)",
+        "![a](a.png) ![badge](https://img.shields.io/x.svg)",
+    ] {
+        let (d, _) = with_images(text, false);
+        assert!(image_rows(&d).is_empty(), "{text}");
+        assert!(texts(&d)[0].contains('\u{25a3}'), "{text}");
+    }
+}
+
+#[test]
+fn several_images_in_one_paragraph_go_one_under_another() {
+    let (d, _) = with_images("[![a](a.png)](https://x.org)\n![b](b.png)", false);
+    let dests: Vec<String> = image_rows(&d).into_iter().map(|r| r.0).collect();
+    assert_eq!(
+        dests,
+        ["a.png", "a.png", "a.png", "b.png", "b.png", "b.png"]
+    );
+}
+
+#[test]
+fn an_html_image_takes_its_width_and_centres_under_align_center() {
+    let text = "<p align=\"center\">\n  <img src=\"shot.png\" width=\"300\">\n</p>\n\nAfter";
+    let (d, asked) = with_images(text, false);
+    assert_eq!(asked, vec!["shot.png Some(Px(300.0))"]);
+    let rows = image_rows(&d);
+    assert_eq!(rows.len(), 3);
+    assert_eq!(rows[0].1, 1);
+    assert_eq!(rows[0].2, " ".repeat(15));
+    assert!(
+        !texts(&d).iter().any(|t| t.contains('<')),
+        "the tags around a drawn image go: {:?}",
+        texts(&d)
+    );
+    let (web, _) = with_images(
+        "<p align=\"center\">\n<img src=\"https://x.org/a.png\">\n</p>",
+        false,
+    );
+    assert_eq!(texts(&web)[1], "<img src=\"https://x.org/a.png\">");
+}
+
+#[test]
+fn the_theme_picks_the_variant_of_a_picture_and_of_gh_mode_only() {
+    let picture = "<picture>\n  <source media=\"(prefers-color-scheme: dark)\" srcset=\"dark.png\">\n  <source media=\"(prefers-color-scheme: light)\" srcset=\"light.png\">\n  <img alt=\"logo\" src=\"fallback.png\">\n</picture>";
+    for (light, want) in [(false, "dark.png"), (true, "light.png")] {
+        let (d, _) = with_images(picture, light);
+        let rows = image_rows(&d);
+        assert_eq!(rows.len(), 3, "{light}");
+        assert!(rows.iter().all(|r| r.0 == want && r.1 == 3), "{rows:?}");
+        assert!(
+            !texts(&d).iter().any(|t| t.contains('<')),
+            "{:?}",
+            texts(&d)
+        );
+    }
+    let modes = "![l](l.png#gh-light-mode-only)\n![d](d.png#gh-dark-mode-only)";
+    for (light, want) in [
+        (false, "d.png#gh-dark-mode-only"),
+        (true, "l.png#gh-light-mode-only"),
+    ] {
+        let (d, _) = with_images(modes, light);
+        let dests: Vec<String> = image_rows(&d).into_iter().map(|r| r.0).collect();
+        assert_eq!(dests, [want, want, want]);
+    }
+}
+
+#[test]
+fn an_img_tag_over_several_lines_draws_once_and_hides_its_lines() {
+    let text = "<div>\n<img\n  src=\"a.png\"\n  width=\"50%\"\n/>\n</div>";
+    let (d, asked) = with_images(text, false);
+    assert_eq!(asked, vec!["a.png Some(Percent(50.0))"]);
+    assert_eq!(image_rows(&d).len(), 3);
+    assert!(
+        texts(&d).iter().all(|t| t.trim().is_empty()),
+        "{:?}",
+        texts(&d)
+    );
+}
+
+#[test]
+fn text_beside_a_drawn_image_stays_as_written() {
+    let header = "<h1 align=\"center\"><img src=\"logo.png\" width=\"64\"><br>merl</h1>";
+    let (d, _) = with_images(header, false);
+    assert!(image_rows(&d).is_empty());
+    assert_eq!(texts(&d).concat(), header);
+    let (d, _) = with_images("![a](a.png)[^1]\n\n[^1]: note", false);
+    assert!(image_rows(&d).is_empty());
+    assert!(texts(&d)[0].contains("\u{25a3} a[1]"), "{:?}", texts(&d));
+}
+
+#[test]
+fn a_paragraph_of_a_variant_the_theme_hides_shows_nothing() {
+    let (d, asked) = with_images("![dark logo](d.png#gh-dark-mode-only)\n\nAfter", true);
+    assert!(asked.is_empty());
+    assert_eq!(texts(&d), ["After"]);
+}
+
+#[test]
+fn an_img_in_a_paragraph_of_inline_html_draws() {
+    let text = "<a href=\"https://x.org\"><img src=\"a.png\" width=\"50%\"></a>";
+    let (d, asked) = with_images(text, false);
+    assert_eq!(asked, vec!["a.png Some(Percent(50.0))"]);
+    assert_eq!(image_rows(&d).len(), 3);
+}
+
+#[test]
+fn a_picture_without_the_themes_source_takes_its_img() {
+    let text = "<picture>\n<source media=\"(prefers-color-scheme: dark)\" srcset=\"dark.png\">\n<img src=\"fallback.png\">\n</picture>";
+    let (d, _) = with_images(text, true);
+    let dests: Vec<String> = image_rows(&d).into_iter().map(|r| r.0).collect();
+    assert_eq!(dests, ["fallback.png", "fallback.png", "fallback.png"]);
 }

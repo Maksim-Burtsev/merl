@@ -1,11 +1,9 @@
-wait , not shown
+wait PNG 48×32, not shown
 ┌orders──────────────────────┐
 │▸ .github                   │
 │▸ .venv                     │
 │▸ app                       │
-│▾ data                      │
-│    orders.min.json         │
-│  M refunds-2026-08.csv     │
+│▸ data                      │
 │▸ deploy                    │
 │▾ docs                      │
 │    architecture.png        │
@@ -20,7 +18,9 @@ wait , not shown
 │  Dockerfile                │
 │  Makefile                  │
 │  pyproject.toml            │
-│  README.md                 │                                                                   PNG 48×32, not shown
+│  README.md                 │
+│                            │
+│                            │                                                                   PNG 48×32, not shown
 │                            │
 │                            │
 │                            │
