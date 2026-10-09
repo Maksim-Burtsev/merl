@@ -1343,7 +1343,7 @@ pub fn zig_visible(text: &str, line: usize, same_file: bool) -> bool {
         if CONTAINER.is_match(t) {
             break;
         }
-        if ZIG_BODY.is_match(t) {
+        if ZIG_FN_OR_TEST_HEAD.is_match(t) {
             return false;
         }
         header_wraps_above = t.starts_with(')');

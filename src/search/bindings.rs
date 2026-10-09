@@ -396,8 +396,7 @@ fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     }
     Vec::new()
 }
-/// A Zig line that opens a function's or a test's body, whose `const`s and `var`s are locals.
-pub(super) static ZIG_BODY: std::sync::LazyLock<Regex> =
+pub(super) static ZIG_FN_OR_TEST_HEAD: std::sync::LazyLock<Regex> =
     std::sync::LazyLock::new(|| Regex::new(r"\bfn\b|^(?:pub\s+)?test\b").unwrap());
 fn zig_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let n = regex::escape(name);
@@ -435,7 +434,7 @@ fn zig_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             }
             i = i.saturating_sub(1);
         }
-        if ZIG_BODY.is_match(&code(i)) {
+        if ZIG_FN_OR_TEST_HEAD.is_match(&code(i)) {
             for j in i..=end {
                 if param.is_match(&code(j)) {
                     out.push(Binding {
