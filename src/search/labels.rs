@@ -901,8 +901,52 @@ mod tests {
         );
     }
 
-    /// #529: a Rust struct literal's key is a field of its type; the `{` of a declaration, of a
-    /// struct-like variant in an `enum` or of a block opens no literal.
+    #[test]
+    fn a_label_is_read_past_comments_literals_and_type_arguments() {
+        let rb = "run { name: 1 }\nf(x) { size: 1 }\nrun(\n  { tag: 1 })\ng(a, # note\n  rate: 1)\n";
+        assert_eq!(label(Kind::Ruby, rb, "name"), None, "a block's brace");
+        assert_eq!(label(Kind::Ruby, rb, "size"), None, "a block's brace");
+        assert_eq!(label(Kind::Ruby, rb, "tag").map(|l| l.what), Some("key"));
+        assert_eq!(
+            owner(Kind::Ruby, rb, "rate"),
+            Some(("g".into(), Owner::Args)),
+            "past a comment on the line above"
+        );
+        let py = "x = g(\"\"\"\n(\n\"\"\", c=2)\nh(a; b, c=3)\n";
+        assert_eq!(
+            owner(Kind::Python, py, "c=2"),
+            Some(("g".into(), Owner::Args)),
+            "a bracket inside a string opens nothing"
+        );
+        assert_eq!(label(Kind::Python, py, "c=3"), None, "a `;` ends it");
+        let cs = "var c = new Courier<int>(name: 1);\n";
+        assert_eq!(
+            owner(Kind::CSharp, cs, "name"),
+            Some(("Courier".into(), Owner::Args))
+        );
+    }
+
+    #[test]
+    fn a_label_lands_where_the_type_builds_itself() {
+        let py = "@dataclass\nclass Point:\n    x: int\n    y: int = 0\n\n    @classmethod\n    def origin(cls):\n        return cls(x=0)\n";
+        assert_eq!(
+            label_lines(Kind::Python, py, 2, "Point", "y", &Owner::Args),
+            vec![4]
+        );
+        assert_eq!(own_type(Kind::Python, py, 7, "cls"), Some(2));
+        let swift = "struct Box {\n    let w: Int\n    static func make() -> Self {\n        Self(w: 1)\n    }\n}\n";
+        assert_eq!(own_type(Kind::Swift, swift, 3, "Self"), Some(1));
+        let php = "class A\n{\n    public static function make()\n    {\n        return new static(x: 1);\n    }\n}\n";
+        assert_eq!(own_type(Kind::Php, php, 4, "static"), Some(1));
+        let ts = "function f(p: Props) {}\n";
+        assert_eq!(object_type(Kind::TsJs, ts, 1, "f", 0), Some("Props".into()));
+        let star = "def f(*items, **opts):\n    pass\n";
+        assert_eq!(
+            label_lines(Kind::Python, star, 1, "f", "opts", &Owner::Args),
+            vec![1]
+        );
+    }
+
     #[test]
     fn a_rust_literal_key_is_a_field_of_its_type() {
         let rs = "pub struct Printer {\n    pub(crate) hyperlink: u32,\n}\n\npub enum Page {\n    Linked { hyperlink: u32 },\n}\n\nimpl Printer {\n    fn fresh() -> Self {\n        Self { hyperlink: 0 }\n    }\n}\n\nfn f<T>(t: T) -> Printer\nwhere\n    T: Clone,\n{\n    crate::p::Printer { hyperlink: 1 }\n}\n";
