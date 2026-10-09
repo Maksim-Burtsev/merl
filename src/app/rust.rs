@@ -20,6 +20,14 @@ impl MacroUse {
     }
 }
 
+fn declares_mod(text: &str, name: &str) -> bool {
+    Regex::new(&format!(
+        r"(?m)^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+{}\b",
+        regex::escape(name)
+    ))
+    .is_ok_and(|re| re.is_match(text))
+}
+
 pub(super) fn tuple_field(name: &str) -> bool {
     !name.starts_with(|c: char| c.is_alphabetic() || c == '_')
 }
@@ -475,11 +483,7 @@ impl App {
         if rest.is_empty() {
             return None;
         }
-        let own_mod = Regex::new(&format!(
-            r"(?m)^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+{}\b",
-            regex::escape(root)
-        ))
-        .is_ok_and(|re| re.is_match(text));
+        let own_mod = declares_mod(text, root);
         let kind = Kind::Rust;
         let by = |hits: Vec<Hit>, reason: Reason| -> Vec<Candidate> {
             hits.into_iter()
@@ -501,25 +505,8 @@ impl App {
         }
         let (krate, start_module, name) = match root.as_str() {
             "crate" | "self" | "super" => {
-                let search::RustModule {
-                    crate_src: src,
-                    path: mut module,
-                } = search::rust_module_of(&self.files, here)?;
-                match root.as_str() {
-                    "crate" => module.clear(),
-                    "super" => {
-                        let supers = 1 + rest.iter().take_while(|p| *p == "super").count();
-                        module.truncate(module.len().checked_sub(supers)?);
-                    }
-                    _ => {}
-                }
-                let files: Vec<PathBuf> = self
-                    .files
-                    .iter()
-                    .filter(|f| f.starts_with(&src))
-                    .cloned()
-                    .collect();
-                (CrateSrc { src, files }, module, "crate".to_owned())
+                let (krate, module) = self.rust_own_crate(here, root, rest)?;
+                (krate, module, "crate".to_owned())
             }
             _ if own_mod => return None,
             r if SYSROOT.contains(&r) => (self.sysroot_crate(r)?, Vec::new(), root.clone()),
@@ -566,6 +553,34 @@ impl App {
             }
         }
         None
+    }
+
+    fn rust_own_crate(
+        &self,
+        here: &Path,
+        root: &str,
+        rest: &[String],
+    ) -> Option<(CrateSrc, Vec<String>)> {
+        let search::RustModule {
+            crate_src: src,
+            path: mut module,
+        } = search::rust_module_of(&self.files, here)?;
+        match root {
+            "crate" => module.clear(),
+            "super" => {
+                let supers = 1 + rest.iter().take_while(|p| *p == "super").count();
+                module.truncate(module.len().checked_sub(supers)?);
+            }
+            "self" => {}
+            _ => return None,
+        }
+        let files: Vec<PathBuf> = self
+            .files
+            .iter()
+            .filter(|f| f.starts_with(&src))
+            .cloned()
+            .collect();
+        Some((CrateSrc { src, files }, module))
     }
 
     fn rust_in_crate(
@@ -890,19 +905,21 @@ impl App {
         found
     }
 
-    /// The `struct`, `enum` or `union` the type `written` on `line0` of `file` names:
-    /// declared once in the file, else the one a `use` of the file binds its name to, else the
-    /// project's only one. `Self` is the type of the `impl` around the line. A generic parameter,
-    /// a type outside the project and one declared twice with nothing to tell which are none.
     fn rust_resolve(&self, file: &Path, written: &str, line0: usize) -> Option<Typed> {
         let text = self.text_of(file)?;
+        let lines: Vec<&str> = text.lines().collect();
         let search::RustTypeName { path, mut name } = search::rust_type_name(written)?;
         if name == "Self" && path.is_empty() {
-            let lines: Vec<&str> = text.lines().collect();
             name = search::rust_self_type(&lines, line0)?.written;
         }
         if search::rust_generic(&text, &name) {
             return None;
+        }
+        if path.is_empty()
+            && search::rust_inline_mod(&lines, line0).is_none()
+            && let Some(ty) = self.rust_used_type(file, &text, &name)
+        {
+            return Some(ty);
         }
         let imports = search::imports(Kind::Rust, &text);
         let ours = |p: &[String]| {
@@ -950,6 +967,41 @@ impl App {
         <[Hit; 1]>::try_from(decls).ok().map(|[hit]| typed(hit))
     }
 
+    fn rust_used_type(&self, file: &Path, text: &str, name: &str) -> Option<Typed> {
+        let mut bound = search::rust_uses(text)
+            .into_iter()
+            .filter(|u| u.name == name);
+        let (Some(used), None) = (bound.next(), bound.next()) else {
+            return None;
+        };
+        let (root, rest) = match used.path.split_first() {
+            _ if !used.in_column_zero => return None,
+            Some((root, rest)) if root == "crate" || root == "super" => (root.as_str(), rest),
+            Some((root, _)) if declares_mod(text, root) => ("self", used.path.as_slice()),
+            _ => return None,
+        };
+        let (krate, module) = self.rust_own_crate(file, root, rest)?;
+        let rest: Vec<String> = rest.iter().filter(|p| *p != "super").cloned().collect();
+        let InCrate {
+            hits, proven: true, ..
+        } = self.rust_in_crate(&krate, &module, &rest, MacroUse::NotMacro, 0)?
+        else {
+            return None;
+        };
+        let real = rest.last()?;
+        let decl = Regex::new(&search::rust_type_decl_pattern(real)).ok()?;
+        let types: Vec<Hit> = hits
+            .into_iter()
+            .filter(|h| decl.is_match(&h.text))
+            .collect();
+        let [hit] = <[Hit; 1]>::try_from(types).ok()?;
+        Some(Typed {
+            name: real.clone(),
+            path: hit.path,
+            line: hit.line1,
+        })
+    }
+
     fn rust_field(&self, ty: &Typed, word: &str) -> Option<(Hit, String)> {
         let text = self.text_of(&ty.path)?;
         let lines: Vec<&str> = text.lines().collect();
@@ -982,9 +1034,8 @@ impl App {
             .filter(|f| rs(f) && crate_of(f) == own)
             .cloned()
             .collect();
-        let namesakes = self
-            .grep_in(&search::rust_type_decl_pattern(&ty.name), &files)
-            .len();
+        let decl = search::rust_type_decl_pattern(&ty.name);
+        let namesakes = self.grep_in(&decl, &files).len();
         let files: Vec<PathBuf> = match namesakes {
             0 | 1 => files,
             _ => vec![ty.path.clone()],
@@ -1008,6 +1059,18 @@ impl App {
                 search::RustOwner::Inherent | search::RustOwner::ImplOf(_)
             ) && search::rust_impl_type(line).is_some_and(|t| t == ty.name)
         });
+        let text_of_ty = self.text_of(&ty.path).unwrap_or_default();
+        let lines_of_ty: Vec<&str> = text_of_ty.lines().collect();
+        let home = search::rust_inline_mod(&lines_of_ty, ty.line - 1);
+        let declared_twice_here = self.grep_in(&decl, std::slice::from_ref(&ty.path)).len() > 1;
+        let found: Vec<Hit> = found
+            .into_iter()
+            .filter(|h| {
+                !declared_twice_here
+                    || h.path != ty.path
+                    || search::rust_inline_mod(&lines_of_ty, h.line1 - 1) == home
+            })
+            .collect();
         if !found.is_empty() {
             return found;
         }

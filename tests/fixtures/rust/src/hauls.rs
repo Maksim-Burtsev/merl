@@ -24,6 +24,11 @@ mod south {
             2
         }
     }
+
+    pub fn sped(r: Runner) -> u32 {
+        r.glide()
+        //^ d: picker src/hauls.rs:13, src/hauls.rs:23
+    }
 }
 
 pub fn slid(s: crate::carts::Sled) -> u32 {
@@ -33,10 +38,10 @@ pub fn slid(s: crate::carts::Sled) -> u32 {
 
 pub fn ran(r: Runner) -> u32 {
     r.glide()
-    //^ d: picker src/hauls.rs:13, src/hauls.rs:23; want src/hauls.rs:13 (#783)
+    //^ d: src/hauls.rs:13
 }
 
 pub fn yarded(y: Wagon) -> u32 {
     y.roll()
-    //^ d: picker src/carts.rs:7, src/carts.rs:19, src/hauls/yard.rs:4; want src/hauls/yard.rs:4 (#783)
+    //^ d: src/hauls/yard.rs:4
 }

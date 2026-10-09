@@ -1072,6 +1072,25 @@ pub fn rust_self_type(lines: &[&str], line0: usize) -> Option<RustSelfType> {
     }
     None
 }
+pub fn rust_inline_mod(lines: &[&str], line0: usize) -> Option<usize> {
+    static MOD: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*\{").unwrap());
+    let mut depth = lines.get(line0).map_or(0, |l| indent(l));
+    for (i, l) in lines[..line0.min(lines.len())].iter().enumerate().rev() {
+        if depth == 0 {
+            break;
+        }
+        let t = l.trim();
+        if t.is_empty() || comment(Kind::Rust, t) || indent(l) >= depth {
+            continue;
+        }
+        depth = indent(l);
+        if MOD.is_match(l) {
+            return Some(i);
+        }
+    }
+    None
+}
 pub fn rust_generic(text: &str, name: &str) -> bool {
     Regex::new(&format!(
         r"\b(?:fn\s+\w+|impl|struct\s+\w+|enum\s+\w+|union\s+\w+|trait\s+\w+|type\s+\w+)\s*<[^>{{;]*\b{}\b",
