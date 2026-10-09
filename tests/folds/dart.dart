@@ -72,7 +72,7 @@ multi ${'}'}
 
 mixin M on B {  // f: none
   void f() {  // f: 74-76
-    g();  // f: 74-76
+    g(r'\', '{');  // f: 74-76
   }  // f: 74-76
 }  // f: none
 

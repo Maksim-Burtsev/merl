@@ -14,7 +14,7 @@
     <br/> <!-- f: 11-15 -->
   </androidx.constraintlayout.widget.ConstraintLayout> <!-- f: 11-15 -->
   <script> <!-- f: 16-18 -->
-    <![CDATA[ if (a < b) { "</project>" } f: 16-18 ]]>
+    <![CDATA[ if (a > b) { "</project>" } </script> f: 16-18 ]]>
   </script> <!-- f: 16-18 -->
   <meta name="a"> <!-- f: 19-21 -->
     <link/> <!-- f: 19-21 -->

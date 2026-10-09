@@ -30,3 +30,7 @@ module Shop  # f: 2-32
     def price: () -> Integer  # f: 29-31
   end
 end
+
+%a{deprecated} class Gone  # f: 34-36
+  def x: () -> void  # f: 34-36
+end

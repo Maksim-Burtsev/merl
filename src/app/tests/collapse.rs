@@ -567,6 +567,18 @@ fn f_in_rbs_survives_an_annotation_opened_by_a_non_ascii_char() {
 }
 
 #[test]
+fn f_folds_zsh_in_the_zsh_startup_files() {
+    for name in [".zshrc", ".zshenv", ".zprofile"] {
+        let mut a = app("");
+        let path = a.buf.path.clone().unwrap().with_file_name(name);
+        a.buf = Buffer::from_bytes(path, b"() {\n  print hi\n}\n");
+        a.go((0, 0));
+        key(&mut a, KeyCode::Char('f'));
+        assert_eq!(a.collapsed, vec![(0, 2)], "{name}");
+    }
+}
+
+#[test]
 fn php_uses_inside_a_braced_namespace_and_a_phtml_file_fold() {
     let text =
         "<?php\nnamespace App {\n    use A;\n    use B;\n\n    function f()\n    {\n    }\n}\n";
