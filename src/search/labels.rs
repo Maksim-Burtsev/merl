@@ -1,29 +1,18 @@
-//! A word in a label position (#315): a named argument, a key of an object literal, a JSX
-//! attribute. It names a parameter of the callee or a field of the literal's type, never whatever
-//! else happens to be spelled so, and that parameter or field is where `d` lands (#316).
-
 use std::ops::Range;
 
 use regex::Regex;
 
 use super::*;
 
-/// What a label is a name of: the name at a position, which `d` resolves as it would there.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Owner {
-    /// `f(word: …)`, `Type(word = …)`: a parameter of the function, or of the type's
-    /// constructors.
     Args,
-    /// `f(a, { word: … })`, `<Tag word={…}>`: a key of the object passed as argument `n`.
     Object(usize),
-    /// `const x: T = { word: … }`: a field of `T`.
     Typed,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Label {
-    /// What the status line calls the word: `argument label` or `key`.
     pub what: &'static str,
-    /// `None` when nothing in front of the bracket names it.
     pub owner: Option<LabelOwner>,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -33,7 +22,6 @@ pub struct LabelOwner {
     pub how: Owner,
 }
 
-/// A line declaring a type, with the name it gives it.
 static TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r"^\s*(?:[\w@]+\s+)*?(?:class|struct|record|enum|actor|object|interface)\s+([A-Za-z_$][\w$]*)")
         .unwrap()
@@ -42,15 +30,6 @@ static TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
 // ponytail: 80 lines; a call or a literal written over more is read as no label.
 const LINES_BACK_TO_THE_BRACKET: usize = 80;
 
-/// Whether the word at `range` of `line0` of `text` stands in a label position, and what
-/// it is a label of:
-/// - Python and Kotlin `f(name = …)`, Swift, C#, PHP and Ruby `f(name: …)`: behind the `(` or a
-///   `,` of a call, whose callee is no declaration (`def`, `func`, `init`, `case`…) and no control
-///   keyword (`for (…)`, `return (…)`); in a `java` file only an annotation's `@A(name = …)`, as
-///   Java has no named arguments and `for (i = 0; …)` assigns;
-/// - TypeScript and JavaScript: a key `name:` behind the `{` or a `,` of an object literal (not a
-///   type's, a block's or a class body's `{`), and `name=` inside a JSX tag;
-/// - Ruby `{ name: … }`.
 pub fn label_at(
     kind: Kind,
     java: bool,
@@ -62,7 +41,6 @@ pub fn label_at(
     let l = *lines.get(line0)?;
     let tight = &l[range.end..];
     let after = match kind {
-        // `a ? b : c` spaces its `:`; a Ruby label never does.
         Kind::Ruby => tight,
         _ => tight.trim_start(),
     };
@@ -181,7 +159,6 @@ pub fn label_at(
                     how: Owner::Typed,
                 }));
             }
-            // `Self { … }`: the type of the `impl` around it.
             static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
                 Regex::new(r"^\s*(?:unsafe\s+)?impl\b.*?(?:\bfor\s+)?(?:\w+::)*(\w+)\s*(?:<[^{]*>)?\s*(?:where\b.*)?$")
                     .unwrap()
@@ -207,7 +184,6 @@ pub fn label_at(
             key(None)
         }
         (Kind::Ruby, b'{') => {
-            // `each { |x| … }` and `f(x) { … }` open a block; a line of its own a hash.
             let block = back(kind, &lines, &literal, at, open)
                 .next()
                 .is_some_and(|c| {
@@ -230,8 +206,6 @@ pub fn label_at(
                 return None;
             }
             let col = callee(kind, lines[at], open)?;
-            // `Type.init(…)` is a call of `Type`'s initializer; `self.init`, `super.init` and a
-            // bare `.init` name no type the line spells.
             let owner = match kind == Kind::Swift
                 && word_at(lines[at], col, "").map(|w| w.1) == Some("init")
             {
@@ -263,8 +237,6 @@ pub fn label_at(
     }
 }
 
-/// Whether the text in front of a `(` declares what the brackets hold: a function, an
-/// initializer, a class's bases, an enum case, a lambda.
 fn declares(before: &str) -> bool {
     static DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:^|[^\w.$])(?:def|fun|func|function|fn|class|case|subscript|constructor|init|lambda)\b[^=(]*$")
@@ -273,8 +245,6 @@ fn declares(before: &str) -> bool {
     DECL.is_match(before)
 }
 
-/// The byte column of the last character of the name right in front of byte `open` of `line`,
-/// past type arguments `<…>`: `f` of `f(`, `T` of `new T<K>(`, `snapshot!` of `snapshot!(`.
 fn callee(kind: Kind, line: &str, open: usize) -> Option<usize> {
     let mut s = line[..open].trim_end();
     if s.ends_with('>') && matches!(kind, Kind::TsJs | Kind::Swift | Kind::CSharp | Kind::Jvm) {
@@ -331,7 +301,6 @@ fn callee(kind: Kind, line: &str, open: usize) -> Option<usize> {
     }
 }
 
-/// The code bytes that are no whitespace of a line, up to its comment.
 fn events(kind: Kind, line: &str) -> Vec<(usize, u8)> {
     let b = line.as_bytes();
     let mut out = Vec::new();
@@ -354,8 +323,6 @@ struct CodeByte {
     byte: u8,
 }
 
-/// The code bytes in front of byte `end` of `line0`, nearest first, over the lines above as far as
-/// [`LINES_BACK_TO_THE_BRACKET`]; a line inside a literal has none.
 fn back<'a>(
     kind: Kind,
     lines: &'a [&'a str],
@@ -389,8 +356,6 @@ struct OpenBracket {
     commas: usize,
 }
 
-/// The bracket still open in front of byte `end` of `line0`, the commas counted line0 its own level. A
-/// `;` line0 that level ends the statement first.
 fn open_bracket(
     kind: Kind,
     lines: &[&str],
@@ -426,8 +391,6 @@ fn open_bracket(
     None
 }
 
-/// `name=` inside a JSX tag `<Tag … name={…}>`: the tag is the owner when it is a component, a
-/// capitalised name; an element's attribute (`<input value=…>`) has none.
 fn jsx(kind: Kind, lines: &[&str], literal: &[bool], line0: usize, start: usize) -> Option<Label> {
     if !lines[line0][..start].is_empty() && !lines[line0][..start].ends_with(char::is_whitespace) {
         return None;
@@ -474,10 +437,6 @@ fn jsx(kind: Kind, lines: &[&str], literal: &[bool], line0: usize, start: usize)
     None
 }
 
-/// The 1-based lines of what the declaration on `decl_line1` of `text` names `word` as, when
-/// `name` there is the owner of a label: a parameter of the function, or of the constructors of
-/// the type ([`Owner::Args`]); a key of the object parameter `n` ([`Owner::Object`]); a field of
-/// the type ([`Owner::Typed`]).
 pub fn label_lines(
     kind: Kind,
     text: &str,
@@ -523,8 +482,6 @@ pub fn label_lines(
                     params(kind, &lines, i, head, |p| param_named(kind, p, word))
                 })
                 .collect();
-            // With no initializer of its own, a Swift struct or a dataclass is built from its
-            // stored properties.
             if ctors.is_empty() && matches!(kind, Kind::Swift | Kind::Python) {
                 let w = regex::escape(word);
                 let stored = Regex::new(&match kind {
@@ -576,9 +533,6 @@ pub fn label_lines(
     }
 }
 
-/// The 1-based line of the type `line0` of `text` stands inside, for a constructor the type calls
-/// by no name of its own: PHP's `new self(…)` and `new static(…)`, Python's `cls(…)`, Swift's
-/// `Self(…)`.
 pub fn own_type(kind: Kind, text: &str, line0: usize, name: &str) -> Option<usize> {
     let own = match kind {
         Kind::Php => matches!(name, "self" | "static"),
@@ -604,9 +558,6 @@ pub fn own_type(kind: Kind, text: &str, line0: usize, name: &str) -> Option<usiz
     None
 }
 
-/// The name the object parameter `n` of the function declared on `decl_line1` is typed by,
-/// `Props` of `({ a }: Props)` or `(p: Props)`: where its keys are declared when the parameter
-/// does not spell them.
 pub fn object_type(
     kind: Kind,
     text: &str,
@@ -631,10 +582,7 @@ pub fn object_type(
     found
 }
 
-/// The lines of the members directly inside the declaration on `decl_line0`: its body's lines at
-/// the indent of the first of them.
 fn members(lines: &[&str], decl_line0: usize) -> Vec<usize> {
-    // A lone `{` under a C# or PHP header opens the body.
     let member = |i: &usize| !matches!(lines[*i].trim(), "" | "{");
     let body = body_of(Kind::Swift, lines, decl_line0);
     let Some(depth) = body.clone().find(member).map(|i| indent(lines[i])) else {
@@ -644,9 +592,6 @@ fn members(lines: &[&str], decl_line0: usize) -> Vec<usize> {
         .collect()
 }
 
-/// The first 1-based line on which `find` finds something in a parameter of the declaration on
-/// `decl_line0`, reading the brackets that open after `name` there. `find` takes each parameter
-/// in turn, as written, and answers the byte in it that it found.
 fn params(
     kind: Kind,
     lines: &[&str],
@@ -672,9 +617,6 @@ fn params(
     })
 }
 
-/// The byte of `part`, one parameter as a declaration writes it, where it names `word`: Swift's
-/// external label, else the parameter's name behind its modifiers and in front of its type,
-/// `$` and `*` aside.
 fn param_named(kind: Kind, part: &str, word: &str) -> Option<usize> {
     static ATTR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:@[\w.]+(?:\([^)]*\))?|#\[[^\]]*\])\s*").unwrap()
@@ -903,7 +845,8 @@ mod tests {
 
     #[test]
     fn a_label_is_read_past_comments_literals_and_type_arguments() {
-        let rb = "run { name: 1 }\nf(x) { size: 1 }\nrun(\n  { tag: 1 })\ng(a, # note\n  rate: 1)\n";
+        let rb =
+            "run { name: 1 }\nf(x) { size: 1 }\nrun(\n  { tag: 1 })\ng(a, # note\n  rate: 1)\n";
         assert_eq!(label(Kind::Ruby, rb, "name"), None, "a block's brace");
         assert_eq!(label(Kind::Ruby, rb, "size"), None, "a block's brace");
         assert_eq!(label(Kind::Ruby, rb, "tag").map(|l| l.what), Some("key"));

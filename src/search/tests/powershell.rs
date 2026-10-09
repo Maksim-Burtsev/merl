@@ -214,7 +214,12 @@ fn the_spelling_picks_what_a_word_may_declare() {
     assert!(keeps(".", "", "    [int] Total($a) {", "Total"));
     assert!(keeps(".", "", "    [int] $Total", "Total"));
     assert!(!keeps(".", "", "function Total {", "Total"));
-    assert!(keeps("[Shop]::", "", "    static [int] $Count = 0", "Count"));
+    assert!(keeps(
+        "[Shop]::",
+        "",
+        "    static [int] $Count = 0",
+        "Count"
+    ));
     assert!(!keeps("[Shop]::", "", "$Count = 0", "Count"));
     assert!(keeps("[", "]::new(", "    Tariff($a) {", "Tariff"));
     assert!(!keeps("", "", "    Tariff($a) {", "Tariff"));

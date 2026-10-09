@@ -243,8 +243,9 @@ fn an_attribute_is_told_from_what_merely_looks_like_one() {
 
 #[test]
 fn a_selector_reads_past_values_strings_and_its_mixin() {
-    assert!(
-        styled(".a { b: url(//cdn.x/i.png); }\n&-c {}\n", "a-c").is_empty(),
+    assert_eq!(
+        styled(".a { b: url(//cdn.x/i.png); }\n.c {}\n", "c"),
+        [2],
         "`//` inside parentheses opens no comment"
     );
     assert_eq!(
@@ -270,9 +271,8 @@ fn a_selector_reads_past_values_strings_and_its_mixin() {
 
 #[test]
 fn an_import_names_the_files_it_may_be() {
-    let shown = |v: Vec<PathBuf>| -> Vec<String> {
-        v.iter().map(|p| p.display().to_string()).collect()
-    };
+    let shown =
+        |v: Vec<PathBuf>| -> Vec<String> { v.iter().map(|p| p.display().to_string()).collect() };
     assert_eq!(
         shown(sass_candidates("lib/x.scss")),
         ["lib/_x.scss", "lib/x.scss"]
@@ -312,7 +312,11 @@ fn u_marks_a_selector_only_where_its_rule_styles_the_name() {
             .enumerate()
             .filter(|(_, l)| re.is_match(l))
             .map(|(i, _)| i + 1)
-            .filter(|&n| css_declares(word, n, text.lines().nth(n - 1).unwrap(), || text.to_owned()))
+            .filter(|&n| {
+                css_declares(word, n, text.lines().nth(n - 1).unwrap(), || {
+                    text.to_owned()
+                })
+            })
             .collect()
     };
     let scss = ".btn:hover {\n}\n.btn .icon {\n}\n$btn: 1;\n@mixin btn {}\n";
