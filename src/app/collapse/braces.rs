@@ -387,6 +387,14 @@ impl<'a> Lexer<'a> {
                     + (s[i + 1..].iter())
                         .take_while(|&&b| word(b) && !(php && b == b'#'))
                         .count();
+                let len = match self.syntax.lang == Lang::Scala && s[i + len - 1] == b'_' {
+                    true => {
+                        len + (s[i + len..].iter())
+                            .take_while(|b| b"!#%&*+-/:<=>?@\\^|~".contains(b))
+                            .count()
+                    }
+                    false => len,
+                };
                 self.emit(l, i, len, K::Word, l);
                 self.i += len;
                 continue;

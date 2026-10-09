@@ -162,3 +162,89 @@ class Phase:  // f: 139-161
 trait Last:  // f: 162-164
   def a: Int  // f: 162-164
 
+class Wrapped[K, V]  // f: 165-250
+    (capacity: Int)  // f: 165-250
+extends Base[K, V](capacity):  // f: 165-250
+  def size = 0  // f: 165-250
+
+  def drain(): Unit =  // f: 170-178
+    try  // f: 171-177
+      val run = make()  // f: 170-178
+      run.go()  // f: 170-178
+    catch  // f: 170-178
+      case e: Exception =>  // f: 170-178
+        log(e)  // f: 170-178
+    done()  // f: 170-178
+
+  def pairs(xs: Seq[Int]): Unit =  // f: 179-185
+    for  // f: 180-185
+      x <- xs  // f: 179-185
+      y <- xs  // f: 179-185
+    do  // f: 183-185
+      println(x + y)  // f: 179-185
+
+  def spin(i: Int): Unit =  // f: 186-190
+    while  // f: 187-189
+      step(i)  // f: 186-190
+    do ()  // f: 186-190
+
+  def both(xs: Seq[Int]) =  // f: 191-194
+    for x <- xs; y <- xs yield  // f: 192-194
+      x + y  // f: 191-194
+
+  def check(a: Boolean, b: Boolean): Boolean =  // f: 195-200
+    val ok =  // f: 196-199
+         a  // f: 195-200
+      || b  // f: 195-200
+    ok  // f: 195-200
+
+  def find(e: Int, dense: Boolean): Int =  // f: 201-207
+    if dense then  // f: 201-207
+      while e < 0 do  // f: 203-205
+        step(e)  // f: 201-207
+    else  // f: 201-207
+      0  // f: 201-207
+
+  def walk(t: Tree): Unit = t match  // f: 208-213
+    case r: Ref => r.tpe match  // f: 209-212
+      case Term(p) => go(p)  // f: 208-213
+      case _ =>  // f: 208-213
+    case _ =>  // f: 208-213
+
+  def guard(p: Int): String = p match  // f: 214-219
+  case 1 => "one"  // f: 214-219
+  case _  // f: 214-219
+  if p > 9 => "big"  // f: 214-219
+  case _ => "other"  // f: 214-219
+
+  def lift(xs: Seq[Int]) = xs.map(n =>  // f: 220-224
+    val m =  // f: 221-223
+      n * 2  // f: 220-224
+    m + 1  // f: 220-224
+  )  // f: 220-224
+
+  def drop(plan: Plan) =  // f: 226-231
+    val Let(top, _) = plan: @unchecked  // f: 226-231
+
+    def inner(s: Int) =  // f: 229-231
+      s + 1  // f: 229-231
+
+  def sym(x: Int): Symbol { type Name = String } =  // f: 232-235
+    val s = make(x)  // f: 232-235
+    s  // f: 232-235
+
+  def short(sym: Symbol) =  // f: 236-238
+    sym == defn.Boolean_&& || sym == defn.Boolean_||  // f: 236-238
+
+  def traverse(t: Tree): Unit = t match  // f: 239-242
+    case a: A => go(a); go(a)  // f: 239-242
+    case _ => ()  // f: 239-242
+  end traverse  // f: 239-242
+
+  def used(s: Sym): Boolean =  // f: 244-250
+       s.isA  // f: 244-250
+    || s.tpe.match  // f: 246-250
+         case T => true  // f: 244-250
+         case _ => false  // f: 244-250
+    || s.isB  // f: 244-250
+  val last = 1  // f: 244-250
