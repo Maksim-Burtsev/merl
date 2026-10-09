@@ -1137,15 +1137,17 @@ pub fn rust_impl_trait(line: &str) -> Option<String> {
     });
     FOR.captures(line).map(|c| c[1].to_owned())
 }
-/// The type of `self` on 0-based line `at` of `lines`: the `impl` the method around it sits in,
-/// with its 0-based line. `None` in a trait's default method, where `self` is any implementor,
-/// and outside an `impl`.
-pub fn rust_self_type(lines: &[&str], at: usize) -> Option<(String, usize)> {
+pub struct RustSelfType {
+    pub written: String,
+    pub impl_line0: usize,
+}
+/// `None` in a trait's default method, where `self` is any implementor, and outside an `impl`.
+pub fn rust_self_type(lines: &[&str], line0: usize) -> Option<RustSelfType> {
     static TRAIT: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|auto)\s+)*trait\s").unwrap()
     });
-    let mut depth = indent(lines.get(at)?);
-    for i in (0..at).rev() {
+    let mut depth = indent(lines.get(line0)?);
+    for i in (0..line0).rev() {
         let t = lines[i].trim();
         if depth == 0 {
             break;
@@ -1163,7 +1165,10 @@ pub fn rust_self_type(lines: &[&str], at: usize) -> Option<(String, usize)> {
             return None;
         }
         if let Some(ty) = rust_impl_type(lines[i]) {
-            return Some((ty, i));
+            return Some(RustSelfType {
+                written: ty,
+                impl_line0: i,
+            });
         }
     }
     None

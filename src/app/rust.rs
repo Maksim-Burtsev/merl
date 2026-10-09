@@ -860,7 +860,10 @@ impl App {
     ) -> Option<(Typed, String)> {
         let lines: Vec<&str> = text.lines().collect();
         if name == "self" {
-            let (written, impl_line) = search::rust_self_type(&lines, line0)?;
+            let search::RustSelfType {
+                written,
+                impl_line0: impl_line,
+            } = search::rust_self_type(&lines, line0)?;
             let ty = self.rust_resolve(file, &written, impl_line)?;
             let link = format!("self: {}", ty.name);
             return Some((ty, link));
@@ -948,8 +951,7 @@ impl App {
         let search::RustTypeName { path, mut name } = search::rust_type_name(written)?;
         if name == "Self" && path.is_empty() {
             let lines: Vec<&str> = text.lines().collect();
-            let (t, _) = search::rust_self_type(&lines, line0)?;
-            name = t;
+            name = search::rust_self_type(&lines, line0)?.written;
         }
         if search::rust_generic(&text, &name) {
             return None;
