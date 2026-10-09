@@ -418,6 +418,12 @@ fn csharp_symbol_names() {
         ),
         ("    void Save(Invoice<int> inv);", Some("Save")),
         (
+            "    public async Task<ActionResult<QueryResult<T>>> Get(int id)",
+            Some("Get"),
+        ),
+        ("    public (int, string) Pair() {", Some("Pair")),
+        ("        (decimal) Compute(rows);", None),
+        (
             "    [Fact] public void Handles_Empty() {",
             Some("Handles_Empty"),
         ),
@@ -684,4 +690,21 @@ fn graphql_symbol_names() {
         let want: Vec<String> = name.into_iter().map(str::to_owned).collect();
         assert_eq!(listed(Kind::Graphql, line), want, "{line}");
     }
+}
+
+#[test]
+fn php_types_and_functions_are_rows_apart_so_methods_crowd_no_class_off_the_list() {
+    let rows: Vec<Regex> = SYMBOLS
+        .iter()
+        .filter(|(k, _)| *k == Some(Kind::Php))
+        .map(|(_, p)| Regex::new(p).unwrap())
+        .collect();
+    let (class, function) = ("final class Invoice", "    public function parse(): int");
+    assert!(rows.iter().any(|r| r.is_match(class)));
+    assert!(rows.iter().any(|r| r.is_match(function)));
+    assert!(
+        rows.iter()
+            .all(|r| !(r.is_match(class) && r.is_match(function))),
+        "MAX_HITS counts per row"
+    );
 }
