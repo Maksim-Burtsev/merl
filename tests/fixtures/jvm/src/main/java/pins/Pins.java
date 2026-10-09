@@ -25,7 +25,7 @@ class Pins {
 
     void block(Shim shim) {
         shim.fit("""
-        //   ^ d: picker src/main/java/pins/Shim.java:4, src/main/java/pins/Shim.java:6; want src/main/java/pins/Shim.java:4 (#788)
+        //   ^ d: src/main/java/pins/Shim.java:4
             text
             """);
     }

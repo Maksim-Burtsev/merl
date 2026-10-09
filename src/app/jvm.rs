@@ -466,6 +466,7 @@ fn arguments(lines: &[String], at: usize, open_byte: usize) -> Option<(usize, bo
             let c = b[i];
             if rest.starts_with(b"\"\"\"") {
                 quote = Some(b"\"\"\"");
+                any |= depth >= 1;
                 i += 3;
                 continue;
             }
@@ -714,6 +715,10 @@ mod tests {
                 0,
                 9
             ),
+            Some((1, false))
+        );
+        assert_eq!(
+            arguments(&lines(&["f(\"\"\"", "  text", "  \"\"\")"]), 0, 1),
             Some((1, false))
         );
     }

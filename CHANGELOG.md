@@ -76,6 +76,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in Rust on a method of a value whose type a `use crate::…`, `use super::…` or `use
   self::…` brings in jumps to that type's method, where it offered every method of the name.
   (#783)
+- `d` in Java on a method called with a text block as its only argument, `fit("""…""")`, jumps
+  to the overload of one parameter, where it offered every overload. (#788)
 
 ## [0.8.3] - 2026-10-07
 
