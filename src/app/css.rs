@@ -15,7 +15,14 @@ impl App {
         if !markup && kind != Some(Kind::TsJs) {
             return None;
         }
-        search::attr_at(self.line_str(), self.col, !markup)
+        search::attr_at(
+            self.line_str(),
+            self.col,
+            match markup {
+                true => search::AttrLine::Markup,
+                false => search::AttrLine::Jsx,
+            },
+        )
     }
 
     pub(super) fn css_word(&self) -> Option<String> {

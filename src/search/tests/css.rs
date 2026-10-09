@@ -33,7 +33,11 @@ fn an_ampersand_composes_with_the_rule_it_sits_in() {
 #[test]
 fn a_class_attribute_is_read_in_markup_and_jsx_only() {
     fn at<'a>(line: &'a str, word: &str, jsx: bool) -> Option<(Attr, &'a str)> {
-        attr_at(line, line.find(word).unwrap(), jsx).map(|(a, r)| (a, &line[r]))
+        let read_as = match jsx {
+            true => AttrLine::Jsx,
+            false => AttrLine::Markup,
+        };
+        attr_at(line, line.find(word).unwrap(), read_as).map(|(a, r)| (a, &line[r]))
     }
     let tsx = r#"<b className="btn btn-primary" id="main">"#;
     assert_eq!(at(tsx, "primary", true), Some((Attr::Class, "btn-primary")));

@@ -17,10 +17,15 @@ pub enum Attr {
 /// `src`. `className={'a b'}` is a class value, and so is Svelte's `class:active`; Vue's `:class`
 /// binds an expression, which is not one.
 ///
-/// `jsx` reads a line of a JavaScript or TypeScript file, where `id = "main"` is an assignment:
-/// an attribute there has no blank around its `=`, and a `class` or an `id` stands in a tag, or
-/// first on a line of the tag's attributes.
-pub fn attr_at(line: &str, byte_col: usize, jsx: bool) -> Option<(Attr, Range<usize>)> {
+/// In a JSX line `id = "main"` is an assignment: an attribute there has no blank around its `=`,
+/// and a `class` or an `id` stands in a tag, or first on a line of the tag's attributes.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum AttrLine {
+    Markup,
+    Jsx,
+}
+pub fn attr_at(line: &str, byte_col: usize, read_as: AttrLine) -> Option<(Attr, Range<usize>)> {
+    let jsx = read_as == AttrLine::Jsx;
     static ATTR: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(
             r#"(?:^|[\s<{(])(class|className|id|href|src)\s*=\s*(?:\{\s*)?(?:"([^"]*)"|'([^']*)'|`([^`$]*)`)"#,
