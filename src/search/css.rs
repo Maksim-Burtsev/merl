@@ -3,7 +3,6 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
-/// An attribute whose value `d` reads, in a file of any kind.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Attr {
     Class,
@@ -12,13 +11,6 @@ pub enum Attr {
     Src,
 }
 
-/// The attribute value `byte_col` of `line` stands in, and the range `d` reads there: the
-/// space-separated word of a `class`, `className` or `id` value, the whole value of a `href` or a
-/// `src`. `className={'a b'}` is a class value, and so is Svelte's `class:active`; Vue's `:class`
-/// binds an expression, which is not one.
-///
-/// In a JSX line `id = "main"` is an assignment: an attribute there has no blank around its `=`,
-/// and a `class` or an `id` stands in a tag, or first on a line of the tag's attributes.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum AttrLine {
     Markup,
@@ -68,7 +60,6 @@ pub fn attr_at(line: &str, byte_col: usize, read_as: AttrLine) -> Option<(Attr, 
         }
         return (start < end).then_some((attr, start..end));
     }
-    // Svelte's directive: a `"class:x"` in a TypeScript string is no attribute.
     if jsx {
         return None;
     }
@@ -79,28 +70,18 @@ pub fn attr_at(line: &str, byte_col: usize, read_as: AttrLine) -> Option<(Attr, 
         .map(|m| (Attr::Class, m.range()))
 }
 
-/// A line of a stylesheet whose rule styles `classes` and `ids`: the names written in the last
-/// compound of one selector of its list, the element the rule styles.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Rule {
-    /// 1-based.
     pub line: usize,
     pub classes: Vec<String>,
     pub ids: Vec<String>,
 }
 
-/// What the rule a `{` opens is to the rules inside it.
 struct Frame {
     class_each_selector_ends_in: Vec<String>,
     no_selector_inside: bool,
 }
 
-/// The rules of a stylesheet `text`, in order. A selector is the text before a `{` since the
-/// last `;`, `{` or `}`, over as many lines as its list takes; comments and strings are skipped,
-/// and `//` opens a comment outside parentheses, `url(//cdn…)` being inside them.
-/// In SCSS and Less an `&` followed by a name composes it with the class the enclosing rule ends
-/// in: `&__title` inside `.card` styles `.card__title`. A `#{…}` or `@{…}` interpolation is part
-/// of the selector, and a name it is glued to is none.
 pub fn rules(text: &str) -> Vec<Rule> {
     let b = text.as_bytes();
     let (mut i, mut line, mut paren) = (0, 1, 0usize);
@@ -138,7 +119,6 @@ pub fn rules(text: &str) -> Vec<Rule> {
                 }
                 continue;
             }
-            // An interpolation is a piece of the selector, braces and all.
             b'#' | b'@' if b.get(i + 1) == Some(&b'{') => {
                 while i < b.len() && b[i] != b'}' && b[i] != b'\n' {
                     buf.push((b[i], line));
@@ -231,7 +211,6 @@ pub fn sass_rules(text: &str) -> Vec<Rule> {
     out
 }
 
-/// The frame a `{` after the selector text `buf` opens, with the rules it adds to `out`.
 fn open(buf: &[(u8, usize)], parent: Option<&Frame>, out: &mut Vec<Rule>) -> Frame {
     let text: String = buf.iter().map(|&(c, _)| c as char).collect();
     let head = text.trim();
@@ -258,7 +237,6 @@ fn open(buf: &[(u8, usize)], parent: Option<&Frame>, out: &mut Vec<Rule>) -> Fra
             | "else" | "each" | "for" | "while" | "document" | "scope" | "starting-style" => {
                 inherited()
             }
-            // A mixin's body styles whatever includes it; its `&` is unknown here.
             "mixin" => Frame {
                 class_each_selector_ends_in: Vec::new(),
                 no_selector_inside: false,
@@ -266,7 +244,6 @@ fn open(buf: &[(u8, usize)], parent: Option<&Frame>, out: &mut Vec<Rule>) -> Fra
             _ => opaque,
         };
     }
-    // `font: { family: x; }` nests properties, and `@detached: {` is a Less ruleset in a variable.
     if head.is_empty() || head.ends_with(':') || head.starts_with('%') && head.contains(':') {
         return opaque;
     }
@@ -308,7 +285,6 @@ fn open(buf: &[(u8, usize)], parent: Option<&Frame>, out: &mut Vec<Rule>) -> Fra
     }
 }
 
-/// The last compound of the selector `part`, past its last combinator, and the line it starts on.
 fn last_compound(part: &[(u8, usize)]) -> Option<(String, usize)> {
     let end = part.iter().rposition(|&(c, _)| !c.is_ascii_whitespace())? + 1;
     let part = &part[..end];
@@ -333,7 +309,6 @@ struct CompoundNames {
     classes_it_ends_in: Vec<String>,
 }
 
-/// An `&-suffix` composes with each of `parents`.
 fn names(compound: &str, parents: &[String]) -> CompoundNames {
     static NAME: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"([.#])([\w-]+)").unwrap());
     static SUFFIX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^&([\w-]+)").unwrap());
@@ -381,8 +356,6 @@ fn names(compound: &str, parents: &[String]) -> CompoundNames {
     }
 }
 
-/// `text` with everything outside its `<style>` blocks blanked, the lines kept: the stylesheet
-/// an HTML, Vue, Svelte or Astro file holds.
 pub fn style_blocks(text: &str) -> String {
     static STYLE: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"(?is)<style\b[^>]*>(.*?)</style\s*>").unwrap());
@@ -432,14 +405,10 @@ pub fn css_builtin(name: &str) -> bool {
     NAMES.split_whitespace().any(|n| n == name)
 }
 
-/// What the cursor in a stylesheet stands on, for `d`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Sheet {
-    /// `--brand`, with its dashes.
     Custom(String),
-    /// A SCSS `$name`, behind the namespace of a `@use` or not.
     Var(Option<String>, String),
-    /// A Less `@name`.
     LessVar(String),
     Mixin(Option<String>, String),
     Function(Option<String>, String),
@@ -447,7 +416,6 @@ pub enum Sheet {
     Class(String),
     Id(String),
     Keyframes(String),
-    /// The path of an `@import`, a `@use` or a `@forward`, as written.
     Import(String),
 }
 
@@ -464,7 +432,6 @@ impl SheetSyntax {
         }
     }
 }
-/// What `byte_col` of the stylesheet line `line` stands on; Less reads `@name` as a variable.
 pub fn sheet_at(line: &str, byte_col: usize, syntax: SheetSyntax) -> Option<Sheet> {
     let less = syntax == SheetSyntax::Less;
     static IMPORT: LazyLock<Regex> =
@@ -510,7 +477,6 @@ pub fn sheet_at(line: &str, byte_col: usize, syntax: SheetSyntax) -> Option<Shee
             ("include", false) => Some(Sheet::Mixin(ns, word)),
             ("mixin", false) if ns.is_none() => Some(Sheet::Mixin(None, word)),
             ("function", false) if ns.is_none() => Some(Sheet::Function(None, word)),
-            // `@extend .btn;` is a use of the class.
             ("extend", true) if ns.is_none() => Some(Sheet::Class(word)),
             _ => None,
         };
@@ -569,8 +535,6 @@ pub struct SassUse {
     pub namespace: SassNamespace,
     pub module: String,
 }
-/// `@use 'mixins'` binds `mixins`, `@use 'src/corners' as c` binds `c`; `sass:math` is a built-in
-/// module, nobody's file. `@import` binds no namespace.
 pub fn sass_uses(text: &str) -> Vec<SassUse> {
     static USE: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r#"^\s*@use\s+["']([^"']+)["'](?:\s+as\s+([\w-]+|\*))?"#).unwrap()
@@ -594,10 +558,6 @@ pub fn sass_uses(text: &str) -> Vec<SassUse> {
         .collect()
 }
 
-/// The files a Sass `@use`, `@forward` or `@import` of `module` may be, in the order Sass tries
-/// them, relative to the importing file's directory: `_x.scss`, `x.scss`, `_x.sass`, `x.sass`,
-/// `x.css`, `x/_index.scss`, `x/index.scss`; a module written with its extension is that file or
-/// its partial. Webpack's `~` in front names a package.
 pub fn sass_candidates(module: &str) -> Vec<PathBuf> {
     let module = module.trim_start_matches('~');
     let path = Path::new(module);
@@ -622,8 +582,6 @@ pub fn sass_candidates(module: &str) -> Vec<PathBuf> {
     .collect()
 }
 
-/// The files a Less or CSS `@import` of `module` may be: as written, and a Less one with
-/// `.less` added when it has no extension.
 pub fn import_candidates(module: &str, syntax: SheetSyntax) -> Vec<PathBuf> {
     let module = module.trim_start_matches('~');
     let mut out = vec![PathBuf::from(module)];
@@ -633,14 +591,12 @@ pub fn import_candidates(module: &str, syntax: SheetSyntax) -> Vec<PathBuf> {
     out
 }
 
-/// Whether `target` is a URL, which `d` does not follow: `https://…`, `//cdn…`, `data:`.
 pub fn is_url(target: &str) -> bool {
     static URL: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:|//)").unwrap());
     URL.is_match(target)
 }
 
-/// The 1-based line of the element of the HTML `text` with `id="name"` or `name="name"`.
 pub fn element_with_id(text: &str, name: &str) -> Option<usize> {
     let re = Regex::new(&format!(
         r#"\s(?:id|name)\s*=\s*["']{}["']"#,
@@ -650,7 +606,6 @@ pub fn element_with_id(text: &str, name: &str) -> Option<usize> {
     text.lines().position(|l| re.is_match(l)).map(|i| i + 1)
 }
 
-/// The 1-based lines of `<!-- … -->` comments in the HTML `text` that start inside one.
 pub fn html_literal_lines(text: &str) -> Vec<bool> {
     let mut out = vec![false];
     let mut open = false;
@@ -683,9 +638,6 @@ pub fn html_literal_lines(text: &str) -> Vec<bool> {
     out
 }
 
-/// The lines of a stylesheet that declare `word`, as `u` marks them: a custom property's
-/// `--word:`, a variable, a mixin, a function, a placeholder, a keyframes name, and a selector
-/// that writes the class or the id, which [`css_declares`] then holds to what its rule styles.
 pub fn css_patterns(word: &str) -> Vec<String> {
     let w = regex::escape(word);
     let mut out = named_patterns(word);
@@ -695,7 +647,6 @@ pub fn css_patterns(word: &str) -> Vec<String> {
     out
 }
 
-/// [`css_patterns`] but the selector.
 fn named_patterns(word: &str) -> Vec<String> {
     if word.starts_with("--") {
         return sheet_patterns(&Sheet::Custom(word.to_owned()));
@@ -714,9 +665,6 @@ fn named_patterns(word: &str) -> Vec<String> {
     .collect()
 }
 
-/// Whether `line1` of a stylesheet, which one of [`css_patterns`] matched, declares `word`: a
-/// selector only when its rule styles the class or the id, as `d` reads it; any other declaration
-/// line as it stands. `text` reads the file, and only for a selector.
 pub fn css_declares(
     word: &str,
     line1: usize,
@@ -730,8 +678,6 @@ pub fn css_declares(
             .any(|r| r.line == line1 && r.classes.iter().chain(&r.ids).any(|n| n == word))
 }
 
-/// `line` of a stylesheet without its comments: a `/* … */` on it, and what follows a `//` outside
-/// parentheses, where `url(//cdn…)` keeps its slashes.
 pub fn css_code(line: &str) -> String {
     let (mut out, mut depth, mut rest) = (String::new(), 0usize, line);
     while let Some(c) = rest.chars().next() {
