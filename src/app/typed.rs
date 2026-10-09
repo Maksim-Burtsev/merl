@@ -6,6 +6,18 @@ struct TypeVia {
     ty: Typed,
     call_signature: Option<String>,
 }
+enum DeclaredField {
+    Typed(TypeVia),
+    UnreadableOrDisagreeing,
+}
+impl DeclaredField {
+    fn typed(self) -> Option<TypeVia> {
+        match self {
+            DeclaredField::Typed(via) => Some(via),
+            DeclaredField::UnreadableOrDisagreeing => None,
+        }
+    }
+}
 
 impl App {
     pub(super) fn typed_definitions(
@@ -398,7 +410,7 @@ impl App {
                 call_signature,
             } = self
                 .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
-                .flatten()
+                .and_then(DeclaredField::typed)
                 .ok_or_else(|| field.clone())?;
             let first = i == 0 && merge;
             let label = match first {
@@ -461,12 +473,13 @@ impl App {
         found
     }
 
-    /// The field `field` as `ty` itself declares it: `None` when it does not, `Some(None)` when
-    /// its declarations cannot be read or disagree.
-    fn field_type(&self, kind: Kind, ty: &Typed, field: &str) -> Option<Option<TypeVia>> {
+    fn field_type(&self, kind: Kind, ty: &Typed, field: &str) -> Option<DeclaredField> {
         let text = self.text_of(&ty.path)?;
         let bindings = search::field_bindings(kind, &text, ty.line, field);
-        (!bindings.is_empty()).then(|| self.agree(kind, &ty.path, &text, &bindings, 1))
+        (!bindings.is_empty()).then(|| match self.agree(kind, &ty.path, &text, &bindings, 1) {
+            Some(via) => DeclaredField::Typed(via),
+            None => DeclaredField::UnreadableOrDisagreeing,
+        })
     }
 
     /// The one type every binding reads, or `None` when there is none, one cannot be read or
@@ -640,7 +653,7 @@ impl App {
                     .ok()?;
                 let TypeVia { ty, .. } = self
                     .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
-                    .flatten()?;
+                    .and_then(DeclaredField::typed)?;
                 Some(TypeVia {
                     ty,
                     call_signature: None,
@@ -654,7 +667,7 @@ impl App {
                 let TypeVia { ty, .. } = self.binding_type(kind, file, text, &at, hops)?;
                 let TypeVia { ty, .. } = self
                     .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
-                    .flatten()?;
+                    .and_then(DeclaredField::typed)?;
                 Some(TypeVia {
                     ty,
                     call_signature: None,
