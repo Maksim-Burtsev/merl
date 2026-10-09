@@ -60,6 +60,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `trait` with an indented body, a definition closed by an `end` marker, a `match` or `.match`
   with its cases on the lines below, and a body after `new X:`, where the fold stopped short or
   ran on; a wildcard import, `import a.*`, no longer folds the lines after it. (#774)
+- `f` in Scala 3 folds as far as Neovim does where it stopped after a line or ran on: a `for`,
+  `while`, `try` or `catch` alone on its line, `for a <- xs; b <- ys yield`, a `val x =` whose
+  body goes on in `||` or `&&` lines, a `match` inside a `case` arm, a guard on the line under
+  its `case`, a class whose parameters wrap onto the next line, a `val` inside a lambda, a
+  definition after `x: @unchecked`, and names such as `Boolean_||`. (#780)
 
 ## [0.8.3] - 2026-10-07
 

@@ -61,7 +61,8 @@ const CONT_END: &[&str] = &[
     "return", "throw", "new", "with", "extends",
 ];
 const INDENT: &[&str] = &[
-    "=", "=>", "else", "then", "do", "yield", "try", "finally", "return", "match", ":",
+    "=", "=>", "else", "then", "do", "yield", "try", "finally", "return", "match", ":", "for",
+    "while", "catch",
 ];
 const CONT_START: &[&str] = &[
     ".", "else", "catch", "finally", "match", "with", "extends", "yield", "then", "do", "=>", "|",
@@ -207,7 +208,7 @@ impl Model<'_, '_> {
                         self.add(start, Some(end), true);
                     }
                 }
-                "val" if up.is_none_or(|p| self.tx(p) == "{") => {
+                "val" if self.first[k] || up.is_none_or(|p| self.tx(p) == "{") => {
                     let start = self.toks[self.sc_start(k)].line;
                     if let Some(end) = self.sc_def_end(k, lines) {
                         self.add(start, Some(end), false);
@@ -231,7 +232,8 @@ impl Model<'_, '_> {
                 }
                 "match" if self.sc_braceless(k, lines) => {
                     let start = self.toks[self.sc_scrutinee(k)].line;
-                    let end = self.sc_indented_end(k + 1, indent(&lines[t.line]), true, lines);
+                    let arm = lines[t.line].trim_start().starts_with("case ");
+                    let end = self.sc_indented_end(k + 1, indent(&lines[t.line]), !arm, lines);
                     self.add(start, Some(end), false);
                 }
                 _ => {}
@@ -266,7 +268,9 @@ impl Model<'_, '_> {
                 && matches!(self.before(o), "private" | "protected")
             {
                 s = o - 1;
-            } else if let Some(a) = self.sc_annotation(s - 1) {
+            } else if let Some(a) = self.sc_annotation(s - 1)
+                && self.before(a) != ":"
+            {
                 s = a;
             } else {
                 break;
@@ -301,7 +305,11 @@ impl Model<'_, '_> {
                 if self.tx(last) == ":" && indent(&lines[self.toks[j].line]) > head {
                     return self.sc_indented_end(j, head, false, lines);
                 }
-                let cont = CONT_START.contains(&self.tx(j)) || CONT_END.contains(&self.tx(last));
+                let params = matches!(self.tx(j), "(" | "[")
+                    && matches!(self.tx(last), ")" | "]")
+                    && indent(&lines[self.toks[j].line]) > head;
+                let cont =
+                    params || CONT_START.contains(&self.tx(j)) || CONT_END.contains(&self.tx(last));
                 if !cont {
                     return self.end_of(last);
                 }
@@ -324,8 +332,9 @@ impl Model<'_, '_> {
         while j < self.toks.len() {
             let starts = self.toks[j - 1].end < self.toks[j].line;
             let at = indent(&lines[self.toks[j].line]);
-            let case = cases && at == head && self.tx(j) == "case";
-            if self.closer(j) || (starts && at <= head && !case) {
+            let case = cases && at == head && (self.tx(j) == "case" || self.sc_guard(j));
+            let infix = matches!(self.tx(j), "|" | "&");
+            if self.closer(j) || (starts && at <= head && !case && !infix) {
                 return self.sc_outdent(j, head, lines);
             }
             j = match self.pair[j] {
@@ -342,6 +351,14 @@ impl Model<'_, '_> {
             return line;
         }
         line - usize::from(at == 0 && self.first[j])
+    }
+
+    fn sc_guard(&self, j: usize) -> bool {
+        let mut s = j - 1;
+        while s > 0 && !self.first[s] {
+            s -= 1;
+        }
+        self.tx(j) == "if" && self.tx(s) == "case" && (s..j).all(|i| self.tx(i) != "=>")
     }
 
     fn sc_braceless(&self, k: usize, lines: &[String]) -> bool {
@@ -369,11 +386,13 @@ impl Model<'_, '_> {
 
     fn sc_def_end(&self, k: usize, lines: &[String]) -> Option<usize> {
         let mut j = k + 1;
+        let mut typed = false;
         while j < self.toks.len() {
             if self.punct(j, "=") {
                 return Some(self.sc_expr_end(j, lines));
             }
-            if self.punct(j, "{") && self.tx(k) == "def" {
+            typed |= self.punct(j, ":");
+            if self.punct(j, "{") && self.tx(k) == "def" && !typed {
                 return self.closing(j);
             }
             if self.opener(j) {
@@ -400,6 +419,7 @@ impl Model<'_, '_> {
         let head = col(from.min(n - 1));
         let (mut j, mut last) = (from, from.min(n - 1));
         let mut blocks: Vec<usize> = Vec::new();
+        let mut generators = false;
         let outdent = |j: usize| self.toks[j].line - usize::from(col(j) == 0);
         while j < n {
             if j > from && self.toks[j].line > self.toks[last].end {
@@ -422,8 +442,12 @@ impl Model<'_, '_> {
                         || (self.tx(last) == "}"
                             && self.back[last].is_some_and(|o| self.before(o) == "for")));
                 let at = col(j);
+                let outer = at < head && self.word_at(j) && CONT_START.contains(&self.tx(j));
+                let cont = cont && (opens || !outer);
                 if cont {
-                    blocks.retain(|&c| c <= at);
+                    if !matches!(self.tx(j), "|" | "&") {
+                        blocks.retain(|&c| c <= at);
+                    }
                     if opens && blocks.last().is_none_or(|&c| c < at) {
                         blocks.push(at);
                     }
@@ -446,6 +470,23 @@ impl Model<'_, '_> {
                     }
                     None => break,
                 }
+            }
+            if self.tx(j) == "match"
+                && self.toks[j].line == self.toks[from].line
+                && self.toks.get(j + 1).is_some_and(|t| {
+                    t.text == "case" && t.line > self.toks[j].line && col(j + 1) == col(j)
+                })
+            {
+                return self.sc_indented_end(j + 1, col(j), true, lines);
+            }
+            match self.tx(j) {
+                "for" if !matches!(self.tx(j + 1), "(" | "{") => generators = true,
+                "do" | "yield" => generators = false,
+                ";" if generators || !blocks.is_empty() => {
+                    (last, j) = (j, j + 1);
+                    continue;
+                }
+                _ => {}
             }
             if self.closer(j) || self.punct(j, ";") {
                 if !blocks.is_empty() && self.first[j] {
