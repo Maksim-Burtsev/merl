@@ -65,6 +65,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   body goes on in `||` or `&&` lines, a `match` inside a `case` arm, a guard on the line under
   its `case`, a class whose parameters wrap onto the next line, a `val` inside a lambda, a
   definition after `x: @unchecked`, and names such as `Boolean_||`. (#780)
+- `d` in C++ finds the members of a class whose head carries a block comment,
+  `class Box /* api */ {`, as in any other class, where it said `no definition`. (#782)
 
 ## [0.8.3] - 2026-10-07
 

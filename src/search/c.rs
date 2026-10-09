@@ -758,9 +758,6 @@ pub fn c_member_decl(word: Option<&str>) -> String {
         r"^\s+[^;(){{}}=#/]*[\w>][\s*&]+{w}\s*\((?:[^(){{}};]|\([^(){{}};]*\))*(?:\)[^{{}};]*;)?\s*(?:(?://|/\*).*)?$"
     )
 }
-/// What opens the body `line1` of a C or C++ file stands directly in: the code in front of the
-/// innermost `{` not closed above the line, back to the `;`, `{` or `}` before it, over a few
-/// lines (`enum Order\n{`, a base list that wraps). `None` at file scope.
 pub fn c_body_head<S: AsRef<str>>(lines: &[S], line1: usize) -> Option<String> {
     c_body_opener(lines, line1).map(|opener| opener.head)
 }
@@ -768,22 +765,11 @@ struct BodyOpener {
     brace_line1: usize,
     head: String,
 }
-fn line_code(l: &str) -> String {
-    let mut s = vec![b' '; l.len()];
-    if !l.trim_start().starts_with('#') {
-        for (i, c) in super::code(super::Kind::C, l).filter(|&(_, c)| c != 0) {
-            s[i] = c;
-        }
-    }
-    String::from_utf8_lossy(&s).into_owned()
-}
-/// ponytail: reads line by line, so a brace in a block comment counts; `c_code` over the whole
-/// file per hit would cost more than the rare comment is worth.
 fn c_body_opener<S: AsRef<str>>(lines: &[S], line1: usize) -> Option<BodyOpener> {
     let mut depth = 0usize;
     let mut open = None;
     'up: for k in (0..line1.checked_sub(1)?.min(lines.len())).rev() {
-        let l = line_code(lines[k].as_ref());
+        let l = c_code(lines[k].as_ref());
         for (i, c) in l.bytes().enumerate().rev() {
             match c {
                 b'}' => depth += 1,
@@ -797,7 +783,7 @@ fn c_body_opener<S: AsRef<str>>(lines: &[S], line1: usize) -> Option<BodyOpener>
         }
     }
     let (k, i) = open?;
-    let head = line_code(lines[k].as_ref())[..i].to_owned();
+    let head = c_code(lines[k].as_ref())[..i].to_owned();
     Some(BodyOpener {
         brace_line1: k + 1,
         head: head_up_past_comments_to_a_blank_line(lines, k, head),
@@ -818,7 +804,7 @@ fn head_up_past_comments_to_a_blank_line<S: AsRef<str>>(
             if t.starts_with(['*', '#']) || t.starts_with("/*") || t.starts_with("//") {
                 continue;
             }
-            head = format!("{} {head}", line_code(lines[j].as_ref()));
+            head = format!("{} {head}", c_code(lines[j].as_ref()));
         }
         if let Some(s) = head.rfind([';', '{', '}']) {
             head = head[s + 1..].to_owned();
