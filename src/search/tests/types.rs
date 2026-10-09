@@ -363,7 +363,10 @@ fn a_python_line_is_cut_into_its_simple_statements() {
 #[test]
 fn a_cast_is_read_as_the_type_it_writes() {
     let v = |kind, e| value_of(kind, e);
-    let pycast = |callee: &str, t: &str| Value::Cast(callee.into(), t.into());
+    let pycast = |callee: &str, t: &str| Value::Cast {
+        callee: callee.into(),
+        written_type: t.into(),
+    };
     assert_eq!(v(Kind::Python, "cast(Repo, row)"), pycast("cast", "Repo"));
     assert_eq!(
         v(Kind::Python, "typing.cast(\"models.Repo\", rows[0])"),
@@ -442,7 +445,10 @@ fn a_call_wrapped_onto_the_next_lines_reads_no_arguments() {
     );
     assert_eq!(
         v(Kind::Python, "cast(Repo, row)"),
-        Value::Cast("cast".into(), "Repo".into()),
+        Value::Cast {
+            callee: "cast".into(),
+            written_type: "Repo".into(),
+        },
         "the same calls closed on their line keep writing the type they always did"
     );
     assert_eq!(v(Kind::Go, "new(Repo)"), Value::New("Repo".into()));
@@ -521,7 +527,10 @@ fn a_chain_may_hang_off_the_call_that_starts_it() {
         head(Kind::Python, "    cast(Repo, found).find()"),
         Some((
             "cast(Repo, found)".to_owned(),
-            Value::Cast("cast".into(), "Repo".into()),
+            Value::Cast {
+                callee: "cast".into(),
+                written_type: "Repo".into(),
+            },
             String::new()
         ))
     );

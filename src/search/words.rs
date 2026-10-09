@@ -547,7 +547,7 @@ pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> 
     let (call_without_arguments, value) = match value_of(kind, without_cast_brackets) {
         Value::Call(name) => (format!("{name}()"), Value::Call(name)),
         Value::New(name) => (format!("new {name}()"), Value::New(name)),
-        value @ (Value::Type(_) | Value::Cast(..)) => {
+        value @ (Value::Type(_) | Value::Cast { .. }) => {
             (without_cast_brackets.trim().to_owned(), value)
         }
         _ => return None,

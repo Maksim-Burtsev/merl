@@ -104,7 +104,7 @@ impl App {
             }) => {
                 let value = value.clone();
                 // A cast is its own link, as written: `via (repo as UserRepository)`.
-                let cast = matches!(value, search::Value::Type(_) | search::Value::Cast(..))
+                let cast = matches!(value, search::Value::Type(_) | search::Value::Cast { .. })
                     .then(|| call.clone());
                 let TypeVia { ty, call_signature } = self
                     .binding_type(
@@ -546,9 +546,10 @@ impl App {
                 ty: anonymous(file, *line),
                 call_signature: None,
             }),
-            // `cast(T, x)` writes `T`, unless the project declares the `cast` this file calls:
-            // that one is a function, with whatever it returns.
-            search::Value::Cast(callee, t) => {
+            search::Value::Cast {
+                callee,
+                written_type: t,
+            } => {
                 let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
                 match self.declaration(kind, file, &parts) {
                     Some(_) => self.call_type(kind, file, text, b.line1, callee, hops),
@@ -633,7 +634,7 @@ impl App {
                 found
             }
             // `const { repo } = this`: the field of what the chain on the right proves.
-            search::Value::Field(from, field) if hops > 0 => {
+            search::Value::Field { chain: from, field } if hops > 0 => {
                 let (ty, _) = self
                     .chain_type(kind, file, text, b.line1, from, hops - 1)
                     .ok()?;
@@ -661,7 +662,7 @@ impl App {
             }
             search::Value::Name(_)
             | search::Value::Element(_)
-            | search::Value::Field(..)
+            | search::Value::Field { .. }
             | search::Value::Unknown => None,
         }
     }

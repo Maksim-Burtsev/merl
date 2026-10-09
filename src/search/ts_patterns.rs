@@ -64,7 +64,7 @@ pub(super) fn ts_destructured(t: &str, name: &str) -> Option<Value> {
     })?;
     if CHAIN.is_match(&c[2]) {
         let from = c[2].split('.').map(str::to_owned).collect();
-        return Some(Value::Field(from, field));
+        return Some(Value::Field { chain: from, field });
     }
     match value_of(Kind::TsJs, &c[2]) {
         call @ Value::Call(_) => Some(Value::Member(Box::new(call), field)),

@@ -285,10 +285,10 @@ fn typescript_spellings_are_read_in_typescript_only() {
         }
     );
     let field = |from: &[&str], name: &str| {
-        Some(Value::Field(
-            from.iter().map(|s| s.to_string()).collect(),
-            name.into(),
-        ))
+        Some(Value::Field {
+            chain: from.iter().map(|s| s.to_string()).collect(),
+            field: name.into(),
+        })
     };
     for (t, want) in [
         ("let { repo } = this", field(&["this"], "repo")),

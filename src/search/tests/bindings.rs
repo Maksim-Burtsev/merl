@@ -262,7 +262,13 @@ export function cleanup(id: number): void {
     assert_eq!(at(18, "item"), [(17, Value::Element("items".into()))]);
     assert_eq!(
         at(28, "a"),
-        [(20, Value::Field(vec!["user".into()], "a".into()))],
+        [(
+            20,
+            Value::Field {
+                chain: vec!["user".into()],
+                field: "a".into(),
+            }
+        )],
         "a destructuring hands on a field of what stands on its right"
     );
     assert_eq!(at(21, "x"), [(21, ty("Item"))]);

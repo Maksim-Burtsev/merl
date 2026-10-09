@@ -21,16 +21,20 @@ pub enum Value {
     Class {
         decl_line1: usize,
     },
-    /// Python's `cast(T, x)` as written: the callee and `T`. It writes the type when the callee
-    /// is `typing`'s, which only the caller can tell: a project may declare a `cast` of its own.
-    Cast(String, String),
+    /// Python's `cast(T, x)`: `typing`'s writes the type, a project's own `cast` is a call.
+    Cast {
+        callee: String,
+        written_type: String,
+    },
     /// An element of the named collection, as a loop hands it out: `for r in repos`,
     /// `for (const r of repos)`, `for _, r := range repos`. [`element_type`] reads it off the
     /// collection's written type.
     Element(String),
-    /// A field of a chain of names, as a TypeScript destructuring hands it on: `this` and `repo`
-    /// for `const { repo } = this`, `this.uow` and `users` for `const { users: u } = this.uow`.
-    Field(Vec<String>, String),
+    /// A TypeScript destructuring: `const { users: u } = this.uow`.
+    Field {
+        chain: Vec<String>,
+        field: String,
+    },
     Member(Box<Value>, String),
     Struct(usize),
     /// A declaration whose type the rules cannot read: `for repo in`, a tuple, a parameter with
@@ -112,9 +116,10 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
             },
             (true, false) if kind == Kind::Python && matches!(&*name, "cast" | "typing.cast") => {
                 match args {
-                    Some(inner) => {
-                        Value::Cast(name, split_top(kind, inner, b',')[0].trim().to_owned())
-                    }
+                    Some(inner) => Value::Cast {
+                        callee: name,
+                        written_type: split_top(kind, inner, b',')[0].trim().to_owned(),
+                    },
                     None => Value::Unknown,
                 }
             }
