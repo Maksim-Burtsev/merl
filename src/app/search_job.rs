@@ -152,8 +152,9 @@ impl SearchJob {
                 (re.is_match(t) && keep(t) && !reserved(t)).then_some(0)
             }));
             named.extend(
-                hits.into_iter()
-                    .filter_map(|h| search::symbol_at(&re, &h.text).map(|(col, n)| (n, col, h))),
+                hits.into_iter().filter_map(|h| {
+                    search::symbol_at(&re, &h.text).map(|s| (s.name, s.byte_col, h))
+                }),
             );
         }
         (named, cut)
