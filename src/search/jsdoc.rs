@@ -181,13 +181,20 @@ fn typedef(line: &str) -> Option<(&str, &str)> {
     Some((ty.trim(), name))
 }
 
-/// Each `@typedef {T} name` of `text`, by its 1-based line, with `T` as written.
-pub fn jsdoc_typedefs(text: &str, name: &str) -> Vec<(usize, String)> {
+pub struct JsdocTypedef {
+    pub line1: usize,
+    pub written_type: String,
+}
+/// Each `@typedef {T} name` of `text`.
+pub fn jsdoc_typedefs(text: &str, name: &str) -> Vec<JsdocTypedef> {
     text.lines()
         .enumerate()
         .filter_map(|(i, l)| {
             let (ty, n) = typedef(l)?;
-            (n == name).then(|| (i + 1, ty.to_owned()))
+            (n == name).then(|| JsdocTypedef {
+                line1: i + 1,
+                written_type: ty.to_owned(),
+            })
         })
         .collect()
 }

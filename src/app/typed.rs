@@ -863,7 +863,13 @@ impl App {
             return None;
         }
         let text = self.text_of(file)?;
-        let [(line, written)] = &search::jsdoc_typedefs(&text, name)[..] else {
+        let [
+            search::JsdocTypedef {
+                line1: line,
+                written_type: written,
+            },
+        ] = &search::jsdoc_typedefs(&text, name)[..]
+        else {
             return None;
         };
         if search::jsdoc_object(written) {
