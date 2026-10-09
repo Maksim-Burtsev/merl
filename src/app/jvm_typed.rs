@@ -204,7 +204,10 @@ impl App {
             let this = match search::jvm_declared_type(at, name, kotlin) {
                 Some(t) => (self.jvm_type_at(file, text, &t), t),
                 None if hops > 0 => {
-                    let (recv, call) = search::jvm_assigned_call(at, name)?;
+                    let search::JvmAssignedCall {
+                        receiver: recv,
+                        method: call,
+                    } = search::jvm_assigned_call(at, name)?;
                     self.jvm_returned(file, text, l, recv.as_deref(), &call, kotlin)?
                 }
                 None => return None,

@@ -817,10 +817,13 @@ pub fn jvm_lombok_fields(text: &str, decl_line1: usize, word: &str) -> Vec<usize
     out
 }
 
-/// The call a Java `var` or a Kotlin `val`/`var` named `name` on `line` is assigned from, when
-/// the whole value is one call of a lowercase name, `var status = plugin.statusNonNull();`: the
-/// receiver in front of it, if any, and the method (#388, #391).
-pub fn jvm_assigned_call(line: &str, name: &str) -> Option<(Option<String>, String)> {
+pub struct JvmAssignedCall {
+    pub receiver: Option<String>,
+    pub method: String,
+}
+/// When a Java `var` or a Kotlin `val`/`var` named `name` on `line` is assigned one call of a
+/// lowercase name, `var status = plugin.statusNonNull();` (#388, #391).
+pub fn jvm_assigned_call(line: &str, name: &str) -> Option<JvmAssignedCall> {
     let re = Regex::new(&format!(
         r"\b(?:var|val)\s+{}\s*=\s*(?:([a-z]\w*)\.)?([a-z]\w*)\s*\([^()]*\)\s*;?\s*$",
         regex::escape(name)
@@ -828,7 +831,10 @@ pub fn jvm_assigned_call(line: &str, name: &str) -> Option<(Option<String>, Stri
     .ok()?;
     let code = uncommented(Kind::Jvm, line);
     let c = re.captures(code.trim_end())?;
-    Some((c.get(1).map(|m| m.as_str().to_owned()), c[2].to_owned()))
+    Some(JvmAssignedCall {
+        receiver: c.get(1).map(|m| m.as_str().to_owned()),
+        method: c[2].to_owned(),
+    })
 }
 
 /// The type the Java or Kotlin method `name` declared on `line` returns, as
