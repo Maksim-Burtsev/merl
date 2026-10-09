@@ -310,7 +310,12 @@ fn param_lists_line1_binding(lines: &[&str], from: usize, name: &str) -> Option<
     let groovy = DEF.is_match(lines[from]);
     let mut open = params_open_byte(lines[from])?;
     let mut at = from;
-    while let Some((inner, last, rest)) = group(Kind::Jvm, lines, at, open) {
+    while let Some(Group {
+        inner_uncommented: inner,
+        close_line: last,
+        after_close: rest,
+    }) = group(Kind::Jvm, lines, at, open)
+    {
         if split_top(Kind::Jvm, &inner, b',')
             .iter()
             .any(|e| param_names(e, groovy).iter().any(|p| p == name))
@@ -475,11 +480,16 @@ fn primary_constructor_property_on_header(lines: &[&str], k: usize, name: &str) 
         return false;
     };
     !anonymous(lines[k])
-        && group(Kind::Jvm, lines, k, open).is_some_and(|(inner, ..)| {
-            split_top(Kind::Jvm, &inner, b',')
-                .iter()
-                .any(|e| PROPERTY.captures(e).is_some_and(|c| &c[1] == name))
-        })
+        && group(Kind::Jvm, lines, k, open).is_some_and(
+            |Group {
+                 inner_uncommented: inner,
+                 ..
+             }| {
+                split_top(Kind::Jvm, &inner, b',')
+                    .iter()
+                    .any(|e| PROPERTY.captures(e).is_some_and(|c| &c[1] == name))
+            },
+        )
         && PROPERTY.captures_iter(lines[k]).any(|c| &c[1] == name)
 }
 
@@ -619,11 +629,13 @@ fn scala_bases(text: &str, decl_line1: usize) -> Vec<String> {
         .collect()
 }
 
-/// The names the `import` lines of Java or Kotlin `text` bind, each with the dotted path it
-/// names (#372): `import app.a.User;` binds `User` to `[app, a, User]`, `import static a.C.m;`
-/// binds `m` to `[a, C, m]`, Kotlin's `import a.C as D` binds `D` to `[a, C]`, and a wildcard,
-/// static or not, binds `*` to its path with `*` last.
-pub fn jvm_imports(text: &str) -> Vec<(String, Vec<String>)> {
+/// (#372) Kotlin's `import a.C as D` binds `D` to `[a, C]`; a wildcard, static or not, binds `*`
+/// to its path with `*` last.
+pub struct JvmImport {
+    pub bound_name: String,
+    pub path: Vec<String>,
+}
+pub fn jvm_imports(text: &str) -> Vec<JvmImport> {
     static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*import\s+(?:static\s+)?([\w.]*\w)(\.\*)?(?:\s+as\s+([A-Za-z_]\w*))?\s*;?\s*(?://.*)?$").unwrap()
     });
@@ -639,7 +651,10 @@ pub fn jvm_imports(text: &str) -> Vec<(String, Vec<String>)> {
             if name == "*" {
                 path.push(name.clone());
             }
-            (name, path)
+            JvmImport {
+                bound_name: name,
+                path,
+            }
         })
         .collect()
 }
@@ -802,10 +817,13 @@ pub fn jvm_lombok_fields(text: &str, decl_line1: usize, word: &str) -> Vec<usize
     out
 }
 
-/// The call a Java `var` or a Kotlin `val`/`var` named `name` on `line` is assigned from, when
-/// the whole value is one call of a lowercase name, `var status = plugin.statusNonNull();`: the
-/// receiver in front of it, if any, and the method (#388, #391).
-pub fn jvm_assigned_call(line: &str, name: &str) -> Option<(Option<String>, String)> {
+pub struct JvmAssignedCall {
+    pub receiver: Option<String>,
+    pub method: String,
+}
+/// When a Java `var` or a Kotlin `val`/`var` named `name` on `line` is assigned one call of a
+/// lowercase name, `var status = plugin.statusNonNull();` (#388, #391).
+pub fn jvm_assigned_call(line: &str, name: &str) -> Option<JvmAssignedCall> {
     let re = Regex::new(&format!(
         r"\b(?:var|val)\s+{}\s*=\s*(?:([a-z]\w*)\.)?([a-z]\w*)\s*\([^()]*\)\s*;?\s*$",
         regex::escape(name)
@@ -813,7 +831,10 @@ pub fn jvm_assigned_call(line: &str, name: &str) -> Option<(Option<String>, Stri
     .ok()?;
     let code = uncommented(Kind::Jvm, line);
     let c = re.captures(code.trim_end())?;
-    Some((c.get(1).map(|m| m.as_str().to_owned()), c[2].to_owned()))
+    Some(JvmAssignedCall {
+        receiver: c.get(1).map(|m| m.as_str().to_owned()),
+        method: c[2].to_owned(),
+    })
 }
 
 /// The type the Java or Kotlin method `name` declared on `line` returns, as
@@ -840,7 +861,10 @@ pub fn jvm_parameters(text: &str, line: usize, word: &str, groovy: bool) -> Opti
     let at = line.checked_sub(1)?;
     let head = Regex::new(&format!(r"\b{}\s*\(", regex::escape(word))).ok()?;
     let open = head.find(rows.get(at)?)?.end() - 1;
-    let (inner, _, _) = group(Kind::Jvm, &rows, at, open)?;
+    let Group {
+        inner_uncommented: inner,
+        ..
+    } = group(Kind::Jvm, &rows, at, open)?;
     if inner.trim().is_empty() {
         return Some((0, 0));
     }

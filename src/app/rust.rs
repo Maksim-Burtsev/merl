@@ -860,7 +860,10 @@ impl App {
     ) -> Option<(Typed, String)> {
         let lines: Vec<&str> = text.lines().collect();
         if name == "self" {
-            let (written, impl_line) = search::rust_self_type(&lines, line0)?;
+            let search::RustSelfType {
+                written,
+                impl_line0: impl_line,
+            } = search::rust_self_type(&lines, line0)?;
             let ty = self.rust_resolve(file, &written, impl_line)?;
             let link = format!("self: {}", ty.name);
             return Some((ty, link));
@@ -875,17 +878,21 @@ impl App {
                     let link = format!("{name}: {}", ty.name);
                     (ty, link)
                 }
-                search::RustHolds::Assoc(w, f) => {
+                search::RustHolds::AssocCall {
+                    written_type: w,
+                    function: f,
+                } => {
                     let ty = self.rust_resolve(file, &w, at)?;
                     // `T::default()` is `Default`'s, which a derive declares out of sight.
                     let returns = match <[Hit; 1]>::try_from(self.rust_members(&ty, &f)) {
                         Ok([decl]) => {
                             let t = self.text_of(&decl.path)?;
                             let l: Vec<&str> = t.lines().collect();
-                            let (_, n) = search::rust_type_name(&search::rust_return_type(
+                            let n = search::rust_type_name(&search::rust_return_type(
                                 &l,
                                 decl.line - 1,
-                            )?)?;
+                            )?)?
+                            .name;
                             n == "Self" || n == ty.name
                         }
                         Err(none) => none.is_empty() && f == "default",
@@ -944,11 +951,10 @@ impl App {
     /// a type outside the project and one declared twice with nothing to tell which are none.
     fn rust_resolve(&self, file: &Path, written: &str, line0: usize) -> Option<Typed> {
         let text = self.text_of(file)?;
-        let (path, mut name) = search::rust_type_name(written)?;
+        let search::RustTypeName { path, mut name } = search::rust_type_name(written)?;
         if name == "Self" && path.is_empty() {
             let lines: Vec<&str> = text.lines().collect();
-            let (t, _) = search::rust_self_type(&lines, line0)?;
-            name = t;
+            name = search::rust_self_type(&lines, line0)?.written;
         }
         if search::rust_generic(&text, &name) {
             return None;
@@ -1003,7 +1009,10 @@ impl App {
     fn rust_field(&self, ty: &Typed, word: &str) -> Option<(Hit, String)> {
         let text = self.text_of(&ty.path)?;
         let lines: Vec<&str> = text.lines().collect();
-        let (line, written) = search::rust_struct_field(&lines, ty.line - 1, word)?;
+        let search::RustStructField {
+            line0: line,
+            written_type: written,
+        } = search::rust_struct_field(&lines, ty.line - 1, word)?;
         let hit = Hit {
             path: ty.path.clone(),
             line: line + 1,

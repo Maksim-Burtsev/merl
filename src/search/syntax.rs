@@ -645,21 +645,28 @@ pub(super) fn split_top(kind: Kind, s: &str, sep: u8) -> Vec<&str> {
     out.push(&s[start..]);
     out
 }
-/// The text inside the bracket that opens at byte `open` of line `at`, over the lines it spans and
-/// without comments, and the index of the line it closes on with what follows it there.
+pub(super) struct Group<'a> {
+    pub inner_uncommented: String,
+    pub close_line: usize,
+    pub after_close: &'a str,
+}
 pub(super) fn group<'a>(
     kind: Kind,
     lines: &[&'a str],
     at: usize,
     open: usize,
-) -> Option<(String, usize, &'a str)> {
+) -> Option<Group<'a>> {
     // ponytail: a bracket still open 2000 lines on is not read; fastapi's signatures run to 350.
     let text = lines[at..lines.len().min(at + 2000)].join("\n");
     let end = close_of(kind, &text, open)?;
     let line_start = text[..end].rfind('\n').map_or(0, |n| n + 1);
     let last = at + text[..end].matches('\n').count();
     let inner = uncommented(kind, &text[open + 1..end - 1]);
-    Some((inner, last, &lines[last][end - line_start..]))
+    Some(Group {
+        inner_uncommented: inner,
+        close_line: last,
+        after_close: &lines[last][end - line_start..],
+    })
 }
 /// Whether `word` stands in `s` as a whole name, not as the tail of `a.word`.
 pub(super) fn names(s: &str, word: &str) -> bool {

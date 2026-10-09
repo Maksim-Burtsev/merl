@@ -285,10 +285,10 @@ fn typescript_spellings_are_read_in_typescript_only() {
         }
     );
     let field = |from: &[&str], name: &str| {
-        Some(Value::Field(
-            from.iter().map(|s| s.to_string()).collect(),
-            name.into(),
-        ))
+        Some(Value::Field {
+            chain: from.iter().map(|s| s.to_string()).collect(),
+            field: name.into(),
+        })
     };
     for (t, want) in [
         ("let { repo } = this", field(&["this"], "repo")),
@@ -333,10 +333,12 @@ fn typescript_spellings_are_read_in_typescript_only() {
     ];
     assert_eq!(
         ts_header(&header, 0),
-        (
-            "class Vault extends mixin(Crate, { sealed: true }) implements Sealable {".to_owned(),
-            3
-        ),
+        TsHeader {
+            one_line_without_type_params:
+                "class Vault extends mixin(Crate, { sealed: true }) implements Sealable {"
+                    .to_owned(),
+            last_line0: 3
+        },
         "a header with brackets and a `{{}}` default in it ends at the `{{` of its body"
     );
 }
@@ -785,7 +787,10 @@ fn java_and_kotlin_imports_bind_their_names_to_paths() {
     let text = "package app.c;\n\nimport app.a.User;\nimport java.util.*;\nimport static a.b.Queries.isNull;\nimport static a.b.Queries.*;\nimport app.model.Topic as Model\nimport app.ui.fn // a function\n";
     let path = |p: &str| p.split('.').map(str::to_owned).collect::<Vec<_>>();
     assert_eq!(
-        jvm_imports(text),
+        jvm_imports(text)
+            .into_iter()
+            .map(|i| (i.bound_name, i.path))
+            .collect::<Vec<_>>(),
         [
             ("User".to_owned(), path("app.a.User")),
             ("*".to_owned(), path("java.util.*")),

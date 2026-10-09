@@ -96,7 +96,7 @@ impl App {
                 .flatten()
                 .and_then(|t| search::swift_type_place(&t, h.line));
             match place {
-                Some(search::SwiftTypePlace::Function(f)) => {
+                Some(search::SwiftTypePlace::FunctionBody { header_line1: f }) => {
                     own && search::swift_within(&self.buf.lines, &literal, self.line + 1, f)
                 }
                 _ => true,

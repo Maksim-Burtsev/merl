@@ -11,9 +11,9 @@ use super::*;
 pub(super) fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<usize> {
     let start = match (kind, lines[k].find('(')) {
         (Kind::Python, Some(open)) => {
-            group(kind, lines, k, open).map_or(k + 1, |(_, end, _)| end + 1)
+            group(kind, lines, k, open).map_or(k + 1, |g| g.close_line + 1)
         }
-        (Kind::TsJs, _) => ts_header(lines, k).1 + 1,
+        (Kind::TsJs, _) => ts_header(lines, k).last_line0 + 1,
         _ => k + 1,
     };
     let base = indent(lines[k]);

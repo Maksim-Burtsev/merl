@@ -188,7 +188,10 @@ impl App {
         let mut found: Vec<Candidate> = ats
             .iter()
             .map(|&at| {
-                let (line, col) = search::c_place(&owner.code, at);
+                let search::CPlace {
+                    line1: line,
+                    byte_col: col,
+                } = search::c_place(&owner.code, at);
                 let text = owner
                     .text
                     .lines()

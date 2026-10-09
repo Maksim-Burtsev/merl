@@ -247,7 +247,12 @@ pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bind
         let (start, base) = match scope {
             Scope::Def(d) => {
                 let open = lines[d].find('(').expect("a def has a parameter list");
-                let Some((params, end, _)) = group(Kind::Python, lines, d, open) else {
+                let Some(Group {
+                    inner_uncommented: params,
+                    close_line: end,
+                    ..
+                }) = group(Kind::Python, lines, d, open)
+                else {
                     continue;
                 };
                 python_params(lines, d, &params, name, &mut out);

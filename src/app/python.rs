@@ -4,6 +4,11 @@
 
 use super::*;
 
+pub(super) enum OutsideClassMember {
+    Found(Vec<Candidate>),
+    NoSuchClass,
+}
+
 impl App {
     pub(super) fn project_module(&self, here: &Path, module: &[String]) -> Vec<PathBuf> {
         let mut files = search::module_files(Kind::Python, &self.root, &self.files, here, module);
@@ -26,7 +31,7 @@ impl App {
         &mut self,
         word: &str,
         path: &[String],
-    ) -> Option<Option<Vec<Candidate>>> {
+    ) -> Option<OutsideClassMember> {
         let (name, module) = path.split_last()?;
         if module.is_empty() || path[0].starts_with('.') {
             return None;
@@ -45,7 +50,7 @@ impl App {
             .any(|l| search::type_name(kind, l).as_deref() == Some(name))
             || imports.iter().any(|i| i.name == *name || i.name == "*");
         if !class {
-            return Some(None);
+            return Some(OutsideClassMember::NoSuchClass);
         }
         let mut patterns = search::def_patterns(kind, word);
         patterns.extend(search::field_patterns(kind, word).unwrap_or_default());
@@ -66,7 +71,7 @@ impl App {
             hits = self.above(kind, &ty, word, 0).unwrap_or_default();
         }
         let reason = Reason::Import(module.join("."));
-        Some(Some(
+        Some(OutsideClassMember::Found(
             hits.into_iter()
                 .map(|hit| Candidate {
                     hit,

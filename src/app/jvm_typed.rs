@@ -204,7 +204,10 @@ impl App {
             let this = match search::jvm_declared_type(at, name, kotlin) {
                 Some(t) => (self.jvm_type_at(file, text, &t), t),
                 None if hops > 0 => {
-                    let (recv, call) = search::jvm_assigned_call(at, name)?;
+                    let search::JvmAssignedCall {
+                        receiver: recv,
+                        method: call,
+                    } = search::jvm_assigned_call(at, name)?;
                     self.jvm_returned(file, text, l, recv.as_deref(), &call, kotlin)?
                 }
                 None => return None,
@@ -355,7 +358,9 @@ impl App {
             _ => JvmType::Unknown,
         };
         let imports = search::jvm_imports(text);
-        if let Some((_, path)) = imports.iter().find(|(n, _)| n == written) {
+        if let Some(search::JvmImport { path, .. }) =
+            imports.iter().find(|i| i.bound_name == written)
+        {
             let Some(packages) = self.jvm_packages() else {
                 return JvmType::Unknown;
             };

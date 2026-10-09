@@ -107,7 +107,10 @@ impl App {
                 };
             };
             if i == fields.len() {
-                let (line, col) = search::c_place(&body.code, at);
+                let search::CPlace {
+                    line1: line,
+                    byte_col: col,
+                } = search::c_place(&body.code, at);
                 let hit = Hit {
                     path: body.path,
                     line,
@@ -336,8 +339,10 @@ impl App {
             let lines: Vec<usize> = hits.iter().map(|h| h.line).collect();
             let fields = search::c_field_rows(&text, &lines, word);
             for h in hits {
-                match fields.iter().find(|(l, _)| *l == h.line) {
-                    Some((_, owner)) if !called || pointer.is_match(&h.text) => {
+                match fields.iter().find(|f| f.line1 == h.line) {
+                    Some(search::CFieldRow {
+                        owner_type: owner, ..
+                    }) if !called || pointer.is_match(&h.text) => {
                         rows.push(MemberRow::field_of(h, owner))
                     }
                     None if called && method.is_match(&h.text) => rows.push(MemberRow::method(h)),

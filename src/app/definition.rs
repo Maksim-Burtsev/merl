@@ -197,7 +197,7 @@ impl App {
         {
             let found = label
                 .owner
-                .map(|(line, col, owner)| self.label_targets(kind, &here, &word, line, col, &owner))
+                .map(|o| self.label_targets(kind, &here, &word, o.line0, o.byte_col, &o.how))
                 .unwrap_or_default();
             match found.is_empty() {
                 true => self.message = format!("{word}: {}", label.what),
@@ -414,7 +414,7 @@ impl App {
         let on_itself = match kind {
             Kind::C => search::c_bindings_at(&text, self.line + 1, first)
                 .iter()
-                .all(|&(l, c)| l == self.line + 1 && c == range.start),
+                .all(|p| p.line1 == self.line + 1 && p.byte_col == range.start),
             _ => locals == [self.line + 1],
         };
         let same_line = (matches!(kind, Kind::Jvm | Kind::PowerShell)
@@ -745,7 +745,7 @@ impl App {
                     self.show_definitions(kind, &word, &here, found, None);
                     return;
                 }
-                Some(Ok(cs_typed::CsAnswer::Outside(via))) => {
+                Some(Ok(cs_typed::CsAnswer::Outside { links: via })) => {
                     self.offer_only = false;
                     self.truncated.set(false);
                     self.message = format!("no definition for {word} in the project (via {via})");
@@ -888,11 +888,13 @@ impl App {
                 }
                 if project.is_none() && kind == Kind::Python && dotted && chain.len() == 1 {
                     match self.outside_class_member(&word, &path) {
-                        Some(Some(found)) => {
+                        Some(python::OutsideClassMember::Found(found)) => {
                             self.show_definitions(kind, &word, &here, found, None);
                             return;
                         }
-                        Some(None) => value = Some(path[..path.len() - 1].to_vec()),
+                        Some(python::OutsideClassMember::NoSuchClass) => {
+                            value = Some(path[..path.len() - 1].to_vec())
+                        }
                         None => {}
                     }
                 }
@@ -1078,8 +1080,12 @@ impl App {
                 // A class is declared once, whatever its forward declarations and constructors
                 // (#368).
                 if kind == Kind::C {
-                    declared =
-                        search::c_type_rows(owner, declared, |p| self.text_of(p), false, false);
+                    declared = search::c_type_rows(
+                        owner,
+                        declared,
+                        |p| self.text_of(p),
+                        search::CTypeWord::NAMED,
+                    );
                 }
                 // A type of the same name in this file is the one its own scope sees.
                 if !outside
@@ -1167,7 +1173,15 @@ impl App {
             let named = match kind == Kind::C && !on_row {
                 true => {
                     let rows: Vec<Hit> = named.iter().map(|c| c.hit.clone()).collect();
-                    let kept = search::c_type_rows(&word, rows, |_| None, true, false);
+                    let kept = search::c_type_rows(
+                        &word,
+                        rows,
+                        |_| None,
+                        search::CTypeWord {
+                            constructs: true,
+                            struct_tag: false,
+                        },
+                    );
                     named
                         .into_iter()
                         .filter(|c| {
@@ -1337,7 +1351,9 @@ impl App {
                 .iter()
                 .filter(|h| {
                     search::swift_case(&h.text)
-                        || (!pattern && search::swift_static_member(&h.text) == Some(true))
+                        || (!pattern
+                            && search::swift_member_kind(&h.text)
+                                == Some(search::SwiftMember::StaticOrClass))
                 })
                 .cloned()
                 .collect();
@@ -1410,9 +1426,10 @@ impl App {
             let literal = search::literal_lines(kind, &text);
             // The cursor's scope and the functions around it, innermost first; a header's scope
             // lies above it, so the walk ends.
-            let mut scopes = vec![search::swift_scope(&lines, &literal, self.line + 1).0];
+            let mut scopes =
+                vec![search::swift_scope(&lines, &literal, self.line + 1).header_line1];
             while let Some(&s @ 1..) = scopes.last() {
-                match search::swift_scope(&lines, &literal, s).0 {
+                match search::swift_scope(&lines, &literal, s).header_line1 {
                     0 => break,
                     up => scopes.push(up),
                 }
@@ -1476,7 +1493,15 @@ impl App {
                 let hits: Vec<Hit> = (hits.into_iter())
                     .filter(|h| self.c_code_line(&mut literal, h))
                     .collect();
-                let hits = search::c_type_rows(&word, hits, |p| self.text_of(p), construction, tag);
+                let hits = search::c_type_rows(
+                    &word,
+                    hits,
+                    |p| self.text_of(p),
+                    search::CTypeWord {
+                        constructs: construction,
+                        struct_tag: tag,
+                    },
+                );
                 let hits = self.c_reached_only(&here, &word, hits);
                 let on = hits
                     .iter()
@@ -1522,9 +1547,9 @@ impl App {
                 match search::c_one_definition(&word, &hits, |p| self.text_of(p))
                     .filter(|_| !on && !parameter)
                 {
-                    Some((at, note)) => {
-                        aside = Some(note);
-                        vec![hits[at].clone()]
+                    Some(one) => {
+                        aside = Some(one.set_aside_note);
+                        vec![hits[one.hit_index].clone()]
                     }
                     None => hits,
                 }
@@ -1574,9 +1599,11 @@ impl App {
                 .filter(|p| kind != Kind::TsJs || search::declaration_file(p))
                 .cloned()
                 .collect();
-            let (external, field) =
-                self.outside_members(kind, &all, &files, &imports, members, &word);
-            if found.is_empty() && external.len() == 1 && field {
+            let external::OutsideMembers {
+                methods: external,
+                unlisted_field_declares_it,
+            } = self.outside_members(kind, &all, &files, &imports, members, &word);
+            if found.is_empty() && external.len() == 1 && unlisted_field_declares_it {
                 self.truncated.set(true);
             }
             let seen: Vec<PathBuf> = found.iter().map(|c| self.root.join(&c.hit.path)).collect();
@@ -1952,56 +1979,6 @@ impl App {
             self.declaring(kind, word, hits),
             Reason::Path("builtin".to_owned()),
         )
-    }
-
-    fn enum_constant(&self, kind: Kind, here: &Path, owner: &str, word: &str) -> Vec<Candidate> {
-        let owners = search::def_patterns(kind, owner).join("|");
-        let declared = self.project_definitions(kind, here, owner, &owners);
-        self.truncated.set(false);
-        let [decl] = declared.as_slice() else {
-            return Vec::new();
-        };
-        let o = regex::escape(owner);
-        let is_enum = Regex::new(&format!(r"\benum\s+(?:class\s+)?{o}\b"))
-            .is_ok_and(|re| re.is_match(&decl.text));
-        let Some(text) = self.text_of(&decl.path).filter(|_| is_enum) else {
-            return Vec::new();
-        };
-        let package = |t: &str| {
-            let re = Regex::new(r"^\s*package\s+([\w.]+)").expect("a fixed pattern");
-            t.lines()
-                .find_map(|l| re.captures(l).map(|c| c[1].to_owned()))
-                .unwrap_or_default()
-        };
-        let import = Regex::new(&format!(r"^\s*import\s+([\w.]+)\.({o}|\*)\s*;?\s*$"))
-            .expect("an escaped name keeps the pattern valid");
-        let home = package(&text);
-        let imports: Vec<(String, bool)> = (self.buf.lines.iter())
-            .filter_map(|l| import.captures(l))
-            .map(|c| (c[1].to_owned(), &c[2] == "*"))
-            .collect();
-        // A type imported by name from elsewhere hides the package's own.
-        let elsewhere = imports.iter().any(|(p, all)| !all && *p != home);
-        let sees =
-            package(&self.buf.lines.join("\n")) == home || imports.iter().any(|(p, _)| *p == home);
-        if elsewhere || !sees {
-            return Vec::new();
-        }
-        let lines: Vec<&str> = text.lines().collect();
-        search::enum_constants(&text, decl.line)
-            .into_iter()
-            .filter(|(name, _)| name == word)
-            .map(|(_, line)| Candidate {
-                hit: Hit {
-                    deleted: None,
-                    path: decl.path.clone(),
-                    line,
-                    col: 0,
-                    text: lines.get(line - 1).copied().unwrap_or_default().to_owned(),
-                },
-                reason: Reason::Path(owner.to_owned()),
-            })
-            .collect()
     }
 
     /// Whether `first` starts a path inside the project: `crate`, `self`, `super`, or a file or a

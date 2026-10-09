@@ -14,8 +14,8 @@ pub(super) enum CsAnswer {
     /// The member in the project's type or the types above it, or an extension method of it.
     Found(Vec<Candidate>),
     /// The type, or every base the member could come from, is not the project's: the member is
-    /// the framework's. The links that prove it.
-    Outside(String),
+    /// the framework's.
+    Outside { links: String },
 }
 
 /// What a member lookup up a type's hierarchy found.
@@ -38,6 +38,11 @@ enum Up {
 struct Proven {
     ty: CsType,
     link: String,
+}
+
+struct CsWrittenType {
+    ty: CsType,
+    written: String,
 }
 
 impl App {
@@ -83,10 +88,10 @@ impl App {
         let label = format!("new {}", search::cs_type_name(&written)?);
         match ty {
             // An initializer sets a field or a property, never an extension method.
-            CsType::Outside(_) => Some(CsAnswer::Outside(label)),
+            CsType::Outside(_) => Some(CsAnswer::Outside { links: label }),
             CsType::Project(t) => match self.cs_up(&t, word, 0) {
                 Up::Found(hits) => Some(CsAnswer::Found(receivers(hits, &label))),
-                Up::Outside { .. } => Some(CsAnswer::Outside(label)),
+                Up::Outside { .. } => Some(CsAnswer::Outside { links: label }),
                 Up::Missing { .. } | Up::Unknown => None,
             },
         }
@@ -128,7 +133,9 @@ impl App {
         });
         match (of.is_empty(), other.is_empty()) {
             (false, _) => Some(CsAnswer::Found(receivers(of, label))),
-            (true, true) if outside => Some(CsAnswer::Outside(label.to_owned())),
+            (true, true) if outside => Some(CsAnswer::Outside {
+                links: label.to_owned(),
+            }),
             _ => None,
         }
     }
@@ -283,8 +290,11 @@ impl App {
         for b in bindings {
             let at = search::cs_written_line(&lines, b.line1, name);
             let value = search::cs_declared(lines.get(at - 1)?, name);
-            let (ty, written) = match value {
-                search::CsValue::Type(w) => (self.cs_resolve(file, text, at, &w)?, w),
+            let CsWrittenType { ty, written } = match value {
+                search::CsValue::Type(w) => CsWrittenType {
+                    ty: self.cs_resolve(file, text, at, &w)?,
+                    written: w,
+                },
                 search::CsValue::Call { callee, awaited } if hops > 0 => {
                     self.cs_call_type(file, text, at, &callee, awaited, hops - 1)?
                 }
@@ -302,8 +312,7 @@ impl App {
 
     /// What a call of `callee` on `line1` of `file` gives: the declared return type of the
     /// one method of the name that the type around the line, the receiver's type or the type the
-    /// callee names declares; `Task<T>` and `ValueTask<T>` under `await` read as `T`. The type,
-    /// and the return type as written.
+    /// callee names declares; `Task<T>` and `ValueTask<T>` under `await` read as `T`.
     fn cs_call_type(
         &self,
         file: &Path,
@@ -312,7 +321,7 @@ impl App {
         callee: &str,
         awaited: bool,
         hops: usize,
-    ) -> Option<(CsType, String)> {
+    ) -> Option<CsWrittenType> {
         let parts: Vec<&str> = callee.split('.').collect();
         let (method, receiver) = parts.split_last()?;
         let owner = match receiver {
@@ -355,7 +364,7 @@ impl App {
         };
         let at = self.text_of(&hit.path)?;
         let ty = self.cs_resolve(&hit.path, &at, hit.line, &written)?;
-        Some((ty, written))
+        Some(CsWrittenType { ty, written })
     }
 
     /// The type written as `written` on `line1` of `text`, the text of `file`: the one

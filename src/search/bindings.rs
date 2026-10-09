@@ -21,16 +21,20 @@ pub enum Value {
     Class {
         decl_line1: usize,
     },
-    /// Python's `cast(T, x)` as written: the callee and `T`. It writes the type when the callee
-    /// is `typing`'s, which only the caller can tell: a project may declare a `cast` of its own.
-    Cast(String, String),
+    /// Python's `cast(T, x)`: `typing`'s writes the type, a project's own `cast` is a call.
+    Cast {
+        callee: String,
+        written_type: String,
+    },
     /// An element of the named collection, as a loop hands it out: `for r in repos`,
     /// `for (const r of repos)`, `for _, r := range repos`. [`element_type`] reads it off the
     /// collection's written type.
     Element(String),
-    /// A field of a chain of names, as a TypeScript destructuring hands it on: `this` and `repo`
-    /// for `const { repo } = this`, `this.uow` and `users` for `const { users: u } = this.uow`.
-    Field(Vec<String>, String),
+    /// A TypeScript destructuring: `const { users: u } = this.uow`.
+    Field {
+        chain: Vec<String>,
+        field: String,
+    },
     Member(Box<Value>, String),
     Struct(usize),
     /// A declaration whose type the rules cannot read: `for repo in`, a tuple, a parameter with
@@ -112,9 +116,10 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
             },
             (true, false) if kind == Kind::Python && matches!(&*name, "cast" | "typing.cast") => {
                 match args {
-                    Some(inner) => {
-                        Value::Cast(name, split_top(kind, inner, b',')[0].trim().to_owned())
-                    }
+                    Some(inner) => Value::Cast {
+                        callee: name,
+                        written_type: split_top(kind, inner, b',')[0].trim().to_owned(),
+                    },
                     None => Value::Unknown,
                 }
             }
@@ -391,8 +396,7 @@ fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     }
     Vec::new()
 }
-/// A Zig line that opens a function's or a test's body, whose `const`s and `var`s are locals.
-pub(super) static ZIG_BODY: std::sync::LazyLock<Regex> =
+pub(super) static ZIG_FN_OR_TEST_HEAD: std::sync::LazyLock<Regex> =
     std::sync::LazyLock::new(|| Regex::new(r"\bfn\b|^(?:pub\s+)?test\b").unwrap());
 fn zig_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let n = regex::escape(name);
@@ -430,7 +434,7 @@ fn zig_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             }
             i = i.saturating_sub(1);
         }
-        if ZIG_BODY.is_match(&code(i)) {
+        if ZIG_FN_OR_TEST_HEAD.is_match(&code(i)) {
             for j in i..=end {
                 if param.is_match(&code(j)) {
                     out.push(Binding {
@@ -645,8 +649,14 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                     None if first_line_read_whole == Some(i) => {}
                     None => match ts_declarators(lines, i).filter(|_| kind == Kind::TsJs) {
                         Some(each) => {
-                            for (at, d) in each {
-                                statement_bindings(kind, &d, at + 1, name, &mut out);
+                            for d in each {
+                                statement_bindings(
+                                    kind,
+                                    &d.as_own_statement,
+                                    d.line0 + 1,
+                                    name,
+                                    &mut out,
+                                );
                             }
                         }
                         None => statement_bindings(kind, t, i + 1, name, &mut out),
@@ -1261,98 +1271,12 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
     };
     out.push(Binding { line1: line, value });
 }
-pub(super) fn ts_declarators(lines: &[&str], k: usize) -> Option<Vec<(usize, String)>> {
-    static KEYWORD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:export\s+)?(?:declare\s+)?(?:const|let|var)\s+").unwrap()
-    });
-    let first = uncommented(Kind::TsJs, lines.get(k)?);
-    if !first.trim_end().ends_with(',') {
-        return None;
-    }
-    let keyword = KEYWORD.find(first.trim_start())?.as_str().to_owned();
-    // ponytail: two hundred lines of declarators.
-    let text = blank_comments(&lines[k..lines.len().min(k + 200)].join("\n"));
-    let ind = indent(lines[k]);
-    let (mut depth, mut end) = (0i32, text.len());
-    let mut starts = vec![0];
-    for (i, c) in code(Kind::TsJs, &text) {
-        match c {
-            b'(' | b'[' | b'{' => depth += 1,
-            b')' | b']' | b'}' => depth -= 1,
-            b',' if depth == 0 => starts.push(i + 1),
-            b';' if depth == 0 => {
-                end = i;
-                break;
-            }
-            // Its last line is the one before a line back at its indent.
-            b'\n' if depth == 0 => {
-                let next = text[i + 1..].lines().find(|l| !l.trim().is_empty());
-                if next.is_none_or(|l| indent(l) <= ind) {
-                    end = i;
-                    break;
-                }
-            }
-            _ => {}
-        }
-    }
-    let mut out = Vec::new();
-    for (n, &from) in starts.iter().enumerate() {
-        let to = starts.get(n + 1).map_or(end, |&s| s - 1).min(end);
-        let Some(piece) = text.get(from..to) else {
-            continue;
-        };
-        let lead = piece.len() - piece.trim_start().len();
-        let line = k + text[..from + lead].matches('\n').count();
-        let piece = piece.split_whitespace().collect::<Vec<_>>().join(" ");
-        if piece.is_empty() {
-            continue;
-        }
-        out.push(match n {
-            0 => (line, piece),
-            _ => (line, format!("{keyword}{piece}")),
-        });
-    }
-    (out.len() > 1).then_some(out)
+#[derive(Debug, PartialEq, Eq)]
+pub(super) struct TsHeader {
+    pub one_line_without_type_params: String,
+    pub last_line0: usize,
 }
-/// `s` with its TypeScript comments, `//` and `/* */`, blanked out and its lines kept.
-fn blank_comments(s: &str) -> String {
-    let b = s.as_bytes();
-    let mut out = b.to_vec();
-    let (mut i, mut quote) = (0, None);
-    while i < b.len() {
-        match (quote, b[i]) {
-            (Some(q), c) => {
-                if c == b'\\' {
-                    i += 1;
-                } else if c == q {
-                    quote = None;
-                }
-            }
-            (None, c @ (b'"' | b'\'' | b'`')) => quote = Some(c),
-            (None, b'/') if b.get(i + 1) == Some(&b'/') => {
-                while i < b.len() && b[i] != b'\n' {
-                    out[i] = b' ';
-                    i += 1;
-                }
-                continue;
-            }
-            (None, b'/') if b.get(i + 1) == Some(&b'*') => {
-                let end = s[i + 2..].find("*/").map_or(b.len(), |e| i + 2 + e + 2);
-                for o in &mut out[i..end] {
-                    if *o != b'\n' {
-                        *o = b' ';
-                    }
-                }
-                i = end;
-                continue;
-            }
-            _ => {}
-        }
-        i += 1;
-    }
-    String::from_utf8(out).unwrap_or_else(|_| s.to_owned())
-}
-pub(super) fn ts_header(lines: &[&str], k: usize) -> (String, usize) {
+pub(super) fn ts_header(lines: &[&str], k: usize) -> TsHeader {
     // ponytail: forty lines of header; hono's widest list of type parameters runs to six.
     let text = uncommented(Kind::TsJs, &lines[k..lines.len().min(k + 40)].join("\n"));
     let b = text.as_bytes();
@@ -1392,17 +1316,20 @@ pub(super) fn ts_header(lines: &[&str], k: usize) -> (String, usize) {
         }
     }
     let Some(open) = open else {
-        return (lines[k].to_owned(), k);
+        return TsHeader {
+            one_line_without_type_params: lines[k].to_owned(),
+            last_line0: k,
+        };
     };
     let last = k + text[..open].matches('\n').count();
     let mut header = text[..=open].to_owned();
     if let (Some(from), Some(to)) = (type_params_from, type_params_to) {
         header.replace_range(from..to, "");
     }
-    (
-        header.split_whitespace().collect::<Vec<_>>().join(" "),
-        last,
-    )
+    TsHeader {
+        one_line_without_type_params: header.split_whitespace().collect::<Vec<_>>().join(" "),
+        last_line0: last,
+    }
 }
 pub fn go_may_declare(text: &str, line: usize, name: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();
