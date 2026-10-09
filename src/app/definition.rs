@@ -1981,56 +1981,6 @@ impl App {
         )
     }
 
-    fn enum_constant(&self, kind: Kind, here: &Path, owner: &str, word: &str) -> Vec<Candidate> {
-        let owners = search::def_patterns(kind, owner).join("|");
-        let declared = self.project_definitions(kind, here, owner, &owners);
-        self.truncated.set(false);
-        let [decl] = declared.as_slice() else {
-            return Vec::new();
-        };
-        let o = regex::escape(owner);
-        let is_enum = Regex::new(&format!(r"\benum\s+(?:class\s+)?{o}\b"))
-            .is_ok_and(|re| re.is_match(&decl.text));
-        let Some(text) = self.text_of(&decl.path).filter(|_| is_enum) else {
-            return Vec::new();
-        };
-        let package = |t: &str| {
-            let re = Regex::new(r"^\s*package\s+([\w.]+)").expect("a fixed pattern");
-            t.lines()
-                .find_map(|l| re.captures(l).map(|c| c[1].to_owned()))
-                .unwrap_or_default()
-        };
-        let import = Regex::new(&format!(r"^\s*import\s+([\w.]+)\.({o}|\*)\s*;?\s*$"))
-            .expect("an escaped name keeps the pattern valid");
-        let home = package(&text);
-        let imports: Vec<(String, bool)> = (self.buf.lines.iter())
-            .filter_map(|l| import.captures(l))
-            .map(|c| (c[1].to_owned(), &c[2] == "*"))
-            .collect();
-        // A type imported by name from elsewhere hides the package's own.
-        let elsewhere = imports.iter().any(|(p, all)| !all && *p != home);
-        let sees =
-            package(&self.buf.lines.join("\n")) == home || imports.iter().any(|(p, _)| *p == home);
-        if elsewhere || !sees {
-            return Vec::new();
-        }
-        let lines: Vec<&str> = text.lines().collect();
-        search::enum_constants(&text, decl.line)
-            .into_iter()
-            .filter(|c| c.name == word)
-            .map(|search::EnumConstant { line1: line, .. }| Candidate {
-                hit: Hit {
-                    deleted: None,
-                    path: decl.path.clone(),
-                    line,
-                    col: 0,
-                    text: lines.get(line - 1).copied().unwrap_or_default().to_owned(),
-                },
-                reason: Reason::Path(owner.to_owned()),
-            })
-            .collect()
-    }
-
     /// Whether `first` starts a path inside the project: `crate`, `self`, `super`, or a file or a
     /// directory of the project called so.
     fn names_module(&self, first: &str) -> bool {
