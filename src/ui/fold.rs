@@ -7,9 +7,6 @@ use ratatui::widgets::{Block, Paragraph};
 use crate::app::App;
 use crate::theme::Theme;
 
-/// The fold of the open file, as GitHub and GitLab fold a generated file's diff: a box in the
-/// accent, centred where the binary file's note sits, ` generated file ` in its border; inside
-/// the file, its hunks and counts, the Enter button that loads the diff, and `c` under it.
 pub(super) fn draw_fold(frame: &mut Frame, app: &App, theme: &Theme, area: Rect, base: Style) {
     let Some(f) = app.folded_here() else {
         return;
@@ -18,7 +15,6 @@ pub(super) fn draw_fold(frame: &mut Frame, app: &App, theme: &Theme, area: Rect,
         .path
         .file_name()
         .map_or_else(|| f.path.to_string_lossy(), |n| n.to_string_lossy());
-    // A deleted file has no hunks, only lines gone.
     let size = match f.status {
         'D' => "deleted".to_string(),
         _ => {
@@ -44,9 +40,10 @@ pub(super) fn draw_fold(frame: &mut Frame, app: &App, theme: &Theme, area: Rect,
             Span::styled("  next file", dim),
         ]),
     ];
-    // Room either side of the widest line, a row above and below the lines.
-    let w = lines.iter().map(Line::width).max().unwrap_or(0) as u16 + 14;
-    let h = lines.len() as u16 + 4;
+    let (side_room, blank_rows, border) = (6, 1, 1);
+    let widest = lines.iter().map(Line::width).max().unwrap_or(0) as u16;
+    let w = widest + 2 * (side_room + border);
+    let h = lines.len() as u16 + 2 * (blank_rows + border);
     let [_, b] = Layout::vertical([
         Constraint::Length(area.height.saturating_sub(h) * 2 / 5),
         Constraint::Length(h.min(area.height)),
@@ -63,9 +60,9 @@ pub(super) fn draw_fold(frame: &mut Frame, app: &App, theme: &Theme, area: Rect,
     let inner = block.inner(b);
     frame.render_widget(block, b);
     let [_, inner, _] = Layout::vertical([
-        Constraint::Length(1),
+        Constraint::Length(blank_rows),
         Constraint::Min(0),
-        Constraint::Length(1),
+        Constraint::Length(blank_rows),
     ])
     .areas(inner);
     frame.render_widget(

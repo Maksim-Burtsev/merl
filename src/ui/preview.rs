@@ -1,6 +1,3 @@
-//! The code pane showing a Markdown file rendered (#249): the rows `markdown` laid out and the
-//! cursor row. The git marks stay on the source, where the diff is.
-
 use std::ops::Range;
 use std::path::Path;
 
@@ -10,9 +7,9 @@ use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 
-use crate::app::App;
+use crate::app::{App, Preview};
 use crate::buffer::Buffer;
-use crate::markdown::{Kind, Palette};
+use crate::markdown::{Kind, Palette, Row};
 use crate::theme::Theme;
 use crate::wrap;
 
@@ -26,9 +23,7 @@ pub(super) fn draw_preview(
     area: Rect,
     base: Style,
 ) {
-    // The text starts where the source's does, past a gutter as wide: `p` moves no word
-    // sideways, and both lay out for the same width.
-    let gutter_w = digits(app.buf.lines.len()) + 1;
+    let gutter_w = source_gutter_width(app);
     app.view_w = (area.width as usize).saturating_sub(gutter_w).max(1);
     app.view_h = area.height as usize;
     app.preview_sync();
@@ -38,17 +33,7 @@ pub(super) fn draw_preview(
         return;
     };
     let end = (p.top + area.height as usize).min(p.doc.rows.len());
-    // The code blocks on screen take their colours from the theme, highlighted as far as the
-    // screen reaches, as the source is; another theme starts them over.
-    if p.theme != shown {
-        p.theme = shown;
-        p.code.iter_mut().for_each(Buffer::clear_hl);
-    }
-    for r in &p.doc.rows[p.top..end] {
-        if let Kind::Code { block, line, .. } = r.kind {
-            p.code[block].highlight_to(line, theme);
-        }
-    }
+    highlight_code_on_screen(p, shown, theme, end);
 
     let p = app.preview.as_ref().unwrap();
     let pal = Palette::new(theme);
@@ -64,28 +49,7 @@ pub(super) fn draw_preview(
             .iter()
             .map(|(look, r)| (pal.style(*look, bg.is_some()), r.clone()))
             .collect();
-        // A code row's syntax colours, cut to the part of its line the row shows.
-        let syntax: Vec<(Style, Range<usize>)> = match row.kind {
-            Kind::Code {
-                block,
-                line,
-                from,
-                at,
-            } => {
-                let to = from + row.text.len() - at;
-                p.code[block]
-                    .hl
-                    .get(line)
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|(st, r)| {
-                        let (a, b) = (r.start.max(from), r.end.min(to));
-                        (a < b).then(|| (*st, a - from + at..b - from + at))
-                    })
-                    .collect()
-            }
-            _ => Vec::new(),
-        };
+        let syntax = code_syntax_on_row(p, row);
         let mut spans = vec![Span::styled(" ".repeat(gutter_w), g)];
         spans.extend(layered(
             &row.text,
@@ -107,6 +71,45 @@ pub(super) fn draw_preview(
     }
     frame.render_widget(Paragraph::new(lines).style(base), area);
     place_pictures(app, area, gutter_w, end);
+}
+
+fn source_gutter_width(app: &App) -> usize {
+    digits(app.buf.lines.len()) + 1
+}
+
+fn highlight_code_on_screen(p: &mut Preview, shown: String, theme: &Theme, end: usize) {
+    if p.theme != shown {
+        p.theme = shown;
+        p.code.iter_mut().for_each(Buffer::clear_hl);
+    }
+    for r in &p.doc.rows[p.top..end] {
+        if let Kind::Code { block, line, .. } = r.kind {
+            p.code[block].highlight_to(line, theme);
+        }
+    }
+}
+
+fn code_syntax_on_row(p: &Preview, row: &Row) -> Vec<(Style, Range<usize>)> {
+    let Kind::Code {
+        block,
+        line,
+        from,
+        at,
+    } = row.kind
+    else {
+        return Vec::new();
+    };
+    let to = from + row.text.len() - at;
+    p.code[block]
+        .hl
+        .get(line)
+        .into_iter()
+        .flatten()
+        .filter_map(|(st, r)| {
+            let (a, b) = (r.start.max(from), r.end.min(to));
+            (a < b).then(|| (*st, a - from + at..b - from + at))
+        })
+        .collect()
 }
 
 fn place_pictures(app: &mut App, area: Rect, gutter_w: usize, end: usize) {
@@ -167,8 +170,6 @@ fn place_pictures(app: &mut App, area: Rect, gutter_w: usize, end: usize) {
     }
 }
 
-/// `text` in spans, each byte in `base` patched with the style every layer gives it, in order;
-/// a hidden char is its tag, in `tag`.
 fn layered<'a>(
     text: &'a str,
     layers: &[&[(Style, Range<usize>)]],
