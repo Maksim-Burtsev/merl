@@ -1,5 +1,10 @@
 use super::*;
 
+pub(super) struct UsageHits {
+    pub ranked: Vec<(Tier, Hit)>,
+    pub grep_cut: bool,
+}
+
 impl App {
     pub(super) fn usages(&mut self) {
         let extra = search::word_chars(self.kind(), false);
@@ -7,7 +12,10 @@ impl App {
             self.message = "no word under the cursor".into();
             return;
         };
-        let (ranked, cut) = self.usage_hits(&read, self.rel_current().as_deref());
+        let UsageHits {
+            ranked,
+            grep_cut: cut,
+        } = self.usage_hits(&read, self.rel_current().as_deref());
         let word = bare_name(&read);
         if ranked.is_empty() {
             self.message = format!("no usages of {word}");
@@ -89,10 +97,9 @@ impl App {
         }
     }
 
-    /// Every whole-word, case-sensitive hit of `word` in `u`'s order from the file `here`, each
-    /// with its tier, and whether the grep stopped at its cap: the filter below can make a cut
-    /// list short, and it is still cut.
-    pub(super) fn usage_hits(&self, word: &str, here: Option<&Path>) -> (Vec<(Tier, Hit)>, bool) {
+    /// Every whole-word, case-sensitive hit of `word` in `u`'s order from the file `here`. The
+    /// filter below can make a cut list short, and it is still cut.
+    pub(super) fn usage_hits(&self, word: &str, here: Option<&Path>) -> UsageHits {
         // A Ruby setter `name=` is called as `x.name = v`: the rows hold its bare name. On a Ruby
         // `@x` they are every `x`, as on a bare `x`, and its assignment `@x =` declares it too.
         let ivar = word.starts_with('@').then_some(word);
@@ -200,7 +207,10 @@ impl App {
                 .then_with(|| (&x.path, x.place()).cmp(&(&y.path, y.place())))
         });
         let ranked = ranked.into_iter().map(|(rank, h)| (rank.tier, h)).collect();
-        (ranked, cut)
+        UsageHits {
+            ranked,
+            grep_cut: cut,
+        }
     }
 
     pub(super) fn make_recipe_rule<'a>(
