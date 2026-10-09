@@ -4,41 +4,26 @@ use regex::Regex;
 
 use super::*;
 
-/// What a declaration gives a name, as far as the declaration itself tells. The caller resolves a
-/// type in the file that wrote it, a call through the declaration of what it calls, and another
-/// name at the declaration's line.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value {
-    /// A type as written: `UserRepository`, `*Repo`, `Optional[Repo]`.
     Type(String),
-    /// A construction of the named type: `new Repo()`, `Repo{}`, `&Repo{}`, `new(Repo)`.
     New(String),
-    /// A call of the named function, or of a Python class: `make_repo`, `store.Open`.
     Call(String),
-    /// Another name, as `self.repo = repo` hands on a parameter.
     Name(String),
-    /// Python's `self` and `cls`, TypeScript's `this`.
     Class {
         decl_line1: usize,
     },
-    /// Python's `cast(T, x)`: `typing`'s writes the type, a project's own `cast` is a call.
     Cast {
         callee: String,
         written_type: String,
     },
-    /// An element of the named collection, as a loop hands it out: `for r in repos`,
-    /// `for (const r of repos)`, `for _, r := range repos`. [`element_type`] reads it off the
-    /// collection's written type.
     Element(String),
-    /// A TypeScript destructuring: `const { users: u } = this.uow`.
     Field {
         chain: Vec<String>,
         field: String,
     },
     Member(Box<Value>, String),
     Struct(usize),
-    /// A declaration whose type the rules cannot read: `for repo in`, a tuple, a parameter with
-    /// no annotation.
     Unknown,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -77,8 +62,6 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
                 _ => {}
             }
         }
-        // `as` binds tighter than `?:`, `||`, `??` and `=>`: only one operand in front of it, a
-        // name, a call or a literal, is what the cast types.
         let operand = |head: &str| {
             let head = head.trim_start_matches("await ").trim_start_matches("new ");
             let mut depth = 0i32;
@@ -123,7 +106,6 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
                     None => Value::Unknown,
                 }
             }
-            // `make([]*Repo, 0, n)` writes the type of what it makes.
             (true, false) if kind == Kind::Go && name == "make" => match args {
                 Some(inner) => Value::Type(split_top(kind, inner, b',')[0].trim().to_owned()),
                 None => Value::Unknown,
@@ -143,7 +125,6 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
     {
         return Value::Type(format!("{}struct", &c[1]));
     }
-    // A slice, array or map literal writes its type in front of its `{`: `[]Repo{…}`.
     if kind == Kind::Go
         && (e.starts_with('[') || e.starts_with("map["))
         && let Some(end) = e.find('[').and_then(|i| close_of(kind, e, i))
@@ -196,8 +177,6 @@ fn elixir_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             value: Value::Unknown,
         }]
     };
-    // The head of a one-line `fn x -> … end` binds on the cursor's own line, above which the
-    // walk starts.
     let own = code(at);
     if let Some((h, _)) = own.split_once("->")
         && let Some((_, p)) = h.rsplit_once("fn ")
@@ -214,7 +193,6 @@ fn elixir_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             continue;
         }
         if indent(lines[i]) == depth {
-            // A clause of its own binds for its own body alone.
             let parts = split_top(Kind::Elixir, &t, b'=');
             if parts.len() > 1
                 && !t.contains("->")
@@ -225,8 +203,6 @@ fn elixir_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             }
             continue;
         }
-        // A header opens the block the walk is in; `) do` closes parameters wrapped over the
-        // lines above it, from the line back at its indent.
         depth = indent(lines[i]);
         if t.starts_with(')') {
             while i > 0 && (lines[i - 1].trim().is_empty() || indent(lines[i - 1]) > depth) {
@@ -236,7 +212,6 @@ fn elixir_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
         }
         let head = code(i);
         if let Some(m) = HEAD.find(&head) {
-            // The parameters run to the `do` that opens the body.
             let end = (i..at)
                 .find(|&j| code(j).ends_with(" do") || code(j).contains("do:"))
                 .unwrap_or(i);
@@ -247,7 +222,6 @@ fn elixir_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
                 })
                 .map_or_else(Vec::new, |j| found(j + 1));
         }
-        // A `for` or a `with` binds the left of each `<-` of its head, which runs to its `do`.
         if head.starts_with("for ") || head.starts_with("with ") {
             let end = (i..at)
                 .find(|&j| code(j).ends_with(" do") || code(j).contains("do:"))
@@ -276,9 +250,6 @@ fn elixir_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     }
     Vec::new()
 }
-/// Whether the Elixir pattern `p` (a parameter list, the left of a `=`, a clause head) binds
-/// `name`: the name as a word of its own, and not a key `name:`, an atom `:name`, an attribute,
-/// a pinned `^name`, a call, a guard's or a default's.
 fn elixir_binds(p: &str, name: &str) -> bool {
     static DEFAULT: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"\\\\[^,)]*").unwrap());
@@ -295,9 +266,6 @@ fn elixir_binds(p: &str, name: &str) -> bool {
             && !after.starts_with(['(', '.'])
     })
 }
-/// The 1-based lines of the `def`s, attributes and other declarations matching `pattern` that
-/// the Elixir module around 1-based `line` holds itself: its body's own statements, not those of
-/// a module nested in it (#460). A bare call and an attribute are that module's first.
 pub fn elixir_module_lines(text: &str, line: usize, pattern: &Regex) -> Vec<usize> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
@@ -338,7 +306,6 @@ fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
         std::sync::LazyLock::new(|| Regex::new(r"\bfunction\b[^(]*\(([^)]*)\)").unwrap());
     static FOR: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^for\s+([\w\s,]+?)\s*(?:\bin\b|=)").unwrap());
-    // `local a <const>, b = …` names `a` and `b`.
     let lists = |list: &str| {
         list.split(',')
             .any(|n| n.split('<').next().is_some_and(|n| n.trim() == name))
@@ -351,7 +318,6 @@ fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
         }]
     };
     let mut depth = indent(lines[at]);
-    // An `until` reads the body of its `repeat`, one block deeper than itself.
     let own = uncommented(Kind::Lua, lines[at]);
     if own
         .trim_start()
@@ -372,7 +338,6 @@ fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             continue;
         }
         if ind == depth {
-            // A statement of the block the cursor is in: a `local` declares for the lines below.
             if let Some(c) = LOCAL.captures(t)
                 && (c.get(1).is_some_and(|f| f.as_str() == name)
                     || c.get(2).is_some_and(|l| lists(l.as_str())))
@@ -381,8 +346,6 @@ fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             }
             continue;
         }
-        // The header of a block the cursor is in: its parameters, its loop variables, and the
-        // name of a `local function`, which its own body can call.
         depth = ind;
         let own = LOCAL
             .captures(t)
@@ -424,8 +387,6 @@ fn zig_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             }
             continue;
         }
-        // A header opens the block the walk is in; `) u32 {` closes one wrapped over the
-        // lines above it, from the line back at its indent.
         let end = i;
         depth = indent(lines[i]);
         if t.starts_with(')') {
@@ -448,9 +409,6 @@ fn zig_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     }
     Vec::new()
 }
-/// Whether the word at `range` of 1-based `line` of a Lua file is the key of a table
-/// constructor: `name = …` behind a `{` or a `,`, or at the start of a line inside one. It names a
-/// field, and no variable of that spelling (#461).
 pub fn table_key(text: &str, line: usize, range: &Range<usize>) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let Some(l) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
@@ -463,9 +421,6 @@ pub fn table_key(text: &str, line: usize, range: &Range<usize>) -> bool {
         && (before.ends_with(['{', ','])
             || (before.is_empty() && continued(Kind::Lua, &lines, line - 1)))
 }
-/// What `local name = …` gives a Lua qualifier `name` at 1-based `line` of `text` (#462): the
-/// `local` the cursor's function sees, else the nearest one above it at the top of the file.
-/// `None` for a parameter, a `for` variable, a `local` of several names or no `local` at all.
 pub fn lua_local_value(text: &str, line: usize, name: &str) -> Option<String> {
     let lines: Vec<&str> = text.lines().collect();
     let re = Regex::new(&format!(r"^\s*local\s+{}\s*=\s*(.+)", regex::escape(name)))
@@ -473,8 +428,6 @@ pub fn lua_local_value(text: &str, line: usize, name: &str) -> Option<String> {
     let at = match bindings(Kind::Lua, text, line, name).first() {
         Some(b) => b.line1 - 1,
         None => {
-            // The walk reads the lines above the cursor: a `for` or a `function(…)` on its own
-            // line may bind the name, and then the file's `local` says nothing.
             let own = line
                 .checked_sub(1)
                 .and_then(|i| lines.get(i))
@@ -498,14 +451,12 @@ pub fn lua_local_value(text: &str, line: usize, name: &str) -> Option<String> {
     let code = uncommented(Kind::Lua, lines[at]);
     Some(re.captures(&code)?[1].trim().to_owned())
 }
-/// The module a Lua `require("a.b")` (or `require "a.b"`) names, when `value` is one.
 pub fn lua_required(value: &str) -> Option<&str> {
     static REQUIRE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#"^require\s*\(?\s*["']([\w./-]+)["']\s*\)?$"#).unwrap()
     });
     Some(REQUIRE.captures(value)?.get(1)?.as_str())
 }
-/// The table a Lua module hands out: `M` of the `return M` at the top of `text`.
 pub fn lua_returned(text: &str) -> Option<String> {
     let literal = literal_lines(Kind::Lua, text);
     text.lines()
@@ -523,8 +474,6 @@ pub fn lua_returned(text: &str) -> Option<String> {
         })
         .last()
 }
-/// The table `name` of a Lua file, spelled as its functions qualify it (#462): `name` for its
-/// `local name = {…}`, `owner.name` for `owner.name = {…}` at the top of `text`.
 pub fn lua_table(text: &str, owner: Option<&str>, name: &str) -> Option<String> {
     let end = text.lines().count() + 1;
     if lua_local_value(text, end, name).is_some_and(|v| v.starts_with('{')) {
@@ -539,8 +488,6 @@ pub fn lua_table(text: &str, owner: Option<&str>, name: &str) -> Option<String> 
         .any(|(l, inside)| !inside && re.is_match(l))
         .then_some(path)
 }
-/// The 1-based lines of `text` that declare `word` in the Lua table `table`:
-/// `function table.word(`, `function table:word(`, `table.word = function`.
 pub fn lua_members(text: &str, table: &str, word: &str) -> Vec<usize> {
     let (t, w) = (regex::escape(table), regex::escape(word));
     let re = Regex::new(&format!(
@@ -555,8 +502,6 @@ pub fn lua_members(text: &str, table: &str, word: &str) -> Vec<usize> {
         .map(|(i, _)| i + 1)
         .collect()
 }
-/// Whether line `i` continues the statement above it: that line ends in an open bracket, a comma
-/// or a backslash.
 pub(super) fn continued(kind: Kind, lines: &[&str], i: usize) -> bool {
     lines[..i]
         .iter()
@@ -585,16 +530,12 @@ pub fn written_line<S: AsRef<str>>(lines: &[S], line: usize, name: &str) -> usiz
     }
     line
 }
-/// Walks up from line `at` through the blocks around it: a line at the cursor's block level is a
-/// statement, a line indented less opens the block the walk is in, and deeper lines belong to
-/// blocks already closed.
 fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let this = kind == Kind::TsJs && (name == "this" || name == "super");
     let mut out = Vec::new();
     if !this {
         opener_bindings(kind, &uncommented(kind, lines[at]), at + 1, name, &mut out);
     }
-    // A raw string, a template or a block comment over several lines declares nothing.
     let literal = literal_lines(kind, &lines.join("\n"));
     let mut depth = indent(lines[at]);
     let mut i = at;
@@ -643,7 +584,6 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                         let whole: Vec<&str> = lines[j..=i].iter().map(|l| l.trim()).collect();
                         let whole = uncommented(kind, &whole.join("\n")).replace('\n', " ");
                         statement_bindings(kind, &whole, j + 1, name, &mut out);
-                        // Its first line alone would read `const repo = {` again, as less.
                         first_line_read_whole = Some(j);
                     }
                     None if first_line_read_whole == Some(i) => {}
@@ -668,9 +608,6 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                     }
                     go_block_statement_at = Some(out.len() - 1);
                 }
-                // In `case *Repo:` the variable of a type switch is a `*Repo`; under several
-                // types or `default` it is whatever came in. A `switch` met with no `case` on
-                // the way up is one the cursor is not in.
                 if let Some(types) = arm.as_deref().filter(|_| type_switch.is_match(t)) {
                     let value = match types {
                         [one] => Value::Type(one.clone()),
@@ -688,8 +625,6 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
             }
             continue;
         }
-        // A header over several lines ends in a closer (`) {`, `} else {`) and starts at the
-        // line above that is back at its indent.
         let end = i;
         let line_back_at_indent = (0..i)
             .rev()
@@ -719,14 +654,9 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                 i = j;
             }
         }
-        // Between an `if` and its `} else {` lies a block the cursor is not in: only the two
-        // lines are the header, where a signature closed by `) {` or `}: Deps) {` is all of
-        // its lines.
         let sibling = ["else", "catch", "finally"]
             .iter()
             .any(|k| t.trim_start_matches('}').trim_start().starts_with(k));
-        // So do the type parameters between `route<` and `>(repo: Repo) {`: the parameter of an
-        // arrow among them, `H extends (repo: Log) => void,`, is none of the function's.
         let header: Vec<&str> = match (sibling || closes_type_params) && end > i {
             true => vec![lines[i].trim(), t],
             false => lines[i..=end].iter().map(|l| l.trim()).collect(),
@@ -745,15 +675,9 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                     (None, false) => arm,
                 };
             }
-            // The innermost block that declares the name hides the ones around it: a statement
-            // of the block the walk leaves here, or what the header binds for that block. A
-            // callback elsewhere on the header's lines (`if (xs.some((repo: Repo) => …)) {`,
-            // `register((repo: Repo) => repo, {`) is a function the cursor is not in, as one on
-            // the cursor's own line may be: its parameters count, and hide nothing.
             if opener_bindings(kind, &header, i + 1, name, &mut out) || declared_in_block {
                 break;
             }
-            // Past a C# type's header the walk is out of its body; past a member's, in it.
             if kind == Kind::CSharp {
                 if cs_type_decl(lines[i]).is_some() || cs_namespace_line(lines[i]) {
                     break;
@@ -770,9 +694,6 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
     }
     out
 }
-/// What `this` is inside the block a header opens: the class it declares, unknown under a
-/// `function` or an object literal, `None` for a block `this` passes through (a method, an arrow
-/// function, an `if`).
 fn this_opener(header: &str, line: usize) -> Option<Value> {
     static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^(?:(?:export|default|declare|abstract)\s+)*class\b").unwrap()
@@ -781,8 +702,6 @@ fn this_opener(header: &str, line: usize) -> Option<Value> {
         return Some(Value::Class { decl_line1: line });
     }
     let before = header.strip_suffix('{').map(str::trim_end);
-    // `case X: {` and `default: {` open statements, whatever the colon suggests; the `{` of a
-    // `case X: return {` on the same line is a literal's.
     let case = (header.starts_with("case ") || header.starts_with("default"))
         && before.is_some_and(|b| b.ends_with(':'));
     let object = !case
@@ -802,7 +721,6 @@ pub fn ts_arrow_binds(line: &str, name: &str, at: usize) -> bool {
 pub fn ts_arrow_param(line: &str, name: &str, at: usize) -> bool {
     let before = line[..at].trim_end();
     let after = line[at + name.len()..].trim_start();
-    // `): T =>` is a return type; a key's `:`, `{ key: x => x }`, is not.
     let returned = before
         .strip_suffix(':')
         .is_some_and(|b| b.trim_end().ends_with(')'));
@@ -820,8 +738,6 @@ fn ts_arrows(line: &str, name: &str) -> Vec<TsArrow> {
     let Ok(word) = Regex::new(&format!(r"(?:^|[^\w$.]){}\b", regex::escape(name))) else {
         return Vec::new();
     };
-    // A string left open at the end of the line, an apostrophe in JSX text more often than not,
-    // has swallowed brackets: where the body ends is unknown.
     // ponytail: a pair of apostrophes in JSX text still reads as a string; reading JSX text is
     // the way out.
     if code(Kind::TsJs, &format!("{line}\n)")).last() != Some((line.len() + 1, b')')) {
@@ -882,7 +798,6 @@ fn ts_arrows(line: &str, name: &str) -> Vec<TsArrow> {
                     }
                     b',' | b';' => depth == 0,
                     b'?' if depth == 0 => {
-                        // `?.` and `??` are no ternary.
                         let chain = b[i - 1] == b'?' || matches!(b.get(i + 1), Some(b'.' | b'?'));
                         ternaries_awaiting_colon += i32::from(!chain);
                         false
@@ -891,7 +806,6 @@ fn ts_arrows(line: &str, name: &str) -> Vec<TsArrow> {
                         ternaries_awaiting_colon -= 1;
                         ternaries_awaiting_colon < 0
                     }
-                    // An assignment; `=>`, a comparison and a JSX attribute, `key={x}`, are not.
                     b'=' if depth == 0 => {
                         !b"=<>!".contains(&b[i - 1])
                             && !b.get(i + 1).is_some_and(|c| b"=>{\"'".contains(c))
@@ -907,10 +821,6 @@ fn ts_arrows(line: &str, name: &str) -> Vec<TsArrow> {
         })
         .collect()
 }
-/// The bindings of `name` a block's header makes for the lines inside it: the parameters of a
-/// function, a method or an arrow, a Go receiver and named results, the variables of a loop, a
-/// `catch` or a Go `if x := …;`. Returns whether one of them is made for the block under the
-/// header, and so hides the scopes around it.
 fn opener_bindings(
     kind: Kind,
     header: &str,
@@ -1002,7 +912,6 @@ fn opener_bindings(
                 regex::escape(name)
             ))
             .expect("an escaped name keeps the pattern valid");
-            // `): Node => ({` returns a `Node`: the name is the arrow's return type (#331).
             if let Some(c) = arrow
                 .captures_iter(header)
                 .last()
@@ -1052,8 +961,6 @@ fn opener_bindings(
                     {
                         go_params(&results[1..end - 1], line, name, out);
                     }
-                    // Between the parameters and the `{` that ends the header stand results
-                    // only: another brace there closes this function or opens a literal.
                     let body = results.trim_end().strip_suffix('{');
                     binds_for_body |=
                         out.len() > count && body.is_some_and(|r| !r.contains(['{', '}']));
@@ -1065,8 +972,6 @@ fn opener_bindings(
     binds_for_body
 }
 pub fn go_binds_here(line: &str, name: &str, at: usize) -> bool {
-    // The brackets open at the cursor, and every `func` before it that writes a type: inside a
-    // bracket closed since, a parameter list's or the results', or right behind one, `) func(`.
     let (mut open, mut types) = (Vec::new(), Vec::new());
     let ident = |c: &u8| c.is_ascii_alphanumeric() || *c == b'_';
     let mut last = b' ';
@@ -1094,7 +999,6 @@ pub fn go_binds_here(line: &str, name: &str, at: usize) -> bool {
             let mut header = line[..=b].to_owned();
             for &(f, inside, result) in types.iter().filter(|t| t.0 < b) {
                 if result || inside.is_some_and(|p| !open.contains(&p)) {
-                    // Not blanks: `)     (name T)` would read as named results.
                     header.replace_range(f..f + 4, "type");
                 }
             }
@@ -1137,9 +1041,6 @@ pub fn go_param_type(line: &str, name: &str, at: usize) -> bool {
         .any(|i| i.trim().contains(char::is_whitespace));
     !named || !line[item_start..at].trim().is_empty()
 }
-/// Whether what `before` ends in writes a return type: the nearest `:` in front, at its bracket
-/// depth, follows the `)` of a parameter list, `): A | B`. A `:` after a key, `onClick: e =>`,
-/// does not (#331).
 fn return_type(before: &str) -> bool {
     let b = before.as_bytes();
     let mut depth = 0i32;
@@ -1160,8 +1061,6 @@ fn return_type(before: &str) -> bool {
     }
     false
 }
-/// The binding of `name` among Go parameters, a receiver or named results: `a, b *T` gives both
-/// names the type written after the last of them. A list of bare types names nothing.
 fn go_params(params: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
     let items: Vec<&str> = split_top(Kind::Go, params, b',')
         .into_iter()
@@ -1189,9 +1088,6 @@ fn go_params(params: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
         }
     }
 }
-/// The binding of `name` a statement at a block's level makes: a TypeScript `const` / `let` /
-/// `var`, a Go `:=` or `var`. A destructuring, a second name of a Go `:=` or a declaration the
-/// rules cannot type is unknown.
 fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
     static GO_SHORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:=\s*(.*)$").unwrap()
@@ -1258,7 +1154,6 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
                 }
             } else if t
                 .strip_prefix("const ")
-                // The names, not the value: `const csp = "… http://…"` declares no `http`.
                 .is_some_and(|rest| names(rest.split('=').next().unwrap_or(rest), name))
             {
                 Value::Unknown
@@ -1289,8 +1184,6 @@ pub(super) fn ts_header(lines: &[&str], k: usize) -> TsHeader {
                 open = Some(i);
                 break;
             }
-            // The declaration ended with no body, `type Loose = any;`: the line under it is back
-            // at its indent and is no `{`. The next `{` is another declaration's.
             b'\n' if depth == 0 && angle == 0 => {
                 let next = text[i + 1..].lines().next().unwrap_or("");
                 if indent(next) <= indent(lines[k]) && !next.trim_start().starts_with('{') {
@@ -1305,7 +1198,6 @@ pub(super) fn ts_header(lines: &[&str], k: usize) -> TsHeader {
                 }
                 angle += 1;
             }
-            // The `>` of a `=>` closes nothing.
             b'>' if depth == 0 && angle > 0 && b[i - 1] != b'=' => {
                 angle -= 1;
                 if angle == 0 && type_params_from.is_some() && type_params_to.is_none() {
@@ -1350,7 +1242,6 @@ pub fn go_may_declare(text: &str, line: usize, name: &str) -> bool {
                 && !code[i + m.len()..].trim_start().starts_with(['.', ')'])
         })
     };
-    // The line itself counts: `if repo := get(); repo.Do() {`, a function written on one line.
     for i in (0..=at.min(lines.len().saturating_sub(1))).rev() {
         let l = lines[i];
         if literal[i] || l.trim().is_empty() {
@@ -1359,10 +1250,6 @@ pub fn go_may_declare(text: &str, line: usize, name: &str) -> bool {
         if mentions(l) {
             return true;
         }
-        // The function starts at the `func` in column 0, and what ends the declaration above
-        // it, or starts another, is the package's, as the cursor then is. Any other line in
-        // column 0 still belongs to the function: a header's closer (`) error {`, `}) {`), a
-        // label, whatever else: reading on can only find more mentions.
         let ends = l.starts_with("func")
             || ["}", ")"].contains(&l.trim_end())
             || ["type ", "var ", "const ", "import ", "package "]
@@ -1391,8 +1278,6 @@ pub fn package_bindings(text: &str, name: &str) -> Vec<Binding> {
                 in_var_block = false;
                 statement_bindings(Kind::Go, t, i + 1, name, &mut out);
             }
-            // gofmt aligns the `=` of a block with spaces, which one `var` line never has. A
-            // deeper line belongs to an entry's value or type, `cfg struct {` / `repo *Repo`.
             (n, true) if Some(n) == entry_indent.or(Some(n)) => {
                 entry_indent = Some(n);
                 let words: Vec<&str> = t.split_whitespace().collect();

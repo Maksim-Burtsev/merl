@@ -612,6 +612,7 @@ fn external_files_ignore_no_gitignore_and_keep_the_kind() {
     let dir = std::env::temp_dir().join(format!("merl-ext-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("pkg")).unwrap();
+    std::fs::create_dir_all(dir.join(".git")).unwrap();
     std::fs::write(dir.join(".gitignore"), "pkg\n").unwrap();
     std::fs::write(dir.join("pkg/mod.py"), "").unwrap();
     std::fs::write(dir.join("pkg/mod.pyi"), "").unwrap();
