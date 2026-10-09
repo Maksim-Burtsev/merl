@@ -67,6 +67,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   definition after `x: @unchecked`, and names such as `Boolean_||`. (#780)
 - `d` in C++ finds the members of a class whose head carries a block comment,
   `class Box /* api */ {`, as in any other class, where it said `no definition`. (#782)
+- `d` in C# on a name a deconstruction declares, `foreach (var (left, right) in pairs)` or
+  `(var a, int b) = Split(x);`, jumps to the deconstruction instead of a field of the same name
+  or nowhere. (#784)
 
 ## [0.8.3] - 2026-10-07
 

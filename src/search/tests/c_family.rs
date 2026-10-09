@@ -432,6 +432,38 @@ fn csharp_scope_stays_in_the_project() {
 }
 
 #[test]
+fn csharp_deconstructions_declare_their_names() {
+    let text = "\
+public class Pairs
+{
+    int left;
+
+    void Walk(List<(int, int)> pairs)
+    {
+        (var a, int b) = Split(pairs);
+        var (c, (d, e)) = Split(pairs);
+        (left, b) = (b, left);
+        Use(a, b, c, e, left);
+    }
+}
+";
+    let lines = |name: &str| -> Vec<usize> {
+        bindings(Kind::CSharp, text, 10, name)
+            .iter()
+            .map(|b| b.line1)
+            .collect()
+    };
+    assert_eq!(lines("a"), [7]);
+    assert_eq!(lines("b"), [7], "a typed name in the tuple is declared too");
+    assert_eq!(lines("c"), [8]);
+    assert_eq!(lines("e"), [8], "a nested tuple declares its names");
+    assert!(
+        lines("left").is_empty(),
+        "an assignment to a tuple of names declares none of them"
+    );
+}
+
+#[test]
 fn csharp_bindings_read_headers_not_calls_or_fields() {
     let text = "\
 public class Cart
@@ -462,9 +494,10 @@ public class Cart
         "the object initialiser's `new Order(seed)` over `{{` is no signature: `seed` is Fill's"
     );
     assert_eq!(lines("order", 11), [7]);
-    assert!(
-        lines("left", 13).is_empty(),
-        "a deconstruction binds nothing, today (#784)"
+    assert_eq!(
+        lines("left", 13),
+        [12],
+        "a deconstruction declares its names"
     );
     assert!(
         lines("item", 13).is_empty(),
@@ -1695,10 +1728,17 @@ fn csharp_headers_bind_their_parameters_and_variables() {
             "{header}: a lambda that is not the block binds without hiding"
         );
     }
+    for (header, name) in [
+        ("foreach (var (a, b) in pairs)", "a"),
+        ("foreach (var (a, (b, c)) in pairs)", "c"),
+        ("foreach ((int a, string b) in pairs)", "b"),
+    ] {
+        assert_eq!(opener(header, name), (true, true), "{header}");
+    }
     assert_eq!(
-        opener("foreach (var (a, b) in pairs)", "a"),
+        opener("foreach (var (a, b) in pairs)", "pairs"),
         (false, false),
-        "a deconstruction binds nothing, today (#784)"
+        "what a deconstruction walks is not among its names"
     );
     assert_eq!(
         opener("new Order(out seed)", "seed"),
