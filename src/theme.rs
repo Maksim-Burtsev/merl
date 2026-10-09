@@ -58,6 +58,7 @@ const THEMES: &[(&str, &[u8])] = &[
     ("jellybeans", include_bytes!("../themes/jellybeans.tmTheme")),
     ("koda-dark", include_bytes!("../themes/koda-dark.tmTheme")),
     ("lackluster", include_bytes!("../themes/lackluster.tmTheme")),
+    ("lucerna", include_bytes!("../themes/lucerna.tmTheme")),
     ("mellifluous", include_bytes!("../themes/mellifluous.tmTheme")),
     ("mellow", include_bytes!("../themes/mellow.tmTheme")),
     ("miasma", include_bytes!("../themes/miasma.tmTheme")),
@@ -67,6 +68,7 @@ const THEMES: &[(&str, &[u8])] = &[
     ("papercolor", include_bytes!("../themes/papercolor.tmTheme")),
     ("pencil", include_bytes!("../themes/pencil.tmTheme")),
     ("selenized", include_bytes!("../themes/selenized.tmTheme")),
+    ("seneca", include_bytes!("../themes/seneca.tmTheme")),
     ("soviet-dark", include_bytes!("../themes/soviet-dark.tmTheme")),
     ("srcery", include_bytes!("../themes/srcery.tmTheme")),
     ("token", include_bytes!("../themes/token.tmTheme")),
@@ -108,6 +110,7 @@ const THEMES: &[(&str, &[u8])] = &[
     ("papercolor-light", include_bytes!("../themes/papercolor-light.tmTheme")),
     ("pencil-light", include_bytes!("../themes/pencil-light.tmTheme")),
     ("selenized-light", include_bytes!("../themes/selenized-light.tmTheme")),
+    ("seneca-light", include_bytes!("../themes/seneca-light.tmTheme")),
     ("soviet-light", include_bytes!("../themes/soviet-light.tmTheme")),
     ("token-light", include_bytes!("../themes/token-light.tmTheme")),
 ];
@@ -116,6 +119,14 @@ pub const DEFAULT: &str = "tokyonight-moon";
 
 pub fn names() -> impl Iterator<Item = &'static str> {
     THEMES.iter().map(|(name, _)| *name)
+}
+
+#[cfg(test)]
+pub const UNCOLOURED: &[&str] = &["lucerna", "seneca", "seneca-light"];
+
+#[cfg(test)]
+pub fn coloured_names() -> impl Iterator<Item = &'static str> {
+    names().filter(|name| !UNCOLOURED.contains(name))
 }
 
 pub fn user_dir() -> Option<PathBuf> {
@@ -568,7 +579,7 @@ mod tests {
     /// function are not painted in one or two colours between them.
     #[test]
     fn every_theme_has_the_basics() {
-        for name in names() {
+        for name in coloured_names() {
             let t = load(name).unwrap_or_else(|e| panic!("{name}: {e:#}"));
             let s = &t.syntect.settings;
             assert!(s.background.is_some(), "{name} has no background");
@@ -592,6 +603,15 @@ mod tests {
     /// text's own colours over it, and its plain text reads at WCAG AA; one that sets neither gets
     /// the text or background colour, whichever reads better on merl's tint. A theme's own
     /// `findHighlightForeground` is kept as it is.
+    #[test]
+    fn an_uncoloured_theme_still_sets_its_comments_apart() {
+        for &name in UNCOLOURED {
+            assert!(names().any(|n| n == name), "{name} is not a theme");
+            let t = load(name).unwrap();
+            assert_ne!(comment_color(&t.syntect), t.fg, "{name}");
+        }
+    }
+
     #[test]
     fn every_find_match_reads_on_its_tint() {
         for name in names() {
@@ -715,7 +735,7 @@ mod tests {
                 "[package]\nname = \"merl\"  # the binary\nversion = \"0.3.0\"\nedition = 2024\n",
             ),
         ];
-        for name in names() {
+        for name in coloured_names() {
             let theme = load(name).unwrap();
             for (file, text) in SAMPLES {
                 let mut b = Buffer::from_bytes(PathBuf::from(file), text.as_bytes());
@@ -796,7 +816,7 @@ mod tests {
             Color::Rgb(0x82, 0xaa, 0xff),
             "tokyonight-moon paints functions #82aaff, the blue LazyVim uses for directories"
         );
-        for name in names() {
+        for name in coloured_names() {
             let t = load(name).unwrap();
             assert_ne!(t.accent, t.fg, "{name}");
             assert_ne!(t.accent, t.bg, "{name}");
@@ -833,7 +853,7 @@ mod tests {
             "source.yaml constant.language.merge.yaml",
             "text.git.ignore string.unquoted.git.ignore entity.name.pattern.git.ignore",
         ];
-        for name in names() {
+        for name in coloured_names() {
             let t = load(name).unwrap();
             let hl = Highlighter::new(&t.syntect);
             for stack in STACKS {

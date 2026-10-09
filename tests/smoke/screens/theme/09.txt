@@ -10,20 +10,20 @@ wait github-light
 │    repos.py                │ 9     PAID = "paid"
 │    service.py              │10     SHIPPED = "shipped"
 │    uow.py                  │11     CANCELLED = "cancelled"
-│▸ data                      │12     R┌Themes (94/94)───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│▸ data                      │12     R┌Themes (97/97)───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │▸ deploy                    │13      │>                                                                                                                                        │
-│▸ docs                      │14      │jellybeans                                                                                                                               │
-│▸ scripts                   │15 @data│koda-dark                                                                                                                                │
-│▸ tests                     │16 class│lackluster                                                                                                                               │
-│▸ web                       │17     i│mellifluous                                                                                                                              │
-│▸ worker                    │18     c│mellow                                                                                                                                   │
-│  .env                      │19     t│miasma                                                                                                                                   │
-│  .gitignore                │20     s│minischeme                                                                                                                               │
-│  docker-compose.yml        │21     c│moonfly                                                                                                                                  │
-│  Dockerfile                │22      │nightfly                                                                                                                                 │
-│  Makefile                  │23     d│papercolor                                                                                                                               │
-│  pyproject.toml            │24      │pencil                                                                                                                                   │
-│  README.md                 │        │selenized                                                                                                                                │
+│▸ docs                      │14      │lackluster                                                                                                                               │
+│▸ scripts                   │15 @data│lucerna                                                                                                                                  │
+│▸ tests                     │16 class│mellifluous                                                                                                                              │
+│▸ web                       │17     i│mellow                                                                                                                                   │
+│▸ worker                    │18     c│miasma                                                                                                                                   │
+│  .env                      │19     t│minischeme                                                                                                                               │
+│  .gitignore                │20     s│moonfly                                                                                                                                  │
+│  docker-compose.yml        │21     c│nightfly                                                                                                                                 │
+│  Dockerfile                │22      │papercolor                                                                                                                               │
+│  Makefile                  │23     d│pencil                                                                                                                                   │
+│  pyproject.toml            │24      │selenized                                                                                                                                │
+│  README.md                 │        │seneca                                                                                                                                   │
 │                            │        │soviet-dark                                                                                                                              │
 │                            │        │srcery                                                                                                                                   │
 │                            │        │token                                                                                                                                    │
