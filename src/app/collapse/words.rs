@@ -532,7 +532,7 @@ pub(crate) fn rbs(lines: &[String]) -> Blocks {
     for (n, line) in lines.iter().enumerate() {
         let mut t = line.trim_start();
         while let Some(rest) = t.strip_prefix("%a") {
-            let Some(open) = rest.bytes().next() else {
+            let Some(open) = rest.bytes().next().filter(u8::is_ascii) else {
                 break;
             };
             let close = closing(open) as char;

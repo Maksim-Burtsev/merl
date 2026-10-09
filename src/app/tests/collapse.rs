@@ -559,6 +559,14 @@ fn f_survives_every_prefix_of_the_swift_php_objc_c_cpp_elixir_rbs_zsh_dart_and_s
 }
 
 #[test]
+fn f_in_rbs_survives_an_annotation_opened_by_a_non_ascii_char() {
+    let mut a = app_as("rbs", "class A\n  %aé\nend\n");
+    a.go((1, 2));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(0, 2)]);
+}
+
+#[test]
 fn php_uses_inside_a_braced_namespace_and_a_phtml_file_fold() {
     let text =
         "<?php\nnamespace App {\n    use A;\n    use B;\n\n    function f()\n    {\n    }\n}\n";
