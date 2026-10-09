@@ -40,6 +40,11 @@ struct Proven {
     link: String,
 }
 
+struct CsWrittenType {
+    ty: CsType,
+    written: String,
+}
+
 impl App {
     pub(super) fn cs_typed(
         &self,
@@ -285,8 +290,11 @@ impl App {
         for b in bindings {
             let at = search::cs_written_line(&lines, b.line1, name);
             let value = search::cs_declared(lines.get(at - 1)?, name);
-            let (ty, written) = match value {
-                search::CsValue::Type(w) => (self.cs_resolve(file, text, at, &w)?, w),
+            let CsWrittenType { ty, written } = match value {
+                search::CsValue::Type(w) => CsWrittenType {
+                    ty: self.cs_resolve(file, text, at, &w)?,
+                    written: w,
+                },
                 search::CsValue::Call { callee, awaited } if hops > 0 => {
                     self.cs_call_type(file, text, at, &callee, awaited, hops - 1)?
                 }
@@ -304,8 +312,7 @@ impl App {
 
     /// What a call of `callee` on `line1` of `file` gives: the declared return type of the
     /// one method of the name that the type around the line, the receiver's type or the type the
-    /// callee names declares; `Task<T>` and `ValueTask<T>` under `await` read as `T`. The type,
-    /// and the return type as written.
+    /// callee names declares; `Task<T>` and `ValueTask<T>` under `await` read as `T`.
     fn cs_call_type(
         &self,
         file: &Path,
@@ -314,7 +321,7 @@ impl App {
         callee: &str,
         awaited: bool,
         hops: usize,
-    ) -> Option<(CsType, String)> {
+    ) -> Option<CsWrittenType> {
         let parts: Vec<&str> = callee.split('.').collect();
         let (method, receiver) = parts.split_last()?;
         let owner = match receiver {
@@ -357,7 +364,7 @@ impl App {
         };
         let at = self.text_of(&hit.path)?;
         let ty = self.cs_resolve(&hit.path, &at, hit.line, &written)?;
-        Some((ty, written))
+        Some(CsWrittenType { ty, written })
     }
 
     /// The type written as `written` on `line1` of `text`, the text of `file`: the one
