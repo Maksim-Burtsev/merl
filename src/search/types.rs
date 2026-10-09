@@ -351,11 +351,14 @@ pub fn params(kind: Kind, text: &str, line1: usize) -> Option<usize> {
             .count(),
     )
 }
-/// The types a Go declaration on `line1` takes and what it returns, as written but for
-/// the package in front of a name and the spaces: `a, b string` is two `string`s, `ctx
-/// context.Context` is `Context`. An implementation of an interface method writes the same ones,
-/// whatever it calls its parameters. `None` when the result names its values or cannot be read.
-pub fn go_signature(text: &str, line1: usize) -> Option<(Vec<String>, String)> {
+/// The types as written but for the package in front of a name and the spaces: `a, b string` is
+/// two `string`s, `ctx context.Context` is `Context`. `None` when the result names its values.
+#[derive(Debug, PartialEq, Eq)]
+pub struct GoSignature {
+    pub param_types: Vec<String>,
+    pub result: String,
+}
+pub fn go_signature(text: &str, line1: usize) -> Option<GoSignature> {
     static PKG: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"\b\w+\.").unwrap());
     let kind = Kind::Go;
@@ -401,7 +404,10 @@ pub fn go_signature(text: &str, line1: usize) -> Option<(Vec<String>, String)> {
         && split_top(kind, result.trim_matches(['(', ')']), b',')
             .iter()
             .any(|p| p.trim().contains(char::is_whitespace));
-    (!names_values).then(|| (types, plain(result)))
+    (!names_values).then(|| GoSignature {
+        param_types: types,
+        result: plain(result),
+    })
 }
 /// Whether `line` declares a type: a Python class, a TypeScript class, interface, type alias or
 /// enum, a Go `type`. An alias goes on as `=` or `<`: `type Notifier,` is an item of a wrapped
