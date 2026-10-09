@@ -1,5 +1,5 @@
 use super::*;
-use symbols::NamedSymbol;
+use symbols::{NamedSymbol, SymbolHits};
 
 /// How long the `s` query has to stand still before it is grepped.
 pub(super) const SEARCH_PAUSE: Duration = Duration::from_millis(80);
@@ -36,7 +36,7 @@ impl SearchJob {
     /// them, or the declarations `D` lists.
     pub fn items(&self) -> Vec<PickItem> {
         if self.symbols {
-            return App::symbol_items(self.symbol_hits().0);
+            return App::symbol_items(self.symbol_hits().named);
         }
         // An escaped literal always compiles, but a pasted query can outgrow the matcher's size
         // limit: it finds nothing then, rather than killing the thread the answer is awaited from.
@@ -69,7 +69,7 @@ impl SearchJob {
     /// all of them when it is empty, which is the press of `D`. Each row is read only from the
     /// files it is written for; the name decides before the [`search::MAX_HITS`] cut, so a query
     /// reaches past a cut list.
-    pub(super) fn symbol_hits(&self) -> (Vec<NamedSymbol>, bool) {
+    pub(super) fn symbol_hits(&self) -> SymbolHits {
         let mut named: Vec<NamedSymbol> = Vec::new();
         let mut cut = false;
         let mut haskell_code: HashMap<PathBuf, search::HaskellCode> = HashMap::new();
@@ -160,7 +160,7 @@ impl SearchJob {
                 })
             }));
         }
-        (named, cut)
+        SymbolHits { named, cut }
     }
 }
 
@@ -182,6 +182,12 @@ pub(super) fn deleted_hits(
             })
         })
         .collect()
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(super) struct FileLine {
+    pub(super) path: PathBuf,
+    pub(super) line1: usize,
 }
 
 /// A type `d` followed a receiver to: its name and the line that declares it.

@@ -6,6 +6,10 @@ struct TypeVia {
     ty: Typed,
     call_signature: Option<String>,
 }
+struct SwiftChain {
+    written: String,
+    links: Vec<String>,
+}
 struct WrittenVia {
     written: String,
     call_signature: Option<String>,
@@ -1019,7 +1023,8 @@ impl App {
     ) -> Option<Vec<Candidate>> {
         let cut = self.truncated.get();
         let found = (|| {
-            let (written, links) = self.swift_chain(here, here, text, self.line + 1, chain, 1)?;
+            let SwiftChain { written, links } =
+                self.swift_chain(here, here, text, self.line + 1, chain, 1)?;
             let ty = self.swift_type(here, &written)?;
             let mut rows = self.swift_member_rows(here, &ty, word)?;
             // A value reaches the instance members; a `static` one needs the type.
@@ -1046,8 +1051,7 @@ impl App {
         found
     }
 
-    /// The type written for the last of `names` on `line1` of `text`, the text of `file`,
-    /// as written, and the links that prove it.
+    /// The type written for the last of `names` on `line1` of `text`, the text of `file`.
     fn swift_chain(
         &self,
         here: &Path,
@@ -1056,7 +1060,7 @@ impl App {
         line1: usize,
         names: &[String],
         hops: usize,
-    ) -> Option<(String, Vec<String>)> {
+    ) -> Option<SwiftChain> {
         let WrittenVia {
             mut written,
             call_signature: link,
@@ -1083,7 +1087,7 @@ impl App {
             }
             written = next;
         }
-        Some((written, links))
+        Some(SwiftChain { written, links })
     }
 
     /// `self` is the type around the line; a local or a parameter what its one binding gives it;
@@ -1183,9 +1187,9 @@ impl App {
             search::SwiftExpr::Cast(t) => return Some(WrittenVia::plain(t)),
             search::SwiftExpr::Chain(c) => {
                 let names: Vec<String> = c.split('.').map(str::to_owned).collect();
-                let (w, _) =
+                let chain =
                     self.swift_chain(here, file, text, line1, &names, hops.checked_sub(1)?)?;
-                return Some(WrittenVia::plain(w));
+                return Some(WrittenVia::plain(chain.written));
             }
             search::SwiftExpr::Call(callee) => callee,
         };
@@ -1220,9 +1224,9 @@ impl App {
                 (decl, None)
             }
             _ => {
-                let (w, _) =
+                let chain =
                     self.swift_chain(here, file, text, line1, receiver, hops.checked_sub(1)?)?;
-                let ty = self.swift_type(here, &w)?;
+                let ty = self.swift_type(here, &chain.written)?;
                 let rows = self.swift_member_rows(here, &ty, method)?;
                 let [decl] = <[Hit; 1]>::try_from(rows).ok()?;
                 (decl, Some(ty.name))

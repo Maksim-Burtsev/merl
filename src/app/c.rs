@@ -1,5 +1,10 @@
 use super::*;
 
+struct CTypeIn {
+    file: PathBuf,
+    ty: search::CType,
+}
+
 impl App {
     /// What `d` on `word` at `range` of the cursor's line answers before any other lookup in a C
     /// or C++ file; `None` leaves the word to the rest of [`App::goto_definition`].
@@ -77,9 +82,10 @@ impl App {
             false => Err(at.to_owned()),
         };
         let start = match called {
-            true => self
-                .c_return_type(here, &head)
-                .map(|t| (here.to_path_buf(), search::CType::Name(t))),
+            true => self.c_return_type(here, &head).map(|t| CTypeIn {
+                file: here.to_path_buf(),
+                ty: search::CType::Name(t),
+            }),
             false => self.c_head_type(here, text, &head),
         };
         let Some(mut ty) = start else {
@@ -91,7 +97,7 @@ impl App {
             let Some(body) = self.c_body(here, &ty) else {
                 return broke(&prev);
             };
-            let link = match &ty.1 {
+            let link = match &ty.ty {
                 search::CType::Name(t) if i == 0 && called => format!("{prev}(): {t}"),
                 search::CType::Name(t) => format!("{prev}: {t}"),
                 search::CType::Body(open) => match search::c_body_name(&body.code, *open) {
@@ -129,7 +135,10 @@ impl App {
             let Some(next) = search::c_decl_type(&body.code, at) else {
                 return broke(name);
             };
-            ty = (body.path, next);
+            ty = CTypeIn {
+                file: body.path,
+                ty: next,
+            };
             prev = name.clone();
         }
         Ok(None)
@@ -138,9 +147,14 @@ impl App {
     /// The type the C value `name` read on the cursor's line is declared with: its parameter or
     /// local, else its declaration at file scope in the file on screen, else a global declared
     /// once in a header of the project (`extern struct redisServer server;`).
-    fn c_head_type(&self, here: &Path, text: &str, name: &str) -> Option<(PathBuf, search::CType)> {
+    fn c_head_type(&self, here: &Path, text: &str, name: &str) -> Option<CTypeIn> {
         match search::c_value_type(text, self.line + 1, name) {
-            Ok(Some(t)) => return Some((here.to_path_buf(), t)),
+            Ok(Some(ty)) => {
+                return Some(CTypeIn {
+                    file: here.to_path_buf(),
+                    ty,
+                });
+            }
             Ok(None) => {}
             Err(()) => return None,
         }
@@ -157,7 +171,10 @@ impl App {
         let t = search::c_words_on_line(&code, h.line, name, None)
             .into_iter()
             .find_map(|at| search::c_decl_type(&code, at))?;
-        matches!(t, search::CType::Name(_)).then(|| (h.path.clone(), t))
+        matches!(t, search::CType::Name(_)).then(|| CTypeIn {
+            file: h.path.clone(),
+            ty: t,
+        })
     }
 
     /// The type the C function `name` returns, when each of its prototypes and its definition
@@ -189,7 +206,7 @@ impl App {
     /// stands, a type by name through [`App::c_bodies`]. A type with more than one body is the
     /// one in the file on screen or in a header, and one in another source file only when it is
     /// the only body (an opaque struct); `None` when that leaves none or more than one.
-    fn c_body(&self, here: &Path, ty: &(PathBuf, search::CType)) -> Option<CBody> {
+    fn c_body(&self, here: &Path, ty: &CTypeIn) -> Option<CBody> {
         let read = |path: &Path, open: usize| {
             let text = self.text_of(path)?;
             let code = search::c_code(&text);
@@ -200,8 +217,8 @@ impl App {
                 brace_in_code: open,
             })
         };
-        let name = match &ty.1 {
-            search::CType::Body(open) => return read(&ty.0, *open),
+        let name = match &ty.ty {
+            search::CType::Body(open) => return read(&ty.file, *open),
             search::CType::Name(name) => name,
         };
         let mut bodies = Vec::new();

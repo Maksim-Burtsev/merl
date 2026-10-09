@@ -53,9 +53,9 @@ impl App {
             return;
         }
         if self.probe.is_none()
-            && let Some((path, line)) = self.base_place()
+            && let Some(FileLine { path, line1 }) = self.base_place()
         {
-            self.definition_at_base(path, line);
+            self.definition_at_base(path, line1);
             return;
         }
         if let Some(here) = self.rel_current()
@@ -1862,14 +1862,21 @@ impl App {
         ty: &Typed,
     ) -> Vec<Candidate> {
         let mut owners = self.subtypes(kind, here, ty);
-        owners.push((ty.path.clone(), ty.line));
+        owners.push(FileLine {
+            path: ty.path.clone(),
+            line1: ty.line,
+        });
         self.members_by_name(kind, here, word, pattern)
             .into_iter()
             .filter(|h| {
                 self.text_of(&h.path).is_some_and(|t| {
                     let lines: Vec<&str> = t.lines().collect();
-                    search::enclosing_type(kind, &lines, h.line - 1)
-                        .is_some_and(|d| owners.contains(&(h.path.clone(), d)))
+                    search::enclosing_type(kind, &lines, h.line - 1).is_some_and(|d| {
+                        owners.contains(&FileLine {
+                            path: h.path.clone(),
+                            line1: d,
+                        })
+                    })
                 })
             })
             .map(|hit| Candidate {

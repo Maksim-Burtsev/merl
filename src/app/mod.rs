@@ -72,7 +72,7 @@ pub(crate) use open::error_text;
 pub use preview::Preview;
 use project_search::at_label;
 pub use search_job::SearchJob;
-use search_job::{SEARCH_PAUSE, Typed, deleted_hits};
+use search_job::{FileLine, SEARCH_PAUSE, Typed, deleted_hits};
 
 /// Longest hit text kept in a picker label; the rest is off the screen anyway.
 const MAX_LABEL_TEXT: usize = 120;

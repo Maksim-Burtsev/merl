@@ -3,6 +3,11 @@
 
 use super::*;
 
+struct WrittenType {
+    resolved: JvmType,
+    written: String,
+}
+
 struct TypedField {
     hit: Hit,
     written: String,
@@ -74,8 +79,14 @@ impl App {
                 (JvmType::Project(hit), Vec::new())
             }
             f if f.starts_with(|c: char| c.is_ascii_lowercase()) => {
-                let (ty, written) = match smart() {
-                    Some(t) => (self.jvm_type_at(here, text, &t), t),
+                let WrittenType {
+                    resolved: ty,
+                    written,
+                } = match smart() {
+                    Some(t) => WrittenType {
+                        resolved: self.jvm_type_at(here, text, &t),
+                        written: t,
+                    },
                     None => self.jvm_value(here, text, line, f, kotlin, 1)?,
                 };
                 (ty, vec![format!("{f}: {written}")])
@@ -177,7 +188,7 @@ impl App {
         name: &str,
         kotlin: bool,
         hops: usize,
-    ) -> Option<(JvmType, String)> {
+    ) -> Option<WrittenType> {
         let narrowing = match kotlin {
             true => r"\b{0}\s+(?:!?is|as\??)\s|\bwhen\s*\(\s*{0}\s*\)",
             false => r"\b{0}\s+instanceof\s|\(\s*[A-Z][\w.<>]*\s*\)\s*{0}\b",
@@ -198,11 +209,14 @@ impl App {
                 .find(|m| !m.is_empty())?,
             false => bindings,
         };
-        let mut found: Option<(JvmType, String)> = None;
+        let mut found: Option<WrittenType> = None;
         for l in declared {
             let at = lines.get(l - 1)?;
             let this = match search::jvm_declared_type(at, name, kotlin) {
-                Some(t) => (self.jvm_type_at(file, text, &t), t),
+                Some(t) => WrittenType {
+                    resolved: self.jvm_type_at(file, text, &t),
+                    written: t,
+                },
                 None if hops > 0 => {
                     let search::JvmAssignedCall {
                         receiver: recv,
@@ -212,7 +226,7 @@ impl App {
                 }
                 None => return None,
             };
-            if found.as_ref().is_some_and(|(_, w)| *w != this.1) {
+            if found.as_ref().is_some_and(|f| f.written != this.written) {
                 return None;
             }
             found = Some(this);
@@ -231,9 +245,9 @@ impl App {
         recv: Option<&str>,
         call: &str,
         kotlin: bool,
-    ) -> Option<(JvmType, String)> {
+    ) -> Option<WrittenType> {
         let owner = match recv {
-            Some(r) => self.jvm_value(file, text, line1, r, kotlin, 0)?.0,
+            Some(r) => self.jvm_value(file, text, line1, r, kotlin, 0)?.resolved,
             None => {
                 let lines: Vec<&str> = text.lines().collect();
                 let decl = search::jvm_enclosing_types(text, line1)
@@ -263,7 +277,10 @@ impl App {
                 .find_map(|n| search::jvm_declared_type(&m.text, n, mk))
         })?;
         let t = self.text_of(&m.path)?;
-        Some((self.jvm_type_at(&m.path, &t, &written), written))
+        Some(WrittenType {
+            resolved: self.jvm_type_at(&m.path, &t, &written),
+            written,
+        })
     }
 
     /// The field `field` of the type declared at `decl` or a type it extends in the project.

@@ -6,6 +6,11 @@ pub(super) struct NamedSymbol {
     pub hit: Hit,
 }
 
+pub(super) struct SymbolHits {
+    pub named: Vec<NamedSymbol>,
+    pub cut: bool,
+}
+
 impl App {
     /// `D`: every declaration in the project, recomputed on each press. A list the
     /// [`search::MAX_HITS`] cut left short is not the project's symbols, so the query stops
@@ -17,7 +22,7 @@ impl App {
             deleted: self.symbol_deleted(),
             ..self.grep_job(0, "", |_| true)
         };
-        let (named, cut) = job.symbol_hits();
+        let SymbolHits { named, cut } = job.symbol_hits();
         if named.is_empty() {
             self.message = "no symbols".into();
             return;

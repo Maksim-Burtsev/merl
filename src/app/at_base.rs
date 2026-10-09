@@ -4,16 +4,19 @@ use search_job::deleted_hits;
 impl App {
     /// Where the cursor stands in the base's text when the line it reads is base code: a line
     /// the branch deleted, or any line of a file the branch deleted. `None` elsewhere.
-    pub(super) fn base_place(&self) -> Option<(PathBuf, usize)> {
+    pub(super) fn base_place(&self) -> Option<FileLine> {
         let r = self.review.as_ref()?;
         let rel = self.rel_current()?;
         let file = r.file(&rel);
-        let line = match (self.deleted, file) {
+        let line1 = match (self.deleted, file) {
             (Some((k, i)), _) => self.diff.ghost_from.get(&k).copied().unwrap_or(0) + i + 1,
             (None, Some(f)) if f.status == 'D' => self.line + 1,
             _ => return None,
         };
-        Some((file.and_then(|f| f.old.clone()).unwrap_or(rel), line))
+        Some(FileLine {
+            path: file.and_then(|f| f.old.clone()).unwrap_or(rel),
+            line1,
+        })
     }
 
     pub(super) fn definition_at_base(&mut self, path: PathBuf, line: usize) {
