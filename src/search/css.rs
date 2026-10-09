@@ -392,11 +392,15 @@ pub fn style_blocks(text: &str) -> String {
     String::from_utf8(out).unwrap_or_default()
 }
 
-/// Whether a file at `path` holds styles: a stylesheet, or markup with `<style>` blocks.
-pub fn styles_in(path: &Path) -> Option<bool> {
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Styles {
+    Stylesheet,
+    StyleBlocksInMarkup,
+}
+pub fn styles_in(path: &Path) -> Option<Styles> {
     match path.extension()?.to_str()? {
-        "css" | "scss" | "sass" | "less" => Some(true),
-        "html" | "htm" | "vue" | "svelte" | "astro" => Some(false),
+        "css" | "scss" | "sass" | "less" => Some(Styles::Stylesheet),
+        "html" | "htm" | "vue" | "svelte" | "astro" => Some(Styles::StyleBlocksInMarkup),
         _ => None,
     }
 }

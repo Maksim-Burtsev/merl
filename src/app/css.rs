@@ -147,7 +147,7 @@ impl App {
                 continue;
             };
             let styles = match search::styles_in(&path) {
-                Some(true) => text.clone(),
+                Some(search::Styles::Stylesheet) => text.clone(),
                 _ => search::style_blocks(&text),
             };
             let rules = match path.extension().is_some_and(|e| e == "sass") {
@@ -227,7 +227,13 @@ impl App {
         if found.is_empty() {
             found = (self.files.iter())
                 .filter(|p| wanted(p))
-                .flat_map(|p| self.matching_lines(p, &re, search::styles_in(p) == Some(false)))
+                .flat_map(|p| {
+                    self.matching_lines(
+                        p,
+                        &re,
+                        search::styles_in(p) == Some(search::Styles::StyleBlocksInMarkup),
+                    )
+                })
                 .map(|hit| Candidate {
                     hit,
                     reason: Reason::ByName,
