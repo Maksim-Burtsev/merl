@@ -1,7 +1,3 @@
-//! C and C++ read as code: the struct a field sits in (#359), the function a parameter or a local
-//! belongs to (#378). Everything here scans [`c_code`], where comments, literals and
-//! preprocessor lines are blanks, so a brace in a string or a `#define` body opens nothing.
-
 use regex::Regex;
 use std::ops::Range;
 use std::sync::LazyLock;
@@ -11,8 +7,6 @@ use super::{Binding, Value};
 static ACCESS_LABELS: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^\s*(?:(?:public|private|protected)\s*:\s*)+").unwrap());
 
-/// The files the `#include` lines of the C or C++ `text` name. A line under `#if` counts as any
-/// other: whichever branch a build takes, the file reaches no fewer headers.
 pub fn c_includes(text: &str) -> Vec<CInclude> {
     static INCLUDE: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r#"(?m)^[ \t]*#[ \t]*(?:include|include_next|import)[ \t]*([<"])([^>"\n]+)[>"]"#)
@@ -30,9 +24,6 @@ pub struct CInclude {
     pub quoted_not_angled: bool,
 }
 
-/// `text` of a C or C++ file as code alone: comments, string and character literals (raw strings
-/// included) and preprocessor lines with their continuations turned into spaces, the length and
-/// the line breaks kept, so a byte of it is the byte of `text` at the same place.
 pub fn c_code(text: &str) -> String {
     let b = text.as_bytes();
     let mut out = b.to_vec();
@@ -47,14 +38,12 @@ pub fn c_code(text: &str) -> String {
     while i < b.len() {
         let c = b[i];
         if c == b'\n' {
-            // A directive runs on over a line that ends in `\`.
             directive &= text[..i].trim_end_matches('\r').ends_with('\\');
             line_start = true;
             i += 1;
             continue;
         }
         if directive {
-            // A block comment opened on a directive's line runs on past it.
             let end = match b[i..].starts_with(b"/*") {
                 true => text[i + 2..].find("*/").map_or(b.len(), |n| i + n + 4),
                 false => i + 1,
@@ -73,7 +62,6 @@ pub fn c_code(text: &str) -> String {
         let digit_separator = i > 0 && b[i - 1].is_ascii_digit();
         let end = match c {
             b'/' if b.get(i + 1) == Some(&b'/') => {
-                // A `//` comment runs on over a line that ends in `\` too.
                 let mut j = i;
                 while j < b.len() && !(b[j] == b'\n' && b[j - 1] != b'\\') {
                     j += 1;
@@ -84,7 +72,6 @@ pub fn c_code(text: &str) -> String {
                 text[i + 2..].find("*/").map_or(b.len(), |n| i + n + 4)
             }
             b'"' => {
-                // `R"x(…)x"`, behind `u8`, `u`, `U` or `L` or none.
                 let raw = text[..i].strip_suffix('R').is_some_and(|t| {
                     let t = ["u8", "u", "U", "L"]
                         .iter()
@@ -157,9 +144,6 @@ fn untemplated(s: &str) -> String {
     }
     s
 }
-/// The name a struct, union or class head declares (`Some("")` for an anonymous one), or `None`
-/// when `head`, the text before a `{`, opens no such body: an `enum`, a function, an
-/// initializer (`= {`), a namespace, a block.
 fn c_struct_head(head: &str) -> Option<String> {
     static ATTR: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"__attribute__\s*\(\((?:[^()]|\([^()]*\))*\)\)|\b(?:alignas|__declspec)\s*\([^()]*\)|\[\[[^\]]*\]\]").unwrap()
@@ -176,12 +160,9 @@ fn c_struct_head(head: &str) -> Option<String> {
     HEAD.captures(head.trim_start())
         .map(|c| c.get(1).map_or(String::new(), |m| m.as_str().to_owned()))
 }
-/// The struct, union or class whose body byte `at` of `code` stands directly in, and its name
-/// (the nearest named one out, for a nested anonymous `union { … } u;`, `""` for none).
 fn c_struct_around(code: &str, at: usize) -> Option<String> {
     let mut open = c_innermost_open_brace(code.as_bytes(), at)?;
     let mut name = c_struct_head(c_back_to_stop(code, open).0)?;
-    // An anonymous body's own name is its outer one's.
     while name.is_empty() {
         let Some(outer) = c_innermost_open_brace(code.as_bytes(), open) else {
             break;
@@ -193,11 +174,6 @@ fn c_struct_around(code: &str, at: usize) -> Option<String> {
     }
     Some(name)
 }
-/// Whether the `word` at byte `at` of `code` is declared there as a data member: a line directly
-/// inside a struct, union or class body (`T name;`, `T *a, *name;`, `T name[N];`, `T name : 4;`,
-/// `static T name;`, `T (*name)(…);`, C++'s `T name = init;`, `T name{init};`,
-/// `T name GUARDED_BY(mu_);`, and the `} name;` that closes a nested anonymous body). A member
-/// function, a nested type, `typedef`, `using`, `friend` and `static_assert` are none.
 fn c_field_owner(code: &str, at: usize, word: &str) -> Option<String> {
     static ACCESS: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:(?:public|private|protected|signals|slots)\s*:\s*)+").unwrap()
@@ -236,9 +212,6 @@ fn c_field_owner(code: &str, at: usize, word: &str) -> Option<String> {
     }
     c_struct_around(code, at)
 }
-/// A pattern for the lines that can declare `word` as a C or C++ data member, [`c_field_rows`]
-/// deciding which do: the word behind a type, a `*`, a `&`, a `,` or a `}`, followed by what ends
-/// a declarator; and `(*word)(`.
 pub fn c_field_pattern(word: &str) -> String {
     let w = regex::escape(word);
     format!(
@@ -249,7 +222,6 @@ pub struct CFieldRow {
     pub line1: usize,
     pub owner_type: String,
 }
-/// Of the `hit_lines1`, the lines that declare `word` as a data member ([`c_field_owner`]).
 pub fn c_field_rows(text: &str, hit_lines1: &[usize], word: &str) -> Vec<CFieldRow> {
     let code = c_code(text);
     let starts = line_starts(&code);
@@ -274,9 +246,6 @@ pub fn c_field_rows(text: &str, hit_lines1: &[usize], word: &str) -> Vec<CFieldR
     }
     rows
 }
-/// Whether the word followed by `(` or `{` names a member in a constructor's initializer list:
-/// `X::X(…) : a_(x), b_{y} {`, `X(…) : a_(x) {` in X's body, and its continuation lines. Gives the
-/// constructor's class, `X`.
 pub fn c_initialized_member(text: &str, line1: usize, byte_col: usize) -> Option<String> {
     static CTOR: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(
@@ -485,10 +454,6 @@ enum DeclaredIn {
     Statement,
     ControlHead,
 }
-/// Where in `stmt`, a statement with its `;` or `{`, a declaration names `name`: `T name;`,
-/// `T *name = …;`, `T a, *name;`, `T name[N];`, `struct S name;`, `const T& name = …;`, `T name(args);`,
-/// `T name{…};`, `auto [a, name] = …;`; in a control head only the forms that take an initializer
-/// (a condition's `T *p = f()`, a range-for's `auto& x : xs`).
 fn declared_at(stmt: &str, name: &str, place: DeclaredIn) -> Option<usize> {
     static BOUND: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:const\s+)?auto\s*&{0,2}\s*\[([^\]]*)\]\s*[=:{(]").unwrap()
@@ -512,7 +477,6 @@ fn declared_at(stmt: &str, name: &str, place: DeclaredIn) -> Option<usize> {
             [b';' | b',' | b'[' | b'(', ..] => place == DeclaredIn::Statement,
             _ => false,
         };
-        // `T a = x, *name` declares `a` with its value first; `p = name` assigns.
         let pre_flat = untemplated(pre);
         let mut segs: Vec<&str> = pre_flat.split(',').collect();
         let last = segs.len() - 1;
@@ -544,9 +508,6 @@ fn declared_at(stmt: &str, name: &str, place: DeclaredIn) -> Option<usize> {
             .then_some(j)
     })
 }
-/// Where in `params`, the text inside a parameter list, a parameter is called `name`: each entry
-/// declares its last word (`T name`, `T *name`, `T name[]`, `T& name`, `T name = x`) or the name
-/// of a function pointer, `T (*name)(…)`; `void`, `...` and an unnamed `T` declare nothing.
 fn parameter_at(params: &str, name: &str) -> Option<usize> {
     static POINTER: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^[^(]*\(\s*[*&^]+\s*(\w+)\s*(?:\[[^\]]*\]\s*)?\)").unwrap());
@@ -577,9 +538,6 @@ fn parameter_at(params: &str, name: &str) -> Option<usize> {
     }
     None
 }
-/// The declarations of `name` in the statements of the block whose code starts at byte `from`
-/// (past its `{`, or 0 for file scope), above `pos` and directly in it: a block closed before `pos`
-/// is not read.
 fn block_declarations(code: &str, from: usize, pos: usize, name: &str) -> Vec<usize> {
     let b = code.as_bytes();
     let (mut depth, mut start, mut out) = (0usize, from, Vec::new());
@@ -610,8 +568,6 @@ fn block_declarations(code: &str, from: usize, pos: usize, name: &str) -> Vec<us
             _ => {}
         }
     }
-    // The statement `pos` stands in: a `for (T i = …; …)` with no braces binds `i` in the
-    // statement it runs, and closer than anything in the block.
     if let Some(at) = control_init(code, start, pos.min(code.len()), name) {
         return vec![at];
     }
@@ -620,8 +576,6 @@ fn block_declarations(code: &str, from: usize, pos: usize, name: &str) -> Vec<us
     }
     out
 }
-/// What the heads of `for`, `if`, `while` and `switch` at the start of `code[from..pos]` bind of
-/// `name` before `pos`, the innermost head first.
 fn control_init(code: &str, from: usize, pos: usize, name: &str) -> Option<usize> {
     static CONTROL: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\s*(?:else\s+)?(?:for|if|while|switch)\s*\(").unwrap());
@@ -681,7 +635,6 @@ fn scopes_inside_out_to_type_or_namespace(code: &str, pos: usize) -> Vec<Scope> 
     }
     out
 }
-/// The last `name` on the line, else its end.
 fn scope_pos(code: &str, starts: &[usize], line1: usize, name: &str) -> Option<usize> {
     let from = *starts.get(line1.checked_sub(1)?)?;
     let to = starts.get(line1).map_or(code.len(), |&s| s - 1);
@@ -697,10 +650,6 @@ fn scope_pos(code: &str, starts: &[usize], line1: usize, name: &str) -> Option<u
             .map_or(to, |(i, _)| from + i),
     )
 }
-/// The parameters and locals that bind `name` where `line1` of a C or C++ `text` reads it (#378): the declarations above it in the innermost block around it that has any, a block
-/// closed before it not counted, then what a `for`, `if`, `while` or `switch` head or a `catch`
-/// binds for its body, then the parameters of the function or the Objective-C method (#417), a
-/// lambda's reading on into the function around it.
 pub fn c_bindings(text: &str, line1: usize, name: &str) -> Vec<Binding> {
     c_bindings_at(text, line1, name)
         .into_iter()
@@ -710,8 +659,6 @@ pub fn c_bindings(text: &str, line1: usize, name: &str) -> Vec<Binding> {
         })
         .collect()
 }
-/// [`c_bindings`] with columns: on a line of one function the cursor can stand on the parameter
-/// or on a use of it.
 pub fn c_bindings_at(text: &str, line1: usize, name: &str) -> Vec<CPlace> {
     let code = c_code(text);
     let starts = line_starts(&code);
@@ -772,9 +719,6 @@ fn split_top_level_semicolons(s: &str) -> Vec<(usize, &str)> {
         })
         .collect()
 }
-/// The class whose method `name` on `line1` of a C++ `text` stands in: the `X` of an out-of-line
-/// `R X::m(…) {`, or the class whose body holds the method. A lambda reads on into the method
-/// around it.
 pub fn c_method_class(text: &str, line1: usize, name: &str) -> Option<String> {
     let code = c_code(text);
     let starts = line_starts(&code);
@@ -796,27 +740,18 @@ pub fn c_method_class(text: &str, line1: usize, name: &str) -> Option<String> {
 }
 
 const C_ENUMERATOR: &str = r"[A-Za-z_]\w*\s*(?:=[^,;{}]*)?";
-/// A line of enum constants, `NAME,`, `NAME = expr,`, `A, B, C,` or the last one without a comma,
-/// with `word` among them (or any name, for `None`). A `}` may close the body after them.
 pub fn c_enumerators(word: Option<&str>) -> String {
     let w = word.map_or_else(|| r"[A-Za-z_]\w*".to_owned(), regex::escape);
     format!(
         r"^\s*(?:{C_ENUMERATOR},\s*)*{w}\s*(?:=[^,;{{}}]*)?(?:,\s*{C_ENUMERATOR})*,?\s*(?:\}}[^{{]*)?(?:(?://|/\*).*)?$"
     )
 }
-/// `enum X { A, B };` and `typedef enum { A, B } X;`: an enum whose constants open on its own
-/// line, `word` among them.
 pub fn c_enum_line(word: &str) -> String {
     format!(
         r"^\s*(?:typedef\s+)?enum\b[^{{;=()]*\{{\s*(?:{C_ENUMERATOR},\s*)*{}\s*(?:=[^,;{{}}]*)?\s*(?:[,}}]|$)",
         regex::escape(word)
     )
 }
-/// A member function declared with no body, `word` its name (or any name, for `None`): `T
-/// name(params) const;`, `virtual … = 0;`, `… override;`, `= default;`, or the first line of a
-/// parameter list that wraps. Indented, behind at least a return type or a keyword, and no `//`
-/// comment reading `Users of Env (including`; in a function body the same line is a local
-/// object, `Slice key(k, n);`, which [`c_body_head`] tells apart.
 pub fn c_member_decl(word: Option<&str>) -> String {
     let w = word.map_or_else(|| r"~?[A-Za-z_]\w*".to_owned(), regex::escape);
     format!(
@@ -836,7 +771,6 @@ struct BodyOpener {
 fn line_code(l: &str) -> String {
     let mut s = vec![b' '; l.len()];
     if !l.trim_start().starts_with('#') {
-        // A comment's first byte comes as 0, and reads as a blank here.
         for (i, c) in super::code(super::Kind::C, l).filter(|&(_, c)| c != 0) {
             s[i] = c;
         }
@@ -893,9 +827,6 @@ fn head_up_past_comments_to_a_blank_line<S: AsRef<str>>(
     }
     head.trim().to_owned()
 }
-/// The classes and namespaces `line1` of a C++ file stands in, outermost first, when the
-/// innermost is a class or struct: `["leveldb", "Iterator"]`. An unnamed one reads `""`; a
-/// function or a block on the way ends the walk.
 fn c_scopes<S: AsRef<str>>(lines: &[S], line1: usize) -> Vec<String> {
     static NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^(?:inline\s+)?namespace\s*((?:\w+\s*::\s*)*\w+)?\s*$").unwrap()
@@ -922,8 +853,6 @@ pub fn c_enum_head(head: &str) -> bool {
     });
     ENUM.is_match(head)
 }
-/// The class or struct whose body `line1` stands directly in, by name (`""` for an anonymous
-/// one).
 pub fn c_class_around<S: AsRef<str>>(lines: &[S], line1: usize) -> Option<String> {
     c_struct_head(&c_body_head(lines, line1)?)
 }
@@ -944,9 +873,6 @@ pub fn c_declares_where<'a, S: AsRef<str> + 'a>(
     }
     true
 }
-/// The classes and namespaces around the member function `word` declared with no body directly
-/// in a class body ([`c_member_decl`]) on `line1` of `text`, outermost first, its class last;
-/// `None` for any other line.
 pub fn c_member_class(text: &str, line1: usize, word: &str) -> Option<Vec<String>> {
     let decl = Regex::new(&c_member_decl(Some(word))).expect("an escaped name keeps it valid");
     let lines: Vec<&str> = text.lines().collect();
@@ -955,9 +881,6 @@ pub fn c_member_class(text: &str, line1: usize, word: &str) -> Option<Vec<String
     }
     Some(c_scopes(&lines, line1)).filter(|s| s.last().is_some_and(|c| !c.is_empty()))
 }
-/// Whether `text` defines out of line the member `word` of the class `scopes` ends with
-/// ([`c_member_class`]): `R X::word(`, what qualifies `X` being the scopes around it, as far as it
-/// goes (`leveldb::Iterator::Valid(`), so `SkipList<K>::Iterator::Valid(` is another class's.
 pub fn c_defines_member(text: &str, scopes: &[String], word: &str) -> bool {
     static TEMPLATE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<[^;()]*>").unwrap());
     let Ok(re) = Regex::new(&format!(
@@ -985,17 +908,11 @@ pub fn c_defines_member(text: &str, scopes: &[String], word: &str) -> bool {
     })
 }
 
-/// What a C value is declared as: a type by the last word of its name (`client` for `struct
-/// client *c`), or the struct or union body that a `} name;` closes, by the byte of its `{`.
 #[derive(Clone, Debug, PartialEq)]
 pub enum CType {
     Name(String),
     Body(usize),
 }
-/// The receiver in front of a C member, `before` being its line up to the member and ending in
-/// `->` or `.`. `a->b.c->` gives `a` with `b`, `c`; an index is read past (`c->argv[j]->`), and
-/// `lookupClient(x)->` is a called head. `None` for a receiver that starts with anything else: a
-/// cast, a bracketed expression, a call of a call or of a field, `this`.
 pub fn c_receiver(before: &str) -> Option<CReceiver> {
     receiver(before, false)
 }
@@ -1031,8 +948,6 @@ fn receiver(before: &str, cpp: bool) -> Option<CReceiver> {
         }
         let start = rest.trim_end_matches(is_name).len();
         let name = &rest[start..];
-        // A non-ASCII character in front goes on with the name (`größe`, `e\u{301}tude`): the
-        // tail read is not it.
         if name.is_empty()
             || name.starts_with(|c: char| c.is_ascii_digit())
             || (name == "this" && !cpp)
@@ -1051,7 +966,6 @@ fn receiver(before: &str, cpp: bool) -> Option<CReceiver> {
                     fields,
                 });
             }
-            // A call of a field is a function pointer's, whose return type is not read.
             (true, true) => return None,
         }
     }
@@ -1090,10 +1004,6 @@ const C_TYPE_KEYWORDS: &[&str] = &[
     "typedef",
     "__inline",
 ];
-/// What the name declared at byte `at` of `code`, a [`c_code`], is declared as: the body a `}
-/// name;` closes, else the last word of the type in front of it (`client` for `client *c`,
-/// `static const struct client *a, *c` and a parameter `client *c`). `None` for a type that is
-/// no word (a function pointer, a template), a typedef's `} name;` and no type at all.
 pub fn c_decl_type(code: &str, at: usize) -> Option<CType> {
     let b = code.as_bytes();
     let (mut depth, mut i) = (0usize, at);
@@ -1126,7 +1036,6 @@ pub fn c_decl_type(code: &str, at: usize) -> Option<CType> {
         (false, Some(c)) => (&code[from..c], true),
         (false, None) => (&code[from..at], false),
     };
-    // `} name;` closes a body: a value of its struct, when no typedef opens it.
     if let Some(s) = stop.filter(|&s| b[s] == b'}' && !param && first_comma.is_none())
         && segment
             .trim_matches(|c: char| c.is_whitespace() || c == '*')
@@ -1154,10 +1063,6 @@ pub fn c_decl_type(code: &str, at: usize) -> Option<CType> {
         .filter(|w| !w.starts_with(|c: char| c.is_ascii_digit()))
         .map(|w| CType::Name((*w).to_owned()))
 }
-/// What the line of a C type's declaration says of the type `name` at byte `at` of `code`, a
-/// [`c_code`]: `struct name {` and `union name {` open its body, and so does the `typedef struct
-/// … {` whose `} name;` names it; `typedef struct TAG name;` and `typedef T name;` make it
-/// another name's. `None` for anything else: a forward declaration, an enum, a class.
 pub fn c_type_def(code: &str, at: usize) -> Option<CType> {
     let tagged = ends_with_word(&code[..at], &["struct", "union"]);
     let after = at + code[at..].find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))?;
@@ -1189,9 +1094,6 @@ fn ends_with_word(s: &str, words: &[&str]) -> bool {
             .is_some_and(|r| !r.ends_with(|c: char| c.is_ascii_alphanumeric() || c == '_'))
     })
 }
-/// The byte of the member `word` of the struct or union whose body opens at byte `open` of
-/// `code`, a [`c_code`]: a field declared directly in it, or in a nested body that has no name of
-/// its own (`union { int a; };`).
 pub fn c_body_field(code: &str, open: usize, word: &str) -> Option<usize> {
     let close = close_or_end(code, open, code.len());
     let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
@@ -1219,10 +1121,6 @@ pub fn c_body_field(code: &str, open: usize, word: &str) -> Option<usize> {
             Some(at)
         })
 }
-/// The type the value `name` read on `line1` of a C `text` is declared with in the file:
-/// its parameter or local ([`c_bindings_at`]), else its declaration at file scope, `} name;`
-/// included. `Ok(None)` when the file declares no such value; `Err(())` when it does with a type
-/// not read, or with two.
 pub fn c_value_type(text: &str, line1: usize, name: &str) -> Result<Option<CType>, ()> {
     let code = c_code(text);
     let starts = line_starts(&code);
@@ -1243,7 +1141,6 @@ pub fn c_value_type(text: &str, line1: usize, name: &str) -> Result<Option<CType
                 && matches!(c_decl_type(&code, i), Some(CType::Body(_)))
         }));
     }
-    // `static struct name { … } name;` names the tag first.
     let mut types = at
         .into_iter()
         .filter(|&a| !ends_with_word(&code[..a], &["struct", "union", "enum"]))
@@ -1291,8 +1188,6 @@ pub fn c_place(code: &str, at: usize) -> CPlace {
         byte_col: at - line_start,
     }
 }
-/// The name of the struct or union whose body opens at byte `open` of `code`, `""` for an
-/// anonymous one.
 pub fn c_body_name(code: &str, open: usize) -> String {
     c_struct_head(c_back_to_stop(code, open).0).unwrap_or_default()
 }
@@ -1468,4 +1363,425 @@ pub fn cpp_body_members(code: &str, open: usize, word: &str) -> Vec<usize> {
                 && code[at + word.len()..].trim_start().starts_with('(')
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn line_of(text: &str, needle: &str) -> usize {
+        text.lines().position(|l| l.contains(needle)).unwrap() + 1
+    }
+
+    fn bound_on(text: &str, line1: usize, name: &str) -> Vec<usize> {
+        c_bindings_at(text, line1, name)
+            .into_iter()
+            .map(|p| p.line1)
+            .collect()
+    }
+
+    #[test]
+    fn includes_count_under_every_branch_of_an_if() {
+        let text = "#if X\n#include \"a.h\"\n#else\n#  include_next <b.h>\n#endif\n#import <c.h>\n";
+        let got: Vec<(String, bool)> = (c_includes(text).into_iter())
+            .map(|i| (i.as_written, i.quoted_not_angled))
+            .collect();
+        let want = [("a.h", true), ("b.h", false), ("c.h", false)];
+        assert_eq!(got, want.map(|(f, q)| (f.to_owned(), q)));
+    }
+
+    #[test]
+    fn c_code_blanks_comments_literals_and_directives_in_place() {
+        for (text, code) in [
+            ("a; // x {\nb;", "a; b;"),
+            ("a; // x \\\n { \nb;", "a; b;"),
+            ("a; /* { */ b;", "a; b;"),
+            ("s = \"{\"; c = '{'; n = 1'000;", "s = ; c = ; n = 1'000;"),
+            ("r = R\"x(a \")\" { )x\"; b;", "r = R ; b;"),
+            ("r = u8R\"(a { )\"; b;", "r = u8R ; b;"),
+            ("#define X {\\\n  }\nb;", "b;"),
+            ("#if 1 /* {\n } */\nb;", "b;"),
+            ("  # include <a.h> {\nb;", "b;"),
+        ] {
+            let got = c_code(text);
+            assert_eq!(
+                got.split_whitespace().collect::<Vec<_>>().join(" "),
+                code,
+                "{text:?}"
+            );
+            assert_eq!(got.len(), text.len(), "{text:?}");
+            let breaks = |s: &str| s.match_indices('\n').map(|(i, _)| i).collect::<Vec<_>>();
+            assert_eq!(breaks(&got), breaks(text), "{text:?}");
+        }
+    }
+
+    #[test]
+    fn a_struct_union_or_class_head_opens_a_body_and_nothing_else_does() {
+        for (head, want) in [
+            ("struct invoice ", Some("invoice")),
+            ("typedef struct ", Some("")),
+            ("union value", Some("value")),
+            (
+                "template <typename T> class LEDGER_API Ledger : public Base<T> ",
+                Some("Ledger"),
+            ),
+            (
+                "struct __attribute__ ((__packed__)) sdshdr8 ",
+                Some("sdshdr8"),
+            ),
+            ("enum state ", None),
+            ("int main(void) ", None),
+            ("static const int xs[] = ", None),
+            ("namespace billing ", None),
+            ("", None),
+        ] {
+            assert_eq!(c_struct_head(head).as_deref(), want, "{head:?}");
+        }
+    }
+
+    #[test]
+    fn an_anonymous_body_is_the_named_one_around_it() {
+        let code =
+            c_code("struct outer {\n  union {\n    int a;\n  } u;\n};\nstruct {\n  int b;\n} x;\n");
+        assert_eq!(
+            c_struct_around(&code, code.find("a;").unwrap()).as_deref(),
+            Some("outer")
+        );
+        assert_eq!(
+            c_struct_around(&code, code.find("b;").unwrap()).as_deref(),
+            Some("")
+        );
+    }
+
+    #[test]
+    fn data_members_are_told_from_the_other_lines_of_a_body() {
+        let text = "struct S {\n  int a;\n  int *x, *b;\n  int c[4];\n  unsigned d : 4;\n  static int e;\n  int (*f)(int);\n  int g = 1;\n  int h{2};\n  int i GUARDED_BY(mu_);\n  struct {\n    int j;\n  } k;\n  int m(int);\n  struct n;\n  typedef int o;\n  using p = int;\n  friend class q;\n  static_assert(r);\n};\n";
+        let lines: Vec<usize> = (1..=text.lines().count()).collect();
+        for (word, field) in [
+            ("a", true),
+            ("b", true),
+            ("c", true),
+            ("d", true),
+            ("e", true),
+            ("f", true),
+            ("g", true),
+            ("h", true),
+            ("i", true),
+            ("j", true),
+            ("k", true),
+            ("m", false),
+            ("n", false),
+            ("o", false),
+            ("p", false),
+            ("q", false),
+            ("r", false),
+        ] {
+            let rows = c_field_rows(text, &lines, word);
+            let owners: Vec<&str> = rows.iter().map(|r| r.owner_type.as_str()).collect();
+            assert_eq!(owners, if field { vec!["S"] } else { vec![] }, "{word}");
+        }
+    }
+
+    #[test]
+    fn the_field_pattern_takes_each_declarator_form() {
+        let re = Regex::new(&c_field_pattern("f")).unwrap();
+        for line in [
+            "  int f;",
+            "  T *a, *f;",
+            "  int f[4];",
+            "  int f : 4;",
+            "  int f = 1;",
+            "  int f{1};",
+            "  int f GUARDED_BY(mu_);",
+            "  } f;",
+            "  int (*f)(int);",
+            "  void (**f)(void);",
+        ] {
+            assert!(re.is_match(line), "{line}");
+        }
+        assert!(!re.is_match("  x = f(1);"));
+    }
+
+    #[test]
+    fn a_member_of_a_constructors_initializer_list_names_its_class() {
+        let text = "Ledger::Ledger(int n)\n    : Base<T>(n), total_(n),\n      rows_{n} {\n}\nclass Box {\n  Box(int n) : size_(n) {}\n  int f() { return g(1); }\n};\nLedger::Other(int n) : x_(n) {}\n";
+        let at = |line1: usize, word: &str| {
+            let col = text.lines().nth(line1 - 1).unwrap().find(word).unwrap();
+            c_initialized_member(text, line1, col)
+        };
+        assert_eq!(at(2, "total_").as_deref(), Some("Ledger"));
+        assert_eq!(at(3, "rows_").as_deref(), Some("Ledger"));
+        assert_eq!(at(6, "size_").as_deref(), Some("Box"));
+        assert_eq!(at(2, "Base"), None);
+        assert_eq!(at(7, "g"), None);
+        assert_eq!(at(9, "x_"), None);
+    }
+
+    #[test]
+    fn a_local_is_declared_in_each_form_a_statement_takes() {
+        for decl in [
+            "T x;",
+            "T *x = f();",
+            "T a, *x;",
+            "T a = 1, *x;",
+            "T x[N];",
+            "struct S x;",
+            "const T& x = y;",
+            "T x(1, 2);",
+            "T x{1};",
+            "auto [a, x] = p;",
+            "const auto& [x, b] = p;",
+        ] {
+            let text = format!("void f(int x) {{\n  {decl}\n  use(x);\n}}\n");
+            assert_eq!(bound_on(&text, 3, "x"), [2], "{decl}");
+        }
+        for stmt in [
+            "x = y;",
+            "p = x;",
+            "a & x;",
+            "return x;",
+            "x == y;",
+            "struct x;",
+        ] {
+            let text = format!("void f(int x) {{\n  {stmt}\n  use(x);\n}}\n");
+            assert_eq!(bound_on(&text, 3, "x"), [1], "{stmt}");
+        }
+    }
+
+    #[test]
+    fn a_control_head_binds_only_what_takes_an_initializer() {
+        for (head, want) in [
+            ("if (T *x = f())", 2),
+            ("while (T x = next())", 2),
+            ("for (auto& x : xs)", 2),
+            ("switch (int x = g(); x)", 2),
+            ("for (T x; x < n; ++x)", 1),
+            ("if (a * x[0] > 1)", 1),
+            ("while (a * x(1))", 1),
+        ] {
+            let text = format!("void f(int x) {{\n  {head} {{\n    use(x);\n  }}\n}}\n");
+            assert_eq!(bound_on(&text, 3, "x"), [want], "{head}");
+        }
+    }
+
+    #[test]
+    fn a_for_without_braces_binds_its_statement_and_the_innermost_head_wins() {
+        let text = "void f(int i) {\n  for (int i = 0; i < n; i++)\n    use(i);\n}\n";
+        assert_eq!(bound_on(text, 3, "i"), [2]);
+        let text = "void f(int i) {\n  for (int i = 0; i < n; i++)\n    for (T i : xs)\n      use(i);\n}\n";
+        assert_eq!(bound_on(text, 4, "i"), [3]);
+    }
+
+    #[test]
+    fn parameters_are_the_last_word_of_each_entry_or_a_function_pointers_name() {
+        for params in [
+            "int x",
+            "T *x",
+            "T x[]",
+            "T& x",
+            "T x = 1",
+            "T (*x)(int)",
+            "int n, void (^x)(void)",
+        ] {
+            let text = format!("void f({params}) {{\n  use(x);\n}}\n");
+            assert_eq!(bound_on(&text, 2, "x"), [1], "{params}");
+        }
+        let text = "void f(unsigned int, T) {\n  use(int, T);\n}\n";
+        assert_eq!(bound_on(text, 2, "int"), Vec::<usize>::new());
+        assert_eq!(bound_on(text, 2, "T"), Vec::<usize>::new());
+    }
+
+    #[test]
+    fn a_block_closed_above_the_cursor_binds_nothing() {
+        let text = "void f(int x) {\n  {\n    T x;\n  }\n  use(x);\n}\n";
+        assert_eq!(bound_on(text, 5, "x"), [1]);
+    }
+
+    #[test]
+    fn the_cursor_reads_the_last_use_on_its_line() {
+        let text = "void f(int x) {\n  { int x = 1; use(x); }\n}\n";
+        assert_eq!(bound_on(text, 2, "x"), [2]);
+    }
+
+    #[test]
+    fn a_lambda_reads_on_into_its_function_and_a_catch_binds_its_body() {
+        let text = "void f(int x) {\n  auto g = [](int y) {\n    use(x, y);\n  };\n}\n";
+        assert_eq!(bound_on(text, 3, "x"), [1]);
+        assert_eq!(bound_on(text, 3, "y"), [2]);
+        let text = "void f(int e) {\n  try {\n  } catch (const E& e) {\n    use(e);\n  }\n}\n";
+        assert_eq!(bound_on(text, 4, "e"), [3]);
+        let text = "void f(int x) {\n  switch (k) {\n  case 1: if (T *x = g()) {\n    use(x);\n  }\n  }\n}\n";
+        assert_eq!(bound_on(text, 4, "x"), [3]);
+    }
+
+    #[test]
+    fn a_method_stands_in_its_out_of_line_class_or_the_class_around_it() {
+        let text = "int Ledger::total() {\n  return n;\n}\nclass Box {\n  int f() {\n    auto g = [](int a) { return n; };\n  }\n};\nint free() {\n  return n;\n}\n";
+        assert_eq!(c_method_class(text, 2, "n").as_deref(), Some("Ledger"));
+        assert_eq!(c_method_class(text, 6, "n").as_deref(), Some("Box"));
+        assert_eq!(c_method_class(text, 10, "n"), None);
+    }
+
+    #[test]
+    fn enum_constant_lines() {
+        let line = |p: String, l: &str| Regex::new(&p).unwrap().is_match(l);
+        assert!(line(c_enumerators(Some("B")), "  A, B = 1 << 2,"));
+        assert!(line(c_enumerators(Some("LAST")), "    LAST };"));
+        assert!(line(c_enumerators(None), "  A = 1, // one"));
+        assert!(!line(c_enumerators(None), "  foo(a, b);"));
+        assert!(line(c_enum_line("B"), "typedef enum { A, B } X;"));
+        assert!(line(c_enum_line("A"), "enum X { A, B };"));
+        assert!(!line(c_enum_line("A"), "enum X {"));
+    }
+
+    #[test]
+    fn a_member_declared_with_no_body() {
+        let re = Regex::new(&c_member_decl(None)).unwrap();
+        for line in [
+            "  virtual void Run() = 0;",
+            "  int size() const;",
+            "  void f() override;",
+            "  virtual ~Box() = default;",
+            "  Status Get(const ReadOptions& options,",
+            "  Slice key(k, n);",
+        ] {
+            assert!(re.is_match(line), "{line}");
+        }
+        for line in [
+            "int size() const;",
+            "  // Users of Env (including the",
+            "  void f() {",
+        ] {
+            assert!(!re.is_match(line), "{line}");
+        }
+    }
+
+    #[test]
+    fn a_body_head_reads_up_over_a_few_lines() {
+        let lines = ["enum Order", "{", "  A,", "};"];
+        assert_eq!(c_body_head(&lines, 3).as_deref(), Some("enum Order"));
+        let lines = ["class X", ": public Y {", "  int a;"];
+        assert_eq!(
+            c_body_head(&lines, 3).as_deref(),
+            Some("class X : public Y")
+        );
+        let lines = ["struct S // note {", "{", "  int a;"];
+        assert_eq!(c_body_head(&lines, 3).as_deref(), Some("struct S"));
+        assert_eq!(c_body_head(&["int a;", "int b;"], 2), None);
+    }
+
+    #[test]
+    fn a_member_declaration_names_its_classes_up_to_a_function() {
+        let text = "namespace leveldb {\nclass Iterator {\n public:\n  virtual bool Valid() const = 0;\n  bool Next() { return true; }\n};\n}\nnamespace a {\n  void g(int);\n}\nnamespace n {\nvoid f() {\n  struct Local {\n    void h();\n  };\n}\n}\nstruct {\n  void k();\n} x;\n";
+        let class = |word: &str| c_member_class(text, line_of(text, &format!("{word}(")), word);
+        let path = |p: &[&str]| Some(p.iter().map(|s| s.to_string()).collect::<Vec<_>>());
+        assert_eq!(class("Valid"), path(&["leveldb", "Iterator"]));
+        assert_eq!(class("Next"), None);
+        assert_eq!(class("g"), None);
+        assert_eq!(class("h"), path(&["Local"]));
+        assert_eq!(class("k"), None);
+    }
+
+    #[test]
+    fn an_out_of_line_definition_is_qualified_by_the_scopes_around_its_class() {
+        let scopes = ["leveldb".to_owned(), "Iterator".to_owned()];
+        for (line, defines) in [
+            ("bool Iterator::Valid() const {", true),
+            ("bool leveldb::Iterator::Valid() const {", true),
+            ("Iterator::~Valid() {", true),
+            ("bool SkipList<K>::Iterator::Valid() const {", false),
+            ("bool Other::Valid() {", false),
+            ("bool x::leveldb::Iterator::Valid() {", false),
+        ] {
+            assert_eq!(c_defines_member(line, &scopes, "Valid"), defines, "{line}");
+        }
+    }
+
+    #[test]
+    fn a_receiver_is_read_back_through_fields_indexes_and_a_call() {
+        let r = |head: &str, called: bool, fields: &[&str]| {
+            Some(CReceiver {
+                head: head.to_owned(),
+                head_called: called,
+                fields: fields.iter().map(|f| f.to_string()).collect(),
+            })
+        };
+        assert_eq!(c_receiver("x = a->b.c->"), r("a", false, &["b", "c"]));
+        assert_eq!(c_receiver("c->argv[j]->"), r("c", false, &["argv"]));
+        assert_eq!(
+            c_receiver("lookupClient(x)->"),
+            r("lookupClient", true, &[])
+        );
+        for before in ["((client *)p)->", "this->", "a->f(x)->", "1."] {
+            assert_eq!(c_receiver(before), None, "{before}");
+        }
+        assert_eq!(cpp_receiver("a[0]."), None);
+        assert_eq!(cpp_receiver("this->"), r("this", false, &[]));
+    }
+
+    #[test]
+    fn a_declaration_types_its_name_by_the_last_word_or_its_body() {
+        let at = |code: &str, name: &str| {
+            let code = c_code(code);
+            let at = code.rfind(name).unwrap();
+            c_decl_type(&code, at)
+        };
+        let name = |n: &str| Some(CType::Name(n.to_owned()));
+        assert_eq!(at("struct client *c;", "c"), name("client"));
+        assert_eq!(
+            at("static const struct client *a, *c;", "c"),
+            name("client")
+        );
+        assert_eq!(at("void f(client *c) {", "c"), name("client"));
+        assert_eq!(at("int (*c)(int);", "c"), None);
+        assert_eq!(at("std::vector<int> c;", "c"), None);
+        assert_eq!(at("Box<int> c;", "c"), None);
+        assert_eq!(at("struct { int a; } c;", "c"), Some(CType::Body(7)));
+        assert_eq!(at("typedef struct { int a; } c;", "c"), None);
+    }
+
+    #[test]
+    fn a_type_declaration_opens_a_body_or_names_another_type() {
+        let at = |code: &str, name: &str| {
+            let code = c_code(code);
+            let at = code.rfind(name).unwrap();
+            c_type_def(&code, at)
+        };
+        assert_eq!(
+            at("typedef struct tag name;", "name"),
+            Some(CType::Name("tag".to_owned()))
+        );
+        assert_eq!(
+            at("typedef T name;", "name"),
+            Some(CType::Name("T".to_owned()))
+        );
+        assert_eq!(at("struct name {", "name"), Some(CType::Body(12)));
+        assert_eq!(
+            at("typedef struct {\n} name;", "name"),
+            Some(CType::Body(15))
+        );
+        assert_eq!(at("struct name;", "name"), None);
+        assert_eq!(at("enum name {", "name"), None);
+    }
+
+    #[test]
+    fn a_field_of_a_body_may_sit_in_a_nested_anonymous_one() {
+        let code = c_code(
+            "struct S {\n  union {\n    int a;\n  };\n  struct N {\n    int b;\n  } n;\n};\n",
+        );
+        let open = code.find('{').unwrap();
+        assert_eq!(c_body_field(&code, open, "a"), code.find("a;"));
+        assert_eq!(c_body_field(&code, open, "b"), None);
+        assert_eq!(c_body_field(&code, open, "n"), code.find("n;"));
+    }
+
+    #[test]
+    fn a_value_type_is_its_one_declaration_in_the_file() {
+        let text = "static struct name { int a; } name;\nint f() { return name.a; }\n";
+        let open = text.find('{').unwrap();
+        assert_eq!(c_value_type(text, 2, "name"), Ok(Some(CType::Body(open))));
+        let text = "struct a *x;\nstruct b *x;\nint f() { return x->n; }\n";
+        assert_eq!(c_value_type(text, 3, "x"), Err(()));
+        assert_eq!(c_value_type(text, 3, "y"), Ok(None));
+    }
 }
