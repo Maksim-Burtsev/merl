@@ -136,7 +136,8 @@ pub(super) fn cs_opener(header: &str, name: &str) -> CsOpener {
         format!(r"\bout\s+{ty}\s+{n}\b"),
     ]
     .into_iter()
-    .any(found);
+    .any(found)
+        || cs_deconstructs(&h, name);
     let mut binds = own;
     if let Some(c) = Regex::new(&format!(r"(?:^|[^\w.]){n}\s*=>(\s*\{{?\s*$)?"))
         .ok()
@@ -246,6 +247,47 @@ pub(super) fn cs_statement(t: &str, name: &str) -> bool {
     ]
     .iter()
     .any(|p| Regex::new(p).is_ok_and(|re| re.is_match(t)))
+        || cs_deconstructs(t, name)
+}
+
+fn cs_deconstructs(t: &str, name: &str) -> bool {
+    static START: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|\bforeach\s*\(\s*)(var\s*)?\(").unwrap()
+    });
+    static IN: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^in\b").unwrap());
+    START.captures_iter(t).any(|c| {
+        let open = c.get(0).unwrap().end() - 1;
+        let Some(close) = close_of(Kind::CSharp, t, open) else {
+            return false;
+        };
+        let after = t[close..].trim_start();
+        let assigned = after
+            .strip_prefix('=')
+            .is_some_and(|r| !r.starts_with(['=', '>']))
+            || IN.is_match(after);
+        assigned && cs_tuple_names(&t[open + 1..close - 1], c.get(1).is_some(), name)
+    })
+}
+
+fn cs_tuple_names(inner: &str, bare: bool, name: &str) -> bool {
+    split_top(Kind::CSharp, inner, b',').into_iter().any(|e| {
+        let e = e.trim();
+        if let Some(nested) = e.strip_prefix('(').and_then(|r| r.strip_suffix(')')) {
+            return cs_tuple_names(nested, bare, name);
+        }
+        if let Some(nested) = e
+            .strip_prefix("var")
+            .map(str::trim_start)
+            .and_then(|r| r.strip_prefix('('))
+            .and_then(|r| r.strip_suffix(')'))
+        {
+            return cs_tuple_names(nested, true, name);
+        }
+        let words: Vec<&str> = e.split_whitespace().collect();
+        let declares = if bare { words.len() == 1 } else { words.len() >= 2 };
+        declares && words.last().is_some_and(|w| w.trim_start_matches('@') == name)
+    })
 }
 
 pub fn cs_binds_here(line: &str, name: &str, at: usize) -> bool {

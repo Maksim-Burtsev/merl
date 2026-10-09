@@ -65,6 +65,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   body goes on in `||` or `&&` lines, a `match` inside a `case` arm, a guard on the line under
   its `case`, a class whose parameters wrap onto the next line, a `val` inside a lambda, a
   definition after `x: @unchecked`, and names such as `Boolean_||`. (#780)
+- `d` in C# on a name a deconstruction declares, `foreach (var (left, right) in pairs)` or
+  `(var a, int b) = Split(x);`, jumps to the deconstruction instead of a field of the same name
+  or nowhere. (#784)
 
 ## [0.8.3] - 2026-10-07
 
