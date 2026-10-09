@@ -6,6 +6,10 @@ struct TypeVia {
     ty: Typed,
     call_signature: Option<String>,
 }
+struct ProvenType {
+    ty: Typed,
+    links: Vec<String>,
+}
 #[derive(PartialEq, Eq)]
 enum Ancestry {
     ReachesOutsideTheProject,
@@ -61,7 +65,7 @@ impl App {
         {
             return Ok(found);
         }
-        let (ty, links) = self.receiver(kind, here, chain, head)?;
+        let ProvenType { ty, links } = self.receiver(kind, here, chain, head)?;
         let declared = self.hierarchy(kind, &ty, 0, &mut |t| {
             let members = self.members_of(kind, t, word);
             if members.is_empty() {
@@ -110,7 +114,7 @@ impl App {
         here: &Path,
         chain: &[String],
         head: Option<&search::CallHead>,
-    ) -> Result<(Typed, Vec<String>), String> {
+    ) -> Result<ProvenType, String> {
         let (text, line) = self.scope(here, chain.first())?;
         match head {
             // The chain hangs off a call: `make_uow().users.word`.
@@ -217,7 +221,7 @@ impl App {
                 Some((here.to_path_buf(), text, bindings, Vec::new()))
             }
             _ => {
-                let (ty, links) = self.receiver(kind, here, before, None).ok()?;
+                let ProvenType { ty, links } = self.receiver(kind, here, before, None).ok()?;
                 let found = self.hierarchy(kind, &ty, 0, &mut |t| {
                     let text = self.text_of(&t.path)?;
                     let bindings = search::field_bindings(kind, &text, t.line, last);
@@ -269,7 +273,7 @@ impl App {
         if kind != Kind::Python || chain.first().is_some_and(|f| f == "super") {
             return None;
         }
-        let (ty, _) = self.receiver(kind, here, chain, head).ok()?;
+        let ProvenType { ty, .. } = self.receiver(kind, here, chain, head).ok()?;
         (self.python_ancestry(&ty, 0)? == Ancestry::ReachesOutsideTheProject).then_some(ty)
     }
 
@@ -376,8 +380,7 @@ impl App {
         false
     }
 
-    /// The type of the chain `x.f.g` on `line1` of `text`, the text of `file`, and the links
-    /// that prove it; `Err` names the first name that is not proven.
+    /// `Err` names the first name of the chain `x.f.g` that is not proven.
     fn chain_type(
         &self,
         kind: Kind,
@@ -386,7 +389,7 @@ impl App {
         line1: usize,
         chain: &[String],
         hops: usize,
-    ) -> Result<(Typed, Vec<String>), String> {
+    ) -> Result<ProvenType, String> {
         let start = self
             .value_type(kind, file, text, line1, &chain[0], hops)
             .ok_or_else(|| chain[0].clone())?;
@@ -403,7 +406,7 @@ impl App {
         name: &str,
         merge: bool,
         fields: &[String],
-    ) -> Result<(Typed, Vec<String>), String> {
+    ) -> Result<ProvenType, String> {
         let TypeVia {
             mut ty,
             call_signature,
@@ -434,7 +437,7 @@ impl App {
             }
             ty = next;
         }
-        Ok((ty, links))
+        Ok(ProvenType { ty, links })
     }
 
     /// The type of `name` on `line1` of `text`, the text of `file`: the one type all its
@@ -595,7 +598,7 @@ impl App {
                     ),
                     Some((chain, last)) => {
                         let chain: Vec<String> = chain.split('.').map(str::to_owned).collect();
-                        let (ty, _) = self
+                        let ProvenType { ty, .. } = self
                             .chain_type(kind, file, text, b.line1, &chain, hops - 1)
                             .ok()?;
                         self.hierarchy(kind, &ty, 0, &mut |t| {
@@ -657,7 +660,7 @@ impl App {
             }
             // `const { repo } = this`: the field of what the chain on the right proves.
             search::Value::Field { chain: from, field } if hops > 0 => {
-                let (ty, _) = self
+                let ProvenType { ty, .. } = self
                     .chain_type(kind, file, text, b.line1, from, hops - 1)
                     .ok()?;
                 let TypeVia { ty, .. } = self
@@ -717,7 +720,7 @@ impl App {
             })
             .flatten();
         let decl = match proven {
-            Some((ty, _)) => {
+            Some(ProvenType { ty, .. }) => {
                 let found = self.hierarchy(kind, &ty, 0, &mut |t| {
                     let members = self.members_of(kind, t, method);
                     (!members.is_empty()).then_some(members)
