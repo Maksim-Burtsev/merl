@@ -322,7 +322,8 @@ impl Model<'_, '_> {
 
     fn sc_indented_end(&self, mut j: usize, head: usize, lines: &[String]) -> usize {
         while j < self.toks.len() {
-            if self.closer(j) || (self.first[j] && indent(&lines[self.toks[j].line]) <= head) {
+            let starts = self.toks[j - 1].end < self.toks[j].line;
+            if self.closer(j) || (starts && indent(&lines[self.toks[j].line]) <= head) {
                 return self.sc_outdent(j, head, lines);
             }
             j = match self.pair[j] {

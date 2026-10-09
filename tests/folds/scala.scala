@@ -124,6 +124,12 @@ def plus(x: Int): Int =  // f: 122-125
   y + 1  // f: 122-125
 end plus  // f: 122-125
 
-trait Last:  // f: 127-129
-  def a: Int  // f: 127-129
+object Text:  // f: 127-132
+  val s = """  // f: 128-130
+a
+""".stripMargin  // f: 127-132
+  val t = 1  // f: 127-132
+
+trait Last:  // f: 133-135
+  def a: Int  // f: 133-135
 
