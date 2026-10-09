@@ -10,17 +10,11 @@ use crate::app::plural;
 use crate::git;
 use crate::stats::{self, WINDOW};
 
-/// A gap between presses counts in full up to this, a longer one as this: a review left open
-/// for hours is not hours of review.
 const IDLE: Duration = Duration::from_secs(5 * 60);
 
-/// The file's first line: what each column of a session holds. The times are in seconds, `back`
-/// counts `[`, `stops` the hunks `c` / `C` stopped on, `last_hunk` is 1 when `c` reached `last
-/// hunk of the review`.
 const HEAD: &str = "date\trepo\tbranch\tround\tfiles\thunks\tadded\tdeleted\ton_review_s\t\
                     elsewhere_s\texcursions\tjumps\tback\tstops\tviewed\tlast_hunk";
 
-/// Next to `keys.tsv`.
 pub fn path() -> Option<PathBuf> {
     Some(stats::path()?.with_file_name("reviews.tsv"))
 }
@@ -32,20 +26,11 @@ pub struct Spot {
     pub file_in_review: bool,
 }
 
-/// A stop of the review walk, as the status bar's `hunk i/n` numbers it: the file relative to
-/// the root and the hunk's place in it, from 1; the top of a deleted file is its one stop.
 pub type Stop = (PathBuf, usize);
 
-/// The stops `c` can make in each file of the review as it opened, counted on a thread started
-/// then, so that neither the first frame nor quitting waits for a `git diff` per file; `None`
-/// when one failed.
 pub type Counting = JoinHandle<Option<HashMap<PathBuf, usize>>>;
 
-/// What one review session did, counted on each press.
 pub struct Session {
-    /// The repository and the branch the session is of, and the review's size, all taken when
-    /// it opened: a `git switch` during it does not file it under another branch, nor fill the
-    /// row with the other branch's review.
     pub repo: String,
     pub branch: String,
     added: usize,
@@ -57,8 +42,6 @@ pub struct Session {
     presses_but_quit: u64,
     on_review: Duration,
     elsewhere: Duration,
-    /// Jumps (`d`, `u`, `D`, a picker's Enter) from a file of the review to a file outside it,
-    /// and the jumps outside they took, the first included.
     excursions: u64,
     jumps: u64,
     back_presses: u64,
@@ -67,8 +50,6 @@ pub struct Session {
 }
 
 impl Session {
-    /// The review `review` of `branch` in `repo`, opened at `at` on the stop `stop` when it
-    /// opened on one.
     pub fn new(
         at: Instant,
         repo: String,
@@ -98,9 +79,6 @@ impl Session {
         }
     }
 
-    /// A press at `at`, the cursor at `from` when it came: the time since the last one goes
-    /// there, [`IDLE`] at most. The key that quits (`quit`) is no press of its own, so a session
-    /// of `q` alone is none; the reading before it still counts.
     pub fn pressed(&mut self, at: Instant, from: &Spot, quit: bool) {
         let gap = at
             .saturating_duration_since(self.last_press_or_start)
@@ -114,8 +92,6 @@ impl Session {
         self.presses_but_quit += u64::from(!quit);
     }
 
-    /// `action` (a `KEYS` action) took the cursor from `from` to `to`; `stop`: the review walk
-    /// left it on that stop; `end`: it was `c` saying `last hunk of the review`.
     pub fn moved(
         &mut self,
         action: Option<&str>,
@@ -138,10 +114,6 @@ impl Session {
         self.last_hunk |= end;
     }
 
-    /// The session's columns from `files` on, as [`HEAD`] names them, for the review as it
-    /// opened: a stop on a hunk it did not have, or a file marked viewed that it did not list,
-    /// does not count, so neither is ever more than the hunks or the files. `None` for a
-    /// session without a press, or when counting the stops failed.
     pub fn columns<'a>(&mut self, viewed: impl Iterator<Item = &'a PathBuf>) -> Option<String> {
         if self.presses_but_quit == 0 {
             return None;
@@ -171,10 +143,6 @@ impl Session {
     }
 }
 
-/// Adds a session to the file under `today`, as the next round of `branch` in `repo`, and drops
-/// the sessions older than [`WINDOW`] days. Written as `keys.tsv` is: read again right before
-/// and replaced whole, so parallel merls keep each other's sessions. A file that cannot be read
-/// is left as it is.
 pub fn add(path: &Path, today: i64, repo: &str, branch: &str, columns: &str) -> Result<()> {
     let clean = |s: &str| s.replace(['\t', '\n'], " ");
     let (repo, branch) = (clean(repo), clean(branch));
@@ -210,7 +178,6 @@ fn is_session_in_window(line: &str, today: i64) -> bool {
         .is_some_and(|day| today - day < WINDOW)
 }
 
-/// `merl --reviews`.
 pub fn report(path: &Path, today: i64) -> Result<String> {
     Ok(table(&stats::read(path)?, today))
 }
@@ -219,8 +186,6 @@ fn minutes_colon_seconds(secs: u64) -> String {
     format!("{}:{:02}", secs / 60, secs % 60)
 }
 
-/// The sessions of the last [`WINDOW`] days, newest first, then how many and the median active
-/// time of a first round and of a later one.
 fn table(text: &str, today: i64) -> String {
     let head = [
         "date",
@@ -348,6 +313,14 @@ mod tests {
 
     fn session(at: Instant) -> Session {
         session_over(at, &[])
+    }
+
+    #[test]
+    fn the_file_is_next_to_the_key_stats() {
+        assert_eq!(
+            path(),
+            dirs::home_dir().map(|h| h.join(".local/state/merl/reviews.tsv"))
+        );
     }
 
     #[test]

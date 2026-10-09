@@ -488,7 +488,7 @@ fn a_start_leaves_the_viewed_store_as_it_is() {
     let (dir, mut a) = review_app("viewedstart");
     press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
     let store = dir.join(".git/merl/viewed");
-    let today = crate::stats::today();
+    let today = crate::stats::utc_today();
     let text = std::fs::read_to_string(&store).unwrap();
     let old = text.replace(&crate::stats::date(today), &crate::stats::date(today - 10));
     std::fs::write(&store, &old).unwrap();
@@ -604,7 +604,7 @@ fn a_worktree_review_shares_the_viewed_marks() {
 fn the_viewed_store_forgets_old_reviews_and_is_replaced_whole() {
     let (dir, _) = review_app("viewedstore");
     let store = dir.join(".git/merl/viewed");
-    let today = crate::stats::today();
+    let today = crate::stats::utc_today();
     let line = |days, branch| {
         let day = crate::stats::date(today - days);
         format!("{day}\t{branch}\tmain\t{:016x}\tx.rs\n", 7)

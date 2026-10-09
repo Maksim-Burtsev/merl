@@ -1,19 +1,12 @@
-//! Soft wrap: pure byte-range arithmetic, no rendering, no state.
-
 use std::ops::Range;
 
 use ratatui::buffer::CellWidth;
 use unicode_segmentation::UnicodeSegmentation;
 
-/// Display width of one grapheme cluster, as ratatui draws it: `⚠️`, `👍🏽` and `👨‍💻` are
-/// several chars and one two-column cell. Zero for a control char and for a combining mark with
-/// no char to attach to. A tab is drawn as [`crate::buffer::TAB`], so it is that wide, and a
-/// [`hidden`] char as its [`tag`].
 pub fn cluster_width(g: &str) -> usize {
     match g.chars().next() {
         Some('\t') => crate::buffer::TAB.len(),
         Some(c) if hidden(c) => TAG_W,
-        // A control char is a cluster of its own.
         Some(c) if c.is_control() => 0,
         _ => g.cell_width().into(),
     }
@@ -33,16 +26,12 @@ pub fn hidden(c: char) -> bool {
     )
 }
 
-/// How a [`hidden`] char is drawn, as Vim does: its code, such as `<202e>`.
 pub fn tag(c: char) -> String {
     format!("<{:04x}>", c as u32)
 }
 
-/// The width of every [`tag`]: all the [`hidden`] chars are four hex digits.
 const TAG_W: usize = 6;
 
-/// The grapheme clusters of `s` with their byte offsets. ASCII, most of any source file, is a
-/// cluster a byte: skipping the segmenter there keeps a long line as cheap as it was per char.
 pub fn clusters(s: &str) -> impl Iterator<Item = (usize, &str)> {
     let ascii = s.is_ascii();
     let bytes = ascii.then(|| (0..s.len()).map(move |i| (i, &s[i..=i])));
@@ -53,65 +42,50 @@ pub fn clusters(s: &str) -> impl Iterator<Item = (usize, &str)> {
         .chain(graphemes.into_iter().flatten())
 }
 
-/// Display width of a string, using the same rules as [`wrap_line`].
 pub fn width(s: &str) -> usize {
     clusters(s).map(|(_, g)| cluster_width(g)).sum()
 }
 
-/// Splits `line` into byte ranges that each fit in `width` display columns. Rows after the first
-/// are drawn [`indent`] columns in, so they get that much less room.
-///
-/// Greedy, breaking between words: a row ends after the spaces that follow a word, and those
-/// spaces may run past the edge rather than open the next row with a blank. A word that fits a
-/// row moves down whole. A longer one (a URL, a call chain, a hash) starts where it stands, like
-/// Claude Code, and breaks after its last `/ . , ; ) ] }` that fits, like VS Code, or else by
-/// cluster; so does indentation wider than the row. Rows break between grapheme clusters only, so
-/// an emoji keeps its selector and a letter its accents; a width-2 cluster that does not fit is
-/// pushed to the next row. An empty line yields one empty row, so the result is never empty.
 pub fn wrap_line(line: &str, width: usize) -> Vec<Range<usize>> {
     let width = width.max(1);
     let rest = width - indent(line, width);
     let mut rows = Vec::new();
     let mut start = 0usize;
     let mut used = 0usize;
-    // The row has a non-space char, so its spaces separate words rather than indent.
-    let mut has_text = false;
+    let mut row_has_text = false;
     let mut after_space = false;
-    // Start of the row's last word after a space: where the row ends instead of mid-word.
-    let mut word = None;
-    // The row's last break after punctuation: where a word longer than a row ends it.
-    let mut punct = None;
+    let mut last_word_start = None;
+    let mut last_punct_break = None;
     let mut prev = ' ';
     for (i, g) in clusters(line) {
         let w = cluster_width(g);
         if w == 0 {
-            continue; // a lone combining mark attaches to the previous char, never opens a row
+            continue;
         }
         let c = g.chars().next().unwrap_or(' ');
-        // Not `is_whitespace`: a no-break space must keep its words on one row.
         let space = c == ' ' || c == '\t';
-        if !(space && has_text) {
-            if after_space && has_text {
-                word = Some(i);
+        if !(space && row_has_text) {
+            if after_space && row_has_text {
+                last_word_start = Some(i);
             }
             if breaks_after(prev) && !breaks_after(c) {
-                punct = Some(i);
+                last_punct_break = Some(i);
             }
             let room = if rows.is_empty() { width } else { rest };
             if used + w > room && i > start {
-                let end = match word {
+                let end = match last_word_start {
                     Some(b) if self::width(&line[b..word_end(line, b)]) <= rest => b,
-                    Some(b) => punct.filter(|&p| p > b).unwrap_or(i),
-                    None => punct.unwrap_or(i),
+                    Some(b) => last_punct_break.filter(|&p| p > b).unwrap_or(i),
+                    None => last_punct_break.unwrap_or(i),
                 };
                 rows.push(start..end);
                 start = end;
                 used = self::width(&line[end..i]);
-                (word, punct) = (None, None);
+                (last_word_start, last_punct_break) = (None, None);
             }
         }
         used += w;
-        has_text |= !space;
+        row_has_text |= !space;
         after_space = space;
         prev = c;
     }
@@ -136,7 +110,6 @@ pub fn wrap_shown(line: &str, width: usize) -> Vec<Range<usize>> {
     rows
 }
 
-/// Punctuation a word longer than a row may break after.
 fn breaks_after(c: char) -> bool {
     matches!(c, '/' | '.' | ',' | ';' | ')' | ']' | '}')
 }
@@ -145,9 +118,6 @@ fn word_end(line: &str, i: usize) -> usize {
     line[i..].find([' ', '\t']).map_or(line.len(), |n| i + n)
 }
 
-/// Display columns a continuation row of `line` is drawn in by: its indentation and, for a list
-/// item (`- `, `* `, `+ `, `1. `, `1) `), the marker as well, so the rows line up under the text.
-/// Zero when that is more than half of `width`, which would leave the rows too little room.
 pub fn indent(line: &str, width: usize) -> usize {
     let text = line.trim_start_matches([' ', '\t']);
     let digits = text.bytes().take_while(u8::is_ascii_digit).count();
@@ -163,10 +133,6 @@ pub fn indent(line: &str, width: usize) -> usize {
     if cols * 2 > width { 0 } else { cols }
 }
 
-/// What shows of `line` in display columns `from..to` when it is not wrapped: the byte range of
-/// the clusters that fit whole, and the blank columns before them where a tab or a wide cluster
-/// straddles `from`. Empty at the end of the line when it does not reach `from`; its blank
-/// columns are then those of a cluster straddling `from`, so the end of the line is at `lead`.
 pub fn cut(line: &str, from: usize, to: usize) -> (Range<usize>, usize) {
     let (mut start, mut lead) = (None, 0);
     let mut x = 0;
@@ -393,6 +359,12 @@ mod tests {
         );
         assert_eq!(cut("\u{26a0}\u{fe0f}ab", 0, 2), (0..6, 0));
         assert_eq!(cut("\u{26a0}\u{fe0f}ab", 1, 4), (6..8, 1));
+    }
+
+    #[test]
+    fn a_control_char_takes_no_column() {
+        assert_eq!(width("a\u{7}b"), 2);
+        assert_eq!(wrap_line("a\u{7}b", 1), vec![0..2, 2..3]);
     }
 
     #[test]

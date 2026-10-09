@@ -123,7 +123,7 @@ fn run() -> Result<()> {
     if cli.keys {
         let path = stats::path().context("no home directory")?;
         // `merl --keys | head` closes the pipe early; that is no error.
-        let _ = stdout().write_all(stats::report(&path, stats::today())?.as_bytes());
+        let _ = stdout().write_all(stats::report(&path, stats::utc_today())?.as_bytes());
         return Ok(());
     }
     if cli.for_agents {
@@ -132,7 +132,7 @@ fn run() -> Result<()> {
     }
     if cli.reviews {
         let path = reviews::path().context("no home directory")?;
-        let _ = stdout().write_all(reviews::report(&path, stats::today())?.as_bytes());
+        let _ = stdout().write_all(reviews::report(&path, stats::utc_today())?.as_bytes());
         return Ok(());
     }
     let config = theme::config()?;
@@ -221,7 +221,7 @@ fn run() -> Result<()> {
             Some(n) => {
                 let keys = stats::path();
                 let log = keys.as_ref().map(|k| k.with_file_name("drill.tsv"));
-                Some(Drill::new(n.into(), keys.as_deref(), log, stats::today())?)
+                Some(Drill::new(n.into(), keys.as_deref(), log, stats::utc_today())?)
             }
             None => None,
         };
@@ -309,13 +309,13 @@ fn run() -> Result<()> {
     }
     // After `q` or a signal alike; a crash loses the session's presses, and only those.
     if let Some(path) = stats::path()
-        && let Err(e) = stats::add(&path, stats::today(), &app.pressed, &app.missed)
+        && let Err(e) = stats::add(&path, stats::utc_today(), &app.pressed, &app.missed)
     {
         eprintln!("merl: {e:#}");
     }
     if let Some(path) = reviews::path() {
         for (repo, branch, columns) in app.review_rows() {
-            if let Err(e) = reviews::add(&path, stats::today(), &repo, &branch, &columns) {
+            if let Err(e) = reviews::add(&path, stats::utc_today(), &repo, &branch, &columns) {
                 eprintln!("merl: {e:#}");
             }
         }

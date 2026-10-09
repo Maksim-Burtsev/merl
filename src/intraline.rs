@@ -1,13 +1,5 @@
-//! Which part of a changed line changed, the way GitHub's word diff paints it. A line is
-//! tokens — a maximal run of word characters is one, every other character is one of its own,
-//! whitespace included — the common prefix and suffix fall away, and an LCS over the middle
-//! tokens says which of them stayed. `pair` lines up a hunk's deleted and added lines, so an
-//! added line knows which ghost it came from.
-
 use std::ops::Range;
 
-/// The parts of `old` and `new` that differ, as byte ranges into each: sorted, disjoint,
-/// non-empty, consecutive changed tokens merged into one range.
 pub fn changes(old: &str, new: &str) -> (Vec<Range<usize>>, Vec<Range<usize>>) {
     let (a, b) = (tokens(old), tokens(new));
     let (pre, suf) = common(old, new, &a, &b);
@@ -22,7 +14,6 @@ pub fn changes(old: &str, new: &str) -> (Vec<Range<usize>>, Vec<Range<usize>>) {
     (changed(mid_a, &kept_a), changed(mid_b, &kept_b))
 }
 
-/// How much of two lines is the same text, 0.0 to 1.0.
 pub fn similarity(old: &str, new: &str) -> f64 {
     let (a, b) = (tokens(old), tokens(new));
     let (pre, suf) = common(old, new, &a, &b);
@@ -50,11 +41,8 @@ pub fn similarity(old: &str, new: &str) -> f64 {
     2.0 * kept as f64 / total as f64
 }
 
-/// Which deleted line of a hunk pairs with which added line: `(index into deleted, index into
-/// added)`, both increasing.
 pub fn pair(deleted: &[String], added: &[String]) -> Vec<(usize, usize)> {
     if deleted.len() == added.len() {
-        // What GitHub and GitLab do with N removed lines followed by N added ones.
         return (0..deleted.len()).map(|i| (i, i)).collect();
     }
     // ponytail: the DP is n×m; past 400 pairs of lines a hunk gets no pairs at all.
@@ -90,8 +78,6 @@ pub fn pair(deleted: &[String], added: &[String]) -> Vec<(usize, usize)> {
     out
 }
 
-/// A line as tokens: a maximal run of word characters (`_` counts) is one, and every other
-/// character — each space, each `=` — is one of its own.
 fn tokens(s: &str) -> Vec<Range<usize>> {
     let mut out = Vec::new();
     let mut word: Option<usize> = None;
@@ -111,7 +97,6 @@ fn tokens(s: &str) -> Vec<Range<usize>> {
     out
 }
 
-/// How many tokens are the same text at the front and at the back, the two never overlapping.
 fn common(old: &str, new: &str, a: &[Range<usize>], b: &[Range<usize>]) -> (usize, usize) {
     let mut pre = 0;
     while pre < a.len().min(b.len())
@@ -163,7 +148,6 @@ fn in_lcs(a: &[&str], b: &[&str]) -> (Vec<bool>, Vec<bool>) {
     (kept_a, kept_b)
 }
 
-/// The byte ranges of the tokens that did not survive, consecutive ones merged.
 fn changed(tokens: &[Range<usize>], kept: &[bool]) -> Vec<Range<usize>> {
     let mut out: Vec<Range<usize>> = Vec::new();
     for (t, kept) in tokens.iter().zip(kept) {
@@ -171,7 +155,6 @@ fn changed(tokens: &[Range<usize>], kept: &[bool]) -> Vec<Range<usize>> {
             continue;
         }
         match out.last_mut() {
-            // Tokens tile the line, so changed neighbours touch.
             Some(last) if last.end == t.start => last.end = t.end,
             _ => out.push(t.clone()),
         }
@@ -276,6 +259,17 @@ mod tests {
             changes(old, new),
             (found_ranges(old, &["мир"]), found_ranges(new, &["world"]))
         );
+    }
+
+    #[test]
+    fn an_underscore_is_part_of_a_word() {
+        assert_eq!(changes("a_b = 1", "a_c = 1"), (vec![0..3], vec![0..3]));
+    }
+
+    #[test]
+    fn the_common_prefix_and_suffix_never_overlap() {
+        assert_eq!(changes("x x", "x x x"), (vec![], vec![3..5]));
+        assert_eq!(changes("x x x", "x x"), (vec![3..5], vec![]));
     }
 
     #[test]
