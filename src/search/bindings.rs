@@ -650,8 +650,14 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                     None if first_line_read_whole == Some(i) => {}
                     None => match ts_declarators(lines, i).filter(|_| kind == Kind::TsJs) {
                         Some(each) => {
-                            for (at, d) in each {
-                                statement_bindings(kind, &d, at + 1, name, &mut out);
+                            for d in each {
+                                statement_bindings(
+                                    kind,
+                                    &d.as_own_statement,
+                                    d.line0 + 1,
+                                    name,
+                                    &mut out,
+                                );
                             }
                         }
                         None => statement_bindings(kind, t, i + 1, name, &mut out),
@@ -1266,7 +1272,11 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
     };
     out.push(Binding { line1: line, value });
 }
-pub(super) fn ts_declarators(lines: &[&str], k: usize) -> Option<Vec<(usize, String)>> {
+pub(super) struct TsDeclarator {
+    pub line0: usize,
+    pub as_own_statement: String,
+}
+pub(super) fn ts_declarators(lines: &[&str], k: usize) -> Option<Vec<TsDeclarator>> {
     static KEYWORD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^(?:export\s+)?(?:declare\s+)?(?:const|let|var)\s+").unwrap()
     });
@@ -1312,9 +1322,12 @@ pub(super) fn ts_declarators(lines: &[&str], k: usize) -> Option<Vec<(usize, Str
         if piece.is_empty() {
             continue;
         }
-        out.push(match n {
-            0 => (line, piece),
-            _ => (line, format!("{keyword}{piece}")),
+        out.push(TsDeclarator {
+            line0: line,
+            as_own_statement: match n {
+                0 => piece,
+                _ => format!("{keyword}{piece}"),
+            },
         });
     }
     (out.len() > 1).then_some(out)

@@ -169,7 +169,7 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
         }
         // `more = …` under `const fs = …,` is declared where that statement is (#328).
         if kind == Kind::TsJs
-            && ts_declarators(&lines, j).is_some_and(|d| d.iter().any(|(at, _)| *at == line1 - 1))
+            && ts_declarators(&lines, j).is_some_and(|d| d.iter().any(|d| d.line0 == line1 - 1))
         {
             return qualified(kind, text, j + 1, name);
         }

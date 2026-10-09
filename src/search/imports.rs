@@ -89,7 +89,7 @@ fn ts_continued(text: &str) -> std::borrow::Cow<'_, str> {
     let mut out: Vec<String> = lines.iter().map(|l| (*l).to_owned()).collect();
     let mut changed = false;
     for k in 0..lines.len() {
-        for (l, _) in ts_declarators(&lines, k)
+        for TsDeclarator { line0: l, .. } in ts_declarators(&lines, k)
             .unwrap_or_default()
             .into_iter()
             .skip(1)
