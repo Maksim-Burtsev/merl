@@ -311,6 +311,15 @@ fn rust_return_type_is_the_type_behind_the_last_arrow_outside_brackets() {
     );
     assert_eq!(ret("fn f(g: impl Fn() -> u8) {"), None);
     assert_eq!(
+        ret("fn make<F>(g: F) -> Wagon where F: Fn() -> Sled {").as_deref(),
+        Some("Wagon")
+    );
+    assert_eq!(ret("fn f<F>(g: F) where F: Fn() -> Sled {"), None);
+    assert_eq!(
+        ret("fn f() -> Somewhere where T: Copy {").as_deref(),
+        Some("Somewhere")
+    );
+    assert_eq!(
         ret("fn f<F: Fn() -> u8>(g: F) -> Wagon {").as_deref(),
         Some("Wagon")
     );

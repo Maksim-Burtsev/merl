@@ -2,7 +2,7 @@ use crate::carts::Wagon;
 
 pub fn towed(hauler: Wagon) -> u32 {
     hauler.roll()
-    //     ^ d: picker src/carts.rs:7, src/carts.rs:19, src/hauls/yard.rs:4; want src/carts.rs:7 (#783)
+    //     ^ d: src/carts.rs:7
 }
 
 pub fn hued() -> u32 {

@@ -70,6 +70,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in C# on a name a deconstruction declares, `foreach (var (left, right) in pairs)` or
   `(var a, int b) = Split(x);`, jumps to the deconstruction instead of a field of the same name
   or nowhere. (#784)
+- `d` in Rust on a method of a value made by a function that bounds a closure in a `where`
+  clause, `where F: Fn() -> Sled`, jumps to the method of the type the function returns, not of
+  the closure's. (#785)
+- `d` in Rust on a method of a value whose type a `use crate::…`, `use super::…` or `use
+  self::…` brings in jumps to that type's method, where it offered every method of the name.
+  (#783)
 
 ## [0.8.3] - 2026-10-07
 
