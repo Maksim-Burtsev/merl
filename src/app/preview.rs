@@ -222,6 +222,10 @@ impl App {
     /// acts on a word, a column or a selection, has nothing to act on here, and does nothing.
     pub(super) fn preview_key(&mut self, key: KeyEvent) -> bool {
         if !self.previewing() {
+            let walk = self.review.is_some() && matches!(key.code, KeyCode::Char('c' | 'C'));
+            if walk && self.preview_pending() {
+                self.toggle_preview();
+            }
             return false;
         }
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);

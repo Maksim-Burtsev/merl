@@ -38,7 +38,7 @@ impl App {
 
     /// Into edit mode, the one way there: the text being typed is never under the preview.
     pub(super) fn edit_mode(&mut self) {
-        if self.previewing() {
+        if self.previewing() || self.preview_pending() {
             self.toggle_preview();
         }
         self.mode = Mode::Edit;

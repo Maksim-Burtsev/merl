@@ -162,3 +162,19 @@ fn a_mermaid_file_is_its_diagram_or_its_source() {
     let texts: Vec<&str> = source.rows.iter().map(|r| r.text.as_str()).collect();
     assert_eq!(texts, [" graph TD", "   A --> B"]);
 }
+
+#[test]
+fn a_record_over_two_lines_answers_for_its_first() {
+    let err = parse(Data::Csv, &lines("a,b\n\"x\ny\",1,2\n")).unwrap_err();
+    assert_eq!(err, "line 2 has 3 fields, not 2");
+    let lines = lines("id,note\n1,\"two\nlines\"\n");
+    let parsed = parse(Data::Csv, &lines).unwrap();
+    let doc = Data::Csv.layout(Some(&parsed), &lines, 40, &mut |_, _| None);
+    assert_eq!(doc.rows[doc.row_at((1, 0))].text, "│ 1  │ two   │");
+}
+
+#[test]
+fn a_markdown_table_border_still_stands_for_its_delimiter_line() {
+    let doc = crate::markdown::layout(&lines("| a |\n|---|\n| 1 |\n"), 40, false, &mut |_, _| None);
+    assert!(doc.rows[doc.row_at((1, 0))].text.starts_with('├'));
+}

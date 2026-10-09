@@ -23,9 +23,9 @@ bar says `[preview]` where it says `[code]`, and `p` on a file it has no preview
 
 `.csv` is RFC 4180 with commas: a quoted cell may hold commas, doubled quotes and line breaks.
 `.tsv` is cells between tabs, quotes and all. Nothing is guessed: the file is read whole in the
-background, the status bar says `parsing` until it is done, and a file that cannot be read whole
-(a quote left open, rows of different lengths, a line that is not JSON) stays as source with the
-reason in the status bar, `p: line 41 is not JSON`. A JSON record keeps its text as written:
+background, the status bar says `[parsing]` where it says `[code]` until it is done, and a file
+that cannot be read whole (a quote left open, rows of different lengths, a line that is not JSON)
+stays as source with the reason in the status bar, `p: line 41 is not JSON`. A JSON record keeps its text as written:
 keys in their order, numbers as typed.
 
 | Markdown | In the preview |

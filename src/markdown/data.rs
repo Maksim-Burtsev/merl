@@ -2,6 +2,8 @@ use std::path::Path;
 
 use super::{Block, BlockLine, Doc, Fit, Ink, Inline, Kind, Lay, Table, TableRow};
 
+pub const THREAD: &str = "parse";
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Data {
     Csv,

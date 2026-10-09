@@ -4,8 +4,6 @@ use std::thread::JoinHandle;
 use super::*;
 use crate::markdown::data::{self, Parsed};
 
-const PARSING: &str = "parsing";
-
 type Job = JoinHandle<Result<Parsed, String>>;
 
 #[derive(Default)]
@@ -23,13 +21,27 @@ pub(super) fn lines_hash(lines: &[String]) -> u64 {
 pub(super) fn no_preview(path: &Path) -> String {
     match path.extension() {
         Some(ext) => format!("no preview for .{}", ext.to_string_lossy()),
-        None => format!("no preview for {}", path.display()),
+        None => {
+            let name = path.file_name().unwrap_or(path.as_os_str());
+            format!("no preview for {}", name.to_string_lossy())
+        }
     }
 }
 
 impl App {
     pub(super) fn parse_ready(&self, path: &Path) -> bool {
         !data::parses(path) || self.parse.done.as_ref().is_some_and(|d| d.0 == path)
+    }
+
+    pub(crate) fn preview_pending(&self) -> bool {
+        let path = self.buf.path.as_deref();
+        path.is_some_and(|p| self.previewed.contains(p) && !self.parse_ready(p))
+    }
+
+    pub(crate) fn preview_fresh(&mut self) {
+        if self.previewing() && self.buf.path.as_deref().is_some_and(data::parses) {
+            self.parse_stale(lines_hash(&self.buf.lines));
+        }
     }
 
     pub(super) fn parse_toggle(&mut self, path: &Path) -> bool {
@@ -39,7 +51,6 @@ impl App {
             }
             self.previewed.remove(path);
             self.parse.job = None;
-            self.message.clear();
             return true;
         }
         if !data::parses(path) {
@@ -77,7 +88,6 @@ impl App {
         let Some(kind) = data::data(&path) else {
             return;
         };
-        self.message = PARSING.into();
         if self
             .parse
             .job
@@ -87,8 +97,16 @@ impl App {
             return;
         }
         let lines = self.buf.lines.clone();
-        let job = std::thread::spawn(move || data::parse(kind, &lines));
-        self.parse.job = Some((path, hash, job));
+        let spawned = std::thread::Builder::new()
+            .name(data::THREAD.into())
+            .spawn(move || data::parse(kind, &lines));
+        match spawned {
+            Ok(job) => self.parse.job = Some((path, hash, job)),
+            Err(_) => {
+                self.previewed.remove(&path);
+                self.message = "p: could not parse".into();
+            }
+        }
     }
 
     pub(super) fn parse_tick(&mut self) -> bool {
@@ -110,9 +128,6 @@ impl App {
         };
         if from != path {
             return false;
-        }
-        if self.message == PARSING {
-            self.message.clear();
         }
         match job.join() {
             Ok(Ok(parsed)) => {

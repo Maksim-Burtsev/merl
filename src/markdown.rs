@@ -1254,11 +1254,7 @@ fn wrap_cell(text: &str, width: usize) -> Vec<Range<usize>> {
     let mut from = 0;
     let mut out = Vec::new();
     for seg in text.split('\n') {
-        let rows = wrap::wrap_line(seg, width);
-        if rows.is_empty() {
-            out.push(from..from);
-        }
-        for r in rows {
+        for r in wrap::wrap_line(seg, width) {
             let end = r.start + seg[r.clone()].trim_end_matches(' ').len();
             out.push(from + r.start..from + end);
         }
