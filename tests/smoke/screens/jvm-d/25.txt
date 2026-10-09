@@ -1,0 +1,57 @@
+wait <resources>  ⋯
+1 <resources>  ⋯ </resources>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/android/src/main/res/values/strings.xml  1:12  [code]                                                                                                                         ? help
+cursor (x,y,shown) 13,0,1

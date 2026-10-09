@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `f` folds RBS signatures (`.rbs`), a `class`, `module` or `interface` to its `end`, and zsh
   (`.zsh`, `.zshrc`), as shell plus an anonymous function `() {` and `{ … } always { … }`,
   where both said `no fold rules`. (#626)
+- `f` folds XML (`.xml`), where it said `no fold rules for .xml`: an element from its opening
+  tag to its closing one, and a comment over several lines. (#627)
 
 ### Changed
 
