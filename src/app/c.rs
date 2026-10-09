@@ -107,7 +107,10 @@ impl App {
                 };
             };
             if i == fields.len() {
-                let (line, col) = search::c_place(&body.code, at);
+                let search::CPlace {
+                    line1: line,
+                    byte_col: col,
+                } = search::c_place(&body.code, at);
                 let hit = Hit {
                     path: body.path,
                     line,

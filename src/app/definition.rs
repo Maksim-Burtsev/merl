@@ -414,7 +414,7 @@ impl App {
         let on_itself = match kind {
             Kind::C => search::c_bindings_at(&text, self.line + 1, first)
                 .iter()
-                .all(|&(l, c)| l == self.line + 1 && c == range.start),
+                .all(|p| p.line1 == self.line + 1 && p.byte_col == range.start),
             _ => locals == [self.line + 1],
         };
         let same_line = (matches!(kind, Kind::Jvm | Kind::PowerShell)
