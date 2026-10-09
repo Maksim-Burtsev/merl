@@ -4,14 +4,11 @@ use regex::Regex;
 
 use super::*;
 
-/// The pieces of Dart's grammar both `d`'s patterns and `D`'s rows read, as macros so the
-/// rows can be `concat!`ed from them: one spelling of what a Dart type is.
 macro_rules! dart_generics {
     () => {
         r"(?:<[^<>]*(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>[^<>]*)*>)?"
     };
 }
-/// The annotations in front of a declaration written on its line: `@override String f()`.
 macro_rules! dart_annotations {
     () => {
         r"(?:@[\w$.]+(?:\([^)]*\))?\s+)*"
@@ -22,9 +19,6 @@ macro_rules! dart_mods {
         r"(?:(?:static|external|abstract|override)\s+)*"
     };
 }
-/// A type a declaration is told from a statement by: a primitive, or a name with a capital,
-/// behind a library prefix or not, with its generics nested three deep and its `?`. `return`,
-/// `await`, `throw`, `yield` and `case` are none.
 macro_rules! dart_type {
     () => {
         concat!(
@@ -34,7 +28,6 @@ macro_rules! dart_type {
         )
     };
 }
-/// Any type a keyword already tells, lowercase too: `final int x`, `late final db.Database d`.
 macro_rules! dart_any_type {
     () => {
         concat!(r"[\w$.]+", dart_generics!(), r"\??")
@@ -48,29 +41,18 @@ const NAME_END_PAST_DOLLAR: &str = r"(?:[^\w$]|$)";
 const DART_PATTERN_COUNT: usize = 9;
 const DART_CONSTRUCTOR_PATTERN: usize = 4;
 
-/// In this order: a type, a top-level function, a method, a getter or a setter, a constructor of
-/// the class `word`, a named constructor `X.word`, a variable or a field, an `enum` value on the
-/// `enum` line and one on a line of its own.
 pub fn dart_patterns(word: &str) -> Vec<String> {
     let w = regex::escape(word);
     let mods = dart_mods!();
     let generics = dart_generics!();
-    // The parameters a constructor declaration opens with, where a call's arguments are
-    // expressions: `this.`, `super.`, a `{` or `[` of optional ones, a type and a name; or the
-    // `:` of an initializer list after them.
     let params = format!(
         r"\((?:\s*(?:this\.|super\.|\{{|\[|(?:required\s+)?{TYPE}\s+[A-Za-z_$][\w$]*\s*[,)=])|[^;]*\)\s*:(?:[^:]|$))"
     );
     vec![
-        // `class` behind its modifiers, `mixin`, `enum`, a named `extension … on`, an
-        // `extension type`, a `typedef` new (`= …`) and old (`void Callback(int code)`).
         format!(
             r"^\s*{ANNOTATIONS}(?:(?:(?:abstract|sealed|base|final|interface|mixin)\s+)*(?:class|mixin|enum)\s+{w}{NAME_END_PAST_DOLLAR}|extension\s+{w}\s*{generics}\s+on\s|extension\s+type\s+(?:const\s+)?{w}\s*[<(.]|typedef\s+(?:[^=;(]*\s)?{w}\s*(?:<[^>]*>)?\s*[=(])"
         ),
-        // In column zero Dart has declarations and directives only, so a name before its `(`
-        // there is a function: `main() {`, `T first<T>(…)`.
         format!(r"^(?:external\s+)?(?:{ANY_TYPE}\s+)?{w}\s*(?:<[^()]*>)?\s*\("),
-        // Indented, the type before the name tells a method from a call, as in Java.
         format!(r"^\s+{ANNOTATIONS}{mods}{TYPE}\s+(?:operator\s*)?{w}\s*(?:<[^()]*>)?\s*\("),
         format!(
             r"^\s*{ANNOTATIONS}{mods}(?:{ANY_TYPE}\s+)?(?:get\s+{w}{NAME_END_PAST_DOLLAR}|set\s+{w}\s*\()"
@@ -79,8 +61,6 @@ pub fn dart_patterns(word: &str) -> Vec<String> {
         format!(
             r"^\s+{ANNOTATIONS}(?:(?:(?:const|factory|external)\s+)+[A-Za-z_$][\w$]*\.{w}\s*\(|[A-Za-z_$][\w$]*\.{w}\s*{params})"
         ),
-        // Behind `final`, `const`, `var` or `late` with or without its type, or with a type alone;
-        // `==` compares, `=>` is no value.
         format!(
             r"^\s*{ANNOTATIONS}(?:(?:(?:static|external|covariant)\s+)*(?:(?:final|const|var|late)\s+)+(?:{ANY_TYPE}\s+)?|(?:(?:static|external|covariant)\s+)*{TYPE}\s+){w}\s*(?:=[^=>]|;|,|$)"
         ),
@@ -89,9 +69,6 @@ pub fn dart_patterns(word: &str) -> Vec<String> {
     ]
 }
 
-/// A constructor directly inside a class, an enum or an extension type; an `enum` value on a line
-/// of its own directly inside an `enum`; a variable nowhere in a parameter list wrapped over lines
-/// (`  int retries = 3,` under `void f({`), where it is a parameter.
 pub fn dart_declares<S: AsRef<str>>(lines: &[S], line1: usize, line_text: &str) -> bool {
     static BODY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(&format!(
@@ -163,8 +140,6 @@ static SHAPES: std::sync::LazyLock<Vec<Regex>> = std::sync::LazyLock::new(|| {
         .collect()
 });
 
-/// The class's own constructor only where the class is built, `User(…)`, and the type itself
-/// everywhere.
 pub fn dart_narrow(patterns: &mut Vec<String>, line: &str, word: std::ops::Range<usize>) {
     static CALLED: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:<[^()]*>)?\s*\(").unwrap());
@@ -173,9 +148,6 @@ pub fn dart_narrow(patterns: &mut Vec<String>, line: &str, word: std::ops::Range
     }
 }
 
-/// What a Dart file's imports bind: the prefix of `import '…' as p;` and each name of
-/// `import '…' show A, B;`. A plain `import` binds no name, as Swift's makes a whole module
-/// visible.
 pub fn dart_imports(text: &str) -> Vec<DartImport> {
     static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#"(?m)^\s*import\s+(?:'([^']*)'|"([^"]*)")([^;]*);"#).unwrap()
@@ -195,7 +167,6 @@ pub fn dart_imports(text: &str) -> Vec<DartImport> {
                 is_prefix: true,
             });
         } else if let Some(s) = SHOW.captures(rest) {
-            // `show A, B hide C` ends the list at the next keyword.
             for name in s[1].split(',').filter_map(|n| n.split_whitespace().next()) {
                 out.push(DartImport {
                     name: name.to_owned(),
@@ -214,15 +185,6 @@ pub struct DartImport {
     pub is_prefix: bool,
 }
 
-/// The file a Dart import's `uri` names from `here`, project-relative when it is the project's,
-/// absolute outside it; `None` when nothing on disk answers it. `root` is the project's.
-///
-/// - A relative URI is next to `here`.
-/// - `package:<name>/<path>` is `lib/<path>` of the package whose `pubspec.yaml` is the nearest
-///   above `here` when it is called `<name>`, else of `<name>` in the
-///   `.dart_tool/package_config.json` beside that `pubspec.yaml`, which `pub get` writes.
-/// - `dart:<lib>` is `<lib>/<lib>.dart` in the SDK's `lib/`, `dart:ui` the `sky_engine` package's
-///   `lib/ui/ui.dart`.
 pub fn dart_uri_file(root: &Path, here: &Path, uri: &str, sdk: Option<&Path>) -> Option<PathBuf> {
     let found = |p: PathBuf| -> Option<PathBuf> {
         let abs = root.join(&p);
@@ -270,8 +232,6 @@ pub(super) struct DartPackage {
     package_uri_dir: PathBuf,
 }
 
-/// `package_uri_dir` is the `rootUri` (a `file://` URI, or a path relative to the file's
-/// directory) joined with the `packageUri` (`lib/`).
 pub(super) fn dart_packages(config: &Path) -> Vec<DartPackage> {
     static ENTRY: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"\{[^{}]*\}").unwrap());
@@ -335,8 +295,6 @@ pub fn dart_sdk() -> Option<PathBuf> {
     dart_sdk_of(&dart)
 }
 
-/// The SDK a `dart` executable belongs to, symlinks followed: the directory above its `bin/`,
-/// or in a Flutter install, where `bin/dart` sits beside `bin/cache/dart-sdk`, that one.
 pub(super) fn dart_sdk_of(dart: &Path) -> Option<PathBuf> {
     let bin = std::fs::canonicalize(dart).ok()?.parent()?.to_path_buf();
     let flutter = bin.join("cache/dart-sdk");
@@ -346,10 +304,6 @@ pub(super) fn dart_sdk_of(dart: &Path) -> Option<PathBuf> {
     }
 }
 
-/// Where Dart's sources outside the project `root` are: every package the
-/// `.dart_tool/package_config.json` of the project (or of a package of it one or two
-/// directories down, as a Flutter app's `app/` is) lists outside `root`, and the SDK's `lib/`.
-/// No `pub get` yet, no packages.
 pub(super) fn dart_roots(root: &Path, sdk: Option<PathBuf>) -> Vec<PathBuf> {
     let sorted_subdirs = |d: &Path| -> Vec<PathBuf> {
         let mut dirs: Vec<PathBuf> = std::fs::read_dir(d)
@@ -382,9 +336,6 @@ pub(super) fn dart_roots(root: &Path, sdk: Option<PathBuf>) -> Vec<PathBuf> {
     out
 }
 
-/// What `D` lists of a Dart file, first row: a type — a `class` behind its modifiers, a `mixin`,
-/// an `enum`, a named `extension`, an `extension type`, a `typedef`. An unnamed `extension on X`
-/// names nothing.
 pub(super) const DART_TYPE_SYMBOL: &str = concat!(
     r"^\s*",
     dart_annotations!(),
@@ -394,7 +345,6 @@ pub(super) const DART_TYPE_SYMBOL: &str = concat!(
     dart_generics!(),
     r"\s*(?:[({=.:;]|on\s|extends\b|with\b|implements\b|$)"
 );
-/// Second row: a function in column zero and an indented method, by the type before its name.
 pub(super) const DART_FUNCTION_SYMBOL: &str = concat!(
     r"^(?:(?:external\s+)?(?:",
     dart_any_type!(),
@@ -404,8 +354,6 @@ pub(super) const DART_FUNCTION_SYMBOL: &str = concat!(
     dart_type!(),
     r"\s+(?:operator\s*)?)(?P<name>[A-Za-z_$][\w$]*)\s*(?:<[^()]*>)?\s*\("
 );
-/// Third row: a getter and a setter. Their own row, since a getter ends where a method goes on
-/// with its `(`, and one pattern for both would read a field. A getter's body may be `async`.
 pub(super) const DART_ACCESSOR_SYMBOL: &str = concat!(
     r"^\s*",
     dart_annotations!(),

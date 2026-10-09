@@ -1150,6 +1150,109 @@ fn c_receiver_cuts_at_a_character() {
 }
 
 #[test]
+fn swift_type_places_and_who_sees_a_nested_type() {
+    let text = "final class Hatch {
+    enum Latch {}
+}
+extension Outer.Inner {
+    struct Bolt {}
+}
+protocol Door {
+    typealias Key = Int
+}
+let spare = {
+    struct Shim {}
+}
+func fit() {
+    struct Wedge {}
+}
+final class TrapHatch: Hatch {
+    func latch() {}
+}
+struct Panel: Hatch {
+    func latch() {}
+}
+extension Hatch {
+    func open() {}
+}
+final class Lid: Kit.Hatch {
+    func shut() {}
+}
+struct Rack {
+    let make = {
+        struct Peg {}
+    }
+}
+";
+    use SwiftTypePlace::*;
+    let place = |line| swift_type_place(text, line);
+    assert_eq!(place(2), Some(Nested("Hatch".into())));
+    assert_eq!(
+        place(5),
+        Some(Nested("Inner".into())),
+        "`extension Outer.Inner` nests in `Inner`"
+    );
+    assert_eq!(
+        place(8),
+        None,
+        "a protocol's `typealias` is seen by every type that conforms to it"
+    );
+    assert_eq!(place(1), None, "a type at the top of the file");
+    assert_eq!(
+        place(11),
+        None,
+        "a type in a closure at the top of the file"
+    );
+    assert_eq!(place(30), None, "a type in a closure of a type's body");
+    assert_eq!(place(14), Some(FunctionBody { header_line1: 13 }));
+    assert_eq!(place(17), None, "a line that declares no type");
+
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(Kind::Swift, text);
+    let sees = |line, outer| swift_sees_nested(&lines, &literal, line, outer);
+    assert!(sees(2, "Hatch"), "inside its type's body");
+    assert!(sees(5, "Inner"), "inside `extension Outer.Inner`");
+    assert!(sees(23, "Hatch"), "inside an extension of its type");
+    assert!(sees(17, "Hatch"), "inside a class whose superclass it is");
+    assert!(sees(26, "Hatch"), "a superclass named through its module");
+    assert!(
+        !sees(20, "Hatch"),
+        "a struct's first inherited name is a protocol"
+    );
+    assert!(!sees(14, "Hatch"));
+
+    for header in [
+        "    class func make() -> Self {",
+        "    class var shared: Gauge {",
+    ] {
+        assert!(swift_type_header(header).is_none(), "{header}");
+    }
+    for decl in [
+        "class A {",
+        "struct A {",
+        "enum A {",
+        "actor A {",
+        "protocol A {",
+        "typealias A = B",
+    ] {
+        assert!(swift_type_decl(decl), "{decl}");
+    }
+    assert!(!swift_type_decl("extension A {"));
+
+    assert_eq!(
+        swift_given("    let same = lhs == rhs", "lhs"),
+        None,
+        "a comparison gives nothing"
+    );
+    assert_eq!(swift_element("Array<Crate>").as_deref(), Some("Crate"));
+
+    assert!(swift_may_bind("    let (a, b) = pair", "b"));
+    assert!(!swift_may_bind("    let total = b + 1", "b"));
+    assert!(swift_may_bind("    items.map { b in", "b"));
+    assert!(swift_may_bind("    for (i, b) in pairs {", "b"));
+}
+
+#[test]
 fn swift_test_targets_come_from_the_manifest() {
     let dir = std::env::temp_dir().join(format!("merl-swift-tests-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();

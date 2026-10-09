@@ -1,14 +1,9 @@
-//! Swift's scopes (#371, #366): the blocks and type bodies around a line, and the names a
-//! line binds.
-
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
 
 use super::*;
 
-/// A Swift line that opens a function's body, whose `let`s, `var`s and parameters are its own: a
-/// `func`, an `init`, a `subscript`, a `deinit`, an accessor, a computed property.
 static SWIFT_FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(&format!(
         r"{}(?:func\s|(?:init|subscript)\s*[?!(<]|deinit\b|(?:get|set|willSet|didSet|_read|_modify)\b|(?:var|let)\s+`?\w+`?\s*:[^=]*\{{\s*$)",
@@ -16,8 +11,6 @@ static SWIFT_FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     ))
     .unwrap()
 });
-/// A Swift line that opens a type's body, whose `let`s and `var`s are members. Read after
-/// [`SWIFT_FUNC`], which takes `class func` and `class var x: T {`.
 static SWIFT_TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(&format!(
         r"{}(?:class|struct|enum|protocol|actor|extension)\s+[`\w]",
@@ -25,7 +18,6 @@ static SWIFT_TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     ))
     .unwrap()
 });
-/// A `let` or a `var` statement of Swift, and what follows the keyword.
 static SWIFT_DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(&format!(r"{}(?:let|var)\s+(.*)$", swift_mods!())).unwrap()
 });
@@ -43,9 +35,6 @@ fn swift_code<S: AsRef<str>>(lines: &[S], literal: &[bool], i: usize) -> bool {
         && !t.starts_with('#')
         && !comment(Kind::Swift, t)
 }
-/// The first line of the header that 0-based line `i` of Swift `lines` ends: `) -> Int {` and a
-/// lone `{` close one wrapped over the lines above, from the line back at their indent, and a line
-/// under one ending in `,` goes on a condition or a parameter list.
 fn swift_header_start<S: AsRef<str>>(lines: &[S], literal: &[bool], mut i: usize) -> usize {
     loop {
         let ind = indent(lines[i].as_ref());
@@ -111,7 +100,6 @@ pub fn swift_scope<S: AsRef<str>>(lines: &[S], literal: &[bool], line: usize) ->
         local: local.unwrap_or(false),
     }
 }
-/// A Swift type's header (#380).
 pub fn swift_type_header(line: &str) -> Option<SwiftTypeHeader> {
     static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(&format!(
@@ -184,8 +172,6 @@ pub fn swift_extension(line: &str) -> bool {
         std::sync::LazyLock::new(|| Regex::new(&format!(r"{}extension\s", swift_mods!())).unwrap());
     EXTENSION.is_match(line)
 }
-/// The function whose local the `let` or `var` is, as [`swift_scope`] names it; `None` for a
-/// member, a global, or no `let` or `var` at all.
 pub fn swift_local<S: AsRef<str>>(lines: &[S], literal: &[bool], line1: usize) -> Option<usize> {
     let text = lines.get(line1.checked_sub(1)?)?.as_ref();
     let SwiftScope {
@@ -219,9 +205,6 @@ impl Binds {
         out
     }
 }
-/// `x`, `(a, b)`, `.cut(n)`, `.x(label: a)`, `x as T`. A `let` or a `var` in front binds every
-/// name in it, as a `for` does (`bind_all`); otherwise only the names behind a `let` of their own
-/// do, as in `.x(let a, b)`. A nested tuple or enum pattern is unreadable.
 fn swift_pattern_binds(pattern: &str, bind_all: bool, name: &str) -> Binds {
     let p = pattern.trim();
     let p = p.split(" where ").next().unwrap_or(p).trim();
@@ -253,8 +236,6 @@ fn swift_pattern_binds(pattern: &str, bind_all: bool, name: &str) -> Binds {
         }
     }))
 }
-/// `let x = …`, `var x: T = …`, `case let .x(a) = …`. The shorthand `let x` rebinds an outer `x`
-/// and binds nothing new.
 fn swift_condition_binds(from_keyword: &str, name: &str) -> Binds {
     static KEYWORD: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"\b(?:if|while|guard)\s").unwrap());
@@ -283,7 +264,6 @@ fn swift_condition_binds(from_keyword: &str, name: &str) -> Binds {
             }),
     )
 }
-/// `a = 1`, `b: T`, `a = 1, b = 2`, `(a, b) = t`.
 fn swift_decl_binds(past_keyword: &str, name: &str) -> Binds {
     Binds::first_of(
         split_top(Kind::Swift, past_keyword, b',')
@@ -411,8 +391,6 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
             unproven |= !only_type_header_left;
             continue;
         }
-        // A type's generic parameters bind inside it; an outer type's, which a member of this one
-        // may shadow, are left to the search by name.
         if SWIFT_TYPE.is_match(&head) {
             return match generic(&text) {
                 true => found(i + 1),
@@ -434,9 +412,6 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
     }
     None
 }
-/// Whether the parameters of the `func`, `init`, `subscript` or `set` header `text` name `name`:
-/// the last word in front of a parameter's `:`, so `_ attempt: Int` and `for attempt: Int` bind
-/// `attempt`, and an argument label binds nothing.
 fn swift_params_bind(text: &str, name: &str) -> bool {
     static PARAMS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(&format!(r"{}(?:func|init|subscript|set)\b", swift_mods!())).unwrap()
@@ -456,8 +431,6 @@ fn swift_params_bind(text: &str, name: &str) -> bool {
         })
     })
 }
-/// A `catch` (a bare one binds `error`), a `case` of a `switch`, a `for`, an `if let` or a
-/// `while let`, a closure's parameters.
 fn swift_header_binds(first_line: &str, joined: &str, opening_line: &str, name: &str) -> Binds {
     static CATCH: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^(?:\}\s*)?catch\b\s*(.*?)\s*\{$").unwrap());
@@ -521,8 +494,6 @@ static SWIFT_TYPE_DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(||
     ))
     .unwrap()
 });
-/// Whether a Swift declaration line is `private` or `fileprivate`, seen in its own file alone;
-/// `private(set)` limits the setter only.
 pub fn swift_file_private(line: &str) -> bool {
     static DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(&format!(
@@ -537,9 +508,6 @@ pub fn swift_file_private(line: &str) -> bool {
                 .any(|w| w == "private" || w == "fileprivate")
         })
 }
-/// The directories of the test targets of the Swift project at `root`, relative to it: the
-/// `path:` of each `.testTarget(` of its `Package.swift`, else `Tests/<name>`; with no
-/// `Package.swift` (an Xcode project), `Tests`. The manifest is read, never run.
 pub fn swift_test_dirs(root: &Path) -> Vec<PathBuf> {
     let Ok(manifest) = std::fs::read_to_string(root.join("Package.swift")) else {
         return vec![PathBuf::from("Tests")];
@@ -564,22 +532,14 @@ pub fn swift_test_dirs(root: &Path) -> Vec<PathBuf> {
         })
         .collect()
 }
-/// Whether a Swift line declares a type: a `class`, `struct`, `enum`, `actor`, `protocol` or
-/// `typealias`, no `extension`.
 pub fn swift_type_decl(line: &str) -> bool {
     SWIFT_TYPE_DECL.is_match(&uncommented(Kind::Swift, line))
 }
-/// Where a Swift type is declared, when that limits who sees it bare.
 #[derive(Debug, PartialEq, Eq)]
 pub enum SwiftTypePlace {
-    FunctionBody {
-        header_line1: usize,
-    },
-    /// In the body of the type of this name, `B` for `extension A.B`: a nested type.
+    FunctionBody { header_line1: usize },
     Nested(String),
 }
-/// `None` for a type at the top of the file, for a type in a closure there, which the rules cannot
-/// place, and for any line that declares no type.
 pub fn swift_type_place(text: &str, line1: usize) -> Option<SwiftTypePlace> {
     let lines: Vec<&str> = text.lines().collect();
     if !swift_type_decl(lines.get(line1.checked_sub(1)?)?) {
@@ -597,8 +557,6 @@ pub fn swift_type_place(text: &str, line1: usize) -> Option<SwiftTypePlace> {
             .then_some(SwiftTypePlace::FunctionBody {
                 header_line1: scope,
             }),
-        // Only a class, struct, enum or actor is certainly nested: a protocol's `typealias` is seen
-        // by every type that conforms to it.
         false
             if !swift_type_header(lines[line1 - 1]).is_some_and(|h| {
                 matches!(h.keyword.as_str(), "class" | "struct" | "enum" | "actor")
@@ -630,8 +588,6 @@ pub fn swift_within<S: AsRef<str>>(
         }
     }
 }
-/// Inside `outer`'s body, an extension of it, or a class whose header names it first, its
-/// superclass.
 pub fn swift_sees_nested<S: AsRef<str>>(
     lines: &[S],
     literal: &[bool],
@@ -656,19 +612,12 @@ pub fn swift_sees_nested<S: AsRef<str>>(
     }
     false
 }
-/// What a Swift line that binds a name gives it, as written.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SwiftGiven {
-    /// An annotation: `lhs: Instant`, `let encoder: FormEncoder`, `var cache: Cache?`.
     Type(String),
-    /// A value: `let printer = FormEncoder()`, `if let s = self.session`.
     Value(String),
-    /// An element of the collection written: `for x in xs`.
     Element(String),
 }
-/// What the Swift line `line` gives `name`, which it binds: a `for` over a collection, else the
-/// annotation or the value behind the name's first `:` or `=`. `None` for anything else: a
-/// pattern, a closure's parameter with no type, a `catch`.
 pub fn swift_given(line: &str, name: &str) -> Option<SwiftGiven> {
     let t = uncommented(Kind::Swift, line);
     let t = t.trim();
@@ -733,8 +682,6 @@ pub fn swift_type_name(written: &str) -> Option<String> {
         && !matches!(t, "Self" | "Any" | "AnyObject" | "any" | "some"))
     .then(|| t.to_owned())
 }
-/// The element of the Swift collection type written as `written`: `[T]`, `[T]?`, `Array<T>`,
-/// `Set<T>`; `None` for a dictionary and anything else.
 pub fn swift_element(written: &str) -> Option<String> {
     let t = written.trim().trim_end_matches(['?', '!']);
     let inner = match t.strip_prefix('[').and_then(|r| r.strip_suffix(']')) {
@@ -746,7 +693,6 @@ pub fn swift_element(written: &str) -> Option<String> {
     };
     (split_top(Kind::Swift, inner, b':').len() == 1).then(|| inner.trim().to_owned())
 }
-/// The generic parameters a Swift header line declares: `T` and `U` of `func f<T, U: P>(`.
 pub fn swift_generics(line: &str) -> Vec<String> {
     static GENERICS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(
@@ -765,7 +711,6 @@ pub fn swift_generics(line: &str) -> Vec<String> {
         })
         .unwrap_or_default()
 }
-/// `-> T`, over a header wrapped to its `{`.
 pub fn swift_returns(text: &str, line1: usize) -> Option<String> {
     let mut header = String::new();
     for l in text.lines().skip(line1.checked_sub(1)?).take(8) {
@@ -796,17 +741,10 @@ pub fn swift_returns(text: &str, line1: usize) -> Option<String> {
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SwiftExpr {
-    /// A call, a construction among them, of the callee as written: `FormEncoder`,
-    /// `FormEncoder.init`, `session.request`.
     Call(String),
-    /// Names alone: `self.session`, `encoder`.
     Chain(String),
-    /// A cast's type: `x as! Session`.
     Cast(String),
 }
-/// What the Swift expression `e` is, when the rules read it: a call with nothing after it but a
-/// trailing closure, a chain of names, or a cast; `try`, `try?`, `try!` and `await` in front are
-/// read past.
 pub fn swift_expr(e: &str) -> Option<SwiftExpr> {
     static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s*(?:<[^()]*>)?\s*([({])?").unwrap()
@@ -831,7 +769,6 @@ pub fn swift_expr(e: &str) -> Option<SwiftExpr> {
     let Some(open) = c.get(2) else {
         return (c.get(0).unwrap().end() == e.len()).then_some(SwiftExpr::Chain(callee));
     };
-    // What closes on the line ends it, save a trailing closure; one that wraps is read as is.
     let mut at = open.start();
     while let Some(end) = close_of(Kind::Swift, e, at) {
         let rest = e[end..].trim_start();
@@ -845,8 +782,6 @@ pub fn swift_expr(e: &str) -> Option<SwiftExpr> {
     }
     Some(SwiftExpr::Call(callee))
 }
-/// Whether a Swift line binds `name` in a way [`swift_given`] or the walk over the scopes may not
-/// read: behind a `let` or a `var` before any `=`, as a closure's or a `for`'s name.
 pub fn swift_may_bind(line: &str, name: &str) -> bool {
     let n = regex::escape(name);
     Regex::new(&format!(
