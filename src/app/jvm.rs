@@ -1,7 +1,3 @@
-//! `d` in Java and Kotlin through the `import` and `package` lines (#372): a name an import binds
-//! is looked for in that package of the project, or is outside it; a capitalised name no import
-//! binds is the file's own package's first, then a wildcard import's.
-
 use super::*;
 
 impl App {
@@ -37,7 +33,6 @@ impl App {
             .filter_map(|l| import.captures(l))
             .map(|c| (c[1].to_owned(), &c[2] == "*"))
             .collect();
-        // A type imported by name from elsewhere hides the package's own.
         let elsewhere = imports.iter().any(|(p, all)| !all && *p != home);
         let sees =
             package(&self.buf.lines.join("\n")) == home || imports.iter().any(|(p, _)| *p == home);
@@ -61,10 +56,6 @@ impl App {
             .collect()
     }
 
-    /// What `d` answers for `word`, behind the `chain` written in front of it on the cursor's
-    /// line of Java or Kotlin `text`, from the file's imports and the project's packages:
-    /// `Some(found)` to show, empty for "no definition"; `None` leaves the word to the rules
-    /// after, as before.
     pub(super) fn jvm_imported(
         &self,
         text: &str,
@@ -110,10 +101,6 @@ impl App {
             .collect()
     }
 
-    /// Of the Java or Kotlin declarations `hits` found by name, what the cursor can see (#357): a
-    /// local only in its own block, below it, and never `behind` a `.` or a `::`; a `private`
-    /// declaration only in its own file. When that drops some and leaves one that is no local
-    /// in sight, it is still found by name only, and offered rather than jumped to.
     pub(super) fn jvm_seen(&mut self, here: &Path, hits: Vec<Hit>, behind: bool) -> Vec<Hit> {
         let mut all = hits.len();
         let mut texts: HashMap<PathBuf, Option<String>> = HashMap::new();
@@ -142,8 +129,6 @@ impl App {
                         let seen =
                             !behind && h.path == here && (h.line1..=end).contains(&(self.line + 1));
                         seen_local |= seen;
-                        // A line of a text block or a raw string is no local left out of sight,
-                        // only no declaration (#416): it makes no jump an offer.
                         let literal = literals
                             .entry(h.path.clone())
                             .or_insert_with(|| {
@@ -162,8 +147,6 @@ impl App {
         kept
     }
 
-    /// [`App::jvm_use_fit`] over candidates: what the use at the cursor fits, a class or its
-    /// constructors, an overload; all of them when none does.
     pub(super) fn jvm_fit_candidates(
         &self,
         here: &Path,
@@ -188,7 +171,6 @@ impl App {
         }
     }
 
-    /// [`App::jvm_imported`], before the shape of the use narrows it.
     fn jvm_imported_all(
         &self,
         text: &str,
@@ -219,8 +201,6 @@ impl App {
                 Some((files, path[n..].to_vec()))
             })
         };
-        // On an import line a package segment declares nothing, and a class segment is looked for
-        // in its package; outside the project, nothing is.
         if cursor_on_import {
             let mut path = chain.to_vec();
             path.push(word.to_owned());
@@ -241,8 +221,6 @@ impl App {
             let found = self.jvm_declared(files, &names);
             return (!found.is_empty()).then_some(found);
         }
-        // A capitalised name: this file's package, then the project's packages a wildcard
-        // imports, all of them; a static wildcard's class offers any name.
         let own = search::jvm_package(text);
         if capital && let Some(files) = own.as_ref().and_then(|p| packages.get(p)) {
             let found = self.jvm_declared(files, &[word.to_owned()]);
@@ -277,11 +255,6 @@ impl App {
         (!found.is_empty()).then_some(found)
     }
 
-    /// What a bare `word` names among the members of the Java or Kotlin classes around the
-    /// cursor (#376): what the innermost class that declares it declares, `via` its name (an
-    /// anonymous class's members are `local`), else what the class the innermost one extends
-    /// declares, when the project declares that class once. `None` when neither does, or when the
-    /// cursor stands on the member itself, whose namesakes and implementations are asked for.
     pub(super) fn jvm_members(
         &self,
         here: &Path,
@@ -351,8 +324,6 @@ impl App {
         (!found.is_empty() && !on_it).then_some(found)
     }
 
-    /// The Java and Kotlin files of the project by the package their `package` line declares;
-    /// `None` when the grep was cut and a package may be missing.
     pub(super) fn jvm_packages(&self) -> Option<HashMap<String, Vec<PathBuf>>> {
         let jvm = |p: &Path| search::kind_of(p) == Some(Kind::Jvm);
         let hits = self
@@ -373,9 +344,6 @@ impl App {
         Some(out)
     }
 
-    /// The declarations of the last of `names` among `files`, one package's, inside the types the
-    /// names before it spell (`Queries.isNull`, `Outer.Inner`): in Java the file of the first
-    /// name, in Kotlin any file of the package.
     pub(super) fn jvm_declared(&self, files: &[PathBuf], names: &[String]) -> Vec<Candidate> {
         let Some(name) = names.last() else {
             return Vec::new();
@@ -394,7 +362,6 @@ impl App {
         let pattern = search::def_patterns(Kind::Jvm, name).join("|");
         let hits = self.grep_in(&pattern, &files);
         let within = (names.len() > 1).then(|| names.join("."));
-        // A class's constructors come with it, for the use at the cursor to choose from.
         let constructor = Some(format!("{}.{name}", names.join(".")));
         self.declaring(Kind::Jvm, name, hits)
             .into_iter()
@@ -411,8 +378,6 @@ impl App {
     }
 }
 
-/// Kotlin's keywords that stand between two operands without being an infix call, or in front of
-/// a name that is no operand (#367).
 const KOTLIN_KEYWORDS: &[&str] = &[
     "in",
     "is",
@@ -475,15 +440,9 @@ const KOTLIN_KEYWORDS: &[&str] = &[
     "actual",
 ];
 
-/// The arguments of the call whose `(` is at `open_byte` of `lines[at]`, across lines: how
-/// many top-level ones, and whether they hold a `<` the count cannot read (a generic, a
-/// comparison). Strings, text blocks, character literals and nested brackets are skipped. `None`
-/// when the call does not close within 60 lines.
 fn arguments(lines: &[String], at: usize, open_byte: usize) -> Option<(usize, bool)> {
     let mut depth = 0usize;
     let (mut commas, mut any, mut angle) = (0, false, false);
-    // Bytes, not `str`: a step of one byte lands inside a character, and every byte the count
-    // reads is ASCII.
     let mut quote: Option<&[u8]> = None;
     for (n, line) in lines.iter().enumerate().skip(at).take(60) {
         let from = if n == at { open_byte } else { 0 };
@@ -530,7 +489,6 @@ fn arguments(lines: &[String], at: usize, open_byte: usize) -> Option<(usize, bo
             }
             i += 1;
         }
-        // A string of one line ends with it; a text block goes on.
         if quote != Some(b"\"\"\"") {
             quote = None;
         }
@@ -594,7 +552,6 @@ impl App {
         if !call || (groovy && !constructed) {
             return hits;
         }
-        // `values()` and `valueOf(` inside an enum or behind its name are the enum's.
         if !constructed && matches!(word, "values" | "valueOf") {
             let found = self.jvm_enum_of(here, chain);
             if !found.is_empty() {
@@ -602,7 +559,6 @@ impl App {
             }
         }
         if !constructed {
-            // A record's component is its accessor too: `vote.group()`.
             let component = Regex::new(&format!(
                 r"\brecord\s+\w+.*\b{w}\s*[,)]|^\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*[\w.<>\[\]]+\s+{w}\s*(?:,\s*$|\))"
             ))
@@ -653,8 +609,6 @@ impl App {
         }
     }
 
-    /// The enum `values()` and `valueOf(` are called on: the one `chain` names, else the one
-    /// around the cursor. Empty when neither is an enum.
     fn jvm_enum_of(&self, here: &Path, chain: &[String]) -> Vec<Hit> {
         let text = self.buf.lines.join("\n");
         let enum_re = Regex::new(r"\benum\s+(?:class\s+)?(\w+)").expect("a fixed pattern");
@@ -682,9 +636,6 @@ impl App {
         }
     }
 
-    /// Whether `word`, between `before` and `after` on a Kotlin line, is an infix call: an
-    /// operand on each side, no `.` in front and no `(` behind, and no keyword on either side or
-    /// in the word itself.
     fn kotlin_infix(&self, before: &str, after: &str, word: &str) -> bool {
         if KOTLIN_KEYWORDS.contains(&word) || after.starts_with('(') || before.ends_with('.') {
             return false;
@@ -703,7 +654,6 @@ impl App {
         let operand_end = b.ends_with([')', ']', '"', '\'']) || !last.is_empty();
         let operand_start = a.starts_with(['(', '"', '\'']) || !next.is_empty();
         let keyword = |t: &str| KOTLIN_KEYWORDS.contains(&t);
-        // `if (x) y else z`: the brackets of a condition end no operand.
         let condition = b.ends_with(')') && {
             let mut depth = 0i32;
             let open = b
@@ -747,8 +697,6 @@ pub(super) fn declared_as(kind: Kind, word: &str, text: &str) -> String {
 mod tests {
     use super::*;
 
-    /// A call's arguments are counted past non-ASCII characters, in a string and out, across
-    /// lines: the count steps by bytes and never cuts a character.
     #[test]
     fn arguments_are_counted_past_non_ascii_characters() {
         let lines = |ls: &[&str]| ls.iter().map(|l| l.to_string()).collect::<Vec<_>>();
