@@ -2,6 +2,20 @@
 
 use super::*;
 
+/// Fields outside the project are never listed, there are too many.
+pub(super) struct OutsideMembers {
+    pub methods: Vec<Hit>,
+    pub unlisted_field_declares_it: bool,
+}
+impl OutsideMembers {
+    fn listed(methods: Vec<Hit>) -> Self {
+        OutsideMembers {
+            methods,
+            unlisted_field_declares_it: false,
+        }
+    }
+}
+
 impl App {
     /// `pattern` over the standard library and dependencies of `kind`, in the module the file's
     /// imports bind `chain` (or `word` itself) to. The module path is relaxed from the end until
@@ -324,14 +338,14 @@ impl App {
         imports: &[search::Import],
         members: &str,
         word: &str,
-    ) -> (Vec<Hit>, bool) {
+    ) -> OutsideMembers {
         match kind {
             Kind::Python => self.python_members(files, imports, members, word),
             Kind::TsJs => match self.ts_imported_members(all, imports, members) {
-                Some(hits) => (hits, false),
-                None => (self.outside_grep(kind, files, members, Some(word)), false),
+                Some(hits) => OutsideMembers::listed(hits),
+                None => OutsideMembers::listed(self.outside_grep(kind, files, members, Some(word))),
             },
-            _ => (self.external_grep(kind, files, members), false),
+            _ => OutsideMembers::listed(self.external_grep(kind, files, members)),
         }
     }
 
@@ -368,10 +382,10 @@ impl App {
         imports: &[search::Import],
         members: &str,
         word: &str,
-    ) -> (Vec<Hit>, bool) {
+    ) -> OutsideMembers {
         let reached = self.python_imported(files, imports);
         match self.external_methods(&reached, members, word) {
-            (methods, field) if methods.len() > 1 => (methods, field),
+            found if found.methods.len() > 1 => found,
             _ => self.external_methods(files, members, word),
         }
     }
@@ -535,16 +549,15 @@ impl App {
         hits
     }
 
-    /// Fields outside are never listed, there are too many: a few hundred candidate lines are
-    /// enough to tell whether one declares a field.
+    /// A few hundred candidate lines are enough to tell whether one declares a field.
     pub(super) fn external_methods(
         &self,
         files: &[PathBuf],
         members: &str,
         word: &str,
-    ) -> (Vec<Hit>, bool) {
+    ) -> OutsideMembers {
         let Some(fields) = search::field_patterns(Kind::Python, word) else {
-            return (self.external_grep(Kind::Python, files, members), false);
+            return OutsideMembers::listed(self.external_grep(Kind::Python, files, members));
         };
         let method = Regex::new(members).expect("built-in patterns compile");
         let pattern = format!("{members}|{}", fields.join("|"));
@@ -584,12 +597,15 @@ impl App {
                 _ => by_file.push((h.path, vec![h.line])),
             }
         }
-        let field = by_file.into_iter().any(|(path, lines)| {
+        let unlisted_field_declares_it = by_file.into_iter().any(|(path, lines)| {
             std::fs::read_to_string(&path).is_ok_and(|t| {
                 !search::field_rows(Kind::Python, &t, &lines, word, false).is_empty()
             })
         });
-        (methods, field)
+        OutsideMembers {
+            methods,
+            unlisted_field_declares_it,
+        }
     }
 
     /// Test helper: nothing is installed outside the project, so a lookup reads no library of

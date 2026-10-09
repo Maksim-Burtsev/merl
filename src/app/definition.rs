@@ -1597,9 +1597,11 @@ impl App {
                 .filter(|p| kind != Kind::TsJs || search::declaration_file(p))
                 .cloned()
                 .collect();
-            let (external, field) =
-                self.outside_members(kind, &all, &files, &imports, members, &word);
-            if found.is_empty() && external.len() == 1 && field {
+            let external::OutsideMembers {
+                methods: external,
+                unlisted_field_declares_it,
+            } = self.outside_members(kind, &all, &files, &imports, members, &word);
+            if found.is_empty() && external.len() == 1 && unlisted_field_declares_it {
                 self.truncated.set(true);
             }
             let seen: Vec<PathBuf> = found.iter().map(|c| self.root.join(&c.hit.path)).collect();
