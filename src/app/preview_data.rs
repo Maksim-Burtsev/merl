@@ -6,10 +6,20 @@ use crate::markdown::data::{self, Parsed};
 
 type Job = JoinHandle<Result<Parsed, String>>;
 
-#[derive(Default)]
 pub(super) struct Parse {
     job: Option<(PathBuf, u64, Job)>,
     pub(super) done: Option<(PathBuf, u64, Parsed)>,
+    pub(super) wait: Duration,
+}
+
+impl Default for Parse {
+    fn default() -> Self {
+        Self {
+            job: None,
+            done: None,
+            wait: Duration::from_millis(50),
+        }
+    }
 }
 
 pub(super) fn lines_hash(lines: &[String]) -> u64 {
@@ -67,6 +77,11 @@ impl App {
         }
         self.previewed.insert(path.to_path_buf());
         self.parse_start(hash);
+        let due = Instant::now() + self.parse.wait;
+        while Instant::now() < due && self.parse.job.as_ref().is_some_and(|j| !j.2.is_finished()) {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        self.parse_tick();
         true
     }
 

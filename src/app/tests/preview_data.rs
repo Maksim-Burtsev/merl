@@ -14,6 +14,7 @@ fn file_app(tag: &str, name: &str, text: &str) -> (PathBuf, App) {
         None,
     );
     (a.view_w, a.view_h) = (40, 8);
+    a.parse.wait = Duration::ZERO;
     (dir, a)
 }
 
@@ -172,5 +173,14 @@ fn a_file_with_no_extension_is_named_without_its_directories() {
     let (dir, mut a) = file_app("noext", "Makefile", "all:\n");
     p(&mut a);
     assert_eq!(a.message, "no preview for Makefile");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_small_file_opens_on_the_press_with_no_parsing_shown() {
+    let (dir, mut a) = file_app("small", "t.csv", "a,b\n1,2\n");
+    a.parse.wait = Duration::from_secs(5);
+    p(&mut a);
+    assert!(a.previewing());
     let _ = std::fs::remove_dir_all(&dir);
 }
