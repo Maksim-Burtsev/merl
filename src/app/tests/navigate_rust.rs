@@ -7,6 +7,10 @@ fn attributes_name_macros_and_fields_reach_outside() {
         &[
             ("Cargo.toml", "[package]\nname = \"repro\"\n"),
             (
+                "src/span.rs",
+                "pub struct Span {\n    ticks: u64,\n}\n\npub fn span(t: &dyn Fn()) -> u64 {\n    t.ticks\n}\n",
+            ),
+            (
                 "src/lib.rs",
                 "struct Debug;\n\npub struct Tester;\n\nimpl Tester {\n    pub fn test(&self) {}\n    pub fn main(&self) {}\n}\n\n#[derive(Debug, serde::Deserialize)]\nstruct Column;\n\n#[cfg(test)]\nmod tests {\n    #[test]\n    fn works() {}\n}\n\n#[tokio::main]\nasync fn run(d: std::time::Duration) -> bool {\n    if cfg!(test) {}\n    d.secs > 0\n}\n\n#[allow(dead_code)]\nfn quiet() {}\n",
             ),
@@ -26,6 +30,10 @@ fn attributes_name_macros_and_fields_reach_outside() {
             (
                 "core/src/time.rs",
                 "pub struct Duration {\n    secs: u64,\n}\n\npub struct Instant {\n    pub secs: u64,\n}\n",
+            ),
+            (
+                "core/src/tick.rs",
+                "pub struct Tick {\n    pub ticks: u64,\n}\n",
             ),
             (
                 "serde_derive-1.0.0/src/lib.rs",
@@ -112,6 +120,15 @@ fn attributes_name_macros_and_fields_reach_outside() {
         };
         assert_eq!(got, want, "{code}");
     }
+    d_on(&mut a, "src/span.rs", "t.ticks");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "ticks \u{2192} Span::ticks (by name, 1 match)",
+            "src/span.rs:2"
+        ),
+        "the project's field, and none of the standard library's"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&std).unwrap();
 }
@@ -187,6 +204,26 @@ fn a_method_of_an_unknown_type_is_every_reachable_one() {
                 "far-1.0.0/src/lib.rs",
                 "pub struct Far;\n\nimpl Far {\n    pub fn unwrap(self) {}\n}\n",
             ),
+            (
+                "dep-1.0.0/benches/b.rs",
+                "struct Bench;\n\nimpl Bench {\n    pub fn unwrap(self) {}\n}\n",
+            ),
+            (
+                "dep-1.0.0/examples/e.rs",
+                "struct Example;\n\nimpl Example {\n    pub fn unwrap(self) {}\n}\n",
+            ),
+            (
+                "dep-1.0.0/src/sealed.rs",
+                "trait Hidden {\n    fn unwrap(self);\n}\n",
+            ),
+            (
+                "dep-1.0.0/src/open.rs",
+                "pub trait Hidden {\n    fn unwrap(self);\n}\n",
+            ),
+            (
+                "dep-1.0.0/src/imp.rs",
+                "impl Hidden for Thing {\n    fn unwrap(self) {}\n}\n",
+            ),
         ],
     );
     let library = std.join("lib/rustlib/src/rust/library");
@@ -196,10 +233,12 @@ fn a_method_of_an_unknown_type_is_every_reachable_one() {
         (
             "v.unwrap",
             Shown::Picker(
-                "unwrap: by name, 3 declarations".into(),
+                "unwrap: by name, 5 declarations".into(),
                 vec![
+                    row("Hidden::unwrap", "dep-1.0.0/src/open.rs:2"),
                     row("Option::unwrap", "core/src/option.rs:8"),
                     row("Result::unwrap", "core/src/result.rs:8"),
+                    row("Thing::unwrap", "dep-1.0.0/src/imp.rs:2"),
                     row("Thing::unwrap", "dep-1.0.0/src/lib.rs:4"),
                 ],
             ),
@@ -651,6 +690,213 @@ fn a_path_is_looked_up_in_the_crate_its_first_name_names() {
         let (path, line) = at(&a);
         assert_eq!((path, line + 1), place, "{name}: {code}: {}", a.message);
         assert!(a.message.contains(status), "{name}: {code}: {}", a.message);
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&std).unwrap();
+}
+
+#[test]
+fn a_private_method_is_seen_from_its_module_and_below() {
+    let private =
+        |ty: &str, m: &str| format!("struct {ty};\n\nimpl {ty} {{\n    fn {m}(&self) {{}}\n}}\n");
+    let calls = |ms: &[&str]| {
+        let body: String = ms
+            .iter()
+            .map(|m| format!("    v.iter().for_each(|x| x.{m}());\n"))
+            .collect();
+        format!("pub fn go(v: Vec<u32>) {{\n{body}}}\n")
+    };
+    let files = [
+        (
+            "Cargo.toml".to_owned(),
+            "[package]\nname = \"reach\"\n".to_owned(),
+        ),
+        ("build.rs".to_owned(), private("B", "from_build")),
+        ("src/lib.rs".to_owned(), private("L", "from_lib")),
+        ("src/main.rs".to_owned(), private("M", "from_main")),
+        ("src/belt.rs".to_owned(), private("Bt", "from_belt")),
+        ("src/belt/strap.rs".to_owned(), calls(&["from_belt"])),
+        ("src/gears/mod.rs".to_owned(), private("G", "from_mod")),
+        ("src/gears/cog.rs".to_owned(), calls(&["from_mod"])),
+        (
+            "src/user.rs".to_owned(),
+            calls(&[
+                "from_build",
+                "from_lib",
+                "from_main",
+                "from_belt",
+                "from_mod",
+            ]),
+        ),
+        ("tests/wind.rs".to_owned(), private("T", "from_tests")),
+        ("tests/unwind.rs".to_owned(), calls(&["from_tests"])),
+        ("benches/wind.rs".to_owned(), private("Bn", "from_benches")),
+        ("benches/unwind.rs".to_owned(), calls(&["from_benches"])),
+        ("examples/wind.rs".to_owned(), private("E", "from_examples")),
+        ("examples/unwind.rs".to_owned(), calls(&["from_examples"])),
+        ("src/bin/wind.rs".to_owned(), private("Bi", "from_bin")),
+        ("src/bin/unwind.rs".to_owned(), calls(&["from_bin"])),
+    ];
+    let files: Vec<(&str, &str)> = files
+        .iter()
+        .map(|(p, t)| (p.as_str(), t.as_str()))
+        .collect();
+    let (dir, mut a) = project_app("rust-private-reach", &files);
+    for (file, method, want) in [
+        ("src/user.rs", "from_build", Some("build.rs")),
+        ("src/user.rs", "from_lib", Some("src/lib.rs")),
+        ("src/user.rs", "from_main", Some("src/main.rs")),
+        ("src/user.rs", "from_belt", None),
+        ("src/belt/strap.rs", "from_belt", Some("src/belt.rs")),
+        ("src/user.rs", "from_mod", None),
+        ("src/gears/cog.rs", "from_mod", Some("src/gears/mod.rs")),
+        ("tests/unwind.rs", "from_tests", Some("tests/wind.rs")),
+        ("benches/unwind.rs", "from_benches", Some("benches/wind.rs")),
+        (
+            "examples/unwind.rs",
+            "from_examples",
+            Some("examples/wind.rs"),
+        ),
+        ("src/bin/unwind.rs", "from_bin", Some("src/bin/wind.rs")),
+    ] {
+        d_on(&mut a, file, &format!("x.{method}"));
+        let got = match a.message.starts_with("no definition") {
+            true => None,
+            false => Some(at(&a)),
+        };
+        assert_eq!(
+            got,
+            want.map(|p| (dir.join(p), 3)),
+            "{method} from {file}: {}",
+            a.message
+        );
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_path_follows_the_modules_and_uses_of_its_crate() {
+    let (dir, mut a) = project_app(
+        "rust-crate-uses",
+        &[
+            ("Cargo.toml", "[package]\nname = \"yard\"\n"),
+            (
+                "src/lib.rs",
+                "mod tally;\nmod shapes;\nmod geo;\n\npub fn counted() -> u32 {\n    tally::count()\n}\n\npub fn walked() {\n    std::fs::Walker::new()\n}\n\npub fn synced(f: &str) {\n    std::fs::File::sync(f)\n}\n\npub fn squared(s: crate::shapes::Square) {}\n\npub fn circled(c: crate::shapes::inner::Circle) {}\n\npub fn drummed(d: winchlib::Drum) {}\n\npub fn knotted() {\n    rope_knots::Knot::tie()\n}\n\npub fn spun() {\n    pulley_kit::Sheave::spin()\n}\n",
+            ),
+            ("src/tally.rs", "pub fn count() -> u32 {\n    0\n}\n"),
+            (
+                "src/shapes.rs",
+                "mod inner;\n\npub fn local() {\n    use crate::other::Square;\n}\n\npub use crate::geo::Square;\n",
+            ),
+            ("src/shapes/inner.rs", "pub use super::round::Circle;\n"),
+            ("src/shapes/round.rs", "pub struct Circle;\n"),
+            ("src/geo.rs", "pub struct Square;\n"),
+            ("src/other.rs", "pub struct Square;\n"),
+            (
+                "crates/winch/Cargo.toml",
+                "[package]\nname = \"winch-core\"\n\n[lib]\nname = \"winchlib\"\n",
+            ),
+            ("crates/winch/src/lib.rs", "pub struct Drum;\n"),
+            (
+                "crates/pulley/Cargo.toml",
+                "[package]\nname = \"pulley-kit\"\n",
+            ),
+            (
+                "crates/pulley/src/lib.rs",
+                "mod spin;\n\npub struct Sheave;\n",
+            ),
+            (
+                "crates/pulley/src/spin.rs",
+                "impl Sheave {\n    pub fn spin() {}\n}\n",
+            ),
+        ],
+    );
+    let std = external_root(
+        "rust-crate-uses",
+        &[
+            ("library/std/src/lib.rs", "pub mod fs;\n"),
+            ("library/std/src/fs.rs", "mod walk;\n\npub struct File;\n"),
+            (
+                "library/std/src/fs/walk.rs",
+                "pub struct Walker;\n\nimpl Walker {\n    pub fn new() {}\n}\n",
+            ),
+            (
+                "library/std/src/sys/file_ext.rs",
+                "impl File {\n    pub fn sync(f: &str) {}\n}\n",
+            ),
+            (
+                "registry/tally-1.0.0/src/lib.rs",
+                "pub fn count() -> u32 {\n    1\n}\n",
+            ),
+            (
+                "registry/rope-knots-1.0.0/src/lib.rs",
+                "mod tie;\n\npub struct Knot;\n",
+            ),
+            (
+                "registry/rope-knots-1.0.0/src/tie.rs",
+                "impl Knot {\n    pub fn tie() {}\n}\n",
+            ),
+        ],
+    );
+    let library = std.join("library");
+    use_roots(
+        &mut a,
+        Kind::Rust,
+        &[
+            library.clone(),
+            std.join("registry/tally-1.0.0"),
+            std.join("registry/rope-knots-1.0.0"),
+        ],
+    );
+    for (code, place, status) in [
+        ("tally::count|()", "src/tally.rs:1", "count: by name"),
+        (
+            "std::fs::Walker::new",
+            "library/std/src/fs/walk.rs:4",
+            "via std::fs",
+        ),
+        (
+            "File::sync",
+            "library/std/src/sys/file_ext.rs:2",
+            "File::sync (by name",
+        ),
+        ("shapes::Square", "src/geo.rs:1", "via crate::geo"),
+        (
+            "inner::Circle",
+            "src/shapes/round.rs:1",
+            "via crate::shapes::round",
+        ),
+        (
+            "winchlib::Drum",
+            "crates/winch/src/lib.rs:1",
+            "via winchlib",
+        ),
+        (
+            "rope_knots::Knot::tie",
+            "registry/rope-knots-1.0.0/src/tie.rs:2",
+            "via rope_knots",
+        ),
+        (
+            "pulley_kit::Sheave::spin",
+            "crates/pulley/src/spin.rs:2",
+            "via pulley_kit",
+        ),
+    ] {
+        d_on(&mut a, "src/lib.rs", code);
+        let (path, line) = at(&a);
+        let path = path
+            .strip_prefix(&dir)
+            .or(path.strip_prefix(&std))
+            .unwrap_or(&path)
+            .to_owned();
+        assert_eq!(
+            format!("{}:{}", path.display(), line + 1),
+            place,
+            "{code}: {}",
+            a.message
+        );
+        assert!(a.message.contains(status), "{code}: {}", a.message);
     }
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&std).unwrap();

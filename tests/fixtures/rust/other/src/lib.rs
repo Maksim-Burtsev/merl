@@ -7,3 +7,13 @@ impl Parcel {
         Parcel
     }
 }
+
+pub trait Shine {
+    fn polish(&self) -> u32;
+}
+
+impl Shine for shop::rules::Lamp {
+    fn polish(&self) -> u32 {
+        1
+    }
+}
