@@ -625,3 +625,24 @@ fn enum_constants_are_the_names_at_the_start_of_the_body() {
         [("PLAIN".to_owned(), 4), ("HALF".to_owned(), 5)]
     );
 }
+
+#[test]
+fn a_typescript_type_alias_goes_on_as_an_equals_or_its_parameters() {
+    assert!(declares_type(Kind::TsJs, "export type Rate = number;"));
+    assert!(declares_type(Kind::TsJs, "type Box<T> = { item: T };"));
+    assert!(
+        !declares_type(Kind::TsJs, "  type Notifier,"),
+        "an item of a wrapped import or export list"
+    );
+}
+
+#[test]
+fn a_go_alias_names_its_type_unless_it_takes_type_parameters() {
+    assert_eq!(
+        go_alias(Kind::Go, "type Rate = shop.Rate"),
+        Some("shop.Rate")
+    );
+    assert_eq!(go_alias(Kind::Go, "type Rate shop.Rate"), None);
+    assert_eq!(go_alias(Kind::Go, "type List[T any] = []T"), None);
+    assert_eq!(go_alias(Kind::TsJs, "type Rate = shop.Rate"), None);
+}

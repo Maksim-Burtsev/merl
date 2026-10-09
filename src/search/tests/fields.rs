@@ -338,3 +338,81 @@ type Store interface {
     assert_eq!(bases(Kind::Go, text, 1), ["Engine", "sync.Mutex"]);
     assert_eq!(bases(Kind::Go, text, 12), ["Reader"]);
 }
+
+#[test]
+fn field_rows_come_in_line_order_whatever_the_order_of_the_hits() {
+    let text = "class Tariff:\n    rate: int = 1\n\n\nclass Coupon:\n    rate: int = 2\n";
+    assert_eq!(
+        field_rows(Kind::Python, text, &[6, 2], "rate", false),
+        [2, 6]
+    );
+}
+
+#[test]
+fn a_csharp_namespace_is_the_last_one_declared_above() {
+    let text = "using System;\n\nnamespace Shop.Billing\n{\n    class Tariff {}\n}\n\nnamespace Shop.Shipping\n{\n    namespace Inner\n    {\n        class Courier {}\n    }\n}\n";
+    assert_eq!(cs_namespace(text, 1), "");
+    assert_eq!(cs_namespace(text, 5), "Shop.Billing");
+    assert_eq!(cs_namespace(text, 9), "Shop.Shipping");
+    assert_eq!(
+        cs_namespace(text, 12),
+        "Inner",
+        "a block nested in another namespace reads under its own name only"
+    );
+}
+
+#[test]
+fn csharp_usings_open_namespaces_and_aliases_open_none() {
+    let text = "global using Shop.Billing;\nusing Shop.Shipping ;\nusing Cut = Shop.Coupons.Cut;\nusing static Shop.Rates;\n<Using Include=\"Shop.Couriers\" />\n";
+    assert_eq!(
+        cs_usings(text),
+        ["Shop.Billing", "Shop.Shipping", "Shop.Couriers"]
+    );
+}
+
+#[test]
+fn a_go_key_is_read_from_the_literal_it_stands_in() {
+    let key = |text: &str, line: usize, word: &str| {
+        let l = text.lines().nth(line - 1).unwrap();
+        let start = l.find(&format!("{word}:")).unwrap();
+        go_key(text, line, start, start + word.len())
+    };
+    let of = |t: &str| GoKey::Of(t.to_owned());
+    let flat = "func f() {\n\tt := Tariff{Rate: 1}\n\tm := map[Rate]int{Cut: 1}\n}\n";
+    assert_eq!(key(flat, 2, "Rate"), of("Tariff"));
+    assert_eq!(key(flat, 3, "Cut"), GoKey::Value);
+    let elided = "var all = []Tariff{\n\t{Rate: 1},\n\t{\n\t\tRate: 2,\n\t},\n}\n";
+    assert_eq!(key(elided, 2, "Rate"), of("Tariff"));
+    assert_eq!(
+        key(elided, 4, "Rate"),
+        of("Tariff"),
+        "a `{{` alone on its line reads the line in front of it"
+    );
+    let anonymous = "var t = struct {\n\tRate int\n}{\n\tRate: 1,\n}\n";
+    assert_eq!(key(anonymous, 4, "Rate"), GoKey::Struct(1));
+    let raw = "var t = Tariff{\n\tNote: `\n{\n`,\n\tRate: 1,\n}\n";
+    assert_eq!(
+        key(raw, 5, "Rate"),
+        of("Tariff"),
+        "a brace inside a raw string opens nothing"
+    );
+    let blocks = "func f() {\n\tfor {\n\t\tdone: work()\n\t}\n\tswitch r {\n\tcase Cut:\n\t}\nretry:\n\tg()\n}\n";
+    assert_eq!(key(blocks, 3, "done"), GoKey::No, "a label inside a `for`");
+    assert_eq!(key(blocks, 6, "Cut"), GoKey::No);
+    assert_eq!(key(blocks, 8, "retry"), GoKey::No);
+    let slice = "func f() {\n\ts := xs[lo:hi]\n}\n";
+    assert_eq!(key(slice, 2, "lo"), GoKey::No);
+}
+
+#[test]
+fn a_python_class_body_starts_past_its_wrapped_header() {
+    let text = "class Tariff(\n    Base,\n):\n    rate: int = 1\n";
+    assert_eq!(fields(Kind::Python, text, 1, "rate"), [(4, ty("int"))]);
+}
+
+#[test]
+fn a_jsdoc_property_is_no_field_declaration_under_the_cursor() {
+    let text = "/**\n * @typedef {Object} Tariff\n * @property {number} rate\n */\n";
+    let start = text.lines().nth(2).unwrap().find("rate").unwrap();
+    assert!(!field_decl_at(Kind::TsJs, text, 3, start, "rate"));
+}
