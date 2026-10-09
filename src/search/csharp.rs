@@ -1,7 +1,3 @@
-//! C#'s scopes: where a declaration stands (#355), a member of a type, private or not, or a local
-//! of a method's body, which the search by name must not offer from anywhere else; and what a
-//! method, a lambda or a block binds where the cursor is (#345).
-
 use regex::Regex;
 
 use super::*;
@@ -28,17 +24,10 @@ pub fn cs_type_decl(line: &str) -> Option<CsTypeDecl> {
     })
 }
 
-/// Where the declaration of `word` on 1-based `line` of a C# `text` stands.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CsPlace {
-    /// Directly in the body of the type `owner`; `private` when only that type reaches it: a
-    /// member of a `class`, `struct` or `record` written `private` or with no access modifier,
-    /// as C# defaults it.
     Member { owner: String, private: bool },
-    /// Inside the body of a method, a constructor, an accessor, a local function or a lambda: a
-    /// local, seen only between 1-based lines `from` and `to`, those of the member around it.
     Local { from: usize, to: usize },
-    /// At the top of a file or of a namespace.
     Top,
 }
 
@@ -65,7 +54,6 @@ pub fn cs_place(text: &str, line: usize, word: &str) -> CsPlace {
             owner,
         };
     }
-    // A body: the member it belongs to is the outermost line under a type or a namespace.
     let mut member = first;
     while let Some(e) = cs_enclosing(&lines, member) {
         if namespace(lines[e]) || cs_type_decl(lines[e]).is_some() {
@@ -79,15 +67,11 @@ pub fn cs_place(text: &str, line: usize, word: &str) -> CsPlace {
     }
 }
 
-/// Whether `line` opens a namespace, past the byte order mark a file's first line may carry.
 pub(super) fn cs_namespace_line(line: &str) -> bool {
     line.trim_start_matches(['\u{feff}', ' ', '\t'])
         .starts_with("namespace ")
 }
 
-/// Whether a member line reads as private: `private` (not `private protected`), or no access
-/// modifier at all, unless it implements an interface's member explicitly (`int I.Name`), which
-/// the interface reaches.
 fn cs_private(line: &str, word: &str) -> bool {
     static ACCESS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(concat!(
@@ -102,9 +86,6 @@ fn cs_private(line: &str, word: &str) -> bool {
     !ACCESS.is_match(line) && !explicit
 }
 
-/// The 0-based index of the line that 0-based `k` of `lines` stands inside: the nearest line above
-/// indented less, past blank lines, comments, preprocessor lines, a lone `{` and the tail of a
-/// header wrapped over several lines.
 pub(super) fn cs_enclosing(lines: &[&str], k: usize) -> Option<usize> {
     let depth = indent(lines[k]);
     (0..k).rev().find(|&i| {
@@ -117,8 +98,6 @@ pub(super) fn cs_enclosing(lines: &[&str], k: usize) -> Option<usize> {
     })
 }
 
-/// The 0-based index of the last line of the block the header on 0-based `k` opens: the `}` back
-/// at its indent, else the line before the next one there.
 fn cs_block_end(lines: &[&str], k: usize) -> usize {
     let depth = indent(lines[k]);
     for (j, l) in lines.iter().enumerate().skip(k + 1) {
@@ -134,18 +113,12 @@ fn cs_block_end(lines: &[&str], k: usize) -> usize {
     lines.len().saturating_sub(1)
 }
 
-/// What a C# block header binds `name` to for the block under it (#345), as [`block_bindings`]
-/// reads a header: the parameters of a method, a constructor, a local function, an operator, an indexer
-/// or a primary constructor, a lambda's, a `foreach`, `for`, `catch`, `using` or `fixed`
-/// variable, and a pattern's or an `out` variable in the header's condition. A lambda elsewhere
-/// on the header's lines binds without hiding. A deconstruction binds nothing.
 pub(super) struct CsOpener {
     pub binds: bool,
     pub hides_outer_scopes: bool,
 }
 
 pub(super) fn cs_opener(header: &str, name: &str) -> CsOpener {
-    // What follows a signature's parameters: constraints, a base call or list, and the body.
     static AFTER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:where\b[^{=;]*)?(?::[^{;=]*)?(?:\{.*|=>.*|;)?\s*$").unwrap()
     });
@@ -165,7 +138,6 @@ pub(super) fn cs_opener(header: &str, name: &str) -> CsOpener {
     .into_iter()
     .any(found);
     let mut binds = own;
-    // `x =>` and `async x =>`: a lambda's body opening at the end of the header is the block.
     if let Some(c) = Regex::new(&format!(r"(?:^|[^\w.]){n}\s*=>(\s*\{{?\s*$)?"))
         .ok()
         .and_then(|re| re.captures_iter(&h).last())
@@ -179,8 +151,6 @@ pub(super) fn cs_opener(header: &str, name: &str) -> CsOpener {
         };
         let (before, after) = (h[..open].trim_end(), &h[close..]);
         let params = &h[open + 1..close - 1];
-        // A signature's parameters bind for its body: a method's, a constructor's, a local
-        // function's, an operator's, an indexer's `this[…]`, a primary constructor's.
         if let Some(signature) = cs_signature(before)
             && (c == b'(' || signature.name == "this")
             && AFTER.is_match(after)
@@ -191,7 +161,6 @@ pub(super) fn cs_opener(header: &str, name: &str) -> CsOpener {
             }
             continue;
         }
-        // `(x, y) =>`, `(T x, U y) =>`, `async (x) =>`.
         if c == b'(' && after.trim_start().starts_with("=>") && cs_params(params, name, true) {
             binds = true;
             let body = after.trim_start()[2..].trim();
@@ -209,8 +178,6 @@ struct CsSignature {
     primary_constructor: bool,
 }
 
-/// `before` is the whole signature up to the `(`, with a type, a type keyword, an operator or an
-/// access modifier in it, so a call such as `var order = new Order` or `new Order` is none.
 fn cs_signature(before: &str) -> Option<CsSignature> {
     static SIG: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(concat!(
@@ -241,8 +208,6 @@ fn cs_signature(before: &str) -> Option<CsSignature> {
     })
 }
 
-/// The method, constructor, local function or operator whose parameter list on the C# `line`
-/// declares `name`, for the status line to read `Refunds.Register.callbackUrl`, as a local reads.
 pub fn cs_parameter_of(line: &str, name: &str) -> Option<String> {
     code(Kind::CSharp, line)
         .filter(|&(_, c)| c == b'(')
@@ -254,8 +219,6 @@ pub fn cs_parameter_of(line: &str, name: &str) -> Option<String> {
         })
 }
 
-/// Whether a C# parameter list declares `name`: the last name of a parameter, past its
-/// attributes, modifiers and type, before its default. A lambda's may be bare names.
 fn cs_params(params: &str, name: &str, bare: bool) -> bool {
     static LAST: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"@?(\w+)\s*$").unwrap());
@@ -270,9 +233,6 @@ fn cs_params(params: &str, name: &str, bare: bool) -> bool {
     })
 }
 
-/// Whether a C# statement at a block's level declares `name` for the lines below it (#345):
-/// `var x =`, `T x =`, `T x;`, `using var x =`, a local function, and an `out` or a pattern
-/// variable anywhere in it. A deconstruction declares nothing here.
 pub(super) fn cs_statement(t: &str, name: &str) -> bool {
     let n = regex::escape(name);
     let ty = cs_type!();
@@ -288,16 +248,11 @@ pub(super) fn cs_statement(t: &str, name: &str) -> bool {
     .any(|p| Regex::new(p).is_ok_and(|re| re.is_match(t)))
 }
 
-/// Whether `name` at byte `at` of a C# `line` is bound by a declaration on that same line
-/// (#345), which the scope walk read there: the name is that declaration, the first place the
-/// line names it, or stands past it; a lambda's parameter binds inside its lambda only, so
-/// `xs.Where(x => x.A).Select(x => x.B)` binds each `x` to its own.
 pub fn cs_binds_here(line: &str, name: &str, at: usize) -> bool {
     let Ok(word) = Regex::new(&format!(r"(?:^|[^\w.]){}\b", regex::escape(name))) else {
         return false;
     };
-    // The last bracket opened before `upto` and still open there.
-    let unclosed = |upto: usize| {
+    let innermost_open_before = |upto: usize| {
         let mut stack = Vec::new();
         for (i, c) in code(Kind::CSharp, &line[..upto]) {
             match c {
@@ -317,23 +272,21 @@ pub fn cs_binds_here(line: &str, name: &str, at: usize) -> bool {
         .collect();
     for (k, &decl) in places.iter().enumerate() {
         let rest = &line[decl + name.len()..];
-        // A lambda starts at the name, or at the `(` of the list it stands in.
         let start = if rest.trim_start().starts_with("=>") {
             Some(decl)
         } else {
-            unclosed(decl).filter(|&p| {
+            innermost_open_before(decl).filter(|&p| {
                 close_of(Kind::CSharp, line, p)
                     .is_some_and(|close| line[close..].trim_start().starts_with("=>"))
             })
         };
-        // Standing on the declaration: the first place, or a lambda's parameter.
         if decl == at {
             return k == 0 || start.is_some();
         }
         match start {
             Some(start) => {
                 let arrow = line[start..].find("=>").map_or(start, |i| start + i);
-                let end = unclosed(start)
+                let end = innermost_open_before(start)
                     .and_then(|p| close_of(Kind::CSharp, line, p))
                     .unwrap_or(line.len());
                 if at > arrow && at < end {
@@ -347,9 +300,6 @@ pub fn cs_binds_here(line: &str, name: &str, at: usize) -> bool {
     false
 }
 
-/// The 1-based line a C# binding made on `line` writes `name` on: that line, or, in a parameter
-/// list wrapped one per line, the line below that holds it, as [`written_line`] finds it for
-/// TypeScript; a name inside a string (`"/{id:int}"`) or a comment is none.
 pub fn cs_written_line<S: AsRef<str>>(lines: &[S], line: usize, name: &str) -> usize {
     let code_only = |l: &str| {
         let mut out = vec![b' '; l.len()];
@@ -365,22 +315,16 @@ pub fn cs_written_line<S: AsRef<str>>(lines: &[S], line: usize, name: &str) -> u
     written_line(&masked, line, name)
 }
 
-/// What a C# declaration gives a name, as far as its line tells.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CsValue {
-    /// A type as written: `RedirectService`, `List<Item>`, `Label?`.
     Type(String),
-    /// A call of the named method, `M`, `x.M` or `Type.M`, and whether it is awaited.
     Call { callee: String, awaited: bool },
-    /// Nothing the rules read: `var x = y`, a lambda's parameter, `var` in a `foreach`.
     Unknown,
 }
 
-/// A C# type as written, with its generic arguments, nullability and array ranks.
 const CS_TYPE: &str = concat!(r"(?:global::)?", cs_type!());
 
-/// Words a type position may hold that name no type.
-fn cs_keyword(t: &str) -> bool {
+fn cs_names_no_type(t: &str) -> bool {
     matches!(
         t,
         "var"
@@ -408,9 +352,6 @@ fn cs_keyword(t: &str) -> bool {
     )
 }
 
-/// What the C# `line` declaring `name` gives it: `var x = new T()`, `T x = …`, `T x;`, a field, a
-/// property, a parameter (`this T x` of an extension method too), `foreach (T x in …)`,
-/// `catch (T x)`, `out T x` and a pattern `is T x`.
 pub fn cs_declared(line: &str, name: &str) -> CsValue {
     let n = regex::escape(name.trim_start_matches('@'));
     let code = uncommented(Kind::CSharp, line);
@@ -418,7 +359,7 @@ pub fn cs_declared(line: &str, name: &str) -> CsValue {
         Regex::new(&p)
             .ok()
             .and_then(|re| re.captures(&code).map(|c| c[1].to_owned()))
-            .filter(|t| !cs_keyword(t))
+            .filter(|t| !cs_names_no_type(t))
     };
     if let Some(expr) = written(format!(r"\bvar\s+@?{n}\s*=\s*(.+)$")) {
         return cs_expr(&expr);
@@ -435,9 +376,6 @@ pub fn cs_declared(line: &str, name: &str) -> CsValue {
     .map_or(CsValue::Unknown, CsValue::Type)
 }
 
-/// What the C# expression `expr` gives: a construction `new T(…)`, a cast `(T)x`, `x as T`, or a
-/// call `M(…)`, `await x.M(…)`. A construction or a call with something after it (`new T().U`) is
-/// unknown.
 pub fn cs_expr(expr: &str) -> CsValue {
     static NEW: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(&format!(r"^new\s+({CS_TYPE})\s*")).unwrap());
@@ -451,12 +389,12 @@ pub fn cs_expr(expr: &str) -> CsValue {
     });
     let e = uncommented(Kind::CSharp, expr);
     let e = e.trim().trim_end_matches(';').trim_end();
-    // What follows the bracket opening at `open`: nothing, or the lines the statement goes on to.
-    let rest = |open: usize| close_of(Kind::CSharp, e, open).map_or("", |end| e[end..].trim());
+    let after_bracket =
+        |open: usize| close_of(Kind::CSharp, e, open).map_or("", |end| e[end..].trim());
     if let Some(c) = NEW.captures(e) {
         let end = c.get(0).unwrap().end();
         let after = match e[end..].starts_with('(') {
-            true => rest(end),
+            true => after_bracket(end),
             false => &e[end..],
         };
         return match after.is_empty() || after.starts_with('{') {
@@ -469,7 +407,7 @@ pub fn cs_expr(expr: &str) -> CsValue {
     }
     if let Some(c) = CALL.captures(e) {
         let awaited = c.get(1).is_some();
-        let after = rest(c.get(0).unwrap().end() - 1);
+        let after = after_bracket(c.get(0).unwrap().end() - 1);
         let configured = awaited && after.starts_with(".ConfigureAwait(") && after.ends_with(')');
         if after.is_empty() || configured {
             return CsValue::Call {
@@ -481,7 +419,6 @@ pub fn cs_expr(expr: &str) -> CsValue {
     CsValue::Unknown
 }
 
-/// The return type the C# method declared on `line` as `name` writes in front of its name.
 pub fn cs_returns(line: &str, name: &str) -> Option<String> {
     let n = regex::escape(name);
     let re = Regex::new(&format!(
@@ -489,11 +426,9 @@ pub fn cs_returns(line: &str, name: &str) -> Option<String> {
     ))
     .ok()?;
     let t = re.captures(&uncommented(Kind::CSharp, line))?[1].to_owned();
-    (!cs_keyword(&t)).then_some(t)
+    (!cs_names_no_type(&t)).then_some(t)
 }
 
-/// The name a written C# type comes down to: `List<Item>` is `List`, `Label?` is `Label`,
-/// `eShop.Models.Item` is `Item`. An array, a tuple, `dynamic` and `var` have none.
 pub fn cs_type_name(written: &str) -> Option<String> {
     let t = written.trim().trim_start_matches("global::");
     let t = t.trim_end_matches('?');
@@ -507,10 +442,10 @@ pub fn cs_type_name(written: &str) -> Option<String> {
     };
     let name = t.rsplit('.').next()?.trim();
     let word = !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_');
-    (word && !cs_keyword(name) && !name.chars().next()?.is_ascii_digit()).then(|| name.to_owned())
+    (word && !cs_names_no_type(name) && !name.chars().next()?.is_ascii_digit())
+        .then(|| name.to_owned())
 }
 
-/// What `await` makes of a C# `Task<T>` or `ValueTask<T>`: `T`.
 pub fn cs_awaited(written: &str) -> Option<&str> {
     let t = written.trim().trim_start_matches("global::");
     let t = t.strip_prefix("System.Threading.Tasks.").unwrap_or(t);
@@ -520,7 +455,6 @@ pub fn cs_awaited(written: &str) -> Option<&str> {
     Some(inner.strip_suffix('>')?.trim())
 }
 
-/// `s` cut at the commas outside brackets, generic arguments included.
 fn cs_split(s: &str) -> Vec<&str> {
     let (mut depth, mut start, mut out) = (0i32, 0, Vec::new());
     for (i, c) in code(Kind::CSharp, s) {
@@ -538,8 +472,6 @@ fn cs_split(s: &str) -> Vec<&str> {
     out
 }
 
-/// The header of the C# type declared on 1-based `decl` of `text`, over the lines it wraps onto,
-/// up to its body.
 fn cs_header(text: &str, decl: usize) -> Option<String> {
     let lines: Vec<&str> = text.lines().collect();
     let k = decl.checked_sub(1).filter(|&k| k < lines.len())?;
@@ -557,9 +489,6 @@ fn cs_header(text: &str, decl: usize) -> Option<String> {
     Some(header)
 }
 
-/// The bases and interfaces the C# type declared on 1-based `decl` of `text` names after its `:`,
-/// as written: `ContentView`, `IRepository<Item>`. A primary constructor's arguments to its base
-/// are left out.
 pub fn cs_bases(text: &str, decl: usize) -> Vec<String> {
     let Some(header) = cs_header(text, decl) else {
         return Vec::new();
@@ -567,7 +496,6 @@ pub fn cs_bases(text: &str, decl: usize) -> Vec<String> {
     let Some(CsTypeDecl { name, .. }) = cs_type_decl(&header) else {
         return Vec::new();
     };
-    // Past the name, its type parameters and its primary constructor.
     let at = header.find(name.as_str()).map_or(0, |i| i + name.len());
     let mut rest = header[at..].trim_start();
     for (open, close) in [('<', '>'), ('(', ')')] {
@@ -593,8 +521,6 @@ pub fn cs_bases(text: &str, decl: usize) -> Vec<String> {
         .collect()
 }
 
-/// The 1-based line of the C# type whose body 1-based `line` of `text` stands in: its own members,
-/// or the body of one of them.
 pub fn cs_owner(text: &str, line: usize) -> Option<usize> {
     let lines: Vec<&str> = text.lines().collect();
     let mut k = line.checked_sub(1).filter(|&k| k < lines.len())?;
@@ -610,8 +536,6 @@ pub fn cs_owner(text: &str, line: usize) -> Option<usize> {
     None
 }
 
-/// Whether `name` is a type parameter where 1-based `line` of `text` writes it: of the method, the
-/// local function or the type around it, or of the declaration on the line itself.
 pub fn cs_generic_param(text: &str, line: usize, name: &str) -> bool {
     static PARAMS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\w\s*<([^()<>]*)>\s*(?:\(|:|\{|\bwhere\b|$)").unwrap()
@@ -701,7 +625,6 @@ pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> 
     if let Some(c) = NEW.captures(head) {
         return Some(c[1].to_owned());
     }
-    // `new { A = 1 }` is anonymous; `new() { … }` takes the type its declaration writes.
     let target = head
         .strip_suffix("new")
         .filter(|h| args && !h.ends_with(|c: char| c.is_alphanumeric() || c == '_'))?;
@@ -712,12 +635,11 @@ pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> 
     {
         let left = left.trim_end();
         let c = DECLARED.captures(left.lines().last()?.trim())?;
-        return Some(c[1].to_owned()).filter(|t| !cs_keyword(t));
+        return Some(c[1].to_owned()).filter(|t| !cs_names_no_type(t));
     }
     if target.ends_with("return")
         && !target[..target.len() - 6].ends_with(|c: char| c.is_alphanumeric() || c == '_')
     {
-        // The method the `return` returns from: no lambda or local function in between.
         let k = from + target.matches('\n').count();
         let ls: Vec<&str> = lines.iter().map(String::as_str).collect();
         let mut e = cs_enclosing(&ls, k)?;
@@ -769,7 +691,6 @@ pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> 
     None
 }
 
-/// The written type of the `this` parameter of the C# extension method declared on `line`.
 pub fn cs_extended(line: &str) -> Option<String> {
     static THIS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(&format!(r"\(\s*this\s+({CS_TYPE})\s+@?\w+")).unwrap()
@@ -795,14 +716,12 @@ pub fn cs_type_position(line: &str, start: usize, end: usize) -> bool {
         if keyword(pre, "typeof") {
             return true;
         }
-        // A cast: `(T)` with no call or keyword in front of its bracket, a value after it.
         let cast_after = Regex::new(concat!(
             r"^",
             cs_generics!(),
             r#"\??(?:\[[,\s]*\])*\s*\)\s*[\w@($"]"#
         ))
         .is_ok_and(|re| re.is_match(after))
-            // `(Items) is null`: a keyword after the bracket, not a value being cast.
             && !Regex::new(r"^[^)]*\)\s*(?:is|as|switch|with|and|or|when)\b")
                 .is_ok_and(|re| re.is_match(after));
         let opens = !pre.ends_with([')', ']', '>'])
@@ -815,8 +734,6 @@ pub fn cs_type_position(line: &str, start: usize, end: usize) -> bool {
     cs_generic_argument(before, after) || cs_base_listed(line, before)
 }
 
-/// Whether a name follows the C# type that `after` continues, past its generic arguments, a `?`
-/// and `[]`: `Buyer buyer`, `Buyer Update(`, save a contextual keyword (`x is T or U`).
 fn cs_named_after(after: &str) -> bool {
     static FOLLOWED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(concat!(
@@ -855,8 +772,6 @@ fn cs_named_after(after: &str) -> bool {
         .is_some_and(|c| !CONTEXTUAL.contains(&&c[1]))
 }
 
-/// The rules of `def_patterns` a C# type position keeps (#360): a type, a delegate and a `using`
-/// alias, and no constructor, property or namespace of the name.
 pub fn cs_type_patterns(word: &str) -> Vec<String> {
     let all = def_patterns(Kind::CSharp, word);
     vec![all[0].clone(), all[1].clone(), all[3].clone()]
@@ -870,9 +785,6 @@ pub fn cs_constant_may_stand(line: &str, start: usize, end: usize) -> bool {
         && !cs_named_after(after)
 }
 
-/// Whether the word between `before` and `after` is inside a generic argument list: a `<` right
-/// after a name, closed by a `>` on the line, with nothing but names, `,`, `.`, `?`, `[]` and
-/// nested lists in between. A `<` after a space is a comparison.
 fn cs_generic_argument(before: &str, after: &str) -> bool {
     let typeish = |c: char| c.is_alphanumeric() || " \t_.,?[]@".contains(c);
     let mut depth = 0;
@@ -908,8 +820,6 @@ fn cs_generic_argument(before: &str, after: &str) -> bool {
     false
 }
 
-/// Whether the word after `before` is a base in the type header `line` declares: right after the
-/// `:` of its base list or a `,` of it, outside any bracket.
 fn cs_base_listed(line: &str, before: &str) -> bool {
     if cs_type_decl(line).is_none() || !before.trim_end().ends_with([':', ',']) {
         return false;
@@ -978,7 +888,6 @@ pub struct CsArity {
     pub extension_this: bool,
 }
 
-/// `None` for a line declaring no method of the name, or a list not read.
 pub fn cs_parameters(text: &str, line1: usize, word: &str) -> Option<CsArity> {
     let rows: Vec<&str> = text.lines().collect();
     let l = *rows.get(line1.checked_sub(1)?)?;
@@ -995,7 +904,6 @@ pub fn cs_parameters(text: &str, line1: usize, word: &str) -> Option<CsArity> {
         inner_uncommented: inner,
         ..
     } = group(Kind::CSharp, &rows, line1 - 1, open)?;
-    // A declaration compares nothing, so every `<` opens a generic argument list.
     let parts = cs_split(&inner);
     let total = if inner.trim().is_empty() {
         0
@@ -1017,8 +925,6 @@ pub fn cs_parameters(text: &str, line1: usize, word: &str) -> Option<CsArity> {
     })
 }
 
-/// The items of a C# call's `inner` text, cut at its top-level commas; `None` when a `<` makes it
-/// read two ways, a comparison or a generic argument list.
 fn cs_count(inner: &str) -> Option<usize> {
     if inner.trim().is_empty() {
         return Some(0);

@@ -464,7 +464,7 @@ public class Cart
     assert_eq!(lines("order", 11), [7]);
     assert!(
         lines("left", 13).is_empty(),
-        "a deconstruction binds nothing"
+        "a deconstruction binds nothing, today (#784)"
     );
     assert!(
         lines("item", 13).is_empty(),
@@ -1468,4 +1468,334 @@ fn csharp_type_positions_namespace_segments_and_arity() {
     );
     assert_eq!(params("public record Equals(int A);"), None);
     assert_eq!(params("public Func<int, bool> Equals { get; }"), None);
+}
+
+#[test]
+fn csharp_declarations_and_expressions_give_their_written_types() {
+    let ty = |s: &str| CsValue::Type(s.to_owned());
+    let call = |callee: &str, awaited| CsValue::Call {
+        callee: callee.to_owned(),
+        awaited,
+    };
+    for (line, name, want) in [
+        (
+            "    var service = new RedirectService();",
+            "service",
+            ty("RedirectService"),
+        ),
+        ("    List<Item> items = Load();", "items", ty("List<Item>")),
+        ("    Label? label;", "label", ty("Label?")),
+        ("    Item[,] grid;", "grid", ty("Item[,]")),
+        (
+            "    private readonly IRepository<Item> _repo;",
+            "_repo",
+            ty("IRepository<Item>"),
+        ),
+        (
+            "    public Basket Basket { get; set; }",
+            "Basket",
+            ty("Basket"),
+        ),
+        (
+            "    public static int Count(this Basket basket)",
+            "basket",
+            ty("Basket"),
+        ),
+        ("    foreach (Item item in items)", "item", ty("Item")),
+        ("    catch (HttpException ex)", "ex", ty("HttpException")),
+        ("    if (Parse(s, out Order order))", "order", ty("Order")),
+        ("    if (o is Buyer buyer)", "buyer", ty("Buyer")),
+        ("    case Buyer buyer:", "buyer", ty("Buyer")),
+        (
+            "    var order = await repo.LoadAsync(id);",
+            "order",
+            call("repo.LoadAsync", true),
+        ),
+        ("    var x = y;", "x", CsValue::Unknown),
+        ("    foreach (var item in items)", "item", CsValue::Unknown),
+        (
+            "    items.Select(item => item.Id);",
+            "item",
+            CsValue::Unknown,
+        ),
+    ] {
+        assert_eq!(cs_declared(line, name), want, "{line}");
+    }
+    for (expr, want) in [
+        ("new Order(id)", ty("Order")),
+        ("new Order { Id = 1 };", ty("Order")),
+        ("new Order(id).Ship()", CsValue::Unknown),
+        ("(Order)o", ty("Order")),
+        ("o as Order", ty("Order")),
+        ("Load(id)", call("Load", false)),
+        ("Factory.Create<Order>(id)", call("Factory.Create", false)),
+        (
+            "await repo.LoadAsync(id).ConfigureAwait(false)",
+            call("repo.LoadAsync", true),
+        ),
+        ("repo.LoadAsync(id).ConfigureAwait(false)", CsValue::Unknown),
+        ("Load(id).Value", CsValue::Unknown),
+    ] {
+        assert_eq!(cs_expr(expr), want, "{expr}");
+    }
+    assert_eq!(
+        cs_returns(
+            "    public async Task<Order> LoadAsync(int id)",
+            "LoadAsync"
+        )
+        .as_deref(),
+        Some("Task<Order>")
+    );
+    assert_eq!(cs_returns("    public void Save(Order o)", "Save"), None);
+    assert_eq!(
+        cs_extended("    public static int Count(this List<Item> items)").as_deref(),
+        Some("List<Item>")
+    );
+}
+
+#[test]
+fn csharp_type_names_and_awaited_types() {
+    for (written, want) in [
+        ("List<Item>", Some("List")),
+        ("Label?", Some("Label")),
+        ("eShop.Models.Item", Some("Item")),
+        ("global::Shop.Item", Some("Item")),
+        ("Item[]", None),
+        ("(int, string)", None),
+        ("dynamic", None),
+        ("var", None),
+    ] {
+        assert_eq!(cs_type_name(written).as_deref(), want, "{written}");
+    }
+    for (written, want) in [
+        ("Task<Order>", Some("Order")),
+        ("ValueTask<Order>", Some("Order")),
+        (
+            "System.Threading.Tasks.Task<List<Order>>",
+            Some("List<Order>"),
+        ),
+        ("Task", None),
+        ("List<Order>", None),
+    ] {
+        assert_eq!(cs_awaited(written), want, "{written}");
+    }
+}
+
+#[test]
+fn csharp_bases_owners_and_type_parameters() {
+    let page = "\
+public class OrderPage<T>(Order order)
+    : ContentPage(order), IRepository<Item, int>
+    where T : class
+{
+}
+";
+    assert_eq!(
+        cs_bases(page, 1),
+        ["ContentPage", "IRepository<Item, int>"],
+        "a header wrapped over lines, past type parameters and a primary constructor"
+    );
+    let boxed = "\
+namespace Shop
+{
+    public class Box<T>
+    {
+        public U Map<U>(Func<T, U> f)
+        {
+            V Local<V>(V v) => v;
+            return default;
+        }
+    }
+    interface IVariant<in TIn, out TOut> { }
+}
+";
+    assert_eq!(cs_owner(boxed, 5), Some(3), "a member");
+    assert_eq!(cs_owner(boxed, 8), Some(3), "the body of a member");
+    assert_eq!(cs_owner(boxed, 3), None, "a type in a namespace");
+    let generic = |line, name| cs_generic_param(boxed, line, name);
+    assert!(generic(8, "T"), "the type's");
+    assert!(generic(8, "U"), "the method's");
+    assert!(generic(7, "V"), "the local function's, on its own line");
+    assert!(!generic(8, "V"), "a local function's, outside it");
+    assert!(
+        generic(11, "TIn") && generic(11, "TOut"),
+        "past `in` and `out`"
+    );
+}
+
+#[test]
+fn csharp_places_skip_what_stands_between_a_header_and_its_body() {
+    let text = "\
+namespace Shop
+{
+    public record Order<T>(
+    [property: Key] int Id
+    )
+    : Base
+    where T : class
+    {
+#if DEBUG
+        int n;
+#endif
+        public int Count()
+            => n;
+
+        public void Run()
+        {
+            if (n > 0)
+            {
+                var x = 1;
+            }
+        }
+    }
+}
+";
+    assert_eq!(
+        cs_place(text, 10, "n"),
+        CsPlace::Member {
+            owner: "Order".to_owned(),
+            private: true
+        },
+        "past a preprocessor line and a header wrapped over `[`, `)`, `:` and `where` lines"
+    );
+    assert_eq!(
+        cs_place(text, 13, "n"),
+        CsPlace::Local { from: 12, to: 14 },
+        "a body with no braces ends on the line before the next one at its member's indent"
+    );
+    assert_eq!(
+        cs_place(text, 19, "x"),
+        CsPlace::Local { from: 15, to: 21 },
+        "a local of a nested block is seen in the whole member, up to its closing brace"
+    );
+}
+
+#[test]
+fn csharp_headers_bind_their_parameters_and_variables() {
+    let opener = |header: &str, name: &str| {
+        let o = crate::search::csharp::cs_opener(header, name);
+        (o.binds, o.hides_outer_scopes)
+    };
+    for (header, name) in [
+        ("public Cart(Item seed) : base(seed)", "seed"),
+        ("public void Run<T>(T item) where T : class", "item"),
+        ("public Item this[int index]", "index"),
+        ("Run(x =>", "x"),
+        ("Run((a, b) =>", "a"),
+    ] {
+        assert_eq!(opener(header, name), (true, true), "{header}");
+    }
+    for (header, name) in [
+        ("Run(x => x.Ok, () =>", "x"),
+        ("Run((a, b) => a + b, () =>", "a"),
+    ] {
+        assert_eq!(
+            opener(header, name),
+            (true, false),
+            "{header}: a lambda that is not the block binds without hiding"
+        );
+    }
+    assert_eq!(
+        opener("foreach (var (a, b) in pairs)", "a"),
+        (false, false),
+        "a deconstruction binds nothing, today (#784)"
+    );
+    assert_eq!(
+        opener("new Order(out seed)", "seed"),
+        (false, false),
+        "a call is no signature"
+    );
+    let parameter_of = |line: &str, name: &str| cs_parameter_of(line, name);
+    assert_eq!(
+        parameter_of(
+            "    public void Register([FromBody] string callbackUrl = \"/\", int n)",
+            "callbackUrl"
+        )
+        .as_deref(),
+        Some("Register")
+    );
+    assert_eq!(
+        parameter_of("    public Refunds(string callbackUrl)", "callbackUrl").as_deref(),
+        Some("Refunds"),
+        "a constructor, by its access modifier"
+    );
+    assert_eq!(
+        parameter_of("public class Refunds(string callbackUrl)", "callbackUrl"),
+        None,
+        "a primary constructor's parameter reads as the type's"
+    );
+    assert_eq!(parameter_of("        new Order(out seed);", "seed"), None);
+    let statement = |t: &str, name: &str| crate::search::csharp::cs_statement(t, name);
+    assert!(statement("var ok = o is Buyer buyer;", "buyer"));
+    assert!(statement("int Twice(int n) => n * 2;", "Twice"));
+    let line = "Run(a, (x, i) => x); Use(x);";
+    assert!(cs_binds_here(line, "x", line.find("=> x").unwrap() + 3));
+    assert!(
+        !cs_binds_here(line, "x", line.rfind('x').unwrap()),
+        "a lambda's parameter binds inside its lambda only"
+    );
+    let line = "var order = Load(); Ship(order);";
+    assert!(cs_binds_here(line, "order", line.rfind("order").unwrap()));
+    let route = ["    app.MapGet(\"/{id:int}\", (", "        int id) => id);"];
+    assert_eq!(
+        cs_written_line(&route, 1, "id"),
+        2,
+        "not the `id` in the string"
+    );
+    let wrapped = ["    public void Register(", "        string callbackUrl)"];
+    assert_eq!(cs_written_line(&wrapped, 1, "callbackUrl"), 2);
+}
+
+#[test]
+fn csharp_initializers_take_the_type_they_construct() {
+    let at = |text: &str| {
+        let lines: Vec<String> = text.lines().map(str::to_owned).collect();
+        let k = lines.iter().position(|l| l.contains("Id = 1")).unwrap();
+        let start = lines[k].find("Id = 1").unwrap();
+        cs_initialized(&lines, k, start, start + 2)
+    };
+    let method = |body: &str| format!("class Shop\n{{\n{body}\n}}\n");
+    assert_eq!(
+        at(&method(
+            "    void M()\n    {\n        object a = new { Id = 1 };\n    }"
+        )),
+        None,
+        "an anonymous type"
+    );
+    assert_eq!(
+        at(&method(
+            "    void M()\n    {\n        Order order = new() { Id = 1 };\n    }"
+        ))
+        .as_deref(),
+        Some("Order"),
+        "`new()` takes the type its declaration writes"
+    );
+    assert_eq!(
+        at(&method(
+            "    Order Make(bool b)\n    {\n        if (b)\n        {\n            return new() { Id = 1 };\n        }\n        return null;\n    }"
+        ))
+        .as_deref(),
+        Some("Order"),
+        "`return` from inside an `if` returns from the method"
+    );
+    assert_eq!(
+        at(&method(
+            "    async Task<Order> MakeAsync()\n    {\n        return new() { Id = 1 };\n    }"
+        ))
+        .as_deref(),
+        Some("Order")
+    );
+    assert_eq!(
+        at(&method(
+            "    Order Make() => Wrap(() =>\n    {\n        return new() { Id = 1 };\n    });"
+        )),
+        None,
+        "a `return` in a lambda returns from the lambda"
+    );
+    let line = "    Run(a < Max, b > c);";
+    let start = line.find("Max").unwrap();
+    assert!(
+        !cs_type_position(line, start, start + 3),
+        "a `<` after a space is a comparison"
+    );
 }
