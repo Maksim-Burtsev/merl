@@ -6,6 +6,11 @@ struct TypeVia {
     ty: Typed,
     call_signature: Option<String>,
 }
+#[derive(PartialEq, Eq)]
+enum Ancestry {
+    ReachesOutsideTheProject,
+    ProjectOnly,
+}
 enum DeclaredField {
     Typed(TypeVia),
     UnreadableOrDisagreeing,
@@ -265,12 +270,11 @@ impl App {
             return None;
         }
         let (ty, _) = self.receiver(kind, here, chain, head).ok()?;
-        self.ancestry_outside(&ty, 0)?.then_some(ty)
+        (self.python_ancestry(&ty, 0)? == Ancestry::ReachesOutsideTheProject).then_some(ty)
     }
 
-    /// Whether a base of `ty`, or of a project class above it, is imported from outside the
-    /// project; `None` when a base cannot be read.
-    fn ancestry_outside(&self, ty: &Typed, depth: usize) -> Option<bool> {
+    /// `None` when a base cannot be read.
+    fn python_ancestry(&self, ty: &Typed, depth: usize) -> Option<Ancestry> {
         let kind = Kind::Python;
         // ponytail: eight levels up, which also ends a cycle.
         let text = self.text_of(&ty.path).filter(|_| depth < 8)?;
@@ -284,7 +288,9 @@ impl App {
                 continue;
             }
             if let Some(base) = self.type_decl(kind, &ty.path, &base) {
-                outside |= base.path.is_absolute() || self.ancestry_outside(&base, depth + 1)?;
+                outside |= base.path.is_absolute()
+                    || self.python_ancestry(&base, depth + 1)?
+                        == Ancestry::ReachesOutsideTheProject;
                 continue;
             }
             let path = bound(&imports, &parts[0])?;
@@ -297,7 +303,10 @@ impl App {
             }
             outside = true;
         }
-        Some(outside)
+        Some(match outside {
+            true => Ancestry::ReachesOutsideTheProject,
+            false => Ancestry::ProjectOnly,
+        })
     }
 
     /// `word` as the class `chain` names declares it for the class itself: a method, else a line
