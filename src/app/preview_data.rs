@@ -77,6 +77,9 @@ impl App {
         }
         self.previewed.insert(path.to_path_buf());
         self.parse_start(hash);
+        if self.parse.wait.is_zero() {
+            return true;
+        }
         let due = Instant::now() + self.parse.wait;
         while Instant::now() < due && self.parse.job.as_ref().is_some_and(|j| !j.2.is_finished()) {
             std::thread::sleep(Duration::from_millis(1));
