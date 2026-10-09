@@ -92,4 +92,7 @@ void drop(std::vector<Tariff>* ts) { ts->clear(); }
 void reset(std::optional<std::string> s) { s->clear(); }
 //                                            ^ d: none
 
+auto build() -> Tariff;
+//              ^ d: include/shop/offers.hh:8
+
 }  // namespace shop
