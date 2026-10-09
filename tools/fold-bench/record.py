@@ -23,6 +23,7 @@ FOLD_ONLY = {
     "plug": ["plug", "elixir", "https://github.com/elixir-plug/plug.git", "73404f851852a00ffb2014be95d4598900fa77b8", "-"],
     "rbs": ["rbs", "rbs", "https://github.com/ruby/rbs.git", "c78451b753cc6de113be8d096d09418d8170e9c6", "-"],
     "ohmyzsh": ["ohmyzsh", "zsh", "https://github.com/ohmyzsh/ohmyzsh.git", "60c9a7a839b790cd905d0fd4419435124fd1bdc0", "-"],
+    "oslib": ["oslib", "scala", "https://github.com/com-lihaoyi/os-lib.git", "86e5ddb65fe62305afb5885fcc0f8da50aba4b48", "-"],
 }
 LANGS = {
     "go": (["caddy"], {"go": "go"}),
@@ -41,6 +42,8 @@ LANGS = {
     "elixir": (["plug"], {"ex": "elixir", "exs": "elixir"}),
     "rbs": (["rbs"], {"rbs": "rbs"}),
     "zsh": (["ohmyzsh"], {"zsh": "zsh"}),
+    "scala": (["oslib"], {"scala": "scala", "sc": "scala"}),
+    "dart": (["immich"], {"dart": "dart"}),
     "shell": (EVERY, {"sh": "bash", "bash": "bash"}),
     "lua": (EVERY, {"lua": "lua"}),
     "yaml": (EVERY, {"yml": "yaml", "yaml": "yaml"}),

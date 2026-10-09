@@ -5,11 +5,13 @@ use crate::search::{Kind, kind_of};
 
 mod c;
 mod csharp;
+mod dart;
 mod java;
 mod kotlin;
 mod objc;
 mod php;
 mod rust;
+mod scala;
 mod swift;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -26,6 +28,8 @@ pub(crate) enum Lang {
     ObjC,
     Swift,
     Php,
+    Dart,
+    Scala,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -49,6 +53,8 @@ pub(crate) fn syntax_of(path: &Path) -> Option<Syntax> {
         (_, "ts" | "mts" | "cts") => (Lang::Ts, false),
         (_, "tsx") => (Lang::Ts, true),
         (_, "go") => (Lang::Go, false),
+        (_, "dart") => (Lang::Dart, false),
+        (_, "scala" | "sc") => (Lang::Scala, false),
         (_, "cs") => (Lang::CSharp, false),
         (_, "rs") => (Lang::Rust, false),
         (_, "java") => (Lang::Java, false),
@@ -89,6 +95,8 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
         Lang::C | Lang::Cpp | Lang::ObjC => model.c_family(syntax.lang, lines),
         Lang::Swift => model.swift(lines),
         Lang::Php => model.php(lines),
+        Lang::Dart => model.dart(lines),
+        Lang::Scala => model.scala(lines),
         lang => model.ecma(lang == Lang::Ts),
     }
     let levels = levels(lines.len(), &model.nodes);
@@ -106,7 +114,7 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
     defs.dedup();
     let semicolons = !matches!(
         syntax.lang,
-        Lang::Js | Lang::Ts | Lang::Go | Lang::Kotlin | Lang::Swift
+        Lang::Js | Lang::Ts | Lang::Go | Lang::Kotlin | Lang::Swift | Lang::Scala
     );
     let heads = match semicolons {
         true => heads(lines, &toks, &model.back, &starts),
@@ -317,7 +325,12 @@ impl<'a> Lexer<'a> {
                 self.i = s.len();
                 continue;
             }
-            if s[i..].starts_with(b"/*") && matches!(self.syntax.lang, Lang::Rust | Lang::Swift) {
+            if s[i..].starts_with(b"/*")
+                && matches!(
+                    self.syntax.lang,
+                    Lang::Rust | Lang::Swift | Lang::Dart | Lang::Scala
+                )
+            {
                 self.nested_comment(i + 2);
                 continue;
             }
@@ -338,7 +351,7 @@ impl<'a> Lexer<'a> {
                 continue;
             }
             if c == b'`'
-                && self.syntax.lang == Lang::Swift
+                && matches!(self.syntax.lang, Lang::Swift | Lang::Scala)
                 && let Some(len) = s[i + 1..].iter().position(|&b| b == b'`')
             {
                 self.emit(l, i, len + 2, K::Word, l);
@@ -372,6 +385,15 @@ impl<'a> Lexer<'a> {
                 continue;
             }
             if self.syntax.lang == Lang::Swift && matches!(c, b'"' | b'#') && self.swift_string() {
+                continue;
+            }
+            if self.syntax.lang == Lang::Scala && matches!(c, b'"' | b'\'') && self.scala_quote() {
+                continue;
+            }
+            if self.syntax.lang == Lang::Dart
+                && matches!(c, b'"' | b'\'' | b'r')
+                && self.dart_string()
+            {
                 continue;
             }
             if self.syntax.lang == Lang::Kotlin && c == b'"' && self.kt_string() {

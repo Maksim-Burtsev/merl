@@ -22,6 +22,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   where both said `no fold rules`. (#626)
 - `f` folds XML (`.xml`), where it said `no fold rules for .xml`: an element from its opening
   tag to its closing one, and a comment over several lines. (#627)
+- `f` folds Dart (`.dart`), where it said `no fold rules for .dart`: a class, enum or extension
+  with its annotations, a function body in braces or after `=>`, a block, a `switch`, a call's
+  arguments, a list, set or map literal and a string over several lines, and a run of imports.
+  (#625)
+- `f` folds Scala (`.scala`, `.sc`), where it said `no fold rules for .scala`: a class, trait or
+  object with its annotations, a `def` or `val` through its body, a wrapped `import`, `for`,
+  `while`, `try` and `match`, and a block passed to a call (`xs.map { x =>`). (#625)
 
 ### Changed
 
