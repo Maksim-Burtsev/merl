@@ -245,9 +245,12 @@ pub fn c_field_pattern(word: &str) -> String {
         r"(?:[\w\]>]\s+|[*&,}}>]\s*){w}\s*(?:\[[^\]]*\]\s*)*(?:[;,={{\[]|:(?:[^:]|$)|[A-Z_][A-Z0-9_]*\s*\()|\(\s*\*+\s*{w}\s*\)\s*\("
     )
 }
-/// Of the `hit_lines1` of a C or C++ `text`, the lines that declare `word` as a data member
-/// ([`c_field_owner`]), each with the name of the type it belongs to.
-pub fn c_field_rows(text: &str, hit_lines1: &[usize], word: &str) -> Vec<(usize, String)> {
+pub struct CFieldRow {
+    pub line1: usize,
+    pub owner_type: String,
+}
+/// Of the `hit_lines1`, the lines that declare `word` as a data member ([`c_field_owner`]).
+pub fn c_field_rows(text: &str, hit_lines1: &[usize], word: &str) -> Vec<CFieldRow> {
     let code = c_code(text);
     let starts = line_starts(&code);
     let mut rows = Vec::new();
@@ -263,7 +266,10 @@ pub fn c_field_rows(text: &str, hit_lines1: &[usize], word: &str) -> Vec<(usize,
             whole.then(|| c_field_owner(&code, at, word)).flatten()
         });
         if let Some(owner) = found {
-            rows.push((line, owner));
+            rows.push(CFieldRow {
+                line1: line,
+                owner_type: owner,
+            });
         }
     }
     rows
