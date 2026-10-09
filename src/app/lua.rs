@@ -53,8 +53,8 @@ impl App {
                 hit: Hit {
                     deleted: None,
                     path: path.clone(),
-                    line,
-                    col: 0,
+                    line1: line,
+                    byte_col: None,
                     text: source.lines().nth(line - 1).unwrap_or_default().to_owned(),
                 },
                 reason: reason.clone(),

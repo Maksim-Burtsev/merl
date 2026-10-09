@@ -3,6 +3,11 @@
 
 use super::*;
 
+struct WrittenType {
+    resolved: JvmType,
+    written: String,
+}
+
 struct TypedField {
     hit: Hit,
     written: String,
@@ -67,15 +72,21 @@ impl App {
                 let hit = Hit {
                     deleted: None,
                     path: here.to_path_buf(),
-                    line: decl,
-                    col: 0,
+                    line1: decl,
+                    byte_col: None,
                     text: lines[decl - 1].to_owned(),
                 };
                 (JvmType::Project(hit), Vec::new())
             }
             f if f.starts_with(|c: char| c.is_ascii_lowercase()) => {
-                let (ty, written) = match smart() {
-                    Some(t) => (self.jvm_type_at(here, text, &t), t),
+                let WrittenType {
+                    resolved: ty,
+                    written,
+                } = match smart() {
+                    Some(t) => WrittenType {
+                        resolved: self.jvm_type_at(here, text, &t),
+                        written: t,
+                    },
                     None => self.jvm_value(here, text, line, f, kotlin, 1)?,
                 };
                 (ty, vec![format!("{f}: {written}")])
@@ -160,7 +171,7 @@ impl App {
     fn jvm_receiver_of(&self, hit: &Hit, word: &str) -> Option<String> {
         search::jvm_receiver(&hit.text, word).or_else(|| {
             let text = self.text_of(&hit.path)?;
-            search::jvm_receiver_at(&text, hit.line, word)
+            search::jvm_receiver_at(&text, hit.line1, word)
         })
     }
 
@@ -177,7 +188,7 @@ impl App {
         name: &str,
         kotlin: bool,
         hops: usize,
-    ) -> Option<(JvmType, String)> {
+    ) -> Option<WrittenType> {
         let narrowing = match kotlin {
             true => r"\b{0}\s+(?:!?is|as\??)\s|\bwhen\s*\(\s*{0}\s*\)",
             false => r"\b{0}\s+instanceof\s|\(\s*[A-Z][\w.<>]*\s*\)\s*{0}\b",
@@ -198,11 +209,14 @@ impl App {
                 .find(|m| !m.is_empty())?,
             false => bindings,
         };
-        let mut found: Option<(JvmType, String)> = None;
+        let mut found: Option<WrittenType> = None;
         for l in declared {
             let at = lines.get(l - 1)?;
             let this = match search::jvm_declared_type(at, name, kotlin) {
-                Some(t) => (self.jvm_type_at(file, text, &t), t),
+                Some(t) => WrittenType {
+                    resolved: self.jvm_type_at(file, text, &t),
+                    written: t,
+                },
                 None if hops > 0 => {
                     let search::JvmAssignedCall {
                         receiver: recv,
@@ -212,7 +226,7 @@ impl App {
                 }
                 None => return None,
             };
-            if found.as_ref().is_some_and(|(_, w)| *w != this.1) {
+            if found.as_ref().is_some_and(|f| f.written != this.written) {
                 return None;
             }
             found = Some(this);
@@ -231,9 +245,9 @@ impl App {
         recv: Option<&str>,
         call: &str,
         kotlin: bool,
-    ) -> Option<(JvmType, String)> {
+    ) -> Option<WrittenType> {
         let owner = match recv {
-            Some(r) => self.jvm_value(file, text, line1, r, kotlin, 0)?.0,
+            Some(r) => self.jvm_value(file, text, line1, r, kotlin, 0)?.resolved,
             None => {
                 let lines: Vec<&str> = text.lines().collect();
                 let decl = search::jvm_enclosing_types(text, line1)
@@ -242,8 +256,8 @@ impl App {
                 JvmType::Project(Hit {
                     deleted: None,
                     path: file.to_path_buf(),
-                    line: decl,
-                    col: 0,
+                    line1: decl,
+                    byte_col: None,
                     text: lines[decl - 1].to_owned(),
                 })
             }
@@ -263,7 +277,10 @@ impl App {
                 .find_map(|n| search::jvm_declared_type(&m.text, n, mk))
         })?;
         let t = self.text_of(&m.path)?;
-        Some((self.jvm_type_at(&m.path, &t, &written), written))
+        Some(WrittenType {
+            resolved: self.jvm_type_at(&m.path, &t, &written),
+            written,
+        })
     }
 
     /// The field `field` of the type declared at `decl` or a type it extends in the project.
@@ -299,9 +316,9 @@ impl App {
             return Vec::new();
         };
         let lines: Vec<&str> = text.lines().collect();
-        let mut found = search::jvm_members_of(&text, decl.line, word);
+        let mut found = search::jvm_members_of(&text, decl.line1, word);
         if found.is_empty() {
-            found = search::jvm_lombok_fields(&text, decl.line, word);
+            found = search::jvm_lombok_fields(&text, decl.line1, word);
         }
         found.sort_unstable();
         found.dedup();
@@ -311,14 +328,14 @@ impl App {
                 .map(|line| Hit {
                     deleted: None,
                     path: decl.path.clone(),
-                    line,
-                    col: 0,
+                    line1: line,
+                    byte_col: None,
                     text: lines[line - 1].to_owned(),
                 })
                 .collect();
         }
         let mut out = Vec::new();
-        for base in search::jvm_bases(&text, decl.line, search::scala(&decl.path)) {
+        for base in search::jvm_bases(&text, decl.line1, search::scala(&decl.path)) {
             if let JvmType::Project(b) = self.jvm_type_at(&decl.path, &text, &base) {
                 out.extend(self.jvm_hierarchy_member(&b, word, depth + 1, walked));
             }
@@ -348,7 +365,7 @@ impl App {
         let code = |h: &Hit| {
             self.text_of(&h.path).is_some_and(|t| {
                 !search::literal_lines(Kind::Jvm, &t)
-                    .get(h.line - 1)
+                    .get(h.line1 - 1)
                     .copied()
                     .unwrap_or(false)
             })
@@ -427,7 +444,7 @@ impl App {
             return JvmType::Unknown;
         };
         let lines: Vec<&str> = text.lines().collect();
-        let nested: Vec<usize> = search::jvm_members_of(&text, decl.line, name)
+        let nested: Vec<usize> = search::jvm_members_of(&text, decl.line1, name)
             .into_iter()
             .filter(|&l| search::jvm_type_name(lines[l - 1]).as_deref() == Some(name))
             .collect();
@@ -435,8 +452,8 @@ impl App {
             [line] => JvmType::Project(Hit {
                 deleted: None,
                 path: decl.path.clone(),
-                line,
-                col: 0,
+                line1: line,
+                byte_col: None,
                 text: lines[line - 1].to_owned(),
             }),
             _ => JvmType::Unknown,
@@ -485,10 +502,10 @@ impl App {
                 let Some(t) = self.text_of(&h.path) else {
                     continue;
                 };
-                let Some(&decl) = search::jvm_enclosing_types(&t, h.line).first() else {
+                let Some(&decl) = search::jvm_enclosing_types(&t, h.line1).first() else {
                     continue;
                 };
-                if search::jvm_lombok_fields(&t, decl, word).contains(&h.line) {
+                if search::jvm_lombok_fields(&t, decl, word).contains(&h.line1) {
                     found.push(Candidate {
                         hit: h,
                         reason: Reason::ByName,

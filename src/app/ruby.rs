@@ -24,7 +24,7 @@ impl App {
             let Some(text) = self.text_of(&h.path) else {
                 continue;
             };
-            let q = search::qualified(kind, &text, h.line, owner).unwrap_or_else(|| owner.clone());
+            let q = search::qualified(kind, &text, h.line1, owner).unwrap_or_else(|| owner.clone());
             if q != path && !q.ends_with(&format!(".{path}")) {
                 continue;
             }
@@ -40,7 +40,7 @@ impl App {
                 self.text_of(&h.path).is_some_and(|t| {
                     modules
                         .iter()
-                        .any(|m| search::ruby_concern_class_method(&t, h.line, m))
+                        .any(|m| search::ruby_concern_class_method(&t, h.line1, m))
                 })
             })
             .collect()
@@ -86,7 +86,7 @@ impl App {
         for c in self.ruby_outside(word, pattern) {
             if !found
                 .iter()
-                .any(|f| f.hit.path == c.hit.path && f.hit.line == c.hit.line)
+                .any(|f| f.hit.path == c.hit.path && f.hit.line1 == c.hit.line1)
             {
                 found.push(c);
             }
@@ -120,9 +120,9 @@ impl App {
             .filter_map(|h| {
                 let t = self.text_of(&h.path)?;
                 Some(Owned {
-                    class: search::ruby_class_path(&t, h.line),
-                    on_class: search::ruby_on_class(&t, h.line),
-                    module_method_on_both_sides: search::ruby_singleton(&t, h.line),
+                    class: search::ruby_class_path(&t, h.line1),
+                    on_class: search::ruby_on_class(&t, h.line1),
+                    module_method_on_both_sides: search::ruby_singleton(&t, h.line1),
                     hit: h,
                 })
             })
@@ -176,7 +176,7 @@ impl App {
     fn ruby_parents(&self, here: &Path, path: &str) -> search::RubyParents {
         let mut out = search::RubyParents::default();
         for (h, t) in self.ruby_declarations(here, path) {
-            let one = search::ruby_class_parents(&t, h.line);
+            let one = search::ruby_class_parents(&t, h.line1);
             out.superclasses.extend(one.superclasses);
             out.includes.extend(one.includes);
             out.extends.extend(one.extends);
@@ -195,7 +195,7 @@ impl App {
             .into_iter()
             .filter_map(|h| {
                 let t = self.text_of(&h.path)?;
-                (search::ruby_declared_path(&t, h.line).as_deref() == Some(path)).then_some((h, t))
+                (search::ruby_declared_path(&t, h.line1).as_deref() == Some(path)).then_some((h, t))
             })
             .collect()
     }
@@ -212,7 +212,7 @@ impl App {
         let mut paths: Vec<String> = self
             .project_definitions(Kind::Ruby, here, last, &pattern)
             .into_iter()
-            .filter_map(|h| search::ruby_declared_path(&self.text_of(&h.path)?, h.line))
+            .filter_map(|h| search::ruby_declared_path(&self.text_of(&h.path)?, h.line1))
             .filter(|p| p == name || p.ends_with(&format!("::{name}")))
             .collect();
         paths.sort();
@@ -235,7 +235,7 @@ impl App {
             .into_iter()
             .filter(|h| !class.is_empty() || h.path == here)
             .filter_map(|h| {
-                let c = search::ruby_class_path(&self.text_of(&h.path)?, h.line);
+                let c = search::ruby_class_path(&self.text_of(&h.path)?, h.line1);
                 Some((h, c))
             })
             .collect();

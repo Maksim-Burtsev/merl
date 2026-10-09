@@ -82,7 +82,7 @@ impl App {
                     let text = self.text_of(&h.path).unwrap_or_default();
                     search::literal_lines(Kind::Haskell, &text)
                 });
-                lines.get(h.line - 1) != Some(&true)
+                lines.get(h.line1 - 1) != Some(&true)
             })
             .map(|hit| Candidate {
                 reason: Reason::Import(hit.path.display().to_string()),

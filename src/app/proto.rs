@@ -96,7 +96,7 @@ impl App {
                 hits.extend(self.external_grep(Kind::Proto, &outside, &pattern));
                 hits.retain(|h| {
                     self.text_of(&h.path)
-                        .and_then(|t| search::qualified(Kind::Proto, &t, h.line, word))
+                        .and_then(|t| search::qualified(Kind::Proto, &t, h.line1, word))
                         == nested
                 });
                 let found: Vec<Candidate> = hits
@@ -140,8 +140,8 @@ impl App {
                         t.lines().next().unwrap_or_default().to_owned()
                     }),
                     path: file,
-                    line: 1,
-                    col: 0,
+                    line1: 1,
+                    byte_col: None,
                     deleted: None,
                 },
             })

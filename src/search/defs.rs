@@ -536,11 +536,11 @@ pub fn c_type_rows(
         .filter_map(|o| {
             let close = hits
                 .iter()
-                .filter(|c| c.path == o.path && c.line > o.line && closes.is_match(&c.text))
-                .min_by_key(|c| c.line)?;
+                .filter(|c| c.path == o.path && c.line1 > o.line1 && closes.is_match(&c.text))
+                .min_by_key(|c| c.line1)?;
             Some(match used.struct_tag {
-                true => (close.path.clone(), close.line),
-                false => (o.path.clone(), o.line),
+                true => (close.path.clone(), close.line1),
+                false => (o.path.clone(), o.line1),
             })
         })
         .collect();
@@ -548,7 +548,7 @@ pub fn c_type_rows(
         .filter(|h| {
             if typedef_halves_to_drop
                 .iter()
-                .any(|(p, l)| *p == h.path && *l == h.line)
+                .any(|(p, l)| *p == h.path && *l == h.line1)
             {
                 return false;
             }
@@ -557,7 +557,7 @@ pub fn c_type_rows(
             }
             !(one_body
                 && forward.is_match(&h.text)
-                && !text_of(&h.path).is_some_and(|t| in_class_body(&t, h.line)))
+                && !text_of(&h.path).is_some_and(|t| in_class_body(&t, h.line1)))
         })
         .collect()
 }
@@ -655,7 +655,7 @@ pub fn c_file_local(
                 return false;
             }
             ty.is_match(&h.text)
-                || !local(h) && !text.is_some_and(|t| in_unnamed_namespace(&t, h.line))
+                || !local(h) && !text.is_some_and(|t| in_unnamed_namespace(&t, h.line1))
         })
         .collect()
 }
@@ -771,7 +771,7 @@ pub fn c_one_definition(
                 let text = text_of(&h.path)?;
                 let s: String = text
                     .lines()
-                    .skip(h.line - 1)
+                    .skip(h.line1 - 1)
                     .take(30)
                     .collect::<Vec<_>>()
                     .join("\n");

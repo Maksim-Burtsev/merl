@@ -71,14 +71,14 @@ impl App {
     pub(crate) fn hit_items(hits: Vec<Hit>) -> Vec<PickItem> {
         hits.into_iter()
             .map(|h| {
-                let label = format!("{}: ", at_label(&h.path, h.line));
+                let label = format!("{}: ", at_label(&h.path, h.line1));
                 let code_at = Some(label.len());
                 let path_at = Some(0..h.path.display().to_string().len());
                 PickItem {
-                    col: h.col,
+                    col: h.byte_col.unwrap_or(0),
                     label: label + &clip(h.text.trim(), MAX_LABEL_TEXT),
                     path: h.path,
-                    line: h.line,
+                    line: h.line1,
                     code_at,
                     path_at,
                     deleted: h.deleted.is_some(),

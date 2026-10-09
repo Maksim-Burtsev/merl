@@ -107,8 +107,8 @@ impl App {
         Hit {
             deleted: None,
             path: here.to_path_buf(),
-            line,
-            col: 0,
+            line1: line,
+            byte_col: None,
             text: self.buf.lines[line - 1].clone(),
         }
     }
@@ -141,8 +141,8 @@ impl App {
                         deleted: None,
                         text: lines.get(line).copied().unwrap_or_default().to_owned(),
                         path,
-                        line: line + 1,
-                        col: 0,
+                        line1: line + 1,
+                        byte_col: None,
                     },
                     reason: Reason::Module(shown.clone()),
                 }
@@ -175,8 +175,8 @@ impl App {
                         hit: Hit {
                             deleted: None,
                             path: path.clone(),
-                            line: i + 1,
-                            col: 0,
+                            line1: i + 1,
+                            byte_col: None,
                             text: (*l).to_owned(),
                         },
                         reason: reason.clone(),

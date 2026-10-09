@@ -45,15 +45,15 @@ impl App {
             return Vec::new();
         }
         let lines: Vec<&str> = text.lines().collect();
-        search::enum_constants(&text, decl.line)
+        search::enum_constants(&text, decl.line1)
             .into_iter()
             .filter(|c| c.name == word)
             .map(|search::EnumConstant { line1: line, .. }| Candidate {
                 hit: Hit {
                     deleted: None,
                     path: decl.path.clone(),
-                    line,
-                    col: 0,
+                    line1: line,
+                    byte_col: None,
                     text: lines.get(line - 1).copied().unwrap_or_default().to_owned(),
                 },
                 reason: Reason::Path(owner.to_owned()),
@@ -100,8 +100,8 @@ impl App {
                     hit: Hit {
                         deleted: None,
                         path: p.clone(),
-                        line,
-                        col: 0,
+                        line1: line,
+                        byte_col: None,
                         text,
                     },
                     reason: Reason::ByName,
@@ -135,12 +135,12 @@ impl App {
                     .or_insert_with(|| self.text_of(&h.path));
                 match text
                     .as_deref()
-                    .and_then(|t| search::jvm_local_block(t, h.line))
+                    .and_then(|t| search::jvm_local_block(t, h.line1))
                 {
                     None => true,
                     Some(end) => {
                         let seen =
-                            !behind && h.path == here && (h.line..=end).contains(&(self.line + 1));
+                            !behind && h.path == here && (h.line1..=end).contains(&(self.line + 1));
                         seen_local |= seen;
                         // A line of a text block or a raw string is no local left out of sight,
                         // only no declaration (#416): it makes no jump an offer.
@@ -149,7 +149,7 @@ impl App {
                             .or_insert_with(|| {
                                 search::literal_lines(Kind::Jvm, text.as_deref().unwrap_or(""))
                             })
-                            .get(h.line - 1)
+                            .get(h.line1 - 1)
                             .copied()
                             .unwrap_or(false);
                         all -= usize::from(!seen && literal);
@@ -178,7 +178,7 @@ impl App {
             .iter()
             .filter(|c| {
                 kept.iter()
-                    .any(|h| (&h.path, h.line) == (&c.hit.path, c.hit.line))
+                    .any(|h| (&h.path, h.line1) == (&c.hit.path, c.hit.line1))
             })
             .cloned()
             .collect();
@@ -293,8 +293,8 @@ impl App {
             hit: Hit {
                 deleted: None,
                 path: path.to_path_buf(),
-                line,
-                col: 0,
+                line1: line,
+                byte_col: None,
                 text: lines[line - 1].to_owned(),
             },
             reason,
@@ -337,7 +337,7 @@ impl App {
                 };
                 let base_lines: Vec<&str> = t.lines().collect();
                 found.extend(
-                    search::jvm_members_of(&t, hit.line, word)
+                    search::jvm_members_of(&t, hit.line1, word)
                         .into_iter()
                         .map(|line| {
                             candidate(&hit.path, &base_lines, line, Reason::Path(base.clone()))
@@ -347,7 +347,7 @@ impl App {
         }
         let on_it = found
             .iter()
-            .any(|c| c.hit.path == here && c.hit.line == self.line + 1);
+            .any(|c| c.hit.path == here && c.hit.line1 == self.line + 1);
         (!found.is_empty() && !on_it).then_some(found)
     }
 
@@ -400,7 +400,7 @@ impl App {
             .into_iter()
             .filter(|h| {
                 self.text_of(&h.path)
-                    .map(|t| search::qualified(Kind::Jvm, &t, h.line, name))
+                    .map(|t| search::qualified(Kind::Jvm, &t, h.line1, name))
                     .is_some_and(|q| q == within || (q.is_some() && q == constructor))
             })
             .map(|hit| Candidate {
@@ -627,7 +627,7 @@ impl App {
                 return true;
             }
             self.text_of(&h.path)
-                .and_then(|t| search::jvm_parameters(&t, h.line, word, search::groovy(&h.path)))
+                .and_then(|t| search::jvm_parameters(&t, h.line1, word, search::groovy(&h.path)))
                 .is_none_or(|(n, more)| (n..=n.saturating_add(more)).contains(&count))
         };
         let fit: Vec<Hit> = hits.iter().filter(|h| fits(h)).cloned().collect();
@@ -661,8 +661,8 @@ impl App {
         let hit = |path: &Path, line: usize, text: &str| Hit {
             deleted: None,
             path: path.to_path_buf(),
-            line,
-            col: 0,
+            line1: line,
+            byte_col: None,
             text: text.to_owned(),
         };
         match chain {

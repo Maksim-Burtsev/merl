@@ -31,13 +31,13 @@ impl App {
         let source = self.text_of(&file)?;
         let literal = search::literal_lines(Kind::Solidity, &source);
         let mut hits = self.declaring(Kind::Solidity, &name, hits);
-        hits.retain(|h| literal.get(h.line - 1) != Some(&true));
+        hits.retain(|h| literal.get(h.line1 - 1) != Some(&true));
         let within = (chain.len() > 1).then(|| format!("{}.{name}", chain[1..].join(".")));
         if hits
             .iter()
-            .any(|h| search::qualified(Kind::Solidity, &source, h.line, &name) == within)
+            .any(|h| search::qualified(Kind::Solidity, &source, h.line1, &name) == within)
         {
-            hits.retain(|h| search::qualified(Kind::Solidity, &source, h.line, &name) == within);
+            hits.retain(|h| search::qualified(Kind::Solidity, &source, h.line1, &name) == within);
         }
         let found: Vec<Candidate> = hits
             .into_iter()

@@ -226,9 +226,9 @@ fn a_declaration_outside_is_found_from_the_lines_kept_of_its_file() {
         std::fs::write(dir.join(name), text).unwrap();
     }
     let files: Vec<PathBuf> = texts.iter().map(|(n, _)| dir.join(n)).collect();
-    let rows = |hits: Vec<Hit>| -> Vec<(PathBuf, usize, usize, String)> {
+    let rows = |hits: Vec<Hit>| -> Vec<(PathBuf, usize, Option<usize>, String)> {
         hits.into_iter()
-            .map(|h| (h.path, h.line, h.col, h.text))
+            .map(|h| (h.path, h.line1, h.byte_col, h.text))
             .collect()
     };
     let kept = ShapedFiles::default();

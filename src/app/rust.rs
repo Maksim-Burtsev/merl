@@ -87,8 +87,8 @@ impl App {
             found.push(Candidate {
                 hit: Hit {
                     path: here.to_path_buf(),
-                    line: self.line + 1,
-                    col: 0,
+                    line1: self.line + 1,
+                    byte_col: None,
                     deleted: None,
                     text: self.line_str().to_owned(),
                 },
@@ -114,7 +114,7 @@ impl App {
         hits.into_iter()
             .filter(|h| {
                 self.text_of(&h.path)
-                    .is_some_and(|t| search::rust_proc_macro(&t, h.line))
+                    .is_some_and(|t| search::rust_proc_macro(&t, h.line1))
             })
             .map(|hit| Candidate {
                 hit,
@@ -130,7 +130,7 @@ impl App {
         let kind = Kind::Rust;
         let field = |this: &Self, h: &Hit| {
             this.text_of(&h.path)
-                .is_some_and(|t| search::rust_field_at(&t, h.line))
+                .is_some_and(|t| search::rust_field_at(&t, h.line1))
         };
         let mut hits =
             self.project_definitions(kind, here, word, &search::rust_field_pattern(word, false));
@@ -160,7 +160,7 @@ impl App {
             .unwrap_or_default();
         hits.retain(|h| {
             self.text_of(&h.path)
-                .is_some_and(|t| search::rust_variant_at(&t, h.line))
+                .is_some_and(|t| search::rust_variant_at(&t, h.line1))
         });
         hits
     }
@@ -208,16 +208,16 @@ impl App {
                     continue;
                 };
                 let full = format!("{owner}::{word}");
-                let of = search::qualified(kind, &t, v.line, word)
+                let of = search::qualified(kind, &t, v.line1, word)
                     .is_some_and(|q| q == full || q.ends_with(&format!("::{full}")));
                 let in_enum = of
-                    && enums
-                        .iter()
-                        .any(|e| e.path == v.path && (!mine || e.path == here) && e.line < v.line);
+                    && enums.iter().any(|e| {
+                        e.path == v.path && (!mine || e.path == here) && e.line1 < v.line1
+                    });
                 if in_enum
                     && !found
                         .iter()
-                        .any(|c: &Candidate| (&c.hit.path, c.hit.line) == (&v.path, v.line))
+                        .any(|c: &Candidate| (&c.hit.path, c.hit.line1) == (&v.path, v.line1))
                 {
                     found.push(Candidate {
                         hit: v.clone(),
@@ -253,8 +253,8 @@ impl App {
                 hit: Hit {
                     deleted: None,
                     path: here.to_path_buf(),
-                    line,
-                    col: 0,
+                    line1: line,
+                    byte_col: None,
                     text: self.buf.lines[line - 1].clone(),
                 },
                 reason: Reason::File,
@@ -270,7 +270,7 @@ impl App {
         hits.extend(self.external_grep(kind, &files, &pattern));
         // Behind a `.` the word is never the declaration on its own line: a one-line
         // `fn is_empty(&self) -> bool { self.0.is_empty() }` calls another.
-        hits.retain(|h| h.path != here || h.line != self.line + 1);
+        hits.retain(|h| h.path != here || h.line1 != self.line + 1);
         let crate_of = |p: &Path| {
             p.ancestors()
                 .skip(1)
@@ -362,7 +362,7 @@ impl App {
                 owner,
                 vis,
                 owner_line1: owner_line,
-            }) = search::rust_method_at(&lines, h.line)
+            }) = search::rust_method_at(&lines, h.line1)
             else {
                 continue;
             };
@@ -382,7 +382,7 @@ impl App {
                 .contains("rustlib/src/rust/library/");
             let unmarked = sysroot
                 && match owner {
-                    search::RustOwner::Inherent => !search::rust_stability(&lines, h.line),
+                    search::RustOwner::Inherent => !search::rust_stability(&lines, h.line1),
                     search::RustOwner::Trait(_) => !search::rust_stability(&lines, owner_line),
                     _ => false,
                 };
@@ -729,7 +729,7 @@ impl App {
             namespace_fits
                 && self
                     .text_of(&h.path)
-                    .map(|t| search::qualified(kind, &t, h.line, name))
+                    .map(|t| search::qualified(kind, &t, h.line1, name))
                     == Some(want.clone())
         });
         hits
@@ -824,7 +824,7 @@ impl App {
         for (i, field) in chain.iter().enumerate().skip(1) {
             let next = self
                 .rust_field(&ty, field)
-                .and_then(|(hit, written)| self.rust_resolve(&ty.path, &written, hit.line - 1))
+                .and_then(|(hit, written)| self.rust_resolve(&ty.path, &written, hit.line1 - 1))
                 .ok_or_else(|| field.clone())?;
             match i {
                 1 => links[0] = format!("{}.{field}: {}", chain[0], next.name),
@@ -890,7 +890,7 @@ impl App {
                             let l: Vec<&str> = t.lines().collect();
                             let n = search::rust_type_name(&search::rust_return_type(
                                 &l,
-                                decl.line - 1,
+                                decl.line1 - 1,
                             )?)?
                             .name;
                             n == "Self" || n == ty.name
@@ -918,8 +918,8 @@ impl App {
                             };
                             Hit {
                                 path: file.to_path_buf(),
-                                line: l,
-                                col: 0,
+                                line1: l,
+                                byte_col: None,
                                 text: lines[l - 1].to_owned(),
                                 deleted: None,
                             }
@@ -930,8 +930,8 @@ impl App {
                     }
                     let t = self.text_of(&decl.path)?;
                     let l: Vec<&str> = t.lines().collect();
-                    let returns = search::rust_return_type(&l, decl.line - 1)?;
-                    let ty = self.rust_resolve(&decl.path, &returns, decl.line - 1)?;
+                    let returns = search::rust_return_type(&l, decl.line1 - 1)?;
+                    let ty = self.rust_resolve(&decl.path, &returns, decl.line1 - 1)?;
                     let link = format!("{}() -> {}", parts.join("::"), ty.name);
                     (ty, link)
                 }
@@ -975,7 +975,7 @@ impl App {
         let typed = |hit: Hit| Typed {
             name: name.clone(),
             path: hit.path,
-            line: hit.line,
+            line: hit.line1,
         };
         let decls = self
             .grep(&pattern, false, false, |p| {
@@ -985,7 +985,7 @@ impl App {
             .into_iter()
             .filter(|h| {
                 self.text_of(&h.path).is_some_and(|t| {
-                    search::literal_lines(Kind::Rust, &t).get(h.line - 1) != Some(&true)
+                    search::literal_lines(Kind::Rust, &t).get(h.line1 - 1) != Some(&true)
                 })
             })
             .collect::<Vec<_>>();
@@ -1000,7 +1000,7 @@ impl App {
             let hit = self.declaration(Kind::Rust, file, &[name.clone()])?;
             return decls
                 .into_iter()
-                .find(|h| (&h.path, h.line) == (&hit.path, hit.line))
+                .find(|h| (&h.path, h.line1) == (&hit.path, hit.line1))
                 .map(typed);
         }
         <[Hit; 1]>::try_from(decls).ok().map(|[hit]| typed(hit))
@@ -1015,8 +1015,8 @@ impl App {
         } = search::rust_struct_field(&lines, ty.line - 1, word)?;
         let hit = Hit {
             path: ty.path.clone(),
-            line: line + 1,
-            col: 0,
+            line1: line + 1,
+            byte_col: None,
             text: lines[line].to_owned(),
             deleted: None,
         };
@@ -1053,8 +1053,8 @@ impl App {
                 .filter(|h| {
                     self.text_of(&h.path).is_some_and(|t| {
                         let lines: Vec<&str> = t.lines().collect();
-                        search::literal_lines(Kind::Rust, &t).get(h.line - 1) != Some(&true)
-                            && search::rust_method_at(&lines, h.line)
+                        search::literal_lines(Kind::Rust, &t).get(h.line1 - 1) != Some(&true)
+                            && search::rust_method_at(&lines, h.line1)
                                 .is_some_and(|m| owner(&m.owner, lines[m.owner_line1 - 1]))
                     })
                 })
