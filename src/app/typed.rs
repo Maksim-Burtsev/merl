@@ -6,6 +6,18 @@ struct TypeVia {
     ty: Typed,
     call_signature: Option<String>,
 }
+struct WrittenVia {
+    written: String,
+    call_signature: Option<String>,
+}
+impl WrittenVia {
+    fn plain(written: String) -> Self {
+        WrittenVia {
+            written,
+            call_signature: None,
+        }
+    }
+}
 struct ProvenType {
     ty: Typed,
     links: Vec<String>,
@@ -1045,7 +1057,10 @@ impl App {
         names: &[String],
         hops: usize,
     ) -> Option<(String, Vec<String>)> {
-        let (mut written, link) = self.swift_value(here, file, text, line1, &names[0], hops)?;
+        let WrittenVia {
+            mut written,
+            call_signature: link,
+        } = self.swift_value(here, file, text, line1, &names[0], hops)?;
         let shown = |w: &str| search::swift_type_name(w).unwrap_or_else(|| w.to_owned());
         let mut links = vec![link.unwrap_or_else(|| format!("{}: {}", names[0], shown(&written)))];
         for (i, field) in names[1..].iter().enumerate() {
@@ -1054,7 +1069,10 @@ impl App {
                 return None;
             }
             let ty = self.swift_type(here, &written)?;
-            let (next, link) = self.swift_field(here, &ty, field, hops)?;
+            let WrittenVia {
+                written: next,
+                call_signature: link,
+            } = self.swift_field(here, &ty, field, hops)?;
             let link = link.unwrap_or_else(|| match i == 0 && names[0] == "self" {
                 true => format!("self.{field}: {}", shown(&next)),
                 false => format!("{field}: {}", shown(&next)),
@@ -1068,10 +1086,9 @@ impl App {
         Some((written, links))
     }
 
-    /// The type `name` holds on `line1` of `text`, the text of `file`, as written, with
-    /// the signature of the call it came from: `self` is the type around the line; a local or a
-    /// parameter what its one binding gives it; else a property of the type around the line,
-    /// when nothing in its function may bind the name unread.
+    /// `self` is the type around the line; a local or a parameter what its one binding gives it;
+    /// else a property of the type around the line, when nothing in its function may bind the
+    /// name unread.
     fn swift_value(
         &self,
         here: &Path,
@@ -1080,13 +1097,13 @@ impl App {
         line1: usize,
         name: &str,
         hops: usize,
-    ) -> Option<(String, Option<String>)> {
+    ) -> Option<WrittenVia> {
         let lines: Vec<&str> = text.lines().collect();
         let literal = search::literal_lines(Kind::Swift, text);
         let around = search::swift_enclosing_type(&lines, &literal, line1);
         if name == "self" {
             let own = search::swift_type_header(lines[around? - 1])?.name;
-            return Some((own, None));
+            return Some(WrittenVia::plain(own));
         }
         match search::bindings(Kind::Swift, text, line1, name).as_slice() {
             [b] => {
@@ -1124,17 +1141,20 @@ impl App {
         line1: usize,
         given: search::SwiftGiven,
         hops: usize,
-    ) -> Option<(String, Option<String>)> {
-        let (written, link) = match given {
-            search::SwiftGiven::Type(t) => (t, None),
+    ) -> Option<WrittenVia> {
+        let via = match given {
+            search::SwiftGiven::Type(t) => WrittenVia::plain(t),
             search::SwiftGiven::Value(e) => self.swift_expr(here, file, text, line1, &e, hops)?,
             search::SwiftGiven::Element(e) => {
-                let (w, link) = self.swift_expr(here, file, text, line1, &e, hops)?;
-                (search::swift_element(&w)?, link)
+                let collection = self.swift_expr(here, file, text, line1, &e, hops)?;
+                WrittenVia {
+                    written: search::swift_element(&collection.written)?,
+                    call_signature: collection.call_signature,
+                }
             }
         };
-        let name = search::swift_type_name(&written)
-            .or_else(|| search::swift_element(&written))
+        let name = search::swift_type_name(&via.written)
+            .or_else(|| search::swift_element(&via.written))
             .unwrap_or_default();
         let lines: Vec<&str> = text.lines().collect();
         let literal = search::literal_lines(Kind::Swift, text);
@@ -1145,12 +1165,11 @@ impl App {
             }
             at = search::swift_scope(&lines, &literal, at).header_line1;
         }
-        Some((written, link))
+        Some(via)
     }
 
-    /// The type the Swift expression `e` on `line1` of `file` gives, as written: a
-    /// construction of a type the project declares, the `-> Type` of the one function or method
-    /// called, a cast, or the chain of names it is.
+    /// A construction of a type the project declares, the `-> Type` of the one function or
+    /// method called, a cast, or the chain of names it is.
     fn swift_expr(
         &self,
         here: &Path,
@@ -1159,14 +1178,14 @@ impl App {
         line1: usize,
         e: &str,
         hops: usize,
-    ) -> Option<(String, Option<String>)> {
+    ) -> Option<WrittenVia> {
         let callee = match search::swift_expr(e)? {
-            search::SwiftExpr::Cast(t) => return Some((t, None)),
+            search::SwiftExpr::Cast(t) => return Some(WrittenVia::plain(t)),
             search::SwiftExpr::Chain(c) => {
                 let names: Vec<String> = c.split('.').map(str::to_owned).collect();
                 let (w, _) =
                     self.swift_chain(here, file, text, line1, &names, hops.checked_sub(1)?)?;
-                return Some((w, None));
+                return Some(WrittenVia::plain(w));
             }
             search::SwiftExpr::Call(callee) => callee,
         };
@@ -1176,7 +1195,7 @@ impl App {
             && (parts.len() == 1 || parts[1] == "init")
             && let Some(t) = self.swift_type(here, ty)
         {
-            return t.keyword.is_some().then_some((t.name, None));
+            return t.keyword.is_some().then_some(WrittenVia::plain(t.name));
         }
         let (method, receiver) = parts.split_last()?;
         let (decl, owner) = match receiver {
@@ -1218,18 +1237,20 @@ impl App {
             _ => returns,
         };
         let link = format!("{callee}() -> {returns}");
-        Some((returns, Some(link)))
+        Some(WrittenVia {
+            written: returns,
+            call_signature: Some(link),
+        })
     }
 
-    /// The property `name` of `ty`, or of what it extends, as written, with the signature of the
-    /// call it came from: one `let` or `var` line.
+    /// The property `name` of `ty`, or of what it extends: one `let` or `var` line.
     fn swift_field(
         &self,
         here: &Path,
         ty: &SwiftType,
         name: &str,
         hops: usize,
-    ) -> Option<(String, Option<String>)> {
+    ) -> Option<WrittenVia> {
         let rows = self.swift_member_rows(here, ty, name)?;
         let [row] = <[Hit; 1]>::try_from(rows).ok()?;
         if search::swift_member_kind(&row.text).is_none() || row.text.contains("func ") {
