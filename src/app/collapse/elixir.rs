@@ -1,4 +1,4 @@
-use super::words::Blocks;
+use super::words::{Blocks, word_byte};
 
 #[derive(Clone, Copy, PartialEq)]
 enum Tk {
@@ -262,10 +262,6 @@ impl<'a> Lexer<'a> {
         self.i = e.max(s + 1).min(b.len());
         Some((kind, s, self.i))
     }
-}
-
-fn word_byte(c: u8) -> bool {
-    c.is_ascii_alphanumeric() || c == b'_' || c >= 0x80
 }
 
 fn tokens(src: &str) -> Vec<Tok<'_>> {

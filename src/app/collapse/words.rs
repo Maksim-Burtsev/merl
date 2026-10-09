@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-const NEST_MAX: usize = 20;
-
 #[derive(Default)]
 pub(crate) struct Blocks {
     spans: HashMap<usize, usize>,
@@ -10,50 +8,11 @@ pub(crate) struct Blocks {
 
 impl Blocks {
     pub(crate) fn from_nodes(
-        mut nodes: Vec<(usize, usize)>,
+        nodes: Vec<(usize, usize)>,
         funcs: Vec<(usize, usize)>,
         len: usize,
     ) -> Self {
-        nodes.retain(|&(h, e)| e > h && e < len);
-        nodes.sort_unstable();
-        nodes.dedup();
-        let mut enter = vec![0usize; len];
-        let mut leave = vec![0usize; len];
-        for &(h, e) in &nodes {
-            enter[h] += 1;
-            leave[e] += 1;
-        }
-        let mut levels = Vec::with_capacity(len);
-        let (mut level, mut left) = (0usize, 0usize);
-        for l in 0..len {
-            let mut gone = leave[l];
-            let mut now = (level + enter[l]).saturating_sub(left);
-            if enter[l] > 0 && gone > 0 {
-                now = now.saturating_sub(gone);
-                gone = 0;
-            }
-            let starts = enter[l] > 0 && now <= NEST_MAX;
-            levels.push((starts, now.min(NEST_MAX)));
-            left = gone;
-            level = now;
-        }
-        let mut spans = HashMap::new();
-        for h in 0..len {
-            let (starts, n) = levels[h];
-            if !starts || n == 0 {
-                continue;
-            }
-            let mut e = h;
-            while let Some(&(s, m)) = levels.get(e + 1) {
-                if m < n || (s && m == n) {
-                    break;
-                }
-                e += 1;
-            }
-            if e > h {
-                spans.insert(h, e);
-            }
-        }
+        let spans = super::vim_folds(len, nodes.into_iter());
         Blocks { spans, funcs }
     }
 
@@ -149,7 +108,7 @@ impl<'a> Build<'a> {
     }
 }
 
-fn word_byte(c: u8) -> bool {
+pub(super) fn word_byte(c: u8) -> bool {
     c.is_ascii_alphanumeric() || c == b'_' || c >= 0x80
 }
 
