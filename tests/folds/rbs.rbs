@@ -1,0 +1,36 @@
+# A class's end: the docs say so.
+module Shop  # f: 2-32
+  VERSION: String  # f: 2-32
+
+  class Cart[T] < Base  # f: 5-20
+    %a{pure} def size: () -> Integer
+    attr_reader items: Array[T]  # f: 5-20
+
+    def end: () -> Integer  # f: 5-20
+    def class: () -> singleton(Cart)  # f: 5-20
+    def add: (T item) -> self
+           | (*T items) -> self
+
+    def totals: () -> { end: Integer,  # f: 5-20
+                        class: String }  # f: 5-20
+
+    module Helpers  # f: 17-19
+      def self.round: (Float) -> Integer  # f: 17-19
+    end
+  end
+
+  interface _Each[T]  # f: 22-24
+    def each: () { (T) -> void } -> void  # f: 22-24
+  end
+
+  class Legacy = Cart  # f: 2-32
+  module Old = Helpers  # f: 2-32
+
+  class Item  # f: 29-31
+    def price: () -> Integer  # f: 29-31
+  end
+end
+
+%a{deprecated} class Gone  # f: 34-36
+  def x: () -> void  # f: 34-36
+end

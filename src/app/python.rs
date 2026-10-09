@@ -4,6 +4,11 @@
 
 use super::*;
 
+pub(super) enum OutsideClassMember {
+    Found(Vec<Candidate>),
+    NoSuchClass,
+}
+
 impl App {
     pub(super) fn project_module(&self, here: &Path, module: &[String]) -> Vec<PathBuf> {
         let mut files = search::module_files(Kind::Python, &self.root, &self.files, here, module);
@@ -26,7 +31,7 @@ impl App {
         &mut self,
         word: &str,
         path: &[String],
-    ) -> Option<Option<Vec<Candidate>>> {
+    ) -> Option<OutsideClassMember> {
         let (name, module) = path.split_last()?;
         if module.is_empty() || path[0].starts_with('.') {
             return None;
@@ -43,9 +48,9 @@ impl App {
         let class = text
             .lines()
             .any(|l| search::type_name(kind, l).as_deref() == Some(name))
-            || imports.iter().any(|(n, _)| n == name || n == "*");
+            || imports.iter().any(|i| i.name == *name || i.name == "*");
         if !class {
-            return Some(None);
+            return Some(OutsideClassMember::NoSuchClass);
         }
         let mut patterns = search::def_patterns(kind, word);
         patterns.extend(search::field_patterns(kind, word).unwrap_or_default());
@@ -66,7 +71,7 @@ impl App {
             hits = self.above(kind, &ty, word, 0).unwrap_or_default();
         }
         let reason = Reason::Import(module.join("."));
-        Some(Some(
+        Some(OutsideClassMember::Found(
             hits.into_iter()
                 .map(|hit| Candidate {
                     hit,
@@ -79,9 +84,9 @@ impl App {
     pub(super) fn package_assignments(&mut self, word: &str, module: &[String]) -> Vec<Candidate> {
         let kind = Kind::Python;
         let all = self.external_files(kind);
-        let Some((_, files)) = self
+        let Some(search::ModuleFiles { files, .. }) = self
             .python_module_among(&all, module)
-            .filter(|(n, _)| *n == module.len())
+            .filter(|m| m.matched_parts == module.len())
         else {
             return Vec::new();
         };
@@ -100,12 +105,12 @@ impl App {
     pub(super) fn star_imported(
         &mut self,
         word: &str,
-        imports: &[(String, Vec<String>)],
+        imports: &[search::Import],
     ) -> Vec<Candidate> {
         let kind = Kind::Python;
         let pattern = search::def_patterns(kind, word).join("|");
         let mut found = Vec::new();
-        for (_, path) in imports.iter().filter(|(name, _)| name == "*") {
+        for search::Import { path, .. } in imports.iter().filter(|i| i.name == "*") {
             let module = &path[..path.len() - 1];
             if module.is_empty() || module[0].starts_with('.') {
                 continue;
@@ -161,15 +166,17 @@ impl App {
         let import = |l: &str| l.starts_with("from ") || l.starts_with("import ");
         let other = search::bindings(kind, &text, 1, name).iter().any(|b| {
             !lines
-                .get(b.line - 1)
+                .get(b.line1 - 1)
                 .is_some_and(|l| import(l.trim_start()))
         });
         if other || depth >= 4 {
             return Vec::new();
         }
         let mut found: Vec<Candidate> = Vec::new();
-        for (bound, mut path) in
-            search::imports_as_written(kind, &search::python_module_level(&text))
+        for search::Import {
+            name: bound,
+            mut path,
+        } in search::imports_as_written(kind, &search::python_module_level(&text))
         {
             let taken = match bound.as_str() {
                 "*" => name.to_owned(),
@@ -307,14 +314,13 @@ impl App {
     }
 }
 
-/// The `def` lines, 1-based and innermost first, of the Python functions 1-based `line` sits
-/// in, told by indentation: a name bound in one of them is seen from `line`, and from nowhere
-/// outside it.
-pub(super) fn python_functions(text: &str, line: usize) -> Vec<usize> {
+/// The `def` lines, 1-based and innermost first, of the Python functions `line1` sits in, told
+/// by indentation: a name bound in one of them is seen from `line1`, and from nowhere outside it.
+pub(super) fn python_functions(text: &str, line1: usize) -> Vec<usize> {
     let lines: Vec<&str> = text.lines().collect();
     let literal = search::literal_lines(Kind::Python, text);
     let indent = |l: &str| l.len() - l.trim_start().len();
-    let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
         return Vec::new();
     };
     let (mut depth, mut out) = (indent(lines[at]), Vec::new());

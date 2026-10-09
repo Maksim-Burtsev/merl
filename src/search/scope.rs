@@ -439,7 +439,7 @@ pub fn package_copy(
     own: &[PathBuf],
     module: &[String],
 ) -> Option<PackageCopy> {
-    let (name, parts) = match module {
+    let (name, name_parts) = match module {
         [scope, pkg, ..] if scope.starts_with('@') => (format!("{scope}/{pkg}"), 2),
         [pkg, ..] if !NODE_BUILTINS.contains(&pkg.as_str()) => (pkg.clone(), 1),
         _ => return Some(PackageCopy::default()),
@@ -462,7 +462,7 @@ pub fn package_copy(
             .cloned()
             .collect(),
         dirs,
-        parts,
+        name_parts,
     };
     let mut chosen = None;
     for (i, level) in roots.iter().enumerate() {
@@ -488,7 +488,9 @@ pub fn package_copy(
             }
             false => copy_in(files, dirs.iter().filter_map(|d| spelled(d)).collect()),
         };
-        let whole = copy.module(module).is_some_and(|(n, _)| n == module.len());
+        let whole = copy
+            .module(module)
+            .is_some_and(|m| m.matched_parts == module.len());
         let exports = std::fs::read_to_string(level.join(&name).join("package.json"))
             .is_ok_and(|text| exports_map(&text));
         // The map is what Node loads the path from, and it is not read here: as without a copy.
@@ -623,12 +625,12 @@ fn exports_map(text: &str) -> bool {
     false
 }
 /// A copy of an npm package [`package_copy`] finds: the directories it is in (the package's and
-/// its types'), its walked files there, and how many parts of a module path its name is.
+/// its types'), its walked files there.
 #[derive(Debug, Default, PartialEq)]
 pub struct PackageCopy {
     pub dirs: Vec<PathBuf>,
     pub files: Vec<PathBuf>,
-    pub parts: usize,
+    pub name_parts: usize,
 }
 impl PackageCopy {
     /// The files an import of the package itself loads, in each of its directories: those its
@@ -676,12 +678,11 @@ impl PackageCopy {
         }
         entries
     }
-    /// The files of the copy `module` names, with how many of its parts that is. The package's
-    /// own parts are the copy, whatever its directory is called (pnpm's alias `cookie` links a
+    /// The files of the copy `module` names. The package's own parts are the copy, whatever its directory is called (pnpm's alias `cookie` links a
     /// store directory called `cookie-es`); the rest of the path is matched below the copy's
     /// directories and shortened from its end as [`module_among`] shortens it, down to the whole
     /// copy. `None` for a copy of no files.
-    pub fn module(&self, module: &[String]) -> Option<(usize, Vec<PathBuf>)> {
+    pub fn module(&self, module: &[String]) -> Option<ModuleFiles<PathBuf>> {
         if self.files.is_empty() {
             return None;
         }
@@ -697,13 +698,16 @@ impl PackageCopy {
                 file,
             })
             .collect();
-        let rest = module.get(self.parts..).unwrap_or_default();
+        let rest = module.get(self.name_parts..).unwrap_or_default();
         Some(match module_among(&below, rest, None) {
-            Some((n, found)) => (
-                self.parts + n,
-                found.iter().map(|b| b.file.clone()).collect(),
-            ),
-            None => (self.parts, self.files.clone()),
+            Some(found) => ModuleFiles {
+                matched_parts: self.name_parts + found.matched_parts,
+                files: found.files.iter().map(|b| b.file.clone()).collect(),
+            },
+            None => ModuleFiles {
+                matched_parts: self.name_parts,
+                files: self.files.clone(),
+            },
         })
     }
 }
@@ -812,18 +816,26 @@ pub fn cpp_dirs(roots: &[PathBuf]) -> Vec<PathBuf> {
         .filter(|d| d.is_dir())
         .collect()
 }
-pub fn c_spelled(path: &Path, dirs: &[(PathBuf, PathBuf)]) -> PathBuf {
+pub fn c_spelled(path: &Path, dirs: &[RealDir]) -> PathBuf {
     let Ok(real) = path.canonicalize() else {
         return path.to_path_buf();
     };
     dirs.iter()
-        .find_map(|(d, r)| Some(d.join(real.strip_prefix(r).ok()?)))
+        .find_map(|d| Some(d.spelled.join(real.strip_prefix(&d.links_followed).ok()?)))
         .unwrap_or_else(|| path.to_path_buf())
 }
-/// Each of `dirs` with the directory it is once its links are followed.
-pub fn real_dirs(dirs: &[PathBuf]) -> Vec<(PathBuf, PathBuf)> {
+pub struct RealDir {
+    pub spelled: PathBuf,
+    pub links_followed: PathBuf,
+}
+pub fn real_dirs(dirs: &[PathBuf]) -> Vec<RealDir> {
     (dirs.iter())
-        .filter_map(|d| Some((d.clone(), d.canonicalize().ok()?)))
+        .filter_map(|d| {
+            Some(RealDir {
+                spelled: d.clone(),
+                links_followed: d.canonicalize().ok()?,
+            })
+        })
         .collect()
 }
 /// Whether `path` is one of the RBS signatures of Ruby's core, `core/*.rbs` of the `rbs` gem
@@ -1018,9 +1030,9 @@ pub(super) const GO_ARCH: &[&str] = &[
 /// `_GOOS_GOARCH` endings of its name and its `//go:build` line, read as `go build` reads them. A
 /// tag is set when it is the platform, `cgo`, the compiler (`gc`), a release (`go1.21`: the
 /// toolchain that builds the project has it) or one of `-tags`; any other (`gogit`, `ignore`) is
-/// unset. `None` for a constraint that is not read: the `// +build` of before Go 1.17, a line
-/// that does not parse.
-pub fn go_built(path: &Path, text: &str, build: &GoBuild) -> Option<bool> {
+/// unset. A constraint that is not read: the `// +build` of before Go 1.17, a line that does not
+/// parse.
+pub fn go_built(path: &Path, text: &str, build: &GoBuild) -> GoBuilt {
     let is_os = |t: &str| GO_UNIX.contains(&t) || GO_OS.contains(&t);
     let tag = |t: &str| -> bool {
         match t {
@@ -1044,7 +1056,7 @@ pub fn go_built(path: &Path, text: &str, build: &GoBuild) -> Option<bool> {
         named &= os == build.os;
     }
     if !named {
-        return Some(false);
+        return GoBuilt::Excluded;
     }
     // A line inside a `/* */` block in front of the package clause is a comment's.
     let literal = literal_lines(Kind::Go, text);
@@ -1056,8 +1068,10 @@ pub fn go_built(path: &Path, text: &str, build: &GoBuild) -> Option<bool> {
             .map(|(_, l)| l)
     };
     let Some(expr) = head().find_map(|l| l.strip_prefix("//go:build ")) else {
-        // The constraint of before Go 1.17 is not read: undecided, never "no constraint".
-        return (!head().any(|l| l.starts_with("// +build"))).then_some(true);
+        return match head().any(|l| l.starts_with("// +build")) {
+            true => GoBuilt::Unread,
+            false => GoBuilt::Compiled,
+        };
     };
     static TOKEN: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"&&|\|\||[!()]|[\w.]+").unwrap());
@@ -1093,5 +1107,15 @@ pub fn go_built(path: &Path, text: &str, build: &GoBuild) -> Option<bool> {
             name => Some(tag(name)),
         }
     }
-    or_of_ands(&tokens, &mut 0, &tag)
+    match or_of_ands(&tokens, &mut 0, &tag) {
+        Some(true) => GoBuilt::Compiled,
+        Some(false) => GoBuilt::Excluded,
+        None => GoBuilt::Unread,
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GoBuilt {
+    Compiled,
+    Excluded,
+    Unread,
 }

@@ -104,10 +104,10 @@ pub fn github_anchor(heading: &str) -> String {
         .collect()
 }
 
-/// The 1-based line of the Markdown `text` that `anchor` names: a heading, by its GitHub anchor
+/// The line of the Markdown `text` that `anchor` names: a heading, by its GitHub anchor
 /// (the second heading of an anchor gets `-1`, the third `-2`), or an `<a id>` or `<a name>`.
 /// Case is ignored, as GitHub ignores it.
-pub fn anchor_line(text: &str, anchor: &str) -> Option<usize> {
+pub fn anchor_line1(text: &str, anchor: &str) -> Option<usize> {
     static ID: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#"(?i)<a\s[^>]*?\b(?:id|name)\s*=\s*["']([^"']+)["']"#).unwrap()
     });

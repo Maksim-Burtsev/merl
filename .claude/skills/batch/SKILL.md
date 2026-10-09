@@ -65,8 +65,7 @@ sequence.
   the next session resumes from.
 - Label every picked issue `in-progress`, with a comment naming its branch.
 - One release build of origin/master in a detached worktree, for every "before" screencast.
-- A worktree per task, made by you: `git worktree add ../merl-b<date>-<N> -b <branch>
-  origin/master`. Agents get the path; they do not make worktrees or use `isolation`.
+- A worktree per task, made by you: `tools/worktree ../merl-b<date>-<N> <branch>`. Agents get the path; they do not make worktrees or use `isolation`.
 - The epic: a branch `epic/agent-ok-<date>` from origin/master.
 
 ## 4. Run

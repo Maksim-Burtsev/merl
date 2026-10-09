@@ -964,7 +964,10 @@ pub fn cs_arguments<S: AsRef<str>>(lines: &[S], line: usize, end: usize) -> Opti
     let generics = Regex::new(concat!("^", cs_generics!(), r"\s*\(")).ok()?;
     let open = end + generics.find(after)?.end() - 1;
     let rows: Vec<&str> = lines.iter().map(AsRef::as_ref).collect();
-    let (inner, _, _) = group(Kind::CSharp, &rows, line, open)?;
+    let Group {
+        inner_uncommented: inner,
+        ..
+    } = group(Kind::CSharp, &rows, line, open)?;
     cs_count(&inner)
 }
 
@@ -988,7 +991,10 @@ pub fn cs_parameters(text: &str, line1: usize, word: &str) -> Option<CsArity> {
     ))
     .ok()?;
     let open = head.find(l)?.end() - 1;
-    let (inner, _, _) = group(Kind::CSharp, &rows, line1 - 1, open)?;
+    let Group {
+        inner_uncommented: inner,
+        ..
+    } = group(Kind::CSharp, &rows, line1 - 1, open)?;
     // A declaration compares nothing, so every `<` opens a generic argument list.
     let parts = cs_split(&inner);
     let total = if inner.trim().is_empty() {

@@ -433,7 +433,7 @@ pub(super) fn nix_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding
         .filter_map(|s| Some((s.from, s.binds.iter().find(|b| b.0 == name)?.1)))
         .max_by_key(|&(from, _)| from)
         .map(|(_, pos)| Binding {
-            line: line_of(&text, pos),
+            line1: line_of(&text, pos),
             value: Value::Unknown,
         })
         .into_iter()

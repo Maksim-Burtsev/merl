@@ -105,3 +105,6 @@ key /
 type parcel_removed
 key Enter d
 wait parcel_removed: via web/android/src/main/res/values/strings.xml
+# f folds XML (#627): on a string of `strings.xml`, f folds the `<resources>` element around it.
+key f
+wait <resources>  ⋯

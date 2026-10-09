@@ -390,7 +390,7 @@ pub(super) fn haskell_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bin
         _ => pick,
     };
     vec![Binding {
-        line: pick + 1,
+        line1: pick + 1,
         value: Value::Unknown,
     }]
 }

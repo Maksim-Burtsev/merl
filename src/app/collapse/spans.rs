@@ -270,6 +270,14 @@ fn contains(parent: &str, child: &str) -> bool {
 }
 
 pub(super) fn html(lines: &[String]) -> Vec<(usize, usize)> {
+    markup(lines, false)
+}
+
+pub(super) fn xml(lines: &[String]) -> Vec<(usize, usize)> {
+    markup(lines, true)
+}
+
+fn markup(lines: &[String], xml: bool) -> Vec<(usize, usize)> {
     let text = lines.join("\n");
     let b = text.as_bytes();
     let starts: Vec<usize> = std::iter::once(0)
@@ -281,14 +289,22 @@ pub(super) fn html(lines: &[String]) -> Vec<(usize, usize)> {
         )
         .collect();
     let line = |at: usize| starts.partition_point(|&s| s <= at) - 1;
-    let lower = text.to_ascii_lowercase();
+    let lower = if xml {
+        text.clone()
+    } else {
+        text.to_ascii_lowercase()
+    };
     let find = |from: usize, what: &str| {
         (lower.get(from..).and_then(|r| r.find(what))).map_or(b.len(), |i| from + i)
     };
     let name_at = |from: usize| {
         let n = b[from..]
             .iter()
-            .position(|c| !(c.is_ascii_alphanumeric() || matches!(c, b'-' | b':' | b'_')))
+            .position(|&c| {
+                !(c.is_ascii_alphanumeric()
+                    || matches!(c, b'-' | b':' | b'_')
+                    || (xml && c == b'.'))
+            })
             .unwrap_or(b.len() - from);
         lower[from..from + n].to_owned()
     };
@@ -319,6 +335,27 @@ pub(super) fn html(lines: &[String]) -> Vec<(usize, usize)> {
         let rest = &b[i + 1..];
         if rest.starts_with(b"!--") {
             at = find(i + 4, "-->") + 3;
+            if xml {
+                close(line(i), line(at.min(b.len()) - 1), &mut folds);
+            }
+            continue;
+        }
+        if xml && rest.starts_with(b"![CDATA[") {
+            at = find(i + 9, "]]>") + 3;
+            continue;
+        }
+        if xml && rest.starts_with(b"!DOCTYPE") {
+            let mut end = tag_end(i);
+            let subset = find(i, "[");
+            if subset < end {
+                end = tag_end(find(subset, "]"));
+            }
+            close(
+                line(i),
+                line(end.min(b.len().saturating_sub(1))),
+                &mut folds,
+            );
+            at = end + 1;
             continue;
         }
         if rest.starts_with(b"!") || rest.starts_with(b"?") {
@@ -344,6 +381,7 @@ pub(super) fn html(lines: &[String]) -> Vec<(usize, usize)> {
         }
         let name = name_at(i + 1);
         while let Some((parent, h)) = open.last()
+            && !xml
             && !contains(parent, &name)
         {
             close(*h, line(i), &mut folds);
@@ -351,7 +389,7 @@ pub(super) fn html(lines: &[String]) -> Vec<(usize, usize)> {
         }
         let end = tag_end(i);
         at = end + 1;
-        if matches!(name.as_str(), "script" | "style") {
+        if !xml && matches!(name.as_str(), "script" | "style") {
             let stop = tag_end(find(at.min(b.len()), &format!("</{name}")));
             close(
                 line(i),
@@ -359,7 +397,15 @@ pub(super) fn html(lines: &[String]) -> Vec<(usize, usize)> {
                 &mut folds,
             );
             at = stop + 1;
-        } else if !VOID.contains(&name.as_str()) && b.get(end.wrapping_sub(1)) != Some(&b'/') {
+        } else if b.get(end.wrapping_sub(1)) == Some(&b'/') {
+            if xml {
+                close(
+                    line(i),
+                    line(end.min(b.len().saturating_sub(1))),
+                    &mut folds,
+                );
+            }
+        } else if xml || !VOID.contains(&name.as_str()) {
             open.push((name, line(i)));
         }
     }

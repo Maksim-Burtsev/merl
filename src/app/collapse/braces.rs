@@ -5,11 +5,13 @@ use crate::search::{Kind, kind_of};
 
 mod c;
 mod csharp;
+mod dart;
 mod java;
 mod kotlin;
 mod objc;
 mod php;
 mod rust;
+mod scala;
 mod swift;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -26,6 +28,8 @@ pub(crate) enum Lang {
     ObjC,
     Swift,
     Php,
+    Dart,
+    Scala,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -49,6 +53,8 @@ pub(crate) fn syntax_of(path: &Path) -> Option<Syntax> {
         (_, "ts" | "mts" | "cts") => (Lang::Ts, false),
         (_, "tsx") => (Lang::Ts, true),
         (_, "go") => (Lang::Go, false),
+        (_, "dart") => (Lang::Dart, false),
+        (_, "scala" | "sc") => (Lang::Scala, false),
         (_, "cs") => (Lang::CSharp, false),
         (_, "rs") => (Lang::Rust, false),
         (_, "java") => (Lang::Java, false),
@@ -89,15 +95,11 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
         Lang::C | Lang::Cpp | Lang::ObjC => model.c_family(syntax.lang, lines),
         Lang::Swift => model.swift(lines),
         Lang::Php => model.php(lines),
+        Lang::Dart => model.dart(lines),
+        Lang::Scala => model.scala(lines),
         lang => model.ecma(lang == Lang::Ts),
     }
-    let levels = levels(lines.len(), &model.nodes);
-    let mut starts = HashMap::new();
-    for h in 0..lines.len() {
-        if let Some(e) = closes_at(&levels, h) {
-            starts.insert(h, e);
-        }
-    }
+    let starts = super::vim_folds(lines.len(), model.nodes.iter().map(|n| (n.0, n.1)));
     let mut defs: Vec<(usize, usize)> = (model.nodes.iter())
         .filter(|n| n.2)
         .filter_map(|n| Some((n.0, *starts.get(&n.0)?)))
@@ -106,7 +108,7 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
     defs.dedup();
     let semicolons = !matches!(
         syntax.lang,
-        Lang::Js | Lang::Ts | Lang::Go | Lang::Kotlin | Lang::Swift
+        Lang::Js | Lang::Ts | Lang::Go | Lang::Kotlin | Lang::Swift | Lang::Scala
     );
     let heads = match semicolons {
         true => heads(lines, &toks, &model.back, &starts),
@@ -157,49 +159,6 @@ fn heads(
         }
     }
     heads
-}
-
-fn levels(n: usize, nodes: &[(usize, usize, bool)]) -> Vec<(usize, bool)> {
-    let mut ranges: Vec<(usize, usize)> = nodes
-        .iter()
-        .filter(|r| r.1 > r.0 && r.1 < n)
-        .map(|r| (r.0, r.1))
-        .collect();
-    ranges.sort_unstable();
-    ranges.dedup();
-    let (mut enter, mut leave) = (vec![0usize; n], vec![0usize; n]);
-    for (a, b) in ranges {
-        enter[a] += 1;
-        leave[b] += 1;
-    }
-    let mut out = Vec::with_capacity(n);
-    let (mut prev, mut leave_prev) = (0usize, 0usize);
-    for l in 0..n {
-        let mut gone = leave[l];
-        let mut level = (prev + enter[l]).saturating_sub(leave_prev);
-        if enter[l] > 0 && gone > 0 {
-            level = level.saturating_sub(gone);
-            gone = 0;
-        }
-        out.push((level, enter[l] > 0));
-        leave_prev = gone;
-        prev = level;
-    }
-    out
-}
-
-fn closes_at(levels: &[(usize, bool)], h: usize) -> Option<usize> {
-    let (level, start) = levels[h];
-    if !start {
-        return None;
-    }
-    let end = (h + 1..levels.len())
-        .take_while(|&l| {
-            let (x, st) = levels[l];
-            x >= level && !(st && x <= level)
-        })
-        .last()?;
-    Some(end)
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -317,7 +276,12 @@ impl<'a> Lexer<'a> {
                 self.i = s.len();
                 continue;
             }
-            if s[i..].starts_with(b"/*") && matches!(self.syntax.lang, Lang::Rust | Lang::Swift) {
+            if s[i..].starts_with(b"/*")
+                && matches!(
+                    self.syntax.lang,
+                    Lang::Rust | Lang::Swift | Lang::Dart | Lang::Scala
+                )
+            {
                 self.nested_comment(i + 2);
                 continue;
             }
@@ -338,7 +302,7 @@ impl<'a> Lexer<'a> {
                 continue;
             }
             if c == b'`'
-                && self.syntax.lang == Lang::Swift
+                && matches!(self.syntax.lang, Lang::Swift | Lang::Scala)
                 && let Some(len) = s[i + 1..].iter().position(|&b| b == b'`')
             {
                 self.emit(l, i, len + 2, K::Word, l);
@@ -372,6 +336,15 @@ impl<'a> Lexer<'a> {
                 continue;
             }
             if self.syntax.lang == Lang::Swift && matches!(c, b'"' | b'#') && self.swift_string() {
+                continue;
+            }
+            if self.syntax.lang == Lang::Scala && matches!(c, b'"' | b'\'') && self.scala_quote() {
+                continue;
+            }
+            if self.syntax.lang == Lang::Dart
+                && matches!(c, b'"' | b'\'' | b'r')
+                && self.dart_string()
+            {
                 continue;
             }
             if self.syntax.lang == Lang::Kotlin && c == b'"' && self.kt_string() {

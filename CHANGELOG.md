@@ -24,6 +24,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   images from the web and inside a sentence stay `▣ alt`. A file merl cannot read whole stays
   as before and the status bar says why (`AVIF not drawn`); a terminal that draws no pictures
   names it in the note, `PNG 1185×960, not shown`. (#760)
+- `f` folds Elixir (`.ex`, `.exs`), where it said `no fold rules for .ex`: a `do` … `end` block,
+  an `fn` … `end`, a `case` or `fn` clause through its body, a call's arguments wrapped over
+  lines, `@doc """` and a list, map or tuple. (#626)
+- `f` folds RBS signatures (`.rbs`), a `class`, `module` or `interface` to its `end`, and zsh
+  (`.zsh`, `.zshrc`), as shell plus an anonymous function `() {` and `{ … } always { … }`,
+  where both said `no fold rules`. (#626)
+- `f` folds XML (`.xml`), where it said `no fold rules for .xml`: an element from its opening
+  tag to its closing one, and a comment over several lines. (#627)
+- `f` folds Dart (`.dart`), where it said `no fold rules for .dart`: a class, enum or extension
+  with its annotations, a function body in braces or after `=>`, a block, a `switch`, a call's
+  arguments, a list, set or map literal and a string over several lines, and a run of imports.
+  (#625)
+- `f` folds Scala (`.scala`, `.sc`), where it said `no fold rules for .scala`: a class, trait or
+  object with its annotations, a `def` or `val` through its body, a wrapped `import`, `for`,
+  `while`, `try` and `match`, and a block passed to a call (`xs.map { x =>`). (#625)
 
 ### Changed
 

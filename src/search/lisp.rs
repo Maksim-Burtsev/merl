@@ -526,7 +526,7 @@ pub(super) fn lisp_bindings(
         })
         .max_by_key(|&(scope, pos, _)| (scopes[scope].0, pos))
         .map(|(_, pos, _)| Binding {
-            line: line_of(&text, pos),
+            line1: line_of(&text, pos),
             value: Value::Unknown,
         })
         .into_iter()

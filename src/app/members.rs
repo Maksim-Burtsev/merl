@@ -45,7 +45,9 @@ impl App {
             .iter()
             .filter(|f| !spelled || f.as_os_str().to_string_lossy().contains(last.as_str()))
             .collect();
-        let Some((_, files)) = search::module_among(&near, path, Some(path.len())) else {
+        let Some(search::ModuleFiles { files, .. }) =
+            search::module_among(&near, path, Some(path.len()))
+        else {
             return Vec::new();
         };
         let files: Vec<PathBuf> = files.into_iter().cloned().collect();
@@ -200,22 +202,24 @@ impl App {
             return hits;
         }
         let built = |p: &Path| {
-            self.text_of(p)
-                .and_then(|t| search::go_built(p, &t, &self.go_build))
+            self.text_of(p).map_or(search::GoBuilt::Unread, |t| {
+                search::go_built(p, &t, &self.go_build)
+            })
         };
         if self
             .rel_current()
-            .is_some_and(|here| built(&here) == Some(false))
+            .is_some_and(|here| built(&here) == search::GoBuilt::Excluded)
         {
             return hits;
         }
-        let known: Option<Vec<bool>> = hits.iter().map(|h| built(&h.path)).collect();
-        let Some(known) = known.filter(|k| k.contains(&true)) else {
+        let built: Vec<search::GoBuilt> = hits.iter().map(|h| built(&h.path)).collect();
+        if built.contains(&search::GoBuilt::Unread) || !built.contains(&search::GoBuilt::Compiled) {
             return hits;
-        };
-        let mut keep = known.into_iter();
+        }
         hits.into_iter()
-            .filter(|_| keep.next() == Some(true))
+            .zip(built)
+            .filter(|(_, b)| *b == search::GoBuilt::Compiled)
+            .map(|(hit, _)| hit)
             .collect()
     }
 
@@ -651,10 +655,10 @@ impl App {
     }
 }
 
-/// Whether the Python class declared on 1-based `decl` of `text` is a `typing.Protocol`, which
+/// Whether the Python class declared on `decl1` of `text` is a `typing.Protocol`, which
 /// anything with its members implements without naming it.
-fn is_protocol(text: &str, decl: usize) -> bool {
-    search::bases(Kind::Python, text, decl)
+fn is_protocol(text: &str, decl1: usize) -> bool {
+    search::bases(Kind::Python, text, decl1)
         .iter()
         .filter_map(|b| search::type_path(Kind::Python, b))
         .any(|p| p.last().is_some_and(|n| n == "Protocol"))

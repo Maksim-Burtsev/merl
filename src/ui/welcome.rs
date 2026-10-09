@@ -1,5 +1,3 @@
-//! The welcome screen: no file open, the logo and the keys that work without one.
-
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::{Color, Style};
@@ -17,7 +15,6 @@ pub(super) const LOGO_COLORS: [Color; 3] = [
     Color::Rgb(0x24, 0x39, 0xb5),
 ];
 
-/// `merl` in a block font, six rows.
 pub(super) const LOGO: &[&str] = &[
     "███╗   ███╗███████╗██████╗ ██╗     ",
     "████╗ ████║██╔════╝██╔══██╗██║     ",
@@ -27,7 +24,6 @@ pub(super) const LOGO: &[&str] = &[
     "╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝",
 ];
 
-/// Actions listed under the logo; the keys come from [`crate::app::KEYS`].
 pub(super) const WELCOME_ACTIONS: [&str; 5] = [
     "Open a file (fuzzy)",
     "Search the project",
@@ -36,8 +32,6 @@ pub(super) const WELCOME_ACTIONS: [&str; 5] = [
     "Quit",
 ];
 
-/// `(key, action)` rows of the welcome screen. Panics on an action `KEYS` no longer lists,
-/// which the test below turns into a failure.
 pub(super) fn welcome_hints() -> Vec<(&'static str, &'static str)> {
     WELCOME_ACTIONS
         .iter()
@@ -51,8 +45,6 @@ pub(super) fn welcome_hints() -> Vec<(&'static str, &'static str)> {
         .collect()
 }
 
-/// No file open: the logo and the keys that work without one, a little above the centre of
-/// the pane. Too small for the logo: the keys alone; too small for those: a one-line hint.
 pub(super) fn draw_welcome(frame: &mut Frame, theme: &Theme, area: Rect, base: Style) {
     let logo: &[&str] = LOGO;
     let hints = welcome_hints();
@@ -82,7 +74,6 @@ pub(super) fn draw_welcome(frame: &mut Frame, theme: &Theme, area: Rect, base: S
 
     let mut lines: Vec<Line> = Vec::with_capacity(rows);
     if with_logo {
-        // Left-align the logo inside the block, and colour it in three bands.
         let band = logo.len().div_ceil(LOGO_COLORS.len());
         for (i, l) in logo.iter().enumerate() {
             let color = LOGO_COLORS[(i / band).min(LOGO_COLORS.len() - 1)];

@@ -32,7 +32,11 @@ pub fn returns(kind: Kind, text: &str, decl_line1: usize) -> Option<Value> {
         _ => return None,
     };
     let open = opener.find(lines[k])?.end() - 1;
-    let (_, end, after) = group(kind, &lines, k, open)?;
+    let Group {
+        close_line: end,
+        after_close: after,
+        ..
+    } = group(kind, &lines, k, open)?;
     match kind {
         // `-> T:` ends at the first colon outside strings and brackets; a body may follow it.
         Kind::Python => {
@@ -113,7 +117,7 @@ fn ts_returned_local(
             return None;
         }
         for b in found {
-            if !body.contains(&(b.line - 1)) || !matches!(b.value, Value::New(_)) {
+            if !body.contains(&(b.line1 - 1)) || !matches!(b.value, Value::New(_)) {
                 return None;
             }
             if constructed.as_ref().is_some_and(|c| *c != b.value) {
@@ -218,9 +222,9 @@ pub fn bases(kind: Kind, text: &str, decl_line1: usize) -> Vec<String> {
             .then(|| lines[k].find('('))
             .flatten()
             .and_then(|open| group(kind, &lines, k, open))
-            .map_or_else(Vec::new, |(inner, ..)| list(&inner)),
+            .map_or_else(Vec::new, |g| list(&g.inner_uncommented)),
         Kind::TsJs => TS_EXTENDS
-            .captures(&ts_header(&lines, k).0)
+            .captures(&ts_header(&lines, k).one_line_without_type_params)
             .map_or_else(Vec::new, |c| list(&c[1])),
         Kind::Go if lines[k].contains("struct") || lines[k].contains("interface") => {
             let body = body_of(kind, &lines, k);
@@ -251,7 +255,7 @@ pub fn interfaces(kind: Kind, text: &str, decl_line1: usize) -> Vec<String> {
         .filter(|&k| k < lines.len())
         .and_then(|k| {
             TS_IMPLEMENTS
-                .captures(&ts_header(&lines, k).0)
+                .captures(&ts_header(&lines, k).one_line_without_type_params)
                 .map(|c| type_list(kind, &c[1]))
         })
         .unwrap_or_default()
@@ -336,7 +340,10 @@ pub fn params(kind: Kind, text: &str, line1: usize) -> Option<usize> {
         .map(|(i, _)| i);
     let receiver = kind == Kind::Go && lines[k].trim_start().starts_with("func (");
     let open = if receiver { opens.nth(1) } else { opens.next() }?;
-    let (inner, ..) = group(kind, &lines, k, open)?;
+    let Group {
+        inner_uncommented: inner,
+        ..
+    } = group(kind, &lines, k, open)?;
     Some(
         split_top(kind, &inner, b',')
             .iter()
@@ -344,11 +351,14 @@ pub fn params(kind: Kind, text: &str, line1: usize) -> Option<usize> {
             .count(),
     )
 }
-/// The types a Go declaration on `line1` takes and what it returns, as written but for
-/// the package in front of a name and the spaces: `a, b string` is two `string`s, `ctx
-/// context.Context` is `Context`. An implementation of an interface method writes the same ones,
-/// whatever it calls its parameters. `None` when the result names its values or cannot be read.
-pub fn go_signature(text: &str, line1: usize) -> Option<(Vec<String>, String)> {
+/// The types as written but for the package in front of a name and the spaces: `a, b string` is
+/// two `string`s, `ctx context.Context` is `Context`. `None` when the result names its values.
+#[derive(Debug, PartialEq, Eq)]
+pub struct GoSignature {
+    pub param_types: Vec<String>,
+    pub result: String,
+}
+pub fn go_signature(text: &str, line1: usize) -> Option<GoSignature> {
     static PKG: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"\b\w+\.").unwrap());
     let kind = Kind::Go;
@@ -359,7 +369,11 @@ pub fn go_signature(text: &str, line1: usize) -> Option<(Vec<String>, String)> {
         .map(|(i, _)| i);
     let receiver = lines[k].trim_start().starts_with("func (");
     let open = if receiver { opens.nth(1) } else { opens.next() }?;
-    let (inner, _, rest) = group(kind, &lines, k, open)?;
+    let Group {
+        inner_uncommented: inner,
+        after_close: rest,
+        ..
+    } = group(kind, &lines, k, open)?;
     let plain = |t: &str| {
         PKG.replace_all(t, "")
             .split_whitespace()
@@ -390,7 +404,10 @@ pub fn go_signature(text: &str, line1: usize) -> Option<(Vec<String>, String)> {
         && split_top(kind, result.trim_matches(['(', ')']), b',')
             .iter()
             .any(|p| p.trim().contains(char::is_whitespace));
-    (!names_values).then(|| (types, plain(result)))
+    (!names_values).then(|| GoSignature {
+        param_types: types,
+        result: plain(result),
+    })
 }
 /// Whether `line` declares a type: a Python class, a TypeScript class, interface, type alias or
 /// enum, a Go `type`. An alias goes on as `=` or `<`: `type Notifier,` is an item of a wrapped
@@ -516,7 +533,11 @@ pub fn element_type(kind: Kind, written: &str) -> Option<String> {
     let element = element.trim();
     (!element.is_empty()).then(|| element.to_owned())
 }
-pub fn enum_constants(text: &str, decl_line1: usize) -> Vec<(String, usize)> {
+pub struct EnumConstant {
+    pub name: String,
+    pub line1: usize,
+}
+pub fn enum_constants(text: &str, decl_line1: usize) -> Vec<EnumConstant> {
     let mut out = Vec::new();
     let mut chars = text.chars().peekable();
     let mut line = 1;
@@ -583,7 +604,7 @@ pub fn enum_constants(text: &str, decl_line1: usize) -> Vec<(String, usize)> {
                 if annotation {
                     annotation = false;
                 } else if expect_constant {
-                    out.push((name, line));
+                    out.push(EnumConstant { name, line1: line });
                     expect_constant = false;
                 }
             }

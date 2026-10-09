@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# tools/worktree DIR BRANCH: a worktree of origin/master on a new BRANCH whose target/ starts as an
+# APFS clone of a seed build of master (#777), so its first build compiles merl and not the ~340
+# dependencies. The seed, ~/.cache/merl-seed, is rebuilt only when master's Cargo.lock or the
+# toolchain changes, from scratch; `cargo clean -p merl` leaves no merl artifact from another tree.
+set -Eeuo pipefail
+seed=${XDG_CACHE_HOME:-$HOME/.cache}/merl-seed
+
+if [ "${1-}" != --locked ]; then
+  [ $# -eq 2 ] || { echo "usage: tools/worktree DIR BRANCH" >&2; exit 2; }
+  git fetch -q origin
+  git worktree add -q "$1" -b "$2" origin/master
+  mkdir -p "$(dirname "$seed")"
+  exec lockf -k "$seed.lock" "$0" --locked "$(cd "$1" && pwd)"
+fi
+dir=$2
+
+want="$(git show origin/master:Cargo.lock | shasum) $(rustc -V)"
+if [ "$(cat "$seed.stamp" 2>/dev/null)" != "$want" ]; then
+  echo "tools/worktree: building the seed, once per Cargo.lock (~7 min)" >&2
+  [ -d "$seed" ] || git worktree add -q --detach "$seed" origin/master
+  git -C "$seed" checkout -q --detach origin/master
+  rm -rf "$seed/target"
+  (
+    cd "$seed"
+    export CARGO_TERM_QUIET=true
+    cargo clippy --locked --all-targets &&
+      cargo test --locked --no-run &&
+      cargo build --locked --release &&
+      cargo test --locked --release --no-run &&
+      tools/ci-local msrv >/dev/null
+  ) || echo "tools/worktree: the seed build failed; the worktrees get what it built until Cargo.lock changes" >&2
+  echo "$want" >"$seed.stamp"
+fi
+
+[ -d "$seed/target" ] || exit 0
+rm -rf "$dir/target"
+cp -cR "$seed/target" "$dir/target"
+cd "$dir"
+cargo clean -q -p merl
+cargo clean -q -p merl --release
+left=$(find target -maxdepth 3 -name 'merl*')
+[ -z "$left" ] || { rm -rf target; echo "tools/worktree: merl artifacts survived the clone, target/ left empty:" >&2; echo "$left" >&2; }

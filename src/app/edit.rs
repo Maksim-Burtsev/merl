@@ -1,5 +1,3 @@
-//! Editing the buffer: typing, pasting, undo and saving.
-
 use super::*;
 
 #[derive(Clone, Copy, PartialEq)]
@@ -22,7 +20,6 @@ impl Kind {
 }
 
 impl App {
-    /// Enter in the code pane: the cursor becomes a text cursor.
     pub(super) fn start_edit(&mut self) {
         if self.buf.path.is_none() {
             return;
@@ -85,7 +82,6 @@ impl App {
                 format!("{}\n", self.line_str()),
             ),
         };
-        // A piece of one line is just `copied`; anything that holds a whole line is counted.
         self.message = match text.lines().count() {
             1 if self.selection().is_some() && !text.ends_with('\n') => "copied".into(),
             1 => "copied 1 line".into(),
@@ -204,7 +200,6 @@ impl App {
         true
     }
 
-    /// Inserts `text` at the cursor, or in place of the selection; a `\n` in it splits the line.
     fn insert(&mut self, text: &str, kind: Kind) {
         let (from, to) = self
             .file_selection()
@@ -337,7 +332,6 @@ impl App {
         true
     }
 
-    /// Ctrl+Z / Ctrl+Y: swaps one step between the two stacks and applies it.
     pub(super) fn undo(&mut self, back: bool) {
         let Some(edit) = (if back { &mut self.undo } else { &mut self.redo }).pop() else {
             self.message = if back {

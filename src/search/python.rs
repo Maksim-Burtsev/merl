@@ -238,8 +238,8 @@ pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bind
         if let Scope::Def(d) = scopes_innermost_first[0]
             && let Some(line) = python_class_of(lines, d)
         {
-            let value = Value::Class(line);
-            out.push(Binding { line, value });
+            let value = Value::Class { decl_line1: line };
+            out.push(Binding { line1: line, value });
         }
         return out;
     }
@@ -247,7 +247,12 @@ pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bind
         let (start, base) = match scope {
             Scope::Def(d) => {
                 let open = lines[d].find('(').expect("a def has a parameter list");
-                let Some((params, end, _)) = group(Kind::Python, lines, d, open) else {
+                let Some(Group {
+                    inner_uncommented: params,
+                    close_line: end,
+                    ..
+                }) = group(Kind::Python, lines, d, open)
+                else {
                     continue;
                 };
                 python_params(lines, d, &params, name, &mut out);
@@ -276,7 +281,7 @@ pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bind
             if let Some(c) = SCOPE.captures(t) {
                 if &c[1] == name {
                     out.push(Binding {
-                        line: i + 1,
+                        line1: i + 1,
                         value: Value::Unknown,
                     });
                 }
@@ -302,13 +307,19 @@ pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bind
                             .map(|_| Value::Unknown)
                     };
                     if let Some(value) = value {
-                        out.push(Binding { line: i + 1, value });
+                        out.push(Binding {
+                            line1: i + 1,
+                            value,
+                        });
                     }
                 }
                 None
             };
             if let Some(value) = value {
-                out.push(Binding { line: i + 1, value });
+                out.push(Binding {
+                    line1: i + 1,
+                    value,
+                });
             }
         }
         if !out.is_empty() {
@@ -414,13 +425,12 @@ fn python_params(
         }
         let value = match annotation {
             Some(t) => Value::Type(t.to_owned()),
-            None if i == 0 => {
-                python_class_of(lines, def_line0).map_or(Value::Unknown, Value::Class)
-            }
+            None if i == 0 => python_class_of(lines, def_line0)
+                .map_or(Value::Unknown, |decl_line1| Value::Class { decl_line1 }),
             None => Value::Unknown,
         };
         out.push(Binding {
-            line: line_written_on,
+            line1: line_written_on,
             value,
         });
     }

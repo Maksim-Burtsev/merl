@@ -1,5 +1,3 @@
-//! The status bar and the prompt line it shares with the picker.
-
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
@@ -13,7 +11,6 @@ use crate::wrap;
 
 use super::picture::Status;
 
-/// A prompt line: the prefix, the text with its selection reversed, the cursor where it stands.
 pub(super) fn draw_prompt(
     frame: &mut Frame,
     prefix: &str,
@@ -42,16 +39,18 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
     };
     if !prefix.is_empty() {
         draw_prompt(frame, prefix, &app.prompt, style, area);
-        // What the query found so far (`3/17`, `no match`), out of the way of the typing.
-        let w = wrap::width(&app.message) as u16 + 1;
+        let found_w = wrap::width(&app.message) as u16 + 1;
         let typed = wrap::width(prefix) + wrap::width(&app.prompt) + 2;
-        if !app.message.is_empty() && area.width as usize > typed + w as usize {
-            let right = Rect {
-                x: area.right() - w,
-                width: w,
+        if !app.message.is_empty() && area.width as usize > typed + found_w as usize {
+            let found_at_right_edge = Rect {
+                x: area.right() - found_w,
+                width: found_w,
                 ..area
             };
-            frame.render_widget(Paragraph::new(app.message.as_str()).style(style), right);
+            frame.render_widget(
+                Paragraph::new(app.message.as_str()).style(style),
+                found_at_right_edge,
+            );
         }
         return;
     }

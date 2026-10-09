@@ -113,7 +113,7 @@ data Coupon
 fn local(text: &str, line: usize, name: &str) -> Vec<usize> {
     bindings(Kind::Haskell, text, line, name)
         .iter()
-        .map(|b| b.line)
+        .map(|b| b.line1)
         .collect()
 }
 

@@ -52,15 +52,14 @@ enum Msg {
     Resize,
     /// Something changed in the directory of the open file, or anywhere in the project.
     Fs(notify::Event),
-    /// The project was walked again after it changed on disk.
-    Project(tree::Tree, Vec<PathBuf>),
-    /// The branch under review was listed again, or why git could not.
-    Review(Result<git::Review, String>),
+    ProjectWalked(tree::Tree, Vec<PathBuf>),
+    ReviewListed(Result<git::Review, String>),
     Marks(HashMap<PathBuf, char>),
-    /// `git diff` finished for the file at this path.
-    Diff(PathBuf, git::Diff),
-    /// The grep with this number finished: the rows it found.
-    Search(u64, Vec<PickItem>),
+    DiffDone(PathBuf, git::Diff),
+    SearchDone {
+        seq: u64,
+        rows: Vec<PickItem>,
+    },
     Diagram(mermaid::Done),
     /// SIGTERM, SIGHUP or SIGINT from outside: save and leave as `q` does.
     Quit,
@@ -149,7 +148,7 @@ fn run() -> Result<()> {
         at: line,
     } = if cli.tutor || cli.drill.is_some() {
         Opened {
-            project_root: tutor::extract()?,
+            project_root: tutor::unpack_to_temp_dir()?,
             shallow: false,
             file: None,
             at: None,
@@ -400,7 +399,7 @@ fn event_loop(
             let (tx, root) = (diff_tx.clone(), app.root.clone());
             std::thread::spawn(move || {
                 let diff = git::diff(&root, &path, None, None);
-                let _ = tx.send(Msg::Diff(path, diff));
+                let _ = tx.send(Msg::DiffDone(path, diff));
             });
         }
         if project.walk_due(Instant::now()) {
@@ -413,7 +412,7 @@ fn event_loop(
                     .map(tree::OrderFile::read)
                     .unwrap_or_default();
                 let (tree, files) = tree::build_ordered(&root, shallow, &order);
-                let _ = tx.send(Msg::Project(tree, files));
+                let _ = tx.send(Msg::ProjectWalked(tree, files));
             });
         }
         if let Some(live) = &mut repo
@@ -424,7 +423,7 @@ fn event_loop(
                 Some(r) => {
                     std::thread::spawn(move || {
                         let fresh = r.refresh(&root).map_err(|e| app::error_text(&e));
-                        let _ = tx.send(Msg::Review(fresh));
+                        let _ = tx.send(Msg::ReviewListed(fresh));
                     });
                 }
                 None => list_marks(tx, root),
@@ -434,7 +433,10 @@ fn event_loop(
             // In a thread: a grep over a large project takes longer than a keystroke.
             let tx = diff_tx.clone();
             std::thread::spawn(move || {
-                let _ = tx.send(Msg::Search(job.seq, job.items()));
+                let _ = tx.send(Msg::SearchDone {
+                    seq: job.seq,
+                    rows: job.items(),
+                });
             });
         }
         // Typing (edit mode, or any prompt) gets a bar, navigating a block, like vim: the shape
@@ -508,7 +510,7 @@ fn event_loop(
                 app.paste(&text);
                 dirty = true;
             }
-            Ok(Msg::Diff(path, diff)) => {
+            Ok(Msg::DiffDone(path, diff)) => {
                 if app.buf.path == Some(path) && app.review.is_none() {
                     app.diff = diff;
                     dirty = true;
@@ -519,7 +521,7 @@ fn event_loop(
                 app.flush();
                 return Ok(());
             }
-            Ok(Msg::Search(seq, items)) => dirty |= app.search_done(seq, items),
+            Ok(Msg::SearchDone { seq, rows }) => dirty |= app.search_done(seq, rows),
             Ok(Msg::Resize) => {
                 app.diagrams.resized();
                 dirty = true;
@@ -537,7 +539,7 @@ fn event_loop(
                     r.event(&ev, project.touched(&ev), Instant::now());
                 }
             }
-            Ok(Msg::Project(tree, files)) => {
+            Ok(Msg::ProjectWalked(tree, files)) => {
                 project.walked(&tree, Instant::now());
                 app.project_walked(tree, files);
                 // The tree read its open ignored directories again: they are listed as read.
@@ -557,7 +559,7 @@ fn event_loop(
                 dirty |= app.marks != marks;
                 app.marks = marks;
             }
-            Ok(Msg::Review(fresh)) => {
+            Ok(Msg::ReviewListed(fresh)) => {
                 if let Some(r) = &mut repo {
                     r.listed();
                 }
@@ -624,15 +626,14 @@ fn concerns_open_file(app: &App, ev: &notify::Event) -> bool {
     })
 }
 
-/// A 1-based line and column, as compilers print them.
-type LineCol = (usize, usize);
+type LineCol1 = (usize, usize);
 
 #[derive(Debug)]
 struct Opened {
     project_root: PathBuf,
     shallow: bool,
     file: Option<PathBuf>,
-    at: Option<LineCol>,
+    at: Option<LineCol1>,
 }
 
 fn resolve(target: Option<&str>) -> Result<Opened> {
@@ -672,7 +673,7 @@ fn resolve(target: Option<&str>) -> Result<Opened> {
 /// Splits `FILE:LINE[:COL]`, as compilers print it, into the path and `(line, column)`. The path
 /// is the longest prefix before a colon that exists, so the rest of a grep line, `FILE:LINE:text`,
 /// is ignored, and a file really called `a:12` opens as itself. No column is column 1.
-fn split_line(target: &str) -> (&str, Option<LineCol>) {
+fn split_line(target: &str) -> (&str, Option<LineCol1>) {
     if Path::new(target).exists() {
         return (target, None);
     }
@@ -998,10 +999,7 @@ mod tests {
     /// Files under `src/` longer than `MAX_LINES`, each at the size it may not outgrow (#544).
     /// A listed file that shrinks lowers its number in the same change; one under the limit
     /// leaves the list.
-    const LONG_FILES: &[(&str, usize)] = &[
-        ("src/app/definition.rs", 2363),
-        ("src/search/bindings.rs", 1619),
-    ];
+    const LONG_FILES: &[(&str, usize)] = &[("src/app/definition.rs", 2335)];
     const MAX_LINES: usize = 1500;
 
     /// #544: a large file costs an agent context and makes parallel branches conflict at the
@@ -1066,7 +1064,7 @@ mod tests {
         assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
     }
 
-    const COMMENT_LINES: usize = 5125;
+    const COMMENT_LINES: usize = 4999;
 
     fn comment_lines(text: &str) -> usize {
         let b = text.as_bytes();

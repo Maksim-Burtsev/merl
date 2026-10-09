@@ -161,7 +161,7 @@ fn a_go_package_block_is_read_at_its_level_and_a_mention_may_declare() {
     assert_eq!(
         package_bindings(block, "audit"),
         vec![Binding {
-            line: 7,
+            line1: 7,
             value: Value::Type("AuditLog".into())
         }]
     );
@@ -264,6 +264,7 @@ fn a_go_package_is_one_directory() {
 
 #[test]
 fn a_go_file_is_built_for_a_platform_by_its_name_and_its_build_line() {
+    use GoBuilt::{Compiled, Excluded, Unread};
     let built = |name: &str, line: &str, os: &'static str, arch: &'static str| {
         let text = format!("// Copyright\n\n{line}\n\npackage p\n");
         let build = GoBuild {
@@ -275,156 +276,150 @@ fn a_go_file_is_built_for_a_platform_by_its_name_and_its_build_line() {
         go_built(Path::new(name), &text, &build)
     };
     for (name, line, os, arch, want) in [
-        ("clock.go", "", "linux", "amd64", Some(true)),
-        ("clock_linux.go", "", "linux", "amd64", Some(true)),
-        ("clock_linux.go", "", "darwin", "arm64", Some(false)),
-        ("clock_linux_test.go", "", "darwin", "arm64", Some(false)),
-        ("clock_arm64.go", "", "darwin", "arm64", Some(true)),
-        ("clock_arm64.go", "", "darwin", "amd64", Some(false)),
-        ("clock_linux_arm64.go", "", "linux", "arm64", Some(true)),
-        ("clock_linux_arm64.go", "", "darwin", "arm64", Some(false)),
+        ("clock.go", "", "linux", "amd64", Compiled),
+        ("clock_linux.go", "", "linux", "amd64", Compiled),
+        ("clock_linux.go", "", "darwin", "arm64", Excluded),
+        ("clock_linux_test.go", "", "darwin", "arm64", Excluded),
+        ("clock_arm64.go", "", "darwin", "arm64", Compiled),
+        ("clock_arm64.go", "", "darwin", "amd64", Excluded),
+        ("clock_linux_arm64.go", "", "linux", "arm64", Compiled),
+        ("clock_linux_arm64.go", "", "darwin", "arm64", Excluded),
         // The name of a file is no ending of it, and `unix` is no `GOOS` a name can spell.
-        ("linux.go", "", "darwin", "arm64", Some(true)),
-        ("clock_unix.go", "", "windows", "amd64", Some(true)),
+        ("linux.go", "", "darwin", "arm64", Compiled),
+        ("clock_unix.go", "", "windows", "amd64", Compiled),
         (
             "clock_unix.go",
             "//go:build unix",
             "windows",
             "amd64",
-            Some(false),
+            Excluded,
         ),
         (
             "clock_unix.go",
             "//go:build unix",
             "darwin",
             "arm64",
-            Some(true),
+            Compiled,
         ),
         (
             "clock_other.go",
             "//go:build !windows",
             "linux",
             "amd64",
-            Some(true),
+            Compiled,
         ),
         (
             "clock_other.go",
             "//go:build !windows",
             "windows",
             "amd64",
-            Some(false),
+            Excluded,
         ),
         (
             "c.go",
             "//go:build linux || darwin",
             "darwin",
             "arm64",
-            Some(true),
+            Compiled,
         ),
         (
             "c.go",
             "//go:build linux && arm64",
             "linux",
             "amd64",
-            Some(false),
+            Excluded,
         ),
         (
             "c.go",
             "//go:build !(js && wasm)",
             "linux",
             "amd64",
-            Some(true),
+            Compiled,
         ),
         (
             "c.go",
             "//go:build (linux || darwin) && !amd64",
             "darwin",
             "amd64",
-            Some(false),
+            Excluded,
         ),
         (
             "c.go",
             "//go:build linux || darwin && amd64",
             "linux",
             "arm64",
-            Some(true),
+            Compiled,
         ),
         // The name and the line both have to hold.
-        (
-            "c_linux.go",
-            "//go:build arm64",
-            "linux",
-            "amd64",
-            Some(false),
-        ),
-        ("c.go", "//go:build gogit", "linux", "amd64", Some(false)),
+        ("c_linux.go", "//go:build arm64", "linux", "amd64", Excluded),
+        ("c.go", "//go:build gogit", "linux", "amd64", Excluded),
         (
             "c.go",
             "//go:build !gogit && linux",
             "linux",
             "amd64",
-            Some(true),
+            Compiled,
         ),
         (
             "c.go",
             "//go:build !gogit && linux",
             "darwin",
             "arm64",
-            Some(false),
+            Excluded,
         ),
-        ("c.go", "//go:build ignore", "linux", "amd64", Some(false)),
+        ("c.go", "//go:build ignore", "linux", "amd64", Excluded),
         // What every toolchain sets: cgo, the compiler, the releases behind it.
-        ("c.go", "//go:build go1.21", "linux", "amd64", Some(true)),
-        ("c.go", "//go:build !go1.21", "linux", "amd64", Some(false)),
-        ("c.go", "//go:build gc", "linux", "amd64", Some(true)),
-        ("c.go", "//go:build gccgo", "linux", "amd64", Some(false)),
+        ("c.go", "//go:build go1.21", "linux", "amd64", Compiled),
+        ("c.go", "//go:build !go1.21", "linux", "amd64", Excluded),
+        ("c.go", "//go:build gc", "linux", "amd64", Compiled),
+        ("c.go", "//go:build gccgo", "linux", "amd64", Excluded),
         (
             "c.go",
             "//go:build windows && cgo",
             "darwin",
             "arm64",
-            Some(false),
+            Excluded,
         ),
         (
             "c.go",
             "//go:build cgo && windows",
             "darwin",
             "arm64",
-            Some(false),
+            Excluded,
         ),
         (
             "c.go",
             "//go:build darwin || cgo",
             "darwin",
             "arm64",
-            Some(true),
+            Compiled,
         ),
         (
             "c.go",
             "//go:build darwin && cgo",
             "darwin",
             "arm64",
-            Some(true),
+            Compiled,
         ),
         (
             "c.go",
             "//go:build windows || cgo",
             "darwin",
             "arm64",
-            Some(true),
+            Compiled,
         ),
         (
             "c.go",
             "//go:build !(windows && cgo)",
             "darwin",
             "arm64",
-            Some(true),
+            Compiled,
         ),
         // The old spelling is not read, nor is a line that does not parse; an architecture
         // is one whatever the host.
-        ("c.go", "// +build windows", "darwin", "arm64", None),
-        ("c.go", "//go:build darwin &&", "darwin", "arm64", None),
-        ("c_sparc64.go", "", "darwin", "arm64", Some(false)),
+        ("c.go", "// +build windows", "darwin", "arm64", Unread),
+        ("c.go", "//go:build darwin &&", "darwin", "arm64", Unread),
+        ("c_sparc64.go", "", "darwin", "arm64", Excluded),
     ] {
         assert_eq!(
             built(name, line, os, arch),
@@ -443,12 +438,12 @@ fn a_go_file_is_built_for_a_platform_by_its_name_and_its_build_line() {
     let tagged = |line: &str| go_built(Path::new("c.go"), &format!("{line}\npackage p\n"), &env);
     assert_eq!(
         tagged("//go:build gogit"),
-        Some(true),
+        Compiled,
         "a tag of the project's own is set once `GOFLAGS` names it, read as `go build` reads it: \
          its last `-tags`"
     );
-    assert_eq!(tagged("//go:build !bindata"), Some(false));
-    assert_eq!(tagged("//go:build old || cgo"), Some(false));
+    assert_eq!(tagged("//go:build !bindata"), Excluded);
+    assert_eq!(tagged("//go:build old || cgo"), Excluded);
     assert!(GoBuild::host().env(Some("1"), None).cgo);
     let linux = GoBuild {
         os: "linux",
@@ -458,13 +453,13 @@ fn a_go_file_is_built_for_a_platform_by_its_name_and_its_build_line() {
     let block = "/*\n//go:build windows\n*/\n\npackage p\n";
     assert_eq!(
         go_built(Path::new("c.go"), block, &linux),
-        Some(true),
+        Compiled,
         "a `//go:build` inside a block comment is a comment"
     );
     let late = "package p\n\n//go:build windows\n";
     assert_eq!(
         go_built(Path::new("c.go"), late, &linux),
-        Some(true),
+        Compiled,
         "a `//go:build` under the package clause is a comment"
     );
 }

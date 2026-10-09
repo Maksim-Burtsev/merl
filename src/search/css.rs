@@ -17,10 +17,15 @@ pub enum Attr {
 /// `src`. `className={'a b'}` is a class value, and so is Svelte's `class:active`; Vue's `:class`
 /// binds an expression, which is not one.
 ///
-/// `jsx` reads a line of a JavaScript or TypeScript file, where `id = "main"` is an assignment:
-/// an attribute there has no blank around its `=`, and a `class` or an `id` stands in a tag, or
-/// first on a line of the tag's attributes.
-pub fn attr_at(line: &str, byte_col: usize, jsx: bool) -> Option<(Attr, Range<usize>)> {
+/// In a JSX line `id = "main"` is an assignment: an attribute there has no blank around its `=`,
+/// and a `class` or an `id` stands in a tag, or first on a line of the tag's attributes.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum AttrLine {
+    Markup,
+    Jsx,
+}
+pub fn attr_at(line: &str, byte_col: usize, read_as: AttrLine) -> Option<(Attr, Range<usize>)> {
+    let jsx = read_as == AttrLine::Jsx;
     static ATTR: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(
             r#"(?:^|[\s<{(])(class|className|id|href|src)\s*=\s*(?:\{\s*)?(?:"([^"]*)"|'([^']*)'|`([^`$]*)`)"#,
@@ -392,11 +397,15 @@ pub fn style_blocks(text: &str) -> String {
     String::from_utf8(out).unwrap_or_default()
 }
 
-/// Whether a file at `path` holds styles: a stylesheet, or markup with `<style>` blocks.
-pub fn styles_in(path: &Path) -> Option<bool> {
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Styles {
+    Stylesheet,
+    StyleBlocksInMarkup,
+}
+pub fn styles_in(path: &Path) -> Option<Styles> {
     match path.extension()?.to_str()? {
-        "css" | "scss" | "sass" | "less" => Some(true),
-        "html" | "htm" | "vue" | "svelte" | "astro" => Some(false),
+        "css" | "scss" | "sass" | "less" => Some(Styles::Stylesheet),
+        "html" | "htm" | "vue" | "svelte" | "astro" => Some(Styles::StyleBlocksInMarkup),
         _ => None,
     }
 }
@@ -442,8 +451,22 @@ pub enum Sheet {
     Import(String),
 }
 
-/// What `byte_col` of the stylesheet line `line` stands on; `less` reads `@name` as a variable.
-pub fn sheet_at(line: &str, byte_col: usize, less: bool) -> Option<Sheet> {
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum SheetSyntax {
+    Less,
+    CssOrSass,
+}
+impl SheetSyntax {
+    pub fn of_extension(ext: &str) -> Self {
+        match ext {
+            "less" => SheetSyntax::Less,
+            _ => SheetSyntax::CssOrSass,
+        }
+    }
+}
+/// What `byte_col` of the stylesheet line `line` stands on; Less reads `@name` as a variable.
+pub fn sheet_at(line: &str, byte_col: usize, syntax: SheetSyntax) -> Option<Sheet> {
+    let less = syntax == SheetSyntax::Less;
     static IMPORT: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\s*@(?:import|use|forward|require)\b").unwrap());
     static QUOTED: LazyLock<Regex> =
@@ -536,10 +559,19 @@ pub fn sheet_patterns(sheet: &Sheet) -> Vec<String> {
     }
 }
 
-/// The `@use` lines of a Sass file: the namespace each binds (`None` for `as *`) and the module.
-/// `@use 'mixins'` binds `mixins`, `@use 'src/corners' as c` binds `c`; `sass:math` is a
-/// built-in module, nobody's file. `@import` binds no namespace.
-pub fn sass_uses(text: &str) -> Vec<(Option<String>, String)> {
+#[derive(Debug, PartialEq, Eq)]
+pub enum SassNamespace {
+    Named(String),
+    FlatAsStar,
+}
+#[derive(Debug, PartialEq, Eq)]
+pub struct SassUse {
+    pub namespace: SassNamespace,
+    pub module: String,
+}
+/// `@use 'mixins'` binds `mixins`, `@use 'src/corners' as c` binds `c`; `sass:math` is a built-in
+/// module, nobody's file. `@import` binds no namespace.
+pub fn sass_uses(text: &str) -> Vec<SassUse> {
     static USE: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r#"^\s*@use\s+["']([^"']+)["'](?:\s+as\s+([\w-]+|\*))?"#).unwrap()
     });
@@ -548,16 +580,16 @@ pub fn sass_uses(text: &str) -> Vec<(Option<String>, String)> {
         .filter(|c| !c[1].starts_with("sass:"))
         .map(|c| {
             let module = c[1].to_owned();
-            let ns = match c.get(2).map(|m| m.as_str()) {
-                Some("*") => None,
-                Some(n) => Some(n.to_owned()),
+            let namespace = match c.get(2).map(|m| m.as_str()) {
+                Some("*") => SassNamespace::FlatAsStar,
+                Some(n) => SassNamespace::Named(n.to_owned()),
                 None => {
                     let last = module.rsplit('/').next().unwrap_or(&module);
                     let last = last.split('.').next().unwrap_or(last);
-                    Some(last.trim_start_matches('_').to_owned())
+                    SassNamespace::Named(last.trim_start_matches('_').to_owned())
                 }
             };
-            (ns, module)
+            SassUse { namespace, module }
         })
         .collect()
 }
@@ -592,10 +624,10 @@ pub fn sass_candidates(module: &str) -> Vec<PathBuf> {
 
 /// The files a Less or CSS `@import` of `module` may be: as written, and a Less one with
 /// `.less` added when it has no extension.
-pub fn import_candidates(module: &str, less: bool) -> Vec<PathBuf> {
+pub fn import_candidates(module: &str, syntax: SheetSyntax) -> Vec<PathBuf> {
     let module = module.trim_start_matches('~');
     let mut out = vec![PathBuf::from(module)];
-    if less && Path::new(module).extension().is_none() {
+    if syntax == SheetSyntax::Less && Path::new(module).extension().is_none() {
         out.insert(0, PathBuf::from(format!("{module}.less")));
     }
     out

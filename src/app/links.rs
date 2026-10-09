@@ -61,7 +61,7 @@ impl App {
             None => 1,
             Some(a) => match LINES.captures(a) {
                 Some(c) => c[1].parse().unwrap_or(1),
-                None => match self.text_of(&rel).and_then(|t| search::anchor_line(&t, a)) {
+                None => match self.text_of(&rel).and_then(|t| search::anchor_line1(&t, a)) {
                     Some(line) => line,
                     None => {
                         self.message = format!("no heading #{a} in {}", rel.display());

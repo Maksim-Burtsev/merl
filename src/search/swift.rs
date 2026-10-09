@@ -75,9 +75,17 @@ pub fn swift_local_decl(line: &str, name: &str) -> bool {
         .captures(&uncommented(Kind::Swift, line))
         .is_some_and(|c| &c[1] == name)
 }
-pub fn swift_scope<S: AsRef<str>>(lines: &[S], literal: &[bool], line: usize) -> (usize, bool) {
+#[derive(Clone, Copy)]
+pub struct SwiftScope {
+    pub header_line1: usize,
+    pub local: bool,
+}
+pub fn swift_scope<S: AsRef<str>>(lines: &[S], literal: &[bool], line: usize) -> SwiftScope {
     let Some(target) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
-        return (0, false);
+        return SwiftScope {
+            header_line1: 0,
+            local: false,
+        };
     };
     let (mut depth, mut i, mut local) = (indent(target.as_ref()), line - 1, None);
     while i > 0 && depth > 0 {
@@ -92,10 +100,16 @@ pub fn swift_scope<S: AsRef<str>>(lines: &[S], literal: &[bool], line: usize) ->
         let ty = !func && SWIFT_TYPE.is_match(&t);
         let local = *local.get_or_insert(!ty);
         if func || ty {
-            return (i + 1, local);
+            return SwiftScope {
+                header_line1: i + 1,
+                local,
+            };
         }
     }
-    (0, local.unwrap_or(false))
+    SwiftScope {
+        header_line1: 0,
+        local: local.unwrap_or(false),
+    }
 }
 /// A Swift type's header (#380).
 pub fn swift_type_header(line: &str) -> Option<SwiftTypeHeader> {
@@ -131,7 +145,7 @@ pub fn swift_enclosing_type<S: AsRef<str>>(
 ) -> Option<usize> {
     let mut at = line;
     loop {
-        at = swift_scope(lines, literal, at).0;
+        at = swift_scope(lines, literal, at).header_line1;
         if at == 0 {
             return None;
         }
@@ -141,18 +155,25 @@ pub fn swift_enclosing_type<S: AsRef<str>>(
     }
 }
 pub fn swift_instance_member(line: &str) -> bool {
-    swift_static_member(line) == Some(false)
+    swift_member_kind(line) == Some(SwiftMember::Instance)
 }
-/// Whether a Swift `func`, `let` or `var` line is `static` or `class`; `None` for any other line.
-pub fn swift_static_member(line: &str) -> Option<bool> {
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum SwiftMember {
+    StaticOrClass,
+    Instance,
+}
+pub fn swift_member_kind(line: &str) -> Option<SwiftMember> {
     static DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(&format!(r"({})(?:func|let|var)\s", swift_mods!())).unwrap()
     });
     let c = DECL.captures(line)?;
-    Some(
-        c[1].split(|ch: char| !ch.is_alphanumeric())
-            .any(|w| w == "static" || w == "class"),
-    )
+    let shared = c[1]
+        .split(|ch: char| !ch.is_alphanumeric())
+        .any(|w| w == "static" || w == "class");
+    Some(match shared {
+        true => SwiftMember::StaticOrClass,
+        false => SwiftMember::Instance,
+    })
 }
 pub fn swift_case(line: &str) -> bool {
     let t = line.trim_start();
@@ -167,7 +188,10 @@ pub fn swift_extension(line: &str) -> bool {
 /// member, a global, or no `let` or `var` at all.
 pub fn swift_local<S: AsRef<str>>(lines: &[S], literal: &[bool], line1: usize) -> Option<usize> {
     let text = lines.get(line1.checked_sub(1)?)?.as_ref();
-    let (scope, local) = swift_scope(lines, literal, line1);
+    let SwiftScope {
+        header_line1: scope,
+        local,
+    } = swift_scope(lines, literal, line1);
     (local && SWIFT_DECL.is_match(&uncommented(Kind::Swift, text))).then_some(scope)
 }
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -285,7 +309,7 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
     let code = |i: usize| uncommented(Kind::Swift, lines[i]).trim().to_owned();
     let found = |line: usize| {
         Some(vec![Binding {
-            line,
+            line1: line,
             value: Value::Unknown,
         }])
     };
@@ -309,7 +333,7 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
             .filter(|&j| indent(lines[j]) == depth && swift_local_decl(lines[j], name))
             .collect();
         let bindings = lines.iter().map(|&j| Binding {
-            line: j + 1,
+            line1: j + 1,
             value: Value::Unknown,
         });
         Some(bindings.collect::<Vec<_>>()).filter(|b| !b.is_empty() && !lines.contains(&at))
@@ -548,8 +572,9 @@ pub fn swift_type_decl(line: &str) -> bool {
 /// Where a Swift type is declared, when that limits who sees it bare.
 #[derive(Debug, PartialEq, Eq)]
 pub enum SwiftTypePlace {
-    /// In the body of the function whose header is on this 1-based line: nothing else sees it.
-    Function(usize),
+    FunctionBody {
+        header_line1: usize,
+    },
     /// In the body of the type of this name, `B` for `extension A.B`: a nested type.
     Nested(String),
 }
@@ -561,12 +586,17 @@ pub fn swift_type_place(text: &str, line1: usize) -> Option<SwiftTypePlace> {
         return None;
     }
     let literal = literal_lines(Kind::Swift, text);
-    let (scope, local) = swift_scope(&lines, &literal, line1);
+    let SwiftScope {
+        header_line1: scope,
+        local,
+    } = swift_scope(&lines, &literal, line1);
     let header = uncommented(Kind::Swift, lines.get(scope.checked_sub(1)?)?);
     match local {
         true => SWIFT_FUNC
             .is_match(&header)
-            .then_some(SwiftTypePlace::Function(scope)),
+            .then_some(SwiftTypePlace::FunctionBody {
+                header_line1: scope,
+            }),
         // Only a class, struct, enum or actor is certainly nested: a protocol's `typealias` is seen
         // by every type that conforms to it.
         false
@@ -591,7 +621,7 @@ pub fn swift_within<S: AsRef<str>>(
 ) -> bool {
     let mut at = line1;
     loop {
-        at = swift_scope(lines, literal, at).0;
+        at = swift_scope(lines, literal, at).header_line1;
         if at == header_line1 {
             return true;
         }

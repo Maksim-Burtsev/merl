@@ -363,7 +363,10 @@ fn a_python_line_is_cut_into_its_simple_statements() {
 #[test]
 fn a_cast_is_read_as_the_type_it_writes() {
     let v = |kind, e| value_of(kind, e);
-    let pycast = |callee: &str, t: &str| Value::Cast(callee.into(), t.into());
+    let pycast = |callee: &str, t: &str| Value::Cast {
+        callee: callee.into(),
+        written_type: t.into(),
+    };
     assert_eq!(v(Kind::Python, "cast(Repo, row)"), pycast("cast", "Repo"));
     assert_eq!(
         v(Kind::Python, "typing.cast(\"models.Repo\", rows[0])"),
@@ -442,7 +445,10 @@ fn a_call_wrapped_onto_the_next_lines_reads_no_arguments() {
     );
     assert_eq!(
         v(Kind::Python, "cast(Repo, row)"),
-        Value::Cast("cast".into(), "Repo".into()),
+        Value::Cast {
+            callee: "cast".into(),
+            written_type: "Repo".into(),
+        },
         "the same calls closed on their line keep writing the type they always did"
     );
     assert_eq!(v(Kind::Go, "new(Repo)"), Value::New("Repo".into()));
@@ -451,7 +457,7 @@ fn a_call_wrapped_onto_the_next_lines_reads_no_arguments() {
     assert_eq!(
         bindings(Kind::Python, py, 5, "repo"),
         [Binding {
-            line: 2,
+            line1: 2,
             value: Value::Unknown
         }],
         "`d` on a name bound by a wrapped call answers"
@@ -460,7 +466,7 @@ fn a_call_wrapped_onto_the_next_lines_reads_no_arguments() {
     assert_eq!(
         bindings(Kind::Go, go, 5, "repos"),
         [Binding {
-            line: 2,
+            line1: 2,
             value: Value::Unknown
         }]
     );
@@ -521,7 +527,10 @@ fn a_chain_may_hang_off_the_call_that_starts_it() {
         head(Kind::Python, "    cast(Repo, found).find()"),
         Some((
             "cast(Repo, found)".to_owned(),
-            Value::Cast("cast".into(), "Repo".into()),
+            Value::Cast {
+                callee: "cast".into(),
+                written_type: "Repo".into(),
+            },
             String::new()
         ))
     );
@@ -598,9 +607,12 @@ fn a_written_type_comes_down_to_one_name() {
 
 #[test]
 fn enum_constants_are_the_names_at_the_start_of_the_body() {
+    let pairs = |cs: Vec<EnumConstant>| -> Vec<(String, usize)> {
+        cs.into_iter().map(|c| (c.name, c.line1)).collect()
+    };
     let kotlin = "enum class Lane(val f: () -> Unit = {}) : Named {\n    ROAD(\"a, b; }\"),\n    @java.lang.Deprecated AIR { override fun x() = 1 },\n    SEA,\n}";
     assert_eq!(
-        enum_constants(kotlin, 1),
+        pairs(enum_constants(kotlin, 1)),
         [
             ("ROAD".to_owned(), 2),
             ("AIR".to_owned(), 3),
@@ -609,7 +621,7 @@ fn enum_constants_are_the_names_at_the_start_of_the_body() {
     );
     let java = "class A {}\n/* enum */\npublic enum Offer implements P {\n    PLAIN, // CUT,\n    /** Half. */ HALF;\n    static final int NONE = 0;\n}";
     assert_eq!(
-        enum_constants(java, 3),
+        pairs(enum_constants(java, 3)),
         [("PLAIN".to_owned(), 4), ("HALF".to_owned(), 5)]
     );
 }

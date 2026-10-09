@@ -152,7 +152,7 @@ fn a_parameter_is_a_local_of_the_blocks_around_it() {
     let at = |line, name| -> Vec<usize> {
         bindings(Kind::PowerShell, text, line, name)
             .iter()
-            .map(|b| b.line)
+            .map(|b| b.line1)
             .collect()
     };
     assert_eq!(at(6, "id"), [4], "names ignore case");

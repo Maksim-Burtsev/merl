@@ -100,8 +100,8 @@ with its issue closed, or waits under `needs-owner` (see `## Merging`).
    sessions work on this repo. Then take it, before anything else: `gh issue edit N --add-label
    in-progress` and a comment naming your branch. If you stop without a PR, take the label off
    and say in a comment what is left.
-2. Branch in a worktree of your own, cut from origin: `git fetch origin && git worktree add
-   ../merl-<topic> -b <branch> origin/master`. The main checkout is shared: other sessions keep
+2. Branch in a worktree of your own, cut from origin: `tools/worktree ../merl-<topic> <branch>`,
+   which also starts its `target/` with master's dependencies built. The main checkout is shared: other sessions keep
    their branches checked out there with uncommitted work, and its `master` can be days behind
    origin or carry commits origin never got. Read code, reviews included, from your worktree.
 3. Build into the worktree's own `target/`. Worktrees sharing a `CARGO_TARGET_DIR` hand you a
@@ -153,9 +153,9 @@ and line of its code, or a run of it, never a recollection.
 
 `f` (`src/app/collapse.rs`) folds by the rules decided in #598, in the languages that pass the
 fold bench and nowhere else: Python, the brace languages (`src/app/collapse/braces.rs`), Ruby,
-Lua and shell (`src/app/collapse/words.rs`), and YAML, JSON, TOML, HTML, CSS / SCSS and Markdown
-(`src/app/collapse/spans.rs`) today, the rest in epic #623, each saying `no fold rules for .EXT`
-until then.
+Lua, shell, zsh and RBS (`src/app/collapse/words.rs`), Elixir (`src/app/collapse/elixir.rs`), and
+YAML, JSON, TOML, HTML, XML, CSS / SCSS and Markdown (`src/app/collapse/spans.rs`) today, the rest
+in epic #623, each saying `no fold rules for .EXT` until then.
 
 - **The bench**, `tools/fold-bench/run [--lang go,rust]`: `f` pressed on every line that starts
   a fold in real projects, compared with the reference: Python's own `ast` for Python, and for

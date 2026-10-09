@@ -59,19 +59,22 @@ impl App {
         };
         files(here, module).iter().find_map(|f| {
             let text = self.text_of(f)?;
-            search::reexported(&text, taken)
-                .into_iter()
-                .find_map(|(mut module, taken)| {
+            search::reexported(&text, taken).into_iter().find_map(
+                |search::Reexport {
+                     mut module,
+                     name_in_module,
+                 }| {
                     let outside = files(f, &module).is_empty();
                     let package = module
                         .first()
                         .is_some_and(|m| !m.starts_with(['.', '~', '#']) && m != "@");
-                    module.push(taken);
+                    module.push(name_in_module);
                     match outside {
                         true => package.then_some(module),
                         false => self.package_behind(f, &module, depth + 1),
                     }
-                })
+                },
+            )
         })
     }
 
@@ -117,23 +120,23 @@ impl App {
             |module: &[String]| search::module_files(kind, &self.root, &self.files, here, module);
         let mut exports = None;
         let mut instance = None;
-        // The names from the module down to the word: what the import takes, then the chain.
-        let tail = |mut names: Vec<String>| {
+        let names_down_to_word = |mut taken: Vec<String>| {
             if let Some((_, after)) = chain.split_first() {
-                names.extend(after.iter().cloned());
-                names.push(word.to_owned());
+                taken.extend(after.iter().cloned());
+                taken.push(word.to_owned());
             }
-            names
+            taken
         };
         let whole_module = || {
-            let found = self.module_candidates(self.project_module(here, &tail(path.to_vec())));
+            let found = self
+                .module_candidates(self.project_module(here, &names_down_to_word(path.to_vec())));
             (!found.is_empty()).then_some(found)
         };
         let (files, inside) = match kind {
             // `from a import b` takes a module or a name from `a`: the longest module that exists,
             // never shorter than the one the import names.
             Kind::Python => {
-                let target = tail(path.to_vec());
+                let target = names_down_to_word(path.to_vec());
                 let floor = path.len().saturating_sub(1).max(1);
                 // A module importing from itself (`from . import views` in a package's
                 // `__init__.py`) takes a module of the package, unless it declares the name
@@ -184,17 +187,24 @@ impl App {
                 };
                 let inside = match taken.as_str() {
                     "*" => match (exports.as_ref().map(|(_, e)| e), chain.is_empty()) {
-                        (Some(Some((_, name))), true) => {
+                        (Some(search::ModuleExports::OneAssignment { name, .. }), true) => {
                             vec![name.clone().unwrap_or_else(|| word.to_owned())]
                         }
-                        (Some(None), true) => vec![word.to_owned()],
-                        (Some(Some((_, Some(name)))), false) if class(name) => {
+                        (Some(search::ModuleExports::Piecemeal), true) => {
+                            vec![word.to_owned()]
+                        }
+                        (
+                            Some(search::ModuleExports::OneAssignment {
+                                name: Some(name), ..
+                            }),
+                            false,
+                        ) if class(name) => {
                             let mut names = vec![name.clone()];
                             names.extend(chain[1..].iter().cloned());
                             names.push(word.to_owned());
                             names
                         }
-                        _ => tail(Vec::new()),
+                        _ => names_down_to_word(Vec::new()),
                     },
                     "default" if chain.len() == 1 => {
                         match files
@@ -210,11 +220,11 @@ impl App {
                     }
                     "default" if !chain.is_empty() => return Some(Vec::new()),
                     "default" => vec![word.to_owned()],
-                    name => tail(vec![name.to_owned()]),
+                    name => names_down_to_word(vec![name.to_owned()]),
                 };
                 (files, inside)
             }
-            Kind::Go => (module_files(path), tail(Vec::new())),
+            Kind::Go => (module_files(path), names_down_to_word(Vec::new())),
             Kind::Julia if path.first().is_some_and(|p| !p.starts_with('.')) => return None,
             // No module rules: the search by name, then outside the project, as before.
             _ => return Some(Vec::new()),
@@ -267,9 +277,9 @@ impl App {
         // `const utils = require("./m")` over `module.exports = { helper };`: that line.
         if hits.is_empty()
             && chain.is_empty()
-            && let Some((file, Some((line, _)))) = &exports
+            && let Some((file, search::ModuleExports::OneAssignment { line1, .. })) = &exports
         {
-            let line = *line;
+            let line = *line1;
             hits = vec![Hit {
                 deleted: None,
                 text: self
@@ -281,10 +291,9 @@ impl App {
                 col: 0,
             }];
         }
-        // One that builds its exports line by line hands out itself: its file, as a module.
         if hits.is_empty()
             && chain.is_empty()
-            && let Some((file, None)) = &exports
+            && let Some((file, search::ModuleExports::Piecemeal)) = &exports
         {
             return Some(self.module_candidates(vec![file.clone()]));
         }
@@ -334,8 +343,12 @@ impl App {
                 let Some(text) = self.text_of(f) else {
                     continue;
                 };
-                for (mut module, taken) in search::reexported(&text, first) {
-                    module.push(taken);
+                for search::Reexport {
+                    mut module,
+                    name_in_module,
+                } in search::reexported(&text, first)
+                {
+                    module.push(name_in_module);
                     let more = self
                         .imported_at(kind, f, &word, &chain, &module, depth + 1)
                         .unwrap_or_default();
@@ -421,14 +434,14 @@ impl App {
             |l: &str| l.trim_start().starts_with("from ") || l.trim_start().starts_with("import ");
         if search::bindings(kind, &text, 1, first)
             .iter()
-            .any(|b| !lines.get(b.line - 1).is_some_and(|l| import(l)))
+            .any(|b| !lines.get(b.line1 - 1).is_some_and(|l| import(l)))
         {
             return Vec::new();
         }
         let chain = &names[..names.len() - 1];
         search::imports_as_written(kind, &search::python_module_level(&text))
             .into_iter()
-            .filter_map(|(name, mut path)| {
+            .filter_map(|search::Import { name, mut path }| {
                 if name == "*" {
                     path.pop();
                     path.push(first.clone());

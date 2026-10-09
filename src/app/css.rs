@@ -15,7 +15,14 @@ impl App {
         if !markup && kind != Some(Kind::TsJs) {
             return None;
         }
-        search::attr_at(self.line_str(), self.col, !markup)
+        search::attr_at(
+            self.line_str(),
+            self.col,
+            match markup {
+                true => search::AttrLine::Markup,
+                false => search::AttrLine::Jsx,
+            },
+        )
     }
 
     pub(super) fn css_word(&self) -> Option<String> {
@@ -67,8 +74,12 @@ impl App {
             Some(Kind::TsJs) => return self.css_module(here),
             _ => return false,
         }
-        let less = here.extension().is_some_and(|e| e == "less");
-        match search::sheet_at(&line, self.col, less) {
+        let syntax = search::SheetSyntax::of_extension(
+            here.extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or_default(),
+        );
+        match search::sheet_at(&line, self.col, syntax) {
             None => self.no_definition(&line),
             Some(Sheet::Import(module)) => self.follow_sheet_import(here, &module),
             Some(Sheet::Class(name)) => self.styled_by(here, &name, false),
@@ -111,7 +122,7 @@ impl App {
             return false;
         }
         let imports = search::imports(Kind::TsJs, &text);
-        let found = imports.iter().find_map(|(name, path)| {
+        let found = imports.iter().find_map(|search::Import { name, path }| {
             let (taken, module) = path.split_last()?;
             let whole = taken == "default" || taken == "*";
             let class = match object {
@@ -147,7 +158,7 @@ impl App {
                 continue;
             };
             let styles = match search::styles_in(&path) {
-                Some(true) => text.clone(),
+                Some(search::Styles::Stylesheet) => text.clone(),
                 _ => search::style_blocks(&text),
             };
             let rules = match path.extension().is_some_and(|e| e == "sass") {
@@ -197,8 +208,10 @@ impl App {
         };
         let module = ns.and_then(|ns| {
             let uses = search::sass_uses(&self.buf.lines.join("\n"));
-            let (_, module) = uses.into_iter().find(|(n, _)| n.as_deref() == Some(ns))?;
-            self.sheet_module(here, &module, false)
+            let used = uses
+                .into_iter()
+                .find(|u| matches!(&u.namespace, search::SassNamespace::Named(n) if n == ns))?;
+            self.sheet_module(here, &used.module)
         });
         let mut found: Vec<Candidate> = module
             .iter()
@@ -225,7 +238,13 @@ impl App {
         if found.is_empty() {
             found = (self.files.iter())
                 .filter(|p| wanted(p))
-                .flat_map(|p| self.matching_lines(p, &re, search::styles_in(p) == Some(false)))
+                .flat_map(|p| {
+                    self.matching_lines(
+                        p,
+                        &re,
+                        search::styles_in(p) == Some(search::Styles::StyleBlocksInMarkup),
+                    )
+                })
                 .map(|hit| Candidate {
                     hit,
                     reason: Reason::ByName,
@@ -269,13 +288,12 @@ impl App {
         self.show_definitions(Kind::Css, word, here, found, None);
     }
 
-    /// The lines of `path`, from the root, that `re` matches; in a
-    /// `<style>` block only, when `blocks`.
-    fn matching_lines(&self, path: &Path, re: &Regex, blocks: bool) -> Vec<Hit> {
+    /// The lines of `path`, from the root, that `re` matches.
+    fn matching_lines(&self, path: &Path, re: &Regex, in_style_blocks_only: bool) -> Vec<Hit> {
         let Some(text) = self.file_text(path) else {
             return Vec::new();
         };
-        let styles = match blocks {
+        let styles = match in_style_blocks_only {
             true => search::style_blocks(&text),
             false => text.clone(),
         };
@@ -296,15 +314,15 @@ impl App {
 
     /// The file a stylesheet's import of `module` is: beside the importing file `here`, then in
     /// the `node_modules` of its directories up to the root, as a package. Sass tries its
-    /// partials and index files, Less adds `.less`; `css` reads a plain CSS `@import`.
-    fn sheet_module(&self, here: &Path, module: &str, css: bool) -> Option<PathBuf> {
+    /// partials and index files, Less adds `.less`.
+    fn sheet_module(&self, here: &Path, module: &str) -> Option<PathBuf> {
         let ext = here
             .extension()
             .and_then(|e| e.to_str())
             .unwrap_or_default();
         let candidates = match ext {
-            "scss" | "sass" if !css => search::sass_candidates(module),
-            _ => search::import_candidates(module, ext == "less"),
+            "scss" | "sass" => search::sass_candidates(module),
+            _ => search::import_candidates(module, search::SheetSyntax::of_extension(ext)),
         };
         let dir = here.parent().unwrap_or(Path::new(""));
         let local = !module.starts_with('~');
@@ -334,7 +352,7 @@ impl App {
             self.message = format!("{module}: builtin, no source");
             return;
         }
-        match self.sheet_module(here, module, false) {
+        match self.sheet_module(here, module) {
             Some(path) => {
                 let status = format!("path {}", path.display());
                 self.open_link(&self.root.join(&path), 1, status);

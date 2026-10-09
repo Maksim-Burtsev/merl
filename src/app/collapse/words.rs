@@ -7,6 +7,15 @@ pub(crate) struct Blocks {
 }
 
 impl Blocks {
+    pub(crate) fn from_nodes(
+        nodes: Vec<(usize, usize)>,
+        funcs: Vec<(usize, usize)>,
+        len: usize,
+    ) -> Self {
+        let spans = super::vim_folds(len, nodes.into_iter());
+        Blocks { spans, funcs }
+    }
+
     pub(crate) fn region(&self, h: usize) -> Option<usize> {
         self.spans.get(&h).copied()
     }
@@ -99,7 +108,7 @@ impl<'a> Build<'a> {
     }
 }
 
-fn word_byte(c: u8) -> bool {
+pub(super) fn word_byte(c: u8) -> bool {
     c.is_ascii_alphanumeric() || c == b'_' || c >= 0x80
 }
 
@@ -477,6 +486,41 @@ fn endless(rest: &str) -> bool {
     r.starts_with('=') && !r.starts_with("==") && !r.starts_with("=~") && !r.starts_with("=>")
 }
 
+pub(crate) fn rbs(lines: &[String]) -> Blocks {
+    let mut b = Build::new(lines);
+    for (n, line) in lines.iter().enumerate() {
+        let mut t = line.trim_start();
+        while let Some(rest) = t.strip_prefix("%a") {
+            let Some(open) = rest.bytes().next().filter(u8::is_ascii) else {
+                break;
+            };
+            let close = closing(open) as char;
+            let Some(e) = rest[1..].find(close) else {
+                break;
+            };
+            t = rest[e + 2..].trim_start();
+        }
+        let w = &t[..word_at(t.as_bytes(), 0)];
+        let rest = &t[w.len()..];
+        if rest.starts_with(':') {
+            continue;
+        }
+        match w {
+            "class" | "module" | "interface" => {
+                let name = rest.trim_start();
+                let after =
+                    name.trim_start_matches(|c: char| c.is_alphanumeric() || "_:".contains(c));
+                if !after.trim_start().starts_with('=') {
+                    b.open(n, "class", true, true, false);
+                }
+            }
+            "end" => b.close(n, &["class"]),
+            _ => {}
+        }
+    }
+    b.blocks
+}
+
 pub(crate) fn lua(lines: &[String]) -> Blocks {
     let mut b = Build::new(lines);
     let mut long: Option<usize> = None;
@@ -622,8 +666,9 @@ fn long_end(line: &str, from: usize, level: usize) -> Option<usize> {
         .map(|j| from + j + close.len())
 }
 
-pub(crate) fn shell(lines: &[String]) -> Blocks {
+pub(crate) fn shell(lines: &[String], zsh: bool) -> Blocks {
     let mut b = Build::new(lines);
+    let mut closed = false;
     let mut quote: Option<(u8, bool)> = None;
     let mut heredocs: Vec<(String, bool, usize)> = Vec::new();
     let mut heredoc: Option<(String, bool, usize)> = None;
@@ -698,6 +743,10 @@ pub(crate) fn shell(lines: &[String]) -> Blocks {
                     cmd = !(next == b'>' || (i > 0 && matches!(s[i - 1], b'>' | b'<')));
                     i += 1;
                 }
+                b'(' if zsh && cmd && next == b')' => {
+                    func = Some(n);
+                    i += 2;
+                }
                 b'(' => {
                     cmd = true;
                     i += 1;
@@ -756,6 +805,11 @@ pub(crate) fn shell(lines: &[String]) -> Blocks {
                     i = j;
                     let was = cmd;
                     cmd = false;
+                    let after_brace = std::mem::replace(&mut closed, w == "}");
+                    if zsh && w == "always" && after_brace {
+                        cmd = true;
+                        continue;
+                    }
                     if w == "in" && b.stack.last().is_some_and(|o| o.word == "case" && o.armed) {
                         b.stack.last_mut().unwrap().armed = false;
                         pattern = true;

@@ -3,6 +3,7 @@ Esc
 Picker: Enter
 [
 d
+f
 o
 q
 t

@@ -1,4 +1,5 @@
 use super::*;
+use symbols::NamedSymbol;
 
 /// How long the `s` query has to stand still before it is grepped.
 pub(super) const SEARCH_PAUSE: Duration = Duration::from_millis(80);
@@ -63,13 +64,13 @@ impl SearchJob {
         App::hit_items(hits)
     }
 
-    /// Every declaration the [`search::SYMBOLS`] rows read out of the project, as
-    /// `(listed name, the byte its line has it at, hit)`, keeping the names `pattern` matches —
+    /// Every declaration the [`search::SYMBOLS`] rows read out of the project, keeping the names
+    /// `pattern` matches —
     /// all of them when it is empty, which is the press of `D`. Each row is read only from the
     /// files it is written for; the name decides before the [`search::MAX_HITS`] cut, so a query
     /// reaches past a cut list.
-    pub(super) fn symbol_hits(&self) -> (Vec<(String, usize, Hit)>, bool) {
-        let mut named: Vec<(String, usize, Hit)> = Vec::new();
+    pub(super) fn symbol_hits(&self) -> (Vec<NamedSymbol>, bool) {
+        let mut named: Vec<NamedSymbol> = Vec::new();
         let mut cut = false;
         let mut haskell_code: HashMap<PathBuf, search::HaskellCode> = HashMap::new();
         for (kind, pattern) in search::SYMBOLS {
@@ -151,10 +152,13 @@ impl SearchJob {
             hits.extend(deleted_hits(&self.deleted, wanted, |t| {
                 (re.is_match(t) && keep(t) && !reserved(t)).then_some(0)
             }));
-            named.extend(
-                hits.into_iter()
-                    .filter_map(|h| search::symbol_at(&re, &h.text).map(|(col, n)| (n, col, h))),
-            );
+            named.extend(hits.into_iter().filter_map(|h| {
+                search::symbol_at(&re, &h.text).map(|s| NamedSymbol {
+                    name: s.name,
+                    byte_col: s.byte_col,
+                    hit: h,
+                })
+            }));
         }
         (named, cut)
     }

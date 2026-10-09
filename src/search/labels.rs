@@ -23,9 +23,14 @@ pub enum Owner {
 pub struct Label {
     /// What the status line calls the word: `argument label` or `key`.
     pub what: &'static str,
-    /// The 0-based line and the byte column of the name the label belongs to, and how; `None`
-    /// when nothing in front of the bracket names it.
-    pub owner: Option<(usize, usize, Owner)>,
+    /// `None` when nothing in front of the bracket names it.
+    pub owner: Option<LabelOwner>,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LabelOwner {
+    pub line0: usize,
+    pub byte_col: usize,
+    pub how: Owner,
 }
 
 /// A line declaring a type, with the name it gives it.
@@ -102,7 +107,11 @@ pub fn label_at(
                     let owner = (call.bracket == b'(' && !declares(&lines[cl][..ci]))
                         .then(|| callee(kind, lines[cl], ci))
                         .flatten()
-                        .map(|col| (cl, col, Owner::Object(call.commas)));
+                        .map(|col| LabelOwner {
+                            line0: cl,
+                            byte_col: col,
+                            how: Owner::Object(call.commas),
+                        });
                     key(owner)
                 }
                 b'=' if !before.ends_with([
@@ -122,7 +131,11 @@ pub fn label_at(
                     let owner = TYPED
                         .captures(before)
                         .and_then(|c| c.get(1))
-                        .map(|m| (bl, m.end() - 1, Owner::Typed));
+                        .map(|m| LabelOwner {
+                            line0: bl,
+                            byte_col: m.end() - 1,
+                            how: Owner::Typed,
+                        });
                     key(owner)
                 }
                 b'[' | b'?' => key(None),
@@ -162,7 +175,11 @@ pub fn label_at(
                 return None;
             }
             if ty.as_str() != "Self" {
-                return key(Some((at, ty.end() - 1, Owner::Typed)));
+                return key(Some(LabelOwner {
+                    line0: at,
+                    byte_col: ty.end() - 1,
+                    how: Owner::Typed,
+                }));
             }
             // `Self { … }`: the type of the `impl` around it.
             static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -179,7 +196,11 @@ pub fn label_at(
                 if bracket == b'{'
                     && let Some(m) = IMPL.captures(&lines[el][..ei]).and_then(|c| c.get(1))
                 {
-                    return key(Some((el, m.end() - 1, Owner::Typed)));
+                    return key(Some(LabelOwner {
+                        line0: el,
+                        byte_col: m.end() - 1,
+                        how: Owner::Typed,
+                    }));
                 }
                 up = open_bracket(kind, &lines, &literal, el, ei);
             }
@@ -220,11 +241,18 @@ pub fn label_at(
                         let name = h
                             .rsplit(|c: char| !(c.is_alphanumeric() || c == '_'))
                             .next()?;
-                        (name.starts_with(|c: char| c.is_ascii_uppercase()))
-                            .then(|| (at, h.len() - 1, Owner::Args))
+                        (name.starts_with(|c: char| c.is_ascii_uppercase())).then(|| LabelOwner {
+                            line0: at,
+                            byte_col: h.len() - 1,
+                            how: Owner::Args,
+                        })
                     })
                 }
-                false => Some((at, col, Owner::Args)),
+                false => Some(LabelOwner {
+                    line0: at,
+                    byte_col: col,
+                    how: Owner::Args,
+                }),
             };
             Some(Label {
                 what: "argument label",
@@ -426,9 +454,13 @@ fn jsx(kind: Kind, lines: &[&str], literal: &[bool], line0: usize, start: usize)
                     return None;
                 }
                 let last = name.rsplit('.').next().unwrap_or(&name);
-                let owner = last
-                    .starts_with(|c: char| c.is_ascii_uppercase())
-                    .then(|| (li, i + name.len(), Owner::Object(0)));
+                let owner =
+                    last.starts_with(|c: char| c.is_ascii_uppercase())
+                        .then(|| LabelOwner {
+                            line0: li,
+                            byte_col: i + name.len(),
+                            how: Owner::Object(0),
+                        });
                 return Some(Label {
                     what: "argument label",
                     owner,
@@ -629,7 +661,10 @@ fn params(
     let open = code(kind, lines[decl_line0])
         .find(|&(i, c)| i >= from && c == b'(')
         .map(|(i, _)| i)?;
-    let (inner, ..) = group(kind, lines, decl_line0, open)?;
+    let Group {
+        inner_uncommented: inner,
+        ..
+    } = group(kind, lines, decl_line0, open)?;
     let base = inner.as_ptr() as usize;
     split_top(kind, &inner, b',').into_iter().find_map(|p| {
         let at = find(p)? + (p.as_ptr() as usize - base);
@@ -685,7 +720,11 @@ mod tests {
 
     fn owner(kind: Kind, text: &str, probe: &str) -> Option<(String, Owner)> {
         let l = label(kind, text, probe)?;
-        let (line, col, owner) = l.owner?;
+        let LabelOwner {
+            line0: line,
+            byte_col: col,
+            how: owner,
+        } = l.owner?;
         let (_, w) = definition_word(Some(kind), text.lines().nth(line)?, col)?;
         Some((w.to_owned(), owner))
     }

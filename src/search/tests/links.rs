@@ -50,15 +50,15 @@ fn headings_get_githubs_anchors() {
     assert_eq!(github_anchor("[0.8.0] - 2026-09-27"), "080---2026-09-27");
     assert_eq!(github_anchor("Émoji 🚀 _x_"), "émoji--_x_");
     let text = "# Setup\n\nSetup\n=====\n\n## Setup-1\n\n## Setup\n\n    # not a heading\n";
-    assert_eq!(anchor_line(text, "setup"), Some(1));
-    assert_eq!(anchor_line(text, "setup-1"), Some(3));
+    assert_eq!(anchor_line1(text, "setup"), Some(1));
+    assert_eq!(anchor_line1(text, "setup-1"), Some(3));
     assert_eq!(
-        anchor_line(text, "setup-1-1"),
+        anchor_line1(text, "setup-1-1"),
         Some(6),
         "`Setup-1` finds its anchor taken by the second `Setup` and takes the next free one, as \
          github-slugger does"
     );
-    assert_eq!(anchor_line(text, "SETUP-2"), Some(8));
-    assert_eq!(anchor_line(text, "not-a-heading"), None);
+    assert_eq!(anchor_line1(text, "SETUP-2"), Some(8));
+    assert_eq!(anchor_line1(text, "not-a-heading"), None);
     assert_eq!(percent_decoded("my%20notes%2Emd%zz%"), "my notes.md%zz%");
 }
