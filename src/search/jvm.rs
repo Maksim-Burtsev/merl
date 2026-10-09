@@ -327,12 +327,6 @@ fn declares_local(t: &str, name: &str) -> bool {
     .is_ok_and(|re| re.is_match(t))
 }
 
-/// The declarations of `name` that 0-based line `at` of Java or Kotlin `lines` reads as a local
-/// (#376): walking out of the blocks around it, innermost first, the statements of each block
-/// above the cursor, then what its header binds: a lambda's parameters, a loop's variable, a
-/// function's or a constructor's parameters. The first block that declares the name answers. A
-/// block is the lines indented deeper than the line that opens it, as [`enclosing_declarations`]
-/// reads them; the walk stops at a type's body, whose members are [`jvm_members_of`]'s.
 pub(super) fn jvm_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let binding = |line| Binding {
         line1: line,
@@ -341,7 +335,8 @@ pub(super) fn jvm_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding
     if matches!(name, "this" | "super" | "it") {
         return Vec::new();
     }
-    let literal = literal_lines(Kind::Jvm, &lines.join("\n"));
+    let text = lines.join("\n");
+    let literal = literal_lines(Kind::Jvm, &text);
     let bound_on_cursor_line = header_lines1_binding(lines, at, at, name);
     let mut out: Vec<Binding> = bound_on_cursor_line.into_iter().map(binding).collect();
     let mut depth = indent(lines[at]);
@@ -371,7 +366,11 @@ pub(super) fn jvm_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding
         }
         depth = indent(lines[i]);
         if opens_type(lines[i]) {
-            break;
+            let member_or_top_level = scope_of(lines, i).is_none_or(|s| opens_type(lines[s]));
+            if member_or_top_level || !jvm_members_of(&text, i + 1, name).is_empty() {
+                break;
+            }
+            continue;
         }
         out.extend(
             header_lines1_binding(lines, i, end, name)

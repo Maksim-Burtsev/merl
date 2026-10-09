@@ -78,6 +78,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (#783)
 - `d` in Java on a method called with a text block as its only argument, `fit("""…""")`, jumps
   to the overload of one parameter, where it offered every overload. (#788)
+- `d` in Java and Kotlin on a parameter or local of a function, read inside a class declared in
+  that function, jumps to it, where it said `no definition`. (#787)
 
 ## [0.8.3] - 2026-10-07
 

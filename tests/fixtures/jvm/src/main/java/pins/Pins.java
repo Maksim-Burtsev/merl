@@ -29,4 +29,12 @@ class Pins {
             text
             """);
     }
+
+    Object bud(int seed) {
+        class Bud {
+            int grow() { return seed; }
+            //                  ^ d: src/main/java/pins/Pins.java:33
+        }
+        return new Bud();
+    }
 }
