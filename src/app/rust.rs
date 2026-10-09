@@ -878,7 +878,10 @@ impl App {
                     let link = format!("{name}: {}", ty.name);
                     (ty, link)
                 }
-                search::RustHolds::Assoc(w, f) => {
+                search::RustHolds::AssocCall {
+                    written_type: w,
+                    function: f,
+                } => {
                     let ty = self.rust_resolve(file, &w, at)?;
                     // `T::default()` is `Default`'s, which a derive declares out of sight.
                     let returns = match <[Hit; 1]>::try_from(self.rust_members(&ty, &f)) {

@@ -1188,8 +1188,11 @@ pub enum RustHolds {
     Type(String),
     /// A struct literal of the type written: `let x = T { … }`.
     Literal(String),
-    /// A call of an associated function of the type written: `let x = T::new(…)`.
-    Assoc(String, String),
+    /// `let x = T::new(…)`.
+    AssocCall {
+        written_type: String,
+        function: String,
+    },
     /// A call of the function the path names: `let x = tmpdir()`.
     Call(Vec<String>),
 }
@@ -1250,8 +1253,10 @@ pub fn rust_holds(lines: &[&str], at: usize, name: &str) -> Option<RustHolds> {
         }
         if let Some(c) = ASSOC.captures(e) {
             let open = c.get(0)?.end() - 1;
-            return closes_at_the_end(open)
-                .then(|| RustHolds::Assoc(c[1].to_owned(), c[2].to_owned()));
+            return closes_at_the_end(open).then(|| RustHolds::AssocCall {
+                written_type: c[1].to_owned(),
+                function: c[2].to_owned(),
+            });
         }
         if let Some(c) = CALL.captures(e) {
             let open = c.get(0)?.end() - 1;
