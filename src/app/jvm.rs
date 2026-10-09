@@ -142,12 +142,15 @@ impl App {
     ) -> Option<Vec<Candidate>> {
         let imports = search::jvm_imports(text);
         let first = chain.first().map_or(word, String::as_str);
-        let bound = imports.iter().find(|(n, _)| n == first).map(|(_, p)| p);
+        let bound = imports
+            .iter()
+            .find(|i| i.bound_name == first)
+            .map(|i| &i.path);
         let capital = word.starts_with(|c: char| c.is_ascii_uppercase());
         let wildcards: Vec<&Vec<String>> = imports
             .iter()
-            .filter(|(n, _)| n == "*")
-            .map(|(_, p)| p)
+            .filter(|i| i.bound_name == "*")
+            .map(|i| &i.path)
             .collect();
         let unbound = chain.is_empty() && (capital || !wildcards.is_empty());
         if !cursor_on_import && bound.is_none() && !unbound {

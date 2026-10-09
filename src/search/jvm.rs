@@ -629,11 +629,13 @@ fn scala_bases(text: &str, decl_line1: usize) -> Vec<String> {
         .collect()
 }
 
-/// The names the `import` lines of Java or Kotlin `text` bind, each with the dotted path it
-/// names (#372): `import app.a.User;` binds `User` to `[app, a, User]`, `import static a.C.m;`
-/// binds `m` to `[a, C, m]`, Kotlin's `import a.C as D` binds `D` to `[a, C]`, and a wildcard,
-/// static or not, binds `*` to its path with `*` last.
-pub fn jvm_imports(text: &str) -> Vec<(String, Vec<String>)> {
+/// (#372) Kotlin's `import a.C as D` binds `D` to `[a, C]`; a wildcard, static or not, binds `*`
+/// to its path with `*` last.
+pub struct JvmImport {
+    pub bound_name: String,
+    pub path: Vec<String>,
+}
+pub fn jvm_imports(text: &str) -> Vec<JvmImport> {
     static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*import\s+(?:static\s+)?([\w.]*\w)(\.\*)?(?:\s+as\s+([A-Za-z_]\w*))?\s*;?\s*(?://.*)?$").unwrap()
     });
@@ -649,7 +651,10 @@ pub fn jvm_imports(text: &str) -> Vec<(String, Vec<String>)> {
             if name == "*" {
                 path.push(name.clone());
             }
-            (name, path)
+            JvmImport {
+                bound_name: name,
+                path,
+            }
         })
         .collect()
 }

@@ -355,7 +355,9 @@ impl App {
             _ => JvmType::Unknown,
         };
         let imports = search::jvm_imports(text);
-        if let Some((_, path)) = imports.iter().find(|(n, _)| n == written) {
+        if let Some(search::JvmImport { path, .. }) =
+            imports.iter().find(|i| i.bound_name == written)
+        {
             let Some(packages) = self.jvm_packages() else {
                 return JvmType::Unknown;
             };
