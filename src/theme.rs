@@ -122,11 +122,19 @@ pub fn names() -> impl Iterator<Item = &'static str> {
 }
 
 #[cfg(test)]
-pub const UNCOLOURED: &[&str] = &["lucerna", "seneca", "seneca-light"];
+pub const UNCOLOURED: &[&str] = &["seneca", "seneca-light"];
+
+#[cfg(test)]
+pub const PLAIN_OUTSIDE_CODE: &[&str] = &["lucerna"];
 
 #[cfg(test)]
 pub fn coloured_names() -> impl Iterator<Item = &'static str> {
     names().filter(|name| !UNCOLOURED.contains(name))
+}
+
+#[cfg(test)]
+pub fn names_colouring_every_language() -> impl Iterator<Item = &'static str> {
+    coloured_names().filter(|name| !PLAIN_OUTSIDE_CODE.contains(name))
 }
 
 pub fn user_dir() -> Option<PathBuf> {
@@ -599,19 +607,19 @@ mod tests {
         }
     }
 
-    /// A find match reads on its tint (#480): a theme that sets `findHighlight` alone keeps the
-    /// text's own colours over it, and its plain text reads at WCAG AA; one that sets neither gets
-    /// the text or background colour, whichever reads better on merl's tint. A theme's own
-    /// `findHighlightForeground` is kept as it is.
     #[test]
     fn an_uncoloured_theme_still_sets_its_comments_apart() {
-        for &name in UNCOLOURED {
+        for &name in UNCOLOURED.iter().chain(PLAIN_OUTSIDE_CODE) {
             assert!(names().any(|n| n == name), "{name} is not a theme");
             let t = load(name).unwrap();
             assert_ne!(comment_color(&t.syntect), t.fg, "{name}");
         }
     }
 
+    /// A find match reads on its tint (#480): a theme that sets `findHighlight` alone keeps the
+    /// text's own colours over it, and its plain text reads at WCAG AA; one that sets neither gets
+    /// the text or background colour, whichever reads better on merl's tint. A theme's own
+    /// `findHighlightForeground` is kept as it is.
     #[test]
     fn every_find_match_reads_on_its_tint() {
         for name in names() {
@@ -735,7 +743,7 @@ mod tests {
                 "[package]\nname = \"merl\"  # the binary\nversion = \"0.3.0\"\nedition = 2024\n",
             ),
         ];
-        for name in coloured_names() {
+        for name in names_colouring_every_language() {
             let theme = load(name).unwrap();
             for (file, text) in SAMPLES {
                 let mut b = Buffer::from_bytes(PathBuf::from(file), text.as_bytes());
@@ -853,7 +861,7 @@ mod tests {
             "source.yaml constant.language.merge.yaml",
             "text.git.ignore string.unquoted.git.ignore entity.name.pattern.git.ignore",
         ];
-        for name in coloured_names() {
+        for name in names_colouring_every_language() {
             let t = load(name).unwrap();
             let hl = Highlighter::new(&t.syntect);
             for stack in STACKS {
