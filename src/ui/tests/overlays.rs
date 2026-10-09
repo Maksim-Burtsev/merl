@@ -253,9 +253,16 @@ fn search_picker_prompt_and_hit_count() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+fn rust_file_opening_on_a_doc_comment() -> PathBuf {
+    let root = std::env::temp_dir().join(format!("merl-doc-row-{}", std::process::id()));
+    std::fs::create_dir_all(root.join("src")).unwrap();
+    std::fs::write(root.join("src/wrap.rs"), "//! Soft wrap.\n\nfn wrap() {}\n").unwrap();
+    root
+}
+
 #[test]
 fn hit_picker_rows_keep_the_syntax_colours_of_their_line() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let root = rust_file_opening_on_a_doc_comment();
     let mut app = App::new(root, Tree::default(), Vec::new(), Buffer::empty(), None);
     let hits = vec![crate::search::Hit {
         path: PathBuf::from("src/wrap.rs"),
@@ -292,7 +299,7 @@ fn hit_picker_rows_keep_the_syntax_colours_of_their_line() {
 
 #[test]
 fn the_selected_hit_row_takes_the_themes_selected_text_colour() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let root = rust_file_opening_on_a_doc_comment();
     let mut app = App::new(root, Tree::default(), Vec::new(), Buffer::empty(), None);
     let hits = vec![crate::search::Hit {
         path: PathBuf::from("src/wrap.rs"),
