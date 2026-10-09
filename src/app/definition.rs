@@ -745,7 +745,7 @@ impl App {
                     self.show_definitions(kind, &word, &here, found, None);
                     return;
                 }
-                Some(Ok(cs_typed::CsAnswer::Outside(via))) => {
+                Some(Ok(cs_typed::CsAnswer::Outside { links: via })) => {
                     self.offer_only = false;
                     self.truncated.set(false);
                     self.message = format!("no definition for {word} in the project (via {via})");

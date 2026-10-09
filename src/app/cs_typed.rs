@@ -14,8 +14,8 @@ pub(super) enum CsAnswer {
     /// The member in the project's type or the types above it, or an extension method of it.
     Found(Vec<Candidate>),
     /// The type, or every base the member could come from, is not the project's: the member is
-    /// the framework's. The links that prove it.
-    Outside(String),
+    /// the framework's.
+    Outside { links: String },
 }
 
 /// What a member lookup up a type's hierarchy found.
@@ -83,10 +83,10 @@ impl App {
         let label = format!("new {}", search::cs_type_name(&written)?);
         match ty {
             // An initializer sets a field or a property, never an extension method.
-            CsType::Outside(_) => Some(CsAnswer::Outside(label)),
+            CsType::Outside(_) => Some(CsAnswer::Outside { links: label }),
             CsType::Project(t) => match self.cs_up(&t, word, 0) {
                 Up::Found(hits) => Some(CsAnswer::Found(receivers(hits, &label))),
-                Up::Outside { .. } => Some(CsAnswer::Outside(label)),
+                Up::Outside { .. } => Some(CsAnswer::Outside { links: label }),
                 Up::Missing { .. } | Up::Unknown => None,
             },
         }
@@ -128,7 +128,9 @@ impl App {
         });
         match (of.is_empty(), other.is_empty()) {
             (false, _) => Some(CsAnswer::Found(receivers(of, label))),
-            (true, true) if outside => Some(CsAnswer::Outside(label.to_owned())),
+            (true, true) if outside => Some(CsAnswer::Outside {
+                links: label.to_owned(),
+            }),
             _ => None,
         }
     }
