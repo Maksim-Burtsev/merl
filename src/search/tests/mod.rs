@@ -20,6 +20,7 @@ mod groovy;
 mod haskell;
 mod imports;
 mod julia;
+mod jvm;
 mod links;
 mod lisp;
 mod ml;
