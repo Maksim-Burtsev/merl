@@ -197,7 +197,7 @@ impl App {
         {
             let found = label
                 .owner
-                .map(|(line, col, owner)| self.label_targets(kind, &here, &word, line, col, &owner))
+                .map(|o| self.label_targets(kind, &here, &word, o.line0, o.byte_col, &o.how))
                 .unwrap_or_default();
             match found.is_empty() {
                 true => self.message = format!("{word}: {}", label.what),
