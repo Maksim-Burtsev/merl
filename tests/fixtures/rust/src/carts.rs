@@ -77,5 +77,5 @@ where
 pub fn bounded() -> u32 {
     let cart = make(|| Sled);
     cart.roll()
-    //   ^ d: src/carts.rs:19; want src/carts.rs:7 (#785)
+    //   ^ d: src/carts.rs:7
 }

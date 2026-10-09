@@ -1174,8 +1174,6 @@ pub fn rust_holds(lines: &[&str], at: usize, name: &str) -> Option<RustHolds> {
     }
     None
 }
-/// The return type of the Rust function whose `fn` is on 0-based line `f` of `lines`, as
-/// written behind its `->`.
 pub fn rust_return_type(lines: &[&str], f: usize) -> Option<String> {
     let mut signature = String::new();
     for l in lines.iter().skip(f).take(30) {
@@ -1194,6 +1192,13 @@ pub fn rust_return_type(lines: &[&str], f: usize) -> Option<String> {
             b'(' | b'[' => depth += 1,
             b')' | b']' => depth -= 1,
             b'{' | b';' if depth == 0 => break,
+            b'w' if depth == 0
+                && signature[i..].starts_with("where")
+                && !signature[..i].ends_with(|c: char| c.is_alphanumeric() || c == '_')
+                && !signature[i + 5..].starts_with(|c: char| c.is_alphanumeric() || c == '_') =>
+            {
+                break;
+            }
             b'-' if depth == 0 && b.get(i + 1) == Some(&b'>') => {
                 after_last_top_level_arrow = Some(i + 2)
             }
