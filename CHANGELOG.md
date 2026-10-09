@@ -76,6 +76,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in Rust on a method of a value whose type a `use crate::…`, `use super::…` or `use
   self::…` brings in jumps to that type's method, where it offered every method of the name.
   (#783)
+- `d` in Elixir on the parameter of an `fn` opened at the end of a one-line `def`, `def run(xs),
+  do: Enum.map(xs, fn x ->`, jumps to that `fn` on the lines below it, not to a function of the
+  same name. (#786)
 
 ## [0.8.3] - 2026-10-07
 

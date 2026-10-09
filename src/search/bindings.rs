@@ -212,6 +212,13 @@ fn elixir_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
         }
         let head = code(i);
         if let Some(m) = HEAD.find(&head) {
+            if let Some((_, tail)) = head.split_once("do:")
+                && let Some(h) = tail.strip_suffix("->")
+                && let Some((_, p)) = h.rsplit_once("fn ")
+                && elixir_binds(p, name)
+            {
+                return found(i + 1);
+            }
             let end = (i..at)
                 .find(|&j| code(j).ends_with(" do") || code(j).contains("do:"))
                 .unwrap_or(i);
