@@ -1,5 +1,11 @@
 use super::*;
 
+pub(super) struct NamedSymbol {
+    pub name: String,
+    pub byte_col: usize,
+    pub hit: Hit,
+}
+
 impl App {
     /// `D`: every declaration in the project, recomputed on each press. A list the
     /// [`search::MAX_HITS`] cut left short is not the project's symbols, so the query stops
@@ -33,29 +39,35 @@ impl App {
     }
 
     /// `name  path:line` rows for `D`, sorted by name, the names padded into a column.
-    pub(super) fn symbol_items(mut named: Vec<(String, usize, Hit)>) -> Vec<PickItem> {
-        named.sort_by_cached_key(|(n, _, h)| (n.to_lowercase(), h.path.clone(), h.place()));
+    pub(super) fn symbol_items(mut named: Vec<NamedSymbol>) -> Vec<PickItem> {
+        named.sort_by_cached_key(|s| (s.name.to_lowercase(), s.hit.path.clone(), s.hit.place()));
         let width = named
             .iter()
-            .map(|(n, ..)| wrap::width(n))
+            .map(|s| wrap::width(&s.name))
             .max()
             .unwrap_or(0)
             .min(MAX_NAME_PAD);
         named
             .into_iter()
-            .map(|(name, col, h)| PickItem {
-                label: format!(
-                    "{name}{}  {}",
-                    " ".repeat(width.saturating_sub(wrap::width(&name))),
-                    at_label(&h.path, h.line),
-                ),
-                deleted: h.deleted.is_some(),
-                path: h.path,
-                line: h.line,
-                col,
-                code_at: None,
-                path_at: None,
-            })
+            .map(
+                |NamedSymbol {
+                     name,
+                     byte_col: col,
+                     hit: h,
+                 }| PickItem {
+                    label: format!(
+                        "{name}{}  {}",
+                        " ".repeat(width.saturating_sub(wrap::width(&name))),
+                        at_label(&h.path, h.line),
+                    ),
+                    deleted: h.deleted.is_some(),
+                    path: h.path,
+                    line: h.line,
+                    col,
+                    code_at: None,
+                    path_at: None,
+                },
+            )
             .collect()
     }
 }
