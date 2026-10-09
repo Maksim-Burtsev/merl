@@ -197,8 +197,10 @@ impl App {
         };
         let module = ns.and_then(|ns| {
             let uses = search::sass_uses(&self.buf.lines.join("\n"));
-            let (_, module) = uses.into_iter().find(|(n, _)| n.as_deref() == Some(ns))?;
-            self.sheet_module(here, &module)
+            let used = uses
+                .into_iter()
+                .find(|u| matches!(&u.namespace, search::SassNamespace::Named(n) if n == ns))?;
+            self.sheet_module(here, &used.module)
         });
         let mut found: Vec<Candidate> = module
             .iter()

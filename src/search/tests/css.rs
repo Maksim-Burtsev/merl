@@ -152,9 +152,18 @@ fn sass_tries_partials_then_index_files() {
     assert_eq!(
         uses,
         [
-            (Some("v".to_owned()), "variables".to_owned()),
-            (Some("mixins".to_owned()), "src/mixins".to_owned()),
-            (None, "all".to_owned()),
+            SassUse {
+                namespace: SassNamespace::Named("v".to_owned()),
+                module: "variables".to_owned()
+            },
+            SassUse {
+                namespace: SassNamespace::Named("mixins".to_owned()),
+                module: "src/mixins".to_owned()
+            },
+            SassUse {
+                namespace: SassNamespace::FlatAsStar,
+                module: "all".to_owned()
+            },
         ]
     );
 }

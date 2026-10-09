@@ -536,10 +536,19 @@ pub fn sheet_patterns(sheet: &Sheet) -> Vec<String> {
     }
 }
 
-/// The `@use` lines of a Sass file: the namespace each binds (`None` for `as *`) and the module.
-/// `@use 'mixins'` binds `mixins`, `@use 'src/corners' as c` binds `c`; `sass:math` is a
-/// built-in module, nobody's file. `@import` binds no namespace.
-pub fn sass_uses(text: &str) -> Vec<(Option<String>, String)> {
+#[derive(Debug, PartialEq, Eq)]
+pub enum SassNamespace {
+    Named(String),
+    FlatAsStar,
+}
+#[derive(Debug, PartialEq, Eq)]
+pub struct SassUse {
+    pub namespace: SassNamespace,
+    pub module: String,
+}
+/// `@use 'mixins'` binds `mixins`, `@use 'src/corners' as c` binds `c`; `sass:math` is a built-in
+/// module, nobody's file. `@import` binds no namespace.
+pub fn sass_uses(text: &str) -> Vec<SassUse> {
     static USE: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r#"^\s*@use\s+["']([^"']+)["'](?:\s+as\s+([\w-]+|\*))?"#).unwrap()
     });
@@ -548,16 +557,16 @@ pub fn sass_uses(text: &str) -> Vec<(Option<String>, String)> {
         .filter(|c| !c[1].starts_with("sass:"))
         .map(|c| {
             let module = c[1].to_owned();
-            let ns = match c.get(2).map(|m| m.as_str()) {
-                Some("*") => None,
-                Some(n) => Some(n.to_owned()),
+            let namespace = match c.get(2).map(|m| m.as_str()) {
+                Some("*") => SassNamespace::FlatAsStar,
+                Some(n) => SassNamespace::Named(n.to_owned()),
                 None => {
                     let last = module.rsplit('/').next().unwrap_or(&module);
                     let last = last.split('.').next().unwrap_or(last);
-                    Some(last.trim_start_matches('_').to_owned())
+                    SassNamespace::Named(last.trim_start_matches('_').to_owned())
                 }
             };
-            (ns, module)
+            SassUse { namespace, module }
         })
         .collect()
 }
