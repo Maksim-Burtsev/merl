@@ -124,7 +124,7 @@ impl App {
         // What tells a declaration of the word from a use of it is `def_patterns`, and which
         // ones apply is the hit file's own kind: one regex per kind met, built once.
         let mut rules: HashMap<Option<Kind>, Option<Regex>> = HashMap::new();
-        let objc = self.objc_file();
+        let dialect = self.c_dialect();
         // A deleted line is read in the file at the base, apart from the file on disk.
         let mut literal: HashMap<(PathBuf, bool), Vec<bool>> = HashMap::new();
         let mut lines: HashMap<(PathBuf, bool), Vec<String>> = HashMap::new();
@@ -133,7 +133,7 @@ impl App {
                 let kind = search::kind_of(&h.path);
                 let re = rules.entry(kind).or_insert_with_key(|k| {
                     let mut patterns = k
-                        .map(|k| search::def_patterns_for(k, word, objc))
+                        .map(|k| search::def_patterns_for(k, word, dialect))
                         .unwrap_or_default();
                     if let (Some(Kind::Ruby), Some(ivar)) = (k, ivar) {
                         patterns.push(search::ruby_assignment(ivar));

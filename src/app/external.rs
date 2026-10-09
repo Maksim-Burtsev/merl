@@ -833,6 +833,12 @@ impl App {
         (self.buf.path.as_deref())
             .is_some_and(|p| search::objc_file(p, || self.buf.lines.join("\n")))
     }
+    pub(super) fn c_dialect(&self) -> search::CDialect {
+        match self.objc_file() {
+            true => search::CDialect::ObjectiveC,
+            false => search::CDialect::COrCpp,
+        }
+    }
 
     /// Of `hits` of the [`search::def_patterns`] of `word`, the lines that declare it where they
     /// sit ([`search::declares_where`]).
