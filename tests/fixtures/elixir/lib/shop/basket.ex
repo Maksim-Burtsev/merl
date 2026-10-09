@@ -116,4 +116,9 @@ defmodule Shop.Basket do
     #         ^ d: lib/shop/basket.ex:113
     total
   end
+
+  def restock_all(list), do: Enum.map(list, fn discount ->
+    discount + 1
+    # ^ d: lib/shop/basket.ex:120
+  end)
 end
