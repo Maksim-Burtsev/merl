@@ -888,11 +888,13 @@ impl App {
                 }
                 if project.is_none() && kind == Kind::Python && dotted && chain.len() == 1 {
                     match self.outside_class_member(&word, &path) {
-                        Some(Some(found)) => {
+                        Some(python::OutsideClassMember::Found(found)) => {
                             self.show_definitions(kind, &word, &here, found, None);
                             return;
                         }
-                        Some(None) => value = Some(path[..path.len() - 1].to_vec()),
+                        Some(python::OutsideClassMember::NoSuchClass) => {
+                            value = Some(path[..path.len() - 1].to_vec())
+                        }
                         None => {}
                     }
                 }
