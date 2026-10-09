@@ -533,7 +533,11 @@ pub fn element_type(kind: Kind, written: &str) -> Option<String> {
     let element = element.trim();
     (!element.is_empty()).then(|| element.to_owned())
 }
-pub fn enum_constants(text: &str, decl_line1: usize) -> Vec<(String, usize)> {
+pub struct EnumConstant {
+    pub name: String,
+    pub line1: usize,
+}
+pub fn enum_constants(text: &str, decl_line1: usize) -> Vec<EnumConstant> {
     let mut out = Vec::new();
     let mut chars = text.chars().peekable();
     let mut line = 1;
@@ -600,7 +604,7 @@ pub fn enum_constants(text: &str, decl_line1: usize) -> Vec<(String, usize)> {
                 if annotation {
                     annotation = false;
                 } else if expect_constant {
-                    out.push((name, line));
+                    out.push(EnumConstant { name, line1: line });
                     expect_constant = false;
                 }
             }

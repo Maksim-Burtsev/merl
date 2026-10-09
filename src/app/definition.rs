@@ -2013,8 +2013,8 @@ impl App {
         let lines: Vec<&str> = text.lines().collect();
         search::enum_constants(&text, decl.line)
             .into_iter()
-            .filter(|(name, _)| name == word)
-            .map(|(_, line)| Candidate {
+            .filter(|c| c.name == word)
+            .map(|search::EnumConstant { line1: line, .. }| Candidate {
                 hit: Hit {
                     deleted: None,
                     path: decl.path.clone(),

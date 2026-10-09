@@ -607,9 +607,12 @@ fn a_written_type_comes_down_to_one_name() {
 
 #[test]
 fn enum_constants_are_the_names_at_the_start_of_the_body() {
+    let pairs = |cs: Vec<EnumConstant>| -> Vec<(String, usize)> {
+        cs.into_iter().map(|c| (c.name, c.line1)).collect()
+    };
     let kotlin = "enum class Lane(val f: () -> Unit = {}) : Named {\n    ROAD(\"a, b; }\"),\n    @java.lang.Deprecated AIR { override fun x() = 1 },\n    SEA,\n}";
     assert_eq!(
-        enum_constants(kotlin, 1),
+        pairs(enum_constants(kotlin, 1)),
         [
             ("ROAD".to_owned(), 2),
             ("AIR".to_owned(), 3),
@@ -618,7 +621,7 @@ fn enum_constants_are_the_names_at_the_start_of_the_body() {
     );
     let java = "class A {}\n/* enum */\npublic enum Offer implements P {\n    PLAIN, // CUT,\n    /** Half. */ HALF;\n    static final int NONE = 0;\n}";
     assert_eq!(
-        enum_constants(java, 3),
+        pairs(enum_constants(java, 3)),
         [("PLAIN".to_owned(), 4), ("HALF".to_owned(), 5)]
     );
 }
