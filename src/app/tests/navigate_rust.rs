@@ -7,6 +7,10 @@ fn attributes_name_macros_and_fields_reach_outside() {
         &[
             ("Cargo.toml", "[package]\nname = \"repro\"\n"),
             (
+                "src/span.rs",
+                "pub struct Span {\n    ticks: u64,\n}\n\npub fn span(t: &dyn Fn()) -> u64 {\n    t.ticks\n}\n",
+            ),
+            (
                 "src/lib.rs",
                 "struct Debug;\n\npub struct Tester;\n\nimpl Tester {\n    pub fn test(&self) {}\n    pub fn main(&self) {}\n}\n\n#[derive(Debug, serde::Deserialize)]\nstruct Column;\n\n#[cfg(test)]\nmod tests {\n    #[test]\n    fn works() {}\n}\n\n#[tokio::main]\nasync fn run(d: std::time::Duration) -> bool {\n    if cfg!(test) {}\n    d.secs > 0\n}\n\n#[allow(dead_code)]\nfn quiet() {}\n",
             ),
@@ -26,6 +30,10 @@ fn attributes_name_macros_and_fields_reach_outside() {
             (
                 "core/src/time.rs",
                 "pub struct Duration {\n    secs: u64,\n}\n\npub struct Instant {\n    pub secs: u64,\n}\n",
+            ),
+            (
+                "core/src/tick.rs",
+                "pub struct Tick {\n    pub ticks: u64,\n}\n",
             ),
             (
                 "serde_derive-1.0.0/src/lib.rs",
@@ -112,6 +120,15 @@ fn attributes_name_macros_and_fields_reach_outside() {
         };
         assert_eq!(got, want, "{code}");
     }
+    d_on(&mut a, "src/span.rs", "t.ticks");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "ticks \u{2192} Span::ticks (by name, 1 match)",
+            "src/span.rs:2"
+        ),
+        "the project's field, and none of the standard library's"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&std).unwrap();
 }
@@ -187,6 +204,26 @@ fn a_method_of_an_unknown_type_is_every_reachable_one() {
                 "far-1.0.0/src/lib.rs",
                 "pub struct Far;\n\nimpl Far {\n    pub fn unwrap(self) {}\n}\n",
             ),
+            (
+                "dep-1.0.0/benches/b.rs",
+                "struct Bench;\n\nimpl Bench {\n    pub fn unwrap(self) {}\n}\n",
+            ),
+            (
+                "dep-1.0.0/examples/e.rs",
+                "struct Example;\n\nimpl Example {\n    pub fn unwrap(self) {}\n}\n",
+            ),
+            (
+                "dep-1.0.0/src/sealed.rs",
+                "trait Hidden {\n    fn unwrap(self);\n}\n",
+            ),
+            (
+                "dep-1.0.0/src/open.rs",
+                "pub trait Hidden {\n    fn unwrap(self);\n}\n",
+            ),
+            (
+                "dep-1.0.0/src/imp.rs",
+                "impl Hidden for Thing {\n    fn unwrap(self) {}\n}\n",
+            ),
         ],
     );
     let library = std.join("lib/rustlib/src/rust/library");
@@ -196,10 +233,12 @@ fn a_method_of_an_unknown_type_is_every_reachable_one() {
         (
             "v.unwrap",
             Shown::Picker(
-                "unwrap: by name, 3 declarations".into(),
+                "unwrap: by name, 5 declarations".into(),
                 vec![
+                    row("Hidden::unwrap", "dep-1.0.0/src/open.rs:2"),
                     row("Option::unwrap", "core/src/option.rs:8"),
                     row("Result::unwrap", "core/src/result.rs:8"),
+                    row("Thing::unwrap", "dep-1.0.0/src/imp.rs:2"),
                     row("Thing::unwrap", "dep-1.0.0/src/lib.rs:4"),
                 ],
             ),
