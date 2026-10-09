@@ -1006,7 +1006,10 @@ impl App {
     fn rust_field(&self, ty: &Typed, word: &str) -> Option<(Hit, String)> {
         let text = self.text_of(&ty.path)?;
         let lines: Vec<&str> = text.lines().collect();
-        let (line, written) = search::rust_struct_field(&lines, ty.line - 1, word)?;
+        let search::RustStructField {
+            line0: line,
+            written_type: written,
+        } = search::rust_struct_field(&lines, ty.line - 1, word)?;
         let hit = Hit {
             path: ty.path.clone(),
             line: line + 1,

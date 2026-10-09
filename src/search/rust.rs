@@ -1309,10 +1309,13 @@ pub fn rust_return_type(lines: &[&str], f: usize) -> Option<String> {
     let t = type_at(&signature[after_last_top_level_arrow?..]);
     (!t.is_empty()).then(|| t.to_owned())
 }
-/// The field `word` directly in the `struct` or `union` declared on 0-based line `decl` of
-/// `lines`: its 0-based line and its type as written.
-pub fn rust_struct_field(lines: &[&str], decl: usize, word: &str) -> Option<(usize, String)> {
-    if !STRUCT.is_match(lines.get(decl)?) {
+pub struct RustStructField {
+    pub line0: usize,
+    pub written_type: String,
+}
+/// The field `word` directly in the `struct` or `union`.
+pub fn rust_struct_field(lines: &[&str], decl_line0: usize, word: &str) -> Option<RustStructField> {
+    if !STRUCT.is_match(lines.get(decl_line0)?) {
         return None;
     }
     let field = Regex::new(&format!(
@@ -1320,8 +1323,8 @@ pub fn rust_struct_field(lines: &[&str], decl: usize, word: &str) -> Option<(usi
         regex::escape(word)
     ))
     .expect("an escaped name keeps the pattern valid");
-    let base = indent(lines[decl]);
-    for (i, l) in lines.iter().enumerate().skip(decl + 1) {
+    let base = indent(lines[decl_line0]);
+    for (i, l) in lines.iter().enumerate().skip(decl_line0 + 1) {
         let t = l.trim();
         if !t.is_empty()
             && indent(l) <= base
@@ -1331,9 +1334,12 @@ pub fn rust_struct_field(lines: &[&str], decl: usize, word: &str) -> Option<(usi
             break;
         }
         if let Some(c) = field.captures(l)
-            && rust_parent(lines, i) == Some(decl)
+            && rust_parent(lines, i) == Some(decl_line0)
         {
-            return Some((i, type_at(&c[1]).to_owned()));
+            return Some(RustStructField {
+                line0: i,
+                written_type: type_at(&c[1]).to_owned(),
+            });
         }
     }
     None
