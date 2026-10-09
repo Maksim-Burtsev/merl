@@ -1545,9 +1545,9 @@ impl App {
                 match search::c_one_definition(&word, &hits, |p| self.text_of(p))
                     .filter(|_| !on && !parameter)
                 {
-                    Some((at, note)) => {
-                        aside = Some(note);
-                        vec![hits[at].clone()]
+                    Some(one) => {
+                        aside = Some(one.set_aside_note);
+                        vec![hits[one.hit_index].clone()]
                     }
                     None => hits,
                 }

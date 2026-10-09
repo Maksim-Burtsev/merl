@@ -738,16 +738,19 @@ enum CDeclares {
     Function { params: Vec<String> },
     Variable,
 }
+pub struct COneDefinition {
+    pub hit_index: usize,
+    pub set_aside_note: String,
+}
 /// When the C or C++ candidates for `word` are one function — its definition and its prototypes,
 /// all taking the same parameters — or one variable — its definition and its `extern`
-/// declarations — the index of the one definition, and what was set aside for the status line:
-/// `1 definition, 2 prototypes` (#364). `None` for anything else: overloads, two definitions
-/// (`#if` / `#else` variants), a macro, a type.
+/// declarations (#364). `None` for anything else: overloads, two definitions (`#if` / `#else`
+/// variants), a macro, a type.
 pub fn c_one_definition(
     word: &str,
     hits: &[Hit],
     text_of: impl Fn(&Path) -> Option<String>,
-) -> Option<(usize, String)> {
+) -> Option<COneDefinition> {
     let w = regex::escape(word);
     let re = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
     let call = re(format!(r"\b{w}\s*\("));
@@ -812,7 +815,10 @@ pub fn c_one_definition(
         (false, 1) => "declaration",
         (false, _) => "declarations",
     };
-    Some((at, format!("1 definition, {n} {what}")))
+    Some(COneDefinition {
+        hit_index: at,
+        set_aside_note: format!("1 definition, {n} {what}"),
+    })
 }
 pub fn c_declaration_only(word: &str, text: &str, line1: usize) -> bool {
     let w = regex::escape(word);
