@@ -14,6 +14,7 @@ use crate::picture::Width;
 use crate::theme::Theme;
 use crate::wrap;
 
+pub mod data;
 pub mod images;
 
 pub fn is_markdown(path: &Path) -> bool {
@@ -145,21 +146,27 @@ pub fn layout(lines: &[String], width: usize, light: bool, fit: Fit) -> Doc {
         lay.event(ev, r);
     }
     lay.flush();
-    let mut rows = lay.rows;
-    if rows.is_empty() {
-        rows.push(Row {
-            text: String::new(),
-            looks: Vec::new(),
-            src: (0, 0),
-            lines: 0..0,
-            owns: Vec::new(),
-            kind: Kind::Gap,
-        });
-    }
-    cover(&mut rows, lines.len());
-    Doc {
-        rows,
-        code: lay.code,
+    lay.done(lines.len())
+}
+
+impl Lay<'_> {
+    fn done(self, n: usize) -> Doc {
+        let mut rows = self.rows;
+        if rows.is_empty() {
+            rows.push(Row {
+                text: String::new(),
+                looks: Vec::new(),
+                src: (0, 0),
+                lines: 0..0,
+                owns: Vec::new(),
+                kind: Kind::Gap,
+            });
+        }
+        cover(&mut rows, n);
+        Doc {
+            rows,
+            code: self.code,
+        }
     }
 }
 
@@ -265,6 +272,7 @@ struct Block {
 struct Table {
     aligns: Vec<Alignment>,
     rows: Vec<TableRow>,
+    delimiter_row: bool,
 }
 
 struct TableRow {
@@ -508,6 +516,7 @@ impl Lay<'_> {
                 self.table = Some(Table {
                     aligns,
                     rows: Vec::new(),
+                    delimiter_row: true,
                 });
             }
             Tag::TableHead | Tag::TableRow => {
@@ -1085,8 +1094,14 @@ impl Lay<'_> {
         let (mut natural, mut words) = (vec![1; n], vec![1; n]);
         for TableRow { cells, .. } in &t.rows {
             for (j, c) in cells.iter().enumerate() {
-                natural[j] = natural[j].max(wrap::width(&c.text));
-                let word = c.text.split(' ').map(wrap::width).max().unwrap_or(0);
+                let widest = c.text.split('\n').map(wrap::width).max().unwrap_or(0);
+                natural[j] = natural[j].max(widest);
+                let word = c
+                    .text
+                    .split([' ', '\n'])
+                    .map(wrap::width)
+                    .max()
+                    .unwrap_or(0);
                 words[j] = words[j].max(word);
             }
         }
@@ -1105,13 +1120,7 @@ impl Lay<'_> {
         let empty = Inline::default();
         for (i, TableRow { src_line: l, cells }) in t.rows.iter().enumerate() {
             let wrapped: Vec<Vec<Range<usize>>> = (0..n)
-                .map(|j| {
-                    let c = cells.get(j).unwrap_or(&empty);
-                    wrap::wrap_line(&c.text, widths[j])
-                        .into_iter()
-                        .map(|r| r.start..r.start + c.text[r].trim_end_matches(' ').len())
-                        .collect()
-                })
+                .map(|j| wrap_cell(&cells.get(j).unwrap_or(&empty).text, widths[j]))
                 .collect();
             let height = wrapped.iter().map(Vec::len).max().unwrap_or(1);
             for k in 0..height {
@@ -1157,6 +1166,9 @@ impl Lay<'_> {
                 let mid = border("\u{251c}", "\u{253c}", "\u{2524}");
                 let len = mid.len();
                 self.push(mid, vec![(line, 0..len)], (l + 1, 0), Kind::Text);
+                if !t.delimiter_row {
+                    self.shows_nothing();
+                }
             }
         }
         let bottom = border("\u{2514}", "\u{2534}", "\u{2518}");
@@ -1164,6 +1176,19 @@ impl Lay<'_> {
         let last = t.rows.last().map_or(0, |row| row.src_line);
         self.push(bottom, vec![(line, 0..len)], (last, usize::MAX), Kind::Text);
     }
+}
+
+fn wrap_cell(text: &str, width: usize) -> Vec<Range<usize>> {
+    let mut from = 0;
+    let mut out = Vec::new();
+    for seg in text.split('\n') {
+        for r in wrap::wrap_line(seg, width) {
+            let end = r.start + seg[r.clone()].trim_end_matches(' ').len();
+            out.push(from + r.start..from + end);
+        }
+        from += seg.len() + 1;
+    }
+    out
 }
 
 fn fit(natural: &[usize], words: &[usize], room: usize) -> Vec<usize> {

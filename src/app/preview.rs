@@ -1,7 +1,7 @@
-use std::hash::{Hash, Hasher};
-
 use super::*;
-use crate::markdown::{self, Ask, Doc, Kind};
+use crate::markdown::{self, Ask, Doc, Kind, data::data};
+
+use super::preview_data::{lines_hash, no_preview};
 
 pub struct Preview {
     pub doc: Doc,
@@ -26,7 +26,7 @@ impl App {
         self.buf
             .path
             .as_ref()
-            .is_some_and(|p| self.previewed.contains(p))
+            .is_some_and(|p| self.previewed.contains(p) && self.parse_ready(p))
     }
 
     pub fn picture_here(&self) -> Option<PathBuf> {
@@ -52,6 +52,9 @@ impl App {
             }
             return;
         }
+        if self.parse_toggle(&path) {
+            return;
+        }
         if self.previewed.remove(&path) {
             let off = self
                 .preview
@@ -62,10 +65,17 @@ impl App {
             self.sync_want_x();
             return;
         }
-        if !markdown::is_markdown(&path) {
-            self.message = "not Markdown".into();
+        if !markdown::is_markdown(&path) && data(&path).is_none() {
+            self.message = no_preview(&path);
             return;
         }
+        self.preview_open();
+    }
+
+    pub(super) fn preview_open(&mut self) {
+        let Some(path) = self.buf.path.clone() else {
+            return;
+        };
         let (top, cur) = ((self.top_line, self.top_row), self.cursor_at());
         let off = match cur < top {
             true => 0,
@@ -87,10 +97,12 @@ impl App {
     }
 
     pub(crate) fn preview_sync(&mut self) -> bool {
-        let mut h = std::collections::hash_map::DefaultHasher::new();
-        self.buf.lines.hash(&mut h);
+        let lines_hash = lines_hash(&self.buf.lines);
+        if self.parse_stale(lines_hash) {
+            return false;
+        }
         let input = LayoutInput {
-            lines_hash: h.finish(),
+            lines_hash,
             width: self.view_w,
             diagrams_laid: self.diagrams.laid,
             light: self.diagrams.light,
@@ -112,20 +124,22 @@ impl App {
                     .root
                     .join(self.buf.path.as_deref().unwrap_or(Path::new("")));
                 let root = &self.root;
-                let doc = markdown::layout(
-                    &self.buf.lines,
-                    self.view_w,
-                    input.light,
-                    &mut |ask, room| match ask {
-                        Ask::Diagram(src) => diagrams.fit(src, room),
-                        Ask::Image(dest, width) => {
-                            let path = crate::picture::resolve(root, &file, dest)?;
-                            let natural = diagrams.file_size(&path)?;
-                            let cell = diagrams.cell()?;
-                            Some(crate::picture::cells(natural, width, cell, room, None))
-                        }
-                    },
-                );
+                let kind = data(&file);
+                let parsed = self.parse.done.as_ref().map(|d| &d.2);
+                let mut fit = |ask: Ask, room| match ask {
+                    Ask::Diagram(src) => diagrams.fit(src, room),
+                    Ask::Image(dest, width) => {
+                        let path = crate::picture::resolve(root, &file, dest)?;
+                        let natural = diagrams.file_size(&path)?;
+                        let cell = diagrams.cell()?;
+                        Some(crate::picture::cells(natural, width, cell, room, None))
+                    }
+                };
+                let lines = &self.buf.lines;
+                let doc = match kind {
+                    Some(k) => k.layout(parsed, lines, self.view_w, &mut fit),
+                    None => markdown::layout(lines, self.view_w, input.light, &mut fit),
+                };
                 let row = match &old {
                     Some(p) if p.at == Some(pos) => doc.same_row(&p.doc, p.row, pos),
                     _ => doc.row_at(pos),
@@ -181,6 +195,10 @@ impl App {
 
     pub(super) fn preview_key(&mut self, key: KeyEvent) -> bool {
         if !self.previewing() {
+            let walk = self.review.is_some() && matches!(key.code, KeyCode::Char('c' | 'C'));
+            if walk && self.preview_pending() {
+                self.toggle_preview();
+            }
             return false;
         }
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);

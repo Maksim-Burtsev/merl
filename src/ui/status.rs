@@ -58,6 +58,7 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         (Mode::Edit, _) => "edit",
         (_, Focus::Tree) => "tree",
         _ if app.previewing() => "preview",
+        _ if app.preview_pending() => "parsing",
         _ => "code",
     };
     let picture = super::picture::status(app);

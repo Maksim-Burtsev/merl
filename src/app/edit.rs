@@ -37,7 +37,7 @@ impl App {
     }
 
     pub(super) fn edit_mode(&mut self) {
-        if self.previewing() {
+        if self.previewing() || self.preview_pending() {
             self.toggle_preview();
         }
         self.mode = Mode::Edit;
@@ -391,9 +391,10 @@ impl App {
     }
 
     pub fn tick(&mut self) -> bool {
+        let parsed = self.parse_tick();
         let due = self.last_edit.is_some_and(|t| t.elapsed() >= self.autosave);
         if !due || !self.dirty || self.conflict {
-            return false;
+            return parsed;
         }
         self.save();
         true

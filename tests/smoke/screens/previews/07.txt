@@ -1,0 +1,57 @@
+wait "sku": "A-1",
+┌orders──────────────────────┐   {
+│▸ .github                   │     "id": 1,
+│▸ .venv                     │     "items": [
+│▸ app                       │       {
+│▾ data                      │         "sku": "A-1",
+│  A broken.jsonl            │         "qty": 2
+│  A events.jsonl            │       }
+│    orders.min.json         │     ],
+│    refunds-2026-08.csv     │     "paid": true
+│  A refunds.csv             │   }
+│▸ deploy                    │  ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+│▸ docs                      │   {
+│▸ scripts                   │     "id": 2,
+│▸ tests                     │     "items": []
+│▸ web                       │   }
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+data/events.jsonl  1:1  [preview]                                                                                                                                                 ? help
+cursor (x,y,shown) 33,54,0

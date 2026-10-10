@@ -456,7 +456,7 @@ mod tests {
     fn markdown_highlights_with_every_shipped_theme() {
         let src = "# Notes\n\nSee the [README](../README.md#languages) and `src/main.rs`.\n";
         for file in ["notes.md", "notes.markdown", "page.mdx"] {
-            for name in crate::theme::names() {
+            for name in crate::theme::names_colouring_every_language() {
                 let theme = crate::theme::load(name).unwrap();
                 let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
                 assert_eq!(
@@ -835,7 +835,7 @@ mod tests {
                 "---\nimport Card from \"./Card.astro\";\nconst title = \"x\";\n---\n<h1>{title}</h1>\n",
             ),
         ] {
-            for name in crate::theme::names() {
+            for name in crate::theme::names_colouring_every_language() {
                 let theme = crate::theme::load(name).unwrap();
                 let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
                 assert_eq!(
@@ -954,7 +954,7 @@ mod tests {
     fn php_highlights_with_every_shipped_theme() {
         let src = "<?php\n\nfinal class Invoice\n{\n    public const LIMIT = 10;\n}\n";
         for file in ["Invoice.php", "show.phtml"] {
-            for name in crate::theme::names() {
+            for name in crate::theme::names_colouring_every_language() {
                 let theme = crate::theme::load(name).unwrap();
                 let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
                 assert_eq!(
@@ -1118,7 +1118,7 @@ mod tests {
             ),
         ];
         for (file, syntax, src) in cases {
-            for name in crate::theme::names() {
+            for name in crate::theme::names_colouring_every_language() {
                 let theme = crate::theme::load(name).unwrap();
                 let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
                 assert_eq!(b.syntax.map(|s| s.name.as_str()), Some(syntax), "{file}");

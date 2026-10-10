@@ -1,0 +1,27 @@
+# previews: `p` beyond Markdown (#763). A CSV is a table, a quoted cell with its comma kept whole;
+# a JSONL file is its records pretty-printed, a rule between them; a file the parser cannot read
+# whole stays as source and says why; any other file has no preview. The files are written here,
+# not by setup.sh, so the other scenarios' file lists stay as they are.
+merl app/service.py
+wait app/service.py
+key p
+wait no preview for .py
+run printf 'id,customer,total\n1042,"Lovelace, Ada",40.00\n1077,Babbage,12.50\n' > data/refunds.csv && printf '{"id":1,"items":[{"sku":"A-1","qty":2}],"paid":true}\n{"id":2,"items":[]}\n' > data/events.jsonl && printf '{"id":1}\n{"id":\n' > data/broken.jsonl
+merl data/refunds.csv
+wait id,customer,total
+key p
+wait │ 1042 │ Lovelace, Ada │ 40.00 │
+key p
+wait 1042,"Lovelace, Ada",40.00
+key o
+type events.jsonl
+key Enter
+wait {"id":1,"items"
+key p
+wait "sku": "A-1",
+key o
+type broken.jsonl
+key Enter
+wait {"id":
+key p
+wait p: line 2 is not JSON

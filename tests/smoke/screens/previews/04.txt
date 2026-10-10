@@ -1,0 +1,57 @@
+wait │ 1042 │ Lovelace, Ada │ 40.00 │
+┌orders──────────────────────┐  ┌──────┬───────────────┬───────┐
+│▸ .github                   │  │ id   │ customer      │ total │
+│▸ .venv                     │  ├──────┼───────────────┼───────┤
+│▸ app                       │  │ 1042 │ Lovelace, Ada │ 40.00 │
+│▾ data                      │  │ 1077 │ Babbage       │ 12.50 │
+│  A broken.jsonl            │  └──────┴───────────────┴───────┘
+│  A events.jsonl            │
+│    orders.min.json         │
+│    refunds-2026-08.csv     │
+│  A refunds.csv             │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+data/refunds.csv  1:1  [preview]                                                                                                                                                  ? help
+cursor (x,y,shown) 37,54,0

@@ -346,7 +346,11 @@ impl Pic {
 pub fn keep_panics_inside() {
     let hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
-        if std::thread::current().name() != Some(THREAD) {
+        let name = std::thread::current().name().map(str::to_owned);
+        if !matches!(
+            name.as_deref(),
+            Some(THREAD | crate::markdown::data::THREAD)
+        ) {
             hook(info);
         }
     }));

@@ -49,6 +49,7 @@ mod perl;
 mod php;
 mod picker;
 mod preview;
+mod preview_data;
 mod project_search;
 mod proto;
 mod python;
@@ -235,7 +236,7 @@ pub const KEYS: &[(&str, &str, &str)] = &[
     ),
     (
         "p",
-        "Show a Markdown file rendered, or its source again",
+        "Show a file rendered: Markdown, CSV/TSV, JSONL, Mermaid",
         "General",
     ),
     (
@@ -346,6 +347,7 @@ pub struct App {
     wrap_opposite_of_kind: HashSet<PathBuf>,
     previewed: HashSet<PathBuf>,
     pub preview: Option<Preview>,
+    parse: preview_data::Parse,
     pub diagrams: crate::mermaid::Diagrams,
     old_picture: std::cell::RefCell<Option<OldPicture>>,
     pub mode: Mode,
@@ -491,6 +493,7 @@ impl App {
             diagrams: crate::mermaid::Diagrams::default(),
             old_picture: Default::default(),
             preview: None,
+            parse: Default::default(),
             mode: Mode::Normal,
             prompt: LineEdit::default(),
             find_re: None,

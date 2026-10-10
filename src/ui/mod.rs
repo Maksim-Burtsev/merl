@@ -78,6 +78,7 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
         }
     }
     let mut pane = |app: &mut App| {
+        app.preview_fresh();
         if let Some(sides) = app.picture_sides() {
             picture::draw_review(frame, app, code, &sides, theme.ghost_fg);
         } else if let Some(path) = app.picture_shown() {

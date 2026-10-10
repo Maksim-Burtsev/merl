@@ -227,7 +227,7 @@ fn p_draws_an_svg_and_p_again_shows_its_source() {
     let mut plain = open(&root, "logo.svg", false);
     press(&mut plain, 'p');
     assert_eq!(
-        plain.message, "not Markdown",
+        plain.message, "no preview for .svg",
         "a terminal without pictures: as before"
     );
     let _ = std::fs::remove_dir_all(&root);
