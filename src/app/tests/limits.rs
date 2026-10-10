@@ -41,7 +41,10 @@ fn the_hunk_left_is_its_index_so_a_hunk_written_above_it_takes_its_place() {
 }
 
 fn d_in(tag: &str, files: &[(String, String)], file: &str, code: &str) -> Shown {
-    let files: Vec<(&str, &str)> = files.iter().map(|(n, t)| (n.as_str(), t.as_str())).collect();
+    let files: Vec<(&str, &str)> = files
+        .iter()
+        .map(|(n, t)| (n.as_str(), t.as_str()))
+        .collect();
     let (dir, mut a) = project_app(tag, &files);
     a.no_external();
     d_on(&mut a, file, code);
@@ -91,7 +94,10 @@ fn two_typescript_modules_handing_a_name_to_each_other_end() {
     assert_eq!(d_in("ts-cycle", &files, "app.ts", "new Tariff"), none);
     files.push(("tariffs.ts".into(), "export class Tariff {}\n".into()));
     let by_name = jump("Tariff: by name, 1 match", "tariffs.ts:1");
-    assert_eq!(d_in("ts-cycle-named", &files, "app.ts", "new Tariff"), by_name);
+    assert_eq!(
+        d_in("ts-cycle-named", &files, "app.ts", "new Tariff"),
+        by_name
+    );
 }
 
 fn python_bases(levels: usize, top: &str) -> Vec<(String, String)> {
@@ -99,15 +105,26 @@ fn python_bases(levels: usize, top: &str) -> Vec<(String, String)> {
     for i in (0..levels).rev() {
         text += &format!("\n\nclass C{i}(C{}):\n    pass\n", i + 1);
     }
-    text += "\n\nclass Other:\n    def save(self):\n        pass\n\n\ndef f(x: C0):\n    x.save()\n";
+    text +=
+        "\n\nclass Other:\n    def save(self):\n        pass\n\n\ndef f(x: C0):\n    x.save()\n";
     vec![("app.py".to_string(), text)]
 }
 
 #[test]
 fn a_python_receiver_reaches_outside_the_project_through_eight_classes() {
-    let at = |n: usize| d_in(&format!("py-up-{n}"), &python_bases(n, "Base"), "app.py", "x.save");
+    let at = |n: usize| {
+        d_in(
+            &format!("py-up-{n}"),
+            &python_bases(n, "Base"),
+            "app.py",
+            "x.save",
+        )
+    };
     assert_eq!(at(7), jump("no definition for save", "app.py:42"));
-    assert_eq!(at(8), jump("save \u{2192} Other.save (by name, 1 match)", "app.py:41"));
+    assert_eq!(
+        at(8),
+        jump("save \u{2192} Other.save (by name, 1 match)", "app.py:41")
+    );
 }
 
 #[test]
@@ -116,7 +133,10 @@ fn of_two_versions_of_a_crate_the_first_root_answers() {
         "rust-two-versions",
         &[
             ("Cargo.toml", "[package]\nname = \"repro\"\n"),
-            ("src/lib.rs", "use dep::Thing;\n\npub fn made(t: Thing) {}\n"),
+            (
+                "src/lib.rs",
+                "use dep::Thing;\n\npub fn made(t: Thing) {}\n",
+            ),
         ],
     );
     let registry = external_root(
@@ -128,13 +148,20 @@ fn of_two_versions_of_a_crate_the_first_root_answers() {
     );
     a.no_external();
     for (first, other, line) in [("dep-1.0.0", "dep-2.0.0", 2), ("dep-2.0.0", "dep-1.0.0", 1)] {
-        use_roots(&mut a, Kind::Rust, &[registry.join(first), registry.join(other)]);
+        use_roots(
+            &mut a,
+            Kind::Rust,
+            &[registry.join(first), registry.join(other)],
+        );
         d_on(&mut a, "src/lib.rs", "t: Thing");
         let Shown::Jump(status, place) = shown(&mut a) else {
             panic!("a picker");
         };
         assert_eq!(status, "Thing: via import dep");
-        assert!(place.ends_with(&format!("{first}/src/lib.rs:{line}")), "{place}");
+        assert!(
+            place.ends_with(&format!("{first}/src/lib.rs:{line}")),
+            "{place}"
+        );
     }
     let _ = std::fs::remove_dir_all(dir);
     let _ = std::fs::remove_dir_all(registry);
@@ -212,7 +239,15 @@ fn ladder(lang: &str, n: usize) -> (String, String, String) {
             } else {
                 t += "\n\nclass Top(C0):\n    def root(self):\n        super().root()\n";
             }
-            ("app.py".into(), t, if lang == "py" { "x.root".into() } else { "super().root".into() })
+            (
+                "app.py".into(),
+                t,
+                if lang == "py" {
+                    "x.root".into()
+                } else {
+                    "super().root".into()
+                },
+            )
         }
         "ts" => {
             t += &format!("export class C{n} {{\n  root(): void {{}}\n}}\n");
@@ -231,7 +266,9 @@ fn ladder(lang: &str, n: usize) -> (String, String, String) {
             ("Shop.cs".into(), t, "x.Root".into())
         }
         "php" => {
-            t += &format!("<?php\n\nclass C{n}\n{{\n    public function root(): void\n    {{\n    }}\n}}\n");
+            t += &format!(
+                "<?php\n\nclass C{n}\n{{\n    public function root(): void\n    {{\n    }}\n}}\n"
+            );
             for i in (0..n).rev() {
                 t += &format!("\nclass C{i} extends C{}\n{{\n}}\n", i + 1);
             }
@@ -271,36 +308,63 @@ fn a_member_is_looked_for_nine_types_up_and_super_eight() {
         );
     }
     let found = up_the_ladder("pysuper", 7);
-    assert_eq!(found, jump("root \u{2192} C7.root (via super of Top)", "app.py:2"));
+    assert_eq!(
+        found,
+        jump("root \u{2192} C7.root (via super of Top)", "app.py:2")
+    );
     assert!(matches!(up_the_ladder("pysuper", 8), Shown::Picker(..)));
 }
 
 fn go_types(n: usize, sep: &str) -> Vec<(String, String)> {
-    let mut t = String::from("package shop\n\ntype Real struct {\n\tName string\n}\n\nfunc (r Real) Root() {}\n");
+    let mut t = String::from(
+        "package shop\n\ntype Real struct {\n\tName string\n}\n\nfunc (r Real) Root() {}\n",
+    );
     t += &format!("\ntype A{n}{sep}Real\n");
     for i in (0..n).rev() {
         t += &format!("\ntype A{i}{sep}A{}\n", i + 1);
     }
     t += "\ntype Other struct {\n\tName string\n}\n\nfunc (o Other) Root() {}\n\nfunc F(x A0) {\n\tx.Root()\n\t_ = x.Name\n\t_ = A0{Name: \"\"}\n}\n";
-    vec![("go.mod".into(), "module shop\n".into()), ("shop.go".into(), t)]
+    vec![
+        ("go.mod".into(), "module shop\n".into()),
+        ("shop.go".into(), t),
+    ]
 }
 
 #[test]
 fn go_reads_eight_aliases_and_eight_defined_types_down_to_a_struct() {
-    let alias = |n: usize| d_in(&format!("go-alias-{n}"), &go_types(n, " = "), "shop.go", "x.Root");
+    let alias = |n: usize| {
+        d_in(
+            &format!("go-alias-{n}"),
+            &go_types(n, " = "),
+            "shop.go",
+            "x.Root",
+        )
+    };
     let root = jump("Root \u{2192} Real.Root (via x: Real)", "shop.go:7");
     assert_eq!(alias(7), root);
     assert!(matches!(alias(8), Shown::Picker(..)));
-    let defined = |n: usize| d_in(&format!("go-defined-{n}"), &go_types(n, " "), "shop.go", "A0{Name");
+    let defined = |n: usize| {
+        d_in(
+            &format!("go-defined-{n}"),
+            &go_types(n, " "),
+            "shop.go",
+            "A0{Name",
+        )
+    };
     let name = jump("Name \u{2192} Real.Name (via A0{\u{2026}})", "shop.go:4");
     assert_eq!(defined(7), name);
     assert_eq!(defined(8), jump("no definition for Name", "shop.go:36"));
 }
 
 fn py_subtypes(n: usize) -> Vec<(String, String)> {
-    let mut t = String::from("class Job:\n    def run(self):\n        pass\n\n\nclass S1(Job):\n    def run(self):\n        pass\n");
+    let mut t = String::from(
+        "class Job:\n    def run(self):\n        pass\n\n\nclass S1(Job):\n    def run(self):\n        pass\n",
+    );
     for i in 2..=n {
-        t += &format!("\n\nclass S{i}(S{}):\n    def run(self):\n        pass\n", i - 1);
+        t += &format!(
+            "\n\nclass S{i}(S{}):\n    def run(self):\n        pass\n",
+            i - 1
+        );
     }
     t += "\n\ndef f(x: Job):\n    x.run()\n";
     vec![("app.py".into(), t)]
@@ -308,7 +372,14 @@ fn py_subtypes(n: usize) -> Vec<(String, String)> {
 
 #[test]
 fn implementations_are_looked_for_four_subtypes_down() {
-    let at = |n: usize| d_in(&format!("py-sub-{n}"), &py_subtypes(n), "app.py", "^    def run");
+    let at = |n: usize| {
+        d_in(
+            &format!("py-sub-{n}"),
+            &py_subtypes(n),
+            "app.py",
+            "^    def run",
+        )
+    };
     let count = |found: Shown| match found {
         Shown::Picker(_, rows) => rows.len(),
         Shown::Jump(..) => 1,
@@ -326,27 +397,57 @@ fn ts_barrel_subtype(barrels: usize) -> Vec<(String, String)> {
         ),
     ];
     for i in 1..=barrels {
-        files.push((format!("b{i}.ts"), format!("export * from './b{}';\n", i + 1)));
+        files.push((
+            format!("b{i}.ts"),
+            format!("export * from './b{}';\n", i + 1),
+        ));
     }
-    files.push((format!("b{}.ts", barrels + 1), "export class Base {}\n".to_string()));
+    files.push((
+        format!("b{}.ts", barrels + 1),
+        "export class Base {}\n".to_string(),
+    ));
     files
 }
 
 #[test]
 fn implementations_stop_at_four_barrels() {
-    let at = |n: usize| d_in(&format!("ts-bar-{n}"), &ts_barrel_subtype(n), "base.ts", "  run");
+    let at = |n: usize| {
+        d_in(
+            &format!("ts-bar-{n}"),
+            &ts_barrel_subtype(n),
+            "base.ts",
+            "  run",
+        )
+    };
     let other = vec![("Sub.run".into(), "by name".into(), "sub.ts:4".into())];
-    assert_eq!(at(4), Shown::Picker("run: at a declaration, 1 other by name".into(), other));
-    let wrong = jump("run \u{2192} Sub.run (implementations of Base.run)", "sub.ts:4");
+    assert_eq!(
+        at(4),
+        Shown::Picker("run: at a declaration, 1 other by name".into(), other)
+    );
+    let wrong = jump(
+        "run \u{2192} Sub.run (implementations of Base.run)",
+        "sub.ts:4",
+    );
     assert_eq!(at(5), wrong, "#794");
 }
 
 #[test]
 fn super_passes_over_the_bases_that_declare_nothing_worth_a_jump() {
     for plain in ["Generic[T]", "typing.Protocol", "ABC", "object"] {
-        let text = format!("import typing\nfrom abc import ABC\nfrom typing import Generic, TypeVar\n\nT = TypeVar(\"T\")\n\n\nclass Base:\n    def root(self):\n        pass\n\n\nclass Other:\n    def root(self):\n        pass\n\n\nclass Top({plain}, Base):\n    def root(self):\n        super().root()\n");
-        let found = d_in("py-plain", &[("app.py".into(), text)], "app.py", "super().root");
-        assert_eq!(found, jump("root \u{2192} Base.root (via super of Top)", "app.py:9"), "{plain}");
+        let text = format!(
+            "import typing\nfrom abc import ABC\nfrom typing import Generic, TypeVar\n\nT = TypeVar(\"T\")\n\n\nclass Base:\n    def root(self):\n        pass\n\n\nclass Other:\n    def root(self):\n        pass\n\n\nclass Top({plain}, Base):\n    def root(self):\n        super().root()\n"
+        );
+        let found = d_in(
+            "py-plain",
+            &[("app.py".into(), text)],
+            "app.py",
+            "super().root",
+        );
+        assert_eq!(
+            found,
+            jump("root \u{2192} Base.root (via super of Top)", "app.py:9"),
+            "{plain}"
+        );
     }
 }
 
@@ -357,9 +458,17 @@ fn a_php_assignment_is_read_over_twenty_lines() {
             "<?php\n\nclass Folder\n{{\n    public function root(): int\n    {{\n        return 0;\n    }}\n}}\n\nclass Other\n{{\n    public function root(): int\n    {{\n        return 1;\n    }}\n}}\n\nfunction walk(): int\n{{\n    $folder =\n{}        new Folder();\n    return $folder->root();\n}}\n",
             "\n".repeat(blank)
         );
-        d_in(&format!("php-stmt-{blank}"), &[("shop.php".into(), php)], "shop.php", "->root")
+        d_in(
+            &format!("php-stmt-{blank}"),
+            &[("shop.php".into(), php)],
+            "shop.php",
+            "->root",
+        )
     };
-    let typed = jump("root \u{2192} Folder::root (via $folder: Folder)", "shop.php:5");
+    let typed = jump(
+        "root \u{2192} Folder::root (via $folder: Folder)",
+        "shop.php:5",
+    );
     assert_eq!(at(18), typed);
     assert!(matches!(at(19), Shown::Picker(..)));
 }
@@ -368,23 +477,38 @@ fn a_php_assignment_is_read_over_twenty_lines() {
 fn what_a_php_class_outside_the_project_inherits_is_not_read() {
     let (dir, mut a) = project_app(
         "php-vendor",
-        &[(
-            "app/Song.php",
-            "<?php\n\nnamespace App;\n\nuse Lib\\Model;\n\nclass Song extends Model\n{\n}\n\nfunction keep(Song $song): void\n{\n    $song->save();\n    $song->fill();\n}\n",
-        ), ("app/Other.php", "<?php\n\nclass Other\n{\n    public function save(): void\n    {\n    }\n}\n")],
+        &[
+            (
+                "app/Song.php",
+                "<?php\n\nnamespace App;\n\nuse Lib\\Model;\n\nclass Song extends Model\n{\n}\n\nfunction keep(Song $song): void\n{\n    $song->save();\n    $song->fill();\n}\n",
+            ),
+            (
+                "app/Other.php",
+                "<?php\n\nclass Other\n{\n    public function save(): void\n    {\n    }\n}\n",
+            ),
+        ],
     );
     let vendor = external_root(
         "php-vendor-lib",
         &[
-            ("lib/Model.php", "<?php\n\nnamespace Lib;\n\nclass Model extends Base\n{\n    public function fill(): void\n    {\n    }\n}\n"),
-            ("lib/Base.php", "<?php\n\nnamespace Lib;\n\nclass Base\n{\n    public function save(): void\n    {\n    }\n}\n"),
+            (
+                "lib/Model.php",
+                "<?php\n\nnamespace Lib;\n\nclass Model extends Base\n{\n    public function fill(): void\n    {\n    }\n}\n",
+            ),
+            (
+                "lib/Base.php",
+                "<?php\n\nnamespace Lib;\n\nclass Base\n{\n    public function save(): void\n    {\n    }\n}\n",
+            ),
         ],
     );
     a.no_external();
     use_roots(&mut a, Kind::Php, std::slice::from_ref(&vendor));
     d_on(&mut a, "app/Song.php", "$song->fill");
     let model = vendor.join("lib/Model.php:7").display().to_string();
-    assert_eq!(shown(&mut a), jump("fill \u{2192} Model::fill (via $song: Song)", &model));
+    assert_eq!(
+        shown(&mut a),
+        jump("fill \u{2192} Model::fill (via $song: Song)", &model)
+    );
     d_on(&mut a, "app/Song.php", "$song->save");
     assert!(
         matches!(shown(&mut a), Shown::Picker(s, rows) if s == "save: by name, 2 declarations" && rows.len() == 2)
