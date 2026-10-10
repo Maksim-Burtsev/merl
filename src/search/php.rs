@@ -22,8 +22,6 @@ pub(super) fn php_properties(w: &str) -> [String; 2] {
     ]
 }
 
-/// A `case X:` of a `switch` matches against a constant, so what follows the name must not be a
-/// `:`.
 pub(super) fn php_constants(w: &str) -> [String; 2] {
     [
         format!(r"{}const\s+(?:[\w\\|&?()]+\s+)?{w}\b", php_mods!()),
@@ -38,7 +36,6 @@ pub(super) fn php_tags(w: &str) -> [String; 2] {
     ]
 }
 
-/// A method is indented: a `function` in column 0 is a global one.
 pub fn php_member_patterns(word: &str, call: bool) -> Vec<String> {
     let w = regex::escape(word);
     let [property, promoted] = php_properties(&w);
@@ -519,7 +516,6 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
     let first = statement.lines().next().unwrap_or_default();
     let n = regex::escape(name);
     let assign = Regex::new(&format!(r"(?:^|[^\w$:>])\${n}\s*=([^=>]|$)")).ok()?;
-    // A parameter's default, `Foo $x = null`, is no assignment of the variable.
     if let Some(t) = php_written_type(first, name) {
         return Some(PhpBinding::Type(t));
     }
@@ -578,13 +574,6 @@ pub(super) fn php_code(l: &str) -> String {
     }
     String::from_utf8_lossy(&out).into_owned()
 }
-/// The 1-based lines that bind PHP's `$name` where 1-based `line` of `text` reads it (#464). A
-/// variable belongs to its function or closure, which sees nothing of the scope around it but
-/// what its `use (…)` list names: its parameters (a promoted one included) and that list, and,
-/// above the cursor, a plain `=`, a `foreach` target, a `catch`, a `global` or `static`, a
-/// destructuring. A compound `.=`, `+=` or `??=` reads the variable first and binds nothing.
-/// Outside any function, the lines at the top of the file count. `None` in a class body, where
-/// `$name` declares a property.
 pub fn php_variable(text: &str, line: usize, name: &str) -> Option<Vec<usize>> {
     let raw: Vec<&str> = text.lines().collect();
     let at = line.checked_sub(1).filter(|&i| i < raw.len())?;
@@ -593,29 +582,12 @@ pub fn php_variable(text: &str, line: usize, name: &str) -> Option<Vec<usize>> {
     let n = regex::escape(name);
     let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
     let var = rule(format!(r"(?:^|[^\w$:>])\${n}\b"));
-    // A function or an arrow function in the statement the cursor's line ends, whose parameters
-    // or `use` list name the variable: the cursor stands on that declaration, in a header written
-    // over several lines, or in a one-line body. A promoted constructor parameter under the cursor
-    // is a property's declaration, whose namesakes the search by name offers (#104).
-    let mut top = at;
-    while top > 0 && at - top < 50 && !literal[top - 1] && {
-        let t = code_lines[top - 1].trim();
-        !t.is_empty() && !t.ends_with([';', '{', '}'])
-    } {
-        top -= 1;
-    }
-    let statement = code_lines[top..=at].join("\n");
-    let head = Regex::new(r"(?:^|[^\w$:>])(?:function|fn)\b([^{]*?)(?:\{|=>|$)").unwrap();
-    if let Some(at_var) = head
-        .captures_iter(&statement)
-        .filter_map(|c| var.find(&c[1]).map(|m| c.get(1).unwrap().start() + m.end()))
-        .last()
-    {
-        let bound = top + statement[..at_var].matches('\n').count();
+    if let Some(bound) = php_parameter_of_statement_ending_at(&code_lines, &literal, at, &var) {
         let promoted = rule(format!(
             r"(?:(?:public|private|protected|readonly)\s+)+(?:\??[\w\\|]+\s+)?\${n}\b"
         ));
-        return (bound != at || !promoted.is_match(&code_lines[at])).then(|| vec![bound + 1]);
+        let property_under_cursor = bound == at && promoted.is_match(&code_lines[at]);
+        return (!property_under_cursor).then(|| vec![bound + 1]);
     }
     let binds = [
         format!(r"(?:^|[^\w$:>])\${n}\s*=(?:[^=>]|$)"),
@@ -630,27 +602,18 @@ pub fn php_variable(text: &str, line: usize, name: &str) -> Option<Vec<usize>> {
     let from = match scope {
         PhpScope::Class => return None,
         PhpScope::TopOrNamespace => 0,
-        // The parameters and the `use` list, read from the last `function` of the header on.
         PhpScope::Function {
-            header_line: start,
-            body_line: open,
-            brace_byte: brace,
+            header_line,
+            body_line,
+            brace_byte,
         } => {
-            let mut seen = false;
-            for (i, l) in code_lines.iter().enumerate().take(open + 1).skip(start) {
-                let l = if i == open { &l[..brace] } else { &l[..] };
-                let l = match FUNCTION.find_iter(l).last() {
-                    Some(m) => {
-                        seen = true;
-                        &l[m.end()..]
-                    }
-                    None => l,
-                };
-                if seen && var.is_match(l) {
-                    out.push(i + 1);
-                }
-            }
-            open + 1
+            let header = &code_lines[header_line..=body_line];
+            out.extend(
+                php_parameter_lines(header, brace_byte, &var)
+                    .into_iter()
+                    .map(|i| header_line + i + 1),
+            );
+            body_line + 1
         }
     };
     out.extend(
@@ -660,6 +623,48 @@ pub fn php_variable(text: &str, line: usize, name: &str) -> Option<Vec<usize>> {
             .map(|i| i + 1),
     );
     Some(out)
+}
+fn php_parameter_of_statement_ending_at(
+    code_lines: &[String],
+    literal: &[bool],
+    at: usize,
+    var: &Regex,
+) -> Option<usize> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w$:>])(?:function|fn)\b([^{]*?)(?:\{|=>|$)").unwrap()
+    });
+    let mut top = at;
+    while top > 0 && at - top < 50 && !literal[top - 1] && {
+        let t = code_lines[top - 1].trim();
+        !t.is_empty() && !t.ends_with([';', '{', '}'])
+    } {
+        top -= 1;
+    }
+    let statement = code_lines[top..=at].join("\n");
+    let at_var = HEAD
+        .captures_iter(&statement)
+        .filter_map(|c| var.find(&c[1]).map(|m| c.get(1).unwrap().start() + m.end()))
+        .last()?;
+    Some(top + statement[..at_var].matches('\n').count())
+}
+fn php_parameter_lines(header: &[String], brace_byte: usize, var: &Regex) -> Vec<usize> {
+    let last = header.len() - 1;
+    let mut after_function = false;
+    let mut out = Vec::new();
+    for (i, l) in header.iter().enumerate() {
+        let l = if i == last { &l[..brace_byte] } else { &l[..] };
+        let l = match FUNCTION.find_iter(l).last() {
+            Some(m) => {
+                after_function = true;
+                &l[m.end()..]
+            }
+            None => l,
+        };
+        if after_function && var.is_match(l) {
+            out.push(i);
+        }
+    }
+    out
 }
 static FUNCTION: std::sync::LazyLock<Regex> =
     std::sync::LazyLock::new(|| Regex::new(r"(?:^|[^\w$:>])function\b").unwrap());
@@ -673,9 +678,6 @@ enum PhpScope {
         brace_byte: usize,
     },
 }
-/// The scope 0-based line `at` of `lines` (code only, [`php_code`]) stands in: the innermost
-/// brace above it left open whose header is a function, a class or a namespace. An `if`, a loop,
-/// a `match` is no scope in PHP.
 fn php_scope(lines: &[String], literal: &[bool], at: usize) -> PhpScope {
     static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:^|[^\w$:>])(?:class|interface|trait|enum)\b").unwrap()

@@ -865,6 +865,19 @@ fn php_def_patterns_tell_a_declaration_from_a_use() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+#[test]
+fn a_php_switch_case_is_no_constant_and_a_global_function_no_method() {
+    let text = "<?php\nconst LIMIT = 1;\nswitch ($x) {\n    case LIMIT:\n        break;\n}\nfunction total() {}\nclass Cart\n{\n    public function total() {}\n}\n";
+    let (dir, files) = scratch("php-case", &[("Cart.php", text)]);
+    assert_eq!(defs(&dir, &files, Kind::Php, "LIMIT"), [2]);
+    let methods = php_member_patterns("total", true).join("|");
+    let found: Vec<usize> = (grep(&dir, &files, &methods, false, false).iter())
+        .map(|h| h.line1)
+        .collect();
+    assert_eq!(found, [10]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// Typed class constants, the tags of a class's docblock and namespace segments (#344).
 const PHP_TAGS: &str = r#"<?php
 
