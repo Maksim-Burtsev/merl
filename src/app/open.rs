@@ -406,9 +406,6 @@ impl App {
     }
 }
 
-/// ponytail: one rewritten region per reload, which is what an agent's edit is. After a write
-/// that changed the file in several places the lines between them are off by what changed
-/// above them; a line diff would place those too.
 pub(super) fn carried(old: &[String], new: &[String], l: usize) -> usize {
     let (_, tail) = lines_alike_at_start_and_end(old, new);
     if l >= old.len() - tail {

@@ -257,9 +257,6 @@ impl App {
         (hunk.contains(&to) && !hunk.contains(&from)).then_some((1, key))
     }
 
-    // ponytail: the tries grow with the square of the run: a 3 s hold is judged in about 10 ms,
-    // a 10 s one in 60 ms, on the key after it. Bound a Left / Right walk by the chars left to
-    // go on the line, not only the lines, if a long hold ever lags.
     fn shortcut(&mut self, run: &Run, budget: usize) -> Option<(usize, &'static str)> {
         let (code, m) = run.key;
         let back = match code {

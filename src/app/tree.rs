@@ -95,8 +95,6 @@ impl App {
             .and_then(|()| std::fs::File::create_new(&path).map(drop));
         match made {
             Ok(()) => {
-                // ponytail: a whole walk on the key press, as at startup, rather than one path
-                // put into the tree and the list; a thread like the watcher's if it ever stalls.
                 let order = (self.tree_order.as_ref()).map(crate::tree::OrderFile::read);
                 let order = order.unwrap_or_default();
                 let (tree, files) = crate::tree::build_ordered(&self.root, self.shallow, &order);

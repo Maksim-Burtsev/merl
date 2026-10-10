@@ -74,10 +74,6 @@ impl App {
         }
     }
 
-    // ponytail: a stop is a hunk by its index at the time of the stop, checked against the
-    // count taken when the review opened, so an agent's edits mid-review can credit a new hunk
-    // or drop an unreached one; and a file the walk cannot open (a broken symlink) still counts
-    // its hunk. Identify a hunk by its text if the numbers need to hold under edits.
     fn review_stop(&self) -> Option<Stop> {
         let rel = self.rel_current()?;
         let f = self.review.as_ref()?.file(&rel)?;
@@ -206,9 +202,6 @@ impl App {
         self.last_hunk = self.rel_current().map(|rel| (rel, i));
     }
 
-    // ponytail: two hunks removed at or above the one left can pass an unread hunk, and a way
-    // back that fell to the file's last hunk keeps the larger index, not the one it landed on;
-    // recognise the hunk by its text if agents ever rewrite that much under a reader.
     pub(super) fn hunk_left(&self, r: &git::Review) -> Option<(PathBuf, TextLine)> {
         if self.rel_current().is_some_and(|rel| r.file(&rel).is_some()) {
             return None;
@@ -344,8 +337,6 @@ impl App {
         })
     }
 
-    // ponytail: reads every listed marked file on each refresh; compare mtimes first if a review
-    // of thousands of viewed files ever makes the refresh slow.
     fn recheck_viewed(&mut self) -> bool {
         let (mut viewed, mut hidden) = (HashMap::new(), HashMap::new());
         for (p, &h) in self.viewed.iter().chain(&self.hidden) {
