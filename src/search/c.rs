@@ -303,7 +303,6 @@ fn ctor_head_with_brackets_emptied(code: &str, at: usize) -> Option<String> {
             _ if depth == 0 => s.insert(0, c as char),
             _ => {}
         }
-        // ponytail: a constructor's head and list over 4 KB are not read.
         if at - i > 4096 {
             return None;
         }

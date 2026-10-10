@@ -285,7 +285,6 @@ pub fn type_name(kind: Kind, line: &str) -> Option<String> {
 pub fn type_decl_at(kind: Kind, text: &str, line1: usize) -> Option<usize> {
     let lines: Vec<&str> = text.lines().collect();
     let k = line1.checked_sub(1).filter(|&k| k < lines.len())?;
-    // ponytail: eight lines of header, which covers the widest prettier writes.
     for i in (k.saturating_sub(8)..=k).rev() {
         if declares_type(kind, lines[i]) {
             return Some(i + 1);

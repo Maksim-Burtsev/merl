@@ -10,9 +10,6 @@ pub(super) fn comment(kind: Kind, t: &str) -> bool {
         _ => ["//", "/*", "*"].iter().any(|c| t.starts_with(c)),
     }
 }
-/// ponytail: Elixir's `~S"""` sigil is read from its `"""`, and its one-line `~s(…)` forms not at
-/// all; Ruby's multi-line `%q{…}` is read as code, and a `/` opens a regex only after an operator
-/// or a bracket, not after `when` or `split `.
 pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     thread_local! {
         static LEXED: std::cell::RefCell<std::collections::VecDeque<(Kind, String, Vec<bool>)>> =
@@ -131,8 +128,6 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
         Kind::Terraform => (false, false, false, true, &["#", "//"]),
         Kind::Graphql => (true, false, false, false, &["#"]),
         Kind::Proto | Kind::Solidity => (false, false, false, true, &["//"]),
-        // ponytail: `//` is read in a `.css` file too, so a `/*` after a `url(//…)` on its line
-        // opens nothing (#415).
         Kind::Css => (false, false, false, true, &["//"]),
         Kind::Php => (false, false, true, true, &["//", "#"]),
         Kind::Rust => (false, false, false, true, &["//"]),
@@ -271,8 +266,6 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
             && (c == b'{' || c == b'}')
             && b[i - 1] != b'\\'
         {
-            // ponytail: the `{` of `/[{]/` in a template's hole still counts; skip regex
-            // literals in a hole if one shows up.
             let depth = template_substitution_braces.last_mut().expect("not empty");
             match (c, *depth) {
                 (b'{', _) => *depth += 1,
@@ -376,8 +369,6 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
             long_bracket_level = eq;
             i += skip;
         } else if template && c == b'`' {
-            // ponytail: `/`/` is a regex, told by the slash in front; a division by a template
-            // is not written.
             if i == 0 || b[i - 1] != b'/' {
                 literal_closer = Some(b"`".into());
             }
@@ -602,7 +593,6 @@ pub(super) fn group<'a>(
     at: usize,
     open: usize,
 ) -> Option<Group<'a>> {
-    // ponytail: a bracket still open 2000 lines on is not read; fastapi's signatures run to 350.
     let text = lines[at..lines.len().min(at + 2000)].join("\n");
     let end = close_of(kind, &text, open)?;
     let line_start = text[..end].rfind('\n').map_or(0, |n| n + 1);

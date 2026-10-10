@@ -27,7 +27,6 @@ static TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         .unwrap()
 });
 
-// ponytail: 80 lines; a call or a literal written over more is read as no label.
 const LINES_BACK_TO_THE_BRACKET: usize = 80;
 
 pub fn label_at(

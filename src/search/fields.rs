@@ -308,7 +308,6 @@ pub fn enum_member(kind: Kind, text: &str, decl: usize, word: &str) -> Option<(u
     if !ENUM.is_match(lines[k]) {
         return None;
     }
-    // ponytail: an enum body still open 2000 lines on is not read, as `group` reads none.
     let rest = lines[k..lines.len().min(k + 2000)].join("\n");
     let open = code(kind, &rest).find(|&(_, c)| c == b'{')?.0;
     let body = &rest[open + 1..close_of(kind, &rest, open)? - 1];
@@ -391,7 +390,6 @@ fn go_open_before(
     col: usize,
 ) -> Option<(usize, usize, u8)> {
     let mut depth = 0usize;
-    // ponytail: a literal still open 2000 lines up is not read.
     for j in (k.saturating_sub(2000)..=k).rev() {
         if j != k && literal.get(j) == Some(&true) {
             continue;
@@ -453,7 +451,6 @@ fn go_literal_type(
         false => pre.ends_with(['{', ',', ':']),
     };
     if elided {
-        // ponytail: eight elided levels deep.
         let (pj, pi, b'{') = go_open_before(lines, literal, j, i)? else {
             return None;
         };

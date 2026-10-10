@@ -144,7 +144,6 @@ struct Frames {
     in_string: bool,
 }
 fn wrapped_attribute_start(lines: &[String], line: usize) -> usize {
-    // ponytail: at most eight lines above the cursor.
     for i in (line.saturating_sub(8)..line).rev() {
         let t = lines[i].trim();
         if t.starts_with("#[") || t.starts_with("#![") {

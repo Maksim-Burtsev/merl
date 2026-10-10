@@ -524,7 +524,6 @@ fn cs_header(text: &str, decl: usize) -> Option<String> {
     let lines: Vec<&str> = text.lines().collect();
     let k = decl.checked_sub(1).filter(|&k| k < lines.len())?;
     let mut header = String::new();
-    // ponytail: eight lines of header.
     for l in &lines[k..lines.len().min(k + 8)] {
         let l = uncommented(Kind::CSharp, l);
         let end = l.find(['{', ';']);
@@ -633,7 +632,6 @@ pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> 
     if !(before.is_empty() || before.ends_with(['{', ','])) {
         return None;
     }
-    // ponytail: an initializer opening up to 200 lines above its member.
     let from = at.saturating_sub(200);
     let mut prefix = lines[from..at].join("\n");
     if at > from {

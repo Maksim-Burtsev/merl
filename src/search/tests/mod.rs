@@ -22,6 +22,7 @@ mod imports;
 mod jsdoc;
 mod julia;
 mod jvm;
+mod limits;
 mod links;
 mod lisp;
 mod ml;
