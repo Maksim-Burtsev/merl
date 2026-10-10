@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   file is read whole in the background, the status bar saying `[parsing]`, and the preview opens
   when it is done; a file the parser cannot read whole stays as source and the status bar says
   why (`p: line 41 is not JSON`). On any other file `p` says `no preview for .xyz`. (#763)
+- Two themes of merl's own with almost no syntax colours, for prose and for a review where
+  colour gets in the way: `seneca` and `seneca-light`, text in one grey and comments in a darker
+  one, and the dark `lucerna`, which adds brighter keywords and a bronze for definitions and the
+  chrome. (#775)
 - `f` folds Objective-C, `.m` files and the `.h` headers that hold Objective-C, where it said
   `no fold rules for .m`: on top of C's folds, an `@interface`, `@implementation` or `@protocol`
   to its `@end`, a method, a method declaration or `@property` wrapped over lines, a block, an

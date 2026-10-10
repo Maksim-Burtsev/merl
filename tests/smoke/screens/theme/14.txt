@@ -1,0 +1,57 @@
+wait seneca-light
+┌orders──────────────────────┐ 1 from dataclasses import dataclass, field
+│▸ .github                   │ 2 from datetime import datetime, timezone
+│▸ .venv                     │ 3 from decimal import Decimal
+│▾ app                       │ 4 from enum import Enum
+│    __init__.py             │ 5
+│    api.py                  │ 6
+│    config.py               │ 7 class OrderStatus(Enum):
+│    models.py               │ 8     PENDING = "pending"
+│    repos.py                │ 9     PAID = "paid"
+│    service.py              │10     SHIPPED = "shipped"
+│    uow.py                  │11     CANCELLED = "cancelled"
+│▸ data                      │12     R┌Themes (7/97)────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│▸ deploy                    │13      │> sene                                                                                                                                   │
+│▸ docs                      │14      │seneca                                                                                                                                   │
+│▸ scripts                   │15 @data│seneca-light                                                                                                                             │
+│▸ tests                     │16 class│selenized                                                                                                                                │
+│▸ web                       │17     i│selenized-light                                                                                                                          │
+│▸ worker                    │18     c│rose-pine                                                                                                                                │
+│  .env                      │19     t│rose-pine-moon                                                                                                                           │
+│  .gitignore                │20     s│rose-pine-dawn                                                                                                                           │
+│  docker-compose.yml        │21     c│                                                                                                                                         │
+│  Dockerfile                │22      │                                                                                                                                         │
+│  Makefile                  │23     d│                                                                                                                                         │
+│  pyproject.toml            │24      │                                                                                                                                         │
+│  README.md                 │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        │                                                                                                                                         │
+│                            │        └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+app/models.py  1:1  [code]                                                                                                                                                        ? help
+cursor (x,y,shown) 45,12,1

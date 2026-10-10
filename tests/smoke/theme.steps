@@ -31,3 +31,13 @@ key S-Down S-Down
 wait app/models.py  3:1
 key o
 wait Files (
+# merl's own themes without syntax colours are listed and open: seneca, seneca-light, lucerna (#775).
+key Escape
+merl --theme seneca app/models.py
+wait class OrderStatus(Enum):
+key T
+type sene
+wait seneca-light
+key Escape
+merl --theme lucerna app/models.py
+wait class OrderStatus(Enum):
