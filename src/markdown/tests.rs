@@ -815,3 +815,67 @@ fn a_picture_without_the_themes_source_takes_its_img() {
     let dests: Vec<String> = image_rows(&d).into_iter().map(|r| r.0).collect();
     assert_eq!(dests, ["fallback.png", "fallback.png", "fallback.png"]);
 }
+
+#[test]
+fn a_raw_html_block_is_shown_dim_as_it_is_written() {
+    let d = doc("<div>\nhi\n</div>\n", 20);
+    assert_eq!(look_of(&d, "<div>"), Ink::Dim.plain());
+}
+
+#[test]
+fn a_quote_wraps_in_the_room_its_bar_leaves() {
+    assert_eq!(
+        texts(&doc("> aaa bbb", 8)),
+        ["\u{2502} aaa", "\u{2502} bbb"]
+    );
+}
+
+#[test]
+fn the_blank_row_between_blocks_with_no_blank_line_shows_no_line() {
+    let d = doc("para\n- a", 20);
+    let gap = d.rows.iter().find(|r| r.kind == Kind::Gap).expect("a gap");
+    assert!(gap.lines.is_empty(), "{:?}", gap.lines);
+}
+
+#[test]
+fn code_is_on_its_tint_unless_its_row_has_a_background() {
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let palette = Palette::new(&theme);
+    let code = Ink::Code.plain();
+    assert_eq!(palette.style(code, false).bg, Some(palette.code_bg));
+    assert_eq!(palette.style(code, true).bg, None);
+}
+
+#[test]
+fn the_looks_of_a_row_are_in_order_and_disjoint() {
+    let d = doc(
+        "> - **bold** `code` [link](x) *it*\n\n| a | **b** |\n|---|---|\n| `1` | 2 |\n\n1. ~~gone~~ text",
+        30,
+    );
+    for r in &d.rows {
+        assert!(
+            r.looks.windows(2).all(|w| w[0].1.end <= w[1].1.start),
+            "{:?}: {:?}",
+            r.text,
+            r.looks
+        );
+    }
+}
+
+#[test]
+fn a_row_past_the_end_of_its_line_shows_no_line() {
+    let d = doc("| a |\n|---|\n| 1 |", 20);
+    let bottom = d.rows.last().unwrap();
+    assert_eq!((bottom.src, bottom.lines.clone()), ((2, usize::MAX), 2..2));
+    assert_eq!(
+        d.row_at((2, 0)),
+        d.rows.len() - 2,
+        "the cell's line is the cell's row"
+    );
+}
+
+#[test]
+fn with_no_row_that_shows_a_line_the_first_row_owns_them_all() {
+    let d = doc("[a]: https://example.com\n[b]: https://example.org", 20);
+    assert_eq!(d.rows[0].owns, [0, 1]);
+}

@@ -1,19 +1,12 @@
-//! The key table: every press routed to what it does.
-
 use super::*;
 
 impl App {
-    /// Handles one key. Returns `true` when merl should quit. A quit over edits that could not be
-    /// saved is refused once, with the ways out in the status bar; quitting again right away
-    /// leaves the edits behind.
     pub fn key(&mut self, key: KeyEvent) -> bool {
         self.key_at(key, Instant::now())
     }
 
-    /// [`App::key`], pressed at `at`.
     pub(crate) fn key_at(&mut self, key: KeyEvent, at: Instant) -> bool {
         let was = self.mode;
-        // Real work only: the tutorial's and the drill's presses are their tasks', not the hand's.
         let work = self.tutor.is_none() && key.kind == KeyEventKind::Press;
         let had_picker = self.picker.is_some();
         if work {
@@ -52,16 +45,11 @@ impl App {
         false
     }
 
-    /// Routes the key, and names in `keys_action_of_key_in_hand` the `KEYS` action it was routed
-    /// to, with an effect or without: `d` on a word with no definition counts, typing counts
-    /// nothing.
     pub(super) fn key_inner(&mut self, key: KeyEvent) -> bool {
         if key.kind != KeyEventKind::Press {
             return false;
         }
         let mut key = key;
-        // Option+Left / Right arrive as Esc b / Esc f from Ghostty, iTerm and Terminal.app. The
-        // prompts and the pickers move by word too, so this holds over them as well.
         if key.modifiers == KeyModifiers::ALT {
             match key.code {
                 KeyCode::Char('b') => key.code = KeyCode::Left,
@@ -69,19 +57,12 @@ impl App {
                 _ => {}
             }
         }
-        // Legacy terminals report Alt+X as Esc followed by X; treat it that way. When the Esc
-        // closes a picker, a prompt or the help, the letter belonged to that overlay and is
-        // dropped, so Alt+q over a picker cannot quit merl. Alt+arrow is unambiguous everywhere.
-        // Edit mode is no overlay and binds no Alt+letter: there the chord does nothing, rather
-        // than an Esc nobody pressed turning the rest of the word into commands.
         if key.modifiers.contains(KeyModifiers::ALT) && matches!(key.code, KeyCode::Char(_)) {
             if self.mode == Mode::Edit {
                 return false;
             }
             key.modifiers.remove(KeyModifiers::ALT);
             let overlay = self.picker.is_some() || self.mode != Mode::Normal;
-            // The Esc is how the terminal spells Alt, not a key pressed: the review session
-            // does not see it, so Alt+q alone is a session of `q` alone.
             let session = self.session.take();
             self.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
             self.session = session;
@@ -96,8 +77,6 @@ impl App {
         if matches!(key.code, KeyCode::Char(_)) {
             key.modifiers.remove(KeyModifiers::SHIFT);
         }
-        // Cmd+C / Cmd+X reach merl only from a terminal told to pass them on (see the README);
-        // they are the Ctrl chords then.
         if key.modifiers == KeyModifiers::SUPER && matches!(key.code, KeyCode::Char('c' | 'x')) {
             key.modifiers = KeyModifiers::CONTROL;
         }
@@ -106,7 +85,6 @@ impl App {
         let alt = key.modifiers.contains(KeyModifiers::ALT);
 
         if ctrl && key.code == KeyCode::Char('c') && self.mode != Mode::Edit {
-            // Ctrl+C is copy everywhere and never quits; a prompt or picker has nothing to copy.
             self.keys_action_of_key_in_hand = named("", key);
             let shown = !self.preview_blank() && !self.text_hidden();
             if self.mode == Mode::Normal && self.picker.is_none() && shown {
@@ -119,7 +97,6 @@ impl App {
             self.picker_key(key);
             return false;
         }
-        // A prompt takes every key but the Esc that closes it as typing.
         if matches!(self.mode, Mode::Goto | Mode::Find | Mode::New) {
             self.keys_action_of_key_in_hand = named("", key).filter(|a| *a == "Esc");
         }
@@ -154,7 +131,6 @@ impl App {
 
         self.message.clear();
         if self.mode == Mode::Edit && self.edit_key(key.code, ctrl, alt) {
-            // Typing counts nothing: edit mode's own chords do, and the Esc that leaves it.
             self.keys_action_of_key_in_hand = named("Edit: ", key)
                 .or_else(|| named("", key).filter(|a| matches!(*a, "Esc" | "Ctrl+C")));
             self.hist_note(false);
@@ -171,9 +147,6 @@ impl App {
                         key.code,
                         KeyCode::Up | KeyCode::Down | KeyCode::Left | KeyCode::Right
                     ));
-        // Ctrl+D/U and PageUp/Down are how merl scrolls, and a page is always farther than
-        // `HIST_NEAR`: the current stop follows the cursor anyway, so paging through a file adds
-        // no stops and drops no forward history.
         let paging = matches!(key.code, KeyCode::PageUp | KeyCode::PageDown)
             || ctrl && matches!(key.code, KeyCode::Char('d' | 'u'));
         let before = (self.at(), self.col);
@@ -188,7 +161,6 @@ impl App {
             .or_else(|| fold.then(|| named("Fold: ", key)).flatten())
             .or_else(|| named("", key));
         match key.code {
-            // The preview reads with keys of its own, and leaves those that act on the text.
             _ if self.preview_key(key) => {}
             KeyCode::Char('q') => return true,
             KeyCode::Char('?') => {
@@ -270,7 +242,6 @@ impl App {
             KeyCode::Right if shift && ctrl => self.extend(Self::line_end),
             KeyCode::Left if shift && alt => self.extend(Self::word_left),
             KeyCode::Right if shift && alt => self.extend(Self::word_right),
-            // A plain arrow on a selection collapses it to the matching end, VS Code style.
             KeyCode::Left | KeyCode::Right if !shift && !alt && self.selection().is_some() => {
                 let (start, end) = self.selection().unwrap();
                 let (t, col) = if key.code == KeyCode::Left {
@@ -344,7 +315,6 @@ impl App {
                         Some(path) => self.jump_to(&path, n),
                         None => self.goto_line(n),
                     },
-                    // An empty prompt is a cancel, as Esc.
                     Err(_) if self.prompt.is_empty() => {}
                     Err(_) => self.message = format!("no line {}", &*self.prompt),
                 }
@@ -355,7 +325,6 @@ impl App {
                 self.close_overlay();
                 self.prompt.clear();
             }
-            // Only digits are typed here; Ctrl+letter still edits the line.
             KeyCode::Char(c) if !c.is_ascii_digit() && key.modifiers.is_empty() => {}
             _ => {
                 self.prompt.key(key);
@@ -374,8 +343,6 @@ fn leaves_the_text(key: KeyEvent) -> bool {
     }
 }
 
-/// The `KEYS` action `key` is where `scope` routes it: `Picker: `, `Tree: `, `Help: `, `Edit: `,
-/// or `""` for the key table itself.
 pub(super) fn named(scope: &str, key: KeyEvent) -> Option<&'static str> {
     crate::stats::action(&format!("{scope}{}", crate::stats::name(key)))
 }

@@ -729,3 +729,23 @@ fn history_walk_puts_the_line_back_on_the_screen_row_it_was_left_on() {
     assert!(row(&mut a) < 10);
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn a_dependency_root_locks_only_the_files_the_walk_did_not_list() {
+    let (dir, mut a) = project_app(
+        "editable",
+        &[
+            ("src/pkg/a.py", "x = 1\n"),
+            (".gitignore", "node_modules/\n"),
+            ("web/node_modules/lib/i.js", "x\n"),
+        ],
+    );
+    use_roots(&mut a, Kind::Python, &[dir.join("src")]);
+    a.jump_to(&dir.join("src/pkg/a.py"), 1);
+    assert_eq!(a.buf.readonly, None, "an editable install's own source");
+    a.walked_roots
+        .insert(dir.join("web/node_modules"), Arc::new(Vec::new()));
+    a.jump_to(&dir.join("web/node_modules/lib/i.js"), 1);
+    assert_eq!(a.buf.readonly, Some("outside the project"));
+    std::fs::remove_dir_all(dir).unwrap();
+}

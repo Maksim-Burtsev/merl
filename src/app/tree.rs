@@ -15,7 +15,6 @@ impl App {
                     let path = self
                         .in_project(&path)
                         .map_or(path, |rel| self.root.join(rel));
-                    // The review panel opens a file on its first hunk; the tree where it was.
                     match self.review.as_ref().and_then(|r| r.file(&n.path)).cloned() {
                         Some(f) if self.buf.path.as_deref() != Some(&*path) => {
                             self.open_review_file(&f, false);
@@ -29,8 +28,6 @@ impl App {
         }
     }
 
-    /// Ctrl+N: asks for a path from the project root. It starts in the directory of the tree
-    /// row, or of the open file, as the explorers of VS Code and nvim-tree do.
     pub(super) fn start_new(&mut self) {
         let dir = match (self.focus, self.tree.selected()) {
             (Focus::Tree, Some(n)) if n.is_dir => Some(n.path.clone()),
@@ -39,7 +36,6 @@ impl App {
                 .rel_current()
                 .and_then(|p| Some(p.parent()?.to_path_buf())),
         }
-        // A file opened from outside the project has no directory in it.
         .filter(|d| d.is_relative() && !d.as_os_str().is_empty());
         self.mode = Mode::New;
         self.prompt =
@@ -61,10 +57,7 @@ impl App {
         }
     }
 
-    /// Creates `typed`, a path from the project root, with the directories it needs, and opens
-    /// it for editing. A file that is there already is opened as it is, never overwritten.
     fn create(&mut self, typed: &str) {
-        // An empty prompt is a cancel, as in `:`.
         if typed.is_empty() {
             return;
         }
@@ -93,7 +86,6 @@ impl App {
             self.say_about(&path, " is a directory");
             return;
         }
-        // Before anything is created: edits that cannot be saved keep their file open.
         if !self.flush() {
             return;
         }

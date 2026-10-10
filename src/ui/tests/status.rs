@@ -147,3 +147,9 @@ fn a_message_naming_a_long_path_keeps_its_reason() {
         "any other message is left as it is, a `/` in its first word or not: a GraphQL `#import`"
     );
 }
+
+#[test]
+fn a_session_with_no_file_watcher_says_auto_reload_is_off() {
+    let line = status_with("/work/app/paid.py", 80, |app| app.no_watch = true);
+    assert!(line.contains("  no auto-reload"), "{line:?}");
+}

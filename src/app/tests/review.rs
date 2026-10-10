@@ -2029,3 +2029,74 @@ fn a_file_renamed_without_changes_hides_its_text_and_takes_only_the_keys_that_le
     assert_eq!((a.mode, a.renamed_here()), (Mode::Edit, None));
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn a_review_started_on_a_line_stays_on_it() {
+    let (dir, _) = review_app("review-at-line");
+    let review = git::Review::open(&dir, None, None).unwrap();
+    let (tree, files) = crate::tree::build(&dir, false);
+    let buf = Buffer::load(&dir.join("src/a.rs")).unwrap();
+    let mut a = App::new(dir.clone(), tree, files, buf, Some((4, 1)));
+    a.start_review(review);
+    assert_eq!(a.line, 3);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_review_says_the_unread_marks_over_the_pushed_branch_over_the_skipped_files() {
+    let png: &[u8] = b"\x89PNG\0\0";
+    let (dir, _) = review_app_with("review-says", &[("src/0.png", png)]);
+    let start = |dir: &Path| {
+        let mut review = git::Review::open(dir, None, None).unwrap();
+        assert_eq!(review.files[0].path, Path::new("src/0.png"));
+        review.note = Some("behind origin/feature".into());
+        let (tree, files) = crate::tree::build(dir, false);
+        let mut a = App::new(dir.to_path_buf(), tree, files, Buffer::empty(), None);
+        a.start_review(review);
+        a.message
+    };
+    assert_eq!(start(&dir), "behind origin/feature");
+    std::fs::create_dir_all(dir.join(".git/merl/viewed")).unwrap();
+    let said = start(&dir);
+    assert!(said.starts_with("viewed marks not read: "), "{said}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_file_the_branch_deleted_is_viewed_with_the_hash_zero() {
+    let (dir, mut a) = review_app("viewed-gone");
+    a.jump_to(&dir.join("gone"), 1);
+    press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+    assert_eq!(a.viewed.get(Path::new("gone")), Some(&0));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_mark_the_listing_dropped_is_hidden_though_the_file_is_as_viewed() {
+    let (dir, mut a) = review_app("viewed-unlisted");
+    a.jump_to(&dir.join("tail"), 1);
+    press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+    let mut fresh = a.review.clone().unwrap();
+    fresh.files.retain(|f| f.path != Path::new("tail"));
+    a.review_refreshed(fresh);
+    assert_eq!(
+        marks(&a),
+        (vec![], vec![PathBuf::from("tail")]),
+        "kept for when the listing has it again"
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn an_unfolded_file_stays_unfolded_whatever_is_written_into_it() {
+    let (dir, mut a) = review_app_with_lock("unfolded-written");
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    assert!(a.folded_here().is_some());
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert!(a.folded_here().is_none());
+    std::fs::write(dir.join("poetry.lock"), lock_lines(&[0, 1, 4, 7])).unwrap();
+    let mut a = review_start(&dir, None);
+    a.jump_to(&dir.join("poetry.lock"), 1);
+    assert!(a.folded_here().is_none());
+    let _ = std::fs::remove_dir_all(dir);
+}

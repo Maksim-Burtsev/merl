@@ -216,3 +216,22 @@ fn every_group_of_keys_is_one_run() {
         }
     }
 }
+
+#[test]
+fn an_empty_goto_prompt_is_a_cancel() {
+    let mut a = app("a\nb\n");
+    a.line = 1;
+    press(&mut a, KeyCode::Char(':'), KeyModifiers::NONE);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!((a.mode, a.line, a.message.as_str()), (Mode::Normal, 1, ""));
+}
+
+#[test]
+fn the_goto_prompt_takes_only_digits_but_ctrl_letters_still_edit_it() {
+    let mut a = app("a\nb\n");
+    press(&mut a, KeyCode::Char(':'), KeyModifiers::NONE);
+    typed(&mut a, "1x2");
+    assert_eq!(&*a.prompt, "12");
+    press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+    assert_eq!(&*a.prompt, "");
+}

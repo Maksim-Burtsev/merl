@@ -460,3 +460,81 @@ fn o_from_a_fold_to_the_next_file_misses_c() {
     );
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn a_held_arrow_may_miss_a_key_that_overshoots_and_steps_back() {
+    let mut a = app(&"x\n".repeat(60));
+    hold(&mut a, KeyCode::Down, NONE, 9, FAST);
+    assert_eq!((a.line, &a.missed), (9, &missed(&[("PgDn", 1)])));
+}
+
+#[test]
+fn a_run_the_file_changed_under_counts_nothing() {
+    let mut a = app(&"x\n".repeat(60));
+    let t = Instant::now();
+    for i in 0..20 {
+        a.key_at(KeyEvent::new(KeyCode::Down, NONE), t + FAST * i);
+    }
+    std::fs::write(a.buf.path.clone().unwrap(), "x\n".repeat(70)).unwrap();
+    a.reload(false);
+    a.key_at(KeyEvent::new(KeyCode::Esc, NONE), t + FAST * 20);
+    assert!(a.missed.is_empty(), "{:?}", a.missed);
+}
+
+fn added_hunk_review(tag: &str) -> (PathBuf, App) {
+    let dir = std::env::temp_dir().join(format!("merl-{tag}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let git = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&dir)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    let lines = |r: std::ops::Range<usize>| r.map(|i| format!("l{i}\n")).collect::<String>();
+    git(&["init", "-q", "-b", "main"]);
+    git(&["config", "user.email", "t@t"]);
+    git(&["config", "user.name", "t"]);
+    std::fs::write(dir.join("m.rs"), lines(0..30)).unwrap();
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "base"]);
+    git(&["switch", "-q", "-c", "feature"]);
+    let added: String = (0..5).map(|i| format!("new{i}\n")).collect();
+    std::fs::write(dir.join("m.rs"), lines(0..10) + &added + &lines(10..30)).unwrap();
+    git(&["commit", "-qam", "work"]);
+    let review = git::Review::open(&dir, None, None).unwrap();
+    let (_, files) = crate::tree::build(&dir, false);
+    let mut a = App::new(dir.clone(), Tree::default(), files, Buffer::empty(), None);
+    a.start_review(review);
+    a.view_w = 40;
+    a.view_h = 16;
+    (dir, a)
+}
+
+#[test]
+fn a_run_into_a_hunk_misses_c_before_any_other_key() {
+    let (dir, mut a) = added_hunk_review("missed-hunk-first");
+    let m = dir.join("m.rs");
+    for (downs, line) in [(8, 10), (10, 12)] {
+        a.jump_to(&m, 3);
+        a.missed.clear();
+        hold(&mut a, KeyCode::Down, NONE, downs, FAST);
+        assert_eq!(
+            (a.line, &a.missed),
+            (line, &missed(&[("c", 1)])),
+            "{downs} × Down: Ctrl+D reaches it too, and anywhere in the hunk is `c`'s"
+        );
+    }
+    a.jump_to(&m, 3);
+    a.missed.clear();
+    hold(&mut a, KeyCode::Down, KeyModifiers::SHIFT, 8, FAST);
+    assert!(
+        !a.missed.contains_key("c"),
+        "`c` selects nothing: {:?}",
+        a.missed
+    );
+    std::fs::remove_dir_all(dir).unwrap();
+}

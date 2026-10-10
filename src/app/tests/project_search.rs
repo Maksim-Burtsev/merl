@@ -250,3 +250,24 @@ fn without_a_one_line_selection_the_project_search_opens_empty() {
     }
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
+
+#[test]
+fn a_hit_keeps_its_tabs_for_the_picker_to_line_up() {
+    let (path, mut a) = temp_file("tabs-s", "x =\t1\n");
+    press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+    typed(&mut a, "x");
+    a.settle_search();
+    let p = a.picker.as_mut().unwrap();
+    p.settle();
+    assert_eq!(
+        p.current().map(|it| it.label.as_str()),
+        Some("f.py:1: x =\t1")
+    );
+    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+}
+
+#[test]
+fn a_clipped_text_ends_in_an_ellipsis() {
+    assert_eq!(clip("abcdef", 3), "abc\u{2026}");
+    assert_eq!(clip("abc", 3), "abc");
+}

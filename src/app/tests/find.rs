@@ -305,3 +305,17 @@ fn a_seed_is_cut_to_the_cap() {
     press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
     assert_eq!(a.prompt.chars().count(), 1_000);
 }
+
+#[test]
+fn typing_after_a_find_from_edit_mode_is_an_undo_step_of_its_own() {
+    let mut a = app("ab\n");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    typed(&mut a, "x");
+    press(&mut a, KeyCode::Char('f'), KeyModifiers::CONTROL);
+    typed(&mut a, "a");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!((a.mode, a.line, a.col), (Mode::Edit, 0, 1));
+    typed(&mut a, "y");
+    press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+    assert_eq!(a.buf.lines[0], "xab");
+}
