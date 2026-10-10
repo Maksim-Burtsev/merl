@@ -4,8 +4,6 @@ pub fn changes(old: &str, new: &str) -> (Vec<Range<usize>>, Vec<Range<usize>>) {
     let (a, b) = (tokens(old), tokens(new));
     let (pre, suf) = common(old, new, &a, &b);
     let (mid_a, mid_b) = (&a[pre..a.len() - suf], &b[pre..b.len() - suf]);
-    // ponytail: past 250_000 pairs of middle tokens the LCS table costs more than the answer
-    // is worth; the whole middle of each side counts as changed.
     let (kept_a, kept_b) = if mid_a.len() * mid_b.len() > 250_000 {
         (vec![false; mid_a.len()], vec![false; mid_b.len()])
     } else {
@@ -23,8 +21,6 @@ pub fn similarity(old: &str, new: &str) -> f64 {
         .chain(&a[a.len() - suf..])
         .map(|t| non_space_chars(old, t))
         .sum();
-    // ponytail: the same ceiling as `changes`; over it, only the prefix and suffix count as
-    // kept.
     if mid_a.len() * mid_b.len() <= 250_000 {
         let (kept_a, _) = in_lcs(&texts(old, mid_a), &texts(new, mid_b));
         kept += mid_a
@@ -45,7 +41,6 @@ pub fn pair(deleted: &[String], added: &[String]) -> Vec<(usize, usize)> {
     if deleted.len() == added.len() {
         return (0..deleted.len()).map(|i| (i, i)).collect();
     }
-    // ponytail: the DP is n×m; past 400 pairs of lines a hunk gets no pairs at all.
     if deleted.len() * added.len() > 400 {
         return Vec::new();
     }
@@ -328,5 +323,26 @@ mod tests {
             vec![(0, 0), (1, 1)]
         );
         assert!(pair(&["let x = 1;".to_string()], added).is_empty());
+    }
+
+    fn words_between(first: &str, words: usize, last: &str) -> String {
+        format!("{first}{} {last}", " w".repeat(words))
+    }
+
+    #[test]
+    fn the_middles_are_matched_up_to_250_000_pairs_of_tokens() {
+        let (old, new) = (words_between("A", 248, "C"), words_between("B", 248, "D"));
+        assert_eq!(changes(&old, &new).0, [0..1, old.len() - 1..old.len()]);
+        assert!(similarity(&old, &new) > 0.9);
+        let (old, new) = (words_between("A", 249, "C"), words_between("B", 249, "D"));
+        assert_eq!(changes(&old, &new).0, [0..old.len()]);
+        assert_eq!(similarity(&old, &new), 0.0);
+    }
+
+    #[test]
+    fn lines_are_paired_up_to_400_pairs_of_lines() {
+        let lines = |n: usize| (0..n).map(|i| format!("line {i}")).collect::<Vec<_>>();
+        assert_eq!(pair(&lines(16), &lines(25)).len(), 16);
+        assert!(pair(&lines(17), &lines(25)).is_empty());
     }
 }
