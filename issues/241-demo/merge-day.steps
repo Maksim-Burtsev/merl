@@ -1,0 +1,25 @@
+# Round 1, then the author pushes a fix and a merge of master (PR #704), then round 2.
+sleep 0.5
+type merl -t tokyonight-day --review=b1004/undo-steps-478
+key Enter
+wait files ·
+sleep 1.2
+key q
+sleep 0.6
+type # the author pushes a fix and merges master
+key Enter
+sleep 0.3
+type merl -t tokyonight-day --review=b1004/undo-steps-478
+key Enter
+wait files ·
+sleep 2
+key c
+sleep 0.4
+key c
+sleep 0.4
+key c
+sleep 0.4
+key c
+sleep 0.4
+key c
+sleep 2.5
