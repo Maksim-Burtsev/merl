@@ -143,7 +143,6 @@ fn def_binds(lines: &[&str], def_line0: usize, name: &str) -> bool {
             Some(g) => g.inner_uncommented,
             None => return false,
         },
-        // `def m a, b`: up to a `;` or a comment. `def m = …` has none.
         None if rest.starts_with([' ', '\t'])
             && !rest.trim_start().starts_with(['=', ';', '#']) =>
         {

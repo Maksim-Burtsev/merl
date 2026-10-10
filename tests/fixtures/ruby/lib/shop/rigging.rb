@@ -72,7 +72,7 @@ module Shop
 
     def lash fore, aft # fore, scupper
       scupper
-    # ^ d: lib/shop/rigging.rb:73; want lib/shop/rigging.rb:14 (#789)
+    # ^ d: lib/shop/rigging.rb:14
     end
   end
 end

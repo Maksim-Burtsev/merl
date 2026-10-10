@@ -304,8 +304,7 @@ fn events(kind: Kind, line: &str) -> Vec<(usize, u8)> {
     let b = line.as_bytes();
     let mut out = Vec::new();
     for (i, c) in code(kind, line) {
-        let hash =
-            c == b'#' && (kind == Kind::Ruby || (kind == Kind::Php && b.get(i + 1) != Some(&b'[')));
+        let hash = c == b'#' && kind == Kind::Php && b.get(i + 1) != Some(&b'[');
         if c == 0 || hash {
             break;
         }
