@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `p` previews more than Markdown: a `.csv` or `.tsv` file as a table with its first row bold,
+  a `.jsonl` or `.ndjson` file as its records, each pretty-printed and highlighted with a rule
+  between them, and a `.mmd` or `.mermaid` file as its diagram, where merl draws Mermaid. The
+  file is read whole in the background, the status bar saying `[parsing]`, and the preview opens
+  when it is done; a file the parser cannot read whole stays as source and the status bar says
+  why (`p: line 41 is not JSON`). On any other file `p` says `no preview for .xyz`. (#763)
 - Two themes of merl's own with almost no syntax colours, for prose and for a review where
   colour gets in the way: `seneca` and `seneca-light`, text in one grey and comments in a darker
   one, and the dark `lucerna`, which adds brighter keywords and a bronze for definitions and the

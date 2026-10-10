@@ -1,0 +1,419 @@
+merl snapshot: preview-csv
+
+==== 80x24 tokyonight-moon text, cursor hidden
+┌notes───────────────────────┐   ┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬──
+│▸ tests                     │   │ i │ c │ u │ d │ d │ p │ a │ p │ t │ t │ t │ s
+│  cli.py                    │   │ d │ r │ p │ u │ o │ i │ r │ r │ a │ i │ e │ o
+│  config.py                 │   │   │ e │ d │ e │ n │ n │ c │ i │ g │ t │ x │ u
+│  export.csv                │   │   │ a │ a │   │ e │ n │ h │ o │ s │ l │ t │ r
+│  Makefile                  │   │   │ t │ t │   │   │ e │ i │ r │   │ e │   │ c
+│  models.py                 │   │   │ e │ e │   │   │ d │ v │ i │   │   │   │ e
+│  notes.json                │   │   │ d │ d │   │   │   │ e │ t │   │   │   │
+│  PLAN.md                   │   │   │   │   │   │   │   │ d │ y │   │   │   │
+│  store.py                  │   ├───┼───┼───┼───┼───┼───┼───┼───┼───┼───┼───┼──
+│                            │   │ 1 │ 2 │ 2 │   │ y │ n │ n │ l │ h │ b │ W │ i
+│                            │   │   │ 0 │ 0 │   │ e │ o │ o │ o │ o │ u │ h │ m
+│                            │   │   │ 2 │ 2 │   │ s │   │   │ w │ m │ y │ o │ p
+│                            │   │   │ 6 │ 6 │   │   │   │   │   │ e │ m │ l │ o
+│                            │   │   │ - │ - │   │   │   │   │   │   │ i │ e │ r
+│                            │   │   │ 0 │ 0 │   │   │   │   │   │   │ l │ m │ t
+│                            │   │   │ 1 │ 1 │   │   │   │   │   │   │ k │ i │
+│                            │   │   │ - │ - │   │   │   │   │   │   │   │ l │
+│                            │   │   │ 0 │ 0 │   │   │   │   │   │   │   │ k │
+│                            │   │   │ 8 │ 8 │   │   │   │   │   │   │   │ , │
+│                            │   │   │   │   │   │   │   │   │   │   │   │ t │
+│                            │   │   │   │   │   │   │   │   │   │   │   │ w │
+└────────────────────────────┘   │   │   │   │   │   │   │   │   │   │   │ o │
+export.csv  1:1  [preview]                                               ? help
+
+==== 80x24 tokyonight-moon styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccddddddddddddddddddddddddddddddddddddddddddddddd
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaeeefghffghffghffghffghffghffghffghffghffghffghffgh
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdijddijddijddijddijddijddijddijddijddijddijddij
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiddijddijddijddijddijddijddijddijddijddijddij
+akkkkkkkkkkkkkkkkkkkkkkkkkkkkacccdiiddijddijddiiddijddijddijddijddijddijddijddij
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiddijddijddiiddiiddijddijddijddiiddijddiiddij
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiddijddijddiiddiiddijddijddijddiiddiiddiiddij
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiddijddijddiiddiiddiiddijddijddiiddiiddiiddii
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiddiiddiiddiiddiiddiiddijddijddiiddiiddiiddii
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccddddddddddddddddddddddddddddddddddddddddddddddd
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddii
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddii
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddii
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddii
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddii
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddii
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddii
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddii
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddii
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddii
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddii
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddii
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccdiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddii
+llllllllllgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+a fg #82aaff bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #6b6f80 bg #222436
+d fg #32374f bg #222436
+e fg #6b6f80 bg #1b1d2c
+f fg #32374f bg #1b1d2c
+g fg #c8d3f5 bg #1b1d2c
+h fg #c8d3f5 bg #1b1d2c BOLD
+i fg #c8d3f5 bg #222436
+j fg #c8d3f5 bg #222436 BOLD
+k fg #c8d3f5 bg #1e2031
+l fg #82aaff bg #1b1d2c BOLD
+
+==== 80x24 github-light styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccc
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaddddefddefddefddefddefddefddefddefddefddefddefddef
+aggggggggggggggggggggggggggggaccccghccghccghccghccghccghccghccghccghccghccghccgh
+aggggggggggggggggggggggggggggaccccggccghccghccghccghccghccghccghccghccghccghccgh
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiaccccggccghccghccggccghccghccghccghccghccghccghccgh
+aggggggggggggggggggggggggggggaccccggccghccghccggccggccghccghccghccggccghccggccgh
+aggggggggggggggggggggggggggggaccccggccghccghccggccggccghccghccghccggccggccggccgh
+aggggggggggggggggggggggggggggaccccggccghccghccggccggccggccghccghccggccggccggccgg
+aggggggggggggggggggggggggggggaccccggccggccggccggccggccggccghccghccggccggccggccgg
+aggggggggggggggggggggggggggggacccccccccccccccccccccccccccccccccccccccccccccccccc
+aggggggggggggggggggggggggggggaccccggccggccggccggccggccggccggccggccggccggccggccgg
+aggggggggggggggggggggggggggggaccccggccggccggccggccggccggccggccggccggccggccggccgg
+aggggggggggggggggggggggggggggaccccggccggccggccggccggccggccggccggccggccggccggccgg
+aggggggggggggggggggggggggggggaccccggccggccggccggccggccggccggccggccggccggccggccgg
+aggggggggggggggggggggggggggggaccccggccggccggccggccggccggccggccggccggccggccggccgg
+aggggggggggggggggggggggggggggaccccggccggccggccggccggccggccggccggccggccggccggccgg
+aggggggggggggggggggggggggggggaccccggccggccggccggccggccggccggccggccggccggccggccgg
+aggggggggggggggggggggggggggggaccccggccggccggccggccggccggccggccggccggccggccggccgg
+aggggggggggggggggggggggggggggaccccggccggccggccggccggccggccggccggccggccggccggccgg
+aggggggggggggggggggggggggggggaccccggccggccggccggccggccggccggccggccggccggccggccgg
+aggggggggggggggggggggggggggggaccccggccggccggccggccggccggccggccggccggccggccggccgg
+aggggggggggggggggggggggggggggaccccggccggccggccggccggccggccggccggccggccggccggccgg
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccccggccggccggccggccggccggccggccggccggccggccggccgg
+jjjjjjjjjjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+a fg #6639ba bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #6e7781 bg #ffffff
+d fg #6e7781 bg #e7eaf0
+e fg #1f2328 bg #e7eaf0
+f fg #1f2328 bg #e7eaf0 BOLD
+g fg #1f2328 bg #ffffff
+h fg #1f2328 bg #ffffff BOLD
+i fg #1f2328 bg #f3f4f7
+j fg #6639ba bg #e7eaf0 BOLD
+
+==== 120x33 tokyonight-moon text, cursor hidden
+┌notes───────────────────────┐   ┌────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┬─────┬─────┬─────┐
+│▸ tests                     │   │ id │ crea │ upda │ due  │ done │ pinn │ arch │ prio │ tags │ titl │ tex │ sou │ wor │
+│  cli.py                    │   │    │ ted  │ ted  │      │      │ ed   │ ived │ rity │      │ e    │ t   │ rce │ ds  │
+│  config.py                 │   ├────┼──────┼──────┼──────┼──────┼──────┼──────┼──────┼──────┼──────┼─────┼─────┼─────┤
+│  export.csv                │   │ 1  │ 2026 │ 2026 │      │ yes  │ no   │ no   │ low  │ home │ buy  │ Who │ imp │ 36  │
+│  Makefile                  │   │    │ -01- │ -01- │      │      │      │      │      │      │ milk │ le  │ ort │     │
+│  models.py                 │   │    │ 08   │ 08   │      │      │      │      │      │      │      │ mil │     │     │
+│  notes.json                │   │    │      │      │      │      │      │      │      │      │      │ k,  │     │     │
+│  PLAN.md                   │   │    │      │      │      │      │      │      │      │      │      │ two │     │     │
+│  store.py                  │   │    │      │      │      │      │      │      │      │      │      │ lit │     │     │
+│                            │   │    │      │      │      │      │      │      │      │      │      │ res │     │     │
+│                            │   │    │      │      │      │      │      │      │      │      │      │ ,   │     │     │
+│                            │   │    │      │      │      │      │      │      │      │      │      │ and │     │     │
+│                            │   │    │      │      │      │      │      │      │      │      │      │ oat │     │     │
+│                            │   │    │      │      │      │      │      │      │      │      │      │ mil │     │     │
+│                            │   │    │      │      │      │      │      │      │      │      │      │ k   │     │     │
+│                            │   │    │      │      │      │      │      │      │      │      │      │ if  │     │     │
+│                            │   │    │      │      │      │      │      │      │      │      │      │ the │     │     │
+│                            │   │    │      │      │      │      │      │      │      │      │      │ sho │     │     │
+│                            │   │    │      │      │      │      │      │      │      │      │      │ p   │     │     │
+│                            │   │    │      │      │      │      │      │      │      │      │      │ by  │     │     │
+│                            │   │    │      │      │      │      │      │      │      │      │      │ the │     │     │
+│                            │   │    │      │      │      │      │      │      │      │      │      │ sta │     │     │
+│                            │   │    │      │      │      │      │      │      │      │      │      │ tio │     │     │
+│                            │   │    │      │      │      │      │      │      │      │      │      │ n   │     │     │
+│                            │   │    │      │      │      │      │      │      │      │      │      │ has │     │     │
+│                            │   │    │      │      │      │      │      │      │      │      │      │ the │     │     │
+│                            │   │    │      │      │      │      │      │      │      │      │      │ bar │     │     │
+│                            │   │    │      │      │      │      │      │      │      │      │      │ ist │     │     │
+│                            │   │    │      │      │      │      │      │      │      │      │      │ a   │     │     │
+│                            │   │    │      │      │      │      │      │      │      │      │      │ one │     │     │
+└────────────────────────────┘   │    │      │      │      │      │      │      │      │      │      │ aga │     │     │
+export.csv  1:1  [preview]                                                                                       ? help
+
+==== 120x33 tokyonight-moon styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaeeefghhffghhhhffghhhhffghhhgffghhhhffghhhhffghhhhffghhhhffghhhhffghhhhffghhhffghhhffghhhgf
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddijjjiddijjjiddiiiiiddiiiiiddijjiiddijjjjddijjjjddiiiiiddijiiiddijiiddijjjddijjiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+akkkkkkkkkkkkkkkkkkkkkkkkkkkkacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiddiiiiddiiiiid
+llllllllllgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+a fg #82aaff bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #6b6f80 bg #222436
+d fg #32374f bg #222436
+e fg #6b6f80 bg #1b1d2c
+f fg #32374f bg #1b1d2c
+g fg #c8d3f5 bg #1b1d2c
+h fg #c8d3f5 bg #1b1d2c BOLD
+i fg #c8d3f5 bg #222436
+j fg #c8d3f5 bg #222436 BOLD
+k fg #c8d3f5 bg #1e2031
+l fg #82aaff bg #1b1d2c BOLD
+
+==== 120x33 github-light styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaddddeffddeffffddeffffddefffeddeffffddeffffddeffffddeffffddeffffddeffffddefffddefffddefffed
+aggggggggggggggggggggggggggggaccccgggccghhhgccghhhgccgggggccgggggccghhggccghhhhccghhhhccgggggccghgggccghggccghhhccghhggc
+aggggggggggggggggggggggggggggacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aggggggggggggggggggggggggggggaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccccgggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccgggggccggggccggggccgggggc
+jjjjjjjjjjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+a fg #6639ba bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #6e7781 bg #ffffff
+d fg #6e7781 bg #e7eaf0
+e fg #1f2328 bg #e7eaf0
+f fg #1f2328 bg #e7eaf0 BOLD
+g fg #1f2328 bg #ffffff
+h fg #1f2328 bg #ffffff BOLD
+i fg #1f2328 bg #f3f4f7
+j fg #6639ba bg #e7eaf0 BOLD
+
+==== 185x55 tokyonight-moon text, cursor hidden
+┌notes───────────────────────┐   ┌────┬────────────┬────────────┬────────────┬──────┬────────┬──────────┬──────────┬─────────────────┬────────────────┬────────────────┬────────┬───────┐
+│▸ tests                     │   │ id │ created    │ updated    │ due        │ done │ pinned │ archived │ priority │ tags            │ title          │ text           │ source │ words │
+│  cli.py                    │   ├────┼────────────┼────────────┼────────────┼──────┼────────┼──────────┼──────────┼─────────────────┼────────────────┼────────────────┼────────┼───────┤
+│  config.py                 │   │ 1  │ 2026-01-08 │ 2026-01-08 │            │ yes  │ no     │ no       │ low      │ home            │ buy milk       │ Whole milk,    │ import │ 36    │
+│  export.csv                │   │    │            │            │            │      │        │          │          │                 │                │ two litres,    │        │       │
+│  Makefile                  │   │    │            │            │            │      │        │          │          │                 │                │ and oat milk   │        │       │
+│  models.py                 │   │    │            │            │            │      │        │          │          │                 │                │ if the shop by │        │       │
+│  notes.json                │   │    │            │            │            │      │        │          │          │                 │                │ the station    │        │       │
+│  PLAN.md                   │   │    │            │            │            │      │        │          │          │                 │                │ has the        │        │       │
+│  store.py                  │   │    │            │            │            │      │        │          │          │                 │                │ barista one    │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ again;         │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ otherwise skip │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ the oat milk   │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ and get more   │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ of the whole   │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ instead, it    │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ keeps until    │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ the weekend    │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ anyway.        │        │       │
+│                            │   │ 3  │ 2026-01-18 │ 2026-02-02 │ 2026-02-10 │ yes  │ yes    │ no       │ high     │ health          │ call the       │ The temporary  │ import │ 35    │
+│                            │   │    │            │            │            │      │        │          │          │                 │ dentist about  │ crown on the   │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │ the crown      │ lower left     │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ molar came     │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ loose on       │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ Tuesday. Ask   │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ whether they   │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ can see me     │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ before the     │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ tenth, whether │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ the insurance  │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ covers a       │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ second         │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ fitting, and   │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ what to avoid  │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ eating until   │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ then.          │        │       │
+│                            │   │ 4  │ 2026-01-23 │ 2026-01-23 │ 2026-03-01 │ no   │ yes    │ no       │ high     │ papers          │ renew the      │ Needs two      │ import │ 40    │
+│                            │   │    │            │            │            │      │        │          │          │                 │ passport       │ photos to the  │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │ before March   │ new size       │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ rules, the old │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ passport, the  │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ form printed   │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ on one side    │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ only, and the  │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ fee paid by    │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ card at the    │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ counter; the   │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ appointment    │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ slots open on  │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ Mondays at     │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ nine and go    │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ within the     │        │       │
+│                            │   │    │            │            │            │      │        │          │          │                 │                │ hour.          │        │       │
+└────────────────────────────┘   │ 8  │ 2026-02-12 │ 2026-02-20 │ 2026-02-28 │ no   │ no     │ no       │ medium   │ work money      │ send the       │ Hours from the │ import │ 38    │
+export.csv  1:1  [preview]                                                                                                                                                        ? help
+
+==== 185x55 tokyonight-moon styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaeeefghhffghhhhhhhgggffghhhhhhhgggffghhhgggggggffghhhhffghhhhhhffghhhhhhhhffghhhhhhhhffghhhhgggggggggggffghhhhhgggggggggffghhhhggggggggggffghhhhhhffghhhhhgf
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiddiiiiiiiddiiiiiiiiiddiiiiiiiiiddiiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiiiiiiiiiddiiiiiiiddiiiiiiid
+kkkkkkkkkkggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+a fg #82aaff bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #6b6f80 bg #222436
+d fg #32374f bg #222436
+e fg #6b6f80 bg #1b1d2c
+f fg #32374f bg #1b1d2c
+g fg #c8d3f5 bg #1b1d2c
+h fg #c8d3f5 bg #1b1d2c BOLD
+i fg #c8d3f5 bg #222436
+j fg #c8d3f5 bg #1e2031
+k fg #82aaff bg #1b1d2c BOLD
+
+==== 185x55 github-light styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaddddeffddefffffffeeeddefffffffeeeddefffeeeeeeeddeffffddeffffffddeffffffffddeffffffffddeffffeeeeeeeeeeeddefffffeeeeeeeeeddeffffeeeeeeeeeeddeffffffddefffffed
+aggggggggggggggggggggggggggggaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+ahhhhhhhhhhhhhhhhhhhhhhhhhhhhaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aggggggggggggggggggggggggggggaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccccgggccgggggggggggccgggggggggggccgggggggggggccgggggccgggggggccgggggggggccgggggggggccggggggggggggggggccgggggggggggggggccgggggggggggggggccgggggggccgggggggc
+iiiiiiiiiieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+a fg #6639ba bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #6e7781 bg #ffffff
+d fg #6e7781 bg #e7eaf0
+e fg #1f2328 bg #e7eaf0
+f fg #1f2328 bg #e7eaf0 BOLD
+g fg #1f2328 bg #ffffff
+h fg #1f2328 bg #f3f4f7
+i fg #6639ba bg #e7eaf0 BOLD

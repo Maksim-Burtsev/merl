@@ -39,6 +39,7 @@ mod open;
 mod perl;
 mod picker;
 mod preview;
+mod preview_data;
 mod project_search;
 mod r;
 mod review;

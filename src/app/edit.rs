@@ -38,7 +38,7 @@ impl App {
 
     /// Into edit mode, the one way there: the text being typed is never under the preview.
     pub(super) fn edit_mode(&mut self) {
-        if self.previewing() {
+        if self.previewing() || self.preview_pending() {
             self.toggle_preview();
         }
         self.mode = Mode::Edit;
@@ -431,9 +431,10 @@ impl App {
     /// Autosave, called by the event loop between events. Returns `true` when it tried, which
     /// changes the status bar whether the file was written, refused or found changed on disk.
     pub fn tick(&mut self) -> bool {
+        let parsed = self.parse_tick();
         let due = self.last_edit.is_some_and(|t| t.elapsed() >= self.autosave);
         if !due || !self.dirty || self.conflict {
-            return false;
+            return parsed;
         }
         self.save();
         true

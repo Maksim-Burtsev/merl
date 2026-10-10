@@ -1,0 +1,57 @@
+wait {"id":1,"items"
+┌orders──────────────────────┐1 {"id":1,"items":[{"sku":"A-1","qty":2}],"paid":true}
+│▸ .github                   │2 {"id":2,"items":[]}
+│▸ .venv                     │
+│▸ app                       │
+│▾ data                      │
+│  A broken.jsonl            │
+│  A events.jsonl            │
+│    orders.min.json         │
+│    refunds-2026-08.csv     │
+│  A refunds.csv             │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+data/events.jsonl  1:1  [code]                                                                                                                                                    ? help
+cursor (x,y,shown) 32,0,1

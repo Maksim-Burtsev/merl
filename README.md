@@ -211,7 +211,7 @@ counts stay on your machine.
 | Key | Action |
 |---|---|
 | w | Wrap long lines, or cut them at the edge and scroll sideways |
-| p | Show a Markdown file rendered, or its source again |
+| p | Show a file rendered: Markdown, CSV/TSV, JSONL, Mermaid |
 | f | Fold the function or block at the cursor into its first line, or unfold it |
 | T | Pick a theme (live preview) |
 | Esc | Close an overlay, leave edit mode, or clear selection and find |
