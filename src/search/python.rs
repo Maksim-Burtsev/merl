@@ -543,14 +543,19 @@ pub fn def_parameter(text: &str, line1: usize, range: &std::ops::Range<usize>) -
     {
         return false;
     }
-    let Some(d) = (0..=at).rev().find(|&i| DEF.is_match(lines[i].trim_start())) else {
+    let Some(d) = (0..=at)
+        .rev()
+        .find(|&i| DEF.is_match(lines[i].trim_start()))
+    else {
         return false;
     };
     let Some(Group {
         inner_uncommented: params,
         close_line,
         ..
-    }) = lines[d].find('(').and_then(|open| group(Kind::Python, &lines, d, open))
+    }) = lines[d]
+        .find('(')
+        .and_then(|open| group(Kind::Python, &lines, d, open))
     else {
         return false;
     };
