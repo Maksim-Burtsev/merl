@@ -139,3 +139,61 @@ fn of_two_versions_of_a_crate_the_first_root_answers() {
     let _ = std::fs::remove_dir_all(dir);
     let _ = std::fs::remove_dir_all(registry);
 }
+
+fn chain(head: &str, links: usize) -> String {
+    format!("{head}{}", ".parent".repeat(links))
+}
+
+fn chain_in(lang: &str, links: usize) -> Shown {
+    let tag = format!("{lang}-chain-{links}");
+    let files = |name: &str, text: String| vec![(name.to_string(), text)];
+    match lang {
+        "rust" => {
+            let rs = format!(
+                "pub struct Folder {{\n    pub parent: Folder,\n}}\n\nimpl Folder {{\n    pub fn root(&self) -> u32 {{\n        0\n    }}\n}}\n\npub struct Other;\n\nimpl Other {{\n    pub fn root(&self) -> u32 {{\n        1\n    }}\n}}\n\npub fn walk(folder: &Folder) -> u32 {{\n    {}.root()\n}}\n",
+                chain("folder", links)
+            );
+            d_in(&tag, &files("src/lib.rs", rs), "src/lib.rs", ".root")
+        }
+        "csharp" => {
+            let cs = format!(
+                "namespace Shop;\n\npublic class Folder\n{{\n    public Folder Parent;\n\n    public int Root() => 0;\n}}\n\npublic class Other\n{{\n    public int Root() => 1;\n}}\n\npublic class Walker\n{{\n    public int Walk(Folder folder) => {}.Root();\n}}\n",
+                chain("folder", links).replace(".parent", ".Parent")
+            );
+            d_in(&tag, &files("Shop.cs", cs), "Shop.cs", ".Root")
+        }
+        "php" => {
+            let php = format!(
+                "<?php\n\nclass Folder\n{{\n    public Folder $parent;\n\n    public function root(): int\n    {{\n        return 0;\n    }}\n}}\n\nclass Other\n{{\n    public function root(): int\n    {{\n        return 1;\n    }}\n}}\n\nfunction walk(Folder $folder): int\n{{\n    return {}->root();\n}}\n",
+                chain("$folder", links).replace(".parent", "->parent")
+            );
+            d_in(&tag, &files("shop.php", php), "shop.php", "->root")
+        }
+        _ => {
+            let swift = format!(
+                "class Folder {{\n    var parent: Folder\n\n    func root() -> Int {{\n        return 0\n    }}\n}}\n\nclass Other {{\n    func root() -> Int {{\n        return 1\n    }}\n}}\n\nfunc walk(folder: Folder) -> Int {{\n    return {}.root()\n}}\n",
+                chain("folder", links)
+            );
+            d_in(&tag, &files("Shop.swift", swift), "Shop.swift", ".root")
+        }
+    }
+}
+
+#[test]
+fn a_chain_of_six_names_is_followed_and_a_seventh_breaks_it_in_rust_csharp_php_and_swift() {
+    for (lang, root) in [
+        ("rust", "src/lib.rs:6"),
+        ("csharp", "Shop.cs:7"),
+        ("php", "shop.php:7"),
+        ("swift", "Shop.swift:4"),
+    ] {
+        assert!(
+            matches!(chain_in(lang, 5), Shown::Jump(s, at) if at == root && s.contains("via")),
+            "{lang}"
+        );
+        assert!(
+            matches!(chain_in(lang, 6), Shown::Picker(s, _) if s.contains("by name, 2 declarations")),
+            "{lang}"
+        );
+    }
+}

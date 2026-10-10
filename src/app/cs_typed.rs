@@ -42,7 +42,6 @@ impl App {
             .ok_or_else(|| first.clone())?;
         let mut links = vec![link];
         for (i, field) in fields.iter().enumerate() {
-            // ponytail: six names in front of the word, as in the other languages.
             if i == 5 {
                 return Err(field.clone());
             }

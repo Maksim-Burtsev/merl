@@ -347,7 +347,6 @@ impl App {
         word: &str,
         access: search::PhpAccess,
     ) -> Option<Vec<Candidate>> {
-        // ponytail: six names in front of the word, as for Python.
         let (head, fields) = chain.split_first().filter(|_| chain.len() <= 6)?;
         let (mut class, mut links, rest) = match head.as_str() {
             // `$this->word` alone is [`Self::php_link`]'s.

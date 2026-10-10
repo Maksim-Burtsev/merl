@@ -776,7 +776,6 @@ impl App {
         chain: &[String],
         call: bool,
     ) -> Result<Vec<Candidate>, String> {
-        // ponytail: six names in front of the word; a longer chain breaks at the seventh.
         if let Some(seventh) = chain.get(6) {
             return Err(seventh.clone());
         }

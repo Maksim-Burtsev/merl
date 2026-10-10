@@ -428,7 +428,6 @@ impl App {
         } = start;
         let mut links = vec![call_signature.unwrap_or_else(|| format!("{name}: {}", ty.name))];
         for (i, field) in fields.iter().enumerate() {
-            // ponytail: six names in front of the word; a longer chain breaks at the seventh.
             if i == 5 {
                 return Err(field.clone());
             }
@@ -1067,7 +1066,6 @@ impl App {
         let shown = |w: &str| search::swift_type_name(w).unwrap_or_else(|| w.to_owned());
         let mut links = vec![link.unwrap_or_else(|| format!("{}: {}", names[0], shown(&written)))];
         for (i, field) in names[1..].iter().enumerate() {
-            // ponytail: six names in front of the word, as the other languages read.
             if i == 5 {
                 return None;
             }
