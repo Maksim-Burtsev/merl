@@ -71,7 +71,6 @@ pub fn php_tag_class<S: AsRef<str>>(lines: &[S], at: usize) -> Option<usize> {
         return None;
     }
     let end = (at..lines.len()).find(|&i| line(i).contains("*/"))?;
-    // ponytail: brackets counted as written, a `[` inside a string of an attribute included.
     let mut depth = 0;
     let class = (end + 1..lines.len()).find(|&i| {
         let t = line(i);

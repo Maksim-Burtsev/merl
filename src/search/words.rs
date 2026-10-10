@@ -197,7 +197,6 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
     names.reverse();
     (names.len() > 1).then(|| names.join(sep))
 }
-/// ponytail: a `{…}` group wrapped over several lines is not read.
 pub fn elixir_unalias(text: &str, line: usize, mut chain: Vec<String>) -> Vec<String> {
     static ALIAS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*alias\s+([A-Z](?:[\w.]*\w)?)(?:\.\{([^}]*)\}|\s*,\s*as:\s*([A-Z]\w*))?")
@@ -418,7 +417,6 @@ pub fn unbroken(kind: Kind, lines: &[String], at: usize, word_start: usize) -> O
     }
     let mut joined = lines[at].trim_start().to_owned();
     let mut start = word_start - indent(&lines[at]);
-    // ponytail: forty lines of one expression.
     for above in lines[at.saturating_sub(40)..at].iter().rev() {
         let code = uncommented(kind, above);
         let code = match led(&code) {
@@ -635,8 +633,6 @@ pub fn ruby_singleton(text: &str, line1: usize) -> bool {
         return false;
     };
     let head = lines[owner].trim_start();
-    // ponytail: a bare `module_function` anywhere in the module's body counts for every `def`
-    // of it, the ones above it too; its list form, `module_function :m`, is not read.
     head.starts_with("class << self")
         || (head.starts_with("module ")
             && lines[owner + 1..]

@@ -247,8 +247,6 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(r"{mods}(?:const|var)\s+{w}\b"),
             ]
         }
-        // ponytail: `option x = 1;` would read as a field `x`; no option protoc knows takes a
-        // number, and a custom one is `(x)`, so no rule tells them apart.
         Kind::Proto => vec![
             format!(r"^\s*(?:message|enum|service|oneof)\s+{w}\s*(?:\{{|$)"),
             format!(r"^\s*rpc\s+{w}\s*\("),
@@ -675,7 +673,6 @@ pub fn c_parameter(text: &str, line1: usize, word: &str) -> bool {
         .and_then(|l| l.split_once('('))
         .is_some_and(|(_, params)| names(params, word))
 }
-/// ponytail: a flow list wrapped over several lines is not read.
 pub fn stage_entries(before: &str, text: &str, word: &str) -> Option<Vec<usize>> {
     let key = regex::Regex::new(r#"^\s*stage:\s*["']?$"#).expect("a fixed pattern is valid");
     if !key.is_match(before) {

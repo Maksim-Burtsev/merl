@@ -134,7 +134,6 @@ pub(super) fn ts_declarators(lines: &[&str], k: usize) -> Option<Vec<TsDeclarato
         return None;
     }
     let keyword = KEYWORD.find(first.trim_start())?.as_str().to_owned();
-    // ponytail: two hundred lines of declarators.
     let text = blank_comments(&lines[k..lines.len().min(k + 200)].join("\n"));
     let ind = indent(lines[k]);
     let (mut depth, mut end) = (0i32, text.len());

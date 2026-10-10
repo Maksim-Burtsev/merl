@@ -608,8 +608,6 @@ pub fn rust_uses(text: &str) -> Vec<RustUse> {
     }
     out
 }
-/// Only the paths a module's file sits at by default are tried: an inline `mod` or a `#[path]`
-/// leaves the caller nothing to prove.
 pub fn rust_use_files(files: &[PathBuf], here: &Path, text: &str, name: &str) -> Vec<PathBuf> {
     let mut bound = rust_uses(text).into_iter().filter(|u| u.name == name);
     let (
@@ -972,7 +970,6 @@ fn ts_config(root: &Path, dir: &Path, spec: &str) -> TsConfig {
         .flat_map(|d| [d.join("tsconfig.json"), d.join("jsconfig.json")])
         .find(|c| root.join(c).is_file());
     let (mut url, mut table): (Option<PathBuf>, Option<(PathBuf, String)>) = (None, None);
-    // ponytail: eight `extends` hops, which also ends a cycle.
     for _ in 0..8 {
         let Some(file) = config.take() else { break };
         let Ok(text) = std::fs::read_to_string(root.join(&file)) else {

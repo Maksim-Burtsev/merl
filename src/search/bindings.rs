@@ -745,8 +745,6 @@ fn ts_arrows(line: &str, name: &str) -> Vec<TsArrow> {
     let Ok(word) = Regex::new(&format!(r"(?:^|[^\w$.]){}\b", regex::escape(name))) else {
         return Vec::new();
     };
-    // ponytail: a pair of apostrophes in JSX text still reads as a string; reading JSX text is
-    // the way out.
     if code(Kind::TsJs, &format!("{line}\n)")).last() != Some((line.len() + 1, b')')) {
         return Vec::new();
     }
@@ -1179,7 +1177,6 @@ pub(super) struct TsHeader {
     pub last_line0: usize,
 }
 pub(super) fn ts_header(lines: &[&str], k: usize) -> TsHeader {
-    // ponytail: forty lines of header; hono's widest list of type parameters runs to six.
     let text = uncommented(Kind::TsJs, &lines[k..lines.len().min(k + 40)].join("\n"));
     let b = text.as_bytes();
     let (mut depth, mut angle) = (0i32, 0i32);

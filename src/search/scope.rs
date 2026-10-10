@@ -46,8 +46,6 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         Kind::Elixir => kind_of(path) == Some(kind) && erlang(path) == erlang(here),
     }
 }
-/// ponytail: spawns the toolchain on every `d` that leaves the project. Cache per root if it
-/// ever shows.
 pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
     let run = |cmd: &str, args: &[&str]| -> Option<String> {
         let out = toolchain(cmd, args).output().ok()?;
@@ -125,15 +123,11 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
             dirs
         }
         Kind::TsJs => node_modules(root, root),
-        // A project's dependencies live in Zig's global package cache under hashed directory
-        // names no source line spells out, so they are left out.
         Kind::Zig => zig_roots(&run("zig", &["env"]).unwrap_or_default()),
         Kind::C => c_roots(
             run("xcrun", &["--show-sdk-path"]).map(|s| PathBuf::from(s.trim())),
             root,
         ),
-        // buf keeps a module's dependencies in a cache under hashed directories no import spells,
-        // and is left out, as Zig's package cache is.
         Kind::Proto => [
             "/opt/homebrew/include",
             "/usr/local/include",
@@ -207,7 +201,6 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
                 .map(PathBuf::from)
                 .collect()
         }
-        // Java and Kotlin have no roots yet: the JDK and Gradle caches are their own lookups.
         Kind::Jvm
         | Kind::CSharp
         | Kind::Lua
@@ -530,7 +523,6 @@ pub fn package_missing(root: &Path, files: &[PathBuf], dir: &Path, module: &[Str
             .filter_map(|f| std::fs::read_to_string(root.join(f)).ok())
             .any(|t| NAME.captures(&t).is_some_and(|c| c[1] == name))
     };
-    // ponytail: reads every `.d.ts` of the project, only for a package nothing else supplies.
     let declared = || {
         static DECLARE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
             Regex::new(r#"declare\s+module\s+['"]([^'"]+)['"]"#).unwrap()
@@ -898,8 +890,6 @@ impl GoBuild {
         }
     }
 
-    // ponytail: the environment only. `go env -w` and a missing C compiler (cgo off) are not
-    // seen; ask `go env` once at startup if that ever misleads.
     pub fn env(mut self, cgo_enabled: Option<&str>, goflags: Option<&str>) -> Self {
         self.cgo = cgo_enabled != Some("0");
         let flags = goflags.unwrap_or("").split_whitespace();

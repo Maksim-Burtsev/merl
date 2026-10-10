@@ -13,10 +13,6 @@ pub(super) fn shell_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindi
             .collect()
     })
 }
-/// The 0-based line of the header of the Shell function whose body holds 0-based line `at`:
-/// `name() {`, `function name {`, told by indentation, since the `}` that closes a function
-/// stands at its header's indent. A one-line function holds no line below it, a comment after its
-/// `}` or not, and a `name() (` subshell body, closed by a `)`, is not read.
 pub fn shell_function_at(lines: &[&str], at: usize) -> Option<usize> {
     static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:function\s+[^\s(){}]+|[\w.:-]+\s*\(\s*\))").unwrap()
