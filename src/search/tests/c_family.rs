@@ -1426,6 +1426,9 @@ fn a_csharp_file_sees_its_project_and_the_ones_it_references() {
         r#"<Import Project="..\Shared\Shared.projitems" Label="Shared" />"#,
         r#"<ProjectReference Include="$(RepoRoot)\Shop.Api\Shop.Api.csproj" />"#,
         r#"<ProjectReference Include="..\Gone\Gone.csproj" />"#,
+        r#"<ProjectReference Include="..\..\..\Shop.Api\Shop.Api.csproj" />"#,
+        r#"<ProjectReference Include="/src/Shop.Api/Shop.Api.csproj" />"#,
+        r#"<ProjectReference Include="..\*\*.csproj" />"#,
     ] {
         let manifests = [
             ("Shop.App/Shop.App.csproj", app),

@@ -14,13 +14,6 @@ impl CsProjects {
     }
 }
 
-/// The projects `here` sees among `files`, the project's paths, each `.csproj` and
-/// `Directory.Build.props` read with `read`. The project of a file is the nearest directory
-/// above it holding a `.csproj`; it sees its own project and every `<ProjectReference>` of its
-/// `.csproj`, and of each `Directory.Build.props` above it, followed transitively. `None` when
-/// that cannot be told and every file stays in sight: no `.csproj` above `here` (a script), two
-/// in one directory, a `<Compile Include>` reaching out of its directory, a shared project's
-/// `.projitems`, a reference that cannot be read.
 pub fn cs_projects(
     files: &[PathBuf],
     here: &Path,
@@ -64,8 +57,6 @@ pub fn cs_projects(
             .filter_map(|d| read(&d.join("Directory.Build.props")))
             .collect::<Vec<_>>();
         for other in std::iter::once(&text).chain(&props) {
-            // Every reference is read, or none narrows: one the pattern misses would hide its
-            // project.
             let written = other.matches("<ProjectReference").count();
             if SOURCE_FROM_OUTSIDE_OR_SHARED.is_match(other)
                 || REFERENCE.captures_iter(other).count() != written
@@ -105,8 +96,6 @@ fn deepest_holding<'a>(dirs: &'a [PathBuf], path: &Path) -> Option<&'a PathBuf> 
         .max_by_key(|d| d.components().count())
 }
 
-/// `rel` read from `dir`, `..` and `.` resolved; `None` past the root, or for a path MSBuild
-/// has to evaluate (`$(…)`, a wildcard) or an absolute one.
 fn lexical(dir: &Path, rel: &str) -> Option<PathBuf> {
     if rel.contains(['$', '*', '%']) || rel.starts_with('/') || rel.contains(':') {
         return None;
