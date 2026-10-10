@@ -1,0 +1,25 @@
+# Round 1, then the author pushes only the fix (PR #704, before its merge), then round 2.
+sleep 0.5
+type merl --review=b1004/undo-steps-478
+key Enter
+wait files ·
+sleep 1.2
+key q
+sleep 0.6
+type # the author pushes only a fix
+key Enter
+sleep 0.3
+type merl --review=b1004/undo-steps-478
+key Enter
+wait files ·
+sleep 2
+key c
+sleep 0.4
+key c
+sleep 0.4
+key c
+sleep 0.4
+key c
+sleep 0.4
+key c
+sleep 2.5
