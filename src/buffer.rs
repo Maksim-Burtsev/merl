@@ -14,13 +14,8 @@ const CHECKPOINT: usize = 64;
 const BOM: &[u8] = b"\xEF\xBB\xBF";
 const NUL_SNIFF_BYTES: usize = 8 * 1024;
 const BINARY: &str = "binary file";
-/// ponytail: syntect is sequential, so a huge file would have to be parsed from line 1 before
-/// anything can be drawn. Past these limits merl shows plain text instead of stalling.
 const MAX_HL_LINES: usize = 30_000;
 const MAX_HL_BYTES: usize = 4 * 1024 * 1024;
-/// ponytail: a single line longer than this is shown truncated. Both the renderer and the
-/// cursor arithmetic wrap [`Buffer::shown`], so they agree on how many rows the line has. It is
-/// also what [`Buffer::highlight_to`] stops colouring past: the rest of the line is on no screen.
 const MAX_SHOWN_BYTES: usize = 20_000;
 
 fn syntaxes() -> &'static SyntaxSet {
@@ -223,12 +218,6 @@ fn line_spans(
     raw: &str,
     highlighter: &Highlighter,
 ) -> Spans {
-    // ponytail: syntect parses a line whole, and only its first `MAX_SHOWN_BYTES` are ever
-    // drawn. A minified bundle or a one-line JSON dump is megabytes on one line, so that parse
-    // costs seconds and runs again after every `clear_hl`. Past `shown`, the line is drawn plain,
-    // as VS Code stops tokenizing past `maxTokenizationLineLength`. The state is left as the line
-    // before it: the lines below keep their colours. Parsing the shown prefix alone would not, it
-    // could stop inside a string or a comment.
     if Buffer::clips(raw) {
         return Vec::new();
     }
@@ -1304,6 +1293,24 @@ mod tests {
                 assert!(colours.len() > 1, "{file} {name}: everything is one colour");
             }
         }
+    }
+
+    #[test]
+    fn highlighting_stops_past_30_000_lines_or_4_mib() {
+        let lines = |n: usize, len: usize| vec!["x".repeat(len); n];
+        assert!(Buffer::block("rust", lines(30_000, 1)).syntax.is_some());
+        assert!(Buffer::block("rust", lines(30_001, 1)).syntax.is_none());
+        assert!(Buffer::block("rust", lines(4, 1 << 20)).syntax.is_some());
+        let over = [lines(4, 1 << 20), lines(1, 1)].concat();
+        assert!(Buffer::block("rust", over).syntax.is_none());
+    }
+
+    #[test]
+    fn a_line_is_shown_up_to_20_000_bytes() {
+        assert_eq!(load("x".repeat(20_000).as_bytes()).shown(0).len(), 20_000);
+        assert_eq!(load("x".repeat(20_001).as_bytes()).shown(0).len(), 20_000);
+        assert!(!Buffer::clips(&"x".repeat(20_000)));
+        assert!(Buffer::clips(&"x".repeat(20_001)));
     }
 
     #[test]
