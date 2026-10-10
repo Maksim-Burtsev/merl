@@ -296,3 +296,70 @@ fn go_reads_eight_aliases_and_eight_defined_types_down_to_a_struct() {
     assert_eq!(defined(7), name);
     assert_eq!(defined(8), jump("no definition for Name", "shop.go:36"));
 }
+
+fn py_subtypes(n: usize) -> Vec<(String, String)> {
+    let mut t = String::from("class Job:\n    def run(self):\n        pass\n\n\nclass S1(Job):\n    def run(self):\n        pass\n");
+    for i in 2..=n {
+        t += &format!("\n\nclass S{i}(S{}):\n    def run(self):\n        pass\n", i - 1);
+    }
+    t += "\n\ndef f(x: Job):\n    x.run()\n";
+    vec![("app.py".into(), t)]
+}
+
+#[test]
+fn implementations_are_looked_for_four_subtypes_down() {
+    let at = |n: usize| d_in(&format!("py-sub-{n}"), &py_subtypes(n), "app.py", "^    def run");
+    let count = |found: Shown| match found {
+        Shown::Picker(_, rows) => rows.len(),
+        Shown::Jump(..) => 1,
+    };
+    assert_eq!(count(at(4)), 4);
+    assert_eq!(count(at(5)), 4);
+}
+
+fn ts_barrel_subtype(barrels: usize) -> Vec<(String, String)> {
+    let mut files = vec![
+        ("base.ts".to_string(), "export class Base {\n  run(): void {}\n}\n".to_string()),
+        (
+            "sub.ts".to_string(),
+            "import { Base } from './b1';\n\nexport class Sub extends Base {\n  run(): void {}\n}\n".to_string(),
+        ),
+    ];
+    for i in 1..=barrels {
+        files.push((format!("b{i}.ts"), format!("export * from './b{}';\n", i + 1)));
+    }
+    files.push((format!("b{}.ts", barrels + 1), "export class Base {}\n".to_string()));
+    files
+}
+
+#[test]
+fn implementations_stop_at_four_barrels() {
+    let at = |n: usize| d_in(&format!("ts-bar-{n}"), &ts_barrel_subtype(n), "base.ts", "  run");
+    let other = vec![("Sub.run".into(), "by name".into(), "sub.ts:4".into())];
+    assert_eq!(at(4), Shown::Picker("run: at a declaration, 1 other by name".into(), other));
+    let wrong = jump("run \u{2192} Sub.run (implementations of Base.run)", "sub.ts:4");
+    assert_eq!(at(5), wrong, "#794");
+}
+
+#[test]
+fn super_passes_over_the_bases_that_declare_nothing_worth_a_jump() {
+    for plain in ["Generic[T]", "typing.Protocol", "ABC", "object"] {
+        let text = format!("import typing\nfrom abc import ABC\nfrom typing import Generic, TypeVar\n\nT = TypeVar(\"T\")\n\n\nclass Base:\n    def root(self):\n        pass\n\n\nclass Other:\n    def root(self):\n        pass\n\n\nclass Top({plain}, Base):\n    def root(self):\n        super().root()\n");
+        let found = d_in("py-plain", &[("app.py".into(), text)], "app.py", "super().root");
+        assert_eq!(found, jump("root \u{2192} Base.root (via super of Top)", "app.py:9"), "{plain}");
+    }
+}
+
+#[test]
+fn a_php_assignment_is_read_over_twenty_lines() {
+    let at = |blank: usize| {
+        let php = format!(
+            "<?php\n\nclass Folder\n{{\n    public function root(): int\n    {{\n        return 0;\n    }}\n}}\n\nclass Other\n{{\n    public function root(): int\n    {{\n        return 1;\n    }}\n}}\n\nfunction walk(): int\n{{\n    $folder =\n{}        new Folder();\n    return $folder->root();\n}}\n",
+            "\n".repeat(blank)
+        );
+        d_in(&format!("php-stmt-{blank}"), &[("shop.php".into(), php)], "shop.php", "->root")
+    };
+    let typed = jump("root \u{2192} Folder::root (via $folder: Folder)", "shop.php:5");
+    assert_eq!(at(18), typed);
+    assert!(matches!(at(19), Shown::Picker(..)));
+}

@@ -414,13 +414,12 @@ impl App {
     }
 
     /// The declarations of the types that name `owner` as a base, and of the types that name
-    /// those, four levels down. [`Self::subtype_impls`] says when a type counts as one.
+    /// those. [`Self::subtype_impls`] says when a type counts as one.
     pub(super) fn subtypes(&self, kind: Kind, here: &Path, owner: &Typed) -> Vec<FileLine> {
         let mut names = vec![owner.name.clone()];
         let mut types = vec![(owner.name.clone(), owner.path.clone())];
         let mut seen = vec![(owner.path.clone(), owner.line)];
         let mut out = Vec::new();
-        // ponytail: four levels of subtypes, one grep each. Deeper hierarchies want an index.
         for _ in 0..4 {
             let Some(pattern) = search::subtype_patterns(kind, &names) else {
                 break;
@@ -624,12 +623,10 @@ impl App {
                 false => Some(members),
             }
         };
-        // ponytail: eight levels up, which also ends a cycle.
         let text = self
             .text_of(&ty.path)
             .filter(|_| depth < 8)
             .ok_or_else(broke)?;
-        // ponytail: bases that declare no member worth a jump, by their usual spelling.
         let plain = |b: &str| {
             let b = b.split('[').next().unwrap_or(b);
             let b = b.rsplit('.').next().unwrap_or(b);
@@ -671,7 +668,6 @@ impl App {
         if let Some(found) = find(ty) {
             return Some(found);
         }
-        // ponytail: eight levels up, which also ends a cycle.
         if depth == 8 {
             return None;
         }

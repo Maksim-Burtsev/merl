@@ -123,7 +123,6 @@ impl App {
         }
         let mut walked = vec![ty.name.clone()];
         let mut outside = false;
-        // ponytail: eight levels up, which also ends a cycle.
         let Some(text) = self.text_of(&ty.path).filter(|_| depth < 8) else {
             return Up::Outside { walked };
         };
@@ -634,7 +633,6 @@ impl App {
                 return own;
             }
         }
-        // ponytail: eight levels up, which also ends a cycle.
         if depth >= 8 {
             *unknown = true;
             return Vec::new();

@@ -1881,7 +1881,7 @@ impl App {
     }
 
     /// The Go struct the type written as `written` in `file` is: itself, or what a defined
-    /// `type X Y` is over, eight deep. `None` for a type that is no struct.
+    /// `type X Y` is over. `None` for a type that is no struct.
     pub(super) fn struct_decl(
         &self,
         kind: Kind,

@@ -427,7 +427,6 @@ impl App {
         let mut found: Option<ProvenClass> = None;
         for b in search::php_variable(text, self.line + 1, name)? {
             let at = b - 1;
-            // ponytail: a statement read over twenty lines.
             let statement = lines[at..lines.len().min(at + 20)].join("\n");
             let binding = search::php_binding(&statement, name)?;
             if at == self.line && !matches!(binding, search::PhpBinding::Type(_)) {

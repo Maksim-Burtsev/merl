@@ -804,7 +804,6 @@ impl App {
         };
         // Go's `type X = Y` is `Y` itself, methods and fields (#100), where `Y` is a type the
         // project declares; `type X = []Y` and the like stay what their line says.
-        // ponytail: eight aliases deep, which also ends a cycle.
         // An alias that methods are declared on, `func (t Twin) Close()`, answers for them under
         // its own name, as before.
         let receiver = |alias: &str| {
