@@ -1,26 +1,15 @@
-//! Opening a file, reloading it, and the jump history `[` and `]` walk.
-
 use super::*;
 
 impl App {
-    /// Puts the tree cursor on `path` (absolute) and expands everything above it.
     pub(super) fn reveal(&mut self, path: &Path) {
         if let Ok(rel) = path.strip_prefix(&self.root) {
             self.tree.reveal(rel);
         }
     }
 
-    /// Shows `path` at `line` (1-based). Reloading is skipped when the file is already open, so
-    /// this doubles as a plain cursor move. Line 0 is "no line in particular": the start of a
-    /// file being opened, and the cursor where it is on the file that is already open, like
-    /// VS Code's explorer.
-    /// Returns `false`, with the reason in the status bar, when the file cannot be read or the
-    /// open one has edits that could not be saved.
     fn open(&mut self, path: &Path, line: usize) -> bool {
         let same = self.buf.path.as_deref() == Some(path);
         if !same {
-            // Replacing the buffer would drop edits the disk does not have; the status bar
-            // already says why they are not there (a conflict, a failed save).
             if !self.flush() {
                 return false;
             }
@@ -33,8 +22,6 @@ impl App {
                         std::mem::take(&mut self.undo),
                         std::mem::take(&mut self.redo),
                     );
-                    // Flushed, so what is stashed is the disk as it was left. A read-only
-                    // buffer's text is not the file's: as in `reload`, nothing to go back to.
                     if let Some(p) = old.path.clone()
                         && old.readonly.is_none()
                         && !(undo.is_empty() && redo.is_empty())
@@ -44,7 +31,6 @@ impl App {
                     }
                     if let Some((lines, format, undo, redo)) = self.stash.remove(path) {
                         self.undo = undo;
-                        // Written meanwhile: one more step, as if it had been on screen.
                         match reload_step(&lines, format, &self.buf) {
                             Some(step) => self.undo.push(step),
                             None => self.redo = redo,
@@ -85,12 +71,6 @@ impl App {
         true
     }
 
-    /// Where the file sits, rather than what it holds, says it cannot be edited: on open and on
-    /// every reload.
-    ///
-    /// The standard library and dependencies are read here, never edited. A `.venv` or
-    /// `node_modules` sits inside the root, so the roots decide, but not over a file the project
-    /// walk listed: an editable install puts the project's own `src` on `sys.path`.
     fn lock_unwritable(&self, buf: &mut Buffer) {
         let Some(path) = buf.path.as_deref() else {
             return;
@@ -104,9 +84,8 @@ impl App {
                     .external
                     .values()
                     .any(|(roots, _)| roots.iter().any(|r| path.starts_with(r)))
-                // Another package's `node_modules`, walked from a file opened before.
-                || !listed && self.walked_roots.keys().any(|r| path.starts_with(r))
-                || self.in_project(path).is_none();
+            || !listed && self.walked_roots.keys().any(|r| path.starts_with(r))
+            || self.in_project(path).is_none();
         if external {
             buf.readonly.get_or_insert("outside the project");
         }
@@ -129,8 +108,6 @@ impl App {
         Some(rel.to_path_buf())
     }
 
-    /// The file from disk; in review mode a file the branch deleted comes from the base,
-    /// read-only.
     fn load(&self, path: &Path) -> anyhow::Result<Buffer> {
         if let Some(r) = &self.review
             && let Ok(rel) = path.strip_prefix(&self.root)
@@ -143,9 +120,6 @@ impl App {
         Buffer::load(path)
     }
 
-    /// Asks `main` for new marks; the old ones stay on screen until they arrive. In review
-    /// mode they are taken here and now: `c` needs the hunks of a file the moment it opens, and
-    /// one file against one commit is quick.
     pub(super) fn refresh_diff(&mut self) {
         let Some(r) = &self.review else {
             self.want_diff = true;
@@ -182,15 +156,10 @@ impl App {
             }
             _ => None,
         };
-        // Ghosts change how many rows a line has; the viewport must not point past them, nor
-        // the cursor at a deleted line that went.
         self.clamp_top();
         self.clamp_cursor();
     }
 
-    /// The project changed on disk and was walked again: the file list is the new one for the
-    /// next `o`, `s`, `u` and `d` (an open picker keeps its rows), and the tree takes the new rows
-    /// around its cursor. The review panel lists the branch, not the walk, and is left alone.
     pub fn project_walked(&mut self, tree: Tree, files: Vec<PathBuf>) {
         self.files = files;
         self.ignored = tree.ignored_files();
@@ -203,27 +172,16 @@ impl App {
         let row = |t: &Tree| t.visible().iter().position(|&i| i == t.cursor).unwrap_or(0);
         let before = row(&self.tree);
         self.tree.refresh(tree);
-        // A scrolled panel follows its cursor, so rows arriving above the pane move nothing on
-        // screen; one showing its first row keeps showing it.
         if self.tree_top > 0 {
             self.tree_top = (self.tree_top + row(&self.tree)).saturating_sub(before);
         }
     }
 
-    /// Re-reads the open file after it changed on disk. Cursor, scroll, history and find pattern
-    /// survive; the cursor is clamped to whatever the file is now. merl's own saves are
-    /// recognised and ignored; a change under unsaved edits is a conflict, not a reload, unless
-    /// `force` (Ctrl+R) says the edits go; Ctrl+Z brings them back. Returns whether anything on
-    /// screen changed.
     pub fn reload(&mut self, force: bool) -> bool {
         let Some(path) = self.buf.path.clone() else {
             return false;
         };
-        // Mid-save the file can be briefly gone; the rename that follows sends another event
-        // and overwrites the message. Gone for good, the message stays.
         let Ok(bytes) = std::fs::read(&path) else {
-            // Ctrl+R has no disk version to take, but the edits still go: merl is not held on
-            // a file that is gone.
             if force {
                 (self.dirty, self.conflict) = (false, false);
             }
@@ -232,7 +190,6 @@ impl App {
         };
         if !force {
             if buffer::hash(&bytes) == self.buf.disk_hash {
-                // Gone and back as merl last saw it (a writer's delete-then-write): no conflict.
                 return std::mem::take(&mut self.conflict);
             }
             if self.dirty {
@@ -242,13 +199,10 @@ impl App {
         }
         let mut buf = Buffer::from_bytes(path.clone(), &bytes);
         self.lock_unwritable(&mut buf);
-        // A deleted line the cursor is on is found again by what it says (below).
         let reading = self.deleted.map(|(_, i)| (self.line_str().to_string(), i));
         let old = std::mem::replace(&mut self.buf, buf);
         self.carry_collapsed(&old.lines);
         if self.review.is_some() {
-            // The reader stays in the hunk they are in when an agent writes above it: every
-            // line kept of this file goes down with its text, before anything is clamped.
             let to = |l: &mut usize| *l = carried(&old.lines, &self.buf.lines, *l);
             let here = self.at();
             let stop = self.history.get_mut(self.hist_idx);
@@ -258,7 +212,6 @@ impl App {
                 .into_iter()
                 .chain(deleted)
                 .for_each(to);
-            // A deleted line goes with the key it is drawn above.
             let carry = |t: &mut TextLine| match t {
                 TextLine::File(l) | TextLine::Deleted(l, _) => to(l),
             };
@@ -274,8 +227,6 @@ impl App {
         self.last_edit = None;
         self.redo.clear();
         if old.readonly.is_some() {
-            // The text on screen could not be edited, or was not the file's (a binary
-            // placeholder, bytes read lossily): there is nothing to go back to.
             self.undo.clear();
         } else {
             self.undo
@@ -309,8 +260,6 @@ impl App {
         }
     }
 
-    /// Fewer than [`HIST_NEAR`] lines of the text apart, the deleted ones counted: a move across
-    /// a tall deletion is far however few file lines it passes.
     fn near(&self, a: TextLine, b: TextLine) -> bool {
         let (lo, hi) = (a.min(b), a.max(b));
         std::iter::successors(Some(lo), |&t| self.next_line(t))
@@ -322,11 +271,6 @@ impl App {
         self.buf.path.clone().map(|p| (p, self.at(), self.col))
     }
 
-    /// Records where the cursor is now, VS Code style: the current stop always tracks the
-    /// cursor. A plain move within `HIST_NEAR` lines just updates it; a farther move, another
-    /// file, or a `jump` (go to definition, `:`, find) becomes a new stop and drops the
-    /// forward history. Paging (see `key_inner`) only updates it. Standing on the current stop
-    /// records nothing, so walking with `[` / `]` is silent.
     pub(crate) fn hist_note(&mut self, jump: bool) {
         let Some(pos) = self.pos() else {
             return;
@@ -364,9 +308,6 @@ impl App {
         self.hist_rows.retain(|stop, _| history.contains(stop));
     }
 
-    /// Opens `path` at `line` and makes it a stop in the jump history. `:` and the pickers jump
-    /// from outside `key_inner`'s move rule, so a jump that lands elsewhere drops the selection
-    /// here.
     pub fn jump_to(&mut self, path: &Path, line: usize) {
         self.jump_to_col(path, line, 0);
     }
@@ -385,7 +326,6 @@ impl App {
         self.hist_note(true);
     }
 
-    /// Enter on a picker's row: its line, or the line the branch deleted a red row stands for.
     pub(super) fn jump_to_item(&mut self, item: &PickItem) {
         let path = self.root.join(&item.path);
         match item.deleted {
@@ -394,11 +334,6 @@ impl App {
         }
     }
 
-    /// [`App::jump_to_col`] onto the line the branch deleted that was line `n` of the file at the
-    /// base (#440): a red row of `s`, `D` or `u`, or the declaration `d` found deleted. The diff
-    /// of the file as it is now says where it is drawn; a line gone from it since the row was
-    /// listed gives way to the deleted line nearest to its number, and a file with none to the
-    /// file's line of that number. A file the branch deleted is the base's text, line for line.
     pub(super) fn jump_to_deleted(&mut self, path: &Path, n: usize, col: usize) {
         let before = (self.at(), self.col);
         self.preview_jumped();
@@ -420,9 +355,7 @@ impl App {
         self.hist_note(true);
     }
 
-    /// `[` and `]`: walks the recorded stops.
     pub(super) fn hist_go(&mut self, delta: isize) {
-        // A stop whose file is gone (an agent renamed it) is dropped, and the walk goes on.
         let mut gone = Vec::new();
         let landed = loop {
             let next = self
@@ -438,14 +371,10 @@ impl App {
                 break None;
             };
             let (path, line, col) = self.history[i].clone();
-            // With the stops between them dropped, this one can be where the cursor already
-            // is: not a step, it goes too.
             let twin = self.history[i] == self.history[self.hist_idx];
             if !twin && self.open(&path, line.key() + 1) {
                 break Some((i, path, line, col));
             }
-            // Edits that could not be saved, or a file that is there and does not open: the
-            // stop stays, and `open` has said why.
             if !twin && (self.dirty || path.exists()) {
                 return;
             }
@@ -473,16 +402,10 @@ impl App {
             self.center = false;
             (self.top_line, self.top_row) = self.back_rows(self.cursor_at(), row);
         }
-        // The stop follows the file: after a reload shortened it, this is where `[` lands,
-        // and `hist_note` must not read the clamp as a move that drops the forward history.
         self.history[i] = (path, self.at(), self.col);
     }
 }
 
-/// Where line `l` of `old` is in `new` when the text was changed above it: the lines the two
-/// end with alike move by the difference in length, the ones they start with alike stay, and
-/// a line of the rewritten middle stays too, but not below the middle's new end.
-///
 /// ponytail: one rewritten region per reload, which is what an agent's edit is. After a write
 /// that changed the file in several places the lines between them are off by what changed
 /// above them; a line diff would place those too.
@@ -506,9 +429,6 @@ fn lines_alike_at_start_and_end(old: &[String], new: &[String]) -> (usize, usize
     (head, tail)
 }
 
-/// A reload as one undo step, as VS Code's `ModelService.updateModel` makes it: the lines that
-/// changed from `old` to what `buf` holds now, and the format on either side. `None` when neither
-/// changed.
 fn reload_step(old: &[String], was: buffer::Format, buf: &Buffer) -> Option<Edit> {
     let (new, is) = (&buf.lines, buf.format());
     let (head, tail) = lines_alike_at_start_and_end(old, new);
@@ -519,7 +439,6 @@ fn reload_step(old: &[String], was: buffer::Format, buf: &Buffer) -> Option<Edit
         line: head,
         old: old[head..old.len() - tail].to_vec(),
         new: new[head..new.len() - tail].to_vec(),
-        // Undo and redo land where the file changed, so what they take back is in sight.
         before: (head.min(old.len() - 1), 0),
         after: (head.min(new.len() - 1), 0),
         format: Some((was, is)),

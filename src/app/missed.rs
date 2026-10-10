@@ -1,19 +1,12 @@
-//! Missed keys (#210): a key that would have reached the same end — the same place, or the same
-//! picked result — in at most half the presses spent, saving at least three. Noted in
-//! [`App::missed`] next to the presses, for the drill; real work only, nothing on screen (#112).
-
 use super::cursor::{word_end, word_start};
 use super::keys::named;
 use super::*;
 
-/// A run of one key counts only while every gap is shorter: a held or fast-tapped key, not
-/// reading line by line.
 const RUN_GAP: Duration = Duration::from_millis(200);
 const SPENT_PER_MISSED_PRESS: usize = 2;
 const MIN_PRESSES_SAVED: usize = 3;
 const HISTORY_STEPS_OFFERED_EITHER_WAY: usize = 3;
 
-/// The keys a run of arrows or Shift+arrows may have missed. A tie goes to the first.
 const SHORTCUTS: [(KeyCode, KeyModifiers); 21] = [
     (KeyCode::Char('d'), KeyModifiers::CONTROL),
     (KeyCode::Char('u'), KeyModifiers::CONTROL),
@@ -49,13 +42,11 @@ const SHORTCUTS: [(KeyCode, KeyModifiers); 21] = [
     ),
     (KeyCode::Char('v'), KeyModifiers::NONE),
 ];
-/// And a run of arrows in a picker.
 const PAGES: [(KeyCode, KeyModifiers); 2] = [
     (KeyCode::PageUp, KeyModifiers::NONE),
     (KeyCode::PageDown, KeyModifiers::NONE),
 ];
 
-/// What the keys so far left open.
 #[derive(Default)]
 pub(super) struct Watch {
     previous_key_at: Option<Instant>,
@@ -63,7 +54,6 @@ pub(super) struct Watch {
     trip: Option<Trip>,
 }
 
-/// Presses of one key, each within [`RUN_GAP`] of the one before.
 struct Run {
     key: (KeyCode, KeyModifiers),
     mode: Mode,
@@ -75,7 +65,6 @@ struct Run {
     presses_that_moved: usize,
 }
 
-/// A picker `s`, `D` or `o` opened from navigation, and the presses since, its own included.
 struct Trip {
     kind: PickerKind,
     n: usize,
@@ -87,7 +76,6 @@ struct Trip {
     file_c_goes_on_to: Option<PathBuf>,
 }
 
-/// All a moving key changes: the cursor, the selection's anchor, the view, a picker's row.
 #[derive(Clone)]
 struct Spot {
     line: usize,
@@ -102,14 +90,12 @@ struct Spot {
 }
 
 impl Spot {
-    /// The line the cursor stood on, a deleted one included.
     fn at(&self) -> TextLine {
         self.deleted
             .map_or(TextLine::File(self.line), |(k, i)| TextLine::Deleted(k, i))
     }
 }
 
-/// Where a run ends: the cursor and a selection's anchor, or a picker's row (as a line's).
 type End = ((TextLine, usize), Option<(TextLine, usize)>);
 
 fn max_missed_presses(spent: usize) -> usize {
@@ -117,7 +103,6 @@ fn max_missed_presses(spent: usize) -> usize {
 }
 
 impl App {
-    /// Before a key: a run it does not go on with is over and judged, and it may start one.
     pub(super) fn watch_before(&mut self, key: KeyEvent, at: Instant) {
         let fast = self
             .watch
@@ -144,8 +129,6 @@ impl App {
         self.watch.run = self.start_run(key);
     }
 
-    /// After a key: a picker it opened from navigation starts a trip, one it closed with Enter
-    /// ends it.
     pub(super) fn watch_after(&mut self, key: KeyEvent, was: Mode, had_picker: bool) {
         if self.picker.is_some() {
             if !had_picker && was == Mode::Normal {
@@ -160,7 +143,6 @@ impl App {
         }
     }
 
-    /// `s` jumped on an Enter that came before its grep's answer.
     pub(super) fn watch_jumped(&mut self) {
         if let Some(trip) = self.watch.trip.take() {
             self.judge_trip(trip);
@@ -183,8 +165,6 @@ impl App {
             Mode::Picker(_) => {
                 self.picker.is_some() && matches!(code, KeyCode::Up | KeyCode::Down) && m.is_empty()
             }
-            // The preview's rows are not the source's: no run of it is judged against keys that
-            // move over the source.
             Mode::Normal | Mode::Edit => {
                 self.focus == Focus::Code
                     && self.buf.path.is_some()
@@ -213,7 +193,6 @@ impl App {
 
     fn judge_run(&mut self, run: Run) {
         let from = (run.before_first_press.at(), run.before_first_press.col);
-        // The file changed under the run, or went: there is no same end to reach.
         let deleting = !run.deleting_line_before_first_press.is_empty();
         if run.mode != self.mode
             || run.path != self.buf.path
@@ -229,7 +208,6 @@ impl App {
             if budget == 0 {
                 return;
             }
-            // `c` / `C` cost one press: nothing is cheaper, so they go first.
             self.hunk_reached(&run)
                 .or_else(|| self.shortcut(&run, budget))
         };
@@ -238,8 +216,6 @@ impl App {
         }
     }
 
-    /// Review: a run of plain arrows or paging from outside the next / previous hunk into it
-    /// was `c` / `C`.
     fn hunk_reached(&self, run: &Run) -> Option<(usize, &'static str)> {
         let (code, m) = run.key;
         let plain = m.is_empty()
@@ -266,7 +242,6 @@ impl App {
             std::cmp::Ordering::Less => (hunks.iter().rev().find(|&&h| h < from)?, "C"),
             std::cmp::Ordering::Equal => return None,
         };
-        // The hunk runs on over the lines the branch deleted or added, up to the next one.
         let changed = |t: TextLine| match t {
             TextLine::Deleted(..) => true,
             TextLine::File(l) => self.diff.marks.contains_key(&l),
@@ -282,10 +257,6 @@ impl App {
         (hunk.contains(&to) && !hunk.contains(&from)).then_some((1, key))
     }
 
-    /// A run of arrows or Shift+arrows: the cheapest key of [`SHORTCUTS`] — [`PAGES`] in a
-    /// picker — that, pressed and pressed again, then followed by the run's arrow or the
-    /// opposite one, ends where the run did within `budget`. Each is tried from where the run
-    /// started through the key table itself; everything a try moves is put back.
     // ponytail: the tries grow with the square of the run: a 3 s hold is judged in about 10 ms,
     // a 10 s one in 60 ms, on the key after it. Bound a Left / Right walk by the chars left to
     // go on the line, not only the lines, if a long hold ever lags.
@@ -312,7 +283,6 @@ impl App {
         );
         let mut best: Option<(usize, &'static str)> = None;
         for &(kc, km) in keys {
-            // In edit mode a key with neither Ctrl nor Alt types: no `{`, `}`, `v`.
             if run.mode == Mode::Edit && matches!(kc, KeyCode::Char(_)) && km.is_empty() {
                 continue;
             }
@@ -330,8 +300,6 @@ impl App {
         best
     }
 
-    /// The fewest presses of `key`, then of one of `arrows`, that take things from `from` to
-    /// `end`, if no more than `limit`. A key that moves nothing is no way there.
     fn presses(
         &mut self,
         from: &Spot,
@@ -380,16 +348,11 @@ impl App {
         best
     }
 
-    /// One press of a try, as the key table and the next frame take it.
     fn press(&mut self, key: KeyEvent) {
         self.key_inner(key);
         self.clamp_scroll();
     }
 
-    /// Edit mode: a run of Backspace or Delete that stayed on its line was Alt+Backspace /
-    /// Alt+Delete when the word chord, pressed and pressed again, takes exactly the same chars.
-    /// Arrows delete nothing, so none follow. The presses spent are the chars taken: Backspace
-    /// at the start of the file takes none.
     fn word_chord(&self, run: &Run) -> Option<(usize, &'static str)> {
         if self.line != run.before_first_press.line || self.buf.lines.len() != run.lines {
             return None;
@@ -433,7 +396,6 @@ impl App {
                 self.history.get(i).map(|(p, ..)| (k, p.clone()))
             })
             .collect();
-        // `c` goes on to the next file once no hunk is left below, or back to the hunk left.
         let next = self
             .review
             .as_ref()
@@ -480,7 +442,6 @@ impl App {
         }
     }
 
-    /// `o` to the file `c` goes on to, or to the file of a history stop.
     fn to_file(&self, trip: &Trip, path: &Path) -> Option<(usize, &'static str)> {
         if trip.file_c_goes_on_to.is_some() && trip.file_c_goes_on_to == self.rel_current() {
             return Some((1, "c"));
@@ -504,9 +465,6 @@ impl App {
         let row = hits
             .iter()
             .position(|(_, h)| h.path == landed && h.place() == self.at())?;
-        // From base code `d` answers as the base had it, and a deleted declaration is where it
-        // lands only when the branch has none (#440): neither is a place `d` is proven to reach
-        // from the branch's `u` list.
         let from_base = matches!(trip.opened_at.1, TextLine::Deleted(..))
             || (self.review.as_ref())
                 .zip(trip.opened_at_rel.as_deref())

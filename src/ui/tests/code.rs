@@ -1187,10 +1187,7 @@ fn not_wrapped_the_view_scrolls_before_the_cursor_reaches_the_edge() {
         PathBuf::from("/demo"),
         Tree::default(),
         Vec::new(),
-        Buffer::from_bytes(
-            PathBuf::from("/demo/f.txt"),
-            b"0123456789abcdefghijKLMN\n",
-        ),
+        Buffer::from_bytes(PathBuf::from("/demo/f.txt"), b"0123456789abcdefghijKLMN\n"),
         None,
     );
     app.show_tree = false;

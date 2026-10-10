@@ -259,7 +259,10 @@ fn a_hit_keeps_its_tabs_for_the_picker_to_line_up() {
     a.settle_search();
     let p = a.picker.as_mut().unwrap();
     p.settle();
-    assert_eq!(p.current().map(|it| it.label.as_str()), Some("f.py:1: x =\t1"));
+    assert_eq!(
+        p.current().map(|it| it.label.as_str()),
+        Some("f.py:1: x =\t1")
+    );
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 

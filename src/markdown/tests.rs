@@ -824,7 +824,10 @@ fn a_raw_html_block_is_shown_dim_as_it_is_written() {
 
 #[test]
 fn a_quote_wraps_in_the_room_its_bar_leaves() {
-    assert_eq!(texts(&doc("> aaa bbb", 8)), ["\u{2502} aaa", "\u{2502} bbb"]);
+    assert_eq!(
+        texts(&doc("> aaa bbb", 8)),
+        ["\u{2502} aaa", "\u{2502} bbb"]
+    );
 }
 
 #[test]
@@ -864,7 +867,11 @@ fn a_row_past_the_end_of_its_line_shows_no_line() {
     let d = doc("| a |\n|---|\n| 1 |", 20);
     let bottom = d.rows.last().unwrap();
     assert_eq!((bottom.src, bottom.lines.clone()), ((2, usize::MAX), 2..2));
-    assert_eq!(d.row_at((2, 0)), d.rows.len() - 2, "the cell's line is the cell's row");
+    assert_eq!(
+        d.row_at((2, 0)),
+        d.rows.len() - 2,
+        "the cell's line is the cell's row"
+    );
 }
 
 #[test]

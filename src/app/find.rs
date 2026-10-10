@@ -3,11 +3,9 @@ use super::*;
 const FIND_CAP: usize = 1_000;
 
 impl App {
-    /// An overlay closed and the open file stays: back to the mode it was opened from.
     pub(super) fn close_overlay(&mut self) {
         self.mode = Mode::Normal;
         if std::mem::take(&mut self.resume_edit) {
-            // The cursor may have moved: what is typed next is a new undo step.
             self.undo_break = true;
             self.edit_mode();
         }
@@ -35,15 +33,12 @@ impl App {
 
     pub(super) fn find_key(&mut self, key: KeyEvent) {
         match key.code {
-            // Enter keeps both the position and the pattern, so `n` carries on from here. The
-            // selection comes back unless the search moved the cursor.
             KeyCode::Enter => {
                 self.close_overlay();
                 self.anchor = self.find_sel.take();
                 self.drop_selection_if_moved(self.clamp_place(self.find_anchor));
                 self.hist_note(true);
             }
-            // Esc puts back both the cursor and the selection.
             KeyCode::Esc => {
                 self.close_overlay();
                 self.message.clear();
@@ -61,13 +56,8 @@ impl App {
         }
     }
 
-    /// Recompiles the query and moves to the first match at or after the anchor.
-    /// The query is literal text and ignores case: `migrator(` hits `Migrator()`, `sameCancel`
-    /// hits `SameCancel`.
     pub(super) fn refresh_find(&mut self) {
         if self.prompt.is_empty() {
-            // Nothing to match: drop the previous pattern so its highlights go with it,
-            // and put the cursor back where the search started.
             self.find_re = None;
             self.message.clear();
             let at = self.clamp_place(self.find_anchor);
@@ -96,7 +86,6 @@ impl App {
         std::iter::successors(Some(from), |&t| self.next_line(t)).map(|t| (t, self.text(t)))
     }
 
-    /// `3/17`: which match the cursor is on, out of how many in the file; `no match` for none.
     fn match_count(&self, re: &Regex) -> String {
         let (mut at, mut total) = (0, 0);
         let here = (self.at(), self.col);
@@ -114,7 +103,6 @@ impl App {
         format!("{at}/{total}")
     }
 
-    /// `n` / `N`: the next or previous match, wrapping around the file.
     pub(super) fn step_find(&mut self, forward: bool) {
         let Some(re) = self.find_re.clone() else {
             self.message = "no pattern".into();
@@ -165,7 +153,6 @@ impl App {
         None
     }
 
-    /// One char past the cursor, so `n` cannot land on the match it is already sitting on.
     fn after_cursor(&self) -> (TextLine, usize) {
         let s = shown_str(self.line_str());
         match self.next_line(self.at()) {

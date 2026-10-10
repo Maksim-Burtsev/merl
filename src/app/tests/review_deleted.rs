@@ -1078,7 +1078,10 @@ fn a_selection_from_the_line_under_a_deletion_is_edited_and_one_over_it_is_not()
     press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
     press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
     press(&mut a, KeyCode::Char('x'), KeyModifiers::CONTROL);
-    assert_eq!((a.buf.lines.join(","), a.message.as_str()), ("a,c,d".into(), "deleted"));
+    assert_eq!(
+        (a.buf.lines.join(","), a.message.as_str()),
+        ("a,c,d".into(), "deleted")
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
