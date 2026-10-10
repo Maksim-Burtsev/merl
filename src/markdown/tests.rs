@@ -866,3 +866,9 @@ fn a_row_past_the_end_of_its_line_shows_no_line() {
     assert_eq!((bottom.src, bottom.lines.clone()), ((2, usize::MAX), 2..2));
     assert_eq!(d.row_at((2, 0)), d.rows.len() - 2, "the cell's line is the cell's row");
 }
+
+#[test]
+fn with_no_row_that_shows_a_line_the_first_row_owns_them_all() {
+    let d = doc("[a]: https://example.com\n[b]: https://example.org", 20);
+    assert_eq!(d.rows[0].owns, [0, 1]);
+}

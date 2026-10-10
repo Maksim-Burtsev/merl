@@ -201,3 +201,8 @@ fn the_core_signatures_and_the_standard_library_come_first() {
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();
 }
+
+#[test]
+fn a_ruby_setter_lands_on_its_bare_name_in_attr_writer() {
+    assert_eq!(word_col("  attr_writer :name", "name=", ""), 15);
+}
