@@ -878,7 +878,6 @@ fn a_php_switch_case_is_no_constant_and_a_global_function_no_method() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Typed class constants, the tags of a class's docblock and namespace segments (#344).
 const PHP_TAGS: &str = r#"<?php
 
 namespace App\Models;
@@ -977,7 +976,6 @@ fn php_typed_constants_and_class_docblock_tags_declare() {
 #[test]
 fn php_namespace_line_answers_only_the_namespace_written_up_to_the_word() {
     let text = "<?php\nnamespace App\\Repos;\n";
-    // The patterns for the word of `line`, and which of `decls` they match.
     let answers = |line: &str, word: &str| {
         let start = line.find(word).unwrap();
         let mut patterns = def_patterns(Kind::Php, word);

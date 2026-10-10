@@ -346,7 +346,6 @@ fn lines_inside_a_literal_or_a_block_comment_are_told() {
     );
 }
 
-/// The 1-based lines of `text` that start inside a literal of `kind`.
 fn inside(kind: Kind, text: &str) -> Vec<usize> {
     let lines = literal_lines(kind, text);
     (1..=lines.len()).filter(|&n| lines[n - 1]).collect()

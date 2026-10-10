@@ -20,7 +20,6 @@ fn code_symbol_names() {
             Some("MAX_ORDERS"),
         ),
         ("static COUNT: u32 = 0;", Some("COUNT")),
-        // Indented and bare, `const` and `static` are locals; exported, they are symbols.
         ("  const n = 1;", None),
         ("    static COUNT: u32 = 0;", None),
         ("  export const LIMIT = 10;", Some("LIMIT")),
@@ -39,18 +38,13 @@ fn code_symbol_names() {
         ("export const parse = (s) => s;", Some("parse")),
         ("    render(o);", None),
         ("    return inv.render()", None),
-        // A Go constant with a type or with several names, and a JavaScript name with a `$`:
-        // the name is whatever follows the keyword, with nothing required after it.
         ("const Limit int = 10", Some("Limit")),
         ("const A, B = 1, 2", Some("A")),
         (
             "export const user$ = new BehaviorSubject(null);",
             Some("user"),
         ),
-        // A dotted name is the first part: the namespace, not what is nested in it.
         ("export namespace Validation.Rules {", Some("Validation")),
-        // Java, Kotlin and Ruby have rows of their own; their keywords are not here, so a Go
-        // struct field and a line of prose are not declarations.
         ("\tmodule module.Version", None),
         ("module in general is to provide", None),
         ("module.exports = helpers;", None),
@@ -167,7 +161,6 @@ fn jvm_symbol_names() {
             "fun String?.orEmpty(): String = this ?: \"\"",
             Some("orEmpty"),
         ),
-        // A method: the return type before the name is what tells it from a call.
         ("    public int total() {", Some("total")),
         (
             "    static Map<String, Integer> compute(Map<String, Integer> rows) {",
@@ -190,7 +183,6 @@ fn jvm_symbol_names() {
         ("    static final Invoice EMPTY = new Invoice(0);", None),
         ("    companion object {", None),
         ("    return compute(items);", None),
-        // A Kotlin test named in backticks is no symbol called after its first word (#416).
         (
             "    fun `returns empty list when nothing is cached`() {",
             None,
@@ -202,15 +194,12 @@ fn jvm_symbol_names() {
         ("    Card(title = \"Invoice\") {", None),
         ("        withContext(Dispatchers.IO) {", None),
         ("        return new Runnable() {", None),
-        // The constructor is listed under its class.
         ("    public Invoice(int n) {", None),
     ] {
         assert_eq!(jvm(line).as_deref(), name, "{line}");
     }
 }
 
-/// #416. Scala's declarations beside Java's and Kotlin's, each listed once, `def` from a row of
-/// its own; a field, a `val`, an enum case and an anonymous `given` are no symbols.
 #[test]
 fn scala_symbol_names() {
     let scala = |line| one(Kind::Jvm, line);
@@ -268,8 +257,6 @@ fn ruby_symbol_names() {
         ("    def Invoice.build(text)", Some("build")),
         ("    def total=(value)", Some("total")),
         ("    def empty?", Some("empty")),
-        // No keyword to go by: a constant, and one `attr_accessor` line can declare
-        // several names at once.
         ("  LIMIT = 10", None),
         ("    attr_accessor :total", None),
         ("    @cache ||= {}", None),
@@ -285,7 +272,6 @@ fn ruby_symbol_names() {
 fn c_symbol_names() {
     let c = |line| one(Kind::C, line);
     for (line, name) in [
-        // A function: in column zero, where C has no statements, anything but a prototype.
         (
             "int invoice_total(struct invoice *inv) {",
             Some("invoice_total"),
@@ -300,7 +286,6 @@ fn c_symbol_names() {
             Some("sdssplitlen"),
         ),
         ("void Ledger::append(Rows rows) {", Some("append")),
-        // GNU style: the return type is on the line above, so the name starts the line.
         (
             "edata_ind_get(const edata_t *edata) {",
             Some("edata_ind_get"),
@@ -311,7 +296,6 @@ fn c_symbol_names() {
             Some("vformat"),
         ),
         ("int invoice_total(struct invoice *inv);", None),
-        // A method, indented, told from a call by the body it opens.
         (
             "  auto total() const -> int { return total_; }",
             Some("total"),
@@ -351,26 +335,19 @@ fn c_symbol_names() {
         ),
         ("using Rows = std::vector<int>;", Some("Rows")),
         ("using namespace detail;", None),
-        // `using a::b;` imports a name; the row would otherwise be called `a`.
         ("using std::swap;", None),
         ("  using fmt::buffered_file;", None),
         ("struct invoice *current = NULL;", None),
-        // The name a typedef gives a type, once: the opening `typedef struct invoice {` is
-        // not listed, so the type is one row, under the name the project writes.
         ("typedef char *sds;", Some("sds")),
         ("typedef struct redisObject robj;", Some("robj")),
         ("} invoice;", Some("invoice")),
         ("typedef struct invoice {", None),
-        // Indented, a closing brace ends a nested anonymous struct: that name is a field.
         ("    } offset;", None),
         ("} while (0);", None),
         ("};", None),
         ("#define LRU_BITS 24", Some("LRU_BITS")),
         ("#  define FMT_THROW(x) throw x", Some("FMT_THROW")),
         ("#ifndef INVOICE_H", None),
-        // Objective-C (#417): a class and a protocol, not a category, an extension, an
-        // `@implementation` or a forward declaration; a method from the line of its definition,
-        // under the first part of its selector; no property.
         ("@interface Repo : NSObject <Store>", Some("Repo")),
         ("@interface Root", Some("Root")),
         ("@protocol Store <NSObject>", Some("Store")),
@@ -408,10 +385,8 @@ fn csharp_symbol_names() {
             "public delegate int Comparison<T>(T a, T b);",
             Some("Comparison"),
         ),
-        // A namespace under its last part, the one `d` finds it by.
         ("namespace Billing.Core;", Some("Core")),
         ("namespace Billing", Some("Billing")),
-        // A member: the type before the name is what tells it from a call.
         (
             "    public async Task<Invoice<T>> LoadAsync(int id)",
             Some("LoadAsync"),
@@ -438,7 +413,6 @@ fn csharp_symbol_names() {
         ("    public int Total { get; private set; }", Some("Total")),
         ("    public string Name => _name;", Some("Name")),
         ("    public IReadOnlyList<int> Rows", Some("Rows")),
-        // A field is not a symbol, in this kind as in every other.
         ("    private const int Limit = 10;", None),
         ("    private readonly ILogger<Invoice<T>> _logger;", None),
         ("    public static event EventHandler? Saved;", None),
@@ -446,7 +420,6 @@ fn csharp_symbol_names() {
             "    public static Dictionary<string, Invoice<int>> All = new();",
             None,
         ),
-        // The constructor is listed under its class, and a `using` alias is file-local.
         ("    public Invoice(int n)", None),
         ("using Rows = System.Collections.Generic.List<int>;", None),
         ("using System.Text.Json;", None),
@@ -482,11 +455,8 @@ fn swift_symbol_names() {
         ),
         ("public typealias Rows = [Int]", Some("Rows")),
         ("    associatedtype Value", Some("Value")),
-        // An extension is listed under the type it extends, which is what a project's own
-        // members of that type sit in.
         ("extension Session: RequestDelegate {", Some("Session")),
         ("extension Array where Element: Hashable {", Some("Array")),
-        // A function, past its generics; `class func` is a static method, not a class.
         (
             "    public func request<T: Encodable>(_ url: URL) -> Request {",
             Some("request"),
@@ -498,14 +468,11 @@ fn swift_symbol_names() {
             Some("resume"),
         ),
         ("    func `default`() {", Some("default")),
-        // What a type holds is not a symbol, in this kind as in every other, and an `init` is
-        // listed under its type.
         ("    public static let `default` = Session()", None),
         ("    private let queue: DispatchQueue", None),
         ("    public var isRunning = false", None),
         ("    case initialized", None),
         ("    public init(queue: DispatchQueue = .main) {", None),
-        // An operator has no name a reader would look it up by.
         (
             "    public static func == (lhs: Self, rhs: Self) -> Bool {",
             None,
@@ -555,20 +522,15 @@ fn php_symbol_names() {
         ("    private const int LIMIT = 500;", Some("LIMIT")),
         ("    const ?string LABEL = null;", Some("LABEL")),
         ("    public const A|B UNION = 1;", Some("UNION")),
-        // A property is a field, an enum case is what a type holds, and a `define()` has no
-        // keyword before the name: none of them is a symbol.
         ("    protected array $rows = [];", None),
         ("    private ?Logger $logger;", None),
         ("    case Open = 'open';", None),
         ("define('BILLING_LIMIT', 10);", None),
-        // A magic method is the language's hook, not the project's, as in C.
         (
             "    public function __construct(private readonly Account $account)",
             None,
         ),
         ("    public function __toString(): string", None),
-        // A `use` imports, an anonymous function has no name, and a call is not a
-        // declaration.
         ("use Illuminate\\Support\\Str;", None),
         ("    use Macroable;", None),
         ("$handler = function ($x) use ($y) {", None),
@@ -661,8 +623,6 @@ fn infra_symbol_names() {
     assert_eq!(yaml("apiVersion: v1"), None);
 }
 
-/// #419. `D` lists GraphQL's definitions from its own row, each once, a directive without its
-/// `@`; a field, an enum value, an `extend` and an anonymous operation are no rows.
 #[test]
 fn graphql_symbol_names() {
     for (line, name) in [

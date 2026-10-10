@@ -176,7 +176,6 @@ fn a_go_package_block_is_read_at_its_level_and_a_mention_may_declare() {
             "func Struct(repo *A, fn func()) (out struct {\n\tX int\n}) {\n\trepo.Do()\n}\n",
             true,
         ),
-        // A word of a comment or a string, a receiver of `.`, an argument handed on.
         (
             "func Free() {\n\t// repo is a word\n\tlog(\"repo\")\n\trepo.Do()\n\tsave(repo)\n\trepo.Do()\n}\n",
             false,
@@ -191,7 +190,6 @@ fn a_go_package_block_is_read_at_its_level_and_a_mention_may_declare() {
             "func If() {\n\tif repo := get(); repo.Do() {\n\t}\n}\n",
             true,
         ),
-        // The function above is another function.
         (
             "func Above(repo *A) {\n}\n\nfunc Below() {\n\trepo.Do()\n}\n",
             false,
@@ -284,7 +282,6 @@ fn a_go_file_is_built_for_a_platform_by_its_name_and_its_build_line() {
         ("clock_arm64.go", "", "darwin", "amd64", Excluded),
         ("clock_linux_arm64.go", "", "linux", "arm64", Compiled),
         ("clock_linux_arm64.go", "", "darwin", "arm64", Excluded),
-        // The name of a file is no ending of it, and `unix` is no `GOOS` a name can spell.
         ("linux.go", "", "darwin", "arm64", Compiled),
         ("clock_unix.go", "", "windows", "amd64", Compiled),
         (
@@ -350,7 +347,6 @@ fn a_go_file_is_built_for_a_platform_by_its_name_and_its_build_line() {
             "arm64",
             Compiled,
         ),
-        // The name and the line both have to hold.
         ("c_linux.go", "//go:build arm64", "linux", "amd64", Excluded),
         ("c.go", "//go:build gogit", "linux", "amd64", Excluded),
         (
@@ -368,7 +364,6 @@ fn a_go_file_is_built_for_a_platform_by_its_name_and_its_build_line() {
             Excluded,
         ),
         ("c.go", "//go:build ignore", "linux", "amd64", Excluded),
-        // What every toolchain sets: cgo, the compiler, the releases behind it.
         ("c.go", "//go:build go1.21", "linux", "amd64", Compiled),
         ("c.go", "//go:build !go1.21", "linux", "amd64", Excluded),
         ("c.go", "//go:build gc", "linux", "amd64", Compiled),
@@ -415,8 +410,6 @@ fn a_go_file_is_built_for_a_platform_by_its_name_and_its_build_line() {
             "arm64",
             Compiled,
         ),
-        // The old spelling is not read, nor is a line that does not parse; an architecture
-        // is one whatever the host.
         ("c.go", "// +build windows", "darwin", "arm64", Unread),
         ("c.go", "//go:build darwin &&", "darwin", "arm64", Unread),
         ("c_sparc64.go", "", "darwin", "arm64", Excluded),
@@ -476,10 +469,8 @@ fn a_go_parameter_type_named_like_its_method() {
         ),
         ("\tSend(m map[string]Send, n int) error", 1, true),
         ("\tSend(Send) error", 1, true),
-        // A parameter's name, and the declared name itself, are no type.
         ("\tSend(Send, n int) error", 1, false),
         ("\tSend(msg Send) error", 0, false),
-        // A result, and a line that declares no `Send`.
         ("\tSend(n int) Send", 1, false),
         ("\tPost(msg Send) error", 0, false),
     ] {
