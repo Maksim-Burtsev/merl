@@ -238,7 +238,7 @@ pub fn label_at(
 
 fn declares(before: &str) -> bool {
     static DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:^|[^\w.$])(?:def|fun|func|function|fn|class|case|subscript|constructor|init|lambda)\b[^=(]*$")
+        Regex::new(r"(?:^|[^\w.$])(?:(?:def|fun|func|function|fn|class|case|subscript|constructor|init)\b[^=(]*|lambda\b[^=(:]*)$")
             .unwrap()
     });
     DECL.is_match(before)

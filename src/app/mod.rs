@@ -316,8 +316,6 @@ pub struct App {
     c_includes: HashMap<(PathBuf, CMode), Paths>,
     c_files: HashMap<CMode, (Paths, Paths)>,
     go_build: search::GoBuild,
-    /// The candidates of this `d` are to be offered, not jumped to, however few: the word is a
-    /// keyword argument, which names a parameter no rule reads.
     offer_only: bool,
     probe: Option<Vec<Candidate>>,
     base_app: Option<(String, Box<App>)>,

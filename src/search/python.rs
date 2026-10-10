@@ -185,9 +185,10 @@ fn closes_a_wrapped_header(t: &str) -> bool {
     t.starts_with([')', ']'])
 }
 
+static DEF: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"^(?:async\s+)?def\s+(\w+)\s*\(").unwrap());
+
 pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
-    static DEF: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^(?:async\s+)?def\s+(\w+)\s*\(").unwrap());
     static SCOPE: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^(?:(?:async\s+)?def|class)\s+(\w+)").unwrap());
     let n = regex::escape(name);
@@ -527,6 +528,43 @@ fn python_class_of(lines: &[&str], def_line0: usize) -> Option<usize> {
         decorators = false;
     }
     None
+}
+pub fn names_a_parameter(text: &str, line1: usize, range: &std::ops::Range<usize>) -> bool {
+    keyword_argument(text, line1, range) || def_parameter(text, line1, range)
+}
+fn def_parameter(text: &str, line1: usize, range: &std::ops::Range<usize>) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let (l, name) = (lines[at], &lines[at][range.clone()]);
+    let before = l[..range.start].trim_end();
+    let after = l[range.end..].trim_start();
+    if !(before.is_empty() || before.ends_with(['(', ',', '*']))
+        || !(after.is_empty() || after.starts_with([',', ')', ':', '=']))
+        || after.starts_with("==")
+    {
+        return false;
+    }
+    let Some(d) = (0..=at)
+        .rev()
+        .find(|&i| DEF.is_match(lines[i].trim_start()))
+    else {
+        return false;
+    };
+    let Some(Group {
+        inner_uncommented: params,
+        close_line,
+        ..
+    }) = lines[d]
+        .find('(')
+        .and_then(|open| group(Kind::Python, &lines, d, open))
+    else {
+        return false;
+    };
+    let mut out = Vec::new();
+    python_params(&lines, d, &params, name, &mut out);
+    close_line >= at && out.iter().any(|b| b.line1 == line1)
 }
 pub fn keyword_argument(text: &str, line1: usize, range: &std::ops::Range<usize>) -> bool {
     let lines: Vec<&str> = text.lines().collect();

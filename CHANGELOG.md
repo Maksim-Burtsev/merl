@@ -93,6 +93,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in TypeScript and JavaScript on a name imported through a `baseUrl` that the tsconfig
   inherits by `"extends"` jumps to its definition, where it stopped at the import as if the
   module were a missing npm package. (#790)
+- `d` in Python on a parameter where its `def` declares it, `def go(limit):`, offers what else is
+  named so in a list instead of jumping to a variable of that name in another file, as it did
+  for a parameter with a default; on a keyword argument after a `lambda:`, `lambda: go(limit=1)`,
+  it lands on the parameter of `go`. (#791)
 
 ## [0.8.3] - 2026-10-07
 
