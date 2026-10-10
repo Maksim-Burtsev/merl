@@ -564,3 +564,20 @@ fn a_rust_name_its_module_does_not_declare_is_left_to_the_search_by_name() {
     let rows = [("Thing", "other/src/lib.rs:1"), ("Thing", "src/b.rs:1")];
     assert_eq!(found, picker("Thing: by name, 2 declarations", &rows));
 }
+
+#[test]
+fn a_bare_csharp_name_is_looked_for_eight_types_up() {
+    let at = |n: usize| {
+        let (file, mut text, _) = ladder("cs", n);
+        text +=
+            "\npublic class Top : C0\n{\n    public void G()\n    {\n        Root();\n    }\n}\n";
+        d_in(
+            &format!("cs-bare-{n}"),
+            &[(file.clone(), text)],
+            &file,
+            "        Root",
+        )
+    };
+    assert_eq!(at(7), jump("Root \u{2192} C7.Root (via Top)", "Shop.cs:3"));
+    assert!(matches!(at(8), Shown::Picker(..)));
+}
