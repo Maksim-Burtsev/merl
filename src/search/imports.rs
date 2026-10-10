@@ -939,12 +939,13 @@ pub(super) fn ts_alias(root: &Path, files: &[PathBuf], dir: &Path, spec: &str) -
     } = ts_config(root, dir, spec);
     let first = spec.split('/').next().unwrap_or(spec);
     !path_targets.is_empty()
-        || base_url.is_some_and(|u| {
-            let base = u.join(first);
-            files
-                .iter()
-                .any(|f| f.starts_with(&base) || f.with_extension("") == base)
-        })
+        || base_url
+            .and_then(|u| lexical(&u.join(first)))
+            .is_some_and(|base| {
+                files
+                    .iter()
+                    .any(|f| f.starts_with(&base) || f.with_extension("") == base)
+            })
 }
 struct TsConfig {
     path_targets: Vec<PathBuf>,
