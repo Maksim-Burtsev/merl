@@ -43,6 +43,7 @@ fn the_hunk_left_is_its_index_so_a_hunk_written_above_it_takes_its_place() {
 fn d_in(tag: &str, files: &[(String, String)], file: &str, code: &str) -> Shown {
     let files: Vec<(&str, &str)> = files.iter().map(|(n, t)| (n.as_str(), t.as_str())).collect();
     let (dir, mut a) = project_app(tag, &files);
+    a.no_external();
     d_on(&mut a, file, code);
     let found = shown(&mut a);
     let _ = std::fs::remove_dir_all(dir);
@@ -91,4 +92,20 @@ fn two_typescript_modules_handing_a_name_to_each_other_end() {
     files.push(("tariffs.ts".into(), "export class Tariff {}\n".into()));
     let by_name = jump("Tariff: by name, 1 match", "tariffs.ts:1");
     assert_eq!(d_in("ts-cycle-named", &files, "app.ts", "new Tariff"), by_name);
+}
+
+fn python_bases(levels: usize, top: &str) -> Vec<(String, String)> {
+    let mut text = format!("from outside import Base\n\n\nclass C{levels}({top}):\n    pass\n");
+    for i in (0..levels).rev() {
+        text += &format!("\n\nclass C{i}(C{}):\n    pass\n", i + 1);
+    }
+    text += "\n\nclass Other:\n    def save(self):\n        pass\n\n\ndef f(x: C0):\n    x.save()\n";
+    vec![("app.py".to_string(), text)]
+}
+
+#[test]
+fn a_python_receiver_reaches_outside_the_project_through_eight_classes() {
+    let at = |n: usize| d_in(&format!("py-up-{n}"), &python_bases(n, "Base"), "app.py", "x.save");
+    assert_eq!(at(7), jump("no definition for save", "app.py:42"));
+    assert_eq!(at(8), jump("save \u{2192} Other.save (by name, 1 match)", "app.py:41"));
 }

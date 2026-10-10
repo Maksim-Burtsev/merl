@@ -296,7 +296,6 @@ impl App {
     /// `None` when a base cannot be read.
     fn python_ancestry(&self, ty: &Typed, depth: usize) -> Option<Ancestry> {
         let kind = Kind::Python;
-        // ponytail: eight levels up, which also ends a cycle.
         let text = self.text_of(&ty.path).filter(|_| depth < 8)?;
         let imports = search::imports(kind, &text);
         let mut outside = false;
