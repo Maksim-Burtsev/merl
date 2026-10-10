@@ -1087,3 +1087,25 @@ fn a_file_under_base_url_named_as_the_first_part_is_the_projects() {
     assert!(missing("widgets"));
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn a_base_url_inherited_through_extends_finds_the_projects_file() {
+    let (dir, files) = scratch(
+        "base-url-extends",
+        &[
+            ("tsconfig.json", r#"{ "extends": "./tsconfig.base.json" }"#),
+            (
+                "tsconfig.base.json",
+                r#"{ "compilerOptions": { "baseUrl": "src" } }"#,
+            ),
+            ("web/tsconfig.json", r#"{ "extends": "../tsconfig.json" }"#),
+            ("src/helpers.ts", ""),
+        ],
+    );
+    let missing =
+        |here: &str, spec: &str| package_missing(&dir, &files, Path::new(here), &[spec.to_owned()]);
+    assert!(!missing("src/pages", "helpers"));
+    assert!(!missing("web/pages", "helpers"));
+    assert!(missing("src/pages", "widgets"));
+    std::fs::remove_dir_all(&dir).unwrap();
+}

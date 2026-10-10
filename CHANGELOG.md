@@ -88,6 +88,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   to the overload of one parameter, where it offered every overload. (#788)
 - `d` in Java and Kotlin on a parameter or local of a function, read inside a class declared in
   that function, jumps to it, where it said `no definition`. (#787)
+- `d` in Ruby on a name a comment mentions after a paren-less `def`'s parameters, `def lash
+  fore, aft # scupper`, no longer takes the name for a parameter of that `def`. (#789)
+- `d` in TypeScript and JavaScript on a name imported through a `baseUrl` that the tsconfig
+  inherits by `"extends"` jumps to its definition, where it stopped at the import as if the
+  module were a missing npm package. (#790)
 
 ## [0.8.3] - 2026-10-07
 

@@ -520,11 +520,11 @@ pub(super) fn code(kind: Kind, s: &str) -> impl Iterator<Item = (usize, u8)> + '
                 quote = Some(c);
                 None
             }
-            b'#' if matches!(kind, Kind::Python | Kind::Gdscript) => {
+            b'#' if matches!(kind, Kind::Python | Kind::Gdscript | Kind::Ruby) => {
                 comment = true;
                 Some((i, 0))
             }
-            b'/' if !matches!(kind, Kind::Python | Kind::Gdscript)
+            b'/' if !matches!(kind, Kind::Python | Kind::Gdscript | Kind::Ruby)
                 && b.get(i + 1) == Some(&b'/') =>
             {
                 comment = true;
