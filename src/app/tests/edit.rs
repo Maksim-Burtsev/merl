@@ -1088,3 +1088,21 @@ fn a_failed_save_waits_for_the_next_autosave_to_try_again() {
     assert!(a.message.starts_with("save failed"), "{}", a.message);
     assert!(!a.tick(), "the autosave clock starts again");
 }
+
+#[test]
+fn leaving_a_read_only_file_keeps_no_history_to_come_back_to() {
+    let (path, mut a) = temp_file("stash-readonly", "a\nb\n");
+    let other = path.with_file_name("g.py");
+    std::fs::write(&other, "x\n").unwrap();
+    std::fs::write(&path, "a\r\nb\n").unwrap();
+    a.reload(false);
+    assert_eq!(a.buf.readonly, Some("mixed line endings"));
+    a.jump_to(&other, 1);
+    a.jump_to(&path, 1);
+    ctrl(&mut a, 'z');
+    assert_eq!(
+        (a.buf.readonly, a.message.as_str()),
+        (Some("mixed line endings"), "nothing to undo")
+    );
+    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+}

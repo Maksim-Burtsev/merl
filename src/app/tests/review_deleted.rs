@@ -1081,3 +1081,21 @@ fn a_selection_from_the_line_under_a_deletion_is_edited_and_one_over_it_is_not()
     assert_eq!((a.buf.lines.join(","), a.message.as_str()), ("a,c,d".into(), "deleted"));
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn a_reload_carries_a_selection_anchored_on_a_deleted_line() {
+    let (dir, mut a) = repo_review(
+        "anchor-deleted",
+        &[("a.txt", "a\nb\nc\nd\n")],
+        &[("a.txt", Some("a\nc\nd\n"))],
+    );
+    let file = dir.join("a.txt");
+    a.jump_to(&file, 2);
+    press(&mut a, KeyCode::Up, KeyModifiers::NONE);
+    assert_eq!(a.at(), Deleted(1, 0));
+    press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+    std::fs::write(&file, "x\ny\na\nc\nd\n").unwrap();
+    a.reload(false);
+    assert_eq!(a.selected_text().as_deref(), Some("b\n"));
+    let _ = std::fs::remove_dir_all(dir);
+}
