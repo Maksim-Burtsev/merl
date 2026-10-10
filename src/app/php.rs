@@ -347,7 +347,6 @@ impl App {
         word: &str,
         access: search::PhpAccess,
     ) -> Option<Vec<Candidate>> {
-        // ponytail: six names in front of the word, as for Python.
         let (head, fields) = chain.split_first().filter(|_| chain.len() <= 6)?;
         let (mut class, mut links, rest) = match head.as_str() {
             // `$this->word` alone is [`Self::php_link`]'s.
@@ -428,7 +427,6 @@ impl App {
         let mut found: Option<ProvenClass> = None;
         for b in search::php_variable(text, self.line + 1, name)? {
             let at = b - 1;
-            // ponytail: a statement read over twenty lines.
             let statement = lines[at..lines.len().min(at + 20)].join("\n");
             let binding = search::php_binding(&statement, name)?;
             if at == self.line && !matches!(binding, search::PhpBinding::Type(_)) {
@@ -552,7 +550,7 @@ impl App {
 
     /// The members `re` matches of the class `short` outside the project, in `vendor/`: its
     /// `short.php`, narrowed to the one declaring the namespace of `full` when the file resolves
-    /// it. What the class inherits there is not read.
+    /// it.
     fn php_outside(&mut self, full: Option<&str>, short: &str, re: &Regex) -> Walk {
         let file = format!("{short}.php");
         let files: Vec<PathBuf> = self

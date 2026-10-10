@@ -721,9 +721,6 @@ impl App {
     }
 
     /// The files of `kind` outside the project, walked once per kind.
-    ///
-    /// ponytail: lives for the session, unlike the project walk. A `pip install` mid-session
-    /// needs a restart.
     pub(super) fn external_files(&mut self, kind: Kind) -> Arc<Vec<PathBuf>> {
         if kind == Kind::Scheme
             && self

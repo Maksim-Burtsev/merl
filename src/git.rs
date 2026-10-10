@@ -427,8 +427,6 @@ impl Review {
                 "160000" => continue,
                 "120000" => from_git.push((path.to_path_buf(), true)),
                 _ if changed.contains(path) => from_git.push((path.to_path_buf(), false)),
-                // ponytail: a plain copy where the file system cannot clone, once per review of a
-                // branch; hard links would be free but follow an edit made in place.
                 _ => {
                     if std::fs::copy(root.join(path), &dst).is_err() {
                         from_git.push((path.to_path_buf(), false));
@@ -704,9 +702,6 @@ fn rebasing(git: &dyn Fn(&[&str]) -> Result<String>, root: &Path) -> Result<Stri
         .context("no rebase in progress")
 }
 
-/// ponytail: every untracked text file is read on every refresh to count its lines, in 64 KiB
-/// pieces, so a huge log costs time and no memory. A branch with thousands of them, or a
-/// gigabyte of text, wants the counts cached by size and mtime.
 fn untracked(root: &Path, path: &Path) -> ReviewFile {
     let (binary, added) = count_lines(&root.join(path)).unwrap_or((false, 0));
     ReviewFile {
@@ -958,6 +953,21 @@ fn detect_base(git: &dyn Fn(&[&str]) -> Result<String>) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn untracked_lines_are_counted_in_64_kib_pieces_and_sniffed_for_nul_in_the_first_8000_bytes() {
+        let dir = std::env::temp_dir().join(format!("merl-count-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("log");
+        let lines = "x".repeat(99) + "\n";
+        std::fs::write(&file, lines.repeat(1000) + "tail").unwrap();
+        assert_eq!(count_lines(&file).unwrap(), (false, 1001));
+        std::fs::write(&file, "x".repeat(7999) + "\0").unwrap();
+        assert_eq!(count_lines(&file).unwrap(), (true, 0));
+        std::fs::write(&file, "x".repeat(8000) + "\0").unwrap();
+        assert_eq!(count_lines(&file).unwrap(), (false, 1));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn hunk_headers_become_marks() {

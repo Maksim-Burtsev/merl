@@ -296,7 +296,6 @@ impl App {
     /// `None` when a base cannot be read.
     fn python_ancestry(&self, ty: &Typed, depth: usize) -> Option<Ancestry> {
         let kind = Kind::Python;
-        // ponytail: eight levels up, which also ends a cycle.
         let text = self.text_of(&ty.path).filter(|_| depth < 8)?;
         let imports = search::imports(kind, &text);
         let mut outside = false;
@@ -429,7 +428,6 @@ impl App {
         } = start;
         let mut links = vec![call_signature.unwrap_or_else(|| format!("{name}: {}", ty.name))];
         for (i, field) in fields.iter().enumerate() {
-            // ponytail: six names in front of the word; a longer chain breaks at the seventh.
             if i == 5 {
                 return Err(field.clone());
             }
@@ -806,7 +804,6 @@ impl App {
         };
         // Go's `type X = Y` is `Y` itself, methods and fields (#100), where `Y` is a type the
         // project declares; `type X = []Y` and the like stay what their line says.
-        // ponytail: eight aliases deep, which also ends a cycle.
         // An alias that methods are declared on, `func (t Twin) Close()`, answers for them under
         // its own name, as before.
         let receiver = |alias: &str| {
@@ -1068,7 +1065,6 @@ impl App {
         let shown = |w: &str| search::swift_type_name(w).unwrap_or_else(|| w.to_owned());
         let mut links = vec![link.unwrap_or_else(|| format!("{}: {}", names[0], shown(&written)))];
         for (i, field) in names[1..].iter().enumerate() {
-            // ponytail: six names in front of the word, as the other languages read.
             if i == 5 {
                 return None;
             }

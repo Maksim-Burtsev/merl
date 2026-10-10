@@ -108,10 +108,6 @@ impl App {
         }
         self.search_due = None;
         self.search_sent = Some(self.search_seq);
-        // ponytail: nothing stops a walk whose answer is already stale — `D` past the cap reads
-        // the project once per pause in the typing, and [`search::MAX_HITS`] does not bound it,
-        // since a narrowing query never fills the cap. A stop flag on the job, read per file, is
-        // the upgrade if typing on a large project ever waits on them.
         let symbols = self.mode == Mode::Picker(PickerKind::Symbols);
         let pattern = if symbols {
             query
@@ -139,10 +135,6 @@ impl App {
         self.jump_to_item(&item);
     }
 
-    /// ponytail: no grep is cancelled. For `s` a short query stops at [`search::MAX_HITS`]; a
-    /// selective one reads every file, and on gitea (6,000 files) typing at a human pace did not
-    /// delay the answer to the final query (#53). `D` past the cap walks the project for every
-    /// query (see [`App::search_tick`]). A stop flag checked per file is the upgrade if it does.
     /// Returns whether the screen changed.
     pub fn search_done(&mut self, seq: u64, items: Vec<PickItem>) -> bool {
         let Some(old) = self.picker.as_mut().filter(|p| p.live) else {

@@ -735,9 +735,6 @@ impl App {
         self.ghost_rows(l) + text
     }
 
-    // ponytail: the deleted lines above the cursor in its block are wrapped again on every call,
-    // 30-45 ms a move 5,000 lines into one; keep their row counts per key if deletions that tall
-    // are ever read line by line.
     pub fn cursor_row(&self) -> usize {
         let above = match self.deleted {
             Some((k, i)) => self.diff.ghosts[&k][..i]

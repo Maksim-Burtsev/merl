@@ -659,8 +659,6 @@ impl App {
                 proven: true,
             });
         }
-        // ponytail: a name at the top of a module found nowhere else is left to the search
-        // by name; the whole crate would offer another module's namesake as proven.
         let hits = match owner {
             Some(_) => self.rust_declared(files, name, owner.as_deref(), macro_call),
             None => Vec::new(),
@@ -716,7 +714,6 @@ impl App {
         })
     }
 
-    // ponytail: the first version `Cargo.lock` holds; two versions of one crate are not told apart.
     fn registry_crate(&mut self, name: &str) -> Option<CrateSrc> {
         let all = self.external_files(Kind::Rust);
         let roots = self.external.get(&Kind::Rust)?.0.clone();
@@ -777,7 +774,6 @@ impl App {
         chain: &[String],
         call: bool,
     ) -> Result<Vec<Candidate>, String> {
-        // ponytail: six names in front of the word; a longer chain breaks at the seventh.
         if let Some(seventh) = chain.get(6) {
             return Err(seventh.clone());
         }

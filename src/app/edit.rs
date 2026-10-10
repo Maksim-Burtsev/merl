@@ -354,8 +354,6 @@ impl App {
             self.message = why;
             return;
         }
-        // ponytail: read, compare, then write; a writer landing between the read and the write
-        // still loses. Files have no compare-and-swap, and the window is one read long.
         let changed = match std::fs::read(path) {
             Ok(b) => buffer::hash(&b) != self.buf.disk_hash,
             Err(e) => {

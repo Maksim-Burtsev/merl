@@ -71,9 +71,6 @@ pub fn build_ordered(root: &Path, shallow: bool, order: &Order) -> (Tree, Vec<Pa
         })
         .collect();
     // Whatever else the walked directories hold is ignored.
-    // ponytail: every walked directory is read a second time for it, one after another: on
-    // gitea (7k rows, 1.4k directories) the walk takes 53 ms instead of 33. Threads won 8 ms
-    // back; `build_parallel` for the walk itself if a project shows the difference.
     let listed: HashSet<&Path> = walked.iter().map(|(p, _)| p.as_path()).collect();
     let dirs = walked.iter().filter(|(_, is_dir)| *is_dir);
     let ignored: Vec<(PathBuf, bool)> = std::iter::once(Path::new(""))

@@ -43,7 +43,6 @@ impl App {
         .then_some(package)
     }
 
-    /// ponytail: four modules deep, which also ends a cycle.
     pub(super) fn package_behind(
         &self,
         here: &Path,
@@ -322,7 +321,6 @@ impl App {
         if hits.is_empty() && !named && files.iter().all(|f| search::component(f)) {
             return Some(self.module_candidates(files));
         }
-        // ponytail: four modules deep, which also ends a cycle.
         if hits.is_empty()
             && kind == Kind::TsJs
             && depth < 4
@@ -366,7 +364,6 @@ impl App {
                 return Some(found);
             }
         }
-        // ponytail: four modules deep, which also ends a cycle.
         if hits.is_empty() && kind == Kind::Python && depth < 4 {
             let mut found: Vec<Candidate> = Vec::new();
             for f in &files {
