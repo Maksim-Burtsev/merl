@@ -109,3 +109,33 @@ fn a_python_receiver_reaches_outside_the_project_through_eight_classes() {
     assert_eq!(at(7), jump("no definition for save", "app.py:42"));
     assert_eq!(at(8), jump("save \u{2192} Other.save (by name, 1 match)", "app.py:41"));
 }
+
+#[test]
+fn of_two_versions_of_a_crate_the_first_root_answers() {
+    let (dir, mut a) = project_app(
+        "rust-two-versions",
+        &[
+            ("Cargo.toml", "[package]\nname = \"repro\"\n"),
+            ("src/lib.rs", "use dep::Thing;\n\npub fn made(t: Thing) {}\n"),
+        ],
+    );
+    let registry = external_root(
+        "rust-two-versions-registry",
+        &[
+            ("dep-2.0.0/src/lib.rs", "pub struct Thing;\n"),
+            ("dep-1.0.0/src/lib.rs", "\npub struct Thing;\n"),
+        ],
+    );
+    a.no_external();
+    for (first, other, line) in [("dep-1.0.0", "dep-2.0.0", 2), ("dep-2.0.0", "dep-1.0.0", 1)] {
+        use_roots(&mut a, Kind::Rust, &[registry.join(first), registry.join(other)]);
+        d_on(&mut a, "src/lib.rs", "t: Thing");
+        let Shown::Jump(status, place) = shown(&mut a) else {
+            panic!("a picker");
+        };
+        assert_eq!(status, "Thing: via import dep");
+        assert!(place.ends_with(&format!("{first}/src/lib.rs:{line}")), "{place}");
+    }
+    let _ = std::fs::remove_dir_all(dir);
+    let _ = std::fs::remove_dir_all(registry);
+}

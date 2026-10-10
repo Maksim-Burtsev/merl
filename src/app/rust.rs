@@ -716,7 +716,6 @@ impl App {
         })
     }
 
-    // ponytail: the first version `Cargo.lock` holds; two versions of one crate are not told apart.
     fn registry_crate(&mut self, name: &str) -> Option<CrateSrc> {
         let all = self.external_files(Kind::Rust);
         let roots = self.external.get(&Kind::Rust)?.0.clone();
