@@ -1,0 +1,175 @@
+diff --git a/src/app/review.rs b/src/app/review.rs
+index d405acf3..25cf99a3 100644
+--- a/src/app/review.rs
++++ b/src/app/review.rs
+@@ -541,8 +541,13 @@ impl App {
+         }
+         let at = self.hunk_place(self.at());
+         let hunk = self.diff.hunks.iter().filter(|&&h| h <= at).count();
++        let since = match &r.since {
++            Some(s) if s.whole.contains(&rel) => "whole branch  ".to_string(),
++            Some(s) => format!("since {}  ", s.short),
++            None => String::new(),
++        };
+         Some(format!(
+-            "hunk {hunk}/{}  file {}/{}",
++            "{since}hunk {hunk}/{}  file {}/{}",
+             self.diff.hunks.len(),
+             file + 1,
+             r.files.len()
+diff --git a/src/git.rs b/src/git.rs
+index df3bfb67..93fdb3b2 100644
+--- a/src/git.rs
++++ b/src/git.rs
+@@ -242,6 +242,78 @@ pub struct Review {
+     /// What opening found about the branch against `origin` (`diverged from origin/feat`), for
+     /// the status bar; `App::start_review` takes it, so it is said once.
+     pub note: Option<String>,
++    pub since: Option<Since>,
++}
++
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub struct Since {
++    pub short: String,
++    pub against: String,
++    pub whole: Vec<PathBuf>,
++}
++
++fn proto_since(root: &Path, base: &str, r: &Review) -> Option<Since> {
++    let mode = std::env::var("MERL_P241").ok()?;
++    let git = |args: &[&str]| git(root, args);
++    let store = dirs(root)?.common_refs_dir.join("merl/reviewed").join(&r.branch);
++    let head = git(&["rev-parse", "HEAD"]).ok()?;
++    let old = std::fs::read_to_string(&store).ok().map(|s| s.trim().to_string());
++    let _ = std::fs::create_dir_all(store.parent()?);
++    let _ = std::fs::write(&store, &head);
++    if std::env::var("MERL_P241_ALL").is_ok() {
++        return None;
++    }
++    let old = old.filter(|o| *o != head)?;
++    git(&["cat-file", "-e", &format!("{old}^{{commit}}")]).ok()?;
++    let short = old[..7].to_string();
++    if mode == "B" {
++        return Some(Since { short, against: old, whole: vec![] });
++    }
++    let old_mb = git(&["merge-base", base, &old]).ok()?;
++    if old_mb == r.merge_base {
++        return Some(Since { short, against: old, whole: vec![] });
++    }
++    let out = Command::new("git")
++        .arg("-C")
++        .arg(root)
++        .args(["merge-tree", "--write-tree", "--name-only", "--no-messages"])
++        .arg(format!("--merge-base={old_mb}"))
++        .args([&r.merge_base, &old])
++        .output()
++        .ok()?;
++    let text = String::from_utf8_lossy(&out.stdout).into_owned();
++    let mut lines = text.lines();
++    let tree = lines.next()?.to_string();
++    let whole: Vec<PathBuf> = lines.filter(|l| !l.is_empty()).map(PathBuf::from).collect();
++    if whole.is_empty() {
++        return Some(Since { short, against: tree, whole });
++    }
++    let index = std::env::temp_dir().join(format!("merl-p241-{}", std::process::id()));
++    let run = |args: &[&str]| {
++        Command::new("git")
++            .arg("-C")
++            .arg(root)
++            .env("GIT_INDEX_FILE", &index)
++            .args(args)
++            .output()
++            .ok()
++            .filter(|o| o.status.success())
++            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
++    };
++    run(&["read-tree", &tree])?;
++    for p in &whole {
++        let p = p.to_str()?;
++        let entry = git(&["ls-tree", &r.merge_base, "--", p]).unwrap_or_default();
++        match entry.split_once('\t').map(|(m, _)| m.split(' ').collect::<Vec<_>>()) {
++            Some(m) if m.len() == 3 => {
++                run(&["update-index", "--add", "--cacheinfo", &format!("{},{},{p}", m[0], m[2])])?
++            }
++            _ => run(&["update-index", "--force-remove", p])?,
++        };
++    }
++    let against = run(&["write-tree"]);
++    let _ = std::fs::remove_file(&index);
++    Some(Since { short, against: against?, whole })
+ }
+ 
+ impl Review {
+@@ -257,7 +329,13 @@ impl Review {
+             Some(b) => checkout(&git, b, &base)?,
+             None => None,
+         };
+-        let r = Self::list(root, base)?;
++        let mut r = Self::list(root, base.clone(), None)?;
++        if let Some(since) = proto_since(root, &base, &r) {
++            let s = Self::list(root, base, Some(since))?;
++            if !s.files.is_empty() {
++                r = s;
++            }
++        }
+         if r.files.is_empty() {
+             bail!("{} has no changes against {}", r.branch, r.base);
+         }
+@@ -276,10 +354,10 @@ impl Review {
+     /// The same review as the branch and the working tree are now: after a commit, an edit, a
+     /// new file. Nothing is fetched or switched, and an empty list is an answer.
+     pub fn refresh(&self, root: &Path) -> Result<Self> {
+-        Self::list(root, self.base.clone())
++        Self::list(root, self.base.clone(), self.since.clone())
+     }
+ 
+-    fn list(root: &Path, base: String) -> Result<Self> {
++    fn list(root: &Path, base: String, since: Option<Since>) -> Result<Self> {
+         let git = |args: &[&str]| git(root, args);
+         // The one reading of HEAD, which the viewed marks are kept by too: the branch's own name,
+         // which a tag of the same name does not shadow; during a rebase, the branch being rebased,
+@@ -289,8 +367,11 @@ impl Review {
+             .and_then(|h| h.strip_prefix("refs/heads/"))
+             .unwrap_or("HEAD")
+             .to_string();
+-        let merge_base = git(&["merge-base", &base, "HEAD"])
+-            .with_context(|| format!("no merge base between {base} and HEAD"))?;
++        let merge_base = match &since {
++            Some(s) => s.against.clone(),
++            None => git(&["merge-base", &base, "HEAD"])
++                .with_context(|| format!("no merge base between {base} and HEAD"))?,
++        };
+         // `-z`: NUL-separated and unquoted, so a non-ASCII name is the name on disk.
+         let raw = ["diff", "--raw", "--no-abbrev", "-z", &merge_base];
+         let mut files = parse_name_status(&git(&raw)?);
+@@ -364,6 +445,7 @@ impl Review {
+             deleted,
+             added,
+             note: None,
++            since,
+         })
+     }
+ 
+diff --git a/src/main.rs b/src/main.rs
+index cb67fe99..f34e4f04 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -109,6 +109,8 @@ struct Cli {
+     base: Option<String>,
+     #[arg(long, hide = true)]
+     for_agents: bool,
++    #[arg(long, requires = "review")]
++    all: bool,
+ }
+ 
+ fn main() {
+@@ -157,6 +159,9 @@ fn run() -> Result<()> {
+         resolve(cli.target.as_deref())?
+     };
+     let diagrams = mermaid::Diagrams::detect();
++    if cli.all {
++        unsafe { std::env::set_var("MERL_P241_ALL", "1") };
++    }
+     let review = match &cli.review {
+         Some(branch) => {
+             root = git_toplevel(&root).context("--review needs a git repository")?;
