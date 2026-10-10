@@ -216,3 +216,59 @@ fn every_group_of_keys_is_one_run() {
         }
     }
 }
+
+#[test]
+fn option_left_and_right_arrive_as_esc_b_and_esc_f() {
+    let mut a = app("one two three\n");
+    a.col = 4;
+    press(&mut a, KeyCode::Char('f'), KeyModifiers::ALT);
+    assert_eq!(a.col, 7);
+    press(&mut a, KeyCode::Char('b'), KeyModifiers::ALT);
+    assert_eq!(a.col, 4);
+    press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+    typed(&mut a, "ab cd");
+    press(&mut a, KeyCode::Char('b'), KeyModifiers::ALT);
+    assert_eq!((a.mode, a.prompt.cursor()), (Mode::Find, 3));
+}
+
+#[test]
+fn cmd_c_and_cmd_x_are_the_ctrl_chords() {
+    let mut a = app("one\ntwo\n");
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::SUPER);
+    assert_eq!(a.clipboard.as_deref(), Some("one\n"));
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('x'), KeyModifiers::SUPER);
+    assert_eq!(a.buf.lines[0], "two");
+}
+
+#[test]
+fn ctrl_c_in_a_prompt_copies_nothing() {
+    let mut a = app("one\n");
+    press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+    typed(&mut a, "o");
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
+    assert_eq!((a.mode, a.clipboard.as_deref()), (Mode::Find, None));
+}
+
+#[test]
+fn paging_keeps_the_forward_history() {
+    let (dir, mut a) = files_app("paging");
+    a.view_h = 30;
+    a.jump_to(&dir.join("a.rs"), 1);
+    a.jump_to(&dir.join("b.rs"), 1);
+    press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+    press(&mut a, KeyCode::PageDown, KeyModifiers::NONE);
+    assert!(a.line > 0);
+    press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
+    assert_eq!(a.buf.path.as_deref(), Some(&*dir.join("b.rs")));
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn an_empty_goto_prompt_is_a_cancel() {
+    let mut a = app("a\nb\n");
+    a.line = 1;
+    press(&mut a, KeyCode::Char(':'), KeyModifiers::NONE);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!((a.mode, a.line, a.message.as_str()), (Mode::Normal, 1, ""));
+}

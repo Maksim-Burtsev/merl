@@ -315,3 +315,17 @@ fn ctrl_n_over_an_overlay_does_nothing() {
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     }
 }
+
+#[test]
+fn ctrl_n_over_edits_that_cannot_be_saved_creates_nothing() {
+    let (dir, mut a) = new_file_project("conflict");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    typed(&mut a, "y");
+    std::fs::write(dir.join("src/a.py"), "x = 2\n").unwrap();
+    ctrl_n(&mut a);
+    typed(&mut a, "b.py");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert!(!dir.join("src/b.py").exists());
+    assert_eq!(a.buf.path.as_deref(), Some(&*dir.join("src/a.py")));
+    std::fs::remove_dir_all(&dir).unwrap();
+}

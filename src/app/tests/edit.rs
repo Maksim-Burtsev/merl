@@ -1076,3 +1076,15 @@ fn a_reload_keeps_a_file_outside_the_project_read_only() {
     std::fs::remove_file(&outside).unwrap();
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
+
+#[test]
+fn a_failed_save_waits_for_the_next_autosave_to_try_again() {
+    let (path, mut a) = temp_file("retry-save", "one\n");
+    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    typed(&mut a, "x");
+    a.last_edit = Some(Instant::now() - a.autosave);
+    assert!(a.tick());
+    assert!(a.message.starts_with("save failed"), "{}", a.message);
+    assert!(!a.tick(), "the autosave clock starts again");
+}

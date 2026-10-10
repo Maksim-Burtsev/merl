@@ -612,3 +612,33 @@ fn opening_at_a_column_past_the_cut_lands_on_the_drawn_end() {
     );
     assert_eq!((a.line, a.col), (0, a.buf.shown(0).len()));
 }
+
+#[test]
+fn up_onto_a_wrapped_row_stops_on_its_last_char() {
+    let mut a = app(&format!("{}\n{}\n", "a".repeat(30), "b".repeat(19)));
+    a.line = 1;
+    press(&mut a, KeyCode::End, KeyModifiers::NONE);
+    a.want_x = 25;
+    press(&mut a, KeyCode::Up, KeyModifiers::NONE);
+    assert_eq!((a.line, a.cursor_row()), (0, 1));
+    press(&mut a, KeyCode::Up, KeyModifiers::NONE);
+    assert_eq!((a.line, a.cursor_row(), a.col), (0, 0, 19));
+}
+
+#[test]
+fn a_stored_column_is_put_back_on_a_char_boundary() {
+    let a = app("яx\n");
+    assert_eq!(a.clamp_pos((0, 1)), (0, 0));
+    assert_eq!(
+        a.clamp_place((TextLine::File(0), 1)),
+        (TextLine::File(0), 0)
+    );
+}
+
+#[test]
+fn down_on_the_last_row_leaves_the_cursor_where_it_is() {
+    let mut a = app("中x\n");
+    a.want_x = 1;
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    assert_eq!(a.col, 0);
+}
