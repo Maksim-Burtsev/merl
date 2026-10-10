@@ -16,3 +16,11 @@ fun shade(germ: Int): Any {
     }
     return Shade()
 }
+
+fun sow(limit: Int): Int {
+    class Local(limit: Int) {
+        val twice = limit * 2
+        //          ^ d: none
+    }
+    return Local(limit).twice
+}
