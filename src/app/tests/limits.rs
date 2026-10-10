@@ -516,3 +516,51 @@ fn what_a_php_class_outside_the_project_inherits_is_not_read() {
     let _ = std::fs::remove_dir_all(dir);
     let _ = std::fs::remove_dir_all(vendor);
 }
+
+#[test]
+fn an_angled_include_reads_every_directory_that_has_the_header() {
+    let (dir, mut a) = project_app(
+        "c-include-next",
+        &[(
+            "main.c",
+            "#include <stdio.h>\n\nint p(void) { return printf(\"x\"); }\n",
+        )],
+    );
+    let wrapper = external_root(
+        "c-include-next-cxx",
+        &[("stdio.h", "#include_next <stdio.h>\n")],
+    );
+    let libc = external_root(
+        "c-include-next-libc",
+        &[
+            ("stdio.h", "int printf(const char *, ...);\n"),
+            ("libintl.h", "int printf(const char *, ...);\n"),
+        ],
+    );
+    use_roots(&mut a, Kind::C, &[wrapper.clone(), libc.clone()]);
+    d_on(&mut a, "main.c", "return printf");
+    let at = format!("{}:1", libc.join("stdio.h").display());
+    assert_eq!(shown(&mut a), jump("printf: by name, 1 match", &at));
+    for d in [dir, wrapper, libc] {
+        let _ = std::fs::remove_dir_all(d);
+    }
+}
+
+#[test]
+fn a_rust_name_its_module_does_not_declare_is_left_to_the_search_by_name() {
+    let files = [
+        ("Cargo.toml", "[package]\nname = \"shop\"\n"),
+        (
+            "src/lib.rs",
+            "mod a;\nmod b;\nuse crate::a::Thing;\n\npub fn f(t: Thing) {}\n",
+        ),
+        ("src/a.rs", "pub struct Other;\n"),
+        ("src/b.rs", "pub struct Thing;\n"),
+        ("other/Cargo.toml", "[package]\nname = \"other\"\n"),
+        ("other/src/lib.rs", "pub struct Thing;\n"),
+    ]
+    .map(|(n, t)| (n.to_string(), t.to_string()));
+    let found = d_in("rust-not-in-module", &files, "src/lib.rs", "t: Thing");
+    let rows = [("Thing", "other/src/lib.rs:1"), ("Thing", "src/b.rs:1")];
+    assert_eq!(found, picker("Thing: by name, 2 declarations", &rows));
+}

@@ -419,8 +419,6 @@ impl App {
                 }
                 let n = out.len();
                 if !quoted {
-                    // ponytail: every directory that has it, not the first: an `#include_next`
-                    // reaches the next one, and a wrapper of libc++ (`stdio.h`) the C one.
                     out.extend(
                         (dirs.iter().map(|d| d.join(inc)))
                             .filter(|p| p.is_file())

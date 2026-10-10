@@ -659,8 +659,6 @@ impl App {
                 proven: true,
             });
         }
-        // ponytail: a name at the top of a module found nowhere else is left to the search
-        // by name; the whole crate would offer another module's namesake as proven.
         let hits = match owner {
             Some(_) => self.rust_declared(files, name, owner.as_deref(), macro_call),
             None => Vec::new(),
