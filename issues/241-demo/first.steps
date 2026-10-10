@@ -1,0 +1,10 @@
+# The first review of a branch.
+sleep 0.5
+type merl --review=b1004/undo-steps-478
+key Enter
+wait files ·
+sleep 2
+key c
+sleep 1.2
+key c
+sleep 1.5
