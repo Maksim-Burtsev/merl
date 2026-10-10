@@ -550,7 +550,7 @@ impl App {
 
     /// The members `re` matches of the class `short` outside the project, in `vendor/`: its
     /// `short.php`, narrowed to the one declaring the namespace of `full` when the file resolves
-    /// it. What the class inherits there is not read.
+    /// it.
     fn php_outside(&mut self, full: Option<&str>, short: &str, re: &Regex) -> Walk {
         let file = format!("{short}.php");
         let files: Vec<PathBuf> = self

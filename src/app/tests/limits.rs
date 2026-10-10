@@ -363,3 +363,32 @@ fn a_php_assignment_is_read_over_twenty_lines() {
     assert_eq!(at(18), typed);
     assert!(matches!(at(19), Shown::Picker(..)));
 }
+
+#[test]
+fn what_a_php_class_outside_the_project_inherits_is_not_read() {
+    let (dir, mut a) = project_app(
+        "php-vendor",
+        &[(
+            "app/Song.php",
+            "<?php\n\nnamespace App;\n\nuse Lib\\Model;\n\nclass Song extends Model\n{\n}\n\nfunction keep(Song $song): void\n{\n    $song->save();\n    $song->fill();\n}\n",
+        ), ("app/Other.php", "<?php\n\nclass Other\n{\n    public function save(): void\n    {\n    }\n}\n")],
+    );
+    let vendor = external_root(
+        "php-vendor-lib",
+        &[
+            ("lib/Model.php", "<?php\n\nnamespace Lib;\n\nclass Model extends Base\n{\n    public function fill(): void\n    {\n    }\n}\n"),
+            ("lib/Base.php", "<?php\n\nnamespace Lib;\n\nclass Base\n{\n    public function save(): void\n    {\n    }\n}\n"),
+        ],
+    );
+    a.no_external();
+    use_roots(&mut a, Kind::Php, std::slice::from_ref(&vendor));
+    d_on(&mut a, "app/Song.php", "$song->fill");
+    let model = vendor.join("lib/Model.php:7").display().to_string();
+    assert_eq!(shown(&mut a), jump("fill \u{2192} Model::fill (via $song: Song)", &model));
+    d_on(&mut a, "app/Song.php", "$song->save");
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(s, rows) if s == "save: by name, 2 declarations" && rows.len() == 2)
+    );
+    let _ = std::fs::remove_dir_all(dir);
+    let _ = std::fs::remove_dir_all(vendor);
+}
