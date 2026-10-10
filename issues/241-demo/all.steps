@@ -1,0 +1,21 @@
+# Round 2 with --all, then the same head again.
+sleep 0.5
+type merl --review=b1004/undo-steps-478
+key Enter
+wait files ·
+sleep 1.5
+key q
+sleep 0.6
+type # the author pushes a fix and merges master
+key Enter
+sleep 0.3
+type merl --review=b1004/undo-steps-478 --all
+key Enter
+wait files ·
+sleep 2
+key q
+sleep 0.6
+type merl --review=b1004/undo-steps-478
+key Enter
+wait files ·
+sleep 2.5
