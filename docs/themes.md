@@ -50,6 +50,7 @@ one.
 | `jellybeans`<br>[WTFox/jellybeans.nvim](https://github.com/WTFox/jellybeans.nvim) | <img src="../assets/themes/jellybeans.png" alt="merl in jellybeans" width="480"> |
 | `koda-dark`<br>[oskarnurm/koda.nvim](https://github.com/oskarnurm/koda.nvim) | <img src="../assets/themes/koda-dark.png" alt="merl in koda-dark" width="480"> |
 | `lackluster`<br>[slugbyte/lackluster.nvim](https://github.com/slugbyte/lackluster.nvim) | <img src="../assets/themes/lackluster.png" alt="merl in lackluster" width="480"> |
+| `lucerna`<br>merl's own, after [huyvohcmc/atlas.vim](https://github.com/huyvohcmc/atlas.vim) | <img src="../assets/themes/lucerna.png" alt="merl in lucerna" width="480"> |
 | `mellifluous`<br>[ramojus/mellifluous.nvim](https://github.com/ramojus/mellifluous.nvim) | <img src="../assets/themes/mellifluous.png" alt="merl in mellifluous" width="480"> |
 | `mellow`<br>[mellow-theme/mellow.nvim](https://github.com/mellow-theme/mellow.nvim) | <img src="../assets/themes/mellow.png" alt="merl in mellow" width="480"> |
 | `miasma`<br>[xero/miasma.nvim](https://github.com/xero/miasma.nvim) | <img src="../assets/themes/miasma.png" alt="merl in miasma" width="480"> |
@@ -59,6 +60,7 @@ one.
 | `papercolor`<br>[pappasam/papercolor-theme-slim](https://github.com/pappasam/papercolor-theme-slim) | <img src="../assets/themes/papercolor.png" alt="merl in papercolor" width="480"> |
 | `pencil`<br>[preservim/vim-colors-pencil](https://github.com/preservim/vim-colors-pencil) | <img src="../assets/themes/pencil.png" alt="merl in pencil" width="480"> |
 | `selenized`<br>[calind/selenized.nvim](https://github.com/calind/selenized.nvim) | <img src="../assets/themes/selenized.png" alt="merl in selenized" width="480"> |
+| `seneca`<br>merl's own, after [huyvohcmc/atlas.vim](https://github.com/huyvohcmc/atlas.vim) | <img src="../assets/themes/seneca.png" alt="merl in seneca" width="480"> |
 | `soviet-dark`<br>[rezniqov/soviet.nvim](https://github.com/rezniqov/soviet.nvim) | <img src="../assets/themes/soviet-dark.png" alt="merl in soviet-dark" width="480"> |
 | `srcery`<br>[srcery-colors/srcery-vim](https://github.com/srcery-colors/srcery-vim) | <img src="../assets/themes/srcery.png" alt="merl in srcery" width="480"> |
 | `token`<br>[ThorstenRhau/token](https://github.com/ThorstenRhau/token) | <img src="../assets/themes/token.png" alt="merl in token" width="480"> |
@@ -105,6 +107,7 @@ one.
 | `papercolor-light`<br>[pappasam/papercolor-theme-slim](https://github.com/pappasam/papercolor-theme-slim) | <img src="../assets/themes/papercolor-light.png" alt="merl in papercolor-light" width="480"> |
 | `pencil-light`<br>[preservim/vim-colors-pencil](https://github.com/preservim/vim-colors-pencil) | <img src="../assets/themes/pencil-light.png" alt="merl in pencil-light" width="480"> |
 | `selenized-light`<br>[calind/selenized.nvim](https://github.com/calind/selenized.nvim) | <img src="../assets/themes/selenized-light.png" alt="merl in selenized-light" width="480"> |
+| `seneca-light`<br>merl's own, after [huyvohcmc/atlas.vim](https://github.com/huyvohcmc/atlas.vim) | <img src="../assets/themes/seneca-light.png" alt="merl in seneca-light" width="480"> |
 | `soviet-light`<br>[rezniqov/soviet.nvim](https://github.com/rezniqov/soviet.nvim) | <img src="../assets/themes/soviet-light.png" alt="merl in soviet-light" width="480"> |
 | `token-light`<br>[ThorstenRhau/token](https://github.com/ThorstenRhau/token) | <img src="../assets/themes/token-light.png" alt="merl in token-light" width="480"> |
 
@@ -116,6 +119,10 @@ niche one worth meeting; it ships only if its palette was designed as a whole an
 No neon, and no near-copy of a family already here. The most used families ship every variant, the
 rest a dark one and a light one, and a light theme ships only when it looks like paper rather than
 an inverted dark theme — a family without such a light variant ships dark alone.
+
+`seneca`, `seneca-light` and `lucerna` are merl's own and the one exception to a palette designed
+for code: text in one grey, comments in a darker one, and in `lucerna` brighter keywords and bronze
+definitions, for prose and for a review where colour gets in the way.
 
 Licences: permissive, weak copyleft (MPL-2.0, LGPL) and the Vim licence, but never the GPL, the
 EUPL, a repository with no licence, or a port of a proprietary theme. A theme that already ships is
@@ -166,6 +173,9 @@ it holds declares nothing `d` or `D` looks for.
 
 The ported themes keep their authors' licences, shipped next to them in `themes/`:
 
+- merl's own: `seneca`, `seneca-light` and `lucerna`, under merl's licence. Their greys follow
+  [huyvohcmc/atlas.vim](https://github.com/huyvohcmc/atlas.vim), a fork of
+  [jacoborus/tender.vim](https://github.com/jacoborus/tender.vim) (MIT).
 - MIT: [adwaita](../themes/LICENSE-adwaita), [alabaster](../themes/LICENSE-alabaster),
   [bamboo](../themes/LICENSE-bamboo), [catppuccin](../themes/LICENSE-catppuccin),
   [cendre](../themes/LICENSE-cendre), [darkearth](../themes/LICENSE-darkearth),
