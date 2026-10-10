@@ -860,7 +860,7 @@ fn make_fallback_patterns_find_appends_and_target_variables() {
 
 #[test]
 fn a_makefile_recipe_line_is_one_after_a_rule() {
-    let make = "ifeq ($(OS),Windows_NT)\n\tEXE := .exe\nendif\nSRC = a.c \\\n\tb.c\nOBJ := $(SRC:.c=.o) x:y\n\tNOT := 1\nbuild: $(OBJ) \\\n  deps\n\tGO=$(GO) go build \\\nX=1\n\n# note\nifdef CI\n\tCI=1 make\nendif\nY ?= 2\n\tZ=3\n.PHONY: t\n\tW=4\n";
+    let make = "ifeq ($(OS),Windows_NT)\n\tEXE := .exe\nendif\nSRC = a.c \\\n\tb.c\nOBJ := $(SRC:.c=.o) x:y\n\tNOT := 1\nbuild: $(OBJ) \\\n  deps\n\tGO=$(GO) go build \\\nX=1\n\n# note\nifdef CI\n\tCI=1 make\nendif\nY ?= 2\n\tZ=3\n.PHONY: t\n\tW=4\nV ::= 1\n\tU=5\n";
     let recipe: Vec<(usize, usize)> = (1..=make.lines().count())
         .filter_map(|n| make_recipe_command(make, n).map(|at| (n, at)))
         .collect();
@@ -873,6 +873,31 @@ fn a_makefile_recipe_line_is_one_after_a_rule() {
     );
     assert_eq!(make_recipe_command(make, 0), None);
     assert_eq!(make_recipe_command(make, 99), None);
+}
+
+#[test]
+fn a_shell_local_declare_or_typeset_names_its_function_locals() {
+    assert_eq!(shell_local_of("  local a b=1 c"), Some(vec!["a", "b", "c"]));
+    assert_eq!(
+        shell_local_of(r#"local x="a b" y=(1 2) z+=3"#),
+        Some(vec!["x", "y", "z"])
+    );
+    assert_eq!(
+        shell_local_of("local x=1 $y"),
+        Some(vec!["x"]),
+        "a word that is no name ends the list"
+    );
+    assert_eq!(shell_local_of("typeset -i n"), Some(vec!["n"]));
+    assert_eq!(shell_local_of("declare -r -a list"), Some(vec!["list"]));
+    for line in [
+        "declare -g G=1",
+        "declare -p x",
+        "typeset -f f",
+        "declare -F f",
+        "echo local x",
+    ] {
+        assert_eq!(shell_local_of(line), None, "{line}");
+    }
 }
 
 const TF: &str = r#"variable "region" {

@@ -42,6 +42,26 @@ fn a_ts_declarator_list_is_read_for_two_hundred_lines() {
 }
 
 #[test]
+fn a_ts_declarator_list_without_a_semicolon_ends_back_at_its_indent() {
+    let text = "  const a = 1,\n    b = {\n  x: 1,\n    },\n    c = 2\n  render(a)\n";
+    let lines: Vec<&str> = text.lines().collect();
+    let found: Vec<(usize, String)> = ts_declarators(&lines, 0)
+        .unwrap()
+        .into_iter()
+        .map(|d| (d.line0, d.as_own_statement))
+        .collect();
+    assert_eq!(
+        found,
+        [
+            (0, "const a = 1".to_owned()),
+            (1, "const b = { x: 1, }".to_owned()),
+            (4, "const c = 2".to_owned())
+        ],
+        "a line at the list's indent inside braces goes on; one after them ends it"
+    );
+}
+
+#[test]
 fn a_ts_header_is_read_for_forty_lines() {
     let header = |n: usize| {
         let text = numbered("class Big<", |i| format!("  T{i},"), n - 1, "> {\n}");
