@@ -367,7 +367,10 @@ pub(super) fn jvm_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding
         depth = indent(lines[i]);
         if opens_type(lines[i]) {
             let member_or_top_level = scope_of(lines, i).is_none_or(|s| opens_type(lines[s]));
-            if member_or_top_level || !jvm_members_of(&text, i + 1, name).is_empty() {
+            if member_or_top_level
+                || header_may_bind(lines, i, end)
+                || !jvm_members_of(&text, i + 1, name).is_empty()
+            {
                 break;
             }
             continue;
@@ -379,6 +382,17 @@ pub(super) fn jvm_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding
         );
     }
     out
+}
+
+fn header_may_bind(lines: &[&str], from: usize, to: usize) -> bool {
+    static PARAMETERS_OR_SUPERTYPES: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"[(:]|\b(?:extends|implements)\b").unwrap());
+    let header = (from..=to)
+        .map(|k| uncommented(Kind::Jvm, lines[k]))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let header = header.split('{').next().unwrap_or_default();
+    PARAMETERS_OR_SUPERTYPES.is_match(header)
 }
 
 pub fn jvm_enclosing_types(text: &str, line1: usize) -> Vec<usize> {

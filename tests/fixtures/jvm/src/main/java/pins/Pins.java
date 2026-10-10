@@ -37,4 +37,12 @@ class Pins {
         }
         return new Bud();
     }
+
+    Object sow(int sap) {
+        class Sown extends Plot {
+            int grow() { return sap; }
+            //                  ^ d: src/main/java/pins/Plot.java:4
+        }
+        return new Sown();
+    }
 }
