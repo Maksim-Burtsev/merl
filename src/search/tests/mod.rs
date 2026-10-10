@@ -46,7 +46,6 @@ const TS: &str = "export interface Order {\n  id: Id;\n}\n\nexport type Id = str
 const JS: &str = "const helpers = {\n  parse(s) {\n    return s;\n  },\n  format: function (o) {\n    return o;\n  },\n};\nmodule.exports = helpers;\n";
 const GO: &str = "package main\n\ntype Invoice struct{}\n\nfunc (i Invoice) Total() int { return 0 }\n\nfunc Parse(s string) Invoice { return Invoice{} }\n\nconst Limit = 10\n\nfunc main() {\n\tinv := Parse(\"x\")\n}\n";
 
-/// A throwaway project on disk; grep needs real files.
 fn scratch(tag: &str, files: &[(&str, &str)]) -> (PathBuf, Vec<PathBuf>) {
     let dir = std::env::temp_dir().join(format!("merl-grep-{}-{tag}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -85,8 +84,6 @@ fn lines(hits: &[Hit]) -> Vec<(String, usize)> {
         .collect()
 }
 
-/// The lines `d`'s patterns match for `word` in `files`; in C and C++, where they declare it
-/// ([`declares_where`], #373).
 fn defs(dir: &Path, files: &[PathBuf], kind: Kind, word: &str) -> Vec<usize> {
     let pat = def_patterns(kind, word).join("|");
     grep(dir, files, &pat, false, false)
@@ -103,7 +100,6 @@ fn defs(dir: &Path, files: &[PathBuf], kind: Kind, word: &str) -> Vec<usize> {
         .collect()
 }
 
-/// The lines `d`'s member patterns match for `word` in `files`: what `x.word` reaches.
 fn members(dir: &Path, files: &[PathBuf], kind: Kind, word: &str) -> Vec<usize> {
     let pat = member_patterns(kind, word).unwrap().join("|");
     grep(dir, files, &pat, false, false)
@@ -128,9 +124,6 @@ fn symbol(kind: Option<Kind>, line: &str) -> Option<String> {
     symbol_name(&Regex::new(pattern).unwrap(), line)
 }
 
-/// Every name `D` lists for `line` in a file of `kind`: each [`SYMBOLS`] row such a file is
-/// read with, the all-language one included when [`shared_symbols`] takes it. A line listed
-/// twice comes back twice.
 fn listed(kind: Kind, line: &str) -> Vec<String> {
     SYMBOLS
         .iter()

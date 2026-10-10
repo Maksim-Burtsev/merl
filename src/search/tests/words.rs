@@ -35,7 +35,6 @@ fn kinds_come_from_the_file_name() {
         ("ledger.ex", Some(Kind::Elixir)),
         ("mix.exs", Some(Kind::Elixir)),
         ("ledger.zig", Some(Kind::Zig)),
-        // Zig's data format: painted as Zig, but it declares nothing.
         ("build.zig.zon", None),
         ("app.kt", Some(Kind::Jvm)),
         ("build.gradle.kts", Some(Kind::Jvm)),
@@ -54,7 +53,6 @@ fn kinds_come_from_the_file_name() {
         (".zshenv", Some(Kind::Shell)),
         (".zprofile", Some(Kind::Shell)),
         (".profile", Some(Kind::Shell)),
-        // A shebang-only script: `kind_of` goes by the name, so it has no kind.
         ("install", None),
         ("schema.sql", Some(Kind::Sql)),
         ("dump.psql", Some(Kind::Sql)),
@@ -76,9 +74,19 @@ fn kinds_come_from_the_file_name() {
         (".gitlab-ci.yml", Some(Kind::Yaml)),
         ("README", None),
         ("notes.txt", None),
+        ("build.ps1", Some(Kind::PowerShell)),
+        ("Ledger.psm1", Some(Kind::PowerShell)),
+        ("Ledger.psd1", Some(Kind::PowerShell)),
+        ("guide.mdx", Some(Kind::Markdown)),
+        ("schema.graphqls", Some(Kind::Graphql)),
+        ("query.gql", Some(Kind::Graphql)),
+        ("user.proto", Some(Kind::Proto)),
+        ("index.htm", Some(Kind::Html)),
+        ("hash.rbs", None),
     ] {
         assert_eq!(kind_of(Path::new(name)), kind, "{name}");
     }
+    assert_eq!(opened_kind(Path::new("core/hash.rbs")), Some(Kind::Ruby));
 }
 
 #[test]

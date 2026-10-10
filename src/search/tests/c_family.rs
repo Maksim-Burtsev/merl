@@ -865,7 +865,19 @@ fn php_def_patterns_tell_a_declaration_from_a_use() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Typed class constants, the tags of a class's docblock and namespace segments (#344).
+#[test]
+fn a_php_switch_case_is_no_constant_and_a_global_function_no_method() {
+    let text = "<?php\nconst LIMIT = 1;\nswitch ($x) {\n    case LIMIT:\n        break;\n}\nfunction total() {}\nclass Cart\n{\n    public function total() {}\n}\n";
+    let (dir, files) = scratch("php-case", &[("Cart.php", text)]);
+    assert_eq!(defs(&dir, &files, Kind::Php, "LIMIT"), [2]);
+    let methods = php_member_patterns("total", true).join("|");
+    let found: Vec<usize> = (grep(&dir, &files, &methods, false, false).iter())
+        .map(|h| h.line1)
+        .collect();
+    assert_eq!(found, [10]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 const PHP_TAGS: &str = r#"<?php
 
 namespace App\Models;
@@ -964,7 +976,6 @@ fn php_typed_constants_and_class_docblock_tags_declare() {
 #[test]
 fn php_namespace_line_answers_only_the_namespace_written_up_to_the_word() {
     let text = "<?php\nnamespace App\\Repos;\n";
-    // The patterns for the word of `line`, and which of `decls` they match.
     let answers = |line: &str, word: &str| {
         let start = line.find(word).unwrap();
         let mut patterns = def_patterns(Kind::Php, word);
@@ -1413,6 +1424,9 @@ fn a_csharp_file_sees_its_project_and_the_ones_it_references() {
         r#"<Import Project="..\Shared\Shared.projitems" Label="Shared" />"#,
         r#"<ProjectReference Include="$(RepoRoot)\Shop.Api\Shop.Api.csproj" />"#,
         r#"<ProjectReference Include="..\Gone\Gone.csproj" />"#,
+        r#"<ProjectReference Include="..\..\..\Shop.Api\Shop.Api.csproj" />"#,
+        r#"<ProjectReference Include="/src/Shop.Api/Shop.Api.csproj" />"#,
+        r#"<ProjectReference Include="..\*\*.csproj" />"#,
     ] {
         let manifests = [
             ("Shop.App/Shop.App.csproj", app),

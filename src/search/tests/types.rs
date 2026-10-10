@@ -330,12 +330,10 @@ fn a_python_line_is_cut_into_its_simple_statements() {
         ("if x: ledger = A()", &["ledger = A()"]),
         ("else: a = 1; b = 2", &["a = 1", "b = 2"]),
         ("async with open(p) as f: data = f", &["data = f"]),
-        // A `:` in brackets, in a string and of `:=` ends no header.
         ("if d[1:2] == \"a:b\": x = 1", &["x = 1"]),
         ("if m := find(): x = m", &["x = m"]),
         ("while True:", &[]),
         ("case Repo(): x = 1", &["x = 1"]),
-        // No header: an annotation's `:` cuts nothing, and neither does a `;` in a string.
         ("iffy: int = 1", &["iffy: int = 1"]),
         ("x = \"a;b\"", &["x = \"a;b\""]),
     ];

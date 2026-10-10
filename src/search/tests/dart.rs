@@ -1,6 +1,5 @@
 use super::*;
 
-/// Whether `word` is declared on line 1-based `at` of `text` by `d`'s patterns and where it sits.
 fn declares(text: &str, at: usize, word: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let line = lines[at - 1];

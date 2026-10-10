@@ -11,7 +11,6 @@ fn a_loop_hands_out_elements_only_where_the_type_says_so() {
         ),
         (Kind::Python, "\"tuple[Repo, ...]\"", Some("Repo")),
         (Kind::Python, "set[Repo | None]", Some("Repo | None")),
-        // Keys, a fixed tuple, a type of the project's own, no arguments at all.
         (Kind::Python, "dict[str, Repo]", None),
         (Kind::Python, "tuple[Repo, Audit]", None),
         (Kind::Python, "Page[Repo]", None),

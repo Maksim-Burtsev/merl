@@ -1,5 +1,3 @@
-//! Lua, Elixir, Zig, and the shell, SQL, Make, Terraform, Docker and YAML files.
-
 use super::*;
 
 const LUA: &str = r#"local uv = vim.uv
@@ -423,15 +421,12 @@ fn elixir_symbol_names() {
             Some("is_even"),
         ),
         ("  defdelegate encode(value), to: Jason", Some("encode")),
-        // A `defimpl` names the module `Protocol.Type`, and neither half is its own name;
-        // `defstruct` declares every field on one line; an attribute belongs to the language.
         ("defimpl Renderable, for: MyApp.Ledger do", None),
         ("  defstruct [:id, :total]", None),
         ("  @spec parse(String.t()) :: t", None),
         ("  @type t :: %__MODULE__{}", None),
         ("  @moduledoc \"\"\"", None),
         ("  @timeout 5_000", None),
-        // The shared pattern called this a declaration of `x`.
         ("    Enum.map(rows, fn x -> x.id end)", None),
         ("    String.trim(raw)", None),
         ("  end", None),
@@ -573,12 +568,10 @@ fn zig_def_patterns_find_functions_types_and_constants() {
 
 #[test]
 fn zig_has_no_literal_that_runs_over_lines() {
-    // A `\\` string holding markdown is idiomatic in Zig, and its ``` fences are not a
-    // TypeScript template: reading Zig with the C family's rules would hide every line
-    // after the first fence, and `d` would say `no definition` over code it can see.
     assert!(
         literal_lines(Kind::Zig, ZIG).iter().all(|l| !l),
-        "a Zig line was taken for the inside of a literal"
+        "a Zig line was taken for the inside of a literal: the ``` fences of a `\\\\` string open \
+         no template"
     );
 }
 
@@ -589,8 +582,6 @@ fn zig_scope_roots_and_names() {
     assert!(!in_def_scope(Kind::Zig, here, Path::new("build.zig.zon")));
     assert!(imports(Kind::Zig, ZIG).is_empty());
     assert!(member_patterns(Kind::Zig, "init").is_none());
-    // The standard library `zig env` reports, on a machine that has a `zig`; nothing at all
-    // on one that does not, as for every kind whose toolchain is not installed.
     assert!(
         external_roots(Kind::Zig, Path::new("/"))
             .iter()
@@ -631,7 +622,6 @@ fn zig_std_comes_from_zig_env() {
 fn zig_symbol_names() {
     let zig = |line| one(Kind::Zig, line);
     for (line, name) in [
-        // The shared pattern reads these; the rows of this kind must not list them again.
         ("pub const Ledger = struct {", Some("Ledger")),
         ("const Status = enum { open, closed };", Some("Status")),
         ("const Value = union(enum) { n: u32 };", Some("Value")),
@@ -648,7 +638,6 @@ fn zig_symbol_names() {
             "pub extern \"c\" fn strlen(s: [*:0]const u8) usize;",
             Some("strlen"),
         ),
-        // These it has no word for.
         (
             "    pub inline fn isEmpty(self: Ledger) bool {",
             Some("isEmpty"),
@@ -666,7 +655,6 @@ fn zig_symbol_names() {
             "test \"a ledger starts empty\" {",
             Some("a ledger starts empty"),
         ),
-        // A global, a local and a field stay off the list, as in every other kind.
         ("pub var counter: u32 = 0;", None),
         ("threadlocal var scratch: [16]u8 = undefined;", None),
         ("        var self = Ledger{ .total = 0 };", None),
@@ -691,7 +679,6 @@ fn proto_symbol_names() {
             "  rpc Weigh(WeighRequest) returns (WeighReply);",
             Some("Weigh"),
         ),
-        // Once, not a second time from the shared pattern's `enum`.
         ("  enum Kind {", Some("Kind")),
         ("  string id = 1;", None),
         ("  CHANNEL_POST = 1;", None),
@@ -860,7 +847,7 @@ fn make_fallback_patterns_find_appends_and_target_variables() {
 
 #[test]
 fn a_makefile_recipe_line_is_one_after_a_rule() {
-    let make = "ifeq ($(OS),Windows_NT)\n\tEXE := .exe\nendif\nSRC = a.c \\\n\tb.c\nOBJ := $(SRC:.c=.o) x:y\n\tNOT := 1\nbuild: $(OBJ) \\\n  deps\n\tGO=$(GO) go build \\\nX=1\n\n# note\nifdef CI\n\tCI=1 make\nendif\nY ?= 2\n\tZ=3\n.PHONY: t\n\tW=4\n";
+    let make = "ifeq ($(OS),Windows_NT)\n\tEXE := .exe\nendif\nSRC = a.c \\\n\tb.c\nOBJ := $(SRC:.c=.o) x:y\n\tNOT := 1\nbuild: $(OBJ) \\\n  deps\n\tGO=$(GO) go build \\\nX=1\n\n# note\nifdef CI\n\tCI=1 make\nendif\nY ?= 2\n\tZ=3\n.PHONY: t\n\tW=4\nV ::= 1\n\tU=5\n";
     let recipe: Vec<(usize, usize)> = (1..=make.lines().count())
         .filter_map(|n| make_recipe_command(make, n).map(|at| (n, at)))
         .collect();
@@ -873,6 +860,31 @@ fn a_makefile_recipe_line_is_one_after_a_rule() {
     );
     assert_eq!(make_recipe_command(make, 0), None);
     assert_eq!(make_recipe_command(make, 99), None);
+}
+
+#[test]
+fn a_shell_local_declare_or_typeset_names_its_function_locals() {
+    assert_eq!(shell_local_of("  local a b=1 c"), Some(vec!["a", "b", "c"]));
+    assert_eq!(
+        shell_local_of(r#"local x="a b" y=(1 2) z+=3"#),
+        Some(vec!["x", "y", "z"])
+    );
+    assert_eq!(
+        shell_local_of("local x=1 $y"),
+        Some(vec!["x"]),
+        "a word that is no name ends the list"
+    );
+    assert_eq!(shell_local_of("typeset -i n"), Some(vec!["n"]));
+    assert_eq!(shell_local_of("declare -r -a list"), Some(vec!["list"]));
+    for line in [
+        "declare -g G=1",
+        "declare -p x",
+        "typeset -f f",
+        "declare -F f",
+        "echo local x",
+    ] {
+        assert_eq!(shell_local_of(line), None, "{line}");
+    }
 }
 
 const TF: &str = r#"variable "region" {
@@ -949,9 +961,6 @@ fn docker_and_yaml_def_patterns() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Where `d`'s patterns match each of `words` in a file `name` holding `text`: `(found,
-/// hidden)`, the lines outside a literal, which `d` finds, and those inside one, which declare
-/// nothing.
 fn literal_split(
     kind: Kind,
     name: &str,
@@ -1129,10 +1138,6 @@ type Late {
 }
 "#;
 
-/// #419. The definitions start their line; a field, one whose arguments wrap, and an enum value
-/// are indented, directly inside a type, an interface, an input or an enum, an `extend` of one
-/// included. A selection, an alias, an argument, an `extend` line and a line of a `"""`
-/// description are none, and `'''` opens nothing.
 #[test]
 fn graphql_def_patterns_find_definitions_fields_and_enum_values() {
     let (dir, files) = scratch("graphql", &[("schema.graphql", GRAPHQL)]);

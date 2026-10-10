@@ -4,20 +4,14 @@ use std::ops::Range;
 use pulldown_cmark::{CodeBlockKind, Event, LinkType, Options, Parser, Tag, TagEnd};
 use regex::Regex;
 
-/// What a byte of a Markdown file stands on, for `d`.
 #[derive(Debug, PartialEq, Eq)]
 pub enum MdAt {
-    /// A link, a reference link or its `[label]: target` definition, an `<a href>`: the
-    /// target as written.
     Link(String),
-    /// A code span's text, which may name a file of the project.
     Code(String),
-    /// Nothing to follow: prose, an image, or code, a comment or the front matter.
     Nothing,
 }
 
 fn options() -> Options {
-    // Footnotes, so that `[^1]` is no shortcut link; the front matter, so that it is no text.
     Options::ENABLE_TABLES | Options::ENABLE_FOOTNOTES | Options::ENABLE_YAML_STYLE_METADATA_BLOCKS
 }
 
@@ -42,8 +36,6 @@ pub fn markdown_at(text: &str, at: usize) -> MdAt {
         .map(|(_, d)| (d.span.clone(), d.dest.to_string()))
         .collect();
     let mut found = MdAt::Nothing;
-    // A start event's range is the whole element's, so the last one holding `at` is the
-    // innermost: an image inside a link is the image.
     for (ev, r) in parser.into_offset_iter() {
         if !r.contains(&at) {
             continue;
@@ -63,7 +55,6 @@ pub fn markdown_at(text: &str, at: usize) -> MdAt {
                 })
             }
             Event::Start(Tag::Image { .. }) => found = MdAt::Nothing,
-            // A code span inside a link's text is the link's.
             Event::Code(code) if !matches!(found, MdAt::Link(_)) => {
                 found = MdAt::Code(code.to_string())
             }
@@ -93,8 +84,6 @@ pub(super) fn markdown_literal_lines(text: &str) -> Vec<bool> {
     out
 }
 
-/// GitHub's anchor for a heading's text: lower-cased, every character but a letter, a digit, a
-/// space, `-` and `_` dropped, each space made a `-`.
 pub fn github_anchor(heading: &str) -> String {
     heading
         .to_lowercase()
@@ -104,16 +93,12 @@ pub fn github_anchor(heading: &str) -> String {
         .collect()
 }
 
-/// The line of the Markdown `text` that `anchor` names: a heading, by its GitHub anchor
-/// (the second heading of an anchor gets `-1`, the third `-2`), or an `<a id>` or `<a name>`.
-/// Case is ignored, as GitHub ignores it.
 pub fn anchor_line1(text: &str, anchor: &str) -> Option<usize> {
     static ID: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#"(?i)<a\s[^>]*?\b(?:id|name)\s*=\s*["']([^"']+)["']"#).unwrap()
     });
     let anchor = anchor.to_lowercase();
     let line = |at: usize| text[..at].matches('\n').count() + 1;
-    // github-slugger's count: a repeat takes the next free `-N`.
     let mut seen: HashMap<String, usize> = HashMap::new();
     let mut heading: Option<(usize, String)> = None;
     for (ev, r) in Parser::new_ext(text, options()).into_offset_iter() {

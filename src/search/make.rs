@@ -8,11 +8,6 @@ pub fn make_fallback_patterns(word: &str) -> Vec<String> {
         ),
     ]
 }
-/// When `line1` of a Makefile is a recipe line, a shell command that declares nothing
-/// make knows, the line its command starts on: a line that starts with a tab after a rule, until
-/// a line that is neither a recipe line, a blank, a comment nor a conditional ends the rule, as
-/// GNU make reads it, and the lines a `\` continues it over, which one shell runs. A tab-indented
-/// assignment inside an `ifeq` before any rule is make's own, and so is the continuation of one.
 pub fn make_recipe_command(text: &str, line1: usize) -> Option<usize> {
     let mut in_rule = false;
     let mut after_backslash = None;
@@ -41,9 +36,6 @@ pub fn make_recipe_command(text: &str, line1: usize) -> Option<usize> {
     }
     None
 }
-/// Whether a Makefile line outside a recipe is a rule, `targets: prerequisites`, and not an
-/// assignment, `x = a:b` or `x := y`: its first `:` outside a `$(…)` comes before any `=` and is
-/// not the start of `:=` or `::=`.
 fn starts_rule(line: &str) -> bool {
     let mut depth = 0usize;
     let mut chars = line.char_indices().peekable();

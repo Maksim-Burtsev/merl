@@ -395,8 +395,6 @@ fn a_package_is_the_copy_in_the_nearest_node_modules_that_has_it() {
         "real/node_modules/pinned",
     );
     link("../../packages/shared", "real/node_modules/@app/shared");
-    // The project and its roots are spelled through a link, as a temporary directory is on
-    // macOS, and so is the copy; the directory above is called as a path in a package is.
     std::fs::create_dir_all(dir.join("extra")).unwrap();
     link("../real", "extra/link");
     let root = dir.join("extra/link");
@@ -500,7 +498,6 @@ fn a_package_is_missing_when_nothing_installs_or_declares_it() {
         r#"{ "compilerOptions": { "baseUrl": "src" } }"#,
     )
     .unwrap();
-    // Above the project, as Node looks there too.
     std::fs::create_dir_all(dir.join("node_modules/hoisted")).unwrap();
     let missing_from = |dir: &str, spec: &str| {
         let module: Vec<String> = spec.split('/').map(str::to_owned).collect();
@@ -727,7 +724,6 @@ fn rust_use_files_follow_the_crate_and_super_paths() {
             "use super::super::store::Cache;",
             &["src/store.rs"],
         ),
-        // `mod.rs` is its directory's module: its `super` is the one above.
         (
             "src/net/mod.rs",
             "use super::store::Cache;",
@@ -739,12 +735,9 @@ fn rust_use_files_follow_the_crate_and_super_paths() {
             &["src/store.rs"],
         ),
         ("src/store.rs", "use crate::Cache;", &["src/lib.rs"]),
-        // Above the crate root, in a binary's own crate, outside a `Cargo.toml`'s `src/`.
         ("src/lib.rs", "use super::store::Cache;", &[]),
         ("src/bin/tool.rs", "use crate::store::Cache;", &[]),
         ("loose/src/lib.rs", "use crate::store::Cache;", &[]),
-        // Bound twice, under another name, or inside an inline `mod`, whose `super` is not the
-        // file's: `super::super` in `client.rs`'s tests is `net`, not the crate root.
         (
             "src/lib.rs",
             "use crate::store::Cache;\nfn f() {\n    use crate::net::store::Cache;\n}",

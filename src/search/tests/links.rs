@@ -19,6 +19,13 @@ fn a_link_is_read_whole_from_its_text_its_target_or_its_definition() {
     assert_eq!(at(text, "me@"), link("mailto:me@example.com"));
     assert_eq!(at(text, "x.org"), link("https://x.org"));
     assert_eq!(at(text, "here"), link("c.md"));
+    let text = "See[^1] and [^2].\n\n[^1]: notes.md\n";
+    assert_eq!(
+        at(text, "^1]"),
+        MdAt::Nothing,
+        "a footnote, no shortcut link"
+    );
+    assert_eq!(at(text, "^2]"), MdAt::Nothing);
 }
 
 #[test]
@@ -60,5 +67,8 @@ fn headings_get_githubs_anchors() {
     );
     assert_eq!(anchor_line1(text, "SETUP-2"), Some(8));
     assert_eq!(anchor_line1(text, "not-a-heading"), None);
+    let text = "Intro\n<a id=\"Top\"></a>\n<a class=x name='end'>\n";
+    assert_eq!(anchor_line1(text, "top"), Some(2));
+    assert_eq!(anchor_line1(text, "End"), Some(3));
     assert_eq!(percent_decoded("my%20notes%2Emd%zz%"), "my notes.md%zz%");
 }
