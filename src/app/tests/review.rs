@@ -2086,3 +2086,17 @@ fn a_mark_the_listing_dropped_is_hidden_though_the_file_is_as_viewed() {
     );
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn an_unfolded_file_stays_unfolded_whatever_is_written_into_it() {
+    let (dir, mut a) = review_app_with_lock("unfolded-written");
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    assert!(a.folded_here().is_some());
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert!(a.folded_here().is_none());
+    std::fs::write(dir.join("poetry.lock"), lock_lines(&[0, 1, 4, 7])).unwrap();
+    let mut a = review_start(&dir, None);
+    a.jump_to(&dir.join("poetry.lock"), 1);
+    assert!(a.folded_here().is_none());
+    let _ = std::fs::remove_dir_all(dir);
+}
