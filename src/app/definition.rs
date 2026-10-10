@@ -1564,9 +1564,9 @@ impl App {
             .collect();
         // A member of a value outside is no method or field of a project class, nor a function:
         // only a module-level `NAME = …` of the project, which is what Django's `settings` reads
-        // (#560). ponytail: one under an `if` at module level goes unseen, a miss. What the
-        // project does not set, the defaults do: a module-level `NAME = …` in the package of the
-        // module, as `django/conf/global_settings.py` beside `django/conf/__init__.py`.
+        // (#560). What the project does not set, the defaults do: a module-level `NAME = …` in
+        // the package of the module, as `django/conf/global_settings.py` beside
+        // `django/conf/__init__.py`.
         if let Some(module) = &value {
             found.retain(|c| assigns(&c.hit.text, &word));
             if found.is_empty() {
