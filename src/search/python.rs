@@ -1,6 +1,3 @@
-//! Python's own rules for `d`: what a name is bound to in a module, a class or a function,
-//! the statements of a module's top level, and the builtins, which have no source.
-
 use regex::Regex;
 
 use super::*;
@@ -197,8 +194,6 @@ pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bind
     let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
     let annotated = rule(format!(r"^{n}\s*:\s*([^=]+?)\s*(?:=.*)?$"));
     let assigned = rule(format!(r"^{n}\s*=\s*([^=].*)$"));
-    // An import binds the names it imports, not the modules on their path: `from .guild import
-    // Guild` leaves a parameter `guild` alone.
     let unknown = rule(format!(
         r"^(?:async\s+)?for\s+[^=]*\b{n}\b.*\sin\s|\bas\s+{n}\b|\b{n}\s*:=|^(?:global|nonlocal)\s.*\b{n}\b|^from\s+\S+\s+import\s.*\b{n}\b|^import\s(?:.*[\s,])?{n}\b"
     ));
@@ -232,8 +227,6 @@ pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bind
 
     let literal = literal_lines(Kind::Python, &lines.join("\n"));
     let mut out = Vec::new();
-    // `super()` is the class of the method it is written in, and nothing in a function inside
-    // that method, where the call has no arguments to find.
     if name == "super" {
         if let Scope::Def(d) = scopes_innermost_first[0]
             && let Some(line) = python_class_of(lines, d)
@@ -264,7 +257,6 @@ pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bind
         for (i, l) in lines.iter().enumerate().skip(start) {
             let code = uncommented(Kind::Python, l);
             let t = code.trim();
-            // A docstring's example binds nothing.
             if t.is_empty() || literal[i] {
                 continue;
             }
@@ -328,12 +320,6 @@ pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bind
     }
     out
 }
-/// The simple statements the trimmed Python line `t` holds: what follows the `:` of a compound
-/// header written on the same line (`if x: a = 1`, `else: a = 2`, `for … : a = 3`), cut at each
-/// `;`. A line with neither is its one statement. A `:` inside brackets or a string, and the one
-/// of `:=`, end no header. A line that `continues` the one above it holds a statement only behind
-/// the end of a header wrapped over several lines, `    flag): a = 1`: a bracket closed that the
-/// line did not open, then the `:`.
 pub(super) fn python_statements(t: &str, continues: bool) -> Vec<&str> {
     static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(
@@ -365,17 +351,12 @@ pub(super) fn python_statements(t: &str, continues: bool) -> Vec<&str> {
         .filter(|s| !s.is_empty())
         .collect()
 }
-/// `text` without the bodies of its functions and classes and without the lines inside its
-/// docstrings and strings: the lines a Python module runs itself, where an import binds a name
-/// of the module.
 pub fn python_module_level(text: &str) -> String {
     let literal = literal_lines(Kind::Python, text);
     let mut def_or_class_indent: Option<usize> = None;
     let mut out = String::new();
     for (i, l) in text.lines().enumerate() {
         let t = l.trim_start();
-        // A line of a docstring or of a string is no code, and ends no body however it is
-        // indented. With none left, the result is read by [`imports_as_written`].
         if literal[i] {
             continue;
         }
@@ -397,9 +378,6 @@ pub fn python_module_level(text: &str) -> String {
     }
     out
 }
-/// The binding of `name` among the parameters of the `def` on `def_line0`, on the line the
-/// parameter is written on: its annotation, the class for the first parameter of a method, else
-/// unknown.
 fn python_params(
     lines: &[&str],
     def_line0: usize,
@@ -435,9 +413,6 @@ fn python_params(
         });
     }
 }
-/// Whether the body of the Python class that `line1` sits in binds `name`: a `def`, a class or an
-/// assignment of the body's own, which a name read in that body sees before the module's and the
-/// builtins. `false` in a method, which does not see them, and outside a class.
 pub fn python_class_binds(text: &str, line1: usize, name: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
@@ -532,8 +507,6 @@ pub fn python_overload(text: &str, line1: usize) -> bool {
         .take_while(|t| t.starts_with('@'))
         .any(|t| t == "@overload" || t == "@typing.overload")
 }
-/// The 1-based line of the class the `def` on `def_line0` is a method of, unless it is a
-/// `@staticmethod`.
 fn python_class_of(lines: &[&str], def_line0: usize) -> Option<usize> {
     let ind = indent(lines[def_line0]);
     let mut decorators = true;
@@ -555,9 +528,6 @@ fn python_class_of(lines: &[&str], def_line0: usize) -> Option<usize> {
     }
     None
 }
-/// Whether the word at `range` of `line1` names a keyword argument of a Python call:
-/// `recipe_yield=…` behind a `(` or a `,`, or at the start of a line that continues a call. It
-/// names a parameter of whatever is called, and no variable of that spelling.
 pub fn keyword_argument(text: &str, line1: usize, range: &std::ops::Range<usize>) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let Some(l) = line1.checked_sub(1).and_then(|i| lines.get(i)) else {

@@ -646,3 +646,33 @@ fn a_go_alias_names_its_type_unless_it_takes_type_parameters() {
     assert_eq!(go_alias(Kind::Go, "type List[T any] = []T"), None);
     assert_eq!(go_alias(Kind::TsJs, "type Rate = shop.Rate"), None);
 }
+
+#[test]
+fn a_def_wrapped_over_lines_keeps_its_body_off_the_module_level() {
+    let text =
+        "def f(\n    a,\n):\n    import os\nclass C(\n    B\n):\n    import re\nimport sys\n";
+    assert_eq!(python_module_level(text), "import sys\n");
+}
+
+#[test]
+fn a_class_body_binds_for_itself_not_for_its_methods() {
+    let text =
+        "class C:\n    limit = 1\n    twice = limit * 2\n    def m(self):\n        return limit\n";
+    assert!(python_class_binds(text, 3, "limit"));
+    assert!(!python_class_binds(text, 5, "limit"));
+    assert!(!python_class_binds(text, 3, "other"));
+}
+
+#[test]
+fn a_keyword_argument_names_no_variable() {
+    let at = |text: &str, line1: usize, word: &str| {
+        let line = text.lines().nth(line1 - 1).unwrap();
+        let start = line.find(word).unwrap();
+        keyword_argument(text, line1, &(start..start + word.len()))
+    };
+    assert!(at("make(size=1)", 1, "size"));
+    assert!(at("make(1, size=1)", 1, "size"));
+    assert!(at("make(\n    size=1,\n)", 2, "size"));
+    assert!(!at("make(size == 1)", 1, "size"));
+    assert!(!at("size = 1", 1, "size"));
+}

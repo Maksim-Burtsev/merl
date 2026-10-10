@@ -123,3 +123,19 @@ fn a_style_block_and_the_last_line_are_no_script() {
         "the last line, outside the script, is hidden like every other one but the first"
     );
 }
+
+#[test]
+fn a_script_tag_is_read_by_its_name_and_its_end() {
+    let code = |text: &str| script_lines(Path::new("A.vue"), text).unwrap();
+    assert_eq!(
+        code("<scripts>\nconst a = 1\n</scripts>"),
+        [false, false, false],
+        "another tag of the same start"
+    );
+    assert_eq!(
+        code("<script setup\n  lang=\"ts\">\nconst a = 1\n</script>"),
+        [false, false, true, false],
+        "a tag wrapped after its attributes"
+    );
+    assert!(!in_style(&["<style>.a {}</style>", ".b {"], 1));
+}

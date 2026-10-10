@@ -19,6 +19,7 @@ mod grep;
 mod groovy;
 mod haskell;
 mod imports;
+mod jsdoc;
 mod julia;
 mod jvm;
 mod links;
@@ -34,6 +35,7 @@ mod scope;
 mod solidity;
 mod starlark;
 mod symbols;
+mod syntax;
 mod types;
 mod words;
 
