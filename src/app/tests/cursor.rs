@@ -642,3 +642,15 @@ fn down_on_the_last_row_leaves_the_cursor_where_it_is() {
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);
     assert_eq!(a.col, 0);
 }
+
+#[test]
+fn w_counts_the_top_row_and_the_aimed_column_in_the_new_layout() {
+    let mut a = app(&format!("{}\n{}\n", "a".repeat(50), "b".repeat(50)));
+    a.col = 45;
+    a.sync_want_x();
+    (a.top_line, a.top_row) = (0, 2);
+    press(&mut a, KeyCode::Char('w'), KeyModifiers::NONE);
+    assert_eq!((a.top_line, a.top_row, a.want_x), (0, 0, 45));
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (1, 45));
+}
