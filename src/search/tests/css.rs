@@ -218,3 +218,113 @@ fn a_style_block_is_lexed_alone_in_its_markup() {
     assert!(literal[4], "inside the block's own comment");
     assert!(literal[7], "inside an HTML comment");
 }
+
+#[test]
+fn an_attribute_is_told_from_what_merely_looks_like_one() {
+    let at = |line: &str, word: &str, read_as| {
+        attr_at(line, line.find(word).unwrap(), read_as).map(|(a, r)| (a, line[r].to_owned()))
+    };
+    assert_eq!(
+        at(r#"<p :class="active">"#, "active", AttrLine::Markup),
+        None,
+        "Vue's `:class` binds an expression"
+    );
+    assert_eq!(
+        at(r#"const s = "class:active";"#, "active", AttrLine::Jsx),
+        None,
+        "a Svelte directive spelled in a string"
+    );
+    assert_eq!(
+        at(r#"  id="main""#, "main", AttrLine::Jsx),
+        Some((Attr::Id, "main".to_owned())),
+        "first on a line of a tag's attributes"
+    );
+}
+
+#[test]
+fn a_selector_reads_past_values_strings_and_its_mixin() {
+    assert_eq!(
+        styled(".a { b: url(//cdn.x/i.png); }\n.c {}\n", "c"),
+        [2],
+        "`//` inside parentheses opens no comment"
+    );
+    assert_eq!(
+        styled(".x { content: \"}\"; &-y {} }\n", "x-y"),
+        [1],
+        "a `}}` in a string closes nothing"
+    );
+    assert!(styled(".col-@{i} {}\n", "col-").is_empty());
+    assert_eq!(
+        styled("@mixin m {\n  .y {}\n}\n", "y"),
+        [2],
+        "a mixin's body styles"
+    );
+    assert!(
+        styled(".a {\n  font: {\n    .b {}\n  }\n}\n", "b").is_empty(),
+        "nested properties hold no rule"
+    );
+    assert!(styled("@detached: {\n  .c {}\n}\n", "c").is_empty());
+    let both = ".a, .b {\n  &-x {}\n}\n";
+    assert_eq!(styled(both, "a-x"), [2]);
+    assert_eq!(styled(both, "b-x"), [2]);
+}
+
+#[test]
+fn an_import_names_the_files_it_may_be() {
+    let shown =
+        |v: Vec<PathBuf>| -> Vec<String> { v.iter().map(|p| p.display().to_string()).collect() };
+    assert_eq!(
+        shown(sass_candidates("lib/x.scss")),
+        ["lib/_x.scss", "lib/x.scss"]
+    );
+    assert_eq!(
+        shown(sass_candidates("~pkg/x.css")),
+        ["pkg/_x.css", "pkg/x.css"]
+    );
+    assert_eq!(
+        shown(import_candidates("base", SheetSyntax::Less)),
+        ["base.less", "base"]
+    );
+    assert_eq!(
+        shown(import_candidates("~pkg/base.css", SheetSyntax::Less)),
+        ["pkg/base.css"]
+    );
+    assert_eq!(
+        shown(import_candidates("base", SheetSyntax::CssOrSass)),
+        ["base"]
+    );
+    assert!(sass_uses("@import 'x';\n").is_empty());
+    for url in ["https://x/a.css", "//cdn/a.css", "data:text/css,a"] {
+        assert!(is_url(url), "{url}");
+    }
+    assert!(!is_url("lib/a.css"));
+    assert_eq!(
+        element_with_id("<p>\n<a name=\"top\">\n<b id=\"top\">\n", "top"),
+        Some(2)
+    );
+}
+
+#[test]
+fn u_marks_a_selector_only_where_its_rule_styles_the_name() {
+    let declares = |word: &str, text: &str| -> Vec<usize> {
+        let re = Regex::new(&css_patterns(word).join("|")).unwrap();
+        text.lines()
+            .enumerate()
+            .filter(|(_, l)| re.is_match(l))
+            .map(|(i, _)| i + 1)
+            .filter(|&n| {
+                css_declares(word, n, text.lines().nth(n - 1).unwrap(), || {
+                    text.to_owned()
+                })
+            })
+            .collect()
+    };
+    let scss = ".btn:hover {\n}\n.btn .icon {\n}\n$btn: 1;\n@mixin btn {}\n";
+    assert_eq!(declares("btn", scss), [1, 5, 6]);
+    assert_eq!(declares("--brand", ":root { --brand: #000; }\n"), [1]);
+    assert_eq!(
+        css_code("a { b: url(//cdn/x); } // c /* d */"),
+        "a { b: url(//cdn/x); } "
+    );
+    assert_eq!(css_code("a /* x */ { }"), "a  { }");
+}

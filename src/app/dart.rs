@@ -67,11 +67,11 @@ impl App {
             .declaring(Kind::Dart, word, hits)
             .into_iter()
             .filter(|h| {
-                literal.get(h.line - 1) != Some(&true)
+                literal.get(h.line1 - 1) != Some(&true)
                     && [&within, &built].contains(&&search::qualified(
                         Kind::Dart,
                         &source,
-                        h.line,
+                        h.line1,
                         word,
                     ))
             })

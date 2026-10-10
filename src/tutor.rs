@@ -1,11 +1,3 @@
-//! `merl --tutor`: a vimtutor-style walkthrough of the navigation keys.
-//!
-//! A small Python project is embedded in the binary, unpacked into a temporary directory and
-//! opened like any other project. The lessons are tasks of [`POOL`], each training one action
-//! from a start of its own, so they run in any order. A lesson advances when its predicate over
-//! [`App`] becomes true — what the key did, not that a key was pressed — so there is no way to
-//! fake progress. `merl --drill` asks the same pool without naming the keys: [`drill`].
-
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
@@ -20,39 +12,24 @@ mod pool;
 pub use drill::Drill;
 pub use pool::POOL;
 
-/// One task: trains one action, starts from its own state, checks the effect.
 pub struct Task {
-    /// The action it trains, as the key stats name it: one side of a `KEYS` row, an alias
-    /// folded into its primary.
     pub key: &'static str,
     pub title: &'static str,
-    /// `--tutor`'s text: names the key. The drill shows it too, for the redo after a miss.
     pub tutor: &'static str,
-    /// The drill's: what to do, never the key, nor how many keys it takes.
     pub drill: &'static str,
-    /// The file, 1-based line and word the cursor starts on (`""` is the line start); `None`
-    /// starts with nothing open.
     pub start: Option<(&'static str, usize, &'static str)>,
-    /// Pressed silently after `start`, in [`press`] notation: the start is always a state real
-    /// work reaches.
     pub keys: &'static str,
-    /// The shortest keys that do it, in [`press`] notation: the tests press it.
     #[allow(dead_code)]
     pub answer: &'static str,
-    /// It is done: a predicate over the effect, never over the size of the terminal.
     pub done: fn(&App) -> bool,
 }
 
 pub struct Tutor {
-    /// Index into [`TUTOR`]; `TUTOR.len()` means the tutorial is over.
     pub step: usize,
-    /// The unpacked sample project, removed when merl exits.
     pub dir: PathBuf,
-    /// `--drill`: the session, asked in place of the lessons.
     pub drill: Option<Drill>,
 }
 
-/// The tutorial: the keys of the [`POOL`] tasks it walks, in order.
 pub const TUTOR: &[&str] = &[
     "o",
     "/",
@@ -102,10 +79,6 @@ pub fn lesson(step: usize) -> Option<&'static Task> {
     POOL.iter().find(|t| t.key == *key)
 }
 
-/// Called after every key, with the action it was routed to: advances at most one step, so a
-/// state that happens to satisfy two predicates cannot skip a lesson. The next lesson is set up
-/// at once: a learner who did what the last one asked sees nothing move, one who wandered off is
-/// put back. Under `--drill` the drill checks instead.
 pub fn check(app: &mut App, action: Option<&str>) {
     let Some(tutor) = &app.tutor else {
         return;
@@ -120,7 +93,6 @@ pub fn check(app: &mut App, action: Option<&str>) {
     if !(task.done)(app) {
         return;
     }
-    // The tick goes in front of what the key itself reported, such as how `d` found its target.
     let tick = match app.message.as_str() {
         "" => format!("\u{2713} {}", task.title),
         said => format!("\u{2713} {}  {said}", task.title),
@@ -130,13 +102,10 @@ pub fn check(app: &mut App, action: Option<&str>) {
     }
     app.message = match begin(app) {
         Ok(()) => tick,
-        // The next lesson goes on from where this one left off.
         Err(e) => format!("{tick}  {}", crate::app::error_text(&e)),
     };
 }
 
-/// Sets the current lesson, or the drill's first task, up on a fresh App; past the last lesson
-/// nothing changes.
 pub fn begin(app: &mut App) -> Result<()> {
     app.config = None;
     if app.tutor.as_ref().is_some_and(|t| t.drill.is_some()) {
@@ -150,13 +119,6 @@ pub fn begin(app: &mut App) -> Result<()> {
     Ok(())
 }
 
-/// Puts `a` back where a fresh `--tutor` starts: the sample project unpacked anew, which drops
-/// edits and the files a task made, and nothing open, no history, no undo, no find. What `main`
-/// set on the old App is carried over. Outside the tutor it does nothing.
-///
-/// A new `App` rather than a field-by-field reset: a field someone forgets to carry over shows
-/// at once (the theme falls back), one someone forgets to reset would leak from a task into the
-/// next unseen.
 pub fn fresh(a: &mut App) -> Result<()> {
     let Some(dir) = a.tutor.as_ref().map(|t| t.dir.clone()) else {
         return Ok(());
@@ -176,13 +138,10 @@ pub fn fresh(a: &mut App) -> Result<()> {
     Ok(())
 }
 
-/// Opens the task's start and presses its keys. Silently: they answer no lesson, count as no
-/// press, and what they said is not on the status bar.
 pub fn set_up(a: &mut App, task: &Task) {
     let tutor = a.tutor.take();
     if let Some((file, line, word)) = task.start {
         a.jump_to(&a.root.join(file), line);
-        // The one thing set by hand: the column, where the jump history follows it too.
         a.col = a.line_str().find(word).unwrap_or(0);
         a.sync_want_x();
         a.hist_note(false);
@@ -193,9 +152,6 @@ pub fn set_up(a: &mut App, task: &Task) {
     a.tutor = tutor;
 }
 
-/// Presses `notation`: characters as typed, and `<Enter>`, `<A-Right>`, `<C-z>`, `<A-S-Right>`
-/// in angle brackets. A picker's matcher runs to completion before every key, as the event
-/// loop's tick lets it.
 pub fn press(a: &mut App, notation: &str) {
     let mut rest = notation;
     while let Some(c) = rest.chars().next() {
@@ -214,7 +170,6 @@ pub fn press(a: &mut App, notation: &str) {
     }
 }
 
-/// `A-S-Right` in [`press`] notation: `C`, `A` and `S` for Ctrl, Alt and Shift, then the key.
 fn chord(name: &str) -> (KeyCode, KeyModifiers) {
     let mut mods = KeyModifiers::NONE;
     let mut name = name;
@@ -409,6 +364,35 @@ mod tests {
         }
         assert!(lesson(TUTOR.len()).is_none());
         std::fs::remove_dir_all(dir("tutor")).unwrap();
+    }
+
+    #[test]
+    fn a_start_is_pressed_silently() {
+        let mut a = app("silent", (80, 24));
+        for t in POOL.iter().filter(|t| !t.keys.is_empty()) {
+            fresh(&mut a).unwrap();
+            set_up(&mut a, t);
+            assert!(a.pressed.is_empty(), "{}: {:?}", t.key, a.pressed);
+            assert_eq!(a.message, "", "{}", t.key);
+        }
+        std::fs::remove_dir_all(dir("silent")).unwrap();
+    }
+
+    #[test]
+    fn a_fresh_app_keeps_what_main_set() {
+        let mut a = app("carried", (99, 33));
+        (a.autosave, a.no_watch) = (
+            a.autosave * 3 + std::time::Duration::from_millis(7),
+            !a.no_watch,
+        );
+        let (autosave, no_watch) = (a.autosave, a.no_watch);
+        fresh(&mut a).unwrap();
+        assert_eq!(
+            (a.autosave, a.no_watch, a.view_w, a.view_h),
+            (autosave, no_watch, 99, 33)
+        );
+        assert!(a.tutor.is_some());
+        std::fs::remove_dir_all(dir("carried")).unwrap();
     }
 
     /// Enter in the theme picker applies the theme and leaves the config file alone (#278).

@@ -1,6 +1,5 @@
 use super::*;
 
-/// Whether `word` is declared on line 1-based `at` of `text` by `d`'s patterns and where it sits.
 fn declares(text: &str, at: usize, word: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let line = lines[at - 1];
@@ -36,11 +35,14 @@ fn dart_declaration_forms() {
         ("  Future<User> find(int id);", "find"),
         ("  static Money parse(String s) =>", "parse"),
         ("  @override String toString() => '';", "toString"),
+        ("  db.Database open(String path) {", "open"),
+        ("  Future<Map<String, List<int>>> load() async {", "load"),
         ("  String get name => _name;", "name"),
         ("  set name(String value) {", "name"),
         ("final cache = <String, User>{};", "cache"),
         ("  static const int limit = 5;", "limit"),
         ("  late final Database db;", "db"),
+        ("  late final sql.connection conn;", "conn"),
         ("  String? label;", "label"),
         ("  int count = 0;", "count"),
         (
@@ -78,6 +80,14 @@ fn dart_declaration_forms() {
         declares(more, 8, "open"),
         "a value under an enum annotated on its line"
     );
+    let optional = "class Cart {\n  Cart({this.items});\n  Cart.of([this.items]);\n}\nenum Tone {\n  soft;\n  const Tone();\n}\nextension type Cents(int value) {\n  Cents.zero() : value = 0;\n}\n";
+    assert!(declares(optional, 2, "Cart"), "named parameters");
+    assert!(declares(optional, 3, "of"), "optional positional ones");
+    assert!(declares(optional, 7, "Tone"), "a constructor in an enum");
+    assert!(
+        declares(optional, 10, "zero"),
+        "a constructor in an extension type"
+    );
 }
 
 #[test]
@@ -95,6 +105,8 @@ fn dart_refusals() {
         ("  case Circle(:final radius):", "radius"),
         ("  return x;", "x"),
         ("  if (a == b) return;", "a"),
+        ("  Status current == next;", "current"),
+        ("    Circle c => pi * c.r * c.r,", "c"),
     ] {
         assert!(!one(line, word), "{line} declares no {word}");
     }
@@ -328,4 +340,24 @@ fn dart_uris_name_files() {
     );
     let _ = std::fs::remove_dir_all(&cache);
     let _ = std::fs::remove_dir_all(&root);
+
+    let (own, _) = scratch(
+        "dart-own-package",
+        &[
+            ("pubspec.yaml", "name: 'own'\n"),
+            ("lib/a.dart", ""),
+            ("lib/src/b.dart", ""),
+        ],
+    );
+    assert_eq!(
+        dart_uri_file(
+            &own,
+            Path::new("lib/src/b.dart"),
+            "package:own/a.dart",
+            None
+        ),
+        Some(PathBuf::from("lib/a.dart")),
+        "the package's own name needs no `pub get`"
+    );
+    let _ = std::fs::remove_dir_all(&own);
 }

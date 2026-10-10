@@ -30,7 +30,6 @@ impl App {
                 deleted: false,
             })
             .collect();
-        // Only the file picker wants nucleo's path-aware scoring.
         self.picker = Some(Picker::new(PickerKind::Files.title(), items, true));
         self.mode = Mode::Picker(PickerKind::Files);
     }
@@ -40,10 +39,7 @@ impl App {
         self.show_cut_picker(kind, items, cut);
     }
 
-    /// [`App::show_picker`] for rows that a filter may have made fewer than the grep's cap after
-    /// the grep stopped at it: `cut` says it did.
     pub(crate) fn show_cut_picker(&mut self, kind: PickerKind, items: Vec<PickItem>, cut: bool) {
-        // The grep stops at MAX_HITS in file order: say so, or a missing hit looks absent.
         let title = if cut {
             format!("{} (first {})", kind.title(), search::MAX_HITS)
         } else {
@@ -53,7 +49,6 @@ impl App {
         self.mode = Mode::Picker(kind);
     }
 
-    /// `T`: every theme, the built-ins then the user's own, with the cursor on the one in use.
     pub(super) fn open_themes_picker(&mut self) {
         let themes = crate::theme::entries_in(self.theme_dir.as_deref());
         let items = themes
@@ -74,8 +69,6 @@ impl App {
         }
     }
 
-    /// The theme to draw with: the one under the cursor while the theme picker is open, so
-    /// moving previews it, and Esc, which drops the picker, puts `theme` back.
     pub fn shown_theme(&self) -> &str {
         match (&self.picker, self.mode) {
             (Some(p), Mode::Picker(PickerKind::Themes)) => p
@@ -92,7 +85,6 @@ impl App {
         };
         if picker.live && key.code == KeyCode::Enter {
             if pending {
-                // The list on screen answers an older query: Enter waits for this one's.
                 self.search_enter = true;
                 self.search_due = self.search_due.map(|_| Instant::now());
             } else if let Some(item) = picker.current().cloned() {
@@ -124,14 +116,11 @@ impl App {
             }
             Pick::Accept(item) => self.jump_to_item(&item),
         }
-        // Dropping the picker stops nucleo's workers.
         self.picker = None;
         self.mode = Mode::Normal;
     }
 
     pub(super) fn search_typed(&mut self) {
-        // `s` has nothing to show without a query. `D` has the list it opened on, so an
-        // emptied query asks for that list again rather than for nothing.
         let empty = self.picker.as_ref().is_some_and(|p| p.query.is_empty())
             && self.mode == Mode::Picker(PickerKind::Search);
         self.search_seq += 1;

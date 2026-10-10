@@ -6,6 +6,10 @@ struct TypeVia {
     ty: Typed,
     call_signature: Option<String>,
 }
+struct SwiftChain {
+    written: String,
+    links: Vec<String>,
+}
 struct WrittenVia {
     written: String,
     call_signature: Option<String>,
@@ -263,8 +267,8 @@ impl App {
         let hit = Hit {
             text: text.lines().nth(line - 1)?.to_owned(),
             path: file,
-            line,
-            col: 0,
+            line1: line,
+            byte_col: None,
             deleted: None,
         };
         Some(vec![Candidate {
@@ -292,7 +296,6 @@ impl App {
     /// `None` when a base cannot be read.
     fn python_ancestry(&self, ty: &Typed, depth: usize) -> Option<Ancestry> {
         let kind = Kind::Python;
-        // ponytail: eight levels up, which also ends a cycle.
         let text = self.text_of(&ty.path).filter(|_| depth < 8)?;
         let imports = search::imports(kind, &text);
         let mut outside = false;
@@ -425,7 +428,6 @@ impl App {
         } = start;
         let mut links = vec![call_signature.unwrap_or_else(|| format!("{name}: {}", ty.name))];
         for (i, field) in fields.iter().enumerate() {
-            // ponytail: six names in front of the word; a longer chain breaks at the seventh.
             if i == 5 {
                 return Err(field.clone());
             }
@@ -752,7 +754,7 @@ impl App {
             let ty = Typed {
                 name: declared_name(kind, &decl.text, &parts),
                 path: decl.path,
-                line: decl.line,
+                line: decl.line1,
             };
             return Some(TypeVia {
                 ty,
@@ -760,7 +762,7 @@ impl App {
             });
         }
         let text = self.text_of(&decl.path)?;
-        let (written, signature) = match self.returns_of(kind, &decl.path, &text, decl.line)? {
+        let (written, signature) = match self.returns_of(kind, &decl.path, &text, decl.line1)? {
             search::Value::New(t) if kind == Kind::Python => {
                 (t.clone(), format!("{callee}() returns {t}()"))
             }
@@ -784,7 +786,7 @@ impl App {
         let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
         let decl = self.declaration(kind, file, &parts)?;
         let text = self.text_of(&decl.path)?;
-        match self.returns_of(kind, &decl.path, &text, decl.line)? {
+        match self.returns_of(kind, &decl.path, &text, decl.line1)? {
             search::Value::Type(t) => Some((t, decl.path)),
             _ => None,
         }
@@ -802,7 +804,6 @@ impl App {
         };
         // Go's `type X = Y` is `Y` itself, methods and fields (#100), where `Y` is a type the
         // project declares; `type X = []Y` and the like stay what their line says.
-        // ponytail: eight aliases deep, which also ends a cycle.
         // An alias that methods are declared on, `func (t Twin) Close()`, answers for them under
         // its own name, as before.
         let receiver = |alias: &str| {
@@ -826,7 +827,7 @@ impl App {
         Some(Typed {
             name: declared_name(kind, &decl.text, &parts),
             path: decl.path,
-            line: decl.line,
+            line: decl.line1,
         })
     }
 }
@@ -948,7 +949,7 @@ impl App {
         search::declares_type(kind, &hit.text).then(|| Typed {
             name: declared_name(kind, &hit.text, parts),
             path: hit.path.clone(),
-            line: hit.line,
+            line: hit.line1,
         })
     }
 }
@@ -1019,7 +1020,8 @@ impl App {
     ) -> Option<Vec<Candidate>> {
         let cut = self.truncated.get();
         let found = (|| {
-            let (written, links) = self.swift_chain(here, here, text, self.line + 1, chain, 1)?;
+            let SwiftChain { written, links } =
+                self.swift_chain(here, here, text, self.line + 1, chain, 1)?;
             let ty = self.swift_type(here, &written)?;
             let mut rows = self.swift_member_rows(here, &ty, word)?;
             // A value reaches the instance members; a `static` one needs the type.
@@ -1046,8 +1048,7 @@ impl App {
         found
     }
 
-    /// The type written for the last of `names` on `line1` of `text`, the text of `file`,
-    /// as written, and the links that prove it.
+    /// The type written for the last of `names` on `line1` of `text`, the text of `file`.
     fn swift_chain(
         &self,
         here: &Path,
@@ -1056,7 +1057,7 @@ impl App {
         line1: usize,
         names: &[String],
         hops: usize,
-    ) -> Option<(String, Vec<String>)> {
+    ) -> Option<SwiftChain> {
         let WrittenVia {
             mut written,
             call_signature: link,
@@ -1064,7 +1065,6 @@ impl App {
         let shown = |w: &str| search::swift_type_name(w).unwrap_or_else(|| w.to_owned());
         let mut links = vec![link.unwrap_or_else(|| format!("{}: {}", names[0], shown(&written)))];
         for (i, field) in names[1..].iter().enumerate() {
-            // ponytail: six names in front of the word, as the other languages read.
             if i == 5 {
                 return None;
             }
@@ -1083,7 +1083,7 @@ impl App {
             }
             written = next;
         }
-        Some((written, links))
+        Some(SwiftChain { written, links })
     }
 
     /// `self` is the type around the line; a local or a parameter what its one binding gives it;
@@ -1183,9 +1183,9 @@ impl App {
             search::SwiftExpr::Cast(t) => return Some(WrittenVia::plain(t)),
             search::SwiftExpr::Chain(c) => {
                 let names: Vec<String> = c.split('.').map(str::to_owned).collect();
-                let (w, _) =
+                let chain =
                     self.swift_chain(here, file, text, line1, &names, hops.checked_sub(1)?)?;
-                return Some(WrittenVia::plain(w));
+                return Some(WrittenVia::plain(chain.written));
             }
             search::SwiftExpr::Call(callee) => callee,
         };
@@ -1211,7 +1211,7 @@ impl App {
                     .filter(|h| {
                         h.text.contains("func ")
                             && self.text_of(&h.path).is_some_and(|t| {
-                                search::qualified(Kind::Swift, &t, h.line, method)
+                                search::qualified(Kind::Swift, &t, h.line1, method)
                                     .is_none_or(|q| q == *method)
                             })
                     })
@@ -1220,9 +1220,9 @@ impl App {
                 (decl, None)
             }
             _ => {
-                let (w, _) =
+                let chain =
                     self.swift_chain(here, file, text, line1, receiver, hops.checked_sub(1)?)?;
-                let ty = self.swift_type(here, &w)?;
+                let ty = self.swift_type(here, &chain.written)?;
                 let rows = self.swift_member_rows(here, &ty, method)?;
                 let [decl] = <[Hit; 1]>::try_from(rows).ok()?;
                 (decl, Some(ty.name))
@@ -1231,7 +1231,7 @@ impl App {
         if !decl.text.contains("func ") {
             return None;
         }
-        let returns = search::swift_returns(&self.text_of(&decl.path)?, decl.line)?;
+        let returns = search::swift_returns(&self.text_of(&decl.path)?, decl.line1)?;
         let returns = match (returns.as_str(), owner) {
             ("Self", Some(owner)) => owner,
             _ => returns,
@@ -1258,7 +1258,7 @@ impl App {
         }
         let text = self.text_of(&row.path)?;
         let given = search::swift_given(&row.text, name)?;
-        self.swift_given_type(here, &row.path, &text, row.line, given, hops)
+        self.swift_given_type(here, &row.path, &text, row.line1, given, hops)
     }
 
     /// The Swift type written as `written`: the one the project declares by that name, not a
@@ -1296,7 +1296,7 @@ impl App {
             [(h, k, b)] if k != "protocol" => {
                 let text = self.text_of(&h.path)?;
                 Some(SwiftType {
-                    owner: search::qualified(Kind::Swift, &text, h.line, &name)
+                    owner: search::qualified(Kind::Swift, &text, h.line1, &name)
                         .unwrap_or(name.clone()),
                     name,
                     keyword: Some(k.clone()),
@@ -1323,7 +1323,7 @@ impl App {
                 .iter()
                 .filter(|h| {
                     self.text_of(&h.path)
-                        .and_then(|t| search::qualified(Kind::Swift, &t, h.line, word))
+                        .and_then(|t| search::qualified(Kind::Swift, &t, h.line1, word))
                         .is_some_and(|q| q == full || q.ends_with(&format!(".{full}")))
                         && !search::swift_extension(&h.text)
                         && self.in_code(Kind::Swift, h)

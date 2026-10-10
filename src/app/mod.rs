@@ -1,5 +1,3 @@
-//! All editor state and every key binding. Rendering lives in `ui/`.
-
 use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
@@ -75,16 +73,11 @@ use project_search::at_label;
 use review::OldPicture;
 pub use review::Side;
 pub use search_job::SearchJob;
-use search_job::{SEARCH_PAUSE, Typed, deleted_hits};
+use search_job::{FileLine, SEARCH_PAUSE, Typed, deleted_hits};
 
-/// Longest hit text kept in a picker label; the rest is off the screen anyway.
 const MAX_LABEL_TEXT: usize = 120;
-/// Longest symbol name the symbol list pads to.
 const MAX_NAME_PAD: usize = 40;
 
-/// Every binding, grouped by what the keys do, in the order the `?` overlay and the README
-/// table list them: (keys, action, group). A group is one run of rows, headed by its name.
-/// Single source of truth: a test checks that the README says exactly this.
 pub const KEYS: &[(&str, &str, &str)] = &[
     ("o / Ctrl+E", "Open a file (fuzzy)", "Files and jumps"),
     (
@@ -260,7 +253,6 @@ pub const KEYS: &[(&str, &str, &str)] = &[
     ("q", "Quit", "General"),
 ];
 
-/// Which picker is open, and what its overlay is called.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PickerKind {
     Files,
@@ -287,15 +279,11 @@ impl PickerKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
     Normal,
-    /// `/`: incremental find in the open file.
     Find,
     Goto,
-    /// Ctrl+N: the path of a file to create.
     New,
     Picker(PickerKind),
-    /// `?`: the list of bindings, over everything else.
     Help,
-    /// Enter: typing changes the file. Letters insert; the chord aliases still navigate.
     Edit,
 }
 
@@ -305,33 +293,21 @@ pub enum Focus {
     Code,
 }
 
-/// Columns kept between the cursor and the pane edge while scrolling sideways.
 const SIDE_OFF: usize = 8;
-/// A plain cursor move closer than this many lines to the current stop updates it instead of
-/// adding a new one. VS Code's `TEXT_EDITOR_SELECTION_THRESHOLD`.
 const HIST_NEAR: usize = 10;
 const HIST_MAX: usize = 50;
 
-/// A list of files shared between lookups.
 type Paths = Arc<Vec<PathBuf>>;
 type CMode = (bool, bool);
 
 pub struct App {
     pub root: PathBuf,
-    /// Set by `main` for a file opened outside any repository: the project is the files right
-    /// in the root, and every walk stops there (#182).
     pub shallow: bool,
     pub tree_order: Option<crate::tree::OrderFile>,
     pub buf: Buffer,
     pub tree: Tree,
-    /// Every file under the root that is not ignored, sorted like the tree: what `o` offers
-    /// and `s`, `u` and `d` search.
     pub files: Vec<PathBuf>,
-    /// The ignored files of the walked directories (`.env`): `o` offers them after `files`,
-    /// dim, and nothing searches them.
     pub ignored: Vec<PathBuf>,
-    /// Per kind, the standard library and dependency roots outside the project and the files of
-    /// that kind under them; filled the first time `d` leaves the project.
     external: HashMap<Kind, (Vec<PathBuf>, Arc<Vec<PathBuf>>)>,
     walked_roots: HashMap<PathBuf, Arc<Vec<PathBuf>>>,
     shaped: search::ShapedFiles,
@@ -340,166 +316,102 @@ pub struct App {
     otp: Option<Vec<PathBuf>>,
     c_includes: HashMap<(PathBuf, CMode), Paths>,
     c_files: HashMap<CMode, (Paths, Paths)>,
-    /// What `go build` compiles here, which picks among a Go declaration's twins.
     go_build: search::GoBuild,
-    /// The candidates of this `d` are to be offered, not jumped to, however few: the word is a
-    /// keyword argument, which names a parameter no rule reads.
     offer_only: bool,
-    /// While `d` resolves the owner of a label (#316), where it collects the candidates it would
-    /// show: the callee of a named argument, the type of a literal.
     probe: Option<Vec<Candidate>>,
     base_app: Option<(String, Box<App>)>,
-    /// Set by a grep of this `d` that stopped at [`search::MAX_HITS`], whatever was filtered out
-    /// of it afterwards: the candidates are a lower bound, so the count says `+` and a single
-    /// one is offered, not jumped to.
     truncated: std::cell::Cell<bool>,
     reading: std::cell::RefCell<Vec<(PathBuf, usize)>>,
     pub focus: Focus,
     pub show_tree: bool,
     pub tree_width: Option<u16>,
-    /// First visible row of the tree pane, clamped by `ui`.
     pub tree_top: usize,
     pub picker: Option<Picker>,
-    /// `s`: the number of the query on screen. Every change of the query takes the next one, so
-    /// the answer to an older query is recognised and dropped.
     search_seq: u64,
-    /// When the query last changed and has not been grepped yet: the grep waits for a pause.
     search_due: Option<Instant>,
-    /// The `search_seq` a thread is grepping for.
     search_sent: Option<u64>,
-    /// Enter came before the answer to the query on screen: jump when it arrives.
     search_enter: bool,
-    /// Stops of the jump history, oldest first; `hist_idx` is the current one and follows
-    /// the cursor (see `hist_note`).
     pub history: Vec<(PathBuf, TextLine, usize)>,
     pub hist_idx: usize,
     hist_rows: HashMap<(PathBuf, TextLine, usize), usize>,
-    /// Cursor: file line, byte offset into that line, and the display column Up/Down aims for.
     pub line: usize,
     pub col: usize,
     pub want_x: usize,
     pub deleted: Option<(usize, usize)>,
-    /// (line, col) where the selection started; it runs from here to the cursor.
     anchor: Option<(TextLine, usize)>,
-    /// Top of the viewport: a file line plus which wrapped row of it is first on screen.
     pub top_line: usize,
     pub top_row: usize,
-    /// Display columns scrolled off to the left while the file is not wrapped; follows the
-    /// cursor in `clamp_scroll`.
     pub left: usize,
     pub collapsed: Vec<(usize, usize)>,
     collapsed_stash: HashMap<PathBuf, Vec<(usize, String)>>,
     wrap_opposite_of_kind: HashSet<PathBuf>,
-    /// Markdown files `p` shows rendered, until `p` again or merl quits.
     previewed: HashSet<PathBuf>,
-    /// The open file rendered, while it is one of `previewed`: laid out by the first frame.
     pub preview: Option<Preview>,
     parse: preview_data::Parse,
     pub diagrams: crate::mermaid::Diagrams,
     old_picture: std::cell::RefCell<Option<OldPicture>>,
     pub mode: Mode,
-    /// What has been typed into the `:` or `/` prompt.
     pub prompt: LineEdit,
-    /// The current query, kept for `n`/`N` and for painting the matches.
     pub find_re: Option<Regex>,
-    /// The text `find_re` was built from: `/` opens with it again while the pattern is active.
     find_query: String,
-    /// Where the cursor was when `/` was pressed: the start of the incremental search.
     find_anchor: (TextLine, usize),
-    /// The selection anchor, set aside while `/` moves the cursor; Esc puts it back.
     find_sel: Option<(TextLine, usize)>,
     pub message: String,
     pub message_path: Option<(String, usize)>,
-    /// Code text area, in cells, written by `ui::draw` before every frame.
     pub view_w: usize,
     pub view_h: usize,
     center: bool,
-    /// `--tutor` and `--drill` only: the running tutorial or drill. `None` in a normal session.
     pub tutor: Option<Tutor>,
-    /// First row of the `?` overlay, clamped by `ui`.
     pub help_top: usize,
-    /// Set by `main` when no file watcher could be started: auto-reload is off.
     pub no_watch: bool,
-    /// The buffer has edits the disk does not.
     pub dirty: bool,
-    /// The file changed on disk under unsaved edits: autosave is off until Ctrl+S overwrites
-    /// or Ctrl+R reloads. VS Code's `files.saveConflictResolution: askUser`, with keys.
     pub conflict: bool,
-    /// When the last edit was made; autosave fires `autosave` after it.
     last_edit: Option<Instant>,
     pub autosave: Duration,
     pub review_panel_colours: bool,
     pub review_list_marks: bool,
-    /// `review_open_files_first` of the config: `o` lists the review's files first (#246).
     pub review_open_files_first: bool,
-    /// Linear per-file undo history, oldest first, and what undo took back.
     undo: Vec<Edit>,
     redo: Vec<Edit>,
     undo_break: bool,
     edit_kind: edit::Kind,
     stash: HashMap<PathBuf, Stashed>,
-    /// The overlay on screen (find, goto, a prompt, a picker) was opened from edit mode with a
-    /// chord alias: closing it without leaving the file goes back to editing.
     resume_edit: bool,
-    /// Text for the system clipboard, taken by `main` and sent to the terminal (OSC 52).
     pub clipboard: Option<String>,
-    /// Lines that differ from the git index, painted in the gutter. Refreshed by `main` after
-    /// every load, save and reload; between an edit and its autosave they lag by a second.
-    /// In review mode: against the branch's base, with ghosts, taken on open (see `refresh_diff`).
     pub diff: git::Diff,
-    /// Review: the open file as it was at the merge base, keyed `merge_base:path`, for the ghosts'
-    /// syntax colours; highlighted lazily like `buf`. `None` when the file has no ghosts.
     pub base: Option<(String, Buffer)>,
     pub want_diff: bool,
-    /// `--review`: the branch under review. The tree pane then lists its files.
     pub review: Option<git::Review>,
     pub marks: HashMap<PathBuf, char>,
     pub viewed: HashMap<PathBuf, u64>,
-    /// Review: the marks without a tick, of files changed since they were viewed or that the
-    /// listing does not have now (a rebase stopped before their commit, a file reverted), kept
-    /// with the hash they were viewed at for when the file comes back as it was.
     hidden: HashMap<PathBuf, u64>,
     unfolded: HashSet<PathBuf>,
-    /// Review: the branch the marks are kept under, the one the listing names (during a rebase,
-    /// the branch being rebased). While HEAD is detached, the last branch the review had.
-    /// `None` for a review started detached, or whose store cannot be read: its marks are in
-    /// memory only, for the whole session.
     viewed_branch: Option<String>,
     last_hunk: Option<(PathBuf, usize)>,
     pub session: Option<crate::reviews::Session>,
     sessions_closed_by_switch_with_viewed: Vec<(crate::reviews::Session, Vec<PathBuf>)>,
-    /// The theme in use, by name. Set by `main`; the theme picker previews others over it.
     pub theme: String,
-    /// Where Enter in the theme picker saves the choice. Set by `main`; `None` saves nothing.
     pub config: Option<PathBuf>,
-    /// Where the theme picker finds the user's own themes.
     pub theme_dir: Option<PathBuf>,
     quit_again_drops_unsaved: bool,
     keys_action_of_key_in_hand: Option<&'static str>,
-    /// Real work's presses by action, since merl started: `main` adds them to the key stats on
-    /// exit. The tutorial counts nothing.
     pub pressed: HashMap<&'static str, u64>,
     pub missed: HashMap<&'static str, u64>,
     watch: missed::Watch,
 }
 
-/// A file's lines and format as it was left, and its undo and redo stacks.
 type Stashed = (Vec<String>, buffer::Format, Vec<Edit>, Vec<Edit>);
 
-/// One undoable change: `old` lines from `line` on became `new`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Edit {
     line: usize,
     old: Vec<String>,
     new: Vec<String>,
-    /// Cursor before and after, for undo and redo to put it back.
     before: (usize, usize),
     after: (usize, usize),
-    /// A reload's: the file's format before and after, which undo and redo put back too.
     format: Option<(buffer::Format, buffer::Format)>,
 }
 
-/// `1 hit`, `2 hits`.
 pub fn plural(n: usize) -> &'static str {
     if n == 1 { "" } else { "s" }
 }
@@ -631,7 +543,6 @@ impl App {
             missed: HashMap::new(),
             watch: Default::default(),
         };
-        // The file named on the command line is asked the same question as one opened later.
         lock_no_write(&mut buf);
         app.buf = buf;
         if let Some((n, char_col1)) = at {
@@ -650,7 +561,6 @@ impl App {
         app
     }
 
-    /// Path shown in the status bar: the open file's [`App::rel_path_of`].
     pub fn rel_path(&self) -> String {
         match &self.buf.path {
             Some(path) => self.rel_path_of(path),
@@ -668,8 +578,6 @@ impl App {
         .to_string()
     }
 
-    /// Says `rest` about the file at `path`, named as [`App::rel_path_of`] names it: the status
-    /// bar may cut the name from the left to keep `rest` on the line, and nothing else.
     pub fn say_about(&mut self, path: &Path, rest: &str) {
         let name = self.rel_path_of(path);
         self.message = format!("{name}{rest}");
@@ -683,12 +591,10 @@ impl App {
             .unwrap_or_else(|| self.root.display().to_string())
     }
 
-    /// The text of the cursor's line: a file line, or in review the deleted line it is on.
     pub fn line_str(&self) -> &str {
         self.text(self.at())
     }
 
-    /// The line the cursor is on, a deleted one included.
     pub fn at(&self) -> TextLine {
         match self.deleted {
             Some((k, i)) => TextLine::Deleted(k, i),
@@ -696,7 +602,6 @@ impl App {
         }
     }
 
-    /// Puts the cursor on line `t`; its column is the caller's to set.
     pub(super) fn set_at(&mut self, t: TextLine) {
         let last = self.buf.lines.len() - 1;
         (self.line, self.deleted) = match t {
@@ -705,12 +610,10 @@ impl App {
         };
     }
 
-    /// Puts the cursor on byte `col` of file line `line`, off any deleted line.
     pub(super) fn go(&mut self, (line, col): (usize, usize)) {
         (self.line, self.col, self.deleted) = (line, col, None);
     }
 
-    /// The text of line `t`.
     pub fn text(&self, t: TextLine) -> &str {
         match t {
             TextLine::File(l) => &self.buf.lines[l],
@@ -718,12 +621,10 @@ impl App {
         }
     }
 
-    /// How many lines the branch deleted above file line `k`.
     pub(super) fn deleted_at(&self, k: usize) -> usize {
         self.diff.ghosts.get(&k).map_or(0, Vec::len)
     }
 
-    /// The line drawn after `t`, deleted lines included; `None` after the last.
     pub(super) fn next_line(&self, t: TextLine) -> Option<TextLine> {
         let n = self.buf.lines.len();
         match t {
@@ -738,7 +639,6 @@ impl App {
         }
     }
 
-    /// The line drawn before `t`, deleted lines included; `None` before the first.
     pub(super) fn prev_line(&self, t: TextLine) -> Option<TextLine> {
         match t {
             TextLine::Deleted(k, i) if i > 0 => Some(TextLine::Deleted(k, i - 1)),
@@ -759,7 +659,6 @@ impl App {
             .find(|t| !self.hidden(t.key()))
     }
 
-    /// The first line of the text: the lines deleted above the file's first, if any.
     pub(super) fn first_line(&self) -> TextLine {
         match self.deleted_at(0) {
             0 => TextLine::File(0),
@@ -767,7 +666,6 @@ impl App {
         }
     }
 
-    /// The last line of the text: the last of those deleted at the end of the file, if any.
     pub(super) fn last_line(&self) -> TextLine {
         let n = self.buf.lines.len();
         match self.deleted_at(n) {
@@ -776,8 +674,6 @@ impl App {
         }
     }
 
-    /// `t` if the text still has it; a deleted line that went with a new diff gives way to the
-    /// file line it was drawn above.
     pub(super) fn clamp_line(&self, t: TextLine) -> TextLine {
         let last = self.buf.lines.len() - 1;
         match t {
@@ -786,8 +682,6 @@ impl App {
         }
     }
 
-    /// Whether long lines are cut at the pane edge instead of wrapped: `w` flips it for the open
-    /// file. Tables of values start out cut, since wrapping takes their columns apart.
     pub fn nowrap(&self) -> bool {
         let Some(path) = &self.buf.path else {
             return false;
@@ -798,7 +692,6 @@ impl App {
         table != self.wrap_opposite_of_kind.contains(path)
     }
 
-    /// `w`: wrap the open file or stop wrapping it.
     fn toggle_wrap(&mut self) {
         let Some(path) = self.buf.path.clone() else {
             return;
@@ -806,7 +699,6 @@ impl App {
         if !self.wrap_opposite_of_kind.remove(&path) {
             self.wrap_opposite_of_kind.insert(path);
         }
-        // The top row and the column Up / Down aim at were counted in the other layout.
         self.clamp_top();
         self.sync_want_x();
         self.message = if self.nowrap() {
@@ -816,13 +708,10 @@ impl App {
         };
     }
 
-    /// Screen rows of file line `l` at the current viewport width, over the text `ui` draws:
-    /// the wrapped rows, or the whole line as one row when the file is not wrapped.
     pub fn rows(&self, l: usize) -> Vec<std::ops::Range<usize>> {
         self.text_rows(&self.buf.lines[l])
     }
 
-    /// Screen rows of a line with the text `text`, as [`App::rows`] counts them.
     pub fn text_rows(&self, text: &str) -> Vec<std::ops::Range<usize>> {
         if self.nowrap() {
             return std::iter::once(0..shown_str(text).len()).collect();
@@ -830,9 +719,6 @@ impl App {
         wrap::wrap_shown(text, self.view_w)
     }
 
-    /// Screen rows of the ghosts at `l` (review mode: the lines the branch deleted there,
-    /// drawn above the text): one per ghost when the file is not wrapped, else each wraps
-    /// like a file line.
     pub fn ghost_rows(&self, l: usize) -> usize {
         self.diff.ghosts.get(&l).map_or(0, |ghosts| {
             ghosts.iter().map(|g| self.text_rows(g).len()).sum()
@@ -850,10 +736,6 @@ impl App {
         self.ghost_rows(l) + text
     }
 
-    /// The cursor's screen row among the rows of its key, as a `(line, row)` pair counts them.
-    // ponytail: the deleted lines above the cursor in its block are wrapped again on every call,
-    // 30-45 ms a move 5,000 lines into one; keep their row counts per key if deletions that tall
-    // are ever read line by line.
     pub fn cursor_row(&self) -> usize {
         let above = match self.deleted {
             Some((k, i)) => self.diff.ghosts[&k][..i]
@@ -865,13 +747,10 @@ impl App {
         above + wrap::col_to_row(&self.text_rows(self.line_str()), self.col)
     }
 
-    /// The cursor as a `(line, row)` pair: its key and [`App::cursor_row`].
     pub fn cursor_at(&self) -> (usize, usize) {
         (self.at().key(), self.cursor_row())
     }
 
-    /// The line on screen row `row` of key `key` (counted from its first ghost, as a `(line,
-    /// row)` pair counts), and that row's number among the line's own rows.
     pub(super) fn line_at_row(&self, key: usize, mut row: usize) -> (TextLine, usize) {
         let ghosts = self.diff.ghosts.get(&key).map_or(&[][..], Vec::as_slice);
         for (i, g) in ghosts.iter().enumerate() {
@@ -884,8 +763,6 @@ impl App {
         (TextLine::File(key.min(self.buf.lines.len() - 1)), row)
     }
 
-    /// Display column of the cursor on its wrapped row, counting the indent rows after the first
-    /// are drawn with. Not wrapped, the row is the line: `left` of these columns are off screen.
     pub fn cursor_x(&self) -> usize {
         let rows = self.text_rows(self.line_str());
         let row = wrap::col_to_row(&rows, self.col);
@@ -896,13 +773,11 @@ impl App {
         indent + wrap::width(&self.line_str()[wrap::row_to_col(&rows, row)..self.col])
     }
 
-    /// 1-based display column, for the status bar.
     pub fn display_col(&self) -> usize {
         wrap::width(&self.line_str()[..self.col]) + 1
     }
 }
 
-/// A call and the return type its function declares, spelled as the language writes it.
 fn signature(kind: Kind, callee: &str, returns: &str) -> String {
     match kind {
         Kind::Python => format!("{callee}() -> {returns}"),
@@ -918,7 +793,6 @@ fn bound(imports: &[search::Import], name: &str) -> Option<Vec<String>> {
         .map(|i| i.path.clone())
 }
 
-/// Cuts `s` to `max` grapheme clusters, marking the cut.
 pub(crate) fn clip(s: &str, max: usize) -> String {
     match s.grapheme_indices(true).nth(max) {
         Some((i, _)) => format!("{}\u{2026}", &s[..i]),
@@ -926,15 +800,11 @@ pub(crate) fn clip(s: &str, max: usize) -> String {
     }
 }
 
-/// A word for the cursor: letters of any script, so a comment in Russian moves by word too.
 pub fn is_word(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
 }
 
-/// The byte where `word` first stands whole in `line`, 0 when it does not: where a jump to a
-/// line that declares or uses it puts the cursor.
 pub(super) fn word_col(line: &str, word: &str, word_chars_past_alnum: &str) -> usize {
-    // `attr_writer :name` declares Ruby's setter `name=` under its bare name.
     whole_at(line, word, word_chars_past_alnum)
         .or_else(|| whole_at(line, word.strip_suffix('=')?, word_chars_past_alnum))
         .or_else(|| {
@@ -947,8 +817,6 @@ pub(super) fn word_col(line: &str, word: &str, word_chars_past_alnum: &str) -> u
         .unwrap_or(0)
 }
 
-/// `None` when every occurrence runs into a word character: `db-main` in `db-main-2:` of a
-/// Makefile.
 pub(super) fn whole_at(line: &str, word: &str, word_chars_past_alnum: &str) -> Option<usize> {
     let part = |c: char| is_word(c) || word_chars_past_alnum.contains(c);
     let whole = |(i, _): &(usize, &str)| {
@@ -957,13 +825,10 @@ pub(super) fn whole_at(line: &str, word: &str, word_chars_past_alnum: &str) -> O
     line.match_indices(word).find(whole).map(|(i, _)| i)
 }
 
-/// The byte after the grapheme cluster at `i`: an emoji with its selector, skin tone or ZWJ
-/// parts is one step, as it is one cell on screen, and so is a letter with its accents.
 pub(crate) fn next_char(s: &str, i: usize) -> usize {
     s[i..].graphemes(true).next().map_or(i, |g| i + g.len())
 }
 
-/// The start of the grapheme cluster before `i`, as [`next_char`] steps.
 pub(crate) fn prev_char(s: &str, i: usize) -> usize {
     s[..i]
         .graphemes(true)

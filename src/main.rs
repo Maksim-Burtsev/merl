@@ -123,7 +123,7 @@ fn run() -> Result<()> {
     if cli.keys {
         let path = stats::path().context("no home directory")?;
         // `merl --keys | head` closes the pipe early; that is no error.
-        let _ = stdout().write_all(stats::report(&path, stats::today())?.as_bytes());
+        let _ = stdout().write_all(stats::report(&path, stats::utc_today())?.as_bytes());
         return Ok(());
     }
     if cli.for_agents {
@@ -132,7 +132,7 @@ fn run() -> Result<()> {
     }
     if cli.reviews {
         let path = reviews::path().context("no home directory")?;
-        let _ = stdout().write_all(reviews::report(&path, stats::today())?.as_bytes());
+        let _ = stdout().write_all(reviews::report(&path, stats::utc_today())?.as_bytes());
         return Ok(());
     }
     let config = theme::config()?;
@@ -222,7 +222,12 @@ fn run() -> Result<()> {
             Some(n) => {
                 let keys = stats::path();
                 let log = keys.as_ref().map(|k| k.with_file_name("drill.tsv"));
-                Some(Drill::new(n.into(), keys.as_deref(), log, stats::today())?)
+                Some(Drill::new(
+                    n.into(),
+                    keys.as_deref(),
+                    log,
+                    stats::utc_today(),
+                )?)
             }
             None => None,
         };
@@ -310,13 +315,13 @@ fn run() -> Result<()> {
     }
     // After `q` or a signal alike; a crash loses the session's presses, and only those.
     if let Some(path) = stats::path()
-        && let Err(e) = stats::add(&path, stats::today(), &app.pressed, &app.missed)
+        && let Err(e) = stats::add(&path, stats::utc_today(), &app.pressed, &app.missed)
     {
         eprintln!("merl: {e:#}");
     }
     if let Some(path) = reviews::path() {
         for (repo, branch, columns) in app.review_rows() {
-            if let Err(e) = reviews::add(&path, stats::today(), &repo, &branch, &columns) {
+            if let Err(e) = reviews::add(&path, stats::utc_today(), &repo, &branch, &columns) {
                 eprintln!("merl: {e:#}");
             }
         }
@@ -586,8 +591,6 @@ fn list_marks(tx: Sender<Msg>, root: PathBuf) {
     });
 }
 
-/// Watches the parent directory of the open file, non-recursively: editors save by writing a
-/// temporary file and renaming it over the original, which a watch on the file itself misses.
 fn rewatch(watcher: Option<&mut RecommendedWatcher>, watched: &mut Option<PathBuf>, app: &App) {
     let dir = app.buf.path.as_deref().and_then(Path::parent);
     if dir == watched.as_deref() {
@@ -598,16 +601,11 @@ fn rewatch(watcher: Option<&mut RecommendedWatcher>, watched: &mut Option<PathBu
         let _ = watcher.unwatch(&old);
     }
     if let Some(dir) = dir {
-        // Recorded even when the watch fails, so a directory that cannot be watched is not
-        // retried on every pass of the event loop.
         let _ = watcher.watch(dir, RecursiveMode::NonRecursive);
         *watched = Some(dir.to_path_buf());
     }
 }
 
-/// Does this filesystem event touch the open file? The project watch reports the whole root,
-/// so the directory counts too: an `index.js` in `node_modules/` is not the open `index.js`.
-/// FSEvents reports canonical `/private/...` paths, so the directory is compared both ways.
 fn concerns_open_file(app: &App, ev: &notify::Event) -> bool {
     if matches!(ev.kind, EventKind::Access(_)) {
         return false;
@@ -671,9 +669,6 @@ fn resolve(target: Option<&str>) -> Result<Opened> {
     })
 }
 
-/// Splits `FILE:LINE[:COL]`, as compilers print it, into the path and `(line, column)`. The path
-/// is the longest prefix before a colon that exists, so the rest of a grep line, `FILE:LINE:text`,
-/// is ignored, and a file really called `a:12` opens as itself. No column is column 1.
 fn split_line(target: &str) -> (&str, Option<LineCol1>) {
     if Path::new(target).exists() {
         return (target, None);
@@ -691,7 +686,6 @@ fn split_line(target: &str) -> (&str, Option<LineCol1>) {
     (path, line.map(|n| (n, col)))
 }
 
-/// Standard base64 with padding; the stdlib has none and a dependency is more than this.
 fn base64(bytes: &[u8]) -> String {
     const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
@@ -732,9 +726,6 @@ fn tmux_copy(tmux: Option<&OsStr>) -> Option<(Command, [Command; 2])> {
     Some((taken, calls))
 }
 
-/// Hands `text` to tmux through the first of `calls` that works, unless `taken` answers `on`:
-/// then tmux made a buffer of merl's OSC 52 already, and a second one would repeat it. Asked on
-/// every copy, as the option can change while merl runs.
 fn hand_to_tmux(taken: &mut Command, calls: &mut [Command], text: &str) {
     if taken.output().is_ok_and(|o| o.stdout.trim_ascii() == b"on") {
         return;
@@ -901,6 +892,21 @@ mod tests {
     }
 
     #[test]
+    fn a_directory_that_cannot_be_watched_is_not_tried_again() {
+        use notify::{RecursiveMode, Watcher};
+        let dir = std::env::temp_dir().join(format!("merl-rewatch-{}", std::process::id()));
+        let gone = dir.join("gone");
+        let buf = crate::buffer::Buffer::from_bytes(gone.join("x.rs"), b"x\n");
+        let app = crate::app::App::new(dir, Default::default(), Vec::new(), buf, None);
+        let mut watcher =
+            notify::recommended_watcher(|_: notify::Result<notify::Event>| {}).unwrap();
+        assert!(watcher.watch(&gone, RecursiveMode::NonRecursive).is_err());
+        let mut watched = None;
+        super::rewatch(Some(&mut watcher), &mut watched, &app);
+        assert_eq!(watched.as_deref(), Some(gone.as_path()));
+    }
+
+    #[test]
     fn a_namesake_elsewhere_in_the_project_is_not_the_open_file() {
         use notify::{Event, EventKind, event::CreateKind};
         let dir = std::env::temp_dir().join(format!("merl-namesake-{}", std::process::id()));
@@ -1000,7 +1006,7 @@ mod tests {
     /// Files under `src/` longer than `MAX_LINES`, each at the size it may not outgrow (#544).
     /// A listed file that shrinks lowers its number in the same change; one under the limit
     /// leaves the list.
-    const LONG_FILES: &[(&str, usize)] = &[("src/app/definition.rs", 2335)];
+    const LONG_FILES: &[(&str, usize)] = &[("src/app/definition.rs", 2311)];
     const MAX_LINES: usize = 1500;
 
     /// #544: a large file costs an agent context and makes parallel branches conflict at the
@@ -1065,7 +1071,7 @@ mod tests {
         assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
     }
 
-    const COMMENT_LINES: usize = 4999;
+    const COMMENT_LINES: usize = 1519;
 
     fn comment_lines(text: &str) -> usize {
         let b = text.as_bytes();

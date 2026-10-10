@@ -1163,6 +1163,49 @@ fn a_jump_scrolls_to_the_first_top_that_fits_under_its_pins() {
 }
 
 #[test]
+fn a_centred_jump_puts_the_cursor_in_the_middle_of_the_rows_under_its_pins() {
+    let mut text = String::from("impl S {\n    fn m() {\n");
+    for i in 0..60 {
+        text += &format!("        let a{i} = {i};\n");
+    }
+    text += "    }\n}\n";
+    let (mut app, mut terminal) = pinned_app(&text, 40, 18);
+    press(&mut app, &mut terminal, KeyCode::Null);
+    app.goto_line(41);
+    let (screen, y) = press(&mut app, &mut terminal, KeyCode::Null);
+    assert_eq!(screen[..2], ["1 impl S {", "2     fn m() {"]);
+    assert_eq!(
+        (line_no(&screen[y]), y),
+        (41, 9),
+        "seven rows of code above the cursor and eight below, under the two pins"
+    );
+}
+
+#[test]
+fn not_wrapped_the_view_scrolls_before_the_cursor_reaches_the_edge() {
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/demo/f.txt"), b"0123456789abcdefghijKLMN\n"),
+        None,
+    );
+    app.show_tree = false;
+    let mut terminal = Terminal::new(TestBackend::new(14, 5)).unwrap();
+    press(&mut app, &mut terminal, KeyCode::Char('w'));
+    for _ in 0..6 {
+        press(&mut app, &mut terminal, KeyCode::Right);
+    }
+    assert_eq!(app.left, 0);
+    press(&mut app, &mut terminal, KeyCode::Right);
+    assert_eq!(
+        (app.cursor_x(), app.left),
+        (7, 1),
+        "five of the twelve columns stay right of the cursor"
+    );
+}
+
+#[test]
 fn a_short_pane_pins_nothing_and_a_tall_one_the_two_innermost() {
     let mut text = String::from("mod m {\n    impl S {\n        fn f() {\n");
     for i in 0..40 {

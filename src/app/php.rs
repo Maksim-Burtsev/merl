@@ -146,8 +146,8 @@ impl App {
             false => vec![Hit {
                 deleted: None,
                 path: path.clone(),
-                line: class + 1,
-                col: 0,
+                line1: class + 1,
+                byte_col: None,
                 text: lines[class].to_owned(),
             }],
             true => {
@@ -247,8 +247,8 @@ impl App {
             .map(|i| Hit {
                 deleted: None,
                 path: path.to_path_buf(),
-                line: i + 1,
-                col: 0,
+                line1: i + 1,
+                byte_col: None,
                 text: lines[i].to_owned(),
             })
             .collect();
@@ -319,14 +319,14 @@ impl App {
             .filter_map(|h| {
                 let t = self.text_of(&h.path)?;
                 // A header inside a `/* */` block or a heredoc declares nothing (#361).
-                let code = search::literal_lines(kind, &t).get(h.line - 1) != Some(&true);
+                let code = search::literal_lines(kind, &t).get(h.line1 - 1) != Some(&true);
                 let fits = full
                     .as_ref()
-                    .is_none_or(|f| namespaced(&t, h.line - 1) == *f);
+                    .is_none_or(|f| namespaced(&t, h.line1 - 1) == *f);
                 (code && fits).then_some(PhpClass {
                     path: h.path,
                     text: t,
-                    header0: h.line - 1,
+                    header0: h.line1 - 1,
                 })
             })
             .collect();
@@ -347,7 +347,6 @@ impl App {
         word: &str,
         access: search::PhpAccess,
     ) -> Option<Vec<Candidate>> {
-        // ponytail: six names in front of the word, as for Python.
         let (head, fields) = chain.split_first().filter(|_| chain.len() <= 6)?;
         let (mut class, mut links, rest) = match head.as_str() {
             // `$this->word` alone is [`Self::php_link`]'s.
@@ -428,7 +427,6 @@ impl App {
         let mut found: Option<ProvenClass> = None;
         for b in search::php_variable(text, self.line + 1, name)? {
             let at = b - 1;
-            // ponytail: a statement read over twenty lines.
             let statement = lines[at..lines.len().min(at + 20)].join("\n");
             let binding = search::php_binding(&statement, name)?;
             if at == self.line && !matches!(binding, search::PhpBinding::Type(_)) {
@@ -491,7 +489,7 @@ impl App {
         let [hit] = hits.as_slice() else {
             return None;
         };
-        self.php_declared_return(&hit.path, hit.line - 1)
+        self.php_declared_return(&hit.path, hit.line1 - 1)
     }
 
     /// The class the function `name` declares it returns: the project's one `function name(`
@@ -505,7 +503,7 @@ impl App {
         let [hit] = hits.as_slice() else {
             return None;
         };
-        self.php_declared_return(&hit.path, hit.line - 1)
+        self.php_declared_return(&hit.path, hit.line1 - 1)
     }
 
     /// The class the function or method whose header starts on `line0` of the file `path`
@@ -547,12 +545,12 @@ impl App {
         }
         let written = search::php_written_type(&hit.text, field)?;
         let text = self.text_of(&hit.path)?;
-        self.php_type(&hit.path, &text, hit.line - 1, &written)
+        self.php_type(&hit.path, &text, hit.line1 - 1, &written)
     }
 
     /// The members `re` matches of the class `short` outside the project, in `vendor/`: its
     /// `short.php`, narrowed to the one declaring the namespace of `full` when the file resolves
-    /// it. What the class inherits there is not read.
+    /// it.
     fn php_outside(&mut self, full: Option<&str>, short: &str, re: &Regex) -> Walk {
         let file = format!("{short}.php");
         let files: Vec<PathBuf> = self
@@ -586,8 +584,8 @@ impl App {
                     .map(|i| Hit {
                         deleted: None,
                         path: path.clone(),
-                        line: i + 1,
-                        col: 0,
+                        line1: i + 1,
+                        byte_col: None,
                         text: lines[i].to_owned(),
                     }),
             );

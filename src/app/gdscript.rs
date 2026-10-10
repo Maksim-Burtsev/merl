@@ -66,8 +66,8 @@ impl App {
                 hit: Hit {
                     deleted: None,
                     path: script.to_path_buf(),
-                    line: i + 1,
-                    col: 0,
+                    line1: i + 1,
+                    byte_col: None,
                     text: (*l).to_owned(),
                 },
                 reason: Reason::Path(owner.to_owned()),

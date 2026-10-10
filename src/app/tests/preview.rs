@@ -904,3 +904,19 @@ fn c_in_a_preview_leaves_it_for_the_source() {
     assert!(!a.previewing(), "`[` comes back to the source");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn p_with_the_pane_scrolled_onto_the_lines_deleted_at_the_end_puts_the_cursor_row_on_top() {
+    let kept: String = (0..15).map(|i| format!("p{i}\n\n")).collect();
+    let gone: String = (0..10).map(|i| format!("gone{i}\n")).collect();
+    let (dir, mut a) = md_review("scrolled-ghosts", &format!("{kept}{gone}"), &kept);
+    (a.view_w, a.view_h) = (40, 8);
+    let end = a.buf.lines.len();
+    a.line = 10;
+    assert_eq!(a.deleted_at(end), 10);
+    (a.top_line, a.top_row, a.center) = (end, 5, false);
+    key(&mut a, KeyCode::Char('p'));
+    let (row, top, text) = at_row(&a);
+    assert_eq!((top, text.as_str()), (row, "p5"));
+    let _ = std::fs::remove_dir_all(&dir);
+}

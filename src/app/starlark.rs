@@ -69,8 +69,8 @@ impl App {
                 hit: Hit {
                     deleted: None,
                     path: file.clone(),
-                    line: n,
-                    col: 0,
+                    line1: n,
+                    byte_col: None,
                     text: loaded.lines().nth(n - 1).unwrap_or_default().to_owned(),
                 },
                 reason: Reason::Import(via.clone()),
@@ -125,8 +125,8 @@ impl App {
                 deleted: None,
                 text: text.lines().nth(line - 1)?.to_owned(),
                 path: shown(path),
-                line,
-                col: 0,
+                line1: line,
+                byte_col: None,
             };
             Some(Candidate { hit, reason })
         };

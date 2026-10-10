@@ -31,7 +31,7 @@ impl App {
                 .iter()
                 .filter(|h| {
                     self.text_of(&h.path)
-                        .and_then(|t| search::qualified(Kind::Swift, &t, h.line, word))
+                        .and_then(|t| search::qualified(Kind::Swift, &t, h.line1, word))
                         .is_some_and(|q| q == full || q.ends_with(&format!(".{full}")))
                 })
                 .map(|h| Candidate {
@@ -94,7 +94,7 @@ impl App {
             let place = search::swift_type_decl(&h.text)
                 .then(|| self.text_of(&h.path))
                 .flatten()
-                .and_then(|t| search::swift_type_place(&t, h.line));
+                .and_then(|t| search::swift_type_place(&t, h.line1));
             match place {
                 Some(search::SwiftTypePlace::FunctionBody { header_line1: f }) => {
                     own && search::swift_within(&self.buf.lines, &literal, self.line + 1, f)
@@ -110,7 +110,7 @@ impl App {
             let place = (h.deleted.is_none() && search::swift_type_decl(&h.text))
                 .then(|| self.text_of(&h.path))
                 .flatten()
-                .and_then(|t| search::swift_type_place(&t, h.line));
+                .and_then(|t| search::swift_type_place(&t, h.line1));
             match place {
                 Some(search::SwiftTypePlace::Nested(outer)) => {
                     search::swift_sees_nested(&self.buf.lines, &literal, self.line + 1, &outer)

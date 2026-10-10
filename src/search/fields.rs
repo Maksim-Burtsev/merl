@@ -1,13 +1,9 @@
-//! The fields a type declares, and which of its lines declares the one being looked for.
-
 use std::collections::HashMap;
 
 use regex::Regex;
 
 use super::*;
 
-/// The lines of the body of the class, interface or struct declared on line `k`: past a Python
-/// header over several lines, up to the first line back at the declaration's indent.
 pub(super) fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<usize> {
     let start = match (kind, lines[k].find('(')) {
         (Kind::Python, Some(open)) => {
@@ -20,35 +16,22 @@ pub(super) fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<u
     let end = (start..lines.len())
         .find(|&i| {
             let t = lines[i].trim();
-            // A lone `{` at the declaration's own indentation opens its body, as prettier
-            // writes a wrapped class header; it does not end it.
             !t.is_empty() && t != "{" && !comment(kind, t) && indent(lines[i]) <= base
         })
         .unwrap_or(lines.len());
     start..end.max(start)
 }
-/// The declarations of the field `name` of the class, interface or struct declared on 1-based
-/// `decl` of `text`:
-/// - Python: `name: T` or `name = …` in the class body, `self.name: T = …` or `self.name = …` in
-///   its methods, a `def name` under `@property`, `@cached_property` or
-///   `@functools.cached_property`, read as its `-> T` (a setter declares nothing);
-/// - TypeScript: a member `name: T` or `name = …` behind any modifiers, a constructor parameter
-///   with one (`private name: T`), `this.name = …`, a getter `get name(): T`;
-/// - Go: a struct field `name T` or `a, name T`, and an embedded `*Name` under its type's name;
-/// - JavaScript: a `@property {T} name` of a `@typedef {Object}` declared on `decl` (#347).
 pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Binding> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = decl.checked_sub(1).filter(|&i| i < lines.len()) else {
         return Vec::new();
     };
-    // A JavaScript `@typedef {Object}` declares its fields on its `@property` lines (#347).
     if kind == Kind::TsJs
         && let Some(fields) = jsdoc_properties(&lines, k, name)
     {
         return fields;
     }
     let go_field = |t: &str| go_field(t, name);
-    // A Go struct whose body closes on its own line: `type Item struct{ Name string }` (#327).
     if kind == Kind::Go
         && let Some(body) = go_one_line(lines[k])
     {
@@ -68,7 +51,6 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
     };
     let n = regex::escape(name);
     let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
-    // A docstring or a block comment declares nothing, whatever its lines look like.
     let literal = literal_lines(kind, text);
     let body = body.filter(|&i| !literal.get(i).copied().unwrap_or(false));
     let mut out = Vec::new();
@@ -82,12 +64,10 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
         Kind::Python => {
             let annotated = rule(format!(r"^(self\.)?{n}\s*:\s*([^=]+?)\s*(?:=.*)?$"));
             let assigned = rule(format!(r"^(self\.)?{n}\s*=\s*([^=].*)$"));
-            // A tuple target (`self.a, self.repo = …`), not an argument of a call.
             let unknown = rule(format!(
                 r"^\(?[\w\s,.*\[\]]*,[\w\s,.*\[\]]*\bself\.{n}\b[\w\s,.*\[\]]*\)?\s*=[^=]|^\(?[\w\s.*\[\]]*\bself\.{n}\s*,[\w\s,.*\[\]]*\)?\s*=[^=]|\bas\s+self\.{n}\b|^for\s+.*\bself\.{n}\b.*\sin\s"
             ));
             let def = rule(format!(r"^def\s+{n}\s*\("));
-            // The decorators right above line `i` at its indent include a property's.
             let property = |i: usize, ind: usize| {
                 lines[..i]
                     .iter()
@@ -113,7 +93,6 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
                 if skip.is_some() || continued(kind, &lines, i) {
                     continue;
                 }
-                // `x: T` belongs to the class body, `self.x: T` to a method.
                 let right = |c: &regex::Captures| c.get(1).is_some() == (ind > base);
                 if ind == base && def.is_match(t) && property(i, ind) {
                     push(i, returns(kind, text, i + 1).unwrap_or(Value::Unknown));
@@ -143,8 +122,6 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
             let getter = rule(format!(
                 r"^(?:(?:public|private|protected|static|override|abstract|declare)\s+)*get\s+{n}\s*\(\s*\)\s*(?::\s*(.+?))?\s*(?:\{{.*)?;?$"
             ));
-            // A parameter behind a modifier is a field only in the constructor's list: in a type
-            // literal or another method's parameters it is nothing of the class.
             let in_constructor = |i: usize| {
                 let ind = indent(lines[i]);
                 lines[i].trim_start().starts_with("constructor")
@@ -154,7 +131,6 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
                         .find(|l| !l.trim().is_empty() && indent(l) < ind)
                         .is_some_and(|l| l.trim_start().starts_with("constructor"))
             };
-            // `this` there is another object: a literal, a `function`, a nested class.
             let foreign = |i: usize| {
                 bindings(kind, text, i + 1, "this")
                     .iter()
@@ -196,8 +172,6 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
     }
     out
 }
-/// A Go field line, `name T`, `a, name T` or an embedded `*pkg.Name`, that declares `name`, as
-/// the type it reads.
 fn go_field(t: &str, name: &str) -> Option<Value> {
     static GO_FIELD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s+(\S.*)$").unwrap()
@@ -212,8 +186,6 @@ fn go_field(t: &str, name: &str) -> Option<Value> {
         .filter(|c| c[1].split(',').any(|p| p.trim() == name))
         .map(|c| Value::Type(c[2].to_owned()))
 }
-/// The body of the Go struct that `line` opens and closes, `Name string` of
-/// `type Item struct{ Name string }`; `None` for a body over several lines.
 fn go_one_line(line: &str) -> Option<&str> {
     let at = line.find("struct")?;
     let open = at + line[at..].find('{')?;
@@ -223,16 +195,12 @@ fn go_one_line(line: &str) -> Option<&str> {
 pub(super) fn go_one_line_field(line: &str, name: &str) -> bool {
     go_one_line(line).is_some_and(|body| body.split(';').any(|f| go_field(f, name).is_some()))
 }
-/// The type an embedded Go field names, `sync.Mutex` for `*sync.Mutex`: a line of nothing else.
 pub(super) fn go_embedded(t: &str) -> Option<&str> {
     static EMBEDDED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\*?((?:[A-Za-z_]\w*\.)?[A-Za-z_]\w*)(?:\[.*\])?$").unwrap()
     });
     EMBEDDED.captures(t).map(|c| c.get(1).unwrap().as_str())
 }
-/// The 1-based line of the type declaration 0-based line `k` of `lines` sits in, however deep:
-/// the enclosing lines, each indented less than the last, until one declares a type. `None` when
-/// the walk reaches the top level first.
 pub fn enclosing_type(kind: Kind, lines: &[&str], k: usize) -> Option<usize> {
     enclosing_at(kind, lines, &levels(kind, lines), k)
 }
@@ -270,8 +238,6 @@ pub struct FieldLine {
     pub assigned_in_method: bool,
 }
 
-/// The first of the [`field_bindings`] of one type that is no assignment inside a method, else
-/// the first assignment.
 fn declaring(lines: &[&str], bindings: &[Binding], name: &str) -> Option<FieldLine> {
     let assigned = |b: &&Binding| in_method(lines[b.line1 - 1], name);
     let line = |b: &Binding, assigned_in_method| FieldLine {
@@ -284,18 +250,10 @@ fn declaring(lines: &[&str], bindings: &[Binding], name: &str) -> Option<FieldLi
         .map(|b| line(b, false))
         .or_else(|| bindings.first().map(|b| line(b, true)))
 }
-/// The line on which the type declared on 1-based `decl` of `text` declares its field `name`:
-/// the class-body annotation, a constructor parameter, the struct field, else the first
-/// `self.name = …`. `None` when the type has no field of that name.
 pub fn field_line(kind: Kind, text: &str, decl: usize, name: &str) -> Option<FieldLine> {
     let lines: Vec<&str> = text.lines().collect();
     declaring(&lines, &field_bindings(kind, text, decl, name), name)
 }
-/// The fields `name` the 1-based `hits` of `text` stand for: a hit that is one of the
-/// [`field_bindings`] of the type around it gives that type's [`field_line`], once, in line
-/// order. What [`field_patterns`] greps is more than the fields; this keeps the fields. A
-/// `@property` of a `@typedef {Object}` is one only where `jsdoc` says the file reads JSDoc
-/// ([`reads_jsdoc`]).
 pub fn field_rows(kind: Kind, text: &str, hits: &[usize], name: &str, jsdoc: bool) -> Vec<usize> {
     let lines: Vec<&str> = text.lines().collect();
     let mut types: HashMap<usize, Vec<Binding>> = HashMap::new();
@@ -328,10 +286,6 @@ pub fn field_rows(kind: Kind, text: &str, hits: &[usize], name: &str, jsdoc: boo
     out.sort_unstable();
     out
 }
-/// Whether the word `name` at byte `start` of 1-based `line` of `text` is the name a field's
-/// declaration gives it ([`field_rows`]): the first time the line spells it, as `self.repo = repo`
-/// and `this.f = this.f.bind(this)` spell it twice, and never a Go embedded struct, whose name
-/// is its type's. A JSDoc `@property` is left to the rules as on master (#347).
 pub fn field_decl_at(kind: Kind, text: &str, line: usize, start: usize, name: &str) -> bool {
     let Some(l) = line.checked_sub(1).and_then(|k| text.lines().nth(k)) else {
         return false;
@@ -346,11 +300,6 @@ pub fn field_decl_at(kind: Kind, text: &str, line: usize, start: usize, name: &s
         kind == Kind::Go && go_embedded(bare.split('`').next().unwrap_or("").trim()).is_some();
     first == Some(start) && !embedded && field_rows(kind, text, &[line], name, false) == [line]
 }
-/// The 1-based line and the byte of it where the C# `enum` declared on 1-based `decl` of `text`
-/// lists the member `word`: one per line or several on one, with a value (`Cut = 2`) or
-/// without, behind its `[Attribute]`s. `None` when the line declares no enum or the body lists
-/// no such member. In an `enum` body a bare name is a member for certain, where the same line
-/// elsewhere may be an element of a collection initialiser.
 pub fn enum_member(kind: Kind, text: &str, decl: usize, word: &str) -> Option<(usize, usize)> {
     static ENUM: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^[^(=]*\benum\s+\w").unwrap());
@@ -359,7 +308,6 @@ pub fn enum_member(kind: Kind, text: &str, decl: usize, word: &str) -> Option<(u
     if !ENUM.is_match(lines[k]) {
         return None;
     }
-    // ponytail: an enum body still open 2000 lines on is not read, as `group` reads none.
     let rest = lines[k..lines.len().min(k + 2000)].join("\n");
     let open = code(kind, &rest).find(|&(_, c)| c == b'{')?.0;
     let body = &rest[open + 1..close_of(kind, &rest, open)? - 1];
@@ -376,8 +324,6 @@ pub fn enum_member(kind: Kind, text: &str, decl: usize, word: &str) -> Option<(u
         Some((decl + rest[..pos].matches('\n').count(), pos - line_start))
     })
 }
-/// The C# namespace 1-based `line` of `text` is in, the last one declared above it; empty for the
-/// global one. Blocks nested in another namespace are read under their own name only.
 pub fn cs_namespace(text: &str, line: usize) -> String {
     static NS: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^\u{feff}?\s*namespace\s+([\w.]+)").unwrap());
@@ -387,8 +333,6 @@ pub fn cs_namespace(text: &str, line: usize) -> String {
         .last()
         .map_or_else(String::new, |c| c[1].to_owned())
 }
-/// The namespaces a C# `using N;` or `global using N;` opens in `text`, and a project file's
-/// `<Using Include="N" />`: an alias and a `using static` open none.
 pub fn cs_usings(text: &str) -> Vec<String> {
     static USING: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#"^\u{feff}?\s*(?:global\s+)?using\s+([\w.]+)\s*;|<Using\s+Include="([\w.]+)""#)
@@ -402,15 +346,9 @@ pub fn cs_usings(text: &str) -> Vec<String> {
 
 #[derive(Debug, PartialEq)]
 pub enum GoKey {
-    /// No key of a composite literal: a label, a `case`, a slice expression. The word keeps the
-    /// lookup of a bare name.
     No,
-    /// A key of a literal of the type written so: `Order`, `shop.Order`, `Order[T]`.
     Of(String),
-    /// A key of a literal whose type the rules cannot read: an anonymous struct, an element of
-    /// a collection whose type is not written in front of it.
     Unknown,
-    /// A key of a map or a slice literal, which is a value.
     Value,
     Struct(usize),
 }
@@ -445,8 +383,6 @@ pub fn go_key(text: &str, line: usize, start: usize, end: usize) -> GoKey {
         None => GoKey::No,
     }
 }
-/// The bracket still open in front of byte `col` of 0-based line `k`: its line, its byte and
-/// itself. Strings, comments and the lines inside a raw string or a block comment are skipped.
 fn go_open_before(
     lines: &[&str],
     literal: &[bool],
@@ -454,7 +390,6 @@ fn go_open_before(
     col: usize,
 ) -> Option<(usize, usize, u8)> {
     let mut depth = 0usize;
-    // ponytail: a literal still open 2000 lines up is not read.
     for j in (k.saturating_sub(2000)..=k).rev() {
         if j != k && literal.get(j) == Some(&true) {
             continue;
@@ -472,10 +407,6 @@ fn go_open_before(
     }
     None
 }
-/// The type of the Go composite literal whose `{` is byte `i` of 0-based line `j`, as written:
-/// `Order`, `[]Item`, `map[string]T`, the element type for an elided `{`. `None` for a `{` that
-/// opens no literal (a block, a type's body), `Err` for a literal whose type is not written where
-/// the rules read it: `struct {…}{`, an element of a named collection type.
 fn go_literal_type(
     lines: &[&str],
     literal: &[bool],
@@ -507,7 +438,6 @@ fn go_literal_type(
     ];
     let pre = uncommented(Kind::Go, &lines[j][..i]);
     let pre = pre.trim_end();
-    // The line in front of a `{` alone on its line.
     let above = || {
         lines[..j]
             .iter()
@@ -521,7 +451,6 @@ fn go_literal_type(
         false => pre.ends_with(['{', ',', ':']),
     };
     if elided {
-        // ponytail: eight elided levels deep.
         let (pj, pi, b'{') = go_open_before(lines, literal, j, i)? else {
             return None;
         };

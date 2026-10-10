@@ -1,6 +1,3 @@
-//! Ruby for `d`: its scopes, read by indentation as rubocop lays code out (#383), and where the
-//! gems, the standard library and the core's signatures live outside the project (#369).
-
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
@@ -8,14 +5,10 @@ use regex::Regex;
 
 use super::*;
 
-/// What a line around another opens.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Opens {
-    /// A `def`, a `class` or a `module`: a wall no local passes.
     Gate,
-    /// A `do` or a `{` block: it sees the locals around it, and its own stay inside.
     Block,
-    /// An `if`, a `case`, a `begin`, a call wrapped over lines: no scope.
     Nothing,
 }
 
@@ -24,8 +17,6 @@ struct Around {
     nesting_certain: bool,
 }
 
-/// An `end` or a closing bracket indented less than the line, or a `def` of one line, loses the
-/// nesting: the walk goes on past it.
 fn around(lines: &[&str], literal: &[bool], line0: usize) -> Around {
     static GATE: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^(?:[a-z_]+\s+)?def\s|^(?:class|module)\b").unwrap());
@@ -101,9 +92,6 @@ pub fn ruby_locals(text: &str, line1: usize, name: &str) -> Vec<usize> {
         .collect()
 }
 
-/// The class or module `line1` of `text` is written in, as its path: `Shop::Basket` for `module
-/// Shop` around `class Basket`, and for `class Shop::Basket`. Empty at the top of the file. A
-/// `class << self` is the class around it.
 pub fn ruby_class_path(text: &str, line1: usize) -> String {
     static NAME: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\s*(?:class|module)\s+((?:::)?[A-Z][\w:]*)").unwrap());
@@ -122,8 +110,6 @@ pub fn ruby_class_path(text: &str, line1: usize) -> String {
     names.join("::")
 }
 
-/// The names a Ruby parameter list binds: `a, b = 1, *c, d:, e: 2, **f, &g`, a block's
-/// `(y, z)` destructured and its `; x` block-locals.
 fn param_names(list: &str) -> Vec<String> {
     let mut out = Vec::new();
     for part in list.split(';').flat_map(|l| split_top(Kind::Ruby, l, b',')) {
@@ -141,8 +127,6 @@ fn param_names(list: &str) -> Vec<String> {
     out
 }
 
-/// Whether the parameters of the `def` on `def_line0` bind `name`: `def m(a, b)` wrapped over
-/// lines or not, `def m a, b`, `def self.m(…)`.
 fn def_binds(lines: &[&str], def_line0: usize, name: &str) -> bool {
     static HEAD: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(
@@ -159,7 +143,6 @@ fn def_binds(lines: &[&str], def_line0: usize, name: &str) -> bool {
             Some(g) => g.inner_uncommented,
             None => return false,
         },
-        // `def m a, b`: up to a `;` or a comment. `def m = …` has none.
         None if rest.starts_with([' ', '\t'])
             && !rest.trim_start().starts_with(['=', ';', '#']) =>
         {
@@ -235,9 +218,6 @@ pub(super) fn ruby_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
     Vec::new()
 }
 
-/// The path a Ruby `class` or `module` line on `line1` of `text` declares, the classes and
-/// modules around it included: `Shop::Basket` for `class Basket` inside `module Shop`. `None`
-/// for any other line and for `class << self`.
 pub fn ruby_declared_path(text: &str, line1: usize) -> Option<String> {
     static NAME: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\s*(?:class|module)\s+(?:::)?([A-Z][\w:]*)").unwrap());
@@ -249,8 +229,6 @@ pub fn ruby_declared_path(text: &str, line1: usize) -> Option<String> {
     })
 }
 
-/// What the Ruby class or module declared on `line1` of `text` inherits, as written: a `prepend`
-/// counts as an `include`, and only what its body says directly.
 pub fn ruby_class_parents(text: &str, line1: usize) -> RubyParents {
     static SUPER: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\s*class\s+[\w:]+\s*<\s*(?:::)?([A-Z][\w:]*)").unwrap());
@@ -324,9 +302,6 @@ pub fn ruby_on_class(text: &str, line1: usize) -> bool {
             .is_some_and(|&(i, _)| lines[i].trim_start().starts_with("class << self"))
 }
 
-/// Whether `self` at `line1` of `text` is the class rather than an instance of it: in the body of
-/// a class method (see [`ruby_singleton`]), in `class << self`, or in the class body itself, where
-/// `has_many :x` is a call on the class.
 pub fn ruby_self_is_class(text: &str, line1: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
@@ -342,23 +317,6 @@ pub fn ruby_self_is_class(text: &str, line1: usize) -> bool {
     }
 }
 
-/// Where Ruby's code outside the project at `root` lives (#369): the core's RBS signatures, the
-/// standard library and the gems `Gemfile.lock` names, in that order. Nothing the project ships
-/// is run (#183): `bundle` would evaluate its `Gemfile`, so the lockfile is read instead.
-///
-/// - The gems are the `specs:` of its `GEM` and `GIT` sections, at the versions it locks (a
-///   `PATH` gem is in the project already): `gems/<name>-<version>` and
-///   `bundler/gems/<repository>-<revision>` of the first gem directory that has them (their
-///   `lib` when there is one), which are
-///   the project's `BUNDLE_PATH` from `.bundle/config`, then `gem_env` (`GEM_HOME`, `GEM_PATH`),
-///   then the Ruby's own.
-/// - The Ruby is the one `.ruby-version` names under rbenv, mise, asdf or chruby in `home`, else
-///   what `ask` says of the `ruby` on the PATH: its `rubylibdir`, then its gem path.
-/// - The standard library is that Ruby's `lib/ruby/<abi>`, and the core is the `core/` of the
-///   newest `rbs` gem found, signatures of what is written in C.
-///
-/// Empty when no gem the lockfile names is installed, or there is no lockfile: `d` stays in the
-/// project then.
 pub fn ruby_roots(
     root: &Path,
     home: &Path,
@@ -383,7 +341,6 @@ pub fn ruby_roots(
         {
             let dir = match section {
                 "GEM" => Path::new("gems").join(format!("{name}-{version}")),
-                // Bundler checks a repository out once, under its name and short revision.
                 "GIT" => {
                     let repo = remote
                         .trim_end_matches('/')
@@ -427,7 +384,6 @@ pub fn ruby_roots(
             .collect()
     };
     let config = std::fs::read_to_string(root.join(".bundle/config")).unwrap_or_default();
-    // `../bundle` is read without its `..`, so a gem there is named from its own root.
     let bundle = config.lines().find_map(|l| {
         let value = l
             .strip_prefix("BUNDLE_PATH:")?
@@ -472,7 +428,6 @@ pub fn ruby_roots(
             stdlib
         }
     };
-    // A gem is required from its `lib`: its `spec/` and `test/` declare helpers of its own.
     let found: Vec<PathBuf> = gems
         .iter()
         .filter_map(|g| homes.iter().map(|h| h.join(g)).find(|d| d.is_dir()))
@@ -484,7 +439,6 @@ pub fn ruby_roots(
     if found.is_empty() {
         return Vec::new();
     }
-    // `rbs-3.10.0` is newer than `rbs-3.9.1`.
     let rbs_version = |p: &PathBuf| -> Option<Vec<u64>> {
         let name = p.file_name()?.to_str()?.strip_prefix("rbs-")?;
         name.split('.').map(|n| n.parse().ok()).collect()

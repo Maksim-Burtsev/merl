@@ -73,7 +73,7 @@ public static class Extensions
         // ^ d: src/Shop.Api/Scopes/Extensions.cs:71
         var (left, right) = (1, 2);
         return left + right + amount;
-        //     ^ d: none
+        //     ^ d: src/Shop.Api/Scopes/Extensions.cs:74
     }
 
     public static Func<int, int, int> Adders() => (a, b) => a + b;

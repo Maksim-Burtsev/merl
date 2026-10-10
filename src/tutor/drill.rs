@@ -184,7 +184,7 @@ impl Drill {
             std::fs::create_dir_all(dir).with_context(ctx)?;
         }
         let ms = ms.map_or("miss".to_string(), |ms| ms.to_string());
-        let line = format!("{}\t{key}\t{ms}\n", stats::date(stats::today()));
+        let line = format!("{}\t{key}\t{ms}\n", stats::date(stats::utc_today()));
         let mut file = (std::fs::OpenOptions::new().create(true).append(true))
             .open(log)
             .with_context(ctx)?;
@@ -364,7 +364,7 @@ mod tests {
 
     /// A drill of `n` tasks that reads and writes no file.
     fn drill(n: usize) -> Drill {
-        let mut d = Drill::new(n, None, None, stats::today()).unwrap();
+        let mut d = Drill::new(n, None, None, stats::utc_today()).unwrap();
         d.rng = 7;
         d
     }
@@ -394,7 +394,7 @@ mod tests {
         let dir = dir("weights");
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let today = stats::today();
+        let today = stats::utc_today();
         let ago = |days| stats::date(today - days);
         // Work: `d` missed more often than pressed; `u` pressed twice, and 50 times on the first
         // day out of the window; `v` never; the rest three times, on the last day in it.
@@ -516,7 +516,7 @@ mod tests {
         let mut a = app(name, (80, 24));
         let log = dir(name).with_extension("tsv");
         let _ = std::fs::remove_file(&log);
-        let d = Drill::new(n, None, Some(log.clone()), stats::today()).unwrap();
+        let d = Drill::new(n, None, Some(log.clone()), stats::utc_today()).unwrap();
         a.tutor.as_mut().unwrap().drill = Some(d);
         (a, log)
     }

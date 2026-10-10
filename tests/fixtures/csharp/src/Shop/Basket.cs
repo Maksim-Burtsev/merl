@@ -90,4 +90,20 @@ public class Basket
 
     public Tier First() => Tier.Basic;
     //                          ^ d: src/Shop/Pricing/Pricing.cs:64
+
+    public int Pairs(List<(int, int)> pairs)
+    {
+        foreach (var (limit, rest) in pairs)
+        {
+            Use(limit);
+            //  ^ d: src/Shop/Basket.cs:96
+        }
+        var (top, (low, high)) = Split(pairs);
+        (var cap, int floor) = Split(pairs);
+        return top + high + cap + floor;
+        //     ^ d: src/Shop/Basket.cs:101
+        //           ^ d: src/Shop/Basket.cs:101
+        //                  ^ d: src/Shop/Basket.cs:102
+        //                        ^ d: src/Shop/Basket.cs:102
+    }
 }

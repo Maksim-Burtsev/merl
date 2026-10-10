@@ -35,7 +35,6 @@ fn kinds_come_from_the_file_name() {
         ("ledger.ex", Some(Kind::Elixir)),
         ("mix.exs", Some(Kind::Elixir)),
         ("ledger.zig", Some(Kind::Zig)),
-        // Zig's data format: painted as Zig, but it declares nothing.
         ("build.zig.zon", None),
         ("app.kt", Some(Kind::Jvm)),
         ("build.gradle.kts", Some(Kind::Jvm)),
@@ -54,7 +53,6 @@ fn kinds_come_from_the_file_name() {
         (".zshenv", Some(Kind::Shell)),
         (".zprofile", Some(Kind::Shell)),
         (".profile", Some(Kind::Shell)),
-        // A shebang-only script: `kind_of` goes by the name, so it has no kind.
         ("install", None),
         ("schema.sql", Some(Kind::Sql)),
         ("dump.psql", Some(Kind::Sql)),
@@ -76,9 +74,19 @@ fn kinds_come_from_the_file_name() {
         (".gitlab-ci.yml", Some(Kind::Yaml)),
         ("README", None),
         ("notes.txt", None),
+        ("build.ps1", Some(Kind::PowerShell)),
+        ("Ledger.psm1", Some(Kind::PowerShell)),
+        ("Ledger.psd1", Some(Kind::PowerShell)),
+        ("guide.mdx", Some(Kind::Markdown)),
+        ("schema.graphqls", Some(Kind::Graphql)),
+        ("query.gql", Some(Kind::Graphql)),
+        ("user.proto", Some(Kind::Proto)),
+        ("index.htm", Some(Kind::Html)),
+        ("hash.rbs", None),
     ] {
         assert_eq!(kind_of(Path::new(name)), kind, "{name}");
     }
+    assert_eq!(opened_kind(Path::new("core/hash.rbs")), Some(Kind::Ruby));
 }
 
 #[test]
@@ -260,4 +268,118 @@ fn a_wrapped_kotlin_header_and_a_companion_qualify_their_members() {
     let q = |line, name| qualified(Kind::Jvm, text, line, name);
     assert_eq!(q(4, "topics").as_deref(), Some("Repo.topics"));
     assert_eq!(q(7, "DEFAULT").as_deref(), Some("Repo.DEFAULT"));
+}
+
+#[test]
+fn a_ruby_setter_keeps_its_equals_sign() {
+    let text = "class Tariff\n  def rate=(value)\n    @rate = value\n  end\nend\n";
+    assert_eq!(
+        qualified(Kind::Ruby, text, 2, "rate=").as_deref(),
+        Some("Tariff.rate=")
+    );
+}
+
+#[test]
+fn a_jsdoc_property_is_a_field_of_its_typedef() {
+    let text = "/**\n * @typedef {Object} Tariff\n * @property {number} rate\n */\n";
+    assert_eq!(
+        qualified(Kind::TsJs, text, 3, "rate").as_deref(),
+        Some("Tariff.rate")
+    );
+}
+
+#[test]
+fn a_csharp_parameter_is_a_local_of_its_method() {
+    let text = "class Tariff\n{\n    public decimal Gross(decimal rate)\n    {\n        return rate;\n    }\n}\n";
+    assert_eq!(
+        qualified(Kind::CSharp, text, 3, "rate").as_deref(),
+        Some("Tariff.Gross.rate")
+    );
+}
+
+#[test]
+fn a_later_declarator_is_declared_where_its_statement_is() {
+    let top = "const fs = require(\"node:fs\"),\n  more = require(\"./more\");\n";
+    assert_eq!(qualified(Kind::TsJs, top, 2, "more"), None);
+    let inner = "function run() {\n  const fs = 1,\n    more = 2;\n}\n";
+    assert_eq!(
+        qualified(Kind::TsJs, inner, 3, "more").as_deref(),
+        Some("run.more")
+    );
+}
+
+#[test]
+fn a_wrapped_header_still_names_its_members() {
+    let ts = "export class Tariff<\n  T,\n> {\n  rate = 1;\n}\n";
+    assert_eq!(
+        qualified(Kind::TsJs, ts, 4, "rate").as_deref(),
+        Some("Tariff.rate")
+    );
+    let py = "class Tariff(\n    Base,\n):\n    rate = 1\n";
+    assert_eq!(
+        qualified(Kind::Python, py, 4, "rate").as_deref(),
+        Some("Tariff.rate")
+    );
+}
+
+#[test]
+fn a_field_is_reached_by_its_whole_name() {
+    assert!(in_method("self.rate = 1", "rate"));
+    assert!(in_method("return this.rate;", "rate"));
+    assert!(!in_method("self.rates = 1", "rate"));
+    assert!(!in_method("myself.rate = 1", "rate"));
+    assert!(!in_method("rate = 1", "rate"));
+}
+
+#[test]
+fn a_chain_broken_over_lines_reads_as_one() {
+    let lines = |ls: &[&str]| ls.iter().map(|l| l.to_string()).collect::<Vec<_>>();
+    let php = lines(&["$query", "    ->where("]);
+    assert_eq!(
+        unbroken(Kind::Php, &php, 1, 6),
+        Some(LineAsRead {
+            line: "$query->where(".into(),
+            word_start: 8
+        })
+    );
+    let ts = lines(&["return this.db", "", "  // the table", "  .selectFrom("]);
+    assert_eq!(
+        unbroken(Kind::TsJs, &ts, 3, 3),
+        Some(LineAsRead {
+            line: "return this.db.selectFrom(".into(),
+            word_start: 15
+        }),
+        "a comment or a blank line between two links breaks nothing"
+    );
+}
+
+#[test]
+fn a_member_access_reads_as_a_plain_dot() {
+    let plain = |kind, line: &str, start| plain_access(kind, line, start).line;
+    assert_eq!(plain(Kind::Swift, "user?.name", 6), "user.name");
+    assert_eq!(plain(Kind::TsJs, "user!.name", 6), "user.name");
+    assert_eq!(plain(Kind::Php, "$user?->name", 8), "$user.name");
+    assert_eq!(
+        plain(Kind::Php, "$a.foo()", 3),
+        "$a foo()",
+        "a PHP dot concatenates"
+    );
+}
+
+#[test]
+fn a_suffix_belongs_to_the_name_but_not_to_an_operator() {
+    let word =
+        |kind, line: &'static str, col| definition_word(Some(kind), line, col).map(|(_, w)| w);
+    assert_eq!(word(Kind::Ruby, "if empty? then", 4), Some("empty?"));
+    assert_eq!(word(Kind::Ruby, "if name!= 1", 4), Some("name"));
+    assert_eq!(word(Kind::Ruby, "if name!~ /x/", 4), Some("name"));
+    assert_eq!(word(Kind::Ruby, "x = @ready?1:0", 6), Some("ready"));
+    assert_eq!(word(Kind::Elixir, "ship!(order)", 1), Some("ship!"));
+    assert_eq!(word(Kind::Elixir, "if count!= 0", 4), Some("count"));
+}
+
+#[test]
+fn a_ruby_method_under_a_comment_at_the_left_edge_stays_in_its_block() {
+    let text = "class << self\n# the rates\n  def rate\n  end\nend\n";
+    assert!(ruby_singleton(text, 3));
 }

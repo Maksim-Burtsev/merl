@@ -1,5 +1,3 @@
-//! File contents as lines, plus its syntect highlighting and what is needed to write it back.
-
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -11,56 +9,37 @@ use syntect::parsing::{ParseState, ScopeStack, SyntaxReference, SyntaxSet};
 
 use crate::theme::Theme;
 
-/// What a tab is drawn as. Lines keep their `\t`; only the renderer and [`crate::wrap`] expand.
 pub const TAB: &str = "    ";
-/// Every `CHECKPOINT` lines the parser state is snapshotted, so an edit only re-highlights from
-/// the last snapshot instead of from line 1.
 const CHECKPOINT: usize = 64;
-/// The UTF-8 byte order mark: kept apart from the text, so no edit can move it off the front.
 const BOM: &[u8] = b"\xEF\xBB\xBF";
 const NUL_SNIFF_BYTES: usize = 8 * 1024;
 const BINARY: &str = "binary file";
-/// ponytail: syntect is sequential, so a huge file would have to be parsed from line 1 before
-/// anything can be drawn. Past these limits merl shows plain text instead of stalling.
 const MAX_HL_LINES: usize = 30_000;
 const MAX_HL_BYTES: usize = 4 * 1024 * 1024;
-/// ponytail: a single line longer than this is shown truncated. Both the renderer and the
-/// cursor arithmetic wrap [`Buffer::shown`], so they agree on how many rows the line has. It is
-/// also what [`Buffer::highlight_to`] stops colouring past: the rest of the line is on no screen.
 const MAX_SHOWN_BYTES: usize = 20_000;
 
-/// bat's syntax set, with the `\n`-terminated variants `highlight_line` expects.
 fn syntaxes() -> &'static SyntaxSet {
     static SET: OnceLock<SyntaxSet> = OnceLock::new();
     SET.get_or_init(two_face::syntax::extra_newlines)
 }
 
-/// One line's highlighting: styles over byte ranges, in order.
 pub type Spans = Vec<(Style, Range<usize>)>;
 
 pub struct Buffer {
     pub path: Option<PathBuf>,
     pub lines: Vec<String>,
-    /// Why the buffer cannot be edited, when it cannot: what was loaded is not what would be
-    /// written back.
     pub readonly: Option<&'static str>,
     bom: bool,
     crlf: bool,
-    /// The file ends with a line terminator (every sane file does; an empty file does not).
     trailing_newline: bool,
-    /// Indentation uses tabs: what Tab inserts, as VS Code's `detectIndentation`.
     pub tabs: bool,
     pub disk_hash: u64,
-    /// Highlighted prefix: one entry per already-highlighted line, spans in byte ranges.
     pub hl: Vec<Spans>,
-    /// `None` when this buffer is not highlighted at all (binary, or too large).
     syntax: Option<&'static SyntaxReference>,
     state_after_hl: Option<(ParseState, HighlightState)>,
     state_before_every_checkpoint: Vec<(ParseState, HighlightState)>,
 }
 
-/// What a file is besides its lines: how they go back to disk, what Tab inserts, whether they
-/// may change. A reload can change it with the text, and undoing the reload puts it back.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Format {
     bom: bool,
@@ -71,13 +50,10 @@ pub struct Format {
 }
 
 impl Buffer {
-    /// An empty scratch buffer, used when merl is opened on a directory.
     pub fn empty() -> Self {
         Self::new(None, vec![String::new()], None)
     }
 
-    /// A binary file: nothing of it is shown. It rides on `readonly`, so a reload and its undo
-    /// carry it with the rest of the [`Format`].
     pub fn binary(&self) -> bool {
         self.readonly == Some(BINARY)
     }
@@ -85,7 +61,6 @@ impl Buffer {
     pub fn load(path: &Path) -> Result<Self> {
         let meta = std::fs::metadata(path).with_context(|| format!("{}", path.display()))?;
         if !meta.is_file() && !meta.is_dir() {
-            // The reason apart from the path, for the status bar to name the file its own way.
             return Err(anyhow::anyhow!("not a regular file"))
                 .with_context(|| format!("{}", path.display()));
         }
@@ -108,7 +83,6 @@ impl Buffer {
             .split('\n')
             .map(|l| l.trim_end_matches('\r').to_string())
             .collect();
-        // A trailing newline is a terminator, not an empty last line.
         if lines.len() > 1 && lines.last().is_some_and(String::is_empty) {
             lines.pop();
         }
@@ -121,8 +95,6 @@ impl Buffer {
         b.bom = bom;
         b.crlf = crlf;
         b.trailing_newline = trailing_newline;
-        // One line ending per file: a mix, or a stray `\r`, would be rewritten by the first save,
-        // so it is refused like any other text that would not come back out as it went in.
         b.readonly = if lossy {
             Some("not UTF-8")
         } else if b.to_bytes() != bytes {
@@ -135,7 +107,6 @@ impl Buffer {
         b
     }
 
-    /// The file as it is written back: the lines joined with the line ending they came with.
     pub fn to_bytes(&self) -> Vec<u8> {
         let nl = if self.crlf { "\r\n" } else { "\n" };
         let mut out = if self.bom { BOM.to_vec() } else { Vec::new() };
@@ -161,8 +132,6 @@ impl Buffer {
         (self.tabs, self.readonly) = (f.tabs, f.readonly);
     }
 
-    /// Forgets the highlighting from line `l` on: the next `highlight_to` re-parses from the
-    /// last checkpoint above it.
     pub fn edited(&mut self, l: usize) {
         let n = l / CHECKPOINT;
         if self.hl.len() <= n * CHECKPOINT {
@@ -194,9 +163,6 @@ impl Buffer {
         }
     }
 
-    /// A Markdown code block's lines, to be highlighted as the files merl opens are, as far as the
-    /// screen reaches: with the grammar a file of the language its info string names gets
-    /// (`rust`, `py`, `dockerfile`), and the same limits. Plain when no grammar goes by the name.
     pub(crate) fn block(token: &str, mut lines: Vec<String>) -> Self {
         let bytes: usize = lines.iter().map(String::len).sum();
         let syntax = (lines.len() <= MAX_HL_LINES && bytes <= MAX_HL_BYTES)
@@ -208,28 +174,20 @@ impl Buffer {
         Self::new(None, lines, syntax)
     }
 
-    /// Line `l` as it is shown: the whole line, or its first [`MAX_SHOWN_BYTES`] bytes.
     pub fn shown(&self, l: usize) -> &str {
         shown_str(&self.lines[l])
     }
 
-    /// Whether `line` is longer than [`Buffer::shown`] draws, so part of it is off screen.
     pub fn clips(line: &str) -> bool {
         line.len() > MAX_SHOWN_BYTES
     }
 
-    /// Drops the highlighting, so the next [`Buffer::highlight_to`] paints with another theme:
-    /// spans carry the colours of the theme they were made with.
     pub fn clear_hl(&mut self) {
         self.hl.clear();
         self.state_before_every_checkpoint.clear();
         self.state_after_hl = None;
     }
 
-    /// Extends the highlighted prefix so that `last` (a file line index) is covered.
-    ///
-    /// syntect's parser is sequential: line N needs the state left by line N-1, so the view can
-    /// only be drawn after everything above it has been parsed. The result is cached in `hl`.
     pub fn highlight_to(&mut self, last: usize, theme: &Theme) {
         let Some(syntax) = self.syntax else { return };
         let last = last.min(self.lines.len().saturating_sub(1));
@@ -255,18 +213,11 @@ impl Buffer {
     }
 }
 
-/// One line's spans, going on from the parser state the line above left.
 fn line_spans(
     state: &mut (ParseState, HighlightState),
     raw: &str,
     highlighter: &Highlighter,
 ) -> Spans {
-    // ponytail: syntect parses a line whole, and only its first `MAX_SHOWN_BYTES` are ever
-    // drawn. A minified bundle or a one-line JSON dump is megabytes on one line, so that parse
-    // costs seconds and runs again after every `clear_hl`. Past `shown`, the line is drawn plain,
-    // as VS Code stops tokenizing past `maxTokenizationLineLength`. The state is left as the line
-    // before it: the lines below keep their colours. Parsing the shown prefix alone would not, it
-    // could stop inside a string or a comment.
     if Buffer::clips(raw) {
         return Vec::new();
     }
@@ -277,7 +228,6 @@ fn line_spans(
     for (style, text) in HighlightIterator::new(&mut state.1, &ops, &line, highlighter) {
         let start = at;
         at += text.len();
-        // The trailing "\n" we added is not part of the line.
         let end = at.min(raw.len());
         if start < end {
             spans.push((crate::theme::style(style), start..end));
@@ -293,8 +243,6 @@ pub fn hash(bytes: &[u8]) -> u64 {
     h.finish()
 }
 
-/// What [`Buffer::shown`] draws of a line, for a line that is not in a buffer (a review
-/// ghost): the whole line, or its first [`MAX_SHOWN_BYTES`] bytes on a char boundary.
 pub(crate) fn shown_str(s: &str) -> &str {
     &s[..floor_char_boundary(s, MAX_SHOWN_BYTES)]
 }
@@ -310,7 +258,6 @@ fn floor_char_boundary(s: &str, max: usize) -> usize {
     i
 }
 
-/// Syntax by file name, then by the first line (shebangs, `<?xml`), then plain text.
 fn syntax_for(path: &Path, first_line: &str) -> &'static SyntaxReference {
     let set = syntaxes();
     let found = by_name(path)
@@ -319,17 +266,12 @@ fn syntax_for(path: &Path, first_line: &str) -> &'static SyntaxReference {
     with_bash(found)
 }
 
-/// What Markdown code blocks call a language no grammar goes by, as GitHub reads them. Their own
-/// table: the names files are known by stay as they are.
 const BLOCK_NAMES: &[(&str, &str)] = &[
     ("shell", "Bourne Again Shell (bash)"),
     ("console", "Bourne Again Shell (bash)"),
     ("objc", "Objective-C"),
 ];
 
-/// Syntax by the first word of a code block's info string: a language (`rust`, `rs`,
-/// `dockerfile`), or a file it cites (`src/main.rs`, Cursor's `12:15:src/main.rs`) by the
-/// extension after its last `.`. Looked up by name alone: no word becomes a path.
 fn syntax_for_info(word: &str) -> Option<&'static SyntaxReference> {
     let set = syntaxes();
     let mut word = word;
@@ -346,7 +288,6 @@ fn syntax_for_info(word: &str) -> Option<&'static SyntaxReference> {
     if key.is_empty() {
         return None;
     }
-    // Ours first, then the names files are known by (`Containerfile`, `jsonc`), then bat's.
     let found = BLOCK_NAMES
         .iter()
         .find(|(name, _)| name.eq_ignore_ascii_case(key))
@@ -358,7 +299,6 @@ fn syntax_for_info(word: &str) -> Option<&'static SyntaxReference> {
     Some(with_bash(found))
 }
 
-/// Syntax by file name or extension: ours for the files bat's set has no pattern for, then bat's.
 fn by_name(path: &Path) -> Option<&'static SyntaxReference> {
     let set = syntaxes();
     known_name(path)
@@ -366,8 +306,6 @@ fn by_name(path: &Path) -> Option<&'static SyntaxReference> {
         .or_else(|| set.find_syntax_for_file(path).ok().flatten())
 }
 
-/// bat's plain Dockerfile grammar leaves every instruction's arguments unscoped, so most of the
-/// file would be drawn in the default colour; the bash variant scopes them.
 fn with_bash(found: &'static SyntaxReference) -> &'static SyntaxReference {
     match found.name.as_str() {
         "Dockerfile" => syntaxes()
@@ -377,7 +315,6 @@ fn with_bash(found: &'static SyntaxReference) -> &'static SyntaxReference {
     }
 }
 
-/// Infrastructure files bat's set has no name pattern for, mapped to the grammar that fits.
 fn known_name(path: &Path) -> Option<&'static str> {
     known_file(path.file_name()?.to_str()?)
 }
@@ -385,18 +322,12 @@ fn known_name(path: &Path) -> Option<&'static str> {
 fn known_file(name: &str) -> Option<&'static str> {
     let ext = name.rsplit_once('.').map_or("", |(_, ext)| ext);
     Some(match (name, ext) {
-        // `.dockerignore`, and BuildKit's per-Dockerfile `app.Dockerfile.dockerignore`.
         (_, "dockerignore") | ("CODEOWNERS", _) => "Git Ignore",
         ("Containerfile", _) => "Dockerfile",
         _ if name.starts_with("Dockerfile.") || name.starts_with("Containerfile.") => "Dockerfile",
         (_, "jsonc") => "JSON",
-        // bat's SQL grammar owns `.sql`, `.ddl` and `.dml`, but not the dialect extensions.
         (_, "psql" | "pgsql" | "mysql") => "SQL",
-        // bat's set knows Ruby by name for `Rakefile`, `Gemfile` and friends, but not for
-        // Sorbet's type files or Danger's.
         (_, "rbi") | ("Dangerfile", _) => "Ruby",
-        // Sublime's set gives `.h` to Objective-C, which paints a C or a C++ header wrong. The
-        // C++ grammar is the C one plus templates, classes and namespaces, so it reads both.
         (_, "h") => "C++",
         (".npmrc", _) | (_, "service" | "timer" | "socket") => "INI",
         ("Procfile" | "yarn.lock", _) => "YAML",
@@ -717,6 +648,26 @@ mod tests {
         assert!(b.syntax.is_none());
         b.highlight_to(10, &crate::theme::load("tokyonight-moon").unwrap());
         assert!(b.hl.is_empty());
+    }
+
+    #[test]
+    fn clearing_the_highlighting_repaints_in_another_theme() {
+        let (dark, light) = (
+            crate::theme::load("tokyonight-moon").unwrap(),
+            crate::theme::load("ayu-light").unwrap(),
+        );
+        let src = b"// hi\nfn main() {}\n";
+        let painted = |theme| {
+            let mut b = Buffer::from_bytes(PathBuf::from("a.rs"), src);
+            b.highlight_to(1, theme);
+            b.hl
+        };
+        assert_ne!(painted(&dark), painted(&light));
+        let mut b = Buffer::from_bytes(PathBuf::from("a.rs"), src);
+        b.highlight_to(1, &dark);
+        b.clear_hl();
+        b.highlight_to(1, &light);
+        assert_eq!(b.hl, painted(&light));
     }
 
     #[test]
@@ -1342,6 +1293,24 @@ mod tests {
                 assert!(colours.len() > 1, "{file} {name}: everything is one colour");
             }
         }
+    }
+
+    #[test]
+    fn highlighting_stops_past_30_000_lines_or_4_mib() {
+        let lines = |n: usize, len: usize| vec!["x".repeat(len); n];
+        assert!(Buffer::block("rust", lines(30_000, 1)).syntax.is_some());
+        assert!(Buffer::block("rust", lines(30_001, 1)).syntax.is_none());
+        assert!(Buffer::block("rust", lines(4, 1 << 20)).syntax.is_some());
+        let over = [lines(4, 1 << 20), lines(1, 1)].concat();
+        assert!(Buffer::block("rust", over).syntax.is_none());
+    }
+
+    #[test]
+    fn a_line_is_shown_up_to_20_000_bytes() {
+        assert_eq!(load("x".repeat(20_000).as_bytes()).shown(0).len(), 20_000);
+        assert_eq!(load("x".repeat(20_001).as_bytes()).shown(0).len(), 20_000);
+        assert!(!Buffer::clips(&"x".repeat(20_000)));
+        assert!(Buffer::clips(&"x".repeat(20_001)));
     }
 
     #[test]

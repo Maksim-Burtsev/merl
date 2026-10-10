@@ -432,6 +432,38 @@ fn csharp_scope_stays_in_the_project() {
 }
 
 #[test]
+fn csharp_deconstructions_declare_their_names() {
+    let text = "\
+public class Pairs
+{
+    int left;
+
+    void Walk(List<(int, int)> pairs)
+    {
+        (var a, int b) = Split(pairs);
+        var (c, (d, e)) = Split(pairs);
+        (left, b) = (b, left);
+        Use(a, b, c, e, left);
+    }
+}
+";
+    let lines = |name: &str| -> Vec<usize> {
+        bindings(Kind::CSharp, text, 10, name)
+            .iter()
+            .map(|b| b.line1)
+            .collect()
+    };
+    assert_eq!(lines("a"), [7]);
+    assert_eq!(lines("b"), [7], "a typed name in the tuple is declared too");
+    assert_eq!(lines("c"), [8]);
+    assert_eq!(lines("e"), [8], "a nested tuple declares its names");
+    assert!(
+        lines("left").is_empty(),
+        "an assignment to a tuple of names declares none of them"
+    );
+}
+
+#[test]
 fn csharp_bindings_read_headers_not_calls_or_fields() {
     let text = "\
 public class Cart
@@ -462,9 +494,10 @@ public class Cart
         "the object initialiser's `new Order(seed)` over `{{` is no signature: `seed` is Fill's"
     );
     assert_eq!(lines("order", 11), [7]);
-    assert!(
-        lines("left", 13).is_empty(),
-        "a deconstruction binds nothing"
+    assert_eq!(
+        lines("left", 13),
+        [12],
+        "a deconstruction declares its names"
     );
     assert!(
         lines("item", 13).is_empty(),
@@ -832,7 +865,19 @@ fn php_def_patterns_tell_a_declaration_from_a_use() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Typed class constants, the tags of a class's docblock and namespace segments (#344).
+#[test]
+fn a_php_switch_case_is_no_constant_and_a_global_function_no_method() {
+    let text = "<?php\nconst LIMIT = 1;\nswitch ($x) {\n    case LIMIT:\n        break;\n}\nfunction total() {}\nclass Cart\n{\n    public function total() {}\n}\n";
+    let (dir, files) = scratch("php-case", &[("Cart.php", text)]);
+    assert_eq!(defs(&dir, &files, Kind::Php, "LIMIT"), [2]);
+    let methods = php_member_patterns("total", true).join("|");
+    let found: Vec<usize> = (grep(&dir, &files, &methods, false, false).iter())
+        .map(|h| h.line1)
+        .collect();
+    assert_eq!(found, [10]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 const PHP_TAGS: &str = r#"<?php
 
 namespace App\Models;
@@ -931,7 +976,6 @@ fn php_typed_constants_and_class_docblock_tags_declare() {
 #[test]
 fn php_namespace_line_answers_only_the_namespace_written_up_to_the_word() {
     let text = "<?php\nnamespace App\\Repos;\n";
-    // The patterns for the word of `line`, and which of `decls` they match.
     let answers = |line: &str, word: &str| {
         let start = line.find(word).unwrap();
         let mut patterns = def_patterns(Kind::Php, word);
@@ -1150,6 +1194,109 @@ fn c_receiver_cuts_at_a_character() {
 }
 
 #[test]
+fn swift_type_places_and_who_sees_a_nested_type() {
+    let text = "final class Hatch {
+    enum Latch {}
+}
+extension Outer.Inner {
+    struct Bolt {}
+}
+protocol Door {
+    typealias Key = Int
+}
+let spare = {
+    struct Shim {}
+}
+func fit() {
+    struct Wedge {}
+}
+final class TrapHatch: Hatch {
+    func latch() {}
+}
+struct Panel: Hatch {
+    func latch() {}
+}
+extension Hatch {
+    func open() {}
+}
+final class Lid: Kit.Hatch {
+    func shut() {}
+}
+struct Rack {
+    let make = {
+        struct Peg {}
+    }
+}
+";
+    use SwiftTypePlace::*;
+    let place = |line| swift_type_place(text, line);
+    assert_eq!(place(2), Some(Nested("Hatch".into())));
+    assert_eq!(
+        place(5),
+        Some(Nested("Inner".into())),
+        "`extension Outer.Inner` nests in `Inner`"
+    );
+    assert_eq!(
+        place(8),
+        None,
+        "a protocol's `typealias` is seen by every type that conforms to it"
+    );
+    assert_eq!(place(1), None, "a type at the top of the file");
+    assert_eq!(
+        place(11),
+        None,
+        "a type in a closure at the top of the file"
+    );
+    assert_eq!(place(30), None, "a type in a closure of a type's body");
+    assert_eq!(place(14), Some(FunctionBody { header_line1: 13 }));
+    assert_eq!(place(17), None, "a line that declares no type");
+
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(Kind::Swift, text);
+    let sees = |line, outer| swift_sees_nested(&lines, &literal, line, outer);
+    assert!(sees(2, "Hatch"), "inside its type's body");
+    assert!(sees(5, "Inner"), "inside `extension Outer.Inner`");
+    assert!(sees(23, "Hatch"), "inside an extension of its type");
+    assert!(sees(17, "Hatch"), "inside a class whose superclass it is");
+    assert!(sees(26, "Hatch"), "a superclass named through its module");
+    assert!(
+        !sees(20, "Hatch"),
+        "a struct's first inherited name is a protocol"
+    );
+    assert!(!sees(14, "Hatch"));
+
+    for header in [
+        "    class func make() -> Self {",
+        "    class var shared: Gauge {",
+    ] {
+        assert!(swift_type_header(header).is_none(), "{header}");
+    }
+    for decl in [
+        "class A {",
+        "struct A {",
+        "enum A {",
+        "actor A {",
+        "protocol A {",
+        "typealias A = B",
+    ] {
+        assert!(swift_type_decl(decl), "{decl}");
+    }
+    assert!(!swift_type_decl("extension A {"));
+
+    assert_eq!(
+        swift_given("    let same = lhs == rhs", "lhs"),
+        None,
+        "a comparison gives nothing"
+    );
+    assert_eq!(swift_element("Array<Crate>").as_deref(), Some("Crate"));
+
+    assert!(swift_may_bind("    let (a, b) = pair", "b"));
+    assert!(!swift_may_bind("    let total = b + 1", "b"));
+    assert!(swift_may_bind("    items.map { b in", "b"));
+    assert!(swift_may_bind("    for (i, b) in pairs {", "b"));
+}
+
+#[test]
 fn swift_test_targets_come_from_the_manifest() {
     let dir = std::env::temp_dir().join(format!("merl-swift-tests-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
@@ -1277,6 +1424,9 @@ fn a_csharp_file_sees_its_project_and_the_ones_it_references() {
         r#"<Import Project="..\Shared\Shared.projitems" Label="Shared" />"#,
         r#"<ProjectReference Include="$(RepoRoot)\Shop.Api\Shop.Api.csproj" />"#,
         r#"<ProjectReference Include="..\Gone\Gone.csproj" />"#,
+        r#"<ProjectReference Include="..\..\..\Shop.Api\Shop.Api.csproj" />"#,
+        r#"<ProjectReference Include="/src/Shop.Api/Shop.Api.csproj" />"#,
+        r#"<ProjectReference Include="..\*\*.csproj" />"#,
     ] {
         let manifests = [
             ("Shop.App/Shop.App.csproj", app),
@@ -1468,4 +1618,341 @@ fn csharp_type_positions_namespace_segments_and_arity() {
     );
     assert_eq!(params("public record Equals(int A);"), None);
     assert_eq!(params("public Func<int, bool> Equals { get; }"), None);
+}
+
+#[test]
+fn csharp_declarations_and_expressions_give_their_written_types() {
+    let ty = |s: &str| CsValue::Type(s.to_owned());
+    let call = |callee: &str, awaited| CsValue::Call {
+        callee: callee.to_owned(),
+        awaited,
+    };
+    for (line, name, want) in [
+        (
+            "    var service = new RedirectService();",
+            "service",
+            ty("RedirectService"),
+        ),
+        ("    List<Item> items = Load();", "items", ty("List<Item>")),
+        ("    Label? label;", "label", ty("Label?")),
+        ("    Item[,] grid;", "grid", ty("Item[,]")),
+        (
+            "    private readonly IRepository<Item> _repo;",
+            "_repo",
+            ty("IRepository<Item>"),
+        ),
+        (
+            "    public Basket Basket { get; set; }",
+            "Basket",
+            ty("Basket"),
+        ),
+        (
+            "    public static int Count(this Basket basket)",
+            "basket",
+            ty("Basket"),
+        ),
+        ("    foreach (Item item in items)", "item", ty("Item")),
+        ("    catch (HttpException ex)", "ex", ty("HttpException")),
+        ("    if (Parse(s, out Order order))", "order", ty("Order")),
+        ("    if (o is Buyer buyer)", "buyer", ty("Buyer")),
+        ("    case Buyer buyer:", "buyer", ty("Buyer")),
+        (
+            "    var order = await repo.LoadAsync(id);",
+            "order",
+            call("repo.LoadAsync", true),
+        ),
+        ("    var x = y;", "x", CsValue::Unknown),
+        ("    foreach (var item in items)", "item", CsValue::Unknown),
+        (
+            "    items.Select(item => item.Id);",
+            "item",
+            CsValue::Unknown,
+        ),
+    ] {
+        assert_eq!(cs_declared(line, name), want, "{line}");
+    }
+    for (expr, want) in [
+        ("new Order(id)", ty("Order")),
+        ("new Order { Id = 1 };", ty("Order")),
+        ("new Order(id).Ship()", CsValue::Unknown),
+        ("(Order)o", ty("Order")),
+        ("o as Order", ty("Order")),
+        ("Load(id)", call("Load", false)),
+        ("Factory.Create<Order>(id)", call("Factory.Create", false)),
+        (
+            "await repo.LoadAsync(id).ConfigureAwait(false)",
+            call("repo.LoadAsync", true),
+        ),
+        ("repo.LoadAsync(id).ConfigureAwait(false)", CsValue::Unknown),
+        ("Load(id).Value", CsValue::Unknown),
+    ] {
+        assert_eq!(cs_expr(expr), want, "{expr}");
+    }
+    assert_eq!(
+        cs_returns(
+            "    public async Task<Order> LoadAsync(int id)",
+            "LoadAsync"
+        )
+        .as_deref(),
+        Some("Task<Order>")
+    );
+    assert_eq!(cs_returns("    public void Save(Order o)", "Save"), None);
+    assert_eq!(
+        cs_extended("    public static int Count(this List<Item> items)").as_deref(),
+        Some("List<Item>")
+    );
+}
+
+#[test]
+fn csharp_type_names_and_awaited_types() {
+    for (written, want) in [
+        ("List<Item>", Some("List")),
+        ("Label?", Some("Label")),
+        ("eShop.Models.Item", Some("Item")),
+        ("global::Shop.Item", Some("Item")),
+        ("Item[]", None),
+        ("(int, string)", None),
+        ("dynamic", None),
+        ("var", None),
+    ] {
+        assert_eq!(cs_type_name(written).as_deref(), want, "{written}");
+    }
+    for (written, want) in [
+        ("Task<Order>", Some("Order")),
+        ("ValueTask<Order>", Some("Order")),
+        (
+            "System.Threading.Tasks.Task<List<Order>>",
+            Some("List<Order>"),
+        ),
+        ("Task", None),
+        ("List<Order>", None),
+    ] {
+        assert_eq!(cs_awaited(written), want, "{written}");
+    }
+}
+
+#[test]
+fn csharp_bases_owners_and_type_parameters() {
+    let page = "\
+public class OrderPage<T>(Order order)
+    : ContentPage(order), IRepository<Item, int>
+    where T : class
+{
+}
+";
+    assert_eq!(
+        cs_bases(page, 1),
+        ["ContentPage", "IRepository<Item, int>"],
+        "a header wrapped over lines, past type parameters and a primary constructor"
+    );
+    let boxed = "\
+namespace Shop
+{
+    public class Box<T>
+    {
+        public U Map<U>(Func<T, U> f)
+        {
+            V Local<V>(V v) => v;
+            return default;
+        }
+    }
+    interface IVariant<in TIn, out TOut> { }
+}
+";
+    assert_eq!(cs_owner(boxed, 5), Some(3), "a member");
+    assert_eq!(cs_owner(boxed, 8), Some(3), "the body of a member");
+    assert_eq!(cs_owner(boxed, 3), None, "a type in a namespace");
+    let generic = |line, name| cs_generic_param(boxed, line, name);
+    assert!(generic(8, "T"), "the type's");
+    assert!(generic(8, "U"), "the method's");
+    assert!(generic(7, "V"), "the local function's, on its own line");
+    assert!(!generic(8, "V"), "a local function's, outside it");
+    assert!(
+        generic(11, "TIn") && generic(11, "TOut"),
+        "past `in` and `out`"
+    );
+}
+
+#[test]
+fn csharp_places_skip_what_stands_between_a_header_and_its_body() {
+    let text = "\
+namespace Shop
+{
+    public record Order<T>(
+    [property: Key] int Id
+    )
+    : Base
+    where T : class
+    {
+#if DEBUG
+        int n;
+#endif
+        public int Count()
+            => n;
+
+        public void Run()
+        {
+            if (n > 0)
+            {
+                var x = 1;
+            }
+        }
+    }
+}
+";
+    assert_eq!(
+        cs_place(text, 10, "n"),
+        CsPlace::Member {
+            owner: "Order".to_owned(),
+            private: true
+        },
+        "past a preprocessor line and a header wrapped over `[`, `)`, `:` and `where` lines"
+    );
+    assert_eq!(
+        cs_place(text, 13, "n"),
+        CsPlace::Local { from: 12, to: 14 },
+        "a body with no braces ends on the line before the next one at its member's indent"
+    );
+    assert_eq!(
+        cs_place(text, 19, "x"),
+        CsPlace::Local { from: 15, to: 21 },
+        "a local of a nested block is seen in the whole member, up to its closing brace"
+    );
+}
+
+#[test]
+fn csharp_headers_bind_their_parameters_and_variables() {
+    let opener = |header: &str, name: &str| {
+        let o = crate::search::csharp::cs_opener(header, name);
+        (o.binds, o.hides_outer_scopes)
+    };
+    for (header, name) in [
+        ("public Cart(Item seed) : base(seed)", "seed"),
+        ("public void Run<T>(T item) where T : class", "item"),
+        ("public Item this[int index]", "index"),
+        ("Run(x =>", "x"),
+        ("Run((a, b) =>", "a"),
+    ] {
+        assert_eq!(opener(header, name), (true, true), "{header}");
+    }
+    for (header, name) in [
+        ("Run(x => x.Ok, () =>", "x"),
+        ("Run((a, b) => a + b, () =>", "a"),
+    ] {
+        assert_eq!(
+            opener(header, name),
+            (true, false),
+            "{header}: a lambda that is not the block binds without hiding"
+        );
+    }
+    for (header, name) in [
+        ("foreach (var (a, b) in pairs)", "a"),
+        ("foreach (var (a, (b, c)) in pairs)", "c"),
+        ("foreach ((int a, string b) in pairs)", "b"),
+    ] {
+        assert_eq!(opener(header, name), (true, true), "{header}");
+    }
+    assert_eq!(
+        opener("foreach (var (a, b) in pairs)", "pairs"),
+        (false, false),
+        "what a deconstruction walks is not among its names"
+    );
+    assert_eq!(
+        opener("new Order(out seed)", "seed"),
+        (false, false),
+        "a call is no signature"
+    );
+    let parameter_of = |line: &str, name: &str| cs_parameter_of(line, name);
+    assert_eq!(
+        parameter_of(
+            "    public void Register([FromBody] string callbackUrl = \"/\", int n)",
+            "callbackUrl"
+        )
+        .as_deref(),
+        Some("Register")
+    );
+    assert_eq!(
+        parameter_of("    public Refunds(string callbackUrl)", "callbackUrl").as_deref(),
+        Some("Refunds"),
+        "a constructor, by its access modifier"
+    );
+    assert_eq!(
+        parameter_of("public class Refunds(string callbackUrl)", "callbackUrl"),
+        None,
+        "a primary constructor's parameter reads as the type's"
+    );
+    assert_eq!(parameter_of("        new Order(out seed);", "seed"), None);
+    let statement = |t: &str, name: &str| crate::search::csharp::cs_statement(t, name);
+    assert!(statement("var ok = o is Buyer buyer;", "buyer"));
+    assert!(statement("int Twice(int n) => n * 2;", "Twice"));
+    let line = "Run(a, (x, i) => x); Use(x);";
+    assert!(cs_binds_here(line, "x", line.find("=> x").unwrap() + 3));
+    assert!(
+        !cs_binds_here(line, "x", line.rfind('x').unwrap()),
+        "a lambda's parameter binds inside its lambda only"
+    );
+    let line = "var order = Load(); Ship(order);";
+    assert!(cs_binds_here(line, "order", line.rfind("order").unwrap()));
+    let route = ["    app.MapGet(\"/{id:int}\", (", "        int id) => id);"];
+    assert_eq!(
+        cs_written_line(&route, 1, "id"),
+        2,
+        "not the `id` in the string"
+    );
+    let wrapped = ["    public void Register(", "        string callbackUrl)"];
+    assert_eq!(cs_written_line(&wrapped, 1, "callbackUrl"), 2);
+}
+
+#[test]
+fn csharp_initializers_take_the_type_they_construct() {
+    let at = |text: &str| {
+        let lines: Vec<String> = text.lines().map(str::to_owned).collect();
+        let k = lines.iter().position(|l| l.contains("Id = 1")).unwrap();
+        let start = lines[k].find("Id = 1").unwrap();
+        cs_initialized(&lines, k, start, start + 2)
+    };
+    let method = |body: &str| format!("class Shop\n{{\n{body}\n}}\n");
+    assert_eq!(
+        at(&method(
+            "    void M()\n    {\n        object a = new { Id = 1 };\n    }"
+        )),
+        None,
+        "an anonymous type"
+    );
+    assert_eq!(
+        at(&method(
+            "    void M()\n    {\n        Order order = new() { Id = 1 };\n    }"
+        ))
+        .as_deref(),
+        Some("Order"),
+        "`new()` takes the type its declaration writes"
+    );
+    assert_eq!(
+        at(&method(
+            "    Order Make(bool b)\n    {\n        if (b)\n        {\n            return new() { Id = 1 };\n        }\n        return null;\n    }"
+        ))
+        .as_deref(),
+        Some("Order"),
+        "`return` from inside an `if` returns from the method"
+    );
+    assert_eq!(
+        at(&method(
+            "    async Task<Order> MakeAsync()\n    {\n        return new() { Id = 1 };\n    }"
+        ))
+        .as_deref(),
+        Some("Order")
+    );
+    assert_eq!(
+        at(&method(
+            "    Order Make() => Wrap(() =>\n    {\n        return new() { Id = 1 };\n    });"
+        )),
+        None,
+        "a `return` in a lambda returns from the lambda"
+    );
+    let line = "    Run(a < Max, b > c);";
+    let start = line.find("Max").unwrap();
+    assert!(
+        !cs_type_position(line, start, start + 3),
+        "a `<` after a space is a comparison"
+    );
 }

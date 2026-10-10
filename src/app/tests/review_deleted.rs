@@ -1024,3 +1024,81 @@ fn a_base_picker_row_of_a_renamed_file_names_the_file_it_has_now() {
     assert_eq!(paths, ["a.py", "lib/beta.py"]);
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn symbols_of_a_review_list_no_deleted_line_of_a_file_no_row_reads() {
+    let (dir, mut a) = repo_review(
+        "deleted-notes",
+        &[
+            ("a.py", "def kept():\n    pass\n"),
+            ("notes.md", "def gone():\nx\n"),
+        ],
+        &[("notes.md", Some("x\n"))],
+    );
+    a.jump_to(&dir.join("a.py"), 1);
+    press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
+    assert_eq!(rows(&mut a), ["kept  a.py:1"]);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn deleted_lines_joining_a_search_are_cut_where_its_grep_is() {
+    let (dir, mut a) = repo_review(
+        "deleted-cap",
+        &[("a.txt", &"x\n".repeat(search::MAX_HITS + 10))],
+        &[("a.txt", Some(&"x\n".repeat(search::MAX_HITS - 10)))],
+    );
+    a.jump_to(&dir.join("a.txt"), 1);
+    press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+    typed(&mut a, "x");
+    a.settle_search();
+    let p = a.picker.as_mut().unwrap();
+    p.settle();
+    assert_eq!(p.counts().1 as usize, search::MAX_HITS);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_selection_from_the_line_under_a_deletion_is_edited_and_one_over_it_is_not() {
+    let (dir, mut a) = repo_review(
+        "select-deleted",
+        &[("a.txt", "a\nb\nc\nd\n")],
+        &[("a.txt", Some("a\nc\nd\n"))],
+    );
+    let file = dir.join("a.txt");
+    a.jump_to(&file, 2);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+    typed(&mut a, "x");
+    assert_eq!(a.buf.lines, ["a", "xd"], "{}", a.message);
+    press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    a.jump_to(&file, 1);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+    press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+    press(&mut a, KeyCode::Char('x'), KeyModifiers::CONTROL);
+    assert_eq!(
+        (a.buf.lines.join(","), a.message.as_str()),
+        ("a,c,d".into(), "deleted")
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_reload_carries_a_selection_anchored_on_a_deleted_line() {
+    let (dir, mut a) = repo_review(
+        "anchor-deleted",
+        &[("a.txt", "a\nb\nc\nd\n")],
+        &[("a.txt", Some("a\nc\nd\n"))],
+    );
+    let file = dir.join("a.txt");
+    a.jump_to(&file, 2);
+    press(&mut a, KeyCode::Up, KeyModifiers::NONE);
+    assert_eq!(a.at(), Deleted(1, 0));
+    press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+    std::fs::write(&file, "x\ny\na\nc\nd\n").unwrap();
+    a.reload(false);
+    assert_eq!(a.selected_text().as_deref(), Some("b\n"));
+    let _ = std::fs::remove_dir_all(dir);
+}

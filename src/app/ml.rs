@@ -29,8 +29,8 @@ impl App {
         let at = |path: &Path, line: usize, text: &str| Hit {
             deleted: None,
             path: path.to_path_buf(),
-            line,
-            col: 0,
+            line1: line,
+            byte_col: None,
             text: text.to_owned(),
         };
         let module = chain
@@ -72,7 +72,7 @@ impl App {
         };
         hits.retain(|h| {
             let lines = lines_of(self, &h.path);
-            search::literal_lines(kind, &lines.join("\n")).get(h.line - 1) != Some(&true)
+            search::literal_lines(kind, &lines.join("\n")).get(h.line1 - 1) != Some(&true)
         });
         if label {
             let field = Regex::new(&format!(r"(?:^|[{{;\s]){}\s*:", regex::escape(word)))
@@ -102,7 +102,8 @@ impl App {
                     let t = h.text.trim_start();
                     (t.starts_with("module ") || t.starts_with("namespace "))
                         && t.contains(&format!("{m}.{word}"))
-                        || search::ml_modules(&h.path, &lines_of(self, &h.path), h.line).contains(m)
+                        || search::ml_modules(&h.path, &lines_of(self, &h.path), h.line1)
+                            .contains(m)
                 })
                 .cloned()
                 .collect();
@@ -135,13 +136,13 @@ impl App {
         if !dotted && !label {
             let line = self.line + 1;
             hits.retain(|h| {
-                h.path != here || h.line <= line || h.text.trim_start().starts_with("and ")
+                h.path != here || h.line1 <= line || h.text.trim_start().starts_with("and ")
             });
             let mine = search::ml_implementation(here).unwrap_or_else(|| here.to_path_buf());
             let own: Vec<Hit> = hits
                 .iter()
                 .filter(|h| {
-                    (h.path == here || h.path == mine) && !(h.path == here && h.line == line)
+                    (h.path == here || h.path == mine) && !(h.path == here && h.line1 == line)
                 })
                 .cloned()
                 .collect();

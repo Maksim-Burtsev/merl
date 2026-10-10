@@ -1,16 +1,9 @@
-//! Where a definition may live: the project's own scope, the roots the toolchain on this
-//! machine adds outside it, the files under them, which of them a platform builds, and
-//! the order they are offered in.
-
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
 
 use super::*;
 
-/// Whether `path` is searched for a definition asked for in `here`, a file of `kind`. Stages,
-/// anchors, compose services and CI jobs belong to their file; a Terraform module is a
-/// directory; everything else is every file of the same kind, so `.tsx` finds `.ts`.
 pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
     match kind {
         Kind::Docker | Kind::Yaml | Kind::Markdown | Kind::Html => path == here,
@@ -53,27 +46,9 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         Kind::Elixir => kind_of(path) == Some(kind) && erlang(path) == erlang(here),
     }
 }
-/// Where the standard library and the dependencies of the project at `root` live on this
-/// machine, for a file of `kind`; empty when the toolchain is not installed. Each is asked the
-/// way it answers itself: the project's `.venv`, or `sys.path` of the `python3` on the PATH,
-/// `rustc --print sysroot` plus the registry crates `Cargo.lock` names, `GOROOT` plus the `go.mod`
-/// requirements in the module cache, `node_modules`, the gems `Gemfile.lock` names. `pip install -e` and vendored code inside
-/// `root` are project files already, so `root` itself is never returned.
-///
-/// Nothing the project ships is run (#183). A toolchain runs from `/`, where no
-/// `rust-toolchain.toml` names a `rustc` of the project's choosing and no `go.mod` asks for a Go
-/// to download, and Go is held to the one installed as well.
-///
-/// ponytail: spawns the toolchain on every `d` that leaves the project. Cache per root if it
-/// ever shows.
 pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
     let run = |cmd: &str, args: &[&str]| -> Option<String> {
-        let out = std::process::Command::new(cmd)
-            .args(args)
-            .current_dir("/")
-            .env("GOTOOLCHAIN", "local")
-            .output()
-            .ok()?;
+        let out = toolchain(cmd, args).output().ok()?;
         out.status
             .success()
             .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
@@ -81,11 +56,7 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
     let home = std::env::var_os("HOME")
         .map(PathBuf::from)
         .unwrap_or_default();
-    let mut dirs: Vec<PathBuf> = match kind {
-        // A `.venv` is read, not run: its `bin/python` is whatever the repository put there. The
-        // packages are in `lib/pythonX.Y/site-packages`, and the standard library is beside the
-        // interpreter the venv was made from, `pyvenv.cfg`'s `home`, once its symlinks are
-        // followed out of Homebrew's `opt` or uv's short name.
+    let dirs: Vec<PathBuf> = match kind {
         Kind::Python => {
             let venv = root.join(".venv");
             let lib = std::fs::read_dir(venv.join("lib"))
@@ -135,23 +106,8 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
             let cargo = std::env::var_os("CARGO_HOME")
                 .map_or_else(|| home.join(".cargo"), PathBuf::from)
                 .join("registry/src");
-            // `[[package]]` tables: `name = "x"` then `version = "y"` is the directory `x-y`.
             let lock = std::fs::read_to_string(root.join("Cargo.lock")).unwrap_or_default();
-            let indexes: Vec<PathBuf> = std::fs::read_dir(&cargo)
-                .into_iter()
-                .flatten()
-                .flatten()
-                .map(|e| e.path())
-                .collect();
-            let mut name = None;
-            for line in lock.lines() {
-                if let Some(n) = line.strip_prefix("name = ") {
-                    name = Some(n.trim_matches('"').to_owned());
-                } else if let (Some(v), Some(n)) = (line.strip_prefix("version = "), name.take()) {
-                    let crate_dir = format!("{n}-{}", v.trim_matches('"'));
-                    dirs.extend(indexes.iter().map(|index| index.join(&crate_dir)));
-                }
-            }
+            dirs.extend(locked_crates(&cargo, &lock));
             dirs
         }
         Kind::Go => {
@@ -162,72 +118,16 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
                 dirs.push(PathBuf::from(goroot).join("src"));
             }
             let cache = env.next().map(PathBuf::from).unwrap_or_default();
-            // `require` lines, `path vX.Y.Z`; the cache escapes upper case as `!x`.
             let gomod = std::fs::read_to_string(root.join("go.mod")).unwrap_or_default();
-            for line in gomod.lines() {
-                let mut parts = line
-                    .trim()
-                    .trim_start_matches("require ")
-                    .split_whitespace();
-                if let (Some(path), Some(v)) = (parts.next(), parts.next())
-                    && v.starts_with('v')
-                {
-                    let escaped: String = path
-                        .chars()
-                        .flat_map(|c| {
-                            if c.is_ascii_uppercase() {
-                                vec!['!', c.to_ascii_lowercase()]
-                            } else {
-                                vec![c]
-                            }
-                        })
-                        .collect();
-                    dirs.push(cache.join(format!("{escaped}@{v}")));
-                }
-            }
+            dirs.extend(required_modules(&cache, &gomod));
             dirs
         }
         Kind::TsJs => node_modules(root, root),
-        // Zig's standard library, where its own `zig env` says it is. The dependencies of a
-        // project live in the global package cache under hashed directory names no source line
-        // spells out, so they are left out.
         Kind::Zig => zig_roots(&run("zig", &["env"]).unwrap_or_default()),
-        // The system headers, which is where a C or C++ project's standard library and most of
-        // its dependencies are: the SDK the toolchain reports on macOS, `/usr/include` on Linux,
-        // and the two prefixes a package manager installs into. There is no per-project manifest
-        // to read — what a build system was told with `-I` is not in the source — so the
-        // directories are the same for every project, and the ones that do not exist fall out
-        // below.
-        //
-        // Then Objective-C's, which only an Objective-C file reads ([`objc_root`]): the SDK's
-        // frameworks, UIKit's under `iOSSupport`, those an umbrella framework holds (vImage in
-        // Accelerate), and CocoaPods' `Pods/`, gitignored as `node_modules` is (#417).
-        Kind::C => {
-            let sdk = run("xcrun", &["--show-sdk-path"]).map(|s| PathBuf::from(s.trim()));
-            let mut dirs = vec![PathBuf::from("/usr/include")];
-            dirs.extend(sdk.iter().map(|sdk| sdk.join("usr/include")));
-            dirs.push(PathBuf::from("/usr/local/include"));
-            dirs.push(PathBuf::from("/opt/homebrew/include"));
-            if let Some(sdk) = &sdk {
-                let top = [
-                    "System/Library/Frameworks",
-                    "System/iOSSupport/System/Library/Frameworks",
-                ]
-                .map(|d| sdk.join(d));
-                let umbrellas = (top.iter())
-                    .flat_map(|d| std::fs::read_dir(d).into_iter().flatten().flatten())
-                    .map(|e| e.path().join("Frameworks"))
-                    .filter(|d| d.is_dir())
-                    .collect::<Vec<_>>();
-                dirs.extend(top);
-                dirs.extend(umbrellas);
-            }
-            dirs.push(root.join("Pods"));
-            dirs
-        }
-        // Where `protoc` installs the well-known types (`google/protobuf/timestamp.proto`), as
-        // Homebrew and a Linux package lay it out. buf keeps a module's dependencies in a cache
-        // under hashed directories no import spells, and is left out, as Zig's package cache is.
+        Kind::C => c_roots(
+            run("xcrun", &["--show-sdk-path"]).map(|s| PathBuf::from(s.trim())),
+            root,
+        ),
         Kind::Proto => [
             "/opt/homebrew/include",
             "/usr/local/include",
@@ -235,13 +135,7 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         ]
         .map(PathBuf::from)
         .to_vec(),
-        // Composer installs a project's dependencies into `vendor/`, as source, and gitignores
-        // it, so the project walk does not list it: it is outside in the same way `node_modules`
-        // is. PHP's own library is built into the interpreter and has no source to read.
         Kind::Php => vec![root.join("vendor")],
-        // Where SwiftPM checks a package's dependencies out, as source. The standard library is
-        // not there: the toolchain ships it compiled, with `.swiftinterface` stubs beside it and
-        // no `.swift` file to read.
         Kind::Swift => vec![root.join(".build/checkouts")],
         Kind::Ruby => {
             static RUBY_ANSWER_THIS_SESSION: std::sync::OnceLock<Option<String>> =
@@ -296,12 +190,6 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
             let inc = run("perl", &["-e", "print join qq{\\n}, @INC"]).unwrap_or_default();
             perl_roots(root, &inc)
         }
-        // Java and Kotlin have no roots yet: the JDK and Gradle caches are their own lookups.
-        // C# has nothing to point at: a NuGet package is compiled
-        // assemblies, and the runtime's own source is not on the machine at all. Lua has no root
-        // to ask for either: `package.path` is whatever the interpreter embedding it was built
-        // with, and a Neovim or a LuaRocks tree is not a standard library any project can be
-        // assumed to use. `d` stays inside the project for all of them, as for the rest.
         Kind::EmacsLisp => vec![home.join(".emacs.d/elpa"), home.join(".config/emacs/elpa")],
         Kind::CommonLisp => vec![
             home.join("quicklisp/dists/quicklisp/software"),
@@ -335,15 +223,87 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         | Kind::Css
         | Kind::Html => Vec::new(),
     };
-    // The order is deliberate, so no sort: `sys.path` can list a directory twice, far apart.
+    existing_once(dirs, root)
+}
+pub(super) fn toolchain(cmd: &str, args: &[&str]) -> std::process::Command {
+    let mut command = std::process::Command::new(cmd);
+    command
+        .args(args)
+        .current_dir("/")
+        .env("GOTOOLCHAIN", "local");
+    command
+}
+pub(super) fn existing_once(mut dirs: Vec<PathBuf>, root: &Path) -> Vec<PathBuf> {
     let mut seen = std::collections::HashSet::new();
     dirs.retain(|d| d.is_dir() && d != root && !d.as_os_str().is_empty() && seen.insert(d.clone()));
     dirs
 }
-/// The standard library directory in the output of `zig env`, which is JSON on some versions and
-/// ZON on others: the value is the first quoted string after the key either way. A version that
-/// reports no `std_dir` still reports the library directory it sits in. Empty when `zig` is not
-/// on the PATH, as every root is when its toolchain is not installed.
+pub(super) fn locked_crates(registry: &Path, lock: &str) -> Vec<PathBuf> {
+    let indexes: Vec<PathBuf> = std::fs::read_dir(registry)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| e.path())
+        .collect();
+    let mut dirs = Vec::new();
+    let mut name = None;
+    for line in lock.lines() {
+        if let Some(n) = line.strip_prefix("name = ") {
+            name = Some(n.trim_matches('"').to_owned());
+        } else if let (Some(v), Some(n)) = (line.strip_prefix("version = "), name.take()) {
+            let crate_dir = format!("{n}-{}", v.trim_matches('"'));
+            dirs.extend(indexes.iter().map(|index| index.join(&crate_dir)));
+        }
+    }
+    dirs
+}
+pub(super) fn required_modules(cache: &Path, gomod: &str) -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    for line in gomod.lines() {
+        let mut parts = line
+            .trim()
+            .trim_start_matches("require ")
+            .split_whitespace();
+        if let (Some(path), Some(v)) = (parts.next(), parts.next())
+            && v.starts_with('v')
+        {
+            let escaped: String = path
+                .chars()
+                .flat_map(|c| {
+                    if c.is_ascii_uppercase() {
+                        vec!['!', c.to_ascii_lowercase()]
+                    } else {
+                        vec![c]
+                    }
+                })
+                .collect();
+            dirs.push(cache.join(format!("{escaped}@{v}")));
+        }
+    }
+    dirs
+}
+pub(super) fn c_roots(sdk: Option<PathBuf>, root: &Path) -> Vec<PathBuf> {
+    let mut dirs = vec![PathBuf::from("/usr/include")];
+    dirs.extend(sdk.iter().map(|sdk| sdk.join("usr/include")));
+    dirs.push(PathBuf::from("/usr/local/include"));
+    dirs.push(PathBuf::from("/opt/homebrew/include"));
+    if let Some(sdk) = &sdk {
+        let top = [
+            "System/Library/Frameworks",
+            "System/iOSSupport/System/Library/Frameworks",
+        ]
+        .map(|d| sdk.join(d));
+        let umbrellas = (top.iter())
+            .flat_map(|d| std::fs::read_dir(d).into_iter().flatten().flatten())
+            .map(|e| e.path().join("Frameworks"))
+            .filter(|d| d.is_dir())
+            .collect::<Vec<_>>();
+        dirs.extend(top);
+        dirs.extend(umbrellas);
+    }
+    dirs.push(root.join("Pods"));
+    dirs
+}
 pub(super) fn zig_roots(env: &str) -> Vec<PathBuf> {
     let value = |key: &str| {
         let rest = env.split_once(key)?.1.trim_start_matches('"');
@@ -423,7 +383,6 @@ pub fn mix_deps(root: &Path, file: &Path) -> Vec<PathBuf> {
         .filter(|dir| dir.is_dir())
         .collect()
 }
-/// `require("module").builtinModules` of Node 26, the bare names: no `_`, `/` or `node:` ones.
 #[rustfmt::skip]
 const NODE_BUILTINS: &[&str] = &[
     "assert", "async_hooks", "buffer", "child_process", "cluster", "console", "constants", "crypto",
@@ -445,7 +404,6 @@ pub fn package_copy(
         _ => return Some(PackageCopy::default()),
     };
     let types = format!("@types/{}", name.trim_start_matches('@').replace('/', "__"));
-    // The project is a package too, its dependencies in a `node_modules` below it.
     let project = root.canonicalize().ok();
     let real: Vec<(&PathBuf, PathBuf)> = roots
         .iter()
@@ -477,7 +435,6 @@ pub fn package_copy(
             .as_ref()
             .is_some_and(|p| dirs.iter().any(|d| in_copy(d, std::slice::from_ref(p))));
         let copy = match linked {
-            // The project's own TypeScript and JavaScript: a readme says no path is there.
             true => {
                 let own: Vec<PathBuf> = project
                     .iter()
@@ -493,7 +450,6 @@ pub fn package_copy(
             .is_some_and(|m| m.matched_parts == module.len());
         let exports = std::fs::read_to_string(level.join(&name).join("package.json"))
             .is_ok_and(|text| exports_map(&text));
-        // The map is what Node loads the path from, and it is not read here: as without a copy.
         if exports && !whole {
             return Some(PackageCopy::default());
         }
@@ -522,8 +478,6 @@ pub fn package_copy(
             .cloned()
             .collect()
     };
-    // A copy of JavaScript alone borrows the nearest declarations further up, a package's own
-    // before its `@types`, as TypeScript reads them there; only those, not the JavaScript beside.
     if !copy.files.is_empty() && !copy.files.iter().any(typescript_reads) {
         let further = roots[i + 1..].iter().find_map(|r| {
             [&name, &types]
@@ -569,7 +523,6 @@ pub fn package_missing(root: &Path, files: &[PathBuf], dir: &Path, module: &[Str
             .filter_map(|f| std::fs::read_to_string(root.join(f)).ok())
             .any(|t| NAME.captures(&t).is_some_and(|c| c[1] == name))
     };
-    // ponytail: reads every `.d.ts` of the project, only for a package nothing else supplies.
     let declared = || {
         static DECLARE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
             Regex::new(r#"declare\s+module\s+['"]([^'"]+)['"]"#).unwrap()
@@ -594,9 +547,7 @@ pub fn package_missing(root: &Path, files: &[PathBuf], dir: &Path, module: &[Str
     };
     !installed && !workspace() && !declared()
 }
-/// Whether the `package.json` `text` has an `exports` map, a top-level key that is not `null`.
-/// Strings are read whole, so neither a nested `exports` nor a brace inside one counts.
-fn exports_map(text: &str) -> bool {
+pub(super) fn exports_map(text: &str) -> bool {
     let bytes = text.as_bytes();
     let (mut i, mut depth) = (0, 0);
     while i < bytes.len() {
@@ -624,8 +575,6 @@ fn exports_map(text: &str) -> bool {
     }
     false
 }
-/// A copy of an npm package [`package_copy`] finds: the directories it is in (the package's and
-/// its types'), its walked files there.
 #[derive(Debug, Default, PartialEq)]
 pub struct PackageCopy {
     pub dirs: Vec<PathBuf>,
@@ -633,9 +582,6 @@ pub struct PackageCopy {
     pub name_parts: usize,
 }
 impl PackageCopy {
-    /// The files an import of the package itself loads, in each of its directories: those its
-    /// `package.json` names in `types` or `typings`, else in `main` or `module` with the `.d.ts`
-    /// beside a JavaScript one, else its `index` files. Read as `ts_aliases` reads a key.
     pub fn entries(&self) -> Vec<PathBuf> {
         static KEY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
             Regex::new(r#""(types|typings|main|module)"\s*:\s*"([^"]*)""#).unwrap()
@@ -678,10 +624,6 @@ impl PackageCopy {
         }
         entries
     }
-    /// The files of the copy `module` names. The package's own parts are the copy, whatever its directory is called (pnpm's alias `cookie` links a
-    /// store directory called `cookie-es`); the rest of the path is matched below the copy's
-    /// directories and shortened from its end as [`module_among`] shortens it, down to the whole
-    /// copy. `None` for a copy of no files.
     pub fn module(&self, module: &[String]) -> Option<ModuleFiles<PathBuf>> {
         if self.files.is_empty() {
             return None;
@@ -721,19 +663,12 @@ impl AsRef<Path> for CopyFile<'_> {
         self.below_dir
     }
 }
-/// Whether `path` is a file of the package in the directories `copy`, and not of a package it
-/// depends on, in a `node_modules` of its own.
 pub fn in_copy(path: &Path, copy: &[PathBuf]) -> bool {
     copy.iter().any(|dir| {
         path.strip_prefix(dir)
             .is_ok_and(|rest| !rest.components().any(|c| c.as_os_str() == "node_modules"))
     })
 }
-/// Every file of `kind` under `dirs`, as absolute paths. Nothing is ignored: `node_modules`
-/// and `site-packages` are gitignored by design and are exactly what is wanted here. What no Go
-/// import can reach is left out: a `_test.go` file, a `testdata` directory, and a nested module
-/// (GOROOT's `cmd`, the toolchain's own source), which is a root of its own when it is a
-/// dependency.
 pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
     let go = kind == Kind::Go;
     let python = kind == Kind::Python;
@@ -746,8 +681,6 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
     for dir in dirs {
         let copy_of_itself = dir.file_name().map(std::ffi::OsStr::to_owned);
         let others: Vec<PathBuf> = dirs.iter().filter(|o| *o != dir).cloned().collect();
-        // Of an SDK's frameworks, each one's `Headers`, a link into `Versions/Current` that is
-        // walked through, so a header is read once (#417).
         let frameworks = kind == Kind::C && objc_frameworks(dir);
         let sysroot = kind == Kind::Rust && dir.ends_with("lib/rustlib/src/rust/library");
         let walk = ignore::WalkBuilder::new(dir)
@@ -801,8 +734,6 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
     }
     files
 }
-/// The C++ standard library directories under `roots`, `c++/v1` and `c++/<version>`, which a
-/// compiler searches for an `#include <…>` of a C++ file before the roots themselves.
 pub fn cpp_dirs(roots: &[PathBuf]) -> Vec<PathBuf> {
     roots
         .iter()
@@ -838,9 +769,6 @@ pub fn real_dirs(dirs: &[PathBuf]) -> Vec<RealDir> {
         })
         .collect()
 }
-/// Whether `path` is one of the RBS signatures of Ruby's core, `core/*.rbs` of the `rbs` gem
-/// (#369): the classes written in C have no other source. Elsewhere a `.rbs` repeats a `.rb`
-/// beside it, so it is no file of any kind, the project's own `sig/` included.
 fn core_signature(kind: Kind, path: &Path) -> bool {
     kind == Kind::Ruby
         && path.extension().is_some_and(|e| e == "rbs")
@@ -887,11 +815,6 @@ pub enum Tier {
     Code,
     Tests,
 }
-/// How a hit in `path` sorts, with the open file at `here` and `declaration` telling whether the
-/// line declares the word. The caller breaks a tie by path and line.
-///
-/// `u` ranks its hits with this, and `d` demotes the candidates in [`Tier::Tests`] with it, so
-/// one table decides for both. The open file is never demoted: it is what the reader is reading.
 pub fn rank(path: &Path, here: Option<&Path>, declaration: bool) -> Rank {
     let name = path
         .file_name()
@@ -942,7 +865,6 @@ pub struct Rank {
     pub tier: Tier,
     pub dirs_from_open_file: usize,
 }
-/// What decides whether `go build` compiles a file: the platform, cgo, and the tags of `-tags`.
 pub struct GoBuild {
     pub os: &'static str,
     pub arch: &'static str,
@@ -968,10 +890,6 @@ impl GoBuild {
         }
     }
 
-    /// With what the environment adds, the way `go build` and gopls read it: `CGO_ENABLED=0`,
-    /// and the `-tags=a,b` of `GOFLAGS`, where the last one counts.
-    // ponytail: the environment only. `go env -w` and a missing C compiler (cgo off) are not
-    // seen; ask `go env` once at startup if that ever misleads.
     pub fn env(mut self, cgo_enabled: Option<&str>, goflags: Option<&str>) -> Self {
         self.cgo = cgo_enabled != Some("0");
         let flags = goflags.unwrap_or("").split_whitespace();
@@ -1026,12 +944,6 @@ pub(super) const GO_ARCH: &[&str] = &[
     "sparc64",
     "wasm",
 ];
-/// Whether `build` compiles the Go file `path` with the text `text`: the `_GOOS`, `_GOARCH` and
-/// `_GOOS_GOARCH` endings of its name and its `//go:build` line, read as `go build` reads them. A
-/// tag is set when it is the platform, `cgo`, the compiler (`gc`), a release (`go1.21`: the
-/// toolchain that builds the project has it) or one of `-tags`; any other (`gogit`, `ignore`) is
-/// unset. A constraint that is not read: the `// +build` of before Go 1.17, a line that does not
-/// parse.
 pub fn go_built(path: &Path, text: &str, build: &GoBuild) -> GoBuilt {
     let is_os = |t: &str| GO_UNIX.contains(&t) || GO_OS.contains(&t);
     let tag = |t: &str| -> bool {
@@ -1058,7 +970,6 @@ pub fn go_built(path: &Path, text: &str, build: &GoBuild) -> GoBuilt {
     if !named {
         return GoBuilt::Excluded;
     }
-    // A line inside a `/* */` block in front of the package clause is a comment's.
     let literal = literal_lines(Kind::Go, text);
     let head = || {
         let lines = text.lines().take_while(|l| !l.starts_with("package "));

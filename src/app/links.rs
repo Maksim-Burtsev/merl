@@ -114,8 +114,8 @@ impl App {
                     .map(|path| Candidate {
                         hit: Hit {
                             path,
-                            line: line.unwrap_or(1),
-                            col: 0,
+                            line1: line.unwrap_or(1),
+                            byte_col: None,
                             deleted: None,
                             text: String::new(),
                         },

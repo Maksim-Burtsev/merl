@@ -1190,7 +1190,7 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
             ),
             (
                 "app/settings.py",
-                "ORIGINALS_DIR = \"originals\"\nclient = None\n",
+                "ORIGINALS_DIR = \"originals\"\nclient = None\nif True:\n    CACHE_DIR = \"cache\"\n",
             ),
             (
                 "app/consumers.py",
@@ -1202,7 +1202,7 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
             ),
             (
                 "app/test_files.py",
-                "from django.conf import settings\n\n\ndef originals():\n    settings.connect()\n    return settings.ORIGINALS_DIR, settings.AUTH_USER_MODEL\n",
+                "from django.conf import settings\n\n\ndef originals():\n    settings.connect()\n    return settings.ORIGINALS_DIR, settings.AUTH_USER_MODEL\n\n\ndef cache():\n    return settings.CACHE_DIR\n",
             ),
             (
                 "app/test_api.py",
@@ -1263,6 +1263,12 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
             "app/test_files.py",
             "settings.connect",
             jump("no definition for connect", "app/test_files.py:5"),
+        ),
+        (
+            "a setting assigned under a module-level `if` is not read (#792)",
+            "app/test_files.py",
+            "settings.CACHE_DIR",
+            jump("no definition for CACHE_DIR", "app/test_files.py:10"),
         ),
         (
             "a class declared under an `if` is a class of the module all the same",

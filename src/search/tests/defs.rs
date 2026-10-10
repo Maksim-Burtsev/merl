@@ -346,7 +346,6 @@ fn lines_inside_a_literal_or_a_block_comment_are_told() {
     );
 }
 
-/// The 1-based lines of `text` that start inside a literal of `kind`.
 fn inside(kind: Kind, text: &str) -> Vec<usize> {
     let lines = literal_lines(kind, text);
     (1..=lines.len()).filter(|&n| lines[n - 1]).collect()
@@ -844,4 +843,237 @@ fn an_iife_or_a_umd_factory_declares_at_the_top_of_its_script() {
         nested("function f() {\n  function g() {}\n}\n", 2),
         "a function inside one of its functions stays a local"
     );
+}
+
+fn declares_line(kind: Kind, word: &str, line: &str) -> bool {
+    Regex::new(&def_patterns(kind, word).join("|"))
+        .unwrap()
+        .is_match(line)
+}
+
+#[test]
+fn a_rust_let_is_never_found_by_name() {
+    for line in ["    let order = 1;", "    let mut order = Order::new();"] {
+        assert!(!declares_line(Kind::Rust, "order", line), "{line}");
+    }
+    assert!(declares_line(Kind::Rust, "order", "fn order() {}"));
+}
+
+#[test]
+fn a_kotlin_extension_property_declares_its_name_not_its_receiver() {
+    let line = "val Topic.testTag: String get() = \"t\"";
+    assert!(declares_line(Kind::Jvm, "testTag", line));
+    assert!(!declares_line(Kind::Jvm, "Topic", line));
+}
+
+#[test]
+fn a_java_record_declares_its_components_on_a_one_line_header() {
+    for (word, line) in [
+        ("x", "record Point(int x, int y) {}"),
+        ("y", "record Point(int x, int y) {}"),
+        ("hi", "public record Range(@NotNull Integer lo, long hi) {"),
+    ] {
+        assert!(declares_line(Kind::Jvm, word, line), "{word}: {line}");
+    }
+}
+
+#[test]
+fn csharp_declarations_are_told_from_uses() {
+    let cs = |word, line| declares_line(Kind::CSharp, word, line);
+    assert!(cs(
+        "Rows",
+        "using Rows = System.Collections.Generic.List<int>;"
+    ));
+    assert!(cs("Invoice", "    public Invoice(int n)"));
+    for (word, line) in [
+        ("Json", "using System.Text.Json;"),
+        ("Text", "using System.Text.Json;"),
+        ("Invoice", "            new Invoice(1)"),
+        ("Invoice", "            new Invoice(1) {"),
+        ("Register", "        Register("),
+        ("Configure", "        Configure(options =>"),
+    ] {
+        assert!(!cs(word, line), "{line}");
+    }
+}
+
+#[test]
+fn an_elixir_defimpl_declares_no_module_of_its_own() {
+    assert!(!declares_line(
+        Kind::Elixir,
+        "Encoder",
+        "  defimpl Jason.Encoder do"
+    ));
+    assert!(declares_line(
+        Kind::Elixir,
+        "Ledger",
+        "defmodule MyApp.Ledger do"
+    ));
+}
+
+#[test]
+fn a_zig_test_is_listed_but_never_declares_a_word() {
+    let line = "test \"parse reads a header\" {";
+    assert_eq!(
+        one(Kind::Zig, line).as_deref(),
+        Some("parse reads a header")
+    );
+    assert!(!declares_line(Kind::Zig, "parse", line));
+}
+
+#[test]
+fn a_proto_rpc_is_declared_braces_or_not_with_stream_arguments() {
+    for line in [
+        "  rpc Watch(stream WatchRequest) returns (stream Event);",
+        "  rpc Watch(WatchRequest) returns (Event) {}",
+    ] {
+        assert!(declares_line(Kind::Proto, "Watch", line), "{line}");
+    }
+}
+
+#[test]
+fn a_rebind_a_write_or_a_column_declares_nothing() {
+    for (kind, word, line) in [
+        (
+            Kind::Swift,
+            "delegate",
+            "        if let delegate = delegate {",
+        ),
+        (
+            Kind::Swift,
+            "url",
+            "        guard let url = url else { return }",
+        ),
+        (Kind::Php, "rows", "        $this->rows = [];"),
+        (Kind::Php, "row", "        foreach ($rows as $row) {"),
+        (Kind::Sql, "total", "  total numeric NOT NULL,"),
+    ] {
+        assert!(!declares_line(kind, word, line), "{line}");
+    }
+    assert!(declares_line(Kind::Php, "rows", "        $rows = [];"));
+}
+
+#[test]
+fn proto_names_take_a_negative_number_a_qualified_type_and_no_extend() {
+    let proto = |word, line| declares_line(Kind::Proto, word, line);
+    assert!(proto("CHANNEL_UNKNOWN", "  CHANNEL_UNKNOWN = -1;"));
+    assert!(proto("owner", "  .shop.v1.User owner = 4;"));
+    assert!(!proto("Tariff", "extend Tariff {"));
+}
+
+#[test]
+fn a_graphql_field_reads_its_type_past_a_comment_in_column_zero() {
+    let lines = ["type User {", "# who wrote it", "  email: String!", "}"];
+    assert!(graphql_member(&lines, 3));
+}
+
+fn c_hit(path: &str, line1: usize, text: &str) -> Hit {
+    Hit {
+        path: PathBuf::from(path),
+        line1,
+        byte_col: None,
+        text: text.into(),
+        deleted: None,
+    }
+}
+
+#[test]
+fn a_file_scope_static_of_the_file_on_screen_hides_the_rest_unless_the_cursor_is_on_one() {
+    let here = Path::new("a.c");
+    let here_text = "static int count;\n";
+    let hits = || {
+        vec![
+            c_hit("a.c", 1, "static int count;"),
+            c_hit("b.h", 3, "extern int count;"),
+        ]
+    };
+    let rows = |on| {
+        c_file_local("count", here, here_text, hits(), |_| None, on)
+            .into_iter()
+            .map(|h| h.path)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(rows(false), [PathBuf::from("a.c")]);
+    assert_eq!(rows(true), [PathBuf::from("a.c"), PathBuf::from("b.h")]);
+}
+
+#[test]
+fn a_type_in_another_source_files_unnamed_namespace_stays_a_candidate() {
+    let other = "namespace {\nstruct Impl {\n};\n}\n";
+    let rows = c_file_local(
+        "Impl",
+        Path::new("a.cc"),
+        "",
+        vec![c_hit("b.cc", 2, "struct Impl {")],
+        |p| (p == Path::new("b.cc")).then(|| other.to_string()),
+        false,
+    );
+    assert_eq!(rows.len(), 1);
+}
+
+#[test]
+fn a_static_of_another_source_file_is_seen_where_that_file_is_included() {
+    let rows = |here_text| {
+        c_file_local(
+            "count",
+            Path::new("a.c"),
+            here_text,
+            vec![c_hit("b.c", 1, "static int count;")],
+            |_| Some(String::new()),
+            false,
+        )
+        .len()
+    };
+    assert_eq!(rows("#include \"b.c\"\n"), 1);
+    assert_eq!(rows(""), 0);
+}
+#[test]
+fn every_go_rule_builds_a_small_automaton_with_ascii_classes() {
+    for pat in def_patterns(Kind::Go, "Total") {
+        assert!(
+            regex::RegexBuilder::new(&pat)
+                .size_limit(16 * 1024)
+                .build()
+                .is_ok(),
+            "{pat}"
+        );
+    }
+}
+
+#[test]
+fn an_objective_c_plus_plus_file_is_compiled_alone() {
+    let rows = c_file_local(
+        "count",
+        Path::new("a.c"),
+        "",
+        vec![c_hit("b.mm", 1, "static int count;")],
+        |_| Some(String::new()),
+        false,
+    );
+    assert!(rows.is_empty());
+}
+
+#[test]
+fn a_prototype_and_a_definition_naming_a_built_in_type_are_one_function() {
+    let text = "int f(unsigned long);\nint f(unsigned long n) {\n  return 0;\n}\n";
+    let hits = [
+        c_hit("a.c", 1, "int f(unsigned long);"),
+        c_hit("a.c", 2, "int f(unsigned long n) {"),
+    ];
+    let one = c_one_definition("f", &hits, |_| Some(text.to_string()));
+    assert_eq!(one.map(|o| o.hit_index), Some(1));
+}
+
+#[test]
+fn a_prototype_puts_no_parameter_in_scope_below_it() {
+    assert!(c_parameter("int f(int n)\n{\n  return n;\n}\n", 3, "n"));
+    assert!(!c_parameter("int g(int n);\n  n = 1;\n", 2, "n"));
+}
+
+#[test]
+fn a_typescript_signature_has_no_equals_sign_in_its_return_type() {
+    let members = member_patterns(Kind::TsJs, "next").unwrap().join("|");
+    let re = Regex::new(&members).unwrap();
+    assert!(re.is_match("  next(value: number): number;"));
+    assert!(!re.is_match("  next(value: number): number => value;"));
 }

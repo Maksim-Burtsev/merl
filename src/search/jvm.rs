@@ -1,14 +1,7 @@
-//! Java and Kotlin scopes, read off the indentation: which block a declaration is seen in.
-
 use regex::Regex;
 
 use super::*;
 
-/// Whether `line` opens a type's body: a class, an interface, an enum, a record, an annotation
-/// type, a named `object` or a `companion object`, a Kotlin primary constructor `class X(`
-/// included, and Scala's `trait`, `case class`, `package object` and the `extension (s: T)` the
-/// methods under it are declared in (#416). An anonymous
-/// `object :` or `new X() {` is no type here: what it holds is local.
 fn opens_type(line: &str) -> bool {
     static TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(concat!(
@@ -21,9 +14,6 @@ fn opens_type(line: &str) -> bool {
     TYPE.is_match(line)
 }
 
-/// The 0-based line of the scope around 0-based `at` of `lines`: the first line above indented
-/// less, over blank lines, comments, annotations and the tails of wrapped headers (`) : Base {`,
-/// `) {`), as [`enclosing_declarations`] walks. `None` in column 0.
 fn scope_of(lines: &[&str], at: usize) -> Option<usize> {
     let depth = indent(lines[at]);
     (depth > 0).then_some(())?;
@@ -35,9 +25,6 @@ fn scope_of(lines: &[&str], at: usize) -> Option<usize> {
     })
 }
 
-/// `None` for a member, a constructor property or a top-level declaration (#357). A declaration
-/// is a local when the scope around it opens no type: a function, a constructor, `init {`, an
-/// `if`, a lambda, an anonymous object.
 pub fn jvm_local_block(text: &str, line1: usize) -> Option<usize> {
     let lines: Vec<&str> = text.lines().collect();
     let at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
@@ -55,8 +42,6 @@ pub fn jvm_local_block(text: &str, line1: usize) -> Option<usize> {
     Some(last_line1_of_block)
 }
 
-/// Whether the modifiers in front of a Java or Kotlin declaration line include `private`: it is
-/// seen in its own file only, whether Java's class or Kotlin's file or class keeps it (#357).
 pub fn jvm_private(line: &str) -> bool {
     static MODS: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(jvm_mods!()).unwrap());
@@ -104,9 +89,6 @@ pub fn jvm_receiver_at(text: &str, line: usize, name: &str) -> Option<String> {
         .map(|c| c[1].to_owned())
 }
 
-/// The name `this` stands for, as [`qualified`] names a class: the innermost type whose body holds
-/// the line (#362). `None` in column 0, and inside an anonymous `object :` or `new X() {`, whose
-/// `this` has no name to look up.
 pub fn jvm_this_owner(text: &str, line1: usize) -> Option<String> {
     let lines: Vec<&str> = text.lines().collect();
     let mut at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
@@ -153,18 +135,12 @@ pub(super) fn scala_patterns(word: &str) -> Vec<String> {
     let ann = r"(?:@[\w.]+(?:\([^)]*\))?\s+)*";
     vec![
         format!(r"{mods}(?:class|trait|object|enum|type|package\s+object)\s+{n}(?:[^\w`]|$)"),
-        // A method, and a Scala 3 extension's method written on the `extension` line.
         format!(r"(?:{mods}|^\s*extension\b.*?\b)def\s+{n}(?:[^\w`]|$)"),
         format!(r"{mods}(?:val|var)\s+{n}(?:[^\w.`]|$)"),
         format!(r"{mods}given\s+{n}{}", scala_given_tail!()),
-        // An enum's case, alone or in a list, with its parameters or the parent it extends. What
-        // follows the names is nothing, so a match case (`case Red | Green =>`) and Java's
-        // `case RED:`, `case RED, GREEN:` and `case RED ->` are no declarations.
         format!(
             r"^\s*{ann}case\s+(?:{other_name_with_params}\s*,\s*)*{n}(?:\([^)]*\))?(?:\s*,\s*{other_name_with_params})*(?:\s+extends\s+[\w.\[\]]+(?:\([^)]*\))?)?\s*(?://.*)?$"
         ),
-        // A field on its class's line: a `val` or a `var` among the parameters, and every
-        // parameter of a `case class`. One on a line of its own is a method's parameter's shape.
         format!(
             r"{mods}class\s+`?\w+`?[^(]*\((?:.*[(,])?\s*{ann}(?:(?:private|protected|override|final|implicit)(?:\[\w+\])?\s+)*(?:val|var)\s+{n}\s*:"
         ),
@@ -174,9 +150,6 @@ pub(super) fn scala_patterns(word: &str) -> Vec<String> {
     ]
 }
 
-/// The names one parameter or one lambda parameter of a Java or Kotlin list binds: `x` for
-/// `x: Int`, `vararg x: Int`, `final String x`, `String... x`, `(a, x)`, `x`; none for `_` or
-/// what reads as no parameter (a call's `a = b`, a lone type).
 fn param_names(entry: &str, groovy: bool) -> Vec<String> {
     static KOTLIN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^(?:@[\w.]+(?:\([^)]*\))?\s+)*(?:(?:vararg|noinline|crossinline|private|public|protected|internal|override|open|val|var|using|implicit)\s+)*([A-Za-z_]\w*)\s*:").unwrap()
@@ -202,9 +175,6 @@ fn param_names(entry: &str, groovy: bool) -> Vec<String> {
     name.into_iter().filter(|n| n != "_").collect()
 }
 
-/// The names a lambda on `line` binds for the body after its `->`: Kotlin's `{ x ->`,
-/// `{ a, x ->`, `{ (a, x) ->`, Java's `x ->`, `(a, x) ->`, `(Type x) ->`; Scala's `x =>`,
-/// `(a, x: Int) =>`, and the lower-case names a `case` pattern binds, `case Some(x) =>` (#416).
 fn lambda_names(line: &str) -> Vec<String> {
     static SCALA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:^|[(,{=]|=>)\s*(?:\(([^()]*)\)|([A-Za-z_]\w*))\s*=>").unwrap()
@@ -220,7 +190,6 @@ fn lambda_names(line: &str) -> Vec<String> {
     });
     let mut out = Vec::new();
     for c in KOTLIN.captures_iter(line) {
-        // `(a, x)` destructures; any other entry is a name, with or without its type.
         for entry in c[1].split(',') {
             let e = entry.trim().trim_matches(['(', ')']).trim();
             let name = e.split(':').next().unwrap_or("").trim();
@@ -257,16 +226,11 @@ fn ident(s: &str) -> bool {
         && s.chars().all(|c| c.is_alphanumeric() || c == '_')
 }
 
-/// Kotlin's `fun` (past an extension's receiver) and `constructor`, Scala's `def`, a Java method
-/// (told by the return type before its name) and a Java constructor. `None` for any other line, a
-/// Kotlin class's primary constructor included: what it takes is a property or an argument of
-/// its initializers, not a parameter of a body.
 fn params_open_byte(line: &str) -> Option<usize> {
     static FUN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(concat!(
             r"\bfun\s+(?:<[^>]*>\s*)?(?:[\w.]+(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?\??\.)?[A-Za-z_]\w*\s*\(",
             r"|\bconstructor\s*\(",
-            // Scala's method, past its type parameters (#416).
             r"|\bdef\s+`?[A-Za-z_]\w*`?\s*(?:\[[^\]]*\]\s*)?\("
         ))
         .unwrap()
@@ -333,8 +297,6 @@ fn param_lists_line1_binding(lines: &[&str], from: usize, name: &str) -> Option<
     None
 }
 
-/// A function's or a constructor's parameters, a lambda's, a loop variable, a `catch` parameter, a
-/// resource of `try (…)`, a pattern of `instanceof`.
 fn header_lines1_binding(lines: &[&str], from: usize, to: usize, name: &str) -> Vec<usize> {
     let n = regex::escape(name);
     let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
@@ -356,8 +318,6 @@ fn header_lines1_binding(lines: &[&str], from: usize, to: usize, name: &str) -> 
     out
 }
 
-/// Whether the statement `t`, trimmed, declares the local `name`: Java's `Type x =`, `Type x;`,
-/// `var x =`, Kotlin's `val x`, `var x`, `val (a, x) =`.
 fn declares_local(t: &str, name: &str) -> bool {
     let n = regex::escape(name);
     let ret = jvm_return_type!();
@@ -367,12 +327,6 @@ fn declares_local(t: &str, name: &str) -> bool {
     .is_ok_and(|re| re.is_match(t))
 }
 
-/// The declarations of `name` that 0-based line `at` of Java or Kotlin `lines` reads as a local
-/// (#376): walking out of the blocks around it, innermost first, the statements of each block
-/// above the cursor, then what its header binds: a lambda's parameters, a loop's variable, a
-/// function's or a constructor's parameters. The first block that declares the name answers. A
-/// block is the lines indented deeper than the line that opens it, as [`enclosing_declarations`]
-/// reads them; the walk stops at a type's body, whose members are [`jvm_members_of`]'s.
 pub(super) fn jvm_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let binding = |line| Binding {
         line1: line,
@@ -381,7 +335,8 @@ pub(super) fn jvm_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding
     if matches!(name, "this" | "super" | "it") {
         return Vec::new();
     }
-    let literal = literal_lines(Kind::Jvm, &lines.join("\n"));
+    let text = lines.join("\n");
+    let literal = literal_lines(Kind::Jvm, &text);
     let bound_on_cursor_line = header_lines1_binding(lines, at, at, name);
     let mut out: Vec<Binding> = bound_on_cursor_line.into_iter().map(binding).collect();
     let mut depth = indent(lines[at]);
@@ -411,7 +366,14 @@ pub(super) fn jvm_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding
         }
         depth = indent(lines[i]);
         if opens_type(lines[i]) {
-            break;
+            let member_or_top_level = scope_of(lines, i).is_none_or(|s| opens_type(lines[s]));
+            if member_or_top_level
+                || header_may_bind(lines, i, end)
+                || !jvm_members_of(&text, i + 1, name).is_empty()
+            {
+                break;
+            }
+            continue;
         }
         out.extend(
             header_lines1_binding(lines, i, end, name)
@@ -422,8 +384,17 @@ pub(super) fn jvm_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding
     out
 }
 
-/// Innermost first: a class, an interface, an object, an enum, a record, and an anonymous
-/// `object :` or `new X() {`, which is a class for the lines inside it (#376).
+fn header_may_bind(lines: &[&str], from: usize, to: usize) -> bool {
+    static PARAMETERS_OR_SUPERTYPES: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"[(:]|\b(?:extends|implements)\b").unwrap());
+    let header = (from..=to)
+        .map(|k| uncommented(Kind::Jvm, lines[k]))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let header = header.split('{').next().unwrap_or_default();
+    PARAMETERS_OR_SUPERTYPES.is_match(header)
+}
+
 pub fn jvm_enclosing_types(text: &str, line1: usize) -> Vec<usize> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(mut at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
@@ -439,7 +410,6 @@ pub fn jvm_enclosing_types(text: &str, line1: usize) -> Vec<usize> {
     out
 }
 
-/// Whether `line` opens an anonymous class: Kotlin's `object :`, Java's `new X(…) {`.
 fn anonymous(line: &str) -> bool {
     static ANONYMOUS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\bobject\s*:|\bnew\s+[\w.]+\s*(?:<.*>)?\s*\(.*\)\s*\{\s*$").unwrap()
@@ -447,8 +417,6 @@ fn anonymous(line: &str) -> bool {
     ANONYMOUS.is_match(line)
 }
 
-/// The name the type declared on `line` gives itself; `None` for an anonymous class and a
-/// `companion object` with no name.
 pub fn jvm_type_name(line: &str) -> Option<String> {
     static NAME: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\b(?:class|interface|enum|record|object|trait)\s+([A-Za-z_]\w*)").unwrap()
@@ -458,9 +426,6 @@ pub fn jvm_type_name(line: &str) -> Option<String> {
         .flatten()
 }
 
-/// The lines one level inside the type's body that a `Kind::Jvm` pattern matches, a property of
-/// its primary constructor, and a member of its `companion object` (#376). What a nested type
-/// declares is its own.
 pub fn jvm_members_of(text: &str, decl_line1: usize, name: &str) -> Vec<usize> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = decl_line1.checked_sub(1).filter(|&k| k < lines.len()) else {
@@ -499,7 +464,6 @@ fn members_of(lines: &[&str], literal: &[bool], k: usize, name: &str, re: &Regex
     });
     static RECORD: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(concat!(jvm_mods!(), r"record\s+\w+")).unwrap());
-    // A constructor is no member called like its class: the name is the type's.
     if jvm_type_name(lines[k]).as_deref() == Some(name) {
         return Vec::new();
     }
@@ -544,8 +508,6 @@ fn members_of(lines: &[&str], literal: &[bool], k: usize, name: &str, re: &Regex
     out
 }
 
-/// As simple names: Java's `extends A, B`, Kotlin's supertypes after the `:` of its header,
-/// `Base` for `: Base(…)` and `: pkg.Base`. In a `scala` file, `extends A with B` (#416).
 pub fn jvm_bases(text: &str, decl_line1: usize, scala: bool) -> Vec<String> {
     if scala {
         return scala_bases(text, decl_line1);
@@ -591,8 +553,6 @@ pub fn jvm_bases(text: &str, decl_line1: usize, scala: bool) -> Vec<String> {
         .collect()
 }
 
-/// [`jvm_bases`] in Scala: a body needs no brace, so the header is the declaration's line and
-/// the lines its open brackets carry it over, never the body under it (#416).
 fn scala_bases(text: &str, decl_line1: usize) -> Vec<String> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = decl_line1.checked_sub(1).filter(|&k| k < lines.len()) else {
@@ -629,8 +589,6 @@ fn scala_bases(text: &str, decl_line1: usize) -> Vec<String> {
         .collect()
 }
 
-/// (#372) Kotlin's `import a.C as D` binds `D` to `[a, C]`; a wildcard, static or not, binds `*`
-/// to its path with `*` last.
 pub struct JvmImport {
     pub bound_name: String,
     pub path: Vec<String>,
@@ -717,8 +675,6 @@ pub fn scala_type_parameter(text: &str, name: &str) -> bool {
     })
 }
 
-/// Whether Java or Kotlin `text` declares `name` as a type parameter: `class Box<T>`, `fun <T>`,
-/// `<T extends Base> T pick(`.
 pub fn jvm_type_parameter(text: &str, name: &str) -> bool {
     static LIST: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:\b(?:class|interface|record)\s+[A-Za-z_]\w*\s*|\bfun\s*|(?:^|[\s(,])\s*)<([^<>]*(?:<[^<>]*>[^<>]*)*)>").unwrap()
@@ -732,8 +688,6 @@ pub fn jvm_type_parameter(text: &str, name: &str) -> bool {
     })
 }
 
-/// The Lombok accessor `word` (#381): `title` for `getTitle` and `setTitle`, `active` or
-/// `isActive` for `isActive`. `None` for any other name.
 pub fn jvm_accessor(word: &str) -> Option<JvmAccessor> {
     [("get", false), ("is", false), ("set", true)]
         .into_iter()
@@ -756,10 +710,6 @@ pub struct JvmAccessor {
     pub setter: bool,
 }
 
-/// Lombok writes the accessor `word` for a field when the file imports `lombok.` (#381), and the
-/// field carries `@Getter` (for `get` and `is`) or `@Setter` (for `set`), or the type carries `@Data`,
-/// `@Value` or `@Getter`, or `@Data` or `@Setter`. A `static` field, and one marked
-/// `AccessLevel.NONE`, gets none.
 pub fn jvm_lombok_fields(text: &str, decl_line1: usize, word: &str) -> Vec<usize> {
     let Some(JvmAccessor {
         fields_it_may_read: names,
@@ -821,8 +771,6 @@ pub struct JvmAssignedCall {
     pub receiver: Option<String>,
     pub method: String,
 }
-/// When a Java `var` or a Kotlin `val`/`var` named `name` on `line` is assigned one call of a
-/// lowercase name, `var status = plugin.statusNonNull();` (#388, #391).
 pub fn jvm_assigned_call(line: &str, name: &str) -> Option<JvmAssignedCall> {
     let re = Regex::new(&format!(
         r"\b(?:var|val)\s+{}\s*=\s*(?:([a-z]\w*)\.)?([a-z]\w*)\s*\([^()]*\)\s*;?\s*$",
@@ -837,9 +785,6 @@ pub fn jvm_assigned_call(line: &str, name: &str) -> Option<JvmAssignedCall> {
     })
 }
 
-/// The type the Java or Kotlin method `name` declared on `line` returns, as
-/// [`jvm_declared_type`] reads one: `PluginStatus` for `public PluginStatus statusNonNull() {`
-/// and `fun status(): Status`.
 pub fn jvm_return_type(line: &str, name: &str, kotlin: bool) -> Option<String> {
     let n = regex::escape(name);
     let rule = match kotlin {

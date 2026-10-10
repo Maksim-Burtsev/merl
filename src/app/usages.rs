@@ -33,9 +33,9 @@ impl App {
                     _ => None,
                 };
                 Hit {
-                    col: col.unwrap_or_else(|| {
+                    byte_col: Some(col.unwrap_or_else(|| {
                         word_col(&h.text, word, &format!("{}{row}", extra.replace('\'', "")))
-                    }),
+                    })),
                     ..h
                 }
             })
@@ -163,7 +163,7 @@ impl App {
                     && !literal
                         .entry((h.path.clone(), h.deleted.is_some()))
                         .or_insert_with(|| kind.map_or_else(Vec::new, |k| self.hidden_of(k, &h)))
-                        .get(h.line - 1)
+                        .get(h.line1 - 1)
                         .copied()
                         .unwrap_or(false)
                     && kind.is_some_and(|k| {
@@ -175,9 +175,9 @@ impl App {
                         match k {
                             Kind::Nix => {
                                 let file = lines.entry(key).or_insert_with(read);
-                                search::nix_declares(file, h.line, word, true)
+                                search::nix_declares(file, h.line1, word, true)
                             }
-                            _ => search::declares_where(k, &h.path, word, h.line, &h.text, || {
+                            _ => search::declares_where(k, &h.path, word, h.line1, &h.text, || {
                                 lines.entry(key).or_insert_with(read)
                             }),
                         }
@@ -234,7 +234,7 @@ impl App {
             let text = texts
                 .entry(h.path.clone())
                 .or_insert_with(|| self.text_of(&h.path));
-            let at = search::make_recipe_command(text.as_deref()?, h.line)?;
+            let at = search::make_recipe_command(text.as_deref()?, h.line1)?;
             Some(here.as_ref() == Some(&h.path) && Some(at) == command)
         }
     }

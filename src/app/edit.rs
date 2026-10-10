@@ -36,7 +36,6 @@ impl App {
         self.undo_break = true;
     }
 
-    /// Into edit mode, the one way there: the text being typed is never under the preview.
     pub(super) fn edit_mode(&mut self) {
         if self.previewing() || self.preview_pending() {
             self.toggle_preview();
@@ -44,9 +43,6 @@ impl App {
         self.mode = Mode::Edit;
     }
 
-    /// Why the text cannot change or be written, if it cannot: the buffer is not what would be
-    /// written back, or one of `lines` is longer than the screen shows, so its tail would be
-    /// edited blind.
     fn locked<'a>(&self, mut lines: impl Iterator<Item = &'a String>) -> Option<String> {
         if let Some(why) = self.buf.readonly {
             return Some(format!("read-only: {why}"));
@@ -56,10 +52,6 @@ impl App {
             .then(|| "line too long to edit".to_string())
     }
 
-    /// Ctrl+C: the selection goes to the clipboard, without one the whole line with its break,
-    /// as in VS Code; the lines a review deleted are copied as they were. Returns the range
-    /// Ctrl+X then removes: the last line goes with the break before it, so no empty line is left
-    /// behind (a file's only line is emptied). Ctrl+X is refused on a deleted line before this.
     pub(super) fn copy(&mut self) -> ((usize, usize), (usize, usize)) {
         let here = ((self.line, self.col), (self.line, self.col));
         let (from, to, text) = match self.selection() {
@@ -91,8 +83,6 @@ impl App {
         (from, to)
     }
 
-    /// Keys that only mean something while editing. Returns `false` for every other key, which
-    /// then falls through to the navigation keys: arrows, Home / End, the chord aliases.
     pub(super) fn edit_key(&mut self, code: KeyCode, ctrl: bool, alt: bool) -> bool {
         let changes = matches!(code, KeyCode::Char(c) if !ctrl || c == 'x')
             || matches!(
@@ -130,8 +120,6 @@ impl App {
                 let (from, to) = self.copy();
                 let want = self.want_x;
                 if code == KeyCode::Char('x') && self.replace(from, to, "", Kind::Other) && last {
-                    // The last line cut: the cursor goes up onto the line above, aiming at the
-                    // column it had; redo lands there too.
                     self.want_x = want;
                     self.apply_want_x(0);
                     self.undo.last_mut().unwrap().after = (self.line, self.col);
@@ -146,8 +134,6 @@ impl App {
             KeyCode::Tab => {
                 let indent = if self.buf.tabs { "\t" } else { buffer::TAB };
                 match self.file_selection() {
-                    // Over lines Tab indents them, as in VS Code; over a piece of one line it
-                    // is typed in place of it, as any other letter is.
                     Some((from, to)) if to.0 > from.0 => self.indent(from, to, indent),
                     _ => self.insert(indent, Kind::Other),
                 }
@@ -159,7 +145,6 @@ impl App {
                 };
                 self.insert("", kind);
             }
-            // Option+Backspace / Option+Delete: up to where Alt+Left / Right would land.
             KeyCode::Backspace | KeyCode::Delete if alt => {
                 let (at, want) = ((self.line, self.col), self.want_x);
                 if code == KeyCode::Backspace {
@@ -168,9 +153,6 @@ impl App {
                     self.word_right();
                 }
                 let to = (self.line, self.col);
-                // Undo puts the cursor back where the key was pressed, and takes the word alone:
-                // not the typing before it, not the typing after. With no word to take, the
-                // column Up / Down aim at stays too (#455).
                 self.go(at);
                 self.want_x = want;
                 self.replace(at.min(to), at.max(to), "", Kind::Other);
@@ -207,9 +189,6 @@ impl App {
         self.replace(from, to, text, kind);
     }
 
-    /// Tab over a selection of more than one line: one indent at the start of every line the
-    /// selection touches, in one undo step. A line where the selection ends at column 0 is not
-    /// touched, as in VS Code.
     fn indent(&mut self, from: (usize, usize), to: (usize, usize), indent: &str) {
         let last = if to.1 == 0 { to.0 - 1 } else { to.0 };
         let text = (from.0..=last)
@@ -220,8 +199,6 @@ impl App {
         let anchor = anchor.map(|(t, c)| (t.key(), c));
         let end = (last, self.buf.lines[last].len());
         let indented = self.replace((from.0, 0), end, &text, Kind::Other);
-        // The selection keeps the text it had. A position at the start of a line stays there,
-        // so the lines stay whole and a second Tab indents the same ones again.
         let moved = |(l, c): (usize, usize)| match (from.0..=last).contains(&l) && c > 0 {
             true => (l, c + indent.len()),
             false => (l, c),
@@ -246,7 +223,6 @@ impl App {
                 self.search_typed();
             }
         } else if self.mode == Mode::Goto {
-            // `:` computes nothing per key: its chars go in as typed, by the prompt's own rule.
             for c in line.chars() {
                 self.goto_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
             }
@@ -358,16 +334,12 @@ impl App {
         self.touched(edit.line);
         self.undo_break = true;
         self.edit_kind = Kind::Other;
-        // A reload to what no save can write back as it came (binary, not UTF-8, mixed line
-        // endings) is not redone: it would be an edit left on screen for good.
         if back && edit.format.is_some_and(|(_, is)| is.readonly.is_some()) {
             return;
         }
         (if back { &mut self.redo } else { &mut self.undo }).push(edit);
     }
 
-    /// After every change to `buf.lines` from line `l` on: the highlighting there may be stale,
-    /// the disk is behind, and the autosave clock restarts.
     fn touched(&mut self, l: usize) {
         self.buf.edited(l);
         self.dirty = true;
@@ -376,19 +348,12 @@ impl App {
         self.sync_want_x();
     }
 
-    /// Writes the buffer to its file. A file someone else changed since merl last read or wrote
-    /// it is not overwritten: that is a conflict, and with the conflict on screen Ctrl+S (the one
-    /// save that still runs) ends it in the buffer's favour.
     pub fn save(&mut self) {
         let Some(path) = &self.buf.path else { return };
         if let Some(why) = self.locked(std::iter::empty()) {
             self.message = why;
             return;
         }
-        // ponytail: read, compare, then write; a writer landing between the read and the write
-        // still loses. Files have no compare-and-swap, and the window is one read long.
-        // Gone (deleted, renamed) is changed too: only Ctrl+S puts the file back. Any other read
-        // error, its directory gone among them, is left to the write below to report and retry.
         let changed = match std::fs::read(path) {
             Ok(b) => buffer::hash(&b) != self.buf.disk_hash,
             Err(e) => {
@@ -412,15 +377,12 @@ impl App {
                 self.refresh_diff();
             }
             Err(e) => {
-                // Retried on the next autosave; the message stays until then.
                 self.message = format!("save failed: {}", super::open::why_not(&e.into()));
                 self.last_edit = Some(Instant::now());
             }
         }
     }
 
-    /// Saves unsaved edits now: leaving edit mode, switching files, quitting. Returns `false`
-    /// when edits are left that the disk does not have: a conflict, or a failed save.
     pub fn flush(&mut self) -> bool {
         if self.dirty && !self.conflict {
             self.save();
@@ -428,8 +390,6 @@ impl App {
         !self.dirty
     }
 
-    /// Autosave, called by the event loop between events. Returns `true` when it tried, which
-    /// changes the status bar whether the file was written, refused or found changed on disk.
     pub fn tick(&mut self) -> bool {
         let parsed = self.parse_tick();
         let due = self.last_edit.is_some_and(|t| t.elapsed() >= self.autosave);

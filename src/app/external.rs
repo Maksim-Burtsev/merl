@@ -168,7 +168,7 @@ impl App {
             if top_level {
                 hits.retain(|h| {
                     this.text_of(&h.path)
-                        .is_some_and(|t| search::qualified(kind, &t, h.line, word).is_none())
+                        .is_some_and(|t| search::qualified(kind, &t, h.line1, word).is_none())
                 });
             }
             hits
@@ -468,7 +468,7 @@ impl App {
             .unwrap_or_else(|| self.project_definitions(kind, here, word, pattern));
         found.retain(|h| {
             self.text_of(&h.path)
-                .is_some_and(|text| search::ts_global_scope(&text, h.line))
+                .is_some_and(|text| search::ts_global_scope(&text, h.line1))
         });
         found.extend(self.outside_grep(kind, &files, &patterns.join("|"), Some(word)));
         found
@@ -535,7 +535,7 @@ impl App {
                         .map(|t| t.lines().map(str::to_owned).collect())
                         .unwrap_or_default()
                 });
-                !search::ts_nested_local(lines, h.line)
+                !search::ts_nested_local(lines, h.line1)
             });
             hits = search::drop_farther_copies(roots, hits);
         }
@@ -543,7 +543,7 @@ impl App {
             (
                 roots.iter().position(|r| h.path.starts_with(r)),
                 h.path.clone(),
-                h.line,
+                h.line1,
             )
         });
         hits
@@ -575,7 +575,7 @@ impl App {
                 .or_insert_with(|| std::fs::read_to_string(&h.path).ok());
             !text
                 .as_deref()
-                .is_some_and(|t| search::python_in_function(t, h.line))
+                .is_some_and(|t| search::python_in_function(t, h.line1))
         });
         self.note_cut(&methods);
         let roots = self
@@ -587,14 +587,14 @@ impl App {
             (
                 roots.iter().position(|r| h.path.starts_with(r)),
                 h.path.clone(),
-                h.line,
+                h.line1,
             )
         });
         let mut by_file: Vec<(PathBuf, Vec<usize>)> = Vec::new();
         for h in candidates {
             match by_file.last_mut() {
-                Some((path, lines)) if *path == h.path => lines.push(h.line),
-                _ => by_file.push((h.path, vec![h.line])),
+                Some((path, lines)) if *path == h.path => lines.push(h.line1),
+                _ => by_file.push((h.path, vec![h.line1])),
             }
         }
         let unlisted_field_declares_it = by_file.into_iter().any(|(path, lines)| {
@@ -721,9 +721,6 @@ impl App {
     }
 
     /// The files of `kind` outside the project, walked once per kind.
-    ///
-    /// ponytail: lives for the session, unlike the project walk. A `pip install` mid-session
-    /// needs a restart.
     pub(super) fn external_files(&mut self, kind: Kind) -> Arc<Vec<PathBuf>> {
         if kind == Kind::Scheme
             && self
@@ -864,7 +861,7 @@ impl App {
         let objc_only = (kind == Kind::C && !self.objc_file()).then(|| search::objc_only(word));
         hits.retain(|h| {
             objc_only.as_ref().is_none_or(|only| !only(&h.text))
-                && search::declares_where(kind, &h.path, word, h.line, &h.text, || {
+                && search::declares_where(kind, &h.path, word, h.line1, &h.text, || {
                     lines.entry(h.path.clone()).or_insert_with(|| {
                         self.text_of(&h.path)
                             .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
@@ -877,7 +874,7 @@ impl App {
             hits.retain(|h| {
                 let dir = h.path.parent().unwrap_or(Path::new(""));
                 !self.text_of(&h.path).is_some_and(|text| {
-                    search::scheme_foreign_branch(&text, h.line, |f| dir.join(f) == here)
+                    search::scheme_foreign_branch(&text, h.line1, |f| dir.join(f) == here)
                 })
             });
         }
@@ -1011,7 +1008,7 @@ impl App {
                     .filter(|_| !matches!(c.reason, Reason::Module(_)))
                     .and_then(|text| {
                         let word = jvm::declared_as(kind, word, &c.hit.text);
-                        search::qualified(kind, text, c.hit.line, &word)
+                        search::qualified(kind, text, c.hit.line1, &word)
                     })
                     .unwrap_or_else(|| word.to_owned());
                 (name, c.reason.to_string(), c)
@@ -1034,7 +1031,7 @@ impl App {
             .map(|(name, why, c)| {
                 let lead = format!("{name}{}  {why}{}  ", pad(name_w, &name), pad(why_w, &why));
                 let shown = self.rel_to_its_root(kind, &c.hit.path);
-                let head = format!("{lead}{}: ", at_label(shown, c.hit.line));
+                let head = format!("{lead}{}: ", at_label(shown, c.hit.line1));
                 let path_at = lead.len()..lead.len() + shown.display().to_string().len();
                 PickItem {
                     code_at: Some(head.len()),
@@ -1047,7 +1044,7 @@ impl App {
                     label: head + &clip(c.hit.text.trim(), MAX_LABEL_TEXT),
                     deleted: c.hit.deleted.is_some(),
                     path: c.hit.path,
-                    line: c.hit.line,
+                    line: c.hit.line1,
                 }
             })
             .collect()

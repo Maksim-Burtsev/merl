@@ -1,8 +1,3 @@
-//! The types a JavaScript file writes in JSDoc (#347): `@type`, `@param`, `@returns`, and the
-//! fields of a `@typedef {Object}`. They are read in `.js`, `.jsx`, `.mjs` and `.cjs` files only
-//! ([`reads_jsdoc`], which every reader of them asks): a `.ts` file writes annotations, and
-//! TypeScript ignores JSDoc types there.
-
 use std::ops::Range;
 use std::path::Path;
 
@@ -10,8 +5,6 @@ use regex::Regex;
 
 use super::*;
 
-/// Whether the file `path` of `kind` is JavaScript, whose types JSDoc writes: the one test of
-/// every rule of this module.
 pub fn reads_jsdoc(kind: Kind, path: &Path) -> bool {
     kind == Kind::TsJs
         && path
@@ -19,9 +12,6 @@ pub fn reads_jsdoc(kind: Kind, path: &Path) -> bool {
             .is_some_and(|e| matches!(e.to_str(), Some("js" | "jsx" | "mjs" | "cjs")))
 }
 
-/// The `const`, `let` or `var` of a TypeScript or JavaScript `line` behind the block comment it
-/// opens with and closes on, `/** @type {T} */ let x;`: a declaration all the same. Any other
-/// line as it is, a comment.
 pub(super) fn behind_doc(kind: Kind, line: &str) -> &str {
     let t = line.trim_start();
     let declares = |c: &str| ["const ", "let ", "var "].iter().any(|k| c.starts_with(k));
@@ -31,10 +21,6 @@ pub(super) fn behind_doc(kind: Kind, line: &str) -> &str {
     }
 }
 
-/// The type inside a JSDoc tag's braces when it is one plain name, as an annotation is read:
-/// `Name`, `ns.Name`, `Name[]` or `Array<Name>`, behind `?` or `!`, or in a union with `null` or
-/// `undefined`. A union of two types, another generic, an inline object or function type, `*`
-/// and `any` type nothing.
 pub fn jsdoc_type(braced: &str) -> Option<String> {
     static ONE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^(?:[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*(?:\[\])?|Array<\s*[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*>)$").unwrap()
@@ -52,7 +38,6 @@ pub fn jsdoc_type(braced: &str) -> Option<String> {
     (ONE.is_match(one) && one != "any").then(|| one.to_owned())
 }
 
-/// `{…}` at the start of `s`, braces inside it balanced: what it holds, and what follows it.
 fn braced(s: &str) -> Option<(&str, &str)> {
     let s = s.trim_start().strip_prefix('{')?;
     let mut depth = 1;
@@ -98,8 +83,6 @@ fn tags(doc: &[&str]) -> Vec<Tag> {
     out
 }
 
-/// The name a `@param` or `@property` names, `name` or `[name=default]`; none for a part of one,
-/// `options.cwd`, which types a destructured parameter or a nested field.
 fn tag_name(rest: &str) -> Option<&str> {
     let rest = rest.strip_prefix('[').unwrap_or(rest);
     let end = rest
@@ -108,8 +91,6 @@ fn tag_name(rest: &str) -> Option<&str> {
     (end > 0 && !rest[end..].starts_with('.')).then(|| &rest[..end])
 }
 
-/// The lines of the JSDoc block `/** … */` that closes right above `line0`: none when a blank
-/// line, code or a comment of another kind stands between them.
 fn block_above(lines: &[&str], line0: usize) -> Option<Range<usize>> {
     let end = line0.checked_sub(1)?;
     if !lines[end].trim_end().ends_with("*/") {
@@ -123,9 +104,6 @@ fn block_above(lines: &[&str], line0: usize) -> Option<Range<usize>> {
     .then_some(start..end + 1)
 }
 
-/// The type JSDoc writes for `name` bound on `line1` of `text`: the `@type {T}` of a `const`,
-/// `let` or `var` declaring it, on its line or right above it; else the `@param {T} name` of the
-/// function whose header starts on the line.
 pub fn jsdoc_binding(text: &str, line1: usize, name: &str) -> Option<String> {
     let lines: Vec<&str> = text.lines().collect();
     let k = line1.checked_sub(1)?;
@@ -156,8 +134,6 @@ pub fn jsdoc_binding(text: &str, line1: usize, name: &str) -> Option<String> {
     jsdoc_type(&tag.braced_type)
 }
 
-/// The `@returns {T}` or `@return {T}` of the JSDoc block right above the function or method
-/// declared on `decl_line1` of `text`.
 pub fn jsdoc_returns(text: &str, decl_line1: usize) -> Option<String> {
     let lines: Vec<&str> = text.lines().collect();
     let block = block_above(&lines, decl_line1.checked_sub(1)?)?;
@@ -168,7 +144,6 @@ pub fn jsdoc_returns(text: &str, decl_line1: usize) -> Option<String> {
     jsdoc_type(&tag.braced_type)
 }
 
-/// The `@typedef {T} Name` a JSDoc line writes: `T` and `Name`.
 fn typedef(line: &str) -> Option<(&str, &str)> {
     let t = line.trim_start();
     let t = t.strip_prefix("/**").or_else(|| t.strip_prefix('*'))?;
@@ -185,7 +160,6 @@ pub struct JsdocTypedef {
     pub line1: usize,
     pub written_type: String,
 }
-/// Each `@typedef {T} name` of `text`.
 pub fn jsdoc_typedefs(text: &str, name: &str) -> Vec<JsdocTypedef> {
     text.lines()
         .enumerate()
@@ -199,18 +173,15 @@ pub fn jsdoc_typedefs(text: &str, name: &str) -> Vec<JsdocTypedef> {
         .collect()
 }
 
-/// Whether `written`, a `@typedef`'s type, declares fields of its own: `Object` or `object`.
 pub fn jsdoc_object(written: &str) -> bool {
     matches!(written, "Object" | "object")
 }
 
-/// The name of the `@typedef {Object}` whose block holds the `@property` on `line0`.
 pub fn jsdoc_owner_name<'a>(lines: &[&'a str], line0: usize) -> Option<&'a str> {
     let i = jsdoc_owner(lines, line0)?;
     typedef(lines[i]).map(|(_, name)| name)
 }
 
-/// The 0-based line of the `@typedef {Object}` whose block holds the `@property` on `line0`.
 pub fn jsdoc_owner(lines: &[&str], line0: usize) -> Option<usize> {
     if !lines[line0].contains("@prop") {
         return None;
@@ -227,9 +198,6 @@ pub fn jsdoc_owner(lines: &[&str], line0: usize) -> Option<usize> {
     None
 }
 
-/// The fields `name` the `@typedef {Object}` on `line0` declares: each `@property {T} name` or
-/// `@property {T} [name]` of its block, with `T` when it is one plain name. `None` when the line
-/// writes no such typedef.
 pub fn jsdoc_properties(lines: &[&str], line0: usize, name: &str) -> Option<Vec<Binding>> {
     typedef(lines[line0]).filter(|(ty, _)| jsdoc_object(ty))?;
     let mut out = Vec::new();

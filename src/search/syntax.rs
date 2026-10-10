@@ -10,17 +10,6 @@ pub(super) fn comment(kind: Kind, t: &str) -> bool {
         _ => ["//", "/*", "*"].iter().any(|c| t.starts_with(c)),
     }
 }
-/// The 1-based lines of `text` that start inside a literal or a comment running over several
-/// lines: a Python or Elixir triple-quoted string (a docstring or an `@moduledoc` with an example
-/// in it), which Swift and C# write with `"` alone, a Go raw string, a TypeScript template, a Lua
-/// `[[ ]]` or `[==[ ]==]` long string or block comment, a C# verbatim `@"…"`, a PHP heredoc, the
-/// shell's heredoc (a Dockerfile's and Terraform's too), a `/* */` block. A line
-/// there that reads like a declaration declares nothing — the SQL a migration embeds in one is
-/// the common case. Other strings end with their line, whatever they hold.
-///
-/// ponytail: Elixir's `~S"""` sigil is read from its `"""`, and its one-line `~s(…)` forms not at
-/// all; Ruby's multi-line `%q{…}` is read as code, and a `/` opens a regex only after an operator
-/// or a bracket, not after `when` or `split `.
 pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     thread_local! {
         static LEXED: std::cell::RefCell<std::collections::VecDeque<(Kind, String, Vec<bool>)>> =
@@ -45,12 +34,9 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
 }
 const LEXED_KEPT: usize = 16;
 fn lex_literal_lines(kind: Kind, text: &str) -> Vec<bool> {
-    // Markdown's are blocks, not tokens: a fence, an HTML comment, the front matter (#421).
     if kind == Kind::Markdown {
         return markdown_literal_lines(text);
     }
-    // HTML's is the `<!-- … -->` comment (#415). A stylesheet a `<style>` block of markup holds
-    // is lexed alone, the rest of the file blank: a `/*` in a template is no comment of it.
     if kind == Kind::Html {
         return html_literal_lines(text);
     }
@@ -134,29 +120,18 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
         Kind::Lua => (false, true, false, false, &["--"]),
         Kind::Zig => (false, false, false, false, &["//"]),
         Kind::Swift | Kind::CSharp => (true, false, true, true, &["//"]),
-        // A YAML block scalar (`filters: |`) hides nothing: the keys dorny/paths-filter reads
-        // out of one are what `steps.changes.outputs.backend` names.
         Kind::Shell | Kind::Make | Kind::Docker | Kind::Yaml => {
             (false, false, false, false, &["#"])
         }
         Kind::Sql => (false, false, false, true, &["--", "//"]),
         Kind::PowerShell => (false, false, false, false, &["#"]),
         Kind::Terraform => (false, false, false, true, &["#", "//"]),
-        // GraphQL writes its descriptions in `"""` block strings, and nothing else runs
-        // over lines: no `'''`, no `/* */`, no backtick.
         Kind::Graphql => (true, false, false, false, &["#"]),
-        // The C family's comments, and no backtick: a Protocol Buffers string ends with its
-        // line.
         Kind::Proto | Kind::Solidity => (false, false, false, true, &["//"]),
-        // `/* */` in all four stylesheet languages and `//` in SCSS, Sass and Less: one kind
-        // reads `//` in a `.css` file too, at the cost of a `/*` after a `url(//…)` on its
-        // line (#415). A string ends with its line, and a backtick is nothing.
         Kind::Css => (false, false, false, true, &["//"]),
         Kind::Php => (false, false, true, true, &["//", "#"]),
         Kind::Rust => (false, false, false, true, &["//"]),
         Kind::Ruby => (false, false, false, false, &["#"]),
-        // A Kotlin raw string and a Java text block run over lines between `"""`; neither
-        // language has a backtick template: Kotlin's backticks quote a name (#367).
         Kind::Jvm => (true, false, false, true, &["//"]),
         Kind::Dart => (true, false, false, true, &["//"]),
         Kind::Cmake => (false, true, false, false, &["#"]),
@@ -164,9 +139,6 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
     };
     let (csharp_verbatim_strings, php_heredocs) = (kind == Kind::CSharp, kind == Kind::Php);
     let shell_heredoc = matches!(kind, Kind::Shell | Kind::Docker | Kind::Terraform);
-    // A shell quote ends with its line, as every other kind's does: the scan cannot follow a
-    // `"…"` inside `"$( … )"`, so a quote it carried over lines would hide the rest of the file
-    // behind one misread, and what `eval '…'` holds the shell does declare.
     let comment_only_at_word_start = matches!(kind, Kind::Shell | Kind::Docker | Kind::PowerShell);
     let powershell = kind == Kind::PowerShell;
     let mut in_php_tags = false;
@@ -286,8 +258,6 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
                 i += 1;
             }
         } else if literal_closer.is_some() {
-            // A template's `${` opens code, up to the `}` that closes it: a template in there
-            // is one of its own, `${a ? `${b}/` : ""}`, and the rest of the outer one follows.
             template_substitution_braces.push(0);
             literal_closer = None;
             i += 1;
@@ -296,8 +266,6 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
             && (c == b'{' || c == b'}')
             && b[i - 1] != b'\\'
         {
-            // A regex's `\{` is no brace (`${s.replace(/\{/g, "")}`). ponytail: the `{` of
-            // `/[{]/` still counts; skip regex literals in a hole if one shows up.
             let depth = template_substitution_braces.last_mut().expect("not empty");
             match (c, *depth) {
                 (b'{', _) => *depth += 1,
@@ -308,8 +276,6 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
                 _ => *depth -= 1,
             }
         } else if let Some(q) = line_quote {
-            // A backslash escapes the next byte, but the end of a line is still one. PowerShell
-            // escapes with a backtick, and only in a `"…"`.
             let escape = match powershell {
                 true => q == b'"' && c == b'`',
                 false => c == b'\\',
@@ -346,8 +312,6 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
                 .take_while(|&&c| c != b'\n')
                 .all(|c| c.is_ascii_whitespace())
         {
-            // A here-string, `@"` or `@'` at the end of its line, closes on the line that starts
-            // with `"@` or `'@`.
             literal_closer = Some(b"".into());
             heredoc = Some(Heredoc {
                 label: vec![b[i + 1], b'@'],
@@ -355,20 +319,16 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
             });
             i += 1;
         } else if powershell && c == b'`' {
-            // An escape outside a string: `` `" `` opens nothing, `` `# `` no comment. At the end
-            // of a line it continues the line, and the line still ends.
             if !matches!(b.get(i + 1), Some(b'\n' | b'\r')) {
                 i += 1;
             }
         } else if csharp_verbatim_strings
             && (b[i..].starts_with(b"@\"") || b[i..].starts_with(b"@$\""))
         {
-            // `$@"` is read from its `@"`.
             literal_closer = Some(b"\"".into());
             in_verbatim_string = true;
             i += if b[i + 1] == b'$' { 2 } else { 1 };
         } else if php_heredocs && b[i..].starts_with(b"<<<") {
-            // `<<<SQL`, `<<<"SQL"` or `<<<'SQL'`: the label is what ends it.
             let word: Vec<u8> = b[i + 3..]
                 .iter()
                 .skip_while(|c| **c == b'"' || **c == b'\'')
@@ -384,8 +344,6 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
                 });
             }
         } else if shell_heredoc && b[i..].starts_with(b"<<") {
-            // `<<EOF`, `<<-EOF` or `<< 'EOF'`, read past both `<`, so that the shell's `<<<`, a
-            // string of one line, labels nothing. A `<<` inside `$((…))` is a shift.
             let line = b[..i]
                 .iter()
                 .rposition(|&c| c == b'\n')
@@ -411,8 +369,6 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
             long_bracket_level = eq;
             i += skip;
         } else if template && c == b'`' {
-            // ponytail: `/`/` is a regex, told by the slash in front; a division by a template
-            // is not written.
             if i == 0 || b[i - 1] != b'/' {
                 literal_closer = Some(b"`".into());
             }
@@ -420,7 +376,6 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
             literal_closer = Some(b"*/".into());
             i += 1;
         } else if kind == Kind::Rust && c == b'"' {
-            // `"…"`, `b"…"` and `c"…"` run over lines; a `\` at the end of one continues it.
             (literal_closer, in_raw_string, rust_string_start) =
                 (Some(b"\"".into()), false, Some(i));
         } else if kind == Kind::Cmake && c == b'"' {
@@ -429,14 +384,11 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
             .then(|| b[i + 1..].iter().take_while(|&&c| c == b'#').count())
             .filter(|n| b.get(i + 1 + n) == Some(&b'"'))
         {
-            // `r"…"`, `r#"…"#`, `br##"…"##`: closed by a `"` and as many `#`. `r#type` is a name.
             let mut end = vec![b'"'];
             end.resize(hashes + 1, b'#');
             (literal_closer, in_raw_string, rust_string_start) = (Some(end.into()), true, Some(i));
             i += hashes + 1;
         } else if kind == Kind::Rust && c == b'\'' {
-            // A char literal, `'x'`, `'é'`, `'\n'` or `'\u{1F600}'`, closes within a few bytes; a
-            // lifetime, `'a` or `'static`, does not, and opens nothing.
             let end = match b.get(i + 1) {
                 Some(b'\\') => b[(i + 3).min(b.len())..]
                     .iter()
@@ -463,14 +415,12 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
         .flatten()
         .filter(|d| !d.iter().any(|c| b" )\\\t\n".contains(c)))
         {
-            // C++'s `R"(…)"`, `R"sql(…)sql"`: closed by `)`, the delimiter and `"`, no escapes.
             literal_closer = Some([&b")"[..], delim, b"\""].concat().into());
             i += delim.len() + 2;
         } else if kind == Kind::Ruby && line_start && b[i..].starts_with(b"__END__") && {
             let rest = &b[i + 7..];
             rest.first().is_none_or(|&c| c == b'\n' || c == b'\r')
         } {
-            // Whatever follows `__END__` is the script's data.
             out.extend(b[i..].iter().filter(|&&c| c == b'\n').map(|_| true));
             break;
         } else if kind == Kind::Ruby
@@ -484,8 +434,6 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
                 end: HeredocEnd::LabelLeadsLine,
             });
         } else if kind == Kind::Ruby && b[i..].starts_with(b"<<") {
-            // `<<~SQL`, `<<-SQL`, `<<SQL`, `<<~'SQL'`: a bare `<<` needs a capital or a quote, so
-            // `list << x` and `class << self` open nothing. The rest of the line is code.
             let flag = matches!(b.get(i + 2), Some(b'~' | b'-'));
             let at_word = i + 2 + usize::from(flag);
             let q = b.get(at_word).copied().filter(|c| b"'\"`".contains(c));
@@ -504,16 +452,8 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
             } else {
                 i += 1;
             }
-        } else if kind == Kind::Ruby
-            && c == b'/'
-            && b[..i]
-                .iter()
-                .rfind(|c| **c != b' ' && **c != b'\t')
-                .is_none_or(|p| b"\n(,=~!|&;{[".contains(p))
-        {
-            // A regex, `=~ /#/`: its `#` is no comment.
-            line_quote = Some(c);
-        } else if c == b'"'
+        } else if (kind == Kind::Ruby && c == b'/' && ruby_literal_may_start(&b[..i]))
+            || c == b'"'
             || (c == b'\'' && kind != Kind::Cmake)
             || (matches!(kind, Kind::Sql | Kind::Ruby) && c == b'`')
         {
@@ -544,9 +484,6 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
         at_in_rust_string,
     }
 }
-/// The bytes of `s` a scan for brackets and separators reads, with their indexes. String literals
-/// are skipped; a comment (`#` in Python, `//` elsewhere) yields its first byte as `0` and is
-/// skipped to the end of its line.
 pub(super) fn code(kind: Kind, s: &str) -> impl Iterator<Item = (usize, u8)> + '_ {
     let b = s.as_bytes();
     let (mut quote, mut comment, mut escaped) = (None, false, false);
@@ -567,8 +504,6 @@ pub(super) fn code(kind: Kind, s: &str) -> impl Iterator<Item = (usize, u8)> + '
             return None;
         }
         match c {
-            // Rust's lifetime `'a` and C++'s digit separator `1'000` open nothing: there `'`
-            // quotes only a char literal, `'x'` or `'\n'`.
             b'\''
                 if matches!(kind, Kind::Rust | Kind::C)
                     && b.get(i + 1) != Some(&b'\\')
@@ -580,11 +515,24 @@ pub(super) fn code(kind: Kind, s: &str) -> impl Iterator<Item = (usize, u8)> + '
                 quote = Some(c);
                 None
             }
-            b'#' if matches!(kind, Kind::Python | Kind::Gdscript) => {
+            b'/' | b'%' if kind == Kind::Ruby && ruby_literal_may_start(&b[..i]) => {
+                let letter = c == b'%' && b.get(i + 1).is_some_and(|l| b"qQwWiIrsx".contains(l));
+                let closer = match b.get(i + 2).filter(|_| letter) {
+                    Some(b'{') => b'}',
+                    Some(b'[') => b']',
+                    Some(b'(') => b')',
+                    Some(b'<') => b'>',
+                    _ if c == b'/' => b'/',
+                    _ => return Some((i, c)),
+                };
+                quote = Some(closer);
+                None
+            }
+            b'#' if matches!(kind, Kind::Python | Kind::Gdscript | Kind::Ruby) => {
                 comment = true;
                 Some((i, 0))
             }
-            b'/' if !matches!(kind, Kind::Python | Kind::Gdscript)
+            b'/' if !matches!(kind, Kind::Python | Kind::Gdscript | Kind::Ruby)
                 && b.get(i + 1) == Some(&b'/') =>
             {
                 comment = true;
@@ -593,6 +541,12 @@ pub(super) fn code(kind: Kind, s: &str) -> impl Iterator<Item = (usize, u8)> + '
             _ => Some((i, c)),
         }
     })
+}
+fn ruby_literal_may_start(before: &[u8]) -> bool {
+    before
+        .iter()
+        .rfind(|c| **c != b' ' && **c != b'\t')
+        .is_none_or(|p| b"\n(,=~!|&;{[".contains(p))
 }
 pub(super) fn uncommented(kind: Kind, s: &str) -> String {
     let (mut out, mut from) = (String::with_capacity(s.len()), 0);
@@ -603,7 +557,6 @@ pub(super) fn uncommented(kind: Kind, s: &str) -> String {
     out.push_str(&s[from..]);
     out
 }
-/// The byte index past the bracket that closes the one at `open`; `None` when `s` ends first.
 pub(super) fn close_of(kind: Kind, s: &str, open: usize) -> Option<usize> {
     let mut depth = 0usize;
     for (i, c) in code(kind, s).skip_while(|(i, _)| *i < open) {
@@ -620,8 +573,6 @@ pub(super) fn close_of(kind: Kind, s: &str, open: usize) -> Option<usize> {
     }
     None
 }
-/// `s` cut at every `sep` outside brackets and strings; TypeScript's generics `<…>` count as
-/// brackets. An `=` in `=>`, `==`, `<=`, `>=` or `!=` is no separator.
 pub(super) fn split_top(kind: Kind, s: &str, sep: u8) -> Vec<&str> {
     let b = s.as_bytes();
     let (mut depth, mut start, mut out) = (0i32, 0, Vec::new());
@@ -656,7 +607,6 @@ pub(super) fn group<'a>(
     at: usize,
     open: usize,
 ) -> Option<Group<'a>> {
-    // ponytail: a bracket still open 2000 lines on is not read; fastapi's signatures run to 350.
     let text = lines[at..lines.len().min(at + 2000)].join("\n");
     let end = close_of(kind, &text, open)?;
     let line_start = text[..end].rfind('\n').map_or(0, |n| n + 1);
@@ -668,7 +618,6 @@ pub(super) fn group<'a>(
         after_close: &lines[last][end - line_start..],
     })
 }
-/// Whether `word` stands in `s` as a whole name, not as the tail of `a.word`.
 pub(super) fn names(s: &str, word: &str) -> bool {
     s.match_indices(word).any(|(i, _)| {
         let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$' || c == '.';

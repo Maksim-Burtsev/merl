@@ -43,7 +43,6 @@ impl App {
         .then_some(package)
     }
 
-    /// ponytail: four modules deep, which also ends a cycle.
     pub(super) fn package_behind(
         &self,
         here: &Path,
@@ -100,7 +99,7 @@ impl App {
         let mut hits = grep(&pattern);
         hits.retain(|h| {
             self.text_of(&h.path)
-                .is_some_and(|text| search::qualified(Kind::TsJs, &text, h.line, &local).is_none())
+                .is_some_and(|text| search::qualified(Kind::TsJs, &text, h.line1, &local).is_none())
         });
         hits
     }
@@ -148,7 +147,7 @@ impl App {
                         .iter()
                         .any(|h| {
                             self.text_of(&h.path).is_some_and(|text| {
-                                search::qualified(kind, &text, h.line, name).is_none()
+                                search::qualified(kind, &text, h.line1, name).is_none()
                             })
                         })
                 };
@@ -180,7 +179,7 @@ impl App {
                         .iter()
                         .any(|h| {
                             self.text_of(&h.path).is_some_and(|t| {
-                                search::qualified(kind, &t, h.line, n).is_none()
+                                search::qualified(kind, &t, h.line1, n).is_none()
                                     && search::declares_type(kind, &h.text)
                             })
                         })
@@ -256,12 +255,12 @@ impl App {
         let bare = Regex::new(&bare).expect("an escaped name keeps the pattern valid");
         hits.retain(|h| {
             self.text_of(&h.path).is_some_and(|text| {
-                let owner = search::owner_line(&text, h.line).unwrap_or_default();
+                let owner = search::owner_line(&text, h.line1).unwrap_or_default();
                 let enumed = OWNER_ENUM.is_match(owner);
                 let literal = OWNER_LITERAL.is_match(owner);
                 let value = OWNER_VALUE.is_match(owner);
                 let added = member && !declarations.as_ref().is_some_and(|d| d.is_match(&h.text));
-                search::qualified(kind, &text, h.line, name) == within
+                search::qualified(kind, &text, h.line1, name) == within
                     && (!added || !value || literal)
                     && (!added || !bare.is_match(&h.text) || enumed || literal)
             })
@@ -287,8 +286,8 @@ impl App {
                     .and_then(|t| t.lines().nth(line - 1).map(str::to_owned))
                     .unwrap_or_default(),
                 path: file.clone(),
-                line,
-                col: 0,
+                line1: line,
+                byte_col: None,
             }];
         }
         if hits.is_empty()
@@ -322,7 +321,6 @@ impl App {
         if hits.is_empty() && !named && files.iter().all(|f| search::component(f)) {
             return Some(self.module_candidates(files));
         }
-        // ponytail: four modules deep, which also ends a cycle.
         if hits.is_empty()
             && kind == Kind::TsJs
             && depth < 4
@@ -355,7 +353,7 @@ impl App {
                     for c in more {
                         if !found
                             .iter()
-                            .any(|o| (&o.hit.path, o.hit.line) == (&c.hit.path, c.hit.line))
+                            .any(|o| (&o.hit.path, o.hit.line1) == (&c.hit.path, c.hit.line1))
                         {
                             found.push(c);
                         }
@@ -366,14 +364,13 @@ impl App {
                 return Some(found);
             }
         }
-        // ponytail: four modules deep, which also ends a cycle.
         if hits.is_empty() && kind == Kind::Python && depth < 4 {
             let mut found: Vec<Candidate> = Vec::new();
             for f in &files {
                 for c in self.handed_on(kind, f, &inside, depth) {
                     if !found
                         .iter()
-                        .any(|o| (&o.hit.path, o.hit.line) == (&c.hit.path, c.hit.line))
+                        .any(|o| (&o.hit.path, o.hit.line1) == (&c.hit.path, c.hit.line1))
                     {
                         found.push(c);
                     }
@@ -499,8 +496,8 @@ impl App {
                         t.lines().next().unwrap_or_default().to_owned()
                     }),
                     path,
-                    line: 1,
-                    col: 0,
+                    line1: 1,
+                    byte_col: None,
                 },
             })
             .collect()

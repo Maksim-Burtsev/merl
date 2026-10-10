@@ -162,3 +162,98 @@ fn a_parameter_is_a_local_of_the_blocks_around_it() {
     );
     assert_eq!(at(10, "Root"), [1], "the script's block is around it");
 }
+
+#[test]
+fn a_declaration_shape_matches_and_a_use_does_not() {
+    let matches = |line: &str, word: &str| {
+        Regex::new(&powershell_patterns(word).join("|"))
+            .unwrap()
+            .is_match(line)
+    };
+    for (line, word) in [
+        ("function global:Get-X {", "Get-X"),
+        ("filter Select-Active {", "Select-Active"),
+        ("class Tariff : Base {", "Tariff"),
+        ("[Flags()] enum Status {", "Status"),
+        ("$script:Cache = @{}", "Cache"),
+        ("    [Parameter(Mandatory)][string] $Name", "Name"),
+        ("    hidden [int] $Total", "Total"),
+        ("    [int] Sum($a) {", "Sum"),
+        ("    Ready = 1", "Ready"),
+        ("Set-Alias -Name gu Get-ShopUser", "gu"),
+        ("    static [int] $Count = 0", "Count"),
+        ("$env:Path += ':/x'", "Path"),
+        ("$x += 1", "x"),
+    ] {
+        assert!(matches(line, word), "{line}");
+    }
+    for (line, word) in [
+        ("Get-X -Id 1", "Get-X"),
+        ("Get-X -Id 1", "Id"),
+        ("$h = @{ Name = 1 }", "Name"),
+        ("$user.Name = 1", "Name"),
+        ("$list[0] = 1", "list"),
+        ("$a -eq 1", "a"),
+    ] {
+        assert!(!matches(line, word), "{line}");
+    }
+}
+
+#[test]
+fn the_spelling_picks_what_a_word_may_declare() {
+    let keeps = |before: &str, after: &str, line: &str, word: &str| {
+        let mut p = powershell_patterns(word);
+        powershell_sigil(&mut p, before, after);
+        Regex::new(&p.join("|")).unwrap().is_match(line)
+    };
+    assert!(!keeps("$", "", "function Tariff {", "Tariff"));
+    assert!(keeps("$", "", "$Tariff = 1", "Tariff"));
+    assert!(keeps("$script:", "", "$script:Tariff = 1", "Tariff"));
+    assert!(keeps("@", "", "$Opts = @{}", "Opts"));
+    assert!(!keeps("$env:", "", "$Path = 1", "Path"));
+    assert!(keeps(".", "", "    [int] Total($a) {", "Total"));
+    assert!(keeps(".", "", "    [int] $Total", "Total"));
+    assert!(!keeps(".", "", "function Total {", "Total"));
+    assert!(keeps(
+        "[Shop]::",
+        "",
+        "    static [int] $Count = 0",
+        "Count"
+    ));
+    assert!(!keeps("[Shop]::", "", "$Count = 0", "Count"));
+    assert!(keeps("[", "]::new(", "    Tariff($a) {", "Tariff"));
+    assert!(!keeps("", "", "    Tariff($a) {", "Tariff"));
+    assert!(keeps("", "", "function Tariff {", "Tariff"));
+}
+
+#[test]
+fn an_indented_shape_declares_only_where_it_sits() {
+    let text = "[Flags()] enum Status {\n    Ready = 1\n\n# done\n    Done\n}\nclass Shop {\n    [int] Total($n) {\n        $Sum = 0\n    }\n}\nfunction F {\n    param(\n        [string]$Name = \")\", # )\n        [int]$Id\n    )\n    $Name = 1\n    Total(1)\n    $h = @{\n        Key = 1\n    }\n}\n";
+    let lines: Vec<&str> = text.lines().collect();
+    let at = |n: usize| powershell_declares(&lines, n, lines[n - 1]);
+    assert!(at(2), "a member of an enum behind attributes");
+    assert!(at(5), "past a blank and a comment");
+    assert!(at(8), "a method of a class");
+    assert!(at(9));
+    assert!(!at(14), "a parameter");
+    assert!(
+        !at(15),
+        "still a parameter past a `)` in quotes and one in a comment"
+    );
+    assert!(at(17));
+    assert!(!at(18), "a call outside a class");
+    assert!(!at(20), "a hashtable key");
+}
+
+#[test]
+fn a_header_or_a_method_lists_its_parameters() {
+    let text = "function A($Id) {\n    $Id\n}\nclass Shop {\n    [int] Total($n) {\n        $n\n    }\n}\n";
+    let at = |line, name| -> Vec<usize> {
+        bindings(Kind::PowerShell, text, line, name)
+            .iter()
+            .map(|b| b.line1)
+            .collect()
+    };
+    assert_eq!(at(2, "Id"), [1]);
+    assert_eq!(at(6, "n"), [5]);
+}

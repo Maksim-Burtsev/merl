@@ -57,7 +57,7 @@ impl App {
             .into_iter()
             .filter(|h| {
                 self.text_of(&h.path)
-                    .is_some_and(|t| search::qualified(kind, &t, h.line, name).is_none())
+                    .is_some_and(|t| search::qualified(kind, &t, h.line1, name).is_none())
             })
             .collect();
         self.host_built(kind, hits)
@@ -85,9 +85,9 @@ impl App {
     /// a declaration-shaped line declares nothing (#453).
     pub(super) fn in_code(&self, kind: Kind, hit: &Hit) -> bool {
         match search::component(&hit.path) {
-            true => self.hidden_of(kind, hit).get(hit.line - 1) != Some(&true),
+            true => self.hidden_of(kind, hit).get(hit.line1 - 1) != Some(&true),
             false => (self.text_of(&hit.path)).is_some_and(|text| {
-                search::literal_lines(kind, &text).get(hit.line - 1) != Some(&true)
+                search::literal_lines(kind, &text).get(hit.line1 - 1) != Some(&true)
             }),
         }
     }
@@ -100,10 +100,10 @@ impl App {
         };
         let lines: Vec<&str> = text.lines().collect();
         match kind {
-            Kind::Php => search::php_tag_class(&lines, hit.line - 1).is_some(),
+            Kind::Php => search::php_tag_class(&lines, hit.line1 - 1).is_some(),
             Kind::TsJs => {
                 search::reads_jsdoc(kind, &hit.path)
-                    && search::jsdoc_owner(&lines, hit.line - 1).is_some()
+                    && search::jsdoc_owner(&lines, hit.line1 - 1).is_some()
             }
             _ => false,
         }
@@ -126,7 +126,7 @@ impl App {
             .filter(|h| {
                 self.in_code(kind, h)
                     && self.text_of(&h.path).is_some_and(|text| {
-                        search::qualified(kind, &text, h.line, name).as_deref() == within
+                        search::qualified(kind, &text, h.line1, name).as_deref() == within
                     })
             })
             .collect()
@@ -190,7 +190,7 @@ impl App {
             .into_iter()
             .filter(|h| {
                 self.text_of(&h.path)
-                    .and_then(|text| search::qualified(kind, &text, h.line, word))
+                    .and_then(|text| search::qualified(kind, &text, h.line1, word))
                     == want
             })
             .collect();
@@ -237,8 +237,8 @@ impl App {
         } = search::field_line(kind, &text, ty.line, word)?;
         (assigned_in_method == assigned).then(|| Hit {
             path: ty.path.clone(),
-            line,
-            col: 0,
+            line1: line,
+            byte_col: None,
             text: text.lines().nth(line - 1).unwrap_or_default().to_owned(),
             deleted: None,
         })
@@ -263,8 +263,8 @@ impl App {
         let mut by_file: Vec<(PathBuf, Vec<usize>)> = Vec::new();
         for h in raw {
             match by_file.last_mut() {
-                Some((path, lines)) if *path == h.path => lines.push(h.line),
-                _ => by_file.push((h.path, vec![h.line])),
+                Some((path, lines)) if *path == h.path => lines.push(h.line1),
+                _ => by_file.push((h.path, vec![h.line1])),
             }
         }
         for (path, lines) in by_file {
@@ -273,19 +273,19 @@ impl App {
             };
             let jsdoc = search::reads_jsdoc(kind, &path);
             for line in search::field_rows(kind, &text, &lines, word, jsdoc) {
-                if !hits.iter().any(|h| h.path == path && h.line == line) {
+                if !hits.iter().any(|h| h.path == path && h.line1 == line) {
                     hits.push(Hit {
                         text: text.lines().nth(line - 1).unwrap_or_default().to_owned(),
                         path: path.clone(),
-                        line,
-                        col: 0,
+                        line1: line,
+                        byte_col: None,
                         deleted: None,
                     });
                 }
             }
         }
         let current = self.rel_current();
-        hits.sort_by_cached_key(|h| (current.as_ref() != Some(&h.path), h.path.clone(), h.line));
+        hits.sort_by_cached_key(|h| (current.as_ref() != Some(&h.path), h.path.clone(), h.line1));
         hits
     }
 
@@ -294,7 +294,7 @@ impl App {
         (t.starts_with("def ") || t.starts_with("async def "))
             && self
                 .hit_text(h)
-                .is_some_and(|text| search::python_in_function(&text, h.line))
+                .is_some_and(|text| search::python_in_function(&text, h.line1))
     }
 
     pub(super) fn field_namesakes(
@@ -373,29 +373,53 @@ impl App {
     fn subtype_impls(&self, kind: Kind, here: &Path, word: &str, owner: &Typed) -> Vec<Hit> {
         self.subtypes(kind, here, owner)
             .into_iter()
-            .filter_map(|(path, decl)| {
+            .filter_map(|FileLine { path, line1 }| {
                 let text = self.text_of(&path)?;
-                let at = search::member_decl(kind, &text, decl, word)?;
+                let at = search::member_decl(kind, &text, line1, word)?;
                 Some(Hit {
                     deleted: None,
                     text: text.lines().nth(at - 1).unwrap_or_default().to_owned(),
                     path,
-                    line: at,
-                    col: 0,
+                    line1: at,
+                    byte_col: None,
                 })
             })
             .collect()
     }
 
-    /// The types that name `owner` as a base, and the types that name those, four levels down:
-    /// each as its file and the 1-based line declaring it. [`Self::subtype_impls`] says when a
-    /// type counts as one.
-    pub(super) fn subtypes(&self, kind: Kind, here: &Path, owner: &Typed) -> Vec<(PathBuf, usize)> {
+    pub(super) fn subclass_members(
+        &mut self,
+        kind: Kind,
+        here: &Path,
+        word: &str,
+        pattern: &str,
+        ty: &Typed,
+    ) -> Vec<Candidate> {
+        let mut owners = self.subtypes(kind, here, ty);
+        owners.push(ty.decl());
+        self.members_by_name(kind, here, word, pattern)
+            .into_iter()
+            .filter(|h| {
+                self.text_of(&h.path).is_some_and(|t| {
+                    let lines: Vec<&str> = t.lines().collect();
+                    search::enclosing_type(kind, &lines, h.line1 - 1)
+                        .is_some_and(|d| owners.iter().any(|o| o.path == h.path && o.line1 == d))
+                })
+            })
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::ByName,
+            })
+            .collect()
+    }
+
+    /// The declarations of the types that name `owner` as a base, and of the types that name
+    /// those. [`Self::subtype_impls`] says when a type counts as one.
+    pub(super) fn subtypes(&self, kind: Kind, here: &Path, owner: &Typed) -> Vec<FileLine> {
         let mut names = vec![owner.name.clone()];
         let mut types = vec![(owner.name.clone(), owner.path.clone())];
         let mut seen = vec![(owner.path.clone(), owner.line)];
         let mut out = Vec::new();
-        // ponytail: four levels of subtypes, one grep each. Deeper hierarchies want an index.
         for _ in 0..4 {
             let Some(pattern) = search::subtype_patterns(kind, &names) else {
                 break;
@@ -413,7 +437,7 @@ impl App {
                 };
                 // The clause the grep matched may be one line of a header wrapped over
                 // several, and the type is declared on the first of them.
-                let Some(decl) = search::type_decl_at(kind, &text, hit.line) else {
+                let Some(decl) = search::type_decl_at(kind, &text, hit.line1) else {
                     continue;
                 };
                 let name = text
@@ -476,7 +500,10 @@ impl App {
                 seen.push((hit.path.clone(), decl));
                 found.push((name.clone(), hit.path.clone()));
                 next.push(name);
-                out.push((hit.path, decl));
+                out.push(FileLine {
+                    path: hit.path,
+                    line1: decl,
+                });
             }
             if next.is_empty() || out.len() >= search::MAX_HITS {
                 break;
@@ -550,24 +577,24 @@ impl App {
         };
         self.project_definitions(kind, here, word, &patterns.join("|"))
             .into_iter()
-            .filter(|h| h.line != line || h.path != here)
+            .filter(|h| h.line1 != line || h.path != here)
             .filter(|h| {
                 let Some(text) = self.text_of(&h.path) else {
                     return false;
                 };
-                if search::params(kind, &text, h.line) != Some(want) {
+                if search::params(kind, &text, h.line1) != Some(want) {
                     return false;
                 }
                 // Go writes its types: the same number of parameters of other types, or another
                 // result, implements nothing. Where either cannot be read, the count stands.
                 if kind == Kind::Go
-                    && let (Some(a), Some(b)) = (&signature, search::go_signature(&text, h.line))
+                    && let (Some(a), Some(b)) = (&signature, search::go_signature(&text, h.line1))
                     && *a != b
                 {
                     return false;
                 }
                 kind != Kind::Python
-                    || search::owner_decl(kind, &text, h.line)
+                    || search::owner_decl(kind, &text, h.line1)
                         .filter(|&d| d != owner_line || h.path != here)
                         .is_some_and(|d| !is_protocol(&text, d))
             })
@@ -596,12 +623,10 @@ impl App {
                 false => Some(members),
             }
         };
-        // ponytail: eight levels up, which also ends a cycle.
         let text = self
             .text_of(&ty.path)
             .filter(|_| depth < 8)
             .ok_or_else(broke)?;
-        // ponytail: bases that declare no member worth a jump, by their usual spelling.
         let plain = |b: &str| {
             let b = b.split('[').next().unwrap_or(b);
             let b = b.rsplit('.').next().unwrap_or(b);
@@ -620,7 +645,7 @@ impl App {
                 None => self.above(kind, &base, word, depth + 1)?,
             };
             let lines = |hits: &[Hit]| -> Vec<(PathBuf, usize)> {
-                hits.iter().map(|h| (h.path.clone(), h.line)).collect()
+                hits.iter().map(|h| (h.path.clone(), h.line1)).collect()
             };
             if !hits.is_empty() && answers.iter().all(|a| lines(a) != lines(&hits)) {
                 answers.push(hits);
@@ -643,7 +668,6 @@ impl App {
         if let Some(found) = find(ty) {
             return Some(found);
         }
-        // ponytail: eight levels up, which also ends a cycle.
         if depth == 8 {
             return None;
         }

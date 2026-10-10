@@ -10,3 +10,7 @@ pub mod errands;
 pub mod parcels;
 pub mod locals;
 pub mod receivers;
+pub mod rules;
+pub mod tints;
+pub mod carts;
+pub mod hauls;

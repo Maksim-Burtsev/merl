@@ -253,14 +253,21 @@ fn search_picker_prompt_and_hit_count() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+fn rust_file_opening_on_a_doc_comment() -> PathBuf {
+    let root = std::env::temp_dir().join(format!("merl-doc-row-{}", std::process::id()));
+    std::fs::create_dir_all(root.join("src")).unwrap();
+    std::fs::write(root.join("src/wrap.rs"), "//! Soft wrap.\n\nfn wrap() {}\n").unwrap();
+    root
+}
+
 #[test]
 fn hit_picker_rows_keep_the_syntax_colours_of_their_line() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let root = rust_file_opening_on_a_doc_comment();
     let mut app = App::new(root, Tree::default(), Vec::new(), Buffer::empty(), None);
     let hits = vec![crate::search::Hit {
         path: PathBuf::from("src/wrap.rs"),
-        line: 1,
-        col: 0,
+        line1: 1,
+        byte_col: None,
         text: std::fs::read_to_string(app.root.join("src/wrap.rs"))
             .unwrap()
             .lines()
@@ -292,12 +299,12 @@ fn hit_picker_rows_keep_the_syntax_colours_of_their_line() {
 
 #[test]
 fn the_selected_hit_row_takes_the_themes_selected_text_colour() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let root = rust_file_opening_on_a_doc_comment();
     let mut app = App::new(root, Tree::default(), Vec::new(), Buffer::empty(), None);
     let hits = vec![crate::search::Hit {
         path: PathBuf::from("src/wrap.rs"),
-        line: 1,
-        col: 0,
+        line1: 1,
+        byte_col: None,
         text: std::fs::read_to_string(app.root.join("src/wrap.rs"))
             .unwrap()
             .lines()
@@ -337,8 +344,8 @@ fn hit_picker_rows_keep_their_colours_past_a_tab() {
     );
     let hits = vec![crate::search::Hit {
         path: PathBuf::from("a.c"),
-        line: 1,
-        col: 0,
+        line1: 1,
+        byte_col: None,
         text: "#define MAX\t10".into(),
         deleted: None,
     }];
@@ -797,8 +804,8 @@ fn hits_app(name: &str, hits: &[(&str, usize, &str)]) -> App {
         .iter()
         .map(|&(path, line, text)| crate::search::Hit {
             path: PathBuf::from(path),
-            line,
-            col: 0,
+            line1: line,
+            byte_col: None,
             text: text.into(),
             deleted: None,
         })

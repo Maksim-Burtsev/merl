@@ -462,3 +462,15 @@ fn enter_with_nothing_matched_keeps_the_list_and_its_query() {
         );
     }
 }
+
+#[test]
+fn the_file_picker_ranks_a_match_in_the_file_name_first() {
+    let (dir, mut a) = project_app("paths", &[("fob-x/y.rs", ""), ("a/fob.rs", "")]);
+    press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+    typed(&mut a, "fob");
+    let p = a.picker.as_mut().unwrap();
+    p.settle();
+    let rows: Vec<String> = p.rows(0, 2).into_iter().map(|r| r.item.label).collect();
+    assert_eq!(rows, ["a/fob.rs", "fob-x/y.rs"]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}

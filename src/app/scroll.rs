@@ -1,9 +1,5 @@
-//! Keeping the cursor on the screen: the vertical and horizontal scroll.
-
 use super::*;
 
-/// Most declarations pinned over the code: the innermost ones when more enclose the view. Two
-/// covers a method in its `impl` or `class`, two rows of a pane of thirty.
 const MAX_PINNED: usize = 2;
 
 impl App {
@@ -27,7 +23,6 @@ impl App {
         ) = kept;
     }
 
-    /// Scrolls the minimum amount that puts the cursor back on screen.
     pub fn clamp_scroll(&mut self) {
         self.clamp_top();
         self.clamp_left();
@@ -53,13 +48,10 @@ impl App {
         pins
     }
 
-    /// Most lines the pane pins: none under 8 rows, one under 16.
     fn max_pinned(&self) -> usize {
         MAX_PINNED.min(self.view_h / 8)
     }
 
-    /// Rows a page down (or up) moves: the rows of code the pane shows under the lines pinned
-    /// now, fewer when the top a page away pins more, so no line is skipped between two pages.
     pub(super) fn page_rows(&self, down: bool) -> usize {
         let rows = |top: (usize, usize)| self.view_h.saturating_sub(self.pinned(top.0).len());
         let top = (self.top_line, self.top_row);
@@ -73,10 +65,6 @@ impl App {
         here.min(rows(there)).max(1)
     }
 
-    /// The first top at or below `from` that shows `bottom` on the pane, under the lines pinned
-    /// for that top: nothing ever stands behind them. The pins do not grow with the top (past a
-    /// method's `}` two become one), so the tops are tried one row at a time from the first that
-    /// shows `bottom` with no pins; every pin takes a row, so one of the next [`MAX_PINNED`] fits.
     fn fit_top(&self, from: (usize, usize), bottom: (usize, usize)) -> (usize, usize) {
         let mut top = from.max(self.back_rows(bottom, self.view_h.saturating_sub(1)));
         for _ in 0..MAX_PINNED {
@@ -89,8 +77,6 @@ impl App {
         top
     }
 
-    /// Not wrapped, the view follows the cursor sideways, keeping [`SIDE_OFF`] columns between it
-    /// and the edge but never scrolling past the end of its line.
     fn clamp_left(&mut self) {
         if !self.nowrap() {
             self.left = 0;
@@ -106,8 +92,6 @@ impl App {
         }
     }
 
-    /// The top made valid for the text and ghosts as they are now. It may stay on the lines
-    /// deleted at the end of the file, keyed `lines.len()`, which have ghost rows only.
     pub(super) fn clamp_top(&mut self) {
         let end = self.buf.lines.len();
         if self.top_line != end || self.top_row >= self.ghost_rows(end) {
@@ -124,8 +108,6 @@ impl App {
         self.forward_rows((self.top_line, self.top_row), rows).0
     }
 
-    /// Puts the cursor in the middle of the rows of code, under the lines pinned for the top
-    /// that centres it.
     fn center_cursor(&mut self) {
         let cur = self.cursor_at();
         let pins = self.pinned(self.back_rows(cur, self.view_h / 2).0).len();

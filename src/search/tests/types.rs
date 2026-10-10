@@ -330,12 +330,10 @@ fn a_python_line_is_cut_into_its_simple_statements() {
         ("if x: ledger = A()", &["ledger = A()"]),
         ("else: a = 1; b = 2", &["a = 1", "b = 2"]),
         ("async with open(p) as f: data = f", &["data = f"]),
-        // A `:` in brackets, in a string and of `:=` ends no header.
         ("if d[1:2] == \"a:b\": x = 1", &["x = 1"]),
         ("if m := find(): x = m", &["x = m"]),
         ("while True:", &[]),
         ("case Repo(): x = 1", &["x = 1"]),
-        // No header: an annotation's `:` cuts nothing, and neither does a `;` in a string.
         ("iffy: int = 1", &["iffy: int = 1"]),
         ("x = \"a;b\"", &["x = \"a;b\""]),
     ];
@@ -624,4 +622,55 @@ fn enum_constants_are_the_names_at_the_start_of_the_body() {
         pairs(enum_constants(java, 3)),
         [("PLAIN".to_owned(), 4), ("HALF".to_owned(), 5)]
     );
+}
+
+#[test]
+fn a_typescript_type_alias_goes_on_as_an_equals_or_its_parameters() {
+    assert!(declares_type(Kind::TsJs, "export type Rate = number;"));
+    assert!(declares_type(Kind::TsJs, "type Box<T> = { item: T };"));
+    assert!(
+        !declares_type(Kind::TsJs, "  type Notifier,"),
+        "an item of a wrapped import or export list"
+    );
+}
+
+#[test]
+fn a_go_alias_names_its_type_unless_it_takes_type_parameters() {
+    assert_eq!(
+        go_alias(Kind::Go, "type Rate = shop.Rate"),
+        Some("shop.Rate")
+    );
+    assert_eq!(go_alias(Kind::Go, "type Rate shop.Rate"), None);
+    assert_eq!(go_alias(Kind::Go, "type List[T any] = []T"), None);
+    assert_eq!(go_alias(Kind::TsJs, "type Rate = shop.Rate"), None);
+}
+
+#[test]
+fn a_def_wrapped_over_lines_keeps_its_body_off_the_module_level() {
+    let text =
+        "def f(\n    a,\n):\n    import os\nclass C(\n    B\n):\n    import re\nimport sys\n";
+    assert_eq!(python_module_level(text), "import sys\n");
+}
+
+#[test]
+fn a_class_body_binds_for_itself_not_for_its_methods() {
+    let text =
+        "class C:\n    limit = 1\n    twice = limit * 2\n    def m(self):\n        return limit\n";
+    assert!(python_class_binds(text, 3, "limit"));
+    assert!(!python_class_binds(text, 5, "limit"));
+    assert!(!python_class_binds(text, 3, "other"));
+}
+
+#[test]
+fn a_keyword_argument_names_no_variable() {
+    let at = |text: &str, line1: usize, word: &str| {
+        let line = text.lines().nth(line1 - 1).unwrap();
+        let start = line.find(word).unwrap();
+        keyword_argument(text, line1, &(start..start + word.len()))
+    };
+    assert!(at("make(size=1)", 1, "size"));
+    assert!(at("make(1, size=1)", 1, "size"));
+    assert!(at("make(\n    size=1,\n)", 2, "size"));
+    assert!(!at("make(size == 1)", 1, "size"));
+    assert!(!at("size = 1", 1, "size"));
 }

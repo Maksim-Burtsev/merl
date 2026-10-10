@@ -82,6 +82,56 @@ fn definition_scope_follows_the_kind() {
         Path::new("migrations/002.sql"),
         Path::new("notes.md")
     ));
+    for (kind, here, other) in [
+        (Kind::Markdown, "README.md", "docs/guide.md"),
+        (Kind::Html, "index.html", "about.html"),
+        (Kind::Docker, "Dockerfile", "web/Dockerfile"),
+    ] {
+        assert!(in_def_scope(kind, Path::new(here), Path::new(here)));
+        assert!(
+            !in_def_scope(kind, Path::new(here), Path::new(other)),
+            "a {kind:?} file holds its own anchors and stages"
+        );
+    }
+}
+
+#[test]
+fn ruby_classes_are_read_by_their_nesting() {
+    let text = "module Shop\n  class Basket < Base\n    include Taxed\n    prepend Logged\n    extend Finder\n    has_many :lines\n    class << self\n      def build\n      end\n    end\n    def total\n      helper do\n        include Nope\n      end\n    end\n  end\nend\nclass Shop::Order\n  def lines\n  end\nend\n";
+    assert_eq!(ruby_class_path(text, 6), "Shop::Basket");
+    assert_eq!(
+        ruby_class_path(text, 8),
+        "Shop::Basket",
+        "`class << self` is the class around it"
+    );
+    assert_eq!(ruby_class_path(text, 19), "Shop::Order");
+    assert_eq!(ruby_class_path(text, 1), "");
+    assert_eq!(ruby_declared_path(text, 2).as_deref(), Some("Shop::Basket"));
+    assert_eq!(ruby_declared_path(text, 18).as_deref(), Some("Shop::Order"));
+    assert_eq!(
+        ruby_declared_path(text, 7),
+        None,
+        "`class << self` declares nothing"
+    );
+    assert_eq!(ruby_declared_path(text, 11), None);
+    let RubyParents {
+        superclasses,
+        includes,
+        extends,
+    } = ruby_class_parents(text, 2);
+    assert_eq!(superclasses, ["Base"]);
+    assert_eq!(
+        includes,
+        ["Taxed", "Logged"],
+        "a `prepend` is an `include`, one in a block of a method is not the class's"
+    );
+    assert_eq!(extends, ["Finder"]);
+    assert!(
+        ruby_self_is_class(text, 6),
+        "the class body calls on the class"
+    );
+    assert!(ruby_self_is_class(text, 8), "`class << self`");
+    assert!(!ruby_self_is_class(text, 12), "an instance method");
 }
 
 #[test]
@@ -189,10 +239,244 @@ fn ruby_roots_are_the_locked_gems_of_the_ruby_the_project_names() {
         Some(&beside),
         "a `BUNDLE_PATH` beside the project is read without its `..`"
     );
+    let env = tmp.join("env-too");
+    std::fs::create_dir_all(env.join("gems/rack-attack-6.7.0")).unwrap();
+    assert_eq!(
+        ruby_roots(&root, &home, std::slice::from_ref(&env), || None),
+        std::slice::from_ref(&beside),
+        "`BUNDLE_PATH` before `GEM_HOME` for a gem both hold"
+    );
+    for manager in [
+        ".local/share/mise/installs/ruby/3.3.0",
+        ".asdf/installs/ruby/3.3.0",
+        ".rubies/ruby-3.3.0",
+    ] {
+        let stdlib = home.join(manager).join("lib/ruby/3.3.0");
+        std::fs::create_dir_all(&stdlib).unwrap();
+        assert_eq!(
+            ruby_roots(&root, &home, &[], || panic!("asked")),
+            [stdlib, beside.clone()],
+            "the Ruby of {manager}"
+        );
+        std::fs::remove_dir_all(home.join(manager.split('/').next().unwrap())).unwrap();
+    }
+    write(
+        &root.join("Gemfile.lock"),
+        "PATH\n  remote: engines/local\n  specs:\n    local (0.1.0)\n\nGEM\n  specs:\n    rack-attack (6.7.0)\n",
+    );
+    std::fs::create_dir_all(tmp.join("bundle/ruby/3.3.0/gems/local-0.1.0")).unwrap();
+    assert_eq!(
+        ruby_roots(&root, &home, &[], || None),
+        std::slice::from_ref(&beside),
+        "a `PATH` gem is in the project already"
+    );
     std::fs::remove_file(root.join("Gemfile.lock")).unwrap();
     assert!(
         ruby_roots(&root, &home, &[], || panic!("asked")).is_empty(),
         "no lockfile: nothing outside"
     );
     std::fs::remove_dir_all(&tmp).unwrap();
+}
+
+#[test]
+fn a_toolchain_runs_from_the_root_of_the_disk_with_the_go_installed() {
+    let command = toolchain("go", &["env", "GOROOT"]);
+    assert_eq!(
+        command.get_current_dir(),
+        Some(Path::new("/")),
+        "no `rust-toolchain.toml` or `go.mod` of the project picks the toolchain (#183)"
+    );
+    assert!(
+        command
+            .get_envs()
+            .any(|(k, v)| k == "GOTOOLCHAIN" && v == Some("local".as_ref())),
+        "nor does Go download one"
+    );
+}
+
+#[test]
+fn roots_are_directories_kept_once_in_order_and_never_the_project() {
+    let (dir, _) = scratch("existing-once", &[("b/x", ""), ("a/x", ""), ("file", "")]);
+    let (a, b) = (dir.join("a"), dir.join("b"));
+    assert_eq!(
+        existing_once(
+            vec![
+                b.clone(),
+                PathBuf::new(),
+                dir.clone(),
+                a.clone(),
+                dir.join("gone"),
+                dir.join("file"),
+                b.clone(),
+            ],
+            &dir
+        ),
+        [b, a],
+        "`sys.path` can list a directory twice, far apart: the first stays where it is"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn rust_roots_are_the_locked_crates_in_every_registry_index() {
+    let (dir, _) = scratch(
+        "locked-crates",
+        &[("index-a/.keep", ""), ("index-b/.keep", "")],
+    );
+    let lock = "version = 4\n\n[[package]]\nname = \"serde\"\nversion = \"1.0.200\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\ndependencies = [\n \"serde_derive\",\n]\n\n[[package]]\nname = \"merl\"\nversion = \"0.8.3\"\n";
+    let mut dirs = locked_crates(&dir, lock);
+    dirs.sort();
+    assert_eq!(
+        dirs,
+        [
+            dir.join("index-a/merl-0.8.3"),
+            dir.join("index-a/serde-1.0.200"),
+            dir.join("index-b/merl-0.8.3"),
+            dir.join("index-b/serde-1.0.200"),
+        ],
+        "a `[[package]]` table's `name` and `version` are the directory `name-version`"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn go_roots_are_the_required_modules_as_the_cache_spells_them() {
+    let gomod = "module example.com/me\n\ngo 1.22\n\nrequire github.com/BurntSushi/toml v1.3.2\n\nrequire (\n\tgolang.org/x/sys v0.20.0 // indirect\n)\n\nreplace example.com/x => ../x\n";
+    let cache = Path::new("/cache");
+    assert_eq!(
+        required_modules(cache, gomod),
+        [
+            cache.join("github.com/!burnt!sushi/toml@v1.3.2"),
+            cache.join("golang.org/x/sys@v0.20.0"),
+        ],
+        "a `require` line or a line of its block; upper case is `!` and the letter"
+    );
+}
+
+#[test]
+fn c_roots_are_the_system_headers_the_sdk_frameworks_and_pods() {
+    let (sdk, _) = scratch(
+        "c-roots",
+        &[
+            (
+                "System/Library/Frameworks/Accelerate.framework/Frameworks/vImage.framework/x",
+                "",
+            ),
+            (
+                "System/Library/Frameworks/Foundation.framework/Headers/x",
+                "",
+            ),
+            (
+                "System/iOSSupport/System/Library/Frameworks/UIKit.framework/Headers/x",
+                "",
+            ),
+        ],
+    );
+    let root = Path::new("/project");
+    let system = [
+        "/usr/include",
+        "/usr/local/include",
+        "/opt/homebrew/include",
+    ]
+    .map(PathBuf::from);
+    assert_eq!(
+        c_roots(None, root),
+        [&system[..], &[root.join("Pods")]].concat()
+    );
+    let frameworks = sdk.join("System/Library/Frameworks");
+    assert_eq!(
+        c_roots(Some(sdk.clone()), root),
+        [
+            system[0].clone(),
+            sdk.join("usr/include"),
+            system[1].clone(),
+            system[2].clone(),
+            frameworks.clone(),
+            sdk.join("System/iOSSupport/System/Library/Frameworks"),
+            frameworks.join("Accelerate.framework/Frameworks"),
+            root.join("Pods"),
+        ],
+        "the SDK's headers, its frameworks, UIKit's under `iOSSupport`, those an umbrella \
+         framework holds, and CocoaPods' `Pods/` (#417)"
+    );
+    std::fs::remove_dir_all(&sdk).unwrap();
+}
+
+#[test]
+#[cfg(unix)]
+fn a_framework_is_read_through_its_headers_link_once() {
+    let (sdk, _) = scratch(
+        "frameworks",
+        &[
+            (
+                "System/Library/Frameworks/Foo.framework/Versions/A/Headers/foo.h",
+                "",
+            ),
+            (
+                "System/Library/Frameworks/Foo.framework/Modules/module.h",
+                "",
+            ),
+        ],
+    );
+    let foo = sdk.join("System/Library/Frameworks/Foo.framework");
+    std::os::unix::fs::symlink("A", foo.join("Versions/Current")).unwrap();
+    std::os::unix::fs::symlink("Versions/Current/Headers", foo.join("Headers")).unwrap();
+    assert_eq!(
+        external_files(Kind::C, &[sdk.join("System/Library/Frameworks")]),
+        [foo.join("Headers/foo.h")]
+    );
+    std::fs::remove_dir_all(&sdk).unwrap();
+}
+
+#[test]
+fn cpp_dirs_are_the_versions_under_cpp() {
+    let (dir, _) = scratch(
+        "cpp-dirs",
+        &[
+            ("c++/v1/vector", ""),
+            ("c++/13/vector", ""),
+            ("c++/README", ""),
+        ],
+    );
+    let mut dirs = cpp_dirs(std::slice::from_ref(&dir));
+    dirs.sort();
+    assert_eq!(dirs, [dir.join("c++/13"), dir.join("c++/v1")]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn only_the_rbs_gems_core_signatures_are_ruby_files() {
+    let (dir, _) = scratch(
+        "core-rbs",
+        &[
+            ("gems/rbs-3.9.1/core/string.rbs", ""),
+            ("gems/rbs-3.9.1/stdlib/json/json.rbs", ""),
+            ("app/core/user.rbs", ""),
+            ("app/core/user.rb", ""),
+        ],
+    );
+    let mut files = external_files(Kind::Ruby, std::slice::from_ref(&dir));
+    files.sort();
+    assert_eq!(
+        files,
+        [
+            dir.join("app/core/user.rb"),
+            dir.join("gems/rbs-3.9.1/core/string.rbs"),
+        ],
+        "a `.rbs` elsewhere repeats the `.rb` beside it (#369)"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn an_exports_map_is_a_top_level_key_that_is_not_null() {
+    assert!(exports_map(r#"{"exports": {".": "./i.js"}}"#));
+    assert!(exports_map(r#"{"exports": "./i.js"}"#));
+    assert!(!exports_map(r#"{"exports": null}"#));
+    assert!(!exports_map(r#"{"a": {"exports": "./i.js"}}"#));
+    assert!(!exports_map(r#"{"main": "exports"}"#));
+    assert!(
+        exports_map(r#"{"note": "say \"", "exports": "./i.js"}"#),
+        "a string is read whole, an escaped quote and all"
+    );
 }

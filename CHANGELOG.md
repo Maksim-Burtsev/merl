@@ -71,6 +71,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   declared one. (#625)
 - `f` no longer crashes merl in a C or C++ file whose last word is `do` or `try`, as a file left
   half-written ends. (#756)
+- `f` in Scala 3 code without braces folds as far as Neovim does: an `object X:`, `class` or
+  `trait` with an indented body, a definition closed by an `end` marker, a `match` or `.match`
+  with its cases on the lines below, and a body after `new X:`, where the fold stopped short or
+  ran on; a wildcard import, `import a.*`, no longer folds the lines after it. (#774)
+- `f` in Scala 3 folds as far as Neovim does where it stopped after a line or ran on: a `for`,
+  `while`, `try` or `catch` alone on its line, `for a <- xs; b <- ys yield`, a `val x =` whose
+  body goes on in `||` or `&&` lines, a `match` inside a `case` arm, a guard on the line under
+  its `case`, a class whose parameters wrap onto the next line, a `val` inside a lambda, a
+  definition after `x: @unchecked`, and names such as `Boolean_||`. (#780)
+- `d` in C++ finds the members of a class whose head carries a block comment,
+  `class Box /* api */ {`, as in any other class, where it said `no definition`. (#782)
+- `d` in C# on a name a deconstruction declares, `foreach (var (left, right) in pairs)` or
+  `(var a, int b) = Split(x);`, jumps to the deconstruction instead of a field of the same name
+  or nowhere. (#784)
+- `d` in Rust on a method of a value made by a function that bounds a closure in a `where`
+  clause, `where F: Fn() -> Sled`, jumps to the method of the type the function returns, not of
+  the closure's. (#785)
+- `d` in Rust on a method of a value whose type a `use crate::…`, `use super::…` or `use
+  self::…` brings in jumps to that type's method, where it offered every method of the name.
+  (#783)
+- `d` in Elixir on the parameter of an `fn` opened at the end of a one-line `def`, `def run(xs),
+  do: Enum.map(xs, fn x ->`, jumps to that `fn` on the lines below it, not to a function of the
+  same name. (#786)
+- `d` in Java on a method called with a text block as its only argument, `fit("""…""")`, jumps
+  to the overload of one parameter, where it offered every overload. (#788)
+- `d` in Java and Kotlin on a parameter or local of a function, read inside a class declared in
+  that function, jumps to it, where it said `no definition`. (#787)
+- `d` in Ruby on a name a comment mentions after a paren-less `def`'s parameters, `def lash
+  fore, aft # scupper`, no longer takes the name for a parameter of that `def`. (#789)
+- `d` in TypeScript and JavaScript on a name imported through a `baseUrl` that the tsconfig
+  inherits by `"extends"` jumps to its definition, where it stopped at the import as if the
+  module were a missing npm package. (#790)
+- `d` in Python on a parameter where its `def` declares it, `def go(limit):`, offers what else is
+  named so in a list instead of jumping to a variable of that name in another file, as it did
+  for a parameter with a default; on a keyword argument after a `lambda:`, `lambda: go(limit=1)`,
+  it lands on the parameter of `go`. (#791)
 
 ## [0.8.3] - 2026-10-07
 

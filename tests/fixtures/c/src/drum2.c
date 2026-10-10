@@ -1,0 +1,3 @@
+struct drum {
+    int skin;
+};

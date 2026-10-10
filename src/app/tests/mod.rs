@@ -16,6 +16,7 @@ mod fold_bench;
 mod haskell;
 mod julia;
 mod keys;
+mod limits;
 mod lisp;
 mod missed;
 mod ml;

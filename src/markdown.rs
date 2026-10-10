@@ -22,7 +22,6 @@ pub fn is_markdown(path: &Path) -> bool {
         .is_some_and(|e| e.eq_ignore_ascii_case("md") || e.eq_ignore_ascii_case("markdown"))
 }
 
-/// What a piece of a row is drawn as: a colour of the theme and the modifiers over it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Look {
     pub ink: Ink,
@@ -33,17 +32,12 @@ pub struct Look {
 pub enum Ink {
     Text,
     Heading,
-    /// Inline code and code blocks, on a tint.
     Code,
     Link,
     Quote,
-    /// What is shown as it is written: front matter, HTML, an image's alt text.
     Dim,
-    /// Bullets, numbers and checkboxes.
     Bullet,
-    /// Rules, table borders and the bar left of a quote.
     Line,
-    /// A GitHub alert's bar and title.
     Alert(BlockQuoteKind),
 }
 
@@ -59,18 +53,9 @@ impl Ink {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Row {
     pub text: String,
-    /// Looks over byte ranges of `text`, in order and disjoint.
     pub looks: Vec<(Look, Range<usize>)>,
-    /// Where the row starts in the source: 0-based line and byte column. A column past the end
-    /// of the line (a rule under a heading, the blank row after a block) is the line's end.
     pub src: (usize, usize),
-    /// The source lines the row shows, which its git marks come from and a position is found by:
-    /// a reflowed row can hold the end of one line and the start of the next, and a code block's
-    /// rows its fences. Empty for a row drawn for no line of its own (a table's border, the rule
-    /// under a heading).
     pub lines: Range<usize>,
-    /// Lines no row shows that go with this one, for the same: a reference definition, a second
-    /// blank line, a setext underline.
     pub owns: Vec<usize>,
     pub kind: Kind,
 }
@@ -78,10 +63,7 @@ pub struct Row {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
     Text,
-    /// The blank row between two blocks: where `{` and `}` stop.
     Gap,
-    /// A row of a code block: which block of [`Doc::code`], which of its lines, where in that
-    /// line the row starts, and where in `text` it is drawn. The tint runs to the pane's edge.
     Code {
         block: usize,
         line: usize,
@@ -90,7 +72,6 @@ pub enum Kind {
     },
 }
 
-/// A code block's info string and its lines, tabs drawn as spaces: highlighted as it is drawn.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Code {
     pub lang: String,
@@ -99,19 +80,13 @@ pub struct Code {
     pub image: Option<String>,
 }
 
-/// A Markdown file laid out for one width.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Doc {
-    /// Never empty: an empty file is one blank row.
     pub rows: Vec<Row>,
     pub code: Vec<Code>,
 }
 
 impl Doc {
-    /// The row a source position is shown on: of the rows that show its line, the last that
-    /// starts at or before its column (the first of those that start together), or the first of
-    /// them when the column comes before the text, on a list item's or a heading's marker; else
-    /// the row that owns the line, which every line has.
     pub fn row_at(&self, pos: (usize, usize)) -> usize {
         let mut first = None;
         let mut best: Option<usize> = None;
@@ -129,8 +104,6 @@ impl Doc {
             .unwrap_or(self.rows.len() - 1)
     }
 
-    /// The row a laid out anew doc shows `row` of this one on: the same row where rows share a
-    /// position (a table's border and header, a heading and its rule), else the row of `pos`.
     pub fn same_row(&self, old: &Doc, row: usize, pos: (usize, usize)) -> usize {
         let src = old.rows[row].src;
         let rank = old.rows[..row].iter().filter(|r| r.src == src).count();
@@ -197,9 +170,6 @@ impl Lay<'_> {
     }
 }
 
-/// Gives every source line no row shows to a row, for its marks and for finding the row of a
-/// position: to the row that shows or owns the line above it, and above every row to the row
-/// that shows the next line. With no row that shows a line, the first row takes them all.
 fn cover(rows: &mut [Row], n: usize) {
     let (mut first, mut last) = (vec![None; n], vec![None; n]);
     for (i, r) in rows.iter().enumerate() {
@@ -222,7 +192,6 @@ fn cover(rows: &mut [Row], n: usize) {
     rows[0].owns.append(&mut pending);
 }
 
-/// A container the rows inside it are drawn in.
 enum Frame {
     Quote(Option<BlockQuoteKind>),
     List {
@@ -235,8 +204,6 @@ enum Frame {
     },
 }
 
-/// A paragraph, heading or table cell being read: its text, the looks over it, and where each
-/// piece came from in the source.
 #[derive(Default)]
 struct Inline {
     text: String,
@@ -250,9 +217,6 @@ struct Piece {
 }
 
 impl Inline {
-    /// Adds the text `s` of an event whose source is `raw`, starting at byte `at`. Text written
-    /// as it is (code between its backticks too) maps byte for byte, its tabs to themselves;
-    /// text the parser changed (an escape, an entity) maps to the event as a whole.
     fn push(&mut self, s: &str, look: Look, raw: &str, at: usize) {
         let start = self.text.len();
         let literal = raw.find(s).map(|i| at + i);
@@ -298,12 +262,10 @@ struct BlockLine {
     tab_spaces_parser_added: usize,
 }
 
-/// A code block being read.
 struct Block {
     info_first_word: String,
     lines: Vec<BlockLine>,
     last_line_unended: bool,
-    /// The source lines of the block, its fences included.
     span: Range<usize>,
 }
 
@@ -354,9 +316,6 @@ impl Lay<'_> {
             Event::End(tag) => self.end(tag, r),
             Event::Text(_) if self.in_front_matter => {}
             Event::Text(t) if self.block.is_some() => {
-                // Code comes as text that ends its lines with `\n`: a block at the top in one
-                // event, one inside a container an event a line, and the spaces of a tab the
-                // container took part of as an event of their own in front of the line.
                 let mut off = 0;
                 for piece in t.split_inclusive('\n') {
                     let at = self.line_and_byte_col((r.start + off).min(r.end));
@@ -365,7 +324,6 @@ impl Lay<'_> {
                         return;
                     };
                     let text = piece.strip_suffix('\n').unwrap_or(piece);
-                    // Text with no source bytes is the parser's own.
                     let added = if r.is_empty() { text.len() } else { 0 };
                     match b.lines.last_mut() {
                         Some(line) if b.last_line_unended => {
@@ -410,7 +368,6 @@ impl Lay<'_> {
                 }
             }
             Event::Html(t) => {
-                // A raw HTML block, a line an event: shown as it is written.
                 let at = self.line_and_byte_col(r.start);
                 let line = t.trim_end_matches(['\n', '\r']);
                 self.lines(line, Ink::Dim.plain(), at);
@@ -517,7 +474,6 @@ impl Lay<'_> {
             }
             Tag::Item => {
                 self.flush_implicit();
-                // Items of a tight list follow each other; a loose list's are paragraphs apart.
                 let loose = matches!(self.stack.last(), Some(Frame::List { loose: true, .. }));
                 self.gap_before_next_block &= loose;
                 self.block_start(r.start);
@@ -546,7 +502,6 @@ impl Lay<'_> {
                     first_row_marker: Some((marker, Ink::Bullet.plain())),
                 });
             }
-            // A footnote is drawn where it is written, a block of its own under its label.
             Tag::FootnoteDefinition(label) => {
                 self.block_start(r.start);
                 let n = self.number(&label);
@@ -615,7 +570,6 @@ impl Lay<'_> {
             TagEnd::Heading(level) => {
                 let shown = self.flush();
                 self.heading = None;
-                // H1 and H2 are set apart by a rule, as GitHub underlines them.
                 let rule = match level {
                     HeadingLevel::H1 => "\u{2501}",
                     HeadingLevel::H2 => "\u{2500}",
@@ -628,7 +582,6 @@ impl Lay<'_> {
                     self.push(text, vec![(Ink::Line.plain(), 0..n)], at, Kind::Text);
                     self.shows_nothing();
                 }
-                // What a heading heads follows it without a blank row: the terminal has few.
                 self.gap_before_next_block = false;
             }
             TagEnd::BlockQuote(_) | TagEnd::List(_) => {
@@ -642,7 +595,6 @@ impl Lay<'_> {
             }
             TagEnd::FootnoteDefinition => {
                 self.flush_implicit();
-                // An empty note still shows its label.
                 if let Some(Frame::Item {
                     first_row_marker: Some(_),
                     ..
@@ -698,7 +650,6 @@ impl Lay<'_> {
         }
     }
 
-    /// The look text read now gets from the tags around it.
     fn look(&self) -> Look {
         let plain_quote = self
             .stack
@@ -767,14 +718,10 @@ impl Lay<'_> {
             .or_insert(next)
     }
 
-    /// Where a row that stands for no text of its own goes back to: the end of the line the row
-    /// above it came from.
     fn after(&self) -> (usize, usize) {
         (self.rows.last().map_or(0, |r| r.src.0), usize::MAX)
     }
 
-    /// What goes in front of a row: a bar per quote, the indent of each list item and, on the
-    /// first row of an item, its marker (taken by that row when `first`).
     fn prefix(&mut self, first: bool) -> (String, Vec<(Look, Range<usize>)>) {
         let mut s = String::new();
         let mut looks = Vec::new();
@@ -802,7 +749,6 @@ impl Lay<'_> {
         (s, looks)
     }
 
-    /// Columns left for text inside the containers open now.
     fn avail(&mut self) -> usize {
         let w = self
             .stack
@@ -863,9 +809,6 @@ impl Lay<'_> {
         });
     }
 
-    /// Before the block starting at source byte `next`: the text of a tight item is over, and
-    /// the blank row a block before it asked for goes in. It stands for the blank line above the
-    /// block, when the source has one.
     fn block_start(&mut self, next: usize) {
         self.flush_implicit();
         if std::mem::take(&mut self.gap_before_next_block) && !self.rows.is_empty() {
@@ -875,7 +818,6 @@ impl Lay<'_> {
                 Some(b) if b > above.0 && self.line(b).trim().is_empty() => {
                     self.push(String::new(), Vec::new(), (b, 0), Kind::Gap);
                 }
-                // No blank line stands between the blocks: the blank row goes to the next one.
                 _ => {
                     self.push(String::new(), Vec::new(), (l, 0), Kind::Gap);
                     self.shows_nothing();
@@ -890,16 +832,12 @@ impl Lay<'_> {
         }
     }
 
-    /// A tight item's text that made rows is followed by what the item holds next, with no
-    /// blank row between; text of nothing but spaces makes no rows and changes nothing.
     fn flush_implicit(&mut self) {
         if self.inline_is_tight_item_text && self.flush() {
             self.gap_before_next_block = false;
         }
     }
 
-    /// Lays the text read so far out: wrapped to the room the containers leave, a hard break
-    /// starting a new row. Returns whether it made any rows.
     fn flush(&mut self) -> bool {
         self.inline_is_tight_item_text = false;
         let Some(inline) = self.inline.take() else {
@@ -913,7 +851,6 @@ impl Lay<'_> {
         for seg in inline.text.split('\n') {
             for r in wrap::wrap_line(seg, avail) {
                 let r = from + r.start..from + r.start + seg[r].trim_end_matches(' ').len();
-                // A row of nothing but spaces, from a run wider than the pane, is no row.
                 if r.is_empty() && !seg.is_empty() {
                     continue;
                 }
@@ -932,7 +869,6 @@ impl Lay<'_> {
         true
     }
 
-    /// Rows for a line shown as it is written, wrapped.
     fn lines(&mut self, raw: &str, look: Look, (l, c): (usize, usize)) {
         let line = raw.replace('\t', crate::buffer::TAB);
         let mut tabs = Tabs::new(raw);
@@ -951,10 +887,7 @@ impl Lay<'_> {
         self.push(text, vec![(Ink::Line.plain(), 0..n)], at, Kind::Text);
     }
 
-    /// A code block: every line on the tint, a column in from its edge, wrapped as the source
-    /// wraps it, with the rows after the first under its indent. Its rows stand for its fences.
     fn code_block(&mut self, mut b: Block) {
-        // An empty block's row goes back to its opening fence.
         if b.lines.is_empty() {
             b.lines.push(BlockLine {
                 as_written: String::new(),
@@ -1147,8 +1080,6 @@ impl Lay<'_> {
         }
     }
 
-    /// A table in box drawing, each column aligned as its `:---:` says. Wider than the room it
-    /// has, the widest columns give up columns first and their cells wrap, so it stays whole.
     fn table(&mut self, t: Table) {
         let n = t
             .rows
@@ -1160,7 +1091,6 @@ impl Lay<'_> {
         if n == 0 {
             return;
         }
-        // Each column's widest cell, and its widest word: a path or a name reads best whole.
         let (mut natural, mut words) = (vec![1; n], vec![1; n]);
         for TableRow { cells, .. } in &t.rows {
             for (j, c) in cells.iter().enumerate() {
@@ -1175,7 +1105,6 @@ impl Lay<'_> {
                 words[j] = words[j].max(word);
             }
         }
-        // `│ a │ b │`: a border and a space each side of every cell.
         let room = self.avail().saturating_sub(3 * n + 1);
         let widths = fit(&natural, &words, room);
         let border = |l: &str, m: &str, r: &str| {
@@ -1190,7 +1119,6 @@ impl Lay<'_> {
         self.shows_nothing();
         let empty = Inline::default();
         for (i, TableRow { src_line: l, cells }) in t.rows.iter().enumerate() {
-            // Every cell's rows: byte ranges of its text.
             let wrapped: Vec<Vec<Range<usize>>> = (0..n)
                 .map(|j| wrap_cell(&cells.get(j).unwrap_or(&empty).text, widths[j]))
                 .collect();
@@ -1263,10 +1191,6 @@ fn wrap_cell(text: &str, width: usize) -> Vec<Range<usize>> {
     out
 }
 
-/// The columns of `natural` widths made to fit `room`: as they are when they fit. Else the
-/// widest give way: every column is cut down to one width, as wide as leaves them all within
-/// `room`, but none below its widest word while all the words fit, and what is left is handed back
-/// a column each. At one column each they may still not fit.
 fn fit(natural: &[usize], words: &[usize], room: usize) -> Vec<usize> {
     if natural.iter().sum::<usize>() <= room {
         return natural.to_vec();
@@ -1298,8 +1222,6 @@ fn fit(natural: &[usize], words: &[usize], room: usize) -> Vec<usize> {
     widths
 }
 
-/// Maps bytes of a line with its tabs drawn as spaces back to the line as written, for the rows
-/// of the line in order: each tab is passed once, however many rows the line wraps into.
 struct Tabs {
     at: Vec<usize>,
     next: usize,
@@ -1316,8 +1238,6 @@ impl Tabs {
         }
     }
 
-    /// The byte of the line that byte `i` of it drawn came from; a byte inside a tab's spaces
-    /// came from the tab. `i` never goes back.
     fn raw(&mut self, i: usize) -> usize {
         let tab = crate::buffer::TAB.len();
         while let Some(&t) = self.at.get(self.next) {
@@ -1335,7 +1255,6 @@ impl Tabs {
     }
 }
 
-/// `text[r]` with the looks over it, moved to start at 0.
 fn cut(
     text: &str,
     looks: &[(Look, Range<usize>)],
@@ -1354,8 +1273,6 @@ fn cut(
     (text[r].to_string(), out)
 }
 
-/// The colours a [`Look`] is drawn in, from the theme: the ones it gives Markdown's own scopes
-/// where it gives them one, the editor's chrome otherwise.
 pub struct Palette {
     text: Color,
     heading: Color,
@@ -1364,7 +1281,6 @@ pub struct Palette {
     quote: Color,
     bullet: Color,
     line: Color,
-    /// Note, Tip, Important, Warning, Caution.
     alerts: [Color; 5],
     pub code_bg: Color,
 }
@@ -1372,7 +1288,6 @@ pub struct Palette {
 impl Palette {
     pub fn new(theme: &Theme) -> Self {
         let h = Highlighter::new(&theme.syntect);
-        // The colour the theme paints `scopes` with in a Markdown file, when it is not the text's.
         let scoped = |scopes: &str, or: Color| {
             let stack: Vec<Scope> = scopes
                 .split(' ')
@@ -1384,7 +1299,6 @@ impl Palette {
             }
             crate::theme::style(style).fg.unwrap_or(or)
         };
-        // GitHub's alert colours, Primer's dark or light ones as the theme is.
         let alerts = if theme.light {
             [0x0969da, 0x1a7f37, 0x8250df, 0x9a6700, 0xd1242f]
         } else {
@@ -1410,8 +1324,6 @@ impl Palette {
         }
     }
 
-    /// The style of `look`. Code is on its tint, unless the row it is on has a background of its
-    /// own (`row_bg`: the cursor's, a review's).
     pub fn style(&self, look: Look, row_bg: bool) -> Style {
         let fg = match look.ink {
             Ink::Text => self.text,

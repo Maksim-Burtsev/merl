@@ -395,8 +395,6 @@ fn a_package_is_the_copy_in_the_nearest_node_modules_that_has_it() {
         "real/node_modules/pinned",
     );
     link("../../packages/shared", "real/node_modules/@app/shared");
-    // The project and its roots are spelled through a link, as a temporary directory is on
-    // macOS, and so is the copy; the directory above is called as a path in a package is.
     std::fs::create_dir_all(dir.join("extra")).unwrap();
     link("../real", "extra/link");
     let root = dir.join("extra/link");
@@ -500,7 +498,6 @@ fn a_package_is_missing_when_nothing_installs_or_declares_it() {
         r#"{ "compilerOptions": { "baseUrl": "src" } }"#,
     )
     .unwrap();
-    // Above the project, as Node looks there too.
     std::fs::create_dir_all(dir.join("node_modules/hoisted")).unwrap();
     let missing_from = |dir: &str, spec: &str| {
         let module: Vec<String> = spec.split('/').map(str::to_owned).collect();
@@ -612,6 +609,7 @@ fn external_files_ignore_no_gitignore_and_keep_the_kind() {
     let dir = std::env::temp_dir().join(format!("merl-ext-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("pkg")).unwrap();
+    std::fs::create_dir_all(dir.join(".git")).unwrap();
     std::fs::write(dir.join(".gitignore"), "pkg\n").unwrap();
     std::fs::write(dir.join("pkg/mod.py"), "").unwrap();
     std::fs::write(dir.join("pkg/mod.pyi"), "").unwrap();
@@ -726,7 +724,6 @@ fn rust_use_files_follow_the_crate_and_super_paths() {
             "use super::super::store::Cache;",
             &["src/store.rs"],
         ),
-        // `mod.rs` is its directory's module: its `super` is the one above.
         (
             "src/net/mod.rs",
             "use super::store::Cache;",
@@ -738,12 +735,9 @@ fn rust_use_files_follow_the_crate_and_super_paths() {
             &["src/store.rs"],
         ),
         ("src/store.rs", "use crate::Cache;", &["src/lib.rs"]),
-        // Above the crate root, in a binary's own crate, outside a `Cargo.toml`'s `src/`.
         ("src/lib.rs", "use super::store::Cache;", &[]),
         ("src/bin/tool.rs", "use crate::store::Cache;", &[]),
         ("loose/src/lib.rs", "use crate::store::Cache;", &[]),
-        // Bound twice, under another name, or inside an inline `mod`, whose `super` is not the
-        // file's: `super::super` in `client.rs`'s tests is `net`, not the crate root.
         (
             "src/lib.rs",
             "use crate::store::Cache;\nfn f() {\n    use crate::net::store::Cache;\n}",
@@ -916,5 +910,195 @@ fn php_class_names_resolve_and_map_to_files() {
         "and only such a name"
     );
     assert!(php_psr4(&dir, Path::new("elsewhere")).is_empty());
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_docstring_example_binds_nothing_of_the_file_but_is_read_inside_it() {
+    let text = "def f():\n    \"\"\"\n    import os\n    \"\"\"\n\nimport json\n";
+    let names = |i: Vec<Import>| i.into_iter().map(|i| i.name).collect::<Vec<_>>();
+    assert_eq!(names(imports(Kind::Python, text)), ["json"]);
+    assert_eq!(
+        names(imports_as_written(Kind::Python, text)),
+        ["os", "json"]
+    );
+}
+
+#[test]
+fn a_dotted_import_binds_its_first_part_or_its_alias_the_whole_path() {
+    let p = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    assert_eq!(
+        pairs(imports(Kind::Python, "import a.b.c\nimport a.b.c as d\n")),
+        [("a".into(), p(&["a"])), ("d".into(), p(&["a", "b", "c"]))]
+    );
+}
+
+#[test]
+fn a_go_package_name_drops_a_go_suffix_and_an_absolute_ts_path_is_the_projects() {
+    let p = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    assert_eq!(
+        pairs(imports(Kind::Go, "import \"github.com/x/bar-go\"\n")),
+        [("bar".into(), p(&["github.com", "x", "bar-go"]))]
+    );
+    assert_eq!(
+        pairs(imports(Kind::TsJs, "import x from '/abs/x';\n")),
+        [("x".into(), p(&[".", "abs", "x", "default"]))]
+    );
+    assert_eq!(
+        pairs(imports(
+            Kind::TsJs,
+            "const { a } = require(\"./m\").inner;\n"
+        )),
+        []
+    );
+}
+
+#[test]
+fn a_php_group_use_binds_nothing() {
+    assert!(imports(Kind::Php, "use App\\Http\\{Kernel, Request};\n").is_empty());
+}
+
+#[test]
+fn an_include_or_a_namespace_import_binds_no_name() {
+    for (kind, text) in [
+        (Kind::C, "#include \"store.h\"\n"),
+        (Kind::CSharp, "using System.Text;\n"),
+        (Kind::Zig, "const std = @import(\"std\");\n"),
+        (Kind::PowerShell, "Import-Module ./Tools.psm1\n"),
+        (Kind::Dart, "import 'package:a/b.dart' as b show C;\n"),
+        (Kind::Graphql, "#import \"./parts.graphql\"\n"),
+    ] {
+        assert!(imports(kind, text).is_empty(), "{text}");
+    }
+}
+
+#[test]
+fn every_ts_import_of_a_name_has_its_line() {
+    let text = "import { a } from \"./x\";\nimport { a } from \"./y\";\n";
+    assert_eq!(ts_import_lines1(text, "a"), [1, 2]);
+}
+
+#[test]
+fn a_reexport_under_another_name_is_reexported_but_not_followed() {
+    let text = "export { x as name } from \"./a\";\nexport * from \"./b\";\n";
+    assert_eq!(
+        reexports(text, "name"),
+        [vec![".".to_owned(), "b".to_owned()]]
+    );
+    let renamed: Vec<(Vec<String>, String)> = reexported(text, "name")
+        .into_iter()
+        .map(|r| (r.module, r.name_in_module))
+        .collect();
+    assert_eq!(
+        renamed,
+        [
+            (vec![".".to_owned(), "a".to_owned()], "x".to_owned()),
+            (vec![".".to_owned(), "b".to_owned()], "name".to_owned()),
+        ]
+    );
+}
+
+#[test]
+fn a_glob_use_binds_the_module_it_opens() {
+    let p = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    assert_eq!(
+        pairs(imports(Kind::Rust, "use a::{b, f::*};\n")),
+        [("b".into(), p(&["a", "b"])), ("f".into(), p(&["a", "f"]))]
+    );
+}
+
+#[test]
+fn lexical_folds_dots_and_refuses_to_climb_above_its_start() {
+    assert_eq!(lexical(Path::new("a/./b/../c")), Some(PathBuf::from("a/c")));
+    assert_eq!(lexical(Path::new("a/../../c")), None);
+}
+
+#[test]
+fn ts_paths_rank_exact_then_longest_prefix_and_the_nearest_config_wins() {
+    let (dir, files) = scratch(
+        "ts-paths",
+        &[
+            (
+                "tsconfig.json",
+                r#"{ "compilerOptions": { "baseUrl": "outer", "paths": { "@/*": ["wrong/*"] } } }"#,
+            ),
+            (
+                "app/tsconfig.json",
+                r#"{ "extends": "../tsconfig.json", "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["src/*"], "@/ui/*": ["ui/*"], "@/ui/button": ["exact/button"] } } }"#,
+            ),
+            ("app/exact/button.ts", ""),
+            ("app/ui/button.ts", ""),
+            ("app/ui/card.ts", ""),
+            ("app/src/ui/button.ts", ""),
+            ("app/src/ui/card.ts", ""),
+            ("outer/ui/card.ts", ""),
+            ("wrong/ui/card.ts", ""),
+            (
+                "bare/tsconfig.json",
+                r##"{ "compilerOptions": { "paths": { "#/*": ["lib/*"] } } }"##,
+            ),
+            ("bare/lib/x.ts", ""),
+        ],
+    );
+    let found = |here: &str, spec: &str| -> Vec<String> {
+        let module: Vec<String> = spec.split('/').map(str::to_owned).collect();
+        module_files(Kind::TsJs, &dir, &files, Path::new(here), &module)
+            .iter()
+            .map(|f| f.display().to_string())
+            .collect()
+    };
+    assert_eq!(
+        found("app/pages/main.ts", "@/ui/button"),
+        ["app/exact/button.ts"]
+    );
+    assert_eq!(found("app/pages/main.ts", "@/ui/card"), ["app/ui/card.ts"]);
+    assert_eq!(
+        found("bare/src/main.ts", "#/x"),
+        ["bare/lib/x.ts"],
+        "without a `baseUrl`, `paths` are relative to the config that declares them"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_file_under_base_url_named_as_the_first_part_is_the_projects() {
+    let (dir, files) = scratch(
+        "base-url-file",
+        &[
+            (
+                "tsconfig.json",
+                r#"{ "compilerOptions": { "baseUrl": "src" } }"#,
+            ),
+            ("src/helpers.ts", ""),
+        ],
+    );
+    let missing = |spec: &str| {
+        let module: Vec<String> = spec.split('/').map(str::to_owned).collect();
+        package_missing(&dir, &files, Path::new("src/pages"), &module)
+    };
+    assert!(!missing("helpers"));
+    assert!(missing("widgets"));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_base_url_inherited_through_extends_finds_the_projects_file() {
+    let (dir, files) = scratch(
+        "base-url-extends",
+        &[
+            ("tsconfig.json", r#"{ "extends": "./tsconfig.base.json" }"#),
+            (
+                "tsconfig.base.json",
+                r#"{ "compilerOptions": { "baseUrl": "src" } }"#,
+            ),
+            ("web/tsconfig.json", r#"{ "extends": "../tsconfig.json" }"#),
+            ("src/helpers.ts", ""),
+        ],
+    );
+    let missing =
+        |here: &str, spec: &str| package_missing(&dir, &files, Path::new(here), &[spec.to_owned()]);
+    assert!(!missing("src/pages", "helpers"));
+    assert!(!missing("web/pages", "helpers"));
+    assert!(missing("src/pages", "widgets"));
     std::fs::remove_dir_all(&dir).unwrap();
 }

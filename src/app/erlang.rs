@@ -121,8 +121,8 @@ impl App {
             hit: Hit {
                 deleted: None,
                 path: path.to_path_buf(),
-                line,
-                col: 0,
+                line1: line,
+                byte_col: None,
                 text: text.unwrap_or_default(),
             },
             reason,
@@ -187,7 +187,7 @@ impl App {
             .filter_map(|h| {
                 let text = self.text_of(&h.path)?;
                 let lines: Vec<&str> = text.lines().collect();
-                let at = search::erlang_record_field(&lines, h.line, field)?;
+                let at = search::erlang_record_field(&lines, h.line1, field)?;
                 Some(self.candidate(&h.path, at, Reason::Label(format!("field of #{record}"))))
             })
             .collect()

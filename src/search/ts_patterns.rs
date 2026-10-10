@@ -134,7 +134,6 @@ pub(super) fn ts_declarators(lines: &[&str], k: usize) -> Option<Vec<TsDeclarato
         return None;
     }
     let keyword = KEYWORD.find(first.trim_start())?.as_str().to_owned();
-    // ponytail: two hundred lines of declarators.
     let text = blank_comments(&lines[k..lines.len().min(k + 200)].join("\n"));
     let ind = indent(lines[k]);
     let (mut depth, mut end) = (0i32, text.len());
@@ -148,7 +147,6 @@ pub(super) fn ts_declarators(lines: &[&str], k: usize) -> Option<Vec<TsDeclarato
                 end = i;
                 break;
             }
-            // Its last line is the one before a line back at its indent.
             b'\n' if depth == 0 => {
                 let next = text[i + 1..].lines().find(|l| !l.trim().is_empty());
                 if next.is_none_or(|l| indent(l) <= ind) {
@@ -181,7 +179,6 @@ pub(super) fn ts_declarators(lines: &[&str], k: usize) -> Option<Vec<TsDeclarato
     }
     (out.len() > 1).then_some(out)
 }
-/// `s` with its TypeScript comments, `//` and `/* */`, blanked out and its lines kept.
 fn blank_comments(s: &str) -> String {
     let b = s.as_bytes();
     let mut out = b.to_vec();

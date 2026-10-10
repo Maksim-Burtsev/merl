@@ -57,7 +57,7 @@ impl App {
         let within = Some(format!("{name}.{word}"));
         let hits = self.external_grep(kind, std::slice::from_ref(&file), &patterns.join("|"));
         let mut hits: Vec<Hit> = (hits.into_iter())
-            .filter(|h| search::qualified(kind, &text, h.line, word) == within)
+            .filter(|h| search::qualified(kind, &text, h.line1, word) == within)
             .collect();
         if hits.is_empty()
             && let Some(class) = self.outside_class(Path::new(""), path, std::slice::from_ref(name))
@@ -66,7 +66,7 @@ impl App {
             let ty = Typed {
                 name: declared,
                 path: class.path,
-                line: class.line,
+                line: class.line1,
             };
             hits = self.above(kind, &ty, word, 0).unwrap_or_default();
         }
@@ -124,7 +124,7 @@ impl App {
             let hits = self.external_grep(kind, std::slice::from_ref(&file), &pattern);
             found.extend(
                 hits.into_iter()
-                    .filter(|h| search::qualified(kind, &text, h.line, word).is_none())
+                    .filter(|h| search::qualified(kind, &text, h.line1, word).is_none())
                     .map(|hit| Candidate {
                         hit,
                         reason: Reason::Import(module.join(".")),
@@ -151,7 +151,7 @@ impl App {
         let pattern = search::def_patterns(kind, name).join("|");
         let hits = self.external_grep(kind, std::slice::from_ref(&file), &pattern);
         let hits: Vec<Hit> = (self.declaring(kind, name, hits).into_iter())
-            .filter(|h| search::qualified(kind, &text, h.line, name).is_none())
+            .filter(|h| search::qualified(kind, &text, h.line1, name).is_none())
             .collect();
         if !hits.is_empty() {
             return hits
@@ -194,8 +194,8 @@ impl App {
                         hit: Hit {
                             deleted: None,
                             path: file.clone(),
-                            line,
-                            col: 0,
+                            line1: line,
+                            byte_col: None,
                             text: lines[line - 1].to_owned(),
                         },
                         reason: reason.clone(),
@@ -207,7 +207,7 @@ impl App {
             for c in more {
                 if !found
                     .iter()
-                    .any(|o| (&o.hit.path, o.hit.line) == (&c.hit.path, c.hit.line))
+                    .any(|o| (&o.hit.path, o.hit.line1) == (&c.hit.path, c.hit.line1))
                 {
                     found.push(c);
                 }
@@ -291,7 +291,7 @@ impl App {
         if found.len() < 2
             || path.extension().is_some_and(|e| e == "pyi")
             || found.iter().any(|c| c.hit.path != path)
-            || (path == here && found.iter().any(|c| c.hit.line == self.line + 1))
+            || (path == here && found.iter().any(|c| c.hit.line1 == self.line + 1))
         {
             return;
         }
@@ -301,13 +301,13 @@ impl App {
         let name = |c: &Candidate| {
             let t = c.hit.text.trim_start();
             (t.starts_with("def ") || t.starts_with("async def "))
-                .then(|| search::qualified(Kind::Python, &text, c.hit.line, word))
+                .then(|| search::qualified(Kind::Python, &text, c.hit.line1, word))
         };
         let one = name(first);
         if one.is_none() || found.iter().any(|c| name(c) != one) {
             return;
         }
-        let plain = |c: &Candidate| !search::python_overload(&text, c.hit.line);
+        let plain = |c: &Candidate| !search::python_overload(&text, c.hit.line1);
         if found.iter().filter(|c| plain(c)).count() == 1 {
             found.retain(plain);
         }

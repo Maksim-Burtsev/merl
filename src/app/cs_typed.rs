@@ -1,37 +1,20 @@
 use super::*;
 
-/// A C# type a name is proven to hold.
 #[derive(Debug, Clone)]
 enum CsType {
-    /// Declared once in the project.
     Project(Typed),
-    /// Declared nowhere in the project: the framework's or a package's, by this name.
     Outside(String),
 }
 
-/// What the C# rules answer for `x.word` or an initializer's `Word = …`.
 pub(super) enum CsAnswer {
-    /// The member in the project's type or the types above it, or an extension method of it.
     Found(Vec<Candidate>),
-    /// The type, or every base the member could come from, is not the project's: the member is
-    /// the framework's.
     Outside { links: String },
 }
 
-/// What a member lookup up a type's hierarchy found.
 enum Up {
     Found(Vec<Hit>),
-    /// Not in the project's types; a base is outside the project and may declare it.
-    Outside {
-        walked: Vec<String>,
-    },
-    /// Not in the project's types, which are all read: the rules missed it, or it is an
-    /// extension method.
-    Missing {
-        walked: Vec<String>,
-    },
-    /// Not in the project's types, and a type the rules cannot read may declare it: a base
-    /// they cannot tell, or a partial type's generated part.
+    Outside { walked: Vec<String> },
+    Missing { walked: Vec<String> },
     Unknown,
 }
 
@@ -59,7 +42,6 @@ impl App {
             .ok_or_else(|| first.clone())?;
         let mut links = vec![link];
         for (i, field) in fields.iter().enumerate() {
-            // ponytail: six names in front of the word, as in the other languages.
             if i == 5 {
                 return Err(field.clone());
             }
@@ -87,7 +69,6 @@ impl App {
         let ty = self.cs_resolve(here, &text, self.line + 1, &written)?;
         let label = format!("new {}", search::cs_type_name(&written)?);
         match ty {
-            // An initializer sets a field or a property, never an extension method.
             CsType::Outside(_) => Some(CsAnswer::Outside { links: label }),
             CsType::Project(t) => match self.cs_up(&t, word, 0) {
                 Up::Found(hits) => Some(CsAnswer::Found(receivers(hits, &label))),
@@ -97,9 +78,6 @@ impl App {
         }
     }
 
-    /// The member `word` of the type `ty`: in the project's type or above it, else an extension
-    /// method of one of the types walked, else "outside" when a type it may come from is not the
-    /// project's. `None` leaves it to the search by name.
     fn cs_member_answer(
         &self,
         here: &Path,
@@ -120,8 +98,6 @@ impl App {
                 Up::Unknown => return None,
             },
         };
-        // An extension method of one of those types. One the project declares for any other
-        // type may still be it (`IEnumerable<T>` of a `List<T>`): that is left to the name.
         let w = regex::escape(word);
         let pattern = format!(r"\bstatic\b.*\b{w}\s*(?:<[^>]*>)?\s*\(\s*this\s");
         let extensions = self.project_grep(Kind::CSharp, here, &pattern);
@@ -140,7 +116,6 @@ impl App {
         }
     }
 
-    /// `word` declared in `ty`, else in the bases and interfaces its header names, nearest first.
     fn cs_up(&self, ty: &Typed, word: &str, depth: usize) -> Up {
         let own = self.cs_members(ty, word);
         if !own.is_empty() {
@@ -148,7 +123,6 @@ impl App {
         }
         let mut walked = vec![ty.name.clone()];
         let mut outside = false;
-        // ponytail: eight levels up, which also ends a cycle.
         let Some(text) = self.text_of(&ty.path).filter(|_| depth < 8) else {
             return Up::Outside { walked };
         };
@@ -167,12 +141,9 @@ impl App {
                     outside = true;
                     walked.push(name);
                 }
-                // A base the rules cannot tell may hold it: nothing is proven.
                 None => return Up::Unknown,
             }
         }
-        // A partial type may have a part a source generator writes (`[ObservableProperty]`),
-        // which the project does not hold: what it lacks is not proven to be the framework's.
         let partial = Regex::new(r"\bpartial\b").is_ok_and(|re| {
             text.lines()
                 .nth(ty.line - 1)
@@ -185,8 +156,6 @@ impl App {
         }
     }
 
-    /// The declarations of `word` directly in the body of the C# type `ty`: a method, a property,
-    /// a field, an event, a nested type, or a positional record's parameter.
     fn cs_members(&self, ty: &Typed, word: &str) -> Vec<Hit> {
         let Some(text) = self.text_of(&ty.path) else {
             return Vec::new();
@@ -201,8 +170,8 @@ impl App {
         let literal = search::literal_lines(Kind::CSharp, &text);
         let hit = |line: usize| Hit {
             path: ty.path.clone(),
-            line,
-            col: 0,
+            line1: line,
+            byte_col: None,
             text: lines[line - 1].to_owned(),
             deleted: None,
         };
@@ -227,7 +196,6 @@ impl App {
         hits
     }
 
-    /// The type of the field or property `field` that `ty`, or a type above it, declares.
     fn cs_field_type(&self, ty: &Typed, field: &str) -> Option<Proven> {
         let Up::Found(hits) = self.cs_up(ty, field, 0) else {
             return None;
@@ -239,13 +207,11 @@ impl App {
             return None;
         };
         let text = self.text_of(&hit.path)?;
-        let ty = self.cs_resolve(&hit.path, &text, hit.line, &written)?;
+        let ty = self.cs_resolve(&hit.path, &text, hit.line1, &written)?;
         let link = format!("{field}: {}", search::cs_type_name(&written)?);
         Some(Proven { ty, link })
     }
 
-    /// The type of the name `name` on `line1` of `text`, the text of `file`: `this`, `base`, a local or a parameter the scopes around bind, else a field
-    /// or a property of the type around the line.
     fn cs_name_type(
         &self,
         file: &Path,
@@ -310,9 +276,6 @@ impl App {
         found
     }
 
-    /// What a call of `callee` on `line1` of `file` gives: the declared return type of the
-    /// one method of the name that the type around the line, the receiver's type or the type the
-    /// callee names declares; `Task<T>` and `ValueTask<T>` under `await` read as `T`.
     fn cs_call_type(
         &self,
         file: &Path,
@@ -343,7 +306,6 @@ impl App {
                     ty: CsType::Outside(_),
                     ..
                 }) => return None,
-                // `Factory.Create()`: a static method of a type the project declares.
                 None => match self.cs_resolve(file, text, line1, one)? {
                     CsType::Project(t) => t,
                     CsType::Outside(_) => return None,
@@ -363,22 +325,16 @@ impl App {
             false => written,
         };
         let at = self.text_of(&hit.path)?;
-        let ty = self.cs_resolve(&hit.path, &at, hit.line, &written)?;
+        let ty = self.cs_resolve(&hit.path, &at, hit.line1, &written)?;
         Some(CsWrittenType { ty, written })
     }
 
-    /// The type written as `written` on `line1` of `text`, the text of `file`: the one
-    /// type of that name the project declares, or one it declares nowhere. `None` for a type
-    /// parameter, `dynamic`, an array, and a name the project declares more than once or as
-    /// something else (an alias, a namespace).
     fn cs_resolve(&self, file: &Path, text: &str, line1: usize, written: &str) -> Option<CsType> {
         let name = search::cs_type_name(written)?;
         if search::cs_generic_param(text, line1, &name) {
             return None;
         }
         let cut = self.truncated.get();
-        // What declares a type-like name: a type, a delegate, a namespace, a `using` alias; a
-        // property called `Label` is no declaration of the type `Label`.
         let pattern = search::def_patterns(Kind::CSharp, &name)[..4].join("|");
         let hits = self.project_definitions(Kind::CSharp, file, &name, &pattern);
         let (types, other): (Vec<&Hit>, Vec<&Hit>) = hits
@@ -388,7 +344,7 @@ impl App {
             ([one], true) => Some(CsType::Project(Typed {
                 name: name.clone(),
                 path: one.path.clone(),
-                line: one.line,
+                line: one.line1,
             })),
             ([], true) => Some(CsType::Outside(name)),
             _ => None,
@@ -442,13 +398,13 @@ impl App {
             .into_iter()
             .filter_map(|h| {
                 let text = self.text_of(&h.path)?;
-                let (line, col) = search::enum_member(kind, &text, h.line, word)?;
+                let (line, col) = search::enum_member(kind, &text, h.line1, word)?;
                 let hit = Hit {
                     deleted: None,
                     text: text.lines().nth(line - 1)?.to_owned(),
                     path: h.path,
-                    line,
-                    col,
+                    line1: line,
+                    byte_col: Some(col),
                 };
                 let reason = Reason::Path(path.to_owned());
                 Some((Candidate { hit, reason }, search::cs_namespace(&text, line)))
@@ -458,8 +414,6 @@ impl App {
         let inside = search::cs_namespace(text, self.line + 1);
         let mut opened = search::cs_usings(text);
         if !members.is_empty() {
-            // `global using` in any file of the `.csproj` this file is in, `<Using Include>` in
-            // that `.csproj`: a solution's other projects open their own.
             let project = search::cs_own_project(&self.files, here).unwrap_or_default();
             let global = r#"^\u{feff}?\s*global\s+using\s+[\w.]+\s*;|<Using\s+Include=""#;
             let files = |p: &Path| {
@@ -523,8 +477,6 @@ impl App {
         if !search::cs_constant_may_stand(line, range.start, range.end) {
             return true;
         }
-        // As the lookup by type does: the types around first, then the project's, as far as the
-        // walk lets them reach.
         let cut = self.truncated.get();
         let found = match self.cs_class_first(here, word, true) {
             Ok(found) => !found.is_empty(),
@@ -540,18 +492,12 @@ impl App {
         found
     }
 
-    /// A bare C# `word` inside a type (#360), looked up as C# resolves a simple name: in the type
-    /// around the cursor, a `partial` part of it, the bases its header names, walked up, then the
-    /// same for each type around that one. Only types count where a type stands. `Err` when none
-    /// declares it, with the names of the types walked, or `None` when a base the rules cannot
-    /// tell may declare it, or the cursor is in no type.
     pub(super) fn cs_class_first(
         &self,
         here: &Path,
         word: &str,
         types_only: bool,
     ) -> Result<Vec<Candidate>, Option<Vec<String>>> {
-        // A member an initializer sets, `new { Checked = c }`, is no name read in the type.
         let line = self.line_str();
         let (r, _) = self.definition_word(Some(Kind::CSharp)).ok_or(None)?;
         let (before, after) = (line[..r.start].trim_end(), line[r.end..].trim_start());
@@ -592,15 +538,12 @@ impl App {
         let mut unknown = false;
         for ty in &around {
             let hits = self.cs_walk(ty, word, &level, 0, &mut walked, &mut unknown);
-            // On a declaration of the name, its namesakes are offered, as before.
             if hits
                 .iter()
-                .any(|h| h.path == here && h.line == self.line + 1)
+                .any(|h| h.path == here && h.line1 == self.line + 1)
             {
                 return Err(None);
             }
-            // "Color Color": `Status.Open` in a type whose property `Status` is of the type
-            // `Status` may mean either; today's lookup offers both.
             let color = after.starts_with('.')
                 && hits.iter().all(|h| {
                     matches!(search::cs_declared(&h.text, word),
@@ -622,8 +565,6 @@ impl App {
         Err((!unknown).then_some(walked))
     }
 
-    /// `word` declared in `ty`, a `partial` part of it, or up the bases they name, nearest first;
-    /// every type passed is added to `walked`, and `unknown` set at a base the rules cannot tell.
     fn cs_walk(
         &self,
         ty: &Typed,
@@ -649,43 +590,39 @@ impl App {
             let pattern =
                 format!(r"\bpartial\s+(?:record\s+)?(?:class|struct|interface|record)\s+{n}\b");
             let cut = self.truncated.get();
-            // A part is declared in the type's own namespace: `Shop.B.Page` is another type.
             let namespace = search::cs_namespace(&text, ty.line);
             for h in self.project_grep(Kind::CSharp, &ty.path, &pattern) {
                 let same = self
                     .text_of(&h.path)
-                    .is_some_and(|t| search::cs_namespace(&t, h.line) == namespace);
-                if same && (h.path != ty.path || h.line != ty.line) {
+                    .is_some_and(|t| search::cs_namespace(&t, h.line1) == namespace);
+                if same && (h.path != ty.path || h.line1 != ty.line) {
                     parts.push(Typed {
                         name: ty.name.clone(),
                         path: h.path,
-                        line: h.line,
+                        line: h.line1,
                     });
                 }
             }
             self.truncated.set(cut);
         }
         for part in &parts {
-            // A local of one of its methods is no member: another method does not see it.
             let mut own = self.cs_members(part, word);
             let text = self.text_of(&part.path).unwrap_or_default();
             own.retain(|h| {
                 !matches!(
-                    search::cs_place(&text, h.line, word),
+                    search::cs_place(&text, h.line1, word),
                     search::CsPlace::Local { .. }
                 )
             });
             if own
                 .iter()
-                .any(|h| h.path == level.cursor_file && h.line == level.cursor_line1)
+                .any(|h| h.path == level.cursor_file && h.line1 == level.cursor_line1)
             {
                 return own;
             }
-            // A base's private member is out of reach, and so is an overload that cannot take
-            // the call's arguments: the walk goes on up to the bases then (#360).
             own.retain(|h| {
                 let private = matches!(
-                    search::cs_place(&text, h.line, word),
+                    search::cs_place(&text, h.line1, word),
                     search::CsPlace::Member { private: true, .. }
                 );
                 !(depth > 0 && private)
@@ -696,7 +633,6 @@ impl App {
                 return own;
             }
         }
-        // ponytail: eight levels up, which also ends a cycle.
         if depth >= 8 {
             *unknown = true;
             return Vec::new();
@@ -722,12 +658,6 @@ impl App {
         Vec::new()
     }
 
-    /// Of `hits` for a C# `word`, those the cursor can reach. A private member from its own type
-    /// alone, a part of it this file declares included, and a local from its own method alone,
-    /// never behind a dot, the `chain` in front of a dotted word (#355). A method whose
-    /// parameters cannot take the call's arguments is no candidate (#360), nor, for a bare word
-    /// whose types around were all `walked`, a member of any other type: C# reaches it through a
-    /// qualifier or a `using static` alone.
     pub(super) fn cs_reachable(
         &self,
         here: &Path,
@@ -752,9 +682,9 @@ impl App {
         });
         let mut hits = hits;
         hits.retain(|h| {
-            let place = self
-                .text_of(&h.path)
-                .map_or(search::CsPlace::Top, |t| search::cs_place(&t, h.line, word));
+            let place = self.text_of(&h.path).map_or(search::CsPlace::Top, |t| {
+                search::cs_place(&t, h.line1, word)
+            });
             match place {
                 search::CsPlace::Member { owner, .. }
                     if walked.is_some_and(|w| !w.contains(&owner)) =>
@@ -771,11 +701,9 @@ impl App {
                 _ => true,
             }
         });
-        // A constructor yields to its type declared in its file (#360): a use names the type. On
-        // a declaration of the name, both stay its namesakes.
         if !hits
             .iter()
-            .any(|h| h.path == here && h.line == self.line + 1)
+            .any(|h| h.path == here && h.line1 == self.line + 1)
         {
             let patterns = search::def_patterns(Kind::CSharp, word);
             let ty = Regex::new(&patterns[0]).expect("an escaped name keeps the pattern valid");
@@ -794,7 +722,6 @@ impl App {
 
     pub(super) fn cs_args(&self) -> Option<usize> {
         let (range, word) = self.definition_word(Some(Kind::CSharp))?;
-        // The name a declaration declares is followed by its parameters, not by arguments.
         let declares = Regex::new(&search::def_patterns(Kind::CSharp, &word).join("|"))
             .is_ok_and(|re| re.is_match(self.line_str()));
         if declares && self.on_declared_name(Kind::CSharp, &word, true) {
@@ -803,10 +730,6 @@ impl App {
         search::cs_arguments(&self.buf.lines, self.line, range.end)
     }
 
-    /// Of `hits` for a C# `word`, all but the methods whose parameters cannot take `args`
-    /// arguments (#360). An extension's `this` is passed by the `receiver` of a call `x.word(…)`,
-    /// `""` for a value, unless the receiver names the extension's own static class. A method
-    /// whose list is not read stays, and so does everything with no call to count.
     pub(super) fn cs_fit(
         &self,
         word: &str,
@@ -826,11 +749,11 @@ impl App {
                     fewest: min,
                     most_unless_params: max,
                     extension_this: this,
-                }) = search::cs_parameters(&text, h.line, word)
+                }) = search::cs_parameters(&text, h.line1, word)
                 else {
                     return true;
                 };
-                let owner = match search::cs_place(&text, h.line, word) {
+                let owner = match search::cs_place(&text, h.line1, word) {
                     search::CsPlace::Member { owner, .. } => owner,
                     _ => String::new(),
                 };
@@ -841,8 +764,6 @@ impl App {
     }
 }
 
-/// What a level of the C# class-first walk keeps (#360): only types where a type stands, only
-/// overloads that take the call's `args`, and a declaration on the cursor's line as is.
 struct Level {
     types: Option<Regex>,
     args: Option<usize>,

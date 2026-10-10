@@ -1,31 +1,23 @@
-//! `d` in Java and Kotlin through the type a receiver's declaration writes (#388, #391), and the
-//! fields Lombok writes accessors for (#381).
-
 use super::*;
+
+struct WrittenType {
+    resolved: JvmType,
+    written: String,
+}
 
 struct TypedField {
     hit: Hit,
     written: String,
 }
 
-/// Where a type written in a Java or Kotlin file is declared.
 pub(super) enum JvmType {
-    /// The project declares it, on this line.
     Project(Hit),
-    /// Nothing in the project declares it: the JDK, a library, the Kotlin standard library.
     Outside(String),
     /// The rules cannot tell: declared more than once, a type parameter, an alias.
     Unknown,
 }
 
 impl App {
-    /// What `d` answers for `word` behind the receiver `chain` of Java or Kotlin `text`, when the
-    /// type of the receiver is read off its declaration: a parameter, a local or a field of the
-    /// classes around, then each field of the chain in the type before it. The member of that
-    /// type or a type it extends in the project, a Lombok accessor's field or a Kotlin extension
-    /// of the project; nothing for a type outside the project, whose members have no source.
-    /// `None` leaves the word to the search by name: a link not read, or a type of the project
-    /// without the member.
     pub(super) fn jvm_typed(
         &self,
         here: &Path,
@@ -67,15 +59,21 @@ impl App {
                 let hit = Hit {
                     deleted: None,
                     path: here.to_path_buf(),
-                    line: decl,
-                    col: 0,
+                    line1: decl,
+                    byte_col: None,
                     text: lines[decl - 1].to_owned(),
                 };
                 (JvmType::Project(hit), Vec::new())
             }
             f if f.starts_with(|c: char| c.is_ascii_lowercase()) => {
-                let (ty, written) = match smart() {
-                    Some(t) => (self.jvm_type_at(here, text, &t), t),
+                let WrittenType {
+                    resolved: ty,
+                    written,
+                } = match smart() {
+                    Some(t) => WrittenType {
+                        resolved: self.jvm_type_at(here, text, &t),
+                        written: t,
+                    },
                     None => self.jvm_value(here, text, line, f, kotlin, 1)?,
                 };
                 (ty, vec![format!("{f}: {written}")])
@@ -134,9 +132,6 @@ impl App {
         )
     }
 
-    /// The members `word` of a type `name` outside the project: the project's Kotlin extensions
-    /// on it, else none. `None` when the project extends some other type with `word`, which may
-    /// be a supertype of `name` (`fun Context.toast` on an `Activity`): by name, as before.
     pub(super) fn jvm_outside(&self, here: &Path, word: &str, name: &str) -> Option<Vec<Hit>> {
         let extensions = self.jvm_extensions(here, word);
         let (on, off): (Vec<Hit>, Vec<Hit>) = extensions
@@ -145,8 +140,6 @@ impl App {
         (off.is_empty() || !on.is_empty()).then_some(on)
     }
 
-    /// The Kotlin extensions `fun T.word` and `val T.word` the project declares, on any `T`, and
-    /// Scala's `extension (s: T)` methods (#416).
     fn jvm_extensions(&self, here: &Path, word: &str) -> Vec<Hit> {
         let pattern = search::def_patterns(Kind::Jvm, word).join("|");
         let cut = self.truncated.get();
@@ -156,19 +149,13 @@ impl App {
         hits
     }
 
-    /// The receiver type the extension `hit` declares `word` for ([`search::jvm_receiver_at`]).
     fn jvm_receiver_of(&self, hit: &Hit, word: &str) -> Option<String> {
         search::jvm_receiver(&hit.text, word).or_else(|| {
             let text = self.text_of(&hit.path)?;
-            search::jvm_receiver_at(&text, hit.line, word)
+            search::jvm_receiver_at(&text, hit.line1, word)
         })
     }
 
-    /// The type every declaration in scope of the value `name` at `line1` of `text`, the
-    /// text of `file`, writes, and where it is declared: its parameters and locals, else the
-    /// fields of the classes around it; with `hops`, a local assigned from one call reads the
-    /// type the method returns. `None` when one writes none the rules read, two disagree, or a
-    /// smart cast, a pattern or a cast may narrow it (`x is T`, `x instanceof T`, `(T) x`).
     fn jvm_value(
         &self,
         file: &Path,
@@ -177,7 +164,7 @@ impl App {
         name: &str,
         kotlin: bool,
         hops: usize,
-    ) -> Option<(JvmType, String)> {
+    ) -> Option<WrittenType> {
         let narrowing = match kotlin {
             true => r"\b{0}\s+(?:!?is|as\??)\s|\bwhen\s*\(\s*{0}\s*\)",
             false => r"\b{0}\s+instanceof\s|\(\s*[A-Z][\w.<>]*\s*\)\s*{0}\b",
@@ -198,11 +185,14 @@ impl App {
                 .find(|m| !m.is_empty())?,
             false => bindings,
         };
-        let mut found: Option<(JvmType, String)> = None;
+        let mut found: Option<WrittenType> = None;
         for l in declared {
             let at = lines.get(l - 1)?;
             let this = match search::jvm_declared_type(at, name, kotlin) {
-                Some(t) => (self.jvm_type_at(file, text, &t), t),
+                Some(t) => WrittenType {
+                    resolved: self.jvm_type_at(file, text, &t),
+                    written: t,
+                },
                 None if hops > 0 => {
                     let search::JvmAssignedCall {
                         receiver: recv,
@@ -212,7 +202,7 @@ impl App {
                 }
                 None => return None,
             };
-            if found.as_ref().is_some_and(|(_, w)| *w != this.1) {
+            if found.as_ref().is_some_and(|f| f.written != this.written) {
                 return None;
             }
             found = Some(this);
@@ -220,9 +210,6 @@ impl App {
         found
     }
 
-    /// The type the method `call` returns, called on `recv` (else on the class around `line1`
-    /// of `text`, the text of `file`): the one method of the name in that type or a type
-    /// it extends in the project, or the field of a Lombok getter.
     fn jvm_returned(
         &self,
         file: &Path,
@@ -231,9 +218,9 @@ impl App {
         recv: Option<&str>,
         call: &str,
         kotlin: bool,
-    ) -> Option<(JvmType, String)> {
+    ) -> Option<WrittenType> {
         let owner = match recv {
-            Some(r) => self.jvm_value(file, text, line1, r, kotlin, 0)?.0,
+            Some(r) => self.jvm_value(file, text, line1, r, kotlin, 0)?.resolved,
             None => {
                 let lines: Vec<&str> = text.lines().collect();
                 let decl = search::jvm_enclosing_types(text, line1)
@@ -242,8 +229,8 @@ impl App {
                 JvmType::Project(Hit {
                     deleted: None,
                     path: file.to_path_buf(),
-                    line: decl,
-                    col: 0,
+                    line1: decl,
+                    byte_col: None,
                     text: lines[decl - 1].to_owned(),
                 })
             }
@@ -263,10 +250,12 @@ impl App {
                 .find_map(|n| search::jvm_declared_type(&m.text, n, mk))
         })?;
         let t = self.text_of(&m.path)?;
-        Some((self.jvm_type_at(&m.path, &t, &written), written))
+        Some(WrittenType {
+            resolved: self.jvm_type_at(&m.path, &t, &written),
+            written,
+        })
     }
 
-    /// The field `field` of the type declared at `decl` or a type it extends in the project.
     fn jvm_field_type(&self, decl: &Hit, field: &str) -> Option<TypedField> {
         let mut names = Vec::new();
         let [hit] = self
@@ -278,9 +267,6 @@ impl App {
         Some(TypedField { hit, written })
     }
 
-    /// The declarations of `word` in the type declared at `decl`, else in the types it extends or
-    /// implements in the project, nearest first, eight levels deep: its members, else the fields
-    /// Lombok writes the accessor `word` for.
     pub(super) fn jvm_hierarchy_member(
         &self,
         decl: &Hit,
@@ -299,9 +285,9 @@ impl App {
             return Vec::new();
         };
         let lines: Vec<&str> = text.lines().collect();
-        let mut found = search::jvm_members_of(&text, decl.line, word);
+        let mut found = search::jvm_members_of(&text, decl.line1, word);
         if found.is_empty() {
-            found = search::jvm_lombok_fields(&text, decl.line, word);
+            found = search::jvm_lombok_fields(&text, decl.line1, word);
         }
         found.sort_unstable();
         found.dedup();
@@ -311,14 +297,14 @@ impl App {
                 .map(|line| Hit {
                     deleted: None,
                     path: decl.path.clone(),
-                    line,
-                    col: 0,
+                    line1: line,
+                    byte_col: None,
                     text: lines[line - 1].to_owned(),
                 })
                 .collect();
         }
         let mut out = Vec::new();
-        for base in search::jvm_bases(&text, decl.line, search::scala(&decl.path)) {
+        for base in search::jvm_bases(&text, decl.line1, search::scala(&decl.path)) {
             if let JvmType::Project(b) = self.jvm_type_at(&decl.path, &text, &base) {
                 out.extend(self.jvm_hierarchy_member(&b, word, depth + 1, walked));
             }
@@ -326,10 +312,6 @@ impl App {
         out
     }
 
-    /// Where the type `written` in `file`, whose text is `text`, is declared: through the import
-    /// that binds it, else the one declaration of the project (the file's own first, then its
-    /// package's); outside the project when an import names a package the project does not
-    /// have, or nothing in the project declares the name at all.
     pub(super) fn jvm_type_at(&self, file: &Path, text: &str, written: &str) -> JvmType {
         if let Some((outer, inner)) = written.rsplit_once('.') {
             return match self.jvm_type_at(file, text, outer) {
@@ -344,11 +326,10 @@ impl App {
             return JvmType::Unknown;
         }
         let is_type = |h: &Hit| search::jvm_type_name(&h.text).as_deref() == Some(written);
-        // A declaration-shaped line in a raw string or a text block declares nothing.
         let code = |h: &Hit| {
             self.text_of(&h.path).is_some_and(|t| {
                 !search::literal_lines(Kind::Jvm, &t)
-                    .get(h.line - 1)
+                    .get(h.line1 - 1)
                     .copied()
                     .unwrap_or(false)
             })
@@ -395,7 +376,6 @@ impl App {
             return JvmType::Outside(written.to_owned());
         }
         let types: Vec<Hit> = hits.iter().filter(|h| is_type(h)).cloned().collect();
-        // A Java constructor is declared by its class's name too, in the class's file.
         let others = hits
             .iter()
             .any(|h| !is_type(h) && !types.iter().any(|t| t.path == h.path));
@@ -427,7 +407,7 @@ impl App {
             return JvmType::Unknown;
         };
         let lines: Vec<&str> = text.lines().collect();
-        let nested: Vec<usize> = search::jvm_members_of(&text, decl.line, name)
+        let nested: Vec<usize> = search::jvm_members_of(&text, decl.line1, name)
             .into_iter()
             .filter(|&l| search::jvm_type_name(lines[l - 1]).as_deref() == Some(name))
             .collect();
@@ -435,18 +415,14 @@ impl App {
             [line] => JvmType::Project(Hit {
                 deleted: None,
                 path: decl.path.clone(),
-                line,
-                col: 0,
+                line1: line,
+                byte_col: None,
                 text: lines[line - 1].to_owned(),
             }),
             _ => JvmType::Unknown,
         }
     }
 
-    /// The fields Lombok writes the accessor `word` for, when no method of the name was found
-    /// (#381). Behind a qualifier that names a class of the project, `User::getTitle`, those of
-    /// that class or a class it extends, proven; else every such field in the project, found by
-    /// name, and offered rather than jumped to.
     pub(super) fn jvm_lombok(
         &mut self,
         here: &Path,
@@ -485,10 +461,10 @@ impl App {
                 let Some(t) = self.text_of(&h.path) else {
                     continue;
                 };
-                let Some(&decl) = search::jvm_enclosing_types(&t, h.line).first() else {
+                let Some(&decl) = search::jvm_enclosing_types(&t, h.line1).first() else {
                     continue;
                 };
-                if search::jvm_lombok_fields(&t, decl, word).contains(&h.line) {
+                if search::jvm_lombok_fields(&t, decl, word).contains(&h.line1) {
                     found.push(Candidate {
                         hit: h,
                         reason: Reason::ByName,

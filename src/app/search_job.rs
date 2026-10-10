@@ -1,18 +1,13 @@
 use super::*;
-use symbols::NamedSymbol;
+use symbols::{NamedSymbol, SymbolHits};
 
-/// How long the `s` query has to stand still before it is grepped.
 pub(super) const SEARCH_PAUSE: Duration = Duration::from_millis(80);
 
-/// One project grep with everything it reads, owned: `s` and `D` run it in a thread.
 pub struct SearchJob {
     pub seq: u64,
     pub(super) root: PathBuf,
     pub(super) files: Vec<PathBuf>,
-    /// The text `s` looks for, escaped; for a `symbols` job, the query as typed.
     pub(super) pattern: String,
-    /// `D` past the cap: the job greps the [`search::SYMBOLS`] patterns and keeps the
-    /// declarations whose name matches `pattern`, rather than the text of the lines.
     pub(super) symbols: bool,
     pub(super) current: Option<PathBuf>,
     pub(super) unsaved: Option<Vec<u8>>,
@@ -32,17 +27,13 @@ impl SearchJob {
         )
     }
 
-    /// The rows the answer becomes: the lines `s` found, any case and the query anywhere in
-    /// them, or the declarations `D` lists.
     pub fn items(&self) -> Vec<PickItem> {
         if self.symbols {
-            return App::symbol_items(self.symbol_hits().0);
+            return App::symbol_items(self.symbol_hits().named);
         }
         // An escaped literal always compiles, but a pasted query can outgrow the matcher's size
         // limit: it finds nothing then, rather than killing the thread the answer is awaited from.
         let mut hits = self.run(false, true).unwrap_or_default();
-        // The lines the branch deleted join their file's, in the order the review draws them,
-        // and the list is cut where the grep's would be.
         if let (false, Ok(re)) = (
             self.deleted.is_empty(),
             RegexBuilder::new(&self.pattern)
@@ -64,12 +55,7 @@ impl SearchJob {
         App::hit_items(hits)
     }
 
-    /// Every declaration the [`search::SYMBOLS`] rows read out of the project, keeping the names
-    /// `pattern` matches —
-    /// all of them when it is empty, which is the press of `D`. Each row is read only from the
-    /// files it is written for; the name decides before the [`search::MAX_HITS`] cut, so a query
-    /// reaches past a cut list.
-    pub(super) fn symbol_hits(&self) -> (Vec<NamedSymbol>, bool) {
+    pub(super) fn symbol_hits(&self) -> SymbolHits {
         let mut named: Vec<NamedSymbol> = Vec::new();
         let mut cut = false;
         let mut haskell_code: HashMap<PathBuf, search::HaskellCode> = HashMap::new();
@@ -80,8 +66,6 @@ impl SearchJob {
                 None => search::shared_symbols(search::kind_of(p)),
             };
             let files: Vec<PathBuf> = self.files.iter().filter(|p| wanted(p)).cloned().collect();
-            // The press of `D` reads every declaration, so it pays for no name it will not list:
-            // the filter is the query's, and there is none until one is typed.
             let keep = |line: &str| {
                 self.pattern.is_empty()
                     || search::symbol_name(&re, line)
@@ -96,8 +80,6 @@ impl SearchJob {
                 keep,
             )
             .unwrap_or_default();
-            // Each row has the cap to itself, so a cut is this row's, never the total's: on a
-            // project whose kinds add up past it with none of them cut, the list is whole.
             cut |= hits.len() >= search::MAX_HITS;
             let read = |path: &Path| match (&self.unsaved, &self.current) {
                 (Some(t), Some(c)) if c.as_path() == path => {
@@ -111,7 +93,7 @@ impl SearchJob {
                     || (script.entry(h.path.clone()).or_insert_with(|| {
                         search::script_lines(&h.path, &read(&h.path)).unwrap_or_default()
                     }))
-                    .get(h.line - 1)
+                    .get(h.line1 - 1)
                     .copied()
                     .unwrap_or(false)
             });
@@ -123,7 +105,7 @@ impl SearchJob {
                         search::HaskellCode::new(&text.lines().collect::<Vec<_>>())
                     });
                     search::symbol_name(&re, &h.text)
-                        .is_some_and(|n| search::haskell_symbol(code, h.line, &n))
+                        .is_some_and(|n| search::haskell_symbol(code, h.line1, &n))
                 });
             }
             let reserved = |t: &str| {
@@ -145,10 +127,9 @@ impl SearchJob {
                         }
                     });
                     let lines: Vec<&str> = text.lines().collect();
-                    search::ml_symbol_kept(k, &h.path, &lines, h.line)
+                    search::ml_symbol_kept(k, &h.path, &lines, h.line1)
                 });
             }
-            // The declarations the branch deleted, of the files this row is written for.
             hits.extend(deleted_hits(&self.deleted, wanted, |t| {
                 (re.is_match(t) && keep(t) && !reserved(t)).then_some(0)
             }));
@@ -160,7 +141,7 @@ impl SearchJob {
                 })
             }));
         }
-        (named, cut)
+        SymbolHits { named, cut }
     }
 }
 
@@ -174,9 +155,9 @@ pub(super) fn deleted_hits(
         .filter(|d| wanted(&d.path))
         .filter_map(|d| {
             Some(Hit {
-                col: find(&d.text)?,
+                byte_col: Some(find(&d.text)?),
                 path: d.path.clone(),
-                line: d.line,
+                line1: d.line,
                 text: d.text.clone(),
                 deleted: Some(d.at),
             })
@@ -184,10 +165,23 @@ pub(super) fn deleted_hits(
         .collect()
 }
 
-/// A type `d` followed a receiver to: its name and the line that declares it.
+pub(super) struct FileLine {
+    pub(super) path: PathBuf,
+    pub(super) line1: usize,
+}
+
 #[derive(Debug, Clone)]
 pub(super) struct Typed {
     pub(super) name: String,
     pub(super) path: PathBuf,
     pub(super) line: usize,
+}
+
+impl Typed {
+    pub(super) fn decl(&self) -> FileLine {
+        FileLine {
+            path: self.path.clone(),
+            line1: self.line,
+        }
+    }
 }

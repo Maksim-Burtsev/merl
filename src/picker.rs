@@ -179,7 +179,6 @@ impl Picker {
         let mut words: Vec<&str> = self.query.split(' ').collect();
         // A `\` ending a word would escape the space behind it: that word goes last, as the
         // order of the words matches nothing.
-        // ponytail: a second such word still joins the next; nobody types two.
         words.sort_by_key(|w| w.ends_with('\\'));
         let query = words.into_iter().map(escape).collect::<Vec<_>>().join(" ");
         self.nucleo.pattern.reparse(
@@ -294,6 +293,17 @@ mod tests {
         p.key(KeyCode::Backspace.into());
         p.settle();
         assert_eq!(p.counts().0, 3, "backspacing widens the result set again");
+    }
+
+    #[test]
+    fn of_two_words_ending_in_a_backslash_the_first_joins_the_second() {
+        let mut p = picker(&["r p\\q\\", "r p q\\"]);
+        for c in "p\\ q\\ r".chars() {
+            p.key(KeyCode::Char(c).into());
+        }
+        p.settle();
+        assert_eq!(p.counts().0, 1);
+        assert_eq!(p.window(5).0[0].item.label, "r p q\\");
     }
 
     #[test]
