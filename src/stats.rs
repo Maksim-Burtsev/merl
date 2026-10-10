@@ -9,21 +9,14 @@ use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::app::{KEYS, plural};
 
-/// The second side of these rows is VS Code's key for the first: a press counts toward the
-/// first, and they are no action of their own. A VS Code habit is no blind spot, the action gets
-/// done.
 const ALIASES: &[&str] = &["Ctrl+E", "Ctrl+F", "F12", "Shift+F12", "Ctrl+G"];
 
-/// A side of a `KEYS` row: what the stats count.
 pub struct Action {
     pub name: String,
-    /// The row's description.
-    pub what: &'static str,
-    /// The row's other side, when it is one of [`ALIASES`].
+    pub description: &'static str,
     alias: Option<String>,
 }
 
-/// Every action, in `KEYS` order.
 pub static ACTIONS: LazyLock<Vec<Action>> = LazyLock::new(|| {
     let mut actions = Vec::new();
     for (keys, what, _) in KEYS {
@@ -31,17 +24,13 @@ pub static ACTIONS: LazyLock<Vec<Action>> = LazyLock::new(|| {
         let alias = sides.pop_if(|s| ALIASES.contains(&s.as_str()));
         actions.extend(sides.into_iter().map(|name| Action {
             name,
-            what,
+            description: what,
             alias: alias.clone(),
         }));
     }
     actions
 });
 
-/// The sides of a `KEYS` key column. The second takes what the first has in front of its key,
-/// the prefix and the modifiers, unless it spells its own: `Tree: Up / Down` is `Tree: Down`,
-/// `Alt+Shift+Left / Right` is `Alt+Shift+Right`, `Edit: Alt+Backspace / Alt+Delete` is
-/// `Edit: Alt+Delete`.
 fn sides(keys: &str) -> Vec<String> {
     let Some((first, second)) = keys.split_once(" / ") else {
         return vec![keys.to_string()];
@@ -55,7 +44,6 @@ fn sides(keys: &str) -> Vec<String> {
     vec![first.to_string(), second]
 }
 
-/// A key as `KEYS` spells it: `Ctrl+Shift+Left`, `PgUp`, `Shift+F12`, `N`.
 pub fn name(key: KeyEvent) -> String {
     let mut s = String::new();
     for (m, word) in [
@@ -75,14 +63,11 @@ pub fn name(key: KeyEvent) -> String {
         KeyCode::F(n) => _ = write!(s, "F{n}"),
         KeyCode::PageUp => s += "PgUp",
         KeyCode::PageDown => s += "PgDn",
-        // `Up`, `Enter`, `Esc`, `Home`: the variant's own name.
         code => _ = write!(s, "{code:?}"),
     }
     s
 }
 
-/// The action the key `key`, spelled as [`name`] does and prefixed with where it was pressed,
-/// counts toward: its own, its primary's for an alias, `Arrows` for a bare arrow.
 pub fn action(key: &str) -> Option<&'static str> {
     let key = match key {
         "Up" | "Down" | "Left" | "Right" => "Arrows",
@@ -94,23 +79,19 @@ pub fn action(key: &str) -> Option<&'static str> {
         .map(|a| a.name.as_str())
 }
 
-/// Presses and misses by UTC day and action.
 type Rows = BTreeMap<(i64, &'static str), (u64, u64)>;
 
-/// Built from the home directory the way `config.toml` is, no `XDG_*`.
 pub fn path() -> Option<PathBuf> {
     Some(dirs::home_dir()?.join(".local/state/merl/keys.tsv"))
 }
 
-/// Days since 1970-01-01, UTC: the local day would need a time zone database.
-pub fn today() -> i64 {
+pub fn utc_today() -> i64 {
     let secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_secs());
     (secs / 86_400) as i64
 }
 
-/// `YYYY-MM-DD` of a day since 1970-01-01: Howard Hinnant's `civil_from_days`.
 pub fn date(day: i64) -> String {
     let z = day + 719_468;
     let (era, doe) = (z.div_euclid(146_097), z.rem_euclid(146_097));
@@ -123,7 +104,6 @@ pub fn date(day: i64) -> String {
     format!("{y:04}-{m:02}-{d:02}")
 }
 
-/// The day of a `YYYY-MM-DD`, `days_from_civil`; `None` for anything [`date`] would not write.
 pub fn day(s: &str) -> Option<i64> {
     let mut parts = s.splitn(3, '-').map(|p| p.parse::<i64>().ok());
     let (Some(Some(y)), Some(Some(m)), Some(Some(d))) = (parts.next(), parts.next(), parts.next())
@@ -161,7 +141,6 @@ fn load(path: &Path) -> Result<Rows> {
     Ok(parse(&read(path)?))
 }
 
-/// A stats file's text, empty before the first write.
 pub fn read(path: &Path) -> Result<String> {
     match std::fs::read_to_string(path) {
         Ok(text) => Ok(text),
@@ -170,7 +149,6 @@ pub fn read(path: &Path) -> Result<String> {
     }
 }
 
-/// Replaces a stats file whole through a rename, so a reader never sees half a file.
 pub fn write(path: &Path, text: &str) -> Result<()> {
     let ctx = || format!("{}", path.display());
     if let Some(dir) = path.parent() {
@@ -181,10 +159,6 @@ pub fn write(path: &Path, text: &str) -> Result<()> {
     std::fs::rename(&tmp, path).with_context(ctx)
 }
 
-/// Adds a session's presses and misses to the file under `today`. The file is read again right
-/// before and replaced whole through a rename, so a merl quitting after this one keeps both
-/// numbers and a reader never sees half a file; only two quitting in the same instant can lose
-/// one's. A file that cannot be read is left as it is.
 pub fn add(
     path: &Path,
     today: i64,
@@ -208,15 +182,12 @@ pub fn add(
     write(path, &text)
 }
 
-/// `merl --keys`.
 pub fn report(path: &Path, today: i64) -> Result<String> {
     Ok(table(&load(path)?, today))
 }
 
-/// The days back the `30d` and `missed` columns count, and the drill's work factor with them.
 pub const WINDOW: i64 = 30;
 
-/// Each action's presses and misses in the last [`WINDOW`] days: the drill's work factor.
 pub fn month(path: &Path, today: i64) -> Result<HashMap<&'static str, (u64, u64)>> {
     let mut month = HashMap::new();
     for ((day, action), (n, missed)) in load(path)? {
@@ -238,8 +209,6 @@ struct Tally {
     description: &'static str,
 }
 
-/// Every action's [`Tally`], strongest first: the never pressed come last, right above the
-/// prompt.
 fn table(rows: &Rows, today: i64) -> String {
     let mut keys: Vec<Tally> = ACTIONS
         .iter()
@@ -249,7 +218,7 @@ fn table(rows: &Rows, today: i64) -> String {
             misses_in_window: 0,
             presses_ever: 0,
             last_press_day: None,
-            description: a.what,
+            description: a.description,
         })
         .collect();
     for (&(day, action), &(n, missed)) in rows {
@@ -339,6 +308,14 @@ mod tests {
     }
 
     #[test]
+    fn the_file_is_under_the_home_directory_whatever_xdg_says() {
+        assert_eq!(
+            path(),
+            dirs::home_dir().map(|h| h.join(".local/state/merl/keys.tsv"))
+        );
+    }
+
+    #[test]
     fn days_are_utc_dates() {
         assert_eq!(day("1970-01-01"), Some(0));
         assert_eq!(day("2026-09-23"), Some(20_719));
@@ -367,7 +344,6 @@ mod tests {
             std::fs::read_to_string(&file).unwrap(),
             "2026-09-20\td\t5\t0\n2026-09-23\t]\t1\t0\n2026-09-23\td\t5\t0\n"
         );
-        // A file that cannot be read is not written over.
         std::fs::write(&file, b"\xff\n").unwrap();
         assert!(add(&file, today, &HashMap::from([("d", 1)]), &none).is_err());
         assert_eq!(std::fs::read(&file).unwrap(), b"\xff\n");
@@ -439,6 +415,10 @@ mod tests {
         assert_eq!(row("d"), "d 6 1 6");
         assert_eq!(row("}"), "} 1 2 5");
         assert_eq!(row("PgDn"), "PgDn 0 3 0");
+        assert_eq!(
+            month(&file, today).unwrap(),
+            HashMap::from([("d", (6, 1)), ("}", (1, 2)), ("PgDn", (0, 3))])
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

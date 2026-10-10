@@ -150,7 +150,7 @@ fn a_press_under_the_tutor_writes_nothing() {
     assert!(a.missed.is_empty(), "{:?}", a.missed);
     let file = std::env::temp_dir().join(format!("merl-keys-tutor-{}.tsv", std::process::id()));
     let _ = std::fs::remove_file(&file);
-    stats::add(&file, stats::today(), &a.pressed, &a.missed).unwrap();
+    stats::add(&file, stats::utc_today(), &a.pressed, &a.missed).unwrap();
     assert!(!file.exists(), "nothing to write on exit");
 }
 

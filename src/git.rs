@@ -1,8 +1,3 @@
-//! Gutter marks: which lines differ from the git index, as VS Code's editor gutter shows them.
-//! No diff of our own: `git diff -U0` is run after every save and reload, and only its hunk
-//! headers are read. In review mode the same diff is taken against the branch's base, and the
-//! deleted lines are kept too, to be drawn as ghosts.
-
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -26,7 +21,6 @@ pub enum TextLine {
 }
 
 impl TextLine {
-    /// The file line: this one's, or the one a deleted line is drawn above.
     pub fn key(self) -> usize {
         match self {
             TextLine::File(l) | TextLine::Deleted(l, _) => l,
@@ -65,30 +59,17 @@ pub struct AddedRun {
     pub len: usize,
 }
 
-/// What one file's diff looks like from the editor: marks per 0-based line, and, in review
-/// mode, the deleted text as ghost lines keyed by the line they sit above (`lines.len()` for
-/// the end of the file) plus the line of every hunk `c` / `C` stop on.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Diff {
     pub marks: HashMap<usize, Mark>,
     pub ghosts: BTreeMap<usize, Vec<String>>,
     pub hunks: Vec<TextLine>,
-    /// Review: the 0-based base-file line of the first ghost at each key; the ghosts under one
-    /// key are consecutive base lines.
     pub ghost_from: BTreeMap<usize, usize>,
-    /// Review: an added line (0-based line of the working file) → `(ghost key, index in that
-    /// key's ghosts)` of the deleted line it pairs with, from `intraline::pair` per hunk.
     pub pairs: HashMap<usize, (usize, usize)>,
 }
 
-/// The diff of `path` in the working tree against the index, or against `base` when given
-/// (review mode: ghosts and hunks are only kept then). `old` is the name the file had at the
-/// base when the branch renamed it: with both names in the pathspec git pairs them.
-/// `--inter-hunk-context=0` beats a user's `diff.interHunkContext`, which would join nearby
-/// edits into one hunk with the unchanged lines between them.
 pub fn diff(root: &Path, path: &Path, base: Option<&str>, old: Option<&Path>) -> Diff {
     let mut cmd = Command::new("git");
-    // The names are files, not patterns: `[id].tsx` is not `d.tsx` too.
     cmd.arg("--literal-pathspecs");
     cmd.arg("-C")
         .arg(root)
@@ -108,8 +89,6 @@ pub fn diff(root: &Path, path: &Path, base: Option<&str>, old: Option<&Path>) ->
     }
 }
 
-/// Reads `@@ -a,b +c,d @@` headers; `b` and `d` default to 1 when absent. With `review`, the
-/// `-` lines under a header become ghosts and a changed line is just an added one under them.
 fn parse(diff: &str, review: bool) -> Diff {
     let mut out = Diff::default();
     let mut lines = diff.lines().peekable();
@@ -193,20 +172,14 @@ fn start_and_count(s: &str) -> Option<(usize, usize)> {
     }
 }
 
-/// One file of the branch under review.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReviewFile {
-    /// Relative to the root.
     pub path: PathBuf,
-    /// `M`, `A`, `D`, `R`...: the first letter of `git diff --name-status`.
     pub status: char,
-    /// The name at the base, for a rename.
     pub old: Option<PathBuf>,
     pub added: usize,
     pub deleted: usize,
-    /// `git diff --numstat` counts `-` for it.
     pub binary: bool,
-    /// Not in git yet: listed as added, and its diff is the whole file.
     pub untracked: bool,
     pub generated: bool,
     pub same_bytes: bool,
@@ -228,25 +201,18 @@ impl ReviewFile {
     }
 }
 
-/// `merl --review`: the checked-out branch against its base.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Review {
     pub branch: String,
     pub base: String,
-    /// The merge base commit: what every diff and the file list are taken against, so the
-    /// working tree lines up with the numbers.
     pub merge_base: String,
     pub files: Vec<ReviewFile>,
     pub deleted: Arc<Vec<DeletedLine>>,
     pub added: Arc<Vec<AddedRun>>,
-    /// What opening found about the branch against `origin` (`diverged from origin/feat`), for
-    /// the status bar; `App::start_review` takes it, so it is said once.
     pub note: Option<String>,
 }
 
 impl Review {
-    /// Finds the base, checks out `branch` when given, as `origin` has it (see `checkout`), and
-    /// lists the files.
     pub fn open(root: &Path, branch: Option<&str>, base: Option<&str>) -> Result<Self> {
         let git = |args: &[&str]| git(root, args);
         let base = match base {
@@ -273,17 +239,12 @@ impl Review {
             .find(|p| p.is_file())
     }
 
-    /// The same review as the branch and the working tree are now: after a commit, an edit, a
-    /// new file. Nothing is fetched or switched, and an empty list is an answer.
     pub fn refresh(&self, root: &Path) -> Result<Self> {
         Self::list(root, self.base.clone())
     }
 
     fn list(root: &Path, base: String) -> Result<Self> {
         let git = |args: &[&str]| git(root, args);
-        // The one reading of HEAD, which the viewed marks are kept by too: the branch's own name,
-        // which a tag of the same name does not shadow; during a rebase, the branch being rebased,
-        // as git records it; otherwise `HEAD`, detached (no branch may be named so).
         let head = git(&["symbolic-ref", "-q", "HEAD"]).or_else(|_| rebasing(&git, root));
         let branch = (head.as_deref().ok())
             .and_then(|h| h.strip_prefix("refs/heads/"))
@@ -291,7 +252,6 @@ impl Review {
             .to_string();
         let merge_base = git(&["merge-base", &base, "HEAD"])
             .with_context(|| format!("no merge base between {base} and HEAD"))?;
-        // `-z`: NUL-separated and unquoted, so a non-ASCII name is the name on disk.
         let raw = ["diff", "--raw", "--no-abbrev", "-z", &merge_base];
         let mut files = parse_name_status(&git(&raw)?);
         let numstat = [
@@ -310,10 +270,6 @@ impl Review {
                 (f.added, f.deleted) = counts.unwrap_or((0, 0));
             }
         }
-        // `git diff` does not list untracked files, and a new module is the first thing to
-        // review. A nested repository is listed as `dir/`: not a file to read. A path the
-        // branch deleted and somebody wrote again (or `git rm --cached`) is in both listings:
-        // one row per path, and the file on disk is the one to read.
         let others = git(&["ls-files", "--others", "--exclude-standard", "-z"])?;
         for path in others
             .split('\0')
@@ -338,9 +294,6 @@ impl Review {
             ),
         };
         files.sort_by_cached_key(|f| crate::tree::sort_key(&f.path, false, &order));
-        // The prefixes are spelled out: a user's `diff.noprefix` would read the patch otherwise.
-        // Renames are left to the user's `diff.renames`, as in the listing above, so every part
-        // is keyed by a path the panel has. Names keep their letters.
         let patch = git(&[
             "-c",
             "core.quotePath=false",
@@ -367,8 +320,6 @@ impl Review {
         })
     }
 
-    /// The marks, ghosts and hunks of one file of the working tree against the merge base;
-    /// `file` is its row, when it has one. An untracked file is one hunk of added lines.
     pub fn diff(&self, root: &Path, path: &Path, file: Option<&ReviewFile>) -> Diff {
         match file {
             Some(f) if f.untracked => {
@@ -388,13 +339,10 @@ impl Review {
         }
     }
 
-    /// The branch under review; `None` on a detached HEAD, which `branch` shows as `HEAD`.
     pub fn branch_name(&self) -> Option<&str> {
         (self.branch != "HEAD").then_some(self.branch.as_str())
     }
 
-    /// The branch, or the short commit of a detached HEAD: the review stats count the rounds of
-    /// each, and every detached review is not one branch called `HEAD`.
     pub fn branch_or_commit(&self, root: &Path) -> String {
         match self.branch.as_str() {
             "HEAD" => git(root, &["rev-parse", "--short", "HEAD"]).unwrap_or(self.branch.clone()),
@@ -406,7 +354,6 @@ impl Review {
         self.files.iter().find(|f| f.path == rel)
     }
 
-    /// The content of `rel` at the base: what a deleted file looked like.
     pub fn base_bytes(&self, root: &Path, rel: &Path) -> Result<Vec<u8>> {
         let out = Command::new("git")
             .arg("-C")
@@ -445,15 +392,8 @@ impl Review {
         Ok(path)
     }
 
-    /// The project as the base had it, for `d` on a deleted line (#440), in this worktree's own
-    /// git directory, which no other worktree reads or cleans: a file the branch left alone is a
-    /// copy of the one on disk (a clone that costs nothing where the file system has them, as
-    /// APFS and btrfs do), and only the ones it changed, renamed or deleted are read from git.
-    /// The folders git ignores (`.venv`, `node_modules`) are links to the real ones, so a lookup
-    /// reaches the dependencies it reaches on disk. Built again when the branch's files change.
     pub fn base_tree(&self, root: &Path) -> Result<PathBuf> {
         let git_dir = dirs(root).context("no git directory")?.worktree_head_dir;
-        // An untracked file the base has (`git rm --cached`) is not the base's either.
         let changed: std::collections::HashSet<&Path> = (self.files.iter())
             .map(|f| f.old.as_deref().unwrap_or(&f.path))
             .collect();
@@ -483,7 +423,6 @@ impl Review {
             if let Some(d) = dst.parent() {
                 std::fs::create_dir_all(d)?;
             }
-            // A submodule is another repository; a link is written from git as it is.
             match mode {
                 "160000" => continue,
                 "120000" => from_git.push((path.to_path_buf(), true)),
@@ -535,7 +474,6 @@ impl Review {
             }
         }
         std::fs::write(tmp.join(".merl-stamp"), &stamp)?;
-        // One base at a time in this worktree: another branch's is built again when reviewed.
         if let Ok(old) = std::fs::read_dir(&parent) {
             for e in old.flatten().filter(|e| e.path() != tmp) {
                 let _ = std::fs::remove_dir_all(e.path());
@@ -548,9 +486,6 @@ impl Review {
     }
 }
 
-/// The lines `patch`, the branch's whole diff, deletes from `files`, in their order, and the runs
-/// of lines it adds. Each file's part is read as [`diff`] reads one file, so a line is keyed as
-/// the review draws it. An untracked file deleted nothing, and all of it is added.
 fn changed_lines(
     root: &Path,
     patch: &str,
@@ -570,7 +505,6 @@ fn changed_lines(
             header = true;
             continue;
         }
-        // `--- a/x` names the file only above the first hunk: below it, a deleted `-- x`.
         if header {
             header = !line.starts_with("@@ ");
             let named = |prefix: &str| {
@@ -578,7 +512,6 @@ fn changed_lines(
                 let n = n.strip_prefix("a/").or_else(|| n.strip_prefix("b/"))?;
                 Some(PathBuf::from(n))
             };
-            // The name on disk, the base's for a file the branch deleted.
             if let Some(n) = named("+++ ").or_else(|| named("--- ").filter(|_| name.is_none())) {
                 name = Some(n);
             }
@@ -634,8 +567,6 @@ fn changed_lines(
     (out, added)
 }
 
-/// A name as git writes it in a patch: as it is, or in C quotes when it holds a `"`, a `\` or a
-/// control character.
 fn unquote(s: &str) -> String {
     let Some(inner) = s.strip_prefix('"').and_then(|s| s.strip_suffix('"')) else {
         return s.to_string();
@@ -657,7 +588,6 @@ fn unquote(s: &str) -> String {
             b'b' => 8,
             b'v' => 11,
             b'f' => 12,
-            // Three octal digits, a byte of a name that is not UTF-8.
             b'0'..=b'7' => {
                 let end = (i + 2).min(b.len());
                 let digits = std::str::from_utf8(&b[i - 1..end]).unwrap_or("");
@@ -685,7 +615,6 @@ fn git(root: &Path, args: &[&str]) -> Result<String> {
             String::from_utf8_lossy(&out.stderr).trim()
         );
     }
-    // Only the newline git ends a line with: a `-z` listing may start with a name in spaces.
     Ok(String::from_utf8_lossy(&out.stdout)
         .trim_end_matches('\n')
         .to_string())
@@ -760,8 +689,6 @@ pub fn worktree_of(root: &Path, branch: &str) -> Option<PathBuf> {
         .find(|p| p.canonicalize().is_ok_and(|p| p != here))
 }
 
-/// The branch a rebase (stopped on a conflict, say) is rebasing: `refs/heads/…`, from the
-/// `head-name` git keeps in the worktree's git dir.
 fn rebasing(git: &dyn Fn(&[&str]) -> Result<String>, root: &Path) -> Result<String> {
     let merge = "rebase-merge/head-name";
     let paths = git(&[
@@ -777,9 +704,6 @@ fn rebasing(git: &dyn Fn(&[&str]) -> Result<String>, root: &Path) -> Result<Stri
         .context("no rebase in progress")
 }
 
-/// The row of an untracked file: `A`, every line added. Binary is what git calls binary, a NUL
-/// in the first 8000 bytes.
-///
 /// ponytail: every untracked text file is read on every refresh to count its lines, in 64 KiB
 /// pieces, so a huge log costs time and no memory. A branch with thousands of them, or a
 /// gigabyte of text, wants the counts cached by size and mtime.
@@ -821,10 +745,8 @@ const GENERATED_NAMES: &[&str] = &[
     ".pnp.loader.mjs",
 ];
 
-/// Ends of names both forges fold: minified scripts and styles, and their source maps.
 const GENERATED_ENDS: &[&str] = &[".min.js", ".min.css", ".js.map", ".css.map"];
 
-/// Directories both forges fold whatever is in them.
 const GENERATED_DIRS: &[&str] = &["node_modules", "Godeps"];
 
 fn generated(root: &Path, f: &ReviewFile) -> bool {
@@ -855,10 +777,6 @@ fn generated(root: &Path, f: &ReviewFile) -> bool {
     })
 }
 
-/// What `.gitattributes` says of `files` with `linguist-generated` or `gitlab-generated`, the
-/// attributes the forges fold a file's diff by: `true` for a path it marks generated, `false`
-/// for one it marks not generated (`-linguist-generated`, `=false`), which then stays open
-/// whatever its name.
 fn generated_attrs(root: &Path, files: &[ReviewFile]) -> Result<HashMap<PathBuf, bool>> {
     use std::io::Write;
     use std::process::Stdio;
@@ -876,7 +794,6 @@ fn generated_attrs(root: &Path, files: &[ReviewFile]) -> Result<HashMap<PathBuf,
         paths.extend_from_slice(f.path.to_string_lossy().as_bytes());
         paths.push(0);
     }
-    // Written from a thread: a long list would fill the pipe back while git fills stdout.
     let mut stdin = child.stdin.take().context("no stdin")?;
     let writer = std::thread::spawn(move || stdin.write_all(&paths));
     let out = child.wait_with_output()?;
@@ -890,14 +807,11 @@ fn generated_attrs(root: &Path, files: &[ReviewFile]) -> Result<HashMap<PathBuf,
             "unset" | "false" => false,
             _ => continue,
         };
-        // Either attribute marking it generated folds it.
         *said.entry(PathBuf::from(path)).or_insert(generated) |= generated;
     }
     Ok(said)
 }
 
-/// Is the file binary, and its lines as `git diff --numstat` counts them: a last line without
-/// a newline is a line. A binary file is not read past the 8000 bytes that say so.
 fn count_lines(path: &Path) -> std::io::Result<(bool, usize)> {
     use std::io::Read;
     if !std::fs::metadata(path)?.is_file() {
@@ -919,7 +833,6 @@ fn count_lines(path: &Path) -> std::io::Result<(bool, usize)> {
     }
 }
 
-/// `git diff --name-status -z`: `STATUS\0path\0`, and `Rnnn\0old\0new\0` for a rename.
 fn parse_name_status(out: &str) -> Vec<ReviewFile> {
     let mut files = Vec::new();
     let mut it = out.split('\0');
@@ -952,8 +865,6 @@ fn parse_name_status(out: &str) -> Vec<ReviewFile> {
     files
 }
 
-/// `git diff --numstat -z`: `added\tdeleted\tpath\0`, and `added\tdeleted\t\0old\0new\0` for a
-/// rename. Binary files count `-`: no counts.
 fn parse_numstat(out: &str) -> Vec<(PathBuf, Option<(usize, usize)>)> {
     let mut rows = Vec::new();
     let mut it = out.split('\0');
@@ -973,10 +884,6 @@ fn parse_numstat(out: &str) -> Vec<(PathBuf, Option<(usize, usize)>)> {
     rows
 }
 
-/// `--review BRANCH` reads what the merge request shows: the branch and the base are fetched in
-/// one go, and the local branch is brought to what was pushed. The reviewer's own commits are
-/// never rewritten, and local changes are never lost; the answer is then what the status bar
-/// says instead (`diverged from origin/feat`).
 fn checkout(
     git: &dyn Fn(&[&str]) -> Result<String>,
     b: &str,
@@ -989,8 +896,6 @@ fn checkout(
     let mut fetch = vec!["fetch", "-q", "origin", b];
     fetch.extend(base.strip_prefix("origin/"));
     let fetched = git(&fetch).is_ok();
-    // A failed fetch is origin offline, or origin without the branch: `ls-remote` answers only
-    // when origin is reachable, and then with nothing.
     if !fetched
         && pushed.is_some()
         && git(&["ls-remote", "origin", &format!("refs/heads/{b}")]).is_ok_and(|o| o.is_empty())
@@ -1002,8 +907,6 @@ fn checkout(
     if !fetched {
         return Ok(Some(format!("{remote} not fetched")));
     }
-    // A copy nobody committed on takes what was pushed, after a force-push too, unless local
-    // changes are in the way (`--keep`). With commits of one's own it is up to date only ahead.
     let current = if own_commits(git, b) {
         git(&["merge-base", "--is-ancestor", &remote, "HEAD"])
     } else {
@@ -1017,10 +920,6 @@ fn checkout(
     Ok(Some(format!("{how} {remote}")))
 }
 
-/// Does the checked-out branch `b` hold commits `origin/b` never pointed at in this repository?
-/// The remote ref's reflog has each tip a fetch or a push brought, but not the one `git clone`
-/// did, so the commit the local branch was created from counts too. An expired reflog only
-/// makes more commits look like one's own, and the branch then stays.
 fn own_commits(git: &dyn Fn(&[&str]) -> Result<String>, b: &str) -> bool {
     let remote = format!("refs/remotes/origin/{b}");
     let tips = git(&["reflog", "--format=%H", &remote]).unwrap_or_default();
@@ -1044,7 +943,6 @@ pub const BASES: [&str; 5] = [
     "main",
 ];
 
-/// `origin/HEAD`, else the first of [`BASES`] that exists.
 fn detect_base(git: &dyn Fn(&[&str]) -> Result<String>) -> Result<String> {
     if let Ok(b) = git(&["symbolic-ref", "-q", "--short", "refs/remotes/origin/HEAD"]) {
         return Ok(b);
@@ -1203,6 +1101,87 @@ mod tests {
     }
 
     #[test]
+    fn a_changed_line_that_reads_as_a_file_header_is_text_of_its_file() {
+        let patch = "diff --git a/q.sql b/q.sql\n--- a/q.sql\n+++ b/q.sql\n\
+                     @@ -2 +1,0 @@\n--- a/x.sql\n@@ -4,0 +4 @@\n+++ b/x.sql\n";
+        let file = ReviewFile {
+            path: PathBuf::from("q.sql"),
+            status: 'M',
+            old: None,
+            added: 0,
+            deleted: 1,
+            binary: false,
+            untracked: false,
+            generated: false,
+            same_bytes: false,
+        };
+        let (deleted, added) = changed_lines(Path::new("/nonexistent"), patch, &[file]);
+        let rows: Vec<_> = (deleted.iter())
+            .map(|d| (d.path.to_str().unwrap(), d.line, d.text.as_str()))
+            .collect();
+        assert_eq!(rows, [("q.sql", 2, "-- a/x.sql")]);
+        let runs: Vec<_> = (added.iter())
+            .map(|a| (a.path.to_str().unwrap(), a.line, a.len))
+            .collect();
+        assert_eq!(runs, [("q.sql", 4, 1)]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_base_tree_reads_from_git_what_the_branch_touched_and_links_the_rest() {
+        let dir = std::env::temp_dir().join(format!("merl-base-tree-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("venv")).unwrap();
+        let git = |args: &[&str]| {
+            let out = Command::new("git").arg("-C").arg(&dir).args(args).output();
+            assert!(out.unwrap().status.success(), "git {args:?}");
+        };
+        git(&["init", "-q", "-b", "main"]);
+        git(&["config", "user.email", "t@t"]);
+        git(&["config", "user.name", "t"]);
+        std::fs::write(dir.join(".gitignore"), "venv/\n").unwrap();
+        std::fs::write(dir.join("svc.py"), "X = 1\n").unwrap();
+        std::fs::write(dir.join("kept.py"), "K = 1\n").unwrap();
+        std::os::unix::fs::symlink("svc.py", dir.join("link.py")).unwrap();
+        git(&["add", "."]);
+        git(&["commit", "-q", "-m", "first"]);
+        let first = git_out(&dir, "HEAD");
+        git(&["commit", "-q", "--allow-empty", "-m", "base"]);
+        git(&["switch", "-q", "-c", "feature"]);
+        std::fs::write(dir.join("svc.py"), "X = 2\n").unwrap();
+        git(&["commit", "-qam", "work"]);
+        git(&["rm", "-q", "--cached", "kept.py"]);
+        std::fs::write(dir.join("kept.py"), "K = 2\n").unwrap();
+        std::fs::write(dir.join("venv/lib.py"), "L = 1\n").unwrap();
+        let r = Review::open(&dir, None, Some("main")).unwrap();
+        let base = r.base_tree(&dir).unwrap();
+        let read = |p: &str| std::fs::read_to_string(base.join(p)).unwrap();
+        assert_eq!(read("svc.py"), "X = 1\n");
+        assert_eq!(
+            read("kept.py"),
+            "K = 1\n",
+            "untracked since, the base's own"
+        );
+        assert!(base.join("link.py").is_symlink(), "a link stays a link");
+        assert_eq!(
+            std::fs::read_link(base.join("venv")).unwrap(),
+            dir.join("venv"),
+            "an ignored folder is the real one"
+        );
+        let older = Review {
+            merge_base: first,
+            ..r.clone()
+        };
+        let other = older.base_tree(&dir).unwrap();
+        assert!(other.exists() && !base.exists(), "one base at a time");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    fn git_out(dir: &Path, rev: &str) -> String {
+        git(dir, &["rev-parse", rev]).unwrap()
+    }
+
+    #[test]
     fn a_quoted_name_in_a_patch_reads_as_the_name_on_disk() {
         assert_eq!(unquote("a/plain.rs"), "a/plain.rs");
         assert_eq!(unquote(r#""a/x\"y\t\303\244""#), "a/x\"y\t\u{e4}");
@@ -1251,6 +1230,7 @@ mod tests {
         git(&["add", "-A"]);
         git(&["commit", "-q", "-m", "later"]);
         git(&["switch", "-q", "feature"]);
+        git(&["config", "diff.noprefix", "true"]);
 
         let r = Review::open(&dir, None, None).unwrap();
         assert_eq!((r.branch.as_str(), r.base.as_str()), ("feature", "main"));

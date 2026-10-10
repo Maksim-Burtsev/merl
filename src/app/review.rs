@@ -433,12 +433,12 @@ impl App {
         };
         let read = (self.viewed_store())
             .context("no git directory")
-            .and_then(|store| read_viewed(&store, branch, &r.base, crate::stats::today()));
+            .and_then(|store| read_viewed(&store, branch, &r.base, crate::stats::utc_today()));
         self.viewed.clear();
         self.hidden.clear();
         // Unfolded files that cannot be read fold again: the diff is one Enter away.
         self.unfolded = (self.unfolded_store())
-            .and_then(|store| read_viewed(&store, branch, &r.base, crate::stats::today()).ok())
+            .and_then(|store| read_viewed(&store, branch, &r.base, crate::stats::utc_today()).ok())
             .map(|marks| marks.into_keys().collect())
             .unwrap_or_default();
         match read {
@@ -479,7 +479,7 @@ impl App {
             return;
         };
         let marks = self.viewed.iter().chain(&self.hidden);
-        if let Err(e) = write_viewed(&store, branch, &r.base, marks, crate::stats::today()) {
+        if let Err(e) = write_viewed(&store, branch, &r.base, marks, crate::stats::utc_today()) {
             self.message = format!("viewed marks not saved: {}", super::error_text(&e));
         }
     }
@@ -492,7 +492,7 @@ impl App {
             return;
         };
         let files = self.unfolded.iter().map(|p| (p, &0));
-        if let Err(e) = write_viewed(&store, branch, &r.base, files, crate::stats::today()) {
+        if let Err(e) = write_viewed(&store, branch, &r.base, files, crate::stats::utc_today()) {
             self.message = format!("unfolded files not saved: {e:#}");
         }
     }

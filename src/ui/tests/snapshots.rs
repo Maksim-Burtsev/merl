@@ -124,7 +124,7 @@ const STATES: &[State] = &[
         crate::tutor::begin(a).unwrap();
     }),
     ("drill", |a| {
-        let drill = Drill::new(5, None, None, crate::stats::today()).unwrap();
+        let drill = Drill::new(5, None, None, crate::stats::utc_today()).unwrap();
         a.tutor = Some(Tutor {
             step: 0,
             dir: a.root.clone(),
