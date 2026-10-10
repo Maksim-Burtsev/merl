@@ -18,3 +18,13 @@ ration(cap=1)
 
 later = lambda: ration(cap=2)
 #                      ^ d: shop/limits.py:1
+
+
+def portion(self, cap: int = 3):
+    #             ^ d: picker shop/caps.py:1
+    return cap
+
+
+def portions(*cap):
+    #          ^ d: picker shop/caps.py:1
+    return cap

@@ -74,5 +74,15 @@ module Shop
       scupper
     # ^ d: lib/shop/rigging.rb:14
     end
+
+    def trim(text, pat = /#/, sheave = 1)
+      sheave
+    # ^ d: lib/shop/rigging.rb:78
+    end
+
+    def knot(text, pat = %r{#}, halyard = 1)
+      halyard
+    # ^ d: lib/shop/rigging.rb:83
+    end
   end
 end

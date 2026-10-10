@@ -452,12 +452,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
             } else {
                 i += 1;
             }
-        } else if (kind == Kind::Ruby
-            && c == b'/'
-            && b[..i]
-                .iter()
-                .rfind(|c| **c != b' ' && **c != b'\t')
-                .is_none_or(|p| b"\n(,=~!|&;{[".contains(p)))
+        } else if (kind == Kind::Ruby && c == b'/' && ruby_literal_may_start(&b[..i]))
             || c == b'"'
             || (c == b'\'' && kind != Kind::Cmake)
             || (matches!(kind, Kind::Sql | Kind::Ruby) && c == b'`')
@@ -520,6 +515,19 @@ pub(super) fn code(kind: Kind, s: &str) -> impl Iterator<Item = (usize, u8)> + '
                 quote = Some(c);
                 None
             }
+            b'/' | b'%' if kind == Kind::Ruby && ruby_literal_may_start(&b[..i]) => {
+                let letter = c == b'%' && b.get(i + 1).is_some_and(|l| b"qQwWiIrsx".contains(l));
+                let closer = match b.get(i + 2).filter(|_| letter) {
+                    Some(b'{') => b'}',
+                    Some(b'[') => b']',
+                    Some(b'(') => b')',
+                    Some(b'<') => b'>',
+                    _ if c == b'/' => b'/',
+                    _ => return Some((i, c)),
+                };
+                quote = Some(closer);
+                None
+            }
             b'#' if matches!(kind, Kind::Python | Kind::Gdscript | Kind::Ruby) => {
                 comment = true;
                 Some((i, 0))
@@ -533,6 +541,12 @@ pub(super) fn code(kind: Kind, s: &str) -> impl Iterator<Item = (usize, u8)> + '
             _ => Some((i, c)),
         }
     })
+}
+fn ruby_literal_may_start(before: &[u8]) -> bool {
+    before
+        .iter()
+        .rfind(|c| **c != b' ' && **c != b'\t')
+        .is_none_or(|p| b"\n(,=~!|&;{[".contains(p))
 }
 pub(super) fn uncommented(kind: Kind, s: &str) -> String {
     let (mut out, mut from) = (String::with_capacity(s.len()), 0);
