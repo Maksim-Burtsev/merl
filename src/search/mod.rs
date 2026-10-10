@@ -1,10 +1,3 @@
-//! Project-wide grep (ripgrep's own crates) and the regex rules behind "go to definition",
-//! the symbol list and the word under the cursor.
-//!
-//! There is no language server here: a definition is whatever a per-kind line pattern says it
-//! is, searched in the project first and then in the standard library and the installed
-//! dependencies the toolchain on this machine knows about.
-
 mod android;
 mod bindings;
 mod c;
