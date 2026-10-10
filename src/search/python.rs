@@ -529,7 +529,10 @@ fn python_class_of(lines: &[&str], def_line0: usize) -> Option<usize> {
     }
     None
 }
-pub fn def_parameter(text: &str, line1: usize, range: &std::ops::Range<usize>) -> bool {
+pub fn names_a_parameter(text: &str, line1: usize, range: &std::ops::Range<usize>) -> bool {
+    keyword_argument(text, line1, range) || def_parameter(text, line1, range)
+}
+fn def_parameter(text: &str, line1: usize, range: &std::ops::Range<usize>) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
         return false;

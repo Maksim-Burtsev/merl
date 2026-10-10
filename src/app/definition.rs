@@ -205,9 +205,8 @@ impl App {
             }
             return;
         }
-        self.offer_only = kind == Kind::Python
-            && (search::keyword_argument(&text, self.line + 1, &range)
-                || search::def_parameter(&text, self.line + 1, &range));
+        self.offer_only =
+            kind == Kind::Python && search::names_a_parameter(&text, self.line + 1, &range);
         self.truncated.set(false);
         // A PHP `$name` is a variable of its own function, never a function, a method or another
         // function's local (#464). `self::$x` is a static property, and `$this` the object.
