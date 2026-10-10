@@ -50,14 +50,23 @@ fn jvm_parameters_bind_in_their_body() {
     );
     assert!(bound("fun f(_: Int) {\n    _\n}\n", 2, "_").is_empty());
     assert!(bound("fun f() {\n    items.map { _ -> 1 }\n}\n", 2, "_").is_empty());
-    assert!(
+    assert_eq!(
         bound(
             "fun f(germ: Int) {\n    class Sprout {\n        fun grow() = germ\n    }\n}\n",
             3,
             "germ"
+        ),
+        [1],
+        "the walk goes on past a local class"
+    );
+    assert!(
+        bound(
+            "class Pot {\n    class Sprout {\n        fun grow() = germ\n    }\n}\n",
+            3,
+            "germ"
         )
         .is_empty(),
-        "the walk out of the blocks stops at a type's body"
+        "the walk stops at a type's body that is a member or top level"
     );
     assert!(
         bound("fun f() {\n    val it = 1\n    it\n}\n", 3, "it").is_empty(),
