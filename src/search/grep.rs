@@ -13,30 +13,20 @@ use grep_searcher::{BinaryDetection, Searcher, SearcherBuilder, Sink, SinkMatch}
 pub const MAX_HITS: usize = 5_000;
 const MAX_THREADS: usize = 8;
 const FILES_PER_THREAD: usize = 64;
-/// One matching line. `path` is relative to the project root.
 #[derive(Debug, Clone)]
 pub struct Hit {
     pub path: PathBuf,
     pub line1: usize,
-    /// Where the pattern's match starts: where `s` lands on the row.
     pub byte_col: Option<usize>,
     pub text: String,
-    /// A line the branch under review deleted (#440): where the review draws it. `line1` is then
-    /// its number in the file at the base.
     pub deleted: Option<TextLine>,
 }
 
 impl Hit {
-    /// The line of the text the hit is on, as a review orders them.
     pub fn place(&self) -> TextLine {
         self.deleted.unwrap_or(TextLine::File(self.line1 - 1))
     }
 }
-/// Greps `pattern` over `files` (paths relative to `root`).
-///
-/// `current` is the file the cursor is in; its hits sort first, everything else by path and
-/// line. `unsaved` is its text when that is ahead of the disk, searched in place of the file.
-/// Files that cannot be read are skipped — this is a viewer, not a linter.
 pub fn grep_project(
     root: &Path,
     files: &[PathBuf],
@@ -121,9 +111,6 @@ fn shaped_lines(
     shaped.lock().ok()?.insert(path.to_path_buf(), read.clone());
     read
 }
-/// Greps `pattern` over `files`, keeping only the lines `keep` takes. The filter runs before the
-/// [`MAX_HITS`] cut, so what the cut drops are matches of the query, not whatever the walk
-/// reached first: `D` past the cap searches with this.
 pub fn grep_filtered(
     root: &Path,
     files: &[PathBuf],
@@ -214,8 +201,6 @@ impl Sink for Collect<'_> {
         let line = String::from_utf8_lossy(m.bytes());
         let text = line.trim_end();
         if (self.keep)(text) {
-            // The matcher that found the line, run again over it as `Buffer` reads it (lossy, its
-            // trailing blanks kept), finds the column as ripgrep does, with nothing to compile.
             let col = self.matcher.find(line.as_bytes()).ok().flatten();
             self.hits.push((
                 self.file,

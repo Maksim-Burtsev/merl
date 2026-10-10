@@ -94,6 +94,41 @@ fn the_cap_keeps_the_first_files_in_the_order_given() {
 }
 
 #[test]
+fn unsaved_text_is_searched_in_place_of_its_file_and_an_unreadable_file_is_skipped() {
+    let (dir, mut files) = scratch(
+        "unsaved",
+        &[("a.py", "total = 1\n"), ("b.py", "total = 2\n")],
+    );
+    files.insert(1, PathBuf::from("gone.py"));
+    let hits = grep_project(
+        &dir,
+        &files,
+        "total",
+        false,
+        false,
+        Some(Path::new("b.py")),
+        Some(b"x = 0\n  total = 3\n"),
+    )
+    .unwrap();
+    assert_eq!(lines(&hits), [("b.py".into(), 2), ("a.py".into(), 1)]);
+    assert_eq!(hits[0].text, "  total = 3");
+    assert_eq!(hits[0].byte_col, Some(2));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn the_filter_runs_before_the_cap() {
+    let names: Vec<String> = (0..200).map(|i| format!("f{i:03}.py")).collect();
+    let many = "x = 1\n".repeat(MAX_HITS / 100);
+    let mut texts: Vec<(&str, &str)> = names.iter().map(|n| (n.as_str(), many.as_str())).collect();
+    texts.push(("last.py", "x = 2\n"));
+    let (dir, files) = scratch("filter-cap", &texts);
+    let hits = grep_filtered(&dir, &files, "x", None, None, |l| l == "x = 2").unwrap();
+    assert_eq!(lines(&hits), [("last.py".into(), 1)]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn a_panic_on_any_file_reaches_the_caller() {
     let names: Vec<String> = (0..400).map(|i| format!("f{i:03}.py")).collect();
     let texts: Vec<(&str, &str)> = (names.iter())
