@@ -197,3 +197,102 @@ fn a_chain_of_six_names_is_followed_and_a_seventh_breaks_it_in_rust_csharp_php_a
         );
     }
 }
+
+fn ladder(lang: &str, n: usize) -> (String, String, String) {
+    let mut t = String::new();
+    match lang {
+        "py" | "pysuper" => {
+            t += &format!("class C{n}:\n    def root(self):\n        pass\n");
+            for i in (0..n).rev() {
+                t += &format!("\n\nclass C{i}(C{}):\n    pass\n", i + 1);
+            }
+            t += "\n\nclass Other:\n    def root(self):\n        pass\n";
+            if lang == "py" {
+                t += "\n\ndef f(x: C0):\n    x.root()\n";
+            } else {
+                t += "\n\nclass Top(C0):\n    def root(self):\n        super().root()\n";
+            }
+            ("app.py".into(), t, if lang == "py" { "x.root".into() } else { "super().root".into() })
+        }
+        "ts" => {
+            t += &format!("export class C{n} {{\n  root(): void {{}}\n}}\n");
+            for i in (0..n).rev() {
+                t += &format!("\nexport class C{i} extends C{} {{}}\n", i + 1);
+            }
+            t += "\nexport class Other {\n  root(): void {}\n}\n\nexport function f(x: C0): void {\n  x.root();\n}\n";
+            ("app.ts".into(), t, "x.root".into())
+        }
+        "cs" => {
+            t += &format!("public class C{n}\n{{\n    public void Root() {{ }}\n}}\n");
+            for i in (0..n).rev() {
+                t += &format!("\npublic class C{i} : C{}\n{{\n}}\n", i + 1);
+            }
+            t += "\npublic class Other\n{\n    public void Root() { }\n}\n\npublic class W\n{\n    public void F(C0 x)\n    {\n        x.Root();\n    }\n}\n";
+            ("Shop.cs".into(), t, "x.Root".into())
+        }
+        "php" => {
+            t += &format!("<?php\n\nclass C{n}\n{{\n    public function root(): void\n    {{\n    }}\n}}\n");
+            for i in (0..n).rev() {
+                t += &format!("\nclass C{i} extends C{}\n{{\n}}\n", i + 1);
+            }
+            t += "\nclass Other\n{\n    public function root(): void\n    {\n    }\n}\n\nfunction f(C0 $x): void\n{\n    $x->root();\n}\n";
+            ("shop.php".into(), t, "$x->root".into())
+        }
+        _ => {
+            t += &format!("package shop\n\ntype C{n} struct{{}}\n\nfunc (c C{n}) Root() {{}}\n");
+            for i in (0..n).rev() {
+                t += &format!("\ntype C{i} struct {{\n\tC{}\n}}\n", i + 1);
+            }
+            t += "\ntype Other struct{}\n\nfunc (o Other) Root() {}\n\nfunc F(x C0) {\n\tx.Root()\n}\n";
+            ("shop.go".into(), t, "x.Root".into())
+        }
+    }
+}
+
+fn up_the_ladder(lang: &str, n: usize) -> Shown {
+    let (file, text, code) = ladder(lang, n);
+    let mut files = vec![(file.clone(), text)];
+    if lang == "go" {
+        files.push(("go.mod".into(), "module shop\n".into()));
+    }
+    d_in(&format!("ladder-{lang}-{n}"), &files, &file, &code)
+}
+
+#[test]
+fn a_member_is_looked_for_nine_types_up_and_super_eight() {
+    for lang in ["py", "ts", "cs", "php", "go"] {
+        assert!(
+            matches!(up_the_ladder(lang, 8), Shown::Jump(s, _) if s.contains("C8")),
+            "{lang}"
+        );
+        assert!(
+            !matches!(up_the_ladder(lang, 9), Shown::Jump(s, _) if s.contains("C9")),
+            "{lang}"
+        );
+    }
+    let found = up_the_ladder("pysuper", 7);
+    assert_eq!(found, jump("root \u{2192} C7.root (via super of Top)", "app.py:2"));
+    assert!(matches!(up_the_ladder("pysuper", 8), Shown::Picker(..)));
+}
+
+fn go_types(n: usize, sep: &str) -> Vec<(String, String)> {
+    let mut t = String::from("package shop\n\ntype Real struct {\n\tName string\n}\n\nfunc (r Real) Root() {}\n");
+    t += &format!("\ntype A{n}{sep}Real\n");
+    for i in (0..n).rev() {
+        t += &format!("\ntype A{i}{sep}A{}\n", i + 1);
+    }
+    t += "\ntype Other struct {\n\tName string\n}\n\nfunc (o Other) Root() {}\n\nfunc F(x A0) {\n\tx.Root()\n\t_ = x.Name\n\t_ = A0{Name: \"\"}\n}\n";
+    vec![("go.mod".into(), "module shop\n".into()), ("shop.go".into(), t)]
+}
+
+#[test]
+fn go_reads_eight_aliases_and_eight_defined_types_down_to_a_struct() {
+    let alias = |n: usize| d_in(&format!("go-alias-{n}"), &go_types(n, " = "), "shop.go", "x.Root");
+    let root = jump("Root \u{2192} Real.Root (via x: Real)", "shop.go:7");
+    assert_eq!(alias(7), root);
+    assert!(matches!(alias(8), Shown::Picker(..)));
+    let defined = |n: usize| d_in(&format!("go-defined-{n}"), &go_types(n, " "), "shop.go", "A0{Name");
+    let name = jump("Name \u{2192} Real.Name (via A0{\u{2026}})", "shop.go:4");
+    assert_eq!(defined(7), name);
+    assert_eq!(defined(8), jump("no definition for Name", "shop.go:36"));
+}
