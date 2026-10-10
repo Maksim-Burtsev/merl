@@ -39,3 +39,56 @@ fn the_hunk_left_is_its_index_so_a_hunk_written_above_it_takes_its_place() {
     assert_eq!((at(&a), a.line_str()), ((src, 3), "D"));
     let _ = std::fs::remove_dir_all(dir);
 }
+
+fn d_in(tag: &str, files: &[(String, String)], file: &str, code: &str) -> Shown {
+    let files: Vec<(&str, &str)> = files.iter().map(|(n, t)| (n.as_str(), t.as_str())).collect();
+    let (dir, mut a) = project_app(tag, &files);
+    d_on(&mut a, file, code);
+    let found = shown(&mut a);
+    let _ = std::fs::remove_dir_all(dir);
+    found
+}
+
+fn ts_relays(modules: usize, last: &str) -> Vec<(String, String)> {
+    let mut files = vec![(
+        "app.ts".to_string(),
+        "import { Tariff } from './r1';\n\nconst t = new Tariff();\n".to_string(),
+    )];
+    for i in 1..modules {
+        let relay = format!("export {{ Tariff }} from './r{}';\n", i + 1);
+        files.push((format!("r{i}.ts"), relay));
+    }
+    files.push((format!("r{modules}.ts"), last.to_string()));
+    files
+}
+
+#[test]
+fn a_typescript_name_is_followed_through_four_modules_that_hand_it_on() {
+    let at = |n: usize| {
+        let files = ts_relays(n, "export class Tariff {}\n");
+        d_in(&format!("ts-relay-{n}"), &files, "app.ts", "new Tariff")
+    };
+    assert_eq!(at(5), jump("Tariff: via import r5.ts", "r5.ts:1"));
+    assert_eq!(at(6), jump("Tariff: by name, 1 match", "r6.ts:1"));
+}
+
+#[test]
+fn a_typescript_package_is_found_behind_four_barrels() {
+    let at = |n: usize| {
+        let files = ts_relays(n, "export { Tariff } from 'tariffs';\n");
+        d_in(&format!("ts-barrel-{n}"), &files, "app.ts", "new Tariff")
+    };
+    let missing = "Tariff: via import tariffs (not installed)";
+    assert_eq!(at(4), jump(missing, "app.ts:1"));
+    assert_eq!(at(5), jump("no definition for Tariff", "app.ts:3"));
+}
+
+#[test]
+fn two_typescript_modules_handing_a_name_to_each_other_end() {
+    let mut files = ts_relays(2, "export { Tariff } from './r1';\n");
+    let none = jump("no definition for Tariff", "app.ts:3");
+    assert_eq!(d_in("ts-cycle", &files, "app.ts", "new Tariff"), none);
+    files.push(("tariffs.ts".into(), "export class Tariff {}\n".into()));
+    let by_name = jump("Tariff: by name, 1 match", "tariffs.ts:1");
+    assert_eq!(d_in("ts-cycle-named", &files, "app.ts", "new Tariff"), by_name);
+}
