@@ -441,7 +441,10 @@ impl App {
             .and_then(|r| {
                 let back = self.hunk_left(r).map(|(rel, _)| rel);
                 back.or_else(|| {
-                    let f = self.ahead(r, 1).into_iter().find(|f| f.is_stop(&self.root));
+                    let f = self
+                        .ahead(r, 1)
+                        .into_iter()
+                        .find(|f| f.is_stop(&self.root, self.diagrams.on()));
                     f.map(|f| f.path.clone())
                 })
             });

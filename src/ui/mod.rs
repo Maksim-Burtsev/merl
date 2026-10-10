@@ -78,7 +78,9 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
         }
     }
     let mut pane = |app: &mut App| {
-        if let Some(path) = app.picture_shown() {
+        if let Some(sides) = app.picture_sides() {
+            picture::draw_review(frame, app, code, &sides, theme.ghost_fg);
+        } else if let Some(path) = app.picture_shown() {
             picture::draw_file(frame, app, code, &path);
         } else if app.previewing() && !app.buf.path.as_deref().is_some_and(crate::picture::is_svg) {
             draw_preview(frame, app, theme, code, base);

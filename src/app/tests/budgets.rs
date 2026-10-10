@@ -213,7 +213,7 @@ fn time_budgets() {
         timed(|| {
             let t = Instant::now();
             let r = git::Review::open(&root, None, Some("main")).unwrap();
-            let first = r.first_file(&root).expect("a changed file");
+            let first = r.first_file(&root, false).expect("a changed file");
             let paths: Vec<PathBuf> = r.files.iter().map(|f| f.path.clone()).collect();
             assert_eq!(paths.len(), CHANGED);
             let mut a = start(Some(&first), Some(&paths));
