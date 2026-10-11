@@ -410,7 +410,7 @@ fn ts_barrel_subtype(barrels: usize) -> Vec<(String, String)> {
 }
 
 #[test]
-fn implementations_stop_at_four_barrels() {
+fn a_base_past_four_barrels_is_not_taken_for_the_one_implemented() {
     let at = |n: usize| {
         d_in(
             &format!("ts-bar-{n}"),
@@ -420,15 +420,16 @@ fn implementations_stop_at_four_barrels() {
         )
     };
     let other = vec![("Sub.run".into(), "by name".into(), "sub.ts:4".into())];
-    assert_eq!(
-        at(4),
-        Shown::Picker("run: at a declaration, 1 other by name".into(), other)
-    );
-    let wrong = jump(
-        "run \u{2192} Sub.run (implementations of Base.run)",
-        "sub.ts:4",
-    );
-    assert_eq!(at(5), wrong, "#794");
+    for n in [4, 5] {
+        assert_eq!(
+            at(n),
+            Shown::Picker(
+                "run: at a declaration, 1 other by name".into(),
+                other.clone()
+            ),
+            "#794: {n} barrels"
+        );
+    }
 }
 
 #[test]

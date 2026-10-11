@@ -115,6 +115,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in Python on a Django setting assigned under a module-level `if`, `else` or `try`,
   `settings.CACHE_DIR` with `if DEBUG:` then `    CACHE_DIR = "cache"`, jumps to it in the
   project's settings module, where it said `no definition`. (#792)
+- `d` in TypeScript on a method declaration no longer offers, as its implementation, the method
+  of a class whose base is imported through more than four `export * from` barrels: such a base
+  may be another class of the same name, and the method is now offered by name. (#794)
 
 ## [0.8.3] - 2026-10-07
 
