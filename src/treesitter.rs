@@ -286,7 +286,10 @@ fn patterns(
                 let [Capture(c), Text(a), Text(b), Text(d), Text(e)] = &*pred.args else {
                     return Err(format!("{name}: #offset! takes a capture and four numbers"));
                 };
-                let n = |t: &str| t.parse::<i64>().map_err(|_| format!("{name}: #offset! {t}"));
+                let n = |t: &str| {
+                    t.parse::<i64>()
+                        .map_err(|_| format!("{name}: #offset! {t}"))
+                };
                 offs.push((*c, [n(a)?, n(b)?, n(d)?, n(e)?]));
                 continue;
             }
