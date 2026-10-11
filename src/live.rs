@@ -1,6 +1,3 @@
-//! The live project: which filesystem events change the file list, and when to walk again.
-//! Nothing here touches the screen, so another list that follows the disk can reuse it.
-
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -9,10 +6,7 @@ use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 
 use crate::tree::Tree;
 
-/// How long the events have to stand still before the refresh: an agent writing twenty files is
-/// one walk.
 const QUIET: Duration = Duration::from_millis(200);
-/// A stream of events that never pauses still gets a refresh this often.
 const MAX_WAIT: Duration = Duration::from_secs(1);
 
 #[derive(Default)]
@@ -35,7 +29,6 @@ impl Debounce {
         });
     }
 
-    /// Is a refresh due? Answers `true` once per burst.
     pub fn due(&mut self, now: Instant) -> bool {
         let due = self
             .pending
@@ -47,20 +40,11 @@ impl Debounce {
     }
 }
 
-/// The project as the last walk listed it, and when to walk it again. Owned by the event loop:
-/// it feeds [`Project::event`] every filesystem event, asks [`Project::walk_due`] on every pass
-/// and hands the result of the walk to [`Project::walked`].
 pub struct Project {
-    /// Canonical: FSEvents reports canonical paths.
     root: PathBuf,
-    /// The walk lists only the files right in the root, and nothing below it is watched.
     shallow: bool,
     walked_dirs_rel: HashSet<PathBuf>,
-    /// The rows of its tree: its directories and files, and the ignored ones in them.
     listed: HashSet<PathBuf>,
-    /// The ignored directories expanded in the tree on screen, and the rows read into them. The
-    /// tree shows what they hold, so their events count like those of a walked directory, as
-    /// VS Code watches everything; collapsed again, they are silent.
     open: HashSet<PathBuf>,
     read: HashSet<PathBuf>,
     changed: Debounce,
@@ -88,9 +72,6 @@ impl Project {
         self.listed = tree.nodes.iter().map(|n| n.path.clone()).collect();
     }
 
-    /// The tree on screen changed: its open ignored directories are watched from now on, and
-    /// what was read into them is listed. Answers whether the open directories are others than
-    /// before, which is when [`Project::watch`] has something to do.
     pub fn shown(&mut self, tree: &Tree) -> bool {
         let open = tree.open_ignored();
         let inside = tree.nodes.iter().filter(|n| n.ignored && !open.is_empty());
@@ -107,15 +88,6 @@ impl Project {
         }
     }
 
-    /// Does this event change the file list? The kind does not say: FSEvents calls a write to
-    /// a file created seconds ago a create. The disk does: the event counts when its path is
-    /// listed and gone, or there, a row the walk would list, and not listed: a FIFO something
-    /// writes to is never a row, so it costs no walk. An event below a directory the walk did not
-    /// list is inside `.git` or an ignored `target/` or `node_modules/` and never counts, so a
-    /// build running next to merl costs no walk, unless the tree has that directory open. An
-    /// ignored file in a listed directory (`.env`, `*.pyc` beside the source) is a row too: a
-    /// new one is a walk, a write to it is not. A write to an ignore file changes what the walk
-    /// lists, and a watcher that lost events asks for a rescan.
     fn concerns(&self, ev: &notify::Event) -> bool {
         if matches!(ev.kind, EventKind::Access(_)) {
             return false;
@@ -126,15 +98,16 @@ impl Project {
                     return false;
                 };
                 let name = rel.file_name().and_then(|n| n.to_str());
-                rel.as_os_str().is_empty() // the root itself
+                rel.as_os_str().is_empty()
                     || matches!(name, Some(".gitignore" | ".ignore"))
                     || (self.listed.contains(rel) || self.read.contains(rel))
-                        != crate::tree::listable(p, p.symlink_metadata().ok().map(|m| m.file_type()))
+                        != crate::tree::listable(
+                            p,
+                            p.symlink_metadata().ok().map(|m| m.file_type()),
+                        )
             })
     }
 
-    /// `p` relative to the root, when it is the root or in a directory the last walk listed, or
-    /// in an ignored one open in the tree.
     fn in_walk<'a>(&self, p: &'a Path) -> Option<&'a Path> {
         let rel = p.strip_prefix(&self.root).ok()?;
         let dir = rel.parent().unwrap_or(rel);
@@ -142,23 +115,17 @@ impl Project {
         (dir.as_os_str().is_empty() || seen).then_some(rel)
     }
 
-    /// Did something happen where the walk lists files, a plain save included? It changes no
-    /// row of the tree and may change one of the review panel. Ignored directories and `.git`
-    /// stay silent, as in [`Project::concerns`].
     pub fn touched(&self, ev: &notify::Event) -> bool {
         !matches!(ev.kind, EventKind::Access(_))
             && (ev.need_rescan() || ev.paths.iter().any(|p| self.in_walk(p).is_some()))
     }
 
-    /// Is it time to walk? One walk at a time: what changes during one is due after it.
     pub fn walk_due(&mut self, now: Instant) -> bool {
         let due = !self.walking && self.changed.due(now);
         self.walking |= due;
         due
     }
 
-    /// The walk [`Project::walk_due`] asked for is back. Files written into a directory before
-    /// it was listed (or, on Linux, watched) reported nothing: a new directory is one more walk.
     pub fn walked(&mut self, tree: &Tree, now: Instant) {
         self.walking = false;
         let known = std::mem::take(&mut self.walked_dirs_rel);
@@ -168,11 +135,6 @@ impl Project {
         }
     }
 
-    /// Watches the project, at startup and again after every walk. FSEvents and Windows take
-    /// the root recursively, a shallow one alone. inotify needs a watch per directory and a recursive watch would
-    /// put one on every directory of `node_modules/`, so on Linux the directories of the walk
-    /// are watched one by one. Every one of them every time: a directory deleted and made again
-    /// has lost its watch, and a watch that failed (the inotify limit) deserves another try.
     pub fn watch(&self, watcher: &mut RecommendedWatcher, watched: &mut HashSet<PathBuf>) {
         if !cfg!(target_os = "linux") {
             if watched.insert(PathBuf::new()) {
@@ -199,12 +161,9 @@ impl Project {
 }
 
 pub struct Repo {
-    /// Canonical. `HEAD` is the worktree's own; the refs belong to the repository.
     head: PathBuf,
     refs: PathBuf,
     packed_refs: PathBuf,
-    /// Where a repository made with `--ref-format=reftable` keeps its refs: `HEAD` and
-    /// `refs/` are placeholders there and never change.
     reftables: [PathBuf; 2],
     changed: Debounce,
     listing: bool,
@@ -229,15 +188,10 @@ impl Repo {
         }
     }
 
-    /// The project was walked again: files may have been written before their directory was
-    /// listed, and those events did not count.
     pub fn touch(&mut self, now: Instant) {
         self.changed.touch(now);
     }
 
-    /// `HEAD`, a loose ref under `refs/`, `packed-refs` or a reftable was written (git renames
-    /// a `.lock` over them). The index and the objects are not the branch: merl's own `git diff` and an
-    /// editor's `git status` refresh the index, and must not ask for another listing.
     fn moves_the_branch(&self, ev: &notify::Event) -> bool {
         let lock = |p: &Path| p.extension().is_some_and(|e| e == "lock");
         !matches!(ev.kind, EventKind::Access(_))
@@ -249,7 +203,6 @@ impl Repo {
             })
     }
 
-    /// Is it time to list the branch? One listing at a time, as with the walk.
     pub fn list_due(&mut self, now: Instant) -> bool {
         let due = !self.listing && self.changed.due(now);
         self.listing |= due;
@@ -264,16 +217,11 @@ impl Repo {
         self.listing = false;
     }
 
-    /// `HEAD` and `packed-refs` are replaced by a rename, so their directories are watched,
-    /// not they. Needed on Linux, and everywhere in a worktree, whose `.git` is a file and the
-    /// real directory is outside the root; a second watch of what FSEvents already reports
-    /// under the root costs a repeated event, which the debounce takes.
     pub fn watch(&self, watcher: &mut RecommendedWatcher) {
         for (path, mode) in [
             (self.head.parent(), RecursiveMode::NonRecursive),
             (self.packed_refs.parent(), RecursiveMode::NonRecursive),
             (Some(self.refs.as_path()), RecursiveMode::Recursive),
-            // Not there with the files backend: the error is the answer.
             (
                 Some(self.reftables[0].as_path()),
                 RecursiveMode::NonRecursive,
@@ -560,6 +508,84 @@ mod tests {
         assert!(!r.list_due(ms(2000)), "the first one is not back");
         r.listed();
         assert!(r.list_due(ms(2000)) && !r.list_due(ms(9000)));
+    }
+
+    #[test]
+    fn a_project_named_by_a_path_that_is_not_canonical_hears_the_canonical_paths_of_its_events() {
+        let (dir, _) = project("canonical");
+        let (tree, _) = tree::build(&dir, false);
+        let p = Project::new(&dir.join("src/.."), false, &tree);
+        std::fs::write(dir.join("new.rs"), b"x").unwrap();
+        let ev =
+            notify::Event::new(EventKind::Create(CreateKind::File)).add_path(dir.join("new.rs"));
+        assert!(p.concerns(&ev));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    fn heard(rx: &std::sync::mpsc::Receiver<notify::Event>, file: &Path, wait: Duration) -> bool {
+        std::iter::from_fn(|| rx.recv_timeout(wait).ok())
+            .any(|ev| ev.paths.iter().any(|f| f.ends_with(file)))
+    }
+
+    fn watcher() -> (RecommendedWatcher, std::sync::mpsc::Receiver<notify::Event>) {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let watcher = notify::recommended_watcher(move |ev: notify::Result<notify::Event>| {
+            if let Ok(ev) = ev {
+                let _ = tx.send(ev);
+            }
+        })
+        .unwrap();
+        (watcher, rx)
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    #[test]
+    fn the_root_is_watched_whole_and_a_shallow_one_alone() {
+        for shallow in [false, true] {
+            let (dir, _) = project(&format!("shallow-{shallow}"));
+            let (tree, _) = tree::build(&dir, shallow);
+            let p = Project::new(&dir, shallow, &tree);
+            let (mut w, rx) = watcher();
+            p.watch(&mut w, &mut HashSet::new());
+            std::thread::sleep(Duration::from_millis(300));
+            std::fs::write(dir.join("src/deep/new.rs"), b"x").unwrap();
+            std::fs::write(dir.join("top.rs"), b"x").unwrap();
+            let events: Vec<_> =
+                std::iter::from_fn(|| rx.recv_timeout(Duration::from_secs(2)).ok()).collect();
+            let seen = |f: &str| {
+                events
+                    .iter()
+                    .any(|ev| ev.paths.iter().any(|p| p.ends_with(f)))
+            };
+            assert!(seen("top.rs"), "shallow: {shallow}");
+            assert_eq!(seen("src/deep/new.rs"), !shallow, "shallow: {shallow}");
+            std::fs::remove_dir_all(&dir).unwrap();
+        }
+    }
+
+    #[test]
+    fn a_head_and_packed_refs_replaced_by_a_rename_are_heard() {
+        let git = std::env::temp_dir().join(format!("merl-watch-{}-git", std::process::id()));
+        let _ = std::fs::remove_dir_all(&git);
+        std::fs::create_dir_all(git.join("refs")).unwrap();
+        for f in ["HEAD", "packed-refs"] {
+            std::fs::write(git.join(f), b"x").unwrap();
+        }
+        let git = git.canonicalize().unwrap();
+        let r = Repo::new(&crate::git::GitDirs {
+            worktree_head_dir: git.clone(),
+            common_refs_dir: git.clone(),
+        });
+        let (mut w, rx) = watcher();
+        r.watch(&mut w);
+        std::thread::sleep(Duration::from_millis(300));
+        for f in ["HEAD", "packed-refs", "HEAD", "packed-refs"] {
+            let lock = git.join(format!("{f}.lock"));
+            std::fs::write(&lock, b"y").unwrap();
+            std::fs::rename(&lock, git.join(f)).unwrap();
+            assert!(heard(&rx, Path::new(f), Duration::from_secs(5)), "{f}");
+        }
+        std::fs::remove_dir_all(&git).unwrap();
     }
 
     /// inotify drops the watch of a deleted directory by itself; the one made again under the

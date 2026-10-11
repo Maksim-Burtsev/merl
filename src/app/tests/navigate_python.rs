@@ -1567,3 +1567,27 @@ fn a_python_def_nested_in_a_function_outside_is_no_method() {
     std::fs::remove_dir_all(dir).unwrap();
     std::fs::remove_dir_all(std).unwrap();
 }
+
+#[test]
+fn a_class_an_outside_package_re_exports_by_star_is_its_class() {
+    let site = external_root(
+        "py-star",
+        &[
+            ("starpkg/__init__.py", "from starpkg.impl import *\n"),
+            ("starpkg/impl.py", "class Widget:\n    size = 1\n"),
+            ("other/sizes.py", "size = 2\n"),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "py-star",
+        &[("app/w.py", "from starpkg import Widget\n\nWidget.size\n")],
+    );
+    use_roots(&mut a, Kind::Python, &[site]);
+    d_on(&mut a, "app/w.py", "Widget.size");
+    assert_eq!(
+        shown(&mut a),
+        jump("no definition for size", "app/w.py:3"),
+        "a class proven outside, whose member is not found there, is no search by name"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
