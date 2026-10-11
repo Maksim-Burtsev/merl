@@ -363,7 +363,7 @@ def record_fixtures(cache, ts, name, langs):
         d = os.path.join(ROOT, "tests", "colors", lang)
         files = []
         for f in sorted(os.listdir(d)):
-            if f.endswith(".tsv") or f.endswith(".md"):
+            if f.endswith(".tsv") or f == "NOTES.md":
                 continue
             path = os.path.join(d, f)
             lines = file_lines(path)

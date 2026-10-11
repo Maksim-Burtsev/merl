@@ -189,6 +189,11 @@ fn coloured_as_lazyvim(lang: &str) {
 }
 
 #[test]
+fn markdown_and_the_code_in_it_are_coloured_as_lazyvim() {
+    coloured_as_lazyvim("markdown");
+}
+
+#[test]
 fn python_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("python");
 }
@@ -205,10 +210,10 @@ fn rust_is_coloured_as_lazyvim() {
 
 #[test]
 fn every_vendored_query_compiles_with_what_it_uses() {
-    for (name, _) in super::QUERIES {
+    for (name, _, _) in super::QUERIES {
+        super::compile(name, super::grammar(name).unwrap()).unwrap();
         assert!(super::lang(name).is_some(), "{name}");
     }
-    super::compile("python", tree_sitter_python::LANGUAGE.into()).unwrap();
 }
 
 #[test]
@@ -218,8 +223,9 @@ fn a_query_using_what_merl_does_not_implement_is_refused() {
         "((identifier) @x (#match? @x \"^a\"))",
         "((identifier) @x (#vim-match? @x \"^a\"))",
         "((identifier) @x (#has-ancestor? @x call))",
-        "((identifier) @x (#offset! @x 0 1 0 -1))",
-        "((identifier) @x (#set! conceal \"\"))",
+        "((identifier) @x (#offset! @x 0 1))",
+        "((identifier) @x (#set! injection.language \"regex\"))",
+        "((identifier) @x (#set! @x priority 101))",
         "((identifier) @x (#lua-match? @x \"%bxy\"))",
     ] {
         let got = super::compile_text("python", python(), text);
@@ -244,8 +250,8 @@ fn contains_and_has_parent_and_their_not_forms_test_as_neovim_does() {
         let lines = vec![src.to_string()];
         let mut parsed = super::Parsed::new(lang, &lines).unwrap();
         parsed.parse(None);
-        let styles = super::Styles::new(lang, &theme);
-        let spans = parsed.spans(&lines, 0, 0, &styles);
+        let mut styles = super::Styles::new(&theme);
+        let spans = parsed.spans(&lines, 0, 0, &mut styles);
         let fg = spans[0]
             .iter()
             .find(|(_, r)| r.contains(&col))
@@ -323,6 +329,36 @@ fn without_the_setting_python_goes_through_syntect() {
 }
 
 #[test]
+fn a_preview_code_block_is_coloured_as_the_same_code_in_a_file() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let src = "import re\nWORD = re.compile(r\"[a-z]+\\d\")\n";
+    let lines: Vec<String> = src.lines().map(str::to_string).collect();
+    let mut file = Buffer::from_bytes(PathBuf::from("a.py"), src.as_bytes());
+    file.start_tree_sitter();
+    file.parse_more(None);
+    file.paint_to(usize::MAX, &theme);
+    for token in ["python", "py", " Python "] {
+        let mut block = Buffer::block(token, lines.clone());
+        let syntect = {
+            block.highlight_to(usize::MAX, &theme);
+            block.hl.clone()
+        };
+        block.start_block_tree_sitter(token);
+        block.parse_more(None);
+        block.paint_to(usize::MAX, &theme);
+        assert_eq!(block.hl, file.hl, "{token}");
+        assert_ne!(block.hl, syntect, "{token}");
+    }
+    let mut ruby = Buffer::block("ruby", vec!["x = 1".to_string()]);
+    ruby.start_block_tree_sitter("ruby");
+    ruby.highlight_to(0, &theme);
+    assert!(
+        !ruby.hl.is_empty(),
+        "a language not on tree-sitter keeps syntect's colours"
+    );
+}
+
+#[test]
 fn a_higher_priority_paints_over_a_later_capture_and_equal_ones_paint_in_order() {
     let theme = theme::load("tokyonight-moon").unwrap();
     let paint = |query: &str| {
@@ -332,8 +368,8 @@ fn a_higher_priority_paints_over_a_later_capture_and_equal_ones_paint_in_order()
         let lines = vec!["x".to_string()];
         let mut parsed = super::Parsed::new(lang, &lines).unwrap();
         parsed.parse(None);
-        let styles = super::Styles::new(lang, &theme);
-        parsed.spans(&lines, 0, 0, &styles)[0][0].0
+        let mut styles = super::Styles::new(&theme);
+        parsed.spans(&lines, 0, 0, &mut styles)[0][0].0
     };
     let keyword = theme.group("@keyword.python").unwrap().fg;
     let string = theme.group("@string.python").unwrap().fg;

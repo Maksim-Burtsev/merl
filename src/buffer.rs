@@ -28,7 +28,7 @@ pub fn use_tree_sitter(on: bool) {
     TREE_SITTER.store(on, std::sync::atomic::Ordering::Relaxed);
 }
 
-fn syntaxes() -> &'static SyntaxSet {
+pub(crate) fn syntaxes() -> &'static SyntaxSet {
     static SET: OnceLock<SyntaxSet> = OnceLock::new();
     SET.get_or_init(two_face::syntax::extra_newlines)
 }
@@ -200,13 +200,22 @@ impl Buffer {
 
     pub(crate) fn block(token: &str, mut lines: Vec<String>) -> Self {
         let bytes: usize = lines.iter().map(String::len).sum();
-        let syntax = (lines.len() <= MAX_HL_LINES && bytes <= MAX_HL_BYTES)
-            .then(|| syntax_for_info(token))
-            .flatten();
+        let fits = lines.len() <= MAX_HL_LINES && bytes <= MAX_HL_BYTES;
+        let syntax = fits.then(|| syntax_for_info(token)).flatten();
         if lines.is_empty() {
             lines.push(String::new());
         }
-        Self::new(None, lines, syntax)
+        let mut b = Self::new(None, lines, syntax);
+        if fits && TREE_SITTER.load(std::sync::atomic::Ordering::Relaxed) {
+            b.start_block_tree_sitter(token);
+        }
+        b
+    }
+
+    pub(crate) fn start_block_tree_sitter(&mut self, token: &str) {
+        self.ts =
+            treesitter::resolve(token).and_then(|lang| treesitter::Parsed::new(lang, &self.lines));
+        self.clear_hl();
     }
 
     pub fn shown(&self, l: usize) -> &str {
@@ -245,19 +254,20 @@ impl Buffer {
     }
 
     pub(crate) fn paint_to(&mut self, last: usize, theme: &Theme) {
-        let Some(syntax) = self.syntax else { return };
         let last = last.min(self.lines.len().saturating_sub(1));
-        if let Some(ts) = &self.ts {
+        if let Some(ts) = &mut self.ts {
             if !ts.has_tree() {
                 return;
             }
             if self.hl.len() <= last {
-                let styles = treesitter::Styles::new(ts.lang, theme);
+                let mut styles = treesitter::Styles::new(theme);
                 let from = self.hl.len();
-                self.hl.extend(ts.spans(&self.lines, from, last, &styles));
+                self.hl
+                    .extend(ts.spans(&self.lines, from, last, &mut styles));
             }
             return;
         }
+        let Some(syntax) = self.syntax else { return };
         if self.hl.len() > last {
             return;
         }
@@ -339,7 +349,7 @@ const BLOCK_NAMES: &[(&str, &str)] = &[
     ("objc", "Objective-C"),
 ];
 
-fn syntax_for_info(word: &str) -> Option<&'static SyntaxReference> {
+pub(crate) fn syntax_for_info(word: &str) -> Option<&'static SyntaxReference> {
     let set = syntaxes();
     let mut word = word;
     for _ in 0..2 {

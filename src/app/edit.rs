@@ -393,18 +393,22 @@ impl App {
     pub fn parsing(&self) -> bool {
         let base = self.base.iter().map(|(_, b)| b);
         let picker = self.picker.iter().flat_map(|p| p.bufs.values());
+        let code = self.preview.iter().flat_map(|p| p.code.iter());
         std::iter::once(&self.buf)
             .chain(base)
             .chain(picker)
+            .chain(code)
             .any(Buffer::parsing)
     }
 
     pub fn parse_more(&mut self) -> bool {
         let base = self.base.iter_mut().map(|(_, b)| b);
         let picker = self.picker.iter_mut().flat_map(|p| p.bufs.values_mut());
+        let code = self.preview.iter_mut().flat_map(|p| p.code.iter_mut());
         std::iter::once(&mut self.buf)
             .chain(base)
             .chain(picker)
+            .chain(code)
             .find(|b| b.parsing())
             .is_some_and(|b| b.parse_more(Some(crate::buffer::PARSE_IDLE_STEP)))
     }

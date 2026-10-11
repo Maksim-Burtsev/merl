@@ -6,21 +6,40 @@ use std::time::{Duration, Instant};
 use ratatui::style::Style;
 use syntect::highlighting::Highlighter;
 use syntect::parsing::Scope;
-use tree_sitter::{
-    InputEdit, Language, ParseOptions, ParseState, Parser, Point, Query, QueryCursor,
-    StreamingIterator, Tree,
-};
+use tree_sitter::{InputEdit, Language, ParseOptions, ParseState, Parser, Point, Query, Tree};
 
 use crate::buffer::{Buffer, Spans};
 use crate::theme::Theme;
 
 const NEOVIM_TREESITTER_PRIORITY: u32 = 100;
 
-const QUERIES: &[(&str, &str)] = &[
-    ("go", include_str!("../queries/go/highlights.scm")),
-    ("python", include_str!("../queries/python/highlights.scm")),
-    ("rust", include_str!("../queries/rust/highlights.scm")),
+const QUERIES: &[(&str, &str, &str)] = &[
+    ("go", include_str!("../queries/go/highlights.scm"), ""),
+    ("rust", include_str!("../queries/rust/highlights.scm"), ""),
+    (
+        "python",
+        include_str!("../queries/python/highlights.scm"),
+        include_str!("../queries/python/injections.scm"),
+    ),
+    (
+        "markdown",
+        include_str!("../queries/markdown/highlights.scm"),
+        include_str!("../queries/markdown/injections.scm"),
+    ),
+    (
+        "markdown_inline",
+        include_str!("../queries/markdown_inline/highlights.scm"),
+        include_str!("../queries/markdown_inline/injections.scm"),
+    ),
+    ("regex", include_str!("../queries/regex/highlights.scm"), ""),
+    (
+        "printf",
+        include_str!("../queries/printf/highlights.scm"),
+        "",
+    ),
 ];
+
+const ALIASES: &[(&str, &str)] = &[("py", "python"), ("gyp", "python"), ("pandoc", "markdown")];
 
 const PREDICATES: &[&str] = &[
     "eq?",
@@ -34,15 +53,18 @@ const PREDICATES: &[&str] = &[
     "has-parent?",
     "not-has-parent?",
     "set!",
+    "offset!",
 ];
 
-pub struct Lang {
-    pub name: &'static str,
-    language: Language,
-    query: Query,
-    priority: Vec<u32>,
-    checks: Vec<Vec<Check>>,
-}
+const HIGHLIGHT_KEYS: &[&str] = &["priority", "conceal", "conceal_lines"];
+const INJECTION_KEYS: &[&str] = &[
+    "injection.language",
+    "injection.combined",
+    "injection.include-children",
+];
+const CAPTURE_KEYS: &[&str] = &["url", "conceal"];
+
+type Offset = (u32, [i64; 4]);
 
 struct Check {
     capture: u32,
@@ -79,43 +101,112 @@ impl Check {
     }
 }
 
+struct Patterns {
+    query: Query,
+    checks: Vec<Vec<Check>>,
+    offsets: Vec<Vec<Offset>>,
+    settings: Vec<Vec<(String, Option<String>)>>,
+}
+
+impl Patterns {
+    fn setting(&self, pattern: usize, key: &str) -> Option<Option<&str>> {
+        self.settings[pattern]
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.as_deref())
+    }
+
+    fn matches(&self, m: &tree_sitter::QueryMatch, bytes: &[u8]) -> bool {
+        self.checks[m.pattern_index]
+            .iter()
+            .all(|c| c.passes(m, bytes))
+    }
+
+    fn offset(&self, pattern: usize, capture: u32) -> Option<[i64; 4]> {
+        self.offsets[pattern]
+            .iter()
+            .find(|(c, _)| *c == capture)
+            .map(|(_, o)| *o)
+    }
+}
+
+pub struct Lang {
+    pub name: &'static str,
+    language: Language,
+    highlights: Patterns,
+    priority: Vec<u32>,
+    injections: Option<Patterns>,
+}
+
 pub fn for_syntax(syntect_name: &str) -> Option<&'static Lang> {
     match syntect_name {
         "Go" => lang("go"),
         "Python" => lang("python"),
         "Rust" => lang("rust"),
+        "Markdown" => lang("markdown"),
         _ => None,
     }
+}
+
+fn grammar(name: &str) -> Option<Language> {
+    Some(match name {
+        "go" => tree_sitter_go::LANGUAGE.into(),
+        "python" => tree_sitter_python::LANGUAGE.into(),
+        "rust" => tree_sitter_rust::LANGUAGE.into(),
+        "markdown" => tree_sitter_md::LANGUAGE.into(),
+        "markdown_inline" => tree_sitter_md::INLINE_LANGUAGE.into(),
+        "regex" => tree_sitter_regex::LANGUAGE.into(),
+        "printf" => tree_sitter_printf::LANGUAGE.into(),
+        _ => return None,
+    })
 }
 
 pub fn lang(name: &str) -> Option<&'static Lang> {
-    static GO: OnceLock<Option<Lang>> = OnceLock::new();
-    static PYTHON: OnceLock<Option<Lang>> = OnceLock::new();
-    static RUST: OnceLock<Option<Lang>> = OnceLock::new();
-    match name {
-        "go" => GO
-            .get_or_init(|| compile("go", tree_sitter_go::LANGUAGE.into()).ok())
-            .as_ref(),
-        "python" => PYTHON
-            .get_or_init(|| compile("python", tree_sitter_python::LANGUAGE.into()).ok())
-            .as_ref(),
-        "rust" => RUST
-            .get_or_init(|| compile("rust", tree_sitter_rust::LANGUAGE.into()).ok())
-            .as_ref(),
-        _ => None,
-    }
+    static LANGS: [OnceLock<Option<Lang>>; QUERIES.len()] =
+        [const { OnceLock::new() }; QUERIES.len()];
+    let i = QUERIES.iter().position(|(n, _, _)| *n == name)?;
+    LANGS[i]
+        .get_or_init(|| compile(QUERIES[i].0, grammar(QUERIES[i].0)?).ok())
+        .as_ref()
 }
 
-fn source(name: &str) -> Result<String, String> {
-    let (_, text) = QUERIES
+pub fn resolve(alias: &str) -> Option<&'static Lang> {
+    let alias: String = alias
+        .chars()
+        .filter(|c| !c.is_whitespace())
+        .map(|c| match c {
+            '-' => '_',
+            c => c.to_ascii_lowercase(),
+        })
+        .collect();
+    if alias.is_empty()
+        || !alias
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_')
+    {
+        return None;
+    }
+    let name = ALIASES
         .iter()
-        .find(|(n, _)| *n == name)
+        .find(|(a, _)| *a == alias)
+        .map_or(alias.as_str(), |(_, n)| n);
+    lang(name)
+}
+
+fn source(
+    name: &str,
+    pick: fn(&(&str, &'static str, &'static str)) -> &'static str,
+) -> Result<String, String> {
+    let row = QUERIES
+        .iter()
+        .find(|(n, _, _)| *n == name)
         .ok_or_else(|| format!("no queries for {name}"))?;
+    let text = pick(row);
     let mut out = String::new();
     for line in text.lines() {
         if let Some(bases) = line.strip_prefix("; inherits:") {
             for base in bases.split(',').map(str::trim).filter(|b| !b.is_empty()) {
-                out.push_str(&source(base.trim_matches(|c| c == '(' || c == ')'))?);
+                out.push_str(&source(base.trim_matches(|c| c == '(' || c == ')'), pick)?);
                 out.push('\n');
             }
         }
@@ -125,10 +216,39 @@ fn source(name: &str) -> Result<String, String> {
 }
 
 fn compile(name: &'static str, language: Language) -> Result<Lang, String> {
-    compile_text(name, language, &source(name)?)
+    let mut lang = compile_text(name, language, &source(name, |r| r.1)?)?;
+    let injections = source(name, |r| r.2)?;
+    if !injections.trim().is_empty() {
+        lang.injections = Some(patterns(name, &lang.language, &injections, INJECTION_KEYS)?);
+    }
+    Ok(lang)
 }
 
 fn compile_text(name: &'static str, language: Language, text: &str) -> Result<Lang, String> {
+    let highlights = patterns(name, &language, text, HIGHLIGHT_KEYS)?;
+    let priority = highlights
+        .settings
+        .iter()
+        .map(|s| match s.iter().find(|(k, _)| k == "priority") {
+            Some((_, Some(v))) => v.parse().map_err(|_| format!("{name}: priority {v}")),
+            _ => Ok(NEOVIM_TREESITTER_PRIORITY),
+        })
+        .collect::<Result<_, _>>()?;
+    Ok(Lang {
+        name,
+        language,
+        highlights,
+        priority,
+        injections: None,
+    })
+}
+
+fn patterns(
+    name: &str,
+    language: &Language,
+    text: &str,
+    keys: &[&str],
+) -> Result<Patterns, String> {
     let used = regex::Regex::new(r"\(#([a-z-]+[?!])").expect("a valid regex");
     if let Some(op) = used
         .captures_iter(text)
@@ -137,33 +257,53 @@ fn compile_text(name: &'static str, language: Language, text: &str) -> Result<La
     {
         return Err(format!("{name}: #{op} is not implemented"));
     }
-    let query = Query::new(&language, text).map_err(|e| format!("{name}: {e}"))?;
-    let mut priority = Vec::new();
+    let url = regex::Regex::new(r"\(#set! @[\w.]+ url @[\w.]+\)").expect("a valid regex");
+    let text = url.replace_all(text, "");
+    let query = Query::new(language, &text).map_err(|e| format!("{name}: {e}"))?;
     let mut checks = Vec::new();
+    let mut offsets = Vec::new();
+    let mut settings = Vec::new();
     for p in 0..query.pattern_count() {
-        let mut prio = NEOVIM_TREESITTER_PRIORITY;
+        let mut set = Vec::new();
         for prop in query.property_settings(p) {
-            match (&*prop.key, prop.value.as_deref(), prop.capture_id) {
-                ("priority", Some(v), None) => {
-                    prio = v.parse().map_err(|_| format!("{name}: priority {v}"))?;
+            match prop.capture_id {
+                None if keys.contains(&&*prop.key) => {
+                    set.push((
+                        prop.key.to_string(),
+                        prop.value.as_deref().map(str::to_string),
+                    ));
                 }
-                (key, _, _) => return Err(format!("{name}: #set! {key} is not implemented")),
+                Some(_) if CAPTURE_KEYS.contains(&&*prop.key) => {}
+                _ => return Err(format!("{name}: #set! {} is not implemented", prop.key)),
             }
         }
-        priority.push(prio);
+        settings.push(set);
         let mut preds = Vec::new();
+        let mut offs = Vec::new();
         for pred in query.general_predicates(p) {
+            use tree_sitter::QueryPredicateArg::{Capture, String as Text};
+            if &*pred.operator == "offset!" {
+                let [Capture(c), Text(a), Text(b), Text(d), Text(e)] = &*pred.args else {
+                    return Err(format!("{name}: #offset! takes a capture and four numbers"));
+                };
+                let n = |t: &str| {
+                    t.parse::<i64>()
+                        .map_err(|_| format!("{name}: #offset! {t}"))
+                };
+                offs.push((*c, [n(a)?, n(b)?, n(d)?, n(e)?]));
+                continue;
+            }
             let op = &*pred.operator;
             let (positive, op) = match op.strip_prefix("not-") {
                 Some(rest) => (false, rest),
                 None => (true, op),
             };
             let (capture, args) = match &*pred.args {
-                [tree_sitter::QueryPredicateArg::Capture(c), rest @ ..] if !rest.is_empty() => (
+                [Capture(c), rest @ ..] if !rest.is_empty() => (
                     *c,
                     rest.iter()
                         .map(|a| match a {
-                            tree_sitter::QueryPredicateArg::String(s) => Ok(s.to_string()),
+                            Text(s) => Ok(s.to_string()),
                             _ => Err(format!("{name}: #{} takes strings", pred.operator)),
                         })
                         .collect::<Result<Vec<_>, _>>()?,
@@ -183,13 +323,13 @@ fn compile_text(name: &'static str, language: Language, text: &str) -> Result<La
             });
         }
         checks.push(preds);
+        offsets.push(offs);
     }
-    Ok(Lang {
-        name,
-        language,
+    Ok(Patterns {
         query,
-        priority,
         checks,
+        offsets,
+        settings,
     })
 }
 
@@ -277,6 +417,7 @@ fn lua_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
 pub struct Parsed {
     pub lang: &'static Lang,
     parser: Parser,
+    inner: Parser,
     tree: Option<Tree>,
     text: String,
     starts: Vec<usize>,
@@ -309,6 +450,7 @@ impl Parsed {
         Some(Self {
             lang,
             parser,
+            inner: Parser::new(),
             tree: None,
             starts,
             text,
@@ -382,53 +524,46 @@ impl Parsed {
                 .fold(from, usize::min),
             None => 0,
         };
+        let near = self.starts[from]..self.starts.get(from + 1).copied().unwrap_or(bytes.len());
+        let doc = layers::Doc::new(bytes, &self.starts, near.start, near.end);
+        let from = layers::region_start(&layers::injections(self.lang, &tree, None, &doc), from);
         (self.tree, self.repaint_from, self.halted) = (Some(tree), None, false);
         Some(from)
     }
 
-    pub fn spans(&self, lines: &[String], from: usize, to: usize, styles: &Styles) -> Vec<Spans> {
+    pub fn spans(
+        &mut self,
+        lines: &[String],
+        from: usize,
+        to: usize,
+        styles: &mut Styles,
+    ) -> Vec<Spans> {
         let Some(tree) = &self.tree else {
             return Vec::new();
         };
-        let lang = self.lang;
         let start = self.starts[from];
         let end = self.starts.get(to + 1).copied().unwrap_or(self.text.len());
-        let mut cursor = QueryCursor::new();
-        cursor.set_byte_range(start..self.text.len());
-        let bytes = self.text.as_bytes();
-        let mut painted: Vec<(u32, usize, usize, Style)> = Vec::new();
-        let mut checked: Option<(u32, bool)> = None;
-        let mut captures = cursor.captures(&lang.query, tree.root_node(), bytes);
-        while let Some((m, i)) = captures.next() {
-            let node = m.captures()[*i].node;
-            if node.start_byte() >= end {
-                break;
-            }
-            let ok = match checked {
-                Some((id, ok)) if id == m.id() => ok,
-                _ => {
-                    let ok = lang.checks[m.pattern_index]
-                        .iter()
-                        .all(|c| c.passes(m, bytes));
-                    checked = Some((m.id(), ok));
-                    ok
-                }
-            };
-            if !ok {
-                continue;
-            }
-            let c = m.captures()[*i];
-            if let Some(style) = styles.by_capture[c.index as usize] {
-                let prio = lang.priority[m.pattern_index];
-                painted.push((prio, node.start_byte(), node.end_byte(), style));
-            }
-        }
-        painted.sort_by_key(|p| p.0);
+        let doc = layers::Doc::new(self.text.as_bytes(), &self.starts, start, end);
+        let mut painted = Vec::new();
+        layers::layer(
+            self.lang,
+            std::slice::from_ref(tree),
+            false,
+            &mut layers::Ctx {
+                parser: &mut self.inner,
+                sub: 0,
+                depth: 0,
+                styles,
+                out: &mut painted,
+            },
+            &doc,
+        );
+        painted.sort_by_key(|p| (p.prio, p.sub));
         let mut cells: Vec<Vec<Style>> = (from..=to)
             .map(|l| vec![styles.normal; lines[l].len()])
             .collect();
-        for (_, a, b, style) in painted {
-            let (a, b) = (a.max(start), b.min(end));
+        for p in painted {
+            let (a, b) = (p.a.max(start), p.b.min(end));
             if a >= b {
                 continue;
             }
@@ -437,7 +572,7 @@ impl Parsed {
                 let row = &mut cells[l - from];
                 let s = a.saturating_sub(self.starts[l]).min(row.len());
                 let e = (b - self.starts[l]).min(row.len());
-                row[s..e].iter_mut().for_each(|c| *c = c.patch(style));
+                row[s..e].iter_mut().for_each(|c| *c = c.patch(p.style));
             }
         }
         cells
@@ -472,38 +607,55 @@ fn runs(row: &[Style]) -> Spans {
     out
 }
 
-pub struct Styles {
+pub struct Styles<'a> {
+    theme: &'a Theme,
+    highlighter: Highlighter<'a>,
     normal: Style,
-    by_capture: Vec<Option<Style>>,
+    by_lang: Vec<(&'static str, Vec<Option<Style>>)>,
 }
 
-impl Styles {
-    pub fn new(lang: &Lang, theme: &Theme) -> Self {
-        let highlighter = Highlighter::new(&theme.syntect);
+impl<'a> Styles<'a> {
+    pub fn new(theme: &'a Theme) -> Self {
         let normal_fg = theme.group("Normal").and_then(|s| s.fg).unwrap_or(theme.fg);
-        let by_capture = lang
-            .query
-            .capture_names()
-            .iter()
-            .map(|name| {
-                if name.starts_with('_') {
-                    return None;
-                }
-                if theme.groups.is_empty() {
-                    return textmate(name, &highlighter);
-                }
-                let s = theme.group(&format!("@{name}.{}", lang.name))?;
-                Some(Style {
-                    bg: None,
-                    underline_color: None,
-                    ..s
-                })
-            })
-            .collect();
         Self {
+            theme,
+            highlighter: Highlighter::new(&theme.syntect),
             normal: Style::new().fg(normal_fg),
-            by_capture,
+            by_lang: Vec::new(),
         }
+    }
+
+    fn of(&mut self, lang: &Lang) -> &[Option<Style>] {
+        let i = match self.by_lang.iter().position(|(n, _)| *n == lang.name) {
+            Some(i) => i,
+            None => {
+                let styles = lang
+                    .highlights
+                    .query
+                    .capture_names()
+                    .iter()
+                    .map(|name| self.capture(lang.name, name))
+                    .collect();
+                self.by_lang.push((lang.name, styles));
+                self.by_lang.len() - 1
+            }
+        };
+        &self.by_lang[i].1
+    }
+
+    fn capture(&self, lang: &str, name: &str) -> Option<Style> {
+        if name.starts_with('_') {
+            return None;
+        }
+        if self.theme.groups.is_empty() {
+            return textmate(name, &self.highlighter);
+        }
+        let s = self.theme.group(&format!("@{name}.{lang}"))?;
+        Some(Style {
+            bg: None,
+            underline_color: None,
+            ..s
+        })
     }
 }
 
@@ -559,6 +711,8 @@ fn textmate(capture: &str, highlighter: &Highlighter) -> Option<Style> {
     };
     Some(crate::theme::style(highlighter.style_for_stack(&[scope])))
 }
+
+mod layers;
 
 #[cfg(test)]
 mod tests;

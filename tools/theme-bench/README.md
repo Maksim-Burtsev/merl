@@ -51,6 +51,20 @@ Go and Rust (#805), before injections:
   `queries/rust/highlights.scm` (attributes, `crate`/`self`/`super`, lifetimes, capitalised
   names), which merl does not load.
 
+Markdown (#803), 18,398 characters per theme: 98.3 % median (97.8 everforest-dark, 99.3
+alabaster-light), against 71.3 % with the setting off. Every character of Markdown's own grammars,
+`markdown` and `markdown_inline`, and of the Python, Go and Rust its fences hold, matches in the
+themes read by cause (tokyonight-moon, dayfox, github-light); the misses are code merl does not
+yet colour as LazyVim does, drawn through syntect as before or waiting for Rust's injections:
+
+| cause | tokyonight-moon | dayfox | github-light | lands in |
+|---|---|---|---|---|
+| fenced `bash` / `sh` / `console` blocks | 111 | 145 | 39 | #806 |
+| fenced `json` blocks | 63 | 74 | 66 | #806 |
+| fenced `rust` blocks: macro bodies (`assert!(glob.is_match(…))`) | 59 | 59 | 59 | #818 |
+| fenced `yaml` blocks and the YAML front matter | 33 | 38 | 2 | #806 |
+| fenced `toml` blocks | 23 | 17 | 3 | #806 |
+
 ## Files
 
 | file | what |
