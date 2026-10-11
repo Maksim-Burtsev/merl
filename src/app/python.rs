@@ -1,7 +1,3 @@
-//! `d` in Python: the modules a name or an import leads to, in the project and outside it,
-//! the names a `from m import *` and a package's assignments bring in, and the implementation
-//! behind an `@overload` set.
-
 use super::*;
 
 pub(super) enum OutsideClassMember {
@@ -42,8 +38,6 @@ impl App {
         let file = self.external_module(module)?;
         let kind = Kind::Python;
         let text = std::fs::read_to_string(&file).ok()?;
-        // A class the module declares, under an `if` or a `try` too, or a name it imports, `*`
-        // included: a class re-exported, as `django.test` does `TestCase`.
         let imports = search::imports(kind, &text);
         let class = text
             .lines()
@@ -277,7 +271,6 @@ impl App {
         search::declares_type(Kind::Python, &one.hit.text).then(|| one.hit.clone())
     }
 
-    /// The first line of `file`, a module outside the project, named from its root.
     fn outside_module(&self, file: PathBuf) -> Vec<Candidate> {
         let mut found = self.module_candidates(vec![file]);
         for c in &mut found {

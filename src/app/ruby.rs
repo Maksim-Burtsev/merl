@@ -42,11 +42,6 @@ impl App {
             .collect()
     }
 
-    /// What the Ruby `Const.word` answers when no declaration of the class `chain` spells it
-    /// (#387), with the word asked for: a class method a concern the class includes gives it, of
-    /// `hits`, the project's declarations of the name; else, by name, what Ruby's core and the
-    /// gems declare (#369), ActiveRecord's `find`. `Const.new` with no `initialize` of the class's
-    /// own is `Class#new` itself, asked for as `new`.
     pub(super) fn ruby_class_method_elsewhere(
         &mut self,
         here: &Path,
@@ -152,7 +147,6 @@ impl App {
                 true => extends,
                 false => includes,
             };
-            // A module's methods mixed in are its instance methods, whichever side takes them.
             let next = mixed
                 .into_iter()
                 .map(|m| (m, false))
@@ -168,7 +162,6 @@ impl App {
         Vec::new()
     }
 
-    /// What the Ruby class or module `path` inherits over every file of the project that opens it.
     fn ruby_parents(&self, here: &Path, path: &str) -> search::RubyParents {
         let mut out = search::RubyParents::default();
         for (h, t) in self.ruby_declarations(here, path) {
@@ -180,7 +173,6 @@ impl App {
         out
     }
 
-    /// The lines of the project that open the Ruby class or module `path`, with their file's text.
     fn ruby_declarations(&self, here: &Path, path: &str) -> Vec<(Hit, String)> {
         let last = path.rsplit("::").next().unwrap_or(path);
         let pattern = format!(
@@ -226,13 +218,6 @@ impl App {
         }
     }
 
-    /// The lines that assign the Ruby instance or class variable `ivar` in the class around the
-    /// cursor, in `here` or in another file that reopens the class (#383), else in the modules it
-    /// `include`s and its superclasses, walked up as [`Self::ruby_self_methods`] walks them: a
-    /// controller's `@current_user` is set by its parent's before-action. When no class of that
-    /// chain assigns it and a parent is not the project's (`ActionController::Base`, a gem's
-    /// module), every assignment of the project counts, by name. At the top of a file, that
-    /// file's own.
     pub(super) fn ruby_ivars(&self, here: &Path, text: &str, ivar: &str) -> Vec<Candidate> {
         let class = search::ruby_class_path(text, self.line + 1);
         let pattern = search::ruby_assignment(ivar);

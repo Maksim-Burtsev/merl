@@ -206,3 +206,71 @@ fn the_core_signatures_and_the_standard_library_come_first() {
 fn a_ruby_setter_lands_on_its_bare_name_in_attr_writer() {
     assert_eq!(word_col("  attr_writer :name", "name=", ""), 15);
 }
+
+#[test]
+fn new_on_a_class_with_no_initialize_of_its_own_is_class_new() {
+    let (dir, mut a) = project_app(
+        "ruby-new",
+        &[("app/plain.rb", "class Plain\nend\n\nPlain.new\n")],
+    );
+    let root = external_root(
+        "ruby-new",
+        &[(
+            "rbs-3.4.0/core/class.rbs",
+            "class Class < Module\n  def new: (*untyped) -> untyped\nend\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Ruby, &[root.join("rbs-3.4.0/core")]);
+    d_on(&mut a, "app/plain.rb", "Plain.new");
+    assert_eq!(
+        shown(&mut a),
+        jump("no definition for new", "app/plain.rb:4"),
+        "asked for as `new`, not `initialize`"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_module_extended_lends_its_instance_methods_to_the_class_side() {
+    let (dir, mut a) = project_app(
+        "ruby-extend",
+        &[
+            (
+                "app/greeting.rb",
+                "module Greeting\n  def hello\n  end\n\n  def self.hello\n  end\nend\n",
+            ),
+            (
+                "app/host.rb",
+                "class Host\n  extend Greeting\n\n  def self.run\n    hello\n  end\nend\n",
+            ),
+        ],
+    );
+    a.no_external();
+    d_on(&mut a, "app/host.rb", "    hello");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "hello \u{2192} Greeting.hello (via Greeting)",
+            "app/greeting.rb:2"
+        )
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn an_ivar_at_the_top_of_a_file_is_that_files_own() {
+    let (dir, mut a) = project_app(
+        "ruby-top-ivar",
+        &[
+            (
+                "app/a.rb",
+                "@x = 1\n\nclass K\n  def m\n    @x = 2\n  end\nend\n\nputs @x\n",
+            ),
+            ("app/b.rb", "@x = 3\n"),
+        ],
+    );
+    a.no_external();
+    d_on(&mut a, "app/a.rb", "puts @x");
+    assert_eq!(shown(&mut a), jump("@x: in this file", "app/a.rb:1"));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
