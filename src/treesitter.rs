@@ -6,10 +6,7 @@ use std::time::{Duration, Instant};
 use ratatui::style::Style;
 use syntect::highlighting::Highlighter;
 use syntect::parsing::Scope;
-use tree_sitter::{
-    InputEdit, Language, ParseOptions, ParseState, Parser, Point, Query,
-    Tree,
-};
+use tree_sitter::{InputEdit, Language, ParseOptions, ParseState, Parser, Point, Query, Tree};
 
 use crate::buffer::{Buffer, Spans};
 use crate::theme::Theme;
@@ -33,7 +30,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/markdown_inline/injections.scm"),
     ),
     ("regex", include_str!("../queries/regex/highlights.scm"), ""),
-    ("printf", include_str!("../queries/printf/highlights.scm"), ""),
+    (
+        "printf",
+        include_str!("../queries/printf/highlights.scm"),
+        "",
+    ),
 ];
 
 const ALIASES: &[(&str, &str)] = &[("py", "python"), ("gyp", "python"), ("pandoc", "markdown")];
@@ -137,7 +138,11 @@ pub fn resolve(alias: &str) -> Option<&'static Lang> {
             c => c.to_ascii_lowercase(),
         })
         .collect();
-    if alias.is_empty() || !alias.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_') {
+    if alias.is_empty()
+        || !alias
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_')
+    {
         return None;
     }
     let name = ALIASES
@@ -147,7 +152,10 @@ pub fn resolve(alias: &str) -> Option<&'static Lang> {
     lang(name)
 }
 
-fn source(name: &str, pick: fn(&(&str, &'static str, &'static str)) -> &'static str) -> Result<String, String> {
+fn source(
+    name: &str,
+    pick: fn(&(&str, &'static str, &'static str)) -> &'static str,
+) -> Result<String, String> {
     let row = QUERIES
         .iter()
         .find(|(n, _, _)| *n == name)
@@ -194,7 +202,12 @@ fn compile_text(name: &'static str, language: Language, text: &str) -> Result<La
     })
 }
 
-fn patterns(name: &str, language: &Language, text: &str, keys: &[&str]) -> Result<Patterns, String> {
+fn patterns(
+    name: &str,
+    language: &Language,
+    text: &str,
+    keys: &[&str],
+) -> Result<Patterns, String> {
     let used = regex::Regex::new(r"\(#([a-z-]+[?!])").expect("a valid regex");
     if let Some(op) = used
         .captures_iter(text)
@@ -214,7 +227,10 @@ fn patterns(name: &str, language: &Language, text: &str, keys: &[&str]) -> Resul
         for prop in query.property_settings(p) {
             match prop.capture_id {
                 None if keys.contains(&&*prop.key) => {
-                    set.push((prop.key.to_string(), prop.value.as_deref().map(str::to_string)));
+                    set.push((
+                        prop.key.to_string(),
+                        prop.value.as_deref().map(str::to_string),
+                    ));
                 }
                 Some(_) if CAPTURE_KEYS.contains(&&*prop.key) => {}
                 _ => return Err(format!("{name}: #set! {} is not implemented", prop.key)),
@@ -230,7 +246,10 @@ fn patterns(name: &str, language: &Language, text: &str, keys: &[&str]) -> Resul
                     preds.push((*c, lua_pattern(pattern)?, &*pred.operator == "lua-match?"));
                 }
                 ("offset!", [Capture(c), Text(a), Text(b), Text(d), Text(e)]) => {
-                    let n = |t: &str| t.parse::<i64>().map_err(|_| format!("{name}: #offset! {t}"));
+                    let n = |t: &str| {
+                        t.parse::<i64>()
+                            .map_err(|_| format!("{name}: #offset! {t}"))
+                    };
                     offs.push((*c, [n(a)?, n(b)?, n(d)?, n(e)?]));
                 }
                 ("lua-match?" | "not-lua-match?" | "offset!", _) => {

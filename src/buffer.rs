@@ -213,7 +213,8 @@ impl Buffer {
     }
 
     pub(crate) fn start_block_tree_sitter(&mut self, token: &str) {
-        self.ts = treesitter::resolve(token).and_then(|lang| treesitter::Parsed::new(lang, &self.lines));
+        self.ts =
+            treesitter::resolve(token).and_then(|lang| treesitter::Parsed::new(lang, &self.lines));
         self.clear_hl();
     }
 
@@ -261,7 +262,8 @@ impl Buffer {
             if self.hl.len() <= last {
                 let mut styles = treesitter::Styles::new(theme);
                 let from = self.hl.len();
-                self.hl.extend(ts.spans(&self.lines, from, last, &mut styles));
+                self.hl
+                    .extend(ts.spans(&self.lines, from, last, &mut styles));
             }
             return;
         }

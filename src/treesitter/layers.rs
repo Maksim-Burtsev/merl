@@ -146,7 +146,11 @@ fn clip(ranges: Vec<Range>, parent: Option<&[Range]>) -> Vec<Range> {
             r1.end_byte.min(r2.end_byte),
         );
         if a < b {
-            let start = if r1.start_byte >= r2.start_byte { r1 } else { r2 };
+            let start = if r1.start_byte >= r2.start_byte {
+                r1
+            } else {
+                r2
+            };
             let end = if r1.end_byte <= r2.end_byte { r1 } else { r2 };
             out.push(Range {
                 start_byte: a,
@@ -173,12 +177,7 @@ fn merge(into: &mut Vec<Injected>, from: Vec<Injected>) {
     }
 }
 
-pub fn injections(
-    lang: &Lang,
-    tree: &Tree,
-    parent: Option<&[Range]>,
-    doc: &Doc,
-) -> Vec<Injected> {
+pub fn injections(lang: &Lang, tree: &Tree, parent: Option<&[Range]>, doc: &Doc) -> Vec<Injected> {
     let Some(inj) = &lang.injections else {
         return Vec::new();
     };

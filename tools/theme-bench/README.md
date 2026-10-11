@@ -36,6 +36,19 @@ the gate still holds every row to it. On 2026-10-12 (#802) Python matched every 
 92 themes, 19,185 per theme: no miss is left to list. A language that leaves misses lists them
 here by cause.
 
+Markdown (#803), 18,398 characters per theme: 97.4 % median (96.4 dayfox, 98.6 alabaster-light),
+against 71.3 % with the setting off. Every character of Markdown's own grammars, `markdown` and
+`markdown_inline`, matches in the themes read by cause (tokyonight-moon, dayfox, github-light);
+the misses are code merl does not yet colour with tree-sitter and draws through syntect as before:
+
+| cause | tokyonight-moon | dayfox | github-light | lands in |
+|---|---|---|---|---|
+| fenced `rust` blocks | 398 | 394 | 191 | #805 |
+| fenced `bash` / `sh` / `console` blocks | 111 | 145 | 39 | #806 |
+| fenced `json` blocks | 58 | 74 | 66 | #806 |
+| fenced `yaml` blocks and the YAML front matter | 33 | 38 | 2 | #806 |
+| fenced `toml` blocks | 23 | 17 | 3 | #806 |
+
 ## Files
 
 | file | what |

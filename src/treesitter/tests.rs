@@ -259,7 +259,10 @@ fn a_preview_code_block_is_coloured_as_the_same_code_in_a_file() {
     let mut ruby = Buffer::block("ruby", vec!["x = 1".to_string()]);
     ruby.start_block_tree_sitter("ruby");
     ruby.highlight_to(0, &theme);
-    assert!(!ruby.hl.is_empty(), "a language not on tree-sitter keeps syntect's colours");
+    assert!(
+        !ruby.hl.is_empty(),
+        "a language not on tree-sitter keeps syntect's colours"
+    );
 }
 
 #[test]
