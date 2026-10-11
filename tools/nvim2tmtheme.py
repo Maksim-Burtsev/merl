@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
-"""Convert a Neovim highlight dump into a TextMate .tmTheme for syntect.
+"""Convert a Neovim highlight dump into a TextMate .tmTheme for syntect, and the
+dump itself into out.groups.json beside it.
 
     python3 tools/nvim2tmtheme.py hl.json out.tmTheme "Theme Name"
 
-`hl.json` is `vim.api.nvim_get_hl(0, {})` as JSON, which `tools/port-theme.sh`
-writes: computed colours, so Lua themes, vimscript themes and variants all look
+`hl.json` is every group of `vim.api.nvim_get_hl(0, {})` as `nvim_get_hl(0, {name
+= group, link = false})` gives it, which `tools/port-theme.sh` writes: computed
+colours, links resolved, so Lua themes, vimscript themes and variants all look
 the same here. Every theme goes through one fixed group -> scope table.
+
+The groups file keeps the attributes of GROUP_KEYS a group sets, colours as
+`#rrggbb`, one group per line in sorted order; a group that sets none is left out.
 """
 
 import json
@@ -134,6 +139,20 @@ def convert(hl, name):
     return {"name": name, "settings": settings}
 
 
+GROUP_KEYS = ["fg", "bg", "bold", "italic", "underline", "reverse"]
+
+
+def groups_json(hl):
+    rows = []
+    for name in sorted(hl):
+        group = hl[name] if isinstance(hl[name], dict) else {}
+        attrs = {k: hex_colour(group[k]).lower() if k in ("fg", "bg") else True
+                 for k in GROUP_KEYS if group.get(k) is True or (k in ("fg", "bg") and k in group)}
+        if attrs:
+            rows.append(f"{json.dumps(name)}: {json.dumps(attrs)}")
+    return "{\n" + ",\n".join(rows) + "\n}\n"
+
+
 def main():
     if len(sys.argv) != 4:
         sys.exit(__doc__)
@@ -144,6 +163,8 @@ def main():
         sys.exit(f"{src}: Normal has no background; did the colorscheme load?")
     with open(dst, "wb") as f:
         plistlib.dump(convert(hl, name), f, fmt=plistlib.FMT_XML)
+    with open(dst.removesuffix(".tmTheme") + ".groups.json", "w", encoding="utf-8") as f:
+        f.write(groups_json(hl))
 
 
 if __name__ == "__main__":

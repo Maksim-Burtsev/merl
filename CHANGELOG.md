@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `dracula`'s cursor line is its Neovim original's again, `#424450`, where #66 had moved it by
+  hand. (#801)
+
 ## [0.8.4] - 2026-10-11
 
 ### Added

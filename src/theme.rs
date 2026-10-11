@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 
@@ -8,110 +9,110 @@ use syntect::highlighting::{Color as SynColor, FontStyle, Highlighter, ThemeSet}
 use syntect::parsing::Scope;
 
 #[rustfmt::skip]
-const THEMES: &[(&str, &[u8])] = &[
-    ("tokyonight-moon", include_bytes!("../themes/tokyonight-moon.tmTheme")),
-    ("tokyonight-night", include_bytes!("../themes/tokyonight-night.tmTheme")),
-    ("tokyonight-storm", include_bytes!("../themes/tokyonight-storm.tmTheme")),
-    ("kanagawa-wave", include_bytes!("../themes/kanagawa-wave.tmTheme")),
-    ("kanagawa-dragon", include_bytes!("../themes/kanagawa-dragon.tmTheme")),
-    ("rose-pine", include_bytes!("../themes/rose-pine.tmTheme")),
-    ("rose-pine-moon", include_bytes!("../themes/rose-pine-moon.tmTheme")),
-    ("everforest-dark", include_bytes!("../themes/everforest-dark.tmTheme")),
-    ("gruvbox-material-dark", include_bytes!("../themes/gruvbox-material-dark.tmTheme")),
-    ("gruvbox-dark", include_bytes!("../themes/gruvbox-dark.tmTheme")),
-    ("catppuccin-mocha", include_bytes!("../themes/catppuccin-mocha.tmTheme")),
-    ("catppuccin-macchiato", include_bytes!("../themes/catppuccin-macchiato.tmTheme")),
-    ("catppuccin-frappe", include_bytes!("../themes/catppuccin-frappe.tmTheme")),
-    ("flexoki-dark", include_bytes!("../themes/flexoki-dark.tmTheme")),
-    ("melange-dark", include_bytes!("../themes/melange-dark.tmTheme")),
-    ("nightfox", include_bytes!("../themes/nightfox.tmTheme")),
-    ("nordfox", include_bytes!("../themes/nordfox.tmTheme")),
-    ("nord", include_bytes!("../themes/nord.tmTheme")),
-    ("onedark", include_bytes!("../themes/onedark.tmTheme")),
-    ("github-dark", include_bytes!("../themes/github-dark.tmTheme")),
-    ("vscode-dark", include_bytes!("../themes/vscode-dark.tmTheme")),
-    ("dracula", include_bytes!("../themes/dracula.tmTheme")),
-    ("solarized-dark", include_bytes!("../themes/solarized-dark.tmTheme")),
-    ("oxocarbon-dark", include_bytes!("../themes/oxocarbon-dark.tmTheme")),
-    ("sonokai", include_bytes!("../themes/sonokai.tmTheme")),
-    ("material-dark", include_bytes!("../themes/material-dark.tmTheme")),
-    ("shokunin-dark", include_bytes!("../themes/shokunin-dark.tmTheme")),
-    ("adwaita", include_bytes!("../themes/adwaita.tmTheme")),
-    ("alabaster", include_bytes!("../themes/alabaster.tmTheme")),
-    ("ayu", include_bytes!("../themes/ayu.tmTheme")),
-    ("ayu-mirage", include_bytes!("../themes/ayu-mirage.tmTheme")),
-    ("bamboo", include_bytes!("../themes/bamboo.tmTheme")),
-    ("cendre", include_bytes!("../themes/cendre.tmTheme")),
-    ("darkearth", include_bytes!("../themes/darkearth.tmTheme")),
-    ("e-ink", include_bytes!("../themes/e-ink.tmTheme")),
-    ("edge", include_bytes!("../themes/edge.tmTheme")),
-    ("gotham", include_bytes!("../themes/gotham.tmTheme")),
-    ("hojicha", include_bytes!("../themes/hojicha.tmTheme")),
-    ("iceberg", include_bytes!("../themes/iceberg.tmTheme")),
-    ("jellybeans", include_bytes!("../themes/jellybeans.tmTheme")),
-    ("koda-dark", include_bytes!("../themes/koda-dark.tmTheme")),
-    ("lackluster", include_bytes!("../themes/lackluster.tmTheme")),
-    ("lucerna", include_bytes!("../themes/lucerna.tmTheme")),
-    ("mellifluous", include_bytes!("../themes/mellifluous.tmTheme")),
-    ("mellow", include_bytes!("../themes/mellow.tmTheme")),
-    ("miasma", include_bytes!("../themes/miasma.tmTheme")),
-    ("minischeme", include_bytes!("../themes/minischeme.tmTheme")),
-    ("moonfly", include_bytes!("../themes/moonfly.tmTheme")),
-    ("nightfly", include_bytes!("../themes/nightfly.tmTheme")),
-    ("papercolor", include_bytes!("../themes/papercolor.tmTheme")),
-    ("pencil", include_bytes!("../themes/pencil.tmTheme")),
-    ("selenized", include_bytes!("../themes/selenized.tmTheme")),
-    ("seneca", include_bytes!("../themes/seneca.tmTheme")),
-    ("soviet-dark", include_bytes!("../themes/soviet-dark.tmTheme")),
-    ("srcery", include_bytes!("../themes/srcery.tmTheme")),
-    ("token", include_bytes!("../themes/token.tmTheme")),
-    ("vague", include_bytes!("../themes/vague.tmTheme")),
-    ("vesper", include_bytes!("../themes/vesper.tmTheme")),
-    ("rose-pine-dawn", include_bytes!("../themes/rose-pine-dawn.tmTheme")),
-    ("kanagawa-lotus", include_bytes!("../themes/kanagawa-lotus.tmTheme")),
-    ("everforest-light", include_bytes!("../themes/everforest-light.tmTheme")),
-    ("flexoki-light", include_bytes!("../themes/flexoki-light.tmTheme")),
-    ("catppuccin-latte", include_bytes!("../themes/catppuccin-latte.tmTheme")),
-    ("gruvbox-material-light", include_bytes!("../themes/gruvbox-material-light.tmTheme")),
-    ("gruvbox-light", include_bytes!("../themes/gruvbox-light.tmTheme")),
-    ("melange-light", include_bytes!("../themes/melange-light.tmTheme")),
-    ("dawnfox", include_bytes!("../themes/dawnfox.tmTheme")),
-    ("dayfox", include_bytes!("../themes/dayfox.tmTheme")),
-    ("tokyonight-day", include_bytes!("../themes/tokyonight-day.tmTheme")),
-    ("onedark-light", include_bytes!("../themes/onedark-light.tmTheme")),
-    ("github-light", include_bytes!("../themes/github-light.tmTheme")),
-    ("vscode-light", include_bytes!("../themes/vscode-light.tmTheme")),
-    ("alucard", include_bytes!("../themes/alucard.tmTheme")),
-    ("solarized-light", include_bytes!("../themes/solarized-light.tmTheme")),
-    ("oxocarbon-light", include_bytes!("../themes/oxocarbon-light.tmTheme")),
-    ("material-light", include_bytes!("../themes/material-light.tmTheme")),
-    ("bluloco-light", include_bytes!("../themes/bluloco-light.tmTheme")),
-    ("shokunin-light", include_bytes!("../themes/shokunin-light.tmTheme")),
-    ("adwaita-light", include_bytes!("../themes/adwaita-light.tmTheme")),
-    ("alabaster-light", include_bytes!("../themes/alabaster-light.tmTheme")),
-    ("ayu-light", include_bytes!("../themes/ayu-light.tmTheme")),
-    ("bamboo-light", include_bytes!("../themes/bamboo-light.tmTheme")),
-    ("e-ink-light", include_bytes!("../themes/e-ink-light.tmTheme")),
-    ("edge-light", include_bytes!("../themes/edge-light.tmTheme")),
-    ("iceberg-light", include_bytes!("../themes/iceberg-light.tmTheme")),
-    ("jellybeans-light", include_bytes!("../themes/jellybeans-light.tmTheme")),
-    ("koda-light", include_bytes!("../themes/koda-light.tmTheme")),
-    ("lightearth", include_bytes!("../themes/lightearth.tmTheme")),
-    ("mellifluous-light", include_bytes!("../themes/mellifluous-light.tmTheme")),
-    ("minischeme-light", include_bytes!("../themes/minischeme-light.tmTheme")),
-    ("neomodern-light", include_bytes!("../themes/neomodern-light.tmTheme")),
-    ("papercolor-light", include_bytes!("../themes/papercolor-light.tmTheme")),
-    ("pencil-light", include_bytes!("../themes/pencil-light.tmTheme")),
-    ("selenized-light", include_bytes!("../themes/selenized-light.tmTheme")),
-    ("seneca-light", include_bytes!("../themes/seneca-light.tmTheme")),
-    ("soviet-light", include_bytes!("../themes/soviet-light.tmTheme")),
-    ("token-light", include_bytes!("../themes/token-light.tmTheme")),
+const THEMES: &[(&str, &[u8], Option<&str>)] = &[
+    ("tokyonight-moon", include_bytes!("../themes/tokyonight-moon.tmTheme"), Some(include_str!("../themes/tokyonight-moon.groups.json"))),
+    ("tokyonight-night", include_bytes!("../themes/tokyonight-night.tmTheme"), Some(include_str!("../themes/tokyonight-night.groups.json"))),
+    ("tokyonight-storm", include_bytes!("../themes/tokyonight-storm.tmTheme"), Some(include_str!("../themes/tokyonight-storm.groups.json"))),
+    ("kanagawa-wave", include_bytes!("../themes/kanagawa-wave.tmTheme"), Some(include_str!("../themes/kanagawa-wave.groups.json"))),
+    ("kanagawa-dragon", include_bytes!("../themes/kanagawa-dragon.tmTheme"), Some(include_str!("../themes/kanagawa-dragon.groups.json"))),
+    ("rose-pine", include_bytes!("../themes/rose-pine.tmTheme"), Some(include_str!("../themes/rose-pine.groups.json"))),
+    ("rose-pine-moon", include_bytes!("../themes/rose-pine-moon.tmTheme"), Some(include_str!("../themes/rose-pine-moon.groups.json"))),
+    ("everforest-dark", include_bytes!("../themes/everforest-dark.tmTheme"), Some(include_str!("../themes/everforest-dark.groups.json"))),
+    ("gruvbox-material-dark", include_bytes!("../themes/gruvbox-material-dark.tmTheme"), Some(include_str!("../themes/gruvbox-material-dark.groups.json"))),
+    ("gruvbox-dark", include_bytes!("../themes/gruvbox-dark.tmTheme"), Some(include_str!("../themes/gruvbox-dark.groups.json"))),
+    ("catppuccin-mocha", include_bytes!("../themes/catppuccin-mocha.tmTheme"), Some(include_str!("../themes/catppuccin-mocha.groups.json"))),
+    ("catppuccin-macchiato", include_bytes!("../themes/catppuccin-macchiato.tmTheme"), Some(include_str!("../themes/catppuccin-macchiato.groups.json"))),
+    ("catppuccin-frappe", include_bytes!("../themes/catppuccin-frappe.tmTheme"), Some(include_str!("../themes/catppuccin-frappe.groups.json"))),
+    ("flexoki-dark", include_bytes!("../themes/flexoki-dark.tmTheme"), Some(include_str!("../themes/flexoki-dark.groups.json"))),
+    ("melange-dark", include_bytes!("../themes/melange-dark.tmTheme"), Some(include_str!("../themes/melange-dark.groups.json"))),
+    ("nightfox", include_bytes!("../themes/nightfox.tmTheme"), Some(include_str!("../themes/nightfox.groups.json"))),
+    ("nordfox", include_bytes!("../themes/nordfox.tmTheme"), Some(include_str!("../themes/nordfox.groups.json"))),
+    ("nord", include_bytes!("../themes/nord.tmTheme"), Some(include_str!("../themes/nord.groups.json"))),
+    ("onedark", include_bytes!("../themes/onedark.tmTheme"), Some(include_str!("../themes/onedark.groups.json"))),
+    ("github-dark", include_bytes!("../themes/github-dark.tmTheme"), Some(include_str!("../themes/github-dark.groups.json"))),
+    ("vscode-dark", include_bytes!("../themes/vscode-dark.tmTheme"), Some(include_str!("../themes/vscode-dark.groups.json"))),
+    ("dracula", include_bytes!("../themes/dracula.tmTheme"), Some(include_str!("../themes/dracula.groups.json"))),
+    ("solarized-dark", include_bytes!("../themes/solarized-dark.tmTheme"), Some(include_str!("../themes/solarized-dark.groups.json"))),
+    ("oxocarbon-dark", include_bytes!("../themes/oxocarbon-dark.tmTheme"), Some(include_str!("../themes/oxocarbon-dark.groups.json"))),
+    ("sonokai", include_bytes!("../themes/sonokai.tmTheme"), Some(include_str!("../themes/sonokai.groups.json"))),
+    ("material-dark", include_bytes!("../themes/material-dark.tmTheme"), Some(include_str!("../themes/material-dark.groups.json"))),
+    ("shokunin-dark", include_bytes!("../themes/shokunin-dark.tmTheme"), None),
+    ("adwaita", include_bytes!("../themes/adwaita.tmTheme"), Some(include_str!("../themes/adwaita.groups.json"))),
+    ("alabaster", include_bytes!("../themes/alabaster.tmTheme"), Some(include_str!("../themes/alabaster.groups.json"))),
+    ("ayu", include_bytes!("../themes/ayu.tmTheme"), Some(include_str!("../themes/ayu.groups.json"))),
+    ("ayu-mirage", include_bytes!("../themes/ayu-mirage.tmTheme"), Some(include_str!("../themes/ayu-mirage.groups.json"))),
+    ("bamboo", include_bytes!("../themes/bamboo.tmTheme"), Some(include_str!("../themes/bamboo.groups.json"))),
+    ("cendre", include_bytes!("../themes/cendre.tmTheme"), Some(include_str!("../themes/cendre.groups.json"))),
+    ("darkearth", include_bytes!("../themes/darkearth.tmTheme"), Some(include_str!("../themes/darkearth.groups.json"))),
+    ("e-ink", include_bytes!("../themes/e-ink.tmTheme"), Some(include_str!("../themes/e-ink.groups.json"))),
+    ("edge", include_bytes!("../themes/edge.tmTheme"), Some(include_str!("../themes/edge.groups.json"))),
+    ("gotham", include_bytes!("../themes/gotham.tmTheme"), Some(include_str!("../themes/gotham.groups.json"))),
+    ("hojicha", include_bytes!("../themes/hojicha.tmTheme"), Some(include_str!("../themes/hojicha.groups.json"))),
+    ("iceberg", include_bytes!("../themes/iceberg.tmTheme"), Some(include_str!("../themes/iceberg.groups.json"))),
+    ("jellybeans", include_bytes!("../themes/jellybeans.tmTheme"), Some(include_str!("../themes/jellybeans.groups.json"))),
+    ("koda-dark", include_bytes!("../themes/koda-dark.tmTheme"), Some(include_str!("../themes/koda-dark.groups.json"))),
+    ("lackluster", include_bytes!("../themes/lackluster.tmTheme"), Some(include_str!("../themes/lackluster.groups.json"))),
+    ("lucerna", include_bytes!("../themes/lucerna.tmTheme"), None),
+    ("mellifluous", include_bytes!("../themes/mellifluous.tmTheme"), Some(include_str!("../themes/mellifluous.groups.json"))),
+    ("mellow", include_bytes!("../themes/mellow.tmTheme"), Some(include_str!("../themes/mellow.groups.json"))),
+    ("miasma", include_bytes!("../themes/miasma.tmTheme"), Some(include_str!("../themes/miasma.groups.json"))),
+    ("minischeme", include_bytes!("../themes/minischeme.tmTheme"), Some(include_str!("../themes/minischeme.groups.json"))),
+    ("moonfly", include_bytes!("../themes/moonfly.tmTheme"), Some(include_str!("../themes/moonfly.groups.json"))),
+    ("nightfly", include_bytes!("../themes/nightfly.tmTheme"), Some(include_str!("../themes/nightfly.groups.json"))),
+    ("papercolor", include_bytes!("../themes/papercolor.tmTheme"), Some(include_str!("../themes/papercolor.groups.json"))),
+    ("pencil", include_bytes!("../themes/pencil.tmTheme"), Some(include_str!("../themes/pencil.groups.json"))),
+    ("selenized", include_bytes!("../themes/selenized.tmTheme"), Some(include_str!("../themes/selenized.groups.json"))),
+    ("seneca", include_bytes!("../themes/seneca.tmTheme"), None),
+    ("soviet-dark", include_bytes!("../themes/soviet-dark.tmTheme"), Some(include_str!("../themes/soviet-dark.groups.json"))),
+    ("srcery", include_bytes!("../themes/srcery.tmTheme"), Some(include_str!("../themes/srcery.groups.json"))),
+    ("token", include_bytes!("../themes/token.tmTheme"), Some(include_str!("../themes/token.groups.json"))),
+    ("vague", include_bytes!("../themes/vague.tmTheme"), Some(include_str!("../themes/vague.groups.json"))),
+    ("vesper", include_bytes!("../themes/vesper.tmTheme"), Some(include_str!("../themes/vesper.groups.json"))),
+    ("rose-pine-dawn", include_bytes!("../themes/rose-pine-dawn.tmTheme"), Some(include_str!("../themes/rose-pine-dawn.groups.json"))),
+    ("kanagawa-lotus", include_bytes!("../themes/kanagawa-lotus.tmTheme"), Some(include_str!("../themes/kanagawa-lotus.groups.json"))),
+    ("everforest-light", include_bytes!("../themes/everforest-light.tmTheme"), Some(include_str!("../themes/everforest-light.groups.json"))),
+    ("flexoki-light", include_bytes!("../themes/flexoki-light.tmTheme"), Some(include_str!("../themes/flexoki-light.groups.json"))),
+    ("catppuccin-latte", include_bytes!("../themes/catppuccin-latte.tmTheme"), Some(include_str!("../themes/catppuccin-latte.groups.json"))),
+    ("gruvbox-material-light", include_bytes!("../themes/gruvbox-material-light.tmTheme"), Some(include_str!("../themes/gruvbox-material-light.groups.json"))),
+    ("gruvbox-light", include_bytes!("../themes/gruvbox-light.tmTheme"), Some(include_str!("../themes/gruvbox-light.groups.json"))),
+    ("melange-light", include_bytes!("../themes/melange-light.tmTheme"), Some(include_str!("../themes/melange-light.groups.json"))),
+    ("dawnfox", include_bytes!("../themes/dawnfox.tmTheme"), Some(include_str!("../themes/dawnfox.groups.json"))),
+    ("dayfox", include_bytes!("../themes/dayfox.tmTheme"), Some(include_str!("../themes/dayfox.groups.json"))),
+    ("tokyonight-day", include_bytes!("../themes/tokyonight-day.tmTheme"), Some(include_str!("../themes/tokyonight-day.groups.json"))),
+    ("onedark-light", include_bytes!("../themes/onedark-light.tmTheme"), Some(include_str!("../themes/onedark-light.groups.json"))),
+    ("github-light", include_bytes!("../themes/github-light.tmTheme"), Some(include_str!("../themes/github-light.groups.json"))),
+    ("vscode-light", include_bytes!("../themes/vscode-light.tmTheme"), Some(include_str!("../themes/vscode-light.groups.json"))),
+    ("alucard", include_bytes!("../themes/alucard.tmTheme"), Some(include_str!("../themes/alucard.groups.json"))),
+    ("solarized-light", include_bytes!("../themes/solarized-light.tmTheme"), Some(include_str!("../themes/solarized-light.groups.json"))),
+    ("oxocarbon-light", include_bytes!("../themes/oxocarbon-light.tmTheme"), Some(include_str!("../themes/oxocarbon-light.groups.json"))),
+    ("material-light", include_bytes!("../themes/material-light.tmTheme"), Some(include_str!("../themes/material-light.groups.json"))),
+    ("bluloco-light", include_bytes!("../themes/bluloco-light.tmTheme"), Some(include_str!("../themes/bluloco-light.groups.json"))),
+    ("shokunin-light", include_bytes!("../themes/shokunin-light.tmTheme"), None),
+    ("adwaita-light", include_bytes!("../themes/adwaita-light.tmTheme"), Some(include_str!("../themes/adwaita-light.groups.json"))),
+    ("alabaster-light", include_bytes!("../themes/alabaster-light.tmTheme"), Some(include_str!("../themes/alabaster-light.groups.json"))),
+    ("ayu-light", include_bytes!("../themes/ayu-light.tmTheme"), Some(include_str!("../themes/ayu-light.groups.json"))),
+    ("bamboo-light", include_bytes!("../themes/bamboo-light.tmTheme"), Some(include_str!("../themes/bamboo-light.groups.json"))),
+    ("e-ink-light", include_bytes!("../themes/e-ink-light.tmTheme"), Some(include_str!("../themes/e-ink-light.groups.json"))),
+    ("edge-light", include_bytes!("../themes/edge-light.tmTheme"), Some(include_str!("../themes/edge-light.groups.json"))),
+    ("iceberg-light", include_bytes!("../themes/iceberg-light.tmTheme"), Some(include_str!("../themes/iceberg-light.groups.json"))),
+    ("jellybeans-light", include_bytes!("../themes/jellybeans-light.tmTheme"), Some(include_str!("../themes/jellybeans-light.groups.json"))),
+    ("koda-light", include_bytes!("../themes/koda-light.tmTheme"), Some(include_str!("../themes/koda-light.groups.json"))),
+    ("lightearth", include_bytes!("../themes/lightearth.tmTheme"), Some(include_str!("../themes/lightearth.groups.json"))),
+    ("mellifluous-light", include_bytes!("../themes/mellifluous-light.tmTheme"), Some(include_str!("../themes/mellifluous-light.groups.json"))),
+    ("minischeme-light", include_bytes!("../themes/minischeme-light.tmTheme"), Some(include_str!("../themes/minischeme-light.groups.json"))),
+    ("neomodern-light", include_bytes!("../themes/neomodern-light.tmTheme"), Some(include_str!("../themes/neomodern-light.groups.json"))),
+    ("papercolor-light", include_bytes!("../themes/papercolor-light.tmTheme"), Some(include_str!("../themes/papercolor-light.groups.json"))),
+    ("pencil-light", include_bytes!("../themes/pencil-light.tmTheme"), Some(include_str!("../themes/pencil-light.groups.json"))),
+    ("selenized-light", include_bytes!("../themes/selenized-light.tmTheme"), Some(include_str!("../themes/selenized-light.groups.json"))),
+    ("seneca-light", include_bytes!("../themes/seneca-light.tmTheme"), None),
+    ("soviet-light", include_bytes!("../themes/soviet-light.tmTheme"), Some(include_str!("../themes/soviet-light.groups.json"))),
+    ("token-light", include_bytes!("../themes/token-light.tmTheme"), Some(include_str!("../themes/token-light.groups.json"))),
 ];
 
 pub const DEFAULT: &str = "tokyonight-moon";
 
 pub fn names() -> impl Iterator<Item = &'static str> {
-    THEMES.iter().map(|(name, _)| *name)
+    THEMES.iter().map(|(name, _, _)| *name)
 }
 
 #[cfg(test)]
@@ -190,6 +191,8 @@ pub struct Theme {
     pub tag_fg: Color,
     pub light: bool,
     pub syntect: syntect::highlighting::Theme,
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub groups: HashMap<String, Style>,
 }
 
 pub fn load(name: &str) -> Result<Theme> {
@@ -209,6 +212,17 @@ fn load_configured_from(dir: Option<&Path>, config: Option<&Path>, name: &str) -
 }
 
 impl Theme {
+    #[cfg_attr(not(test), expect(dead_code))]
+    pub fn group(&self, name: &str) -> Option<Style> {
+        let mut name = name;
+        loop {
+            if let Some(style) = self.groups.get(name) {
+                return Some(*style);
+            }
+            name = &name[..name.rfind('.')?];
+        }
+    }
+
     pub fn selected(&self, style: Style) -> Style {
         self.selection_fg
             .map_or(style, |fg| style.fg(fg))
@@ -217,13 +231,28 @@ impl Theme {
 }
 
 pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
-    let (bytes, ctx) = match user_path(dir, name) {
+    let (bytes, ctx, groups) = match user_path(dir, name) {
         Some(path) => {
             let ctx = path.display().to_string();
-            (std::fs::read(&path).with_context(|| ctx.clone())?, ctx)
+            let groups_path = path.with_extension("groups.json");
+            let groups = match std::fs::read_to_string(&groups_path) {
+                Ok(json) => {
+                    parse_groups(&json).with_context(|| groups_path.display().to_string())?
+                }
+                Err(_) => HashMap::new(),
+            };
+            (
+                std::fs::read(&path).with_context(|| ctx.clone())?,
+                ctx,
+                groups,
+            )
         }
-        None => match THEMES.iter().find(|(n, _)| *n == name) {
-            Some((_, bytes)) => (bytes.to_vec(), format!("theme `{name}`")),
+        None => match THEMES.iter().find(|(n, _, _)| *n == name) {
+            Some((_, bytes, groups)) => (
+                bytes.to_vec(),
+                format!("theme `{name}`"),
+                groups.map_or_else(|| Ok(HashMap::new()), parse_groups)?,
+            ),
             None => {
                 let all = entries_in(dir);
                 bail!("unknown theme `{name}`; available: {}", all.join(", "));
@@ -331,7 +360,53 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         accent: rgb(accent_color(&syntect).unwrap_or(fg)),
         light,
         syntect,
+        groups,
     })
+}
+
+#[derive(Deserialize)]
+struct Group {
+    fg: Option<String>,
+    bg: Option<String>,
+    #[serde(default)]
+    bold: bool,
+    #[serde(default)]
+    italic: bool,
+    #[serde(default)]
+    underline: bool,
+    #[serde(default)]
+    reverse: bool,
+}
+
+fn parse_groups(json: &str) -> Result<HashMap<String, Style>> {
+    let groups: HashMap<String, Group> = serde_json::from_str(json)?;
+    let colour = |hex: Option<String>| -> Result<Option<Color>> {
+        hex.map(|h| h.parse().map_err(|_| anyhow::anyhow!("not a colour: {h}")))
+            .transpose()
+    };
+    groups
+        .into_iter()
+        .map(|(name, g)| {
+            let mut style = Style::new();
+            if let Some(fg) = colour(g.fg)? {
+                style = style.fg(fg);
+            }
+            if let Some(bg) = colour(g.bg)? {
+                style = style.bg(bg);
+            }
+            for (on, modifier) in [
+                (g.bold, Modifier::BOLD),
+                (g.italic, Modifier::ITALIC),
+                (g.underline, Modifier::UNDERLINED),
+                (g.reverse, Modifier::REVERSED),
+            ] {
+                if on {
+                    style = style.add_modifier(modifier);
+                }
+            }
+            Ok((name, style))
+        })
+        .collect()
 }
 
 fn accent_color(theme: &syntect::highlighting::Theme) -> Option<SynColor> {
@@ -557,6 +632,80 @@ mod tests {
                 .collect();
             assert!(colours.len() >= 3, "{name}: {colours:?}");
         }
+    }
+
+    #[test]
+    fn every_ported_theme_carries_its_neovim_groups() {
+        let manifest = include_str!("../tools/theme-bench/themes.tsv");
+        let skipped: Vec<&str> = manifest
+            .lines()
+            .filter(|l| !l.starts_with('#'))
+            .filter_map(|l| l.split_once('\t'))
+            .filter(|(_, rest)| rest.starts_with("skip\t"))
+            .map(|(name, _)| name)
+            .collect();
+        assert!(!skipped.is_empty());
+        for (name, _, groups) in THEMES {
+            assert_eq!(groups.is_none(), skipped.contains(name), "{name}");
+            let t = load(name).unwrap_or_else(|e| panic!("{name}: {e:#}"));
+            if groups.is_none() {
+                assert!(t.groups.is_empty(), "{name}");
+                continue;
+            }
+            let normal = t
+                .group("Normal")
+                .unwrap_or_else(|| panic!("{name}: no Normal"));
+            assert_eq!((normal.fg, normal.bg), (Some(t.fg), Some(t.bg)), "{name}");
+        }
+    }
+
+    #[test]
+    fn a_capture_falls_back_to_its_parent_group_as_in_neovim() {
+        let t = load("kanagawa-wave").unwrap();
+        let function = t.groups["@function"];
+        assert!(!t.groups.contains_key("@function.method.call"));
+        assert_eq!(t.group("@function.method.call.python"), Some(function));
+        assert_eq!(t.group("@function"), Some(function));
+        assert_eq!(t.group("NoSuchGroup.at.all"), None);
+    }
+
+    #[test]
+    fn a_user_theme_brings_its_groups_beside_it() {
+        let dir = std::env::temp_dir().join(format!("merl-user-groups-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let tm = std::fs::read(format!(
+            "{}/themes/nord.tmTheme",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .unwrap();
+        for name in ["plain", "grouped", "broken"] {
+            std::fs::write(dir.join(format!("{name}.tmTheme")), &tm).unwrap();
+        }
+        std::fs::write(
+            dir.join("grouped.groups.json"),
+            r##"{"Comment": {"fg": "#616e88", "italic": true}, "Search": {"reverse": true}}"##,
+        )
+        .unwrap();
+        std::fs::write(dir.join("broken.groups.json"), "{").unwrap();
+
+        assert!(load_from(Some(&dir), "plain").unwrap().groups.is_empty());
+        let t = load_from(Some(&dir), "grouped").unwrap();
+        assert_eq!(
+            t.group("Comment"),
+            Some(
+                Style::new()
+                    .fg(Color::Rgb(0x61, 0x6e, 0x88))
+                    .add_modifier(Modifier::ITALIC)
+            )
+        );
+        assert_eq!(
+            t.group("Search"),
+            Some(Style::new().add_modifier(Modifier::REVERSED))
+        );
+        let e = format!("{:#}", load_from(Some(&dir), "broken").unwrap_err());
+        assert!(e.contains("broken.groups.json"), "{e}");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
