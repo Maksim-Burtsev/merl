@@ -248,11 +248,21 @@ pub fn injections(
 }
 
 pub fn region_start(injected: &[Injected], row: usize) -> usize {
-    injected
-        .iter()
-        .flat_map(|i| i.regions.iter().flatten())
-        .filter(|r| r.start_point.row <= row && row <= r.end_point.row)
-        .map(|r| r.start_point.row)
+    let spans = injected.iter().flat_map(|i| {
+        i.regions.iter().flat_map(move |r| match i.target {
+            Target::Tree(_) => match (r.first(), r.last()) {
+                (Some(a), Some(b)) => vec![(a.start_point.row, b.end_point.row)],
+                _ => Vec::new(),
+            },
+            Target::Syntect(_) => r
+                .iter()
+                .map(|x| (x.start_point.row, x.end_point.row))
+                .collect(),
+        })
+    });
+    spans
+        .filter(|&(first, last)| first <= row && row <= last)
+        .map(|(first, _)| first)
         .fold(row, usize::min)
 }
 

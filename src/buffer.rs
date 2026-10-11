@@ -207,9 +207,14 @@ impl Buffer {
         }
         let mut b = Self::new(None, lines, syntax);
         if fits && TREE_SITTER.load(std::sync::atomic::Ordering::Relaxed) {
-            b.ts = treesitter::resolve(token).and_then(|lang| treesitter::Parsed::new(lang, &b.lines));
+            b.start_block_tree_sitter(token);
         }
         b
+    }
+
+    pub(crate) fn start_block_tree_sitter(&mut self, token: &str) {
+        self.ts = treesitter::resolve(token).and_then(|lang| treesitter::Parsed::new(lang, &self.lines));
+        self.clear_hl();
     }
 
     pub fn shown(&self, l: usize) -> &str {

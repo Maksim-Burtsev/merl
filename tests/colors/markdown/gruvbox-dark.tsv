@@ -1,0 +1,6 @@
+# gruvbox-dark: ellisonleao/gruvbox.nvim@154eb5ff5b96d0641307113fa385eaf0d36d9796 `set background=dark | colorscheme gruvbox`; NVIM v0.12.5, nvim-treesitter 1a4f47b
+# palette a=ebdbb2 b=b8bb26b c=b8bb26i d=fe8019 e=83a598 f=ebdbb2i g=fe8019i h=fb4934i i=ebdbb2b j=b8bb26bi k=d3869bi l=fabd2fi m=8ec07ci n=fe8019bi o=83a598i p=b8bb26 q=928374
+blocks.md	1:b11 3:b16j6b3j10 5:b15 7:b15 9:b16 11:b16 13:b16 14:b18 16:b16 17:b18 19:a14i14af10af13a14c12a 20:a63d5a5 22:da15i10a5 23:da15 24:d 25:d2a13 27:d3 29:d3 31:c17 32:c14
+code.md	1:b11 3:a50 5:c3h6 6:m6f2 8:h3j5go4gl3g3l4g 9:c31 10:h6f2gj5gc2g2kgk2g6cgf4gh5g4 12:n5gck2c3k2c6g2f4gkg2 13:c3 15:a29 17:c3 18:c17 19:c10 20:c3 22:a12 24:c3h6 25:fg2kgkgkg 26:c3 28:da18 30:c3h6 31:f5g2c5gkg 32:c3
+links.md	1:b6 4:aed13e6a4ed12e3a4ed8ea 8:d6e23d16 9:d15e29 10:d11e28 12:db4db5db4d 13:d17 14:da3dc3di5d 15:da3dadf3d
+lists.md	1:b6 3:da9 4:da14c6 5:da10 6:da17 7:da8 8:da8 10:d2a10 11:d2a10 12:d2a13 13:d2a17 15:dq2a10 16:dp3a9 18:a17

@@ -929,10 +929,44 @@ const PYTHON: &[&str] = &[
     "match x:\n    case _:\n        pass\n",
     "MAX = 1\n",
     "lambda x: x",
+    "re.compile(r\"[a-z]+\\d\")",
+    "\"%s %d\" % (a, b)",
+];
+
+const MARKDOWN: &[&str] = &[
+    "```python\n",
+    "```\n",
+    "`",
+    "*",
+    "**",
+    "# ",
+    "- [ ] ",
+    "> ",
+    "[link](http://x)",
+    "<b>",
+    "</b>",
+    "---\n",
+    "| a | b |\n| - | - |\n",
+    "re.compile(\"x\")",
+    "\n\n",
+    "    ",
 ];
 
 #[test]
 fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
+    fuzz_tree_sitter(
+        "f.py",
+        include_bytes!("../../../tests/colors/python/classes.py"),
+        PYTHON,
+    );
+    fuzz_tree_sitter(
+        "f.md",
+        include_bytes!("../../../tests/colors/markdown/code.md"),
+        MARKDOWN,
+    );
+}
+
+fn fuzz_tree_sitter(name: &str, start: &[u8], snippets: &[&str]) {
     let sessions = std::env::var("MERL_FUZZ_SESSIONS")
         .ok()
         .and_then(|v| v.parse::<u64>().ok())
@@ -940,8 +974,7 @@ fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
     let theme = crate::theme::load("tokyonight-moon").unwrap();
     let dir = std::env::temp_dir().join(format!("merl-ts-fuzz-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
-    let path = dir.join("f.py");
-    let start = include_bytes!("../../../tests/colors/python/classes.py");
+    let path = dir.join(name);
     for seed in 1..=sessions {
         let mut rng = Rng::new(seed);
         std::fs::write(&path, start).unwrap();
@@ -954,7 +987,7 @@ fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
         let mut done = Vec::new();
         for _ in 0..60 {
             let op = match rng.below(4) {
-                0 => Op::Paste(rng.pick(PYTHON).to_string()),
+                0 => Op::Paste(rng.pick(snippets).to_string()),
                 _ => gen_op(&mut rng),
             };
             match &op {

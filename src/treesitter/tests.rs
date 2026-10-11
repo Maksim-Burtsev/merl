@@ -140,6 +140,17 @@ fn python_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn markdown_and_the_code_in_it_are_coloured_as_lazyvim() {
+    let wrong = mismatches("markdown");
+    assert!(
+        wrong.is_empty(),
+        "{} characters differ from LazyVim:\n{}",
+        wrong.len(),
+        wrong.join("\n")
+    );
+}
+
+#[test]
 fn every_vendored_query_compiles_with_what_it_uses() {
     for (name, _, _) in super::QUERIES {
         super::compile(name, super::grammar(name).unwrap()).unwrap();
@@ -222,6 +233,33 @@ fn without_the_setting_python_goes_through_syntect() {
     ts.parse_more(None);
     ts.highlight_to(0, &theme);
     assert_ne!(plain.hl, ts.hl);
+}
+
+#[test]
+fn a_preview_code_block_is_coloured_as_the_same_code_in_a_file() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let src = "import re\nWORD = re.compile(r\"[a-z]+\\d\")\n";
+    let lines: Vec<String> = src.lines().map(str::to_string).collect();
+    let mut file = Buffer::from_bytes(PathBuf::from("a.py"), src.as_bytes());
+    file.start_tree_sitter();
+    file.parse_more(None);
+    file.paint_to(usize::MAX, &theme);
+    for token in ["python", "py", " Python "] {
+        let mut block = Buffer::block(token, lines.clone());
+        let syntect = {
+            block.highlight_to(usize::MAX, &theme);
+            block.hl.clone()
+        };
+        block.start_block_tree_sitter(token);
+        block.parse_more(None);
+        block.paint_to(usize::MAX, &theme);
+        assert_eq!(block.hl, file.hl, "{token}");
+        assert_ne!(block.hl, syntect, "{token}");
+    }
+    let mut ruby = Buffer::block("ruby", vec!["x = 1".to_string()]);
+    ruby.start_block_tree_sitter("ruby");
+    ruby.highlight_to(0, &theme);
+    assert!(!ruby.hl.is_empty(), "a language not on tree-sitter keeps syntect's colours");
 }
 
 #[test]
