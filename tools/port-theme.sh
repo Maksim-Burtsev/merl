@@ -1,29 +1,55 @@
 #!/usr/bin/env bash
-# Ports a Neovim colorscheme, from its own repo, into themes/<name>.tmTheme.
+# Ports a Neovim colorscheme, from its own repo, into themes/<name>.tmTheme and
+# themes/<name>.groups.json (every highlight group, links resolved).
 #
-#   tools/port-theme.sh <git-url> <colorscheme> <name> [ex command...]
+#   tools/port-theme.sh <git-url>[@commit] <colorscheme> <name> [ex command...]
+#   tools/port-theme.sh --all     every theme of tools/theme-bench/themes.tsv from its row
 #
 # Ex commands run before `:colorscheme`, for themes that take their variant from options:
 #   tools/port-theme.sh https://github.com/sainnhe/everforest everforest everforest-light \
 #     "set background=light" "let g:everforest_background='medium'"
-# DEPS="<git-url> ..." clones plugins the theme needs onto the runtime path (bluloco: lush.nvim).
+# DEPS="<git-url>[@commit] ..." clones plugins the theme needs onto the runtime path (bluloco: lush.nvim).
 set -euo pipefail
 
+root=$(cd "$(dirname "$0")/.." && pwd)
+if [[ ${1:-} == --all ]]; then
+  while IFS=$'\t' read -r name source colorscheme before deps; do
+    [[ $name == '#'* || $source == skip ]] && continue
+    deps=${deps//,/ }
+    [[ $deps == - ]] && deps=
+    deps=$(for d in $deps; do printf 'https://github.com/%s ' "$d"; done)
+    [[ $before == - ]] && set -- || set -- "$before"
+    DEPS=$deps "$0" "https://github.com/$source" "$colorscheme" "$name" "$@" >/dev/null </dev/null
+    echo "$name"
+  done <"$root/tools/theme-bench/themes.tsv"
+  exit
+fi
 if [[ $# -lt 3 ]]; then
-  sed -n '2,9p' "$0"
+  sed -n '2,11p' "$0"
   exit 2
 fi
 url=$1 colorscheme=$2 name=$3
 shift 3
-root=$(cd "$(dirname "$0")/.." && pwd)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-git clone -q --depth 1 "$url" "$tmp/theme"
+pinned='^(.*)@([0-9a-f]{40})$'
+fetch() {
+  if [[ $1 =~ $pinned ]]; then
+    git init -q "$2"
+    git -C "$2" fetch -q --depth 1 "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+    git -C "$2" checkout -q FETCH_HEAD
+  else
+    git clone -q --depth 1 "$1" "$2"
+  fi
+}
+
+fetch "$url" "$tmp/theme"
+[[ $url =~ $pinned ]] && url=${BASH_REMATCH[1]}
 args=(-c "set rtp+=$tmp/theme")
 for dep in ${DEPS:-}; do
-  dir="$tmp/dep-$(basename "$dep")"
-  git clone -q --depth 1 "$dep" "$dir"
+  dir="$tmp/dep-$(basename "$dep" | cut -d@ -f1)"
+  fetch "$dep" "$dir"
   args+=(-c "set rtp+=$dir")
 done
 args+=(-c "set termguicolors")
@@ -35,7 +61,7 @@ done
 XDG_CACHE_HOME=$tmp/xdg XDG_STATE_HOME=$tmp/xdg XDG_DATA_HOME=$tmp/xdg \
   nvim --headless -u NONE "${args[@]}" \
   -c "lua local ok, e = pcall(vim.cmd.colorscheme, '$colorscheme'); if not ok then io.stderr:write(e .. '\n'); vim.cmd('cquit 1') end" \
-  -c "lua vim.fn.writefile({vim.json.encode(vim.api.nvim_get_hl(0, {}))}, '$tmp/hl.json')" \
+  -c "lua local o = {} for g in pairs(vim.api.nvim_get_hl(0, {})) do o[g] = vim.api.nvim_get_hl(0, {name = g, link = false}) end vim.fn.writefile({vim.json.encode(o)}, '$tmp/hl.json')" \
   -c qa
 
 python3 "$root/tools/nvim2tmtheme.py" "$tmp/hl.json" "$root/themes/$name.tmTheme" "$name"
@@ -55,9 +81,10 @@ if [[ -z $licence ]]; then
 fi
 [[ -e "$root/themes/LICENSE-$repo" ]] || cp "$licence" "$root/themes/LICENSE-$repo"
 
-echo "themes/$name.tmTheme; licence themes/LICENSE-$repo: $(grep -m1 . "$licence")"
+echo "themes/$name.tmTheme, themes/$name.groups.json; licence themes/LICENSE-$repo: $(grep -m1 . "$licence")"
 echo "Add to THEMES in src/theme.rs:"
-printf '    ("%s", include_bytes!("../themes/%s.tmTheme")),\n' "$name" "$name"
+printf '    ("%s", include_bytes!("../themes/%s.tmTheme"), Some(include_str!("../themes/%s.groups.json"))),\n' \
+  "$name" "$name" "$name"
 echo "Add to docs/themes.md under Dark or Light (and a new licence under Licences), then run"
 echo "tools/theme-shots.sh $name:"
 src=${url%.git}
