@@ -11,7 +11,7 @@ clippy() { cargo clippy --all-targets -- -D warnings; }
 tests() { cargo test --locked; }
 release() { cargo build --release --locked; }
 panic() { cargo test --release --locked no_panic -- --ignored; }
-dbench() { tools/d-bench/run --selftest; }
+dbench() { tools/d-bench/run --selftest && tools/theme-bench/run --selftest; }
 smoke() { tests/smoke/run.py --golden --new target/release/merl; }
 msrv() (
   local v

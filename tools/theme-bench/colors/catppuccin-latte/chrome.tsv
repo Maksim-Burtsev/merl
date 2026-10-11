@@ -1,0 +1,9 @@
+# group	fg	bg as Neovim draws them: unset from Normal, reverse swapped
+Normal	#4c4f69	#eff1f5
+CursorLine	#4c4f69	#e9ebf1
+Visual	#4c4f69	#bcc0cc
+Search	#4c4f69	#a8daf0
+CurSearch	#e6e9ef	#d20f39
+LineNr	#bcc0cc	#eff1f5
+CursorLineNr	#7287fd	#eff1f5
+StatusLine	#4c4f69	#e6e9ef

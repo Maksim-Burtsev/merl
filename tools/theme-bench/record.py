@@ -1,0 +1,380 @@
+#!/usr/bin/env python3
+"""Records the reference of the theme bench: the colours LazyVim paints on the same files, per
+theme. Once, on a recording machine; never in CI.
+
+    tools/theme-bench/record.py [--theme a,b] [--lang python,go] [--jobs 2] [--cache DIR]
+    tools/theme-bench/record.py --check [--theme a,b]
+
+Every theme of themes.tsv is cloned at its pinned commit into the cache (default
+$THEME_BENCH_CACHE or ~/.cache/merl-theme-bench), with nvim-treesitter at NVIM_TS and the
+parsers LazyVim installs by default (PARSERS) built with `cc` at the revisions nvim-treesitter
+pins. Neovim then starts in tmux on its own server, isolated `XDG_*` under the cache, with only
+the colorscheme, nvim-treesitter's queries and parsers, `termguicolors`, `number`, `cursorline`
+and `nowrap`, the theme's `before` commands and `:colorscheme`, and `vim.treesitter.start` on
+every buffer. Each file is drawn WIDTH columns wide and tall enough for its first LINES lines;
+the screen, read as tools/cast.py reads it, gives the foreground of every character that is not
+blank, written to colors/THEME/LANG.tsv:
+
+    # palette a=c8d3f5 b=86e1fc ...       the theme's colours in this language, a letter each
+    PROJECT/PATH<TAB>LINE:RUNS LINE:RUNS ...
+
+RUNS is the line's non-blank characters in order, a letter per colour and the count when it
+repeats (`b4ac10`: four in b, one in a, ten in c). A line is recorded when it is ASCII and at
+most MAXLEN columns, so both programs draw all of it. colors/THEME/chrome.tsv holds the
+highlight groups the chrome comes from, as Neovim draws them.
+
+The files: FILES per language from the projects of tools/d-bench/projects.tsv (cloned into
+$D_BENCH_CACHE or ~/.cache/merl-d-bench, as the other benches do), taken in the order of the hash
+of their path, each with at least MINLINES recordable lines among its first LINES.
+
+--check only loads every theme, as tools/port-theme.sh does, and compares its Normal background
+and foreground with the shipped themes/NAME.tmTheme: a difference means the row's commit or
+commands are not the ones the theme was ported from, or the repo changed since.
+"""
+import argparse, concurrent.futures, hashlib, json, os, re, shlex, subprocess, sys, tempfile, threading, time
+
+sys.dont_write_bytecode = True
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(HERE))
+NVIM_TS = "1a4f47b03dfe92d28de7d5654c67327ef008c9e6"
+PARSERS = ["bash", "c", "diff", "html", "javascript", "jsdoc", "json", "lua", "luadoc", "luap", "markdown",
+           "markdown_inline", "printf", "python", "query", "regex", "toml", "tsx", "typescript", "vim",
+           "vimdoc", "xml", "yaml", "rust", "go"]
+LANGS = {
+    "python": (["paperless-ngx"], ["py"]),
+    "rust": (["ripgrep"], ["rs"]),
+    "typescript": (["outline"], ["ts"]),
+    "go": (["caddy"], ["go"]),
+    "markdown": (["ripgrep", "caddy", "outline", "paperless-ngx"], ["md"]),
+}
+SKIP_DIRS = ("migrations/", "vendor/", "testdata/", "node_modules/", "CHANGELOG")
+FILES, LINES, MINLINES, MAXLEN, WIDTH = 4, 200, 80, 140, 200
+LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+GROUPS = ["Normal", "CursorLine", "Visual", "Search", "CurSearch", "LineNr", "CursorLineNr", "StatusLine"]
+SERVER = "merl-theme-bench"
+
+
+def tsv(path):
+    return [l.rstrip("\n").split("\t") for l in open(path) if l.strip() and not l.startswith("#")]
+
+
+def manifest():
+    """name -> (source, colorscheme, before, deps); a skipped theme has source `skip` and its
+    reason where the colorscheme would be."""
+    return {r[0]: tuple(r[1:5]) for r in tsv(os.path.join(HERE, "themes.tsv"))}
+
+
+def git(*args, cwd=None):
+    return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True).stdout.strip()
+
+
+def ensure(d, url, commit):
+    """A clone of url at commit in d, fetched once; one already there is only read."""
+    if not os.path.isdir(os.path.join(d, ".git")):
+        os.makedirs(d, exist_ok=True)
+        subprocess.run(["git", "init", "-q"], cwd=d, check=True)
+    if git("rev-parse", "HEAD", cwd=d) != commit:
+        subprocess.run(["git", "fetch", "-q", "--depth", "1", url, commit], cwd=d, check=True)
+        subprocess.run(["git", "checkout", "-q", "--detach", "FETCH_HEAD"], cwd=d, check=True)
+    return d
+
+
+def repo(cache, source):
+    """`owner/repo@commit` cloned under the cache."""
+    name, commit = source.split("@")
+    return ensure(os.path.join(cache, "themes", name.replace("/", "__")), f"https://github.com/{name}.git", commit)
+
+
+def projects():
+    return {r[0]: r for r in tsv(os.path.join(ROOT, "tools/d-bench/projects.tsv"))}
+
+
+def project(name):
+    _, _, url, commit, _ = projects()[name]
+    cache = os.path.realpath(os.environ.get("D_BENCH_CACHE", os.path.expanduser("~/.cache/merl-d-bench")))
+    return ensure(os.path.join(cache, name), url, commit)
+
+
+def file_lines(path):
+    return open(path, encoding="utf-8", errors="replace").read().split("\n")[:LINES]
+
+
+def recordable(text):
+    return text.strip() and text.isascii() and len(text.expandtabs(8)) <= MAXLEN
+
+
+def pick(lang):
+    names, exts = LANGS[lang]
+    every = []
+    for name in names:
+        d = project(name)
+        for f in git("ls-files", cwd=d).splitlines():
+            if f.rsplit(".", 1)[-1] in exts and not any(s in f for s in SKIP_DIRS):
+                every.append((f"{name}/{f}", os.path.join(d, f)))
+    every.sort(key=lambda p: hashlib.sha1(p[0].encode()).hexdigest())
+    out = []
+    for rel, path in every:
+        if sum(map(bool, map(recordable, file_lines(path)))) >= MINLINES:
+            out.append((rel, path))
+        if len(out) == FILES:
+            break
+    return out
+
+
+def parsers(cache):
+    """nvim-treesitter at NVIM_TS and PARSERS built into the cache's site/parser."""
+    ts = ensure(os.path.join(cache, "nvim-treesitter"), "https://github.com/nvim-treesitter/nvim-treesitter.git",
+                NVIM_TS)
+    site = os.path.join(cache, "site", "parser")
+    os.makedirs(site, exist_ok=True)
+    lua = ("local p = dofile(arg[1] .. '/lua/nvim-treesitter/parsers.lua') "
+           "for _, l in ipairs(vim.split(arg[2], ',')) do local i = p[l].install_info "
+           "io.write(table.concat({l, i.url, i.revision, i.location or '-'}, '\\t'), '\\n') end")
+    script = os.path.join(cache, "parsers.lua")
+    open(script, "w").write(lua)
+    r = subprocess.run(["nvim", "--clean", "-l", script, ts, ",".join(PARSERS)], capture_output=True, text=True)
+    rows = r.stdout.split("\n")
+    for row in filter(None, rows):
+        lang, url, rev, loc = row.split("\t")
+        stamp = os.path.join(cache, "grammars", f"{lang}.built")
+        if os.path.exists(stamp) and open(stamp).read() == rev:
+            continue
+        g = ensure(os.path.join(cache, "grammars", os.path.basename(url)), url, rev)
+        src = os.path.join(g, loc) if loc != "-" else g
+        files = [os.path.join(src, "src", f) for f in ("parser.c", "scanner.c") if os.path.exists(os.path.join(src, "src", f))]
+        subprocess.run(["cc", "-O2", "-shared", "-fPIC", "-std=c11", "-I", os.path.join(src, "src"), *files,
+                        "-o", os.path.join(site, f"{lang}.so")], check=True)
+        open(stamp, "w").write(rev)
+        print(f"parser {lang} {rev[:12]}", file=sys.stderr)
+    return ts
+
+
+def init_lua(cache, name, ts, check=False):
+    """The Neovim config of one theme: the colorscheme and, unless check, the parsers."""
+    source, colorscheme, before, deps = manifest()[name]
+    dirs = [repo(cache, source)] + [repo(cache, d) for d in deps.split(",") if d != "-"]
+    lines = [f"vim.opt.rtp:prepend({json.dumps(d)})" for d in dirs]
+    if not check:
+        lines += [f"vim.opt.rtp:prepend({json.dumps(os.path.join(ts, 'runtime'))})",
+                  f"vim.opt.rtp:prepend({json.dumps(os.path.join(cache, 'site'))})",
+                  "vim.g._ts_force_sync_parsing = true", "vim.o.number = true", "vim.o.cursorline = true", "vim.o.wrap = false",
+                  "vim.api.nvim_create_autocmd('FileType', { callback = function(a) pcall(vim.treesitter.start, a.buf) end })"]
+    lines += ["vim.o.termguicolors = true", "vim.o.swapfile = false", "vim.o.shadafile = 'NONE'"]
+    if before != "-":
+        lines.append(f"vim.cmd({json.dumps(before)})")
+    lines.append(f"vim.cmd.colorscheme({json.dumps(colorscheme)})")
+    path = os.path.join(cache, "init", f"{name}{'-check' if check else ''}.lua")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    open(path, "w").write("\n".join(lines) + "\n")
+    return path
+
+
+def xdg(cache, name):
+    d = os.path.join(cache, "xdg", name)
+    return {f"XDG_{k}_HOME": os.path.join(d, k.lower()) for k in ("CONFIG", "DATA", "STATE", "CACHE")}
+
+
+def groups(cache, name, init):
+    """GROUPS as Neovim draws them: group -> (fg, bg) as `#rrggbb`, a colour the group leaves
+    unset taken from Normal and `reverse` swapping the two; `-` where Normal sets none either."""
+    out = tempfile.mktemp(suffix=".json")
+    lua = ("local o = {} for _, g in ipairs(vim.split(" + json.dumps(",".join(GROUPS)) + ", ',')) do "
+           "o[g] = vim.api.nvim_get_hl(0, {name = g, link = false}) end "
+           f"vim.fn.writefile({{vim.json.encode(o)}}, {json.dumps(out)})")
+    subprocess.run(["nvim", "--headless", "-u", init, "-c", f"lua {lua}", "-c", "qa!"],
+                   env={**os.environ, **xdg(cache, name)}, check=True, capture_output=True, timeout=60)
+    hl = json.load(open(out))
+    os.remove(out)
+    hexed = lambda v: f"#{v:06x}" if isinstance(v, int) else "-"
+    normal = hl["Normal"]
+
+    def drawn(g):
+        fg, bg = hl[g].get("fg", normal.get("fg")), hl[g].get("bg", normal.get("bg"))
+        return (hexed(bg), hexed(fg)) if hl[g].get("reverse") else (hexed(fg), hexed(bg))
+    return {g: drawn(g) for g in GROUPS}
+
+
+def shipped(name):
+    text = open(os.path.join(ROOT, "themes", f"{name}.tmTheme")).read()
+    key = lambda k: re.search(rf"<key>{k}</key>\s*<string>(#[0-9A-Fa-f]{{6}})", text).group(1).lower()
+    return key("foreground"), key("background")
+
+
+def tmux(*args):
+    return subprocess.run(["tmux", "-L", SERVER, "-f", "/dev/null", *args], capture_output=True, text=True)
+
+
+def server():
+    """The bench's tmux server, kept up by an idle session: without it the server exits with the
+    last session a job kills, under the next job starting one."""
+    tmux("new-session", "-d", "-s", "idle", "-x", "10", "-y", "2", "sleep 86400")
+
+
+def capture(session, cmd, rows, env, ready, keys=()):
+    """Runs cmd in a detached tmux session WIDTH x rows and returns the screen as tools/cast.py's
+    grid once ready(grid) holds and three captures in a row agree; then each of keys is sent and
+    the settled screen after it is returned too."""
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    import cast
+    tmux("kill-session", "-t", session)
+    shell = " ".join(f"{k}={shlex.quote(v)}" for k, v in env.items()) + " " + cmd
+    r = tmux("new-session", "-d", "-s", session, "-x", str(WIDTH), "-y", str(rows), f"env {shell}")
+    if r.returncode:
+        sys.exit(r.stderr)
+    grids, deadline = [], time.time() + 20
+    for key in (None, *keys):
+        if key:
+            tmux("send-keys", "-t", session, *key)
+        seen = []
+        while True:
+            time.sleep(0.15)
+            raw = tmux("capture-pane", "-p", "-e", "-t", session).stdout
+            grid = cast.parse(raw, WIDTH, rows)
+            seen = seen[-2:] + [raw]
+            if len(seen) == 3 and len(set(seen)) == 1 and ready(grid):
+                break
+            if time.time() > deadline:
+                tmux("kill-session", "-t", session)
+                raise TimeoutError(f"{cmd}: the screen did not settle")
+        grids.append(grid)
+    tmux("kill-session", "-t", session)
+    return grids
+
+
+def on_screen(grid, lines):
+    """file line number -> the foreground of each non-blank character of that line, read from the
+    rows whose gutter number is followed by the whole line."""
+    out = {}
+    for cells in grid:
+        text = "".join(c[0] for c in cells)
+        for m in re.finditer(r"(\d+) ", text):
+            n = int(m.group(1))
+            if n in out or not 1 <= n <= len(lines):
+                continue
+            want = "".join(lines[n - 1].split())
+            got = [(c[0], c[1]) for c in cells[m.end():] if not c[0].isspace()]
+            if want and "".join(ch for ch, _ in got[:len(want)]) == want:
+                out[n] = [fg for _, fg in got[:len(want)]]
+                break
+    return out
+
+
+def hexed(rgb):
+    return "%02x%02x%02x" % tuple(rgb)
+
+
+def encode(fgs, palette):
+    out, i = [], 0
+    while i < len(fgs):
+        j = i
+        while j < len(fgs) and fgs[j] == fgs[i]:
+            j += 1
+        out.append(palette[fgs[i]] + (str(j - i) if j - i > 1 else ""))
+        i = j
+    return "".join(out)
+
+
+def decode(runs, colours):
+    return [colours[letter] for letter, n in re.findall(r"([A-Za-z])(\d*)", runs) for _ in range(int(n or 1))]
+
+
+def read_colors(path):
+    """colors/THEME/LANG.tsv -> {project/path: {line: [rrggbb per non-blank character]}}."""
+    rows = open(path).read().splitlines()
+    colours = dict(p.split("=") for p in next(r for r in rows if r.startswith("# palette")).split()[2:])
+    out = {}
+    for row in rows:
+        if row.startswith("#"):
+            continue
+        rel, cells = row.split("\t")
+        out[rel] = {int(n): decode(runs, colours) for n, runs in (c.split(":") for c in cells.split())}
+    return out
+
+
+def write_colors(path, head, files):
+    """files: [(project/path, {line: [rrggbb ...]})], written as read_colors reads it."""
+    count = {}
+    for _, got in files:
+        for fgs in got.values():
+            for c in fgs:
+                count[c] = count.get(c, 0) + 1
+    order = sorted(count, key=lambda c: -count[c])
+    if len(order) > len(LETTERS):
+        raise ValueError(f"{path}: {len(order)} colours, more than {len(LETTERS)} letters")
+    palette = dict(zip(order, LETTERS))
+    body = [f"{rel}\t" + " ".join(f"{n}:{encode(got[n], palette)}" for n in sorted(got)) for rel, got in files]
+    pal = " ".join(f"{palette[c]}={c}" for c in order)
+    open(path, "w").write(head + f"# palette {pal}\n" + "\n".join(body) + "\n")
+
+
+def record(cache, ts, name, langs):
+    init = init_lua(cache, name, ts)
+    out = os.path.join(HERE, "colors", name)
+    os.makedirs(out, exist_ok=True)
+    hl = groups(cache, name, init)
+    open(os.path.join(out, "chrome.tsv"), "w").write(
+        "# group\tfg\tbg as Neovim draws them: unset from Normal, reverse swapped\n" + "".join(f"{g}\t{fg}\t{bg}\n" for g, (fg, bg) in hl.items()))
+    source, colorscheme, before, _ = manifest()[name]
+    env = {**xdg(cache, name), "TERM": "tmux-256color"}
+    for lang in langs:
+        files = []
+        for rel, path in pick(lang):
+            lines = file_lines(path)
+            first = next(n for n, l in enumerate(lines, 1) if recordable(l))
+            ready = lambda g: first in on_screen(g, lines)
+            grid, = capture(f"r{threading.get_ident()}", f"nvim -u {shlex.quote(init)} {shlex.quote(path)}", LINES + 4, env, ready)
+            got = on_screen(grid, lines)
+            files.append((rel, {n: [hexed(c) for c in fgs] for n, fgs in got.items() if recordable(lines[n - 1])}))
+        version = subprocess.run(["nvim", "--version"], capture_output=True, text=True).stdout.split("\n")[0]
+        head = (f"# {name}: {source} `{before if before != '-' else ''}{' | ' if before != '-' else ''}"
+                f"colorscheme {colorscheme}`; {version}, nvim-treesitter {NVIM_TS[:7]}\n")
+        write_colors(os.path.join(out, f"{lang}.tsv"), head, files)
+    print(f"{name}: {', '.join(langs)}", file=sys.stderr)
+
+
+def check(cache, names):
+    bad = 0
+    for name in names:
+        try:
+            hl = groups(cache, name, init_lua(cache, name, None, check=True))
+            got = hl["Normal"]
+        except subprocess.CalledProcessError as e:
+            got = ("error", e.stderr.decode()[-80:].strip())
+        want = shipped(name)
+        ok = got == want
+        bad += not ok
+        print(f"{name:24} {'ok' if ok else 'DIFF':5} nvim {got[0]} on {got[1]}   shipped {want[0]} on {want[1]}")
+    return bad
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--theme", help="themes of themes.tsv, comma-separated (default: every one not skipped)")
+    ap.add_argument("--lang", default=",".join(LANGS))
+    ap.add_argument("--jobs", type=int, default=2)
+    ap.add_argument("--cache", default=os.environ.get("THEME_BENCH_CACHE", os.path.expanduser("~/.cache/merl-theme-bench")))
+    ap.add_argument("--check", action="store_true")
+    a = ap.parse_args()
+    cache = os.path.realpath(a.cache)
+    every = manifest()
+    names = a.theme.split(",") if a.theme else [n for n, r in every.items() if r[0] != "skip"]
+    unknown = [n for n in names if n not in every or every[n][0] == "skip"]
+    if unknown:
+        sys.exit(f"not in themes.tsv or skipped: {', '.join(unknown)}")
+    if a.check:
+        sys.exit(1 if check(cache, names) else 0)
+    ts = parsers(cache)
+    langs = a.lang.split(",")
+    for lang in langs:
+        pick(lang)
+    server()
+    try:
+        with concurrent.futures.ThreadPoolExecutor(a.jobs) as pool:
+            for f in [pool.submit(record, cache, ts, n, langs) for n in names]:
+                f.result()
+    finally:
+        tmux("kill-server")
+
+
+if __name__ == "__main__":
+    main()
