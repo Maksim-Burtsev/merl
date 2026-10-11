@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tools/ts-queries [LANG...]: copies nvim-treesitter's highlights.scm of every language under
+# tools/ts-queries [LANG...]: copies nvim-treesitter's highlights.scm and injections.scm of every language under
 # queries/ (or of LANG) from nvim-treesitter at NVIM_TS, the commit tools/theme-bench/record.py
 # records LazyVim with, so merl colours with the queries the reference was drawn with (#802).
 set -Eeuo pipefail
@@ -18,6 +18,10 @@ if [ $# -eq 0 ]; then
 fi
 for lang in "$@"; do
   mkdir -p "$root/queries/$lang"
-  cp "$src/runtime/queries/$lang/highlights.scm" "$root/queries/$lang/highlights.scm"
+  for q in highlights injections; do
+    if [ -f "$src/runtime/queries/$lang/$q.scm" ]; then
+      cp "$src/runtime/queries/$lang/$q.scm" "$root/queries/$lang/$q.scm"
+    fi
+  done
 done
 cp "$src/LICENSE" "$root/queries/LICENSE"

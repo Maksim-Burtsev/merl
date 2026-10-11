@@ -141,10 +141,10 @@ fn python_is_coloured_as_lazyvim() {
 
 #[test]
 fn every_vendored_query_compiles_with_what_it_uses() {
-    for (name, _) in super::QUERIES {
+    for (name, _, _) in super::QUERIES {
+        super::compile(name, super::grammar(name).unwrap()).unwrap();
         assert!(super::lang(name).is_some(), "{name}");
     }
-    super::compile("python", tree_sitter_python::LANGUAGE.into()).unwrap();
 }
 
 #[test]
@@ -154,8 +154,9 @@ fn a_query_using_what_merl_does_not_implement_is_refused() {
         "((identifier) @x (#match? @x \"^a\"))",
         "((identifier) @x (#vim-match? @x \"^a\"))",
         "((identifier) @x (#has-ancestor? @x call))",
-        "((identifier) @x (#offset! @x 0 1 0 -1))",
-        "((identifier) @x (#set! conceal \"\"))",
+        "((identifier) @x (#offset! @x 0 1))",
+        "((identifier) @x (#set! injection.language \"regex\"))",
+        "((identifier) @x (#set! @x priority 101))",
         "((identifier) @x (#lua-match? @x \"%bxy\"))",
     ] {
         let got = super::compile_text("python", python(), text);
@@ -233,8 +234,8 @@ fn a_higher_priority_paints_over_a_later_capture_and_equal_ones_paint_in_order()
         let lines = vec!["x".to_string()];
         let mut parsed = super::Parsed::new(lang, &lines).unwrap();
         parsed.parse(None);
-        let styles = super::Styles::new(lang, &theme);
-        parsed.spans(&lines, 0, 0, &styles)[0][0].0
+        let mut styles = super::Styles::new(&theme);
+        parsed.spans(&lines, 0, 0, &mut styles)[0][0].0
     };
     let keyword = theme.group("@keyword.python").unwrap().fg;
     let string = theme.group("@string.python").unwrap().fg;
