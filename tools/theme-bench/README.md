@@ -36,6 +36,21 @@ the gate still holds every row to it. On 2026-10-12 (#802) Python matched every 
 92 themes, 19,185 per theme: no miss is left to list. A language that leaves misses lists them
 here by cause.
 
+Go and Rust (#805), before injections:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Go | 14,810 | 99.7 adwaita | 99.9 | 100.0 vscode-light |
+| Rust | 17,576 | 90.7 github-dark | 94.4 | 99.9 e-ink-light |
+
+- Injections (#818). Go: the `%` verbs of `Errorf` and `Fatalf` strings, which LazyVim parses as
+  `printf`, 38 characters in the themes that colour them apart. Rust: the bodies of macro calls,
+  which LazyVim parses again as Rust (`path.display()` inside `format!`, every test of
+  `tests/feature.rs` inside `rgtest!`): almost all of Rust's misses, in every theme.
+- The theme's own queries (#819): github-dark and github-light append github-nvim-theme's
+  `queries/rust/highlights.scm` (attributes, `crate`/`self`/`super`, lifetimes, capitalised
+  names), which merl does not load.
+
 ## Files
 
 | file | what |

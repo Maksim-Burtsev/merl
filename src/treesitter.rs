@@ -16,7 +16,11 @@ use crate::theme::Theme;
 
 const NEOVIM_TREESITTER_PRIORITY: u32 = 100;
 
-const QUERIES: &[(&str, &str)] = &[("python", include_str!("../queries/python/highlights.scm"))];
+const QUERIES: &[(&str, &str)] = &[
+    ("go", include_str!("../queries/go/highlights.scm")),
+    ("python", include_str!("../queries/python/highlights.scm")),
+    ("rust", include_str!("../queries/rust/highlights.scm")),
+];
 
 const PREDICATES: &[&str] = &[
     "eq?",
@@ -25,6 +29,10 @@ const PREDICATES: &[&str] = &[
     "not-any-of?",
     "lua-match?",
     "not-lua-match?",
+    "contains?",
+    "not-contains?",
+    "has-parent?",
+    "not-has-parent?",
     "set!",
 ];
 
@@ -33,21 +41,66 @@ pub struct Lang {
     language: Language,
     query: Query,
     priority: Vec<u32>,
-    lua_match: Vec<Vec<(u32, regex::bytes::Regex, bool)>>,
+    checks: Vec<Vec<Check>>,
+}
+
+struct Check {
+    capture: u32,
+    test: Test,
+    positive: bool,
+}
+
+enum Test {
+    LuaMatch(regex::bytes::Regex),
+    Contains(Vec<String>),
+    HasParent(Vec<String>),
+}
+
+impl Check {
+    fn passes(&self, m: &tree_sitter::QueryMatch, bytes: &[u8]) -> bool {
+        let mut nodes = m.nodes_for_capture_index(self.capture).peekable();
+        if nodes.peek().is_none() {
+            return self.positive;
+        }
+        let hit = match &self.test {
+            Test::LuaMatch(re) => nodes.all(|n| re.is_match(&bytes[n.byte_range()])),
+            Test::Contains(words) => nodes.all(|n| {
+                let text = &bytes[n.byte_range()];
+                words
+                    .iter()
+                    .all(|w| text.windows(w.len()).any(|x| x == w.as_bytes()))
+            }),
+            Test::HasParent(kinds) => nodes.any(|n| {
+                n.parent()
+                    .is_some_and(|p| kinds.iter().any(|k| k == p.kind()))
+            }),
+        };
+        hit == self.positive
+    }
 }
 
 pub fn for_syntax(syntect_name: &str) -> Option<&'static Lang> {
     match syntect_name {
+        "Go" => lang("go"),
         "Python" => lang("python"),
+        "Rust" => lang("rust"),
         _ => None,
     }
 }
 
 pub fn lang(name: &str) -> Option<&'static Lang> {
+    static GO: OnceLock<Option<Lang>> = OnceLock::new();
     static PYTHON: OnceLock<Option<Lang>> = OnceLock::new();
+    static RUST: OnceLock<Option<Lang>> = OnceLock::new();
     match name {
+        "go" => GO
+            .get_or_init(|| compile("go", tree_sitter_go::LANGUAGE.into()).ok())
+            .as_ref(),
         "python" => PYTHON
             .get_or_init(|| compile("python", tree_sitter_python::LANGUAGE.into()).ok())
+            .as_ref(),
+        "rust" => RUST
+            .get_or_init(|| compile("rust", tree_sitter_rust::LANGUAGE.into()).ok())
             .as_ref(),
         _ => None,
     }
@@ -86,7 +139,7 @@ fn compile_text(name: &'static str, language: Language, text: &str) -> Result<La
     }
     let query = Query::new(&language, text).map_err(|e| format!("{name}: {e}"))?;
     let mut priority = Vec::new();
-    let mut lua_match = Vec::new();
+    let mut checks = Vec::new();
     for p in 0..query.pattern_count() {
         let mut prio = NEOVIM_TREESITTER_PRIORITY;
         for prop in query.property_settings(p) {
@@ -100,32 +153,43 @@ fn compile_text(name: &'static str, language: Language, text: &str) -> Result<La
         priority.push(prio);
         let mut preds = Vec::new();
         for pred in query.general_predicates(p) {
-            let positive = match &*pred.operator {
-                "lua-match?" => true,
-                "not-lua-match?" => false,
-                op => return Err(format!("{name}: #{op} is not implemented")),
+            let op = &*pred.operator;
+            let (positive, op) = match op.strip_prefix("not-") {
+                Some(rest) => (false, rest),
+                None => (true, op),
             };
-            match &*pred.args {
-                [
-                    tree_sitter::QueryPredicateArg::Capture(c),
-                    tree_sitter::QueryPredicateArg::String(pattern),
-                ] => preds.push((*c, lua_pattern(pattern)?, positive)),
-                _ => {
-                    return Err(format!(
-                        "{name}: #{} takes a capture and a pattern",
-                        pred.operator
-                    ));
-                }
-            }
+            let (capture, args) = match &*pred.args {
+                [tree_sitter::QueryPredicateArg::Capture(c), rest @ ..] if !rest.is_empty() => (
+                    *c,
+                    rest.iter()
+                        .map(|a| match a {
+                            tree_sitter::QueryPredicateArg::String(s) => Ok(s.to_string()),
+                            _ => Err(format!("{name}: #{} takes strings", pred.operator)),
+                        })
+                        .collect::<Result<Vec<_>, _>>()?,
+                ),
+                _ => return Err(format!("{name}: #{} takes a capture first", pred.operator)),
+            };
+            let test = match op {
+                "lua-match?" if args.len() == 1 => Test::LuaMatch(lua_pattern(&args[0])?),
+                "contains?" => Test::Contains(args),
+                "has-parent?" => Test::HasParent(args),
+                _ => return Err(format!("{name}: #{} is not implemented", pred.operator)),
+            };
+            preds.push(Check {
+                capture,
+                test,
+                positive,
+            });
         }
-        lua_match.push(preds);
+        checks.push(preds);
     }
     Ok(Lang {
         name,
         language,
         query,
         priority,
-        lua_match,
+        checks,
     })
 }
 
@@ -343,12 +407,9 @@ impl Parsed {
             let ok = match checked {
                 Some((id, ok)) if id == m.id() => ok,
                 _ => {
-                    let ok = lang.lua_match[m.pattern_index]
+                    let ok = lang.checks[m.pattern_index]
                         .iter()
-                        .all(|(c, re, positive)| {
-                            m.nodes_for_capture_index(*c)
-                                .all(|n| re.is_match(&bytes[n.byte_range()]) == *positive)
-                        });
+                        .all(|c| c.passes(m, bytes));
                     checked = Some((m.id(), ok));
                     ok
                 }

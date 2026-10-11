@@ -85,10 +85,44 @@ fn token(line: &str, col: usize) -> &str {
     }
 }
 
+struct Exception {
+    theme: String,
+    file: String,
+    line: usize,
+    cols: std::ops::RangeInclusive<usize>,
+    used: bool,
+}
+
+fn exceptions(dir: &Path) -> Vec<Exception> {
+    let Ok(text) = std::fs::read_to_string(dir.join("NOTES.md")) else {
+        return Vec::new();
+    };
+    text.lines()
+        .filter_map(|l| l.strip_prefix("- `")?.split_once('`'))
+        .map(|(spec, _)| {
+            let (theme, at) = spec.split_once(' ').unwrap();
+            let mut parts = at.split(':');
+            let (file, line) = (parts.next().unwrap(), parts.next().unwrap());
+            let cols = match parts.next().map(|c| c.split_once('-').unwrap_or((c, c))) {
+                Some((a, b)) => a.parse().unwrap()..=b.parse().unwrap(),
+                None => 1..=usize::MAX,
+            };
+            Exception {
+                theme: theme.to_string(),
+                file: file.to_string(),
+                line: line.parse().unwrap(),
+                cols,
+                used: false,
+            }
+        })
+        .collect()
+}
+
 fn mismatches(lang: &str) -> Vec<String> {
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests/colors")
         .join(lang);
+    let mut excepted = exceptions(&dir);
     let mut tables: Vec<PathBuf> = std::fs::read_dir(&dir)
         .unwrap()
         .map(|e| e.unwrap().path())
@@ -114,7 +148,17 @@ fn mismatches(lang: &str) -> Vec<String> {
                 let got = drawn(&b, n - 1);
                 assert_eq!(got.len(), want.len(), "{file}:{n}: characters");
                 for ((col, got), want) in got.iter().zip(&want) {
-                    if got != want {
+                    if got == want {
+                        continue;
+                    }
+                    if let Some(e) = excepted.iter_mut().find(|e| {
+                        (e.theme == "*" || e.theme == name)
+                            && e.file == file
+                            && e.line == n
+                            && e.cols.contains(&(col + 1))
+                    }) {
+                        e.used = true;
+                    } else {
                         let tok = token(&b.lines[n - 1], *col);
                         out.push(format!(
                             "{name} {file}:{n}:{} `{tok}` want {want} got {got}",
@@ -125,18 +169,38 @@ fn mismatches(lang: &str) -> Vec<String> {
             }
         }
     }
+    for e in excepted.iter().filter(|e| !e.used) {
+        out.push(format!(
+            "NOTES.md lists `{} {}:{}` but it draws as LazyVim",
+            e.theme, e.file, e.line
+        ));
+    }
     out
 }
 
-#[test]
-fn python_is_coloured_as_lazyvim() {
-    let wrong = mismatches("python");
+fn coloured_as_lazyvim(lang: &str) {
+    let wrong = mismatches(lang);
     assert!(
         wrong.is_empty(),
         "{} characters differ from LazyVim:\n{}",
         wrong.len(),
         wrong.join("\n")
     );
+}
+
+#[test]
+fn python_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("python");
+}
+
+#[test]
+fn go_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("go");
+}
+
+#[test]
+fn rust_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("rust");
 }
 
 #[test]
@@ -167,6 +231,41 @@ fn a_query_using_what_merl_does_not_implement_is_refused() {
         "((identifier) @x (#lua-match? @x \"^%u\"))",
     )
     .unwrap();
+}
+
+#[test]
+fn contains_and_has_parent_and_their_not_forms_test_as_neovim_does() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let keyword = theme.group("@keyword.python").unwrap().fg;
+    let painted = |query: &str, src: &str, col: usize| {
+        let lang =
+            super::compile_text("python", tree_sitter_python::LANGUAGE.into(), query).unwrap();
+        let lang: &'static super::Lang = Box::leak(Box::new(lang));
+        let lines = vec![src.to_string()];
+        let mut parsed = super::Parsed::new(lang, &lines).unwrap();
+        parsed.parse(None);
+        let styles = super::Styles::new(lang, &theme);
+        let spans = parsed.spans(&lines, 0, 0, &styles);
+        let fg = spans[0]
+            .iter()
+            .find(|(_, r)| r.contains(&col))
+            .unwrap()
+            .0
+            .fg;
+        fg == keyword
+    };
+    let contains = "((identifier) @keyword (#contains? @keyword \"ss\" \"er\"))";
+    assert!(painted(contains, "classer = 1", 0));
+    assert!(!painted(contains, "class_ = 1", 0));
+    let not_contains = "((identifier) @keyword (#not-contains? @keyword \"ss\" \"er\"))";
+    assert!(!painted(not_contains, "classer = 1", 0));
+    assert!(painted(not_contains, "class_ = 1", 0));
+    let parent = "((identifier) @keyword (#has-parent? @keyword call decorator))";
+    assert!(painted(parent, "f(x)", 0));
+    assert!(!painted(parent, "f(x)", 2));
+    let not_parent = "((identifier) @keyword (#not-has-parent? @keyword call))";
+    assert!(!painted(not_parent, "f(x)", 0));
+    assert!(painted(not_parent, "f(x)", 2));
 }
 
 #[test]
