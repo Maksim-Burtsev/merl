@@ -54,13 +54,13 @@ iiiiiiiiiiiiiiiiijjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #c8d3f5 bg #222436
-d fg #82aaff bg #1e2031
-e fg #c8d3f5 bg #1e2031
-f fg #7d849f bg #1e2031
+d fg #82aaff bg #282b41
+e fg #c8d3f5 bg #282b41
+f fg #7d849f bg #282b41
 g fg #7d849f bg #222436
 h fg #c8d3f5 bg #222436 BOLD
-i fg #82aaff bg #1b1d2c BOLD
-j fg #c8d3f5 bg #1b1d2c
+i fg #82aaff bg #2f334d BOLD
+j fg #c8d3f5 bg #2f334d
 
 ==== 80x24 github-light styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -170,13 +170,13 @@ iiiiiiiiiiiiiiiiijjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #c8d3f5 bg #222436
-d fg #82aaff bg #1e2031
-e fg #c8d3f5 bg #1e2031
-f fg #7d849f bg #1e2031
+d fg #82aaff bg #282b41
+e fg #c8d3f5 bg #282b41
+f fg #7d849f bg #282b41
 g fg #7d849f bg #222436
 h fg #c8d3f5 bg #222436 BOLD
-i fg #82aaff bg #1b1d2c BOLD
-j fg #c8d3f5 bg #1b1d2c
+i fg #82aaff bg #2f334d BOLD
+j fg #c8d3f5 bg #2f334d
 
 ==== 120x33 github-light styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -339,13 +339,13 @@ iiiiiiiiiiiiiiiiijjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #c8d3f5 bg #222436
-d fg #82aaff bg #1e2031
-e fg #c8d3f5 bg #1e2031
-f fg #7d849f bg #1e2031
+d fg #82aaff bg #282b41
+e fg #c8d3f5 bg #282b41
+f fg #7d849f bg #282b41
 g fg #7d849f bg #222436
 h fg #c8d3f5 bg #222436 BOLD
-i fg #82aaff bg #1b1d2c BOLD
-j fg #c8d3f5 bg #1b1d2c
+i fg #82aaff bg #2f334d BOLD
+j fg #c8d3f5 bg #2f334d
 
 ==== 185x55 github-light styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

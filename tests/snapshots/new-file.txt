@@ -58,7 +58,7 @@ d fg #82aaff bg #2d3f76
 e fg #6c94fc bg #222436
 f fg #4e72fc bg #222436
 g fg #2439b5 bg #222436
-h fg #c8d3f5 bg #1b1d2c
+h fg #c8d3f5 bg #2f334d
 
 ==== 80x24 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -170,7 +170,7 @@ d fg #82aaff bg #2d3f76
 e fg #6c94fc bg #222436
 f fg #4e72fc bg #222436
 g fg #2439b5 bg #222436
-h fg #c8d3f5 bg #1b1d2c
+h fg #c8d3f5 bg #2f334d
 
 ==== 120x33 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -335,7 +335,7 @@ d fg #82aaff bg #2d3f76
 e fg #6c94fc bg #222436
 f fg #4e72fc bg #222436
 g fg #2439b5 bg #222436
-h fg #c8d3f5 bg #1b1d2c
+h fg #c8d3f5 bg #2f334d
 
 ==== 185x55 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

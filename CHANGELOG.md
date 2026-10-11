@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The default theme, `tokyonight-moon`, paints what tokyonight.nvim's Moon paints in Neovim: it
+  shipped folke's Sublime file until now. Markdown text, Rust and TypeScript come closer to
+  LazyVim; Python and Go lose some colours until tree-sitter colours them (#802). (#812)
 - `dracula`'s cursor line is its Neovim original's again, `#424450`, where #66 had moved it by
   hand. (#801)
 

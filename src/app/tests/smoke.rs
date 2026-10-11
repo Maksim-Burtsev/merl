@@ -41,6 +41,10 @@ const UNSMOKED: &[(u32, &str)] = &[
         801,
         "a theme's colours only, which the smoke screens (text) cannot see; tools/theme-bench compares them with LazyVim's",
     ),
+    (
+        812,
+        "the default theme's colours only, which the smoke screens (text) cannot see; tools/theme-bench compares them with LazyVim's",
+    ),
 ];
 
 fn root() -> PathBuf {

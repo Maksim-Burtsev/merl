@@ -53,16 +53,16 @@ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccdiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddiiddii
 llllllllllgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
-c fg #6b6f80 bg #222436
-d fg #32374f bg #222436
-e fg #6b6f80 bg #1b1d2c
-f fg #32374f bg #1b1d2c
-g fg #c8d3f5 bg #1b1d2c
-h fg #c8d3f5 bg #1b1d2c BOLD
+c fg #6a6f86 bg #222436
+d fg #3b4261 bg #222436
+e fg #6a6f86 bg #2f334d
+f fg #3b4261 bg #2f334d
+g fg #c8d3f5 bg #2f334d
+h fg #c8d3f5 bg #2f334d BOLD
 i fg #c8d3f5 bg #222436
 j fg #c8d3f5 bg #222436 BOLD
-k fg #c8d3f5 bg #1e2031
-l fg #82aaff bg #1b1d2c BOLD
+k fg #c8d3f5 bg #282b41
+l fg #82aaff bg #2f334d BOLD
 
 ==== 80x24 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -171,16 +171,16 @@ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccdiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiiddiiiiid
 llllllllllgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
-c fg #6b6f80 bg #222436
-d fg #32374f bg #222436
-e fg #6b6f80 bg #1b1d2c
-f fg #32374f bg #1b1d2c
-g fg #c8d3f5 bg #1b1d2c
-h fg #c8d3f5 bg #1b1d2c BOLD
+c fg #6a6f86 bg #222436
+d fg #3b4261 bg #222436
+e fg #6a6f86 bg #2f334d
+f fg #3b4261 bg #2f334d
+g fg #c8d3f5 bg #2f334d
+h fg #c8d3f5 bg #2f334d BOLD
 i fg #c8d3f5 bg #222436
 j fg #c8d3f5 bg #222436 BOLD
-k fg #c8d3f5 bg #1e2031
-l fg #82aaff bg #1b1d2c BOLD
+k fg #c8d3f5 bg #282b41
+l fg #82aaff bg #2f334d BOLD
 
 ==== 120x33 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -342,15 +342,15 @@ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccdiiiddiiiiiiiiiiiddiiiiiiiiiiiddiiiiiiiiiiiddii
 kkkkkkkkkkggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
-c fg #6b6f80 bg #222436
-d fg #32374f bg #222436
-e fg #6b6f80 bg #1b1d2c
-f fg #32374f bg #1b1d2c
-g fg #c8d3f5 bg #1b1d2c
-h fg #c8d3f5 bg #1b1d2c BOLD
+c fg #6a6f86 bg #222436
+d fg #3b4261 bg #222436
+e fg #6a6f86 bg #2f334d
+f fg #3b4261 bg #2f334d
+g fg #c8d3f5 bg #2f334d
+h fg #c8d3f5 bg #2f334d BOLD
 i fg #c8d3f5 bg #222436
-j fg #c8d3f5 bg #1e2031
-k fg #82aaff bg #1b1d2c BOLD
+j fg #c8d3f5 bg #282b41
+k fg #82aaff bg #2f334d BOLD
 
 ==== 185x55 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

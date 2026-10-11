@@ -71,9 +71,7 @@ shipped `themes/NAME.tmTheme`'s background and foreground: a difference means th
 the theme was ported from, or its repo changed since. On 2026-10-11 all 92 rows passed.
 
 `tools/port-theme.sh --all` ports every row again, the tmTheme and the groups file
-(`themes/NAME.groups.json`, #801), and 91 tmThemes come out byte for byte as shipped. The one that
-does not is `tokyonight-moon`, which ships folke's Sublime extra (`extras/sublime`) rather than a
-port: re-ported, it matches LazyVim better in Rust, TypeScript and Markdown but worse in Python
-and Go, so it waits for the owner (#812). `shokunin-dark` and `shokunin-light` (a VS Code
+(`themes/NAME.groups.json`, #801), and every tmTheme comes out byte for byte as shipped.
+`shokunin-dark` and `shokunin-light` (a VS Code
 JSON) and `lucerna`, `seneca` and `seneca-light` (merl's own palettes, #775) have no Neovim
 original and are skipped.
