@@ -461,6 +461,15 @@ fn a_python_class_attribute_is_looked_up_in_the_class() {
             ),
         ),
         (
+            "nor does a closing bracket at the margin",
+            "consts.py",
+            "    Bracketed.CODE",
+            jump(
+                "CODE \u{2192} Plain.CODE (by name, 1 match)",
+                "consts.py:103",
+            ),
+        ),
+        (
             "… and a nested class, which is what the class declares",
             "consts.py",
             "    Unread.Meta",
