@@ -50,17 +50,19 @@ ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffaahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffaahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaafffggggggggggggggggggggggggggggggggggggggggggggggg
-dddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+kkkkkkklllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
-c fg #6b6f80 bg #1b1d2c
-d fg #82aaff bg #1b1d2c BOLD
-e fg #c8d3f5 bg #1b1d2c
-f fg #6b6f80 bg #222436
+c fg #3b4261 bg #2f334d
+d fg #82aaff bg #2f334d BOLD
+e fg #c8d3f5 bg #2f334d
+f fg #3b4261 bg #222436
 g fg #32374f bg #222436
 h fg #c8d3f5 bg #222436
-i fg #9aa5ce bg #1e2031
-j fg #c8d3f5 bg #1e2031
+i fg #9aa5ce bg #282b41
+j fg #c8d3f5 bg #282b41
+k fg #82aaff bg #1e2030 BOLD
+l fg #828bb8 bg #1e2030
 
 ==== 80x24 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeee
@@ -86,7 +88,7 @@ aggggggggggggggggggggggggggggafffaaggggggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffaaggggggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggg
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaffffffffffffffffffffffffffffffffffffffffffffffffff
-jjjjjjjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+jjjjjjjkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #6e7781 bg #e7eaf0
@@ -96,7 +98,8 @@ f fg #6e7781 bg #ffffff
 g fg #1f2328 bg #ffffff
 h fg #1f2328 bg #f3f4f7
 i fg #0550ae bg #ffffff BOLD
-j fg #6639ba bg #e7eaf0 BOLD
+j fg #6639ba bg #5094e4 BOLD
+k fg #f6f8fa bg #5094e4
 
 ==== 120x33 tokyonight-moon text, cursor hidden
 ┌notes───────────────────────┐   Plan: find notes by tag
@@ -166,27 +169,29 @@ ahhhhhhhhhhhhhhhhhhhhhhhhhhhhaffflhmmmmhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhaffflhhhhhhhhhhhhhhhhhhhhhhiiiihhhhhiiiihhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaafffinnnjoooopqqqqrjqqqqqqrjsssrjqqqqrjsssspssspjrjttttjrjttttpjrrjsssspjjjjppjjjjjjjjjjjjj
-dddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+uuuuuuuvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
-c fg #6b6f80 bg #1b1d2c
-d fg #82aaff bg #1b1d2c BOLD
-e fg #c8d3f5 bg #1b1d2c
-f fg #6b6f80 bg #222436
+c fg #3b4261 bg #2f334d
+d fg #82aaff bg #2f334d BOLD
+e fg #c8d3f5 bg #2f334d
+f fg #3b4261 bg #222436
 g fg #32374f bg #222436
 h fg #c8d3f5 bg #222436
-i fg #9aa5ce bg #1e2031
-j fg #c8d3f5 bg #1e2031
+i fg #9aa5ce bg #282b41
+j fg #c8d3f5 bg #282b41
 k fg #c8d3f5 bg #222436 BOLD
 l fg #4493f8 bg #222436
 m fg #4493f8 bg #222436 BOLD
-n fg #c099ff bg #1e2031
-o fg #82aaff bg #1e2031
-p fg #9abdf5 bg #1e2031
-q fg #ffc777 bg #1e2031
-r fg #89ddff bg #1e2031
-s fg #0db9d7 bg #1e2031
-t fg #ff966c bg #1e2031
+n fg #c099ff bg #282b41
+o fg #82aaff bg #282b41
+p fg #9abdf5 bg #282b41
+q fg #ffc777 bg #282b41
+r fg #89ddff bg #282b41
+s fg #0db9d7 bg #282b41
+t fg #ff966c bg #282b41
+u fg #82aaff bg #1e2030 BOLD
+v fg #828bb8 bg #1e2030
 
 ==== 120x33 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
@@ -221,7 +226,7 @@ aggggggggggggggggggggggggggggafffkgllllggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffkgggggggggggggggggggggghhhhggggghhhhggggggggggggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaafffhmmmhnnnnhhhhhhhhhhhhhhhooohhhhhhhhoooohooohhmhpppphmhpppphhhhhoooohhhhhhhhhhhhhhhhhhhh
-qqqqqqqeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+qqqqqqqrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #6e7781 bg #e7eaf0
@@ -238,7 +243,8 @@ m fg #cf222e bg #f3f4f7
 n fg #6639ba bg #f3f4f7
 o fg #953800 bg #f3f4f7
 p fg #0550ae bg #f3f4f7
-q fg #6639ba bg #e7eaf0 BOLD
+q fg #6639ba bg #5094e4 BOLD
+r fg #f6f8fa bg #5094e4
 
 ==== 185x55 tokyonight-moon text, cursor hidden
 ┌notes───────────────────────┐   Plan: find notes by tag
@@ -352,29 +358,31 @@ ahhhhhhhhhhhhhhhhhhhhhhhhhhhhahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-dddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+wwwwwwwxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
-c fg #6b6f80 bg #1b1d2c
-d fg #82aaff bg #1b1d2c BOLD
-e fg #c8d3f5 bg #1b1d2c
-f fg #6b6f80 bg #222436
+c fg #3b4261 bg #2f334d
+d fg #82aaff bg #2f334d BOLD
+e fg #c8d3f5 bg #2f334d
+f fg #3b4261 bg #222436
 g fg #32374f bg #222436
 h fg #c8d3f5 bg #222436
-i fg #9aa5ce bg #1e2031
-j fg #c8d3f5 bg #1e2031
+i fg #9aa5ce bg #282b41
+j fg #c8d3f5 bg #282b41
 k fg #c8d3f5 bg #222436 BOLD
 l fg #4493f8 bg #222436
 m fg #4493f8 bg #222436 BOLD
-n fg #c099ff bg #1e2031
-o fg #82aaff bg #1e2031
-p fg #9abdf5 bg #1e2031
-q fg #ffc777 bg #1e2031
-r fg #89ddff bg #1e2031
-s fg #0db9d7 bg #1e2031
-t fg #ff966c bg #1e2031
-u fg #c099ff bg #1e2031 ITALIC
-v fg #ff757f bg #1e2031
+n fg #c099ff bg #282b41
+o fg #82aaff bg #282b41
+p fg #9abdf5 bg #282b41
+q fg #ffc777 bg #282b41
+r fg #89ddff bg #282b41
+s fg #0db9d7 bg #282b41
+t fg #ff966c bg #282b41
+u fg #c099ff bg #282b41 ITALIC
+v fg #ff757f bg #282b41
+w fg #82aaff bg #1e2030 BOLD
+x fg #828bb8 bg #1e2030
 
 ==== 185x55 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
@@ -431,7 +439,7 @@ aggggggggggggggggggggggggggggagggggggggggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
-qqqqqqqeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+qqqqqqqrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #6e7781 bg #e7eaf0
@@ -448,4 +456,5 @@ m fg #cf222e bg #f3f4f7
 n fg #6639ba bg #f3f4f7
 o fg #953800 bg #f3f4f7
 p fg #0550ae bg #f3f4f7
-q fg #6639ba bg #e7eaf0 BOLD
+q fg #6639ba bg #5094e4 BOLD
+r fg #f6f8fa bg #5094e4

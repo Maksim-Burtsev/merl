@@ -168,6 +168,7 @@ pub struct Theme {
     pub bg: Color,
     pub fg: Color,
     pub gutter_fg: Color,
+    pub cursor_gutter_fg: Color,
     pub own_gutter_fg: Color,
     pub line_hl: Color,
     pub line_hl_dim: Color,
@@ -176,6 +177,8 @@ pub struct Theme {
     pub status_fg: Color,
     pub find_bg: Color,
     pub find_fg: Option<Color>,
+    pub current_find_bg: Color,
+    pub current_find_fg: Option<Color>,
     pub accent: Color,
     pub selection: Color,
     pub selection_fg: Option<Color>,
@@ -191,7 +194,6 @@ pub struct Theme {
     pub tag_fg: Color,
     pub light: bool,
     pub syntect: syntect::highlighting::Theme,
-    #[cfg_attr(not(test), allow(dead_code))]
     pub groups: HashMap<String, Style>,
 }
 
@@ -265,9 +267,14 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
     let bg = s.background.unwrap_or(SynColor::BLACK);
     let fg = s.foreground.unwrap_or(SynColor::WHITE);
     let over_bg = |c: SynColor| rgb(over_at_own_alpha(c, bg));
-    let line_hl_syn = s
-        .line_highlight
-        .map_or_else(|| mix(fg, bg, 12), |c| over_at_own_alpha(c, bg));
+    let normal = drawn(&groups, "Normal", (rgb(fg), rgb(bg)))
+        .map_or((rgb(fg), rgb(bg)), |(f, b)| (f.unwrap_or(rgb(fg)), b));
+    let line_hl_syn = match drawn(&groups, "CursorLine", normal) {
+        Some((_, c)) => syn(c),
+        None => s
+            .line_highlight
+            .map_or_else(|| mix(fg, bg, 12), |c| over_at_own_alpha(c, bg)),
+    };
     let line_hl = rgb(line_hl_syn);
     let mut line_hl_dim = blend(line_hl_syn, bg, 50);
     for percent in [7, 12, 20] {
@@ -318,7 +325,10 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
     let own_gutter = s
         .gutter_foreground
         .map_or_else(|| mix(fg, bg, 45), |c| over_at_own_alpha(c, bg));
-    let find_bg = s.find_highlight.map_or_else(|| blend(fg, bg, 35), over_bg);
+    let find_bg_syn = s
+        .find_highlight
+        .map_or_else(|| mix(fg, bg, 35), |c| over_at_own_alpha(c, bg));
+    let find_bg = rgb(find_bg_syn);
     let tag_bg = blend(hue(0xd2, 0x99, 0x22), bg, if light { 45 } else { 40 });
     let tag_fg = (0..=100)
         .step_by(10)
@@ -326,11 +336,19 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         .find(|&c| wcag_contrast(c, tag_bg) >= WORD_ON_TINT_CONTRAST_WCAG_AA)
         .unwrap_or(rgb(toward));
     let selection = s.selection.map_or_else(|| blend(fg, bg, 25), over_bg);
-
-    Ok(Theme {
+    let find_fg = match (s.find_highlight, s.find_highlight_foreground) {
+        (_, Some(c)) => Some(over_bg(c)),
+        (Some(_), None) => None,
+        (None, None) => [rgb(fg), rgb(bg)]
+            .into_iter()
+            .max_by(|&a, &b| wcag_contrast(a, find_bg).total_cmp(&wcag_contrast(b, find_bg))),
+    };
+    let gutter_fg = gutter_fg(own_gutter, bg, comment_color(&syntect), toward);
+    let own = Theme {
         bg: rgb(bg),
         fg: rgb(fg),
-        gutter_fg: gutter_fg(own_gutter, bg, comment_color(&syntect), toward),
+        gutter_fg,
+        cursor_gutter_fg: gutter_fg,
         own_gutter_fg: rgb(own_gutter),
         line_hl,
         line_hl_dim,
@@ -338,13 +356,9 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         status_bg: line_hl,
         status_fg: rgb(fg),
         find_bg,
-        find_fg: match (s.find_highlight, s.find_highlight_foreground) {
-            (_, Some(c)) => Some(over_bg(c)),
-            (Some(_), None) => None,
-            (None, None) => [rgb(fg), rgb(bg)]
-                .into_iter()
-                .max_by(|&a, &b| wcag_contrast(a, find_bg).total_cmp(&wcag_contrast(b, find_bg))),
-        },
+        find_fg,
+        current_find_bg: blend(fg, find_bg_syn, 35),
+        current_find_fg: find_fg,
         selection,
         selection_fg: s.selection_foreground.map(over_bg),
         del_bg,
@@ -361,6 +375,45 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         light,
         syntect,
         groups,
+    };
+    Ok(match own.groups.is_empty() {
+        true => own,
+        false => as_neovim_draws(own, normal),
+    })
+}
+
+fn as_neovim_draws(mut t: Theme, normal: (Color, Color)) -> Theme {
+    let nvim = |name: &str| drawn(&t.groups, name, normal);
+    let fg = |name: &str| nvim(name).map(|(fg, _)| fg.unwrap_or(normal.0));
+    if let Some((fg, bg)) = nvim("Visual") {
+        (t.selection_fg, t.selection) = (fg, bg);
+    }
+    if let Some((fg, bg)) = nvim("Search") {
+        (t.find_fg, t.find_bg) = (fg, bg);
+    }
+    if let Some((fg, bg)) = ["CurSearch", "IncSearch", "Search"]
+        .into_iter()
+        .find_map(nvim)
+    {
+        (t.current_find_fg, t.current_find_bg) = (fg, bg);
+    }
+    if let Some((fg, bg)) = nvim("StatusLine") {
+        (t.status_fg, t.status_bg) = (fg.unwrap_or(normal.0), bg);
+    }
+    t.gutter_fg = fg("LineNr").unwrap_or(t.gutter_fg);
+    t.cursor_gutter_fg = fg("CursorLineNr").unwrap_or(t.gutter_fg);
+    t
+}
+
+fn drawn(
+    groups: &HashMap<String, Style>,
+    name: &str,
+    (fg, bg): (Color, Color),
+) -> Option<(Option<Color>, Color)> {
+    let s = groups.get(name)?;
+    Some(match s.add_modifier.contains(Modifier::REVERSED) {
+        true => (Some(s.bg.unwrap_or(bg)), s.fg.unwrap_or(fg)),
+        false => (s.fg, s.bg.unwrap_or(bg)),
     })
 }
 
@@ -468,6 +521,13 @@ pub fn style(s: syntect::highlighting::Style) -> ratatui::style::Style {
 
 fn rgb(c: SynColor) -> Color {
     Color::Rgb(c.r, c.g, c.b)
+}
+
+fn syn(c: Color) -> SynColor {
+    let Color::Rgb(r, g, b) = c else {
+        return SynColor::BLACK;
+    };
+    SynColor { r, g, b, a: 255 }
 }
 
 fn over_at_own_alpha(c: SynColor, bg: SynColor) -> SynColor {
@@ -660,6 +720,48 @@ mod tests {
     }
 
     #[test]
+    fn the_chrome_is_what_lazyvim_draws_in_every_ported_theme() {
+        let bench = Path::new(env!("CARGO_MANIFEST_DIR")).join("tools/theme-bench/colors");
+        let hex = |c: Color| format!("{c}").to_lowercase();
+        let mut wrong = Vec::new();
+        for name in names() {
+            let Ok(tsv) = std::fs::read_to_string(bench.join(name).join("chrome.tsv")) else {
+                continue;
+            };
+            let t = load(name).unwrap();
+            let lazyvim: HashMap<&str, (&str, &str)> = tsv
+                .lines()
+                .filter(|l| !l.starts_with('#'))
+                .filter_map(|l| {
+                    let mut cols = l.split('\t');
+                    Some((cols.next()?, (cols.next()?, cols.next()?)))
+                })
+                .collect();
+            for (group, merl, side) in [
+                ("Normal", t.bg, 1),
+                ("CursorLine", t.line_hl, 1),
+                ("Visual", t.selection, 1),
+                ("Search", t.find_bg, 1),
+                ("CurSearch", t.current_find_bg, 1),
+                ("LineNr", t.gutter_fg, 0),
+                ("CursorLineNr", t.cursor_gutter_fg, 0),
+                ("StatusLine", t.status_bg, 1),
+                ("StatusLine", t.status_fg, 0),
+            ] {
+                let (fg, bg) = lazyvim[group];
+                let want = if side == 0 { fg } else { bg };
+                if hex(merl) != want {
+                    wrong.push(format!(
+                        "{name} {group}: LazyVim {want}, merl {}",
+                        hex(merl)
+                    ));
+                }
+            }
+        }
+        assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
+    }
+
+    #[test]
     fn a_capture_falls_back_to_its_parent_group_as_in_neovim() {
         let t = load("kanagawa-wave").unwrap();
         let function = t.groups["@function"];
@@ -725,6 +827,9 @@ mod tests {
     fn every_find_match_reads_on_its_tint() {
         for name in names() {
             let t = load(name).unwrap();
+            if !t.groups.is_empty() {
+                continue;
+            }
             let s = &t.syntect.settings;
             if s.find_highlight_foreground.is_some() {
                 continue;
@@ -1118,6 +1223,9 @@ mod tests {
         let mut changed = 0;
         for name in names() {
             let t = load(name).unwrap();
+            if !t.groups.is_empty() {
+                continue;
+            }
             let own = t.own_gutter_fg;
             let (before, after) = (wcag_contrast(own, t.bg), wcag_contrast(t.gutter_fg, t.bg));
             let comments = wcag_contrast(comment_color(&t.syntect), t.bg);
@@ -1135,6 +1243,6 @@ mod tests {
                 "{name}: {before:.2} -> {after:.2}, comments {comments:.2}"
             );
         }
-        assert!(changed > 40, "{changed}");
+        assert!(changed > 0, "{changed}");
     }
 }

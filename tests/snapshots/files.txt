@@ -59,8 +59,8 @@ e fg #6c94fc bg #222436
 f fg #c8d3f5 bg #2d3f76 BOLD
 g fg #c8d3f5 bg #2d3f76
 h fg #c8d3f5 bg #222436 BOLD
-i fg #82aaff bg #1b1d2c BOLD
-j fg #c8d3f5 bg #1b1d2c
+i fg #82aaff bg #1e2030 BOLD
+j fg #828bb8 bg #1e2030
 
 ==== 80x24 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -95,8 +95,8 @@ e fg #6c94fc bg #ffffff
 f fg #1f2328 bg #dae9f9 BOLD
 g fg #1f2328 bg #dae9f9
 h fg #1f2328 bg #ffffff BOLD
-i fg #6639ba bg #e7eaf0 BOLD
-j fg #1f2328 bg #e7eaf0
+i fg #6639ba bg #5094e4 BOLD
+j fg #f6f8fa bg #5094e4
 
 ==== 120x33 tokyonight-moon text, cursor 40,8
 ┌notes───────────────────────┐
@@ -174,8 +174,8 @@ d fg #82aaff bg #2d3f76
 e fg #c8d3f5 bg #2d3f76 BOLD
 f fg #c8d3f5 bg #2d3f76
 g fg #c8d3f5 bg #222436 BOLD
-h fg #82aaff bg #1b1d2c BOLD
-i fg #c8d3f5 bg #1b1d2c
+h fg #82aaff bg #1e2030 BOLD
+i fg #828bb8 bg #1e2030
 
 ==== 120x33 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -218,8 +218,8 @@ d fg #6639ba bg #dae9f9
 e fg #1f2328 bg #dae9f9 BOLD
 f fg #1f2328 bg #dae9f9
 g fg #1f2328 bg #ffffff BOLD
-h fg #6639ba bg #e7eaf0 BOLD
-i fg #1f2328 bg #e7eaf0
+h fg #6639ba bg #5094e4 BOLD
+i fg #f6f8fa bg #5094e4
 
 ==== 185x55 tokyonight-moon text, cursor 43,12
 ┌notes───────────────────────┐
@@ -341,8 +341,8 @@ d fg #82aaff bg #2d3f76
 e fg #c8d3f5 bg #2d3f76 BOLD
 f fg #c8d3f5 bg #2d3f76
 g fg #c8d3f5 bg #222436 BOLD
-h fg #82aaff bg #1b1d2c BOLD
-i fg #c8d3f5 bg #1b1d2c
+h fg #82aaff bg #1e2030 BOLD
+i fg #828bb8 bg #1e2030
 
 ==== 185x55 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -407,5 +407,5 @@ d fg #6639ba bg #dae9f9
 e fg #1f2328 bg #dae9f9 BOLD
 f fg #1f2328 bg #dae9f9
 g fg #1f2328 bg #ffffff BOLD
-h fg #6639ba bg #e7eaf0 BOLD
-i fg #1f2328 bg #e7eaf0
+h fg #6639ba bg #5094e4 BOLD
+i fg #f6f8fa bg #5094e4
