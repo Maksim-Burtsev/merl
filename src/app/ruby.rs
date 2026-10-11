@@ -8,9 +8,6 @@ impl App {
         chain: &[String],
         hits: Vec<Hit>,
     ) -> Vec<Hit> {
-        static INCLUDE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-            Regex::new(r"^\s*include\s+([A-Z][\w:]*(?:\s*,\s*[A-Z][\w:]*)*)").unwrap()
-        });
         let (Some(owner), path) = (chain.last(), chain.join(".")) else {
             return Vec::new();
         };
@@ -18,7 +15,6 @@ impl App {
         let cut = self.truncated.get();
         let declared = self.project_definitions(kind, here, owner, &pattern);
         self.truncated.set(cut);
-        // ponytail: every `include` of the file, not only the ones inside the class's body.
         let mut modules: Vec<String> = Vec::new();
         for h in declared {
             let Some(text) = self.text_of(&h.path) else {
@@ -28,12 +24,12 @@ impl App {
             if q != path && !q.ends_with(&format!(".{path}")) {
                 continue;
             }
-            for c in text.lines().filter_map(|l| INCLUDE.captures(l)) {
-                modules.extend(
-                    c[1].split(',')
-                        .filter_map(|m| m.trim().rsplit("::").next().map(str::to_owned)),
-                );
-            }
+            let includes = search::ruby_class_parents(&text, h.line1).includes;
+            modules.extend(
+                includes
+                    .iter()
+                    .filter_map(|m| m.rsplit("::").next().map(str::to_owned)),
+            );
         }
         hits.into_iter()
             .filter(|h| {
@@ -162,10 +158,10 @@ impl App {
                 .map(|m| (m, false))
                 .chain(supers.into_iter().map(|s| (s, side)));
             for (name, side) in next {
-                for path in self.ruby_resolve(here, &name) {
-                    if seen.insert(path.clone()) {
-                        queue.push_back((path, side));
-                    }
+                if let Some(path) = self.ruby_resolve(here, &c, &name)
+                    && seen.insert(path.clone())
+                {
+                    queue.push_back((path, side));
                 }
             }
         }
@@ -200,24 +196,31 @@ impl App {
             .collect()
     }
 
-    /// The paths of the classes and modules the project declares that the constant `name`, as
-    /// written, can name: `Tariff` is `Shop::Tariff` as well.
-    /// ponytail: Ruby's lexical lookup is not modelled; every such path counts.
-    fn ruby_resolve(&self, here: &Path, name: &str) -> Vec<String> {
+    fn ruby_resolve(&self, here: &Path, scope: &str, name: &str) -> Option<String> {
         let last = name.rsplit("::").next().unwrap_or(name);
         let pattern = format!(
             r"^\s*(?:class|module)\s+(?:[\w:]+::)?{}(?:[^\w:]|$)",
             regex::escape(last)
         );
-        let mut paths: Vec<String> = self
+        let paths: HashSet<String> = self
             .project_definitions(Kind::Ruby, here, last, &pattern)
             .into_iter()
             .filter_map(|h| search::ruby_declared_path(&self.text_of(&h.path)?, h.line1))
-            .filter(|p| p == name || p.ends_with(&format!("::{name}")))
             .collect();
-        paths.sort();
-        paths.dedup();
-        paths
+        let mut scope = scope;
+        loop {
+            let want = match scope.is_empty() {
+                true => name.to_owned(),
+                false => format!("{scope}::{name}"),
+            };
+            if paths.contains(&want) {
+                return Some(want);
+            }
+            if scope.is_empty() {
+                return None;
+            }
+            scope = scope.rsplit_once("::").map_or("", |(outer, _)| outer);
+        }
     }
 
     /// The lines that assign the Ruby instance or class variable `ivar` in the class around the
@@ -270,12 +273,13 @@ impl App {
                 ..
             } = self.ruby_parents(here, &c);
             for name in includes.into_iter().chain(supers) {
-                let paths = self.ruby_resolve(here, &name);
-                unread |= paths.is_empty();
-                for path in paths {
-                    if seen.insert(path.clone()) {
-                        queue.push_back(path);
+                match self.ruby_resolve(here, &c, &name) {
+                    Some(path) => {
+                        if seen.insert(path.clone()) {
+                            queue.push_back(path);
+                        }
                     }
+                    None => unread = true,
                 }
             }
         }

@@ -100,6 +100,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that function, jumps to it, where it said `no definition`. (#787)
 - `d` in Ruby on a name a comment mentions after a paren-less `def`'s parameters, `def lash
   fore, aft # scupper`, no longer takes the name for a parameter of that `def`. (#789)
+- `d` in Ruby on a method a superclass or an included module declares reads that parent as Ruby
+  does: `Base` in `class Cart < Base` inside `module Shop` is `Shop::Base`, where it could jump
+  to another `Base` of the project, `Billing::Base`. A concern's class method, `Bulletin.deliver_all`,
+  no longer counts for a class that does not include the concern because another class of its
+  file does. (#793)
 - `d` in TypeScript and JavaScript on a name imported through a `baseUrl` that the tsconfig
   inherits by `"extends"` jumps to its definition, where it stopped at the import as if the
   module were a missing npm package. (#790)
