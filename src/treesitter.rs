@@ -14,6 +14,8 @@ use crate::theme::Theme;
 const NEOVIM_TREESITTER_PRIORITY: u32 = 100;
 
 const QUERIES: &[(&str, &str, &str)] = &[
+    ("go", include_str!("../queries/go/highlights.scm"), ""),
+    ("rust", include_str!("../queries/rust/highlights.scm"), ""),
     (
         "python",
         include_str!("../queries/python/highlights.scm"),
@@ -46,6 +48,10 @@ const PREDICATES: &[&str] = &[
     "not-any-of?",
     "lua-match?",
     "not-lua-match?",
+    "contains?",
+    "not-contains?",
+    "has-parent?",
+    "not-has-parent?",
     "set!",
     "offset!",
 ];
@@ -58,12 +64,46 @@ const INJECTION_KEYS: &[&str] = &[
 ];
 const CAPTURE_KEYS: &[&str] = &["url", "conceal"];
 
-type LuaMatch = Vec<(u32, regex::bytes::Regex, bool)>;
 type Offset = (u32, [i64; 4]);
+
+struct Check {
+    capture: u32,
+    test: Test,
+    positive: bool,
+}
+
+enum Test {
+    LuaMatch(regex::bytes::Regex),
+    Contains(Vec<String>),
+    HasParent(Vec<String>),
+}
+
+impl Check {
+    fn passes(&self, m: &tree_sitter::QueryMatch, bytes: &[u8]) -> bool {
+        let mut nodes = m.nodes_for_capture_index(self.capture).peekable();
+        if nodes.peek().is_none() {
+            return self.positive;
+        }
+        let hit = match &self.test {
+            Test::LuaMatch(re) => nodes.all(|n| re.is_match(&bytes[n.byte_range()])),
+            Test::Contains(words) => nodes.all(|n| {
+                let text = &bytes[n.byte_range()];
+                words
+                    .iter()
+                    .all(|w| text.windows(w.len()).any(|x| x == w.as_bytes()))
+            }),
+            Test::HasParent(kinds) => nodes.any(|n| {
+                n.parent()
+                    .is_some_and(|p| kinds.iter().any(|k| k == p.kind()))
+            }),
+        };
+        hit == self.positive
+    }
+}
 
 struct Patterns {
     query: Query,
-    lua_match: Vec<LuaMatch>,
+    checks: Vec<Vec<Check>>,
     offsets: Vec<Vec<Offset>>,
     settings: Vec<Vec<(String, Option<String>)>>,
 }
@@ -77,12 +117,9 @@ impl Patterns {
     }
 
     fn matches(&self, m: &tree_sitter::QueryMatch, bytes: &[u8]) -> bool {
-        self.lua_match[m.pattern_index]
+        self.checks[m.pattern_index]
             .iter()
-            .all(|(c, re, positive)| {
-                m.nodes_for_capture_index(*c)
-                    .all(|n| re.is_match(&bytes[n.byte_range()]) == *positive)
-            })
+            .all(|c| c.passes(m, bytes))
     }
 
     fn offset(&self, pattern: usize, capture: u32) -> Option<[i64; 4]> {
@@ -103,7 +140,9 @@ pub struct Lang {
 
 pub fn for_syntax(syntect_name: &str) -> Option<&'static Lang> {
     match syntect_name {
+        "Go" => lang("go"),
         "Python" => lang("python"),
+        "Rust" => lang("rust"),
         "Markdown" => lang("markdown"),
         _ => None,
     }
@@ -111,7 +150,9 @@ pub fn for_syntax(syntect_name: &str) -> Option<&'static Lang> {
 
 fn grammar(name: &str) -> Option<Language> {
     Some(match name {
+        "go" => tree_sitter_go::LANGUAGE.into(),
         "python" => tree_sitter_python::LANGUAGE.into(),
+        "rust" => tree_sitter_rust::LANGUAGE.into(),
         "markdown" => tree_sitter_md::LANGUAGE.into(),
         "markdown_inline" => tree_sitter_md::INLINE_LANGUAGE.into(),
         "regex" => tree_sitter_regex::LANGUAGE.into(),
@@ -219,7 +260,7 @@ fn patterns(
     let url = regex::Regex::new(r"\(#set! @[\w.]+ url @[\w.]+\)").expect("a valid regex");
     let text = url.replace_all(text, "");
     let query = Query::new(language, &text).map_err(|e| format!("{name}: {e}"))?;
-    let mut lua_match = Vec::new();
+    let mut checks = Vec::new();
     let mut offsets = Vec::new();
     let mut settings = Vec::new();
     for p in 0..query.pattern_count() {
@@ -241,29 +282,49 @@ fn patterns(
         let mut offs = Vec::new();
         for pred in query.general_predicates(p) {
             use tree_sitter::QueryPredicateArg::{Capture, String as Text};
-            match (&*pred.operator, &*pred.args) {
-                ("lua-match?" | "not-lua-match?", [Capture(c), Text(pattern)]) => {
-                    preds.push((*c, lua_pattern(pattern)?, &*pred.operator == "lua-match?"));
-                }
-                ("offset!", [Capture(c), Text(a), Text(b), Text(d), Text(e)]) => {
-                    let n = |t: &str| {
-                        t.parse::<i64>()
-                            .map_err(|_| format!("{name}: #offset! {t}"))
-                    };
-                    offs.push((*c, [n(a)?, n(b)?, n(d)?, n(e)?]));
-                }
-                ("lua-match?" | "not-lua-match?" | "offset!", _) => {
-                    return Err(format!("{name}: #{} takes other arguments", pred.operator));
-                }
-                (op, _) => return Err(format!("{name}: #{op} is not implemented")),
+            if &*pred.operator == "offset!" {
+                let [Capture(c), Text(a), Text(b), Text(d), Text(e)] = &*pred.args else {
+                    return Err(format!("{name}: #offset! takes a capture and four numbers"));
+                };
+                let n = |t: &str| t.parse::<i64>().map_err(|_| format!("{name}: #offset! {t}"));
+                offs.push((*c, [n(a)?, n(b)?, n(d)?, n(e)?]));
+                continue;
             }
+            let op = &*pred.operator;
+            let (positive, op) = match op.strip_prefix("not-") {
+                Some(rest) => (false, rest),
+                None => (true, op),
+            };
+            let (capture, args) = match &*pred.args {
+                [Capture(c), rest @ ..] if !rest.is_empty() => (
+                    *c,
+                    rest.iter()
+                        .map(|a| match a {
+                            Text(s) => Ok(s.to_string()),
+                            _ => Err(format!("{name}: #{} takes strings", pred.operator)),
+                        })
+                        .collect::<Result<Vec<_>, _>>()?,
+                ),
+                _ => return Err(format!("{name}: #{} takes a capture first", pred.operator)),
+            };
+            let test = match op {
+                "lua-match?" if args.len() == 1 => Test::LuaMatch(lua_pattern(&args[0])?),
+                "contains?" => Test::Contains(args),
+                "has-parent?" => Test::HasParent(args),
+                _ => return Err(format!("{name}: #{} is not implemented", pred.operator)),
+            };
+            preds.push(Check {
+                capture,
+                test,
+                positive,
+            });
         }
-        lua_match.push(preds);
+        checks.push(preds);
         offsets.push(offs);
     }
     Ok(Patterns {
         query,
-        lua_match,
+        checks,
         offsets,
         settings,
     })
