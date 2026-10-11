@@ -102,6 +102,29 @@ impl App {
             .collect()
     }
 
+    pub(super) fn block_assignments(&self, here: &Path, word: &str) -> Vec<Candidate> {
+        let kind = Kind::Python;
+        let pattern = format!(r"^\s+{}\s*(:[^=]*)?=", regex::escape(word));
+        let opens_block = |l: &str| {
+            ["if ", "elif ", "else:", "try:", "except", "finally:"]
+                .iter()
+                .any(|o| l.starts_with(o))
+        };
+        self.project_grep(kind, here, &pattern)
+            .into_iter()
+            .filter(|h| {
+                assigns(h.text.trim_start(), word)
+                    && self.text_of(&h.path).is_some_and(|text| {
+                        search::owner_line(&text, h.line1).is_some_and(opens_block)
+                    })
+            })
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::ByName,
+            })
+            .collect()
+    }
+
     pub(super) fn star_imported(
         &mut self,
         word: &str,

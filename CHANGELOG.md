@@ -107,6 +107,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   named so in a list instead of jumping to a variable of that name in another file, as it did
   for a parameter with a default; on a keyword argument after a `lambda:`, `lambda: go(limit=1)`,
   it lands on the parameter of `go`. (#791)
+- `d` in Python on a Django setting assigned under a module-level `if`, `else` or `try`,
+  `settings.CACHE_DIR` with `if DEBUG:` then `    CACHE_DIR = "cache"`, jumps to it in the
+  project's settings module, where it said `no definition`. (#792)
 
 ## [0.8.3] - 2026-10-07
 
