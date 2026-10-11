@@ -196,7 +196,11 @@ impl App {
             .collect()
     }
 
-    fn ruby_resolve(&self, here: &Path, scope: &str, name: &str) -> Option<String> {
+    fn ruby_resolve(&self, here: &Path, class: &str, name: &str) -> Option<String> {
+        let (name, mut scope) = match name.strip_prefix("::") {
+            Some(top) => (top, ""),
+            None => (name, class),
+        };
         let last = name.rsplit("::").next().unwrap_or(name);
         let pattern = format!(
             r"^\s*(?:class|module)\s+(?:[\w:]+::)?{}(?:[^\w:]|$)",
@@ -207,13 +211,12 @@ impl App {
             .into_iter()
             .filter_map(|h| search::ruby_declared_path(&self.text_of(&h.path)?, h.line1))
             .collect();
-        let mut scope = scope;
         loop {
             let want = match scope.is_empty() {
                 true => name.to_owned(),
                 false => format!("{scope}::{name}"),
             };
-            if paths.contains(&want) {
+            if want != class && paths.contains(&want) {
                 return Some(want);
             }
             if scope.is_empty() {

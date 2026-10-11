@@ -3,5 +3,9 @@
 module Shop
   class Base
     def checkout = true
+
+    def initialize
+      @basket = []
+    end
   end
 end
