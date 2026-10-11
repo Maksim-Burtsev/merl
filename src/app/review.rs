@@ -24,12 +24,14 @@ impl App {
                 .find(|f| f.is_stop(&self.root, self.diagrams.on()))
                 .cloned()
         });
+        let first_stop = first.as_ref().map(|f| f.path.clone());
         if self.buf.path.is_none()
             && let Some(f) = first
         {
             self.open_review_file(&f, false);
             self.remember_hunk();
         }
+        self.walked_here = first_stop.is_some() && self.rel_current() == first_stop;
         if let (Some(r), Some(rel)) = (&self.review, self.rel_current()) {
             let skipped = r
                 .files
@@ -135,6 +137,7 @@ impl App {
         }
         if let Some((rel, h)) = self.hunk_left(&r) {
             self.jump_to_hunk(&self.root.join(rel), h);
+            self.walked_here = true;
             return;
         }
         let mut read = self
@@ -145,6 +148,7 @@ impl App {
             if !f.is_stop(&self.root, self.diagrams.on()) {
                 skipped += 1;
             } else if self.open_review_file(f, dir < 0) {
+                self.walked_here = true;
                 self.remember_hunk();
                 match failed {
                     Some(why) => self.message = why,
@@ -242,7 +246,8 @@ impl App {
         let blank = matches!(self.buf.lines.as_slice(), [l] if l.is_empty());
         let pure = f.status == 'R' && !f.has_hunks() && !f.binary && !self.buf.binary();
         let in_use = self.mode == Mode::Edit || self.dirty || self.previewing();
-        (pure && !blank && !in_use).then_some((f.old.as_deref()?, f.path.as_path()))
+        (self.walked_here && pure && !blank && !in_use)
+            .then_some((f.old.as_deref()?, f.path.as_path()))
     }
 
     pub fn picture_sides(&self) -> Option<Vec<Side>> {
