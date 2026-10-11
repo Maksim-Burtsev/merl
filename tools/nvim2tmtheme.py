@@ -10,7 +10,9 @@ colours, links resolved, so Lua themes, vimscript themes and variants all look
 the same here. Every theme goes through one fixed group -> scope table.
 
 The groups file keeps the attributes of GROUP_KEYS a group sets, colours as
-`#rrggbb`, one group per line in sorted order; a group that sets none is left out.
+`#rrggbb`, one group per line in sorted order; a group that sets none is left out,
+except a tree-sitter group (`@…`), kept as `{}`: defined empty, it stops Neovim's fallback
+to its parent (github-light's `@module.python` paints `Normal`, not `@module`).
 """
 
 import json
@@ -148,7 +150,7 @@ def groups_json(hl):
         group = hl[name] if isinstance(hl[name], dict) else {}
         attrs = {k: hex_colour(group[k]).lower() if k in ("fg", "bg") else True
                  for k in GROUP_KEYS if group.get(k) is True or (k in ("fg", "bg") and k in group)}
-        if attrs:
+        if attrs or name.startswith("@"):
             rows.append(f"{json.dumps(name)}: {json.dumps(attrs)}")
     return "{\n" + ",\n".join(rows) + "\n}\n"
 

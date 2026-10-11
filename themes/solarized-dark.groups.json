@@ -41,6 +41,7 @@
 "@keyword.return": {"fg": "#859900"},
 "@keyword.type": {"fg": "#93a1a1", "bold": true},
 "@label": {"fg": "#859900"},
+"@lsp.mod.deprecated": {},
 "@lsp.type.class": {"fg": "#cb4b16"},
 "@lsp.type.comment": {"fg": "#586e75"},
 "@lsp.type.decorator": {"fg": "#268bd2"},

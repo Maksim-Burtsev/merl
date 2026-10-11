@@ -39,6 +39,7 @@
 "@keyword.repeat": {"fg": "#c586c0"},
 "@keyword.return": {"fg": "#c586c0"},
 "@label": {"fg": "#9cdcfe"},
+"@lsp.mod.deprecated": {},
 "@lsp.type.class": {"fg": "#4ec9b0"},
 "@lsp.type.comment": {"fg": "#6a9955"},
 "@lsp.type.comment.c": {"fg": "#51504f"},

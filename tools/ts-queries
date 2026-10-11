@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# tools/ts-queries [LANG...]: copies nvim-treesitter's highlights.scm of every language under
+# queries/ (or of LANG) from nvim-treesitter at NVIM_TS, the commit tools/theme-bench/record.py
+# records LazyVim with, so merl colours with the queries the reference was drawn with (#802).
+set -Eeuo pipefail
+root=$(cd "$(dirname "$0")/.." && pwd)
+pin=$(sed -n 's/^NVIM_TS = "\([0-9a-f]*\)"$/\1/p' "$root/tools/theme-bench/record.py")
+[ -n "$pin" ] || { echo "tools/ts-queries: no NVIM_TS in tools/theme-bench/record.py" >&2; exit 1; }
+src=${THEME_BENCH_CACHE:-$HOME/.cache/merl-theme-bench}/nvim-treesitter
+if [ "$(git -C "$src" rev-parse HEAD 2>/dev/null)" != "$pin" ]; then
+  rm -rf "$src"
+  git init -q "$src"
+  git -C "$src" fetch -q --depth 1 https://github.com/nvim-treesitter/nvim-treesitter.git "$pin"
+  git -C "$src" checkout -q --detach FETCH_HEAD
+fi
+if [ $# -eq 0 ]; then
+  set -- $(cd "$root/queries" && ls -d */ | tr -d /)
+fi
+for lang in "$@"; do
+  mkdir -p "$root/queries/$lang"
+  cp "$src/runtime/queries/$lang/highlights.scm" "$root/queries/$lang/highlights.scm"
+done
+cp "$src/LICENSE" "$root/queries/LICENSE"

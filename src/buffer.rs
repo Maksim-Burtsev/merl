@@ -8,6 +8,7 @@ use syntect::highlighting::{HighlightIterator, HighlightState, Highlighter};
 use syntect::parsing::{ParseState, ScopeStack, SyntaxReference, SyntaxSet};
 
 use crate::theme::Theme;
+use crate::treesitter;
 
 pub const TAB: &str = "    ";
 const CHECKPOINT: usize = 64;
@@ -17,6 +18,12 @@ const BINARY: &str = "binary file";
 const MAX_HL_LINES: usize = 30_000;
 const MAX_HL_BYTES: usize = 4 * 1024 * 1024;
 const MAX_SHOWN_BYTES: usize = 20_000;
+
+static TREE_SITTER: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn use_tree_sitter(on: bool) {
+    TREE_SITTER.store(on, std::sync::atomic::Ordering::Relaxed);
+}
 
 fn syntaxes() -> &'static SyntaxSet {
     static SET: OnceLock<SyntaxSet> = OnceLock::new();
@@ -38,6 +45,8 @@ pub struct Buffer {
     syntax: Option<&'static SyntaxReference>,
     state_after_hl: Option<(ParseState, HighlightState)>,
     state_before_every_checkpoint: Vec<(ParseState, HighlightState)>,
+    ts: Option<treesitter::Parsed>,
+    ts_stale: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -104,7 +113,23 @@ impl Buffer {
         };
         b.tabs = b.lines.iter().any(|l| l.starts_with('\t'));
         b.disk_hash = hash(bytes);
+        if TREE_SITTER.load(std::sync::atomic::Ordering::Relaxed) {
+            b.start_tree_sitter();
+        }
         b
+    }
+
+    #[cfg(test)]
+    pub fn sexp(&self) -> String {
+        self.ts.as_ref().map(|t| t.sexp()).unwrap_or_default()
+    }
+
+    pub(crate) fn start_tree_sitter(&mut self) {
+        self.ts = self
+            .syntax
+            .and_then(|s| treesitter::for_syntax(&s.name))
+            .and_then(|lang| treesitter::Parsed::new(lang, &self.lines));
+        self.clear_hl();
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -133,6 +158,11 @@ impl Buffer {
     }
 
     pub fn edited(&mut self, l: usize) {
+        if self.ts.is_some() {
+            self.ts_stale = true;
+            self.hl.truncate(l);
+            return;
+        }
         let n = l / CHECKPOINT;
         if self.hl.len() <= n * CHECKPOINT {
             return;
@@ -160,6 +190,8 @@ impl Buffer {
             syntax,
             state_after_hl: None,
             state_before_every_checkpoint: Vec::new(),
+            ts: None,
+            ts_stale: false,
         }
     }
 
@@ -191,6 +223,18 @@ impl Buffer {
     pub fn highlight_to(&mut self, last: usize, theme: &Theme) {
         let Some(syntax) = self.syntax else { return };
         let last = last.min(self.lines.len().saturating_sub(1));
+        if let Some(ts) = &mut self.ts {
+            if self.ts_stale {
+                self.ts_stale = false;
+                self.hl.truncate(ts.update(&self.lines));
+            }
+            if self.hl.len() <= last {
+                let styles = treesitter::Styles::new(ts.lang, theme);
+                let from = self.hl.len();
+                self.hl.extend(ts.spans(&self.lines, from, last, &styles));
+            }
+            return;
+        }
         if self.hl.len() > last {
             return;
         }
