@@ -100,6 +100,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that function, jumps to it, where it said `no definition`. (#787)
 - `d` in Ruby on a name a comment mentions after a paren-less `def`'s parameters, `def lash
   fore, aft # scupper`, no longer takes the name for a parameter of that `def`. (#789)
+- `d` in Ruby on a method a superclass or an included module declares reads that parent as Ruby
+  does: `Base` in `class Cart < Base` inside `module Shop` is `Shop::Base`, where it could jump
+  to another `Base` of the project, `Billing::Base`. A concern's class method, `Bulletin.deliver_all`,
+  no longer counts for a class that does not include the concern because another class of its
+  file does. (#793)
 - `d` in TypeScript and JavaScript on a name imported through a `baseUrl` that the tsconfig
   inherits by `"extends"` jumps to its definition, where it stopped at the import as if the
   module were a missing npm package. (#790)
@@ -107,6 +112,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   named so in a list instead of jumping to a variable of that name in another file, as it did
   for a parameter with a default; on a keyword argument after a `lambda:`, `lambda: go(limit=1)`,
   it lands on the parameter of `go`. (#791)
+- `d` in Python on a Django setting assigned under a module-level `if`, `else` or `try`,
+  `settings.CACHE_DIR` with `if DEBUG:` then `    CACHE_DIR = "cache"`, jumps to it in the
+  project's settings module, where it said `no definition`. (#792)
+- `d` in TypeScript on a method declaration no longer offers, as its implementation, the method
+  of a class whose base is imported through more than four `export * from` barrels: such a base
+  may be another class of the same name, and the method is now offered by name. (#794)
 
 ## [0.8.3] - 2026-10-07
 

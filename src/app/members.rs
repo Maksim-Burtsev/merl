@@ -454,9 +454,6 @@ impl App {
                     text.lines()
                         .any(|l| search::type_name(kind, l).as_deref() == Some(name))
                 };
-                // The import may name another type of the same name: a module of the project
-                // that declares one, in a file none of the types found so far lives in, looked
-                // for behind a barrel too (#100).
                 let another = |first: &str, module: &[String]| {
                     let module = match kind {
                         Kind::TsJs => &module[..module.len().saturating_sub(1)],
@@ -469,12 +466,14 @@ impl App {
                         _ => 1,
                     };
                     (shortest..=module.len()).rev().any(|n| {
-                        let files = self.behind_barrels(kind, &hit.path, &module[..n], first, 0);
+                        let (files, cut) =
+                            self.behind_barrels(kind, &hit.path, &module[..n], first, &[]);
                         let ours = |f: &PathBuf| types.iter().any(|(t, p)| t == first && p == f);
                         !files.iter().any(ours)
-                            && files
-                                .iter()
-                                .any(|f| self.text_of(f).is_some_and(|t| declares(&t, first)))
+                            && (cut
+                                || files
+                                    .iter()
+                                    .any(|f| self.text_of(f).is_some_and(|t| declares(&t, first))))
                     })
                 };
                 let sees = |first: &str| {
@@ -514,42 +513,49 @@ impl App {
         out
     }
 
-    /// The files of the project `module` names as `from` spells it, a TypeScript barrel among
-    /// them replaced by the files it hands `name` on from (`export * from "./a"`), which may be
-    /// barrels again. A barrel that leads nowhere in the project stays itself.
     fn behind_barrels(
         &self,
         kind: Kind,
         from: &Path,
         module: &[String],
         name: &str,
-        depth: usize,
-    ) -> Vec<PathBuf> {
+        chain: &[PathBuf],
+    ) -> (Vec<PathBuf>, bool) {
         let files = search::module_files(kind, &self.root, &self.files, from, module);
-        // ponytail: four barrels deep, which also ends two that export each other.
-        if kind != Kind::TsJs || depth == 4 {
-            return files;
+        if kind != Kind::TsJs {
+            return (files, false);
         }
-        files
-            .into_iter()
-            .flat_map(|f| {
-                // A file that declares the name answers for itself, whatever else it hands on.
-                let text = self.text_of(&f).filter(|t| {
+        let (mut out, mut cut) = (Vec::new(), false);
+        for f in files {
+            let modules = self
+                .text_of(&f)
+                .filter(|t| {
                     !t.lines()
                         .any(|l| search::type_name(kind, l).as_deref() == Some(name))
-                });
-                let behind: Vec<PathBuf> = text
-                    .map(|t| search::reexports(&t, name))
-                    .unwrap_or_default()
-                    .iter()
-                    .flat_map(|m| self.behind_barrels(kind, &f, m, name, depth + 1))
-                    .collect();
-                match behind.is_empty() {
-                    true => vec![f],
-                    false => behind,
-                }
-            })
-            .collect()
+                })
+                .map(|t| search::reexports(&t, name))
+                .unwrap_or_default();
+            if modules.is_empty() || chain.contains(&f) {
+                out.push(f);
+                continue;
+            }
+            if chain.len() == 4 {
+                cut = true;
+                continue;
+            }
+            let chain = [chain, std::slice::from_ref(&f)].concat();
+            let mut behind = Vec::new();
+            for m in &modules {
+                let (files, deeper) = self.behind_barrels(kind, &f, m, name, &chain);
+                behind.extend(files);
+                cut |= deeper;
+            }
+            match behind.is_empty() {
+                true => out.push(f),
+                false => out.extend(behind),
+            }
+        }
+        (out, cut)
     }
 
     /// Every member of `word` the project declares with as many parameters as the one on `line`,

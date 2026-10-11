@@ -1193,6 +1193,10 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
                 "ORIGINALS_DIR = \"originals\"\nclient = None\nif True:\n    CACHE_DIR = \"cache\"\n",
             ),
             (
+                "app/local.py",
+                "def configure():\n    if True:\n        CACHE_DIR = 1\n    CACHE_DIR = 2\n\n\nclass Conf:\n    CACHE_DIR = 3\n",
+            ),
+            (
                 "app/consumers.py",
                 "class Consumer:\n    def connect(self):\n        pass\n",
             ),
@@ -1265,10 +1269,10 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
             jump("no definition for connect", "app/test_files.py:5"),
         ),
         (
-            "a setting assigned under a module-level `if` is not read (#792)",
+            "a setting assigned under a module-level `if` is a setting all the same (#792)",
             "app/test_files.py",
             "settings.CACHE_DIR",
-            jump("no definition for CACHE_DIR", "app/test_files.py:10"),
+            jump("CACHE_DIR: by name, 1 match", "app/settings.py:4"),
         ),
         (
             "a class declared under an `if` is a class of the module all the same",
@@ -1347,6 +1351,93 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
         "a base written as a call cannot be read: today's search by name: {rows:?}"
     );
     for d in [dir, std, site] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
+fn a_setting_is_read_under_every_module_level_block_and_nowhere_else() {
+    let site = external_root(
+        "py-block-settings-site",
+        &[
+            (
+                "django/conf/__init__.py",
+                "class LazySettings:\n    def __getattr__(self, name):\n        pass\n\n\nsettings = LazySettings()\n",
+            ),
+            (
+                "django/conf/global_settings.py",
+                "TIMEOUT = 1\nMEDIA_ROOT = \"\"\nRETRIES = 3\n",
+            ),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "py-block-settings",
+        &[
+            (
+                "app/settings.py",
+                "CACHE_DIR = \"top\"\ntry:\n    CACHE_DIR = \"t\"\nexcept ImportError:\n    CACHE_DIR = \"x\"\nelse:\n    CACHE_DIR = \"e\"\nfinally:\n    CACHE_DIR = \"f\"\nif A:\n    pass\nelif B:\n    CACHE_DIR = \"l\"\n",
+            ),
+            (
+                "app/handlers.py",
+                "exception_map = dict(\n    TIMEOUT=30,\n)\n",
+            ),
+            (
+                "scripts/export.py",
+                "import sys\n\nif __name__ == \"__main__\":\n    MEDIA_ROOT = sys.argv[1]\n",
+            ),
+            (
+                "app/notes.py",
+                "\"\"\"\nif DEBUG:\n    RETRIES = 5\n\"\"\"\n",
+            ),
+            (
+                "app/views.py",
+                "from django.conf import settings\n\n\ndef view():\n    a = settings.CACHE_DIR\n    b = settings.TIMEOUT\n    c = settings.MEDIA_ROOT\n    return settings.RETRIES\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&site));
+    let default = |line: usize| {
+        format!(
+            "{}:{line}",
+            site.join("django/conf/global_settings.py").display()
+        )
+    };
+    let rows: Vec<(String, String, String)> = [1, 3, 5, 7, 9, 13]
+        .iter()
+        .map(|n| {
+            (
+                "CACHE_DIR".into(),
+                "by name".into(),
+                format!("app/settings.py:{n}"),
+            )
+        })
+        .collect();
+    for (name, code, want) in [
+        (
+            "#792: the top-level one and one under each of if/elif/else/try/except/finally",
+            "settings.CACHE_DIR",
+            Shown::Picker("CACHE_DIR: by name, 6 declarations".into(), rows),
+        ),
+        (
+            "a keyword argument under `exception_map = dict(` is no setting",
+            "settings.TIMEOUT",
+            jump("TIMEOUT: via import django.conf", &default(1)),
+        ),
+        (
+            "a script's `__main__` block sets no setting",
+            "settings.MEDIA_ROOT",
+            jump("MEDIA_ROOT: via import django.conf", &default(2)),
+        ),
+        (
+            "a block inside a string sets no setting",
+            "settings.RETRIES",
+            jump("RETRIES: via import django.conf", &default(3)),
+        ),
+    ] {
+        d_on(&mut a, "app/views.py", code);
+        assert_eq!(shown(&mut a), want, "{name}");
+    }
+    for d in [dir, site] {
         std::fs::remove_dir_all(d).unwrap();
     }
 }

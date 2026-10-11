@@ -231,9 +231,9 @@ pub fn ruby_declared_path(text: &str, line1: usize) -> Option<String> {
 
 pub fn ruby_class_parents(text: &str, line1: usize) -> RubyParents {
     static SUPER: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*class\s+[\w:]+\s*<\s*(?:::)?([A-Z][\w:]*)").unwrap());
+        LazyLock::new(|| Regex::new(r"^\s*class\s+[\w:]+\s*<\s*((?:::)?[A-Z][\w:]*)").unwrap());
     static MIX: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(include|prepend|extend)\s+((?:::)?[A-Z][\w:]*(?:\s*,\s*(?:::)?[A-Z][\w:]*)*)\s*(?:#.*)?$")
+        Regex::new(r"^\s*(include|prepend|extend)\s+((?:::)?[A-Z][\w:]*(?:\s*,\s*(?:::)?[A-Z][\w:]*)*)(?:\s+(?:if|unless)\s.*)?\s*(?:#.*)?$")
             .unwrap()
     });
     let lines: Vec<&str> = text.lines().collect();
@@ -264,9 +264,7 @@ pub fn ruby_class_parents(text: &str, line1: usize) -> RubyParents {
         if !directly_in_body {
             continue;
         }
-        let names = c[2]
-            .split(',')
-            .map(|n| n.trim().trim_start_matches(':').to_owned());
+        let names = c[2].split(',').map(|n| n.trim().to_owned());
         match &c[1] {
             "extend" => extends.extend(names),
             _ => includes.extend(names),

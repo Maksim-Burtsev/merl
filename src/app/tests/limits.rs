@@ -410,7 +410,7 @@ fn ts_barrel_subtype(barrels: usize) -> Vec<(String, String)> {
 }
 
 #[test]
-fn implementations_stop_at_four_barrels() {
+fn a_base_past_four_barrels_is_not_taken_for_the_one_implemented() {
     let at = |n: usize| {
         d_in(
             &format!("ts-bar-{n}"),
@@ -420,15 +420,72 @@ fn implementations_stop_at_four_barrels() {
         )
     };
     let other = vec![("Sub.run".into(), "by name".into(), "sub.ts:4".into())];
+    for n in [4, 5] {
+        assert_eq!(
+            at(n),
+            Shown::Picker(
+                "run: at a declaration, 1 other by name".into(),
+                other.clone()
+            ),
+            "#794: {n} barrels"
+        );
+    }
+}
+
+fn ts_files(files: &[(&str, &str)]) -> Vec<(String, String)> {
+    files
+        .iter()
+        .map(|(n, t)| (n.to_string(), t.to_string()))
+        .collect()
+}
+
+#[test]
+fn a_base_four_barrels_away_is_still_the_one_implemented() {
+    let files = ts_files(&[
+        ("base.ts", "export class Base {\n  run(): void {}\n}\n"),
+        (
+            "sub.ts",
+            "import { Base } from './b1';\n\nexport class Sub extends Base {\n  run(): void {}\n}\n",
+        ),
+        ("b1.ts", "export * from './b2';\n"),
+        ("b2.ts", "export * from './b3';\n"),
+        ("b3.ts", "export * from './b4';\n"),
+        ("b4.ts", "export * from './base';\n"),
+    ]);
     assert_eq!(
-        at(4),
-        Shown::Picker("run: at a declaration, 1 other by name".into(), other)
+        d_in("ts-bar-ours-4", &files, "base.ts", "  run"),
+        jump(
+            "run \u{2192} Sub.run (implementations of Base.run)",
+            "sub.ts:4"
+        )
     );
-    let wrong = jump(
-        "run \u{2192} Sub.run (implementations of Base.run)",
-        "sub.ts:4",
+}
+
+#[test]
+fn a_barrel_branch_past_the_cap_leaves_the_base_its_sibling_found() {
+    let files = ts_files(&[
+        ("base.ts", "export class Base {\n  run(): void {}\n}\n"),
+        (
+            "sub.ts",
+            "import { Base } from './index';\n\nexport class Sub extends Base {\n  run(): void {}\n}\n",
+        ),
+        (
+            "index.ts",
+            "export * from './base';\nexport * from './d1';\n",
+        ),
+        ("d1.ts", "export * from './d2';\n"),
+        ("d2.ts", "export * from './d3';\n"),
+        ("d3.ts", "export * from './d4';\n"),
+        ("d4.ts", "export * from './d5';\n"),
+        ("d5.ts", "export const depth = 5;\n"),
+    ]);
+    assert_eq!(
+        d_in("ts-bar-wide", &files, "base.ts", "  run"),
+        jump(
+            "run \u{2192} Sub.run (implementations of Base.run)",
+            "sub.ts:4"
+        )
     );
-    assert_eq!(at(5), wrong, "#794");
 }
 
 #[test]
