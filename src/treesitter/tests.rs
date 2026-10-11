@@ -245,3 +245,57 @@ fn a_higher_priority_paints_over_a_later_capture_and_equal_ones_paint_in_order()
         keyword
     );
 }
+
+#[test]
+#[ignore]
+fn speed() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let files = std::env::var("MERL_TS_SPEED").expect("MERL_TS_SPEED=file.py,…");
+    let ms = |t: std::time::Instant| t.elapsed().as_secs_f64() * 1000.0;
+    let pct = |mut v: Vec<f64>, p: usize| {
+        v.sort_by(f64::total_cmp);
+        v[(v.len() * p / 100).min(v.len() - 1)]
+    };
+    for file in files.split(',') {
+        let bytes = std::fs::read(file).unwrap();
+        for ts in [false, true] {
+            let open = |at: usize| {
+                let t = std::time::Instant::now();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), &bytes);
+                if ts {
+                    b.start_tree_sitter();
+                }
+                b.highlight_to(at + 54, &theme);
+                (ms(t), b)
+            };
+            let n = open(0).1.lines.len();
+            let top: Vec<f64> = (0..15).map(|_| open(0).0).collect();
+            let middle: Vec<f64> = (0..15).map(|_| open(n / 2).0).collect();
+            let (_, mut b) = open(0);
+            let mut keys = Vec::new();
+            for k in 0..60 {
+                let l = (k * 7919) % n;
+                b.highlight_to(l + 54, &theme);
+                let t = std::time::Instant::now();
+                let at = b.lines[l].len() - b.lines[l].trim_start().len();
+                b.lines[l].insert(at, 'x');
+                b.edited(l);
+                b.highlight_to(l + 54, &theme);
+                keys.push(ms(t));
+                if std::env::var_os("MERL_TS_SPEED_EACH").is_some() {
+                    eprintln!("{l} {:.2} ms", ms(t));
+                }
+            }
+            println!(
+                "{file} {n} lines {}: first paint top p50 {:.2} p90 {:.2}, middle p50 {:.2} p90 {:.2}; keystroke p50 {:.2} p90 {:.2} ms",
+                if ts { "tree-sitter" } else { "syntect" },
+                pct(top.clone(), 50),
+                pct(top, 90),
+                pct(middle.clone(), 50),
+                pct(middle, 90),
+                pct(keys.clone(), 50),
+                pct(keys, 90),
+            );
+        }
+    }
+}

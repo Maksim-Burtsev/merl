@@ -9,6 +9,7 @@ tools/theme-bench/run                          # every recorded theme, every lan
 tools/theme-bench/run --theme kanagawa-wave    # its share per language, top mismatches, chrome
 tools/theme-bench/run --lang python,go
 tools/theme-bench/run --update-baseline        # a PR that changes the table commits the new baseline
+tools/theme-bench/run --tree-sitter --lang python   # merl with the hidden `tree_sitter = true` (#802)
 tools/theme-bench/run --selftest               # the reading, the scoring, the gate, the stored format
                                                # and themes.tsv covering every shipped theme; CI runs it
 ```
@@ -26,6 +27,14 @@ record it again. With `--theme`, it also prints the theme's most frequent mismat
 match, current find match, line numbers, cursor line number and status line read off its screen
 on a probe file (`v`, then a find for `alpha`), LazyVim's from the highlight groups `Normal`,
 `CursorLine`, `Visual`, `Search`, `CurSearch`, `LineNr`, `CursorLineNr` and `StatusLine`.
+
+## Tree-sitter
+
+`--tree-sitter` runs merl with `tree_sitter = true` in its config, the colouring of epic #797
+(AGENTS.md `## Changing syntax colours`); `baseline.tsv` stays master's, with the setting off, so
+the gate still holds every row to it. On 2026-10-12 (#802) Python matched every character in all
+92 themes, 19,185 per theme: no miss is left to list. A language that leaves misses lists them
+here by cause.
 
 ## Files
 

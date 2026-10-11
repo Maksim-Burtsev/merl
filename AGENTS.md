@@ -170,6 +170,53 @@ in epic #623, each saying `no fold rules for .EXT` until then.
 - **A change to `f`** keeps `tests/folds/` green and no bench line of a language that is on worse
   than `baseline.tsv`: the run exits 1 on any.
 
+## Changing syntax colours
+
+merl colours code as LazyVim does (epic #797): tree-sitter's syntax tree, nvim-treesitter's own
+queries and the theme's Neovim highlight groups (`themes/NAME.groups.json`, #801), in
+`src/treesitter.rs`. Until #810 turns it on it runs behind the hidden setting `tree_sitter = true`
+in `config.toml`, for Python today and for the languages of #803–#809 as they land; every other
+file goes through syntect as before.
+
+- **A grammar is a dependency**: the crates.io release of the revision nvim-treesitter pins in
+  `lua/nvim-treesitter/parsers.lua` at `NVIM_TS` (compare its `parser.c` with that commit's), else
+  a git dependency pinned to that commit with its repo in `deny.toml` `[sources] allow-git`. Never
+  a path crate or a `build.rs` of merl's: cargo would compile its C again in every new worktree,
+  while registry and git crates are built once in `tools/worktree`'s seed (#777) and cached by CI.
+- **The build-cost table** goes into the commit message of each PR that adds a grammar, against
+  master: the seed build, a new worktree's first `clippy --all-targets`, `test --no-run` and
+  `build --release`, the release binary's size and CI's wall time. A worktree's first build stays
+  within ~10 % of master's.
+- **The queries** are nvim-treesitter's `highlights.scm` at `NVIM_TS` in
+  `tools/theme-bench/record.py`, the one pin, copied into `queries/LANG/` by `tools/ts-queries
+  LANG` and never edited by hand. merl reproduces Neovim 0.12's reading of them, from
+  `runtime/lua/vim/treesitter/query.lua` and `highlighter.lua`, not tree-sitter-highlight's: a
+  higher `priority` paints over a lower one, captures of equal priority paint in the order Neovim
+  sets them and combine (a colour replaces the one below, bold and italic add up), and `@a.b`
+  takes the theme's `@a.b.LANG`, then `@a.b`, then `@a` (a group defined empty stops there). A
+  predicate or directive merl does not implement makes the query fail to compile
+  (`every_vendored_query_compiles_with_what_it_uses`): implement it from `query.lua` first.
+- **The golden colours**: `tests/colors/LANG/` holds small fixtures that cover the language and
+  LazyVim's colour, bold and italic of every character in tokyonight-moon, catppuccin-mocha,
+  gruvbox-dark and github-light, recorded once by `tools/theme-bench/record.py --fixtures --lang
+  LANG` (Neovim 0.12 in tmux, never in CI). `cargo test` compares every character and prints
+  `file:line:col`, the token, want and got. All characters equal; a character that cannot be is
+  listed with its cause in `tests/colors/LANG/NOTES.md` and skipped by name, never by a threshold.
+- **Edits**: `tree_sitter_spans_after_edits_equal_a_fresh_parse` (`edit_fuzz.rs`) plays random
+  edits and compares the spans with a fresh parse after each; run it with
+  `MERL_FUZZ_SESSIONS=3000 cargo test --release tree_sitter_spans` before pushing a change to
+  `src/treesitter.rs` or to `Buffer::edited`.
+- **The bench**: `tools/theme-bench/run --tree-sitter --lang LANG` draws with the setting on. No
+  theme × language may match fewer characters than `baseline.tsv`; a language joins `for_syntax`
+  at ≥ 99 % median over the themes, its remaining misses listed by cause in
+  `tools/theme-bench/README.md`, and its table goes into the commit message.
+- **Speed**: `MERL_TS_SPEED=a.py,b.py cargo test --release speed -- --ignored` prints first paint
+  and keystroke repaint, p50 and p90, beside syntect's on the same files: the largest file of the
+  language in the bench projects, a 5,000-line and a 30,000-line one, opened at the top and in the
+  middle. tree-sitter parses the whole file before the first paint where syntect parses only down
+  to what is drawn, so it is slower at the top and faster in the middle; a keystroke repaints
+  under 5 ms at p50 on 5,000 lines.
+
 ## Changing `d`
 
 A wrong jump is worse than a picker or "don't know", and no lookup may get worse than on master.
