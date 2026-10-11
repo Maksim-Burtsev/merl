@@ -24,6 +24,7 @@
 "@keyword.operator": {"fg": "#8a7f76"},
 "@keyword.return": {"fg": "#8a7f76"},
 "@label": {"fg": "#8a7f76"},
+"@lsp.mod.deprecated": {},
 "@lsp.mod.readonly": {"fg": "#9e6057", "italic": true},
 "@lsp.mod.typeHint": {"fg": "#8a879c"},
 "@lsp.type.class": {"fg": "#8a879c"},

@@ -57,6 +57,7 @@
 "@markup.heading.6": {"fg": "#0086ae"},
 "@markup.italic": {"italic": true},
 "@markup.link": {"underline": true},
+"@markup.strikethrough": {},
 "@markup.strong": {"bold": true},
 "@markup.underline": {"underline": true},
 "@module": {"fg": "#7d0077"},

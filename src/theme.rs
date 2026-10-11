@@ -214,7 +214,6 @@ fn load_configured_from(dir: Option<&Path>, config: Option<&Path>, name: &str) -
 }
 
 impl Theme {
-    #[cfg_attr(not(test), expect(dead_code))]
     pub fn group(&self, name: &str) -> Option<Style> {
         let mut name = name;
         loop {
@@ -589,6 +588,8 @@ pub struct Config {
     pub review_list_marks: bool,
     #[serde(default = "default_true")]
     pub review_open_files_first: bool,
+    #[serde(default)]
+    pub tree_sitter: bool,
 }
 
 fn default_autosave() -> u64 {
@@ -611,6 +612,7 @@ impl Default for Config {
             review_panel_colours: true,
             review_list_marks: true,
             review_open_files_first: true,
+            tree_sitter: false,
         }
     }
 }
