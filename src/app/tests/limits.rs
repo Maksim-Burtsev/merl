@@ -432,6 +432,62 @@ fn a_base_past_four_barrels_is_not_taken_for_the_one_implemented() {
     }
 }
 
+fn ts_files(files: &[(&str, &str)]) -> Vec<(String, String)> {
+    files
+        .iter()
+        .map(|(n, t)| (n.to_string(), t.to_string()))
+        .collect()
+}
+
+#[test]
+fn a_base_four_barrels_away_is_still_the_one_implemented() {
+    let files = ts_files(&[
+        ("base.ts", "export class Base {\n  run(): void {}\n}\n"),
+        (
+            "sub.ts",
+            "import { Base } from './b1';\n\nexport class Sub extends Base {\n  run(): void {}\n}\n",
+        ),
+        ("b1.ts", "export * from './b2';\n"),
+        ("b2.ts", "export * from './b3';\n"),
+        ("b3.ts", "export * from './b4';\n"),
+        ("b4.ts", "export * from './base';\n"),
+    ]);
+    assert_eq!(
+        d_in("ts-bar-ours-4", &files, "base.ts", "  run"),
+        jump(
+            "run \u{2192} Sub.run (implementations of Base.run)",
+            "sub.ts:4"
+        )
+    );
+}
+
+#[test]
+fn a_barrel_branch_past_the_cap_leaves_the_base_its_sibling_found() {
+    let files = ts_files(&[
+        ("base.ts", "export class Base {\n  run(): void {}\n}\n"),
+        (
+            "sub.ts",
+            "import { Base } from './index';\n\nexport class Sub extends Base {\n  run(): void {}\n}\n",
+        ),
+        (
+            "index.ts",
+            "export * from './base';\nexport * from './d1';\n",
+        ),
+        ("d1.ts", "export * from './d2';\n"),
+        ("d2.ts", "export * from './d3';\n"),
+        ("d3.ts", "export * from './d4';\n"),
+        ("d4.ts", "export * from './d5';\n"),
+        ("d5.ts", "export const depth = 5;\n"),
+    ]);
+    assert_eq!(
+        d_in("ts-bar-wide", &files, "base.ts", "  run"),
+        jump(
+            "run \u{2192} Sub.run (implementations of Base.run)",
+            "sub.ts:4"
+        )
+    );
+}
+
 #[test]
 fn super_passes_over_the_bases_that_declare_nothing_worth_a_jump() {
     for plain in ["Generic[T]", "typing.Protocol", "ABC", "object"] {

@@ -466,16 +466,14 @@ impl App {
                         _ => 1,
                     };
                     (shortest..=module.len()).rev().any(|n| {
-                        let Some(files) =
-                            self.behind_barrels(kind, &hit.path, &module[..n], first, &[])
-                        else {
-                            return true;
-                        };
+                        let (files, cut) =
+                            self.behind_barrels(kind, &hit.path, &module[..n], first, &[]);
                         let ours = |f: &PathBuf| types.iter().any(|(t, p)| t == first && p == f);
                         !files.iter().any(ours)
-                            && files
-                                .iter()
-                                .any(|f| self.text_of(f).is_some_and(|t| declares(&t, first)))
+                            && (cut
+                                || files
+                                    .iter()
+                                    .any(|f| self.text_of(f).is_some_and(|t| declares(&t, first))))
                     })
                 };
                 let sees = |first: &str| {
@@ -522,12 +520,12 @@ impl App {
         module: &[String],
         name: &str,
         chain: &[PathBuf],
-    ) -> Option<Vec<PathBuf>> {
+    ) -> (Vec<PathBuf>, bool) {
         let files = search::module_files(kind, &self.root, &self.files, from, module);
         if kind != Kind::TsJs {
-            return Some(files);
+            return (files, false);
         }
-        let mut out = Vec::new();
+        let (mut out, mut cut) = (Vec::new(), false);
         for f in files {
             let modules = self
                 .text_of(&f)
@@ -542,19 +540,22 @@ impl App {
                 continue;
             }
             if chain.len() == 4 {
-                return None;
+                cut = true;
+                continue;
             }
             let chain = [chain, std::slice::from_ref(&f)].concat();
             let mut behind = Vec::new();
             for m in &modules {
-                behind.extend(self.behind_barrels(kind, &f, m, name, &chain)?);
+                let (files, deeper) = self.behind_barrels(kind, &f, m, name, &chain);
+                behind.extend(files);
+                cut |= deeper;
             }
             match behind.is_empty() {
                 true => out.push(f),
                 false => out.extend(behind),
             }
         }
-        Some(out)
+        (out, cut)
     }
 
     /// Every member of `word` the project declares with as many parameters as the one on `line`,
