@@ -1,11 +1,14 @@
 use std::collections::HashMap;
+use std::ops::ControlFlow;
 use std::sync::OnceLock;
+use std::time::{Duration, Instant};
 
 use ratatui::style::Style;
 use syntect::highlighting::Highlighter;
 use syntect::parsing::Scope;
 use tree_sitter::{
-    InputEdit, Language, Parser, Point, Query, QueryCursor, StreamingIterator, Tree,
+    InputEdit, Language, ParseOptions, ParseState, Parser, Point, Query, QueryCursor,
+    StreamingIterator, Tree,
 };
 
 use crate::buffer::{Buffer, Spans};
@@ -210,24 +213,23 @@ fn lua_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
 pub struct Parsed {
     pub lang: &'static Lang,
     parser: Parser,
-    tree: Tree,
+    tree: Option<Tree>,
     text: String,
     starts: Vec<usize>,
+    repaint_from: Option<usize>,
+    halted: bool,
 }
 
-fn joined(lines: &[String]) -> String {
+fn joined(lines: &[String]) -> (String, Vec<usize>) {
     let mut text = String::with_capacity(lines.iter().map(|l| l.len() + 1).sum());
+    let mut starts = Vec::with_capacity(lines.len() + 1);
+    starts.push(0);
     for l in lines {
         text.push_str(l);
         text.push('\n');
+        starts.push(text.len());
     }
-    text
-}
-
-fn line_starts(text: &str) -> Vec<usize> {
-    std::iter::once(0)
-        .chain(text.match_indices('\n').map(|(i, _)| i + 1))
-        .collect()
+    (text, starts)
 }
 
 fn point(starts: &[usize], byte: usize) -> Point {
@@ -239,21 +241,33 @@ impl Parsed {
     pub fn new(lang: &'static Lang, lines: &[String]) -> Option<Self> {
         let mut parser = Parser::new();
         parser.set_language(&lang.language).ok()?;
-        let text = joined(lines);
-        let tree = parser.parse(&text, None)?;
+        let (text, starts) = joined(lines);
         Some(Self {
             lang,
             parser,
-            tree,
-            starts: line_starts(&text),
+            tree: None,
+            starts,
             text,
+            repaint_from: Some(0),
+            halted: false,
         })
     }
 
-    pub fn update(&mut self, lines: &[String]) -> usize {
-        let text = joined(lines);
+    pub fn parsing(&self) -> bool {
+        self.repaint_from.is_some()
+    }
+
+    pub fn has_tree(&self) -> bool {
+        self.tree.is_some()
+    }
+
+    pub fn edit(&mut self, lines: &[String]) {
+        let (text, starts) = joined(lines);
         let (old, new) = (self.text.as_bytes(), text.as_bytes());
         let prefix = old.iter().zip(new).take_while(|(a, b)| a == b).count();
+        if prefix == old.len() && old.len() == new.len() {
+            return;
+        }
         let room = old.len().min(new.len()) - prefix;
         let suffix = old
             .iter()
@@ -262,10 +276,6 @@ impl Parsed {
             .take(room)
             .take_while(|(a, b)| a == b)
             .count();
-        if prefix == old.len() && old.len() == new.len() {
-            return usize::MAX;
-        }
-        let starts = line_starts(&text);
         let edit = InputEdit {
             start_byte: prefix,
             old_end_byte: old.len() - suffix,
@@ -274,21 +284,48 @@ impl Parsed {
             old_end_position: point(&self.starts, old.len() - suffix),
             new_end_position: point(&starts, new.len() - suffix),
         };
-        self.tree.edit(&edit);
-        let first = edit.start_position.row;
-        let Some(tree) = self.parser.parse(&text, Some(&self.tree)) else {
-            return first;
+        if let Some(tree) = &mut self.tree {
+            tree.edit(&edit);
+        }
+        if std::mem::take(&mut self.halted) {
+            self.parser.reset();
+        }
+        let row = edit.start_position.row;
+        self.repaint_from = Some(self.repaint_from.map_or(row, |r| r.min(row)));
+        (self.text, self.starts) = (text, starts);
+    }
+
+    pub fn parse(&mut self, budget: Option<Duration>) -> Option<usize> {
+        let from = self.repaint_from?;
+        let deadline = budget.map(|b| Instant::now() + b);
+        let mut on_time = |_: &ParseState| match deadline {
+            Some(d) if Instant::now() >= d => ControlFlow::Break(()),
+            _ => ControlFlow::Continue(()),
         };
-        let first = self
-            .tree
-            .changed_ranges(&tree)
-            .map(|r| r.start_point.row)
-            .fold(first, usize::min);
-        (self.tree, self.text, self.starts) = (tree, text, starts);
-        first
+        let bytes = self.text.as_bytes();
+        let Some(tree) = self.parser.parse_with_options(
+            &mut |i, _| &bytes[i.min(bytes.len())..],
+            self.tree.as_ref(),
+            Some(ParseOptions::new().progress_callback(&mut on_time)),
+        ) else {
+            self.halted = true;
+            return None;
+        };
+        let from = match &self.tree {
+            Some(old) => old
+                .changed_ranges(&tree)
+                .map(|r| r.start_point.row)
+                .fold(from, usize::min),
+            None => 0,
+        };
+        (self.tree, self.repaint_from, self.halted) = (Some(tree), None, false);
+        Some(from)
     }
 
     pub fn spans(&self, lines: &[String], from: usize, to: usize, styles: &Styles) -> Vec<Spans> {
+        let Some(tree) = &self.tree else {
+            return Vec::new();
+        };
         let lang = self.lang;
         let start = self.starts[from];
         let end = self.starts.get(to + 1).copied().unwrap_or(self.text.len());
@@ -297,7 +334,7 @@ impl Parsed {
         let bytes = self.text.as_bytes();
         let mut painted: Vec<(u32, usize, usize, Style)> = Vec::new();
         let mut checked: Option<(u32, bool)> = None;
-        let mut captures = cursor.captures(&lang.query, self.tree.root_node(), bytes);
+        let mut captures = cursor.captures(&lang.query, tree.root_node(), bytes);
         while let Some((m, i)) = captures.next() {
             let node = m.captures()[*i].node;
             if node.start_byte() >= end {
@@ -356,7 +393,10 @@ impl Parsed {
 impl Parsed {
     #[cfg(test)]
     pub fn sexp(&self) -> String {
-        self.tree.root_node().to_sexp()
+        self.tree
+            .as_ref()
+            .map(|t| t.root_node().to_sexp())
+            .unwrap_or_default()
     }
 }
 

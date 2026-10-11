@@ -1,6 +1,7 @@
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
+use std::time::Duration;
 
 use anyhow::{Context, Result};
 use ratatui::style::Style;
@@ -18,6 +19,8 @@ const BINARY: &str = "binary file";
 const MAX_HL_LINES: usize = 30_000;
 const MAX_HL_BYTES: usize = 4 * 1024 * 1024;
 const MAX_SHOWN_BYTES: usize = 20_000;
+pub const PARSE_STEP: Duration = Duration::from_micros(500);
+pub const PARSE_IDLE_STEP: Duration = Duration::from_millis(3);
 
 static TREE_SITTER: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
@@ -220,13 +223,33 @@ impl Buffer {
         self.state_after_hl = None;
     }
 
+    pub fn parsing(&self) -> bool {
+        self.ts_stale || self.ts.as_ref().is_some_and(treesitter::Parsed::parsing)
+    }
+
+    pub fn parse_more(&mut self, budget: Option<Duration>) -> bool {
+        let Some(ts) = &mut self.ts else { return false };
+        if std::mem::take(&mut self.ts_stale) {
+            ts.edit(&self.lines);
+        }
+        let Some(from) = ts.parse(budget) else {
+            return false;
+        };
+        self.hl.truncate(from);
+        true
+    }
+
     pub fn highlight_to(&mut self, last: usize, theme: &Theme) {
+        self.parse_more(Some(PARSE_STEP));
+        self.paint_to(last, theme);
+    }
+
+    pub(crate) fn paint_to(&mut self, last: usize, theme: &Theme) {
         let Some(syntax) = self.syntax else { return };
         let last = last.min(self.lines.len().saturating_sub(1));
-        if let Some(ts) = &mut self.ts {
-            if self.ts_stale {
-                self.ts_stale = false;
-                self.hl.truncate(ts.update(&self.lines));
+        if let Some(ts) = &self.ts {
+            if !ts.has_tree() {
+                return;
             }
             if self.hl.len() <= last {
                 let styles = treesitter::Styles::new(ts.lang, theme);

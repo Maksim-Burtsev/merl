@@ -466,6 +466,7 @@ fn event_loop(
         }
         let idle = Duration::from_millis(if app.picker.is_some() { 10 } else { 100 });
         let idle = app.diagrams.wake.map_or(idle, |w| w.min(idle));
+        let idle = if app.parsing() { Duration::ZERO } else { idle };
         match rx.recv_timeout(idle) {
             Ok(Msg::Key(k)) => {
                 if app.key(k) {
@@ -544,7 +545,9 @@ fn event_loop(
                     }
                 };
             }
-            Err(mpsc::RecvTimeoutError::Timeout) => dirty |= app.diagrams.wake.is_some(),
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                dirty |= app.diagrams.wake.is_some() | app.parse_more();
+            }
             Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
         }
     }
