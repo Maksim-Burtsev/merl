@@ -175,8 +175,8 @@ in epic #623, each saying `no fold rules for .EXT` until then.
 merl colours code as LazyVim does (epic #797): tree-sitter's syntax tree, nvim-treesitter's own
 queries and the theme's Neovim highlight groups (`themes/NAME.groups.json`, #801), in
 `src/treesitter.rs`. Until #810 turns it on it runs behind the hidden setting `tree_sitter = true`
-in `config.toml`, for Python today and for the languages of #803–#809 as they land; every other
-file goes through syntect as before.
+in `config.toml`, for Python and Markdown today and for the languages of #804–#809 as they land;
+every other file goes through syntect as before.
 
 - **A grammar is a dependency**: the crates.io release of the revision nvim-treesitter pins in
   `lua/nvim-treesitter/parsers.lua` at `NVIM_TS` (compare its `parser.c` with that commit's), else
@@ -187,7 +187,14 @@ file goes through syntect as before.
   master: the seed build, a new worktree's first `clippy --all-targets`, `test --no-run` and
   `build --release`, the release binary's size and CI's wall time. A worktree's first build stays
   within ~10 % of master's.
-- **The queries** are nvim-treesitter's `highlights.scm` at `NVIM_TS` in
+- **Injections** (`src/treesitter/layers.rs`, #803) follow Neovim 0.12's `languagetree.lua`
+  (`_get_injections`, `_get_injection`, `get_node_ranges`, `add_injection`) and
+  `highlighter.lua`: each injected region is parsed with `set_included_ranges`, a child's
+  captures paint over its parent's at equal priority, and an edit repaints from the first row of
+  the region it falls in. A language merl has no grammar for yet goes through syntect
+  (`syntax_for_info`), so a fenced block keeps its colours until its language's step lands;
+  the injected languages of a step's hosts (`regex`, `printf` for Python) come with it.
+- **The queries** are nvim-treesitter's `highlights.scm` and `injections.scm` at `NVIM_TS` in
   `tools/theme-bench/record.py`, the one pin, copied into `queries/LANG/` by `tools/ts-queries
   LANG` and never edited by hand. merl reproduces Neovim 0.12's reading of them, from
   `runtime/lua/vim/treesitter/query.lua` and `highlighter.lua`, not tree-sitter-highlight's: a

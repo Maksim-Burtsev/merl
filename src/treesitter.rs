@@ -336,7 +336,6 @@ pub struct Parsed {
     parser: Parser,
     inner: Parser,
     tree: Option<Tree>,
-    injected: Vec<layers::Injected>,
     text: String,
     starts: Vec<usize>,
     repaint_from: Option<usize>,
@@ -370,7 +369,6 @@ impl Parsed {
             parser,
             inner: Parser::new(),
             tree: None,
-            injected: Vec::new(),
             starts,
             text,
             repaint_from: Some(0),
@@ -443,9 +441,9 @@ impl Parsed {
                 .fold(from, usize::min),
             None => 0,
         };
-        let doc = layers::Doc::new(bytes, &self.starts, 0, bytes.len());
-        self.injected = layers::injections(self.lang, &tree, None, &doc, true);
-        let from = layers::region_start(&self.injected, from);
+        let near = self.starts[from]..self.starts.get(from + 1).copied().unwrap_or(bytes.len());
+        let doc = layers::Doc::new(bytes, &self.starts, near.start, near.end);
+        let from = layers::region_start(&layers::injections(self.lang, &tree, None, &doc), from);
         (self.tree, self.repaint_from, self.halted) = (Some(tree), None, false);
         Some(from)
     }
@@ -467,7 +465,7 @@ impl Parsed {
         layers::layer(
             self.lang,
             std::slice::from_ref(tree),
-            Some(&self.injected),
+            false,
             &mut layers::Ctx {
                 parser: &mut self.inner,
                 sub: 0,
