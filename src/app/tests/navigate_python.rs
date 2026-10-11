@@ -1193,6 +1193,10 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
                 "ORIGINALS_DIR = \"originals\"\nclient = None\nif True:\n    CACHE_DIR = \"cache\"\n",
             ),
             (
+                "app/local.py",
+                "def configure():\n    if True:\n        CACHE_DIR = 1\n    CACHE_DIR = 2\n\n\nclass Conf:\n    CACHE_DIR = 3\n",
+            ),
+            (
                 "app/consumers.py",
                 "class Consumer:\n    def connect(self):\n        pass\n",
             ),
@@ -1265,10 +1269,10 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
             jump("no definition for connect", "app/test_files.py:5"),
         ),
         (
-            "a setting assigned under a module-level `if` is not read (#792)",
+            "a setting assigned under a module-level `if` is a setting all the same (#792)",
             "app/test_files.py",
             "settings.CACHE_DIR",
-            jump("no definition for CACHE_DIR", "app/test_files.py:10"),
+            jump("CACHE_DIR: by name, 1 match", "app/settings.py:4"),
         ),
         (
             "a class declared under an `if` is a class of the module all the same",
