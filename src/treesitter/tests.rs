@@ -108,6 +108,7 @@ fn mismatches(lang: &str) -> Vec<String> {
             let path = dir.join(&file);
             let mut b = Buffer::from_bytes(path.clone(), &std::fs::read(&path).unwrap());
             b.start_tree_sitter();
+            b.parse_more(None);
             b.highlight_to(usize::MAX, &theme);
             for (n, want) in lines {
                 let got = drawn(&b, n - 1);
@@ -193,6 +194,7 @@ fn a_theme_without_groups_still_colours_every_kind_of_capture() {
     let src = "# c\ndef f(x):\n    return \"s\"\n";
     let mut b = Buffer::from_bytes(PathBuf::from("a.py"), src.as_bytes());
     b.start_tree_sitter();
+    b.parse_more(None);
     b.highlight_to(usize::MAX, &theme);
     let fg = |l: usize, col: usize| b.hl[l].iter().find(|(_, r)| r.contains(&col)).unwrap().0.fg;
     let (comment, keyword, function, string) = (fg(0, 0), fg(1, 0), fg(1, 4), fg(2, 11));
@@ -216,6 +218,7 @@ fn without_the_setting_python_goes_through_syntect() {
     plain.highlight_to(0, &theme);
     let mut ts = Buffer::from_bytes(PathBuf::from("a.py"), src);
     ts.start_tree_sitter();
+    ts.parse_more(None);
     ts.highlight_to(0, &theme);
     assert_ne!(plain.hl, ts.hl);
 }
@@ -228,7 +231,8 @@ fn a_higher_priority_paints_over_a_later_capture_and_equal_ones_paint_in_order()
             super::compile_text("python", tree_sitter_python::LANGUAGE.into(), query).unwrap();
         let lang: &'static super::Lang = Box::leak(Box::new(lang));
         let lines = vec!["x".to_string()];
-        let parsed = super::Parsed::new(lang, &lines).unwrap();
+        let mut parsed = super::Parsed::new(lang, &lines).unwrap();
+        parsed.parse(None);
         let styles = super::Styles::new(lang, &theme);
         parsed.spans(&lines, 0, 0, &styles)[0][0].0
     };
@@ -247,14 +251,53 @@ fn a_higher_priority_paints_over_a_later_capture_and_equal_ones_paint_in_order()
 }
 
 #[test]
+fn a_parse_cut_short_resumes_and_an_edit_in_between_restarts_it() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let src = include_str!("../../tests/colors/python/classes.py").repeat(20);
+    let mut b = Buffer::from_bytes(PathBuf::from("a.py"), src.as_bytes());
+    b.start_tree_sitter();
+    assert!(!b.parse_more(Some(std::time::Duration::ZERO)));
+    b.paint_to(10, &theme);
+    assert!(b.hl.is_empty(), "no colours before the first tree");
+    b.lines[3].insert(0, '"');
+    b.edited(3);
+    let mut steps = 0;
+    while !b.parse_more(Some(std::time::Duration::ZERO)) {
+        steps += 1;
+    }
+    assert!(steps > 1, "the parse was cut short {steps} times");
+    b.lines[3].remove(0);
+    b.lines[40].insert(0, 'x');
+    b.edited(3);
+    b.parse_more(Some(std::time::Duration::ZERO));
+    b.paint_to(usize::MAX, &theme);
+    b.parse_more(None);
+    b.paint_to(usize::MAX, &theme);
+    let text = b.lines.join("\n") + "\n";
+    let mut fresh = Buffer::from_bytes(PathBuf::from("a.py"), text.as_bytes());
+    fresh.start_tree_sitter();
+    fresh.parse_more(None);
+    fresh.paint_to(usize::MAX, &theme);
+    assert_eq!(b.sexp(), fresh.sexp());
+    assert_eq!(b.hl, fresh.hl);
+}
+
+#[test]
 #[ignore]
 fn speed() {
     let theme = theme::load("tokyonight-moon").unwrap();
     let files = std::env::var("MERL_TS_SPEED").expect("MERL_TS_SPEED=file.py,…");
     let ms = |t: std::time::Instant| t.elapsed().as_secs_f64() * 1000.0;
-    let pct = |mut v: Vec<f64>, p: usize| {
+    let pct = |v: &[(f64, f64)], coloured: bool, p: usize| {
+        let mut v: Vec<f64> = v.iter().map(|x| if coloured { x.1 } else { x.0 }).collect();
         v.sort_by(f64::total_cmp);
         v[(v.len() * p / 100).min(v.len() - 1)]
+    };
+    let settle = |b: &mut Buffer, last: usize| {
+        while b.parsing() {
+            b.parse_more(Some(crate::buffer::PARSE_IDLE_STEP));
+        }
+        b.highlight_to(last, &theme);
     };
     for file in files.split(',') {
         let bytes = std::fs::read(file).unwrap();
@@ -266,36 +309,49 @@ fn speed() {
                     b.start_tree_sitter();
                 }
                 b.highlight_to(at + 54, &theme);
-                (ms(t), b)
+                let frame = ms(t);
+                settle(&mut b, at + 54);
+                ((frame, ms(t)), b)
             };
             let n = open(0).1.lines.len();
-            let top: Vec<f64> = (0..15).map(|_| open(0).0).collect();
-            let middle: Vec<f64> = (0..15).map(|_| open(n / 2).0).collect();
-            let (_, mut b) = open(0);
-            let mut keys = Vec::new();
-            for k in 0..60 {
-                let l = (k * 7919) % n;
-                b.highlight_to(l + 54, &theme);
-                let t = std::time::Instant::now();
-                let at = b.lines[l].len() - b.lines[l].trim_start().len();
-                b.lines[l].insert(at, 'x');
-                b.edited(l);
-                b.highlight_to(l + 54, &theme);
-                keys.push(ms(t));
-                if std::env::var_os("MERL_TS_SPEED_EACH").is_some() {
-                    eprintln!("{l} {:.2} ms", ms(t));
+            let top: Vec<_> = (0..15).map(|_| open(0).0).collect();
+            let middle: Vec<_> = (0..15).map(|_| open(n / 2).0).collect();
+            let typing = |col0: bool| {
+                let (_, mut b) = open(0);
+                let mut keys = Vec::new();
+                for k in 0..60 {
+                    let mut l = (k * 7919) % n;
+                    while col0 && !b.lines[l].starts_with([' ', '\t']) {
+                        l = (l + 1) % n;
+                    }
+                    settle(&mut b, l + 54);
+                    let t = std::time::Instant::now();
+                    let indent = b.lines[l].len() - b.lines[l].trim_start().len();
+                    b.lines[l].insert(if col0 { 0 } else { indent }, 'x');
+                    b.edited(l);
+                    b.highlight_to(l + 54, &theme);
+                    let frame = ms(t);
+                    settle(&mut b, l + 54);
+                    keys.push((frame, ms(t)));
                 }
+                keys
+            };
+            let rows = [
+                ("first paint, top", top),
+                ("first paint, middle", middle),
+                ("keystroke after the indentation", typing(false)),
+                ("keystroke at column 0 of an indented line", typing(true)),
+            ];
+            for (what, v) in rows {
+                println!(
+                    "{file} {n} lines {}: {what}: frame p50 {:.2} p90 {:.2}, coloured p50 {:.2} p90 {:.2} ms",
+                    if ts { "tree-sitter" } else { "syntect" },
+                    pct(&v, false, 50),
+                    pct(&v, false, 90),
+                    pct(&v, true, 50),
+                    pct(&v, true, 90),
+                );
             }
-            println!(
-                "{file} {n} lines {}: first paint top p50 {:.2} p90 {:.2}, middle p50 {:.2} p90 {:.2}; keystroke p50 {:.2} p90 {:.2} ms",
-                if ts { "tree-sitter" } else { "syntect" },
-                pct(top.clone(), 50),
-                pct(top, 90),
-                pct(middle.clone(), 50),
-                pct(middle, 90),
-                pct(keys.clone(), 50),
-                pct(keys, 90),
-            );
         }
     }
 }

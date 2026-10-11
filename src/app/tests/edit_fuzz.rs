@@ -964,17 +964,26 @@ fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
                 Op::PasteClip => a.paste("x"),
             }
             done.push(op.to_string());
-            a.buf.highlight_to(usize::MAX, &theme);
+            for _ in 0..rng.below(3) {
+                a.buf.parse_more(Some(std::time::Duration::ZERO));
+                a.buf.paint_to(rng.below(a.buf.lines.len()), &theme);
+            }
+            if rng.below(3) > 0 {
+                continue;
+            }
+            a.buf.parse_more(None);
+            a.buf.paint_to(usize::MAX, &theme);
             let text = a.buf.lines.join("\n") + "\n";
             let mut fresh = Buffer::from_bytes(path.clone(), text.as_bytes());
             fresh.start_tree_sitter();
-            fresh.highlight_to(usize::MAX, &theme);
+            fresh.parse_more(None);
+            fresh.paint_to(usize::MAX, &theme);
             let want = match a.buf.sexp() == fresh.sexp() {
                 true => fresh.hl,
                 false => {
                     let kept = a.buf.hl.clone();
                     a.buf.clear_hl();
-                    a.buf.highlight_to(usize::MAX, &theme);
+                    a.buf.paint_to(usize::MAX, &theme);
                     std::mem::replace(&mut a.buf.hl, kept)
                 }
             };

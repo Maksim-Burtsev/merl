@@ -210,12 +210,15 @@ file goes through syntect as before.
   theme × language may match fewer characters than `baseline.tsv`; a language joins `for_syntax`
   at ≥ 99 % median over the themes, its remaining misses listed by cause in
   `tools/theme-bench/README.md`, and its table goes into the commit message.
-- **Speed**: `MERL_TS_SPEED=a.py,b.py cargo test --release speed -- --ignored` prints first paint
-  and keystroke repaint, p50 and p90, beside syntect's on the same files: the largest file of the
-  language in the bench projects, a 5,000-line and a 30,000-line one, opened at the top and in the
-  middle. tree-sitter parses the whole file before the first paint where syntect parses only down
-  to what is drawn, so it is slower at the top and faster in the middle; a keystroke repaints
-  under 5 ms at p50 on 5,000 lines.
+- **Speed**: `MERL_TS_SPEED=a.py,b.py cargo test --release speed -- --ignored` prints, beside
+  syntect's on the same files, the time to the first frame and to the coloured one, p50 and p90,
+  of opening at the top and in the middle, a keystroke after a line's indentation and one at
+  column 0 of an indented line: the largest file of the language in the bench projects, a
+  5,000-line and a 30,000-line one. The parse runs in steps, as Neovim's
+  (`languagetree.lua` `_async_parse`): 0.5 ms (`PARSE_STEP`) before a frame, 3 ms
+  (`PARSE_IDLE_STEP`) between keys; a frame draws with the last tree, edited to the new text,
+  plain before the first, so a first frame is no slower than syntect's and a keystroke's under
+  5 ms at p50 on every file.
 
 ## Changing `d`
 

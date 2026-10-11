@@ -390,6 +390,25 @@ impl App {
         !self.dirty
     }
 
+    pub fn parsing(&self) -> bool {
+        let base = self.base.iter().map(|(_, b)| b);
+        let picker = self.picker.iter().flat_map(|p| p.bufs.values());
+        std::iter::once(&self.buf)
+            .chain(base)
+            .chain(picker)
+            .any(Buffer::parsing)
+    }
+
+    pub fn parse_more(&mut self) -> bool {
+        let base = self.base.iter_mut().map(|(_, b)| b);
+        let picker = self.picker.iter_mut().flat_map(|p| p.bufs.values_mut());
+        std::iter::once(&mut self.buf)
+            .chain(base)
+            .chain(picker)
+            .find(|b| b.parsing())
+            .is_some_and(|b| b.parse_more(Some(crate::buffer::PARSE_IDLE_STEP)))
+    }
+
     pub fn tick(&mut self) -> bool {
         let parsed = self.parse_tick();
         let due = self.last_edit.is_some_and(|t| t.elapsed() >= self.autosave);
