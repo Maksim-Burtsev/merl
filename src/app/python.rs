@@ -106,16 +106,19 @@ impl App {
         let kind = Kind::Python;
         let pattern = format!(r"^\s+{}\s*(:[^=]*)?=", regex::escape(word));
         let opens_block = |l: &str| {
-            ["if ", "elif ", "else:", "try:", "except", "finally:"]
-                .iter()
-                .any(|o| l.starts_with(o))
+            let keyword = l.split(|c: char| !(c.is_alphanumeric() || c == '_')).next();
+            keyword.is_some_and(|k| ["if", "elif", "else", "try", "except", "finally"].contains(&k))
+                && l.contains(':')
+                && !l.contains("__name__")
         };
         self.project_grep(kind, here, &pattern)
             .into_iter()
             .filter(|h| {
                 assigns(h.text.trim_start(), word)
                     && self.text_of(&h.path).is_some_and(|text| {
-                        search::owner_line(&text, h.line1).is_some_and(opens_block)
+                        let literal = search::file_literal_lines(kind, &h.path, &text);
+                        !literal.get(h.line1 - 1).copied().unwrap_or(false)
+                            && search::owner_line(&text, h.line1).is_some_and(opens_block)
                     })
             })
             .map(|hit| Candidate {
