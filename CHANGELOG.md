@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `--review`: the panel's row of the file in view keeps the selection colour while the code has
+  the keys, so each `c` into the next file shows in the panel. (#738)
+
 ## [0.8.4] - 2026-10-11
 
 ### Added

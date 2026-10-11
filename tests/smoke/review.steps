@@ -1,6 +1,6 @@
 # review: the branch an agent pushed, read as its merge request shows it. --review=agent/refund
 # fetches it from the local origin and opens on the first hunk; the panel marks each file M, A or
-# D with its +n −m. c / C walk the hunks across files: the imports three lines apart are two hunks
+# D with its +n −m, the file in view on the selection colour though the code has the keys (#738). c / C walk the hunks across files: the imports three lines apart are two hunks
 # though the fixture sets diff.interHunkContext (#220), the redrawn PNG is skipped (#77), the
 # deleted script opens read-only. The lines the branch deleted at the end of repos.py are lines
 # the cursor walks down to the last one (#179, #439), painted as deletions (#144, #165). d from a
