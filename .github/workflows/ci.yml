@@ -72,7 +72,7 @@ jobs:
         run: tools/ci-local tests
       - if: ${{ !env.DOCS_ONLY }}
         run: tools/ci-local release
-      # The `d` bench's scoring and its no-cursor-worse gate, on made-up rows: no clone needed.
+      # The `d` and theme benches' scoring and their gates, on made-up rows: no clone needed.
       - if: ${{ !env.DOCS_ONLY }}
         run: tools/ci-local dbench
       # The smoke scenarios in tmux on this build, every checkpoint against the screen checked in

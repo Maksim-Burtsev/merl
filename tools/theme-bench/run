@@ -1,0 +1,267 @@
+#!/usr/bin/env python3
+"""The theme bench: merl's colours against LazyVim's, character by character.
+
+    tools/theme-bench/run [--theme a,b] [--lang python,go] [--merl BIN] [--jobs 4] [--update-baseline]
+    tools/theme-bench/run --selftest     the reading, the scoring and the gate on made-up screens (CI runs it)
+
+The reference is colors/THEME/LANG.tsv, what LazyVim (Neovim with the theme's own colorscheme,
+nvim-treesitter's queries and parsers, `termguicolors`) paints on a few files per language of the
+projects of tools/d-bench/projects.tsv, recorded once by record.py. merl (default
+target/release/merl, built with `cargo build --release`) draws the same files in tmux at the same
+size with `--theme THEME`, its config and state in a temporary HOME, and the screen is read as
+tools/cast.py reads it. Characters are matched by line number and by the line's text with blanks
+dropped, so a tab drawn four or eight columns wide lines up the same; a character scores when its
+foreground is the one LazyVim paints.
+
+The table: per language, the themes run, the characters compared per theme and the share of them
+matching, lowest, median and highest over the themes. With --theme, each theme's share per
+language, its most frequent mismatches (`want #x got #y`, with a token it happens on) and the
+chrome colours side by side: merl's read off its screen (a find for `alpha` and `v` on a probe
+file give the find match and the selection), LazyVim's from the highlight groups in
+colors/THEME/chrome.tsv.
+
+baseline.tsv holds master's count of matching characters per theme and language, a recorded line
+merl does not draw counting as all wrong. The run exits 1 when any row it ran matches fewer, or,
+run on every theme and language, when a row of the baseline is not run; --update-baseline writes
+the rows it ran instead.
+"""
+import argparse, collections, concurrent.futures, os, re, shlex, shutil, statistics, subprocess, sys, tempfile, threading, time
+
+sys.dont_write_bytecode = True
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(HERE))
+sys.path.insert(0, HERE)
+from record import (LANGS, LINES, capture, file_lines, hexed, manifest, on_screen, project, projects, read_colors,
+                    server, tmux, tsv, write_colors)
+
+PROBE = "alpha beta alpha\ngamma delta\nalpha epsilon\nzeta eta theta\n"
+CHROME = [("background", "Normal", 1), ("cursor line", "CursorLine", 1), ("selection", "Visual", 1),
+          ("find match", "Search", 1), ("current find match", "CurSearch", 1), ("line numbers", "LineNr", 0),
+          ("cursor line number", "CursorLineNr", 0), ("status line", "StatusLine", 1)]
+
+
+def token(line, i):
+    """The word (or the character) at the i-th non-blank character of line."""
+    at = [p for p, ch in enumerate(line) if not ch.isspace()][i]
+    m = re.match(r"\w+", line[at:])
+    if m:
+        start = at
+        while start and (line[start - 1].isalnum() or line[start - 1] == "_"):
+            start -= 1
+        return re.match(r"\w+", line[start:]).group(0)
+    return line[at]
+
+
+def score(want, got, text):
+    """want, got: {path: {line: [rrggbb per non-blank character]}}; text: {path: file lines}.
+    Returns (characters, matching, Counter of (want, got) -> count, {(want, got): token}, lines
+    missing from merl's screen). A missing line's characters count as not matching."""
+    total = same = missing = 0
+    miss, sample = collections.Counter(), {}
+    for path, lines in want.items():
+        for n, fgs in lines.items():
+            mine = got.get(path, {}).get(n)
+            if mine is None or len(mine) != len(fgs):
+                missing += 1
+                total += len(fgs)
+                continue
+            for i, (w, g) in enumerate(zip(fgs, mine)):
+                total += 1
+                if w == g:
+                    same += 1
+                else:
+                    miss[(w, g)] += 1
+                    sample.setdefault((w, g), token(text[path][n - 1], i))
+    return total, same, miss, sample, missing
+
+
+def worse(base, now, every=False):
+    """(theme, lang, was, is) for every row of now matching fewer characters than its baseline,
+    and with every (a run of all themes and languages) each baseline row the run lacks, as None."""
+    lost = [(t, l, base[(t, l)], n) for (t, l), n in sorted(now.items()) if (t, l) in base and n < base[(t, l)]]
+    return lost + [(t, l, n, None) for (t, l), n in sorted(base.items()) if every and (t, l) not in now]
+
+
+def draw(merl, home, theme, path, lines, first, keys=()):
+    env = {"HOME": home, "XDG_CONFIG_HOME": f"{home}/.config", "XDG_DATA_HOME": f"{home}/.local/share",
+           "XDG_STATE_HOME": f"{home}/.local/state", "XDG_CACHE_HOME": f"{home}/.cache",
+           "TERM": "tmux-256color", "COLORTERM": "truecolor"}
+    return capture(f"m{threading.get_ident()}", f"{shlex.quote(merl)} --theme {theme} {shlex.quote(path)}",
+                   2 * LINES + 4, env, lambda g: first in on_screen(g, lines), keys)
+
+
+def chrome(merl, home, theme):
+    """merl's chrome colours, read off its screen on a probe file."""
+    d = tempfile.mkdtemp(dir=home)
+    path = os.path.join(d, "probe.txt")
+    open(path, "w").write(PROBE)
+    lines = PROBE.split("\n")
+    plain, selected, _, _, found = draw(merl, home, theme, path, lines, 1,
+                                        [("v",), ("Escape",), ("-l", "/alpha"), ("Enter",)])
+    rows = {}
+    for r, cells in enumerate(plain):
+        text = "".join(c[0] for c in cells)
+        m = re.search(r"(\d+) (\S)", text)
+        if m and int(m.group(1)) <= 4 and text[m.start(2):].rstrip() == lines[int(m.group(1)) - 1]:
+            rows[int(m.group(1))] = (r, m.start(2), m.start(1))
+    bg = lambda grid, row, col: hexed(grid[row][col][2])
+    fg = lambda grid, row, col: hexed(grid[row][col][1])
+    r1, c1, g1 = rows[1]
+    r4, c4, g4 = rows[4]
+    hits = []
+    for n, (r, c, _) in rows.items():
+        for m in re.finditer("alpha", lines[n - 1]):
+            hits.append(bg(found, r, c + m.start()))
+    common = collections.Counter(hits).most_common()
+    return {"background": bg(plain, r4, len(plain[r4]) - 2), "cursor line": bg(plain, r1, len(plain[r1]) - 2),
+            "selection": bg(selected, r1, c1), "find match": common[0][0],
+            "current find match": common[-1][0] if len(common) > 1 else common[0][0],
+            "line numbers": fg(plain, r4, g4), "cursor line number": fg(plain, r1, g1),
+            "status line": bg(plain, len(plain) - 1, len(plain[-1]) // 2)}
+
+
+def reference_chrome(theme):
+    groups = {g: (fg, bg) for g, fg, bg in tsv(os.path.join(HERE, "colors", theme, "chrome.tsv"))}
+    return {name: groups[g][side].lstrip("#") for name, g, side in CHROME}
+
+
+def recorded():
+    every = manifest()
+    return sorted(t for t in os.listdir(os.path.join(HERE, "colors")) if t in every and every[t][0] != "skip")
+
+
+def baseline():
+    path = os.path.join(HERE, "baseline.tsv")
+    return {(t, l): (int(chars), int(same)) for t, l, chars, same in tsv(path)} if os.path.exists(path) else {}
+
+
+def selftest():
+    """The reading of a screen, the scoring and the gate on made-up rows."""
+    blue, grey, red = (130, 170, 255), (99, 109, 166), (255, 150, 108)
+    lines = ["def f(x):", "\treturn 1 + x", "", "# 3 apples"]
+    row = lambda *parts: [(ch, colour, (0, 0, 0)) for part, colour in parts for ch in part]
+    screen = [row(("│ 12 files │  1 ", grey), ("def", blue), (" f(x):", grey)),
+              row(("│          │  2         ", grey), ("return", red), (" 1 + x", grey)),
+              row(("│          │  4 # 3 apples", grey))]
+    got = on_screen(screen, lines)
+    assert got[1] == [blue] * 3 + [grey] * 5, got[1]
+    assert got[2] == [red] * 6 + [grey] * 3, "a tab drawn eight columns wide still lines up"
+    assert 3 not in got and got[4] == [grey] * 8, "the gutter's number, not one in the tree or the text"
+    want = {"a.py": {1: ["82aaff"] * 3 + ["636da6"] * 4, 2: ["82aaff"] * 6 + ["ff966c"] * 4, 9: ["636da6"]}}
+    mine = {"a.py": {1: ["82aaff"] * 3 + ["636da6"] * 4, 2: ["636da6"] * 6 + ["ff966c"] * 4}}
+    total, same, miss, sample, missing = score(want, mine, {"a.py": lines + [""] * 6})
+    assert (total, same, missing) == (18, 11, 1), "a line merl no longer draws counts against it"
+    short = {"a.py": {**mine["a.py"], 9: []}}
+    assert score(want, short, {"a.py": lines + [""] * 6})[::4] == (18, 1)
+    assert miss.most_common(1) == [(("82aaff", "636da6"), 6)] and sample[("82aaff", "636da6")] == "return"
+    assert token("x = obj.method(1)", 6) == "method" and token("x = obj.method(1)", 3) == "obj" and token("a, b", 1) == ","
+    assert token("x = obj.method(1)", 8) == "method"
+    tree = [row(("│ 2 notes  │  1 ", grey), ("x", blue)),
+            row(("│          │  2 foo(3 ", grey), ("}", red)),
+            row(("│          │  3 ", grey), ("}", blue))]
+    assert on_screen(tree, ["x", "foo(1)", "}"]) == {1: [blue], 3: [blue]}, "line 3 read off its own row"
+    base = {("nord", "go"): 615, ("nord", "rust"): 700}
+    assert worse(base, {("nord", "go"): 614, ("nord", "rust"): 800}) == [("nord", "go", 615, 614)]
+    assert worse(base, {("nord", "go"): 615, ("vague", "go"): 1}) == []
+    assert worse(base, {("nord", "go"): 615}, every=True) == [("nord", "rust", 700, None)]
+    with tempfile.TemporaryDirectory() as d:
+        os.makedirs(os.path.join(d, "colors", "t"))
+        path = os.path.join(d, "colors", "t", "go.tsv")
+        palette = [f"{i:06x}" for i in range(30)]
+        files = [("caddy/a.go", {3: palette + ["000000"] * 12, 7: ["00000a"]})]
+        pins = " ".join(f"{p}@{projects()[p][3]}" for p in LANGS["go"][0])
+        write_colors(path, f"# t\n# projects {pins}\n", files)
+        assert read_colors(path) == dict(files), "a two-digit run and more than 26 colours read back"
+    shipped = {f[:-len(".tmTheme")] for f in os.listdir(os.path.join(ROOT, "themes")) if f.endswith(".tmTheme")}
+    assert set(manifest()) == shipped, f"themes.tsv lacks {shipped - set(manifest())} or has {set(manifest()) - shipped}"
+    print("selftest ok")
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--theme")
+    ap.add_argument("--lang", default=",".join(LANGS))
+    ap.add_argument("--merl", help="the binary to run (default: target/release/merl, built first)")
+    ap.add_argument("--jobs", type=int, default=4)
+    ap.add_argument("--show", type=int, default=10)
+    ap.add_argument("--update-baseline", action="store_true")
+    ap.add_argument("--selftest", action="store_true")
+    a = ap.parse_args()
+    if a.selftest:
+        return selftest()
+    have = recorded()
+    themes = a.theme.split(",") if a.theme else have
+    langs = a.lang.split(",")
+    unknown = [t for t in themes if t not in have] + [l for l in langs if l not in LANGS]
+    if unknown:
+        sys.exit(f"not recorded: {', '.join(unknown)}")
+    if a.merl is None:
+        subprocess.run(["cargo", "build", "--release", "--quiet"], cwd=ROOT, check=True)
+    merl = os.path.realpath(a.merl or os.path.join(ROOT, "target", "release", "merl"))
+    home = tempfile.mkdtemp(prefix="theme-bench-")
+    want = {(t, l): read_colors(os.path.join(HERE, "colors", t, f"{l}.tsv")) for t in themes for l in langs}
+    text = {}
+    for (t, l), files in want.items():
+        for rel in files:
+            if rel not in text:
+                name, path = rel.split("/", 1)
+                text[rel] = (os.path.join(project(name), path), file_lines(os.path.join(project(name), path)))
+    started = time.time()
+    jobs = [(t, l, rel) for (t, l), files in want.items() for rel in files]
+    server()
+    try:
+        with concurrent.futures.ThreadPoolExecutor(a.jobs) as pool:
+            grids = pool.map(lambda j: on_screen(draw(merl, home, j[0], *text[j[2]], min(want[j[:2]][j[2]]))[0],
+                                                 text[j[2]][1]), jobs)
+            got = collections.defaultdict(dict)
+            for (t, l, rel), lines in zip(jobs, grids):
+                got[(t, l)][rel] = {n: [hexed(c) for c in fgs] for n, fgs in lines.items()}
+            chromes = dict(zip(themes, pool.map(lambda t: chrome(merl, home, t), themes))) if a.theme else {}
+    finally:
+        tmux("kill-server")
+        shutil.rmtree(home, ignore_errors=True)
+    took = time.time() - started
+    results = {k: score(want[k], got[k], {r: text[r][1] for r in want[k]}) for k in want}
+    share = {k: round(100 * r[1] / max(r[0], 1), 2) for k, r in results.items()}
+
+    print(f"{'language':12}{'themes':>7}{'chars':>8}   {'lowest':28}{'median':>7}   {'highest':28}")
+    for l in langs:
+        mine = sorted((share[(t, l)], t) for t in themes)
+        chars = statistics.median(results[(t, l)][0] for t in themes)
+        lo, hi = mine[0], mine[-1]
+        print(f"{l:12}{len(themes):7}{chars:8.0f}   {lo[0]:5.1f} {lo[1]:22}{statistics.median(p for p, _ in mine):7.1f}"
+              f"   {hi[0]:5.1f} {hi[1]}")
+    print(f"({took:.0f} s for {len(jobs)} screens; {sum(r[4] for r in results.values())} recorded lines not on merl's screen)")
+
+    for t in themes if a.theme else []:
+        print(f"\n{t}: " + ", ".join(f"{l} {share[(t, l)]:.1f} %" for l in langs))
+        miss, sample = collections.Counter(), {}
+        for l in langs:
+            miss.update(results[(t, l)][2])
+            for k, v in results[(t, l)][3].items():
+                sample.setdefault(k, v)
+        for (w, g), n in miss.most_common(a.show):
+            print(f"  {n:6}  want #{w} got #{g}  e.g. {sample[(w, g)]}")
+        ref = reference_chrome(t)
+        print(f"  {'chrome':20}{'LazyVim':10}{'merl':10}")
+        for name, _, _ in CHROME:
+            mark = "" if ref[name] in (chromes[t][name], "-") else "  differs"
+            print(f"  {name:20}{'#' + ref[name] if ref[name] != '-' else '-':10}#{chromes[t][name]:9}{mark}")
+
+    base = baseline()
+    if a.update_baseline:
+        kept = {k: v for k, v in base.items() if k not in results}
+        kept.update({k: r[:2] for k, r in results.items()})
+        rows = "".join(f"{t}\t{l}\t{chars}\t{same}\n" for (t, l), (chars, same) in sorted(kept.items()))
+        open(os.path.join(HERE, "baseline.tsv"), "w").write(
+            "# master's non-blank characters in LazyVim's foreground: theme, language, characters, matching\n" + rows)
+        return
+    every = not a.theme and langs == list(LANGS)
+    lost = worse({k: same for k, (_, same) in base.items()}, {k: r[1] for k, r in results.items()}, every)
+    for t, l, was, now in lost:
+        print(f"worse: {t} {l} {was} -> {now} characters matching" if now is not None else f"not run: {t} {l}")
+    sys.exit(1 if lost else 0)
+
+
+if __name__ == "__main__":
+    main()

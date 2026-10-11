@@ -1,0 +1,98 @@
+# theme	source (owner/repo@commit, or skip)	colorscheme (or why skipped)	ex commands before it (- for none)	plugins it needs on the runtime path
+tokyonight-moon	folke/tokyonight.nvim@cdc07ac78467a233fd62c493de29a17e0cf2b2b6	tokyonight-moon	-	-
+tokyonight-night	folke/tokyonight.nvim@cdc07ac78467a233fd62c493de29a17e0cf2b2b6	tokyonight-night	-	-
+tokyonight-storm	folke/tokyonight.nvim@cdc07ac78467a233fd62c493de29a17e0cf2b2b6	tokyonight-storm	-	-
+kanagawa-wave	rebelot/kanagawa.nvim@bb85e4bfc8d89b0e62c8fa53ccdd13d12e2f77b3	kanagawa-wave	-	-
+kanagawa-dragon	rebelot/kanagawa.nvim@bb85e4bfc8d89b0e62c8fa53ccdd13d12e2f77b3	kanagawa-dragon	-	-
+rose-pine	rose-pine/neovim@ff483051a47e27d84bdef47703538df1ed9f4a47	rose-pine	-	-
+rose-pine-moon	rose-pine/neovim@ff483051a47e27d84bdef47703538df1ed9f4a47	rose-pine-moon	-	-
+everforest-dark	sainnhe/everforest@85a86eb62409e3ec88713bff3d1b9d7374e112e4	everforest	set background=dark	-
+gruvbox-material-dark	sainnhe/gruvbox-material@11d779b26a9ab2b3db8c22c6ac9fb6e8ed4fea79	gruvbox-material	set background=dark	-
+gruvbox-dark	ellisonleao/gruvbox.nvim@154eb5ff5b96d0641307113fa385eaf0d36d9796	gruvbox	set background=dark	-
+catppuccin-mocha	catppuccin/nvim@edefef779ab08ce1a4a404713e3012b0d202bd35	catppuccin-mocha	-	-
+catppuccin-macchiato	catppuccin/nvim@edefef779ab08ce1a4a404713e3012b0d202bd35	catppuccin-macchiato	-	-
+catppuccin-frappe	catppuccin/nvim@edefef779ab08ce1a4a404713e3012b0d202bd35	catppuccin-frappe	-	-
+flexoki-dark	kepano/flexoki-neovim@c3e2251e813d29d885a7cbbe9808a7af234d845d	flexoki-dark	-	-
+melange-dark	savq/melange-nvim@ce42f6b629beeaa00591ba73a77d3eeac4cf28ce	melange	set background=dark	-
+nightfox	EdenEast/nightfox.nvim@4dacd3f0185a2227bdf3b6c0975a8f0bf87cac9a	nightfox	-	-
+nordfox	EdenEast/nightfox.nvim@4dacd3f0185a2227bdf3b6c0975a8f0bf87cac9a	nordfox	-	-
+nord	gbprod/nord.nvim@87394d4fc35c901bbe38326a78d31ab1ead826b6	nord	-	-
+onedark	navarasu/onedark.nvim@df4792accde9db0043121f32628bcf8e645d9aea	onedark	-	-
+github-dark	projekt0n/github-nvim-theme@c106c9472154d6b2c74b74565616b877ae8ed31d	github_dark_default	-	-
+vscode-dark	Mofiqul/vscode.nvim@6439ed89d0e10193f07e92268a321d7c6f6e93ee	vscode	set background=dark	-
+dracula	dracula/vim@e7817b4baccfb3529f709ac048c621f35cdbc5b3	dracula	-	-
+solarized-dark	maxmx03/solarized.nvim@a8085e29883ddcfb39bd46197eb32ef00df05368	solarized	set background=dark	-
+oxocarbon-dark	nyoom-engineering/oxocarbon.nvim@cd6523a0836d6e8ee823d343149fd06c7b71fdde	oxocarbon	set background=dark	-
+sonokai	sainnhe/sonokai@b023c5280b16fe2366f5e779d8d2756b3e5ee9c3	sonokai	-	-
+material-dark	kaicataldo/material.vim@32f423c825ee89a37d66e3d8f00e777c7d8a41ab	material	-	-
+shokunin-dark	skip	VS Code JSON in tools/themes-src, no Neovim original	-	-
+adwaita	Mofiqul/adwaita.nvim@c607954f7b2cf56b24e921db0dab4749f3430a22	adwaita	set background=dark	-
+alabaster	dchinmay2/alabaster.nvim@b902c73fabefc13583bfc0c18b28950ea8f6244f	alabaster	set background=dark	-
+ayu	ayu-theme/ayu-vim@01faacb4cb76e8cf72ad9858c581d80876260ab3	ayu	let ayucolor = 'dark'	-
+ayu-mirage	ayu-theme/ayu-vim@01faacb4cb76e8cf72ad9858c581d80876260ab3	ayu	let ayucolor = 'mirage'	-
+bamboo	ribru17/bamboo.nvim@1309bc88bffcf1bedc3e84e7fa9004de93da774a	bamboo	-	-
+cendre	Aejkatappaja/cendre@5c9d924a4c75c130a1c812ee3e240d78a92d2c3a	cendre	-	-
+darkearth	ptdewey/darkearth-nvim@d894924296162bfb50c6ab753c30c479c100f0e6	darkearth	-	-
+e-ink	e-ink-colorscheme/e-ink.nvim@a0f003a0c6e2952abd9b73ef89d56c65e6c46f00	e-ink	set background=dark	-
+edge	sainnhe/edge@7ec78c21bd8f0b2b0b47043bb1e730c561647c72	edge	set background=dark	-
+gotham	whatyouhide/vim-gotham@7e7eff411fedada2b6cceb78059ed8a4a26d03ba	gotham	-	-
+hojicha	casedami/neomodern.nvim@d41469578922a23d75a0d9e8deef1e34837230a6	hojicha	-	-
+iceberg	cocopon/iceberg.vim@23835d5ed696436f716cbfdb56a93a7850fe3b18	iceberg	set background=dark	-
+jellybeans	WTFox/jellybeans.nvim@e732023eed419be0efb0bf47569cc12e7cdda6a1	jellybeans	-	-
+koda-dark	oskarnurm/koda.nvim@25a5c98ca2f6bb0b69f5e2654a78f0d7c7e0721d	koda-dark	-	-
+lackluster	slugbyte/lackluster.nvim@70dd682e564784893b984deb51dd5ddd263c8cc7	lackluster	-	-
+lucerna	skip	merl's own palette after atlas.vim (#775), no Neovim original	-	-
+mellifluous	ramojus/mellifluous.nvim@ec0575bdb63594c5e7fba6eb9607b009aa1fb74e	mellifluous	set background=dark	-
+mellow	mellow-theme/mellow.nvim@6273b7f0ddf6ac2b75021b3bc0bd8b3305cfeef1	mellow	-	-
+miasma	xero/miasma.nvim@627f2e1cac91de0d1d4dd7472b506a30f41b2b7d	miasma	-	-
+minischeme	nvim-mini/mini.nvim@9ee72c26ac1440ee6c95ce708c1d739684be316a	minischeme	set background=dark	-
+moonfly	bluz71/vim-moonfly-colors@2c883835f5b7b380a0a9e80695c420f7efebdfe4	moonfly	-	-
+nightfly	bluz71/vim-nightfly-colors@2c31d07ce05efa92bcb7f893f9c74a846226c898	nightfly	-	-
+papercolor	pappasam/papercolor-theme-slim@fe0d36c4626dfc4b804ebfb3bf7cc66b2ada9617	PaperColorSlim	-	-
+pencil	preservim/vim-colors-pencil@1101118fa3e3038568541e9a67511513aac5d19b	pencil	set background=dark	-
+selenized	calind/selenized.nvim@8663bf6b222d911e04a9f1b391c3b1ccd22adb69	selenized	set background=dark	-
+seneca	skip	merl's own palette after atlas.vim (#775), no Neovim original	-	-
+soviet-dark	rezniqov/soviet.nvim@6dd84e174d0104f22adbdc62eb5fbd6c7684ad8d	soviet-dark	-	-
+srcery	srcery-colors/srcery-vim@ae584b8320c6e74bd37ca908e45026163c086628	srcery	-	-
+token	ThorstenRhau/token@3454326ab2c1a025e157e559ef8c6e3e2be01ef2	token	set background=dark	-
+vague	vague-theme/vague.nvim@73f8aaa866bf3d14dd0b0ab9e48c11794c1cb7ab	vague	-	-
+vesper	datsfilipe/vesper.nvim@1717b1ad657c94bec3fc2bdebb0c55452d9fe46d	vesper	-	-
+rose-pine-dawn	rose-pine/neovim@ff483051a47e27d84bdef47703538df1ed9f4a47	rose-pine-dawn	-	-
+kanagawa-lotus	rebelot/kanagawa.nvim@bb85e4bfc8d89b0e62c8fa53ccdd13d12e2f77b3	kanagawa-lotus	-	-
+everforest-light	sainnhe/everforest@85a86eb62409e3ec88713bff3d1b9d7374e112e4	everforest	set background=light	-
+flexoki-light	kepano/flexoki-neovim@c3e2251e813d29d885a7cbbe9808a7af234d845d	flexoki-light	-	-
+catppuccin-latte	catppuccin/nvim@edefef779ab08ce1a4a404713e3012b0d202bd35	catppuccin-latte	-	-
+gruvbox-material-light	sainnhe/gruvbox-material@11d779b26a9ab2b3db8c22c6ac9fb6e8ed4fea79	gruvbox-material	set background=light	-
+gruvbox-light	ellisonleao/gruvbox.nvim@154eb5ff5b96d0641307113fa385eaf0d36d9796	gruvbox	set background=light	-
+melange-light	savq/melange-nvim@ce42f6b629beeaa00591ba73a77d3eeac4cf28ce	melange	set background=light	-
+dawnfox	EdenEast/nightfox.nvim@4dacd3f0185a2227bdf3b6c0975a8f0bf87cac9a	dawnfox	-	-
+dayfox	EdenEast/nightfox.nvim@4dacd3f0185a2227bdf3b6c0975a8f0bf87cac9a	dayfox	-	-
+tokyonight-day	folke/tokyonight.nvim@cdc07ac78467a233fd62c493de29a17e0cf2b2b6	tokyonight-day	-	-
+onedark-light	navarasu/onedark.nvim@df4792accde9db0043121f32628bcf8e645d9aea	onedark	lua require('onedark').setup({ style = 'light' })	-
+github-light	projekt0n/github-nvim-theme@c106c9472154d6b2c74b74565616b877ae8ed31d	github_light_default	-	-
+vscode-light	Mofiqul/vscode.nvim@6439ed89d0e10193f07e92268a321d7c6f6e93ee	vscode	set background=light	-
+alucard	dracula/vim@e7817b4baccfb3529f709ac048c621f35cdbc5b3	alucard	-	-
+solarized-light	maxmx03/solarized.nvim@a8085e29883ddcfb39bd46197eb32ef00df05368	solarized	set background=light	-
+oxocarbon-light	nyoom-engineering/oxocarbon.nvim@cd6523a0836d6e8ee823d343149fd06c7b71fdde	oxocarbon	set background=light	-
+material-light	kaicataldo/material.vim@32f423c825ee89a37d66e3d8f00e777c7d8a41ab	material	let g:material_theme_style = 'lighter'	-
+bluloco-light	uloco/bluloco.nvim@811253faa7738bfc3a2658a7d0a034dfb9f34f78	bluloco-light	-	rktjmp/lush.nvim@9c60ec2279d62487d942ce095e49006af28eed6e
+shokunin-light	skip	VS Code JSON in tools/themes-src, no Neovim original	-	-
+adwaita-light	Mofiqul/adwaita.nvim@c607954f7b2cf56b24e921db0dab4749f3430a22	adwaita	set background=light	-
+alabaster-light	dchinmay2/alabaster.nvim@b902c73fabefc13583bfc0c18b28950ea8f6244f	alabaster	set background=light	-
+ayu-light	ayu-theme/ayu-vim@01faacb4cb76e8cf72ad9858c581d80876260ab3	ayu	let ayucolor = 'light'	-
+bamboo-light	ribru17/bamboo.nvim@1309bc88bffcf1bedc3e84e7fa9004de93da774a	bamboo	set background=light	-
+e-ink-light	e-ink-colorscheme/e-ink.nvim@a0f003a0c6e2952abd9b73ef89d56c65e6c46f00	e-ink	set background=light	-
+edge-light	sainnhe/edge@7ec78c21bd8f0b2b0b47043bb1e730c561647c72	edge	set background=light	-
+iceberg-light	cocopon/iceberg.vim@23835d5ed696436f716cbfdb56a93a7850fe3b18	iceberg	set background=light	-
+jellybeans-light	WTFox/jellybeans.nvim@e732023eed419be0efb0bf47569cc12e7cdda6a1	jellybeans-light	-	-
+koda-light	oskarnurm/koda.nvim@25a5c98ca2f6bb0b69f5e2654a78f0d7c7e0721d	koda-light	-	-
+lightearth	ptdewey/darkearth-nvim@d894924296162bfb50c6ab753c30c479c100f0e6	lightearth	-	-
+mellifluous-light	ramojus/mellifluous.nvim@ec0575bdb63594c5e7fba6eb9607b009aa1fb74e	mellifluous	set background=light	-
+minischeme-light	nvim-mini/mini.nvim@9ee72c26ac1440ee6c95ce708c1d739684be316a	minischeme	set background=light	-
+neomodern-light	casedami/neomodern.nvim@d41469578922a23d75a0d9e8deef1e34837230a6	neomodern-light	-	-
+papercolor-light	pappasam/papercolor-theme-slim@fe0d36c4626dfc4b804ebfb3bf7cc66b2ada9617	PaperColorSlimLight	-	-
+pencil-light	preservim/vim-colors-pencil@1101118fa3e3038568541e9a67511513aac5d19b	pencil	set background=light	-
+selenized-light	calind/selenized.nvim@8663bf6b222d911e04a9f1b391c3b1ccd22adb69	selenized	set background=light	-
+seneca-light	skip	merl's own palette after atlas.vim (#775), no Neovim original	-	-
+soviet-light	rezniqov/soviet.nvim@6dd84e174d0104f22adbdc62eb5fbd6c7684ad8d	soviet-light	-	-
+token-light	ThorstenRhau/token@3454326ab2c1a025e157e559ef8c6e3e2be01ef2	token	set background=light	-
