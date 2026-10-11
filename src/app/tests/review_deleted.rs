@@ -756,6 +756,54 @@ fn a_two_line_block_is_no_move() {
 }
 
 #[test]
+fn a_moved_definition_counts_its_closing_line() {
+    let helper = "def helper(x)\n  x\nend\n";
+    let (dir, mut a) = repo_review(
+        "d-move-closer",
+        &[
+            ("svc.rb", helper),
+            ("main.rb", "def run\n  helper(1)\n  2\nend\n"),
+        ],
+        &[
+            ("svc.rb", Some("X = 1\n")),
+            ("main.rb", Some("def run\n  2\nend\n")),
+            ("other.rb", Some(helper)),
+        ],
+    );
+    on_deleted(&mut a, &dir.join("main.rb"), "helper(1)", "helper");
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(
+        (a.buf.path.as_deref(), a.line, a.deleted),
+        (Some(&*dir.join("other.rb")), 0, None),
+        "two lines and an `end` are a move: {}",
+        a.message
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_deleted_string_declares_nothing() {
+    let (dir, mut a) = repo_review(
+        "d-deleted-string",
+        &[
+            ("svc.py", "DOC = \"\"\"\ndef helper(x):\n\"\"\"\n"),
+            ("main.py", "def run():\n    helper(1)\n"),
+        ],
+        &[("svc.py", Some("X = 1\n"))],
+    );
+    a.jump_to(&dir.join("main.py"), 2);
+    a.col = a.line_str().find("helper").unwrap();
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(
+        (a.buf.path.as_deref(), a.line),
+        (Some(&*dir.join("main.py")), 1),
+        "{}",
+        a.message
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
 fn d_on_a_deleted_files_line_answers_from_the_base() {
     let (dir, mut a) = moves_review("d-deleted-file");
     let old = "from app.repo import Repo\n\n\ndef use(r: Repo):\n    return r.fetch(1)\n";
