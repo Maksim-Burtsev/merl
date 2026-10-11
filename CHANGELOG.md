@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- In `--review`, a jump (`d`, `D`, `s`, `[`, the tree, a picker) into a file renamed without changes shows its code; only the `c` / `C` walk stops on the rename screen (#759).
+
 ## [0.8.4] - 2026-10-11
 
 ### Added

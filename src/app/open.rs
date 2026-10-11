@@ -48,6 +48,7 @@ impl App {
                     }
                     self.dirty = false;
                     self.conflict = false;
+                    self.walked_here = false;
                     if self.mode == Mode::Edit {
                         self.mode = Mode::Normal;
                     }
