@@ -20,16 +20,19 @@ chrome colours side by side: merl's read off its screen (a find for `alpha` and 
 file give the find match and the selection), LazyVim's from the highlight groups in
 colors/THEME/chrome.tsv.
 
-baseline.tsv holds master's share per theme and language. The run exits 1 when any of those it
-ran is lower; --update-baseline writes the ones it ran instead.
+baseline.tsv holds master's count of matching characters per theme and language, a recorded line
+merl does not draw counting as all wrong. The run exits 1 when any row it ran matches fewer, or,
+run on every theme and language, when a row of the baseline is not run; --update-baseline writes
+the rows it ran instead.
 """
-import argparse, collections, concurrent.futures, os, re, shlex, statistics, sys, tempfile, threading, time
+import argparse, collections, concurrent.futures, os, re, shlex, shutil, statistics, subprocess, sys, tempfile, threading, time
 
 sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, HERE)
-from record import LANGS, LINES, capture, server, file_lines, hexed, manifest, on_screen, project, read_colors, tmux, tsv
+from record import (LANGS, LINES, capture, file_lines, hexed, manifest, on_screen, project, projects, read_colors,
+                    server, tmux, tsv, write_colors)
 
 PROBE = "alpha beta alpha\ngamma delta\nalpha epsilon\nzeta eta theta\n"
 CHROME = [("background", "Normal", 1), ("cursor line", "CursorLine", 1), ("selection", "Visual", 1),
@@ -52,7 +55,7 @@ def token(line, i):
 def score(want, got, text):
     """want, got: {path: {line: [rrggbb per non-blank character]}}; text: {path: file lines}.
     Returns (characters, matching, Counter of (want, got) -> count, {(want, got): token}, lines
-    missing from merl's screen)."""
+    missing from merl's screen). A missing line's characters count as not matching."""
     total = same = missing = 0
     miss, sample = collections.Counter(), {}
     for path, lines in want.items():
@@ -60,6 +63,7 @@ def score(want, got, text):
             mine = got.get(path, {}).get(n)
             if mine is None or len(mine) != len(fgs):
                 missing += 1
+                total += len(fgs)
                 continue
             for i, (w, g) in enumerate(zip(fgs, mine)):
                 total += 1
@@ -71,9 +75,11 @@ def score(want, got, text):
     return total, same, miss, sample, missing
 
 
-def worse(base, now):
-    """(theme, lang, was, is) for every share in now lower than its baseline."""
-    return [(t, l, base[(t, l)], p) for (t, l), p in sorted(now.items()) if (t, l) in base and p < base[(t, l)]]
+def worse(base, now, every=False):
+    """(theme, lang, was, is) for every row of now matching fewer characters than its baseline,
+    and with every (a run of all themes and languages) each baseline row the run lacks, as None."""
+    lost = [(t, l, base[(t, l)], n) for (t, l), n in sorted(now.items()) if (t, l) in base and n < base[(t, l)]]
+    return lost + [(t, l, n, None) for (t, l), n in sorted(base.items()) if every and (t, l) not in now]
 
 
 def draw(merl, home, theme, path, lines, first, keys=()):
@@ -126,7 +132,7 @@ def recorded():
 
 def baseline():
     path = os.path.join(HERE, "baseline.tsv")
-    return {(t, l): (chars, float(p)) for t, l, chars, p in tsv(path)} if os.path.exists(path) else {}
+    return {(t, l): (int(chars), int(same)) for t, l, chars, same in tsv(path)} if os.path.exists(path) else {}
 
 
 def selftest():
@@ -144,12 +150,30 @@ def selftest():
     want = {"a.py": {1: ["82aaff"] * 3 + ["636da6"] * 4, 2: ["82aaff"] * 6 + ["ff966c"] * 4, 9: ["636da6"]}}
     mine = {"a.py": {1: ["82aaff"] * 3 + ["636da6"] * 4, 2: ["636da6"] * 6 + ["ff966c"] * 4}}
     total, same, miss, sample, missing = score(want, mine, {"a.py": lines + [""] * 6})
-    assert (total, same, missing) == (17, 11, 1)
+    assert (total, same, missing) == (18, 11, 1), "a line merl no longer draws counts against it"
+    short = {"a.py": {**mine["a.py"], 9: []}}
+    assert score(want, short, {"a.py": lines + [""] * 6})[::4] == (18, 1)
     assert miss.most_common(1) == [(("82aaff", "636da6"), 6)] and sample[("82aaff", "636da6")] == "return"
     assert token("x = obj.method(1)", 6) == "method" and token("x = obj.method(1)", 3) == "obj" and token("a, b", 1) == ","
-    base = {("nord", "go"): 61.5, ("nord", "rust"): 70.0}
-    assert worse(base, {("nord", "go"): 61.4, ("nord", "rust"): 80.0}) == [("nord", "go", 61.5, 61.4)]
-    assert worse(base, {("nord", "go"): 61.5, ("vague", "go"): 1.0}) == []
+    assert token("x = obj.method(1)", 8) == "method"
+    tree = [row(("│ 2 notes  │  1 ", grey), ("x", blue)),
+            row(("│          │  2 foo(3 ", grey), ("}", red)),
+            row(("│          │  3 ", grey), ("}", blue))]
+    assert on_screen(tree, ["x", "foo(1)", "}"]) == {1: [blue], 3: [blue]}, "line 3 read off its own row"
+    base = {("nord", "go"): 615, ("nord", "rust"): 700}
+    assert worse(base, {("nord", "go"): 614, ("nord", "rust"): 800}) == [("nord", "go", 615, 614)]
+    assert worse(base, {("nord", "go"): 615, ("vague", "go"): 1}) == []
+    assert worse(base, {("nord", "go"): 615}, every=True) == [("nord", "rust", 700, None)]
+    with tempfile.TemporaryDirectory() as d:
+        os.makedirs(os.path.join(d, "colors", "t"))
+        path = os.path.join(d, "colors", "t", "go.tsv")
+        palette = [f"{i:06x}" for i in range(30)]
+        files = [("caddy/a.go", {3: palette + ["000000"] * 12, 7: ["00000a"]})]
+        pins = " ".join(f"{p}@{projects()[p][3]}" for p in LANGS["go"][0])
+        write_colors(path, f"# t\n# projects {pins}\n", files)
+        assert read_colors(path) == dict(files), "a two-digit run and more than 26 colours read back"
+    shipped = {f[:-len(".tmTheme")] for f in os.listdir(os.path.join(ROOT, "themes")) if f.endswith(".tmTheme")}
+    assert set(manifest()) == shipped, f"themes.tsv lacks {shipped - set(manifest())} or has {set(manifest()) - shipped}"
     print("selftest ok")
 
 
@@ -157,7 +181,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--theme")
     ap.add_argument("--lang", default=",".join(LANGS))
-    ap.add_argument("--merl", default=os.path.join(ROOT, "target", "release", "merl"))
+    ap.add_argument("--merl", help="the binary to run (default: target/release/merl, built first)")
     ap.add_argument("--jobs", type=int, default=4)
     ap.add_argument("--show", type=int, default=10)
     ap.add_argument("--update-baseline", action="store_true")
@@ -171,7 +195,9 @@ def main():
     unknown = [t for t in themes if t not in have] + [l for l in langs if l not in LANGS]
     if unknown:
         sys.exit(f"not recorded: {', '.join(unknown)}")
-    merl = os.path.realpath(a.merl)
+    if a.merl is None:
+        subprocess.run(["cargo", "build", "--release", "--quiet"], cwd=ROOT, check=True)
+    merl = os.path.realpath(a.merl or os.path.join(ROOT, "target", "release", "merl"))
     home = tempfile.mkdtemp(prefix="theme-bench-")
     want = {(t, l): read_colors(os.path.join(HERE, "colors", t, f"{l}.tsv")) for t in themes for l in langs}
     text = {}
@@ -193,6 +219,7 @@ def main():
             chromes = dict(zip(themes, pool.map(lambda t: chrome(merl, home, t), themes))) if a.theme else {}
     finally:
         tmux("kill-server")
+        shutil.rmtree(home, ignore_errors=True)
     took = time.time() - started
     results = {k: score(want[k], got[k], {r: text[r][1] for r in want[k]}) for k in want}
     share = {k: round(100 * r[1] / max(r[0], 1), 2) for k, r in results.items()}
@@ -223,15 +250,16 @@ def main():
 
     base = baseline()
     if a.update_baseline:
-        kept = {k: v for k, v in base.items() if k not in share}
-        kept.update({k: (results[k][0], p) for k, p in share.items()})
-        rows = "".join(f"{t}\t{l}\t{chars}\t{p:.2f}\n" for (t, l), (chars, p) in sorted(kept.items()))
+        kept = {k: v for k, v in base.items() if k not in results}
+        kept.update({k: r[:2] for k, r in results.items()})
+        rows = "".join(f"{t}\t{l}\t{chars}\t{same}\n" for (t, l), (chars, same) in sorted(kept.items()))
         open(os.path.join(HERE, "baseline.tsv"), "w").write(
-            "# master's share of non-blank characters in LazyVim's foreground: theme, language, characters, %\n" + rows)
+            "# master's non-blank characters in LazyVim's foreground: theme, language, characters, matching\n" + rows)
         return
-    lost = worse({k: p for k, (_, p) in base.items()}, share)
+    every = not a.theme and langs == list(LANGS)
+    lost = worse({k: same for k, (_, same) in base.items()}, {k: r[1] for k, r in results.items()}, every)
     for t, l, was, now in lost:
-        print(f"worse: {t} {l} {was:.2f} -> {now:.2f} %")
+        print(f"worse: {t} {l} {was} -> {now} characters matching" if now is not None else f"not run: {t} {l}")
     sys.exit(1 if lost else 0)
 
 

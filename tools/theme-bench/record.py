@@ -31,7 +31,7 @@ of their path, each with at least MINLINES recordable lines among its first LINE
 and foreground with the shipped themes/NAME.tmTheme: a difference means the row's commit or
 commands are not the ones the theme was ported from, or the repo changed since.
 """
-import argparse, concurrent.futures, hashlib, json, os, re, shlex, subprocess, sys, tempfile, threading, time
+import argparse, collections, concurrent.futures, hashlib, json, os, re, shlex, subprocess, sys, tempfile, threading, time
 
 sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -51,7 +51,7 @@ SKIP_DIRS = ("migrations/", "vendor/", "testdata/", "node_modules/", "CHANGELOG"
 FILES, LINES, MINLINES, MAXLEN, WIDTH = 4, 200, 80, 140, 200
 LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 GROUPS = ["Normal", "CursorLine", "Visual", "Search", "CurSearch", "LineNr", "CursorLineNr", "StatusLine"]
-SERVER = "merl-theme-bench"
+SERVER = f"merl-theme-bench-{os.getpid()}"
 
 
 def tsv(path):
@@ -73,8 +73,9 @@ def ensure(d, url, commit):
     if not os.path.isdir(os.path.join(d, ".git")):
         os.makedirs(d, exist_ok=True)
         subprocess.run(["git", "init", "-q"], cwd=d, check=True)
+        subprocess.run(["git", "remote", "add", "origin", url], cwd=d, check=True)
     if git("rev-parse", "HEAD", cwd=d) != commit:
-        subprocess.run(["git", "fetch", "-q", "--depth", "1", url, commit], cwd=d, check=True)
+        subprocess.run(["git", "fetch", "-q", "--depth", "1", "origin", commit], cwd=d, check=True)
         subprocess.run(["git", "checkout", "-q", "--detach", "FETCH_HEAD"], cwd=d, check=True)
     return d
 
@@ -171,7 +172,8 @@ def init_lua(cache, name, ts, check=False):
 
 def xdg(cache, name):
     d = os.path.join(cache, "xdg", name)
-    return {f"XDG_{k}_HOME": os.path.join(d, k.lower()) for k in ("CONFIG", "DATA", "STATE", "CACHE")}
+    homes = {f"XDG_{k}_HOME": os.path.join(d, k.lower()) for k in ("CONFIG", "DATA", "STATE", "CACHE")}
+    return {**homes, "XDG_CONFIG_DIRS": os.path.join(d, "config-dirs"), "XDG_DATA_DIRS": os.path.join(d, "data-dirs")}
 
 
 def groups(cache, name, init):
@@ -208,6 +210,7 @@ def server():
     """The bench's tmux server, kept up by an idle session: without it the server exits with the
     last session a job kills, under the next job starting one."""
     tmux("new-session", "-d", "-s", "idle", "-x", "10", "-y", "2", "sleep 86400")
+    tmux("set-option", "-g", "remain-on-exit", "on")
 
 
 def capture(session, cmd, rows, env, ready, keys=()):
@@ -229,6 +232,11 @@ def capture(session, cmd, rows, env, ready, keys=()):
         while True:
             time.sleep(0.15)
             raw = tmux("capture-pane", "-p", "-e", "-t", session).stdout
+            dead = tmux("display-message", "-p", "-t", session, "#{pane_dead} #{pane_dead_status}").stdout.split()
+            if dead and dead[0] == "1":
+                said = tmux("capture-pane", "-p", "-t", session).stdout.strip()
+                tmux("kill-session", "-t", session)
+                raise RuntimeError(f"{cmd}: exited with {' '.join(dead[1:])}: {' '.join(said.split())[:300]}")
             grid = cast.parse(raw, WIDTH, rows)
             seen = seen[-2:] + [raw]
             if len(seen) == 3 and len(set(seen)) == 1 and ready(grid):
@@ -243,20 +251,23 @@ def capture(session, cmd, rows, env, ready, keys=()):
 
 def on_screen(grid, lines):
     """file line number -> the foreground of each non-blank character of that line, read from the
-    rows whose gutter number is followed by the whole line."""
-    out = {}
+    rows whose gutter number is followed by the line's text. The gutter is the column most such
+    numbers end at, so a number inside the tree or the code never claims a line."""
+    hits = []
     for cells in grid:
         text = "".join(c[0] for c in cells)
         for m in re.finditer(r"(\d+) ", text):
             n = int(m.group(1))
-            if n in out or not 1 <= n <= len(lines):
+            if not 1 <= n <= len(lines):
                 continue
             want = "".join(lines[n - 1].split())
             got = [(c[0], c[1]) for c in cells[m.end():] if not c[0].isspace()]
             if want and "".join(ch for ch, _ in got[:len(want)]) == want:
-                out[n] = [fg for _, fg in got[:len(want)]]
-                break
-    return out
+                hits.append((m.end(), n, [fg for _, fg in got[:len(want)]]))
+    if not hits:
+        return {}
+    gutter = collections.Counter(end for end, _, _ in hits).most_common(1)[0][0]
+    return {n: fgs for end, n, fgs in hits if end == gutter}
 
 
 def hexed(rgb):
@@ -279,12 +290,17 @@ def decode(runs, colours):
 
 
 def read_colors(path):
-    """colors/THEME/LANG.tsv -> {project/path: {line: [rrggbb per non-blank character]}}."""
+    """colors/THEME/LANG.tsv -> {project/path: {line: [rrggbb per non-blank character]}}. A
+    recording drawn from other commits than tools/d-bench/projects.tsv pins now is refused."""
     rows = open(path).read().splitlines()
+    pins = dict(p.split("@") for p in next(r for r in rows if r.startswith("# projects")).split()[2:])
+    stale = [p for p, c in pins.items() if projects()[p][3] != c]
+    if stale:
+        raise SystemExit(f"{path}: recorded at other commits of {', '.join(stale)}; record it again")
     colours = dict(p.split("=") for p in next(r for r in rows if r.startswith("# palette")).split()[2:])
     out = {}
     for row in rows:
-        if row.startswith("#"):
+        if not row or row.startswith("#"):
             continue
         rel, cells = row.split("\t")
         out[rel] = {int(n): decode(runs, colours) for n, runs in (c.split(":") for c in cells.split())}
@@ -326,8 +342,9 @@ def record(cache, ts, name, langs):
             got = on_screen(grid, lines)
             files.append((rel, {n: [hexed(c) for c in fgs] for n, fgs in got.items() if recordable(lines[n - 1])}))
         version = subprocess.run(["nvim", "--version"], capture_output=True, text=True).stdout.split("\n")[0]
+        pins = " ".join(f"{p}@{projects()[p][3]}" for p in LANGS[lang][0])
         head = (f"# {name}: {source} `{before if before != '-' else ''}{' | ' if before != '-' else ''}"
-                f"colorscheme {colorscheme}`; {version}, nvim-treesitter {NVIM_TS[:7]}\n")
+                f"colorscheme {colorscheme}`; {version}, nvim-treesitter {NVIM_TS[:7]}\n# projects {pins}\n")
         write_colors(os.path.join(out, f"{lang}.tsv"), head, files)
     print(f"{name}: {', '.join(langs)}", file=sys.stderr)
 

@@ -9,15 +9,19 @@ tools/theme-bench/run                          # every recorded theme, every lan
 tools/theme-bench/run --theme kanagawa-wave    # its share per language, top mismatches, chrome
 tools/theme-bench/run --lang python,go
 tools/theme-bench/run --update-baseline        # a PR that changes the table commits the new baseline
-tools/theme-bench/run --selftest               # the reading, the scoring and the gate; CI runs it
+tools/theme-bench/run --selftest               # the reading, the scoring, the gate, the stored format
+                                               # and themes.tsv covering every shipped theme; CI runs it
 ```
 
-The runner draws each file with `target/release/merl --theme THEME` (`--merl BIN` for another
-build) in tmux on its own server, 200 columns wide, with a temporary `HOME`, reads the screen as
-`tools/cast.py` does and compares each line, by its gutter number and its text with blanks
-dropped, with the recording. It prints per language the median number of characters compared and
-the lowest, median and highest share over the themes, and exits 1 when a theme × language scores
-lower than in `baseline.tsv`. With `--theme`, it also prints the theme's most frequent mismatches
+The runner builds `target/release/merl` (`--merl BIN` runs another build as it is), draws each
+file with `--theme THEME` in tmux on a server of its own process, 200 columns wide, with a
+temporary `HOME`, reads the screen as `tools/cast.py` does (Pillow) and compares each line, by its
+gutter number and its text with blanks dropped, with the recording; a recorded line merl does not
+draw counts as all wrong. It prints per language the characters compared and the lowest, median
+and highest share over the themes, and exits 1 when a theme × language matches fewer characters
+than in `baseline.tsv`, or, on a run of every theme and language, when a baseline row was not
+run. A recording drawn from other commits than `tools/d-bench/projects.tsv` pins now is refused:
+record it again. With `--theme`, it also prints the theme's most frequent mismatches
 (`want #x got #y e.g. token`) and the chrome: merl's background, cursor line, selection, find
 match, current find match, line numbers, cursor line number and status line read off its screen
 on a probe file (`v`, then a find for `alpha`), LazyVim's from the highlight groups `Normal`,
@@ -28,9 +32,9 @@ on a probe file (`v`, then a find for `alpha`), LazyVim's from the highlight gro
 | file | what |
 |---|---|
 | `themes.tsv` | per shipped theme: its Neovim original as `owner/repo@commit`, the colorscheme, the ex commands before it (`set background=light`, `let ayucolor = 'mirage'`), the plugins it needs (bluloco: lush.nvim); `skip` with the reason for a theme with no Neovim original |
-| `colors/THEME/LANG.tsv` | LazyVim's foreground of every non-blank character, per file line: `# palette a=c8d3f5 …`, then `PROJECT/PATH<TAB>LINE:RUNS …`, where RUNS is a letter per colour and its count when it repeats |
+| `colors/THEME/LANG.tsv` | LazyVim's foreground of every non-blank character, per file line: `# projects NAME@COMMIT`, `# palette a=c8d3f5 …`, then `PROJECT/PATH<TAB>LINE:RUNS …`, where RUNS is a letter per colour and its count when it repeats |
 | `colors/THEME/chrome.tsv` | the highlight groups of the chrome as Neovim draws them: a colour a group leaves unset is `Normal`'s, `reverse` swaps the two |
-| `baseline.tsv` | master's share per theme and language |
+| `baseline.tsv` | master's characters compared and matching per theme and language |
 | `run` | the runner |
 | `record.py` | the recording, once |
 
@@ -40,7 +44,8 @@ LazyVim as the epic defines it: Neovim with the theme's own colorscheme, nvim-tr
 queries (`main`, pinned in `record.py`) and the parsers LazyVim installs by default plus Rust and
 Go, built with `cc` at the revisions nvim-treesitter pins, `termguicolors`, `number`,
 `cursorline`, `nowrap`, and `vim.treesitter.start` on every buffer; no LSP, so no semantic
-tokens. Neovim runs in tmux with its `XDG_*` under the cache, not `~/.config/nvim`.
+tokens. Neovim runs in tmux with every `XDG_*` home and `XDG_CONFIG_DIRS` / `XDG_DATA_DIRS` under the
+cache, so neither `~/.config/nvim` nor a system-wide `site` directory reaches it.
 
 The files: four per language from the projects of `tools/d-bench/projects.tsv` at their pinned
 commits (Python from paperless-ngx, Rust from ripgrep, TypeScript from outline, Go from caddy,
@@ -60,7 +65,8 @@ tools/theme-bench/record.py --jobs 2                # every theme: 9 min
 tools/theme-bench/record.py --theme nord --lang go
 ```
 
-`--check` loads each theme as `tools/port-theme.sh` does and compares its `Normal` with the
+`--check` loads each theme with its row's commands, as `tools/port-theme.sh` would, without the
+parsers, and compares its `Normal` with the
 shipped `themes/NAME.tmTheme`'s background and foreground: a difference means the row is not what
 the theme was ported from, or its repo changed since. On 2026-10-11 all 92 rows passed, and 90
 themes regenerated byte for byte through `tools/nvim2tmtheme.py`. The two that did not:
