@@ -1,5 +1,3 @@
-//! The type of a receiver: what a value was declared, assigned or returned as.
-
 use super::*;
 
 struct TypeVia {
@@ -57,7 +55,6 @@ impl App {
             self.external_files(kind);
         }
         let (text, line) = self.scope(here, chain.first())?;
-        // `super().m()` / `super.m()` is `self` / `this` with the walk started one level up.
         if chain.first().is_some_and(|f| f == "super") {
             let [_] = chain else {
                 return Err(chain[1].clone());
@@ -90,8 +87,6 @@ impl App {
                 Some(members)
             }
         });
-        // An assignment inside a method stands for a field no type declares, and the base-most
-        // one introduced it: `self.audit = None` in a subclass is a use of the base's field.
         let hits = declared
             .or_else(|| {
                 let mut assigned = None;
@@ -133,14 +128,12 @@ impl App {
     ) -> Result<ProvenType, String> {
         let (text, line) = self.scope(here, chain.first())?;
         match head {
-            // The chain hangs off a call: `make_uow().users.word`.
             Some(search::CallHead {
                 call_without_arguments: call,
                 value,
                 fields_to_word: fields,
             }) => {
                 let value = value.clone();
-                // A cast is its own link, as written: `via (repo as UserRepository)`.
                 let cast = matches!(value, search::Value::Type(_) | search::Value::Cast { .. })
                     .then(|| call.clone());
                 let TypeVia { ty, call_signature } = self
@@ -277,8 +270,6 @@ impl App {
         }])
     }
 
-    /// `None` when a base cannot be read at all: a call (`six.with_metaclass(…)`), a name nothing
-    /// binds, a `*` import.
     pub(super) fn inherited_outside(
         &self,
         kind: Kind,
@@ -293,7 +284,6 @@ impl App {
         (self.python_ancestry(&ty, 0)? == Ancestry::ReachesOutsideTheProject).then_some(ty)
     }
 
-    /// `None` when a base cannot be read.
     fn python_ancestry(&self, ty: &Typed, depth: usize) -> Option<Ancestry> {
         let kind = Kind::Python;
         let text = self.text_of(&ty.path).filter(|_| depth < 8)?;
@@ -302,7 +292,6 @@ impl App {
         for base in search::bases(kind, &text, ty.line) {
             let parts = search::type_path(kind, &base)?;
             let (name, chain) = parts.split_last()?;
-            // What `above` reads as declaring nothing worth a jump.
             if matches!(name.as_str(), "object" | "Generic" | "Protocol" | "ABC") {
                 continue;
             }
@@ -328,10 +317,6 @@ impl App {
         })
     }
 
-    /// `word` as the class `chain` names declares it for the class itself: a method, else a line
-    /// of the class body (`CONST = 1`, `RED = 1` of an `Enum`, a dataclass's `x: int`, a
-    /// property), in the class or what [`App::above`] proves over it. An attribute a method
-    /// assigns to `self` is an instance's, and no answer here.
     pub(super) fn class_attribute(
         &mut self,
         kind: Kind,
@@ -345,11 +330,6 @@ impl App {
         let Some(ty) = self.type_decl(kind, here, &chain.join(".")) else {
             return Vec::new();
         };
-        // Above the class the bases are read as `super` reads them: several that disagree, or
-        // one outside the project, prove nothing.
-        // Reading no declaration in the class is no proof that it has none: a tuple target, a
-        // `def` under an `if`, a nested class. A body that writes the word other than behind a
-        // `.` leaves it to the rules below and the search by name.
         let members = self.members_of(kind, &ty, word);
         let hits = match (members.is_empty(), self.field_of(kind, &ty, word, false)) {
             (false, _) => members,
@@ -365,9 +345,6 @@ impl App {
             .collect()
     }
 
-    /// Whether the Python class `ty` writes `word` other than behind a `.`: on its header's
-    /// lines, which a one-line body shares, or in its body, which a comment, a string's text or
-    /// a closer at the margin does not end.
     fn class_writes(&self, ty: &Typed, word: &str) -> bool {
         let Some(text) = self.text_of(&ty.path) else {
             return true;
@@ -389,13 +366,11 @@ impl App {
             if bare.is_match(l) && !(i == ty.line - 1 && t.starts_with(&format!("class {word}"))) {
                 return true;
             }
-            // The header ends on the line whose code ends in `:`, or holds the body behind it.
             header = header && !l.split('#').next().unwrap_or(l).contains(':');
         }
         false
     }
 
-    /// `Err` names the first name of the chain `x.f.g` that is not proven.
     fn chain_type(
         &self,
         kind: Kind,
@@ -411,9 +386,6 @@ impl App {
         self.follow(kind, start, &chain[0], true, &chain[1..])
     }
 
-    /// From the type `start` of `name`, each of `fields` in the type before it. What the status
-    /// line lists: `repo: UserRepository`, or with `merge` `self.uow: UnitOfWork` for the receiver
-    /// and its field, then `users: UserRepository` for each field after them.
     fn follow(
         &self,
         kind: Kind,
@@ -454,9 +426,6 @@ impl App {
         Ok(ProvenType { ty, links })
     }
 
-    /// The type of `name` on `line1` of `text`, the text of `file`: the one type all its
-    /// declarations in scope read. `hops` is how many times a declaration may hand over to another
-    /// name (`self.repo = repo`).
     fn value_type(
         &self,
         kind: Kind,
@@ -470,10 +439,6 @@ impl App {
         if !bindings.is_empty() || kind != Kind::Go {
             return self.agree(kind, file, text, &bindings, hops);
         }
-        // A Go name no scope of the file declares is the package's, declared in any of its
-        // files (#100); each is read in the file that writes it, and they have to agree. An
-        // empty list is no proof of that: the walk misses locals, so the function around the
-        // line must not so much as mention the name, and an import of the file is no variable.
         let imported = search::imports(kind, text).iter().any(|i| i.name == name);
         if imported || search::go_may_declare(text, line1, name) {
             return None;
@@ -508,10 +473,6 @@ impl App {
         })
     }
 
-    /// The one type every binding reads, or `None` when there is none, one cannot be read or
-    /// two disagree. A binding already being read further out is left to that reading: inside
-    /// it the others say what the name holds, and `self.model = self.model.to(device)` reads
-    /// `to` on the type `self.model = model` gives.
     fn agree(
         &self,
         kind: Kind,
@@ -551,7 +512,6 @@ impl App {
     ) -> Option<TypeVia> {
         match &b.value {
             search::Value::Type(t) | search::Value::New(t) => {
-                // `new api.Tool()` on a parameter `api` names no namespace of the file.
                 let path = search::type_path(kind, t).filter(|p| p.len() > 1);
                 if path.is_some_and(|p| hidden(kind, file, text, b.line1, &p[0])) {
                     return None;
@@ -601,8 +561,6 @@ impl App {
             search::Value::Name(n) if hops > 0 => {
                 self.value_type(kind, file, text, b.line1, n, hops - 1)
             }
-            // An element of a collection whose every declaration writes its type: an
-            // annotation, or the return type of the function it was assigned from.
             search::Value::Element(n) if hops > 0 => {
                 let (file, text, bindings) = match n.rsplit_once('.') {
                     None => (
@@ -640,7 +598,6 @@ impl App {
                         }
                         _ => return None,
                     };
-                    // Go's `type IssueList []*Issue` says what it holds on its own line.
                     let named = |written: &str| {
                         let list = self
                             .type_decl(kind, &at, written)
@@ -672,7 +629,6 @@ impl App {
                 }
                 found
             }
-            // `const { repo } = this`: the field of what the chain on the right proves.
             search::Value::Field { chain: from, field } if hops > 0 => {
                 let ProvenType { ty, .. } = self
                     .chain_type(kind, file, text, b.line1, from, hops - 1)
@@ -706,11 +662,6 @@ impl App {
         }
     }
 
-    /// What a call of `callee` on `line1` of `file` gives: the class it constructs, or the
-    /// declared return type of the function, resolved in the file declaring it. `e.RequestInfo()`
-    /// on a receiver whose type is proven is the method of that type, or of one it extends. A
-    /// return type is never followed through another call; the receiver may itself come from a
-    /// call, and `hops` bounds that, so two locals assigned from each other end. The signature is spelled as the language writes it.
     fn call_type(
         &self,
         kind: Kind,
@@ -722,8 +673,6 @@ impl App {
     ) -> Option<TypeVia> {
         let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
         let (method, receiver) = parts.split_last()?;
-        // `super.make()` is the base's `make`, which only `typed_definitions` knows how to find:
-        // read as a call on `this`, an override's narrower return type would answer.
         if receiver.first().is_some_and(|r| r == "super") {
             return None;
         }
@@ -742,8 +691,6 @@ impl App {
                 <[Hit; 1]>::try_from(found).ok().map(|[hit]| hit)?
             }
             None => {
-                // A parameter or a local named like a function or an import is a value: what it
-                // returns when called is not what that function declares.
                 if hidden(kind, file, text, line1, &parts[0]) {
                     return None;
                 }
@@ -780,8 +727,6 @@ impl App {
         })
     }
 
-    /// The return type the function `callee` of `file` declares, as written, and the file that
-    /// writes it. A class, and a function that declares none, give nothing.
     fn declared_return(&self, kind: Kind, file: &Path, callee: &str) -> Option<(String, PathBuf)> {
         let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
         let decl = self.declaration(kind, file, &parts)?;
@@ -792,7 +737,6 @@ impl App {
         }
     }
 
-    /// The declaration of the type written as `written` in `file`.
     pub(super) fn type_decl(&self, kind: Kind, file: &Path, written: &str) -> Option<Typed> {
         self.type_decl_at(kind, file, written, 0)
     }
@@ -802,10 +746,6 @@ impl App {
         let Some(decl) = self.declaration(kind, file, &parts) else {
             return self.typedef(kind, file, &parts, depth);
         };
-        // Go's `type X = Y` is `Y` itself, methods and fields (#100), where `Y` is a type the
-        // project declares; `type X = []Y` and the like stay what their line says.
-        // An alias that methods are declared on, `func (t Twin) Close()`, answers for them under
-        // its own name, as before.
         let receiver = |alias: &str| {
             let files = self.package_files(kind, &decl.path);
             let pattern = format!(r"^func\s+\(\s*(?:\w+\s+)?\*?{}\b", regex::escape(alias));
@@ -818,9 +758,6 @@ impl App {
         {
             return Some(ty);
         }
-        // The name is the declaration's own: behind `from repos import UserRepository as Users`
-        // the members are `UserRepository`'s (#100).
-        // So is a TypeScript one, which an `export { Hono as HonoBase }` renames.
         if !search::declares_type(kind, &decl.text) {
             return self.required(kind, file, &parts);
         }
@@ -833,18 +770,12 @@ impl App {
 }
 
 impl App {
-    /// Whether the JSDoc type `t` of `file` names a type the project declares, itself or as the
-    /// element of `T[]`: only then does it say more than the code it documents (#347). A
-    /// `{Object}` or `{string}` leaves the default value, the body's `return new X()`, to say.
     fn jsdoc_resolves(&self, kind: Kind, file: &Path, t: &str) -> bool {
         let element = search::element_type(kind, t);
         self.type_decl(kind, file, element.as_deref().unwrap_or(t))
             .is_some()
     }
 
-    /// The declarations of `name` that `line1` of `text`, the text of `file`, reads
-    /// ([`search::bindings`]), each typed by the JSDoc a JavaScript file writes for it, as an
-    /// annotation types it in TypeScript (#347), when that type resolves.
     fn bindings_of(
         &self,
         kind: Kind,
@@ -866,9 +797,6 @@ impl App {
         bindings
     }
 
-    /// What the function declared on `decl1` of `text`, the text of `file`, returns
-    /// ([`search::returns`]). In a JavaScript file its JSDoc `@returns {T}` says it first, when
-    /// `T`, or the element of a `T[]`, is a type the project declares (#347).
     fn returns_of(
         &self,
         kind: Kind,
@@ -886,10 +814,6 @@ impl App {
         }
     }
 
-    /// The JSDoc `@typedef` of a JavaScript `file` that declares the type `parts` names (#347):
-    /// a `@typedef {Object}` with its `@property` lines, or `@typedef {import("./x").Name}`, the
-    /// type `Name` of the module an import of `./x` reads. A name the file declares twice is
-    /// none.
     fn typedef(&self, kind: Kind, file: &Path, parts: &[String], depth: usize) -> Option<Typed> {
         static IMPORTED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
             Regex::new(r#"^import\(\s*["']([^"']+)["']\s*\)\.([A-Za-z_$][\w$]*)$"#).unwrap()
@@ -930,9 +854,6 @@ impl App {
 }
 
 impl App {
-    /// The class a JavaScript `file` binds to `parts` by `const X = require("./x")` (#347): what
-    /// the module hands out, when it declares a type. It types what a JSDoc type names, and as
-    /// any type the file writes, `new X()` and `extends X` too.
     fn required(&self, kind: Kind, file: &Path, parts: &[String]) -> Option<Typed> {
         let [name] = parts else {
             return None;
@@ -962,10 +883,6 @@ pub(super) fn anonymous(file: &Path, line: usize) -> Typed {
     }
 }
 
-/// Whether a parameter or a local binds `name` where `line1` of `text` reads it: a value
-/// then, whatever function, import or namespace of that name the file can see. In JavaScript a
-/// `const X = require("./x")` is an import (#328), so `X.make()` returns what `make` declares
-/// (#347); TypeScript reads what `require` gives as `any`.
 fn hidden(kind: Kind, file: &Path, text: &str, line1: usize, name: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let required = Regex::new(&format!(
@@ -981,22 +898,13 @@ fn hidden(kind: Kind, file: &Path, text: &str, line1: usize, name: &str) -> bool
     })
 }
 
-/// The name of the type the line `decl` declares, reached as `parts`. Python and TypeScript read
-/// it off the line: behind `from repos import UserRepository as Users`, or
-/// `export { Hono as HonoBase }`, the last part is the alias, and the members are the
-/// declaration's (#100).
 fn declared_name(kind: Kind, decl: &str, parts: &[String]) -> String {
     search::type_name(kind, decl)
-        // `export default class extends Base {` has no name of its own.
         .filter(|n| kind == Kind::Python || kind == Kind::TsJs && n != "extends")
         .or_else(|| parts.last().cloned())
         .unwrap_or_default()
 }
 
-/// A Swift type a receiver is proven to be (#384): its name as written, the name
-/// [`search::qualified`] gives its members' owner, and for a type the project declares its
-/// keyword and the first type its header inherits. A type the project only extends has no
-/// keyword.
 struct SwiftType {
     name: String,
     owner: String,
@@ -1005,12 +913,6 @@ struct SwiftType {
 }
 
 impl App {
-    /// The declarations of `word` on the Swift receiver `chain` whose type is proven (#384): a
-    /// parameter's or a property's annotation, a construction of a type the project declares, a
-    /// call's `-> Type`, `self`, a loop over `[Type]`, up to six names long. The member is the
-    /// type's own, its extensions', then its superclasses'. On a type the project only extends,
-    /// the extensions that declare it, or an empty list for "no definition". `None` when a link
-    /// is not proven, or the type declares nothing of the name: the search by name decides.
     pub(super) fn swift_typed(
         &self,
         here: &Path,
@@ -1024,7 +926,6 @@ impl App {
                 self.swift_chain(here, here, text, self.line + 1, chain, 1)?;
             let ty = self.swift_type(here, &written)?;
             let mut rows = self.swift_member_rows(here, &ty, word)?;
-            // A value reaches the instance members; a `static` one needs the type.
             if rows
                 .iter()
                 .any(|h| search::swift_member_kind(&h.text) == Some(search::SwiftMember::Instance))
@@ -1043,12 +944,10 @@ impl App {
                     .collect(),
             )
         })();
-        // A cut in a grep whose result is dropped says nothing about the list shown in the end.
         self.truncated.set(cut);
         found
     }
 
-    /// The type written for the last of `names` on `line1` of `text`, the text of `file`.
     fn swift_chain(
         &self,
         here: &Path,
@@ -1086,9 +985,6 @@ impl App {
         Some(SwiftChain { written, links })
     }
 
-    /// `self` is the type around the line; a local or a parameter what its one binding gives it;
-    /// else a property of the type around the line, when nothing in its function may bind the
-    /// name unread.
     fn swift_value(
         &self,
         here: &Path,
@@ -1112,7 +1008,6 @@ impl App {
             }
             [] => {
                 let at = around?;
-                // The lines of the function under the type, down to `line1`.
                 let mut top = search::swift_scope(&lines, &literal, line1).header_line1;
                 while top > at {
                     match search::swift_scope(&lines, &literal, top).header_line1 {
@@ -1131,8 +1026,6 @@ impl App {
         }
     }
 
-    /// What `given` on `line1` of `file` reads as a type, as written. A type named by a
-    /// generic parameter in scope there is no type the project declares.
     fn swift_given_type(
         &self,
         here: &Path,
@@ -1168,8 +1061,6 @@ impl App {
         Some(via)
     }
 
-    /// A construction of a type the project declares, the `-> Type` of the one function or
-    /// method called, a cast, or the chain of names it is.
     fn swift_expr(
         &self,
         here: &Path,
@@ -1190,7 +1081,6 @@ impl App {
             search::SwiftExpr::Call(callee) => callee,
         };
         let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
-        // `Type(…)`, `Type.init(…)`: a type the project declares, or nothing a call reads.
         if let [ty] | [ty, _] = parts.as_slice()
             && (parts.len() == 1 || parts[1] == "init")
             && let Some(t) = self.swift_type(here, ty)
@@ -1199,7 +1089,6 @@ impl App {
         }
         let (method, receiver) = parts.split_last()?;
         let (decl, owner) = match receiver {
-            // A function of the file's module, which no local or parameter hides.
             [] => {
                 if !search::bindings(Kind::Swift, text, line1, method).is_empty() {
                     return None;
@@ -1243,7 +1132,6 @@ impl App {
         })
     }
 
-    /// The property `name` of `ty`, or of what it extends: one `let` or `var` line.
     fn swift_field(
         &self,
         here: &Path,
@@ -1261,8 +1149,6 @@ impl App {
         self.swift_given_type(here, &row.path, &text, row.line1, given, hops)
     }
 
-    /// The Swift type written as `written`: the one the project declares by that name, not a
-    /// protocol or an alias; or, when it declares none and extends it, a type from outside.
     fn swift_type(&self, here: &Path, written: &str) -> Option<SwiftType> {
         let name = search::swift_type_name(written)?;
         let pattern = search::def_patterns(Kind::Swift, &name).join("|");
@@ -1276,7 +1162,6 @@ impl App {
                 Some(t) if t.keyword == "extension" => extended |= t.name == name,
                 Some(t) if t.name == name => decls.push((h, t.keyword, t.first_inherited)),
                 Some(_) => {}
-                // `typealias Name`, `associatedtype Name`: no type of its own.
                 None if !h.text.contains("func ")
                     && search::swift_member_kind(&h.text).is_none()
                     && !search::swift_case(&h.text) =>
@@ -1307,10 +1192,6 @@ impl App {
         }
     }
 
-    /// The project's declarations of `word` as a member of `ty`: its body's and its extensions',
-    /// else, for a class, those of the class it extends, and so on up. `None` when none declares
-    /// it and `ty` is declared in the project, whose protocols or bases outside may; an empty
-    /// list for a type from outside.
     fn swift_member_rows(&self, here: &Path, ty: &SwiftType, word: &str) -> Option<Vec<Hit>> {
         let pattern = search::def_patterns(Kind::Swift, word).join("|");
         let hits = self.project_definitions(Kind::Swift, here, word, &pattern);

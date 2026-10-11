@@ -158,3 +158,14 @@ Plain,
 
 def flush() -> None:
     Flush.CODE
+
+
+class Bracketed(Plain):
+    ITEMS = [
+        1,
+]
+    CODE, v = 10, 11
+
+
+def bracketed() -> None:
+    Bracketed.CODE

@@ -419,6 +419,31 @@ fn a_cut_grep_that_is_dropped_marks_nothing() {
 }
 
 #[test]
+fn a_cut_swift_type_grep_that_is_dropped_marks_nothing() {
+    let many = "class Knot {}\n".repeat(search::MAX_HITS);
+    let (dir, mut a) = project_app(
+        "cut-dropped-swift",
+        &[
+            ("Sources/A/Many.swift", many.as_str()),
+            (
+                "Sources/A/Main.swift",
+                "struct Rope {\n    func tie() {}\n}\n\nfunc bind(_ knot: Knot) {\n    knot.tie()\n}\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "Sources/A/Main.swift", "knot.tie");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "tie \u{2192} Rope.tie (by name, 1 match)",
+            "Sources/A/Main.swift:2"
+        ),
+        "the receiver's type read from a cut grep proves nothing and is dropped: the one `tie` is a jump"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn a_field_grep_cut_at_the_cap_keeps_the_methods_and_says_so() {
     let keys = format!(
         "export const rows = {{\n{}}};\n",
