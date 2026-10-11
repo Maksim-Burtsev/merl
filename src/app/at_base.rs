@@ -25,17 +25,16 @@ impl App {
             return;
         };
         let col = self.col;
-        // The standard library and the dependencies are the same at the base; TypeScript's
-        // `node_modules` follow the open file, and the base's `App` finds its own.
-        let external: Vec<_> = (self.external.iter())
-            .filter(|(k, _)| **k != Kind::TsJs)
+        let node_modules_follow_the_file = |k: Kind| k == Kind::TsJs;
+        let external_same_at_base: Vec<_> = (self.external.iter())
+            .filter(|(k, _)| !node_modules_follow_the_file(**k))
             .map(|(k, v)| (*k, v.clone()))
             .collect();
         let Some(b) = self.base_app(&r) else {
             self.message = "no base to read".into();
             return;
         };
-        for (kind, roots) in external {
+        for (kind, roots) in external_same_at_base {
             b.external.entry(kind).or_insert(roots);
         }
         b.picker = None;
@@ -89,8 +88,8 @@ impl App {
                     Some(_) => self.jump_to_deleted(&path, hit.line1, col),
                     None => self.jump_to_col(&path, hit.line1, col),
                 }
-                // A refused jump leaves its own reason, not a resolution nobody followed.
-                if self.buf.path.as_deref() == Some(path.as_path()) {
+                let jump_refused = self.buf.path.as_deref() != Some(path.as_path());
+                if !jump_refused {
                     self.message = message;
                 }
             }
@@ -98,15 +97,13 @@ impl App {
         }
     }
 
-    /// The `App` over the base's tree, made on the first `d` of a review and again when the
-    /// branch's files change.
     fn base_app(&mut self, r: &git::Review) -> Option<&mut App> {
         let dir = r.base_tree(&self.root).ok()?;
-        let stamp = std::fs::read_to_string(dir.join(".merl-stamp")).ok()?;
-        if self.base_app.as_ref().is_none_or(|(s, _)| *s != stamp) {
+        let branch_files_stamp = std::fs::read_to_string(dir.join(".merl-stamp")).ok()?;
+        if (self.base_app.as_ref()).is_none_or(|(s, _)| *s != branch_files_stamp) {
             let (tree, files) = crate::tree::build(&dir, false);
             let app = App::new(dir, tree, files, Buffer::empty(), None);
-            self.base_app = Some((stamp, Box::new(app)));
+            self.base_app = Some((branch_files_stamp, Box::new(app)));
         }
         self.base_app.as_mut().map(|(_, a)| a.as_mut())
     }

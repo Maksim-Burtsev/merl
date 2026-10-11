@@ -1,6 +1,6 @@
 //! `d` / F12: the word under the cursor, and where its declaration is looked for.
 
-use super::python::{assigns, python_functions};
+use super::python::{enclosing_def_lines1, starts_by_assigning};
 use super::*;
 
 impl App {
@@ -1323,11 +1323,11 @@ impl App {
             // from the cursor: at module level, or in a function around the cursor. Another
             // function's nested `def` is no more the answer than the methods were, and the
             // picker stays as it was.
-            let around = python_functions(&text, self.line + 1);
+            let around = enclosing_def_lines1(&text, self.line + 1);
             let unreachable = |h: &Hit| {
                 let inside = self
                     .text_of(&h.path)
-                    .and_then(|t| python_functions(&t, h.line1).first().copied());
+                    .and_then(|t| enclosing_def_lines1(&t, h.line1).first().copied());
                 inside.is_some_and(|f| h.path != here || !around.contains(&f))
             };
             if !matches!(kept.as_slice(), [h] if all > 1 && unreachable(h)) {
@@ -1563,7 +1563,7 @@ impl App {
             })
             .collect();
         if let Some(module) = &value {
-            found.retain(|c| assigns(&c.hit.text, &word));
+            found.retain(|c| starts_by_assigning(&c.hit.text, &word));
             found.extend(self.block_assignments(&here, &word));
             if found.is_empty() {
                 found = self.package_assignments(&word, module);
