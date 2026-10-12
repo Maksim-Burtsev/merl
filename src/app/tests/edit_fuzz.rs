@@ -1003,6 +1003,24 @@ const DATA: &[&str] = &[
     "    ",
 ];
 
+const C: &[&str] = &[
+    "printf(\"%d\\n\", x);",
+    "#define M(x) ((x) + 1)\n",
+    "#if 0\n",
+    "#endif\n",
+    "struct s { int a : 3; };",
+    "/* ",
+    " */",
+    "// ",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "'",
+    "\n\n",
+];
+
 const LUA: &[&str] = &[
     "---@param x number\n",
     "string.format(\"%d\", x)",
@@ -1063,6 +1081,7 @@ fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
         include_bytes!("../../../tests/colors/lua/decls.lua"),
         LUA,
     );
+    fuzz_tree_sitter("f.c", include_bytes!("../../../tests/colors/c/ledger.c"), C);
 }
 
 fn fuzz_tree_sitter(name: &str, start: &[u8], snippets: &[&str]) {

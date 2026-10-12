@@ -98,6 +98,14 @@ so the language takes files of 25 recordable lines rather than 80:
   build against tree-sitter 0.20; merl colours it as one `@string.regexp`
   (`tests/colors/lua/NOTES.md`). None of the bench's files has one.
 
+C (#806), `.c` files only (Neovim opens a `.h` as C++, as merl does), with its injections
+(`printf` in the format strings of the `printf` family; `comment`, `doxygen` and `re2c` comments
+stay plain, as LazyVim installs no parser for them):
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| C | 17,618 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
 ## Files
 
 | file | what |
@@ -121,7 +129,7 @@ cache, so neither `~/.config/nvim` nor a system-wide `site` directory reaches it
 
 The files: four per language from the projects of `tools/d-bench/projects.tsv` at their pinned
 commits (Python from paperless-ngx, Rust from ripgrep, TypeScript and TSX from outline,
-JavaScript from eslint, JSX from mastodon, Go from caddy, Lua from redis, Markdown from ripgrep, caddy,
+JavaScript from eslint, JSX from mastodon, Go from caddy, Lua and C from redis, Markdown from ripgrep, caddy,
 outline and paperless-ngx, Bash, JSON, YAML and TOML from redis, paperless-ngx, ripgrep, caddy and eslint
 as `LANGS` in `record.py` lists them), taken in the order of the hash of their path, each with at least 80
 lines among its first 200 that are ASCII and at most 140 columns: those are the lines recorded,

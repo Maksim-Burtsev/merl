@@ -1,5 +1,6 @@
 # master's non-blank characters in LazyVim's foreground: theme, language, characters, matching
 adwaita	bash	12491	9320
+adwaita	c	17618	13616
 adwaita	go	14810	12584
 adwaita	javascript	13199	9626
 adwaita	json	7070	4381
@@ -13,6 +14,7 @@ adwaita	tsx	9700	7921
 adwaita	typescript	13701	12220
 adwaita	yaml	16564	10644
 adwaita-light	bash	12491	9332
+adwaita-light	c	17618	13746
 adwaita-light	go	14810	12680
 adwaita-light	javascript	13199	9650
 adwaita-light	json	7070	4381
@@ -26,6 +28,7 @@ adwaita-light	tsx	9700	7943
 adwaita-light	typescript	13701	12318
 adwaita-light	yaml	16564	10523
 alabaster	bash	12491	9780
+alabaster	c	17618	15504
 alabaster	go	14810	13433
 alabaster	javascript	13199	9133
 alabaster	json	7070	2897
@@ -39,6 +42,7 @@ alabaster	tsx	9700	8255
 alabaster	typescript	13701	11786
 alabaster	yaml	16564	12118
 alabaster-light	bash	12491	9780
+alabaster-light	c	17618	15334
 alabaster-light	go	14810	13433
 alabaster-light	javascript	13199	9130
 alabaster-light	json	7070	2897
@@ -52,6 +56,7 @@ alabaster-light	tsx	9700	8237
 alabaster-light	typescript	13701	11765
 alabaster-light	yaml	16564	12118
 alucard	bash	12491	8820
+alucard	c	17618	14392
 alucard	go	14810	12402
 alucard	javascript	13199	9395
 alucard	json	7070	4375
@@ -65,6 +70,7 @@ alucard	tsx	9700	7388
 alucard	typescript	13701	11021
 alucard	yaml	16564	10523
 ayu	bash	12491	8698
+ayu	c	17618	11189
 ayu	go	14810	12484
 ayu	javascript	13199	8980
 ayu	json	7070	3747
@@ -78,6 +84,7 @@ ayu	tsx	9700	7285
 ayu	typescript	13701	11103
 ayu	yaml	16564	10523
 ayu-light	bash	12491	8698
+ayu-light	c	17618	11189
 ayu-light	go	14810	12484
 ayu-light	javascript	13199	8980
 ayu-light	json	7070	3747
@@ -91,6 +98,7 @@ ayu-light	tsx	9700	7285
 ayu-light	typescript	13701	11103
 ayu-light	yaml	16564	10523
 ayu-mirage	bash	12491	8698
+ayu-mirage	c	17618	11189
 ayu-mirage	go	14810	12484
 ayu-mirage	javascript	13199	8980
 ayu-mirage	json	7070	3747
@@ -104,6 +112,7 @@ ayu-mirage	tsx	9700	7285
 ayu-mirage	typescript	13701	11103
 ayu-mirage	yaml	16564	10523
 bamboo	bash	12491	8641
+bamboo	c	17618	13567
 bamboo	go	14810	12582
 bamboo	javascript	13199	8474
 bamboo	json	7070	3747
@@ -117,6 +126,7 @@ bamboo	tsx	9700	7102
 bamboo	typescript	13701	10240
 bamboo	yaml	16564	10523
 bamboo-light	bash	12491	8641
+bamboo-light	c	17618	13567
 bamboo-light	go	14810	12582
 bamboo-light	javascript	13199	8474
 bamboo-light	json	7070	3747
@@ -130,6 +140,7 @@ bamboo-light	tsx	9700	7102
 bamboo-light	typescript	13701	10240
 bamboo-light	yaml	16564	10523
 bluloco-light	bash	12491	9567
+bluloco-light	c	17618	14100
 bluloco-light	go	14810	12678
 bluloco-light	javascript	13199	8736
 bluloco-light	json	7070	3747
@@ -143,6 +154,7 @@ bluloco-light	tsx	9700	7004
 bluloco-light	typescript	13701	10470
 bluloco-light	yaml	16564	10523
 catppuccin-frappe	bash	12491	8689
+catppuccin-frappe	c	17618	14007
 catppuccin-frappe	go	14810	12679
 catppuccin-frappe	javascript	13199	8671
 catppuccin-frappe	json	7070	3747
@@ -156,6 +168,7 @@ catppuccin-frappe	tsx	9700	6893
 catppuccin-frappe	typescript	13701	10227
 catppuccin-frappe	yaml	16564	12430
 catppuccin-latte	bash	12491	8689
+catppuccin-latte	c	17618	14007
 catppuccin-latte	go	14810	12679
 catppuccin-latte	javascript	13199	8671
 catppuccin-latte	json	7070	3747
@@ -169,6 +182,7 @@ catppuccin-latte	tsx	9700	6893
 catppuccin-latte	typescript	13701	10227
 catppuccin-latte	yaml	16564	12430
 catppuccin-macchiato	bash	12491	8689
+catppuccin-macchiato	c	17618	14007
 catppuccin-macchiato	go	14810	12679
 catppuccin-macchiato	javascript	13199	8671
 catppuccin-macchiato	json	7070	3747
@@ -182,6 +196,7 @@ catppuccin-macchiato	tsx	9700	6893
 catppuccin-macchiato	typescript	13701	10227
 catppuccin-macchiato	yaml	16564	12430
 catppuccin-mocha	bash	12491	8689
+catppuccin-mocha	c	17618	14007
 catppuccin-mocha	go	14810	12679
 catppuccin-mocha	javascript	13199	8671
 catppuccin-mocha	json	7070	3747
@@ -195,6 +210,7 @@ catppuccin-mocha	tsx	9700	6893
 catppuccin-mocha	typescript	13701	10227
 catppuccin-mocha	yaml	16564	12430
 cendre	bash	12491	10156
+cendre	c	17618	13999
 cendre	go	14810	12584
 cendre	javascript	13199	8503
 cendre	json	7070	3747
@@ -208,6 +224,7 @@ cendre	tsx	9700	7102
 cendre	typescript	13701	10283
 cendre	yaml	16564	10519
 darkearth	bash	12491	9347
+darkearth	c	17618	12848
 darkearth	go	14810	11913
 darkearth	javascript	13199	9469
 darkearth	json	7070	3466
@@ -221,6 +238,7 @@ darkearth	tsx	9700	7428
 darkearth	typescript	13701	12078
 darkearth	yaml	16564	12561
 dawnfox	bash	12491	8279
+dawnfox	c	17618	12177
 dawnfox	go	14810	11410
 dawnfox	javascript	13199	8194
 dawnfox	json	7070	2897
@@ -234,6 +252,7 @@ dawnfox	tsx	9700	5712
 dawnfox	typescript	13701	8840
 dawnfox	yaml	16564	10090
 dayfox	bash	12491	8255
+dayfox	c	17618	9870
 dayfox	go	14810	11410
 dayfox	javascript	13199	8194
 dayfox	json	7070	2897
@@ -247,6 +266,7 @@ dayfox	tsx	9700	5707
 dayfox	typescript	13701	8780
 dayfox	yaml	16564	10090
 dracula	bash	12491	8820
+dracula	c	17618	14392
 dracula	go	14810	12402
 dracula	javascript	13199	9395
 dracula	json	7070	4375
@@ -260,6 +280,7 @@ dracula	tsx	9700	7388
 dracula	typescript	13701	11021
 dracula	yaml	16564	10523
 e-ink	bash	12491	10123
+e-ink	c	17618	12079
 e-ink	go	14810	12439
 e-ink	javascript	13199	9779
 e-ink	json	7070	3466
@@ -273,6 +294,7 @@ e-ink	tsx	9700	7084
 e-ink	typescript	13701	11374
 e-ink	yaml	16564	13095
 e-ink-light	bash	12491	10123
+e-ink-light	c	17618	12079
 e-ink-light	go	14810	12439
 e-ink-light	javascript	13199	9779
 e-ink-light	json	7070	3466
@@ -286,6 +308,7 @@ e-ink-light	tsx	9700	7084
 e-ink-light	typescript	13701	11374
 e-ink-light	yaml	16564	13095
 edge	bash	12491	10137
+edge	c	17618	10312
 edge	go	14810	11882
 edge	javascript	13199	8369
 edge	json	7070	2897
@@ -299,6 +322,7 @@ edge	tsx	9700	6430
 edge	typescript	13701	9590
 edge	yaml	16564	10086
 edge-light	bash	12491	10137
+edge-light	c	17618	10312
 edge-light	go	14810	11882
 edge-light	javascript	13199	8369
 edge-light	json	7070	2897
@@ -312,6 +336,7 @@ edge-light	tsx	9700	6430
 edge-light	typescript	13701	9590
 edge-light	yaml	16564	10086
 everforest-dark	bash	12491	10478
+everforest-dark	c	17618	13696
 everforest-dark	go	14810	12674
 everforest-dark	javascript	13199	8874
 everforest-dark	json	7070	394
@@ -325,6 +350,7 @@ everforest-dark	tsx	9700	6454
 everforest-dark	typescript	13701	10186
 everforest-dark	yaml	16564	4410
 everforest-light	bash	12491	10478
+everforest-light	c	17618	13696
 everforest-light	go	14810	12674
 everforest-light	javascript	13199	8874
 everforest-light	json	7070	394
@@ -338,6 +364,7 @@ everforest-light	tsx	9700	6454
 everforest-light	typescript	13701	10186
 everforest-light	yaml	16564	4410
 flexoki-dark	bash	12491	9156
+flexoki-dark	c	17618	11182
 flexoki-dark	go	14810	12955
 flexoki-dark	javascript	13199	9059
 flexoki-dark	json	7070	3753
@@ -351,6 +378,7 @@ flexoki-dark	tsx	9700	7301
 flexoki-dark	typescript	13701	11166
 flexoki-dark	yaml	16564	10523
 flexoki-light	bash	12491	9156
+flexoki-light	c	17618	11182
 flexoki-light	go	14810	12955
 flexoki-light	javascript	13199	9059
 flexoki-light	json	7070	3753
@@ -364,6 +392,7 @@ flexoki-light	tsx	9700	7301
 flexoki-light	typescript	13701	11166
 flexoki-light	yaml	16564	10523
 github-dark	bash	12491	9469
+github-dark	c	17618	14094
 github-dark	go	14810	12716
 github-dark	javascript	13199	9266
 github-dark	json	7070	3753
@@ -377,6 +406,7 @@ github-dark	tsx	9700	6600
 github-dark	typescript	13701	10756
 github-dark	yaml	16564	12620
 github-light	bash	12491	9469
+github-light	c	17618	14094
 github-light	go	14810	12716
 github-light	javascript	13199	9266
 github-light	json	7070	3753
@@ -390,6 +420,7 @@ github-light	tsx	9700	6600
 github-light	typescript	13701	10756
 github-light	yaml	16564	12620
 gotham	bash	12491	8771
+gotham	c	17618	11317
 gotham	go	14810	12563
 gotham	javascript	13199	9077
 gotham	json	7070	3747
@@ -403,6 +434,7 @@ gotham	tsx	9700	7398
 gotham	typescript	13701	11224
 gotham	yaml	16564	10523
 gruvbox-dark	bash	12491	8979
+gruvbox-dark	c	17618	13188
 gruvbox-dark	go	14810	12702
 gruvbox-dark	javascript	13199	8451
 gruvbox-dark	json	7070	3753
@@ -416,6 +448,7 @@ gruvbox-dark	tsx	9700	6661
 gruvbox-dark	typescript	13701	9853
 gruvbox-dark	yaml	16564	11139
 gruvbox-light	bash	12491	8979
+gruvbox-light	c	17618	13188
 gruvbox-light	go	14810	12702
 gruvbox-light	javascript	13199	8451
 gruvbox-light	json	7070	3753
@@ -429,6 +462,7 @@ gruvbox-light	tsx	9700	6661
 gruvbox-light	typescript	13701	9853
 gruvbox-light	yaml	16564	11139
 gruvbox-material-dark	bash	12491	10478
+gruvbox-material-dark	c	17618	13696
 gruvbox-material-dark	go	14810	12674
 gruvbox-material-dark	javascript	13199	8874
 gruvbox-material-dark	json	7070	3184
@@ -442,6 +476,7 @@ gruvbox-material-dark	tsx	9700	6914
 gruvbox-material-dark	typescript	13701	10512
 gruvbox-material-dark	yaml	16564	10080
 gruvbox-material-light	bash	12491	10478
+gruvbox-material-light	c	17618	13696
 gruvbox-material-light	go	14810	12674
 gruvbox-material-light	javascript	13199	8874
 gruvbox-material-light	json	7070	3184
@@ -455,6 +490,7 @@ gruvbox-material-light	tsx	9700	6914
 gruvbox-material-light	typescript	13701	10512
 gruvbox-material-light	yaml	16564	10080
 hojicha	bash	12491	9064
+hojicha	c	17618	12763
 hojicha	go	14810	11952
 hojicha	javascript	13199	8722
 hojicha	json	7070	3472
@@ -468,6 +504,7 @@ hojicha	tsx	9700	6745
 hojicha	typescript	13701	9843
 hojicha	yaml	16564	10519
 iceberg	bash	12491	9343
+iceberg	c	17618	14230
 iceberg	go	14810	13101
 iceberg	javascript	13199	9668
 iceberg	json	7070	4375
@@ -481,6 +518,7 @@ iceberg	tsx	9700	7956
 iceberg	typescript	13701	12318
 iceberg	yaml	16564	10523
 iceberg-light	bash	12491	9343
+iceberg-light	c	17618	14230
 iceberg-light	go	14810	13101
 iceberg-light	javascript	13199	9668
 iceberg-light	json	7070	4381
@@ -494,6 +532,7 @@ iceberg-light	tsx	9700	7956
 iceberg-light	typescript	13701	12318
 iceberg-light	yaml	16564	10523
 jellybeans	bash	12491	8352
+jellybeans	c	17618	12166
 jellybeans	go	14810	11465
 jellybeans	javascript	13199	8115
 jellybeans	json	7070	2897
@@ -507,6 +546,7 @@ jellybeans	tsx	9700	6131
 jellybeans	typescript	13701	8770
 jellybeans	yaml	16564	10090
 jellybeans-light	bash	12491	8352
+jellybeans-light	c	17618	12166
 jellybeans-light	go	14810	11465
 jellybeans-light	javascript	13199	8115
 jellybeans-light	json	7070	2897
@@ -520,6 +560,7 @@ jellybeans-light	tsx	9700	6131
 jellybeans-light	typescript	13701	8770
 jellybeans-light	yaml	16564	10090
 kanagawa-dragon	bash	12491	8796
+kanagawa-dragon	c	17618	13413
 kanagawa-dragon	go	14810	12340
 kanagawa-dragon	javascript	13199	8500
 kanagawa-dragon	json	7070	3747
@@ -533,6 +574,7 @@ kanagawa-dragon	tsx	9700	6562
 kanagawa-dragon	typescript	13701	9842
 kanagawa-dragon	yaml	16564	10523
 kanagawa-lotus	bash	12491	8796
+kanagawa-lotus	c	17618	13413
 kanagawa-lotus	go	14810	12340
 kanagawa-lotus	javascript	13199	8500
 kanagawa-lotus	json	7070	3747
@@ -546,6 +588,7 @@ kanagawa-lotus	tsx	9700	6562
 kanagawa-lotus	typescript	13701	9842
 kanagawa-lotus	yaml	16564	10523
 kanagawa-wave	bash	12491	8796
+kanagawa-wave	c	17618	13413
 kanagawa-wave	go	14810	12340
 kanagawa-wave	javascript	13199	8500
 kanagawa-wave	json	7070	3747
@@ -559,6 +602,7 @@ kanagawa-wave	tsx	9700	6562
 kanagawa-wave	typescript	13701	9842
 kanagawa-wave	yaml	16564	10523
 koda-dark	bash	12491	9474
+koda-dark	c	17618	13691
 koda-dark	go	14810	12879
 koda-dark	javascript	13199	9480
 koda-dark	json	7070	3466
@@ -572,6 +616,7 @@ koda-dark	tsx	9700	7717
 koda-dark	typescript	13701	12255
 koda-dark	yaml	16564	11377
 koda-light	bash	12491	9382
+koda-light	c	17618	13677
 koda-light	go	14810	12879
 koda-light	javascript	13199	9400
 koda-light	json	7070	3466
@@ -585,6 +630,7 @@ koda-light	tsx	9700	7621
 koda-light	typescript	13701	12157
 koda-light	yaml	16564	10560
 lackluster	bash	12491	9183
+lackluster	c	17618	13383
 lackluster	go	14810	12601
 lackluster	javascript	13199	8597
 lackluster	json	7070	4375
@@ -598,6 +644,7 @@ lackluster	tsx	9700	6452
 lackluster	typescript	13701	8666
 lackluster	yaml	16564	10524
 lightearth	bash	12491	9347
+lightearth	c	17618	12848
 lightearth	go	14810	11913
 lightearth	javascript	13199	9469
 lightearth	json	7070	3466
@@ -611,6 +658,7 @@ lightearth	tsx	9700	7428
 lightearth	typescript	13701	12078
 lightearth	yaml	16564	12561
 material-dark	bash	12491	8913
+material-dark	c	17618	12636
 material-dark	go	14810	11783
 material-dark	javascript	13199	8622
 material-dark	json	7070	2897
@@ -624,6 +672,7 @@ material-dark	tsx	9700	6598
 material-dark	typescript	13701	10700
 material-dark	yaml	16564	10090
 material-light	bash	12491	8913
+material-light	c	17618	12636
 material-light	go	14810	11783
 material-light	javascript	13199	8663
 material-light	json	7070	2897
@@ -637,6 +686,7 @@ material-light	tsx	9700	6598
 material-light	typescript	13701	10700
 material-light	yaml	16564	10090
 melange-dark	bash	12491	10459
+melange-dark	c	17618	13492
 melange-dark	go	14810	12620
 melange-dark	javascript	13199	8635
 melange-dark	json	7070	3184
@@ -650,6 +700,7 @@ melange-dark	tsx	9700	7152
 melange-dark	typescript	13701	11180
 melange-dark	yaml	16564	10118
 melange-light	bash	12491	10459
+melange-light	c	17618	13492
 melange-light	go	14810	12620
 melange-light	javascript	13199	8635
 melange-light	json	7070	3184
@@ -663,6 +714,7 @@ melange-light	tsx	9700	7152
 melange-light	typescript	13701	11180
 melange-light	yaml	16564	10118
 mellifluous	bash	12491	9188
+mellifluous	c	17618	13262
 mellifluous	go	14810	9698
 mellifluous	javascript	13199	6837
 mellifluous	json	7070	3747
@@ -676,6 +728,7 @@ mellifluous	tsx	9700	6540
 mellifluous	typescript	13701	10088
 mellifluous	yaml	16564	10548
 mellifluous-light	bash	12491	9188
+mellifluous-light	c	17618	13262
 mellifluous-light	go	14810	9698
 mellifluous-light	javascript	13199	6837
 mellifluous-light	json	7070	3747
@@ -689,6 +742,7 @@ mellifluous-light	tsx	9700	6540
 mellifluous-light	typescript	13701	10088
 mellifluous-light	yaml	16564	10548
 mellow	bash	12491	9231
+mellow	c	17618	13626
 mellow	go	14810	12517
 mellow	javascript	13199	8541
 mellow	json	7070	3747
@@ -702,6 +756,7 @@ mellow	tsx	9700	7070
 mellow	typescript	13701	10410
 mellow	yaml	16564	10523
 miasma	bash	12491	9113
+miasma	c	17618	13720
 miasma	go	14810	12660
 miasma	javascript	13199	9821
 miasma	json	7070	4381
@@ -715,6 +770,7 @@ miasma	tsx	9700	7811
 miasma	typescript	13701	12407
 miasma	yaml	16564	10523
 minischeme	bash	12491	9007
+minischeme	c	17618	13392
 minischeme	go	14810	12242
 minischeme	javascript	13199	8872
 minischeme	json	7070	3753
@@ -728,6 +784,7 @@ minischeme	tsx	9700	7463
 minischeme	typescript	13701	11720
 minischeme	yaml	16564	10523
 minischeme-light	bash	12491	9007
+minischeme-light	c	17618	13392
 minischeme-light	go	14810	12242
 minischeme-light	javascript	13199	8872
 minischeme-light	json	7070	3753
@@ -741,6 +798,7 @@ minischeme-light	tsx	9700	7463
 minischeme-light	typescript	13701	11720
 minischeme-light	yaml	16564	10523
 moonfly	bash	12491	8968
+moonfly	c	17618	13186
 moonfly	go	14810	12427
 moonfly	javascript	13199	9241
 moonfly	json	7070	963
@@ -754,6 +812,7 @@ moonfly	tsx	9700	6187
 moonfly	typescript	13701	10353
 moonfly	yaml	16564	10094
 neomodern-light	bash	12491	9064
+neomodern-light	c	17618	12763
 neomodern-light	go	14810	11952
 neomodern-light	javascript	13199	8722
 neomodern-light	json	7070	3472
@@ -767,6 +826,7 @@ neomodern-light	tsx	9700	6745
 neomodern-light	typescript	13701	9843
 neomodern-light	yaml	16564	10519
 nightfly	bash	12491	8968
+nightfly	c	17618	13186
 nightfly	go	14810	12427
 nightfly	javascript	13199	9241
 nightfly	json	7070	963
@@ -780,6 +840,7 @@ nightfly	tsx	9700	6187
 nightfly	typescript	13701	10353
 nightfly	yaml	16564	10094
 nightfox	bash	12491	8255
+nightfox	c	17618	9870
 nightfox	go	14810	11410
 nightfox	javascript	13199	8194
 nightfox	json	7070	2897
@@ -793,6 +854,7 @@ nightfox	tsx	9700	5707
 nightfox	typescript	13701	8780
 nightfox	yaml	16564	10090
 nord	bash	12491	10317
+nord	c	17618	14160
 nord	go	14810	12526
 nord	javascript	13199	8998
 nord	json	7070	3466
@@ -806,6 +868,7 @@ nord	tsx	9700	7334
 nord	typescript	13701	11800
 nord	yaml	16564	10519
 nordfox	bash	12491	8255
+nordfox	c	17618	9870
 nordfox	go	14810	11410
 nordfox	javascript	13199	8194
 nordfox	json	7070	2897
@@ -819,6 +882,7 @@ nordfox	tsx	9700	5707
 nordfox	typescript	13701	8780
 nordfox	yaml	16564	10090
 onedark	bash	12491	8610
+onedark	c	17618	13463
 onedark	go	14810	12428
 onedark	javascript	13199	8475
 onedark	json	7070	3753
@@ -832,6 +896,7 @@ onedark	tsx	9700	6858
 onedark	typescript	13701	10183
 onedark	yaml	16564	10540
 onedark-light	bash	12491	8610
+onedark-light	c	17618	13463
 onedark-light	go	14810	12428
 onedark-light	javascript	13199	8475
 onedark-light	json	7070	3753
@@ -845,6 +910,7 @@ onedark-light	tsx	9700	6858
 onedark-light	typescript	13701	10183
 onedark-light	yaml	16564	10540
 oxocarbon-dark	bash	12491	9349
+oxocarbon-dark	c	17618	12804
 oxocarbon-dark	go	14810	11814
 oxocarbon-dark	javascript	13199	8522
 oxocarbon-dark	json	7070	2897
@@ -858,6 +924,7 @@ oxocarbon-dark	tsx	9700	7054
 oxocarbon-dark	typescript	13701	10944
 oxocarbon-dark	yaml	16564	10563
 oxocarbon-light	bash	12491	9349
+oxocarbon-light	c	17618	12804
 oxocarbon-light	go	14810	11814
 oxocarbon-light	javascript	13199	8522
 oxocarbon-light	json	7070	2897
@@ -871,6 +938,7 @@ oxocarbon-light	tsx	9700	7054
 oxocarbon-light	typescript	13701	10944
 oxocarbon-light	yaml	16564	10563
 papercolor	bash	12491	10935
+papercolor	c	17618	14544
 papercolor	go	14810	12811
 papercolor	javascript	13199	8739
 papercolor	json	7070	3747
@@ -884,6 +952,7 @@ papercolor	tsx	9700	7404
 papercolor	typescript	13701	10840
 papercolor	yaml	16564	10565
 papercolor-light	bash	12491	10564
+papercolor-light	c	17618	14534
 papercolor-light	go	14810	12811
 papercolor-light	javascript	13199	8660
 papercolor-light	json	7070	3747
@@ -897,6 +966,7 @@ papercolor-light	tsx	9700	7191
 papercolor-light	typescript	13701	10779
 papercolor-light	yaml	16564	10565
 pencil	bash	12491	8986
+pencil	c	17618	11350
 pencil	go	14810	12412
 pencil	javascript	13199	8984
 pencil	json	7070	3747
@@ -910,6 +980,7 @@ pencil	tsx	9700	7579
 pencil	typescript	13701	11215
 pencil	yaml	16564	11006
 pencil-light	bash	12491	8986
+pencil-light	c	17618	11350
 pencil-light	go	14810	12412
 pencil-light	javascript	13199	8984
 pencil-light	json	7070	3747
@@ -923,6 +994,7 @@ pencil-light	tsx	9700	7579
 pencil-light	typescript	13701	11215
 pencil-light	yaml	16564	11006
 rose-pine	bash	12491	9692
+rose-pine	c	17618	13975
 rose-pine	go	14810	13337
 rose-pine	javascript	13199	8933
 rose-pine	json	7070	3747
@@ -936,6 +1008,7 @@ rose-pine	tsx	9700	7207
 rose-pine	typescript	13701	9524
 rose-pine	yaml	16564	13117
 rose-pine-dawn	bash	12491	9692
+rose-pine-dawn	c	17618	13975
 rose-pine-dawn	go	14810	13337
 rose-pine-dawn	javascript	13199	8933
 rose-pine-dawn	json	7070	3747
@@ -949,6 +1022,7 @@ rose-pine-dawn	tsx	9700	7207
 rose-pine-dawn	typescript	13701	9524
 rose-pine-dawn	yaml	16564	13117
 rose-pine-moon	bash	12491	9692
+rose-pine-moon	c	17618	13975
 rose-pine-moon	go	14810	13337
 rose-pine-moon	javascript	13199	8933
 rose-pine-moon	json	7070	3747
@@ -962,6 +1036,7 @@ rose-pine-moon	tsx	9700	7207
 rose-pine-moon	typescript	13701	9524
 rose-pine-moon	yaml	16564	13117
 selenized	bash	12491	9388
+selenized	c	17618	12578
 selenized	go	14810	13414
 selenized	javascript	13199	9267
 selenized	json	7070	3747
@@ -975,6 +1050,7 @@ selenized	tsx	9700	7118
 selenized	typescript	13701	10529
 selenized	yaml	16564	11006
 selenized-light	bash	12491	9388
+selenized-light	c	17618	12578
 selenized-light	go	14810	13414
 selenized-light	javascript	13199	9267
 selenized-light	json	7070	3747
@@ -988,6 +1064,7 @@ selenized-light	tsx	9700	7118
 selenized-light	typescript	13701	10529
 selenized-light	yaml	16564	11006
 solarized-dark	bash	12491	9048
+solarized-dark	c	17618	13034
 solarized-dark	go	14810	13091
 solarized-dark	javascript	13199	9911
 solarized-dark	json	7070	3747
@@ -1001,6 +1078,7 @@ solarized-dark	tsx	9700	7385
 solarized-dark	typescript	13701	11146
 solarized-dark	yaml	16564	10523
 solarized-light	bash	12491	9048
+solarized-light	c	17618	12938
 solarized-light	go	14810	13039
 solarized-light	javascript	13199	9911
 solarized-light	json	7070	3747
@@ -1014,6 +1092,7 @@ solarized-light	tsx	9700	7099
 solarized-light	typescript	13701	10820
 solarized-light	yaml	16564	10523
 sonokai	bash	12491	10416
+sonokai	c	17618	13169
 sonokai	go	14810	11975
 sonokai	javascript	13199	8393
 sonokai	json	7070	2897
@@ -1027,6 +1106,7 @@ sonokai	tsx	9700	6004
 sonokai	typescript	13701	9752
 sonokai	yaml	16564	10197
 soviet-dark	bash	12491	9170
+soviet-dark	c	17618	12232
 soviet-dark	go	14810	11664
 soviet-dark	javascript	13199	8392
 soviet-dark	json	7070	2897
@@ -1040,6 +1120,7 @@ soviet-dark	tsx	9700	5381
 soviet-dark	typescript	13701	9059
 soviet-dark	yaml	16564	10090
 soviet-light	bash	12491	9170
+soviet-light	c	17618	12232
 soviet-light	go	14810	11664
 soviet-light	javascript	13199	8392
 soviet-light	json	7070	2897
@@ -1053,6 +1134,7 @@ soviet-light	tsx	9700	5381
 soviet-light	typescript	13701	9059
 soviet-light	yaml	16564	10090
 srcery	bash	12491	9441
+srcery	c	17618	13743
 srcery	go	14810	13057
 srcery	javascript	13199	8870
 srcery	json	7070	3747
@@ -1066,6 +1148,7 @@ srcery	tsx	9700	6842
 srcery	typescript	13701	10336
 srcery	yaml	16564	10560
 token	bash	12491	9150
+token	c	17618	13512
 token	go	14810	12618
 token	javascript	13199	8878
 token	json	7070	3747
@@ -1079,6 +1162,7 @@ token	tsx	9700	7126
 token	typescript	13701	11360
 token	yaml	16564	10523
 token-light	bash	12491	9150
+token-light	c	17618	13512
 token-light	go	14810	12618
 token-light	javascript	13199	8878
 token-light	json	7070	3747
@@ -1092,6 +1176,7 @@ token-light	tsx	9700	7126
 token-light	typescript	13701	11360
 token-light	yaml	16564	10523
 tokyonight-day	bash	12491	8296
+tokyonight-day	c	17618	12127
 tokyonight-day	go	14810	11442
 tokyonight-day	javascript	13199	8214
 tokyonight-day	json	7070	2897
@@ -1105,6 +1190,7 @@ tokyonight-day	tsx	9700	5323
 tokyonight-day	typescript	13701	8928
 tokyonight-day	yaml	16564	10090
 tokyonight-moon	bash	12491	9767
+tokyonight-moon	c	17618	12209
 tokyonight-moon	go	14810	11665
 tokyonight-moon	javascript	13199	10688
 tokyonight-moon	json	7070	3466
@@ -1118,6 +1204,7 @@ tokyonight-moon	tsx	9700	6145
 tokyonight-moon	typescript	13701	8779
 tokyonight-moon	yaml	16564	10472
 tokyonight-night	bash	12491	8296
+tokyonight-night	c	17618	12127
 tokyonight-night	go	14810	11442
 tokyonight-night	javascript	13199	8214
 tokyonight-night	json	7070	2897
@@ -1131,6 +1218,7 @@ tokyonight-night	tsx	9700	5323
 tokyonight-night	typescript	13701	8928
 tokyonight-night	yaml	16564	10090
 tokyonight-storm	bash	12491	8296
+tokyonight-storm	c	17618	12127
 tokyonight-storm	go	14810	11442
 tokyonight-storm	javascript	13199	8214
 tokyonight-storm	json	7070	2897
@@ -1144,6 +1232,7 @@ tokyonight-storm	tsx	9700	5323
 tokyonight-storm	typescript	13701	8928
 tokyonight-storm	yaml	16564	10090
 vague	bash	12491	9186
+vague	c	17618	13542
 vague	go	14810	12380
 vague	javascript	13199	9419
 vague	json	7070	3753
@@ -1157,6 +1246,7 @@ vague	tsx	9700	6692
 vague	typescript	13701	9139
 vague	yaml	16564	10523
 vesper	bash	12491	10469
+vesper	c	17618	10610
 vesper	go	14810	12057
 vesper	javascript	13199	8898
 vesper	json	7070	3466
@@ -1170,6 +1260,7 @@ vesper	tsx	9700	6646
 vesper	typescript	13701	10983
 vesper	yaml	16564	12547
 vscode-dark	bash	12491	9147
+vscode-dark	c	17618	11496
 vscode-dark	go	14810	12498
 vscode-dark	javascript	13199	9703
 vscode-dark	json	7070	3753
@@ -1183,6 +1274,7 @@ vscode-dark	tsx	9700	7043
 vscode-dark	typescript	13701	11279
 vscode-dark	yaml	16564	10547
 vscode-light	bash	12491	9147
+vscode-light	c	17618	11496
 vscode-light	go	14810	12498
 vscode-light	javascript	13199	9703
 vscode-light	json	7070	3753

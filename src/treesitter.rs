@@ -24,6 +24,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/bash/injections.scm"),
     ),
     (
+        "c",
+        include_str!("../queries/c/highlights.scm"),
+        include_str!("../queries/c/injections.scm"),
+    ),
+    (
         "ecma",
         include_str!("../queries/ecma/highlights.scm"),
         include_str!("../queries/ecma/injections.scm"),
@@ -137,6 +142,8 @@ const PREDICATES: &[&str] = &[
     "not-contains?",
     "has-parent?",
     "not-has-parent?",
+    "has-ancestor?",
+    "not-has-ancestor?",
     "set!",
     "offset!",
 ];
@@ -162,6 +169,7 @@ enum Test {
     Match(regex::bytes::Regex),
     Contains(Vec<String>),
     HasParent(Vec<String>),
+    HasAncestor(Vec<String>),
 }
 
 impl Check {
@@ -181,6 +189,10 @@ impl Check {
             Test::HasParent(kinds) => nodes.any(|n| {
                 n.parent()
                     .is_some_and(|p| kinds.iter().any(|k| k == p.kind()))
+            }),
+            Test::HasAncestor(kinds) => nodes.any(|n| {
+                std::iter::successors(n.parent(), |p| p.parent())
+                    .any(|p| kinds.iter().any(|k| k == p.kind()))
             }),
         };
         hit == self.positive
@@ -228,6 +240,7 @@ pub fn for_syntax(syntect_name: &str, path: Option<&Path>) -> Option<&'static La
     let astro = path.is_some_and(|p| p.extension().is_some_and(|e| e == "astro"));
     match syntect_name {
         "Bourne Again Shell (bash)" if !path.is_some_and(zsh) => lang("bash"),
+        "C" => lang("c"),
         "Go" => lang("go"),
         "JSON" => lang("json"),
         "TOML" => lang("toml"),
@@ -258,6 +271,7 @@ fn zsh(path: &Path) -> bool {
 fn grammar(name: &str) -> Option<Language> {
     Some(match name {
         "bash" => tree_sitter_bash::LANGUAGE.into(),
+        "c" => tree_sitter_c::LANGUAGE.into(),
         "json" => tree_sitter_json::LANGUAGE.into(),
         "toml" => tree_sitter_toml_ng::LANGUAGE.into(),
         "yaml" => tree_sitter_yaml::LANGUAGE.into(),
@@ -437,6 +451,7 @@ fn patterns(
                 "vim-match?" if args.len() == 1 => Test::Match(vim_pattern(&args[0])?),
                 "contains?" => Test::Contains(args),
                 "has-parent?" => Test::HasParent(args),
+                "has-ancestor?" => Test::HasAncestor(args),
                 _ => return Err(format!("{name}: #{} is not implemented", pred.operator)),
             };
             preds.push(Check {

@@ -60,6 +60,7 @@ LANGS = {
     "yaml": (["paperless-ngx", "eslint", "caddy", "redis"], ["yaml", "yml"]),
     "toml": (["ripgrep", "paperless-ngx", "eslint", "redis"], ["toml"]),
     "lua": (["redis"], ["lua"], 25),
+    "c": (["redis"], ["c"]),
 }
 SKIP_DIRS = ("migrations/", "vendor/", "testdata/", "node_modules/", "CHANGELOG")
 FILES, LINES, MINLINES, MAXLEN, WIDTH = 4, 200, 80, 140, 200

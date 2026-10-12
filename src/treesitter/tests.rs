@@ -250,6 +250,11 @@ fn lua_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn c_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("c");
+}
+
+#[test]
 fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     let sexp = |f: &str, src: &[u8]| {
         let mut b = Buffer::from_bytes(PathBuf::from(f), src);
@@ -290,6 +295,8 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     for f in ["a.toml", "Cargo.lock"] {
         assert!(sexp(f, b"a = 1\n").contains("(pair "), "{f}");
     }
+    assert!(sexp("a.c", b"int x;\n").contains("(translation_unit "));
+    assert_eq!(sexp("a.h", b"int x;\n"), "");
 }
 
 #[test]
@@ -318,7 +325,7 @@ fn a_query_using_what_merl_does_not_implement_is_refused() {
     for text in [
         "((identifier) @x (#match? @x \"<a\"))",
         "((identifier) @x (#vim-match? @x \"a{2}\"))",
-        "((identifier) @x (#has-ancestor? @x call))",
+        "((identifier) @x (#kind-eq? @x call))",
         "((identifier) @x (#offset! @x 0 1))",
         "((identifier) @x (#set! injection.language \"regex\"))",
         "((identifier) @x (#set! @x priority 101))",
