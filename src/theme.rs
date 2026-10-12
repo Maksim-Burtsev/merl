@@ -804,6 +804,9 @@ mod tests {
         std::fs::write(dir.join("broken.groups.json"), "{").unwrap();
 
         assert!(load_from(Some(&dir), "plain").unwrap().groups.is_empty());
+        std::fs::write(dir.join("nord.tmTheme"), &tm).unwrap();
+        assert!(load_from(Some(&dir), "nord").unwrap().groups.is_empty());
+        assert!(!load_from(None, "nord").unwrap().groups.is_empty());
         let t = load_from(Some(&dir), "grouped").unwrap();
         assert_eq!(
             t.group("Comment"),
