@@ -9,6 +9,7 @@ mod cmake;
 mod collapse;
 mod cursor;
 mod d_bench;
+mod definition_rules;
 mod edit;
 mod edit_fuzz;
 mod find;
@@ -44,6 +45,7 @@ mod preview;
 mod preview_data;
 mod project_search;
 mod r;
+mod reload_deleted;
 mod review;
 mod review_deleted;
 mod smoke;
@@ -61,7 +63,6 @@ fn test_threads() -> usize {
         .unwrap_or_else(|| std::thread::available_parallelism().map_or(1, usize::from))
 }
 fn app(text: &str) -> App {
-    // Edits get saved, so each test has a file of its own.
     let name = std::thread::current()
         .name()
         .unwrap_or("main")
@@ -82,7 +83,6 @@ fn app(text: &str) -> App {
 fn press(a: &mut App, code: KeyCode, m: KeyModifiers) -> bool {
     a.key(KeyEvent::new(code, m))
 }
-/// Two small files in a scratch directory, for the jump-history tests.
 fn files_app(tag: &str) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-hist-{}-{tag}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -99,12 +99,9 @@ fn files_app(tag: &str) -> (PathBuf, App) {
     );
     (dir, app)
 }
-/// A repository with a `feature` branch checked out: `src/a.rs` changed twice, `new`
-/// added, `gone` deleted, `src/keep.rs` as it was; the app is in review mode on it.
 fn review_app(tag: &str) -> (PathBuf, App) {
     review_app_with(tag, &[])
 }
-/// `extra`: files the branch adds on top of the usual five.
 fn review_app_with(tag: &str, extra: &[(&str, &[u8])]) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -142,8 +139,6 @@ fn review_app_with(tag: &str, extra: &[(&str, &[u8])]) -> (PathBuf, App) {
     let a = review_start(&dir, None);
     (dir, a)
 }
-/// [`review_app`] with a generated `poetry.lock` the branch changes in three hunks, on lines 2, 5
-/// and 8 (#243): a merl started on the review, on `new`.
 fn review_app_with_lock(tag: &str) -> (PathBuf, App) {
     let (dir, _) = review_app(tag);
     let git = |args: &[&str]| {
@@ -162,7 +157,6 @@ fn review_app_with_lock(tag: &str) -> (PathBuf, App) {
     let a = review_start(&dir, None);
     (dir, a)
 }
-/// Nine lines of a lock file, those at `up` (from 0) in capitals.
 fn lock_lines(up: &[usize]) -> String {
     (0..9)
         .map(|i| match up.contains(&i) {
@@ -171,8 +165,6 @@ fn lock_lines(up: &[usize]) -> String {
         })
         .collect()
 }
-/// A merl started again on the review of `dir` against `base` (default: the one it finds), on
-/// `new`.
 fn review_start(dir: &Path, base: Option<&str>) -> App {
     let review = git::Review::open(dir, None, base).unwrap();
     let (_, files) = crate::tree::build(dir, false);
@@ -197,7 +189,6 @@ fn review_start(dir: &Path, base: Option<&str>) -> App {
 fn at(a: &App) -> (PathBuf, usize) {
     (a.buf.path.clone().unwrap(), a.line)
 }
-/// A scratch project on disk with its startup walk, for the definition and symbol tests.
 fn project_app(tag: &str, files: &[(&str, &str)]) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-nav-{}-{tag}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -210,22 +201,16 @@ fn project_app(tag: &str, files: &[(&str, &str)]) -> (PathBuf, App) {
     let app = App::new(dir.clone(), tree, files, Buffer::empty(), None);
     (dir, app)
 }
-/// One of the projects in `tests/fixtures` (#68, #307), with nothing outside it for any kind,
-/// so the standard library of the machine running the tests has no say in what `d` offers.
 fn fixture_app(name: &str) -> App {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures")
         .join(name);
     let (tree, files) = crate::tree::build(&dir, false);
     let mut a = App::new(dir, tree, files, Buffer::empty(), None);
-    // The fixtures are read as a plain build reads them, whatever `GOFLAGS` the tests run under.
     a.go_build = search::GoBuild::host();
     a.no_external();
     a
 }
-/// Presses `d` on the last word of the first line of `file` that contains `code`, or starts
-/// with it when `code` starts with `^`. A `|` in `code` is not part of the line: it stands
-/// after the word to press `d` on, and what follows it only picks the line.
 fn d_on(a: &mut App, file: &str, code: &str) {
     let (code, rest) = code.split_once('|').unwrap_or((code, ""));
     let whole = format!("{code}{rest}");
@@ -246,8 +231,6 @@ fn d_on(a: &mut App, file: &str, code: &str) {
         + code.rfind(|c: char| !is_word(c)).map_or(0, |i| i + 1);
     press(a, KeyCode::Char('d'), KeyModifiers::NONE);
 }
-/// The rows of the open picker, each split into its qualified name, its reason and the
-/// `path:line` it points at.
 fn definition_rows(a: &mut App) -> Vec<(String, String, String)> {
     let picker = a.picker.as_mut().expect("a picker");
     picker.settle();
@@ -270,7 +253,6 @@ fn definition_rows(a: &mut App) -> Vec<(String, String, String)> {
         })
         .collect()
 }
-/// What `d` shows: the status line, and for a jump where it landed, for a picker its rows.
 #[derive(Debug, PartialEq)]
 enum Shown {
     Jump(String, String),
@@ -283,8 +265,6 @@ fn shown(a: &mut App) -> Shown {
             press(a, KeyCode::Esc, KeyModifiers::NONE);
             Shown::Picker(a.message.clone(), rows)
         }
-        // Which root it landed in: the status line names a file outside the project from its
-        // own root, `json/__init__.py`, whichever root holds it.
         None => {
             let path = a.buf.path.as_deref().expect("a file");
             let place = path.strip_prefix(&a.root).unwrap_or(path);
@@ -305,8 +285,6 @@ fn picker(status: &str, rows: &[(&str, &str)]) -> Shown {
         .collect();
     Shown::Picker(status.into(), rows)
 }
-/// A standard library or dependency root on disk, with `files` in it, for the lookups
-/// outside the project; removed by the caller.
 fn external_root(tag: &str, files: &[(&str, &str)]) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("merl-root-{}-{tag}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -317,7 +295,6 @@ fn external_root(tag: &str, files: &[(&str, &str)]) -> PathBuf {
     }
     dir
 }
-/// Makes `roots` the only places outside the project `d` looks in for `kind`.
 fn use_roots(a: &mut App, kind: Kind, roots: &[PathBuf]) {
     let files = search::external_files(kind, roots);
     a.external.insert(kind, (roots.to_vec(), Arc::new(files)));

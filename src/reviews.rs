@@ -440,7 +440,6 @@ mod tests {
         let (a, b) = (spot("a.rs", 1, true), spot("b.rs", 0, true));
         let (lib, util) = (spot("lib.rs", 2, false), spot("util.rs", 5, false));
         let at = |secs| t0 + Duration::from_secs(secs);
-        // 100 s on `a.rs`, `d` out; 30 s, `d` further; 20 s, `[` back; 10 s, `c` to the end.
         s.pressed(at(100), &a, false);
         s.moved(Some("d"), &a, &lib, None, false);
         s.pressed(at(130), &lib, false);
@@ -509,7 +508,6 @@ mod tests {
         let day = |d| stats::day(d).unwrap();
         let cols = "2\t1\t3\t1\t40\t0\t0\t0\t0\t1\t2\t1";
         add(&file, day("2026-08-01"), "merl", "feat/a", cols).unwrap();
-        // 31, 30 and 29 days before the last write below.
         add(&file, day("2026-08-26"), "merl", "edge/31", cols).unwrap();
         add(&file, day("2026-08-27"), "merl", "edge/30", cols).unwrap();
         add(&file, day("2026-08-28"), "merl", "edge/29", cols).unwrap();

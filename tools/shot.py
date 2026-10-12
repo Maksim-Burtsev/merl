@@ -14,12 +14,11 @@ import sys
 from PIL import ImageFont
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.dont_write_bytecode = True  # no __pycache__ left in tools/
-import cast  # noqa: E402
+sys.dont_write_bytecode = True
+import cast
 
 
 def shot(text):
-    """The capture drawn by cast.py's renderer: the font, size and box lines of the screencasts."""
     width = max(len(cast.SGR.sub("", line)) for line in text.split("\n"))
     grid = cast.parse(text, width, text.count("\n") + 1)
     fonts = [ImageFont.truetype(cast.FONT, cast.FONT_SIZE, index=i) for i in range(4)]
@@ -28,8 +27,6 @@ def shot(text):
 
 
 def selftest():
-    # The third line goes on in the second one's background, not the first one's (#441), and
-    # `\e[34m` is the terminal's blue, not xterm's near-black.
     img, (cw, ch) = shot("\x1b[48;2;9;9;9mAAAA\n\x1b[48;2;1;2;3mx\ny\n\x1b[34m█\n│\n│")
     cell = lambda x, y: img.getpixel((x * cw + cw // 2, y * ch + ch // 2))
     assert cell(2, 2) == (1, 2, 3), "the third line lost the background it carries on"
@@ -40,13 +37,14 @@ def selftest():
 
 
 def main():
+    if sys.argv[1:2] in ([], ["-h"], ["--help"]):
+        sys.exit(__doc__)
     if sys.argv[1:] == ["--selftest"]:
         return selftest()
     capture, out = sys.argv[1], sys.argv[2]
     if len(sys.argv) > 3:
         cast.use_ghostty(sys.argv[3])
     img, _ = shot(open(capture, encoding="utf-8").read().rstrip("\n"))
-    # 256 colours keep a terminal screenshot sharp at about a third of the size.
     img.quantize(256).save(out, optimize=True)
     print(out)
 

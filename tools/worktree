@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# tools/worktree DIR BRANCH: a worktree of origin/master on a new BRANCH whose target/ starts as an
-# APFS clone of a seed build of master (#777), so its first build compiles merl and not the ~340
-# dependencies. The seed, ~/.cache/merl-seed, is rebuilt only when master's Cargo.lock or the
-# toolchain changes, from scratch; `cargo clean -p merl` leaves no merl artifact from another tree.
 set -Eeuo pipefail
 seed=${XDG_CACHE_HOME:-$HOME/.cache}/merl-seed
 

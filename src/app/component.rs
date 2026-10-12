@@ -22,11 +22,6 @@ impl App {
         (self.on_template(here) && !shadowed).then(|| self.script_end(here))
     }
 
-    /// `d` on a line of a component outside its script. A `<style>` block declares and names no
-    /// code. A name the template binds is a local of the file, beside the script's own binding
-    /// of it. A component's tag no import binds is the component file of its name, or the
-    /// script's binding of that name. Anything else is looked up as from the script, with the
-    /// tag's word turned into the component's name: `false`, and `word` is what to look up.
     pub(super) fn component_template(
         &mut self,
         here: &Path,
@@ -45,8 +40,6 @@ impl App {
             return true;
         }
         let script = search::script_text(here, &raw, None);
-        // What the script binds at its top level: what a template name reads, as from the end
-        // of the file.
         let (past_end, end) = self.script_end(here);
         let script_binds = |name: &str| -> Vec<usize> {
             (search::bindings(Kind::TsJs, &past_end, end, name).iter())
@@ -56,8 +49,6 @@ impl App {
         let bound = search::template_binds(&self.buf.lines, &code, word);
         let tag = search::tag_at(self.line_str(), range.start);
         let lines = if !bound.is_empty() {
-            // The template's binding is scoped to its element or block, which is not read: the
-            // script's binding of the name may be the one meant, and both are offered.
             let mut lines = script_binds(word);
             lines.extend(bound);
             lines
@@ -74,7 +65,6 @@ impl App {
                 .filter(|f| (f.file_name()).is_some_and(|n| names.iter().any(|m| n == m.as_str())))
                 .cloned()
                 .collect();
-            // `const Comp = defineAsyncComponent(…)`, Astro's `const { Component } = …`.
             if files.is_empty() && !script_binds(word).is_empty() {
                 return false;
             }

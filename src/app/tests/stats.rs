@@ -1,8 +1,6 @@
 use super::*;
 use crate::stats;
 
-/// A side of a `KEYS` row read back into the key that presses it: `Ctrl+Shift+Left`, `PgUp`,
-/// `Shift+F12`, `N`. A name no key has panics, so a row the split cannot read fails.
 fn read(name: &str) -> KeyEvent {
     let (mods, key) = name.rsplit_once('+').unwrap_or(("", name));
     let cannot = || -> ! { panic!("cannot read the key {name:?}") };
@@ -32,7 +30,6 @@ fn read(name: &str) -> KeyEvent {
         _ if key.len() > 1 && key.starts_with('F') => {
             KeyCode::F(key[1..].parse().unwrap_or_else(|_| cannot()))
         }
-        // A terminal sends Ctrl+E as Ctrl and a lowercase `e`.
         _ if key.chars().count() == 1 && m.contains(KeyModifiers::CONTROL) => {
             KeyCode::Char(key.to_ascii_lowercase().chars().next().unwrap())
         }
@@ -554,7 +551,6 @@ fn a_fold_is_one_stop_whichever_branch_unfolded_it() {
     press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     assert!(a.folded_here().is_none(), "unfolded on `feature`");
-    // Off the lock file, which would otherwise stay in sight through the switch.
     a.jump_to(&dir.join("src/keep.rs"), 1);
     git(&["switch", "-q", "-c", "other", "main"]);
     std::fs::write(dir.join("poetry.lock"), lock_lines(&[2, 5, 8])).unwrap();

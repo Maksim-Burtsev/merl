@@ -1,20 +1,4 @@
 #!/bin/bash
-# Builds the smoke test's fixture in DIR; tests/smoke/run.py runs it before every run.
-#
-#   DIR/orders      project/ as a git repository on `main`, everything committed, plus what its
-#                   .gitignore leaves out (a .venv without pip, a .env) and the odd files, written
-#                   here byte by byte: a 1 MB JSON on one line, a CSV with a BOM and CRLF.
-#   DIR/origin.git  its bare `origin`, which also holds `agent/refund`, the branch an agent pushed
-#                   from a clone of its own (agent-refund.patch). orders never fetched it, as a
-#                   reviewer's clone would not have: `merl --review=agent/refund` fetches it.
-#   DIR/agent-wt    a worktree of orders on `agent/page-size`, an agent's at work: one commit and a
-#                   file not committed yet. `merl -r agent/page-size` reviews it there (#396).
-#   DIR/agent-totp  a worktree on `agent/totp`: two files of a Java package eleven directories
-#                   deep, the review panel's one-child chain (#399).
-#   DIR/home        the HOME merl runs with: empty but for a .zshrc to open outside a repository.
-#
-# No network. Fixed names and dates, so the commits and their hashes are the same on every run,
-# and no global git config of the user's gets in.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 dir=${1:?usage: setup.sh DIR}
@@ -39,14 +23,12 @@ orders = [{"id": i, "customer_id": random.randint(1, 3000), "total": "%.2f" % ra
                      for _ in range(random.randint(1, 3))]} for i in range(1, 6200)]
 open("data/orders.min.json", "w").write(json.dumps(orders, separators=(",", ":")))
 PY
-# Excel's CSV export: a UTF-8 BOM and CRLF line ends.
 printf '\357\273\277order_id;amount;reason\r\n1042;40.00;damaged in transit\r\n1077;12.50;never arrived\r\n' \
     > data/refunds-2026-08.csv
 printf 'API_TOKEN=changeme\nDATABASE_URL=postgresql://orders:orders@localhost/orders\n' > .env
 python3 -m venv --without-pip .venv
 
 git init -q -b main
-# Two edits three lines apart stay two blocks in merl whatever this says (#220).
 git config diff.interHunkContext 3
 git add -A
 git commit -qm "orders: API, worker, web page, chart"
@@ -55,8 +37,6 @@ git remote add origin ../origin.git
 git push -q -u origin main
 git remote set-head origin main
 
-# The agent's branch, pushed from its clone: a refund flow across Python, Go and the chart, a
-# rewritten method, an in-memory repository and a script gone, a redrawn diagram.
 git switch -q -c agent/refund
 git apply --index "$here/agent-refund.patch"
 GIT_AUTHOR_NAME=agent GIT_AUTHOR_DATE=2026-09-02T10:00:00Z GIT_COMMITTER_DATE=2026-09-02T10:00:00Z \
@@ -67,8 +47,6 @@ git branch -q -D agent/refund
 git update-ref -d refs/remotes/origin/agent/refund
 git reflog expire --expire=now --all
 
-# The agent that works in a worktree of its own (#396). Relative paths, so the copy run.py plays
-# in points at its own worktree, not at this fixture's.
 git worktree add -q --relative-paths -b agent/page-size ../agent-wt
 sed -i.bak 's/page_size: int = 50/page_size: int = 100/' ../agent-wt/app/config.py
 rm ../agent-wt/app/config.py.bak

@@ -48,12 +48,13 @@
   grow: `no_source_file_grows_past_its_size` (`src/main.rs`, `LONG_FILES`). Split the file; a
   listed file that shrinks lowers its number in the same PR.
 - Code carries no comments, `///` and `//!` included: names, types and tests say what it does,
-  and the commit message says why. The comments already in the code are older practice, not the
-  density to match: when you change the code under one, delete it and move what still holds into
-  the commit message, a `ponytail:` note included. Fixture annotations (`tests/fixtures/`) and
-  the tutor's sample project are data and stay. The comment lines under `src/` may not grow:
-  `comment_lines_do_not_grow` (`src/main.rs`, `COMMENT_LINES`); a PR that deletes comments
-  lowers the number.
+  and the commit message says why, a `ponytail:` note included. Fixture annotations
+  (`tests/fixtures/`) and the tutor's sample project are data and stay. `src_holds_no_comment`
+  (`src/main.rs`) fails on any comment under `src/` and names its file and line;
+  `scripts_and_config_hold_no_comment_but_the_kept_ones` does the same for the Python, shell,
+  Lua, CI and Cargo files, Python docstrings checked by hand. A comment stays only in
+  `KEPT_COMMENTS` beside them, with why the code cannot do without it: a tool reads it (a
+  docstring printed as the program's usage), or a licence requires it.
 
 ## Issues
 
