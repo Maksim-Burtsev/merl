@@ -22,7 +22,7 @@ impl App {
         review.sort_by_key(|p| order[p]);
         let listed: Vec<&PathBuf> = review.into_iter().chain(rest).collect();
         let lead = Some(self.history_rows(&listed))
-            .filter(|(rows, _)| self.review.is_none() && !rows.is_empty());
+            .filter(|(rows, _)| self.review.is_none() && self.tutor.is_none() && !rows.is_empty());
         let items = listed
             .into_iter()
             .map(|p| PickItem {
@@ -47,12 +47,11 @@ impl App {
         let row: HashMap<PathBuf, u32> = (listed.iter().enumerate())
             .map(|(i, p)| (self.root.join(p), i as u32))
             .collect();
-        let rows: Vec<u32> = (self.recent.iter())
+        let current = self.buf.path.as_ref().and_then(|p| row.get(p)).copied();
+        let rest = (self.recent.iter())
             .filter_map(|p| row.get(p).copied())
-            .collect();
-        let current = self.buf.path.as_ref().and_then(|p| row.get(p));
-        let current_first = current.is_some() && rows.first() == current;
-        (rows, current_first)
+            .filter(|&i| Some(i) != current);
+        (current.into_iter().chain(rest).collect(), current.is_some())
     }
 
     fn read_recent(&mut self) {

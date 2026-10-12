@@ -243,7 +243,7 @@ def main():
     project = f"{DEMO}/{name}"
     # The take starts clean: the last take's files, and the viewed marks merl keeps from one
     # start to the next (#240).
-    clean = 'git checkout -q -- . && git clean -fdq && rm -f "$(git rev-parse --git-common-dir)/merl/viewed"'
+    clean = 'git checkout -q -- . && git clean -fdq && rm -f "$(git rev-parse --git-common-dir)/merl/viewed" "$(git rev-parse --git-dir)/merl/recent"'
     subprocess.run(clean, shell=True, cwd=project, check=True)
     cast, presses = take(steps, project)
     frames = render(cast, presses, gif, keys)

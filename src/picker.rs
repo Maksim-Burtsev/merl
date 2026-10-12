@@ -60,6 +60,7 @@ pub struct Picker {
 #[derive(Clone, Copy)]
 enum Ref {
     Item(u32),
+    Named(u32),
     Matched(u32),
 }
 
@@ -67,14 +68,19 @@ fn nth<'a>(
     snap: &'a Snapshot<PickItem>,
     order: &Option<Vec<Ref>>,
     n: u32,
-) -> Option<Item<'a, PickItem>> {
+) -> Option<(Item<'a, PickItem>, bool)> {
     match order {
-        None => snap.get_matched_item(n),
+        None => snap.get_matched_item(n).map(|it| (it, false)),
         Some(o) => match *o.get(n as usize)? {
-            Ref::Item(i) => snap.get_item(i),
-            Ref::Matched(m) => snap.get_matched_item(m),
+            Ref::Item(i) => snap.get_item(i).map(|it| (it, false)),
+            Ref::Named(i) => snap.get_item(i).map(|it| (it, true)),
+            Ref::Matched(m) => snap.get_matched_item(m).map(|it| (it, false)),
         },
     }
+}
+
+fn file_name(label: &str) -> &str {
+    label.rsplit('/').next().unwrap_or(label)
 }
 
 impl Picker {
@@ -147,7 +153,7 @@ impl Picker {
                     let label = &snap.get_item(i)?.data.label;
                     let hay = match whole {
                         true => label.as_str(),
-                        false => label.rsplit('/').next().unwrap_or(label),
+                        false => file_name(label),
                     };
                     let score = pattern.score(Utf32Str::new(hay, &mut buf), &mut self.matcher)?;
                     Some((i, score))
@@ -157,7 +163,8 @@ impl Picker {
             let shown: std::collections::HashSet<&PathBuf> = (hits.iter())
                 .filter_map(|&(i, _)| snap.get_item(i).map(|it| &it.data.path))
                 .collect();
-            order.extend(hits.iter().map(|&(i, _)| Ref::Item(i)));
+            let by_name = |i| if whole { Ref::Item(i) } else { Ref::Named(i) };
+            order.extend(hits.iter().map(|&(i, _)| by_name(i)));
             if !order.is_empty() {
                 self.labels.push((0, "recently opened"));
             }
@@ -248,9 +255,20 @@ impl Picker {
         let pattern = snap.pattern().column_pattern(0);
         (start as u32..end as u32)
             .filter_map(|n| nth(snap, order, n))
-            .map(|item| {
+            .map(|(item, named)| {
                 let mut matched = Vec::new();
-                pattern.indices(item.matcher_columns[0].slice(..), matcher, &mut matched);
+                match named {
+                    true => {
+                        let (label, mut buf) = (&item.data.label, Vec::new());
+                        let name = file_name(label);
+                        pattern.indices(Utf32Str::new(name, &mut buf), matcher, &mut matched);
+                        let skip = label[..label.len() - name.len()].chars().count() as u32;
+                        matched.iter_mut().for_each(|m| *m += skip);
+                    }
+                    false => {
+                        pattern.indices(item.matcher_columns[0].slice(..), matcher, &mut matched);
+                    }
+                }
                 matched.sort_unstable();
                 matched.dedup();
                 Row {
@@ -263,7 +281,7 @@ impl Picker {
 
     pub fn current(&self) -> Option<&PickItem> {
         let snap = self.nucleo.snapshot();
-        nth(snap, &self.order, self.selected as u32).map(|item| item.data)
+        nth(snap, &self.order, self.selected as u32).map(|(item, _)| item.data)
     }
 
     fn accept(&self) -> Pick {

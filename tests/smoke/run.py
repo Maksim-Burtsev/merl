@@ -256,7 +256,7 @@ def fresh(work, project):
         demo = os.path.join(work, "demo", project)
         # and without the viewed marks merl keeps in the checkout's git dir (#240): the other
         # build's play would leave its ticks for this one
-        subprocess.run('git checkout -q -- . && git clean -fdq && rm -f "$(git rev-parse --git-common-dir)/merl/viewed"',
+        subprocess.run('git checkout -q -- . && git clean -fdq && rm -f "$(git rev-parse --git-common-dir)/merl/viewed" "$(git rev-parse --git-dir)/merl/recent"',
                        shell=True, cwd=demo, check=True)
         return demo
     return os.path.join(run, "orders")

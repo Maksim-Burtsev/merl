@@ -590,3 +590,71 @@ fn a_file_outside_the_project_leaves_the_cursor_on_the_first_row() {
     assert_eq!(a.picker.as_ref().unwrap().selected, 0);
     let _ = (std::fs::remove_dir_all(dir), std::fs::remove_file(outside));
 }
+
+#[test]
+fn the_open_file_stays_on_top_when_another_merl_wrote_last() {
+    let (dir, mut a) = recent_app("recent-other");
+    let store = dir.join(".git/merl/recent");
+    a.recent_file = Some(store.clone());
+    a.jump_to(&dir.join("cc.txt"), 1);
+    a.jump_to(&dir.join("dd.txt"), 1);
+    let theirs = format!("{}\n", dir.join("src/aa.txt").display());
+    let ours = std::fs::read_to_string(&store).unwrap();
+    std::fs::write(&store, theirs + &ours).unwrap();
+    assert_eq!(
+        rows(&files_listed(&mut a, "")),
+        ["dd.txt", "src/aa.txt", "cc.txt"]
+    );
+    press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+    a.picker.as_mut().unwrap().settle();
+    assert_eq!(a.picker.as_ref().unwrap().selected, 1);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_recent_file_matched_by_name_is_marked_in_its_name() {
+    let (dir, mut a) = project_app("recent-marks", &[("abc/xabc.rs", "x\n"), ("q.rs", "x\n")]);
+    a.jump_to(&dir.join("abc/xabc.rs"), 1);
+    a.jump_to(&dir.join("q.rs"), 1);
+    press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+    typed(&mut a, "abc");
+    let p = a.picker.as_mut().unwrap();
+    p.settle();
+    let row = p.window(10).0.remove(0);
+    assert_eq!(
+        (row.item.label.as_str(), row.matched),
+        ("abc/xabc.rs", vec![5, 6, 7])
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn an_erased_query_puts_the_cursor_back_on_the_file_before() {
+    let (dir, mut a) = recent_app("recent-erased");
+    a.jump_to(&dir.join("cc.txt"), 1);
+    a.jump_to(&dir.join("dd.txt"), 1);
+    press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+    typed(&mut a, "x");
+    a.picker.as_mut().unwrap().settle();
+    press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+    a.picker.as_mut().unwrap().settle();
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(a.rel_path(), "cc.txt");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn the_tutor_lists_every_file_as_its_tasks_expect() {
+    let (dir, mut a) = recent_app("recent-tutor");
+    a.tutor = Some(crate::tutor::Tutor {
+        step: 0,
+        dir: dir.clone(),
+        drill: None,
+    });
+    a.jump_to(&dir.join("dd.txt"), 1);
+    assert_eq!(
+        rows(&files_listed(&mut a, "")),
+        ["src/aa.txt", "src/bb.txt", "cc.txt", "dd.txt"]
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
