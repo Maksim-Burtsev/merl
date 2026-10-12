@@ -1017,7 +1017,7 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    const LONG_FILES: &[(&str, usize)] = &[("src/app/definition.rs", 2307)];
+    const LONG_FILES: &[(&str, usize)] = &[("src/app/definition.rs", 2166)];
     const MAX_LINES: usize = 1500;
 
     fn rust_files(dir: &Path, with_tests: bool, out: &mut Vec<std::path::PathBuf>) {
@@ -1078,8 +1078,6 @@ mod tests {
         }
         assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
     }
-
-    const COMMENT_LINES: usize = 140;
 
     fn comment_lines(text: &str) -> Vec<usize> {
         let b = text.as_bytes();
@@ -1207,7 +1205,7 @@ b";
             })
             .collect();
         assert!(
-            found.len() <= COMMENT_LINES,
+            found.is_empty(),
             "code carries no comments; move the why into the commit message and the what into a \
              name or a test:\n{}",
             found.join("\n")
