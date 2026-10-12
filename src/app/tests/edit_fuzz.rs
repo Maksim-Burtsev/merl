@@ -1014,6 +1014,12 @@ fn fuzz_tree_sitter(name: &str, start: &[u8], snippets: &[&str]) {
             let want = match a.buf.sexp() == fresh.sexp() {
                 true => fresh.hl,
                 false => {
+                    assert_eq!(
+                        a.buf.root_bytes(),
+                        fresh.root_bytes(),
+                        "seed {seed}, after [{}]: the tree does not span the text",
+                        done.join(", ")
+                    );
                     let kept = a.buf.hl.clone();
                     a.buf.clear_hl();
                     a.buf.paint_to(usize::MAX, &theme);

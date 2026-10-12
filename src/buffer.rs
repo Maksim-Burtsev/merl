@@ -127,6 +127,11 @@ impl Buffer {
         self.ts.as_ref().map(|t| t.sexp()).unwrap_or_default()
     }
 
+    #[cfg(test)]
+    pub fn root_bytes(&self) -> Option<std::ops::Range<usize>> {
+        self.ts.as_ref().and_then(|t| t.root_bytes())
+    }
+
     pub(crate) fn start_tree_sitter(&mut self) {
         self.ts = self
             .syntax

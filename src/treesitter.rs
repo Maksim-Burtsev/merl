@@ -641,6 +641,11 @@ impl Parsed {
             .map(|t| t.root_node().to_sexp())
             .unwrap_or_default()
     }
+
+    #[cfg(test)]
+    pub fn root_bytes(&self) -> Option<std::ops::Range<usize>> {
+        self.tree.as_ref().map(|t| t.root_node().byte_range())
+    }
 }
 
 fn runs(row: &[Style]) -> Spans {
