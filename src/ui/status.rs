@@ -133,6 +133,13 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         .map(|s| wrap::width(&s.content))
         .sum::<usize>()
         + if hint { HINT.len() + 2 } else { 0 };
+    let clock = app
+        .clock
+        .as_deref()
+        .filter(|t| !t.is_empty())
+        .map(|t| (t, wrap::width(t) + 3))
+        .filter(|(_, w)| wrap::width(&spans[0].content) + rest + w <= area.width as usize);
+    let rest = rest + clock.map_or(0, |(_, w)| w);
     spans[0].content = fit_path(
         &spans[0].content,
         (area.width as usize).saturating_sub(rest),
@@ -143,15 +150,25 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
             .iter()
             .map(|s| wrap::width(&s.content))
             .sum::<usize>();
-        let room = (area.width as usize).saturating_sub(before + 2);
+        let room = (area.width as usize)
+            .saturating_sub(before + 2 + clock.map_or(0, |(_, w)| w));
         let (name, why) = app.message.split_at(*len);
         let name = fit_path(name, room.saturating_sub(wrap::width(why)));
         spans.last_mut().unwrap().content = format!("  {name}{why}").into();
     }
     frame.render_widget(Paragraph::new(Line::from(spans)).style(style), area);
+    let clock_w = clock.map_or(0, |(_, w)| w as u16 - 1);
+    if let Some((time, _)) = clock {
+        let at = Rect {
+            x: area.right() - clock_w,
+            width: clock_w,
+            ..area
+        };
+        frame.render_widget(Paragraph::new(format!(" {time} ")).style(style), at);
+    }
     if hint {
         let hint = Rect {
-            x: area.right() - HINT.len() as u16,
+            x: area.right() - clock_w - HINT.len() as u16,
             width: HINT.len() as u16,
             ..area
         };

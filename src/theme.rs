@@ -600,6 +600,8 @@ pub struct Config {
     pub review_open_files_first: bool,
     #[serde(default)]
     pub tree_sitter: bool,
+    #[serde(default)]
+    pub clock: crate::clock::Clock,
 }
 
 fn default_autosave() -> u64 {
@@ -623,6 +625,7 @@ impl Default for Config {
             review_list_marks: true,
             review_open_files_first: true,
             tree_sitter: false,
+            clock: Default::default(),
         }
     }
 }

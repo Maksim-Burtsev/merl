@@ -2,6 +2,7 @@
 
 mod app;
 mod buffer;
+mod clock;
 mod for_agents;
 mod git;
 mod intraline;
@@ -206,6 +207,7 @@ fn run() -> Result<()> {
     app.review_panel_colours = config.review_panel_colours;
     app.review_list_marks = config.review_list_marks;
     app.review_open_files_first = config.review_open_files_first;
+    app.clock_format = config.clock.clone();
     app.theme = name;
     app.config = theme::config_path();
     if cli.tutor || cli.drill.is_some() {
@@ -449,6 +451,11 @@ fn event_loop(
                 }
                 Err(e) => app.message = app::error_text(&e),
             }
+            dirty = true;
+        }
+        let time = app.clock_format.now();
+        if time != app.clock {
+            app.clock = time;
             dirty = true;
         }
         if dirty {

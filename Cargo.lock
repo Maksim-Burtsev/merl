@@ -1822,6 +1822,7 @@ dependencies = [
  "grep-searcher",
  "ignore",
  "image",
+ "libc",
  "merman",
  "notify",
  "nucleo",
