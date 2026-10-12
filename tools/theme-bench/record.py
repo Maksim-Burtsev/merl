@@ -74,8 +74,6 @@ def tsv(path):
 
 
 def manifest():
-    """name -> (source, colorscheme, before, deps); a skipped theme has source `skip` and its
-    reason where the colorscheme would be."""
     return {r[0]: tuple(r[1:5]) for r in tsv(os.path.join(HERE, "themes.tsv"))}
 
 
@@ -84,7 +82,6 @@ def git(*args, cwd=None):
 
 
 def ensure(d, url, commit):
-    """A clone of url at commit in d, fetched once; one already there is only read."""
     if not os.path.isdir(os.path.join(d, ".git")):
         os.makedirs(d, exist_ok=True)
         subprocess.run(["git", "init", "-q"], cwd=d, check=True)
@@ -96,7 +93,6 @@ def ensure(d, url, commit):
 
 
 def repo(cache, source):
-    """`owner/repo@commit` cloned under the cache."""
     name, commit = source.split("@")
     return ensure(os.path.join(cache, "themes", name.replace("/", "__")), f"https://github.com/{name}.git", commit)
 
@@ -138,7 +134,6 @@ def pick(lang):
 
 
 def parsers(cache):
-    """nvim-treesitter at NVIM_TS and PARSERS built into the cache's site/parser."""
     ts = ensure(os.path.join(cache, "nvim-treesitter"), "https://github.com/nvim-treesitter/nvim-treesitter.git",
                 NVIM_TS)
     site = os.path.join(cache, "site", "parser")
@@ -166,7 +161,6 @@ def parsers(cache):
 
 
 def init_lua(cache, name, ts, check=False):
-    """The Neovim config of one theme: the colorscheme and, unless check, the parsers."""
     source, colorscheme, before, deps = manifest()[name]
     dirs = [repo(cache, source)] + [repo(cache, d) for d in deps.split(",") if d != "-"]
     lines = [f"vim.opt.rtp:prepend({json.dumps(d)})" for d in dirs]
@@ -193,8 +187,6 @@ def xdg(cache, name):
 
 
 def groups(cache, name, init):
-    """GROUPS as Neovim draws them: group -> (fg, bg) as `#rrggbb`, a colour the group leaves
-    unset taken from Normal and `reverse` swapping the two; `-` where Normal sets none either."""
     out = tempfile.mktemp(suffix=".json")
     lua = ("local o = {} for _, g in ipairs(vim.split(" + json.dumps(",".join(GROUPS)) + ", ',')) do "
            "o[g] = vim.api.nvim_get_hl(0, {name = g, link = false}) end "
@@ -223,16 +215,11 @@ def tmux(*args):
 
 
 def server():
-    """The bench's tmux server, kept up by an idle session: without it the server exits with the
-    last session a job kills, under the next job starting one."""
     tmux("new-session", "-d", "-s", "idle", "-x", "10", "-y", "2", "sleep 86400")
     tmux("set-option", "-g", "remain-on-exit", "on")
 
 
 def capture(session, cmd, rows, env, ready, keys=()):
-    """Runs cmd in a detached tmux session WIDTH x rows and returns the screen as tools/cast.py's
-    grid once ready(grid) holds and three captures in a row agree; then each of keys is sent and
-    the settled screen after it is returned too."""
     sys.path.insert(0, os.path.join(ROOT, "tools"))
     import cast
     tmux("kill-session", "-t", session)
@@ -266,9 +253,6 @@ def capture(session, cmd, rows, env, ready, keys=()):
 
 
 def on_screen(grid, lines, styled=False):
-    """file line number -> the foreground of each non-blank character of that line, read from the
-    rows whose gutter number is followed by the line's text. The gutter is the column most such
-    numbers end at, so a number inside the tree or the code never claims a line."""
     hits = []
     for cells in grid:
         text = "".join(c[0] for c in cells)
@@ -307,8 +291,6 @@ def decode(runs, colours):
 
 
 def read_colors(path):
-    """colors/THEME/LANG.tsv -> {project/path: {line: [rrggbb per non-blank character]}}. A
-    recording drawn from other commits than tools/d-bench/projects.tsv pins now is refused."""
     rows = open(path).read().splitlines()
     pins = dict(p.split("@") for p in next(r for r in rows if r.startswith("# projects")).split()[2:])
     stale = [p for p, c in pins.items() if projects()[p][3] != c]
@@ -325,7 +307,6 @@ def read_colors(path):
 
 
 def write_colors(path, head, files):
-    """files: [(project/path, {line: [rrggbb ...]})], written as read_colors reads it."""
     count = {}
     for _, got in files:
         for fgs in got.values():

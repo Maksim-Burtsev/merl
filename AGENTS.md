@@ -50,7 +50,11 @@
 - Code carries no comments, `///` and `//!` included: names, types and tests say what it does,
   and the commit message says why, a `ponytail:` note included. Fixture annotations
   (`tests/fixtures/`) and the tutor's sample project are data and stay. `src_holds_no_comment`
-  (`src/main.rs`) fails on any comment under `src/` and names its file and line.
+  (`src/main.rs`) fails on any comment under `src/` and names its file and line;
+  `scripts_and_config_hold_no_comment_but_the_kept_ones` does the same for the Python, shell,
+  Lua, CI and Cargo files, Python docstrings checked by hand. A comment stays only in
+  `KEPT_COMMENTS` beside them, with why the code cannot do without it: a tool reads it (a
+  docstring printed as the program's usage), or a licence requires it.
 
 ## Issues
 

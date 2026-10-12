@@ -13,7 +13,6 @@ import json
 import plistlib
 import sys
 
-# tmTheme global key <- VS Code colors key.
 GLOBALS = [
     ("background", "editor.background"),
     ("foreground", "editor.foreground"),
@@ -27,7 +26,6 @@ GLOBALS = [
 
 
 def rgb(c):
-    """#RGB / #RRGGBB / #RRGGBBAA -> (r, g, b, a)."""
     h = c.lstrip("#")
     if len(h) in (3, 4):
         h = "".join(ch * 2 for ch in h)
@@ -36,7 +34,6 @@ def rgb(c):
 
 
 def over(color, background):
-    """Composite `color` over `background` and return an opaque #RRGGBB."""
     r, g, b, a = rgb(color)
     br, bg_, bb, _ = rgb(background)
     if a == 255:
@@ -48,7 +45,6 @@ def over(color, background):
 
 
 def opaque(color):
-    """Drop any alpha byte without compositing."""
     r, g, b, _ = rgb(color)
     return "#%02X%02X%02X" % (r, g, b)
 
@@ -62,8 +58,6 @@ def convert(theme, name):
         value = next((colors[s] for s in sources if s in colors), None)
         if value:
             top[key] = over(value, bg)
-    # A selection in the cursor line's colour makes a selected line look like the cursor line.
-    # Shokunin Light does that; its terminal selection is the theme's own selection colour.
     same = "selection" in top and top["selection"] == top.get("lineHighlight")
     if same and "terminal.selectionBackground" in colors:
         top["selection"] = over(colors["terminal.selectionBackground"], bg)

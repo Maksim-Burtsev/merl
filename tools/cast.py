@@ -31,26 +31,18 @@ macOS only: the renderer reads Menlo out of /System/Library/Fonts/Menlo.ttc.
 import argparse, os, re, shlex, shutil, subprocess, sys, tempfile, threading, time
 from PIL import Image, ImageDraw, ImageFont
 
-FONT = "/System/Library/Fonts/Menlo.ttc"  # index 0 regular, 1 bold, 2 italic, 3 bold-italic
-FONT_SIZE = 18  # the screencasts' and tools/shot.py's, so every picture reads in one size
-# The terminal's own colours, as the owner's Ghostty draws them with its TokyoNight Moon theme:
-# the default foreground and background, then the 16 ANSI colours. merl paints its theme in
-# 24-bit colour, but the gutter marks and the review panel's letters are basic colours whose
-# shade the terminal picks; xterm's blue, (0, 0, 238), is nearly black on a dark theme.
+FONT = "/System/Library/Fonts/Menlo.ttc"
+FONT_SIZE = 18
 DEFAULT_FG, DEFAULT_BG = (0xc8, 0xd3, 0xf5), (0x22, 0x24, 0x36)
 ANSI = [tuple(bytes.fromhex(h)) for h in ("1b1d2b ff757f c3e88d ffc777 82aaff c099ff 86e1fc 828bb8 "
                                           "444a73 ff757f c3e88d ffc777 82aaff c099ff 86e1fc c8d3f5"
                                           ).split()]
 GHOSTTY_THEMES = "/Applications/Ghostty.app/Contents/Resources/ghostty/themes"
-# xterm's colours, for telling cells apart rather than drawing them: its defaults and 16 colours
-# differ from each other and from merl's themes, where Moon's bright colours repeat the normal
-# ones and its defaults are merl's default theme's.
 XTERM = ((0xcc, 0xcc, 0xcc), (0x10, 0x10, 0x10),
          [(0, 0, 0), (205, 0, 0), (0, 205, 0), (205, 205, 0), (0, 0, 238), (205, 0, 205),
           (0, 205, 205), (229, 229, 229), (127, 127, 127), (255, 0, 0), (0, 255, 0),
           (255, 255, 0), (92, 92, 255), (255, 0, 255), (0, 255, 255), (255, 255, 255)])
 SELFTEST_STEPS = ["wait store.py", "key s", "sleep 0.4", "type config", "sleep 1.2"]
-# Menlo's box glyphs leave gaps at a cell this tall, so they are drawn as lines through the centre.
 SEGMENTS = {"│": "ud", "┃": "ud", "─": "lr", "━": "lr", "┌": "dr", "┐": "dl", "└": "ur", "┘": "ul",
             "├": "udr", "┤": "udl", "┬": "dlr", "┴": "ulr", "┼": "udlr",
             "╭": "dr", "╮": "dl", "╰": "ur", "╯": "ul"}
@@ -64,7 +56,6 @@ SANS = "/System/Library/Fonts/SFNS.ttf"
 
 
 def use_ghostty(theme):
-    """The terminal's colours from a Ghostty theme, a name such as `TokyoNight Day` or a path."""
     global DEFAULT_FG, DEFAULT_BG
     path = theme if os.sep in theme else os.path.join(GHOSTTY_THEMES, theme)
     for line in open(path):
@@ -119,11 +110,6 @@ def apply_sgr(params, st, palette):
 
 
 def parse(capture, cols, rows, palette=None):
-    """A capture-pane -e dump into a grid of (char, fg, bg, bold, italic), in the terminal's
-    colours or in `palette`, a (foreground, background, 16 colours) such as XTERM.
-
-    SGR state carries across lines: capture-pane only emits the changes, so a parser that resets
-    per line paints whole rows in the wrong background."""
     palette = palette or (DEFAULT_FG, DEFAULT_BG, ANSI)
     st = (palette[0], palette[1], False, False, False)
     grid = []
@@ -144,12 +130,10 @@ def parse(capture, cols, rows, palette=None):
 
 
 def block(char, x, y, cw, ch):
-    """The rectangle a block element fills, as a terminal draws it: to the edges of the cell.
-    Menlo's glyphs stop short of them, and merl's gutter bars would break between the rows."""
     n = ord(char) - 0x2580
-    if 1 <= n <= 8:  # ▁ … █, the lower n eighths
+    if 1 <= n <= 8:
         return [x, y + ch - ch * n // 8, x + cw - 1, y + ch - 1]
-    if 9 <= n <= 15:  # ▉ … ▏, the left 16 - n eighths
+    if 9 <= n <= 15:
         return [x, y, x + cw * (16 - n) // 8 - 1, y + ch - 1]
     return None
 
@@ -162,8 +146,6 @@ def render(grid, cursor, fonts, cell):
         for col, (char, fg, bg, bold, italic) in enumerate(cells):
             x, y = col * cw, row * ch
             if cursor == (col, row):
-                # A block of one colour, as a terminal with a cursor colour draws it. Swapping the
-                # cell's own colours turns the cursor on a find match into a dark hole in it.
                 fg, bg = DEFAULT_BG, DEFAULT_FG
             if bg != DEFAULT_BG or cursor == (col, row):
                 draw.rectangle([x, y, x + cw - 1, y + ch - 1], fill=bg)
@@ -175,8 +157,6 @@ def render(grid, cursor, fonts, cell):
                 if "r" in seg: draw.line([(mx, my), (x + cw, my)], fill=fg)
             elif rect := block(char, x, y, cw, ch):
                 draw.rectangle(rect, fill=fg)
-            # U+FE0F makes the emoji before it two cells wide. Read a char to a cell, the selector
-            # lands in the second cell, which a terminal leaves blank; Menlo would draw a box.
             elif char not in (" ", "️"):
                 draw.text((x, y), char, font=fonts[bold + 2 * italic], fill=fg)
     return img
@@ -208,8 +188,6 @@ def typed(text):
 
 
 class Pane:
-    """A merl running on a tmux socket of its own, with an empty HOME so the user's config and
-    themes stay out of the recording."""
 
     def __init__(self, binary, merl_args, project, cols, rows):
         self.sock = "cast%d" % os.getpid()
@@ -251,7 +229,6 @@ class Pane:
 
 def run(pane, steps, fps, key_delay, type_delay, tail):
     shots, presses, stop = [], [], threading.Event()
-    # Leading waits are the app starting up; sampling them would open the GIF on a blank pane.
     while steps and steps[0].split(" ")[0] in ("wait", "sleep"):
         verb, _, rest = steps.pop(0).partition(" ")
         if verb == "wait":
@@ -303,9 +280,6 @@ def run(pane, steps, fps, key_delay, type_delay, tail):
 
 
 def save_gif(images, durations, out):
-    """The frames as a looping GIF, each shown for its duration in milliseconds."""
-    # The palette comes from frames spread over the run: taken from the first one alone, a pane
-    # that has not painted yet collapses every later frame into its two colours.
     strip = images[:: max(1, len(images) // 8)][:8]
     sheet = Image.new("RGB", (strip[0].width, strip[0].height * len(strip)))
     for i, im in enumerate(strip):
@@ -384,8 +358,6 @@ def main():
         red = (255, 0, 0)
         bar = render([[("\u258e", red, DEFAULT_BG, False, False)]] * 2, None, fonts, cell)
         assert all(bar.getpixel((0, y)) == red for y in range(bar.height)), "the ▎ bar has gaps"
-        # A second line goes on in the first one's background; the default text and `\e[34m` are
-        # TokyoNight Moon's, and a Ghostty theme replaces both.
         g = parse("\x1b[48;2;1;2;3mx\ny\n\x1b[34mM", 1, 3)
         assert g[1][0][2] == (1, 2, 3), "the second line lost the background it carries on"
         assert g[0][0][1] == (0xc8, 0xd3, 0xf5), "the default text is not Moon's"

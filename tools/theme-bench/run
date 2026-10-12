@@ -42,7 +42,6 @@ CHROME = [("background", "Normal", 1), ("cursor line", "CursorLine", 1), ("selec
 
 
 def token(line, i):
-    """The word (or the character) at the i-th non-blank character of line."""
     at = [p for p, ch in enumerate(line) if not ch.isspace()][i]
     m = re.match(r"\w+", line[at:])
     if m:
@@ -54,9 +53,6 @@ def token(line, i):
 
 
 def score(want, got, text):
-    """want, got: {path: {line: [rrggbb per non-blank character]}}; text: {path: file lines}.
-    Returns (characters, matching, Counter of (want, got) -> count, {(want, got): token}, lines
-    missing from merl's screen). A missing line's characters count as not matching."""
     total = same = missing = 0
     miss, sample = collections.Counter(), {}
     for path, lines in want.items():
@@ -77,8 +73,6 @@ def score(want, got, text):
 
 
 def worse(base, now, every=False):
-    """(theme, lang, was, is) for every row of now matching fewer characters than its baseline,
-    and with every (a run of all themes and languages) each baseline row the run lacks, as None."""
     lost = [(t, l, base[(t, l)], n) for (t, l), n in sorted(now.items()) if (t, l) in base and n < base[(t, l)]]
     return lost + [(t, l, n, None) for (t, l), n in sorted(base.items()) if every and (t, l) not in now]
 
@@ -92,7 +86,6 @@ def draw(merl, home, theme, path, lines, first, keys=()):
 
 
 def chrome(merl, home, theme):
-    """merl's chrome colours, read off its screen on a probe file."""
     d = tempfile.mkdtemp(dir=home)
     path = os.path.join(d, "probe.txt")
     open(path, "w").write(PROBE)
@@ -137,7 +130,6 @@ def baseline():
 
 
 def selftest():
-    """The reading of a screen, the scoring and the gate on made-up rows."""
     blue, grey, red = (130, 170, 255), (99, 109, 166), (255, 150, 108)
     lines = ["def f(x):", "\treturn 1 + x", "", "# 3 apples"]
     row = lambda *parts: [(ch, colour, (0, 0, 0)) for part, colour in parts for ch in part]
