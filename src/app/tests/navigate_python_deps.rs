@@ -510,3 +510,65 @@ fn a_member_outside_is_looked_for_in_the_imported_packages_first() {
         std::fs::remove_dir_all(d).unwrap();
     }
 }
+
+#[test]
+fn a_python_module_outside_is_the_file_python_imports() {
+    let first = external_root(
+        "py-module-first",
+        &[
+            ("twin.pyi", ""),
+            ("both/__init__.py", ""),
+            ("both.py", ""),
+            ("typed.py", ""),
+            ("typed.pyi", ""),
+            ("compiled.pyi", ""),
+            ("site-packages/inner.py", ""),
+            ("other/lone.py", ""),
+        ],
+    );
+    let second = external_root("py-module-second", &[("twin/__init__.py", "")]);
+    let (dir, mut a) = project_app("py-module", &[("app/x.py", "")]);
+    use_roots(
+        &mut a,
+        Kind::Python,
+        &[first.join("site-packages"), first.clone(), second.clone()],
+    );
+    let module = |a: &App, name: &str| {
+        let parts: Vec<String> = name.split('.').map(str::to_owned).collect();
+        (a.walked_module(&parts)).map(|f| f.display().to_string())
+    };
+    let at = |root: &Path, file: &str| Some(root.join(file).display().to_string());
+    assert_eq!(
+        module(&a, "twin"),
+        at(&first, "twin.pyi"),
+        "the first root wins"
+    );
+    assert_eq!(
+        module(&a, "both"),
+        at(&first, "both/__init__.py"),
+        "a package over a module"
+    );
+    assert_eq!(
+        module(&a, "typed"),
+        at(&first, "typed.py"),
+        "`.py` over `.pyi`"
+    );
+    assert_eq!(
+        module(&a, "compiled"),
+        at(&first, "compiled.pyi"),
+        "a stub alone"
+    );
+    assert_eq!(
+        module(&a, "inner"),
+        at(&first, "site-packages/inner.py"),
+        "matched from the deepest root holding it"
+    );
+    assert_eq!(
+        module(&a, "lone"),
+        None,
+        "never a file deeper in another package"
+    );
+    for d in [dir, first, second] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}

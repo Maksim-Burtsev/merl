@@ -16,4 +16,8 @@ defmodule Shop.Export do
 
   def tag(conn, basket), do: Plug.Conn.assign(conn, :basket, basket)
   #                                    ^ d: deps/plug/lib/plug/conn.ex:2
+
+  # `Map` ships compiled: no dependency's `merge` is its (#437).
+  def total(basket), do: Map.merge(basket, %{total: 0})
+  #                          ^ d: none
 end

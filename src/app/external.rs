@@ -1,8 +1,5 @@
-//! Definitions outside the project: the standard library and the installed dependencies.
-
 use super::*;
 
-/// Fields outside the project are never listed, there are too many.
 pub(super) struct OutsideMembers {
     pub methods: Vec<Hit>,
     pub unlisted_field_declares_it: bool,
@@ -17,18 +14,6 @@ impl OutsideMembers {
 }
 
 impl App {
-    /// `pattern` over the standard library and dependencies of `kind`, in the module the file's
-    /// imports bind `chain` (or `word` itself) to. The module path is relaxed from the end until
-    /// files match: `from json import load` is `json/load`, then `json`. Relaxing past the
-    /// module the import names (`github.com/foo/bar` down to `github.com`) is a search by name,
-    /// and says so. A relative import names a project file, so nothing outside is searched. A
-    /// qualifier no import binds is taken as the module path itself: `std::fs::read` spells one,
-    /// while a `dotted` qualifier is a value whose name merely matches a module, found by name. A
-    /// name nothing installed declares matches no file and the search stops. A bare word no
-    /// import binds (`Vec`, `open`) searches every file, by name. Of a TypeScript package
-    /// installed more than once, only the copy Node loads is the import's when `narrow`; `None`
-    /// when that copy is a workspace package linked into the project, whose source is the
-    /// project's. Without `narrow` it is every copy, as the import names the module.
     pub(super) fn external_definitions(
         &mut self,
         kind: Kind,
@@ -63,8 +48,6 @@ impl App {
         {
             return Some(Vec::new());
         }
-        // The import's own item may go (`from json import load` is `json`), and so may whatever
-        // the chain adds past it; the module itself may not.
         let floor = bound_path
             .as_ref()
             .map_or(chain.len(), Vec::len)
@@ -75,8 +58,6 @@ impl App {
             .filter(|_| kind == Kind::Go)
             .map(Vec::len);
         let floor = package.unwrap_or(floor);
-        // `@/lib`, `~/lib`, `#lib`: an alias of the project's own module, no package. The search
-        // in the project comes first; after it, by name, never narrowed into `@mui`.
         let alias = kind == Kind::TsJs
             && bound_path
                 .as_ref()
@@ -92,21 +73,14 @@ impl App {
             }
             _ => Some(search::PackageCopy::default()),
         };
-        // A workspace package linked in is the project's own: the search in the project, by
-        // name, finds its source, where a published copy outside would be a stale one; the
-        // caller searches outside by name only after it.
         let copy = copy?;
         let narrowed_to_copy = !copy.files.is_empty();
-        // `node:sqlite` is looked for, and named, as `sqlite`.
         if let Some(first) = bound_path.as_mut().and_then(|p| p.first_mut())
             && let Some(bare) = first.strip_prefix("node:")
         {
             *first = bare.to_owned();
         }
         let mut module = match chain.first() {
-            // A C++ `std::` or `detail::` qualifier names a namespace, and no directory of the
-            // system headers is called that, so narrowing by it would find nothing at all.
-            // A Dart qualifier is a prefix, a class or a value, never a directory (#414).
             Some(_) if matches!(kind, Kind::C | Kind::Ruby | Kind::Dart) => None,
             Some(first) => {
                 let mut p = bound_path.unwrap_or_else(|| vec![first.clone()]);
@@ -118,8 +92,6 @@ impl App {
         let named = module.clone();
         let mut files: Vec<PathBuf> = Vec::new();
         if let Some(m) = module.as_mut().filter(|_| !alias) {
-            // The copy's files of the module, else, for a copy of no walked files, every file's,
-            // as without a copy.
             let found = match kind {
                 Kind::Elixir => self.elixir_module(&all, m, pattern),
                 Kind::Python => self.python_module_among(&all, m),
@@ -127,7 +99,6 @@ impl App {
                     .module(m)
                     .or_else(|| search::module_among(&all, m, package)),
             };
-            // An import of something not installed: nothing outside says what it is.
             let Some(found) = found.filter(|f| package.is_none_or(|k| f.matched_parts >= k)) else {
                 return Some(Vec::new());
             };
@@ -160,8 +131,6 @@ impl App {
                 },
             ));
         };
-        // `from lib import pick` names something at the top of a module: a method called `pick`
-        // is not it, however alone it stands (the real one may be native code).
         let top_level =
             imported && chain.len() <= 1 && matches!(kind, Kind::Python | Kind::TsJs | Kind::Go);
         let at_top = |this: &Self, mut hits: Vec<Hit>| {
@@ -174,9 +143,7 @@ impl App {
             hits
         };
         let mut hits = at_top(self, declarations_in(self, &files));
-        // `export { parseCookie as parse }` is the import's own `parse`, as in the project.
         if hits.is_empty() && narrowed_to_copy && word_is_export_name {
-            // The package itself is its entry, not every file in it: a chunk, a legacy module.
             let within = match module.len() <= copy.name_parts {
                 true => copy.entries(),
                 false => files,
@@ -252,8 +219,6 @@ impl App {
         Some(found)
     }
 
-    /// `None` when no file declares the module: `Enum` and `String` ship compiled, and no
-    /// dependency's namesake is theirs (#437).
     fn elixir_module(
         &self,
         all: &[PathBuf],
@@ -403,11 +368,6 @@ impl App {
             .collect()
     }
 
-    /// The file outside the project that is the Python module `parts` (#333), matched from the
-    /// root it lies under, the deepest that holds it: `a/b/c/__init__.py`, `a/b/c.py` or
-    /// `a/b/c.pyi` from there, never a `c.py` deeper in some other package. As Python imports it,
-    /// the first root holding it wins, and in a root a package over a module beside it; `.py`
-    /// over `.pyi`, which a compiled module has alone.
     pub(super) fn external_module(&mut self, parts: &[String]) -> Option<PathBuf> {
         self.external_files(Kind::Python);
         self.walked_module(parts)
@@ -439,11 +399,6 @@ impl App {
         }
     }
 
-    /// Where `word`, a member of a JavaScript or DOM global, `JSON.parse`, is declared (#341):
-    /// in the `.d.ts` files outside the project, TypeScript's lib and `@types/node`, and in what
-    /// the project declares into the global scope, `interface Window { dataLayer }` or `var
-    /// appConfig` in a `declare global` ([`search::ts_global_scope`]). The project's hits are
-    /// master's search by name, `members` then `pattern`, first.
     pub(super) fn js_global_members(
         &mut self,
         here: &Path,
@@ -499,8 +454,6 @@ impl App {
         search::narrow_patterns(kind, p, text, self.line, self.line_str(), r);
     }
 
-    /// `pattern` over `files` outside the project, standard library first. The paths are
-    /// absolute: `root.join` leaves them alone, so a hit opens where it is.
     pub(super) fn external_grep(&self, kind: Kind, files: &[PathBuf], pattern: &str) -> Vec<Hit> {
         self.outside_grep(kind, files, pattern, None)
     }
@@ -526,7 +479,6 @@ impl App {
         }
         .unwrap_or_default();
         self.note_cut(&hits);
-        // A function's locals in a dependency are no one's to import (#339).
         if kind == Kind::TsJs {
             let mut texts: HashMap<PathBuf, Vec<String>> = HashMap::new();
             hits.retain(|h| {
@@ -549,7 +501,6 @@ impl App {
         hits
     }
 
-    /// A few hundred candidate lines are enough to tell whether one declares a field.
     pub(super) fn external_methods(
         &self,
         files: &[PathBuf],
@@ -608,12 +559,9 @@ impl App {
         }
     }
 
-    /// Test helper: nothing is installed outside the project, so a lookup reads no library of
-    /// the machine the tests run on.
     #[cfg(test)]
     pub(crate) fn no_external(&mut self) {
-        // Every kind: a new one fails to compile here until it is in the list below too.
-        let every = |kind: Kind| match kind {
+        let new_kind_fails_to_compile_until_listed = |kind: Kind| match kind {
             Kind::Python
             | Kind::Go
             | Kind::Rust
@@ -699,7 +647,7 @@ impl App {
             Kind::Css,
             Kind::Html,
         ]
-        .map(every)
+        .map(new_kind_fails_to_compile_until_listed)
         {
             self.external
                 .insert(kind, (Vec::new(), Arc::new(Vec::new())));
@@ -720,7 +668,6 @@ impl App {
         self.warming.insert(kind, Some(walk));
     }
 
-    /// The files of `kind` outside the project, walked once per kind.
     pub(super) fn external_files(&mut self, kind: Kind) -> Arc<Vec<PathBuf>> {
         if kind == Kind::Scheme
             && self
@@ -811,8 +758,6 @@ impl App {
         if kind != Kind::C {
             return files;
         }
-        // Only an Objective-C file reads the frameworks and `Pods/` (#417): any other keeps the
-        // files it had before them.
         let key = (self.c_source(), self.objc_file());
         if let Some((from, kept)) = self.c_files.get(&key)
             && Arc::ptr_eq(from, &files)
@@ -834,14 +779,11 @@ impl App {
         kept
     }
 
-    /// Whether the open file is C source, `.c`, or Objective-C's `.m` (#417), which read no C++
-    /// header; `.mm` does.
     pub(super) fn c_source(&self) -> bool {
         (self.buf.path.as_deref())
             .is_some_and(|p| p.extension().is_some_and(|e| e == "c" || e == "m"))
     }
 
-    /// Whether the open file is Objective-C ([`search::objc_file`]).
     pub(super) fn objc_file(&self) -> bool {
         (self.buf.path.as_deref())
             .is_some_and(|p| search::objc_file(p, || self.buf.lines.join("\n")))
@@ -853,10 +795,7 @@ impl App {
         }
     }
 
-    /// Of `hits` of the [`search::def_patterns`] of `word`, the lines that declare it where they
-    /// sit ([`search::declares_where`]).
     pub(super) fn declaring(&self, kind: Kind, word: &str, mut hits: Vec<Hit>) -> Vec<Hit> {
-        // One file holds thousands of GraphQL `id` fields, so each file is split once.
         let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
         let objc_only = (kind == Kind::C && !self.objc_file()).then(|| search::objc_only(word));
         hits.retain(|h| {
@@ -881,15 +820,11 @@ impl App {
         hits
     }
 
-    /// The text of `path` as the search read it: the open file as it is on screen. A
-    /// component's lines outside its script are blank (#413).
     pub(super) fn text_of(&self, path: &Path) -> Option<String> {
         let text = self.file_text(path)?;
         Some(search::script_text(path, &text, None).into_owned())
     }
 
-    /// The text of `path` as it is, a component's template included: the open file as it is on
-    /// screen.
     pub(super) fn file_text(&self, path: &Path) -> Option<String> {
         match self.rel_current().as_deref() == Some(path) {
             true => Some(self.buf.lines.join("\n")),
@@ -902,7 +837,6 @@ impl App {
         Some(search::script_text(&h.path, &text, None).into_owned())
     }
 
-    /// [`Self::hit_text`] as it is, a component's template included.
     fn hit_file_text(&self, h: &Hit) -> Option<String> {
         match h.deleted {
             None => self.file_text(&h.path),
@@ -910,7 +844,6 @@ impl App {
         }
     }
 
-    /// The text of `path` at the base of the review, under the name it had there (#440).
     fn base_text(&self, path: &Path) -> Option<String> {
         let r = self.review.as_ref()?;
         let from = r.file(path).and_then(|f| f.old.as_deref());
@@ -918,8 +851,6 @@ impl App {
         Some(String::from_utf8_lossy(&bytes).into_owned())
     }
 
-    /// [`search::hidden_lines`] of the text `h` was read from: the lines where a
-    /// declaration-shaped line declares nothing.
     pub(super) fn hidden_of(&self, kind: Kind, h: &Hit) -> Vec<bool> {
         (self.hit_file_text(h)).map_or_else(Vec::new, |t| search::hidden_lines(kind, &h.path, &t))
     }
@@ -954,11 +885,6 @@ impl App {
         Arc::new(kept.cloned().collect())
     }
 
-    /// `path` relative to the standard library or dependency root of `kind` it is under,
-    /// `json/__init__.py` rather than the whole path to the interpreter; any other path as it
-    /// is. A root that is one package keeps its name, `serde-1.0.200/src/lib.rs`, or its files
-    /// would read like the project's own. A workspace package's own `node_modules` is named from
-    /// the project root, so its `lib/index.d.ts` reads apart from the one at the top.
     pub(super) fn rel_to_its_root<'a>(&self, kind: Kind, path: &'a Path) -> &'a Path {
         let roots = self
             .external
@@ -967,7 +893,6 @@ impl App {
             .unwrap_or_default();
         let mut roots = match kind {
             Kind::TsJs => roots.last().into_iter().chain([&self.root]).collect(),
-            // `deps/` is inside the project: `deps/jason/lib/jason.ex`.
             Kind::Elixir => [&self.root]
                 .into_iter()
                 .chain(roots.iter().filter(|r| !r.starts_with(&self.root)))
@@ -987,9 +912,6 @@ impl App {
             })
     }
 
-    /// Picker rows for `d`: the qualified name, the reason, then `path:line: code`, the columns
-    /// padded so the names and reasons line up. An external hit is shown relative to the root it
-    /// came from: `json/__init__.py:278:` rather than the whole path to the interpreter.
     pub(super) fn definition_items(
         &self,
         kind: Kind,
@@ -1050,7 +972,6 @@ impl App {
             .collect()
     }
 
-    /// `d` in a file whose kind has no declaration patterns: not "not found", never looked.
     pub(super) fn no_rules(&self) -> String {
         let ext = self.buf.path.as_deref().and_then(Path::extension);
         match ext {
@@ -1075,13 +996,6 @@ fn python_rel<'a>(roots: &[PathBuf], f: &'a Path) -> Option<(usize, &'a Path)> {
     Some((i, f.strip_prefix(root).ok()?))
 }
 
-/// How many directories at the end of `root` name its package. A root named with a version is
-/// one package, and its own name counts: Cargo gives each crate a directory of its own,
-/// `serde-1.0.200`, and Go each module, `gin@v1.9.1`. A Go module whose path ends in its major
-/// version, `github.com/jackc/pgx/v5`, is `v5@v5.5.0` on disk, so the directory before it counts
-/// too, as a gem's directory counts before its `lib`. The other roots hold many packages and
-/// have no version in their name: a standard library (`python3.13`, `src`, `library`),
-/// `site-packages`, `node_modules`.
 fn package_dirs(root: &Path) -> usize {
     let name = root.file_name().unwrap_or_default().to_string_lossy();
     let versioned = |sep: &str| {

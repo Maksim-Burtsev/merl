@@ -37,6 +37,7 @@ mod navigate_ts_deps;
 mod nix;
 mod no_panic;
 mod open;
+mod outside;
 mod perl;
 mod picker;
 mod preview;

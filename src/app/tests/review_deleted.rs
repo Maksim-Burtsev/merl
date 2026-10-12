@@ -1150,3 +1150,49 @@ fn a_reload_carries_a_selection_anchored_on_a_deleted_line() {
     assert_eq!(a.selected_text().as_deref(), Some("b\n"));
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn a_deleted_row_of_a_renamed_file_is_named_from_its_old_text() {
+    let (dir, mut a) = repo_review(
+        "d-picker-renamed-old",
+        &[
+            (
+                "a.py",
+                "class A:\n    def run(self):\n        return 1\n\n    def walk(self):\n        return 0\n",
+            ),
+            (
+                "b.py",
+                "class B:\n    def run(self):\n        return 2\n\n    def stop(self):\n        return 3\n",
+            ),
+            ("main.py", "def go(x):\n    return x\n"),
+        ],
+        &[
+            (
+                "a.py",
+                Some("class A:\n    def walk(self):\n        return 0\n"),
+            ),
+            ("b.py", None),
+            (
+                "lib/beta.py",
+                Some("class B:\n    def stop(self):\n        return 3\n"),
+            ),
+            ("main.py", Some("def go(x):\n    return x.run()\n")),
+        ],
+    );
+    a.jump_to(&dir.join("main.py"), 2);
+    a.col = a.line_str().find("run").unwrap();
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    let p = a.picker.as_mut().expect("a picker");
+    p.settle();
+    let labels: Vec<String> = (p.window(9).0.iter())
+        .map(|r| r.item.label[..r.item.code_at.unwrap()].to_string())
+        .collect();
+    assert_eq!(
+        labels,
+        [
+            "B.run  by name  lib/beta.py:2: ",
+            "A.run  by name  a.py:2: "
+        ]
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
