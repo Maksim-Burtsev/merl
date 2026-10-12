@@ -931,6 +931,9 @@ const PYTHON: &[&str] = &[
     "lambda x: x",
     "re.compile(r\"[a-z]+\\d\")",
     "\"%s %d\" % (a, b)",
+    "T = \\\n    TypeVar(\"T\")\n",
+    "TypeVar",
+    "r",
 ];
 
 const MARKDOWN: &[&str] = &[

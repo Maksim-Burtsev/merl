@@ -456,6 +456,51 @@ fn patterns(
     })
 }
 
+type Found = std::collections::HashSet<(usize, Vec<(u32, usize, usize, usize)>)>;
+
+fn found(
+    patterns: &Patterns,
+    tree: &Tree,
+    range: std::ops::Range<usize>,
+    bytes: &[u8],
+    clip: usize,
+) -> Found {
+    let mut cursor = QueryCursor::new();
+    cursor.set_byte_range(range);
+    let mut out = Found::new();
+    let mut matches = cursor.matches(&patterns.query, tree.root_node(), bytes);
+    while let Some(m) = matches.next() {
+        if !patterns.matches(m, bytes) {
+            continue;
+        }
+        let captures: Vec<_> = m
+            .captures()
+            .iter()
+            .filter(|c| c.node.start_byte() < clip)
+            .map(|c| {
+                let r = c.node.byte_range();
+                (
+                    c.index,
+                    r.start,
+                    r.end.min(clip),
+                    c.node.start_position().row,
+                )
+            })
+            .collect();
+        if !captures.is_empty() {
+            out.insert((m.pattern_index, captures));
+        }
+    }
+    out
+}
+
+fn first_row(old: Found, new: &Found) -> usize {
+    old.symmetric_difference(new)
+        .flat_map(|(_, captures)| captures.iter().map(|c| c.3))
+        .min()
+        .unwrap_or(usize::MAX)
+}
+
 fn changed_match_row(
     patterns: &Patterns,
     old: &Tree,
@@ -463,26 +508,18 @@ fn changed_match_row(
     range: std::ops::Range<usize>,
     bytes: &[u8],
 ) -> usize {
-    let found = |tree: &Tree| {
-        let mut cursor = QueryCursor::new();
-        cursor.set_byte_range(range.clone());
-        let mut out = std::collections::HashSet::new();
-        let mut matches = cursor.matches(&patterns.query, tree.root_node(), bytes);
-        while let Some(m) = matches.next() {
-            let captures: Vec<_> = m
-                .captures()
-                .iter()
-                .map(|c| (c.index, c.node.byte_range(), c.node.start_position().row))
-                .collect();
-            out.insert((m.pattern_index, captures));
-        }
-        out
-    };
-    found(old)
-        .symmetric_difference(&found(new))
-        .flat_map(|(_, captures)| captures.iter().map(|c| c.2))
-        .min()
-        .unwrap_or(usize::MAX)
+    let found = |tree| found(patterns, tree, range.clone(), bytes, usize::MAX);
+    first_row(found(old), &found(new))
+}
+
+fn changed_text_row(patterns: &Patterns, before: &(Tree, String), new: &Tree, text: &str) -> usize {
+    let (old, new_bytes) = (before.1.as_bytes(), text.as_bytes());
+    let (prefix, suffix) = common_ends(old, new_bytes);
+    let around = |len: usize| prefix.saturating_sub(1)..(len - suffix + 1).min(len);
+    first_row(
+        found(patterns, &before.0, around(old.len()), old, prefix),
+        &found(patterns, new, around(new_bytes.len()), new_bytes, prefix),
+    )
 }
 
 fn vim_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
@@ -616,6 +653,7 @@ pub struct Parsed {
     starts: Vec<usize>,
     repaint_from: Option<usize>,
     halted: bool,
+    before: Option<(Tree, String)>,
 }
 
 fn joined(lines: &[String]) -> (String, Vec<usize>) {
@@ -628,6 +666,19 @@ fn joined(lines: &[String]) -> (String, Vec<usize>) {
         starts.push(text.len());
     }
     (text, starts)
+}
+
+fn common_ends(old: &[u8], new: &[u8]) -> (usize, usize) {
+    let prefix = old.iter().zip(new).take_while(|(a, b)| a == b).count();
+    let room = old.len().min(new.len()) - prefix;
+    let suffix = old
+        .iter()
+        .rev()
+        .zip(new.iter().rev())
+        .take(room)
+        .take_while(|(a, b)| a == b)
+        .count();
+    (prefix, suffix)
 }
 
 fn point(starts: &[usize], byte: usize) -> Point {
@@ -649,6 +700,7 @@ impl Parsed {
             text,
             repaint_from: Some(0),
             halted: false,
+            before: None,
         })
     }
 
@@ -663,18 +715,10 @@ impl Parsed {
     pub fn edit(&mut self, lines: &[String]) {
         let (text, starts) = joined(lines);
         let (old, new) = (self.text.as_bytes(), text.as_bytes());
-        let prefix = old.iter().zip(new).take_while(|(a, b)| a == b).count();
-        if prefix == old.len() && old.len() == new.len() {
+        if old == new {
             return;
         }
-        let room = old.len().min(new.len()) - prefix;
-        let suffix = old
-            .iter()
-            .rev()
-            .zip(new.iter().rev())
-            .take(room)
-            .take_while(|(a, b)| a == b)
-            .count();
+        let (prefix, suffix) = common_ends(old, new);
         let edit = InputEdit {
             start_byte: prefix,
             old_end_byte: old.len() - suffix,
@@ -684,6 +728,9 @@ impl Parsed {
             new_end_position: point(&starts, new.len() - suffix),
         };
         if let Some(tree) = &mut self.tree {
+            if self.before.is_none() {
+                self.before = Some((tree.clone(), std::mem::take(&mut self.text)));
+            }
             tree.edit(&edit);
         }
         if std::mem::take(&mut self.halted) {
@@ -724,6 +771,14 @@ impl Parsed {
                 })
                 .fold(from, usize::min),
             None => 0,
+        };
+        let from = match self.before.take() {
+            Some(before) => {
+                let row = |p: &Patterns| changed_text_row(p, &before, &tree, &self.text);
+                let injected = self.lang.injections.as_ref().map_or(usize::MAX, row);
+                from.min(row(&self.lang.highlights)).min(injected)
+            }
+            None => from,
         };
         let near = self.starts[from]..self.starts.get(from + 1).copied().unwrap_or(bytes.len());
         let doc = layers::Doc::new(bytes, &self.starts, near.start, near.end);

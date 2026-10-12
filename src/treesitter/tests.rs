@@ -591,70 +591,114 @@ fn a_parse_cut_short_resumes_and_an_edit_in_between_restarts_it() {
     assert_eq!(b.hl, fresh.hl);
 }
 
+type Timings = Vec<(f64, f64)>;
+
+fn ms(t: std::time::Instant) -> f64 {
+    t.elapsed().as_secs_f64() * 1000.0
+}
+
+fn settle(b: &mut Buffer, last: usize, theme: &theme::Theme) {
+    while b.parsing() {
+        b.parse_more(Some(crate::buffer::PARSE_IDLE_STEP));
+    }
+    b.highlight_to(last, theme);
+}
+
+fn speed_rows(
+    file: &str,
+    bytes: &[u8],
+    ts: bool,
+    theme: &theme::Theme,
+) -> Vec<(&'static str, Option<Timings>)> {
+    let open = |at: usize| {
+        let t = std::time::Instant::now();
+        let mut b = Buffer::from_bytes(PathBuf::from(file), bytes);
+        if ts {
+            b.start_tree_sitter();
+        }
+        b.highlight_to(at + 54, theme);
+        let frame = ms(t);
+        settle(&mut b, at + 54, theme);
+        ((frame, ms(t)), b)
+    };
+    let n = open(0).1.lines.len();
+    let top: Vec<_> = (0..15).map(|_| open(0).0).collect();
+    let middle: Vec<_> = (0..15).map(|_| open(n / 2).0).collect();
+    let typing = |col0: bool| {
+        let (_, mut b) = open(0);
+        let indented = |l: &usize| !col0 || b.lines[*l].starts_with([' ', '\t']);
+        let lines: Vec<usize> = (0..n).filter(indented).collect();
+        if lines.is_empty() {
+            return None;
+        }
+        let mut keys = Vec::new();
+        for k in 0..60 {
+            let l = lines[(k * 7919) % lines.len()];
+            settle(&mut b, l + 54, theme);
+            let t = std::time::Instant::now();
+            let indent = b.lines[l].len() - b.lines[l].trim_start().len();
+            b.lines[l].insert(if col0 { 0 } else { indent }, 'x');
+            b.edited(l);
+            b.highlight_to(l + 54, theme);
+            let frame = ms(t);
+            settle(&mut b, l + 54, theme);
+            keys.push((frame, ms(t)));
+            if col0 {
+                b.lines[l].remove(0);
+                b.edited(l);
+            }
+        }
+        Some(keys)
+    };
+    vec![
+        ("first paint, top", Some(top)),
+        ("first paint, middle", Some(middle)),
+        ("keystroke after the indentation", typing(false)),
+        ("keystroke at column 0 of an indented line", typing(true)),
+    ]
+}
+
+#[test]
+fn the_speed_rows_finish_on_a_file_with_few_or_no_indented_lines() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let few = "def f():\n    return 1\n\n\nx = 2\n".repeat(3);
+    let measured = |src: &str| {
+        speed_rows("a.py", src.as_bytes(), true, &theme)
+            .into_iter()
+            .map(|(_, keys)| keys.map(|k| k.len()))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(measured(&few), [Some(15), Some(15), Some(60), Some(60)]);
+    assert_eq!(
+        measured("x = 1\ny = 2\n"),
+        [Some(15), Some(15), Some(60), None]
+    );
+}
+
 #[test]
 #[ignore]
 fn speed() {
     let theme = theme::load("tokyonight-moon").unwrap();
     let files = std::env::var("MERL_TS_SPEED").unwrap_or_default();
-    let ms = |t: std::time::Instant| t.elapsed().as_secs_f64() * 1000.0;
     let pct = |v: &[(f64, f64)], coloured: bool, p: usize| {
         let mut v: Vec<f64> = v.iter().map(|x| if coloured { x.1 } else { x.0 }).collect();
         v.sort_by(f64::total_cmp);
         v[(v.len() * p / 100).min(v.len() - 1)]
     };
-    let settle = |b: &mut Buffer, last: usize| {
-        while b.parsing() {
-            b.parse_more(Some(crate::buffer::PARSE_IDLE_STEP));
-        }
-        b.highlight_to(last, &theme);
-    };
     for file in files.split(',').filter(|f| !f.is_empty()) {
         let bytes = std::fs::read(file).unwrap();
         for ts in [false, true] {
-            let open = |at: usize| {
-                let t = std::time::Instant::now();
-                let mut b = Buffer::from_bytes(PathBuf::from(file), &bytes);
-                if ts {
-                    b.start_tree_sitter();
-                }
-                b.highlight_to(at + 54, &theme);
-                let frame = ms(t);
-                settle(&mut b, at + 54);
-                ((frame, ms(t)), b)
-            };
-            let n = open(0).1.lines.len();
-            let top: Vec<_> = (0..15).map(|_| open(0).0).collect();
-            let middle: Vec<_> = (0..15).map(|_| open(n / 2).0).collect();
-            let typing = |col0: bool| {
-                let (_, mut b) = open(0);
-                let mut keys = Vec::new();
-                for k in 0..60 {
-                    let mut l = (k * 7919) % n;
-                    while col0 && !b.lines[l].starts_with([' ', '\t']) {
-                        l = (l + 1) % n;
-                    }
-                    settle(&mut b, l + 54);
-                    let t = std::time::Instant::now();
-                    let indent = b.lines[l].len() - b.lines[l].trim_start().len();
-                    b.lines[l].insert(if col0 { 0 } else { indent }, 'x');
-                    b.edited(l);
-                    b.highlight_to(l + 54, &theme);
-                    let frame = ms(t);
-                    settle(&mut b, l + 54);
-                    keys.push((frame, ms(t)));
-                }
-                keys
-            };
-            let rows = [
-                ("first paint, top", top),
-                ("first paint, middle", middle),
-                ("keystroke after the indentation", typing(false)),
-                ("keystroke at column 0 of an indented line", typing(true)),
-            ];
-            for (what, v) in rows {
+            let engine = if ts { "tree-sitter" } else { "syntect" };
+            let n = Buffer::from_bytes(PathBuf::from(file), &bytes).lines.len();
+            for (what, v) in speed_rows(file, &bytes, ts, &theme) {
+                let Some(v) = v else {
+                    println!(
+                        "{file} {n} lines {engine}: {what}: skipped, the file has no indented line"
+                    );
+                    continue;
+                };
                 println!(
-                    "{file} {n} lines {}: {what}: frame p50 {:.2} p90 {:.2}, coloured p50 {:.2} p90 {:.2} ms",
-                    if ts { "tree-sitter" } else { "syntect" },
+                    "{file} {n} lines {engine}: {what}: frame p50 {:.2} p90 {:.2}, coloured p50 {:.2} p90 {:.2} ms",
                     pct(&v, false, 50),
                     pct(&v, false, 90),
                     pct(&v, true, 50),
@@ -680,7 +724,7 @@ fn speed() {
         let l = b.lines.len() - 50;
         let keys: Vec<_> = (0..20)
             .map(|_| {
-                settle(&mut b, l + 20);
+                settle(&mut b, l + 20, &theme);
                 let t = std::time::Instant::now();
                 b.lines[l] = match b.lines[l].contains("[1]") {
                     true => b.lines[l].replace("[1]", "1"),
@@ -689,7 +733,7 @@ fn speed() {
                 b.edited(l);
                 b.highlight_to(l + 20, &theme);
                 let frame = ms(t);
-                settle(&mut b, l + 20);
+                settle(&mut b, l + 20, &theme);
                 (frame, ms(t))
             })
             .collect();
@@ -790,5 +834,31 @@ fn an_edit_inside_a_large_container_repaints_from_its_own_row() {
         b.edited(25);
         b.parse_more(None);
         assert_eq!(b.hl.len(), 25, "{}", b.lines[0]);
+    }
+}
+
+#[test]
+fn an_edit_inside_a_name_repaints_a_capture_its_predicate_moves_on_an_earlier_line() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let mut b = Buffer::from_bytes(PathBuf::from("a.py"), b"T = \\\n    TypeVa(\"T\")\n");
+    b.start_tree_sitter();
+    b.parse_more(None);
+    b.paint_to(usize::MAX, &theme);
+    for value in [
+        "    TypeVar(\"T\")",
+        "    TypeVa(\"T\")",
+        "    TypeVar(\"T\")",
+        "    TypeVr(\"T\")",
+    ] {
+        b.lines[1] = value.to_string();
+        b.edited(1);
+        b.parse_more(None);
+        b.paint_to(usize::MAX, &theme);
+        let text = b.lines.join("\n") + "\n";
+        let mut fresh = Buffer::from_bytes(PathBuf::from("a.py"), text.as_bytes());
+        fresh.start_tree_sitter();
+        fresh.parse_more(None);
+        fresh.paint_to(usize::MAX, &theme);
+        assert_eq!(b.hl, fresh.hl, "{value}");
     }
 }

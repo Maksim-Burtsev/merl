@@ -111,8 +111,8 @@ with its issue closed, or waits under `needs-owner` (see `## Merging`).
 4. Keep scratch files (fixtures, GIFs, harnesses) in a folder named after the issue: parallel
    runs share a scratchpad and overwrite each other's `before.gif`.
 5. Before a push, `tools/ci-local`: every job of `.github/workflows/ci.yml`, which calls it step
-   by step (`tools/ci-local clippy tests` runs only those), stopping non-zero at the first that
-   fails. A change a user can see adds its
+   by step (`tools/ci-local clippy tests` runs only those), and the Deny workflow's `cargo deny`
+   (`deny`), stopping non-zero at the first that fails. A change a user can see adds its
    entry under `## [Unreleased]` in `CHANGELOG.md`, citing the issue as `(#N)`; docs, refactors,
    tests and tooling get none. What the change moves in the tests, the bullets at the top
    saying how:
