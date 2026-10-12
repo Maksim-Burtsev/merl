@@ -386,7 +386,11 @@ pub(super) fn draw_picker(
             .collect();
         let Some(place) = place else {
             let at = picker.selected + i - selected;
-            let tag = picker.labels.iter().find(|(row, _)| *row == at).map(|t| t.1);
+            let tag = picker
+                .labels
+                .iter()
+                .find(|(row, _)| *row == at)
+                .map(|t| t.1);
             let tag_w = tag.map_or(0, |t| wrap::width(t) + 1);
             let mut line = padded(
                 prefix.into_iter().chain(cells.into_iter().map(|(_, s)| s)),
@@ -394,7 +398,8 @@ pub(super) fn draw_picker(
                 style,
             );
             if let Some(t) = tag {
-                line.spans.push(Span::styled(format!("{t} "), style.fg(theme.ghost_fg)));
+                line.spans
+                    .push(Span::styled(format!("{t} "), style.fg(theme.ghost_fg)));
             }
             lines.push(line);
             continue;

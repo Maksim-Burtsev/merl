@@ -511,7 +511,10 @@ fn an_empty_o_lists_the_files_opened_last_first_with_the_cursor_on_the_one_befor
     assert_eq!(a.picker.as_ref().unwrap().selected, 1);
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!(a.rel_path(), "dd.txt");
-    assert_eq!(rows(&files_listed(&mut a, "")), ["dd.txt", "cc.txt", "src/bb.txt"]);
+    assert_eq!(
+        rows(&files_listed(&mut a, "")),
+        ["dd.txt", "cc.txt", "src/bb.txt"]
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -555,7 +558,10 @@ fn the_history_outlives_the_session_and_forgets_deleted_files() {
     assert_eq!(rows(&files_listed(&mut b, "")), ["dd.txt", "cc.txt"]);
     b.jump_to(&dir.join("src/bb.txt"), 1);
     let kept = std::fs::read_to_string(&store).unwrap();
-    let names: Vec<&str> = kept.lines().map(|l| l.rsplit('/').next().unwrap()).collect();
+    let names: Vec<&str> = kept
+        .lines()
+        .map(|l| l.rsplit('/').next().unwrap())
+        .collect();
     assert_eq!(names, ["bb.txt", "dd.txt", "cc.txt"]);
     let _ = std::fs::remove_dir_all(dir);
 }

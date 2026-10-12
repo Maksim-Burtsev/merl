@@ -63,7 +63,11 @@ enum Ref {
     Matched(u32),
 }
 
-fn nth<'a>(snap: &'a Snapshot<PickItem>, order: &Option<Vec<Ref>>, n: u32) -> Option<Item<'a, PickItem>> {
+fn nth<'a>(
+    snap: &'a Snapshot<PickItem>,
+    order: &Option<Vec<Ref>>,
+    n: u32,
+) -> Option<Item<'a, PickItem>> {
     match order {
         None => snap.get_matched_item(n),
         Some(o) => match *o.get(n as usize)? {
@@ -121,7 +125,12 @@ impl Picker {
         self.labels.clear();
         let mut order: Vec<Ref> = Vec::new();
         if empty {
-            order.extend(history.iter().filter(|&&i| snap.get_item(i).is_some()).map(|&i| Ref::Item(i)));
+            order.extend(
+                history
+                    .iter()
+                    .filter(|&&i| snap.get_item(i).is_some())
+                    .map(|&i| Ref::Item(i)),
+            );
             if !order.is_empty() {
                 self.labels.push((0, "recently opened"));
             }

@@ -47,13 +47,20 @@ impl App {
         let row: HashMap<PathBuf, u32> = (listed.iter().enumerate())
             .map(|(i, p)| (self.root.join(p), i as u32))
             .collect();
-        let rows = self.recent.iter().filter_map(|p| row.get(p).copied()).collect();
-        let current_first = self.buf.path.is_some() && self.recent.first() == self.buf.path.as_ref();
+        let rows = self
+            .recent
+            .iter()
+            .filter_map(|p| row.get(p).copied())
+            .collect();
+        let current_first =
+            self.buf.path.is_some() && self.recent.first() == self.buf.path.as_ref();
         (rows, current_first)
     }
 
     fn read_recent(&mut self) {
-        if let Some(text) = (self.recent_file.as_ref()).and_then(|f| std::fs::read_to_string(f).ok()) {
+        if let Some(text) =
+            (self.recent_file.as_ref()).and_then(|f| std::fs::read_to_string(f).ok())
+        {
             self.recent = text.lines().map(PathBuf::from).collect();
         }
     }
@@ -69,7 +76,11 @@ impl App {
         let Some(file) = &self.recent_file else {
             return;
         };
-        let text: String = self.recent.iter().map(|p| format!("{}\n", p.display())).collect();
+        let text: String = self
+            .recent
+            .iter()
+            .map(|p| format!("{}\n", p.display()))
+            .collect();
         let tmp = file.with_file_name(format!(".recent-{}", std::process::id()));
         let written = (file.parent().map_or(Ok(()), std::fs::create_dir_all))
             .and_then(|()| std::fs::write(&tmp, text))
