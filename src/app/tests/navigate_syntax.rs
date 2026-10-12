@@ -584,7 +584,6 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
             ("main.ts", main),
         ],
     );
-    // Written after the project walk, which a `.gitignore` keeps out of them.
     for (path, text) in [
         (
             "packages/api/node_modules/lib/index.d.ts",
@@ -1426,7 +1425,6 @@ fn an_alias_is_the_projects_own() {
             "node_modules/tailwind-merge/index.d.ts",
             "export declare function twMerge(): void;\nexport declare function twJoin(): void;\n",
         ),
-        // As every TypeScript project has.
         (
             "node_modules/@types/node/index.d.ts",
             "declare module \"fs\" {}\n",
@@ -1797,7 +1795,6 @@ fn a_linked_package_alone_hands_its_names_on() {
             "node_modules/helpers/index.d.ts",
             "export declare function helper(): void;\n",
         ),
-        // As every TypeScript project has.
         (
             "node_modules/@types/node/index.d.ts",
             "declare module \"fs\" {}\n",

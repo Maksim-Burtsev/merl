@@ -32,7 +32,6 @@ fn theme_picker_previews_reverts_and_keeps() {
         (names[1], names[1]),
         "Enter keeps the new one"
     );
-    // Named from the table, so reordering or renaming a theme cannot fail this test.
     let kept = format!("theme {}", names[1]);
     assert_eq!((a.mode, a.message.as_str()), (Mode::Normal, kept.as_str()));
 }
@@ -91,7 +90,6 @@ fn a_theme_that_cannot_be_read_or_saved_says_why_in_a_few_words() {
     let locked = dir.join("zz-locked.tmTheme");
     std::fs::write(&locked, "").unwrap();
     std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
-    // The config's path is a folder: it cannot be read, so the theme is not saved.
     let config = dir.join("config.toml");
     std::fs::create_dir_all(&config).unwrap();
     let mut a = app("x\n");
@@ -100,7 +98,6 @@ fn a_theme_that_cannot_be_read_or_saved_says_why_in_a_few_words() {
     typed(&mut a, "zz-locked");
     a.picker.as_mut().unwrap().settle();
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    // As root every file is readable, and the empty theme fails to parse instead.
     if std::fs::read(&locked).is_err() {
         let want = format!("{}: permission denied", locked.display());
         assert_eq!(a.message, want);
@@ -274,8 +271,6 @@ fn a_row_whose_line_got_shorter_lands_at_its_end() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Letters of `alphabet` in an order that does not repeat itself, so a long run of them overlaps
-/// itself nowhere and the grep stays linear.
 fn noise(alphabet: &[char], n: usize) -> String {
     let mut x: u32 = 1;
     (0..n)
@@ -286,8 +281,6 @@ fn noise(alphabet: &[char], n: usize) -> String {
         .collect()
 }
 
-/// A query the grep takes, however long, lands on its hit. It was compiled a second time for
-/// the column, under the `regex` crate's smaller size limit, and that compile aborted the search.
 #[test]
 fn a_huge_search_query_lands_on_its_hit() {
     let cyrillic = noise(&('а'..='я').collect::<Vec<_>>(), 70_000);
@@ -302,9 +295,8 @@ fn a_huge_search_query_lands_on_its_hit() {
     cursor_on(&mut a, "quote.py", 1, "x");
     for (query, line) in [(&cyrillic, 1), (&ascii, 2)] {
         press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
-        // Pasted, as a person would: typing it would take one press per letter.
-        let (head, last) = query.split_at(query.len() - query.chars().last().unwrap().len_utf8());
-        a.picker.as_mut().unwrap().query = LineEdit::typed(head);
+        let (pasted, last) = query.split_at(query.len() - query.chars().last().unwrap().len_utf8());
+        a.picker.as_mut().unwrap().query = LineEdit::typed(pasted);
         typed(&mut a, last);
         a.settle_search();
         press(&mut a, KeyCode::Enter, KeyModifiers::NONE);

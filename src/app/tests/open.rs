@@ -94,7 +94,6 @@ fn a_file_without_write_permission_is_read_only() {
 
     chmod(&env, 0o444);
     open(&mut a, &env);
-    // As root every file is writable, and there is nothing to assert.
     if std::fs::OpenOptions::new().write(true).open(&env).is_ok() {
         std::fs::remove_dir_all(&dir).unwrap();
         return;
@@ -567,7 +566,6 @@ fn a_file_that_does_not_open_is_named_from_the_root_with_the_reason() {
         press(a, KeyCode::Enter, KeyModifiers::NONE);
         a.message.clone()
     };
-    // As root every file is readable, and there is nothing to assert.
     if std::fs::read(&locked).is_err() {
         assert_eq!(
             open(&mut a, "locked", &|| ()),

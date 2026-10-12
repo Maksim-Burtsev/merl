@@ -1,5 +1,3 @@
-//! Missed keys (#210): a key that would have reached the same end in at most half the presses.
-
 use std::time::Duration;
 
 use super::*;
@@ -8,7 +6,6 @@ const FAST: Duration = Duration::from_millis(30);
 const SLOW: Duration = Duration::from_millis(250);
 const NONE: KeyModifiers = KeyModifiers::NONE;
 
-/// Presses `code` `n` times, `gap` apart, then Esc: a run is judged when another key comes.
 fn hold(a: &mut App, code: KeyCode, m: KeyModifiers, n: u32, gap: Duration) {
     let t = Instant::now();
     for i in 0..n {
@@ -174,13 +171,11 @@ fn a_run_that_is_slow_short_or_needs_a_typed_key_counts_nothing() {
 
 const HANDLER: &str = "def handler(x):\n    pass\n\nhandler(1)\nhandler(2)\nHandler = 3\n";
 
-/// `s` from `handler(1)`: the query, `downs` rows down, Enter. `settle`: the grep answers before
-/// the Enter; without it the Enter waits for the answer, which then jumps.
-fn s(a: &mut App, dir: &Path, query: &str, downs: usize, settle: bool) {
+fn s(a: &mut App, dir: &Path, query: &str, downs: usize, grep_answers_before_enter: bool) {
     a.jump_to(&dir.join("app.py"), 4);
     press(a, KeyCode::Char('s'), NONE);
     typed(a, query);
-    if settle {
+    if grep_answers_before_enter {
         a.settle_search();
     }
     for _ in 0..downs {
