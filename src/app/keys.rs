@@ -70,7 +70,9 @@ impl App {
         }
         if let KeyCode::Char(c) = key.code
             && key.modifiers.contains(KeyModifiers::CONTROL)
-            && (key.modifiers.contains(KeyModifiers::SHIFT) || !c.is_ascii_lowercase())
+            && (key.modifiers.contains(KeyModifiers::SHIFT)
+                || !c.is_ascii_lowercase()
+                || self.letters_are_keys() && !self.binds(key))
         {
             return false;
         }
@@ -305,6 +307,14 @@ impl App {
         }
         self.hist_note(false);
         false
+    }
+
+    fn letters_are_keys(&self) -> bool {
+        self.picker.is_none() && !matches!(self.mode, Mode::Goto | Mode::Find | Mode::New)
+    }
+
+    fn binds(&self, key: KeyEvent) -> bool {
+        named("", key).is_some() || self.mode == Mode::Edit && named("Edit: ", key).is_some()
     }
 
     pub(super) fn goto_key(&mut self, key: KeyEvent) {

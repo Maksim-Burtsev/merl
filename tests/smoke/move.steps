@@ -101,3 +101,7 @@ key Enter End S-PPage
 wait app/service.py  1:32  [code]
 key Escape C-S-End
 wait app/service.py  36:21  [code]
+# A Ctrl+letter merl does not bind does nothing: Ctrl+T, Ctrl+W, Ctrl+P and Ctrl+Q leave the tree,
+# the wrap, the preview and merl as they were, and Home after them still moves the cursor (#699).
+key Escape C-t C-w C-p C-q Home
+wait app/service.py  36:1  [code]

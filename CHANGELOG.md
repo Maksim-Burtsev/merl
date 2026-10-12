@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   line `CursorLine` and the selection `Visual`. Themes without Neovim colours (`shokunin-*`,
   `lucerna`, `seneca*`, a `.tmTheme` of your own without its `.groups.json`) draw the match under
   the cursor a shade stronger than the others. (#796)
+- A Ctrl+letter merl does not bind does nothing, wherever letters are keys (the code, the tree,
+  `--review`, editing, the `?` overlay): Ctrl+Q no longer quits, and Ctrl+T, Ctrl+W and Ctrl+P no
+  longer act as `t`, `w` and `p`. Typing in a prompt or a picker keeps its Ctrl+A, Ctrl+E, Ctrl+U
+  and Ctrl+W. (#699)
 
 ### Fixed
 
