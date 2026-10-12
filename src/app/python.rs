@@ -1,7 +1,3 @@
-//! `d` in Python: the modules a name or an import leads to, in the project and outside it,
-//! the names a `from m import *` and a package's assignments bring in, and the implementation
-//! behind an `@overload` set.
-
 use super::*;
 
 pub(super) enum OutsideClassMember {
@@ -42,8 +38,6 @@ impl App {
         let file = self.external_module(module)?;
         let kind = Kind::Python;
         let text = std::fs::read_to_string(&file).ok()?;
-        // A class the module declares, under an `if` or a `try` too, or a name it imports, `*`
-        // included: a class re-exported, as `django.test` does `TestCase`.
         let imports = search::imports(kind, &text);
         let class = text
             .lines()
@@ -94,7 +88,7 @@ impl App {
         let reason = Reason::Import(module.join("."));
         self.external_grep(kind, &files, &pattern)
             .into_iter()
-            .filter(|h| assigns(&h.text, word))
+            .filter(|h| starts_by_assigning(&h.text, word))
             .map(|hit| Candidate {
                 hit,
                 reason: reason.clone(),
@@ -114,7 +108,7 @@ impl App {
         self.project_grep(kind, here, &pattern)
             .into_iter()
             .filter(|h| {
-                assigns(h.text.trim_start(), word)
+                starts_by_assigning(h.text.trim_start(), word)
                     && self.text_of(&h.path).is_some_and(|text| {
                         let literal = search::file_literal_lines(kind, &h.path, &text);
                         !literal.get(h.line1 - 1).copied().unwrap_or(false)
@@ -277,7 +271,6 @@ impl App {
         search::declares_type(Kind::Python, &one.hit.text).then(|| one.hit.clone())
     }
 
-    /// The first line of `file`, a module outside the project, named from its root.
     fn outside_module(&self, file: PathBuf) -> Vec<Candidate> {
         let mut found = self.module_candidates(vec![file]);
         for c in &mut found {
@@ -340,9 +333,7 @@ impl App {
     }
 }
 
-/// The `def` lines, 1-based and innermost first, of the Python functions `line1` sits in, told
-/// by indentation: a name bound in one of them is seen from `line1`, and from nowhere outside it.
-pub(super) fn python_functions(text: &str, line1: usize) -> Vec<usize> {
+pub(super) fn enclosing_def_lines1(text: &str, line1: usize) -> Vec<usize> {
     let lines: Vec<&str> = text.lines().collect();
     let literal = search::literal_lines(Kind::Python, text);
     let indent = |l: &str| l.len() - l.trim_start().len();
@@ -387,8 +378,7 @@ fn python_import_line(text: &str, name: &str) -> Option<usize> {
         Some(text[..names.start() + at.start()].matches('\n').count() + 1)
     })
 }
-/// Whether the Python line `text` assigns `word` at module level: `NAME = …`, `NAME: T = …`.
-pub(super) fn assigns(text: &str, word: &str) -> bool {
+pub(super) fn starts_by_assigning(text: &str, word: &str) -> bool {
     text.strip_prefix(word).is_some_and(|rest| {
         let rest = rest.trim_start();
         rest.starts_with(':') || rest.starts_with('=') && !rest.starts_with("==")

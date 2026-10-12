@@ -53,14 +53,14 @@ agggggggggggggggggaaaaaaaaaaaaccceeeeeeeekkeeeemeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 JJJJJJJJKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
-c fg #6b6f80 bg #222436
+c fg #3b4261 bg #222436
 d fg #86e1fc bg #222436
 e fg #c8d3f5 bg #222436
 f fg #89ddff bg #222436
 g fg #7d849f bg #222436
-h fg #82aaff bg #1e2031
-i fg #c8d3f5 bg #1e2031
-j fg #7d849f bg #1e2031
+h fg #82aaff bg #282b41
+i fg #c8d3f5 bg #282b41
+j fg #7d849f bg #282b41
 k fg #c099ff bg #222436
 l fg #0db9d7 bg #222436
 m fg #9abdf5 bg #222436
@@ -75,19 +75,19 @@ u fg #89ddff bg #372837
 v fg #c099ff bg #372837
 w fg #c8d3f5 bg #77363d
 x fg #9abdf5 bg #372837
-y fg #6b6f80 bg #1b1d2c
-z fg green bg #1b1d2c
-A fg #c8d3f5 bg #1d302f
-B fg #ff757f bg #1d302f
-C fg #89ddff bg #1d302f
-D fg #c099ff bg #1d302f
-E fg #c8d3f5 bg #225135
-F fg #9abdf5 bg #1d302f
+y fg #ff966c bg #2f334d BOLD
+z fg green bg #2f334d BOLD
+A fg #c8d3f5 bg #2e434b
+B fg #ff757f bg #2e434b
+C fg #89ddff bg #2e434b
+D fg #c099ff bg #2e434b
+E fg #c8d3f5 bg #2e5e49
+F fg #9abdf5 bg #2e434b
 G fg #ff757f bg #222436
 H fg #c099ff bg #222436 ITALIC
 I fg #c3e88d bg #222436
-J fg #82aaff bg #1b1d2c BOLD
-K fg #c8d3f5 bg #1b1d2c
+J fg #82aaff bg #1e2030 BOLD
+K fg #828bb8 bg #1e2030
 
 ==== 80x24 github-light styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccddddeeeeeeeeddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeee
@@ -130,14 +130,14 @@ m fg red bg #ffffff
 n fg #1f2328 bg #feeae9
 o fg #cf222e bg #feeae9
 p fg #1f2328 bg #fdcecc
-q fg #6e7781 bg #e7eaf0
+q fg #1f2328 bg #e7eaf0
 r fg green bg #e7eaf0
 s fg #1f2328 bg #c7e6d5
 t fg #cf222e bg #c7e6d5
 u fg #1f2328 bg #9de1b2
 v fg #0a3069 bg #ffffff
-w fg #6639ba bg #e7eaf0 BOLD
-x fg #1f2328 bg #e7eaf0
+w fg #6639ba bg #5094e4 BOLD
+x fg #f6f8fa bg #5094e4
 
 ==== 120x33 tokyonight-moon text, cursor 33,13
 ┌feature ← main──────────────┐ 1 """Storage: every note lives in one JSON file, read and written as a whole."""
@@ -210,13 +210,13 @@ afffffffffffffffffaaaaaaaaaaaaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 JJJJJJJJKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
-c fg #6b6f80 bg #222436
+c fg #3b4261 bg #222436
 d fg #636da6 bg #222436 ITALIC
 e fg #c8d3f5 bg #222436
 f fg #7d849f bg #222436
-g fg #82aaff bg #1e2031
-h fg #c8d3f5 bg #1e2031
-i fg #7d849f bg #1e2031
+g fg #82aaff bg #282b41
+h fg #c8d3f5 bg #282b41
+i fg #7d849f bg #282b41
 j fg #86e1fc bg #222436
 k fg #89ddff bg #222436
 l fg #c099ff bg #222436
@@ -232,19 +232,19 @@ u fg #89ddff bg #372837
 v fg #c099ff bg #372837
 w fg #c8d3f5 bg #77363d
 x fg #9abdf5 bg #372837
-y fg #6b6f80 bg #1b1d2c
-z fg green bg #1b1d2c
-A fg #c8d3f5 bg #1d302f
-B fg #ff757f bg #1d302f
-C fg #89ddff bg #1d302f
-D fg #c099ff bg #1d302f
-E fg #c8d3f5 bg #225135
-F fg #9abdf5 bg #1d302f
+y fg #ff966c bg #2f334d BOLD
+z fg green bg #2f334d BOLD
+A fg #c8d3f5 bg #2e434b
+B fg #ff757f bg #2e434b
+C fg #89ddff bg #2e434b
+D fg #c099ff bg #2e434b
+E fg #c8d3f5 bg #2e5e49
+F fg #9abdf5 bg #2e434b
 G fg #ff757f bg #222436
 H fg #c099ff bg #222436 ITALIC
 I fg #c3e88d bg #222436
-J fg #82aaff bg #1b1d2c BOLD
-K fg #c8d3f5 bg #1b1d2c
+J fg #82aaff bg #1e2030 BOLD
+K fg #828bb8 bg #1e2030
 
 ==== 120x33 github-light styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccdddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeedddddddddddd
@@ -296,14 +296,14 @@ m fg red bg #ffffff
 n fg #1f2328 bg #feeae9
 o fg #cf222e bg #feeae9
 p fg #1f2328 bg #fdcecc
-q fg #6e7781 bg #e7eaf0
+q fg #1f2328 bg #e7eaf0
 r fg green bg #e7eaf0
 s fg #1f2328 bg #c7e6d5
 t fg #cf222e bg #c7e6d5
 u fg #1f2328 bg #9de1b2
 v fg #0a3069 bg #ffffff
-w fg #6639ba bg #e7eaf0 BOLD
-x fg #1f2328 bg #e7eaf0
+w fg #6639ba bg #5094e4 BOLD
+x fg #f6f8fa bg #5094e4
 
 ==== 185x55 tokyonight-moon text, cursor 33,13
 ┌feature ← main──────────────┐ 1 """Storage: every note lives in one JSON file, read and written as a whole."""
@@ -420,13 +420,13 @@ afffffffffffffffffaaaaaaaaaaaaccceeeeeeeeeeeeeeeekeaaaaaakaaaaanneeeeeeeeeeeeeee
 UUUUUUUUVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
-c fg #6b6f80 bg #222436
+c fg #3b4261 bg #222436
 d fg #636da6 bg #222436 ITALIC
 e fg #c8d3f5 bg #222436
 f fg #7d849f bg #222436
-g fg #82aaff bg #1e2031
-h fg #c8d3f5 bg #1e2031
-i fg #7d849f bg #1e2031
+g fg #82aaff bg #282b41
+h fg #c8d3f5 bg #282b41
+i fg #7d849f bg #282b41
 j fg #86e1fc bg #222436
 k fg #89ddff bg #222436
 l fg #c099ff bg #222436
@@ -442,14 +442,14 @@ u fg #89ddff bg #372837
 v fg #c099ff bg #372837
 w fg #c8d3f5 bg #77363d
 x fg #9abdf5 bg #372837
-y fg #6b6f80 bg #1b1d2c
-z fg green bg #1b1d2c
-A fg #c8d3f5 bg #1d302f
-B fg #ff757f bg #1d302f
-C fg #89ddff bg #1d302f
-D fg #c099ff bg #1d302f
-E fg #c8d3f5 bg #225135
-F fg #9abdf5 bg #1d302f
+y fg #ff966c bg #2f334d BOLD
+z fg green bg #2f334d BOLD
+A fg #c8d3f5 bg #2e434b
+B fg #ff757f bg #2e434b
+C fg #89ddff bg #2e434b
+D fg #c099ff bg #2e434b
+E fg #c8d3f5 bg #2e5e49
+F fg #9abdf5 bg #2e434b
 G fg #ff757f bg #222436
 H fg #c099ff bg #222436 ITALIC
 I fg #c3e88d bg #222436
@@ -464,8 +464,8 @@ Q fg #0db9d7 bg #233637
 R fg #c099ff bg #233637 ITALIC
 S fg #65bcff bg #233637
 T fg #ff757f bg #233637
-U fg #82aaff bg #1b1d2c BOLD
-V fg #c8d3f5 bg #1b1d2c
+U fg #82aaff bg #1e2030 BOLD
+V fg #828bb8 bg #1e2030
 
 ==== 185x55 github-light styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccdddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
@@ -539,7 +539,7 @@ m fg red bg #ffffff
 n fg #1f2328 bg #feeae9
 o fg #cf222e bg #feeae9
 p fg #1f2328 bg #fdcecc
-q fg #6e7781 bg #e7eaf0
+q fg #1f2328 bg #e7eaf0
 r fg green bg #e7eaf0
 s fg #1f2328 bg #c7e6d5
 t fg #cf222e bg #c7e6d5
@@ -550,5 +550,5 @@ x fg #1f2328 bg #dbf7e2
 y fg #cf222e bg #dbf7e2
 z fg #6639ba bg #dbf7e2
 A fg #953800 bg #dbf7e2
-B fg #6639ba bg #e7eaf0 BOLD
-C fg #1f2328 bg #e7eaf0
+B fg #6639ba bg #5094e4 BOLD
+C fg #f6f8fa bg #5094e4

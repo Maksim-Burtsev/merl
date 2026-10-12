@@ -1,6 +1,8 @@
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 use anyhow::{Context, Result};
 use ratatui::style::Style;
@@ -8,6 +10,7 @@ use syntect::highlighting::{HighlightIterator, HighlightState, Highlighter};
 use syntect::parsing::{ParseState, ScopeStack, SyntaxReference, SyntaxSet};
 
 use crate::theme::Theme;
+use crate::treesitter;
 
 pub const TAB: &str = "    ";
 const CHECKPOINT: usize = 64;
@@ -17,8 +20,30 @@ const BINARY: &str = "binary file";
 const MAX_HL_LINES: usize = 30_000;
 const MAX_HL_BYTES: usize = 4 * 1024 * 1024;
 const MAX_SHOWN_BYTES: usize = 20_000;
+pub const PARSE_STEP: Duration = Duration::from_micros(500);
+pub const PARSE_IDLE_STEP: Duration = Duration::from_millis(3);
 
-fn syntaxes() -> &'static SyntaxSet {
+pub fn use_tree_sitter(on: bool) {
+    tree_sitter_switch(|s| s.store(on, Ordering::Relaxed));
+}
+
+fn tree_sitter_on() -> bool {
+    tree_sitter_switch(|s| s.load(Ordering::Relaxed))
+}
+
+#[cfg(not(test))]
+fn tree_sitter_switch<T>(f: impl FnOnce(&AtomicBool) -> T) -> T {
+    static ON: AtomicBool = AtomicBool::new(false);
+    f(&ON)
+}
+
+#[cfg(test)]
+fn tree_sitter_switch<T>(f: impl FnOnce(&AtomicBool) -> T) -> T {
+    thread_local!(static ON: AtomicBool = const { AtomicBool::new(false) });
+    ON.with(f)
+}
+
+pub(crate) fn syntaxes() -> &'static SyntaxSet {
     static SET: OnceLock<SyntaxSet> = OnceLock::new();
     SET.get_or_init(two_face::syntax::extra_newlines)
 }
@@ -38,6 +63,8 @@ pub struct Buffer {
     syntax: Option<&'static SyntaxReference>,
     state_after_hl: Option<(ParseState, HighlightState)>,
     state_before_every_checkpoint: Vec<(ParseState, HighlightState)>,
+    ts: Option<treesitter::Parsed>,
+    ts_stale: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -104,7 +131,28 @@ impl Buffer {
         };
         b.tabs = b.lines.iter().any(|l| l.starts_with('\t'));
         b.disk_hash = hash(bytes);
+        if tree_sitter_on() {
+            b.start_tree_sitter();
+        }
         b
+    }
+
+    #[cfg(test)]
+    pub fn sexp(&self) -> String {
+        self.ts.as_ref().map(|t| t.sexp()).unwrap_or_default()
+    }
+
+    #[cfg(test)]
+    pub fn root_bytes(&self) -> Option<std::ops::Range<usize>> {
+        self.ts.as_ref().and_then(|t| t.root_bytes())
+    }
+
+    pub(crate) fn start_tree_sitter(&mut self) {
+        self.ts = self
+            .syntax
+            .and_then(|s| treesitter::for_syntax(&s.name, self.path.as_deref()))
+            .and_then(|lang| treesitter::Parsed::new(lang, &self.lines));
+        self.clear_hl();
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -133,6 +181,11 @@ impl Buffer {
     }
 
     pub fn edited(&mut self, l: usize) {
+        if self.ts.is_some() {
+            self.ts_stale = true;
+            self.hl.truncate(l);
+            return;
+        }
         let n = l / CHECKPOINT;
         if self.hl.len() <= n * CHECKPOINT {
             return;
@@ -160,18 +213,29 @@ impl Buffer {
             syntax,
             state_after_hl: None,
             state_before_every_checkpoint: Vec::new(),
+            ts: None,
+            ts_stale: false,
         }
     }
 
     pub(crate) fn block(token: &str, mut lines: Vec<String>) -> Self {
         let bytes: usize = lines.iter().map(String::len).sum();
-        let syntax = (lines.len() <= MAX_HL_LINES && bytes <= MAX_HL_BYTES)
-            .then(|| syntax_for_info(token))
-            .flatten();
+        let fits = lines.len() <= MAX_HL_LINES && bytes <= MAX_HL_BYTES;
+        let syntax = fits.then(|| syntax_for_info(token)).flatten();
         if lines.is_empty() {
             lines.push(String::new());
         }
-        Self::new(None, lines, syntax)
+        let mut b = Self::new(None, lines, syntax);
+        if fits && tree_sitter_on() {
+            b.start_block_tree_sitter(token);
+        }
+        b
+    }
+
+    pub(crate) fn start_block_tree_sitter(&mut self, token: &str) {
+        self.ts =
+            treesitter::resolve(token).and_then(|lang| treesitter::Parsed::new(lang, &self.lines));
+        self.clear_hl();
     }
 
     pub fn shown(&self, l: usize) -> &str {
@@ -188,9 +252,42 @@ impl Buffer {
         self.state_after_hl = None;
     }
 
+    pub fn parsing(&self) -> bool {
+        self.ts_stale || self.ts.as_ref().is_some_and(treesitter::Parsed::parsing)
+    }
+
+    pub fn parse_more(&mut self, budget: Option<Duration>) -> bool {
+        let Some(ts) = &mut self.ts else { return false };
+        if std::mem::take(&mut self.ts_stale) {
+            ts.edit(&self.lines);
+        }
+        let Some(from) = ts.parse(budget) else {
+            return false;
+        };
+        self.hl.truncate(from);
+        true
+    }
+
     pub fn highlight_to(&mut self, last: usize, theme: &Theme) {
-        let Some(syntax) = self.syntax else { return };
+        self.parse_more(Some(PARSE_STEP));
+        self.paint_to(last, theme);
+    }
+
+    pub(crate) fn paint_to(&mut self, last: usize, theme: &Theme) {
         let last = last.min(self.lines.len().saturating_sub(1));
+        if let Some(ts) = &mut self.ts {
+            if !ts.has_tree() {
+                return;
+            }
+            if self.hl.len() <= last {
+                let mut styles = treesitter::Styles::new(theme);
+                let from = self.hl.len();
+                self.hl
+                    .extend(ts.spans(&self.lines, from, last, &mut styles));
+            }
+            return;
+        }
+        let Some(syntax) = self.syntax else { return };
         if self.hl.len() > last {
             return;
         }
@@ -272,7 +369,7 @@ const BLOCK_NAMES: &[(&str, &str)] = &[
     ("objc", "Objective-C"),
 ];
 
-fn syntax_for_info(word: &str) -> Option<&'static SyntaxReference> {
+pub(crate) fn syntax_for_info(word: &str) -> Option<&'static SyntaxReference> {
     let set = syntaxes();
     let mut word = word;
     for _ in 0..2 {

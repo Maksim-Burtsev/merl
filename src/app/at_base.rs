@@ -2,8 +2,6 @@ use super::*;
 use search_job::deleted_hits;
 
 impl App {
-    /// Where the cursor stands in the base's text when the line it reads is base code: a line
-    /// the branch deleted, or any line of a file the branch deleted. `None` elsewhere.
     pub(super) fn base_place(&self) -> Option<FileLine> {
         let r = self.review.as_ref()?;
         let rel = self.rel_current()?;
@@ -20,8 +18,6 @@ impl App {
     }
 
     pub(super) fn definition_at_base(&mut self, path: PathBuf, line: usize) {
-        // The answer is mapped onto the files as saved: a buffer ahead of its file is saved
-        // first, and one that cannot be leaves its reason on the status bar, as a jump does.
         if !self.flush() {
             return;
         }
@@ -29,17 +25,16 @@ impl App {
             return;
         };
         let col = self.col;
-        // The standard library and the dependencies are the same at the base; TypeScript's
-        // `node_modules` follow the open file, and the base's `App` finds its own.
-        let external: Vec<_> = (self.external.iter())
-            .filter(|(k, _)| **k != Kind::TsJs)
+        let node_modules_follow_the_file = |k: Kind| k == Kind::TsJs;
+        let external_same_at_base: Vec<_> = (self.external.iter())
+            .filter(|(k, _)| !node_modules_follow_the_file(**k))
             .map(|(k, v)| (*k, v.clone()))
             .collect();
         let Some(b) = self.base_app(&r) else {
             self.message = "no base to read".into();
             return;
         };
-        for (kind, roots) in external {
+        for (kind, roots) in external_same_at_base {
             b.external.entry(kind).or_insert(roots);
         }
         b.picker = None;
@@ -93,8 +88,8 @@ impl App {
                     Some(_) => self.jump_to_deleted(&path, hit.line1, col),
                     None => self.jump_to_col(&path, hit.line1, col),
                 }
-                // A refused jump leaves its own reason, not a resolution nobody followed.
-                if self.buf.path.as_deref() == Some(path.as_path()) {
+                let jump_refused = self.buf.path.as_deref() != Some(path.as_path());
+                if !jump_refused {
                     self.message = message;
                 }
             }
@@ -102,21 +97,17 @@ impl App {
         }
     }
 
-    /// The `App` over the base's tree, made on the first `d` of a review and again when the
-    /// branch's files change.
     fn base_app(&mut self, r: &git::Review) -> Option<&mut App> {
         let dir = r.base_tree(&self.root).ok()?;
-        let stamp = std::fs::read_to_string(dir.join(".merl-stamp")).ok()?;
-        if self.base_app.as_ref().is_none_or(|(s, _)| *s != stamp) {
+        let branch_files_stamp = std::fs::read_to_string(dir.join(".merl-stamp")).ok()?;
+        if (self.base_app.as_ref()).is_none_or(|(s, _)| *s != branch_files_stamp) {
             let (tree, files) = crate::tree::build(&dir, false);
             let app = App::new(dir, tree, files, Buffer::empty(), None);
-            self.base_app = Some((stamp, Box::new(app)));
+            self.base_app = Some((branch_files_stamp, Box::new(app)));
         }
         self.base_app.as_mut().map(|(_, a)| a.as_mut())
     }
 
-    /// A row of the base's picker, re-addressed as the review draws it: its label names the
-    /// place it lands on now.
     fn item_to_review(&self, r: &git::Review, base: &Path, mut it: PickItem) -> PickItem {
         let mut hit = Hit {
             path: it.path.clone(),
@@ -154,10 +145,6 @@ impl App {
         it
     }
 
-    /// `h`, a place in the base's tree at `base`, as the review draws it: under the file's name
-    /// in the review, on its red line when the branch deleted it, on its line now when the
-    /// branch kept it, on the live copy of a definition the branch moved unchanged. A place
-    /// outside the project (a dependency) is where it was.
     fn to_review(&self, r: &git::Review, base: &Path, h: &mut Hit) {
         if let Ok(rel) = h.path.strip_prefix(base) {
             h.path = rel.to_path_buf();
@@ -180,10 +167,6 @@ impl App {
         }
     }
 
-    /// Where the definition the branch deleted at `d` lives now, when the branch moved it
-    /// unchanged: a run the branch added holds its lines, indentation aside. The definition is
-    /// its first line and those indented under it, a closing line at its own indentation
-    /// included; three lines at least, or two blocks alike would be taken for one.
     fn moved_copy(&self, r: &git::Review, d: &git::DeletedLine) -> Option<(PathBuf, usize)> {
         let indent = |t: &str| t.len() - t.trim_start().len();
         let own = indent(&d.text);
@@ -194,7 +177,6 @@ impl App {
             }
             let t = next.text.trim();
             if !t.is_empty() && indent(&next.text) <= own {
-                // `}` or `end` closes the definition; anything else begins the next one.
                 if indent(&next.text) == own && t.starts_with(['}', ')', ']']) || t == "end" {
                     block.push(t.to_owned());
                 }
@@ -222,9 +204,6 @@ impl App {
             })
     }
 
-    /// The lines the branch deleted that declare `word` where a definition of it in `here` can
-    /// live, found by name (#440): a string or a comment of the file at the base declares
-    /// nothing, as in the branch. Nothing outside a review.
     pub(super) fn deleted_definitions(
         &self,
         kind: Kind,
@@ -275,7 +254,6 @@ impl App {
         let m = block.len();
         let kept = (self.line, self.deleted, self.dirty);
         self.buf.lines.splice(k..k, block);
-        // Dirty, so the grep reads the open file as it is here, not from the disk.
         (self.line, self.deleted, self.dirty) = (k + i, None, true);
         let r = f(self);
         self.buf.lines.drain(k..k + m);
@@ -284,9 +262,6 @@ impl App {
     }
 }
 
-/// The line of the file now that was `base_line1` of the file at the base, `None` when the
-/// branch deleted it. Walks the file's lines: the deleted ones drawn above each take base
-/// lines, an added or changed one takes none.
 fn kept_line(diff: &git::Diff, base_line1: usize) -> Option<usize> {
     let mut base = 1;
     let last = diff

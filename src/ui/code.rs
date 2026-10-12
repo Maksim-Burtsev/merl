@@ -39,14 +39,28 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     }
 
     let gutter_style = base.fg(theme.gutter_fg);
-    let find_style = theme
-        .find_fg
-        .map_or(Style::new(), |fg| Style::new().fg(fg))
-        .bg(theme.find_bg);
+    let find_style = |fg: Option<Color>, bg, groups: &[&str]| {
+        fg.map_or(Style::new(), |fg| Style::new().fg(fg))
+            .bg(bg)
+            .add_modifier(theme.modifiers(groups))
+    };
+    let find_styles = (
+        find_style(theme.find_fg, theme.find_bg, &["Search"]),
+        find_style(
+            theme.current_find_fg,
+            theme.current_find_bg,
+            &["CurSearch", "IncSearch", "Search"],
+        ),
+    );
     let tag = Style::new().bg(theme.tag_bg).fg(theme.tag_fg);
     let hl = base.bg(theme.line_hl);
-    let hl_gutter = gutter_style.bg(theme.line_hl);
-    let sel = theme.selected(base);
+    let hl_gutter = base
+        .fg(theme.cursor_gutter_fg)
+        .bg(theme.line_hl)
+        .add_modifier(theme.modifiers(&["CursorLineNr"]));
+    let sel = theme
+        .selected(base)
+        .add_modifier(theme.modifiers(&["Visual"]));
     let ellipsis = |bg: Style| Span::styled("\u{2026}", bg.fg(theme.gutter_fg));
     // Selected lines above the selection's last line are selected through their newline, so
     // their background runs to the right edge like VS Code's.
@@ -120,19 +134,22 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 .find_re
                 .as_ref()
                 .map_or_else(Vec::new, |re| matches(re, text));
-            let spans = with_find(
+            let here = cursor_line.then_some(app.col);
+            let spans = paint_finds(
                 &with_find(syntax, &words, word(theme.del_word_bg)),
                 &finds,
-                find_style,
+                here,
+                find_styles,
             );
-            let plain = with_find(
+            let plain = paint_finds(
                 if theme.selection_fg.is_some() {
                     &[]
                 } else {
                     syntax
                 },
                 &finds,
-                find_style,
+                here,
+                find_styles,
             );
             let selected = app
                 .selected_bytes(line)
@@ -213,19 +230,22 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         } else {
             theme.add_word_bg
         };
-        let spans = with_find(
+        let here = cursor_line.then_some(app.col);
+        let spans = paint_finds(
             &with_find(syntax, &words, word(word_bg)),
             &finds,
-            find_style,
+            here,
+            find_styles,
         );
-        let plain = with_find(
+        let plain = paint_finds(
             if theme.selection_fg.is_some() {
                 &[]
             } else {
                 syntax
             },
             &finds,
-            find_style,
+            here,
+            find_styles,
         );
         let g = if cursor_line { hl_gutter } else { gutter_style };
         let t = match (tint, lit) {
@@ -620,6 +640,19 @@ fn matches(re: &Regex, text: &str) -> Vec<Range<usize>> {
         .map(|m| m.range())
         .filter(|r| !r.is_empty())
         .collect()
+}
+
+fn paint_finds(
+    hl: &[(Style, Range<usize>)],
+    finds: &[Range<usize>],
+    cursor: Option<usize>,
+    (find, current): (Style, Style),
+) -> Vec<(Style, Range<usize>)> {
+    let (on, off): (Vec<_>, Vec<_>) = finds
+        .iter()
+        .cloned()
+        .partition(|f| cursor.is_some_and(|c| f.contains(&c)));
+    with_find(&with_find(hl, &off, find), &on, current)
 }
 
 pub(super) fn with_find(
