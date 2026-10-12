@@ -29,6 +29,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/c/injections.scm"),
     ),
     (
+        "css",
+        include_str!("../queries/css/highlights.scm"),
+        include_str!("../queries/css/injections.scm"),
+    ),
+    (
         "ecma",
         include_str!("../queries/ecma/highlights.scm"),
         include_str!("../queries/ecma/injections.scm"),
@@ -42,6 +47,16 @@ const QUERIES: &[(&str, &str, &str)] = &[
         "json",
         include_str!("../queries/json/highlights.scm"),
         include_str!("../queries/json/injections.scm"),
+    ),
+    (
+        "html",
+        include_str!("../queries/html/highlights.scm"),
+        include_str!("../queries/html/injections.scm"),
+    ),
+    (
+        "html_tags",
+        include_str!("../queries/html_tags/highlights.scm"),
+        include_str!("../queries/html_tags/injections.scm"),
     ),
     (
         "javascript",
@@ -146,6 +161,7 @@ const PREDICATES: &[&str] = &[
     "not-has-ancestor?",
     "set!",
     "offset!",
+    "gsub!",
 ];
 
 const HIGHLIGHT_KEYS: &[&str] = &["priority", "conceal", "conceal_lines"];
@@ -158,6 +174,7 @@ const INJECTION_KEYS: &[&str] = &[
 const CAPTURE_KEYS: &[&str] = &["url", "conceal", "bo.commentstring"];
 
 type Offset = (u32, [i64; 4]);
+type Rewrite = (u32, regex::bytes::Regex, Vec<u8>);
 
 struct Check {
     capture: u32,
@@ -203,6 +220,7 @@ struct Patterns {
     query: Query,
     checks: Vec<Vec<Check>>,
     offsets: Vec<Vec<Offset>>,
+    rewrites: Vec<Vec<Rewrite>>,
     settings: Vec<Vec<(String, Option<String>)>>,
 }
 
@@ -226,6 +244,16 @@ impl Patterns {
             .find(|(c, _)| *c == capture)
             .map(|(_, o)| *o)
     }
+
+    fn text<'a>(&self, pattern: usize, capture: u32, text: &'a [u8]) -> std::borrow::Cow<'a, [u8]> {
+        match self.rewrites[pattern]
+            .iter()
+            .find(|(c, _, _)| *c == capture)
+        {
+            Some((_, re, with)) => re.replace_all(text, with.as_slice()),
+            None => text.into(),
+        }
+    }
 }
 
 pub struct Lang {
@@ -236,11 +264,17 @@ pub struct Lang {
     injections: Option<Patterns>,
 }
 
-pub fn for_syntax(syntect_name: &str, path: Option<&Path>) -> Option<&'static Lang> {
+pub fn for_syntax(
+    syntect_name: &str,
+    path: Option<&Path>,
+    lines: &[String],
+) -> Option<&'static Lang> {
     let astro = path.is_some_and(|p| p.extension().is_some_and(|e| e == "astro"));
     match syntect_name {
         "Bourne Again Shell (bash)" if !path.is_some_and(zsh) => lang("bash"),
         "C" => lang("c"),
+        "CSS" => lang("css"),
+        "HTML" if !html_variant(lines) => lang("html"),
         "Go" => lang("go"),
         "JSON" => lang("json"),
         "TOML" => lang("toml"),
@@ -254,6 +288,21 @@ pub fn for_syntax(syntect_name: &str, path: Option<&Path>) -> Option<&'static La
         "Lua" => lang("lua"),
         _ => None,
     }
+}
+
+fn html_variant(lines: &[String]) -> bool {
+    static VARIANT: OnceLock<regex::Regex> = OnceLock::new();
+    let re = VARIANT.get_or_init(|| {
+        regex::Regex::new(concat!(
+            r"@(if|for|defer|switch)|\*(ngIf|ngFor|ngSwitch|ngTemplateOutlet)|\bng-(template|content)",
+            r"|\bDTD[ \t]+XHTML[ \t]",
+            r"|(?i:\{%[ \t]*(autoescape|block|comment|csrf_token|cycle|debug|extends|filter|firstof|for|if",
+            r"|ifchanged|include|load|lorem|now|query_string|regroup|resetcycle|spaceless|templatetag|url",
+            r"|verbatim|widthratio|with)\b)|\{#[ \t]+|<extend|<super>",
+        ))
+        .expect("a valid regex")
+    });
+    lines.iter().take(40).any(|l| re.is_match(l))
 }
 
 fn zsh(path: &Path) -> bool {
@@ -272,6 +321,8 @@ fn grammar(name: &str) -> Option<Language> {
     Some(match name {
         "bash" => tree_sitter_bash::LANGUAGE.into(),
         "c" => tree_sitter_c::LANGUAGE.into(),
+        "css" => tree_sitter_css::LANGUAGE.into(),
+        "html" => tree_sitter_html::LANGUAGE.into(),
         "json" => tree_sitter_json::LANGUAGE.into(),
         "toml" => tree_sitter_toml_ng::LANGUAGE.into(),
         "yaml" => tree_sitter_yaml::LANGUAGE.into(),
@@ -323,7 +374,7 @@ pub fn resolve(alias: &str) -> Option<&'static Lang> {
         .map_or(alias.as_str(), |(_, n)| n);
     lang(name).or_else(|| {
         let syntax = crate::buffer::syntax_for_info(&alias)?;
-        for_syntax(&syntax.name, Some(Path::new(&format!("a.{alias}"))))
+        for_syntax(&syntax.name, Some(Path::new(&format!("a.{alias}"))), &[])
     })
 }
 
@@ -398,6 +449,7 @@ fn patterns(
     let query = Query::new(language, &text).map_err(|e| format!("{name}: {e}"))?;
     let mut checks = Vec::new();
     let mut offsets = Vec::new();
+    let mut rewrites = Vec::new();
     let mut settings = Vec::new();
     for p in 0..query.pattern_count() {
         let mut set = Vec::new();
@@ -416,8 +468,16 @@ fn patterns(
         settings.push(set);
         let mut preds = Vec::new();
         let mut offs = Vec::new();
+        let mut subs = Vec::new();
         for pred in query.general_predicates(p) {
             use tree_sitter::QueryPredicateArg::{Capture, String as Text};
+            if &*pred.operator == "gsub!" {
+                let [Capture(c), Text(pattern), Text(with)] = &*pred.args else {
+                    return Err(format!("{name}: #gsub! takes a capture and two strings"));
+                };
+                subs.push((*c, lua_pattern(pattern)?, lua_replacement(with)?));
+                continue;
+            }
             if &*pred.operator == "offset!" {
                 let [Capture(c), Text(a), Text(b), Text(d), Text(e)] = &*pred.args else {
                     return Err(format!("{name}: #offset! takes a capture and four numbers"));
@@ -462,11 +522,13 @@ fn patterns(
         }
         checks.push(preds);
         offsets.push(offs);
+        rewrites.push(subs);
     }
     Ok(Patterns {
         query,
         checks,
         offsets,
+        rewrites,
         settings,
     })
 }
@@ -573,6 +635,23 @@ fn vim_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
         out.push(c);
     }
     regex::bytes::Regex::new(&out).map_err(|e| format!("vim pattern {p:?}: {e}"))
+}
+
+fn lua_replacement(with: &str) -> Result<Vec<u8>, String> {
+    let mut out = Vec::new();
+    let mut chars = with.chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '%' => match chars.next() {
+                Some(d @ '0'..='9') => out.extend(format!("${{{d}}}").bytes()),
+                Some('%') => out.push(b'%'),
+                _ => return Err(format!("lua replacement {with:?}: invalid use of '%'")),
+            },
+            '$' => out.extend(b"$$"),
+            c => out.extend(c.to_string().bytes()),
+        }
+    }
+    Ok(out)
 }
 
 fn lua_pattern(p: &str) -> Result<regex::bytes::Regex, String> {

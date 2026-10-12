@@ -255,6 +255,16 @@ fn c_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn html_and_the_css_and_javascript_in_it_are_coloured_as_lazyvim() {
+    coloured_as_lazyvim("html");
+}
+
+#[test]
+fn css_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("css");
+}
+
+#[test]
 fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     let sexp = |f: &str, src: &[u8]| {
         let mut b = Buffer::from_bytes(PathBuf::from(f), src);
@@ -297,6 +307,18 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     }
     assert!(sexp("a.c", b"int x;\n").contains("(translation_unit "));
     assert_eq!(sexp("a.h", b"int x;\n"), "");
+    for f in ["a.html", "a.htm"] {
+        assert!(sexp(f, b"<p>a</p>\n").contains("(element "), "{f}");
+    }
+    for text in [
+        "{% extends \"base.html\" %}\n",
+        "<div *ngIf=\"a\"></div>\n",
+        "@if (a) {\n}\n",
+        "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\">\n",
+    ] {
+        assert_eq!(sexp("a.html", text.as_bytes()), "", "{text}");
+    }
+    assert!(sexp("a.css", b"a { color: red; }\n").contains("(rule_set "));
 }
 
 #[test]

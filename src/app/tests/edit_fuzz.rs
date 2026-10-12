@@ -1021,6 +1021,22 @@ const C: &[&str] = &[
     "\n\n",
 ];
 
+const MARKUP: &[&str] = &[
+    "<style>a { color: red; }</style>",
+    "<script>let x = 1;</script>",
+    "<p style=\"margin: 0\">",
+    "</p>",
+    "<!-- ",
+    " -->",
+    "<",
+    ">",
+    "{",
+    "}",
+    "\"",
+    "&amp;",
+    "\n\n",
+];
+
 const LUA: &[&str] = &[
     "---@param x number\n",
     "string.format(\"%d\", x)",
@@ -1082,6 +1098,16 @@ fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
         LUA,
     );
     fuzz_tree_sitter("f.c", include_bytes!("../../../tests/colors/c/ledger.c"), C);
+    fuzz_tree_sitter(
+        "f.html",
+        include_bytes!("../../../tests/colors/html/page.html"),
+        MARKUP,
+    );
+    fuzz_tree_sitter(
+        "f.css",
+        include_bytes!("../../../tests/colors/css/site.css"),
+        MARKUP,
+    );
 }
 
 fn fuzz_tree_sitter(name: &str, start: &[u8], snippets: &[&str]) {

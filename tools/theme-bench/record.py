@@ -43,7 +43,7 @@ sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 NVIM_TS = "1a4f47b03dfe92d28de7d5654c67327ef008c9e6"
-PARSERS = ["bash", "c", "diff", "html", "javascript", "jsdoc", "json", "lua", "luadoc", "luap", "markdown",
+PARSERS = ["bash", "c", "css", "diff", "html", "javascript", "jsdoc", "json", "lua", "luadoc", "luap", "markdown",
            "markdown_inline", "printf", "python", "query", "regex", "toml", "tsx", "typescript", "vim",
            "vimdoc", "xml", "yaml", "rust", "go"]
 LANGS = {
@@ -61,7 +61,14 @@ LANGS = {
     "toml": (["ripgrep", "paperless-ngx", "eslint", "redis"], ["toml"]),
     "lua": (["redis"], ["lua"], 25),
     "c": (["redis"], ["c"]),
+    "html": (["bootstrap", "caddy", "eslint", "outline", "redis"], ["html", "htm"]),
+    "css": (["gitea", "paperless-ngx", "caddy", "redis"], ["css"]),
 }
+NOT_HTML = re.compile(
+    r"@(if|for|defer|switch)|\*(ngIf|ngFor|ngSwitch|ngTemplateOutlet)|\bng-(template|content)|\bDTD[ \t]+XHTML[ \t]"
+    r"|(?i:\{%[ \t]*(autoescape|block|comment|csrf_token|cycle|debug|extends|filter|firstof|for|if|ifchanged|include"
+    r"|load|lorem|now|query_string|regroup|resetcycle|spaceless|templatetag|url|verbatim|widthratio|with)\b)"
+    r"|\{#[ \t]+|<extend|<super>")
 SKIP_DIRS = ("migrations/", "vendor/", "testdata/", "node_modules/", "CHANGELOG")
 FILES, LINES, MINLINES, MAXLEN, WIDTH = 4, 200, 80, 140, 200
 LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -131,6 +138,8 @@ def pick(lang):
     every.sort(key=lambda p: hashlib.sha1(p[0].encode()).hexdigest())
     out = []
     for rel, path in every:
+        if lang == "html" and any(map(NOT_HTML.search, file_lines(path)[:40])):
+            continue
         if sum(map(bool, map(recordable, file_lines(path)))) >= (least or [MINLINES])[0]:
             out.append((rel, path))
         if len(out) == FILES:
