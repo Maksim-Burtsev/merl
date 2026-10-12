@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `--review`: the panel's row of the file in view keeps the selection colour while the code has
+  the keys, so each `c` into the next file shows in the panel. (#738)
 - `dracula`'s cursor line is its Neovim original's again, `#424450`, where #66 had moved it by
   hand. (#801)
 - The chrome takes the theme's Neovim colours, as LazyVim draws them: after `/`, `n` or `N` the

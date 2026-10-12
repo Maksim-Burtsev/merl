@@ -153,11 +153,9 @@ pub(super) fn draw_tree(
             };
             let style = if i != shown {
                 row
-            } else if focused {
+            } else if focused || review.is_some() {
                 theme.selected(row)
             } else {
-                // The tree keeps its place while the code pane has the keys. Only the
-                // background fades: the file name must stay readable (issue #8).
                 row.bg(theme.line_hl_dim)
             };
             let tick = match (&app.review, app.viewed.contains_key(&n.path)) {
