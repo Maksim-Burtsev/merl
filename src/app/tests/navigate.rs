@@ -1316,7 +1316,6 @@ fn a_makefile_recipe_line_is_judged_on_the_unsaved_buffer() {
         )],
     );
     a.jump_to(&dir.join("dirty.mk"), 2);
-    // Esc would save: the edit stays unsaved as it is until autosave.
     a.buf.lines.drain(1..3);
     a.dirty = true;
     a.jump_to(&dir.join("dirty.mk"), 5);
