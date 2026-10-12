@@ -656,6 +656,45 @@ fn changed_text_row(patterns: &Patterns, before: &(Tree, String), new: &Tree, te
     )
 }
 
+fn recovered_row(old: &Tree, new: &Tree, below: usize) -> usize {
+    if !old.root_node().has_error() && !new.root_node().has_error() {
+        return usize::MAX;
+    }
+    let (mut a, mut b) = (old.walk(), new.walk());
+    loop {
+        let (x, y) = (a.node(), b.node());
+        let row = x.start_position().row.min(y.start_position().row);
+        if row >= below {
+            return usize::MAX;
+        }
+        if x.kind_id() != y.kind_id()
+            || x.byte_range() != y.byte_range()
+            || x.is_missing() != y.is_missing()
+            || a.field_id() != b.field_id()
+        {
+            return row;
+        }
+        if x.has_error() || y.has_error() {
+            match (a.goto_first_child(), b.goto_first_child()) {
+                (true, true) => continue,
+                (false, false) => {}
+                _ => return row,
+            }
+        }
+        loop {
+            match (a.goto_next_sibling(), b.goto_next_sibling()) {
+                (true, true) => break,
+                (false, false) => {}
+                (true, false) => return a.node().start_position().row,
+                (false, true) => return b.node().start_position().row,
+            }
+            if !a.goto_parent() || !b.goto_parent() {
+                return usize::MAX;
+            }
+        }
+    }
+}
+
 fn vim_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
     let bad = || Err(format!("vim pattern {p:?} is not supported"));
     let body = match p.get(..2) {
@@ -922,6 +961,10 @@ impl Parsed {
                 })
                 .fold(from, usize::min),
             None => 0,
+        };
+        let from = match &self.tree {
+            Some(old) => from.min(recovered_row(old, &tree, from)),
+            None => from,
         };
         let from = match self.before.take() {
             Some(before) => {
