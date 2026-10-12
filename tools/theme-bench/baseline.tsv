@@ -1,6 +1,7 @@
 # master's non-blank characters in LazyVim's foreground: theme, language, characters, matching
 adwaita	bash	12491	9320
 adwaita	c	17618	13616
+adwaita	c_sharp	16671	11766
 adwaita	cpp	19079	15857
 adwaita	css	16766	8770
 adwaita	go	14810	12584
@@ -20,6 +21,7 @@ adwaita	xml	20823	18160
 adwaita	yaml	16564	10644
 adwaita-light	bash	12491	9332
 adwaita-light	c	17618	13746
+adwaita-light	c_sharp	16671	11786
 adwaita-light	cpp	19079	16041
 adwaita-light	css	16766	8926
 adwaita-light	go	14810	12680
@@ -39,6 +41,7 @@ adwaita-light	xml	20823	18160
 adwaita-light	yaml	16564	10523
 alabaster	bash	12491	9780
 alabaster	c	17618	15504
+alabaster	c_sharp	16671	13935
 alabaster	cpp	19079	16760
 alabaster	css	16766	12961
 alabaster	go	14810	13433
@@ -58,6 +61,7 @@ alabaster	xml	20823	13939
 alabaster	yaml	16564	12118
 alabaster-light	bash	12491	9780
 alabaster-light	c	17618	15334
+alabaster-light	c_sharp	16671	13843
 alabaster-light	cpp	19079	16790
 alabaster-light	css	16766	12954
 alabaster-light	go	14810	13433
@@ -77,6 +81,7 @@ alabaster-light	xml	20823	13939
 alabaster-light	yaml	16564	12118
 alucard	bash	12491	8820
 alucard	c	17618	14392
+alucard	c_sharp	16671	11200
 alucard	cpp	19079	15513
 alucard	css	16766	8942
 alucard	go	14810	12402
@@ -96,6 +101,7 @@ alucard	xml	20823	18479
 alucard	yaml	16564	10523
 ayu	bash	12491	8698
 ayu	c	17618	11189
+ayu	c_sharp	16671	11447
 ayu	cpp	19079	11950
 ayu	css	16766	8895
 ayu	go	14810	12484
@@ -115,6 +121,7 @@ ayu	xml	20823	16389
 ayu	yaml	16564	10523
 ayu-light	bash	12491	8698
 ayu-light	c	17618	11189
+ayu-light	c_sharp	16671	11447
 ayu-light	cpp	19079	11950
 ayu-light	css	16766	8895
 ayu-light	go	14810	12484
@@ -134,6 +141,7 @@ ayu-light	xml	20823	16389
 ayu-light	yaml	16564	10523
 ayu-mirage	bash	12491	8698
 ayu-mirage	c	17618	11189
+ayu-mirage	c_sharp	16671	11447
 ayu-mirage	cpp	19079	11950
 ayu-mirage	css	16766	8895
 ayu-mirage	go	14810	12484
@@ -153,6 +161,7 @@ ayu-mirage	xml	20823	16389
 ayu-mirage	yaml	16564	10523
 bamboo	bash	12491	8641
 bamboo	c	17618	13567
+bamboo	c_sharp	16671	10913
 bamboo	cpp	19079	14326
 bamboo	css	16766	8691
 bamboo	go	14810	12582
@@ -172,6 +181,7 @@ bamboo	xml	20823	18419
 bamboo	yaml	16564	10523
 bamboo-light	bash	12491	8641
 bamboo-light	c	17618	13567
+bamboo-light	c_sharp	16671	10913
 bamboo-light	cpp	19079	14326
 bamboo-light	css	16766	8691
 bamboo-light	go	14810	12582
@@ -191,6 +201,7 @@ bamboo-light	xml	20823	18419
 bamboo-light	yaml	16564	10523
 bluloco-light	bash	12491	9567
 bluloco-light	c	17618	14100
+bluloco-light	c_sharp	16671	11170
 bluloco-light	cpp	19079	14833
 bluloco-light	css	16766	8800
 bluloco-light	go	14810	12678
@@ -210,6 +221,7 @@ bluloco-light	xml	20823	16714
 bluloco-light	yaml	16564	10523
 catppuccin-frappe	bash	12491	8689
 catppuccin-frappe	c	17618	14007
+catppuccin-frappe	c_sharp	16671	11294
 catppuccin-frappe	cpp	19079	14205
 catppuccin-frappe	css	16766	5681
 catppuccin-frappe	go	14810	12679
@@ -229,6 +241,7 @@ catppuccin-frappe	xml	20823	16820
 catppuccin-frappe	yaml	16564	12430
 catppuccin-latte	bash	12491	8689
 catppuccin-latte	c	17618	14007
+catppuccin-latte	c_sharp	16671	11294
 catppuccin-latte	cpp	19079	14205
 catppuccin-latte	css	16766	5681
 catppuccin-latte	go	14810	12679
@@ -248,6 +261,7 @@ catppuccin-latte	xml	20823	16820
 catppuccin-latte	yaml	16564	12430
 catppuccin-macchiato	bash	12491	8689
 catppuccin-macchiato	c	17618	14007
+catppuccin-macchiato	c_sharp	16671	11294
 catppuccin-macchiato	cpp	19079	14205
 catppuccin-macchiato	css	16766	5681
 catppuccin-macchiato	go	14810	12679
@@ -267,6 +281,7 @@ catppuccin-macchiato	xml	20823	16820
 catppuccin-macchiato	yaml	16564	12430
 catppuccin-mocha	bash	12491	8689
 catppuccin-mocha	c	17618	14007
+catppuccin-mocha	c_sharp	16671	11294
 catppuccin-mocha	cpp	19079	14205
 catppuccin-mocha	css	16766	5681
 catppuccin-mocha	go	14810	12679
@@ -286,6 +301,7 @@ catppuccin-mocha	xml	20823	16820
 catppuccin-mocha	yaml	16564	12430
 cendre	bash	12491	10156
 cendre	c	17618	13999
+cendre	c_sharp	16671	10916
 cendre	cpp	19079	14469
 cendre	css	16766	9171
 cendre	go	14810	12584
@@ -305,6 +321,7 @@ cendre	xml	20823	18705
 cendre	yaml	16564	10519
 darkearth	bash	12491	9347
 darkearth	c	17618	12848
+darkearth	c_sharp	16671	10510
 darkearth	cpp	19079	13784
 darkearth	css	16766	7902
 darkearth	go	14810	11913
@@ -324,6 +341,7 @@ darkearth	xml	20823	16434
 darkearth	yaml	16564	12561
 dawnfox	bash	12491	8279
 dawnfox	c	17618	12177
+dawnfox	c_sharp	16671	9118
 dawnfox	cpp	19079	12048
 dawnfox	css	16766	6485
 dawnfox	go	14810	11410
@@ -343,6 +361,7 @@ dawnfox	xml	20823	15838
 dawnfox	yaml	16564	10090
 dayfox	bash	12491	8255
 dayfox	c	17618	9870
+dayfox	c_sharp	16671	9118
 dayfox	cpp	19079	9656
 dayfox	css	16766	6470
 dayfox	go	14810	11410
@@ -362,6 +381,7 @@ dayfox	xml	20823	15838
 dayfox	yaml	16564	10090
 dracula	bash	12491	8820
 dracula	c	17618	14392
+dracula	c_sharp	16671	11200
 dracula	cpp	19079	15513
 dracula	css	16766	8942
 dracula	go	14810	12402
@@ -381,6 +401,7 @@ dracula	xml	20823	18479
 dracula	yaml	16564	10523
 e-ink	bash	12491	10123
 e-ink	c	17618	12079
+e-ink	c_sharp	16671	12944
 e-ink	cpp	19079	11457
 e-ink	css	16766	8126
 e-ink	go	14810	12439
@@ -400,6 +421,7 @@ e-ink	xml	20823	16396
 e-ink	yaml	16564	13095
 e-ink-light	bash	12491	10123
 e-ink-light	c	17618	12079
+e-ink-light	c_sharp	16671	12944
 e-ink-light	cpp	19079	11457
 e-ink-light	css	16766	8126
 e-ink-light	go	14810	12439
@@ -419,6 +441,7 @@ e-ink-light	xml	20823	16396
 e-ink-light	yaml	16564	13095
 edge	bash	12491	10137
 edge	c	17618	10312
+edge	c_sharp	16671	9623
 edge	cpp	19079	10681
 edge	css	16766	6470
 edge	go	14810	11882
@@ -438,6 +461,7 @@ edge	xml	20823	16112
 edge	yaml	16564	10086
 edge-light	bash	12491	10137
 edge-light	c	17618	10312
+edge-light	c_sharp	16671	9623
 edge-light	cpp	19079	10681
 edge-light	css	16766	6470
 edge-light	go	14810	11882
@@ -457,6 +481,7 @@ edge-light	xml	20823	16112
 edge-light	yaml	16564	10086
 everforest-dark	bash	12491	10478
 everforest-dark	c	17618	13696
+everforest-dark	c_sharp	16671	10540
 everforest-dark	cpp	19079	13989
 everforest-dark	css	16766	7843
 everforest-dark	go	14810	12674
@@ -476,6 +501,7 @@ everforest-dark	xml	20823	15796
 everforest-dark	yaml	16564	4410
 everforest-light	bash	12491	10478
 everforest-light	c	17618	13696
+everforest-light	c_sharp	16671	10540
 everforest-light	cpp	19079	13989
 everforest-light	css	16766	7843
 everforest-light	go	14810	12674
@@ -495,6 +521,7 @@ everforest-light	xml	20823	15796
 everforest-light	yaml	16564	4410
 flexoki-dark	bash	12491	9156
 flexoki-dark	c	17618	11182
+flexoki-dark	c_sharp	16671	11757
 flexoki-dark	cpp	19079	12662
 flexoki-dark	css	16766	8785
 flexoki-dark	go	14810	12955
@@ -514,6 +541,7 @@ flexoki-dark	xml	20823	16672
 flexoki-dark	yaml	16564	10523
 flexoki-light	bash	12491	9156
 flexoki-light	c	17618	11182
+flexoki-light	c_sharp	16671	11757
 flexoki-light	cpp	19079	12662
 flexoki-light	css	16766	8785
 flexoki-light	go	14810	12955
@@ -533,6 +561,7 @@ flexoki-light	xml	20823	16672
 flexoki-light	yaml	16564	10523
 github-dark	bash	12491	9469
 github-dark	c	17618	14094
+github-dark	c_sharp	16671	11239
 github-dark	cpp	19079	14524
 github-dark	css	16766	8906
 github-dark	go	14810	12716
@@ -552,6 +581,7 @@ github-dark	xml	20823	18228
 github-dark	yaml	16564	12620
 github-light	bash	12491	9469
 github-light	c	17618	14094
+github-light	c_sharp	16671	11239
 github-light	cpp	19079	14524
 github-light	css	16766	8906
 github-light	go	14810	12716
@@ -571,6 +601,7 @@ github-light	xml	20823	18228
 github-light	yaml	16564	12620
 gotham	bash	12491	8771
 gotham	c	17618	11317
+gotham	c_sharp	16671	11457
 gotham	cpp	19079	12077
 gotham	css	16766	8839
 gotham	go	14810	12563
@@ -590,6 +621,7 @@ gotham	xml	20823	16666
 gotham	yaml	16564	10523
 gruvbox-dark	bash	12491	8979
 gruvbox-dark	c	17618	13188
+gruvbox-dark	c_sharp	16671	10921
 gruvbox-dark	cpp	19079	13921
 gruvbox-dark	css	16766	8757
 gruvbox-dark	go	14810	12702
@@ -609,6 +641,7 @@ gruvbox-dark	xml	20823	18854
 gruvbox-dark	yaml	16564	11139
 gruvbox-light	bash	12491	8979
 gruvbox-light	c	17618	13188
+gruvbox-light	c_sharp	16671	10921
 gruvbox-light	cpp	19079	13921
 gruvbox-light	css	16766	8757
 gruvbox-light	go	14810	12702
@@ -628,6 +661,7 @@ gruvbox-light	xml	20823	18854
 gruvbox-light	yaml	16564	11139
 gruvbox-material-dark	bash	12491	10478
 gruvbox-material-dark	c	17618	13696
+gruvbox-material-dark	c_sharp	16671	10540
 gruvbox-material-dark	cpp	19079	13989
 gruvbox-material-dark	css	16766	7843
 gruvbox-material-dark	go	14810	12674
@@ -647,6 +681,7 @@ gruvbox-material-dark	xml	20823	15796
 gruvbox-material-dark	yaml	16564	10080
 gruvbox-material-light	bash	12491	10478
 gruvbox-material-light	c	17618	13696
+gruvbox-material-light	c_sharp	16671	10540
 gruvbox-material-light	cpp	19079	13989
 gruvbox-material-light	css	16766	7843
 gruvbox-material-light	go	14810	12674
@@ -666,6 +701,7 @@ gruvbox-material-light	xml	20823	15796
 gruvbox-material-light	yaml	16564	10080
 hojicha	bash	12491	9064
 hojicha	c	17618	12763
+hojicha	c_sharp	16671	9875
 hojicha	cpp	19079	13346
 hojicha	css	16766	8104
 hojicha	go	14810	11952
@@ -685,6 +721,7 @@ hojicha	xml	20823	18153
 hojicha	yaml	16564	10519
 iceberg	bash	12491	9343
 iceberg	c	17618	14230
+iceberg	c_sharp	16671	12042
 iceberg	cpp	19079	16354
 iceberg	css	16766	8697
 iceberg	go	14810	13101
@@ -704,6 +741,7 @@ iceberg	xml	20823	12757
 iceberg	yaml	16564	10523
 iceberg-light	bash	12491	9343
 iceberg-light	c	17618	14230
+iceberg-light	c_sharp	16671	12042
 iceberg-light	cpp	19079	16354
 iceberg-light	css	16766	8697
 iceberg-light	go	14810	13101
@@ -723,6 +761,7 @@ iceberg-light	xml	20823	12757
 iceberg-light	yaml	16564	10523
 jellybeans	bash	12491	8352
 jellybeans	c	17618	12166
+jellybeans	c_sharp	16671	8897
 jellybeans	cpp	19079	12727
 jellybeans	css	16766	6539
 jellybeans	go	14810	11465
@@ -742,6 +781,7 @@ jellybeans	xml	20823	19332
 jellybeans	yaml	16564	10090
 jellybeans-light	bash	12491	8352
 jellybeans-light	c	17618	12166
+jellybeans-light	c_sharp	16671	8897
 jellybeans-light	cpp	19079	12727
 jellybeans-light	css	16766	6539
 jellybeans-light	go	14810	11465
@@ -761,6 +801,7 @@ jellybeans-light	xml	20823	19332
 jellybeans-light	yaml	16564	10090
 kanagawa-dragon	bash	12491	8796
 kanagawa-dragon	c	17618	13413
+kanagawa-dragon	c_sharp	16671	10653
 kanagawa-dragon	cpp	19079	13570
 kanagawa-dragon	css	16766	8707
 kanagawa-dragon	go	14810	12340
@@ -780,6 +821,7 @@ kanagawa-dragon	xml	20823	18410
 kanagawa-dragon	yaml	16564	10523
 kanagawa-lotus	bash	12491	8796
 kanagawa-lotus	c	17618	13413
+kanagawa-lotus	c_sharp	16671	10653
 kanagawa-lotus	cpp	19079	13570
 kanagawa-lotus	css	16766	8707
 kanagawa-lotus	go	14810	12340
@@ -799,6 +841,7 @@ kanagawa-lotus	xml	20823	18410
 kanagawa-lotus	yaml	16564	10523
 kanagawa-wave	bash	12491	8796
 kanagawa-wave	c	17618	13413
+kanagawa-wave	c_sharp	16671	10653
 kanagawa-wave	cpp	19079	13570
 kanagawa-wave	css	16766	8707
 kanagawa-wave	go	14810	12340
@@ -818,6 +861,7 @@ kanagawa-wave	xml	20823	18410
 kanagawa-wave	yaml	16564	10523
 koda-dark	bash	12491	9474
 koda-dark	c	17618	13691
+koda-dark	c_sharp	16671	11163
 koda-dark	cpp	19079	15975
 koda-dark	css	16766	8035
 koda-dark	go	14810	12879
@@ -837,6 +881,7 @@ koda-dark	xml	20823	18764
 koda-dark	yaml	16564	11377
 koda-light	bash	12491	9382
 koda-light	c	17618	13677
+koda-light	c_sharp	16671	11108
 koda-light	cpp	19079	15858
 koda-light	css	16766	7935
 koda-light	go	14810	12879
@@ -856,6 +901,7 @@ koda-light	xml	20823	18487
 koda-light	yaml	16564	10560
 lackluster	bash	12491	9183
 lackluster	c	17618	13383
+lackluster	c_sharp	16671	10645
 lackluster	cpp	19079	14190
 lackluster	css	16766	5304
 lackluster	go	14810	12601
@@ -875,6 +921,7 @@ lackluster	xml	20823	16978
 lackluster	yaml	16564	10524
 lightearth	bash	12491	9347
 lightearth	c	17618	12848
+lightearth	c_sharp	16671	10510
 lightearth	cpp	19079	13784
 lightearth	css	16766	7902
 lightearth	go	14810	11913
@@ -894,6 +941,7 @@ lightearth	xml	20823	16434
 lightearth	yaml	16564	12561
 material-dark	bash	12491	8913
 material-dark	c	17618	12636
+material-dark	c_sharp	16671	9966
 material-dark	cpp	19079	13256
 material-dark	css	16766	6505
 material-dark	go	14810	11783
@@ -913,6 +961,7 @@ material-dark	xml	20823	15823
 material-dark	yaml	16564	10090
 material-light	bash	12491	8913
 material-light	c	17618	12636
+material-light	c_sharp	16671	9966
 material-light	cpp	19079	13256
 material-light	css	16766	6505
 material-light	go	14810	11783
@@ -932,6 +981,7 @@ material-light	xml	20823	15823
 material-light	yaml	16564	10090
 melange-dark	bash	12491	10459
 melange-dark	c	17618	13492
+melange-dark	c_sharp	16671	11208
 melange-dark	cpp	19079	14532
 melange-dark	css	16766	7644
 melange-dark	go	14810	12620
@@ -951,6 +1001,7 @@ melange-dark	xml	20823	17567
 melange-dark	yaml	16564	10118
 melange-light	bash	12491	10459
 melange-light	c	17618	13492
+melange-light	c_sharp	16671	11208
 melange-light	cpp	19079	14532
 melange-light	css	16766	7644
 melange-light	go	14810	12620
@@ -970,6 +1021,7 @@ melange-light	xml	20823	17567
 melange-light	yaml	16564	10118
 mellifluous	bash	12491	9188
 mellifluous	c	17618	13262
+mellifluous	c_sharp	16671	11201
 mellifluous	cpp	19079	14490
 mellifluous	css	16766	8777
 mellifluous	go	14810	9698
@@ -989,6 +1041,7 @@ mellifluous	xml	20823	18494
 mellifluous	yaml	16564	10548
 mellifluous-light	bash	12491	9188
 mellifluous-light	c	17618	13262
+mellifluous-light	c_sharp	16671	11201
 mellifluous-light	cpp	19079	14490
 mellifluous-light	css	16766	8777
 mellifluous-light	go	14810	9698
@@ -1008,6 +1061,7 @@ mellifluous-light	xml	20823	18470
 mellifluous-light	yaml	16564	10548
 mellow	bash	12491	9231
 mellow	c	17618	13626
+mellow	c_sharp	16671	10909
 mellow	cpp	19079	14520
 mellow	css	16766	8700
 mellow	go	14810	12517
@@ -1027,6 +1081,7 @@ mellow	xml	20823	18161
 mellow	yaml	16564	10523
 miasma	bash	12491	9113
 miasma	c	17618	13720
+miasma	c_sharp	16671	11756
 miasma	cpp	19079	15347
 miasma	css	16766	9036
 miasma	go	14810	12660
@@ -1046,6 +1101,7 @@ miasma	xml	20823	16719
 miasma	yaml	16564	10523
 minischeme	bash	12491	9007
 minischeme	c	17618	13392
+minischeme	c_sharp	16671	11255
 minischeme	cpp	19079	14393
 minischeme	css	16766	8701
 minischeme	go	14810	12242
@@ -1065,6 +1121,7 @@ minischeme	xml	20823	16409
 minischeme	yaml	16564	10523
 minischeme-light	bash	12491	9007
 minischeme-light	c	17618	13392
+minischeme-light	c_sharp	16671	11255
 minischeme-light	cpp	19079	14393
 minischeme-light	css	16766	8701
 minischeme-light	go	14810	12242
@@ -1084,6 +1141,7 @@ minischeme-light	xml	20823	16409
 minischeme-light	yaml	16564	10523
 moonfly	bash	12491	8968
 moonfly	c	17618	13186
+moonfly	c_sharp	16671	10833
 moonfly	cpp	19079	13575
 moonfly	css	16766	7447
 moonfly	go	14810	12427
@@ -1103,6 +1161,7 @@ moonfly	xml	20823	16604
 moonfly	yaml	16564	10094
 neomodern-light	bash	12491	9064
 neomodern-light	c	17618	12763
+neomodern-light	c_sharp	16671	9875
 neomodern-light	cpp	19079	13346
 neomodern-light	css	16766	8104
 neomodern-light	go	14810	11952
@@ -1122,6 +1181,7 @@ neomodern-light	xml	20823	18153
 neomodern-light	yaml	16564	10519
 nightfly	bash	12491	8968
 nightfly	c	17618	13186
+nightfly	c_sharp	16671	10833
 nightfly	cpp	19079	13575
 nightfly	css	16766	7447
 nightfly	go	14810	12427
@@ -1141,6 +1201,7 @@ nightfly	xml	20823	16604
 nightfly	yaml	16564	10094
 nightfox	bash	12491	8255
 nightfox	c	17618	9870
+nightfox	c_sharp	16671	9118
 nightfox	cpp	19079	9656
 nightfox	css	16766	6470
 nightfox	go	14810	11410
@@ -1160,6 +1221,7 @@ nightfox	xml	20823	15838
 nightfox	yaml	16564	10090
 nord	bash	12491	10317
 nord	c	17618	14160
+nord	c_sharp	16671	11477
 nord	cpp	19079	15356
 nord	css	16766	8733
 nord	go	14810	12526
@@ -1179,6 +1241,7 @@ nord	xml	20823	16438
 nord	yaml	16564	10519
 nordfox	bash	12491	8255
 nordfox	c	17618	9870
+nordfox	c_sharp	16671	9118
 nordfox	cpp	19079	9656
 nordfox	css	16766	6470
 nordfox	go	14810	11410
@@ -1198,6 +1261,7 @@ nordfox	xml	20823	15838
 nordfox	yaml	16564	10090
 onedark	bash	12491	8610
 onedark	c	17618	13463
+onedark	c_sharp	16671	10917
 onedark	cpp	19079	14253
 onedark	css	16766	8692
 onedark	go	14810	12428
@@ -1217,6 +1281,7 @@ onedark	xml	20823	16648
 onedark	yaml	16564	10540
 onedark-light	bash	12491	8610
 onedark-light	c	17618	13463
+onedark-light	c_sharp	16671	10917
 onedark-light	cpp	19079	14253
 onedark-light	css	16766	8692
 onedark-light	go	14810	12428
@@ -1236,6 +1301,7 @@ onedark-light	xml	20823	16648
 onedark-light	yaml	16564	10540
 oxocarbon-dark	bash	12491	9349
 oxocarbon-dark	c	17618	12804
+oxocarbon-dark	c_sharp	16671	10220
 oxocarbon-dark	cpp	19079	13147
 oxocarbon-dark	css	16766	6925
 oxocarbon-dark	go	14810	11814
@@ -1255,6 +1321,7 @@ oxocarbon-dark	xml	20823	16150
 oxocarbon-dark	yaml	16564	10563
 oxocarbon-light	bash	12491	9349
 oxocarbon-light	c	17618	12804
+oxocarbon-light	c_sharp	16671	10220
 oxocarbon-light	cpp	19079	13147
 oxocarbon-light	css	16766	6925
 oxocarbon-light	go	14810	11814
@@ -1274,6 +1341,7 @@ oxocarbon-light	xml	20823	16150
 oxocarbon-light	yaml	16564	10563
 papercolor	bash	12491	10935
 papercolor	c	17618	14544
+papercolor	c_sharp	16671	11148
 papercolor	cpp	19079	14732
 papercolor	css	16766	9187
 papercolor	go	14810	12811
@@ -1293,6 +1361,7 @@ papercolor	xml	20823	18710
 papercolor	yaml	16564	10565
 papercolor-light	bash	12491	10564
 papercolor-light	c	17618	14534
+papercolor-light	c_sharp	16671	11136
 papercolor-light	cpp	19079	14683
 papercolor-light	css	16766	9087
 papercolor-light	go	14810	12811
@@ -1312,6 +1381,7 @@ papercolor-light	xml	20823	16654
 papercolor-light	yaml	16564	10565
 pencil	bash	12491	8986
 pencil	c	17618	11350
+pencil	c_sharp	16671	11604
 pencil	cpp	19079	11992
 pencil	css	16766	9148
 pencil	go	14810	12412
@@ -1331,6 +1401,7 @@ pencil	xml	20823	18377
 pencil	yaml	16564	11006
 pencil-light	bash	12491	8986
 pencil-light	c	17618	11350
+pencil-light	c_sharp	16671	11604
 pencil-light	cpp	19079	11992
 pencil-light	css	16766	9148
 pencil-light	go	14810	12412
@@ -1350,6 +1421,7 @@ pencil-light	xml	20823	18377
 pencil-light	yaml	16564	11006
 rose-pine	bash	12491	9692
 rose-pine	c	17618	13975
+rose-pine	c_sharp	16671	11216
 rose-pine	cpp	19079	14986
 rose-pine	css	16766	9405
 rose-pine	go	14810	13337
@@ -1369,6 +1441,7 @@ rose-pine	xml	20823	18594
 rose-pine	yaml	16564	13117
 rose-pine-dawn	bash	12491	9692
 rose-pine-dawn	c	17618	13975
+rose-pine-dawn	c_sharp	16671	11216
 rose-pine-dawn	cpp	19079	14986
 rose-pine-dawn	css	16766	9405
 rose-pine-dawn	go	14810	13337
@@ -1388,6 +1461,7 @@ rose-pine-dawn	xml	20823	18594
 rose-pine-dawn	yaml	16564	13117
 rose-pine-moon	bash	12491	9692
 rose-pine-moon	c	17618	13975
+rose-pine-moon	c_sharp	16671	11216
 rose-pine-moon	cpp	19079	14986
 rose-pine-moon	css	16766	9405
 rose-pine-moon	go	14810	13337
@@ -1407,6 +1481,7 @@ rose-pine-moon	xml	20823	18594
 rose-pine-moon	yaml	16564	13117
 selenized	bash	12491	9388
 selenized	c	17618	12578
+selenized	c_sharp	16671	14147
 selenized	cpp	19079	12313
 selenized	css	16766	9114
 selenized	go	14810	13414
@@ -1426,6 +1501,7 @@ selenized	xml	20823	18336
 selenized	yaml	16564	11006
 selenized-light	bash	12491	9388
 selenized-light	c	17618	12578
+selenized-light	c_sharp	16671	14147
 selenized-light	cpp	19079	12313
 selenized-light	css	16766	9114
 selenized-light	go	14810	13414
@@ -1445,6 +1521,7 @@ selenized-light	xml	20823	18336
 selenized-light	yaml	16564	11006
 solarized-dark	bash	12491	9048
 solarized-dark	c	17618	13034
+solarized-dark	c_sharp	16671	14117
 solarized-dark	cpp	19079	12970
 solarized-dark	css	16766	8663
 solarized-dark	go	14810	13091
@@ -1464,6 +1541,7 @@ solarized-dark	xml	20823	16735
 solarized-dark	yaml	16564	10523
 solarized-light	bash	12491	9048
 solarized-light	c	17618	12938
+solarized-light	c_sharp	16671	14052
 solarized-light	cpp	19079	12418
 solarized-light	css	16766	8663
 solarized-light	go	14810	13039
@@ -1483,6 +1561,7 @@ solarized-light	xml	20823	18506
 solarized-light	yaml	16564	10523
 sonokai	bash	12491	10416
 sonokai	c	17618	13169
+sonokai	c_sharp	16671	9663
 sonokai	cpp	19079	13274
 sonokai	css	16766	7075
 sonokai	go	14810	11975
@@ -1502,6 +1581,7 @@ sonokai	xml	20823	16073
 sonokai	yaml	16564	10197
 soviet-dark	bash	12491	9170
 soviet-dark	c	17618	12232
+soviet-dark	c_sharp	16671	9369
 soviet-dark	cpp	19079	12266
 soviet-dark	css	16766	6451
 soviet-dark	go	14810	11664
@@ -1521,6 +1601,7 @@ soviet-dark	xml	20823	17809
 soviet-dark	yaml	16564	10090
 soviet-light	bash	12491	9170
 soviet-light	c	17618	12232
+soviet-light	c_sharp	16671	9369
 soviet-light	cpp	19079	12266
 soviet-light	css	16766	6451
 soviet-light	go	14810	11664
@@ -1540,6 +1621,7 @@ soviet-light	xml	20823	17809
 soviet-light	yaml	16564	10090
 srcery	bash	12491	9441
 srcery	c	17618	13743
+srcery	c_sharp	16671	10705
 srcery	cpp	19079	13478
 srcery	css	16766	8759
 srcery	go	14810	13057
@@ -1559,6 +1641,7 @@ srcery	xml	20823	18293
 srcery	yaml	16564	10560
 token	bash	12491	9150
 token	c	17618	13512
+token	c_sharp	16671	11521
 token	cpp	19079	14746
 token	css	16766	8777
 token	go	14810	12618
@@ -1578,6 +1661,7 @@ token	xml	20823	16890
 token	yaml	16564	10523
 token-light	bash	12491	9150
 token-light	c	17618	13512
+token-light	c_sharp	16671	11521
 token-light	cpp	19079	14746
 token-light	css	16766	8777
 token-light	go	14810	12618
@@ -1597,6 +1681,7 @@ token-light	xml	20823	16890
 token-light	yaml	16564	10523
 tokyonight-day	bash	12491	8296
 tokyonight-day	c	17618	12127
+tokyonight-day	c_sharp	16671	9223
 tokyonight-day	cpp	19079	12185
 tokyonight-day	css	16766	6451
 tokyonight-day	go	14810	11442
@@ -1616,6 +1701,7 @@ tokyonight-day	xml	20823	17809
 tokyonight-day	yaml	16564	10090
 tokyonight-moon	bash	12491	9767
 tokyonight-moon	c	17618	12209
+tokyonight-moon	c_sharp	16671	10519
 tokyonight-moon	cpp	19079	11418
 tokyonight-moon	css	16766	2426
 tokyonight-moon	go	14810	11665
@@ -1635,6 +1721,7 @@ tokyonight-moon	xml	20823	11061
 tokyonight-moon	yaml	16564	10472
 tokyonight-night	bash	12491	8296
 tokyonight-night	c	17618	12127
+tokyonight-night	c_sharp	16671	9223
 tokyonight-night	cpp	19079	12185
 tokyonight-night	css	16766	6451
 tokyonight-night	go	14810	11442
@@ -1654,6 +1741,7 @@ tokyonight-night	xml	20823	17809
 tokyonight-night	yaml	16564	10090
 tokyonight-storm	bash	12491	8296
 tokyonight-storm	c	17618	12127
+tokyonight-storm	c_sharp	16671	9223
 tokyonight-storm	cpp	19079	12185
 tokyonight-storm	css	16766	6451
 tokyonight-storm	go	14810	11442
@@ -1673,6 +1761,7 @@ tokyonight-storm	xml	20823	17809
 tokyonight-storm	yaml	16564	10090
 vague	bash	12491	9186
 vague	c	17618	13542
+vague	c_sharp	16671	10701
 vague	cpp	19079	14390
 vague	css	16766	8915
 vague	go	14810	12380
@@ -1692,6 +1781,7 @@ vague	xml	20823	18213
 vague	yaml	16564	10523
 vesper	bash	12491	10469
 vesper	c	17618	10610
+vesper	c_sharp	16671	10479
 vesper	cpp	19079	11392
 vesper	css	16766	7892
 vesper	go	14810	12057
@@ -1711,6 +1801,7 @@ vesper	xml	20823	12858
 vesper	yaml	16564	12547
 vscode-dark	bash	12491	9147
 vscode-dark	c	17618	11496
+vscode-dark	c_sharp	16671	11643
 vscode-dark	cpp	19079	12329
 vscode-dark	css	16766	8791
 vscode-dark	go	14810	12498
@@ -1730,6 +1821,7 @@ vscode-dark	xml	20823	16724
 vscode-dark	yaml	16564	10547
 vscode-light	bash	12491	9147
 vscode-light	c	17618	11496
+vscode-light	c_sharp	16671	11643
 vscode-light	cpp	19079	12329
 vscode-light	css	16766	8791
 vscode-light	go	14810	12498

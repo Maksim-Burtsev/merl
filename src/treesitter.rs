@@ -29,6 +29,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/c/injections.scm"),
     ),
     (
+        "c_sharp",
+        include_str!("../queries/c_sharp/highlights.scm"),
+        include_str!("../queries/c_sharp/injections.scm"),
+    ),
+    (
         "cpp",
         include_str!("../queries/cpp/highlights.scm"),
         include_str!("../queries/cpp/injections.scm"),
@@ -145,6 +150,7 @@ const QUERIES: &[(&str, &str, &str)] = &[
 const ALIASES: &[(&str, &str)] = &[
     ("sh", "bash"),
     ("jsonc", "json"),
+    ("csharp", "c_sharp"),
     ("py", "python"),
     ("gyp", "python"),
     ("pandoc", "markdown"),
@@ -291,6 +297,7 @@ pub fn for_syntax(
     match syntect_name {
         "Bourne Again Shell (bash)" if !path.is_some_and(zsh) => lang("bash"),
         "C" => lang("c"),
+        "C#" => lang("c_sharp"),
         "C++" if cpp(path, lines) => lang("cpp"),
         "CSS" => lang("css"),
         "HTML" if !html_variant(lines) => lang("html"),
@@ -368,6 +375,7 @@ fn grammar(name: &str) -> Option<Language> {
         "bash" => tree_sitter_bash::LANGUAGE.into(),
         "c" => tree_sitter_c::LANGUAGE.into(),
         "cpp" => tree_sitter_cpp::LANGUAGE.into(),
+        "c_sharp" => tree_sitter_c_sharp::LANGUAGE.into(),
         "css" => tree_sitter_css::LANGUAGE.into(),
         "html" => tree_sitter_html::LANGUAGE.into(),
         "xml" => tree_sitter_xml::LANGUAGE_XML.into(),

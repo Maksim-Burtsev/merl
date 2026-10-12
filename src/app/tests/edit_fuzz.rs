@@ -1014,6 +1014,23 @@ const JAVA: &[&str] = &[
     "\n\n",
 ];
 
+const CSHARP: &[&str] = &[
+    "$\"{x,-10}\"",
+    "@\"",
+    "\"\"\"\n",
+    "#region A\n",
+    "#endregion\n",
+    "/// <summary>",
+    "[Obsolete]\n",
+    "x switch { _ => 1 };",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
 const MARKUP: &[&str] = &[
     "<style>a { color: red; }</style>",
     "<script>let x = 1;</script>",
@@ -1100,6 +1117,11 @@ fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
         "F.java",
         include_bytes!("../../../tests/colors/java/Ledger.java"),
         JAVA,
+    );
+    fuzz_tree_sitter(
+        "F.cs",
+        include_bytes!("../../../tests/colors/c_sharp/Ledger.cs"),
+        CSHARP,
     );
     fuzz_tree_sitter(
         "f.html",
