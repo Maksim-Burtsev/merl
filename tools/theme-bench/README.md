@@ -51,19 +51,31 @@ Go and Rust (#805), before injections:
   `queries/rust/highlights.scm` (attributes, `crate`/`self`/`super`, lifetimes, capitalised
   names), which merl does not load.
 
-Markdown (#803), 18,398 characters per theme: 98.3 % median (97.8 everforest-dark, 99.3
-alabaster-light), against 71.3 % with the setting off. Every character of Markdown's own grammars,
-`markdown` and `markdown_inline`, and of the Python, Go and Rust its fences hold, matches in the
-themes read by cause (tokyonight-moon, dayfox, github-light); the misses are code merl does not
-yet colour as LazyVim does, drawn through syntect as before or waiting for Rust's injections:
+Markdown (#803), 18,398 characters per theme: 99.7 % median (99.7 adwaita, 100.0
+solarized-light), against 71.3 % with the setting off. Every character of Markdown's own grammars,
+`markdown` and `markdown_inline`, and of the Python, Go, Bash, JSON, YAML and TOML its fences hold,
+matches in the themes read by cause (tokyonight-moon, dayfox, github-light, alabaster-light); the
+misses are Rust code waiting for its injections:
 
 | cause | tokyonight-moon | dayfox | github-light | lands in |
 |---|---|---|---|---|
-| fenced `bash` / `sh` / `console` blocks | 111 | 145 | 39 | #806 |
-| fenced `json` blocks | 63 | 74 | 66 | #806 |
 | fenced `rust` blocks: macro bodies (`assert!(glob.is_match(…))`) | 59 | 59 | 59 | #818 |
-| fenced `yaml` blocks and the YAML front matter | 33 | 38 | 2 | #806 |
-| fenced `toml` blocks | 23 | 17 | 3 | #806 |
+
+Bash, JSON, YAML and TOML (#806), with Bash injected into YAML's `run:` blocks:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Bash | 12,491 | 99.4 github-dark | 100.0 | 100.0 vscode-light |
+| JSON | 7,070 | 99.9 alabaster-light | 99.9 | 100.0 vscode-light |
+| YAML | 16,564 | 99.8 github-dark | 100.0 | 100.0 vscode-light |
+| TOML | 10,487 | 99.9 alabaster-light | 99.9 | 100.0 vscode-light |
+
+- The theme's own queries (#819): github-dark and github-light append github-nvim-theme's
+  `queries/bash/highlights.scm` (`$(`, `<(` and their `)` as strings, the `#` of `${#a}` as an
+  operator), in Bash files and in YAML's `run:` blocks, which merl does not load.
+- The recording's cursor: a file starting with a bracket (every JSON file, `[tool]` in TOML) has
+  its first `{` or `[` and the matching one drawn as `MatchParen` by Neovim, not a colour of the
+  code: two characters per file.
 
 TypeScript, TSX, JavaScript and JSX (#804), with #803's injections (regex literals parsed as
 `regex`; an injected language merl has no grammar for, such as `t` in ``t(`…`)``, is left plain as
@@ -97,8 +109,8 @@ in Neovim, the syntect fallback being only for Markdown's code blocks):
 ## The reference
 
 LazyVim as the epic defines it: Neovim with the theme's own colorscheme, nvim-treesitter's
-queries and plugin (`main`, pinned in `record.py`; the plugin maps `typescriptreact` to `tsx` and
-`javascriptreact` to `javascript`, #804) and the parsers LazyVim installs by default plus Rust and
+queries and plugin (`main`, pinned in `record.py`; the plugin maps `typescriptreact` to `tsx`,
+`javascriptreact` to `javascript`, `sh` to `bash` and `jsonc` to `json`, #804, #806) and the parsers LazyVim installs by default plus Rust and
 Go, built with `cc` at the revisions nvim-treesitter pins, `termguicolors`, `number`,
 `cursorline`, `nowrap`, and `vim.treesitter.start` on every buffer; no LSP, so no semantic
 tokens. Neovim runs in tmux with every `XDG_*` home and `XDG_CONFIG_DIRS` / `XDG_DATA_DIRS` under the
@@ -107,7 +119,8 @@ cache, so neither `~/.config/nvim` nor a system-wide `site` directory reaches it
 The files: four per language from the projects of `tools/d-bench/projects.tsv` at their pinned
 commits (Python from paperless-ngx, Rust from ripgrep, TypeScript and TSX from outline,
 JavaScript from eslint, JSX from mastodon, Go from caddy, Markdown from ripgrep, caddy, outline
-and paperless-ngx), taken in the order of the hash of their path, each with at least 80
+and paperless-ngx, Bash, JSON, YAML and TOML from redis, paperless-ngx, ripgrep, caddy and eslint
+as `LANGS` in `record.py` lists them), taken in the order of the hash of their path, each with at least 80
 lines among its first 200 that are ASCII and at most 140 columns: those are the lines recorded,
 so both programs draw all of them and each character has one cell.
 

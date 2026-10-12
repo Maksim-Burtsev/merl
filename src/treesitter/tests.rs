@@ -225,6 +225,26 @@ fn javascript_and_jsx_are_coloured_as_lazyvim() {
 }
 
 #[test]
+fn bash_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("bash");
+}
+
+#[test]
+fn json_and_jsonc_are_coloured_as_lazyvim() {
+    coloured_as_lazyvim("json");
+}
+
+#[test]
+fn yaml_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("yaml");
+}
+
+#[test]
+fn toml_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("toml");
+}
+
+#[test]
 fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     let sexp = |f: &str, src: &[u8]| {
         let mut b = Buffer::from_bytes(PathBuf::from(f), src);
@@ -241,6 +261,30 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
         assert!(sexp(f, ts).contains("type_assertion"), "{f}");
     }
     assert_eq!(sexp("a.astro", jsx), "");
+    for f in [
+        "a.sh", "a.bash", ".bashrc", ".profile", "PKGBUILD", "a.ebuild",
+    ] {
+        assert!(sexp(f, b"echo hi\n").contains("(command "), "{f}");
+    }
+    for f in [
+        "a.zsh",
+        ".zshrc",
+        ".zshenv",
+        "zshrc",
+        ".zprofile",
+        ".zlogin",
+    ] {
+        assert_eq!(sexp(f, b"echo hi\n"), "", "{f}");
+    }
+    for f in ["a.json", "a.jsonc", "tsconfig.json", "a.ipynb"] {
+        assert!(sexp(f, b"{\"a\": 1}\n").contains("(object "), "{f}");
+    }
+    for f in ["a.yaml", "a.yml"] {
+        assert!(sexp(f, b"a: 1\n").contains("(block_mapping "), "{f}");
+    }
+    for f in ["a.toml", "Cargo.lock"] {
+        assert!(sexp(f, b"a = 1\n").contains("(pair "), "{f}");
+    }
 }
 
 #[test]
@@ -393,7 +437,10 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
     assert_eq!(name("rust"), Some("rust"));
     assert_eq!(name("pandoc"), Some("markdown"));
     assert_eq!(name("astro"), None);
-    assert_eq!(name("yaml"), None);
+    assert_eq!(name("yml"), Some("yaml"));
+    assert_eq!(name("sh"), Some("bash"));
+    assert_eq!(name("jsonc"), Some("json"));
+    assert_eq!(name("zsh"), None);
 }
 
 #[test]

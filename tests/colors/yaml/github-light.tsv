@@ -1,0 +1,4 @@
+# github-light: projekt0n/github-nvim-theme@c106c9472154d6b2c74b74565616b877ae8ed31d `colorscheme github_light_default`; NVIM v0.12.5, nvim-treesitter 1a4f47b
+# palette a=0a3069 b=116329 c=1f2328 d=0550ae e=cf222e f=57606a g=953800 h=0a3069b
+compose.yaml	1:e8 2:c3 3:b7ca5 4:b10c2b8 5:b7ca14 6:b7c 7:b6ca9 8:b8c 9:b3c 10:b2c2b8 11:b5ca12 12:b5c 13:ca9 14:ca7 15:b7c2a7ca4ca12c 16:b11c2b4c2a3ca4ca2ca16c2b8ca3c 17:b11c 18:ca9 19:ca12h2a7h2a3h2a4 20:b2c 21:b5cg5a8 22:b7cg7 23:ca24 24:cb10 25:ca12 26:b5ca9 27:a13 28:b4ca10 29:b5cd4 30:b3cd4 31:b3cd4 32:c3 33:c3 34:b6ca8
+workflow.yml	1:f16 2:b4ca2 3:b2c 4:b4c 5:b8c2a6ca11c 6:b12c 7:b3c 8:b16ca6 9:b14cd 10:b5cd4 11:b7cd4 12:b7cd4 13:b5cd 14:b4c 15:b4c 16:b7ca14 17:b8c 18:b6c 19:b2c2a13ca12c 20:b5c 21:cb4ca19 22:cb4ca5 23:b3cd5c22 24:cb4ca4 25:b3c2 26:e3c2 27:d5c17 28:e4a7cd7a2 29:cb4ca6 30:b3c2d 31:e4c3 32:d3 33:cb6ce4acd4a

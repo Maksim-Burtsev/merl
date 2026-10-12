@@ -1,0 +1,19 @@
+{
+  "name": "merl-fixture",
+  "version": "1.0.0",
+  "private": true,
+  "license": null,
+  "scripts": {
+    "build": "tsc -p .",
+    "test": "jest --coverage \"src/**\"",
+    "lint": "eslint . --ext .ts\ttab\nnewline \u00e9"
+  },
+  "files": ["dist", "README.md"],
+  "engines": { "node": ">=18" },
+  "numbers": [0, -1, 2.5, 1e10, -3.2E-4, 12345678901234567890],
+  "nested": {
+    "empty_object": {},
+    "empty_array": [],
+    "deep": [[1, [2, [3]]], { "a": { "b": { "c": false } } }]
+  }
+}
