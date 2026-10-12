@@ -1988,7 +1988,7 @@ fn php_names_fall_back_where_nothing_proves_the_class() {
         format!("<?php\n{ns}\n{head}\n{{\n{body}}}\n")
     };
     let make = "    public static function make(): void\n    {\n    }\n";
-    let caller = "<?php\nnamespace App\\Http\\Subsonic;\n\nuse App\\Http\\Resources\\{AlbumResource};\nuse App\\Models\\Tune;\nuse App\\Models\\Disc;\nuse App\\Models\\Track;\nuse Illuminate\\Support\\Facades\\Route;\n\nclass Caller\n{\n    public function get(): void\n    {\n        AlbumResource::make();\n        Tune::play();\n        Disc::spin();\n        Track::where('a', 1);\n        Route::get('/');\n    }\n}\n";
+    let caller = "<?php\nnamespace App\\Http\\Subsonic;\n\nuse App\\Http\\Resources\\{AlbumResource};\nuse App\\Models\\Tune;\nuse App\\Models\\Disc;\nuse App\\Models\\Track;\nuse Illuminate\\Support\\Facades\\Route;\n\nclass Caller\n{\n    public function get(): void\n    {\n        AlbumResource::make();\n        Tune::play();\n        Disc::spin();\n        Track::where('a', 1);\n        Route::get('/');\n        \\App\\Models\\Plain::spin();\n    }\n}\n";
     let resources = class("App\\Http\\Resources", "class AlbumResource", make);
     let subsonic = class("App\\Http\\Subsonic", "class AlbumResource", make);
     let tune = class(
@@ -2024,6 +2024,11 @@ fn php_names_fall_back_where_nothing_proves_the_class() {
         "    public function where($column, $value = null)\n    {\n    }\n",
     );
     let route = class("Illuminate\\Support\\Facades", "class Route", "");
+    let cache = class(
+        "Illuminate\\Support\\Facades",
+        "class Cache",
+        "    public static function get($key)\n    {\n    }\n",
+    );
     let arr = class(
         "Illuminate\\Support",
         "class Arr",
@@ -2047,6 +2052,10 @@ fn php_names_fall_back_where_nothing_proves_the_class() {
         ("app/Legacy/all.php", tune.as_str()),
         ("app/Models/Disc.php", disc.as_str()),
         ("app/Models/Track.php", track),
+        (
+            "app/Models/Plain.php",
+            "<?php\nnamespace App\\Models;\n\nclass Plain\n{\n}\n",
+        ),
         ("app/Support/Query.php", query.as_str()),
         ("lib/Helper.php", helper.as_str()),
         ("lib/show.php", global),
@@ -2055,6 +2064,10 @@ fn php_names_fall_back_where_nothing_proves_the_class() {
         (
             "vendor/laravel/framework/src/Illuminate/Support/Facades/Route.php",
             route.as_str(),
+        ),
+        (
+            "vendor/laravel/framework/src/Illuminate/Support/Facades/Cache.php",
+            cache.as_str(),
         ),
         (
             "vendor/laravel/framework/src/Illuminate/Support/Arr.php",
@@ -2118,7 +2131,15 @@ fn php_names_fall_back_where_nothing_proves_the_class() {
                 "get \u{2192} Caller::get (by name, 1 match)",
                 &format!("{caller}:12")
             ),
-            "a `vendor/` class that declares no such member: vendor: {vendor}"
+            "a `vendor/` class that declares no such member, though a namesake of its namespace does: vendor: {vendor}"
+        );
+        assert_eq!(
+            d(caller, "Plain::spin"),
+            jump(
+                "spin \u{2192} Disc::spin (by name, 1 match)",
+                "app/Models/Disc.php:6"
+            ),
+            "a project class that declares no such member and extends nothing: `__callStatic` may answer it, so the search by name goes on: vendor: {vendor}"
         );
         assert_eq!(
             d("lib/show.php", "Helper::format"),
@@ -2233,4 +2254,64 @@ fn objc_reads_the_frameworks_and_c_does_not() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();
+}
+
+#[test]
+fn a_namesake_base_from_another_module_or_of_the_file_itself_is_not_ours() {
+    let hull = "class Hull:\n    def seal(self) -> None:\n        pass\n";
+    let (dir, mut a) = project_app(
+        "py-namesake-base",
+        &[
+            ("ours.py", hull),
+            ("pkg/__init__.py", ""),
+            ("pkg/mod.py", hull),
+            (
+                "theirs.py",
+                "from pkg.mod import Hull\n\n\nclass Theirs(Hull):\n    def seal(self) -> None:\n        pass\n",
+            ),
+            (
+                "local.py",
+                "class Hull:\n    pass\n\n\nclass Local(Hull):\n    def seal(self) -> None:\n        pass\n",
+            ),
+            (
+                "mine.py",
+                "from ours import Hull\n\n\nclass Mine(Hull):\n    def seal(self) -> None:\n        pass\n",
+            ),
+        ],
+    );
+    a.external
+        .insert(Kind::Python, (Vec::new(), Arc::new(Vec::new())));
+    d_on(&mut a, "ours.py", "def seal");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "seal \u{2192} Mine.seal (implementations of Hull.seal)",
+            "mine.py:5"
+        ),
+        "`Theirs` extends the `Hull` of `pkg.mod`, the module the import names; `Local` the `Hull` its own file declares"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn another_python_protocol_with_the_member_does_not_implement_it() {
+    let (dir, mut a) = project_app(
+        "py-protocol-protocol",
+        &[(
+            "ports.py",
+            "from typing import Protocol\n\n\nclass Port(Protocol):\n    def plug(self, cable: str) -> None: ...\n\n\nclass Socket(Protocol):\n    def plug(self, cable: str) -> None: ...\n\n\nclass Wall:\n    def plug(self, cable: str) -> None:\n        pass\n",
+        )],
+    );
+    a.external
+        .insert(Kind::Python, (Vec::new(), Arc::new(Vec::new())));
+    d_on(&mut a, "ports.py", "def plug");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "plug \u{2192} Wall.plug (implementations of Port.plug)",
+            "ports.py:13"
+        ),
+        "a protocol is answered by classes: `Socket` declares `plug` and implements nothing"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
 }

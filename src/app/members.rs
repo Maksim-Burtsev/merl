@@ -1,12 +1,9 @@
-//! The declarations a type owns: its own, its package's, and the ones it inherits.
-
 use super::*;
 
 impl App {
     pub(super) fn declaration(&self, kind: Kind, file: &Path, parts: &[String]) -> Option<Hit> {
         let (name, chain) = parts.split_last()?;
         let one = |hits: Vec<Hit>| <[Hit; 1]>::try_from(hits).ok().map(|[hit]| hit);
-        // TypeScript's `Outer.Inner.Widget` may be behind namespaces of the file itself (#100).
         if chain.is_empty() || kind == Kind::TsJs {
             let within = (!chain.is_empty()).then(|| parts.join("."));
             let hits = self.package_declarations(kind, file, name, within.as_deref());
@@ -37,9 +34,6 @@ impl App {
         let (Some((_, all)), Some(last)) = (self.external.get(&kind), path.last()) else {
             return Vec::new();
         };
-        // The package's directory spells its last element: a cheap cut of the thousands of
-        // files outside before the directory is matched part by part. The module cache escapes
-        // upper case (`!x`), so a name with some is not cut by.
         let spelled = !last.contains(|c: char| c.is_ascii_uppercase());
         let near: Vec<&PathBuf> = all
             .iter()
@@ -69,8 +63,6 @@ impl App {
             .collect()
     }
 
-    /// `pattern` over `files`: the project's as [`App::grep`] reads them, the open file as it is
-    /// on screen, or files outside the project, whose paths are absolute.
     pub(super) fn grep_in(&self, pattern: &str, files: &[PathBuf]) -> Vec<Hit> {
         match files.first().is_some_and(|f| f.is_absolute()) {
             true => search::grep_project(&self.root, files, pattern, false, false, None, None)
@@ -81,8 +73,6 @@ impl App {
         }
     }
 
-    /// Whether `hit` stands in code, not in a docstring, a raw string or a block comment, where
-    /// a declaration-shaped line declares nothing (#453).
     pub(super) fn in_code(&self, kind: Kind, hit: &Hit) -> bool {
         match search::component(&hit.path) {
             true => self.hidden_of(kind, hit).get(hit.line1 - 1) != Some(&true),
@@ -92,8 +82,6 @@ impl App {
         }
     }
 
-    /// Whether `hit`, in a comment, is a tag that declares: of a PHP class's docblock (#344), or a
-    /// `@property` of a JavaScript `@typedef {Object}` (#347).
     pub(super) fn doc_tag(&self, kind: Kind, hit: &Hit) -> bool {
         let Some(text) = self.text_of(&hit.path) else {
             return false;
@@ -109,8 +97,6 @@ impl App {
         }
     }
 
-    /// The declarations of `name` that `file` sees without an import: at the top level, or
-    /// `within` the namespaces a TypeScript path spells (`Outer.Inner`).
     pub(super) fn package_declarations(
         &self,
         kind: Kind,
@@ -132,9 +118,6 @@ impl App {
             .collect()
     }
 
-    /// The files a name of `file` is declared in without an import: the file, or for Go every
-    /// file of its package (a `_test.go` file only from a test). An external test package,
-    /// `package x_test`, shares the directory with `package x` but not its names (#332).
     pub(super) fn package_files(&self, kind: Kind, file: &Path) -> Vec<PathBuf> {
         if kind == Kind::Go
             && file.is_absolute()
@@ -174,9 +157,6 @@ impl App {
         files
     }
 
-    /// The declarations of `word` inside `ty` itself: its methods, Go's methods on it in its
-    /// package and the method lines of a Go interface, named `Type.word` by
-    /// [`search::qualified`].
     pub(super) fn members_of(&self, kind: Kind, ty: &Typed, word: &str) -> Vec<Hit> {
         let Some(text) = self.text_of(&ty.path) else {
             return Vec::new();
@@ -258,7 +238,6 @@ impl App {
         let Some(fields) = search::field_patterns(kind, word) else {
             return hits;
         };
-        // A field is no declaration [`search::declares_where`] reads: a Go field is indented.
         let raw = self.project_grep(kind, here, &fields.join("|"));
         let mut by_file: Vec<(PathBuf, Vec<usize>)> = Vec::new();
         for h in raw {
@@ -333,7 +312,6 @@ impl App {
         let Some(owner_line) = search::owner_decl(kind, text, line).filter(|_| declares) else {
             return Vec::new();
         };
-        // `Notifier.send`, what the status line and every picker row name the member by.
         let Some(member) = search::qualified(kind, text, line, word) else {
             return Vec::new();
         };
@@ -344,7 +322,6 @@ impl App {
         };
         let decl = text.lines().nth(owner_line - 1).unwrap_or_default();
         let structural = match kind {
-            // A method beside its type is no interface method and has no implementations.
             Kind::Go => decl.contains("interface"),
             Kind::Python => is_protocol(text, owner_line),
             _ => false,
@@ -365,11 +342,6 @@ impl App {
             .collect()
     }
 
-    /// The member `word` in the types that name `owner` as a base, and in the types that name
-    /// those: one grep of the project per level. A hit counts only when its own `extends`,
-    /// `implements` or Python bases name a type already found and its file can see that name —
-    /// it declares it, or an import binds it — so a same-named class in another package is no
-    /// subtype. A type that inherits the member without declaring it is no implementation.
     fn subtype_impls(&self, kind: Kind, here: &Path, word: &str, owner: &Typed) -> Vec<Hit> {
         self.subtypes(kind, here, owner)
             .into_iter()
@@ -413,8 +385,6 @@ impl App {
             .collect()
     }
 
-    /// The declarations of the types that name `owner` as a base, and of the types that name
-    /// those. [`Self::subtype_impls`] says when a type counts as one.
     pub(super) fn subtypes(&self, kind: Kind, here: &Path, owner: &Typed) -> Vec<FileLine> {
         let mut names = vec![owner.name.clone()];
         let mut types = vec![(owner.name.clone(), owner.path.clone())];
@@ -435,8 +405,6 @@ impl App {
                 let Some(text) = self.text_of(&hit.path) else {
                     continue;
                 };
-                // The clause the grep matched may be one line of a header wrapped over
-                // several, and the type is declared on the first of them.
                 let Some(decl) = search::type_decl_at(kind, &text, hit.line1) else {
                     continue;
                 };
@@ -459,8 +427,6 @@ impl App {
                         Kind::TsJs => &module[..module.len().saturating_sub(1)],
                         _ => module,
                     };
-                    // A Python import may name a module or a name in one; a TypeScript one
-                    // names its module whole, and a shorter path is another module.
                     let shortest = match kind {
                         Kind::TsJs => module.len(),
                         _ => 1,
@@ -478,16 +444,12 @@ impl App {
                 };
                 let sees = |first: &str| {
                     if declares(&text, first) {
-                        // Its own type of that name is ours only in the file ours is in.
                         return !types.iter().any(|(t, _)| t == first)
                             || types.iter().any(|(t, p)| t == first && *p == hit.path);
                     }
                     bound(&search::imports(kind, &text), first)
                         .is_some_and(|module| !another(first, &module))
                 };
-                // Read off the header's first line, wherever the hit is: Python's bases, and
-                // TypeScript's, where the matched line alone may be a constraint of a type
-                // parameter, `S extends Notifier,`.
                 let derives = search::bases(kind, &text, decl)
                     .into_iter()
                     .chain(search::interfaces(kind, &text, decl))
@@ -558,10 +520,6 @@ impl App {
         (out, cut)
     }
 
-    /// Every member of `word` the project declares with as many parameters as the one on `line`,
-    /// outside the type declaring it: what implements a Go interface or a Python protocol, since
-    /// an implementer of either names nothing. A Python protocol is answered by classes, so
-    /// another protocol declaring the same member is not one of them.
     fn structural_impls(
         &self,
         kind: Kind,
@@ -573,7 +531,6 @@ impl App {
     ) -> Vec<Hit> {
         let want = search::params(kind, text, line);
         let signature = search::go_signature(text, line);
-        // A Go interface's own method lines carry no receiver: only the methods answer.
         let patterns = match kind {
             Kind::Go => search::member_patterns(kind, word),
             _ => search::member_or_signature(kind, word),
@@ -591,8 +548,6 @@ impl App {
                 if search::params(kind, &text, h.line1) != Some(want) {
                     return false;
                 }
-                // Go writes its types: the same number of parameters of other types, or another
-                // result, implements nothing. Where either cannot be read, the count stands.
                 if kind == Kind::Go
                     && let (Some(a), Some(b)) = (&signature, search::go_signature(&text, h.line1))
                     && *a != b
@@ -607,13 +562,6 @@ impl App {
             .collect()
     }
 
-    /// The declaration of `word` that `super` reaches from `ty`: a method, else a declared field,
-    /// of the types above it. Under one base that is the nearest one up the line. Under several,
-    /// Python orders them as no walk by depth does, so only what needs no ordering is proven: the
-    /// first base declaring the member itself, or every base leading to the same line. `Err` when
-    /// they differ, or when a base is outside the project and may declare the member first. The
-    /// same holds at every level the answer is looked for, so a diamond or an outside base under
-    /// the one direct base proves nothing either.
     pub(super) fn above(
         &self,
         kind: Kind,
@@ -685,8 +633,6 @@ impl App {
     }
 }
 
-/// Whether the Python class declared on `decl1` of `text` is a `typing.Protocol`, which
-/// anything with its members implements without naming it.
 fn is_protocol(text: &str, decl1: usize) -> bool {
     search::bases(Kind::Python, text, decl1)
         .iter()
