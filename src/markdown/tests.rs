@@ -33,21 +33,28 @@ fn look(ink: Ink, mods: Modifier) -> Look {
 }
 
 #[test]
-fn headings_lose_their_marks_and_the_first_two_get_a_rule() {
-    let d = doc("# One\n## Two\n### Three\n#### Four\ntext", 10);
+fn headings_keep_their_marks_and_the_first_two_get_a_rule() {
+    let d = doc(
+        "# One\n## Two\n### Three\n#### Four\n##### Five\n###### Six\nSeven\n=====\ntext",
+        10,
+    );
     assert_eq!(
         texts(&d),
         [
-            "One",
+            "# One",
             "\u{2501}".repeat(10).as_str(),
-            "Two",
+            "## Two",
             "\u{2500}".repeat(10).as_str(),
-            "Three",
-            "Four",
+            "### Three",
+            "#### Four",
+            "##### Five",
+            "###### Six",
+            "# Seven",
+            "\u{2501}".repeat(10).as_str(),
             "text",
         ]
     );
-    for h in ["One", "Two", "Three", "Four"] {
+    for h in ["# One", "## Two", "### Three", "#### Four", "##### Five", "###### Six"] {
         assert_eq!(look_of(&d, h), look(Ink::Heading, Modifier::BOLD), "{h}");
     }
     assert_eq!(look_of(&d, "text"), Ink::Text.plain());
@@ -307,9 +314,8 @@ fn every_row_knows_where_it_starts_in_the_source() {
     assert_eq!(
         at,
         [
-            ("Title", (0, 2)),
-            // What a heading heads follows its rule without a blank row.
-            ("\u{2501}".repeat(10).as_str(), (0, 2)),
+            ("# Title", (0, 0)),
+            ("\u{2501}".repeat(10).as_str(), (0, 0)),
             ("Some words", (2, 0)),
             ("that wrap", (2, 11)),
             ("on.", (3, 5)),
@@ -418,7 +424,7 @@ fn every_line_belongs_to_a_row() {
     assert_eq!(
         texts,
         [
-            "Title", "Title", "Text a.", "Text a.", "Text a.", "", "x = 1", "x = 1", "x = 1"
+            "# Title", "# Title", "Text a.", "Text a.", "Text a.", "", "x = 1", "x = 1", "x = 1"
         ],
         "a setext underline goes with its heading; a reference definition and the blank line \
          above it with the paragraph above; the fences with their code, the blank line before \
