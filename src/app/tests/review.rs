@@ -1997,7 +1997,12 @@ fn a_file_renamed_without_changes_hides_its_text_and_takes_only_the_keys_that_le
     assert_eq!(open(&mut a, "new"), None);
     assert_eq!(a.empty_note().unwrap(), "empty file, renamed from old");
     let words = Some((PathBuf::from("text.py"), PathBuf::from("words.py")));
-    assert_eq!(open(&mut a, "words.py"), words);
+    assert_eq!(open(&mut a, "new"), None);
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    let shown = a
+        .renamed_here()
+        .map(|(o, n)| (o.to_path_buf(), n.to_path_buf()));
+    assert_eq!(shown, words);
     assert_eq!(a.review_status().unwrap(), "hunk 0/0  file 4/4");
     for code in [
         KeyCode::Down,
@@ -2027,6 +2032,32 @@ fn a_file_renamed_without_changes_hides_its_text_and_takes_only_the_keys_that_le
             .has_hunks()
     );
     assert_eq!((a.mode, a.renamed_here()), (Mode::Edit, None));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_jump_into_a_file_renamed_without_changes_shows_its_code_and_the_walk_still_stops_on_the_rename()
+ {
+    let base = [("a.py", "x\n"), ("text.py", "def t():\n    pass\n")];
+    let dir = branch_repo("jumprename", &base, &[&["mv", "text.py", "words.py"]]);
+    std::fs::write(dir.join("a.py"), "from words import t\n\nt()\n").unwrap();
+    let mut a = started_as_main_starts(&dir);
+    a.jump_to(&dir.join("a.py"), 3);
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(
+        (at(&a), a.renamed_here()),
+        ((dir.join("words.py"), 0), None)
+    );
+    assert_eq!(a.buf.lines, ["def t():", "    pass"]);
+    a.jump_to(&dir.join("a.py"), 1);
+    while at(&a).0 == dir.join("a.py") {
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    }
+    let shown = a
+        .renamed_here()
+        .map(|(o, n)| (o.to_path_buf(), n.to_path_buf()));
+    let words = (PathBuf::from("text.py"), PathBuf::from("words.py"));
+    assert_eq!(shown, Some(words));
     let _ = std::fs::remove_dir_all(dir);
 }
 

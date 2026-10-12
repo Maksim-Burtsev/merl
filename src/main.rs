@@ -16,6 +16,7 @@ mod search;
 mod stats;
 mod theme;
 mod tree;
+mod treesitter;
 mod tutor;
 mod ui;
 mod wrap;
@@ -44,24 +45,17 @@ use crate::buffer::Buffer;
 use crate::picker::PickItem;
 use crate::tutor::{Drill, Tutor};
 
-/// Everything the event loop wakes up for.
 enum Msg {
     Key(ratatui::crossterm::event::KeyEvent),
-    /// The terminal pasted text (bracketed paste).
     Paste(String),
     Resize,
-    /// Something changed in the directory of the open file, or anywhere in the project.
     Fs(notify::Event),
     ProjectWalked(tree::Tree, Vec<PathBuf>),
     ReviewListed(Result<git::Review, String>),
     Marks(HashMap<PathBuf, char>),
     DiffDone(PathBuf, git::Diff),
-    SearchDone {
-        seq: u64,
-        rows: Vec<PickItem>,
-    },
+    SearchDone { seq: u64, rows: Vec<PickItem> },
     Diagram(mermaid::Done),
-    /// SIGTERM, SIGHUP or SIGINT from outside: save and leave as `q` does.
     Quit,
 }
 
@@ -122,20 +116,20 @@ fn run() -> Result<()> {
     let cli = Cli::parse();
     if cli.keys {
         let path = stats::path().context("no home directory")?;
-        // `merl --keys | head` closes the pipe early; that is no error.
-        let _ = stdout().write_all(stats::report(&path, stats::utc_today())?.as_bytes());
+        print_even_to_a_closed_pipe(&stats::report(&path, stats::utc_today())?);
         return Ok(());
     }
     if cli.for_agents {
-        let _ = stdout().write_all(for_agents::guide().as_bytes());
+        print_even_to_a_closed_pipe(&for_agents::guide());
         return Ok(());
     }
     if cli.reviews {
         let path = reviews::path().context("no home directory")?;
-        let _ = stdout().write_all(reviews::report(&path, stats::utc_today())?.as_bytes());
+        print_even_to_a_closed_pipe(&reviews::report(&path, stats::utc_today())?);
         return Ok(());
     }
     let config = theme::config()?;
+    buffer::use_tree_sitter(config.tree_sitter);
     let (theme, name) = match cli.theme.clone() {
         Some(name) => (theme::load(&name)?, name),
         None => (theme::load_configured(&config.theme)?, config.theme),
@@ -188,14 +182,13 @@ fn run() -> Result<()> {
         .as_ref()
         .map(tree::OrderFile::read)
         .unwrap_or_default();
-    let (mut tree, files) = tree::build_ordered(&root, shallow, &order);
-    // Of the walk, before the review panel takes the tree's place.
-    let project = live::Project::new(&root, shallow, &tree);
-    // `o` offers them in a review too, and the panel has none.
-    let ignored = tree.ignored_files();
-    if let Some(r) = &review {
-        tree = tree::from_listing(&r.files.iter().map(|f| f.path.clone()).collect::<Vec<_>>());
-    }
+    let (walked, files) = tree::build_ordered(&root, shallow, &order);
+    let project = live::Project::new(&root, shallow, &walked);
+    let ignored = walked.ignored_files();
+    let tree = match &review {
+        Some(r) => tree::from_listing(&r.files.iter().map(|f| f.path.clone()).collect::<Vec<_>>()),
+        None => walked,
+    };
     let buf = match &file {
         Some(p) => Buffer::load(p)?,
         None => Buffer::empty(),
@@ -239,7 +232,31 @@ fn run() -> Result<()> {
         tutor::begin(&mut app)?;
     }
 
-    let mut terminal = ratatui::try_init()?;
+    let (mut terminal, keyboard) = enter_terminal()?;
+    mermaid::keep_panics_inside();
+    let (tx, rx) = mpsc::channel();
+    spawn_key_reader(&keyboard, tx.clone());
+    quit_on_signals(tx.clone());
+    let result = event_loop(&mut terminal, &mut app, theme, &rx, tx, project);
+    let _ = app.diagrams.clear(&mut stdout());
+    leave_terminal(keyboard);
+    if let Some(t) = &app.tutor {
+        remove_sample_project_and_print_drill(t);
+    }
+    record_presses_and_reviews(&mut app);
+    result
+}
+
+fn print_even_to_a_closed_pipe(text: &str) {
+    let _ = stdout().write_all(text.as_bytes());
+}
+
+struct KeyboardQueried {
+    enhanced: bool,
+}
+
+fn enter_terminal() -> Result<(ratatui::DefaultTerminal, KeyboardQueried)> {
+    let terminal = ratatui::try_init()?;
     let _ = execute!(stdout(), EnableBracketedPaste);
     let enhanced = terminal::supports_keyboard_enhancement().unwrap_or(false);
     if enhanced {
@@ -250,19 +267,20 @@ fn run() -> Result<()> {
                     | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
             )
         )?;
-        // ratatui::try_init already installed a restoring hook; pop our flags before it runs.
-        let hook = std::panic::take_hook();
-        std::panic::set_hook(Box::new(move |info| {
-            let _ = execute!(stdout(), PopKeyboardEnhancementFlags);
-            hook(info);
-        }));
+        pop_keyboard_flags_before_ratatui_restores_on_panic();
     }
+    Ok((terminal, KeyboardQueried { enhanced }))
+}
 
-    mermaid::keep_panics_inside();
+fn pop_keyboard_flags_before_ratatui_restores_on_panic() {
+    let ratatui_restore = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let _ = execute!(stdout(), PopKeyboardEnhancementFlags);
+        ratatui_restore(info);
+    }));
+}
 
-    // The key reader must start after the enhancement query, which blocks on a pending read.
-    let (tx, rx) = mpsc::channel();
-    let keys: Sender<Msg> = tx.clone();
+fn spawn_key_reader(_after: &KeyboardQueried, keys: Sender<Msg>) {
     std::thread::spawn(move || {
         while let Ok(ev) = ratatui::crossterm::event::read() {
             let msg = match ev {
@@ -276,9 +294,9 @@ fn run() -> Result<()> {
             }
         }
     });
-    // Without this a `kill` or a closed tmux pane skips the cleanup below: the terminal stays on
-    // the alternate screen and edits younger than the autosave delay are lost.
-    let quit = tx.clone();
+}
+
+fn quit_on_signals(quit: Sender<Msg>) {
     if let Ok(mut signals) = signal_hook::iterator::Signals::new([
         signal_hook::consts::SIGTERM,
         signal_hook::consts::SIGHUP,
@@ -290,10 +308,10 @@ fn run() -> Result<()> {
             }
         });
     }
-    let result = event_loop(&mut terminal, &mut app, theme, &rx, tx, project);
-    let _ = app.diagrams.clear(&mut stdout());
+}
 
-    if enhanced {
+fn leave_terminal(keyboard: KeyboardQueried) {
+    if keyboard.enhanced {
         let _ = execute!(stdout(), PopKeyboardEnhancementFlags);
     }
     let _ = execute!(
@@ -302,18 +320,18 @@ fn run() -> Result<()> {
         DisableBracketedPaste
     );
     ratatui::restore();
-    // The last frame may have hidden the cursor (welcome screen, `?` overlay); leaving the
-    // alternate screen does not bring it back in xterm-like terminals such as Ghostty.
-    let _ = execute!(stdout(), Show);
-    // Runs even when the loop returned an error: the sample project is ours to clean up.
-    if let Some(t) = &app.tutor {
-        let _ = std::fs::remove_dir_all(&t.dir);
-        // In the scrollback, next to `merl --keys`.
-        if let Some(d) = &t.drill {
-            print!("{}", d.summary());
-        }
+    let show_cursor_the_last_frame_hid = Show;
+    let _ = execute!(stdout(), show_cursor_the_last_frame_hid);
+}
+
+fn remove_sample_project_and_print_drill(tutor: &Tutor) {
+    let _ = std::fs::remove_dir_all(&tutor.dir);
+    if let Some(d) = &tutor.drill {
+        print!("{}", d.summary());
     }
-    // After `q` or a signal alike; a crash loses the session's presses, and only those.
+}
+
+fn record_presses_and_reviews(app: &mut App) {
     if let Some(path) = stats::path()
         && let Err(e) = stats::add(&path, stats::utc_today(), &app.pressed, &app.missed)
     {
@@ -326,7 +344,6 @@ fn run() -> Result<()> {
             }
         }
     }
-    result
 }
 
 fn event_loop(
@@ -339,26 +356,11 @@ fn event_loop(
 ) -> Result<()> {
     let diff_tx = fs.clone();
     let project_fs = fs.clone();
-    let mut loaded = app.theme.clone();
-    // One watcher for the whole run, following the open file's directory. A failing watcher
-    // (too many open files, an unsupported filesystem) only costs auto-reload.
-    let mut watcher = notify::recommended_watcher(move |ev: notify::Result<notify::Event>| {
-        if let Ok(ev) = ev {
-            let _ = fs.send(Msg::Fs(ev));
-        }
-    })
-    .ok();
-    app.no_watch = watcher.is_none();
+    let mut drawn_theme = app.theme.clone();
+    let mut open_file_dir_watcher = watcher(fs);
+    app.no_watch = open_file_dir_watcher.is_none();
     let mut watched: Option<PathBuf> = None;
-    // A second one for the project: the open file may be outside it, and its directory comes
-    // and goes.
-    let mut project_watcher =
-        notify::recommended_watcher(move |ev: notify::Result<notify::Event>| {
-            if let Ok(ev) = ev {
-                let _ = project_fs.send(Msg::Fs(ev));
-            }
-        })
-        .ok();
+    let mut project_watcher = watcher(project_fs);
     let mut project_watched = HashSet::new();
     if let Some(w) = &mut project_watcher {
         project.watch(w, &mut project_watched);
@@ -372,36 +374,23 @@ fn event_loop(
         list_marks(diff_tx.clone(), app.root.clone());
     }
 
-    // Inside tmux a thread hands it each copied text too, in order: a slow or missing tmux
-    // holds no key, and a failed call changes nothing on screen.
-    let tmux = tmux_copy(std::env::var_os("TMUX").as_deref()).map(|(mut taken, mut calls)| {
-        let (tx, texts) = mpsc::channel::<String>();
-        std::thread::spawn(move || {
-            for text in texts {
-                hand_to_tmux(&mut taken, &mut calls, &text);
-            }
-        });
-        tx
-    });
+    let tmux = spawn_tmux_copier();
 
     let mut dirty = true;
     let mut typing: Option<bool> = None;
     loop {
-        // `--drill` ends with its last answer, a key's or a search's.
-        if (app.tutor.as_ref()).is_some_and(|t| t.drill.as_ref().is_some_and(Drill::over)) {
+        if drill_answered(app) {
             return Ok(());
         }
-        // nucleo matches in the background; poll it while its overlay is on screen.
         if let Some(p) = &mut app.picker {
             dirty |= p.tick();
         }
         dirty |= app.tick();
         app.warm_up();
-        rewatch(watcher.as_mut(), &mut watched, app);
+        rewatch(open_file_dir_watcher.as_mut(), &mut watched, app);
         if std::mem::take(&mut app.want_diff)
             && let Some(path) = app.buf.path.clone()
         {
-            // In a thread: git on a large repository can take longer than a frame.
             let (tx, root) = (diff_tx.clone(), app.root.clone());
             std::thread::spawn(move || {
                 let diff = git::diff(&root, &path, None, None);
@@ -409,7 +398,6 @@ fn event_loop(
             });
         }
         if project.walk_due(Instant::now()) {
-            // In a thread: the walk takes 0.1 s on 12k files.
             let (tx, root, shallow) = (diff_tx.clone(), app.root.clone(), app.shallow);
             let order = app.tree_order.clone();
             std::thread::spawn(move || {
@@ -436,7 +424,6 @@ fn event_loop(
             }
         }
         if let Some(job) = app.search_tick() {
-            // In a thread: a grep over a large project takes longer than a keystroke.
             let tx = diff_tx.clone();
             std::thread::spawn(move || {
                 let _ = tx.send(Msg::SearchDone {
@@ -445,25 +432,14 @@ fn event_loop(
                 });
             });
         }
-        // Typing (edit mode, or any prompt) gets a bar, navigating a block, like vim: the shape
-        // says which mode you are in without looking at the status bar.
-        let now = !matches!(app.mode, Mode::Normal | Mode::Help);
-        if typing != Some(now) {
-            typing = Some(now);
-            let shape = if now {
-                SetCursorStyle::SteadyBar
-            } else {
-                SetCursorStyle::SteadyBlock
-            };
-            let _ = execute!(stdout(), shape);
+        let typing_now = !matches!(app.mode, Mode::Normal | Mode::Help);
+        if typing != Some(typing_now) {
+            typing = Some(typing_now);
+            let _ = execute!(stdout(), vim_cursor(typing_now));
         }
-        // The theme picker previews by moving what `shown_theme` names, after a key or after
-        // nucleo re-sorted the list under the cursor.
-        if app.shown_theme() != loaded {
-            loaded = app.shown_theme().to_string();
-            // A broken theme file of the user's own must not take merl down mid-preview: say so
-            // and keep drawing the one already loaded.
-            match theme::load(&loaded) {
+        if app.shown_theme() != drawn_theme {
+            drawn_theme = app.shown_theme().to_string();
+            match theme::load(&drawn_theme) {
                 Ok(t) => {
                     theme = t;
                     app.buf.clear_hl();
@@ -490,22 +466,18 @@ fn event_loop(
         }
         let idle = Duration::from_millis(if app.picker.is_some() { 10 } else { 100 });
         let idle = app.diagrams.wake.map_or(idle, |w| w.min(idle));
+        let idle = if app.parsing() { Duration::ZERO } else { idle };
         match rx.recv_timeout(idle) {
             Ok(Msg::Key(k)) => {
                 if app.key(k) {
                     return Ok(());
                 }
-                // An ignored directory expanded or collapsed in the tree is watched, or no more.
-                if project.shown(&app.tree)
-                    && let Some(w) = &mut project_watcher
-                {
+                let open_ignored_dirs_moved = project.shown(&app.tree);
+                if open_ignored_dirs_moved && let Some(w) = &mut project_watcher {
                     project.watch(w, &mut project_watched);
                 }
                 if let Some(text) = app.clipboard.take() {
-                    // OSC 52: the terminal puts it on the system clipboard, even over ssh.
-                    let mut out = stdout();
-                    let _ = write!(out, "\x1b]52;c;{}\x07", base64(text.as_bytes()));
-                    let _ = out.flush();
+                    osc52_copy(&text);
                     if let Some(tmux) = &tmux {
                         let _ = tmux.send(text);
                     }
@@ -523,7 +495,6 @@ fn event_loop(
                 }
             }
             Ok(Msg::Quit) => {
-                // Nobody is there to answer a conflict; edits that cannot be saved are lost.
                 app.flush();
                 return Ok(());
             }
@@ -537,8 +508,6 @@ fn event_loop(
                 dirty = true;
             }
             Ok(Msg::Fs(ev)) => {
-                // A reload that found the file as merl knows it is not worth a frame: the
-                // project watch reports every namesake under the root.
                 dirty |= concerns_open_file(app, &ev) && app.reload(false);
                 project.event(&ev, Instant::now());
                 if let Some(r) = &mut repo {
@@ -548,7 +517,6 @@ fn event_loop(
             Ok(Msg::ProjectWalked(tree, files)) => {
                 project.walked(&tree, Instant::now());
                 app.project_walked(tree, files);
-                // The tree read its open ignored directories again: they are listed as read.
                 project.shown(&app.tree);
                 if let Some(w) = &mut project_watcher {
                     project.watch(w, &mut project_watched);
@@ -569,8 +537,6 @@ fn event_loop(
                 if let Some(r) = &mut repo {
                     r.listed();
                 }
-                // What git could not list stays as it was until the next event, and says so:
-                // a base that was deleted fails every time.
                 dirty |= match fresh {
                     Ok(fresh) => app.review_refreshed(fresh),
                     Err(e) => {
@@ -579,10 +545,50 @@ fn event_loop(
                     }
                 };
             }
-            Err(mpsc::RecvTimeoutError::Timeout) => dirty |= app.diagrams.wake.is_some(),
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                dirty |= app.diagrams.wake.is_some() | app.parse_more();
+            }
             Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
         }
     }
+}
+
+fn watcher(tx: Sender<Msg>) -> Option<RecommendedWatcher> {
+    notify::recommended_watcher(move |ev: notify::Result<notify::Event>| {
+        if let Ok(ev) = ev {
+            let _ = tx.send(Msg::Fs(ev));
+        }
+    })
+    .ok()
+}
+
+fn spawn_tmux_copier() -> Option<Sender<String>> {
+    let (mut taken, mut calls) = tmux_copy(std::env::var_os("TMUX").as_deref())?;
+    let (tx, texts) = mpsc::channel::<String>();
+    std::thread::spawn(move || {
+        for text in texts {
+            hand_to_tmux(&mut taken, &mut calls, &text);
+        }
+    });
+    Some(tx)
+}
+
+fn drill_answered(app: &App) -> bool {
+    (app.tutor.as_ref()).is_some_and(|t| t.drill.as_ref().is_some_and(Drill::over))
+}
+
+fn vim_cursor(typing: bool) -> SetCursorStyle {
+    if typing {
+        SetCursorStyle::SteadyBar
+    } else {
+        SetCursorStyle::SteadyBlock
+    }
+}
+
+fn osc52_copy(text: &str) {
+    let mut out = stdout();
+    let _ = write!(out, "\x1b]52;c;{}\x07", base64(text.as_bytes()));
+    let _ = out.flush();
 }
 
 fn list_marks(tx: Sender<Msg>, root: PathBuf) {
@@ -707,7 +713,6 @@ fn base64(bytes: &[u8]) -> String {
 
 fn tmux_copy(tmux: Option<&OsStr>) -> Option<(Command, [Command; 2])> {
     tmux.filter(|t| !t.is_empty())?;
-    // Its usage, or an error, must not draw over merl's screen.
     let tmux = |args: &[&str], stdin: Stdio, stdout: Stdio| {
         let mut cmd = Command::new("tmux");
         cmd.args(args)
@@ -1071,7 +1076,7 @@ mod tests {
         assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
     }
 
-    const COMMENT_LINES: usize = 1500;
+    const COMMENT_LINES: usize = 997;
 
     fn comment_lines(text: &str) -> usize {
         let b = text.as_bytes();

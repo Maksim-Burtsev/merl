@@ -1731,6 +1731,28 @@ fn selected_code_takes_the_themes_selected_text_colour_and_keeps_find_matches() 
 }
 
 #[test]
+fn a_find_match_carries_the_search_groups_underline_as_neovim_draws_it() {
+    use ratatui::style::Modifier;
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/demo/f.py"), b"x = 1\nx = 2\n"),
+        None,
+    );
+    app.show_tree = false;
+    app.find_re = Some(regex::Regex::new("=").unwrap());
+    let theme = crate::theme::load("srcery").unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(12, 4)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let buffer = terminal.backend().buffer();
+    let row = |y: u16| (0..12).find(|&x| buffer[(x, y)].symbol() == "=").unwrap();
+    assert!(buffer[(row(1), 1)].modifier.contains(Modifier::UNDERLINED));
+    let strike = crate::theme::load("tokyonight-moon").unwrap().groups["@markup.strikethrough"];
+    assert!(strike.add_modifier.contains(Modifier::CROSSED_OUT));
+}
+
+#[test]
 fn a_rename_without_changes_tints_the_part_of_each_path_that_changed() {
     use ratatui::style::Style;
     use std::path::Path;
@@ -1793,4 +1815,28 @@ fn a_rename_without_changes_tints_the_part_of_each_path_that_changed() {
     assert_eq!(text[0], "\u{2026}/bbbbbbbbbb/old_name.py");
     assert_eq!(text[1], "\u{2192}  \u{2026}/bbbbbbbbbb/new_name.py");
     assert_eq!((del.as_str(), add.as_str()), ("old_name", "new_name"));
+}
+
+#[test]
+fn the_match_under_the_cursor_draws_in_cur_search_the_others_in_search() {
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/demo/f.txt"), b"ab ab\n"),
+        None,
+    );
+    app.show_tree = false;
+    for c in ['/', 'a', 'b'] {
+        app.key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+    }
+    app.key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+    app.key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::NONE));
+    let theme = crate::theme::load("tokyonight-moon").unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(12, 3)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let bg = |x: u16| terminal.backend().buffer()[(x, 0)].bg;
+    let hex = |s: &str| s.parse::<ratatui::style::Color>().unwrap();
+    assert_eq!((bg(2), bg(3)), (hex("#3e68d7"), hex("#3e68d7")));
+    assert_eq!((bg(5), bg(6)), (hex("#ff966c"), hex("#ff966c")));
 }

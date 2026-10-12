@@ -156,6 +156,13 @@ bat and Sublime Text use, or one made with [`tools/port-theme.sh`](../tools/port
 file is an error naming the path: at startup merl exits with code 1, and in `T` it says so and
 keeps the theme you had.
 
+A built-in ported from Neovim also ships `NAME.groups.json`, its Neovim highlight groups: they
+give the chrome (selection, find matches, line numbers, status line) and, with `tree_sitter =
+true`, the code its LazyVim colours. merl reads `NAME.groups.json` beside your `NAME.tmTheme`
+when it is there, and `tools/port-theme.sh` writes both. A copy of a built-in without its groups
+file is drawn from the `.tmTheme` alone, so copy `themes/NAME.groups.json` with it to keep the
+Neovim look, and edit colours in both.
+
 ## What else is highlighted
 
 The infrastructure half of a repository is highlighted too: Dockerfiles and `Containerfile` (with

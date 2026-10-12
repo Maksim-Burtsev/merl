@@ -922,7 +922,7 @@ fn a_go_name_is_looked_up_in_its_own_package() {
             ("go.mod", "module example.com/confine\n"),
             (
                 "shop/shop.go",
-                "package shop\n\nconst (\n\tMaxItems = 10\n)\n\ntype NetworkAddress struct{ Network string }\n\nfunc (na NetworkAddress) IsUnix() bool { return false }\n\nfunc IsUnix(n string) bool { return n == \"unix\" }\n\nfunc check(n string) bool { return IsUnix(n) }\n\nfunc Network() string { return \"\" }\n\nvar addr = NetworkAddress{Network: \"tcp\"}\n",
+                "package shop\n\nconst (\n\tMaxItems = 10\n)\n\ntype NetworkAddress struct{ Network string }\n\nfunc (na NetworkAddress) IsUnix() bool { return false }\n\nfunc IsUnix(n string) bool { return n == \"unix\" }\n\nfunc check(n string) bool { return IsUnix(n) }\n\nfunc Network() string { return \"\" }\n\nvar addr = NetworkAddress{Network: \"tcp\"}\n\nfunc usesInner() bool { return inner() }\n",
             ),
             (
                 "shop/inner_test.go",
@@ -1009,6 +1009,11 @@ fn a_go_name_is_looked_up_in_its_own_package() {
     assert_eq!(
         d("shop/outer_test.go", "return IsUnix"),
         jump("no definition for IsUnix", "shop/outer_test.go:3")
+    );
+    assert_eq!(
+        d("shop/shop.go", "return inner"),
+        jump("no definition for inner", "shop/shop.go:19"),
+        "A `_test.go` file's names are seen from tests only"
     );
     assert_eq!(
         d("shop/shop.go", "{Network"),
@@ -1268,4 +1273,42 @@ fn a_go_chain_or_a_vendored_package_keeps_the_search_by_name() {
         "a package the lookup cannot map, committed under `vendor/`, keeps the search by name"
     );
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_go_package_spelled_with_upper_case_is_found_under_its_escaped_directory() {
+    let (dir, mut a) = project_app(
+        "go-escaped",
+        &[
+            (
+                "go.mod",
+                "module example.com/app\n\nrequire example.com/Big v1.0.0\n",
+            ),
+            (
+                "app.go",
+                "package app\n\nimport \"example.com/Big\"\n\nfunc f() string {\n\tvar c Big.Config\n\treturn c.Name\n}\n",
+            ),
+        ],
+    );
+    let root = external_root(
+        "go-escaped",
+        &[(
+            "mod/example.com/!big@v1.0.0/big.go",
+            "package Big\n\ntype Config struct {\n\tName string\n}\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Go, &[root.join("mod")]);
+    d_on(&mut a, "app.go", "c.Name");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Name \u{2192} Config.Name (via c: Config)",
+            &format!(
+                "{}:4",
+                root.join("mod/example.com/!big@v1.0.0/big.go").display()
+            )
+        )
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
 }

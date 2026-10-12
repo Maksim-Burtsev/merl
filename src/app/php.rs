@@ -1,7 +1,6 @@
 use super::*;
 use std::ops::Range;
 
-/// A class the project declares.
 struct PhpClass {
     path: PathBuf,
     text: String,
@@ -18,25 +17,14 @@ struct Returned {
     written: String,
 }
 
-/// Where the walk of [`App::php_link`] reads a member from.
 enum Walk {
     Found(Vec<Hit>),
     Nowhere,
-    /// Nowhere on the walk, which ended in a class outside the project that may inherit more
-    /// than the walk read.
     NowhereOutside,
-    /// A link the rules cannot read: a trait or a parent the project declares twice with no
-    /// import to choose, or one the walk has seen already.
     Unread,
 }
 
 impl App {
-    /// What `d` answers in PHP before the import step: `word` behind `$this->`, `self::`,
-    /// `static::` or `parent::` ([`Self::php_link`], #356; `self::$name` is a static property),
-    /// behind a receiver whose class is proven ([`Self::php_typed`], #361), and a class name or
-    /// its member ([`Self::php_named`], #351). `before` is the line up to the word as
-    /// [`App::written`] spells it, `chain` the names in front of the word. `None` goes on to the
-    /// other rules.
     pub(super) fn php_early(
         &mut self,
         here: &Path,
@@ -69,7 +57,6 @@ impl App {
         {
             return Some(found);
         }
-        // `$x->word` and `$this->f->word` on a receiver whose class is proven (#361).
         let receiver = before.strip_suffix(&format!("${}.", chain.join(".")));
         if dotted
             && !chain.is_empty()
@@ -104,7 +91,6 @@ impl App {
         let path = match search::php_psr4_file(&map, &full, |f| self.files.iter().any(|p| p == f)) {
             search::Psr4File::Found(path) => path,
             search::Psr4File::Missing => return None,
-            // Outside the project: what `vendor/` declares under that path, before any namesake.
             search::Psr4File::OutsideProject => {
                 let imports = [search::Import {
                     name: short.to_owned(),
@@ -114,7 +100,6 @@ impl App {
                     true => (word, vec![short.to_owned()]),
                     false => (short.to_owned(), Vec::new()),
                 };
-                // Only the class itself: a hit by name, or one of another namespace, is no proof.
                 let found: Vec<Candidate> = self
                     .external_definitions(Kind::Php, &word, &chain, false, &imports, true)?
                     .into_iter()
@@ -154,7 +139,6 @@ impl App {
                 let re = Regex::new(&search::php_access_patterns(&word, access).join("|")).ok()?;
                 match self.php_walk(&path, &t, class, &re, 0, &mut Vec::new()) {
                     Walk::Found(hits) => hits,
-                    // Nothing read says it is not there: `__callStatic`, a `vendor/` not installed.
                     Walk::Nowhere | Walk::NowhereOutside | Walk::Unread => return None,
                 }
             }
@@ -318,7 +302,6 @@ impl App {
             .into_iter()
             .filter_map(|h| {
                 let t = self.text_of(&h.path)?;
-                // A header inside a `/* */` block or a heredoc declares nothing (#361).
                 let code = search::literal_lines(kind, &t).get(h.line1 - 1) != Some(&true);
                 let fits = full
                     .as_ref()
@@ -333,12 +316,6 @@ impl App {
         (full.clone(), matching)
     }
 
-    /// What `d` answers for `word` behind `$x->…->` on the cursor's line of `text` (#361), `chain`
-    /// the names in front of it with `$` dropped: the class of `$x` proven, then each name a
-    /// typed property of the class before it, up to six names, and `word` looked up in the last
-    /// class as [`Self::php_walk`] does. `$x` is `$this` in a class, or a variable whose every
-    /// binding in its function reads one class ([`search::php_binding`]). `None` leaves the word
-    /// to the search by name: a name not proven, or a member found nowhere on the walk.
     pub(super) fn php_typed(
         &mut self,
         here: &Path,
@@ -349,7 +326,6 @@ impl App {
     ) -> Option<Vec<Candidate>> {
         let (head, fields) = chain.split_first().filter(|_| chain.len() <= 6)?;
         let (mut class, mut links, rest) = match head.as_str() {
-            // `$this->word` alone is [`Self::php_link`]'s.
             "this" => {
                 let (field, rest) = fields.split_first()?;
                 let own = self.php_self(here, text, self.line)?;
@@ -393,8 +369,6 @@ impl App {
         search::php_class_header(l).map(|h| h.name.to_owned())
     }
 
-    /// The class `line0` of `text`, the file `path`, stands in: `$this` and `self` there. Not
-    /// a trait, whose `$this` is whichever class uses it, nor an anonymous class.
     fn php_self(&self, path: &Path, text: &str, line0: usize) -> Option<PhpClass> {
         let lines: Vec<&str> = text.lines().collect();
         let class = search::php_enclosing_class(&lines, line0)?;
@@ -420,8 +394,6 @@ impl App {
         (matching.len() == 1).then(|| matching.remove(0))
     }
 
-    /// The class every binding of `$name` above the cursor reads, in its function: `$event: UserUnsubscribed`, `$song: Song::make(): Song`. A binding on the
-    /// cursor's own line other than its function's header is read after the cursor is.
     fn php_variable_type(&mut self, here: &Path, text: &str, name: &str) -> Option<ProvenClass> {
         let lines: Vec<&str> = text.lines().collect();
         let mut found: Option<ProvenClass> = None;
@@ -470,8 +442,6 @@ impl App {
         found
     }
 
-    /// The class the method `method` of `class`, walked as [`Self::php_walk`] walks it, declares
-    /// it returns.
     fn php_returns(&mut self, class: PhpClass, method: &str) -> Option<Returned> {
         let re =
             Regex::new(&search::php_access_patterns(method, search::PhpAccess::Call).join("|"))
@@ -492,8 +462,6 @@ impl App {
         self.php_declared_return(&hit.path, hit.line1 - 1)
     }
 
-    /// The class the function `name` declares it returns: the project's one `function name(`
-    /// outside a class.
     fn php_function_returns(&mut self, here: &Path, name: &str) -> Option<Returned> {
         let short = name.rsplit('\\').next().unwrap_or(name);
         let pattern = format!(r"^function\s+&?\s*{}\s*\(", regex::escape(short));
@@ -506,8 +474,6 @@ impl App {
         self.php_declared_return(&hit.path, hit.line1 - 1)
     }
 
-    /// The class the function or method whose header starts on `line0` of the file `path`
-    /// declares it returns; a docblock's `@method` is no header.
     fn php_declared_return(&mut self, path: &Path, line0: usize) -> Option<Returned> {
         let text = self.text_of(path)?;
         let lines: Vec<&str> = text.lines().collect();
@@ -520,9 +486,6 @@ impl App {
         Some(Returned { class, written })
     }
 
-    /// The class the property `field` of `class` is typed with: its one declaration on the walk
-    /// of [`Self::php_walk`], a typed property or a promoted constructor parameter. A docblock's
-    /// `@property` is none.
     fn php_property_type(&mut self, class: &PhpClass, field: &str) -> Option<PhpClass> {
         let re =
             Regex::new(&search::php_access_patterns(field, search::PhpAccess::Property).join("|"))
@@ -548,9 +511,6 @@ impl App {
         self.php_type(&hit.path, &text, hit.line1 - 1, &written)
     }
 
-    /// The members `re` matches of the class `short` outside the project, in `vendor/`: its
-    /// `short.php`, narrowed to the one declaring the namespace of `full` when the file resolves
-    /// it.
     fn php_outside(&mut self, full: Option<&str>, short: &str, re: &Regex) -> Walk {
         let file = format!("{short}.php");
         let files: Vec<PathBuf> = self

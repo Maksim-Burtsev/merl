@@ -756,6 +756,54 @@ fn a_two_line_block_is_no_move() {
 }
 
 #[test]
+fn a_moved_definition_counts_its_closing_line() {
+    let helper = "def helper(x)\n  x\nend\n";
+    let (dir, mut a) = repo_review(
+        "d-move-closer",
+        &[
+            ("svc.rb", helper),
+            ("main.rb", "def run\n  helper(1)\n  2\nend\n"),
+        ],
+        &[
+            ("svc.rb", Some("X = 1\n")),
+            ("main.rb", Some("def run\n  2\nend\n")),
+            ("other.rb", Some(helper)),
+        ],
+    );
+    on_deleted(&mut a, &dir.join("main.rb"), "helper(1)", "helper");
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(
+        (a.buf.path.as_deref(), a.line, a.deleted),
+        (Some(&*dir.join("other.rb")), 0, None),
+        "two lines and an `end` are a move: {}",
+        a.message
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_deleted_string_declares_nothing() {
+    let (dir, mut a) = repo_review(
+        "d-deleted-string",
+        &[
+            ("svc.py", "DOC = \"\"\"\ndef helper(x):\n\"\"\"\n"),
+            ("main.py", "def run():\n    helper(1)\n"),
+        ],
+        &[("svc.py", Some("X = 1\n"))],
+    );
+    a.jump_to(&dir.join("main.py"), 2);
+    a.col = a.line_str().find("helper").unwrap();
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(
+        (a.buf.path.as_deref(), a.line),
+        (Some(&*dir.join("main.py")), 1),
+        "{}",
+        a.message
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
 fn d_on_a_deleted_files_line_answers_from_the_base() {
     let (dir, mut a) = moves_review("d-deleted-file");
     let old = "from app.repo import Repo\n\n\ndef use(r: Repo):\n    return r.fetch(1)\n";
@@ -1100,5 +1148,51 @@ fn a_reload_carries_a_selection_anchored_on_a_deleted_line() {
     std::fs::write(&file, "x\ny\na\nc\nd\n").unwrap();
     a.reload(false);
     assert_eq!(a.selected_text().as_deref(), Some("b\n"));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_deleted_row_of_a_renamed_file_is_named_from_its_old_text() {
+    let (dir, mut a) = repo_review(
+        "d-picker-renamed-old",
+        &[
+            (
+                "a.py",
+                "class A:\n    def run(self):\n        return 1\n\n    def walk(self):\n        return 0\n",
+            ),
+            (
+                "b.py",
+                "class B:\n    def run(self):\n        return 2\n\n    def stop(self):\n        return 3\n",
+            ),
+            ("main.py", "def go(x):\n    return x\n"),
+        ],
+        &[
+            (
+                "a.py",
+                Some("class A:\n    def walk(self):\n        return 0\n"),
+            ),
+            ("b.py", None),
+            (
+                "lib/beta.py",
+                Some("class B:\n    def stop(self):\n        return 3\n"),
+            ),
+            ("main.py", Some("def go(x):\n    return x.run()\n")),
+        ],
+    );
+    a.jump_to(&dir.join("main.py"), 2);
+    a.col = a.line_str().find("run").unwrap();
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    let p = a.picker.as_mut().expect("a picker");
+    p.settle();
+    let labels: Vec<String> = (p.window(9).0.iter())
+        .map(|r| r.item.label[..r.item.code_at.unwrap()].to_string())
+        .collect();
+    assert_eq!(
+        labels,
+        [
+            "B.run  by name  lib/beta.py:2: ",
+            "A.run  by name  a.py:2: "
+        ]
+    );
     let _ = std::fs::remove_dir_all(dir);
 }

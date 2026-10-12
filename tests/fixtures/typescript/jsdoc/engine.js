@@ -75,3 +75,14 @@ class Deputy extends Steward {
 		//          ^ d: jsdoc/steward.js:4
 	}
 }
+
+/** @returns {Deputy} The tag says more than the body. */
+function promoted() {
+	return new Steward();
+}
+
+function rally() {
+	promoted().relieve();
+	//         ^ d: jsdoc/engine.js:73
+	//           status: via promoted(): Deputy
+}

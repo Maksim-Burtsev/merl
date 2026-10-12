@@ -26,7 +26,6 @@ pub struct PickItem {
     pub deleted: bool,
 }
 
-/// One rendered row: the item plus the char indices of its label that matched the query.
 pub struct Row {
     pub item: PickItem,
     pub matched: Vec<u32>,
@@ -36,7 +35,6 @@ pub enum Pick {
     Stay,
     Cancel,
     Accept(PickItem),
-    /// The query of a `live` picker changed: its owner fills the list, not nucleo.
     Typed,
 }
 
@@ -44,12 +42,9 @@ pub struct Picker {
     nucleo: Nucleo<PickItem>,
     matcher: Matcher,
     pub query: LineEdit,
-    /// The query is not a fuzzy filter over the items: a key that changes it returns
-    /// [`Pick::Typed`] and the list stays as it is. `s` greps for it instead.
     pub live: bool,
     pub selected: usize,
     pub title: String,
-    /// List height of the last drawn frame, so PgUp/PgDn know how far a page is.
     page: usize,
     /// Files of the rows drawn so far, highlighted up to the deepest row shown. Filled lazily by
     /// `ui`, so a picker over thousands of hits only ever parses what is on screen.
@@ -59,20 +54,14 @@ pub struct Picker {
 }
 
 impl Picker {
-    /// `paths` switches on nucleo's path-aware scoring (it favours matches in the file name).
     pub fn new(title: impl Into<String>, items: Vec<PickItem>, paths: bool) -> Self {
         let config = if paths {
             Config::DEFAULT.match_paths()
         } else {
             Config::DEFAULT
         };
-        // No notify: the event loop ticks an open picker every 10 ms anyway, and nucleo calls
-        // notify for every item pushed, which was a redraw per row: 5000 frames queued in front
-        // of the next key after an `s` refresh.
         let nucleo = Nucleo::new(config, Arc::new(|| {}), None, 1);
         let injector = nucleo.injector();
-        // The items arrive already sorted, so injecting them here keeps that order for the
-        // empty query and costs nothing worth a background thread.
         for item in items {
             injector.push(item, |it, cols| cols[0] = it.label.as_str().into());
         }
@@ -94,7 +83,6 @@ impl Picker {
         self.page
     }
 
-    /// Runs the matcher to completion, for a list that must be readable at once.
     pub fn settle(&mut self) {
         for _ in 0..100 {
             if !self.nucleo.tick(10).running {
@@ -107,13 +95,11 @@ impl Picker {
         self.nucleo.tick(10).changed
     }
 
-    /// `(matched, total)` for the overlay title.
     pub fn counts(&self) -> (u32, u32) {
         let snap = self.nucleo.snapshot();
         (snap.matched_item_count(), snap.item_count())
     }
 
-    /// The rows to draw for a list `height` tall, plus the selected row's offset in them.
     pub fn window(&mut self, height: usize) -> (Vec<Row>, usize) {
         self.page = height.max(1);
         let total = self.clamp_selected();
@@ -173,12 +159,8 @@ impl Picker {
         }
     }
 
-    /// `append`: the new pattern extends the old one, so nucleo can refine the previous result
-    /// set instead of rescoring everything.
     pub(crate) fn requery(&mut self, append: bool) {
         let mut words: Vec<&str> = self.query.split(' ').collect();
-        // A `\` ending a word would escape the space behind it: that word goes last, as the
-        // order of the words matches nothing.
         words.sort_by_key(|w| w.ends_with('\\'));
         let query = words.into_iter().map(escape).collect::<Vec<_>>().join(" ");
         self.nucleo.pattern.reparse(
@@ -232,10 +214,6 @@ impl Picker {
     }
 }
 
-/// One word of a query, escaped so nucleo reads it as the characters typed: a leading `!`, `^`
-/// or `'` and a trailing `$` are its pattern syntax otherwise. nucleo drops the `\` of a leading
-/// `\!`, `\^` or `\'` whatever comes before it, so such a word is matched as a substring (`'`),
-/// which keeps it.
 fn escape(word: &str) -> String {
     let lead = if word.starts_with(['!', '^', '\'']) {
         "\\"
@@ -355,6 +333,26 @@ mod tests {
         assert_eq!(p.counts().0, 0);
         assert!(matches!(p.key(KeyCode::Enter.into()), Pick::Stay));
         assert_eq!(p.query.to_string(), "storx");
+    }
+
+    #[test]
+    fn a_live_picker_hands_the_query_to_its_owner_and_keeps_its_list() {
+        let mut p = picker(&["src/wrap.rs", "src/app.rs"]);
+        p.live = true;
+        assert!(matches!(p.key(KeyCode::Char('w').into()), Pick::Typed));
+        assert!(matches!(p.paste("ra"), Pick::Typed));
+        p.settle();
+        assert_eq!(p.counts(), (2, 2));
+    }
+
+    #[test]
+    fn a_page_is_as_tall_as_the_list_last_drawn() {
+        let mut p = picker(&["a", "b", "c", "d", "e", "f", "g"]);
+        p.window(3);
+        p.key(KeyCode::PageDown.into());
+        assert_eq!(p.selected, 3);
+        p.key(KeyCode::PageUp.into());
+        assert_eq!(p.selected, 0);
     }
 
     #[test]

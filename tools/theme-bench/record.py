@@ -4,6 +4,11 @@ theme. Once, on a recording machine; never in CI.
 
     tools/theme-bench/record.py [--theme a,b] [--lang python,go] [--jobs 2] [--cache DIR]
     tools/theme-bench/record.py --check [--theme a,b]
+    tools/theme-bench/record.py --fixtures [--lang python]
+
+--fixtures records the golden colours of `cargo test` (#802): every file of tests/colors/LANG/
+drawn in the FIXTURE_THEMES, written to tests/colors/LANG/THEME.tsv as colors/ is, with a
+character's colour as `rrggbb` followed by `b` when bold and `i` when italic.
 
 Every theme of themes.tsv is cloned at its pinned commit into the cache (default
 $THEME_BENCH_CACHE or ~/.cache/merl-theme-bench), with nvim-treesitter at NVIM_TS and the
@@ -44,12 +49,16 @@ LANGS = {
     "python": (["paperless-ngx"], ["py"]),
     "rust": (["ripgrep"], ["rs"]),
     "typescript": (["outline"], ["ts"]),
+    "tsx": (["outline"], ["tsx"]),
+    "javascript": (["eslint"], ["js"]),
+    "jsx": (["mastodon"], ["jsx"]),
     "go": (["caddy"], ["go"]),
     "markdown": (["ripgrep", "caddy", "outline", "paperless-ngx"], ["md"]),
 }
 SKIP_DIRS = ("migrations/", "vendor/", "testdata/", "node_modules/", "CHANGELOG")
 FILES, LINES, MINLINES, MAXLEN, WIDTH = 4, 200, 80, 140, 200
 LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+FIXTURE_THEMES = ["tokyonight-moon", "catppuccin-mocha", "gruvbox-dark", "github-light"]
 GROUPS = ["Normal", "CursorLine", "Visual", "Search", "CurSearch", "LineNr", "CursorLineNr", "StatusLine"]
 SERVER = f"merl-theme-bench-{os.getpid()}"
 
@@ -156,7 +165,8 @@ def init_lua(cache, name, ts, check=False):
     dirs = [repo(cache, source)] + [repo(cache, d) for d in deps.split(",") if d != "-"]
     lines = [f"vim.opt.rtp:prepend({json.dumps(d)})" for d in dirs]
     if not check:
-        lines += [f"vim.opt.rtp:prepend({json.dumps(os.path.join(ts, 'runtime'))})",
+        lines += [f"vim.opt.rtp:prepend({json.dumps(ts)})",
+                  f"vim.opt.rtp:prepend({json.dumps(os.path.join(ts, 'runtime'))})",
                   f"vim.opt.rtp:prepend({json.dumps(os.path.join(cache, 'site'))})",
                   "vim.g._ts_force_sync_parsing = true", "vim.o.number = true", "vim.o.cursorline = true", "vim.o.wrap = false",
                   "vim.api.nvim_create_autocmd('FileType', { callback = function(a) pcall(vim.treesitter.start, a.buf) end })"]
@@ -249,7 +259,7 @@ def capture(session, cmd, rows, env, ready, keys=()):
     return grids
 
 
-def on_screen(grid, lines):
+def on_screen(grid, lines, styled=False):
     """file line number -> the foreground of each non-blank character of that line, read from the
     rows whose gutter number is followed by the line's text. The gutter is the column most such
     numbers end at, so a number inside the tree or the code never claims a line."""
@@ -261,7 +271,8 @@ def on_screen(grid, lines):
             if not 1 <= n <= len(lines):
                 continue
             want = "".join(lines[n - 1].split())
-            got = [(c[0], c[1]) for c in cells[m.end():] if not c[0].isspace()]
+            got = [(c[0], hexed(c[1]) + "b" * c[3] + "i" * c[4] if styled else c[1])
+                   for c in cells[m.end():] if not c[0].isspace()]
             if want and "".join(ch for ch, _ in got[:len(want)]) == want:
                 hits.append((m.end(), n, [fg for _, fg in got[:len(want)]]))
     if not hits:
@@ -349,6 +360,33 @@ def record(cache, ts, name, langs):
     print(f"{name}: {', '.join(langs)}", file=sys.stderr)
 
 
+def record_fixtures(cache, ts, name, langs):
+    init = init_lua(cache, name, ts)
+    env = {**xdg(cache, name), "TERM": "tmux-256color"}
+    for lang in langs:
+        d = os.path.join(ROOT, "tests", "colors", lang)
+        files = []
+        for f in sorted(os.listdir(d)):
+            if f.endswith(".tsv") or f == "NOTES.md":
+                continue
+            path = os.path.join(d, f)
+            lines = file_lines(path)
+            bad = [n for n, l in enumerate(lines, 1) if l.strip() and not recordable(l)]
+            if bad:
+                sys.exit(f"{path}: lines {bad} are not ASCII or longer than {MAXLEN}")
+            first = next(n for n, l in enumerate(lines, 1) if recordable(l))
+            ready = lambda g: first in on_screen(g, lines)
+            grid, = capture(f"f{threading.get_ident()}", f"nvim -u {shlex.quote(init)} {shlex.quote(path)}", LINES + 4,
+                            env, ready)
+            files.append((f, {n: cells for n, cells in on_screen(grid, lines, styled=True).items() if recordable(lines[n - 1])}))
+        version = subprocess.run(["nvim", "--version"], capture_output=True, text=True).stdout.split("\n")[0]
+        source, colorscheme, before, _ = manifest()[name]
+        head = (f"# {name}: {source} `{before if before != '-' else ''}{' | ' if before != '-' else ''}"
+                f"colorscheme {colorscheme}`; {version}, nvim-treesitter {NVIM_TS[:7]}\n")
+        write_colors(os.path.join(d, f"{name}.tsv"), head, files)
+    print(f"{name}: fixtures {', '.join(langs)}", file=sys.stderr)
+
+
 def check(cache, names):
     bad = 0
     for name in names:
@@ -371,6 +409,7 @@ def main():
     ap.add_argument("--jobs", type=int, default=2)
     ap.add_argument("--cache", default=os.environ.get("THEME_BENCH_CACHE", os.path.expanduser("~/.cache/merl-theme-bench")))
     ap.add_argument("--check", action="store_true")
+    ap.add_argument("--fixtures", action="store_true")
     a = ap.parse_args()
     cache = os.path.realpath(a.cache)
     every = manifest()
@@ -382,6 +421,17 @@ def main():
         sys.exit(1 if check(cache, names) else 0)
     ts = parsers(cache)
     langs = a.lang.split(",")
+    if a.fixtures:
+        names = a.theme.split(",") if a.theme else FIXTURE_THEMES
+        langs = [l for l in langs if os.path.isdir(os.path.join(ROOT, "tests", "colors", l))]
+        server()
+        try:
+            with concurrent.futures.ThreadPoolExecutor(a.jobs) as pool:
+                for f in [pool.submit(record_fixtures, cache, ts, n, langs) for n in names]:
+                    f.result()
+        finally:
+            tmux("kill-server")
+        return
     for lang in langs:
         pick(lang)
     server()

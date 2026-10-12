@@ -37,6 +37,14 @@ const UNSMOKED: &[(u32, &str)] = &[
         769,
         "review's images side by side: tmux passes no kitty graphics, and without pictures images stay binary non-stops as before; src/ui/tests/picture.rs and the review stop test cover them",
     ),
+    (
+        801,
+        "a theme's colours only, which the smoke screens (text) cannot see; tools/theme-bench compares them with LazyVim's",
+    ),
+    (
+        796,
+        "chrome colours only, which the smoke screens (text) cannot see; the theme bench's chrome and the_chrome_is_what_lazyvim_draws_in_every_ported_theme compare them with LazyVim's",
+    ),
 ];
 
 fn root() -> PathBuf {

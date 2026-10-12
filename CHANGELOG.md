@@ -11,6 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `--review`: the panel's row of the file in view keeps the selection colour while the code has
   the keys, so each `c` into the next file shows in the panel. (#738)
+- `dracula`'s cursor line is its Neovim original's again, `#424450`, where #66 had moved it by
+  hand. (#801)
+- The chrome takes the theme's Neovim colours, as LazyVim draws them: after `/`, `n` or `N` the
+  match under the cursor is in `CurSearch` and the other matches in `Search`; the status line is
+  `StatusLine`, the line numbers `LineNr`, the cursor line's number `CursorLineNr`, the cursor
+  line `CursorLine` and the selection `Visual`. Themes without Neovim colours (`shokunin-*`,
+  `lucerna`, `seneca*`, a `.tmTheme` of your own without its `.groups.json`) draw the match under
+  the cursor a shade stronger than the others. (#796)
+
+### Fixed
+
+- In `--review`, a jump (`d`, `D`, `s`, `[`, the tree, a picker) into a file renamed without changes shows its code; only the `c` / `C` walk stops on the rename screen (#759).
 
 ## [0.8.4] - 2026-10-11
 

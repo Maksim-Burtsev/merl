@@ -170,6 +170,63 @@ in epic #623, each saying `no fold rules for .EXT` until then.
 - **A change to `f`** keeps `tests/folds/` green and no bench line of a language that is on worse
   than `baseline.tsv`: the run exits 1 on any.
 
+## Changing syntax colours
+
+merl colours code as LazyVim does (epic #797): tree-sitter's syntax tree, nvim-treesitter's own
+queries and the theme's Neovim highlight groups (`themes/NAME.groups.json`, #801), in
+`src/treesitter.rs`. Until #810 turns it on it runs behind the hidden setting `tree_sitter = true`
+in `config.toml`, for Python, Go, Rust, Markdown, TypeScript, TSX, JavaScript and JSX today and
+for the languages of #806–#809 as they land; every other file goes through syntect as before.
+
+- **A grammar is a dependency**: the crates.io release of the revision nvim-treesitter pins in
+  `lua/nvim-treesitter/parsers.lua` at `NVIM_TS` (compare its `parser.c` with that commit's), else
+  a git dependency pinned to that commit with its repo in `deny.toml` `[sources] allow-git`. Never
+  a path crate or a `build.rs` of merl's: cargo would compile its C again in every new worktree,
+  while registry and git crates are built once in `tools/worktree`'s seed (#777) and cached by CI.
+- **The build-cost table** goes into the commit message of each PR that adds a grammar, against
+  master: the seed build, a new worktree's first `clippy --all-targets`, `test --no-run` and
+  `build --release`, the release binary's size and CI's wall time. A worktree's first build stays
+  within ~10 % of master's.
+- **Injections** (`src/treesitter/layers.rs`, #803) follow Neovim 0.12's `languagetree.lua`
+  (`_get_injections`, `_get_injection`, `get_node_ranges`, `add_injection`) and
+  `highlighter.lua`: each injected region is parsed with `set_included_ranges`, a child's
+  captures paint over its parent's at equal priority, and an edit repaints from the first row of
+  the region it falls in. A language merl has no grammar for yet goes through syntect
+  (`syntax_for_info`), so a fenced block keeps its colours until its language's step lands;
+  the injected languages of a step's hosts (`regex`, `printf` for Python) come with it.
+- **The queries** are nvim-treesitter's `highlights.scm` and `injections.scm` at `NVIM_TS` in
+  `tools/theme-bench/record.py`, the one pin, copied into `queries/LANG/` by `tools/ts-queries
+  LANG` and never edited by hand. merl reproduces Neovim 0.12's reading of them, from
+  `runtime/lua/vim/treesitter/query.lua` and `highlighter.lua`, not tree-sitter-highlight's: a
+  higher `priority` paints over a lower one, captures of equal priority paint in the order Neovim
+  sets them and combine (a colour replaces the one below, bold and italic add up), and `@a.b`
+  takes the theme's `@a.b.LANG`, then `@a.b`, then `@a` (a group defined empty stops there). A
+  predicate or directive merl does not implement makes the query fail to compile
+  (`every_vendored_query_compiles_with_what_it_uses`): implement it from `query.lua` first.
+- **The golden colours**: `tests/colors/LANG/` holds small fixtures that cover the language and
+  LazyVim's colour, bold and italic of every character in tokyonight-moon, catppuccin-mocha,
+  gruvbox-dark and github-light, recorded once by `tools/theme-bench/record.py --fixtures --lang
+  LANG` (Neovim 0.12 in tmux, never in CI). `cargo test` compares every character and prints
+  `file:line:col`, the token, want and got. All characters equal; a character that cannot be is
+  listed with its cause in `tests/colors/LANG/NOTES.md` and skipped by name, never by a threshold.
+- **Edits**: `tree_sitter_spans_after_edits_equal_a_fresh_parse` (`edit_fuzz.rs`) plays random
+  edits and compares the spans with a fresh parse after each; run it with
+  `MERL_FUZZ_SESSIONS=3000 cargo test --release tree_sitter_spans` before pushing a change to
+  `src/treesitter.rs` or to `Buffer::edited`.
+- **The bench**: `tools/theme-bench/run --tree-sitter --lang LANG` draws with the setting on. No
+  theme × language may match fewer characters than `baseline.tsv`; a language joins `for_syntax`
+  at ≥ 99 % median over the themes, its remaining misses listed by cause in
+  `tools/theme-bench/README.md`, and its table goes into the commit message.
+- **Speed**: `MERL_TS_SPEED=a.py,b.py cargo test --release speed -- --ignored` prints, beside
+  syntect's on the same files, the time to the first frame and to the coloured one, p50 and p90,
+  of opening at the top and in the middle, a keystroke after a line's indentation and one at
+  column 0 of an indented line: the largest file of the language in the bench projects, a
+  5,000-line and a 30,000-line one. The parse runs in steps, as Neovim's
+  (`languagetree.lua` `_async_parse`): 0.5 ms (`PARSE_STEP`) before a frame, 3 ms
+  (`PARSE_IDLE_STEP`) between keys; a frame draws with the last tree, edited to the new text,
+  plain before the first, so a first frame is no slower than syntect's and a keystroke's under
+  5 ms at p50 on every file.
+
 ## Changing `d`
 
 A wrong jump is worse than a picker or "don't know", and no lookup may get worse than on master.

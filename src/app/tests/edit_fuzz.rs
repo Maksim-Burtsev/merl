@@ -911,3 +911,131 @@ fn random_edit_sessions_agree_with_the_model() {
     let _ = std::fs::remove_dir_all(&dir);
     assert!(failures.is_empty(), "\n{}", failures.join("\n\n"));
 }
+
+const PYTHON: &[&str] = &[
+    "\"",
+    "'''",
+    "\"\"\"",
+    "#",
+    "def f(",
+    "):\n    ",
+    "class A:\n    x = 1\n",
+    "self.",
+    "import os\n",
+    "f\"{x}\"",
+    "@property\n",
+    "[",
+    "]",
+    "match x:\n    case _:\n        pass\n",
+    "MAX = 1\n",
+    "lambda x: x",
+    "re.compile(r\"[a-z]+\\d\")",
+    "\"%s %d\" % (a, b)",
+];
+
+const MARKDOWN: &[&str] = &[
+    "```python\n",
+    "```\n",
+    "`",
+    "*",
+    "**",
+    "# ",
+    "- [ ] ",
+    "> ",
+    "[link](http://x)",
+    "<b>",
+    "</b>",
+    "---\n",
+    "| a | b |\n| - | - |\n",
+    "re.compile(\"x\")",
+    "\n\n",
+    "    ",
+];
+
+#[test]
+fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
+    fuzz_tree_sitter(
+        "f.py",
+        include_bytes!("../../../tests/colors/python/classes.py"),
+        PYTHON,
+    );
+    fuzz_tree_sitter(
+        "f.md",
+        include_bytes!("../../../tests/colors/markdown/code.md"),
+        MARKDOWN,
+    );
+}
+
+fn fuzz_tree_sitter(name: &str, start: &[u8], snippets: &[&str]) {
+    let sessions = std::env::var("MERL_FUZZ_SESSIONS")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(40);
+    let theme = crate::theme::load("tokyonight-moon").unwrap();
+    let dir = std::env::temp_dir().join(format!("merl-ts-fuzz-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join(name);
+    for seed in 1..=sessions {
+        let mut rng = Rng::new(seed);
+        std::fs::write(&path, start).unwrap();
+        let mut buf = Buffer::from_bytes(path.clone(), start);
+        buf.start_tree_sitter();
+        let mut a = App::new(dir.clone(), Tree::default(), Vec::new(), buf, None);
+        (a.view_w, a.view_h) = (10_000, 40);
+        a.line = rng.below(a.buf.lines.len());
+        a.key(KeyEvent::new(KeyCode::Enter, NONE));
+        let mut done = Vec::new();
+        for _ in 0..60 {
+            let op = match rng.below(4) {
+                0 => Op::Paste(rng.pick(snippets).to_string()),
+                _ => gen_op(&mut rng),
+            };
+            match &op {
+                Op::Key(KeyCode::Char('r'), m) if m.contains(CTRL) => continue,
+                Op::Key(code, mods) => _ = a.key(KeyEvent::new(*code, *mods)),
+                Op::Paste(t) => a.paste(t),
+                Op::PasteClip => a.paste("x"),
+            }
+            done.push(op.to_string());
+            for _ in 0..rng.below(3) {
+                a.buf.parse_more(Some(std::time::Duration::ZERO));
+                a.buf.paint_to(rng.below(a.buf.lines.len()), &theme);
+            }
+            if rng.below(3) > 0 {
+                continue;
+            }
+            a.buf.parse_more(None);
+            a.buf.paint_to(usize::MAX, &theme);
+            let text = a.buf.lines.join("\n") + "\n";
+            let mut fresh = Buffer::from_bytes(path.clone(), text.as_bytes());
+            fresh.start_tree_sitter();
+            fresh.parse_more(None);
+            fresh.paint_to(usize::MAX, &theme);
+            let want = match a.buf.sexp() == fresh.sexp() {
+                true => fresh.hl,
+                false => {
+                    assert_eq!(
+                        a.buf.root_bytes(),
+                        fresh.root_bytes(),
+                        "seed {seed}, after [{}]: the tree does not span the text",
+                        done.join(", ")
+                    );
+                    let kept = a.buf.hl.clone();
+                    a.buf.clear_hl();
+                    a.buf.paint_to(usize::MAX, &theme);
+                    std::mem::replace(&mut a.buf.hl, kept)
+                }
+            };
+            if let Some(l) = (0..a.buf.lines.len()).find(|&l| a.buf.hl[l] != want[l]) {
+                panic!(
+                    "seed {seed}, after [{}]: line {} {:?}\nincremental {:?}\nfresh {:?}",
+                    done.join(", "),
+                    l + 1,
+                    a.buf.lines[l],
+                    a.buf.hl[l],
+                    want[l]
+                );
+            }
+        }
+    }
+}

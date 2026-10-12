@@ -9,6 +9,7 @@ tools/theme-bench/run                          # every recorded theme, every lan
 tools/theme-bench/run --theme kanagawa-wave    # its share per language, top mismatches, chrome
 tools/theme-bench/run --lang python,go
 tools/theme-bench/run --update-baseline        # a PR that changes the table commits the new baseline
+tools/theme-bench/run --tree-sitter --lang python   # merl with the hidden `tree_sitter = true` (#802)
 tools/theme-bench/run --selftest               # the reading, the scoring, the gate, the stored format
                                                # and themes.tsv covering every shipped theme; CI runs it
 ```
@@ -27,6 +28,61 @@ match, current find match, line numbers, cursor line number and status line read
 on a probe file (`v`, then a find for `alpha`), LazyVim's from the highlight groups `Normal`,
 `CursorLine`, `Visual`, `Search`, `CurSearch`, `LineNr`, `CursorLineNr` and `StatusLine`.
 
+## Tree-sitter
+
+`--tree-sitter` runs merl with `tree_sitter = true` in its config, the colouring of epic #797
+(AGENTS.md `## Changing syntax colours`); `baseline.tsv` stays master's, with the setting off, so
+the gate still holds every row to it. On 2026-10-12 (#802) Python matched every character in all
+92 themes, 19,185 per theme: no miss is left to list. A language that leaves misses lists them
+here by cause.
+
+Go and Rust (#805), before injections:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Go | 14,810 | 99.7 adwaita | 99.9 | 100.0 vscode-light |
+| Rust | 17,576 | 90.7 github-dark | 94.4 | 99.9 e-ink-light |
+
+- Injections (#818). Go: the `%` verbs of `Errorf` and `Fatalf` strings, which LazyVim parses as
+  `printf`, 38 characters in the themes that colour them apart. Rust: the bodies of macro calls,
+  which LazyVim parses again as Rust (`path.display()` inside `format!`, every test of
+  `tests/feature.rs` inside `rgtest!`): almost all of Rust's misses, in every theme.
+- The theme's own queries (#819): github-dark and github-light append github-nvim-theme's
+  `queries/rust/highlights.scm` (attributes, `crate`/`self`/`super`, lifetimes, capitalised
+  names), which merl does not load.
+
+Markdown (#803), 18,398 characters per theme: 98.3 % median (97.8 everforest-dark, 99.3
+alabaster-light), against 71.3 % with the setting off. Every character of Markdown's own grammars,
+`markdown` and `markdown_inline`, and of the Python, Go and Rust its fences hold, matches in the
+themes read by cause (tokyonight-moon, dayfox, github-light); the misses are code merl does not
+yet colour as LazyVim does, drawn through syntect as before or waiting for Rust's injections:
+
+| cause | tokyonight-moon | dayfox | github-light | lands in |
+|---|---|---|---|---|
+| fenced `bash` / `sh` / `console` blocks | 111 | 145 | 39 | #806 |
+| fenced `json` blocks | 63 | 74 | 66 | #806 |
+| fenced `rust` blocks: macro bodies (`assert!(glob.is_match(…))`) | 59 | 59 | 59 | #818 |
+| fenced `yaml` blocks and the YAML front matter | 33 | 38 | 2 | #806 |
+| fenced `toml` blocks | 23 | 17 | 3 | #806 |
+
+TypeScript, TSX, JavaScript and JSX (#804), with #803's injections (regex literals parsed as
+`regex`; an injected language merl has no grammar for, such as `t` in ``t(`…`)``, is left plain as
+in Neovim, the syntect fallback being only for Markdown's code blocks):
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| TypeScript | 13,701 | 98.8 adwaita | 98.8 | 99.3 material-light |
+| TSX | 9,700 | 99.5 github-dark | 99.8 | 99.9 material-light |
+| JavaScript | 13,199 | 95.7 adwaita | 95.7 | 96.1 srcery |
+| JSX | 14,130 | 100.0 | 100.0 | 100.0 |
+
+- `jsdoc` (#818): in `/** */` comments, tags such as `@param`, their `{types}` and names, which
+  LazyVim parses as `jsdoc` and merl has no grammar for yet: almost all the misses of JavaScript
+  and TypeScript, the same in every theme.
+- The theme's own queries (#819): github-dark and github-light append github-nvim-theme's
+  `queries/jsx/highlights.scm` (a member expression tag such as `<Icons.Close>`), which merl does
+  not load.
+
 ## Files
 
 | file | what |
@@ -41,15 +97,17 @@ on a probe file (`v`, then a find for `alpha`), LazyVim's from the highlight gro
 ## The reference
 
 LazyVim as the epic defines it: Neovim with the theme's own colorscheme, nvim-treesitter's
-queries (`main`, pinned in `record.py`) and the parsers LazyVim installs by default plus Rust and
+queries and plugin (`main`, pinned in `record.py`; the plugin maps `typescriptreact` to `tsx` and
+`javascriptreact` to `javascript`, #804) and the parsers LazyVim installs by default plus Rust and
 Go, built with `cc` at the revisions nvim-treesitter pins, `termguicolors`, `number`,
 `cursorline`, `nowrap`, and `vim.treesitter.start` on every buffer; no LSP, so no semantic
 tokens. Neovim runs in tmux with every `XDG_*` home and `XDG_CONFIG_DIRS` / `XDG_DATA_DIRS` under the
 cache, so neither `~/.config/nvim` nor a system-wide `site` directory reaches it.
 
 The files: four per language from the projects of `tools/d-bench/projects.tsv` at their pinned
-commits (Python from paperless-ngx, Rust from ripgrep, TypeScript from outline, Go from caddy,
-Markdown from those four), taken in the order of the hash of their path, each with at least 80
+commits (Python from paperless-ngx, Rust from ripgrep, TypeScript and TSX from outline,
+JavaScript from eslint, JSX from mastodon, Go from caddy, Markdown from ripgrep, caddy, outline
+and paperless-ngx), taken in the order of the hash of their path, each with at least 80
 lines among its first 200 that are ASCII and at most 140 columns: those are the lines recorded,
 so both programs draw all of them and each character has one cell.
 
@@ -68,9 +126,12 @@ tools/theme-bench/record.py --theme nord --lang go
 `--check` loads each theme with its row's commands, as `tools/port-theme.sh` would, without the
 parsers, and compares its `Normal` with the
 shipped `themes/NAME.tmTheme`'s background and foreground: a difference means the row is not what
-the theme was ported from, or its repo changed since. On 2026-10-11 all 92 rows passed, and 90
-themes regenerated byte for byte through `tools/nvim2tmtheme.py`. The two that did not:
-`tokyonight-moon`, which ships folke's Sublime extra (`extras/sublime`) rather than a port, and
-`dracula`, whose cursor line #66 moved by hand. `shokunin-dark` and `shokunin-light` (a VS Code
+the theme was ported from, or its repo changed since. On 2026-10-11 all 92 rows passed.
+
+`tools/port-theme.sh --all` ports every row again, the tmTheme and the groups file
+(`themes/NAME.groups.json`, #801), and 91 tmThemes come out byte for byte as shipped. The one that
+does not is `tokyonight-moon`, which ships folke's Sublime extra (`extras/sublime`) rather than a
+port: re-ported, it matches LazyVim better in Rust, TypeScript and Markdown but worse in Python
+and Go, so it waits for the owner (#812). `shokunin-dark` and `shokunin-light` (a VS Code
 JSON) and `lucerna`, `seneca` and `seneca-light` (merl's own palettes, #775) have no Neovim
 original and are skipped.
