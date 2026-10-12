@@ -1140,16 +1140,46 @@ fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
     );
 }
 
+#[test]
+fn a_node_error_recovery_rebuilds_above_the_edit_is_repainted() {
+    replay_tree_sitter(
+        "f.py",
+        include_bytes!("../../../tests/colors/python/classes.py"),
+        PYTHON,
+        2204..=2204,
+    );
+    replay_tree_sitter(
+        "F.java",
+        include_bytes!("../../../tests/colors/java/Ledger.java"),
+        JAVA,
+        2445..=2445,
+    );
+}
+
 fn fuzz_tree_sitter(name: &str, start: &[u8], snippets: &[&str]) {
-    let sessions = std::env::var("MERL_FUZZ_SESSIONS")
-        .ok()
-        .and_then(|v| v.parse::<u64>().ok())
-        .unwrap_or(40);
+    let env = |name| std::env::var(name).ok().and_then(|v| v.parse::<u64>().ok());
+    let seeds = match env("MERL_FUZZ_SEED") {
+        Some(s) => s..=s,
+        None => 1..=env("MERL_FUZZ_SESSIONS").unwrap_or(40),
+    };
+    replay_tree_sitter(name, start, snippets, seeds);
+}
+
+fn replay_tree_sitter(
+    name: &str,
+    start: &[u8],
+    snippets: &[&str],
+    seeds: std::ops::RangeInclusive<u64>,
+) {
     let theme = crate::theme::load("tokyonight-moon").unwrap();
-    let dir = std::env::temp_dir().join(format!("merl-ts-fuzz-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!(
+        "merl-ts-fuzz-{}-{}",
+        std::process::id(),
+        seeds.start()
+    ));
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join(name);
-    for seed in 1..=sessions {
+    for seed in seeds {
         let mut rng = Xorshift64::new(seed);
         std::fs::write(&path, start).unwrap();
         let mut buf = Buffer::from_bytes(path.clone(), start);
