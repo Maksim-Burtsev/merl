@@ -9,6 +9,7 @@ mod cmake;
 mod collapse;
 mod cursor;
 mod d_bench;
+mod definition_rules;
 mod edit;
 mod edit_fuzz;
 mod find;
