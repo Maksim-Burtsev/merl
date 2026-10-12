@@ -1079,7 +1079,7 @@ mod tests {
         assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
     }
 
-    const COMMENT_LINES: usize = 997;
+    const COMMENT_LINES: usize = 140;
 
     fn comment_lines(text: &str) -> Vec<usize> {
         let b = text.as_bytes();
