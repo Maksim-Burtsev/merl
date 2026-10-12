@@ -31,8 +31,6 @@ impl SearchJob {
         if self.symbols {
             return App::symbol_items(self.symbol_hits().named);
         }
-        // An escaped literal always compiles, but a pasted query can outgrow the matcher's size
-        // limit: it finds nothing then, rather than killing the thread the answer is awaited from.
         let mut hits = self.run(false, true).unwrap_or_default();
         if let (false, Ok(re)) = (
             self.deleted.is_empty(),

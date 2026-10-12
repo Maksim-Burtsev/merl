@@ -10,7 +10,6 @@ use super::{POOL, fresh, set_up};
 use crate::app::{App, Mode, plural};
 use crate::stats;
 
-// Named constants, to recheck after two weeks of real data (#193).
 const MIN_PRESSES_IN_USE_IN_WINDOW: u64 = 3;
 const WORK_FACTOR_MISSED_MORE_THAN_PRESSED: u32 = 5;
 const WORK_FACTOR_UNUSED: u32 = 4;
@@ -21,40 +20,30 @@ const SLOW_TIMES_TYPICAL_HIT: f64 = 1.5;
 const TYPICAL_HIT_OF_LAST_HITS: usize = 100;
 const OTHER_TASKS_BEFORE_KEY_AGAIN: usize = 2;
 const MISSED_TASK_BACK_UNNAMED_AFTER: usize = 3;
+const SUMMARY_KEY_COLUMN: usize = "Alt+Shift+Right ".len();
 
-/// An attempt: the action a task trains and its time in ms, `None` for a miss.
 type Attempt = (&'static str, Option<u32>);
 
 pub struct Drill {
     n: usize,
-    /// This session's answers: the task, as an index into [`POOL`], and its time.
     answers: Vec<(usize, Option<u32>)>,
-    /// Every attempt, the log's and then this session's, the oldest first.
     attempts: Vec<Attempt>,
-    /// Each action's presses and misses in real work, the last [`stats::WINDOW`] days.
     work: HashMap<&'static str, (u64, u64)>,
-    /// `drill.tsv`, a line appended after each answer; `None` writes nothing.
     log: Option<PathBuf>,
     rng: u64,
     started: Instant,
-    /// The task on screen; `None` once the session is over.
     cur: Option<Cur>,
 }
 
 struct Cur {
     task: usize,
-    /// The redo right after a miss: its text names the key, and it is no attempt.
     named: bool,
-    /// Once its start is set up.
     since: Instant,
-    /// The task's action was routed.
     hit: bool,
-    /// `?` was opened.
     looked: bool,
 }
 
 impl Drill {
-    /// A session of `n` tasks, weighed by `keys.tsv` and the attempts in `log`.
     pub fn new(n: usize, keys: Option<&Path>, log: Option<PathBuf>, today: i64) -> Result<Drill> {
         let work = match keys {
             Some(keys) => stats::month(keys, today)?,
@@ -84,7 +73,6 @@ impl Drill {
         })
     }
 
-    /// Work factor × drill factor; never below 1, so no key drops out of the pool.
     fn weight(&self, key: &str) -> u32 {
         let (pressed, missed) = self.work.get(key).copied().unwrap_or_default();
         let work = if missed > pressed {
@@ -120,9 +108,6 @@ impl Drill {
             .is_some_and(|typical| f64::from(ms) > SLOW_TIMES_TYPICAL_HIT * f64::from(typical))
     }
 
-    /// The next slot's task: the one missed [`MISSED_TASK_BACK_UNNAMED_AFTER`] slots before,
-    /// else the first never attempted in `KEYS` order, else one at random by weight among those
-    /// [`OTHER_TASKS_BEFORE_KEY_AGAIN`] slots clear; `None` once all N are answered.
     fn pick(&mut self) -> Option<usize> {
         let slot = self.answers.len();
         if slot >= self.n {
@@ -151,7 +136,7 @@ impl Drill {
                 false => u64::from(self.weight(POOL[t].key)),
             })
             .collect();
-        let mut r = self.random() % weights.iter().sum::<u64>();
+        let mut r = self.splitmix64() % weights.iter().sum::<u64>();
         weights.iter().position(|&w| {
             if r < w {
                 return true;
@@ -161,8 +146,7 @@ impl Drill {
         })
     }
 
-    /// splitmix64.
-    fn random(&mut self) -> u64 {
+    fn splitmix64(&mut self) -> u64 {
         self.rng = self.rng.wrapping_add(0x9E37_79B9_7F4A_7C15);
         let mut z = self.rng;
         z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
@@ -170,8 +154,6 @@ impl Drill {
         z ^ (z >> 31)
     }
 
-    /// Records an attempt and appends it to the log at once: parallel merls need no merge, and
-    /// `q` or a crash keeps the answers given.
     fn answer(&mut self, task: usize, ms: Option<u32>) -> Result<()> {
         let key = POOL[task].key;
         self.answers.push((task, ms));
@@ -191,12 +173,10 @@ impl Drill {
         file.write_all(line.as_bytes()).with_context(ctx)
     }
 
-    /// The last task is answered: merl quits.
     pub fn over(&self) -> bool {
         self.cur.is_none()
     }
 
-    /// The panel's title bar and text: the redo keeps the slot of the miss, and names the key.
     pub fn panel(&self) -> (String, &'static str) {
         let Some(cur) = &self.cur else {
             return (String::new(), "");
@@ -207,8 +187,6 @@ impl Drill {
         (format!(" Drill {slot}/{}", self.n), text)
     }
 
-    /// What merl prints on exit: the tasks answered, and this session's weak keys, its misses
-    /// first, then its slow hits, the slowest first.
     pub fn summary(&self) -> String {
         let secs = self.started.elapsed().as_secs();
         let n = self.answers.len();
@@ -218,7 +196,6 @@ impl Drill {
             secs / 60,
             secs % 60
         );
-        // Misses and the slowest slow hit, by task.
         let mut weak: Vec<(usize, u32, usize)> = Vec::new();
         for &(task, ms) in &self.answers {
             let i = weak.iter().position(|w| w.2 == task).unwrap_or_else(|| {
@@ -236,11 +213,10 @@ impl Drill {
         if weak.is_empty() {
             out.push_str("no weak keys\n");
         }
-        // As wide as `Alt+Shift+Right` and a space, or the longest key and a space.
         let w = weak
             .iter()
             .map(|w| POOL[w.2].key.len() + 1)
-            .fold(16, usize::max);
+            .fold(SUMMARY_KEY_COLUMN, usize::max);
         for (misses, ms, task) in weak {
             let verdict = match misses {
                 0 => format!("{:.1} s", f64::from(ms) / 1000.0),
@@ -253,8 +229,6 @@ impl Drill {
     }
 }
 
-/// `YYYY-MM-DD<TAB>action<TAB>ms` or `miss`; a line that is neither, or names an action no
-/// task trains any more, is dropped. The date is not read: attempts do not age.
 fn parse(text: &str) -> Vec<Attempt> {
     text.lines()
         .filter_map(|line| {
@@ -284,9 +258,6 @@ fn drill(app: &mut App) -> Option<&mut Drill> {
     app.tutor.as_mut()?.drill.as_mut()
 }
 
-/// Called after every key with the action it was routed to, and after a jump a search made:
-/// once the task is done, logs it and sets the next one up, or the same one with its key
-/// named after a miss.
 pub fn check(app: &mut App, action: Option<&str>) {
     let help = app.mode == Mode::Help;
     let Some(cur) = drill(app).and_then(|d| d.cur.as_mut()) else {
@@ -320,7 +291,6 @@ pub fn check(app: &mut App, action: Option<&str>) {
     };
 }
 
-/// Sets the next slot's task up, or ends the session.
 pub fn next(app: &mut App) -> Result<()> {
     let Some(d) = drill(app) else {
         return Ok(());
@@ -334,7 +304,6 @@ pub fn next(app: &mut App) -> Result<()> {
     }
 }
 
-/// `task` from its start on a fresh App; the clock starts once it is set up.
 fn run(app: &mut App, task: usize, named: bool) -> Result<()> {
     let set = fresh(app).map(|()| set_up(app, &POOL[task]));
     if let Some(d) = drill(app) {
@@ -362,14 +331,12 @@ mod tests {
         POOL.iter().position(|t| t.key == key).unwrap()
     }
 
-    /// A drill of `n` tasks that reads and writes no file.
     fn drill(n: usize) -> Drill {
         let mut d = Drill::new(n, None, None, stats::utc_today()).unwrap();
         d.rng = 7;
         d
     }
 
-    /// Asks `d` to its end, missing the slots in `missed` and taking a second over each hit.
     fn session(d: &mut Drill, missed: &[usize]) -> Vec<&'static str> {
         let mut asked = Vec::new();
         while let Some(t) = d.pick() {
@@ -380,7 +347,6 @@ mod tests {
         asked
     }
 
-    /// The pool in `KEYS` order, the order the drill asks unattempted keys in.
     fn in_keys_order() -> Vec<&'static str> {
         stats::ACTIONS
             .iter()
@@ -396,8 +362,6 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let today = stats::utc_today();
         let ago = |days| stats::date(today - days);
-        // Work: `d` missed more often than pressed; `u` pressed twice, and 50 times on the first
-        // day out of the window; `v` never; the rest three times, on the last day in it.
         let mut keys = format!(
             "{}\td\t2\t5\n{}\tu\t2\t0\n{}\tu\t50\t0\n",
             ago(1),
@@ -408,8 +372,6 @@ mod tests {
             keys += &format!("{}\t{k}\t3\t1\n", ago(29));
         }
         std::fs::write(dir.join("keys.tsv"), keys).unwrap();
-        // Drill: a hit takes a second, going by the last 100 hits; the 200 slow ones before them
-        // are out of the median.
         let mut log = String::new();
         for ms in [5000; 200].into_iter().chain([1000; 100]) {
             log += &format!("{}\tn\t{ms}\n", ago(9));
@@ -457,6 +419,17 @@ mod tests {
             assert_eq!(d.weight(key), weight, "{key}: {why}");
         }
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_log_line_neither_a_time_nor_a_miss_or_of_a_key_no_task_trains_is_dropped() {
+        assert_eq!(
+            parse(
+                "2026-01-01\td\t900\nnot a date\to\tmiss\n2026-01-01\tgone\t900\n\
+                 2026-01-01\td\tfast\n2026-01-01\td\n\n"
+            ),
+            [("d", Some(900)), ("o", None)]
+        );
     }
 
     #[test]
@@ -510,8 +483,6 @@ mod tests {
         a.tutor.as_ref().unwrap().drill.as_ref().unwrap().panel()
     }
 
-    /// A drill of `n` tasks over the copy `name` of the sample project, logging to a file of its
-    /// own.
     fn drill_app(name: &str, n: usize) -> (App, PathBuf) {
         let mut a = app(name, (80, 24));
         let log = dir(name).with_extension("tsv");
@@ -521,7 +492,6 @@ mod tests {
         (a, log)
     }
 
-    /// The log's lines without their dates.
     fn logged(log: &Path) -> Vec<String> {
         let text = std::fs::read_to_string(log).unwrap_or_default();
         text.lines()
