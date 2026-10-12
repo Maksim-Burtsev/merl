@@ -1,9 +1,4 @@
 #!/usr/bin/env bash
-# The jobs of .github/workflows/ci.yml, which calls this script for each of them.
-#   tools/ci-local            every step, stopping at the first that fails
-#   tools/ci-local STEP...    only those steps
-# `panic` runs only when named or on a release/ branch, as in CI.
-# `deny` is the check of .github/workflows/deny.yml, and fails when cargo-deny is not installed.
 set -Eeuo pipefail
 cd "$(dirname "$0")/.."
 

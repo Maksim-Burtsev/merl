@@ -1211,4 +1211,203 @@ b";
             found.join("\n")
         );
     }
+
+    const USAGE: &str = "the program reads its docstring as `__doc__` and prints it as its usage, \
+         so it is behaviour, not a comment; steps 1-6 kept to src/ and never read the tools; without \
+         it the tool has no help, which no name or commit message can print";
+
+    const KEPT_COMMENTS: &[(&str, &str, &str)] = &[
+        (
+            "tools/cast.py",
+            r#""""Record merl in a tmux pane as an animated GIF that reads like a screen recording."#,
+            USAGE,
+        ),
+        (
+            "tools/nvim2tmtheme.py",
+            r#""""Convert a Neovim highlight dump into a TextMate .tmTheme for syntect, and the"#,
+            USAGE,
+        ),
+        (
+            "tools/vscode2tmtheme.py",
+            r#""""Convert a VS Code JSON colour theme into a TextMate .tmTheme for syntect."#,
+            USAGE,
+        ),
+        (
+            "tools/fold-bench/run",
+            r#""""The fold bench: `f` pressed on the lines of real projects, against a reference."#,
+            USAGE,
+        ),
+        (
+            "tools/fold-bench/record.py",
+            r#""""Records the reference of the fold bench: what Neovim folds with nvim-treesitter's `folds.scm`"#,
+            USAGE,
+        ),
+        (
+            "tools/theme-bench/record.py",
+            r#""""Records the reference of the theme bench: the colours LazyVim paints on the same files, per"#,
+            USAGE,
+        ),
+        (
+            "tools/theme-bench/run",
+            r#""""The theme bench: merl's colours against LazyVim's, character by character."#,
+            USAGE,
+        ),
+        (
+            "tools/d-bench/run",
+            r#""""The `d` bench: press `d` on recorded cursors in pinned real projects, score merl's answer"#,
+            USAGE,
+        ),
+        (
+            "tools/d-bench/record.py",
+            r#""""Recording the `d` bench, once, on a recording machine: never in merl, never in CI."#,
+            USAGE,
+        ),
+        (
+            "tests/smoke/run.py",
+            r#""""The smoke test: before a release, plays every scenario in tmux on the new build and on the last"#,
+            USAGE,
+        ),
+        (
+            "assets/tapes/record.py",
+            r#""""Records one of the README's GIFs: a real terminal session, played back at the speed it ran."#,
+            USAGE,
+        ),
+        (
+            "tools/shot.py",
+            r#""""Renders a `tmux capture-pane -e` dump into a PNG, in the colours of the owner's terminal:"#,
+            USAGE,
+        ),
+    ];
+
+    const SCRIPTS: &[&str] = &[
+        "tools",
+        "tests/smoke/run.py",
+        "tests/smoke/setup.sh",
+        "assets/tapes",
+        ".claude/hooks",
+        ".github",
+        "Cargo.toml",
+        "deny.toml",
+    ];
+    const SCRIPT_DATA: &[&str] = &[
+        "tools/d-bench/answers",
+        "tools/fold-bench/folds",
+        "tools/themes-src",
+    ];
+
+    fn script_files(root: &Path, name: &str, out: &mut Vec<String>) {
+        let path = root.join(name);
+        if SCRIPT_DATA.contains(&name) || name.ends_with("__pycache__") {
+        } else if path.is_dir() {
+            for entry in std::fs::read_dir(&path).unwrap() {
+                let file = entry.unwrap().file_name();
+                script_files(root, &format!("{name}/{}", file.to_str().unwrap()), out);
+            }
+        } else {
+            out.push(name.to_string());
+        }
+    }
+
+    fn script_comment_lines(name: &str, text: &str) -> Vec<usize> {
+        let shebang = text.lines().next().filter(|l| l.starts_with("#!"));
+        let ext = Path::new(name).extension().and_then(|e| e.to_str());
+        let (prefix, python) = match (ext, shebang) {
+            (Some("py"), _) => ("#", true),
+            (Some("sh" | "yml" | "yaml" | "toml"), _) => ("#", false),
+            (Some("lua"), _) => ("--", false),
+            (None, Some(s)) => ("#", s.contains("python")),
+            _ => return Vec::new(),
+        };
+        let mut quote: Option<&str> = None;
+        let mut lines = Vec::new();
+        for (i, line) in text.lines().enumerate() {
+            if quote.is_none()
+                && line.trim_start().starts_with(prefix)
+                && !(i == 0 && shebang.is_some())
+            {
+                lines.push(i + 1);
+                continue;
+            }
+            if !python {
+                continue;
+            }
+            let mut rest = line;
+            loop {
+                let found = match quote {
+                    Some(q) => rest.find(q).map(|at| (at, q)),
+                    None => ["\"\"\"", "'''"]
+                        .into_iter()
+                        .filter_map(|q| rest.find(q).map(|at| (at, q)))
+                        .min(),
+                };
+                let Some((at, q)) = found else { break };
+                quote = if quote.is_some() { None } else { Some(q) };
+                rest = &rest[at + 3..];
+            }
+        }
+        lines
+    }
+
+    #[test]
+    fn script_comment_lines_skip_shebangs_and_python_strings() {
+        let py = "#!/usr/bin/env python3\n\"\"\"Usage:\n# no\n\"\"\"\nx = '''a''' # no\n  # one\ny = \"\"\"\n# no\n'''\n\"\"\"\n# two\n";
+        assert_eq!(script_comment_lines("a.py", py), [6, 11]);
+        assert_eq!(script_comment_lines("tools/run", py), [6, 11]);
+        let sh = "#!/bin/sh\n# one\necho '# no'\n  # two\n";
+        assert_eq!(script_comment_lines("tools/x", sh), [2, 4]);
+        assert_eq!(script_comment_lines("a.yml", "a: 1 # no\n# one\n"), [2]);
+        assert_eq!(script_comment_lines("a.lua", "-- one\nx = 1 -- no\n"), [1]);
+        assert!(script_comment_lines("a.tsv", "# no\n").is_empty());
+    }
+
+    #[test]
+    fn scripts_and_config_hold_no_comment_but_the_kept_ones() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut files = Vec::new();
+        for name in SCRIPTS {
+            script_files(root, name, &mut files);
+        }
+        files.sort();
+        let mut wrong = Vec::new();
+        for name in &files {
+            let text = std::fs::read_to_string(root.join(name)).unwrap_or_default();
+            let lines: Vec<&str> = text.lines().collect();
+            let mut found = script_comment_lines(name, &text);
+            for &(_, first, _) in KEPT_COMMENTS.iter().filter(|(f, ..)| f == name) {
+                let Some(at) = lines.iter().position(|l| l.trim() == first) else {
+                    wrong.push(format!(
+                        "{name}: `{first}` is gone: take it off KEPT_COMMENTS"
+                    ));
+                    continue;
+                };
+                if first.starts_with("\"\"\"") && !text.contains("__doc__") {
+                    wrong.push(format!(
+                        "{name}: its docstring is no longer read as `__doc__`"
+                    ));
+                }
+                let mut line = at + 1;
+                while let Some(i) = found.iter().position(|&l| l == line) {
+                    found.remove(i);
+                    line += 1;
+                }
+            }
+            wrong.extend(
+                found
+                    .iter()
+                    .map(|l| format!("{name}:{l}: {}", lines[l - 1].trim())),
+            );
+        }
+        for (f, first, _) in KEPT_COMMENTS {
+            if !files.iter().any(|n| n == f) {
+                wrong.push(format!("{f}: `{first}` is gone: take it off KEPT_COMMENTS"));
+            }
+        }
+        assert!(
+            wrong.is_empty(),
+            "code carries no comments; move the why into the commit message and the what into a \
+             name or a test, or list a comment the code cannot do without in KEPT_COMMENTS with \
+             its reason:\n{}",
+            wrong.join("\n")
+        );
+    }
 }
