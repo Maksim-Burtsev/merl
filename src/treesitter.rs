@@ -13,6 +13,7 @@ use crate::buffer::{Buffer, Spans};
 use crate::theme::Theme;
 
 const NEOVIM_TREESITTER_PRIORITY: u32 = 100;
+const PATTERN_DEPTH: usize = 4;
 
 const QUERIES: &[(&str, &str, &str)] = &[
     (
@@ -91,6 +92,16 @@ const QUERIES: &[(&str, &str, &str)] = &[
         "yaml",
         include_str!("../queries/yaml/highlights.scm"),
         include_str!("../queries/yaml/injections.scm"),
+    ),
+    (
+        "lua",
+        include_str!("../queries/lua/highlights.scm"),
+        include_str!("../queries/lua/injections.scm"),
+    ),
+    (
+        "luadoc",
+        include_str!("../queries/luadoc/highlights.scm"),
+        "",
     ),
 ];
 
@@ -225,6 +236,7 @@ pub fn for_syntax(syntect_name: &str, path: Option<&Path>) -> Option<&'static La
         "Markdown" => lang("markdown"),
         "TypeScript" => lang("typescript"),
         "TypeScriptReact" if !astro => lang("tsx"),
+        "Lua" => lang("lua"),
         _ => None,
     }
 }
@@ -258,6 +270,8 @@ fn grammar(name: &str) -> Option<Language> {
         "jsdoc" => tree_sitter_jsdoc::LANGUAGE.into(),
         "typescript" => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
         "tsx" => tree_sitter_typescript::LANGUAGE_TSX.into(),
+        "lua" => tree_sitter_lua::LANGUAGE.into(),
+        "luadoc" => tree_sitter_luadoc::LANGUAGE.into(),
         _ => return None,
     })
 }
@@ -438,6 +452,17 @@ fn patterns(
         offsets,
         settings,
     })
+}
+
+fn pattern_start_row(new: &Tree, byte: usize) -> usize {
+    std::iter::successors(new.root_node().descendant_for_byte_range(byte, byte), |n| {
+        n.parent()
+    })
+    .filter(|n| n.parent().is_some())
+    .take(PATTERN_DEPTH)
+    .map(|n| n.start_position().row)
+    .min()
+    .unwrap_or(usize::MAX)
 }
 
 fn vim_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
@@ -655,7 +680,11 @@ impl Parsed {
         let from = match &self.tree {
             Some(old) => old
                 .changed_ranges(&tree)
-                .map(|r| r.start_point.row)
+                .map(|r| {
+                    r.start_point
+                        .row
+                        .min(pattern_start_row(&tree, r.start_byte))
+                })
                 .fold(from, usize::min),
             None => 0,
         };

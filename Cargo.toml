@@ -45,6 +45,8 @@ tree-sitter-rust = "=0.24.2"
 tree-sitter-toml-ng = "=0.7.0"
 tree-sitter-typescript = "=0.23.2"
 tree-sitter-yaml = { git = "https://github.com/tree-sitter-grammars/tree-sitter-yaml", rev = "a1c4812a73ec5e089de8e441fdea3a921e8d5079" }
+tree-sitter-lua = "=0.5.0"
+tree-sitter-luadoc = { git = "https://github.com/tree-sitter-grammars/tree-sitter-luadoc", rev = "4d04632a3a398b78af52e83be074883e722f40be" }
 two-face = "0.5"
 unicase = "2.6"
 unicode-segmentation = "1"

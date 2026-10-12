@@ -86,6 +86,18 @@ Markdown's code blocks):
   `queries/jsx/highlights.scm` (a member expression tag such as `<Icons.Close>`), which merl does
   not load.
 
+Lua (#806), with its injections (`---@` comments parsed as `luadoc`, `string.format` strings as
+`printf`); the bench's four files are redis's `deps/lua`, the only Lua of the d-bench projects,
+so the language takes files of 25 recordable lines rather than 80:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Lua | 4,590 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
+- The pattern of `find`, `match`, `gmatch` and `gsub`: Neovim parses it as `luap`, whose crates
+  build against tree-sitter 0.20; merl colours it as one `@string.regexp`
+  (`tests/colors/lua/NOTES.md`). None of the bench's files has one.
+
 ## Files
 
 | file | what |
@@ -109,8 +121,8 @@ cache, so neither `~/.config/nvim` nor a system-wide `site` directory reaches it
 
 The files: four per language from the projects of `tools/d-bench/projects.tsv` at their pinned
 commits (Python from paperless-ngx, Rust from ripgrep, TypeScript and TSX from outline,
-JavaScript from eslint, JSX from mastodon, Go from caddy, Markdown from ripgrep, caddy, outline
-and paperless-ngx, Bash, JSON, YAML and TOML from redis, paperless-ngx, ripgrep, caddy and eslint
+JavaScript from eslint, JSX from mastodon, Go from caddy, Lua from redis, Markdown from ripgrep, caddy,
+outline and paperless-ngx, Bash, JSON, YAML and TOML from redis, paperless-ngx, ripgrep, caddy and eslint
 as `LANGS` in `record.py` lists them), taken in the order of the hash of their path, each with at least 80
 lines among its first 200 that are ASCII and at most 140 columns: those are the lines recorded,
 so both programs draw all of them and each character has one cell.
