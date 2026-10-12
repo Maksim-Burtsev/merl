@@ -25,11 +25,14 @@ impl App {
         let unread = (self.review.as_ref())
             .and_then(|r| r.files.iter().filter(stop).find(|f| !self.viewed.contains_key(&f.path)).cloned());
         let all_viewed = unread.is_none();
-        let first = unread.or_else(|| {
-            (self.review.as_ref()).and_then(|r| r.files.iter().find(stop).cloned())
+        let any_first = (self.review.as_ref()).and_then(|r| r.files.iter().find(stop).cloned());
+        let opened_ticked_first = any_first.as_ref().is_some_and(|f| {
+            self.viewed.contains_key(&f.path)
+                && self.buf.path.as_deref() == Some(self.root.join(&f.path).as_path())
         });
+        let first = unread.or(any_first);
         let first_stop = first.as_ref().map(|f| f.path.clone());
-        if self.buf.path.is_none()
+        if (self.buf.path.is_none() || opened_ticked_first && !all_viewed)
             && let Some(f) = first
         {
             self.open_review_file(&f, false);
