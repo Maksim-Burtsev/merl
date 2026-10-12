@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::ops::ControlFlow;
+use std::path::Path;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
@@ -14,7 +15,22 @@ use crate::theme::Theme;
 const NEOVIM_TREESITTER_PRIORITY: u32 = 100;
 
 const QUERIES: &[(&str, &str, &str)] = &[
+    (
+        "ecma",
+        include_str!("../queries/ecma/highlights.scm"),
+        include_str!("../queries/ecma/injections.scm"),
+    ),
     ("go", include_str!("../queries/go/highlights.scm"), ""),
+    (
+        "javascript",
+        include_str!("../queries/javascript/highlights.scm"),
+        include_str!("../queries/javascript/injections.scm"),
+    ),
+    (
+        "jsx",
+        include_str!("../queries/jsx/highlights.scm"),
+        include_str!("../queries/jsx/injections.scm"),
+    ),
     ("rust", include_str!("../queries/rust/highlights.scm"), ""),
     (
         "python",
@@ -37,9 +53,30 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/printf/highlights.scm"),
         "",
     ),
+    (
+        "tsx",
+        include_str!("../queries/tsx/highlights.scm"),
+        include_str!("../queries/tsx/injections.scm"),
+    ),
+    (
+        "typescript",
+        include_str!("../queries/typescript/highlights.scm"),
+        include_str!("../queries/typescript/injections.scm"),
+    ),
 ];
 
-const ALIASES: &[(&str, &str)] = &[("py", "python"), ("gyp", "python"), ("pandoc", "markdown")];
+const ALIASES: &[(&str, &str)] = &[
+    ("py", "python"),
+    ("gyp", "python"),
+    ("pandoc", "markdown"),
+    ("javascriptreact", "javascript"),
+    ("ecma", "javascript"),
+    ("ecmascript", "javascript"),
+    ("jsx", "javascript"),
+    ("js", "javascript"),
+    ("typescriptreact", "tsx"),
+    ("ts", "typescript"),
+];
 
 const PREDICATES: &[&str] = &[
     "eq?",
@@ -62,7 +99,7 @@ const INJECTION_KEYS: &[&str] = &[
     "injection.combined",
     "injection.include-children",
 ];
-const CAPTURE_KEYS: &[&str] = &["url", "conceal"];
+const CAPTURE_KEYS: &[&str] = &["url", "conceal", "bo.commentstring"];
 
 type Offset = (u32, [i64; 4]);
 
@@ -138,12 +175,16 @@ pub struct Lang {
     injections: Option<Patterns>,
 }
 
-pub fn for_syntax(syntect_name: &str) -> Option<&'static Lang> {
+pub fn for_syntax(syntect_name: &str, path: Option<&Path>) -> Option<&'static Lang> {
+    let astro = path.is_some_and(|p| p.extension().is_some_and(|e| e == "astro"));
     match syntect_name {
         "Go" => lang("go"),
+        "JavaScript (Babel)" => lang("javascript"),
         "Python" => lang("python"),
         "Rust" => lang("rust"),
         "Markdown" => lang("markdown"),
+        "TypeScript" => lang("typescript"),
+        "TypeScriptReact" if !astro => lang("tsx"),
         _ => None,
     }
 }
@@ -157,6 +198,9 @@ fn grammar(name: &str) -> Option<Language> {
         "markdown_inline" => tree_sitter_md::INLINE_LANGUAGE.into(),
         "regex" => tree_sitter_regex::LANGUAGE.into(),
         "printf" => tree_sitter_printf::LANGUAGE.into(),
+        "javascript" => tree_sitter_javascript::LANGUAGE.into(),
+        "typescript" => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
+        "tsx" => tree_sitter_typescript::LANGUAGE_TSX.into(),
         _ => return None,
     })
 }

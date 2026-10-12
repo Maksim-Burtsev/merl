@@ -65,6 +65,24 @@ yet colour as LazyVim does, drawn through syntect as before or waiting for Rust'
 | fenced `yaml` blocks and the YAML front matter | 33 | 38 | 2 | #806 |
 | fenced `toml` blocks | 23 | 17 | 3 | #806 |
 
+TypeScript, TSX, JavaScript and JSX (#804), with #803's injections (regex literals parsed as
+`regex`; an injected language merl has no grammar for, such as `t` in ``t(`…`)``, is left plain as
+in Neovim, the syntect fallback being only for Markdown's code blocks):
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| TypeScript | 13,701 | 98.8 adwaita | 98.8 | 99.3 material-light |
+| TSX | 9,700 | 99.5 github-dark | 99.8 | 99.9 material-light |
+| JavaScript | 13,199 | 95.7 adwaita | 95.7 | 96.1 srcery |
+| JSX | 14,130 | 100.0 | 100.0 | 100.0 |
+
+- `jsdoc` (#818): in `/** */` comments, tags such as `@param`, their `{types}` and names, which
+  LazyVim parses as `jsdoc` and merl has no grammar for yet: almost all the misses of JavaScript
+  and TypeScript, the same in every theme.
+- The theme's own queries (#819): github-dark and github-light append github-nvim-theme's
+  `queries/jsx/highlights.scm` (a member expression tag such as `<Icons.Close>`), which merl does
+  not load.
+
 ## Files
 
 | file | what |
@@ -79,15 +97,17 @@ yet colour as LazyVim does, drawn through syntect as before or waiting for Rust'
 ## The reference
 
 LazyVim as the epic defines it: Neovim with the theme's own colorscheme, nvim-treesitter's
-queries (`main`, pinned in `record.py`) and the parsers LazyVim installs by default plus Rust and
+queries and plugin (`main`, pinned in `record.py`; the plugin maps `typescriptreact` to `tsx` and
+`javascriptreact` to `javascript`, #804) and the parsers LazyVim installs by default plus Rust and
 Go, built with `cc` at the revisions nvim-treesitter pins, `termguicolors`, `number`,
 `cursorline`, `nowrap`, and `vim.treesitter.start` on every buffer; no LSP, so no semantic
 tokens. Neovim runs in tmux with every `XDG_*` home and `XDG_CONFIG_DIRS` / `XDG_DATA_DIRS` under the
 cache, so neither `~/.config/nvim` nor a system-wide `site` directory reaches it.
 
 The files: four per language from the projects of `tools/d-bench/projects.tsv` at their pinned
-commits (Python from paperless-ngx, Rust from ripgrep, TypeScript from outline, Go from caddy,
-Markdown from those four), taken in the order of the hash of their path, each with at least 80
+commits (Python from paperless-ngx, Rust from ripgrep, TypeScript and TSX from outline,
+JavaScript from eslint, JSX from mastodon, Go from caddy, Markdown from ripgrep, caddy, outline
+and paperless-ngx), taken in the order of the hash of their path, each with at least 80
 lines among its first 200 that are ASCII and at most 140 columns: those are the lines recorded,
 so both programs draw all of them and each character has one cell.
 

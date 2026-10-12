@@ -13,10 +13,13 @@ pub enum Target {
 }
 
 impl Target {
-    fn of(name: &str) -> Option<Self> {
-        resolve(name)
-            .map(Target::Tree)
-            .or_else(|| crate::buffer::syntax_for_info(name).map(Target::Syntect))
+    fn of(name: &str, syntect: bool) -> Option<Self> {
+        resolve(name).map(Target::Tree).or_else(|| {
+            syntect
+                .then(|| crate::buffer::syntax_for_info(name))
+                .flatten()
+                .map(Target::Syntect)
+        })
     }
 
     fn same(&self, other: &Self) -> bool {
@@ -186,6 +189,7 @@ pub fn injections(lang: &Lang, tree: &Tree, parent: Option<&[Range]>, doc: &Doc)
     let names = inj.query.capture_names();
     let mut out: Vec<Injected> = Vec::new();
     let mut combined: Vec<(usize, usize, usize)> = Vec::new();
+    let syntect = lang.name.starts_with("markdown");
     let mut matches = cursor.matches(&inj.query, tree.root_node(), doc.bytes);
     while let Some(m) = matches.next() {
         if !inj.matches(m, doc.bytes) {
@@ -195,7 +199,7 @@ pub fn injections(lang: &Lang, tree: &Tree, parent: Option<&[Range]>, doc: &Doc)
         let mut target = inj
             .setting(p, "injection.language")
             .flatten()
-            .and_then(Target::of);
+            .and_then(|n| Target::of(n, syntect));
         let children = inj.setting(p, "injection.include-children").is_some();
         let mut ranges = Vec::new();
         for c in m.captures() {
@@ -205,7 +209,7 @@ pub fn injections(lang: &Lang, tree: &Tree, parent: Option<&[Range]>, doc: &Doc)
                     let r = doc.range(c.node, offset);
                     target = std::str::from_utf8(&doc.bytes[r.start_byte..r.end_byte])
                         .ok()
-                        .and_then(Target::of);
+                        .and_then(|n| Target::of(n, syntect));
                 }
                 "injection.content" => ranges.extend(doc.node_ranges(c.node, offset, children)),
                 _ => {}

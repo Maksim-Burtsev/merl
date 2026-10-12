@@ -130,7 +130,7 @@ impl Buffer {
     pub(crate) fn start_tree_sitter(&mut self) {
         self.ts = self
             .syntax
-            .and_then(|s| treesitter::for_syntax(&s.name))
+            .and_then(|s| treesitter::for_syntax(&s.name, self.path.as_deref()))
             .and_then(|lang| treesitter::Parsed::new(lang, &self.lines));
         self.clear_hl();
     }

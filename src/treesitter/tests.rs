@@ -209,10 +209,56 @@ fn rust_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn typescript_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("typescript");
+}
+
+#[test]
+fn tsx_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("tsx");
+}
+
+#[test]
+fn javascript_and_jsx_are_coloured_as_lazyvim() {
+    coloured_as_lazyvim("javascript");
+}
+
+#[test]
+fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
+    let sexp = |f: &str, src: &[u8]| {
+        let mut b = Buffer::from_bytes(PathBuf::from(f), src);
+        b.start_tree_sitter();
+        b.parse_more(None);
+        b.sexp()
+    };
+    let jsx = b"const a = <b />;\n";
+    for f in ["a.tsx", "a.jsx", "a.js", "a.mjs", "a.cjs"] {
+        assert!(sexp(f, jsx).contains("jsx_self_closing_element"), "{f}");
+    }
+    let ts = b"let a = <b>c;\n";
+    for f in ["a.ts", "a.mts", "a.cts"] {
+        assert!(sexp(f, ts).contains("type_assertion"), "{f}");
+    }
+    assert_eq!(sexp("a.astro", jsx), "");
+}
+
+#[test]
 fn every_vendored_query_compiles_with_what_it_uses() {
+    let inherited: Vec<&str> = super::QUERIES
+        .iter()
+        .flat_map(|(_, highlights, injections)| highlights.lines().chain(injections.lines()))
+        .filter_map(|l| l.strip_prefix("; inherits:"))
+        .flat_map(|bases| bases.split(','))
+        .map(str::trim)
+        .collect();
     for (name, _, _) in super::QUERIES {
-        super::compile(name, super::grammar(name).unwrap()).unwrap();
-        assert!(super::lang(name).is_some(), "{name}");
+        match super::grammar(name) {
+            Some(grammar) => {
+                super::compile(name, grammar).unwrap();
+                assert!(super::lang(name).is_some(), "{name}");
+            }
+            None => assert!(inherited.contains(name), "{name}"),
+        }
     }
 }
 
@@ -489,4 +535,27 @@ fn speed() {
             }
         }
     }
+}
+
+#[test]
+fn an_injected_language_without_a_grammar_stays_plain_outside_markdown() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let lang = super::lang("tsx").unwrap();
+    let fg_at = |src: &str, word: &str| {
+        let lines = vec![src.to_string()];
+        let mut parsed = super::Parsed::new(lang, &lines).unwrap();
+        parsed.parse(None);
+        let mut styles = super::Styles::new(&theme);
+        let col = src.find(word).unwrap();
+        parsed.spans(&lines, 0, 0, &mut styles)[0]
+            .iter()
+            .find(|(_, r)| r.contains(&col))
+            .unwrap()
+            .0
+            .fg
+    };
+    assert_eq!(
+        fg_at("t(`Add people to x`);", "Add"),
+        fg_at("x(`Add people to x`);", "Add")
+    );
 }
