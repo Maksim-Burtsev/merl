@@ -29,6 +29,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/c/injections.scm"),
     ),
     (
+        "cpp",
+        include_str!("../queries/cpp/highlights.scm"),
+        include_str!("../queries/cpp/injections.scm"),
+    ),
+    (
         "css",
         include_str!("../queries/css/highlights.scm"),
         include_str!("../queries/css/injections.scm"),
@@ -281,6 +286,7 @@ pub fn for_syntax(
     match syntect_name {
         "Bourne Again Shell (bash)" if !path.is_some_and(zsh) => lang("bash"),
         "C" => lang("c"),
+        "C++" if cpp(path, lines) => lang("cpp"),
         "CSS" => lang("css"),
         "HTML" if !html_variant(lines) => lang("html"),
         "XML" if xml(path, lines) => lang("xml"),
@@ -314,6 +320,19 @@ fn html_variant(lines: &[String]) -> bool {
     lines.iter().take(40).any(|l| re.is_match(l))
 }
 
+fn cpp(path: Option<&Path>, lines: &[String]) -> bool {
+    match path.and_then(|p| p.extension()).and_then(|e| e.to_str()) {
+        Some("cp") => false,
+        Some("h") => !lines.iter().take(200).any(|l| {
+            let lower = l.to_lowercase();
+            ["@interface", "@end", "@class"]
+                .iter()
+                .any(|m| lower.starts_with(m))
+        }),
+        _ => true,
+    }
+}
+
 fn xml(path: Option<&Path>, lines: &[String]) -> bool {
     let ext = path.and_then(|p| p.extension()).and_then(|e| e.to_str());
     !matches!(ext, Some("tld" | "opml" | "dtml"))
@@ -342,6 +361,7 @@ fn grammar(name: &str) -> Option<Language> {
     Some(match name {
         "bash" => tree_sitter_bash::LANGUAGE.into(),
         "c" => tree_sitter_c::LANGUAGE.into(),
+        "cpp" => tree_sitter_cpp::LANGUAGE.into(),
         "css" => tree_sitter_css::LANGUAGE.into(),
         "html" => tree_sitter_html::LANGUAGE.into(),
         "xml" => tree_sitter_xml::LANGUAGE_XML.into(),

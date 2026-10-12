@@ -255,6 +255,11 @@ fn c_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn cpp_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("cpp");
+}
+
+#[test]
 fn html_and_the_css_and_javascript_in_it_are_coloured_as_lazyvim() {
     coloured_as_lazyvim("html");
 }
@@ -311,7 +316,13 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
         assert!(sexp(f, b"a = 1\n").contains("(pair "), "{f}");
     }
     assert!(sexp("a.c", b"int x;\n").contains("(translation_unit "));
-    assert_eq!(sexp("a.h", b"int x;\n"), "");
+    for f in [
+        "a.h", "a.cc", "a.cpp", "a.cxx", "a.c++", "a.hh", "a.hpp", "a.hxx", "a.inl",
+    ] {
+        assert!(sexp(f, b"int x;\n").contains("(translation_unit "), "{f}");
+    }
+    assert_eq!(sexp("a.cp", b"int x;\n"), "");
+    assert_eq!(sexp("a.h", b"#import <A.h>\n@interface A\n@end\n"), "");
     for f in ["a.html", "a.htm"] {
         assert!(sexp(f, b"<p>a</p>\n").contains("(element "), "{f}");
     }
