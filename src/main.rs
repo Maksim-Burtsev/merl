@@ -65,6 +65,7 @@ enum Msg {
 #[command(name = "merl", version, about)]
 struct Cli {
     /// Directory, file, or FILE:LINE[:COL] to open (default: the current directory)
+    #[arg(value_hint = clap::ValueHint::AnyPath)]
     target: Option<String>,
     /// Colour theme
     #[arg(short, long, value_name = "NAME")]
