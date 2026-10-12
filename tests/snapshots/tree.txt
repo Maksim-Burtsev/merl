@@ -65,7 +65,7 @@ k fg #c8d3f5 bg #2d3f76
 l fg #65bcff bg #222436
 m fg #ffc777 bg #222436
 n fg #ff966c bg #222436
-o fg #ff966c bg #2f334d
+o fg #ff966c bg #2f334d BOLD
 p fg #c8d3f5 bg #2f334d
 q fg #ff757f bg #2f334d
 r fg #89ddff bg #2f334d
@@ -201,7 +201,7 @@ k fg #9abdf5 bg #222436
 l fg #65bcff bg #222436
 m fg #ffc777 bg #222436
 n fg #ff966c bg #222436
-o fg #ff966c bg #2f334d
+o fg #ff966c bg #2f334d BOLD
 p fg #c8d3f5 bg #2f334d
 q fg #ff757f bg #2f334d
 r fg #89ddff bg #2f334d
@@ -390,7 +390,7 @@ k fg #9abdf5 bg #222436
 l fg #65bcff bg #222436
 m fg #ffc777 bg #222436
 n fg #ff966c bg #222436
-o fg #ff966c bg #2f334d
+o fg #ff966c bg #2f334d BOLD
 p fg #c8d3f5 bg #2f334d
 q fg #ff757f bg #2f334d
 r fg #89ddff bg #2f334d

@@ -30,7 +30,10 @@ pub(super) fn draw_prompt(
 }
 
 pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
-    let style = Style::new().bg(theme.status_bg).fg(theme.status_fg);
+    let style = Style::new()
+        .bg(theme.status_bg)
+        .fg(theme.status_fg)
+        .add_modifier(theme.modifiers(&["StatusLine"]));
     let prefix = match app.mode {
         Mode::Goto => ":",
         Mode::Find => "/",

@@ -332,7 +332,7 @@ g fg #c8d3f5 bg #222436 BOLD
 h fg #7d849f bg #222436
 i fg #c099ff bg #222436
 j fg #c8d3f5 bg #282b41
-k fg #ff966c bg #2f334d
+k fg #ff966c bg #2f334d BOLD
 l fg #c8d3f5 bg #2f334d
 m fg #82aaff bg #1e2030 BOLD
 n fg #828bb8 bg #1e2030

@@ -234,7 +234,10 @@ pub fn resolve(alias: &str) -> Option<&'static Lang> {
         .iter()
         .find(|(a, _)| *a == alias)
         .map_or(alias.as_str(), |(_, n)| n);
-    lang(name)
+    lang(name).or_else(|| {
+        let syntax = crate::buffer::syntax_for_info(&alias)?;
+        for_syntax(&syntax.name, Some(Path::new(&format!("a.{alias}"))))
+    })
 }
 
 fn source(
@@ -638,6 +641,11 @@ impl Parsed {
             .map(|t| t.root_node().to_sexp())
             .unwrap_or_default()
     }
+
+    #[cfg(test)]
+    pub fn root_bytes(&self) -> Option<std::ops::Range<usize>> {
+        self.tree.as_ref().map(|t| t.root_node().byte_range())
+    }
 }
 
 fn runs(row: &[Style]) -> Spans {
@@ -720,6 +728,18 @@ const TEXTMATE: &[(&str, &str)] = &[
     ("keyword.operator", "keyword.operator"),
     ("keyword.type", "storage.type"),
     ("label", "entity.name.label"),
+    ("markup", "markup"),
+    ("markup.heading", "markup.heading"),
+    ("markup.italic", "markup.italic"),
+    ("markup.link", "markup.underline.link"),
+    ("markup.link.label", "string.other.link"),
+    ("markup.list", "markup.list"),
+    ("markup.quote", "markup.quote"),
+    ("markup.raw", "markup.inline.raw"),
+    ("markup.raw.block", "markup.fenced_code"),
+    ("markup.strikethrough", "markup.strikethrough"),
+    ("markup.strong", "markup.bold"),
+    ("markup.underline", "markup.underline"),
     ("module", "entity.name.namespace"),
     ("number", "constant.numeric"),
     ("operator", "keyword.operator"),

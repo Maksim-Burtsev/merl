@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 
 use ratatui::style::{Color, Modifier};
 
+use super::resolve;
 use crate::buffer::Buffer;
 use crate::theme;
 
@@ -359,6 +360,40 @@ fn a_theme_without_groups_still_colours_every_kind_of_capture() {
             .foreground
             .map(|c| Color::Rgb(c.r, c.g, c.b))
     );
+}
+
+#[test]
+fn a_theme_without_groups_colours_markdown_by_its_markup_scopes() {
+    for name in ["shokunin-dark", "seneca"] {
+        let theme = theme::load(name).unwrap();
+        assert!(theme.groups.is_empty());
+        let src = "# Title\n\n**bold** `code` [l](u)\n";
+        let mut b = Buffer::from_bytes(PathBuf::from("a.md"), src.as_bytes());
+        b.start_tree_sitter();
+        b.parse_more(None);
+        b.highlight_to(usize::MAX, &theme);
+        let normal = theme
+            .syntect
+            .settings
+            .foreground
+            .map(|c| Color::Rgb(c.r, c.g, c.b));
+        let heading = b.hl[0].iter().find(|(_, r)| r.contains(&3)).unwrap().0;
+        assert!(
+            heading.fg != normal || !heading.add_modifier.is_empty(),
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
+    let name = |alias| resolve(alias).map(|l| l.name);
+    assert_eq!(name("rs"), Some("rust"));
+    assert_eq!(name("md"), Some("markdown"));
+    assert_eq!(name("rust"), Some("rust"));
+    assert_eq!(name("pandoc"), Some("markdown"));
+    assert_eq!(name("astro"), None);
+    assert_eq!(name("yaml"), None);
 }
 
 #[test]

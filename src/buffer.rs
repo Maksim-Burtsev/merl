@@ -1,6 +1,7 @@
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use anyhow::{Context, Result};
@@ -22,10 +23,24 @@ const MAX_SHOWN_BYTES: usize = 20_000;
 pub const PARSE_STEP: Duration = Duration::from_micros(500);
 pub const PARSE_IDLE_STEP: Duration = Duration::from_millis(3);
 
-static TREE_SITTER: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-
 pub fn use_tree_sitter(on: bool) {
-    TREE_SITTER.store(on, std::sync::atomic::Ordering::Relaxed);
+    tree_sitter_switch(|s| s.store(on, Ordering::Relaxed));
+}
+
+fn tree_sitter_on() -> bool {
+    tree_sitter_switch(|s| s.load(Ordering::Relaxed))
+}
+
+#[cfg(not(test))]
+fn tree_sitter_switch<T>(f: impl FnOnce(&AtomicBool) -> T) -> T {
+    static ON: AtomicBool = AtomicBool::new(false);
+    f(&ON)
+}
+
+#[cfg(test)]
+fn tree_sitter_switch<T>(f: impl FnOnce(&AtomicBool) -> T) -> T {
+    thread_local!(static ON: AtomicBool = const { AtomicBool::new(false) });
+    ON.with(f)
 }
 
 pub(crate) fn syntaxes() -> &'static SyntaxSet {
@@ -116,7 +131,7 @@ impl Buffer {
         };
         b.tabs = b.lines.iter().any(|l| l.starts_with('\t'));
         b.disk_hash = hash(bytes);
-        if TREE_SITTER.load(std::sync::atomic::Ordering::Relaxed) {
+        if tree_sitter_on() {
             b.start_tree_sitter();
         }
         b
@@ -125,6 +140,11 @@ impl Buffer {
     #[cfg(test)]
     pub fn sexp(&self) -> String {
         self.ts.as_ref().map(|t| t.sexp()).unwrap_or_default()
+    }
+
+    #[cfg(test)]
+    pub fn root_bytes(&self) -> Option<std::ops::Range<usize>> {
+        self.ts.as_ref().and_then(|t| t.root_bytes())
     }
 
     pub(crate) fn start_tree_sitter(&mut self) {
@@ -206,7 +226,7 @@ impl Buffer {
             lines.push(String::new());
         }
         let mut b = Self::new(None, lines, syntax);
-        if fits && TREE_SITTER.load(std::sync::atomic::Ordering::Relaxed) {
+        if fits && tree_sitter_on() {
             b.start_block_tree_sitter(token);
         }
         b

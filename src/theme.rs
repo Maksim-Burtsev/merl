@@ -224,6 +224,13 @@ impl Theme {
         }
     }
 
+    pub fn modifiers(&self, names: &[&str]) -> Modifier {
+        names
+            .iter()
+            .find_map(|n| self.groups.get(*n))
+            .map_or(Modifier::empty(), |s| s.add_modifier - Modifier::REVERSED)
+    }
+
     pub fn selected(&self, style: Style) -> Style {
         self.selection_fg
             .map_or(style, |fg| style.fg(fg))
@@ -427,6 +434,8 @@ struct Group {
     #[serde(default)]
     underline: bool,
     #[serde(default)]
+    strikethrough: bool,
+    #[serde(default)]
     reverse: bool,
 }
 
@@ -450,6 +459,7 @@ fn parse_groups(json: &str) -> Result<HashMap<String, Style>> {
                 (g.bold, Modifier::BOLD),
                 (g.italic, Modifier::ITALIC),
                 (g.underline, Modifier::UNDERLINED),
+                (g.strikethrough, Modifier::CROSSED_OUT),
                 (g.reverse, Modifier::REVERSED),
             ] {
                 if on {
@@ -794,6 +804,9 @@ mod tests {
         std::fs::write(dir.join("broken.groups.json"), "{").unwrap();
 
         assert!(load_from(Some(&dir), "plain").unwrap().groups.is_empty());
+        std::fs::write(dir.join("nord.tmTheme"), &tm).unwrap();
+        assert!(load_from(Some(&dir), "nord").unwrap().groups.is_empty());
+        assert!(!load_from(None, "nord").unwrap().groups.is_empty());
         let t = load_from(Some(&dir), "grouped").unwrap();
         assert_eq!(
             t.group("Comment"),
@@ -978,6 +991,9 @@ mod tests {
         std::fs::write(&path, "theme = ").unwrap();
         let e = format!("{:#}", config_from(Some(&path)).unwrap_err());
         assert!(e.contains("config.toml"), "{e}");
+        assert!(!config_from(None).unwrap().tree_sitter);
+        std::fs::write(&path, "tree_sitter = true\n").unwrap();
+        assert!(config_from(Some(&path)).unwrap().tree_sitter);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
