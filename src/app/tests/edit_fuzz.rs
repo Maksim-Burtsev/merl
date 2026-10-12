@@ -968,6 +968,24 @@ const RUST: &[&str] = &[
     "    ",
 ];
 
+const LUA: &[&str] = &[
+    "---@param x number\n",
+    "string.format(\"%d\", x)",
+    "local t = { a = 1 }",
+    "function f(...) end",
+    "--[[",
+    "]]",
+    "[[",
+    "--",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+    "  ",
+];
+
 #[test]
 fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
     fuzz_tree_sitter(
@@ -984,6 +1002,11 @@ fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
         "f.rs",
         include_bytes!("../../../tests/colors/rust/exprs.rs"),
         RUST,
+    );
+    fuzz_tree_sitter(
+        "f.lua",
+        include_bytes!("../../../tests/colors/lua/decls.lua"),
+        LUA,
     );
 }
 

@@ -2,6 +2,7 @@
 adwaita	go	14810	12584
 adwaita	javascript	13199	9626
 adwaita	jsx	14130	9164
+adwaita	lua	4590	3786
 adwaita	markdown	18398	13485
 adwaita	python	19185	9995
 adwaita	rust	17576	12850
@@ -10,6 +11,7 @@ adwaita	typescript	13701	12220
 adwaita-light	go	14810	12680
 adwaita-light	javascript	13199	9650
 adwaita-light	jsx	14130	9172
+adwaita-light	lua	4590	3794
 adwaita-light	markdown	18398	13485
 adwaita-light	python	19185	10121
 adwaita-light	rust	17576	12852
@@ -18,6 +20,7 @@ adwaita-light	typescript	13701	12318
 alabaster	go	14810	13433
 alabaster	javascript	13199	9133
 alabaster	jsx	14130	10426
+alabaster	lua	4590	3711
 alabaster	markdown	18398	13494
 alabaster	python	19185	12297
 alabaster	rust	17576	14259
@@ -26,6 +29,7 @@ alabaster	typescript	13701	11786
 alabaster-light	go	14810	13433
 alabaster-light	javascript	13199	9130
 alabaster-light	jsx	14130	10426
+alabaster-light	lua	4590	3659
 alabaster-light	markdown	18398	13494
 alabaster-light	python	19185	12286
 alabaster-light	rust	17576	13983
@@ -34,6 +38,7 @@ alabaster-light	typescript	13701	11765
 alucard	go	14810	12402
 alucard	javascript	13199	9395
 alucard	jsx	14130	8202
+alucard	lua	4590	3731
 alucard	markdown	18398	13464
 alucard	python	19185	9182
 alucard	rust	17576	12822
@@ -42,6 +47,7 @@ alucard	typescript	13701	11021
 ayu	go	14810	12484
 ayu	javascript	13199	8980
 ayu	jsx	14130	7775
+ayu	lua	4590	3671
 ayu	markdown	18398	13191
 ayu	python	19185	6866
 ayu	rust	17576	11266
@@ -50,6 +56,7 @@ ayu	typescript	13701	11103
 ayu-light	go	14810	12484
 ayu-light	javascript	13199	8980
 ayu-light	jsx	14130	7775
+ayu-light	lua	4590	3671
 ayu-light	markdown	18398	13191
 ayu-light	python	19185	6866
 ayu-light	rust	17576	11266
@@ -58,6 +65,7 @@ ayu-light	typescript	13701	11103
 ayu-mirage	go	14810	12484
 ayu-mirage	javascript	13199	8980
 ayu-mirage	jsx	14130	7775
+ayu-mirage	lua	4590	3671
 ayu-mirage	markdown	18398	13191
 ayu-mirage	python	19185	6866
 ayu-mirage	rust	17576	11266
@@ -66,6 +74,7 @@ ayu-mirage	typescript	13701	11103
 bamboo	go	14810	12582
 bamboo	javascript	13199	8474
 bamboo	jsx	14130	7361
+bamboo	lua	4590	3549
 bamboo	markdown	18398	12337
 bamboo	python	19185	9267
 bamboo	rust	17576	12497
@@ -74,6 +83,7 @@ bamboo	typescript	13701	10240
 bamboo-light	go	14810	12582
 bamboo-light	javascript	13199	8474
 bamboo-light	jsx	14130	7361
+bamboo-light	lua	4590	3549
 bamboo-light	markdown	18398	12337
 bamboo-light	python	19185	9267
 bamboo-light	rust	17576	12497
@@ -82,6 +92,7 @@ bamboo-light	typescript	13701	10240
 bluloco-light	go	14810	12678
 bluloco-light	javascript	13199	8736
 bluloco-light	jsx	14130	6785
+bluloco-light	lua	4590	3781
 bluloco-light	markdown	18398	12634
 bluloco-light	python	19185	9231
 bluloco-light	rust	17576	12756
@@ -90,6 +101,7 @@ bluloco-light	typescript	13701	10470
 catppuccin-frappe	go	14810	12679
 catppuccin-frappe	javascript	13199	8671
 catppuccin-frappe	jsx	14130	7189
+catppuccin-frappe	lua	4590	3665
 catppuccin-frappe	markdown	18398	12345
 catppuccin-frappe	python	19185	9032
 catppuccin-frappe	rust	17576	12806
@@ -98,6 +110,7 @@ catppuccin-frappe	typescript	13701	10227
 catppuccin-latte	go	14810	12679
 catppuccin-latte	javascript	13199	8671
 catppuccin-latte	jsx	14130	7189
+catppuccin-latte	lua	4590	3665
 catppuccin-latte	markdown	18398	12345
 catppuccin-latte	python	19185	9032
 catppuccin-latte	rust	17576	12806
@@ -106,6 +119,7 @@ catppuccin-latte	typescript	13701	10227
 catppuccin-macchiato	go	14810	12679
 catppuccin-macchiato	javascript	13199	8671
 catppuccin-macchiato	jsx	14130	7189
+catppuccin-macchiato	lua	4590	3665
 catppuccin-macchiato	markdown	18398	12345
 catppuccin-macchiato	python	19185	9032
 catppuccin-macchiato	rust	17576	12806
@@ -114,6 +128,7 @@ catppuccin-macchiato	typescript	13701	10227
 catppuccin-mocha	go	14810	12679
 catppuccin-mocha	javascript	13199	8671
 catppuccin-mocha	jsx	14130	7189
+catppuccin-mocha	lua	4590	3665
 catppuccin-mocha	markdown	18398	12345
 catppuccin-mocha	python	19185	9032
 catppuccin-mocha	rust	17576	12806
@@ -122,6 +137,7 @@ catppuccin-mocha	typescript	13701	10227
 cendre	go	14810	12584
 cendre	javascript	13199	8503
 cendre	jsx	14130	7519
+cendre	lua	4590	3721
 cendre	markdown	18398	12493
 cendre	python	19185	9742
 cendre	rust	17576	12683
@@ -130,6 +146,7 @@ cendre	typescript	13701	10283
 darkearth	go	14810	11913
 darkearth	javascript	13199	9469
 darkearth	jsx	14130	8086
+darkearth	lua	4590	3612
 darkearth	markdown	18398	13310
 darkearth	python	19185	9091
 darkearth	rust	17576	11893
@@ -138,6 +155,7 @@ darkearth	typescript	13701	12078
 dawnfox	go	14810	11410
 dawnfox	javascript	13199	8194
 dawnfox	jsx	14130	6123
+dawnfox	lua	4590	2895
 dawnfox	markdown	18398	13155
 dawnfox	python	19185	7257
 dawnfox	rust	17576	10254
@@ -146,6 +164,7 @@ dawnfox	typescript	13701	8840
 dayfox	go	14810	11410
 dayfox	javascript	13199	8194
 dayfox	jsx	14130	6123
+dayfox	lua	4590	2895
 dayfox	markdown	18398	13082
 dayfox	python	19185	5132
 dayfox	rust	17576	8937
@@ -154,6 +173,7 @@ dayfox	typescript	13701	8780
 dracula	go	14810	12402
 dracula	javascript	13199	9395
 dracula	jsx	14130	8202
+dracula	lua	4590	3731
 dracula	markdown	18398	13464
 dracula	python	19185	9182
 dracula	rust	17576	12822
@@ -162,6 +182,7 @@ dracula	typescript	13701	11021
 e-ink	go	14810	12439
 e-ink	javascript	13199	9779
 e-ink	jsx	14130	8737
+e-ink	lua	4590	3674
 e-ink	markdown	18398	13279
 e-ink	python	19185	7774
 e-ink	rust	17576	10269
@@ -170,6 +191,7 @@ e-ink	typescript	13701	11374
 e-ink-light	go	14810	12439
 e-ink-light	javascript	13199	9779
 e-ink-light	jsx	14130	8737
+e-ink-light	lua	4590	3674
 e-ink-light	markdown	18398	13279
 e-ink-light	python	19185	7774
 e-ink-light	rust	17576	10269
@@ -178,6 +200,7 @@ e-ink-light	typescript	13701	11374
 edge	go	14810	11882
 edge	javascript	13199	8369
 edge	jsx	14130	7044
+edge	lua	4590	3370
 edge	markdown	18398	12313
 edge	python	19185	6475
 edge	rust	17576	9095
@@ -186,6 +209,7 @@ edge	typescript	13701	9590
 edge-light	go	14810	11882
 edge-light	javascript	13199	8369
 edge-light	jsx	14130	7044
+edge-light	lua	4590	3370
 edge-light	markdown	18398	12313
 edge-light	python	19185	6475
 edge-light	rust	17576	9095
@@ -194,6 +218,7 @@ edge-light	typescript	13701	9590
 everforest-dark	go	14810	12674
 everforest-dark	javascript	13199	8874
 everforest-dark	jsx	14130	6931
+everforest-dark	lua	4590	3650
 everforest-dark	markdown	18398	13037
 everforest-dark	python	19185	9250
 everforest-dark	rust	17576	11886
@@ -202,6 +227,7 @@ everforest-dark	typescript	13701	10186
 everforest-light	go	14810	12674
 everforest-light	javascript	13199	8874
 everforest-light	jsx	14130	6931
+everforest-light	lua	4590	3650
 everforest-light	markdown	18398	13037
 everforest-light	python	19185	9250
 everforest-light	rust	17576	11886
@@ -210,6 +236,7 @@ everforest-light	typescript	13701	10186
 flexoki-dark	go	14810	12955
 flexoki-dark	javascript	13199	9059
 flexoki-dark	jsx	14130	7909
+flexoki-dark	lua	4590	3713
 flexoki-dark	markdown	18398	13722
 flexoki-dark	python	19185	6930
 flexoki-dark	rust	17576	11360
@@ -218,6 +245,7 @@ flexoki-dark	typescript	13701	11166
 flexoki-light	go	14810	12955
 flexoki-light	javascript	13199	9059
 flexoki-light	jsx	14130	7909
+flexoki-light	lua	4590	3713
 flexoki-light	markdown	18398	13722
 flexoki-light	python	19185	6930
 flexoki-light	rust	17576	11360
@@ -226,6 +254,7 @@ flexoki-light	typescript	13701	11166
 github-dark	go	14810	12716
 github-dark	javascript	13199	9266
 github-dark	jsx	14130	7366
+github-dark	lua	4590	3759
 github-dark	markdown	18398	17208
 github-dark	python	19185	10467
 github-dark	rust	17576	13049
@@ -234,6 +263,7 @@ github-dark	typescript	13701	10756
 github-light	go	14810	12716
 github-light	javascript	13199	9266
 github-light	jsx	14130	7366
+github-light	lua	4590	3759
 github-light	markdown	18398	17208
 github-light	python	19185	10467
 github-light	rust	17576	13049
@@ -242,6 +272,7 @@ github-light	typescript	13701	10756
 gotham	go	14810	12563
 gotham	javascript	13199	9077
 gotham	jsx	14130	7965
+gotham	lua	4590	3685
 gotham	markdown	18398	13192
 gotham	python	19185	7204
 gotham	rust	17576	11410
@@ -250,6 +281,7 @@ gotham	typescript	13701	11224
 gruvbox-dark	go	14810	12702
 gruvbox-dark	javascript	13199	8451
 gruvbox-dark	jsx	14130	6599
+gruvbox-dark	lua	4590	3583
 gruvbox-dark	markdown	18398	13415
 gruvbox-dark	python	19185	9508
 gruvbox-dark	rust	17576	12720
@@ -258,6 +290,7 @@ gruvbox-dark	typescript	13701	9853
 gruvbox-light	go	14810	12702
 gruvbox-light	javascript	13199	8451
 gruvbox-light	jsx	14130	6599
+gruvbox-light	lua	4590	3583
 gruvbox-light	markdown	18398	13415
 gruvbox-light	python	19185	9508
 gruvbox-light	rust	17576	12720
@@ -266,6 +299,7 @@ gruvbox-light	typescript	13701	9853
 gruvbox-material-dark	go	14810	12674
 gruvbox-material-dark	javascript	13199	8874
 gruvbox-material-dark	jsx	14130	6931
+gruvbox-material-dark	lua	4590	3650
 gruvbox-material-dark	markdown	18398	12889
 gruvbox-material-dark	python	19185	9250
 gruvbox-material-dark	rust	17576	11886
@@ -274,6 +308,7 @@ gruvbox-material-dark	typescript	13701	10512
 gruvbox-material-light	go	14810	12674
 gruvbox-material-light	javascript	13199	8874
 gruvbox-material-light	jsx	14130	6931
+gruvbox-material-light	lua	4590	3650
 gruvbox-material-light	markdown	18398	12889
 gruvbox-material-light	python	19185	9250
 gruvbox-material-light	rust	17576	11886
@@ -282,6 +317,7 @@ gruvbox-material-light	typescript	13701	10512
 hojicha	go	14810	11952
 hojicha	javascript	13199	8722
 hojicha	jsx	14130	7357
+hojicha	lua	4590	3383
 hojicha	markdown	18398	13262
 hojicha	python	19185	8604
 hojicha	rust	17576	11406
@@ -290,6 +326,7 @@ hojicha	typescript	13701	9843
 iceberg	go	14810	13101
 iceberg	javascript	13199	9668
 iceberg	jsx	14130	9228
+iceberg	lua	4590	3806
 iceberg	markdown	18398	13486
 iceberg	python	19185	10177
 iceberg	rust	17576	13034
@@ -298,6 +335,7 @@ iceberg	typescript	13701	12318
 iceberg-light	go	14810	13101
 iceberg-light	javascript	13199	9668
 iceberg-light	jsx	14130	9228
+iceberg-light	lua	4590	3806
 iceberg-light	markdown	18398	13486
 iceberg-light	python	19185	10177
 iceberg-light	rust	17576	13034
@@ -306,6 +344,7 @@ iceberg-light	typescript	13701	12318
 jellybeans	go	14810	11465
 jellybeans	javascript	13199	8115
 jellybeans	jsx	14130	7590
+jellybeans	lua	4590	2893
 jellybeans	markdown	18398	12295
 jellybeans	python	19185	12527
 jellybeans	rust	17576	10189
@@ -314,6 +353,7 @@ jellybeans	typescript	13701	8770
 jellybeans-light	go	14810	11465
 jellybeans-light	javascript	13199	8115
 jellybeans-light	jsx	14130	7590
+jellybeans-light	lua	4590	2893
 jellybeans-light	markdown	18398	12295
 jellybeans-light	python	19185	12527
 jellybeans-light	rust	17576	10189
@@ -322,6 +362,7 @@ jellybeans-light	typescript	13701	8770
 kanagawa-dragon	go	14810	12340
 kanagawa-dragon	javascript	13199	8500
 kanagawa-dragon	jsx	14130	7419
+kanagawa-dragon	lua	4590	3651
 kanagawa-dragon	markdown	18398	13268
 kanagawa-dragon	python	19185	8355
 kanagawa-dragon	rust	17576	12537
@@ -330,6 +371,7 @@ kanagawa-dragon	typescript	13701	9842
 kanagawa-lotus	go	14810	12340
 kanagawa-lotus	javascript	13199	8500
 kanagawa-lotus	jsx	14130	6657
+kanagawa-lotus	lua	4590	3651
 kanagawa-lotus	markdown	18398	13268
 kanagawa-lotus	python	19185	8355
 kanagawa-lotus	rust	17576	12535
@@ -338,6 +380,7 @@ kanagawa-lotus	typescript	13701	9842
 kanagawa-wave	go	14810	12340
 kanagawa-wave	javascript	13199	8500
 kanagawa-wave	jsx	14130	6657
+kanagawa-wave	lua	4590	3651
 kanagawa-wave	markdown	18398	13268
 kanagawa-wave	python	19185	8355
 kanagawa-wave	rust	17576	12535
@@ -346,6 +389,7 @@ kanagawa-wave	typescript	13701	9842
 koda-dark	go	14810	12879
 koda-dark	javascript	13199	9480
 koda-dark	jsx	14130	9108
+koda-dark	lua	4590	3632
 koda-dark	markdown	18398	13384
 koda-dark	python	19185	15375
 koda-dark	rust	17576	11994
@@ -354,6 +398,7 @@ koda-dark	typescript	13701	12255
 koda-light	go	14810	12879
 koda-light	javascript	13199	9400
 koda-light	jsx	14130	8110
+koda-light	lua	4590	3618
 koda-light	markdown	18398	13384
 koda-light	python	19185	15303
 koda-light	rust	17576	11958
@@ -362,6 +407,7 @@ koda-light	typescript	13701	12157
 lackluster	go	14810	12601
 lackluster	javascript	13199	8597
 lackluster	jsx	14130	6887
+lackluster	lua	4590	3681
 lackluster	markdown	18398	13018
 lackluster	python	19185	9417
 lackluster	rust	17576	11110
@@ -370,6 +416,7 @@ lackluster	typescript	13701	8666
 lightearth	go	14810	11913
 lightearth	javascript	13199	9469
 lightearth	jsx	14130	8086
+lightearth	lua	4590	3612
 lightearth	markdown	18398	13310
 lightearth	python	19185	9091
 lightearth	rust	17576	11893
@@ -378,6 +425,7 @@ lightearth	typescript	13701	12078
 material-dark	go	14810	11783
 material-dark	javascript	13199	8622
 material-dark	jsx	14130	8301
+material-dark	lua	4590	3172
 material-dark	markdown	18398	13144
 material-dark	python	19185	13286
 material-dark	rust	17576	10837
@@ -386,6 +434,7 @@ material-dark	typescript	13701	10700
 material-light	go	14810	11783
 material-light	javascript	13199	8663
 material-light	jsx	14130	8301
+material-light	lua	4590	3172
 material-light	markdown	18398	13144
 material-light	python	19185	13286
 material-light	rust	17576	10837
@@ -394,6 +443,7 @@ material-light	typescript	13701	10700
 melange-dark	go	14810	12620
 melange-dark	javascript	13199	8635
 melange-dark	jsx	14130	8052
+melange-dark	lua	4590	3585
 melange-dark	markdown	18398	12962
 melange-dark	python	19185	10253
 melange-dark	rust	17576	12590
@@ -402,6 +452,7 @@ melange-dark	typescript	13701	11180
 melange-light	go	14810	12620
 melange-light	javascript	13199	8635
 melange-light	jsx	14130	8052
+melange-light	lua	4590	3585
 melange-light	markdown	18398	12962
 melange-light	python	19185	10253
 melange-light	rust	17576	12590
@@ -410,6 +461,7 @@ melange-light	typescript	13701	11180
 mellifluous	go	14810	9698
 mellifluous	javascript	13199	6837
 mellifluous	jsx	14130	7640
+mellifluous	lua	4590	3247
 mellifluous	markdown	18398	12763
 mellifluous	python	19185	9140
 mellifluous	rust	17576	10074
@@ -418,6 +470,7 @@ mellifluous	typescript	13701	10088
 mellifluous-light	go	14810	9698
 mellifluous-light	javascript	13199	6837
 mellifluous-light	jsx	14130	7640
+mellifluous-light	lua	4590	3247
 mellifluous-light	markdown	18398	12763
 mellifluous-light	python	19185	9140
 mellifluous-light	rust	17576	10074
@@ -426,6 +479,7 @@ mellifluous-light	typescript	13701	10088
 mellow	go	14810	12517
 mellow	javascript	13199	8541
 mellow	jsx	14130	6711
+mellow	lua	4590	3514
 mellow	markdown	18398	13391
 mellow	python	19185	9023
 mellow	rust	17576	12569
@@ -434,6 +488,7 @@ mellow	typescript	13701	10410
 miasma	go	14810	12660
 miasma	javascript	13199	9821
 miasma	jsx	14130	8636
+miasma	lua	4590	3832
 miasma	markdown	18398	13500
 miasma	python	19185	9651
 miasma	rust	17576	13345
@@ -442,6 +497,7 @@ miasma	typescript	13701	12407
 minischeme	go	14810	12242
 minischeme	javascript	13199	8872
 minischeme	jsx	14130	7617
+minischeme	lua	4590	3722
 minischeme	markdown	18398	12589
 minischeme	python	19185	9523
 minischeme	rust	17576	12870
@@ -450,6 +506,7 @@ minischeme	typescript	13701	11720
 minischeme-light	go	14810	12242
 minischeme-light	javascript	13199	8872
 minischeme-light	jsx	14130	7617
+minischeme-light	lua	4590	3722
 minischeme-light	markdown	18398	12589
 minischeme-light	python	19185	9523
 minischeme-light	rust	17576	12870
@@ -458,6 +515,7 @@ minischeme-light	typescript	13701	11720
 moonfly	go	14810	12427
 moonfly	javascript	13199	9241
 moonfly	jsx	14130	6596
+moonfly	lua	4590	3655
 moonfly	markdown	18398	12323
 moonfly	python	19185	8651
 moonfly	rust	17576	11504
@@ -466,6 +524,7 @@ moonfly	typescript	13701	10353
 neomodern-light	go	14810	11952
 neomodern-light	javascript	13199	8722
 neomodern-light	jsx	14130	7357
+neomodern-light	lua	4590	3383
 neomodern-light	markdown	18398	13262
 neomodern-light	python	19185	8604
 neomodern-light	rust	17576	11406
@@ -474,6 +533,7 @@ neomodern-light	typescript	13701	9843
 nightfly	go	14810	12427
 nightfly	javascript	13199	9241
 nightfly	jsx	14130	6596
+nightfly	lua	4590	3655
 nightfly	markdown	18398	12323
 nightfly	python	19185	8651
 nightfly	rust	17576	11504
@@ -482,6 +542,7 @@ nightfly	typescript	13701	10353
 nightfox	go	14810	11410
 nightfox	javascript	13199	8194
 nightfox	jsx	14130	6123
+nightfox	lua	4590	2895
 nightfox	markdown	18398	13082
 nightfox	python	19185	5132
 nightfox	rust	17576	8937
@@ -490,6 +551,7 @@ nightfox	typescript	13701	8780
 nord	go	14810	12526
 nord	javascript	13199	8998
 nord	jsx	14130	8515
+nord	lua	4590	3736
 nord	markdown	18398	12461
 nord	python	19185	10494
 nord	rust	17576	12227
@@ -498,6 +560,7 @@ nord	typescript	13701	11800
 nordfox	go	14810	11410
 nordfox	javascript	13199	8194
 nordfox	jsx	14130	6123
+nordfox	lua	4590	2895
 nordfox	markdown	18398	13082
 nordfox	python	19185	5132
 nordfox	rust	17576	8937
@@ -506,6 +569,7 @@ nordfox	typescript	13701	8780
 onedark	go	14810	12428
 onedark	javascript	13199	8475
 onedark	jsx	14130	7197
+onedark	lua	4590	3549
 onedark	markdown	18398	12674
 onedark	python	19185	9123
 onedark	rust	17576	12597
@@ -514,6 +578,7 @@ onedark	typescript	13701	10183
 onedark-light	go	14810	12428
 onedark-light	javascript	13199	8475
 onedark-light	jsx	14130	7197
+onedark-light	lua	4590	3549
 onedark-light	markdown	18398	12674
 onedark-light	python	19185	9123
 onedark-light	rust	17576	12597
@@ -522,6 +587,7 @@ onedark-light	typescript	13701	10183
 oxocarbon-dark	go	14810	11814
 oxocarbon-dark	javascript	13199	8522
 oxocarbon-dark	jsx	14130	7540
+oxocarbon-dark	lua	4590	3119
 oxocarbon-dark	markdown	18398	12465
 oxocarbon-dark	python	19185	8845
 oxocarbon-dark	rust	17576	10893
@@ -530,6 +596,7 @@ oxocarbon-dark	typescript	13701	10944
 oxocarbon-light	go	14810	11814
 oxocarbon-light	javascript	13199	8522
 oxocarbon-light	jsx	14130	7540
+oxocarbon-light	lua	4590	3119
 oxocarbon-light	markdown	18398	12465
 oxocarbon-light	python	19185	8845
 oxocarbon-light	rust	17576	10893
@@ -538,6 +605,7 @@ oxocarbon-light	typescript	13701	10944
 papercolor	go	14810	12811
 papercolor	javascript	13199	8739
 papercolor	jsx	14130	7269
+papercolor	lua	4590	3983
 papercolor	markdown	18398	15372
 papercolor	python	19185	10175
 papercolor	rust	17576	13182
@@ -546,6 +614,7 @@ papercolor	typescript	13701	10840
 papercolor-light	go	14810	12811
 papercolor-light	javascript	13199	8660
 papercolor-light	jsx	14130	6907
+papercolor-light	lua	4590	3969
 papercolor-light	markdown	18398	15372
 papercolor-light	python	19185	10108
 papercolor-light	rust	17576	13141
@@ -554,6 +623,7 @@ papercolor-light	typescript	13701	10779
 pencil	go	14810	12412
 pencil	javascript	13199	8984
 pencil	jsx	14130	8755
+pencil	lua	4590	3748
 pencil	markdown	18398	13718
 pencil	python	19185	6901
 pencil	rust	17576	11305
@@ -562,6 +632,7 @@ pencil	typescript	13701	11215
 pencil-light	go	14810	12412
 pencil-light	javascript	13199	8984
 pencil-light	jsx	14130	8755
+pencil-light	lua	4590	3748
 pencil-light	markdown	18398	13718
 pencil-light	python	19185	6901
 pencil-light	rust	17576	11305
@@ -570,6 +641,7 @@ pencil-light	typescript	13701	11215
 rose-pine	go	14810	13337
 rose-pine	javascript	13199	8933
 rose-pine	jsx	14130	6949
+rose-pine	lua	4590	3939
 rose-pine	markdown	18398	12872
 rose-pine	python	19185	10276
 rose-pine	rust	17576	13230
@@ -578,6 +650,7 @@ rose-pine	typescript	13701	9524
 rose-pine-dawn	go	14810	13337
 rose-pine-dawn	javascript	13199	8933
 rose-pine-dawn	jsx	14130	6949
+rose-pine-dawn	lua	4590	3939
 rose-pine-dawn	markdown	18398	12872
 rose-pine-dawn	python	19185	10276
 rose-pine-dawn	rust	17576	13230
@@ -586,6 +659,7 @@ rose-pine-dawn	typescript	13701	9524
 rose-pine-moon	go	14810	13337
 rose-pine-moon	javascript	13199	8933
 rose-pine-moon	jsx	14130	6949
+rose-pine-moon	lua	4590	3939
 rose-pine-moon	markdown	18398	12872
 rose-pine-moon	python	19185	10276
 rose-pine-moon	rust	17576	13230
@@ -594,6 +668,7 @@ rose-pine-moon	typescript	13701	9524
 selenized	go	14810	13414
 selenized	javascript	13199	9267
 selenized	jsx	14130	8554
+selenized	lua	4590	3959
 selenized	markdown	18398	13741
 selenized	python	19185	12218
 selenized	rust	17576	11350
@@ -602,6 +677,7 @@ selenized	typescript	13701	10529
 selenized-light	go	14810	13414
 selenized-light	javascript	13199	9267
 selenized-light	jsx	14130	8554
+selenized-light	lua	4590	3959
 selenized-light	markdown	18398	13741
 selenized-light	python	19185	12218
 selenized-light	rust	17576	11350
@@ -610,6 +686,7 @@ selenized-light	typescript	13701	10529
 solarized-dark	go	14810	13091
 solarized-dark	javascript	13199	9911
 solarized-dark	jsx	14130	8832
+solarized-dark	lua	4590	3782
 solarized-dark	markdown	18398	15085
 solarized-dark	python	19185	7949
 solarized-dark	rust	17576	11420
@@ -618,6 +695,7 @@ solarized-dark	typescript	13701	11146
 solarized-light	go	14810	13039
 solarized-light	javascript	13199	9911
 solarized-light	jsx	14130	9004
+solarized-light	lua	4590	3782
 solarized-light	markdown	18398	15076
 solarized-light	python	19185	7409
 solarized-light	rust	17576	11375
@@ -626,6 +704,7 @@ solarized-light	typescript	13701	10820
 sonokai	go	14810	11975
 sonokai	javascript	13199	8393
 sonokai	jsx	14130	7052
+sonokai	lua	4590	3374
 sonokai	markdown	18398	12492
 sonokai	python	19185	8726
 sonokai	rust	17576	10624
@@ -634,6 +713,7 @@ sonokai	typescript	13701	9752
 soviet-dark	go	14810	11664
 soviet-dark	javascript	13199	8392
 soviet-dark	jsx	14130	5940
+soviet-dark	lua	4590	3276
 soviet-dark	markdown	18398	12674
 soviet-dark	python	19185	7540
 soviet-dark	rust	17576	10392
@@ -642,6 +722,7 @@ soviet-dark	typescript	13701	9059
 soviet-light	go	14810	11664
 soviet-light	javascript	13199	8392
 soviet-light	jsx	14130	5940
+soviet-light	lua	4590	3276
 soviet-light	markdown	18398	12674
 soviet-light	python	19185	7540
 soviet-light	rust	17576	10392
@@ -650,6 +731,7 @@ soviet-light	typescript	13701	9059
 srcery	go	14810	13057
 srcery	javascript	13199	8870
 srcery	jsx	14130	6767
+srcery	lua	4590	3753
 srcery	markdown	18398	12810
 srcery	python	19185	8891
 srcery	rust	17576	12626
@@ -658,6 +740,7 @@ srcery	typescript	13701	10336
 token	go	14810	12618
 token	javascript	13199	8878
 token	jsx	14130	7617
+token	lua	4590	3780
 token	markdown	18398	12533
 token	python	19185	9364
 token	rust	17576	12994
@@ -666,6 +749,7 @@ token	typescript	13701	11360
 token-light	go	14810	12618
 token-light	javascript	13199	8878
 token-light	jsx	14130	7617
+token-light	lua	4590	3780
 token-light	markdown	18398	12533
 token-light	python	19185	9364
 token-light	rust	17576	12994
@@ -674,6 +758,7 @@ token-light	typescript	13701	11360
 tokyonight-day	go	14810	11442
 tokyonight-day	javascript	13199	8214
 tokyonight-day	jsx	14130	5895
+tokyonight-day	lua	4590	2727
 tokyonight-day	markdown	18398	12377
 tokyonight-day	python	19185	7146
 tokyonight-day	rust	17576	10352
@@ -682,6 +767,7 @@ tokyonight-day	typescript	13701	8928
 tokyonight-moon	go	14810	11665
 tokyonight-moon	javascript	13199	10688
 tokyonight-moon	jsx	14130	8115
+tokyonight-moon	lua	4590	3764
 tokyonight-moon	markdown	18398	668
 tokyonight-moon	python	19185	9103
 tokyonight-moon	rust	17576	8287
@@ -690,6 +776,7 @@ tokyonight-moon	typescript	13701	8779
 tokyonight-night	go	14810	11442
 tokyonight-night	javascript	13199	8214
 tokyonight-night	jsx	14130	5895
+tokyonight-night	lua	4590	2727
 tokyonight-night	markdown	18398	12377
 tokyonight-night	python	19185	7146
 tokyonight-night	rust	17576	10352
@@ -698,6 +785,7 @@ tokyonight-night	typescript	13701	8928
 tokyonight-storm	go	14810	11442
 tokyonight-storm	javascript	13199	8214
 tokyonight-storm	jsx	14130	5895
+tokyonight-storm	lua	4590	2727
 tokyonight-storm	markdown	18398	12377
 tokyonight-storm	python	19185	7146
 tokyonight-storm	rust	17576	10352
@@ -706,6 +794,7 @@ tokyonight-storm	typescript	13701	8928
 vague	go	14810	12380
 vague	javascript	13199	9419
 vague	jsx	14130	7450
+vague	lua	4590	3737
 vague	markdown	18398	13218
 vague	python	19185	9163
 vague	rust	17576	10933
@@ -714,6 +803,7 @@ vague	typescript	13701	9139
 vesper	go	14810	12057
 vesper	javascript	13199	8898
 vesper	jsx	14130	8624
+vesper	lua	4590	3616
 vesper	markdown	18398	13677
 vesper	python	19185	7287
 vesper	rust	17576	10112
@@ -722,6 +812,7 @@ vesper	typescript	13701	10983
 vscode-dark	go	14810	12498
 vscode-dark	javascript	13199	9703
 vscode-dark	jsx	14130	8497
+vscode-dark	lua	4590	3512
 vscode-dark	markdown	18398	15096
 vscode-dark	python	19185	6401
 vscode-dark	rust	17576	11349
@@ -730,6 +821,7 @@ vscode-dark	typescript	13701	11279
 vscode-light	go	14810	12498
 vscode-light	javascript	13199	9703
 vscode-light	jsx	14130	8497
+vscode-light	lua	4590	3512
 vscode-light	markdown	18398	15084
 vscode-light	python	19185	6401
 vscode-light	rust	17576	11349

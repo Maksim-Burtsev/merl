@@ -41,6 +41,8 @@ tree-sitter-python = "=0.25.0"
 tree-sitter-regex = "=0.25.0"
 tree-sitter-rust = "=0.24.2"
 tree-sitter-typescript = "=0.23.2"
+tree-sitter-lua = "=0.5.0"
+tree-sitter-luadoc = { git = "https://github.com/tree-sitter-grammars/tree-sitter-luadoc", rev = "4d04632a3a398b78af52e83be074883e722f40be" }
 two-face = "0.5"
 unicase = "2.6"
 unicode-segmentation = "1"

@@ -30,7 +30,8 @@ highlight groups the chrome comes from, as Neovim draws them.
 
 The files: FILES per language from the projects of tools/d-bench/projects.tsv (cloned into
 $D_BENCH_CACHE or ~/.cache/merl-d-bench, as the other benches do), taken in the order of the hash
-of their path, each with at least MINLINES recordable lines among its first LINES.
+of their path, each with at least MINLINES recordable lines among its first LINES, or the
+language's own minimum where its projects hold no file that long (Lua).
 
 --check only loads every theme, as tools/port-theme.sh does, and compares its Normal background
 and foreground with the shipped themes/NAME.tmTheme: a difference means the row's commit or
@@ -54,6 +55,7 @@ LANGS = {
     "jsx": (["mastodon"], ["jsx"]),
     "go": (["caddy"], ["go"]),
     "markdown": (["ripgrep", "caddy", "outline", "paperless-ngx"], ["md"]),
+    "lua": (["redis"], ["lua"], 25),
 }
 SKIP_DIRS = ("migrations/", "vendor/", "testdata/", "node_modules/", "CHANGELOG")
 FILES, LINES, MINLINES, MAXLEN, WIDTH = 4, 200, 80, 140, 200
@@ -114,7 +116,7 @@ def recordable(text):
 
 
 def pick(lang):
-    names, exts = LANGS[lang]
+    names, exts, *least = LANGS[lang]
     every = []
     for name in names:
         d = project(name)
@@ -124,7 +126,7 @@ def pick(lang):
     every.sort(key=lambda p: hashlib.sha1(p[0].encode()).hexdigest())
     out = []
     for rel, path in every:
-        if sum(map(bool, map(recordable, file_lines(path)))) >= MINLINES:
+        if sum(map(bool, map(recordable, file_lines(path)))) >= (least or [MINLINES])[0]:
             out.append((rel, path))
         if len(out) == FILES:
             break

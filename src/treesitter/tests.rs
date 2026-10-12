@@ -225,6 +225,11 @@ fn javascript_and_jsx_are_coloured_as_lazyvim() {
 }
 
 #[test]
+fn lua_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("lua");
+}
+
+#[test]
 fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     let sexp = |f: &str, src: &[u8]| {
         let mut b = Buffer::from_bytes(PathBuf::from(f), src);
@@ -638,4 +643,24 @@ fn a_doc_comment_is_parsed_as_jsdoc_in_javascript_and_typescript() {
         assert_eq!(fg("name"), group("@variable"), "{name}");
         assert_ne!(fg("@param"), fg("/**"), "{name}");
     }
+}
+
+#[test]
+fn an_edit_repaints_a_name_whose_pattern_spans_the_changed_lines() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let mut b = Buffer::from_bytes(PathBuf::from("a.lua"), b"local x\nf =\n  1\nlocal y\n");
+    b.start_tree_sitter();
+    b.parse_more(None);
+    b.paint_to(usize::MAX, &theme);
+    b.lines[2] = "  function() end".to_string();
+    b.edited(2);
+    b.parse_more(None);
+    b.paint_to(usize::MAX, &theme);
+    let text = b.lines.join("\n") + "\n";
+    let mut fresh = Buffer::from_bytes(PathBuf::from("a.lua"), text.as_bytes());
+    fresh.start_tree_sitter();
+    fresh.parse_more(None);
+    fresh.paint_to(usize::MAX, &theme);
+    assert_ne!(b.hl[1], b.hl[0], "f is a function now");
+    assert_eq!(b.hl, fresh.hl);
 }
