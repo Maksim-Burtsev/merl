@@ -106,6 +106,29 @@ stay plain, as LazyVim installs no parser for them):
 |---|---|---|---|---|
 | C | 17,618 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 
+C++ (#807), `.cc`, `.cpp` and the other extensions Neovim opens as `cpp`, and `.h` unless Neovim's
+`detect.header` makes it Objective-C++ from its first 200 lines, with C's queries and injections
+inherited (`; inherits: c`); `doxygen` comments stay plain, as LazyVim installs no parser for them:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| C++ | 19,079 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
+Java (#807), `.java` (`.bsh`, which syntect calls Java and Neovim does not, stays on syntect), with
+its injections (`printf` in the first string of a `format` or `printf` call and in the receiver of
+`formatted`; `comment` and `javadoc` comments stay plain, as LazyVim installs no parser for them):
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Java | 15,213 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
+C# (#807), `.cs` and `.csx`, and a Markdown block marked `cs` or `csharp`; `comment` comments stay
+plain, as LazyVim installs no parser for them:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| C# | 16,671 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
 HTML and CSS (#806). An HTML file is parsed as `html` unless Neovim's `detect.html` makes it
 `htmlangular`, `xhtml`, `htmldjango` or `superhtml` from its first 40 lines (merl leaves those to
 syntect, the bench skips them); `<style>` and `style="…"` are CSS, `<script>` and `on…="…"` are
@@ -147,7 +170,7 @@ cache, so neither `~/.config/nvim` nor a system-wide `site` directory reaches it
 
 The files: four per language from the projects of `tools/d-bench/projects.tsv` at their pinned
 commits (Python from paperless-ngx, Rust from ripgrep, TypeScript and TSX from outline,
-JavaScript from eslint, JSX from mastodon, Go from caddy, Lua and C from redis, HTML from bootstrap, caddy, eslint, outline and redis, CSS from gitea,
+JavaScript from eslint, JSX from mastodon, Go from caddy, Lua and C from redis, C++ from leveldb, Java from halo, C# from eShop, HTML from bootstrap, caddy, eslint, outline and redis, CSS from gitea,
 paperless-ngx, caddy and redis, XML from koel, paperless-ngx and nowinandroid, Markdown from ripgrep, caddy,
 outline and paperless-ngx, Bash, JSON, YAML and TOML from redis, paperless-ngx, ripgrep, caddy and eslint
 as `LANGS` in `record.py` lists them), taken in the order of the hash of their path, each with at least 80

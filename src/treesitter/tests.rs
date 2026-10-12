@@ -255,6 +255,21 @@ fn c_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn cpp_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("cpp");
+}
+
+#[test]
+fn java_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("java");
+}
+
+#[test]
+fn c_sharp_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("c_sharp");
+}
+
+#[test]
 fn html_and_the_css_and_javascript_in_it_are_coloured_as_lazyvim() {
     coloured_as_lazyvim("html");
 }
@@ -311,7 +326,21 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
         assert!(sexp(f, b"a = 1\n").contains("(pair "), "{f}");
     }
     assert!(sexp("a.c", b"int x;\n").contains("(translation_unit "));
-    assert_eq!(sexp("a.h", b"int x;\n"), "");
+    for f in [
+        "a.h", "a.cc", "a.cpp", "a.cxx", "a.c++", "a.hh", "a.hpp", "a.hxx", "a.inl",
+    ] {
+        assert!(sexp(f, b"int x;\n").contains("(translation_unit "), "{f}");
+    }
+    assert_eq!(sexp("a.cp", b"int x;\n"), "");
+    assert_eq!(sexp("a.h", b"#import <A.h>\n@interface A\n@end\n"), "");
+    assert!(sexp("A.java", b"class A {}\n").contains("(program "));
+    assert_eq!(sexp("a.bsh", b"class A {}\n"), "");
+    for f in ["A.cs", "build.csx"] {
+        assert!(
+            sexp(f, b"class A {}\n").contains("(compilation_unit "),
+            "{f}"
+        );
+    }
     for f in ["a.html", "a.htm"] {
         assert!(sexp(f, b"<p>a</p>\n").contains("(element "), "{f}");
     }
@@ -530,6 +559,11 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
     assert_eq!(name("sh"), Some("bash"));
     assert_eq!(name("jsonc"), Some("json"));
     assert_eq!(name("zsh"), None);
+    assert_eq!(name("cpp"), Some("cpp"));
+    assert_eq!(name("hpp"), Some("cpp"));
+    assert_eq!(name("java"), Some("java"));
+    assert_eq!(name("cs"), Some("c_sharp"));
+    assert_eq!(name("csharp"), Some("c_sharp"));
 }
 
 #[test]

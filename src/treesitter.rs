@@ -29,6 +29,16 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/c/injections.scm"),
     ),
     (
+        "c_sharp",
+        include_str!("../queries/c_sharp/highlights.scm"),
+        include_str!("../queries/c_sharp/injections.scm"),
+    ),
+    (
+        "cpp",
+        include_str!("../queries/cpp/highlights.scm"),
+        include_str!("../queries/cpp/injections.scm"),
+    ),
+    (
         "css",
         include_str!("../queries/css/highlights.scm"),
         include_str!("../queries/css/injections.scm"),
@@ -57,6 +67,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         "html_tags",
         include_str!("../queries/html_tags/highlights.scm"),
         include_str!("../queries/html_tags/injections.scm"),
+    ),
+    (
+        "java",
+        include_str!("../queries/java/highlights.scm"),
+        include_str!("../queries/java/injections.scm"),
     ),
     (
         "javascript",
@@ -135,6 +150,7 @@ const QUERIES: &[(&str, &str, &str)] = &[
 const ALIASES: &[(&str, &str)] = &[
     ("sh", "bash"),
     ("jsonc", "json"),
+    ("csharp", "c_sharp"),
     ("py", "python"),
     ("gyp", "python"),
     ("pandoc", "markdown"),
@@ -281,10 +297,13 @@ pub fn for_syntax(
     match syntect_name {
         "Bourne Again Shell (bash)" if !path.is_some_and(zsh) => lang("bash"),
         "C" => lang("c"),
+        "C#" => lang("c_sharp"),
+        "C++" if cpp(path, lines) => lang("cpp"),
         "CSS" => lang("css"),
         "HTML" if !html_variant(lines) => lang("html"),
         "XML" if xml(path, lines) => lang("xml"),
         "Go" => lang("go"),
+        "Java" if !path.is_some_and(|p| p.extension().is_some_and(|e| e == "bsh")) => lang("java"),
         "JSON" => lang("json"),
         "TOML" => lang("toml"),
         "YAML" => lang("yaml"),
@@ -312,6 +331,19 @@ fn html_variant(lines: &[String]) -> bool {
         .expect("a valid regex")
     });
     lines.iter().take(40).any(|l| re.is_match(l))
+}
+
+fn cpp(path: Option<&Path>, lines: &[String]) -> bool {
+    match path.and_then(|p| p.extension()).and_then(|e| e.to_str()) {
+        Some("cp") => false,
+        Some("h") => !lines.iter().take(200).any(|l| {
+            let lower = l.to_lowercase();
+            ["@interface", "@end", "@class"]
+                .iter()
+                .any(|m| lower.starts_with(m))
+        }),
+        _ => true,
+    }
 }
 
 fn xml(path: Option<&Path>, lines: &[String]) -> bool {
@@ -342,6 +374,8 @@ fn grammar(name: &str) -> Option<Language> {
     Some(match name {
         "bash" => tree_sitter_bash::LANGUAGE.into(),
         "c" => tree_sitter_c::LANGUAGE.into(),
+        "cpp" => tree_sitter_cpp::LANGUAGE.into(),
+        "c_sharp" => tree_sitter_c_sharp::LANGUAGE.into(),
         "css" => tree_sitter_css::LANGUAGE.into(),
         "html" => tree_sitter_html::LANGUAGE.into(),
         "xml" => tree_sitter_xml::LANGUAGE_XML.into(),
@@ -355,6 +389,7 @@ fn grammar(name: &str) -> Option<Language> {
         "markdown_inline" => tree_sitter_md::INLINE_LANGUAGE.into(),
         "regex" => tree_sitter_regex::LANGUAGE.into(),
         "printf" => tree_sitter_printf::LANGUAGE.into(),
+        "java" => tree_sitter_java::LANGUAGE.into(),
         "javascript" => tree_sitter_javascript::LANGUAGE.into(),
         "jsdoc" => tree_sitter_jsdoc::LANGUAGE.into(),
         "typescript" => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
