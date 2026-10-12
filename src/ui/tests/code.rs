@@ -4,7 +4,7 @@ use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use ratatui::style::Color;
+use ratatui::style::{Color, Modifier};
 
 use crate::app::App;
 use crate::buffer::Buffer;
@@ -773,6 +773,14 @@ fn gutter_width() {
 }
 
 fn review_of_one_operator(tag: &str) -> (PathBuf, App) {
+    review_of(
+        tag,
+        "def f(a, b):\n    return a == b\n",
+        "def f(a, b):\n    return a >= b\n",
+    )
+}
+
+fn review_of(tag: &str, base: &str, new: &str) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
@@ -787,14 +795,14 @@ fn review_of_one_operator(tag: &str) -> (PathBuf, App) {
         assert!(out.status.success(), "git {args:?}");
     };
     git(&["init", "-q", "-b", "main"]);
-    std::fs::write(dir.join("f.py"), "def f(a, b):\n    return a == b\n").unwrap();
+    std::fs::write(dir.join("f.py"), base).unwrap();
     std::fs::write(dir.join("gone.py"), "x = 1\n").unwrap();
     git(&["add", "."]);
     git(&["commit", "-q", "-m", "base"]);
     git(&["switch", "-q", "-c", "feature"]);
     git(&["rm", "-q", "gone.py"]);
     git(&["commit", "-q", "-m", "gone"]);
-    std::fs::write(dir.join("f.py"), "def f(a, b):\n    return a >= b\n").unwrap();
+    std::fs::write(dir.join("f.py"), new).unwrap();
     let path = dir.join("f.py");
     let mut app = App::new(
         dir.clone(),
@@ -1826,4 +1834,98 @@ fn the_match_under_the_cursor_draws_in_cur_search_the_others_in_search() {
     let hex = |s: &str| s.parse::<ratatui::style::Color>().unwrap();
     assert_eq!((bg(2), bg(3)), (hex("#3e68d7"), hex("#3e68d7")));
     assert_eq!((bg(5), bg(6)), (hex("#ff966c"), hex("#ff966c")));
+}
+
+#[test]
+fn a_ghost_takes_the_colours_of_its_base_line_down_to_the_last_ghost_on_screen() {
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/tmp/f.py"), b"a = 1\nb = 2\nc = 3\n"),
+        None,
+    );
+    app.show_tree = false;
+    let mut base = vec!["x = 0"; 60];
+    (base[1], base[50], base[51]) = ("return 1", "return 2", "import x");
+    app.base = Some((
+        "main".into(),
+        Buffer::from_bytes(PathBuf::from("/tmp/f.py"), base.join("\n").as_bytes()),
+    ));
+    app.diff.ghosts.insert(1, vec!["return 1".into()]);
+    app.diff
+        .ghosts
+        .insert(2, vec!["return 2".into(), "return 3".into()]);
+    app.diff.ghost_from.extend([(1, 1), (2, 50)]);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(20, 8)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let r = rows(&terminal);
+    let buf = terminal.backend().buffer();
+    let fg = |y: u16| {
+        let x = (0..20).find(|&x| buf[(x, y)].symbol() == "r").unwrap();
+        buf[(x, y)].fg
+    };
+    assert_eq!(r[1], "\u{258e}return 1");
+    assert_ne!(fg(1), theme.fg, "a keyword on the first ghost");
+    assert_eq!(
+        (r[3].as_str(), fg(3)),
+        ("\u{258e}return 2", fg(1)),
+        "the base is highlighted as far as the last ghost on screen, not the first"
+    );
+    assert_eq!(
+        (r[4].as_str(), fg(4)),
+        ("\u{258e}return 3", theme.fg),
+        "the base says `import x` there: the colours of another text would paint the wrong words"
+    );
+}
+
+#[test]
+fn a_changed_word_drops_the_bold_and_italic_of_its_syntax() {
+    let (dir, mut app) = review_of(
+        "word-modifiers",
+        "def f():\n    return 1\n",
+        "def f():\n    yield 1\n",
+    );
+    let theme = crate::theme::load("adwaita").unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(24, 6)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+    let r = rows(&terminal);
+    let buf = terminal.backend().buffer();
+    let cell = |y: usize, c: &str| {
+        let x = (0..24).find(|&x| buf[(x, y as u16)].symbol() == c).unwrap();
+        buf[(x, y as u16)].clone()
+    };
+    let y_new = r.iter().position(|l| l.ends_with("yield 1")).unwrap();
+    let kept = cell(0, "d").modifier;
+    assert!(
+        kept.intersects(Modifier::BOLD | Modifier::ITALIC),
+        "adwaita draws a keyword bold: {kept:?}"
+    );
+    let changed = cell(y_new, "y");
+    assert_eq!(changed.fg, theme.word_fg);
+    assert!(
+        !changed
+            .modifier
+            .intersects(Modifier::BOLD | Modifier::ITALIC),
+        "{:?}",
+        changed.modifier
+    );
+}
+
+#[test]
+fn a_selection_over_a_changed_word_draws_the_selection_not_the_word() {
+    let (dir, mut app) = review_of_one_operator("selected-word");
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(24, 5)).unwrap();
+    app.key(KeyEvent::new(KeyCode::End, KeyModifiers::SHIFT));
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(rows(&terminal)[2], "2\u{258e}    return a >= b");
+    let buf = terminal.backend().buffer();
+    let x = (0..24).find(|&x| buf[(x, 2)].symbol() == ">").unwrap();
+    let gt = &buf[(x, 2)];
+    assert_eq!(gt.bg, theme.selection);
+    assert_ne!(gt.fg, theme.word_fg);
 }
