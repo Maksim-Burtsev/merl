@@ -576,3 +576,16 @@ fn o_in_a_review_keeps_the_review_order() {
     assert!(listed.iter().all(|r| r.1.is_empty()));
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn a_file_outside_the_project_leaves_the_cursor_on_the_first_row() {
+    let (dir, mut a) = recent_app("recent-outside");
+    let outside = std::env::temp_dir().join(format!("merl-outside-{}.txt", std::process::id()));
+    std::fs::write(&outside, "x\n").unwrap();
+    a.jump_to(&dir.join("cc.txt"), 1);
+    a.jump_to(&outside, 1);
+    press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+    a.picker.as_mut().unwrap().settle();
+    assert_eq!(a.picker.as_ref().unwrap().selected, 0);
+    let _ = (std::fs::remove_dir_all(dir), std::fs::remove_file(outside));
+}

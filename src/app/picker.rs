@@ -47,13 +47,11 @@ impl App {
         let row: HashMap<PathBuf, u32> = (listed.iter().enumerate())
             .map(|(i, p)| (self.root.join(p), i as u32))
             .collect();
-        let rows = self
-            .recent
-            .iter()
+        let rows: Vec<u32> = (self.recent.iter())
             .filter_map(|p| row.get(p).copied())
             .collect();
-        let current_first =
-            self.buf.path.is_some() && self.recent.first() == self.buf.path.as_ref();
+        let current = self.buf.path.as_ref().and_then(|p| row.get(p));
+        let current_first = current.is_some() && rows.first() == current;
         (rows, current_first)
     }
 
