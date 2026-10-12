@@ -1,16 +1,10 @@
-//! `d` over the annotated fixtures (#307). A comment under a line, with a caret under a word,
-//! says what `d` on that word shows; `tests/fixtures/README.md` has the grammar. One test walks
-//! every fixture, presses `d` on every annotation and reports every failure at once.
-
 use super::*;
 
-/// The comment markers an annotation may start with: every kind's line comment.
 const MARKERS: [&str; 6] = ["//", "#", "--", ";", "%", "(*"];
 
 #[derive(Debug)]
 enum Want {
     Jump(String),
-    /// The rows, and whether more may follow (`, …`).
     Picker(Vec<String>, bool),
     None,
     NotJump,
@@ -25,21 +19,15 @@ enum Got {
 
 struct Case {
     fixture: String,
-    /// The file, from the fixture's root.
     file: String,
-    /// The annotation's own line, and the probed line above it, both from 1.
-    at: usize,
-    line: usize,
+    annotation_line: usize,
+    probed_line: usize,
     col: usize,
     want: Result<Want, String>,
-    /// The annotation as written, after `d:`.
     raw: String,
     status: Option<String>,
 }
 
-/// `(caret column, text after the caret)` of an annotation line: a line comment that is only a
-/// caret and what follows it. The text should start with `d:`; a typo there fails its case
-/// rather than dropping it unseen.
 fn annotation(line: &str) -> Option<(usize, &str)> {
     let caret = line.find('^')?;
     if !MARKERS.contains(&line[..caret].trim()) {
@@ -91,7 +79,6 @@ fn is_place(s: &str) -> bool {
         .is_some_and(|(f, n)| !f.is_empty() && !f.contains(' ') && n.parse::<usize>().is_ok())
 }
 
-/// `today; want wanted (#N)`: today's answer is checked, the wanted one only has to parse.
 fn parse_want(s: &str) -> Result<Want, String> {
     let Some((today, wanted)) = s.split_once("; want ") else {
         return parse_answer(s);
@@ -131,16 +118,11 @@ fn cases() -> Vec<Case> {
                 let Some((col, want)) = annotation(l) else {
                     continue;
                 };
-                // The probed line is the nearest above that is no annotation of its own.
-                let line = (0..i)
-                    .rev()
-                    .find(|&j| annotation(lines[j]).is_none() && status_line(lines[j]).is_none())
-                    .map_or(0, |j| j + 1);
                 cases.push(Case {
                     fixture: fixture.clone(),
                     file: file.to_string_lossy().into_owned(),
-                    at: i + 1,
-                    line,
+                    annotation_line: i + 1,
+                    probed_line: nearest_code_line_above(&lines, i),
                     col,
                     want: match want.strip_prefix("d:") {
                         Some(w) => parse_want(w.trim()),
@@ -158,28 +140,24 @@ fn cases() -> Vec<Case> {
     cases
 }
 
-/// Presses `d` where `case` points and reads what it showed, with the status line.
+fn nearest_code_line_above(lines: &[&str], annotation_at: usize) -> usize {
+    (0..annotation_at)
+        .rev()
+        .find(|&j| annotation(lines[j]).is_none() && status_line(lines[j]).is_none())
+        .map_or(0, |j| j + 1)
+}
+
 fn play(case: &Case) -> (Got, String) {
     let mut a = fixture_app(&case.fixture);
     let path = a.root.join(&case.file);
-    a.jump_to(&path, case.line);
+    a.jump_to(&path, case.probed_line);
     a.col = case.col;
     let before = at(&a);
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
     let status = a.message.clone();
     let got = match a.picker {
         Some(_) => Got::Picker(definition_rows(&mut a).into_iter().map(|r| r.2).collect()),
-        // Nothing found leaves the cursor where it was and says so, or names the label the word
-        // is (#315) or a builtin with no source (#336); a jump may land on the line it started
-        // from, on a declaration found by name.
-        None if at(&a) == before
-            && (status.starts_with("no ")
-                || status.ends_with(": argument label")
-                || status.ends_with(": key")
-                || status.contains(": builtin, no source")) =>
-        {
-            Got::None
-        }
+        None if at(&a) == before && says_nothing_found(&status) => Got::None,
         None => {
             let (path, line) = at(&a);
             let place = path.strip_prefix(&a.root).unwrap_or(&path);
@@ -187,6 +165,13 @@ fn play(case: &Case) -> (Got, String) {
         }
     };
     (got, status)
+}
+
+fn says_nothing_found(status: &str) -> bool {
+    status.starts_with("no ")
+        || status.ends_with(": argument label")
+        || status.ends_with(": key")
+        || status.contains(": builtin, no source")
 }
 
 fn matches(want: &Want, got: &Got) -> bool {
@@ -200,7 +185,6 @@ fn matches(want: &Want, got: &Got) -> bool {
     }
 }
 
-/// `got` in the annotation's own grammar, ready to paste.
 fn written(got: &Got) -> String {
     match got {
         Got::Jump(place) => place.clone(),
@@ -232,7 +216,10 @@ fn d_answers_every_annotation_in_the_fixtures() {
 }
 
 fn check(case: &Case) -> Option<String> {
-    let here = format!("tests/fixtures/{}/{}:{}", case.fixture, case.file, case.at);
+    let here = format!(
+        "tests/fixtures/{}/{}:{}",
+        case.fixture, case.file, case.annotation_line
+    );
     let want = match &case.want {
         Ok(want) => want,
         Err(e) => return Some(format!("{here}: {e}")),
@@ -278,6 +265,9 @@ fn the_annotation_grammar() {
     assert!(parse_want("none; want a.py:1").is_err());
     assert!(parse_want("somewhere").is_err());
     assert_eq!(status_line("  # status: via import"), Some("via import"));
+    let stacked = ["x = 1", "# ^ d: none", "#     ^ d: a.py:1", "# status: s"];
+    assert_eq!(nearest_code_line_above(&stacked, 1), 1);
+    assert_eq!(nearest_code_line_above(&stacked, 2), 1);
     let pick = |r: &[&str]| Got::Picker(r.iter().map(|s| s.to_string()).collect());
     let want = |r: &[&str], more| Want::Picker(r.iter().map(|s| s.to_string()).collect(), more);
     assert!(matches(&want(&["a:1"], true), &pick(&["a:1", "b:2"])));
