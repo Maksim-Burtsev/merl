@@ -4,9 +4,6 @@ use super::*;
 use search::{Attr, Sheet};
 
 impl App {
-    /// The class attribute under the cursor and its range: in an HTML file, a Vue, Svelte or
-    /// Astro template (TypeScript files to their kind, #413, read here by their extension), and a
-    /// JSX attribute of a JavaScript or TypeScript file. Other kinds have no markup to read.
     fn attr_here(&self, kind: Option<Kind>) -> Option<(Attr, std::ops::Range<usize>)> {
         let component = (self.buf.path.as_deref())
             .and_then(Path::extension)
@@ -58,8 +55,6 @@ impl App {
         }
         match kind {
             Some(Kind::Css) => {}
-            // Only a `<style>` block of an HTML file is a stylesheet; an inline `<script>` is not
-            // read as JavaScript.
             Some(Kind::Html) => {
                 let styles = search::style_blocks(&self.buf.lines.join("\n"));
                 if styles
@@ -193,8 +188,6 @@ impl App {
         self.show_definitions(Kind::Css, name, here, found, None);
     }
 
-    /// The declarations of a stylesheet's name: a namespaced one in the module its `@use` binds
-    /// (`via import`), else by name in the files that can declare it.
     fn sheet_declarations(&mut self, here: &Path, sheet: &Sheet) {
         let (word, ns) = match sheet {
             Sheet::Var(ns, n) | Sheet::Mixin(ns, n) | Sheet::Function(ns, n) => (n, ns.as_deref()),
@@ -288,7 +281,6 @@ impl App {
         self.show_definitions(Kind::Css, word, here, found, None);
     }
 
-    /// The lines of `path`, from the root, that `re` matches.
     fn matching_lines(&self, path: &Path, re: &Regex, in_style_blocks_only: bool) -> Vec<Hit> {
         let Some(text) = self.file_text(path) else {
             return Vec::new();
@@ -312,9 +304,6 @@ impl App {
             .collect()
     }
 
-    /// The file a stylesheet's import of `module` is: beside the importing file `here`, then in
-    /// the `node_modules` of its directories up to the root, as a package. Sass tries its
-    /// partials and index files, Less adds `.less`.
     fn sheet_module(&self, here: &Path, module: &str) -> Option<PathBuf> {
         let ext = here
             .extension()
@@ -342,7 +331,6 @@ impl App {
         })
     }
 
-    /// `d` on the path of an `@import`, a `@use` or a `@forward`: the file it names opens.
     fn follow_sheet_import(&mut self, here: &Path, module: &str) {
         if search::is_url(module) && !module.starts_with("sass:") {
             self.message = "no file in the project: a URL".into();
@@ -361,9 +349,6 @@ impl App {
         }
     }
 
-    /// `d` on the `href` or `src` of an HTML element: the file it names, relative to `here`
-    /// (one the project holds whose path ends with it after a leading `/`), at the element
-    /// whose `id` or `name` its `#fragment` is.
     fn follow_html_path(&mut self, here: &Path, value: &str) {
         if search::is_url(value) {
             self.message = "no file in the project: a URL".into();
