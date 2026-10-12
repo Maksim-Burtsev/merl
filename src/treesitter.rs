@@ -17,6 +17,11 @@ const PATTERN_DEPTH: usize = 4;
 
 const QUERIES: &[(&str, &str, &str)] = &[
     (
+        "bash",
+        include_str!("../queries/bash/highlights.scm"),
+        include_str!("../queries/bash/injections.scm"),
+    ),
+    (
         "ecma",
         include_str!("../queries/ecma/highlights.scm"),
         include_str!("../queries/ecma/injections.scm"),
@@ -25,6 +30,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         "go",
         include_str!("../queries/go/highlights.scm"),
         include_str!("../queries/go/injections.scm"),
+    ),
+    (
+        "json",
+        include_str!("../queries/json/highlights.scm"),
+        include_str!("../queries/json/injections.scm"),
     ),
     (
         "javascript",
@@ -64,6 +74,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         "",
     ),
     (
+        "toml",
+        include_str!("../queries/toml/highlights.scm"),
+        include_str!("../queries/toml/injections.scm"),
+    ),
+    (
         "tsx",
         include_str!("../queries/tsx/highlights.scm"),
         include_str!("../queries/tsx/injections.scm"),
@@ -72,6 +87,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         "typescript",
         include_str!("../queries/typescript/highlights.scm"),
         include_str!("../queries/typescript/injections.scm"),
+    ),
+    (
+        "yaml",
+        include_str!("../queries/yaml/highlights.scm"),
+        include_str!("../queries/yaml/injections.scm"),
     ),
     (
         "lua",
@@ -86,6 +106,8 @@ const QUERIES: &[(&str, &str, &str)] = &[
 ];
 
 const ALIASES: &[(&str, &str)] = &[
+    ("sh", "bash"),
+    ("jsonc", "json"),
     ("py", "python"),
     ("gyp", "python"),
     ("pandoc", "markdown"),
@@ -122,6 +144,7 @@ const INJECTION_KEYS: &[&str] = &[
     "injection.language",
     "injection.combined",
     "injection.include-children",
+    "injection.self",
 ];
 const CAPTURE_KEYS: &[&str] = &["url", "conceal", "bo.commentstring"];
 
@@ -202,7 +225,11 @@ pub struct Lang {
 pub fn for_syntax(syntect_name: &str, path: Option<&Path>) -> Option<&'static Lang> {
     let astro = path.is_some_and(|p| p.extension().is_some_and(|e| e == "astro"));
     match syntect_name {
+        "Bourne Again Shell (bash)" if !path.is_some_and(zsh) => lang("bash"),
         "Go" => lang("go"),
+        "JSON" => lang("json"),
+        "TOML" => lang("toml"),
+        "YAML" => lang("yaml"),
         "JavaScript (Babel)" => lang("javascript"),
         "Python" => lang("python"),
         "Rust" => lang("rust"),
@@ -214,8 +241,24 @@ pub fn for_syntax(syntect_name: &str, path: Option<&Path>) -> Option<&'static La
     }
 }
 
+fn zsh(path: &Path) -> bool {
+    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    let bare = name.strip_prefix('.').unwrap_or(name);
+    let ext = name.rsplit_once('.').map_or("", |(_, e)| e);
+    matches!(ext, "zsh" | "zunit" | "zsh-theme")
+        || bare.starts_with("zsh")
+        || bare.starts_with("zlog")
+        || name.starts_with(".zcompdump")
+        || matches!(name, ".zprofile" | ".zfbfmarks")
+        || path == Path::new("/etc/zprofile")
+}
+
 fn grammar(name: &str) -> Option<Language> {
     Some(match name {
+        "bash" => tree_sitter_bash::LANGUAGE.into(),
+        "json" => tree_sitter_json::LANGUAGE.into(),
+        "toml" => tree_sitter_toml_ng::LANGUAGE.into(),
+        "yaml" => tree_sitter_yaml::LANGUAGE.into(),
         "go" => tree_sitter_go::LANGUAGE.into(),
         "python" => tree_sitter_python::LANGUAGE.into(),
         "rust" => tree_sitter_rust::LANGUAGE.into(),
@@ -714,6 +757,28 @@ impl Parsed {
             .as_ref()
             .map(|t| t.root_node().to_sexp())
             .unwrap_or_default()
+    }
+
+    #[cfg(test)]
+    pub fn shape(&self) -> Vec<(u16, std::ops::Range<usize>, bool)> {
+        let mut out = Vec::new();
+        let Some(tree) = &self.tree else { return out };
+        let mut c = tree.walk();
+        loop {
+            let n = c.node();
+            out.push((n.kind_id(), n.byte_range(), n.is_missing()));
+            if c.goto_first_child() || c.goto_next_sibling() {
+                continue;
+            }
+            loop {
+                if !c.goto_parent() {
+                    return out;
+                }
+                if c.goto_next_sibling() {
+                    break;
+                }
+            }
+        }
     }
 
     #[cfg(test)]

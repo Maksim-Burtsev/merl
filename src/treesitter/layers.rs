@@ -180,7 +180,12 @@ fn merge(into: &mut Vec<Injected>, from: Vec<Injected>) {
     }
 }
 
-pub fn injections(lang: &Lang, tree: &Tree, parent: Option<&[Range]>, doc: &Doc) -> Vec<Injected> {
+pub fn injections(
+    lang: &'static Lang,
+    tree: &Tree,
+    parent: Option<&[Range]>,
+    doc: &Doc,
+) -> Vec<Injected> {
     let Some(inj) = &lang.injections else {
         return Vec::new();
     };
@@ -196,10 +201,13 @@ pub fn injections(lang: &Lang, tree: &Tree, parent: Option<&[Range]>, doc: &Doc)
             continue;
         }
         let p = m.pattern_index;
-        let mut target = inj
-            .setting(p, "injection.language")
-            .flatten()
-            .and_then(|n| Target::of(n, syntect));
+        let mut target = match inj.setting(p, "injection.self") {
+            Some(_) => Some(Target::Tree(lang)),
+            None => inj
+                .setting(p, "injection.language")
+                .flatten()
+                .and_then(|n| Target::of(n, syntect)),
+        };
         let children = inj.setting(p, "injection.include-children").is_some();
         let mut ranges = Vec::new();
         for c in m.captures() {

@@ -1,0 +1,4 @@
+# gruvbox-dark: ellisonleao/gruvbox.nvim@154eb5ff5b96d0641307113fa385eaf0d36d9796 `set background=dark | colorscheme gruvbox`; NVIM v0.12.5, nvim-treesitter 1a4f47b
+# palette a=83a598 b=b8bb26i c=fe8019 d=d3869b e=928374i f=fe8019i g=ebdbb2
+Cargo.toml	1:e11 2:ca7c 3:a4cb6 4:a7cb7 5:a7cb6 6:a7c2b16c 7:a11cb3 8:b11 9:b15f2b7f2b3f2b7 10:a7cb5 11:a7cb3 12:b13 14:ca12c 15:a5c2a7cb3ca8c2b8c2 16:a11cb6 17:b12cd 18:aca6ca3cd4 20:ca7ca7c 21:a3cb6 22:a5cd5 23:a9cd 24:a13cd 25:a5cd3 26:a3cd9 27:a3cd11 28:a3cd5 29:a3cd6 30:a3cd7 31:a3cd4 32:a3cd3 33:a4c26 34:a3c11 35:a4c9 37:c2a3c2 38:a4cb6 39:a4cb13 41:ca9ca8ca6c 42:a3c2 43:dc 44:dce9 45:c
+broken.toml	1:ca7 2:a4cg2 3:a7cacaca 4:c2a3c2 5:cb9

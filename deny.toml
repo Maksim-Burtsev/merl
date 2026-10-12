@@ -33,5 +33,7 @@ wildcards = "deny"
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-git = [
-    "https://github.com/tree-sitter-grammars/tree-sitter-luadoc",
+  "https://github.com/tree-sitter/tree-sitter-json",
+  "https://github.com/tree-sitter-grammars/tree-sitter-yaml",
+  "https://github.com/tree-sitter-grammars/tree-sitter-luadoc",
 ]

@@ -1835,9 +1835,11 @@ dependencies = [
  "syntect",
  "toml",
  "tree-sitter",
+ "tree-sitter-bash",
  "tree-sitter-go",
  "tree-sitter-javascript",
  "tree-sitter-jsdoc",
+ "tree-sitter-json",
  "tree-sitter-lua",
  "tree-sitter-luadoc",
  "tree-sitter-md",
@@ -1845,7 +1847,9 @@ dependencies = [
  "tree-sitter-python",
  "tree-sitter-regex",
  "tree-sitter-rust",
+ "tree-sitter-toml-ng",
  "tree-sitter-typescript",
+ "tree-sitter-yaml",
  "two-face",
  "unicase",
  "unicode-segmentation",
@@ -3785,6 +3789,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tree-sitter-bash"
+version = "0.25.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e5ec769279cc91b561d3df0d8a5deb26b0ad40d183127f409494d6d8fc53062"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
 name = "tree-sitter-go"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3809,6 +3823,15 @@ name = "tree-sitter-jsdoc"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a70da85d41e05dae5d323a4b76fa0955d16fa0394415cea2034de046a21ea6a"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-json"
+version = "0.24.8"
+source = "git+https://github.com/tree-sitter/tree-sitter-json?rev=254c42a6476413b776221e03982ac8ae159eeb72#254c42a6476413b776221e03982ac8ae159eeb72"
 dependencies = [
  "cc",
  "tree-sitter-language",
@@ -3890,10 +3913,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "tree-sitter-toml-ng"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9adc2c898ae49730e857d75be403da3f92bb81d8e37a2f918a08dd10de5ebb1"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
 name = "tree-sitter-typescript"
 version = "0.23.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c5f76ed8d947a75cc446d5fccd8b602ebf0cde64ccf2ffa434d873d7a575eff"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-yaml"
+version = "0.7.2"
+source = "git+https://github.com/tree-sitter-grammars/tree-sitter-yaml?rev=a1c4812a73ec5e089de8e441fdea3a921e8d5079#a1c4812a73ec5e089de8e441fdea3a921e8d5079"
 dependencies = [
  "cc",
  "tree-sitter-language",

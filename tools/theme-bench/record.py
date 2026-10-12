@@ -55,6 +55,10 @@ LANGS = {
     "jsx": (["mastodon"], ["jsx"]),
     "go": (["caddy"], ["go"]),
     "markdown": (["ripgrep", "caddy", "outline", "paperless-ngx"], ["md"]),
+    "bash": (["redis", "paperless-ngx", "ripgrep", "caddy", "eslint"], ["sh", "bash"]),
+    "json": (["eslint", "paperless-ngx", "redis"], ["json", "jsonc"]),
+    "yaml": (["paperless-ngx", "eslint", "caddy", "redis"], ["yaml", "yml"]),
+    "toml": (["ripgrep", "paperless-ngx", "eslint", "redis"], ["toml"]),
     "lua": (["redis"], ["lua"], 25),
 }
 SKIP_DIRS = ("migrations/", "vendor/", "testdata/", "node_modules/", "CHANGELOG")

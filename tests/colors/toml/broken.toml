@@ -1,0 +1,5 @@
+[package
+name = "x
+version = 1.2.3
+[[bin]]
+= "nothing"
