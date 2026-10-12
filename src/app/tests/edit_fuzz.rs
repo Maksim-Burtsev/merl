@@ -1107,9 +1107,29 @@ fn fuzz_tree_sitter(name: &str, start: &[u8], snippets: &[&str]) {
             fresh.start_tree_sitter();
             fresh.parse_more(None);
             fresh.paint_to(usize::MAX, &theme);
-            let want = match a.buf.shape() == fresh.shape() {
+            let (shape, fresh_shape) = (a.buf.shape(), fresh.shape());
+            let recovered = |s: &crate::treesitter::Shape| {
+                s.iter()
+                    .any(|(kind, _, missing, _)| *missing || *kind == u16::MAX)
+            };
+            let tokens = |s: &crate::treesitter::Shape| {
+                s.iter()
+                    .filter(|n| n.3)
+                    .map(|n| (n.0, n.1.clone()))
+                    .collect::<Vec<_>>()
+            };
+            let want = match shape == fresh_shape {
                 true => fresh.hl,
                 false => {
+                    assert!(
+                        recovered(&shape)
+                            || recovered(&fresh_shape)
+                            || tokens(&shape) == tokens(&fresh_shape),
+                        "seed {seed}, after [{}]: the tree differs from a fresh parse without an error in either\nincremental {}\nfresh {}",
+                        done.join(", "),
+                        a.buf.sexp(),
+                        fresh.sexp()
+                    );
                     assert_eq!(
                         a.buf.root_bytes(),
                         fresh.root_bytes(),

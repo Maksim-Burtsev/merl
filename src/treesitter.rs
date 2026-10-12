@@ -7,13 +7,15 @@ use std::time::{Duration, Instant};
 use ratatui::style::Style;
 use syntect::highlighting::Highlighter;
 use syntect::parsing::Scope;
-use tree_sitter::{InputEdit, Language, ParseOptions, ParseState, Parser, Point, Query, Tree};
+use tree_sitter::{
+    InputEdit, Language, ParseOptions, ParseState, Parser, Point, Query, QueryCursor,
+    StreamingIterator, Tree,
+};
 
 use crate::buffer::{Buffer, Spans};
 use crate::theme::Theme;
 
 const NEOVIM_TREESITTER_PRIORITY: u32 = 100;
-const PATTERN_DEPTH: usize = 4;
 
 const QUERIES: &[(&str, &str, &str)] = &[
     (
@@ -454,15 +456,33 @@ fn patterns(
     })
 }
 
-fn pattern_start_row(new: &Tree, byte: usize) -> usize {
-    std::iter::successors(new.root_node().descendant_for_byte_range(byte, byte), |n| {
-        n.parent()
-    })
-    .filter(|n| n.parent().is_some())
-    .take(PATTERN_DEPTH)
-    .map(|n| n.start_position().row)
-    .min()
-    .unwrap_or(usize::MAX)
+fn changed_match_row(
+    patterns: &Patterns,
+    old: &Tree,
+    new: &Tree,
+    range: std::ops::Range<usize>,
+    bytes: &[u8],
+) -> usize {
+    let found = |tree: &Tree| {
+        let mut cursor = QueryCursor::new();
+        cursor.set_byte_range(range.clone());
+        let mut out = std::collections::HashSet::new();
+        let mut matches = cursor.matches(&patterns.query, tree.root_node(), bytes);
+        while let Some(m) = matches.next() {
+            let captures: Vec<_> = m
+                .captures()
+                .iter()
+                .map(|c| (c.index, c.node.byte_range(), c.node.start_position().row))
+                .collect();
+            out.insert((m.pattern_index, captures));
+        }
+        out
+    };
+    found(old)
+        .symmetric_difference(&found(new))
+        .flat_map(|(_, captures)| captures.iter().map(|c| c.2))
+        .min()
+        .unwrap_or(usize::MAX)
 }
 
 fn vim_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
@@ -473,22 +493,32 @@ fn vim_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
         _ => p,
     };
     let mut out = String::from("(?s-u)");
-    let mut chars = body.chars();
+    let mut chars = body.chars().peekable();
+    let mut class = None;
     while let Some(c) = chars.next() {
-        match c {
-            '\\' => match chars.next() {
-                Some(n @ ('d' | 's' | 'w' | 'D' | 'S' | 'W')) => {
+        match (c, class) {
+            ('<' | '>' | '=' | '@' | '%' | '~' | '{' | '&', _) => return bad(),
+            ('\\' | '[', Some(_)) => return bad(),
+            ('-', Some(_)) if chars.peek() == Some(&'-') => return bad(),
+            (']', Some(false)) => class = None,
+            ('^', Some(true)) => {}
+            (_, Some(_)) => class = Some(false),
+            ('[', None) => class = Some(true),
+            ('\\', None) => match chars.next() {
+                Some(n @ ('d' | 'w' | 'D' | 'W')) => {
                     out.push('\\');
                     out.push(n);
+                    continue;
                 }
-                Some(n) if !n.is_ascii_alphanumeric() => {
-                    out.push_str(&regex::escape(&n.to_string()))
+                Some(n) if !n.is_ascii_alphanumeric() && n != '_' => {
+                    out.push_str(&regex::escape(&n.to_string()));
+                    continue;
                 }
                 _ => return bad(),
             },
-            '<' | '>' | '=' | '@' | '%' | '~' | '{' | '&' => return bad(),
-            _ => out.push(c),
+            _ => {}
         }
+        out.push(c);
     }
     regex::bytes::Regex::new(&out).map_err(|e| format!("vim pattern {p:?}: {e}"))
 }
@@ -573,6 +603,9 @@ fn lua_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
     }
     regex::bytes::Regex::new(&out).map_err(|e| format!("lua pattern {p:?}: {e}"))
 }
+
+#[cfg(test)]
+pub type Shape = Vec<(u16, std::ops::Range<usize>, bool, bool)>;
 
 pub struct Parsed {
     pub lang: &'static Lang,
@@ -681,9 +714,13 @@ impl Parsed {
             Some(old) => old
                 .changed_ranges(&tree)
                 .map(|r| {
+                    let range = r.start_byte..r.end_byte;
+                    let row = |p: &Patterns| changed_match_row(p, old, &tree, range.clone(), bytes);
+                    let injected = self.lang.injections.as_ref().map_or(usize::MAX, row);
                     r.start_point
                         .row
-                        .min(pattern_start_row(&tree, r.start_byte))
+                        .min(row(&self.lang.highlights))
+                        .min(injected)
                 })
                 .fold(from, usize::min),
             None => 0,
@@ -760,13 +797,18 @@ impl Parsed {
     }
 
     #[cfg(test)]
-    pub fn shape(&self) -> Vec<(u16, std::ops::Range<usize>, bool)> {
+    pub fn shape(&self) -> Shape {
         let mut out = Vec::new();
         let Some(tree) = &self.tree else { return out };
         let mut c = tree.walk();
         loop {
             let n = c.node();
-            out.push((n.kind_id(), n.byte_range(), n.is_missing()));
+            out.push((
+                n.kind_id(),
+                n.byte_range(),
+                n.is_missing(),
+                n.child_count() == 0,
+            ));
             if c.goto_first_child() || c.goto_next_sibling() {
                 continue;
             }
