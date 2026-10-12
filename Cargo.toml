@@ -25,7 +25,7 @@ nucleo = "0.5"
 pulldown-cmark = { version = "0.13", default-features = false }
 ratatui = { version = "0.30", features = ["unstable-rendered-line-info"] }
 regex = "1"
-resvg = "0.46"
+resvg = "0.48"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 signal-hook = "0.4"
