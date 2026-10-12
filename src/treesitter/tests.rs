@@ -225,6 +225,31 @@ fn javascript_and_jsx_are_coloured_as_lazyvim() {
 }
 
 #[test]
+fn bash_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("bash");
+}
+
+#[test]
+fn json_and_jsonc_are_coloured_as_lazyvim() {
+    coloured_as_lazyvim("json");
+}
+
+#[test]
+fn yaml_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("yaml");
+}
+
+#[test]
+fn toml_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("toml");
+}
+
+#[test]
+fn lua_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("lua");
+}
+
+#[test]
 fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     let sexp = |f: &str, src: &[u8]| {
         let mut b = Buffer::from_bytes(PathBuf::from(f), src);
@@ -241,6 +266,30 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
         assert!(sexp(f, ts).contains("type_assertion"), "{f}");
     }
     assert_eq!(sexp("a.astro", jsx), "");
+    for f in [
+        "a.sh", "a.bash", ".bashrc", ".profile", "PKGBUILD", "a.ebuild",
+    ] {
+        assert!(sexp(f, b"echo hi\n").contains("(command "), "{f}");
+    }
+    for f in [
+        "a.zsh",
+        ".zshrc",
+        ".zshenv",
+        "zshrc",
+        ".zprofile",
+        ".zlogin",
+    ] {
+        assert_eq!(sexp(f, b"echo hi\n"), "", "{f}");
+    }
+    for f in ["a.json", "a.jsonc", "tsconfig.json", "a.ipynb"] {
+        assert!(sexp(f, b"{\"a\": 1}\n").contains("(object "), "{f}");
+    }
+    for f in ["a.yaml", "a.yml"] {
+        assert!(sexp(f, b"a: 1\n").contains("(block_mapping "), "{f}");
+    }
+    for f in ["a.toml", "Cargo.lock"] {
+        assert!(sexp(f, b"a = 1\n").contains("(pair "), "{f}");
+    }
 }
 
 #[test]
@@ -267,8 +316,8 @@ fn every_vendored_query_compiles_with_what_it_uses() {
 fn a_query_using_what_merl_does_not_implement_is_refused() {
     let python = || tree_sitter_python::LANGUAGE.into();
     for text in [
-        "((identifier) @x (#match? @x \"^a\"))",
-        "((identifier) @x (#vim-match? @x \"^a\"))",
+        "((identifier) @x (#match? @x \"<a\"))",
+        "((identifier) @x (#vim-match? @x \"a{2}\"))",
         "((identifier) @x (#has-ancestor? @x call))",
         "((identifier) @x (#offset! @x 0 1))",
         "((identifier) @x (#set! injection.language \"regex\"))",
@@ -340,6 +389,47 @@ fn lua_patterns_match_as_lua_does() {
 }
 
 #[test]
+fn vim_patterns_match_as_neovim_reads_them_very_magic() {
+    for (pattern, yes, no) in [
+        ("/\\*!([a-zA-Z]+:)?re2c", "/*!local:re2c", "/*!re2"),
+        ("/\\*!([a-zA-Z]+:)?re2c", "x /*!re2c", "/*!:re2c"),
+        ("^a(b|c)+$", "abcb", "a(b|c)+"),
+        ("\\v^\\d+$", "42", "4a"),
+        ("\\<a\\>", "<a>", "a"),
+        ("[]a]+$", "x]a", "x]b"),
+        ("^[^]a]$", "b", "]"),
+        ("[a-c]x", "bx", "dx"),
+    ] {
+        let re = super::vim_pattern(pattern).unwrap();
+        assert!(re.is_match(yes.as_bytes()), "{pattern} on {yes}");
+        assert!(!re.is_match(no.as_bytes()), "{pattern} on {no}");
+    }
+    for pattern in ["<a>", "\\Va", "a{2}", "a\\zsb"] {
+        assert!(super::vim_pattern(pattern).is_err(), "{pattern}");
+    }
+}
+
+#[test]
+fn vim_patterns_merl_cannot_read_as_neovim_does_are_refused() {
+    for (pattern, neovim) in [
+        ("a\\sb", "\\s is a space or a tab, never a newline"),
+        ("a\\Sb", "\\S takes a newline"),
+        ("a\\_sb", "\\_s is \\s or a newline"),
+        ("a\\_.b", "\\_. is any character or a newline"),
+        ("a\\_[bc]", "\\_[ is a collection with a newline"),
+        (
+            "[\\d]",
+            "\\d in a collection is a character by its decimal code",
+        ),
+        ("[a\\]]", "\\] in a collection is ]"),
+        ("[[a]]", "[ in a collection is ["),
+        ("[a--b]", "-- in a collection is a range up to -"),
+    ] {
+        assert!(super::vim_pattern(pattern).is_err(), "{pattern}: {neovim}");
+    }
+}
+
+#[test]
 fn a_theme_without_groups_still_colours_every_kind_of_capture() {
     let theme = theme::load("shokunin-dark").unwrap();
     assert!(theme.groups.is_empty());
@@ -393,7 +483,10 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
     assert_eq!(name("rust"), Some("rust"));
     assert_eq!(name("pandoc"), Some("markdown"));
     assert_eq!(name("astro"), None);
-    assert_eq!(name("yaml"), None);
+    assert_eq!(name("yml"), Some("yaml"));
+    assert_eq!(name("sh"), Some("bash"));
+    assert_eq!(name("jsonc"), Some("json"));
+    assert_eq!(name("zsh"), None);
 }
 
 #[test]
@@ -502,7 +595,7 @@ fn a_parse_cut_short_resumes_and_an_edit_in_between_restarts_it() {
 #[ignore]
 fn speed() {
     let theme = theme::load("tokyonight-moon").unwrap();
-    let files = std::env::var("MERL_TS_SPEED").expect("MERL_TS_SPEED=file.py,…");
+    let files = std::env::var("MERL_TS_SPEED").unwrap_or_default();
     let ms = |t: std::time::Instant| t.elapsed().as_secs_f64() * 1000.0;
     let pct = |v: &[(f64, f64)], coloured: bool, p: usize| {
         let mut v: Vec<f64> = v.iter().map(|x| if coloured { x.1 } else { x.0 }).collect();
@@ -515,7 +608,7 @@ fn speed() {
         }
         b.highlight_to(last, &theme);
     };
-    for file in files.split(',') {
+    for file in files.split(',').filter(|f| !f.is_empty()) {
         let bytes = std::fs::read(file).unwrap();
         for ts in [false, true] {
             let open = |at: usize| {
@@ -570,6 +663,45 @@ fn speed() {
             }
         }
     }
+    let body = |line: &dyn Fn(usize) -> String| (0..19_998).map(line).collect::<String>();
+    let containers = [
+        (
+            "a dict literal",
+            format!("X = {{\n{}}}\n", body(&|i| format!("    \"k{i}\": 1,\n"))),
+        ),
+        (
+            "a function body",
+            format!("def f():\n{}", body(&|i| format!("    x{i} = 1\n"))),
+        ),
+    ];
+    for (what, src) in containers {
+        let mut b = Buffer::from_bytes(PathBuf::from("a.py"), src.as_bytes());
+        b.start_tree_sitter();
+        let l = b.lines.len() - 50;
+        let keys: Vec<_> = (0..20)
+            .map(|_| {
+                settle(&mut b, l + 20);
+                let t = std::time::Instant::now();
+                b.lines[l] = match b.lines[l].contains("[1]") {
+                    true => b.lines[l].replace("[1]", "1"),
+                    false => b.lines[l].replace(" 1", " [1]"),
+                };
+                b.edited(l);
+                b.highlight_to(l + 20, &theme);
+                let frame = ms(t);
+                settle(&mut b, l + 20);
+                (frame, ms(t))
+            })
+            .collect();
+        println!(
+            "{what}, {} lines, 1 to [1] 50 rows from its end: frame p50 {:.2} p90 {:.2}, coloured p50 {:.2} p90 {:.2} ms",
+            b.lines.len(),
+            pct(&keys, false, 50),
+            pct(&keys, false, 90),
+            pct(&keys, true, 50),
+            pct(&keys, true, 90),
+        );
+    }
 }
 
 #[test]
@@ -593,4 +725,70 @@ fn an_injected_language_without_a_grammar_stays_plain_outside_markdown() {
         fg_at("t(`Add people to x`);", "Add"),
         fg_at("x(`Add people to x`);", "Add")
     );
+}
+
+#[test]
+fn a_doc_comment_is_parsed_as_jsdoc_in_javascript_and_typescript() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let group = |g: &str| theme.group(g).unwrap().fg;
+    let src = "/** @param {string} name */";
+    for name in ["javascript", "typescript", "tsx"] {
+        let lines = vec![src.to_string()];
+        let mut parsed = super::Parsed::new(super::lang(name).unwrap(), &lines).unwrap();
+        parsed.parse(None);
+        let mut styles = super::Styles::new(&theme);
+        let spans = parsed.spans(&lines, 0, 0, &mut styles);
+        let fg = |word: &str| {
+            let col = src.find(word).unwrap();
+            spans[0]
+                .iter()
+                .find(|(_, r)| r.contains(&col))
+                .unwrap()
+                .0
+                .fg
+        };
+        assert_eq!(fg("@param"), group("@keyword"), "{name}");
+        assert_eq!(fg("string"), group("@type"), "{name}");
+        assert_eq!(fg("name"), group("@variable"), "{name}");
+        assert_ne!(fg("@param"), fg("/**"), "{name}");
+    }
+}
+
+#[test]
+fn an_edit_repaints_a_name_whose_pattern_spans_the_changed_lines() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let mut b = Buffer::from_bytes(PathBuf::from("a.lua"), b"local x\nf =\n  1\nlocal y\n");
+    b.start_tree_sitter();
+    b.parse_more(None);
+    b.paint_to(usize::MAX, &theme);
+    for value in ["  function() end", "  1"] {
+        b.lines[2] = value.to_string();
+        b.edited(2);
+        b.parse_more(None);
+        b.paint_to(usize::MAX, &theme);
+        let text = b.lines.join("\n") + "\n";
+        let mut fresh = Buffer::from_bytes(PathBuf::from("a.lua"), text.as_bytes());
+        fresh.start_tree_sitter();
+        fresh.parse_more(None);
+        fresh.paint_to(usize::MAX, &theme);
+        assert_eq!(b.hl, fresh.hl, "{value}");
+    }
+}
+
+#[test]
+fn an_edit_inside_a_large_container_repaints_from_its_own_row() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let body = |line: &dyn Fn(usize) -> String| (0..30).map(line).collect::<String>();
+    let dict = format!("X = {{\n{}}}\n", body(&|i| format!("    \"k{i}\": 1,\n")));
+    let function = format!("def f():\n{}", body(&|i| format!("    x{i} = 1\n")));
+    for src in [dict, function] {
+        let mut b = Buffer::from_bytes(PathBuf::from("a.py"), src.as_bytes());
+        b.start_tree_sitter();
+        b.parse_more(None);
+        b.paint_to(usize::MAX, &theme);
+        b.lines[25] = b.lines[25].replace(" 1", " [1]");
+        b.edited(25);
+        b.parse_more(None);
+        assert_eq!(b.hl.len(), 25, "{}", b.lines[0]);
+    }
 }

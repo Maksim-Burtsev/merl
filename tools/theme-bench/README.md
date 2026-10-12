@@ -36,52 +36,67 @@ the gate still holds every row to it. On 2026-10-12 (#802) Python matched every 
 92 themes, 19,185 per theme: no miss is left to list. A language that leaves misses lists them
 here by cause.
 
-Go and Rust (#805), before injections:
+Go and Rust (#805), with their injections (#818: `printf` and `regex` in Go, macro bodies parsed
+again as Rust and `regex` in Rust):
 
 | language | chars | lowest | median | highest |
 |---|---|---|---|---|
-| Go | 14,810 | 99.7 adwaita | 99.9 | 100.0 vscode-light |
-| Rust | 17,576 | 90.7 github-dark | 94.4 | 99.9 e-ink-light |
+| Go | 14,810 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+| Rust | 17,576 | 96.3 github-dark | 100.0 | 100.0 vscode-light |
 
-- Injections (#818). Go: the `%` verbs of `Errorf` and `Fatalf` strings, which LazyVim parses as
-  `printf`, 38 characters in the themes that colour them apart. Rust: the bodies of macro calls,
-  which LazyVim parses again as Rust (`path.display()` inside `format!`, every test of
-  `tests/feature.rs` inside `rgtest!`): almost all of Rust's misses, in every theme.
 - The theme's own queries (#819): github-dark and github-light append github-nvim-theme's
   `queries/rust/highlights.scm` (attributes, `crate`/`self`/`super`, lifetimes, capitalised
   names), which merl does not load.
 
-Markdown (#803), 18,398 characters per theme: 98.3 % median (97.8 everforest-dark, 99.3
-alabaster-light), against 71.3 % with the setting off. Every character of Markdown's own grammars,
-`markdown` and `markdown_inline`, and of the Python, Go and Rust its fences hold, matches in the
-themes read by cause (tokyonight-moon, dayfox, github-light); the misses are code merl does not
-yet colour as LazyVim does, drawn through syntect as before or waiting for Rust's injections:
+Markdown (#803), 18,398 characters per theme: 100.0 % median (100.0 adwaita, 100.0
+vscode-light), against 71.3 % with the setting off. Every character of Markdown's own grammars,
+`markdown` and `markdown_inline`, and of the Python, Go, Rust, Bash, JSON, YAML and TOML its
+fences hold, matches in the themes read by cause (tokyonight-moon, dayfox, github-light,
+alabaster-light): no miss is left to list.
 
-| cause | tokyonight-moon | dayfox | github-light | lands in |
-|---|---|---|---|---|
-| fenced `bash` / `sh` / `console` blocks | 111 | 145 | 39 | #806 |
-| fenced `json` blocks | 63 | 74 | 66 | #806 |
-| fenced `rust` blocks: macro bodies (`assert!(glob.is_match(…))`) | 59 | 59 | 59 | #818 |
-| fenced `yaml` blocks and the YAML front matter | 33 | 38 | 2 | #806 |
-| fenced `toml` blocks | 23 | 17 | 3 | #806 |
-
-TypeScript, TSX, JavaScript and JSX (#804), with #803's injections (regex literals parsed as
-`regex`; an injected language merl has no grammar for, such as `t` in ``t(`…`)``, is left plain as
-in Neovim, the syntect fallback being only for Markdown's code blocks):
+Bash, JSON, YAML and TOML (#806), with Bash injected into YAML's `run:` blocks:
 
 | language | chars | lowest | median | highest |
 |---|---|---|---|---|
-| TypeScript | 13,701 | 98.8 adwaita | 98.8 | 99.3 material-light |
-| TSX | 9,700 | 99.5 github-dark | 99.8 | 99.9 material-light |
-| JavaScript | 13,199 | 95.7 adwaita | 95.7 | 96.1 srcery |
+| Bash | 12,491 | 99.4 github-dark | 100.0 | 100.0 vscode-light |
+| JSON | 7,070 | 99.9 alabaster-light | 99.9 | 100.0 vscode-light |
+| YAML | 16,564 | 99.8 github-dark | 100.0 | 100.0 vscode-light |
+| TOML | 10,487 | 99.9 alabaster-light | 99.9 | 100.0 vscode-light |
+
+- The theme's own queries (#819): github-dark and github-light append github-nvim-theme's
+  `queries/bash/highlights.scm` (`$(`, `<(` and their `)` as strings, the `#` of `${#a}` as an
+  operator), in Bash files and in YAML's `run:` blocks, which merl does not load.
+- The recording's cursor: a file starting with a bracket (every JSON file, `[tool]` in TOML) has
+  its first `{` or `[` and the matching one drawn as `MatchParen` by Neovim, not a colour of the
+  code: two characters per file.
+
+TypeScript, TSX, JavaScript and JSX (#804), with #803's injections (regex literals parsed as
+`regex`, `/** */` comments as `jsdoc` since #818; an injected language merl has no grammar for,
+such as `t` in ``t(`…`)``, is left plain as in Neovim, the syntect fallback being only for
+Markdown's code blocks):
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| TypeScript | 13,701 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+| TSX | 9,700 | 99.7 github-dark | 100.0 | 100.0 vscode-light |
+| JavaScript | 13,199 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 | JSX | 14,130 | 100.0 | 100.0 | 100.0 |
 
-- `jsdoc` (#818): in `/** */` comments, tags such as `@param`, their `{types}` and names, which
-  LazyVim parses as `jsdoc` and merl has no grammar for yet: almost all the misses of JavaScript
-  and TypeScript, the same in every theme.
 - The theme's own queries (#819): github-dark and github-light append github-nvim-theme's
   `queries/jsx/highlights.scm` (a member expression tag such as `<Icons.Close>`), which merl does
   not load.
+
+Lua (#806), with its injections (`---@` comments parsed as `luadoc`, `string.format` strings as
+`printf`); the bench's four files are redis's `deps/lua`, the only Lua of the d-bench projects,
+so the language takes files of 25 recordable lines rather than 80:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Lua | 4,590 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
+- The pattern of `find`, `match`, `gmatch` and `gsub`: Neovim parses it as `luap`, whose crates
+  build against tree-sitter 0.20; merl colours it as one `@string.regexp`
+  (`tests/colors/lua/NOTES.md`). None of the bench's files has one.
 
 ## Files
 
@@ -97,8 +112,8 @@ in Neovim, the syntect fallback being only for Markdown's code blocks):
 ## The reference
 
 LazyVim as the epic defines it: Neovim with the theme's own colorscheme, nvim-treesitter's
-queries and plugin (`main`, pinned in `record.py`; the plugin maps `typescriptreact` to `tsx` and
-`javascriptreact` to `javascript`, #804) and the parsers LazyVim installs by default plus Rust and
+queries and plugin (`main`, pinned in `record.py`; the plugin maps `typescriptreact` to `tsx`,
+`javascriptreact` to `javascript`, `sh` to `bash` and `jsonc` to `json`, #804, #806) and the parsers LazyVim installs by default plus Rust and
 Go, built with `cc` at the revisions nvim-treesitter pins, `termguicolors`, `number`,
 `cursorline`, `nowrap`, and `vim.treesitter.start` on every buffer; no LSP, so no semantic
 tokens. Neovim runs in tmux with every `XDG_*` home and `XDG_CONFIG_DIRS` / `XDG_DATA_DIRS` under the
@@ -106,8 +121,9 @@ cache, so neither `~/.config/nvim` nor a system-wide `site` directory reaches it
 
 The files: four per language from the projects of `tools/d-bench/projects.tsv` at their pinned
 commits (Python from paperless-ngx, Rust from ripgrep, TypeScript and TSX from outline,
-JavaScript from eslint, JSX from mastodon, Go from caddy, Markdown from ripgrep, caddy, outline
-and paperless-ngx), taken in the order of the hash of their path, each with at least 80
+JavaScript from eslint, JSX from mastodon, Go from caddy, Lua from redis, Markdown from ripgrep, caddy,
+outline and paperless-ngx, Bash, JSON, YAML and TOML from redis, paperless-ngx, ripgrep, caddy and eslint
+as `LANGS` in `record.py` lists them), taken in the order of the hash of their path, each with at least 80
 lines among its first 200 that are ASCII and at most 140 columns: those are the lines recorded,
 so both programs draw all of them and each character has one cell.
 

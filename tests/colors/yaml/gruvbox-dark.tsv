@@ -1,0 +1,4 @@
+# gruvbox-dark: ellisonleao/gruvbox.nvim@154eb5ff5b96d0641307113fa385eaf0d36d9796 `set background=dark | colorscheme gruvbox`; NVIM v0.12.5, nvim-treesitter 1a4f47b
+# palette a=83a598i b=b8bb26i c=fe8019 d=fe8019i e=d3869b f=fb4934 g=928374i h=fe8019bi i=b8bb26bi j=fabd2f k=8ec07c
+compose.yaml	1:k8 2:c3 3:a7cb5 4:a10c2f8 5:a7cb14 6:a7c 7:a6cb9 8:a8c 9:a3c 10:a2c2f8 11:a5cb12 12:a5c 13:cb9 14:cb7 15:a7c2b7cb4cb12c 16:a11c2a4c2b3cb4cb2cb16c2a8cb3c 17:a11c 18:cb9 19:cb12d2b7d2b3d2b4 20:a2c 21:a5cj5b8 22:a7cj7 23:cb24 24:ca10 25:cb12 26:a5cb9 27:b13 28:a4cb10 29:a5ce4 30:a3ce4 31:a3ce4 32:c3 33:c3 34:a6cb8
+workflow.yml	1:g16 2:a4cb2 3:a2c 4:a4c 5:a8c2b6cb11c 6:a12c 7:a3c 8:a16cb6 9:a14ce 10:a5ce4 11:a7ce4 12:a7c5 13:a5c2 14:a4c 15:a4c 16:a7cb14 17:a8c 18:a6c 19:a2c2b13cb12c 20:a5c 21:ca4cb19 22:ca4cb5 23:a3ci5a22 24:ca4cb4 25:a3cd 26:h3a2 27:i5a17 28:h4b7d8b2 29:ca4cb6 30:a3cdi 31:h4a3 32:i3 33:ca6ch4bd5b

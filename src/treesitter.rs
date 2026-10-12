@@ -7,7 +7,10 @@ use std::time::{Duration, Instant};
 use ratatui::style::Style;
 use syntect::highlighting::Highlighter;
 use syntect::parsing::Scope;
-use tree_sitter::{InputEdit, Language, ParseOptions, ParseState, Parser, Point, Query, Tree};
+use tree_sitter::{
+    InputEdit, Language, ParseOptions, ParseState, Parser, Point, Query, QueryCursor,
+    StreamingIterator, Tree,
+};
 
 use crate::buffer::{Buffer, Spans};
 use crate::theme::Theme;
@@ -16,22 +19,41 @@ const NEOVIM_TREESITTER_PRIORITY: u32 = 100;
 
 const QUERIES: &[(&str, &str, &str)] = &[
     (
+        "bash",
+        include_str!("../queries/bash/highlights.scm"),
+        include_str!("../queries/bash/injections.scm"),
+    ),
+    (
         "ecma",
         include_str!("../queries/ecma/highlights.scm"),
         include_str!("../queries/ecma/injections.scm"),
     ),
-    ("go", include_str!("../queries/go/highlights.scm"), ""),
+    (
+        "go",
+        include_str!("../queries/go/highlights.scm"),
+        include_str!("../queries/go/injections.scm"),
+    ),
+    (
+        "json",
+        include_str!("../queries/json/highlights.scm"),
+        include_str!("../queries/json/injections.scm"),
+    ),
     (
         "javascript",
         include_str!("../queries/javascript/highlights.scm"),
         include_str!("../queries/javascript/injections.scm"),
     ),
+    ("jsdoc", include_str!("../queries/jsdoc/highlights.scm"), ""),
     (
         "jsx",
         include_str!("../queries/jsx/highlights.scm"),
         include_str!("../queries/jsx/injections.scm"),
     ),
-    ("rust", include_str!("../queries/rust/highlights.scm"), ""),
+    (
+        "rust",
+        include_str!("../queries/rust/highlights.scm"),
+        include_str!("../queries/rust/injections.scm"),
+    ),
     (
         "python",
         include_str!("../queries/python/highlights.scm"),
@@ -54,6 +76,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         "",
     ),
     (
+        "toml",
+        include_str!("../queries/toml/highlights.scm"),
+        include_str!("../queries/toml/injections.scm"),
+    ),
+    (
         "tsx",
         include_str!("../queries/tsx/highlights.scm"),
         include_str!("../queries/tsx/injections.scm"),
@@ -63,9 +90,26 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/typescript/highlights.scm"),
         include_str!("../queries/typescript/injections.scm"),
     ),
+    (
+        "yaml",
+        include_str!("../queries/yaml/highlights.scm"),
+        include_str!("../queries/yaml/injections.scm"),
+    ),
+    (
+        "lua",
+        include_str!("../queries/lua/highlights.scm"),
+        include_str!("../queries/lua/injections.scm"),
+    ),
+    (
+        "luadoc",
+        include_str!("../queries/luadoc/highlights.scm"),
+        "",
+    ),
 ];
 
 const ALIASES: &[(&str, &str)] = &[
+    ("sh", "bash"),
+    ("jsonc", "json"),
     ("py", "python"),
     ("gyp", "python"),
     ("pandoc", "markdown"),
@@ -85,6 +129,10 @@ const PREDICATES: &[&str] = &[
     "not-any-of?",
     "lua-match?",
     "not-lua-match?",
+    "match?",
+    "not-match?",
+    "vim-match?",
+    "not-vim-match?",
     "contains?",
     "not-contains?",
     "has-parent?",
@@ -98,6 +146,7 @@ const INJECTION_KEYS: &[&str] = &[
     "injection.language",
     "injection.combined",
     "injection.include-children",
+    "injection.self",
 ];
 const CAPTURE_KEYS: &[&str] = &["url", "conceal", "bo.commentstring"];
 
@@ -110,7 +159,7 @@ struct Check {
 }
 
 enum Test {
-    LuaMatch(regex::bytes::Regex),
+    Match(regex::bytes::Regex),
     Contains(Vec<String>),
     HasParent(Vec<String>),
 }
@@ -122,7 +171,7 @@ impl Check {
             return self.positive;
         }
         let hit = match &self.test {
-            Test::LuaMatch(re) => nodes.all(|n| re.is_match(&bytes[n.byte_range()])),
+            Test::Match(re) => nodes.all(|n| re.is_match(&bytes[n.byte_range()])),
             Test::Contains(words) => nodes.all(|n| {
                 let text = &bytes[n.byte_range()];
                 words
@@ -178,19 +227,40 @@ pub struct Lang {
 pub fn for_syntax(syntect_name: &str, path: Option<&Path>) -> Option<&'static Lang> {
     let astro = path.is_some_and(|p| p.extension().is_some_and(|e| e == "astro"));
     match syntect_name {
+        "Bourne Again Shell (bash)" if !path.is_some_and(zsh) => lang("bash"),
         "Go" => lang("go"),
+        "JSON" => lang("json"),
+        "TOML" => lang("toml"),
+        "YAML" => lang("yaml"),
         "JavaScript (Babel)" => lang("javascript"),
         "Python" => lang("python"),
         "Rust" => lang("rust"),
         "Markdown" => lang("markdown"),
         "TypeScript" => lang("typescript"),
         "TypeScriptReact" if !astro => lang("tsx"),
+        "Lua" => lang("lua"),
         _ => None,
     }
 }
 
+fn zsh(path: &Path) -> bool {
+    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    let bare = name.strip_prefix('.').unwrap_or(name);
+    let ext = name.rsplit_once('.').map_or("", |(_, e)| e);
+    matches!(ext, "zsh" | "zunit" | "zsh-theme")
+        || bare.starts_with("zsh")
+        || bare.starts_with("zlog")
+        || name.starts_with(".zcompdump")
+        || matches!(name, ".zprofile" | ".zfbfmarks")
+        || path == Path::new("/etc/zprofile")
+}
+
 fn grammar(name: &str) -> Option<Language> {
     Some(match name {
+        "bash" => tree_sitter_bash::LANGUAGE.into(),
+        "json" => tree_sitter_json::LANGUAGE.into(),
+        "toml" => tree_sitter_toml_ng::LANGUAGE.into(),
+        "yaml" => tree_sitter_yaml::LANGUAGE.into(),
         "go" => tree_sitter_go::LANGUAGE.into(),
         "python" => tree_sitter_python::LANGUAGE.into(),
         "rust" => tree_sitter_rust::LANGUAGE.into(),
@@ -199,8 +269,11 @@ fn grammar(name: &str) -> Option<Language> {
         "regex" => tree_sitter_regex::LANGUAGE.into(),
         "printf" => tree_sitter_printf::LANGUAGE.into(),
         "javascript" => tree_sitter_javascript::LANGUAGE.into(),
+        "jsdoc" => tree_sitter_jsdoc::LANGUAGE.into(),
         "typescript" => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
         "tsx" => tree_sitter_typescript::LANGUAGE_TSX.into(),
+        "lua" => tree_sitter_lua::LANGUAGE.into(),
+        "luadoc" => tree_sitter_luadoc::LANGUAGE.into(),
         _ => return None,
     })
 }
@@ -306,6 +379,8 @@ fn patterns(
     }
     let url = regex::Regex::new(r"\(#set! @[\w.]+ url @[\w.]+\)").expect("a valid regex");
     let text = url.replace_all(text, "");
+    let vim = regex::Regex::new(r"\(#(not-)?match\?").expect("a valid regex");
+    let text = vim.replace_all(&text, "(#${1}vim-match?");
     let query = Query::new(language, &text).map_err(|e| format!("{name}: {e}"))?;
     let mut checks = Vec::new();
     let mut offsets = Vec::new();
@@ -358,7 +433,8 @@ fn patterns(
                 _ => return Err(format!("{name}: #{} takes a capture first", pred.operator)),
             };
             let test = match op {
-                "lua-match?" if args.len() == 1 => Test::LuaMatch(lua_pattern(&args[0])?),
+                "lua-match?" if args.len() == 1 => Test::Match(lua_pattern(&args[0])?),
+                "vim-match?" if args.len() == 1 => Test::Match(vim_pattern(&args[0])?),
                 "contains?" => Test::Contains(args),
                 "has-parent?" => Test::HasParent(args),
                 _ => return Err(format!("{name}: #{} is not implemented", pred.operator)),
@@ -378,6 +454,73 @@ fn patterns(
         offsets,
         settings,
     })
+}
+
+fn changed_match_row(
+    patterns: &Patterns,
+    old: &Tree,
+    new: &Tree,
+    range: std::ops::Range<usize>,
+    bytes: &[u8],
+) -> usize {
+    let found = |tree: &Tree| {
+        let mut cursor = QueryCursor::new();
+        cursor.set_byte_range(range.clone());
+        let mut out = std::collections::HashSet::new();
+        let mut matches = cursor.matches(&patterns.query, tree.root_node(), bytes);
+        while let Some(m) = matches.next() {
+            let captures: Vec<_> = m
+                .captures()
+                .iter()
+                .map(|c| (c.index, c.node.byte_range(), c.node.start_position().row))
+                .collect();
+            out.insert((m.pattern_index, captures));
+        }
+        out
+    };
+    found(old)
+        .symmetric_difference(&found(new))
+        .flat_map(|(_, captures)| captures.iter().map(|c| c.2))
+        .min()
+        .unwrap_or(usize::MAX)
+}
+
+fn vim_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
+    let bad = || Err(format!("vim pattern {p:?} is not supported"));
+    let body = match p.get(..2) {
+        Some("\\v") => &p[2..],
+        Some("\\m" | "\\M" | "\\V") => return bad(),
+        _ => p,
+    };
+    let mut out = String::from("(?s-u)");
+    let mut chars = body.chars().peekable();
+    let mut class = None;
+    while let Some(c) = chars.next() {
+        match (c, class) {
+            ('<' | '>' | '=' | '@' | '%' | '~' | '{' | '&', _) => return bad(),
+            ('\\' | '[', Some(_)) => return bad(),
+            ('-', Some(_)) if chars.peek() == Some(&'-') => return bad(),
+            (']', Some(false)) => class = None,
+            ('^', Some(true)) => {}
+            (_, Some(_)) => class = Some(false),
+            ('[', None) => class = Some(true),
+            ('\\', None) => match chars.next() {
+                Some(n @ ('d' | 'w' | 'D' | 'W')) => {
+                    out.push('\\');
+                    out.push(n);
+                    continue;
+                }
+                Some(n) if !n.is_ascii_alphanumeric() && n != '_' => {
+                    out.push_str(&regex::escape(&n.to_string()));
+                    continue;
+                }
+                _ => return bad(),
+            },
+            _ => {}
+        }
+        out.push(c);
+    }
+    regex::bytes::Regex::new(&out).map_err(|e| format!("vim pattern {p:?}: {e}"))
 }
 
 fn lua_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
@@ -460,6 +603,9 @@ fn lua_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
     }
     regex::bytes::Regex::new(&out).map_err(|e| format!("lua pattern {p:?}: {e}"))
 }
+
+#[cfg(test)]
+pub type Shape = Vec<(u16, std::ops::Range<usize>, bool, bool)>;
 
 pub struct Parsed {
     pub lang: &'static Lang,
@@ -567,7 +713,15 @@ impl Parsed {
         let from = match &self.tree {
             Some(old) => old
                 .changed_ranges(&tree)
-                .map(|r| r.start_point.row)
+                .map(|r| {
+                    let range = r.start_byte..r.end_byte;
+                    let row = |p: &Patterns| changed_match_row(p, old, &tree, range.clone(), bytes);
+                    let injected = self.lang.injections.as_ref().map_or(usize::MAX, row);
+                    r.start_point
+                        .row
+                        .min(row(&self.lang.highlights))
+                        .min(injected)
+                })
                 .fold(from, usize::min),
             None => 0,
         };
@@ -640,6 +794,33 @@ impl Parsed {
             .as_ref()
             .map(|t| t.root_node().to_sexp())
             .unwrap_or_default()
+    }
+
+    #[cfg(test)]
+    pub fn shape(&self) -> Shape {
+        let mut out = Vec::new();
+        let Some(tree) = &self.tree else { return out };
+        let mut c = tree.walk();
+        loop {
+            let n = c.node();
+            out.push((
+                n.kind_id(),
+                n.byte_range(),
+                n.is_missing(),
+                n.child_count() == 0,
+            ));
+            if c.goto_first_child() || c.goto_next_sibling() {
+                continue;
+            }
+            loop {
+                if !c.goto_parent() {
+                    return out;
+                }
+                if c.goto_next_sibling() {
+                    break;
+                }
+            }
+        }
     }
 
     #[cfg(test)]

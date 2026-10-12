@@ -952,6 +952,72 @@ const MARKDOWN: &[&str] = &[
     "    ",
 ];
 
+const RUST: &[&str] = &[
+    "println!(\"{}\", f(x));",
+    "vec![a.b(), 2]",
+    "assert_eq!(x, y);",
+    "macro_rules! m {\n    ($x:expr) => { $x.len() };\n}\n",
+    "Regex::new(r\"^a+$\")",
+    "(",
+    ")",
+    "{",
+    "}",
+    "!",
+    "\"",
+    "\n\n",
+    "    ",
+];
+
+const SHELL: &[&str] = &[
+    "$(",
+    ")",
+    "${x:-y}",
+    "\"",
+    "'",
+    "<<EOF\nbody\nEOF\n",
+    "if [[ -n $a ]]; then\n",
+    "fi\n",
+    "case $a in\n",
+    "esac\n",
+    "printf '%s' x",
+    "# ",
+];
+
+const DATA: &[&str] = &[
+    "{",
+    "}",
+    "[",
+    "]",
+    "\"",
+    "'",
+    ": ",
+    " = ",
+    "- ",
+    "run: |\n  echo $HOME\n",
+    "[[bin]]\n",
+    "\"\"\"",
+    "# ",
+    "    ",
+];
+
+const LUA: &[&str] = &[
+    "---@param x number\n",
+    "string.format(\"%d\", x)",
+    "local t = { a = 1 }",
+    "function f(...) end",
+    "--[[",
+    "]]",
+    "[[",
+    "--",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+    "  ",
+];
+
 #[test]
 fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
     fuzz_tree_sitter(
@@ -963,6 +1029,36 @@ fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
         "f.md",
         include_bytes!("../../../tests/colors/markdown/code.md"),
         MARKDOWN,
+    );
+    fuzz_tree_sitter(
+        "f.rs",
+        include_bytes!("../../../tests/colors/rust/exprs.rs"),
+        RUST,
+    );
+    fuzz_tree_sitter(
+        "f.sh",
+        include_bytes!("../../../tests/colors/bash/script.sh"),
+        SHELL,
+    );
+    fuzz_tree_sitter(
+        "f.yml",
+        include_bytes!("../../../tests/colors/yaml/workflow.yml"),
+        DATA,
+    );
+    fuzz_tree_sitter(
+        "f.json",
+        include_bytes!("../../../tests/colors/json/package.json"),
+        DATA,
+    );
+    fuzz_tree_sitter(
+        "f.toml",
+        include_bytes!("../../../tests/colors/toml/Cargo.toml"),
+        DATA,
+    );
+    fuzz_tree_sitter(
+        "f.lua",
+        include_bytes!("../../../tests/colors/lua/decls.lua"),
+        LUA,
     );
 }
 
@@ -1011,9 +1107,29 @@ fn fuzz_tree_sitter(name: &str, start: &[u8], snippets: &[&str]) {
             fresh.start_tree_sitter();
             fresh.parse_more(None);
             fresh.paint_to(usize::MAX, &theme);
-            let want = match a.buf.sexp() == fresh.sexp() {
+            let (shape, fresh_shape) = (a.buf.shape(), fresh.shape());
+            let recovered = |s: &crate::treesitter::Shape| {
+                s.iter()
+                    .any(|(kind, _, missing, _)| *missing || *kind == u16::MAX)
+            };
+            let tokens = |s: &crate::treesitter::Shape| {
+                s.iter()
+                    .filter(|n| n.3)
+                    .map(|n| (n.0, n.1.clone()))
+                    .collect::<Vec<_>>()
+            };
+            let want = match shape == fresh_shape {
                 true => fresh.hl,
                 false => {
+                    assert!(
+                        recovered(&shape)
+                            || recovered(&fresh_shape)
+                            || tokens(&shape) == tokens(&fresh_shape),
+                        "seed {seed}, after [{}]: the tree differs from a fresh parse without an error in either\nincremental {}\nfresh {}",
+                        done.join(", "),
+                        a.buf.sexp(),
+                        fresh.sexp()
+                    );
                     assert_eq!(
                         a.buf.root_bytes(),
                         fresh.root_bytes(),
