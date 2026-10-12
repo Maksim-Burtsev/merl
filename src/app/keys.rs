@@ -74,6 +74,7 @@ impl App {
                 || !c.is_ascii_lowercase()
                 || self.letters_are_keys() && !self.binds(key))
         {
+            self.message.clear();
             return false;
         }
         if matches!(key.code, KeyCode::Char(_)) {
