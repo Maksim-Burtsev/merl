@@ -474,3 +474,99 @@ fn the_file_picker_ranks_a_match_in_the_file_name_first() {
     assert_eq!(rows, ["a/fob.rs", "fob-x/y.rs"]);
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+fn files_listed(a: &mut App, query: &str) -> Vec<(String, &'static str)> {
+    press(a, KeyCode::Char('o'), KeyModifiers::NONE);
+    typed(a, query);
+    let p = a.picker.as_mut().unwrap();
+    p.settle();
+    let labels = p.labels.clone();
+    let tag = |i: usize| labels.iter().find(|t| t.0 == i).map_or("", |t| t.1);
+    let rows = p.window(10).0.into_iter().enumerate();
+    let listed = rows.map(|(i, r)| (r.item.label, tag(i))).collect();
+    press(a, KeyCode::Esc, KeyModifiers::NONE);
+    listed
+}
+
+fn rows(listed: &[(String, &'static str)]) -> Vec<String> {
+    listed.iter().map(|r| r.0.clone()).collect()
+}
+
+fn recent_app(tag: &str) -> (PathBuf, App) {
+    let names = ["src/aa.txt", "src/bb.txt", "cc.txt", "dd.txt"];
+    project_app(tag, &names.map(|n| (n, "x\n")))
+}
+
+#[test]
+fn an_empty_o_lists_the_files_opened_last_first_with_the_cursor_on_the_one_before() {
+    let (dir, mut a) = recent_app("recent-empty");
+    for f in ["src/bb.txt", "cc.txt", "dd.txt", "cc.txt"] {
+        a.jump_to(&dir.join(f), 1);
+    }
+    let listed = files_listed(&mut a, "");
+    assert_eq!(rows(&listed), ["cc.txt", "dd.txt", "src/bb.txt"]);
+    assert_eq!(listed[0].1, "recently opened");
+    press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+    a.picker.as_mut().unwrap().settle();
+    assert_eq!(a.picker.as_ref().unwrap().selected, 1);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(a.rel_path(), "dd.txt");
+    assert_eq!(rows(&files_listed(&mut a, "")), ["dd.txt", "cc.txt", "src/bb.txt"]);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_query_lists_the_recent_matches_by_name_then_the_project_without_repeats() {
+    let (dir, mut a) = recent_app("recent-query");
+    for f in ["dd.txt", "src/bb.txt"] {
+        a.jump_to(&dir.join(f), 1);
+    }
+    let listed = files_listed(&mut a, "txt");
+    assert_eq!(
+        listed,
+        [
+            ("src/bb.txt".to_string(), "recently opened"),
+            ("dd.txt".to_string(), ""),
+            ("cc.txt".to_string(), "file results"),
+            ("src/aa.txt".to_string(), ""),
+        ]
+    );
+    let by_name = files_listed(&mut a, "src");
+    assert_eq!(by_name[0], ("src/aa.txt".to_string(), "file results"));
+    assert_eq!(rows(&by_name), ["src/aa.txt", "src/bb.txt"]);
+    let by_path = files_listed(&mut a, "src/");
+    assert_eq!(by_path[0], ("src/bb.txt".to_string(), "recently opened"));
+    assert_eq!(rows(&by_path), ["src/bb.txt", "src/aa.txt"]);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn the_history_outlives_the_session_and_forgets_deleted_files() {
+    let (dir, mut a) = recent_app("recent-kept");
+    let store = dir.join(".git/merl/recent");
+    a.recent_file = Some(store.clone());
+    for f in ["cc.txt", "src/aa.txt", "dd.txt"] {
+        a.jump_to(&dir.join(f), 1);
+    }
+    std::fs::remove_file(dir.join("src/aa.txt")).unwrap();
+    let (tree, files) = crate::tree::build(&dir, false);
+    let mut b = App::new(dir.clone(), tree, files, Buffer::empty(), None);
+    b.recent_file = Some(store.clone());
+    assert_eq!(rows(&files_listed(&mut b, "")), ["dd.txt", "cc.txt"]);
+    b.jump_to(&dir.join("src/bb.txt"), 1);
+    let kept = std::fs::read_to_string(&store).unwrap();
+    let names: Vec<&str> = kept.lines().map(|l| l.rsplit('/').next().unwrap()).collect();
+    assert_eq!(names, ["bb.txt", "dd.txt", "cc.txt"]);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn o_in_a_review_keeps_the_review_order() {
+    let (dir, mut a) = review_app("recent-review");
+    a.jump_to(&dir.join("src/keep.rs"), 1);
+    a.jump_to(&dir.join("tail"), 1);
+    let listed = files_listed(&mut a, "");
+    assert_eq!(rows(&listed)[..3], ["src/a.rs", "crlf.txt", "new"]);
+    assert!(listed.iter().all(|r| r.1.is_empty()));
+    let _ = std::fs::remove_dir_all(dir);
+}

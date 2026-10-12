@@ -58,6 +58,7 @@ impl App {
                     // After the viewport is reset: the diff clamps it against the new file.
                     self.diff = git::Diff::default();
                     self.refresh_diff();
+                    self.note_recent();
                 }
                 Err(e) => {
                     self.say_about(path, &format!(": {}", why_not(&e)));

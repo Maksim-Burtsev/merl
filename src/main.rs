@@ -168,8 +168,9 @@ fn run() -> Result<()> {
         }
         None => None,
     };
+    let git_dirs = git::dirs(&root);
     let tree_order = (git_toplevel(&root))
-        .zip(git::dirs(&root))
+        .zip(git_dirs.clone())
         .filter(|_| tree::orders_on() && review.is_none())
         .map(|(top, dirs)| tree::OrderFile {
             file: dirs.common_refs_dir.join("merl").join("tree"),
@@ -199,6 +200,10 @@ fn run() -> Result<()> {
     app.shallow = shallow;
     app.tree_order = tree_order;
     app.ignored = ignored;
+    if !(cli.tutor || cli.drill.is_some()) {
+        app.recent_file = git_dirs.map(|d| d.worktree_head_dir.join("merl/recent"));
+    }
+    app.note_recent();
     if let Some(r) = review {
         app.start_review(r);
     }

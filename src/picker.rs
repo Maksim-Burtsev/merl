@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use nucleo::pattern::{CaseMatching, Normalization};
-use nucleo::{Config, Matcher, Nucleo};
+use nucleo::{Config, Item, Matcher, Nucleo, Snapshot, Utf32Str};
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 
 use crate::buffer::Buffer;
@@ -51,6 +51,26 @@ pub struct Picker {
     pub bufs: HashMap<PathBuf, Buffer>,
     pub marks: HashMap<PathBuf, HashMap<usize, Mark>>,
     pub first: usize,
+    history: Option<(Vec<u32>, bool)>,
+    order: Option<Vec<Ref>>,
+    order_for: Option<String>,
+    pub labels: Vec<(usize, &'static str)>,
+}
+
+#[derive(Clone, Copy)]
+enum Ref {
+    Item(u32),
+    Matched(u32),
+}
+
+fn nth<'a>(snap: &'a Snapshot<PickItem>, order: &Option<Vec<Ref>>, n: u32) -> Option<Item<'a, PickItem>> {
+    match order {
+        None => snap.get_matched_item(n),
+        Some(o) => match *o.get(n as usize)? {
+            Ref::Item(i) => snap.get_item(i),
+            Ref::Matched(m) => snap.get_matched_item(m),
+        },
+    }
 }
 
 impl Picker {
@@ -76,7 +96,77 @@ impl Picker {
             bufs: HashMap::new(),
             marks: HashMap::new(),
             first: 0,
+            history: None,
+            order: None,
+            order_for: None,
+            labels: Vec::new(),
         }
+    }
+
+    pub fn lead_with_history(&mut self, items: Vec<u32>, current_first: bool) {
+        self.history = Some((items, current_first));
+    }
+
+    fn refresh_order(&mut self, matches_changed: bool) {
+        let Some((history, current_first)) = &self.history else {
+            return;
+        };
+        let query = self.query.to_string();
+        let empty = query.trim().is_empty();
+        let again = self.order_for.as_deref() == Some(query.as_str());
+        if again && !matches_changed {
+            return;
+        }
+        let snap = self.nucleo.snapshot();
+        self.labels.clear();
+        let mut order: Vec<Ref> = Vec::new();
+        if empty {
+            order.extend(history.iter().filter(|&&i| snap.get_item(i).is_some()).map(|&i| Ref::Item(i)));
+            if !order.is_empty() {
+                self.labels.push((0, "recently opened"));
+            }
+            if !again && *current_first && order.len() > 1 {
+                self.selected = 1;
+            }
+        } else {
+            let pattern = snap.pattern().column_pattern(0);
+            let whole = query.contains('/');
+            let mut buf = Vec::new();
+            let mut hits: Vec<(u32, u32)> = history
+                .iter()
+                .filter_map(|&i| {
+                    let label = &snap.get_item(i)?.data.label;
+                    let hay = match whole {
+                        true => label.as_str(),
+                        false => label.rsplit('/').next().unwrap_or(label),
+                    };
+                    let score = pattern.score(Utf32Str::new(hay, &mut buf), &mut self.matcher)?;
+                    Some((i, score))
+                })
+                .collect();
+            hits.sort_by_key(|&(_, score)| std::cmp::Reverse(score));
+            let shown: std::collections::HashSet<&PathBuf> = (hits.iter())
+                .filter_map(|&(i, _)| snap.get_item(i).map(|it| &it.data.path))
+                .collect();
+            order.extend(hits.iter().map(|&(i, _)| Ref::Item(i)));
+            if !order.is_empty() {
+                self.labels.push((0, "recently opened"));
+            }
+            let k = order.len();
+            order.extend(
+                (0..snap.matched_item_count())
+                    .filter(|&m| {
+                        snap.get_matched_item(m)
+                            .is_some_and(|it| !shown.contains(&it.data.path))
+                    })
+                    .map(Ref::Matched),
+            );
+            if order.len() > k {
+                self.labels.push((k, "file results"));
+            }
+        }
+        self.order = Some(order);
+        self.order_for = Some(query);
     }
 
     pub fn page(&self) -> usize {
@@ -85,19 +175,29 @@ impl Picker {
 
     pub fn settle(&mut self) {
         for _ in 0..100 {
-            if !self.nucleo.tick(10).running {
-                return;
+            if !self.tick_once().running {
+                break;
             }
         }
     }
 
     pub fn tick(&mut self) -> bool {
-        self.nucleo.tick(10).changed
+        let shown = self.order_for.clone();
+        self.tick_once().changed || self.order_for != shown
+    }
+
+    fn tick_once(&mut self) -> nucleo::Status {
+        let status = self.nucleo.tick(10);
+        self.refresh_order(status.changed);
+        status
     }
 
     pub fn counts(&self) -> (u32, u32) {
         let snap = self.nucleo.snapshot();
-        (snap.matched_item_count(), snap.item_count())
+        match &self.order {
+            Some(order) => (order.len() as u32, snap.item_count()),
+            None => (snap.matched_item_count(), snap.item_count()),
+        }
     }
 
     pub fn window(&mut self, height: usize) -> (Vec<Row>, usize) {
@@ -114,6 +214,7 @@ impl Picker {
     }
 
     pub fn clamp_selected(&mut self) -> usize {
+        self.refresh_order(false);
         let total = self.counts().0 as usize;
         self.selected = self.selected.min(total.saturating_sub(1));
         total
@@ -124,15 +225,20 @@ impl Picker {
     }
 
     pub fn rows(&mut self, start: usize, count: usize) -> Vec<Row> {
+        self.refresh_order(false);
+        let total = self.counts().0 as usize;
         let Self {
-            nucleo, matcher, ..
+            nucleo,
+            matcher,
+            order,
+            ..
         } = self;
         let snap = nucleo.snapshot();
-        let total = snap.matched_item_count() as usize;
         let start = start.min(total);
         let end = start.saturating_add(count).min(total);
         let pattern = snap.pattern().column_pattern(0);
-        snap.matched_items(start as u32..end as u32)
+        (start as u32..end as u32)
+            .filter_map(|n| nth(snap, order, n))
             .map(|item| {
                 let mut matched = Vec::new();
                 pattern.indices(item.matcher_columns[0].slice(..), matcher, &mut matched);
@@ -148,8 +254,7 @@ impl Picker {
 
     pub fn current(&self) -> Option<&PickItem> {
         let snap = self.nucleo.snapshot();
-        snap.get_matched_item(self.selected as u32)
-            .map(|item| item.data)
+        nth(snap, &self.order, self.selected as u32).map(|item| item.data)
     }
 
     fn accept(&self) -> Pick {
@@ -174,6 +279,7 @@ impl Picker {
     }
 
     pub fn key(&mut self, key: KeyEvent) -> Pick {
+        self.refresh_order(false);
         let matched = self.counts().0 as usize;
         let move_by = |sel: &mut usize, delta: isize| {
             *sel = sel

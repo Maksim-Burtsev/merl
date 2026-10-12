@@ -385,11 +385,18 @@ pub(super) fn draw_picker(
             })
             .collect();
         let Some(place) = place else {
-            lines.push(padded(
+            let at = picker.selected + i - selected;
+            let tag = picker.labels.iter().find(|(row, _)| *row == at).map(|t| t.1);
+            let tag_w = tag.map_or(0, |t| wrap::width(t) + 1);
+            let mut line = padded(
                 prefix.into_iter().chain(cells.into_iter().map(|(_, s)| s)),
-                width,
+                width.saturating_sub(tag_w),
                 style,
-            ));
+            );
+            if let Some(t) = tag {
+                line.spans.push(Span::styled(format!("{t} "), style.fg(theme.ghost_fg)));
+            }
+            lines.push(line);
             continue;
         };
         let bold = |s: &Span| s.style.add_modifier.contains(Modifier::BOLD);
