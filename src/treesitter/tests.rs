@@ -362,6 +362,29 @@ fn a_theme_without_groups_still_colours_every_kind_of_capture() {
 }
 
 #[test]
+fn a_theme_without_groups_colours_markdown_by_its_markup_scopes() {
+    for name in ["shokunin-dark", "seneca"] {
+        let theme = theme::load(name).unwrap();
+        assert!(theme.groups.is_empty());
+        let src = "# Title\n\n**bold** `code` [l](u)\n";
+        let mut b = Buffer::from_bytes(PathBuf::from("a.md"), src.as_bytes());
+        b.start_tree_sitter();
+        b.parse_more(None);
+        b.highlight_to(usize::MAX, &theme);
+        let normal = theme
+            .syntect
+            .settings
+            .foreground
+            .map(|c| Color::Rgb(c.r, c.g, c.b));
+        let heading = b.hl[0].iter().find(|(_, r)| r.contains(&3)).unwrap().0;
+        assert!(
+            heading.fg != normal || !heading.add_modifier.is_empty(),
+            "{name}"
+        );
+    }
+}
+
+#[test]
 fn without_the_setting_python_goes_through_syntect() {
     let theme = theme::load("tokyonight-moon").unwrap();
     let src = b"import os\n";
