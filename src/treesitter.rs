@@ -64,6 +64,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/html_tags/injections.scm"),
     ),
     (
+        "java",
+        include_str!("../queries/java/highlights.scm"),
+        include_str!("../queries/java/injections.scm"),
+    ),
+    (
         "javascript",
         include_str!("../queries/javascript/highlights.scm"),
         include_str!("../queries/javascript/injections.scm"),
@@ -291,6 +296,7 @@ pub fn for_syntax(
         "HTML" if !html_variant(lines) => lang("html"),
         "XML" if xml(path, lines) => lang("xml"),
         "Go" => lang("go"),
+        "Java" if !path.is_some_and(|p| p.extension().is_some_and(|e| e == "bsh")) => lang("java"),
         "JSON" => lang("json"),
         "TOML" => lang("toml"),
         "YAML" => lang("yaml"),
@@ -375,6 +381,7 @@ fn grammar(name: &str) -> Option<Language> {
         "markdown_inline" => tree_sitter_md::INLINE_LANGUAGE.into(),
         "regex" => tree_sitter_regex::LANGUAGE.into(),
         "printf" => tree_sitter_printf::LANGUAGE.into(),
+        "java" => tree_sitter_java::LANGUAGE.into(),
         "javascript" => tree_sitter_javascript::LANGUAGE.into(),
         "jsdoc" => tree_sitter_jsdoc::LANGUAGE.into(),
         "typescript" => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),

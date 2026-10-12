@@ -5,6 +5,7 @@ adwaita	cpp	19079	15857
 adwaita	css	16766	8770
 adwaita	go	14810	12584
 adwaita	html	22445	16924
+adwaita	java	15213	7338
 adwaita	javascript	13199	9626
 adwaita	json	7070	4381
 adwaita	jsx	14130	9164
@@ -23,6 +24,7 @@ adwaita-light	cpp	19079	16041
 adwaita-light	css	16766	8926
 adwaita-light	go	14810	12680
 adwaita-light	html	22445	16928
+adwaita-light	java	15213	7342
 adwaita-light	javascript	13199	9650
 adwaita-light	json	7070	4381
 adwaita-light	jsx	14130	9172
@@ -41,6 +43,7 @@ alabaster	cpp	19079	16760
 alabaster	css	16766	12961
 alabaster	go	14810	13433
 alabaster	html	22445	13846
+alabaster	java	15213	12997
 alabaster	javascript	13199	9133
 alabaster	json	7070	2897
 alabaster	jsx	14130	10426
@@ -59,6 +62,7 @@ alabaster-light	cpp	19079	16790
 alabaster-light	css	16766	12954
 alabaster-light	go	14810	13433
 alabaster-light	html	22445	13846
+alabaster-light	java	15213	13072
 alabaster-light	javascript	13199	9130
 alabaster-light	json	7070	2897
 alabaster-light	jsx	14130	10426
@@ -77,6 +81,7 @@ alucard	cpp	19079	15513
 alucard	css	16766	8942
 alucard	go	14810	12402
 alucard	html	22445	16920
+alucard	java	15213	7416
 alucard	javascript	13199	9395
 alucard	json	7070	4375
 alucard	jsx	14130	8202
@@ -95,6 +100,7 @@ ayu	cpp	19079	11950
 ayu	css	16766	8895
 ayu	go	14810	12484
 ayu	html	22445	14723
+ayu	java	15213	5589
 ayu	javascript	13199	8980
 ayu	json	7070	3747
 ayu	jsx	14130	7775
@@ -113,6 +119,7 @@ ayu-light	cpp	19079	11950
 ayu-light	css	16766	8895
 ayu-light	go	14810	12484
 ayu-light	html	22445	14723
+ayu-light	java	15213	5589
 ayu-light	javascript	13199	8980
 ayu-light	json	7070	3747
 ayu-light	jsx	14130	7775
@@ -131,6 +138,7 @@ ayu-mirage	cpp	19079	11950
 ayu-mirage	css	16766	8895
 ayu-mirage	go	14810	12484
 ayu-mirage	html	22445	14723
+ayu-mirage	java	15213	5589
 ayu-mirage	javascript	13199	8980
 ayu-mirage	json	7070	3747
 ayu-mirage	jsx	14130	7775
@@ -149,6 +157,7 @@ bamboo	cpp	19079	14326
 bamboo	css	16766	8691
 bamboo	go	14810	12582
 bamboo	html	22445	16918
+bamboo	java	15213	7226
 bamboo	javascript	13199	8474
 bamboo	json	7070	3747
 bamboo	jsx	14130	7361
@@ -167,6 +176,7 @@ bamboo-light	cpp	19079	14326
 bamboo-light	css	16766	8691
 bamboo-light	go	14810	12582
 bamboo-light	html	22445	16918
+bamboo-light	java	15213	7226
 bamboo-light	javascript	13199	8474
 bamboo-light	json	7070	3747
 bamboo-light	jsx	14130	7361
@@ -185,6 +195,7 @@ bluloco-light	cpp	19079	14833
 bluloco-light	css	16766	8800
 bluloco-light	go	14810	12678
 bluloco-light	html	22445	15350
+bluloco-light	java	15213	7410
 bluloco-light	javascript	13199	8736
 bluloco-light	json	7070	3747
 bluloco-light	jsx	14130	6785
@@ -203,6 +214,7 @@ catppuccin-frappe	cpp	19079	14205
 catppuccin-frappe	css	16766	5681
 catppuccin-frappe	go	14810	12679
 catppuccin-frappe	html	22445	14875
+catppuccin-frappe	java	15213	7064
 catppuccin-frappe	javascript	13199	8671
 catppuccin-frappe	json	7070	3747
 catppuccin-frappe	jsx	14130	7189
@@ -221,6 +233,7 @@ catppuccin-latte	cpp	19079	14205
 catppuccin-latte	css	16766	5681
 catppuccin-latte	go	14810	12679
 catppuccin-latte	html	22445	14875
+catppuccin-latte	java	15213	7064
 catppuccin-latte	javascript	13199	8671
 catppuccin-latte	json	7070	3747
 catppuccin-latte	jsx	14130	7189
@@ -239,6 +252,7 @@ catppuccin-macchiato	cpp	19079	14205
 catppuccin-macchiato	css	16766	5681
 catppuccin-macchiato	go	14810	12679
 catppuccin-macchiato	html	22445	14875
+catppuccin-macchiato	java	15213	7064
 catppuccin-macchiato	javascript	13199	8671
 catppuccin-macchiato	json	7070	3747
 catppuccin-macchiato	jsx	14130	7189
@@ -257,6 +271,7 @@ catppuccin-mocha	cpp	19079	14205
 catppuccin-mocha	css	16766	5681
 catppuccin-mocha	go	14810	12679
 catppuccin-mocha	html	22445	14875
+catppuccin-mocha	java	15213	7064
 catppuccin-mocha	javascript	13199	8671
 catppuccin-mocha	json	7070	3747
 catppuccin-mocha	jsx	14130	7189
@@ -275,6 +290,7 @@ cendre	cpp	19079	14469
 cendre	css	16766	9171
 cendre	go	14810	12584
 cendre	html	22445	17578
+cendre	java	15213	7284
 cendre	javascript	13199	8503
 cendre	json	7070	3747
 cendre	jsx	14130	7519
@@ -293,6 +309,7 @@ darkearth	cpp	19079	13784
 darkearth	css	16766	7902
 darkearth	go	14810	11913
 darkearth	html	22445	15061
+darkearth	java	15213	6630
 darkearth	javascript	13199	9469
 darkearth	json	7070	3466
 darkearth	jsx	14130	8086
@@ -311,6 +328,7 @@ dawnfox	cpp	19079	12048
 dawnfox	css	16766	6485
 dawnfox	go	14810	11410
 dawnfox	html	22445	14832
+dawnfox	java	15213	4996
 dawnfox	javascript	13199	8194
 dawnfox	json	7070	2897
 dawnfox	jsx	14130	6123
@@ -329,6 +347,7 @@ dayfox	cpp	19079	9656
 dayfox	css	16766	6470
 dayfox	go	14810	11410
 dayfox	html	22445	14832
+dayfox	java	15213	3279
 dayfox	javascript	13199	8194
 dayfox	json	7070	2897
 dayfox	jsx	14130	6123
@@ -347,6 +366,7 @@ dracula	cpp	19079	15513
 dracula	css	16766	8942
 dracula	go	14810	12402
 dracula	html	22445	16920
+dracula	java	15213	7416
 dracula	javascript	13199	9395
 dracula	json	7070	4375
 dracula	jsx	14130	8202
@@ -365,6 +385,7 @@ e-ink	cpp	19079	11457
 e-ink	css	16766	8126
 e-ink	go	14810	12439
 e-ink	html	22445	14736
+e-ink	java	15213	7356
 e-ink	javascript	13199	9779
 e-ink	json	7070	3466
 e-ink	jsx	14130	8737
@@ -383,6 +404,7 @@ e-ink-light	cpp	19079	11457
 e-ink-light	css	16766	8126
 e-ink-light	go	14810	12439
 e-ink-light	html	22445	14736
+e-ink-light	java	15213	7356
 e-ink-light	javascript	13199	9779
 e-ink-light	json	7070	3466
 e-ink-light	jsx	14130	8737
@@ -401,6 +423,7 @@ edge	cpp	19079	10681
 edge	css	16766	6470
 edge	go	14810	11882
 edge	html	22445	14709
+edge	java	15213	3967
 edge	javascript	13199	8369
 edge	json	7070	2897
 edge	jsx	14130	7044
@@ -419,6 +442,7 @@ edge-light	cpp	19079	10681
 edge-light	css	16766	6470
 edge-light	go	14810	11882
 edge-light	html	22445	14709
+edge-light	java	15213	3967
 edge-light	javascript	13199	8369
 edge-light	json	7070	2897
 edge-light	jsx	14130	7044
@@ -437,6 +461,7 @@ everforest-dark	cpp	19079	13989
 everforest-dark	css	16766	7843
 everforest-dark	go	14810	12674
 everforest-dark	html	22445	14732
+everforest-dark	java	15213	6420
 everforest-dark	javascript	13199	8874
 everforest-dark	json	7070	394
 everforest-dark	jsx	14130	6931
@@ -455,6 +480,7 @@ everforest-light	cpp	19079	13989
 everforest-light	css	16766	7843
 everforest-light	go	14810	12674
 everforest-light	html	22445	14732
+everforest-light	java	15213	6420
 everforest-light	javascript	13199	8874
 everforest-light	json	7070	394
 everforest-light	jsx	14130	6931
@@ -473,6 +499,7 @@ flexoki-dark	cpp	19079	12662
 flexoki-dark	css	16766	8785
 flexoki-dark	go	14810	12955
 flexoki-dark	html	22445	15352
+flexoki-dark	java	15213	5593
 flexoki-dark	javascript	13199	9059
 flexoki-dark	json	7070	3753
 flexoki-dark	jsx	14130	7909
@@ -491,6 +518,7 @@ flexoki-light	cpp	19079	12662
 flexoki-light	css	16766	8785
 flexoki-light	go	14810	12955
 flexoki-light	html	22445	15352
+flexoki-light	java	15213	5593
 flexoki-light	javascript	13199	9059
 flexoki-light	json	7070	3753
 flexoki-light	jsx	14130	7909
@@ -509,6 +537,7 @@ github-dark	cpp	19079	14524
 github-dark	css	16766	8906
 github-dark	go	14810	12716
 github-dark	html	22445	17058
+github-dark	java	15213	7349
 github-dark	javascript	13199	9266
 github-dark	json	7070	3753
 github-dark	jsx	14130	7366
@@ -527,6 +556,7 @@ github-light	cpp	19079	14524
 github-light	css	16766	8906
 github-light	go	14810	12716
 github-light	html	22445	17058
+github-light	java	15213	7349
 github-light	javascript	13199	9266
 github-light	json	7070	3753
 github-light	jsx	14130	7366
@@ -545,6 +575,7 @@ gotham	cpp	19079	12077
 gotham	css	16766	8839
 gotham	go	14810	12563
 gotham	html	22445	15360
+gotham	java	15213	5589
 gotham	javascript	13199	9077
 gotham	json	7070	3747
 gotham	jsx	14130	7965
@@ -563,6 +594,7 @@ gruvbox-dark	cpp	19079	13921
 gruvbox-dark	css	16766	8757
 gruvbox-dark	go	14810	12702
 gruvbox-dark	html	22445	17689
+gruvbox-dark	java	15213	6730
 gruvbox-dark	javascript	13199	8451
 gruvbox-dark	json	7070	3753
 gruvbox-dark	jsx	14130	6599
@@ -581,6 +613,7 @@ gruvbox-light	cpp	19079	13921
 gruvbox-light	css	16766	8757
 gruvbox-light	go	14810	12702
 gruvbox-light	html	22445	17689
+gruvbox-light	java	15213	6730
 gruvbox-light	javascript	13199	8451
 gruvbox-light	json	7070	3753
 gruvbox-light	jsx	14130	6599
@@ -599,6 +632,7 @@ gruvbox-material-dark	cpp	19079	13989
 gruvbox-material-dark	css	16766	7843
 gruvbox-material-dark	go	14810	12674
 gruvbox-material-dark	html	22445	14732
+gruvbox-material-dark	java	15213	6420
 gruvbox-material-dark	javascript	13199	8874
 gruvbox-material-dark	json	7070	3184
 gruvbox-material-dark	jsx	14130	6931
@@ -617,6 +651,7 @@ gruvbox-material-light	cpp	19079	13989
 gruvbox-material-light	css	16766	7843
 gruvbox-material-light	go	14810	12674
 gruvbox-material-light	html	22445	14732
+gruvbox-material-light	java	15213	6420
 gruvbox-material-light	javascript	13199	8874
 gruvbox-material-light	json	7070	3184
 gruvbox-material-light	jsx	14130	6931
@@ -635,6 +670,7 @@ hojicha	cpp	19079	13346
 hojicha	css	16766	8104
 hojicha	go	14810	11952
 hojicha	html	22445	16920
+hojicha	java	15213	6439
 hojicha	javascript	13199	8722
 hojicha	json	7070	3472
 hojicha	jsx	14130	7357
@@ -653,6 +689,7 @@ iceberg	cpp	19079	16354
 iceberg	css	16766	8697
 iceberg	go	14810	13101
 iceberg	html	22445	14945
+iceberg	java	15213	7460
 iceberg	javascript	13199	9668
 iceberg	json	7070	4375
 iceberg	jsx	14130	9228
@@ -671,6 +708,7 @@ iceberg-light	cpp	19079	16354
 iceberg-light	css	16766	8697
 iceberg-light	go	14810	13101
 iceberg-light	html	22445	14953
+iceberg-light	java	15213	7460
 iceberg-light	javascript	13199	9668
 iceberg-light	json	7070	4381
 iceberg-light	jsx	14130	9228
@@ -689,6 +727,7 @@ jellybeans	cpp	19079	12727
 jellybeans	css	16766	6539
 jellybeans	go	14810	11465
 jellybeans	html	22445	20102
+jellybeans	java	15213	4971
 jellybeans	javascript	13199	8115
 jellybeans	json	7070	2897
 jellybeans	jsx	14130	7590
@@ -707,6 +746,7 @@ jellybeans-light	cpp	19079	12727
 jellybeans-light	css	16766	6539
 jellybeans-light	go	14810	11465
 jellybeans-light	html	22445	20102
+jellybeans-light	java	15213	4971
 jellybeans-light	javascript	13199	8115
 jellybeans-light	json	7070	2897
 jellybeans-light	jsx	14130	7590
@@ -725,6 +765,7 @@ kanagawa-dragon	cpp	19079	13570
 kanagawa-dragon	css	16766	8707
 kanagawa-dragon	go	14810	12340
 kanagawa-dragon	html	22445	16918
+kanagawa-dragon	java	15213	6616
 kanagawa-dragon	javascript	13199	8500
 kanagawa-dragon	json	7070	3747
 kanagawa-dragon	jsx	14130	7419
@@ -743,6 +784,7 @@ kanagawa-lotus	cpp	19079	13570
 kanagawa-lotus	css	16766	8707
 kanagawa-lotus	go	14810	12340
 kanagawa-lotus	html	22445	16918
+kanagawa-lotus	java	15213	6616
 kanagawa-lotus	javascript	13199	8500
 kanagawa-lotus	json	7070	3747
 kanagawa-lotus	jsx	14130	6657
@@ -761,6 +803,7 @@ kanagawa-wave	cpp	19079	13570
 kanagawa-wave	css	16766	8707
 kanagawa-wave	go	14810	12340
 kanagawa-wave	html	22445	16918
+kanagawa-wave	java	15213	6616
 kanagawa-wave	javascript	13199	8500
 kanagawa-wave	json	7070	3747
 kanagawa-wave	jsx	14130	6657
@@ -779,6 +822,7 @@ koda-dark	cpp	19079	15975
 koda-dark	css	16766	8035
 koda-dark	go	14810	12879
 koda-dark	html	22445	17551
+koda-dark	java	15213	6707
 koda-dark	javascript	13199	9480
 koda-dark	json	7070	3466
 koda-dark	jsx	14130	9108
@@ -797,6 +841,7 @@ koda-light	cpp	19079	15858
 koda-light	css	16766	7935
 koda-light	go	14810	12879
 koda-light	html	22445	17241
+koda-light	java	15213	6626
 koda-light	javascript	13199	9400
 koda-light	json	7070	3466
 koda-light	jsx	14130	8110
@@ -815,6 +860,7 @@ lackluster	cpp	19079	14190
 lackluster	css	16766	5304
 lackluster	go	14810	12601
 lackluster	html	22445	15335
+lackluster	java	15213	7187
 lackluster	javascript	13199	8597
 lackluster	json	7070	4375
 lackluster	jsx	14130	6887
@@ -833,6 +879,7 @@ lightearth	cpp	19079	13784
 lightearth	css	16766	7902
 lightearth	go	14810	11913
 lightearth	html	22445	15061
+lightearth	java	15213	6630
 lightearth	javascript	13199	9469
 lightearth	json	7070	3466
 lightearth	jsx	14130	8086
@@ -851,6 +898,7 @@ material-dark	cpp	19079	13256
 material-dark	css	16766	6505
 material-dark	go	14810	11783
 material-dark	html	22445	14706
+material-dark	java	15213	5087
 material-dark	javascript	13199	8622
 material-dark	json	7070	2897
 material-dark	jsx	14130	8301
@@ -869,6 +917,7 @@ material-light	cpp	19079	13256
 material-light	css	16766	6505
 material-light	go	14810	11783
 material-light	html	22445	14706
+material-light	java	15213	5105
 material-light	javascript	13199	8663
 material-light	json	7070	2897
 material-light	jsx	14130	8301
@@ -887,6 +936,7 @@ melange-dark	cpp	19079	14532
 melange-dark	css	16766	7644
 melange-dark	go	14810	12620
 melange-dark	html	22445	16933
+melange-dark	java	15213	6089
 melange-dark	javascript	13199	8635
 melange-dark	json	7070	3184
 melange-dark	jsx	14130	8052
@@ -905,6 +955,7 @@ melange-light	cpp	19079	14532
 melange-light	css	16766	7644
 melange-light	go	14810	12620
 melange-light	html	22445	16933
+melange-light	java	15213	6089
 melange-light	javascript	13199	8635
 melange-light	json	7070	3184
 melange-light	jsx	14130	8052
@@ -923,6 +974,7 @@ mellifluous	cpp	19079	14490
 mellifluous	css	16766	8777
 mellifluous	go	14810	9698
 mellifluous	html	22445	17555
+mellifluous	java	15213	6243
 mellifluous	javascript	13199	6837
 mellifluous	json	7070	3747
 mellifluous	jsx	14130	7640
@@ -941,6 +993,7 @@ mellifluous-light	cpp	19079	14490
 mellifluous-light	css	16766	8777
 mellifluous-light	go	14810	9698
 mellifluous-light	html	22445	17555
+mellifluous-light	java	15213	6243
 mellifluous-light	javascript	13199	6837
 mellifluous-light	json	7070	3747
 mellifluous-light	jsx	14130	7640
@@ -959,6 +1012,7 @@ mellow	cpp	19079	14520
 mellow	css	16766	8700
 mellow	go	14810	12517
 mellow	html	22445	16914
+mellow	java	15213	7292
 mellow	javascript	13199	8541
 mellow	json	7070	3747
 mellow	jsx	14130	6711
@@ -977,6 +1031,7 @@ miasma	cpp	19079	15347
 miasma	css	16766	9036
 miasma	go	14810	12660
 miasma	html	22445	15685
+miasma	java	15213	7400
 miasma	javascript	13199	9821
 miasma	json	7070	4381
 miasma	jsx	14130	8636
@@ -995,6 +1050,7 @@ minischeme	cpp	19079	14393
 minischeme	css	16766	8701
 minischeme	go	14810	12242
 minischeme	html	22445	14849
+minischeme	java	15213	7316
 minischeme	javascript	13199	8872
 minischeme	json	7070	3753
 minischeme	jsx	14130	7617
@@ -1013,6 +1069,7 @@ minischeme-light	cpp	19079	14393
 minischeme-light	css	16766	8701
 minischeme-light	go	14810	12242
 minischeme-light	html	22445	14849
+minischeme-light	java	15213	7316
 minischeme-light	javascript	13199	8872
 minischeme-light	json	7070	3753
 minischeme-light	jsx	14130	7617
@@ -1031,6 +1088,7 @@ moonfly	cpp	19079	13575
 moonfly	css	16766	7447
 moonfly	go	14810	12427
 moonfly	html	22445	14708
+moonfly	java	15213	6730
 moonfly	javascript	13199	9241
 moonfly	json	7070	963
 moonfly	jsx	14130	6596
@@ -1049,6 +1107,7 @@ neomodern-light	cpp	19079	13346
 neomodern-light	css	16766	8104
 neomodern-light	go	14810	11952
 neomodern-light	html	22445	16920
+neomodern-light	java	15213	6439
 neomodern-light	javascript	13199	8722
 neomodern-light	json	7070	3472
 neomodern-light	jsx	14130	7357
@@ -1067,6 +1126,7 @@ nightfly	cpp	19079	13575
 nightfly	css	16766	7447
 nightfly	go	14810	12427
 nightfly	html	22445	14708
+nightfly	java	15213	6730
 nightfly	javascript	13199	9241
 nightfly	json	7070	963
 nightfly	jsx	14130	6596
@@ -1085,6 +1145,7 @@ nightfox	cpp	19079	9656
 nightfox	css	16766	6470
 nightfox	go	14810	11410
 nightfox	html	22445	14832
+nightfox	java	15213	3279
 nightfox	javascript	13199	8194
 nightfox	json	7070	2897
 nightfox	jsx	14130	6123
@@ -1103,6 +1164,7 @@ nord	cpp	19079	15356
 nord	css	16766	8733
 nord	go	14810	12526
 nord	html	22445	14733
+nord	java	15213	7001
 nord	javascript	13199	8998
 nord	json	7070	3466
 nord	jsx	14130	8515
@@ -1121,6 +1183,7 @@ nordfox	cpp	19079	9656
 nordfox	css	16766	6470
 nordfox	go	14810	11410
 nordfox	html	22445	14832
+nordfox	java	15213	3279
 nordfox	javascript	13199	8194
 nordfox	json	7070	2897
 nordfox	jsx	14130	6123
@@ -1139,6 +1202,7 @@ onedark	cpp	19079	14253
 onedark	css	16766	8692
 onedark	go	14810	12428
 onedark	html	22445	14719
+onedark	java	15213	7226
 onedark	javascript	13199	8475
 onedark	json	7070	3753
 onedark	jsx	14130	7197
@@ -1157,6 +1221,7 @@ onedark-light	cpp	19079	14253
 onedark-light	css	16766	8692
 onedark-light	go	14810	12428
 onedark-light	html	22445	14719
+onedark-light	java	15213	7226
 onedark-light	javascript	13199	8475
 onedark-light	json	7070	3753
 onedark-light	jsx	14130	7197
@@ -1175,6 +1240,7 @@ oxocarbon-dark	cpp	19079	13147
 oxocarbon-dark	css	16766	6925
 oxocarbon-dark	go	14810	11814
 oxocarbon-dark	html	22445	14911
+oxocarbon-dark	java	15213	5756
 oxocarbon-dark	javascript	13199	8522
 oxocarbon-dark	json	7070	2897
 oxocarbon-dark	jsx	14130	7540
@@ -1193,6 +1259,7 @@ oxocarbon-light	cpp	19079	13147
 oxocarbon-light	css	16766	6925
 oxocarbon-light	go	14810	11814
 oxocarbon-light	html	22445	14911
+oxocarbon-light	java	15213	5756
 oxocarbon-light	javascript	13199	8522
 oxocarbon-light	json	7070	2897
 oxocarbon-light	jsx	14130	7540
@@ -1211,6 +1278,7 @@ papercolor	cpp	19079	14732
 papercolor	css	16766	9187
 papercolor	go	14810	12811
 papercolor	html	22445	17573
+papercolor	java	15213	7318
 papercolor	javascript	13199	8739
 papercolor	json	7070	3747
 papercolor	jsx	14130	7269
@@ -1229,6 +1297,7 @@ papercolor-light	cpp	19079	14683
 papercolor-light	css	16766	9087
 papercolor-light	go	14810	12811
 papercolor-light	html	22445	14735
+papercolor-light	java	15213	7289
 papercolor-light	javascript	13199	8660
 papercolor-light	json	7070	3747
 papercolor-light	jsx	14130	6907
@@ -1247,6 +1316,7 @@ pencil	cpp	19079	11992
 pencil	css	16766	9148
 pencil	go	14810	12412
 pencil	html	22445	17094
+pencil	java	15213	5599
 pencil	javascript	13199	8984
 pencil	json	7070	3747
 pencil	jsx	14130	8755
@@ -1265,6 +1335,7 @@ pencil-light	cpp	19079	11992
 pencil-light	css	16766	9148
 pencil-light	go	14810	12412
 pencil-light	html	22445	17094
+pencil-light	java	15213	5599
 pencil-light	javascript	13199	8984
 pencil-light	json	7070	3747
 pencil-light	jsx	14130	8755
@@ -1283,6 +1354,7 @@ rose-pine	cpp	19079	14986
 rose-pine	css	16766	9405
 rose-pine	go	14810	13337
 rose-pine	html	22445	17944
+rose-pine	java	15213	7318
 rose-pine	javascript	13199	8933
 rose-pine	json	7070	3747
 rose-pine	jsx	14130	6949
@@ -1301,6 +1373,7 @@ rose-pine-dawn	cpp	19079	14986
 rose-pine-dawn	css	16766	9405
 rose-pine-dawn	go	14810	13337
 rose-pine-dawn	html	22445	17944
+rose-pine-dawn	java	15213	7318
 rose-pine-dawn	javascript	13199	8933
 rose-pine-dawn	json	7070	3747
 rose-pine-dawn	jsx	14130	6949
@@ -1319,6 +1392,7 @@ rose-pine-moon	cpp	19079	14986
 rose-pine-moon	css	16766	9405
 rose-pine-moon	go	14810	13337
 rose-pine-moon	html	22445	17944
+rose-pine-moon	java	15213	7318
 rose-pine-moon	javascript	13199	8933
 rose-pine-moon	json	7070	3747
 rose-pine-moon	jsx	14130	6949
@@ -1337,6 +1411,7 @@ selenized	cpp	19079	12313
 selenized	css	16766	9114
 selenized	go	14810	13414
 selenized	html	22445	16958
+selenized	java	15213	7629
 selenized	javascript	13199	9267
 selenized	json	7070	3747
 selenized	jsx	14130	8554
@@ -1355,6 +1430,7 @@ selenized-light	cpp	19079	12313
 selenized-light	css	16766	9114
 selenized-light	go	14810	13414
 selenized-light	html	22445	16958
+selenized-light	java	15213	7629
 selenized-light	javascript	13199	9267
 selenized-light	json	7070	3747
 selenized-light	jsx	14130	8554
@@ -1373,6 +1449,7 @@ solarized-dark	cpp	19079	12970
 solarized-dark	css	16766	8663
 solarized-dark	go	14810	13091
 solarized-dark	html	22445	15059
+solarized-dark	java	15213	8055
 solarized-dark	javascript	13199	9911
 solarized-dark	json	7070	3747
 solarized-dark	jsx	14130	8832
@@ -1391,6 +1468,7 @@ solarized-light	cpp	19079	12418
 solarized-light	css	16766	8663
 solarized-light	go	14810	13039
 solarized-light	html	22445	17262
+solarized-light	java	15213	7559
 solarized-light	javascript	13199	9911
 solarized-light	json	7070	3747
 solarized-light	jsx	14130	9004
@@ -1409,6 +1487,7 @@ sonokai	cpp	19079	13274
 sonokai	css	16766	7075
 sonokai	go	14810	11975
 sonokai	html	22445	14728
+sonokai	java	15213	5729
 sonokai	javascript	13199	8393
 sonokai	json	7070	2897
 sonokai	jsx	14130	7052
@@ -1427,6 +1506,7 @@ soviet-dark	cpp	19079	12266
 soviet-dark	css	16766	6451
 soviet-dark	go	14810	11664
 soviet-dark	html	22445	17033
+soviet-dark	java	15213	5080
 soviet-dark	javascript	13199	8392
 soviet-dark	json	7070	2897
 soviet-dark	jsx	14130	5940
@@ -1445,6 +1525,7 @@ soviet-light	cpp	19079	12266
 soviet-light	css	16766	6451
 soviet-light	go	14810	11664
 soviet-light	html	22445	17033
+soviet-light	java	15213	5080
 soviet-light	javascript	13199	8392
 soviet-light	json	7070	2897
 soviet-light	jsx	14130	5940
@@ -1463,6 +1544,7 @@ srcery	cpp	19079	13478
 srcery	css	16766	8759
 srcery	go	14810	13057
 srcery	html	22445	16925
+srcery	java	15213	6563
 srcery	javascript	13199	8870
 srcery	json	7070	3747
 srcery	jsx	14130	6767
@@ -1481,6 +1563,7 @@ token	cpp	19079	14746
 token	css	16766	8777
 token	go	14810	12618
 token	html	22445	15677
+token	java	15213	6807
 token	javascript	13199	8878
 token	json	7070	3747
 token	jsx	14130	7617
@@ -1499,6 +1582,7 @@ token-light	cpp	19079	14746
 token-light	css	16766	8777
 token-light	go	14810	12618
 token-light	html	22445	15677
+token-light	java	15213	6807
 token-light	javascript	13199	8878
 token-light	json	7070	3747
 token-light	jsx	14130	7617
@@ -1517,6 +1601,7 @@ tokyonight-day	cpp	19079	12185
 tokyonight-day	css	16766	6451
 tokyonight-day	go	14810	11442
 tokyonight-day	html	22445	17037
+tokyonight-day	java	15213	5057
 tokyonight-day	javascript	13199	8214
 tokyonight-day	json	7070	2897
 tokyonight-day	jsx	14130	5895
@@ -1535,6 +1620,7 @@ tokyonight-moon	cpp	19079	11418
 tokyonight-moon	css	16766	2426
 tokyonight-moon	go	14810	11665
 tokyonight-moon	html	22445	8974
+tokyonight-moon	java	15213	6139
 tokyonight-moon	javascript	13199	10688
 tokyonight-moon	json	7070	3466
 tokyonight-moon	jsx	14130	8115
@@ -1553,6 +1639,7 @@ tokyonight-night	cpp	19079	12185
 tokyonight-night	css	16766	6451
 tokyonight-night	go	14810	11442
 tokyonight-night	html	22445	17037
+tokyonight-night	java	15213	5057
 tokyonight-night	javascript	13199	8214
 tokyonight-night	json	7070	2897
 tokyonight-night	jsx	14130	5895
@@ -1571,6 +1658,7 @@ tokyonight-storm	cpp	19079	12185
 tokyonight-storm	css	16766	6451
 tokyonight-storm	go	14810	11442
 tokyonight-storm	html	22445	17037
+tokyonight-storm	java	15213	5057
 tokyonight-storm	javascript	13199	8214
 tokyonight-storm	json	7070	2897
 tokyonight-storm	jsx	14130	5895
@@ -1589,6 +1677,7 @@ vague	cpp	19079	14390
 vague	css	16766	8915
 vague	go	14810	12380
 vague	html	22445	16924
+vague	java	15213	7292
 vague	javascript	13199	9419
 vague	json	7070	3753
 vague	jsx	14130	7450
@@ -1607,6 +1696,7 @@ vesper	cpp	19079	11392
 vesper	css	16766	7892
 vesper	go	14810	12057
 vesper	html	22445	10981
+vesper	java	15213	4721
 vesper	javascript	13199	8898
 vesper	json	7070	3466
 vesper	jsx	14130	8624
@@ -1625,6 +1715,7 @@ vscode-dark	cpp	19079	12329
 vscode-dark	css	16766	8791
 vscode-dark	go	14810	12498
 vscode-dark	html	22445	15482
+vscode-dark	java	15213	5112
 vscode-dark	javascript	13199	9703
 vscode-dark	json	7070	3753
 vscode-dark	jsx	14130	8497
@@ -1643,6 +1734,7 @@ vscode-light	cpp	19079	12329
 vscode-light	css	16766	8791
 vscode-light	go	14810	12498
 vscode-light	html	22445	15482
+vscode-light	java	15213	5112
 vscode-light	javascript	13199	9703
 vscode-light	json	7070	3753
 vscode-light	jsx	14130	8497

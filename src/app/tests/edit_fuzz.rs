@@ -998,6 +998,22 @@ const CPP: &[&str] = &[
     "\n\n",
 ];
 
+const JAVA: &[&str] = &[
+    "String.format(\"%d\", x);",
+    "\"\"\"\n",
+    "/** ",
+    " */",
+    "@Override\n",
+    "case 1 -> {\n",
+    "<T extends A>",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
 const MARKUP: &[&str] = &[
     "<style>a { color: red; }</style>",
     "<script>let x = 1;</script>",
@@ -1079,6 +1095,11 @@ fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
         "f.cpp",
         include_bytes!("../../../tests/colors/cpp/report.cpp"),
         CPP,
+    );
+    fuzz_tree_sitter(
+        "F.java",
+        include_bytes!("../../../tests/colors/java/Ledger.java"),
+        JAVA,
     );
     fuzz_tree_sitter(
         "f.html",

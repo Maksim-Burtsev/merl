@@ -45,7 +45,7 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 NVIM_TS = "1a4f47b03dfe92d28de7d5654c67327ef008c9e6"
 PARSERS = ["bash", "c", "css", "diff", "html", "javascript", "jsdoc", "json", "lua", "luadoc", "luap", "markdown",
            "markdown_inline", "printf", "python", "query", "regex", "toml", "tsx", "typescript", "vim",
-           "vimdoc", "xml", "yaml", "rust", "go", "cpp"]
+           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java"]
 LANGS = {
     "python": (["paperless-ngx"], ["py"]),
     "rust": (["ripgrep"], ["rs"]),
@@ -62,6 +62,7 @@ LANGS = {
     "lua": (["redis"], ["lua"], 25),
     "c": (["redis"], ["c"]),
     "cpp": (["leveldb"], ["cc", "h"]),
+    "java": (["halo"], ["java"]),
     "html": (["bootstrap", "caddy", "eslint", "outline", "redis"], ["html", "htm"]),
     "css": (["gitea", "paperless-ngx", "caddy", "redis"], ["css"]),
     "xml": (["koel", "paperless-ngx", "nowinandroid"], ["xml", "svg", "xsd", "xslt"]),
