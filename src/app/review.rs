@@ -9,6 +9,9 @@ impl App {
         self.viewed_branch = review.branch_name().map(str::to_string);
         self.review = Some(review);
         self.refresh_diff();
+        self.load_viewed();
+        let marks_failed = (self.message.starts_with("viewed marks not read"))
+            .then(|| self.message.clone());
         if let Some(path) = self.buf.path.clone() {
             self.reveal(&path);
             if self.line == 0
@@ -18,11 +21,12 @@ impl App {
                 self.hist_note(true);
             }
         }
-        let first = (self.review.as_ref()).and_then(|r| {
-            r.files
-                .iter()
-                .find(|f| f.is_stop(&self.root, self.diagrams.on()))
-                .cloned()
+        let stop = |f: &&git::ReviewFile| f.is_stop(&self.root, self.diagrams.on());
+        let unread = (self.review.as_ref())
+            .and_then(|r| r.files.iter().filter(stop).find(|f| !self.viewed.contains_key(&f.path)).cloned());
+        let all_viewed = unread.is_none();
+        let first = unread.or_else(|| {
+            (self.review.as_ref()).and_then(|r| r.files.iter().find(stop).cloned())
         });
         let first_stop = first.as_ref().map(|f| f.path.clone());
         if self.buf.path.is_none()
@@ -42,10 +46,15 @@ impl App {
                 self.say_skipped(skipped);
             }
         }
+        if all_viewed && first_stop.is_some() && !self.viewed.is_empty() {
+            self.message = "all files viewed".into();
+        }
         if let Some(note) = note {
             self.message = note;
         }
-        self.load_viewed();
+        if let Some(failed) = marks_failed {
+            self.message = failed;
+        }
         self.open_session();
     }
 
@@ -147,6 +156,8 @@ impl App {
         for f in self.ahead(&r, dir) {
             if !f.is_stop(&self.root, self.diagrams.on()) {
                 skipped += 1;
+            } else if dir > 0 && self.viewed.contains_key(&f.path) {
+                continue;
             } else if self.open_review_file(f, dir < 0) {
                 self.walked_here = true;
                 self.remember_hunk();
