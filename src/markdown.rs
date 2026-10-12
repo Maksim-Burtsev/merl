@@ -422,7 +422,12 @@ impl Lay<'_> {
                 self.block_start(r.start);
                 self.heading = Some(level);
                 let mut inline = Inline::default();
-                inline.push(&format!("{} ", "#".repeat(level as usize)), self.look(), "", r.start);
+                inline.push(
+                    &format!("{} ", "#".repeat(level as usize)),
+                    self.look(),
+                    "",
+                    r.start,
+                );
                 self.inline = Some(inline);
             }
             Tag::BlockQuote(kind) => {

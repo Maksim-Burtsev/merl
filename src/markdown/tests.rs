@@ -54,7 +54,14 @@ fn headings_keep_their_marks_and_the_first_two_get_a_rule() {
             "text",
         ]
     );
-    for h in ["# One", "## Two", "### Three", "#### Four", "##### Five", "###### Six"] {
+    for h in [
+        "# One",
+        "## Two",
+        "### Three",
+        "#### Four",
+        "##### Five",
+        "###### Six",
+    ] {
         assert_eq!(look_of(&d, h), look(Ink::Heading, Modifier::BOLD), "{h}");
     }
     assert_eq!(look_of(&d, "text"), Ink::Text.plain());
