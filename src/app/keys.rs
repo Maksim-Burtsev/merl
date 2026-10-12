@@ -58,7 +58,7 @@ impl App {
             }
         }
         if key.modifiers.contains(KeyModifiers::ALT) && matches!(key.code, KeyCode::Char(_)) {
-            if self.mode == Mode::Edit {
+            if matches!(self.mode, Mode::Edit | Mode::Note) {
                 return false;
             }
             key.modifiers.remove(KeyModifiers::ALT);
@@ -84,12 +84,10 @@ impl App {
         let shift = key.modifiers.contains(KeyModifiers::SHIFT);
         let alt = key.modifiers.contains(KeyModifiers::ALT);
 
-        if ctrl && key.code == KeyCode::Char('c') && self.mode != Mode::Edit {
+        if ctrl && key.code == KeyCode::Char('c') && !matches!(self.mode, Mode::Edit | Mode::Note) {
             self.keys_action_of_key_in_hand = named("", key);
             let shown = !self.preview_blank() && !self.text_hidden();
-            if self.mode == Mode::Note {
-                self.note_key(key);
-            } else if let Some(i) = self.notes.focus.filter(|_| self.mode == Mode::Normal) {
+            if let Some(i) = self.notes.focus.filter(|_| self.mode == Mode::Normal) {
                 self.clipboard = Some(format!("{}\n", self.notes.list[i].text));
                 self.message = "copied note".into();
             } else if self.mode == Mode::Normal && self.picker.is_none() && shown {

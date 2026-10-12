@@ -68,6 +68,13 @@ fn the_notes_file_reads_back_what_was_written() {
             quote: vec![">     ".into()],
             text: "- a list item".into(),
         },
+        Note {
+            path: "b.md".into(),
+            first: 1,
+            last: 1,
+            quote: vec!["> x".into()],
+            text: "- first\n- second".into(),
+        },
     ];
     let text = format(&notes, "feat/x \u{2190} main \u{b7} abc1234");
     assert!(text.starts_with("# merl notes \u{b7} feat/x \u{2190} main \u{b7} abc1234\n# "));
@@ -322,5 +329,82 @@ fn a_note_outlives_its_cut_line_and_reattaches_on_undo() {
     let row = s.lines().position(|l| l.contains("why c")).unwrap();
     assert!(!s.contains("(changed)"), "{s}");
     assert!(s.lines().nth(row - 1).unwrap().contains("3 c"), "{s}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn the_agent_dropping_the_file_under_an_open_note_neither_crashes_nor_brings_it_back() {
+    let (dir, mut a) = on_a_rs("notes-drop", 3);
+    note(&mut a, "one");
+    keys(&mut a, &[(KeyCode::Up, NONE), (KeyCode::Char('a'), NONE)]);
+    std::fs::remove_file(notes_file(&dir, "feature")).unwrap();
+    keys(&mut a, &[(KeyCode::Down, NONE)]);
+    assert_eq!(a.mode, Mode::Edit);
+    keys(&mut a, &[(KeyCode::Esc, NONE)]);
+    note(&mut a, "two");
+    keys(&mut a, &[(KeyCode::Enter, NONE)]);
+    std::fs::remove_file(notes_file(&dir, "feature")).unwrap();
+    keys(&mut a, &[(KeyCode::Esc, NONE)]);
+    assert!(
+        !notes_file(&dir, "feature").exists(),
+        "a note the agent dropped stays dropped"
+    );
+    keys(&mut a, &[(KeyCode::Char('z'), CTRL)]);
+    assert_eq!(a.message, "note changed outside merl");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn edit_mode_walks_through_a_note_and_home_keeps_to_its_line() {
+    let (dir, mut a) = on_a_rs("notes-walk", 3);
+    note(&mut a, "abc");
+    keys(
+        &mut a,
+        &[
+            (KeyCode::Up, NONE),
+            (KeyCode::Enter, NONE),
+            (KeyCode::Down, NONE),
+        ],
+    );
+    assert_eq!(a.mode, Mode::Note, "Down from line 3 into its note");
+    keys(&mut a, &[(KeyCode::End, NONE), (KeyCode::Enter, NONE)]);
+    typed(&mut a, "def");
+    keys(&mut a, &[(KeyCode::Home, NONE)]);
+    typed(&mut a, "> ");
+    a.paste("x\ny");
+    keys(&mut a, &[(KeyCode::Down, NONE)]);
+    assert_eq!(
+        (a.mode, a.line),
+        (Mode::Edit, 3),
+        "Down past its last line, on to line 4"
+    );
+    assert_eq!(parse(&read(&dir))[0].text, "abc\n> x\nydef");
+    keys(&mut a, &[(KeyCode::Up, NONE)]);
+    assert_eq!(a.mode, Mode::Note, "Up from line 4 back into the note");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn notes_follow_the_branch_checked_out_and_need_one() {
+    let (dir, mut a) = on_a_rs("notes-switch", 3);
+    let git = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&dir)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    git(&["switch", "-q", "-c", "other"]);
+    note(&mut a, "on other");
+    assert!(notes_file(&dir, "other").exists());
+    assert!(!notes_file(&dir, "feature").exists());
+    git(&["switch", "-q", "--detach"]);
+    keys(&mut a, &[(KeyCode::Down, NONE), (KeyCode::Char('a'), NONE)]);
+    assert_eq!(
+        (a.mode, a.message.as_str()),
+        (Mode::Normal, "notes need a branch")
+    );
     let _ = std::fs::remove_dir_all(dir);
 }

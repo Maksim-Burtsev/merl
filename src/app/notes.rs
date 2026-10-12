@@ -52,19 +52,19 @@ pub struct Notes {
     pub editing: Option<Editing>,
     pub focus: Option<usize>,
     pub selected: bool,
-    store: Option<Option<(PathBuf, String)>>,
+    dirs: Option<Option<git::GitDirs>>,
     seen: Option<SystemTime>,
     loaded: bool,
     last_seen: HashMap<String, TextLine>,
 }
 
-pub fn store(root: &Path) -> Option<(PathBuf, String)> {
-    let branch = git::git(root, &["rev-parse", "--abbrev-ref", "HEAD"]).ok()?;
-    if branch == "HEAD" {
-        return None;
-    }
-    let dir = git::dirs(root)?.common_refs_dir;
-    Some((dir.join("merl/notes").join(&branch), branch))
+pub fn store(dirs: &git::GitDirs) -> Option<(PathBuf, String)> {
+    let head = std::fs::read_to_string(dirs.worktree_head_dir.join("HEAD")).ok()?;
+    let branch = head.trim_end().strip_prefix("ref: refs/heads/")?;
+    Some((
+        dirs.common_refs_dir.join("merl/notes").join(branch),
+        branch.to_string(),
+    ))
 }
 
 pub fn parse(text: &str) -> Vec<Note> {
@@ -88,17 +88,26 @@ pub fn parse(text: &str) -> Vec<Note> {
         };
         let quotes = block
             .iter()
-            .take_while(|l| l.starts_with("> ") || l.starts_with("- "))
+            .take_while(|l| is_quote(l))
             .count()
             .min(block.len().saturating_sub(1));
+        let text = block[quotes..].join("\n");
+        let text = match text.strip_prefix(' ') {
+            Some(t) if is_quote(t) => t.to_string(),
+            _ => text,
+        };
         out.push(Note {
             path: path.into(),
             first,
             last,
             quote: block[..quotes].iter().map(|l| l.to_string()).collect(),
-            text: block[quotes..].join("\n"),
+            text,
         });
     }
+}
+
+fn is_quote(line: &str) -> bool {
+    line.starts_with("> ") || line.starts_with("- ")
 }
 
 pub fn format(notes: &[Note], head: &str) -> String {
@@ -114,6 +123,9 @@ pub fn format(notes: &[Note], head: &str) -> String {
         for q in &n.quote {
             s += q;
             s += "\n";
+        }
+        if is_quote(&n.text) {
+            s += " ";
         }
         s += &n.text;
         s += "\n";
@@ -161,10 +173,9 @@ fn next(app: &App, l: TextLine) -> TextLine {
 
 impl App {
     fn notes_store(&mut self) -> Option<(PathBuf, String)> {
-        if self.notes.store.is_none() {
-            self.notes.store = Some(store(&self.root));
-        }
-        self.notes.store.clone().flatten()
+        let root = &self.root;
+        let dirs = self.notes.dirs.get_or_insert_with(|| git::dirs(root));
+        store(dirs.as_ref()?)
     }
 
     fn notes_reload(&mut self) {
@@ -180,10 +191,12 @@ impl App {
             .unwrap_or_default();
         if self.notes.loaded && list != self.notes.list {
             self.notes.focus = None;
+            self.notes.selected = false;
         }
         self.notes.list = list;
         self.notes.seen = mtime;
         self.notes.loaded = true;
+        self.notes_resolve();
     }
 
     pub fn notes_sync(&mut self) {
@@ -550,6 +563,9 @@ impl App {
         self.notes_reload();
         let pos = (e.old.as_ref()).and_then(|o| self.notes.list.iter().position(|n| n == o));
         let old = pos.map(|p| self.notes.list[p].clone());
+        if old.is_none() && e.old.as_ref().is_some_and(|o| o.text == text) {
+            return None;
+        }
         let new = match (&old, text.is_empty()) {
             (Some(o), _) if o.text == text => return pos,
             (_, true) => None,
@@ -623,6 +639,18 @@ impl App {
         .and_then(|f| self.notes.list.iter().position(|n| n == f))
         .and_then(|i| self.here_of(i))
         .map(|h| h.at);
+        let from = match back {
+            true => &change.new,
+            false => &change.old,
+        };
+        let gone = from.is_some() && gone_at.is_none() && {
+            self.notes_reload();
+            !from.as_ref().is_some_and(|f| self.notes.list.contains(f))
+        };
+        if gone {
+            self.message = "note changed outside merl".into();
+            return;
+        }
         let kept = self.apply_note(change, back);
         self.notes.focus = None;
         if let Some(i) = kept

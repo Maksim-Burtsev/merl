@@ -230,7 +230,9 @@ impl App {
             if self.prompt.insert(line) {
                 self.refresh_find();
             }
-        } else if matches!(self.mode, Mode::New | Mode::Note) {
+        } else if self.mode == Mode::Note {
+            self.prompt.insert(&text);
+        } else if self.mode == Mode::New {
             self.prompt.insert(line);
         }
     }

@@ -40,6 +40,9 @@ impl App {
                     self.edit_kind = edit::Kind::Other;
                     self.anchor = None;
                     self.preview = None;
+                    if self.notes.on {
+                        self.notes_resolve();
+                    }
                     let rel = path.strip_prefix(&self.root).ok();
                     if rel.is_some_and(|rel| {
                         self.review.as_ref().is_some_and(|r| r.file(rel).is_some())
@@ -221,6 +224,12 @@ impl App {
                 .chain(self.anchor.as_mut().map(|a| &mut a.0))
                 .chain(self.find_sel.as_mut().map(|a| &mut a.0))
                 .chain(stop.map(|s| &mut s.1))
+                .chain(
+                    self.notes
+                        .editing
+                        .iter_mut()
+                        .flat_map(|e| [&mut e.first, &mut e.last]),
+                )
                 .for_each(carry);
         }
         self.dirty = false;

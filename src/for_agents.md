@@ -111,7 +111,8 @@ why drop the range step? it was right
 
 A note is a block: `path:LINE` or `path:FIRST-LAST`, the noted lines as they read when the note
 was written (`>` a line of the file, `-` a line the branch deleted, which stood right above the
-line named), then the note, one or more lines; a blank line ends the block. Find the place by
+line named), then the note, one or more lines (one space before
+its first line when that line starts with `>` or `-`); a blank line ends the block. Find the place by
 the quoted lines: line numbers move.
 Each note is an instruction from the user about that place.
 

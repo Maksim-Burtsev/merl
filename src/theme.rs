@@ -997,6 +997,9 @@ mod tests {
         assert!(!config_from(None).unwrap().tree_sitter);
         std::fs::write(&path, "tree_sitter = true\n").unwrap();
         assert!(config_from(Some(&path)).unwrap().tree_sitter);
+        assert!(!config_from(Some(&path)).unwrap().review_notes);
+        std::fs::write(&path, "review_notes = true\n").unwrap();
+        assert!(config_from(Some(&path)).unwrap().review_notes);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
