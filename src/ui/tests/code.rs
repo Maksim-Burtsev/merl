@@ -29,7 +29,6 @@ fn unwrapped_lines_are_cut_at_the_edge_and_follow_the_cursor() {
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let paint = |app: &mut App, code: KeyCode| -> Vec<String> {
         app.key(KeyEvent::new(code, KeyModifiers::NONE));
-        // Gutter is two cells, so the text gets twelve.
         let mut terminal = Terminal::new(TestBackend::new(14, 5)).unwrap();
         terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
         rows(&terminal)[..3].to_vec()
@@ -85,8 +84,6 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
         app.key(KeyEvent::new(code, m));
     }
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-    // Gutter is two cells; `#` marks a cell with the selection background, `-` one with the
-    // cursor line highlight.
     let paint = |app: &mut App| -> Vec<String> {
         let mut terminal = Terminal::new(TestBackend::new(12, 5)).unwrap();
         terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
@@ -113,13 +110,16 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
         ],
         "the line above the selection stays clean; the cursor line keeps its highlight"
     );
-    // Ending at the start of the cursor line selects none of its text: highlighted in the
-    // gutter only, as in VS Code, or past the selection it would pass for selected text.
     app.key(KeyEvent::new(
         KeyCode::Left,
         KeyModifiers::SHIFT | KeyModifiers::CONTROL,
     ));
-    assert_eq!(paint(&mut app)[3], "--..........");
+    assert_eq!(
+        paint(&mut app)[3],
+        "--..........",
+        "ending at the start of the cursor line selects none of its text: lit in the gutter \
+         only, as in VS Code, or past the selection it would pass for selected text"
+    );
     for (code, m) in [
         (KeyCode::Esc, KeyModifiers::NONE),
         (KeyCode::Up, KeyModifiers::NONE),
@@ -146,7 +146,6 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
 #[test]
 fn selecting_inside_a_wrapped_line_keeps_its_highlight_on_the_other_rows() {
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-    // One 24-column line wraps onto three 8-column rows (the gutter takes two cells).
     let mut app = App::new(
         PathBuf::from("/demo"),
         Tree::default(),
@@ -177,9 +176,7 @@ z
             })
             .collect()
     };
-    // A first draw sets the pane width the wrapping and the remembered column depend on.
     paint(&mut app);
-    // Cursor on the middle row, five cells in.
     for _ in 0..12 {
         app.key(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
     }
@@ -218,9 +215,6 @@ fn find_spans_cut_the_syntax_spans_they_cover() {
     let syntax = Style::new().fg(Color::Blue).add_modifier(Modifier::ITALIC);
     let find = Style::new().bg(Color::Yellow);
     let lit = syntax.bg(Color::Yellow);
-    // "abcdefgh": one syntax span over 0..4, matches at 2..3 (inside it) and 5..6 (in the
-    // gap the highlighter left behind). The match keeps the syntax colour and style under its
-    // tint (#480); in the gap there is none to keep.
     let out = super::with_find(&[(syntax, 0..4)], &[2..3, 5..6], find);
     assert_eq!(
         out,
@@ -230,7 +224,9 @@ fn find_spans_cut_the_syntax_spans_they_cover() {
             (syntax, 3..4),
             (Style::new(), 4..5),
             (find, 5..6),
-        ]
+        ],
+        "a match inside a syntax span keeps its colour and style under the tint (#480); one in \
+         the gap the highlighter left has none to keep"
     );
     assert_eq!(
         super::with_find(&[(syntax, 0..4)], &[0..2, 2..6], find),
@@ -300,7 +296,6 @@ fn an_emoji_with_a_selector_wraps_and_holds_the_cursor_as_drawn() {
     );
     app.show_tree = false;
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-    // Gutter is two cells, so the text gets ten.
     let mut terminal = Terminal::new(TestBackend::new(12, 5)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(
@@ -341,7 +336,6 @@ fn a_redraw_never_sends_the_column_under_an_emoji_with_a_selector() {
         .filter(|&(_, y, _)| y == 0)
         .map(|(x, ..)| x)
         .collect();
-    // Gutter is two cells; the emoji covers 2 and 3, and `e` at 6 did not change.
     assert_eq!(
         sent,
         [2, 4, 5, 7, 8, 9],
@@ -408,7 +402,6 @@ fn wrapped_rows_and_the_cursor_on_them_start_under_the_text() {
         "    tasks on restart",
         "`tasks` moves down whole, the row starts past the list marker"
     );
-    // On the "s" of "tasks": gutter 2, indent 2, "ta" 2.
     assert_eq!((cursor.x, cursor.y), (6, 1));
 }
 
@@ -433,12 +426,17 @@ fn ghost_lines_draw_above_their_line_and_the_cursor_walks_them() {
         rows(&terminal)[..5],
         ["1 a", "\u{258e}old1", "\u{258e}old2", "2\u{258e}b", "3 c"]
     );
-    // On the deleted tint, never greyed by the terminal's `dim` (#144); with no base file to
-    // take syntax colours from, in the plain text colour.
     let buf = terminal.backend().buffer();
     let o = (0..8).find(|x| buf[(*x, 1)].symbol() == "o").unwrap();
-    assert_eq!((buf[(o, 1)].fg, buf[(o, 1)].bg), (theme.fg, theme.del_bg));
-    assert!(!buf[(o, 1)].modifier.contains(ratatui::style::Modifier::DIM));
+    assert_eq!(
+        (buf[(o, 1)].fg, buf[(o, 1)].bg),
+        (theme.fg, theme.del_bg),
+        "with no base file to take syntax colours from, the plain text colour on the deleted tint"
+    );
+    assert!(
+        !buf[(o, 1)].modifier.contains(ratatui::style::Modifier::DIM),
+        "never greyed by the terminal's `dim` (#144)"
+    );
     let key = |app: &mut App, c| app.key(KeyEvent::new(c, KeyModifiers::NONE));
     for (c, at, y) in [
         (KeyCode::Down, TextLine::Deleted(1, 0), 1),
@@ -536,7 +534,6 @@ fn every_ghost_after_the_last_line_can_be_walked_to() {
         .ghosts
         .insert(2, (1..=10).map(|i| format!("g{i}")).collect());
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-    // Four rows of code: a, b and ten ghosts are twelve.
     let mut terminal = Terminal::new(TestBackend::new(8, 5)).unwrap();
     let key = |c| KeyEvent::new(c, KeyModifiers::NONE);
     let ctrl = |c| KeyEvent::new(c, KeyModifiers::CONTROL);
@@ -560,7 +557,6 @@ fn every_ghost_after_the_last_line_can_be_walked_to() {
         ["\u{258e}g7", "\u{258e}g8", "\u{258e}g9", "\u{258e}g10"]
     );
     assert_eq!(terminal.get_cursor_position().unwrap().y, 3);
-    // The status bar reads the deleted line's own number, and Up takes the cursor off it.
     app.key(key(KeyCode::Up));
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(app.at(), TextLine::Deleted(2, 8));
@@ -577,7 +573,6 @@ fn up_and_down_walk_a_wrapped_ghost_row_by_row() {
         None,
     );
     app.show_tree = false;
-    // Twelve cells of text: the ghost is three rows.
     app.diff
         .ghosts
         .insert(1, vec!["one two three four five".into()]);
@@ -613,7 +608,6 @@ fn up_scrolls_a_wrapped_ghost_in_one_row_at_a_time() {
         .ghosts
         .insert(1, vec!["one two three four five".into()]);
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-    // Two rows of code.
     let mut terminal = Terminal::new(TestBackend::new(14, 3)).unwrap();
     for _ in 0..4 {
         app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
@@ -648,8 +642,6 @@ fn wrapped_ghosts_after_the_last_line_can_all_be_walked_to() {
         vec!["one two three four five".into(), "six seven eight".into()],
     );
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-    // Three rows of code: a, b and five ghost rows (three of the first ghost, two of the
-    // second) are seven.
     let mut terminal = Terminal::new(TestBackend::new(14, 4)).unwrap();
     for _ in 0..8 {
         app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
@@ -694,8 +686,6 @@ fn a_ghost_longer_than_the_pane_wraps_and_the_text_follows() {
         .ghosts
         .insert(1, vec!["  one two three four".into()]);
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-    // Gutter is two cells, so the text gets twelve: the ghost wraps there like a file line,
-    // its second row under its indent, and `b` comes after it.
     let mut terminal = Terminal::new(TestBackend::new(14, 6)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(
@@ -854,24 +844,31 @@ fn review_paints_the_word_that_changed_on_both_rows() {
             .find(|x| t.backend().buffer()[(*x, y)].symbol() == s)
             .unwrap()
     };
-    // `==` became `>=`: the first `=` is the old word, `>` the new one.
     let (eq, gt, ret) = (
         x_of(&terminal, 1, "="),
         x_of(&terminal, 2, ">"),
         x_of(&terminal, 2, "r"),
     );
-    assert_eq!(cell(&terminal, eq, 1), (theme.word_fg, theme.del_word_bg));
+    assert_eq!(
+        cell(&terminal, eq, 1),
+        (theme.word_fg, theme.del_word_bg),
+        "`==` became `>=`: the first `=` is the old word"
+    );
     assert_eq!(
         cell(&terminal, gt, 2),
-        (theme.word_fg, theme.add_word_bg_hl)
+        (theme.word_fg, theme.add_word_bg_hl),
+        "`>` is the new word"
     );
     assert_eq!(cell(&terminal, eq + 1, 1).1, theme.del_bg, "the kept `=`");
     assert_eq!(cell(&terminal, 23, 1).1, theme.del_bg);
     assert_eq!(cell(&terminal, 23, 2).1, theme.add_bg_hl);
-    // `return` is a keyword in both rows: the ghost is coloured from the base, like the text.
     let keyword = cell(&terminal, ret, 2).0;
     assert_ne!(keyword, theme.fg);
-    assert_eq!(cell(&terminal, ret, 1), (keyword, theme.del_bg));
+    assert_eq!(
+        cell(&terminal, ret, 1),
+        (keyword, theme.del_bg),
+        "`return` on the ghost is coloured from the base, a keyword like the text's"
+    );
     assert_eq!(cell(&terminal, ret, 2).1, theme.add_bg_hl);
     app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
@@ -942,7 +939,6 @@ fn a_changed_word_is_painted_on_a_wrapped_or_scrolled_ghost() {
         .insert(1, vec!["alpha beta gamma delta".into()]);
     app.diff.pairs.insert(1, (1, 0));
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-    // Twelve cells of text: `delta` is on the ghost's second row.
     let mut terminal = Terminal::new(TestBackend::new(14, 6)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(
@@ -983,7 +979,6 @@ fn the_enclosing_function_stays_pinned_above_the_code() {
     );
     app.show_tree = false;
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-    // Eleven rows of code, the first of them the pinned declaration.
     let mut terminal = Terminal::new(TestBackend::new(30, 12)).unwrap();
     let mut press = |app: &mut App, code: KeyCode| {
         app.key(KeyEvent::new(code, KeyModifiers::NONE));
@@ -999,8 +994,11 @@ fn the_enclosing_function_stays_pinned_above_the_code() {
             let (screen, y, band) = press(&mut app, code);
             let pinned = app.top_line > 0;
             assert_eq!(screen[0], "1 fn long() {");
-            // Unpinned, the top row is lit only as the cursor line.
-            assert_eq!(band, pinned || app.line == 0);
+            assert_eq!(
+                band,
+                pinned || app.line == 0,
+                "unpinned, the top row is lit only as the cursor line"
+            );
             assert!(
                 y >= if pinned { 1 } else { 0 },
                 "the cursor is under the band"
@@ -1116,7 +1114,6 @@ fn a_page_under_a_pinned_header_skips_no_line() {
         text += &format!("    let a{i} = {i};\n");
     }
     text += "}\n";
-    // Eleven rows of code under the status line, one pinned inside the function.
     let (mut app, mut terminal) = pinned_app(&text, 30, 12);
     let (mut screen, _) = press(&mut app, &mut terminal, KeyCode::Null);
     for (code, pages) in [(KeyCode::PageDown, 4), (KeyCode::PageUp, 4)] {
@@ -1148,10 +1145,8 @@ fn a_jump_scrolls_to_the_first_top_that_fits_under_its_pins() {
         text += &format!("        let b{i} = {i};\n");
     }
     text += "    }\n}\n";
-    // Seventeen rows of code: two pins at most.
     let (mut app, mut terminal) = pinned_app(&text, 40, 18);
     press(&mut app, &mut terminal, KeyCode::Null);
-    // 0-based 47 is `let b13`; the `}` of `m` is 32.
     app.line = 47;
     let (screen, y) = press(&mut app, &mut terminal, KeyCode::Null);
     assert_eq!(
@@ -1245,7 +1240,6 @@ fn an_unwrapped_pinned_header_is_cut_where_the_code_is() {
         press(&mut app, &mut terminal, KeyCode::Down);
     }
     let (screen, _) = press(&mut app, &mut terminal, KeyCode::End);
-    // One column at either edge is the marker's, as on every row of code.
     let (left, w) = (app.left, app.view_w);
     let header = "fn long(first: usize, second: usize) {";
     assert!(left > 0 && header.len() > left + w);
@@ -1266,7 +1260,6 @@ fn cut_app(text: &str, w: u16, h: u16, line: usize) -> (App, Terminal<TestBacken
 fn a_cut_line_ends_in_a_dim_ellipsis_when_wrapped() {
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let text = format!("{}\nsecond\n", "a".repeat(20_005));
-    // Seven columns of text: 20,000 is 2,857 full rows and one `a`.
     let (mut app, mut terminal) = cut_app(&text, 9, 4, 1);
     assert_eq!(rows(&terminal)[..3], ["aaaaaaa", "a\u{2026}", "2 second"]);
     let buf = terminal.backend().buffer();
@@ -1410,7 +1403,6 @@ fn a_cut_line_scrolled_to_its_end_still_shows_its_ellipsis() {
     let (mut app, mut terminal) = cut_app(&text, 12, 4, 1);
     app.diff.ghosts.insert(1, vec!["a".repeat(20_005)]);
     press(&mut app, &mut terminal, KeyCode::Char('w'));
-    // Line 1 is 5,000 tabs, 20,000 columns, then `x`s: col 5,000 + n is column 20,000 + n.
     let mut at = |left: usize, col: usize| {
         (app.left, app.col) = (left, col);
         let (screen, _) = press(&mut app, &mut terminal, KeyCode::Null);
@@ -1449,7 +1441,6 @@ fn a_deletion_taller_than_the_pane_is_walked_and_paged() {
         .insert(1, (1..=30).map(|i| format!("d{i}")).collect());
     app.diff.ghost_from.insert(1, 1);
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-    // Seven rows of code.
     let mut terminal = Terminal::new(TestBackend::new(40, 8)).unwrap();
     let key = |c| KeyEvent::new(c, KeyModifiers::NONE);
     let ctrl = |c| KeyEvent::new(c, KeyModifiers::CONTROL);
@@ -1477,7 +1468,6 @@ fn a_deletion_taller_than_the_pane_is_walked_and_paged() {
         terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
         assert_eq!(app.at(), at, "{k:?}");
     }
-    // d7 is line 8 of the file at the base: the deletion starts at its line 2.
     assert!(
         rows(&terminal)[7].contains("-8:1"),
         "{:?}",
@@ -1553,7 +1543,6 @@ fn a_wider_pane_draws_the_cursor_on_its_own_line() {
         Buffer::from_bytes(PathBuf::from("/demo/a.txt"), text.as_bytes()),
         None,
     );
-    // Next to the tree the first line wraps into eight rows; the view scrolls into them.
     let mut terminal = Terminal::new(TestBackend::new(100, 12)).unwrap();
     for _ in 0..17 {
         press(&mut app, &mut terminal, KeyCode::Down);
@@ -1612,7 +1601,6 @@ fn hidden_chars_are_drawn_as_their_tags() {
         assert_ne!(buf[(3, y)].bg, theme.tag_bg);
     }
     let y = all.len() + 1;
-    // The emoji keeps its two cells (the second is blank in the buffer), `!` after them.
     assert_eq!(r[y], "16 \u{1f468}\u{200d}\u{1f4bb} !");
     assert_eq!(buf[(5, y as u16)].symbol(), "!");
 }
@@ -1633,7 +1621,6 @@ fn the_cursor_steps_over_a_tag_and_delete_removes_it() {
     key(&mut app, KeyCode::Right);
     key(&mut app, KeyCode::Right);
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    // Gutter 2, `a` 1, the tag 6: on the `b`.
     assert_eq!(terminal.get_cursor_position().unwrap().x, 2 + 1 + 6);
     key(&mut app, KeyCode::Left);
     key(&mut app, KeyCode::Enter);
