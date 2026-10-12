@@ -85,7 +85,10 @@ fn unbound_ctrl_letter_is_never_the_bare_letter() {
     for c in ['q', 't', 'w', 'p', 'o', 'k', 'x'] {
         assert!(!press(&mut a, KeyCode::Char(c), ctrl), "Ctrl+{c}");
         assert!(a.picker.is_none() && a.message.is_empty(), "Ctrl+{c}");
-        assert!(!a.show_tree && a.wrap_opposite_of_kind.is_empty(), "Ctrl+{c}");
+        assert!(
+            !a.show_tree && a.wrap_opposite_of_kind.is_empty(),
+            "Ctrl+{c}"
+        );
         assert_eq!((a.mode, a.line), (Mode::Normal, 0), "Ctrl+{c}");
     }
     press(&mut a, KeyCode::Char('?'), KeyModifiers::NONE);
