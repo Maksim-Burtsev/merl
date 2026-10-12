@@ -101,7 +101,13 @@ pub(super) fn draw_tree(
             .fold((0, 0), |(a, d), f| (a + f.added, d + f.deleted));
         let n = r.files.len();
         let s = crate::app::plural(n);
-        let totals = format!(" {n} file{s} \u{b7} +{added} \u{2212}{deleted} ");
+        let notes = app.notes.list.len();
+        let notes = match notes {
+            0 => String::new(),
+            1 => " \u{b7} 1 note".to_string(),
+            k => format!(" \u{b7} {k} notes"),
+        };
+        let totals = format!(" {n} file{s} \u{b7} +{added} \u{2212}{deleted}{notes} ");
         // Too wide for the border, the totals go whole: a number cut short reads as another.
         if wrap::width(&totals) <= area.width.saturating_sub(2) as usize {
             block = block.title_bottom(Span::styled(totals, base.fg(theme.ghost_fg)));
@@ -158,7 +164,9 @@ pub(super) fn draw_tree(
             } else {
                 row.bg(theme.line_hl_dim)
             };
+            let noted = !n.is_dir && app.notes_in(&n.path) > 0;
             let tick = match (&app.review, app.viewed.contains_key(&n.path)) {
+                (Some(_), _) if noted => "\u{270e} ",
                 (None, _) => "",
                 (Some(_), false) => "  ",
                 (Some(_), true) => "\u{2713} ",
@@ -193,6 +201,7 @@ pub(super) fn draw_tree(
                     let marker = match (n.is_dir, n.expanded, app.marks.get(&n.path)) {
                         (true, true, _) => '\u{25be}',
                         (true, false, _) => '\u{25b8}',
+                        (false, _, _) if noted => '\u{270e}',
                         (false, _, Some(&mark)) => mark,
                         (false, _, None) => ' ',
                     };

@@ -1,0 +1,326 @@
+use ratatui::Terminal;
+use ratatui::backend::TestBackend;
+
+use super::*;
+use crate::app::notes::{Note, format, parse};
+
+const NONE: KeyModifiers = KeyModifiers::NONE;
+const CTRL: KeyModifiers = KeyModifiers::CONTROL;
+const SHIFT: KeyModifiers = KeyModifiers::SHIFT;
+
+fn screen(a: &mut App) -> String {
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut t = Terminal::new(TestBackend::new(70, 16)).unwrap();
+    t.draw(|f| crate::ui::draw(f, a, &theme)).unwrap();
+    let buf = t.backend().buffer();
+    (0..buf.area.height)
+        .map(|y| {
+            let row: String = (0..buf.area.width).map(|x| buf[(x, y)].symbol()).collect();
+            row.trim_end().to_string() + "\n"
+        })
+        .collect()
+}
+
+fn notes_file(dir: &Path, branch: &str) -> PathBuf {
+    dir.join(".git/merl/notes").join(branch)
+}
+
+fn read(dir: &Path) -> String {
+    std::fs::read_to_string(notes_file(dir, "feature")).unwrap_or_default()
+}
+
+fn on_a_rs(tag: &str, line: usize) -> (PathBuf, App) {
+    let (dir, mut a) = review_app(tag);
+    a.notes.on = true;
+    a.show_tree = false;
+    a.jump_to(&dir.join("src/a.rs"), line);
+    screen(&mut a);
+    (dir, a)
+}
+
+fn keys(a: &mut App, keys: &[(KeyCode, KeyModifiers)]) {
+    for &(k, m) in keys {
+        press(a, k, m);
+        screen(a);
+    }
+}
+
+fn note(a: &mut App, text: &str) {
+    keys(a, &[(KeyCode::Char('a'), NONE)]);
+    typed(a, text);
+    keys(a, &[(KeyCode::Esc, NONE)]);
+}
+
+#[test]
+fn the_notes_file_reads_back_what_was_written() {
+    let notes = vec![
+        Note {
+            path: "app/my file.py".into(),
+            first: 9,
+            last: 10,
+            quote: vec!["> a = 1".into(), "- b = 2".into()],
+            text: "# not a header\n> not a quote either\nsecond line".into(),
+        },
+        Note {
+            path: "C:x/y.rs".into(),
+            first: 3,
+            last: 3,
+            quote: vec![">     ".into()],
+            text: "- a list item".into(),
+        },
+    ];
+    let text = format(&notes, "feat/x \u{2190} main \u{b7} abc1234");
+    assert!(text.starts_with("# merl notes \u{b7} feat/x \u{2190} main \u{b7} abc1234\n# "));
+    assert!(text.contains("\napp/my file.py:9-10\n> a = 1\n- b = 2\n# not a header\n"));
+    assert_eq!(parse(&text), notes);
+    assert_eq!(parse(""), []);
+    assert_eq!(parse("# only the header\n"), []);
+}
+
+#[test]
+fn a_note_is_typed_edited_deleted_and_undone_like_a_line() {
+    let (dir, mut a) = on_a_rs("notes-loop", 3);
+    note(&mut a, "why c");
+    assert_eq!(a.mode, Mode::Normal);
+    assert!(
+        read(&dir).ends_with("\nsrc/a.rs:3\n> c\nwhy c\n"),
+        "{}",
+        read(&dir)
+    );
+    let s = screen(&mut a);
+    let row = s.lines().position(|l| l.contains("why c")).unwrap();
+    assert!(s.lines().nth(row - 1).unwrap().contains("3 c"), "{s}");
+    assert_eq!(
+        a.notes.focus,
+        Some(0),
+        "the cursor stays on the note just typed"
+    );
+
+    keys(&mut a, &[(KeyCode::Down, NONE)]);
+    assert_eq!(
+        (a.notes.focus, a.line),
+        (None, 3),
+        "Down leaves the note for line 4"
+    );
+    keys(&mut a, &[(KeyCode::Up, NONE)]);
+    assert_eq!(a.notes.focus, Some(0), "Up stops on the note as on a line");
+
+    keys(&mut a, &[(KeyCode::Enter, NONE), (KeyCode::End, NONE)]);
+    assert_eq!(a.mode, Mode::Note);
+    keys(&mut a, &[(KeyCode::Enter, NONE)]);
+    typed(&mut a, "and d");
+    keys(&mut a, &[(KeyCode::Esc, NONE)]);
+    assert!(
+        read(&dir).ends_with("> c\nwhy c\nand d\n"),
+        "Enter is a new line in the note"
+    );
+
+    keys(
+        &mut a,
+        &[(KeyCode::Enter, NONE), (KeyCode::Char('x'), CTRL)],
+    );
+    keys(&mut a, &[(KeyCode::Char('x'), CTRL)]);
+    assert_eq!(a.clipboard.as_deref(), Some("why c\n"));
+    assert!(
+        !notes_file(&dir, "feature").exists(),
+        "the last note gone, the file goes"
+    );
+    assert_eq!(
+        a.mode,
+        Mode::Edit,
+        "cutting the last line leaves for the code"
+    );
+
+    keys(&mut a, &[(KeyCode::Esc, NONE), (KeyCode::Char('z'), CTRL)]);
+    assert!(
+        read(&dir).ends_with("> c\nwhy c\nand d\n"),
+        "Ctrl+Z brings it back whole"
+    );
+    assert_eq!(a.notes.focus, Some(0));
+    keys(&mut a, &[(KeyCode::Char('z'), CTRL)]);
+    assert!(
+        read(&dir).ends_with("> c\nwhy c\n"),
+        "and then the edit before"
+    );
+    keys(
+        &mut a,
+        &[(KeyCode::Char('y'), CTRL), (KeyCode::Char('y'), CTRL)],
+    );
+    assert!(
+        !notes_file(&dir, "feature").exists(),
+        "Ctrl+Y cuts it again"
+    );
+    keys(&mut a, &[(KeyCode::Char('z'), CTRL)]);
+
+    keys(
+        &mut a,
+        &[(KeyCode::Char('v'), NONE), (KeyCode::Enter, NONE)],
+    );
+    keys(&mut a, &[(KeyCode::Backspace, NONE), (KeyCode::Esc, NONE)]);
+    assert!(
+        !notes_file(&dir, "feature").exists(),
+        "v selects the note whole"
+    );
+    keys(
+        &mut a,
+        &[(KeyCode::Char('z'), CTRL), (KeyCode::Enter, NONE)],
+    );
+    keys(
+        &mut a,
+        &[(KeyCode::Char('u'), CTRL), (KeyCode::Backspace, NONE)],
+    );
+    assert!(
+        !notes_file(&dir, "feature").exists(),
+        "Backspace on an empty note removes it"
+    );
+
+    keys(
+        &mut a,
+        &[
+            (KeyCode::Esc, NONE),
+            (KeyCode::Char('a'), NONE),
+            (KeyCode::Esc, NONE),
+        ],
+    );
+    assert!(
+        !notes_file(&dir, "feature").exists(),
+        "an empty note is never kept"
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn code_and_note_edits_undo_in_the_order_they_were_made() {
+    let (dir, mut a) = on_a_rs("notes-undo", 3);
+    note(&mut a, "one");
+    keys(&mut a, &[(KeyCode::Down, NONE), (KeyCode::Enter, NONE)]);
+    typed(&mut a, "X");
+    keys(&mut a, &[(KeyCode::Esc, NONE), (KeyCode::Up, NONE)]);
+    note(&mut a, "two");
+    assert_eq!(parse(&read(&dir)).len(), 2);
+    keys(&mut a, &[(KeyCode::Char('z'), CTRL)]);
+    assert_eq!(parse(&read(&dir)).len(), 1);
+    assert_eq!(a.buf.lines[3], "Xd", "the code edit is still there");
+    keys(&mut a, &[(KeyCode::Char('z'), CTRL)]);
+    assert_eq!(a.buf.lines[3], "d");
+    assert_eq!(parse(&read(&dir)).len(), 1, "the first note stays");
+    keys(&mut a, &[(KeyCode::Char('z'), CTRL)]);
+    assert!(!notes_file(&dir, "feature").exists());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn copying_code_across_a_note_takes_only_the_code() {
+    let (dir, mut a) = on_a_rs("notes-copy", 3);
+    note(&mut a, "between");
+    keys(&mut a, &[(KeyCode::Up, NONE), (KeyCode::Home, NONE)]);
+    assert_eq!((a.notes.focus, a.line), (None, 2));
+    keys(&mut a, &[(KeyCode::Down, SHIFT), (KeyCode::Down, SHIFT)]);
+    assert_eq!(a.line, 4, "Shift+Down steps over the note row");
+    keys(&mut a, &[(KeyCode::Char('c'), CTRL)]);
+    assert_eq!(a.clipboard.as_deref(), Some("c\nd\n"));
+    keys(
+        &mut a,
+        &[
+            (KeyCode::Esc, NONE),
+            (KeyCode::Up, NONE),
+            (KeyCode::Up, NONE),
+        ],
+    );
+    assert_eq!(a.notes.focus, Some(0));
+    keys(&mut a, &[(KeyCode::Char('c'), CTRL)]);
+    assert_eq!(
+        a.clipboard.as_deref(),
+        Some("between\n"),
+        "on the note, its text"
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_range_and_a_deleted_line_take_notes_and_the_agent_can_drop_them() {
+    let (dir, mut a) = on_a_rs("notes-range", 2);
+    keys(&mut a, &[(KeyCode::Up, NONE)]);
+    assert_eq!(a.at(), TextLine::Deleted(1, 0), "on the ghost of `b`");
+    note(&mut a, "keep b");
+    keys(&mut a, &[(KeyCode::Down, NONE)]);
+    assert_eq!(a.at(), TextLine::File(1));
+    keys(&mut a, &[(KeyCode::Down, SHIFT), (KeyCode::Down, SHIFT)]);
+    note(&mut a, "these");
+    let text = read(&dir);
+    assert!(text.contains("\nsrc/a.rs:2\n- b\nkeep b\n"), "{text}");
+    assert!(text.contains("\nsrc/a.rs:2-3\n> B\n> c\nthese\n"), "{text}");
+    let s = screen(&mut a);
+    assert!(s.contains("lines 2 to 3  these"), "{s}");
+    assert!(s.contains("\u{270e} keep b"), "{s}");
+    assert!(
+        a.notes_farewell()
+            .unwrap()
+            .ends_with("2 notes for your agent in .git/merl/notes/feature")
+    );
+
+    std::fs::remove_file(notes_file(&dir, "feature")).unwrap();
+    let s = screen(&mut a);
+    assert!(!s.contains("these") && !s.contains("keep b"), "{s}");
+    assert_eq!(a.notes_farewell(), None);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_branch_with_slashes_keeps_its_notes_in_folders() {
+    let (dir, mut a) = review_app("notes-slash");
+    let out = std::process::Command::new("git")
+        .arg("-C")
+        .arg(&dir)
+        .args(["switch", "-q", "-c", "feat/x"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    a.notes.on = true;
+    a.jump_to(&dir.join("src/a.rs"), 1);
+    screen(&mut a);
+    note(&mut a, "first");
+    let text = std::fs::read_to_string(notes_file(&dir, "feat/x")).unwrap();
+    assert!(
+        text.starts_with("# merl notes \u{b7} feat/x \u{2190} "),
+        "{text}"
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn notes_off_leave_a_alone() {
+    let (dir, mut a) = on_a_rs("notes-off", 3);
+    a.notes.on = false;
+    keys(&mut a, &[(KeyCode::Char('a'), NONE)]);
+    assert_eq!(a.mode, Mode::Normal);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_note_outlives_its_cut_line_and_reattaches_on_undo() {
+    let (dir, mut a) = on_a_rs("notes-cut", 3);
+    note(&mut a, "why c");
+    keys(
+        &mut a,
+        &[
+            (KeyCode::Up, NONE),
+            (KeyCode::Enter, NONE),
+            (KeyCode::Char('x'), CTRL),
+        ],
+    );
+    keys(&mut a, &[(KeyCode::Esc, NONE)]);
+    assert_eq!(a.buf.lines[2], "d");
+    let s = screen(&mut a);
+    assert!(s.contains("why c (changed)"), "{s}");
+    assert!(
+        read(&dir).ends_with("> c\nwhy c\n"),
+        "the file keeps the note as written"
+    );
+    keys(&mut a, &[(KeyCode::Char('z'), CTRL)]);
+    let s = screen(&mut a);
+    let row = s.lines().position(|l| l.contains("why c")).unwrap();
+    assert!(!s.contains("(changed)"), "{s}");
+    assert!(s.lines().nth(row - 1).unwrap().contains("3 c"), "{s}");
+    let _ = std::fs::remove_dir_all(dir);
+}

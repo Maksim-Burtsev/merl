@@ -1,0 +1,36 @@
+# review-notes: notes for the agent, behind `review_notes = true` (#768). On agent/refund, a types
+# a note in place under the line, Esc keeps it, and the file in the git dir holds it; Enter on the
+# note edits it, Enter there starts a second line; Ctrl+X cuts it whole and the file goes, Ctrl+Z
+# brings it back. c onto the lines repos.py deleted: they take a note too, quoted with `-`.
+# The agent deletes the file while merl is open: the notes go.
+merl --review=agent/refund
+wait hunk 1/1  file 1/8
+run mkdir -p "$HOME/.config/merl" && printf 'review_notes = true\n' >> "$HOME/.config/merl/config.toml"
+merl --review=agent/refund
+wait hunk 1/1  file 1/8
+key a
+wait [edit]
+type check the window
+key Escape
+wait check the window
+run grep -qx 'check the window' "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
+key Enter End Enter
+type and the clock
+key Escape
+wait and the clock
+run tail -2 "$(git rev-parse --git-common-dir)/merl/notes/agent/refund" | grep -qx 'and the clock'
+key Enter C-x C-x
+run ! test -e "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
+key Escape C-z
+wait and the clock
+key c
+wait repos.py
+key a
+type why delete these
+key Escape
+wait why delete these
+run grep -qx -- '- .*' "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
+run rm "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
+key Down
+sleep 0.3
+run ! $SMOKE_TMUX capture-pane -p -t 0 | grep -q 'why delete these'

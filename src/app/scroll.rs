@@ -65,7 +65,7 @@ impl App {
         here.min(rows(there)).max(1)
     }
 
-    fn fit_top(&self, from: (usize, usize), bottom: (usize, usize)) -> (usize, usize) {
+    pub(super) fn fit_top(&self, from: (usize, usize), bottom: (usize, usize)) -> (usize, usize) {
         let mut top = from.max(self.back_rows(bottom, self.view_h.saturating_sub(1)));
         for _ in 0..MAX_PINNED {
             let rows = self.view_h.saturating_sub(1 + self.pinned(top.0).len());

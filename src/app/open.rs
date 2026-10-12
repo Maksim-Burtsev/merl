@@ -440,6 +440,7 @@ fn reload_step(old: &[String], was: buffer::Format, buf: &Buffer) -> Option<Edit
         before: (head.min(old.len() - 1), 0),
         after: (head.min(new.len() - 1), 0),
         format: Some((was, is)),
+        note: None,
     })
 }
 

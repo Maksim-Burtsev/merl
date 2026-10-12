@@ -125,6 +125,18 @@ const STATES: &[State] = &[
         }
     }),
     ("review", |a| review(a, &[], None, Some("store.py"))),
+    ("review-notes", |a| {
+        review(a, &[], None, Some("store.py"));
+        a.notes.on = true;
+        a.jump_to(&a.root.join("store.py"), 13);
+        press(a, "arename the call in config.py too<Esc>");
+        a.jump_to(&a.root.join("store.py"), 39);
+        a.notes_sync();
+        press(
+            a,
+            "<S-Down><S-Down>aa test for count?<Enter>and one for an empty store<Esc>",
+        );
+    }),
     ("review-empty", |a| {
         review(a, &["tests/__init__.py"], None, None)
     }),
@@ -437,6 +449,7 @@ snapshots! {
     snapshot_preview_jsonl: "preview-jsonl",
     snapshot_image: "image",
     snapshot_review: "review",
+    snapshot_review_notes: "review-notes",
     snapshot_review_empty: "review-empty",
     snapshot_review_rename: "review-rename",
     snapshot_tutor: "tutor",

@@ -11,6 +11,8 @@ What the user does in merl:
 - `merl --review` reviews the checked-out branch against its base; `merl --review=BRANCH` fetches
   BRANCH and checks out what was pushed. The left panel lists the changed files, the diff is drawn
   over the code, and `c` / `C` walk the hunks file by file, top to bottom of the panel.
+- `a` leaves a note for you on a line or a selected range, while reviewing or reading (an
+  experiment, on with `review_notes = true` in `~/.config/merl/config.toml`).
 - `m` marks a file viewed. Marks are kept per branch across sessions; a file that changed since
   it was marked loses its mark by itself. Never touch them.
 
@@ -85,6 +87,39 @@ is a chapter.
 
 A project to read is the same at the scale of the system: by the last file the user knows
 how it works.
+
+## Review notes
+
+When the user says they reviewed in merl or left notes, read
+`$(git rev-parse --git-common-dir)/merl/notes/BRANCH`, BRANCH being the checked-out branch with
+its slashes (`.git/merl/notes/feat/paging`). merl rewrites it whole on every change, so it is
+current even while merl is open.
+
+```
+# merl notes · feat/paging ← main · 3f2a9c1
+# The user's review notes, for you. Delete this file when you have dealt with them.
+
+app/paging.py:9-10
+>     total = len(items) // limit
+>     return [page(items, i * limit, limit) for i in range(total)]
+[1, 2, 3] by 2 loses the last page; keep the old range step
+
+app/paging.py:9
+-     return [page(items, i, limit) for i in range(0, len(items), limit)]
+why drop the range step? it was right
+```
+
+A note is a block: `path:LINE` or `path:FIRST-LAST`, the noted lines as they read when the note
+was written (`>` a line of the file, `-` a line the branch deleted, which stood right above the
+line named), then the note, one or more lines; a blank line ends the block. Find the place by
+the quoted lines: line numbers move.
+Each note is an instruction from the user about that place.
+
+- On the user's own branch, or one you wrote: fix every note, answer in the chat note by note
+  (done, or why not), then delete the file.
+- On someone else's branch (a colleague's MR): change nothing, push nothing; ask the user what
+  to do with the notes.
+- Never post the notes to GitHub or GitLab, never commit or copy them into the repository.
 
 ## Also
 

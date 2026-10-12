@@ -87,7 +87,12 @@ impl App {
         if ctrl && key.code == KeyCode::Char('c') && self.mode != Mode::Edit {
             self.keys_action_of_key_in_hand = named("", key);
             let shown = !self.preview_blank() && !self.text_hidden();
-            if self.mode == Mode::Normal && self.picker.is_none() && shown {
+            if self.mode == Mode::Note {
+                self.note_key(key);
+            } else if let Some(i) = self.notes.focus.filter(|_| self.mode == Mode::Normal) {
+                self.clipboard = Some(format!("{}\n", self.notes.list[i].text));
+                self.message = "copied note".into();
+            } else if self.mode == Mode::Normal && self.picker.is_none() && shown {
                 self.copy();
             }
             return false;
@@ -97,7 +102,7 @@ impl App {
             self.picker_key(key);
             return false;
         }
-        if matches!(self.mode, Mode::Goto | Mode::Find | Mode::New) {
+        if matches!(self.mode, Mode::Goto | Mode::Find | Mode::New | Mode::Note) {
             self.keys_action_of_key_in_hand = named("", key).filter(|a| *a == "Esc");
         }
         match self.mode {
@@ -111,6 +116,10 @@ impl App {
             }
             Mode::New => {
                 self.new_key(key);
+                return false;
+            }
+            Mode::Note => {
+                self.note_key(key);
                 return false;
             }
             Mode::Help => {
@@ -135,6 +144,17 @@ impl App {
                 .or_else(|| named("", key).filter(|a| matches!(*a, "Esc" | "Ctrl+C")));
             self.hist_note(false);
             return false;
+        }
+        let keeps_focus = matches!(
+            key.code,
+            KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown | KeyCode::Enter
+        ) || matches!(key.code, KeyCode::Char('a' | 'v'))
+            || ctrl && matches!(key.code, KeyCode::Char('d' | 'u' | 'z' | 'y'));
+        if !keeps_focus || shift {
+            self.notes.focus = None;
+        }
+        if !matches!(key.code, KeyCode::Char('v') | KeyCode::Enter) {
+            self.notes.selected = false;
         }
         let far = matches!(
             key.code,
@@ -231,8 +251,11 @@ impl App {
             KeyCode::Char('c') if !ctrl => self.hunk(1),
             KeyCode::Char('C') => self.hunk(-1),
             KeyCode::Char('m') => self.toggle_viewed(),
+            KeyCode::Char('a') if self.notes.on => self.add_note(),
+            KeyCode::Char('v') if self.notes.focus.is_some() => self.notes.selected = true,
             KeyCode::Char('v') if self.focus == Focus::Code => self.grow_selection(),
             _ if self.focus == Focus::Tree => self.tree_key(key.code),
+            KeyCode::Enter if self.notes.focus.is_some() => self.start_note(),
             KeyCode::Enter => self.start_edit(),
             KeyCode::Up if shift => self.extend(|s| s.move_rows(-1)),
             KeyCode::Down if shift => self.extend(|s| s.move_rows(1)),
