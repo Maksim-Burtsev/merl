@@ -792,3 +792,24 @@ fn an_edit_inside_a_large_container_repaints_from_its_own_row() {
         assert_eq!(b.hl.len(), 25, "{}", b.lines[0]);
     }
 }
+
+#[test]
+fn an_edit_inside_a_name_repaints_a_capture_its_predicate_moves_on_an_earlier_line() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let mut b = Buffer::from_bytes(PathBuf::from("a.py"), b"T = \\\n    TypeVa(\"T\")\n");
+    b.start_tree_sitter();
+    b.parse_more(None);
+    b.paint_to(usize::MAX, &theme);
+    for value in ["    TypeVar(\"T\")", "    TypeVa(\"T\")", "    TypeVar(\"T\")", "    TypeVr(\"T\")"] {
+        b.lines[1] = value.to_string();
+        b.edited(1);
+        b.parse_more(None);
+        b.paint_to(usize::MAX, &theme);
+        let text = b.lines.join("\n") + "\n";
+        let mut fresh = Buffer::from_bytes(PathBuf::from("a.py"), text.as_bytes());
+        fresh.start_tree_sitter();
+        fresh.parse_more(None);
+        fresh.paint_to(usize::MAX, &theme);
+        assert_eq!(b.hl, fresh.hl, "{value}");
+    }
+}
