@@ -583,6 +583,7 @@ fn a_file_outside_the_project_leaves_the_cursor_on_the_first_row() {
     let outside = std::env::temp_dir().join(format!("merl-outside-{}.txt", std::process::id()));
     std::fs::write(&outside, "x\n").unwrap();
     a.jump_to(&dir.join("cc.txt"), 1);
+    a.jump_to(&dir.join("dd.txt"), 1);
     a.jump_to(&outside, 1);
     press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
     a.picker.as_mut().unwrap().settle();
