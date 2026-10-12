@@ -1,10 +1,5 @@
 use super::*;
 
-/// The `d` bench's player (`tools/d-bench/run`): reads `id root file line col` rows from
-/// `BENCH_IN`, presses `d` on each, one `App` per project, and writes
-/// `id outcome ms status targets` to `BENCH_OUT`. The outcome is `jump`, `picker` or `stay`;
-/// the targets are `abs_path:line` joined by `;`, one for a jump, every row for a picker.
-/// Without `BENCH_IN` it does nothing, so `cargo test -- --ignored` stays green.
 #[test]
 #[ignore]
 fn d_bench() {
