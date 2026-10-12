@@ -4,7 +4,6 @@ use search::MdAt;
 
 impl App {
     pub(super) fn follow_markdown(&mut self, here: &Path) {
-        // On a deleted line of a review, that line is read where it is drawn.
         let mut lines: Vec<&str> = self.buf.lines.iter().map(String::as_str).collect();
         if self.deleted.is_some() {
             lines.insert(self.line, self.line_str());
@@ -21,8 +20,6 @@ impl App {
         }
     }
 
-    /// A link's `target`: a path from `here`'s directory (or the root, after a `/`), an
-    /// `#anchor` of that file or of `here`, GitHub's `#L12` line anchors.
     fn follow_link(&mut self, here: &Path, target: &str) {
         static URL: std::sync::LazyLock<Regex> =
             std::sync::LazyLock::new(|| Regex::new(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:|//)").unwrap());
@@ -74,9 +71,6 @@ impl App {
         self.open_link(&full, line, format!("link {shown}{anchor}"));
     }
 
-    /// A code span that names a file of the project, from the root or from `here`'s directory,
-    /// with `:line` or `:line:col` after it or not; a bare file name that several files carry is
-    /// a picker of them.
     fn follow_code_path(&mut self, here: &Path, span: &str) {
         static AT: std::sync::LazyLock<Regex> =
             std::sync::LazyLock::new(|| Regex::new(r"^(.+?)(?::(\d+))?(?::\d+)?$").unwrap());
@@ -137,8 +131,6 @@ impl App {
     }
 }
 
-/// `p` from `dir`, both inside the project, as a path from its root; a leading `/` is the root.
-/// `None` when it climbs out of the project.
 pub(super) fn in_project(dir: &Path, p: &str) -> Option<PathBuf> {
     let joined = match p.strip_prefix('/') {
         Some(from_root) => PathBuf::from(from_root),

@@ -327,9 +327,8 @@ impl App {
                         best = Some(m + f);
                         break;
                     }
-                    // An arrow moves one line or one row at most.
-                    let apart = self.end().0.0.key().abs_diff(end.0.0.key());
-                    if m + f + apart.max(1) > cap {
+                    let arrows_at_least = self.end().0.0.key().abs_diff(end.0.0.key()).max(1);
+                    if m + f + arrows_at_least > cap {
                         break;
                     }
                     let was = self.end();
