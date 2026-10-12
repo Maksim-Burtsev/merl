@@ -36,32 +36,28 @@ the gate still holds every row to it. On 2026-10-12 (#802) Python matched every 
 92 themes, 19,185 per theme: no miss is left to list. A language that leaves misses lists them
 here by cause.
 
-Go and Rust (#805), before injections:
+Go and Rust (#805), with their injections (#818: `printf` and `regex` in Go, macro bodies parsed
+again as Rust and `regex` in Rust):
 
 | language | chars | lowest | median | highest |
 |---|---|---|---|---|
-| Go | 14,810 | 99.7 adwaita | 99.9 | 100.0 vscode-light |
-| Rust | 17,576 | 90.7 github-dark | 94.4 | 99.9 e-ink-light |
+| Go | 14,810 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+| Rust | 17,576 | 96.3 github-dark | 100.0 | 100.0 vscode-light |
 
-- Injections (#818). Go: the `%` verbs of `Errorf` and `Fatalf` strings, which LazyVim parses as
-  `printf`, 38 characters in the themes that colour them apart. Rust: the bodies of macro calls,
-  which LazyVim parses again as Rust (`path.display()` inside `format!`, every test of
-  `tests/feature.rs` inside `rgtest!`): almost all of Rust's misses, in every theme.
 - The theme's own queries (#819): github-dark and github-light append github-nvim-theme's
   `queries/rust/highlights.scm` (attributes, `crate`/`self`/`super`, lifetimes, capitalised
   names), which merl does not load.
 
-Markdown (#803), 18,398 characters per theme: 98.3 % median (97.8 everforest-dark, 99.3
-alabaster-light), against 71.3 % with the setting off. Every character of Markdown's own grammars,
+Markdown (#803), 18,398 characters per theme: 98.6 % median (98.1 everforest-dark, 99.4
+github-light), against 71.3 % with the setting off. Every character of Markdown's own grammars,
 `markdown` and `markdown_inline`, and of the Python, Go and Rust its fences hold, matches in the
 themes read by cause (tokyonight-moon, dayfox, github-light); the misses are code merl does not
-yet colour as LazyVim does, drawn through syntect as before or waiting for Rust's injections:
+yet colour as LazyVim does, drawn through syntect as before:
 
 | cause | tokyonight-moon | dayfox | github-light | lands in |
 |---|---|---|---|---|
 | fenced `bash` / `sh` / `console` blocks | 111 | 145 | 39 | #806 |
 | fenced `json` blocks | 63 | 74 | 66 | #806 |
-| fenced `rust` blocks: macro bodies (`assert!(glob.is_match(…))`) | 59 | 59 | 59 | #818 |
 | fenced `yaml` blocks and the YAML front matter | 33 | 38 | 2 | #806 |
 | fenced `toml` blocks | 23 | 17 | 3 | #806 |
 

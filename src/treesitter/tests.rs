@@ -267,8 +267,8 @@ fn every_vendored_query_compiles_with_what_it_uses() {
 fn a_query_using_what_merl_does_not_implement_is_refused() {
     let python = || tree_sitter_python::LANGUAGE.into();
     for text in [
-        "((identifier) @x (#match? @x \"^a\"))",
-        "((identifier) @x (#vim-match? @x \"^a\"))",
+        "((identifier) @x (#match? @x \"<a\"))",
+        "((identifier) @x (#vim-match? @x \"a{2}\"))",
         "((identifier) @x (#has-ancestor? @x call))",
         "((identifier) @x (#offset! @x 0 1))",
         "((identifier) @x (#set! injection.language \"regex\"))",
@@ -336,6 +336,24 @@ fn lua_patterns_match_as_lua_does() {
         let re = super::lua_pattern(pattern).unwrap();
         assert!(re.is_match(yes.as_bytes()), "{pattern} on {yes}");
         assert!(!re.is_match(no.as_bytes()), "{pattern} on {no}");
+    }
+}
+
+#[test]
+fn vim_patterns_match_as_neovim_reads_them_very_magic() {
+    for (pattern, yes, no) in [
+        ("/\\*!([a-zA-Z]+:)?re2c", "/*!local:re2c", "/*!re2"),
+        ("/\\*!([a-zA-Z]+:)?re2c", "x /*!re2c", "/*!:re2c"),
+        ("^a(b|c)+$", "abcb", "a(b|c)+"),
+        ("\\v^\\d+$", "42", "4a"),
+        ("\\<a\\>", "<a>", "a"),
+    ] {
+        let re = super::vim_pattern(pattern).unwrap();
+        assert!(re.is_match(yes.as_bytes()), "{pattern} on {yes}");
+        assert!(!re.is_match(no.as_bytes()), "{pattern} on {no}");
+    }
+    for pattern in ["<a>", "\\Va", "a{2}", "a\\zsb"] {
+        assert!(super::vim_pattern(pattern).is_err(), "{pattern}");
     }
 }
 

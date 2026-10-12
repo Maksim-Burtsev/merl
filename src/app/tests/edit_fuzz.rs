@@ -952,6 +952,22 @@ const MARKDOWN: &[&str] = &[
     "    ",
 ];
 
+const RUST: &[&str] = &[
+    "println!(\"{}\", f(x));",
+    "vec![a.b(), 2]",
+    "assert_eq!(x, y);",
+    "macro_rules! m {\n    ($x:expr) => { $x.len() };\n}\n",
+    "Regex::new(r\"^a+$\")",
+    "(",
+    ")",
+    "{",
+    "}",
+    "!",
+    "\"",
+    "\n\n",
+    "    ",
+];
+
 #[test]
 fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
     fuzz_tree_sitter(
@@ -963,6 +979,11 @@ fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
         "f.md",
         include_bytes!("../../../tests/colors/markdown/code.md"),
         MARKDOWN,
+    );
+    fuzz_tree_sitter(
+        "f.rs",
+        include_bytes!("../../../tests/colors/rust/exprs.rs"),
+        RUST,
     );
 }
 
