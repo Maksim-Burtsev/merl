@@ -1,0 +1,27 @@
+wait ~/shop
+sleep 0.5
+type merl -r cl
+key Tab
+sleep 0.5
+key Tab Tab
+sleep 1.4
+type task-2
+key Tab
+sleep 1.6
+key C-u
+sleep 0.2
+type merl --re
+key Tab
+sleep 0.4
+key Tab Tab
+sleep 1.6
+key C-u
+sleep 0.2
+type merl -r -b or
+key Tab
+sleep 0.4
+key Tab Tab
+sleep 1.4
+type ma
+key Tab
+sleep 1.6
