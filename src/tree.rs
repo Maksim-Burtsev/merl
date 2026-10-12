@@ -1,5 +1,3 @@
-//! The file tree: the project as the last walk found it.
-
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fs::FileType;
@@ -8,14 +6,10 @@ use std::path::{Path, PathBuf};
 use ignore::WalkBuilder;
 
 pub struct Node {
-    /// Path relative to the project root.
     pub path: PathBuf,
     pub depth: usize,
     pub is_dir: bool,
     pub expanded: bool,
-    /// Left out by `.gitignore` and the other ignore files, or a link to a directory, which the
-    /// walk does not follow either: a dim row. The walk does not go into
-    /// an ignored directory; it is read from disk one level at a time, when it is expanded.
     pub ignored: bool,
 }
 
@@ -29,32 +23,21 @@ impl Node {
     }
 }
 
-/// A flat, pre-ordered list of nodes; nesting lives in `depth` alone.
 #[derive(Default)]
 pub struct Tree {
     pub nodes: Vec<Node>,
     pub cursor: usize,
-    /// A walk can land in the middle of a `git stash` and `pop`: what comes back comes back
-    /// expanded.
     expanded_but_not_walked: HashSet<PathBuf>,
     ignored_dirs_read_from: PathBuf,
     folded: HashSet<usize>,
     lift: Vec<usize>,
 }
 
-/// Walks `root` once and returns the tree plus the flat list of files, both sorted the same
-/// way: inside every directory, directories first, then files, case-insensitively by name.
-/// Done at startup and again, off the UI thread, whenever the project changes on disk.
-/// `shallow` lists only the files right in `root`: its directories would open onto nothing.
-/// The list leaves out what is ignored; the tree has it as dim rows, an ignored directory
-/// unread.
 pub fn build(root: &Path, shallow: bool) -> (Tree, Vec<PathBuf>) {
     build_ordered(root, shallow, &Order::default())
 }
 
 pub fn build_ordered(root: &Path, shallow: bool, order: &Order) -> (Tree, Vec<PathBuf>) {
-    // Dotfiles are walked: `.github/`, `.env` and `.dockerignore` are part of a project.
-    // `.gitignore` still prunes caches; a version-control store is never content.
     let walked: Vec<(PathBuf, bool)> = WalkBuilder::new(root)
         .hidden(false)
         .require_git(false)
@@ -66,11 +49,9 @@ pub fn build_ordered(root: &Path, shallow: bool, order: &Order) -> (Tree, Vec<Pa
         .filter_map(|e| {
             let rel = e.path().strip_prefix(root).ok()?.to_path_buf();
             let is_dir = e.file_type().is_some_and(|t| t.is_dir());
-            // The root itself is the pane title, not a row.
             (!rel.as_os_str().is_empty() && !(shallow && is_dir)).then_some((rel, is_dir))
         })
         .collect();
-    // Whatever else the walked directories hold is ignored.
     let listed: HashSet<&Path> = walked.iter().map(|(p, _)| p.as_path()).collect();
     let dirs = walked.iter().filter(|(_, is_dir)| *is_dir);
     let ignored: Vec<(PathBuf, bool)> = std::iter::once(Path::new(""))
@@ -114,8 +95,6 @@ pub fn listable(path: &Path, kind: Option<FileType>) -> bool {
         }
 }
 
-/// The entries of `dir` (relative to `root`) and whether each is a directory, unsorted. A link
-/// to a directory is one.
 fn read_level(root: &Path, dir: &Path) -> Vec<(PathBuf, bool)> {
     let Ok(read) = std::fs::read_dir(root.join(dir)) else {
         return Vec::new();
@@ -245,11 +224,6 @@ impl OrderFile {
 }
 
 impl Tree {
-    /// Takes the rows of a fresh walk and keeps what the user set, both found by path: expanded
-    /// directories stay expanded, also across a walk that missed them, and the cursor stays on
-    /// its entry. When that entry is gone the cursor takes the row that followed it, or the
-    /// nearest one above. A directory that was not listed before comes as `fresh` has it:
-    /// closed in the project tree, open in the review panel.
     pub fn refresh(&mut self, mut fresh: Tree) {
         let mut expanded = std::mem::take(&mut self.expanded_but_not_walked);
         let open = self.nodes.iter().filter(|n| n.expanded);
@@ -259,7 +233,6 @@ impl Tree {
             n.expanded = expanded.remove(&n.path) || n.expanded && !known.contains(&*n.path);
         }
         fresh.expanded_but_not_walked = expanded;
-        // The walk leaves every ignored directory unread; an expanded one is read again.
         fresh.sync_ignored();
         let index: HashMap<&Path, usize> = fresh
             .nodes
@@ -288,10 +261,6 @@ impl Tree {
         *self = fresh;
     }
 
-    /// Has an ignored directory rows below it exactly while it is expanded: an expanded one with
-    /// none is read, one level; a collapsed one forgets its rows, so the next expand reads the
-    /// disk again. An expanded directory among the forgotten rows is expanded again when its
-    /// parent is read.
     fn sync_ignored(&mut self) {
         let len = self.nodes.len();
         let mut i = 0;
@@ -328,13 +297,11 @@ impl Tree {
         }
     }
 
-    /// The directories the walk went into, relative to the root: not the ignored ones.
     pub fn dirs(&self) -> HashSet<PathBuf> {
         let dirs = self.nodes.iter().filter(|n| n.is_dir && !n.ignored);
         dirs.map(|n| n.path.clone()).collect()
     }
 
-    /// The expanded ignored directories: the tree shows what they hold, so it is watched.
     pub fn open_ignored(&self) -> HashSet<PathBuf> {
         let open = self
             .nodes
@@ -343,8 +310,6 @@ impl Tree {
         open.map(|n| n.path.clone()).collect()
     }
 
-    /// The ignored files right in the directories the walk went into: `.env`, `.envrc`,
-    /// `config/local.yml`. Not what an expanded ignored directory holds.
     pub fn ignored_files(&self) -> Vec<PathBuf> {
         let dirs = self.dirs();
         let walked = |p: &Path| p.as_os_str().is_empty() || dirs.contains(p);
@@ -485,7 +450,6 @@ impl Tree {
         self.move_by(1);
     }
 
-    /// Expands or collapses the selected directory; a file is left alone.
     pub fn toggle(&mut self) {
         if let Some(n) = self.nodes.get_mut(self.cursor)
             && n.is_dir
@@ -522,7 +486,6 @@ impl Tree {
         }
     }
 
-    /// Expands every ancestor of `rel` and puts the cursor on it. Unknown paths are ignored.
     pub fn reveal(&mut self, rel: &Path) {
         let Some(at) = self.nodes.iter().position(|n| n.path == rel) else {
             return;
@@ -549,10 +512,10 @@ mod tests {
         }
         let (tree, files) = build(&dir, false);
         std::fs::remove_dir_all(&dir).unwrap();
-        // Directories first, then files, both case-insensitive.
         assert_eq!(
             tree.nodes.iter().map(Node::name).collect::<Vec<_>>(),
-            ["src", "deep", "x.rs", "app.rs", "aaa.rs", "Zed.toml"]
+            ["src", "deep", "x.rs", "app.rs", "aaa.rs", "Zed.toml"],
+            "directories first, then files, both case-insensitive"
         );
         assert_eq!(
             files,
@@ -566,7 +529,6 @@ mod tests {
         tree
     }
 
-    /// A project on disk that the test changes between two walks.
     fn project(tag: &str, files: &[&str]) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("merl-live-{}-{tag}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -603,7 +565,6 @@ mod tests {
             ]
         );
 
-        // Rows appear above the cursor, in their sorted place; a deleted one leaves.
         for f in ["aaa/new.py", "services/billing.py", "services/deep/y.py"] {
             std::fs::create_dir_all(dir.join(f).parent().unwrap()).unwrap();
             std::fs::write(dir.join(f), b"x").unwrap();
@@ -633,9 +594,9 @@ mod tests {
         let dir = project("gone", &["a.py", "b.py", "c.py", "lib/x.py"]);
         let (mut t, _) = build(&dir, false);
         for (delete, from, to) in [
-            ("b.py", "b.py", "c.py"),    // the row that followed
-            ("c.py", "c.py", "a.py"),    // the last row: the one above
-            ("lib", "lib/x.py", "a.py"), // a whole directory under the cursor
+            ("b.py", "b.py", "c.py"),
+            ("c.py", "c.py", "a.py"),
+            ("lib", "lib/x.py", "a.py"),
         ] {
             t.reveal(Path::new(from));
             let _ = std::fs::remove_file(dir.join(delete));
@@ -655,18 +616,24 @@ mod tests {
         let (mut t, _) = build(&dir, false);
         t.reveal(Path::new("gen/deep/x.py"));
         let before = rows(&t);
-        // `git stash -u`, a walk, `git stash pop`, a walk.
         std::fs::rename(dir.join("gen"), dir.with_extension("aside")).unwrap();
         t.refresh(build(&dir, false).0);
-        assert_eq!(rows(&t), ["z.py"]);
+        assert_eq!(
+            rows(&t),
+            ["z.py"],
+            "`git stash -u`, a walk, `git stash pop`, a walk"
+        );
         std::fs::rename(dir.with_extension("aside"), dir.join("gen")).unwrap();
         t.refresh(build(&dir, false).0);
         assert_eq!(rows(&t), before);
-        // Collapsed by hand after that, it stays collapsed.
         t.reveal(Path::new("gen"));
         t.collapse();
         t.refresh(build(&dir, false).0);
-        assert_eq!(rows(&t), ["gen", "z.py"]);
+        assert_eq!(
+            rows(&t),
+            ["gen", "z.py"],
+            "collapsed by hand after that, it stays collapsed"
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -786,7 +753,7 @@ mod tests {
     fn collapsed_by_default_and_toggles() {
         let mut t = fixture("toggle");
         assert_eq!(t.visible().len(), 3, "only the root level shows");
-        t.toggle(); // src
+        t.toggle();
         assert_eq!(
             t.visible()
                 .iter()
@@ -796,7 +763,7 @@ mod tests {
         );
         t.down();
         assert_eq!(t.selected().unwrap().name(), "deep");
-        t.collapse(); // already collapsed -> go to the parent
+        t.collapse();
         assert_eq!(t.selected().unwrap().name(), "src");
         t.collapse();
         assert_eq!(t.visible().len(), 3);
@@ -808,16 +775,12 @@ mod tests {
         t.reveal(Path::new("src/deep/x.rs"));
         assert_eq!(t.selected().unwrap().name(), "x.rs");
         assert_eq!(t.visible().len(), 6);
-        // Down from the deepest node stops at the last visible row.
         for _ in 0..10 {
             t.down();
         }
         assert_eq!(t.selected().unwrap().name(), "Zed.toml");
     }
 
-    /// #405: opening a FIFO blocks until something writes to it, so a FIFO is not a row and not
-    /// in the list the searches read, neither from the walk nor from an ignored level; a link
-    /// to a regular file is, a link to a FIFO is not, and a link that leads nowhere still is.
     #[test]
     #[cfg(unix)]
     fn a_fifo_is_neither_a_row_nor_in_the_list() {
@@ -831,7 +794,6 @@ mod tests {
         }
         std::os::unix::fs::symlink("a.py", dir.join("link.py")).unwrap();
         std::os::unix::fs::symlink("pipe", dir.join("link.pipe")).unwrap();
-        // A link that leads nowhere stays a row, as it was before FIFOs were left out.
         std::os::unix::fs::symlink("missing.py", dir.join("gone.py")).unwrap();
         let (mut t, files) = build(&dir, false);
         assert_eq!(
@@ -842,7 +804,8 @@ mod tests {
                 "a.py".into(),
                 "gone.py".into(),
                 "link.py".into()
-            ]
+            ],
+            "a link that leads nowhere stays a row, as it was before FIFOs were left out"
         );
         assert!(t.ignored_files().is_empty());
         t.reveal(Path::new("build"));
@@ -893,7 +856,6 @@ mod tests {
                 PathBuf::from(".gitignore"),
             ]
         );
-        // The ignored `.cache/` is a row, and nothing below it; the stores are not.
         let row = |n: &Node| (n.path.to_str().unwrap().to_string(), n.ignored);
         assert_eq!(
             t.nodes.iter().map(row).collect::<Vec<_>>(),
@@ -904,12 +866,11 @@ mod tests {
                 (".github/workflows/ci.yml".into(), false),
                 (".env".into(), false),
                 (".gitignore".into(), false),
-            ]
+            ],
+            "the ignored `.cache/` is a row, and nothing below it; the stores are not"
         );
     }
 
-    /// #157: what `.gitignore` leaves out is in the tree, dim, and an ignored directory is read
-    /// one level at a time, when it is expanded, and again after every walk while it is open.
     #[test]
     fn an_ignored_directory_is_read_when_expanded_and_stays_read_across_walks() {
         let dir = project(
@@ -966,14 +927,13 @@ mod tests {
             Path::new("node_modules/pkg/lib/x.js")
         );
 
-        // A walk does not go into `node_modules/`; what was open is read again, and the
-        // cursor keeps its row. What an ignored directory holds is not for `o`.
         std::fs::write(dir.join("c.py"), b"x").unwrap();
         let before = rows(&t);
         t.refresh(build(&dir, false).0);
         assert_eq!(
             t.selected().unwrap().path,
-            Path::new("node_modules/pkg/lib/x.js")
+            Path::new("node_modules/pkg/lib/x.js"),
+            "a walk does not go into `node_modules/`; what was open is read again, and the cursor keeps its row. What an ignored directory holds is not for `o`"
         );
         assert_eq!(rows(&t)[..before.len()], before[..]);
         assert_eq!(rows(&t).last().unwrap(), "c.py");
@@ -982,13 +942,12 @@ mod tests {
             [PathBuf::from("src/local.yml"), ".env".into()]
         );
 
-        // Collapsed, it forgets its rows; expanded again, it reads the disk as it is now, and
-        // what was open inside it opens again.
         t.reveal(Path::new("node_modules"));
         t.collapse();
         assert_eq!(
             rows(&t),
-            ["node_modules", "src", ".env", ".gitignore", "a.py", "c.py"]
+            ["node_modules", "src", ".env", ".gitignore", "a.py", "c.py"],
+            "collapsed, it forgets its rows; expanded again, it reads the disk as it is now, and what was open inside it opens again"
         );
         assert_eq!(
             t.nodes.len(),
@@ -1011,9 +970,6 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// #404: a symlink to a directory is a directory, read from disk when it is expanded, as an
-    /// ignored one is. The walk does not follow it, so a link to `..` loops nothing and what it
-    /// leads to is not in the list.
     #[cfg(unix)]
     #[test]
     fn a_link_to_a_directory_is_a_directory_the_walk_does_not_follow() {
@@ -1029,7 +985,6 @@ mod tests {
             rows(&t),
             ["alink", "alink/up", "alink/a.md", "docs", "z.py"]
         );
-        // The link back up is a directory too, read one level when it is opened, not before.
         t.down();
         t.toggle();
         assert_eq!(
@@ -1040,7 +995,8 @@ mod tests {
                 "alink/up/alink",
                 "alink/up/docs",
                 "alink/up/z.py"
-            ]
+            ],
+            "the link back up is a directory too, read one level when it is opened, not before"
         );
         assert!(t.dirs() == HashSet::from([PathBuf::from("docs")]));
         std::fs::remove_dir_all(&dir).unwrap();
@@ -1183,5 +1139,56 @@ mod tests {
             ["a/b", "  gen", "    deep", "      x.py", ".gitignore"]
         );
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_shallow_walk_lists_the_root_files_alone() {
+        let dir = project("shallow", &[".gitignore", "a.py", "x.log", "src/b.py"]);
+        std::fs::write(dir.join(".gitignore"), "*.log\n").unwrap();
+        let (t, files) = build(&dir, true);
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(files, [PathBuf::from(".gitignore"), "a.py".into()]);
+        let row = |n: &Node| (n.path.to_str().unwrap().to_string(), n.ignored);
+        assert_eq!(
+            t.nodes.iter().map(row).collect::<Vec<_>>(),
+            [
+                (".gitignore".into(), false),
+                ("a.py".into(), false),
+                ("x.log".into(), true),
+            ],
+            "no directory: it would open onto nothing"
+        );
+    }
+
+    #[test]
+    fn a_directory_new_to_a_refresh_comes_as_the_fresh_tree_has_it() {
+        let mut t = from_files(&["a/x.rs".into()]);
+        t.refresh(from_files(&["a/x.rs".into(), "b/y.rs".into()]));
+        assert_eq!(
+            rows(&t),
+            ["a", "a/x.rs", "b", "b/y.rs"],
+            "open in the review panel"
+        );
+        let dir = project("fresh", &["a/x.rs"]);
+        let (mut t, _) = build(&dir, false);
+        t.reveal(Path::new("a/x.rs"));
+        std::fs::create_dir_all(dir.join("b")).unwrap();
+        std::fs::write(dir.join("b/y.rs"), b"x").unwrap();
+        t.refresh(build(&dir, false).0);
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(rows(&t), ["a", "a/x.rs", "b"], "closed in the project tree");
+    }
+
+    #[test]
+    fn toggle_leaves_a_file_alone_and_reveal_an_unknown_path() {
+        let mut t = fixture("file-toggle");
+        t.reveal(Path::new("aaa.rs"));
+        let before = rows(&t);
+        t.toggle();
+        assert!(!t.selected().unwrap().expanded);
+        assert_eq!(rows(&t), before);
+        t.reveal(Path::new("nowhere.rs"));
+        assert_eq!(t.selected().unwrap().path, Path::new("aaa.rs"));
+        assert_eq!(rows(&t), before);
     }
 }
