@@ -250,6 +250,26 @@ fn lua_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn c_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("c");
+}
+
+#[test]
+fn html_and_the_css_and_javascript_in_it_are_coloured_as_lazyvim() {
+    coloured_as_lazyvim("html");
+}
+
+#[test]
+fn css_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("css");
+}
+
+#[test]
+fn xml_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("xml");
+}
+
+#[test]
 fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     let sexp = |f: &str, src: &[u8]| {
         let mut b = Buffer::from_bytes(PathBuf::from(f), src);
@@ -290,6 +310,29 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     for f in ["a.toml", "Cargo.lock"] {
         assert!(sexp(f, b"a = 1\n").contains("(pair "), "{f}");
     }
+    assert!(sexp("a.c", b"int x;\n").contains("(translation_unit "));
+    assert_eq!(sexp("a.h", b"int x;\n"), "");
+    for f in ["a.html", "a.htm"] {
+        assert!(sexp(f, b"<p>a</p>\n").contains("(element "), "{f}");
+    }
+    for text in [
+        "{% extends \"base.html\" %}\n",
+        "<div *ngIf=\"a\"></div>\n",
+        "@if (a) {\n}\n",
+        "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\">\n",
+    ] {
+        assert_eq!(sexp("a.html", text.as_bytes()), "", "{text}");
+    }
+    assert!(sexp("a.css", b"a { color: red; }\n").contains("(rule_set "));
+    for f in ["a.xml", "a.svg", "a.xsd", "a.xslt"] {
+        assert!(sexp(f, b"<a>b</a>\n").contains("(element "), "{f}");
+    }
+    for text in [
+        "<!DOCTYPE book PUBLIC \"-//OASIS//DTD DocBook XML V4.5//EN\">\n<book/>\n",
+        "<book xmlns=\"http://docbook.org/ns/docbook\"/>\n",
+    ] {
+        assert_eq!(sexp("a.xml", text.as_bytes()), "", "{text}");
+    }
 }
 
 #[test]
@@ -318,7 +361,7 @@ fn a_query_using_what_merl_does_not_implement_is_refused() {
     for text in [
         "((identifier) @x (#match? @x \"<a\"))",
         "((identifier) @x (#vim-match? @x \"a{2}\"))",
-        "((identifier) @x (#has-ancestor? @x call))",
+        "((identifier) @x (#kind-eq? @x call))",
         "((identifier) @x (#offset! @x 0 1))",
         "((identifier) @x (#set! injection.language \"regex\"))",
         "((identifier) @x (#set! @x priority 101))",
