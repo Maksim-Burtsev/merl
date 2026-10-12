@@ -991,6 +991,9 @@ mod tests {
         std::fs::write(&path, "theme = ").unwrap();
         let e = format!("{:#}", config_from(Some(&path)).unwrap_err());
         assert!(e.contains("config.toml"), "{e}");
+        assert!(!config_from(None).unwrap().tree_sitter);
+        std::fs::write(&path, "tree_sitter = true\n").unwrap();
+        assert!(config_from(Some(&path)).unwrap().tree_sitter);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

@@ -51,6 +51,7 @@ mod starlark;
 mod stats;
 mod symbols;
 mod tree;
+mod tree_sitter_on;
 mod usages;
 
 fn test_threads() -> usize {
