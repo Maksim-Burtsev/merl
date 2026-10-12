@@ -267,8 +267,8 @@ fn every_vendored_query_compiles_with_what_it_uses() {
 fn a_query_using_what_merl_does_not_implement_is_refused() {
     let python = || tree_sitter_python::LANGUAGE.into();
     for text in [
-        "((identifier) @x (#match? @x \"^a\"))",
-        "((identifier) @x (#vim-match? @x \"^a\"))",
+        "((identifier) @x (#match? @x \"<a\"))",
+        "((identifier) @x (#vim-match? @x \"a{2}\"))",
         "((identifier) @x (#has-ancestor? @x call))",
         "((identifier) @x (#offset! @x 0 1))",
         "((identifier) @x (#set! injection.language \"regex\"))",
@@ -336,6 +336,24 @@ fn lua_patterns_match_as_lua_does() {
         let re = super::lua_pattern(pattern).unwrap();
         assert!(re.is_match(yes.as_bytes()), "{pattern} on {yes}");
         assert!(!re.is_match(no.as_bytes()), "{pattern} on {no}");
+    }
+}
+
+#[test]
+fn vim_patterns_match_as_neovim_reads_them_very_magic() {
+    for (pattern, yes, no) in [
+        ("/\\*!([a-zA-Z]+:)?re2c", "/*!local:re2c", "/*!re2"),
+        ("/\\*!([a-zA-Z]+:)?re2c", "x /*!re2c", "/*!:re2c"),
+        ("^a(b|c)+$", "abcb", "a(b|c)+"),
+        ("\\v^\\d+$", "42", "4a"),
+        ("\\<a\\>", "<a>", "a"),
+    ] {
+        let re = super::vim_pattern(pattern).unwrap();
+        assert!(re.is_match(yes.as_bytes()), "{pattern} on {yes}");
+        assert!(!re.is_match(no.as_bytes()), "{pattern} on {no}");
+    }
+    for pattern in ["<a>", "\\Va", "a{2}", "a\\zsb"] {
+        assert!(super::vim_pattern(pattern).is_err(), "{pattern}");
     }
 }
 
@@ -593,4 +611,31 @@ fn an_injected_language_without_a_grammar_stays_plain_outside_markdown() {
         fg_at("t(`Add people to x`);", "Add"),
         fg_at("x(`Add people to x`);", "Add")
     );
+}
+
+#[test]
+fn a_doc_comment_is_parsed_as_jsdoc_in_javascript_and_typescript() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let group = |g: &str| theme.group(g).unwrap().fg;
+    let src = "/** @param {string} name */";
+    for name in ["javascript", "typescript", "tsx"] {
+        let lines = vec![src.to_string()];
+        let mut parsed = super::Parsed::new(super::lang(name).unwrap(), &lines).unwrap();
+        parsed.parse(None);
+        let mut styles = super::Styles::new(&theme);
+        let spans = parsed.spans(&lines, 0, 0, &mut styles);
+        let fg = |word: &str| {
+            let col = src.find(word).unwrap();
+            spans[0]
+                .iter()
+                .find(|(_, r)| r.contains(&col))
+                .unwrap()
+                .0
+                .fg
+        };
+        assert_eq!(fg("@param"), group("@keyword"), "{name}");
+        assert_eq!(fg("string"), group("@type"), "{name}");
+        assert_eq!(fg("name"), group("@variable"), "{name}");
+        assert_ne!(fg("@param"), fg("/**"), "{name}");
+    }
 }

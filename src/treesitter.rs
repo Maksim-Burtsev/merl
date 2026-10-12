@@ -20,18 +20,27 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/ecma/highlights.scm"),
         include_str!("../queries/ecma/injections.scm"),
     ),
-    ("go", include_str!("../queries/go/highlights.scm"), ""),
+    (
+        "go",
+        include_str!("../queries/go/highlights.scm"),
+        include_str!("../queries/go/injections.scm"),
+    ),
     (
         "javascript",
         include_str!("../queries/javascript/highlights.scm"),
         include_str!("../queries/javascript/injections.scm"),
     ),
+    ("jsdoc", include_str!("../queries/jsdoc/highlights.scm"), ""),
     (
         "jsx",
         include_str!("../queries/jsx/highlights.scm"),
         include_str!("../queries/jsx/injections.scm"),
     ),
-    ("rust", include_str!("../queries/rust/highlights.scm"), ""),
+    (
+        "rust",
+        include_str!("../queries/rust/highlights.scm"),
+        include_str!("../queries/rust/injections.scm"),
+    ),
     (
         "python",
         include_str!("../queries/python/highlights.scm"),
@@ -85,6 +94,10 @@ const PREDICATES: &[&str] = &[
     "not-any-of?",
     "lua-match?",
     "not-lua-match?",
+    "match?",
+    "not-match?",
+    "vim-match?",
+    "not-vim-match?",
     "contains?",
     "not-contains?",
     "has-parent?",
@@ -110,7 +123,7 @@ struct Check {
 }
 
 enum Test {
-    LuaMatch(regex::bytes::Regex),
+    Match(regex::bytes::Regex),
     Contains(Vec<String>),
     HasParent(Vec<String>),
 }
@@ -122,7 +135,7 @@ impl Check {
             return self.positive;
         }
         let hit = match &self.test {
-            Test::LuaMatch(re) => nodes.all(|n| re.is_match(&bytes[n.byte_range()])),
+            Test::Match(re) => nodes.all(|n| re.is_match(&bytes[n.byte_range()])),
             Test::Contains(words) => nodes.all(|n| {
                 let text = &bytes[n.byte_range()];
                 words
@@ -199,6 +212,7 @@ fn grammar(name: &str) -> Option<Language> {
         "regex" => tree_sitter_regex::LANGUAGE.into(),
         "printf" => tree_sitter_printf::LANGUAGE.into(),
         "javascript" => tree_sitter_javascript::LANGUAGE.into(),
+        "jsdoc" => tree_sitter_jsdoc::LANGUAGE.into(),
         "typescript" => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
         "tsx" => tree_sitter_typescript::LANGUAGE_TSX.into(),
         _ => return None,
@@ -306,6 +320,8 @@ fn patterns(
     }
     let url = regex::Regex::new(r"\(#set! @[\w.]+ url @[\w.]+\)").expect("a valid regex");
     let text = url.replace_all(text, "");
+    let vim = regex::Regex::new(r"\(#(not-)?match\?").expect("a valid regex");
+    let text = vim.replace_all(&text, "(#${1}vim-match?");
     let query = Query::new(language, &text).map_err(|e| format!("{name}: {e}"))?;
     let mut checks = Vec::new();
     let mut offsets = Vec::new();
@@ -358,7 +374,8 @@ fn patterns(
                 _ => return Err(format!("{name}: #{} takes a capture first", pred.operator)),
             };
             let test = match op {
-                "lua-match?" if args.len() == 1 => Test::LuaMatch(lua_pattern(&args[0])?),
+                "lua-match?" if args.len() == 1 => Test::Match(lua_pattern(&args[0])?),
+                "vim-match?" if args.len() == 1 => Test::Match(vim_pattern(&args[0])?),
                 "contains?" => Test::Contains(args),
                 "has-parent?" => Test::HasParent(args),
                 _ => return Err(format!("{name}: #{} is not implemented", pred.operator)),
@@ -378,6 +395,34 @@ fn patterns(
         offsets,
         settings,
     })
+}
+
+fn vim_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
+    let bad = || Err(format!("vim pattern {p:?} is not supported"));
+    let body = match p.get(..2) {
+        Some("\\v") => &p[2..],
+        Some("\\m" | "\\M" | "\\V") => return bad(),
+        _ => p,
+    };
+    let mut out = String::from("(?s-u)");
+    let mut chars = body.chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' => match chars.next() {
+                Some(n @ ('d' | 's' | 'w' | 'D' | 'S' | 'W')) => {
+                    out.push('\\');
+                    out.push(n);
+                }
+                Some(n) if !n.is_ascii_alphanumeric() => {
+                    out.push_str(&regex::escape(&n.to_string()))
+                }
+                _ => return bad(),
+            },
+            '<' | '>' | '=' | '@' | '%' | '~' | '{' | '&' => return bad(),
+            _ => out.push(c),
+        }
+    }
+    regex::bytes::Regex::new(&out).map_err(|e| format!("vim pattern {p:?}: {e}"))
 }
 
 fn lua_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
