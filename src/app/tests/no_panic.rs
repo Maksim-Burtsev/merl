@@ -4,8 +4,6 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use super::*;
 
-/// Lines no fixture holds: non-ASCII names, a combining mark, emoji built of several code points,
-/// a tab, and constructs left unfinished, down to an open bracket as the file's last byte.
 const ODD: &str = "café.load(x)\n\
 naïve = Straße(ñ, ü)\n\
 cafe\u{301} = e\u{301}tude.me\u{301}thode(1)\n\
@@ -22,7 +20,6 @@ $x = new ©Ns\\Bar();\n\
 void nam\u{301}(int x) {\n\
 x = (";
 
-/// The files [`ODD`] is written into: one per kind, so every kind's rules read it.
 const ODD_FILES: [&str; 37] = [
     "odd.py",
     "odd.go",
@@ -63,7 +60,6 @@ const ODD_FILES: [&str; 37] = [
     "odd.bzl",
 ];
 
-/// Panics found and not fixed yet: `(project/file, line from 1, byte column, key, issue)`.
 const KNOWN: &[(&str, usize, usize, char, u32)] = &[];
 
 #[test]
@@ -109,7 +105,6 @@ fn no_panic_on_d_u_or_shift_d_anywhere() {
         for _ in 0..threads {
             s.spawn(|| {
                 loop {
-                    // Its own statement, so the lock is let go before the sweep.
                     let next = jobs.lock().unwrap().pop();
                     let Some((_, name, path, file)) = next else {
                         break;
@@ -148,8 +143,6 @@ fn shard() -> (usize, usize) {
     parsed.unwrap_or_else(|| panic!("MERL_NO_PANIC_SHARD={spec}: want I/N with I below N"))
 }
 
-/// Presses the keys everywhere in `file` of the project `new` makes, and returns each panic that
-/// [`KNOWN`] does not list, as `project/file:line:col key: message`.
 fn sweep(name: &str, new: &dyn Fn() -> App, file: &Path) -> Vec<String> {
     let mut fails = Vec::new();
     let mut a = new();
@@ -180,17 +173,14 @@ fn sweep(name: &str, new: &dyn Fn() -> App, file: &Path) -> Vec<String> {
                 press(&mut a, KeyCode::Char(key), KeyModifiers::NONE);
             }));
             let Err(e) = pressed else {
-                // Back where the sweep is, with nothing open over the code.
-                a.picker = None;
-                a.mode = Mode::Normal;
-                if a.buf.path.as_deref() != Some(&path) {
-                    a.jump_to(&path, line);
-                }
+                back_on_the_code(&mut a, &path, line);
                 continue;
             };
             let known = KNOWN
                 .iter()
-                .find(|k| k.0 == place && k.1 == line + 1 && k.2 == col && k.3 == key);
+                .find(|&&(at, line_from_1, byte_col, k, _issue)| {
+                    at == place && line_from_1 == line + 1 && byte_col == col && k == key
+                });
             if known.is_none() {
                 let msg = e
                     .downcast_ref::<String>()
@@ -199,10 +189,17 @@ fn sweep(name: &str, new: &dyn Fn() -> App, file: &Path) -> Vec<String> {
                     .unwrap_or("?");
                 fails.push(format!("{place}:{}:{col} {key}: {msg}", line + 1));
             }
-            // A panic can leave the app half-changed: start over on a fresh one.
             a = new();
             a.jump_to(&path, line);
         }
     }
     fails
+}
+
+fn back_on_the_code(a: &mut App, path: &Path, line: usize) {
+    a.picker = None;
+    a.mode = Mode::Normal;
+    if a.buf.path.as_deref() != Some(path) {
+        a.jump_to(path, line);
+    }
 }

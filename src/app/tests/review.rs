@@ -4,7 +4,18 @@ use super::*;
 fn review_walks_past_files_without_hunks() {
     let png: &[u8] = b"\x89PNG\0\0";
     let (dir, mut a) = review_app_with("reviewbin", &[("a.png", png), ("z.png", png)]);
-    // Panel order: src/a.rs, a.png, crlf.txt, gone, new, tail, z.png.
+    assert_eq!(
+        panel_rows(&a),
+        [
+            "M src/a.rs",
+            "A a.png",
+            "M crlf.txt",
+            "D gone",
+            "A new",
+            "M tail",
+            "A z.png"
+        ]
+    );
     let r = a.review.as_ref().unwrap();
     assert!(r.files[1].binary && !r.files[1].has_hunks());
     assert!(!r.files[2].binary && r.files[2].has_hunks());
@@ -89,8 +100,11 @@ fn viewed_marks_follow_the_walk_the_key_and_the_disk() {
     assert!(!a.viewed.contains_key(Path::new("tail")));
     press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
     assert_eq!(a.message, "viewed");
-    // #240: FNV-1a of `t1\n`. The hashes are kept on disk: a new one takes every kept tick off.
-    assert_eq!(a.viewed[Path::new("tail")], 0x5634_7619_43bd_e994);
+    assert_eq!(
+        a.viewed[Path::new("tail")],
+        0x5634_7619_43bd_e994,
+        "FNV-1a of `t1\\n`, kept on disk (#240): another hash takes every kept tick off"
+    );
     a.focus = Focus::Tree;
     a.tree.reveal(Path::new("new"));
     press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
@@ -150,6 +164,13 @@ fn viewed_marks_follow_the_walk_the_key_and_the_disk() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+fn panel_rows(a: &App) -> Vec<String> {
+    let files = a.review.as_ref().unwrap().files.iter();
+    files
+        .map(|f| format!("{} {}", f.status, f.path.display()))
+        .collect()
+}
+
 fn marks(a: &App) -> (Vec<PathBuf>, Vec<PathBuf>) {
     let sorted = |m: &HashMap<PathBuf, u64>| {
         let mut v: Vec<_> = m.keys().cloned().collect();
@@ -204,9 +225,6 @@ fn viewed_marks_outlive_the_session_and_a_changed_file_loses_its_tick() {
         all,
         "viewed again, `tail` is viewed at what it is now"
     );
-    // Another branch checked out under a live review is another review, and back is this one.
-    // The listing is the one reading of HEAD: taken on `other`, it is `other`'s review, even
-    // with HEAD back on `feature` by the time it arrives, and the next listing brings `feature`.
     let refresh = |a: &mut App| {
         let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
         a.review_refreshed(fresh)
@@ -215,10 +233,18 @@ fn viewed_marks_outlive_the_session_and_a_changed_file_loses_its_tick() {
     let listed = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
     git(&["switch", "-q", "feature"]);
     a.review_refreshed(listed);
-    assert_eq!(a.review.as_ref().unwrap().branch, "other");
+    assert_eq!(
+        a.review.as_ref().unwrap().branch,
+        "other",
+        "a listing taken on `other` is its review, though HEAD is back on `feature` when it arrives"
+    );
     assert_eq!(marks(&a), (vec![], vec![]));
     refresh(&mut a);
-    assert_eq!(marks(&a), all);
+    assert_eq!(
+        marks(&a),
+        all,
+        "the next listing brings `feature`'s review back"
+    );
     press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
     assert_eq!(a.message, "not viewed");
     let a = review_start(&dir, None);
@@ -313,10 +339,13 @@ fn viewed_marks_are_the_branch_s_through_a_detached_head_and_a_namesake_tag() {
     }
     a.focus = Focus::Code;
 
-    // `git rev-parse --abbrev-ref HEAD` reads `heads/feature` once a tag has the name.
     git(&["tag", "feature"]);
     refresh(&mut a);
-    assert_eq!(a.review.as_ref().unwrap().branch, "feature");
+    assert_eq!(
+        a.review.as_ref().unwrap().branch,
+        "feature",
+        "a tag named `feature` makes `git rev-parse --abbrev-ref HEAD` read `heads/feature`"
+    );
     assert_eq!(
         marks(&a).0,
         paths(&["src/a.rs", "tail"]),
@@ -355,11 +384,14 @@ fn viewed_marks_are_the_branch_s_through_a_detached_head_and_a_namesake_tag() {
     a.tree.reveal(Path::new("src/a.rs"));
     press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
     assert_eq!(marks(&a).0, paths(&["src/a.rs"]), "in memory");
-    // `main`, then `feature` checked out: neither gets the session's mark, nor gives its own.
     for branch in ["main", "feature"] {
         git(&["switch", "-q", branch]);
         refresh(&mut a);
-        assert_eq!(std::fs::read_to_string(&store).unwrap(), kept, "{branch}");
+        assert_eq!(
+            std::fs::read_to_string(&store).unwrap(),
+            kept,
+            "{branch} neither gets the session's mark nor gives its own"
+        );
     }
     assert_eq!(
         marks(&a),
@@ -378,8 +410,6 @@ fn a_viewed_mark_that_cannot_be_saved_says_so() {
     let store = dir.join(".git/merl/viewed");
     std::fs::create_dir_all(store.parent().unwrap()).unwrap();
     std::fs::write(&store, b"\xff\n").unwrap();
-    // From `new`, `c` skips `o.png` for `tail` (`skipped 1 file…`), then leaves `tail`, the
-    // last one (`last hunk…`).
     for _ in 0..2 {
         a.message.clear();
         press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
@@ -426,7 +456,6 @@ fn a_viewed_store_that_fails_says_why_in_a_few_words() {
         "{}",
         a.message
     );
-    // A store read at the start, then turned into a folder, fails at the first mark.
     let _ = std::fs::remove_dir_all(dir);
     let (dir, mut a) = review_app("viewedio2");
     std::fs::create_dir_all(dir.join(".git/merl/viewed")).unwrap();
@@ -533,7 +562,6 @@ fn a_stopped_rebase_keeps_the_ticks_of_files_not_replayed_yet() {
         cmd.arg("-C").arg(&dir).args(args).env("GIT_EDITOR", "true");
         cmd.output().unwrap().status.success()
     };
-    // `late` comes in a second commit; `main` moves under the first, which then conflicts.
     std::fs::write(dir.join("late"), "l\n").unwrap();
     assert!(git(&["add", "late"]) && git(&["commit", "-qm", "two"]));
     assert!(git(&["switch", "-q", "main"]));
@@ -673,7 +701,6 @@ fn a_live_review_follows_edits_untracked_files_and_commits() {
         let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
         assert!(out.status.success(), "git {args:?}");
     };
-    // What `main` does on a change.
     let refresh = |a: &mut App| {
         let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
         a.review_refreshed(fresh)
@@ -911,8 +938,6 @@ fn the_current_hunk_stays_current_when_one_is_added_above() {
         "the history stop is still under the cursor"
     );
     a.anchor = None;
-    // A block deleted above the pane, from a file longer than what is left of it: the
-    // scroll is carried from where it was, not from where the shorter file clamps it.
     let text = |r: std::ops::Range<usize>| r.map(|i| format!("l{i}\n")).collect::<String>();
     std::fs::write(dir.join("src/a.rs"), text(0..40)).unwrap();
     a.reload(false);
@@ -921,14 +946,15 @@ fn the_current_hunk_stays_current_when_one_is_added_above() {
     a.reload(false);
     assert_eq!(
         (a.line, a.top_line, a.buf.lines[a.line].as_str()),
-        (10, 5, "l35")
+        (10, 5, "l35"),
+        "a block deleted above the pane carries the scroll from where it was, not from where \
+         the shorter file clamps it"
     );
     std::fs::write(dir.join("src/a.rs"), "new\nnew\na\nB\nc\nd\ne\nF\n").unwrap();
     a.reload(false);
     a.jump_to(&dir.join("src/a.rs"), 8);
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
-    // Written below the cursor, or the cursor's own line: nothing to follow.
     let text = |n: usize| (0..n).map(|i| format!("{i}\n")).collect::<String>();
     for (old, new, l, want) in [
         (text(6), text(6) + "x\n", 3, 3),
@@ -936,14 +962,14 @@ fn the_current_hunk_stays_current_when_one_is_added_above() {
         (text(6), text(6).replace("3\n", "x\ny\n"), 3, 3),
         (text(6), text(6).replace("1\n", ""), 3, 2),
         ("a\nb\n".into(), "a\na\nb\n".into(), 0, 0),
-        // The cursor's own lines went: the line that followed them.
         (text(6), text(6).replace("2\n3\n", ""), 3, 2),
     ] {
         let lines = |s: &str| s.lines().map(String::from).collect::<Vec<_>>();
         assert_eq!(
             carried(&lines(&old), &lines(&new), l),
             want,
-            "{old:?} {new:?}"
+            "{old:?} {new:?}: a write below the cursor or on its line leaves it, one above moves \
+             it, and its own lines gone it takes the line after them"
         );
     }
     let _ = std::fs::remove_dir_all(dir);
@@ -969,7 +995,17 @@ fn review_walks_past_a_submodule_and_a_file_that_does_not_open() {
     git(&dir, &["add", "-A"]);
     git(&dir, &["commit", "-q", "-m", "submodule"]);
     a.start_review(git::Review::open(&dir, None, None).unwrap());
-    // Panel order: src/a.rs, crlf.txt, gone, new, sub, tail.
+    assert_eq!(
+        panel_rows(&a),
+        [
+            "M src/a.rs",
+            "M crlf.txt",
+            "D gone",
+            "A new",
+            "A sub",
+            "M tail"
+        ]
+    );
     let r = a.review.as_ref().unwrap();
     assert_eq!(r.files[4].path, Path::new("sub"));
     assert!(!r.files[4].has_hunks(), "a submodule is listed, not a stop");
@@ -1030,7 +1066,6 @@ fn review_walks_past_a_link_to_a_directory_wherever_it_is() {
         }
         let r = git::Review::open(&dir, None, None).unwrap();
         assert!(!r.file(Path::new(link)).unwrap().has_hunks(), "{link}");
-        // The file `main` opens.
         let first = r.first_file(&dir, false).unwrap();
         assert_eq!(first, dir.join("src/a.rs"), "{link}");
         let (_, files) = crate::tree::build(&dir, false);
@@ -1110,7 +1145,10 @@ fn review_walks_hunks_across_files_and_opens_deleted_files_from_the_base() {
     let (dir, mut a) = review_app("reviewapp");
     let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
     let big_c = |a: &mut App| press(a, KeyCode::Char('C'), KeyModifiers::NONE);
-    // Files in panel order: src/a.rs (M), crlf.txt (M), gone (D), new (A), tail (M).
+    assert_eq!(
+        panel_rows(&a),
+        ["M src/a.rs", "M crlf.txt", "D gone", "A new", "M tail"]
+    );
     assert_eq!(at(&a), (dir.join("new"), 0));
     assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 4/5");
     c(&mut a);
@@ -1225,8 +1263,10 @@ fn c_and_big_c_from_outside_the_review_go_back_to_the_hunk_left() {
     let (dir, mut a) = review_app("reviewback");
     let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
     let big_c = |a: &mut App| press(a, KeyCode::Char('C'), KeyModifiers::NONE);
-    // Files in panel order: src/a.rs (M), crlf.txt (M), gone (D), new (A), tail (M);
-    // src/keep.rs is not one of them.
+    assert_eq!(
+        panel_rows(&a),
+        ["M src/a.rs", "M crlf.txt", "D gone", "A new", "M tail"]
+    );
     let outside = dir.join("src/keep.rs");
     a.jump_to(&outside, 2);
     c(&mut a);
@@ -1299,12 +1339,9 @@ fn the_hunk_left_is_found_by_its_place_in_its_file() {
         std::fs::write(dir.join(name), text).unwrap();
         refresh(a);
     };
-    // The hunk by the file line it rewrites, where `c` stands (#690).
     let here = |a: &App| (at(a).0, a.buf.lines[a.line].clone());
     let src = dir.join("src/a.rs");
     let on = |word: &str| (src.clone(), word.to_string());
-    // Written while the reader is on `F`, the third hunk: `B` grows by three lines, and `D`
-    // comes down past the line `F` was on. The reload carries the cursor, `c` finds `F`.
     write(&mut a, "src/a.rs", "a\nB\nc\nD\ne\nF\n");
     a.jump_to(&src, 4);
     c(&mut a);
@@ -1315,22 +1352,31 @@ fn the_hunk_left_is_found_by_its_place_in_its_file() {
     a.jump_to(&outside, 2);
     refresh(&mut a);
     c(&mut a);
-    assert_eq!((here(&a), a.line_str()), (on("F"), "F"));
-    // Deleted above while away: `B` goes from line 6 up to 2 and `D`, unread, to 4, both past
-    // the line `B` was left on. `c` goes back to `B`, and the next one to `D`.
+    assert_eq!(
+        (here(&a), a.line_str()),
+        (on("F"), "F"),
+        "`B` grew by three lines and `D` came down past where `F` was: `c` finds `F`"
+    );
     write(&mut a, "src/a.rs", "p1\np2\np3\np4\np5\na\nB\nc\nD\ne\nF\n");
     a.jump_to(&src, 1);
     c(&mut a);
     assert_eq!((here(&a), a.line), (on("B"), 6));
     write(&mut a, "src/a.rs", "p1\na\nB\nc\nD\ne\nF\n");
     c(&mut a);
-    assert_eq!((here(&a), a.line), (on("B"), 2));
+    assert_eq!(
+        (here(&a), a.line),
+        (on("B"), 2),
+        "lines deleted above while away: `c` goes back to `B`, now above where it was left"
+    );
     c(&mut a);
-    assert_eq!(here(&a), on("D"));
-    // `D` and `F` reverted: two hunks left for the third, and `C` goes to the file's last.
+    assert_eq!(here(&a), on("D"), "and the next `c` to `D`, unread");
     write(&mut a, "src/a.rs", "p1\na\nB\nc\nd\ne\nf\n");
     big_c(&mut a);
-    assert_eq!(here(&a), on("B"));
+    assert_eq!(
+        here(&a),
+        on("B"),
+        "`D` and `F` reverted under the reader of the third hunk: `C` goes to the file's last"
+    );
     a.jump_to(&dir.join("gone"), 1);
     c(&mut a);
     assert_eq!(at(&a), (dir.join("new"), 0));
@@ -1406,7 +1452,6 @@ fn review_marks_changed_rows_in_u_and_s_and_lists_its_files_first_in_o() {
     use ratatui::style::Color;
     let (dir, mut a) = review_app("reviewlists");
     a.show_tree = false;
-    // Line 2 changed, line 3 as at the base; both hold a whole `c`.
     std::fs::write(dir.join("src/a.rs"), "a\nB c\nc\nd\ne\nF\n").unwrap();
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let screen = |a: &mut App| {
@@ -1424,8 +1469,7 @@ fn review_marks_changed_rows_in_u_and_s_and_lists_its_files_first_in_o() {
             })
             .collect::<Vec<_>>()
     };
-    // The colour of the cell right after the first char of `needle`, a picker's border.
-    let row = |rows: &[(String, Vec<Color>)], needle: &str| {
+    let colour_after_first_char = |rows: &[(String, Vec<Color>)], needle: &str| {
         rows.iter()
             .find_map(|(t, c)| {
                 let at = t.find(needle)?;
@@ -1439,19 +1483,21 @@ fn review_marks_changed_rows_in_u_and_s_and_lists_its_files_first_in_o() {
     a.col = 0;
     press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
     let rows = screen(&mut a);
-    assert_eq!(row(&rows, "\u{2502}\u{258e}  2  B c"), Color::Green);
-    row(&rows, "\u{2502}   3  c");
+    assert_eq!(
+        colour_after_first_char(&rows, "\u{2502}\u{258e}  2  B c"),
+        Color::Green
+    );
+    colour_after_first_char(&rows, "\u{2502}   3  c");
     esc(&mut a);
 
     press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
     typed(&mut a, "c");
     a.settle_search();
     let rows = screen(&mut a);
-    row(&rows, "\u{2502}\u{258e}  2  B c");
-    row(&rows, "\u{2502}   3  c");
+    colour_after_first_char(&rows, "\u{2502}\u{258e}  2  B c");
+    colour_after_first_char(&rows, "\u{2502}   3  c");
     esc(&mut a);
 
-    // The review's files on disk in the panel's order, then the rest; `gone` is not on disk.
     press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
     let rows = screen(&mut a);
     let listed: Vec<&str> = rows
@@ -1486,7 +1532,7 @@ fn review_marks_changed_rows_in_u_and_s_and_lists_its_files_first_in_o() {
     a.review_list_marks = false;
     a.review_open_files_first = false;
     press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
-    row(&screen(&mut a), "\u{2502}src/a.rs ");
+    colour_after_first_char(&screen(&mut a), "\u{2502}src/a.rs ");
     esc(&mut a);
     press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
     let rows = screen(&mut a);
@@ -1500,7 +1546,6 @@ fn deleted_lines_are_lines_of_the_text() {
     let (dir, mut a) = review_app("onetext");
     use_roots(&mut a, Kind::Rust, &[]);
     let key = |a: &mut App, c| press(a, c, KeyModifiers::NONE);
-    // src/a.rs reads a, [b], B, c, d, e, [f], F: `b` and `f` are deleted.
     a.jump_to(&dir.join("src/a.rs"), 1);
     key(&mut a, KeyCode::Char('c'));
     assert_eq!((a.at(), a.line_str()), (File(1), "B"));
@@ -1512,9 +1557,12 @@ fn deleted_lines_are_lines_of_the_text() {
     key(&mut a, KeyCode::Up);
     assert_eq!((a.at(), a.line_str()), (Deleted(1, 0), "b"));
     assert_eq!(a.review_status().unwrap(), "hunk 1/2  file 1/5");
-    // From a rewritten line, `c` and `C` go on to the next and the previous hunk.
     key(&mut a, KeyCode::Char('c'));
-    assert_eq!((a.at(), a.line_str()), (File(5), "F"));
+    assert_eq!(
+        (a.at(), a.line_str()),
+        (File(5), "F"),
+        "from a deleted line `c` goes on to the next hunk"
+    );
     key(&mut a, KeyCode::Up);
     assert_eq!((a.at(), a.line_str()), (Deleted(5, 0), "f"));
     assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/5");
@@ -1552,8 +1600,6 @@ fn deleted_lines_are_lines_of_the_text() {
         "a selection from the deleted line into the added one copies both"
     );
 
-    // Nothing edits a deleted line: not Enter on it, not typing after moving onto it, not the
-    // break between it and the line under it, not a selection that holds it.
     let file = a.buf.lines.clone();
     key(&mut a, KeyCode::Esc);
     key(&mut a, KeyCode::Up);
@@ -1577,7 +1623,7 @@ fn deleted_lines_are_lines_of_the_text() {
     assert_eq!(a.at(), File(1));
     key(&mut a, KeyCode::Backspace);
     assert_eq!(a.message, "deleted", "a selection from `a` over `b`");
-    assert_eq!(a.buf.lines, file);
+    assert_eq!(a.buf.lines, file, "nothing edits a deleted line");
     key(&mut a, KeyCode::End);
     key(&mut a, KeyCode::Char('!'));
     assert_eq!(
@@ -1595,15 +1641,17 @@ fn deleted_lines_are_lines_of_the_text() {
         "`d` reads the word on a deleted line: nothing declares `b`"
     );
 
-    // The lines deleted at the end of a file are lines too: `tail` reads t1, [t2], [t3].
     a.jump_to(&dir.join("tail"), 1);
     key(&mut a, KeyCode::Char('c'));
-    assert_eq!((a.at(), a.line_str()), (Deleted(1, 0), "t2"));
+    assert_eq!(
+        (a.at(), a.line_str()),
+        (Deleted(1, 0), "t2"),
+        "the lines deleted at the end of a file are lines too"
+    );
     press(&mut a, KeyCode::End, KeyModifiers::CONTROL);
     assert_eq!(a.line_str(), "t3");
     key(&mut a, KeyCode::Char('C'));
     assert_eq!((a.at(), a.line_str()), (Deleted(1, 0), "t2"));
-    // A hunk that only adds: `new` reads n.
     key(&mut a, KeyCode::Char('C'));
     assert_eq!((at(&a), a.at()), ((dir.join("new"), 0), File(0)));
     key(&mut a, KeyCode::Char('c'));
@@ -1672,26 +1720,31 @@ fn a_deleted_line_is_refused_and_returned_to_every_way() {
         "Esc from `/` puts the cursor back on the deleted line it started from"
     );
 
-    // `N` goes back over the end of the file onto the lines deleted there: tail reads t1,
-    // [t2], [t3].
     a.jump_to(&dir.join("tail"), 1);
     key(&mut a, KeyCode::Char('/'));
     typed(&mut a, "t");
     key(&mut a, KeyCode::Enter);
     assert_eq!((a.at(), a.message.as_str()), (File(0), "1/3"));
     key(&mut a, KeyCode::Char('N'));
-    assert_eq!((a.at(), a.message.as_str()), (Deleted(1, 1), "3/3"));
+    assert_eq!(
+        (a.at(), a.message.as_str()),
+        (Deleted(1, 1), "3/3"),
+        "`N` goes back over the end of the file onto the lines deleted there"
+    );
     key(&mut a, KeyCode::Char('N'));
     assert_eq!((a.at(), a.message.as_str()), (Deleted(1, 0), "2/3"));
     key(&mut a, KeyCode::Esc);
 
-    // An agent appends to the file: git keys the deletion above the first new line, and the
-    // cursor stays on the deleted line it was reading.
     key(&mut a, KeyCode::Down);
     assert_eq!(a.line_str(), "t3");
     std::fs::write(dir.join("tail"), "t1\nA\nB\n").unwrap();
     assert!(a.reload(false));
-    assert_eq!((a.at(), a.line_str()), (Deleted(1, 1), "t3"));
+    assert_eq!(
+        (a.at(), a.line_str()),
+        (Deleted(1, 1), "t3"),
+        "lines appended under a deletion: git keys it above the first new line, and the cursor \
+         stays on the deleted line it was reading"
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -1700,7 +1753,17 @@ fn a_generated_file_is_one_stop_until_enter_loads_its_diff() {
     let (dir, mut a) = review_app_with_lock("reviewfold");
     let lock = dir.join("poetry.lock");
     let key = |a: &mut App, code| press(a, code, KeyModifiers::NONE);
-    // Panel order: src/a.rs, crlf.txt, gone, new, poetry.lock, tail.
+    assert_eq!(
+        panel_rows(&a),
+        [
+            "M src/a.rs",
+            "M crlf.txt",
+            "D gone",
+            "A new",
+            "M poetry.lock",
+            "M tail"
+        ]
+    );
     assert_eq!(at(&a).0, dir.join("new"));
     key(&mut a, KeyCode::Char('c'));
     assert_eq!(at(&a).0, lock);

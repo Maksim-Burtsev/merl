@@ -1,5 +1,3 @@
-//! merl — the one editor you need when agents write the code.
-
 mod app;
 mod buffer;
 mod for_agents;
@@ -62,16 +60,18 @@ enum Msg {
 #[derive(Parser)]
 #[command(name = "merl", version, about)]
 struct Cli {
-    /// Directory, file, or FILE:LINE[:COL] to open (default: the current directory)
+    #[arg(help = "Directory, file, or FILE:LINE[:COL] to open (default: the current directory)")]
     target: Option<String>,
-    /// Colour theme
-    #[arg(short, long, value_name = "NAME")]
+    #[arg(short, long, value_name = "NAME", help = "Colour theme")]
     theme: Option<String>,
-    /// Walk through every key on a bundled sample project (ignores the target)
-    #[arg(long)]
-    tutor: bool,
-    /// Train the keys you do not press: N tasks (default 20) on the sample project, no key named
     #[arg(
+        long,
+        help = "Walk through every key on a bundled sample project (ignores the target)"
+    )]
+    tutor: bool,
+    #[arg(
+        help = "Train the keys you do not press: N tasks (default 20) on the sample project, no \
+                key named",
         short,
         long,
         value_name = "N",
@@ -80,16 +80,22 @@ struct Cli {
         value_parser = clap::value_parser!(u16).range(1..)
     )]
     drill: Option<u16>,
-    /// Print how often each key has been pressed and missed, the unused last, and exit
-    #[arg(short, long)]
-    keys: bool,
-    /// Print your review sessions of the last 30 days, the time each took and its excursions,
-    /// and exit
-    #[arg(long)]
-    reviews: bool,
-    /// Review the checked-out branch (or `--review BRANCH` to fetch it and check out what was
-    /// pushed): its files in the panel, its diff over the code, c / C between hunks
     #[arg(
+        short,
+        long,
+        help = "Print how often each key has been pressed and missed, the unused last, and exit"
+    )]
+    keys: bool,
+    #[arg(
+        long,
+        help = "Print your review sessions of the last 30 days, the time each took and its \
+                excursions, and exit"
+    )]
+    reviews: bool,
+    #[arg(
+        help = "Review the checked-out branch (or `--review BRANCH` to fetch it and check out \
+                what was pushed): its files in the panel, its diff over the code, c / C between \
+                hunks",
         short,
         long,
         value_name = "BRANCH",
@@ -97,9 +103,14 @@ struct Cli {
         default_missing_value = ""
     )]
     review: Option<String>,
-    /// The branch the review is against (default: origin/HEAD, then the remote's master, main or
-    /// develop, then the local master or main)
-    #[arg(short, long, value_name = "REF", requires = "review")]
+    #[arg(
+        short,
+        long,
+        value_name = "REF",
+        requires = "review",
+        help = "The branch the review is against (default: origin/HEAD, then the remote's \
+                master, main or develop, then the local master or main)"
+    )]
     base: Option<String>,
     #[arg(long, hide = true)]
     for_agents: bool,
@@ -777,15 +788,12 @@ mod tests {
             format!("{} {}", c.get_program().display(), args.join(" "))
         };
         assert_eq!(line(&taken), "tmux show-options -sv set-clipboard");
-        // tmux 3.2 and newer first; an older one refuses `-w` and gets the text without it.
         assert_eq!(
             calls.each_ref().map(line),
             ["tmux load-buffer -w -", "tmux load-buffer -"]
         );
     }
 
-    /// #395: the text goes to the first call that works, and to none when tmux answers that it
-    /// took the OSC 52 itself (`set-clipboard on`), which already made a buffer of it.
     #[cfg(unix)]
     #[test]
     fn a_copy_goes_to_the_first_call_that_works_unless_tmux_took_the_osc_52() {
@@ -797,7 +805,6 @@ mod tests {
             cmd.args(["-c", script]).stdin(Stdio::piped());
             cmd
         };
-        // An older tmux refuses the first call; the second gets the text on stdin.
         let mut calls = [sh("exit 1"), sh(&format!("cat > '{}'", got.display()))];
         super::hand_to_tmux(&mut sh("echo external"), &mut calls, "one");
         assert_eq!(std::fs::read_to_string(&got).unwrap(), "one");
@@ -806,8 +813,6 @@ mod tests {
         assert!(!got.exists());
     }
 
-    /// #320: the README names the oldest Rust that builds merl, the one Cargo.toml sets and CI
-    /// builds with.
     #[test]
     fn the_readme_names_the_rust_version_cargo_toml_sets() {
         let wanted = format!(
@@ -818,8 +823,6 @@ mod tests {
         assert!(readme.contains(&wanted), "README.md should say {wanted:?}");
     }
 
-    /// #322: the help of `--base` names the bases merl tries, in the order it tries them. A
-    /// change to either fails here until the other follows.
     #[test]
     fn the_help_of_base_names_the_bases_merl_tries() {
         use clap::CommandFactory;
@@ -922,7 +925,7 @@ mod tests {
         let real = dir.canonicalize().unwrap();
         for (path, want) in [
             (dir.join("index.js"), true),
-            (real.join("index.js"), true), // as FSEvents spells it
+            (real.join("index.js"), true),
             (real.join("node_modules/pkg/index.js"), false),
             (real.join("main.js"), false),
         ] {
@@ -934,7 +937,6 @@ mod tests {
 
     #[test]
     fn a_file_outside_a_repository_lists_its_neighbours_not_all_below_them() {
-        // #182: `merl ~/.zshrc` walked the whole home directory before the first frame.
         let dir = std::env::temp_dir().join(format!("merl-no-repo-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("deep/er")).unwrap();
@@ -955,15 +957,20 @@ mod tests {
         let (file, files) = walk(&dir.join("a.txt"));
         assert_eq!(file, Some(real.join("a.txt")));
         assert_eq!(files, [Path::new("a.txt"), Path::new("b.txt")]);
-        // Named, the directory is a project: walked all the way down.
-        assert_eq!(walk(&dir).1.len(), 4);
-        // In a repository, the repository.
+        assert_eq!(
+            walk(&dir).1.len(),
+            4,
+            "a named directory is walked all the way down"
+        );
         std::fs::create_dir(dir.join(".git")).unwrap();
-        assert_eq!(walk(&dir.join("deep/c.txt")).1.len(), 4);
+        assert_eq!(
+            walk(&dir.join("deep/c.txt")).1.len(),
+            4,
+            "a file in a repository lists the whole repository"
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// #405: `merl pipe` read the FIFO before the first frame and waited for a writer forever.
     #[test]
     #[cfg(unix)]
     fn a_fifo_is_refused_before_it_is_read() {
@@ -986,7 +993,6 @@ mod tests {
         assert_eq!(split_line("src/main.rs:12:"), (main, Some((12, 1))));
         assert_eq!(split_line("src/main.rs:"), (main, None));
         assert_eq!(split_line("src/main.rs"), (main, None));
-        // A grep line, and ripgrep's `--column` one, whose text has colons of its own.
         assert_eq!(split_line("src/main.rs:12:mod app;"), (main, Some((12, 1))));
         assert_eq!(
             split_line("src/main.rs:16:5:use std::collections::HashSet;"),
@@ -994,8 +1000,11 @@ mod tests {
         );
         assert_eq!(split_line("nope:12"), ("nope:12", None));
         assert_eq!(split_line("nope.rs:12:5"), ("nope.rs:12:5", None));
+    }
 
-        // A colon in a name that really exists is part of the name.
+    #[test]
+    fn a_colon_in_a_name_that_exists_is_part_of_the_name() {
+        use super::split_line;
         let dir = std::env::temp_dir().join(format!("merl-colon-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("a:12").display().to_string();
@@ -1008,15 +1017,9 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// Files under `src/` longer than `MAX_LINES`, each at the size it may not outgrow (#544).
-    /// A listed file that shrinks lowers its number in the same change; one under the limit
-    /// leaves the list.
-    const LONG_FILES: &[(&str, usize)] = &[("src/app/definition.rs", 2307)];
+    const LONG_FILES: &[(&str, usize)] = &[("src/app/definition.rs", 2166)];
     const MAX_LINES: usize = 1500;
 
-    /// #544: a large file costs an agent context and makes parallel branches conflict at the
-    /// same spot. Test code is not counted: files under a `tests/` folder, and a file's inline
-    /// `#[cfg(test)] mod tests { … }`, which clippy keeps at its end.
     fn rust_files(dir: &Path, with_tests: bool, out: &mut Vec<std::path::PathBuf>) {
         for entry in std::fs::read_dir(dir).unwrap() {
             let path = entry.unwrap().path();
@@ -1076,15 +1079,12 @@ mod tests {
         assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
     }
 
-    const COMMENT_LINES: usize = 997;
-
-    fn comment_lines(text: &str) -> usize {
+    fn comment_lines(text: &str) -> Vec<usize> {
         let b = text.as_bytes();
-        let (mut i, mut line, mut count, mut marked) = (0, 0, 0, None);
+        let (mut i, mut line, mut lines) = (0, 0, Vec::new());
         let mut mark = |line: usize| {
-            if marked != Some(line) {
-                marked = Some(line);
-                count += 1;
+            if lines.last() != Some(&(line + 1)) {
+                lines.push(line + 1);
             }
         };
         while i < b.len() {
@@ -1170,7 +1170,7 @@ mod tests {
             }
             i += 1;
         }
-        count
+        lines
     }
 
     #[test]
@@ -1186,22 +1186,29 @@ b";
     'x'
 }
 "##;
-        assert_eq!(comment_lines(text), 4);
+        assert_eq!(comment_lines(text), [1, 2, 3, 8]);
     }
 
     #[test]
-    fn comment_lines_do_not_grow() {
+    fn src_holds_no_comment() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
         let mut files = Vec::new();
         rust_files(&root.join("src"), true, &mut files);
-        let count: usize = files
+        files.sort();
+        let found: Vec<String> = files
             .iter()
-            .map(|path| comment_lines(&std::fs::read_to_string(path).unwrap()))
-            .sum();
+            .flat_map(|path| {
+                let name = path.strip_prefix(root).unwrap().display().to_string();
+                comment_lines(&std::fs::read_to_string(path).unwrap())
+                    .into_iter()
+                    .map(move |line| format!("{name}:{line}"))
+            })
+            .collect();
         assert!(
-            count <= COMMENT_LINES,
-            "src/ holds {count} comment lines, over COMMENT_LINES ({COMMENT_LINES}): code carries no \
-             comments; move the why into the commit message and the what into a name or a test"
+            found.is_empty(),
+            "code carries no comments; move the why into the commit message and the what into a \
+             name or a test:\n{}",
+            found.join("\n")
         );
     }
 }

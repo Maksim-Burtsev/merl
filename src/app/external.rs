@@ -855,9 +855,6 @@ impl App {
         (self.hit_file_text(h)).map_or_else(Vec::new, |t| search::hidden_lines(kind, &h.path, &t))
     }
 
-    /// The lines of `h`'s file where a declaration-shaped line declares nothing, as `d` filters
-    /// its candidates: a component's from the text the hit was read from (#413), any other file's
-    /// from its text now.
     pub(super) fn hidden_now(&self, kind: Kind, h: &Hit) -> Vec<bool> {
         if search::android_source(&h.path) {
             return Vec::new();

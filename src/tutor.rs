@@ -238,30 +238,25 @@ mod tests {
     use super::*;
     use crate::stats::ACTIONS;
 
-    /// Keys in `KEYS` no task trains. A new row in `KEYS` fails the test below until a task of
-    /// [`POOL`] trains each of its sides, or it is listed here on purpose.
-    const NOT_TAUGHT: &[&str] = &[
-        // Nothing to train.
-        "Ctrl+S",
-        "Ctrl+R",
-        "T",
-        "?",
-        "q",
-        // Review mode only: the sample project has no branch to walk yet (#158).
-        "c",
-        "C",
-        "m",
-        "Fold: Enter",
-        "Shift+Home",
-        "Shift+End",
+    const NOT_TAUGHT: &[(&str, &str)] = &[
+        ("Ctrl+S", "nothing to train"),
+        ("Ctrl+R", "nothing to train"),
+        ("T", "nothing to train"),
+        ("?", "nothing to train"),
+        ("q", "nothing to train"),
+        ("c", REVIEW_ONLY),
+        ("C", REVIEW_ONLY),
+        ("m", REVIEW_ONLY),
+        ("Fold: Enter", REVIEW_ONLY),
+        ("Shift+Home", REVIEW_ONLY),
+        ("Shift+End", REVIEW_ONLY),
     ];
+    const REVIEW_ONLY: &str = "review mode only: the sample project has no branch to walk";
 
-    /// The copy of the sample project a test works in, apart from the other tests' copies.
     pub(super) fn dir(name: &str) -> PathBuf {
         std::env::temp_dir().join(format!("merl-tutor-{}-{name}", std::process::id()))
     }
 
-    /// A tutor over the copy `name`, its lessons over, so that only the test sets tasks up.
     pub(super) fn app(name: &str, (w, h): (usize, usize)) -> App {
         let dir = dir(name);
         unpack(&dir).unwrap();
@@ -277,7 +272,6 @@ mod tests {
         a
     }
 
-    /// One line of state, for a failure to say where a task went.
     fn state(a: &App) -> String {
         let picker = a
             .picker
@@ -294,14 +288,11 @@ mod tests {
         )
     }
 
-    /// Sets `t` up on a fresh App and presses its answer: the start is not done yet, the
-    /// answer does it, and the answer presses the task's own key.
     fn run(a: &mut App, t: &Task) {
         fresh(a).unwrap();
         set_up(a, t);
         let before = state(a);
         assert!(!(t.done)(a), "{}: done before a key: {before}", t.key);
-        // Out of the tutor the presses are counted.
         let tutor = a.tutor.take();
         press(a, t.answer);
         a.settle_search();
@@ -317,9 +308,6 @@ mod tests {
         );
     }
 
-    /// Every task from cold, then the whole pool in order and reversed on one App, each run at
-    /// another size: nothing a task leaves behind, on disk or in a field carried over, decides
-    /// the next, and no `done` hangs on the size of the terminal.
     #[test]
     fn every_task_starts_undone_and_its_answer_does_it() {
         for t in POOL {
@@ -338,8 +326,6 @@ mod tests {
         }
     }
 
-    /// Pressing each lesson's answer walks the whole tutorial: `check` moves on and sets the
-    /// next lesson up, and the tick keeps what the key itself said.
     #[test]
     fn the_tutor_sets_up_each_lesson_it_moves_on_to() {
         let mut a = app("tutor", (80, 24));
@@ -395,7 +381,6 @@ mod tests {
         std::fs::remove_dir_all(dir("carried")).unwrap();
     }
 
-    /// Enter in the theme picker applies the theme and leaves the config file alone (#278).
     #[test]
     fn the_tutor_never_saves_the_theme() {
         let mut a = app("config", (80, 24));
@@ -412,7 +397,7 @@ mod tests {
     fn every_key_is_taught_or_skipped_on_purpose() {
         for a in ACTIONS.iter() {
             let tasks = POOL.iter().filter(|t| t.key == a.name).count();
-            let skipped = usize::from(NOT_TAUGHT.contains(&a.name.as_str()));
+            let skipped = usize::from(NOT_TAUGHT.iter().any(|(k, _)| *k == a.name));
             assert_eq!(
                 tasks + skipped,
                 1,
@@ -430,8 +415,6 @@ mod tests {
         }
     }
 
-    /// What a text names: its backtick spans, and its words with the punctuation around them
-    /// trimmed. A key is one of them or it is not named: the `d` in "defined" is no `d`.
     fn named(text: &str) -> Vec<&str> {
         let words = text
             .split_whitespace()

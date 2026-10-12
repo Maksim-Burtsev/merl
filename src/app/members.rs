@@ -611,7 +611,6 @@ impl App {
         }
     }
 
-    /// `find` in `ty`, then in the types it extends or embeds, nearest first: the first answer.
     pub(super) fn hierarchy<R>(
         &self,
         kind: Kind,

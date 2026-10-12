@@ -55,7 +55,6 @@ impl App {
                     self.go((0, 0));
                     self.want_x = 0;
                     (self.top_line, self.top_row) = (0, 0);
-                    // After the viewport is reset: the diff clamps it against the new file.
                     self.diff = git::Diff::default();
                     self.refresh_diff();
                 }
@@ -141,8 +140,6 @@ impl App {
             },
             _ => r.diff(&self.root, &path, file),
         };
-        // The ghosts take their syntax colours from the file at the base. This runs after every
-        // autosave, and the base does not change under an edit: the one loaded is kept.
         self.base = match rel {
             Some(rel) if !self.diff.ghosts.is_empty() => {
                 let from = file.and_then(|f| f.old.as_deref()).unwrap_or(rel);
@@ -246,10 +243,6 @@ impl App {
         true
     }
 
-    /// The cursor back on the deleted line `text`, the `i`th at its key before a reload: git keys
-    /// a deletion by where the lines around it went, which the carry of the file's lines cannot
-    /// know (lines appended under those deleted at the end key them above the first new one).
-    /// The copy nearest the carried key, then the index, wins; none, and `clamp_cursor` decides.
     fn find_deleted_again(&mut self, (text, i): (String, usize)) {
         let near = self.at().key();
         let found = (self.diff.ghosts.iter())
