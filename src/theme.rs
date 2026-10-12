@@ -224,6 +224,13 @@ impl Theme {
         }
     }
 
+    pub fn modifiers(&self, names: &[&str]) -> Modifier {
+        names
+            .iter()
+            .find_map(|n| self.groups.get(*n))
+            .map_or(Modifier::empty(), |s| s.add_modifier - Modifier::REVERSED)
+    }
+
     pub fn selected(&self, style: Style) -> Style {
         self.selection_fg
             .map_or(style, |fg| style.fg(fg))
@@ -427,6 +434,8 @@ struct Group {
     #[serde(default)]
     underline: bool,
     #[serde(default)]
+    strikethrough: bool,
+    #[serde(default)]
     reverse: bool,
 }
 
@@ -450,6 +459,7 @@ fn parse_groups(json: &str) -> Result<HashMap<String, Style>> {
                 (g.bold, Modifier::BOLD),
                 (g.italic, Modifier::ITALIC),
                 (g.underline, Modifier::UNDERLINED),
+                (g.strikethrough, Modifier::CROSSED_OUT),
                 (g.reverse, Modifier::REVERSED),
             ] {
                 if on {

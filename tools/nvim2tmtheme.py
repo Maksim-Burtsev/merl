@@ -141,7 +141,7 @@ def convert(hl, name):
     return {"name": name, "settings": settings}
 
 
-GROUP_KEYS = ["fg", "bg", "bold", "italic", "underline", "reverse"]
+GROUP_KEYS = ["fg", "bg", "bold", "italic", "underline", "strikethrough", "reverse"]
 
 
 def groups_json(hl):

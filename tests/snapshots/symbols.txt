@@ -197,7 +197,7 @@ i fg #c8d3f5 bg #282b41
 j fg #c8d3f5 bg #2d3f76 BOLD
 k fg #c8d3f5 bg #2d3f76
 l fg #c8d3f5 bg #222436 BOLD
-m fg #ff966c bg #2f334d
+m fg #ff966c bg #2f334d BOLD
 n fg #c8d3f5 bg #2f334d
 o fg #9abdf5 bg #222436
 p fg #ffc777 bg #222436
@@ -383,7 +383,7 @@ h fg #c099ff bg #222436
 i fg #0db9d7 bg #222436
 j fg #9abdf5 bg #222436
 k fg #c8d3f5 bg #282b41
-l fg #ff966c bg #2f334d
+l fg #ff966c bg #2f334d BOLD
 m fg #c8d3f5 bg #2f334d
 n fg #c8d3f5 bg #2d3f76 BOLD
 o fg #c8d3f5 bg #2d3f76

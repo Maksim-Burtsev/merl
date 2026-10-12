@@ -67,7 +67,7 @@
 "@markup.quote": {"fg": "#7d6658", "italic": true},
 "@markup.raw": {"fg": "#3d6568"},
 "@markup.raw.block": {"fg": "#7d6658"},
-"@markup.strikethrough": {},
+"@markup.strikethrough": {"strikethrough": true},
 "@markup.strong": {"bold": true},
 "@markup.underline": {"underline": true},
 "@module": {"fg": "#54433a"},
