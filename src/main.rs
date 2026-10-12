@@ -1078,13 +1078,12 @@ mod tests {
 
     const COMMENT_LINES: usize = 997;
 
-    fn comment_lines(text: &str) -> usize {
+    fn comment_lines(text: &str) -> Vec<usize> {
         let b = text.as_bytes();
-        let (mut i, mut line, mut count, mut marked) = (0, 0, 0, None);
+        let (mut i, mut line, mut lines) = (0, 0, Vec::new());
         let mut mark = |line: usize| {
-            if marked != Some(line) {
-                marked = Some(line);
-                count += 1;
+            if lines.last() != Some(&(line + 1)) {
+                lines.push(line + 1);
             }
         };
         while i < b.len() {
@@ -1170,7 +1169,7 @@ mod tests {
             }
             i += 1;
         }
-        count
+        lines
     }
 
     #[test]
@@ -1186,22 +1185,29 @@ b";
     'x'
 }
 "##;
-        assert_eq!(comment_lines(text), 4);
+        assert_eq!(comment_lines(text), [1, 2, 3, 8]);
     }
 
     #[test]
-    fn comment_lines_do_not_grow() {
+    fn src_holds_no_comment() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
         let mut files = Vec::new();
         rust_files(&root.join("src"), true, &mut files);
-        let count: usize = files
+        files.sort();
+        let found: Vec<String> = files
             .iter()
-            .map(|path| comment_lines(&std::fs::read_to_string(path).unwrap()))
-            .sum();
+            .flat_map(|path| {
+                let name = path.strip_prefix(root).unwrap().display().to_string();
+                comment_lines(&std::fs::read_to_string(path).unwrap())
+                    .into_iter()
+                    .map(move |line| format!("{name}:{line}"))
+            })
+            .collect();
         assert!(
-            count <= COMMENT_LINES,
-            "src/ holds {count} comment lines, over COMMENT_LINES ({COMMENT_LINES}): code carries no \
-             comments; move the why into the commit message and the what into a name or a test"
+            found.len() <= COMMENT_LINES,
+            "code carries no comments; move the why into the commit message and the what into a \
+             name or a test:\n{}",
+            found.join("\n")
         );
     }
 }
