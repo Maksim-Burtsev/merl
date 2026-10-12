@@ -5,6 +5,7 @@ use ratatui::style::{Color, Modifier};
 
 use crate::buffer::Buffer;
 use crate::theme;
+use super::resolve;
 
 fn decode(runs: &str, palette: &HashMap<char, String>) -> Vec<String> {
     let mut out = Vec::new();
@@ -382,6 +383,17 @@ fn a_theme_without_groups_colours_markdown_by_its_markup_scopes() {
             "{name}"
         );
     }
+}
+
+#[test]
+fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
+    let name = |alias| resolve(alias).map(|l| l.name);
+    assert_eq!(name("rs"), Some("rust"));
+    assert_eq!(name("md"), Some("markdown"));
+    assert_eq!(name("rust"), Some("rust"));
+    assert_eq!(name("pandoc"), Some("markdown"));
+    assert_eq!(name("astro"), None);
+    assert_eq!(name("yaml"), None);
 }
 
 #[test]
