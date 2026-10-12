@@ -143,6 +143,11 @@ impl Buffer {
     }
 
     #[cfg(test)]
+    pub fn shape(&self) -> Vec<(u16, std::ops::Range<usize>, bool)> {
+        self.ts.as_ref().map(|t| t.shape()).unwrap_or_default()
+    }
+
+    #[cfg(test)]
     pub fn root_bytes(&self) -> Option<std::ops::Range<usize>> {
         self.ts.as_ref().and_then(|t| t.root_bytes())
     }

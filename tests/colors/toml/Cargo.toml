@@ -1,0 +1,45 @@
+# The package
+[package]
+name = "merl"
+version = "0.8.4"
+edition = "2024"
+authors = ["Someone <a@b.c>"]
+description = """
+A multi-line
+basic string with \"escapes\" and \t tabs"""
+license = 'MIT'
+literal = '''
+raw \n stays'''
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+tree-sitter = "0.27"
+"quoted.key" = 1
+a.dotted.key = true
+
+[profile.release]
+lto = "thin"
+debug = false
+opt-level = 3
+codegen-units = 1
+ratio = 0.5
+big = 1_000_000
+hex = 0xDEAD_beef
+oct = 0o755
+bin = 0b1101
+exp = 6.02e23
+neg = -inf
+nan = nan
+when = 1979-05-27T07:32:00-08:00
+day = 1979-05-27
+time = 07:32:00
+
+[[bin]]
+name = "merl"
+path = "src/main.rs"
+
+[workspace.metadata.inline]
+arr = [
+  1,
+  2, # trailing
+]

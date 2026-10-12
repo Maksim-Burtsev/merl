@@ -968,6 +968,38 @@ const RUST: &[&str] = &[
     "    ",
 ];
 
+const SHELL: &[&str] = &[
+    "$(",
+    ")",
+    "${x:-y}",
+    "\"",
+    "'",
+    "<<EOF\nbody\nEOF\n",
+    "if [[ -n $a ]]; then\n",
+    "fi\n",
+    "case $a in\n",
+    "esac\n",
+    "printf '%s' x",
+    "# ",
+];
+
+const DATA: &[&str] = &[
+    "{",
+    "}",
+    "[",
+    "]",
+    "\"",
+    "'",
+    ": ",
+    " = ",
+    "- ",
+    "run: |\n  echo $HOME\n",
+    "[[bin]]\n",
+    "\"\"\"",
+    "# ",
+    "    ",
+];
+
 #[test]
 fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
     fuzz_tree_sitter(
@@ -984,6 +1016,26 @@ fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
         "f.rs",
         include_bytes!("../../../tests/colors/rust/exprs.rs"),
         RUST,
+    );
+    fuzz_tree_sitter(
+        "f.sh",
+        include_bytes!("../../../tests/colors/bash/script.sh"),
+        SHELL,
+    );
+    fuzz_tree_sitter(
+        "f.yml",
+        include_bytes!("../../../tests/colors/yaml/workflow.yml"),
+        DATA,
+    );
+    fuzz_tree_sitter(
+        "f.json",
+        include_bytes!("../../../tests/colors/json/package.json"),
+        DATA,
+    );
+    fuzz_tree_sitter(
+        "f.toml",
+        include_bytes!("../../../tests/colors/toml/Cargo.toml"),
+        DATA,
     );
 }
 
@@ -1032,7 +1084,7 @@ fn fuzz_tree_sitter(name: &str, start: &[u8], snippets: &[&str]) {
             fresh.start_tree_sitter();
             fresh.parse_more(None);
             fresh.paint_to(usize::MAX, &theme);
-            let want = match a.buf.sexp() == fresh.sexp() {
+            let want = match a.buf.shape() == fresh.shape() {
                 true => fresh.hl,
                 false => {
                     assert_eq!(

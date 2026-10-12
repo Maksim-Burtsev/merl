@@ -1,0 +1,34 @@
+%YAML 1.2
+---
+version: '3.8'
+x-defaults: &defaults
+  restart: unless-stopped
+  logging:
+    driver: json-file
+services:
+  web:
+    <<: *defaults
+    image: "nginx:1.25"
+    ports:
+      - "8080:80"
+      - 443:443
+    command: ["nginx", "-g", 'daemon off;']
+    healthcheck: {test: [CMD, curl, -f, http://localhost], interval: 30s}
+    environment:
+      - KEY=value
+      - "QUOTED=with \"escapes\" and \t tab"
+  db:
+    image: !!str postgres
+    volumes: !custom
+      - data:/var/lib/postgresql
+? complex key
+: complex value
+multi: plain text
+  continued here
+date: 2026-10-12
+octal: 0o17
+hex: 0xFF
+inf: .inf
+...
+---
+second: document

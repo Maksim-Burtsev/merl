@@ -1,0 +1,33 @@
+# CI for the fixture
+name: CI
+on:
+  push:
+    branches: [master, "release/*"]
+  pull_request:
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  RATIO: 0.75
+  ENABLED: true
+  NOTHING: null
+  TILDE: ~
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: cargo build --release --locked
+      - name: Test
+        run: |
+          set -e
+          cargo test --all-targets
+          echo "done in $SECONDS s"
+      - name: Folded
+        run: >-
+          echo one
+          two
+      - script: echo "$HOME"

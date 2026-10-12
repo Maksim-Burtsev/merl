@@ -1,0 +1,4 @@
+# catppuccin-mocha: catppuccin/nvim@edefef779ab08ce1a4a404713e3012b0d202bd35 `colorscheme catppuccin-mocha`; NVIM v0.12.5, nvim-treesitter 1a4f47b
+# palette a=a6e3a1 b=b4befe c=9399b2 d=f9e2af e=f5c2e7 f=fab387 g=9399b2i h=f38ba8i i=89b4fa j=f38ba8
+compose.yaml	1:e8 2:e3 3:b7ca5 4:b10ced8 5:b7ca14 6:b7c 7:b6ca9 8:b8c 9:b3c 10:b2ced8 11:b5ca12 12:b5c 13:ca9 14:ca7 15:b7c2a7ca4ca12c 16:b11c2b4c2a3ca4ca2ca16c2b8ca3c 17:b11c 18:ca9 19:ca12e2a7e2a3e2a4 20:b2c 21:b5cd5a8 22:b7cd7 23:ca24 24:cb10 25:ca12 26:b5ca9 27:a13 28:b4ca10 29:b5cf4 30:b3cf4 31:b3cf4 32:e3 33:e3 34:b6ca8
+workflow.yml	1:g16 2:b4ca2 3:b2c 4:b4c 5:b8c2a6ca11c 6:b12c 7:b3c 8:b16ca6 9:b14cf 10:b5cf4 11:b7cf4 12:b7cf4 13:b5cf 14:b4c 15:b4c 16:b7ca14 17:b8c 18:b6c 19:b2c2a13ca12c 20:b5c 21:cb4ca19 22:cb4ca5 23:b3ci5a22 24:cb4ca4 25:b3c2 26:h3a2 27:i5a17 28:h4a7ej7a2 29:cb4ca6 30:b3c2i 31:h4a3 32:i3 33:cb6ch4aej4a

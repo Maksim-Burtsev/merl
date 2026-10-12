@@ -1,0 +1,5 @@
+# catppuccin-mocha: catppuccin/nvim@edefef779ab08ce1a4a404713e3012b0d202bd35 `colorscheme catppuccin-mocha`; NVIM v0.12.5, nvim-treesitter 1a4f47b
+# palette a=b4befe b=a6e3a1 c=9399b2 d=fab387 e=9399b2i f=cdd6f4 g=f5c2e7 h=fab387b
+broken.json	1:h 2:a3cdc 3:f3c2dcdc 4:f3cf13c 5:f3cf3 6:h
+package.json	1:h 2:a6cb14c 3:a9cb7c 4:a9cd4c 5:a9cd4c 6:a9c2 7:a7cb8c 8:a6cb15g2b6g2bc 9:a6cb16g2b3g2b7g2b5 10:c2 11:a7c2b6cb11c2 12:a9c2a6cb6c2 13:a9c2dcd2cd3cd4cd7cd20c2 14:a8c2 15:a14c4 16:a13c4 17:a6c3dc2dc2dc5a3c2a3c2a3cd5c4 18:c 19:h
+settings.jsonc	1:e29 2:c 3:e13 4:a17cd2c 5:a15c2d2cd3c2e17 6:a15c2 7:a9cd4c 8:a17cd4c 9:c2 10:a29c2a6cb22c2 11:c
