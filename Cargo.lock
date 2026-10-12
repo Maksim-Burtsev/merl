@@ -1892,6 +1892,7 @@ dependencies = [
  "tree-sitter-rust",
  "tree-sitter-toml-ng",
  "tree-sitter-typescript",
+ "tree-sitter-xml",
  "tree-sitter-yaml",
  "two-face",
  "unicase",
@@ -4065,6 +4066,15 @@ name = "tree-sitter-typescript"
 version = "0.23.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c5f76ed8d947a75cc446d5fccd8b602ebf0cde64ccf2ffa434d873d7a575eff"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-xml"
+version = "0.7.0"
+source = "git+https://github.com/tree-sitter-grammars/tree-sitter-xml?rev=5000ae8f22d11fbe93939b05c1e37cf21117162d#5000ae8f22d11fbe93939b05c1e37cf21117162d"
 dependencies = [
  "cc",
  "tree-sitter-language",

@@ -177,7 +177,7 @@ merl colours code as LazyVim does (epic #797): tree-sitter's syntax tree, nvim-t
 queries and the theme's Neovim highlight groups (`themes/NAME.groups.json`, #801), in
 `src/treesitter.rs`. Until #810 turns it on it runs behind the hidden setting `tree_sitter = true`
 in `config.toml`, for Python, Go, Rust, Markdown, TypeScript, TSX, JavaScript, JSX, Bash (zsh
-stays on syntect, as LazyVim has no zsh parser), JSON, YAML, TOML, Lua, C, HTML and CSS today and for the languages of
+stays on syntect, as LazyVim has no zsh parser), JSON, YAML, TOML, Lua, C, HTML, CSS and XML today and for the languages of
 #806–#809 as they land; every other file goes through syntect as before.
 
 - **A grammar is a dependency**: the crates.io release of the revision nvim-treesitter pins in

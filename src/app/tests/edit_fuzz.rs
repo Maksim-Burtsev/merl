@@ -1068,6 +1068,11 @@ fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
         include_bytes!("../../../tests/colors/css/site.css"),
         MARKUP,
     );
+    fuzz_tree_sitter(
+        "f.xml",
+        include_bytes!("../../../tests/colors/xml/project.xml"),
+        MARKUP,
+    );
 }
 
 fn fuzz_tree_sitter(name: &str, start: &[u8], snippets: &[&str]) {

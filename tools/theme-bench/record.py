@@ -63,6 +63,7 @@ LANGS = {
     "c": (["redis"], ["c"]),
     "html": (["bootstrap", "caddy", "eslint", "outline", "redis"], ["html", "htm"]),
     "css": (["gitea", "paperless-ngx", "caddy", "redis"], ["css"]),
+    "xml": (["koel", "paperless-ngx", "nowinandroid"], ["xml", "svg", "xsd", "xslt"]),
 }
 NOT_HTML = re.compile(
     r"@(if|for|defer|switch)|\*(ngIf|ngFor|ngSwitch|ngTemplateOutlet)|\bng-(template|content)|\bDTD[ \t]+XHTML[ \t]"
@@ -135,6 +136,8 @@ def pick(lang):
     out = []
     for rel, path in every:
         if lang == "html" and any(map(NOT_HTML.search, file_lines(path)[:40])):
+            continue
+        if lang == "xml" and any(re.search("<!DOCTYPE.*DocBook", l) or "docbook.org/ns/docbook" in l.lower() for l in file_lines(path)[:100]):
             continue
         if sum(map(bool, map(recordable, file_lines(path)))) >= (least or [MINLINES])[0]:
             out.append((rel, path))

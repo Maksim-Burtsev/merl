@@ -111,6 +111,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/typescript/injections.scm"),
     ),
     (
+        "xml",
+        include_str!("../queries/xml/highlights.scm"),
+        include_str!("../queries/xml/injections.scm"),
+    ),
+    (
         "yaml",
         include_str!("../queries/yaml/highlights.scm"),
         include_str!("../queries/yaml/injections.scm"),
@@ -140,6 +145,9 @@ const ALIASES: &[(&str, &str)] = &[
     ("js", "javascript"),
     ("typescriptreact", "tsx"),
     ("ts", "typescript"),
+    ("xsd", "xml"),
+    ("xslt", "xml"),
+    ("svg", "xml"),
 ];
 
 const PREDICATES: &[&str] = &[
@@ -275,6 +283,7 @@ pub fn for_syntax(
         "C" => lang("c"),
         "CSS" => lang("css"),
         "HTML" if !html_variant(lines) => lang("html"),
+        "XML" if xml(path, lines) => lang("xml"),
         "Go" => lang("go"),
         "JSON" => lang("json"),
         "TOML" => lang("toml"),
@@ -305,6 +314,18 @@ fn html_variant(lines: &[String]) -> bool {
     lines.iter().take(40).any(|l| re.is_match(l))
 }
 
+fn xml(path: Option<&Path>, lines: &[String]) -> bool {
+    let ext = path.and_then(|p| p.extension()).and_then(|e| e.to_str());
+    !matches!(ext, Some("tld" | "opml" | "dtml"))
+        && !lines.iter().take(100).any(|l| {
+            let lower = l.to_lowercase();
+            l.find("<!DOCTYPE")
+                .is_some_and(|i| l[i..].contains("DocBook"))
+                || lower.contains(r#" xmlns="http://docbook.org/ns/docbook""#)
+                || lower.contains(r#"xmlns:xbl="http://www.mozilla.org/xbl""#)
+        })
+}
+
 fn zsh(path: &Path) -> bool {
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
     let bare = name.strip_prefix('.').unwrap_or(name);
@@ -323,6 +344,7 @@ fn grammar(name: &str) -> Option<Language> {
         "c" => tree_sitter_c::LANGUAGE.into(),
         "css" => tree_sitter_css::LANGUAGE.into(),
         "html" => tree_sitter_html::LANGUAGE.into(),
+        "xml" => tree_sitter_xml::LANGUAGE_XML.into(),
         "json" => tree_sitter_json::LANGUAGE.into(),
         "toml" => tree_sitter_toml_ng::LANGUAGE.into(),
         "yaml" => tree_sitter_yaml::LANGUAGE.into(),

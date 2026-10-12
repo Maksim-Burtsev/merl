@@ -14,6 +14,7 @@ adwaita	rust	17576	12850
 adwaita	toml	10487	7499
 adwaita	tsx	9700	7921
 adwaita	typescript	13701	12220
+adwaita	xml	20823	18160
 adwaita	yaml	16564	10644
 adwaita-light	bash	12491	9332
 adwaita-light	c	17618	13746
@@ -30,6 +31,7 @@ adwaita-light	rust	17576	12852
 adwaita-light	toml	10487	7499
 adwaita-light	tsx	9700	7943
 adwaita-light	typescript	13701	12318
+adwaita-light	xml	20823	18160
 adwaita-light	yaml	16564	10523
 alabaster	bash	12491	9780
 alabaster	c	17618	15504
@@ -46,6 +48,7 @@ alabaster	rust	17576	14259
 alabaster	toml	10487	6991
 alabaster	tsx	9700	8255
 alabaster	typescript	13701	11786
+alabaster	xml	20823	13939
 alabaster	yaml	16564	12118
 alabaster-light	bash	12491	9780
 alabaster-light	c	17618	15334
@@ -62,6 +65,7 @@ alabaster-light	rust	17576	13983
 alabaster-light	toml	10487	6991
 alabaster-light	tsx	9700	8237
 alabaster-light	typescript	13701	11765
+alabaster-light	xml	20823	13939
 alabaster-light	yaml	16564	12118
 alucard	bash	12491	8820
 alucard	c	17618	14392
@@ -78,6 +82,7 @@ alucard	rust	17576	12822
 alucard	toml	10487	7493
 alucard	tsx	9700	7388
 alucard	typescript	13701	11021
+alucard	xml	20823	18479
 alucard	yaml	16564	10523
 ayu	bash	12491	8698
 ayu	c	17618	11189
@@ -94,6 +99,7 @@ ayu	rust	17576	11266
 ayu	toml	10487	8688
 ayu	tsx	9700	7285
 ayu	typescript	13701	11103
+ayu	xml	20823	16389
 ayu	yaml	16564	10523
 ayu-light	bash	12491	8698
 ayu-light	c	17618	11189
@@ -110,6 +116,7 @@ ayu-light	rust	17576	11266
 ayu-light	toml	10487	8688
 ayu-light	tsx	9700	7285
 ayu-light	typescript	13701	11103
+ayu-light	xml	20823	16389
 ayu-light	yaml	16564	10523
 ayu-mirage	bash	12491	8698
 ayu-mirage	c	17618	11189
@@ -126,6 +133,7 @@ ayu-mirage	rust	17576	11266
 ayu-mirage	toml	10487	8688
 ayu-mirage	tsx	9700	7285
 ayu-mirage	typescript	13701	11103
+ayu-mirage	xml	20823	16389
 ayu-mirage	yaml	16564	10523
 bamboo	bash	12491	8641
 bamboo	c	17618	13567
@@ -142,6 +150,7 @@ bamboo	rust	17576	12497
 bamboo	toml	10487	8688
 bamboo	tsx	9700	7102
 bamboo	typescript	13701	10240
+bamboo	xml	20823	18419
 bamboo	yaml	16564	10523
 bamboo-light	bash	12491	8641
 bamboo-light	c	17618	13567
@@ -158,6 +167,7 @@ bamboo-light	rust	17576	12497
 bamboo-light	toml	10487	8688
 bamboo-light	tsx	9700	7102
 bamboo-light	typescript	13701	10240
+bamboo-light	xml	20823	18419
 bamboo-light	yaml	16564	10523
 bluloco-light	bash	12491	9567
 bluloco-light	c	17618	14100
@@ -174,6 +184,7 @@ bluloco-light	rust	17576	12756
 bluloco-light	toml	10487	8837
 bluloco-light	tsx	9700	7004
 bluloco-light	typescript	13701	10470
+bluloco-light	xml	20823	16714
 bluloco-light	yaml	16564	10523
 catppuccin-frappe	bash	12491	8689
 catppuccin-frappe	c	17618	14007
@@ -190,6 +201,7 @@ catppuccin-frappe	rust	17576	12806
 catppuccin-frappe	toml	10487	8719
 catppuccin-frappe	tsx	9700	6893
 catppuccin-frappe	typescript	13701	10227
+catppuccin-frappe	xml	20823	16820
 catppuccin-frappe	yaml	16564	12430
 catppuccin-latte	bash	12491	8689
 catppuccin-latte	c	17618	14007
@@ -206,6 +218,7 @@ catppuccin-latte	rust	17576	12806
 catppuccin-latte	toml	10487	8719
 catppuccin-latte	tsx	9700	6893
 catppuccin-latte	typescript	13701	10227
+catppuccin-latte	xml	20823	16820
 catppuccin-latte	yaml	16564	12430
 catppuccin-macchiato	bash	12491	8689
 catppuccin-macchiato	c	17618	14007
@@ -222,6 +235,7 @@ catppuccin-macchiato	rust	17576	12806
 catppuccin-macchiato	toml	10487	8719
 catppuccin-macchiato	tsx	9700	6893
 catppuccin-macchiato	typescript	13701	10227
+catppuccin-macchiato	xml	20823	16820
 catppuccin-macchiato	yaml	16564	12430
 catppuccin-mocha	bash	12491	8689
 catppuccin-mocha	c	17618	14007
@@ -238,6 +252,7 @@ catppuccin-mocha	rust	17576	12806
 catppuccin-mocha	toml	10487	8719
 catppuccin-mocha	tsx	9700	6893
 catppuccin-mocha	typescript	13701	10227
+catppuccin-mocha	xml	20823	16820
 catppuccin-mocha	yaml	16564	12430
 cendre	bash	12491	10156
 cendre	c	17618	13999
@@ -254,6 +269,7 @@ cendre	rust	17576	12683
 cendre	toml	10487	9805
 cendre	tsx	9700	7102
 cendre	typescript	13701	10283
+cendre	xml	20823	18705
 cendre	yaml	16564	10519
 darkearth	bash	12491	9347
 darkearth	c	17618	12848
@@ -270,6 +286,7 @@ darkearth	rust	17576	11893
 darkearth	toml	10487	9453
 darkearth	tsx	9700	7428
 darkearth	typescript	13701	12078
+darkearth	xml	20823	16434
 darkearth	yaml	16564	12561
 dawnfox	bash	12491	8279
 dawnfox	c	17618	12177
@@ -286,6 +303,7 @@ dawnfox	rust	17576	10254
 dawnfox	toml	10487	8186
 dawnfox	tsx	9700	5712
 dawnfox	typescript	13701	8840
+dawnfox	xml	20823	15838
 dawnfox	yaml	16564	10090
 dayfox	bash	12491	8255
 dayfox	c	17618	9870
@@ -302,6 +320,7 @@ dayfox	rust	17576	8937
 dayfox	toml	10487	8186
 dayfox	tsx	9700	5707
 dayfox	typescript	13701	8780
+dayfox	xml	20823	15838
 dayfox	yaml	16564	10090
 dracula	bash	12491	8820
 dracula	c	17618	14392
@@ -318,6 +337,7 @@ dracula	rust	17576	12822
 dracula	toml	10487	7493
 dracula	tsx	9700	7388
 dracula	typescript	13701	11021
+dracula	xml	20823	18479
 dracula	yaml	16564	10523
 e-ink	bash	12491	10123
 e-ink	c	17618	12079
@@ -334,6 +354,7 @@ e-ink	rust	17576	10269
 e-ink	toml	10487	8488
 e-ink	tsx	9700	7084
 e-ink	typescript	13701	11374
+e-ink	xml	20823	16396
 e-ink	yaml	16564	13095
 e-ink-light	bash	12491	10123
 e-ink-light	c	17618	12079
@@ -350,6 +371,7 @@ e-ink-light	rust	17576	10269
 e-ink-light	toml	10487	8488
 e-ink-light	tsx	9700	7084
 e-ink-light	typescript	13701	11374
+e-ink-light	xml	20823	16396
 e-ink-light	yaml	16564	13095
 edge	bash	12491	10137
 edge	c	17618	10312
@@ -366,6 +388,7 @@ edge	rust	17576	9095
 edge	toml	10487	8186
 edge	tsx	9700	6430
 edge	typescript	13701	9590
+edge	xml	20823	16112
 edge	yaml	16564	10086
 edge-light	bash	12491	10137
 edge-light	c	17618	10312
@@ -382,6 +405,7 @@ edge-light	rust	17576	9095
 edge-light	toml	10487	8186
 edge-light	tsx	9700	6430
 edge-light	typescript	13701	9590
+edge-light	xml	20823	16112
 edge-light	yaml	16564	10086
 everforest-dark	bash	12491	10478
 everforest-dark	c	17618	13696
@@ -398,6 +422,7 @@ everforest-dark	rust	17576	11886
 everforest-dark	toml	10487	2309
 everforest-dark	tsx	9700	6454
 everforest-dark	typescript	13701	10186
+everforest-dark	xml	20823	15796
 everforest-dark	yaml	16564	4410
 everforest-light	bash	12491	10478
 everforest-light	c	17618	13696
@@ -414,6 +439,7 @@ everforest-light	rust	17576	11886
 everforest-light	toml	10487	2309
 everforest-light	tsx	9700	6454
 everforest-light	typescript	13701	10186
+everforest-light	xml	20823	15796
 everforest-light	yaml	16564	4410
 flexoki-dark	bash	12491	9156
 flexoki-dark	c	17618	11182
@@ -430,6 +456,7 @@ flexoki-dark	rust	17576	11360
 flexoki-dark	toml	10487	9811
 flexoki-dark	tsx	9700	7301
 flexoki-dark	typescript	13701	11166
+flexoki-dark	xml	20823	16672
 flexoki-dark	yaml	16564	10523
 flexoki-light	bash	12491	9156
 flexoki-light	c	17618	11182
@@ -446,6 +473,7 @@ flexoki-light	rust	17576	11360
 flexoki-light	toml	10487	9811
 flexoki-light	tsx	9700	7301
 flexoki-light	typescript	13701	11166
+flexoki-light	xml	20823	16672
 flexoki-light	yaml	16564	10523
 github-dark	bash	12491	9469
 github-dark	c	17618	14094
@@ -462,6 +490,7 @@ github-dark	rust	17576	13049
 github-dark	toml	10487	9665
 github-dark	tsx	9700	6600
 github-dark	typescript	13701	10756
+github-dark	xml	20823	18228
 github-dark	yaml	16564	12620
 github-light	bash	12491	9469
 github-light	c	17618	14094
@@ -478,6 +507,7 @@ github-light	rust	17576	13049
 github-light	toml	10487	9665
 github-light	tsx	9700	6600
 github-light	typescript	13701	10756
+github-light	xml	20823	18228
 github-light	yaml	16564	12620
 gotham	bash	12491	8771
 gotham	c	17618	11317
@@ -494,6 +524,7 @@ gotham	rust	17576	11410
 gotham	toml	10487	8837
 gotham	tsx	9700	7398
 gotham	typescript	13701	11224
+gotham	xml	20823	16666
 gotham	yaml	16564	10523
 gruvbox-dark	bash	12491	8979
 gruvbox-dark	c	17618	13188
@@ -510,6 +541,7 @@ gruvbox-dark	rust	17576	12720
 gruvbox-dark	toml	10487	8843
 gruvbox-dark	tsx	9700	6661
 gruvbox-dark	typescript	13701	9853
+gruvbox-dark	xml	20823	18854
 gruvbox-dark	yaml	16564	11139
 gruvbox-light	bash	12491	8979
 gruvbox-light	c	17618	13188
@@ -526,6 +558,7 @@ gruvbox-light	rust	17576	12720
 gruvbox-light	toml	10487	8843
 gruvbox-light	tsx	9700	6661
 gruvbox-light	typescript	13701	9853
+gruvbox-light	xml	20823	18854
 gruvbox-light	yaml	16564	11139
 gruvbox-material-dark	bash	12491	10478
 gruvbox-material-dark	c	17618	13696
@@ -542,6 +575,7 @@ gruvbox-material-dark	rust	17576	11886
 gruvbox-material-dark	toml	10487	8395
 gruvbox-material-dark	tsx	9700	6914
 gruvbox-material-dark	typescript	13701	10512
+gruvbox-material-dark	xml	20823	15796
 gruvbox-material-dark	yaml	16564	10080
 gruvbox-material-light	bash	12491	10478
 gruvbox-material-light	c	17618	13696
@@ -558,6 +592,7 @@ gruvbox-material-light	rust	17576	11886
 gruvbox-material-light	toml	10487	8395
 gruvbox-material-light	tsx	9700	6914
 gruvbox-material-light	typescript	13701	10512
+gruvbox-material-light	xml	20823	15796
 gruvbox-material-light	yaml	16564	10080
 hojicha	bash	12491	9064
 hojicha	c	17618	12763
@@ -574,6 +609,7 @@ hojicha	rust	17576	11406
 hojicha	toml	10487	8491
 hojicha	tsx	9700	6745
 hojicha	typescript	13701	9843
+hojicha	xml	20823	18153
 hojicha	yaml	16564	10519
 iceberg	bash	12491	9343
 iceberg	c	17618	14230
@@ -590,6 +626,7 @@ iceberg	rust	17576	13034
 iceberg	toml	10487	7642
 iceberg	tsx	9700	7956
 iceberg	typescript	13701	12318
+iceberg	xml	20823	12757
 iceberg	yaml	16564	10523
 iceberg-light	bash	12491	9343
 iceberg-light	c	17618	14230
@@ -606,6 +643,7 @@ iceberg-light	rust	17576	13034
 iceberg-light	toml	10487	7648
 iceberg-light	tsx	9700	7956
 iceberg-light	typescript	13701	12318
+iceberg-light	xml	20823	12757
 iceberg-light	yaml	16564	10523
 jellybeans	bash	12491	8352
 jellybeans	c	17618	12166
@@ -622,6 +660,7 @@ jellybeans	rust	17576	10189
 jellybeans	toml	10487	6991
 jellybeans	tsx	9700	6131
 jellybeans	typescript	13701	8770
+jellybeans	xml	20823	19332
 jellybeans	yaml	16564	10090
 jellybeans-light	bash	12491	8352
 jellybeans-light	c	17618	12166
@@ -638,6 +677,7 @@ jellybeans-light	rust	17576	10189
 jellybeans-light	toml	10487	6991
 jellybeans-light	tsx	9700	6131
 jellybeans-light	typescript	13701	8770
+jellybeans-light	xml	20823	19332
 jellybeans-light	yaml	16564	10090
 kanagawa-dragon	bash	12491	8796
 kanagawa-dragon	c	17618	13413
@@ -654,6 +694,7 @@ kanagawa-dragon	rust	17576	12537
 kanagawa-dragon	toml	10487	8688
 kanagawa-dragon	tsx	9700	6562
 kanagawa-dragon	typescript	13701	9842
+kanagawa-dragon	xml	20823	18410
 kanagawa-dragon	yaml	16564	10523
 kanagawa-lotus	bash	12491	8796
 kanagawa-lotus	c	17618	13413
@@ -670,6 +711,7 @@ kanagawa-lotus	rust	17576	12535
 kanagawa-lotus	toml	10487	8688
 kanagawa-lotus	tsx	9700	6562
 kanagawa-lotus	typescript	13701	9842
+kanagawa-lotus	xml	20823	18410
 kanagawa-lotus	yaml	16564	10523
 kanagawa-wave	bash	12491	8796
 kanagawa-wave	c	17618	13413
@@ -686,6 +728,7 @@ kanagawa-wave	rust	17576	12535
 kanagawa-wave	toml	10487	8688
 kanagawa-wave	tsx	9700	6562
 kanagawa-wave	typescript	13701	9842
+kanagawa-wave	xml	20823	18410
 kanagawa-wave	yaml	16564	10523
 koda-dark	bash	12491	9474
 koda-dark	c	17618	13691
@@ -702,6 +745,7 @@ koda-dark	rust	17576	11994
 koda-dark	toml	10487	7439
 koda-dark	tsx	9700	7717
 koda-dark	typescript	13701	12255
+koda-dark	xml	20823	18764
 koda-dark	yaml	16564	11377
 koda-light	bash	12491	9382
 koda-light	c	17618	13677
@@ -718,6 +762,7 @@ koda-light	rust	17576	11958
 koda-light	toml	10487	7290
 koda-light	tsx	9700	7621
 koda-light	typescript	13701	12157
+koda-light	xml	20823	18487
 koda-light	yaml	16564	10560
 lackluster	bash	12491	9183
 lackluster	c	17618	13383
@@ -734,6 +779,7 @@ lackluster	rust	17576	11110
 lackluster	toml	10487	7642
 lackluster	tsx	9700	6452
 lackluster	typescript	13701	8666
+lackluster	xml	20823	16978
 lackluster	yaml	16564	10524
 lightearth	bash	12491	9347
 lightearth	c	17618	12848
@@ -750,6 +796,7 @@ lightearth	rust	17576	11893
 lightearth	toml	10487	9453
 lightearth	tsx	9700	7428
 lightearth	typescript	13701	12078
+lightearth	xml	20823	16434
 lightearth	yaml	16564	12561
 material-dark	bash	12491	8913
 material-dark	c	17618	12636
@@ -766,6 +813,7 @@ material-dark	rust	17576	10837
 material-dark	toml	10487	6991
 material-dark	tsx	9700	6598
 material-dark	typescript	13701	10700
+material-dark	xml	20823	15823
 material-dark	yaml	16564	10090
 material-light	bash	12491	8913
 material-light	c	17618	12636
@@ -782,6 +830,7 @@ material-light	rust	17576	10837
 material-light	toml	10487	6991
 material-light	tsx	9700	6598
 material-light	typescript	13701	10700
+material-light	xml	20823	15823
 material-light	yaml	16564	10090
 melange-dark	bash	12491	10459
 melange-dark	c	17618	13492
@@ -798,6 +847,7 @@ melange-dark	rust	17576	12590
 melange-dark	toml	10487	7200
 melange-dark	tsx	9700	7152
 melange-dark	typescript	13701	11180
+melange-dark	xml	20823	17567
 melange-dark	yaml	16564	10118
 melange-light	bash	12491	10459
 melange-light	c	17618	13492
@@ -814,6 +864,7 @@ melange-light	rust	17576	12590
 melange-light	toml	10487	7200
 melange-light	tsx	9700	7152
 melange-light	typescript	13701	11180
+melange-light	xml	20823	17567
 melange-light	yaml	16564	10118
 mellifluous	bash	12491	9188
 mellifluous	c	17618	13262
@@ -830,6 +881,7 @@ mellifluous	rust	17576	10074
 mellifluous	toml	10487	7645
 mellifluous	tsx	9700	6540
 mellifluous	typescript	13701	10088
+mellifluous	xml	20823	18494
 mellifluous	yaml	16564	10548
 mellifluous-light	bash	12491	9188
 mellifluous-light	c	17618	13262
@@ -846,6 +898,7 @@ mellifluous-light	rust	17576	10074
 mellifluous-light	toml	10487	7645
 mellifluous-light	tsx	9700	6540
 mellifluous-light	typescript	13701	10088
+mellifluous-light	xml	20823	18470
 mellifluous-light	yaml	16564	10548
 mellow	bash	12491	9231
 mellow	c	17618	13626
@@ -862,6 +915,7 @@ mellow	rust	17576	12569
 mellow	toml	10487	8688
 mellow	tsx	9700	7070
 mellow	typescript	13701	10410
+mellow	xml	20823	18161
 mellow	yaml	16564	10523
 miasma	bash	12491	9113
 miasma	c	17618	13720
@@ -878,6 +932,7 @@ miasma	rust	17576	13345
 miasma	toml	10487	7648
 miasma	tsx	9700	7811
 miasma	typescript	13701	12407
+miasma	xml	20823	16719
 miasma	yaml	16564	10523
 minischeme	bash	12491	9007
 minischeme	c	17618	13392
@@ -894,6 +949,7 @@ minischeme	rust	17576	12870
 minischeme	toml	10487	8694
 minischeme	tsx	9700	7463
 minischeme	typescript	13701	11720
+minischeme	xml	20823	16409
 minischeme	yaml	16564	10523
 minischeme-light	bash	12491	9007
 minischeme-light	c	17618	13392
@@ -910,6 +966,7 @@ minischeme-light	rust	17576	12870
 minischeme-light	toml	10487	8694
 minischeme-light	tsx	9700	7463
 minischeme-light	typescript	13701	11720
+minischeme-light	xml	20823	16409
 minischeme-light	yaml	16564	10523
 moonfly	bash	12491	8968
 moonfly	c	17618	13186
@@ -926,6 +983,7 @@ moonfly	rust	17576	11504
 moonfly	toml	10487	8694
 moonfly	tsx	9700	6187
 moonfly	typescript	13701	10353
+moonfly	xml	20823	16604
 moonfly	yaml	16564	10094
 neomodern-light	bash	12491	9064
 neomodern-light	c	17618	12763
@@ -942,6 +1000,7 @@ neomodern-light	rust	17576	11406
 neomodern-light	toml	10487	8491
 neomodern-light	tsx	9700	6745
 neomodern-light	typescript	13701	9843
+neomodern-light	xml	20823	18153
 neomodern-light	yaml	16564	10519
 nightfly	bash	12491	8968
 nightfly	c	17618	13186
@@ -958,6 +1017,7 @@ nightfly	rust	17576	11504
 nightfly	toml	10487	8694
 nightfly	tsx	9700	6187
 nightfly	typescript	13701	10353
+nightfly	xml	20823	16604
 nightfly	yaml	16564	10094
 nightfox	bash	12491	8255
 nightfox	c	17618	9870
@@ -974,6 +1034,7 @@ nightfox	rust	17576	8937
 nightfox	toml	10487	8186
 nightfox	tsx	9700	5707
 nightfox	typescript	13701	8780
+nightfox	xml	20823	15838
 nightfox	yaml	16564	10090
 nord	bash	12491	10317
 nord	c	17618	14160
@@ -990,6 +1051,7 @@ nord	rust	17576	12227
 nord	toml	10487	7290
 nord	tsx	9700	7334
 nord	typescript	13701	11800
+nord	xml	20823	16438
 nord	yaml	16564	10519
 nordfox	bash	12491	8255
 nordfox	c	17618	9870
@@ -1006,6 +1068,7 @@ nordfox	rust	17576	8937
 nordfox	toml	10487	8186
 nordfox	tsx	9700	5707
 nordfox	typescript	13701	8780
+nordfox	xml	20823	15838
 nordfox	yaml	16564	10090
 onedark	bash	12491	8610
 onedark	c	17618	13463
@@ -1022,6 +1085,7 @@ onedark	rust	17576	12597
 onedark	toml	10487	8694
 onedark	tsx	9700	6858
 onedark	typescript	13701	10183
+onedark	xml	20823	16648
 onedark	yaml	16564	10540
 onedark-light	bash	12491	8610
 onedark-light	c	17618	13463
@@ -1038,6 +1102,7 @@ onedark-light	rust	17576	12597
 onedark-light	toml	10487	8694
 onedark-light	tsx	9700	6858
 onedark-light	typescript	13701	10183
+onedark-light	xml	20823	16648
 onedark-light	yaml	16564	10540
 oxocarbon-dark	bash	12491	9349
 oxocarbon-dark	c	17618	12804
@@ -1054,6 +1119,7 @@ oxocarbon-dark	rust	17576	10893
 oxocarbon-dark	toml	10487	8186
 oxocarbon-dark	tsx	9700	7054
 oxocarbon-dark	typescript	13701	10944
+oxocarbon-dark	xml	20823	16150
 oxocarbon-dark	yaml	16564	10563
 oxocarbon-light	bash	12491	9349
 oxocarbon-light	c	17618	12804
@@ -1070,6 +1136,7 @@ oxocarbon-light	rust	17576	10893
 oxocarbon-light	toml	10487	8186
 oxocarbon-light	tsx	9700	7054
 oxocarbon-light	typescript	13701	10944
+oxocarbon-light	xml	20823	16150
 oxocarbon-light	yaml	16564	10563
 papercolor	bash	12491	10935
 papercolor	c	17618	14544
@@ -1086,6 +1153,7 @@ papercolor	rust	17576	13182
 papercolor	toml	10487	8837
 papercolor	tsx	9700	7404
 papercolor	typescript	13701	10840
+papercolor	xml	20823	18710
 papercolor	yaml	16564	10565
 papercolor-light	bash	12491	10564
 papercolor-light	c	17618	14534
@@ -1102,6 +1170,7 @@ papercolor-light	rust	17576	13141
 papercolor-light	toml	10487	8688
 papercolor-light	tsx	9700	7191
 papercolor-light	typescript	13701	10779
+papercolor-light	xml	20823	16654
 papercolor-light	yaml	16564	10565
 pencil	bash	12491	8986
 pencil	c	17618	11350
@@ -1118,6 +1187,7 @@ pencil	rust	17576	11305
 pencil	toml	10487	9656
 pencil	tsx	9700	7579
 pencil	typescript	13701	11215
+pencil	xml	20823	18377
 pencil	yaml	16564	11006
 pencil-light	bash	12491	8986
 pencil-light	c	17618	11350
@@ -1134,6 +1204,7 @@ pencil-light	rust	17576	11305
 pencil-light	toml	10487	9656
 pencil-light	tsx	9700	7579
 pencil-light	typescript	13701	11215
+pencil-light	xml	20823	18377
 pencil-light	yaml	16564	11006
 rose-pine	bash	12491	9692
 rose-pine	c	17618	13975
@@ -1150,6 +1221,7 @@ rose-pine	rust	17576	13230
 rose-pine	toml	10487	9836
 rose-pine	tsx	9700	7207
 rose-pine	typescript	13701	9524
+rose-pine	xml	20823	18594
 rose-pine	yaml	16564	13117
 rose-pine-dawn	bash	12491	9692
 rose-pine-dawn	c	17618	13975
@@ -1166,6 +1238,7 @@ rose-pine-dawn	rust	17576	13230
 rose-pine-dawn	toml	10487	9836
 rose-pine-dawn	tsx	9700	7207
 rose-pine-dawn	typescript	13701	9524
+rose-pine-dawn	xml	20823	18594
 rose-pine-dawn	yaml	16564	13117
 rose-pine-moon	bash	12491	9692
 rose-pine-moon	c	17618	13975
@@ -1182,6 +1255,7 @@ rose-pine-moon	rust	17576	13230
 rose-pine-moon	toml	10487	9836
 rose-pine-moon	tsx	9700	7207
 rose-pine-moon	typescript	13701	9524
+rose-pine-moon	xml	20823	18594
 rose-pine-moon	yaml	16564	13117
 selenized	bash	12491	9388
 selenized	c	17618	12578
@@ -1198,6 +1272,7 @@ selenized	rust	17576	11350
 selenized	toml	10487	8688
 selenized	tsx	9700	7118
 selenized	typescript	13701	10529
+selenized	xml	20823	18336
 selenized	yaml	16564	11006
 selenized-light	bash	12491	9388
 selenized-light	c	17618	12578
@@ -1214,6 +1289,7 @@ selenized-light	rust	17576	11350
 selenized-light	toml	10487	8688
 selenized-light	tsx	9700	7118
 selenized-light	typescript	13701	10529
+selenized-light	xml	20823	18336
 selenized-light	yaml	16564	11006
 solarized-dark	bash	12491	9048
 solarized-dark	c	17618	13034
@@ -1230,6 +1306,7 @@ solarized-dark	rust	17576	11420
 solarized-dark	toml	10487	9656
 solarized-dark	tsx	9700	7385
 solarized-dark	typescript	13701	11146
+solarized-dark	xml	20823	16735
 solarized-dark	yaml	16564	10523
 solarized-light	bash	12491	9048
 solarized-light	c	17618	12938
@@ -1246,6 +1323,7 @@ solarized-light	rust	17576	11375
 solarized-light	toml	10487	8688
 solarized-light	tsx	9700	7099
 solarized-light	typescript	13701	10820
+solarized-light	xml	20823	18506
 solarized-light	yaml	16564	10523
 sonokai	bash	12491	10416
 sonokai	c	17618	13169
@@ -1262,6 +1340,7 @@ sonokai	rust	17576	10624
 sonokai	toml	10487	8186
 sonokai	tsx	9700	6004
 sonokai	typescript	13701	9752
+sonokai	xml	20823	16073
 sonokai	yaml	16564	10197
 soviet-dark	bash	12491	9170
 soviet-dark	c	17618	12232
@@ -1278,6 +1357,7 @@ soviet-dark	rust	17576	10392
 soviet-dark	toml	10487	8186
 soviet-dark	tsx	9700	5381
 soviet-dark	typescript	13701	9059
+soviet-dark	xml	20823	17809
 soviet-dark	yaml	16564	10090
 soviet-light	bash	12491	9170
 soviet-light	c	17618	12232
@@ -1294,6 +1374,7 @@ soviet-light	rust	17576	10392
 soviet-light	toml	10487	8186
 soviet-light	tsx	9700	5381
 soviet-light	typescript	13701	9059
+soviet-light	xml	20823	17809
 soviet-light	yaml	16564	10090
 srcery	bash	12491	9441
 srcery	c	17618	13743
@@ -1310,6 +1391,7 @@ srcery	rust	17576	12626
 srcery	toml	10487	8719
 srcery	tsx	9700	6842
 srcery	typescript	13701	10336
+srcery	xml	20823	18293
 srcery	yaml	16564	10560
 token	bash	12491	9150
 token	c	17618	13512
@@ -1326,6 +1408,7 @@ token	rust	17576	12994
 token	toml	10487	7642
 token	tsx	9700	7126
 token	typescript	13701	11360
+token	xml	20823	16890
 token	yaml	16564	10523
 token-light	bash	12491	9150
 token-light	c	17618	13512
@@ -1342,6 +1425,7 @@ token-light	rust	17576	12994
 token-light	toml	10487	7642
 token-light	tsx	9700	7126
 token-light	typescript	13701	11360
+token-light	xml	20823	16890
 token-light	yaml	16564	10523
 tokyonight-day	bash	12491	8296
 tokyonight-day	c	17618	12127
@@ -1358,6 +1442,7 @@ tokyonight-day	rust	17576	10352
 tokyonight-day	toml	10487	8186
 tokyonight-day	tsx	9700	5323
 tokyonight-day	typescript	13701	8928
+tokyonight-day	xml	20823	17809
 tokyonight-day	yaml	16564	10090
 tokyonight-moon	bash	12491	9767
 tokyonight-moon	c	17618	12209
@@ -1374,6 +1459,7 @@ tokyonight-moon	rust	17576	8287
 tokyonight-moon	toml	10487	7470
 tokyonight-moon	tsx	9700	6145
 tokyonight-moon	typescript	13701	8779
+tokyonight-moon	xml	20823	11061
 tokyonight-moon	yaml	16564	10472
 tokyonight-night	bash	12491	8296
 tokyonight-night	c	17618	12127
@@ -1390,6 +1476,7 @@ tokyonight-night	rust	17576	10352
 tokyonight-night	toml	10487	8186
 tokyonight-night	tsx	9700	5323
 tokyonight-night	typescript	13701	8928
+tokyonight-night	xml	20823	17809
 tokyonight-night	yaml	16564	10090
 tokyonight-storm	bash	12491	8296
 tokyonight-storm	c	17618	12127
@@ -1406,6 +1493,7 @@ tokyonight-storm	rust	17576	10352
 tokyonight-storm	toml	10487	8186
 tokyonight-storm	tsx	9700	5323
 tokyonight-storm	typescript	13701	8928
+tokyonight-storm	xml	20823	17809
 tokyonight-storm	yaml	16564	10090
 vague	bash	12491	9186
 vague	c	17618	13542
@@ -1422,6 +1510,7 @@ vague	rust	17576	10933
 vague	toml	10487	8694
 vague	tsx	9700	6692
 vague	typescript	13701	9139
+vague	xml	20823	18213
 vague	yaml	16564	10523
 vesper	bash	12491	10469
 vesper	c	17618	10610
@@ -1438,6 +1527,7 @@ vesper	rust	17576	10112
 vesper	toml	10487	8485
 vesper	tsx	9700	6646
 vesper	typescript	13701	10983
+vesper	xml	20823	12858
 vesper	yaml	16564	12547
 vscode-dark	bash	12491	9147
 vscode-dark	c	17618	11496
@@ -1454,6 +1544,7 @@ vscode-dark	rust	17576	11349
 vscode-dark	toml	10487	8843
 vscode-dark	tsx	9700	7043
 vscode-dark	typescript	13701	11279
+vscode-dark	xml	20823	16724
 vscode-dark	yaml	16564	10547
 vscode-light	bash	12491	9147
 vscode-light	c	17618	11496
@@ -1470,4 +1561,5 @@ vscode-light	rust	17576	11349
 vscode-light	toml	10487	8843
 vscode-light	tsx	9700	7043
 vscode-light	typescript	13701	11279
+vscode-light	xml	20823	16724
 vscode-light	yaml	16564	10547

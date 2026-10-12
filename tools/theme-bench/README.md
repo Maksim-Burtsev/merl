@@ -116,6 +116,14 @@ JavaScript, `<script type="text/x">` is `x` through `#gsub!`, an importmap is JS
 | HTML | 22,445 | 100.0 alabaster-light | 100.0 | 100.0 vscode-light |
 | CSS | 16,766 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 
+XML (#806), `.xml`, `.svg`, `.xsd` and `.xslt` as nvim-treesitter registers them, unless Neovim's
+`detect.xml` makes the file DocBook or XBL from its first 100 lines; the bench's four files are
+the only ones of 80 recordable lines in the d-bench projects:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| XML | 20,823 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
 ## Files
 
 | file | what |
@@ -140,7 +148,7 @@ cache, so neither `~/.config/nvim` nor a system-wide `site` directory reaches it
 The files: four per language from the projects of `tools/d-bench/projects.tsv` at their pinned
 commits (Python from paperless-ngx, Rust from ripgrep, TypeScript and TSX from outline,
 JavaScript from eslint, JSX from mastodon, Go from caddy, Lua and C from redis, HTML from bootstrap, caddy, eslint, outline and redis, CSS from gitea,
-paperless-ngx, caddy and redis, Markdown from ripgrep, caddy,
+paperless-ngx, caddy and redis, XML from koel, paperless-ngx and nowinandroid, Markdown from ripgrep, caddy,
 outline and paperless-ngx, Bash, JSON, YAML and TOML from redis, paperless-ngx, ripgrep, caddy and eslint
 as `LANGS` in `record.py` lists them), taken in the order of the hash of their path, each with at least 80
 lines among its first 200 that are ASCII and at most 140 columns: those are the lines recorded,
