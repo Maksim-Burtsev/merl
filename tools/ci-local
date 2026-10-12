@@ -3,6 +3,7 @@
 #   tools/ci-local            every step, stopping at the first that fails
 #   tools/ci-local STEP...    only those steps
 # `panic` runs only when named or on a release/ branch, as in CI.
+# `deny` is the check of .github/workflows/deny.yml, and fails when cargo-deny is not installed.
 set -Eeuo pipefail
 cd "$(dirname "$0")/.."
 
@@ -10,6 +11,10 @@ fmt() { cargo fmt --check; }
 clippy() { cargo clippy --all-targets -- -D warnings; }
 tests() { cargo test --locked; }
 release() { cargo build --release --locked; }
+deny() {
+  command -v cargo-deny >/dev/null || { echo "ci-local: cargo-deny is not installed" >&2; return 1; }
+  cargo deny --all-features check
+}
 panic() { cargo test --release --locked no_panic -- --ignored; }
 dbench() { tools/d-bench/run --selftest && tools/theme-bench/run --selftest; }
 smoke() { tests/smoke/run.py --golden --new target/release/merl; }
@@ -26,9 +31,9 @@ msrv() (
   cargo "+$v" build --locked
 )
 
-all=(fmt clippy tests release panic dbench smoke msrv)
+all=(fmt deny clippy tests release panic dbench smoke msrv)
 if [ $# -eq 0 ]; then
-  steps=(fmt clippy tests release)
+  steps=(fmt deny clippy tests release)
   case $(git rev-parse --abbrev-ref HEAD) in release/*) steps+=(panic) ;; esac
   steps+=(dbench smoke msrv)
 else

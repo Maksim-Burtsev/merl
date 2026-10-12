@@ -9,6 +9,7 @@ ignore = [
     "RUSTSEC-2026-0192", # ttf-parser unmaintained
     "RUSTSEC-2026-0206", # rustybuzz unmaintained
     "RUSTSEC-2024-0436", # paste unmaintained
+    "RUSTSEC-2024-0449", # unsafe-libyaml unmaintained, through serde_yaml in merman-core 0.7
 ]
 
 [licenses]
