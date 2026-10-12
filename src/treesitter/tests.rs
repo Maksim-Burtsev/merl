@@ -3,9 +3,9 @@ use std::path::{Path, PathBuf};
 
 use ratatui::style::{Color, Modifier};
 
+use super::resolve;
 use crate::buffer::Buffer;
 use crate::theme;
-use super::resolve;
 
 fn decode(runs: &str, palette: &HashMap<char, String>) -> Vec<String> {
     let mut out = Vec::new();

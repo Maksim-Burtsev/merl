@@ -67,7 +67,10 @@ fn the_setting_reaches_every_buffer_the_app_opens() {
     let path = dir.join("a.py");
     a.jump_to(&path, 0);
     settle(&mut a);
-    assert_eq!(painted(&mut a.buf, &theme), fresh(&path, work.as_bytes(), &theme));
+    assert_eq!(
+        painted(&mut a.buf, &theme),
+        fresh(&path, work.as_bytes(), &theme)
+    );
     let (_, b) = a.base.as_mut().expect("the base of a.py, for its ghost");
     assert_eq!(painted(b, &theme), fresh(&path, base.as_bytes(), &theme));
 
@@ -77,18 +80,26 @@ fn the_setting_reaches_every_buffer_the_app_opens() {
     std::fs::write(&path, changed).unwrap();
     assert!(a.reload(false));
     settle(&mut a);
-    assert_eq!(painted(&mut a.buf, &theme), fresh(&path, changed.as_bytes(), &theme));
+    assert_eq!(
+        painted(&mut a.buf, &theme),
+        fresh(&path, changed.as_bytes(), &theme)
+    );
 
     press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
     typed(&mut a, "return");
     a.settle_search();
     let mut terminal = Terminal::new(TestBackend::new(120, 30)).unwrap();
-    terminal.draw(|f| crate::ui::draw(f, &mut a, &theme)).unwrap();
+    terminal
+        .draw(|f| crate::ui::draw(f, &mut a, &theme))
+        .unwrap();
     let picker = a.picker.as_ref().expect("the search picker");
     assert!(picker.bufs[&PathBuf::from("a.py")].parsing());
     settle(&mut a);
     let picker = a.picker.as_mut().expect("the search picker");
-    let b = picker.bufs.get_mut(&PathBuf::from("a.py")).expect("a.py's preview");
+    let b = picker
+        .bufs
+        .get_mut(&PathBuf::from("a.py"))
+        .expect("a.py's preview");
     assert_eq!(painted(b, &theme), fresh(&path, changed.as_bytes(), &theme));
     let _ = std::fs::remove_dir_all(&dir);
 }
