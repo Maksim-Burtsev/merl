@@ -143,7 +143,7 @@ impl Buffer {
     }
 
     #[cfg(test)]
-    pub fn shape(&self) -> Vec<(u16, std::ops::Range<usize>, bool)> {
+    pub fn shape(&self) -> crate::treesitter::Shape {
         self.ts.as_ref().map(|t| t.shape()).unwrap_or_default()
     }
 
