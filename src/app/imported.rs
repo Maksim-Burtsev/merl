@@ -1,18 +1,6 @@
-//! `d` through the imports: the declarations of a name in the project module an import names,
-//! followed through the modules that only hand it on, and what a TypeScript module or barrel
-//! exports under another name.
-
 use super::*;
 
 impl App {
-    /// The declarations of `word` in the project module an import names, where `path` is what
-    /// [`search::imports`] binds the word or its qualifier to; `None` when the module is not the
-    /// project's. The word sits directly in the module, or in the class the chain goes through
-    /// (`UserRepo.create`), as [`search::qualified`] names it: `store.Open` is never a method
-    /// `Open`. An alias finds the imported name. A default import finds a declaration of its local
-    /// name, else the module's `export default`. An empty list is a module that does not declare
-    /// the word, a re-export: the search by name takes over. A Python name that is itself a
-    /// module of the project, and that nothing on the way declares, is that module's file.
     pub(super) fn imported_definitions(
         &self,
         kind: Kind,
@@ -77,10 +65,6 @@ impl App {
         })
     }
 
-    /// What a TypeScript module exports as `word` under another name, `export { Hono as HonoBase }`:
-    /// the top-level declarations of `Hono` in the module's files, which `grep` searches. What
-    /// it finds of the `export` line says only which files to read, so a cut in it cuts nothing
-    /// shown.
     pub(super) fn renamed_export(&self, word: &str, grep: impl Fn(&str) -> Vec<Hit>) -> Vec<Hit> {
         let cut = self.truncated.get();
         let mut exports: Vec<PathBuf> = grep(&format!(r"\bas\s+{}\b", regex::escape(word)))
@@ -104,8 +88,6 @@ impl App {
         hits
     }
 
-    /// [`App::imported_definitions`], `depth` modules of the project that only hand the name on
-    /// away from the file that asked.
     fn imported_at(
         &self,
         kind: Kind,
@@ -132,14 +114,9 @@ impl App {
             (!found.is_empty()).then_some(found)
         };
         let (files, inside) = match kind {
-            // `from a import b` takes a module or a name from `a`: the longest module that exists,
-            // never shorter than the one the import names.
             Kind::Python => {
                 let target = names_down_to_word(path.to_vec());
                 let floor = path.len().saturating_sub(1).max(1);
-                // A module importing from itself (`from . import views` in a package's
-                // `__init__.py`) takes a module of the package, unless it declares the name
-                // itself: then it is read as on master, where the import proves it.
                 let declares = |name: &String| {
                     let pattern = search::def_patterns(kind, name).join("|");
                     self.grep(&pattern, false, false, |p| p == here)
@@ -225,7 +202,6 @@ impl App {
             }
             Kind::Go => (module_files(path), names_down_to_word(Vec::new())),
             Kind::Julia if path.first().is_some_and(|p| !p.starts_with('.')) => return None,
-            // No module rules: the search by name, then outside the project, as before.
             _ => return Some(Vec::new()),
         };
         if files.is_empty() {
@@ -237,8 +213,6 @@ impl App {
         let wanted = |p: &Path| files.iter().any(|f| f == p);
         let mut patterns = search::def_patterns(kind, name);
         let member = kind == Kind::TsJs && inside.len() > 1;
-        // What the declaration patterns find is kept as on master, `get(url) {` in `const api =
-        // Object.freeze({`: the rules above sort only the hits of the patterns added here.
         let declarations = member
             .then(|| Regex::new(&patterns.join("|")).ok())
             .flatten();
@@ -265,15 +239,12 @@ impl App {
                     && (!added || !bare.is_match(&h.text) || enumed || literal)
             })
         });
-        // `export { Hono as HonoBase }`: the module declares it under another name. A default
-        // import's name is the importer's own.
         let named = path.last().is_some_and(|t| t != "default");
         if hits.is_empty() && kind == Kind::TsJs && within.is_none() && named {
             hits = self.renamed_export(name, |p| {
                 self.grep(p, false, false, wanted).unwrap_or_default()
             });
         }
-        // `const utils = require("./m")` over `module.exports = { helper };`: that line.
         if hits.is_empty()
             && chain.is_empty()
             && let Some((file, search::ModuleExports::OneAssignment { line1, .. })) = &exports
@@ -380,8 +351,6 @@ impl App {
                 return Some(found);
             }
         }
-        // A module that binds the name in any way, an import that led nowhere included, is
-        // left to the search by name.
         let unbound = |name: &String| {
             files.iter().all(|f| {
                 self.text_of(f)
@@ -414,12 +383,6 @@ impl App {
         )
     }
 
-    /// What the imports of the Python module `file` lead to for `names`, the first of which the
-    /// module was asked for and does not declare: an import of the module itself, not of a
-    /// function in it, binds that name, or a `from x import *` may. Every source is followed,
-    /// and which one the module ends up with is not computed: several are a picker. A name the
-    /// module binds in any other way as well (an assignment under an `if`, a loop) is left to
-    /// the search by name.
     fn handed_on(&self, kind: Kind, file: &Path, names: &[String], depth: usize) -> Vec<Candidate> {
         let (Some(text), Some((first, last))) =
             (self.text_of(file), names.first().zip(names.last()))
@@ -484,7 +447,6 @@ impl App {
         search::cmake_files(&command, &arg, dir, &outside)
     }
 
-    /// The first line of each of `files`, a module a name or a path leads to as a whole.
     pub(super) fn module_candidates(&self, files: Vec<PathBuf>) -> Vec<Candidate> {
         files
             .into_iter()
