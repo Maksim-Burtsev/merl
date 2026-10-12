@@ -49,6 +49,9 @@ LANGS = {
     "python": (["paperless-ngx"], ["py"]),
     "rust": (["ripgrep"], ["rs"]),
     "typescript": (["outline"], ["ts"]),
+    "tsx": (["outline"], ["tsx"]),
+    "javascript": (["eslint"], ["js"]),
+    "jsx": (["mastodon"], ["jsx"]),
     "go": (["caddy"], ["go"]),
     "markdown": (["ripgrep", "caddy", "outline", "paperless-ngx"], ["md"]),
 }
@@ -162,7 +165,8 @@ def init_lua(cache, name, ts, check=False):
     dirs = [repo(cache, source)] + [repo(cache, d) for d in deps.split(",") if d != "-"]
     lines = [f"vim.opt.rtp:prepend({json.dumps(d)})" for d in dirs]
     if not check:
-        lines += [f"vim.opt.rtp:prepend({json.dumps(os.path.join(ts, 'runtime'))})",
+        lines += [f"vim.opt.rtp:prepend({json.dumps(ts)})",
+                  f"vim.opt.rtp:prepend({json.dumps(os.path.join(ts, 'runtime'))})",
                   f"vim.opt.rtp:prepend({json.dumps(os.path.join(cache, 'site'))})",
                   "vim.g._ts_force_sync_parsing = true", "vim.o.number = true", "vim.o.cursorline = true", "vim.o.wrap = false",
                   "vim.api.nvim_create_autocmd('FileType', { callback = function(a) pcall(vim.treesitter.start, a.buf) end })"]

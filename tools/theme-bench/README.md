@@ -51,6 +51,22 @@ Go and Rust (#805), before injections:
   `queries/rust/highlights.scm` (attributes, `crate`/`self`/`super`, lifetimes, capitalised
   names), which merl does not load.
 
+TypeScript, TSX, JavaScript and JSX (#804), before injections:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| TypeScript | 13,701 | 98.8 adwaita | 98.8 | 99.3 material-light |
+| TSX | 9,700 | 99.5 github-dark | 99.8 | 99.9 material-light |
+| JavaScript | 13,199 | 95.6 adwaita | 95.6 | 96.1 e-ink-light |
+| JSX | 14,130 | 100.0 | 100.0 | 100.0 |
+
+- Injections (#818): `jsdoc` in `/** */` comments (tags such as `@param`, their `{types}` and
+  names), which LazyVim parses as `jsdoc`: almost all the misses of JavaScript and TypeScript, the
+  same in every theme; and `regex` in regex literals, a few characters per file.
+- The theme's own queries (#819): github-dark and github-light append github-nvim-theme's
+  `queries/jsx/highlights.scm` (a member expression tag such as `<Icons.Close>`), which merl does
+  not load.
+
 ## Files
 
 | file | what |
@@ -65,15 +81,17 @@ Go and Rust (#805), before injections:
 ## The reference
 
 LazyVim as the epic defines it: Neovim with the theme's own colorscheme, nvim-treesitter's
-queries (`main`, pinned in `record.py`) and the parsers LazyVim installs by default plus Rust and
+queries and plugin (`main`, pinned in `record.py`; the plugin maps `typescriptreact` to `tsx` and
+`javascriptreact` to `javascript`, #804) and the parsers LazyVim installs by default plus Rust and
 Go, built with `cc` at the revisions nvim-treesitter pins, `termguicolors`, `number`,
 `cursorline`, `nowrap`, and `vim.treesitter.start` on every buffer; no LSP, so no semantic
 tokens. Neovim runs in tmux with every `XDG_*` home and `XDG_CONFIG_DIRS` / `XDG_DATA_DIRS` under the
 cache, so neither `~/.config/nvim` nor a system-wide `site` directory reaches it.
 
 The files: four per language from the projects of `tools/d-bench/projects.tsv` at their pinned
-commits (Python from paperless-ngx, Rust from ripgrep, TypeScript from outline, Go from caddy,
-Markdown from those four), taken in the order of the hash of their path, each with at least 80
+commits (Python from paperless-ngx, Rust from ripgrep, TypeScript and TSX from outline,
+JavaScript from eslint, JSX from mastodon, Go from caddy, Markdown from ripgrep, caddy, outline
+and paperless-ngx), taken in the order of the hash of their path, each with at least 80
 lines among its first 200 that are ASCII and at most 140 columns: those are the lines recorded,
 so both programs draw all of them and each character has one cell.
 

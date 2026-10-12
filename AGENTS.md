@@ -175,8 +175,8 @@ in epic #623, each saying `no fold rules for .EXT` until then.
 merl colours code as LazyVim does (epic #797): tree-sitter's syntax tree, nvim-treesitter's own
 queries and the theme's Neovim highlight groups (`themes/NAME.groups.json`, #801), in
 `src/treesitter.rs`. Until #810 turns it on it runs behind the hidden setting `tree_sitter = true`
-in `config.toml`, for Python, Go and Rust today and for the languages of #803–#809 as they land; every other
-file goes through syntect as before.
+in `config.toml`, for Python, Go, Rust, TypeScript, TSX, JavaScript and JSX today and for the
+languages of #803–#809 as they land; every other file goes through syntect as before.
 
 - **A grammar is a dependency**: the crates.io release of the revision nvim-treesitter pins in
   `lua/nvim-treesitter/parsers.lua` at `NVIM_TS` (compare its `parser.c` with that commit's), else

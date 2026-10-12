@@ -204,9 +204,53 @@ fn rust_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn typescript_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("typescript");
+}
+
+#[test]
+fn tsx_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("tsx");
+}
+
+#[test]
+fn javascript_and_jsx_are_coloured_as_lazyvim() {
+    coloured_as_lazyvim("javascript");
+}
+
+#[test]
+fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
+    let sexp = |f: &str, src: &[u8]| {
+        let mut b = Buffer::from_bytes(PathBuf::from(f), src);
+        b.start_tree_sitter();
+        b.parse_more(None);
+        b.sexp()
+    };
+    let jsx = b"const a = <b />;\n";
+    for f in ["a.tsx", "a.jsx", "a.js", "a.mjs", "a.cjs"] {
+        assert!(sexp(f, jsx).contains("jsx_self_closing_element"), "{f}");
+    }
+    let ts = b"let a = <b>c;\n";
+    for f in ["a.ts", "a.mts", "a.cts"] {
+        assert!(sexp(f, ts).contains("type_assertion"), "{f}");
+    }
+    assert_eq!(sexp("a.astro", jsx), "");
+}
+
+#[test]
 fn every_vendored_query_compiles_with_what_it_uses() {
+    let inherited: Vec<&str> = super::QUERIES
+        .iter()
+        .flat_map(|(_, text)| text.lines())
+        .filter_map(|l| l.strip_prefix("; inherits:"))
+        .flat_map(|bases| bases.split(','))
+        .map(str::trim)
+        .collect();
     for (name, _) in super::QUERIES {
-        assert!(super::lang(name).is_some(), "{name}");
+        assert!(
+            super::lang(name).is_some() || inherited.contains(name),
+            "{name}"
+        );
     }
     super::compile("python", tree_sitter_python::LANGUAGE.into()).unwrap();
 }

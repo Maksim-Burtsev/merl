@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::ops::ControlFlow;
+use std::path::Path;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
@@ -17,9 +18,20 @@ use crate::theme::Theme;
 const NEOVIM_TREESITTER_PRIORITY: u32 = 100;
 
 const QUERIES: &[(&str, &str)] = &[
+    ("ecma", include_str!("../queries/ecma/highlights.scm")),
     ("go", include_str!("../queries/go/highlights.scm")),
+    (
+        "javascript",
+        include_str!("../queries/javascript/highlights.scm"),
+    ),
+    ("jsx", include_str!("../queries/jsx/highlights.scm")),
     ("python", include_str!("../queries/python/highlights.scm")),
     ("rust", include_str!("../queries/rust/highlights.scm")),
+    ("tsx", include_str!("../queries/tsx/highlights.scm")),
+    (
+        "typescript",
+        include_str!("../queries/typescript/highlights.scm"),
+    ),
 ];
 
 const PREDICATES: &[&str] = &[
@@ -79,28 +91,50 @@ impl Check {
     }
 }
 
-pub fn for_syntax(syntect_name: &str) -> Option<&'static Lang> {
+pub fn for_syntax(syntect_name: &str, path: Option<&Path>) -> Option<&'static Lang> {
+    let astro = path.is_some_and(|p| p.extension().is_some_and(|e| e == "astro"));
     match syntect_name {
         "Go" => lang("go"),
+        "JavaScript (Babel)" => lang("javascript"),
         "Python" => lang("python"),
         "Rust" => lang("rust"),
+        "TypeScript" => lang("typescript"),
+        "TypeScriptReact" if !astro => lang("tsx"),
         _ => None,
     }
 }
 
 pub fn lang(name: &str) -> Option<&'static Lang> {
     static GO: OnceLock<Option<Lang>> = OnceLock::new();
+    static JAVASCRIPT: OnceLock<Option<Lang>> = OnceLock::new();
     static PYTHON: OnceLock<Option<Lang>> = OnceLock::new();
     static RUST: OnceLock<Option<Lang>> = OnceLock::new();
+    static TSX: OnceLock<Option<Lang>> = OnceLock::new();
+    static TYPESCRIPT: OnceLock<Option<Lang>> = OnceLock::new();
     match name {
         "go" => GO
             .get_or_init(|| compile("go", tree_sitter_go::LANGUAGE.into()).ok())
+            .as_ref(),
+        "javascript" => JAVASCRIPT
+            .get_or_init(|| compile("javascript", tree_sitter_javascript::LANGUAGE.into()).ok())
             .as_ref(),
         "python" => PYTHON
             .get_or_init(|| compile("python", tree_sitter_python::LANGUAGE.into()).ok())
             .as_ref(),
         "rust" => RUST
             .get_or_init(|| compile("rust", tree_sitter_rust::LANGUAGE.into()).ok())
+            .as_ref(),
+        "tsx" => TSX
+            .get_or_init(|| compile("tsx", tree_sitter_typescript::LANGUAGE_TSX.into()).ok())
+            .as_ref(),
+        "typescript" => TYPESCRIPT
+            .get_or_init(|| {
+                compile(
+                    "typescript",
+                    tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
+                )
+                .ok()
+            })
             .as_ref(),
         _ => None,
     }
@@ -147,6 +181,7 @@ fn compile_text(name: &'static str, language: Language, text: &str) -> Result<La
                 ("priority", Some(v), None) => {
                     prio = v.parse().map_err(|_| format!("{name}: priority {v}"))?;
                 }
+                ("bo.commentstring", _, _) => {}
                 (key, _, _) => return Err(format!("{name}: #set! {key} is not implemented")),
             }
         }
