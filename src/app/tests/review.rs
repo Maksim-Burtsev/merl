@@ -2131,3 +2131,18 @@ fn an_unfolded_file_stays_unfolded_whatever_is_written_into_it() {
     assert!(a.folded_here().is_none());
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn cutting_a_line_above_a_changed_pair_draws_before_the_diff_catches_up() {
+    use ratatui::{Terminal, backend::TestBackend};
+    let (dir, mut a) = review_app("cut-pair");
+    a.jump_to(&dir.join("src/a.rs"), 3);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut t = Terminal::new(TestBackend::new(70, 16)).unwrap();
+    t.draw(|f| crate::ui::draw(f, &mut a, &theme)).unwrap();
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('x'), KeyModifiers::CONTROL);
+    t.draw(|f| crate::ui::draw(f, &mut a, &theme)).unwrap();
+    assert_eq!(a.buf.lines.len(), 5);
+    let _ = std::fs::remove_dir_all(dir);
+}
