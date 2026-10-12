@@ -30,6 +30,7 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/javascript/highlights.scm"),
         include_str!("../queries/javascript/injections.scm"),
     ),
+    ("jsdoc", include_str!("../queries/jsdoc/highlights.scm"), ""),
     (
         "jsx",
         include_str!("../queries/jsx/highlights.scm"),
@@ -211,6 +212,7 @@ fn grammar(name: &str) -> Option<Language> {
         "regex" => tree_sitter_regex::LANGUAGE.into(),
         "printf" => tree_sitter_printf::LANGUAGE.into(),
         "javascript" => tree_sitter_javascript::LANGUAGE.into(),
+        "jsdoc" => tree_sitter_jsdoc::LANGUAGE.into(),
         "typescript" => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
         "tsx" => tree_sitter_typescript::LANGUAGE_TSX.into(),
         _ => return None,

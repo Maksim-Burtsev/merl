@@ -62,19 +62,17 @@ yet colour as LazyVim does, drawn through syntect as before:
 | fenced `toml` blocks | 23 | 17 | 3 | #806 |
 
 TypeScript, TSX, JavaScript and JSX (#804), with #803's injections (regex literals parsed as
-`regex`; an injected language merl has no grammar for, such as `t` in ``t(`…`)``, is left plain as
-in Neovim, the syntect fallback being only for Markdown's code blocks):
+`regex`, `/** */` comments as `jsdoc` since #818; an injected language merl has no grammar for,
+such as `t` in ``t(`…`)``, is left plain as in Neovim, the syntect fallback being only for
+Markdown's code blocks):
 
 | language | chars | lowest | median | highest |
 |---|---|---|---|---|
-| TypeScript | 13,701 | 98.8 adwaita | 98.8 | 99.3 material-light |
-| TSX | 9,700 | 99.5 github-dark | 99.8 | 99.9 material-light |
-| JavaScript | 13,199 | 95.7 adwaita | 95.7 | 96.1 srcery |
+| TypeScript | 13,701 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+| TSX | 9,700 | 99.7 github-dark | 100.0 | 100.0 vscode-light |
+| JavaScript | 13,199 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 | JSX | 14,130 | 100.0 | 100.0 | 100.0 |
 
-- `jsdoc` (#818): in `/** */` comments, tags such as `@param`, their `{types}` and names, which
-  LazyVim parses as `jsdoc` and merl has no grammar for yet: almost all the misses of JavaScript
-  and TypeScript, the same in every theme.
 - The theme's own queries (#819): github-dark and github-light append github-nvim-theme's
   `queries/jsx/highlights.scm` (a member expression tag such as `<Icons.Close>`), which merl does
   not load.

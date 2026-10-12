@@ -612,3 +612,30 @@ fn an_injected_language_without_a_grammar_stays_plain_outside_markdown() {
         fg_at("x(`Add people to x`);", "Add")
     );
 }
+
+#[test]
+fn a_doc_comment_is_parsed_as_jsdoc_in_javascript_and_typescript() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let group = |g: &str| theme.group(g).unwrap().fg;
+    let src = "/** @param {string} name */";
+    for name in ["javascript", "typescript", "tsx"] {
+        let lines = vec![src.to_string()];
+        let mut parsed = super::Parsed::new(super::lang(name).unwrap(), &lines).unwrap();
+        parsed.parse(None);
+        let mut styles = super::Styles::new(&theme);
+        let spans = parsed.spans(&lines, 0, 0, &mut styles);
+        let fg = |word: &str| {
+            let col = src.find(word).unwrap();
+            spans[0]
+                .iter()
+                .find(|(_, r)| r.contains(&col))
+                .unwrap()
+                .0
+                .fg
+        };
+        assert_eq!(fg("@param"), group("@keyword"), "{name}");
+        assert_eq!(fg("string"), group("@type"), "{name}");
+        assert_eq!(fg("name"), group("@variable"), "{name}");
+        assert_ne!(fg("@param"), fg("/**"), "{name}");
+    }
+}
