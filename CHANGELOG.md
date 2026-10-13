@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- In `--review`, `c` / `C` after opening another changed file (`o`, a search, `d`) go back to the hunk you left instead of walking on from that file; `Enter` in the tree still moves the walk there (#855).
+- In `--review`, `c` / `C` after opening another changed file (`o`, a search, `d`) go back to the hunk you left instead of walking on from that file; `Enter` in the tree moves the walk to the file it opens (#855).
 - In `--review`, a jump (`d`, `D`, `s`, `[`, the tree, a picker) into a file renamed without changes shows its code; only the `c` / `C` walk stops on the rename screen (#759).
 - `d` on a Go method promoted through embedded structs jumps to the shallowest one, as the compiler picks it, instead of the first found down the first embedded field; two at the same depth offer every namesake (#822).
 - In `--review`, cutting a line above a changed line at the end of the file no longer crashes merl (#831).

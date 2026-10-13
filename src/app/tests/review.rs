@@ -1360,6 +1360,89 @@ fn c_and_big_c_from_another_file_go_back_to_the_hunk_left() {
         (dir.join("tail"), 0),
         "Enter in the tree moves the walk: the way back is the file it opened"
     );
+    a.jump_to(&dir.join("src/a.rs"), 6);
+    big_c(&mut a);
+    assert_eq!(
+        at(&a),
+        (dir.join("tail"), 0),
+        "the hunks above the cursor in the file of the excursion are not the walk's"
+    );
+    a.jump_to(&dir.join("src/a.rs"), 4);
+    walk_into(&mut a, "src/a.rs");
+    a.jump_to(&outside, 2);
+    c(&mut a);
+    assert_eq!(
+        at(&a),
+        (dir.join("src/a.rs"), 5),
+        "Enter on the file already open makes it the walk's, from the cursor"
+    );
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let lock = |name: &str, mode: u32| {
+            let p = std::fs::Permissions::from_mode(mode);
+            std::fs::set_permissions(dir.join(name), p).unwrap();
+        };
+        a.jump_to(&outside, 2);
+        lock("tail", 0o000);
+        walk_into(&mut a, "tail");
+        c(&mut a);
+        assert_eq!(
+            at(&a),
+            (dir.join("src/a.rs"), 5),
+            "a file that does not open in the tree does not move the walk"
+        );
+        lock("tail", 0o644);
+        a.jump_to(&dir.join("new"), 1);
+        lock("src/a.rs", 0o000);
+        c(&mut a);
+        assert_eq!(
+            at(&a),
+            (dir.join("tail"), 0),
+            "the hunk left does not open: `c` walks on from the cursor"
+        );
+        assert!(
+            a.message.contains("src/a.rs"),
+            "and says why: {}",
+            a.message
+        );
+        lock("src/a.rs", 0o644);
+    }
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn the_hunk_left_is_forgotten_when_the_review_follows_another_branch() {
+    let (dir, mut a) = review_app("reviewbackswitch");
+    let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
+    a.jump_to(&dir.join("tail"), 1);
+    c(&mut a);
+    a.jump_to(&dir.join("src/a.rs"), 1);
+    let mut fresh = a.review.clone().unwrap();
+    fresh.branch = "other".into();
+    a.review_refreshed(fresh);
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn merl_review_started_on_nothing_makes_its_first_hunk_the_walks() {
+    let (dir, _) = review_app("reviewbackstart");
+    let review = git::Review::open(&dir, None, None).unwrap();
+    let (_, files) = crate::tree::build(&dir, false);
+    let paths: Vec<_> = review.files.iter().map(|f| f.path.clone()).collect();
+    let tree = crate::tree::from_listing(&paths);
+    let mut a = App::new(dir.clone(), tree, files, Buffer::empty(), None);
+    a.start_review(review);
+    assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
+    a.jump_to(&dir.join("tail"), 1);
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    assert_eq!(
+        at(&a),
+        (dir.join("src/a.rs"), 1),
+        "before any key the walk stands on the first hunk merl opened"
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
