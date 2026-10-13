@@ -183,7 +183,7 @@ merl colours code as LazyVim does (epic #797): tree-sitter's syntax tree, nvim-t
 queries and the theme's Neovim highlight groups (`themes/NAME.groups.json`, #801), in
 `src/treesitter.rs`. Until #810 turns it on it runs behind the hidden setting `tree_sitter = true`
 in `config.toml`, for Python, Go, Rust, Markdown, TypeScript, TSX, JavaScript, JSX, Bash (zsh
-stays on syntect, as LazyVim has no zsh parser), JSON, YAML, TOML, Lua, C, C++, Java, C#, Kotlin, Swift, Ruby, PHP, Elixir, HTML, CSS, XML, Diff and Query today and for the languages of
+stays on syntect, as LazyVim has no zsh parser), JSON, YAML, TOML, Lua, C, C++, Java, C#, Kotlin, Swift, Ruby, PHP, Elixir, HTML, CSS, XML, Diff, Query and Dockerfile today and for the languages of
 #806–#809 as they land; every other file goes through syntect as before. Dart stays on syntect:
 the tree-sitter-dart nvim-treesitter pins (UserNobody14's) binds tree-sitter 0.22 in its
 `Cargo.toml`, which cannot link beside merl's 0.27 (both declare `links = "tree-sitter"`), and

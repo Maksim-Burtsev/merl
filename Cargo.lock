@@ -1881,6 +1881,7 @@ dependencies = [
  "tree-sitter-cpp",
  "tree-sitter-css",
  "tree-sitter-diff",
+ "tree-sitter-dockerfile-updated",
  "tree-sitter-elixir",
  "tree-sitter-go",
  "tree-sitter-html",
@@ -3963,6 +3964,16 @@ source = "git+https://github.com/tree-sitter-grammars/tree-sitter-diff?rev=ada38
 dependencies = [
  "cc",
  "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-dockerfile-updated"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e61eb704364be179ab9be89e2891c8e77c0041eca5891a5c04164a21f6df7a0"
+dependencies = [
+ "cc",
+ "tree-sitter",
 ]
 
 [[package]]

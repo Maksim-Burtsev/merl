@@ -79,6 +79,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/java/injections.scm"),
     ),
     (
+        "dockerfile",
+        include_str!("../queries/dockerfile/highlights.scm"),
+        include_str!("../queries/dockerfile/injections.scm"),
+    ),
+    (
         "kotlin",
         include_str!("../queries/kotlin/highlights.scm"),
         include_str!("../queries/kotlin/injections.scm"),
@@ -342,6 +347,7 @@ pub fn for_syntax(
         "C++" if cpp(path, lines) => lang("cpp"),
         "CSS" => lang("css"),
         "Diff" if diff(path, lines) => lang("diff"),
+        "Dockerfile" | "Dockerfile (with bash)" => lang("dockerfile"),
         "Lisp" if path.is_some_and(query) => lang("query"),
         "HTML" | "XML" => html_or_xml(path?, lines),
         "Elixir" if !euphoria(path, lines) => lang("elixir"),
@@ -572,6 +578,7 @@ fn grammar(name: &str) -> Option<Language> {
         "java" => tree_sitter_java::LANGUAGE.into(),
         "javascript" => tree_sitter_javascript::LANGUAGE.into(),
         "kotlin" => tree_sitter_kotlin::LANGUAGE.into(),
+        "dockerfile" => tree_sitter_dockerfile_updated::language(),
         "swift" => tree_sitter_swift::LANGUAGE.into(),
         "ruby" => tree_sitter_ruby::LANGUAGE.into(),
         "elixir" => tree_sitter_elixir::LANGUAGE.into(),

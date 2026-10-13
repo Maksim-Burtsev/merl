@@ -186,6 +186,21 @@ as `tools/d-bench/projects.tsv` has no Elixir project:
 What is left is the ```` ```console ```` blocks of phoenix's docs, which merl colours as Bash while
 Neovim injects nothing into them (#851).
 
+Dockerfile (#809), the files both syntect and Neovim call Dockerfile: `Dockerfile`, `dockerfile`,
+`Containerfile`, `*.Dockerfile`, `*.dockerfile`, `Dockerfile.*` and `Containerfile.*`, with its
+injections (`bash` in the shell form of `RUN`, `CMD` and the rest, every fragment of the file one
+combined region, and in a `RUN` heredoc; `comment` stays plain, as LazyVim installs no parser for
+it). The commit nvim-treesitter pins (971acdd) binds tree-sitter 0.24 in its `Cargo.toml`, which
+cannot link beside merl's 0.27, and crates.io's tree-sitter-dockerfile 0.2.0 binds 0.20 and has
+another `parser.c`; merl takes tree-sitter-dockerfile-updated 0.2.0, whose `parser.c` and
+`scanner.c` are the pin's, byte for byte, and which takes any tree-sitter from 0.21. The bench's
+four files are `Dockerfile`s of immich and paperless-ngx, picked from those of mastodon,
+paperless-ngx, immich and gitea:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Dockerfile | 20,413 | 100.0 github-dark | 100.0 | 100.0 vscode-light |
+
 HTML and CSS (#806). An HTML file is parsed as `html` unless Neovim's `detect.html` makes it
 `htmlangular`, `xhtml`, `htmldjango` or `superhtml` from its first 40 lines (merl leaves those to
 syntect, the bench skips them); `<style>` and `style="…"` are CSS, `<script>` and `on…="…"` are
@@ -256,7 +271,7 @@ cache, so neither `~/.config/nvim` nor a system-wide `site` directory reaches it
 The files: four per language from the projects of `tools/d-bench/projects.tsv` at their pinned
 commits (Python from paperless-ngx, Rust from ripgrep, TypeScript and TSX from outline,
 JavaScript from eslint, JSX from mastodon, Go from caddy, Lua and C from redis, C++ from leveldb, Java from halo, C# from eShop, Kotlin from nowinandroid, Swift from Alamofire, Ruby from mastodon, PHP from koel, Elixir from phoenix, HTML from bootstrap, caddy, eslint, outline and redis, CSS from gitea,
-paperless-ngx, caddy and redis, XML from koel, paperless-ngx and nowinandroid, Diff from rules_go, openzeppelin-contracts, outline and halo, Query from nvim-treesitter, Markdown from ripgrep, caddy,
+paperless-ngx, caddy and redis, XML from koel, paperless-ngx and nowinandroid, Diff from rules_go, openzeppelin-contracts, outline and halo, Query from nvim-treesitter, Dockerfile from mastodon, paperless-ngx, immich and gitea, Markdown from ripgrep, caddy,
 outline and paperless-ngx, Bash, JSON, YAML and TOML from redis, paperless-ngx, ripgrep, caddy and eslint
 as `LANGS` in `record.py` lists them), taken in the order of the hash of their path, each with at least 80
 lines among its first 200 that are ASCII and at most 140 columns: those are the lines recorded,
