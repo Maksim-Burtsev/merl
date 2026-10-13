@@ -332,6 +332,9 @@ pub struct GoSignature {
     pub result: String,
 }
 pub fn go_signature(text: &str, line1: usize) -> Option<GoSignature> {
+    fn typed(p: &str) -> Option<&str> {
+        p.split_once(char::is_whitespace).map(|(_, t)| t.trim())
+    }
     static PKG: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"\b\w+\.").unwrap());
     let kind = Kind::Go;
@@ -357,9 +360,6 @@ pub fn go_signature(text: &str, line1: usize) -> Option<GoSignature> {
         .map(str::trim)
         .filter(|p| !p.is_empty())
         .collect();
-    fn typed(p: &str) -> Option<&str> {
-        p.split_once(char::is_whitespace).map(|(_, t)| t.trim())
-    }
     let named = parts.iter().any(|p| typed(p).is_some());
     let mut types: Vec<String> = Vec::new();
     for p in parts.iter().rev() {

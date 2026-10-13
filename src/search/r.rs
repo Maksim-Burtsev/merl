@@ -73,6 +73,7 @@ fn comment_at(line: &str) -> usize {
 }
 
 pub fn r_quoted_name(line: &str, col: usize) -> Option<Range<usize>> {
+    static OPERATOR: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"%[^%\s`]+%").unwrap());
     let code = &line[..comment_at(line)];
     if col >= code.len() {
         return None;
@@ -84,7 +85,6 @@ pub fn r_quoted_name(line: &str, col: usize) -> Option<Range<usize>> {
     {
         return (b > a + 1).then_some(a + 1..b);
     }
-    static OPERATOR: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"%[^%\s`]+%").unwrap());
     OPERATOR
         .find_iter(code)
         .find(|m| m.start() <= col && col < m.end())

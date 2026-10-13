@@ -293,12 +293,12 @@ fn elixir_binds(p: &str, name: &str) -> bool {
     })
 }
 pub fn elixir_module_lines(text: &str, line: usize, pattern: &Regex) -> Vec<usize> {
+    static MODULE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^\s*def(?:module|impl|protocol)\s").unwrap());
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
         return Vec::new();
     };
-    static MODULE: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^\s*def(?:module|impl|protocol)\s").unwrap());
     let literal = literal_lines(Kind::Elixir, text);
     let code = |i: usize| !literal[i] && !lines[i].trim().is_empty();
     let mut depth = indent(lines[at]);

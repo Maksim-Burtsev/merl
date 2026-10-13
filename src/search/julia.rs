@@ -519,6 +519,7 @@ pub fn julia_col(line: &str, word: &str) -> Option<usize> {
 }
 
 pub fn julia_slug(uuid: &str, tree: &str) -> Option<String> {
+    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     let uuid = u128::from_str_radix(&uuid.replace('-', ""), 16).ok()?;
     let mut bytes = uuid.to_le_bytes().to_vec();
     if tree.len() != 40 {
@@ -535,7 +536,6 @@ pub fn julia_slug(uuid: &str, tree: &str) -> Option<String> {
         }
     }
     let mut crc = !crc;
-    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     Some(
         (0..5)
             .map(|_| {

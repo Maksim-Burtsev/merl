@@ -380,6 +380,7 @@ fn alt_q_alone_has_no_line() {
 
 #[test]
 fn a_stop_past_the_hunks_the_review_opened_with_does_not_count() {
+    use TextLine::File;
     let (dir, mut a) = review_app("reviewstats-numbered");
     press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
     typed(&mut a, "a.rs");
@@ -393,7 +394,6 @@ fn a_stop_past_the_hunks_the_review_opened_with_does_not_count() {
     );
     std::fs::write(dir.join("src/a.rs"), "a\nB\nc\nD\ne\nF\n").unwrap();
     a.reload(false);
-    use TextLine::File;
     assert_eq!(a.diff.hunks, [File(1), File(3), File(5)]);
     for _ in 0..3 {
         press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);

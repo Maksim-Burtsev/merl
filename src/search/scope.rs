@@ -959,6 +959,39 @@ pub(super) const GO_ARCH: &[&str] = &[
     "wasm",
 ];
 pub fn go_built(path: &Path, text: &str, build: &GoBuild) -> GoBuilt {
+    static TOKEN: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"&&|\|\||[!()]|[\w.]+").unwrap());
+    type Tag<'a> = &'a dyn Fn(&str) -> bool;
+    fn or_of_ands(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
+        let mut value = and_of_unaries(t, i, tag)?;
+        while t.get(*i) == Some(&"||") {
+            *i += 1;
+            value |= and_of_unaries(t, i, tag)?;
+        }
+        Some(value)
+    }
+    fn and_of_unaries(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
+        let mut value = unary(t, i, tag)?;
+        while t.get(*i) == Some(&"&&") {
+            *i += 1;
+            value &= unary(t, i, tag)?;
+        }
+        Some(value)
+    }
+    fn unary(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
+        let token = *t.get(*i)?;
+        *i += 1;
+        match token {
+            "!" => unary(t, i, tag).map(|v| !v),
+            "(" => {
+                let value = or_of_ands(t, i, tag);
+                *i += 1;
+                value
+            }
+            "&&" | "||" | ")" => None,
+            name => Some(tag(name)),
+        }
+    }
     let is_os = |t: &str| GO_UNIX.contains(&t) || GO_OS.contains(&t);
     let tag = |t: &str| -> bool {
         match t {
@@ -999,40 +1032,7 @@ pub fn go_built(path: &Path, text: &str, build: &GoBuild) -> GoBuilt {
             GoBuilt::Compiled
         };
     };
-    static TOKEN: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"&&|\|\||[!()]|[\w.]+").unwrap());
     let tokens: Vec<&str> = TOKEN.find_iter(expr).map(|m| m.as_str()).collect();
-    type Tag<'a> = &'a dyn Fn(&str) -> bool;
-    fn or_of_ands(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
-        let mut value = and_of_unaries(t, i, tag)?;
-        while t.get(*i) == Some(&"||") {
-            *i += 1;
-            value |= and_of_unaries(t, i, tag)?;
-        }
-        Some(value)
-    }
-    fn and_of_unaries(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
-        let mut value = unary(t, i, tag)?;
-        while t.get(*i) == Some(&"&&") {
-            *i += 1;
-            value &= unary(t, i, tag)?;
-        }
-        Some(value)
-    }
-    fn unary(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
-        let token = *t.get(*i)?;
-        *i += 1;
-        match token {
-            "!" => unary(t, i, tag).map(|v| !v),
-            "(" => {
-                let value = or_of_ands(t, i, tag);
-                *i += 1;
-                value
-            }
-            "&&" | "||" | ")" => None,
-            name => Some(tag(name)),
-        }
-    }
     match or_of_ands(&tokens, &mut 0, &tag) {
         Some(true) => GoBuilt::Compiled,
         Some(false) => GoBuilt::Excluded,

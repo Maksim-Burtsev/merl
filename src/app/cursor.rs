@@ -126,6 +126,7 @@ impl App {
     }
 
     pub(super) fn grow_selection(&mut self) {
+        type Span = ((TextLine, usize), (TextLine, usize));
         let blank = |t: TextLine| self.text(t).trim().is_empty();
         let l = self.at();
         let (mut top, mut bottom) = (l, l);
@@ -155,7 +156,6 @@ impl App {
             )),
         ];
         let cur = self.selection().unwrap_or(((l, self.col), (l, self.col)));
-        type Span = ((TextLine, usize), (TextLine, usize));
         let wider =
             |&(from, to): &Span| !blank(l) && from <= cur.0 && cur.1 <= to && (from, to) != cur;
         if let Some((from, to)) = steps.into_iter().flatten().find(wider) {

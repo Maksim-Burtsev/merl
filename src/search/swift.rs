@@ -518,11 +518,11 @@ pub fn swift_file_private(line: &str) -> bool {
         })
 }
 pub fn swift_test_dirs(root: &Path) -> Vec<PathBuf> {
+    static FIELD: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r#"\b(name|path)\s*:\s*"([^"]*)""#).unwrap());
     let Ok(manifest) = std::fs::read_to_string(root.join("Package.swift")) else {
         return vec![PathBuf::from("Tests")];
     };
-    static FIELD: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r#"\b(name|path)\s*:\s*"([^"]*)""#).unwrap());
     manifest
         .match_indices(".testTarget(")
         .filter_map(|(at, m)| {

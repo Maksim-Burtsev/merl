@@ -786,6 +786,8 @@ pub fn module_files(
                 .collect()
         }
         Kind::TsJs => {
+            const EXTENSIONS: [&str; 9] =
+                ["ts", "tsx", "d.ts", "js", "jsx", "mts", "cts", "mjs", "cjs"];
             let listed: std::collections::HashSet<&Path> =
                 files.iter().map(PathBuf::as_path).collect();
             let spec = module.join("/");
@@ -794,8 +796,6 @@ pub fn module_files(
             } else {
                 ts_aliases(root, dir, &spec)
             };
-            const EXTENSIONS: [&str; 9] =
-                ["ts", "tsx", "d.ts", "js", "jsx", "mts", "cts", "mjs", "cjs"];
             bases
                 .iter()
                 .filter_map(|b| lexical(b))

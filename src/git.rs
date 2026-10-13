@@ -1006,11 +1006,11 @@ mod tests {
 
     #[test]
     fn review_keeps_deleted_lines_as_ghosts_and_hunk_starts() {
+        use TextLine::{Deleted, File};
         let diff = "@@ -1 +1 @@\n-x\n+y\n\
                     @@ -3,0 +4,2 @@\n+a\n+b\n\
                     @@ -8,2 +9,0 @@\n-c\n-d\n\\ No newline at end of file\n";
         let d = parse(diff, true);
-        use TextLine::{Deleted, File};
         assert_eq!(d.hunks, vec![File(0), File(3), Deleted(9, 0)]);
         assert_eq!(d.ghosts[&0], vec!["x"]);
         assert_eq!(d.ghosts[&9], vec!["c", "d"]);
@@ -1224,6 +1224,7 @@ mod tests {
 
     #[test]
     fn a_review_lists_the_branch_files_against_the_merge_base() {
+        use TextLine::File;
         let dir = std::env::temp_dir().join(format!("merl-review-{}", std::process::id()));
         drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(dir.join("src")).unwrap();
@@ -1313,7 +1314,6 @@ mod tests {
             Some(&r.merge_base),
             moved.old.as_deref(),
         );
-        use TextLine::File;
         assert_eq!(d.hunks, vec![File(9)]);
         assert_eq!(d.ghosts[&9], vec!["m10"]);
         let d = diff(&dir, &dir.join("src/a.rs"), Some(&r.merge_base), None);

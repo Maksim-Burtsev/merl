@@ -66,6 +66,8 @@ const COMPILER_ATTRIBUTES: &[&str] = &[
 ];
 
 pub fn rust_attribute(lines: &[String], line: usize, start: usize, end: usize) -> Option<RustAttr> {
+    static ONLY_A_PATH: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s*(\w+\s*::\s*)*$").unwrap());
     let cur = lines.get(line)?;
     let Frames { text, stack, .. } = frames(lines, line, start)?;
     let pathed = cur[end..].trim_start().starts_with("::");
@@ -92,8 +94,6 @@ pub fn rust_attribute(lines: &[String], line: usize, start: usize, end: usize) -
         let key = after.starts_with('=') && !after[1..].starts_with(['=', '>']);
         return (key || compiler(&text, &stack[a..])).then_some(RustAttr::Nothing);
     }
-    static ONLY_A_PATH: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*(\w+\s*::\s*)*$").unwrap());
     let head = &text[stack[a].content_start..];
     let word = &cur[start..end];
     let attributes_own_name = ONLY_A_PATH.is_match(head) && !pathed;

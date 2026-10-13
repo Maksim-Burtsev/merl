@@ -19,7 +19,6 @@ pub enum AttrLine {
     Jsx,
 }
 pub fn attr_at(line: &str, byte_col: usize, read_as: AttrLine) -> Option<(Attr, Range<usize>)> {
-    let jsx = read_as == AttrLine::Jsx;
     static ATTR: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(
             r#"(?:^|[\s<{(])(class|className|id|href|src)\s*=\s*(?:\{\s*)?(?:"([^"]*)"|'([^']*)'|`([^`$]*)`)"#,
@@ -27,6 +26,7 @@ pub fn attr_at(line: &str, byte_col: usize, read_as: AttrLine) -> Option<(Attr, 
         .unwrap()
     });
     static SVELTE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\bclass:([\w-]+)").unwrap());
+    let jsx = read_as == AttrLine::Jsx;
     for c in ATTR.captures_iter(line) {
         let v = c.get(2).or_else(|| c.get(3)).or_else(|| c.get(4))?;
         if byte_col < v.start() || byte_col > v.end() {
@@ -435,7 +435,6 @@ impl SheetSyntax {
     }
 }
 pub fn sheet_at(line: &str, byte_col: usize, syntax: SheetSyntax) -> Option<Sheet> {
-    let less = syntax == SheetSyntax::Less;
     static IMPORT: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\s*@(?:import|use|forward|require)\b").unwrap());
     static QUOTED: LazyLock<Regex> =
@@ -443,6 +442,10 @@ pub fn sheet_at(line: &str, byte_col: usize, syntax: SheetSyntax) -> Option<Shee
     static ANIMATION: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\s*(?:-[a-z]+-)?animation(?:-name)?\s*:").unwrap());
     static NS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"([\w-]+)\.$").unwrap());
+    static AT: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"@(include|mixin|function|extend)\s+(?:([\w-]+)\.)?(\.)?$").unwrap()
+    });
+    let less = syntax == SheetSyntax::Less;
     if IMPORT.is_match(line) {
         return QUOTED.captures_iter(line).find_map(|c| {
             let m = c.get(1).or_else(|| c.get(2)).or_else(|| c.get(3))?;
@@ -470,9 +473,6 @@ pub fn sheet_at(line: &str, byte_col: usize, syntax: SheetSyntax) -> Option<Shee
     if before.ends_with('@') {
         return less.then_some(Sheet::LessVar(word));
     }
-    static AT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"@(include|mixin|function|extend)\s+(?:([\w-]+)\.)?(\.)?$").unwrap()
-    });
     if let Some(c) = AT.captures(before) {
         let ns = c.get(2).map(|m| m.as_str().to_owned());
         return match (&c[1], c.get(3).is_some()) {

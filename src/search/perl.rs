@@ -163,14 +163,14 @@ pub fn perl_imports(text: &str) -> Vec<(String, String)> {
 }
 
 pub fn perl_lexical(text: &str, line: usize, col: usize, name: &str) -> Option<usize> {
+    static HEADER: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\b(?:for|foreach)\s+$").unwrap());
     let (literal, code) = perl_lex(text);
     let n = regex::escape(name);
     let decl = Regex::new(&format!(
         r"\b(?:my|state)\s+(?:[A-Z][\w:]*\s+)?[$@%]{n}\b|\b(?:my|state)\s*\([^)]*[$@%]{n}\b|^\s*(?:sub|method)\s+[\w:]*\s*\([^)]*[$@%]{n}\b"
     ))
     .ok()?;
-    static HEADER: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"\b(?:for|foreach)\s+$").unwrap());
     let mut depth = 0usize;
     for i in (0..=line.min(code.len().saturating_sub(1))).rev() {
         if literal[i] && i != line {
