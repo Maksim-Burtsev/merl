@@ -651,6 +651,8 @@ impl App {
                         .collect::<Vec<_>>()
                 })
                 .collect();
+            let mut seen = std::collections::HashSet::new();
+            level.retain(|t| seen.insert((t.path.clone(), t.line)));
         }
         None
     }
