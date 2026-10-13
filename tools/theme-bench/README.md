@@ -147,8 +147,8 @@ generated:
 |---|---|---|---|---|
 | Swift | 22,782 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 
-Ruby (#808), the files Neovim opens as `ruby`: `.rb`, `.rbi`, `.rbw`, `.rake`, `.gemspec`, `.ru`,
-`.builder`, `.rjs`, `.rxml`, `.rant`, `Gemfile`, `Rakefile`, `Brewfile`, `Vagrantfile` and the like
+Ruby (#808), the files both syntect and Neovim call Ruby: `.rb`, `.rbi`, `.rjs`, `.rake`,
+`.gemspec`, `config.ru`, `Gemfile`, `Rakefile`, `Brewfile`, `Vagrantfile`, `Rantfile` and `irbrc`
 (`Dangerfile`, `Podfile`, `.thor` and the rest syntect calls Ruby and Neovim does not stay on
 syntect), with its injections (`regex` in a regex literal, a heredoc's body by its delimiter;
 `comment` and `rbs` comments stay plain, as LazyVim installs no parser for them):
@@ -157,9 +157,9 @@ syntect), with its injections (`regex` in a regex literal, a heredoc's body by i
 |---|---|---|---|---|
 | Ruby | 13,458 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 
-PHP (#808), the files Neovim opens as `php` (`.php`, `.phtml`, `.phpt`, `.ctp`, `.theme`,
-`.php0`–`.php9`; a `.blade.php` and the `.inc` or `.module` files Neovim reads by their first line
-stay on syntect), parsed as `php` with `php_only`'s queries inherited and the text around the code
+PHP (#808), the files both syntect and Neovim call PHP (`.php`, `.phtml`, `.phpt`, `.php3`,
+`.php4`, `.php5`, `.php7`; a `.blade.php` and the `.inc` or `.module` files Neovim reads by their
+first line stay on syntect), parsed as `php` with `php_only`'s queries inherited and the text around the code
 injected as one combined HTML region; `comment`, `phpdoc` and `bash` stay plain, as LazyVim
 installs no parser for them:
 

@@ -393,10 +393,7 @@ fn euphoria(path: Option<&Path>, lines: &[String]) -> bool {
 }
 
 fn php(path: &Path) -> bool {
-    const EXTENSIONS: &[&str] = &[
-        "php", "phtml", "phpt", "ctp", "theme", "php0", "php1", "php2", "php3", "php4", "php5",
-        "php6", "php7", "php8", "php9",
-    ];
+    const EXTENSIONS: &[&str] = &["php", "phtml", "phpt", "php3", "php4", "php5", "php7"];
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
     !name.ends_with(".blade.php")
         && path
@@ -406,17 +403,13 @@ fn php(path: &Path) -> bool {
 }
 
 fn ruby(path: &Path) -> bool {
-    const EXTENSIONS: &[&str] = &[
-        "rb", "rbi", "rbw", "rjs", "rxml", "rant", "ru", "gemspec", "builder", "rake",
-    ];
+    const EXTENSIONS: &[&str] = &["rb", "rbi", "rjs", "ru", "gemspec", "rake"];
     const NAMES: &[&str] = &[
         "Brewfile",
         "Gemfile",
-        "Puppetfile",
-        ".irbrc",
         "irbrc",
-        ".irb_history",
-        "irb_history",
+        "rakefile",
+        "Rakefile",
         "rantfile",
         "Rantfile",
         "Vagrantfile",
@@ -426,8 +419,6 @@ fn ruby(path: &Path) -> bool {
         .and_then(|e| e.to_str())
         .is_some_and(|e| EXTENSIONS.contains(&e))
         || NAMES.contains(&name)
-        || name.starts_with("rakefile")
-        || name.starts_with("Rakefile")
 }
 
 fn cpp(path: Option<&Path>, lines: &[String]) -> bool {

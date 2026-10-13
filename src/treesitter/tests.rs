@@ -398,10 +398,18 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     assert!(sexp("A.swift", b"class A {}\n").contains("(source_file "));
     for f in [
         "a.rb",
+        "a.rbi",
+        "a.rjs",
         "a.gemspec",
         "a.rake",
+        "Brewfile",
         "Gemfile",
+        "irbrc",
+        "rakefile",
         "Rakefile",
+        "rantfile",
+        "Rantfile",
+        "Vagrantfile",
         "config.ru",
     ] {
         assert!(sexp(f, b"x = 1\n").contains("(program "), "{f}");
@@ -409,7 +417,9 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     for f in ["Dangerfile", "Podfile", "a.thor"] {
         assert_eq!(sexp(f, b"x = 1\n"), "", "{f}");
     }
-    for f in ["a.php", "a.phtml", "a.php5"] {
+    for f in [
+        "a.php", "a.phtml", "a.phpt", "a.php3", "a.php4", "a.php5", "a.php7",
+    ] {
         assert!(sexp(f, b"<?php echo 1;\n").contains("(program "), "{f}");
     }
     assert_eq!(sexp("a.blade.php", b"<?php echo 1;\n"), "");
