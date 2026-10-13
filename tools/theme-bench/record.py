@@ -13,7 +13,8 @@ character's colour as `rrggbb` followed by `b` when bold and `i` when italic.
 Every theme of themes.tsv is cloned at its pinned commit into the cache (default
 $THEME_BENCH_CACHE or ~/.cache/merl-theme-bench), with nvim-treesitter at NVIM_TS and the
 parsers LazyVim installs by default (PARSERS) built with `cc` at the revisions nvim-treesitter
-pins. Neovim then starts in tmux on its own server, isolated `XDG_*` under the cache, with only
+pins, a parser it marks `generate` first through `tree-sitter generate` (the CLI on PATH, 0.26.1 or
+later), as nvim-treesitter does. Neovim then starts in tmux on its own server, isolated `XDG_*` under the cache, with only
 the colorscheme, nvim-treesitter's queries and parsers, `termguicolors`, `number`, `cursorline`
 and `nowrap`, the theme's `before` commands and `:colorscheme`, and `vim.treesitter.start` on
 every buffer. Each file is drawn WIDTH columns wide and tall enough for its first LINES lines;
@@ -45,7 +46,7 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 NVIM_TS = "1a4f47b03dfe92d28de7d5654c67327ef008c9e6"
 PARSERS = ["bash", "c", "css", "diff", "html", "javascript", "jsdoc", "json", "lua", "luadoc", "luap", "markdown",
            "markdown_inline", "printf", "python", "query", "regex", "toml", "tsx", "typescript", "vim",
-           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java", "c_sharp"]
+           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java", "c_sharp", "kotlin", "swift", "ruby", "php", "php_only", "elixir"]
 LANGS = {
     "python": (["paperless-ngx"], ["py"]),
     "rust": (["ripgrep"], ["rs"]),
@@ -64,6 +65,11 @@ LANGS = {
     "cpp": (["leveldb"], ["cc", "h"]),
     "java": (["halo"], ["java"]),
     "c_sharp": (["eShop"], ["cs"]),
+    "kotlin": (["nowinandroid"], ["kt", "kts"]),
+    "swift": (["Alamofire"], ["swift"]),
+    "ruby": (["mastodon"], ["rb"]),
+    "php": (["koel"], ["php"]),
+    "elixir": (["phoenix"], ["ex", "exs"]),
     "html": (["bootstrap", "caddy", "eslint", "outline", "redis"], ["html", "htm"]),
     "css": (["gitea", "paperless-ngx", "caddy", "redis"], ["css"]),
     "xml": (["koel", "paperless-ngx", "nowinandroid"], ["xml", "svg", "xsd", "xslt"]),
@@ -77,6 +83,8 @@ NOT_HTML = re.compile(
     r"|\{#[ \t]+|<extend|<super>")
 THEME_ONLY = {
     "nvim-treesitter": ["nvim-treesitter", "query", "https://github.com/nvim-treesitter/nvim-treesitter.git", NVIM_TS, "-"],
+    "phoenix": ["phoenix", "elixir", "https://github.com/phoenixframework/phoenix.git",
+                "e9eeba217bbc89635d8f26404a9471d49617f07f", "-"],
 }
 SKIP_DIRS = ("migrations/", "vendor/", "testdata/", "node_modules/", "CHANGELOG")
 FILES, LINES, MINLINES, MAXLEN, WIDTH = 4, 200, 80, 140, 200
@@ -165,18 +173,21 @@ def parsers(cache):
     os.makedirs(site, exist_ok=True)
     lua = ("local p = dofile(arg[1] .. '/lua/nvim-treesitter/parsers.lua') "
            "for _, l in ipairs(vim.split(arg[2], ',')) do local i = p[l].install_info "
-           "io.write(table.concat({l, i.url, i.revision, i.location or '-'}, '\\t'), '\\n') end")
+           "io.write(table.concat({l, i.url, i.revision, i.location or '-', i.generate and 'generate' or '-'}, '\\t'), '\\n') end")
     script = os.path.join(cache, "parsers.lua")
     open(script, "w").write(lua)
     r = subprocess.run(["nvim", "--clean", "-l", script, ts, ",".join(PARSERS)], capture_output=True, text=True)
     rows = r.stdout.split("\n")
     for row in filter(None, rows):
-        lang, url, rev, loc = row.split("\t")
+        lang, url, rev, loc, generate = row.split("\t")
         stamp = os.path.join(cache, "grammars", f"{lang}.built")
         if os.path.exists(stamp) and open(stamp).read() == rev:
             continue
         g = ensure(os.path.join(cache, "grammars", os.path.basename(url)), url, rev)
         src = os.path.join(g, loc) if loc != "-" else g
+        if generate != "-":
+            subprocess.run(["tree-sitter", "generate", "--abi", "15", "src/grammar.json"], cwd=src, check=True,
+                           env={**os.environ, "TREE_SITTER_JS_RUNTIME": "native"})
         files = [os.path.join(src, "src", f) for f in ("parser.c", "scanner.c") if os.path.exists(os.path.join(src, "src", f))]
         subprocess.run(["cc", "-O2", "-shared", "-fPIC", "-std=c11", "-I", os.path.join(src, "src"), *files,
                         "-o", os.path.join(site, f"{lang}.so")], check=True)

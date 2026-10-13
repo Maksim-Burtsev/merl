@@ -79,6 +79,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/java/injections.scm"),
     ),
     (
+        "kotlin",
+        include_str!("../queries/kotlin/highlights.scm"),
+        include_str!("../queries/kotlin/injections.scm"),
+    ),
+    (
         "javascript",
         include_str!("../queries/javascript/highlights.scm"),
         include_str!("../queries/javascript/injections.scm"),
@@ -129,6 +134,31 @@ const QUERIES: &[(&str, &str, &str)] = &[
         "tsx",
         include_str!("../queries/tsx/highlights.scm"),
         include_str!("../queries/tsx/injections.scm"),
+    ),
+    (
+        "elixir",
+        include_str!("../queries/elixir/highlights.scm"),
+        include_str!("../queries/elixir/injections.scm"),
+    ),
+    (
+        "php",
+        include_str!("../queries/php/highlights.scm"),
+        include_str!("../queries/php/injections.scm"),
+    ),
+    (
+        "php_only",
+        include_str!("../queries/php_only/highlights.scm"),
+        include_str!("../queries/php_only/injections.scm"),
+    ),
+    (
+        "ruby",
+        include_str!("../queries/ruby/highlights.scm"),
+        include_str!("../queries/ruby/injections.scm"),
+    ),
+    (
+        "swift",
+        include_str!("../queries/swift/highlights.scm"),
+        include_str!("../queries/swift/injections.scm"),
     ),
     (
         "typescript",
@@ -313,14 +343,19 @@ pub fn for_syntax(
         "Diff" if diff(path, lines) => lang("diff"),
         "Lisp" if path.is_some_and(query) => lang("query"),
         "HTML" | "XML" => html_or_xml(path?, lines),
+        "Elixir" if !euphoria(path, lines) => lang("elixir"),
         "Go" => lang("go"),
         "Java" if !path.is_some_and(|p| p.extension().is_some_and(|e| e == "bsh")) => lang("java"),
         "JSON" => lang("json"),
+        "Kotlin" => lang("kotlin"),
         "TOML" => lang("toml"),
         "YAML" => lang("yaml"),
         "JavaScript (Babel)" => lang("javascript"),
         "Python" => lang("python"),
+        "PHP" if path.is_none_or(php) => lang("php"),
+        "Ruby" if path.is_none_or(ruby) => lang("ruby"),
         "Rust" => lang("rust"),
+        "Swift" => lang("swift"),
         "Markdown" => lang("markdown"),
         "TypeScript" => lang("typescript"),
         "TypeScriptReact" if !astro => lang("tsx"),
@@ -342,6 +377,48 @@ fn html_variant(lines: &[String]) -> bool {
         .expect("a valid regex")
     });
     lines.iter().take(40).any(|l| re.is_match(l))
+}
+
+fn euphoria(path: Option<&Path>, lines: &[String]) -> bool {
+    path.is_some_and(|p| p.extension().is_some_and(|e| e == "ex"))
+        && lines.iter().take(100).any(|l| {
+            let lower = l.to_lowercase();
+            lower.starts_with("--")
+                || ["ifdef", "include"].iter().any(|w| {
+                    lower.strip_prefix(w).is_some_and(|rest| {
+                        !rest.starts_with(|c: char| c.is_alphanumeric() || c == '_')
+                    })
+                })
+        })
+}
+
+fn php(path: &Path) -> bool {
+    const EXTENSIONS: &[&str] = &["php", "phtml", "phpt", "php3", "php4", "php5", "php7"];
+    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    !name.ends_with(".blade.php")
+        && path
+            .extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|e| EXTENSIONS.contains(&e))
+}
+
+fn ruby(path: &Path) -> bool {
+    const EXTENSIONS: &[&str] = &["rb", "rbi", "rjs", "ru", "gemspec", "rake"];
+    const NAMES: &[&str] = &[
+        "Brewfile",
+        "Gemfile",
+        "irbrc",
+        "rakefile",
+        "Rakefile",
+        "rantfile",
+        "Rantfile",
+        "Vagrantfile",
+    ];
+    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| EXTENSIONS.contains(&e))
+        || NAMES.contains(&name)
 }
 
 fn cpp(path: Option<&Path>, lines: &[String]) -> bool {
@@ -492,6 +569,12 @@ fn grammar(name: &str) -> Option<Language> {
         "printf" => tree_sitter_printf::LANGUAGE.into(),
         "java" => tree_sitter_java::LANGUAGE.into(),
         "javascript" => tree_sitter_javascript::LANGUAGE.into(),
+        "kotlin" => tree_sitter_kotlin::LANGUAGE.into(),
+        "swift" => tree_sitter_swift::LANGUAGE.into(),
+        "ruby" => tree_sitter_ruby::LANGUAGE.into(),
+        "elixir" => tree_sitter_elixir::LANGUAGE.into(),
+        "php" => tree_sitter_php::LANGUAGE_PHP.into(),
+        "php_only" => tree_sitter_php::LANGUAGE_PHP_ONLY.into(),
         "jsdoc" => tree_sitter_jsdoc::LANGUAGE.into(),
         "typescript" => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
         "tsx" => tree_sitter_typescript::LANGUAGE_TSX.into(),
