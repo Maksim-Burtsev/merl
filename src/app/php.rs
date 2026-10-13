@@ -394,12 +394,12 @@ impl App {
                 }
                 search::PhpBinding::StaticCall { class: on, method } => {
                     let class = self.php_type(here, text, at, &on)?;
-                    let Returned { class, written } = self.php_returns(class, &method)?;
+                    let Returned { class, written } = self.php_returns(&class, &method)?;
                     (class, Some(format!("{on}::{method}(): {written}")))
                 }
                 search::PhpBinding::ThisCall(method) => {
                     let class = Self::php_self(here, text, at)?;
-                    let Returned { class, written } = self.php_returns(class, &method)?;
+                    let Returned { class, written } = self.php_returns(&class, &method)?;
                     (class, Some(format!("$this->{method}(): {written}")))
                 }
                 search::PhpBinding::FunctionCall(f) => {
@@ -426,7 +426,7 @@ impl App {
         found
     }
 
-    fn php_returns(&mut self, class: PhpClass, method: &str) -> Option<Returned> {
+    fn php_returns(&mut self, class: &PhpClass, method: &str) -> Option<Returned> {
         let re =
             Regex::new(&search::php_access_patterns(method, search::PhpAccess::Call).join("|"))
                 .ok()?;

@@ -495,15 +495,13 @@ pub fn with_colours(src: &str, colours: &str) -> String {
 }
 
 pub fn render(job: Job) -> Done {
-    let drawn = std::panic::catch_unwind(|| match &job.src {
-        Src::Diagram(src) => draw(&with_colours(src, &job.colours)).ok_or_else(String::new),
+    let Job { key, src, colours } = job;
+    let drawn = std::panic::catch_unwind(|| match &src {
+        Src::Diagram(src) => draw(&with_colours(src, &colours)).ok_or_else(String::new),
         Src::File(path) => picture::decode(path),
     })
     .unwrap_or_else(|_| Err("not drawn".into()));
-    Done {
-        key: job.key,
-        drawn,
-    }
+    Done { key, drawn }
 }
 
 fn file_key(path: &Path) -> Option<Key> {

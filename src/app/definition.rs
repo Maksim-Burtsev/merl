@@ -47,7 +47,7 @@ impl App {
         if self.probe.is_none()
             && let Some(FileLine { path, line1 }) = self.base_place()
         {
-            self.definition_at_base(path, line1);
+            self.definition_at_base(&path, line1);
             return;
         }
         if let Some(here) = self.rel_current()

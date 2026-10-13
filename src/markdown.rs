@@ -450,7 +450,7 @@ impl Lay<'_> {
                         mods: Modifier::BOLD,
                     };
                     let at = self.line_and_byte_col(r.start);
-                    self.push(title.into(), vec![(look, 0..title.len())], at, Kind::Text);
+                    self.push(title, vec![(look, 0..title.len())], at, Kind::Text);
                 }
             }
             Tag::CodeBlock(kind) => {
@@ -590,7 +590,7 @@ impl Lay<'_> {
                     let at = self.rows.last().map_or((0, 0), |r| r.src);
                     let text = rule.repeat(self.avail());
                     let n = text.len();
-                    self.push(text, vec![(Ink::Line.plain(), 0..n)], at, Kind::Text);
+                    self.push(&text, vec![(Ink::Line.plain(), 0..n)], at, Kind::Text);
                     self.shows_nothing();
                 }
                 self.gap_before_next_block = false;
@@ -612,7 +612,7 @@ impl Lay<'_> {
                 }) = self.stack.last()
                 {
                     let at = self.line_and_byte_col(r.start);
-                    self.push(String::new(), Vec::new(), at, Kind::Text);
+                    self.push("", Vec::new(), at, Kind::Text);
                 }
                 self.stack.pop();
                 self.gap_before_next_block = true;
@@ -634,7 +634,7 @@ impl Lay<'_> {
             }
             TagEnd::Table => {
                 if let Some(t) = self.table.take() {
-                    self.table(t);
+                    self.table(&t);
                 }
                 self.gap_before_next_block = true;
             }
@@ -777,14 +777,14 @@ impl Lay<'_> {
 
     fn push(
         &mut self,
-        text: String,
+        text: &str,
         looks: Vec<(Look, Range<usize>)>,
         src: (usize, usize),
         kind: Kind,
     ) {
         let (mut full, mut all) = self.prefix(kind != Kind::Gap);
         let at = full.len();
-        full.push_str(&text);
+        full.push_str(text);
         all.extend(
             looks
                 .into_iter()
@@ -829,10 +829,10 @@ impl Lay<'_> {
             let above = self.after();
             match l.checked_sub(1) {
                 Some(b) if b > above.0 && self.line(b).trim().is_empty() => {
-                    self.push(String::new(), Vec::new(), (b, 0), Kind::Gap);
+                    self.push("", Vec::new(), (b, 0), Kind::Gap);
                 }
                 _ => {
-                    self.push(String::new(), Vec::new(), (l, 0), Kind::Gap);
+                    self.push("", Vec::new(), (l, 0), Kind::Gap);
                     self.shows_nothing();
                 }
             }
@@ -875,7 +875,7 @@ impl Lay<'_> {
                         inline.src_byte_of_text_byte(r.end.saturating_sub(1).max(r.start)),
                     )
                     .0;
-                self.push(text, looks, at, Kind::Text);
+                self.push(&text, looks, at, Kind::Text);
                 if let Some(row) = self.rows.last_mut() {
                     row.lines.end = row.lines.end.max(last + 1);
                 }
@@ -894,14 +894,14 @@ impl Lay<'_> {
             let text = line[r.clone()].to_string();
             let n = text.len();
             let at = (l, c.saturating_add(tabs.raw(r.start)));
-            self.push(text, vec![(look, 0..n)], at, Kind::Text);
+            self.push(&text, vec![(look, 0..n)], at, Kind::Text);
         }
     }
 
     fn rule(&mut self, at: (usize, usize)) {
         let text = "\u{2500}".repeat(self.avail());
         let n = text.len();
-        self.push(text, vec![(Ink::Line.plain(), 0..n)], at, Kind::Text);
+        self.push(&text, vec![(Ink::Line.plain(), 0..n)], at, Kind::Text);
     }
 
     #[expect(clippy::string_slice, reason = "#858")]
@@ -928,7 +928,7 @@ impl Lay<'_> {
                     from: 0,
                     at: 0,
                 };
-                self.push(String::new(), Vec::new(), at, kind);
+                self.push("", Vec::new(), at, kind);
             }
             self.span_fences(first, &b.span);
             self.code.push(Code {
@@ -958,7 +958,7 @@ impl Lay<'_> {
                 let col = tabs
                     .raw(r.start)
                     .saturating_sub(block_line.tab_spaces_parser_added);
-                self.push(text, vec![(Ink::Code.plain(), 0..n)], (l, c + col), kind);
+                self.push(&text, vec![(Ink::Code.plain(), 0..n)], (l, c + col), kind);
             }
             drawn.push(line);
         }
@@ -1003,7 +1003,7 @@ impl Lay<'_> {
                 from: 0,
                 at: 0,
             };
-            self.push(" ".repeat(lead), Vec::new(), at, kind);
+            self.push(&" ".repeat(lead), Vec::new(), at, kind);
         }
         self.code.push(Code {
             lang: String::new(),
@@ -1100,7 +1100,7 @@ impl Lay<'_> {
     }
 
     #[expect(clippy::excessive_nesting, reason = "#858")]
-    fn table(&mut self, t: Table) {
+    fn table(&mut self, t: &Table) {
         let n = t
             .rows
             .iter()
@@ -1135,7 +1135,7 @@ impl Lay<'_> {
         let first = t.rows.first().map_or(0, |row| row.src_line);
         let top = border("\u{250c}", "\u{252c}", "\u{2510}");
         let len = top.len();
-        self.push(top, vec![(line, 0..len)], (first, 0), Kind::Text);
+        self.push(&top, vec![(line, 0..len)], (first, 0), Kind::Text);
         self.shows_nothing();
         let empty = Inline::default();
         for (i, TableRow { src_line: l, cells }) in t.rows.iter().enumerate() {
@@ -1180,12 +1180,12 @@ impl Lay<'_> {
                 let at = text.len();
                 text.push_str(" \u{2502}");
                 looks.push((line, at + 1..text.len()));
-                self.push(text, looks, (*l, 0), Kind::Text);
+                self.push(&text, looks, (*l, 0), Kind::Text);
             }
             if i == 0 {
                 let mid = border("\u{251c}", "\u{253c}", "\u{2524}");
                 let len = mid.len();
-                self.push(mid, vec![(line, 0..len)], (l + 1, 0), Kind::Text);
+                self.push(&mid, vec![(line, 0..len)], (l + 1, 0), Kind::Text);
                 if !t.delimiter_row {
                     self.shows_nothing();
                 }
@@ -1194,7 +1194,12 @@ impl Lay<'_> {
         let bottom = border("\u{2514}", "\u{2534}", "\u{2518}");
         let len = bottom.len();
         let last = t.rows.last().map_or(0, |row| row.src_line);
-        self.push(bottom, vec![(line, 0..len)], (last, usize::MAX), Kind::Text);
+        self.push(
+            &bottom,
+            vec![(line, 0..len)],
+            (last, usize::MAX),
+            Kind::Text,
+        );
     }
 }
 

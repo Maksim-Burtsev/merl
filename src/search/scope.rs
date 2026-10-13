@@ -135,7 +135,9 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         Kind::TsJs => node_modules(root, root),
         Kind::Zig => zig_roots(&run("zig", &["env"]).unwrap_or_default()),
         Kind::C => c_roots(
-            run("xcrun", &["--show-sdk-path"]).map(|s| PathBuf::from(s.trim())),
+            run("xcrun", &["--show-sdk-path"])
+                .map(|s| PathBuf::from(s.trim()))
+                .as_deref(),
             root,
         ),
         Kind::Proto => [
@@ -292,7 +294,7 @@ pub(super) fn required_modules(cache: &Path, gomod: &str) -> Vec<PathBuf> {
     }
     dirs
 }
-pub(super) fn c_roots(sdk: Option<PathBuf>, root: &Path) -> Vec<PathBuf> {
+pub(super) fn c_roots(sdk: Option<&Path>, root: &Path) -> Vec<PathBuf> {
     let mut dirs = vec![PathBuf::from("/usr/include")];
     dirs.extend(sdk.iter().map(|sdk| sdk.join("usr/include")));
     dirs.push(PathBuf::from("/usr/local/include"));

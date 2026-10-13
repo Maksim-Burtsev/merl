@@ -274,7 +274,7 @@ fn perl_lex(text: &str) -> (Vec<bool>, Vec<String>) {
             }
             State::Quote(..) => literal.push(true),
         }
-        let (blanked, next, heredocs) = scan_line(line, std::mem::replace(&mut state, State::Code));
+        let (blanked, next, heredocs) = scan_line(line, &state);
         code.push(blanked);
         pending.extend(heredocs);
         state = match (next, pending.pop_front()) {
@@ -289,12 +289,12 @@ fn perl_lex(text: &str) -> (Vec<bool>, Vec<String>) {
     (literal, code)
 }
 
-fn scan_line(line: &str, state: State) -> (String, State, Vec<(String, bool)>) {
+fn scan_line(line: &str, state: &State) -> (String, State, Vec<(String, bool)>) {
     let b = line.as_bytes();
     let mut out = b.to_vec();
     let mut heredocs = Vec::new();
     let ident = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
-    let mut quote = match state {
+    let mut quote = match *state {
         State::Quote(open, close, depth) => Some((open, close, depth)),
         _ => None,
     };

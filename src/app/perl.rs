@@ -48,7 +48,7 @@ impl App {
                     &package,
                     &word,
                     &patterns,
-                    Reason::Path(package.clone()),
+                    &Reason::Path(package.clone()),
                 );
                 let found = if found.is_empty() {
                     self.perl_by_name(here, &word, &patterns)
@@ -68,7 +68,7 @@ impl App {
                     &package,
                     &word,
                     &patterns,
-                    Reason::Path(package.clone()),
+                    &Reason::Path(package.clone()),
                 );
                 let found = if found.is_empty() {
                     self.offer_only = !self.perl_files(here, &package).is_empty();
@@ -88,7 +88,7 @@ impl App {
                     .filter(|(n, _)| *n == word)
                     .flat_map(|(_, module)| {
                         let reason = Reason::Import(module.clone());
-                        self.perl_in_package(here, &module, &word, &patterns, reason)
+                        self.perl_in_package(here, &module, &word, &patterns, &reason)
                     })
                     .collect::<Vec<_>>();
                 let found = if imported.is_empty() {
@@ -157,7 +157,7 @@ impl App {
         package: &str,
         word: &str,
         patterns: &[String],
-        reason: Reason,
+        reason: &Reason,
     ) -> Vec<Candidate> {
         let re = Regex::new(&patterns.join("|")).expect("an escaped name keeps it valid");
         let mut found = Vec::new();

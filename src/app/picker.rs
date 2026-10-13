@@ -145,7 +145,7 @@ impl App {
                 self.search_enter = true;
                 self.search_due = self.search_due.map(|_| Instant::now());
             } else if let Some(item) = picker.current().cloned() {
-                self.search_jump(item);
+                self.search_jump(&item);
             }
             return;
         }

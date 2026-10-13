@@ -205,7 +205,7 @@ impl Data {
                 last_line_unended: false,
                 span: 0..lines.len(),
             }),
-            (_, Some(Parsed::Table(rows))) => lay.table(Table {
+            (_, Some(Parsed::Table(rows))) => lay.table(&Table {
                 aligns: Vec::new(),
                 delimiter_row: false,
                 rows: rows.iter().map(|(l, cells)| table_row(*l, cells)).collect(),
@@ -217,7 +217,7 @@ impl Data {
                         let rule = "\u{2500}".repeat(lay.avail());
                         let look = vec![(Ink::Line.plain(), 0..rule.len())];
                         let at = lay.after();
-                        lay.push(rule, look, at, Kind::Gap);
+                        lay.push(&rule, look, at, Kind::Gap);
                     }
                     lay.code_block(Block {
                         info_first_word: "json".into(),

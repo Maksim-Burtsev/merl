@@ -98,7 +98,7 @@ impl App {
             .filter(|p| search::styles_in(p).is_some())
             .cloned()
             .collect();
-        self.styled_in(here, name, id, files, Reason::ByName);
+        self.styled_in(here, name, id, files, &Reason::ByName);
     }
 
     fn css_module(&mut self, here: &Path) -> bool {
@@ -133,7 +133,7 @@ impl App {
             return false;
         };
         let reason = Reason::Import(file.display().to_string());
-        self.styled_in(here, &class, false, vec![file], reason);
+        self.styled_in(here, &class, false, vec![file], &reason);
         true
     }
 
@@ -143,7 +143,7 @@ impl App {
         name: &str,
         id: bool,
         files: Vec<PathBuf>,
-        reason: Reason,
+        reason: &Reason,
     ) {
         let piece = name
             .rsplit(['-', '_'])

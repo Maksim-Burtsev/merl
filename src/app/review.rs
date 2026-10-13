@@ -94,19 +94,19 @@ impl App {
     pub(super) fn review_count(
         &mut self,
         at: Option<Instant>,
-        from: Spot,
+        from: &Spot,
         action: Option<&str>,
         quit: bool,
     ) {
         let to = self.review_spot();
-        let walked = from != to && matches!(action, Some("c" | "C" | "Tree: Enter"));
+        let walked = *from != to && matches!(action, Some("c" | "C" | "Tree: Enter"));
         let stop = walked.then(|| self.review_stop()).flatten();
         let end = action == Some("c") && self.message == "last hunk of the review";
         if let Some(s) = &mut self.session {
             if let Some(at) = at {
-                s.pressed(at, &from, quit);
+                s.pressed(at, from, quit);
             }
-            s.moved(action, &from, &to, stop, end);
+            s.moved(action, from, &to, stop, end);
         }
     }
 

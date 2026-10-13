@@ -20,7 +20,7 @@ impl App {
         })
     }
 
-    pub(super) fn definition_at_base(&mut self, path: PathBuf, line: usize) {
+    pub(super) fn definition_at_base(&mut self, path: &Path, line: usize) {
         if !self.flush() {
             return;
         }
@@ -42,7 +42,7 @@ impl App {
         }
         b.picker = None;
         b.message.clear();
-        b.jump_to(&b.root.join(&path), line);
+        b.jump_to(&b.root.join(path), line);
         b.col = col;
         let before = (b.buf.path.clone(), b.line, b.col);
         b.goto_definition();

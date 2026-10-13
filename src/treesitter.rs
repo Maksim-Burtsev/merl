@@ -818,7 +818,7 @@ fn found(
     out
 }
 
-fn first_row(old: Found, new: &Found) -> usize {
+fn first_row(old: &Found, new: &Found) -> usize {
     old.symmetric_difference(new)
         .flat_map(|(_, captures)| captures.iter().map(|c| c.3))
         .min()
@@ -833,7 +833,7 @@ fn changed_match_row(
     bytes: &[u8],
 ) -> usize {
     let found = |tree| found(patterns, tree, range.clone(), bytes, usize::MAX);
-    first_row(found(old), &found(new))
+    first_row(&found(old), &found(new))
 }
 
 fn changed_text_row(patterns: &Patterns, before: &(Tree, String), new: &Tree, text: &str) -> usize {
@@ -841,7 +841,7 @@ fn changed_text_row(patterns: &Patterns, before: &(Tree, String), new: &Tree, te
     let (prefix, suffix) = common_ends(old, new_bytes);
     let around = |len: usize| prefix.saturating_sub(1)..(len - suffix + 1).min(len);
     first_row(
-        found(patterns, &before.0, around(old.len()), old, prefix),
+        &found(patterns, &before.0, around(old.len()), old, prefix),
         &found(patterns, new, around(new_bytes.len()), new_bytes, prefix),
     )
 }
