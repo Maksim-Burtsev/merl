@@ -1,4 +1,3 @@
-#![expect(clippy::cast_precision_loss, reason = "#858")]
 #![expect(clippy::format_collect, reason = "#858")]
 #![expect(clippy::format_push_string, reason = "#858")]
 #![expect(clippy::ignore_without_reason, reason = "#858")]
@@ -266,7 +265,11 @@ fn report(rows: &[(&str, u64, Vec<f64>)]) {
         let m = median(samples);
         let all: Vec<String> = samples.iter().map(|s| format!("{s:.0}")).collect();
         let last = last.get(*name).map_or("-", String::as_str);
-        let flag = if m > *budget as f64 { "  OVER" } else { "" };
+        let flag = if m > f64::from(u32::try_from(*budget).unwrap()) {
+            "  OVER"
+        } else {
+            ""
+        };
         println!(
             "{name:<26} {m:>8.0} {last:>8} {budget:>8}  {}{flag}",
             all.join(" ")

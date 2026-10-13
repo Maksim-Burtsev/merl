@@ -1,4 +1,3 @@
-#![expect(clippy::cast_precision_loss, reason = "#858")]
 #![expect(clippy::float_cmp, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 use std::ops::Range;
@@ -15,6 +14,10 @@ pub fn changes(old: &str, new: &str) -> (Vec<Range<usize>>, Vec<Range<usize>>) {
     (changed(mid_a, &kept_a), changed(mid_b, &kept_b))
 }
 
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "a ratio of two counts, which rounding past 2^52 moves by under one part in 2^52"
+)]
 pub fn similarity(old: &str, new: &str) -> f64 {
     let (a, b) = (tokens(old), tokens(new));
     let (pre, suf) = common(old, new, &a, &b);

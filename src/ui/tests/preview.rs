@@ -1,4 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
 use std::path::PathBuf;
 
 use ratatui::Terminal;
@@ -61,7 +60,7 @@ fn a_wrapped_code_line_keeps_its_colours() {
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     let shown = rows(&terminal);
     assert_eq!(shown[..2], ["let answer = compute(1, 2)", "+ \"forty\";"]);
-    let (gutter, tint_pad, plus) = (2, 1, "+ ".len() as u16);
+    let (gutter, tint_pad, plus) = (2, 1, u16::try_from("+ ".len()).unwrap());
     let mut block = Buffer::block("rust", vec![line.to_owned()]);
     block.highlight_to(0, &theme);
     let spans = &block.hl;

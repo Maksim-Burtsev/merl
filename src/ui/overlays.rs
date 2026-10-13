@@ -1,6 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
-#![expect(clippy::cast_possible_wrap, reason = "#858")]
-#![expect(clippy::cast_sign_loss, reason = "#858")]
 #![expect(clippy::iter_on_single_items, reason = "#858")]
 #![expect(clippy::redundant_clone, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
@@ -30,12 +27,12 @@ pub(super) fn draw_help(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     let keys = crate::app::KEYS;
     let key_w = keys.iter().map(|(k, _, _)| k.len()).max().unwrap_or(0);
     let lead = 3 + key_w + 2;
-    let w = keys
+    let widest = keys
         .iter()
         .map(|(_, a, g)| (lead + wrap::width(a)).max(1 + g.len()))
         .max()
-        .unwrap_or(0) as u16
-        + 1;
+        .unwrap_or(0);
+    let w = u16::try_from(widest).unwrap_or(u16::MAX) + 1;
     let [area] = Layout::horizontal([Constraint::Length((w + 4).min(area.width))])
         .flex(Flex::Center)
         .areas(area);
@@ -57,7 +54,7 @@ pub(super) fn draw_help(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         }
     }
     let [area] = Layout::vertical([Constraint::Length(
-        (lines.len() as u16 + 2).min(area.height),
+        (u16::try_from(lines.len()).unwrap_or(u16::MAX) + 2).min(area.height),
     )])
     .flex(Flex::Center)
     .areas(area);
@@ -76,7 +73,7 @@ pub(super) fn draw_help(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     frame.render_widget(
         Paragraph::new(lines)
             .style(base)
-            .scroll((app.help_top as u16, 0)),
+            .scroll((u16::try_from(app.help_top).unwrap_or(u16::MAX), 0)),
         inner,
     );
 }
@@ -122,9 +119,8 @@ pub(super) fn draw_tree(
     let width = inner.width as usize;
     let review = app.review.as_ref();
     app.tree.fold(|n, depth| {
-        let need = wrap::width(&n.name()).min(NAME_ROOM) as isize;
-        need.saturating_sub(name_room(review, n, depth, width))
-            .max(0) as usize
+        let need = wrap::width(&n.name()).min(NAME_ROOM);
+        (need + used(review, n, depth)).saturating_sub(width)
     });
     let visible = app.tree.visible();
     let height = inner.height as usize;
@@ -142,7 +138,7 @@ pub(super) fn draw_tree(
             let n = &app.tree.nodes[i];
             let depth = app.tree.drawn_depth(i);
             let full = app.tree.row_name(i);
-            let room = name_room(app.review.as_ref(), n, depth, width).max(0) as usize;
+            let room = width.saturating_sub(used(app.review.as_ref(), n, depth));
             let cut = wrap::width(&full) > room;
             let joined = full.contains('/');
             cut_any |= cut;
@@ -234,10 +230,6 @@ fn used(review: Option<&Review>, n: &crate::tree::Node, depth: usize) -> usize {
         None => 2 * depth + 2,
         Some(r) => 2 + 2 * depth + 2 + r.file(&n.path).map_or(0, |f| wrap::width(&counts(f)) + 1),
     }
-}
-
-fn name_room(review: Option<&Review>, n: &crate::tree::Node, depth: usize, width: usize) -> isize {
-    width as isize - used(review, n, depth) as isize
 }
 
 fn cut_at_slash(path: &str, room: usize) -> String {
@@ -367,7 +359,7 @@ pub(super) fn draw_picker(
             .label
             .grapheme_indices(true)
             .map(|(b, g)| {
-                let chars = c..c + g.chars().count() as u32;
+                let chars = c..c + u32::try_from(g.chars().count()).unwrap_or(u32::MAX);
                 c = chars.end;
                 let mut style = style;
                 if let (Some((hl, off)), Some(at)) = (&code, row.item.code_at)

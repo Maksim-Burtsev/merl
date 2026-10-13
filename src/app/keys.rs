@@ -1,4 +1,3 @@
-#![expect(clippy::cast_possible_wrap, reason = "#858")]
 #![expect(clippy::cognitive_complexity, reason = "#858")]
 #![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
@@ -294,8 +293,14 @@ impl App {
                     self.anchor.get_or_insert((self.at(), self.col));
                 }
                 match key.code {
-                    KeyCode::PageUp => self.move_rows(-(self.page_rows(false) as isize)),
-                    KeyCode::PageDown => self.move_rows(self.page_rows(true) as isize),
+                    KeyCode::PageUp => {
+                        self.move_rows(
+                            -isize::try_from(self.page_rows(false)).unwrap_or(isize::MAX),
+                        );
+                    }
+                    KeyCode::PageDown => {
+                        self.move_rows(isize::try_from(self.page_rows(true)).unwrap_or(isize::MAX));
+                    }
                     KeyCode::Home if ctrl => {
                         self.set_at(self.first_line());
                         self.col = 0;

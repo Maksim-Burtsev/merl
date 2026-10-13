@@ -1,4 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
 #![expect(clippy::cognitive_complexity, reason = "#858")]
 #![expect(clippy::excessive_nesting, reason = "#858")]
 #![expect(clippy::ref_option, reason = "#858")]
@@ -458,16 +457,26 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         && matches!(app.mode, Mode::Normal | Mode::Edit)
     {
         let x = match app.notes.focus {
-            Some(_) => area.x + gutter_w as u16 - 1,
-            None => area.x + (gutter_w + app.cursor_x().saturating_sub(app.left)) as u16,
+            Some(_) => area.x + u16::try_from(gutter_w).unwrap_or(u16::MAX) - 1,
+            None => {
+                area.x
+                    + u16::try_from(gutter_w + app.cursor_x().saturating_sub(app.left))
+                        .unwrap_or(u16::MAX)
+            }
         };
-        frame.set_cursor_position((x.min(area.right().saturating_sub(1)), area.y + y as u16));
+        frame.set_cursor_position((
+            x.min(area.right().saturating_sub(1)),
+            area.y + u16::try_from(y).unwrap_or(u16::MAX),
+        ));
     }
     if app.mode == Mode::Note
         && let Some((y, x)) = input_at
     {
-        let x = area.x + (gutter_w + 1 + x) as u16;
-        frame.set_cursor_position((x.min(area.right().saturating_sub(1)), area.y + y as u16));
+        let x = area.x + u16::try_from(gutter_w + 1 + x).unwrap_or(u16::MAX);
+        frame.set_cursor_position((
+            x.min(area.right().saturating_sub(1)),
+            area.y + u16::try_from(y).unwrap_or(u16::MAX),
+        ));
     }
 }
 
@@ -583,7 +592,7 @@ fn tinted(
 fn draw_note(frame: &mut Frame, area: Rect, base: Style, lines: Vec<Line>) {
     let [_, rows] = Layout::vertical([
         Constraint::Length(area.height.saturating_sub(1) * 2 / 5),
-        Constraint::Length(lines.len() as u16),
+        Constraint::Length(u16::try_from(lines.len()).unwrap_or(u16::MAX)),
     ])
     .areas(area);
     frame.render_widget(Paragraph::new(lines).style(base).centered(), rows);

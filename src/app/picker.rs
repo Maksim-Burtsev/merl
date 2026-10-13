@@ -1,4 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
 #![expect(clippy::format_collect, reason = "#858")]
 use super::{
     App, HashMap, Instant, KeyCode, KeyEvent, Mode, PathBuf, Pick, PickItem, Picker, PickerKind,
@@ -50,7 +49,7 @@ impl App {
 
     fn history_rows(&self, listed: &[&PathBuf]) -> (Vec<u32>, bool) {
         let row: HashMap<PathBuf, u32> = (listed.iter().enumerate())
-            .map(|(i, p)| (self.root.join(p), i as u32))
+            .map(|(i, p)| (self.root.join(p), u32::try_from(i).unwrap_or(u32::MAX)))
             .collect();
         let current = self.buf.path.as_ref().and_then(|p| row.get(p)).copied();
         let rest = (self.recent.iter())

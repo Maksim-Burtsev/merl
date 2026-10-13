@@ -1,4 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
 #![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
@@ -163,13 +162,13 @@ fn place_pictures(app: &mut App, area: Rect, gutter_w: usize, end: usize) {
         let (h, rows) = (pic.height(), u32::from(rows));
         app.diagrams.want.push(crate::mermaid::Place {
             id: pic.id(),
-            placement: b as u32 + 1,
-            x: area.x + (gutter_w + lead) as u16,
-            y: area.y + (from - top) as u16,
+            placement: u32::try_from(b + 1).unwrap_or(u32::MAX),
+            x: area.x + u16::try_from(gutter_w + lead).unwrap_or(u16::MAX),
+            y: area.y + u16::try_from(from - top).unwrap_or(u16::MAX),
             cols,
-            rows: (to - from) as u16,
-            crop_y: (from - first) as u32 * h / rows,
-            crop_h: (to - from) as u32 * h / rows,
+            rows: u16::try_from(to - from).unwrap_or(u16::MAX),
+            crop_y: u32::try_from(from - first).unwrap_or(u32::MAX) * h / rows,
+            crop_h: u32::try_from(to - from).unwrap_or(u32::MAX) * h / rows,
         });
     }
 }

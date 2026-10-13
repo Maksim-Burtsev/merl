@@ -1,4 +1,3 @@
-#![expect(clippy::cast_possible_wrap, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
@@ -78,7 +77,7 @@ pub fn php_tag_class<S: AsRef<str>>(lines: &[S], at: usize) -> Option<usize> {
         if depth == 0 && !t.starts_with("#[") {
             return true;
         }
-        depth += t.matches('[').count() as isize - t.matches(']').count() as isize;
+        depth += t.matches('[').count().cast_signed() - t.matches(']').count().cast_signed();
         false
     })?;
     CLASS.is_match(lines[class].as_ref()).then_some(class)

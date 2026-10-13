@@ -183,7 +183,6 @@ impl Diagrams {
         self.why.get(&file_key(path)?.src).map(String::as_str)
     }
 
-    #[expect(clippy::cast_possible_truncation, reason = "#858")]
     #[expect(clippy::clone_on_ref_ptr, reason = "#858")]
     pub fn file_pic(&mut self, path: &Path) -> Option<Arc<Pic>> {
         self.cell?;
@@ -203,7 +202,10 @@ impl Diagrams {
         }
         let ms: Vec<u32> = frames.iter().map(|f| f.ms).collect();
         let start = *self.started.entry(key).or_insert_with(Instant::now);
-        let (i, left) = picture::frame_at(&ms, start.elapsed().as_millis() as u64);
+        let (i, left) = picture::frame_at(
+            &ms,
+            u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX),
+        );
         let left = Duration::from_millis(left.max(10));
         self.wake = Some(self.wake.map_or(left, |w| w.min(left)));
         Some(frames[i].clone())
@@ -379,9 +381,18 @@ fn cell() -> Option<(u32, u32)> {
     ))
 }
 
-#[expect(clippy::cast_possible_truncation, reason = "#858")]
-#[expect(clippy::cast_precision_loss, reason = "#858")]
-#[expect(clippy::cast_sign_loss, reason = "#858")]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "pixel and cell counts sit far below 2^24; the cell counts are clamped to 1..=u16::MAX before `as`"
+)]
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "pixel and cell counts sit far below 2^24; the cell counts are clamped to 1..=u16::MAX before `as`"
+)]
+#[expect(
+    clippy::cast_sign_loss,
+    reason = "pixel and cell counts sit far below 2^24; the cell counts are clamped to 1..=u16::MAX before `as`"
+)]
 pub fn cells(natural: (u32, u32), cell: (u32, u32), room: usize) -> Option<(u16, u16)> {
     let (cw, ch) = (cell.0.max(1) as f32, cell.1.max(1) as f32);
     let px = ch * TEXT_IN_CELL / FONT_PX;
@@ -507,9 +518,18 @@ fn file_key(path: &Path) -> Option<Key> {
     })
 }
 
-#[expect(clippy::cast_possible_truncation, reason = "#858")]
-#[expect(clippy::cast_precision_loss, reason = "#858")]
-#[expect(clippy::cast_sign_loss, reason = "#858")]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "a diagram's sides in pixels sit far below 2^24, and `as` saturates a float into u32"
+)]
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "a diagram's sides in pixels sit far below 2^24, and `as` saturates a float into u32"
+)]
+#[expect(
+    clippy::cast_sign_loss,
+    reason = "a diagram's sides in pixels sit far below 2^24, and `as` saturates a float into u32"
+)]
 fn draw(src: &str) -> Option<Drawn> {
     let layout = LayoutOptions {
         viewport_width: 800.0,

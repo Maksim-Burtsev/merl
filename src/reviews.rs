@@ -1,4 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
 #![cfg_attr(test, expect(clippy::default_trait_access, reason = "#858"))]
 #![cfg_attr(test, expect(clippy::iter_on_single_items, reason = "#858"))]
 use std::collections::{HashMap, HashSet};
@@ -134,11 +133,11 @@ impl Session {
             stops_in.values().sum(),
             self.added,
             self.deleted,
-            self.on_review.as_secs() as usize,
-            self.elsewhere.as_secs() as usize,
-            self.excursions as usize,
-            self.jumps as usize,
-            self.back_presses as usize,
+            usize::try_from(self.on_review.as_secs()).unwrap_or(usize::MAX),
+            usize::try_from(self.elsewhere.as_secs()).unwrap_or(usize::MAX),
+            usize::try_from(self.excursions).unwrap_or(usize::MAX),
+            usize::try_from(self.jumps).unwrap_or(usize::MAX),
+            usize::try_from(self.back_presses).unwrap_or(usize::MAX),
             stops,
             viewed.filter(|path| stops_in.contains_key(*path)).count(),
             usize::from(self.last_hunk),
