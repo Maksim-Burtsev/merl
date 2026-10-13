@@ -9,10 +9,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
-# Every command is a step of tools/ci-local, which runs them all on a laptop before a push (#682).
 jobs:
-  # `d`, `u` and `D` at every cursor position of every fixture, failing on a panic (#543): 50
-  # minutes on one runner in release, so only a release PR plays it, in shards (#711).
   no-panic:
     if: startsWith(github.head_ref, 'release/')
     runs-on: ubuntu-latest
@@ -30,9 +27,6 @@ jobs:
 
   check:
     name: check (${{ matrix.os }})
-    # The checks the merge requires wait for the shards and fail unless all passed, a cancelled
-    # run included: a skipped required check would count as passed. On any other PR the shards
-    # are skipped and the checks start at once.
     needs: no-panic
     if: always()
     runs-on: ${{ matrix.os }}
@@ -43,8 +37,6 @@ jobs:
     steps:
       - if: needs.no-panic.result != 'success' && needs.no-panic.result != 'skipped'
         run: echo "the panic sweep did not pass (${{ needs.no-panic.result }})" && exit 1
-      # A PR that touches only what agents read (skills, AGENTS.md, release notes) builds nothing:
-      # no test reads those files, and the check passes in seconds instead of minutes.
       - if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -53,8 +45,6 @@ jobs:
             repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files)
           grep -qvE '^(\.claude/|docs/releases/|AGENTS\.md$|CLAUDE\.md$)' <<<"$files" \
             || echo DOCS_ONLY=1 >> "$GITHUB_ENV"
-      # The whole history and origin/master: a test compares the released sections of
-      # CHANGELOG.md with the last `release:` commit on master (#706).
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -72,13 +62,8 @@ jobs:
         run: tools/ci-local tests
       - if: ${{ !env.DOCS_ONLY }}
         run: tools/ci-local release
-      # The `d` and theme benches' scoring and their gates, on made-up rows: no clone needed.
       - if: ${{ !env.DOCS_ONLY }}
         run: tools/ci-local dbench
-      # The smoke scenarios in tmux on this build, every checkpoint against the screen checked in
-      # under tests/smoke/screens (#309): a changed screen fails here with its diff. Go for the `d`
-      # into its standard library. Homebrew's tmux on both: Ubuntu's 3.4 draws an emoji with a
-      # variation selector one column wide, where Homebrew's and the owner's terminal draw two.
       - if: ${{ !env.DOCS_ONLY }}
         uses: actions/setup-go@v7
         with:
@@ -99,6 +84,5 @@ jobs:
           fi
           tmux -V
           tools/ci-local smoke
-      # The oldest Rust `Cargo.toml` allows builds merl too (#320), in a check the merge waits for.
       - if: matrix.os == 'ubuntu-latest' && !env.DOCS_ONLY
         run: tools/ci-local msrv

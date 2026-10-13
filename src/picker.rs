@@ -10,17 +10,12 @@ use crate::buffer::Buffer;
 use crate::git::Mark;
 use crate::line_edit::LineEdit;
 
-/// One pickable target. `line` 0 means "no specific line", i.e. keep the file's start.
 #[derive(Clone, Debug)]
 pub struct PickItem {
     pub label: String,
     pub path: PathBuf,
     pub line: usize,
-    /// The byte of line `line` where the word the row is about starts: Enter puts the cursor
-    /// there. 0 for a row with no word.
     pub col: usize,
-    /// Byte offset in `label` where a copy of the file's line `line` (trimmed, maybe clipped)
-    /// starts, so the row can be drawn with that line's syntax colours. `None`: no code text.
     pub code_at: Option<usize>,
     pub path_at: Option<std::ops::Range<usize>>,
     pub deleted: bool,
@@ -46,8 +41,6 @@ pub struct Picker {
     pub selected: usize,
     pub title: String,
     page: usize,
-    /// Files of the rows drawn so far, highlighted up to the deepest row shown. Filled lazily by
-    /// `ui`, so a picker over thousands of hits only ever parses what is on screen.
     pub bufs: HashMap<PathBuf, Buffer>,
     pub marks: HashMap<PathBuf, HashMap<usize, Mark>>,
     pub first: usize,

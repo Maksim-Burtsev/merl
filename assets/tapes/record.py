@@ -36,16 +36,14 @@ from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
-sys.dont_write_bytecode = True  # no __pycache__ left in tools/
-import cast  # noqa: E402
+sys.dont_write_bytecode = True
+import cast
 DEMO = "/tmp/merl-demo"
-COLS, ROWS = 132, 41          # a 16:10 laptop window at an 18 px font
-FONT, LINE = 18, 1.25         # agg's font size in px, the one the window is laid out for
-FPS = 25                      # merl draws a screen at once: a higher cap only makes 10 ms frames
-TYPE, PACE = 0.12, 0.35       # seconds between typed characters, and between named keys
+COLS, ROWS = 132, 41
+FONT, LINE = 18, 1.25
+FPS = 25
+TYPE, PACE = 0.12, 0.35
 SOCK = "merl-readme"
-# The owner's terminal, as tools/cast.py has it: the background, the foreground, then the 16 ANSI
-# colours, the ones the gutter marks and the review panel's letters are drawn in.
 THEME = ",".join("%02x%02x%02x" % c for c in (cast.DEFAULT_BG, cast.DEFAULT_FG, *cast.ANSI))
 
 HOLD, FADE, FADE_STEPS = cast.HOLD, 0.25, 4
@@ -72,8 +70,6 @@ def type_text(text, pace):
 
 
 def take(steps, project):
-    """Plays the steps; returns the recording, its clock set to 0 at `show`, and every key pressed
-    with its time on that clock."""
     cast = tempfile.mktemp(suffix=".cast")
     merl = shlex.join([f"{ROOT}/target/release/merl", *steps[0].split()[1:]])
     tmux("kill-server")
@@ -109,16 +105,12 @@ def take(steps, project):
     tmux("kill-server")
     time.sleep(0.5)
 
-    # Everything before `show` happens at 0 s, so the first frame is the screen as it stood then.
     lines = open(cast).read().splitlines()
     header, events = json.loads(lines[0]), [json.loads(l) for l in lines[1:]]
-    # merl dying puts the shell's screen back: the GIF ends before that.
     leave = next((i for i, e in enumerate(events) if "\x1b[?1049l" in e[2]), len(events))
     end = events[min(leave, len(events) - 1)][0]
     events = events[:leave]
     first = next(t for t, kind, _ in events if kind == "o")
-    # The recording's clock: its last event is merl dying, which happened at `killed`. A `show`
-    # always follows a pause, so a few milliseconds either way change nothing.
     lag = killed - end
     shown = max(shown - lag, first) if shown else first
     with open(cast, "w") as out:
@@ -156,7 +148,7 @@ def render(cast, presses, gif, keys):
         with open(f"{tmp}/list.txt", "w") as f:
             for path, dur in listing:
                 f.write(f"file '{path}'\nduration {dur:.3f}\n")
-            f.write(f"file '{listing[-1][0]}'\n")  # the concat demuxer drops the last duration
+            f.write(f"file '{listing[-1][0]}'\n")
         subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "concat", "-safe", "0", "-i",
                         f"{tmp}/list.txt", "-filter_complex",
                         "split[a][b];[a]palettegen=stats_mode=full[p];"
@@ -166,11 +158,6 @@ def render(cast, presses, gif, keys):
 
 
 def timeline(starts, total, presses):
-    """The GIF's frames, [(time, duration, screen, key, opacity)]: agg's screens (their start
-    times, `total` the end of the last) under the corner's key, None when it is empty."""
-    # A key shows with merl's answer to it, the first change of the screen after the press: a `d`
-    # that searches the project answers half a second later, and its key waits for it. The two
-    # clocks put the answer a few tens of milliseconds either side of the press.
     shown = []
     for i, (t, name) in enumerate(presses):
         nxt = presses[i + 1][0] if i + 1 < len(presses) else t + 1.0
@@ -186,8 +173,6 @@ def timeline(starts, total, presses):
         if at + HOLD + FADE < nxt:
             states.append((at + HOLD + FADE, None, 0.0))
     cuts = sorted({*starts, *(t for t, _, _ in states if 0 <= t < total)})
-    # Browsers hold a frame shorter than 20 ms for 100 ms and a GIF counts in 10 ms: a fade step
-    # within 40 ms of the next change gives way to it.
     cuts = [c for i, c in enumerate(cuts) if c in starts or i + 1 == len(cuts) or cuts[i + 1] - c >= 0.04]
     frames = []
     for n, cut in enumerate(cuts):
@@ -202,23 +187,16 @@ def timeline(starts, total, presses):
 
 
 def selftest():
-    """The corner's timing, on made-up screens, and a typed `;` reaching a pane: no agg."""
     shown = lambda frames, t: next(f for f in reversed(frames) if f[0] <= t + 1e-9)
-    # A press lands on merl's answer 30 ms later; the corner is empty HOLD + FADE after it.
     f = timeline([0, 1.03, 5.0], 7, [(1.0, "c")])
     assert shown(f, 1.0)[3] is None and shown(f, 1.03)[3:] == ("c", 1.0), f
     assert shown(f, 1.03 + HOLD + FADE)[3] is None, f
-    # A d answered half a second later shows then, not before.
     f = timeline([0, 1.5, 5.0], 7, [(1.0, "d")])
     assert shown(f, 1.3)[3] is None and shown(f, 1.5)[3] == "d", f
-    # The next key replaces the last at once, at full strength; a press with no answer shows
-    # when it was pressed.
     f = timeline([0, 1.02, 1.22, 5.0], 7, [(1.0, "M-Right"), (1.2, "M-Right"), (1.4, "d")])
     assert shown(f, 1.22)[3:] == ("M-Right", 1.0) and shown(f, 1.4)[3:] == ("d", 1.0), f
-    # No frame is shorter than 40 ms.
     f = timeline([0, 2.8, 5.0], 7, [(1.0, "c"), (2.77, "c")])
     assert all(d >= 0.04 - 1e-9 for _, d, *_ in f), f
-    # Without keys, the frames are agg's.
     assert [t for t, *_ in timeline([0, 1, 2], 3, [])] == [0, 1, 2]
     tmux("kill-server")
     tmux("new-session", "-d", "-s", "p", "cat")
@@ -230,6 +208,8 @@ def selftest():
 
 def main():
     args = sys.argv[1:]
+    if not args or args[0] in ("-h", "--help"):
+        sys.exit(__doc__)
     if args == ["--selftest"]:
         return selftest()
     keys = "--keys" in args
@@ -241,8 +221,6 @@ def main():
     steps = [l for l in steps if l.split()[0] != "project"]
     assert steps[0].split()[0] == "merl", "the first step is `merl [ARGS]`"
     project = f"{DEMO}/{name}"
-    # The take starts clean: the last take's files, and the viewed marks merl keeps from one
-    # start to the next (#240).
     clean = 'git checkout -q -- . && git clean -fdq && rm -f "$(git rev-parse --git-common-dir)/merl/viewed" "$(git rev-parse --git-dir)/merl/recent"'
     subprocess.run(clean, shell=True, cwd=project, check=True)
     cast, presses = take(steps, project)

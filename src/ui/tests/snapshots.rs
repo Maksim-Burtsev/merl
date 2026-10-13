@@ -1,12 +1,3 @@
-//! Whole screens as text, one golden file per state in `tests/snapshots/`: every overlay and
-//! picker, the tree, the review panel, the tutor and the drill, the preview, the start screen
-//! and the status bar, each at three sizes and in a dark and a light theme.
-//!
-//! A frame is its text, then per theme a grid of one code per cell and the legend that names
-//! each code's colours, so a moved column and a changed colour both show in the diff.
-//! `MERL_UPDATE_SNAPSHOTS=1 cargo test snapshots` writes the files anew; review them with
-//! `git diff tests/snapshots`.
-
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
@@ -20,13 +11,10 @@ use crate::tutor::{Drill, Tutor, press};
 
 const SIZES: &[(u16, u16)] = &[(80, 24), (120, 33), (185, 55)];
 const THEMES: &[&str] = &[crate::theme::DEFAULT, "github-light"];
-/// One per style on a screen, in the order they first show, top left to bottom right.
 const CODES: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$%&*+=@^~";
 
-/// A state: its name, and what brings a fresh App on the sample project to it.
 type State = (&'static str, fn(&mut App));
 
-/// The sample project's `store.py`, on the call of `load_config` (the tutor's `CALL_LINE`).
 fn on_call(a: &mut App) {
     at(a, "store.py", 13, "load_config");
 }
@@ -44,7 +32,6 @@ const STATES: &[State] = &[
             .into();
         press(a, "<Tab><Up><Up>");
     }),
-    // Below 118 columns an action too long for its row wraps under its own column (#458).
     ("help", |a| {
         on_call(a);
         press(a, "?");
@@ -98,7 +85,6 @@ const STATES: &[State] = &[
         on_call(a);
         press(a, "vv");
     }),
-    // Too wide to wrap: merl opens it cut at the edge.
     ("nowrap", |a| at(a, "export.csv", 1, "")),
     ("preview", |a| {
         at(a, "PLAN.md", 1, "");
@@ -141,7 +127,6 @@ const STATES: &[State] = &[
     ("review-rename", |a| {
         review(a, &[], Some(("config.py", "app/settings.py")), None);
     }),
-    // Below 185 columns the lesson loses what passes its two rows (#261).
     ("tutor", |a| {
         a.tutor = Some(Tutor {
             step: 3,
@@ -161,7 +146,6 @@ const STATES: &[State] = &[
     }),
 ];
 
-/// Opens `file` at the 1-based `line`, the cursor on `word`, as a tutor task starts.
 fn at(a: &mut App, file: &str, line: usize, word: &str) {
     a.jump_to(&a.root.join(file), line);
     a.col = a.line_str().find(word).unwrap_or(0);
@@ -237,7 +221,6 @@ fn frame(state: &State, theme: &str, (w, h): (u16, u16)) -> Terminal<TestBackend
     let dir = notes(state.0);
     let (tree, files) = crate::tree::build(&dir, false);
     let mut a = App::new(dir, tree, files, Buffer::empty(), None);
-    // Nothing of the machine's own: its themes would join the `T` list, its libraries `d`'s.
     (a.theme, a.theme_dir) = (theme.to_string(), None);
     a.no_external();
     let mut terminal = Terminal::new(TestBackend::new(w, h)).unwrap();
@@ -245,20 +228,17 @@ fn frame(state: &State, theme: &str, (w, h): (u16, u16)) -> Terminal<TestBackend
         let theme = crate::theme::load_from(None, a.shown_theme()).unwrap();
         t.draw(|f| super::draw(f, a, &theme)).unwrap();
     };
-    // The first frame gives the App its viewport, as the event loop's does before any key.
     draw(&mut terminal, &mut a);
     (state.1)(&mut a);
     if let Some(p) = &mut a.picker {
         p.settle();
     }
     draw(&mut terminal, &mut a);
-    // Twice: a first frame lays out what the second scrolls to, as the preview does.
     draw(&mut terminal, &mut a);
     let _ = std::fs::remove_dir_all(a.root.parent().unwrap());
     terminal
 }
 
-/// Each row's text, a wide char standing for the cells it covers.
 fn text(t: &Terminal<TestBackend>) -> String {
     let buf = t.backend().buffer();
     let mut out = String::new();
@@ -320,8 +300,6 @@ fn cursor(t: &Terminal<TestBackend>) -> String {
     }
 }
 
-/// The golden file of `state`: per size the dark theme's text, then each theme's styles, and
-/// a theme's own text only where it differs from the dark one's.
 fn render(state: &State) -> String {
     let mut out = format!("merl snapshot: {}\n", state.0);
     for &size in SIZES {
@@ -345,7 +323,6 @@ fn dir() -> PathBuf {
 
 fn diff(old: &str, new: &str) -> String {
     let (a, b): (Vec<&str>, Vec<&str>) = (old.lines().collect(), new.lines().collect());
-    // lcs[i][j]: the longest common subsequence of a[i..] and b[j..].
     let mut lcs = vec![vec![0u32; b.len() + 1]; a.len() + 1];
     for i in (0..a.len()).rev() {
         for j in (0..b.len()).rev() {
@@ -356,7 +333,6 @@ fn diff(old: &str, new: &str) -> String {
         }
     }
     let (mut i, mut j, mut out, mut n) = (0, 0, String::new(), 0);
-    // The section a changed line is in, said once above its first change.
     let (mut head, mut said) = ("", "");
     while (i < a.len() || j < b.len()) && n < 60 {
         if let Some(line) = b.get(j).filter(|l| l.starts_with("====")) {

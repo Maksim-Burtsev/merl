@@ -19,8 +19,6 @@ use crate::wrap;
 use super::expand;
 use super::status::draw_prompt;
 
-/// `?`: the whole keymap, straight out of [`crate::app::KEYS`], each group under its name in
-/// the accent. Up / Down scroll it when the terminal is too short for the whole list.
 pub(super) fn draw_help(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
     let keys = crate::app::KEYS;
     let key_w = keys.iter().map(|(k, _, _)| k.len()).max().unwrap_or(0);
@@ -92,8 +90,6 @@ pub(super) fn draw_tree(
         .title(Span::styled(title, accent.add_modifier(Modifier::BOLD)))
         .border_style(accent)
         .style(base);
-    // Review: the size of the branch on the bottom border, as GitHub gives it above its file
-    // list. A binary file counts as a file and adds no lines.
     if let Some(r) = app.review.as_ref().filter(|_| app.review_panel_colours) {
         let (added, deleted) = r
             .files
@@ -102,7 +98,6 @@ pub(super) fn draw_tree(
         let n = r.files.len();
         let s = crate::app::plural(n);
         let totals = format!(" {n} file{s} \u{b7} +{added} \u{2212}{deleted} ");
-        // Too wide for the border, the totals go whole: a number cut short reads as another.
         if wrap::width(&totals) <= area.width.saturating_sub(2) as usize {
             block = block.title_bottom(Span::styled(totals, base.fg(theme.ghost_fg)));
         }
@@ -142,8 +137,6 @@ pub(super) fn draw_tree(
                 let m = &app.tree.nodes[j];
                 need = need.max(used(app.review.as_ref(), m, m.depth) + wrap::width(&m.name()));
             }
-            // Directories carry the accent: they are what the eye scans the tree by. What
-            // `.gitignore` leaves out is dim, directory or not.
             let row = if n.ignored {
                 base.fg(theme.ghost_fg)
             } else if n.is_dir {
@@ -249,7 +242,6 @@ pub(super) fn draw_picker(
     base: Style,
 ) {
     let pending = app.search_pending();
-    // `s> ` is the prompt of `s`; `D` greps for the query too, and stays `D`'s picker.
     let search = app.mode == Mode::Picker(crate::app::PickerKind::Search);
     let Some(picker) = &mut app.picker else {
         return;
@@ -265,15 +257,10 @@ pub(super) fn draw_picker(
     let accent = base.fg(theme.accent);
     let block = Block::bordered()
         .title(if picker.live && pending {
-            // The rows answer an older query: `0 hits` only ever means "grepped, found nothing".
             format!("{} (…)", picker.title)
         } else if picker.live && picker.query.is_empty() && total > 0 {
-            // `D` past the cap: the rows are what the walk found before the cut, not the list,
-            // and the query greps the project instead of filtering them. (`s` has no rows
-            // without a query, so it never reads this way.)
             format!("{} (first {total}, type to search all)", picker.title)
         } else if picker.live {
-            // Nothing filters the hits, and the grep stops at MAX_HITS: that many is a floor.
             let more = if total as usize >= MAX_HITS { "+" } else { "" };
             let s = crate::app::plural(total as usize);
             format!("{} ({total}{more} hit{s})", picker.title)
@@ -574,8 +561,6 @@ fn places(rows: &[Row], width: usize, prefix_w: usize) -> Vec<Option<Place>> {
 
 const MIN_WRAP: usize = 20;
 
-/// Review: the gutter mark of the line an item points at, from the diff of its file against
-/// the merge base, taken once per file a picker draws. A file outside the review has none.
 fn review_mark(
     marks: &mut HashMap<PathBuf, HashMap<usize, Mark>>,
     review: &Review,
@@ -589,9 +574,6 @@ fn review_mark(
     marks.get(&item.line.checked_sub(1)?).copied()
 }
 
-/// The highlighting of the file line an item quotes, plus the byte offset of the quoted text
-/// in that line, so the picker row gets the same colours as the code view. `None` when the
-/// item has no code text or the file no longer contains what the label shows.
 fn code_hl<'a>(
     bufs: &'a mut HashMap<PathBuf, Buffer>,
     root: &Path,
@@ -626,8 +608,6 @@ fn code_hl<'a>(
     Some((buf.hl.get(idx)?, off))
 }
 
-/// The tutor's and the drill's lesson panel at `width`: a title bar, then the task's text,
-/// wrapped. `None` outside `--tutor` and `--drill`.
 pub(super) fn lesson_panel(
     app: &App,
     theme: &Theme,
@@ -651,7 +631,6 @@ pub(super) fn lesson_panel(
             crate::tutor::ALL_LESSONS_DONE,
         ),
     };
-    // The title row is a bar, so it is padded to the full width.
     let pad = (width as usize).saturating_sub(wrap::width(&title));
     let head = Style::new()
         .bg(theme.status_bg)

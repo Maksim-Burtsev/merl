@@ -1,6 +1,3 @@
--- nvim --clean --headless --cmd 'set rtp^=RT,QUERIES' -l folds.lua LANG LIST OUT
--- For each file of LIST: every line where nvim's treesitter folding starts a fold, and the last
--- line `zc` there hides. A file whose tree has an error is written with no folds and `error`.
 vim.g._ts_force_sync_parsing = true
 local lang, list, outpath = arg[1], arg[2], arg[3]
 vim.treesitter.query.set(lang, 'injections', '')

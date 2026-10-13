@@ -250,6 +250,67 @@ fn lua_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn c_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("c");
+}
+
+#[test]
+fn cpp_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("cpp");
+}
+
+#[test]
+fn java_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("java");
+}
+
+#[test]
+fn c_sharp_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("c_sharp");
+}
+
+#[test]
+fn html_and_the_css_and_javascript_in_it_are_coloured_as_lazyvim() {
+    coloured_as_lazyvim("html");
+}
+
+#[test]
+fn css_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("css");
+}
+
+#[test]
+fn xml_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("xml");
+}
+
+#[test]
+fn diff_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("diff");
+}
+
+#[test]
+fn query_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("query");
+}
+
+#[test]
+fn a_capture_keeps_its_background_only_when_reversed() {
+    let added = |name: &str| {
+        let theme = theme::load(name).unwrap();
+        let text = b"--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n";
+        let mut b = Buffer::from_bytes(PathBuf::from("a.diff"), text);
+        b.start_tree_sitter();
+        b.parse_more(None);
+        b.highlight_to(usize::MAX, &theme);
+        let (style, _) = b.hl[4].iter().find(|(_, r)| r.contains(&1)).unwrap();
+        (style.bg, style.add_modifier.contains(Modifier::REVERSED))
+    };
+    assert_eq!(added("nord"), (Some(Color::Rgb(0x3b, 0x42, 0x52)), true));
+    assert_eq!(added("tokyonight-moon"), (None, false));
+}
+
+#[test]
 fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     let sexp = |f: &str, src: &[u8]| {
         let mut b = Buffer::from_bytes(PathBuf::from(f), src);
@@ -290,6 +351,85 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     for f in ["a.toml", "Cargo.lock"] {
         assert!(sexp(f, b"a = 1\n").contains("(pair "), "{f}");
     }
+    assert!(sexp("a.c", b"int x;\n").contains("(translation_unit "));
+    for f in [
+        "a.h", "a.cc", "a.cpp", "a.cxx", "a.c++", "a.hh", "a.hpp", "a.hxx", "a.inl",
+    ] {
+        assert!(sexp(f, b"int x;\n").contains("(translation_unit "), "{f}");
+    }
+    assert_eq!(sexp("a.cp", b"int x;\n"), "");
+    assert_eq!(sexp("a.h", b"#import <A.h>\n@interface A\n@end\n"), "");
+    assert!(sexp("A.java", b"class A {}\n").contains("(program "));
+    assert_eq!(sexp("a.bsh", b"class A {}\n"), "");
+    for f in ["A.cs", "build.csx"] {
+        assert!(
+            sexp(f, b"class A {}\n").contains("(compilation_unit "),
+            "{f}"
+        );
+    }
+    for f in ["a.html", "a.htm"] {
+        assert!(sexp(f, b"<p>a</p>\n").contains("(element "), "{f}");
+    }
+    for text in [
+        "{% extends \"base.html\" %}\n",
+        "<div *ngIf=\"a\"></div>\n",
+        "@if (a) {\n}\n",
+        "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\">\n",
+    ] {
+        assert_eq!(sexp("a.html", text.as_bytes()), "", "{text}");
+    }
+    assert!(sexp("a.css", b"a { color: red; }\n").contains("(rule_set "));
+    for f in ["a.xml", "a.svg", "a.xsd", "a.xslt", "a.rss"] {
+        assert!(sexp(f, b"<a>b</a>\n").contains("(element "), "{f}");
+    }
+    for f in ["a.xhtml", "a.rng", "a.xaml", "a.tld", "a.opml"] {
+        assert_eq!(sexp(f, b"<a>b</a>\n"), "", "{f}");
+    }
+    assert!(sexp("a.dtml", b"<p>a</p>\n").contains("(start_tag "));
+    let prolog = "<?xml version=\"1.0\"?>\n<a>b</a>\n";
+    for f in [
+        "a.csproj",
+        "a.xsl",
+        "a.lpr",
+        "a.grc",
+        "a.smil",
+        "Directory.Build.props",
+        "a.csproj.user",
+        "/etc/xdg/menus/a.menu",
+    ] {
+        assert!(sexp(f, prolog.as_bytes()).contains("(element "), "{f}");
+    }
+    for f in ["a.conf", "a.user", "a.menu", "a", "a.rng"] {
+        assert_eq!(sexp(f, prolog.as_bytes()), "", "{f}");
+    }
+    assert_eq!(sexp("a.lpr", b"<!DOCTYPE a>\n<a>b</a>\n"), "");
+    let docbook = "<book xmlns=\"http://docbook.org/ns/docbook\"/>\n";
+    assert!(sexp("a.svg", docbook.as_bytes()).contains("(element "));
+    for text in [
+        "<!DOCTYPE book PUBLIC \"-//OASIS//DTD DocBook XML V4.5//EN\">\n<book/>\n",
+        "<book xmlns=\"http://docbook.org/ns/docbook\"/>\n",
+    ] {
+        assert_eq!(sexp("a.xml", text.as_bytes()), "", "{text}");
+    }
+    let hunk = "--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n";
+    for f in ["a.diff", "a.patch", "/src/debian/patches/series.diff"] {
+        assert!(sexp(f, hunk.as_bytes()).contains("(addition)"), "{f}");
+    }
+    let header = "From 6e8e2a6f9efd71dbe6917816343ed8415ad696c3 Mon Sep 17 00:00:00 2001\n";
+    assert!(sexp("a.diff", format!("{header}{hunk}").as_bytes()).contains("(addition)"));
+    assert_eq!(sexp("a.patch", format!("{header}{hunk}").as_bytes()), "");
+    let capture = b"(identifier) @variable\n";
+    for f in [
+        "/a/queries/rust/highlights.scm",
+        "queries/x.scm",
+        "/a/queries/b/c/d.scm",
+    ] {
+        assert!(sexp(f, capture).contains("(named_node "), "{f}");
+    }
+    assert_eq!(sexp("/a/scheme/x.scm", capture), "");
+    let dep3 = format!("Description: fix\n{hunk}");
+    assert_eq!(sexp("/src/debian/patches/fix.patch", dep3.as_bytes()), "");
+    assert!(sexp("/src/fix.patch", dep3.as_bytes()).contains("(addition)"));
 }
 
 #[test]
@@ -318,7 +458,7 @@ fn a_query_using_what_merl_does_not_implement_is_refused() {
     for text in [
         "((identifier) @x (#match? @x \"<a\"))",
         "((identifier) @x (#vim-match? @x \"a{2}\"))",
-        "((identifier) @x (#has-ancestor? @x call))",
+        "((identifier) @x (#kind-eq? @x call))",
         "((identifier) @x (#offset! @x 0 1))",
         "((identifier) @x (#set! injection.language \"regex\"))",
         "((identifier) @x (#set! @x priority 101))",
@@ -487,6 +627,11 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
     assert_eq!(name("sh"), Some("bash"));
     assert_eq!(name("jsonc"), Some("json"));
     assert_eq!(name("zsh"), None);
+    assert_eq!(name("cpp"), Some("cpp"));
+    assert_eq!(name("hpp"), Some("cpp"));
+    assert_eq!(name("java"), Some("java"));
+    assert_eq!(name("cs"), Some("c_sharp"));
+    assert_eq!(name("csharp"), Some("c_sharp"));
 }
 
 #[test]
@@ -591,70 +736,114 @@ fn a_parse_cut_short_resumes_and_an_edit_in_between_restarts_it() {
     assert_eq!(b.hl, fresh.hl);
 }
 
+type Timings = Vec<(f64, f64)>;
+
+fn ms(t: std::time::Instant) -> f64 {
+    t.elapsed().as_secs_f64() * 1000.0
+}
+
+fn settle(b: &mut Buffer, last: usize, theme: &theme::Theme) {
+    while b.parsing() {
+        b.parse_more(Some(crate::buffer::PARSE_IDLE_STEP));
+    }
+    b.highlight_to(last, theme);
+}
+
+fn speed_rows(
+    file: &str,
+    bytes: &[u8],
+    ts: bool,
+    theme: &theme::Theme,
+) -> Vec<(&'static str, Option<Timings>)> {
+    let open = |at: usize| {
+        let t = std::time::Instant::now();
+        let mut b = Buffer::from_bytes(PathBuf::from(file), bytes);
+        if ts {
+            b.start_tree_sitter();
+        }
+        b.highlight_to(at + 54, theme);
+        let frame = ms(t);
+        settle(&mut b, at + 54, theme);
+        ((frame, ms(t)), b)
+    };
+    let n = open(0).1.lines.len();
+    let top: Vec<_> = (0..15).map(|_| open(0).0).collect();
+    let middle: Vec<_> = (0..15).map(|_| open(n / 2).0).collect();
+    let typing = |col0: bool| {
+        let (_, mut b) = open(0);
+        let indented = |l: &usize| !col0 || b.lines[*l].starts_with([' ', '\t']);
+        let lines: Vec<usize> = (0..n).filter(indented).collect();
+        if lines.is_empty() {
+            return None;
+        }
+        let mut keys = Vec::new();
+        for k in 0..60 {
+            let l = lines[(k * 7919) % lines.len()];
+            settle(&mut b, l + 54, theme);
+            let t = std::time::Instant::now();
+            let indent = b.lines[l].len() - b.lines[l].trim_start().len();
+            b.lines[l].insert(if col0 { 0 } else { indent }, 'x');
+            b.edited(l);
+            b.highlight_to(l + 54, theme);
+            let frame = ms(t);
+            settle(&mut b, l + 54, theme);
+            keys.push((frame, ms(t)));
+            if col0 {
+                b.lines[l].remove(0);
+                b.edited(l);
+            }
+        }
+        Some(keys)
+    };
+    vec![
+        ("first paint, top", Some(top)),
+        ("first paint, middle", Some(middle)),
+        ("keystroke after the indentation", typing(false)),
+        ("keystroke at column 0 of an indented line", typing(true)),
+    ]
+}
+
+#[test]
+fn the_speed_rows_finish_on_a_file_with_few_or_no_indented_lines() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let few = "def f():\n    return 1\n\n\nx = 2\n".repeat(3);
+    let measured = |src: &str| {
+        speed_rows("a.py", src.as_bytes(), true, &theme)
+            .into_iter()
+            .map(|(_, keys)| keys.map(|k| k.len()))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(measured(&few), [Some(15), Some(15), Some(60), Some(60)]);
+    assert_eq!(
+        measured("x = 1\ny = 2\n"),
+        [Some(15), Some(15), Some(60), None]
+    );
+}
+
 #[test]
 #[ignore]
 fn speed() {
     let theme = theme::load("tokyonight-moon").unwrap();
     let files = std::env::var("MERL_TS_SPEED").unwrap_or_default();
-    let ms = |t: std::time::Instant| t.elapsed().as_secs_f64() * 1000.0;
     let pct = |v: &[(f64, f64)], coloured: bool, p: usize| {
         let mut v: Vec<f64> = v.iter().map(|x| if coloured { x.1 } else { x.0 }).collect();
         v.sort_by(f64::total_cmp);
         v[(v.len() * p / 100).min(v.len() - 1)]
     };
-    let settle = |b: &mut Buffer, last: usize| {
-        while b.parsing() {
-            b.parse_more(Some(crate::buffer::PARSE_IDLE_STEP));
-        }
-        b.highlight_to(last, &theme);
-    };
     for file in files.split(',').filter(|f| !f.is_empty()) {
         let bytes = std::fs::read(file).unwrap();
         for ts in [false, true] {
-            let open = |at: usize| {
-                let t = std::time::Instant::now();
-                let mut b = Buffer::from_bytes(PathBuf::from(file), &bytes);
-                if ts {
-                    b.start_tree_sitter();
-                }
-                b.highlight_to(at + 54, &theme);
-                let frame = ms(t);
-                settle(&mut b, at + 54);
-                ((frame, ms(t)), b)
-            };
-            let n = open(0).1.lines.len();
-            let top: Vec<_> = (0..15).map(|_| open(0).0).collect();
-            let middle: Vec<_> = (0..15).map(|_| open(n / 2).0).collect();
-            let typing = |col0: bool| {
-                let (_, mut b) = open(0);
-                let mut keys = Vec::new();
-                for k in 0..60 {
-                    let mut l = (k * 7919) % n;
-                    while col0 && !b.lines[l].starts_with([' ', '\t']) {
-                        l = (l + 1) % n;
-                    }
-                    settle(&mut b, l + 54);
-                    let t = std::time::Instant::now();
-                    let indent = b.lines[l].len() - b.lines[l].trim_start().len();
-                    b.lines[l].insert(if col0 { 0 } else { indent }, 'x');
-                    b.edited(l);
-                    b.highlight_to(l + 54, &theme);
-                    let frame = ms(t);
-                    settle(&mut b, l + 54);
-                    keys.push((frame, ms(t)));
-                }
-                keys
-            };
-            let rows = [
-                ("first paint, top", top),
-                ("first paint, middle", middle),
-                ("keystroke after the indentation", typing(false)),
-                ("keystroke at column 0 of an indented line", typing(true)),
-            ];
-            for (what, v) in rows {
+            let engine = if ts { "tree-sitter" } else { "syntect" };
+            let n = Buffer::from_bytes(PathBuf::from(file), &bytes).lines.len();
+            for (what, v) in speed_rows(file, &bytes, ts, &theme) {
+                let Some(v) = v else {
+                    println!(
+                        "{file} {n} lines {engine}: {what}: skipped, the file has no indented line"
+                    );
+                    continue;
+                };
                 println!(
-                    "{file} {n} lines {}: {what}: frame p50 {:.2} p90 {:.2}, coloured p50 {:.2} p90 {:.2} ms",
-                    if ts { "tree-sitter" } else { "syntect" },
+                    "{file} {n} lines {engine}: {what}: frame p50 {:.2} p90 {:.2}, coloured p50 {:.2} p90 {:.2} ms",
                     pct(&v, false, 50),
                     pct(&v, false, 90),
                     pct(&v, true, 50),
@@ -680,7 +869,7 @@ fn speed() {
         let l = b.lines.len() - 50;
         let keys: Vec<_> = (0..20)
             .map(|_| {
-                settle(&mut b, l + 20);
+                settle(&mut b, l + 20, &theme);
                 let t = std::time::Instant::now();
                 b.lines[l] = match b.lines[l].contains("[1]") {
                     true => b.lines[l].replace("[1]", "1"),
@@ -689,7 +878,7 @@ fn speed() {
                 b.edited(l);
                 b.highlight_to(l + 20, &theme);
                 let frame = ms(t);
-                settle(&mut b, l + 20);
+                settle(&mut b, l + 20, &theme);
                 (frame, ms(t))
             })
             .collect();
@@ -790,5 +979,31 @@ fn an_edit_inside_a_large_container_repaints_from_its_own_row() {
         b.edited(25);
         b.parse_more(None);
         assert_eq!(b.hl.len(), 25, "{}", b.lines[0]);
+    }
+}
+
+#[test]
+fn an_edit_inside_a_name_repaints_a_capture_its_predicate_moves_on_an_earlier_line() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let mut b = Buffer::from_bytes(PathBuf::from("a.py"), b"T = \\\n    TypeVa(\"T\")\n");
+    b.start_tree_sitter();
+    b.parse_more(None);
+    b.paint_to(usize::MAX, &theme);
+    for value in [
+        "    TypeVar(\"T\")",
+        "    TypeVa(\"T\")",
+        "    TypeVar(\"T\")",
+        "    TypeVr(\"T\")",
+    ] {
+        b.lines[1] = value.to_string();
+        b.edited(1);
+        b.parse_more(None);
+        b.paint_to(usize::MAX, &theme);
+        let text = b.lines.join("\n") + "\n";
+        let mut fresh = Buffer::from_bytes(PathBuf::from("a.py"), text.as_bytes());
+        fresh.start_tree_sitter();
+        fresh.parse_more(None);
+        fresh.paint_to(usize::MAX, &theme);
+        assert_eq!(b.hl, fresh.hl, "{value}");
     }
 }

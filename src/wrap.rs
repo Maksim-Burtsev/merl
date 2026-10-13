@@ -168,8 +168,6 @@ pub fn row_to_col(rows: &[Range<usize>], row: usize) -> usize {
 mod tests {
     use super::*;
 
-    /// Every hidden char is as wide as its tag, and wraps and cuts as a whole (#401); a ZWJ in an
-    /// emoji and a ZWNJ in Persian stay what they were.
     #[test]
     fn a_hidden_char_is_as_wide_as_its_tag() {
         let all = "\u{202a}\u{202b}\u{202c}\u{202d}\u{202e}\u{2066}\u{2067}\u{2068}\u{2069}\
@@ -181,8 +179,16 @@ mod tests {
         assert_eq!(tag('\u{202e}'), "<202e>");
         assert_eq!(tag('\u{061c}'), "<061c>");
         assert_eq!(width("abc\u{200b}def"), 12);
-        assert_eq!(width("\u{1f468}\u{200d}\u{1f4bb}"), 2);
-        assert_eq!(width("\u{0645}\u{06cc}\u{200c}\u{062e}"), 3);
+        assert_eq!(
+            width("\u{1f468}\u{200d}\u{1f4bb}"),
+            2,
+            "a ZWJ in an emoji stays a joiner"
+        );
+        assert_eq!(
+            width("\u{0645}\u{06cc}\u{200c}\u{062e}"),
+            3,
+            "a ZWNJ in Persian stays a non-joiner"
+        );
         assert_eq!(
             wrap_line("ab\u{202e}cd", 7),
             vec![0..2, 2..6, 6..7],

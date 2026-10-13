@@ -1,5 +1,3 @@
-//! merl — the one editor you need when agents write the code.
-
 mod app;
 mod buffer;
 mod for_agents;
@@ -62,16 +60,18 @@ enum Msg {
 #[derive(Parser)]
 #[command(name = "merl", version, about)]
 struct Cli {
-    /// Directory, file, or FILE:LINE[:COL] to open (default: the current directory)
+    #[arg(help = "Directory, file, or FILE:LINE[:COL] to open (default: the current directory)")]
     target: Option<String>,
-    /// Colour theme
-    #[arg(short, long, value_name = "NAME")]
+    #[arg(short, long, value_name = "NAME", help = "Colour theme")]
     theme: Option<String>,
-    /// Walk through every key on a bundled sample project (ignores the target)
-    #[arg(long)]
-    tutor: bool,
-    /// Train the keys you do not press: N tasks (default 20) on the sample project, no key named
     #[arg(
+        long,
+        help = "Walk through every key on a bundled sample project (ignores the target)"
+    )]
+    tutor: bool,
+    #[arg(
+        help = "Train the keys you do not press: N tasks (default 20) on the sample project, no \
+                key named",
         short,
         long,
         value_name = "N",
@@ -80,16 +80,22 @@ struct Cli {
         value_parser = clap::value_parser!(u16).range(1..)
     )]
     drill: Option<u16>,
-    /// Print how often each key has been pressed and missed, the unused last, and exit
-    #[arg(short, long)]
-    keys: bool,
-    /// Print your review sessions of the last 30 days, the time each took and its excursions,
-    /// and exit
-    #[arg(long)]
-    reviews: bool,
-    /// Review the checked-out branch (or `--review BRANCH` to fetch it and check out what was
-    /// pushed): its files in the panel, its diff over the code, c / C between hunks
     #[arg(
+        short,
+        long,
+        help = "Print how often each key has been pressed and missed, the unused last, and exit"
+    )]
+    keys: bool,
+    #[arg(
+        long,
+        help = "Print your review sessions of the last 30 days, the time each took and its \
+                excursions, and exit"
+    )]
+    reviews: bool,
+    #[arg(
+        help = "Review the checked-out branch (or `--review BRANCH` to fetch it and check out \
+                what was pushed): its files in the panel, its diff over the code, c / C between \
+                hunks",
         short,
         long,
         value_name = "BRANCH",
@@ -97,9 +103,14 @@ struct Cli {
         default_missing_value = ""
     )]
     review: Option<String>,
-    /// The branch the review is against (default: origin/HEAD, then the remote's master, main or
-    /// develop, then the local master or main)
-    #[arg(short, long, value_name = "REF", requires = "review")]
+    #[arg(
+        short,
+        long,
+        value_name = "REF",
+        requires = "review",
+        help = "The branch the review is against (default: origin/HEAD, then the remote's \
+                master, main or develop, then the local master or main)"
+    )]
     base: Option<String>,
     #[arg(long, hide = true)]
     for_agents: bool,
@@ -782,15 +793,12 @@ mod tests {
             format!("{} {}", c.get_program().display(), args.join(" "))
         };
         assert_eq!(line(&taken), "tmux show-options -sv set-clipboard");
-        // tmux 3.2 and newer first; an older one refuses `-w` and gets the text without it.
         assert_eq!(
             calls.each_ref().map(line),
             ["tmux load-buffer -w -", "tmux load-buffer -"]
         );
     }
 
-    /// #395: the text goes to the first call that works, and to none when tmux answers that it
-    /// took the OSC 52 itself (`set-clipboard on`), which already made a buffer of it.
     #[cfg(unix)]
     #[test]
     fn a_copy_goes_to_the_first_call_that_works_unless_tmux_took_the_osc_52() {
@@ -802,7 +810,6 @@ mod tests {
             cmd.args(["-c", script]).stdin(Stdio::piped());
             cmd
         };
-        // An older tmux refuses the first call; the second gets the text on stdin.
         let mut calls = [sh("exit 1"), sh(&format!("cat > '{}'", got.display()))];
         super::hand_to_tmux(&mut sh("echo external"), &mut calls, "one");
         assert_eq!(std::fs::read_to_string(&got).unwrap(), "one");
@@ -811,8 +818,6 @@ mod tests {
         assert!(!got.exists());
     }
 
-    /// #320: the README names the oldest Rust that builds merl, the one Cargo.toml sets and CI
-    /// builds with.
     #[test]
     fn the_readme_names_the_rust_version_cargo_toml_sets() {
         let wanted = format!(
@@ -823,8 +828,6 @@ mod tests {
         assert!(readme.contains(&wanted), "README.md should say {wanted:?}");
     }
 
-    /// #322: the help of `--base` names the bases merl tries, in the order it tries them. A
-    /// change to either fails here until the other follows.
     #[test]
     fn the_help_of_base_names_the_bases_merl_tries() {
         use clap::CommandFactory;
@@ -927,7 +930,7 @@ mod tests {
         let real = dir.canonicalize().unwrap();
         for (path, want) in [
             (dir.join("index.js"), true),
-            (real.join("index.js"), true), // as FSEvents spells it
+            (real.join("index.js"), true),
             (real.join("node_modules/pkg/index.js"), false),
             (real.join("main.js"), false),
         ] {
@@ -939,7 +942,6 @@ mod tests {
 
     #[test]
     fn a_file_outside_a_repository_lists_its_neighbours_not_all_below_them() {
-        // #182: `merl ~/.zshrc` walked the whole home directory before the first frame.
         let dir = std::env::temp_dir().join(format!("merl-no-repo-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("deep/er")).unwrap();
@@ -960,15 +962,20 @@ mod tests {
         let (file, files) = walk(&dir.join("a.txt"));
         assert_eq!(file, Some(real.join("a.txt")));
         assert_eq!(files, [Path::new("a.txt"), Path::new("b.txt")]);
-        // Named, the directory is a project: walked all the way down.
-        assert_eq!(walk(&dir).1.len(), 4);
-        // In a repository, the repository.
+        assert_eq!(
+            walk(&dir).1.len(),
+            4,
+            "a named directory is walked all the way down"
+        );
         std::fs::create_dir(dir.join(".git")).unwrap();
-        assert_eq!(walk(&dir.join("deep/c.txt")).1.len(), 4);
+        assert_eq!(
+            walk(&dir.join("deep/c.txt")).1.len(),
+            4,
+            "a file in a repository lists the whole repository"
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// #405: `merl pipe` read the FIFO before the first frame and waited for a writer forever.
     #[test]
     #[cfg(unix)]
     fn a_fifo_is_refused_before_it_is_read() {
@@ -991,7 +998,6 @@ mod tests {
         assert_eq!(split_line("src/main.rs:12:"), (main, Some((12, 1))));
         assert_eq!(split_line("src/main.rs:"), (main, None));
         assert_eq!(split_line("src/main.rs"), (main, None));
-        // A grep line, and ripgrep's `--column` one, whose text has colons of its own.
         assert_eq!(split_line("src/main.rs:12:mod app;"), (main, Some((12, 1))));
         assert_eq!(
             split_line("src/main.rs:16:5:use std::collections::HashSet;"),
@@ -999,8 +1005,11 @@ mod tests {
         );
         assert_eq!(split_line("nope:12"), ("nope:12", None));
         assert_eq!(split_line("nope.rs:12:5"), ("nope.rs:12:5", None));
+    }
 
-        // A colon in a name that really exists is part of the name.
+    #[test]
+    fn a_colon_in_a_name_that_exists_is_part_of_the_name() {
+        use super::split_line;
         let dir = std::env::temp_dir().join(format!("merl-colon-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("a:12").display().to_string();
@@ -1013,15 +1022,9 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// Files under `src/` longer than `MAX_LINES`, each at the size it may not outgrow (#544).
-    /// A listed file that shrinks lowers its number in the same change; one under the limit
-    /// leaves the list.
-    const LONG_FILES: &[(&str, usize)] = &[("src/app/definition.rs", 2307)];
+    const LONG_FILES: &[(&str, usize)] = &[("src/app/definition.rs", 2166)];
     const MAX_LINES: usize = 1500;
 
-    /// #544: a large file costs an agent context and makes parallel branches conflict at the
-    /// same spot. Test code is not counted: files under a `tests/` folder, and a file's inline
-    /// `#[cfg(test)] mod tests { … }`, which clippy keeps at its end.
     fn rust_files(dir: &Path, with_tests: bool, out: &mut Vec<std::path::PathBuf>) {
         for entry in std::fs::read_dir(dir).unwrap() {
             let path = entry.unwrap().path();
@@ -1081,15 +1084,12 @@ mod tests {
         assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
     }
 
-    const COMMENT_LINES: usize = 997;
-
-    fn comment_lines(text: &str) -> usize {
+    fn comment_lines(text: &str) -> Vec<usize> {
         let b = text.as_bytes();
-        let (mut i, mut line, mut count, mut marked) = (0, 0, 0, None);
+        let (mut i, mut line, mut lines) = (0, 0, Vec::new());
         let mut mark = |line: usize| {
-            if marked != Some(line) {
-                marked = Some(line);
-                count += 1;
+            if lines.last() != Some(&(line + 1)) {
+                lines.push(line + 1);
             }
         };
         while i < b.len() {
@@ -1175,7 +1175,7 @@ mod tests {
             }
             i += 1;
         }
-        count
+        lines
     }
 
     #[test]
@@ -1191,22 +1191,302 @@ b";
     'x'
 }
 "##;
-        assert_eq!(comment_lines(text), 4);
+        assert_eq!(comment_lines(text), [1, 2, 3, 8]);
     }
 
     #[test]
-    fn comment_lines_do_not_grow() {
+    fn src_holds_no_comment() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
         let mut files = Vec::new();
         rust_files(&root.join("src"), true, &mut files);
-        let count: usize = files
+        files.sort();
+        let found: Vec<String> = files
             .iter()
-            .map(|path| comment_lines(&std::fs::read_to_string(path).unwrap()))
-            .sum();
+            .flat_map(|path| {
+                let name = path.strip_prefix(root).unwrap().display().to_string();
+                comment_lines(&std::fs::read_to_string(path).unwrap())
+                    .into_iter()
+                    .map(move |line| format!("{name}:{line}"))
+            })
+            .collect();
         assert!(
-            count <= COMMENT_LINES,
-            "src/ holds {count} comment lines, over COMMENT_LINES ({COMMENT_LINES}): code carries no \
-             comments; move the why into the commit message and the what into a name or a test"
+            found.is_empty(),
+            "code carries no comments; move the why into the commit message and the what into a \
+             name or a test:\n{}",
+            found.join("\n")
+        );
+    }
+
+    const USAGE: &str = "the program reads its docstring as `__doc__` and prints it as its usage, \
+         so it is behaviour, not a comment; steps 1-6 kept to src/ and never read the tools; without \
+         it the tool has no help, which no name or commit message can print";
+
+    const KEPT_COMMENTS: &[(&str, &str, &str)] = &[
+        (
+            "tools/cast.py",
+            r#""""Record merl in a tmux pane as an animated GIF that reads like a screen recording."#,
+            USAGE,
+        ),
+        (
+            "tools/nvim2tmtheme.py",
+            r#""""Convert a Neovim highlight dump into a TextMate .tmTheme for syntect, and the"#,
+            USAGE,
+        ),
+        (
+            "tools/vscode2tmtheme.py",
+            r#""""Convert a VS Code JSON colour theme into a TextMate .tmTheme for syntect."#,
+            USAGE,
+        ),
+        (
+            "tools/fold-bench/run",
+            r#""""The fold bench: `f` pressed on the lines of real projects, against a reference."#,
+            USAGE,
+        ),
+        (
+            "tools/fold-bench/record.py",
+            r#""""Records the reference of the fold bench: what Neovim folds with nvim-treesitter's `folds.scm`"#,
+            USAGE,
+        ),
+        (
+            "tools/theme-bench/record.py",
+            r#""""Records the reference of the theme bench: the colours LazyVim paints on the same files, per"#,
+            USAGE,
+        ),
+        (
+            "tools/theme-bench/run",
+            r#""""The theme bench: merl's colours against LazyVim's, character by character."#,
+            USAGE,
+        ),
+        (
+            "tools/d-bench/run",
+            r#""""The `d` bench: press `d` on recorded cursors in pinned real projects, score merl's answer"#,
+            USAGE,
+        ),
+        (
+            "tools/d-bench/record.py",
+            r#""""Recording the `d` bench, once, on a recording machine: never in merl, never in CI."#,
+            USAGE,
+        ),
+        (
+            "tests/smoke/run.py",
+            r#""""The smoke test: before a release, plays every scenario in tmux on the new build and on the last"#,
+            USAGE,
+        ),
+        (
+            "assets/tapes/record.py",
+            r#""""Records one of the README's GIFs: a real terminal session, played back at the speed it ran."#,
+            USAGE,
+        ),
+        (
+            "tools/shot.py",
+            r#""""Renders a `tmux capture-pane -e` dump into a PNG, in the colours of the owner's terminal:"#,
+            USAGE,
+        ),
+    ];
+
+    const SCRIPTS: &[&str] = &[
+        "tools",
+        "tests/smoke/run.py",
+        "tests/smoke/setup.sh",
+        "assets/tapes",
+        ".claude/hooks",
+        ".github",
+        "Cargo.toml",
+        "deny.toml",
+    ];
+    const SCRIPT_DATA: &[&str] = &[
+        "tools/d-bench/answers",
+        "tools/fold-bench/folds",
+        "tools/themes-src",
+    ];
+
+    fn script_files(root: &Path, name: &str, out: &mut Vec<String>) {
+        let path = root.join(name);
+        if SCRIPT_DATA.contains(&name) || name.ends_with("__pycache__") {
+        } else if path.is_dir() {
+            for entry in std::fs::read_dir(&path).unwrap() {
+                let file = entry.unwrap().file_name();
+                script_files(root, &format!("{name}/{}", file.to_str().unwrap()), out);
+            }
+        } else {
+            out.push(name.to_string());
+        }
+    }
+
+    fn script_comment_lines(name: &str, text: &str) -> Result<Vec<usize>, String> {
+        let shebang = text.lines().next().filter(|l| l.starts_with("#!"));
+        let ext = Path::new(name).extension().and_then(|e| e.to_str());
+        let (prefix, python) = match (ext, shebang) {
+            (Some("py"), _) => ("#", true),
+            (Some("sh" | "yml" | "yaml" | "toml"), _) => ("#", false),
+            (Some("lua"), _) => ("--", false),
+            (None, Some(s)) => ("#", s.contains("python")),
+            _ => return Ok(Vec::new()),
+        };
+        let mut quote: Option<(&str, usize)> = None;
+        let mut lines = Vec::new();
+        for (i, line) in text.lines().enumerate() {
+            if quote.is_none()
+                && line.trim_start().starts_with(prefix)
+                && !(i == 0 && shebang.is_some())
+            {
+                lines.push(i + 1);
+                continue;
+            }
+            if !python {
+                continue;
+            }
+            let mut rest = line;
+            loop {
+                if let Some((q, _)) = quote {
+                    let Some(at) = rest.find(q) else { break };
+                    quote = None;
+                    rest = &rest[at + 3..];
+                    continue;
+                }
+                let Some(at) = rest.find(['#', '"', '\'']) else {
+                    break;
+                };
+                let tail = &rest[at..];
+                if tail.starts_with('#') {
+                    break;
+                }
+                if tail.starts_with("\"\"\"") || tail.starts_with("'''") {
+                    quote = Some((&tail[..3], i + 1));
+                    rest = &tail[3..];
+                    continue;
+                }
+                let q = tail.as_bytes()[0];
+                let mut end = None;
+                let mut j = 1;
+                while j < tail.len() {
+                    match tail.as_bytes()[j] {
+                        b'\\' => j += 1,
+                        b if b == q => {
+                            end = Some(j);
+                            break;
+                        }
+                        _ => {}
+                    }
+                    j += 1;
+                }
+                let Some(end) = end else {
+                    return Err(format!("line {}: a string the check cannot close", i + 1));
+                };
+                rest = &tail[end + 1..];
+            }
+        }
+        match quote {
+            Some((_, from)) => Err(format!("line {from}: a string that never closes")),
+            None => Ok(lines),
+        }
+    }
+
+    fn script_comments(root: &Path, name: &str) -> Result<(String, Vec<usize>), String> {
+        let text = std::fs::read_to_string(root.join(name)).map_err(|e| format!("{name}: {e}"))?;
+        let found = script_comment_lines(name, &text).map_err(|e| format!("{name}: {e}"))?;
+        Ok((text, found))
+    }
+
+    #[test]
+    fn script_comment_lines_skip_shebangs_and_python_strings() {
+        let py = "#!/usr/bin/env python3\n\"\"\"Usage:\n# no\n\"\"\"\nx = '''a''' # no\n  # one\ny = \"\"\"\n# no\n'''\n\"\"\"\n# two\n";
+        assert_eq!(script_comment_lines("a.py", py).unwrap(), [6, 11]);
+        assert_eq!(script_comment_lines("tools/run", py).unwrap(), [6, 11]);
+        let sh = "#!/bin/sh\n# one\necho '# no'\n  # two\n";
+        assert_eq!(script_comment_lines("tools/x", sh).unwrap(), [2, 4]);
+        assert_eq!(
+            script_comment_lines("a.yml", "a: 1 # no\n# one\n").unwrap(),
+            [2]
+        );
+        assert_eq!(
+            script_comment_lines("a.lua", "-- one\nx = 1 -- no\n").unwrap(),
+            [1]
+        );
+        assert!(script_comment_lines("a.tsv", "# no\n").unwrap().is_empty());
+    }
+
+    #[test]
+    fn script_comment_lines_see_past_a_triple_quote_in_a_one_line_string() {
+        let py = r#"a = line.startswith('"""', i) or b == "'''"
+# one
+c = "\"" + '\''
+# two
+d = """
+# no
+"""
+# three
+"#;
+        assert_eq!(script_comment_lines("a.py", py).unwrap(), [2, 4, 8]);
+        assert_eq!(
+            script_comment_lines("a.py", "x = 1  # a \"\"\" here\n# one\n").unwrap(),
+            [2]
+        );
+    }
+
+    #[test]
+    fn the_scripts_check_fails_on_what_it_cannot_read() {
+        assert!(script_comment_lines("a.py", "x = \"\"\"\n# no\n").is_err());
+        assert!(script_comment_lines("a.py", "x = 'open\n# no\n").is_err());
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut files = Vec::new();
+        script_files(root, "tools/no-such-script", &mut files);
+        assert!(script_comments(root, &files[0]).is_err());
+    }
+
+    #[test]
+    fn scripts_and_config_hold_no_comment_but_the_kept_ones() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut files = Vec::new();
+        for name in SCRIPTS {
+            script_files(root, name, &mut files);
+        }
+        files.sort();
+        let mut wrong = Vec::new();
+        for name in &files {
+            let (text, mut found) = match script_comments(root, name) {
+                Ok(read) => read,
+                Err(e) => {
+                    wrong.push(format!("cannot read {e}"));
+                    continue;
+                }
+            };
+            let lines: Vec<&str> = text.lines().collect();
+            for &(_, first, _) in KEPT_COMMENTS.iter().filter(|(f, ..)| f == name) {
+                let Some(at) = lines.iter().position(|l| l.trim() == first) else {
+                    wrong.push(format!(
+                        "{name}: `{first}` is gone: take it off KEPT_COMMENTS"
+                    ));
+                    continue;
+                };
+                if first.starts_with("\"\"\"") && !text.contains("__doc__") {
+                    wrong.push(format!(
+                        "{name}: its docstring is no longer read as `__doc__`"
+                    ));
+                }
+                let mut line = at + 1;
+                while let Some(i) = found.iter().position(|&l| l == line) {
+                    found.remove(i);
+                    line += 1;
+                }
+            }
+            wrong.extend(
+                found
+                    .iter()
+                    .map(|l| format!("{name}:{l}: {}", lines[l - 1].trim())),
+            );
+        }
+        for (f, first, _) in KEPT_COMMENTS {
+            if !files.iter().any(|n| n == f) {
+                wrong.push(format!("{f}: `{first}` is gone: take it off KEPT_COMMENTS"));
+            }
+        }
+        assert!(
+            wrong.is_empty(),
+            "code carries no comments; move the why into the commit message and the what into a \
+             name or a test, or list a comment the code cannot do without in KEPT_COMMENTS with \
+             its reason:\n{}",
+            wrong.join("\n")
         );
     }
 }

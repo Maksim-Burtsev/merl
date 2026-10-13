@@ -171,7 +171,6 @@ fn non_ws_len(s: &str) -> usize {
 }
 
 #[cfg(test)]
-// Single-element vecs of ranges are exactly what `changes` returns.
 #[allow(clippy::single_range_in_vec_init)]
 mod tests {
     use super::*;

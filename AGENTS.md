@@ -48,12 +48,13 @@
   grow: `no_source_file_grows_past_its_size` (`src/main.rs`, `LONG_FILES`). Split the file; a
   listed file that shrinks lowers its number in the same PR.
 - Code carries no comments, `///` and `//!` included: names, types and tests say what it does,
-  and the commit message says why. The comments already in the code are older practice, not the
-  density to match: when you change the code under one, delete it and move what still holds into
-  the commit message, a `ponytail:` note included. Fixture annotations (`tests/fixtures/`) and
-  the tutor's sample project are data and stay. The comment lines under `src/` may not grow:
-  `comment_lines_do_not_grow` (`src/main.rs`, `COMMENT_LINES`); a PR that deletes comments
-  lowers the number.
+  and the commit message says why, a `ponytail:` note included. Fixture annotations
+  (`tests/fixtures/`) and the tutor's sample project are data and stay. `src_holds_no_comment`
+  (`src/main.rs`) fails on any comment under `src/` and names its file and line;
+  `scripts_and_config_hold_no_comment_but_the_kept_ones` does the same for the Python, shell,
+  Lua, CI and Cargo files, Python docstrings checked by hand. A comment stays only in
+  `KEPT_COMMENTS` beside them, with why the code cannot do without it: a tool reads it (a
+  docstring printed as the program's usage), or a licence requires it.
 
 ## Issues
 
@@ -111,8 +112,8 @@ with its issue closed, or waits under `needs-owner` (see `## Merging`).
 4. Keep scratch files (fixtures, GIFs, harnesses) in a folder named after the issue: parallel
    runs share a scratchpad and overwrite each other's `before.gif`.
 5. Before a push, `tools/ci-local`: every job of `.github/workflows/ci.yml`, which calls it step
-   by step (`tools/ci-local clippy tests` runs only those), stopping non-zero at the first that
-   fails. A change a user can see adds its
+   by step (`tools/ci-local clippy tests` runs only those), and the Deny workflow's `cargo deny`
+   (`deny`), stopping non-zero at the first that fails. A change a user can see adds its
    entry under `## [Unreleased]` in `CHANGELOG.md`, citing the issue as `(#N)`; docs, refactors,
    tests and tooling get none. What the change moves in the tests, the bullets at the top
    saying how:
@@ -176,7 +177,7 @@ merl colours code as LazyVim does (epic #797): tree-sitter's syntax tree, nvim-t
 queries and the theme's Neovim highlight groups (`themes/NAME.groups.json`, #801), in
 `src/treesitter.rs`. Until #810 turns it on it runs behind the hidden setting `tree_sitter = true`
 in `config.toml`, for Python, Go, Rust, Markdown, TypeScript, TSX, JavaScript, JSX, Bash (zsh
-stays on syntect, as LazyVim has no zsh parser), JSON, YAML and TOML today and for the languages of
+stays on syntect, as LazyVim has no zsh parser), JSON, YAML, TOML, Lua, C, C++, Java, C#, HTML, CSS, XML, Diff and Query today and for the languages of
 #806–#809 as they land; every other file goes through syntect as before.
 
 - **A grammar is a dependency**: the crates.io release of the revision nvim-treesitter pins in

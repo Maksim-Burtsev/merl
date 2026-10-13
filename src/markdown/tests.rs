@@ -165,7 +165,6 @@ fn code_blocks_lose_their_fences_and_wrap_under_their_indent() {
         "a row of a tab-indented line starts where its text is written"
     );
     assert!(raw[9..].starts_with("compute") && raw[24..].starts_with("beta"));
-    // Rows met in order: each tab passed once, the second of two as the first.
     let mut tabs = Tabs::new("ab\t\tcd");
     assert_eq!(tabs.raw(1), 1);
     assert_eq!(tabs.raw(3), 2, "inside the first tab's spaces");
@@ -211,8 +210,7 @@ fn tables_are_drawn_in_lines_and_aligned() {
     assert_eq!(look_of(&d, "longer"), Ink::Text.plain());
 }
 
-/// Every row of a table as wide as the top border: the table is whole.
-fn whole(d: &Doc) -> usize {
+fn width_of_a_whole_table(d: &Doc) -> usize {
     let w = wrap::width(&d.rows[0].text);
     for r in &d.rows {
         assert_eq!(wrap::width(&r.text), w, "{:?}", texts(d));
@@ -225,7 +223,7 @@ fn a_table_wider_than_the_pane_narrows_its_widest_column_and_stays_whole() {
     let src = "| Step | Owner | Risk |\n|---|---|---|\n| watcher | Kimi | low |\n\
                | diff recompute | Claude | medium: the cursor must not jump |";
     let d = doc(src, 44);
-    assert_eq!(whole(&d), 44);
+    assert_eq!(width_of_a_whole_table(&d), 44);
     assert_eq!(
         texts(&d)[3..7],
         [
@@ -236,11 +234,11 @@ fn a_table_wider_than_the_pane_narrows_its_widest_column_and_stays_whole() {
         ]
     );
     assert!(
-        whole(&doc(src, 20)) <= 20,
+        width_of_a_whole_table(&doc(src, 20)) <= 20,
         "narrower still, every column gives way"
     );
     assert_eq!(
-        whole(&doc(src, 200)),
+        width_of_a_whole_table(&doc(src, 200)),
         62,
         "at its natural width it is as wide as it needs, no wider"
     );
@@ -257,14 +255,13 @@ fn emoji_and_cjk_take_the_columns_they_are_drawn_in() {
     for r in &d.rows {
         assert!(wrap::width(&r.text) <= 8, "{:?}", r.text);
     }
-    // In a table they line the borders up as ASCII does.
     let d = doc("| a | b |\n|---|---|\n| 漢字 | x |\n| 👍🏽 ok | ⚠️ |", 40);
-    whole(&d);
+    width_of_a_whole_table(&d);
     let d = doc(
         "| a | b |\n|---|---|\n| 漢字漢字漢字 | x |\n| 👍🏽 ok | ⚠️ |",
         12,
     );
-    whole(&d);
+    width_of_a_whole_table(&d);
 }
 
 #[test]
@@ -308,12 +305,10 @@ fn every_row_knows_where_it_starts_in_the_source() {
         at,
         [
             ("Title", (0, 2)),
-            // What a heading heads follows its rule without a blank row.
             ("\u{2501}".repeat(10).as_str(), (0, 2)),
             ("Some words", (2, 0)),
             ("that wrap", (2, 11)),
             ("on.", (3, 5)),
-            // A blank row stands for the blank line above the next block.
             ("", (4, 0)),
             ("\u{2022} item", (5, 2)),
             ("\u{2022} next", (6, 2)),
@@ -336,17 +331,26 @@ fn every_row_knows_where_it_starts_in_the_source() {
             ),
         ]
     );
-    // From the source back: the row that shows the position's line and column. Column 0 of a
-    // heading or a list item, on its marker, is the row of its text.
-    assert_eq!(d.row_at((0, 0)), 0);
+    assert_eq!(
+        d.row_at((0, 0)),
+        0,
+        "column 0 of a heading, on its marker, is the row of its text"
+    );
     assert_eq!(d.row_at((2, 5)), 2);
     assert_eq!(d.row_at((2, 14)), 3);
     assert_eq!(d.row_at((3, 0)), 3);
-    assert_eq!(d.row_at((5, 0)), 6);
+    assert_eq!(
+        d.row_at((5, 0)),
+        6,
+        "column 0 of a list item, on its marker, is the row of its text"
+    );
     assert_eq!(d.row_at((6, 0)), 7);
-    // A code block's fences are its rows'.
-    assert_eq!(d.row_at((8, 0)), 9);
-    assert_eq!(d.row_at((10, 3)), 9);
+    assert_eq!(
+        d.row_at((8, 0)),
+        9,
+        "a code block's opening fence is its row's"
+    );
+    assert_eq!(d.row_at((10, 3)), 9, "and so is its closing fence");
     assert_eq!(d.row_at((14, 4)), 14);
     for (i, r) in d.rows.iter().enumerate() {
         if d.rows[..i].iter().all(|o| o.src != r.src) && !r.lines.is_empty() {
@@ -439,9 +443,12 @@ fn every_line_belongs_to_a_row() {
 
 #[test]
 fn text_a_container_took_part_of_a_tab_from_stays_on_its_line() {
-    // pulldown-cmark hands the spaces left of a tab in front of the line as text of their own.
     let d = doc("- a\n\n\t\tcode\n\t\tmore\n", 40);
-    assert_eq!(d.code[0].lines, ["  code", "  more"]);
+    assert_eq!(
+        d.code[0].lines,
+        ["  code", "  more"],
+        "pulldown-cmark hands the spaces left of a tab in front of the line as text of their own"
+    );
     assert_eq!(texts(&d), ["\u{2022} a", "", "     code", "     more"]);
     let d = doc("- a\n\n\t<div>x</div>\n\n\tpara\n", 40);
     assert_eq!(
