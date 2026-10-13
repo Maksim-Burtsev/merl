@@ -72,7 +72,11 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
     let mut spans = vec![
         Span::styled(
             app.rel_path(),
-            style.fg(theme.accent).add_modifier(Modifier::BOLD),
+            match theme.groups.is_empty() {
+                true => style.fg(theme.accent),
+                false => style,
+            }
+            .add_modifier(Modifier::BOLD),
         ),
         Span::styled(
             format!(

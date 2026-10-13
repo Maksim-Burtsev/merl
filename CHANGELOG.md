@@ -23,10 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hand. (#801)
 - The chrome takes the theme's Neovim colours, as LazyVim draws them: after `/`, `n` or `N` the
   match under the cursor is in `CurSearch` and the other matches in `Search`; the status line is
-  `StatusLine`, the line numbers `LineNr`, the cursor line's number `CursorLineNr`, the cursor
-  line `CursorLine` and the selection `Visual`. Themes without Neovim colours (`shokunin-*`,
-  `lucerna`, `seneca*`, a `.tmTheme` of your own without its `.groups.json`) draw the match under
-  the cursor a shade stronger than the others. (#796)
+  `StatusLine`, the file path at its left in its text colour and bold, the line numbers `LineNr`,
+  the cursor line's number `CursorLineNr`, the cursor line `CursorLine` and the selection `Visual`.
+  Themes without Neovim colours (`shokunin-*`, `lucerna`, `seneca*`, a `.tmTheme` of your own
+  without its `.groups.json`) draw the match under the cursor a shade stronger than the others, and
+  the path in the accent. (#796, #813)
 - The Markdown preview (`p`) keeps each heading's `#` … `######` in front of its text, in the
   heading's colour, so every level is told apart, as glow and LazyVim show them. (#765)
 - A Ctrl+letter merl does not bind does nothing, wherever letters are keys (the code, the tree,
