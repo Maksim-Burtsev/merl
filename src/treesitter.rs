@@ -312,8 +312,7 @@ pub fn for_syntax(
         "CSS" => lang("css"),
         "Diff" if diff(path, lines) => lang("diff"),
         "Lisp" if path.is_some_and(query) => lang("query"),
-        "HTML" if !html_variant(lines) => lang("html"),
-        "XML" if xml(path, lines) => lang("xml"),
+        "HTML" | "XML" => html_or_xml(path?, lines),
         "Go" => lang("go"),
         "Java" if !path.is_some_and(|p| p.extension().is_some_and(|e| e == "bsh")) => lang("java"),
         "JSON" => lang("json"),
@@ -358,16 +357,62 @@ fn cpp(path: Option<&Path>, lines: &[String]) -> bool {
     }
 }
 
-fn xml(path: Option<&Path>, lines: &[String]) -> bool {
-    let ext = path.and_then(|p| p.extension()).and_then(|e| e.to_str());
-    !matches!(ext, Some("tld" | "opml" | "dtml"))
-        && !lines.iter().take(100).any(|l| {
-            let lower = l.to_lowercase();
-            l.find("<!DOCTYPE")
-                .is_some_and(|i| l[i..].contains("DocBook"))
-                || lower.contains(r#" xmlns="http://docbook.org/ns/docbook""#)
-                || lower.contains(r#"xmlns:xbl="http://www.mozilla.org/xbl""#)
-        })
+const XML_EXTENSIONS: &[&str] = &[
+    "svg", "xsd", "xsl", "xslt", "psc1", "tpm", "xliff", "atom", "xul", "cdxml", "mpd", "rss",
+    "fsproj", "ui", "vbproj", "xlf", "wsdl", "csproj", "wpl", "xmi", "xpr", "xpfm", "spfm", "bxml",
+    "mmi", "xcu", "xlb", "xlc", "xba", "slnx",
+];
+const XML_NAMES: &[&str] = &[
+    "fglrxrc",
+    "fonts.conf",
+    "Directory.Packages.props",
+    "Directory.Build.props",
+    "Directory.Build.targets",
+];
+const XML_PATH_ENDS: &[&str] = &[
+    "/etc/blkid.tab",
+    "/etc/blkid.tab.old",
+    ".csproj.user",
+    ".fsproj.user",
+    ".vbproj.user",
+];
+
+fn html_or_xml(path: &Path, lines: &[String]) -> Option<&'static Lang> {
+    static SMIL: OnceLock<regex::Regex> = OnceLock::new();
+    let smil = SMIL.get_or_init(|| regex::Regex::new(r"<\?\s*xml.*\?>").expect("a valid regex"));
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    let full = path.to_string_lossy();
+    let first = lines.first().map_or("", String::as_str);
+    let xml = match ext {
+        "cpt" | "dtml" | "htm" | "html" | "pt" | "shtml" | "stm" => {
+            return if html_variant(lines) {
+                None
+            } else {
+                lang("html")
+            };
+        }
+        "xml" => !docbook_or_xbl(lines),
+        "lpr" | "grc" | "ts" => first.contains("<?xml"),
+        "smil" => smil.is_match(first),
+        _ => {
+            XML_EXTENSIONS.contains(&ext)
+                || XML_NAMES.contains(&name)
+                || XML_PATH_ENDS.iter().any(|end| full.ends_with(end))
+                || (full.contains("/etc/xdg/menus/") && ext == "menu")
+        }
+    };
+    if xml { lang("xml") } else { None }
+}
+
+fn docbook_or_xbl(lines: &[String]) -> bool {
+    lines.iter().take(100).any(|l| {
+        let lower = l.to_lowercase();
+        l.find("<!DOCTYPE")
+            .is_some_and(|i| l[i..].contains("DocBook"))
+            || lower.contains(r#" xmlns="http://docbook.org/ns/docbook""#)
+            || lower.contains(r#"xmlns:xbl="http://www.mozilla.org/xbl""#)
+    })
 }
 
 fn query(path: &Path) -> bool {

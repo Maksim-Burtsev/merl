@@ -1,6 +1,23 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
+if [[ ${1:-} == -* ]]; then
+  cat <<'EOF'
+A screenshot of merl in every shipped theme, or only the named ones, for the gallery in
+docs/themes.md. tmux paints merl for real, `capture-pane -e` keeps the colours and tools/shot.py
+draws the cells, so it needs only tmux, Python with Pillow and a release build:
+
+  cargo build --release && tools/theme-shots.sh [NAME...]
+
+Writes assets/themes/<name>.png, or $OUT/<name>.png. BIN=<merl> picks the binary
+(target/release/merl by default). MERL_HOME=<dir> runs merl with that HOME, which is how a theme
+in <dir>/.config/merl/themes is reached. KEYS=<keys> are sent before the capture: KEYS=T opens an
+overlay.
+EOF
+  [[ $1 == -h || $1 == --help ]]
+  exit
+fi
+
 root=$(cd "$(dirname "$0")/.." && pwd)
 out=${OUT:-$root/assets/themes}
 bin=${BIN:-$root/target/release/merl}
