@@ -729,7 +729,7 @@ mod tests {
             .filter(|(_, rest)| rest.starts_with("skip\t"))
             .map(|(name, _)| name)
             .collect();
-        assert!(!skipped.is_empty());
+        assert_ne!(skipped, [] as [&str; 0]);
         for (name, _, groups) in THEMES {
             assert_eq!(groups.is_none(), skipped.contains(name), "{name}");
             let t = load(name).unwrap_or_else(|e| panic!("{name}: {e:#}"));

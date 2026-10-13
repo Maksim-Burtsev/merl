@@ -159,7 +159,7 @@ ship c = do
         "a lambda's parameter on its line"
     );
     assert_eq!(local(text, 19, "v"), [19], "a case alternative's");
-    assert!(local(text, 2, "label").is_empty());
+    assert_eq!(local(text, 2, "label"), [] as [usize; 0]);
     assert!(
         local(text, 19, "Just").is_empty(),
         "a constructor is no local"
@@ -177,8 +177,8 @@ class Pretty a where
 instance Pretty Int where
   pretty n = show n
 ";
-    assert!(local(text, 3, "pretty").is_empty());
-    assert!(local(text, 6, "pretty").is_empty());
+    assert_eq!(local(text, 3, "pretty"), [] as [usize; 0]);
+    assert_eq!(local(text, 6, "pretty"), [] as [usize; 0]);
     assert_eq!(local(text, 6, "n"), [6]);
 }
 

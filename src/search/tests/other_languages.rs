@@ -351,7 +351,7 @@ fn elixir_scope_roots_and_names() {
         Path::new("test/ledger_test.exs")
     ));
     assert!(!in_def_scope(Kind::Elixir, here, Path::new("mix.lock")));
-    assert!(imports(Kind::Elixir, EX).is_empty());
+    assert_eq!(imports(Kind::Elixir, EX), [] as [Import; 0]);
     assert!(member_patterns(Kind::Elixir, "parse").is_none());
     assert_eq!(
         qualified(Kind::Elixir, EX, 22, "normalise").as_deref(),
@@ -581,7 +581,7 @@ fn zig_scope_roots_and_names() {
     let here = Path::new("src/main.zig");
     assert!(in_def_scope(Kind::Zig, here, Path::new("src/ledger.zig")));
     assert!(!in_def_scope(Kind::Zig, here, Path::new("build.zig.zon")));
-    assert!(imports(Kind::Zig, ZIG).is_empty());
+    assert_eq!(imports(Kind::Zig, ZIG), [] as [Import; 0]);
     assert!(member_patterns(Kind::Zig, "init").is_none());
     assert!(
         external_roots(Kind::Zig, Path::new("/"))
@@ -938,7 +938,7 @@ fn terraform_def_patterns_resolve_the_address() {
     assert!(!directly_inside(&lines, 11, "locals"));
     assert!(!directly_inside(&lines, 1, "locals"));
     assert!(!directly_inside(&lines, 0, "locals"));
-    assert!(def_patterns(Kind::Terraform, "each.key").is_empty());
+    assert_eq!(def_patterns(Kind::Terraform, "each.key"), [] as [String; 0]);
     std::fs::remove_dir_all(&dir).unwrap();
 }
 

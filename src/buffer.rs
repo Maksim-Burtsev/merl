@@ -537,7 +537,7 @@ mod tests {
         let huge = format!("{{\"a\": \"{}\"}}", "x".repeat(1 << 20));
         let mut block = Buffer::block("json", vec![huge, "{\"b\": 1}".to_owned()]);
         block.highlight_to(1, &theme);
-        assert!(block.hl[0].is_empty());
+        assert_eq!(block.hl[0], [] as [(Style, Range<usize>); 0]);
         assert!(
             !block.hl[1].is_empty(),
             "the lines below keep their colours"
@@ -752,7 +752,7 @@ mod tests {
         let mut b = Buffer::from_bytes(PathBuf::from("big.rs"), text.as_bytes());
         assert!(b.syntax.is_none());
         b.highlight_to(10, &crate::theme::load("tokyonight-moon").unwrap());
-        assert!(b.hl.is_empty());
+        assert_eq!(b.hl, [] as [Vec<(Style, Range<usize>)>; 0]);
     }
 
     #[test]

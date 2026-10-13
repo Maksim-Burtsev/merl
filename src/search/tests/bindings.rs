@@ -427,7 +427,7 @@ fn java_and_kotlin_bind_locals_parameters_and_loop_variables_in_their_block() {
     assert_eq!(lines("x", 9), [8], "a destructured local");
     assert_eq!(lines("p", 9), [9], "a destructured lambda parameter");
     assert!(lines("seed", 9).is_empty(), "a property is no local");
-    assert!(lines("left", 9).is_empty());
+    assert_eq!(lines("left", 9), [] as [usize; 0]);
 }
 
 #[test]
@@ -474,7 +474,7 @@ end
         "parameters wrapped over several lines"
     );
     assert_eq!(at(16, "second"), [14]);
-    assert!(at(16, "key").is_empty());
+    assert_eq!(at(16, "key"), [] as [usize; 0]);
     assert!(
         at(12, "pay").is_empty(),
         "nothing outside a `def` is a local"
@@ -797,7 +797,10 @@ fn what_this_is_under_a_case_and_a_returned_literal() {
 #[test]
 fn a_csharp_nested_type_does_not_see_its_outer_types_header() {
     let text = "class Outer(Repo repo) {\n  class Inner {\n    void Run() {\n      repo.Save();\n    }\n  }\n}\n";
-    assert!(bound_at(Kind::CSharp, text, 4, "repo").is_empty());
+    assert_eq!(
+        bound_at(Kind::CSharp, text, 4, "repo"),
+        [] as [(usize, Value); 0]
+    );
 }
 
 #[test]

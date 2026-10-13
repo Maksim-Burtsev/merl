@@ -135,7 +135,7 @@ fn without_pictures_the_note_names_the_image() {
         "{rows:#?}"
     );
     assert!(rows[23].contains("read-only"), "{}", rows[23]);
-    assert!(app.diagrams.want.is_empty());
+    assert_eq!(app.diagrams.want, [] as [crate::mermaid::Place; 0]);
     drop(std::fs::remove_dir_all(&root));
 }
 
@@ -172,7 +172,7 @@ fn an_overlay_over_the_picture_takes_it_away() {
     assert_eq!(app.diagrams.want.len(), 1);
     press(&mut app, '?');
     paint(&mut app, 80, 24);
-    assert!(app.diagrams.want.is_empty());
+    assert_eq!(app.diagrams.want, [] as [crate::mermaid::Place; 0]);
     drop(std::fs::remove_dir_all(&root));
 }
 
@@ -209,7 +209,7 @@ fn p_draws_an_svg_and_p_again_shows_its_source() {
         rows0.iter().any(|r| r.contains("<circle")),
         "opens as its source"
     );
-    assert!(app.diagrams.want.is_empty());
+    assert_eq!(app.diagrams.want, [] as [crate::mermaid::Place; 0]);
     press(&mut app, 'p');
     let rows1 = rows(&paint(&mut app, 80, 24));
     assert!(!rows1.iter().any(|r| r.contains("<circle")), "{rows1:#?}");
@@ -222,7 +222,7 @@ fn p_draws_an_svg_and_p_again_shows_its_source() {
     press(&mut app, 'p');
     let rows2 = rows(&paint(&mut app, 80, 24));
     assert_eq!(rows2, rows0);
-    assert!(app.diagrams.want.is_empty());
+    assert_eq!(app.diagrams.want, [] as [crate::mermaid::Place; 0]);
     let mut plain = open(&root, "logo.svg", false);
     press(&mut plain, 'p');
     assert_eq!(

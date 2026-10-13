@@ -346,10 +346,10 @@ contract Shop {
     assert_eq!(local(4, "fee"), [4]);
     assert_eq!(local(12, "grams"), [10]);
     assert_eq!(local(11, "grams"), [10]);
-    assert!(local(14, "total").is_empty());
+    assert_eq!(local(14, "total"), [] as [usize; 0]);
     assert_eq!(local(3, "grams"), [3]);
-    assert!(local(14, "fee").is_empty());
-    assert!(local(6, "Shop").is_empty());
+    assert_eq!(local(14, "fee"), [] as [usize; 0]);
+    assert_eq!(local(6, "Shop"), [] as [usize; 0]);
     let tuple = "\
 contract Shop {
     function f() internal {
@@ -372,7 +372,7 @@ contract Shop {
     assert_eq!(local(9, "isAdmin"), [3]);
     assert_eq!(local(9, "execType"), [4]);
     assert_eq!(local(9, "callType"), [4]);
-    assert!(local(9, "ptr").is_empty());
+    assert_eq!(local(9, "ptr"), [] as [usize; 0]);
     assert_eq!(local(7, "ptr"), [6]);
     assert_eq!(local(7, "b"), [7]);
     let allman = "\
@@ -393,13 +393,13 @@ contract Shop {
             .map(|b| b.line1)
             .collect()
     };
-    assert!(local(2, "onlyOwner").is_empty());
-    assert!(local(4, "withinSupply").is_empty());
+    assert_eq!(local(2, "onlyOwner"), [] as [usize; 0]);
+    assert_eq!(local(4, "withinSupply"), [] as [usize; 0]);
     assert_eq!(local(4, "amount"), [2]);
     assert_eq!(local(9, "balances"), [7]);
     assert_eq!(local(9, "amount"), [8]);
     assert_eq!(local(9, "ok"), [9]);
-    assert!(local(9, "external").is_empty());
+    assert_eq!(local(9, "external"), [] as [usize; 0]);
 }
 
 #[test]

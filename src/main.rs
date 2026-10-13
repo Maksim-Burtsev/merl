@@ -1470,7 +1470,10 @@ b";
             script_comment_lines("a.lua", "-- one\nx = 1 -- no\n").unwrap(),
             [1]
         );
-        assert!(script_comment_lines("a.tsv", "# no\n").unwrap().is_empty());
+        assert_eq!(
+            script_comment_lines("a.tsv", "# no\n").unwrap(),
+            [] as [usize; 0]
+        );
     }
 
     #[test]

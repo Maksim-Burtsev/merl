@@ -670,7 +670,7 @@ fn only_mermaid_blocks_ask_for_a_picture() {
         40,
         (5, 2),
     );
-    assert!(asked.is_empty());
+    assert_eq!(asked, [] as [(String, usize); 0]);
     assert!(d.code.iter().all(|c| c.picture.is_none()));
     assert!(texts(&d).iter().any(|t| t.contains("fn main()")));
 }
@@ -809,17 +809,17 @@ fn an_img_tag_over_several_lines_draws_once_and_hides_its_lines() {
 fn text_beside_a_drawn_image_stays_as_written() {
     let header = "<h1 align=\"center\"><img src=\"logo.png\" width=\"64\"><br>merl</h1>";
     let (d, _) = with_images(header, false);
-    assert!(image_rows(&d).is_empty());
+    assert_eq!(image_rows(&d), [] as [(String, usize, String); 0]);
     assert_eq!(texts(&d).concat(), header);
     let (d, _) = with_images("![a](a.png)[^1]\n\n[^1]: note", false);
-    assert!(image_rows(&d).is_empty());
+    assert_eq!(image_rows(&d), [] as [(String, usize, String); 0]);
     assert!(texts(&d)[0].contains("\u{25a3} a[1]"), "{:?}", texts(&d));
 }
 
 #[test]
 fn a_paragraph_of_a_variant_the_theme_hides_shows_nothing() {
     let (d, asked) = with_images("![dark logo](d.png#gh-dark-mode-only)\n\nAfter", true);
-    assert!(asked.is_empty());
+    assert_eq!(asked, [] as [String; 0]);
     assert_eq!(texts(&d), ["After"]);
 }
 

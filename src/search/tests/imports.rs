@@ -157,7 +157,7 @@ fn module_files_are_the_project_files_an_import_names() {
     let memory = "src/app/store/backends/memory.py";
     assert_eq!(found(py, memory, &[".."]), ["src/app/store/__init__.py"]);
     assert_eq!(found(py, memory, &["...", "repos"]), ["src/app/repos.py"]);
-    assert!(found(py, "main.py", &["..", "repos"]).is_empty());
+    assert_eq!(found(py, "main.py", &["..", "repos"]), [] as [String; 0]);
     let page = "web/src/page.ts";
     assert_eq!(
         found(ts, page, &[".", "x"]),
@@ -178,8 +178,8 @@ fn module_files_are_the_project_files_an_import_names() {
         ["web/src/x.ts"],
         "a name no alias matches, under `baseUrl`"
     );
-    assert!(found(ts, page, &["react"]).is_empty());
-    assert!(found(ts, "page.ts", &["..", "x"]).is_empty());
+    assert_eq!(found(ts, page, &["react"]), [] as [String; 0]);
+    assert_eq!(found(ts, "page.ts", &["..", "x"]), [] as [String; 0]);
     assert_eq!(
         found(go, "main.go", &["example.com", "app", "internal", "repo"]),
         ["internal/repo/repo.go"]
@@ -188,7 +188,10 @@ fn module_files_are_the_project_files_an_import_names() {
         found(go, "main.go", &["example.com", "app", "tools", "gen"]),
         ["tools/gen/gen.go"]
     );
-    assert!(found(go, "main.go", &["example.com", "application"]).is_empty());
+    assert_eq!(
+        found(go, "main.go", &["example.com", "application"]),
+        [] as [String; 0]
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -911,7 +914,10 @@ fn php_class_names_resolve_and_map_to_files() {
         Psr4File::OutsideProject,
         "and only such a name"
     );
-    assert!(php_psr4(&dir, Path::new("elsewhere")).is_empty());
+    assert_eq!(
+        php_psr4(&dir, Path::new("elsewhere")),
+        [] as [(String, Vec<PathBuf>); 0]
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -957,7 +963,10 @@ fn a_go_package_name_drops_a_go_suffix_and_an_absolute_ts_path_is_the_projects()
 
 #[test]
 fn a_php_group_use_binds_nothing() {
-    assert!(imports(Kind::Php, "use App\\Http\\{Kernel, Request};\n").is_empty());
+    assert_eq!(
+        imports(Kind::Php, "use App\\Http\\{Kernel, Request};\n"),
+        [] as [Import; 0]
+    );
 }
 
 #[test]

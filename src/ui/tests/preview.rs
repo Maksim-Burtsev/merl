@@ -175,7 +175,7 @@ fn a_mermaid_picture_is_placed_on_its_rows_cut_by_the_pane_and_hidden_under_an_o
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     app.key(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::NONE));
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert!(app.diagrams.want.is_empty());
+    assert_eq!(app.diagrams.want, [] as [crate::mermaid::Place; 0]);
     assert!(rows(&terminal).iter().any(|r| r.contains("A[Start]")));
 
     settle(&mut app, &mut terminal, &theme);
@@ -202,5 +202,5 @@ fn a_mermaid_picture_is_placed_on_its_rows_cut_by_the_pane_and_hidden_under_an_o
 
     app.key(KeyEvent::new(KeyCode::Char('?'), KeyModifiers::NONE));
     settle(&mut app, &mut terminal, &theme);
-    assert!(app.diagrams.want.is_empty());
+    assert_eq!(app.diagrams.want, [] as [crate::mermaid::Place; 0]);
 }

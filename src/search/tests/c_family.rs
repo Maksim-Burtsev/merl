@@ -1059,7 +1059,10 @@ fn php_scope_roots_imports_and_names() {
         [dir.join("vendor")],
         "Composer's `vendor/` is gitignored, outside the project walk as `node_modules` is"
     );
-    assert!(external_roots(Kind::Php, Path::new("/")).is_empty());
+    assert_eq!(
+        external_roots(Kind::Php, Path::new("/")),
+        [] as [PathBuf; 0]
+    );
     std::fs::remove_dir_all(&dir).unwrap();
     assert_eq!(
         qualified(Kind::Php, PHP, 28, "parse").as_deref(),
@@ -1339,7 +1342,7 @@ fn swift_test_targets_come_from_the_manifest() {
         "let package = Package(name: \"App\")\n",
     )
     .unwrap();
-    assert!(swift_test_dirs(&dir).is_empty());
+    assert_eq!(swift_test_dirs(&dir), [] as [PathBuf; 0]);
     std::fs::remove_dir_all(&dir).unwrap();
 }
 

@@ -302,7 +302,7 @@ fn kinds_and_roots() {
             PathBuf::from("/opam/default/lib")
         ]
     );
-    assert!(ocaml_roots(None).is_empty());
+    assert_eq!(ocaml_roots(None), [] as [PathBuf; 0]);
     assert_eq!(
         ml_modules(
             Path::new("lib/pricing.ml"),

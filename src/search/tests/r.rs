@@ -180,7 +180,10 @@ fn r_sources_a_file_from_the_root_then_from_its_directory() {
         r_files(Path::new("scripts"), "helpers.R", &files),
         [PathBuf::from("scripts/helpers.R")]
     );
-    assert!(r_files(Path::new("R"), "missing.R", &files).is_empty());
+    assert_eq!(
+        r_files(Path::new("R"), "missing.R", &files),
+        [] as [PathBuf; 0]
+    );
 }
 
 #[test]

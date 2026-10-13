@@ -327,7 +327,10 @@ mod tests {
             pair(&["apples".to_owned(), "oranges".to_owned()], added),
             vec![(0, 0), (1, 1)]
         );
-        assert!(pair(&["let x = 1;".to_owned()], added).is_empty());
+        assert_eq!(
+            pair(&["let x = 1;".to_owned()], added),
+            [] as [(usize, usize); 0]
+        );
     }
 
     fn words_between(first: &str, words: usize, last: &str) -> String {
@@ -348,6 +351,6 @@ mod tests {
     fn lines_are_paired_up_to_400_pairs_of_lines() {
         let lines = |n: usize| (0..n).map(|i| format!("line {i}")).collect::<Vec<_>>();
         assert_eq!(pair(&lines(16), &lines(25)).len(), 16);
-        assert!(pair(&lines(17), &lines(25)).is_empty());
+        assert_eq!(pair(&lines(17), &lines(25)), [] as [(usize, usize); 0]);
     }
 }

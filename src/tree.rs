@@ -810,7 +810,7 @@ mod tests {
             ],
             "a link that leads nowhere stays a row, as it was before FIFOs were left out"
         );
-        assert!(t.ignored_files().is_empty());
+        assert_eq!(t.ignored_files(), [] as [PathBuf; 0]);
         t.reveal(Path::new("build"));
         t.expand();
         t.reveal(Path::new("src"));

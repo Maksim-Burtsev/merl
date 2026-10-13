@@ -16,8 +16,8 @@ fn a_rule_styles_the_classes_of_its_last_compound() {
                a { color: red; width: .5em; }\n/* .btn { */\n// .btn {\n";
     assert_eq!(styled(css, "btn"), [1, 2, 3, 4, 5, 9]);
     assert_eq!(styled(css, "icon"), [6]);
-    assert!(styled(css, "5em").is_empty());
-    assert!(styled(css, "col-").is_empty());
+    assert_eq!(styled(css, "5em"), [] as [usize; 0]);
+    assert_eq!(styled(css, "col-"), [] as [usize; 0]);
 }
 
 #[test]
@@ -252,7 +252,7 @@ fn a_selector_reads_past_values_strings_and_its_mixin() {
         [1],
         "a `}}` in a string closes nothing"
     );
-    assert!(styled(".col-@{i} {}\n", "col-").is_empty());
+    assert_eq!(styled(".col-@{i} {}\n", "col-"), [] as [usize; 0]);
     assert_eq!(
         styled("@mixin m {\n  .y {}\n}\n", "y"),
         [2],
@@ -262,7 +262,7 @@ fn a_selector_reads_past_values_strings_and_its_mixin() {
         styled(".a {\n  font: {\n    .b {}\n  }\n}\n", "b").is_empty(),
         "nested properties hold no rule"
     );
-    assert!(styled("@detached: {\n  .c {}\n}\n", "c").is_empty());
+    assert_eq!(styled("@detached: {\n  .c {}\n}\n", "c"), [] as [usize; 0]);
     let both = ".a, .b {\n  &-x {}\n}\n";
     assert_eq!(styled(both, "a-x"), [2]);
     assert_eq!(styled(both, "b-x"), [2]);
@@ -292,7 +292,7 @@ fn an_import_names_the_files_it_may_be() {
         shown(import_candidates("base", SheetSyntax::CssOrSass)),
         ["base"]
     );
-    assert!(sass_uses("@import 'x';\n").is_empty());
+    assert_eq!(sass_uses("@import 'x';\n"), [] as [SassUse; 0]);
     for url in ["https://x/a.css", "//cdn/a.css", "data:text/css,a"] {
         assert!(is_url(url), "{url}");
     }

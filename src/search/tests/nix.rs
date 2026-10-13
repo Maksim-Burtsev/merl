@@ -125,12 +125,12 @@ in
     assert_eq!(local(text, 4, "api"), [4]);
     assert_eq!(local(text, 10, "name"), [9]);
     assert_eq!(local(text, 11, "port"), [9]);
-    assert!(local(text, 13, "name").is_empty());
+    assert_eq!(local(text, 13, "name"), [] as [usize; 0]);
     assert_eq!(local(text, 14, "x"), [14]);
     assert_eq!(local(text, 17, "api"), [16]);
     assert_eq!(local(text, 18, "y"), [18]);
-    assert!(local(text, 18, "x").is_empty());
-    assert!(local(text, 7, "mkService").is_empty());
+    assert_eq!(local(text, 18, "x"), [] as [usize; 0]);
+    assert_eq!(local(text, 7, "mkService"), [] as [usize; 0]);
 }
 
 #[test]
@@ -152,7 +152,7 @@ fn nix_parameters_of_a_header_over_lines() {
     assert_eq!(local(text, 9, "args"), [6]);
     let old = "{ config\n, pkgs\n, ...\n}:\n{\n  a = pkgs.hello;\n}\n";
     assert_eq!(local(old, 6, "pkgs"), [2]);
-    assert!(local(old, 6, "hello").is_empty());
+    assert_eq!(local(old, 6, "hello"), [] as [usize; 0]);
 }
 
 #[test]
@@ -322,14 +322,20 @@ fn nix_literals_of_every_form() {
     );
     assert_eq!(hidden("x = \"a \\\" b\n  y = 1;\n\";\nz = 1;\n"), [2, 3]);
     assert_eq!(hidden("f' = ''\n  a = 1;\n'';\nb = 2;\n"), [2, 3]);
-    assert!(hidden("let\n  f'' = 1;\n  g = 2;\nin\ng\n").is_empty());
+    assert_eq!(
+        hidden("let\n  f'' = 1;\n  g = 2;\nin\ng\n"),
+        [] as [usize; 0]
+    );
     let nested = "{\n  a = ''\n    ${lib.optionalString x ''\n      dest=$out\n    ''}\n    b = 1\n  '';\n  c = 2;\n}\n";
     assert_eq!(hidden(nested), [3, 4, 5, 6, 7]);
 }
 
 #[test]
 fn nix_lists_nothing_with_the_shared_pattern() {
-    assert!(listed(Kind::Nix, "    function deploy() {").is_empty());
+    assert_eq!(
+        listed(Kind::Nix, "    function deploy() {"),
+        [] as [String; 0]
+    );
     assert_eq!(
         listed(Kind::Nix, "  mk = { name, meta ? {} }: name;"),
         ["mk"]

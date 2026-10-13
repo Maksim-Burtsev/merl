@@ -159,7 +159,10 @@ fn cmake_commands_name_files() {
         open("find_package(fmt)", "app/CMakeLists.txt"),
         [PathBuf::from("deps/fmt-config.cmake")]
     );
-    assert!(open("include(FetchContent)", "CMakeLists.txt").is_empty());
+    assert_eq!(
+        open("include(FetchContent)", "CMakeLists.txt"),
+        [] as [PathBuf; 0]
+    );
 }
 
 #[test]

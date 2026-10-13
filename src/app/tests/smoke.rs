@@ -331,5 +331,5 @@ fn a_released_section_counts_as_changed_by_any_line_but_a_new_one_does_not() {
                ## [0.2.0] - 2026-01-02\n\n- B. (#2)\n- D. (#4)\n\n\
                ## [0.1.0] - 2026-01-01\n\n- A. (#1)\n\n[0.3.0]: url\n[0.2.0]: url\n";
     assert_eq!(changed_releases(then, now), ["0.2.0"]);
-    assert!(changed_releases(then, then).is_empty());
+    assert_eq!(changed_releases(then, then), [] as [String; 0]);
 }

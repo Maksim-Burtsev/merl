@@ -193,7 +193,7 @@ fn lisp_locals_stay_in_their_form() {
     for (name, line) in [("a", 1), ("b", 1), ("x", 2), ("y", 3), ("z", 3)] {
         assert_eq!(at(Kind::Clojure, clj, 4, name), [line], "{name}");
     }
-    assert!(at(Kind::Clojure, clj, 5, "x").is_empty());
+    assert_eq!(at(Kind::Clojure, clj, 5, "x"), [] as [usize; 0]);
     let el = "(defun f (cart &optional sep)\n  (let ((total 1) count)\n    (list cart sep total count)))\n";
     for (name, line) in [("cart", 1), ("sep", 1), ("total", 2), ("count", 2)] {
         assert_eq!(at(Kind::EmacsLisp, el, 3, name), [line], "{name}");
@@ -201,7 +201,7 @@ fn lisp_locals_stay_in_their_form() {
     let scm = "(define (f a)\n  (let loop ([i 0])\n    (lambda (b) (+ a b))))\n";
     assert_eq!(at(Kind::Scheme, scm, 3, "a"), [1]);
     assert_eq!(at(Kind::Scheme, scm, 3, "b"), [3]);
-    assert!(at(Kind::Scheme, scm, 3, "f").is_empty());
+    assert_eq!(at(Kind::Scheme, scm, 3, "f"), [] as [usize; 0]);
     let cl = "(defun f (X)\n  (labels ((g (y) y))\n    (g x)))\n";
     assert_eq!(at(Kind::CommonLisp, cl, 3, "x"), [1]);
     assert_eq!(at(Kind::CommonLisp, cl, 3, "g"), [2]);
