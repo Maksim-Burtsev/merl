@@ -1040,6 +1040,7 @@ impl Parsed {
             _ => ControlFlow::Continue(()),
         };
         let bytes = self.text.as_bytes();
+        let resumed = self.halted;
         let Some(tree) = self.parser.parse_with_options(
             &mut |i, _| &bytes[i.min(bytes.len())..],
             self.tree.as_ref(),
@@ -1048,12 +1049,11 @@ impl Parsed {
             self.halted = true;
             return None;
         };
-        let tree = match tree.root_node().end_byte() < bytes.len() {
+        let tree = match resumed && tree.root_node().end_byte() < bytes.len() {
             true => {
-                self.parser.reset();
                 let input = &mut |i: usize, _| &bytes[i.min(bytes.len())..];
                 self.parser
-                    .parse_with_options(input, None, None)
+                    .parse_with_options(input, self.tree.as_ref(), None)
                     .unwrap_or(tree)
             }
             false => tree,

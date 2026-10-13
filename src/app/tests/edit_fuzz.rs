@@ -1204,7 +1204,7 @@ fn a_paint_from_any_row_orders_captures_at_one_byte_as_a_paint_from_the_top() {
 }
 
 #[test]
-fn a_parse_that_stops_short_of_the_text_is_redone_from_scratch() {
+fn a_resumed_parse_that_stops_short_of_the_text_is_redone_uncut() {
     replay_tree_sitter(
         "f.yml",
         include_bytes!("../../../tests/colors/yaml/workflow.yml"),
