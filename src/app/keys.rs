@@ -336,7 +336,8 @@ impl App {
     }
 
     fn binds(&self, key: KeyEvent) -> bool {
-        named("", key).is_some() || self.mode == Mode::Edit && named("Edit: ", key).is_some()
+        named("", key).is_some()
+            || matches!(self.mode, Mode::Edit | Mode::Note) && named("Edit: ", key).is_some()
     }
 
     pub(super) fn goto_key(&mut self, key: KeyEvent) {
