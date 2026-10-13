@@ -1308,7 +1308,7 @@ b";
         }
     }
 
-    fn script_comment_lines(name: &str, text: &str) -> Vec<usize> {
+    fn script_comment_lines(name: &str, text: &str) -> Result<Vec<usize>, String> {
         let shebang = text.lines().next().filter(|l| l.starts_with("#!"));
         let ext = Path::new(name).extension().and_then(|e| e.to_str());
         let (prefix, python) = match (ext, shebang) {
@@ -1316,9 +1316,9 @@ b";
             (Some("sh" | "yml" | "yaml" | "toml"), _) => ("#", false),
             (Some("lua"), _) => ("--", false),
             (None, Some(s)) => ("#", s.contains("python")),
-            _ => return Vec::new(),
+            _ => return Ok(Vec::new()),
         };
-        let mut quote: Option<&str> = None;
+        let mut quote: Option<(&str, usize)> = None;
         let mut lines = Vec::new();
         for (i, line) in text.lines().enumerate() {
             if quote.is_none()
@@ -1333,31 +1333,100 @@ b";
             }
             let mut rest = line;
             loop {
-                let found = match quote {
-                    Some(q) => rest.find(q).map(|at| (at, q)),
-                    None => ["\"\"\"", "'''"]
-                        .into_iter()
-                        .filter_map(|q| rest.find(q).map(|at| (at, q)))
-                        .min(),
+                if let Some((q, _)) = quote {
+                    let Some(at) = rest.find(q) else { break };
+                    quote = None;
+                    rest = &rest[at + 3..];
+                    continue;
+                }
+                let Some(at) = rest.find(['#', '"', '\'']) else {
+                    break;
                 };
-                let Some((at, q)) = found else { break };
-                quote = if quote.is_some() { None } else { Some(q) };
-                rest = &rest[at + 3..];
+                let tail = &rest[at..];
+                if tail.starts_with('#') {
+                    break;
+                }
+                if tail.starts_with("\"\"\"") || tail.starts_with("'''") {
+                    quote = Some((&tail[..3], i + 1));
+                    rest = &tail[3..];
+                    continue;
+                }
+                let q = tail.as_bytes()[0];
+                let mut end = None;
+                let mut j = 1;
+                while j < tail.len() {
+                    match tail.as_bytes()[j] {
+                        b'\\' => j += 1,
+                        b if b == q => {
+                            end = Some(j);
+                            break;
+                        }
+                        _ => {}
+                    }
+                    j += 1;
+                }
+                let Some(end) = end else {
+                    return Err(format!("line {}: a string the check cannot close", i + 1));
+                };
+                rest = &tail[end + 1..];
             }
         }
-        lines
+        match quote {
+            Some((_, from)) => Err(format!("line {from}: a string that never closes")),
+            None => Ok(lines),
+        }
+    }
+
+    fn script_comments(root: &Path, name: &str) -> Result<(String, Vec<usize>), String> {
+        let text = std::fs::read_to_string(root.join(name)).map_err(|e| format!("{name}: {e}"))?;
+        let found = script_comment_lines(name, &text).map_err(|e| format!("{name}: {e}"))?;
+        Ok((text, found))
     }
 
     #[test]
     fn script_comment_lines_skip_shebangs_and_python_strings() {
         let py = "#!/usr/bin/env python3\n\"\"\"Usage:\n# no\n\"\"\"\nx = '''a''' # no\n  # one\ny = \"\"\"\n# no\n'''\n\"\"\"\n# two\n";
-        assert_eq!(script_comment_lines("a.py", py), [6, 11]);
-        assert_eq!(script_comment_lines("tools/run", py), [6, 11]);
+        assert_eq!(script_comment_lines("a.py", py).unwrap(), [6, 11]);
+        assert_eq!(script_comment_lines("tools/run", py).unwrap(), [6, 11]);
         let sh = "#!/bin/sh\n# one\necho '# no'\n  # two\n";
-        assert_eq!(script_comment_lines("tools/x", sh), [2, 4]);
-        assert_eq!(script_comment_lines("a.yml", "a: 1 # no\n# one\n"), [2]);
-        assert_eq!(script_comment_lines("a.lua", "-- one\nx = 1 -- no\n"), [1]);
-        assert!(script_comment_lines("a.tsv", "# no\n").is_empty());
+        assert_eq!(script_comment_lines("tools/x", sh).unwrap(), [2, 4]);
+        assert_eq!(
+            script_comment_lines("a.yml", "a: 1 # no\n# one\n").unwrap(),
+            [2]
+        );
+        assert_eq!(
+            script_comment_lines("a.lua", "-- one\nx = 1 -- no\n").unwrap(),
+            [1]
+        );
+        assert!(script_comment_lines("a.tsv", "# no\n").unwrap().is_empty());
+    }
+
+    #[test]
+    fn script_comment_lines_see_past_a_triple_quote_in_a_one_line_string() {
+        let py = r#"a = line.startswith('"""', i) or b == "'''"
+# one
+c = "\"" + '\''
+# two
+d = """
+# no
+"""
+# three
+"#;
+        assert_eq!(script_comment_lines("a.py", py).unwrap(), [2, 4, 8]);
+        assert_eq!(
+            script_comment_lines("a.py", "x = 1  # a \"\"\" here\n# one\n").unwrap(),
+            [2]
+        );
+    }
+
+    #[test]
+    fn the_scripts_check_fails_on_what_it_cannot_read() {
+        assert!(script_comment_lines("a.py", "x = \"\"\"\n# no\n").is_err());
+        assert!(script_comment_lines("a.py", "x = 'open\n# no\n").is_err());
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut files = Vec::new();
+        script_files(root, "tools/no-such-script", &mut files);
+        assert!(script_comments(root, &files[0]).is_err());
     }
 
     #[test]
@@ -1370,9 +1439,14 @@ b";
         files.sort();
         let mut wrong = Vec::new();
         for name in &files {
-            let text = std::fs::read_to_string(root.join(name)).unwrap_or_default();
+            let (text, mut found) = match script_comments(root, name) {
+                Ok(read) => read,
+                Err(e) => {
+                    wrong.push(format!("cannot read {e}"));
+                    continue;
+                }
+            };
             let lines: Vec<&str> = text.lines().collect();
-            let mut found = script_comment_lines(name, &text);
             for &(_, first, _) in KEPT_COMMENTS.iter().filter(|(f, ..)| f == name) {
                 let Some(at) = lines.iter().position(|l| l.trim() == first) else {
                     wrong.push(format!(
