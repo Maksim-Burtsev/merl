@@ -582,7 +582,7 @@ mod tests {
         let (tx, rx) = std::sync::mpsc::channel();
         let mut watcher = notify::recommended_watcher(move |ev: notify::Result<notify::Event>| {
             if let Ok(ev) = ev {
-                let _ = tx.send(ev);
+                drop(tx.send(ev));
             }
         })
         .unwrap();
