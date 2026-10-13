@@ -1,6 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+usage() {
+  cat <<'EOF'
+Ports a Neovim colorscheme, from its own repo, into themes/<name>.tmTheme and
+themes/<name>.groups.json (every highlight group, links resolved).
+
+  tools/port-theme.sh <git-url>[@commit] <colorscheme> <name> [ex command...]
+  tools/port-theme.sh --all     every theme of tools/theme-bench/themes.tsv from its row
+
+Ex commands run before `:colorscheme`, for themes that take their variant from options:
+  tools/port-theme.sh https://github.com/sainnhe/everforest everforest everforest-light \
+    "set background=light" "let g:everforest_background='medium'"
+
+DEPS="<git-url>[@commit] ..." clones plugins the theme needs onto the runtime path
+(bluloco: lush.nvim).
+EOF
+}
+if [[ ${1:-} == -h || ${1:-} == --help ]]; then
+  usage
+  exit
+fi
+
 root=$(cd "$(dirname "$0")/.." && pwd)
 if [[ ${1:-} == --all ]]; then
   while IFS=$'\t' read -r name source colorscheme before deps; do
@@ -15,7 +36,7 @@ if [[ ${1:-} == --all ]]; then
   exit
 fi
 if [[ $# -lt 3 ]]; then
-  sed -n '2,11p' "$0"
+  usage >&2
   exit 2
 fi
 url=$1 colorscheme=$2 name=$3
