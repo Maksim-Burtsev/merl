@@ -1,8 +1,11 @@
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
 
-use super::*;
+use super::{Kind, erlang, lexical, literal_lines};
 
 pub const ERLANG_PREDEFINED: &[&str] = &[
     "MODULE",
@@ -86,7 +89,7 @@ pub(super) fn erlang_clause<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
             b'$' => i += if b.get(i + 1) == Some(&b'\\') { 2 } else { 1 },
             b'%' => i += text[i..].find('\n').unwrap_or(text.len() - i),
             q @ (b'"' | b'\'') => i += quoted(&b[i..], q),
-            b'.' if b.get(i + 1).is_none_or(|c| c.is_ascii_whitespace()) => return false,
+            b'.' if b.get(i + 1).is_none_or(u8::is_ascii_whitespace) => return false,
             _ => {}
         }
         i += 1;
@@ -118,9 +121,10 @@ fn quoted(b: &[u8], q: u8) -> usize {
 }
 
 pub fn file_literal_lines(kind: Kind, path: &Path, text: &str) -> Vec<bool> {
-    match erlang(path) {
-        true => erlang_literal_lines(text),
-        false => literal_lines(kind, text),
+    if erlang(path) {
+        erlang_literal_lines(text)
+    } else {
+        literal_lines(kind, text)
     }
 }
 
@@ -224,9 +228,10 @@ pub fn erlang_include_files(
                 .is_some_and(|d| d.ends_with("include"))
     };
     let found: Vec<PathBuf> = files.iter().filter(under).cloned().collect();
-    match found.is_empty() {
-        true => outside.iter().filter(under).cloned().collect(),
-        false => found,
+    if found.is_empty() {
+        outside.iter().filter(under).cloned().collect()
+    } else {
+        found
     }
 }
 
@@ -244,10 +249,7 @@ pub fn erlang_record_field<S: AsRef<str>>(
     let open = first.find('{').unwrap_or(first.len());
     for (i, l) in lines.iter().enumerate().skip(record - 1) {
         let l = l.as_ref();
-        let l = match i + 1 == record {
-            true => &l[open..],
-            false => l,
-        };
+        let l = if i + 1 == record { &l[open..] } else { l };
         let code = l.split('%').next().unwrap_or("");
         if re.is_match(code) {
             return Some(i + 1);

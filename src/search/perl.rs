@@ -1,3 +1,9 @@
+#![expect(clippy::default_trait_access, reason = "#858")]
+#![expect(clippy::items_after_statements, reason = "#858")]
+#![expect(clippy::needless_pass_by_value, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -174,10 +180,7 @@ pub fn perl_lexical(text: &str, line: usize, col: usize, name: &str) -> Option<u
             continue;
         }
         let l = &code[i];
-        let limit = match i == line {
-            true => col.min(l.len()),
-            false => l.len(),
-        };
+        let limit = if i == line { col.min(l.len()) } else { l.len() };
         let starts: Vec<(usize, bool)> = (decl.find_iter(l))
             .filter(|m| m.start() < limit)
             .map(|m| {

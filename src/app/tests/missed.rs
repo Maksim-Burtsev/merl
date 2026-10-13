@@ -1,3 +1,4 @@
+#![expect(clippy::format_collect, reason = "#858")]
 use std::time::Duration;
 
 use super::*;
@@ -485,7 +486,7 @@ fn a_run_the_file_changed_under_counts_nothing() {
 
 fn added_hunk_review(tag: &str) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-{tag}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(&dir).unwrap();
     let git = |args: &[&str]| {
         let out = std::process::Command::new("git")

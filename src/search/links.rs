@@ -1,3 +1,7 @@
+#![expect(clippy::needless_collect, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::collections::HashMap;
 use std::ops::Range;
 
@@ -52,11 +56,11 @@ pub fn markdown_at(text: &str, at: usize) -> MdAt {
                 found = MdAt::Link(match link_type {
                     LinkType::Email => format!("mailto:{dest_url}"),
                     _ => dest_url.to_string(),
-                })
+                });
             }
             Event::Start(Tag::Image { .. }) => found = MdAt::Nothing,
             Event::Code(code) if !matches!(found, MdAt::Link(_)) => {
-                found = MdAt::Code(code.to_string())
+                found = MdAt::Code(code.to_string());
             }
             _ => {}
         }

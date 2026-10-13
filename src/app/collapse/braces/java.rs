@@ -1,3 +1,4 @@
+#![expect(clippy::nonminimal_bool, reason = "#858")]
 use super::{K, Model};
 
 const CONTROL: &[&str] = &[
@@ -73,7 +74,7 @@ impl Model<'_, '_> {
                         }
                     }
                     "(" if self.java_call(k, parent.unwrap_or(Body::Class)) => {
-                        self.add(self.toks[k].line, self.closing(k), false)
+                        self.add(self.toks[k].line, self.closing(k), false);
                     }
                     _ => {}
                 }

@@ -1,9 +1,18 @@
+#![expect(clippy::assigning_clones, reason = "#858")]
+#![expect(clippy::items_after_statements, reason = "#858")]
+#![expect(clippy::match_same_arms, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::*;
+use super::{
+    Binding, Group, Kind, Value, code, comment, def_patterns, group, indent, literal_lines, names,
+    uncommented,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RustAttr {
@@ -285,9 +294,10 @@ fn rust_parent(lines: &[&str], k: usize) -> Option<usize> {
     })
 }
 pub fn rust_field_pattern(word: &str, public: bool) -> String {
-    let vis = match public {
-        true => r"pub\s+",
-        false => r"(?:pub(?:\([^)]*\))?\s+)?",
+    let vis = if public {
+        r"pub\s+"
+    } else {
+        r"(?:pub(?:\([^)]*\))?\s+)?"
     };
     format!(r"^\s+{vis}{}\s*:[^:]", regex::escape(word))
 }
@@ -452,9 +462,12 @@ pub fn rust_scope_items(text: &str, line1: usize, word: &str, ns: RustNamespace)
     let code: Vec<String> = lines
         .iter()
         .enumerate()
-        .map(|(i, l)| match literal.get(i).copied().unwrap_or(false) {
-            true => String::new(),
-            false => uncommented(Kind::Rust, l),
+        .map(|(i, l)| {
+            if literal.get(i).copied().unwrap_or(false) {
+                String::new()
+            } else {
+                uncommented(Kind::Rust, l)
+            }
         })
         .collect();
     let around = rust_around(&lines, k, &literal);
@@ -539,9 +552,10 @@ pub fn rust_scope_items(text: &str, line1: usize, word: &str, ns: RustNamespace)
             break;
         }
     }
-    match items.contains(&k) {
-        true => Vec::new(),
-        false => items.into_iter().map(|i| i + 1).collect(),
+    if items.contains(&k) {
+        Vec::new()
+    } else {
+        items.into_iter().map(|i| i + 1).collect()
     }
 }
 fn top_stop(s: &str, stops: &[u8]) -> Option<usize> {
@@ -830,9 +844,10 @@ pub fn rust_method_at(lines: &[&str], line1: usize) -> Option<RustMethod> {
             || lines
                 .get(at + 1)
                 .is_some_and(|l| l.trim_start().starts_with("where"));
-        match no_for_further_down && !parent.contains(" for ") && INHERENT.is_match(parent) {
-            true => RustOwner::Inherent,
-            false => RustOwner::Unreadable,
+        if no_for_further_down && !parent.contains(" for ") && INHERENT.is_match(parent) {
+            RustOwner::Inherent
+        } else {
+            RustOwner::Unreadable
         }
     };
     let line_whose_pub_reaches = match owner {
@@ -1218,7 +1233,7 @@ pub fn rust_return_type(lines: &[&str], f: usize) -> Option<String> {
                 break;
             }
             b'-' if depth == 0 && b.get(i + 1) == Some(&b'>') => {
-                after_last_top_level_arrow = Some(i + 2)
+                after_last_top_level_arrow = Some(i + 2);
             }
             _ => {}
         }

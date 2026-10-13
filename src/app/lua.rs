@@ -1,4 +1,4 @@
-use super::*;
+use super::{App, Candidate, Hit, Path, PathBuf, Reason, search};
 
 impl App {
     pub(super) fn lua_qualified(

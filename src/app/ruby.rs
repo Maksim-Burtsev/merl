@@ -1,4 +1,4 @@
-use super::*;
+use super::{App, Candidate, HashSet, Hit, Kind, Path, Reason, search};
 
 impl App {
     pub(super) fn concern_class_methods(
@@ -125,9 +125,10 @@ impl App {
                 .iter()
                 .filter(|o| {
                     o.class == c
-                        && match side {
-                            true => o.module_method_on_both_sides,
-                            false => !o.on_class,
+                        && if side {
+                            o.module_method_on_both_sides
+                        } else {
+                            !o.on_class
                         }
                 })
                 .map(|o| Candidate {
@@ -143,10 +144,7 @@ impl App {
                 includes,
                 extends,
             } = self.ruby_parents(here, &c);
-            let mixed = match side {
-                true => extends,
-                false => includes,
-            };
+            let mixed = if side { extends } else { includes };
             let next = mixed
                 .into_iter()
                 .map(|m| (m, false))
@@ -204,9 +202,10 @@ impl App {
             .filter_map(|h| search::ruby_declared_path(&self.text_of(&h.path)?, h.line1))
             .collect();
         loop {
-            let want = match scope.is_empty() {
-                true => name.to_owned(),
-                false => format!("{scope}::{name}"),
+            let want = if scope.is_empty() {
+                name.to_owned()
+            } else {
+                format!("{scope}::{name}")
             };
             if want != class && paths.contains(&want) {
                 return Some(want);
@@ -271,15 +270,16 @@ impl App {
                 }
             }
         }
-        match unread {
-            true => assigned
+        if unread {
+            assigned
                 .into_iter()
                 .map(|(hit, _)| Candidate {
                     hit,
                     reason: Reason::ByName,
                 })
-                .collect(),
-            false => Vec::new(),
+                .collect()
+        } else {
+            Vec::new()
         }
     }
 }

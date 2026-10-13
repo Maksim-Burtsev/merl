@@ -1,3 +1,4 @@
+#![expect(clippy::cognitive_complexity, reason = "#858")]
 use super::*;
 
 fn declares(lines: &[&str], line: usize, word: &str) -> bool {
@@ -382,7 +383,7 @@ fn julia_slugs_are_the_ones_julia_computes() {
 #[test]
 fn julia_roots_read_the_manifest_and_the_depot() {
     let dir = std::env::temp_dir().join(format!("merl-julia-roots-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     let mk = |p: &str| std::fs::create_dir_all(dir.join(p)).unwrap();
     for p in [
         "share/julia/base",
@@ -448,7 +449,7 @@ fn julia_roots_read_the_manifest_and_the_depot() {
     assert_eq!(julia_depot(None, home), home.join(".julia"));
     assert_eq!(julia_depot(Some("/d:/e".into()), home), PathBuf::from("/d"));
     assert_eq!(julia_depot(Some(":/e".into()), home), home.join(".julia"));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]

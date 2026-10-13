@@ -1,3 +1,4 @@
+#![expect(clippy::match_same_arms, reason = "#858")]
 use std::path::Path;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

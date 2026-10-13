@@ -270,7 +270,7 @@ fn undo_groups_typing_and_redo_replays_it() {
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
     assert_eq!(
         (a.buf.lines.clone(), a.line, a.col),
-        (vec!["ab12".to_string(), "cd".into()], 0, 4)
+        (vec!["ab12".to_owned(), "cd".into()], 0, 4)
     );
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
     assert_eq!(a.buf.lines, vec!["ab", "cd"]);
@@ -279,7 +279,7 @@ fn undo_groups_typing_and_redo_replays_it() {
     press(&mut a, KeyCode::Char('y'), KeyModifiers::CONTROL);
     assert_eq!(
         (a.buf.lines.clone(), a.line, a.col),
-        (vec!["ab12".to_string(), "34".into(), "cd".into()], 1, 2)
+        (vec!["ab12".to_owned(), "34".into(), "cd".into()], 1, 2)
     );
     typed(&mut a, "x");
     press(&mut a, KeyCode::Char('y'), KeyModifiers::CONTROL);
@@ -406,12 +406,12 @@ fn a_line_join_and_the_backspaces_after_it_are_one_step() {
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
     assert_eq!(
         (a.buf.lines.clone(), a.line, a.col),
-        (vec!["ab".to_string(), "cd".into()], 1, 0)
+        (vec!["ab".to_owned(), "cd".into()], 1, 0)
     );
     press(&mut a, KeyCode::Char('y'), KeyModifiers::CONTROL);
     assert_eq!(
         (a.buf.lines.clone(), a.line, a.col),
-        (vec!["acd".to_string()], 0, 1)
+        (vec!["acd".to_owned()], 0, 1)
     );
 }
 
@@ -510,7 +510,7 @@ fn the_last_line_is_copied_and_cut_whole_and_a_lone_line_is_emptied() {
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
     assert_eq!(
         (a.buf.lines.clone(), a.line, a.col),
-        (vec!["xyz".to_string()], 0, 3)
+        (vec!["xyz".to_owned()], 0, 3)
     );
 }
 
@@ -652,7 +652,7 @@ fn a_change_under_unsaved_edits_is_a_conflict() {
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "mine one\n");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     typed(&mut a, "again ");
-    let dropped = a.line_str().to_string();
+    let dropped = a.line_str().to_owned();
     std::fs::write(&path, "theirs\n").unwrap();
     a.reload(false);
     assert!(a.conflict);
@@ -837,7 +837,7 @@ fn autosave_does_not_recreate_a_file_that_is_gone() {
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     typed(&mut a, "X");
     std::fs::remove_file(&path).unwrap();
-    a.last_edit = Some(Instant::now() - a.autosave);
+    a.last_edit = Some(Instant::now().checked_sub(a.autosave).unwrap());
     assert!(a.tick());
     assert!(!a.flush());
     assert!(
@@ -899,7 +899,7 @@ fn reload_clamps_the_cursor_into_a_shrunken_file() {
     );
 
     a.line = 3;
-    std::fs::write(&path, "new\n".to_string() + &"line\n".repeat(10)).unwrap();
+    std::fs::write(&path, "new\n".to_owned() + &"line\n".repeat(10)).unwrap();
     a.reload(false);
     assert_eq!(
         a.line, 3,
@@ -1100,7 +1100,7 @@ fn a_failed_save_waits_for_the_next_autosave_to_try_again() {
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     typed(&mut a, "x");
-    a.last_edit = Some(Instant::now() - a.autosave);
+    a.last_edit = Some(Instant::now().checked_sub(a.autosave).unwrap());
     assert!(a.tick());
     assert!(a.message.starts_with("save failed"), "{}", a.message);
     assert!(!a.tick(), "the autosave clock starts again");

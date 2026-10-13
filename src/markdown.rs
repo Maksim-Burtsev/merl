@@ -50,7 +50,7 @@ impl Ink {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Row {
     pub text: String,
     pub looks: Vec<(Look, Range<usize>)>,
@@ -72,7 +72,7 @@ pub enum Kind {
     },
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Code {
     pub lang: String,
     pub lines: Vec<String>,
@@ -80,7 +80,7 @@ pub struct Code {
     pub image: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Doc {
     pub rows: Vec<Row>,
     pub code: Vec<Code>,
@@ -104,7 +104,8 @@ impl Doc {
             .unwrap_or(self.rows.len() - 1)
     }
 
-    pub fn same_row(&self, old: &Doc, row: usize, pos: (usize, usize)) -> usize {
+    #[expect(clippy::or_fun_call, reason = "#858")]
+    pub fn same_row(&self, old: &Self, row: usize, pos: (usize, usize)) -> usize {
         let src = old.rows[row].src;
         let rank = old.rows[..row].iter().filter(|r| r.src == src).count();
         let same: Vec<usize> = (0..self.rows.len())
@@ -279,6 +280,7 @@ struct TableRow {
     cells: Vec<Inline>,
 }
 
+#[expect(clippy::struct_excessive_bools, reason = "#858")]
 #[derive(Default)]
 struct Lay<'a> {
     src: &'a str,
@@ -335,7 +337,7 @@ impl Lay<'_> {
                             line.as_written.push_str(text);
                         }
                         _ => b.lines.push(BlockLine {
-                            as_written: text.to_string(),
+                            as_written: text.to_owned(),
                             src_line_col: at,
                             tab_spaces_parser_added: added,
                         }),
@@ -345,7 +347,7 @@ impl Lay<'_> {
             }
             Event::Text(t) => {
                 self.para_text |= self.image == 0 && !t.trim().is_empty();
-                self.text(&t, self.look(), r)
+                self.text(&t, self.look(), r);
             }
             Event::Code(t) => {
                 self.para_text = true;
@@ -357,11 +359,11 @@ impl Lay<'_> {
             }
             Event::InlineMath(t) | Event::DisplayMath(t) => {
                 self.para_text = true;
-                self.text(&t, self.look(), r)
+                self.text(&t, self.look(), r);
             }
             Event::Html(t) if self.html.is_some() => {
                 let at = self.line_and_byte_col(r.start);
-                let line = t.trim_end_matches(['\n', '\r']).to_string();
+                let line = t.trim_end_matches(['\n', '\r']).to_owned();
                 if let Some(h) = &mut self.html {
                     h.push((line, at));
                 }
@@ -373,7 +375,7 @@ impl Lay<'_> {
             }
             Event::InlineHtml(t) => {
                 self.para_html.push_str(&t);
-                self.text(&t, Ink::Dim.plain(), r)
+                self.text(&t, Ink::Dim.plain(), r);
             }
             Event::FootnoteReference(label) => {
                 self.para_text = true;
@@ -405,6 +407,7 @@ impl Lay<'_> {
         }
     }
 
+    #[expect(clippy::too_many_lines, reason = "#858")]
     fn start(&mut self, tag: Tag, r: Range<usize>) {
         match tag {
             Tag::Paragraph => {
@@ -553,7 +556,7 @@ impl Lay<'_> {
                     self.line_and_byte_col(r.end.saturating_sub(1)).0,
                 );
                 for l in first..=last {
-                    let text = self.line(l).to_string();
+                    let text = self.line(l).to_owned();
                     self.lines(&text, Ink::Dim.plain(), (l, 0));
                 }
             }
@@ -691,6 +694,7 @@ impl Lay<'_> {
         Look { ink, mods }
     }
 
+    #[expect(clippy::string_slice, reason = "#858")]
     fn text(&mut self, s: &str, look: Look, r: Range<usize>) {
         let raw = &self.src[r.clone()];
         let inline = self.inline.get_or_insert_with(|| {
@@ -708,6 +712,7 @@ impl Lay<'_> {
         (l, i - self.line_starts[l])
     }
 
+    #[expect(clippy::string_slice, reason = "#858")]
     fn line(&self, l: usize) -> &str {
         let end = self
             .line_starts
@@ -755,6 +760,7 @@ impl Lay<'_> {
         (s, looks)
     }
 
+    #[expect(clippy::needless_pass_by_ref_mut, reason = "#858")]
     fn avail(&mut self) -> usize {
         let w = self
             .stack
@@ -768,6 +774,7 @@ impl Lay<'_> {
         self.width.saturating_sub(w).max(1)
     }
 
+    #[expect(clippy::needless_pass_by_value, reason = "#858")]
     fn push(
         &mut self,
         text: String,
@@ -844,6 +851,7 @@ impl Lay<'_> {
         }
     }
 
+    #[expect(clippy::string_slice, reason = "#858")]
     fn flush(&mut self) -> bool {
         self.inline_is_tight_item_text = false;
         let Some(inline) = self.inline.take() else {
@@ -877,6 +885,7 @@ impl Lay<'_> {
         true
     }
 
+    #[expect(clippy::string_slice, reason = "#858")]
     fn lines(&mut self, raw: &str, look: Look, (l, c): (usize, usize)) {
         let line = raw.replace('\t', crate::buffer::TAB);
         let mut tabs = Tabs::new(raw);
@@ -895,6 +904,7 @@ impl Lay<'_> {
         self.push(text, vec![(Ink::Line.plain(), 0..n)], at, Kind::Text);
     }
 
+    #[expect(clippy::string_slice, reason = "#858")]
     fn code_block(&mut self, mut b: Block) {
         if b.lines.is_empty() {
             b.lines.push(BlockLine {
@@ -981,9 +991,10 @@ impl Lay<'_> {
         centre: bool,
     ) {
         let block = self.code.len();
-        let lead = match centre {
-            true => self.avail().saturating_sub(cols as usize) / 2,
-            false => 0,
+        let lead = if centre {
+            self.avail().saturating_sub(cols as usize) / 2
+        } else {
+            0
         };
         for _ in 0..rows {
             let kind = Kind::Code {
@@ -1088,6 +1099,8 @@ impl Lay<'_> {
         }
     }
 
+    #[expect(clippy::excessive_nesting, reason = "#858")]
+    #[expect(clippy::needless_pass_by_value, reason = "#858")]
     fn table(&mut self, t: Table) {
         let n = t
             .rows
@@ -1186,6 +1199,7 @@ impl Lay<'_> {
     }
 }
 
+#[expect(clippy::string_slice, reason = "#858")]
 fn wrap_cell(text: &str, width: usize) -> Vec<Range<usize>> {
     let mut from = 0;
     let mut out = Vec::new();
@@ -1203,9 +1217,10 @@ fn fit(natural: &[usize], words: &[usize], room: usize) -> Vec<usize> {
     if natural.iter().sum::<usize>() <= room {
         return natural.to_vec();
     }
-    let floor: Vec<usize> = match words.iter().sum::<usize>() <= room {
-        true => words.to_vec(),
-        false => vec![1; natural.len()],
+    let floor: Vec<usize> = if words.iter().sum::<usize>() <= room {
+        words.to_vec()
+    } else {
+        vec![1; natural.len()]
     };
     let at = |c: usize| -> Vec<usize> {
         natural
@@ -1263,6 +1278,7 @@ impl Tabs {
     }
 }
 
+#[expect(clippy::string_slice, reason = "#858")]
 fn cut(
     text: &str,
     looks: &[(Look, Range<usize>)],
@@ -1294,6 +1310,7 @@ pub struct Palette {
 }
 
 impl Palette {
+    #[expect(clippy::unreadable_literal, reason = "#858")]
     pub fn new(theme: &Theme) -> Self {
         let h = Highlighter::new(&theme.syntect);
         let scoped = |scopes: &str, or: Color| {

@@ -4,7 +4,7 @@ use super::*;
 fn theme_picker_previews_reverts_and_keeps() {
     let names: Vec<&str> = crate::theme::names().collect();
     let mut a = app("x\n");
-    a.theme = names[2].to_string();
+    a.theme = names[2].to_owned();
     press(&mut a, KeyCode::Char('T'), KeyModifiers::SHIFT);
     a.picker.as_mut().unwrap().settle();
     assert_eq!(a.mode, Mode::Picker(PickerKind::Themes));
@@ -39,7 +39,7 @@ fn theme_picker_previews_reverts_and_keeps() {
 #[test]
 fn enter_in_the_theme_picker_writes_the_config() {
     let dir = std::env::temp_dir().join(format!("merl-theme-config-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     let mut a = app("x\n");
     a.config = Some(dir.join("config.toml"));
     press(&mut a, KeyCode::Char('T'), KeyModifiers::NONE);
@@ -58,7 +58,7 @@ fn enter_in_the_theme_picker_writes_the_config() {
 #[test]
 fn enter_on_a_broken_theme_keeps_the_picker_and_saves_nothing() {
     let dir = std::env::temp_dir().join(format!("merl-theme-broken-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("zz-broken.tmTheme"), "not a plist").unwrap();
     let config = dir.join("config.toml");
@@ -85,7 +85,7 @@ fn enter_on_a_broken_theme_keeps_the_picker_and_saves_nothing() {
 fn a_theme_that_cannot_be_read_or_saved_says_why_in_a_few_words() {
     use std::os::unix::fs::PermissionsExt;
     let dir = std::env::temp_dir().join(format!("merl-theme-io-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(&dir).unwrap();
     let locked = dir.join("zz-locked.tmTheme");
     std::fs::write(&locked, "").unwrap();
@@ -507,7 +507,7 @@ fn an_empty_o_lists_the_files_opened_last_first_with_the_cursor_on_the_one_befor
         rows(&files_listed(&mut a, "")),
         ["dd.txt", "cc.txt", "src/bb.txt"]
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -520,19 +520,19 @@ fn a_query_lists_the_recent_matches_by_name_then_the_project_without_repeats() {
     assert_eq!(
         listed,
         [
-            ("src/bb.txt".to_string(), "recently opened"),
-            ("dd.txt".to_string(), ""),
-            ("cc.txt".to_string(), "file results"),
-            ("src/aa.txt".to_string(), ""),
+            ("src/bb.txt".to_owned(), "recently opened"),
+            ("dd.txt".to_owned(), ""),
+            ("cc.txt".to_owned(), "file results"),
+            ("src/aa.txt".to_owned(), ""),
         ]
     );
     let by_name = files_listed(&mut a, "src");
-    assert_eq!(by_name[0], ("src/aa.txt".to_string(), "file results"));
+    assert_eq!(by_name[0], ("src/aa.txt".to_owned(), "file results"));
     assert_eq!(rows(&by_name), ["src/aa.txt", "src/bb.txt"]);
     let by_path = files_listed(&mut a, "src/");
-    assert_eq!(by_path[0], ("src/bb.txt".to_string(), "recently opened"));
+    assert_eq!(by_path[0], ("src/bb.txt".to_owned(), "recently opened"));
     assert_eq!(rows(&by_path), ["src/bb.txt", "src/aa.txt"]);
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -555,7 +555,7 @@ fn the_history_outlives_the_session_and_forgets_deleted_files() {
         .map(|l| l.rsplit('/').next().unwrap())
         .collect();
     assert_eq!(names, ["bb.txt", "dd.txt", "cc.txt"]);
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -566,7 +566,7 @@ fn o_in_a_review_keeps_the_review_order() {
     let listed = files_listed(&mut a, "");
     assert_eq!(rows(&listed)[..3], ["src/a.rs", "crlf.txt", "new"]);
     assert!(listed.iter().all(|r| r.1.is_empty()));
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -580,7 +580,7 @@ fn a_file_outside_the_project_leaves_the_cursor_on_the_first_row() {
     press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
     a.picker.as_mut().unwrap().settle();
     assert_eq!(a.picker.as_ref().unwrap().selected, 0);
-    let _ = (std::fs::remove_dir_all(dir), std::fs::remove_file(outside));
+    drop((std::fs::remove_dir_all(dir), std::fs::remove_file(outside)));
 }
 
 #[test]
@@ -600,7 +600,7 @@ fn the_open_file_stays_on_top_when_another_merl_wrote_last() {
     press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
     a.picker.as_mut().unwrap().settle();
     assert_eq!(a.picker.as_ref().unwrap().selected, 1);
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -617,7 +617,7 @@ fn a_recent_file_matched_by_name_is_marked_in_its_name() {
         (row.item.label.as_str(), row.matched),
         ("abc/xabc.rs", vec![5, 6, 7])
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -632,13 +632,13 @@ fn an_erased_query_puts_the_cursor_back_on_the_file_before() {
     a.picker.as_mut().unwrap().settle();
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!(a.rel_path(), "cc.txt");
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
 fn the_tutor_lists_every_file_as_its_tasks_expect() {
     let (dir, mut a) = recent_app("recent-tutor");
-    a.tutor = Some(crate::tutor::Tutor {
+    a.tutor = Some(Tutor {
         step: 0,
         dir: dir.clone(),
         drill: None,
@@ -648,5 +648,5 @@ fn the_tutor_lists_every_file_as_its_tasks_expect() {
         rows(&files_listed(&mut a, "")),
         ["src/aa.txt", "src/bb.txt", "cc.txt", "dd.txt"]
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }

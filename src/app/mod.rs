@@ -55,6 +55,7 @@ mod preview_data;
 mod project_search;
 mod proto;
 mod python;
+mod resolution;
 mod review;
 mod ruby;
 mod rust;
@@ -303,6 +304,8 @@ const HIST_MAX: usize = 50;
 type Paths = Arc<Vec<PathBuf>>;
 type CMode = (bool, bool);
 
+#[expect(clippy::struct_excessive_bools, reason = "#858")]
+#[expect(clippy::struct_field_names, reason = "#858")]
 pub struct App {
     pub root: PathBuf,
     pub shallow: bool,
@@ -324,7 +327,7 @@ pub struct App {
     go_build: search::GoBuild,
     offer_only: bool,
     probe: Option<Vec<Candidate>>,
-    base_app: Option<(String, Box<App>)>,
+    base_app: Option<(String, Box<Self>)>,
     truncated: std::cell::Cell<bool>,
     reading: std::cell::RefCell<Vec<(PathBuf, usize)>>,
     pub focus: Focus,
@@ -436,6 +439,8 @@ fn lock_no_write(buf: &mut Buffer) {
 }
 
 impl App {
+    #[expect(clippy::default_trait_access, reason = "#858")]
+    #[expect(clippy::too_many_lines, reason = "#858")]
     pub fn new(
         root: PathBuf,
         tree: Tree,
@@ -546,7 +551,7 @@ impl App {
             walked_here: false,
             session: None,
             sessions_closed_by_switch_with_viewed: Vec::new(),
-            theme: crate::theme::DEFAULT.to_string(),
+            theme: crate::theme::DEFAULT.to_owned(),
             config: None,
             theme_dir: crate::theme::user_dir(),
             quit_again_drops_unsaved: false,
@@ -597,10 +602,10 @@ impl App {
     }
 
     pub fn root_name(&self) -> String {
-        self.root
-            .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_else(|| self.root.display().to_string())
+        self.root.file_name().map_or_else(
+            || self.root.display().to_string(),
+            |n| n.to_string_lossy().into_owned(),
+        )
     }
 
     pub fn line_str(&self) -> &str {
@@ -747,13 +752,15 @@ impl App {
         if self.hidden(l) {
             return 0;
         }
-        let text = match l < self.buf.lines.len() {
-            true => self.rows(l).len(),
-            false => 0,
+        let text = if l < self.buf.lines.len() {
+            self.rows(l).len()
+        } else {
+            0
         };
-        let notes = match l < self.buf.lines.len() {
-            true => self.note_rows_after(TextLine::File(l)),
-            false => 0,
+        let notes = if l < self.buf.lines.len() {
+            self.note_rows_after(TextLine::File(l))
+        } else {
+            0
         };
         self.ghost_rows(l) + text + notes
     }
@@ -794,6 +801,7 @@ impl App {
         (TextLine::File(l), row.min(self.rows(l).len() - 1))
     }
 
+    #[expect(clippy::string_slice, reason = "#858")]
     pub fn cursor_x(&self) -> usize {
         let rows = self.text_rows(self.line_str());
         let row = wrap::col_to_row(&rows, self.col);
@@ -804,6 +812,7 @@ impl App {
         indent + wrap::width(&self.line_str()[wrap::row_to_col(&rows, row)..self.col])
     }
 
+    #[expect(clippy::string_slice, reason = "#858")]
     pub fn display_col(&self) -> usize {
         wrap::width(&self.line_str()[..self.col]) + 1
     }
@@ -824,10 +833,11 @@ fn bound(imports: &[search::Import], name: &str) -> Option<Vec<String>> {
         .map(|i| i.path.clone())
 }
 
+#[expect(clippy::string_slice, reason = "#858")]
 pub(crate) fn clip(s: &str, max: usize) -> String {
     match s.grapheme_indices(true).nth(max) {
         Some((i, _)) => format!("{}\u{2026}", &s[..i]),
-        None => s.to_string(),
+        None => s.to_owned(),
     }
 }
 
@@ -848,6 +858,7 @@ pub(super) fn word_col(line: &str, word: &str, word_chars_past_alnum: &str) -> u
         .unwrap_or(0)
 }
 
+#[expect(clippy::string_slice, reason = "#858")]
 pub(super) fn whole_at(line: &str, word: &str, word_chars_past_alnum: &str) -> Option<usize> {
     let part = |c: char| is_word(c) || word_chars_past_alnum.contains(c);
     let whole = |(i, _): &(usize, &str)| {
@@ -856,10 +867,12 @@ pub(super) fn whole_at(line: &str, word: &str, word_chars_past_alnum: &str) -> O
     line.match_indices(word).find(whole).map(|(i, _)| i)
 }
 
+#[expect(clippy::string_slice, reason = "#858")]
 pub(crate) fn next_char(s: &str, i: usize) -> usize {
     s[i..].graphemes(true).next().map_or(i, |g| i + g.len())
 }
 
+#[expect(clippy::string_slice, reason = "#858")]
 pub(crate) fn prev_char(s: &str, i: usize) -> usize {
     s[..i]
         .graphemes(true)

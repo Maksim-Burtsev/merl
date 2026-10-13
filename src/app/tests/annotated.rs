@@ -1,3 +1,6 @@
+#![expect(clippy::cognitive_complexity, reason = "#858")]
+#![expect(clippy::needless_collect, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 
 const MARKERS: [&str; 6] = ["//", "#", "--", ";", "%", "(*"];
@@ -107,7 +110,7 @@ fn cases() -> Vec<Case> {
         let (_, files) = crate::tree::build(&root.join(&fixture), false);
         for file in files {
             let path = root.join(&fixture).join(&file);
-            if search::kind_of(&path).is_none() && !path.extension().is_some_and(|e| e == "json") {
+            if search::kind_of(&path).is_none() && path.extension().is_none_or(|e| e != "json") {
                 continue;
             }
             let Ok(text) = std::fs::read_to_string(&path) else {
@@ -197,7 +200,7 @@ fn written(got: &Got) -> String {
 fn d_answers_every_annotation_in_the_fixtures() {
     let cases = cases();
     assert!(!cases.is_empty(), "no annotations in tests/fixtures");
-    let threads = super::test_threads();
+    let threads = test_threads();
     let chunk = cases.len().div_ceil(threads);
     let failures: Vec<String> = std::thread::scope(|s| {
         let runs: Vec<_> = cases
@@ -268,8 +271,8 @@ fn the_annotation_grammar() {
     let stacked = ["x = 1", "# ^ d: none", "#     ^ d: a.py:1", "# status: s"];
     assert_eq!(nearest_code_line_above(&stacked, 1), 1);
     assert_eq!(nearest_code_line_above(&stacked, 2), 1);
-    let pick = |r: &[&str]| Got::Picker(r.iter().map(|s| s.to_string()).collect());
-    let want = |r: &[&str], more| Want::Picker(r.iter().map(|s| s.to_string()).collect(), more);
+    let pick = |r: &[&str]| Got::Picker(r.iter().map(ToString::to_string).collect());
+    let want = |r: &[&str], more| Want::Picker(r.iter().map(ToString::to_string).collect(), more);
     assert!(matches(&want(&["a:1"], true), &pick(&["a:1", "b:2"])));
     assert!(!matches(&want(&["a:1"], false), &pick(&["a:1", "b:2"])));
     assert!(!matches(

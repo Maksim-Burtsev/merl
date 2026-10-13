@@ -1,3 +1,4 @@
+#![expect(clippy::format_collect, reason = "#858")]
 use super::*;
 
 #[test]
@@ -87,7 +88,7 @@ fn a_file_without_write_permission_is_read_only() {
         a.jump_to(p, 1);
     };
     let chmod = |p: &Path, mode| {
-        std::fs::set_permissions(p, std::fs::Permissions::from_mode(mode)).unwrap()
+        std::fs::set_permissions(p, std::fs::Permissions::from_mode(mode)).unwrap();
     };
     open(&mut a, &env);
     assert_eq!(a.buf.readonly, None);

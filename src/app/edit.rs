@@ -1,4 +1,10 @@
-use super::*;
+#![expect(clippy::needless_pass_by_value, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
+use super::{
+    App, Buffer, Edit, Instant, KeyCode, KeyEvent, KeyModifiers, Mode, Path, Pick, TextLine,
+    buffer, next_char, open, prev_char,
+};
 
 #[derive(Clone, Copy, PartialEq)]
 pub(super) enum Kind {
@@ -13,7 +19,7 @@ pub(super) enum Kind {
 impl Kind {
     fn spaces(self) -> Self {
         match self {
-            Kind::FirstSpace => Kind::Spaces,
+            Self::FirstSpace => Self::Spaces,
             k => k,
         }
     }
@@ -49,7 +55,7 @@ impl App {
         }
         lines
             .any(|l| Buffer::clips(l))
-            .then(|| "line too long to edit".to_string())
+            .then(|| "line too long to edit".to_owned())
     }
 
     pub(super) fn copy(&mut self) -> ((usize, usize), (usize, usize)) {
@@ -199,9 +205,12 @@ impl App {
         let anchor = anchor.map(|(t, c)| (t.key(), c));
         let end = (last, self.buf.lines[last].len());
         let indented = self.replace((from.0, 0), end, &text, Kind::Other);
-        let moved = |(l, c): (usize, usize)| match (from.0..=last).contains(&l) && c > 0 {
-            true => (l, c + indent.len()),
-            false => (l, c),
+        let moved = |(l, c): (usize, usize)| {
+            if (from.0..=last).contains(&l) && c > 0 {
+                (l, c + indent.len())
+            } else {
+                (l, c)
+            }
         };
         if indented {
             self.anchor = anchor.map(moved).map(|(l, c)| (TextLine::File(l), c));
@@ -219,7 +228,7 @@ impl App {
         } else if self.mode == Mode::Edit {
             self.insert(&text, Kind::Other);
         } else if let Some(picker) = &mut self.picker {
-            if let Pick::Typed = picker.paste(line) {
+            if matches!(picker.paste(line), Pick::Typed) {
                 self.search_typed();
             }
         } else if self.mode == Mode::Goto {
@@ -300,7 +309,7 @@ impl App {
                     && edit.line <= last.line + last.new.len()
                     && last.line <= edit.line + edit.old.len() =>
             {
-                last.merge(edit)
+                last.merge(edit);
             }
             _ => self.undo.push(edit),
         }
@@ -388,7 +397,7 @@ impl App {
                 self.refresh_diff();
             }
             Err(e) => {
-                self.message = format!("save failed: {}", super::open::why_not(&e.into()));
+                self.message = format!("save failed: {}", open::why_not(&e.into()));
                 self.last_edit = Some(Instant::now());
             }
         }
@@ -421,7 +430,7 @@ impl App {
             .chain(picker)
             .chain(code)
             .find(|b| b.parsing())
-            .is_some_and(|b| b.parse_more(Some(crate::buffer::PARSE_IDLE_STEP)))
+            .is_some_and(|b| b.parse_more(Some(buffer::PARSE_IDLE_STEP)))
     }
 
     pub fn tick(&mut self) -> bool {
@@ -436,14 +445,17 @@ impl App {
 }
 
 impl Edit {
-    fn merge(&mut self, next: Edit) {
+    fn merge(&mut self, next: Self) {
         let (a1, b1) = (self.line, self.line + self.new.len());
         let (a2, b2) = (next.line, next.line + next.old.len());
         let lo = a1.min(a2);
         let between: Vec<String> = (lo..b1.max(b2))
-            .map(|i| match (a1..b1).contains(&i) {
-                true => self.new[i - a1].clone(),
-                false => next.old[i - a2].clone(),
+            .map(|i| {
+                if (a1..b1).contains(&i) {
+                    self.new[i - a1].clone()
+                } else {
+                    next.old[i - a2].clone()
+                }
             })
             .collect();
         self.old = [&between[..a1 - lo], &self.old, &between[b1 - lo..]].concat();

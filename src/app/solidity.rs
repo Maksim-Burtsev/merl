@@ -1,4 +1,4 @@
-use super::*;
+use super::{App, Candidate, Kind, Path, Reason, search};
 
 impl App {
     pub(super) fn solidity_imported(
@@ -22,11 +22,11 @@ impl App {
         };
         let file = search::solidity_file(&self.root, &self.files, here, &import.path)?;
         let pattern = search::def_patterns(Kind::Solidity, &name).join("|");
-        let hits = match self.files.contains(&file) {
-            false => self.external_grep(Kind::Solidity, std::slice::from_ref(&file), &pattern),
-            true => self
-                .grep(&pattern, false, false, |p| p == file)
-                .unwrap_or_default(),
+        let hits = if self.files.contains(&file) {
+            self.grep(&pattern, false, false, |p| p == file)
+                .unwrap_or_default()
+        } else {
+            self.external_grep(Kind::Solidity, std::slice::from_ref(&file), &pattern)
         };
         let source = self.text_of(&file)?;
         let literal = search::literal_lines(Kind::Solidity, &source);

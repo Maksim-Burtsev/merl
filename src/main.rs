@@ -57,6 +57,7 @@ enum Msg {
     Quit,
 }
 
+#[expect(clippy::struct_excessive_bools, reason = "#858")]
 #[derive(Parser)]
 #[command(name = "merl", version, about)]
 struct Cli {
@@ -123,6 +124,8 @@ fn main() {
     }
 }
 
+#[expect(clippy::or_fun_call, reason = "#858")]
+#[expect(clippy::too_many_lines, reason = "#858")]
 fn run() -> Result<()> {
     let cli = Cli::parse();
     if cli.keys {
@@ -255,7 +258,7 @@ fn run() -> Result<()> {
     spawn_key_reader(&keyboard, tx.clone());
     quit_on_signals(tx.clone());
     let result = event_loop(&mut terminal, &mut app, theme, &rx, tx, project);
-    let _ = app.diagrams.clear(&mut stdout());
+    drop(app.diagrams.clear(&mut stdout()));
     leave_terminal(keyboard);
     if let Some(t) = &app.tutor {
         remove_sample_project_and_print_drill(t);
@@ -268,7 +271,7 @@ fn run() -> Result<()> {
 }
 
 fn print_even_to_a_closed_pipe(text: &str) {
-    let _ = stdout().write_all(text.as_bytes());
+    drop(stdout().write_all(text.as_bytes()));
 }
 
 struct KeyboardQueried {
@@ -277,7 +280,7 @@ struct KeyboardQueried {
 
 fn enter_terminal() -> Result<(ratatui::DefaultTerminal, KeyboardQueried)> {
     let terminal = ratatui::try_init()?;
-    let _ = execute!(stdout(), EnableBracketedPaste);
+    drop(execute!(stdout(), EnableBracketedPaste));
     let enhanced = terminal::supports_keyboard_enhancement().unwrap_or(false);
     if enhanced {
         execute!(
@@ -295,7 +298,7 @@ fn enter_terminal() -> Result<(ratatui::DefaultTerminal, KeyboardQueried)> {
 fn pop_keyboard_flags_before_ratatui_restores_on_panic() {
     let ratatui_restore = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
-        let _ = execute!(stdout(), PopKeyboardEnhancementFlags);
+        drop(execute!(stdout(), PopKeyboardEnhancementFlags));
         ratatui_restore(info);
     }));
 }
@@ -324,28 +327,29 @@ fn quit_on_signals(quit: Sender<Msg>) {
     ]) {
         std::thread::spawn(move || {
             if signals.forever().next().is_some() {
-                let _ = quit.send(Msg::Quit);
+                drop(quit.send(Msg::Quit));
             }
         });
     }
 }
 
+#[expect(clippy::needless_pass_by_value, reason = "#858")]
 fn leave_terminal(keyboard: KeyboardQueried) {
     if keyboard.enhanced {
-        let _ = execute!(stdout(), PopKeyboardEnhancementFlags);
+        drop(execute!(stdout(), PopKeyboardEnhancementFlags));
     }
-    let _ = execute!(
+    drop(execute!(
         stdout(),
         SetCursorStyle::DefaultUserShape,
         DisableBracketedPaste
-    );
+    ));
     ratatui::restore();
     let show_cursor_the_last_frame_hid = Show;
-    let _ = execute!(stdout(), show_cursor_the_last_frame_hid);
+    drop(execute!(stdout(), show_cursor_the_last_frame_hid));
 }
 
 fn remove_sample_project_and_print_drill(tutor: &Tutor) {
-    let _ = std::fs::remove_dir_all(&tutor.dir);
+    drop(std::fs::remove_dir_all(&tutor.dir));
     if let Some(d) = &tutor.drill {
         print!("{}", d.summary());
     }
@@ -366,6 +370,9 @@ fn record_presses_and_reviews(app: &mut App) {
     }
 }
 
+#[expect(clippy::assigning_clones, reason = "#858")]
+#[expect(clippy::cognitive_complexity, reason = "#858")]
+#[expect(clippy::too_many_lines, reason = "#858")]
 fn event_loop(
     terminal: &mut ratatui::DefaultTerminal,
     app: &mut App,
@@ -414,7 +421,7 @@ fn event_loop(
             let (tx, root) = (diff_tx.clone(), app.root.clone());
             std::thread::spawn(move || {
                 let diff = git::diff(&root, &path, None, None);
-                let _ = tx.send(Msg::DiffDone(path, diff));
+                drop(tx.send(Msg::DiffDone(path, diff)));
             });
         }
         if project.walk_due(Instant::now()) {
@@ -426,7 +433,7 @@ fn event_loop(
                     .map(tree::OrderFile::read)
                     .unwrap_or_default();
                 let (tree, files) = tree::build_ordered(&root, shallow, &order);
-                let _ = tx.send(Msg::ProjectWalked(tree, files));
+                drop(tx.send(Msg::ProjectWalked(tree, files)));
             });
         }
         if let Some(live) = &mut repo
@@ -437,7 +444,7 @@ fn event_loop(
                 Some(r) => {
                     std::thread::spawn(move || {
                         let fresh = r.refresh(&root).map_err(|e| app::error_text(&e));
-                        let _ = tx.send(Msg::ReviewListed(fresh));
+                        drop(tx.send(Msg::ReviewListed(fresh)));
                     });
                 }
                 None => list_marks(tx, root),
@@ -446,19 +453,19 @@ fn event_loop(
         if let Some(job) = app.search_tick() {
             let tx = diff_tx.clone();
             std::thread::spawn(move || {
-                let _ = tx.send(Msg::SearchDone {
+                drop(tx.send(Msg::SearchDone {
                     seq: job.seq,
                     rows: job.items(),
-                });
+                }));
             });
         }
         let typing_now = !matches!(app.mode, Mode::Normal | Mode::Help);
         if typing != Some(typing_now) {
             typing = Some(typing_now);
-            let _ = execute!(stdout(), vim_cursor(typing_now));
+            drop(execute!(stdout(), vim_cursor(typing_now)));
         }
         if app.shown_theme() != drawn_theme {
-            drawn_theme = app.shown_theme().to_string();
+            drawn_theme = app.shown_theme().to_owned();
             match theme::load(&drawn_theme) {
                 Ok(t) => {
                     theme = t;
@@ -478,11 +485,13 @@ fn event_loop(
         }
         for job in app.diagrams.jobs() {
             let tx = diff_tx.clone();
-            let _ = std::thread::Builder::new()
-                .name(mermaid::THREAD.into())
-                .spawn(move || {
-                    let _ = tx.send(Msg::Diagram(mermaid::render(job)));
-                });
+            drop(
+                std::thread::Builder::new()
+                    .name(mermaid::THREAD.into())
+                    .spawn(move || {
+                        drop(tx.send(Msg::Diagram(mermaid::render(job))));
+                    }),
+            );
         }
         let idle = Duration::from_millis(if app.picker.is_some() { 10 } else { 100 });
         let idle = app.diagrams.wake.map_or(idle, |w| w.min(idle));
@@ -499,7 +508,7 @@ fn event_loop(
                 if let Some(text) = app.clipboard.take() {
                     osc52_copy(&text);
                     if let Some(tmux) = &tmux {
-                        let _ = tmux.send(text);
+                        drop(tmux.send(text));
                     }
                 }
                 dirty = true;
@@ -576,7 +585,7 @@ fn event_loop(
 fn watcher(tx: Sender<Msg>) -> Option<RecommendedWatcher> {
     notify::recommended_watcher(move |ev: notify::Result<notify::Event>| {
         if let Ok(ev) = ev {
-            let _ = tx.send(Msg::Fs(ev));
+            drop(tx.send(Msg::Fs(ev)));
         }
     })
     .ok()
@@ -607,13 +616,13 @@ fn vim_cursor(typing: bool) -> SetCursorStyle {
 
 fn osc52_copy(text: &str) {
     let mut out = stdout();
-    let _ = write!(out, "\x1b]52;c;{}\x07", base64(text.as_bytes()));
-    let _ = out.flush();
+    drop(write!(out, "\x1b]52;c;{}\x07", base64(text.as_bytes())));
+    drop(out.flush());
 }
 
 fn list_marks(tx: Sender<Msg>, root: PathBuf) {
     std::thread::spawn(move || {
-        let _ = tx.send(Msg::Marks(git::changed_files(&root)));
+        drop(tx.send(Msg::Marks(git::changed_files(&root))));
     });
 }
 
@@ -624,10 +633,10 @@ fn rewatch(watcher: Option<&mut RecommendedWatcher>, watched: &mut Option<PathBu
     }
     let Some(watcher) = watcher else { return };
     if let Some(old) = watched.take() {
-        let _ = watcher.unwatch(&old);
+        drop(watcher.unwatch(&old));
     }
     if let Some(dir) = dir {
-        let _ = watcher.watch(dir, RecursiveMode::NonRecursive);
+        drop(watcher.watch(dir, RecursiveMode::NonRecursive));
         *watched = Some(dir.to_path_buf());
     }
 }
@@ -661,6 +670,7 @@ struct Opened {
     at: Option<LineCol1>,
 }
 
+#[expect(clippy::or_fun_call, reason = "#858")]
 fn resolve(target: Option<&str>) -> Result<Opened> {
     let dir = |project_root| Opened {
         project_root,
@@ -695,6 +705,7 @@ fn resolve(target: Option<&str>) -> Result<Opened> {
     })
 }
 
+#[expect(clippy::string_slice, reason = "#858")]
 fn split_line(target: &str) -> (&str, Option<LineCol1>) {
     if Path::new(target).exists() {
         return (target, None);
@@ -719,7 +730,7 @@ fn base64(bytes: &[u8]) -> String {
         let n = chunk
             .iter()
             .enumerate()
-            .fold(0u32, |n, (i, b)| n | (*b as u32) << (16 - 8 * i));
+            .fold(0u32, |n, (i, b)| n | u32::from(*b) << (16 - 8 * i));
         for i in 0..4 {
             if i <= chunk.len() {
                 out.push(T[(n >> (18 - 6 * i)) as usize & 63] as char);
@@ -758,7 +769,7 @@ fn hand_to_tmux(taken: &mut Command, calls: &mut [Command], text: &str) {
     for call in calls {
         let Ok(mut child) = call.spawn() else { break };
         if let Some(mut stdin) = child.stdin.take() {
-            let _ = stdin.write_all(text.as_bytes());
+            drop(stdin.write_all(text.as_bytes()));
         }
         if child.wait().is_ok_and(|s| s.success()) {
             break;
@@ -808,7 +819,7 @@ mod tests {
     fn a_copy_goes_to_the_first_call_that_works_unless_tmux_took_the_osc_52() {
         use std::process::{Command, Stdio};
         let got = std::env::temp_dir().join(format!("merl-tmux-copy-{}", std::process::id()));
-        let _ = std::fs::remove_file(&got);
+        drop(std::fs::remove_file(&got));
         let sh = |script: &str| {
             let mut cmd = Command::new("sh");
             cmd.args(["-c", script]).stdin(Stdio::piped());
@@ -861,7 +872,7 @@ mod tests {
             let cli = super::Cli::parse_from(args);
             (cli.review, cli.base, cli.target)
         };
-        let s = |s: &str| Some(s.to_string());
+        let s = |s: &str| Some(s.to_owned());
         assert_eq!(review(&["merl", "--review"]), (s(""), None, None));
         assert_eq!(
             review(&["merl", "--review", "feature"]),
@@ -908,6 +919,7 @@ mod tests {
         assert!(super::Cli::try_parse_from(["merl", "-b", "x"]).is_err());
     }
 
+    #[expect(clippy::default_trait_access, reason = "#858")]
     #[test]
     fn a_directory_that_cannot_be_watched_is_not_tried_again() {
         use notify::{RecursiveMode, Watcher};
@@ -923,6 +935,7 @@ mod tests {
         assert_eq!(watched.as_deref(), Some(gone.as_path()));
     }
 
+    #[expect(clippy::default_trait_access, reason = "#858")]
     #[test]
     fn a_namesake_elsewhere_in_the_project_is_not_the_open_file() {
         use notify::{Event, EventKind, event::CreateKind};
@@ -947,7 +960,7 @@ mod tests {
     #[test]
     fn a_file_outside_a_repository_lists_its_neighbours_not_all_below_them() {
         let dir = std::env::temp_dir().join(format!("merl-no-repo-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(dir.join("deep/er")).unwrap();
         for f in ["a.txt", "b.txt", "deep/c.txt", "deep/er/d.txt"] {
             std::fs::write(dir.join(f), "x\n").unwrap();
@@ -1026,7 +1039,7 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    const LONG_FILES: &[(&str, usize)] = &[("src/app/definition.rs", 2166)];
+    const LONG_FILES: &[(&str, usize)] = &[("src/app/definition.rs", 2153)];
     const MAX_LINES: usize = 1500;
 
     fn rust_files(dir: &Path, with_tests: bool, out: &mut Vec<std::path::PathBuf>) {
@@ -1088,6 +1101,55 @@ mod tests {
         assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
     }
 
+    const EXPECTS: usize = 588;
+
+    fn expected_lints(text: &str) -> usize {
+        let b = text.as_bytes();
+        text.match_indices("expect(")
+            .filter(|&(at, m)| {
+                at > 0
+                    && b"[( \n".contains(&b[at - 1])
+                    && b[at + m.len()..]
+                        .iter()
+                        .find(|c| !c.is_ascii_whitespace())
+                        .is_some_and(u8::is_ascii_lowercase)
+            })
+            .map(|(at, m)| {
+                let args = text.get(at + m.len()..).unwrap_or_default();
+                let lints = args.split([')', '=']).next().unwrap_or_default();
+                lints
+                    .split(',')
+                    .filter(|l| l.trim() != "reason" && !l.trim().is_empty())
+                    .count()
+            })
+            .sum()
+    }
+
+    #[test]
+    fn expects_do_not_grow() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut files = Vec::new();
+        rust_files(&root.join("src"), true, &mut files);
+        let count: usize = files
+            .iter()
+            .map(|p| expected_lints(&std::fs::read_to_string(p).unwrap()))
+            .sum();
+        assert!(
+            count <= EXPECTS,
+            "{count} lints silenced under src/, over EXPECTS = {EXPECTS}: fix the code, or give the expect a reason the reviewer will accept"
+        );
+    }
+
+    #[test]
+    fn expected_lints_count_each_lint_not_calls() {
+        let text = "#![\x65xpect(clippy::todo)]\n#[cfg_attr(test, \x65xpect(dead_code))]\n\
+                    #[\x65xpect(\n    clippy::x,\n    clippy::y,\n    reason = \"r\"\n)]\nlet v = o.\x65xpect(\"why\");\n";
+        assert_eq!(expected_lints(text), 4);
+    }
+
+    #[expect(clippy::excessive_nesting, reason = "#858")]
+    #[expect(clippy::naive_bytecount, reason = "#858")]
+    #[expect(clippy::string_slice, reason = "#858")]
     fn comment_lines(text: &str) -> Vec<usize> {
         let b = text.as_bytes();
         let (mut i, mut line, mut lines) = (0, 0, Vec::new());
@@ -1313,10 +1375,11 @@ b";
                 script_files(root, &format!("{name}/{}", file.to_str().unwrap()), out);
             }
         } else {
-            out.push(name.to_string());
+            out.push(name.to_owned());
         }
     }
 
+    #[expect(clippy::string_slice, reason = "#858")]
     fn script_comment_lines(name: &str, text: &str) -> Result<Vec<usize>, String> {
         let shebang = text.lines().next().filter(|l| l.starts_with("#!"));
         let ext = Path::new(name).extension().and_then(|e| e.to_str());

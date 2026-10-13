@@ -1,9 +1,12 @@
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::*;
+use super::{Binding, Kind, Value, directly_inside, indent, lexical, literal_lines, node_modules};
 
 const NAME: &str = r"[A-Za-z_$][\w$]*";
 const TYPE: &str =

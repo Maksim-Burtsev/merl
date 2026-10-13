@@ -1,3 +1,4 @@
+#![expect(clippy::cognitive_complexity, reason = "#858")]
 use super::*;
 
 fn declares(line: &str, word: &str) -> bool {
@@ -237,7 +238,7 @@ import \"./Plain.sol\";
 #[test]
 fn solidity_import_paths_resolve_as_the_compiler_does() {
     let root = std::env::temp_dir().join(format!("merl-sol-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
     let write = |p: &str, text: &str| {
         let p = root.join(p);
         std::fs::create_dir_all(p.parent().unwrap()).unwrap();
@@ -293,7 +294,7 @@ fn solidity_import_paths_resolve_as_the_compiler_does() {
     assert_eq!(file("contracts/Fees.sol"), some("contracts/Fees.sol"));
     assert_eq!(file("./Missing.sol"), None);
     assert_eq!(file("../../../x.sol"), None);
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 #[test]

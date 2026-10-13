@@ -1,6 +1,7 @@
+#![expect(clippy::cognitive_complexity, reason = "#858")]
 use super::*;
 
-const LUA: &str = r#"local uv = vim.uv
+const LUA: &str = r"local uv = vim.uv
 
 local M = {}
 local cache, hits = {}, 0
@@ -59,7 +60,7 @@ end
 ]]
 
 function M.last() end
-"#;
+";
 
 #[test]
 fn lua_def_patterns_find_functions_and_locals() {
@@ -303,7 +304,7 @@ fn elixir_heredocs_hide_what_they_hold() {
 #[test]
 fn mix_deps_are_those_beside_a_mix_exs_from_the_file_up() {
     let dir = std::env::temp_dir().join(format!("merl-mix-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     let root = dir.join("project");
     for d in [
         "deps",
@@ -379,7 +380,7 @@ fn elixir_word_and_alias() {
     assert_eq!(word("x = ship!", 5), Some("ship!"));
     let text = "  alias Shop.Warehouse, as: W\n  alias Shop.Pricing.{Tariff, Coupon}\n  alias Shop.Warehouse.Courier\n";
     let un = |chain: &[&str]| {
-        elixir_unalias(text, 3, chain.iter().map(|s| s.to_string()).collect()).join(".")
+        elixir_unalias(text, 3, chain.iter().map(ToString::to_string).collect()).join(".")
     };
     assert_eq!(un(&["W"]), "Shop.Warehouse");
     assert_eq!(un(&["Coupon"]), "Shop.Pricing.Coupon");
@@ -389,7 +390,7 @@ fn elixir_word_and_alias() {
     assert_eq!(un(&[]), "");
     let text = "defmodule A do\n  alias Plug.Conn\nend\n\ndefmodule B do\n  def f(c) do\n    alias Shop.Tariff\n    Tariff.x(c)\n  end\n  def g(c), do: Conn.assign(c)\n  alias Shop.Coupon\nend\n";
     let un = |line, chain: &[&str]| {
-        elixir_unalias(text, line, chain.iter().map(|s| s.to_string()).collect()).join(".")
+        elixir_unalias(text, line, chain.iter().map(ToString::to_string).collect()).join(".")
     };
     assert_eq!(un(9, &["Conn"]), "Conn", "another module's `alias`");
     assert_eq!(un(9, &["Tariff"]), "Tariff", "one inside a closed `def`");
@@ -701,7 +702,7 @@ fn proto_roots_are_where_protoc_installs_its_types() {
         .any(|d| r == Path::new(d))
     }),);
     let dir = std::env::temp_dir().join(format!("merl-ext-proto-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(dir.join("keg/google/protobuf")).unwrap();
     std::fs::create_dir_all(dir.join("include")).unwrap();
     std::fs::write(dir.join("keg/google/protobuf/timestamp.proto"), "").unwrap();

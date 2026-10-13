@@ -21,7 +21,7 @@ fn rows(terminal: &Terminal<TestBackend>) -> Vec<String> {
                 .map(|x| buf[(x, y)].symbol())
                 .collect::<String>()
                 .trim()
-                .to_string()
+                .to_owned()
         })
         .collect()
 }

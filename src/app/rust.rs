@@ -1,4 +1,10 @@
-use super::*;
+#![expect(clippy::match_same_arms, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+use super::{
+    App, Candidate, HashMap, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, bound, search,
+};
 
 #[derive(Clone, Copy)]
 pub(super) enum MacroUse {
@@ -8,14 +14,14 @@ pub(super) enum MacroUse {
 }
 
 impl MacroUse {
-    pub(super) fn after_word(after_word: &str) -> MacroUse {
+    pub(super) fn after_word(after_word: &str) -> Self {
         let after = after_word.trim_start();
         if after.starts_with('!') && !after.starts_with("!=") {
-            MacroUse::Macro
+            Self::Macro
         } else if after.starts_with(['(', ':']) {
-            MacroUse::NotMacro
+            Self::NotMacro
         } else {
-            MacroUse::Either
+            Self::Either
         }
     }
 }
@@ -280,25 +286,24 @@ impl App {
             .filter_map(|f| f.parent().and_then(package))
             .collect();
         let reached = |h: &Hit| {
-            let name = match h.path.is_absolute() {
-                true => {
-                    let listed = h.path.ancestors().find_map(|a| {
-                        let dir = a.file_name()?.to_str()?;
-                        let locked = reach
-                            .as_ref()
-                            .map(|r| r.every_locked.as_slice())
-                            .unwrap_or_default();
-                        locked
-                            .iter()
-                            .find(|p| p.registry_dir == dir)
-                            .map(|p| p.name.clone())
-                    });
-                    if listed.as_ref().is_some_and(|n| workspace.contains(n)) {
-                        return false;
-                    }
-                    listed
+            let name = if h.path.is_absolute() {
+                let listed = h.path.ancestors().find_map(|a| {
+                    let dir = a.file_name()?.to_str()?;
+                    let locked = reach
+                        .as_ref()
+                        .map(|r| r.every_locked.as_slice())
+                        .unwrap_or_default();
+                    locked
+                        .iter()
+                        .find(|p| p.registry_dir == dir)
+                        .map(|p| p.name.clone())
+                });
+                if listed.as_ref().is_some_and(|n| workspace.contains(n)) {
+                    return false;
                 }
-                false => crate_of(&h.path).as_deref().and_then(package),
+                listed
+            } else {
+                crate_of(&h.path).as_deref().and_then(package)
             };
             let Some(search::CargoReach {
                 reached,
@@ -318,9 +323,10 @@ impl App {
                     .iter()
                     .any(|d| parent.file_name().is_some_and(|n| n == *d))
                 || parent.ends_with("src/bin");
-            let dir = match root_file {
-                true => parent.to_path_buf(),
-                false => p.with_extension(""),
+            let dir = if root_file {
+                parent.to_path_buf()
+            } else {
+                p.with_extension("")
             };
             here == p || here.starts_with(dir)
         };
@@ -595,10 +601,11 @@ impl App {
         let mut module: Vec<String> = base.to_vec();
         module.extend(parts.iter().cloned());
         let file_of = |m: &[String]| -> Vec<PathBuf> {
-            let at = m.iter().fold(src.to_path_buf(), |p, n| p.join(n));
-            let wanted = match m.is_empty() {
-                true => vec![src.join("lib.rs"), src.join("main.rs")],
-                false => vec![at.with_extension("rs"), at.join("mod.rs")],
+            let at = m.iter().fold(src.clone(), |p, n| p.join(n));
+            let wanted = if m.is_empty() {
+                vec![src.join("lib.rs"), src.join("main.rs")]
+            } else {
+                vec![at.with_extension("rs"), at.join("mod.rs")]
             };
             wanted.into_iter().filter(|f| files.contains(f)).collect()
         };
@@ -644,7 +651,7 @@ impl App {
                 return Some(found);
             }
         }
-        let dir = at.iter().fold(src.to_path_buf(), |p, m| p.join(m));
+        let dir = at.iter().fold(src.clone(), |p, m| p.join(m));
         let under: Vec<PathBuf> = files
             .iter()
             .filter(|f| f.starts_with(&dir))
@@ -791,12 +798,12 @@ impl App {
             }
             ty = next;
         }
-        let hits = match call {
-            true => self.rust_members(&ty, word),
-            false => self
-                .rust_field(&ty, word)
+        let hits = if call {
+            self.rust_members(&ty, word)
+        } else {
+            self.rust_field(&ty, word)
                 .map(|(hit, _)| vec![hit])
-                .unwrap_or_default(),
+                .unwrap_or_default()
         };
         let label = links.join(" \u{2192} ");
         Ok(hits
@@ -863,21 +870,20 @@ impl App {
                     if !search::bindings(Kind::Rust, text, at + 1, &parts[0]).is_empty() {
                         return None;
                     }
-                    let decl = match self.declaration(Kind::Rust, file, &parts) {
-                        Some(decl) => decl,
-                        None => {
-                            let [f] = parts.as_slice() else { return None };
-                            let ns = search::RustNamespace::Other;
-                            let [l] = search::rust_scope_items(text, at + 1, f, ns)[..] else {
-                                return None;
-                            };
-                            Hit {
-                                path: file.to_path_buf(),
-                                line1: l,
-                                byte_col: None,
-                                text: lines[l - 1].to_owned(),
-                                deleted: None,
-                            }
+                    let decl = if let Some(decl) = self.declaration(Kind::Rust, file, &parts) {
+                        decl
+                    } else {
+                        let [f] = parts.as_slice() else { return None };
+                        let ns = search::RustNamespace::Other;
+                        let [l] = search::rust_scope_items(text, at + 1, f, ns)[..] else {
+                            return None;
+                        };
+                        Hit {
+                            path: file.to_path_buf(),
+                            line1: l,
+                            byte_col: None,
+                            text: lines[l - 1].to_owned(),
+                            deleted: None,
                         }
                     };
                     if !decl.text.contains("fn ") {

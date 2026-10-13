@@ -1,3 +1,6 @@
+#![expect(clippy::cast_possible_truncation, reason = "#858")]
+#![expect(clippy::format_collect, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 use TextLine::{Deleted, File};
 
@@ -37,7 +40,7 @@ def show_all(orders):
 
 fn orders_review(tag: &str) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-440-{tag}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(dir.join("app/repositories")).unwrap();
     std::fs::create_dir_all(dir.join("app/services")).unwrap();
     let git = |args: &[&str]| {
@@ -150,7 +153,7 @@ fn d_on_a_deleted_call_lands_on_the_deleted_definition() {
         (Some(&*service), from),
         "`[` goes back to the call"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -166,7 +169,7 @@ fn d_prefers_the_branch_over_a_deleted_namesake() {
         "the branch's `get`, though the deleted `app/legacy.py` declares one too: {}",
         a.message
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -208,7 +211,7 @@ fn d_on_a_deleted_line_answers_from_the_base() {
         "`order` is bound by the deleted line above it, in the block deleted with it: {}",
         a.message
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -237,7 +240,7 @@ fn s_lists_deleted_lines_and_enter_lands_on_one() {
         ),
         "Enter lands on the deleted line"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -268,7 +271,7 @@ fn s_keeps_its_row_apart_from_a_deleted_line_of_the_same_number() {
         "the row stays, not the deleted line 9 drawn above it: {}",
         cur.label
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -321,7 +324,7 @@ fn u_and_capital_d_list_deleted_lines() {
             && r.ends_with("app/repositories/orders.py:5")),
         "{listed:#?}"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -354,7 +357,7 @@ fn a_deleted_row_carries_a_red_mark() {
         "the gutter's mark, red"
     );
     assert_eq!(buf[(x, y)].bg, theme.selection, "selected");
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 const LOADS: &str = "\
@@ -386,7 +389,7 @@ class Service:
 
 fn moves_review(tag: &str) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-440-{tag}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(dir.join("app")).unwrap();
     let git = |args: &[&str]| {
         let out = std::process::Command::new("git")
@@ -457,7 +460,7 @@ fn d_on_a_deleted_call_follows_a_move_and_skips_a_namesake() {
     );
     assert_eq!(a.line_str(), "    def fetch(self, key):");
     assert!(a.deleted.is_some());
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 fn repo_review(
@@ -466,7 +469,7 @@ fn repo_review(
     branch: &[(&str, Option<&str>)],
 ) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-440-{tag}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(&dir).unwrap();
     let git = |args: &[&str]| {
         let out = std::process::Command::new("git")
@@ -528,7 +531,7 @@ fn d_on_a_deleted_markdown_link_follows_it() {
         "follows the link, as on any line: {}",
         a.message
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -549,7 +552,7 @@ fn a_rule_that_answers_none_keeps_it_in_a_review() {
         (Some(&*dir.join("Run.cs")), "no definition for Delay"),
         "`Task.Delay` is outside the project, not the `Timer.Delay` the branch deleted"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -576,7 +579,7 @@ fn d_from_a_branch_line_opens_a_deleted_definition_when_the_branch_has_none() {
     );
     assert_eq!(a.line_str(), "def legacy_total(x):");
     assert!(a.deleted.is_some());
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -621,7 +624,7 @@ fn d_from_a_deleted_line_saves_unsaved_edits_first() {
         a.message
     );
     (a.dirty, a.conflict) = (false, false);
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -646,7 +649,7 @@ fn each_worktree_keeps_its_own_base_and_an_edit_leaves_it_alone() {
         "X = 1\n"
     );
     let wt = dir.with_extension("wt");
-    let _ = std::fs::remove_dir_all(&wt);
+    drop(std::fs::remove_dir_all(&wt));
     let git = |at: &Path, args: &[&str]| {
         let out = std::process::Command::new("git")
             .arg("-C")
@@ -684,8 +687,8 @@ fn each_worktree_keeps_its_own_base_and_an_edit_leaves_it_alone() {
         base.join("keep.py").exists() && theirs.join("svc.py").exists(),
         "another worktree's review does not remove this one's base"
     );
-    let _ = std::fs::remove_dir_all(&wt);
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(&wt));
+    drop(std::fs::remove_dir_all(dir));
 }
 
 const HELPER: &str = "def helper(x):\n    y = x + 1\n    return y\n";
@@ -715,7 +718,7 @@ fn d_follows_a_move_into_a_spaced_name_past_the_next_deleted_function() {
         "the live copy, past the function deleted under it: {}",
         a.message
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -745,7 +748,7 @@ fn a_two_line_block_is_no_move() {
         a.message
     );
     assert!(a.deleted.is_some());
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -771,7 +774,7 @@ fn a_moved_definition_counts_its_closing_line() {
         "two lines and an `end` are a move: {}",
         a.message
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -793,7 +796,7 @@ fn a_deleted_string_declares_nothing() {
         "{}",
         a.message
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -830,7 +833,7 @@ fn d_on_a_deleted_files_line_answers_from_the_base() {
         a.message
     );
     assert_eq!(a.line_str(), "    def fetch(self, key):");
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -870,7 +873,7 @@ fn d_in_a_renamed_file_reads_the_old_name_and_counts_lines_past_the_last_hunk() 
         "below the file's last hunk, on its line now: {}",
         a.message
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -938,7 +941,7 @@ fn a_base_picker_keeps_its_title_and_marks_its_deleted_row() {
         "`def` of the deleted row is coloured as `def` of the other"
     );
     assert_ne!(def(xa, ya), buf[(xa, ya)].fg);
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -972,7 +975,7 @@ fn s_from_a_deleted_line_to_a_live_namesake_misses_no_d() {
         "`d` would have gone to the deleted `Repo.fetch`: {:?}",
         a.missed
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -1006,7 +1009,7 @@ fn d_finds_a_definition_deleted_from_a_component() {
             a.deleted.is_some(),
             "{lib}: the red line, whatever the file holds at that number now"
         );
-        let _ = std::fs::remove_dir_all(dir);
+        drop(std::fs::remove_dir_all(dir));
     }
 }
 
@@ -1033,7 +1036,7 @@ fn symbols_of_a_review_skip_a_deleted_template_line() {
         ["save  Card.vue:2"],
         "never a line the template lost"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -1062,7 +1065,7 @@ fn a_base_picker_row_of_a_renamed_file_names_the_file_it_has_now() {
         .map(|r| r.item.label[r.item.path_at.clone().unwrap()].to_string())
         .collect();
     assert_eq!(paths, ["a.py", "lib/beta.py"]);
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -1078,7 +1081,7 @@ fn symbols_of_a_review_list_no_deleted_line_of_a_file_no_row_reads() {
     a.jump_to(&dir.join("a.py"), 1);
     press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
     assert_eq!(rows(&mut a), ["kept  a.py:1"]);
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -1095,7 +1098,7 @@ fn deleted_lines_joining_a_search_are_cut_where_its_grep_is() {
     let p = a.picker.as_mut().unwrap();
     p.settle();
     assert_eq!(p.counts().1 as usize, search::MAX_HITS);
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -1122,7 +1125,7 @@ fn a_selection_from_the_line_under_a_deletion_is_edited_and_one_over_it_is_not()
         (a.buf.lines.join(","), a.message.as_str()),
         ("a,c,d".into(), "deleted")
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -1140,7 +1143,7 @@ fn a_reload_carries_a_selection_anchored_on_a_deleted_line() {
     std::fs::write(&file, "x\ny\na\nc\nd\n").unwrap();
     a.reload(false);
     assert_eq!(a.selected_text().as_deref(), Some("b\n"));
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -1186,5 +1189,5 @@ fn a_deleted_row_of_a_renamed_file_is_named_from_its_old_text() {
             "A.run  by name  a.py:2: "
         ]
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }

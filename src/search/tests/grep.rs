@@ -230,7 +230,7 @@ fn a_declaration_comes_first_and_the_nearest_directory_next() {
 #[test]
 fn a_declaration_outside_is_found_from_the_lines_kept_of_its_file() {
     let dir = std::env::temp_dir().join(format!("merl-shaped-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(&dir).unwrap();
     let past_sniff = format!(
         "function value() {{}}\n{}\0\nfunction value() {{}}\n",

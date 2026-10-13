@@ -1,3 +1,4 @@
+#![expect(clippy::or_fun_call, reason = "#858")]
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -143,17 +144,17 @@ impl Project {
                 } else {
                     RecursiveMode::Recursive
                 };
-                let _ = watcher.watch(&self.root, mode);
+                drop(watcher.watch(&self.root, mode));
             }
             return;
         }
         let mut want: HashSet<PathBuf> = self.walked_dirs_rel.union(&self.open).cloned().collect();
         want.insert(PathBuf::new());
         for d in watched.difference(&want) {
-            let _ = watcher.unwatch(&self.root.join(d));
+            drop(watcher.unwatch(&self.root.join(d)));
         }
         for d in &want {
-            let _ = watcher.watch(&self.root.join(d), RecursiveMode::NonRecursive);
+            drop(watcher.watch(&self.root.join(d), RecursiveMode::NonRecursive));
         }
         *watched = want;
     }
@@ -230,7 +231,7 @@ impl Repo {
                 RecursiveMode::NonRecursive,
             ),
         ] {
-            let _ = watcher.watch(path.unwrap_or(Path::new("")), mode);
+            drop(watcher.watch(path.unwrap_or(Path::new("")), mode));
         }
     }
 }
@@ -268,7 +269,7 @@ mod tests {
 
     fn project(tag: &str) -> (PathBuf, Project) {
         let dir = std::env::temp_dir().join(format!("merl-watch-{}-{tag}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         for f in [
             "src/app.rs",
             "src/deep/x.rs",
@@ -517,7 +518,7 @@ mod tests {
         let (tx, rx) = std::sync::mpsc::channel();
         let watcher = notify::recommended_watcher(move |ev: notify::Result<notify::Event>| {
             if let Ok(ev) = ev {
-                let _ = tx.send(ev);
+                drop(tx.send(ev));
             }
         })
         .unwrap();
@@ -552,7 +553,7 @@ mod tests {
     #[test]
     fn a_head_and_packed_refs_replaced_by_a_rename_are_heard() {
         let git = std::env::temp_dir().join(format!("merl-watch-{}-git", std::process::id()));
-        let _ = std::fs::remove_dir_all(&git);
+        drop(std::fs::remove_dir_all(&git));
         std::fs::create_dir_all(git.join("refs")).unwrap();
         for f in ["HEAD", "packed-refs"] {
             std::fs::write(git.join(f), b"x").unwrap();

@@ -1,3 +1,4 @@
+#![expect(clippy::cognitive_complexity, reason = "#858")]
 use super::*;
 
 #[test]

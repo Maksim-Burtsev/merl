@@ -1,3 +1,4 @@
+#![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 
 fn styled(text: &str, class: &str) -> Vec<usize> {
@@ -33,10 +34,7 @@ fn an_ampersand_composes_with_the_rule_it_sits_in() {
 #[test]
 fn a_class_attribute_is_read_in_markup_and_jsx_only() {
     fn at<'a>(line: &'a str, word: &str, jsx: bool) -> Option<(Attr, &'a str)> {
-        let read_as = match jsx {
-            true => AttrLine::Jsx,
-            false => AttrLine::Markup,
-        };
+        let read_as = if jsx { AttrLine::Jsx } else { AttrLine::Markup };
         attr_at(line, line.find(word).unwrap(), read_as).map(|(a, r)| (a, &line[r]))
     }
     let tsx = r#"<b className="btn btn-primary" id="main">"#;
@@ -73,9 +71,10 @@ fn a_class_attribute_is_read_in_markup_and_jsx_only() {
 #[test]
 fn a_stylesheet_cursor_says_which_lookup_applies() {
     let at = |line: &str, word: &str, less: bool| {
-        let syntax = match less {
-            true => SheetSyntax::Less,
-            false => SheetSyntax::CssOrSass,
+        let syntax = if less {
+            SheetSyntax::Less
+        } else {
+            SheetSyntax::CssOrSass
         };
         sheet_at(line, line.find(word).unwrap(), syntax)
     };

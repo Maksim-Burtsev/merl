@@ -1,3 +1,6 @@
+#![expect(clippy::cast_possible_truncation, reason = "#858")]
+#![cfg_attr(test, expect(clippy::default_trait_access, reason = "#858"))]
+#![cfg_attr(test, expect(clippy::iter_on_single_items, reason = "#858"))]
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -10,7 +13,7 @@ use crate::app::plural;
 use crate::git;
 use crate::stats::{self, WINDOW};
 
-const IDLE: Duration = Duration::from_secs(5 * 60);
+const IDLE: Duration = Duration::from_mins(5);
 
 const HEAD: &str = "date\trepo\tbranch\tround\tfiles\thunks\tadded\tdeleted\ton_review_s\t\
                     elsewhere_s\texcursions\tjumps\tback\tstops\tviewed\tlast_hunk";
@@ -83,9 +86,10 @@ impl Session {
         let gap = at
             .saturating_duration_since(self.last_press_or_start)
             .min(IDLE);
-        let total = match from.file_in_review {
-            true => &mut self.on_review,
-            false => &mut self.elsewhere,
+        let total = if from.file_in_review {
+            &mut self.on_review
+        } else {
+            &mut self.elsewhere
         };
         *total += gap;
         self.last_press_or_start = at;
@@ -219,8 +223,8 @@ fn table(text: &str, today: i64) -> String {
         let rounds = if round == 1 { &mut first } else { &mut later };
         rounds.push(on + off);
         cells.push([
-            cols[0].to_string(),
-            cols[2].to_string(),
+            cols[0].to_owned(),
+            cols[2].to_owned(),
             round.to_string(),
             files.to_string(),
             hunks.to_string(),
@@ -271,7 +275,7 @@ fn median(mut times: Vec<u64>) -> Option<u64> {
     match n {
         0 => None,
         _ if n % 2 == 1 => Some(times[n / 2]),
-        _ => Some((times[n / 2 - 1] + times[n / 2]) / 2),
+        _ => Some(u64::midpoint(times[n / 2 - 1], times[n / 2])),
     }
 }
 
@@ -281,7 +285,7 @@ mod tests {
 
     fn scratch(tag: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("merl-reviews-{tag}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         dir.join("state/merl/reviews.tsv")
     }
 
@@ -492,7 +496,7 @@ mod tests {
                 "1"
             ]
         );
-        let _ = std::fs::remove_dir_all(file.ancestors().nth(3).unwrap());
+        drop(std::fs::remove_dir_all(file.ancestors().nth(3).unwrap()));
     }
 
     #[test]
@@ -538,7 +542,7 @@ mod tests {
             b"\xff\n",
             "a file that cannot be read is not written over"
         );
-        let _ = std::fs::remove_dir_all(file.ancestors().nth(3).unwrap());
+        drop(std::fs::remove_dir_all(file.ancestors().nth(3).unwrap()));
     }
 
     #[test]

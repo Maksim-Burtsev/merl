@@ -1,3 +1,8 @@
+#![expect(clippy::cognitive_complexity, reason = "#858")]
+#![expect(clippy::needless_collect, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use super::words::{Blocks, word_byte};
 
 #[derive(Clone, Copy, PartialEq)]
@@ -37,7 +42,7 @@ struct Lexer<'a> {
     i: usize,
 }
 
-impl<'a> Lexer<'a> {
+impl Lexer<'_> {
     fn line(&self, at: usize) -> usize {
         self.starts.partition_point(|&s| s <= at) - 1
     }
@@ -311,7 +316,7 @@ struct Frame {
 
 impl Frame {
     fn new(kind: Fk, line: usize) -> Self {
-        Frame {
+        Self {
             kind,
             line,
             func: false,

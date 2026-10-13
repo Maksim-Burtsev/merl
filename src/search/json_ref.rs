@@ -1,8 +1,10 @@
-use super::*;
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
+use super::{indent, percent_decoded};
 use regex::Regex;
 use std::path::Path;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum RefAt {
     Value(String),
     Refused(String),
@@ -27,26 +29,26 @@ pub fn ref_at(path: &Path, lines: &[&str], line: usize, col: usize) -> Option<Re
         let (span, value) = value_at(l, m.end())?;
         span.contains(&col).then_some((m.start(), value))
     });
-    let (start, value) = match at_ref {
-        Some(found) => found,
-        None => {
-            let t = l.trim_start();
-            let body = t.strip_prefix("- ").unwrap_or(t);
-            let (_, from) = key_of(body)?;
-            let (span, value) = value_at(l, l.len() - body.len() + from)?;
-            if !span.contains(&col) || !in_mapping(lines, line, json) {
-                return None;
-            }
-            (0, value)
+    let (start, value) = if let Some(found) = at_ref {
+        found
+    } else {
+        let t = l.trim_start();
+        let body = t.strip_prefix("- ").unwrap_or(t);
+        let (_, from) = key_of(body)?;
+        let (span, value) = value_at(l, l.len() - body.len() + from)?;
+        if !span.contains(&col) || !in_mapping(lines, line, json) {
+            return None;
         }
+        (0, value)
     };
     let comment = if json { "//" } else { "#" };
     let refused = l.trim_start().starts_with(comment)
         || (!json && comment_start(l).is_some_and(|c| c < start))
         || (!json && in_block_scalar(lines, line));
-    Some(match refused {
-        true => RefAt::Refused(value),
-        false => RefAt::Value(value),
+    Some(if refused {
+        RefAt::Refused(value)
+    } else {
+        RefAt::Value(value)
     })
 }
 
@@ -66,10 +68,10 @@ fn in_mapping(lines: &[&str], line: usize, json: bool) -> bool {
 }
 
 fn parent(lines: &[&str], line: usize, json: bool) -> Option<usize> {
-    let depth = syntax::indent(lines[line]);
+    let depth = indent(lines[line]);
     (0..line)
         .rev()
-        .find(|&i| !skipped(lines[i].trim(), json) && syntax::indent(lines[i]) < depth)
+        .find(|&i| !skipped(lines[i].trim(), json) && indent(lines[i]) < depth)
 }
 
 fn in_block_scalar(lines: &[&str], line: usize) -> bool {
@@ -79,12 +81,10 @@ fn in_block_scalar(lines: &[&str], line: usize) -> bool {
     while let Some(up) = parent(lines, at, false) {
         let t = lines[up].trim();
         let column = match t.strip_prefix('-').map(str::trim_start) {
-            Some(item) if key_of(item).is_some() => {
-                syntax::indent(lines[up]) + t.len() - item.len()
-            }
-            _ => syntax::indent(lines[up]),
+            Some(item) if key_of(item).is_some() => indent(lines[up]) + t.len() - item.len(),
+            _ => indent(lines[up]),
         };
-        if HEADER.is_match(t) && syntax::indent(lines[at]) > column {
+        if HEADER.is_match(t) && indent(lines[at]) > column {
             return true;
         }
         at = up;
@@ -109,36 +109,30 @@ fn comment_start(l: &str) -> Option<usize> {
 
 fn value_at(l: &str, from: usize) -> Option<(std::ops::Range<usize>, String)> {
     let rest = &l[from..];
-    match rest.as_bytes().first()? {
-        q @ (b'"' | b'\'') => {
-            let close = rest[1..].find(*q as char)? + 1;
-            Some((from..from + close + 1, rest[1..close].to_owned()))
-        }
-        _ => {
-            let end = [" #", ",", "}"]
-                .iter()
-                .filter_map(|s| rest.find(s))
-                .min()
-                .unwrap_or(rest.len());
-            let value = rest[..end].trim_end();
-            (!value.is_empty()).then(|| (from..from + value.len(), value.to_owned()))
-        }
+    if let q @ (b'"' | b'\'') = rest.as_bytes().first()? {
+        let close = rest[1..].find(*q as char)? + 1;
+        Some((from..from + close + 1, rest[1..close].to_owned()))
+    } else {
+        let end = [" #", ",", "}"]
+            .iter()
+            .filter_map(|s| rest.find(s))
+            .min()
+            .unwrap_or(rest.len());
+        let value = rest[..end].trim_end();
+        (!value.is_empty()).then(|| (from..from + value.len(), value.to_owned()))
     }
 }
 
 fn key_of(body: &str) -> Option<(String, usize)> {
-    let (key, after) = match body.as_bytes().first()? {
-        q @ (b'"' | b'\'') => {
-            let close = body[1..].find(*q as char)? + 1;
-            (body[1..close].to_owned(), close + 1)
-        }
-        _ => {
-            let colon = body
-                .match_indices(':')
-                .map(|(i, _)| i)
-                .find(|&i| body[i + 1..].is_empty() || body[i + 1..].starts_with([' ', '\t']))?;
-            (body[..colon].trim_end().to_owned(), colon)
-        }
+    let (key, after) = if let q @ (b'"' | b'\'') = body.as_bytes().first()? {
+        let close = body[1..].find(*q as char)? + 1;
+        (body[1..close].to_owned(), close + 1)
+    } else {
+        let colon = body
+            .match_indices(':')
+            .map(|(i, _)| i)
+            .find(|&i| body[i + 1..].is_empty() || body[i + 1..].starts_with([' ', '\t']))?;
+        (body[..colon].trim_end().to_owned(), colon)
     };
     let rest = body[after..].trim_start().strip_prefix(':')?;
     let value = rest.trim_start();
@@ -147,9 +141,10 @@ fn key_of(body: &str) -> Option<(String, usize)> {
 
 fn skipped(t: &str, json: bool) -> bool {
     t.is_empty()
-        || match json {
-            true => t.starts_with("//"),
-            false => t.starts_with('#') || t == "---" || t == "..." || t.starts_with('%'),
+        || if json {
+            t.starts_with("//")
+        } else {
+            t.starts_with('#') || t == "---" || t == "..." || t.starts_with('%')
         }
 }
 
@@ -163,7 +158,7 @@ pub fn pointer_line(path: &Path, text: &str, pointer: &str) -> Option<usize> {
         .lines()
         .enumerate()
         .filter(|(_, l)| !skipped(l.trim(), json))
-        .map(|(i, l)| (i, syntax::indent(l), l.trim()))
+        .map(|(i, l)| (i, indent(l), l.trim()))
         .collect();
     let segments: Vec<String> = percent_decoded(pointer.strip_prefix('/')?)
         .split('/')
@@ -177,18 +172,22 @@ pub fn pointer_line(path: &Path, text: &str, pointer: &str) -> Option<usize> {
     }
     let mut found = None;
     for seg in segments {
-        let body = |r: usize| match Some(r) == item {
-            true => rows[r].2[1..].trim_start(),
-            false => rows[r].2,
+        let body = |r: usize| {
+            if Some(r) == item {
+                rows[r].2[1..].trim_start()
+            } else {
+                rows[r].2
+            }
         };
         let depth = |r: usize| rows[r].1 + rows[r].2.len() - body(r).len();
         let first = (lo..hi).find(|&r| !closer(rows[r].2))?;
         let c = depth(first);
         let mut children = (lo..hi).filter(|&r| depth(r) == c && !closer(body(r)));
         let items = array || (!json && (body(first).starts_with("- ") || body(first) == "-"));
-        let hit = match items {
-            true => children.nth(seg.parse().ok()?)?,
-            false => children.find(|&r| key_of(body(r)).is_some_and(|(k, _)| k == seg))?,
+        let hit = if items {
+            children.nth(seg.parse().ok()?)?
+        } else {
+            children.find(|&r| key_of(body(r)).is_some_and(|(k, _)| k == seg))?
         };
         let end = (hit + 1..hi)
             .find(|&r| {
@@ -204,13 +203,15 @@ pub fn pointer_line(path: &Path, text: &str, pointer: &str) -> Option<usize> {
                 &body(hit)[v..]
             }
         };
-        let value = match json {
-            true => value,
-            false => value.split_once(" #").map_or(value, |(v, _)| v).trim(),
+        let value = if json {
+            value
+        } else {
+            value.split_once(" #").map_or(value, |(v, _)| v).trim()
         };
-        let value = match !json && value.starts_with(['&', '!']) {
-            true => value.split_once(' ').map_or("", |(_, v)| v).trim_start(),
-            false => value,
+        let value = if !json && value.starts_with(['&', '!']) {
+            value.split_once(' ').map_or("", |(_, v)| v).trim_start()
+        } else {
+            value
         };
         (lo, hi, array, item) = match (items && !json && key_of(value).is_some(), value) {
             (true, _) => (hit, end, false, Some(hit)),

@@ -1,4 +1,4 @@
-use super::*;
+use super::{App, Candidate, HashSet, Hit, Kind, Path, Reason, search};
 
 impl App {
     pub(super) fn swift_self_members(

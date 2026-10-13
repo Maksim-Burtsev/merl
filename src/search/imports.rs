@@ -1,10 +1,23 @@
+#![expect(clippy::case_sensitive_file_extension_comparisons, reason = "#858")]
+#![expect(clippy::cognitive_complexity, reason = "#858")]
+#![expect(clippy::excessive_nesting, reason = "#858")]
+#![expect(clippy::items_after_statements, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
 
-use super::*;
+use super::{
+    Group, Kind, TsDeclarator, cmake_import, erlang_include, gdscript_files, gdscript_path, group,
+    haskell_files, haskell_import_module, indent, julia_imports, julia_include, kind_of,
+    lisp_files, lisp_require, literal_lines, nix_files, nix_path, powershell_import, r_files,
+    r_source, solidity_file, solidity_import_path, split_top, ts_declarators,
+};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Import {
     pub name: String,
     pub path: Vec<String>,
@@ -26,25 +39,23 @@ pub fn python_import_module(line: &str, at: usize) -> Option<Vec<String>> {
         std::sync::LazyLock::new(|| Regex::new(r"^\s*from\s+([\w.]+)\s+import\b").unwrap());
     static IMPORT: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^\s*import\s+([^#;]+)").unwrap());
-    let starts_and_paths: Vec<(usize, &str)> = match FROM.captures(line) {
-        Some(c) => c
-            .get(1)
+    let starts_and_paths: Vec<(usize, &str)> = if let Some(c) = FROM.captures(line) {
+        c.get(1)
             .map(|m| (m.start(), m.as_str()))
             .into_iter()
-            .collect(),
-        None => {
-            let list = IMPORT.captures(line)?.get(1)?;
-            let mut at = list.start();
-            let mut out = Vec::new();
-            for item in list.as_str().split(',') {
-                let lead = item.len() - item.trim_start().len();
-                if let Some(path) = item.split_whitespace().next() {
-                    out.push((at + lead, path));
-                }
-                at += item.len() + 1;
+            .collect()
+    } else {
+        let list = IMPORT.captures(line)?.get(1)?;
+        let mut at = list.start();
+        let mut out = Vec::new();
+        for item in list.as_str().split(',') {
+            let lead = item.len() - item.trim_start().len();
+            if let Some(path) = item.split_whitespace().next() {
+                out.push((at + lead, path));
             }
-            out
+            at += item.len() + 1;
         }
+        out
     };
     let (start, path) = starts_and_paths
         .into_iter()
@@ -92,9 +103,10 @@ fn ts_continued(text: &str) -> std::borrow::Cow<'_, str> {
             }
         }
     }
-    match changed {
-        true => out.join("\n").into(),
-        false => text.into(),
+    if changed {
+        out.join("\n").into()
+    } else {
+        text.into()
     }
 }
 pub fn ts_import_line1(text: &str, name: &str) -> Option<usize> {
@@ -406,7 +418,7 @@ pub fn default_class(text: &str) -> Option<String> {
     .ok()?;
     Some(bound.captures(text)?[1].to_owned())
 }
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ModuleExports {
     OneAssignment { line1: usize, name: Option<String> },
     Piecemeal,
@@ -514,7 +526,7 @@ pub fn ts_call_statement(
 }
 pub fn exported_as(text: &str, name: &str) -> Option<String> {
     static EXPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"(?m)^\s*export\s+(?:type\s+)?\{([^}]*)\}\s*(from\b)?"#).unwrap()
+        Regex::new(r"(?m)^\s*export\s+(?:type\s+)?\{([^}]*)\}\s*(from\b)?").unwrap()
     });
     EXPORT
         .captures_iter(text)
@@ -648,9 +660,10 @@ pub fn rust_use_files(files: &[PathBuf], here: &Path, text: &str, name: &str) ->
     };
     module.extend(parts.iter().cloned());
     let at = module.iter().fold(src.clone(), |p, m| p.join(m));
-    let wanted = match module.is_empty() {
-        true => vec![src.join("lib.rs"), src.join("main.rs")],
-        false => vec![at.with_extension("rs"), at.join("mod.rs")],
+    let wanted = if module.is_empty() {
+        vec![src.join("lib.rs"), src.join("main.rs")]
+    } else {
+        vec![at.with_extension("rs"), at.join("mod.rs")]
     };
     wanted.into_iter().filter(|f| files.contains(f)).collect()
 }
@@ -913,9 +926,10 @@ pub fn css_module_file(
         return None;
     }
     let dir = here.parent().unwrap_or(Path::new(""));
-    let bases = match module.first().is_some_and(|p| p.starts_with('.')) {
-        true => vec![dir.join(&spec)],
-        false => ts_aliases(root, dir, &spec),
+    let bases = if module.first().is_some_and(|p| p.starts_with('.')) {
+        vec![dir.join(&spec)]
+    } else {
+        ts_aliases(root, dir, &spec)
     };
     bases
         .iter()

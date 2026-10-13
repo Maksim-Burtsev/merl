@@ -115,6 +115,9 @@ pub fn resolve(root: &Path, file: &Path, dest: &str) -> Option<PathBuf> {
     (is_picture(&path) && path.is_file()).then_some(path)
 }
 
+#[expect(clippy::cast_possible_truncation, reason = "#858")]
+#[expect(clippy::cast_precision_loss, reason = "#858")]
+#[expect(clippy::cast_sign_loss, reason = "#858")]
 pub fn cells(
     natural: (u32, u32),
     width: Option<Width>,
@@ -182,9 +185,10 @@ pub fn decode(path: &Path) -> Result<Drawn, String> {
         ImageFormat::WebP => {
             let d =
                 image::codecs::webp::WebPDecoder::new(Cursor::new(&bytes)).map_err(not_drawn)?;
-            match d.has_animation() {
-                true => animation(d, name)?,
-                false => Vec::new(),
+            if d.has_animation() {
+                animation(d, name)?
+            } else {
+                Vec::new()
             }
         }
         _ => Vec::new(),
@@ -246,10 +250,13 @@ fn animation<'a>(
     Ok(out)
 }
 
+#[expect(clippy::cast_possible_truncation, reason = "#858")]
+#[expect(clippy::cast_precision_loss, reason = "#858")]
+#[expect(clippy::cast_sign_loss, reason = "#858")]
 fn shrunk(img: DynamicImage) -> DynamicImage {
     let (w, h) = (img.width(), img.height());
     let pixels = u64::from(w) * u64::from(h);
-    let k = (MAX_SIDE as f64 / f64::from(w.max(h)))
+    let k = (f64::from(MAX_SIDE) / f64::from(w.max(h)))
         .min((MAX_PIXELS as f64 / pixels.max(1) as f64).sqrt())
         .min(1.0);
     if k >= 1.0 {
@@ -275,6 +282,7 @@ fn encode(img: &image::RgbaImage) -> Option<Vec<u8>> {
     Some(out)
 }
 
+#[expect(clippy::clone_on_ref_ptr, reason = "#858")]
 fn fonts() -> Arc<usvg::fontdb::Database> {
     static FONTS: OnceLock<Arc<usvg::fontdb::Database>> = OnceLock::new();
     FONTS
@@ -286,6 +294,7 @@ fn fonts() -> Arc<usvg::fontdb::Database> {
         .clone()
 }
 
+#[expect(clippy::string_slice, reason = "#858")]
 pub fn links_missing_file(svg: &str, dir: &Path) -> bool {
     let lower = svg.to_ascii_lowercase();
     let mut from = 0;
@@ -305,9 +314,13 @@ pub fn links_missing_file(svg: &str, dir: &Path) -> bool {
     false
 }
 
+#[expect(clippy::cast_possible_truncation, reason = "#858")]
+#[expect(clippy::cast_precision_loss, reason = "#858")]
+#[expect(clippy::cast_sign_loss, reason = "#858")]
+#[expect(clippy::or_fun_call, reason = "#858")]
 fn svg(path: &Path) -> Result<Drawn, String> {
-    let broken = || "SVG not drawn: broken file".to_string();
-    let data = std::fs::read(path).map_err(|_| "SVG not drawn: unreadable".to_string())?;
+    let broken = || "SVG not drawn: broken file".to_owned();
+    let data = std::fs::read(path).map_err(|_| "SVG not drawn: unreadable".to_owned())?;
     let dir = path.parent().unwrap_or(Path::new(""));
     if links_missing_file(&String::from_utf8_lossy(&data), dir) {
         return Err("SVG not drawn: a linked file is missing".into());

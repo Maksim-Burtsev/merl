@@ -1,6 +1,9 @@
-use super::definition::resolution;
+#![expect(clippy::needless_pass_by_value, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
 use super::links::in_project;
-use super::*;
+use super::resolution::resolution;
+use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, search};
 use search::{Attr, Sheet};
 
 impl App {
@@ -15,9 +18,10 @@ impl App {
         search::attr_at(
             self.line_str(),
             self.col,
-            match markup {
-                true => search::AttrLine::Markup,
-                false => search::AttrLine::Jsx,
+            if markup {
+                search::AttrLine::Markup
+            } else {
+                search::AttrLine::Jsx
             },
         )
     }
@@ -156,9 +160,10 @@ impl App {
                 Some(search::Styles::Stylesheet) => text.clone(),
                 _ => search::style_blocks(&text),
             };
-            let rules = match path.extension().is_some_and(|e| e == "sass") {
-                true => search::sass_rules(&styles),
-                false => search::rules(&styles),
+            let rules = if path.extension().is_some_and(|e| e == "sass") {
+                search::sass_rules(&styles)
+            } else {
+                search::rules(&styles)
             };
             let lines: Vec<&str> = text.lines().collect();
             for rule in rules {
@@ -285,9 +290,10 @@ impl App {
         let Some(text) = self.file_text(path) else {
             return Vec::new();
         };
-        let styles = match in_style_blocks_only {
-            true => search::style_blocks(&text),
-            false => text.clone(),
+        let styles = if in_style_blocks_only {
+            search::style_blocks(&text)
+        } else {
+            text.clone()
         };
         styles
             .lines()
@@ -376,27 +382,27 @@ impl App {
                 .collect(),
         };
         let [file] = files.as_slice() else {
-            match files.is_empty() {
-                true => self.message = format!("no file {path}"),
-                false => {
-                    let found = self.module_candidates(files);
-                    self.show_definitions(Kind::Html, path, here, found, None);
-                }
+            if files.is_empty() {
+                self.message = format!("no file {path}");
+            } else {
+                let found = self.module_candidates(files);
+                self.show_definitions(Kind::Html, path, here, found, None);
             }
             return;
         };
         let line = match fragment.filter(|f| !f.is_empty()) {
             None => 1,
-            Some(f) => match self
-                .file_text(file)
-                .and_then(|t| search::element_with_id(&t, f))
-            {
-                Some(line) => line,
-                None => {
+            Some(f) => {
+                if let Some(line) = self
+                    .file_text(file)
+                    .and_then(|t| search::element_with_id(&t, f))
+                {
+                    line
+                } else {
                     self.message = format!("no id #{f} in {}", file.display());
                     return;
                 }
-            },
+            }
         };
         let shown = match path {
             "" => String::new(),

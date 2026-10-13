@@ -1,5 +1,7 @@
+#![expect(clippy::assigning_clones, reason = "#858")]
+#![expect(clippy::needless_collect, reason = "#858")]
 use super::c::{c_header, method_pattern};
-use super::*;
+use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, search};
 
 pub(super) enum CppAnswer {
     Found(Vec<Candidate>),
@@ -40,9 +42,10 @@ impl App {
         let last = fields.len();
         for (i, name) in fields.iter().map(String::as_str).chain([word]).enumerate() {
             if ty[0] == "std" {
-                return match i == last {
-                    true => CppAnswer::Outside,
-                    false => broke(&prev),
+                return if i == last {
+                    CppAnswer::Outside
+                } else {
+                    broke(&prev)
                 };
             }
             links.push(format!("{prev}: {}", ty[ty.len() - 1]));

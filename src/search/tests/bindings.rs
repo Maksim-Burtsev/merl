@@ -1,3 +1,4 @@
+#![expect(clippy::format_collect, reason = "#858")]
 use super::*;
 
 #[test]
@@ -561,7 +562,7 @@ return m.run()
 
 #[test]
 fn ts_destructured_parameters_calls_loops_and_rests_354() {
-    let text = r#"function Row({ apiKey, document: doc }: Props) {
+    let text = r"function Row({ apiKey, document: doc }: Props) {
   const { auth } = useStores();
   for (const m of doc.memberships) {
     use(m);
@@ -576,7 +577,7 @@ function Wrapped({
 }: Props) {
   use(apiKey, plain, deep);
 }
-"#;
+";
     let at = |line, name| bound_at(Kind::TsJs, text, line, name);
     let member = |head: Value, f: &str| Value::Member(Box::new(head), f.into());
     assert_eq!(at(7, "apiKey"), [(1, member(ty("Props"), "apiKey"))]);

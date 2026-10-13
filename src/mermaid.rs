@@ -53,7 +53,7 @@ pub struct Pic {
     ms: u32,
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Place {
     pub id: u32,
     pub placement: u32,
@@ -138,25 +138,24 @@ impl Diagrams {
 
     pub fn fit(&mut self, src: &str, room: usize) -> Option<(u16, u16)> {
         let cell = self.cell?;
-        let natural = match self.sizes.get(&hash(src)) {
-            Some(size) => (*size)?,
-            None => {
-                self.ask(self.key(src), Src::Diagram(src.to_string()));
-                return None;
-            }
+        let natural = if let Some(size) = self.sizes.get(&hash(src)) {
+            (*size)?
+        } else {
+            self.ask(self.key(src), Src::Diagram(src.to_owned()));
+            return None;
         };
         cells(natural, cell, room)
     }
 
+    #[expect(clippy::clone_on_ref_ptr, reason = "#858")]
     pub fn pic(&mut self, src: &str) -> Option<Arc<Pic>> {
         self.cell?;
         let key = self.key(src);
-        match self.pics.get(&key) {
-            Some(pic) => pic.as_ref().map(|frames| frames[0].clone()),
-            None => {
-                self.ask(key, Src::Diagram(src.to_string()));
-                None
-            }
+        if let Some(pic) = self.pics.get(&key) {
+            pic.as_ref().map(|frames| frames[0].clone())
+        } else {
+            self.ask(key, Src::Diagram(src.to_owned()));
+            None
         }
     }
 
@@ -167,12 +166,11 @@ impl Diagrams {
     pub fn file_size(&mut self, path: &Path) -> Option<(u32, u32)> {
         self.cell?;
         let key = file_key(path)?;
-        match self.sizes.get(&key.src) {
-            Some(size) => *size,
-            None => {
-                self.ask(key, Src::File(path.to_path_buf()));
-                None
-            }
+        if let Some(size) = self.sizes.get(&key.src) {
+            *size
+        } else {
+            self.ask(key, Src::File(path.to_path_buf()));
+            None
         }
     }
 
@@ -185,6 +183,8 @@ impl Diagrams {
         self.why.get(&file_key(path)?.src).map(String::as_str)
     }
 
+    #[expect(clippy::cast_possible_truncation, reason = "#858")]
+    #[expect(clippy::clone_on_ref_ptr, reason = "#858")]
     pub fn file_pic(&mut self, path: &Path) -> Option<Arc<Pic>> {
         self.cell?;
         let key = file_key(path)?;
@@ -285,6 +285,7 @@ impl Diagrams {
         self.pics.insert(done.key, frames);
     }
 
+    #[expect(clippy::format_push_string, reason = "#858")]
     pub fn flush(&mut self, out: &mut impl Write) -> io::Result<()> {
         if self.want == self.shown && self.stale.is_empty() {
             return Ok(());
@@ -378,6 +379,9 @@ fn cell() -> Option<(u32, u32)> {
     ))
 }
 
+#[expect(clippy::cast_possible_truncation, reason = "#858")]
+#[expect(clippy::cast_precision_loss, reason = "#858")]
+#[expect(clippy::cast_sign_loss, reason = "#858")]
 pub fn cells(natural: (u32, u32), cell: (u32, u32), room: usize) -> Option<(u16, u16)> {
     let (cw, ch) = (cell.0.max(1) as f32, cell.1.max(1) as f32);
     let px = ch * TEXT_IN_CELL / FONT_PX;
@@ -456,7 +460,7 @@ fn colours(theme: &Theme, label_bg: Color) -> String {
     let vars: Vec<String> = vars
         .iter()
         .map(|(k, v)| format!(r#""{k}":"{v}""#))
-        .chain([r#""fontSize":"16px""#.to_string()])
+        .chain([r#""fontSize":"16px""#.to_owned()])
         .collect();
     format!(
         r#"%%{{init: {{"theme":"{base}","themeVariables":{{{}}}}}}}%%"#,
@@ -475,11 +479,12 @@ pub fn with_colours(src: &str, colours: &str) -> String {
                 return format!("{}\n{colours}\n{}", head.join("\n"), rest.join("\n"));
             }
         }
-        return src.to_string();
+        return src.to_owned();
     }
     format!("{colours}\n{src}")
 }
 
+#[expect(clippy::needless_pass_by_value, reason = "#858")]
 pub fn render(job: Job) -> Done {
     let drawn = std::panic::catch_unwind(|| match &job.src {
         Src::Diagram(src) => draw(&with_colours(src, &job.colours)).ok_or_else(String::new),
@@ -502,6 +507,9 @@ fn file_key(path: &Path) -> Option<Key> {
     })
 }
 
+#[expect(clippy::cast_possible_truncation, reason = "#858")]
+#[expect(clippy::cast_precision_loss, reason = "#858")]
+#[expect(clippy::cast_sign_loss, reason = "#858")]
 fn draw(src: &str) -> Option<Drawn> {
     let layout = LayoutOptions {
         viewport_width: 800.0,
@@ -539,6 +547,7 @@ fn draw(src: &str) -> Option<Drawn> {
     })
 }
 
+#[expect(clippy::string_slice, reason = "#858")]
 fn view_box(svg: &str) -> Option<(f32, f32)> {
     let at = svg.find("viewBox=\"")? + "viewBox=\"".len();
     let rest = &svg[at..];
@@ -553,6 +562,7 @@ fn view_box(svg: &str) -> Option<(f32, f32)> {
     }
 }
 
+#[expect(clippy::format_push_string, reason = "#858")]
 fn transmit(buf: &mut String, pic: &Pic) {
     let data = crate::base64(&pic.png);
     let chunks: Vec<&[u8]> = data.as_bytes().chunks(4096).collect();

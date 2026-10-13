@@ -1,3 +1,4 @@
+#![expect(clippy::manual_let_else, reason = "#858")]
 use super::{K, Lexer, Model};
 
 const NOT_CALLEE: &[&str] = &[
@@ -35,7 +36,7 @@ impl Lexer<'_> {
         let close: &[u8] = if triple {
             &s[from..from + 3]
         } else {
-            &s[from..from + 1]
+            &s[from..=from]
         };
         let close = close.to_vec();
         self.i = from + close.len();
@@ -126,7 +127,7 @@ impl Model<'_, '_> {
                     self.add(t.line, Some(self.end_of(e)), false);
                 }
                 (K::Word, "class" | "enum" | "extension") if self.before(k) != "." => {
-                    self.dart_decl(k)
+                    self.dart_decl(k);
                 }
                 (K::Punct, "=>") if self.dart_body_arrow(k, &scope) => {
                     let end = self.dart_stmt_end(k);

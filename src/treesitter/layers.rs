@@ -1,3 +1,6 @@
+#![expect(clippy::cast_possible_truncation, reason = "#858")]
+#![expect(clippy::cast_possible_wrap, reason = "#858")]
+#![expect(clippy::cast_sign_loss, reason = "#858")]
 use ratatui::style::Style;
 use syntect::highlighting::{HighlightIterator, HighlightState};
 use syntect::parsing::{ParseState, ScopeStack, SyntaxReference};
@@ -25,8 +28,8 @@ impl Target {
 
     fn same(&self, other: &Self) -> bool {
         match (self, other) {
-            (Target::Tree(a), Target::Tree(b)) => std::ptr::eq(*a, *b),
-            (Target::Syntect(a), Target::Syntect(b)) => std::ptr::eq(*a, *b),
+            (Self::Tree(a), Self::Tree(b)) => std::ptr::eq(*a, *b),
+            (Self::Syntect(a), Self::Syntect(b)) => std::ptr::eq(*a, *b),
             _ => false,
         }
     }
@@ -230,26 +233,24 @@ pub fn injections(
         if ranges.is_empty() {
             continue;
         }
-        let k = match out.iter().position(|i| i.target.same(&target)) {
-            Some(k) => k,
-            None => {
-                out.push(Injected {
-                    target,
-                    regions: Vec::new(),
-                });
-                out.len() - 1
-            }
+        let k = if let Some(k) = out.iter().position(|i| i.target.same(&target)) {
+            k
+        } else {
+            out.push(Injected {
+                target,
+                regions: Vec::new(),
+            });
+            out.len() - 1
         };
         if inj.setting(p, "injection.combined").is_none() {
             out[k].regions.push(ranges);
             continue;
         }
-        match combined.iter().find(|(cp, ck, _)| *cp == p && *ck == k) {
-            Some(&(_, _, r)) => out[k].regions[r].extend(ranges),
-            None => {
-                combined.push((p, k, out[k].regions.len()));
-                out[k].regions.push(ranges);
-            }
+        if let Some(&(_, _, r)) = combined.iter().find(|(cp, ck, _)| *cp == p && *ck == k) {
+            out[k].regions[r].extend(ranges);
+        } else {
+            combined.push((p, k, out[k].regions.len()));
+            out[k].regions.push(ranges);
         }
     }
     out

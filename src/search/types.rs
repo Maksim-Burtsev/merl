@@ -1,6 +1,13 @@
+#![expect(clippy::items_after_statements, reason = "#858")]
+#![expect(clippy::redundant_clone, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
 
-use super::*;
+use super::{
+    Group, Kind, Value, bindings, body_of, close_of, code, comment, go_embedded, group, indent,
+    literal_lines, member_or_signature, names, split_top, ts_header, uncommented, value_of,
+};
 
 pub fn returns(kind: Kind, text: &str, decl_line1: usize) -> Option<Value> {
     static PY_DEF: std::sync::LazyLock<Regex> =
@@ -127,10 +134,7 @@ fn ts_returned_local(
         let l = uncommented(Kind::TsJs, lines[i]);
         !declared(&l) && assigned.is_match(&l)
     });
-    match reassigned {
-        true => None,
-        false => constructed,
-    }
+    if reassigned { None } else { constructed }
 }
 fn python_decorated(lines: &[&str], def_line: usize) -> bool {
     let base = indent(lines[def_line]);

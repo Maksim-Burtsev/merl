@@ -1,3 +1,5 @@
+#![cfg_attr(test, expect(clippy::string_slice, reason = "#858"))]
+#![cfg_attr(test, expect(clippy::unreadable_literal, reason = "#858"))]
 use super::*;
 
 fn doc(text: &str, width: usize) -> Doc {
@@ -431,7 +433,7 @@ fn every_line_belongs_to_a_row() {
         "Title\n=====\nText [a].\n\n[a]: http://x\n\n```py\nx = 1\n```",
         20,
     );
-    let text = |l: usize| d.rows[d.row_at((l, 0))].text.trim_start().to_string();
+    let text = |l: usize| d.rows[d.row_at((l, 0))].text.trim_start().to_owned();
     let texts: Vec<String> = (0..9).map(text).collect();
     assert_eq!(
         texts,
@@ -628,7 +630,7 @@ fn with_pictures(text: &str, width: usize, size: (u16, u16)) -> (Doc, Vec<(Strin
     let mut asked = Vec::new();
     let doc = layout(&lines, width, false, &mut |ask, room| {
         if let Ask::Diagram(src) = ask {
-            asked.push((src.to_string(), room));
+            asked.push((src.to_owned(), room));
         }
         Some(size)
     });
@@ -639,7 +641,7 @@ fn with_pictures(text: &str, width: usize, size: (u16, u16)) -> (Doc, Vec<(Strin
 fn a_mermaid_block_is_rows_for_its_picture_standing_for_its_lines() {
     let text = "Intro\n\n```mermaid\ngraph TD\n  A-->B\n  B-->C\n```\n\nAfter";
     let (d, asked) = with_pictures(text, 40, (12, 6));
-    assert_eq!(asked, vec![("graph TD\n  A-->B\n  B-->C".to_string(), 38)]);
+    assert_eq!(asked, vec![("graph TD\n  A-->B\n  B-->C".to_owned(), 38)]);
     assert_eq!(d.code[0].picture, Some((12, 6)));
     let pics: Vec<&Row> = d
         .rows

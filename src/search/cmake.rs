@@ -1,8 +1,10 @@
+#![expect(clippy::case_sensitive_file_extension_comparisons, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
 
-use super::*;
+use super::lexical;
 
 pub fn cmake_patterns(word: &str) -> Vec<String> {
     let w = regex::escape(word);

@@ -1,3 +1,4 @@
+#![expect(clippy::string_slice, reason = "#858")]
 use std::ops::Range;
 
 use crate::picture::Width;
@@ -24,7 +25,7 @@ pub fn attr<'a>(tag: &'a str, name: &str) -> Option<&'a str> {
         };
         let rest = rest.trim_start();
         return match rest.chars().next()? {
-            q @ ('"' | '\'') => rest[1..].find(q).map(|e| &rest[1..1 + e]),
+            q @ ('"' | '\'') => rest[1..].find(q).map(|e| &rest[1..=e]),
             _ => rest.split([' ', '\t', '\n', '>']).next(),
         };
     }
@@ -79,7 +80,7 @@ pub fn html_images(html: &str, light: bool) -> Vec<Img> {
                 let Some(src) = attr(tag, "src") else {
                     continue;
                 };
-                let dest = picture.clone().flatten().unwrap_or_else(|| src.to_string());
+                let dest = picture.clone().flatten().unwrap_or_else(|| src.to_owned());
                 out.push(Img {
                     tag: at..end,
                     shown: variant_shown(&dest, light),

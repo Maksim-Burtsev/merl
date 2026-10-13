@@ -1,3 +1,4 @@
+#![expect(clippy::redundant_clone, reason = "#858")]
 use super::*;
 
 fn d_at(a: &mut App, dir: &Path, file: &str, line: usize, at: &str) {

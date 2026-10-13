@@ -1,4 +1,6 @@
-use super::*;
+use super::{
+    App, KeyCode, KeyEvent, LineEdit, Mode, Regex, RegexBuilder, TextLine, next_char, shown_str,
+};
 
 const FIND_CAP: usize = 1_000;
 

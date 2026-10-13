@@ -3,7 +3,7 @@ use TextLine::Deleted;
 
 fn reviewed(tag: &str, base: &str, branch: &str) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-reload-{tag}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(&dir).unwrap();
     let git = |args: &[&str]| {
         let out = std::process::Command::new("git")
@@ -46,7 +46,7 @@ fn a_reload_keeps_the_cursor_on_the_copy_of_a_deleted_line_at_its_own_key() {
     let (before, after) = reload_on(&mut a, &dir, 4, 1);
     assert_eq!(before, Deleted(3, 0));
     assert_eq!(after, before, "the copy above `b` is another line");
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -55,5 +55,5 @@ fn a_reload_keeps_the_cursor_on_the_copy_of_a_deleted_line_at_its_own_index() {
     let (before, after) = reload_on(&mut a, &dir, 2, 1);
     assert_eq!(before, Deleted(1, 1));
     assert_eq!(after, before, "the first of the two is another line");
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }

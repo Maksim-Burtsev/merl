@@ -27,7 +27,7 @@ pub fn parses(path: &Path) -> bool {
     data(path).is_some_and(|d| d != Data::Mermaid)
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Parsed {
     Table(Vec<(usize, Vec<String>)>),
     Records(Vec<Vec<(String, (usize, usize))>>),
@@ -93,9 +93,10 @@ fn csv(lines: &[String]) -> Result<Vec<(usize, Vec<String>)>, String> {
         rows.push((start, std::mem::take(&mut cells)));
         start = l + 1;
     }
-    match quoted {
-        true => Err(format!("line {} has an unclosed quote", start + 1)),
-        false => Ok(rows),
+    if quoted {
+        Err(format!("line {} has an unclosed quote", start + 1))
+    } else {
+        Ok(rows)
     }
 }
 
@@ -128,6 +129,8 @@ fn jsonl(lines: &[String]) -> Result<Parsed, String> {
     Ok(Parsed::Records(records))
 }
 
+#[expect(clippy::string_slice, reason = "#858")]
+#[expect(clippy::unwrap_used, reason = "#858")]
 fn pretty(json: &str, l: usize) -> Vec<(String, (usize, usize))> {
     let mut out: Vec<(String, (usize, usize))> = Vec::new();
     let (mut depth, mut fresh) = (0usize, true);
@@ -194,7 +197,7 @@ impl Data {
             tab_spaces_parser_added: 0,
         };
         match (self, parsed) {
-            (Data::Mermaid, _) => lay.code_block(Block {
+            (Self::Mermaid, _) => lay.code_block(Block {
                 info_first_word: "mermaid".into(),
                 lines: (0..lines.len())
                     .map(|l| line((lines[l].clone(), (l, 0))))

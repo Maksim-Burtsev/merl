@@ -1,8 +1,16 @@
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::collections::HashMap;
 
 use regex::Regex;
 
-use super::*;
+use super::{
+    Binding, Kind, Value, bindings, close_of, code, comment, continued, declares_type,
+    element_type, group, in_method, indent, jsdoc_owner, jsdoc_properties, literal_lines,
+    python_statements, returns, split_top, ts_header, uncommented, value_of,
+};
 
 pub(super) fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<usize> {
     let start = match (kind, lines[k].find('(')) {
@@ -58,7 +66,7 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
         out.push(Binding {
             line1: i + 1,
             value,
-        })
+        });
     };
     match kind {
         Kind::Python => {
@@ -344,7 +352,7 @@ pub fn cs_usings(text: &str) -> Vec<String> {
         .collect()
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum GoKey {
     No,
     Of(String),
@@ -446,9 +454,10 @@ fn go_literal_type(
             .find(|l| !l.trim().is_empty())
             .unwrap_or_default()
     };
-    let elided = match pre.is_empty() {
-        true => above().trim_end().ends_with(['{', ',']),
-        false => pre.ends_with(['{', ',', ':']),
+    let elided = if pre.is_empty() {
+        above().trim_end().ends_with(['{', ','])
+    } else {
+        pre.ends_with(['{', ',', ':'])
     };
     if elided {
         let (pj, pi, b'{') = go_open_before(lines, literal, j, i)? else {

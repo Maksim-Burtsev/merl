@@ -1,3 +1,4 @@
+#![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 
 #[test]

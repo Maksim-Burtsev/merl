@@ -1,7 +1,16 @@
 use regex::Regex;
 use std::path::Path;
 
-use super::*;
+use super::{
+    CLOJURE_SYMBOL, CMAKE_FUNCTION_SYMBOL, CMAKE_TARGET_SYMBOL, COMMON_LISP_SYMBOL,
+    DART_ACCESSOR_SYMBOL, DART_FUNCTION_SYMBOL, DART_TYPE_SYMBOL, EMACS_LISP_SYMBOL,
+    ERLANG_ATTRIBUTE_SYMBOL, ERLANG_CLAUSE_SYMBOL, FSHARP_SYMBOL, GDSCRIPT_SYMBOL,
+    HASKELL_EQUATION_SYMBOL, HASKELL_PATTERN_SYMBOL, HASKELL_SIGNATURE_SYMBOL, HASKELL_TYPE_SYMBOL,
+    JULIA_FUNCTION_SYMBOL, JULIA_METHOD_SYMBOL, JULIA_TYPE_SYMBOL, Kind, NIX_FUNCTION_SYMBOL,
+    OBJC_METHOD_SYMBOL, OBJC_TYPE_SYMBOL, OCAML_SYMBOL, PERL_PACKAGE_SYMBOL, PERL_SUB_SYMBOL,
+    POWERSHELL_SYMBOL, R_CLASS_SYMBOL, R_FUNCTION_SYMBOL, R6_CLASS_SYMBOL, SCHEME_SYMBOL,
+    SOLIDITY_SYMBOL, STARLARK_RULE_SYMBOL, STARLARK_TARGET_SYMBOL, groovy,
+};
 
 pub const SYMBOL_PATTERN: &str = r#"^(?:\s*(?:(?:export|default|declare|async|pub(?:\([a-z]+\))?|static|unsafe|abstract|const|extern(?:\s+"[^"]*")?)\s+)*(?:def|class|func|function\*?|type|fn|struct|enum|impl|trait|interface|mod|union|macro_rules!|namespace)|(?:\s*(?:export|pub(?:\([a-z]+\))?)\s+)?(?:declare\s+)?(?:const|static))(?:<[^>]*>)?\s+(\([^)]*\)\s*)?(?P<name>[A-Za-z_]\w*)"#;
 

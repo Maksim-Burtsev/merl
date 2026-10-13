@@ -1,4 +1,6 @@
-use super::*;
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+use super::{App, Candidate, HashMap, Hit, Kind, Path, PathBuf, Reason, Regex, search};
 
 fn capitalized(name: &str) -> String {
     let mut c = name.chars();
@@ -108,9 +110,10 @@ impl App {
                 .cloned()
                 .collect();
             let defined = |h: &Hit| !h.text.trim_start().starts_with("val ");
-            let named = match kind == Kind::Ocaml && named.iter().any(defined) {
-                true => named.into_iter().filter(defined).collect(),
-                false => named,
+            let named = if kind == Kind::Ocaml && named.iter().any(defined) {
+                named.into_iter().filter(defined).collect()
+            } else {
+                named
             };
             if !named.is_empty() {
                 return Some(by_name(named, Reason::Path(m.clone())));
@@ -147,9 +150,10 @@ impl App {
                 .cloned()
                 .collect();
             if !own.is_empty() {
-                let reason = match mine == here {
-                    true => Reason::File,
-                    false => Reason::Path(module_of_file(&mine)),
+                let reason = if mine == here {
+                    Reason::File
+                } else {
+                    Reason::Path(module_of_file(&mine))
                 };
                 return Some(by_name(own, reason));
             }

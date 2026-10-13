@@ -1,8 +1,15 @@
+#![expect(clippy::items_after_statements, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
 
-use super::*;
+use super::{
+    Binding, Kind, Value, close_of, comment, indent, literal_lines, names, split_top, swift_mods,
+    uncommented,
+};
 
 static SWIFT_FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(&format!(
@@ -158,9 +165,10 @@ pub fn swift_member_kind(line: &str) -> Option<SwiftMember> {
     let shared = c[1]
         .split(|ch: char| !ch.is_alphanumeric())
         .any(|w| w == "static" || w == "class");
-    Some(match shared {
-        true => SwiftMember::StaticOrClass,
-        false => SwiftMember::Instance,
+    Some(if shared {
+        SwiftMember::StaticOrClass
+    } else {
+        SwiftMember::Instance
     })
 }
 pub fn swift_case(line: &str) -> bool {
@@ -188,18 +196,15 @@ enum Binds {
 }
 impl Binds {
     fn name_if(binds: bool) -> Self {
-        match binds {
-            true => Binds::Name,
-            false => Binds::Nothing,
-        }
+        if binds { Self::Name } else { Self::Nothing }
     }
-    fn first_of(each: impl IntoIterator<Item = Binds>) -> Self {
-        let mut out = Binds::Nothing;
+    fn first_of(each: impl IntoIterator<Item = Self>) -> Self {
+        let mut out = Self::Nothing;
         for b in each {
             match b {
-                Binds::Name => return Binds::Name,
-                Binds::UnreadablePatternMentionsName => out = b,
-                Binds::Nothing => {}
+                Self::Name => return Self::Name,
+                Self::UnreadablePatternMentionsName => out = b,
+                Self::Nothing => {}
             }
         }
         out
@@ -220,9 +225,10 @@ fn swift_pattern_binds(pattern: &str, bind_all: bool, name: &str) -> Binds {
     let inner = p[open + 1..].trim_end();
     let inner = inner.strip_suffix(')').unwrap_or(inner);
     if inner.contains(['(', '[']) {
-        return match names(inner, name) {
-            true => Binds::UnreadablePatternMentionsName,
-            false => Binds::Nothing,
+        return if names(inner, name) {
+            Binds::UnreadablePatternMentionsName
+        } else {
+            Binds::Nothing
         };
     }
     Binds::name_if(split_top(Kind::Swift, inner, b',').iter().any(|e| {
@@ -243,9 +249,10 @@ fn swift_condition_binds(from_keyword: &str, name: &str) -> Binds {
         return Binds::Nothing;
     };
     let rest = from_keyword[m.end()..].trim_end().trim_end_matches('{');
-    let rest = match m.as_str().starts_with("guard") {
-        true => rest.rsplit_once(" else").map_or(rest, |(c, _)| c),
-        false => rest,
+    let rest = if m.as_str().starts_with("guard") {
+        rest.rsplit_once(" else").map_or(rest, |(c, _)| c)
+    } else {
+        rest
     };
     Binds::first_of(
         split_top(Kind::Swift, rest, b',')
@@ -363,9 +370,10 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
         let head = code(i);
         let text = (i..=end).map(code).collect::<Vec<_>>().join(" ");
         if only_type_header_left {
-            return match generic(&text) {
-                true => found(i + 1),
-                false => (!unproven).then(Vec::new),
+            return if generic(&text) {
+                found(i + 1)
+            } else {
+                (!unproven).then(Vec::new)
             };
         }
         if SWIFT_FUNC.is_match(&head) {
@@ -392,9 +400,10 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
             continue;
         }
         if SWIFT_TYPE.is_match(&head) {
-            return match generic(&text) {
-                true => found(i + 1),
-                false => (!unproven).then(Vec::new),
+            return if generic(&text) {
+                found(i + 1)
+            } else {
+                (!unproven).then(Vec::new)
             };
         }
         if let Some(line) = bound_in_block_unless_type_body {
@@ -481,9 +490,10 @@ pub fn swift_binds_on(line: &str, name: &str) -> bool {
     if SWIFT_FUNC.is_match(&t) && swift_params_bind(&t, name) {
         return true;
     }
-    let binds = match t.starts_with("guard ") {
-        true => swift_condition_binds(&t, name),
-        false => swift_header_binds(&t, &t, &t, name),
+    let binds = if t.starts_with("guard ") {
+        swift_condition_binds(&t, name)
+    } else {
+        swift_header_binds(&t, &t, &t, name)
     };
     binds == Binds::Name
 }
@@ -642,13 +652,13 @@ pub fn swift_given(line: &str, name: &str) -> Option<SwiftGiven> {
     let brace_opens_condition_body = ["if ", "guard ", "while ", "} else if "]
         .iter()
         .any(|k| t.starts_with(k));
-    let rest = match brace_opens_condition_body {
-        true => rest
-            .strip_suffix('{')
+    let rest = if brace_opens_condition_body {
+        rest.strip_suffix('{')
             .map_or(rest, str::trim_end)
             .trim_end_matches(" else")
-            .trim_end(),
-        false => rest,
+            .trim_end()
+    } else {
+        rest
     };
     let value = split_top(Kind::Swift, rest, b',')[0].trim();
     (!value.is_empty()).then(|| SwiftGiven::Value(value.to_owned()))

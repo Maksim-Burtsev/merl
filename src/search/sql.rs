@@ -1,3 +1,4 @@
+#![expect(clippy::string_slice, reason = "#858")]
 use regex::Regex;
 
 pub fn sql_cte(word: &str) -> String {
@@ -50,8 +51,9 @@ pub fn sql_cte_sees(text: &str, cte: usize, word: &str, line: usize, col: usize)
     } else {
         close.unwrap_or(i)
     };
-    match at > from {
-        false => Some(false),
-        true => ended.then_some(at <= i),
+    if at <= from {
+        Some(false)
+    } else {
+        ended.then_some(at <= i)
     }
 }

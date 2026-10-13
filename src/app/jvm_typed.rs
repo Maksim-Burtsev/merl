@@ -1,4 +1,5 @@
-use super::*;
+#![expect(clippy::needless_pass_by_value, reason = "#858")]
+use super::{App, Candidate, Hit, Kind, Path, Reason, Regex, search};
 
 struct WrittenType {
     resolved: JvmType,
@@ -164,9 +165,10 @@ impl App {
         kotlin: bool,
         hops: usize,
     ) -> Option<WrittenType> {
-        let narrowing = match kotlin {
-            true => r"\b{0}\s+(?:!?is|as\??)\s|\bwhen\s*\(\s*{0}\s*\)",
-            false => r"\b{0}\s+instanceof\s|\(\s*[A-Z][\w.<>]*\s*\)\s*{0}\b",
+        let narrowing = if kotlin {
+            r"\b{0}\s+(?:!?is|as\??)\s|\bwhen\s*\(\s*{0}\s*\)"
+        } else {
+            r"\b{0}\s+instanceof\s|\(\s*[A-Z][\w.<>]*\s*\)\s*{0}\b"
         };
         let narrowed = Regex::new(&narrowing.replace("{0}", &regex::escape(name))).ok()?;
         if narrowed.is_match(text) {
@@ -177,12 +179,13 @@ impl App {
             .iter()
             .map(|b| b.line1)
             .collect();
-        let declared = match bindings.is_empty() {
-            true => search::jvm_enclosing_types(text, line1)
+        let declared = if bindings.is_empty() {
+            search::jvm_enclosing_types(text, line1)
                 .into_iter()
                 .map(|d| search::jvm_members_of(text, d, name))
-                .find(|m| !m.is_empty())?,
-            false => bindings,
+                .find(|m| !m.is_empty())?
+        } else {
+            bindings
         };
         let mut found: Option<WrittenType> = None;
         for l in declared {
@@ -218,21 +221,20 @@ impl App {
         call: &str,
         kotlin: bool,
     ) -> Option<WrittenType> {
-        let owner = match recv {
-            Some(r) => self.jvm_value(file, text, line1, r, kotlin, 0)?.resolved,
-            None => {
-                let lines: Vec<&str> = text.lines().collect();
-                let decl = search::jvm_enclosing_types(text, line1)
-                    .into_iter()
-                    .find(|&d| search::jvm_type_name(lines[d - 1]).is_some())?;
-                JvmType::Project(Hit {
-                    deleted: None,
-                    path: file.to_path_buf(),
-                    line1: decl,
-                    byte_col: None,
-                    text: lines[decl - 1].to_owned(),
-                })
-            }
+        let owner = if let Some(r) = recv {
+            self.jvm_value(file, text, line1, r, kotlin, 0)?.resolved
+        } else {
+            let lines: Vec<&str> = text.lines().collect();
+            let decl = search::jvm_enclosing_types(text, line1)
+                .into_iter()
+                .find(|&d| search::jvm_type_name(lines[d - 1]).is_some())?;
+            JvmType::Project(Hit {
+                deleted: None,
+                path: file.to_path_buf(),
+                line1: decl,
+                byte_col: None,
+                text: lines[decl - 1].to_owned(),
+            })
         };
         let JvmType::Project(decl) = owner else {
             return None;

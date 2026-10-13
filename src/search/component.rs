@@ -1,4 +1,7 @@
-use super::*;
+#![expect(clippy::items_after_statements, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
+use super::{Kind, file_literal_lines, literal_lines, word_at};
 use std::borrow::Cow;
 use std::ops::Range;
 use std::path::Path;
@@ -192,10 +195,11 @@ pub fn tag_at(line: &str, col: usize) -> Option<Range<usize>> {
     (before.ends_with('<') || before.ends_with("</")).then_some(range)
 }
 pub fn component_name(tag: &str) -> String {
-    match tag.contains('-') {
-        true => (tag.split('-'))
+    if tag.contains('-') {
+        (tag.split('-'))
             .map(|p| p[..p.len().min(1)].to_uppercase() + &p[p.len().min(1)..])
-            .collect(),
-        false => tag.to_owned(),
+            .collect()
+    } else {
+        tag.to_owned()
     }
 }

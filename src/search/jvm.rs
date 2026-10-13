@@ -1,6 +1,15 @@
+#![expect(clippy::cast_possible_truncation, reason = "#858")]
+#![expect(clippy::cast_possible_wrap, reason = "#858")]
+#![expect(clippy::items_after_statements, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
 
-use super::*;
+use super::{
+    Binding, Group, Kind, Value, code, comment, def_patterns, group, indent, jvm_mods,
+    literal_lines, qualified, scala_given_tail, scala_mods, split_top, steps_over, uncommented,
+};
 
 fn opens_type(line: &str) -> bool {
     static TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -126,9 +135,10 @@ pub(super) fn scala_patterns(word: &str) -> Vec<String> {
         "super",
     ];
     let w = regex::escape(word);
-    let n = match RESERVED.contains(&word) {
-        true => format!("`{w}`"),
-        false => format!("`?{w}`?"),
+    let n = if RESERVED.contains(&word) {
+        format!("`{w}`")
+    } else {
+        format!("`?{w}`?")
     };
     let mods = scala_mods!();
     let other_name_with_params = r"`?\w+`?(?:\([^)]*\))?";
@@ -159,9 +169,10 @@ fn param_names(entry: &str, groovy: bool) -> Vec<String> {
     });
     let e = entry.split_whitespace().collect::<Vec<_>>().join(" ");
     let e = e.trim_matches(|c: char| c == '(' || c == ')' || c.is_whitespace());
-    let typed = match groovy {
-        true => e.split_once('=').map_or(e, |(p, _)| p).trim_end(),
-        false => e,
+    let typed = if groovy {
+        e.split_once('=').map_or(e, |(p, _)| p).trim_end()
+    } else {
+        e
     };
     let name = KOTLIN
         .captures(e)
@@ -208,9 +219,10 @@ fn lambda_names(line: &str) -> Vec<String> {
             (Some(list), _) => {
                 for entry in list.as_str().split(',') {
                     let e = entry.trim();
-                    out.extend(match e.contains(char::is_whitespace) {
-                        true => param_names(e, false),
-                        false => ident(e).then(|| e.to_owned()).into_iter().collect(),
+                    out.extend(if e.contains(char::is_whitespace) {
+                        param_names(e, false)
+                    } else {
+                        ident(e).then(|| e.to_owned()).into_iter().collect()
                     });
                 }
             }
@@ -239,7 +251,7 @@ fn params_open_byte(line: &str) -> Option<usize> {
         Regex::new(concat!(
             jvm_mods!(),
             r"(?:<[^>]*>\s*)?",
-            jvm_return_type!(),
+            super::jvm_return_type!(),
             r"\s+[A-Za-z_]\w*\s*\(",
             r"|",
             jvm_mods!(),
@@ -300,7 +312,7 @@ fn param_lists_line1_binding(lines: &[&str], from: usize, name: &str) -> Option<
 fn header_lines1_binding(lines: &[&str], from: usize, to: usize, name: &str) -> Vec<usize> {
     let n = regex::escape(name);
     let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
-    let ret = jvm_return_type!();
+    let ret = super::jvm_return_type!();
     let clause = rule(format!(
         r"\bfor\s*\(\s*(?:(?:final\s+)?(?:var|val|{ret})\s+)?{n}\s*(?:[:=]|\s+in\b)|\bfor\s*\(\s*\([^)]*\b{n}\b[^)]*\)\s+in\b|\bcatch\s*\(\s*(?:final\s+)?[\w.|\s]+?\s+{n}\s*\)|\bcatch\s*\(\s*{n}\s*:|\btry\s*\(\s*(?:final\s+)?(?:var|{ret})\s+{n}\s*=|\binstanceof\s+(?:final\s+)?[\w.]+(?:<[^>]*>)?\s+{n}\b"
     ));
@@ -320,7 +332,7 @@ fn header_lines1_binding(lines: &[&str], from: usize, to: usize, name: &str) -> 
 
 fn declares_local(t: &str, name: &str) -> bool {
     let n = regex::escape(name);
-    let ret = jvm_return_type!();
+    let ret = super::jvm_return_type!();
     Regex::new(&format!(
         r"^(?:(?:final|lateinit|const)\s+)*(?:(?:val|var|def)\s+{n}(?:[^\w.]|$)|(?:val|var)\s*\([^)]*\b{n}\b[^)]*\)\s*=|(?:@[\w.]+\s+)*(?:var|{ret})(?:\.\.\.)?\s+{n}\s*[=;,:])"
     ))
@@ -633,24 +645,23 @@ pub fn jvm_declared_type(line: &str, name: &str, kotlin: bool) -> Option<String>
     let n = regex::escape(name);
     let code = uncommented(Kind::Jvm, line);
     let ty = r"([A-Z]\w*(?:\.[A-Z]\w*)*)";
-    let rules: Vec<String> = match kotlin {
-        true => {
-            if Regex::new(&format!(r"\b{n}\b[^=]*\bby\b")).is_ok_and(|re| re.is_match(&code)) {
-                return None;
-            }
-            vec![
-                format!(r"(?:^|[^\w.]){n}\s*:\s*{ty}{GENERIC}\??\s*(?:[=,)]|$|\{{)"),
-                format!(
-                    r"\b(?:val|var)\s+{n}\s*=\s*{CAST_OPERAND}\s+as\??\s+{ty}{GENERIC}\??\s*;?\s*$"
-                ),
-                format!(r"\b(?:val|var)\s+{n}\s*=\s*([A-Z]\w*){GENERIC}\s*\("),
-            ]
+    let rules: Vec<String> = if kotlin {
+        if Regex::new(&format!(r"\b{n}\b[^=]*\bby\b")).is_ok_and(|re| re.is_match(&code)) {
+            return None;
         }
-        false => vec![
+        vec![
+            format!(r"(?:^|[^\w.]){n}\s*:\s*{ty}{GENERIC}\??\s*(?:[=,)]|$|\{{)"),
+            format!(
+                r"\b(?:val|var)\s+{n}\s*=\s*{CAST_OPERAND}\s+as\??\s+{ty}{GENERIC}\??\s*;?\s*$"
+            ),
+            format!(r"\b(?:val|var)\s+{n}\s*=\s*([A-Z]\w*){GENERIC}\s*\("),
+        ]
+    } else {
+        vec![
             format!(r"(?:^|[\s(,<]){ty}{GENERIC}(?:\s*\.\.\.)?\s+{n}\s*(?:[=;,:)]|&&|$)"),
             format!(r"\bvar\s+{n}\s*=\s*new\s+{ty}{GENERIC}\s*\("),
             format!(r"\bvar\s+{n}\s*=\s*\(\s*{ty}{GENERIC}\s*\)\s*[\w(]"),
-        ],
+        ]
     };
     rules.iter().find_map(|r| {
         let re = Regex::new(r).ok()?;
@@ -728,16 +739,18 @@ pub fn jvm_lombok_fields(text: &str, decl_line1: usize, word: &str) -> Vec<usize
     let with_annotations_above = |at: usize| {
         let mut out = String::from(lines[at]);
         for l in lines[..at].iter().rev() {
-            match l.trim_start().starts_with('@') {
-                true => out.push_str(l),
-                false => break,
+            if l.trim_start().starts_with('@') {
+                out.push_str(l);
+            } else {
+                break;
             }
         }
         out
     };
-    let (own, class) = match setter {
-        true => ("Setter", "Data|Setter"),
-        false => ("Getter", "Data|Value|Getter"),
+    let (own, class) = if setter {
+        ("Setter", "Data|Setter")
+    } else {
+        ("Getter", "Data|Value|Getter")
     };
     let own_re = Regex::new(&format!(r"@(?:lombok\.)?{own}\b")).expect("a fixed pattern");
     let class_re = Regex::new(&format!(r"@(?:lombok\.)?(?:{class})\b")).expect("a fixed pattern");
@@ -787,9 +800,10 @@ pub fn jvm_assigned_call(line: &str, name: &str) -> Option<JvmAssignedCall> {
 
 pub fn jvm_return_type(line: &str, name: &str, kotlin: bool) -> Option<String> {
     let n = regex::escape(name);
-    let rule = match kotlin {
-        true => format!(r"\bfun\s+(?:<[^>]*>\s*)?{n}\s*\([^)]*\)\s*:\s*([A-Z]\w*){GENERIC}\??"),
-        false => format!(r"(?:^|\s)([A-Z]\w*){GENERIC}\s+{n}\s*\("),
+    let rule = if kotlin {
+        format!(r"\bfun\s+(?:<[^>]*>\s*)?{n}\s*\([^)]*\)\s*:\s*([A-Z]\w*){GENERIC}\??")
+    } else {
+        format!(r"(?:^|\s)([A-Z]\w*){GENERIC}\s+{n}\s*\(")
     };
     let code = uncommented(Kind::Jvm, line);
     Regex::new(&rule)
@@ -850,9 +864,10 @@ pub fn jvm_parameters(text: &str, line: usize, word: &str, groovy: bool) -> Opti
         }
     }
     close(&mut top);
-    Some(match inner.contains("...") {
-        true => (count - 1, usize::MAX),
-        false => (count - defaults, defaults),
+    Some(if inner.contains("...") {
+        (count - 1, usize::MAX)
+    } else {
+        (count - defaults, defaults)
     })
 }
 
@@ -920,9 +935,6 @@ pub fn jvm_cast_receiver(before: &str, kotlin: bool) -> Option<String> {
         ))
         .unwrap()
     });
-    let re = match kotlin {
-        true => &*KOTLIN,
-        false => &*JAVA,
-    };
+    let re = if kotlin { &*KOTLIN } else { &*JAVA };
     re.captures(before.trim_end()).map(|c| c[1].to_owned())
 }

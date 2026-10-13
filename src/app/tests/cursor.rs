@@ -1,3 +1,6 @@
+#![expect(clippy::format_collect, reason = "#858")]
+#![expect(clippy::redundant_clone, reason = "#858")]
+#![expect(clippy::trivial_regex, reason = "#858")]
 use super::*;
 
 #[test]

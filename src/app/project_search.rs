@@ -1,4 +1,9 @@
-use super::*;
+#![expect(clippy::clone_on_ref_ptr, reason = "#858")]
+#![expect(clippy::needless_pass_by_value, reason = "#858")]
+use super::{
+    App, Arc, Hit, Instant, Kind, LineEdit, MAX_LABEL_TEXT, Mode, Path, PathBuf, PickItem, Picker,
+    PickerKind, SearchJob, clip, git, search, tutor,
+};
 
 impl App {
     pub(super) fn rel_current(&self) -> Option<PathBuf> {
@@ -35,7 +40,7 @@ impl App {
             seq,
             root: self.root.clone(),
             files,
-            pattern: pattern.to_string(),
+            pattern: pattern.to_owned(),
             symbols: false,
             current,
             unsaved: self.dirty.then(|| self.buf.to_bytes()),
@@ -50,7 +55,7 @@ impl App {
     }
 
     pub(super) fn word_under(&self, word_chars: &str) -> Option<String> {
-        search::word_at(self.line_str(), self.col, word_chars).map(|(_, w)| w.to_string())
+        search::word_at(self.line_str(), self.col, word_chars).map(|(_, w)| w.to_owned())
     }
 
     pub(super) fn kind(&self) -> Option<Kind> {

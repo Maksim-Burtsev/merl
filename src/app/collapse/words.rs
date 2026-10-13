@@ -1,3 +1,11 @@
+#![expect(clippy::cognitive_complexity, reason = "#858")]
+#![expect(clippy::excessive_nesting, reason = "#858")]
+#![expect(clippy::fn_params_excessive_bools, reason = "#858")]
+#![expect(clippy::match_same_arms, reason = "#858")]
+#![expect(clippy::nonminimal_bool, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::collections::HashMap;
 
 #[derive(Default)]
@@ -13,7 +21,7 @@ impl Blocks {
         len: usize,
     ) -> Self {
         let spans = super::vim_folds(len, nodes.into_iter());
-        Blocks { spans, funcs }
+        Self { spans, funcs }
     }
 
     pub(crate) fn region(&self, h: usize) -> Option<usize> {
@@ -144,7 +152,7 @@ struct Quote {
 
 impl Quote {
     fn new(open: u8, interp: bool) -> Self {
-        Quote {
+        Self {
             open,
             close: closing(open),
             depth: 0,
@@ -249,9 +257,10 @@ pub(crate) fn ruby(lines: &[String]) -> Blocks {
             }
             let was_word = std::mem::take(&mut value_word);
             let spaced = i > 0 && matches!(s[i - 1], b' ' | b'\t');
-            let mut open_quote = |mut q: Quote, from: usize, i: &mut usize| match q.scan(s, from) {
-                Some(j) => *i = j,
-                None => {
+            let mut open_quote = |mut q: Quote, from: usize, i: &mut usize| {
+                if let Some(j) = q.scan(s, from) {
+                    *i = j;
+                } else {
                     quote = Some(q);
                     *i = s.len();
                 }
@@ -264,12 +273,13 @@ pub(crate) fn ruby(lines: &[String]) -> Blocks {
                 }
                 b'%' if (start || spaced)
                     && ((b"qQwWiIrsx".contains(&next)
-                        && s.get(i + 2).is_some_and(|d| d.is_ascii_punctuation()))
+                        && s.get(i + 2).is_some_and(u8::is_ascii_punctuation))
                         || b"([{<|!/".contains(&next)) =>
                 {
-                    let (d, from) = match next.is_ascii_alphabetic() {
-                        true => (s[i + 2], i + 3),
-                        false => (next, i + 2),
+                    let (d, from) = if next.is_ascii_alphabetic() {
+                        (s[i + 2], i + 3)
+                    } else {
+                        (next, i + 2)
                     };
                     open_quote(Quote::new(d, !b"qwis".contains(&next)), from, &mut i);
                     start = false;
@@ -410,7 +420,7 @@ pub(crate) fn ruby(lines: &[String]) -> Blocks {
                             start = true;
                         }
                         "end" => {
-                            b.close(n, &["def", "class", "module", "if", "while", "case", "do"])
+                            b.close(n, &["def", "class", "module", "if", "while", "case", "do"]);
                         }
                         "else" | "elsif" | "when" | "ensure" | "rescue" | "in" if at => {
                             if w != "in" || b.top() == Some("case") {
@@ -556,12 +566,11 @@ pub(crate) fn lua(lines: &[String]) -> Blocks {
             if c == b'['
                 && let Some((level, from)) = long_open(s, i)
             {
-                match long_end(line, from, level) {
-                    Some(j) => i = j,
-                    None => {
-                        long = Some(level);
-                        break;
-                    }
+                if let Some(j) = long_end(line, from, level) {
+                    i = j;
+                } else {
+                    long = Some(level);
+                    break;
                 }
                 value = true;
                 continue;
@@ -708,12 +717,11 @@ pub(crate) fn shell(lines: &[String], zsh: bool) -> Blocks {
                 b'#' if boundary => break,
                 b'\'' | b'"' | b'`' => {
                     let escapes = c != b'\'' || (i > 0 && s[i - 1] == b'$');
-                    match shell_quote(s, i + 1, c, escapes) {
-                        Some(j) => i = j,
-                        None => {
-                            quote = Some((c, escapes));
-                            i = s.len();
-                        }
+                    if let Some(j) = shell_quote(s, i + 1, c, escapes) {
+                        i = j;
+                    } else {
+                        quote = Some((c, escapes));
+                        i = s.len();
                     }
                     cmd = false;
                 }

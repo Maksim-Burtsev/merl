@@ -1,4 +1,14 @@
-use super::*;
+#![expect(clippy::clone_on_ref_ptr, reason = "#858")]
+#![expect(clippy::cognitive_complexity, reason = "#858")]
+#![expect(clippy::iter_on_single_items, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::useless_let_if_seq, reason = "#858")]
+use super::{
+    App, Arc, Candidate, HashMap, HashSet, Hit, Kind, MAX_LABEL_TEXT, MAX_NAME_PAD, Path, PathBuf,
+    PickItem, Reason, Regex, at_label, bound, clip, git, jvm, search, word_col, wrap,
+};
 
 pub(super) struct OutsideMembers {
     pub methods: Vec<Hit>,
@@ -6,7 +16,7 @@ pub(super) struct OutsideMembers {
 }
 impl OutsideMembers {
     fn listed(methods: Vec<Hit>) -> Self {
-        OutsideMembers {
+        Self {
             methods,
             unlisted_field_declares_it: false,
         }
@@ -144,9 +154,10 @@ impl App {
         };
         let mut hits = at_top(self, declarations_in(self, &files));
         if hits.is_empty() && narrowed_to_copy && word_is_export_name {
-            let within = match module.len() <= copy.name_parts {
-                true => copy.entries(),
-                false => files,
+            let within = if module.len() <= copy.name_parts {
+                copy.entries()
+            } else {
+                files
             };
             hits = self.renamed_export(word, |p| self.external_grep(kind, &within, p));
         }
@@ -722,7 +733,7 @@ impl App {
                         otp,
                     ]
                     .concat();
-                    let mut seen = std::collections::HashSet::new();
+                    let mut seen = HashSet::new();
                     roots.retain(|r| seen.insert(r.clone()));
                     roots
                 }
@@ -739,21 +750,20 @@ impl App {
                 self.external.insert(kind, (roots, Arc::new(files)));
             }
         }
-        let files = match self.external.get(&kind) {
-            Some((_, files)) => files.clone(),
-            None => {
-                let roots = search::external_roots(kind, &self.root);
-                let warm = self.warming.insert(kind, None).flatten();
-                let files = match warm.and_then(|w| w.join().ok()) {
-                    Some((walked, files)) if walked == roots => files,
-                    _ => search::external_files(kind, &roots),
-                };
-                let files = Arc::new(files);
-                if !roots.is_empty() {
-                    self.external.insert(kind, (roots, files.clone()));
-                }
-                files
+        let files = if let Some((_, files)) = self.external.get(&kind) {
+            files.clone()
+        } else {
+            let roots = search::external_roots(kind, &self.root);
+            let warm = self.warming.insert(kind, None).flatten();
+            let files = match warm.and_then(|w| w.join().ok()) {
+                Some((walked, files)) if walked == roots => files,
+                _ => search::external_files(kind, &roots),
+            };
+            let files = Arc::new(files);
+            if !roots.is_empty() {
+                self.external.insert(kind, (roots, files.clone()));
             }
+            files
         };
         if kind != Kind::C {
             return files;
@@ -789,9 +799,10 @@ impl App {
             .is_some_and(|p| search::objc_file(p, || self.buf.lines.join("\n")))
     }
     pub(super) fn c_dialect(&self) -> search::CDialect {
-        match self.objc_file() {
-            true => search::CDialect::ObjectiveC,
-            false => search::CDialect::COrCpp,
+        if self.objc_file() {
+            search::CDialect::ObjectiveC
+        } else {
+            search::CDialect::COrCpp
         }
     }
 
@@ -826,9 +837,10 @@ impl App {
     }
 
     pub(super) fn file_text(&self, path: &Path) -> Option<String> {
-        match self.rel_current().as_deref() == Some(path) {
-            true => Some(self.buf.lines.join("\n")),
-            false => std::fs::read_to_string(self.root.join(path)).ok(),
+        if self.rel_current().as_deref() == Some(path) {
+            Some(self.buf.lines.join("\n"))
+        } else {
+            std::fs::read_to_string(self.root.join(path)).ok()
         }
     }
 
@@ -859,10 +871,11 @@ impl App {
         if search::android_source(&h.path) {
             return Vec::new();
         }
-        match search::component(&h.path) && kind != Kind::Css {
-            true => self.hidden_of(kind, h),
-            false => (self.file_text(&h.path))
-                .map_or_else(Vec::new, |t| search::file_literal_lines(kind, &h.path, &t)),
+        if search::component(&h.path) && kind != Kind::Css {
+            self.hidden_of(kind, h)
+        } else {
+            (self.file_text(&h.path))
+                .map_or_else(Vec::new, |t| search::file_literal_lines(kind, &h.path, &t))
         }
     }
 

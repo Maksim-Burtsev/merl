@@ -1,4 +1,9 @@
-use super::*;
+#![expect(clippy::cast_possible_wrap, reason = "#858")]
+#![expect(clippy::items_after_statements, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
+use super::{App, Kind, Mode, TextLine, is_word, next_char, prev_char, search, shown_str, wrap};
 
 impl App {
     pub(crate) fn sync_want_x(&mut self) {
@@ -190,9 +195,12 @@ impl App {
 
     pub(super) fn move_rows(&mut self, n: isize) {
         let cur = self.cursor_at();
-        let step = |from, k: usize| match n < 0 {
-            true => self.back_rows(from, k),
-            false => self.forward_rows(from, k),
+        let step = |from, k: usize| {
+            if n < 0 {
+                self.back_rows(from, k)
+            } else {
+                self.forward_rows(from, k)
+            }
         };
         let mut to = step(cur, n.unsigned_abs());
         while self.notes.focus.is_some() && self.note_at_row(to.0, to.1) == self.notes.focus {
@@ -243,9 +251,12 @@ impl App {
 
     pub(super) fn paragraph(&mut self, dir: isize) {
         let blank = |t: TextLine| self.text(t).trim().is_empty();
-        let step = |t: TextLine| match dir < 0 {
-            true => self.prev_shown(t),
-            false => self.next_shown(t),
+        let step = |t: TextLine| {
+            if dir < 0 {
+                self.prev_shown(t)
+            } else {
+                self.next_shown(t)
+            }
         };
         let mut t = self.at();
         while let Some(s) = step(t).filter(|_| blank(t)) {

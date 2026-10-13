@@ -1,3 +1,4 @@
+#![cfg_attr(test, expect(clippy::unnecessary_wraps, reason = "#858"))]
 use super::*;
 
 fn env(pairs: &[(&str, &str)]) -> impl Fn(&str) -> Option<String> {
@@ -274,7 +275,7 @@ fn off_draws_nothing_and_asks_for_nothing() {
     assert!(d.jobs().is_empty());
 }
 
-fn file(tag: &str) -> std::path::PathBuf {
+fn file(tag: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("merl-files-{}-{tag}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("pic.png");
@@ -282,7 +283,7 @@ fn file(tag: &str) -> std::path::PathBuf {
     path
 }
 
-fn decoded(d: &mut Diagrams, path: &std::path::Path, frames: &[u32]) {
+fn decoded(d: &mut Diagrams, path: &Path, frames: &[u32]) {
     d.done(Done {
         key: file_key(path).unwrap(),
         drawn: Ok(Drawn {
@@ -300,10 +301,14 @@ fn a_gif_shows_the_frame_its_clock_has_reached() {
     decoded(&mut d, &path, &[100, 100]);
     let first = d.file_pic(&path).unwrap().id();
     let key = file_key(&path).unwrap();
-    d.started
-        .insert(key, Instant::now() - Duration::from_millis(150));
+    d.started.insert(
+        key,
+        Instant::now()
+            .checked_sub(Duration::from_millis(150))
+            .unwrap(),
+    );
     assert_eq!(d.file_pic(&path).unwrap().id(), first + 1);
-    let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    drop(std::fs::remove_dir_all(path.parent().unwrap()));
 }
 
 #[test]
@@ -316,7 +321,7 @@ fn a_file_picture_outlives_a_theme_change() {
     d.theme(&light, light.line_hl_dim);
     assert_eq!(d.file_pic(&path).unwrap().id(), id);
     assert!(d.jobs().is_empty());
-    let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    drop(std::fs::remove_dir_all(path.parent().unwrap()));
 }
 
 #[test]
@@ -358,6 +363,6 @@ fn file_pictures_off_the_screen_go_past_the_last_four() {
         "and is asked for again when it comes back"
     );
     for p in &paths {
-        let _ = std::fs::remove_dir_all(p.parent().unwrap());
+        drop(std::fs::remove_dir_all(p.parent().unwrap()));
     }
 }

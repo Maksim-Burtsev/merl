@@ -1,4 +1,15 @@
-use super::*;
+#![expect(clippy::assigning_clones, reason = "#858")]
+#![expect(clippy::clone_on_ref_ptr, reason = "#858")]
+#![expect(clippy::items_after_statements, reason = "#858")]
+#![expect(clippy::needless_collect, reason = "#858")]
+#![expect(clippy::needless_pass_by_ref_mut, reason = "#858")]
+#![expect(clippy::redundant_clone, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
+use super::{
+    App, Arc, Candidate, Component, HashMap, HashSet, Hit, Kind, Path, PathBuf, Reason, Regex, cpp,
+    search,
+};
 
 struct CTypeIn {
     file: PathBuf,
@@ -69,16 +80,20 @@ impl App {
         else {
             return Ok(None);
         };
-        let broke = |at: &str| match fields.is_empty() {
-            true => Ok(None),
-            false => Err(at.to_owned()),
+        let broke = |at: &str| {
+            if fields.is_empty() {
+                Ok(None)
+            } else {
+                Err(at.to_owned())
+            }
         };
-        let start = match called {
-            true => self.c_return_type(here, &head).map(|t| CTypeIn {
+        let start = if called {
+            self.c_return_type(here, &head).map(|t| CTypeIn {
                 file: here.to_path_buf(),
                 ty: search::CType::Name(t),
-            }),
-            false => self.c_head_type(here, text, &head),
+            })
+        } else {
+            self.c_head_type(here, text, &head)
         };
         let Some(mut ty) = start else {
             return broke(&head);
@@ -99,9 +114,10 @@ impl App {
             };
             links.push(link);
             let Some(at) = search::c_body_field(&body.code, body.brace_in_code, name) else {
-                return match i == fields.len() {
-                    true => Ok(None),
-                    false => broke(name),
+                return if i == fields.len() {
+                    Ok(None)
+                } else {
+                    broke(name)
                 };
             };
             if i == fields.len() {
@@ -239,10 +255,10 @@ impl App {
                 Some(search::CType::Body(byte))
                     if !bodies.iter().any(|b| b.path == h.path && b.byte == byte) =>
                 {
-                    bodies.push(BraceAt { path: h.path, byte })
+                    bodies.push(BraceAt { path: h.path, byte });
                 }
                 Some(search::CType::Name(alias)) if !aliases.contains(&alias) => {
-                    aliases.push(alias)
+                    aliases.push(alias);
                 }
                 _ => {}
             }
@@ -272,9 +288,10 @@ impl App {
                 search::c_member_decl(Some(word))
             );
         }
-        let hits = match outside {
-            true => Vec::new(),
-            false => self.project_definitions(Kind::C, here, word, &pattern),
+        let hits = if outside {
+            Vec::new()
+        } else {
+            self.project_definitions(Kind::C, here, word, &pattern)
         };
         let mut found = self.c_member_rows(word, hits, called);
         let property = Regex::new(&search::objc_property(word)).expect("an escaped name");
@@ -330,7 +347,7 @@ impl App {
                     Some(search::CFieldRow {
                         owner_type: owner, ..
                     }) if !called || pointer.is_match(&h.text) => {
-                        rows.push(MemberRow::field_of(h, owner))
+                        rows.push(MemberRow::field_of(h, owner));
                     }
                     None if called && method.is_match(&h.text) => rows.push(MemberRow::method(h)),
                     None if objc && member.is_match(&h.text) => rows.push(MemberRow::method(h)),
@@ -338,7 +355,7 @@ impl App {
                         && declared.is_match(&h.text)
                         && search::c_member_class(&text, h.line1, word).is_some() =>
                     {
-                        rows.push(MemberRow::method(h))
+                        rows.push(MemberRow::method(h));
                     }
                     _ => {}
                 }
@@ -361,9 +378,10 @@ impl App {
             .filter(|row| row.is_field_of(class) || (by_name && !own))
             .map(|MemberRow { hit, .. }| Candidate {
                 hit,
-                reason: match own {
-                    true => Reason::Receiver(class.to_owned()),
-                    false => Reason::ByName,
+                reason: if own {
+                    Reason::Receiver(class.to_owned())
+                } else {
+                    Reason::ByName
                 },
             })
             .collect()
@@ -382,9 +400,10 @@ impl App {
         let roots: Vec<PathBuf> = (roots.into_iter())
             .filter(|r| mode.1 || !search::objc_root(r))
             .collect();
-        let dirs: Vec<PathBuf> = match source {
-            true => roots.clone(),
-            false => [search::cpp_dirs(&roots), roots.clone()].concat(),
+        let dirs: Vec<PathBuf> = if source {
+            roots.clone()
+        } else {
+            [search::cpp_dirs(&roots), roots.clone()].concat()
         };
         let real = search::real_dirs(&roots);
         let own: HashSet<&PathBuf> = self.files.iter().collect();
@@ -449,9 +468,10 @@ impl App {
             let next = match self.c_includes.get(&(file.clone(), mode)) {
                 Some(next) if file.is_absolute() => next.clone(),
                 _ => {
-                    let text = match file.is_absolute() {
-                        true => std::fs::read_to_string(&file).ok(),
-                        false => self.text_of(&file),
+                    let text = if file.is_absolute() {
+                        std::fs::read_to_string(&file).ok()
+                    } else {
+                        self.text_of(&file)
                     };
                     let next = Arc::new(edges(&text.unwrap_or_default(), &file));
                     if file.is_absolute() {
@@ -483,9 +503,10 @@ impl App {
         let found: Vec<T> = (search(self, &near).into_iter())
             .filter(|f| self.c_code_line(&mut literal, hit(f)))
             .collect();
-        match found.is_empty() {
-            true => search(self, &far),
-            false => found,
+        if found.is_empty() {
+            search(self, &far)
+        } else {
+            found
         }
     }
 
@@ -595,11 +616,11 @@ struct MemberRow {
 impl MemberRow {
     fn field_of(hit: Hit, owner: &str) -> Self {
         let field_of = Some(owner.to_owned());
-        MemberRow { hit, field_of }
+        Self { hit, field_of }
     }
 
     fn method(hit: Hit) -> Self {
-        MemberRow {
+        Self {
             hit,
             field_of: None,
         }
@@ -614,8 +635,8 @@ fn normal(path: &Path) -> PathBuf {
     let mut out = PathBuf::new();
     for c in path.components() {
         match c {
-            std::path::Component::CurDir => {}
-            std::path::Component::ParentDir => {
+            Component::CurDir => {}
+            Component::ParentDir => {
                 out.pop();
             }
             c => out.push(c),

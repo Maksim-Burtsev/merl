@@ -1,6 +1,13 @@
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
+#![expect(clippy::useless_let_if_seq, reason = "#858")]
 use regex::Regex;
 
-use super::*;
+use super::{
+    Group, Kind, close_of, code, comment, cs_generics, cs_type, def_patterns, group, indent,
+    split_top, uncommented, written_line,
+};
 
 pub struct CsTypeDecl {
     pub keyword: String,
@@ -441,13 +448,15 @@ pub fn cs_expr(expr: &str) -> CsValue {
         |open: usize| close_of(Kind::CSharp, e, open).map_or("", |end| e[end..].trim());
     if let Some(c) = NEW.captures(e) {
         let end = c.get(0).unwrap().end();
-        let after = match e[end..].starts_with('(') {
-            true => after_bracket(end),
-            false => &e[end..],
+        let after = if e[end..].starts_with('(') {
+            after_bracket(end)
+        } else {
+            &e[end..]
         };
-        return match after.is_empty() || after.starts_with('{') {
-            true => CsValue::Type(c[1].to_owned()),
-            false => CsValue::Unknown,
+        return if after.is_empty() || after.starts_with('{') {
+            CsValue::Type(c[1].to_owned())
+        } else {
+            CsValue::Unknown
         };
     }
     if let Some(c) = CAST.captures(e).or_else(|| AS.captures(e)) {
@@ -549,7 +558,7 @@ pub fn cs_bases(text: &str, decl: usize) -> Vec<String> {
         if rest.starts_with(open) {
             let mut depth = 0;
             let Some(end) = rest.char_indices().find_map(|(i, c)| {
-                depth += (c == open) as i32 - (c == close) as i32;
+                depth += i32::from(c == open) - i32::from(c == close);
                 (depth == 0).then_some(i + 1)
             }) else {
                 return Vec::new();
@@ -729,9 +738,10 @@ pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> 
         let name = cs_signature(uncommented(Kind::CSharp, ls[e]).split('(').next()?.trim())?.name;
         let written = cs_returns(ls[e], &name)?;
         let async_ = Regex::new(r"\basync\b").is_ok_and(|re| re.is_match(ls[e]));
-        return match async_ {
-            true => cs_awaited(&written).map(str::to_owned),
-            false => Some(written),
+        return if async_ {
+            cs_awaited(&written).map(str::to_owned)
+        } else {
+            Some(written)
         };
     }
     None

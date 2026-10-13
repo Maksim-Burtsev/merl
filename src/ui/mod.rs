@@ -30,6 +30,7 @@ mod tests;
 
 const TREE_W: u16 = 30;
 
+#[expect(clippy::too_many_lines, reason = "#858")]
 pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     let area = frame.area();
     app.diagrams.begin();
@@ -61,9 +62,10 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     let [tree, code] =
         Layout::horizontal([Constraint::Length(tree_w), Constraint::Min(1)]).areas(main);
 
-    let need = match app.show_tree {
-        true => draw_tree(frame, app, theme, tree, base),
-        false => None,
+    let need = if app.show_tree {
+        draw_tree(frame, app, theme, tree, base)
+    } else {
+        None
     };
     if app.show_tree && app.focus == Focus::Tree && app.tree_width.is_none() {
         let w = need.map_or(TREE_W, |n| {
@@ -102,9 +104,10 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
             draw_welcome(frame, theme, code, base);
         }
     };
-    match app.tree_width.is_some_and(|w| w > TREE_W) {
-        true => app.drawn_aside(pane),
-        false => pane(app),
+    if app.tree_width.is_some_and(|w| w > TREE_W) {
+        app.drawn_aside(pane);
+    } else {
+        pane(app);
     }
     if let Some(panel) = panel {
         frame.render_widget(panel, lesson);
@@ -158,6 +161,7 @@ pub(super) fn expand(s: &str) -> std::borrow::Cow<'_, str> {
     out.into()
 }
 
+#[expect(clippy::string_slice, reason = "#858")]
 pub(super) fn tagged<'a>(out: &mut Vec<Span<'a>>, s: &'a str, style: Style, tag: Style) {
     let mut pos = 0;
     for (i, c) in s.char_indices().filter(|&(_, c)| wrap::hidden(c)) {

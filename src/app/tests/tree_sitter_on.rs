@@ -8,7 +8,7 @@ struct Switch;
 impl Switch {
     fn on() -> Self {
         use_tree_sitter(true);
-        Switch
+        Self
     }
 }
 
@@ -74,7 +74,7 @@ fn the_setting_reaches_every_buffer_the_app_opens() {
     let (_, b) = a.base.as_mut().expect("the base of a.py, for its ghost");
     assert_eq!(painted(b, &theme), fresh(&path, base.as_bytes(), &theme));
 
-    let changed = "def g():\n    return 3\n\n\nx = g()\n".to_string()
+    let changed = "def g():\n    return 3\n\n\nx = g()\n".to_owned()
         + &"z = {\"k\": [1, 2, (3, 4)]}  # c\n".repeat(5000);
     let changed = changed.as_str();
     std::fs::write(&path, changed).unwrap();
@@ -101,7 +101,7 @@ fn the_setting_reaches_every_buffer_the_app_opens() {
         .get_mut(&PathBuf::from("a.py"))
         .expect("a.py's preview");
     assert_eq!(painted(b, &theme), fresh(&path, changed.as_bytes(), &theme));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -109,7 +109,7 @@ fn the_setting_reaches_the_code_blocks_of_the_preview() {
     let _on = Switch::on();
     let theme = crate::theme::load("tokyonight-moon").unwrap();
     let dir = std::env::temp_dir().join(format!("merl-ts-on-md-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("PLAN.md");
     std::fs::write(&path, "# Plan\n\n```rs\nfn main() {}\n```\n").unwrap();
@@ -126,5 +126,5 @@ fn the_setting_reaches_the_code_blocks_of_the_preview() {
     let code = &mut a.preview.as_mut().expect("the preview").code[0];
     let rust = fresh(Path::new("main.rs"), b"fn main() {}\n", &theme);
     assert_eq!(painted(code, &theme)[0], rust[0]);
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }

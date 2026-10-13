@@ -1,6 +1,9 @@
+#![expect(clippy::match_same_arms, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
 
-use super::*;
+use super::{Binding, Value, indent};
 
 pub(super) fn shell_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     shell_function_at(lines, at).map_or_else(Vec::new, |f| {

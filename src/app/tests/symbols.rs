@@ -1,3 +1,4 @@
+#![expect(clippy::format_collect, reason = "#858")]
 use super::*;
 
 #[test]
@@ -35,7 +36,7 @@ fn symbols_read_each_kind_with_its_own_pattern() {
         .window(20)
         .0
         .into_iter()
-        .map(|r| r.item.label.split_whitespace().next().unwrap().to_string())
+        .map(|r| r.item.label.split_whitespace().next().unwrap().to_owned())
         .collect();
     assert_eq!(
         names,
@@ -79,7 +80,7 @@ fn symbols_of_a_component_are_its_script() {
     let picker = a.picker.as_mut().unwrap();
     picker.settle();
     let names: Vec<String> = (picker.window(20).0.into_iter())
-        .map(|r| r.item.label.split_whitespace().next().unwrap().to_string())
+        .map(|r| r.item.label.split_whitespace().next().unwrap().to_owned())
         .collect();
     assert_eq!(
         names,
@@ -342,9 +343,9 @@ fn d_lists_a_scala_def_value_and_no_groovy_def_variable() {
         .window(20)
         .0
         .into_iter()
-        .map(|r| r.item.label.split_whitespace().next().unwrap().to_string())
+        .map(|r| r.item.label.split_whitespace().next().unwrap().to_owned())
         .collect();
     names.sort();
     assert_eq!(names, ["Ledger", "bump", "pack", "tally"]);
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }

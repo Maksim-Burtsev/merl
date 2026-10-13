@@ -1,8 +1,10 @@
+#![expect(clippy::cognitive_complexity, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
 use super::*;
 
 #[test]
 fn imports_bind_names_to_module_paths() {
-    let p = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    let p = |v: &[&str]| v.iter().map(ToString::to_string).collect::<Vec<_>>();
     let py = "import json\nimport numpy as np\nimport os.path\nfrom collections import OrderedDict, deque as dq\nfrom . import local\nfrom ..models import Note\nfrom typing import (\n    Any,\n    Final,\n)\n";
     let got = pairs(imports(Kind::Python, py));
     assert_eq!(
@@ -133,7 +135,7 @@ fn module_files_are_the_project_files_an_import_names() {
         ],
     );
     let found = |kind, here: &str, module: &[&str]| -> Vec<String> {
-        let module: Vec<String> = module.iter().map(|s| s.to_string()).collect();
+        let module: Vec<String> = module.iter().map(ToString::to_string).collect();
         module_files(kind, &dir, &files, Path::new(here), &module)
             .iter()
             .map(|f| f.display().to_string())
@@ -192,7 +194,7 @@ fn module_files_are_the_project_files_an_import_names() {
 
 #[test]
 fn in_module_follows_the_parts_through_versions_and_escapes() {
-    let p = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    let p = |v: &[&str]| v.iter().map(ToString::to_string).collect::<Vec<_>>();
     let m = |path: &str, parts: &[&str]| in_module(Path::new(path), &p(parts));
     assert!(m("/lib/python3.13/json/__init__.py", &["json"]));
     assert!(!m("/lib/python3.13/jsonschema/x.py", &["json"]));
@@ -286,7 +288,7 @@ fn typescript_spellings_are_read_in_typescript_only() {
     );
     let field = |from: &[&str], name: &str| {
         Some(Value::Field {
-            chain: from.iter().map(|s| s.to_string()).collect(),
+            chain: from.iter().map(ToString::to_string).collect(),
             field: name.into(),
         })
     };
@@ -346,7 +348,7 @@ fn typescript_spellings_are_read_in_typescript_only() {
 #[test]
 fn node_modules_are_those_from_the_file_up_to_the_root() {
     let dir = std::env::temp_dir().join(format!("merl-nm-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     let root = dir.join("project");
     for d in [
         "node_modules",
@@ -370,9 +372,9 @@ fn node_modules_are_those_from_the_file_up_to_the_root() {
 #[cfg(unix)]
 #[test]
 fn a_package_is_the_copy_in_the_nearest_node_modules_that_has_it() {
-    let p = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    let p = |v: &[&str]| v.iter().map(ToString::to_string).collect::<Vec<_>>();
     let dir = std::env::temp_dir().join(format!("merl-copy-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     for f in [
         "real/node_modules/lib/index.d.ts",
         "real/node_modules/lib/extra.d.ts",
@@ -451,7 +453,7 @@ fn a_package_is_the_copy_in_the_nearest_node_modules_that_has_it() {
 #[test]
 fn a_package_is_missing_when_nothing_installs_or_declares_it() {
     let dir = std::env::temp_dir().join(format!("merl-missing-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     let root = dir.join("project");
     let files: Vec<PathBuf> = [
         "tsconfig.json",
@@ -607,7 +609,7 @@ fn module_exports_is_one_assignment_or_nothing_known() {
 #[test]
 fn external_files_ignore_no_gitignore_and_keep_the_kind() {
     let dir = std::env::temp_dir().join(format!("merl-ext-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(dir.join("pkg")).unwrap();
     std::fs::create_dir_all(dir.join(".git")).unwrap();
     std::fs::write(dir.join(".gitignore"), "pkg\n").unwrap();
@@ -623,7 +625,7 @@ fn external_files_ignore_no_gitignore_and_keep_the_kind() {
 #[test]
 fn external_go_files_are_what_an_import_reaches() {
     let dir = std::env::temp_dir().join(format!("merl-ext-go-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     for f in [
         "strings/strings.go",
         "strings/strings_test.go",
@@ -650,7 +652,7 @@ fn external_go_files_are_what_an_import_reaches() {
 #[test]
 fn the_rust_sysroot_leaves_out_its_tests_and_benches() {
     let base = std::env::temp_dir().join(format!("merl-ext-rs-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&base);
+    drop(std::fs::remove_dir_all(&base));
     let sysroot = base.join("lib/rustlib/src/rust/library");
     let registry = base.join("registry/serde-1.0.0");
     let files = [
@@ -761,7 +763,7 @@ fn a_word_in_a_python_import_path_is_its_module() {
         let at = line.find(word).unwrap();
         python_import_module(line, at)
     };
-    let parts = |p: &[&str]| Some(p.iter().map(|s| s.to_string()).collect::<Vec<_>>());
+    let parts = |p: &[&str]| Some(p.iter().map(ToString::to_string).collect::<Vec<_>>());
     let line = "from app.repos import UserRepo";
     assert_eq!(module(line, "app"), parts(&["app"]));
     assert_eq!(module(line, "repos"), parts(&["app", "repos"]));
@@ -926,7 +928,7 @@ fn a_docstring_example_binds_nothing_of_the_file_but_is_read_inside_it() {
 
 #[test]
 fn a_dotted_import_binds_its_first_part_or_its_alias_the_whole_path() {
-    let p = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    let p = |v: &[&str]| v.iter().map(ToString::to_string).collect::<Vec<_>>();
     assert_eq!(
         pairs(imports(Kind::Python, "import a.b.c\nimport a.b.c as d\n")),
         [("a".into(), p(&["a"])), ("d".into(), p(&["a", "b", "c"]))]
@@ -935,7 +937,7 @@ fn a_dotted_import_binds_its_first_part_or_its_alias_the_whole_path() {
 
 #[test]
 fn a_go_package_name_drops_a_go_suffix_and_an_absolute_ts_path_is_the_projects() {
-    let p = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    let p = |v: &[&str]| v.iter().map(ToString::to_string).collect::<Vec<_>>();
     assert_eq!(
         pairs(imports(Kind::Go, "import \"github.com/x/bar-go\"\n")),
         [("bar".into(), p(&["github.com", "x", "bar-go"]))]
@@ -1000,7 +1002,7 @@ fn a_reexport_under_another_name_is_reexported_but_not_followed() {
 
 #[test]
 fn a_glob_use_binds_the_module_it_opens() {
-    let p = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    let p = |v: &[&str]| v.iter().map(ToString::to_string).collect::<Vec<_>>();
     assert_eq!(
         pairs(imports(Kind::Rust, "use a::{b, f::*};\n")),
         [("b".into(), p(&["a", "b"])), ("f".into(), p(&["a", "f"]))]

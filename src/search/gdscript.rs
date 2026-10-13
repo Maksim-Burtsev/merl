@@ -1,9 +1,13 @@
+#![expect(clippy::match_same_arms, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::*;
+use super::{Binding, Kind, Value, indent, lexical, literal_lines, uncommented};
 
 const LEAD: &str = r"^\s*(?:@\w+(?:\([^)]*\))?\s+)*";
 

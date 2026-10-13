@@ -1,3 +1,6 @@
+#![expect(clippy::cast_possible_truncation, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::struct_excessive_bools, reason = "#858")]
 use std::fmt;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
@@ -39,10 +42,10 @@ enum Op {
 impl fmt::Display for Op {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Op::Key(KeyCode::Char(c), m) if m.is_empty() => write!(f, "{c:?}"),
-            Op::Key(code, m) => f.write_str(&crate::stats::name(KeyEvent::new(*code, *m))),
-            Op::Paste(t) => write!(f, "paste {t:?}"),
-            Op::PasteClip => f.write_str("paste clipboard"),
+            Self::Key(KeyCode::Char(c), m) if m.is_empty() => write!(f, "{c:?}"),
+            Self::Key(code, m) => f.write_str(&crate::stats::name(KeyEvent::new(*code, *m))),
+            Self::Paste(t) => write!(f, "paste {t:?}"),
+            Self::PasteClip => f.write_str("paste clipboard"),
         }
     }
 }
@@ -50,8 +53,8 @@ impl fmt::Display for Op {
 impl Op {
     fn edit_only(&self) -> bool {
         match self {
-            Op::Key(KeyCode::Char(c), m) => m.is_empty() && *c != 'v',
-            Op::Key(KeyCode::Tab | KeyCode::Backspace | KeyCode::Delete, _) => true,
+            Self::Key(KeyCode::Char(c), m) => m.is_empty() && *c != 'v',
+            Self::Key(KeyCode::Tab | KeyCode::Backspace | KeyCode::Delete, _) => true,
             _ => false,
         }
     }
@@ -184,7 +187,7 @@ fn parse(bytes: &[u8]) -> (Vec<String>, Format) {
     let body = text.strip_suffix('\n').unwrap_or(text);
     let lines: Vec<String> = body
         .split('\n')
-        .map(|l| l.strip_suffix('\r').unwrap_or(l).to_string())
+        .map(|l| l.strip_suffix('\r').unwrap_or(l).to_owned())
         .collect();
     let format = Format {
         bom,
@@ -246,7 +249,7 @@ fn wordy(s: &str, i: usize) -> bool {
     s[i..].chars().next().is_some_and(is_word)
 }
 fn width(s: &str) -> usize {
-    s.graphemes(true).map(crate::wrap::cluster_width).sum()
+    s.graphemes(true).map(wrap::cluster_width).sum()
 }
 
 impl Model {
@@ -311,7 +314,7 @@ impl Model {
                 col = i;
                 break;
             }
-            x += crate::wrap::cluster_width(g);
+            x += wrap::cluster_width(g);
         }
         self.cur = (l, col);
     }
@@ -484,9 +487,12 @@ impl Model {
             .join("\n");
         let (anchor, cur) = (self.anchor, self.cur);
         self.replace((from.0, 0), (last, self.lines[last].len()), &text, "other");
-        let moved = |(l, c): Pos| match (from.0..=last).contains(&l) && c > 0 {
-            true => (l, c + indent.len()),
-            false => (l, c),
+        let moved = |(l, c): Pos| {
+            if (from.0..=last).contains(&l) && c > 0 {
+                (l, c + indent.len())
+            } else {
+                (l, c)
+            }
         };
         self.anchor = anchor.map(moved);
         self.cur = moved(cur);
@@ -745,7 +751,7 @@ fn play(path: &Path, file: &[u8], ops: &[Op]) -> Result<(), Failure> {
             let msg = e
                 .downcast_ref::<String>()
                 .cloned()
-                .or_else(|| e.downcast_ref::<&str>().map(|s| s.to_string()));
+                .or_else(|| e.downcast_ref::<&str>().map(ToString::to_string));
             return fail("panic", msg.unwrap_or_default());
         }
         match op {
@@ -864,7 +870,7 @@ fn random_edit_sessions_agree_with_the_model() {
             break;
         }
     }
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     assert!(
         failures.is_empty(),
         "\n{}\n\nMERL_FUZZ_SEED=S replays seed S; MERL_FUZZ_ALL=1 lists every failing seed",
@@ -1312,7 +1318,7 @@ fn replay_tree_sitter(
             }
             done.push(op.to_string());
             for _ in 0..rng.below(3) {
-                a.buf.parse_more(Some(std::time::Duration::ZERO));
+                a.buf.parse_more(Some(Duration::ZERO));
                 a.buf.paint_to(rng.below(a.buf.lines.len()), &theme);
             }
             if rng.below(3) > 0 {
@@ -1336,29 +1342,28 @@ fn replay_tree_sitter(
                     .map(|n| (n.0, n.1.clone()))
                     .collect::<Vec<_>>()
             };
-            let want = match shape == fresh_shape {
-                true => fresh.hl,
-                false => {
-                    assert!(
-                        recovered(&shape)
-                            || recovered(&fresh_shape)
-                            || tokens(&shape) == tokens(&fresh_shape),
-                        "{name} seed {seed}, after [{}]: the tree differs from a fresh parse without an error in either\nincremental {}\nfresh {}",
-                        done.join(", "),
-                        a.buf.sexp(),
-                        fresh.sexp()
-                    );
-                    assert_eq!(
-                        a.buf.root_bytes(),
-                        fresh.root_bytes(),
-                        "{name} seed {seed}, after [{}]: the tree does not span the text",
-                        done.join(", ")
-                    );
-                    let kept = a.buf.hl.clone();
-                    a.buf.clear_hl();
-                    a.buf.paint_to(usize::MAX, &theme);
-                    std::mem::replace(&mut a.buf.hl, kept)
-                }
+            let want = if shape == fresh_shape {
+                fresh.hl
+            } else {
+                assert!(
+                    recovered(&shape)
+                        || recovered(&fresh_shape)
+                        || tokens(&shape) == tokens(&fresh_shape),
+                    "{name} seed {seed}, after [{}]: the tree differs from a fresh parse without an error in either\nincremental {}\nfresh {}",
+                    done.join(", "),
+                    a.buf.sexp(),
+                    fresh.sexp()
+                );
+                assert_eq!(
+                    a.buf.root_bytes(),
+                    fresh.root_bytes(),
+                    "{name} seed {seed}, after [{}]: the tree does not span the text",
+                    done.join(", ")
+                );
+                let kept = a.buf.hl.clone();
+                a.buf.clear_hl();
+                a.buf.paint_to(usize::MAX, &theme);
+                std::mem::replace(&mut a.buf.hl, kept)
             };
             if let Some(l) = (0..a.buf.lines.len()).find(|&l| a.buf.hl[l] != want[l]) {
                 panic!(

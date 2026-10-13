@@ -1,3 +1,5 @@
+#![expect(clippy::format_push_string, reason = "#858")]
+#![expect(clippy::ignore_without_reason, reason = "#858")]
 use super::*;
 use crate::app::collapse::FOLD_EVERY_KIND;
 

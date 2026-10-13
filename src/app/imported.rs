@@ -1,4 +1,9 @@
-use super::*;
+#![expect(clippy::cognitive_complexity, reason = "#858")]
+#![expect(clippy::excessive_nesting, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
+use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, bound, search};
 
 impl App {
     pub(super) fn imported_definitions(
@@ -56,9 +61,10 @@ impl App {
                         .first()
                         .is_some_and(|m| !m.starts_with(['.', '~', '#']) && m != "@");
                     module.push(name_in_module);
-                    match outside {
-                        true => package.then_some(module),
-                        false => self.package_behind(f, &module, depth + 1),
+                    if outside {
+                        package.then_some(module)
+                    } else {
+                        self.package_behind(f, &module, depth + 1)
                     }
                 },
             )

@@ -1,5 +1,6 @@
-use super::definition::resolution;
-use super::*;
+#![expect(clippy::string_slice, reason = "#858")]
+use super::resolution::resolution;
+use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, search};
 
 impl App {
     pub(super) fn on_template(&self, here: &Path) -> bool {

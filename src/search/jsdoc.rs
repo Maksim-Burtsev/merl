@@ -1,9 +1,11 @@
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::Path;
 
 use regex::Regex;
 
-use super::*;
+use super::{Binding, Kind, Value, split_top};
 
 pub fn reads_jsdoc(kind: Kind, path: &Path) -> bool {
     kind == Kind::TsJs

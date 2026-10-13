@@ -1,3 +1,5 @@
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Component, Path, PathBuf};
 
 use regex::Regex;
@@ -24,7 +26,7 @@ pub fn cs_projects(
     });
     static SOURCE_FROM_OUTSIDE_OR_SHARED: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| {
-            Regex::new(r#"<Compile\b[^>]*\.\.|<Import\b[^>]*\.projitems"#).unwrap()
+            Regex::new(r"<Compile\b[^>]*\.\.|<Import\b[^>]*\.projitems").unwrap()
         });
     let manifests: Vec<&PathBuf> = files
         .iter()

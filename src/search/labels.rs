@@ -1,8 +1,14 @@
+#![cfg_attr(test, expect(clippy::cognitive_complexity, reason = "#858"))]
+#![expect(clippy::items_after_statements, reason = "#858")]
+#![expect(clippy::match_same_arms, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 
 use regex::Regex;
 
-use super::*;
+use super::{Group, Kind, body_of, code, group, indent, literal_lines, split_top, word_at};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Owner {
@@ -205,27 +211,26 @@ pub fn label_at(
                 return None;
             }
             let col = callee(kind, lines[at], open)?;
-            let owner = match kind == Kind::Swift
+            let owner = if kind == Kind::Swift
                 && word_at(lines[at], col, "").map(|w| w.1) == Some("init")
             {
-                true => {
-                    let head = lines[at][..col + 1 - "init".len()].strip_suffix('.');
-                    head.and_then(|h| {
-                        let name = h
-                            .rsplit(|c: char| !(c.is_alphanumeric() || c == '_'))
-                            .next()?;
-                        (name.starts_with(|c: char| c.is_ascii_uppercase())).then(|| LabelOwner {
-                            line0: at,
-                            byte_col: h.len() - 1,
-                            how: Owner::Args,
-                        })
+                let head = lines[at][..col + 1 - "init".len()].strip_suffix('.');
+                head.and_then(|h| {
+                    let name = h
+                        .rsplit(|c: char| !(c.is_alphanumeric() || c == '_'))
+                        .next()?;
+                    (name.starts_with(|c: char| c.is_ascii_uppercase())).then(|| LabelOwner {
+                        line0: at,
+                        byte_col: h.len() - 1,
+                        how: Owner::Args,
                     })
-                }
-                false => Some(LabelOwner {
+                })
+            } else {
+                Some(LabelOwner {
                     line0: at,
                     byte_col: col,
                     how: Owner::Args,
-                }),
+                })
             };
             Some(Label {
                 what: "argument label",
@@ -646,6 +651,7 @@ fn param_named(kind: Kind, part: &str, word: &str) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::search::definition_word;
 
     fn label(kind: Kind, text: &str, probe: &str) -> Option<Label> {
         let (line, l) = text

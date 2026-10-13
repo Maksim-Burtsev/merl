@@ -1,3 +1,10 @@
+#![expect(clippy::cast_possible_truncation, reason = "#858")]
+#![expect(clippy::cast_possible_wrap, reason = "#858")]
+#![expect(clippy::cast_sign_loss, reason = "#858")]
+#![expect(clippy::iter_on_single_items, reason = "#858")]
+#![expect(clippy::redundant_clone, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -100,7 +107,7 @@ pub(super) fn draw_tree(
         let notes = app.notes.list.len();
         let notes = match notes {
             0 => String::new(),
-            1 => " \u{b7} 1 note".to_string(),
+            1 => " \u{b7} 1 note".to_owned(),
             k => format!(" \u{b7} {k} notes"),
         };
         let totals = format!(" {n} file{s} \u{b7} +{added} \u{2212}{deleted}{notes} ");
@@ -169,41 +176,39 @@ pub(super) fn draw_tree(
                 Span::styled(tick, style.fg(theme.accent)),
                 Span::styled("  ".repeat(depth), style),
             ];
-            match app.review.as_ref().and_then(|r| r.file(&n.path)) {
-                Some(f) => {
-                    let dim = match app.review_panel_colours {
-                        true => style.fg(theme.ghost_fg),
-                        false => style,
-                    };
-                    let counts = counts(f);
-                    let used = 2 * depth + 2;
-                    let mut name = full.clone();
-                    if cut {
-                        let fits = wrap::cut(&name, 0, room.saturating_sub(1)).0;
-                        name = format!("{}\u{2026}", &name[fits]);
-                    }
-                    let gap =
-                        width.saturating_sub(used + wrap::width(&name) + wrap::width(&counts));
-                    spans.extend([
-                        Span::styled(f.status.to_string(), style),
-                        Span::styled(format!(" {name}{}", " ".repeat(gap)), style),
-                        Span::styled(counts, dim),
-                    ]);
+            if let Some(f) = app.review.as_ref().and_then(|r| r.file(&n.path)) {
+                let dim = if app.review_panel_colours {
+                    style.fg(theme.ghost_fg)
+                } else {
+                    style
+                };
+                let counts = counts(f);
+                let used = 2 * depth + 2;
+                let mut name = full.clone();
+                if cut {
+                    let fits = wrap::cut(&name, 0, room.saturating_sub(1)).0;
+                    name = format!("{}\u{2026}", &name[fits]);
                 }
-                None => {
-                    let marker = match (n.is_dir, n.expanded, app.marks.get(&n.path)) {
-                        (true, true, _) => '\u{25be}',
-                        (true, false, _) => '\u{25b8}',
-                        (false, _, _) if noted => '\u{270e}',
-                        (false, _, Some(&mark)) => mark,
-                        (false, _, None) => ' ',
-                    };
-                    let name = match cut && joined {
-                        true => cut_at_slash(&full, room),
-                        false => full,
-                    };
-                    spans.push(Span::styled(format!("{marker} {name}"), style));
-                }
+                let gap = width.saturating_sub(used + wrap::width(&name) + wrap::width(&counts));
+                spans.extend([
+                    Span::styled(f.status.to_string(), style),
+                    Span::styled(format!(" {name}{}", " ".repeat(gap)), style),
+                    Span::styled(counts, dim),
+                ]);
+            } else {
+                let marker = match (n.is_dir, n.expanded, app.marks.get(&n.path)) {
+                    (true, true, _) => '\u{25be}',
+                    (true, false, _) => '\u{25b8}',
+                    (false, _, _) if noted => '\u{270e}',
+                    (false, _, Some(&mark)) => mark,
+                    (false, _, None) => ' ',
+                };
+                let name = if cut && joined {
+                    cut_at_slash(&full, room)
+                } else {
+                    full
+                };
+                spans.push(Span::styled(format!("{marker} {name}"), style));
             }
             let used: usize = spans[1..].iter().map(|s| wrap::width(&s.content)).sum();
             spans.push(Span::styled(" ".repeat(width.saturating_sub(used)), style));
@@ -217,9 +222,10 @@ pub(super) fn draw_tree(
 const NAME_ROOM: usize = 12;
 
 fn counts(f: &crate::git::ReviewFile) -> String {
-    match f.binary {
-        true => "bin".to_string(),
-        false => format!("+{} \u{2212}{}", f.added, f.deleted),
+    if f.binary {
+        "bin".to_owned()
+    } else {
+        format!("+{} \u{2212}{}", f.added, f.deleted)
     }
 }
 
@@ -239,7 +245,7 @@ fn cut_at_slash(path: &str, room: usize) -> String {
     (1..parts.len())
         .map(|k| format!("\u{2026}/{}", parts[k..].join("/")))
         .find(|t| wrap::width(t) <= room)
-        .unwrap_or_else(|| parts[parts.len() - 1].to_string())
+        .unwrap_or_else(|| parts[parts.len() - 1].to_owned())
 }
 
 pub(super) fn draw_picker(
@@ -251,7 +257,7 @@ pub(super) fn draw_picker(
     base: Style,
 ) {
     let pending = app.search_pending();
-    let search = app.mode == Mode::Picker(crate::app::PickerKind::Search);
+    let search = app.mode == Mode::Picker(PickerKind::Search);
     let Some(picker) = &mut app.picker else {
         return;
     };
@@ -312,13 +318,12 @@ pub(super) fn draw_picker(
     );
     let height = list.height as usize;
     let prefix_w = usize::from(marks.is_some());
-    let (rows, places, selected) = match grouped && height > 1 {
-        true => group_window(picker, height, width, prefix_w),
-        false => {
-            let (rows, selected) = picker.window(height);
-            let places = rows.iter().map(|_| None).collect();
-            (rows, places, selected)
-        }
+    let (rows, places, selected) = if grouped && height > 1 {
+        group_window(picker, height, width, prefix_w)
+    } else {
+        let (rows, selected) = picker.window(height);
+        let places = rows.iter().map(|_| None).collect();
+        (rows, places, selected)
     };
     let mut lines: Vec<Line> = Vec::new();
     let mut headers = Vec::new();
@@ -341,13 +346,14 @@ pub(super) fn draw_picker(
             });
         }
         if let Some(r) = marks {
-            let colour = match row.item.deleted {
-                true => Some(Color::Red),
-                false => match review_mark(&mut picker.marks, r, &app.root, &row.item) {
+            let colour = if row.item.deleted {
+                Some(Color::Red)
+            } else {
+                match review_mark(&mut picker.marks, r, &app.root, &row.item) {
                     Some(Mark::Added) => Some(Color::Green),
                     Some(Mark::Changed) => Some(Color::Blue),
                     _ => None,
-                },
+                }
             };
             prefix.push(match colour {
                 Some(c) => Span::styled("\u{258e}", style.fg(c)),
@@ -408,11 +414,10 @@ pub(super) fn draw_picker(
                 .filter(|(b, _)| place.path.contains(b))
                 .map(|(_, s)| {
                     let accent = base.fg(theme.accent);
-                    match bold(s) {
-                        true => {
-                            Span::styled(s.content.clone(), accent.add_modifier(Modifier::BOLD))
-                        }
-                        false => Span::styled(s.content.clone(), accent),
+                    if bold(s) {
+                        Span::styled(s.content.clone(), accent.add_modifier(Modifier::BOLD))
+                    } else {
+                        Span::styled(s.content.clone(), accent)
                     }
                 });
             lines.push(padded([lead].into_iter().chain(path), width, base));
@@ -422,9 +427,10 @@ pub(super) fn draw_picker(
         let matched_num = cells
             .iter()
             .any(|(b, s)| (place.path.end..code_at).contains(b) && bold(s));
-        let num_style = match matched_num {
-            true => style.fg(theme.ghost_fg).add_modifier(Modifier::BOLD),
-            false => style.fg(theme.ghost_fg),
+        let num_style = if matched_num {
+            style.fg(theme.ghost_fg).add_modifier(Modifier::BOLD)
+        } else {
+            style.fg(theme.ghost_fg)
         };
         let num = Span::styled(
             format!("  {:>w$}  ", row.item.line, w = place.num_w),
@@ -551,9 +557,10 @@ fn places(rows: &[Row], width: usize, prefix_w: usize) -> Vec<Option<Place>> {
             let code_col = prefix_w + head_w + 2 + num_w + 2;
             let code = &label[code_at..];
             let room = width.saturating_sub(code_col);
-            let code_rows = match wrap::width(code) > room && room >= MIN_WRAP {
-                true => wrap::wrap_line(code, room),
-                false => std::iter::once(0..code.len()).collect(),
+            let code_rows = if wrap::width(code) > room && room >= MIN_WRAP {
+                wrap::wrap_line(code, room)
+            } else {
+                std::iter::once(0..code.len()).collect()
             };
             Some(Place {
                 header,
@@ -591,9 +598,10 @@ fn code_hl<'a>(
     theme: &Theme,
 ) -> Option<(&'a Spans, usize)> {
     let quoted = item.label[item.code_at?..].trim_end_matches('\u{2026}');
-    let key = match item.deleted {
-        true => item.path.join("\0base"),
-        false => item.path.clone(),
+    let key = if item.deleted {
+        item.path.join("\0base")
+    } else {
+        item.path.clone()
     };
     let buf = bufs
         .entry(key)
@@ -636,7 +644,7 @@ pub(super) fn lesson_panel(
             t.tutor,
         ),
         (None, None) => (
-            " Tutor \u{2713} done".to_string(),
+            " Tutor \u{2713} done".to_owned(),
             crate::tutor::ALL_LESSONS_DONE,
         ),
     };

@@ -1,3 +1,9 @@
+#![expect(clippy::cognitive_complexity, reason = "#858")]
+#![expect(clippy::match_same_arms, reason = "#858")]
+#![expect(clippy::needless_for_each, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 struct Syntax {
     line_comment: &'static str,
     block_comment: Option<(&'static str, &'static str)>,
@@ -433,7 +439,7 @@ enum Frame {
 
 impl Frame {
     fn reach(&mut self, n: usize) {
-        let (Frame::List { last, .. } | Frame::Item { last, .. }) = self;
+        let (Self::List { last, .. } | Self::Item { last, .. }) = self;
         *last = n;
     }
 }

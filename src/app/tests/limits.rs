@@ -1,3 +1,4 @@
+#![expect(clippy::format_push_string, reason = "#858")]
 use super::*;
 
 #[test]
@@ -20,8 +21,8 @@ fn the_files_outside_the_project_are_walked_once_per_session() {
     assert_eq!(a.external_files(Kind::Python).len(), 1);
     std::fs::write(root.join("installed.py"), "Y = 1\n").unwrap();
     assert_eq!(a.external_files(Kind::Python).len(), 1);
-    let _ = std::fs::remove_dir_all(dir);
-    let _ = std::fs::remove_dir_all(root);
+    drop(std::fs::remove_dir_all(dir));
+    drop(std::fs::remove_dir_all(root));
 }
 
 #[test]
@@ -37,7 +38,7 @@ fn the_hunk_left_is_its_index_so_a_hunk_written_above_it_takes_its_place() {
     a.review_refreshed(fresh);
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!((at(&a), a.line_str()), ((src, 3), "D"));
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 fn d_in(tag: &str, files: &[(String, String)], file: &str, code: &str) -> Shown {
@@ -49,20 +50,20 @@ fn d_in(tag: &str, files: &[(String, String)], file: &str, code: &str) -> Shown 
     a.no_external();
     d_on(&mut a, file, code);
     let found = shown(&mut a);
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
     found
 }
 
 fn ts_relays(modules: usize, last: &str) -> Vec<(String, String)> {
     let mut files = vec![(
-        "app.ts".to_string(),
-        "import { Tariff } from './r1';\n\nconst t = new Tariff();\n".to_string(),
+        "app.ts".to_owned(),
+        "import { Tariff } from './r1';\n\nconst t = new Tariff();\n".to_owned(),
     )];
     for i in 1..modules {
         let relay = format!("export {{ Tariff }} from './r{}';\n", i + 1);
         files.push((format!("r{i}.ts"), relay));
     }
-    files.push((format!("r{modules}.ts"), last.to_string()));
+    files.push((format!("r{modules}.ts"), last.to_owned()));
     files
 }
 
@@ -107,7 +108,7 @@ fn python_bases(levels: usize, top: &str) -> Vec<(String, String)> {
     }
     text +=
         "\n\nclass Other:\n    def save(self):\n        pass\n\n\ndef f(x: C0):\n    x.save()\n";
-    vec![("app.py".to_string(), text)]
+    vec![("app.py".to_owned(), text)]
 }
 
 #[test]
@@ -163,8 +164,8 @@ fn of_two_versions_of_a_crate_the_first_root_answers() {
             "{place}"
         );
     }
-    let _ = std::fs::remove_dir_all(dir);
-    let _ = std::fs::remove_dir_all(registry);
+    drop(std::fs::remove_dir_all(dir));
+    drop(std::fs::remove_dir_all(registry));
 }
 
 fn chain(head: &str, links: usize) -> String {
@@ -173,7 +174,7 @@ fn chain(head: &str, links: usize) -> String {
 
 fn chain_in(lang: &str, links: usize) -> Shown {
     let tag = format!("{lang}-chain-{links}");
-    let files = |name: &str, text: String| vec![(name.to_string(), text)];
+    let files = |name: &str, text: String| vec![(name.to_owned(), text)];
     match lang {
         "rust" => {
             let rs = format!(
@@ -390,10 +391,10 @@ fn implementations_are_looked_for_four_subtypes_down() {
 
 fn ts_barrel_subtype(barrels: usize) -> Vec<(String, String)> {
     let mut files = vec![
-        ("base.ts".to_string(), "export class Base {\n  run(): void {}\n}\n".to_string()),
+        ("base.ts".to_owned(), "export class Base {\n  run(): void {}\n}\n".to_owned()),
         (
-            "sub.ts".to_string(),
-            "import { Base } from './b1';\n\nexport class Sub extends Base {\n  run(): void {}\n}\n".to_string(),
+            "sub.ts".to_owned(),
+            "import { Base } from './b1';\n\nexport class Sub extends Base {\n  run(): void {}\n}\n".to_owned(),
         ),
     ];
     for i in 1..=barrels {
@@ -404,7 +405,7 @@ fn ts_barrel_subtype(barrels: usize) -> Vec<(String, String)> {
     }
     files.push((
         format!("b{}.ts", barrels + 1),
-        "export class Base {}\n".to_string(),
+        "export class Base {}\n".to_owned(),
     ));
     files
 }
@@ -570,8 +571,8 @@ fn what_a_php_class_outside_the_project_inherits_is_not_read() {
     assert!(
         matches!(shown(&mut a), Shown::Picker(s, rows) if s == "save: by name, 2 declarations" && rows.len() == 2)
     );
-    let _ = std::fs::remove_dir_all(dir);
-    let _ = std::fs::remove_dir_all(vendor);
+    drop(std::fs::remove_dir_all(dir));
+    drop(std::fs::remove_dir_all(vendor));
 }
 
 #[test]
@@ -599,7 +600,7 @@ fn an_angled_include_reads_every_directory_that_has_the_header() {
     let at = format!("{}:1", libc.join("stdio.h").display());
     assert_eq!(shown(&mut a), jump("printf: by name, 1 match", &at));
     for d in [dir, wrapper, libc] {
-        let _ = std::fs::remove_dir_all(d);
+        drop(std::fs::remove_dir_all(d));
     }
 }
 
@@ -616,7 +617,7 @@ fn a_rust_name_its_module_does_not_declare_is_left_to_the_search_by_name() {
         ("other/Cargo.toml", "[package]\nname = \"other\"\n"),
         ("other/src/lib.rs", "pub struct Thing;\n"),
     ]
-    .map(|(n, t)| (n.to_string(), t.to_string()));
+    .map(|(n, t)| (n.to_owned(), t.to_owned()));
     let found = d_in("rust-not-in-module", &files, "src/lib.rs", "t: Thing");
     let rows = [("Thing", "other/src/lib.rs:1"), ("Thing", "src/b.rs:1")];
     assert_eq!(found, picker("Thing: by name, 2 declarations", &rows));

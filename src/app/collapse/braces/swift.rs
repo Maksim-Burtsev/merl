@@ -1,3 +1,4 @@
+#![expect(clippy::useless_let_if_seq, reason = "#858")]
 use super::{K, Lexer, Model};
 
 const DECLS: &[&str] = &[

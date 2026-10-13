@@ -1,3 +1,4 @@
+#![expect(clippy::format_push_string, reason = "#858")]
 use crate::app::KEYS;
 use crate::git::BASES;
 

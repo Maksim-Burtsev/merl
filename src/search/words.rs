@@ -1,8 +1,18 @@
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 
 use regex::Regex;
 
-use super::*;
+use super::{
+    HASKELL_RESERVED, Kind, SYMBOLS, Value, close_of, cmake_name, code, cs_parameter_of,
+    enclosing_type, field_bindings, go_one_line_field, haskell_name, indent, jsdoc_owner_name,
+    julia_assigns_here, julia_name, jvm_function, jvm_mods, jvm_receiver_at, lisp, lisp_name,
+    literal_lines, ml_name, nix_name, php_tag_class, r_quoted_name, rust_let_declares, separator,
+    shared_symbols, symbol_name, ts_declarators, type_name, uncommented, value_of, word_chars,
+};
 
 pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<String> {
     static RECEIVER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -419,9 +429,10 @@ pub fn unbroken(kind: Kind, lines: &[String], at: usize, word_start: usize) -> O
     let mut start = word_start - indent(&lines[at]);
     for above in lines[at.saturating_sub(40)..at].iter().rev() {
         let code = uncommented(kind, above);
-        let code = match led(&code) {
-            true => code.trim(),
-            false => code.trim_end(),
+        let code = if led(&code) {
+            code.trim()
+        } else {
+            code.trim_end()
         };
         if code.is_empty() {
             continue;
@@ -437,7 +448,7 @@ pub fn unbroken(kind: Kind, lines: &[String], at: usize, word_start: usize) -> O
     }
     None
 }
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct LineAsRead {
     pub line: String,
     pub word_start: usize,
@@ -486,9 +497,10 @@ pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> 
         start = rest.len();
     }
     let written = &before[start..];
-    let without_cast_brackets = match callee.is_empty() {
-        true => &written[1..written.len() - 1],
-        false => written,
+    let without_cast_brackets = if callee.is_empty() {
+        &written[1..written.len() - 1]
+    } else {
+        written
     };
     let (call_without_arguments, value) = match value_of(kind, without_cast_brackets) {
         Value::Call(name) => (format!("{name}()"), Value::Call(name)),
@@ -504,7 +516,7 @@ pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> 
         fields_to_word: fields,
     })
 }
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct CallHead {
     pub call_without_arguments: String,
     pub value: Value,

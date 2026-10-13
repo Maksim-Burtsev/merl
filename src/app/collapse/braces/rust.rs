@@ -197,7 +197,7 @@ impl Model<'_, '_> {
                 }
                 "[" if self.array(k) => self.add(t.line, self.closing(k), false),
                 "{" if body[k].unwrap_or_else(|| self.block(k)) => {
-                    self.add(t.line, self.closing(k), false)
+                    self.add(t.line, self.closing(k), false);
                 }
                 _ => {}
             }

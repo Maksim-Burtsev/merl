@@ -1,3 +1,6 @@
+#![cfg_attr(test, expect(clippy::items_after_statements, reason = "#858"))]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::struct_excessive_bools, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -108,7 +111,7 @@ impl Buffer {
         let trailing_newline = text.ends_with('\n');
         let mut lines: Vec<String> = text
             .split('\n')
-            .map(|l| l.trim_end_matches('\r').to_string())
+            .map(|l| l.trim_end_matches('\r').to_owned())
             .collect();
         if lines.len() > 1 && lines.last().is_some_and(String::is_empty) {
             lines.pop();
@@ -139,17 +142,23 @@ impl Buffer {
 
     #[cfg(test)]
     pub fn sexp(&self) -> String {
-        self.ts.as_ref().map(|t| t.sexp()).unwrap_or_default()
+        self.ts
+            .as_ref()
+            .map(treesitter::Parsed::sexp)
+            .unwrap_or_default()
     }
 
     #[cfg(test)]
-    pub fn shape(&self) -> crate::treesitter::Shape {
-        self.ts.as_ref().map(|t| t.shape()).unwrap_or_default()
+    pub fn shape(&self) -> treesitter::Shape {
+        self.ts
+            .as_ref()
+            .map(treesitter::Parsed::shape)
+            .unwrap_or_default()
     }
 
     #[cfg(test)]
-    pub fn root_bytes(&self) -> Option<std::ops::Range<usize>> {
-        self.ts.as_ref().and_then(|t| t.root_bytes())
+    pub fn root_bytes(&self) -> Option<Range<usize>> {
+        self.ts.as_ref().and_then(treesitter::Parsed::root_bytes)
     }
 
     pub(crate) fn start_tree_sitter(&mut self) {
@@ -496,7 +505,7 @@ mod tests {
 
     #[test]
     fn a_code_block_past_the_limits_is_plain() {
-        let many = vec!["x".to_string(); MAX_HL_LINES + 1];
+        let many = vec!["x".to_owned(); MAX_HL_LINES + 1];
         assert!(Buffer::block("rust", many).syntax.is_none());
         let big = vec!["x".repeat(MAX_HL_BYTES + 1)];
         assert!(Buffer::block("rust", big).syntax.is_none());
@@ -510,7 +519,7 @@ mod tests {
         struct Gone(PathBuf);
         impl Drop for Gone {
             fn drop(&mut self) {
-                let _ = std::fs::remove_file(&self.0);
+                drop(std::fs::remove_file(&self.0));
             }
         }
         std::fs::write(&stray, "#!/bin/bash\n").unwrap();
@@ -526,7 +535,7 @@ mod tests {
     fn a_code_block_line_too_long_to_show_is_not_parsed() {
         let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
         let huge = format!("{{\"a\": \"{}\"}}", "x".repeat(1 << 20));
-        let mut block = Buffer::block("json", vec![huge, "{\"b\": 1}".to_string()]);
+        let mut block = Buffer::block("json", vec![huge, "{\"b\": 1}".to_owned()]);
         block.highlight_to(1, &theme);
         assert!(block.hl[0].is_empty());
         assert!(

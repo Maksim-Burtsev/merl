@@ -1,3 +1,4 @@
+#![expect(clippy::too_many_lines, reason = "#858")]
 use super::*;
 
 #[test]
@@ -137,7 +138,7 @@ fn ruby_classes_are_read_by_their_nesting() {
 #[test]
 fn ruby_roots_are_the_locked_gems_of_the_ruby_the_project_names() {
     let tmp = std::env::temp_dir().join(format!("merl-ruby-roots-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&tmp);
+    drop(std::fs::remove_dir_all(&tmp));
     let (root, home) = (tmp.join("app"), tmp.join("home"));
     let write = |path: &Path, text: &str| {
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();

@@ -1,4 +1,6 @@
-use super::*;
+use super::{
+    App, Hit, MAX_NAME_PAD, Mode, PickItem, Picker, PickerKind, SearchJob, at_label, wrap,
+};
 
 pub(super) struct NamedSymbol {
     pub name: String,

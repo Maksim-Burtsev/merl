@@ -1,3 +1,4 @@
+#![expect(clippy::redundant_clone, reason = "#858")]
 use super::*;
 
 fn at(root: &Path, file: &str, line: usize) -> String {
@@ -149,7 +150,7 @@ fn c_reads_no_cpp_header_and_only_objective_c_reads_the_pods() {
         ["c++/v1/cstdio.h:1", "stdio.h:1", "Lib/Lib.h:1"]
     );
     for d in [dir, inc, pods] {
-        let _ = std::fs::remove_dir_all(d);
+        drop(std::fs::remove_dir_all(d));
     }
 }
 

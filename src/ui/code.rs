@@ -1,3 +1,10 @@
+#![expect(clippy::cast_possible_truncation, reason = "#858")]
+#![expect(clippy::cognitive_complexity, reason = "#858")]
+#![expect(clippy::excessive_nesting, reason = "#858")]
+#![expect(clippy::ref_option, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::collections::HashMap;
 use std::ops::Range;
 use std::path::Path;
@@ -169,9 +176,10 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             let line = TextLine::Deleted(l, i);
             let cursor_line =
                 app.at() == line && app.notes.focus.is_none() && app.mode != Mode::Note;
-            let bg = match (cursor_line && text_hl) || in_span(line) {
-                true => base.bg(theme.del_bg_hl),
-                false => ghost,
+            let bg = if (cursor_line && text_hl) || in_span(line) {
+                base.bg(theme.del_bg_hl)
+            } else {
+                ghost
             };
             let g = if cursor_line { hl_gutter } else { gutter_style };
             let text = shown_str(raw);
@@ -211,11 +219,11 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             let selected = app
                 .selected_bytes(line)
                 .map(|r| r.start..r.end.min(text.len()));
-            let pad_style =
-                match sel_lines.is_some_and(|(first, last)| first <= line && line < last) {
-                    true => sel,
-                    false => bg,
-                };
+            let pad_style = if sel_lines.is_some_and(|(first, last)| first <= line && line < last) {
+                sel
+            } else {
+                bg
+            };
             let rows = ghost_wrap(raw);
             let last = rows.len() - 1;
             for (i, (r, lead)) in rows.into_iter().enumerate() {
@@ -403,9 +411,10 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 row.push(ellipsis(pad_style));
             }
             if let Some((gap, tail)) = fold {
-                let chip = match cursor_line {
-                    true => theme.selected(t.fg(theme.fg)),
-                    false => t.bg(theme.line_hl).fg(theme.fg),
+                let chip = if cursor_line {
+                    theme.selected(t.fg(theme.fg))
+                } else {
+                    t.bg(theme.line_hl).fg(theme.fg)
                 };
                 row.push(Span::styled(*gap, t));
                 row.push(Span::styled(FOLDED, chip));
@@ -498,21 +507,18 @@ pub(super) fn draw_renamed(
     let del = base.bg(theme.del_word_bg).fg(theme.word_fg);
     let add = base.bg(theme.add_word_bg).fg(theme.word_fg);
     let room = (area.width as usize).saturating_sub(2);
-    let mut lines = match wrap::width(&old) + 5 + wrap::width(&new) > room {
-        false => {
-            let mut row = tinted(&old, changed, base, del, room);
-            row.push(Span::styled("  \u{2192}  ", dim));
-            row.extend(tinted(&new, changed, base, add, room));
-            vec![Line::from(row)]
-        }
-        true => {
-            let mut second = vec![Span::styled("\u{2192}  ", dim)];
-            second.extend(tinted(&new, changed, base, add, room.saturating_sub(3)));
-            vec![
-                Line::from(tinted(&old, changed, base, del, room)),
-                Line::from(second),
-            ]
-        }
+    let mut lines = if wrap::width(&old) + 5 + wrap::width(&new) <= room {
+        let mut row = tinted(&old, changed, base, del, room);
+        row.push(Span::styled("  \u{2192}  ", dim));
+        row.extend(tinted(&new, changed, base, add, room));
+        vec![Line::from(row)]
+    } else {
+        let mut second = vec![Span::styled("\u{2192}  ", dim)];
+        second.extend(tinted(&new, changed, base, add, room.saturating_sub(3)));
+        vec![
+            Line::from(tinted(&old, changed, base, del, room)),
+            Line::from(second),
+        ]
     };
     lines.extend([
         Line::styled("renamed, no changes", dim),
@@ -559,9 +565,10 @@ fn tinted(
     let fitted = fit_path(path, room);
     let shown: Vec<char> = fitted.chars().collect();
     let whole = path.chars().count();
-    let (lead, cut) = match fitted == path {
-        true => (0, 0),
-        false => (1, whole + 1 - shown.len()),
+    let (lead, cut) = if fitted == path {
+        (0, 0)
+    } else {
+        (1, whole + 1 - shown.len())
     };
     let start = lead + pre.saturating_sub(cut);
     let end = shown.len() - suf.min(whole - cut);
@@ -594,14 +601,15 @@ fn pinned_lines<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -
                 bytes: r,
                 lead,
                 right_mark: after,
-            } = match app.nowrap() {
-                true => cut_unwrapped(app, &app.buf.lines[p]),
-                false => UnwrappedRow {
+            } = if app.nowrap() {
+                cut_unwrapped(app, &app.buf.lines[p])
+            } else {
+                UnwrappedRow {
                     left_mark: false,
                     bytes: app.rows(p).swap_remove(0),
                     lead: 0,
                     right_mark: false,
-                },
+                }
             };
             let ell = app.nowrap()
                 && Buffer::clips(&app.buf.lines[p])
@@ -692,8 +700,8 @@ fn selected_row<'a>(
 
 fn row_spans<'a>(
     text: &'a str,
-    hl: &[(Style, std::ops::Range<usize>)],
-    r: &std::ops::Range<usize>,
+    hl: &[(Style, Range<usize>)],
+    r: &Range<usize>,
     base: Style,
     tag: Style,
 ) -> Vec<Span<'a>> {

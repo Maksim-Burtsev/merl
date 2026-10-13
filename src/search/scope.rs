@@ -1,8 +1,18 @@
+#![expect(clippy::items_after_statements, reason = "#858")]
+#![expect(clippy::needless_pass_by_value, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::suspicious_operation_groupings, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
 
-use super::*;
+use super::{
+    Hit, Kind, ModuleFiles, cmake_roots, dart_roots, dart_sdk, erlang, julia_depot, julia_roots,
+    julia_share, kind_of, literal_lines, module_among, objc_frameworks, ocaml_roots, otp_roots,
+    perl_roots, powershell_roots, ruby_roots, ts_alias,
+};
 
 pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
     match kind {
@@ -434,16 +444,15 @@ pub fn package_copy(
         let linked = project
             .as_ref()
             .is_some_and(|p| dirs.iter().any(|d| in_copy(d, std::slice::from_ref(p))));
-        let copy = match linked {
-            true => {
-                let own: Vec<PathBuf> = project
-                    .iter()
-                    .flat_map(|p| own.iter().map(|f| p.join(f)))
-                    .filter(|f| kind_of(f) == Some(Kind::TsJs))
-                    .collect();
-                copy_in(&own, dirs)
-            }
-            false => copy_in(files, dirs.iter().filter_map(|d| spelled(d)).collect()),
+        let copy = if linked {
+            let own: Vec<PathBuf> = project
+                .iter()
+                .flat_map(|p| own.iter().map(|f| p.join(f)))
+                .filter(|f| kind_of(f) == Some(Kind::TsJs))
+                .collect();
+            copy_in(&own, dirs)
+        } else {
+            copy_in(files, dirs.iter().filter_map(|d| spelled(d)).collect())
         };
         let whole = copy
             .module(module)
@@ -575,7 +584,7 @@ pub(super) fn exports_map(text: &str) -> bool {
     }
     false
 }
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct PackageCopy {
     pub dirs: Vec<PathBuf>,
     pub files: Vec<PathBuf>,
@@ -720,9 +729,12 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
             .build();
         files.extend(
             walk.filter_map(Result::ok)
-                .map(|e| match kind == Kind::C && e.path_is_symlink() {
-                    true => c_spelled(e.path(), &real),
-                    false => e.into_path(),
+                .map(|e| {
+                    if kind == Kind::C && e.path_is_symlink() {
+                        c_spelled(e.path(), &real)
+                    } else {
+                        e.into_path()
+                    }
                 })
                 .filter(|p| p.is_file() && (kind_of(p) == Some(kind) || core_signature(kind, p)))
                 .filter(|p| !(go && p.to_string_lossy().ends_with("_test.go"))),
@@ -979,9 +991,10 @@ pub fn go_built(path: &Path, text: &str, build: &GoBuild) -> GoBuilt {
             .map(|(_, l)| l)
     };
     let Some(expr) = head().find_map(|l| l.strip_prefix("//go:build ")) else {
-        return match head().any(|l| l.starts_with("// +build")) {
-            true => GoBuilt::Unread,
-            false => GoBuilt::Compiled,
+        return if head().any(|l| l.starts_with("// +build")) {
+            GoBuilt::Unread
+        } else {
+            GoBuilt::Compiled
         };
     };
     static TOKEN: std::sync::LazyLock<Regex> =

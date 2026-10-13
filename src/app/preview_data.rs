@@ -1,7 +1,7 @@
 use std::hash::{Hash, Hasher};
 use std::thread::JoinHandle;
 
-use super::*;
+use super::{App, Duration, Instant, Path, PathBuf};
 use crate::markdown::data::{self, Parsed};
 
 type Job = JoinHandle<Result<Parsed, String>>;
@@ -29,12 +29,11 @@ pub(super) fn lines_hash(lines: &[String]) -> u64 {
 }
 
 pub(super) fn no_preview(path: &Path) -> String {
-    match path.extension() {
-        Some(ext) => format!("no preview for .{}", ext.to_string_lossy()),
-        None => {
-            let name = path.file_name().unwrap_or(path.as_os_str());
-            format!("no preview for {}", name.to_string_lossy())
-        }
+    if let Some(ext) = path.extension() {
+        format!("no preview for .{}", ext.to_string_lossy())
+    } else {
+        let name = path.file_name().unwrap_or(path.as_os_str());
+        format!("no preview for {}", name.to_string_lossy())
     }
 }
 
@@ -118,12 +117,11 @@ impl App {
         let spawned = std::thread::Builder::new()
             .name(data::THREAD.into())
             .spawn(move || data::parse(kind, &lines));
-        match spawned {
-            Ok(job) => self.parse.job = Some((path, hash, job)),
-            Err(_) => {
-                self.previewed.remove(&path);
-                self.message = "p: could not parse".into();
-            }
+        if let Ok(job) = spawned {
+            self.parse.job = Some((path, hash, job));
+        } else {
+            self.previewed.remove(&path);
+            self.message = "p: could not parse".into();
         }
     }
 

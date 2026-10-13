@@ -1,6 +1,10 @@
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
 
-use super::*;
+use super::{
+    Binding, Kind, Value, close_of, code, indent, names, split_top, uncommented, value_of,
+};
 
 pub(super) fn ts_params(params: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
     static MODS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {

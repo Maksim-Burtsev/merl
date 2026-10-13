@@ -333,7 +333,7 @@ fn a_field_is_reached_by_its_whole_name() {
 
 #[test]
 fn a_chain_broken_over_lines_reads_as_one() {
-    let lines = |ls: &[&str]| ls.iter().map(|l| l.to_string()).collect::<Vec<_>>();
+    let lines = |ls: &[&str]| ls.iter().map(ToString::to_string).collect::<Vec<_>>();
     let php = lines(&["$query", "    ->where("]);
     assert_eq!(
         unbroken(Kind::Php, &php, 1, 6),

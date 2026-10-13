@@ -1,3 +1,4 @@
+#![expect(clippy::cast_possible_truncation, reason = "#858")]
 use std::path::PathBuf;
 
 use ratatui::Terminal;
@@ -33,7 +34,7 @@ fn code_blocks_take_the_theme_and_another_theme_repaints_them() {
         assert!(shown[4].contains("[preview]"), "{shown:?}");
         let (gutter, tint_pad) = (2, 1);
         let fg = terminal.backend().buffer()[(gutter + tint_pad, 2)].fg;
-        let mut block = Buffer::block("rust", vec!["fn main() {}".to_string()]);
+        let mut block = Buffer::block("rust", vec!["fn main() {}".to_owned()]);
         block.highlight_to(0, &theme);
         let want = block.hl[0][0].0.fg;
         assert_eq!(Some(fg), want, "{name}");
@@ -61,7 +62,7 @@ fn a_wrapped_code_line_keeps_its_colours() {
     let shown = rows(&terminal);
     assert_eq!(shown[..2], ["let answer = compute(1, 2)", "+ \"forty\";"]);
     let (gutter, tint_pad, plus) = (2, 1, "+ ".len() as u16);
-    let mut block = Buffer::block("rust", vec![line.to_string()]);
+    let mut block = Buffer::block("rust", vec![line.to_owned()]);
     block.highlight_to(0, &theme);
     let spans = &block.hl;
     let at = line.find('"').unwrap();

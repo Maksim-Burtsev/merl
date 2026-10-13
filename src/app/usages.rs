@@ -1,4 +1,9 @@
-use super::*;
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+use super::{
+    App, HashMap, Hit, Kind, Path, PathBuf, PickerKind, Regex, Tier, deleted_hits, search,
+    whole_at, word_col,
+};
 
 pub(super) struct UsageHits {
     pub ranked: Vec<(Tier, Hit)>,
@@ -86,9 +91,10 @@ impl App {
             ) => self.definition_word(k).map(|(r, w)| {
                 let lead = &self.line_str()[..r.start];
                 let sigil = lead.len() - lead.trim_end_matches('@').len();
-                match k == Some(Kind::Ruby) && (1..=2).contains(&sigil) {
-                    true => format!("{}{w}", &lead[lead.len() - sigil..]),
-                    false => w,
+                if k == Some(Kind::Ruby) && (1..=2).contains(&sigil) {
+                    format!("{}{w}", &lead[lead.len() - sigil..])
+                } else {
+                    w
                 }
             }),
             k => self

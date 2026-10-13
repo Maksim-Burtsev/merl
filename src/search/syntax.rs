@@ -1,4 +1,13 @@
-use super::*;
+#![expect(clippy::cognitive_complexity, reason = "#858")]
+#![expect(clippy::iter_on_single_items, reason = "#858")]
+#![expect(clippy::match_same_arms, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+use super::{
+    Kind, haskell_literal_lines, html_literal_lines, julia_literal_lines, lisp, lisp_literal_lines,
+    markdown_literal_lines, ml_literal_lines, nix_literal_lines, perl_literal_lines,
+    r_literal_lines, style_blocks,
+};
 use std::borrow::Cow;
 
 pub(super) fn indent(s: &str) -> usize {
@@ -276,9 +285,10 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
                 _ => *depth -= 1,
             }
         } else if let Some(q) = line_quote {
-            let escape = match powershell {
-                true => q == b'"' && c == b'`',
-                false => c == b'\\',
+            let escape = if powershell {
+                q == b'"' && c == b'`'
+            } else {
+                c == b'\\'
             };
             if escape && b.get(i + 1) != Some(&b'\n') {
                 i += 1;
@@ -310,7 +320,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
             && b[i + 2..]
                 .iter()
                 .take_while(|&&c| c != b'\n')
-                .all(|c| c.is_ascii_whitespace())
+                .all(u8::is_ascii_whitespace)
         {
             literal_closer = Some(b"".into());
             heredoc = Some(Heredoc {
@@ -426,7 +436,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
         } else if kind == Kind::Ruby
             && line_start
             && b[i..].starts_with(b"=begin")
-            && b.get(i + 6).is_none_or(|c| c.is_ascii_whitespace())
+            && b.get(i + 6).is_none_or(u8::is_ascii_whitespace)
         {
             literal_closer = Some(b"".into());
             heredoc = Some(Heredoc {
