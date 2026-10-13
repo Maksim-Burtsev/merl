@@ -1,5 +1,4 @@
 #![expect(clippy::case_sensitive_file_extension_comparisons, reason = "#858")]
-#![expect(clippy::format_collect, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 use std::path::PathBuf;
 use std::sync::Arc;

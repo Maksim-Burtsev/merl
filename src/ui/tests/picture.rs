@@ -1,4 +1,3 @@
-#![expect(clippy::format_collect, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use ratatui::Terminal;

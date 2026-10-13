@@ -1,3 +1,7 @@
+#![expect(
+    clippy::format_collect,
+    reason = "a fixture is built one format! per line; the allocations cost a test nothing"
+)]
 use super::open::carried;
 use super::resolution::resolution;
 use super::*;
