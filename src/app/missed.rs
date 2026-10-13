@@ -1,5 +1,6 @@
 use super::cursor::{word_end, word_start};
 use super::keys::named;
+use super::review::Next;
 use super::*;
 
 const RUN_GAP: Duration = Duration::from_millis(200);
@@ -395,16 +396,14 @@ impl App {
         let next = self
             .review
             .as_ref()
-            .filter(|_| self.hunk_ahead(1).is_none())
-            .and_then(|r| {
-                let back = self.hunk_left(r).map(|(rel, _)| rel);
-                back.or_else(|| {
-                    let f = self
-                        .ahead(r, 1)
-                        .into_iter()
-                        .find(|f| f.is_stop(&self.root, self.diagrams.on()));
-                    f.map(|f| f.path.clone())
-                })
+            .and_then(|r| match self.next_hunk(r, 1) {
+                Next::Back(rel, _) => Some(rel),
+                Next::Here(_) => None,
+                Next::On => self
+                    .ahead(r, 1)
+                    .into_iter()
+                    .find(|f| f.is_stop(&self.root, self.diagrams.on()))
+                    .map(|f| f.path.clone()),
             });
         Some(Trip {
             kind,

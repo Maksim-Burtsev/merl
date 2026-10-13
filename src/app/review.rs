@@ -129,15 +129,25 @@ impl App {
         let Some(r) = self.review.clone() else {
             return;
         };
-        if let Some(h) = self.hunk_ahead(dir) {
+        let next = match self.next_hunk(&r, dir) {
+            Next::Back(rel, h) => {
+                let path = self.root.join(rel);
+                self.jump_to_hunk(&path, h);
+                if self.buf.path.as_deref() == Some(&*path) {
+                    self.walked_here = true;
+                    return;
+                }
+                if self.dirty {
+                    return;
+                }
+                self.hunk_ahead(dir).map_or(Next::On, Next::Here)
+            }
+            next => next,
+        };
+        if let Next::Here(h) = next {
             let path = self.buf.path.clone().unwrap();
             self.jump_to_hunk(&path, h);
             self.remember_hunk();
-            return;
-        }
-        if let Some((rel, h)) = self.hunk_left(&r) {
-            self.jump_to_hunk(&self.root.join(rel), h);
-            self.walked_here = true;
             return;
         }
         let mut read = self
@@ -167,6 +177,13 @@ impl App {
             format!("{end} hunk of the review")
         });
         self.mark_viewed(read.take());
+    }
+
+    pub(super) fn next_hunk(&self, r: &git::Review, dir: isize) -> Next {
+        match self.hunk_left(r) {
+            Some((rel, h)) => Next::Back(rel, h),
+            None => self.hunk_ahead(dir).map_or(Next::On, Next::Here),
+        }
     }
 
     pub(super) fn hunk_ahead(&self, dir: isize) -> Option<TextLine> {
@@ -201,16 +218,16 @@ impl App {
         }
     }
 
-    fn remember_hunk(&mut self) {
+    pub(super) fn remember_hunk(&mut self) {
         let i = self.diff.hunks.iter().filter(|&&h| h < self.at()).count();
         self.last_hunk = self.rel_current().map(|rel| (rel, i));
     }
 
     pub(super) fn hunk_left(&self, r: &git::Review) -> Option<(PathBuf, TextLine)> {
-        if self.rel_current().is_some_and(|rel| r.file(&rel).is_some()) {
+        let (rel, i) = self.last_hunk.clone()?;
+        if self.rel_current().as_ref() == Some(&rel) {
             return None;
         }
-        let (rel, i) = self.last_hunk.clone()?;
         let f = r
             .file(&rel)
             .filter(|f| f.is_stop(&self.root, self.diagrams.on()))?;
@@ -495,6 +512,9 @@ impl App {
         if stale {
             self.refresh_diff();
         }
+        if switched {
+            self.last_hunk = None;
+        }
         let closed = if switched { self.session.take() } else { None };
         let reopen = closed.is_some();
         if let Some(s) = closed {
@@ -522,6 +542,12 @@ pub struct Side {
 }
 
 pub(super) type OldPicture = ((String, PathBuf), Result<PathBuf, String>);
+
+pub(super) enum Next {
+    Back(PathBuf, TextLine),
+    Here(TextLine),
+    On,
+}
 
 fn count_stops(
     r: &git::Review,

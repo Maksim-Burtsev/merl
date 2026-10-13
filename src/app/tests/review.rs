@@ -1015,7 +1015,7 @@ fn review_walks_past_a_submodule_and_a_file_that_does_not_open() {
     assert!(a.viewed.contains_key(Path::new("new")) && !a.viewed.contains_key(Path::new("sub")));
     std::fs::remove_file(dir.join("new")).unwrap();
     std::fs::create_dir(dir.join("new")).unwrap();
-    a.jump_to(&dir.join("gone"), 1);
+    walk_into(&mut a, "gone");
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!(at(&a), (dir.join("tail"), 0));
     assert!(
@@ -1023,7 +1023,7 @@ fn review_walks_past_a_submodule_and_a_file_that_does_not_open() {
         "the status says why `new` does not open: {}",
         a.message
     );
-    a.jump_to(&dir.join("gone"), 1);
+    walk_into(&mut a, "gone");
     (a.dirty, a.conflict) = (true, true);
     a.message = "save failed: x".into();
     a.hunk(1);
@@ -1035,7 +1035,7 @@ fn review_walks_past_a_submodule_and_a_file_that_does_not_open() {
     assert_eq!(a.message, "save failed: x", "what the status says stays");
     (a.dirty, a.conflict) = (false, false);
     std::fs::remove_file(dir.join("tail")).unwrap();
-    a.jump_to(&dir.join("gone"), 1);
+    walk_into(&mut a, "gone");
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!(at(&a), (dir.join("gone"), 0));
     assert!(
@@ -1169,6 +1169,14 @@ fn review_walks_hunks_across_files_and_opens_deleted_files_from_the_base() {
         "a file crossing is one stop: `[` goes straight back to the previous file"
     );
     big_c(&mut a);
+    assert_eq!(
+        at(&a),
+        (dir.join("tail"), 0),
+        "`[` is no walk: `C` goes back to the hunk left"
+    );
+    big_c(&mut a);
+    assert_eq!(at(&a), (dir.join("new"), 0));
+    big_c(&mut a);
     assert_eq!(at(&a), (dir.join("gone"), 0));
     assert_eq!(a.buf.lines, vec!["x", "y"], "read from the base");
     assert_eq!(a.diff.marks.len(), 2);
@@ -1259,7 +1267,7 @@ fn review_walks_hunks_across_files_and_opens_deleted_files_from_the_base() {
 }
 
 #[test]
-fn c_and_big_c_from_outside_the_review_go_back_to_the_hunk_left() {
+fn c_and_big_c_from_another_file_go_back_to_the_hunk_left() {
     let (dir, mut a) = review_app("reviewback");
     let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
     let big_c = |a: &mut App| press(a, KeyCode::Char('C'), KeyModifiers::NONE);
@@ -1318,8 +1326,122 @@ fn c_and_big_c_from_outside_the_review_go_back_to_the_hunk_left() {
     big_c(&mut a);
     assert_eq!(
         at(&a),
-        (dir.join("new"), 0),
-        "an excursion into another file of the review walks on from the cursor there"
+        (dir.join("src/a.rs"), 5),
+        "an excursion into another file of the review goes back to the hunk left too"
+    );
+    a.jump_to(&dir.join("new"), 1);
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("src/a.rs"), 5), "`c` the same");
+    a.jump_to(&dir.join("src/a.rs"), 1);
+    c(&mut a);
+    assert_eq!(
+        at(&a),
+        (dir.join("src/a.rs"), 1),
+        "in the file of the hunk left `c` walks on from the cursor"
+    );
+    c(&mut a);
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
+    a.jump_to(&dir.join("src/a.rs"), 1);
+    c(&mut a);
+    assert_eq!(
+        at(&a),
+        (dir.join("crlf.txt"), 1),
+        "the hunks below the cursor in the file of the excursion are not the walk's"
+    );
+    a.focus = Focus::Tree;
+    a.tree.reveal(Path::new("tail"));
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    a.focus = Focus::Code;
+    a.jump_to(&outside, 2);
+    c(&mut a);
+    assert_eq!(
+        at(&a),
+        (dir.join("tail"), 0),
+        "Enter in the tree moves the walk: the way back is the file it opened"
+    );
+    a.jump_to(&dir.join("src/a.rs"), 6);
+    big_c(&mut a);
+    assert_eq!(
+        at(&a),
+        (dir.join("tail"), 0),
+        "the hunks above the cursor in the file of the excursion are not the walk's"
+    );
+    a.jump_to(&dir.join("src/a.rs"), 4);
+    walk_into(&mut a, "src/a.rs");
+    a.jump_to(&outside, 2);
+    c(&mut a);
+    assert_eq!(
+        at(&a),
+        (dir.join("src/a.rs"), 5),
+        "Enter on the file already open makes it the walk's, from the cursor"
+    );
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let lock = |name: &str, mode: u32| {
+            let p = std::fs::Permissions::from_mode(mode);
+            std::fs::set_permissions(dir.join(name), p).unwrap();
+        };
+        a.jump_to(&outside, 2);
+        lock("tail", 0o000);
+        walk_into(&mut a, "tail");
+        c(&mut a);
+        assert_eq!(
+            at(&a),
+            (dir.join("src/a.rs"), 5),
+            "a file that does not open in the tree does not move the walk"
+        );
+        lock("tail", 0o644);
+        a.jump_to(&dir.join("new"), 1);
+        lock("src/a.rs", 0o000);
+        c(&mut a);
+        assert_eq!(
+            at(&a),
+            (dir.join("tail"), 0),
+            "the hunk left does not open: `c` walks on from the cursor"
+        );
+        assert!(
+            a.message.contains("src/a.rs"),
+            "and says why: {}",
+            a.message
+        );
+        lock("src/a.rs", 0o644);
+    }
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn the_hunk_left_is_forgotten_when_the_review_follows_another_branch() {
+    let (dir, mut a) = review_app("reviewbackswitch");
+    let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
+    a.jump_to(&dir.join("tail"), 1);
+    c(&mut a);
+    a.jump_to(&dir.join("src/a.rs"), 1);
+    let mut fresh = a.review.clone().unwrap();
+    fresh.branch = "other".into();
+    a.review_refreshed(fresh);
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn merl_review_started_on_nothing_makes_its_first_hunk_the_walks() {
+    let (dir, _) = review_app("reviewbackstart");
+    let review = git::Review::open(&dir, None, None).unwrap();
+    let (_, files) = crate::tree::build(&dir, false);
+    let paths: Vec<_> = review.files.iter().map(|f| f.path.clone()).collect();
+    let tree = crate::tree::from_listing(&paths);
+    let mut a = App::new(dir.clone(), tree, files, Buffer::empty(), None);
+    a.start_review(review);
+    assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
+    a.jump_to(&dir.join("tail"), 1);
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    assert_eq!(
+        at(&a),
+        (dir.join("src/a.rs"), 1),
+        "before any key the walk stands on the first hunk merl opened"
     );
     let _ = std::fs::remove_dir_all(dir);
 }
@@ -1377,7 +1499,7 @@ fn the_hunk_left_is_found_by_its_place_in_its_file() {
         on("B"),
         "`D` and `F` reverted under the reader of the third hunk: `C` goes to the file's last"
     );
-    a.jump_to(&dir.join("gone"), 1);
+    walk_into(&mut a, "gone");
     c(&mut a);
     assert_eq!(at(&a), (dir.join("new"), 0));
     write(&mut a, "new", "");
@@ -1385,6 +1507,7 @@ fn the_hunk_left_is_found_by_its_place_in_its_file() {
     assert!(r.file(Path::new("new")).is_some_and(|f| !f.has_hunks()));
     c(&mut a);
     assert_eq!(at(&a), (dir.join("new"), 0));
+    walk_into(&mut a, "src/a.rs");
     a.jump_to(&src, 3);
     c(&mut a);
     assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
@@ -1397,6 +1520,7 @@ fn the_hunk_left_is_found_by_its_place_in_its_file() {
         "crlf.txt as it was at the base: the review drops the file"
     );
     write(&mut a, "src/a.rs", "a\nB\nc\nd\ne\nF\n");
+    walk_into(&mut a, "src/a.rs");
     a.jump_to(&src, 2);
     c(&mut a);
     assert_eq!(at(&a), (src.clone(), 5));
@@ -1641,6 +1765,7 @@ fn deleted_lines_are_lines_of_the_text() {
         "`d` reads the word on a deleted line: nothing declares `b`"
     );
 
+    walk_into(&mut a, "tail");
     a.jump_to(&dir.join("tail"), 1);
     key(&mut a, KeyCode::Char('c'));
     assert_eq!(
@@ -2208,4 +2333,11 @@ fn cutting_a_line_above_a_changed_pair_draws_before_the_diff_catches_up() {
     t.draw(|f| crate::ui::draw(f, &mut a, &theme)).unwrap();
     assert_eq!(a.buf.lines.len(), 5);
     let _ = std::fs::remove_dir_all(dir);
+}
+
+fn walk_into(a: &mut App, rel: &str) {
+    a.focus = Focus::Tree;
+    a.tree.reveal(Path::new(rel));
+    press(a, KeyCode::Enter, KeyModifiers::NONE);
+    a.focus = Focus::Code;
 }

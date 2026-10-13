@@ -406,6 +406,13 @@ fn review_runs_into_a_hunk_or_o_to_the_next_file_miss_c() {
         "`o` from outside the review to the file of the hunk `c` left: {:?}",
         a.missed
     );
+    a.jump_to(&dir.join("src/a.rs"), 1);
+    open_by_name(&mut a, "crlf.txt");
+    assert_eq!(
+        a.missed["c"], 4,
+        "#855: from another file of the review too, though it has hunks below the cursor: {:?}",
+        a.missed
+    );
     std::fs::remove_dir_all(dir).unwrap();
 }
 
