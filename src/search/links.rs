@@ -1,4 +1,3 @@
-#![expect(clippy::needless_collect, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use std::collections::HashMap;
@@ -33,6 +32,10 @@ pub fn markdown_at(text: &str, at: usize) -> MdAt {
         Regex::new(r#"(?is)<a\s[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')[^>]*>.*?</a>"#).unwrap()
     });
     let parser = Parser::new_ext(text, options());
+    #[expect(
+        clippy::needless_collect,
+        reason = "the definitions are read before `into_offset_iter` consumes the parser"
+    )]
     let defs: Vec<(Range<usize>, String)> = parser
         .reference_definitions()
         .iter()

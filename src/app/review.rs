@@ -1,4 +1,3 @@
-#![cfg_attr(test, expect(clippy::needless_collect, reason = "#858"))]
 #![expect(clippy::needless_pass_by_value, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use anyhow::Context as _;
@@ -680,8 +679,14 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let store = dir.join("viewed");
         let paths = [PathBuf::from("a\tb.rs"), PathBuf::from("Icon\r")];
-        let marks: Vec<(&PathBuf, &u64)> = paths.iter().map(|p| (p, &7)).collect();
-        write_viewed(&store, "feature", "main", marks.into_iter(), 20_000).unwrap();
+        write_viewed(
+            &store,
+            "feature",
+            "main",
+            paths.iter().map(|p| (p, &7)),
+            20_000,
+        )
+        .unwrap();
         let read = read_viewed(&store, "feature", "main", 20_000).unwrap();
         assert_eq!(read.len(), 2);
         assert!(paths.iter().all(|p| read.get(p) == Some(&7)), "{read:?}");

@@ -1,5 +1,4 @@
 #![expect(clippy::format_collect, reason = "#858")]
-#![expect(clippy::redundant_clone, reason = "#858")]
 #![expect(clippy::trivial_regex, reason = "#858")]
 use super::*;
 
@@ -607,7 +606,7 @@ fn a_selection_to_the_end_of_a_cut_line_copies_all_of_it() {
 fn opening_at_a_column_past_the_cut_lands_on_the_drawn_end() {
     let (path, a) = temp_file("cut-open", &format!("{}THE END\n", "ab ".repeat(10_000)));
     let a = App::new(
-        a.root.clone(),
+        a.root,
         Tree::default(),
         Vec::new(),
         Buffer::load(&path).unwrap(),

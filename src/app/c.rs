@@ -1,7 +1,5 @@
 #![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::needless_collect, reason = "#858")]
 #![expect(clippy::needless_pass_by_ref_mut, reason = "#858")]
-#![expect(clippy::redundant_clone, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::{
@@ -97,7 +95,7 @@ impl App {
             return broke(&head);
         };
         let mut links = Vec::new();
-        let mut prev = head.clone();
+        let mut prev = head;
         for (i, name) in fields.iter().chain([&word.to_owned()]).enumerate() {
             let Some(body) = self.c_body(here, &ty) else {
                 return broke(&prev);
@@ -563,6 +561,10 @@ impl App {
                         && search::c_defines_member(&c.hit.text, scopes, word)
                 })
             };
+            #[expect(
+                clippy::needless_collect,
+                reason = "the Vec ends the borrow of `found` before `retain` takes it mutably"
+            )]
             let keep: Vec<bool> = classes
                 .iter()
                 .map(|class| class.as_deref().is_none_or(|c| !defined(c)))

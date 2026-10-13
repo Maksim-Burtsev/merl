@@ -1,6 +1,5 @@
 #![expect(clippy::needless_pass_by_ref_mut, reason = "#858")]
 #![expect(clippy::needless_pass_by_value, reason = "#858")]
-#![expect(clippy::redundant_clone, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 use super::{App, Candidate, HashSet, Hit, Kind, Path, PathBuf, Reason, Regex, search};
 
@@ -29,7 +28,7 @@ impl App {
             return;
         }
         let target = if search::perl_used_module(&line) == Some(range.clone()) {
-            Target::Package(name.clone())
+            Target::Package(name)
         } else {
             perl_target(&line, range, &name, self.col)
         };

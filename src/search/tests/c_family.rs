@@ -1,6 +1,5 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
 #![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::redundant_clone, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use super::*;
 
@@ -1487,7 +1486,7 @@ fn a_csharp_file_sees_its_project_and_the_ones_it_references() {
         !seen.sees(Path::new("Shop.App/Tests/PageTests.cs")),
         "a project inside another's directory is a project of its own"
     );
-    let mut two = files.clone();
+    let mut two = files;
     two.push(PathBuf::from("Shop.App/Shop.App.Tests.csproj"));
     assert!(
         cs_projects(&two, here, read(alone)).is_none(),

@@ -1,4 +1,3 @@
-#![expect(clippy::needless_collect, reason = "#858")]
 use super::c::{c_header, method_pattern};
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, search};
 
@@ -219,6 +218,10 @@ impl App {
             return found;
         }
         let defs = self.project_definitions(Kind::C, here, word, &method_pattern(word));
+        #[expect(
+            clippy::needless_collect,
+            reason = "the Vec ends the borrow of `found` the filter reads before `extend` takes it mutably"
+        )]
         found.extend(
             (defs.into_iter())
                 .filter(|h| {

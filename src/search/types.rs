@@ -1,5 +1,4 @@
 #![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::redundant_clone, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
@@ -102,7 +101,7 @@ fn ts_returned_local(
     text: &str,
     lines: &[&str],
     returned: &[(usize, Value)],
-    body: std::ops::Range<usize>,
+    mut body: std::ops::Range<usize>,
     local: &str,
 ) -> Option<Value> {
     let assigned = Regex::new(&format!(
@@ -130,7 +129,7 @@ fn ts_returned_local(
         let t = l.trim_start();
         ["const ", "let ", "var "].iter().any(|k| t.starts_with(k))
     };
-    let reassigned = body.clone().any(|i| {
+    let reassigned = body.any(|i| {
         let l = uncommented(Kind::TsJs, lines[i]);
         !declared(&l) && assigned.is_match(&l)
     });

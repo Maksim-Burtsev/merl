@@ -1,5 +1,4 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::needless_collect, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
@@ -1418,13 +1417,11 @@ impl App {
             let value = locals.is_empty()
                 && (after.starts_with("->")
                     || (after.starts_with('.') && !after.starts_with("..")));
+            let tag = ["struct", "union", "enum"].into_iter().any(keyword);
+            let mut literal = HashMap::new();
             let hits: Vec<Hit> = hits
                 .into_iter()
                 .filter(|h| !value || !Self::c_type_line(&word, h))
-                .collect();
-            let tag = ["struct", "union", "enum"].into_iter().any(keyword);
-            let mut literal = HashMap::new();
-            let hits: Vec<Hit> = (hits.into_iter())
                 .filter(|h| self.c_code_line(&mut literal, h))
                 .collect();
             let hits = search::c_type_rows(

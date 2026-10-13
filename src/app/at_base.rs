@@ -1,5 +1,4 @@
 #![expect(clippy::needless_pass_by_value, reason = "#858")]
-#![expect(clippy::redundant_clone, reason = "#858")]
 #![expect(clippy::suspicious_operation_groupings, reason = "#858")]
 use super::{
     App, Buffer, Candidate, FileLine, HashMap, Hit, Kind, Mode, Path, PathBuf, PickItem,
@@ -57,12 +56,7 @@ impl App {
                 Mode::Picker(kind) => kind,
                 _ => PickerKind::Definitions,
             };
-            let items: Vec<PickItem> = p
-                .window(usize::MAX)
-                .0
-                .into_iter()
-                .map(|r| r.item.clone())
-                .collect();
+            let items: Vec<PickItem> = p.window(usize::MAX).0.into_iter().map(|r| r.item).collect();
             (kind, p.title, items)
         });
         b.mode = Mode::Normal;

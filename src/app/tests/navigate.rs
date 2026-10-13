@@ -1,4 +1,3 @@
-#![expect(clippy::redundant_clone, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use super::*;
 
@@ -1370,7 +1369,7 @@ fn markdown_links_outside_to_a_directory_and_to_a_spaced_name() {
         .window(20)
         .0
         .into_iter()
-        .map(|r| r.item.label.clone())
+        .map(|r| r.item.label)
         .collect();
     assert!(
         rows.iter().all(|r| !r.contains("README.md")),

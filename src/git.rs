@@ -1,7 +1,6 @@
 #![expect(clippy::case_sensitive_file_extension_comparisons, reason = "#858")]
 #![cfg_attr(test, expect(clippy::items_after_statements, reason = "#858"))]
 #![expect(clippy::naive_bytecount, reason = "#858")]
-#![cfg_attr(test, expect(clippy::redundant_clone, reason = "#858"))]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::struct_excessive_bools, reason = "#858")]
 #![cfg_attr(test, expect(clippy::too_many_lines, reason = "#858"))]
@@ -1198,7 +1197,7 @@ mod tests {
         );
         let older = Review {
             merge_base: first,
-            ..r.clone()
+            ..r
         };
         let other = older.base_tree(&dir).unwrap();
         assert!(other.exists() && !base.exists(), "one base at a time");

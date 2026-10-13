@@ -1,5 +1,4 @@
 #![expect(clippy::format_collect, reason = "#858")]
-#![expect(clippy::redundant_clone, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use super::*;
 
@@ -847,7 +846,7 @@ fn a_path_follows_the_modules_and_uses_of_its_crate() {
         &mut a,
         Kind::Rust,
         &[
-            library.clone(),
+            library,
             std.join("registry/tally-1.0.0"),
             std.join("registry/rope-knots-1.0.0"),
         ],
