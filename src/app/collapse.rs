@@ -275,7 +275,6 @@ impl<'a> Shape<'a> {
         shape
     }
 
-    #[expect(clippy::excessive_nesting, reason = "#858")]
     pub(crate) fn python(lines: &'a [String]) -> Self {
         let mut shape = Shape::plain(lines);
         shape.python = true;
@@ -288,17 +287,14 @@ impl<'a> Shape<'a> {
             let mut i = 0;
             while i < b.len() {
                 if let Some((start, delim)) = open {
-                    if b[i] == b'\\' {
-                        i += 2;
-                    } else if b[i..].starts_with(delim) {
-                        if n > start {
-                            shape.strings.insert(start, n);
-                        }
-                        open = None;
-                        i += 3;
-                    } else {
-                        i += 1;
+                    let (step, closed) = string_step(&b[i..], delim);
+                    if closed && n > start {
+                        shape.strings.insert(start, n);
                     }
+                    if closed {
+                        open = None;
+                    }
+                    i += step;
                     continue;
                 }
                 match b[i] {
@@ -313,11 +309,7 @@ impl<'a> Shape<'a> {
                             i += 3;
                             continue;
                         }
-                        i += 1;
-                        while i < b.len() && b[i] != q {
-                            i += if b[i] == b'\\' { 2 } else { 1 };
-                        }
-                        i += 1;
+                        i = skip_quoted(b, i + 1, q);
                     }
                     b'(' | b'[' | b'{' => {
                         depth += 1;
@@ -588,4 +580,21 @@ fn vim_folds(len: usize, ranges: impl Iterator<Item = (usize, usize)>) -> HashMa
         }
     }
     spans
+}
+
+fn string_step(rest: &[u8], delim: &[u8]) -> (usize, bool) {
+    if rest[0] == b'\\' {
+        (2, false)
+    } else if rest.starts_with(delim) {
+        (3, true)
+    } else {
+        (1, false)
+    }
+}
+
+fn skip_quoted(b: &[u8], mut i: usize, q: u8) -> usize {
+    while i < b.len() && b[i] != q {
+        i += if b[i] == b'\\' { 2 } else { 1 };
+    }
+    i + 1
 }

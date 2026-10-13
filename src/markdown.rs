@@ -1161,9 +1161,7 @@ impl Lay<'_> {
                     let r = wrapped[j].get(k).cloned().unwrap_or(0..0);
                     let (piece, mut piece_looks) = cut(&c.text, &c.looks, r);
                     if i == 0 {
-                        piece_looks
-                            .iter_mut()
-                            .for_each(|(look, _)| look.mods |= Modifier::BOLD);
+                        embolden(&mut piece_looks);
                     }
                     let pad = widths[j].saturating_sub(wrap::width(&piece));
                     let before = match t.aligns.get(j) {
@@ -1385,6 +1383,12 @@ impl Palette {
         } else {
             style
         }
+    }
+}
+
+fn embolden(looks: &mut [(Look, Range<usize>)]) {
+    for (look, _) in looks {
+        look.mods |= Modifier::BOLD;
     }
 }
 

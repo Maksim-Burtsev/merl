@@ -1,6 +1,4 @@
-#![expect(clippy::cognitive_complexity, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 struct Syntax {
     line_comment: &'static str,
@@ -281,31 +279,24 @@ pub(super) fn xml(lines: &[String]) -> Vec<(usize, usize)> {
     markup(lines, true)
 }
 
-#[expect(
-    clippy::match_same_arms,
-    reason = "the scan's arms are grouped by state, the quoted ones first; a merge would mix them"
-)]
-fn markup(lines: &[String], xml: bool) -> Vec<(usize, usize)> {
-    let text = lines.join("\n");
-    let b = text.as_bytes();
-    let starts: Vec<usize> = std::iter::once(0)
-        .chain(
-            b.iter()
-                .enumerate()
-                .filter(|c| *c.1 == b'\n')
-                .map(|(i, _)| i + 1),
-        )
-        .collect();
-    let line = |at: usize| starts.partition_point(|&s| s <= at) - 1;
-    let lower = if xml {
-        text.clone()
-    } else {
-        text.to_ascii_lowercase()
-    };
-    let find = |from: usize, what: &str| {
-        (lower.get(from..).and_then(|r| r.find(what))).map_or(b.len(), |i| from + i)
-    };
-    let name_at = |from: usize| {
+struct Markup<'a> {
+    b: &'a [u8],
+    lower: String,
+    starts: Vec<usize>,
+    xml: bool,
+}
+
+impl Markup<'_> {
+    fn line(&self, at: usize) -> usize {
+        self.starts.partition_point(|&s| s <= at) - 1
+    }
+
+    fn find(&self, from: usize, what: &str) -> usize {
+        (self.lower.get(from..).and_then(|r| r.find(what))).map_or(self.b.len(), |i| from + i)
+    }
+
+    fn name_at(&self, from: usize) -> String {
+        let (b, xml) = (self.b, self.xml);
         let n = b[from..]
             .iter()
             .position(|&c| {
@@ -314,9 +305,42 @@ fn markup(lines: &[String], xml: bool) -> Vec<(usize, usize)> {
                     || (xml && c == b'.'))
             })
             .unwrap_or(b.len() - from);
-        lower[from..from + n].to_owned()
-    };
-    let tag_end = |from: usize| {
+        self.lower[from..from + n].to_owned()
+    }
+
+    fn doctype_end(&self, i: usize) -> usize {
+        let mut end = self.tag_end(i);
+        let subset = self.find(i, "[");
+        if subset < end {
+            end = self.tag_end(self.find(subset, "]"));
+        }
+        end
+    }
+
+    fn close_tag(
+        &self,
+        i: usize,
+        open: &mut Vec<(String, usize)>,
+        folds: &mut Vec<(usize, usize)>,
+    ) -> usize {
+        let name = self.name_at(i + 2);
+        let end = self.tag_end(i);
+        if let Some(k) = open.iter().rposition(|(n, _)| *n == name) {
+            for (_, h) in open.drain(k + 1..) {
+                close_span(h, self.line(i), folds);
+            }
+            let (_, h) = open.pop().unwrap_or_default();
+            close_span(h, self.line(end.min(self.b.len().saturating_sub(1))), folds);
+        }
+        end
+    }
+
+    #[expect(
+        clippy::match_same_arms,
+        reason = "the scan's arms are grouped by state, the quoted ones first; a merge would mix them"
+    )]
+    fn tag_end(&self, from: usize) -> usize {
+        let b = self.b;
         let mut quote = None;
         for (i, &c) in b.iter().enumerate().skip(from) {
             match quote {
@@ -328,98 +352,110 @@ fn markup(lines: &[String], xml: bool) -> Vec<(usize, usize)> {
             }
         }
         b.len()
+    }
+}
+
+fn close_span(h: usize, e: usize, folds: &mut Vec<(usize, usize)>) {
+    if e > h {
+        folds.push((h, e));
+    }
+}
+
+fn markup(lines: &[String], xml: bool) -> Vec<(usize, usize)> {
+    let text = lines.join("\n");
+    let b = text.as_bytes();
+    let starts: Vec<usize> = std::iter::once(0)
+        .chain(
+            b.iter()
+                .enumerate()
+                .filter(|c| *c.1 == b'\n')
+                .map(|(i, _)| i + 1),
+        )
+        .collect();
+    let lower = if xml {
+        text.clone()
+    } else {
+        text.to_ascii_lowercase()
+    };
+    let m = Markup {
+        b,
+        lower,
+        starts,
+        xml,
     };
     let mut open: Vec<(String, usize)> = Vec::new();
     let mut folds = Vec::new();
-    let close = |h: usize, e: usize, folds: &mut Vec<(usize, usize)>| {
-        if e > h {
-            folds.push((h, e));
-        }
-    };
     let mut at = 0;
     while let Some(i) =
         (b.get(at..).and_then(|r| r.iter().position(|&c| c == b'<'))).map(|i| at + i)
     {
         let rest = &b[i + 1..];
         if rest.starts_with(b"!--") {
-            at = find(i + 4, "-->") + 3;
+            at = m.find(i + 4, "-->") + 3;
             if xml {
-                close(line(i), line(at.min(b.len()) - 1), &mut folds);
+                close_span(m.line(i), m.line(at.min(b.len()) - 1), &mut folds);
             }
             continue;
         }
         if xml && rest.starts_with(b"![CDATA[") {
-            at = find(i + 9, "]]>") + 3;
+            at = m.find(i + 9, "]]>") + 3;
             continue;
         }
         if xml && rest.starts_with(b"!DOCTYPE") {
-            let mut end = tag_end(i);
-            let subset = find(i, "[");
-            if subset < end {
-                end = tag_end(find(subset, "]"));
-            }
-            close(
-                line(i),
-                line(end.min(b.len().saturating_sub(1))),
+            let end = m.doctype_end(i);
+            close_span(
+                m.line(i),
+                m.line(end.min(b.len().saturating_sub(1))),
                 &mut folds,
             );
             at = end + 1;
             continue;
         }
         if rest.starts_with(b"!") || rest.starts_with(b"?") {
-            at = tag_end(i) + 1;
+            at = m.tag_end(i) + 1;
             continue;
         }
         if rest.first() == Some(&b'/') {
-            let name = name_at(i + 2);
-            let end = tag_end(i);
-            if let Some(k) = open.iter().rposition(|(n, _)| *n == name) {
-                for (_, h) in open.drain(k + 1..) {
-                    close(h, line(i), &mut folds);
-                }
-                let (_, h) = open.pop().unwrap_or_default();
-                close(h, line(end.min(b.len().saturating_sub(1))), &mut folds);
-            }
-            at = end + 1;
+            at = m.close_tag(i, &mut open, &mut folds) + 1;
             continue;
         }
         if !rest.first().is_some_and(u8::is_ascii_alphabetic) {
             at = i + 1;
             continue;
         }
-        let name = name_at(i + 1);
+        let name = m.name_at(i + 1);
         while let Some((parent, h)) = open.last()
             && !xml
             && !contains(parent, &name)
         {
-            close(*h, line(i), &mut folds);
+            close_span(*h, m.line(i), &mut folds);
             open.pop();
         }
-        let end = tag_end(i);
+        let end = m.tag_end(i);
         at = end + 1;
         if !xml && matches!(name.as_str(), "script" | "style") {
-            let stop = tag_end(find(at.min(b.len()), &format!("</{name}")));
-            close(
-                line(i),
-                line(stop.min(b.len().saturating_sub(1))),
+            let stop = m.tag_end(m.find(at.min(b.len()), &format!("</{name}")));
+            close_span(
+                m.line(i),
+                m.line(stop.min(b.len().saturating_sub(1))),
                 &mut folds,
             );
             at = stop + 1;
         } else if b.get(end.wrapping_sub(1)) == Some(&b'/') {
             if xml {
-                close(
-                    line(i),
-                    line(end.min(b.len().saturating_sub(1))),
+                close_span(
+                    m.line(i),
+                    m.line(end.min(b.len().saturating_sub(1))),
                     &mut folds,
                 );
             }
         } else if xml || !VOID.contains(&name.as_str()) {
-            open.push((name, line(i)));
+            open.push((name, m.line(i)));
         }
     }
     let last = lines.len().saturating_sub(1);
     for (_, h) in open {
-        close(h, last, &mut folds);
+        close_span(h, last, &mut folds);
     }
     innermost(folds)
 }
@@ -486,6 +522,70 @@ fn rule(t: &str) -> bool {
         && t.bytes().all(|b| Some(b) == c || b == b' ' || b == b'\t')
 }
 
+fn fold_frame(f: &Frame, folds: &mut Vec<(usize, usize)>) {
+    let (start, last, wanted) = match *f {
+        Frame::List {
+            within,
+            start,
+            last,
+            ..
+        } => (start, last, within == 0),
+        Frame::Item {
+            nested,
+            start,
+            last,
+            ..
+        } => (start, last, nested),
+    };
+    if wanted && last > start {
+        folds.push((start, last));
+    }
+}
+
+fn front_matter_end(lines: &[String]) -> usize {
+    match lines.first().map(|l| l.trim_end()) {
+        Some("---") => (1..lines.len())
+            .find(|&l| lines[l].trim_end() == "---")
+            .map_or(0, |l| l + 1),
+        _ => 0,
+    }
+}
+
+fn fence_closes(t: &str, ind: usize, open: &str, at: usize) -> bool {
+    let close = t.trim_end();
+    ind < at + 4 && close.len() >= open.len() && close.bytes().all(|c| c == open.as_bytes()[0])
+}
+
+fn reach_all(stack: &mut [Frame], n: usize) {
+    for f in stack {
+        f.reach(n);
+    }
+}
+
+fn push_item(stack: &mut Vec<Frame>, (bullet, col): (u8, usize), n: usize) {
+    if !matches!(stack.last(), Some(Frame::List { .. })) {
+        let within = match stack.last_mut() {
+            Some(Frame::Item { col, nested, .. }) => {
+                *nested = true;
+                *col
+            }
+            _ => 0,
+        };
+        stack.push(Frame::List {
+            bullet,
+            within,
+            start: n,
+            last: n,
+        });
+    }
+    stack.push(Frame::Item {
+        col,
+        nested: false,
+        start: n,
+        last: n,
+    });
+}
+
 pub(super) fn markdown(lines: &[String]) -> Vec<(usize, usize)> {
     let mut folds = Vec::new();
     let mut headings: Vec<(usize, usize)> = Vec::new();
@@ -494,46 +594,16 @@ pub(super) fn markdown(lines: &[String]) -> Vec<(usize, usize)> {
     let mut code: Option<(usize, usize, usize)> = None;
     let mut paragraph: Option<usize> = None;
     let mut blank = true;
-    let fold = |f: Frame, folds: &mut Vec<(usize, usize)>| {
-        let (start, last, wanted) = match f {
-            Frame::List {
-                within,
-                start,
-                last,
-                ..
-            } => (start, last, within == 0),
-            Frame::Item {
-                nested,
-                start,
-                last,
-                ..
-            } => (start, last, nested),
-        };
-        if wanted && last > start {
-            folds.push((start, last));
-        }
-    };
-    let body = match lines.first().map(|l| l.trim_end()) {
-        Some("---") => (1..lines.len())
-            .find(|&l| lines[l].trim_end() == "---")
-            .map_or(0, |l| l + 1),
-        _ => 0,
-    };
+    let body = front_matter_end(lines);
     for (n, line) in lines.iter().enumerate().skip(body) {
         let ind = columns(line);
         let t = line.trim_start();
         if let Some((start, ref open, at)) = fence {
-            let close = t.trim_end();
-            if ind < at + 4
-                && close.len() >= open.len()
-                && close.bytes().all(|c| c == open.as_bytes()[0])
-            {
+            if fence_closes(t, ind, open, at) {
                 folds.push((start, n));
                 fence = None;
             }
-            for f in &mut stack {
-                f.reach(n);
-            }
+            reach_all(&mut stack, n);
             continue;
         }
         if t.is_empty() {
@@ -550,9 +620,7 @@ pub(super) fn markdown(lines: &[String]) -> Vec<(usize, usize)> {
         if let Some((start, last, base)) = code {
             if ind >= base + 4 {
                 code = Some((start, n, base));
-                for f in &mut stack {
-                    f.reach(n);
-                }
+                reach_all(&mut stack, n);
                 continue;
             }
             if last > start {
@@ -569,7 +637,7 @@ pub(super) fn markdown(lines: &[String]) -> Vec<(usize, usize)> {
                 {
                     break;
                 }
-                Some(_) => fold(stack.pop().unwrap(), &mut folds),
+                Some(_) => fold_frame(&stack.pop().unwrap(), &mut folds),
                 None => break,
             }
         }
@@ -584,38 +652,14 @@ pub(super) fn markdown(lines: &[String]) -> Vec<(usize, usize)> {
         };
         if let Some(base) = base.filter(|b| ind >= b + 4 && blank && paragraph.is_none()) {
             code = Some((n, n, base));
-            for f in &mut stack {
-                f.reach(n);
-            }
+            reach_all(&mut stack, n);
             blank = false;
             continue;
         }
-        if let Some((bullet, col)) = item {
-            if !matches!(stack.last(), Some(Frame::List { .. })) {
-                let within = match stack.last_mut() {
-                    Some(Frame::Item { col, nested, .. }) => {
-                        *nested = true;
-                        *col
-                    }
-                    _ => 0,
-                };
-                stack.push(Frame::List {
-                    bullet,
-                    within,
-                    start: n,
-                    last: n,
-                });
-            }
-            stack.push(Frame::Item {
-                col,
-                nested: false,
-                start: n,
-                last: n,
-            });
+        if let Some(item) = item {
+            push_item(&mut stack, item, n);
         }
-        for f in &mut stack {
-            f.reach(n);
-        }
+        reach_all(&mut stack, n);
         if fenced {
             let open = t[..ticks.max(tildes)].to_owned();
             fence = Some((n, open, ind));
@@ -634,11 +678,16 @@ pub(super) fn markdown(lines: &[String]) -> Vec<(usize, usize)> {
         folds.extend(last.filter(|&l| l > start).map(|l| (start, l)));
     }
     while let Some(f) = stack.pop() {
-        fold(f, &mut folds);
+        fold_frame(&f, &mut folds);
     }
     if headings.first().is_none_or(|&(h, _)| h > body) {
         headings.insert(0, (body, 6));
     }
+    heading_folds(lines, &headings, &mut folds);
+    innermost(folds)
+}
+
+fn heading_folds(lines: &[String], headings: &[(usize, usize)], folds: &mut Vec<(usize, usize)>) {
     for (k, &(h, level)) in headings.iter().enumerate() {
         let next = headings[k + 1..]
             .iter()
@@ -647,5 +696,4 @@ pub(super) fn markdown(lines: &[String]) -> Vec<(usize, usize)> {
         let last = (h..next).rev().find(|&l| !lines[l].trim().is_empty());
         folds.extend(last.filter(|&l| l > h).map(|l| (h, l)));
     }
-    innermost(folds)
 }

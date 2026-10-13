@@ -1,5 +1,4 @@
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::too_many_lines, reason = "#858")]
 use super::{
     App, HashMap, Hit, Kind, Path, PathBuf, PickerKind, Regex, Tier, deleted_hits, search,
     whole_at, word_col,
@@ -179,19 +178,7 @@ impl App {
                 (kind, declares, h)
             })
             .collect();
-        let mut recipe = self.make_recipe_rule(here, word);
-        let make = Some(Kind::Make);
-        for (kind, declares, h) in &mut marked {
-            *declares &= *kind != make || recipe(h).unwrap_or(true);
-        }
-        if !marked.iter().any(|(k, d, _)| *k == make && *d) {
-            let fallback = Regex::new(&search::make_fallback_patterns(word).join("|")).ok();
-            for (kind, declares, h) in &mut marked {
-                *declares |= *kind == make
-                    && fallback.as_ref().is_some_and(|re| re.is_match(&h.text))
-                    && recipe(h).is_none();
-            }
-        }
+        self.mark_make_recipes(&mut marked, here, word);
         let mut ranked: Vec<_> = marked
             .into_iter()
             .map(|(_, declares, h)| (search::rank(&h.path, here, declares), h))
@@ -204,6 +191,27 @@ impl App {
         UsageHits {
             ranked,
             grep_cut: cut,
+        }
+    }
+
+    fn mark_make_recipes(
+        &self,
+        marked: &mut [(Option<Kind>, bool, Hit)],
+        here: Option<&Path>,
+        word: &str,
+    ) {
+        let mut recipe = self.make_recipe_rule(here, word);
+        let make = Some(Kind::Make);
+        for (kind, declares, h) in marked.iter_mut() {
+            *declares &= *kind != make || recipe(h).unwrap_or(true);
+        }
+        if !marked.iter().any(|(k, d, _)| *k == make && *d) {
+            let fallback = Regex::new(&search::make_fallback_patterns(word).join("|")).ok();
+            for (kind, declares, h) in marked.iter_mut() {
+                *declares |= *kind == make
+                    && fallback.as_ref().is_some_and(|re| re.is_match(&h.text))
+                    && recipe(h).is_none();
+            }
         }
     }
 
