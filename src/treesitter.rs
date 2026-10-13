@@ -296,6 +296,7 @@ pub struct Lang {
     highlights: Patterns,
     priority: Vec<u32>,
     injections: Option<Patterns>,
+    combined: Option<Patterns>,
 }
 
 pub fn for_syntax(
@@ -562,7 +563,16 @@ fn compile(name: &'static str, language: Language) -> Result<Lang, String> {
     let mut lang = compile_text(name, language, &source(name, |r| r.1)?)?;
     let injections = source(name, |r| r.2)?;
     if !injections.trim().is_empty() {
-        lang.injections = Some(patterns(name, &lang.language, &injections, INJECTION_KEYS)?);
+        let all = patterns(name, &lang.language, &injections, INJECTION_KEYS)?;
+        let combined = |p: usize| all.setting(p, "injection.combined").is_some();
+        if (0..all.query.pattern_count()).any(combined) {
+            let mut only = patterns(name, &lang.language, &injections, INJECTION_KEYS)?;
+            for p in (0..all.query.pattern_count()).filter(|&p| !combined(p)) {
+                only.query.disable_pattern(p);
+            }
+            lang.combined = Some(only);
+        }
+        lang.injections = Some(all);
     }
     Ok(lang)
 }
@@ -583,6 +593,7 @@ fn compile_text(name: &'static str, language: Language, text: &str) -> Result<La
         highlights,
         priority,
         injections: None,
+        combined: None,
     })
 }
 
@@ -945,6 +956,7 @@ pub struct Parsed {
     repaint_from: Option<usize>,
     halted: bool,
     before: Option<(Tree, String)>,
+    combined: Vec<layers::Injected>,
 }
 
 fn joined(lines: &[String]) -> (String, Vec<usize>) {
@@ -992,6 +1004,7 @@ impl Parsed {
             repaint_from: Some(0),
             halted: false,
             before: None,
+            combined: Vec::new(),
         })
     }
 
@@ -1048,9 +1061,23 @@ impl Parsed {
             self.halted = true;
             return None;
         };
+        let tree = match tree.root_node().end_byte() < bytes.len() {
+            true => {
+                self.parser.reset();
+                let input = &mut |i: usize, _| &bytes[i.min(bytes.len())..];
+                self.parser
+                    .parse_with_options(input, None, None)
+                    .unwrap_or(tree)
+            }
+            false => tree,
+        };
+        let changed: Vec<tree_sitter::Range> = match &self.tree {
+            Some(old) => old.changed_ranges(&tree).collect(),
+            None => Vec::new(),
+        };
         let from = match &self.tree {
-            Some(old) => old
-                .changed_ranges(&tree)
+            Some(old) => changed
+                .iter()
                 .map(|r| {
                     let range = r.start_byte..r.end_byte;
                     let row = |p: &Patterns| changed_match_row(p, old, &tree, range.clone(), bytes);
@@ -1067,17 +1094,33 @@ impl Parsed {
             Some(old) => from.min(recovered_row(old, &tree, from)),
             None => from,
         };
+        let kept = self.before.as_ref().and_then(|b| {
+            let text = (b.1.as_bytes(), bytes, &self.starts[..]);
+            layers::shifted(self.lang, &tree, &self.combined, text, &changed)
+        });
+        let combined = kept.unwrap_or_else(|| {
+            let whole = layers::Doc::new(bytes, &self.starts, 0, bytes.len());
+            layers::combined(self.lang, &tree, None, &whole)
+        });
         let from = match self.before.take() {
             Some(before) => {
                 let row = |p: &Patterns| changed_text_row(p, &before, &tree, &self.text);
                 let injected = self.lang.injections.as_ref().map_or(usize::MAX, row);
-                from.min(row(&self.lang.highlights)).min(injected)
+                let groups =
+                    layers::combined_change((&self.combined, &before.1), (&combined, bytes));
+                from.min(row(&self.lang.highlights))
+                    .min(injected)
+                    .min(groups)
             }
             None => from,
         };
+        self.combined = combined;
         let near = self.starts[from]..self.starts.get(from + 1).copied().unwrap_or(bytes.len());
         let doc = layers::Doc::new(bytes, &self.starts, near.start, near.end);
-        let from = layers::region_start(&layers::injections(self.lang, &tree, None, &doc), from);
+        let from = layers::region_start(
+            &layers::injections(self.lang, &tree, None, &doc, Some(&[])),
+            from,
+        );
         (self.tree, self.repaint_from, self.halted) = (Some(tree), None, false);
         Some(from)
     }
@@ -1106,6 +1149,7 @@ impl Parsed {
                 depth: 0,
                 styles,
                 out: &mut painted,
+                combined: &self.combined,
             },
             &doc,
         );
