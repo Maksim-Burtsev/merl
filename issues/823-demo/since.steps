@@ -1,0 +1,19 @@
+# Round 2, after the author pushed two commits.
+wait $
+sleep 0.6
+type merl --review --since
+key Enter
+wait file 1/
+sleep 2.2
+key c
+sleep 1.2
+key c
+sleep 1.2
+key c
+sleep 1.2
+key c
+sleep 1.2
+key c
+sleep 1.2
+key c
+sleep 2
