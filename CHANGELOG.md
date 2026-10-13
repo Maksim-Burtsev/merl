@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `o` remembers the files you open, 200 per project (per worktree, in `.git/merl/recent`), across
+  restarts, as VS Code's Quick Open does. With nothing typed it lists only them, the open file
+  first and the cursor on the one before, so `o` Enter goes back there; typed, the files whose
+  name matches come first under `recently opened`, then the project as before under `file
+  results`. `--review` keeps its order. (#406)
+
 ### Changed
 
 - `--review`: the panel's row of the file in view keeps the selection colour while the code has
@@ -19,10 +27,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   line `CursorLine` and the selection `Visual`. Themes without Neovim colours (`shokunin-*`,
   `lucerna`, `seneca*`, a `.tmTheme` of your own without its `.groups.json`) draw the match under
   the cursor a shade stronger than the others. (#796)
+- A Ctrl+letter merl does not bind does nothing, wherever letters are keys (the code, the tree,
+  `--review`, editing, the `?` overlay): Ctrl+Q no longer quits, and Ctrl+T, Ctrl+W and Ctrl+P no
+  longer act as `t`, `w` and `p`. Typing in a prompt or a picker keeps its Ctrl+A, Ctrl+E, Ctrl+U
+  and Ctrl+W. (#699)
 
 ### Fixed
 
 - In `--review`, a jump (`d`, `D`, `s`, `[`, the tree, a picker) into a file renamed without changes shows its code; only the `c` / `C` walk stops on the rename screen (#759).
+- `d` on a Go method promoted through embedded structs jumps to the shallowest one, as the compiler picks it, instead of the first found down the first embedded field; two at the same depth offer every namesake (#822).
 - In `--review`, cutting a line above a changed line at the end of the file no longer crashes merl (#831).
 
 ## [0.8.4] - 2026-10-11

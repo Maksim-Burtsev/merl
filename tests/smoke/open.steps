@@ -38,10 +38,12 @@ wait app/models.py  1:1
 # The keys of the lists and panels (#310). In the file list PgDn / PgUp page and Up moves: Enter
 # opens the row it stands on. Tab puts the focus in the tree, on the open file: Down / Up move,
 # Right opens a directory and Left closes it, Enter opens a file. In the help Down / Up scroll.
-# N goes back to the match before, and p shows a Markdown file rendered.
+# N goes back to the match before, and p shows a Markdown file rendered. The list is the
+# project's for `a`, a letter in the name of no file opened before (#406).
 key o
-wait Files (
-key PageDown PageDown PageUp Up*24 Enter
+type a
+wait Files (44/
+key PageDown PageDown PageUp Up*8 Enter
 wait app/service.py  1:1  [code]
 key t Tab
 wait app/service.py  1:1  [tree]
@@ -71,3 +73,9 @@ key Escape o
 type .py$
 wait Files (0/
 key Escape
+# With nothing typed the file list holds only the files opened before, the open one on top and
+# the cursor on the one before it, so o and Enter go back there (#406).
+key o
+wait recently opened
+key Enter
+wait app/uow.py  1:1

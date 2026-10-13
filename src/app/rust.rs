@@ -141,7 +141,6 @@ impl App {
             .collect()
     }
 
-    /// The project's lines that declare the enum variant `word`. Rust names a variant in CamelCase, and a lowercase word is not worth the grep.
     pub(super) fn rust_variants(&self, here: &Path, word: &str) -> Vec<Hit> {
         if !word.starts_with(|c: char| c.is_ascii_uppercase()) {
             return Vec::new();

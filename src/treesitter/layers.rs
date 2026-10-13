@@ -6,6 +6,7 @@ use tree_sitter::{Node, Parser, Point, QueryCursor, Range, StreamingIterator, Tr
 use super::{Lang, NEOVIM_TREESITTER_PRIORITY, Styles, point, resolve};
 
 const MAX_DEPTH: usize = 8;
+const ANCHOR_ROWS: usize = 64;
 
 pub enum Target {
     Tree(&'static Lang),
@@ -215,7 +216,8 @@ pub fn injections(
             match names[c.index as usize] {
                 "injection.language" => {
                     let r = doc.range(c.node, offset);
-                    target = std::str::from_utf8(&doc.bytes[r.start_byte..r.end_byte])
+                    let text = inj.text(p, c.index, &doc.bytes[r.start_byte..r.end_byte]);
+                    target = std::str::from_utf8(&text)
                         .ok()
                         .and_then(|n| Target::of(n, syntect));
                 }
@@ -319,7 +321,7 @@ fn paint(lang: &Lang, tree: &Tree, ctx: &mut Ctx, doc: &Doc) {
     let styles = ctx.styles.of(lang);
     let names = q.query.capture_names();
     let mut cursor = QueryCursor::new();
-    cursor.set_byte_range(doc.start..doc.bytes.len());
+    cursor.set_byte_range(anchor(tree, doc)..doc.bytes.len());
     let mut checked: Option<(u32, bool)> = None;
     let mut captures = cursor.captures(&q.query, tree.root_node(), doc.bytes);
     while let Some((m, i)) = captures.next() {
@@ -357,6 +359,17 @@ fn paint(lang: &Lang, tree: &Tree, ctx: &mut Ctx, doc: &Doc) {
             }
         }
     }
+}
+
+fn anchor(tree: &Tree, doc: &Doc) -> usize {
+    let row = point(doc.starts, doc.start).row;
+    let node = tree
+        .root_node()
+        .descendant_for_byte_range(doc.start, doc.start);
+    std::iter::successors(node, Node::parent)
+        .find(|n| n.start_byte() < doc.start)
+        .filter(|n| n.start_position().row + ANCHOR_ROWS >= row)
+        .map_or(doc.start, |n| n.start_byte())
 }
 
 fn syntect(syntax: &'static SyntaxReference, region: &[Range], ctx: &mut Ctx, doc: &Doc) {

@@ -94,7 +94,6 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
                 } else {
                     ""
                 },
-                // Enter on such a file says why (`read-only: not UTF-8`): once is enough.
                 match &picture {
                     Some(Status::Size(_)) => String::new(),
                     Some(Status::Why(why)) => format!("  {why}"),
@@ -125,7 +124,6 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
     if !app.message.is_empty() {
         spans.push(Span::styled(format!("  {}", app.message), style));
     }
-    // With nothing to report, the right edge keeps `?` discoverable.
     const HINT: &str = "? help ";
     let hint = app.message.is_empty() && area.width as usize > HINT.len();
     let rest = spans[1..]
@@ -159,8 +157,6 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
     }
 }
 
-/// `path` in `room` columns: cut from the left at a `/` when it is wider, `…/json/__init__.py`,
-/// but never into the file's name, however little room there is.
 pub(super) fn fit_path(path: &str, room: usize) -> String {
     if wrap::width(path) <= room {
         return path.to_owned();

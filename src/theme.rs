@@ -685,8 +685,6 @@ mod tests {
         r1.abs_diff(r2) >= 12 || g1.abs_diff(g2) >= 12 || b1.abs_diff(b2) >= 12
     }
 
-    /// A broken port fails here: the chrome colours are set, and comment, keyword, string and
-    /// function are not painted in one or two colours between them.
     #[test]
     fn every_theme_has_the_basics() {
         for name in coloured_names() {
@@ -705,7 +703,10 @@ mod tests {
                     (c.r, c.g, c.b)
                 })
                 .collect();
-            assert!(colours.len() >= 3, "{name}: {colours:?}");
+            assert!(
+                colours.len() >= 3,
+                "{name}: comment, keyword, string and function in under three colours: {colours:?}"
+            );
         }
     }
 
@@ -837,10 +838,6 @@ mod tests {
         }
     }
 
-    /// A find match reads on its tint (#480): a theme that sets `findHighlight` alone keeps the
-    /// text's own colours over it, and its plain text reads at WCAG AA; one that sets neither gets
-    /// the text or background colour, whichever reads better on merl's tint. A theme's own
-    /// `findHighlightForeground` is kept as it is.
     #[test]
     fn every_find_match_reads_on_its_tint() {
         for name in names() {
@@ -859,9 +856,6 @@ mod tests {
         }
     }
 
-    /// A `.tmTheme` in the user's directory is listed after the built-ins and loads; one named
-    /// after a built-in replaces it. A broken file names itself in the error instead of falling
-    /// back to the built-in it shadows.
     #[test]
     fn user_themes_are_listed_loaded_and_win_over_a_built_in() {
         let dir = std::env::temp_dir().join(format!("merl-user-themes-{}", std::process::id()));
@@ -1077,8 +1071,6 @@ mod tests {
 
     #[test]
     fn alpha_is_composited_over_the_background() {
-        // tokyonight-moon's lineHighlight is #00000030: without compositing it is pure black,
-        // and its gutterForeground #3b415caa would be too dark to read.
         let t = load("tokyonight-moon").unwrap();
         assert_eq!(t.bg, Color::Rgb(0x22, 0x24, 0x36));
         assert_ne!(t.line_hl, Color::Rgb(0, 0, 0));
@@ -1109,8 +1101,6 @@ mod tests {
 
     #[test]
     fn infra_scopes_are_coloured_in_every_theme() {
-        // Whole stacks as the grammars emit them: a parent such as `meta.tag` often carries the
-        // colour, so a lone scope would not match what is drawn.
         const STACKS: &[&str] = &[
             "source.toml meta.tag.key.toml entity.name.tag.toml",
             "source.toml meta.tag.table.toml entity.name.table.toml",
@@ -1152,9 +1142,6 @@ mod tests {
         }
     }
 
-    /// Review's diff colours are derived, never set per theme, so this is what keeps them working
-    /// on every palette: the rows stand off what is under them, the changed words off their row,
-    /// and the words' text reads on them.
     #[test]
     fn diff_colours_read_in_every_theme() {
         for name in names() {
@@ -1232,8 +1219,6 @@ mod tests {
                 ghost <= text * 0.9,
                 "{name}: ghost {ghost:.2} vs text {text:.2} is not clearly weaker than live text"
             );
-            // Readable: 4:1, or, where the theme's own text is too soft for a grey of it to
-            // get there (material-light is 2.5:1 itself), most of what the text has.
             assert!(
                 ghost >= GHOST_TARGET_CONTRAST || ghost >= text * 0.7,
                 "{name}: ghost {ghost:.2} vs text {text:.2}"

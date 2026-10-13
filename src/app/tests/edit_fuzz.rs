@@ -1,15 +1,3 @@
-//! #313: random edit sessions, played on merl's `App` and on a plain model of what the keys
-//! mean (lines, a cursor, a selection, a clipboard, an undo stack), which have to agree after
-//! every key: the text, the cursor, the selection, the mode, the clipboard and the file on disk.
-//!
-//! `cargo test edit_fuzz` plays seeds 1..=500; `MERL_FUZZ_SESSIONS=N` plays 1..=N and
-//! `MERL_FUZZ_SEED=S` seed S alone. A failure prints the seed, the file it started from and the
-//! shortest run of keys that still fails the same way; `MERL_FUZZ_ALL=1` goes on to list every
-//! failing seed.
-//!
-//! The pane is wide enough that no line wraps: Up and Down move a line, not a screen row.
-//! When an edit key changes meaning, the model changes with it.
-
 use std::fmt;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
@@ -21,10 +9,9 @@ use super::*;
 
 type Pos = (usize, usize);
 
-/// xorshift64: enough randomness for key sequences, and no crate.
-struct Rng(u64);
+struct Xorshift64(u64);
 
-impl Rng {
+impl Xorshift64 {
     fn new(seed: u64) -> Self {
         Self(seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1)
     }
@@ -45,9 +32,7 @@ impl Rng {
 #[derive(Clone)]
 enum Op {
     Key(KeyCode, KeyModifiers),
-    /// Cmd+V of this text.
     Paste(String),
-    /// Cmd+V of what merl last put on the clipboard.
     PasteClip,
 }
 
@@ -63,8 +48,6 @@ impl fmt::Display for Op {
 }
 
 impl Op {
-    /// Keys that are text only in edit mode; in navigation they are commands (`q` quits, Tab
-    /// goes to the tree), so a session that is not editing skips them.
     fn edit_only(&self) -> bool {
         match self {
             Op::Key(KeyCode::Char(c), m) => m.is_empty() && *c != 'v',
@@ -74,13 +57,13 @@ impl Op {
     }
 }
 
+const WIDER_THAN_ANY_LINE: usize = 10_000;
+
 const NONE: KeyModifiers = KeyModifiers::NONE;
 const SHIFT: KeyModifiers = KeyModifiers::SHIFT;
 const ALT: KeyModifiers = KeyModifiers::ALT;
 const CTRL: KeyModifiers = KeyModifiers::CONTROL;
 
-/// Typed one char at a time: ASCII, Cyrillic, CJK, and the pieces emoji are built of (a
-/// variation selector, a ZWJ, a skin tone, a combining accent), so clusters form under the cursor.
 const CHARS: &[char] = &[
     'a',
     'b',
@@ -128,9 +111,7 @@ const LINES: &[&str] = &[
     "}",
 ];
 
-/// A file to start from: a few lines, LF or CRLF, with or without the trailing newline, with or
-/// without a BOM.
-fn gen_file(rng: &mut Rng) -> Vec<u8> {
+fn gen_file(rng: &mut Xorshift64) -> Vec<u8> {
     let lines: Vec<&str> = (0..rng.below(6)).map(|_| *rng.pick(LINES)).collect();
     let nl = if rng.below(4) == 0 { "\r\n" } else { "\n" };
     let mut text = lines.join(nl);
@@ -146,7 +127,7 @@ fn gen_file(rng: &mut Rng) -> Vec<u8> {
     bytes
 }
 
-fn gen_op(rng: &mut Rng) -> Op {
+fn gen_op(rng: &mut Xorshift64) -> Op {
     let key = |code| Op::Key(code, NONE);
     let arrows = [KeyCode::Left, KeyCode::Right, KeyCode::Up, KeyCode::Down];
     match rng.below(100) {
@@ -178,11 +159,11 @@ fn gen_op(rng: &mut Rng) -> Op {
 }
 
 fn gen_session(seed: u64) -> (Vec<u8>, Vec<Op>) {
-    let mut rng = Rng::new(seed);
+    let mut rng = Xorshift64::new(seed);
     let file = gen_file(&mut rng);
     let n = 40 + rng.below(120);
-    // Into edit mode first, or the session starts by skipping its letters.
-    let ops = std::iter::once(Op::Key(KeyCode::Enter, NONE))
+    let into_edit_mode = Op::Key(KeyCode::Enter, NONE);
+    let ops = std::iter::once(into_edit_mode)
         .chain((0..n).map(|_| gen_op(&mut rng)))
         .collect();
     (file, ops)
@@ -228,7 +209,6 @@ fn write(lines: &[String], f: Format) -> Vec<u8> {
     out
 }
 
-/// One undo step: the whole text on either side of it.
 struct Step {
     old: Vec<String>,
     new: Vec<String>,
@@ -240,15 +220,13 @@ struct Step {
 struct Model {
     lines: Vec<String>,
     cur: Pos,
-    /// Screen column Up / Down aim at.
     want_x: usize,
     anchor: Option<Pos>,
     editing: bool,
     clipboard: Option<String>,
     undo: Vec<Step>,
     redo: Vec<Step>,
-    /// The next edit starts an undo step of its own.
-    fresh: bool,
+    next_edit_starts_a_step: bool,
     last: &'static str,
     format: Format,
     disk: Vec<u8>,
@@ -283,7 +261,7 @@ impl Model {
             clipboard: None,
             undo: Vec::new(),
             redo: Vec::new(),
-            fresh: false,
+            next_edit_starts_a_step: false,
             last: "other",
             format,
             disk: bytes.to_vec(),
@@ -324,7 +302,6 @@ impl Model {
         self.want_x = width(&self.line()[..self.cur.1]);
     }
 
-    /// The cursor onto line `l`, on the first cluster at or past `want_x`, else at its end.
     fn aim(&mut self, l: usize) {
         let s = &self.lines[l];
         let mut x = 0;
@@ -359,8 +336,6 @@ impl Model {
         self.sync_x();
     }
 
-    /// Where Alt+Left lands: back over the gap, then over the word; at a line start, the end
-    /// of the line above.
     fn word_left_of(&self, (l, c): Pos) -> Pos {
         if c == 0 {
             return if l > 0 {
@@ -380,8 +355,6 @@ impl Model {
         (l, i)
     }
 
-    /// Where Alt+Right lands: past the gap, then past the word; at a line end, the start of the
-    /// line below.
     fn word_right_of(&self, (l, c): Pos) -> Pos {
         let s = &self.lines[l];
         if c >= s.len() {
@@ -404,7 +377,6 @@ impl Model {
     fn vertical(&mut self, down: bool) {
         let l = self.cur.0;
         if down {
-            // On the last line Down scrolls; the cursor stays.
             if l + 1 < self.lines.len() {
                 self.aim(l + 1);
             }
@@ -431,7 +403,7 @@ impl Model {
     }
 
     fn replace(&mut self, from: Pos, to: Pos, text: &str, kind: &'static str) -> bool {
-        self.fresh |= kind == "other";
+        self.next_edit_starts_a_step |= kind == "other";
         if from == to && text.is_empty() {
             return false;
         }
@@ -459,7 +431,7 @@ impl Model {
             _ => text.contains('\n') || self.last != "space" && self.last != kind,
         };
         match self.undo.last_mut() {
-            Some(s) if !self.fresh && !stops && s.after == before => {
+            Some(s) if !self.next_edit_starts_a_step && !stops && s.after == before => {
                 s.new = self.lines.clone();
                 s.after = self.cur;
             }
@@ -471,7 +443,7 @@ impl Model {
                 format: None,
             }),
         }
-        self.fresh = kind == "other";
+        self.next_edit_starts_a_step = kind == "other";
         self.last = kind;
         self.redo.clear();
         self.dirty = true;
@@ -485,9 +457,7 @@ impl Model {
         self.replace(from, to, text, kind);
     }
 
-    /// Ctrl+C: the selection, else the line with its break. Returns what Ctrl+X takes: on the
-    /// last line, the break before it, so no empty line is left.
-    fn copy(&mut self) -> (Pos, Pos) {
+    fn copy_and_cut_range(&mut self) -> (Pos, Pos) {
         let (l, n) = (self.cur.0, self.lines.len());
         let (range, text) = match self.selection() {
             Some(r) => (r, self.text(r)),
@@ -505,8 +475,6 @@ impl Model {
         range
     }
 
-    /// Tab over lines: each line the selection touches gets an indent, in one step, and the
-    /// selection keeps its text.
     fn indent(&mut self, from: Pos, to: Pos, indent: &str) {
         let last = if to.1 == 0 { to.0 - 1 } else { to.0 };
         let text = self.lines[from.0..=last]
@@ -542,7 +510,7 @@ impl Model {
         }
         self.dirty = true;
         self.anchor = None;
-        self.fresh = true;
+        self.next_edit_starts_a_step = true;
         self.last = "other";
         self.sync_x();
         (if back { &mut self.redo } else { &mut self.undo }).push(step);
@@ -553,7 +521,6 @@ impl Model {
         self.dirty = false;
     }
 
-    /// Ctrl+R: the file as the disk has it; the edits it drops are one undo step.
     fn reload(&mut self) {
         let (lines, format) = parse(&self.disk);
         if lines != self.lines || format != self.format {
@@ -570,7 +537,7 @@ impl Model {
         (self.lines, self.format) = (lines, format);
         self.dirty = false;
         self.redo.clear();
-        self.fresh = true;
+        self.next_edit_starts_a_step = true;
         self.last = "other";
         self.cur = self.clamp(self.cur);
         self.sync_x();
@@ -624,7 +591,7 @@ impl Model {
     fn key(&mut self, code: KeyCode, m: KeyModifiers) {
         let (ctrl, shift, alt) = (m.contains(CTRL), m.contains(SHIFT), m.contains(ALT));
         if ctrl && code == KeyCode::Char('c') {
-            self.copy();
+            self.copy_and_cut_range();
             return;
         }
         if self.editing && self.edit_key(code, ctrl, alt) {
@@ -636,7 +603,7 @@ impl Model {
             KeyCode::Esc => self.anchor = None,
             KeyCode::Enter => {
                 self.editing = true;
-                self.fresh = true;
+                self.next_edit_starts_a_step = true;
             }
             KeyCode::Char('v') => self.grow(),
             KeyCode::Char('s') if ctrl => self.save(),
@@ -660,7 +627,6 @@ impl Model {
                 self.anchor.get_or_insert(self.cur);
                 self.arrow(code, alt);
             }
-            // A plain arrow on a selection collapses it to its end on that side.
             KeyCode::Left | KeyCode::Right if !alt && self.selection().is_some() => {
                 let (a, b) = self.selection().unwrap();
                 self.cur = if code == KeyCode::Left { a } else { b };
@@ -682,10 +648,9 @@ impl Model {
                 | KeyCode::Home
                 | KeyCode::End
         );
-        self.fresh |= moves || self.cur != before;
+        self.next_edit_starts_a_step |= moves || self.cur != before;
     }
 
-    /// The keys edit mode has of its own; `false` for the rest, which move as in navigation.
     fn edit_key(&mut self, code: KeyCode, ctrl: bool, alt: bool) -> bool {
         let (l, c) = self.cur;
         match code {
@@ -696,11 +661,10 @@ impl Model {
                 }
             }
             KeyCode::Char('x') if ctrl => {
-                let last = self.selection().is_none() && l + 1 == self.lines.len();
-                let (from, to) = self.copy();
+                let cuts_last_line = self.selection().is_none() && l + 1 == self.lines.len();
+                let (from, to) = self.copy_and_cut_range();
                 let want = self.want_x;
-                if self.replace(from, to, "", "other") && last {
-                    // The last line cut: onto the line above, at the column it had.
+                if self.replace(from, to, "", "other") && cuts_last_line {
                     self.want_x = want;
                     self.aim(self.cur.0);
                     self.undo.last_mut().unwrap().after = self.cur;
@@ -748,8 +712,6 @@ impl Model {
     }
 }
 
-/// How a session went wrong: the step, and what disagreed. `what` alone decides whether a
-/// shorter session still fails "the same way".
 struct Failure {
     step: usize,
     what: &'static str,
@@ -765,8 +727,7 @@ fn play(path: &Path, file: &[u8], ops: &[Op]) -> Result<(), Failure> {
         Buffer::from_bytes(path.to_path_buf(), file),
         None,
     );
-    // No line wraps: the model moves Up / Down by lines.
-    a.view_w = 10_000;
+    a.view_w = WIDER_THAN_ANY_LINE;
     a.view_h = 40;
     let mut m = Model::new(file);
     let mut clipboard = None;
@@ -836,12 +797,10 @@ fn play(path: &Path, file: &[u8], ops: &[Op]) -> Result<(), Failure> {
             }
         }
     }
-    // The end of the session drawn in a narrow pane, where its lines wrap: whatever the keys
-    // left, emoji halves and all, has to draw.
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-    let mut terminal = Terminal::new(TestBackend::new(24, 8)).unwrap();
+    let mut narrow = Terminal::new(TestBackend::new(24, 8)).unwrap();
     let drawn = catch_unwind(AssertUnwindSafe(|| {
-        terminal
+        narrow
             .draw(|f| crate::ui::draw(f, &mut a, &theme))
             .map(|_| ())
     }));
@@ -850,14 +809,12 @@ fn play(path: &Path, file: &[u8], ops: &[Op]) -> Result<(), Failure> {
         return Err(Failure {
             step,
             what: "draw",
-            detail: "the last screen did not draw".into(),
+            detail: "the last screen did not draw in a pane where its lines wrap".into(),
         });
     }
     Ok(())
 }
 
-/// Drops keys while the session still fails the same way: halves, then quarters, down to
-/// single keys.
 fn shrink(path: &Path, file: &[u8], ops: &[Op], what: &str) -> Vec<Op> {
     let mut ops = ops.to_vec();
     let mut chunk = ops.len() / 2;
@@ -903,13 +860,16 @@ fn random_edit_sessions_agree_with_the_model() {
             String::from_utf8_lossy(&file),
             last.detail,
         ));
-        // One is enough to read; MERL_FUZZ_ALL=1 lists every failing seed.
         if std::env::var_os("MERL_FUZZ_ALL").is_none() {
             break;
         }
     }
     let _ = std::fs::remove_dir_all(&dir);
-    assert!(failures.is_empty(), "\n{}", failures.join("\n\n"));
+    assert!(
+        failures.is_empty(),
+        "\n{}\n\nMERL_FUZZ_SEED=S replays seed S; MERL_FUZZ_ALL=1 lists every failing seed",
+        failures.join("\n\n")
+    );
 }
 
 const PYTHON: &[&str] = &[
@@ -931,6 +891,9 @@ const PYTHON: &[&str] = &[
     "lambda x: x",
     "re.compile(r\"[a-z]+\\d\")",
     "\"%s %d\" % (a, b)",
+    "T = \\\n    TypeVar(\"T\")\n",
+    "TypeVar",
+    "r",
 ];
 
 const MARKDOWN: &[&str] = &[
@@ -1000,6 +963,155 @@ const DATA: &[&str] = &[
     "    ",
 ];
 
+const C: &[&str] = &[
+    "printf(\"%d\\n\", x);",
+    "#define M(x) ((x) + 1)\n",
+    "#if 0\n",
+    "#endif\n",
+    "struct s { int a : 3; };",
+    "/* ",
+    " */",
+    "// ",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "'",
+    "\n\n",
+];
+
+const DIFF: &[&str] = &[
+    "\n+",
+    "\n-",
+    "\n ",
+    "@@ -1,2 +1,3 @@",
+    "diff --git a/x b/x\n",
+    "--- a/x\n+++ b/x\n",
+    "\\ No newline at end of file\n",
+    "index 1a2b3c4..5d6e7f8 100644\n",
+    "\n\n",
+];
+
+const QUERY: &[&str] = &[
+    "(identifier) @variable",
+    "((a) @b (#eq? @b \"c\"))",
+    "[\"if\" \"else\"] @keyword",
+    "; ",
+    "\"",
+    "(",
+    ")",
+    "[",
+    "]",
+    "@",
+    "#",
+    "\n\n",
+];
+
+const CPP: &[&str] = &[
+    "template <typename T>\n",
+    "R\"x(",
+    ")x\"",
+    "std::printf(\"%s\", s);",
+    "[](auto& a) { return a; }",
+    "class A : public B {\npublic:\n",
+    "::",
+    "<",
+    ">",
+    "{",
+    "}",
+    "\"",
+    "/* ",
+    "\n\n",
+];
+
+const JAVA: &[&str] = &[
+    "String.format(\"%d\", x);",
+    "\"\"\"\n",
+    "/** ",
+    " */",
+    "@Override\n",
+    "case 1 -> {\n",
+    "<T extends A>",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
+const KOTLIN: &[&str] = &[
+    "\"${x}\"",
+    "\"\"\"\n",
+    "/** ",
+    " */",
+    "@JvmStatic\n",
+    "when (x) {\n",
+    "<T : A>",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
+const RUBY: &[&str] = &[
+    "\"#{x}\"", "<<~SQL\n", "SQL\n", "=begin\n", "=end\n", "/[a-z]+/", "do |x|\n", "end\n", "(",
+    ")", "{", "}", "\"", "\n\n",
+];
+
+const ELIXIR: &[&str] = &[
+    "\"#{x}\"",
+    "\"\"\"\n",
+    "@doc \"\"\"\n",
+    "~r/[a-z]+/",
+    "do\n",
+    "end\n",
+    "fn x -> ",
+    "|> ",
+    "(",
+    ")",
+    "%{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
+const CSHARP: &[&str] = &[
+    "$\"{x,-10}\"",
+    "@\"",
+    "\"\"\"\n",
+    "#region A\n",
+    "#endregion\n",
+    "/// <summary>",
+    "[Obsolete]\n",
+    "x switch { _ => 1 };",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
+const MARKUP: &[&str] = &[
+    "<style>a { color: red; }</style>",
+    "<script>let x = 1;</script>",
+    "<p style=\"margin: 0\">",
+    "</p>",
+    "<!-- ",
+    " -->",
+    "<",
+    ">",
+    "{",
+    "}",
+    "\"",
+    "&amp;",
+    "\n\n",
+];
+
 const LUA: &[&str] = &[
     "---@param x number\n",
     "string.format(\"%d\", x)",
@@ -1060,24 +1172,130 @@ fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
         include_bytes!("../../../tests/colors/lua/decls.lua"),
         LUA,
     );
+    fuzz_tree_sitter("f.c", include_bytes!("../../../tests/colors/c/ledger.c"), C);
+    fuzz_tree_sitter(
+        "f.cpp",
+        include_bytes!("../../../tests/colors/cpp/report.cpp"),
+        CPP,
+    );
+    fuzz_tree_sitter(
+        "F.java",
+        include_bytes!("../../../tests/colors/java/Ledger.java"),
+        JAVA,
+    );
+    fuzz_tree_sitter(
+        "F.kt",
+        include_bytes!("../../../tests/colors/kotlin/Ledger.kt"),
+        KOTLIN,
+    );
+    fuzz_tree_sitter(
+        "f.rb",
+        include_bytes!("../../../tests/colors/ruby/ledger.rb"),
+        RUBY,
+    );
+    fuzz_tree_sitter(
+        "f.ex",
+        include_bytes!("../../../tests/colors/elixir/ledger.ex"),
+        ELIXIR,
+    );
+    fuzz_tree_sitter(
+        "F.cs",
+        include_bytes!("../../../tests/colors/c_sharp/Ledger.cs"),
+        CSHARP,
+    );
+    fuzz_tree_sitter(
+        "f.html",
+        include_bytes!("../../../tests/colors/html/page.html"),
+        MARKUP,
+    );
+    fuzz_tree_sitter(
+        "f.css",
+        include_bytes!("../../../tests/colors/css/site.css"),
+        MARKUP,
+    );
+    fuzz_tree_sitter(
+        "f.xml",
+        include_bytes!("../../../tests/colors/xml/project.xml"),
+        MARKUP,
+    );
+    fuzz_tree_sitter(
+        "f.diff",
+        include_bytes!("../../../tests/colors/diff/change.diff"),
+        DIFF,
+    );
+    fuzz_tree_sitter(
+        "queries/f.scm",
+        include_bytes!("../../../tests/colors/query/queries/highlights.scm"),
+        QUERY,
+    );
+}
+
+#[test]
+fn a_node_error_recovery_rebuilds_above_the_edit_is_repainted() {
+    replay_tree_sitter(
+        "f.py",
+        include_bytes!("../../../tests/colors/python/classes.py"),
+        PYTHON,
+        2204..=2204,
+    );
+    replay_tree_sitter(
+        "F.java",
+        include_bytes!("../../../tests/colors/java/Ledger.java"),
+        JAVA,
+        2445..=2445,
+    );
+}
+
+#[test]
+fn a_paint_from_any_row_orders_captures_at_one_byte_as_a_paint_from_the_top() {
+    replay_tree_sitter(
+        "f.cpp",
+        include_bytes!("../../../tests/colors/cpp/report.cpp"),
+        CPP,
+        1950..=1950,
+    );
+}
+
+#[test]
+fn a_resumed_parse_that_stops_short_of_the_text_is_redone_uncut() {
+    replay_tree_sitter(
+        "f.yml",
+        include_bytes!("../../../tests/colors/yaml/workflow.yml"),
+        DATA,
+        3020..=3020,
+    );
 }
 
 fn fuzz_tree_sitter(name: &str, start: &[u8], snippets: &[&str]) {
-    let sessions = std::env::var("MERL_FUZZ_SESSIONS")
-        .ok()
-        .and_then(|v| v.parse::<u64>().ok())
-        .unwrap_or(40);
+    let env = |name| std::env::var(name).ok().and_then(|v| v.parse::<u64>().ok());
+    let seeds = match env("MERL_FUZZ_SEED") {
+        Some(s) => s..=s,
+        None => 1..=env("MERL_FUZZ_SESSIONS").unwrap_or(40),
+    };
+    replay_tree_sitter(name, start, snippets, seeds);
+}
+
+fn replay_tree_sitter(
+    name: &str,
+    start: &[u8],
+    snippets: &[&str],
+    seeds: std::ops::RangeInclusive<u64>,
+) {
     let theme = crate::theme::load("tokyonight-moon").unwrap();
-    let dir = std::env::temp_dir().join(format!("merl-ts-fuzz-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = std::env::temp_dir().join(format!(
+        "merl-ts-fuzz-{}-{}",
+        std::process::id(),
+        seeds.start()
+    ));
     let path = dir.join(name);
-    for seed in 1..=sessions {
-        let mut rng = Rng::new(seed);
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    for seed in seeds {
+        let mut rng = Xorshift64::new(seed);
         std::fs::write(&path, start).unwrap();
         let mut buf = Buffer::from_bytes(path.clone(), start);
         buf.start_tree_sitter();
         let mut a = App::new(dir.clone(), Tree::default(), Vec::new(), buf, None);
-        (a.view_w, a.view_h) = (10_000, 40);
+        (a.view_w, a.view_h) = (WIDER_THAN_ANY_LINE, 40);
         a.line = rng.below(a.buf.lines.len());
         a.key(KeyEvent::new(KeyCode::Enter, NONE));
         let mut done = Vec::new();
@@ -1125,7 +1343,7 @@ fn fuzz_tree_sitter(name: &str, start: &[u8], snippets: &[&str]) {
                         recovered(&shape)
                             || recovered(&fresh_shape)
                             || tokens(&shape) == tokens(&fresh_shape),
-                        "seed {seed}, after [{}]: the tree differs from a fresh parse without an error in either\nincremental {}\nfresh {}",
+                        "{name} seed {seed}, after [{}]: the tree differs from a fresh parse without an error in either\nincremental {}\nfresh {}",
                         done.join(", "),
                         a.buf.sexp(),
                         fresh.sexp()
@@ -1133,7 +1351,7 @@ fn fuzz_tree_sitter(name: &str, start: &[u8], snippets: &[&str]) {
                     assert_eq!(
                         a.buf.root_bytes(),
                         fresh.root_bytes(),
-                        "seed {seed}, after [{}]: the tree does not span the text",
+                        "{name} seed {seed}, after [{}]: the tree does not span the text",
                         done.join(", ")
                     );
                     let kept = a.buf.hl.clone();
@@ -1144,7 +1362,7 @@ fn fuzz_tree_sitter(name: &str, start: &[u8], snippets: &[&str]) {
             };
             if let Some(l) = (0..a.buf.lines.len()).find(|&l| a.buf.hl[l] != want[l]) {
                 panic!(
-                    "seed {seed}, after [{}]: line {} {:?}\nincremental {:?}\nfresh {:?}",
+                    "{name} seed {seed}, after [{}]: line {} {:?}\nincremental {:?}\nfresh {:?}",
                     done.join(", "),
                     l + 1,
                     a.buf.lines[l],

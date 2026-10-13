@@ -1,15 +1,26 @@
 #!/usr/bin/env bash
-# Ports a Neovim colorscheme, from its own repo, into themes/<name>.tmTheme and
-# themes/<name>.groups.json (every highlight group, links resolved).
-#
-#   tools/port-theme.sh <git-url>[@commit] <colorscheme> <name> [ex command...]
-#   tools/port-theme.sh --all     every theme of tools/theme-bench/themes.tsv from its row
-#
-# Ex commands run before `:colorscheme`, for themes that take their variant from options:
-#   tools/port-theme.sh https://github.com/sainnhe/everforest everforest everforest-light \
-#     "set background=light" "let g:everforest_background='medium'"
-# DEPS="<git-url>[@commit] ..." clones plugins the theme needs onto the runtime path (bluloco: lush.nvim).
 set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Ports a Neovim colorscheme, from its own repo, into themes/<name>.tmTheme and
+themes/<name>.groups.json (every highlight group, links resolved).
+
+  tools/port-theme.sh <git-url>[@commit] <colorscheme> <name> [ex command...]
+  tools/port-theme.sh --all     every theme of tools/theme-bench/themes.tsv from its row
+
+Ex commands run before `:colorscheme`, for themes that take their variant from options:
+  tools/port-theme.sh https://github.com/sainnhe/everforest everforest everforest-light \
+    "set background=light" "let g:everforest_background='medium'"
+
+DEPS="<git-url>[@commit] ..." clones plugins the theme needs onto the runtime path
+(bluloco: lush.nvim).
+EOF
+}
+if [[ ${1:-} == -h || ${1:-} == --help ]]; then
+  usage
+  exit
+fi
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 if [[ ${1:-} == --all ]]; then
@@ -25,7 +36,7 @@ if [[ ${1:-} == --all ]]; then
   exit
 fi
 if [[ $# -lt 3 ]]; then
-  sed -n '2,11p' "$0"
+  usage >&2
   exit 2
 fi
 url=$1 colorscheme=$2 name=$3
@@ -57,7 +68,6 @@ for cmd in "$@"; do
   args+=(-c "$cmd")
 done
 
-# Themes that compile themselves (nightfox, kanagawa) write caches: keep them out of $HOME.
 XDG_CACHE_HOME=$tmp/xdg XDG_STATE_HOME=$tmp/xdg XDG_DATA_HOME=$tmp/xdg \
   nvim --headless -u NONE "${args[@]}" \
   -c "lua local ok, e = pcall(vim.cmd.colorscheme, '$colorscheme'); if not ok then io.stderr:write(e .. '\n'); vim.cmd('cquit 1') end" \
@@ -66,7 +76,6 @@ XDG_CACHE_HOME=$tmp/xdg XDG_STATE_HOME=$tmp/xdg XDG_DATA_HOME=$tmp/xdg \
 
 python3 "$root/tools/nvim2tmtheme.py" "$tmp/hl.json" "$root/themes/$name.tmTheme" "$name"
 
-# One licence per source repo: rose-pine/neovim -> rose-pine, rebelot/kanagawa.nvim -> kanagawa.
 repo=$(basename "${url%.git}")
 case $repo in
   neovim | nvim) repo=$(basename "$(dirname "$url")") ;;

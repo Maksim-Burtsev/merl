@@ -1,6 +1,4 @@
 #!/bin/bash
-# tools/fold-bench/install-parsers.sh DIR: nvim-treesitter at a pinned commit, its queries, the
-# tree-sitter CLI and every parser record.py reads, built into DIR. Nothing outside DIR.
 set -euo pipefail
 DIR=$(mkdir -p "$1" && cd "$1" && pwd)
 NVIM_TS=910fdf6f49e9dee7e7257c7d11a76b040fdfb9de

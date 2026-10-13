@@ -1,0 +1,22 @@
+Fix the build on older compilers.
+
+diff -urN a/BUILD.bazel b/BUILD.bazel
+--- a/BUILD.bazel	2025-08-16 15:15:34.000000000 +0000
++++ b/BUILD.bazel	2025-08-19 17:23:33.436823903 +0000
+@@ -1,4 +1,6 @@
+ load("@rules_go//go:def.bzl", "go_library")
++
++# gazelle:prefix example.com/lib
+ 
+ go_library(
+     name = "lib",
+@@ -10 +12 @@ go_library(
+-    importpath = "lib",
++    importpath = "example.com/lib",
+Only in b: extra
+--- api.mustache
++++ api.mustache
+@@ -1,2 +1,2 @@
+-{{#apis}}
++{{#apiInfo}}
+ {{/apis}}

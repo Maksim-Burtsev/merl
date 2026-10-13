@@ -81,34 +81,48 @@ fn perl_constant_block_entries_declare_only_inside_their_block() {
 
 #[test]
 fn perl_literal_lines_cover_pod_heredocs_quotes_and_data() {
-    let text = [
-        "my $a = <<\"EOT\" . <<'END';", // 0
-        "sub one {",                    // 1
-        "EOT",                          // 2
-        "sub two {",                    // 3
-        "END",                          // 4
-        "my $b = <<~EOT;",              // 5
-        "    sub three {",              // 6
-        "    EOT",                      // 7
-        "my @w = qw(",                  // 8
-        "    sub four {",               // 9
-        ");",                           // 10
-        "my $q = q{a {nested}",         // 11
-        "sub five",                     // 12
-        "};",                           // 13
-        "=head1 NAME",                  // 14
-        "sub six {",                    // 15
-        "=cut",                         // 16
-        "my $n = $#list; # q{ <<EOT",   // 17
-        "my $s = 1 << 2;",              // 18
-        "my %h = (q => 1, qw => 2);",   // 19
-        "__END__",                      // 20
-        "sub seven {",                  // 21
-    ]
-    .join("\n");
-    let literal = perl_literal_lines(&text);
-    let code: Vec<usize> = (0..literal.len()).filter(|&i| !literal[i]).collect();
-    assert_eq!(code, [0, 5, 8, 11, 17, 18, 19, 20]);
+    let lines = [
+        "my $a = <<\"EOT\" . <<'END';",
+        "sub one {",
+        "EOT",
+        "sub two {",
+        "END",
+        "my $b = <<~EOT;",
+        "    sub three {",
+        "    EOT",
+        "my @w = qw(",
+        "    sub four {",
+        ");",
+        "my $q = q{a {nested}",
+        "sub five",
+        "};",
+        "=head1 NAME",
+        "sub six {",
+        "=cut",
+        "my $n = $#list; # q{ <<EOT",
+        "my $s = 1 << 2;",
+        "my %h = (q => 1, qw => 2);",
+        "__END__",
+        "sub seven {",
+    ];
+    let literal = perl_literal_lines(&lines.join("\n"));
+    let code: Vec<&str> = (0..literal.len())
+        .filter(|&i| !literal[i])
+        .map(|i| lines[i])
+        .collect();
+    assert_eq!(
+        code,
+        [
+            "my $a = <<\"EOT\" . <<'END';",
+            "my $b = <<~EOT;",
+            "my @w = qw(",
+            "my $q = q{a {nested}",
+            "my $n = $#list; # q{ <<EOT",
+            "my $s = 1 << 2;",
+            "my %h = (q => 1, qw => 2);",
+            "__END__",
+        ]
+    );
 }
 
 #[test]
@@ -140,33 +154,39 @@ fn perl_imports_bind_the_names_a_use_lists() {
 
 #[test]
 fn perl_lexical_is_the_nearest_declaration_in_the_blocks_around() {
-    let text = [
-        "my $self = 1;",                // 1
-        "sub new {",                    // 2
-        "    my ($class, %args) = @_;", // 3
-        "    my $self = {};",           // 4
-        "    return $args{x};",         // 5
-        "}",                            // 6
-        "sub other($self) {",           // 7
-        "    for my $item (@_) {",      // 8
-        "        print $item;",         // 9
-        "    }",                        // 10
-        "    state $n = 0;",            // 11
-        "    return $self;",            // 12
-        "}",                            // 13
-        "print $self, $item;",          // 14
-    ]
-    .join("\n");
-    let at = |line: usize, word: &str| {
-        let l = text.lines().nth(line - 1).unwrap();
-        perl_lexical(&text, line - 1, l.rfind(word).unwrap(), word)
+    let lines = [
+        "my $self = 1;",
+        "sub new {",
+        "    my ($class, %args) = @_;",
+        "    my $self = {};",
+        "    return $args{x};",
+        "}",
+        "sub other($self) {",
+        "    for my $item (@_) {",
+        "        print $item;",
+        "    }",
+        "    state $n = 0;",
+        "    return $self;",
+        "}",
+        "print $self, $item;",
+    ];
+    let text = lines.join("\n");
+    let at = |line: &str, word: &str| {
+        let i = lines.iter().position(|l| *l == line).unwrap();
+        perl_lexical(&text, i, line.rfind(word).unwrap(), word).map(|n| lines[n - 1])
     };
-    assert_eq!(at(5, "args"), Some(3));
-    assert_eq!(at(9, "item"), Some(8));
-    assert_eq!(at(12, "self"), Some(7));
-    assert_eq!(at(14, "self"), Some(1));
-    assert_eq!(at(14, "item"), None);
-    assert_eq!(at(11, "n"), Some(11));
+    assert_eq!(
+        at("    return $args{x};", "args"),
+        Some("    my ($class, %args) = @_;")
+    );
+    assert_eq!(
+        at("        print $item;", "item"),
+        Some("    for my $item (@_) {")
+    );
+    assert_eq!(at("    return $self;", "self"), Some("sub other($self) {"));
+    assert_eq!(at("print $self, $item;", "self"), Some("my $self = 1;"));
+    assert_eq!(at("print $self, $item;", "item"), None);
+    assert_eq!(at("    state $n = 0;", "n"), Some("    state $n = 0;"));
 }
 
 #[test]

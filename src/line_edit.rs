@@ -1,18 +1,13 @@
-//! The one-line editor behind the `:` and `/` prompts and the picker query.
-
 use std::ops::{Deref, Range};
 
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::app::{is_word, next_char, prev_char};
 
-/// A line of text with a cursor and a selection. It reads as a `&str`; the keys are the ones the
-/// buffer uses, so nothing new has to be learned inside a prompt.
 #[derive(Default)]
 pub struct LineEdit {
     text: String,
     cursor_byte: usize,
-    /// Where the selection started; it runs from here to the cursor.
     anchor: Option<usize>,
     max_chars: Option<usize>,
 }
@@ -25,7 +20,6 @@ impl Deref for LineEdit {
 }
 
 impl LineEdit {
-    /// A line opened with `text` in it, all selected: typing replaces it, an arrow edits it.
     pub fn selected(text: &str) -> Self {
         Self {
             text: text.into(),
@@ -35,7 +29,6 @@ impl LineEdit {
         }
     }
 
-    /// A line opened with `text` in it as if typed: the cursor after it, nothing selected.
     pub fn typed(text: &str) -> Self {
         Self {
             anchor: None,
@@ -43,8 +36,6 @@ impl LineEdit {
         }
     }
 
-    /// The same line, holding at most `chars` chars: typing past them does nothing, a paste is
-    /// cut to what fits.
     pub fn capped(self, chars: usize) -> Self {
         Self {
             max_chars: Some(chars),
@@ -60,14 +51,11 @@ impl LineEdit {
         self.cursor_byte
     }
 
-    /// The selected bytes; None when the cursor stands on the anchor.
     pub fn selection(&self) -> Option<Range<usize>> {
         let a = self.anchor.filter(|&a| a != self.cursor_byte)?;
         Some(a.min(self.cursor_byte)..a.max(self.cursor_byte))
     }
 
-    /// Applies one key. True when the text changed, so the caller knows to search again; a move,
-    /// or a key that is not the line's (Enter, Esc, Up), returns false.
     pub fn key(&mut self, key: KeyEvent) -> bool {
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         let shift = key.modifiers.contains(KeyModifiers::SHIFT);
@@ -112,7 +100,6 @@ impl LineEdit {
             KeyCode::Right if alt => self.go(self.word_right(), shift),
             KeyCode::Left if shift => self.go(self.left(), true),
             KeyCode::Right if shift => self.go(self.right(), true),
-            // A plain arrow on a selection collapses it to the matching end.
             KeyCode::Left => self.go(self.selection().map_or(self.left(), |r| r.start), false),
             KeyCode::Right => self.go(self.selection().map_or(self.right(), |r| r.end), false),
             _ => {}
@@ -120,14 +107,11 @@ impl LineEdit {
         false
     }
 
-    /// Puts `text` in place of the selection, or at the cursor, as far as `max_chars` lets it. True
-    /// when the text changed; empty `text` changes nothing, not even the selection.
     pub fn insert(&mut self, text: &str) -> bool {
         if text.is_empty() {
             return false;
         }
         let cut = self.selection().map(|range| self.cut(range)).is_some();
-        // A selection stretched and shrunk back to nothing leaves its anchor behind.
         self.anchor = None;
         let room = self.max_chars.map_or(usize::MAX, |cap| {
             cap.saturating_sub(self.text.chars().count())
@@ -270,5 +254,44 @@ mod tests {
         press(&mut e, KeyCode::Home, KeyModifiers::SHIFT);
         assert!(press(&mut e, KeyCode::Backspace, KeyModifiers::NONE));
         assert_eq!((&*e, e.cursor(), e.selection()), ("", 0, None));
+    }
+
+    #[test]
+    fn a_line_opens_selected_typed_or_capped() {
+        let mut e = LineEdit::selected("old");
+        assert_eq!(e.selection(), Some(0..3));
+        press(&mut e, KeyCode::Char('n'), KeyModifiers::NONE);
+        assert_eq!(&*e, "n", "typing replaces a line opened selected");
+        let mut e = LineEdit::selected("old");
+        assert!(!press(&mut e, KeyCode::Left, KeyModifiers::NONE));
+        assert_eq!(
+            (&*e, e.cursor(), e.selection()),
+            ("old", 0, None),
+            "a plain Left collapses a selection to its start"
+        );
+        let e = LineEdit::typed("old");
+        assert_eq!((e.cursor(), e.selection()), (3, None));
+        let mut e = LineEdit::typed("ab").capped(3);
+        assert!(press(&mut e, KeyCode::Char('c'), KeyModifiers::NONE));
+        assert!(!press(&mut e, KeyCode::Char('d'), KeyModifiers::NONE));
+        assert_eq!(&*e, "abc", "typing past the cap does nothing");
+        let mut e = LineEdit::typed("a").capped(3);
+        assert!(e.insert("bcdef"));
+        assert_eq!(&*e, "abc", "a paste is cut to what fits");
+    }
+
+    #[test]
+    fn only_a_change_of_the_text_reports_true() {
+        let mut e = LineEdit::selected("old");
+        for code in [KeyCode::Enter, KeyCode::Esc, KeyCode::Up, KeyCode::End] {
+            assert!(!press(&mut e, code, KeyModifiers::NONE), "{code:?}");
+        }
+        let mut e = LineEdit::selected("old");
+        assert!(!e.insert(""));
+        assert_eq!(
+            e.selection(),
+            Some(0..3),
+            "an empty insert keeps the selection"
+        );
     }
 }

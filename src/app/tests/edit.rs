@@ -804,12 +804,29 @@ fn a_save_that_fails_says_why_in_a_few_words() {
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     typed(&mut a, "x");
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-    // As root every file is writable, and there is nothing to assert.
     if a.dirty {
         assert_eq!(
             a.message, "save failed: permission denied",
             "a few words, not the OS text and its `(os error N)`"
         );
+    }
+    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+}
+
+#[test]
+fn an_unbound_ctrl_letter_takes_back_q_again_quits() {
+    use std::os::unix::fs::PermissionsExt;
+    let (path, mut a) = temp_file("quit-again-ctrl", "one\n");
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o444)).unwrap();
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    typed(&mut a, "x");
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    if a.dirty {
+        assert!(!press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
+        assert!(a.message.ends_with("q again quits"));
+        press(&mut a, KeyCode::Char('t'), KeyModifiers::CONTROL);
+        assert_eq!(a.message, "");
+        assert!(!press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
     }
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }

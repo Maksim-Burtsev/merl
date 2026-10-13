@@ -980,10 +980,10 @@ mod tests {
         assert_eq!((m[&3], m[&4]), (Mark::Added, Mark::Added));
         assert_eq!(m[&8], Mark::DeletedBelow);
         assert_eq!(m.len(), 4, "{m:?}");
-        // Lines deleted above the first line are marked on it.
         assert_eq!(
             parse("@@ -1,3 +0,0 @@\n", false).marks[&0],
-            Mark::DeletedBelow
+            Mark::DeletedBelow,
+            "lines deleted above the first line are marked on it"
         );
         assert!(parse("", false).marks.is_empty());
     }
@@ -999,12 +999,18 @@ mod tests {
         assert_eq!(d.ghosts[&0], vec!["x"]);
         assert_eq!(d.ghosts[&9], vec!["c", "d"]);
         assert_eq!(d.ghosts.get(&3), None);
-        // A changed line is an added one under its ghost: no `Changed` in review.
-        assert_eq!(d.marks[&0], Mark::Added);
+        assert_eq!(
+            d.marks[&0],
+            Mark::Added,
+            "a changed line is an added one under its ghost: no `Changed` in review"
+        );
         assert_eq!(d.marks.len(), 3, "{:?}", d.marks);
-        // A deletion right after a changed last line is one stop, not two.
         let d = parse("@@ -5 +5 @@\n-a\n+b\n@@ -6,2 +5,0 @@\n-c\n-d\n", true);
-        assert_eq!((d.hunks.clone(), d.ghosts[&5].len()), (vec![File(4)], 2));
+        assert_eq!(
+            (d.hunks.clone(), d.ghosts[&5].len()),
+            (vec![File(4)], 2),
+            "a deletion right after a changed last line is one stop, not two"
+        );
     }
 
     #[test]
@@ -1014,12 +1020,15 @@ mod tests {
                     @@ -10 +10,2 @@\n-total = price * qty\n\
                     +log.debug(\"pricing %s\", item)\n+total = price * qty * rate\n";
         let d = parse(diff, true);
-        // The first ghost at each key is this 0-based base-file line.
-        assert_eq!(d.ghost_from, BTreeMap::from([(0, 0), (9, 9)]));
-        // A balanced hunk pairs in order; an unbalanced one by similarity.
+        assert_eq!(
+            d.ghost_from,
+            BTreeMap::from([(0, 0), (9, 9)]),
+            "the first ghost at each key is this 0-based base-file line"
+        );
         assert_eq!(
             d.pairs,
-            HashMap::from([(0, (0, 0)), (1, (0, 1)), (10, (9, 0))])
+            HashMap::from([(0, (0, 0)), (1, (0, 1)), (10, (9, 0))]),
+            "a balanced hunk pairs in order; an unbalanced one by similarity"
         );
     }
 
@@ -1228,13 +1237,11 @@ mod tests {
         std::fs::write(dir.join("src/a.rs"), "a\nB\nc\nd\n").unwrap();
         std::fs::write(dir.join("new"), "n\n").unwrap();
         std::fs::remove_file(dir.join("gone")).unwrap();
-        // A rename with an edit, and a non-ASCII name git would quote without `-z`.
         std::fs::rename(dir.join("moved"), dir.join("src/moved.rs")).unwrap();
         std::fs::write(dir.join("src/moved.rs"), format!("{ten}M10\n")).unwrap();
         std::fs::write(dir.join("файл.txt"), "ф\n").unwrap();
         git(&["add", "-A"]);
         git(&["commit", "-q", "-m", "work"]);
-        // Base moves on: the diff is still against the merge base, not the base tip.
         git(&["switch", "-q", "main"]);
         std::fs::write(dir.join("other"), "o\n").unwrap();
         git(&["add", "-A"]);
@@ -1264,8 +1271,6 @@ mod tests {
                 .iter()
                 .all(|f| f.status == 'D' || dir.join(&f.path).exists())
         );
-        // The deleted lines (#440), keyed as the review draws them: under the new name of a
-        // rename, and in a file the branch deleted, whose text is the base's, as its lines.
         let deleted: Vec<_> = r
             .deleted
             .iter()
@@ -1277,11 +1282,15 @@ mod tests {
                 ("src/a.rs", 2, TextLine::Deleted(1, 0), "b"),
                 ("src/moved.rs", 10, TextLine::Deleted(9, 0), "m10"),
                 ("gone", 1, TextLine::File(0), "x"),
-            ]
+            ],
+            "the deleted lines (#440), keyed as the review draws them: under the new name of a rename, and in a file the branch deleted, whose text is the base's, as its lines"
         );
-        // The rename diffs against its old name: one hunk, not a whole new file.
         let moved = &r.files[1];
-        assert_eq!(moved.old.as_deref(), Some(Path::new("moved")));
+        assert_eq!(
+            moved.old.as_deref(),
+            Some(Path::new("moved")),
+            "the rename diffs against its old name: one hunk, not a whole new file"
+        );
         let d = diff(
             &dir,
             &dir.join(&moved.path),
@@ -1299,7 +1308,6 @@ mod tests {
             Review::open(&dir, None, Some("feature")).is_err(),
             "no changes"
         );
-        // Where the branch lives, for the watch: a linked worktree has its own `HEAD`.
         let real = dir.canonicalize().unwrap();
         let wt = real.with_extension("wt");
         let _ = std::fs::remove_dir_all(&wt);
@@ -1317,10 +1325,12 @@ mod tests {
         assert!(git_dir.starts_with(common.join("worktrees")) && git_dir.join("HEAD").exists());
         assert_eq!(common_dir, common);
         std::fs::remove_dir_all(&wt).unwrap();
-        // With a branch name the review switches to it; a dirty tree in the way is an error.
         git(&["switch", "-q", "main"]);
         let r = Review::open(&dir, Some("feature"), None).unwrap();
-        assert_eq!(r.branch, "feature");
+        assert_eq!(
+            r.branch, "feature",
+            "with a branch name the review switches to it; a dirty tree in the way is an error"
+        );
         git(&["switch", "-q", "main"]);
         std::fs::write(dir.join("src/a.rs"), "dirty\n").unwrap();
         assert!(
@@ -1361,12 +1371,14 @@ mod tests {
         );
         std::fs::write(wt.join("a.py"), "x = 2\n").unwrap();
         git(&wt, &["commit", "-q", "-am", "agent work"]);
-        // Not committed yet: the agent is still at it.
         std::fs::write(wt.join("new.py"), "y = 3\n").unwrap();
 
         assert_eq!(worktree_of(&dir, "agent/task"), Some(wt.clone()));
-        // The branch of this very worktree, or of none, is today's `-r BRANCH`.
-        assert_eq!(worktree_of(&dir, "main"), None);
+        assert_eq!(
+            worktree_of(&dir, "main"),
+            None,
+            "the branch of this very worktree, or of none, is today's `-r BRANCH`"
+        );
         assert_eq!(worktree_of(&dir, "nowhere"), None);
         let r = Review::open(&wt, None, None).unwrap();
         assert_eq!((r.branch.as_str(), r.base.as_str()), ("agent/task", "main"));
@@ -1376,16 +1388,19 @@ mod tests {
             .map(|f| (f.status, f.path.to_str().unwrap()))
             .collect();
         assert_eq!(rows, vec![('M', "a.py"), ('A', "new.py")]);
-        // Nothing switched on either side.
         let head = |at: &Path| git(at, &["symbolic-ref", "--short", "HEAD"]);
         assert_eq!(
             (head(&dir), head(&wt)),
-            ("main\n".into(), "agent/task\n".into())
+            ("main\n".into(), "agent/task\n".into()),
+            "nothing switched on either side"
         );
 
-        // A worktree whose directory is gone is `prunable`: the error stays git's.
         std::fs::remove_dir_all(&wt).unwrap();
-        assert_eq!(worktree_of(&dir, "agent/task"), None);
+        assert_eq!(
+            worktree_of(&dir, "agent/task"),
+            None,
+            "a worktree whose directory is gone is `prunable`: the error stays git's"
+        );
         let e = Review::open(&dir, Some("agent/task"), None).unwrap_err();
         assert!(
             format!("{e:#}").contains("switching to agent/task"),
@@ -1512,8 +1527,6 @@ mod tests {
         git(&dir, &["commit", "-q", "-m", "base"]);
         git(&dir, &["switch", "-q", "-c", "feature"]);
         assert!(Review::open(&dir, None, None).is_err(), "no changes");
-        // A name git lists first and in spaces, an empty file, text with a NUL past the 8000
-        // bytes git looks at, a binary, an ignored file, and a nested repository (`sub/`).
         std::fs::write(dir.join(" lead.py"), "x = 1\n").unwrap();
         std::fs::write(dir.join("empty.py"), "").unwrap();
         std::fs::write(dir.join("long.txt"), "ab\n".repeat(3000) + "\0").unwrap();
@@ -1534,7 +1547,8 @@ mod tests {
                 ("empty.py", 0, false, false),
                 ("logo.png", 0, true, false),
                 ("long.txt", 3001, false, true),
-            ]
+            ],
+            "a name git lists first and in spaces, an empty file, text with a NUL past the 8000 bytes git looks at, a binary, an ignored file, and a nested repository (`sub/`)"
         );
         assert!(r.files.iter().all(|f| f.status == 'A' && f.untracked));
         let d = r.diff(&dir, &dir.join("empty.py"), r.file(Path::new("empty.py")));
@@ -1542,9 +1556,6 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// #405: git lists an untracked link to a FIFO, and counting its lines opened the FIFO and
-    /// waited for a writer forever, before the first frame. On a thread of its own here, so a
-    /// wait fails the test instead of hanging it.
     #[cfg(unix)]
     #[test]
     fn an_untracked_link_to_a_fifo_is_a_row_that_is_not_read() {
@@ -1582,9 +1593,6 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// #404: the review opens on the first file with something to read; a branch of nothing
-    /// but a link to a directory opens on no file, where `Buffer::load` on the link ended the
-    /// start, and a branch of binaries opens on one.
     #[cfg(unix)]
     #[test]
     fn a_review_opens_on_a_file_with_text_a_binary_or_none() {
@@ -1664,55 +1672,71 @@ mod tests {
         assert_eq!((names(&r), r.note), (vec!["one".to_string()], None));
         git("b", &["switch", "-q", "main"]);
 
-        // Rebased and force-pushed: a copy nobody committed on takes the new history, though
-        // `git clone` left no trace of the tip it was created from.
         git("a", &["reset", "-q", "--hard", "HEAD~1"]);
         commit("a", "two");
         push();
-        assert_eq!(names(&open()), ["two"]);
+        assert_eq!(
+            names(&open()),
+            ["two"],
+            "rebased and force-pushed: a copy nobody committed on takes the new history, though `git clone` left no trace of the tip it was created from"
+        );
         git("b", &["switch", "-q", "main"]);
 
-        // Pushed since: the local branch from the last review moves on to it.
         commit("a", "three");
         push();
         let r = open();
-        assert_eq!(names(&r), ["three", "two"]);
+        assert_eq!(
+            names(&r),
+            ["three", "two"],
+            "pushed since: the local branch from the last review moves on to it"
+        );
         assert_eq!(r.note, None);
 
-        // The branch took in a base that moved on: that commit is the base's, not the branch's,
-        // though this clone never fetched it.
         git("a", &["switch", "-q", "main"]);
         commit("a", "later");
         push();
         git("a", &["switch", "-q", "feat"]);
         git("a", &["merge", "-q", "--no-edit", "main"]);
         push();
-        assert_eq!(names(&open()), ["three", "two"]);
+        assert_eq!(
+            names(&open()),
+            ["three", "two"],
+            "the branch took in a base that moved on: that commit is the base's, not the branch's, though this clone never fetched it"
+        );
 
-        // Local changes in the way: the branch stays, and the review says it is behind.
         std::fs::write(dir.join("b/two"), "mine\n").unwrap();
         std::fs::write(dir.join("a/two"), "fixed\n").unwrap();
         git("a", &["commit", "-q", "-am", "fix"]);
         push();
-        assert_eq!(open().note.as_deref(), Some("behind origin/feat"));
+        assert_eq!(
+            open().note.as_deref(),
+            Some("behind origin/feat"),
+            "local changes in the way: the branch stays, and the review says it is behind"
+        );
         git("b", &["checkout", "-q", "--", "two"]);
         assert_eq!(open().note, None);
 
-        // The reviewer's own commit stays, ahead of what was pushed or diverged from it.
         commit("b", "mine");
         let r = open();
-        assert_eq!((names(&r).contains(&"mine".into()), r.note), (true, None));
+        assert_eq!(
+            (names(&r).contains(&"mine".into()), r.note),
+            (true, None),
+            "the reviewer's own commit stays, ahead of what was pushed or diverged from it"
+        );
         commit("a", "four");
         push();
         let r = open();
         assert_eq!(names(&r), ["mine", "three", "two"]);
         assert_eq!(r.note.as_deref(), Some("diverged from origin/feat"));
 
-        // Nothing to fetch from: the branch as it is, and the review says so.
         git("b", &["reset", "-q", "--hard", "origin/feat~1"]);
         std::fs::remove_dir_all(&remote).unwrap();
         let r = open();
-        assert_eq!(names(&r), ["three", "two"]);
+        assert_eq!(
+            names(&r),
+            ["three", "two"],
+            "nothing to fetch from: the branch as it is, and the review says so"
+        );
         assert_eq!(r.note.as_deref(), Some("origin/feat not fetched"));
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -1750,29 +1774,42 @@ mod tests {
         commit("a", "one");
         git("a", &["push", "-q", "origin", "feat"]);
 
-        // Fetched, and the local `feat` made from it, as `-r feat` does.
         let r = open("origin/feat").unwrap();
-        assert_eq!((r.branch.as_str(), r.note), ("feat", None));
+        assert_eq!(
+            (r.branch.as_str(), r.note),
+            ("feat", None),
+            "fetched, and the local `feat` made from it, as `-r feat` does"
+        );
         assert_eq!(r.files[0].path, Path::new("one"));
         git("b", &["switch", "-q", "main"]);
 
-        // Not on origin: an error, though a local branch of that name exists.
         git("b", &["branch", "mine"]);
-        assert_eq!(error("origin/mine"), "no branch mine on origin");
-        // Another remote's prefix is part of a local name, as before.
-        assert!(error("upstream/feat").starts_with("switching to upstream/feat"));
+        assert_eq!(
+            error("origin/mine"),
+            "no branch mine on origin",
+            "not on origin: an error, though a local branch of that name exists"
+        );
+        assert!(
+            error("upstream/feat").starts_with("switching to upstream/feat"),
+            "another remote's prefix is part of a local name, as before"
+        );
 
-        // A local branch literally named `origin/lit` is that branch.
         git("b", &["switch", "-q", "-c", "origin/lit"]);
         commit("b", "lit");
         git("b", &["switch", "-q", "main"]);
-        assert_eq!(open("origin/lit").unwrap().branch, "origin/lit");
+        assert_eq!(
+            open("origin/lit").unwrap().branch,
+            "origin/lit",
+            "a local branch literally named `origin/lit` is that branch"
+        );
         git("b", &["switch", "-q", "main"]);
 
-        // Origin unreachable: the local branch, and the review says it was not fetched.
         std::fs::remove_dir_all(dir.join("remote.git")).unwrap();
         let r = open("origin/feat").unwrap();
-        assert_eq!(r.branch, "feat");
+        assert_eq!(
+            r.branch, "feat",
+            "origin unreachable: the local branch, and the review says it was not fetched"
+        );
         assert_eq!(r.note.as_deref(), Some("origin/feat not fetched"));
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -1912,7 +1949,6 @@ mod tests {
             ("lab.txt", "l\n", true),
             ("api.pb.go", header, true),
             ("within.go", &within, true),
-            // Neither forge folds these; the attributes keep a lock file open.
             ("yarn.lock", "x\n", false),
             ("go.sum", "x\n", false),
             ("Gemfile.lock", "x\n", false),
@@ -1920,7 +1956,6 @@ mod tests {
             ("open/package-lock.json", "{}\n", false),
             ("no.txt", "n\n", false),
             ("unset.txt", "u\n", false),
-            // Near misses: another name, a header past line 40, half a header, not Go.
             (
                 "schema.js",
                 "/**\n * @generated SignedSource<<1>>\n */\n",
@@ -1940,7 +1975,6 @@ mod tests {
         }
         git(&["add", "-A", "-f"]);
         git(&["commit", "-q", "-m", "work"]);
-        // Untracked: read the same way.
         std::fs::write(dir.join("gen/new.ts"), "n\n").unwrap();
         std::fs::write(dir.join("new.go"), header).unwrap();
         let r = Review::open(&dir, None, None).unwrap();
@@ -1952,6 +1986,6 @@ mod tests {
             .map(|f| (f.path.to_str().unwrap(), f.generated))
             .collect();
         got.sort();
-        assert_eq!(got, want);
+        assert_eq!(got, want, "untracked: read the same way");
     }
 }

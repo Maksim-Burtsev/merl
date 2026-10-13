@@ -1,0 +1,462 @@
+merl snapshot: files-recent
+
+==== 80x24 tokyonight-moon text, cursor 11,6
+┌notes───────────────────────┐ 4
+│▸ tests                     │ 5 from config import Config, load_config
+│  cli.py                    │ 6 from models import Note
+│  config.py                 │ 7
+│  export.csv                │ 8
+│  Makef┌Files (2/9)───────────────────────────────────────────────────┐
+│  model│>                                                             │single
+│  notes│store.py                                      recently opened │
+│  PLAN.│config.py                                                     │
+│  store│                                                              │ None =
+│       │                                                              │
+│       │                                                              │nfig()
+│       │                                                              │read()
+│       │                                                              │
+│       │                                                              │
+│       │                                                              │missing
+│       │                                                              │
+│       │                                                              │):
+│       └──────────────────────────────────────────────────────────────┘
+│                            │20         raw = json.loads(self.config.path.
+│                            │           read_text(encoding="utf-8"))
+│                            │21         return [Note.from_dict(item) for item
+└────────────────────────────┘           in raw]
+store.py  13:33  [code]                                                  ? help
+
+==== 80x24 tokyonight-moon styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccddddddddddddddddddddddddddddddddddddddddddddddd
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccceeeeddddddddeeeeeedddddddfddddddddddddddddddddd
+addddddddddddddddddddddddddddaccceeeeddddddddeeeeeeddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
+adddddddabbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddd
+adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddagggggggd
+adddddddaddddddddddddddddddddddddddddddddddddddddddddddhhhhhhhhhhhhhhhhadddddddd
+adddddddaiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiadddddddd
+ajjjjjjjaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadkkkkdfd
+adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddallllmmnn
+adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddaaaaaoodd
+adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddagggggggg
+adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddaoodddddd
+adddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddd
+addddddddddddddddddddddddddddacccddddddddddddfdaaaafaaaaaoppppfaaaaaafaaaafddddd
+addddddddddddddddddddddddddddacccddddddddaaaaaaaaaoqqqqqqqqffrrrrrfooddddddddddd
+addddddddddddddddddddddddddddacccddddddddssssssdoaaaafaaaaaaaaaoaaaaodtttddddddd
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccddddddddttddddodddddddddddddddddddddddddddddddd
+uuuuuuuuvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+a fg #82aaff bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #3b4261 bg #222436
+d fg #c8d3f5 bg #222436
+e fg #86e1fc bg #222436
+f fg #89ddff bg #222436
+g fg #636da6 bg #222436 ITALIC
+h fg #7d849f bg #222436
+i fg #c8d3f5 bg #2d3f76
+j fg #c8d3f5 bg #282b41
+k fg #ff966c bg #222436
+l fg #82aaff bg #2f334d
+m fg #9abdf5 bg #2f334d
+n fg #c8d3f5 bg #2f334d
+o fg #9abdf5 bg #222436
+p fg #ff757f bg #222436
+q fg #ffc777 bg #222436
+r fg #c3e88d bg #222436
+s fg #c099ff bg #222436 ITALIC
+t fg #c099ff bg #222436
+u fg #82aaff bg #1e2030 BOLD
+v fg #828bb8 bg #1e2030
+
+==== 80x24 github-light styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccddddddddddddddddddddddddddddddddddddddddddddddd
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccceeeeddddddddeeeeeeddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccceeeeddddddddeeeeeeddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
+adddddddabbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddd
+adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddafffffffd
+adddddddaddddddddddddddddddddddddddddddddddddddddddddddggggggggggggggggadddddddd
+adddddddahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhadddddddd
+aiiiiiiiaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadjjjjded
+adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddakkkkkkkk
+adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddaffffffff
+adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+adddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddd
+addddddddddddddddddddddddddddacccddddddddddddedddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddedllllldddddddddddddd
+addddddddddddddddddddddddddddacccddddddddeeeeeedddddddddddddddddddddddeeeddddddd
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccddddddddeeddddddddddddddddddddddddddddddddddddd
+mmmmmmmmnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+a fg #6639ba bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #6e7781 bg #ffffff
+d fg #1f2328 bg #ffffff
+e fg #cf222e bg #ffffff
+f fg #57606a bg #ffffff
+g fg #787b7e bg #ffffff
+h fg #1f2328 bg #dae9f9
+i fg #1f2328 bg #f3f4f7
+j fg #0550ae bg #ffffff
+k fg #1f2328 bg #e7eaf0
+l fg #0a3069 bg #ffffff
+m fg #6639ba bg #5094e4 BOLD
+n fg #f6f8fa bg #5094e4
+
+==== 120x33 tokyonight-moon text, cursor 38,8
+┌notes───────────────────────┐ 1 """Storage: every note lives in one JSON file, read and written as a whole."""
+│▸ tests                     │ 2
+│  cli.py                    │ 3 import json
+│  config.py                 │ 4
+│  export.csv                │ 5 from config import Config, load_config
+│  Makefile                  │ 6 from models import Note
+│  models.py                 │ 7
+│  notes.json                │ 8   ┌Files (2/9)────────────────────────────────────────────────────────────────────┐
+│  PLAN.md                   │ 9 cl│>                                                                              │
+│  store.py                  │10   │store.py                                                       recently opened │
+│                            │11   │config.py                                                                      │
+│                            │12   │                                                                               │
+│                            │13   │                                                                               │
+│                            │14   │                                                                               │
+│                            │15   │                                                                               │
+│                            │16   │                                                                               │
+│                            │17   │                                                                               │
+│                            │18   │                                                                               │
+│                            │19   │                                                                               │
+│                            │20   │                                                                               │
+│                            │21   │                                                                               │
+│                            │22   │                                                                               │
+│                            │23   │                                                                               │
+│                            │24   │                                                                               │
+│                            │25   │                                                                               │
+│                            │26   └───────────────────────────────────────────────────────────────────────────────┘
+│                            │27
+│                            │28     def next_id(self) -> int:
+│                            │29         """One past the highest id in use."""
+│                            │30         return max((note.id for note in self.notes), default=0) + 1
+│                            │31
+└────────────────────────────┘32     def add(self, text: str, tags: list[str] | None = None) -> Note:
+store.py  13:33  [code]                                                                                          ? help
+
+==== 120x33 tokyonight-moon styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeee
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccffffeeeeeeeeffffffeeeeeeegeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccffffeeeeeeeeffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeabbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccchhaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeee
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiaccceeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeejjjjjjjjjjjjjjjjaeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeakkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkaeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeealllmmaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeammmm
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeehhheaaaaaaanooooneggepppneeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeedddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeqqqqqqerrrnnaaaagaaahhhaaaaaahhassssgaaaaangaooooooogtnegeteeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccceeeehhheaaanoooogeoooogepppgeoooogeppppnpppnegettttegettttneggeeeeeneeeeeeeeeeeeeeeeeee
+uuuuuuuuvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+a fg #82aaff bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #3b4261 bg #222436
+d fg #636da6 bg #222436 ITALIC
+e fg #c8d3f5 bg #222436
+f fg #86e1fc bg #222436
+g fg #89ddff bg #222436
+h fg #c099ff bg #222436
+i fg #c8d3f5 bg #282b41
+j fg #7d849f bg #222436
+k fg #c8d3f5 bg #2d3f76
+l fg #ff966c bg #2f334d BOLD
+m fg #c8d3f5 bg #2f334d
+n fg #9abdf5 bg #222436
+o fg #ffc777 bg #222436
+p fg #0db9d7 bg #222436
+q fg #c099ff bg #222436 ITALIC
+r fg #65bcff bg #222436
+s fg #ff757f bg #222436
+t fg #ff966c bg #222436
+u fg #82aaff bg #1e2030 BOLD
+v fg #828bb8 bg #1e2030
+
+==== 120x33 github-light styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeedddddddddddd
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccffffffddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccffffddddddddffffffddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccffffddddddddffffffddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddabbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddd
+addddddddddddddddddddddddddddacccffadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+aggggggggggggggggggggggggggggacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddhhhhhhhhhhhhhhhhadddd
+addddddddddddddddddddddddddddacccddaiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddajjjjjadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddajjjj
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddd
+addddddddddddddddddddddddddddacccddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddfffdaaaaaaaddddddddddkkkddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddffffffdaaaddddddddddfffddddddffdddddddddddddddddddddflddfdldddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccddddfffdaaadddddddddddddkkkddddddddkkkkdkkkddfdlllldfdllllddddddddddddddddddddddddddddd
+mmmmmmmmnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+a fg #6639ba bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #6e7781 bg #ffffff
+d fg #1f2328 bg #ffffff
+e fg #57606a bg #ffffff
+f fg #cf222e bg #ffffff
+g fg #1f2328 bg #f3f4f7
+h fg #787b7e bg #ffffff
+i fg #1f2328 bg #dae9f9
+j fg #1f2328 bg #e7eaf0
+k fg #953800 bg #ffffff
+l fg #0550ae bg #ffffff
+m fg #6639ba bg #5094e4 BOLD
+n fg #f6f8fa bg #5094e4
+
+==== 185x55 tokyonight-moon text, cursor 41,12
+┌notes───────────────────────┐ 1 """Storage: every note lives in one JSON file, read and written as a whole."""
+│▸ tests                     │ 2
+│  cli.py                    │ 3 import json
+│  config.py                 │ 4
+│  export.csv                │ 5 from config import Config, load_config
+│  Makefile                  │ 6 from models import Note
+│  models.py                 │ 7
+│  notes.json                │ 8
+│  PLAN.md                   │ 9 class NoteStore:
+│  store.py                  │10     """Reads and writes the notes of a single JSON file."""
+│                            │11
+│                            │12     d┌Files (2/9)──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                            │13      │>                                                                                                                                        │
+│                            │14      │store.py                                                                                                                 recently opened │
+│                            │15      │config.py                                                                                                                                │
+│                            │16     d│                                                                                                                                         │
+│                            │17      │                                                                                                                                         │
+│                            │18      │                                                                                                                                         │
+│                            │19      │                                                                                                                                         │
+│                            │20      │                                                                                                                                         │
+│                            │21      │                                                                                                                                         │
+│                            │22      │                                                                                                                                         │
+│                            │23     d│                                                                                                                                         │
+│                            │24      │                                                                                                                                         │
+│                            │25      │                                                                                                                                         │
+│                            │26      │                                                                                                                                         │
+│                            │27      │                                                                                                                                         │
+│                            │28     d│                                                                                                                                         │
+│                            │29      │                                                                                                                                         │
+│                            │30      │                                                                                                                                         │
+│                            │31      │                                                                                                                                         │
+│                            │32     d│                                                                                                                                         │
+│                            │33      │                                                                                                                                         │
+│                            │34      │                                                                                                                                         │
+│                            │35      │                                                                                                                                         │
+│                            │36      │                                                                                                                                         │
+│                            │37      │                                                                                                                                         │
+│                            │38      │                                                                                                                                         │
+│                            │39     d│                                                                                                                                         │
+│                            │40      │                                                                                                                                         │
+│                            │41      │                                                                                                                                         │
+│                            │42      │                                                                                                                                         │
+│                            │43      │                                                                                                                                         │
+│                            │44      └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+│                            │45         self._write()
+│                            │46         return True
+│                            │47
+│                            │48     def find(self, needle: str) -> list[Note]:
+│                            │49         """Every note whose text contains `needle`, case-insensitively."""
+│                            │50         lowered = needle.lower()
+│                            │51         return [note for note in self.notes if lowered in note.text.lower()]
+│                            │52
+│                            │53     def page(self, number: int = 1) -> list[Note]:
+└────────────────────────────┘54         """One page of notes, newest first."""
+store.py  13:33  [code]                                                                                                                                                           ? help
+
+==== 185x55 tokyonight-moon styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccffffeeeeeeeeffffffeeeeeeegeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccffffeeeeeeeeffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccchhhhheiiiiiiiiijeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+akkkkkkkkkkkkkkkkkkkkkkkkkkkkaccceeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeehabbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeealllmmmmmaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeammmmmmmm
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeennnnnnnnnnnnnnnnaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeehaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeehaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeehaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeehaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeehaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeppppgaaaaaajjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeqqqqqqerrrreeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeehhheaaaajssssgessssssgeiiijeggeiiiijeeeejjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeegeaaaaaagaaaaajjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeqqqqqqejeeeeehhheeeeeehheppppgeeeeeehheeeeeeeeehheaaaagaaaagaaaaajjjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeehhheaaaajssssgessssssgeiiiegerjeggeiiiijeeeejjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccceeeeeeeeddddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+ttttttttuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu
+a fg #82aaff bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #3b4261 bg #222436
+d fg #636da6 bg #222436 ITALIC
+e fg #c8d3f5 bg #222436
+f fg #86e1fc bg #222436
+g fg #89ddff bg #222436
+h fg #c099ff bg #222436
+i fg #0db9d7 bg #222436
+j fg #9abdf5 bg #222436
+k fg #c8d3f5 bg #282b41
+l fg #ff966c bg #2f334d BOLD
+m fg #c8d3f5 bg #2f334d
+n fg #7d849f bg #222436
+o fg #c8d3f5 bg #2d3f76
+p fg #ff757f bg #222436
+q fg #c099ff bg #222436 ITALIC
+r fg #ff966c bg #222436
+s fg #ffc777 bg #222436
+t fg #82aaff bg #1e2030 BOLD
+u fg #828bb8 bg #1e2030
+
+==== 185x55 github-light styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccffffffdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccffffddddddddffffffdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccffffddddddddffffffdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccfffffdgggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+ahhhhhhhhhhhhhhhhhhhhhhhhhhhhacccdddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddfabbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddd
+addddddddddddddddddddddddddddaiiiiiiiiadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddaiiiiiiii
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddjjjjjjjjjjjjjjjjadddddddd
+addddddddddddddddddddddddddddacccdddddakkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkadddddddd
+addddddddddddddddddddddddddddacccddddfadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccddddfadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccddddfadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccddddfadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccddddfadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
+addddddddddddddddddddddddddddacccdddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddffffffdllllddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddfffdaaaadddddddddddddddgggdddddggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddfddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddffffffdddddddfffddddddffddddddddddddffdddddddddffddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddfffdaaaadddddddddddddddgggdfdldddddggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+mmmmmmmmnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+a fg #6639ba bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #6e7781 bg #ffffff
+d fg #1f2328 bg #ffffff
+e fg #57606a bg #ffffff
+f fg #cf222e bg #ffffff
+g fg #953800 bg #ffffff
+h fg #1f2328 bg #f3f4f7
+i fg #1f2328 bg #e7eaf0
+j fg #787b7e bg #ffffff
+k fg #1f2328 bg #dae9f9
+l fg #0550ae bg #ffffff
+m fg #6639ba bg #5094e4 BOLD
+n fg #f6f8fa bg #5094e4

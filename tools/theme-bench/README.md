@@ -98,6 +98,140 @@ so the language takes files of 25 recordable lines rather than 80:
   build against tree-sitter 0.20; merl colours it as one `@string.regexp`
   (`tests/colors/lua/NOTES.md`). None of the bench's files has one.
 
+C (#806), `.c` files only (Neovim opens a `.h` as C++, as merl does), with its injections
+(`printf` in the format strings of the `printf` family; `comment`, `doxygen` and `re2c` comments
+stay plain, as LazyVim installs no parser for them):
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| C | 17,618 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
+C++ (#807), `.cc`, `.cpp` and the other extensions Neovim opens as `cpp`, and `.h` unless Neovim's
+`detect.header` makes it Objective-C++ from its first 200 lines, with C's queries and injections
+inherited (`; inherits: c`); `doxygen` comments stay plain, as LazyVim installs no parser for them:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| C++ | 19,079 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
+Java (#807), `.java` (`.bsh`, which syntect calls Java and Neovim does not, stays on syntect), with
+its injections (`printf` in the first string of a `format` or `printf` call and in the receiver of
+`formatted`; `comment` and `javadoc` comments stay plain, as LazyVim installs no parser for them):
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Java | 15,213 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
+C# (#807), `.cs` and `.csx`, and a Markdown block marked `cs` or `csharp`; `comment` comments stay
+plain, as LazyVim installs no parser for them:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| C# | 16,671 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
+Kotlin (#807), `.kt` and `.kts`, with its injections (`regex` in the string of `toRegex()`,
+`Regex(…)` and `Regex.fromLiteral(…)`, `printf` in the receiver of `format`; `comment` comments stay
+plain, as LazyVim installs no parser for them):
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Kotlin | 18,781 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
+Swift (#807), `.swift`, with its injections (`regex` in a regex literal; `comment` comments stay
+plain, as LazyVim installs no parser for them). nvim-treesitter generates its `parser.c` from the
+pinned `grammar.json` (`generate = true`), so `record.py` runs `tree-sitter generate` for it; merl
+takes tree-sitter-swift 0.7.4 from crates.io, published from that same commit with the file
+generated:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Swift | 22,782 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
+Ruby (#808), the files both syntect and Neovim call Ruby: `.rb`, `.rbi`, `.rjs`, `.rake`,
+`.gemspec`, `config.ru`, `Gemfile`, `Rakefile`, `Brewfile`, `Vagrantfile`, `Rantfile` and `irbrc`
+(`Dangerfile`, `Podfile`, `.thor` and the rest syntect calls Ruby and Neovim does not stay on
+syntect), with its injections (`regex` in a regex literal, a heredoc's body by its delimiter;
+`comment` and `rbs` comments stay plain, as LazyVim installs no parser for them):
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Ruby | 13,458 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
+PHP (#808), the files both syntect and Neovim call PHP (`.php`, `.phtml`, `.phpt`, `.php3`,
+`.php4`, `.php5`, `.php7`; a `.blade.php` and the `.inc` or `.module` files Neovim reads by their
+first line stay on syntect), parsed as `php` with `php_only`'s queries inherited and the text around the code
+injected as one combined HTML region; `comment`, `phpdoc` and `bash` stay plain, as LazyVim
+installs no parser for them:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| PHP | 12,811 | 98.3 github-dark | 99.9 | 100.0 vscode-light |
+
+What is left is not merl's colour of the code: every recorded file starts with `<?php` under
+Neovim's cursor, PHP's ftplugin adds `<:>` to `matchpairs`, and matchparen draws that `<` and the
+`>` it pairs with as `MatchParen` (3 to 8 characters per theme); and github-nvim-theme's own
+`queries/php/highlights.scm` (#819), which paints a variable's `$` as `@operator` and `<?php` as
+`@tag`, costs the github themes up to 1.7 points.
+
+Elixir (#808), `.ex` and `.exs` (a `.ex` that Neovim's `detect.ex` takes for Euphoria from its first
+100 lines stays on syntect), with its injections (`markdown` in `@moduledoc` and `@doc` strings,
+`regex` in `~r` sigils, `json` in `~j`; `comment`, `heex`, `eex`, `surface` and `zig` stay plain, as
+LazyVim installs no parser for them). The bench's files come from phoenix, pinned in `THEME_ONLY`
+as `tools/d-bench/projects.tsv` has no Elixir project:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Elixir | 18,319 | 99.0 adwaita | 99.0 | 100.0 material-light |
+
+What is left is the ```` ```console ```` blocks of phoenix's docs, which merl colours as Bash while
+Neovim injects nothing into them (#851).
+
+HTML and CSS (#806). An HTML file is parsed as `html` unless Neovim's `detect.html` makes it
+`htmlangular`, `xhtml`, `htmldjango` or `superhtml` from its first 40 lines (merl leaves those to
+syntect, the bench skips them); `<style>` and `style="…"` are CSS, `<script>` and `on…="…"` are
+JavaScript, `<script type="text/x">` is `x` through `#gsub!`, an importmap is JSON:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| HTML | 22,445 | 100.0 alabaster-light | 100.0 | 100.0 vscode-light |
+| CSS | 16,766 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
+XML (#806), `.xml`, `.svg`, `.xsd` and `.xslt` as nvim-treesitter registers them, unless Neovim's
+`detect.xml` makes the file DocBook or XBL from its first 100 lines; the bench's four files are
+the only ones of 80 recordable lines in the d-bench projects:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| XML | 20,823 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
+Diff (#806), `.diff` and `.patch`, unless Neovim's `detect.patch` makes a `.patch` whose first line
+is a `git format-patch` header `gitsendemail`, or its `detect.dep3patch` makes a file under
+`/debian/patches/` with a DEP3 header `dep3patch` (merl leaves those to syntect, the bench skips the
+first; the d-bench projects hold none of the second); `.rej`, `diff` in Neovim, is plain text in
+syntect and stays so. A capture's background is dropped as for every language, unless the group is
+`reverse`, where the background is the text's colour (nord's `@diff.plus`, `@diff.minus`,
+`@diff.delta`); the themes that give `@diff.*` a background tint (tokyonight, github, gruvbox and
+others) draw it in LazyVim and not in merl (#845), which the bench, comparing foregrounds, does not count:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Diff | 18,764 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
+Query (#806), a `.scm` file under a `queries` directory as Neovim's `/queries/.*%.scm$` makes it
+`query` (any other `.scm` stays Scheme on syntect), and a Markdown block marked `query`; `regex` is
+injected into `#match?` and its kin, `#lua-match?` and `#gsub!` patterns are `luap` in Neovim and
+stay one string in merl (`tests/colors/query/NOTES.md`; none in the bench's files), `comment`
+stays plain. No d-bench project has query files, so the bench takes them from nvim-treesitter at
+`NVIM_TS` (`THEME_ONLY` in `record.py`):
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Query | 7,948 | 100.0 alabaster-light | 100.0 | 100.0 minischeme-light |
+
+Vim (#806) stays on syntect: the commit nvim-treesitter pins (039c8d0) has no `Cargo.toml`, so
+it cannot be a git dependency, and crates.io's only release, 0.4.0, has another `parser.c` and
+binds `tree_sitter::Language` through the pre-0.24 `extern "C"` API instead of `tree-sitter-language`. No d-bench project has a `.vim` file either.
+
 ## Files
 
 | file | what |
@@ -121,7 +255,8 @@ cache, so neither `~/.config/nvim` nor a system-wide `site` directory reaches it
 
 The files: four per language from the projects of `tools/d-bench/projects.tsv` at their pinned
 commits (Python from paperless-ngx, Rust from ripgrep, TypeScript and TSX from outline,
-JavaScript from eslint, JSX from mastodon, Go from caddy, Lua from redis, Markdown from ripgrep, caddy,
+JavaScript from eslint, JSX from mastodon, Go from caddy, Lua and C from redis, C++ from leveldb, Java from halo, C# from eShop, Kotlin from nowinandroid, Swift from Alamofire, Ruby from mastodon, PHP from koel, Elixir from phoenix, HTML from bootstrap, caddy, eslint, outline and redis, CSS from gitea,
+paperless-ngx, caddy and redis, XML from koel, paperless-ngx and nowinandroid, Diff from rules_go, openzeppelin-contracts, outline and halo, Query from nvim-treesitter, Markdown from ripgrep, caddy,
 outline and paperless-ngx, Bash, JSON, YAML and TOML from redis, paperless-ngx, ripgrep, caddy and eslint
 as `LANGS` in `record.py` lists them), taken in the order of the hash of their path, each with at least 80
 lines among its first 200 that are ASCII and at most 140 columns: those are the lines recorded,

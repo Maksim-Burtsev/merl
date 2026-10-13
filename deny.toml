@@ -1,14 +1,11 @@
-# cargo-deny: advisories, licences and duplicate crates. `cargo deny check` runs it locally.
-
 [advisories]
 ignore = [
-    # Both come through syntect (bat's syntax definitions); syntect has no release without them.
-    "RUSTSEC-2024-0320", # yaml-rust unmaintained
-    "RUSTSEC-2025-0141", # bincode 1 unmaintained
-    # These come through merman, its layout (manatee) and rasterizer (resvg, usvg); merman 0.7 has no release without them.
-    "RUSTSEC-2026-0192", # ttf-parser unmaintained
-    "RUSTSEC-2026-0206", # rustybuzz unmaintained
-    "RUSTSEC-2024-0436", # paste unmaintained
+    { id = "RUSTSEC-2024-0320", reason = "yaml-rust unmaintained, through syntect (bat's syntax definitions), which has no release without it" },
+    { id = "RUSTSEC-2025-0141", reason = "bincode 1 unmaintained, through syntect (bat's syntax definitions), which has no release without it" },
+    { id = "RUSTSEC-2026-0192", reason = "ttf-parser unmaintained, through merman's layout (manatee) and rasterizer (resvg, usvg); merman 0.7 has no release without it" },
+    { id = "RUSTSEC-2026-0206", reason = "rustybuzz unmaintained, through merman's layout (manatee) and rasterizer (resvg, usvg); merman 0.7 has no release without it" },
+    { id = "RUSTSEC-2024-0436", reason = "paste unmaintained, through merman; merman 0.7 has no release without it" },
+    { id = "RUSTSEC-2024-0449", reason = "unsafe-libyaml unmaintained, through serde_yaml in merman-core 0.7" },
 ]
 
 [licenses]
@@ -34,6 +31,12 @@ unknown-registry = "deny"
 unknown-git = "deny"
 allow-git = [
   "https://github.com/tree-sitter/tree-sitter-json",
+  "https://github.com/tree-sitter/tree-sitter-cpp",
+  "https://github.com/tree-sitter/tree-sitter-ruby",
+  "https://github.com/fwcd/tree-sitter-kotlin",
   "https://github.com/tree-sitter-grammars/tree-sitter-yaml",
   "https://github.com/tree-sitter-grammars/tree-sitter-luadoc",
+  "https://github.com/tree-sitter-grammars/tree-sitter-xml",
+  "https://github.com/tree-sitter-grammars/tree-sitter-diff",
+  "https://github.com/tree-sitter-grammars/tree-sitter-query",
 ]

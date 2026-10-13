@@ -72,31 +72,25 @@ import tempfile, threading, time, traceback
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 HERE = os.path.join(ROOT, "tests", "smoke")
 sys.path.insert(0, os.path.join(ROOT, "tools"))
-sys.dont_write_bytecode = True  # no __pycache__ left in tools/
-import cast  # noqa: E402
-from PIL import Image, ImageDraw, ImageFont  # noqa: E402
+sys.dont_write_bytecode = True
+import cast
+from PIL import Image, ImageDraw, ImageFont
 
 CACHE = os.path.expanduser("~/.cache/merl-smoke")
-DEMOS = ("gitea", "polar")  # the checkouts assets/tapes/setup.sh makes
+DEMOS = ("gitea", "polar")
 PACE, POLL, TIMEOUT, SLEEP_CAP, SIZE = 0.01, 0.02, 10.0, 0.3, (185, 55)
-HOLD = 1.2  # --gif: seconds each checkpoint stays on screen
-MARK = ".merl-smoke-report"  # in every report directory a run made, and only there
+HOLD = 1.2
+MARK = ".merl-smoke-report"
 SGR = re.compile(r"\x1b\[[0-9;]*m")
-# What differs from run to run whatever the build: the tutor's sample project is unpacked into a
-# directory named after merl's pid, 4 to 7 digits wide. `mask` writes it as a 5-digit one.
 VOLATILE = re.compile(r"(?<=merl-tutor-)\d+")
-# The `run` steps commit and push as the agent, at a fixed date: the same hashes on every run.
 AGENT = {"GIT_CONFIG_GLOBAL": "/dev/null", "GIT_AUTHOR_NAME": "agent", "GIT_COMMITTER_NAME": "agent",
          "GIT_AUTHOR_EMAIL": "agent@example.com", "GIT_COMMITTER_EMAIL": "agent@example.com",
          "GIT_AUTHOR_DATE": "2026-09-03T10:00:00Z", "GIT_COMMITTER_DATE": "2026-09-03T10:00:00Z"}
-SCREENS = os.path.join(HERE, "screens")  # --golden's checked-in screens, SCENARIO/NN.txt
-# The scenarios --golden (CI) does not play, and why; the release gate plays them.
+SCREENS = os.path.join(HERE, "screens")
 RELEASE_ONLY = {
     "scale": "gitea's checkout, a 59 MB fetch, and its timed steps mean nothing on a shared runner",
     "readme-review": "polar's checkout, an 80 MB fetch; the README's own recording plays it too",
 }
-# Checkpoints whose screen depends on the machine, by scenario and wait text: --golden checks
-# that the text shows, not the screen.
 SCREEN_SKIPPED = {
     ("python-d", "json/__init__.py"): "the standard library of the machine's Python",
     ("python-d", "cancel: by name"): "the cancel methods of the machine's Python standard library",
@@ -108,7 +102,6 @@ SCREEN_SKIPPED = {
     ("review", "30 days: 2 sessions"): "merl --reviews prints today's date and the time each session took",
     ("review", "merl exited: 0"): "merl --reviews prints today's date and the time each session took",
 }
-# Every verdict the table can show, printed under it.
 LEGEND = [("PASS", "every checkpoint the same on both builds"),
           ("DIFF", "the new build played it through; the differences below each need a verdict"),
           ("FAIL", "a wait timed out: the text never showed"),
@@ -117,37 +110,27 @@ LEGEND = [("PASS", "every checkpoint the same on both builds"),
           ("HUNG", "merl did not quit on q"),
           ("RUN", "a `run` step failed: wrong bytes on disk, or the agent's command"),
           ("ERROR", "the runner failed, not merl: rerun, fix run.py if it comes back")]
-# --all-shots: (merl's theme, written into HOME's config.toml; the Ghostty theme whose basic
-# colours the PNG draws). A light theme is read on a light terminal; None is merl's default theme
-# on the owner's dark terminal. github-light is the light theme the text snapshots use too.
 THEMES = ((None, None), ("github-light", "GitHub Light Default"))
 NEVER_SHOWN = "(never shown)"
-# The scenarios --all-shots plays in the default theme only, and why.
 DEFAULT_ONLY = {"theme": "its first wait is a theme the picker lists around the default one"}
 
 
 class Merl(cast.Pane):
-    """cast.Pane with a pane that stays when merl dies (its last screen and exit status kept),
-    stderr appended to a file, and merl restartable in place."""
 
     def __init__(self, binary, home, size, err):
         self.sock, self.home, self.binary, self.err = "smoke%d" % os.getpid(), home, binary, err
         self.size = size
-        # where tmux puts it, known before the server starts: a signal can end the play inside start()
         self.socket = os.path.join(os.environ.get("TMUX_TMPDIR") or "/tmp", f"tmux-{os.getuid()}", self.sock)
 
     def start(self, args, project):
-        """merl in a new server; apart from __init__, so that the play holds the pane, and closes
-        it, whenever a signal stops it: under load one lands here often enough (#537)."""
         options = [("remain-on-exit", "on"), ("status", "off"), ("default-shell", "/bin/sh"),
                    ("remain-on-exit-format", "merl exited: #{pane_dead_status}")]
         self.tmux("start-server", *[w for o in options for w in (";", "set", "-g", *o)],
-                  ";", "set", "-s", "set-clipboard", "on",  # OSC 52 into a tmux buffer
+                  ";", "set", "-s", "set-clipboard", "on",
                   ";", "new-session", "-d", "-x", str(self.size[0]), "-y", str(self.size[1]), "-c", project,
                   self.command(args))
 
     def tmux(self, *args):
-        """cast.Pane's, raising instead of exiting: a tmux failure is the scenario's ERROR."""
         out = subprocess.run(["tmux", "-L", self.sock, "-f", "/dev/null", *args],
                              capture_output=True, text=True)
         if out.returncode:
@@ -155,8 +138,6 @@ class Merl(cast.Pane):
         return out.stdout
 
     def command(self, args):
-        # XDG_* would point merl and git at the user's own config; GOTOOLCHAIN=local keeps `go env`
-        # off the network whatever go.mod asks for.
         unset = " ".join("-u " + v for v in os.environ if v.startswith("XDG_"))
         return "exec env %s HOME=%s COLORTERM=truecolor GOTOOLCHAIN=local %s 2>>%s" % (
             unset, shlex.quote(self.home), shlex.join([os.path.abspath(self.binary)] + args),
@@ -166,12 +147,11 @@ class Merl(cast.Pane):
         self.tmux("respawn-pane", "-k", "-t", "0", self.command(args))
 
     def dead(self):
-        """None while merl runs, else its exit status, 128 + N for signal N."""
         f = "#{pane_dead},#{pane_dead_status},#{pane_dead_signal}"
         dead, status, sig = self.tmux("display", "-p", "-t", "0", f).strip().split(",")
         if dead != "1":
             return None
-        if sig:  # tmux 3.7 names it, `abrt`; older ones print the number
+        if sig:
             return 128 + (int(sig) if sig.isdigit() else getattr(signal, "SIG" + sig.upper(), 0))
         return int(status or 0)
 
@@ -180,7 +160,6 @@ class Merl(cast.Pane):
         return mask(capture), cursor
 
     def settled(self):
-        """The screen once two captures 50 ms apart agree (1 s at most)."""
         last, end = self.frame(), time.monotonic() + 1
         while time.monotonic() < end:
             time.sleep(0.05)
@@ -190,7 +169,6 @@ class Merl(cast.Pane):
         return last
 
     def quit(self):
-        """q, and a second q for unsaved edits; merl's exit status, None if it would not go."""
         for keys in (["Escape", "Escape", "q"], ["q"]):
             if self.dead() is None:
                 self.tmux("send-keys", "-t", "0", *keys)
@@ -199,20 +177,17 @@ class Merl(cast.Pane):
                     time.sleep(POLL)
         return self.dead()
 
-    def close(self):  # cast.Pane's would delete HOME, which the next play copies afresh anyway
+    def close(self):
         tmux = ["tmux", "-L", self.sock, "-f", "/dev/null"]
         subprocess.run([*tmux, "kill-server"], capture_output=True)
-        # kill-server returns before the server has gone, and the next play starts one on the same
-        # socket: wait for it, as a loaded machine can take a while (#537)
         end = time.monotonic() + 5
         while subprocess.run([*tmux, "ls"], capture_output=True).returncode == 0 and time.monotonic() < end:
             time.sleep(POLL)
-        if os.path.exists(self.socket):  # tmux 3.7 leaves the socket file behind
+        if os.path.exists(self.socket):
             os.unlink(self.socket)
 
 
 def died(status):
-    """The verdict of a merl that is gone, or would not go."""
     if status is None:
         return "HUNG"
     if status >= 128:
@@ -224,9 +199,7 @@ def died(status):
 
 
 def load(path):
-    """(project, steps) of a scenario: steps as (line, verb, pace, arg), includes expanded."""
     project, steps = None, []
-    # from the repository's root: assets/review.steps and tests/smoke/review.steps are two files
     label = os.path.relpath(path, ROOT)
     label = os.path.basename(path) if label.startswith("..") else label
     for n, raw in enumerate(open(path), 1):
@@ -247,24 +220,18 @@ def load(path):
 
 
 def fresh(work, project):
-    """WORK/run as the fixture has it (the project, its origin, an empty HOME), whatever the last
-    run left there; and the directory merl runs in."""
     run = os.path.join(work, "run")
     shutil.rmtree(run, ignore_errors=True)
     shutil.copytree(os.path.join(work, "base"), run, symlinks=True)
     if project in DEMOS:
         demo = os.path.join(work, "demo", project)
-        # and without the viewed marks merl keeps in the checkout's git dir (#240): the other
-        # build's play would leave its ticks for this one
-        subprocess.run('git checkout -q -- . && git clean -fdq && rm -f "$(git rev-parse --git-common-dir)/merl/viewed"',
+        subprocess.run('git checkout -q -- . && git clean -fdq && rm -f "$(git rev-parse --git-common-dir)/merl/viewed" "$(git rev-parse --git-dir)/merl/recent"',
                        shell=True, cwd=demo, check=True)
         return demo
     return os.path.join(run, "orders")
 
 
 class Recorder:
-    """--gif: samples the pane ten times a second, each frame with the band of its moment: the
-    scenario's caption, and the step the runner is on."""
 
     def __init__(self):
         self.caption, self.step, self.shots, self.stop, self.thread = "", "", [], threading.Event(), None
@@ -285,17 +252,9 @@ class Recorder:
 
 
 def play(binary, path, work, timed_only=False, rec=None, theme=None):
-    """One run of a scenario on one binary, in `theme` when one is named. Whatever happens, an
-    interrupt included, the pane's tmux server is gone after it. A play that does not end `ok` keeps
-    in `last` the screen as it was at the failure: before any q, and for a merl that died, its last
-    checkpoint since it started."""
     home, err = os.path.join(work, "run", "home"), os.path.join(work, "run", "stderr")
     r = {"checkpoints": [], "times": {}, "slow": [], "status": "ok", "timed": False}
     size, pane, timed, t0 = list(SIZE), None, False, time.monotonic()
-    # seen: the last checkpoint of the merl now running, its size included. A dying merl restores
-    # the terminal first, so a frame taken at its death, or a poll just before, can already be the
-    # blank screen behind it.
-    # gone: a wait saw merl exit (`wait merl exited: 0`), so its death is the scenario's, not a failure.
     last_key, step, runner, seen, gone = t0, "", "", None, False
 
     def keep(label, frame):
@@ -319,7 +278,6 @@ def play(binary, path, work, timed_only=False, rec=None, theme=None):
             step = f"{where} `{verb} {arg}`"
             if rec and not rec.thread and pane and verb not in ("wait", "sleep", "caption"):
                 rec.start(pane)
-            # a merl that died on a key no wait followed: reported as a wait would, not on the next step
             if pane and not gone and verb in ("merl", "key", "type", "run") and (s := pane.dead()) is not None:
                 r["status"] = f"{died(s)} before {step}"
                 keep_dead()
@@ -349,7 +307,7 @@ def play(binary, path, work, timed_only=False, rec=None, theme=None):
                     if arg in pane.tmux("capture-pane", "-p", "-t", "0"):
                         ms = round((time.monotonic() - last_key) * 1000)
                         break
-                    if pane.dead() is not None:  # a moment for tmux to draw `merl exited`
+                    if pane.dead() is not None:
                         dead_at = dead_at or time.monotonic()
                         if time.monotonic() - dead_at > 0.5:
                             break
@@ -431,7 +389,7 @@ def play(binary, path, work, timed_only=False, rec=None, theme=None):
                 runner += traceback.format_exc()
                 r["status"] = r["status"] if r["status"] != "ok" else "ERROR on q"
             finally:
-                pane.close()  # a KeyboardInterrupt in quit() still gets here
+                pane.close()
     r["seconds"] = round(time.monotonic() - t0, 1)
     r["keys"] = pressed(home)
     r["stderr"] = ((open(err).read() if os.path.exists(err) else "") + runner)[-2000:]
@@ -439,18 +397,12 @@ def play(binary, path, work, timed_only=False, rec=None, theme=None):
 
 
 def pressed(home):
-    """The `KEYS` actions merl counted a press of (#207) in `home`, every start of the play: the keys
-    the scenario played, as merl routed them, `Tree: Enter` and `Picker: Enter` apart. The q and
-    Esc the runner quits with are among them."""
     path = os.path.join(home, ".local", "state", "merl", "keys.tsv")
     rows = [line.rstrip("\n").split("\t") for line in open(path)] if os.path.exists(path) else []
     return sorted({r[1] for r in rows if len(r) > 2 and r[2] != "0"})
 
 
 def scenario(path, new, old, work):
-    """A scenario on both builds, and twice more on each for its timed steps: old/new, then
-    new/old, each up to its last timed wait. A rerun that does not end `ok` is the scenario's
-    status, with its stderr and last screen, unless the first play failed already."""
     res = {s: play(b, path, work) for s, b in (("new", new), ("old", old))}
     if res["new"]["timed"]:
         for side in res:
@@ -472,13 +424,7 @@ def hexed(v):
 
 
 def boxes(old, new):
-    """What differs, as boxes of cells joined across gaps of 3 columns and 1 row, each cut out of
-    both screens and diffed: a tree that gained a row is one `+` line, not twenty changed rows.
-    Each is (key, what, where): a difference is known by its key, the text of a text change and
-    the colours of a colour change (old → new), so two tints over the same text stay apart."""
     size = new[3]
-    # In xterm's colours, where no two SGR colours and no theme colour look alike; the checkpoint
-    # images are drawn in the owner's terminal's.
     g = [cast.parse(c[1], *size, cast.XTERM) for c in (old, new)]
     todo = {(x, y) for y in range(size[1]) for x in range(size[0]) if g[0][y][x] != g[1][y][x]}
     out, rows = [], set()
@@ -492,7 +438,7 @@ def boxes(old, new):
             stack += near
         (x0, x1), (y0, y1) = [(min(v), max(v)) for v in zip(*box)]
         text = ["".join(c[0] for c in g[i][y]) for i in (0, 1) for y in range(y0, y1 + 1)]
-        for _ in range(24):  # out to the word's ends, so `3:45` does not read `5`; not past a border
+        for _ in range(24):
             x0 -= x0 > 0 and all(t[x0 - 1] not in " │┌└" for t in text)
             x1 += x1 < size[0] - 1 and all(t[x1 + 1] not in " │┐┘" for t in text)
         crop = [["".join(c[0] for c in g[i][y][x0:x1 + 1]).rstrip() for y in range(y0, y1 + 1)]
@@ -525,8 +471,6 @@ def fonts_cell(px):
 
 
 def png_pair(pair, rows, png, fonts, cell):
-    """The screens of `pair`, (name, checkpoint) each, one above the other, a red mark beside each
-    row in `rows`."""
     band, gap = cell[1] + 8, 6
     size = [max(v) for v in zip(*(c[3] for _, c in pair))]
     h = size[1] * cell[1]
@@ -544,7 +488,6 @@ def png_pair(pair, rows, png, fonts, cell):
 
 
 def unreleased(names):
-    """The `## [Unreleased]` entries of CHANGELOG.md: (first words, issues, scenarios citing one)."""
     text = open(os.path.join(ROOT, "CHANGELOG.md")).read()
     part = text.split("## [Unreleased]", 1)[1].split("\n## [", 1)[0]
     cited = {n: set(re.findall(r"#(\d+)", open(p).read())) for n, p in names.items()}
@@ -572,7 +515,6 @@ def report(results, out, head, names):
             kinds.append("failed" if failed else "colour" if colour else "text")
             what, diff_rows = boxes(o, n)
             png_pair([("old", o), ("new", n)], diff_rows, os.path.join(out, name, f"{i:02d}.png"), fonts, cell)
-            # The same change at another spot of another screen is one entry.
             for key, shown, where in what * (not failed):
                 first = "; ".join(filter(None, (where, f"{name}/{i:02d}.png")))
                 found.setdefault(key, [shown, first, {}])[2].setdefault(name, []).append(i)
@@ -629,7 +571,6 @@ def report(results, out, head, names):
 
 
 def spans(nums):
-    """[1, 2, 3, 5] as `1–3, 5`."""
     out, start = [], None
     for i, n in enumerate(nums):
         start = n if start is None else start
@@ -639,11 +580,10 @@ def spans(nums):
     return ", ".join(out)
 
 
-ESC = re.compile(r"\x1b(\[[0-9;:?]*[A-Za-z]|\][^\x07\x1b]*(\x07|\x1b\\))")  # SGR, and any other CSI or OSC
+ESC = re.compile(r"\x1b(\[[0-9;:?]*[A-Za-z]|\][^\x07\x1b]*(\x07|\x1b\\))")
 
 
 def screen(name, checkpoint):
-    """A checkpoint as --golden keeps it: the wait's text, the screen without colours, the cursor."""
     label, capture, cursor = checkpoint[:3]
     wait = label.split(" wait ", 1)[-1]
     head = [f"wait {wait}"]
@@ -656,13 +596,11 @@ def screen(name, checkpoint):
 
 
 def golden(new, picked, work, update, screens=SCREENS):
-    """--golden and --update: each scenario played once on `new`, its checkpoints compared with the
-    screens checked in, or written over them. True when every one played through and matched."""
     good = True
     for name, path in picked.items():
         r = play(new, path, work)
         got = {f"{i:02d}.txt": screen(name, c) for i, c in enumerate(r["checkpoints"], 1)}
-        if r["keys"]:  # what src/app/tests/smoke.rs counts as played
+        if r["keys"]:
             got["keys.txt"] = "".join(k + "\n" for k in r["keys"])
         where = os.path.join(screens, name)
         if r["status"] != "ok":
@@ -698,11 +636,6 @@ def golden(new, picked, work, update, screens=SCREENS):
 
 
 def shots(new, old, tag, picked, work, out):
-    """--all-shots: each scenario played on `new` and on `old` once per theme of THEMES, each
-    checkpoint of `new` whose screen differs from `old`'s drawn to OUT/THEME/SCENARIO/NN.png, old
-    above new, or alone when `old` never reached it, and for a play of `new` that did not end ok
-    its screen at the failure, last.png. OUT/shots.md lists them, with each play's status. The
-    plays of `new`, by theme and scenario."""
     report_dir(out)
     fonts, cell = fonts_cell(14)
     tag = tag or old
@@ -749,7 +682,6 @@ def shots(new, old, tag, picked, work, out):
 
 
 def version(binary):
-    """What `binary --version` prints, or None when it does not run and say `merl`."""
     try:
         out = subprocess.run([binary, "--version"], capture_output=True, text=True, timeout=10)
     except (OSError, subprocess.TimeoutExpired):
@@ -758,10 +690,7 @@ def version(binary):
 
 
 def last_release(tag=None):
-    """The macOS binary of a release (the latest by default), from CACHE/TAG/merl. A copy that
-    does not answer `--version` is fetched again; a fetched one is kept only once its archive
-    matches the release's sha256 and what it unpacks to answers `--version`."""
-    gh = lambda *a: subprocess.run(["gh", *a], cwd=ROOT, capture_output=True, text=True)  # noqa: E731
+    gh = lambda *a: subprocess.run(["gh", *a], cwd=ROOT, capture_output=True, text=True)
     if not tag:
         out = gh("release", "view", "--json", "tagName", "-q", ".tagName")
         tag = out.stdout.strip() or sys.exit(f"the last release: gh says {out.stderr.strip()}")
@@ -775,7 +704,7 @@ def last_release(tag=None):
         out = gh("release", "download", tag, "-p", f"{asset}.tar.gz", "-p", f"{asset}.sha256", "-D", tmp)
         if out.returncode:
             sys.exit(f"{tag}: gh release download failed: {out.stderr.strip()}")
-        sums = os.path.join(tmp, f"{asset}.sha256")  # a release before 0.7.0 may have none
+        sums = os.path.join(tmp, f"{asset}.sha256")
         want = open(sums).read().split()[0] if os.path.exists(sums) else None
         got = hashlib.sha256(open(os.path.join(tmp, f"{asset}.tar.gz"), "rb").read()).hexdigest()
         if want and got != want:
@@ -790,7 +719,6 @@ def last_release(tag=None):
 
 
 def lock(work):
-    """Holds WORK for this run; a second run is refused, told which run holds it."""
     os.makedirs(work, exist_ok=True)
     f = open(os.path.join(work, "lock"), "a+")
     try:
@@ -802,18 +730,15 @@ def lock(work):
     f.truncate(0)
     f.write(f"pid {os.getpid()}, {' '.join(sys.argv)}, from {os.getcwd()}, since {time.ctime()}\n")
     f.flush()
-    return f  # the lock lasts as long as the file stays open: `unlock` it, or exit
+    return f
 
 
 def unlock(f):
-    """Gives WORK back. The file stays, empty: deleting it would let a run that opened it before the
-    deletion lock the old file while the next run locks a new one."""
     f.truncate(0)
     f.close()
 
 
 def report_dir(out):
-    """OUT emptied for a new report: made here, or a report directory a run made before."""
     if os.path.isdir(out) and os.listdir(out):
         if not os.path.exists(os.path.join(out, MARK)):
             sys.exit(f"{out} holds files a smoke run did not write: pass another --out")
@@ -828,7 +753,7 @@ def gif(binary, path, work, out):
     print(r["status"])
     fonts, cell = fonts_cell(18)
     line_h = cell[1] + 4
-    merged = []  # identical frames in a row are one, held for as long as they lasted
+    merged = []
     for k, (when, frame, size, band) in enumerate(rec.shots):
         end = rec.shots[k + 1][0] if k + 1 < len(rec.shots) else when + 0.1
         if merged and merged[-1][:3] == [frame, size, band]:
@@ -849,7 +774,6 @@ def gif(binary, path, work, out):
     cast.save_gif(images, durations, out)
 
 
-# --selftest: fake merls, bash scripts that print `ready` and act on the keys they read.
 FAKE = """#!/bin/bash
 trap 'printf "\\033[?1049l"' EXIT  # as merl does: its screen is gone once it has quit
 %(s)s
@@ -864,11 +788,8 @@ while IFS= read -rsn1 c; do
   esac
 done
 """
-# `key e`, then the fake's death waited for: a `key` step returns before the fake has read the key,
-# and under load the next step would still find it alive (#537).
 DIE = ("run $SMOKE_TMUX send-keys -t 0 e; for _ in $(seq 500); do"
        " $SMOKE_TMUX display -p -t 0 '#{pane_dead}' | grep -q 1 && exit 0; sleep 0.02; done; exit 1\n")
-# name: (steps, new merl's start, `d` and `q`, the old one's, the verdict, a text the report must hold)
 SELFTEST = {
     "pass": ("merl\nwait ready\nkey d\nwait done\n", {}, {}, "PASS", ""),
     "signal": ("merl\nwait ready\nkey a\nwait done\n", {}, {}, "CRASH", "CRASH SIGABRT at"),
@@ -877,33 +798,24 @@ SELFTEST = {
     "hung": ("merl\nwait ready\n", {"q": ":"}, {}, "HUNG", "HUNG on q"),
     "run": ("merl\nwait ready\nrun test -e nowhere\n", {}, {}, "RUN", "RUN 1 at"),
     "semicolon": ("merl\nwait ready\ntype x;;\nwait ;;\n", {}, {}, "PASS", ""),
-    # dead on a key no wait follows: the death, not the q after it, with the screen at its size
     "end": ("merl\nwait ready\nsize 60x10\n" + DIE, {}, {}, "EXIT", "EXIT 3 after its last step"),
     "restart": ("merl\nwait ready\n" + DIE + "merl\nwait ready\n", {}, {}, "EXIT", "EXIT 3 before"),
-    # quit on purpose and waited for: a pass, with a step and a restart after it; another status fails
     "quit": ("merl\nwait ready\nkey q\nwait merl exited: 0\nrun true\nmerl\nwait ready\n", {}, {}, "PASS", ""),
     "quit-3": ("merl\nwait ready\nkey e\nwait merl exited: 0\n", {}, {}, "EXIT", "EXIT 3 at"),
-    # dead on its second start: not shown with the first merl's screen
     "restarted": ("merl\nwait ready\nmerl\nwait ready\n",
                   {"s": '[ -e "$0.started" ] && exit 101; touch "$0.started"'}, {}, "CRASH", "CRASH 101 at"),
-    # the first play passes, the two reruns for the timed step exit 101 at `d`
     "rerun": ("merl\nwait ready\nkey d\ntime\nwait done\n",
               {"d": '[ -e "$0.played" ] && exit 101; touch "$0.played";'}, {}, "CRASH",
               "(play 2 of 3, for the timed steps)"),
     "slower": ("merl\nwait ready\nkey d\ntime\nwait done\n", {"d": "sleep 0.5;"}, {}, "PASS", "**slower**"),
-    # the builds draw `done` in different colours: two tints over one text are two differences
     "diff-red": ("merl\nwait ready\nkey d\nwait done\n", {"d": "printf '\\033[31m';"}, {}, "DIFF", "#cd0000"),
     "diff-blue": ("merl\nwait ready\nkey d\nwait done\n", {"d": "printf '\\033[34m';"}, {}, "DIFF", "#0000ee"),
-    # tmux gone under a play: the runner's ERROR, and the run goes on
     "error": ("merl\nwait ready\nrun $SMOKE_TMUX kill-server; for _ in $(seq 500); do"
               " $SMOKE_TMUX ls || exit 0; sleep 0.02; done; exit 1\nwait ready\n", {}, {}, "ERROR", "tmux capture-pane"),
 }
 
 
 def mask(capture):
-    """The screen with each pid written `NNNNN`, as a 5-digit pid draws it: the widest run of
-    spaces after it on its line, the status bar's padding before its right-hand text, takes up
-    what a shorter or longer pid moved, so the line is the same whatever the pid's width (#518)."""
     def line(text):
         pids = VOLATILE.findall(text)
         if not pids:
@@ -919,10 +831,6 @@ def mask(capture):
 
 
 def selftest():
-    """Plays SELFTEST's scenarios on fake merls and checks each verdict: under a minute, no
-    fixture. Its waits get the runner's TIMEOUT, as a scenario's do: a shorter one fails a fake
-    that is slow to start on a loaded machine (#537), and only `fail` waits it out."""
-    # The tutor's pid, 4 to 7 digits: the same status line (#518).
     bar = lambda pid, pad: f"merl-tutor-{pid}/\n\x1b[1mmerl-tutor-{pid}/  [code]\x1b[0m{' ' * pad}? help"
     want = bar("NNNNN", 20)
     for pid, pad in (("1234", 21), ("12345", 20), ("1234567", 18)):
@@ -952,14 +860,12 @@ def selftest():
                 if f"| {name} |" in line or line.startswith(f"- {name},") or f" {name} #" in line]
         assert f"| **{verdict}" in mine[0], f"{name}: want {verdict}, the row is {mine[0]}"
         assert holds in "\n".join(mine), f"{name}: the report never says {holds!r} of it"
-        if verdict not in ("PASS", "DIFF") and name != "restarted":  # the screen at the failure,
-            last = SGR.sub("", results[name]["new"].get("last", ["", ""])[1])  # not the blank one after q
+        if verdict not in ("PASS", "DIFF") and name != "restarted":
+            last = SGR.sub("", results[name]["new"].get("last", ["", ""])[1])
             assert "ready" in last, f"{name}: the last screen is not merl's: {last.strip()[-80:]!r}"
     assert results["end"]["new"]["last"][3] == list(SIZE), "the last checkpoint kept at another size"
     last = results["restarted"]["new"]["last"][0]
     assert last == "the screen after merl died", f"a merl dead on its restart shown by {last!r}"
-    # --golden: --update's screens match the build that wrote them, and one that only colours
-    # `done` otherwise; a build that draws another text differs, and one that fails fails.
     screens, one, fake = os.path.join(tmp, "screens"), {"pass": names["pass"]}, lambda n: os.path.join(tmp, n)
     for binary, d in (("other", "echo other;"), ("gone", "exit 3;")):
         open(fake(binary), "w").write(FAKE % {"q": "exit 0", "d": d, "s": ""})
@@ -969,12 +875,10 @@ def selftest():
         for binary, want in (("pass-new", True), ("diff-red-new", True), ("other", False), ("gone", False)):
             assert golden(fake(binary), one, work, False, screens) == want, f"--golden on {binary}: not {want}"
     assert "+other" in said.getvalue() and "EXIT 3 at" in said.getvalue(), said.getvalue()
-    # --all-shots: in each theme, the light one written into HOME's config, a PNG per checkpoint
-    # that differs from the old build's or that the old build never reached, none for the same
     open(fake("themed"), "w").write(FAKE % {"q": "exit 0", "s": "",
                                              "d": 'grep -qs github-light "$HOME/.config/merl/config.toml" && echo light;'})
     os.chmod(fake("themed"), 0o755)
-    drawn = lambda run, theme: sorted(os.listdir(os.path.join(tmp, run, theme, "pass")))  # noqa: E731
+    drawn = lambda run, theme: sorted(os.listdir(os.path.join(tmp, run, theme, "pass")))
     with contextlib.redirect_stdout(io.StringIO()):
         shot = shots(fake("themed"), fake("pass-new"), None, one, work, os.path.join(tmp, "shots"))
         shots(fake("themed"), fake("gone"), "gone", one, work, os.path.join(tmp, "shots-gone"))
@@ -986,8 +890,6 @@ def selftest():
     assert "| default/pass/02.png |" in listed and "| new |" in listed, listed
     label = load(os.path.join(HERE, "go-d.steps"))[1][0][0]
     assert label.startswith("tests/smoke/go-d.steps:"), f"a step labelled {label!r}"
-    # Ctrl-C while a play waits for a merl that will not quit: its tmux server goes all the same.
-    # SIGTERM through main, with a relative --work: the same, and the lock given back.
     hung = os.path.join(tmp, "hung-new")
     for sig, code, want in (
             (signal.SIGINT, f"run.play({hung!r}, {names['hung']!r}, {work!r})", None),
@@ -1039,7 +941,6 @@ def main():
     a.golden |= a.update
     if a.selftest:
         return selftest()
-    # absolute once: HOME and stderr go into a command that runs in the project, not here
     a.work = os.path.abspath(a.work)
     out = os.path.abspath(a.out or os.path.join(a.work, ("shots" if a.all_shots else "out") + "-only" * bool(a.only)))
     names = {f[:-6]: os.path.join(HERE, f) for f in sorted(os.listdir(HERE)) if f.endswith(".steps")}
@@ -1047,16 +948,13 @@ def main():
         results, head = json.load(open(os.path.join(out, "results.json")))
         return report(results, out, head, names)
     t0, load0 = time.monotonic(), os.getloadavg()[0]
-    only = a.only.split(",") if a.only else []  # a scenario's own name, else a part of names
+    only = a.only.split(",") if a.only else []
     picked = {n: f for n, f in names.items()
               if (not only or any(o == n or o not in names and o in n for o in only))
               and not (a.golden and n in RELEASE_ONLY)}
     if not picked:
         sys.exit(f"no scenario is named or holds {a.only}")
     held = lock(a.work)
-    # SIGTERM and SIGHUP end the run the way Ctrl-C does: through every `finally`, so each play's
-    # tmux server and its merl go, and the lock is given back.
-    # A signal the run inherited as ignored (`nohup`) stays ignored.
     for sig in (signal.SIGTERM, signal.SIGHUP):
         if signal.getsignal(sig) != signal.SIG_IGN:
             signal.signal(sig, lambda n, _: sys.exit(128 + n))
@@ -1067,7 +965,6 @@ def main():
 
 
 def played(a, picked, names, out, t0, load0):
-    """The run proper, once WORK is held: build, fixture, both builds' plays, the report."""
     if not a.new:
         subprocess.run(["cargo", "build", "--release", "--locked"], cwd=ROOT, check=True)
     new = a.new or os.path.join(ROOT, "target", "release", "merl")
@@ -1081,8 +978,6 @@ def played(a, picked, names, out, t0, load0):
         assert len(picked) == 1, f"--gif records one scenario, --only picked {list(picked) or 'none'}"
         return gif(new, *picked.values(), a.work, a.gif)
     if a.golden:
-        # A screens folder with no scenario CI plays would still count as played in
-        # src/app/tests/smoke.rs: a renamed or deleted scenario takes its screens with it.
         orphans = sorted(set(os.listdir(SCREENS)) - set(names) | set(os.listdir(SCREENS)) & set(RELEASE_ONLY))
         if orphans:
             sys.exit(f"tests/smoke/screens holds {', '.join(orphans)}, no scenario --golden plays: delete it")
@@ -1105,7 +1000,6 @@ def played(a, picked, names, out, t0, load0):
         head = (f"# merl smoke: new vs old\n\nnew `{os.path.relpath(new, ROOT)}` ({version(new)}{built.strip()})"
                 f" · old {tag or '`' + old + '`'} ({version(old)}) · {len(results)} of {len(picked)} scenarios"
                 f" · wall {wall:.0f} s, the build included · load {load0:.1f} → {os.getloadavg()[0]:.1f}")
-        # after every scenario, so a run cut short leaves what it played for --again
         json.dump([results, head], open(os.path.join(out, "results.json"), "w"))
     report(results, out, head, names)
     print(os.path.join(out, "report.md"))

@@ -1,7 +1,5 @@
 use super::*;
 
-/// The rows of the open result picker, each split into its mark and the `path:line` it
-/// points at.
 fn usage_rows(a: &mut App) -> Vec<(String, String)> {
     let picker = a.picker.as_mut().expect("a picker");
     picker.settle();
@@ -107,7 +105,6 @@ fn a_fifo_in_the_project_stalls_no_search() {
         "D: 1",
         "s: 2",
     ] {
-        // `D` in a debug build takes seconds on a loaded machine; the wait on a FIFO is forever.
         let got = rx.recv_timeout(std::time::Duration::from_secs(60));
         assert_eq!(
             got.as_deref(),
@@ -320,8 +317,6 @@ fn makefile_usages_mark_the_declarations_d_jumps_to() {
             "GO ?= go\nCFLAGS += -Wall\nLDFLAGS = -s\nLDFLAGS += -w\n\nbuild:\n\tGO=$(GO) ./build.sh $(CFLAGS) $(LDFLAGS)\n",
         )],
     );
-    // On make's `$(GO)`: on the recipe's own `GO=` the line declares the shell variable of its
-    // command, for `d` and `u` alike (`makefile_usages_ask_the_rule_d_asks`).
     let rows = |a: &mut App, word: &str| {
         a.jump_to(&dir.join("Makefile"), 7);
         a.col = a.line_str().find(&format!("$({word})")).unwrap() + 2;

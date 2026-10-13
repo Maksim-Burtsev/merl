@@ -33,8 +33,6 @@ def sh(cmd, cwd):
 
 
 def ensure(cache, name, url, commit, install):
-    """Clones the project at its pinned commit and installs its dependencies, once. The install
-    is marked done inside `.git` only when it succeeded, so a failed one runs again next time."""
     d = os.path.join(cache, name)
     installed = os.path.join(d, ".git", "merl-bench-installed")
     head = ""
@@ -58,7 +56,6 @@ def ensure(cache, name, url, commit, install):
 
 
 def modkey(p):
-    """A dependency's file by its last two components: a copy elsewhere still counts."""
     base = re.sub(r"(\.d)?\.[A-Za-z]+$", "", p)
     return "/".join(base.split("/")[-2:])
 
@@ -73,7 +70,6 @@ def targets(s, root):
 
 
 def verdict(cur, ans, got, root):
-    """ok / pick-hit / WRONG / pick-miss / none, or the reason the row is not scored."""
     rel, line = cur[2], int(cur[3])
     want = targets(ans[1], root) if ans else []
     here = os.path.realpath(os.path.join(root, rel))
@@ -86,8 +82,6 @@ def verdict(cur, ans, got, root):
     external = not all(p.startswith(root + "/") for p, _ in want)
 
     def hit(g):
-        # The recorded file itself is checked by line; only another copy of a dependency's file
-        # (another venv, another module cache) is matched by its path alone.
         return any(abs(g[1] - ln) <= 1 if g[0] == p else external and modkey(g[0]) == modkey(p)
                    for p, ln in want)
 
@@ -100,14 +94,10 @@ def verdict(cur, ans, got, root):
 
 
 def byte_col(line, col):
-    """The cursors' columns count code points, as record.py and the language servers read them;
-    merl's column is a byte offset."""
     return len(line[:col].encode())
 
 
 def worse_rows(base, now):
-    """(rank lost, is a new wrong jump, id) of every cursor that scores worse than its baseline
-    row. base and now: id -> row with the verdict at [1]."""
     return [(RANK[now[i][1]] - RANK[b[1]], now[i][1] == "WRONG", i) for i, b in base.items()
             if i in now and b[1] in RANK and now[i][1] in RANK and RANK[now[i][1]] > RANK[b[1]]]
 
@@ -122,7 +112,6 @@ def quantile(ms, q):
 
 
 def table(rows, projects):
-    """rows: (lang, id, verdict, ms) -> the per-language table as Markdown lines."""
     by = defaultdict(list)
     for r in rows:
         by[r[0]].append(r)
@@ -140,7 +129,6 @@ def table(rows, projects):
 
 
 def selftest():
-    """The scoring and the gate on made-up rows: the cases a `d` PR's verdict rests on."""
     root = "/p"
     dep = "/home/u/.venv/lib/requests/api.py"
     cur = ["x0001", "proj", "a.py", "3", "4"]
@@ -148,13 +136,11 @@ def selftest():
     jump = lambda path, line: ("jump", targets(f"{path}:{line}", root))
     assert verdict(cur, ans("b.py:10"), jump("/p/b.py", 11), root) == "ok"
     assert verdict(cur, ans("b.py:10"), jump("/p/b.py", 40), root) == "WRONG"
-    # A dependency: another copy of the file matches by path, the same file needs the line.
     assert verdict(cur, ans(f"{dep}:50"), jump("/other/venv/lib/requests/api.py", 7), root) == "ok"
     assert verdict(cur, ans(f"{dep}:50"), jump(dep, 50), root) == "ok"
     assert verdict(cur, ans(f"{dep}:50"), jump(dep, 90), root) == "WRONG"
     assert verdict(cur, ans("b.py:10"), ("picker", targets("c.py:1;b.py:10", root)), root) == "pick-hit"
     assert byte_col('label = _("Ärger") + format_label(x)', 21) == 22
-    # A new wrong jump is not paid for by a fixed one, nor a lost picker answer by anything.
     base = {"go1": ["go1", "ok"], "go2": ["go2", "WRONG"], "go3": ["go3", "pick-hit"]}
     swap = {"go1": ["go1", "WRONG"], "go2": ["go2", "ok"], "go3": ["go3", "pick-hit"]}
     assert [w[2] for w in worse_rows(base, swap)] == ["go1"]

@@ -1,0 +1,4 @@
+# gruvbox-dark: ellisonleao/gruvbox.nvim@154eb5ff5b96d0641307113fa385eaf0d36d9796 `set background=dark | colorscheme gruvbox`; NVIM v0.12.5, nvim-treesitter 1a4f47b
+# palette a=fabd2f b=ebdbb2 c=83a598 d=fe8019 e=b8bb26i f=b8bb26b g=8ec07ci h=fe8019i i=d3869bi j=d3869b k=fb4934
+queries/highlights.scm	1:g18 2:g8 4:db10d2a8 6:d2b10d2a8 7:d2f5d2a8eh2ihih2ihi3hih3ed2 9:d2b10d2a16 10:d2f6d2a16e19d2 12:d2b7d2a21 13:d2f9d2a21ehehih2ih3ih4ihehed2 15:db15 16:c8d2b17 17:c6d2b10d2a4 18:c8d2b19d2a16d 19:d2f2d2a4e9d 20:d2f3dc8j3d2 22:db20 23:c4d2b10d2a8 24:dc15 25:c4d5a5d 27:d 28:e4 29:e6 30:e8 31:d2a7 33:db9 34:d 35:db6d2a14 36:d2 38:db4 39:c3d6a8 40:c5d2b6d3a6 41:db7d3a7d 43:db5d2a5 44:dk7b10d2a5 46:d2b15d2a17 47:d2f6d2a17j5d 48:d2f4d2a17eh2e4d2 50:eh2eda21
+queries/injections.scm	1:g14 3:d2b7d2a17 4:d2f3dc18e9d2 6:d2b15d2a17 7:d2f3dc18e6d 8:d2f3dc26d2 10:db15 11:c8d2b10d2a5 12:d2f2d2a5e5d 13:c9d2b15d2a17 14:d2f3dc18e5d2

@@ -1,0 +1,4 @@
+# catppuccin-mocha: catppuccin/nvim@edefef779ab08ce1a4a404713e3012b0d202bd35 `colorscheme catppuccin-mocha`; NVIM v0.12.5, nvim-treesitter 1a4f47b
+# palette a=f9e2af b=cdd6f4 c=b4befe d=9399b2 e=a6e3a1 f=f5c2e7 g=89b4fa h=cba6f7i i=fab387 j=89dceb k=f5c2e7i l=cba6f7 m=f38ba8
+queries/highlights.scm	1:h18 2:k8 4:db10dfa8 6:d2b10dfa8 7:dfg5f2a8efdijid2iji3jidjfed2 9:d2b10dfa16 10:dfg6f2a16e19d2 12:d2b7dfa21 13:dfg9f2a21edfdid2id2jidmjdidfded2 15:db15 16:c8d2b17 17:c6d2b10dfa4 18:c8d2b19dfa16d 19:dfg2f2a4e9d 20:dfg3fc8i3d2 22:db20 23:c4d2b10dfa8 24:jc15 25:c4d2fdfa5d 27:d 28:e4 29:e6 30:e8 31:dfa7 33:db9 34:j 35:db6dfa14 36:jd 38:db4 39:c3d2fdjfa8 40:c5d2b6djfa6 41:db7djfa7d 43:db5dfa5 44:dl7b10dfa5 46:d2b15dfa17 47:dfg6f2a17i5d 48:dfg4f2a17ef3e3d2 50:ef2efa21
+queries/injections.scm	1:h14 3:d2b7dfa17 4:dfg3fc18e9d2 6:d2b15dfa17 7:dfg3fc18e6d 8:dfg3fc26d2 10:db15 11:c8d2b10dfa5 12:dfg2f2a5e5d 13:c9d2b15dfa17 14:dfg3fc18e5d2

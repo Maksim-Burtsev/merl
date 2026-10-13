@@ -7,8 +7,6 @@ use ratatui::widgets::Paragraph;
 use crate::theme::Theme;
 use crate::wrap;
 
-/// The blues of `assets/icon.png`: beak, body, background. The logo fades through them top
-/// to bottom.
 pub(super) const LOGO_COLORS: [Color; 3] = [
     Color::Rgb(0x6c, 0x94, 0xfc),
     Color::Rgb(0x4e, 0x72, 0xfc),
@@ -88,8 +86,6 @@ pub(super) fn draw_welcome(frame: &mut Frame, theme: &Theme, area: Rect, base: S
         ]));
     }
 
-    // Two fifths of the free space above, three below: the block sits a little above the
-    // centre, where the eye expects it.
     let top = (area.height as usize - rows) * 2 / 5;
     let [_, block] = Layout::vertical([
         Constraint::Length(top as u16),
