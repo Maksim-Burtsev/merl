@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 
 #[test]
@@ -91,7 +90,10 @@ fn u_reads_a_cmake_alias_and_a_dashed_target_whole() {
             .0
             .into_iter()
             .map(|r| {
-                r.item.label[..r.item.code_at.unwrap()]
+                r.item
+                    .label
+                    .get(..r.item.code_at.unwrap())
+                    .unwrap()
                     .trim_end()
                     .to_owned()
             })

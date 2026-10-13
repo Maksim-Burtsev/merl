@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -259,7 +258,7 @@ impl Picker {
                     let (label, mut buf) = (&item.data.label, Vec::new());
                     let name = file_name(label);
                     pattern.indices(Utf32Str::new(name, &mut buf), matcher, &mut matched);
-                    let skip = u32::try_from(label[..label.len() - name.len()].chars().count())
+                    let skip = u32::try_from(label.chars().count() - name.chars().count())
                         .unwrap_or(u32::MAX);
                     for m in &mut matched {
                         *m += skip;

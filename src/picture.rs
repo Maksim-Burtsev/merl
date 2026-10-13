@@ -309,7 +309,10 @@ fn fonts() -> Arc<usvg::fontdb::Database> {
     }))
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
+#[expect(
+    clippy::string_slice,
+    reason = "at and end are found in the ASCII-lowercased copy, which keeps the byte layout of svg"
+)]
 pub fn links_missing_file(svg: &str, dir: &Path) -> bool {
     let lower = svg.to_ascii_lowercase();
     let mut from = 0;

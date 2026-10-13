@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use std::ops::Range;
 
 use crate::picture::Width;
@@ -13,19 +12,19 @@ pub struct Img {
 
 pub fn attr<'a>(tag: &'a str, name: &str) -> Option<&'a str> {
     let lower = tag.to_ascii_lowercase();
-    let mut from = 0;
-    while let Some(i) = lower[from..].find(name) {
-        let at = from + i;
-        from = at + name.len();
-        if !lower[..at].ends_with(char::is_whitespace) {
+    for (at, _) in lower.match_indices(name) {
+        let (Some(before), Some(after)) = (lower.get(..at), tag.get(at + name.len()..)) else {
+            continue;
+        };
+        if !before.ends_with(char::is_whitespace) {
             continue;
         }
-        let Some(rest) = tag[from..].trim_start().strip_prefix('=') else {
+        let Some(rest) = after.trim_start().strip_prefix('=') else {
             continue;
         };
         let rest = rest.trim_start();
         return match rest.chars().next()? {
-            q @ ('"' | '\'') => rest[1..].find(q).map(|e| &rest[1..=e]),
+            q @ ('"' | '\'') => rest.strip_prefix(q)?.split_once(q).map(|(v, _)| v),
             _ => rest.split([' ', '\t', '\n', '>']).next(),
         };
     }
@@ -51,14 +50,14 @@ fn width(tag: &str) -> Option<Width> {
 pub fn html_images(html: &str, light: bool) -> Vec<Img> {
     let mut out = Vec::new();
     let mut picture: Option<Option<String>> = None;
-    let mut from = 0;
-    while let Some(i) = html[from..].find('<') {
-        let at = from + i;
-        let end = html[at..].find('>').map_or(html.len(), |e| at + e + 1);
-        from = at + 1;
-        let tag = &html[at..end];
-        let name: String = tag[1..]
+    for (at, _) in html.match_indices('<') {
+        let Some(tag) = html.get(at..).and_then(|t| t.split_inclusive('>').next()) else {
+            continue;
+        };
+        let end = at + tag.len();
+        let name: String = tag
             .chars()
+            .skip(1)
             .take_while(|c| c.is_ascii_alphanumeric() || *c == '/')
             .collect::<String>()
             .to_ascii_lowercase();
@@ -97,8 +96,8 @@ pub fn html_images(html: &str, light: bool) -> Vec<Img> {
 pub fn only_tags(line: &str) -> bool {
     let mut rest = line.trim();
     while let Some(r) = rest.strip_prefix('<') {
-        match r.find('>') {
-            Some(e) => rest = r[e + 1..].trim_start(),
+        match r.split_once('>') {
+            Some((_, after)) => rest = after.trim_start(),
             None => return false,
         }
     }

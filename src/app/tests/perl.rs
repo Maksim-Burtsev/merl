@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 
 #[test]
@@ -90,7 +89,10 @@ fn u_on_a_perl_sub_marks_its_sub_and_no_fat_comma_key() {
     picker.settle();
     let rows: Vec<String> = (picker.window(50).0.into_iter())
         .map(|r| {
-            r.item.label[..r.item.code_at.unwrap()]
+            r.item
+                .label
+                .get(..r.item.code_at.unwrap())
+                .unwrap()
                 .trim_end()
                 .to_owned()
         })

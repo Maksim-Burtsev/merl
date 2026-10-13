@@ -805,7 +805,10 @@ impl App {
         (TextLine::File(l), row.min(self.rows(l).len() - 1))
     }
 
-    #[expect(clippy::string_slice, reason = "#858")]
+    #[expect(
+        clippy::string_slice,
+        reason = "App keeps col on a char boundary, and the rows of text_rows are clusters"
+    )]
     pub fn cursor_x(&self) -> usize {
         let rows = self.text_rows(self.line_str());
         let row = wrap::col_to_row(&rows, self.col);
@@ -816,7 +819,7 @@ impl App {
         indent + wrap::width(&self.line_str()[wrap::row_to_col(&rows, row)..self.col])
     }
 
-    #[expect(clippy::string_slice, reason = "#858")]
+    #[expect(clippy::string_slice, reason = "App keeps col on a char boundary")]
     pub fn display_col(&self) -> usize {
         wrap::width(&self.line_str()[..self.col]) + 1
     }
@@ -837,7 +840,7 @@ fn bound(imports: &[search::Import], name: &str) -> Option<Vec<String>> {
         .map(|i| i.path.clone())
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
+#[expect(clippy::string_slice, reason = "i is where a grapheme starts")]
 pub(crate) fn clip(s: &str, max: usize) -> String {
     match s.grapheme_indices(true).nth(max) {
         Some((i, _)) => format!("{}\u{2026}", &s[..i]),
@@ -862,25 +865,26 @@ pub(super) fn word_col(line: &str, word: &str, word_chars_past_alnum: &str) -> u
         .unwrap_or(0)
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
 pub(super) fn whole_at(line: &str, word: &str, word_chars_past_alnum: &str) -> Option<usize> {
     let part = |c: char| is_word(c) || word_chars_past_alnum.contains(c);
     let whole = |(i, _): &(usize, &str)| {
-        !line[..*i].ends_with(part) && !line[i + word.len()..].starts_with(part)
+        line.get(..*i).is_some_and(|head| !head.ends_with(part))
+            && line
+                .get(i + word.len()..)
+                .is_some_and(|tail| !tail.starts_with(part))
     };
     line.match_indices(word).find(whole).map(|(i, _)| i)
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
 pub(crate) fn next_char(s: &str, i: usize) -> usize {
-    s[i..].graphemes(true).next().map_or(i, |g| i + g.len())
+    s.get(i..)
+        .and_then(|tail| tail.graphemes(true).next())
+        .map_or(i, |g| i + g.len())
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
 pub(crate) fn prev_char(s: &str, i: usize) -> usize {
-    s[..i]
-        .graphemes(true)
-        .next_back()
+    s.get(..i)
+        .and_then(|head| head.graphemes(true).next_back())
         .map_or(0, |g| i - g.len())
 }
 

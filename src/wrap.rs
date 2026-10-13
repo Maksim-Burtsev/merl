@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use std::ops::Range;
 
 use ratatui::buffer::CellWidth;
@@ -33,6 +32,10 @@ pub fn tag(c: char) -> String {
 
 const TAG_W: usize = 6;
 
+#[expect(
+    clippy::string_slice,
+    reason = "s is ASCII here, so every byte is a char"
+)]
 pub fn clusters(s: &str) -> impl Iterator<Item = (usize, &str)> {
     let ascii = s.is_ascii();
     let bytes = ascii.then(|| (0..s.len()).map(move |i| (i, &s[i..=i])));
@@ -47,6 +50,10 @@ pub fn width(s: &str) -> usize {
     clusters(s).map(|(_, g)| cluster_width(g)).sum()
 }
 
+#[expect(
+    clippy::string_slice,
+    reason = "b, i and end are starts of clusters of line"
+)]
 pub fn wrap_line(line: &str, width: usize) -> Vec<Range<usize>> {
     let width = width.max(1);
     let rest = width - indent(line, width);
@@ -94,6 +101,7 @@ pub fn wrap_line(line: &str, width: usize) -> Vec<Range<usize>> {
     rows
 }
 
+#[expect(clippy::string_slice, reason = "last is a row of wrap_line over shown")]
 pub fn wrap_shown(line: &str, width: usize) -> Vec<Range<usize>> {
     let shown = crate::buffer::shown_str(line);
     let mut rows = wrap_line(shown, width);
@@ -115,10 +123,18 @@ fn breaks_after(c: char) -> bool {
     matches!(c, '/' | '.' | ',' | ';' | ')' | ']' | '}')
 }
 
+#[expect(
+    clippy::string_slice,
+    reason = "wrap_line passes the start of a cluster"
+)]
 fn word_end(line: &str, i: usize) -> usize {
     line[i..].find([' ', '\t']).map_or(line.len(), |n| i + n)
 }
 
+#[expect(
+    clippy::string_slice,
+    reason = "marker and lead count ASCII bytes from the start of the line"
+)]
 pub fn indent(line: &str, width: usize) -> usize {
     let text = line.trim_start_matches([' ', '\t']);
     let digits = text.bytes().take_while(u8::is_ascii_digit).count();

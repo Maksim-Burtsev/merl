@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::{
     App, Buffer, Edit, Instant, KeyCode, KeyEvent, KeyModifiers, Mode, Path, Pick, TextLine,
@@ -132,8 +131,10 @@ impl App {
             }
             KeyCode::Char(c) if !ctrl => self.insert(&c.to_string(), Kind::Typing),
             KeyCode::Enter => {
-                let head = &self.line_str()[..self.col];
-                let indent = &head[..head.len() - head.trim_start().len()];
+                let indent: String = (self.line_str().char_indices())
+                    .take_while(|&(i, c)| i < self.col && c.is_whitespace())
+                    .map(|(_, c)| c)
+                    .collect();
                 self.insert(&format!("\n{indent}"), Kind::Typing);
             }
             KeyCode::Tab => {
@@ -245,6 +246,10 @@ impl App {
         }
     }
 
+    #[expect(
+        clippy::string_slice,
+        reason = "from and to are cursor positions, on char boundaries of their lines"
+    )]
     fn replace(
         &mut self,
         from: (usize, usize),
