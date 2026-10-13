@@ -13,7 +13,6 @@ struct TypedField {
 pub(super) enum JvmType {
     Project(Hit),
     Outside(String),
-    /// The rules cannot tell: declared more than once, a type parameter, an alias.
     Unknown,
 }
 

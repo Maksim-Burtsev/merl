@@ -56,9 +56,9 @@ impl App {
         let rows = |top: (usize, usize)| self.view_h.saturating_sub(self.pinned(top.0).len());
         let top = (self.top_line, self.top_row);
         let here = rows(top);
+        let on_the_lines_deleted_after_the_last = top.0 >= self.buf.lines.len();
         let there = match down {
-            // On the lines deleted after the last one nothing is pinned, and no row is ahead.
-            true if top.0 >= self.buf.lines.len() => return here.max(1),
+            true if on_the_lines_deleted_after_the_last => return here.max(1),
             true => self.forward_rows(top, here),
             false => self.back_rows(top, here),
         };

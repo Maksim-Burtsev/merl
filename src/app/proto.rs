@@ -1,21 +1,6 @@
-//! `d` in a Protocol Buffers file (#418): the path of an `import`, and a name its package
-//! qualifies.
-
 use super::*;
 
 impl App {
-    /// What `d` on `word` finds in a `.proto` file when the line says more than the name; `None`
-    /// leaves the word to the search by name. `before` is the line up to the word.
-    ///
-    /// - The path of an `import` (`public` and `weak` too) is the file it names, relative to a
-    ///   proto root, never to the importing file: the project's files whose path ends with it,
-    ///   then the first root outside that holds it.
-    /// - A qualifier is looked up as `protoc` resolves a name: its first part in the file's own
-    ///   package, then in each package around it out to the root (a leading `.` starts at the
-    ///   root), so `v1.User` inside `package shop.v1` is `shop.v1.User`. The longest run of
-    ///   parts that is some files' `package` narrows the search to those files; the parts after it
-    ///   are messages the word is nested in. A qualifier that is no package is a nesting, left to
-    ///   the search by name.
     pub(super) fn proto_definitions(
         &mut self,
         text: &str,
@@ -70,12 +55,10 @@ impl App {
                 .unwrap_or_default();
             let outside = self.external_files(Kind::Proto);
             declared.extend(self.external_grep(Kind::Proto, &outside, &pattern));
-            // A cut in this grep says nothing about the list shown in the end.
             self.truncated.set(false);
             if declared.is_empty() {
                 continue;
             }
-            // The first scope that has the first part decides, as it does for `protoc`.
             for k in (1..=parts.len()).rev() {
                 let package = join(scope, &parts[..k]);
                 let files: Vec<PathBuf> = declared
@@ -113,8 +96,6 @@ impl App {
         None
     }
 
-    /// The files `import "path";` names: the project's files whose path ends with it, else the
-    /// first of the roots outside that has it, as `protoc -I` tries its roots in order.
     fn proto_import(&mut self, path: &str) -> Vec<Candidate> {
         let wanted = Path::new(path);
         let mut files: Vec<PathBuf> = self

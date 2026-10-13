@@ -153,3 +153,9 @@ fn a_session_with_no_file_watcher_says_auto_reload_is_off() {
     let line = status_with("/work/app/paid.py", 80, |app| app.no_watch = true);
     assert!(line.contains("  no auto-reload"), "{line:?}");
 }
+
+#[test]
+fn a_read_only_message_is_not_repeated_by_the_read_only_mark() {
+    let line = status("/work/app/paid.py", "read-only: not UTF-8", 80);
+    assert_eq!(line.matches("read-only").count(), 1, "{line:?}");
+}

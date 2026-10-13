@@ -109,7 +109,6 @@ fn attributes_name_macros_and_fields_reach_outside() {
     ] {
         d_on(&mut a, "src/lib.rs", code);
         let got = match shown(&mut a) {
-            // Nothing found leaves the cursor where it was.
             Shown::Jump(status, _) if status.starts_with("no definition") => {
                 Shown::Jump(status, String::new())
             }

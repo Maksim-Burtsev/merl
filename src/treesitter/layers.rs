@@ -215,7 +215,8 @@ pub fn injections(
             match names[c.index as usize] {
                 "injection.language" => {
                     let r = doc.range(c.node, offset);
-                    target = std::str::from_utf8(&doc.bytes[r.start_byte..r.end_byte])
+                    let text = inj.text(p, c.index, &doc.bytes[r.start_byte..r.end_byte]);
+                    target = std::str::from_utf8(&text)
                         .ok()
                         .and_then(|n| Target::of(n, syntect));
                 }

@@ -1,7 +1,3 @@
-//! The smoke scenarios (`tests/smoke/*.steps`) play every action of `KEYS` and every flag of the
-//! command line, or `NOT_SMOKED` says why not (#310), as `NOT_TAUGHT` does for the tutor. Every
-//! feature `## [Unreleased]` adds or changes plays in a scenario too, or `UNSMOKED` says why (#551).
-
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
@@ -11,8 +7,6 @@ use clap::parser::ValueSource;
 
 use crate::stats::ACTIONS;
 
-/// Actions of `KEYS`, and flags as `--long`, that no scenario plays, each with why. A new row in
-/// `KEYS` or a new flag fails the test below until a scenario plays it or it is listed here.
 const NOT_SMOKED: &[(&str, &str)] = &[
     (
         "--version",
@@ -51,8 +45,6 @@ fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
-/// The actions merl counted a press of in the scenarios CI plays: the `keys.txt` beside each
-/// one's screens, which `tests/smoke/run.py --update` writes and `--golden` checks.
 fn played_keys() -> BTreeSet<String> {
     let mut keys = BTreeSet::new();
     for dir in std::fs::read_dir(root().join("tests/smoke/screens")).unwrap() {
@@ -76,9 +68,6 @@ fn starts(path: &Path, out: &mut Vec<Vec<String>>) {
     }
 }
 
-/// The ids of the arguments the scenarios CI plays start merl with, read by clap as merl reads
-/// them. CI's scenarios are the ones with screens checked in: `RELEASE_ONLY` in `run.py` has
-/// none, and `--golden` fails on a screens folder with no scenario.
 fn played_flags() -> BTreeSet<String> {
     let mut lines = Vec::new();
     for f in std::fs::read_dir(root().join("tests/smoke")).unwrap() {
@@ -201,9 +190,10 @@ fn every_unreleased_feature_is_smoked_or_skipped_on_purpose() {
     while let Some(dir) = dirs.pop() {
         for f in std::fs::read_dir(dir).unwrap() {
             let path = f.unwrap().path();
-            // The fixtures' README cites issues in prose, some of them as known misses: no play.
+            let not_the_readme_whose_prose_cites_known_misses =
+                path.file_name().is_some_and(|n| n != "README.md");
             let fixture = !path.starts_with(root().join("tests/smoke"))
-                && path.file_name().is_some_and(|n| n != "README.md");
+                && not_the_readme_whose_prose_cites_known_misses;
             if path.is_dir() && fixture {
                 dirs.push(path);
             } else if fixture || path.extension().is_some_and(|e| e == "steps") {

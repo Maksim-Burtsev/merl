@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# tools/ts-queries [LANG...]: copies nvim-treesitter's highlights.scm and injections.scm of every language under
-# queries/ (or of LANG) from nvim-treesitter at NVIM_TS, the commit tools/theme-bench/record.py
-# records LazyVim with, so merl colours with the queries the reference was drawn with (#802).
 set -Eeuo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 pin=$(sed -n 's/^NVIM_TS = "\([0-9a-f]*\)"$/\1/p' "$root/tools/theme-bench/record.py")

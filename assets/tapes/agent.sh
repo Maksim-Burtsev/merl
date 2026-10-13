@@ -1,6 +1,4 @@
 #!/bin/sh
-# Plays the agent in assets/day/5-live.steps: a few seconds after merl opens, it writes a new test
-# file into the checkout, the way an agent in the next split would.
 sleep "${1:-6}"
 cat > services/user/block_note_test.go <<'GO'
 package user

@@ -1,0 +1,4 @@
+# github-light: projekt0n/github-nvim-theme@c106c9472154d6b2c74b74565616b877ae8ed31d `colorscheme github_light_default`; NVIM v0.12.5, nvim-treesitter 1a4f47b
+# palette a=1f2328 b=953800 c=0550ae d=0a3069 e=6639ba f=cf222e g=0a3069b
+queries/highlights.scm	1:f18 2:f8 4:a13b8 6:a14b8 7:a2e5a2b8da2c3a2c7acada2 9:a14b16 10:a2e6a2b16d19a2 12:a11b21 13:a2e9a2b21dadaca2ca2c2ac2acadada2 15:a16 16:c8a19 17:c6a14b4 18:c8a23b16a 19:a2e2a2b4d9a 20:a2e3ac11a2 22:a21 23:c4a14b8 24:c16 25:c4a5b5a 27:a 28:d4 29:d6 30:d8 31:a2b7 33:a10 34:c 35:a9b14 36:ca 38:a5 39:c3a4cab8 40:c5a9cab6 41:a9cab7a 43:a8b5 44:af7a12b5 46:a19b17 47:a2e6a2b17c5a 48:a2e4a2b17dg2d4a2 50:dg2dab21
+queries/injections.scm	1:f14 3:a11b17 4:a2e3ac18d9a2 6:a19b17 7:a2e3ac18d6a 8:a2e3ac26a2 10:a16 11:c8a14b5 12:a2e2a2b5d5a 13:c9a19b17 14:a2e3ac18d5a2

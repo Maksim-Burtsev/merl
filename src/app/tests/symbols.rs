@@ -89,8 +89,6 @@ fn symbols_of_a_component_are_its_script() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A project past the cap: `a.go` fills the list on its own, so the walk stops before
-/// `z.go` and `zebra` is behind the cut. `main.tf` is there for a name with a dot in it.
 fn capped_project(tag: &str) -> (PathBuf, App) {
     let many: String = (0..search::MAX_HITS)
         .map(|i| format!("func a{i}() {{}}\n"))

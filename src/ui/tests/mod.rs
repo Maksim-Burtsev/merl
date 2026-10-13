@@ -1,6 +1,3 @@
-//! The items below are what the tests reach for as `super::…`, so a test moved here from
-//! `src/ui.rs` keeps the paths it was written with.
-
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 

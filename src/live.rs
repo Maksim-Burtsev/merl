@@ -149,7 +149,6 @@ impl Project {
         }
         let mut want: HashSet<PathBuf> = self.walked_dirs_rel.union(&self.open).cloned().collect();
         want.insert(PathBuf::new());
-        // A deleted directory is an error here; one that became ignored loses its watch.
         for d in watched.difference(&want) {
             let _ = watcher.unwatch(&self.root.join(d));
         }
@@ -267,8 +266,6 @@ mod tests {
         );
     }
 
-    /// A project on disk, walked: `src/app.rs`, `src/deep/x.rs`, an ignored `target/` and
-    /// `.env`.
     fn project(tag: &str) -> (PathBuf, Project) {
         let dir = std::env::temp_dir().join(format!("merl-watch-{}-{tag}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -311,24 +308,18 @@ mod tests {
         for (kind, paths, want) in [
             (create, vec!["new.rs"], true),
             (create, vec!["node_modules"], true),
-            // An ignored file is a row: a new one is a walk, a save to one is not, nor is
-            // anything happening to the ignored directory itself.
             (create, vec![".env.local"], true),
             (write, vec![".env"], false),
             (write, vec!["target"], false),
-            (write, vec!["src/deep/new.rs"], true), // whatever the kind says
+            (write, vec!["src/deep/new.rs"], true),
             (remove, vec!["src/app.rs"], true),
             (rename, vec!["src/app.rs"], true),
             (EventKind::Any, vec![""], true),
-            // A directory the walk did not list: ignored, or `.git`.
             (create, vec!["node_modules/a/index.js"], false),
             (create, vec!["target/new"], false),
             (rename, vec![".git/index"], false),
-            // Both ends of a rename in one event: one of them is enough.
             (rename, vec!["target/new", "new.rs"], true),
             (rename, vec!["target/new", ".git/index"], false),
-            // A save changes no row, even when FSEvents calls it a create; an ignore file
-            // changes what is listed.
             (write, vec!["src/deep/x.rs"], false),
             (create, vec!["src/deep/x.rs"], false),
             (write, vec![".gitignore"], true),
@@ -366,8 +357,6 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// #405: the walk leaves a FIFO out, and the watcher asks the walk's question: a FIFO that
-    /// something writes to changes no list, so it costs no walk.
     #[cfg(unix)]
     #[test]
     fn a_write_to_a_fifo_asks_for_no_walk() {
@@ -383,8 +372,6 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// #157: an ignored directory expanded in the tree follows the disk as VS Code's does, and
-    /// only while it is expanded.
     #[test]
     fn an_ignored_directory_counts_while_the_tree_has_it_open() {
         let (dir, mut p) = project("open");
@@ -464,7 +451,6 @@ mod tests {
 
     #[test]
     fn a_commit_asks_for_a_listing_and_the_index_does_not() {
-        // A linked worktree: `HEAD` is its own, the refs are the repository's.
         let common = Path::new("/repo/.git");
         let mut r = Repo::new(&crate::git::GitDirs {
             worktree_head_dir: common.join("worktrees/wt"),
@@ -485,7 +471,7 @@ mod tests {
             ("reftable/tables.list.lock", false),
             ("worktrees/wt/HEAD.lock", false),
             ("refs/heads/feature.lock", false),
-            ("HEAD", false), // of the main checkout
+            ("HEAD", false),
             ("worktrees/wt/index", false),
             ("worktrees/wt/ORIG_HEAD", false),
             ("objects/ab/cdef", false),
@@ -502,7 +488,7 @@ mod tests {
         r.event(&index, false, ms(0));
         assert!(!r.list_due(ms(1000)));
         r.event(&head, false, ms(1000));
-        r.event(&index, true, ms(1100)); // a file of the project
+        r.event(&index, true, ms(1100));
         assert!(!r.list_due(ms(1200)) && r.list_due(ms(1300)), "debounced");
         r.touch(ms(1400));
         assert!(!r.list_due(ms(2000)), "the first one is not back");
@@ -588,8 +574,6 @@ mod tests {
         std::fs::remove_dir_all(&git).unwrap();
     }
 
-    /// inotify drops the watch of a deleted directory by itself; the one made again under the
-    /// same name has to be watched again.
     #[cfg(target_os = "linux")]
     #[test]
     fn a_directory_deleted_and_made_again_is_watched_again() {

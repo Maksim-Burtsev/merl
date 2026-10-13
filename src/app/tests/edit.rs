@@ -804,7 +804,6 @@ fn a_save_that_fails_says_why_in_a_few_words() {
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     typed(&mut a, "x");
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-    // As root every file is writable, and there is nothing to assert.
     if a.dirty {
         assert_eq!(
             a.message, "save failed: permission denied",
