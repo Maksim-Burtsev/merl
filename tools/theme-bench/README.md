@@ -9,7 +9,6 @@ tools/theme-bench/run                          # every recorded theme, every lan
 tools/theme-bench/run --theme kanagawa-wave    # its share per language, top mismatches, chrome
 tools/theme-bench/run --lang python,go
 tools/theme-bench/run --update-baseline        # a PR that changes the table commits the new baseline
-tools/theme-bench/run --tree-sitter --lang python   # merl with the hidden `tree_sitter = true` (#802)
 tools/theme-bench/run --selftest               # the reading, the scoring, the gate, the stored format
                                                # and themes.tsv covering every shipped theme; CI runs it
 ```
@@ -30,9 +29,8 @@ on a probe file (`v`, then a find for `alpha`), LazyVim's from the highlight gro
 
 ## Tree-sitter
 
-`--tree-sitter` runs merl with `tree_sitter = true` in its config, the colouring of epic #797
-(AGENTS.md `## Changing syntax colours`); `baseline.tsv` stays master's, with the setting off, so
-the gate still holds every row to it. On 2026-10-12 (#802) Python matched every character in all
+merl colours the languages of epic #797 with tree-sitter (AGENTS.md `## Changing syntax
+colours`), on by default since #810, and `baseline.tsv` is that table. On 2026-10-12 (#802) Python matched every character in all
 92 themes, 19,185 per theme: no miss is left to list. A language that leaves misses lists them
 here by cause.
 
@@ -49,7 +47,7 @@ again as Rust and `regex` in Rust):
   names), which merl does not load.
 
 Markdown (#803), 18,398 characters per theme: 100.0 % median (100.0 adwaita, 100.0
-vscode-light), against 71.3 % with the setting off. Every character of Markdown's own grammars,
+vscode-light), against 71.3 % on syntect. Every character of Markdown's own grammars,
 `markdown` and `markdown_inline`, and of the Python, Go, Rust, Bash, JSON, YAML and TOML its
 fences hold, matches in the themes read by cause (tokyonight-moon, dayfox, github-light,
 alabaster-light): no miss is left to list.
@@ -280,9 +278,7 @@ shipped `themes/NAME.tmTheme`'s background and foreground: a difference means th
 the theme was ported from, or its repo changed since. On 2026-10-11 all 92 rows passed.
 
 `tools/port-theme.sh --all` ports every row again, the tmTheme and the groups file
-(`themes/NAME.groups.json`, #801), and 91 tmThemes come out byte for byte as shipped. The one that
-does not is `tokyonight-moon`, which ships folke's Sublime extra (`extras/sublime`) rather than a
-port: re-ported, it matches LazyVim better in Rust, TypeScript and Markdown but worse in Python
-and Go, so it waits for the owner (#812). `shokunin-dark` and `shokunin-light` (a VS Code
+(`themes/NAME.groups.json`, #801), and every tmTheme comes out byte for byte as shipped
+(`tokyonight-moon` shipped folke's Sublime extra until #812). `shokunin-dark` and `shokunin-light` (a VS Code
 JSON) and `lucerna`, `seneca` and `seneca-light` (merl's own palettes, #775) have no Neovim
 original and are skipped.

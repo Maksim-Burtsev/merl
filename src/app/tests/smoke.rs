@@ -44,6 +44,14 @@ const UNSMOKED: &[(u32, &str)] = &[
         813,
         "the status path's colour only, which the smoke screens (text) cannot see; tests/snapshots hold it in tokyonight-moon and github-light",
     ),
+    (
+        810,
+        "code colours only, which the smoke screens (text) cannot see; tools/theme-bench and tests/colors compare them with LazyVim's",
+    ),
+    (
+        812,
+        "the default theme's colours only, which the smoke screens (text) cannot see; tools/theme-bench compares them with LazyVim's",
+    ),
 ];
 
 fn root() -> PathBuf {
