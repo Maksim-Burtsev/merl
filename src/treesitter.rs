@@ -136,6 +136,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/tsx/injections.scm"),
     ),
     (
+        "ruby",
+        include_str!("../queries/ruby/highlights.scm"),
+        include_str!("../queries/ruby/injections.scm"),
+    ),
+    (
         "swift",
         include_str!("../queries/swift/highlights.scm"),
         include_str!("../queries/swift/injections.scm"),
@@ -331,6 +336,7 @@ pub fn for_syntax(
         "YAML" => lang("yaml"),
         "JavaScript (Babel)" => lang("javascript"),
         "Python" => lang("python"),
+        "Ruby" if path.is_none_or(ruby) => lang("ruby"),
         "Rust" => lang("rust"),
         "Swift" => lang("swift"),
         "Markdown" => lang("markdown"),
@@ -354,6 +360,31 @@ fn html_variant(lines: &[String]) -> bool {
         .expect("a valid regex")
     });
     lines.iter().take(40).any(|l| re.is_match(l))
+}
+
+fn ruby(path: &Path) -> bool {
+    const EXTENSIONS: &[&str] = &[
+        "rb", "rbi", "rbw", "rjs", "rxml", "rant", "ru", "gemspec", "builder", "rake",
+    ];
+    const NAMES: &[&str] = &[
+        "Brewfile",
+        "Gemfile",
+        "Puppetfile",
+        ".irbrc",
+        "irbrc",
+        ".irb_history",
+        "irb_history",
+        "rantfile",
+        "Rantfile",
+        "Vagrantfile",
+    ];
+    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| EXTENSIONS.contains(&e))
+        || NAMES.contains(&name)
+        || name.starts_with("rakefile")
+        || name.starts_with("Rakefile")
 }
 
 fn cpp(path: Option<&Path>, lines: &[String]) -> bool {
@@ -506,6 +537,7 @@ fn grammar(name: &str) -> Option<Language> {
         "javascript" => tree_sitter_javascript::LANGUAGE.into(),
         "kotlin" => tree_sitter_kotlin::LANGUAGE.into(),
         "swift" => tree_sitter_swift::LANGUAGE.into(),
+        "ruby" => tree_sitter_ruby::LANGUAGE.into(),
         "jsdoc" => tree_sitter_jsdoc::LANGUAGE.into(),
         "typescript" => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
         "tsx" => tree_sitter_typescript::LANGUAGE_TSX.into(),

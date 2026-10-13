@@ -147,6 +147,16 @@ generated:
 |---|---|---|---|---|
 | Swift | 22,782 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 
+Ruby (#808), the files Neovim opens as `ruby`: `.rb`, `.rbi`, `.rbw`, `.rake`, `.gemspec`, `.ru`,
+`.builder`, `.rjs`, `.rxml`, `.rant`, `Gemfile`, `Rakefile`, `Brewfile`, `Vagrantfile` and the like
+(`Dangerfile`, `Podfile`, `.thor` and the rest syntect calls Ruby and Neovim does not stay on
+syntect), with its injections (`regex` in a regex literal, a heredoc's body by its delimiter;
+`comment` and `rbs` comments stay plain, as LazyVim installs no parser for them):
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Ruby | 13,458 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
 HTML and CSS (#806). An HTML file is parsed as `html` unless Neovim's `detect.html` makes it
 `htmlangular`, `xhtml`, `htmldjango` or `superhtml` from its first 40 lines (merl leaves those to
 syntect, the bench skips them); `<style>` and `style="…"` are CSS, `<script>` and `on…="…"` are
@@ -216,7 +226,7 @@ cache, so neither `~/.config/nvim` nor a system-wide `site` directory reaches it
 
 The files: four per language from the projects of `tools/d-bench/projects.tsv` at their pinned
 commits (Python from paperless-ngx, Rust from ripgrep, TypeScript and TSX from outline,
-JavaScript from eslint, JSX from mastodon, Go from caddy, Lua and C from redis, C++ from leveldb, Java from halo, C# from eShop, Kotlin from nowinandroid, Swift from Alamofire, HTML from bootstrap, caddy, eslint, outline and redis, CSS from gitea,
+JavaScript from eslint, JSX from mastodon, Go from caddy, Lua and C from redis, C++ from leveldb, Java from halo, C# from eShop, Kotlin from nowinandroid, Swift from Alamofire, Ruby from mastodon, HTML from bootstrap, caddy, eslint, outline and redis, CSS from gitea,
 paperless-ngx, caddy and redis, XML from koel, paperless-ngx and nowinandroid, Diff from rules_go, openzeppelin-contracts, outline and halo, Query from nvim-treesitter, Markdown from ripgrep, caddy,
 outline and paperless-ngx, Bash, JSON, YAML and TOML from redis, paperless-ngx, ripgrep, caddy and eslint
 as `LANGS` in `record.py` lists them), taken in the order of the hash of their path, each with at least 80
