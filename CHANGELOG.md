@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `o` remembers the files you open, 200 per project (per worktree, in `.git/merl/recent`), across
+  restarts, as VS Code's Quick Open does. With nothing typed it lists only them, the open file
+  first and the cursor on the one before, so `o` Enter goes back there; typed, the files whose
+  name matches come first under `recently opened`, then the project as before under `file
+  results`. `--review` keeps its order. (#406)
+
 ### Changed
 
 - `--review`: the panel's row of the file in view keeps the selection colour while the code has

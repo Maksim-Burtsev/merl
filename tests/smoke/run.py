@@ -225,7 +225,7 @@ def fresh(work, project):
     shutil.copytree(os.path.join(work, "base"), run, symlinks=True)
     if project in DEMOS:
         demo = os.path.join(work, "demo", project)
-        subprocess.run('git checkout -q -- . && git clean -fdq && rm -f "$(git rev-parse --git-common-dir)/merl/viewed"',
+        subprocess.run('git checkout -q -- . && git clean -fdq && rm -f "$(git rev-parse --git-common-dir)/merl/viewed" "$(git rev-parse --git-dir)/merl/recent"',
                        shell=True, cwd=demo, check=True)
         return demo
     return os.path.join(run, "orders")
