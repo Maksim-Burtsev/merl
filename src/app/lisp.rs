@@ -1,4 +1,3 @@
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 use super::{App, Candidate, Kind, Reason, search};
 
@@ -36,7 +35,7 @@ impl App {
             requires
                 .iter()
                 .find(|(n, _)| n == q)
-                .map_or(q.to_owned(), |(_, ns)| ns.clone())
+                .map_or_else(|| q.to_owned(), |(_, ns)| ns.clone())
         };
         let target = after.strip_prefix('/').map(|a| {
             let end = a.find(|c: char| c.is_whitespace() || "()[]{}\"".contains(c));

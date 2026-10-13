@@ -1,5 +1,4 @@
 #![expect(clippy::needless_pass_by_value, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 use super::links::in_project;
 use super::resolution::resolution;
@@ -319,7 +318,7 @@ impl App {
             "scss" | "sass" => search::sass_candidates(module),
             _ => search::import_candidates(module, search::SheetSyntax::of_extension(ext)),
         };
-        let dir = here.parent().unwrap_or(Path::new(""));
+        let dir = here.parent().unwrap_or_else(|| Path::new(""));
         let local = !module.starts_with('~');
         let beside = candidates
             .iter()
@@ -365,7 +364,7 @@ impl App {
             None => (value, None),
         };
         let path = path.split(['?']).next().unwrap_or(path);
-        let dir = here.parent().unwrap_or(Path::new(""));
+        let dir = here.parent().unwrap_or_else(|| Path::new(""));
         let files: Vec<PathBuf> = match path {
             "" => vec![here.to_path_buf()],
             p if p.starts_with('/') => {

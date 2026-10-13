@@ -1,6 +1,5 @@
 #![expect(clippy::needless_pass_by_ref_mut, reason = "#858")]
 #![expect(clippy::needless_pass_by_value, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::redundant_clone, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 use super::{App, Candidate, HashSet, Hit, Kind, Path, PathBuf, Reason, Regex, search};
@@ -216,7 +215,7 @@ impl App {
             .find(|f| f.is_file())
             .map(|f| {
                 f.strip_prefix(&self.root)
-                    .map_or(f.clone(), Path::to_path_buf)
+                    .map_or_else(|_| f.clone(), Path::to_path_buf)
             })
             .into_iter()
             .collect()

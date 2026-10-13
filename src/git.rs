@@ -2,7 +2,6 @@
 #![cfg_attr(test, expect(clippy::items_after_statements, reason = "#858"))]
 #![expect(clippy::naive_bytecount, reason = "#858")]
 #![expect(clippy::needless_continue, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![cfg_attr(test, expect(clippy::redundant_clone, reason = "#858"))]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::struct_excessive_bools, reason = "#858")]
@@ -354,7 +353,9 @@ impl Review {
 
     pub fn branch_or_commit(&self, root: &Path) -> String {
         match self.branch.as_str() {
-            "HEAD" => git(root, &["rev-parse", "--short", "HEAD"]).unwrap_or(self.branch.clone()),
+            "HEAD" => {
+                git(root, &["rev-parse", "--short", "HEAD"]).unwrap_or_else(|_| self.branch.clone())
+            }
             branch => branch.to_owned(),
         }
     }

@@ -1,5 +1,4 @@
 #![expect(clippy::iter_on_single_items, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 use super::{
     App, Buffer, Edit, Focus, HIST_MAX, HIST_NEAR, Mode, Path, PathBuf, PickItem, TextLine, Tree,
     buffer, edit, git, lock_no_write,
@@ -354,7 +353,7 @@ impl App {
                     (0..self.deleted_at(k)).map(move |i| (TextLine::Deleted(k, i), from + i + 1))
                 })
                 .min_by_key(|&(_, line)| line.abs_diff(n));
-            let t = nearest.map_or(TextLine::File(n.saturating_sub(1)), |(t, _)| t);
+            let t = nearest.map_or_else(|| TextLine::File(n.saturating_sub(1)), |(t, _)| t);
             let (t, col) = self.clamp_place((t, col));
             self.set_at(t);
             self.col = col;

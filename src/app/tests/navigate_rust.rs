@@ -1,6 +1,5 @@
 #![expect(clippy::format_collect, reason = "#858")]
 #![expect(clippy::match_wildcard_for_single_variants, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::redundant_clone, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use super::*;
@@ -892,7 +891,7 @@ fn a_path_follows_the_modules_and_uses_of_its_crate() {
         let (path, line) = at(&a);
         let path = path
             .strip_prefix(&dir)
-            .or(path.strip_prefix(&std))
+            .or_else(|_| path.strip_prefix(&std))
             .unwrap_or(&path)
             .to_owned();
         assert_eq!(

@@ -1,6 +1,5 @@
 #![expect(clippy::needless_pass_by_ref_mut, reason = "#858")]
 #![expect(clippy::needless_pass_by_value, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unused_self, reason = "#858")]
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, is_word, search};
@@ -83,7 +82,7 @@ impl App {
         let line = self.line_str();
         let word = line[range.clone()].to_owned();
         let search::PhpClassAt { written, member } = search::php_class_at(line, range)?;
-        let map = search::php_psr4(&self.root, here.parent().unwrap_or(Path::new("")));
+        let map = search::php_psr4(&self.root, here.parent().unwrap_or_else(|| Path::new("")));
         if map.is_empty() {
             return None;
         }

@@ -1,4 +1,3 @@
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 use std::ops::{Deref, Range};
 
@@ -70,28 +69,32 @@ impl LineEdit {
             KeyCode::Char('w') if ctrl => {
                 let range = self
                     .selection()
-                    .unwrap_or(self.word_left()..self.cursor_byte);
+                    .unwrap_or_else(|| self.word_left()..self.cursor_byte);
                 return self.cut(range);
             }
             KeyCode::Backspace if alt => {
                 let range = self
                     .selection()
-                    .unwrap_or(self.word_left()..self.cursor_byte);
+                    .unwrap_or_else(|| self.word_left()..self.cursor_byte);
                 return self.cut(range);
             }
             KeyCode::Char(c) if !ctrl => return self.insert(c.encode_utf8(&mut [0; 4])),
             KeyCode::Backspace => {
-                let range = self.selection().unwrap_or(self.left()..self.cursor_byte);
+                let range = self
+                    .selection()
+                    .unwrap_or_else(|| self.left()..self.cursor_byte);
                 return self.cut(range);
             }
             KeyCode::Delete if alt => {
                 let range = self
                     .selection()
-                    .unwrap_or(self.cursor_byte..self.word_right());
+                    .unwrap_or_else(|| self.cursor_byte..self.word_right());
                 return self.cut(range);
             }
             KeyCode::Delete => {
-                let range = self.selection().unwrap_or(self.cursor_byte..self.right());
+                let range = self
+                    .selection()
+                    .unwrap_or_else(|| self.cursor_byte..self.right());
                 return self.cut(range);
             }
             KeyCode::Home => self.go(0, shift),
@@ -102,8 +105,14 @@ impl LineEdit {
             KeyCode::Right if alt => self.go(self.word_right(), shift),
             KeyCode::Left if shift => self.go(self.left(), true),
             KeyCode::Right if shift => self.go(self.right(), true),
-            KeyCode::Left => self.go(self.selection().map_or(self.left(), |r| r.start), false),
-            KeyCode::Right => self.go(self.selection().map_or(self.right(), |r| r.end), false),
+            KeyCode::Left => self.go(
+                self.selection().map_or_else(|| self.left(), |r| r.start),
+                false,
+            ),
+            KeyCode::Right => self.go(
+                self.selection().map_or_else(|| self.right(), |r| r.end),
+                false,
+            ),
             _ => {}
         }
         false

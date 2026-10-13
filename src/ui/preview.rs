@@ -1,4 +1,3 @@
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
@@ -149,7 +148,7 @@ fn place_pictures(app: &mut App, area: Rect, gutter_w: usize, end: usize) {
     let top = p.top;
     let file = app
         .root
-        .join(app.buf.path.as_deref().unwrap_or(Path::new("")));
+        .join(app.buf.path.as_deref().unwrap_or_else(|| Path::new("")));
     for (b, src, first, from, to, cols, rows, lead) in wanted {
         let pic = match src {
             Ok(src) => app.diagrams.pic(&src),

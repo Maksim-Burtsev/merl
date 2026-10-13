@@ -1,5 +1,4 @@
 #![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
@@ -565,7 +564,7 @@ pub fn sass_uses(text: &str) -> Vec<SassUse> {
 pub fn sass_candidates(module: &str) -> Vec<PathBuf> {
     let module = module.trim_start_matches('~');
     let path = Path::new(module);
-    let dir = path.parent().unwrap_or(Path::new(""));
+    let dir = path.parent().unwrap_or_else(|| Path::new(""));
     let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
         return Vec::new();
     };

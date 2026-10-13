@@ -1,4 +1,3 @@
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
@@ -348,7 +347,7 @@ pub fn cs_usings(text: &str) -> Vec<String> {
     });
     text.lines()
         .filter_map(|l| USING.captures(l))
-        .filter_map(|c| c.get(1).or(c.get(2)).map(|m| m.as_str().to_owned()))
+        .filter_map(|c| c.get(1).or_else(|| c.get(2)).map(|m| m.as_str().to_owned()))
         .collect()
 }
 

@@ -2,7 +2,6 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
 #![expect(clippy::needless_collect, reason = "#858")]
 #![expect(clippy::nonminimal_bool, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
@@ -821,7 +820,7 @@ impl App {
             && search::package_missing(
                 &self.root,
                 &self.files,
-                here.parent().unwrap_or(Path::new("")),
+                here.parent().unwrap_or_else(|| Path::new("")),
                 module,
             )
             && !self.external_files(kind).iter().any(|f| {
@@ -996,7 +995,9 @@ impl App {
         };
         let owners: Vec<String> = seen
             .iter()
-            .map(|&l| search::qualified(kind, &text, l, &chain[0]).unwrap_or(chain[0].clone()))
+            .map(|&l| {
+                search::qualified(kind, &text, l, &chain[0]).unwrap_or_else(|| chain[0].clone())
+            })
             .collect();
         let mine = match owners.as_slice() {
             [owner, rest @ ..] if rest.iter().all(|o| o == owner) => {
@@ -1664,7 +1665,8 @@ impl App {
             let Some(text) = self.text_of(&c.hit.path) else {
                 continue;
             };
-            let of = search::qualified(kind, &text, c.hit.line1, &name).unwrap_or(name.clone());
+            let of =
+                search::qualified(kind, &text, c.hit.line1, &name).unwrap_or_else(|| name.clone());
             let mut at: Vec<(PathBuf, usize, String)> =
                 search::label_lines(kind, &text, c.hit.line1, &name, word, owner)
                     .into_iter()
@@ -1747,7 +1749,7 @@ impl App {
         };
         let ty = lines[..=line0].iter().rev().find_map(|l| {
             let c = re.captures(l)?;
-            let t = c.get(1).or(c.get(2))?.as_str();
+            let t = c.get(1).or_else(|| c.get(2))?.as_str();
             t.rsplit('.').next().map(str::to_owned)
         });
         let Some(ty) = ty.filter(|_| !recv.is_empty()) else {

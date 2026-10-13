@@ -1,6 +1,5 @@
 #![cfg_attr(test, expect(clippy::needless_collect, reason = "#858"))]
 #![expect(clippy::needless_pass_by_value, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use anyhow::Context as _;
 
@@ -239,7 +238,7 @@ impl App {
             .file(&rel)
             .filter(|f| f.is_stop(&self.root, self.diagrams.on()))?;
         let hunks = review_hunks(&self.root, r, f);
-        let h = hunks.get(i).or(hunks.last()).copied();
+        let h = hunks.get(i).or_else(|| hunks.last()).copied();
         Some((rel, h.unwrap_or(TextLine::File(0))))
     }
 

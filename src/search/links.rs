@@ -1,5 +1,4 @@
 #![expect(clippy::needless_collect, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use std::collections::HashMap;
@@ -73,7 +72,7 @@ pub fn markdown_at(text: &str, at: usize) -> MdAt {
     }
     HREF.captures_iter(text)
         .find(|c| c.get(0).is_some_and(|m| m.range().contains(&at)))
-        .and_then(|c| c.get(1).or(c.get(2)))
+        .and_then(|c| c.get(1).or_else(|| c.get(2)))
         .map_or(MdAt::Nothing, |m| MdAt::Link(m.as_str().to_owned()))
 }
 

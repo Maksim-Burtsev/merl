@@ -1,5 +1,4 @@
 #![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::{App, Kind, Mode, TextLine, is_word, next_char, prev_char, search, shown_str, wrap};
@@ -121,7 +120,9 @@ impl App {
     }
 
     pub(super) fn extend(&mut self, mv: fn(&mut Self)) {
-        self.anchor.get_or_insert((self.at(), self.col));
+        if self.anchor.is_none() {
+            self.anchor = Some((self.at(), self.col));
+        }
         mv(self);
     }
 

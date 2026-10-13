@@ -104,14 +104,13 @@ impl Doc {
             .unwrap_or(self.rows.len() - 1)
     }
 
-    #[expect(clippy::or_fun_call, reason = "#858")]
     pub fn same_row(&self, old: &Self, row: usize, pos: (usize, usize)) -> usize {
         let src = old.rows[row].src;
         let rank = old.rows[..row].iter().filter(|r| r.src == src).count();
         let same: Vec<usize> = (0..self.rows.len())
             .filter(|&i| self.rows[i].src == src)
             .collect();
-        match same.get(rank).or(same.last()) {
+        match same.get(rank).or_else(|| same.last()) {
             Some(&i) => i,
             None => self.row_at(pos),
         }

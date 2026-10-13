@@ -1,5 +1,4 @@
 #![cfg_attr(test, expect(clippy::format_push_string, reason = "#858"))]
-#![expect(clippy::or_fun_call, reason = "#858")]
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::io::Write as _;
@@ -170,7 +169,7 @@ impl Drill {
         if let Some(dir) = log.parent() {
             std::fs::create_dir_all(dir).with_context(ctx)?;
         }
-        let ms = ms.map_or("miss".to_owned(), |ms| ms.to_string());
+        let ms = ms.map_or_else(|| "miss".to_owned(), |ms| ms.to_string());
         let line = format!("{}\t{key}\t{ms}\n", stats::date(stats::utc_today()));
         let mut file = (std::fs::OpenOptions::new().create(true).append(true))
             .open(log)

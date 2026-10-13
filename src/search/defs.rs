@@ -1,5 +1,4 @@
 #![expect(clippy::match_same_arms, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
@@ -472,7 +471,7 @@ pub fn c_file_local(
             .is_some_and(|e| matches!(e, "c" | "cc" | "cpp" | "cxx" | "m" | "mm"))
     };
     let includes_here = |file: &Path, t: &str| {
-        let dir = file.parent().unwrap_or(Path::new(""));
+        let dir = file.parent().unwrap_or_else(|| Path::new(""));
         t.lines()
             .filter_map(|l| INCLUDE.captures(l).and_then(|c| c.get(1)))
             .any(|m| {

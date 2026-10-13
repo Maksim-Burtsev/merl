@@ -1,4 +1,3 @@
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
@@ -119,12 +118,17 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
         return Some(format!("{owner}{sep}{name}"));
     }
     if kind == Kind::Ruby
-        && COLUMN
-            .captures(target)
-            .is_some_and(|c| c.get(1).or(c.get(2)).is_some_and(|m| m.as_str() == name))
+        && COLUMN.captures(target).is_some_and(|c| {
+            c.get(1)
+                .or_else(|| c.get(2))
+                .is_some_and(|m| m.as_str() == name)
+        })
         && let Some(table) = owner_line(&lines, line1 - 1).and_then(|o| TABLE.captures(lines[o]))
     {
-        let table = table.get(1).or(table.get(2)).map_or("", |m| m.as_str());
+        let table = table
+            .get(1)
+            .or_else(|| table.get(2))
+            .map_or("", |m| m.as_str());
         return Some(format!("{table}{sep}{name}"));
     }
     let def = match kind {
@@ -251,7 +255,7 @@ fn ruby_namespace(line: &str) -> Vec<String> {
     let Some(c) = SPELLED.captures(line) else {
         return Vec::new();
     };
-    let spelled = c.get(1).or(c.get(2)).map_or("", |m| m.as_str());
+    let spelled = c.get(1).or_else(|| c.get(2)).map_or("", |m| m.as_str());
     let mut names: Vec<String> = spelled
         .split("::")
         .filter(|s| !s.is_empty())

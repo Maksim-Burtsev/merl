@@ -1,5 +1,4 @@
 #![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
@@ -892,7 +891,7 @@ pub fn jvm_smart_cast(text: &str, line: usize, before: &str, name: &str) -> Opti
         if let Some(c) = test.captures(&code) {
             let rest = &code[c.get(0)?.end()..];
             return (!rest.contains("else") && !rest.contains(';') && !rest.contains("||"))
-                .then(|| c.get(1).or(c.get(2)).map(|m| m.as_str().to_owned()))
+                .then(|| c.get(1).or_else(|| c.get(2)).map(|m| m.as_str().to_owned()))
                 .flatten();
         }
         let c = branch.captures(&code)?;

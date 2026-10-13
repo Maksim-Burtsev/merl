@@ -1,6 +1,5 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
 #![expect(clippy::naive_bytecount, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::struct_excessive_bools, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
@@ -50,7 +49,10 @@ pub fn lisp_patterns(kind: Kind, word: &str) -> Vec<String> {
     match kind {
         Kind::Clojure => {
             out.push(format!(r"^\s+\({w}\s+\["));
-            if let Some(record) = word.strip_prefix("->").or(word.strip_prefix("map->")) {
+            if let Some(record) = word
+                .strip_prefix("->")
+                .or_else(|| word.strip_prefix("map->"))
+            {
                 let r = regex::escape(record);
                 out.push(format!(r"^\s*\((?:defrecord|deftype)\s+{meta}{r}{END}"));
             }

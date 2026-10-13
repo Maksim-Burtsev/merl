@@ -1,6 +1,5 @@
 #![expect(clippy::match_same_arms, reason = "#858")]
 #![expect(clippy::nonminimal_bool, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::{
@@ -1189,7 +1188,7 @@ impl App {
                 let text = self.text_of(&h.path)?;
                 Some(SwiftType {
                     owner: search::qualified(Kind::Swift, &text, h.line1, &name)
-                        .unwrap_or(name.clone()),
+                        .unwrap_or_else(|| name.clone()),
                     name,
                     keyword: Some(k.clone()),
                     base: b.clone(),

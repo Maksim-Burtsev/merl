@@ -1,6 +1,5 @@
 #![expect(clippy::items_after_statements, reason = "#858")]
 #![expect(clippy::needless_pass_by_value, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::suspicious_operation_groupings, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
@@ -860,9 +859,9 @@ pub fn rank(path: &Path, here: Option<&Path>, declaration: bool) -> Rank {
     let steps = here.map_or(0, |h| {
         let shared = path
             .parent()
-            .unwrap_or(Path::new(""))
+            .unwrap_or_else(|| Path::new(""))
             .components()
-            .zip(h.parent().unwrap_or(Path::new("")).components())
+            .zip(h.parent().unwrap_or_else(|| Path::new("")).components())
             .take_while(|(a, b)| a == b)
             .count();
         dirs(path) + dirs(h) - 2 * shared

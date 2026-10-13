@@ -332,7 +332,6 @@ pub fn links_missing_file(svg: &str, dir: &Path) -> bool {
     false
 }
 
-#[expect(clippy::or_fun_call, reason = "#858")]
 #[expect(
     clippy::cast_possible_truncation,
     reason = "MAX_SIDE is exact in f32; the scaled sides are at most MAX_SIDE, so they fit u32"
@@ -348,7 +347,7 @@ pub fn links_missing_file(svg: &str, dir: &Path) -> bool {
 fn svg(path: &Path) -> Result<Drawn, String> {
     let broken = || "SVG not drawn: broken file".to_owned();
     let data = std::fs::read(path).map_err(|_| "SVG not drawn: unreadable".to_owned())?;
-    let dir = path.parent().unwrap_or(Path::new(""));
+    let dir = path.parent().unwrap_or_else(|| Path::new(""));
     if links_missing_file(&String::from_utf8_lossy(&data), dir) {
         return Err("SVG not drawn: a linked file is missing".into());
     }

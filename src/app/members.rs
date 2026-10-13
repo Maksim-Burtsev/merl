@@ -1,5 +1,4 @@
 #![expect(clippy::needless_pass_by_ref_mut, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 use super::{
     App, Candidate, FileLine, HashSet, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, bound,
     search,
@@ -170,7 +169,8 @@ impl App {
         let Some(text) = self.text_of(&ty.path) else {
             return Vec::new();
         };
-        let owner = search::qualified(kind, &text, ty.line, &ty.name).unwrap_or(ty.name.clone());
+        let owner =
+            search::qualified(kind, &text, ty.line, &ty.name).unwrap_or_else(|| ty.name.clone());
         let want = Some(format!("{owner}.{word}"));
         let patterns = search::member_or_signature(kind, word).unwrap_or_default();
         let files = self.package_files(kind, &ty.path);

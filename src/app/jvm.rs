@@ -1,4 +1,3 @@
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unused_self, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
@@ -92,7 +91,7 @@ impl App {
                     .lines()
                     .enumerate()
                     .find(|(_, l)| CALL.is_match(l))
-                    .or(text.lines().enumerate().next())
+                    .or_else(|| text.lines().enumerate().next())
                     .map_or((1, String::new()), |(i, l)| (i + 1, l.to_owned()));
                 Candidate {
                     hit: Hit {

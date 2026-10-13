@@ -1,7 +1,6 @@
 #![expect(clippy::clone_on_ref_ptr, reason = "#858")]
 #![expect(clippy::cognitive_complexity, reason = "#858")]
 #![expect(clippy::iter_on_single_items, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::useless_let_if_seq, reason = "#858")]
@@ -822,7 +821,7 @@ impl App {
             && let Some(here) = self.rel_current()
         {
             hits.retain(|h| {
-                let dir = h.path.parent().unwrap_or(Path::new(""));
+                let dir = h.path.parent().unwrap_or_else(|| Path::new(""));
                 !self.text_of(&h.path).is_some_and(|text| {
                     search::scheme_foreign_branch(&text, h.line1, |f| dir.join(f) == here)
                 })

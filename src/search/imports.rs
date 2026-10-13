@@ -2,7 +2,6 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
 #![expect(clippy::excessive_nesting, reason = "#858")]
 #![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
@@ -674,7 +673,11 @@ pub struct RustModule {
 pub fn rust_module_of(files: &[PathBuf], here: &Path) -> Option<RustModule> {
     let src = here.ancestors().skip(1).find(|d| {
         d.file_name().is_some_and(|n| n == "src")
-            && files.contains(&d.parent().unwrap_or(Path::new("")).join("Cargo.toml"))
+            && files.contains(
+                &d.parent()
+                    .unwrap_or_else(|| Path::new(""))
+                    .join("Cargo.toml"),
+            )
     })?;
     let inside = here.strip_prefix(src).ok()?;
     let mut module: Vec<String> = inside
@@ -749,7 +752,7 @@ pub fn module_files(
     here: &Path,
     module: &[String],
 ) -> Vec<PathBuf> {
-    let dir = here.parent().unwrap_or(Path::new(""));
+    let dir = here.parent().unwrap_or_else(|| Path::new(""));
     match kind {
         Kind::Python => {
             let (base, parts) = match module.split_first() {
@@ -925,7 +928,7 @@ pub fn css_module_file(
     if !stem.ends_with(".module") || !matches!(ext, "css" | "scss" | "sass" | "less") {
         return None;
     }
-    let dir = here.parent().unwrap_or(Path::new(""));
+    let dir = here.parent().unwrap_or_else(|| Path::new(""));
     let bases = if module.first().is_some_and(|p| p.starts_with('.')) {
         vec![dir.join(&spec)]
     } else {
@@ -997,7 +1000,7 @@ fn ts_config(root: &Path, dir: &Path, spec: &str) -> TsConfig {
                 String::new()
             }
         });
-        let at = file.parent().unwrap_or(Path::new("")).to_path_buf();
+        let at = file.parent().unwrap_or_else(|| Path::new("")).to_path_buf();
         if url.is_none() {
             url = base_url.captures(&text).map(|c| at.join(&c[1]));
         }

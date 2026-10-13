@@ -1,4 +1,3 @@
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::{
     App, Candidate, Component, Hit, Kind, Path, PathBuf, PickerKind, Reason, Regex, search,
@@ -37,7 +36,7 @@ impl App {
             Some((p, a)) => (search::percent_decoded(p), Some(search::percent_decoded(a))),
             None => (search::percent_decoded(target), None),
         };
-        let dir = here.parent().unwrap_or(Path::new(""));
+        let dir = here.parent().unwrap_or_else(|| Path::new(""));
         let Some(rel) = (match path.as_str() {
             "" => Some(here.to_path_buf()),
             p => in_project(dir, p),
@@ -85,7 +84,7 @@ impl App {
             return;
         };
         let (name, line) = (&c[1], c.get(2).and_then(|n| n.as_str().parse().ok()));
-        let dir = here.parent().unwrap_or(Path::new(""));
+        let dir = here.parent().unwrap_or_else(|| Path::new(""));
         let file = [Path::new(""), dir]
             .into_iter()
             .filter_map(|d| in_project(d, name))

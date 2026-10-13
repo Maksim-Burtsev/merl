@@ -1,5 +1,4 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::{App, Focus, Instant, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, Mode, tutor};
@@ -289,8 +288,8 @@ impl App {
             KeyCode::Left => self.left(),
             KeyCode::Right => self.right(),
             _ if far => {
-                if shift {
-                    self.anchor.get_or_insert((self.at(), self.col));
+                if shift && self.anchor.is_none() {
+                    self.anchor = Some((self.at(), self.col));
                 }
                 match key.code {
                     KeyCode::PageUp => {

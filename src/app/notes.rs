@@ -1,7 +1,6 @@
 #![expect(clippy::format_push_string, reason = "#858")]
 #![expect(clippy::match_bool, reason = "#858")]
 #![expect(clippy::option_option, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -234,7 +233,7 @@ impl App {
                     self.diff.ghosts.get(&key).is_some_and(|g| i < g.len())
                 }
             });
-            let k = seen.map_or(n.last.saturating_sub(1), TextLine::key);
+            let k = seen.map_or_else(|| n.last.saturating_sub(1), TextLine::key);
             let found = if let Some(text) = last_q.strip_prefix("- ") {
                 (self.diff.ghosts.iter())
                     .flat_map(|(&key, g)| {
@@ -254,7 +253,7 @@ impl App {
             let (at, stale) = match found {
                 Some(at) => (at, false),
                 None => (
-                    seen.unwrap_or(TextLine::File(k.min(len.saturating_sub(1)))),
+                    seen.unwrap_or_else(|| TextLine::File(k.min(len.saturating_sub(1)))),
                     true,
                 ),
             };
@@ -825,11 +824,13 @@ impl App {
         let n = std::fs::read_to_string(&path)
             .map(|t| parse(&t).len())
             .ok()?;
-        let root = self.root.canonicalize().unwrap_or(self.root.clone());
+        let root = self
+            .root
+            .canonicalize()
+            .unwrap_or_else(|_| self.root.clone());
         let shown = (path.strip_prefix(&self.root))
             .or_else(|_| path.strip_prefix(&root))
-            .map(Path::to_path_buf)
-            .unwrap_or(path.clone());
+            .map_or_else(|_| path.clone(), Path::to_path_buf);
         Some(format!(
             "merl: {n} note{} for your agent in {}",
             super::plural(n),
