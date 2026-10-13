@@ -1193,6 +1193,26 @@ fn a_node_error_recovery_rebuilds_above_the_edit_is_repainted() {
     );
 }
 
+#[test]
+fn a_paint_from_any_row_orders_captures_at_one_byte_as_a_paint_from_the_top() {
+    replay_tree_sitter(
+        "f.cpp",
+        include_bytes!("../../../tests/colors/cpp/report.cpp"),
+        CPP,
+        1950..=1950,
+    );
+}
+
+#[test]
+fn a_resumed_parse_that_stops_short_of_the_text_is_redone_uncut() {
+    replay_tree_sitter(
+        "f.yml",
+        include_bytes!("../../../tests/colors/yaml/workflow.yml"),
+        DATA,
+        3020..=3020,
+    );
+}
+
 fn fuzz_tree_sitter(name: &str, start: &[u8], snippets: &[&str]) {
     let env = |name| std::env::var(name).ok().and_then(|v| v.parse::<u64>().ok());
     let seeds = match env("MERL_FUZZ_SEED") {
@@ -1270,7 +1290,7 @@ fn replay_tree_sitter(
                         recovered(&shape)
                             || recovered(&fresh_shape)
                             || tokens(&shape) == tokens(&fresh_shape),
-                        "seed {seed}, after [{}]: the tree differs from a fresh parse without an error in either\nincremental {}\nfresh {}",
+                        "{name} seed {seed}, after [{}]: the tree differs from a fresh parse without an error in either\nincremental {}\nfresh {}",
                         done.join(", "),
                         a.buf.sexp(),
                         fresh.sexp()
@@ -1278,7 +1298,7 @@ fn replay_tree_sitter(
                     assert_eq!(
                         a.buf.root_bytes(),
                         fresh.root_bytes(),
-                        "seed {seed}, after [{}]: the tree does not span the text",
+                        "{name} seed {seed}, after [{}]: the tree does not span the text",
                         done.join(", ")
                     );
                     let kept = a.buf.hl.clone();
@@ -1289,7 +1309,7 @@ fn replay_tree_sitter(
             };
             if let Some(l) = (0..a.buf.lines.len()).find(|&l| a.buf.hl[l] != want[l]) {
                 panic!(
-                    "seed {seed}, after [{}]: line {} {:?}\nincremental {:?}\nfresh {:?}",
+                    "{name} seed {seed}, after [{}]: line {} {:?}\nincremental {:?}\nfresh {:?}",
                     done.join(", "),
                     l + 1,
                     a.buf.lines[l],
