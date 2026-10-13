@@ -4,6 +4,7 @@ adwaita	c	17618	13616
 adwaita	c_sharp	16671	11766
 adwaita	cpp	19079	15857
 adwaita	css	16766	8770
+adwaita	diff	18764	4522
 adwaita	go	14810	12584
 adwaita	html	22445	16924
 adwaita	java	15213	7338
@@ -24,6 +25,7 @@ adwaita-light	c	17618	13746
 adwaita-light	c_sharp	16671	11786
 adwaita-light	cpp	19079	16041
 adwaita-light	css	16766	8926
+adwaita-light	diff	18764	4522
 adwaita-light	go	14810	12680
 adwaita-light	html	22445	16928
 adwaita-light	java	15213	7342
@@ -44,6 +46,7 @@ alabaster	c	17618	15504
 alabaster	c_sharp	16671	13935
 alabaster	cpp	19079	16760
 alabaster	css	16766	12961
+alabaster	diff	18764	5891
 alabaster	go	14810	13433
 alabaster	html	22445	13846
 alabaster	java	15213	12997
@@ -64,6 +67,7 @@ alabaster-light	c	17618	15334
 alabaster-light	c_sharp	16671	13843
 alabaster-light	cpp	19079	16790
 alabaster-light	css	16766	12954
+alabaster-light	diff	18764	5891
 alabaster-light	go	14810	13433
 alabaster-light	html	22445	13846
 alabaster-light	java	15213	13072
@@ -84,6 +88,7 @@ alucard	c	17618	14392
 alucard	c_sharp	16671	11200
 alucard	cpp	19079	15513
 alucard	css	16766	8942
+alucard	diff	18764	4441
 alucard	go	14810	12402
 alucard	html	22445	16920
 alucard	java	15213	7416
@@ -104,6 +109,7 @@ ayu	c	17618	11189
 ayu	c_sharp	16671	11447
 ayu	cpp	19079	11950
 ayu	css	16766	8895
+ayu	diff	18764	4441
 ayu	go	14810	12484
 ayu	html	22445	14723
 ayu	java	15213	5589
@@ -124,6 +130,7 @@ ayu-light	c	17618	11189
 ayu-light	c_sharp	16671	11447
 ayu-light	cpp	19079	11950
 ayu-light	css	16766	8895
+ayu-light	diff	18764	4441
 ayu-light	go	14810	12484
 ayu-light	html	22445	14723
 ayu-light	java	15213	5589
@@ -144,6 +151,7 @@ ayu-mirage	c	17618	11189
 ayu-mirage	c_sharp	16671	11447
 ayu-mirage	cpp	19079	11950
 ayu-mirage	css	16766	8895
+ayu-mirage	diff	18764	4441
 ayu-mirage	go	14810	12484
 ayu-mirage	html	22445	14723
 ayu-mirage	java	15213	5589
@@ -164,6 +172,7 @@ bamboo	c	17618	13567
 bamboo	c_sharp	16671	10913
 bamboo	cpp	19079	14326
 bamboo	css	16766	8691
+bamboo	diff	18764	14048
 bamboo	go	14810	12582
 bamboo	html	22445	16918
 bamboo	java	15213	7226
@@ -184,6 +193,7 @@ bamboo-light	c	17618	13567
 bamboo-light	c_sharp	16671	10913
 bamboo-light	cpp	19079	14326
 bamboo-light	css	16766	8691
+bamboo-light	diff	18764	14048
 bamboo-light	go	14810	12582
 bamboo-light	html	22445	16918
 bamboo-light	java	15213	7226
@@ -204,6 +214,7 @@ bluloco-light	c	17618	14100
 bluloco-light	c_sharp	16671	11170
 bluloco-light	cpp	19079	14833
 bluloco-light	css	16766	8800
+bluloco-light	diff	18764	4441
 bluloco-light	go	14810	12678
 bluloco-light	html	22445	15350
 bluloco-light	java	15213	7410
@@ -224,6 +235,7 @@ catppuccin-frappe	c	17618	14007
 catppuccin-frappe	c_sharp	16671	11294
 catppuccin-frappe	cpp	19079	14205
 catppuccin-frappe	css	16766	5681
+catppuccin-frappe	diff	18764	4441
 catppuccin-frappe	go	14810	12679
 catppuccin-frappe	html	22445	14875
 catppuccin-frappe	java	15213	7064
@@ -244,6 +256,7 @@ catppuccin-latte	c	17618	14007
 catppuccin-latte	c_sharp	16671	11294
 catppuccin-latte	cpp	19079	14205
 catppuccin-latte	css	16766	5681
+catppuccin-latte	diff	18764	4441
 catppuccin-latte	go	14810	12679
 catppuccin-latte	html	22445	14875
 catppuccin-latte	java	15213	7064
@@ -264,6 +277,7 @@ catppuccin-macchiato	c	17618	14007
 catppuccin-macchiato	c_sharp	16671	11294
 catppuccin-macchiato	cpp	19079	14205
 catppuccin-macchiato	css	16766	5681
+catppuccin-macchiato	diff	18764	4441
 catppuccin-macchiato	go	14810	12679
 catppuccin-macchiato	html	22445	14875
 catppuccin-macchiato	java	15213	7064
@@ -284,6 +298,7 @@ catppuccin-mocha	c	17618	14007
 catppuccin-mocha	c_sharp	16671	11294
 catppuccin-mocha	cpp	19079	14205
 catppuccin-mocha	css	16766	5681
+catppuccin-mocha	diff	18764	4441
 catppuccin-mocha	go	14810	12679
 catppuccin-mocha	html	22445	14875
 catppuccin-mocha	java	15213	7064
@@ -304,6 +319,7 @@ cendre	c	17618	13999
 cendre	c_sharp	16671	10916
 cendre	cpp	19079	14469
 cendre	css	16766	9171
+cendre	diff	18764	4745
 cendre	go	14810	12584
 cendre	html	22445	17578
 cendre	java	15213	7284
@@ -324,6 +340,7 @@ darkearth	c	17618	12848
 darkearth	c_sharp	16671	10510
 darkearth	cpp	19079	13784
 darkearth	css	16766	7902
+darkearth	diff	18764	4522
 darkearth	go	14810	11913
 darkearth	html	22445	15061
 darkearth	java	15213	6630
@@ -344,6 +361,7 @@ dawnfox	c	17618	12177
 dawnfox	c_sharp	16671	9118
 dawnfox	cpp	19079	12048
 dawnfox	css	16766	6485
+dawnfox	diff	18764	4441
 dawnfox	go	14810	11410
 dawnfox	html	22445	14832
 dawnfox	java	15213	4996
@@ -364,6 +382,7 @@ dayfox	c	17618	9870
 dayfox	c_sharp	16671	9118
 dayfox	cpp	19079	9656
 dayfox	css	16766	6470
+dayfox	diff	18764	4441
 dayfox	go	14810	11410
 dayfox	html	22445	14832
 dayfox	java	15213	3279
@@ -384,6 +403,7 @@ dracula	c	17618	14392
 dracula	c_sharp	16671	11200
 dracula	cpp	19079	15513
 dracula	css	16766	8942
+dracula	diff	18764	4441
 dracula	go	14810	12402
 dracula	html	22445	16920
 dracula	java	15213	7416
@@ -404,6 +424,7 @@ e-ink	c	17618	12079
 e-ink	c_sharp	16671	12944
 e-ink	cpp	19079	11457
 e-ink	css	16766	8126
+e-ink	diff	18764	4521
 e-ink	go	14810	12439
 e-ink	html	22445	14736
 e-ink	java	15213	7356
@@ -424,6 +445,7 @@ e-ink-light	c	17618	12079
 e-ink-light	c_sharp	16671	12944
 e-ink-light	cpp	19079	11457
 e-ink-light	css	16766	8126
+e-ink-light	diff	18764	4521
 e-ink-light	go	14810	12439
 e-ink-light	html	22445	14736
 e-ink-light	java	15213	7356
@@ -444,6 +466,7 @@ edge	c	17618	10312
 edge	c_sharp	16671	9623
 edge	cpp	19079	10681
 edge	css	16766	6470
+edge	diff	18764	4441
 edge	go	14810	11882
 edge	html	22445	14709
 edge	java	15213	3967
@@ -464,6 +487,7 @@ edge-light	c	17618	10312
 edge-light	c_sharp	16671	9623
 edge-light	cpp	19079	10681
 edge-light	css	16766	6470
+edge-light	diff	18764	4441
 edge-light	go	14810	11882
 edge-light	html	22445	14709
 edge-light	java	15213	3967
@@ -484,6 +508,7 @@ everforest-dark	c	17618	13696
 everforest-dark	c_sharp	16671	10540
 everforest-dark	cpp	19079	13989
 everforest-dark	css	16766	7843
+everforest-dark	diff	18764	4826
 everforest-dark	go	14810	12674
 everforest-dark	html	22445	14732
 everforest-dark	java	15213	6420
@@ -504,6 +529,7 @@ everforest-light	c	17618	13696
 everforest-light	c_sharp	16671	10540
 everforest-light	cpp	19079	13989
 everforest-light	css	16766	7843
+everforest-light	diff	18764	4826
 everforest-light	go	14810	12674
 everforest-light	html	22445	14732
 everforest-light	java	15213	6420
@@ -524,6 +550,7 @@ flexoki-dark	c	17618	11182
 flexoki-dark	c_sharp	16671	11757
 flexoki-dark	cpp	19079	12662
 flexoki-dark	css	16766	8785
+flexoki-dark	diff	18764	4441
 flexoki-dark	go	14810	12955
 flexoki-dark	html	22445	15352
 flexoki-dark	java	15213	5593
@@ -544,6 +571,7 @@ flexoki-light	c	17618	11182
 flexoki-light	c_sharp	16671	11757
 flexoki-light	cpp	19079	12662
 flexoki-light	css	16766	8785
+flexoki-light	diff	18764	4441
 flexoki-light	go	14810	12955
 flexoki-light	html	22445	15352
 flexoki-light	java	15213	5593
@@ -564,6 +592,7 @@ github-dark	c	17618	14094
 github-dark	c_sharp	16671	11239
 github-dark	cpp	19079	14524
 github-dark	css	16766	8906
+github-dark	diff	18764	7252
 github-dark	go	14810	12716
 github-dark	html	22445	17058
 github-dark	java	15213	7349
@@ -584,6 +613,7 @@ github-light	c	17618	14094
 github-light	c_sharp	16671	11239
 github-light	cpp	19079	14524
 github-light	css	16766	8906
+github-light	diff	18764	7252
 github-light	go	14810	12716
 github-light	html	22445	17058
 github-light	java	15213	7349
@@ -604,6 +634,7 @@ gotham	c	17618	11317
 gotham	c_sharp	16671	11457
 gotham	cpp	19079	12077
 gotham	css	16766	8839
+gotham	diff	18764	4441
 gotham	go	14810	12563
 gotham	html	22445	15360
 gotham	java	15213	5589
@@ -624,6 +655,7 @@ gruvbox-dark	c	17618	13188
 gruvbox-dark	c_sharp	16671	10921
 gruvbox-dark	cpp	19079	13921
 gruvbox-dark	css	16766	8757
+gruvbox-dark	diff	18764	14048
 gruvbox-dark	go	14810	12702
 gruvbox-dark	html	22445	17689
 gruvbox-dark	java	15213	6730
@@ -644,6 +676,7 @@ gruvbox-light	c	17618	13188
 gruvbox-light	c_sharp	16671	10921
 gruvbox-light	cpp	19079	13921
 gruvbox-light	css	16766	8757
+gruvbox-light	diff	18764	14048
 gruvbox-light	go	14810	12702
 gruvbox-light	html	22445	17689
 gruvbox-light	java	15213	6730
@@ -664,6 +697,7 @@ gruvbox-material-dark	c	17618	13696
 gruvbox-material-dark	c_sharp	16671	10540
 gruvbox-material-dark	cpp	19079	13989
 gruvbox-material-dark	css	16766	7843
+gruvbox-material-dark	diff	18764	4826
 gruvbox-material-dark	go	14810	12674
 gruvbox-material-dark	html	22445	14732
 gruvbox-material-dark	java	15213	6420
@@ -684,6 +718,7 @@ gruvbox-material-light	c	17618	13696
 gruvbox-material-light	c_sharp	16671	10540
 gruvbox-material-light	cpp	19079	13989
 gruvbox-material-light	css	16766	7843
+gruvbox-material-light	diff	18764	4826
 gruvbox-material-light	go	14810	12674
 gruvbox-material-light	html	22445	14732
 gruvbox-material-light	java	15213	6420
@@ -704,6 +739,7 @@ hojicha	c	17618	12763
 hojicha	c_sharp	16671	9875
 hojicha	cpp	19079	13346
 hojicha	css	16766	8104
+hojicha	diff	18764	4441
 hojicha	go	14810	11952
 hojicha	html	22445	16920
 hojicha	java	15213	6439
@@ -724,6 +760,7 @@ iceberg	c	17618	14230
 iceberg	c_sharp	16671	12042
 iceberg	cpp	19079	16354
 iceberg	css	16766	8697
+iceberg	diff	18764	4522
 iceberg	go	14810	13101
 iceberg	html	22445	14945
 iceberg	java	15213	7460
@@ -744,6 +781,7 @@ iceberg-light	c	17618	14230
 iceberg-light	c_sharp	16671	12042
 iceberg-light	cpp	19079	16354
 iceberg-light	css	16766	8697
+iceberg-light	diff	18764	4522
 iceberg-light	go	14810	13101
 iceberg-light	html	22445	14953
 iceberg-light	java	15213	7460
@@ -764,6 +802,7 @@ jellybeans	c	17618	12166
 jellybeans	c_sharp	16671	8897
 jellybeans	cpp	19079	12727
 jellybeans	css	16766	6539
+jellybeans	diff	18764	4441
 jellybeans	go	14810	11465
 jellybeans	html	22445	20102
 jellybeans	java	15213	4971
@@ -784,6 +823,7 @@ jellybeans-light	c	17618	12166
 jellybeans-light	c_sharp	16671	8897
 jellybeans-light	cpp	19079	12727
 jellybeans-light	css	16766	6539
+jellybeans-light	diff	18764	4441
 jellybeans-light	go	14810	11465
 jellybeans-light	html	22445	20102
 jellybeans-light	java	15213	4971
@@ -804,6 +844,7 @@ kanagawa-dragon	c	17618	13413
 kanagawa-dragon	c_sharp	16671	10653
 kanagawa-dragon	cpp	19079	13570
 kanagawa-dragon	css	16766	8707
+kanagawa-dragon	diff	18764	4441
 kanagawa-dragon	go	14810	12340
 kanagawa-dragon	html	22445	16918
 kanagawa-dragon	java	15213	6616
@@ -824,6 +865,7 @@ kanagawa-lotus	c	17618	13413
 kanagawa-lotus	c_sharp	16671	10653
 kanagawa-lotus	cpp	19079	13570
 kanagawa-lotus	css	16766	8707
+kanagawa-lotus	diff	18764	4441
 kanagawa-lotus	go	14810	12340
 kanagawa-lotus	html	22445	16918
 kanagawa-lotus	java	15213	6616
@@ -844,6 +886,7 @@ kanagawa-wave	c	17618	13413
 kanagawa-wave	c_sharp	16671	10653
 kanagawa-wave	cpp	19079	13570
 kanagawa-wave	css	16766	8707
+kanagawa-wave	diff	18764	4441
 kanagawa-wave	go	14810	12340
 kanagawa-wave	html	22445	16918
 kanagawa-wave	java	15213	6616
@@ -864,6 +907,7 @@ koda-dark	c	17618	13691
 koda-dark	c_sharp	16671	11163
 koda-dark	cpp	19079	15975
 koda-dark	css	16766	8035
+koda-dark	diff	18764	7412
 koda-dark	go	14810	12879
 koda-dark	html	22445	17551
 koda-dark	java	15213	6707
@@ -884,6 +928,7 @@ koda-light	c	17618	13677
 koda-light	c_sharp	16671	11108
 koda-light	cpp	19079	15858
 koda-light	css	16766	7935
+koda-light	diff	18764	7412
 koda-light	go	14810	12879
 koda-light	html	22445	17241
 koda-light	java	15213	6626
@@ -904,6 +949,7 @@ lackluster	c	17618	13383
 lackluster	c_sharp	16671	10645
 lackluster	cpp	19079	14190
 lackluster	css	16766	5304
+lackluster	diff	18764	4441
 lackluster	go	14810	12601
 lackluster	html	22445	15335
 lackluster	java	15213	7187
@@ -924,6 +970,7 @@ lightearth	c	17618	12848
 lightearth	c_sharp	16671	10510
 lightearth	cpp	19079	13784
 lightearth	css	16766	7902
+lightearth	diff	18764	4522
 lightearth	go	14810	11913
 lightearth	html	22445	15061
 lightearth	java	15213	6630
@@ -944,6 +991,7 @@ material-dark	c	17618	12636
 material-dark	c_sharp	16671	9966
 material-dark	cpp	19079	13256
 material-dark	css	16766	6505
+material-dark	diff	18764	4522
 material-dark	go	14810	11783
 material-dark	html	22445	14706
 material-dark	java	15213	5087
@@ -964,6 +1012,7 @@ material-light	c	17618	12636
 material-light	c_sharp	16671	9966
 material-light	cpp	19079	13256
 material-light	css	16766	6505
+material-light	diff	18764	4522
 material-light	go	14810	11783
 material-light	html	22445	14706
 material-light	java	15213	5105
@@ -984,6 +1033,7 @@ melange-dark	c	17618	13492
 melange-dark	c_sharp	16671	11208
 melange-dark	cpp	19079	14532
 melange-dark	css	16766	7644
+melange-dark	diff	18764	10477
 melange-dark	go	14810	12620
 melange-dark	html	22445	16933
 melange-dark	java	15213	6089
@@ -1004,6 +1054,7 @@ melange-light	c	17618	13492
 melange-light	c_sharp	16671	11208
 melange-light	cpp	19079	14532
 melange-light	css	16766	7644
+melange-light	diff	18764	10477
 melange-light	go	14810	12620
 melange-light	html	22445	16933
 melange-light	java	15213	6089
@@ -1024,6 +1075,7 @@ mellifluous	c	17618	13262
 mellifluous	c_sharp	16671	11201
 mellifluous	cpp	19079	14490
 mellifluous	css	16766	8777
+mellifluous	diff	18764	14129
 mellifluous	go	14810	9698
 mellifluous	html	22445	17555
 mellifluous	java	15213	6243
@@ -1044,6 +1096,7 @@ mellifluous-light	c	17618	13262
 mellifluous-light	c_sharp	16671	11201
 mellifluous-light	cpp	19079	14490
 mellifluous-light	css	16766	8777
+mellifluous-light	diff	18764	14129
 mellifluous-light	go	14810	9698
 mellifluous-light	html	22445	17555
 mellifluous-light	java	15213	6243
@@ -1064,6 +1117,7 @@ mellow	c	17618	13626
 mellow	c_sharp	16671	10909
 mellow	cpp	19079	14520
 mellow	css	16766	8700
+mellow	diff	18764	4441
 mellow	go	14810	12517
 mellow	html	22445	16914
 mellow	java	15213	7292
@@ -1084,6 +1138,7 @@ miasma	c	17618	13720
 miasma	c_sharp	16671	11756
 miasma	cpp	19079	15347
 miasma	css	16766	9036
+miasma	diff	18764	4522
 miasma	go	14810	12660
 miasma	html	22445	15685
 miasma	java	15213	7400
@@ -1104,6 +1159,7 @@ minischeme	c	17618	13392
 minischeme	c_sharp	16671	11255
 minischeme	cpp	19079	14393
 minischeme	css	16766	8701
+minischeme	diff	18764	4522
 minischeme	go	14810	12242
 minischeme	html	22445	14849
 minischeme	java	15213	7316
@@ -1124,6 +1180,7 @@ minischeme-light	c	17618	13392
 minischeme-light	c_sharp	16671	11255
 minischeme-light	cpp	19079	14393
 minischeme-light	css	16766	8701
+minischeme-light	diff	18764	4522
 minischeme-light	go	14810	12242
 minischeme-light	html	22445	14849
 minischeme-light	java	15213	7316
@@ -1144,6 +1201,7 @@ moonfly	c	17618	13186
 moonfly	c_sharp	16671	10833
 moonfly	cpp	19079	13575
 moonfly	css	16766	7447
+moonfly	diff	18764	4441
 moonfly	go	14810	12427
 moonfly	html	22445	14708
 moonfly	java	15213	6730
@@ -1164,6 +1222,7 @@ neomodern-light	c	17618	12763
 neomodern-light	c_sharp	16671	9875
 neomodern-light	cpp	19079	13346
 neomodern-light	css	16766	8104
+neomodern-light	diff	18764	4441
 neomodern-light	go	14810	11952
 neomodern-light	html	22445	16920
 neomodern-light	java	15213	6439
@@ -1184,6 +1243,7 @@ nightfly	c	17618	13186
 nightfly	c_sharp	16671	10833
 nightfly	cpp	19079	13575
 nightfly	css	16766	7447
+nightfly	diff	18764	4441
 nightfly	go	14810	12427
 nightfly	html	22445	14708
 nightfly	java	15213	6730
@@ -1204,6 +1264,7 @@ nightfox	c	17618	9870
 nightfox	c_sharp	16671	9118
 nightfox	cpp	19079	9656
 nightfox	css	16766	6470
+nightfox	diff	18764	4441
 nightfox	go	14810	11410
 nightfox	html	22445	14832
 nightfox	java	15213	3279
@@ -1224,6 +1285,7 @@ nord	c	17618	14160
 nord	c_sharp	16671	11477
 nord	cpp	19079	15356
 nord	css	16766	8733
+nord	diff	18764	5962
 nord	go	14810	12526
 nord	html	22445	14733
 nord	java	15213	7001
@@ -1244,6 +1306,7 @@ nordfox	c	17618	9870
 nordfox	c_sharp	16671	9118
 nordfox	cpp	19079	9656
 nordfox	css	16766	6470
+nordfox	diff	18764	4441
 nordfox	go	14810	11410
 nordfox	html	22445	14832
 nordfox	java	15213	3279
@@ -1264,6 +1327,7 @@ onedark	c	17618	13463
 onedark	c_sharp	16671	10917
 onedark	cpp	19079	14253
 onedark	css	16766	8692
+onedark	diff	18764	4441
 onedark	go	14810	12428
 onedark	html	22445	14719
 onedark	java	15213	7226
@@ -1284,6 +1348,7 @@ onedark-light	c	17618	13463
 onedark-light	c_sharp	16671	10917
 onedark-light	cpp	19079	14253
 onedark-light	css	16766	8692
+onedark-light	diff	18764	4441
 onedark-light	go	14810	12428
 onedark-light	html	22445	14719
 onedark-light	java	15213	7226
@@ -1304,6 +1369,7 @@ oxocarbon-dark	c	17618	12804
 oxocarbon-dark	c_sharp	16671	10220
 oxocarbon-dark	cpp	19079	13147
 oxocarbon-dark	css	16766	6925
+oxocarbon-dark	diff	18764	7232
 oxocarbon-dark	go	14810	11814
 oxocarbon-dark	html	22445	14911
 oxocarbon-dark	java	15213	5756
@@ -1324,6 +1390,7 @@ oxocarbon-light	c	17618	12804
 oxocarbon-light	c_sharp	16671	10220
 oxocarbon-light	cpp	19079	13147
 oxocarbon-light	css	16766	6925
+oxocarbon-light	diff	18764	7232
 oxocarbon-light	go	14810	11814
 oxocarbon-light	html	22445	14911
 oxocarbon-light	java	15213	5756
@@ -1344,6 +1411,7 @@ papercolor	c	17618	14544
 papercolor	c_sharp	16671	11148
 papercolor	cpp	19079	14732
 papercolor	css	16766	9187
+papercolor	diff	18764	16878
 papercolor	go	14810	12811
 papercolor	html	22445	17573
 papercolor	java	15213	7318
@@ -1364,6 +1432,7 @@ papercolor-light	c	17618	14534
 papercolor-light	c_sharp	16671	11136
 papercolor-light	cpp	19079	14683
 papercolor-light	css	16766	9087
+papercolor-light	diff	18764	16718
 papercolor-light	go	14810	12811
 papercolor-light	html	22445	14735
 papercolor-light	java	15213	7289
@@ -1384,6 +1453,7 @@ pencil	c	17618	11350
 pencil	c_sharp	16671	11604
 pencil	cpp	19079	11992
 pencil	css	16766	9148
+pencil	diff	18764	4441
 pencil	go	14810	12412
 pencil	html	22445	17094
 pencil	java	15213	5599
@@ -1404,6 +1474,7 @@ pencil-light	c	17618	11350
 pencil-light	c_sharp	16671	11604
 pencil-light	cpp	19079	11992
 pencil-light	css	16766	9148
+pencil-light	diff	18764	4441
 pencil-light	go	14810	12412
 pencil-light	html	22445	17094
 pencil-light	java	15213	5599
@@ -1424,6 +1495,7 @@ rose-pine	c	17618	13975
 rose-pine	c_sharp	16671	11216
 rose-pine	cpp	19079	14986
 rose-pine	css	16766	9405
+rose-pine	diff	18764	4441
 rose-pine	go	14810	13337
 rose-pine	html	22445	17944
 rose-pine	java	15213	7318
@@ -1444,6 +1516,7 @@ rose-pine-dawn	c	17618	13975
 rose-pine-dawn	c_sharp	16671	11216
 rose-pine-dawn	cpp	19079	14986
 rose-pine-dawn	css	16766	9405
+rose-pine-dawn	diff	18764	4441
 rose-pine-dawn	go	14810	13337
 rose-pine-dawn	html	22445	17944
 rose-pine-dawn	java	15213	7318
@@ -1464,6 +1537,7 @@ rose-pine-moon	c	17618	13975
 rose-pine-moon	c_sharp	16671	11216
 rose-pine-moon	cpp	19079	14986
 rose-pine-moon	css	16766	9405
+rose-pine-moon	diff	18764	4441
 rose-pine-moon	go	14810	13337
 rose-pine-moon	html	22445	17944
 rose-pine-moon	java	15213	7318
@@ -1484,6 +1558,7 @@ selenized	c	17618	12578
 selenized	c_sharp	16671	14147
 selenized	cpp	19079	12313
 selenized	css	16766	9114
+selenized	diff	18764	4441
 selenized	go	14810	13414
 selenized	html	22445	16958
 selenized	java	15213	7629
@@ -1504,6 +1579,7 @@ selenized-light	c	17618	12578
 selenized-light	c_sharp	16671	14147
 selenized-light	cpp	19079	12313
 selenized-light	css	16766	9114
+selenized-light	diff	18764	4441
 selenized-light	go	14810	13414
 selenized-light	html	22445	16958
 selenized-light	java	15213	7629
@@ -1524,6 +1600,7 @@ solarized-dark	c	17618	13034
 solarized-dark	c_sharp	16671	14117
 solarized-dark	cpp	19079	12970
 solarized-dark	css	16766	8663
+solarized-dark	diff	18764	4441
 solarized-dark	go	14810	13091
 solarized-dark	html	22445	15059
 solarized-dark	java	15213	8055
@@ -1544,6 +1621,7 @@ solarized-light	c	17618	12938
 solarized-light	c_sharp	16671	14052
 solarized-light	cpp	19079	12418
 solarized-light	css	16766	8663
+solarized-light	diff	18764	4441
 solarized-light	go	14810	13039
 solarized-light	html	22445	17262
 solarized-light	java	15213	7559
@@ -1564,6 +1642,7 @@ sonokai	c	17618	13169
 sonokai	c_sharp	16671	9663
 sonokai	cpp	19079	13274
 sonokai	css	16766	7075
+sonokai	diff	18764	4826
 sonokai	go	14810	11975
 sonokai	html	22445	14728
 sonokai	java	15213	5729
@@ -1584,6 +1663,7 @@ soviet-dark	c	17618	12232
 soviet-dark	c_sharp	16671	9369
 soviet-dark	cpp	19079	12266
 soviet-dark	css	16766	6451
+soviet-dark	diff	18764	13611
 soviet-dark	go	14810	11664
 soviet-dark	html	22445	17033
 soviet-dark	java	15213	5080
@@ -1604,6 +1684,7 @@ soviet-light	c	17618	12232
 soviet-light	c_sharp	16671	9369
 soviet-light	cpp	19079	12266
 soviet-light	css	16766	6451
+soviet-light	diff	18764	13611
 soviet-light	go	14810	11664
 soviet-light	html	22445	17033
 soviet-light	java	15213	5080
@@ -1624,6 +1705,7 @@ srcery	c	17618	13743
 srcery	c_sharp	16671	10705
 srcery	cpp	19079	13478
 srcery	css	16766	8759
+srcery	diff	18764	4522
 srcery	go	14810	13057
 srcery	html	22445	16925
 srcery	java	15213	6563
@@ -1644,6 +1726,7 @@ token	c	17618	13512
 token	c_sharp	16671	11521
 token	cpp	19079	14746
 token	css	16766	8777
+token	diff	18764	13611
 token	go	14810	12618
 token	html	22445	15677
 token	java	15213	6807
@@ -1664,6 +1747,7 @@ token-light	c	17618	13512
 token-light	c_sharp	16671	11521
 token-light	cpp	19079	14746
 token-light	css	16766	8777
+token-light	diff	18764	13611
 token-light	go	14810	12618
 token-light	html	22445	15677
 token-light	java	15213	6807
@@ -1684,6 +1768,7 @@ tokyonight-day	c	17618	12127
 tokyonight-day	c_sharp	16671	9223
 tokyonight-day	cpp	19079	12185
 tokyonight-day	css	16766	6451
+tokyonight-day	diff	18764	13611
 tokyonight-day	go	14810	11442
 tokyonight-day	html	22445	17037
 tokyonight-day	java	15213	5057
@@ -1704,6 +1789,7 @@ tokyonight-moon	c	17618	12209
 tokyonight-moon	c_sharp	16671	10519
 tokyonight-moon	cpp	19079	11418
 tokyonight-moon	css	16766	2426
+tokyonight-moon	diff	18764	4878
 tokyonight-moon	go	14810	11665
 tokyonight-moon	html	22445	8974
 tokyonight-moon	java	15213	6139
@@ -1724,6 +1810,7 @@ tokyonight-night	c	17618	12127
 tokyonight-night	c_sharp	16671	9223
 tokyonight-night	cpp	19079	12185
 tokyonight-night	css	16766	6451
+tokyonight-night	diff	18764	13611
 tokyonight-night	go	14810	11442
 tokyonight-night	html	22445	17037
 tokyonight-night	java	15213	5057
@@ -1744,6 +1831,7 @@ tokyonight-storm	c	17618	12127
 tokyonight-storm	c_sharp	16671	9223
 tokyonight-storm	cpp	19079	12185
 tokyonight-storm	css	16766	6451
+tokyonight-storm	diff	18764	13611
 tokyonight-storm	go	14810	11442
 tokyonight-storm	html	22445	17037
 tokyonight-storm	java	15213	5057
@@ -1764,6 +1852,7 @@ vague	c	17618	13542
 vague	c_sharp	16671	10701
 vague	cpp	19079	14390
 vague	css	16766	8915
+vague	diff	18764	13611
 vague	go	14810	12380
 vague	html	22445	16924
 vague	java	15213	7292
@@ -1784,6 +1873,7 @@ vesper	c	17618	10610
 vesper	c_sharp	16671	10479
 vesper	cpp	19079	11392
 vesper	css	16766	7892
+vesper	diff	18764	4441
 vesper	go	14810	12057
 vesper	html	22445	10981
 vesper	java	15213	4721
@@ -1804,6 +1894,7 @@ vscode-dark	c	17618	11496
 vscode-dark	c_sharp	16671	11643
 vscode-dark	cpp	19079	12329
 vscode-dark	css	16766	8791
+vscode-dark	diff	18764	16790
 vscode-dark	go	14810	12498
 vscode-dark	html	22445	15482
 vscode-dark	java	15213	5112
@@ -1824,6 +1915,7 @@ vscode-light	c	17618	11496
 vscode-light	c_sharp	16671	11643
 vscode-light	cpp	19079	12329
 vscode-light	css	16766	8791
+vscode-light	diff	18764	16790
 vscode-light	go	14810	12498
 vscode-light	html	22445	15482
 vscode-light	java	15213	5112

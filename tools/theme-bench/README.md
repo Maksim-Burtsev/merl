@@ -147,6 +147,19 @@ the only ones of 80 recordable lines in the d-bench projects:
 |---|---|---|---|---|
 | XML | 20,823 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 
+Diff (#806), `.diff` and `.patch`, unless Neovim's `detect.patch` makes a `.patch` whose first line
+is a `git format-patch` header `gitsendemail`, or its `detect.dep3patch` makes a file under
+`/debian/patches/` with a DEP3 header `dep3patch` (merl leaves those to syntect, the bench skips the
+first; the d-bench projects hold none of the second); `.rej`, `diff` in Neovim, is plain text in
+syntect and stays so. A capture's background is dropped as for every language, unless the group is
+`reverse`, where the background is the text's colour (nord's `@diff.plus`, `@diff.minus`,
+`@diff.delta`); the themes that give `@diff.*` a background tint (tokyonight, github, gruvbox and
+others) draw it in LazyVim and not in merl (#845), which the bench, comparing foregrounds, does not count:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Diff | 18,764 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
 ## Files
 
 | file | what |
@@ -171,7 +184,7 @@ cache, so neither `~/.config/nvim` nor a system-wide `site` directory reaches it
 The files: four per language from the projects of `tools/d-bench/projects.tsv` at their pinned
 commits (Python from paperless-ngx, Rust from ripgrep, TypeScript and TSX from outline,
 JavaScript from eslint, JSX from mastodon, Go from caddy, Lua and C from redis, C++ from leveldb, Java from halo, C# from eShop, HTML from bootstrap, caddy, eslint, outline and redis, CSS from gitea,
-paperless-ngx, caddy and redis, XML from koel, paperless-ngx and nowinandroid, Markdown from ripgrep, caddy,
+paperless-ngx, caddy and redis, XML from koel, paperless-ngx and nowinandroid, Diff from rules_go, openzeppelin-contracts, outline and halo, Markdown from ripgrep, caddy,
 outline and paperless-ngx, Bash, JSON, YAML and TOML from redis, paperless-ngx, ripgrep, caddy and eslint
 as `LANGS` in `record.py` lists them), taken in the order of the hash of their path, each with at least 80
 lines among its first 200 that are ASCII and at most 140 columns: those are the lines recorded,

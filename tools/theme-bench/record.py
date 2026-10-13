@@ -67,6 +67,7 @@ LANGS = {
     "html": (["bootstrap", "caddy", "eslint", "outline", "redis"], ["html", "htm"]),
     "css": (["gitea", "paperless-ngx", "caddy", "redis"], ["css"]),
     "xml": (["koel", "paperless-ngx", "nowinandroid"], ["xml", "svg", "xsd", "xslt"]),
+    "diff": (["rules_go", "openzeppelin-contracts", "outline", "halo"], ["diff", "patch"]),
 }
 NOT_HTML = re.compile(
     r"@(if|for|defer|switch)|\*(ngIf|ngFor|ngSwitch|ngTemplateOutlet)|\bng-(template|content)|\bDTD[ \t]+XHTML[ \t]"
@@ -141,6 +142,8 @@ def pick(lang):
         if lang == "html" and any(map(NOT_HTML.search, file_lines(path)[:40])):
             continue
         if lang == "xml" and any(re.search("<!DOCTYPE.*DocBook", l) or "docbook.org/ns/docbook" in l.lower() for l in file_lines(path)[:100]):
+            continue
+        if lang == "diff" and re.match(r"From [0-9a-fA-F]{40,} Mon Sep 17 00:00:00 2001$", file_lines(path)[0]):
             continue
         if sum(map(bool, map(recordable, file_lines(path)))) >= (least or [MINLINES])[0]:
             out.append((rel, path))

@@ -981,6 +981,18 @@ const C: &[&str] = &[
     "\n\n",
 ];
 
+const DIFF: &[&str] = &[
+    "\n+",
+    "\n-",
+    "\n ",
+    "@@ -1,2 +1,3 @@",
+    "diff --git a/x b/x\n",
+    "--- a/x\n+++ b/x\n",
+    "\\ No newline at end of file\n",
+    "index 1a2b3c4..5d6e7f8 100644\n",
+    "\n\n",
+];
+
 const CPP: &[&str] = &[
     "template <typename T>\n",
     "R\"x(",
@@ -1137,6 +1149,11 @@ fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
         "f.xml",
         include_bytes!("../../../tests/colors/xml/project.xml"),
         MARKUP,
+    );
+    fuzz_tree_sitter(
+        "f.diff",
+        include_bytes!("../../../tests/colors/diff/change.diff"),
+        DIFF,
     );
 }
 

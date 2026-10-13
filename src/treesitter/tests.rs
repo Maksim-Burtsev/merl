@@ -285,6 +285,27 @@ fn xml_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn diff_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("diff");
+}
+
+#[test]
+fn a_capture_keeps_its_background_only_when_reversed() {
+    let added = |name: &str| {
+        let theme = theme::load(name).unwrap();
+        let text = b"--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n";
+        let mut b = Buffer::from_bytes(PathBuf::from("a.diff"), text);
+        b.start_tree_sitter();
+        b.parse_more(None);
+        b.highlight_to(usize::MAX, &theme);
+        let (style, _) = b.hl[4].iter().find(|(_, r)| r.contains(&1)).unwrap();
+        (style.bg, style.add_modifier.contains(Modifier::REVERSED))
+    };
+    assert_eq!(added("nord"), (Some(Color::Rgb(0x3b, 0x42, 0x52)), true));
+    assert_eq!(added("tokyonight-moon"), (None, false));
+}
+
+#[test]
 fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     let sexp = |f: &str, src: &[u8]| {
         let mut b = Buffer::from_bytes(PathBuf::from(f), src);
@@ -362,6 +383,16 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     ] {
         assert_eq!(sexp("a.xml", text.as_bytes()), "", "{text}");
     }
+    let hunk = "--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n";
+    for f in ["a.diff", "a.patch", "/src/debian/patches/series.diff"] {
+        assert!(sexp(f, hunk.as_bytes()).contains("(addition)"), "{f}");
+    }
+    let header = "From 6e8e2a6f9efd71dbe6917816343ed8415ad696c3 Mon Sep 17 00:00:00 2001\n";
+    assert!(sexp("a.diff", format!("{header}{hunk}").as_bytes()).contains("(addition)"));
+    assert_eq!(sexp("a.patch", format!("{header}{hunk}").as_bytes()), "");
+    let dep3 = format!("Description: fix\n{hunk}");
+    assert_eq!(sexp("/src/debian/patches/fix.patch", dep3.as_bytes()), "");
+    assert!(sexp("/src/fix.patch", dep3.as_bytes()).contains("(addition)"));
 }
 
 #[test]
