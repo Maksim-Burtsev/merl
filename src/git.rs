@@ -599,7 +599,7 @@ fn unquote(s: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
-fn git(root: &Path, args: &[&str]) -> Result<String> {
+pub(crate) fn git(root: &Path, args: &[&str]) -> Result<String> {
     let out = Command::new("git")
         .arg("-C")
         .arg(root)

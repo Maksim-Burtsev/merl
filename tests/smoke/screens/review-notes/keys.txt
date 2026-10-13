@@ -1,0 +1,6 @@
+Arrows
+Ctrl+Z
+Enter
+Esc
+c
+q

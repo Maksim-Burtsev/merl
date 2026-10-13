@@ -122,6 +122,10 @@ impl LineEdit {
         cut || fits > 0
     }
 
+    pub fn put(&mut self, to: usize) {
+        self.go(to, false);
+    }
+
     fn go(&mut self, to: usize, extend: bool) {
         if extend {
             self.anchor.get_or_insert(self.cursor_byte);

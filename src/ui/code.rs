@@ -22,10 +22,12 @@ use super::tagged;
 const FOLDED: &str = " \u{22ef} ";
 
 pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
+    app.notes_sync();
     let gutter_w = digits(app.buf.lines.len()) + 1;
     app.view_w = (area.width as usize).saturating_sub(gutter_w).max(1);
     app.view_h = area.height as usize;
     app.clamp_scroll();
+    app.notes_reveal_input();
     let bottom = (app.top_line + app.view_h).max(app.bottom_line() + 1);
     app.buf.highlight_to(bottom, theme);
     if let Some((_, b)) = &mut app.base
@@ -85,6 +87,75 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             .map(|(i, r)| (r, if i == 0 { 0 } else { indent }))
             .collect()
     };
+    let accent = base.fg(theme.accent);
+    let input_bg = Style::new().bg(theme.status_bg).fg(theme.status_fg);
+    let slot_lines = |s: &crate::app::Slot| -> (Vec<Line<'static>>, Option<(usize, usize)>) {
+        let input = matches!(s, crate::app::Slot::Input);
+        let (_, _, stale) = app.slot_text(s);
+        let (rows, at) = app.slot_layout(s);
+        let focused = matches!(s, crate::app::Slot::Note(i) if Some(app.notes.here[*i].idx) == app.notes.focus)
+            && app.mode == Mode::Normal;
+        let picked = focused && app.notes.selected;
+        let hl_bg = base.bg(theme.line_hl);
+        let (bg, style) = match (input, stale) {
+            (true, _) => (input_bg, input_bg),
+            (false, _) if picked => (
+                base.bg(theme.selection),
+                base.bg(theme.selection).fg(theme.accent),
+            ),
+            (false, _) if focused => (
+                hl_bg,
+                if stale {
+                    hl_bg.fg(theme.ghost_fg)
+                } else {
+                    hl_bg.fg(theme.accent)
+                },
+            ),
+            (false, true) => (base, base.fg(theme.ghost_fg)),
+            (false, false) => (base, accent),
+        };
+        let label_style = bg.fg(theme.gutter_fg);
+        let mark_style = bg.fg(theme.accent);
+        let lines = rows
+            .into_iter()
+            .enumerate()
+            .map(|(i, (r, lab, mark))| {
+                let mut row = vec![
+                    Span::styled(" ".repeat(gutter_w - 1), gutter_style),
+                    Span::styled(if i == 0 { "\u{270e}" } else { " " }, mark_style),
+                    Span::styled(" ", bg),
+                ];
+                if lab > 0 {
+                    row.push(Span::styled(r[..lab].to_string(), label_style));
+                }
+                match mark {
+                    Some(m) => {
+                        let m = m.start.max(lab)..m.end.max(lab);
+                        row.push(Span::styled(r[lab..m.start].to_string(), style));
+                        row.push(Span::styled(
+                            r[m.clone()].to_string(),
+                            base.bg(theme.selection).fg(theme.fg),
+                        ));
+                        row.push(Span::styled(r[m.end..].to_string(), style));
+                    }
+                    None if lab < r.len() => row.push(Span::styled(r[lab..].to_string(), style)),
+                    None => {}
+                }
+                if input || focused {
+                    let used = 2 + wrap::width(&r);
+                    row.push(Span::styled(
+                        " ".repeat(app.view_w.saturating_sub(used) + 1),
+                        bg,
+                    ));
+                }
+                Line::from(row)
+            })
+            .collect();
+        (lines, at)
+    };
+    let mut input_at: Option<(usize, usize)> = None;
+    let span = app.note_span();
+    let in_span = |t: TextLine| span.is_some_and(|(a, b)| a <= t && t <= b);
     let mut lines = pinned_lines(app, theme, base, gutter_w);
     let pinned = lines.len();
     let mut l = app.top_line;
@@ -96,8 +167,9 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         }
         for (i, raw) in app.diff.ghosts.get(&l).into_iter().flatten().enumerate() {
             let line = TextLine::Deleted(l, i);
-            let cursor_line = app.at() == line;
-            let bg = match cursor_line && text_hl {
+            let cursor_line =
+                app.at() == line && app.notes.focus.is_none() && app.mode != Mode::Note;
+            let bg = match (cursor_line && text_hl) || in_span(line) {
                 true => base.bg(theme.del_bg_hl),
                 false => ghost,
             };
@@ -179,13 +251,31 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 row.push(Span::styled(" ".repeat(pad), pad_style));
                 lines.push(Line::from(row));
             }
+            {
+                for slot in app.slots_after(line) {
+                    let (nls, at) = slot_lines(&slot);
+                    for (j, nl) in nls.into_iter().enumerate() {
+                        if skip > 0 {
+                            skip -= 1;
+                            continue;
+                        }
+                        if lines.len() < area.height as usize {
+                            if at.is_some_and(|(r, _)| r == j) {
+                                input_at = Some((lines.len(), at.unwrap().1));
+                            }
+                            lines.push(nl);
+                        }
+                    }
+                }
+            }
         }
         if l == app.buf.lines.len() {
             break;
         }
         let clipped = app.buf.shown(l);
         let cut = Buffer::clips(&app.buf.lines[l]);
-        let cursor_line = app.at() == TextLine::File(l);
+        let cursor_line =
+            app.at() == TextLine::File(l) && app.notes.focus.is_none() && app.mode != Mode::Note;
         let lit = cursor_line && text_hl;
         let tint = match (review, app.diff.marks.get(&l)) {
             (true, Some(Mark::Added)) => Some((theme.add_bg, theme.add_bg_hl)),
@@ -228,6 +318,7 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             find_styles,
         );
         let g = if cursor_line { hl_gutter } else { gutter_style };
+        let lit = lit || in_span(TextLine::File(l));
         let t = match (tint, lit) {
             (Some((_, row)), true) | (Some((row, _)), false) => base.bg(row),
             (None, true) => hl,
@@ -320,13 +411,32 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 row.push(Span::styled(FOLDED, chip));
                 row.push(Span::styled(*tail, t));
             }
-            if cursor_line || pad_selected || after || tint.is_some() {
+            if cursor_line || lit || pad_selected || after || tint.is_some() {
                 row.push(Span::styled(" ".repeat(pad), pad_style));
             }
             if after {
                 row.push(Span::styled("\u{203a}", g));
             }
             lines.push(Line::from(row));
+        }
+        {
+            let mut k = last + 1;
+            for slot in app.slots_after(TextLine::File(l)) {
+                let (nls, at) = slot_lines(&slot);
+                for (j, nl) in nls.into_iter().enumerate() {
+                    if k < skip {
+                        k += 1;
+                        continue;
+                    }
+                    k += 1;
+                    if lines.len() < area.height as usize {
+                        if at.is_some_and(|(r, _)| r == j) {
+                            input_at = Some((lines.len(), at.unwrap().1));
+                        }
+                        lines.push(nl);
+                    }
+                }
+            }
         }
         skip = 0;
         l += 1;
@@ -338,7 +448,16 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     if let Some(y) = screen_row.filter(|y| *y < area.height as usize)
         && matches!(app.mode, Mode::Normal | Mode::Edit)
     {
-        let x = area.x + (gutter_w + app.cursor_x().saturating_sub(app.left)) as u16;
+        let x = match app.notes.focus {
+            Some(_) => area.x + gutter_w as u16 - 1,
+            None => area.x + (gutter_w + app.cursor_x().saturating_sub(app.left)) as u16,
+        };
+        frame.set_cursor_position((x.min(area.right().saturating_sub(1)), area.y + y as u16));
+    }
+    if app.mode == Mode::Note
+        && let Some((y, x)) = input_at
+    {
+        let x = area.x + (gutter_w + 1 + x) as u16;
         frame.set_cursor_position((x.min(area.right().saturating_sub(1)), area.y + y as u16));
     }
 }
