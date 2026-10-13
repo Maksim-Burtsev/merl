@@ -1068,6 +1068,23 @@ const RUBY: &[&str] = &[
     ")", "{", "}", "\"", "\n\n",
 ];
 
+const CMAKE: &[&str] = &[
+    "set(",
+    "${X}",
+    "$ENV{X}",
+    "#[[",
+    "]]",
+    "[=[",
+    "]=]",
+    "if(NOT X)\n",
+    "endif()\n",
+    "(",
+    ")",
+    "\"",
+    "# ",
+    "\n\n",
+];
+
 const ELIXIR: &[&str] = &[
     "\"#{x}\"",
     "\"\"\"\n",
@@ -1136,104 +1153,115 @@ const LUA: &[&str] = &[
     "  ",
 ];
 
-#[test]
-fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
-    fuzz_tree_sitter(
+const TREE_SITTER_SESSIONS: &[(&str, &[u8], &[&str])] = &[
+    (
         "f.py",
         include_bytes!("../../../tests/colors/python/classes.py"),
         PYTHON,
-    );
-    fuzz_tree_sitter(
+    ),
+    (
         "f.md",
         include_bytes!("../../../tests/colors/markdown/code.md"),
         MARKDOWN,
-    );
-    fuzz_tree_sitter(
+    ),
+    (
         "f.rs",
         include_bytes!("../../../tests/colors/rust/exprs.rs"),
         RUST,
-    );
-    fuzz_tree_sitter(
+    ),
+    (
         "f.sh",
         include_bytes!("../../../tests/colors/bash/script.sh"),
         SHELL,
-    );
-    fuzz_tree_sitter(
+    ),
+    (
         "f.yml",
         include_bytes!("../../../tests/colors/yaml/workflow.yml"),
         DATA,
-    );
-    fuzz_tree_sitter(
+    ),
+    (
         "f.json",
         include_bytes!("../../../tests/colors/json/package.json"),
         DATA,
-    );
-    fuzz_tree_sitter(
+    ),
+    (
         "f.toml",
         include_bytes!("../../../tests/colors/toml/Cargo.toml"),
         DATA,
-    );
-    fuzz_tree_sitter(
+    ),
+    (
         "f.lua",
         include_bytes!("../../../tests/colors/lua/decls.lua"),
         LUA,
-    );
-    fuzz_tree_sitter("f.c", include_bytes!("../../../tests/colors/c/ledger.c"), C);
-    fuzz_tree_sitter(
+    ),
+    ("f.c", include_bytes!("../../../tests/colors/c/ledger.c"), C),
+    (
         "f.cpp",
         include_bytes!("../../../tests/colors/cpp/report.cpp"),
         CPP,
-    );
-    fuzz_tree_sitter(
+    ),
+    (
         "F.java",
         include_bytes!("../../../tests/colors/java/Ledger.java"),
         JAVA,
-    );
-    fuzz_tree_sitter(
+    ),
+    (
         "F.kt",
         include_bytes!("../../../tests/colors/kotlin/Ledger.kt"),
         KOTLIN,
-    );
-    fuzz_tree_sitter(
+    ),
+    (
         "f.rb",
         include_bytes!("../../../tests/colors/ruby/ledger.rb"),
         RUBY,
-    );
-    fuzz_tree_sitter(
+    ),
+    (
         "f.ex",
         include_bytes!("../../../tests/colors/elixir/ledger.ex"),
         ELIXIR,
-    );
-    fuzz_tree_sitter(
+    ),
+    (
         "F.cs",
         include_bytes!("../../../tests/colors/c_sharp/Ledger.cs"),
         CSHARP,
-    );
-    fuzz_tree_sitter(
+    ),
+    (
         "f.html",
         include_bytes!("../../../tests/colors/html/page.html"),
         MARKUP,
-    );
-    fuzz_tree_sitter(
+    ),
+    (
         "f.css",
         include_bytes!("../../../tests/colors/css/site.css"),
         MARKUP,
-    );
-    fuzz_tree_sitter(
+    ),
+    (
         "f.xml",
         include_bytes!("../../../tests/colors/xml/project.xml"),
         MARKUP,
-    );
-    fuzz_tree_sitter(
+    ),
+    (
+        "CMakeLists.txt",
+        include_bytes!("../../../tests/colors/cmake/CMakeLists.txt"),
+        CMAKE,
+    ),
+    (
         "f.diff",
         include_bytes!("../../../tests/colors/diff/change.diff"),
         DIFF,
-    );
-    fuzz_tree_sitter(
+    ),
+    (
         "queries/f.scm",
         include_bytes!("../../../tests/colors/query/queries/highlights.scm"),
         QUERY,
-    );
+    ),
+];
+
+#[test]
+fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
+    for (name, start, snippets) in TREE_SITTER_SESSIONS {
+        fuzz_tree_sitter(name, start, snippets);
+    }
 }
 
 #[test]

@@ -79,6 +79,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/java/injections.scm"),
     ),
     (
+        "cmake",
+        include_str!("../queries/cmake/highlights.scm"),
+        include_str!("../queries/cmake/injections.scm"),
+    ),
+    (
         "dockerfile",
         include_str!("../queries/dockerfile/highlights.scm"),
         include_str!("../queries/dockerfile/injections.scm"),
@@ -345,6 +350,7 @@ pub fn for_syntax(
         "C" => lang("c"),
         "C#" => lang("c_sharp"),
         "C++" if cpp(path, lines) => lang("cpp"),
+        "CMake" if path.is_none_or(cmake) => lang("cmake"),
         "CSS" => lang("css"),
         "Diff" if diff(path, lines) => lang("diff"),
         "Dockerfile" | "Dockerfile (with bash)" => lang("dockerfile"),
@@ -397,6 +403,11 @@ fn euphoria(path: Option<&Path>, lines: &[String]) -> bool {
                     })
                 })
         })
+}
+
+fn cmake(path: &Path) -> bool {
+    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    name == "CMakeLists.txt" || path.extension().is_some_and(|e| e == "cmake")
 }
 
 fn php(path: &Path) -> bool {
@@ -579,6 +590,7 @@ fn grammar(name: &str) -> Option<Language> {
         "javascript" => tree_sitter_javascript::LANGUAGE.into(),
         "kotlin" => tree_sitter_kotlin::LANGUAGE.into(),
         "dockerfile" => tree_sitter_dockerfile_updated::language(),
+        "cmake" => tree_sitter_cmake::LANGUAGE.into(),
         "swift" => tree_sitter_swift::LANGUAGE.into(),
         "ruby" => tree_sitter_ruby::LANGUAGE.into(),
         "elixir" => tree_sitter_elixir::LANGUAGE.into(),
@@ -899,9 +911,10 @@ fn vim_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
         Some("\\m" | "\\M" | "\\V") => return bad(),
         _ => p,
     };
-    let mut out = String::from("(?s-u)");
+    let mut out = String::new();
     let mut chars = body.chars().peekable();
     let mut class = None;
+    let mut case = "";
     while let Some(c) = chars.next() {
         match (c, class) {
             ('<' | '>' | '=' | '@' | '%' | '~' | '{' | '&', _) => return bad(),
@@ -917,6 +930,11 @@ fn vim_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
                     out.push(n);
                     continue;
                 }
+                Some('c') => {
+                    case = "i";
+                    continue;
+                }
+                Some('C') => continue,
                 Some(n) if !n.is_ascii_alphanumeric() && n != '_' => {
                     out.push_str(&regex::escape(&n.to_string()));
                     continue;
@@ -927,7 +945,8 @@ fn vim_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
         }
         out.push(c);
     }
-    regex::bytes::Regex::new(&out).map_err(|e| format!("vim pattern {p:?}: {e}"))
+    regex::bytes::Regex::new(&format!("(?s{case}-u){out}"))
+        .map_err(|e| format!("vim pattern {p:?}: {e}"))
 }
 
 fn lua_replacement(with: &str) -> Result<Vec<u8>, String> {

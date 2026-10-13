@@ -2,6 +2,7 @@
 adwaita	bash	12491	9320
 adwaita	c	17618	13616
 adwaita	c_sharp	16671	11766
+adwaita	cmake	17403	14048
 adwaita	cpp	19079	15857
 adwaita	css	16766	8770
 adwaita	diff	18764	4522
@@ -30,6 +31,7 @@ adwaita	yaml	16564	10644
 adwaita-light	bash	12491	9332
 adwaita-light	c	17618	13746
 adwaita-light	c_sharp	16671	11786
+adwaita-light	cmake	17403	14047
 adwaita-light	cpp	19079	16041
 adwaita-light	css	16766	8926
 adwaita-light	diff	18764	4522
@@ -58,6 +60,7 @@ adwaita-light	yaml	16564	10523
 alabaster	bash	12491	9780
 alabaster	c	17618	15504
 alabaster	c_sharp	16671	13935
+alabaster	cmake	17403	13959
 alabaster	cpp	19079	16760
 alabaster	css	16766	12961
 alabaster	diff	18764	5891
@@ -86,6 +89,7 @@ alabaster	yaml	16564	12118
 alabaster-light	bash	12491	9780
 alabaster-light	c	17618	15334
 alabaster-light	c_sharp	16671	13843
+alabaster-light	cmake	17403	13975
 alabaster-light	cpp	19079	16790
 alabaster-light	css	16766	12954
 alabaster-light	diff	18764	5891
@@ -114,6 +118,7 @@ alabaster-light	yaml	16564	12118
 alucard	bash	12491	8820
 alucard	c	17618	14392
 alucard	c_sharp	16671	11200
+alucard	cmake	17403	12406
 alucard	cpp	19079	15513
 alucard	css	16766	8942
 alucard	diff	18764	4441
@@ -142,6 +147,7 @@ alucard	yaml	16564	10523
 ayu	bash	12491	8698
 ayu	c	17618	11189
 ayu	c_sharp	16671	11447
+ayu	cmake	17403	11548
 ayu	cpp	19079	11950
 ayu	css	16766	8895
 ayu	diff	18764	4441
@@ -170,6 +176,7 @@ ayu	yaml	16564	10523
 ayu-light	bash	12491	8698
 ayu-light	c	17618	11189
 ayu-light	c_sharp	16671	11447
+ayu-light	cmake	17403	11548
 ayu-light	cpp	19079	11950
 ayu-light	css	16766	8895
 ayu-light	diff	18764	4441
@@ -198,6 +205,7 @@ ayu-light	yaml	16564	10523
 ayu-mirage	bash	12491	8698
 ayu-mirage	c	17618	11189
 ayu-mirage	c_sharp	16671	11447
+ayu-mirage	cmake	17403	11548
 ayu-mirage	cpp	19079	11950
 ayu-mirage	css	16766	8895
 ayu-mirage	diff	18764	4441
@@ -226,6 +234,7 @@ ayu-mirage	yaml	16564	10523
 bamboo	bash	12491	8641
 bamboo	c	17618	13567
 bamboo	c_sharp	16671	10913
+bamboo	cmake	17403	12267
 bamboo	cpp	19079	14326
 bamboo	css	16766	8691
 bamboo	diff	18764	14048
@@ -254,6 +263,7 @@ bamboo	yaml	16564	10523
 bamboo-light	bash	12491	8641
 bamboo-light	c	17618	13567
 bamboo-light	c_sharp	16671	10913
+bamboo-light	cmake	17403	12267
 bamboo-light	cpp	19079	14326
 bamboo-light	css	16766	8691
 bamboo-light	diff	18764	14048
@@ -282,6 +292,7 @@ bamboo-light	yaml	16564	10523
 bluloco-light	bash	12491	9567
 bluloco-light	c	17618	14100
 bluloco-light	c_sharp	16671	11170
+bluloco-light	cmake	17403	14183
 bluloco-light	cpp	19079	14833
 bluloco-light	css	16766	8800
 bluloco-light	diff	18764	4441
@@ -310,6 +321,7 @@ bluloco-light	yaml	16564	10523
 catppuccin-frappe	bash	12491	8689
 catppuccin-frappe	c	17618	14007
 catppuccin-frappe	c_sharp	16671	11294
+catppuccin-frappe	cmake	17403	12328
 catppuccin-frappe	cpp	19079	14205
 catppuccin-frappe	css	16766	5681
 catppuccin-frappe	diff	18764	4441
@@ -338,6 +350,7 @@ catppuccin-frappe	yaml	16564	12430
 catppuccin-latte	bash	12491	8689
 catppuccin-latte	c	17618	14007
 catppuccin-latte	c_sharp	16671	11294
+catppuccin-latte	cmake	17403	12328
 catppuccin-latte	cpp	19079	14205
 catppuccin-latte	css	16766	5681
 catppuccin-latte	diff	18764	4441
@@ -366,6 +379,7 @@ catppuccin-latte	yaml	16564	12430
 catppuccin-macchiato	bash	12491	8689
 catppuccin-macchiato	c	17618	14007
 catppuccin-macchiato	c_sharp	16671	11294
+catppuccin-macchiato	cmake	17403	12328
 catppuccin-macchiato	cpp	19079	14205
 catppuccin-macchiato	css	16766	5681
 catppuccin-macchiato	diff	18764	4441
@@ -394,6 +408,7 @@ catppuccin-macchiato	yaml	16564	12430
 catppuccin-mocha	bash	12491	8689
 catppuccin-mocha	c	17618	14007
 catppuccin-mocha	c_sharp	16671	11294
+catppuccin-mocha	cmake	17403	12328
 catppuccin-mocha	cpp	19079	14205
 catppuccin-mocha	css	16766	5681
 catppuccin-mocha	diff	18764	4441
@@ -422,6 +437,7 @@ catppuccin-mocha	yaml	16564	12430
 cendre	bash	12491	10156
 cendre	c	17618	13999
 cendre	c_sharp	16671	10916
+cendre	cmake	17403	14535
 cendre	cpp	19079	14469
 cendre	css	16766	9171
 cendre	diff	18764	4745
@@ -450,6 +466,7 @@ cendre	yaml	16564	10519
 darkearth	bash	12491	9347
 darkearth	c	17618	12848
 darkearth	c_sharp	16671	10510
+darkearth	cmake	17403	13298
 darkearth	cpp	19079	13784
 darkearth	css	16766	7902
 darkearth	diff	18764	4522
@@ -478,6 +495,7 @@ darkearth	yaml	16564	12561
 dawnfox	bash	12491	8279
 dawnfox	c	17618	12177
 dawnfox	c_sharp	16671	9118
+dawnfox	cmake	17403	11422
 dawnfox	cpp	19079	12048
 dawnfox	css	16766	6485
 dawnfox	diff	18764	4441
@@ -506,6 +524,7 @@ dawnfox	yaml	16564	10090
 dayfox	bash	12491	8255
 dayfox	c	17618	9870
 dayfox	c_sharp	16671	9118
+dayfox	cmake	17403	10749
 dayfox	cpp	19079	9656
 dayfox	css	16766	6470
 dayfox	diff	18764	4441
@@ -534,6 +553,7 @@ dayfox	yaml	16564	10090
 dracula	bash	12491	8820
 dracula	c	17618	14392
 dracula	c_sharp	16671	11200
+dracula	cmake	17403	12406
 dracula	cpp	19079	15513
 dracula	css	16766	8942
 dracula	diff	18764	4441
@@ -562,6 +582,7 @@ dracula	yaml	16564	10523
 e-ink	bash	12491	10123
 e-ink	c	17618	12079
 e-ink	c_sharp	16671	12944
+e-ink	cmake	17403	12628
 e-ink	cpp	19079	11457
 e-ink	css	16766	8126
 e-ink	diff	18764	4521
@@ -590,6 +611,7 @@ e-ink	yaml	16564	13095
 e-ink-light	bash	12491	10123
 e-ink-light	c	17618	12079
 e-ink-light	c_sharp	16671	12944
+e-ink-light	cmake	17403	12628
 e-ink-light	cpp	19079	11457
 e-ink-light	css	16766	8126
 e-ink-light	diff	18764	4521
@@ -618,6 +640,7 @@ e-ink-light	yaml	16564	13095
 edge	bash	12491	10137
 edge	c	17618	10312
 edge	c_sharp	16671	9623
+edge	cmake	17403	13973
 edge	cpp	19079	10681
 edge	css	16766	6470
 edge	diff	18764	4441
@@ -646,6 +669,7 @@ edge	yaml	16564	10086
 edge-light	bash	12491	10137
 edge-light	c	17618	10312
 edge-light	c_sharp	16671	9623
+edge-light	cmake	17403	13973
 edge-light	cpp	19079	10681
 edge-light	css	16766	6470
 edge-light	diff	18764	4441
@@ -674,6 +698,7 @@ edge-light	yaml	16564	10086
 everforest-dark	bash	12491	10478
 everforest-dark	c	17618	13696
 everforest-dark	c_sharp	16671	10540
+everforest-dark	cmake	17403	15893
 everforest-dark	cpp	19079	13989
 everforest-dark	css	16766	7843
 everforest-dark	diff	18764	4826
@@ -702,6 +727,7 @@ everforest-dark	yaml	16564	4410
 everforest-light	bash	12491	10478
 everforest-light	c	17618	13696
 everforest-light	c_sharp	16671	10540
+everforest-light	cmake	17403	15893
 everforest-light	cpp	19079	13989
 everforest-light	css	16766	7843
 everforest-light	diff	18764	4826
@@ -730,6 +756,7 @@ everforest-light	yaml	16564	4410
 flexoki-dark	bash	12491	9156
 flexoki-dark	c	17618	11182
 flexoki-dark	c_sharp	16671	11757
+flexoki-dark	cmake	17403	11901
 flexoki-dark	cpp	19079	12662
 flexoki-dark	css	16766	8785
 flexoki-dark	diff	18764	4441
@@ -758,6 +785,7 @@ flexoki-dark	yaml	16564	10523
 flexoki-light	bash	12491	9156
 flexoki-light	c	17618	11182
 flexoki-light	c_sharp	16671	11757
+flexoki-light	cmake	17403	11901
 flexoki-light	cpp	19079	12662
 flexoki-light	css	16766	8785
 flexoki-light	diff	18764	4441
@@ -786,6 +814,7 @@ flexoki-light	yaml	16564	10523
 github-dark	bash	12491	9469
 github-dark	c	17618	14094
 github-dark	c_sharp	16671	11239
+github-dark	cmake	17403	14404
 github-dark	cpp	19079	14524
 github-dark	css	16766	8906
 github-dark	diff	18764	7252
@@ -814,6 +843,7 @@ github-dark	yaml	16564	12620
 github-light	bash	12491	9469
 github-light	c	17618	14094
 github-light	c_sharp	16671	11239
+github-light	cmake	17403	14404
 github-light	cpp	19079	14524
 github-light	css	16766	8906
 github-light	diff	18764	7252
@@ -842,6 +872,7 @@ github-light	yaml	16564	12620
 gotham	bash	12491	8771
 gotham	c	17618	11317
 gotham	c_sharp	16671	11457
+gotham	cmake	17403	11548
 gotham	cpp	19079	12077
 gotham	css	16766	8839
 gotham	diff	18764	4441
@@ -870,6 +901,7 @@ gotham	yaml	16564	10523
 gruvbox-dark	bash	12491	8979
 gruvbox-dark	c	17618	13188
 gruvbox-dark	c_sharp	16671	10921
+gruvbox-dark	cmake	17403	12617
 gruvbox-dark	cpp	19079	13921
 gruvbox-dark	css	16766	8757
 gruvbox-dark	diff	18764	14048
@@ -898,6 +930,7 @@ gruvbox-dark	yaml	16564	11139
 gruvbox-light	bash	12491	8979
 gruvbox-light	c	17618	13188
 gruvbox-light	c_sharp	16671	10921
+gruvbox-light	cmake	17403	12617
 gruvbox-light	cpp	19079	13921
 gruvbox-light	css	16766	8757
 gruvbox-light	diff	18764	14048
@@ -926,6 +959,7 @@ gruvbox-light	yaml	16564	11139
 gruvbox-material-dark	bash	12491	10478
 gruvbox-material-dark	c	17618	13696
 gruvbox-material-dark	c_sharp	16671	10540
+gruvbox-material-dark	cmake	17403	15893
 gruvbox-material-dark	cpp	19079	13989
 gruvbox-material-dark	css	16766	7843
 gruvbox-material-dark	diff	18764	4826
@@ -954,6 +988,7 @@ gruvbox-material-dark	yaml	16564	10080
 gruvbox-material-light	bash	12491	10478
 gruvbox-material-light	c	17618	13696
 gruvbox-material-light	c_sharp	16671	10540
+gruvbox-material-light	cmake	17403	15893
 gruvbox-material-light	cpp	19079	13989
 gruvbox-material-light	css	16766	7843
 gruvbox-material-light	diff	18764	4826
@@ -982,6 +1017,7 @@ gruvbox-material-light	yaml	16564	10080
 hojicha	bash	12491	9064
 hojicha	c	17618	12763
 hojicha	c_sharp	16671	9875
+hojicha	cmake	17403	13454
 hojicha	cpp	19079	13346
 hojicha	css	16766	8104
 hojicha	diff	18764	4441
@@ -1010,6 +1046,7 @@ hojicha	yaml	16564	10519
 iceberg	bash	12491	9343
 iceberg	c	17618	14230
 iceberg	c_sharp	16671	12042
+iceberg	cmake	17403	14065
 iceberg	cpp	19079	16354
 iceberg	css	16766	8697
 iceberg	diff	18764	4522
@@ -1038,6 +1075,7 @@ iceberg	yaml	16564	10523
 iceberg-light	bash	12491	9343
 iceberg-light	c	17618	14230
 iceberg-light	c_sharp	16671	12042
+iceberg-light	cmake	17403	14065
 iceberg-light	cpp	19079	16354
 iceberg-light	css	16766	8697
 iceberg-light	diff	18764	4522
@@ -1066,6 +1104,7 @@ iceberg-light	yaml	16564	10523
 jellybeans	bash	12491	8352
 jellybeans	c	17618	12166
 jellybeans	c_sharp	16671	8897
+jellybeans	cmake	17403	11534
 jellybeans	cpp	19079	12727
 jellybeans	css	16766	6539
 jellybeans	diff	18764	4441
@@ -1094,6 +1133,7 @@ jellybeans	yaml	16564	10090
 jellybeans-light	bash	12491	8352
 jellybeans-light	c	17618	12166
 jellybeans-light	c_sharp	16671	8897
+jellybeans-light	cmake	17403	11534
 jellybeans-light	cpp	19079	12727
 jellybeans-light	css	16766	6539
 jellybeans-light	diff	18764	4441
@@ -1122,6 +1162,7 @@ jellybeans-light	yaml	16564	10090
 kanagawa-dragon	bash	12491	8796
 kanagawa-dragon	c	17618	13413
 kanagawa-dragon	c_sharp	16671	10653
+kanagawa-dragon	cmake	17403	12267
 kanagawa-dragon	cpp	19079	13570
 kanagawa-dragon	css	16766	8707
 kanagawa-dragon	diff	18764	4441
@@ -1150,6 +1191,7 @@ kanagawa-dragon	yaml	16564	10523
 kanagawa-lotus	bash	12491	8796
 kanagawa-lotus	c	17618	13413
 kanagawa-lotus	c_sharp	16671	10653
+kanagawa-lotus	cmake	17403	12267
 kanagawa-lotus	cpp	19079	13570
 kanagawa-lotus	css	16766	8707
 kanagawa-lotus	diff	18764	4441
@@ -1178,6 +1220,7 @@ kanagawa-lotus	yaml	16564	10523
 kanagawa-wave	bash	12491	8796
 kanagawa-wave	c	17618	13413
 kanagawa-wave	c_sharp	16671	10653
+kanagawa-wave	cmake	17403	12267
 kanagawa-wave	cpp	19079	13570
 kanagawa-wave	css	16766	8707
 kanagawa-wave	diff	18764	4441
@@ -1206,6 +1249,7 @@ kanagawa-wave	yaml	16564	10523
 koda-dark	bash	12491	9474
 koda-dark	c	17618	13691
 koda-dark	c_sharp	16671	11163
+koda-dark	cmake	17403	13360
 koda-dark	cpp	19079	15975
 koda-dark	css	16766	8035
 koda-dark	diff	18764	7412
@@ -1234,6 +1278,7 @@ koda-dark	yaml	16564	11377
 koda-light	bash	12491	9382
 koda-light	c	17618	13677
 koda-light	c_sharp	16671	11108
+koda-light	cmake	17403	13360
 koda-light	cpp	19079	15858
 koda-light	css	16766	7935
 koda-light	diff	18764	7412
@@ -1262,6 +1307,7 @@ koda-light	yaml	16564	10560
 lackluster	bash	12491	9183
 lackluster	c	17618	13383
 lackluster	c_sharp	16671	10645
+lackluster	cmake	17403	12569
 lackluster	cpp	19079	14190
 lackluster	css	16766	5304
 lackluster	diff	18764	4441
@@ -1290,6 +1336,7 @@ lackluster	yaml	16564	10524
 lightearth	bash	12491	9347
 lightearth	c	17618	12848
 lightearth	c_sharp	16671	10510
+lightearth	cmake	17403	13298
 lightearth	cpp	19079	13784
 lightearth	css	16766	7902
 lightearth	diff	18764	4522
@@ -1318,6 +1365,7 @@ lightearth	yaml	16564	12561
 material-dark	bash	12491	8913
 material-dark	c	17618	12636
 material-dark	c_sharp	16671	9966
+material-dark	cmake	17403	13063
 material-dark	cpp	19079	13256
 material-dark	css	16766	6505
 material-dark	diff	18764	4522
@@ -1346,6 +1394,7 @@ material-dark	yaml	16564	10090
 material-light	bash	12491	8913
 material-light	c	17618	12636
 material-light	c_sharp	16671	9966
+material-light	cmake	17403	13063
 material-light	cpp	19079	13256
 material-light	css	16766	6505
 material-light	diff	18764	4522
@@ -1374,6 +1423,7 @@ material-light	yaml	16564	10090
 melange-dark	bash	12491	10459
 melange-dark	c	17618	13492
 melange-dark	c_sharp	16671	11208
+melange-dark	cmake	17403	15708
 melange-dark	cpp	19079	14532
 melange-dark	css	16766	7644
 melange-dark	diff	18764	10477
@@ -1402,6 +1452,7 @@ melange-dark	yaml	16564	10118
 melange-light	bash	12491	10459
 melange-light	c	17618	13492
 melange-light	c_sharp	16671	11208
+melange-light	cmake	17403	15708
 melange-light	cpp	19079	14532
 melange-light	css	16766	7644
 melange-light	diff	18764	10477
@@ -1430,6 +1481,7 @@ melange-light	yaml	16564	10118
 mellifluous	bash	12491	9188
 mellifluous	c	17618	13262
 mellifluous	c_sharp	16671	11201
+mellifluous	cmake	17403	13999
 mellifluous	cpp	19079	14490
 mellifluous	css	16766	8777
 mellifluous	diff	18764	14129
@@ -1458,6 +1510,7 @@ mellifluous	yaml	16564	10548
 mellifluous-light	bash	12491	9188
 mellifluous-light	c	17618	13262
 mellifluous-light	c_sharp	16671	11201
+mellifluous-light	cmake	17403	13999
 mellifluous-light	cpp	19079	14490
 mellifluous-light	css	16766	8777
 mellifluous-light	diff	18764	14129
@@ -1486,6 +1539,7 @@ mellifluous-light	yaml	16564	10548
 mellow	bash	12491	9231
 mellow	c	17618	13626
 mellow	c_sharp	16671	10909
+mellow	cmake	17403	12681
 mellow	cpp	19079	14520
 mellow	css	16766	8700
 mellow	diff	18764	4441
@@ -1514,6 +1568,7 @@ mellow	yaml	16564	10523
 miasma	bash	12491	9113
 miasma	c	17618	13720
 miasma	c_sharp	16671	11756
+miasma	cmake	17403	12385
 miasma	cpp	19079	15347
 miasma	css	16766	9036
 miasma	diff	18764	4522
@@ -1542,6 +1597,7 @@ miasma	yaml	16564	10523
 minischeme	bash	12491	9007
 minischeme	c	17618	13392
 minischeme	c_sharp	16671	11255
+minischeme	cmake	17403	12259
 minischeme	cpp	19079	14393
 minischeme	css	16766	8701
 minischeme	diff	18764	4522
@@ -1570,6 +1626,7 @@ minischeme	yaml	16564	10523
 minischeme-light	bash	12491	9007
 minischeme-light	c	17618	13392
 minischeme-light	c_sharp	16671	11255
+minischeme-light	cmake	17403	12259
 minischeme-light	cpp	19079	14393
 minischeme-light	css	16766	8701
 minischeme-light	diff	18764	4522
@@ -1598,6 +1655,7 @@ minischeme-light	yaml	16564	10523
 moonfly	bash	12491	8968
 moonfly	c	17618	13186
 moonfly	c_sharp	16671	10833
+moonfly	cmake	17403	14007
 moonfly	cpp	19079	13575
 moonfly	css	16766	7447
 moonfly	diff	18764	4441
@@ -1626,6 +1684,7 @@ moonfly	yaml	16564	10094
 neomodern-light	bash	12491	9064
 neomodern-light	c	17618	12763
 neomodern-light	c_sharp	16671	9875
+neomodern-light	cmake	17403	13454
 neomodern-light	cpp	19079	13346
 neomodern-light	css	16766	8104
 neomodern-light	diff	18764	4441
@@ -1654,6 +1713,7 @@ neomodern-light	yaml	16564	10519
 nightfly	bash	12491	8968
 nightfly	c	17618	13186
 nightfly	c_sharp	16671	10833
+nightfly	cmake	17403	14007
 nightfly	cpp	19079	13575
 nightfly	css	16766	7447
 nightfly	diff	18764	4441
@@ -1682,6 +1742,7 @@ nightfly	yaml	16564	10094
 nightfox	bash	12491	8255
 nightfox	c	17618	9870
 nightfox	c_sharp	16671	9118
+nightfox	cmake	17403	10749
 nightfox	cpp	19079	9656
 nightfox	css	16766	6470
 nightfox	diff	18764	4441
@@ -1710,6 +1771,7 @@ nightfox	yaml	16564	10090
 nord	bash	12491	10317
 nord	c	17618	14160
 nord	c_sharp	16671	11477
+nord	cmake	17403	13969
 nord	cpp	19079	15356
 nord	css	16766	8733
 nord	diff	18764	5962
@@ -1738,6 +1800,7 @@ nord	yaml	16564	10519
 nordfox	bash	12491	8255
 nordfox	c	17618	9870
 nordfox	c_sharp	16671	9118
+nordfox	cmake	17403	10749
 nordfox	cpp	19079	9656
 nordfox	css	16766	6470
 nordfox	diff	18764	4441
@@ -1766,6 +1829,7 @@ nordfox	yaml	16564	10090
 onedark	bash	12491	8610
 onedark	c	17618	13463
 onedark	c_sharp	16671	10917
+onedark	cmake	17403	12267
 onedark	cpp	19079	14253
 onedark	css	16766	8692
 onedark	diff	18764	4441
@@ -1794,6 +1858,7 @@ onedark	yaml	16564	10540
 onedark-light	bash	12491	8610
 onedark-light	c	17618	13463
 onedark-light	c_sharp	16671	10917
+onedark-light	cmake	17403	12267
 onedark-light	cpp	19079	14253
 onedark-light	css	16766	8692
 onedark-light	diff	18764	4441
@@ -1822,6 +1887,7 @@ onedark-light	yaml	16564	10540
 oxocarbon-dark	bash	12491	9349
 oxocarbon-dark	c	17618	12804
 oxocarbon-dark	c_sharp	16671	10220
+oxocarbon-dark	cmake	17403	13360
 oxocarbon-dark	cpp	19079	13147
 oxocarbon-dark	css	16766	6925
 oxocarbon-dark	diff	18764	7232
@@ -1850,6 +1916,7 @@ oxocarbon-dark	yaml	16564	10563
 oxocarbon-light	bash	12491	9349
 oxocarbon-light	c	17618	12804
 oxocarbon-light	c_sharp	16671	10220
+oxocarbon-light	cmake	17403	13360
 oxocarbon-light	cpp	19079	13147
 oxocarbon-light	css	16766	6925
 oxocarbon-light	diff	18764	7232
@@ -1878,6 +1945,7 @@ oxocarbon-light	yaml	16564	10563
 papercolor	bash	12491	10935
 papercolor	c	17618	14544
 papercolor	c_sharp	16671	11148
+papercolor	cmake	17403	16104
 papercolor	cpp	19079	14732
 papercolor	css	16766	9187
 papercolor	diff	18764	16878
@@ -1906,6 +1974,7 @@ papercolor	yaml	16564	10565
 papercolor-light	bash	12491	10564
 papercolor-light	c	17618	14534
 papercolor-light	c_sharp	16671	11136
+papercolor-light	cmake	17403	15754
 papercolor-light	cpp	19079	14683
 papercolor-light	css	16766	9087
 papercolor-light	diff	18764	16718
@@ -1934,6 +2003,7 @@ papercolor-light	yaml	16564	10565
 pencil	bash	12491	8986
 pencil	c	17618	11350
 pencil	c_sharp	16671	11604
+pencil	cmake	17403	11957
 pencil	cpp	19079	11992
 pencil	css	16766	9148
 pencil	diff	18764	4441
@@ -1962,6 +2032,7 @@ pencil	yaml	16564	11006
 pencil-light	bash	12491	8986
 pencil-light	c	17618	11350
 pencil-light	c_sharp	16671	11604
+pencil-light	cmake	17403	11957
 pencil-light	cpp	19079	11992
 pencil-light	css	16766	9148
 pencil-light	diff	18764	4441
@@ -1990,6 +2061,7 @@ pencil-light	yaml	16564	11006
 rose-pine	bash	12491	9692
 rose-pine	c	17618	13975
 rose-pine	c_sharp	16671	11216
+rose-pine	cmake	17403	14303
 rose-pine	cpp	19079	14986
 rose-pine	css	16766	9405
 rose-pine	diff	18764	4441
@@ -2018,6 +2090,7 @@ rose-pine	yaml	16564	13117
 rose-pine-dawn	bash	12491	9692
 rose-pine-dawn	c	17618	13975
 rose-pine-dawn	c_sharp	16671	11216
+rose-pine-dawn	cmake	17403	14303
 rose-pine-dawn	cpp	19079	14986
 rose-pine-dawn	css	16766	9405
 rose-pine-dawn	diff	18764	4441
@@ -2046,6 +2119,7 @@ rose-pine-dawn	yaml	16564	13117
 rose-pine-moon	bash	12491	9692
 rose-pine-moon	c	17618	13975
 rose-pine-moon	c_sharp	16671	11216
+rose-pine-moon	cmake	17403	14303
 rose-pine-moon	cpp	19079	14986
 rose-pine-moon	css	16766	9405
 rose-pine-moon	diff	18764	4441
@@ -2074,6 +2148,7 @@ rose-pine-moon	yaml	16564	13117
 selenized	bash	12491	9388
 selenized	c	17618	12578
 selenized	c_sharp	16671	14147
+selenized	cmake	17403	12386
 selenized	cpp	19079	12313
 selenized	css	16766	9114
 selenized	diff	18764	4441
@@ -2102,6 +2177,7 @@ selenized	yaml	16564	11006
 selenized-light	bash	12491	9388
 selenized-light	c	17618	12578
 selenized-light	c_sharp	16671	14147
+selenized-light	cmake	17403	12386
 selenized-light	cpp	19079	12313
 selenized-light	css	16766	9114
 selenized-light	diff	18764	4441
@@ -2130,6 +2206,7 @@ selenized-light	yaml	16564	11006
 solarized-dark	bash	12491	9048
 solarized-dark	c	17618	13034
 solarized-dark	c_sharp	16671	14117
+solarized-dark	cmake	17403	13512
 solarized-dark	cpp	19079	12970
 solarized-dark	css	16766	8663
 solarized-dark	diff	18764	4441
@@ -2158,6 +2235,7 @@ solarized-dark	yaml	16564	10523
 solarized-light	bash	12491	9048
 solarized-light	c	17618	12938
 solarized-light	c_sharp	16671	14052
+solarized-light	cmake	17403	13512
 solarized-light	cpp	19079	12418
 solarized-light	css	16766	8663
 solarized-light	diff	18764	4441
@@ -2186,6 +2264,7 @@ solarized-light	yaml	16564	10523
 sonokai	bash	12491	10416
 sonokai	c	17618	13169
 sonokai	c_sharp	16671	9663
+sonokai	cmake	17403	15328
 sonokai	cpp	19079	13274
 sonokai	css	16766	7075
 sonokai	diff	18764	4826
@@ -2214,6 +2293,7 @@ sonokai	yaml	16564	10197
 soviet-dark	bash	12491	9170
 soviet-dark	c	17618	12232
 soviet-dark	c_sharp	16671	9369
+soviet-dark	cmake	17403	13315
 soviet-dark	cpp	19079	12266
 soviet-dark	css	16766	6451
 soviet-dark	diff	18764	13611
@@ -2242,6 +2322,7 @@ soviet-dark	yaml	16564	10090
 soviet-light	bash	12491	9170
 soviet-light	c	17618	12232
 soviet-light	c_sharp	16671	9369
+soviet-light	cmake	17403	13315
 soviet-light	cpp	19079	12266
 soviet-light	css	16766	6451
 soviet-light	diff	18764	13611
@@ -2270,6 +2351,7 @@ soviet-light	yaml	16564	10090
 srcery	bash	12491	9441
 srcery	c	17618	13743
 srcery	c_sharp	16671	10705
+srcery	cmake	17403	13969
 srcery	cpp	19079	13478
 srcery	css	16766	8759
 srcery	diff	18764	4522
@@ -2298,6 +2380,7 @@ srcery	yaml	16564	10560
 token	bash	12491	9150
 token	c	17618	13512
 token	c_sharp	16671	11521
+token	cmake	17403	13883
 token	cpp	19079	14746
 token	css	16766	8777
 token	diff	18764	13611
@@ -2326,6 +2409,7 @@ token	yaml	16564	10523
 token-light	bash	12491	9150
 token-light	c	17618	13512
 token-light	c_sharp	16671	11521
+token-light	cmake	17403	13883
 token-light	cpp	19079	14746
 token-light	css	16766	8777
 token-light	diff	18764	13611
@@ -2354,6 +2438,7 @@ token-light	yaml	16564	10523
 tokyonight-day	bash	12491	8296
 tokyonight-day	c	17618	12127
 tokyonight-day	c_sharp	16671	9223
+tokyonight-day	cmake	17403	11422
 tokyonight-day	cpp	19079	12185
 tokyonight-day	css	16766	6451
 tokyonight-day	diff	18764	13611
@@ -2382,6 +2467,7 @@ tokyonight-day	yaml	16564	10090
 tokyonight-moon	bash	12491	9767
 tokyonight-moon	c	17618	12209
 tokyonight-moon	c_sharp	16671	10519
+tokyonight-moon	cmake	17403	10574
 tokyonight-moon	cpp	19079	11418
 tokyonight-moon	css	16766	2426
 tokyonight-moon	diff	18764	4878
@@ -2410,6 +2496,7 @@ tokyonight-moon	yaml	16564	10472
 tokyonight-night	bash	12491	8296
 tokyonight-night	c	17618	12127
 tokyonight-night	c_sharp	16671	9223
+tokyonight-night	cmake	17403	11422
 tokyonight-night	cpp	19079	12185
 tokyonight-night	css	16766	6451
 tokyonight-night	diff	18764	13611
@@ -2438,6 +2525,7 @@ tokyonight-night	yaml	16564	10090
 tokyonight-storm	bash	12491	8296
 tokyonight-storm	c	17618	12127
 tokyonight-storm	c_sharp	16671	9223
+tokyonight-storm	cmake	17403	11422
 tokyonight-storm	cpp	19079	12185
 tokyonight-storm	css	16766	6451
 tokyonight-storm	diff	18764	13611
@@ -2466,6 +2554,7 @@ tokyonight-storm	yaml	16564	10090
 vague	bash	12491	9186
 vague	c	17618	13542
 vague	c_sharp	16671	10701
+vague	cmake	17403	13948
 vague	cpp	19079	14390
 vague	css	16766	8915
 vague	diff	18764	13611
@@ -2494,6 +2583,7 @@ vague	yaml	16564	10523
 vesper	bash	12491	10469
 vesper	c	17618	10610
 vesper	c_sharp	16671	10479
+vesper	cmake	17403	13026
 vesper	cpp	19079	11392
 vesper	css	16766	7892
 vesper	diff	18764	4441
@@ -2522,6 +2612,7 @@ vesper	yaml	16564	12547
 vscode-dark	bash	12491	9147
 vscode-dark	c	17618	11496
 vscode-dark	c_sharp	16671	11643
+vscode-dark	cmake	17403	13368
 vscode-dark	cpp	19079	12329
 vscode-dark	css	16766	8791
 vscode-dark	diff	18764	16790
@@ -2550,6 +2641,7 @@ vscode-dark	yaml	16564	10547
 vscode-light	bash	12491	9147
 vscode-light	c	17618	11496
 vscode-light	c_sharp	16671	11643
+vscode-light	cmake	17403	13368
 vscode-light	cpp	19079	12329
 vscode-light	css	16766	8791
 vscode-light	diff	18764	16790
