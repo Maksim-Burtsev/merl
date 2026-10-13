@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 struct Syntax {
     line_comment: &'static str,
@@ -185,10 +184,11 @@ pub(super) fn yaml(lines: &[String]) -> Vec<(usize, usize)> {
         let key = !item(head) && value.ends_with(':');
         let mapping = item(head) && (value.contains(": ") || value.ends_with(':'));
         let scalar = (value.rsplit(' ').next()).is_some_and(|w| {
-            w.starts_with(['|', '>'])
-                && w[1..]
+            w.strip_prefix(['|', '>']).is_some_and(|flags| {
+                flags
                     .bytes()
                     .all(|c| matches!(c, b'-' | b'+' | b'0'..=b'9'))
+            })
         });
         let mut end = None;
         for (i, line) in lines.iter().enumerate().skip(h + 1) {
@@ -305,7 +305,7 @@ impl Markup<'_> {
                     || (xml && c == b'.'))
             })
             .unwrap_or(b.len() - from);
-        self.lower[from..from + n].to_owned()
+        String::from_utf8_lossy(&self.lower.as_bytes()[from..from + n]).into_owned()
     }
 
     fn doctype_end(&self, i: usize) -> usize {
@@ -483,9 +483,7 @@ impl Frame {
 }
 
 fn columns(line: &str) -> usize {
-    let lead = &line[..indent(line)];
-    lead.bytes()
-        .fold(0, |c, b| if b == b'\t' { c / 4 * 4 + 4 } else { c + 1 })
+    (line.bytes().take(indent(line))).fold(0, |c, b| if b == b'\t' { c / 4 * 4 + 4 } else { c + 1 })
 }
 
 fn marker(line: &str) -> Option<(u8, usize)> {
@@ -498,8 +496,9 @@ fn marker(line: &str) -> Option<(u8, usize)> {
         }
         _ => return None,
     };
-    let gap = t[len..].bytes().take_while(|&c| c == b' ').count();
-    match t[len..].is_empty() {
+    let after = &t.as_bytes()[len..];
+    let gap = after.iter().take_while(|&&c| c == b' ').count();
+    match after.is_empty() {
         true => Some((bullet, ind + len + 1)),
         false if (1..=4).contains(&gap) => Some((bullet, ind + len + gap)),
         false if gap > 4 => Some((bullet, ind + len + 1)),
@@ -508,8 +507,8 @@ fn marker(line: &str) -> Option<(u8, usize)> {
 }
 
 fn heading(t: &str) -> Option<usize> {
-    let level = t.bytes().take_while(|&c| c == b'#').count();
-    let rest = &t[level..];
+    let rest = t.trim_start_matches('#');
+    let level = t.len() - rest.len();
     ((1..=6).contains(&level) && (rest.is_empty() || rest.starts_with([' ', '\t'])))
         .then_some(level)
 }
@@ -614,7 +613,7 @@ pub(super) fn markdown(lines: &[String]) -> Vec<(usize, usize)> {
         let item = marker(line).filter(|_| !rule(t));
         let ticks = t.bytes().take_while(|&c| c == b'`').count();
         let tildes = t.bytes().take_while(|&c| c == b'~').count();
-        let fenced = (ticks >= 3 && !t[ticks..].contains('`')) || tildes >= 3;
+        let fenced = (ticks >= 3 && !t.trim_start_matches('`').contains('`')) || tildes >= 3;
         let starter =
             item.is_some() || fenced || rule(t) || heading(t).is_some() || t.starts_with('>');
         if let Some((start, last, base)) = code {
@@ -661,7 +660,7 @@ pub(super) fn markdown(lines: &[String]) -> Vec<(usize, usize)> {
         }
         reach_all(&mut stack, n);
         if fenced {
-            let open = t[..ticks.max(tildes)].to_owned();
+            let open = (if ticks > 0 { "`" } else { "~" }).repeat(ticks.max(tildes));
             fence = Some((n, open, ind));
         }
         let text = !(fenced || rule(t) || heading(t).is_some());

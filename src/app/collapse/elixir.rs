@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::words::{Blocks, word_byte};
 
@@ -199,6 +198,10 @@ impl Lexer<'_> {
         e
     }
 
+    #[expect(
+        clippy::string_slice,
+        reason = "word_end stops only at an ASCII byte, so s..e holds whole chars"
+    )]
     fn word_token(&self, s: usize, c: u8) -> (Tk, usize) {
         let mut e = self.word_end(s);
         if matches!(self.at(e), b'?' | b'!') && self.at(e + 1) != b'=' {

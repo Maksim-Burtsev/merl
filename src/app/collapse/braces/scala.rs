@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::super::indent;
 use super::{K, Lexer, Model};
 
@@ -79,9 +78,8 @@ impl Lexer<'_> {
                 let len = match s.get(at + 1) {
                     Some(b'\\') => s[at + 2..].iter().position(|&b| b == b'\'').map(|p| p + 3),
                     Some(_) => {
-                        let ch = self.lines[l][at + 1..]
-                            .chars()
-                            .next()
+                        let ch = (self.lines[l].get(at + 1..))
+                            .and_then(|r| r.chars().next())
                             .map_or(1, char::len_utf8);
                         (s.get(at + 1 + ch) == Some(&b'\'')).then_some(ch + 2)
                     }

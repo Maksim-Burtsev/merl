@@ -1,5 +1,4 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use std::collections::HashMap;
@@ -382,13 +381,13 @@ pub(crate) fn ruby(lines: &[String]) -> Blocks {
                     }
                     match w {
                         "def" => {
-                            let rest = &line[i..];
+                            let rest = text(s, i, s.len());
                             let name = rest.trim_start();
                             let skip = rest.len() - name.len()
                                 + name
                                     .find(|c: char| c.is_whitespace() || c == '(' || c == ';')
                                     .unwrap_or(name.len());
-                            if !endless(&rest[skip..]) {
+                            if !endless(text(s, i + skip, s.len())) {
                                 b.open(n, "def", true, true, false);
                             }
                             i += skip;
@@ -396,7 +395,7 @@ pub(crate) fn ruby(lines: &[String]) -> Blocks {
                         }
                         "class" => {
                             b.open(n, "class", true, true, false);
-                            let rest = line[i..].trim_start();
+                            let rest = text(s, i, s.len()).trim_start();
                             if rest.starts_with("<<") {
                                 i = s.len() - rest.len() + 2;
                             }
@@ -497,7 +496,10 @@ fn endless(rest: &str) -> bool {
         }) else {
             return false;
         };
-        r = &r[close + 1..];
+        let Some(after) = r.get(close + 1..) else {
+            return false;
+        };
+        r = after;
     }
     let r = r.trim_start();
     r.starts_with('=') && !r.starts_with("==") && !r.starts_with("=~") && !r.starts_with("=>")
@@ -512,13 +514,14 @@ pub(crate) fn rbs(lines: &[String]) -> Blocks {
                 break;
             };
             let close = closing(open) as char;
-            let Some(e) = rest[1..].find(close) else {
+            let Some((_, after)) = rest.get(1..).and_then(|r| r.split_once(close)) else {
                 break;
             };
-            t = rest[e + 2..].trim_start();
+            t = after.trim_start();
         }
-        let w = &t[..word_at(t.as_bytes(), 0)];
-        let rest = &t[w.len()..];
+        let Some((w, rest)) = t.split_at_checked(word_at(t.as_bytes(), 0)) else {
+            continue;
+        };
         if rest.starts_with(':') {
             continue;
         }
@@ -787,7 +790,7 @@ pub(crate) fn shell(lines: &[String], zsh: bool) -> Blocks {
                         }
                         _ => shell_word(s, j),
                     };
-                    let id: String = line[j..k]
+                    let id: String = text(s, j, k)
                         .chars()
                         .filter(|c| !matches!(c, '\'' | '"' | '\\'))
                         .collect();
@@ -850,7 +853,7 @@ pub(crate) fn shell(lines: &[String], zsh: bool) -> Blocks {
                         }
                         "}" => b.close(n, &["{"]),
                         _ => {
-                            let rest = line[i..].trim_start();
+                            let rest = text(s, i, s.len()).trim_start();
                             if rest.starts_with("()") {
                                 func = Some(n);
                                 i = s.len() - rest.len() + 2;
