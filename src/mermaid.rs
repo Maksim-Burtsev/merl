@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::fmt::Write as _;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -285,14 +286,13 @@ impl Diagrams {
         self.pics.insert(done.key, frames);
     }
 
-    #[expect(clippy::format_push_string, reason = "#858")]
     pub fn flush(&mut self, out: &mut impl Write) -> io::Result<()> {
         if self.want == self.shown && self.stale.is_empty() {
             return Ok(());
         }
         let mut buf = String::from("\x1b7\x1b_Ga=d,d=a,q=2\x1b\\");
         for id in self.stale.drain(..) {
-            buf += &format!("\x1b_Ga=d,d=I,i={id},q=2\x1b\\");
+            _ = write!(buf, "\x1b_Ga=d,d=I,i={id},q=2\x1b\\");
         }
         for p in &self.want {
             if !self.sent.contains(&p.id)
@@ -306,7 +306,8 @@ impl Diagrams {
                 transmit(&mut buf, pic);
                 self.sent.insert(p.id);
             }
-            buf += &format!(
+            _ = write!(
+                buf,
                 "\x1b[{};{}H\x1b_Ga=p,i={},p={},y={},h={},c={},r={},C=1,z=-1,q=2\x1b\\",
                 p.y + 1,
                 p.x + 1,
@@ -580,7 +581,6 @@ fn view_box(svg: &str) -> Option<(f32, f32)> {
     }
 }
 
-#[expect(clippy::format_push_string, reason = "#858")]
 fn transmit(buf: &mut String, pic: &Pic) {
     let data = crate::base64(&pic.png);
     let chunks: Vec<&[u8]> = data.as_bytes().chunks(4096).collect();
@@ -588,9 +588,13 @@ fn transmit(buf: &mut String, pic: &Pic) {
         let more = u8::from(i + 1 < chunks.len());
         let chunk = std::str::from_utf8(chunk).unwrap_or_default();
         if i == 0 {
-            *buf += &format!("\x1b_Ga=t,f=100,i={},q=2,m={more};{chunk}\x1b\\", pic.id);
+            _ = write!(
+                *buf,
+                "\x1b_Ga=t,f=100,i={},q=2,m={more};{chunk}\x1b\\",
+                pic.id
+            );
         } else {
-            *buf += &format!("\x1b_Gm={more};{chunk}\x1b\\");
+            _ = write!(*buf, "\x1b_Gm={more};{chunk}\x1b\\");
         }
     }
 }

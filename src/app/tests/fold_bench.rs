@@ -1,7 +1,7 @@
-#![expect(clippy::format_push_string, reason = "#858")]
 #![expect(clippy::ignore_without_reason, reason = "#858")]
 use super::*;
 use crate::app::collapse::FOLD_EVERY_KIND;
+use std::fmt::Write as _;
 
 #[test]
 #[ignore]
@@ -40,7 +40,7 @@ fn fold_bench() {
             None => "-\t-".into(),
         };
         let us = took.as_micros();
-        out.push_str(&format!("{id}\t{got}\t{on}\t{us}\t{}\n", a.message));
+        _ = writeln!(out, "{id}\t{got}\t{on}\t{us}\t{}", a.message);
     }
     std::fs::write(std::env::var("BENCH_OUT").unwrap(), out).unwrap();
 }

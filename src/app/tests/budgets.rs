@@ -1,9 +1,9 @@
 #![expect(clippy::format_collect, reason = "#858")]
-#![expect(clippy::format_push_string, reason = "#858")]
 #![expect(clippy::ignore_without_reason, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use super::*;
 use ratatui::{Terminal, backend::TestBackend};
+use std::fmt::Write as _;
 use std::time::Instant;
 
 const REPS: usize = 3;
@@ -274,7 +274,7 @@ fn report(rows: &[(&str, u64, Vec<f64>)]) {
             "{name:<26} {m:>8.0} {last:>8} {budget:>8}  {}{flag}",
             all.join(" ")
         );
-        tsv.push_str(&format!("{name}\t{m:.0}\n"));
+        _ = writeln!(tsv, "{name}\t{m:.0}");
         if !flag.is_empty() {
             over.push(format!("{name} {m:.0} ms > {budget} ms"));
         }
@@ -371,7 +371,7 @@ fn code(i: usize, changed: bool) -> String {
         if changed && n == 10 {
             s.push_str("    // changed on the feature branch\n");
         } else {
-            s.push_str(&format!("{call} // step {n} of item {i}\n"));
+            _ = writeln!(s, "{call} // step {n} of item {i}");
         }
     }
     if changed {

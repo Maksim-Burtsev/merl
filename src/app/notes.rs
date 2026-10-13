@@ -1,7 +1,7 @@
-#![expect(clippy::format_push_string, reason = "#858")]
 #![expect(clippy::option_option, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 use std::collections::HashMap;
+use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
@@ -125,7 +125,7 @@ pub fn format(notes: &[Note], head: &str) -> String {
         } else {
             format!("{}-{}", n.first, n.last)
         };
-        s += &format!("\n{}:{range}\n", n.path.display());
+        _ = write!(s, "\n{}:{range}\n", n.path.display());
         for q in &n.quote {
             s += q;
             s += "\n";

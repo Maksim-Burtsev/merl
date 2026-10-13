@@ -1,5 +1,5 @@
-#![expect(clippy::format_push_string, reason = "#858")]
 use super::*;
+use std::fmt::Write as _;
 
 #[test]
 fn goto_prompt_clamps() {
@@ -211,9 +211,9 @@ fn readme_documents_every_key() {
     for (key, action, g) in KEYS {
         if *g != group {
             group = g;
-            every += &format!("\n**{g}**\n\n| Key | Action |\n|---|---|\n");
+            _ = write!(every, "\n**{g}**\n\n| Key | Action |\n|---|---|\n");
         }
-        every += &format!("| {key} | {action} |\n");
+        _ = writeln!(every, "| {key} | {action} |");
     }
     every += "\n</details>\n";
     assert!(

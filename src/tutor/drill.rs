@@ -1,4 +1,3 @@
-#![cfg_attr(test, expect(clippy::format_push_string, reason = "#858"))]
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::io::Write as _;
@@ -373,12 +372,12 @@ mod tests {
             ago(30)
         );
         for k in ["o", "[", "]", "}", "{"] {
-            keys += &format!("{}\t{k}\t3\t1\n", ago(29));
+            _ = writeln!(keys, "{}\t{k}\t3\t1", ago(29));
         }
         std::fs::write(dir.join("keys.tsv"), keys).unwrap();
         let mut log = String::new();
         for ms in [5000; 200].into_iter().chain([1000; 100]) {
-            log += &format!("{}\tn\t{ms}\n", ago(9));
+            _ = writeln!(log, "{}\tn\t{ms}", ago(9));
         }
         for (key, times) in [
             ("d", "900 900 900"),
@@ -391,7 +390,7 @@ mod tests {
             ("v", "1600 1600 1600"),
         ] {
             for ms in times.split(' ') {
-                log += &format!("{}\t{key}\t{ms}\n", ago(2));
+                _ = writeln!(log, "{}\t{key}\t{ms}", ago(2));
             }
         }
         std::fs::write(dir.join("drill.tsv"), log).unwrap();

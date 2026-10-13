@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Write as _;
 use std::ops::ControlFlow;
 use std::path::Path;
 use std::sync::OnceLock;
@@ -939,7 +940,6 @@ fn lua_replacement(with: &str) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
-#[expect(clippy::format_push_string, reason = "#858")]
 #[expect(clippy::match_same_arms, reason = "#858")]
 fn lua_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
     let class = |c: char| -> Option<&'static str> {
@@ -975,7 +975,7 @@ fn lua_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
                 let Some(&n) = chars.get(i) else { return bad() };
                 if let Some(set) = class(n.to_ascii_lowercase()) {
                     let neg = if n.is_ascii_uppercase() { "^" } else { "" };
-                    out.push_str(&format!("[{neg}{set}]"));
+                    _ = write!(out, "[{neg}{set}]");
                 } else if n.is_ascii_alphanumeric() {
                     return bad();
                 } else {
@@ -1002,14 +1002,14 @@ fn lua_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
                         match class(n) {
                             Some(set) => out.push_str(set),
                             None if n.is_ascii_alphanumeric() => return bad(),
-                            None => out.push_str(&format!("\\x{:02x}", n as u32)),
+                            None => _ = write!(out, "\\x{:02x}", n as u32),
                         }
                     } else if m == '-' {
                         out.push('-');
                     } else if m.is_ascii_alphanumeric() {
                         out.push(m);
                     } else {
-                        out.push_str(&format!("\\x{:02x}", m as u32));
+                        _ = write!(out, "\\x{:02x}", m as u32);
                     }
                     i += 1;
                 }
