@@ -427,6 +427,9 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
         assert!(sexp(f, b"x = 1\n").contains("(source "), "{f}");
     }
     assert_eq!(sexp("a.ex", b"include std/io.e\nx = 1\n"), "");
+    assert_eq!(sexp("a.ex", b"-- c\nx = 1\n"), "");
+    assert!(sexp("a.ex", b"includes = 1\n").contains("(source "));
+    assert!(sexp("a.exs", b"include std/io.e\nx = 1\n").contains("(source "));
     for f in ["a.html", "a.htm"] {
         assert!(sexp(f, b"<p>a</p>\n").contains("(element "), "{f}");
     }
@@ -742,6 +745,36 @@ fn a_preview_code_block_is_coloured_as_the_same_code_in_a_file() {
     assert!(
         !ruby.hl.is_empty(),
         "a language not on tree-sitter keeps syntect's colours"
+    );
+}
+
+#[test]
+fn elixir_docs_are_coloured_as_markdown() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let style_at = |src: &str, word: &str| {
+        let lines = vec![src.to_string()];
+        let mut parsed = super::Parsed::new(super::lang("elixir").unwrap(), &lines).unwrap();
+        parsed.parse(None);
+        let mut styles = super::Styles::new(&theme);
+        let col = src.find(word).unwrap();
+        parsed.spans(&lines, 0, 0, &mut styles)[0]
+            .iter()
+            .find(|(_, r)| r.contains(&col))
+            .unwrap()
+            .0
+    };
+    let doc = "@doc \"Use `put` for *one*.\"";
+    let plain = "x = \"Use `put` for *one*.\"";
+    assert_eq!(
+        style_at(doc, "put").fg,
+        theme.group("@markup.raw.markdown_inline").unwrap().fg
+    );
+    assert_ne!(style_at(doc, "put").fg, style_at(plain, "put").fg);
+    assert!(style_at(doc, "one").add_modifier.contains(Modifier::ITALIC));
+    assert!(
+        !style_at(plain, "one")
+            .add_modifier
+            .contains(Modifier::ITALIC)
     );
 }
 
