@@ -1193,6 +1193,16 @@ fn a_node_error_recovery_rebuilds_above_the_edit_is_repainted() {
     );
 }
 
+#[test]
+fn a_paint_from_any_row_orders_captures_at_one_byte_as_a_paint_from_the_top() {
+    replay_tree_sitter(
+        "f.cpp",
+        include_bytes!("../../../tests/colors/cpp/report.cpp"),
+        CPP,
+        1950..=1950,
+    );
+}
+
 fn fuzz_tree_sitter(name: &str, start: &[u8], snippets: &[&str]) {
     let env = |name| std::env::var(name).ok().and_then(|v| v.parse::<u64>().ok());
     let seeds = match env("MERL_FUZZ_SEED") {
