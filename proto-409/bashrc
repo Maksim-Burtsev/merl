@@ -1,0 +1,2 @@
+source <(COMPLETE=bash merl)
+PS1='\w \$ '

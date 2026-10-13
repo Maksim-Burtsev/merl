@@ -13,6 +13,7 @@ exclude = ["/assets"]
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
+clap_complete = { version = "4.6", features = ["unstable-dynamic"] }
 dirs = "7"
 grep-matcher = "0.1"
 grep-regex = "0.1"

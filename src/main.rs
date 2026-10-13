@@ -1,5 +1,6 @@
 mod app;
 mod buffer;
+mod completion;
 mod for_agents;
 mod git;
 mod intraline;
@@ -29,7 +30,8 @@ use std::sync::mpsc::Sender;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
-use clap::Parser;
+use clap::{CommandFactory, Parser};
+use clap_complete::engine::ArgValueCompleter;
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use ratatui::crossterm::cursor::{SetCursorStyle, Show};
 use ratatui::crossterm::event::{
@@ -60,7 +62,10 @@ enum Msg {
 #[derive(Parser)]
 #[command(name = "merl", version, about)]
 struct Cli {
-    #[arg(help = "Directory, file, or FILE:LINE[:COL] to open (default: the current directory)")]
+    #[arg(
+        help = "Directory, file, or FILE:LINE[:COL] to open (default: the current directory)",
+        value_hint = clap::ValueHint::AnyPath
+    )]
     target: Option<String>,
     #[arg(short, long, value_name = "NAME", help = "Colour theme")]
     theme: Option<String>,
@@ -100,7 +105,8 @@ struct Cli {
         long,
         value_name = "BRANCH",
         num_args = 0..=1,
-        default_missing_value = ""
+        default_missing_value = "",
+        add = ArgValueCompleter::new(completion::review)
     )]
     review: Option<String>,
     #[arg(
@@ -110,6 +116,8 @@ struct Cli {
         requires = "review",
         help = "The branch the review is against (default: origin/HEAD, then the remote's \
                 master, main or develop, then the local master or main)"
+    ,
+        add = ArgValueCompleter::new(completion::base)
     )]
     base: Option<String>,
     #[arg(long, hide = true)]
@@ -124,6 +132,22 @@ fn main() {
 }
 
 fn run() -> Result<()> {
+    if let Ok(shell) = std::env::var("MERL_STATIC_COMPLETION") {
+        let shell: clap_complete::Shell = shell.parse().map_err(anyhow::Error::msg)?;
+        clap_complete::generate(shell, &mut Cli::command(), "merl", &mut stdout());
+        return Ok(());
+    }
+    let zsh_script =
+        std::env::var_os("COMPLETE").is_some_and(|s| s == "zsh") && std::env::args_os().len() == 1;
+    let here = std::env::current_dir().ok();
+    if clap_complete::CompleteEnv::with_factory(Cli::command)
+        .try_complete(std::env::args_os(), here.as_deref())?
+    {
+        if zsh_script {
+            println!("\n[[ $funcstack[1] == _merl ]] && _clap_dynamic_completer_merl \"$@\"");
+        }
+        return Ok(());
+    }
     let cli = Cli::parse();
     if cli.keys {
         let path = stats::path().context("no home directory")?;
