@@ -1,0 +1,94 @@
+name: Mutants
+
+on:
+  schedule:
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+    inputs:
+      part:
+        description: "Part of src/ to mutate, 1 to 12 (empty: this week's)"
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  PARTS: 12
+  SHARDS: 12
+
+jobs:
+  part:
+    runs-on: ubuntu-latest
+    outputs:
+      part: ${{ steps.part.outputs.part }}
+    steps:
+      - id: part
+        env:
+          PART: ${{ inputs.part }}
+        run: echo "part=${PART:-$(( $(date +%s) / 604800 % PARTS + 1 ))}" >> "$GITHUB_OUTPUT"
+
+  shard:
+    needs: part
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0
+      - env:
+          PART: ${{ needs.part.outputs.part }}
+          K: ${{ matrix.shard }}
+        run: |
+          timeout -s INT 320m cargo mutants --in-place --no-shuffle --timeout 300 \
+            --sharding slice --shard $(( (PART - 1) * SHARDS + K ))/$(( PARTS * SHARDS )) \
+            -- -- --skip edit_fuzz || true
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: shard-${{ matrix.shard }}
+          path: |
+            mutants.out/*.txt
+            mutants.out/mutants.json
+
+  report:
+    needs: [part, shard]
+    if: always() && needs.part.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+      PART: ${{ needs.part.outputs.part }}
+      RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          path: shards
+      - run: |
+          title="Part $PART of $PARTS, [run $GITHUB_RUN_ID]($RUN)"
+          tools/mutants-report shards --title "$title" > report.md
+          tools/mutants-report shards --title "$title" --limit 60000 > issue.md
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mutation-report
+          path: report.md
+      - run: |
+          n=$(gh issue list --state all --search 'in:title "Mutation report"' --json number,title \
+            --jq '[.[] | select(.title == "Mutation report")][0].number // empty')
+          if [ -n "$n" ]; then
+            gh issue edit "$n" --body-file issue.md
+          else
+            gh issue create --title "Mutation report" --label tests,backlog,P3 --body-file issue.md
+          fi

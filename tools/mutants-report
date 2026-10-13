@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+import argparse
+import json
+from collections import defaultdict
+from pathlib import Path
+
+OUTCOMES = ["caught", "missed", "timeout", "unviable"]
+
+
+def read(dirs):
+    mutants, outcomes = [], {o: [] for o in OUTCOMES}
+    for d in dirs:
+        for out in sorted(j.parent for j in Path(d).glob("**/mutants.json")):
+            mutants += [m["name"] for m in json.loads((out / "mutants.json").read_text())]
+            for o in OUTCOMES:
+                f = out / f"{o}.txt"
+                if f.exists():
+                    outcomes[o] += f.read_text().splitlines()
+    return mutants, outcomes
+
+
+def report(mutants, outcomes, title, limit):
+    files = sorted({m.split(":")[0] for m in mutants})
+    span = f"{files[0]} to {files[-1]}, " if files else ""
+    done = sum(len(v) for v in outcomes.values())
+    head = [
+        "# Mutation report",
+        "",
+        f"{title}: {span}{len(files)} files, {len(mutants)} mutants.",
+        "",
+        "| Outcome | Mutants |",
+        "|---|---|",
+        *(f"| {o} | {len(outcomes[o])} |" for o in OUTCOMES),
+        f"| not reached in time | {len(mutants) - done} |",
+        "",
+        "## Missed, by file",
+        "",
+    ]
+    by_file = defaultdict(list)
+    for m in outcomes["missed"]:
+        f, rest = m.split(":", 1)
+        by_file[f].append(rest)
+    body = [] if by_file else ["None."]
+    for f in sorted(by_file):
+        body += [f"### {f} ({len(by_file[f])})", "", *(f"- {m}" for m in sorted(by_file[f], key=lambda m: int(m.split(":")[0]))), ""]
+    text = "\n".join(head + body)
+    if limit and len(text) > limit:
+        cut = "\n".join(head)
+        for line in body:
+            if len(cut) + len(line) + 200 > limit:
+                break
+            cut += "\n" + line
+        text = cut + "\n\nThe list goes on in the run's `mutation-report` artifact.\n"
+    return text
+
+
+def main():
+    p = argparse.ArgumentParser(description="Missed mutants of cargo-mutants runs, grouped by file, as Markdown.")
+    p.add_argument("dirs", nargs="+", help="folders holding the runs' mutants.json and outcome lists")
+    p.add_argument("--title", default="cargo mutants")
+    p.add_argument("--limit", type=int, default=0, help="cut the list to stay under this many characters")
+    a = p.parse_args()
+    print(report(*read(a.dirs), a.title, a.limit))
+
+
+if __name__ == "__main__":
+    main()
