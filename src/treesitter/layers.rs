@@ -8,7 +8,6 @@ use super::{Lang, NEOVIM_TREESITTER_PRIORITY, Styles, point, resolve};
 const MAX_DEPTH: usize = 8;
 const ANCHOR_ROWS: usize = 64;
 
-#[derive(Clone)]
 pub enum Target {
     Tree(&'static Lang),
     Syntect(&'static SyntaxReference),
@@ -33,10 +32,8 @@ impl Target {
     }
 }
 
-#[derive(Clone)]
 pub struct Injected {
     target: Target,
-    combined: bool,
     regions: Vec<Vec<Range>>,
 }
 
@@ -61,7 +58,6 @@ pub struct Ctx<'a, 'b> {
     pub depth: usize,
     pub styles: &'a mut Styles<'b>,
     pub out: &'a mut Vec<Paint>,
-    pub combined: &'a [Injected],
 }
 
 impl<'a> Doc<'a> {
@@ -178,10 +174,7 @@ fn clip(ranges: Vec<Range>, parent: Option<&[Range]>) -> Vec<Range> {
 
 fn merge(into: &mut Vec<Injected>, from: Vec<Injected>) {
     for inj in from {
-        match into
-            .iter_mut()
-            .find(|i| i.combined == inj.combined && i.target.same(&inj.target))
-        {
+        match into.iter_mut().find(|i| i.target.same(&inj.target)) {
             Some(i) => i.regions.extend(inj.regions),
             None => into.push(inj),
         }
@@ -193,126 +186,22 @@ pub fn injections(
     tree: &Tree,
     parent: Option<&[Range]>,
     doc: &Doc,
-    cached: Option<&[Injected]>,
 ) -> Vec<Injected> {
     let Some(inj) = &lang.injections else {
         return Vec::new();
     };
-    let mut out = Vec::new();
-    gather(lang, inj, tree, parent, doc, false, &mut out);
-    match cached {
-        Some(groups) => out.extend_from_slice(groups),
-        None => out.extend(combined(lang, tree, parent, doc)),
-    }
-    out
-}
-
-pub fn combined(
-    lang: &'static Lang,
-    tree: &Tree,
-    parent: Option<&[Range]>,
-    doc: &Doc,
-) -> Vec<Injected> {
-    let mut out = Vec::new();
-    if let Some(c) = &lang.combined {
-        gather(lang, c, tree, parent, doc, true, &mut out);
-    }
-    out
-}
-
-pub fn shifted(
-    lang: &'static Lang,
-    tree: &Tree,
-    old: &[Injected],
-    text: (&[u8], &[u8], &[usize]),
-    changed: &[Range],
-) -> Option<Vec<Injected>> {
-    let c = lang.combined.as_ref()?;
-    let (before, after, starts) = text;
-    let (p, s) = super::common_ends(before, after);
-    let (old_end, new_end) = (before.len() - s, after.len() - s);
-    let mut spans: Vec<std::ops::Range<usize>> =
-        changed.iter().map(|r| r.start_byte..r.end_byte).collect();
-    spans.push(p.saturating_sub(1)..(new_end + 1).min(after.len()));
     let mut cursor = QueryCursor::new();
-    for r in &spans {
-        cursor.set_byte_range(r.clone());
-        let mut matches = cursor.matches(&c.query, tree.root_node(), after);
-        while let Some(m) = matches.next() {
-            if c.matches(m, after) {
-                return None;
-            }
-        }
-    }
-    let shift = |x: usize| match x >= old_end {
-        true => x + new_end - old_end,
-        false => x,
-    };
-    let mut out = old.to_vec();
-    for x in out.iter_mut().flat_map(|i| &mut i.regions).flatten() {
-        let (a, b) = (shift(x.start_byte), shift(x.end_byte));
-        let near = |r: &std::ops::Range<usize>| a <= r.end && b >= r.start;
-        if (x.end_byte >= p && x.start_byte <= old_end) || spans.iter().any(near) {
-            return None;
-        }
-        *x = Range {
-            start_byte: a,
-            end_byte: b,
-            start_point: point(starts, a),
-            end_point: point(starts, b),
-        };
-    }
-    Some(out)
-}
-
-pub fn combined_change(old: (&[Injected], &str), new: (&[Injected], &[u8])) -> usize {
-    let texts = |groups: &[Injected], bytes: &[u8]| -> Vec<Vec<Vec<u8>>> {
-        groups
-            .iter()
-            .flat_map(|i| &i.regions)
-            .map(|r| {
-                r.iter()
-                    .map(|x| bytes[x.start_byte..x.end_byte].to_vec())
-                    .collect()
-            })
-            .collect()
-    };
-    if texts(old.0, old.1.as_bytes()) == texts(new.0, new.1) {
-        return usize::MAX;
-    }
-    old.0
-        .iter()
-        .chain(new.0)
-        .flat_map(|i| &i.regions)
-        .filter_map(|r| r.first().map(|x| x.start_point.row))
-        .min()
-        .unwrap_or(usize::MAX)
-}
-
-fn gather(
-    lang: &'static Lang,
-    inj: &super::Patterns,
-    tree: &Tree,
-    parent: Option<&[Range]>,
-    doc: &Doc,
-    whole: bool,
-    out: &mut Vec<Injected>,
-) {
-    let mut cursor = QueryCursor::new();
-    if !whole {
-        cursor.set_byte_range(doc.start..doc.end);
-    }
-    let skip_combined = !whole && lang.combined.is_some();
+    cursor.set_byte_range(doc.start..doc.end);
     let names = inj.query.capture_names();
-    let mut groups: Vec<(usize, usize, usize)> = Vec::new();
+    let mut out: Vec<Injected> = Vec::new();
+    let mut combined: Vec<(usize, usize, usize)> = Vec::new();
     let syntect = lang.name.starts_with("markdown");
     let mut matches = cursor.matches(&inj.query, tree.root_node(), doc.bytes);
     while let Some(m) = matches.next() {
-        let p = m.pattern_index;
-        let combined = inj.setting(p, "injection.combined").is_some();
-        if (skip_combined && combined) || !inj.matches(m, doc.bytes) {
+        if !inj.matches(m, doc.bytes) {
             continue;
         }
+        let p = m.pattern_index;
         let mut target = match inj.setting(p, "injection.self") {
             Some(_) => Some(Target::Tree(lang)),
             None => inj
@@ -341,36 +230,33 @@ fn gather(
         if ranges.is_empty() {
             continue;
         }
-        let k = match out
-            .iter()
-            .position(|i| i.combined == combined && i.target.same(&target))
-        {
+        let k = match out.iter().position(|i| i.target.same(&target)) {
             Some(k) => k,
             None => {
                 out.push(Injected {
                     target,
-                    combined,
                     regions: Vec::new(),
                 });
                 out.len() - 1
             }
         };
-        if !combined {
+        if inj.setting(p, "injection.combined").is_none() {
             out[k].regions.push(ranges);
             continue;
         }
-        match groups.iter().find(|(gp, gk, _)| *gp == p && *gk == k) {
+        match combined.iter().find(|(cp, ck, _)| *cp == p && *ck == k) {
             Some(&(_, _, r)) => out[k].regions[r].extend(ranges),
             None => {
-                groups.push((p, k, out[k].regions.len()));
+                combined.push((p, k, out[k].regions.len()));
                 out[k].regions.push(ranges);
             }
         }
     }
+    out
 }
 
 pub fn region_start(injected: &[Injected], row: usize) -> usize {
-    let spans = injected.iter().filter(|i| !i.combined).flat_map(|i| {
+    let spans = injected.iter().flat_map(|i| {
         i.regions.iter().flat_map(move |r| match i.target {
             Target::Tree(_) => match (r.first(), r.last()) {
                 (Some(a), Some(b)) => vec![(a.start_point.row, b.end_point.row)],
@@ -406,8 +292,7 @@ pub fn layer(lang: &'static Lang, trees: &[Tree], parent: bool, ctx: &mut Ctx, d
     for tree in trees {
         let ranges = tree.included_ranges();
         let clip_to = parent.then_some(&ranges[..]);
-        let cached = (ctx.depth == 0).then_some(ctx.combined);
-        merge(&mut children, injections(lang, tree, clip_to, doc, cached));
+        merge(&mut children, injections(lang, tree, clip_to, doc));
     }
     for inj in &children {
         let regions = inj.regions.iter().filter(|r| doc.touches(r));

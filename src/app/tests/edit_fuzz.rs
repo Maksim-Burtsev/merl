@@ -1204,16 +1204,6 @@ fn a_paint_from_any_row_orders_captures_at_one_byte_as_a_paint_from_the_top() {
 }
 
 #[test]
-fn an_edit_in_one_member_of_a_combined_injection_repaints_the_others() {
-    replay_tree_sitter(
-        "f.xml",
-        include_bytes!("../../../tests/colors/xml/project.xml"),
-        MARKUP,
-        385..=385,
-    );
-}
-
-#[test]
 fn a_parse_that_stops_short_of_the_text_is_redone_from_scratch() {
     replay_tree_sitter(
         "f.yml",
