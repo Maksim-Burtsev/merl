@@ -1,6 +1,9 @@
-#![expect(clippy::cognitive_complexity, reason = "#858")]
+#![expect(
+    clippy::too_many_lines,
+    clippy::cognitive_complexity,
+    reason = "test tables"
+)]
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::too_many_lines, reason = "#858")]
 use super::*;
 
 #[test]

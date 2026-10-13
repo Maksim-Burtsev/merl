@@ -1,4 +1,4 @@
-#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "test tables")]
 use super::*;
 use ratatui::{Terminal, backend::TestBackend};
 use std::fmt::Write as _;

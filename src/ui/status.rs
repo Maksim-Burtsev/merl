@@ -1,5 +1,4 @@
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use ratatui::Frame;
 use ratatui::layout::Rect;
@@ -32,10 +31,6 @@ pub(super) fn draw_prompt(
     frame.render_widget(Paragraph::new(line).style(style), area);
 }
 
-#[expect(
-    clippy::match_same_arms,
-    reason = "a guarded arm sits between the two; merging them would move one past it"
-)]
 pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
     const HINT: &str = "? help ";
     let style = Style::new()
@@ -49,20 +44,7 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         _ => "",
     };
     if !prefix.is_empty() {
-        draw_prompt(frame, prefix, &app.prompt, style, area);
-        let found_w = u16::try_from(wrap::width(&app.message)).unwrap_or(u16::MAX) + 1;
-        let typed = wrap::width(prefix) + wrap::width(&app.prompt) + 2;
-        if !app.message.is_empty() && area.width as usize > typed + found_w as usize {
-            let found_at_right_edge = Rect {
-                x: area.right() - found_w,
-                width: found_w,
-                ..area
-            };
-            frame.render_widget(
-                Paragraph::new(app.message.as_str()).style(style),
-                found_at_right_edge,
-            );
-        }
+        draw_typed(frame, app, prefix, style, area);
         return;
     }
     let pane = match (app.mode, app.focus) {
@@ -91,30 +73,13 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
             format!(
                 "{}  {}[{pane}]{}{}{}{}",
                 if app.dirty { " \u{25cf}" } else { "" },
-                match app.deleted {
-                    _ if app.buf.path.is_none() || app.folded_here().is_some() => String::new(),
-                    _ if size.is_some() => size
-                        .filter(|s| !s.is_empty())
-                        .map_or(String::new(), |s| format!("{s}  ")),
-                    Some((k, i)) => {
-                        let from = app.diff.ghost_from.get(&k).copied().unwrap_or(0);
-                        format!("-{}:{}  ", from + i + 1, app.display_col())
-                    }
-                    None => format!("{}:{}  ", app.line + 1, app.display_col()),
-                },
+                position(app, size),
                 if app.mode == Mode::Edit {
                     if app.buf.tabs { "  Tab" } else { "  Spaces: 4" }
                 } else {
                     ""
                 },
-                match &picture {
-                    Some(Status::Size(_)) => String::new(),
-                    Some(Status::Why(why)) => format!("  {why}"),
-                    None if app.buf.readonly.is_some() && !app.message.starts_with("read-only") => {
-                        "  read-only".into()
-                    }
-                    None => String::new(),
-                },
+                why_note(app, picture.as_ref()),
                 if app.no_watch { "  no auto-reload" } else { "" },
                 if app.nowrap() && !app.previewing() {
                     "  nowrap"
@@ -166,6 +131,47 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
             ..area
         };
         frame.render_widget(Paragraph::new(HINT).style(style), hint);
+    }
+}
+
+fn draw_typed(frame: &mut Frame, app: &App, prefix: &str, style: Style, area: Rect) {
+    draw_prompt(frame, prefix, &app.prompt, style, area);
+    let found_w = u16::try_from(wrap::width(&app.message)).unwrap_or(u16::MAX) + 1;
+    let typed = wrap::width(prefix) + wrap::width(&app.prompt) + 2;
+    if !app.message.is_empty() && area.width as usize > typed + found_w as usize {
+        let found_at_right_edge = Rect {
+            x: area.right() - found_w,
+            width: found_w,
+            ..area
+        };
+        frame.render_widget(
+            Paragraph::new(app.message.as_str()).style(style),
+            found_at_right_edge,
+        );
+    }
+}
+
+fn position(app: &App, size: Option<&String>) -> String {
+    match app.deleted {
+        _ if app.buf.path.is_none() || app.folded_here().is_some() => String::new(),
+        _ if size.is_some() => size
+            .filter(|s| !s.is_empty())
+            .map_or(String::new(), |s| format!("{s}  ")),
+        Some((k, i)) => {
+            let from = app.diff.ghost_from.get(&k).copied().unwrap_or(0);
+            format!("-{}:{}  ", from + i + 1, app.display_col())
+        }
+        None => format!("{}:{}  ", app.line + 1, app.display_col()),
+    }
+}
+
+fn why_note(app: &App, picture: Option<&Status>) -> String {
+    match picture {
+        Some(Status::Why(why)) => format!("  {why}"),
+        None if app.buf.readonly.is_some() && !app.message.starts_with("read-only") => {
+            "  read-only".into()
+        }
+        _ => String::new(),
     }
 }
 

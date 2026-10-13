@@ -257,8 +257,6 @@ impl<'a> Lexer<'a> {
         matches!(self.syntax.lang, Lang::Js | Lang::Ts)
     }
 
-    #[expect(clippy::cognitive_complexity, reason = "#858")]
-    #[expect(clippy::too_many_lines, reason = "#858")]
     fn code(&mut self, stop: bool) {
         let mut depth = 0usize;
         while !self.eof() {
@@ -268,143 +266,7 @@ impl<'a> Lexer<'a> {
                 continue;
             }
             let (l, i, c) = (self.l, self.i, s[self.i]);
-            if matches!(c, b' ' | b'\t' | b'\r') {
-                self.i += 1;
-                continue;
-            }
-            if s[i..].starts_with("\u{feff}".as_bytes()) {
-                self.i += 3;
-                continue;
-            }
-            if s[i..].starts_with(b"//") {
-                self.i = s.len();
-                continue;
-            }
-            if s[i..].starts_with(b"/*")
-                && matches!(
-                    self.syntax.lang,
-                    Lang::Rust | Lang::Swift | Lang::Dart | Lang::Scala
-                )
-            {
-                self.nested_comment(i + 2);
-                continue;
-            }
-            if s[i..].starts_with(b"/*") {
-                self.skip_past(i + 2, b"*/");
-                if self.c_family() && self.l > l {
-                    self.emit(l, i, 1, K::Comment, self.l);
-                }
-                continue;
-            }
-            if self.c_family() && c == b'#' && self.c_directive() {
-                continue;
-            }
-            if self.syntax.lang == Lang::Cpp
-                && matches!(c, b'R' | b'u' | b'U' | b'L')
-                && self.cpp_raw()
-            {
-                continue;
-            }
-            if c == b'`'
-                && matches!(self.syntax.lang, Lang::Swift | Lang::Scala)
-                && let Some(len) = s[i + 1..].iter().position(|&b| b == b'`')
-            {
-                self.emit(l, i, len + 2, K::Word, l);
-                self.i += len + 2;
-                continue;
-            }
-            if c == b'`' {
-                if self.ecma() {
-                    self.template();
-                } else {
-                    self.skip_past(i + 1, b"`");
-                    self.emit(l, i, 1, K::Str, self.l);
-                }
-                continue;
-            }
-            if self.syntax.lang == Lang::Rust
-                && matches!(c, b'\'' | b'"' | b'r' | b'b' | b'c')
-                && self.rust_quote()
-            {
-                continue;
-            }
-            if self.syntax.lang == Lang::Java && s[i..].starts_with(b"\"\"\"") {
-                self.skip_past(i + 3, b"\"\"\"");
-                self.emit(l, i, 1, K::Str, self.l);
-                continue;
-            }
-            if self.syntax.lang == Lang::Php
-                && matches!(c, b'#' | b'\'' | b'"' | b'<' | b'?')
-                && self.php_quote()
-            {
-                continue;
-            }
-            if self.syntax.lang == Lang::Swift && matches!(c, b'"' | b'#') && self.swift_string() {
-                continue;
-            }
-            if self.syntax.lang == Lang::Scala && matches!(c, b'"' | b'\'') && self.scala_quote() {
-                continue;
-            }
-            if self.syntax.lang == Lang::Dart
-                && matches!(c, b'"' | b'\'' | b'r')
-                && self.dart_string()
-            {
-                continue;
-            }
-            if self.syntax.lang == Lang::Kotlin && c == b'"' && self.kt_string() {
-                continue;
-            }
-            if self.syntax.lang == Lang::CSharp
-                && matches!(c, b'"' | b'$' | b'@')
-                && self.cs_string()
-            {
-                continue;
-            }
-            if c == b'"' || c == b'\'' {
-                self.string(c);
-                continue;
-            }
-            let prev = self.out.last().copied();
-            if self.ecma() && c == b'/' {
-                let regex = match prev {
-                    None => true,
-                    Some(p) if p.kind == K::Punct => !matches!(p.text, ")" | "]" | "}"),
-                    Some(p) => p.kind == K::Word && REGEX_AFTER.contains(&p.text),
-                };
-                if regex {
-                    self.regex();
-                    continue;
-                }
-            }
-            if self.syntax.jsx
-                && c == b'<'
-                && prev.is_none_or(|p| p.kind != K::Str && JSX_AFTER.contains(&p.text))
-                && s.get(i + 1)
-                    .is_some_and(|&n| n.is_ascii_alphabetic() || n == b'>')
-            {
-                self.jsx();
-                continue;
-            }
-            if word(c) {
-                let php = self.syntax.lang == Lang::Php;
-                let len = 1
-                    + (s[i + 1..].iter())
-                        .take_while(|&&b| word(b) && !(php && b == b'#'))
-                        .count();
-                let len = if self.syntax.lang == Lang::Scala && s[i + len - 1] == b'_' {
-                    len + (s[i + len..].iter())
-                        .take_while(|b| b"!#%&*+-/:<=>?@\\^|~".contains(b))
-                        .count()
-                } else {
-                    len
-                };
-                self.emit(l, i, len, K::Word, l);
-                self.i += len;
-                continue;
-            }
-            if s[i..].starts_with(b"=>") {
-                self.emit(l, i, 2, K::Punct, l);
-                self.i += 2;
+            if self.trivia(s, l, i, c) || self.quote(s, l, i, c) || self.token(s, l, i, c) {
                 continue;
             }
             if c == b'{' {
@@ -420,6 +282,150 @@ impl<'a> Lexer<'a> {
             self.emit(l, i, 1, K::Punct, l);
             self.i += 1;
         }
+    }
+
+    fn trivia(&mut self, s: &'a [u8], l: usize, i: usize, c: u8) -> bool {
+        if matches!(c, b' ' | b'\t' | b'\r') {
+            self.i += 1;
+            return true;
+        }
+        if s[i..].starts_with("\u{feff}".as_bytes()) {
+            self.i += 3;
+            return true;
+        }
+        if s[i..].starts_with(b"//") {
+            self.i = s.len();
+            return true;
+        }
+        if s[i..].starts_with(b"/*")
+            && matches!(
+                self.syntax.lang,
+                Lang::Rust | Lang::Swift | Lang::Dart | Lang::Scala
+            )
+        {
+            self.nested_comment(i + 2);
+            return true;
+        }
+        if s[i..].starts_with(b"/*") {
+            self.skip_past(i + 2, b"*/");
+            if self.c_family() && self.l > l {
+                self.emit(l, i, 1, K::Comment, self.l);
+            }
+            return true;
+        }
+        if self.c_family() && c == b'#' && self.c_directive() {
+            return true;
+        }
+        if self.syntax.lang == Lang::Cpp && matches!(c, b'R' | b'u' | b'U' | b'L') && self.cpp_raw()
+        {
+            return true;
+        }
+        false
+    }
+
+    fn quote(&mut self, s: &'a [u8], l: usize, i: usize, c: u8) -> bool {
+        if c == b'`'
+            && matches!(self.syntax.lang, Lang::Swift | Lang::Scala)
+            && let Some(len) = s[i + 1..].iter().position(|&b| b == b'`')
+        {
+            self.emit(l, i, len + 2, K::Word, l);
+            self.i += len + 2;
+            return true;
+        }
+        if c == b'`' {
+            if self.ecma() {
+                self.template();
+            } else {
+                self.skip_past(i + 1, b"`");
+                self.emit(l, i, 1, K::Str, self.l);
+            }
+            return true;
+        }
+        if self.syntax.lang == Lang::Rust
+            && matches!(c, b'\'' | b'"' | b'r' | b'b' | b'c')
+            && self.rust_quote()
+        {
+            return true;
+        }
+        if self.syntax.lang == Lang::Java && s[i..].starts_with(b"\"\"\"") {
+            self.skip_past(i + 3, b"\"\"\"");
+            self.emit(l, i, 1, K::Str, self.l);
+            return true;
+        }
+        if self.syntax.lang == Lang::Php
+            && matches!(c, b'#' | b'\'' | b'"' | b'<' | b'?')
+            && self.php_quote()
+        {
+            return true;
+        }
+        if self.syntax.lang == Lang::Swift && matches!(c, b'"' | b'#') && self.swift_string() {
+            return true;
+        }
+        if self.syntax.lang == Lang::Scala && matches!(c, b'"' | b'\'') && self.scala_quote() {
+            return true;
+        }
+        if self.syntax.lang == Lang::Dart && matches!(c, b'"' | b'\'' | b'r') && self.dart_string()
+        {
+            return true;
+        }
+        if self.syntax.lang == Lang::Kotlin && c == b'"' && self.kt_string() {
+            return true;
+        }
+        if self.syntax.lang == Lang::CSharp && matches!(c, b'"' | b'$' | b'@') && self.cs_string() {
+            return true;
+        }
+        if c == b'"' || c == b'\'' {
+            self.string(c);
+            return true;
+        }
+        false
+    }
+
+    fn token(&mut self, s: &'a [u8], l: usize, i: usize, c: u8) -> bool {
+        let prev = self.out.last().copied();
+        if self.ecma() && c == b'/' {
+            let regex = match prev {
+                None => true,
+                Some(p) if p.kind == K::Punct => !matches!(p.text, ")" | "]" | "}"),
+                Some(p) => p.kind == K::Word && REGEX_AFTER.contains(&p.text),
+            };
+            if regex {
+                self.regex();
+                return true;
+            }
+        }
+        if self.syntax.jsx
+            && c == b'<'
+            && prev.is_none_or(|p| p.kind != K::Str && JSX_AFTER.contains(&p.text))
+            && s.get(i + 1)
+                .is_some_and(|&n| n.is_ascii_alphabetic() || n == b'>')
+        {
+            self.jsx();
+            return true;
+        }
+        if word(c) {
+            let php = self.syntax.lang == Lang::Php;
+            let len = 1
+                + (s[i + 1..].iter())
+                    .take_while(|&&b| word(b) && !(php && b == b'#'))
+                    .count();
+            let len = if self.syntax.lang == Lang::Scala && s[i + len - 1] == b'_' {
+                len + (s[i + len..].iter())
+                    .take_while(|b| b"!#%&*+-/:<=>?@\\^|~".contains(b))
+                    .count()
+            } else {
+                len
+            };
+            self.emit(l, i, len, K::Word, l);
+            self.i += len;
+            return true;
+        }
+        if s[i..].starts_with(b"=>") {
+            self.emit(l, i, 2, K::Punct, l);
+            self.i += 2;
+            return true;
+        }
+        false
     }
 
     fn skip_past(&mut self, from: usize, delim: &[u8]) {
@@ -806,7 +812,31 @@ impl<'t, 'a> Model<'t, 'a> {
         last
     }
 
-    #[expect(clippy::cognitive_complexity, reason = "#858")]
+    fn past_decorators(&self, k: usize) -> usize {
+        let mut j = k;
+        while self.tx(j).starts_with('@') {
+            j += 1;
+            while self.tx(j) == "." {
+                j += 2;
+            }
+            if self.punct(j, "(")
+                && let Some(c) = self.pair[j]
+            {
+                j = c + 1;
+            }
+        }
+        j
+    }
+
+    fn ecma_array(&self, k: usize) -> bool {
+        k == 0 || {
+            let p = self.toks[k - 1];
+            (p.kind == K::Punct && !matches!(p.text, ")" | "]" | "}"))
+                || (p.kind == K::Word
+                    && matches!(p.text, "return" | "of" | "in" | "await" | "yield" | "case"))
+        }
+    }
+
     fn ecma_node(&mut self, k: usize, ts: bool) {
         let t = self.toks[k];
         let line = t.line;
@@ -841,18 +871,7 @@ impl<'t, 'a> Model<'t, 'a> {
                 self.add(line, Some(self.alias_end(k)), false);
             }
             K::Word if ts && w.starts_with('@') && self.first[k] => {
-                let mut j = k;
-                while self.tx(j).starts_with('@') {
-                    j += 1;
-                    while self.tx(j) == "." {
-                        j += 2;
-                    }
-                    if self.punct(j, "(")
-                        && let Some(c) = self.pair[j]
-                    {
-                        j = c + 1;
-                    }
-                }
+                let j = self.past_decorators(k);
                 if self.tx(j) == "class" {
                     self.add(line, self.stmt_end(j), true);
                 }
@@ -865,19 +884,8 @@ impl<'t, 'a> Model<'t, 'a> {
                 self.add(line, Some(self.arrow_end(k)), true);
             }
             K::Punct if w == "(" => self.paren(k),
-            K::Punct if w == "[" => {
-                let array = k == 0 || {
-                    let p = self.toks[k - 1];
-                    (p.kind == K::Punct && !matches!(p.text, ")" | "]" | "}"))
-                        || (p.kind == K::Word
-                            && matches!(
-                                p.text,
-                                "return" | "of" | "in" | "await" | "yield" | "case"
-                            ))
-                };
-                if array {
-                    self.add(line, self.closing(k), false);
-                }
+            K::Punct if w == "[" && self.ecma_array(k) => {
+                self.add(line, self.closing(k), false);
             }
             K::Punct if w == "{" && k > 0 => {
                 let p = self.toks[k - 1];

@@ -1,5 +1,5 @@
+#![expect(clippy::too_many_lines, reason = "test tables")]
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::too_many_lines, reason = "#858")]
 use super::*;
 
 fn go_rows(cases: Vec<(&str, &str, &str, Shown)>) {

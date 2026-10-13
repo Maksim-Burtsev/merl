@@ -1,4 +1,3 @@
-#![expect(clippy::excessive_nesting, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 use super::super::indent;
 use super::{K, Lexer, Model};
@@ -447,21 +446,15 @@ impl Model<'_, '_> {
                 let outer = at < head && self.word_at(j) && CONT_START.contains(&self.tx(j));
                 let cont = cont && (opens || !outer);
                 if cont {
-                    if !matches!(self.tx(j), "|" | "&") {
-                        blocks.retain(|&c| c <= at);
-                    }
-                    if opens && blocks.last().is_none_or(|&c| c < at) {
-                        blocks.push(at);
-                    }
+                    continue_blocks(&mut blocks, self.tx(j), at, opens);
                 } else {
                     let had = !blocks.is_empty();
                     blocks.retain(|&c| c <= at);
+                    if blocks.is_empty() && had {
+                        return self.sc_outdent(j, head, lines);
+                    }
                     if blocks.is_empty() {
-                        return if had {
-                            self.sc_outdent(j, head, lines)
-                        } else {
-                            self.toks[last].end
-                        };
+                        return self.toks[last].end;
                     }
                 }
             }
@@ -575,5 +568,14 @@ impl Model<'_, '_> {
             }
         }
         false
+    }
+}
+
+fn continue_blocks(blocks: &mut Vec<usize>, tx: &str, at: usize, opens: bool) {
+    if !matches!(tx, "|" | "&") {
+        blocks.retain(|&c| c <= at);
+    }
+    if opens && blocks.last().is_none_or(|&c| c < at) {
+        blocks.push(at);
     }
 }

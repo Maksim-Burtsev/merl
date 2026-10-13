@@ -1,5 +1,4 @@
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::too_many_lines, reason = "#858")]
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -84,32 +83,7 @@ pub(super) fn draw_tree(
     base: Style,
 ) -> Option<usize> {
     let accent = base.fg(theme.accent);
-    let title = match &app.review {
-        Some(r) => format!("{} \u{2190} {}", r.branch, r.base),
-        None => app.root_name(),
-    };
-    let mut block = Block::bordered()
-        .title(Span::styled(title, accent.add_modifier(Modifier::BOLD)))
-        .border_style(accent)
-        .style(base);
-    if let Some(r) = app.review.as_ref().filter(|_| app.review_panel_colours) {
-        let (added, deleted) = r
-            .files
-            .iter()
-            .fold((0, 0), |(a, d), f| (a + f.added, d + f.deleted));
-        let n = r.files.len();
-        let s = crate::app::plural(n);
-        let notes = app.notes.list.len();
-        let notes = match notes {
-            0 => String::new(),
-            1 => " \u{b7} 1 note".to_owned(),
-            k => format!(" \u{b7} {k} notes"),
-        };
-        let totals = format!(" {n} file{s} \u{b7} +{added} \u{2212}{deleted}{notes} ");
-        if wrap::width(&totals) <= area.width.saturating_sub(2) as usize {
-            block = block.title_bottom(Span::styled(totals, base.fg(theme.ghost_fg)));
-        }
-    }
+    let block = tree_block(app, theme, area, base);
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
@@ -159,12 +133,7 @@ pub(super) fn draw_tree(
                 row.bg(theme.line_hl_dim)
             };
             let noted = !n.is_dir && app.notes_in(&n.path) > 0;
-            let tick = match (&app.review, app.viewed.contains_key(&n.path)) {
-                (Some(_), _) if noted => "\u{270e} ",
-                (None, _) => "",
-                (Some(_), false) => "  ",
-                (Some(_), true) => "\u{2713} ",
-            };
+            let tick = tree_tick(app, &n.path, noted);
             let width = width.saturating_sub(wrap::width(tick));
             let mut spans = vec![
                 Span::styled(tick, style.fg(theme.accent)),
@@ -213,6 +182,46 @@ pub(super) fn draw_tree(
     cut_any.then_some(need)
 }
 
+fn tree_block(app: &App, theme: &Theme, area: Rect, base: Style) -> Block<'static> {
+    let accent = base.fg(theme.accent);
+    let title = match &app.review {
+        Some(r) => format!("{} \u{2190} {}", r.branch, r.base),
+        None => app.root_name(),
+    };
+    let mut block = Block::bordered()
+        .title(Span::styled(title, accent.add_modifier(Modifier::BOLD)))
+        .border_style(accent)
+        .style(base);
+    if let Some(r) = app.review.as_ref().filter(|_| app.review_panel_colours) {
+        let (added, deleted) = r
+            .files
+            .iter()
+            .fold((0, 0), |(a, d), f| (a + f.added, d + f.deleted));
+        let n = r.files.len();
+        let s = crate::app::plural(n);
+        let notes = app.notes.list.len();
+        let notes = match notes {
+            0 => String::new(),
+            1 => " \u{b7} 1 note".to_owned(),
+            k => format!(" \u{b7} {k} notes"),
+        };
+        let totals = format!(" {n} file{s} \u{b7} +{added} \u{2212}{deleted}{notes} ");
+        if wrap::width(&totals) <= area.width.saturating_sub(2) as usize {
+            block = block.title_bottom(Span::styled(totals, base.fg(theme.ghost_fg)));
+        }
+    }
+    block
+}
+
+fn tree_tick(app: &App, path: &Path, noted: bool) -> &'static str {
+    match (&app.review, app.viewed.contains_key(path)) {
+        (Some(_), _) if noted => "\u{270e} ",
+        (None, _) => "",
+        (Some(_), false) => "  ",
+        (Some(_), true) => "\u{2713} ",
+    }
+}
+
 const NAME_ROOM: usize = 12;
 
 fn counts(f: &crate::git::ReviewFile) -> String {
@@ -258,20 +267,9 @@ pub(super) fn draw_picker(
         .flex(Flex::Center)
         .areas(area);
 
-    let (matched, total) = picker.counts();
     let accent = base.fg(theme.accent);
     let block = Block::bordered()
-        .title(if picker.live && pending {
-            format!("{} (…)", picker.title)
-        } else if picker.live && picker.query.is_empty() && total > 0 {
-            format!("{} (first {total}, type to search all)", picker.title)
-        } else if picker.live {
-            let more = if total as usize >= MAX_HITS { "+" } else { "" };
-            let s = crate::app::plural(total as usize);
-            format!("{} ({total}{more} hit{s})", picker.title)
-        } else {
-            format!("{} ({matched}/{total})", picker.title)
-        })
+        .title(picker_title(picker, pending))
         .border_style(accent)
         .title_style(accent.add_modifier(Modifier::BOLD))
         .style(base);
@@ -290,18 +288,7 @@ pub(super) fn draw_picker(
     let files = app.mode == Mode::Picker(PickerKind::Files);
     let review = app.review.as_ref();
     let letters = review.filter(|_| files && app.review_open_files_first);
-    let marks = review.filter(|_| {
-        app.review_list_marks
-            && matches!(
-                app.mode,
-                Mode::Picker(
-                    PickerKind::Usages
-                        | PickerKind::Search
-                        | PickerKind::Definitions
-                        | PickerKind::Symbols
-                )
-            )
-    });
+    let marks = review.filter(|_| app.review_list_marks && lists_marks(app.mode));
     let grouped = matches!(
         app.mode,
         Mode::Picker(PickerKind::Usages | PickerKind::Search | PickerKind::Definitions)
@@ -328,131 +315,227 @@ pub(super) fn draw_picker(
         } else {
             base
         };
-        let mut prefix = Vec::new();
-        if let Some(r) = letters {
-            prefix.push(match r.file(&row.item.path) {
-                Some(f) => Span::styled(format!("{} ", f.status), style),
-                None => Span::styled("  ", style),
-            });
-        }
-        if let Some(r) = marks {
-            let colour = if row.item.deleted {
-                Some(Color::Red)
-            } else {
-                match review_mark(&mut picker.marks, r, &app.root, &row.item) {
-                    Some(Mark::Added) => Some(Color::Green),
-                    Some(Mark::Changed) => Some(Color::Blue),
-                    _ => None,
-                }
-            };
-            prefix.push(match colour {
-                Some(c) => Span::styled("\u{258e}", style.fg(c)),
-                None => Span::styled(" ", style),
-            });
-        }
+        let prefix = row_prefix(
+            (letters, marks),
+            &mut picker.marks,
+            &app.root,
+            &row.item,
+            style,
+        );
         let code = code_hl(&mut picker.bufs, &app.root, review, &row.item, theme);
-        let mut c = 0;
-        let cells: Vec<(usize, Span)> = row
-            .item
-            .label
-            .grapheme_indices(true)
-            .map(|(b, g)| {
-                let chars = c..c + u32::try_from(g.chars().count()).unwrap_or(u32::MAX);
-                c = chars.end;
-                let mut style = style;
-                if let (Some((hl, off)), Some(at)) = (&code, row.item.code_at)
-                    && !(i == selected && theme.selection_fg.is_some())
-                    && b >= at
-                    && let Some((s, _)) = hl.iter().find(|(_, r)| r.contains(&(b - at + off)))
-                {
-                    style = style.patch(*s);
-                }
-                if chars
-                    .into_iter()
-                    .any(|k| row.matched.binary_search(&k).is_ok())
-                {
-                    style = style.add_modifier(Modifier::BOLD);
-                }
-                (b, Span::styled(expand(g).into_owned(), style))
-            })
-            .collect();
+        let lit = !(i == selected && theme.selection_fg.is_some());
+        let cells = row_cells(row, code, lit, style);
         let Some(place) = place else {
             let at = picker.selected + i - selected;
-            let tag = picker
-                .labels
-                .iter()
-                .find(|(row, _)| *row == at)
-                .map(|t| t.1);
-            let tag_w = tag.map_or(0, |t| wrap::width(t) + 1);
-            let mut line = padded(
-                prefix.into_iter().chain(cells.into_iter().map(|(_, s)| s)),
-                width.saturating_sub(tag_w),
-                style,
-            );
-            if let Some(t) = tag {
-                line.spans
-                    .push(Span::styled(format!("{t} "), style.fg(theme.ghost_fg)));
-            }
-            lines.push(line);
+            lines.push(tagged_line(
+                &picker.labels,
+                at,
+                prefix,
+                cells,
+                (style, theme),
+                width,
+            ));
             continue;
         };
-        let bold = |s: &Span| s.style.add_modifier.contains(Modifier::BOLD);
-        if place.header {
-            let lead = Span::styled(" ".repeat(prefix_w + place.head_w), base);
-            let path = cells
-                .iter()
-                .filter(|(b, _)| place.path.contains(b))
-                .map(|(_, s)| {
-                    let accent = base.fg(theme.accent);
-                    if bold(s) {
-                        Span::styled(s.content.clone(), accent.add_modifier(Modifier::BOLD))
-                    } else {
-                        Span::styled(s.content.clone(), accent)
-                    }
-                });
-            lines.push(padded(std::iter::once(lead).chain(path), width, base));
+        if let Some(header) = place_header(place, &cells, base, theme, (width, prefix_w)) {
+            lines.push(header);
             headers.push(lines.len());
         }
-        let code_at = place.code_at;
-        let matched_num = cells
-            .iter()
-            .any(|(b, s)| (place.path.end..code_at).contains(b) && bold(s));
-        let num_style = if matched_num {
-            style.fg(theme.ghost_fg).add_modifier(Modifier::BOLD)
-        } else {
-            style.fg(theme.ghost_fg)
-        };
-        let num = Span::styled(
-            format!("  {:>w$}  ", row.item.line, w = place.num_w),
-            num_style,
-        );
-        let in_row = |r: &std::ops::Range<usize>| {
-            cells
-                .iter()
-                .filter(|(b, _)| *b >= code_at + r.start && *b < code_at + r.end)
-                .map(|(_, s)| s.clone())
-                .collect::<Vec<_>>()
-        };
-        let head = cells
-            .iter()
-            .filter(|(b, _)| *b < place.path.start)
-            .map(|(_, s)| s.clone());
-        let first = prefix
-            .into_iter()
-            .chain(head)
-            .chain([num])
-            .chain(in_row(&place.code_rows[0]));
-        lines.push(padded(first, width, style));
-        for r in &place.code_rows[1..] {
-            let lead = Span::styled(" ".repeat(place.code_col), style);
-            lines.push(padded(std::iter::once(lead).chain(in_row(r)), width, style));
-        }
+        lines.extend(place_rows(
+            place,
+            &cells,
+            prefix,
+            row.item.line,
+            (style, theme),
+            width,
+        ));
     }
     lines.truncate(height);
     if headers.contains(&lines.len()) {
         lines.pop();
     }
     frame.render_widget(Paragraph::new(lines).style(base), list);
+}
+
+fn lists_marks(mode: Mode) -> bool {
+    matches!(
+        mode,
+        Mode::Picker(
+            PickerKind::Usages | PickerKind::Search | PickerKind::Definitions | PickerKind::Symbols
+        )
+    )
+}
+
+fn row_prefix(
+    (letters, marks): (Option<&Review>, Option<&Review>),
+    picker_marks: &mut HashMap<PathBuf, HashMap<usize, Mark>>,
+    root: &Path,
+    item: &PickItem,
+    style: Style,
+) -> Vec<Span<'static>> {
+    let mut prefix = Vec::new();
+    if let Some(r) = letters {
+        prefix.push(match r.file(&item.path) {
+            Some(f) => Span::styled(format!("{} ", f.status), style),
+            None => Span::styled("  ", style),
+        });
+    }
+    if let Some(r) = marks {
+        let colour = if item.deleted {
+            Some(Color::Red)
+        } else {
+            match review_mark(picker_marks, r, root, item) {
+                Some(Mark::Added) => Some(Color::Green),
+                Some(Mark::Changed) => Some(Color::Blue),
+                _ => None,
+            }
+        };
+        prefix.push(match colour {
+            Some(c) => Span::styled("\u{258e}", style.fg(c)),
+            None => Span::styled(" ", style),
+        });
+    }
+    prefix
+}
+
+fn tagged_line<'a>(
+    labels: &[(usize, &'static str)],
+    at: usize,
+    prefix: Vec<Span<'a>>,
+    cells: Vec<(usize, Span<'a>)>,
+    (style, theme): (Style, &Theme),
+    width: usize,
+) -> Line<'a> {
+    let tag = labels.iter().find(|(row, _)| *row == at).map(|t| t.1);
+    let tag_w = tag.map_or(0, |t| wrap::width(t) + 1);
+    let mut line = padded(
+        prefix.into_iter().chain(cells.into_iter().map(|(_, s)| s)),
+        width.saturating_sub(tag_w),
+        style,
+    );
+    if let Some(t) = tag {
+        line.spans
+            .push(Span::styled(format!("{t} "), style.fg(theme.ghost_fg)));
+    }
+    line
+}
+
+fn picker_title(picker: &Picker, pending: bool) -> String {
+    let (matched, total) = picker.counts();
+    if picker.live && pending {
+        format!("{} (…)", picker.title)
+    } else if picker.live && picker.query.is_empty() && total > 0 {
+        format!("{} (first {total}, type to search all)", picker.title)
+    } else if picker.live {
+        let more = if total as usize >= MAX_HITS { "+" } else { "" };
+        let s = crate::app::plural(total as usize);
+        format!("{} ({total}{more} hit{s})", picker.title)
+    } else {
+        format!("{} ({matched}/{total})", picker.title)
+    }
+}
+
+fn row_cells<'a>(
+    row: &Row,
+    code: Option<(&Spans, usize)>,
+    lit: bool,
+    style: Style,
+) -> Vec<(usize, Span<'a>)> {
+    let mut c = 0;
+    row.item
+        .label
+        .grapheme_indices(true)
+        .map(|(b, g)| {
+            let chars = c..c + u32::try_from(g.chars().count()).unwrap_or(u32::MAX);
+            c = chars.end;
+            let mut style = style;
+            if let (Some((hl, off)), Some(at)) = (&code, row.item.code_at)
+                && lit
+                && b >= at
+                && let Some((s, _)) = hl.iter().find(|(_, r)| r.contains(&(b - at + off)))
+            {
+                style = style.patch(*s);
+            }
+            if chars
+                .into_iter()
+                .any(|k| row.matched.binary_search(&k).is_ok())
+            {
+                style = style.add_modifier(Modifier::BOLD);
+            }
+            (b, Span::styled(expand(g).into_owned(), style))
+        })
+        .collect()
+}
+
+fn bold(s: &Span) -> bool {
+    s.style.add_modifier.contains(Modifier::BOLD)
+}
+
+fn place_header<'a>(
+    place: &Place,
+    cells: &[(usize, Span<'a>)],
+    base: Style,
+    theme: &Theme,
+    (width, prefix_w): (usize, usize),
+) -> Option<Line<'a>> {
+    if !place.header {
+        return None;
+    }
+    let lead = Span::styled(" ".repeat(prefix_w + place.head_w), base);
+    let path = cells
+        .iter()
+        .filter(|(b, _)| place.path.contains(b))
+        .map(|(_, s)| {
+            let accent = base.fg(theme.accent);
+            if bold(s) {
+                Span::styled(s.content.clone(), accent.add_modifier(Modifier::BOLD))
+            } else {
+                Span::styled(s.content.clone(), accent)
+            }
+        });
+    Some(padded(std::iter::once(lead).chain(path), width, base))
+}
+
+fn place_rows<'a>(
+    place: &Place,
+    cells: &[(usize, Span<'a>)],
+    prefix: Vec<Span<'a>>,
+    line: usize,
+    (style, theme): (Style, &Theme),
+    width: usize,
+) -> Vec<Line<'a>> {
+    let code_at = place.code_at;
+    let matched_num = cells
+        .iter()
+        .any(|(b, s)| (place.path.end..code_at).contains(b) && bold(s));
+    let num_style = if matched_num {
+        style.fg(theme.ghost_fg).add_modifier(Modifier::BOLD)
+    } else {
+        style.fg(theme.ghost_fg)
+    };
+    let num = Span::styled(format!("  {:>w$}  ", line, w = place.num_w), num_style);
+    let in_row = |r: &std::ops::Range<usize>| {
+        cells
+            .iter()
+            .filter(|(b, _)| *b >= code_at + r.start && *b < code_at + r.end)
+            .map(|(_, s)| s.clone())
+            .collect::<Vec<_>>()
+    };
+    let head = cells
+        .iter()
+        .filter(|(b, _)| *b < place.path.start)
+        .map(|(_, s)| s.clone());
+    let first = prefix
+        .into_iter()
+        .chain(head)
+        .chain([num])
+        .chain(in_row(&place.code_rows[0]));
+    let mut lines = vec![padded(first, width, style)];
+    for r in &place.code_rows[1..] {
+        let lead = Span::styled(" ".repeat(place.code_col), style);
+        lines.push(padded(std::iter::once(lead).chain(in_row(r)), width, style));
+    }
+    lines
 }
 
 fn padded<'a>(spans: impl IntoIterator<Item = Span<'a>>, width: usize, style: Style) -> Line<'a> {

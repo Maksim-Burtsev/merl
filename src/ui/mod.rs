@@ -30,7 +30,6 @@ mod tests;
 
 const TREE_W: u16 = 30;
 
-#[expect(clippy::too_many_lines, reason = "#858")]
 pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     let area = frame.area();
     app.diagrams.begin();
@@ -77,33 +76,7 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
             return draw(frame, app, theme);
         }
     }
-    let mut pane = |app: &mut App| {
-        app.preview_fresh();
-        if let Some(sides) = app.picture_sides() {
-            picture::draw_review(frame, app, code, &sides, theme.ghost_fg);
-        } else if let Some(path) = app.picture_shown() {
-            picture::draw_file(frame, app, code, &path);
-        } else if app.previewing() && !app.buf.path.as_deref().is_some_and(crate::picture::is_svg) {
-            draw_preview(frame, app, theme, code, base);
-        } else if app.folded_here().is_some() {
-            fold::draw_fold(frame, app, theme, code, base);
-        } else if let Some(note) = app.empty_note() {
-            draw_empty(frame, theme, code, base, note);
-        } else if let Some((old, new)) = app.renamed_here() {
-            draw_renamed(frame, theme, code, base, old, new);
-        } else if app.buf.binary() {
-            let note = app
-                .buf
-                .path
-                .as_deref()
-                .and_then(crate::picture::not_shown_note);
-            draw_binary(frame, theme, code, base, note);
-        } else if app.buf.path.is_some() {
-            draw_code(frame, app, theme, code, base);
-        } else {
-            draw_welcome(frame, theme, code, base);
-        }
-    };
+    let mut pane = |app: &mut App| draw_pane(frame, app, theme, code, base);
     if app.tree_width.is_some_and(|w| w > TREE_W) {
         app.drawn_aside(pane);
     } else {
@@ -113,6 +86,45 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
         frame.render_widget(panel, lesson);
     }
     draw_status(frame, app, theme, status);
+    draw_overlays(frame, app, theme, (area, main), base);
+    force_emoji_widths(frame);
+}
+
+fn draw_pane(frame: &mut Frame, app: &mut App, theme: &Theme, code: Rect, base: Style) {
+    app.preview_fresh();
+    if let Some(sides) = app.picture_sides() {
+        picture::draw_review(frame, app, code, &sides, theme.ghost_fg);
+    } else if let Some(path) = app.picture_shown() {
+        picture::draw_file(frame, app, code, &path);
+    } else if app.previewing() && !app.buf.path.as_deref().is_some_and(crate::picture::is_svg) {
+        draw_preview(frame, app, theme, code, base);
+    } else if app.folded_here().is_some() {
+        fold::draw_fold(frame, app, theme, code, base);
+    } else if let Some(note) = app.empty_note() {
+        draw_empty(frame, theme, code, base, note);
+    } else if let Some((old, new)) = app.renamed_here() {
+        draw_renamed(frame, theme, code, base, old, new);
+    } else if app.buf.binary() {
+        let note = app
+            .buf
+            .path
+            .as_deref()
+            .and_then(crate::picture::not_shown_note);
+        draw_binary(frame, theme, code, base, note);
+    } else if app.buf.path.is_some() {
+        draw_code(frame, app, theme, code, base);
+    } else {
+        draw_welcome(frame, theme, code, base);
+    }
+}
+
+fn draw_overlays(
+    frame: &mut Frame,
+    app: &mut App,
+    theme: &Theme,
+    (area, main): (Rect, Rect),
+    base: Style,
+) {
     let over = if app.tutor.is_some() { main } else { area };
     if app.picker.is_some() {
         let home = main.width.saturating_sub(TREE_W);
@@ -133,6 +145,9 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     if app.mode == Mode::Help {
         draw_help(frame, app, theme, over, base);
     }
+}
+
+fn force_emoji_widths(frame: &mut Frame) {
     for cell in &mut frame.buffer_mut().content {
         if cell.symbol().contains('\u{fe0f}')
             && let Some(w) = NonZeroU16::new(cell.symbol().cell_width()).filter(|w| w.get() > 1)

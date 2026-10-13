@@ -1,6 +1,4 @@
-#![expect(clippy::cognitive_complexity, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::words::{Blocks, word_byte};
 
@@ -157,12 +155,12 @@ impl Lexer<'_> {
             && matches!(self.at(k + 1), b' ' | b'\t' | b'\n' | b'\r' | 0)
     }
 
-    fn next(&mut self) -> Option<(Tk, usize, usize)> {
+    fn skip_blank(&mut self) -> bool {
         let b = self.b;
         loop {
             let c = self.at(self.i);
             match c {
-                0 if self.i >= b.len() => return None,
+                0 if self.i >= b.len() => return false,
                 b' ' | b'\t' | b'\r' | b'\n' => self.i += 1,
                 b'\\' if self.at(self.i + 1) == b'\n' => self.i += 2,
                 b'#' => {
@@ -170,8 +168,58 @@ impl Lexer<'_> {
                         self.i += 1;
                     }
                 }
-                _ => break,
+                _ => return true,
             }
+        }
+    }
+
+    fn char_end(&self, s: usize) -> usize {
+        let b = self.b;
+        let mut e = s + 1;
+        if self.at(e) == b'\\' {
+            e += 1;
+        }
+        e += 1;
+        while e < b.len() && (b[e] & 0xC0) == 0x80 {
+            e += 1;
+        }
+        e.min(b.len())
+    }
+
+    fn number_end(&self, s: usize) -> usize {
+        let b = self.b;
+        let mut e = s;
+        while self.at(e).is_ascii_alphanumeric()
+            || self.at(e) == b'_'
+            || (self.at(e) == b'.' && self.at(e + 1).is_ascii_digit())
+            || (matches!(self.at(e), b'-' | b'+') && matches!(b[e - 1], b'e' | b'E'))
+        {
+            e += 1;
+        }
+        e
+    }
+
+    fn word_token(&self, s: usize, c: u8) -> (Tk, usize) {
+        let mut e = self.word_end(s);
+        if matches!(self.at(e), b'?' | b'!') && self.at(e + 1) != b'=' {
+            e += 1;
+        }
+        let w = &self.src[s..e];
+        if self.key_after(e) {
+            (Tk::Key, e + 1)
+        } else if c.is_ascii_uppercase() || matches!(w, "true" | "false" | "nil") {
+            (Tk::Value, e)
+        } else if KEYWORDS.contains(&w) && !self.b[..s].ends_with(b".") {
+            (Tk::Keyword, e)
+        } else {
+            (Tk::Word, e)
+        }
+    }
+
+    fn next(&mut self) -> Option<(Tk, usize, usize)> {
+        let b = self.b;
+        if !self.skip_blank() {
+            return None;
         }
         let s = self.i;
         let c = b[s];
@@ -186,17 +234,7 @@ impl Lexer<'_> {
                 }
             }
             b'~' if self.sigil(s).is_some() => (Tk::Value, self.sigil(s).unwrap()),
-            b'?' => {
-                let mut e = s + 1;
-                if self.at(e) == b'\\' {
-                    e += 1;
-                }
-                e += 1;
-                while e < b.len() && (b[e] & 0xC0) == 0x80 {
-                    e += 1;
-                }
-                (Tk::Value, e.min(b.len()))
-            }
+            b'?' => (Tk::Value, self.char_end(s)),
             b':' if next == b'"' || next == b'\'' => (Tk::Value, self.quoted(s + 2, next, true)),
             b':' if next != b':' && word_byte(next) => {
                 let mut e = self.word_end(s + 1);
@@ -214,33 +252,8 @@ impl Lexer<'_> {
                 }
                 (Tk::Value, e)
             }
-            b'0'..=b'9' => {
-                let mut e = s;
-                while self.at(e).is_ascii_alphanumeric()
-                    || self.at(e) == b'_'
-                    || (self.at(e) == b'.' && self.at(e + 1).is_ascii_digit())
-                    || (matches!(self.at(e), b'-' | b'+') && matches!(b[e - 1], b'e' | b'E'))
-                {
-                    e += 1;
-                }
-                (Tk::Value, e)
-            }
-            c if word_byte(c) => {
-                let mut e = self.word_end(s);
-                if matches!(self.at(e), b'?' | b'!') && self.at(e + 1) != b'=' {
-                    e += 1;
-                }
-                let w = &self.src[s..e];
-                if self.key_after(e) {
-                    (Tk::Key, e + 1)
-                } else if c.is_ascii_uppercase() || matches!(w, "true" | "false" | "nil") {
-                    (Tk::Value, e)
-                } else if KEYWORDS.contains(&w) && !self.b[..s].ends_with(b".") {
-                    (Tk::Keyword, e)
-                } else {
-                    (Tk::Word, e)
-                }
-            }
+            b'0'..=b'9' => (Tk::Value, self.number_end(s)),
+            c if word_byte(c) => self.word_token(s, c),
             b'%' if next == b'{' => (Tk::Open(b'%'), s + 2),
             b'%' if word_byte(next) => {
                 let mut e = s + 1;
@@ -314,6 +327,22 @@ struct Frame {
 }
 
 impl Frame {
+    fn arrow(&mut self, line: usize, last: usize, nodes: &mut Vec<(usize, usize)>) {
+        if let Some(c) = self.clause {
+            nodes.push((c, self.before));
+        }
+        let start = match self.expr {
+            Some(e) => {
+                nodes.push((e, self.when.unwrap_or(last)));
+                e
+            }
+            _ => line,
+        };
+        self.clause = Some(start);
+        self.expr = None;
+        self.when = None;
+    }
+
     fn new(kind: Fk, line: usize) -> Self {
         Self {
             kind,
@@ -403,6 +432,49 @@ fn defines(head: &str) -> bool {
     head.starts_with("def") || matches!(head, "test" | "describe")
 }
 
+fn open_kind(toks: &[Tok], k: usize, c: u8) -> Fk {
+    let t = &toks[k];
+    match c {
+        b'(' => Fk::Paren,
+        b'[' if !t.spaced
+            && k > 0
+            && toks[k - 1].end == t.line
+            && matches!(toks[k - 1].kind, Tk::Word | Tk::Value | Tk::Close(_)) =>
+        {
+            Fk::Plain(b']')
+        }
+        b'[' => Fk::Fold(b']'),
+        b'<' => Fk::Plain(b'>'),
+        _ => Fk::Fold(b'}'),
+    }
+}
+
+fn close_bracket(
+    stack: &mut Vec<Frame>,
+    (c, line): (u8, usize),
+    last: usize,
+    nodes: &mut Vec<(usize, usize)>,
+) {
+    let matches = |f: &Frame| match f.kind {
+        Fk::Paren => c == b')',
+        Fk::Fold(e) | Fk::Plain(e) => e == c,
+        _ => false,
+    };
+    if let Some(at) = stack
+        .iter()
+        .rposition(|f| matches(f) || matches!(f.kind, Fk::Do | Fk::Fn))
+        .filter(|&at| matches(&stack[at]))
+    {
+        let mut f = pop_to(stack, at, last, nodes);
+        if f.kind == Fk::Paren {
+            f.end_clause(line, last, nodes);
+        }
+        if matches!(f.kind, Fk::Paren | Fk::Fold(_)) {
+            nodes.push((f.line, line));
+        }
+    }
+}
+
 pub(crate) fn elixir(lines: &[String]) -> Blocks {
     let src = lines.join("\n");
     let toks = tokens(&src);
@@ -468,57 +540,13 @@ pub(crate) fn elixir(lines: &[String]) -> Blocks {
             (Tk::Op, "->") => {
                 close_args(&mut stack, last, &mut nodes);
                 if let Some(f) = stack.last_mut().filter(|f| f.clauses()) {
-                    if let Some(c) = f.clause {
-                        nodes.push((c, f.before));
-                    }
-                    let start = match f.expr {
-                        Some(e) => {
-                            nodes.push((e, f.when.unwrap_or(last)));
-                            e
-                        }
-                        _ => t.line,
-                    };
-                    f.clause = Some(start);
-                    f.expr = None;
-                    f.when = None;
+                    f.arrow(t.line, last, &mut nodes);
                 }
             }
-            (Tk::Open(c), _) => {
-                let kind = match c {
-                    b'(' => Fk::Paren,
-                    b'[' if !t.spaced
-                        && k > 0
-                        && toks[k - 1].end == t.line
-                        && matches!(toks[k - 1].kind, Tk::Word | Tk::Value | Tk::Close(_)) =>
-                    {
-                        Fk::Plain(b']')
-                    }
-                    b'[' => Fk::Fold(b']'),
-                    b'<' => Fk::Plain(b'>'),
-                    _ => Fk::Fold(b'}'),
-                };
-                stack.push(Frame::new(kind, t.line));
-            }
+            (Tk::Open(c), _) => stack.push(Frame::new(open_kind(&toks, k, c), t.line)),
             (Tk::Close(c), _) => {
                 close_args(&mut stack, last, &mut nodes);
-                let matches = |f: &Frame| match f.kind {
-                    Fk::Paren => c == b')',
-                    Fk::Fold(e) | Fk::Plain(e) => e == c,
-                    _ => false,
-                };
-                if let Some(at) = stack
-                    .iter()
-                    .rposition(|f| matches(f) || matches!(f.kind, Fk::Do | Fk::Fn))
-                    .filter(|&at| matches(&stack[at]))
-                {
-                    let mut f = pop_to(&mut stack, at, last, &mut nodes);
-                    if f.kind == Fk::Paren {
-                        f.end_clause(t.line, last, &mut nodes);
-                    }
-                    if matches!(f.kind, Fk::Paren | Fk::Fold(_)) {
-                        nodes.push((f.line, t.line));
-                    }
-                }
+                close_bracket(&mut stack, (c, t.line), last, &mut nodes);
             }
             _ => {}
         }

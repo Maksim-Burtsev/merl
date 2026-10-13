@@ -1,4 +1,3 @@
-#![cfg_attr(test, expect(clippy::cognitive_complexity, reason = "#858"))]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
@@ -650,6 +649,7 @@ fn param_named(kind: Kind, part: &str, word: &str) -> Option<usize> {
     Some(at + (token.len() - token.trim_start_matches(['$', '*', '&', '.']).len()))
 }
 
+#[expect(clippy::cognitive_complexity, reason = "test tables")]
 #[cfg(test)]
 mod tests {
     use super::*;
