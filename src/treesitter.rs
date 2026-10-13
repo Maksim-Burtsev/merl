@@ -272,7 +272,7 @@ impl Check {
                     .is_some_and(|p| kinds.iter().any(|k| k == p.kind()))
             }),
             Test::HasAncestor(kinds) => nodes.any(|n| {
-                std::iter::successors(n.parent(), |p| p.parent())
+                std::iter::successors(n.parent(), tree_sitter::Node::parent)
                     .any(|p| kinds.iter().any(|k| k == p.kind()))
             }),
         };
@@ -289,6 +289,7 @@ struct Patterns {
 }
 
 impl Patterns {
+    #[expect(clippy::option_option, reason = "#858")]
     fn setting(&self, pattern: usize, key: &str) -> Option<Option<&str>> {
         self.settings[pattern]
             .iter()
@@ -345,7 +346,7 @@ pub fn for_syntax(
         "HTML" | "XML" => html_or_xml(path?, lines),
         "Elixir" if !euphoria(path, lines) => lang("elixir"),
         "Go" => lang("go"),
-        "Java" if !path.is_some_and(|p| p.extension().is_some_and(|e| e == "bsh")) => lang("java"),
+        "Java" if path.is_none_or(|p| p.extension().is_none_or(|e| e != "bsh")) => lang("java"),
         "JSON" => lang("json"),
         "Kotlin" => lang("kotlin"),
         "TOML" => lang("toml"),
@@ -482,6 +483,7 @@ fn html_or_xml(path: &Path, lines: &[String]) -> Option<&'static Lang> {
     if xml { lang("xml") } else { None }
 }
 
+#[expect(clippy::string_slice, reason = "#858")]
 fn docbook_or_xbl(lines: &[String]) -> bool {
     lines.iter().take(100).any(|l| {
         let lower = l.to_lowercase();
@@ -669,6 +671,7 @@ fn compile_text(name: &'static str, language: Language, text: &str) -> Result<La
     })
 }
 
+#[expect(clippy::match_wildcard_for_single_variants, reason = "#858")]
 fn patterns(
     name: &str,
     language: &Language,
@@ -699,7 +702,7 @@ fn patterns(
                 None if keys.contains(&&*prop.key) => {
                     set.push((
                         prop.key.to_string(),
-                        prop.value.as_deref().map(str::to_string),
+                        prop.value.as_deref().map(str::to_owned),
                     ));
                 }
                 Some(_) if CAPTURE_KEYS.contains(&&*prop.key) => {}
@@ -812,6 +815,7 @@ fn found(
     out
 }
 
+#[expect(clippy::needless_pass_by_value, reason = "#858")]
 fn first_row(old: Found, new: &Found) -> usize {
     old.symmetric_difference(new)
         .flat_map(|(_, captures)| captures.iter().map(|c| c.3))
@@ -879,6 +883,8 @@ fn recovered_row(old: &Tree, new: &Tree, below: usize) -> usize {
     }
 }
 
+#[expect(clippy::match_same_arms, reason = "#858")]
+#[expect(clippy::string_slice, reason = "#858")]
 fn vim_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
     let bad = || Err(format!("vim pattern {p:?} is not supported"));
     let body = match p.get(..2) {
@@ -934,6 +940,8 @@ fn lua_replacement(with: &str) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
+#[expect(clippy::format_push_string, reason = "#858")]
+#[expect(clippy::match_same_arms, reason = "#858")]
 fn lua_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
     let class = |c: char| -> Option<&'static str> {
         Some(match c {
@@ -1132,14 +1140,13 @@ impl Parsed {
             self.halted = true;
             return None;
         };
-        let tree = match resumed && tree.root_node().end_byte() < bytes.len() {
-            true => {
-                let input = &mut |i: usize, _| &bytes[i.min(bytes.len())..];
-                self.parser
-                    .parse_with_options(input, self.tree.as_ref(), None)
-                    .unwrap_or(tree)
-            }
-            false => tree,
+        let tree = if resumed && tree.root_node().end_byte() < bytes.len() {
+            let input = &mut |i: usize, _| &bytes[i.min(bytes.len())..];
+            self.parser
+                .parse_with_options(input, self.tree.as_ref(), None)
+                .unwrap_or(tree)
+        } else {
+            tree
         };
         let from = match &self.tree {
             Some(old) => old
@@ -1222,9 +1229,12 @@ impl Parsed {
         cells
             .into_iter()
             .zip(&lines[from..=to])
-            .map(|(row, line)| match Buffer::clips(line) {
-                true => Vec::new(),
-                false => runs(&row),
+            .map(|(row, line)| {
+                if Buffer::clips(line) {
+                    Vec::new()
+                } else {
+                    runs(&row)
+                }
             })
             .collect()
     }
@@ -1302,19 +1312,18 @@ impl<'a> Styles<'a> {
     }
 
     fn of(&mut self, lang: &Lang) -> &[Option<Style>] {
-        let i = match self.by_lang.iter().position(|(n, _)| *n == lang.name) {
-            Some(i) => i,
-            None => {
-                let styles = lang
-                    .highlights
-                    .query
-                    .capture_names()
-                    .iter()
-                    .map(|name| self.capture(lang.name, name))
-                    .collect();
-                self.by_lang.push((lang.name, styles));
-                self.by_lang.len() - 1
-            }
+        let i = if let Some(i) = self.by_lang.iter().position(|(n, _)| *n == lang.name) {
+            i
+        } else {
+            let styles = lang
+                .highlights
+                .query
+                .capture_names()
+                .iter()
+                .map(|name| self.capture(lang.name, name))
+                .collect();
+            self.by_lang.push((lang.name, styles));
+            self.by_lang.len() - 1
         };
         &self.by_lang[i].1
     }
@@ -1383,6 +1392,7 @@ const TEXTMATE: &[(&str, &str)] = &[
     ("variable.parameter", "variable.parameter"),
 ];
 
+#[expect(clippy::string_slice, reason = "#858")]
 fn textmate(capture: &str, highlighter: &Highlighter) -> Option<Style> {
     static SCOPES: OnceLock<HashMap<&str, Scope>> = OnceLock::new();
     let scopes = SCOPES.get_or_init(|| {

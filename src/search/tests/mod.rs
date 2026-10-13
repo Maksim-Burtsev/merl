@@ -48,7 +48,7 @@ const GO: &str = "package main\n\ntype Invoice struct{}\n\nfunc (i Invoice) Tota
 
 fn scratch(tag: &str, files: &[(&str, &str)]) -> (PathBuf, Vec<PathBuf>) {
     let dir = std::env::temp_dir().join(format!("merl-grep-{}-{tag}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(&dir).unwrap();
     for (name, text) in files {
         std::fs::create_dir_all(dir.join(name).parent().unwrap()).unwrap();

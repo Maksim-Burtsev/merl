@@ -1,3 +1,4 @@
+#![expect(clippy::cast_possible_truncation, reason = "#858")]
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
 use ratatui::style::{Modifier, Style};
@@ -15,12 +16,11 @@ pub(super) fn draw_fold(frame: &mut Frame, app: &App, theme: &Theme, area: Rect,
         .path
         .file_name()
         .map_or_else(|| f.path.to_string_lossy(), |n| n.to_string_lossy());
-    let size = match f.status {
-        'D' => "deleted".to_string(),
-        _ => {
-            let n = app.diff.hunks.len();
-            format!("{n} hunk{}", if n == 1 { "" } else { "s" })
-        }
+    let size = if f.status == 'D' {
+        "deleted".to_owned()
+    } else {
+        let n = app.diff.hunks.len();
+        format!("{n} hunk{}", if n == 1 { "" } else { "s" })
     };
     let bold = base.add_modifier(Modifier::BOLD);
     let dim = base.fg(theme.ghost_fg);

@@ -1,3 +1,6 @@
+#![expect(clippy::cast_precision_loss, reason = "#858")]
+#![expect(clippy::float_cmp, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
 use std::ops::Range;
 
 pub fn changes(old: &str, new: &str) -> (Vec<Range<usize>>, Vec<Range<usize>>) {
@@ -171,7 +174,10 @@ fn non_ws_len(s: &str) -> usize {
 }
 
 #[cfg(test)]
-#[allow(clippy::single_range_in_vec_init)]
+#[expect(
+    clippy::single_range_in_vec_init,
+    reason = "a test expects one range of bytes, not a list of offsets"
+)]
 mod tests {
     use super::*;
 
@@ -287,16 +293,16 @@ mod tests {
 
     #[test]
     fn an_added_line_pairs_with_the_ghost_it_rewrites() {
-        let fs = r#"            ("fs".into(), p(&["fs", "default"])),"#.to_string();
-        let node_fs = r#"            ("fs".into(), p(&["node:fs", "default"])),"#.to_string();
+        let fs = r#"            ("fs".into(), p(&["fs", "default"])),"#.to_owned();
+        let node_fs = r#"            ("fs".into(), p(&["node:fs", "default"])),"#.to_owned();
         let comment = "            // `node:` stays: the module is Node's own, whatever is \
                        installed under its name."
-            .to_string();
+            .to_owned();
         assert_eq!(pair(&[fs], &[comment, node_fs]), vec![(0, 1)]);
-        let deleted = &["total = price * qty".to_string()];
+        let deleted = &["total = price * qty".to_owned()];
         let added = &[
-            r#"log.debug("pricing %s", item)"#.to_string(),
-            "total = price * qty * rate".to_string(),
+            r#"log.debug("pricing %s", item)"#.to_owned(),
+            "total = price * qty * rate".to_owned(),
         ];
         assert_eq!(pair(deleted, added), vec![(0, 1)]);
     }
@@ -304,24 +310,27 @@ mod tests {
     #[test]
     fn the_closest_deleted_line_pairs() {
         let deleted = &[
-            "a = 1".to_string(),
-            "total = price * qty".to_string(),
-            "z = 3".to_string(),
+            "a = 1".to_owned(),
+            "total = price * qty".to_owned(),
+            "z = 3".to_owned(),
         ];
         assert_eq!(
-            pair(deleted, &["total = price * qty * rate".to_string()]),
+            pair(deleted, &["total = price * qty * rate".to_owned()]),
             vec![(1, 0)]
         );
     }
 
     #[test]
     fn equal_counts_pair_in_order_whatever_the_lines() {
-        let added = &["fn main() {".to_string(), "}".to_string()];
+        let added = &["fn main() {".to_owned(), "}".to_owned()];
         assert_eq!(
-            pair(&["apples".to_string(), "oranges".to_string()], added),
+            pair(&["apples".to_owned(), "oranges".to_owned()], added),
             vec![(0, 0), (1, 1)]
         );
-        assert!(pair(&["let x = 1;".to_string()], added).is_empty());
+        assert_eq!(
+            pair(&["let x = 1;".to_owned()], added),
+            [] as [(usize, usize); 0]
+        );
     }
 
     fn words_between(first: &str, words: usize, last: &str) -> String {
@@ -342,6 +351,6 @@ mod tests {
     fn lines_are_paired_up_to_400_pairs_of_lines() {
         let lines = |n: usize| (0..n).map(|i| format!("line {i}")).collect::<Vec<_>>();
         assert_eq!(pair(&lines(16), &lines(25)).len(), 16);
-        assert!(pair(&lines(17), &lines(25)).is_empty());
+        assert_eq!(pair(&lines(17), &lines(25)), [] as [(usize, usize); 0]);
     }
 }

@@ -19,7 +19,13 @@ pub struct Task {
     pub drill: &'static str,
     pub start: Option<(&'static str, usize, &'static str)>,
     pub keys: &'static str,
-    #[allow(dead_code)]
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "only the tests press it, to prove each task's answer does it"
+        )
+    )]
     pub answer: &'static str,
     pub done: fn(&App) -> bool,
 }
@@ -152,6 +158,7 @@ pub fn set_up(a: &mut App, task: &Task) {
     a.tutor = tutor;
 }
 
+#[expect(clippy::string_slice, reason = "#858")]
 pub fn press(a: &mut App, notation: &str) {
     let mut rest = notation;
     while let Some(c) = rest.chars().next() {
@@ -170,6 +177,7 @@ pub fn press(a: &mut App, notation: &str) {
     }
 }
 
+#[expect(clippy::unwrap_used, reason = "#858")]
 fn chord(name: &str) -> (KeyCode, KeyModifiers) {
     let mut mods = KeyModifiers::NONE;
     let mut name = name;
@@ -203,7 +211,7 @@ fn chord(name: &str) -> (KeyCode, KeyModifiers) {
 }
 
 fn unpack(dir: &Path) -> Result<()> {
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
     std::fs::create_dir_all(dir.join("tests"))?;
     for (name, text) in SAMPLE_FILES {
         std::fs::write(dir.join(name), text)?;
@@ -228,6 +236,7 @@ fn edited_since_unpacked(app: &App) -> bool {
         .is_some_and(|(_, text)| text.lines().ne(app.buf.lines.iter().map(String::as_str)))
 }
 
+#[expect(clippy::string_slice, reason = "#858")]
 fn selected_on_one_line(a: &App) -> Option<&str> {
     let ((l1, c1), (l2, c2)) = a.selection()?;
     (l1 == l2).then(|| &a.text(l1)[c1..c2])

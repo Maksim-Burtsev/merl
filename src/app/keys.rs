@@ -1,4 +1,9 @@
-use super::*;
+#![expect(clippy::cast_possible_wrap, reason = "#858")]
+#![expect(clippy::cognitive_complexity, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
+use super::{App, Focus, Instant, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, Mode, tutor};
 
 impl App {
     pub fn key(&mut self, key: KeyEvent) -> bool {
@@ -127,7 +132,7 @@ impl App {
                 self.keys_action_of_key_in_hand = named("Help: ", key)
                     .or_else(|| named("", key).filter(|a| matches!(*a, "Esc" | "?" | "q")));
                 match key.code {
-                    KeyCode::Esc | KeyCode::Char('?') | KeyCode::Char('q') => {
+                    KeyCode::Esc | KeyCode::Char('?' | 'q') => {
                         self.mode = Mode::Normal;
                     }
                     KeyCode::Up => self.help_top = self.help_top.saturating_sub(1),

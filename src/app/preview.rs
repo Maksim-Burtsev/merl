@@ -1,4 +1,5 @@
-use super::*;
+#![expect(clippy::or_fun_call, reason = "#858")]
+use super::{App, Buffer, Focus, KeyCode, KeyEvent, KeyModifiers, Path, PathBuf};
 use crate::markdown::{self, Ask, Doc, Kind, data::data};
 
 use super::preview_data::{lines_hash, no_preview};
@@ -77,11 +78,11 @@ impl App {
             return;
         };
         let (top, cur) = ((self.top_line, self.top_row), self.cursor_at());
-        let off = match cur < top {
-            true => 0,
-            false => self
-                .rows_between(top, cur)
-                .min(self.view_h.saturating_sub(1)),
+        let off = if cur < top {
+            0
+        } else {
+            self.rows_between(top, cur)
+                .min(self.view_h.saturating_sub(1))
         };
         self.previewed.insert(path);
         if self.deleted.is_some() {
@@ -260,12 +261,13 @@ impl App {
             _ => top,
         };
         let rows = &p.doc.rows;
-        let src = match rows[to].lines.is_empty() {
-            false => rows[to].src,
-            true => rows[to..]
+        let src = if rows[to].lines.is_empty() {
+            rows[to..]
                 .iter()
                 .find(|r| !r.lines.is_empty())
-                .map_or((usize::MAX, usize::MAX), |r| (r.lines.start, 0)),
+                .map_or((usize::MAX, usize::MAX), |r| (r.lines.start, 0))
+        } else {
+            rows[to].src
         };
         self.go(self.clamp_pos(src));
         let at = (self.line, self.col);

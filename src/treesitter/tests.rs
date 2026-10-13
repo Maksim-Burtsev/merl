@@ -1,3 +1,7 @@
+#![cfg_attr(test, expect(clippy::cognitive_complexity, reason = "#858"))]
+#![cfg_attr(test, expect(clippy::ignore_without_reason, reason = "#858"))]
+#![cfg_attr(test, expect(clippy::string_slice, reason = "#858"))]
+#![cfg_attr(test, expect(clippy::too_many_lines, reason = "#858"))]
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -29,7 +33,7 @@ fn recorded(path: &Path) -> HashMap<String, Vec<(usize, Vec<String>)>> {
         if let Some(p) = row.strip_prefix("# palette ") {
             for pair in p.split(' ') {
                 let (letter, colour) = pair.split_once('=').unwrap();
-                palette.insert(letter.chars().next().unwrap(), colour.to_string());
+                palette.insert(letter.chars().next().unwrap(), colour.to_owned());
             }
         } else if !row.starts_with('#') && !row.is_empty() {
             let (file, cells) = row.split_once('\t').unwrap();
@@ -40,7 +44,7 @@ fn recorded(path: &Path) -> HashMap<String, Vec<(usize, Vec<String>)>> {
                     (n.parse().unwrap(), decode(runs, &palette))
                 })
                 .collect();
-            out.insert(file.to_string(), lines);
+            out.insert(file.to_owned(), lines);
         }
     }
     out
@@ -82,7 +86,7 @@ fn token(line: &str, col: usize) -> &str {
     if start < end {
         &line[start..end]
     } else {
-        &line[col..col + 1]
+        &line[col..=col]
     }
 }
 
@@ -109,8 +113,8 @@ fn exceptions(dir: &Path) -> Vec<Exception> {
                 None => 1..=usize::MAX,
             };
             Exception {
-                theme: theme.to_string(),
-                file: file.to_string(),
+                theme: theme.to_owned(),
+                file: file.to_owned(),
                 line: line.parse().unwrap(),
                 cols,
                 used: false,
@@ -546,7 +550,7 @@ fn contains_and_has_parent_and_their_not_forms_test_as_neovim_does() {
         let lang =
             super::compile_text("python", tree_sitter_python::LANGUAGE.into(), query).unwrap();
         let lang: &'static super::Lang = Box::leak(Box::new(lang));
-        let lines = vec![src.to_string()];
+        let lines = vec![src.to_owned()];
         let mut parsed = super::Parsed::new(lang, &lines).unwrap();
         parsed.parse(None);
         let mut styles = super::Styles::new(&theme);
@@ -722,7 +726,7 @@ fn without_the_setting_python_goes_through_syntect() {
 fn a_preview_code_block_is_coloured_as_the_same_code_in_a_file() {
     let theme = theme::load("tokyonight-moon").unwrap();
     let src = "import re\nWORD = re.compile(r\"[a-z]+\\d\")\n";
-    let lines: Vec<String> = src.lines().map(str::to_string).collect();
+    let lines: Vec<String> = src.lines().map(str::to_owned).collect();
     let mut file = Buffer::from_bytes(PathBuf::from("a.py"), src.as_bytes());
     file.start_tree_sitter();
     file.parse_more(None);
@@ -740,9 +744,9 @@ fn a_preview_code_block_is_coloured_as_the_same_code_in_a_file() {
         assert_ne!(block.hl, syntect, "{token}");
     }
     let dart = vec![
-        "void main() {".to_string(),
-        "  print('x');".to_string(),
-        "}".to_string(),
+        "void main() {".to_owned(),
+        "  print('x');".to_owned(),
+        "}".to_owned(),
     ];
     let mut block = Buffer::block("dart", dart);
     block.highlight_to(usize::MAX, &theme);
@@ -760,7 +764,7 @@ fn a_preview_code_block_is_coloured_as_the_same_code_in_a_file() {
 fn elixir_docs_are_coloured_as_markdown() {
     let theme = theme::load("tokyonight-moon").unwrap();
     let style_at = |src: &str, word: &str| {
-        let lines = vec![src.to_string()];
+        let lines = vec![src.to_owned()];
         let mut parsed = super::Parsed::new(super::lang("elixir").unwrap(), &lines).unwrap();
         parsed.parse(None);
         let mut styles = super::Styles::new(&theme);
@@ -793,7 +797,7 @@ fn a_higher_priority_paints_over_a_later_capture_and_equal_ones_paint_in_order()
         let lang =
             super::compile_text("python", tree_sitter_python::LANGUAGE.into(), query).unwrap();
         let lang: &'static super::Lang = Box::leak(Box::new(lang));
-        let lines = vec!["x".to_string()];
+        let lines = vec!["x".to_owned()];
         let mut parsed = super::Parsed::new(lang, &lines).unwrap();
         parsed.parse(None);
         let mut styles = super::Styles::new(&theme);
@@ -980,9 +984,10 @@ fn speed() {
             .map(|_| {
                 settle(&mut b, l + 20, &theme);
                 let t = std::time::Instant::now();
-                b.lines[l] = match b.lines[l].contains("[1]") {
-                    true => b.lines[l].replace("[1]", "1"),
-                    false => b.lines[l].replace(" 1", " [1]"),
+                b.lines[l] = if b.lines[l].contains("[1]") {
+                    b.lines[l].replace("[1]", "1")
+                } else {
+                    b.lines[l].replace(" 1", " [1]")
                 };
                 b.edited(l);
                 b.highlight_to(l + 20, &theme);
@@ -1007,7 +1012,7 @@ fn an_injected_language_without_a_grammar_stays_plain_outside_markdown() {
     let theme = theme::load("tokyonight-moon").unwrap();
     let lang = super::lang("tsx").unwrap();
     let fg_at = |src: &str, word: &str| {
-        let lines = vec![src.to_string()];
+        let lines = vec![src.to_owned()];
         let mut parsed = super::Parsed::new(lang, &lines).unwrap();
         parsed.parse(None);
         let mut styles = super::Styles::new(&theme);
@@ -1031,7 +1036,7 @@ fn a_doc_comment_is_parsed_as_jsdoc_in_javascript_and_typescript() {
     let group = |g: &str| theme.group(g).unwrap().fg;
     let src = "/** @param {string} name */";
     for name in ["javascript", "typescript", "tsx"] {
-        let lines = vec![src.to_string()];
+        let lines = vec![src.to_owned()];
         let mut parsed = super::Parsed::new(super::lang(name).unwrap(), &lines).unwrap();
         parsed.parse(None);
         let mut styles = super::Styles::new(&theme);
@@ -1060,7 +1065,7 @@ fn an_edit_repaints_a_name_whose_pattern_spans_the_changed_lines() {
     b.parse_more(None);
     b.paint_to(usize::MAX, &theme);
     for value in ["  function() end", "  1"] {
-        b.lines[2] = value.to_string();
+        b.lines[2] = value.to_owned();
         b.edited(2);
         b.parse_more(None);
         b.paint_to(usize::MAX, &theme);
@@ -1104,7 +1109,7 @@ fn an_edit_inside_a_name_repaints_a_capture_its_predicate_moves_on_an_earlier_li
         "    TypeVar(\"T\")",
         "    TypeVr(\"T\")",
     ] {
-        b.lines[1] = value.to_string();
+        b.lines[1] = value.to_owned();
         b.edited(1);
         b.parse_more(None);
         b.paint_to(usize::MAX, &theme);

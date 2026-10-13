@@ -1,3 +1,4 @@
+#![expect(clippy::too_many_lines, reason = "#858")]
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 
@@ -16,7 +17,7 @@ fn screen(a: &mut App) -> String {
     (0..buf.area.height)
         .map(|y| {
             let row: String = (0..buf.area.width).map(|x| buf[(x, y)].symbol()).collect();
-            row.trim_end().to_string() + "\n"
+            row.trim_end().to_owned() + "\n"
         })
         .collect()
 }
@@ -193,7 +194,7 @@ fn a_note_is_typed_edited_deleted_and_undone_like_a_line() {
         !notes_file(&dir, "feature").exists(),
         "an empty note is never kept"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -213,7 +214,7 @@ fn code_and_note_edits_undo_in_the_order_they_were_made() {
     assert_eq!(parse(&read(&dir)).len(), 1, "the first note stays");
     keys(&mut a, &[(KeyCode::Char('z'), CTRL)]);
     assert!(!notes_file(&dir, "feature").exists());
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -241,7 +242,7 @@ fn copying_code_across_a_note_takes_only_the_code() {
         Some("between\n"),
         "on the note, its text"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -270,7 +271,7 @@ fn a_range_and_a_deleted_line_take_notes_and_the_agent_can_drop_them() {
     let s = screen(&mut a);
     assert!(!s.contains("these") && !s.contains("keep b"), "{s}");
     assert_eq!(a.notes_farewell(), None);
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -292,7 +293,7 @@ fn a_branch_with_slashes_keeps_its_notes_in_folders() {
         text.starts_with("# merl notes \u{b7} feat/x \u{2190} "),
         "{text}"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -301,7 +302,7 @@ fn notes_off_leave_a_alone() {
     a.notes.on = false;
     keys(&mut a, &[(KeyCode::Char('a'), NONE)]);
     assert_eq!(a.mode, Mode::Normal);
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -329,7 +330,7 @@ fn a_note_outlives_its_cut_line_and_reattaches_on_undo() {
     let row = s.lines().position(|l| l.contains("why c")).unwrap();
     assert!(!s.contains("(changed)"), "{s}");
     assert!(s.lines().nth(row - 1).unwrap().contains("3 c"), "{s}");
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -351,7 +352,7 @@ fn the_agent_dropping_the_file_under_an_open_note_neither_crashes_nor_brings_it_
     );
     keys(&mut a, &[(KeyCode::Char('z'), CTRL)]);
     assert_eq!(a.message, "note changed outside merl");
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -381,7 +382,7 @@ fn edit_mode_walks_through_a_note_and_home_keeps_to_its_line() {
     assert_eq!(parse(&read(&dir))[0].text, "abc\n> x\nydef");
     keys(&mut a, &[(KeyCode::Up, NONE)]);
     assert_eq!(a.mode, Mode::Note, "Up from line 4 back into the note");
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -406,5 +407,5 @@ fn notes_follow_the_branch_checked_out_and_need_one() {
         (a.mode, a.message.as_str()),
         (Mode::Normal, "notes need a branch")
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }

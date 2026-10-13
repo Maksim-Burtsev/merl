@@ -1,3 +1,4 @@
+#![expect(clippy::cognitive_complexity, reason = "#858")]
 use super::*;
 
 fn declares(line: &str, word: &str) -> bool {
@@ -237,7 +238,7 @@ import \"./Plain.sol\";
 #[test]
 fn solidity_import_paths_resolve_as_the_compiler_does() {
     let root = std::env::temp_dir().join(format!("merl-sol-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
     let write = |p: &str, text: &str| {
         let p = root.join(p);
         std::fs::create_dir_all(p.parent().unwrap()).unwrap();
@@ -293,7 +294,7 @@ fn solidity_import_paths_resolve_as_the_compiler_does() {
     assert_eq!(file("contracts/Fees.sol"), some("contracts/Fees.sol"));
     assert_eq!(file("./Missing.sol"), None);
     assert_eq!(file("../../../x.sol"), None);
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 #[test]
@@ -345,10 +346,10 @@ contract Shop {
     assert_eq!(local(4, "fee"), [4]);
     assert_eq!(local(12, "grams"), [10]);
     assert_eq!(local(11, "grams"), [10]);
-    assert!(local(14, "total").is_empty());
+    assert_eq!(local(14, "total"), [] as [usize; 0]);
     assert_eq!(local(3, "grams"), [3]);
-    assert!(local(14, "fee").is_empty());
-    assert!(local(6, "Shop").is_empty());
+    assert_eq!(local(14, "fee"), [] as [usize; 0]);
+    assert_eq!(local(6, "Shop"), [] as [usize; 0]);
     let tuple = "\
 contract Shop {
     function f() internal {
@@ -371,7 +372,7 @@ contract Shop {
     assert_eq!(local(9, "isAdmin"), [3]);
     assert_eq!(local(9, "execType"), [4]);
     assert_eq!(local(9, "callType"), [4]);
-    assert!(local(9, "ptr").is_empty());
+    assert_eq!(local(9, "ptr"), [] as [usize; 0]);
     assert_eq!(local(7, "ptr"), [6]);
     assert_eq!(local(7, "b"), [7]);
     let allman = "\
@@ -392,13 +393,13 @@ contract Shop {
             .map(|b| b.line1)
             .collect()
     };
-    assert!(local(2, "onlyOwner").is_empty());
-    assert!(local(4, "withinSupply").is_empty());
+    assert_eq!(local(2, "onlyOwner"), [] as [usize; 0]);
+    assert_eq!(local(4, "withinSupply"), [] as [usize; 0]);
     assert_eq!(local(4, "amount"), [2]);
     assert_eq!(local(9, "balances"), [7]);
     assert_eq!(local(9, "amount"), [8]);
     assert_eq!(local(9, "ok"), [9]);
-    assert!(local(9, "external").is_empty());
+    assert_eq!(local(9, "external"), [] as [usize; 0]);
 }
 
 #[test]

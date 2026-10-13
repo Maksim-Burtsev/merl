@@ -1,6 +1,7 @@
-use super::definition::resolution;
+#![expect(clippy::or_fun_call, reason = "#858")]
 use super::links::in_project;
-use super::*;
+use super::resolution::resolution;
+use super::{App, Path, search};
 
 use search::RefAt;
 

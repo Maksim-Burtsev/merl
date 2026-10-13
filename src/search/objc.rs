@@ -1,3 +1,5 @@
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
 use std::path::Path;
 use std::sync::LazyLock;

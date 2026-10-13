@@ -1,4 +1,4 @@
-use super::*;
+use super::{App, SIDE_OFF, search, shown_str, wrap};
 
 const MAX_PINNED: usize = 2;
 

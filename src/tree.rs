@@ -1,3 +1,5 @@
+#![expect(clippy::needless_collect, reason = "#858")]
+#![expect(clippy::nonminimal_bool, reason = "#858")]
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fs::FileType;
@@ -178,9 +180,9 @@ pub fn orders_on() -> bool {
 }
 
 impl Order {
-    pub fn read(file: &Path, under: &Path) -> Order {
+    pub fn read(file: &Path, under: &Path) -> Self {
         let text = std::fs::read_to_string(file).unwrap_or_default();
-        Order::of(
+        Self::of(
             text.lines()
                 .map(str::trim)
                 .filter(|l| !l.is_empty() && !l.starts_with('#'))
@@ -192,7 +194,7 @@ impl Order {
         )
     }
 
-    pub fn of<P: AsRef<Path>>(paths: impl IntoIterator<Item = P>) -> Order {
+    pub fn of<P: AsRef<Path>>(paths: impl IntoIterator<Item = P>) -> Self {
         let mut at = HashMap::new();
         for (i, path) in paths.into_iter().enumerate() {
             for a in path
@@ -203,7 +205,7 @@ impl Order {
                 at.entry(a.to_path_buf()).or_insert(i);
             }
         }
-        Order(at)
+        Self(at)
     }
 
     fn at(&self, path: &Path) -> usize {
@@ -224,7 +226,7 @@ impl OrderFile {
 }
 
 impl Tree {
-    pub fn refresh(&mut self, mut fresh: Tree) {
+    pub fn refresh(&mut self, mut fresh: Self) {
         let mut expanded = std::mem::take(&mut self.expanded_but_not_walked);
         let open = self.nodes.iter().filter(|n| n.expanded);
         expanded.extend(open.map(|n| n.path.clone()));
@@ -288,7 +290,7 @@ impl Tree {
                     })
                     .collect();
                 level.sort_by_cached_key(|c| sort_key(&c.path, c.is_dir, &Order::default()));
-                self.nodes.splice(i + 1..i + 1, level);
+                self.nodes.splice((i + 1)..=i, level);
             }
             i += 1;
         }
@@ -353,9 +355,10 @@ impl Tree {
         }
         for (top, head) in chains.into_iter().rev() {
             let end = self.end(head);
-            let shown_below = match self.nodes[head].expanded {
-                true => usize::MAX,
-                false => self.nodes[head].depth + 1,
+            let shown_below = if self.nodes[head].expanded {
+                usize::MAX
+            } else {
+                self.nodes[head].depth + 1
             };
             let mut hidden_below = usize::MAX;
             let mut lack = 0;
@@ -505,7 +508,7 @@ mod tests {
 
     fn fixture(tag: &str) -> Tree {
         let dir = std::env::temp_dir().join(format!("merl-tree-{}-{tag}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(dir.join("src/deep")).unwrap();
         for f in ["Zed.toml", "aaa.rs", "src/app.rs", "src/deep/x.rs"] {
             std::fs::write(dir.join(f), b"x").unwrap();
@@ -531,7 +534,7 @@ mod tests {
 
     fn project(tag: &str, files: &[&str]) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("merl-live-{}-{tag}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         for f in files {
             std::fs::create_dir_all(dir.join(f).parent().unwrap()).unwrap();
             std::fs::write(dir.join(f), b"x").unwrap();
@@ -599,8 +602,8 @@ mod tests {
             ("lib", "lib/x.py", "a.py"),
         ] {
             t.reveal(Path::new(from));
-            let _ = std::fs::remove_file(dir.join(delete));
-            let _ = std::fs::remove_dir_all(dir.join(delete));
+            drop(std::fs::remove_file(dir.join(delete)));
+            drop(std::fs::remove_dir_all(dir.join(delete)));
             t.refresh(build(&dir, false).0);
             assert_eq!(t.selected().unwrap().path, Path::new(to), "{delete}");
         }
@@ -668,7 +671,7 @@ mod tests {
     #[test]
     fn the_project_order_moves_the_rows_and_leaves_the_file_list_alone() {
         let dir = std::env::temp_dir().join(format!("merl-tree-order-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         for f in ["sub/a.rs", "sub/b.rs", "sub/z/c.rs", "top.rs"] {
             std::fs::create_dir_all(dir.join(f).parent().unwrap()).unwrap();
             std::fs::write(dir.join(f), "").unwrap();
@@ -807,7 +810,7 @@ mod tests {
             ],
             "a link that leads nowhere stays a row, as it was before FIFOs were left out"
         );
-        assert!(t.ignored_files().is_empty());
+        assert_eq!(t.ignored_files(), [] as [PathBuf; 0]);
         t.reveal(Path::new("build"));
         t.expand();
         t.reveal(Path::new("src"));
@@ -831,7 +834,7 @@ mod tests {
     #[test]
     fn dotfiles_are_walked_but_git_and_ignored_files_are_not() {
         let dir = std::env::temp_dir().join(format!("merl-tree-{}-dot", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         for d in [".git", ".hg", ".svn", ".github/workflows", ".cache"] {
             std::fs::create_dir_all(dir.join(d)).unwrap();
         }
@@ -856,7 +859,7 @@ mod tests {
                 PathBuf::from(".gitignore"),
             ]
         );
-        let row = |n: &Node| (n.path.to_str().unwrap().to_string(), n.ignored);
+        let row = |n: &Node| (n.path.to_str().unwrap().to_owned(), n.ignored);
         assert_eq!(
             t.nodes.iter().map(row).collect::<Vec<_>>(),
             [
@@ -998,7 +1001,7 @@ mod tests {
             ],
             "the link back up is a directory too, read one level when it is opened, not before"
         );
-        assert!(t.dirs() == HashSet::from([PathBuf::from("docs")]));
+        assert_eq!(t.dirs(), HashSet::from([PathBuf::from("docs")]));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -1148,7 +1151,7 @@ mod tests {
         let (t, files) = build(&dir, true);
         std::fs::remove_dir_all(&dir).unwrap();
         assert_eq!(files, [PathBuf::from(".gitignore"), "a.py".into()]);
-        let row = |n: &Node| (n.path.to_str().unwrap().to_string(), n.ignored);
+        let row = |n: &Node| (n.path.to_str().unwrap().to_owned(), n.ignored);
         assert_eq!(
             t.nodes.iter().map(row).collect::<Vec<_>>(),
             [

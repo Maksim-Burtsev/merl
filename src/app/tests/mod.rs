@@ -1,5 +1,5 @@
-use super::definition::resolution;
 use super::open::carried;
+use super::resolution::resolution;
 use super::*;
 
 mod android;
@@ -86,7 +86,7 @@ fn press(a: &mut App, code: KeyCode, m: KeyModifiers) -> bool {
 }
 fn files_app(tag: &str) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-hist-{}-{tag}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(&dir).unwrap();
     for name in ["a.rs", "b.rs"] {
         std::fs::write(dir.join(name), "x\n".repeat(40)).unwrap();
@@ -105,7 +105,7 @@ fn review_app(tag: &str) -> (PathBuf, App) {
 }
 fn review_app_with(tag: &str, extra: &[(&str, &[u8])]) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-{tag}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(dir.join("src")).unwrap();
     let git = |args: &[&str]| {
         let out = std::process::Command::new("git")
@@ -160,9 +160,12 @@ fn review_app_with_lock(tag: &str) -> (PathBuf, App) {
 }
 fn lock_lines(up: &[usize]) -> String {
     (0..9)
-        .map(|i| match up.contains(&i) {
-            true => format!("L{i}\n"),
-            false => format!("l{i}\n"),
+        .map(|i| {
+            if up.contains(&i) {
+                format!("L{i}\n")
+            } else {
+                format!("l{i}\n")
+            }
         })
         .collect()
 }
@@ -192,7 +195,7 @@ fn at(a: &App) -> (PathBuf, usize) {
 }
 fn project_app(tag: &str, files: &[(&str, &str)]) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-nav-{}-{tag}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     for (name, text) in files {
         let path = dir.join(name);
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -232,6 +235,7 @@ fn d_on(a: &mut App, file: &str, code: &str) {
         + code.rfind(|c: char| !is_word(c)).map_or(0, |i| i + 1);
     press(a, KeyCode::Char('d'), KeyModifiers::NONE);
 }
+#[expect(clippy::string_slice, reason = "#858")]
 fn definition_rows(a: &mut App) -> Vec<(String, String, String)> {
     let picker = a.picker.as_mut().expect("a picker");
     picker.settle();
@@ -259,21 +263,19 @@ enum Shown {
     Jump(String, String),
     Picker(String, Vec<(String, String, String)>),
 }
+#[expect(clippy::redundant_pattern_matching, reason = "#858")]
 fn shown(a: &mut App) -> Shown {
-    match a.picker {
-        Some(_) => {
-            let rows = definition_rows(a);
-            press(a, KeyCode::Esc, KeyModifiers::NONE);
-            Shown::Picker(a.message.clone(), rows)
-        }
-        None => {
-            let path = a.buf.path.as_deref().expect("a file");
-            let place = path.strip_prefix(&a.root).unwrap_or(path);
-            Shown::Jump(
-                a.message.clone(),
-                format!("{}:{}", place.display(), a.line + 1),
-            )
-        }
+    if let Some(_) = a.picker {
+        let rows = definition_rows(a);
+        press(a, KeyCode::Esc, KeyModifiers::NONE);
+        Shown::Picker(a.message.clone(), rows)
+    } else {
+        let path = a.buf.path.as_deref().expect("a file");
+        let place = path.strip_prefix(&a.root).unwrap_or(path);
+        Shown::Jump(
+            a.message.clone(),
+            format!("{}:{}", place.display(), a.line + 1),
+        )
     }
 }
 fn jump(status: &str, place: &str) -> Shown {
@@ -282,13 +284,13 @@ fn jump(status: &str, place: &str) -> Shown {
 fn picker(status: &str, rows: &[(&str, &str)]) -> Shown {
     let rows = rows
         .iter()
-        .map(|(name, place)| (name.to_string(), "by name".to_string(), place.to_string()))
+        .map(|(name, place)| (name.to_string(), "by name".to_owned(), place.to_string()))
         .collect();
     Shown::Picker(status.into(), rows)
 }
 fn external_root(tag: &str, files: &[(&str, &str)]) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("merl-root-{}-{tag}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     for (name, text) in files {
         let path = dir.join(name);
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();

@@ -1,3 +1,6 @@
+#![expect(clippy::cast_precision_loss, reason = "#858")]
+#![expect(clippy::format_push_string, reason = "#858")]
+#![expect(clippy::ignore_without_reason, reason = "#858")]
 use super::*;
 
 #[test]
@@ -23,29 +26,26 @@ fn d_bench() {
         a.jump_to(&path, line.parse().unwrap());
         a.col = col.parse().unwrap();
         let before = (a.buf.path.clone(), a.line);
-        let t = std::time::Instant::now();
+        let t = Instant::now();
         press(a, KeyCode::Char('d'), KeyModifiers::NONE);
         let ms = t.elapsed().as_micros() as f64 / 1000.0;
         let root = a.root.clone();
         let abs = |p: &Path| root.join(p).display().to_string();
-        let (outcome, targets) = match a.picker.as_mut() {
-            Some(p) => {
-                p.settle();
-                let rows = p.window(100_000).0;
-                let t: Vec<String> = rows
-                    .iter()
-                    .map(|r| format!("{}:{}", abs(&r.item.path), r.item.line))
-                    .collect();
-                ("picker", t.join(";"))
-            }
-            None => {
-                let now = (a.buf.path.clone(), a.line);
-                if now == before {
-                    ("stay", String::new())
-                } else {
-                    let p = now.0.as_deref().map(abs).unwrap_or_default();
-                    ("jump", format!("{p}:{}", now.1 + 1))
-                }
+        let (outcome, targets) = if let Some(p) = a.picker.as_mut() {
+            p.settle();
+            let rows = p.window(100_000).0;
+            let t: Vec<String> = rows
+                .iter()
+                .map(|r| format!("{}:{}", abs(&r.item.path), r.item.line))
+                .collect();
+            ("picker", t.join(";"))
+        } else {
+            let now = (a.buf.path.clone(), a.line);
+            if now == before {
+                ("stay", String::new())
+            } else {
+                let p = now.0.as_deref().map(abs).unwrap_or_default();
+                ("jump", format!("{p}:{}", now.1 + 1))
             }
         };
         let status = a.message.replace(['\t', '\n'], " ");

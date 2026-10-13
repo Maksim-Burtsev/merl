@@ -1,3 +1,9 @@
+#![expect(clippy::cast_possible_truncation, reason = "#858")]
+#![expect(clippy::items_after_statements, reason = "#858")]
+#![expect(clippy::match_same_arms, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
@@ -72,9 +78,10 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
     let mut spans = vec![
         Span::styled(
             app.rel_path(),
-            match theme.groups.is_empty() {
-                true => style.fg(theme.accent),
-                false => style,
+            if theme.groups.is_empty() {
+                style.fg(theme.accent)
+            } else {
+                style
             }
             .add_modifier(Modifier::BOLD),
         ),

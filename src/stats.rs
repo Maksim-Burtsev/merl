@@ -1,3 +1,8 @@
+#![expect(clippy::cast_possible_truncation, reason = "#858")]
+#![expect(clippy::cast_possible_wrap, reason = "#858")]
+#![expect(clippy::cast_sign_loss, reason = "#858")]
+#![expect(clippy::format_collect, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -33,15 +38,16 @@ pub static ACTIONS: LazyLock<Vec<Action>> = LazyLock::new(|| {
 
 fn sides(keys: &str) -> Vec<String> {
     let Some((first, second)) = keys.split_once(" / ") else {
-        return vec![keys.to_string()];
+        return vec![keys.to_owned()];
     };
     let prefix = first.find(": ").map_or("", |i| &first[..i + 2]);
     let head = first.rfind('+').map_or(prefix, |i| &first[..=i]);
-    let second = match second.contains('+') {
-        true => format!("{prefix}{second}"),
-        false => format!("{head}{second}"),
+    let second = if second.contains('+') {
+        format!("{prefix}{second}")
+    } else {
+        format!("{head}{second}")
     };
-    vec![first.to_string(), second]
+    vec![first.to_owned(), second]
 }
 
 pub fn name(key: KeyEvent) -> String {
@@ -235,8 +241,8 @@ fn table(rows: &Rows, today: i64) -> String {
     }
     keys.sort_by_key(|k| std::cmp::Reverse((k.presses_in_window, k.presses_ever)));
     let last = |day: Option<i64>| match day.map(|d| today - d) {
-        None => "never".to_string(),
-        Some(..=0) => "today".to_string(),
+        None => "never".to_owned(),
+        Some(..=0) => "today".to_owned(),
         Some(n) => format!("{n} day{} ago", plural(n as usize)),
     };
     let head = ["key", "30d", "missed", "all", "last", "what"].map(String::from);
@@ -328,7 +334,7 @@ mod tests {
     #[test]
     fn two_writers_add_up_and_unknown_actions_are_dropped() {
         let dir = std::env::temp_dir().join(format!("merl-keys-merge-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         let file = dir.join("state/merl/keys.tsv");
         let today = day("2026-09-23").unwrap();
         let none = HashMap::new();
@@ -347,7 +353,7 @@ mod tests {
         std::fs::write(&file, b"\xff\n").unwrap();
         assert!(add(&file, today, &HashMap::from([("d", 1)]), &none).is_err());
         assert_eq!(std::fs::read(&file).unwrap(), b"\xff\n");
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
     }
 
     #[test]
@@ -381,7 +387,7 @@ mod tests {
     #[test]
     fn misses_are_a_fourth_column() {
         let dir = std::env::temp_dir().join(format!("merl-keys-missed-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("keys.tsv");
         std::fs::write(
@@ -419,6 +425,6 @@ mod tests {
             month(&file, today).unwrap(),
             HashMap::from([("d", (6, 1)), ("}", (1, 2)), ("PgDn", (0, 3))])
         );
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
     }
 }

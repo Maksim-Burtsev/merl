@@ -1,3 +1,7 @@
+#![expect(clippy::items_after_statements, reason = "#858")]
+#![expect(clippy::match_same_arms, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
 use std::ops::Range;
 use std::sync::LazyLock;
@@ -44,9 +48,10 @@ pub fn c_code(text: &str) -> String {
             continue;
         }
         if directive {
-            let end = match b[i..].starts_with(b"/*") {
-                true => text[i + 2..].find("*/").map_or(b.len(), |n| i + n + 4),
-                false => i + 1,
+            let end = if b[i..].starts_with(b"/*") {
+                text[i + 2..].find("*/").map_or(b.len(), |n| i + n + 4)
+            } else {
+                i + 1
             };
             blank(&mut out, i, end);
             i = end;
@@ -341,9 +346,10 @@ fn bracket_contents_blanked(s: &str) -> String {
             ')' | ']' | '}' => depth = depth.saturating_sub(1),
             _ => {}
         }
-        match inside && depth > 0 && c != '\n' {
-            true => out.push_str(&" ".repeat(c.len_utf8())),
-            false => out.push(c),
+        if inside && depth > 0 && c != '\n' {
+            out.push_str(&" ".repeat(c.len_utf8()));
+        } else {
+            out.push(c);
         }
     }
     out
@@ -893,7 +899,7 @@ pub fn c_defines_member(text: &str, scopes: &[String], word: &str) -> bool {
     })
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CType {
     Name(String),
     Body(usize),
@@ -901,7 +907,7 @@ pub enum CType {
 pub fn c_receiver(before: &str) -> Option<CReceiver> {
     receiver(before, false)
 }
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct CReceiver {
     pub head: String,
     pub head_called: bool,
@@ -1239,7 +1245,7 @@ fn cpp_class_path(written: &str) -> Option<Vec<String>> {
     let path: Vec<String> = flat
         .split("::")
         .map(|p| p.trim().to_owned())
-        .skip_while(|p| p.is_empty())
+        .skip_while(String::is_empty)
         .collect();
     let named = |p: &String| {
         !p.is_empty()
@@ -1659,7 +1665,7 @@ mod tests {
     fn a_member_declaration_names_its_classes_up_to_a_function() {
         let text = "namespace leveldb {\nclass Iterator {\n public:\n  virtual bool Valid() const = 0;\n  bool Next() { return true; }\n};\n}\nnamespace a {\n  void g(int);\n}\nnamespace n {\nvoid f() {\n  struct Local {\n    void h();\n  };\n}\n}\nstruct {\n  void k();\n} x;\n";
         let class = |word: &str| c_member_class(text, line_of(text, &format!("{word}(")), word);
-        let path = |p: &[&str]| Some(p.iter().map(|s| s.to_string()).collect::<Vec<_>>());
+        let path = |p: &[&str]| Some(p.iter().map(ToString::to_string).collect::<Vec<_>>());
         assert_eq!(class("Valid"), path(&["leveldb", "Iterator"]));
         assert_eq!(class("Next"), None);
         assert_eq!(class("g"), None);
@@ -1688,7 +1694,7 @@ mod tests {
             Some(CReceiver {
                 head: head.to_owned(),
                 head_called: called,
-                fields: fields.iter().map(|f| f.to_string()).collect(),
+                fields: fields.iter().map(ToString::to_string).collect(),
             })
         };
         assert_eq!(c_receiver("x = a->b.c->"), r("a", false, &["b", "c"]));

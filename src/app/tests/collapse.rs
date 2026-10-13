@@ -67,7 +67,7 @@ fn f_folds_the_function_on_its_line_and_unfolds_it_again() {
     key(&mut a, KeyCode::Up);
     assert_eq!(a.line, 1);
     key(&mut a, KeyCode::Char('f'));
-    assert!(a.collapsed.is_empty());
+    assert_eq!(a.collapsed, [] as [(usize, usize); 0]);
 }
 
 #[test]
@@ -104,7 +104,7 @@ fn a_jump_into_a_fold_opens_it() {
     key(&mut a, KeyCode::Char('4'));
     key(&mut a, KeyCode::Enter);
     assert_eq!(a.line, 3);
-    assert!(a.collapsed.is_empty());
+    assert_eq!(a.collapsed, [] as [(usize, usize); 0]);
 }
 
 #[test]
@@ -119,7 +119,7 @@ fn a_fold_moves_with_the_lines_typed_above_it() {
     assert_eq!(a.collapsed, vec![(7, 8)]);
     a.go((7, 0));
     key(&mut a, KeyCode::Char('x'));
-    assert!(a.collapsed.is_empty());
+    assert_eq!(a.collapsed, [] as [(usize, usize); 0]);
 }
 
 #[test]
@@ -130,7 +130,7 @@ fn a_fold_stays_with_its_file() {
     a.jump_to(&dir.join("a.py"), 1);
     key(&mut a, KeyCode::Char('f'));
     a.jump_to(&dir.join("b.py"), 1);
-    assert!(a.collapsed.is_empty());
+    assert_eq!(a.collapsed, [] as [(usize, usize); 0]);
     a.jump_to(&dir.join("a.py"), 0);
     assert_eq!(a.collapsed, vec![(0, 1)]);
 }
@@ -164,7 +164,7 @@ fn a_reload_keeps_a_fold_whose_line_is_still_there() {
     assert_eq!(a.collapsed, vec![(8, 9)]);
     std::fs::write(&path, PY.replace("def write", "def save")).unwrap();
     a.reload(false);
-    assert!(a.collapsed.is_empty());
+    assert_eq!(a.collapsed, [] as [(usize, usize); 0]);
 }
 
 #[test]
@@ -205,7 +205,7 @@ fn an_objective_c_header_folds_as_objective_c_and_a_c_header_as_cpp() {
 fn f_folds_python_and_says_so_in_other_languages() {
     let mut a = app_as("txt", "a\n  b\n");
     key(&mut a, KeyCode::Char('f'));
-    assert!(a.collapsed.is_empty());
+    assert_eq!(a.collapsed, [] as [(usize, usize); 0]);
     assert_eq!(a.message, "no fold rules for .txt");
     let mut a = app_as("py", "x = [\n    1,\n]\n");
     a.go((1, 4));
@@ -213,7 +213,7 @@ fn f_folds_python_and_says_so_in_other_languages() {
     assert_eq!(a.collapsed, vec![(0, 2)], "a block outside any function");
     let mut a = app_as("py", "x = 1\ny = 2\n");
     key(&mut a, KeyCode::Char('f'));
-    assert!(a.collapsed.is_empty());
+    assert_eq!(a.collapsed, [] as [(usize, usize); 0]);
     assert_eq!(a.message, "nothing to fold");
 }
 
@@ -262,7 +262,7 @@ fn an_erlang_file_has_no_fold_rules_though_elixir_does() {
         "f(X) ->\n    case X of\n        1 -> one\n    end.\n",
     );
     key(&mut a, KeyCode::Char('f'));
-    assert!(a.collapsed.is_empty());
+    assert_eq!(a.collapsed, [] as [(usize, usize); 0]);
     assert_eq!(a.message, "no fold rules for .erl");
 }
 
@@ -300,7 +300,7 @@ fn backspace_or_delete_into_a_fold_opens_it_and_changes_nothing() {
     a.go((2, 0));
     key(&mut a, KeyCode::Enter);
     key(&mut a, KeyCode::Backspace);
-    assert!(a.collapsed.is_empty());
+    assert_eq!(a.collapsed, [] as [(usize, usize); 0]);
     assert_eq!(a.buf.lines.join("\n") + "\n", text);
     key(&mut a, KeyCode::Esc);
     a.go((0, 0));
@@ -308,7 +308,7 @@ fn backspace_or_delete_into_a_fold_opens_it_and_changes_nothing() {
     key(&mut a, KeyCode::Enter);
     key(&mut a, KeyCode::End);
     key(&mut a, KeyCode::Delete);
-    assert!(a.collapsed.is_empty());
+    assert_eq!(a.collapsed, [] as [(usize, usize); 0]);
     assert_eq!(a.buf.lines.join("\n") + "\n", text);
 }
 

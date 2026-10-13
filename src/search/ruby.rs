@@ -1,9 +1,15 @@
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::*;
+use super::{
+    Binding, Kind, Value, group, indent, literal_lines, ruby_assignment, ruby_singleton, split_top,
+    uncommented,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Opens {
@@ -223,9 +229,10 @@ pub fn ruby_declared_path(text: &str, line1: usize) -> Option<String> {
         LazyLock::new(|| Regex::new(r"^\s*(?:class|module)\s+(?:::)?([A-Z][\w:]*)").unwrap());
     let own = NAME.captures(text.lines().nth(line1.checked_sub(1)?)?)?[1].to_owned();
     let outer = ruby_class_path(text, line1);
-    Some(match outer.is_empty() {
-        true => own,
-        false => format!("{outer}::{own}"),
+    Some(if outer.is_empty() {
+        own
+    } else {
+        format!("{outer}::{own}")
     })
 }
 
@@ -412,19 +419,16 @@ pub fn ruby_roots(
     ]
     .into_iter()
     .find(|p| !version.is_empty() && p.is_dir());
-    let stdlib: Vec<PathBuf> = match prefix {
-        Some(prefix) => {
-            let lib = prefix.join("lib/ruby");
-            homes.extend(abi_dirs_named_after_a_version(&lib.join("gems")));
-            abi_dirs_named_after_a_version(&lib)
-        }
-        None => {
-            let said = ask().unwrap_or_default();
-            let mut said = said.lines().map(PathBuf::from);
-            let stdlib = said.next().into_iter().collect();
-            homes.extend(said);
-            stdlib
-        }
+    let stdlib: Vec<PathBuf> = if let Some(prefix) = prefix {
+        let lib = prefix.join("lib/ruby");
+        homes.extend(abi_dirs_named_after_a_version(&lib.join("gems")));
+        abi_dirs_named_after_a_version(&lib)
+    } else {
+        let said = ask().unwrap_or_default();
+        let mut said = said.lines().map(PathBuf::from);
+        let stdlib = said.next().into_iter().collect();
+        homes.extend(said);
+        stdlib
     };
     let found: Vec<PathBuf> = gems
         .iter()

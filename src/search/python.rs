@@ -1,6 +1,12 @@
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
 
-use super::*;
+use super::{
+    Binding, Group, Kind, Value, code, continued, group, indent, literal_lines, names, split_top,
+    uncommented, value_of,
+};
 
 pub const PYTHON_BUILTINS: &[&str] = &[
     "ArithmeticError",

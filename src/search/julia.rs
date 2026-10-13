@@ -1,9 +1,16 @@
+#![expect(clippy::case_sensitive_file_extension_comparisons, reason = "#858")]
+#![expect(clippy::items_after_statements, reason = "#858")]
+#![expect(clippy::iter_on_single_items, reason = "#858")]
+#![expect(clippy::match_bool, reason = "#858")]
+#![expect(clippy::nonminimal_bool, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::*;
+use super::{Binding, Import, Value, indent};
 
 macro_rules! julia_macros {
     () => {

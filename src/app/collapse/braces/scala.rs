@@ -1,3 +1,5 @@
+#![expect(clippy::excessive_nesting, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
 use super::super::indent;
 use super::{K, Lexer, Model};
 
@@ -455,9 +457,10 @@ impl Model<'_, '_> {
                     let had = !blocks.is_empty();
                     blocks.retain(|&c| c <= at);
                     if blocks.is_empty() {
-                        return match had {
-                            true => self.sc_outdent(j, head, lines),
-                            false => self.toks[last].end,
+                        return if had {
+                            self.sc_outdent(j, head, lines)
+                        } else {
+                            self.toks[last].end
                         };
                     }
                 }
@@ -496,9 +499,10 @@ impl Model<'_, '_> {
             }
             (last, j) = (j, j + 1);
         }
-        match j >= n && !blocks.is_empty() {
-            true => lines.len() - 1,
-            false => self.toks[last].end,
+        if j >= n && !blocks.is_empty() {
+            lines.len() - 1
+        } else {
+            self.toks[last].end
         }
     }
 

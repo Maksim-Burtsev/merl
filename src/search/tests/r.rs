@@ -37,7 +37,7 @@ fn r_declaration_forms() {
         ),
         (r#"setMethod("area", "Circle", function(shape) 1)"#, "area"),
         (
-            r#"methods::setRefClass('Account', fields = list())"#,
+            r"methods::setRefClass('Account', fields = list())",
             "Account",
         ),
         (r#"setClass(Class = "Person")"#, "Person"),
@@ -169,7 +169,7 @@ fn r_sources_a_file_from_the_root_then_from_its_directory() {
     assert_eq!(r_source(line, 7).as_deref(), Some("R/money.R"));
     assert_eq!(r_source(line, 2), None);
     assert_eq!(
-        r_source(r#"sys.source(file = 'a.R')"#, 20).as_deref(),
+        r_source(r"sys.source(file = 'a.R')", 20).as_deref(),
         Some("a.R")
     );
     assert_eq!(
@@ -180,7 +180,10 @@ fn r_sources_a_file_from_the_root_then_from_its_directory() {
         r_files(Path::new("scripts"), "helpers.R", &files),
         [PathBuf::from("scripts/helpers.R")]
     );
-    assert!(r_files(Path::new("R"), "missing.R", &files).is_empty());
+    assert_eq!(
+        r_files(Path::new("R"), "missing.R", &files),
+        [] as [PathBuf; 0]
+    );
 }
 
 #[test]

@@ -1,3 +1,7 @@
+#![expect(clippy::cognitive_complexity, reason = "#858")]
+#![expect(clippy::format_collect, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
 use super::*;
 
 #[test]
@@ -36,7 +40,7 @@ fn review_walks_past_files_without_hunks() {
     assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
     assert_eq!(a.message, "skipped 1 file without hunks");
     assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/7");
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -59,7 +63,7 @@ fn review_stops_on_an_image_where_the_terminal_draws_pictures() {
     assert_eq!(at(&a), (dir.join("a.png"), 0));
     let r = a.review.clone().unwrap();
     assert!(r.files[1].is_stop(&dir, true) && !r.files[1].is_stop(&dir, false));
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -161,7 +165,7 @@ fn viewed_marks_follow_the_walk_the_key_and_the_disk() {
         a.viewed.contains_key(Path::new("tail")) && a.hidden.is_empty(),
         "viewed again, it has its tick"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 fn panel_rows(a: &App) -> Vec<String> {
@@ -253,7 +257,7 @@ fn viewed_marks_outlive_the_session_and_a_changed_file_loses_its_tick() {
         (paths(&["src/a.rs", "tail"]), vec![]),
         "a tick taken off stays off"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -316,7 +320,7 @@ fn the_agents_order_moves_the_files_and_leaves_the_viewed_marks_alone() {
         paths(&["added.rs", "src/a.rs", "new", "tail", "crlf.txt", "gone"])
     );
     assert_eq!(marks(&a), (paths(&["src/a.rs"]), paths(&["tail"])));
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -400,7 +404,7 @@ fn viewed_marks_are_the_branch_s_through_a_detached_head_and_a_namesake_tag() {
     );
     press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
     assert_eq!(std::fs::read_to_string(&store).unwrap(), kept);
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -442,7 +446,7 @@ fn a_viewed_mark_that_cannot_be_saved_says_so() {
         );
     }
     assert_eq!(std::fs::read(&store).unwrap(), b"\xff\n");
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -456,7 +460,7 @@ fn a_viewed_store_that_fails_says_why_in_a_few_words() {
         "{}",
         a.message
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
     let (dir, mut a) = review_app("viewedio2");
     std::fs::create_dir_all(dir.join(".git/merl/viewed")).unwrap();
     press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
@@ -466,7 +470,7 @@ fn a_viewed_store_that_fails_says_why_in_a_few_words() {
         "{}",
         a.message
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -489,7 +493,7 @@ fn a_viewed_store_that_cannot_be_read_is_not_taken_for_an_empty_one() {
     a.review_refreshed(fresh);
     assert_eq!(marks(&a).0, [PathBuf::from("new")]);
     assert_eq!(std::fs::read(&store).unwrap(), b"\xff\n");
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -519,7 +523,7 @@ fn a_refresh_that_cannot_find_the_store_keeps_the_key() {
     let store = std::fs::read_to_string(dir.join(".git/merl/viewed")).unwrap();
     let other: Vec<_> = store.lines().filter(|l| l.contains("\tother\t")).collect();
     assert!(other.len() == 1 && other[0].ends_with("\ttail"), "{store}");
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -532,7 +536,7 @@ fn a_name_with_a_newline_is_not_kept_as_another_file() {
     }
     let a = review_start(&dir, None);
     assert_eq!(marks(&a), (vec![PathBuf::from("tail")], vec![]));
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -551,7 +555,7 @@ fn a_start_leaves_the_viewed_store_as_it_is() {
         old,
         "a start without a new mark does not start the store's 30 days again"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -592,7 +596,7 @@ fn a_stopped_rebase_keeps_the_ticks_of_files_not_replayed_yet() {
     let both = (vec![PathBuf::from("late"), PathBuf::from("tail")], vec![]);
     assert_eq!(marks(&a), both);
     assert_eq!(marks(&review_start(&dir, None)), both);
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -618,7 +622,7 @@ fn the_viewed_store_keeps_other_bases_and_names_as_they_are() {
     let paths = |p: &[&str]| p.iter().map(PathBuf::from).collect::<Vec<_>>();
     assert_eq!(marks(&review_start(&dir, None)).0, paths(&["cr\r", "tail"]));
     assert_eq!(marks(&review_start(&dir, Some("dev"))).0, paths(&["new"]));
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -647,8 +651,8 @@ fn a_worktree_review_shares_the_viewed_marks() {
             .exists(),
         "the store is in the common git dir, not the worktree's"
     );
-    let _ = std::fs::remove_dir_all(wt);
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(wt));
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -690,7 +694,7 @@ fn the_viewed_store_forgets_old_reviews_and_is_replaced_whole() {
         .unwrap()
         .collect();
     assert_eq!(left.len(), 1, "no temp file left behind");
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -711,7 +715,7 @@ fn a_live_review_follows_edits_untracked_files_and_commits() {
             .map(|f| (f.status, f.path.display().to_string(), f.added, f.deleted))
             .collect()
     };
-    let row = |s: char, p: &str, n: usize, m: usize| (s, p.to_string(), n, m);
+    let row = |s: char, p: &str, n: usize, m: usize| (s, p.to_owned(), n, m);
     let place = |a: &App| {
         let vis = a.tree.visible();
         let row = vis.iter().position(|&i| i == a.tree.cursor).unwrap();
@@ -838,7 +842,7 @@ fn a_live_review_follows_edits_untracked_files_and_commits() {
         (dir.join("new"), 0),
         "the base caught up with the branch: keys find no row"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -881,7 +885,7 @@ fn the_open_file_gets_new_marks_when_only_the_branch_changed() {
     );
     assert_eq!(a.diff.marks.len(), 3, "every line added");
     assert_eq!(at(&a), (keep, 0));
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -899,14 +903,14 @@ fn a_deleted_file_written_again_is_one_row() {
     assert_eq!(at(&a), (dir.join("gone"), 0));
     assert_eq!(
         (a.buf.lines.clone(), a.buf.readonly),
-        (vec!["fresh".to_string()], None)
+        (vec!["fresh".to_owned()], None)
     );
     press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
     assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!(at(&a), (dir.join("new"), 0));
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -958,7 +962,7 @@ fn the_current_hunk_stays_current_when_one_is_added_above() {
     let text = |n: usize| (0..n).map(|i| format!("{i}\n")).collect::<String>();
     for (old, new, l, want) in [
         (text(6), text(6) + "x\n", 3, 3),
-        (text(6), "x\n".to_string() + &text(6), 3, 4),
+        (text(6), "x\n".to_owned() + &text(6), 3, 4),
         (text(6), text(6).replace("3\n", "x\ny\n"), 3, 3),
         (text(6), text(6).replace("1\n", ""), 3, 2),
         ("a\nb\n".into(), "a\na\nb\n".into(), 0, 0),
@@ -972,7 +976,7 @@ fn the_current_hunk_stays_current_when_one_is_added_above() {
              it, and its own lines gone it takes the line after them"
         );
     }
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -1043,7 +1047,7 @@ fn review_walks_past_a_submodule_and_a_file_that_does_not_open() {
         "nothing ahead opens: the reason again, not a retry: {}",
         a.message
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[cfg(unix)]
@@ -1100,7 +1104,7 @@ fn review_walks_past_a_link_to_a_directory_wherever_it_is() {
             back.iter().rev().collect::<Vec<_>>(),
             forward.iter().collect::<Vec<_>>()
         );
-        let _ = std::fs::remove_dir_all(dir);
+        drop(std::fs::remove_dir_all(dir));
     }
 }
 
@@ -1137,7 +1141,7 @@ fn enter_on_a_link_to_a_directory_in_the_review_panel_opens_nothing() {
     let before = (at(&a), a.message.clone());
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!((at(&a), a.message.clone()), before);
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -1408,7 +1412,7 @@ fn c_and_big_c_from_another_file_go_back_to_the_hunk_left() {
         );
         lock("src/a.rs", 0o644);
     }
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -1423,7 +1427,7 @@ fn the_hunk_left_is_forgotten_when_the_review_follows_another_branch() {
     a.review_refreshed(fresh);
     c(&mut a);
     assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -1443,7 +1447,7 @@ fn merl_review_started_on_nothing_makes_its_first_hunk_the_walks() {
         (dir.join("src/a.rs"), 1),
         "before any key the walk stands on the first hunk merl opened"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -1463,7 +1467,7 @@ fn the_hunk_left_is_found_by_its_place_in_its_file() {
     };
     let here = |a: &App| (at(a).0, a.buf.lines[a.line].clone());
     let src = dir.join("src/a.rs");
-    let on = |word: &str| (src.clone(), word.to_string());
+    let on = |word: &str| (src.clone(), word.to_owned());
     write(&mut a, "src/a.rs", "a\nB\nc\nD\ne\nF\n");
     a.jump_to(&src, 4);
     c(&mut a);
@@ -1534,7 +1538,7 @@ fn the_hunk_left_is_found_by_its_place_in_its_file() {
         "the agent deleted the file: back to its top"
     );
     assert_eq!(a.buf.readonly, Some("deleted in this branch"));
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -1566,7 +1570,7 @@ fn a_deleted_file_with_nothing_to_read_is_gone_back_to() {
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!(at(&a), (dir.join("empty"), 0));
     assert_eq!(a.buf.readonly, Some("deleted in this branch"));
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -1588,7 +1592,7 @@ fn review_marks_changed_rows_in_u_and_s_and_lists_its_files_first_in_o() {
         (0..buf.area.height)
             .map(|y| {
                 let cells = (0..buf.area.width).map(|x| &buf[(x, y)]);
-                let text: String = cells.clone().map(|c| c.symbol()).collect();
+                let text: String = cells.clone().map(ratatui::buffer::Cell::symbol).collect();
                 (text, cells.map(|c| c.fg).collect::<Vec<_>>())
             })
             .collect::<Vec<_>>()
@@ -1661,7 +1665,7 @@ fn review_marks_changed_rows_in_u_and_s_and_lists_its_files_first_in_o() {
     press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
     let rows = screen(&mut a);
     assert!(!rows.iter().any(|(t, _)| t.contains("M src/a.rs")));
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -1781,7 +1785,7 @@ fn deleted_lines_are_lines_of_the_text() {
     assert_eq!((at(&a), a.at()), ((dir.join("new"), 0), File(0)));
     key(&mut a, KeyCode::Char('c'));
     assert_eq!((a.line_str(), a.at()), ("t2", Deleted(1, 0)));
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -1870,7 +1874,7 @@ fn a_deleted_line_is_refused_and_returned_to_every_way() {
         "lines appended under a deletion: git keys it above the first new line, and the cursor \
          stays on the deleted line it was reading"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -1952,7 +1956,7 @@ fn a_generated_file_is_one_stop_until_enter_loads_its_diff() {
         again.folded_here().is_none(),
         "loaded stays loaded when the branch is reviewed again"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -2011,7 +2015,7 @@ fn a_fold_keeps_a_jumps_line_and_never_covers_text_in_sight() {
     );
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     assert!(a.folded_here().is_none(), "still in sight after the edit");
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -2067,7 +2071,7 @@ fn review_stops_on_every_empty_file_and_walks_past_a_binary_one() {
 
 fn branch_repo(tag: &str, base: &[(&str, &str)], work: &[&[&str]]) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("merl-{tag}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     let git = |args: &[&str]| {
         let mut cmd = std::process::Command::new("git");
         let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
@@ -2122,7 +2126,7 @@ fn a_review_whose_first_file_is_deleted_opens_on_it() {
         assert_eq!(a.empty_note().as_deref(), note);
         press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
         assert_eq!(at(&a), (dir.join("b.py"), 0));
-        let _ = std::fs::remove_dir_all(dir);
+        drop(std::fs::remove_dir_all(dir));
     }
 }
 
@@ -2150,8 +2154,8 @@ fn an_empty_file_of_the_review_shows_its_note_until_it_has_text() {
     let (plain_dir, mut plain) = project_app("emptynote", &[("blank", "")]);
     plain.jump_to(&plain_dir.join("blank"), 1);
     assert_eq!(plain.empty_note(), None);
-    let _ = std::fs::remove_dir_all(plain_dir);
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(plain_dir));
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -2220,7 +2224,7 @@ fn a_file_renamed_without_changes_hides_its_text_and_takes_only_the_keys_that_le
             .has_hunks()
     );
     assert_eq!((a.mode, a.renamed_here()), (Mode::Edit, None));
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -2246,7 +2250,7 @@ fn a_jump_into_a_file_renamed_without_changes_shows_its_code_and_the_walk_still_
         .map(|(o, n)| (o.to_path_buf(), n.to_path_buf()));
     let words = (PathBuf::from("text.py"), PathBuf::from("words.py"));
     assert_eq!(shown, Some(words));
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -2258,7 +2262,7 @@ fn a_review_started_on_a_line_stays_on_it() {
     let mut a = App::new(dir.clone(), tree, files, buf, Some((4, 1)));
     a.start_review(review);
     assert_eq!(a.line, 3);
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -2278,7 +2282,7 @@ fn a_review_says_the_unread_marks_over_the_pushed_branch_over_the_skipped_files(
     std::fs::create_dir_all(dir.join(".git/merl/viewed")).unwrap();
     let said = start(&dir);
     assert!(said.starts_with("viewed marks not read: "), "{said}");
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -2287,7 +2291,7 @@ fn a_file_the_branch_deleted_is_viewed_with_the_hash_zero() {
     a.jump_to(&dir.join("gone"), 1);
     press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
     assert_eq!(a.viewed.get(Path::new("gone")), Some(&0));
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -2303,7 +2307,7 @@ fn a_mark_the_listing_dropped_is_hidden_though_the_file_is_as_viewed() {
         (vec![], vec![PathBuf::from("tail")]),
         "kept for when the listing has it again"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -2317,7 +2321,7 @@ fn an_unfolded_file_stays_unfolded_whatever_is_written_into_it() {
     let mut a = review_start(&dir, None);
     a.jump_to(&dir.join("poetry.lock"), 1);
     assert!(a.folded_here().is_none());
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -2332,7 +2336,7 @@ fn cutting_a_line_above_a_changed_pair_draws_before_the_diff_catches_up() {
     press(&mut a, KeyCode::Char('x'), KeyModifiers::CONTROL);
     t.draw(|f| crate::ui::draw(f, &mut a, &theme)).unwrap();
     assert_eq!(a.buf.lines.len(), 5);
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 fn walk_into(a: &mut App, rel: &str) {

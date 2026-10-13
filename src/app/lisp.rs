@@ -1,4 +1,6 @@
-use super::*;
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+use super::{App, Candidate, Kind, Reason, search};
 
 impl App {
     pub(super) fn binding_lines(
@@ -10,9 +12,10 @@ impl App {
         bare: bool,
         name: &str,
     ) -> Vec<usize> {
-        let found = match search::lisp(kind) && bare && line == self.line + 1 {
-            true => search::lisp_bindings_at(kind, text, line, col, name),
-            false => search::bindings(kind, text, line, name),
+        let found = if search::lisp(kind) && bare && line == self.line + 1 {
+            search::lisp_bindings_at(kind, text, line, col, name)
+        } else {
+            search::bindings(kind, text, line, name)
         };
         found.iter().map(|b| b.line1).collect()
     }
@@ -59,9 +62,10 @@ impl App {
         };
         let files = search::clojure_ns_files(&ns, &self.files);
         let pattern = search::def_patterns(Kind::Clojure, name).join("|");
-        let hits = match files.is_empty() {
-            true => Vec::new(),
-            false => self.declaring(Kind::Clojure, name, self.grep_in(&pattern, &files)),
+        let hits = if files.is_empty() {
+            Vec::new()
+        } else {
+            self.declaring(Kind::Clojure, name, self.grep_in(&pattern, &files))
         };
         if hits.is_empty() && !files.is_empty() {
             return (name != word).then(|| self.module_candidates(files));

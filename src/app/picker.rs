@@ -1,4 +1,9 @@
-use super::*;
+#![expect(clippy::cast_possible_truncation, reason = "#858")]
+#![expect(clippy::format_collect, reason = "#858")]
+use super::{
+    App, HashMap, Instant, KeyCode, KeyEvent, Mode, PathBuf, Pick, PickItem, Picker, PickerKind,
+    SEARCH_PAUSE, error_text, search,
+};
 
 const RECENT_MAX: usize = 200;
 
@@ -83,7 +88,7 @@ impl App {
             .and_then(|()| std::fs::write(&tmp, text))
             .and_then(|()| std::fs::rename(&tmp, file));
         if written.is_err() {
-            let _ = std::fs::remove_file(&tmp);
+            drop(std::fs::remove_file(&tmp));
         }
     }
 
@@ -96,7 +101,7 @@ impl App {
         let title = if cut {
             format!("{} (first {})", kind.title(), search::MAX_HITS)
         } else {
-            kind.title().to_string()
+            kind.title().to_owned()
         };
         self.picker = Some(Picker::new(title, items, false));
         self.mode = Mode::Picker(kind);
@@ -155,14 +160,14 @@ impl App {
             }
             Pick::Accept(item) if self.mode == Mode::Picker(PickerKind::Themes) => {
                 if let Err(e) = crate::theme::load_from(self.theme_dir.as_deref(), &item.label) {
-                    self.message = super::error_text(&e);
+                    self.message = error_text(&e);
                     return;
                 }
                 self.theme = item.label;
                 self.message = match &self.config {
                     Some(path) => match crate::theme::save(path, &self.theme) {
                         Ok(()) => format!("theme {} saved", self.theme),
-                        Err(e) => super::error_text(&e),
+                        Err(e) => error_text(&e),
                     },
                     None => format!("theme {}", self.theme),
                 };

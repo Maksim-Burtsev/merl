@@ -1,3 +1,6 @@
+#![expect(clippy::cast_possible_truncation, reason = "#858")]
+#![cfg_attr(test, expect(clippy::format_push_string, reason = "#858"))]
+#![expect(clippy::or_fun_call, reason = "#858")]
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::io::Write as _;
@@ -44,7 +47,7 @@ struct Cur {
 }
 
 impl Drill {
-    pub fn new(n: usize, keys: Option<&Path>, log: Option<PathBuf>, today: i64) -> Result<Drill> {
+    pub fn new(n: usize, keys: Option<&Path>, log: Option<PathBuf>, today: i64) -> Result<Self> {
         let work = match keys {
             Some(keys) => stats::month(keys, today)?,
             None => HashMap::new(),
@@ -61,7 +64,7 @@ impl Drill {
         let seed = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_or(0, |d| d.as_nanos() as u64);
-        Ok(Drill {
+        Ok(Self {
             n,
             answers: Vec::new(),
             attempts,
@@ -131,9 +134,12 @@ impl Drill {
             .map(|a| a.0)
             .collect();
         let weights: Vec<u64> = (0..POOL.len())
-            .map(|t| match recent.contains(&t) {
-                true => 0,
-                false => u64::from(self.weight(POOL[t].key)),
+            .map(|t| {
+                if recent.contains(&t) {
+                    0
+                } else {
+                    u64::from(self.weight(POOL[t].key))
+                }
             })
             .collect();
         let mut r = self.splitmix64() % weights.iter().sum::<u64>();
@@ -165,7 +171,7 @@ impl Drill {
         if let Some(dir) = log.parent() {
             std::fs::create_dir_all(dir).with_context(ctx)?;
         }
-        let ms = ms.map_or("miss".to_string(), |ms| ms.to_string());
+        let ms = ms.map_or("miss".to_owned(), |ms| ms.to_string());
         let line = format!("{}\t{key}\t{ms}\n", stats::date(stats::utc_today()));
         let mut file = (std::fs::OpenOptions::new().create(true).append(true))
             .open(log)
@@ -250,7 +256,7 @@ fn median(mut v: Vec<u32>) -> Option<u32> {
     match v.len() {
         0 => None,
         n if n % 2 == 1 => Some(v[mid]),
-        _ => Some(((u64::from(v[mid - 1]) + u64::from(v[mid])) / 2) as u32),
+        _ => Some(u64::midpoint(u64::from(v[mid - 1]), u64::from(v[mid])) as u32),
     }
 }
 
@@ -274,16 +280,17 @@ pub fn check(app: &mut App, action: Option<&str>) {
         return;
     };
     let (said, logged) = match (named, hit) {
-        (true, _) => ("\u{2713}".to_string(), Ok(())),
+        (true, _) => ("\u{2713}".to_owned(), Ok(())),
         (false, true) => (
             format!("\u{2713} {:.1} s", f64::from(ms) / 1000.0),
             d.answer(task, Some(ms)),
         ),
-        (false, false) => ("miss".to_string(), d.answer(task, None)),
+        (false, false) => ("miss".to_owned(), d.answer(task, None)),
     };
-    let set = match named || hit {
-        true => next(app),
-        false => run(app, task, true),
+    let set = if named || hit {
+        next(app)
+    } else {
+        run(app, task, true)
     };
     app.message = match logged.and(set) {
         Ok(()) => said,
@@ -295,12 +302,11 @@ pub fn next(app: &mut App) -> Result<()> {
     let Some(d) = drill(app) else {
         return Ok(());
     };
-    match d.pick() {
-        Some(task) => run(app, task, false),
-        None => {
-            d.cur = None;
-            Ok(())
-        }
+    if let Some(task) = d.pick() {
+        run(app, task, false)
+    } else {
+        d.cur = None;
+        Ok(())
     }
 }
 
@@ -358,7 +364,7 @@ mod tests {
     #[test]
     fn a_weight_is_the_work_factor_times_the_drill_factor() {
         let dir = dir("weights");
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(&dir).unwrap();
         let today = stats::utc_today();
         let ago = |days| stats::date(today - days);
@@ -486,7 +492,7 @@ mod tests {
     fn drill_app(name: &str, n: usize) -> (App, PathBuf) {
         let mut a = app(name, (80, 24));
         let log = dir(name).with_extension("tsv");
-        let _ = std::fs::remove_file(&log);
+        drop(std::fs::remove_file(&log));
         let d = Drill::new(n, None, Some(log.clone()), stats::utc_today()).unwrap();
         a.tutor.as_mut().unwrap().drill = Some(d);
         (a, log)
@@ -495,13 +501,13 @@ mod tests {
     fn logged(log: &Path) -> Vec<String> {
         let text = std::fs::read_to_string(log).unwrap_or_default();
         text.lines()
-            .map(|l| l.split_once('\t').unwrap().1.to_string())
+            .map(|l| l.split_once('\t').unwrap().1.to_owned())
             .collect()
     }
 
     fn clean_up(name: &str, log: &Path) {
-        let _ = std::fs::remove_dir_all(dir(name));
-        let _ = std::fs::remove_file(log);
+        drop(std::fs::remove_dir_all(dir(name)));
+        drop(std::fs::remove_file(log));
     }
 
     #[test]
@@ -515,7 +521,7 @@ mod tests {
             a.message,
             format!("miss  {}: is a directory", log.display())
         );
-        let _ = std::fs::remove_dir_all(&log);
+        drop(std::fs::remove_dir_all(&log));
         clean_up("drill-io", &log);
     }
 
@@ -524,17 +530,17 @@ mod tests {
         let (mut a, log) = drill_app("drill-miss", 2);
         let t = task("Edit: Alt+Backspace");
         run(&mut a, t, false).unwrap();
-        assert_eq!(on_screen(&a), (" Drill 1/2".to_string(), POOL[t].drill));
+        assert_eq!(on_screen(&a), (" Drill 1/2".to_owned(), POOL[t].drill));
         press(&mut a, &"<BS>".repeat(11));
         assert_eq!(a.message, "miss");
         assert_eq!(logged(&log), ["Edit: Alt+Backspace\tmiss"]);
-        assert_eq!(on_screen(&a), (" Drill 1/2".to_string(), POOL[t].tutor));
+        assert_eq!(on_screen(&a), (" Drill 1/2".to_owned(), POOL[t].tutor));
         assert!(!(POOL[t].done)(&a), "the redo starts from the task's start");
         press(&mut a, POOL[t].answer);
         assert_eq!(a.message, "\u{2713}");
         assert_eq!(logged(&log).len(), 1, "the redo is logged");
         let o = task("o");
-        assert_eq!(on_screen(&a), (" Drill 2/2".to_string(), POOL[o].drill));
+        assert_eq!(on_screen(&a), (" Drill 2/2".to_owned(), POOL[o].drill));
         press(&mut a, POOL[o].answer);
         assert!(
             a.message.starts_with("\u{2713} ") && a.message.ends_with(" s"),

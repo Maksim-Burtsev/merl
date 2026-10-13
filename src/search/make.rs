@@ -1,3 +1,4 @@
+#![expect(clippy::string_slice, reason = "#858")]
 pub fn make_fallback_patterns(word: &str) -> Vec<String> {
     let w = regex::escape(word);
     let target = r"(?:[^\s:=#$(){}]+|\$[({][^)}]*[)}])+";

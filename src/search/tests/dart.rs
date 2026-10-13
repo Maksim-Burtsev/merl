@@ -1,3 +1,4 @@
+#![expect(clippy::too_many_lines, reason = "#858")]
 use super::*;
 
 fn declares(text: &str, at: usize, word: &str) -> bool {
@@ -242,7 +243,7 @@ fn dart_imports_bind_a_prefix_and_shown_names() {
 #[test]
 fn dart_uris_name_files() {
     let cache = std::env::temp_dir().join(format!("merl dart cache-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&cache);
+    drop(std::fs::remove_dir_all(&cache));
     std::fs::create_dir_all(cache.join("http-1.2.0/lib")).unwrap();
     std::fs::write(
         cache.join("http-1.2.0/lib/http.dart"),
@@ -338,8 +339,8 @@ fn dart_uris_name_files() {
         Some(real(sdk)),
         "a plain SDK's is in its `bin/`"
     );
-    let _ = std::fs::remove_dir_all(&cache);
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&cache));
+    drop(std::fs::remove_dir_all(&root));
 
     let (own, _) = scratch(
         "dart-own-package",
@@ -359,5 +360,5 @@ fn dart_uris_name_files() {
         Some(PathBuf::from("lib/a.dart")),
         "the package's own name needs no `pub get`"
     );
-    let _ = std::fs::remove_dir_all(&own);
+    drop(std::fs::remove_dir_all(&own));
 }

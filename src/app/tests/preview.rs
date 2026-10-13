@@ -1,3 +1,4 @@
+#![expect(clippy::format_collect, reason = "#858")]
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 
@@ -8,7 +9,7 @@ const PLAN: &str = "# Plan\n\nIntro line.\n\n## Steps\n\n1. one\n2. two\n\n| a |
 
 fn md_app(tag: &str, text: &str) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-md-{}-{tag}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("PLAN.md");
     std::fs::write(&path, text).unwrap();
@@ -62,7 +63,7 @@ fn plan_lays_out_at_40_columns_in_the_rows_its_tests_count() {
             "End.",
         ]
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -99,7 +100,7 @@ fn p_shows_the_file_rendered_and_the_source_again_at_the_same_place() {
         "back to the very row the preview left, the cursor not having moved"
     );
     assert_eq!(a.message, "");
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -128,7 +129,7 @@ fn enter_edits_the_source_where_the_preview_stands() {
     );
     key(&mut a, KeyCode::Char('X'));
     assert_eq!(a.buf.lines[7], "2. Xtwo");
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -175,7 +176,7 @@ fn reading_keys_move_the_cursor_row() {
         (3, 0),
         "the cursor follows in the source, so the status bar, `[` and `]` see where the reader is"
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -195,7 +196,7 @@ fn keys_that_act_on_a_word_or_a_column_do_nothing_in_the_preview() {
     assert_eq!((a.line, a.col, at_row(&a)), before);
     assert_eq!(a.mode, Mode::Normal);
     assert!(a.picker.is_none() && a.selection().is_none() && !a.nowrap());
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -208,7 +209,7 @@ fn a_file_rewritten_on_disk_renders_again() {
     let p = a.preview.as_ref().unwrap();
     let texts: Vec<&str> = p.doc.rows.iter().map(|r| r.text.as_str()).collect();
     assert_eq!(texts[2..], ["An agent wrote this."]);
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -222,7 +223,7 @@ fn a_jump_moves_the_cursor_row_to_its_line() {
     a.preview_sync();
     a.preview_clamp();
     assert_eq!(at_row(&a), (17, 10, "End.".into()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -236,12 +237,12 @@ fn the_preview_belongs_to_the_file_p_was_pressed_on() {
     assert!(a.previewing(), "the plan is still rendered");
     a.preview_sync();
     assert_eq!(at_row(&a).2, "# Plan");
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 fn md_review(tag: &str, base: &str, branch: &str) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-md-review-{}-{tag}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(&dir).unwrap();
     let git = |args: &[&str]| {
         let out = std::process::Command::new("git")
@@ -288,7 +289,7 @@ fn ctrl_n_on_a_previewed_file_edits_its_source() {
     assert!(!a.previewing(), "the text being typed is on screen");
     key(&mut a, KeyCode::Char('p'));
     assert_eq!(a.buf.lines[0], "p# Plan", "`p` types while editing");
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -310,7 +311,7 @@ fn p_drops_the_selection_so_ctrl_c_copies_the_rows_line() {
         Some("2. two\n"),
         "Ctrl+C copies the line of the cursor row, as with nothing selected"
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -321,14 +322,14 @@ fn ctrl_c_on_a_row_of_no_line_copies_nothing() {
     assert!(at_row(&a).2.starts_with('\u{2501}'));
     press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
     assert_eq!(a.clipboard, None, "the rule under a heading shows no line");
-    crate::tutor::press(&mut a, ":3<Enter>");
+    tutor::press(&mut a, ":3<Enter>");
     press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
     assert_eq!(
         a.clipboard.as_deref(),
         Some("Intro line.\n"),
         "a jump off it, before the preview has found the row of the new line, copies that line"
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 
     let (dir, mut a) = md_app("copy-back", PLAN);
     key(&mut a, KeyCode::Char('p'));
@@ -340,7 +341,7 @@ fn ctrl_c_on_a_row_of_no_line_copies_nothing() {
         Some("Intro line.\n"),
         "`p` back to the source copies the cursor's line"
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -371,7 +372,7 @@ fn a_narrower_pane_lays_the_preview_out_again() {
         "the cursor row stays as far down the pane"
     );
     assert_eq!(p.doc.rows[p.row].text, "Then the one the");
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -398,7 +399,7 @@ fn the_row_of_a_line_is_the_one_that_shows_it() {
         (Mode::Edit, 6),
         "Enter edits the line the row shows, at column 0 of a list item too"
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -417,7 +418,7 @@ fn from_the_tree_the_preview_still_refuses_what_it_refuses() {
     assert_eq!(at_row(&a).0, 3, "`}}` reads on in the preview");
     key(&mut a, KeyCode::Down);
     assert_eq!(at_row(&a).0, 3, "Down moves the tree");
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -442,7 +443,7 @@ fn reading_the_preview_adds_no_history_stop() {
         "the rows are in source order, a footnote in its place: a row moves the source line as \
          little as a line does in the source"
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 
     let mut text = String::from("Top [r0].\n\n");
     text += &(0..12)
@@ -460,7 +461,7 @@ fn reading_the_preview_adds_no_history_stop() {
     );
     key(&mut a, KeyCode::Up);
     assert_eq!((a.line, a.history.len()), (0, before));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 
     let (dir, mut a) = md_app("history-jump", &"Text.\n\n".repeat(20));
     key(&mut a, KeyCode::Char('p'));
@@ -473,7 +474,7 @@ fn reading_the_preview_adds_no_history_stop() {
         (0, 0),
         "Ctrl+End adds a stop as in the source: `[` goes back to the top"
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -485,7 +486,7 @@ fn p_twice_returns_to_the_row_it_left() {
     key(&mut a, KeyCode::Char('p'));
     key(&mut a, KeyCode::Char('p'));
     assert_eq!(at_row(&a).0, 1);
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -499,7 +500,7 @@ fn a_jump_centres_its_row() {
     a.preview_sync();
     a.preview_clamp();
     assert_eq!(at_row(&a), (7, 3, "2. two".into()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -524,7 +525,7 @@ fn keys_of_a_word_say_nothing_in_the_preview() {
         );
     }
     assert!(a.selection().is_none());
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -541,7 +542,7 @@ fn back_in_the_source_up_keeps_the_column() {
         (6, 3),
         "Up aims at the column the preview's row put the cursor on"
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -564,7 +565,7 @@ fn a_held_arrow_in_the_preview_misses_nothing() {
         "the preview's rows are not the source's: {:?}",
         a.missed
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -598,7 +599,7 @@ fn only_the_keys_the_preview_names_act_in_it() {
             assert_eq!(a.buf.lines.join("\n") + "\n", PLAN, "{code:?} {m:?}");
         }
     }
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -619,7 +620,7 @@ fn another_width_keeps_the_code_highlighted() {
         draw(&mut a, 30)[0].is_empty(),
         "drawn at another width, the spans are the very ones kept, not highlighted again"
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -656,7 +657,7 @@ fn a_new_layout_keeps_the_row() {
             at_row(&a).2
         );
     }
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -670,7 +671,7 @@ fn a_fence_that_cites_a_file_renders() {
         ["fn main() {}"],
         "a fence that cites a file, as Cursor writes them, shows the code"
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -685,7 +686,7 @@ fn enter_on_rows_of_no_text_edits_where_they_are() {
         (Mode::Edit, 2, 0),
         "an empty code block edits its fence"
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 
     let (dir, mut a) = md_app("tight-gap", "```\ncode\n```\nText after.\n");
     key(&mut a, KeyCode::Char('p'));
@@ -696,7 +697,7 @@ fn enter_on_rows_of_no_text_edits_where_they_are() {
         (Mode::Edit, 3, 0),
         "a blank row with no blank line under it edits the line below, never the fence above"
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 
     let (dir, mut a) = md_app("end-border", "Text.\n\n| a |\n|---|\n| 1 |\n");
     key(&mut a, KeyCode::Char('p'));
@@ -708,7 +709,7 @@ fn enter_on_rows_of_no_text_edits_where_they_are() {
         (Mode::Edit, 4, 5),
         "a border with nothing below edits the end of the file"
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 
     let (dir, mut a) = md_app("fence-below", "Intro.\n```py\nx = 1\n```\n");
     key(&mut a, KeyCode::Char('p'));
@@ -720,7 +721,7 @@ fn enter_on_rows_of_no_text_edits_where_they_are() {
         (Mode::Edit, 1, 0),
         "a blank row over a code block edits its fence"
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 
     let (dir, mut a) = md_app("top-border", "[x]: http://a\n\n| a |\n|---|\n| 1 |\n");
     key(&mut a, KeyCode::Char('p'));
@@ -732,7 +733,7 @@ fn enter_on_rows_of_no_text_edits_where_they_are() {
         (Mode::Edit, 2, 0),
         "a table's top border edits its header, not a line no row shows"
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -755,7 +756,7 @@ fn a_jump_shows_the_row_of_its_line() {
         first,
         "from the second row of a wrapped table row, `:` to its line shows its first row"
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 fn preview_text(a: &App) -> String {
@@ -809,7 +810,7 @@ fn p_renders_a_file_of_the_review_as_it_stands_now() {
         "a deleted file as it was: {}",
         preview_text(&a)
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 const NOTES: &str = "# Notes\n\nKept.\n";
@@ -818,7 +819,7 @@ const NOTES: &str = "# Notes\n\nKept.\n";
 fn a_file_that_joins_the_review_stays_rendered() {
     let (dir, mut a) = md_review("joins", "# Doc\n\nOld.\n", "# Doc\n\nNew.\n");
     let kept = std::fs::read_to_string(dir.join("notes.md")).unwrap();
-    crate::tutor::press(&mut a, "onotes.md<Enter>");
+    tutor::press(&mut a, "onotes.md<Enter>");
     key(&mut a, KeyCode::Char('p'));
     std::fs::write(dir.join("notes.md"), format!("# Changed\n{kept}")).unwrap();
     a.reload(true);
@@ -830,7 +831,7 @@ fn a_file_that_joins_the_review_stays_rendered() {
         "{}",
         preview_text(&a)
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -847,14 +848,14 @@ fn p_from_a_deleted_line_stands_on_the_line_below() {
     assert_eq!(a.clipboard.as_deref(), Some("Keep.\n"));
     key(&mut a, KeyCode::Enter);
     assert_eq!((a.mode, a.line), (Mode::Edit, 2));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
 fn a_file_of_the_review_opens_on_its_source() {
     let (dir, mut a) = md_review("reopen", "# Doc\n\nOld.\n", "# Doc\n\nNew.\n");
     key(&mut a, KeyCode::Char('p'));
-    crate::tutor::press(&mut a, "onotes.md<Enter>");
+    tutor::press(&mut a, "onotes.md<Enter>");
     key(&mut a, KeyCode::Char('c'));
     assert_eq!(
         (a.rel_path(), a.previewing()),
@@ -862,16 +863,16 @@ fn a_file_of_the_review_opens_on_its_source() {
         "a file rendered on an earlier visit opens on its source, where `c` lands on its hunk"
     );
 
-    crate::tutor::press(&mut a, "onotes.md<Enter>");
+    tutor::press(&mut a, "onotes.md<Enter>");
     key(&mut a, KeyCode::Char('p'));
-    crate::tutor::press(&mut a, "odoc.md<Enter>");
+    tutor::press(&mut a, "odoc.md<Enter>");
     std::fs::write(dir.join(".gitattributes"), "notes.md linguist-generated\n").unwrap();
     let kept = std::fs::read_to_string(dir.join("notes.md")).unwrap();
     std::fs::write(dir.join("notes.md"), format!("# Changed\n{kept}")).unwrap();
     git_in(&dir, &["add", "."]);
     git_in(&dir, &["commit", "-q", "-m", "generated"]);
     a.review_refreshed(git::Review::open(&dir, None, None).unwrap());
-    crate::tutor::press(&mut a, "onotes.md<Enter>");
+    tutor::press(&mut a, "onotes.md<Enter>");
     assert!(
         a.folded_here().is_some() && !a.previewing(),
         "a file the branch comes to generate shows its fold"
@@ -882,7 +883,7 @@ fn a_file_of_the_review_opens_on_its_source() {
         (None, Mode::Normal),
         "Enter on the fold loads the diff"
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -891,7 +892,7 @@ fn p_past_the_last_line_of_a_file_the_list_lags_returns() {
     std::thread::spawn(move || {
         let (dir, mut a) = md_review("lags", "# Doc\n\nOld.\n", "# Doc\n\nNew.\n");
         (a.view_w, a.view_h) = (40, 7);
-        crate::tutor::press(&mut a, "onotes.md<Enter>");
+        tutor::press(&mut a, "onotes.md<Enter>");
         std::fs::write(dir.join("notes.md"), NOTES).unwrap();
         a.reload(true);
         for _ in 0..70 {
@@ -900,8 +901,8 @@ fn p_past_the_last_line_of_a_file_the_list_lags_returns() {
         let scrolled = a.deleted.is_some_and(|(k, _)| k == a.buf.lines.len());
         key(&mut a, KeyCode::Char('p'));
         let row = a.preview.as_ref().map(|p| p.doc.rows[p.row].text.clone());
-        let _ = tx.send((scrolled, a.previewing(), row));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(tx.send((scrolled, a.previewing(), row)));
+        drop(std::fs::remove_dir_all(&dir));
     });
     let (scrolled, previewing, row) = rx
         .recv_timeout(Duration::from_secs(20))
@@ -918,7 +919,7 @@ fn p_past_the_last_line_of_a_file_the_list_lags_returns() {
 #[test]
 fn c_in_a_preview_leaves_it_for_the_source() {
     let (dir, mut a) = md_review("c-leaves", "# Doc\n\nOld.\n", "# Doc\n\nNew.\n");
-    crate::tutor::press(&mut a, "onotes.md<Enter>");
+    tutor::press(&mut a, "onotes.md<Enter>");
     key(&mut a, KeyCode::Char('p'));
     assert!(a.previewing());
     key(&mut a, KeyCode::Char('c'));
@@ -930,7 +931,7 @@ fn c_in_a_preview_leaves_it_for_the_source() {
     key(&mut a, KeyCode::Char('['));
     assert_eq!(a.rel_path(), "notes.md");
     assert!(!a.previewing(), "`[` comes back to the source");
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -946,5 +947,5 @@ fn p_with_the_pane_scrolled_onto_the_lines_deleted_at_the_end_puts_the_cursor_ro
     key(&mut a, KeyCode::Char('p'));
     let (row, top, text) = at_row(&a);
     assert_eq!((top, text.as_str()), (row, "p5"));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }

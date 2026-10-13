@@ -1,3 +1,4 @@
+#![expect(clippy::cast_possible_truncation, reason = "#858")]
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -124,7 +125,6 @@ pub fn grep_filtered(
         .with_context(|| format!("bad pattern `{pattern}`"))?;
     Ok(collect(root, files, &matcher, current, unsaved, None, keep))
 }
-#[allow(clippy::too_many_arguments)]
 fn collect(
     root: &Path,
     files: &[PathBuf],
@@ -157,11 +157,13 @@ fn collect(
                 keep: &keep,
                 lines: shaped.as_ref().map(|s| s.lines.as_slice()),
             };
-            let _ = match (unsaved.filter(|_| current == Some(rel.as_path())), &shaped) {
-                (Some(text), _) => searcher.search_slice(matcher, text, sink),
-                (None, Some(s)) => searcher.search_slice(matcher, &s.text, sink),
-                (None, None) => searcher.search_path(matcher, root.join(rel), sink),
-            };
+            drop(
+                match (unsaved.filter(|_| current == Some(rel.as_path())), &shaped) {
+                    (Some(text), _) => searcher.search_slice(matcher, text, sink),
+                    (None, Some(s)) => searcher.search_slice(matcher, &s.text, sink),
+                    (None, None) => searcher.search_path(matcher, root.join(rel), sink),
+                },
+            );
             if hits.len() >= MAX_HITS {
                 cap_reached.store(true, Ordering::Relaxed);
             }
@@ -212,7 +214,7 @@ impl Sink for Collect<'_> {
                             .map_or(n, |l| l.get(n.wrapping_sub(1)).copied().unwrap_or(0))
                     },
                     byte_col: col.map(|m| m.start()),
-                    text: text.to_string(),
+                    text: text.to_owned(),
                     deleted: None,
                 },
             ));

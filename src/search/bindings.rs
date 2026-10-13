@@ -1,8 +1,22 @@
+#![expect(clippy::cognitive_complexity, reason = "#858")]
+#![expect(clippy::items_after_statements, reason = "#858")]
+#![expect(clippy::match_same_arms, reason = "#858")]
+#![expect(clippy::nonminimal_bool, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 
 use regex::Regex;
 
-use super::*;
+use super::{
+    Kind, behind_doc, c_bindings, close_of, code, comment, cs_enclosing, cs_namespace_line,
+    cs_opener, cs_statement, cs_type_decl, declares_type, gdscript_bindings, haskell_bindings,
+    indent, julia_bindings, jvm_bindings, lisp, lisp_bindings, literal_lines, names, nix_bindings,
+    powershell_params, python_bindings, ruby_bindings, rust_bindings, shell_bindings,
+    solidity_bindings, split_top, swift_bindings, ts_declarators, ts_destructured, ts_params,
+    type_list, uncommented,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value {
@@ -22,7 +36,7 @@ pub enum Value {
         chain: Vec<String>,
         field: String,
     },
-    Member(Box<Value>, String),
+    Member(Box<Self>, String),
     Struct(usize),
     Unknown,
 }
@@ -75,9 +89,10 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
             })
         };
         if let Some((first, i)) = cast {
-            return match operand(&e[..first]) {
-                true => Value::Type(e[i..].trim().to_owned()),
-                false => Value::Unknown,
+            return if operand(&e[..first]) {
+                Value::Type(e[i..].trim().to_owned())
+            } else {
+                Value::Unknown
             };
         }
     }
@@ -223,9 +238,12 @@ fn elixir_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
                 .find(|&j| code(j).ends_with(" do") || code(j).contains("do:"))
                 .unwrap_or(i);
             return (i..=end)
-                .find(|&j| match j == i {
-                    true => elixir_binds(&head[m.end()..], name),
-                    false => elixir_binds(&code(j), name),
+                .find(|&j| {
+                    if j == i {
+                        elixir_binds(&head[m.end()..], name)
+                    } else {
+                        elixir_binds(&code(j), name)
+                    }
                 })
                 .map_or_else(Vec::new, |j| found(j + 1));
         }
@@ -432,28 +450,27 @@ pub fn lua_local_value(text: &str, line: usize, name: &str) -> Option<String> {
     let lines: Vec<&str> = text.lines().collect();
     let re = Regex::new(&format!(r"^\s*local\s+{}\s*=\s*(.+)", regex::escape(name)))
         .expect("an escaped name keeps the pattern valid");
-    let at = match bindings(Kind::Lua, text, line, name).first() {
-        Some(b) => b.line1 - 1,
-        None => {
-            let own = line
-                .checked_sub(1)
-                .and_then(|i| lines.get(i))
-                .map(|l| uncommented(Kind::Lua, l))
-                .unwrap_or_default();
-            let word = Regex::new(&format!(r"\b{}\b", regex::escape(name)))
-                .expect("an escaped name keeps the pattern valid");
-            if Regex::new(r"\b(?:for|function)\b")
-                .expect("a fixed pattern compiles")
-                .find(&own)
-                .is_some_and(|m| word.is_match(&own[m.end()..]))
-            {
-                return None;
-            }
-            let literal = literal_lines(Kind::Lua, text);
-            (0..line.saturating_sub(1).min(lines.len()))
-                .rev()
-                .find(|&i| !literal[i] && indent(lines[i]) == 0 && re.is_match(lines[i]))?
+    let at = if let Some(b) = bindings(Kind::Lua, text, line, name).first() {
+        b.line1 - 1
+    } else {
+        let own = line
+            .checked_sub(1)
+            .and_then(|i| lines.get(i))
+            .map(|l| uncommented(Kind::Lua, l))
+            .unwrap_or_default();
+        let word = Regex::new(&format!(r"\b{}\b", regex::escape(name)))
+            .expect("an escaped name keeps the pattern valid");
+        if Regex::new(r"\b(?:for|function)\b")
+            .expect("a fixed pattern compiles")
+            .find(&own)
+            .is_some_and(|m| word.is_match(&own[m.end()..]))
+        {
+            return None;
         }
+        let literal = literal_lines(Kind::Lua, text);
+        (0..line.saturating_sub(1).min(lines.len()))
+            .rev()
+            .find(|&i| !literal[i] && indent(lines[i]) == 0 && re.is_match(lines[i]))?
     };
     let code = uncommented(Kind::Lua, lines[at]);
     Some(re.captures(&code)?[1].trim().to_owned())
@@ -664,9 +681,10 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         let sibling = ["else", "catch", "finally"]
             .iter()
             .any(|k| t.trim_start_matches('}').trim_start().starts_with(k));
-        let header: Vec<&str> = match (sibling || closes_type_params) && end > i {
-            true => vec![lines[i].trim(), t],
-            false => lines[i..=end].iter().map(|l| l.trim()).collect(),
+        let header: Vec<&str> = if (sibling || closes_type_params) && end > i {
+            vec![lines[i].trim(), t]
+        } else {
+            lines[i..=end].iter().map(|l| l.trim()).collect()
         };
         let header = uncommented(kind, &header.join("\n"));
         depth = ind.min(indent(lines[i]));
@@ -858,7 +876,7 @@ fn opener_bindings(
         out.push(Binding {
             line1: line,
             value: Value::Unknown,
-        })
+        });
     };
     let n = regex::escape(name);
     let element = |p: String| {

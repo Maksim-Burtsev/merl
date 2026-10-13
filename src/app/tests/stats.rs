@@ -1,3 +1,5 @@
+#![expect(clippy::items_after_statements, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 use crate::stats;
 
@@ -146,7 +148,7 @@ fn a_press_under_the_tutor_writes_nothing() {
     assert!(a.pressed.is_empty(), "{:?}", a.pressed);
     assert!(a.missed.is_empty(), "{:?}", a.missed);
     let file = std::env::temp_dir().join(format!("merl-keys-tutor-{}.tsv", std::process::id()));
-    let _ = std::fs::remove_file(&file);
+    drop(std::fs::remove_file(&file));
     stats::add(&file, stats::utc_today(), &a.pressed, &a.missed).unwrap();
     assert!(!file.exists(), "nothing to write on exit");
 }
@@ -184,19 +186,19 @@ fn a_review_session_counts_its_presses() {
          per gap, the reading before `q` included; excursions, their jumps, `[`; hunks stopped \
          on, files viewed, the last hunk reached"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
 fn a_review_closed_with_q_alone_has_no_line() {
     let (dir, mut a) = review_app("reviewstats-q");
-    assert!(a.key_at(read("q"), Instant::now() + Duration::from_secs(4 * 3600)));
+    assert!(a.key_at(read("q"), Instant::now() + Duration::from_hours(4)));
     assert_eq!(
         a.review_row(),
         None,
         "a review forgotten and closed with `q` hours later: the key that quits is no press"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -214,7 +216,7 @@ fn a_search_that_answers_after_enter_is_an_excursion() {
         (1, 1),
         "the jump lands after the key, an excursion all the same: {cols:?}"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -229,7 +231,7 @@ fn a_review_under_the_tutor_has_no_line() {
         a.key(read(key));
     }
     assert_eq!(a.review_row(), None);
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 fn columns(a: &mut App) -> Vec<usize> {
@@ -284,7 +286,7 @@ fn a_stop_is_a_hunk_reached_by_c_or_c_back() {
         (6, 6, 1),
         "stops, hunks, the last hunk reached"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -308,7 +310,7 @@ fn a_hunk_the_panel_opens_on_is_a_stop() {
         (6, 6, 0),
         "stops, hunks; the walk stopped short of `last hunk of the review`: {cols:?}"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -340,7 +342,7 @@ fn only_the_walk_makes_stops() {
         1,
         "the hunk of `new`, where the review opened, and no other"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -362,7 +364,7 @@ fn c_onto_the_lines_deleted_at_the_end_is_a_stop() {
         2,
         "`new`, where the review opened, and the hunk of `tail`"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -374,7 +376,7 @@ fn alt_q_alone_has_no_line() {
         None,
         "a terminal that spells Alt as a leading Esc: a session of `q` alone"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -404,7 +406,7 @@ fn a_stop_past_the_hunks_the_review_opened_with_does_not_count() {
         "`new`, where the review opened, and the first two hunks of `src/a.rs`; the third, \
          pushed past the hunks the file had then, does not count"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -419,7 +421,7 @@ fn an_untracked_file_is_one_hunk_and_an_empty_one_none() {
         [7, 7],
         "files, hunks: an untracked file with lines is one hunk, an empty one none"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -448,7 +450,7 @@ fn a_submodule_counts_no_hunk() {
         [6, 6],
         "files, hunks: a submodule is listed and has no line to read"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -461,7 +463,7 @@ fn a_failed_diff_writes_no_line() {
     a.start_review(broken);
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!(a.review_row(), None, "not in the stats with too few hunks");
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -503,7 +505,7 @@ fn a_switch_during_the_review_writes_a_line_per_branch() {
         "branch; files, hunks, added, deleted; stops, viewed, the last hunk reached"
     );
     assert_eq!(line(1), "other 1 1 1 1 1 0 0");
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -517,7 +519,7 @@ fn a_detached_head_is_filed_under_its_short_commit() {
             .output()
             .unwrap();
         assert!(out.status.success(), "git {args:?}");
-        String::from_utf8(out.stdout).unwrap().trim().to_string()
+        String::from_utf8(out.stdout).unwrap().trim().to_owned()
     };
     git(&["switch", "-q", "--detach", "feature"]);
     a.start_review(git::Review::open(&dir, None, None).unwrap());
@@ -528,7 +530,7 @@ fn a_detached_head_is_filed_under_its_short_commit() {
         short,
         "detached reviews do not share rounds"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -566,5 +568,5 @@ fn a_fold_is_one_stop_whichever_branch_unfolded_it() {
         ("other", "1"),
         "folded on `other`, whatever `feature` unfolded: {rows:?}"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }

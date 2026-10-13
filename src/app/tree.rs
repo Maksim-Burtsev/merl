@@ -1,4 +1,4 @@
-use super::*;
+use super::{App, Component, Focus, KeyCode, KeyEvent, LineEdit, Mode, Path, PathBuf, open};
 
 impl App {
     pub(super) fn tree_key(&mut self, code: KeyCode) {
@@ -106,7 +106,7 @@ impl App {
             }
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
             Err(e) => {
-                self.say_about(&path, &format!(": {}", super::open::why_not(&e.into())));
+                self.say_about(&path, &format!(": {}", open::why_not(&e.into())));
                 return;
             }
         }

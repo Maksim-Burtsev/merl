@@ -2,7 +2,7 @@ use super::*;
 
 fn file_app(tag: &str, name: &str, text: &str) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-data-{}-{tag}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join(name);
     std::fs::write(&path, text).unwrap();
@@ -42,7 +42,7 @@ fn p_on_a_csv_parses_it_in_the_background_then_shows_the_table() {
     assert!(!a.previewing());
     p(&mut a);
     assert!(a.previewing(), "the same text needs no second parse");
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -54,7 +54,7 @@ fn a_file_the_parser_cannot_read_whole_stays_source_and_says_why() {
     assert_eq!(a.message, "p: line 2 is not JSON");
     p(&mut a);
     assert!(a.preview_pending(), "`p` again tries again");
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -65,7 +65,7 @@ fn p_while_parsing_stays_on_the_source() {
     assert!(!a.preview_pending());
     a.settle_parse();
     assert!(!a.previewing());
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -84,7 +84,7 @@ fn a_rewritten_file_is_parsed_again_and_shown_only_when_whole() {
     a.settle_parse();
     assert!(!a.previewing());
     assert_eq!(a.message, "p: line 2 has 3 fields, not 2");
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -96,8 +96,8 @@ fn a_mermaid_file_opens_at_once_and_other_files_have_no_preview() {
     p(&mut b);
     assert!(!b.previewing());
     assert_eq!(b.message, "no preview for .xyz");
-    let _ = std::fs::remove_dir_all(&dir);
-    let _ = std::fs::remove_dir_all(&dir2);
+    drop(std::fs::remove_dir_all(&dir));
+    drop(std::fs::remove_dir_all(&dir2));
 }
 
 #[test]
@@ -110,7 +110,7 @@ fn a_csv_parsed_before_leaves_a_markdown_preview_alone() {
     p(&mut a);
     assert!(a.previewing());
     assert_eq!(row(&a), "# Plan");
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -121,7 +121,7 @@ fn edit_mode_while_parsing_never_gets_the_preview_over_it() {
     assert_eq!(a.mode, Mode::Edit);
     a.settle_parse();
     assert!(!a.previewing(), "the parse that lands opens nothing");
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -134,7 +134,7 @@ fn a_parse_of_a_file_left_behind_touches_nothing_where_the_user_is() {
     a.settle_parse();
     assert!(a.previewing(), "the Markdown preview stays");
     assert_ne!(a.message, "p: line 2 has 3 fields, not 2");
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -152,7 +152,7 @@ fn a_previewed_file_returned_to_is_parsed_again_and_opens() {
     assert!(a.preview_pending());
     a.settle_parse();
     assert!(a.previewing());
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -165,7 +165,7 @@ fn a_rewritten_file_never_draws_the_old_table() {
     a.preview_fresh();
     assert!(!a.previewing());
     assert!(a.preview_pending());
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -173,7 +173,7 @@ fn a_file_with_no_extension_is_named_without_its_directories() {
     let (dir, mut a) = file_app("noext", "Makefile", "all:\n");
     p(&mut a);
     assert_eq!(a.message, "no preview for Makefile");
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -182,5 +182,5 @@ fn a_small_file_opens_on_the_press_with_no_parsing_shown() {
     a.parse.wait = Duration::from_secs(5);
     p(&mut a);
     assert!(a.previewing());
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }

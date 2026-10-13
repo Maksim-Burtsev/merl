@@ -1,3 +1,8 @@
+#![expect(clippy::cast_possible_truncation, reason = "#858")]
+#![expect(clippy::format_collect, reason = "#858")]
+#![expect(clippy::format_push_string, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::trivial_regex, reason = "#858")]
 use std::path::PathBuf;
 
 use ratatui::Terminal;
@@ -434,7 +439,7 @@ fn ghost_lines_draw_above_their_line_and_the_cursor_walks_them() {
         "with no base file to take syntax colours from, the plain text colour on the deleted tint"
     );
     assert!(
-        !buf[(o, 1)].modifier.contains(ratatui::style::Modifier::DIM),
+        !buf[(o, 1)].modifier.contains(Modifier::DIM),
         "never greyed by the terminal's `dim` (#144)"
     );
     let key = |app: &mut App, c| app.key(KeyEvent::new(c, KeyModifiers::NONE));
@@ -782,7 +787,7 @@ fn review_of_one_operator(tag: &str) -> (PathBuf, App) {
 
 fn review_of(tag: &str, base: &str, new: &str) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-{tag}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(&dir).unwrap();
     let git = |args: &[&str]| {
         let out = std::process::Command::new("git")
@@ -911,7 +916,7 @@ fn review_paints_the_word_that_changed_on_both_rows() {
         "a file the branch deleted is all deleted rows"
     );
     assert_eq!(cell(&terminal, 23, 0).1, theme.del_bg_hl);
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -1007,10 +1012,7 @@ fn the_enclosing_function_stays_pinned_above_the_code() {
                 pinned || app.line == 0,
                 "unpinned, the top row is lit only as the cursor line"
             );
-            assert!(
-                y >= if pinned { 1 } else { 0 },
-                "the cursor is under the band"
-            );
+            assert!(y >= usize::from(pinned), "the cursor is under the band");
             assert!(screen[y].starts_with(&format!("{} ", app.line + 1)));
         }
         if code == KeyCode::Down {
@@ -1029,7 +1031,7 @@ fn the_enclosing_function_stays_pinned_above_the_code() {
 #[test]
 fn a_hunk_inside_a_long_function_lands_below_the_pinned_header() {
     let dir = std::env::temp_dir().join(format!("merl-pinned-hunk-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(&dir).unwrap();
     let git = |args: &[&str]| {
         let out = std::process::Command::new("git")
@@ -1082,7 +1084,7 @@ fn a_hunk_inside_a_long_function_lands_below_the_pinned_header() {
         "on the hunk's added line, its deleted line above it"
     );
     assert!(y > 1, "the deleted line is under the band");
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 fn pinned_app(text: &str, w: u16, h: u16) -> (App, Terminal<TestBackend>) {
@@ -1534,7 +1536,7 @@ fn a_move_across_a_tall_deletion_is_a_stop_of_its_own() {
         TextLine::Deleted(0, 0),
         "`[` comes back across the deletion, though no file line was passed"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -1710,7 +1712,7 @@ fn selected_code_takes_the_themes_selected_text_colour_and_keeps_find_matches() 
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     let cell = |terminal: &Terminal<TestBackend>, x: u16| {
         let c = &terminal.backend().buffer()[(x, 0)];
-        (c.symbol().to_string(), c.fg, c.bg)
+        (c.symbol().to_owned(), c.fg, c.bg)
     };
     assert_eq!(
         cell(&terminal, 6),
@@ -1765,7 +1767,7 @@ fn a_rename_without_changes_tints_the_part_of_each_path_that_changed() {
             buf.content()
                 .iter()
                 .filter(|c| c.bg == bg)
-                .map(|c| c.symbol())
+                .map(ratatui::buffer::Cell::symbol)
                 .collect::<String>()
         };
         let text: Vec<String> = rows(&t).into_iter().filter(|r| !r.is_empty()).collect();
@@ -1799,7 +1801,7 @@ fn a_rename_without_changes_tints_the_part_of_each_path_that_changed() {
         "src/shop/billing/providers/stripe_client.py",
     );
     let (text, del, add) = shown(80, old, new);
-    assert_eq!(text[..2], [old.to_string(), format!("\u{2192}  {new}")]);
+    assert_eq!(text[..2], [old.to_owned(), format!("\u{2192}  {new}")]);
     assert_eq!((del.as_str(), add.as_str()), ("payments", "billing"));
 
     let (old, new) = (
@@ -1831,7 +1833,7 @@ fn the_match_under_the_cursor_draws_in_cur_search_the_others_in_search() {
     let mut terminal = Terminal::new(TestBackend::new(12, 3)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     let bg = |x: u16| terminal.backend().buffer()[(x, 0)].bg;
-    let hex = |s: &str| s.parse::<ratatui::style::Color>().unwrap();
+    let hex = |s: &str| s.parse::<Color>().unwrap();
     assert_eq!((bg(2), bg(3)), (hex("#3e68d7"), hex("#3e68d7")));
     assert_eq!((bg(5), bg(6)), (hex("#ff966c"), hex("#ff966c")));
 }
@@ -1890,7 +1892,7 @@ fn a_changed_word_drops_the_bold_and_italic_of_its_syntax() {
     let theme = crate::theme::load("adwaita").unwrap();
     let mut terminal = Terminal::new(TestBackend::new(24, 6)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     let r = rows(&terminal);
     let buf = terminal.backend().buffer();
     let cell = |y: usize, c: &str| {
@@ -1921,7 +1923,7 @@ fn a_selection_over_a_changed_word_draws_the_selection_not_the_word() {
     let mut terminal = Terminal::new(TestBackend::new(24, 5)).unwrap();
     app.key(KeyEvent::new(KeyCode::End, KeyModifiers::SHIFT));
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     assert_eq!(rows(&terminal)[2], "2\u{258e}    return a >= b");
     let buf = terminal.backend().buffer();
     let x = (0..24).find(|&x| buf[(x, 2)].symbol() == ">").unwrap();

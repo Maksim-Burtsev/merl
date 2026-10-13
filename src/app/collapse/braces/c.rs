@@ -1,3 +1,4 @@
+#![expect(clippy::string_slice, reason = "#858")]
 use super::{K, Lang, Lexer, Model};
 
 const CONTROL: &[&str] = &["if", "for", "while", "switch", "catch", "@synchronized"];
@@ -31,15 +32,14 @@ impl Lexer<'_> {
             let mut j = self.i;
             while let Some(p) = super::find(&s[j..], b"/*") {
                 let open = j + p + 2;
-                match super::find(&s[open..], b"*/") {
-                    Some(q) => j = open + q + 2,
-                    None => {
-                        let l = self.l;
-                        self.skip_past(open, b"*/");
-                        self.emit(l, open - 2, 1, K::Comment, self.l);
-                        self.i = self.bytes().len();
-                        return true;
-                    }
+                if let Some(q) = super::find(&s[open..], b"*/") {
+                    j = open + q + 2;
+                } else {
+                    let l = self.l;
+                    self.skip_past(open, b"*/");
+                    self.emit(l, open - 2, 1, K::Comment, self.l);
+                    self.i = self.bytes().len();
+                    return true;
                 }
             }
             let continued = s.trim_ascii_end().ends_with(b"\\");
@@ -450,7 +450,7 @@ impl Model<'_, '_> {
             match self.toks.get(j)? {
                 t if t.kind == K::Punct && t.text == "{" => return Some(j),
                 t if t.kind == K::Word || matches!(t.text, "-" | ">" | "<" | ":" | "*" | "&") => {
-                    j += 1
+                    j += 1;
                 }
                 _ => return None,
             }

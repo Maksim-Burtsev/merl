@@ -1,8 +1,11 @@
+#![expect(clippy::match_same_arms, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
 
-use super::*;
+use super::{Binding, Value, indent};
 
 const SCOPE: &str = r"(?:(?:global|script|local|private):)?";
 const TYPES: &str = r"(?:\[[^\]]*\]\s*)*";
@@ -47,7 +50,10 @@ pub fn powershell_sigil(patterns: &mut Vec<String>, before: &str, after: &str) {
     static SIGIL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?i)(?:[$@]|\$(?:global|script|local|private|using):)$").unwrap()
     });
-    use Shape::*;
+    use Shape::{
+        Alias, AssignmentOrProperty, ClassOrEnum, EnumMember, EnvironmentVariable,
+        FunctionOrFilter, MethodOrConstructor, StaticProperty,
+    };
     if patterns.len() != SHAPES {
         return;
     }

@@ -1,4 +1,11 @@
-use super::*;
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unused_self, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
+use super::{
+    App, Candidate, HashMap, HashSet, Hit, Kind, Path, PathBuf, Reason, Regex, is_word, search,
+    whole_at,
+};
 
 impl App {
     pub(super) fn enum_constant(
@@ -165,10 +172,7 @@ impl App {
             })
             .cloned()
             .collect();
-        match fit.is_empty() {
-            true => found,
-            false => fit,
-        }
+        if fit.is_empty() { found } else { fit }
     }
 
     fn jvm_imported_all(
@@ -333,7 +337,7 @@ impl App {
             return None;
         }
         let mut out: HashMap<String, Vec<PathBuf>> = HashMap::new();
-        let mut seen = std::collections::HashSet::new();
+        let mut seen = HashSet::new();
         for h in hits {
             if seen.insert(h.path.clone())
                 && let Some(p) = search::jvm_package(&h.text)
@@ -515,12 +519,12 @@ impl App {
         let java = here.extension().is_some_and(|e| e == "java");
         let groovy = search::groovy(here);
         if !java && !groovy {
-            return match self.kotlin_infix(before, after, word) {
-                true => hits
-                    .into_iter()
+            return if self.kotlin_infix(before, after, word) {
+                hits.into_iter()
                     .filter(|h| Regex::new(r"\binfix\b").is_ok_and(|re| re.is_match(&h.text)))
-                    .collect(),
-                false => hits,
+                    .collect()
+            } else {
+                hits
             };
         }
         let w = regex::escape(word);
@@ -575,10 +579,7 @@ impl App {
             return hits;
         }
         let map_argument = groovy && constructed && MAP_ARGUMENT.is_match(after);
-        let count = match map_argument {
-            true => 1,
-            false => count,
-        };
+        let count = if map_argument { 1 } else { count };
         let fits = |h: &Hit| {
             if !java_or_groovy(h) || is_class(h) {
                 return true;
@@ -588,26 +589,19 @@ impl App {
                 .is_none_or(|(n, more)| (n..=n.saturating_add(more)).contains(&count))
         };
         let fit: Vec<Hit> = hits.iter().filter(|h| fits(h)).cloned().collect();
-        let fit = match map_argument {
-            true => {
-                let map = Regex::new(&format!(r"\b{w}\s*\(\s*(?:final\s+)?Map\b"))
-                    .expect("an escaped name keeps the pattern valid");
-                let maps: Vec<Hit> = fit
-                    .iter()
-                    .filter(|h| map.is_match(&h.text))
-                    .cloned()
-                    .collect();
-                match maps.is_empty() {
-                    true => fit,
-                    false => maps,
-                }
-            }
-            false => fit,
+        let fit = if map_argument {
+            let map = Regex::new(&format!(r"\b{w}\s*\(\s*(?:final\s+)?Map\b"))
+                .expect("an escaped name keeps the pattern valid");
+            let maps: Vec<Hit> = fit
+                .iter()
+                .filter(|h| map.is_match(&h.text))
+                .cloned()
+                .collect();
+            if maps.is_empty() { fit } else { maps }
+        } else {
+            fit
         };
-        match fit.is_empty() {
-            true => hits,
-            false => fit,
-        }
+        if fit.is_empty() { hits } else { fit }
     }
 
     fn jvm_enum_of(&self, here: &Path, chain: &[String]) -> Vec<Hit> {
@@ -700,7 +694,7 @@ mod tests {
 
     #[test]
     fn arguments_are_counted_past_non_ascii_characters() {
-        let lines = |ls: &[&str]| ls.iter().map(|l| l.to_string()).collect::<Vec<_>>();
+        let lines = |ls: &[&str]| ls.iter().map(ToString::to_string).collect::<Vec<_>>();
         assert_eq!(
             arguments(&lines(&["naïve = Straße(ñ, ü)"]), 0, 16),
             Some((2, false))

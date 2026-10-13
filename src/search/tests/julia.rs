@@ -1,3 +1,4 @@
+#![expect(clippy::cognitive_complexity, reason = "#858")]
 use super::*;
 
 fn declares(lines: &[&str], line: usize, word: &str) -> bool {
@@ -213,7 +214,7 @@ fn julia_locals_stay_in_their_function() {
             .collect::<Vec<_>>()
     };
     assert_eq!(at(5, "m"), [3]);
-    assert!(at(3, "m").is_empty());
+    assert_eq!(at(3, "m"), [] as [usize; 0]);
     assert_eq!(at(5, "i"), [4]);
     assert_eq!(at(5, "item"), [4]);
     assert_eq!(at(5, "verbose"), [2]);
@@ -222,15 +223,15 @@ fn julia_locals_stay_in_their_function() {
     assert_eq!(at(9, "x"), [8]);
     assert_eq!(at(9, "tariff"), [2]);
     assert_eq!(at(12, "t"), [12]);
-    assert!(at(13, "m").is_empty());
-    assert!(at(5, "total").is_empty());
-    assert!(at(16, "m").is_empty());
+    assert_eq!(at(13, "m"), [] as [usize; 0]);
+    assert_eq!(at(5, "total"), [] as [usize; 0]);
+    assert_eq!(at(16, "m"), [] as [usize; 0]);
     assert_eq!(at(20, "k"), [18]);
-    assert!(at(23, "xs").is_empty());
+    assert_eq!(at(23, "xs"), [] as [usize; 0]);
     assert_eq!(at(28, "x"), [27]);
     assert_eq!(at(30, "xs"), [25]);
     assert_eq!(at(34, "color"), [25]);
-    assert!(at(34, "size").is_empty());
+    assert_eq!(at(34, "size"), [] as [usize; 0]);
     assert_eq!(at(35, "v"), [35]);
     assert_eq!(at(36, "rate"), [36]);
     assert_eq!(at(36, "b"), [36]);
@@ -276,7 +277,7 @@ fn julia_locals_of_blocks_outside_functions() {
     assert_eq!(at(16, "t"), [5]);
     assert_eq!(at(21, "row"), [19]);
     assert_eq!(at(21, "strict"), [19]);
-    assert!(at(21, "append!").is_empty());
+    assert_eq!(at(21, "append!"), [] as [usize; 0]);
 }
 
 #[test]
@@ -382,7 +383,7 @@ fn julia_slugs_are_the_ones_julia_computes() {
 #[test]
 fn julia_roots_read_the_manifest_and_the_depot() {
     let dir = std::env::temp_dir().join(format!("merl-julia-roots-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     let mk = |p: &str| std::fs::create_dir_all(dir.join(p)).unwrap();
     for p in [
         "share/julia/base",
@@ -448,7 +449,7 @@ fn julia_roots_read_the_manifest_and_the_depot() {
     assert_eq!(julia_depot(None, home), home.join(".julia"));
     assert_eq!(julia_depot(Some("/d:/e".into()), home), PathBuf::from("/d"));
     assert_eq!(julia_depot(Some(":/e".into()), home), home.join(".julia"));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]

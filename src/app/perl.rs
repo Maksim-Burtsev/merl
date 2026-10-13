@@ -1,4 +1,9 @@
-use super::*;
+#![expect(clippy::needless_pass_by_ref_mut, reason = "#858")]
+#![expect(clippy::needless_pass_by_value, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::redundant_clone, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+use super::{App, Candidate, HashSet, Hit, Kind, Path, PathBuf, Reason, Regex, search};
 
 enum Target {
     Variable(String),
@@ -24,9 +29,10 @@ impl App {
             self.message = format!("no definition for {name}");
             return;
         }
-        let target = match search::perl_used_module(&line) == Some(range.clone()) {
-            true => Target::Package(name.clone()),
-            false => perl_target(&line, range, &name, self.col),
+        let target = if search::perl_used_module(&line) == Some(range.clone()) {
+            Target::Package(name.clone())
+        } else {
+            perl_target(&line, range, &name, self.col)
         };
         let (word, found) = match target {
             Target::Variable(word) => {
@@ -48,9 +54,10 @@ impl App {
                     &patterns,
                     Reason::Path(package.clone()),
                 );
-                let found = match found.is_empty() {
-                    true => self.perl_by_name(here, &word, &patterns),
-                    false => found,
+                let found = if found.is_empty() {
+                    self.perl_by_name(here, &word, &patterns)
+                } else {
+                    found
                 };
                 (word, found)
             }
@@ -67,12 +74,11 @@ impl App {
                     &patterns,
                     Reason::Path(package.clone()),
                 );
-                let found = match found.is_empty() {
-                    true => {
-                        self.offer_only = !self.perl_files(here, &package).is_empty();
-                        self.perl_by_name(here, &word, &patterns)
-                    }
-                    false => found,
+                let found = if found.is_empty() {
+                    self.offer_only = !self.perl_files(here, &package).is_empty();
+                    self.perl_by_name(here, &word, &patterns)
+                } else {
+                    found
                 };
                 (word, found)
             }
@@ -89,13 +95,12 @@ impl App {
                         self.perl_in_package(here, &module, &word, &patterns, reason)
                     })
                     .collect::<Vec<_>>();
-                let found = match imported.is_empty() {
-                    true => {
-                        let mut all = patterns;
-                        all.extend(search::perl_package_patterns(&word));
-                        self.perl_by_name(here, &word, &all)
-                    }
-                    false => imported,
+                let found = if imported.is_empty() {
+                    let mut all = patterns;
+                    all.extend(search::perl_package_patterns(&word));
+                    self.perl_by_name(here, &word, &all)
+                } else {
+                    imported
                 };
                 (word, found)
             }
@@ -257,9 +262,10 @@ fn perl_target(line: &str, range: std::ops::Range<usize>, name: &str, col: usize
                 .len();
             let class = &receiver[start..];
             let value = receiver[..start].ends_with(['$', '@', '%', '>', '}', ']', ')']);
-            match class.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_') && !value {
-                true => Target::Method(class.to_owned(), last),
-                false => Target::MethodOnValue(last),
+            if class.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_') && !value {
+                Target::Method(class.to_owned(), last)
+            } else {
+                Target::MethodOnValue(last)
             }
         }
         None => Target::Sub(last),

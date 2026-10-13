@@ -1,10 +1,12 @@
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::*;
+use super::{Binding, Value, directly_inside};
 
 const NAME: &str = r"[A-Za-z_][\w']*";
 macro_rules! hs_args {
@@ -165,12 +167,13 @@ impl HaskellCode {
         let lines: Vec<String> = text
             .iter()
             .enumerate()
-            .map(
-                |(i, l)| match literal.get(i) == Some(&true) || l.starts_with('#') {
-                    true => String::new(),
-                    false => uncommented(l).to_owned(),
-                },
-            )
+            .map(|(i, l)| {
+                if literal.get(i) == Some(&true) || l.starts_with('#') {
+                    String::new()
+                } else {
+                    uncommented(l).to_owned()
+                }
+            })
             .collect();
         let signed = (0..lines.len())
             .filter(|&j| top(&lines[j]))

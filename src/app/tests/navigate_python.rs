@@ -1,3 +1,4 @@
+#![expect(clippy::too_many_lines, reason = "#858")]
 use super::*;
 
 fn py_rows(cases: Vec<(&str, &str, &str, Shown)>) {
@@ -943,7 +944,7 @@ fn a_typed_receiver_finds_what_its_type_extends() {
 fn a_member_of_a_value_is_looked_for_outside_the_project_too() {
     let mut a = fixture_app("python");
     let site = std::env::temp_dir().join(format!("merl-site-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&site);
+    drop(std::fs::remove_dir_all(&site));
     std::fs::create_dir_all(site.join("client")).unwrap();
     std::fs::write(
         site.join("client/api.py"),

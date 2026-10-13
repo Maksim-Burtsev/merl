@@ -1,4 +1,6 @@
-use super::*;
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::suspicious_operation_groupings, reason = "#858")]
+use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, search};
 
 #[derive(Debug, Clone)]
 enum CsType {
@@ -320,9 +322,10 @@ impl App {
             return None;
         };
         let written = search::cs_returns(&hit.text, method)?;
-        let written = match awaited {
-            true => search::cs_awaited(&written)?.to_owned(),
-            false => written,
+        let written = if awaited {
+            search::cs_awaited(&written)?.to_owned()
+        } else {
+            written
         };
         let at = self.text_of(&hit.path)?;
         let ty = self.cs_resolve(&hit.path, &at, hit.line1, &written)?;

@@ -129,7 +129,7 @@ fn powershell_module_directories() {
         ]
     );
     let dir = std::env::temp_dir().join(format!("merl-pwsh-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(dir.join("opt/7")).unwrap();
     std::fs::create_dir_all(dir.join("bin")).unwrap();
     std::fs::write(dir.join("opt/7/pwsh"), "").unwrap();
@@ -143,7 +143,7 @@ fn powershell_module_directories() {
         roots[2], real,
         "the `Modules` beside `pwsh` is the real file's"
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]

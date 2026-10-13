@@ -1,4 +1,8 @@
-use super::*;
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
+use super::{
+    App, Candidate, Component, Hit, Kind, Path, PathBuf, PickerKind, Reason, Regex, search,
+};
 
 use search::MdAt;
 
@@ -58,13 +62,15 @@ impl App {
             None => 1,
             Some(a) => match LINES.captures(a) {
                 Some(c) => c[1].parse().unwrap_or(1),
-                None => match self.text_of(&rel).and_then(|t| search::anchor_line1(&t, a)) {
-                    Some(line) => line,
-                    None => {
+                None => {
+                    if let Some(line) = self.text_of(&rel).and_then(|t| search::anchor_line1(&t, a))
+                    {
+                        line
+                    } else {
                         self.message = format!("no heading #{a} in {}", rel.display());
                         return;
                     }
-                },
+                }
             },
         };
         let anchor = anchor.map_or(String::new(), |a| format!("#{a}"));

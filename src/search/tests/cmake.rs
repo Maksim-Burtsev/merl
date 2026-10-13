@@ -159,13 +159,16 @@ fn cmake_commands_name_files() {
         open("find_package(fmt)", "app/CMakeLists.txt"),
         [PathBuf::from("deps/fmt-config.cmake")]
     );
-    assert!(open("include(FetchContent)", "CMakeLists.txt").is_empty());
+    assert_eq!(
+        open("include(FetchContent)", "CMakeLists.txt"),
+        [] as [PathBuf; 0]
+    );
 }
 
 #[test]
 fn cmake_roots_follow_the_cmake_on_the_path() {
     let dir = std::env::temp_dir().join(format!("merl-cmake-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(dir.join("cellar/cmake/4.1/bin")).unwrap();
     std::fs::create_dir_all(dir.join("bin")).unwrap();
     std::fs::write(dir.join("cellar/cmake/4.1/bin/cmake"), "").unwrap();
@@ -182,7 +185,7 @@ fn cmake_roots_follow_the_cmake_on_the_path() {
     assert!(roots.contains(&PathBuf::from("/opt/homebrew/lib/cmake")));
     assert!(roots.contains(&PathBuf::from("/usr/lib/cmake")));
     assert!(!cmake_roots(None).iter().any(|r| r.ends_with("Modules")));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]

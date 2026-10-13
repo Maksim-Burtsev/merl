@@ -479,7 +479,7 @@ fn ts_def_patterns_cover_declarations_methods_and_arrows() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-const JAVA: &str = r#"package app;
+const JAVA: &str = r"package app;
 
 public final class Invoice {
     private static final int LIMIT = 10;
@@ -514,7 +514,7 @@ record Point(int x, int y) {}
 enum Status {
     OPEN,
 }
-"#;
+";
 
 const KT: &str = r#"package app
 
@@ -742,7 +742,7 @@ fn scala_scopes_and_packages() {
     assert_eq!(jvm_receiver_at(ext, 2, "shout"), Some("String".into()));
 }
 
-const RB: &str = r#"module Billing
+const RB: &str = r"module Billing
   LIMIT = 10
 
   class Invoice
@@ -785,7 +785,7 @@ const RB: &str = r#"module Billing
     alias_method :blank?, :empty?
   end
 end
-"#;
+";
 
 #[test]
 fn ruby_def_patterns_find_methods_attributes_and_assignments() {
@@ -1005,7 +1005,7 @@ fn a_type_in_another_source_files_unnamed_namespace_stays_a_candidate() {
         Path::new("a.cc"),
         "",
         vec![c_hit("b.cc", 2, "struct Impl {")],
-        |p| (p == Path::new("b.cc")).then(|| other.to_string()),
+        |p| (p == Path::new("b.cc")).then(|| other.to_owned()),
         false,
     );
     assert_eq!(rows.len(), 1);
@@ -1060,7 +1060,7 @@ fn a_prototype_and_a_definition_naming_a_built_in_type_are_one_function() {
         c_hit("a.c", 1, "int f(unsigned long);"),
         c_hit("a.c", 2, "int f(unsigned long n) {"),
     ];
-    let one = c_one_definition("f", &hits, |_| Some(text.to_string()));
+    let one = c_one_definition("f", &hits, |_| Some(text.to_owned()));
     assert_eq!(one.map(|o| o.hit_index), Some(1));
 }
 

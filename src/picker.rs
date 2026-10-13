@@ -1,3 +1,8 @@
+#![expect(clippy::cast_possible_truncation, reason = "#858")]
+#![expect(clippy::cast_possible_wrap, reason = "#858")]
+#![expect(clippy::needless_for_each, reason = "#858")]
+#![expect(clippy::ref_option, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -144,9 +149,10 @@ impl Picker {
                 .iter()
                 .filter_map(|&i| {
                     let label = &snap.get_item(i)?.data.label;
-                    let hay = match whole {
-                        true => label.as_str(),
-                        false => file_name(label),
+                    let hay = if whole {
+                        label.as_str()
+                    } else {
+                        file_name(label)
                     };
                     let score = pattern.score(Utf32Str::new(hay, &mut buf), &mut self.matcher)?;
                     Some((i, score))
@@ -250,17 +256,14 @@ impl Picker {
             .filter_map(|n| nth(snap, order, n))
             .map(|(item, named)| {
                 let mut matched = Vec::new();
-                match named {
-                    true => {
-                        let (label, mut buf) = (&item.data.label, Vec::new());
-                        let name = file_name(label);
-                        pattern.indices(Utf32Str::new(name, &mut buf), matcher, &mut matched);
-                        let skip = label[..label.len() - name.len()].chars().count() as u32;
-                        matched.iter_mut().for_each(|m| *m += skip);
-                    }
-                    false => {
-                        pattern.indices(item.matcher_columns[0].slice(..), matcher, &mut matched);
-                    }
+                if named {
+                    let (label, mut buf) = (&item.data.label, Vec::new());
+                    let name = file_name(label);
+                    pattern.indices(Utf32Str::new(name, &mut buf), matcher, &mut matched);
+                    let skip = label[..label.len() - name.len()].chars().count() as u32;
+                    matched.iter_mut().for_each(|m| *m += skip);
+                } else {
+                    pattern.indices(item.matcher_columns[0].slice(..), matcher, &mut matched);
                 }
                 matched.sort_unstable();
                 matched.dedup();
@@ -325,9 +328,10 @@ impl Picker {
 
     pub fn paste(&mut self, text: &str) -> Pick {
         let old = self.query.to_string();
-        match self.query.insert(text) {
-            true => self.edited(&old),
-            false => Pick::Stay,
+        if self.query.insert(text) {
+            self.edited(&old)
+        } else {
+            Pick::Stay
         }
     }
 
@@ -365,7 +369,7 @@ mod tests {
         let items = labels
             .iter()
             .map(|l| PickItem {
-                label: (*l).to_string(),
+                label: (*l).to_owned(),
                 code_at: None,
                 path_at: None,
                 path: PathBuf::from(l),

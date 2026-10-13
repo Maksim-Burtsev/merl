@@ -1,8 +1,9 @@
+#![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
 use std::path::Path;
 use std::sync::LazyLock;
 
-use super::*;
+use super::{directly_inside, groovy, jvm_enclosing_types, jvm_type_name};
 
 static EXT_PROPERTY: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^\s*(?:project\.)?ext\.([A-Za-z_]\w*)\s*=[^=]").unwrap());

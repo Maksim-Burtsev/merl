@@ -1,3 +1,7 @@
+#![expect(clippy::items_after_statements, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -427,8 +431,8 @@ pub enum SheetSyntax {
 impl SheetSyntax {
     pub fn of_extension(ext: &str) -> Self {
         match ext {
-            "less" => SheetSyntax::Less,
-            _ => SheetSyntax::CssOrSass,
+            "less" => Self::Less,
+            _ => Self::CssOrSass,
         }
     }
 }
@@ -614,21 +618,22 @@ pub fn html_literal_lines(text: &str) -> Vec<bool> {
         let (line, next) = rest.split_once('\n').unwrap_or((rest, ""));
         let mut l = line;
         loop {
-            match open {
-                true => match l.find("-->") {
+            if open {
+                match l.find("-->") {
                     Some(i) => {
                         open = false;
                         l = &l[i + 3..];
                     }
                     None => break,
-                },
-                false => match l.find("<!--") {
+                }
+            } else {
+                match l.find("<!--") {
                     Some(i) => {
                         open = true;
                         l = &l[i + 4..];
                     }
                     None => break,
-                },
+                }
             }
         }
         out.push(open);

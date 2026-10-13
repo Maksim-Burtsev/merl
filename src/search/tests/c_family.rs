@@ -1,6 +1,10 @@
+#![expect(clippy::cognitive_complexity, reason = "#858")]
+#![expect(clippy::items_after_statements, reason = "#858")]
+#![expect(clippy::redundant_clone, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
 use super::*;
 
-const C_H: &str = r#"#ifndef INVOICE_H
+const C_H: &str = r"#ifndef INVOICE_H
 #define INVOICE_H
 
 #define LRU_BITS 24
@@ -42,7 +46,7 @@ extern struct invoice *current;
 int invoice_total(struct invoice *inv);
 
 #endif
-"#;
+";
 
 const C_C: &str = r#"#include "invoice.h"
 
@@ -638,7 +642,7 @@ fn swift_def_patterns_find_declarations_behind_attributes_and_modifiers() {
 
 #[test]
 fn swift_locals_are_a_functions_and_members_a_types() {
-    let text = r#"let global = 1
+    let text = r"let global = 1
 final class Box {
 #if DEBUG
     let debug = 1
@@ -657,7 +661,7 @@ final class Box {
 }
 protocol Boxed {
     var lid: Int { get }
-}"#;
+}";
     let lines: Vec<&str> = text.lines().collect();
     let literal = literal_lines(Kind::Swift, text);
     let local = |line| swift_local(&lines, &literal, line);
@@ -727,7 +731,7 @@ fn swift_scope_roots_and_names() {
     );
 }
 
-const PHP: &str = r#"<?php
+const PHP: &str = r"<?php
 
 namespace App\Services;
 
@@ -800,7 +804,7 @@ function billing_report(array $rows, int $total): array
     return
         $total == 0 ? $map : $rows;
 }
-"#;
+";
 
 #[test]
 fn php_def_patterns_find_declarations_behind_modifiers() {
@@ -878,7 +882,7 @@ fn a_php_switch_case_is_no_constant_and_a_global_function_no_method() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-const PHP_TAGS: &str = r#"<?php
+const PHP_TAGS: &str = r"<?php
 
 namespace App\Models;
 
@@ -923,7 +927,7 @@ class Song
 final class User
 {
 }
-"#;
+";
 
 #[test]
 fn php_typed_constants_and_class_docblock_tags_declare() {
@@ -980,7 +984,7 @@ fn php_namespace_line_answers_only_the_namespace_written_up_to_the_word() {
         let start = line.find(word).unwrap();
         let mut patterns = def_patterns(Kind::Php, word);
         php_namespace_patterns(&mut patterns, text, line, start..start + word.len());
-        let re = regex::Regex::new(&patterns.join("|")).unwrap();
+        let re = Regex::new(&patterns.join("|")).unwrap();
         let decls = [
             "namespace Illuminate\\Support;",
             "namespace App\\Repos\\Support;",
@@ -1055,7 +1059,10 @@ fn php_scope_roots_imports_and_names() {
         [dir.join("vendor")],
         "Composer's `vendor/` is gitignored, outside the project walk as `node_modules` is"
     );
-    assert!(external_roots(Kind::Php, Path::new("/")).is_empty());
+    assert_eq!(
+        external_roots(Kind::Php, Path::new("/")),
+        [] as [PathBuf; 0]
+    );
     std::fs::remove_dir_all(&dir).unwrap();
     assert_eq!(
         qualified(Kind::Php, PHP, 28, "parse").as_deref(),
@@ -1335,7 +1342,7 @@ fn swift_test_targets_come_from_the_manifest() {
         "let package = Package(name: \"App\")\n",
     )
     .unwrap();
-    assert!(swift_test_dirs(&dir).is_empty());
+    assert_eq!(swift_test_dirs(&dir), [] as [PathBuf; 0]);
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -1823,7 +1830,7 @@ namespace Shop
 #[test]
 fn csharp_headers_bind_their_parameters_and_variables() {
     let opener = |header: &str, name: &str| {
-        let o = crate::search::csharp::cs_opener(header, name);
+        let o = cs_opener(header, name);
         (o.binds, o.hides_outer_scopes)
     };
     for (header, name) in [
@@ -1882,7 +1889,7 @@ fn csharp_headers_bind_their_parameters_and_variables() {
         "a primary constructor's parameter reads as the type's"
     );
     assert_eq!(parameter_of("        new Order(out seed);", "seed"), None);
-    let statement = |t: &str, name: &str| crate::search::csharp::cs_statement(t, name);
+    let statement = |t: &str, name: &str| cs_statement(t, name);
     assert!(statement("var ok = o is Buyer buyer;", "buyer"));
     assert!(statement("int Twice(int n) => n * 2;", "Twice"));
     let line = "Run(a, (x, i) => x); Use(x);";

@@ -1,4 +1,5 @@
-use super::*;
+#![expect(clippy::string_slice, reason = "#858")]
+use super::{App, Candidate, HashMap, Kind, Path, PathBuf, Reason, search};
 
 impl App {
     pub(super) fn file_imported(
@@ -113,9 +114,6 @@ impl App {
             .filter(|f| package(f) == package(here))
             .cloned()
             .collect();
-        match own.is_empty() {
-            true => files,
-            false => own,
-        }
+        if own.is_empty() { files } else { own }
     }
 }

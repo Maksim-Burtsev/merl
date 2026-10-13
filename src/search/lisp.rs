@@ -1,10 +1,17 @@
+#![expect(clippy::cognitive_complexity, reason = "#858")]
+#![expect(clippy::naive_bytecount, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::struct_excessive_bools, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::*;
+use super::{Binding, Kind, Value, lexical, word_chars};
 
 const END: &str = r#"(?:$|[\s()\[\]{}"])"#;
 const META: &str = r"(?:\^(?:\{[^}]*\}|\S+)\s+)*";
@@ -648,7 +655,7 @@ pub fn clojure_requires(text: &str) -> Vec<(String, String)> {
                 Tok::Atom(a) => match spec_depth {
                     Some(_) => spec.push(a),
                     None if depth == 1 && !a.starts_with(':') => {
-                        out.push((a.to_owned(), a.to_owned()))
+                        out.push((a.to_owned(), a.to_owned()));
                     }
                     None => {}
                 },

@@ -1,5 +1,18 @@
+#![expect(clippy::assigning_clones, reason = "#858")]
+#![expect(clippy::cognitive_complexity, reason = "#858")]
+#![expect(clippy::needless_collect, reason = "#858")]
+#![expect(clippy::nonminimal_bool, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use super::python::{enclosing_def_lines1, starts_by_assigning};
-use super::*;
+use super::resolution::resolution;
+use super::{
+    App, Candidate, FileLine, HashMap, Hit, Kind, Path, PathBuf, PickerKind, Reason, Regex, Typed,
+    bound, cs_typed, external, import_line, imported, is_word, jvm, names_itself, python, rust,
+    search, typed, whole_at, word_col,
+};
 
 impl App {
     pub(super) fn definition_word(
@@ -180,9 +193,10 @@ impl App {
                 .owner
                 .map(|o| self.label_targets(kind, &here, &word, o.line0, o.byte_col, &o.how))
                 .unwrap_or_default();
-            match found.is_empty() {
-                true => self.message = format!("{word}: {}", label.what),
-                false => self.show_definitions(kind, &word, &here, found, None),
+            if found.is_empty() {
+                self.message = format!("{word}: {}", label.what);
+            } else {
+                self.show_definitions(kind, &word, &here, found, None);
             }
             return;
         }
@@ -225,9 +239,10 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        let go_key = match kind == Kind::Go && !dotted {
-            true => search::go_key(&text, self.line + 1, range.start, range.end),
-            false => search::GoKey::No,
+        let go_key = if kind == Kind::Go && !dotted {
+            search::go_key(&text, self.line + 1, range.start, range.end)
+        } else {
+            search::GoKey::No
         };
         let go_keyed = go_key != search::GoKey::No;
         if kind == Kind::Go && (dotted || matches!(go_key, search::GoKey::Of(_))) {
@@ -260,10 +275,7 @@ impl App {
         }
         let lead = &self.line_str()[..range.start];
         if kind == Kind::Ruby && lead.ends_with('@') {
-            let sigil = match lead.ends_with("@@") {
-                true => "@@",
-                false => "@",
-            };
+            let sigil = if lead.ends_with("@@") { "@@" } else { "@" };
             let ivar = format!("{sigil}{word}");
             let found = self.ruby_ivars(&here, &text, &ivar);
             self.show_definitions(kind, &ivar, &here, found, None);
@@ -277,9 +289,10 @@ impl App {
             return;
         }
         let in_literal = search::literal_lines(kind, &text).get(self.line) == Some(&true);
-        let mut imports = match in_literal {
-            true => search::imports_as_written(kind, &text),
-            false => search::imports(kind, &text),
+        let mut imports = if in_literal {
+            search::imports_as_written(kind, &text)
+        } else {
+            search::imports(kind, &text)
         };
         let first = chain.first().map_or(word.as_str(), String::as_str);
         let key = kind == Kind::Lua
@@ -328,9 +341,10 @@ impl App {
                 && n != self.line + 1
         };
         let locals_at = |text: &str, line: usize| -> Vec<usize> {
-            let binding: Vec<usize> = match declared {
-                true => vec![self.line + 1],
-                false => self.binding_lines(kind, text, line, range.start, chain.is_empty(), first),
+            let binding: Vec<usize> = if declared {
+                vec![self.line + 1]
+            } else {
+                self.binding_lines(kind, text, line, range.start, chain.is_empty(), first)
             };
             binding
                 .into_iter()
@@ -511,16 +525,17 @@ impl App {
         let own = matches!(chain.as_slice(), [s] if s == "self" || s == "cls" || s == "this");
         if kind == Kind::Jvm && (dotted || before.ends_with("::")) && !own {
             let literal = dotted && chain.is_empty() && before[..before.len() - 1].ends_with('"');
-            let found = match literal {
-                true => self.jvm_outside(&here, &word, "String").map(|hits| {
+            let found = if literal {
+                self.jvm_outside(&here, &word, "String").map(|hits| {
                     hits.into_iter()
                         .map(|hit| Candidate {
                             hit,
                             reason: Reason::Receiver("String".into()),
                         })
                         .collect()
-                }),
-                false => self.jvm_typed(&here, &text, before, &chain, &word),
+                })
+            } else {
+                self.jvm_typed(&here, &text, before, &chain, &word)
             };
             if let Some(found) = found {
                 let found = self.jvm_fit_candidates(&here, &word, range.clone(), &chain, found);
@@ -687,9 +702,10 @@ impl App {
             && bound(&imports, &chain[0]).is_none()
             && let Some(found) = self.swift_typed(&here, &text, &word, &chain)
         {
-            match found.is_empty() {
-                true => self.message = resolution(&word, None, &[], None, false),
-                false => self.show_definitions(kind, &word, &here, found, None),
+            if found.is_empty() {
+                self.message = resolution(&word, None, &[], None, false);
+            } else {
+                self.show_definitions(kind, &word, &here, found, None);
             }
             return;
         }
@@ -850,7 +866,7 @@ impl App {
                             return;
                         }
                         Some(python::OutsideClassMember::NoSuchClass) => {
-                            value = Some(path[..path.len() - 1].to_vec())
+                            value = Some(path[..path.len() - 1].to_vec());
                         }
                         None => {}
                     }
@@ -892,7 +908,7 @@ impl App {
         if kind == Kind::TsJs
             && locals.is_empty()
             && let [global] = chain.as_slice()
-            && super::imported::JS_GLOBALS.contains(&global.as_str())
+            && imported::JS_GLOBALS.contains(&global.as_str())
             && bound(&imports, global).is_none()
             && self
                 .project_definitions(
@@ -973,14 +989,10 @@ impl App {
             _ => self.line_str()[..range.start].ends_with(&format!("{path}{sep}")),
         };
         let mut answer_files: Option<Vec<PathBuf>> = None;
-        let seen = match kind == Kind::Rust && pathed && locals.is_empty() && chain.len() == 1 {
-            true => search::rust_scope_items(
-                &text,
-                self.line + 1,
-                &chain[0],
-                search::RustNamespace::Path,
-            ),
-            false => Vec::new(),
+        let seen = if kind == Kind::Rust && pathed && locals.is_empty() && chain.len() == 1 {
+            search::rust_scope_items(&text, self.line + 1, &chain[0], search::RustNamespace::Path)
+        } else {
+            Vec::new()
         };
         let owners: Vec<String> = seen
             .iter()
@@ -1050,12 +1062,13 @@ impl App {
                 c.starts_with(|c: char| c.is_ascii_uppercase())
                     && c.contains(|c: char| c.is_ascii_lowercase())
             });
-        let (word, pattern) = match class_method && word == "new" {
-            true => (
+        let (word, pattern) = if class_method && word == "new" {
+            (
                 "initialize".to_owned(),
                 search::def_patterns(kind, "initialize").join("|"),
-            ),
-            false => (word, pattern),
+            )
+        } else {
+            (word, pattern)
         };
         if pathed && locals.is_empty() && !chain.is_empty() {
             let full = format!("{path}{sep}{word}");
@@ -1110,38 +1123,38 @@ impl App {
             let on_row = named
                 .iter()
                 .any(|c| c.hit.path == here && c.hit.line1 == self.line + 1);
-            let named = match kind == Kind::C && !on_row {
-                true => {
-                    let rows: Vec<Hit> = named.iter().map(|c| c.hit.clone()).collect();
-                    let kept = search::c_type_rows(
-                        &word,
-                        rows,
-                        |_| None,
-                        search::CTypeWord {
-                            constructs: true,
-                            struct_tag: false,
-                        },
-                    );
-                    named
-                        .into_iter()
-                        .filter(|c| {
-                            kept.iter()
-                                .any(|h| h.path == c.hit.path && h.line1 == c.hit.line1)
-                        })
-                        .collect()
-                }
-                false => named,
+            let named = if kind == Kind::C && !on_row {
+                let rows: Vec<Hit> = named.iter().map(|c| c.hit.clone()).collect();
+                let kept = search::c_type_rows(
+                    &word,
+                    rows,
+                    |_| None,
+                    search::CTypeWord {
+                        constructs: true,
+                        struct_tag: false,
+                    },
+                );
+                named
+                    .into_iter()
+                    .filter(|c| {
+                        kept.iter()
+                            .any(|h| h.path == c.hit.path && h.line1 == c.hit.line1)
+                    })
+                    .collect()
+            } else {
+                named
             };
-            let named = match kind == Kind::Swift
+            let named = if kind == Kind::Swift
                 && named
                     .iter()
                     .any(|c| !search::swift_instance_member(&c.hit.text))
             {
-                true => named
+                named
                     .into_iter()
                     .filter(|c| !search::swift_instance_member(&c.hit.text))
-                    .collect(),
-                false => named,
+                    .collect()
+            } else {
+                named
             };
             if !named.is_empty() {
                 self.show_definitions(kind, &word, &here, named, None);
@@ -1180,9 +1193,12 @@ impl App {
             });
         let module_pattern = search::def_patterns(kind, &word)
             .into_iter()
-            .filter(|p| match attribute {
-                true => p.starts_with(r"^\s*@"),
-                false => !p.starts_with(r"^\s*@") && !p.contains("defstruct"),
+            .filter(|p| {
+                if attribute {
+                    p.starts_with(r"^\s*@")
+                } else {
+                    !p.starts_with(r"^\s*@") && !p.contains("defstruct")
+                }
             })
             .collect::<Vec<_>>()
             .join("|");
@@ -1391,88 +1407,87 @@ impl App {
         };
         let mut fallbacks = Vec::new();
         let mut aside = None;
-        let hits = match kind == Kind::C && !dotted && !before.ends_with("->") {
-            true => {
-                let (before, after) = (before.trim_end(), &self.line_str()[range.end..]);
-                let keyword = |k: &str| {
-                    before.strip_suffix(k).is_some_and(|b| {
-                        !b.ends_with(|c: char| c.is_ascii_alphanumeric() || c == '_')
-                    })
-                };
-                let construction = after.trim_start().starts_with(['(', '{']) || keyword("new");
-                let after = after.trim_start();
-                let value = locals.is_empty()
-                    && (after.starts_with("->")
-                        || (after.starts_with('.') && !after.starts_with("..")));
-                let hits: Vec<Hit> = hits
+        let hits = if kind == Kind::C && !dotted && !before.ends_with("->") {
+            let (before, after) = (before.trim_end(), &self.line_str()[range.end..]);
+            let keyword = |k: &str| {
+                before
+                    .strip_suffix(k)
+                    .is_some_and(|b| !b.ends_with(|c: char| c.is_ascii_alphanumeric() || c == '_'))
+            };
+            let construction = after.trim_start().starts_with(['(', '{']) || keyword("new");
+            let after = after.trim_start();
+            let value = locals.is_empty()
+                && (after.starts_with("->")
+                    || (after.starts_with('.') && !after.starts_with("..")));
+            let hits: Vec<Hit> = hits
+                .into_iter()
+                .filter(|h| !value || !Self::c_type_line(&word, h))
+                .collect();
+            let tag = ["struct", "union", "enum"].into_iter().any(keyword);
+            let mut literal = HashMap::new();
+            let hits: Vec<Hit> = (hits.into_iter())
+                .filter(|h| self.c_code_line(&mut literal, h))
+                .collect();
+            let hits = search::c_type_rows(
+                &word,
+                hits,
+                |p| self.text_of(p),
+                search::CTypeWord {
+                    constructs: construction,
+                    struct_tag: tag,
+                },
+            );
+            let hits = self.c_reached_only(&here, &word, hits);
+            let on = hits
+                .iter()
+                .any(|h| h.path == here && h.line1 == self.line + 1);
+            let hits = search::c_file_local(&word, &here, &text, hits, |p| self.text_of(p), on);
+            let line = self.line_str();
+            let declared: Vec<Option<String>> = hits
+                .iter()
+                .map(|h| {
+                    let scopes = self
+                        .text_of(&h.path)
+                        .filter(|_| on && before.ends_with("::"))
+                        .and_then(|t| search::c_member_class(&t, h.line1, &word))?;
+                    search::c_defines_member(line, &scopes, &word)
+                        .then(|| scopes.last().cloned())
+                        .flatten()
+                })
+                .collect();
+            if declared.iter().any(Option::is_some) {
+                let found = hits
                     .into_iter()
-                    .filter(|h| !value || !Self::c_type_line(&word, h))
-                    .collect();
-                let tag = ["struct", "union", "enum"].into_iter().any(keyword);
-                let mut literal = HashMap::new();
-                let hits: Vec<Hit> = (hits.into_iter())
-                    .filter(|h| self.c_code_line(&mut literal, h))
-                    .collect();
-                let hits = search::c_type_rows(
-                    &word,
-                    hits,
-                    |p| self.text_of(p),
-                    search::CTypeWord {
-                        constructs: construction,
-                        struct_tag: tag,
-                    },
-                );
-                let hits = self.c_reached_only(&here, &word, hits);
-                let on = hits
-                    .iter()
-                    .any(|h| h.path == here && h.line1 == self.line + 1);
-                let hits = search::c_file_local(&word, &here, &text, hits, |p| self.text_of(p), on);
-                let line = self.line_str();
-                let declared: Vec<Option<String>> = hits
-                    .iter()
-                    .map(|h| {
-                        let scopes = self
-                            .text_of(&h.path)
-                            .filter(|_| on && before.ends_with("::"))
-                            .and_then(|t| search::c_member_class(&t, h.line1, &word))?;
-                        search::c_defines_member(line, &scopes, &word)
-                            .then(|| scopes.last().cloned())
-                            .flatten()
+                    .zip(declared)
+                    .filter_map(|(hit, owner)| {
+                        Some(Candidate {
+                            hit,
+                            reason: Reason::Path(owner?),
+                        })
                     })
                     .collect();
-                if declared.iter().any(Option::is_some) {
-                    let found = hits
-                        .into_iter()
-                        .zip(declared)
-                        .filter_map(|(hit, owner)| {
-                            Some(Candidate {
-                                hit,
-                                reason: Reason::Path(owner?),
-                            })
-                        })
-                        .collect();
-                    self.show_definitions(kind, &word, &here, found, None);
-                    return;
-                }
-                let (fallback, hits): (Vec<Hit>, Vec<Hit>) = hits.into_iter().partition(|h| {
-                    self.text_of(&h.path)
-                        .is_some_and(|t| search::c_fallback(&t, h.line1, &word))
-                });
-                if hits.is_empty() {
-                    fallbacks = fallback;
-                }
-                let parameter = search::c_parameter(&text, self.line + 1, &word);
-                match search::c_one_definition(&word, &hits, |p| self.text_of(p))
-                    .filter(|_| !on && !parameter)
-                {
-                    Some(one) => {
-                        aside = Some(one.set_aside_note);
-                        vec![hits[one.hit_index].clone()]
-                    }
-                    None => hits,
-                }
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
             }
-            false => hits,
+            let (fallback, hits): (Vec<Hit>, Vec<Hit>) = hits.into_iter().partition(|h| {
+                self.text_of(&h.path)
+                    .is_some_and(|t| search::c_fallback(&t, h.line1, &word))
+            });
+            if hits.is_empty() {
+                fallbacks = fallback;
+            }
+            let parameter = search::c_parameter(&text, self.line + 1, &word);
+            match search::c_one_definition(&word, &hits, |p| self.text_of(p))
+                .filter(|_| !on && !parameter)
+            {
+                Some(one) => {
+                    aside = Some(one.set_aside_note);
+                    vec![hits[one.hit_index].clone()]
+                }
+                None => hits,
+            }
+        } else {
+            hits
         };
         found = hits
             .into_iter()
@@ -1497,9 +1512,10 @@ impl App {
                     .external_definitions(kind, &word, &chain, dotted, &imports, false)
                     .unwrap_or_default();
                 away.retain(|c| !extends(c));
-                match away.is_empty() {
-                    true => self.offer_only = true,
-                    false => found = away,
+                if away.is_empty() {
+                    self.offer_only = true;
+                } else {
+                    found = away;
                 }
             }
         }
@@ -1535,11 +1551,11 @@ impl App {
                 Some("self" | "cls" | "this")
             )
         {
-            found = match unbound && !search::PYTHON_BUILTINS.contains(&word.as_str()) {
-                true => self.star_imported(&word, &imports),
-                false => self
-                    .external_definitions(kind, &word, &chain, dotted, &imports, false)
-                    .unwrap_or_default(),
+            found = if unbound && !search::PYTHON_BUILTINS.contains(&word.as_str()) {
+                self.star_imported(&word, &imports)
+            } else {
+                self.external_definitions(kind, &word, &chain, dotted, &imports, false)
+                    .unwrap_or_default()
             };
             let after = self.line_str()[range.end..].trim_start();
             if kind == Kind::C
@@ -1603,11 +1619,11 @@ impl App {
         (self.line, self.col) = (line0, byte_col);
         let name = self.definition_word(Some(kind)).map(|(_, w)| w);
         let text = self.buf.lines.join("\n");
-        let owners = match name
+        let owners = if let Some(decl) = name
             .as_deref()
             .and_then(|n| search::own_type(kind, &text, line0, n))
         {
-            Some(decl) => vec![Candidate {
+            vec![Candidate {
                 hit: Hit {
                     deleted: None,
                     path: here.to_path_buf(),
@@ -1616,12 +1632,11 @@ impl App {
                     text: self.buf.lines[decl - 1].clone(),
                 },
                 reason: Reason::File,
-            }],
-            None => {
-                self.probe = Some(Vec::new());
-                self.goto_definition();
-                self.probe.take().unwrap_or_default()
-            }
+            }]
+        } else {
+            self.probe = Some(Vec::new());
+            self.goto_definition();
+            self.probe.take().unwrap_or_default()
         };
         (self.line, self.col, self.message) = (cursor_line, cursor_col, message);
         let reads_outside = kind == Kind::Rust && *owner == search::Owner::Typed;
@@ -1672,9 +1687,10 @@ impl App {
                         .collect();
                 }
             }
-            let by_name = match c.reason.proven() {
-                true => "",
-                false => ", found by name",
+            let by_name = if c.reason.proven() {
+                ""
+            } else {
+                ", found by name"
             };
             for (path, line, of) in at {
                 if out
@@ -1791,9 +1807,10 @@ impl App {
             return Ok(Some(ty));
         }
         let named = search::type_path(kind, &over).is_some() && !over.starts_with('*');
-        match named && depth < 8 {
-            true => self.struct_decl(kind, &ty.path, &over, depth + 1),
-            false => Ok(None),
+        if named && depth < 8 {
+            self.struct_decl(kind, &ty.path, &over, depth + 1)
+        } else {
+            Ok(None)
         }
     }
 
@@ -1814,16 +1831,16 @@ impl App {
         }
         let dot = [".".to_owned()];
         for search::Import { path, .. } in imports.iter().filter(|i| i.name == ".") {
-            let found = match self.imported_definitions(kind, here, word, &dot, path) {
-                Some(found) => found,
-                None => {
-                    let only = [search::Import {
-                        name: ".".to_owned(),
-                        path: path.clone(),
-                    }];
-                    self.external_definitions(kind, word, &dot, false, &only, true)
-                        .unwrap_or_default()
-                }
+            let found = if let Some(found) = self.imported_definitions(kind, here, word, &dot, path)
+            {
+                found
+            } else {
+                let only = [search::Import {
+                    name: ".".to_owned(),
+                    path: path.clone(),
+                }];
+                self.external_definitions(kind, word, &dot, false, &only, true)
+                    .unwrap_or_default()
             };
             if !found.is_empty() {
                 return found;
@@ -1956,7 +1973,7 @@ impl App {
             [] => self.message = resolution(word, None, &found, broke, truncated),
             [one] if !namesakes && !offer_only && !truncated && !copy => {
                 let path = self.root.join(&one.hit.path);
-                let name = super::jvm::declared_as(kind, word, &one.hit.text);
+                let name = jvm::declared_as(kind, word, &one.hit.text);
                 let target = self
                     .hit_text(&one.hit)
                     .filter(|_| !matches!(one.reason, Reason::Module(_) | Reason::Label(_)))
@@ -2109,57 +2126,27 @@ impl App {
         {
             let cte = Regex::new(&search::sql_cte(word)).expect("an escaped name keeps it valid");
             let text = self.text_of(here).unwrap_or_default();
-            let sees = |h: &Hit| match h.path == here {
-                true => search::sql_cte_sees(&text, h.line1, word, self.line + 1, self.col),
-                false => Some(false),
+            let sees = |h: &Hit| {
+                if h.path == here {
+                    search::sql_cte_sees(&text, h.line1, word, self.line + 1, self.col)
+                } else {
+                    Some(false)
+                }
             };
             let known = hits
                 .iter()
                 .filter(|h| cte.is_match(&h.text))
                 .all(|h| sees(h).is_some());
             let seen = hits.iter().any(|h| sees(h) == Some(true));
-            hits.retain(|h| match cte.is_match(&h.text) {
-                true => !known || sees(h) == Some(true),
-                false => !known || !seen,
+            hits.retain(|h| {
+                if cte.is_match(&h.text) {
+                    !known || sees(h) == Some(true)
+                } else {
+                    !known || !seen
+                }
             });
         }
         hits
-    }
-}
-
-pub(super) fn resolution(
-    word: &str,
-    target: Option<&str>,
-    found: &[Candidate],
-    broke: Option<&str>,
-    cut: bool,
-) -> String {
-    let note = broke.map_or(String::new(), |at| format!(" (chain broke at {at})"));
-    let Some(first) = found.first() else {
-        return format!("no definition for {word}{note}");
-    };
-    let reason = &first.reason;
-    if let ([_], false) = (found, cut) {
-        let mut why = reason.to_string();
-        if !reason.proven() {
-            why.push_str(", 1 match");
-        }
-        if let Some(at) = broke {
-            why.push_str(&format!(", chain broke at {at}"));
-        }
-        return match target {
-            Some(target) => format!("{word} \u{2192} {target} ({why})"),
-            None => format!("{word}: {why}"),
-        };
-    }
-    let n = match found.len() {
-        n if cut || n >= search::MAX_HITS => format!("{n}+"),
-        n => n.to_string(),
-    };
-    if found.iter().all(|c| c.reason == *reason) {
-        format!("{word}: {reason}, {n} declarations{note}")
-    } else {
-        format!("{word}: {n} declarations{note}")
     }
 }
 

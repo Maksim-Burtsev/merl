@@ -1,3 +1,5 @@
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
 use super::*;
 
 fn go_rows(cases: Vec<(&str, &str, &str, Shown)>) {
@@ -207,9 +209,10 @@ fn a_go_alias_is_the_type_it_names() {
 
 #[test]
 fn a_go_declaration_per_platform_is_the_hosts() {
-    let (mine, other) = match cfg!(windows) {
-        true => ("clock_windows.go", "clock_other.go"),
-        false => ("clock_other.go", "clock_windows.go"),
+    let (mine, other) = if cfg!(windows) {
+        ("clock_windows.go", "clock_other.go")
+    } else {
+        ("clock_other.go", "clock_windows.go")
     };
     let host = if cfg!(windows) {
         ("windows", 3)

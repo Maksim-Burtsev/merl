@@ -1,3 +1,8 @@
+#![expect(clippy::case_sensitive_file_extension_comparisons, reason = "#858")]
+#![expect(clippy::cast_possible_truncation, reason = "#858")]
+#![expect(clippy::default_trait_access, reason = "#858")]
+#![expect(clippy::format_collect, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
 use std::path::PathBuf;
 
 use ratatui::Terminal;
@@ -46,7 +51,7 @@ fn cell(terminal: &Terminal<TestBackend>, needle: &str) -> Cell {
 #[test]
 fn ignored_rows_are_dim_in_the_tree_and_in_the_file_picker() {
     let dir = std::env::temp_dir().join(format!("merl-ui-ignored-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(dir.join("node_modules")).unwrap();
     for (f, text) in [
         (".gitignore", "node_modules/\n.env\n"),
@@ -137,7 +142,7 @@ fn picker_overlay_renders_border_prompt_and_items() {
                 .map(|x| buf[(x, y)].symbol())
                 .collect::<String>()
                 .trim_end()
-                .to_string()
+                .to_owned()
         })
         .collect();
     assert_eq!(text, SNAPSHOT);
@@ -153,7 +158,7 @@ fn search_title_hides_the_count_until_the_grep_answers() {
         terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
         let text = rows(&terminal).join("\n");
         let at = text.find("Search (").expect("the title");
-        text[at..].split_inclusive(')').next().unwrap().to_string()
+        text[at..].split_inclusive(')').next().unwrap().to_owned()
     };
 
     for c in "sqqzz".chars() {
@@ -178,7 +183,7 @@ fn search_title_hides_the_count_until_the_grep_answers() {
 #[test]
 fn symbol_title_says_the_list_is_cut_until_the_query_answers() {
     let dir = std::env::temp_dir().join(format!("merl-ui-cap-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(&dir).unwrap();
     let many: String = (0..MAX_HITS)
         .map(|i| format!("func a{i}() {{}}\n"))
@@ -193,7 +198,7 @@ fn symbol_title_says_the_list_is_cut_until_the_query_answers() {
         terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
         let text = rows(&terminal).join("\n");
         let at = text.find("Symbols (").expect("the title");
-        text[at..].split_inclusive(')').next().unwrap().to_string()
+        text[at..].split_inclusive(')').next().unwrap().to_owned()
     };
 
     app.key(KeyEvent::new(KeyCode::Char('D'), KeyModifiers::NONE));
@@ -238,7 +243,7 @@ fn search_picker_prompt_and_hit_count() {
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut terminal = Terminal::new(TestBackend::new(60, 12)).unwrap();
     for (query, title) in [
-        ("one", "Search (1 hit)".to_string()),
+        ("one", "Search (1 hit)".to_owned()),
         ("x", format!("Search ({MAX_HITS}+ hits)")),
     ] {
         app.key(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::NONE));
@@ -275,7 +280,7 @@ fn hit_picker_rows_keep_the_syntax_colours_of_their_line() {
             .lines()
             .next()
             .unwrap()
-            .to_string(),
+            .to_owned(),
         deleted: None,
     }];
     assert!(hits[0].text.starts_with("//!"), "{:?}", hits[0].text);
@@ -336,7 +341,7 @@ fn the_selected_hit_row_takes_the_themes_selected_text_colour() {
             .lines()
             .next()
             .unwrap()
-            .to_string(),
+            .to_owned(),
         deleted: None,
     }];
     app.show_picker(crate::app::PickerKind::Usages, App::hit_items(hits));
@@ -793,7 +798,7 @@ fn the_lesson_panel_grows_to_its_text() {
         terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
         let r = rows(&terminal);
         let top = r.iter().position(|l| l.starts_with("Tutor ")).unwrap();
-        let panel = r[top + 1..r.len() - 1].join(" ").trim_end().to_string();
+        let panel = r[top + 1..r.len() - 1].join(" ").trim_end().to_owned();
         let last = crate::tutor::lesson(step)
             .unwrap()
             .tutor
@@ -857,7 +862,7 @@ fn inside(terminal: &Terminal<TestBackend>) -> Vec<String> {
                 .map(String::as_str)
                 .collect::<String>()
                 .trim_end()
-                .to_string()
+                .to_owned()
         })
         .collect()
 }
@@ -1020,7 +1025,7 @@ fn a_file_heads_each_run_of_its_rows() {
     let heads: Vec<&str> = list
         .iter()
         .filter(|r| r.ends_with(".py"))
-        .map(|r| r.as_str())
+        .map(String::as_str)
         .collect();
     assert_eq!(heads, ["a.py", "b.py", "a.py"]);
 }

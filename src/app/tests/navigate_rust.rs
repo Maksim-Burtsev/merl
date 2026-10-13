@@ -1,3 +1,8 @@
+#![expect(clippy::format_collect, reason = "#858")]
+#![expect(clippy::match_wildcard_for_single_variants, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::redundant_clone, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
 use super::*;
 
 #[test]
@@ -759,9 +764,10 @@ fn a_private_method_is_seen_from_its_module_and_below() {
         ("src/bin/unwind.rs", "from_bin", Some("src/bin/wind.rs")),
     ] {
         d_on(&mut a, file, &format!("x.{method}"));
-        let got = match a.message.starts_with("no definition") {
-            true => None,
-            false => Some(at(&a)),
+        let got = if a.message.starts_with("no definition") {
+            None
+        } else {
+            Some(at(&a))
         };
         assert_eq!(
             got,

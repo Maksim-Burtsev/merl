@@ -1,10 +1,16 @@
+#![expect(clippy::naive_bytecount, reason = "#858")]
+#![expect(clippy::nonminimal_bool, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
+#![expect(clippy::useless_let_if_seq, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::*;
+use super::{Binding, Value, lexical};
 
 const NAME: &str = r"[A-Za-z_][\w'-]*";
 

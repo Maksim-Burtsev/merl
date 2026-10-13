@@ -1,4 +1,4 @@
-use super::*;
+use super::{App, Candidate, Kind, Path, Reason, search};
 
 impl App {
     pub(super) fn word_here(&self, kind: Option<Kind>) -> Option<(std::ops::Range<usize>, &str)> {
@@ -7,9 +7,10 @@ impl App {
             search::literal_lines(Kind::Dart, &self.buf.lines.join("\n")).get(self.line)
                 == Some(&true)
         };
-        match kind == Some(Kind::Dart) && literal() {
-            true => search::word_at(line, self.col, ""),
-            false => search::definition_word(kind, line, self.col),
+        if kind == Some(Kind::Dart) && literal() {
+            search::word_at(line, self.col, "")
+        } else {
+            search::definition_word(kind, line, self.col)
         }
     }
 
@@ -44,11 +45,11 @@ impl App {
         self.spelling_cut(Kind::Dart, word, &mut patterns);
         let pattern = patterns.join("|");
         let built = chain.is_empty().then(|| format!("{word}.{word}"));
-        let hits = match file.is_absolute() {
-            true => self.external_grep(Kind::Dart, std::slice::from_ref(&file), &pattern),
-            false => self
-                .grep(&pattern, false, false, |p| p == file)
-                .unwrap_or_default(),
+        let hits = if file.is_absolute() {
+            self.external_grep(Kind::Dart, std::slice::from_ref(&file), &pattern)
+        } else {
+            self.grep(&pattern, false, false, |p| p == file)
+                .unwrap_or_default()
         };
         let source = self.text_of(&file)?;
         let literal = search::literal_lines(Kind::Dart, &source);

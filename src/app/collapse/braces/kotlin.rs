@@ -1,3 +1,5 @@
+#![expect(clippy::branches_sharing_code, reason = "#858")]
+#![expect(clippy::excessive_nesting, reason = "#858")]
 use super::{K, Lexer, Model};
 
 const MODIFIERS: &[&str] = &[

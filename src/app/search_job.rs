@@ -1,4 +1,8 @@
-use super::*;
+#![expect(clippy::excessive_nesting, reason = "#858")]
+use super::{
+    App, Arc, Duration, HashMap, Hit, Kind, Path, PathBuf, PickItem, Regex, RegexBuilder, git,
+    search, symbols,
+};
 use symbols::{NamedSymbol, SymbolHits};
 
 pub(super) const SEARCH_PAUSE: Duration = Duration::from_millis(80);
@@ -111,7 +115,7 @@ impl SearchJob {
                     && search::symbol_name(&re, t)
                         .is_some_and(|n| search::HASKELL_RESERVED.contains(&n.as_str()))
             };
-            if let Some(k @ (search::Kind::Ocaml | search::Kind::Fsharp)) = *kind {
+            if let Some(k @ (Kind::Ocaml | Kind::Fsharp)) = *kind {
                 let mut texts: HashMap<PathBuf, String> = HashMap::new();
                 hits.retain(|h| {
                     let text = texts.entry(h.path.clone()).or_insert_with(|| {

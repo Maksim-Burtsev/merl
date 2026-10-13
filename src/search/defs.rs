@@ -1,5 +1,22 @@
+#![expect(clippy::match_same_arms, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use super::php::{php_constants, php_method, php_namespace_line, php_properties, php_tags};
-use super::*;
+use super::{
+    ELIXIR_DIRECTIVES, EXUNIT_AND_MIX_DIRECTIVES, Hit, Kind, SQL_NAME_PART, ZIG_FN_OR_TEST_HEAD,
+    c_declares_where, c_enum_line, c_enumerators, c_member_decl, c_mods, close_of, cmake_patterns,
+    code, component, cs_generics, cs_mods, cs_type, css_declares, css_patterns, dart_declares,
+    dart_narrow, dart_patterns, erlang_clause, erlang_head, erlang_patterns, gdscript_declares,
+    gdscript_patterns, groovy_declares, groovy_patterns, haskell_declares, haskell_patterns,
+    indent, julia_declares, julia_narrow, julia_patterns, jvm_mods, jvm_return_type, lisp_declares,
+    lisp_patterns, literal_lines, ml_declares, ml_patterns, names, nix_declares, nix_patterns,
+    objc_patterns, perl_declares, perl_patterns, php_block, php_mods, php_namespace_patterns,
+    powershell_declares, powershell_patterns, powershell_sigil, r_patterns, scala_patterns,
+    shape_matcher, solidity_declares, solidity_patterns, split_top, sql_create, sql_cte,
+    starlark_patterns, swift_mods, uncommented,
+};
 use regex::Regex;
 use std::path::{Path, PathBuf};
 
@@ -330,7 +347,7 @@ pub struct CTypeWord {
     pub struct_tag: bool,
 }
 impl CTypeWord {
-    pub const NAMED: CTypeWord = CTypeWord {
+    pub const NAMED: Self = Self {
         constructs: false,
         struct_tag: false,
     };
@@ -369,9 +386,10 @@ pub fn c_type_rows(
                 .iter()
                 .filter(|c| c.path == o.path && c.line1 > o.line1 && closes.is_match(&c.text))
                 .min_by_key(|c| c.line1)?;
-            Some(match used.struct_tag {
-                true => (close.path.clone(), close.line1),
-                false => (o.path.clone(), o.line1),
+            Some(if used.struct_tag {
+                (close.path.clone(), close.line1)
+            } else {
+                (o.path.clone(), o.line1)
             })
         })
         .collect();
@@ -674,16 +692,16 @@ pub fn c_parameter(text: &str, line1: usize, word: &str) -> bool {
         .is_some_and(|(_, params)| names(params, word))
 }
 pub fn stage_entries(before: &str, text: &str, word: &str) -> Option<Vec<usize>> {
-    let key = regex::Regex::new(r#"^\s*stage:\s*["']?$"#).expect("a fixed pattern is valid");
+    let key = Regex::new(r#"^\s*stage:\s*["']?$"#).expect("a fixed pattern is valid");
     if !key.is_match(before) {
         return None;
     }
     let w = regex::escape(word);
-    let flow = regex::Regex::new(&format!(r#"^stages:\s*\[(.*,)?\s*["']?{w}["']?\s*[,\]]"#))
+    let flow = Regex::new(&format!(r#"^stages:\s*\[(.*,)?\s*["']?{w}["']?\s*[,\]]"#))
         .expect("an escaped name keeps the pattern valid");
-    let entry = regex::Regex::new(&format!(r#"^\s*-\s*["']?{w}["']?\s*(#.*)?$"#))
+    let entry = Regex::new(&format!(r#"^\s*-\s*["']?{w}["']?\s*(#.*)?$"#))
         .expect("an escaped name keeps the pattern valid");
-    let opens = regex::Regex::new(r"^stages:\s*(#.*)?$").expect("a fixed pattern is valid");
+    let opens = Regex::new(r"^stages:\s*(#.*)?$").expect("a fixed pattern is valid");
     let mut found = Vec::new();
     let mut in_block = false;
     let continues_block = |l: &str| l.trim().is_empty() || l.starts_with([' ', '\t', '-', '#']);
@@ -707,7 +725,7 @@ fn ts_shapes(word: &str) -> [String; 3] {
 pub fn ts_shape(word: &str, pattern: &str) -> Option<&'static grep_regex::RegexMatcher> {
     static SHAPE: std::sync::LazyLock<grep_regex::RegexMatcher> = std::sync::LazyLock::new(|| {
         let [.., every] = ts_shapes(SHAPE_WORD);
-        super::shape_matcher(&every.replace(SHAPE_WORD, "[A-Za-z0-9_$]+"))
+        shape_matcher(&every.replace(SHAPE_WORD, "[A-Za-z0-9_$]+"))
     });
     let plain = !word.is_empty()
         && (word.bytes()).all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'$');
@@ -900,8 +918,8 @@ fn declares_by_kind<'a, S: AsRef<str> + 'a>(
 }
 const RECORD_COMPONENT_ANNOTATIONS: &str = r"^\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*";
 fn shaped_as_record_component(line: &str) -> bool {
-    static SHAPE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(&format!(
+    static SHAPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
             r"{RECORD_COMPONENT_ANNOTATIONS}{}\s+\w+\s*(?:,\s*$|\)\s*(?:implements\b[^{{]*)?\{{)",
             jvm_return_type!()
         ))
@@ -910,8 +928,8 @@ fn shaped_as_record_component(line: &str) -> bool {
     SHAPE.is_match(line) && !line.trim_start().starts_with("return ")
 }
 fn in_record_header<S: AsRef<str>>(lines: &[S], line1: usize) -> bool {
-    static RECORD: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(concat!(
+    static RECORD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(concat!(
             jvm_mods!(),
             r"record\s+\w+\s*(?:<[^>]*>)?\s*\(\s*$"
         ))
@@ -940,20 +958,18 @@ pub fn def_block(kind: Kind, word: &str) -> Option<&'static str> {
     (kind == Kind::Terraform && word.starts_with("local.")).then_some("locals")
 }
 pub fn ts_nested_local<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
-    static DECL: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(
-            r"^\s+(?:(?:async|abstract|declare)\s+)*(?:const|let|var|function\*?|class)\s",
-        )
-        .unwrap()
+    static DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s+(?:(?:async|abstract|declare)\s+)*(?:const|let|var|function\*?|class)\s")
+            .unwrap()
     });
-    static SCOPE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(
+    static SCOPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
             r"^\s*(?:export\s+)?(?:declare\s+)?(?:namespace|module)\s|^\s*(?:export\s+)?declare\s+global\b",
         )
         .unwrap()
     });
-    static AT_LOAD: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(
+    static AT_LOAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
             r"^\s*(?:[;!+~]\s*\(?|\(\s*|\}\)?\s*\(.*,\s*\(?)(?:async\s+)?(?:function\b|(?:\([^)]*\)|\w+)\s*=>)",
         )
         .unwrap()
@@ -1092,8 +1108,8 @@ pub fn directly_inside<S: AsRef<str>>(lines: &[S], line1: usize, opener: &str) -
         .is_some_and(|l| l.trim_start().starts_with(opener))
 }
 pub fn zig_visible(text: &str, line: usize, same_file: bool) -> bool {
-    static CONTAINER: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(
+    static CONTAINER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
             r"\b(?:struct|enum|union|opaque)\s*(?:\((?:[^()]|\([^()]*\))*\))?\s*\{\s*(?://.*)?$",
         )
         .unwrap()
@@ -1122,8 +1138,8 @@ pub fn zig_visible(text: &str, line: usize, same_file: bool) -> bool {
     same_file || open.starts_with("pub ") || open.starts_with("export ")
 }
 pub fn graphql_member<S: AsRef<str>>(lines: &[S], line1: usize) -> bool {
-    static OPENER: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(r"^(?:extend\s+)?(?:type|interface|input|enum)\s").unwrap()
+    static OPENER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:extend\s+)?(?:type|interface|input|enum)\s").unwrap()
     });
     let Some(target) = line1.checked_sub(1).and_then(|i| lines.get(i)) else {
         return false;

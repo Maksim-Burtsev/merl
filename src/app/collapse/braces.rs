@@ -110,9 +110,10 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
         syntax.lang,
         Lang::Js | Lang::Ts | Lang::Go | Lang::Kotlin | Lang::Swift | Lang::Scala
     );
-    let heads = match semicolons {
-        true => heads(lines, &toks, &model.back, &starts),
-        false => HashMap::new(),
+    let heads = if semicolons {
+        heads(lines, &toks, &model.back, &starts)
+    } else {
+        HashMap::new()
     };
     Folds {
         starts,
@@ -217,6 +218,7 @@ impl<'a> Lexer<'a> {
         self.lines[self.l].as_bytes()
     }
 
+    #[expect(clippy::string_slice, reason = "#858")]
     fn emit(&mut self, line: usize, at: usize, len: usize, kind: K, end: usize) {
         let text = match kind {
             K::Str => "`",
@@ -255,6 +257,8 @@ impl<'a> Lexer<'a> {
         matches!(self.syntax.lang, Lang::Js | Lang::Ts)
     }
 
+    #[expect(clippy::cognitive_complexity, reason = "#858")]
+    #[expect(clippy::too_many_lines, reason = "#858")]
     fn code(&mut self, stop: bool) {
         let mut depth = 0usize;
         while !self.eof() {
@@ -387,13 +391,12 @@ impl<'a> Lexer<'a> {
                     + (s[i + 1..].iter())
                         .take_while(|&&b| word(b) && !(php && b == b'#'))
                         .count();
-                let len = match self.syntax.lang == Lang::Scala && s[i + len - 1] == b'_' {
-                    true => {
-                        len + (s[i + len..].iter())
-                            .take_while(|b| b"!#%&*+-/:<=>?@\\^|~".contains(b))
-                            .count()
-                    }
-                    false => len,
+                let len = if self.syntax.lang == Lang::Scala && s[i + len - 1] == b'_' {
+                    len + (s[i + len..].iter())
+                        .take_while(|b| b"!#%&*+-/:<=>?@\\^|~".contains(b))
+                        .count()
+                } else {
+                    len
                 };
                 self.emit(l, i, len, K::Word, l);
                 self.i += len;
@@ -693,6 +696,7 @@ impl<'t, 'a> Model<'t, 'a> {
         self.pair[k].map(|c| self.end_of(c))
     }
 
+    #[expect(clippy::unnecessary_wraps, reason = "#858")]
     fn join_run(
         &mut self,
         run: Option<(usize, usize)>,
@@ -803,6 +807,7 @@ impl<'t, 'a> Model<'t, 'a> {
         last
     }
 
+    #[expect(clippy::cognitive_complexity, reason = "#858")]
     fn ecma_node(&mut self, k: usize, ts: bool) {
         let t = self.toks[k];
         let line = t.line;
@@ -814,7 +819,7 @@ impl<'t, 'a> Model<'t, 'a> {
                     "if" | "for" | "while" | "do" | "switch" | "try" | "with" | "catch"
                 ) =>
             {
-                self.add(line, self.stmt_end(k), false)
+                self.add(line, self.stmt_end(k), false);
             }
             K::Word if matches!(w, "function" | "class") => {
                 if self.before(k) != "." {
@@ -826,7 +831,7 @@ impl<'t, 'a> Model<'t, 'a> {
                     && matches!(w, "interface" | "enum" | "namespace" | "module")
                     && self.toks.get(k + 1).is_some_and(|n| n.kind == K::Word) =>
             {
-                self.add(line, self.chain(k, &[]), false)
+                self.add(line, self.chain(k, &[]), false);
             }
             K::Word
                 if ts
@@ -834,7 +839,7 @@ impl<'t, 'a> Model<'t, 'a> {
                     && self.toks.get(k + 1).is_some_and(|n| n.kind == K::Word)
                     && (self.first[k] || matches!(self.before(k), "export" | "declare")) =>
             {
-                self.add(line, Some(self.alias_end(k)), false)
+                self.add(line, Some(self.alias_end(k)), false);
             }
             K::Word if ts && w.starts_with('@') && self.first[k] => {
                 let mut j = k;
@@ -854,11 +859,11 @@ impl<'t, 'a> Model<'t, 'a> {
                 }
             }
             K::Word if matches!(w, "case" | "default") && self.first[k] => {
-                self.add(line, Some(self.case_end(k)), false)
+                self.add(line, Some(self.case_end(k)), false);
             }
             K::JsxOpen => self.add(line, self.closing(k), false),
             K::Punct if w == "=>" && k > 0 && self.toks[k - 1].kind == K::Word => {
-                self.add(line, Some(self.arrow_end(k)), true)
+                self.add(line, Some(self.arrow_end(k)), true);
             }
             K::Punct if w == "(" => self.paren(k),
             K::Punct if w == "[" => {
@@ -1105,7 +1110,7 @@ impl<'t, 'a> Model<'t, 'a> {
                     }
                 }
                 "type" | "var" | "const" | "import" if start => {
-                    self.add(t.line, Some(self.go_stmt_end(k)), false)
+                    self.add(t.line, Some(self.go_stmt_end(k)), false);
                 }
                 "else" if self.punct(k + 1, "{") => {
                     body.insert(k + 1, "else");

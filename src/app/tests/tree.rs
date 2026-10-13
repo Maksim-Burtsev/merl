@@ -23,7 +23,7 @@ fn tree_focus_keys_do_not_move_the_code_cursor() {
 
 fn new_file_project(name: &str) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-new-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(dir.join("src")).unwrap();
     std::fs::write(dir.join("src/a.py"), "x = 1\n").unwrap();
     std::fs::write(dir.join("README.md"), "hi\n").unwrap();
@@ -143,7 +143,7 @@ fn ctrl_n_never_overwrites_and_never_leaves_the_project() {
 fn ctrl_n_resolves_the_links_on_the_path() {
     let (dir, mut a) = new_file_project("links");
     let outside = dir.with_extension("outside");
-    let _ = std::fs::remove_dir_all(&outside);
+    drop(std::fs::remove_dir_all(&outside));
     std::fs::create_dir_all(&outside).unwrap();
     std::os::unix::fs::symlink(&outside, dir.join("out")).unwrap();
     std::os::unix::fs::symlink("src", dir.join("inside")).unwrap();
@@ -229,11 +229,11 @@ fn ctrl_n_on_a_fifo_does_not_read_it() {
         press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
         typed(&mut a, "pipe");
         press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-        let _ = tx.send((a.message.clone(), a.buf.path.clone()));
+        drop(tx.send((a.message.clone(), a.buf.path.clone())));
         std::fs::remove_dir_all(&dir).unwrap();
     });
     let (message, open) = rx
-        .recv_timeout(std::time::Duration::from_secs(60))
+        .recv_timeout(Duration::from_secs(60))
         .expect("reading a FIFO waits for a writer forever");
     assert_eq!(message, "pipe: not a regular file");
     assert!(open.is_some_and(|p| p.ends_with("src/a.py")));
@@ -244,7 +244,7 @@ fn ctrl_n_on_a_fifo_does_not_read_it() {
 fn the_files_behind_a_link_to_a_directory_open_from_the_tree() {
     let (dir, _) = new_file_project("dirlink");
     let outside = dir.with_extension("outside");
-    let _ = std::fs::remove_dir_all(&outside);
+    drop(std::fs::remove_dir_all(&outside));
     std::fs::create_dir_all(&outside).unwrap();
     std::fs::write(outside.join("far.txt"), "far\n").unwrap();
     std::os::unix::fs::symlink(&outside, dir.join("out")).unwrap();
@@ -280,7 +280,7 @@ fn the_files_behind_a_link_to_a_directory_open_from_the_tree() {
 fn a_link_to_a_file_outside_the_project_opens_read_only() {
     let (dir, _) = new_file_project("filelink");
     let outside = dir.with_extension("outside");
-    let _ = std::fs::remove_dir_all(&outside);
+    drop(std::fs::remove_dir_all(&outside));
     std::fs::create_dir_all(&outside).unwrap();
     std::fs::write(outside.join("far.py"), "far = 1\n").unwrap();
     std::os::unix::fs::symlink(outside.join("far.py"), dir.join("out.py")).unwrap();

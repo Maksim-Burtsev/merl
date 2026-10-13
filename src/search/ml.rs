@@ -1,10 +1,14 @@
+#![expect(clippy::cognitive_complexity, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::*;
+use super::{Kind, indent};
 
 const END: &str = r"(?:[^\w']|$)";
 
@@ -19,11 +23,12 @@ pub fn ml_patterns(kind: Kind, word: &str) -> Vec<String> {
     let capital = word.starts_with(|c: char| c.is_ascii_uppercase());
     let ocaml = kind == Kind::Ocaml;
     let attr = r"(?:\[<[^\]]*>\]\s*)?";
-    let mut patterns = vec![match ocaml {
-        true => format!(r"^\s*(?:let|and)(?:%[\w.]+|[*+])?\s+(?:rec\s+)?{w}{END}"),
-        false => format!(
+    let mut patterns = vec![if ocaml {
+        format!(r"^\s*(?:let|and)(?:%[\w.]+|[*+])?\s+(?:rec\s+)?{w}{END}")
+    } else {
+        format!(
             r"^\s*{attr}(?:let|and)\s+(?:(?:rec|private|internal|public|inline|mutable)\s+)*{w}{END}"
-        ),
+        )
     }];
     patterns.push(format!(r"^\s*exception\s+{w}{END}"));
     patterns.push(format!(r"^\s*val\s+(?:mutable\s+)?{w}\s*[:=]"));
@@ -41,24 +46,25 @@ pub fn ml_patterns(kind: Kind, word: &str) -> Vec<String> {
             r"^\s*\|\s*{w}(?:\s*:.*|(?:[^\w'\-]|-[^>])(?:[^-]|-[^>])*)?$"
         ));
     }
-    match ocaml {
-        true => patterns.extend([
+    if ocaml {
+        patterns.extend([
             format!(r"^\s*external\s+{w}\s*:"),
             format!(r"^\s*(?:type|and)\s+(?:nonrec\s+)?(?:'\w+\s+|\([^)]*\)\s+)?{w}{END}"),
             format!(r"^\s*module\s+(?:rec\s+)?(?:type\s+)?{w}{END}"),
             format!(r"^\s*(?:class|and)\s+(?:type\s+)?(?:virtual\s+)?(?:\[[^\]]*\]\s*)?{w}{END}"),
             format!(r"^\s*method\s+(?:(?:private|virtual)\s+|!\s*)*{w}{END}"),
-        ]),
-        false => patterns.extend([
-            format!(r"^\s*{attr}(?:type|and)\s+(?:(?:private|internal|public)\s+)?{w}{END}"),
-            format!(
-                r"^\s*{attr}(?:(?:static|abstract|override|default|private|internal|public|inline)\s+)*(?:member|override|default|abstract)\s+(?:(?:val|private|internal|public|inline)\s+)*(?:[\w']+\.)?{w}{END}"
-            ),
-            format!(
-                r"^\s*module\s+(?:(?:rec|private|internal|public)\s+)*(?:[\w.]+\.)?{w}\s*(?:=|$)"
-            ),
-            format!(r"^\s*namespace\s+(?:(?:rec|global)\s+)?(?:[\w.]+\.)?{w}\s*$"),
-        ]),
+        ]);
+    } else {
+        patterns.extend([
+        format!(r"^\s*{attr}(?:type|and)\s+(?:(?:private|internal|public)\s+)?{w}{END}"),
+        format!(
+            r"^\s*{attr}(?:(?:static|abstract|override|default|private|internal|public|inline)\s+)*(?:member|override|default|abstract)\s+(?:(?:val|private|internal|public|inline)\s+)*(?:[\w']+\.)?{w}{END}"
+        ),
+        format!(
+            r"^\s*module\s+(?:(?:rec|private|internal|public)\s+)*(?:[\w.]+\.)?{w}\s*(?:=|$)"
+        ),
+        format!(r"^\s*namespace\s+(?:(?:rec|global)\s+)?(?:[\w.]+\.)?{w}\s*$"),
+    ]);
     }
     patterns
 }
@@ -249,9 +255,10 @@ pub fn ml_modules<S: AsRef<str>>(path: &Path, lines: &[S], line: usize) -> Vec<S
         }
         depth = i;
         if i == 0 {
-            match l.starts_with("end") {
-                true => depth = 1,
-                false => break,
+            if l.starts_with("end") {
+                depth = 1;
+            } else {
+                break;
             }
         }
     }
@@ -376,9 +383,10 @@ pub fn ml_literal_lines(kind: Kind, text: &str) -> Vec<bool> {
                     0 => State::Code,
                     d => State::Comment(d),
                 };
-                let escaped = match *verbatim {
-                    true => at(b"\"\""),
-                    false => c == b'\\' && b.get(i + 1).is_some_and(|&n| n != b'\n'),
+                let escaped = if *verbatim {
+                    at(b"\"\"")
+                } else {
+                    c == b'\\' && b.get(i + 1).is_some_and(|&n| n != b'\n')
                 };
                 if escaped {
                     i += 2;

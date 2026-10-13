@@ -48,8 +48,14 @@ fn jvm_parameters_bind_in_their_body() {
         bound("void f(String... names) {\n    names;\n}\n", 2, "names"),
         [1]
     );
-    assert!(bound("fun f(_: Int) {\n    _\n}\n", 2, "_").is_empty());
-    assert!(bound("fun f() {\n    items.map { _ -> 1 }\n}\n", 2, "_").is_empty());
+    assert_eq!(
+        bound("fun f(_: Int) {\n    _\n}\n", 2, "_"),
+        [] as [usize; 0]
+    );
+    assert_eq!(
+        bound("fun f() {\n    items.map { _ -> 1 }\n}\n", 2, "_"),
+        [] as [usize; 0]
+    );
     assert_eq!(
         bound(
             "fun f(germ: Int) {\n    class Sprout {\n        fun grow() = germ\n    }\n}\n",

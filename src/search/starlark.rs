@@ -1,9 +1,11 @@
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
 
-use super::*;
+use super::{Kind, literal_lines};
 
 pub fn starlark_patterns(word: &str) -> Vec<String> {
     let w = regex::escape(word);

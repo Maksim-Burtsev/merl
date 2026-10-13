@@ -1,4 +1,9 @@
-use super::*;
+#![expect(clippy::needless_pass_by_ref_mut, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+use super::{
+    App, Candidate, FileLine, HashSet, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, bound,
+    search,
+};
 
 impl App {
     pub(super) fn declaration(&self, kind: Kind, file: &Path, parts: &[String]) -> Option<Hit> {
@@ -64,21 +69,22 @@ impl App {
     }
 
     pub(super) fn grep_in(&self, pattern: &str, files: &[PathBuf]) -> Vec<Hit> {
-        match files.first().is_some_and(|f| f.is_absolute()) {
-            true => search::grep_project(&self.root, files, pattern, false, false, None, None)
-                .unwrap_or_default(),
-            false => self
-                .grep(pattern, false, false, |p| files.iter().any(|f| f == p))
-                .unwrap_or_default(),
+        if files.first().is_some_and(|f| f.is_absolute()) {
+            search::grep_project(&self.root, files, pattern, false, false, None, None)
+                .unwrap_or_default()
+        } else {
+            self.grep(pattern, false, false, |p| files.iter().any(|f| f == p))
+                .unwrap_or_default()
         }
     }
 
     pub(super) fn in_code(&self, kind: Kind, hit: &Hit) -> bool {
-        match search::component(&hit.path) {
-            true => self.hidden_of(kind, hit).get(hit.line1 - 1) != Some(&true),
-            false => (self.text_of(&hit.path)).is_some_and(|text| {
+        if search::component(&hit.path) {
+            self.hidden_of(kind, hit).get(hit.line1 - 1) != Some(&true)
+        } else {
+            (self.text_of(&hit.path)).is_some_and(|text| {
                 search::literal_lines(kind, &text).get(hit.line1 - 1) != Some(&true)
-            }),
+            })
         }
     }
 
@@ -147,9 +153,12 @@ impl App {
                     .iter()
                     .filter(|f| f.parent() == file.parent() && f.as_path() != file)
                     .filter(|f| search::kind_of(f) == Some(Kind::Go) && (test(file) || !test(f)))
-                    .filter(|f| match test(f) {
-                        true => own.is_none() || package(f) == own,
-                        false => !external,
+                    .filter(|f| {
+                        if test(f) {
+                            own.is_none() || package(f) == own
+                        } else {
+                            !external
+                        }
                     })
                     .cloned(),
             );
@@ -512,9 +521,10 @@ impl App {
                 behind.extend(files);
                 cut |= deeper;
             }
-            match behind.is_empty() {
-                true => out.push(f),
-                false => out.extend(behind),
+            if behind.is_empty() {
+                out.push(f);
+            } else {
+                out.extend(behind);
             }
         }
         (out, cut)
@@ -572,9 +582,10 @@ impl App {
         let broke = || "super".to_owned();
         let find = |t: &Typed| {
             let members = self.members_of(kind, t, word);
-            match members.is_empty() {
-                true => self.field_of(kind, t, word, false).map(|hit| vec![hit]),
-                false => Some(members),
+            if members.is_empty() {
+                self.field_of(kind, t, word, false).map(|hit| vec![hit])
+            } else {
+                Some(members)
             }
         };
         let text = self
@@ -651,7 +662,7 @@ impl App {
                         .collect::<Vec<_>>()
                 })
                 .collect();
-            let mut seen = std::collections::HashSet::new();
+            let mut seen = HashSet::new();
             level.retain(|t| seen.insert((t.path.clone(), t.line)));
         }
         None

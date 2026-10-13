@@ -1,4 +1,12 @@
-use super::*;
+#![expect(clippy::match_same_arms, reason = "#858")]
+#![expect(clippy::nonminimal_bool, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
+use super::{
+    App, Candidate, HashSet, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, bound, names_itself,
+    search, signature,
+};
 
 struct TypeVia {
     ty: Typed,
@@ -14,7 +22,7 @@ struct WrittenVia {
 }
 impl WrittenVia {
     fn plain(written: String) -> Self {
-        WrittenVia {
+        Self {
             written,
             call_signature: None,
         }
@@ -36,8 +44,8 @@ enum DeclaredField {
 impl DeclaredField {
     fn typed(self) -> Option<TypeVia> {
         match self {
-            DeclaredField::Typed(via) => Some(via),
-            DeclaredField::UnreadableOrDisagreeing => None,
+            Self::Typed(via) => Some(via),
+            Self::UnreadableOrDisagreeing => None,
         }
     }
 }
@@ -113,9 +121,10 @@ impl App {
         if let Some(scope) = self.script_scope(here, first.map(String::as_str)) {
             return Ok(scope);
         }
-        match self.on_template(here) {
-            true => Err(first.cloned().unwrap_or_default()),
-            false => Ok((self.buf.lines.join("\n"), self.line + 1)),
+        if self.on_template(here) {
+            Err(first.cloned().unwrap_or_default())
+        } else {
+            Ok((self.buf.lines.join("\n"), self.line + 1))
         }
     }
 
@@ -223,21 +232,18 @@ impl App {
         chain: &[String],
     ) -> Option<(PathBuf, String, Vec<search::Binding>, Vec<String>)> {
         let (last, before) = chain.split_last()?;
-        match before {
-            [] => {
-                let text = self.buf.lines.join("\n");
-                let bindings = search::bindings(kind, &text, self.line + 1, last);
-                Some((here.to_path_buf(), text, bindings, Vec::new()))
-            }
-            _ => {
-                let ProvenType { ty, links } = self.receiver(kind, here, before, None).ok()?;
-                let found = self.hierarchy(kind, &ty, 0, &mut |t| {
-                    let text = self.text_of(&t.path)?;
-                    let bindings = search::field_bindings(kind, &text, t.line, last);
-                    (!bindings.is_empty()).then(|| (t.path.clone(), text, bindings))
-                })?;
-                Some((found.0, found.1, found.2, links))
-            }
+        if before.is_empty() {
+            let text = self.buf.lines.join("\n");
+            let bindings = search::bindings(kind, &text, self.line + 1, last);
+            Some((here.to_path_buf(), text, bindings, Vec::new()))
+        } else {
+            let ProvenType { ty, links } = self.receiver(kind, here, before, None).ok()?;
+            let found = self.hierarchy(kind, &ty, 0, &mut |t| {
+                let text = self.text_of(&t.path)?;
+                let bindings = search::field_bindings(kind, &text, t.line, last);
+                (!bindings.is_empty()).then(|| (t.path.clone(), text, bindings))
+            })?;
+            Some((found.0, found.1, found.2, links))
         }
     }
 
@@ -311,9 +317,10 @@ impl App {
             }
             outside = true;
         }
-        Some(match outside {
-            true => Ancestry::ReachesOutsideTheProject,
-            false => Ancestry::ProjectOnly,
+        Some(if outside {
+            Ancestry::ReachesOutsideTheProject
+        } else {
+            Ancestry::ProjectOnly
         })
     }
 
@@ -411,9 +418,10 @@ impl App {
                 .and_then(DeclaredField::typed)
                 .ok_or_else(|| field.clone())?;
             let first = i == 0 && merge;
-            let label = match first {
-                true => format!("{name}.{field}"),
-                false => field.clone(),
+            let label = if first {
+                format!("{name}.{field}")
+            } else {
+                field.clone()
             };
             let link = call_signature.unwrap_or_else(|| format!("{label}: {}", next.name));
             if first {
@@ -615,9 +623,10 @@ impl App {
                         Some(element) => (element, at.clone()),
                         None => named(&written)?,
                     };
-                    let (ty, call_signature) = match kind == Kind::Go && element == "struct" {
-                        true => (anonymous(&at, c.line1), None),
-                        false => (self.type_decl(kind, &at, &element)?, Some(link)),
+                    let (ty, call_signature) = if kind == Kind::Go && element == "struct" {
+                        (anonymous(&at, c.line1), None)
+                    } else {
+                        (self.type_decl(kind, &at, &element)?, Some(link))
                     };
                     match &found {
                         Some(one) if (&one.ty.path, one.ty.line) != (&ty.path, ty.line) => {
@@ -682,20 +691,17 @@ impl App {
                     .ok()
             })
             .flatten();
-        let decl = match proven {
-            Some(ProvenType { ty, .. }) => {
-                let found = self.hierarchy(kind, &ty, 0, &mut |t| {
-                    let members = self.members_of(kind, t, method);
-                    (!members.is_empty()).then_some(members)
-                })?;
-                <[Hit; 1]>::try_from(found).ok().map(|[hit]| hit)?
+        let decl = if let Some(ProvenType { ty, .. }) = proven {
+            let found = self.hierarchy(kind, &ty, 0, &mut |t| {
+                let members = self.members_of(kind, t, method);
+                (!members.is_empty()).then_some(members)
+            })?;
+            <[Hit; 1]>::try_from(found).ok().map(|[hit]| hit)?
+        } else {
+            if hidden(kind, file, text, line1, &parts[0]) {
+                return None;
             }
-            None => {
-                if hidden(kind, file, text, line1, &parts[0]) {
-                    return None;
-                }
-                self.declaration(kind, file, &parts)?
-            }
+            self.declaration(kind, file, &parts)?
         };
         if search::declares_type(kind, &decl.text) {
             let ty = Typed {
@@ -972,13 +978,17 @@ impl App {
                 written: next,
                 call_signature: link,
             } = self.swift_field(here, &ty, field, hops)?;
-            let link = link.unwrap_or_else(|| match i == 0 && names[0] == "self" {
-                true => format!("self.{field}: {}", shown(&next)),
-                false => format!("{field}: {}", shown(&next)),
+            let link = link.unwrap_or_else(|| {
+                if i == 0 && names[0] == "self" {
+                    format!("self.{field}: {}", shown(&next))
+                } else {
+                    format!("{field}: {}", shown(&next))
+                }
             });
-            match i == 0 && names[0] == "self" {
-                true => links[0] = link,
-                false => links.push(link),
+            if i == 0 && names[0] == "self" {
+                links[0] = link;
+            } else {
+                links.push(link);
             }
             written = next;
         }
@@ -1088,34 +1098,31 @@ impl App {
             return t.keyword.is_some().then_some(WrittenVia::plain(t.name));
         }
         let (method, receiver) = parts.split_last()?;
-        let (decl, owner) = match receiver {
-            [] => {
-                if !search::bindings(Kind::Swift, text, line1, method).is_empty() {
-                    return None;
-                }
-                let pattern = search::def_patterns(Kind::Swift, method).join("|");
-                let funcs: Vec<Hit> = self
-                    .project_definitions(Kind::Swift, here, method, &pattern)
-                    .into_iter()
-                    .filter(|h| {
-                        h.text.contains("func ")
-                            && self.text_of(&h.path).is_some_and(|t| {
-                                search::qualified(Kind::Swift, &t, h.line1, method)
-                                    .is_none_or(|q| q == *method)
-                            })
-                    })
-                    .collect();
-                let [decl] = <[Hit; 1]>::try_from(funcs).ok()?;
-                (decl, None)
+        let (decl, owner) = if receiver.is_empty() {
+            if !search::bindings(Kind::Swift, text, line1, method).is_empty() {
+                return None;
             }
-            _ => {
-                let chain =
-                    self.swift_chain(here, file, text, line1, receiver, hops.checked_sub(1)?)?;
-                let ty = self.swift_type(here, &chain.written)?;
-                let rows = self.swift_member_rows(here, &ty, method)?;
-                let [decl] = <[Hit; 1]>::try_from(rows).ok()?;
-                (decl, Some(ty.name))
-            }
+            let pattern = search::def_patterns(Kind::Swift, method).join("|");
+            let funcs: Vec<Hit> = self
+                .project_definitions(Kind::Swift, here, method, &pattern)
+                .into_iter()
+                .filter(|h| {
+                    h.text.contains("func ")
+                        && self.text_of(&h.path).is_some_and(|t| {
+                            search::qualified(Kind::Swift, &t, h.line1, method)
+                                .is_none_or(|q| q == *method)
+                        })
+                })
+                .collect();
+            let [decl] = <[Hit; 1]>::try_from(funcs).ok()?;
+            (decl, None)
+        } else {
+            let chain =
+                self.swift_chain(here, file, text, line1, receiver, hops.checked_sub(1)?)?;
+            let ty = self.swift_type(here, &chain.written)?;
+            let rows = self.swift_member_rows(here, &ty, method)?;
+            let [decl] = <[Hit; 1]>::try_from(rows).ok()?;
+            (decl, Some(ty.name))
         };
         if !decl.text.contains("func ") {
             return None;

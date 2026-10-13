@@ -134,7 +134,7 @@ const STATES: &[State] = &[
         );
     }),
     ("review-empty", |a| {
-        review(a, &["tests/__init__.py"], None, None)
+        review(a, &["tests/__init__.py"], None, None);
     }),
     ("review-rename", |a| {
         review(a, &[], Some(("config.py", "app/settings.py")), None);
@@ -221,7 +221,7 @@ fn notes(state: &str) -> PathBuf {
         .join(format!("merl-snapshots-{}", std::process::id()))
         .join(state)
         .join("notes");
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(dir.join("tests")).unwrap();
     for (name, text) in crate::tutor::SAMPLE_FILES {
         std::fs::write(dir.join(name), text).unwrap();
@@ -233,7 +233,7 @@ fn frame(state: &State, theme: &str, (w, h): (u16, u16)) -> Terminal<TestBackend
     let dir = notes(state.0);
     let (tree, files) = crate::tree::build(&dir, false);
     let mut a = App::new(dir, tree, files, Buffer::empty(), None);
-    (a.theme, a.theme_dir) = (theme.to_string(), None);
+    (a.theme, a.theme_dir) = (theme.to_owned(), None);
     a.no_external();
     let mut terminal = Terminal::new(TestBackend::new(w, h)).unwrap();
     let draw = |t: &mut Terminal<TestBackend>, a: &mut App| {
@@ -247,7 +247,7 @@ fn frame(state: &State, theme: &str, (w, h): (u16, u16)) -> Terminal<TestBackend
     }
     draw(&mut terminal, &mut a);
     draw(&mut terminal, &mut a);
-    let _ = std::fs::remove_dir_all(a.root.parent().unwrap());
+    drop(std::fs::remove_dir_all(a.root.parent().unwrap()));
     terminal
 }
 
@@ -306,9 +306,10 @@ fn hex(c: Color) -> String {
 
 fn cursor(t: &Terminal<TestBackend>) -> String {
     let b = t.backend();
-    match b.cursor_visible() {
-        true => format!("cursor {},{}", b.cursor_position().x, b.cursor_position().y),
-        false => "cursor hidden".to_string(),
+    if b.cursor_visible() {
+        format!("cursor {},{}", b.cursor_position().x, b.cursor_position().y)
+    } else {
+        "cursor hidden".to_owned()
     }
 }
 
@@ -338,9 +339,10 @@ fn diff(old: &str, new: &str) -> String {
     let mut lcs = vec![vec![0u32; b.len() + 1]; a.len() + 1];
     for i in (0..a.len()).rev() {
         for j in (0..b.len()).rev() {
-            lcs[i][j] = match a[i] == b[j] {
-                true => lcs[i + 1][j + 1] + 1,
-                false => lcs[i + 1][j].max(lcs[i][j + 1]),
+            lcs[i][j] = if a[i] == b[j] {
+                lcs[i + 1][j + 1] + 1
+            } else {
+                lcs[i + 1][j].max(lcs[i][j + 1])
             };
         }
     }

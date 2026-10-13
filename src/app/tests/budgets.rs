@@ -1,3 +1,8 @@
+#![expect(clippy::cast_precision_loss, reason = "#858")]
+#![expect(clippy::format_collect, reason = "#858")]
+#![expect(clippy::format_push_string, reason = "#858")]
+#![expect(clippy::ignore_without_reason, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
 use super::*;
 use ratatui::{Terminal, backend::TestBackend};
 use std::time::Instant;
@@ -196,7 +201,7 @@ fn paperless() -> Option<PathBuf> {
     dir.join(D_CURSORS[0].0).exists().then_some(dir)
 }
 
-fn timed(mut f: impl FnMut() -> std::time::Duration) -> Vec<f64> {
+fn timed(mut f: impl FnMut() -> Duration) -> Vec<f64> {
     f();
     (0..REPS).map(|_| f().as_secs_f64() * 1000.0).collect()
 }
@@ -243,12 +248,12 @@ fn report(rows: &[(&str, u64, Vec<f64>)]) {
         .lines()
         .filter(|l| !l.starts_with('#'))
         .filter_map(|l| l.split_once('\t'))
-        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .map(|(k, v)| (k.to_owned(), v.to_owned()))
         .collect();
     let load = std::process::Command::new("sysctl")
         .args(["-n", "vm.loadavg"])
         .output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_owned())
         .unwrap_or_default();
     println!("\ntime budgets, load {load}, ms, median of {REPS}\n");
     println!(
@@ -286,7 +291,7 @@ fn generated() -> PathBuf {
     if done.exists() {
         return dir;
     }
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     let write = |rel: &str, text: &str| {
         let p = dir.join(rel);
         std::fs::create_dir_all(p.parent().unwrap()).unwrap();

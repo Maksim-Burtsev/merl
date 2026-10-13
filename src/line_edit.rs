@@ -1,3 +1,5 @@
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
 use std::ops::{Deref, Range};
 
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};

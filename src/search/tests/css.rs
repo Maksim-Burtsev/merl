@@ -1,3 +1,4 @@
+#![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 
 fn styled(text: &str, class: &str) -> Vec<usize> {
@@ -15,8 +16,8 @@ fn a_rule_styles_the_classes_of_its_last_compound() {
                a { color: red; width: .5em; }\n/* .btn { */\n// .btn {\n";
     assert_eq!(styled(css, "btn"), [1, 2, 3, 4, 5, 9]);
     assert_eq!(styled(css, "icon"), [6]);
-    assert!(styled(css, "5em").is_empty());
-    assert!(styled(css, "col-").is_empty());
+    assert_eq!(styled(css, "5em"), [] as [usize; 0]);
+    assert_eq!(styled(css, "col-"), [] as [usize; 0]);
 }
 
 #[test]
@@ -33,10 +34,7 @@ fn an_ampersand_composes_with_the_rule_it_sits_in() {
 #[test]
 fn a_class_attribute_is_read_in_markup_and_jsx_only() {
     fn at<'a>(line: &'a str, word: &str, jsx: bool) -> Option<(Attr, &'a str)> {
-        let read_as = match jsx {
-            true => AttrLine::Jsx,
-            false => AttrLine::Markup,
-        };
+        let read_as = if jsx { AttrLine::Jsx } else { AttrLine::Markup };
         attr_at(line, line.find(word).unwrap(), read_as).map(|(a, r)| (a, &line[r]))
     }
     let tsx = r#"<b className="btn btn-primary" id="main">"#;
@@ -73,9 +71,10 @@ fn a_class_attribute_is_read_in_markup_and_jsx_only() {
 #[test]
 fn a_stylesheet_cursor_says_which_lookup_applies() {
     let at = |line: &str, word: &str, less: bool| {
-        let syntax = match less {
-            true => SheetSyntax::Less,
-            false => SheetSyntax::CssOrSass,
+        let syntax = if less {
+            SheetSyntax::Less
+        } else {
+            SheetSyntax::CssOrSass
         };
         sheet_at(line, line.find(word).unwrap(), syntax)
     };
@@ -253,7 +252,7 @@ fn a_selector_reads_past_values_strings_and_its_mixin() {
         [1],
         "a `}}` in a string closes nothing"
     );
-    assert!(styled(".col-@{i} {}\n", "col-").is_empty());
+    assert_eq!(styled(".col-@{i} {}\n", "col-"), [] as [usize; 0]);
     assert_eq!(
         styled("@mixin m {\n  .y {}\n}\n", "y"),
         [2],
@@ -263,7 +262,7 @@ fn a_selector_reads_past_values_strings_and_its_mixin() {
         styled(".a {\n  font: {\n    .b {}\n  }\n}\n", "b").is_empty(),
         "nested properties hold no rule"
     );
-    assert!(styled("@detached: {\n  .c {}\n}\n", "c").is_empty());
+    assert_eq!(styled("@detached: {\n  .c {}\n}\n", "c"), [] as [usize; 0]);
     let both = ".a, .b {\n  &-x {}\n}\n";
     assert_eq!(styled(both, "a-x"), [2]);
     assert_eq!(styled(both, "b-x"), [2]);
@@ -293,7 +292,7 @@ fn an_import_names_the_files_it_may_be() {
         shown(import_candidates("base", SheetSyntax::CssOrSass)),
         ["base"]
     );
-    assert!(sass_uses("@import 'x';\n").is_empty());
+    assert_eq!(sass_uses("@import 'x';\n"), [] as [SassUse; 0]);
     for url in ["https://x/a.css", "//cdn/a.css", "data:text/css,a"] {
         assert!(is_url(url), "{url}");
     }

@@ -1,3 +1,8 @@
+#![expect(clippy::format_push_string, reason = "#858")]
+#![expect(clippy::match_bool, reason = "#858")]
+#![expect(clippy::option_option, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
@@ -7,6 +12,8 @@ use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use super::{App, Edit, Mode};
 use crate::git::{self, TextLine};
 use crate::line_edit::LineEdit;
+
+pub type SlotRow = (String, usize, Option<std::ops::Range<usize>>);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Note {
@@ -63,7 +70,7 @@ pub fn store(dirs: &git::GitDirs) -> Option<(PathBuf, String)> {
     let branch = head.trim_end().strip_prefix("ref: refs/heads/")?;
     Some((
         dirs.common_refs_dir.join("merl/notes").join(branch),
-        branch.to_string(),
+        branch.to_owned(),
     ))
 }
 
@@ -93,14 +100,14 @@ pub fn parse(text: &str) -> Vec<Note> {
             .min(block.len().saturating_sub(1));
         let text = block[quotes..].join("\n");
         let text = match text.strip_prefix(' ') {
-            Some(t) if is_quote(t) => t.to_string(),
+            Some(t) if is_quote(t) => t.to_owned(),
             _ => text,
         };
         out.push(Note {
             path: path.into(),
             first,
             last,
-            quote: block[..quotes].iter().map(|l| l.to_string()).collect(),
+            quote: block[..quotes].iter().map(ToString::to_string).collect(),
             text,
         });
     }
@@ -115,9 +122,10 @@ pub fn format(notes: &[Note], head: &str) -> String {
         "# merl notes \u{b7} {head}\n# The user's review notes, for you. Delete this file when you have dealt with them.\n"
     );
     for n in notes {
-        let range = match n.first == n.last {
-            true => n.last.to_string(),
-            false => format!("{}-{}", n.first, n.last),
+        let range = if n.first == n.last {
+            n.last.to_string()
+        } else {
+            format!("{}-{}", n.first, n.last)
         };
         s += &format!("\n{}:{range}\n", n.path.display());
         for q in &n.quote {
@@ -227,22 +235,21 @@ impl App {
                 }
             });
             let k = seen.map_or(n.last.saturating_sub(1), TextLine::key);
-            let found = match last_q.strip_prefix("- ") {
-                Some(text) => (self.diff.ghosts.iter())
+            let found = if let Some(text) = last_q.strip_prefix("- ") {
+                (self.diff.ghosts.iter())
                     .flat_map(|(&key, g)| {
                         g.iter()
                             .enumerate()
                             .filter(|(_, s)| s.as_str() == text)
                             .map(move |(i, _)| TextLine::Deleted(key, i))
                     })
-                    .min_by_key(|t| t.key().abs_diff(k)),
-                None => {
-                    let text = last_q.get(2..).unwrap_or("");
-                    (0..len)
-                        .filter(|&l| self.buf.lines[l] == text)
-                        .min_by_key(|l| l.abs_diff(k))
-                        .map(TextLine::File)
-                }
+                    .min_by_key(|t| t.key().abs_diff(k))
+            } else {
+                let text = last_q.get(2..).unwrap_or("");
+                (0..len)
+                    .filter(|&l| self.buf.lines[l] == text)
+                    .min_by_key(|l| l.abs_diff(k))
+                    .map(TextLine::File)
             };
             let (at, stale) = match found {
                 Some(at) => (at, false),
@@ -311,9 +318,12 @@ impl App {
             .and_then(|o| self.notes.list.iter().position(|n| n == o));
         let mut v: Vec<Slot> = (self.notes.here.iter().enumerate())
             .filter(|(_, h)| h.at == l)
-            .map(|(i, h)| match editing_idx == Some(h.idx) {
-                true => Slot::Input,
-                false => Slot::Note(i),
+            .map(|(i, h)| {
+                if editing_idx == Some(h.idx) {
+                    Slot::Input
+                } else {
+                    Slot::Note(i)
+                }
             })
             .collect();
         if let Some(e) = editing
@@ -330,9 +340,10 @@ impl App {
             Slot::Note(i) => {
                 let h = &self.notes.here[*i];
                 let t = &self.notes.list[h.idx].text;
-                let text = match h.stale {
-                    true => format!("{t} (changed)"),
-                    false => t.clone(),
+                let text = if h.stale {
+                    format!("{t} (changed)")
+                } else {
+                    t.clone()
                 };
                 (self.note_label(h.first, h.at), text, h.stale)
             }
@@ -353,18 +364,12 @@ impl App {
         }
     }
 
-    #[allow(clippy::type_complexity)]
-    pub fn slot_layout(
-        &self,
-        s: &Slot,
-    ) -> (
-        Vec<(String, usize, Option<std::ops::Range<usize>>)>,
-        Option<(usize, usize)>,
-    ) {
+    pub fn slot_layout(&self, s: &Slot) -> (Vec<SlotRow>, Option<(usize, usize)>) {
         let (label, text, _) = self.slot_text(s);
-        let head = match label.is_empty() {
-            true => String::new(),
-            false => format!("{label}  "),
+        let head = if label.is_empty() {
+            String::new()
+        } else {
+            format!("{label}  ")
         };
         let pad = head.len();
         let w = self.view_w.saturating_sub(2).max(1);
@@ -520,10 +525,7 @@ impl App {
         let (first, last, old) = match (focused, self.selection()) {
             (Some((i, f, a)), _) => (f, a, Some(self.notes.list[i].clone())),
             (None, Some(((a, _), (b, col)))) => {
-                let b = match col == 0 && b != a {
-                    true => prev(self, b),
-                    false => b,
-                };
+                let b = if col == 0 && b != a { prev(self, b) } else { b };
                 (a, b, None)
             }
             (None, None) => (self.at(), self.at(), None),
@@ -538,9 +540,10 @@ impl App {
             l = next(self, l);
         }
         let text = old.as_ref().map_or("", |n| n.text.as_str());
-        self.prompt = match std::mem::take(&mut self.notes.selected) {
-            true => LineEdit::selected(text),
-            false => LineEdit::typed(text),
+        self.prompt = if std::mem::take(&mut self.notes.selected) {
+            LineEdit::selected(text)
+        } else {
+            LineEdit::typed(text)
         };
         self.notes.editing = Some(Editing {
             old,
@@ -605,9 +608,10 @@ impl App {
     }
 
     fn apply_note(&mut self, change: &NoteEdit, back: bool) -> Option<usize> {
-        let (from, to) = match back {
-            true => (&change.new, &change.old),
-            false => (&change.old, &change.new),
+        let (from, to) = if back {
+            (&change.new, &change.old)
+        } else {
+            (&change.old, &change.new)
         };
         self.notes_reload();
         let pos = from
@@ -631,18 +635,12 @@ impl App {
     }
 
     pub(super) fn undo_note(&mut self, change: &NoteEdit, back: bool) {
-        let gone_at = match back {
-            true => &change.new,
-            false => &change.old,
-        }
-        .as_ref()
-        .and_then(|f| self.notes.list.iter().position(|n| n == f))
-        .and_then(|i| self.here_of(i))
-        .map(|h| h.at);
-        let from = match back {
-            true => &change.new,
-            false => &change.old,
-        };
+        let gone_at = if back { &change.new } else { &change.old }
+            .as_ref()
+            .and_then(|f| self.notes.list.iter().position(|n| n == f))
+            .and_then(|i| self.here_of(i))
+            .map(|h| h.at);
+        let from = if back { &change.new } else { &change.old };
         let gone = from.is_some() && gone_at.is_none() && {
             self.notes_reload();
             !from.as_ref().is_some_and(|f| self.notes.list.contains(f))
@@ -720,9 +718,10 @@ impl App {
                 };
                 if shift {
                     while self.prompt.cursor() != to {
-                        let step = match self.prompt.cursor() < to {
-                            true => KeyCode::Right,
-                            false => KeyCode::Left,
+                        let step = if self.prompt.cursor() < to {
+                            KeyCode::Right
+                        } else {
+                            KeyCode::Left
                         };
                         self.prompt.key(KeyEvent::new(step, KeyModifiers::SHIFT));
                     }
@@ -733,18 +732,19 @@ impl App {
             KeyCode::Up | KeyCode::Down if !shift => {
                 let (start, end, col) = self.note_line();
                 let up = key.code == KeyCode::Up;
-                let to = match up {
-                    true => (start > 0).then(|| {
+                let to = if up {
+                    (start > 0).then(|| {
                         let s = self.prompt[..start - 1].rfind('\n').map_or(0, |i| i + 1);
                         s + col.min(start - 1 - s)
-                    }),
-                    false => (end < self.prompt.len()).then(|| {
+                    })
+                } else {
+                    (end < self.prompt.len()).then(|| {
                         let s = end + 1;
                         let e = self.prompt[s..]
                             .find('\n')
                             .map_or(self.prompt.len(), |i| s + i);
                         s + col.min(e - s)
-                    }),
+                    })
                 };
                 match to {
                     Some(t) => self.prompt.put(t),
@@ -799,7 +799,7 @@ impl App {
             return;
         };
         if self.notes.list.is_empty() {
-            let _ = std::fs::remove_file(&path);
+            drop(std::fs::remove_file(&path));
             self.notes.seen = None;
             return;
         }
@@ -809,7 +809,7 @@ impl App {
             None => format!("{branch} \u{b7} {sha}"),
         };
         if let Some(dir) = path.parent() {
-            let _ = std::fs::create_dir_all(dir);
+            drop(std::fs::create_dir_all(dir));
         }
         if let Err(e) = std::fs::write(&path, format(&self.notes.list, &head)) {
             self.message = format!("notes not saved: {e}");

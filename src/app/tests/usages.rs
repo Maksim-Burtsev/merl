@@ -1,3 +1,4 @@
+#![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 
 fn usage_rows(a: &mut App) -> Vec<(String, String)> {
@@ -58,7 +59,7 @@ fn usages_put_the_declaration_first_and_the_tests_last() {
     assert_eq!(
         usage_rows(&mut a),
         [
-            ("declaration".to_string(), "src/users/repo.py:2".to_string()),
+            ("declaration".to_owned(), "src/users/repo.py:2".to_owned()),
             (String::new(), "src/users/admin.py:2".into()),
             (String::new(), "src/api/view.py:2".into()),
             (String::new(), "src/users/repo_test.py:2".into()),
@@ -88,16 +89,16 @@ fn a_fifo_in_the_project_stalls_no_search() {
         let (tree, files) = crate::tree::build(&dir, false);
         a.project_walked(tree, files);
         usages_at(&mut a, &dir, "a.py", 1, "hello");
-        let _ = tx.send(format!("u: {}", a.picker.as_ref().unwrap().title));
+        drop(tx.send(format!("u: {}", a.picker.as_ref().unwrap().title)));
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
         press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
         a.picker.as_mut().unwrap().settle();
-        let _ = tx.send(format!("D: {}", a.picker.as_ref().unwrap().counts().1));
+        drop(tx.send(format!("D: {}", a.picker.as_ref().unwrap().counts().1)));
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
         press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
         typed(&mut a, "hello");
         a.settle_search();
-        let _ = tx.send(format!("s: {}", a.picker.as_ref().unwrap().counts().1));
+        drop(tx.send(format!("s: {}", a.picker.as_ref().unwrap().counts().1)));
         std::fs::remove_dir_all(&dir).unwrap();
     });
     for want in [
@@ -105,7 +106,7 @@ fn a_fifo_in_the_project_stalls_no_search() {
         "D: 1",
         "s: 2",
     ] {
-        let got = rx.recv_timeout(std::time::Duration::from_secs(60));
+        let got = rx.recv_timeout(Duration::from_secs(60));
         assert_eq!(
             got.as_deref(),
             Ok(want),
@@ -236,7 +237,7 @@ fn the_usages_mark_is_only_for_a_declaration_d_would_offer() {
     assert_eq!(
         usage_rows(&mut a),
         [
-            ("declaration".to_string(), "src/repo.py:2".to_string()),
+            ("declaration".to_owned(), "src/repo.py:2".to_owned()),
             (String::new(), "src/admin.py:2".into()),
             (String::new(), "docs/guide.py:4".into()),
         ],
@@ -251,7 +252,7 @@ fn the_usages_mark_is_only_for_a_declaration_d_would_offer() {
     assert_eq!(
         usage_rows(&mut a),
         [
-            (String::new(), "main.tf:2".to_string()),
+            (String::new(), "main.tf:2".to_owned()),
             (String::new(), "other.tf:2".into()),
         ],
         "Terraform declares no bare `count`: with no rule there is no mark and no column for it"
@@ -265,7 +266,7 @@ fn the_usages_mark_is_only_for_a_declaration_d_would_offer() {
     assert_eq!(
         usage_rows(&mut a),
         [
-            (String::new(), "src/admin.py:5".to_string()),
+            (String::new(), "src/admin.py:5".to_owned()),
             (String::new(), "tests/test_repo.py:1".into()),
         ],
         "a word declared only in a test file: the declaration is a test row, marked as neither"
@@ -297,7 +298,7 @@ fn usages_of_a_hyphenated_name_leave_out_longer_names() {
     assert_eq!(
         usage_rows(&mut a),
         [
-            ("declaration".to_string(), "Makefile:1".to_string()),
+            ("declaration".to_owned(), "Makefile:1".to_owned()),
             ("declaration".into(), "app.yaml:2".into()),
             (String::new(), "Makefile:7".into()),
             (String::new(), "calc.py:1".into()),
@@ -325,7 +326,7 @@ fn makefile_usages_mark_the_declarations_d_jumps_to() {
         press(a, KeyCode::Esc, KeyModifiers::NONE);
         rows
     };
-    let row = |mark: &str, line: usize| (mark.to_string(), format!("Makefile:{line}"));
+    let row = |mark: &str, line: usize| (mark.to_owned(), format!("Makefile:{line}"));
     assert_eq!(
         rows(&mut a, "GO"),
         [row("declaration", 1), row("", 7)],
@@ -378,7 +379,7 @@ fn usages_of_a_ruby_suffixed_method_put_its_declaration_first() {
         assert_eq!(
             usage_rows(&mut a),
             [
-                ("declaration".to_string(), format!("app/user.rb:{declared}")),
+                ("declaration".to_owned(), format!("app/user.rb:{declared}")),
                 (String::new(), format!("app/use.rb:{line}")),
             ],
             "{word} with its `?`, `!` or setter `=`: its own `def` or `attr_writer` first"
@@ -445,7 +446,7 @@ fn usages_of_an_elixir_suffixed_function_put_its_declaration_first() {
         assert_eq!(
             usage_rows(&mut a),
             [
-                ("declaration".to_string(), format!("lib/w.ex:{declared}")),
+                ("declaration".to_owned(), format!("lib/w.ex:{declared}")),
                 (String::new(), format!("lib/use.ex:{line}")),
             ],
             "{word} with its `?` or `!`: its `def` first"
@@ -468,7 +469,7 @@ fn usages_in_graphql_mark_the_field_not_the_selection() {
     assert_eq!(
         usage_rows(&mut a),
         [
-            ("declaration".to_string(), "schema.graphql:2".to_string()),
+            ("declaration".to_owned(), "schema.graphql:2".to_owned()),
             (String::new(), "ops.graphql:3".into()),
         ],
         "an indented `email` is a field only directly inside a type; a query's selection is a use"
@@ -485,7 +486,7 @@ fn makefile_usages_ask_the_rule_d_asks() {
             "build:\n\tARCH=x86 ./b.sh $${ARCH}\n\tX += 1\n\techo $(X)\n",
         )],
     );
-    let row = |mark: &str, line: usize| (mark.to_string(), format!("Makefile:{line}"));
+    let row = |mark: &str, line: usize| (mark.to_owned(), format!("Makefile:{line}"));
     usages_at(&mut a, &dir, "Makefile", 2, "ARCH");
     assert_eq!(
         usage_rows(&mut a),
@@ -524,7 +525,7 @@ fn usages_mark_a_rust_let_as_a_declaration() {
     assert_eq!(
         usage_rows(&mut a),
         [
-            ("declaration".to_string(), "src/lib.rs:2".to_string()),
+            ("declaration".to_owned(), "src/lib.rs:2".to_owned()),
             (String::new(), "src/lib.rs:3".into()),
         ]
     );
@@ -555,7 +556,7 @@ fn usages_mark_a_rails_column_only_in_the_schema() {
     let marked: Vec<_> = rows.iter().filter(|(m, _)| m == "declaration").collect();
     assert_eq!(
         marked,
-        [&("declaration".to_string(), "db/schema.rb:3".to_string())],
+        [&("declaration".to_owned(), "db/schema.rb:3".to_owned())],
         "a migration's `t.string :language` is history, a use: {rows:?}"
     );
     std::fs::remove_dir_all(&dir).unwrap();
@@ -580,7 +581,7 @@ fn usages_of_a_class_and_a_custom_property_read_them_whole() {
     assert_eq!(
         usage_rows(&mut a),
         [
-            ("declaration".to_string(), "src/styles.css:4".to_string()),
+            ("declaration".to_owned(), "src/styles.css:4".to_owned()),
             (String::new(), "src/Button.tsx:1".into()),
             (String::new(), "src/Button.tsx:3".into()),
             (String::new(), "src/styles.css:9".into()),
@@ -592,7 +593,7 @@ fn usages_of_a_class_and_a_custom_property_read_them_whole() {
     assert_eq!(
         usage_rows(&mut a),
         [
-            ("declaration".to_string(), "src/styles.css:2".to_string()),
+            ("declaration".to_owned(), "src/styles.css:2".to_owned()),
             (String::new(), "src/styles.css:5".into()),
         ],
         "`var(--brand)` reads the custom property with its dashes"
@@ -625,7 +626,7 @@ fn usages_in_a_component_count_its_script_alone_as_declaring() {
         rows.iter()
             .filter(|(m, _)| m == "declaration")
             .collect::<Vec<_>>(),
-        [&("declaration".to_string(), "names.ts:1".to_string())],
+        [&("declaration".to_owned(), "names.ts:1".to_owned())],
         "a component's template declares nothing, whatever it looks like"
     );
     assert!(rows.iter().any(|(_, p)| p == "Card.vue:5"), "{rows:?}");

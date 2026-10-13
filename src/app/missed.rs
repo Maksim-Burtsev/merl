@@ -1,7 +1,13 @@
+#![expect(clippy::cast_possible_wrap, reason = "#858")]
+#![expect(clippy::needless_pass_by_value, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
 use super::cursor::{word_end, word_start};
 use super::keys::named;
 use super::review::Next;
-use super::*;
+use super::{
+    App, Duration, Focus, Instant, KeyCode, KeyEvent, KeyModifiers, Mode, Path, PathBuf,
+    PickerKind, TextLine, Tier, UnicodeSegmentation, usages,
+};
 
 const RUN_GAP: Duration = Duration::from_millis(200);
 const SPENT_PER_MISSED_PRESS: usize = 2;
@@ -183,7 +189,7 @@ impl App {
             lines: self.buf.lines.len(),
             before_first_press: self.spot(),
             deleting_line_before_first_press: if deleting {
-                self.line_str().to_string()
+                self.line_str().to_owned()
             } else {
                 String::new()
             },
@@ -452,9 +458,8 @@ impl App {
     }
 
     fn to_word(&self, trip: &Trip) -> Option<(usize, &'static str)> {
-        let word = (trip.word_at_open.as_ref()).filter(|w| {
-            super::usages::bare_name(w).to_lowercase() == trip.last_query.to_lowercase()
-        })?;
+        let word = (trip.word_at_open.as_ref())
+            .filter(|w| usages::bare_name(w).to_lowercase() == trip.last_query.to_lowercase())?;
         let landed = self.rel_current()?;
         let hits = self.usage_hits(word, trip.opened_at_rel.as_deref()).ranked;
         let row = hits

@@ -1,3 +1,12 @@
+#![expect(clippy::case_sensitive_file_extension_comparisons, reason = "#858")]
+#![cfg_attr(test, expect(clippy::items_after_statements, reason = "#858"))]
+#![expect(clippy::naive_bytecount, reason = "#858")]
+#![expect(clippy::needless_continue, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![cfg_attr(test, expect(clippy::redundant_clone, reason = "#858"))]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::struct_excessive_bools, reason = "#858")]
+#![cfg_attr(test, expect(clippy::too_many_lines, reason = "#858"))]
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -23,16 +32,16 @@ pub enum TextLine {
 impl TextLine {
     pub fn key(self) -> usize {
         match self {
-            TextLine::File(l) | TextLine::Deleted(l, _) => l,
+            Self::File(l) | Self::Deleted(l, _) => l,
         }
     }
 }
 
 impl Ord for TextLine {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        let order = |t: &TextLine| match *t {
-            TextLine::File(l) => (l, usize::MAX),
-            TextLine::Deleted(k, i) => (k, i),
+        let order = |t: &Self| match *t {
+            Self::File(l) => (l, usize::MAX),
+            Self::Deleted(k, i) => (k, i),
         };
         order(self).cmp(&order(other))
     }
@@ -118,9 +127,9 @@ fn parse(diff: &str, review: bool) -> Diff {
                 lines.next_if(|l| l.starts_with('-') || l.starts_with('+') || l.starts_with('\\'))
             {
                 if let Some(text) = l.strip_prefix('-') {
-                    deleted.push(text.to_string());
+                    deleted.push(text.to_owned());
                 } else if let Some(text) = l.strip_prefix('+') {
-                    added.push(text.to_string());
+                    added.push(text.to_owned());
                 }
             }
             let mut first = TextLine::File(first_new_line);
@@ -216,7 +225,7 @@ impl Review {
     pub fn open(root: &Path, branch: Option<&str>, base: Option<&str>) -> Result<Self> {
         let git = |args: &[&str]| git(root, args);
         let base = match base {
-            Some(b) => b.to_string(),
+            Some(b) => b.to_owned(),
             None => detect_base(&git)?,
         };
         let note = match branch {
@@ -249,7 +258,7 @@ impl Review {
         let branch = (head.as_deref().ok())
             .and_then(|h| h.strip_prefix("refs/heads/"))
             .unwrap_or("HEAD")
-            .to_string();
+            .to_owned();
         let merge_base = git(&["merge-base", &base, "HEAD"])
             .with_context(|| format!("no merge base between {base} and HEAD"))?;
         let raw = ["diff", "--raw", "--no-abbrev", "-z", &merge_base];
@@ -346,7 +355,7 @@ impl Review {
     pub fn branch_or_commit(&self, root: &Path) -> String {
         match self.branch.as_str() {
             "HEAD" => git(root, &["rev-parse", "--short", "HEAD"]).unwrap_or(self.branch.clone()),
-            branch => branch.to_string(),
+            branch => branch.to_owned(),
         }
     }
 
@@ -379,14 +388,14 @@ impl Review {
         let bytes = self.base_bytes(root, rel)?;
         if let Ok(old) = std::fs::read_dir(&parent) {
             for e in old.flatten().filter(|e| e.file_name() != *self.merge_base) {
-                let _ = std::fs::remove_dir_all(e.path());
+                drop(std::fs::remove_dir_all(e.path()));
             }
         }
         std::fs::create_dir_all(path.parent().context("no parent")?)?;
         let tmp = path.with_file_name(format!(".{}", std::process::id()));
         let written = std::fs::write(&tmp, bytes).and_then(|()| std::fs::rename(&tmp, &path));
         if written.is_err() {
-            let _ = std::fs::remove_file(&tmp);
+            drop(std::fs::remove_file(&tmp));
         }
         written?;
         Ok(path)
@@ -407,7 +416,7 @@ impl Review {
             return Ok(dir);
         }
         let tmp = parent.join(format!(".{}-{}", self.merge_base, std::process::id()));
-        let _ = std::fs::remove_dir_all(&tmp);
+        drop(std::fs::remove_dir_all(&tmp));
         std::fs::create_dir_all(&tmp)?;
         let listing = git(
             root,
@@ -444,7 +453,7 @@ impl Review {
             #[cfg(unix)]
             if link {
                 let target = String::from_utf8_lossy(&out.stdout).into_owned();
-                let _ = std::os::unix::fs::symlink(target, tmp.join(&path));
+                drop(std::os::unix::fs::symlink(target, tmp.join(&path)));
                 continue;
             }
             std::fs::write(tmp.join(&path), out.stdout)?;
@@ -467,18 +476,18 @@ impl Review {
                 let d = Path::new(d.trim_end_matches('/'));
                 let dst = tmp.join(d);
                 if dst.parent().is_some_and(Path::exists) && !dst.exists() {
-                    let _ = std::os::unix::fs::symlink(root.join(d), dst);
+                    drop(std::os::unix::fs::symlink(root.join(d), dst));
                 }
             }
         }
         std::fs::write(tmp.join(".merl-stamp"), &stamp)?;
         if let Ok(old) = std::fs::read_dir(&parent) {
             for e in old.flatten().filter(|e| e.path() != tmp) {
-                let _ = std::fs::remove_dir_all(e.path());
+                drop(std::fs::remove_dir_all(e.path()));
             }
         }
         if std::fs::rename(&tmp, &dir).is_err() {
-            let _ = std::fs::remove_dir_all(&tmp);
+            drop(std::fs::remove_dir_all(&tmp));
         }
         Ok(dir)
     }
@@ -567,7 +576,7 @@ fn changed_lines(
 
 fn unquote(s: &str) -> String {
     let Some(inner) = s.strip_prefix('"').and_then(|s| s.strip_suffix('"')) else {
-        return s.to_string();
+        return s.to_owned();
     };
     let b = inner.as_bytes();
     let (mut out, mut i) = (Vec::new(), 0);
@@ -615,7 +624,7 @@ pub(crate) fn git(root: &Path, args: &[&str]) -> Result<String> {
     }
     Ok(String::from_utf8_lossy(&out.stdout)
         .trim_end_matches('\n')
-        .to_string())
+        .to_owned())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -698,7 +707,7 @@ fn rebasing(git: &dyn Fn(&[&str]) -> Result<String>, root: &Path) -> Result<Stri
     ])?;
     (paths.lines())
         .find_map(|p| std::fs::read_to_string(root.join(p)).ok())
-        .map(|name| name.trim().to_string())
+        .map(|name| name.trim().to_owned())
         .context("no rebase in progress")
 }
 
@@ -944,7 +953,7 @@ fn detect_base(git: &dyn Fn(&[&str]) -> Result<String>) -> Result<String> {
     }
     for b in BASES {
         if git(&["rev-parse", "--verify", "-q", &format!("{b}^{{commit}}")]).is_ok() {
-            return Ok(b.to_string());
+            return Ok(b.to_owned());
         }
     }
     bail!("no base branch found: pass --base")
@@ -1044,7 +1053,7 @@ mod tests {
     #[test]
     fn a_repository_marks_changed_and_added_lines() {
         let dir = std::env::temp_dir().join(format!("merl-git-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(&dir).unwrap();
         let git = |args: &[&str]| {
             let out = Command::new("git").arg("-C").arg(&dir).args(args).output();
@@ -1062,7 +1071,7 @@ mod tests {
     #[test]
     fn nearby_edits_stay_apart_under_inter_hunk_context() {
         let dir = std::env::temp_dir().join(format!("merl-interhunk-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(&dir).unwrap();
         let git = |args: &[&str]| {
             let out = Command::new("git")
@@ -1090,7 +1099,7 @@ mod tests {
     #[test]
     fn a_name_with_glob_characters_is_that_file_alone() {
         let dir = std::env::temp_dir().join(format!("merl-glob-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(dir.join("app")).unwrap();
         let git = |args: &[&str]| {
             let out = Command::new("git")
@@ -1149,7 +1158,7 @@ mod tests {
     #[test]
     fn the_base_tree_reads_from_git_what_the_branch_touched_and_links_the_rest() {
         let dir = std::env::temp_dir().join(format!("merl-base-tree-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(dir.join("venv")).unwrap();
         let git = |args: &[&str]| {
             let out = Command::new("git").arg("-C").arg(&dir).args(args).output();
@@ -1209,7 +1218,7 @@ mod tests {
     #[test]
     fn a_review_lists_the_branch_files_against_the_merge_base() {
         let dir = std::env::temp_dir().join(format!("merl-review-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(dir.join("src")).unwrap();
         let git = |args: &[&str]| {
             let out = Command::new("git")
@@ -1281,7 +1290,7 @@ mod tests {
             [
                 ("src/a.rs", 2, TextLine::Deleted(1, 0), "b"),
                 ("src/moved.rs", 10, TextLine::Deleted(9, 0), "m10"),
-                ("gone", 1, TextLine::File(0), "x"),
+                ("gone", 1, File(0), "x"),
             ],
             "the deleted lines (#440), keyed as the review draws them: under the new name of a rename, and in a file the branch deleted, whose text is the base's, as its lines"
         );
@@ -1310,7 +1319,7 @@ mod tests {
         );
         let real = dir.canonicalize().unwrap();
         let wt = real.with_extension("wt");
-        let _ = std::fs::remove_dir_all(&wt);
+        drop(std::fs::remove_dir_all(&wt));
         git(&["worktree", "add", "-q", "-b", "wt", wt.to_str().unwrap()]);
         let common = real.join(".git");
         let same = GitDirs {
@@ -1345,8 +1354,8 @@ mod tests {
         let tmp = std::env::temp_dir().canonicalize().unwrap();
         let dir = tmp.join(format!("merl-other-wt-{}", std::process::id()));
         let wt = dir.with_extension("agent");
-        let _ = std::fs::remove_dir_all(&dir);
-        let _ = std::fs::remove_dir_all(&wt);
+        drop(std::fs::remove_dir_all(&dir));
+        drop(std::fs::remove_dir_all(&wt));
         std::fs::create_dir_all(&dir).unwrap();
         let git = |at: &Path, args: &[&str]| {
             let out = Command::new("git").arg("-C").arg(at).args(args).output();
@@ -1412,7 +1421,7 @@ mod tests {
     #[test]
     fn the_agents_order_sorts_the_review_and_a_refresh_reads_it_again() {
         let dir = std::env::temp_dir().join(format!("merl-order-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(&dir).unwrap();
         let git = |args: &[&str]| {
             let out = Command::new("git").arg("-C").arg(&dir).args(args).output();
@@ -1513,7 +1522,7 @@ mod tests {
     #[test]
     fn untracked_files_are_rows_of_the_review() {
         let dir = std::env::temp_dir().join(format!("merl-untracked-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(dir.join("sub")).unwrap();
         let git = |at: &Path, args: &[&str]| {
             let out = Command::new("git").arg("-C").arg(at).args(args).output();
@@ -1560,7 +1569,7 @@ mod tests {
     #[test]
     fn an_untracked_link_to_a_fifo_is_a_row_that_is_not_read() {
         let dir = std::env::temp_dir().join(format!("merl-fifo-link-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(&dir).unwrap();
         let git = |args: &[&str]| {
             let out = Command::new("git").arg("-C").arg(&dir).args(args).output();
@@ -1580,11 +1589,13 @@ mod tests {
         let at = dir.clone();
         std::thread::spawn(move || {
             let r = Review::open(&at, None, None).unwrap();
-            let _ = tx.send(
-                r.files
-                    .iter()
-                    .map(|f| (f.path.clone(), f.has_hunks()))
-                    .collect(),
+            drop(
+                tx.send(
+                    r.files
+                        .iter()
+                        .map(|f| (f.path.clone(), f.has_hunks()))
+                        .collect(),
+                ),
             );
         });
         let rows: Vec<(PathBuf, bool)> =
@@ -1597,7 +1608,7 @@ mod tests {
     #[test]
     fn a_review_opens_on_a_file_with_text_a_binary_or_none() {
         let dir = std::env::temp_dir().join(format!("merl-first-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(dir.join("docs")).unwrap();
         let git = |args: &[&str]| {
             let out = Command::new("git").arg("-C").arg(&dir).args(args).output();
@@ -1629,7 +1640,7 @@ mod tests {
     #[test]
     fn a_named_review_reads_what_was_pushed() {
         let dir = std::env::temp_dir().join(format!("merl-pushed-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(&dir).unwrap();
         let git = |at: &str, args: &[&str]| {
             let out = Command::new("git")
@@ -1669,7 +1680,7 @@ mod tests {
         push();
         git("", &["clone", "-q", remote.to_str().unwrap(), "b"]);
         let r = open();
-        assert_eq!((names(&r), r.note), (vec!["one".to_string()], None));
+        assert_eq!((names(&r), r.note), (vec!["one".to_owned()], None));
         git("b", &["switch", "-q", "main"]);
 
         git("a", &["reset", "-q", "--hard", "HEAD~1"]);
@@ -1744,7 +1755,7 @@ mod tests {
     #[test]
     fn a_review_of_origin_slash_branch_reads_the_pushed_branch() {
         let dir = std::env::temp_dir().join(format!("merl-origin-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(&dir).unwrap();
         let git = |at: &str, args: &[&str]| {
             let out = Command::new("git")
@@ -1817,7 +1828,7 @@ mod tests {
     #[test]
     fn changed_files_are_m_and_new_ones_a_under_the_root() {
         let dir = std::env::temp_dir().join(format!("merl-marks-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(dir.join("sub/deep")).unwrap();
         let git = |args: &[&str]| {
             let out = Command::new("git").arg("-C").arg(&dir).args(args).output();
@@ -1861,7 +1872,7 @@ mod tests {
             ("renamed.rs", 'A'),
             ("staged.rs", 'M'),
         ];
-        assert_eq!(got, want.map(|(p, m)| (p.to_string(), m)));
+        assert_eq!(got, want.map(|(p, m)| (p.to_owned(), m)));
         assert_eq!(changed_files(&dir)[Path::new("top.rs")], 'M');
         assert!(changed_files(&std::env::temp_dir()).is_empty());
         std::fs::remove_dir_all(&dir).unwrap();
@@ -1916,7 +1927,7 @@ mod tests {
     #[test]
     fn generated_files_are_known_by_name_attribute_and_header() {
         let dir = std::env::temp_dir().join(format!("merl-generated-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(dir.join("gen")).unwrap();
         let git = |args: &[&str]| {
             let out = Command::new("git").arg("-C").arg(&dir).args(args).output();
@@ -1978,14 +1989,14 @@ mod tests {
         std::fs::write(dir.join("gen/new.ts"), "n\n").unwrap();
         std::fs::write(dir.join("new.go"), header).unwrap();
         let r = Review::open(&dir, None, None).unwrap();
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         let mut want: Vec<_> = files.iter().map(|&(n, _, g)| (n, g)).collect();
         want.extend([("gen/new.ts", true), ("new.go", true)]);
-        want.sort();
+        want.sort_unstable();
         let mut got: Vec<_> = (r.files.iter())
             .map(|f| (f.path.to_str().unwrap(), f.generated))
             .collect();
-        got.sort();
+        got.sort_unstable();
         assert_eq!(got, want, "untracked: read the same way");
     }
 }

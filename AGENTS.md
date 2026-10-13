@@ -55,6 +55,12 @@
   Lua, CI and Cargo files, Python docstrings checked by hand. A comment stays only in
   `KEPT_COMMENTS` beside them, with why the code cannot do without it: a tool reads it (a
   docstring printed as the program's usage), or a licence requires it.
+- The lints live in `Cargo.toml` `[lints]` and `clippy.toml`, and `tools/ci-local clippy` denies
+  every warning. `#[allow]` is banned: a lint is silenced only by `#[expect(lint, reason = "…")]`,
+  and `expects_do_not_grow` (`src/main.rs`) keeps their number under `EXPECTS`; a PR that removes
+  some lowers it. `unwrap()` and `&s[a..b]` on a `str` are not used outside tests. The
+  `#![expect(…, reason = "#858")]` lines are the strict-lints epic's backlog: code the epic has
+  not reached yet, never a place for new hits.
 
 ## Issues
 

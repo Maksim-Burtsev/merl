@@ -1,3 +1,4 @@
+#![expect(clippy::cast_possible_truncation, reason = "#858")]
 use std::path::Path;
 
 use ratatui::Frame;
@@ -23,14 +24,14 @@ pub enum Status {
 pub(super) fn status(app: &App) -> Option<Status> {
     if let Some(sides) = app.picture_sides() {
         let why = sides.iter().find_map(|s| match &s.path {
-            Ok(p) => app.diagrams.file_failed(p).map(str::to_string),
+            Ok(p) => app.diagrams.file_failed(p).map(str::to_owned),
             Err(why) => Some(why.clone()),
         });
         return Some(why.map_or(Status::Size(String::new()), Status::Why));
     }
     let path = app.picture_here()?;
     if let Some(why) = app.diagrams.file_failed(&path) {
-        return Some(Status::Why(why.to_string()));
+        return Some(Status::Why(why.to_owned()));
     }
     app.diagrams.on().then(|| {
         Status::Size(

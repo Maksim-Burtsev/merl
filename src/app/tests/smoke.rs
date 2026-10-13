@@ -1,3 +1,4 @@
+#![expect(clippy::or_fun_call, reason = "#858")]
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
@@ -63,7 +64,7 @@ fn starts(path: &Path, out: &mut Vec<Vec<String>>) {
     for line in std::fs::read_to_string(path).unwrap().lines() {
         let mut words = line
             .split_whitespace()
-            .map(|w| w.trim_matches(['\'', '"']).to_string());
+            .map(|w| w.trim_matches(['\'', '"']).to_owned());
         match words.next().as_deref() {
             Some("merl") => out.push(words.collect()),
             Some("include") => starts(&root().join(words.next().unwrap()), out),
@@ -85,12 +86,12 @@ fn played_flags() -> BTreeSet<String> {
     }
     let mut ids = BTreeSet::new();
     for args in lines {
-        let argv = std::iter::once("merl".to_string()).chain(args.iter().cloned());
+        let argv = std::iter::once("merl".to_owned()).chain(args.iter().cloned());
         match crate::Cli::command().try_get_matches_from(argv) {
             Ok(m) => ids.extend(
                 m.ids()
                     .filter(|id| m.value_source(id.as_str()) == Some(ValueSource::CommandLine))
-                    .map(|id| id.to_string()),
+                    .map(ToString::to_string),
             ),
             Err(e) if e.kind() == ErrorKind::DisplayHelp => _ = ids.insert("help".into()),
             Err(e) if e.kind() == ErrorKind::DisplayVersion => _ = ids.insert("version".into()),
@@ -177,9 +178,10 @@ fn unplayed(changelog: &str, played: &BTreeSet<u32>, skipped: &[u32]) -> Vec<Str
                     .take(60)
                     .collect();
                 let issues: Vec<String> = issues.iter().map(|n| format!("#{n}")).collect();
-                wrong.push(match issues.is_empty() {
-                    true => format!("`{first}…` cites no issue"),
-                    false => format!("`{first}…` cites {}, no scenario plays", issues.join(", ")),
+                wrong.push(if issues.is_empty() {
+                    format!("`{first}…` cites no issue")
+                } else {
+                    format!("`{first}…` cites {}, no scenario plays", issues.join(", "))
                 });
             }
         }
@@ -233,7 +235,7 @@ fn released(changelog: &str) -> Vec<(String, String)> {
             break;
         }
         if let Some(heading) = line.strip_prefix("## [") {
-            let version = heading.split(']').next().unwrap_or("").to_string();
+            let version = heading.split(']').next().unwrap_or("").to_owned();
             sections.push((version, String::new()));
         }
         if let Some((_, text)) = sections.last_mut() {
@@ -278,7 +280,7 @@ fn last_release_on_master(dir: &Path) -> String {
     log.lines()
         .filter_map(|l| l.split_once(' '))
         .find(|(_, subject)| subject.starts_with("release: "))
-        .map(|(hash, _)| hash.to_string())
+        .map(|(hash, _)| hash.to_owned())
         .expect("no `release: X.Y.Z` commit in the history: a shallow clone needs fetch-depth: 0")
 }
 
@@ -300,12 +302,12 @@ fn released_changelog_sections_stay_as_released() {
 #[test]
 fn a_release_branch_keeps_its_own_section_open_until_master_has_it() {
     let dir = std::env::temp_dir().join(format!("merl-last-release-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(&dir).unwrap();
     let git = |args: &[&str]| {
         let mut all = vec!["-c", "user.email=t@t", "-c", "user.name=t"];
         all.extend_from_slice(args);
-        git_in(&dir, &all).trim().to_string()
+        git_in(&dir, &all).trim().to_owned()
     };
     git(&["init", "-q", "-b", "master"]);
     git(&["commit", "-q", "--allow-empty", "-m", "release: 0.1.0 (#1)"]);
@@ -318,7 +320,7 @@ fn a_release_branch_keeps_its_own_section_open_until_master_has_it() {
     assert_eq!(last_release_on_master(&dir), released);
     git(&["update-ref", "refs/remotes/origin/master", "HEAD"]);
     assert_eq!(last_release_on_master(&dir), releasing);
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -329,5 +331,5 @@ fn a_released_section_counts_as_changed_by_any_line_but_a_new_one_does_not() {
                ## [0.2.0] - 2026-01-02\n\n- B. (#2)\n- D. (#4)\n\n\
                ## [0.1.0] - 2026-01-01\n\n- A. (#1)\n\n[0.3.0]: url\n[0.2.0]: url\n";
     assert_eq!(changed_releases(then, now), ["0.2.0"]);
-    assert!(changed_releases(then, then).is_empty());
+    assert_eq!(changed_releases(then, then), [] as [String; 0]);
 }

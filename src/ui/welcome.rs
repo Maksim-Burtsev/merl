@@ -1,3 +1,4 @@
+#![expect(clippy::cast_possible_truncation, reason = "#858")]
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::{Color, Style};

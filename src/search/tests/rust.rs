@@ -1,3 +1,5 @@
+#![expect(clippy::items_after_statements, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 
 fn attr(code: &str, word: &str) -> Option<RustAttr> {

@@ -126,8 +126,9 @@ fn erlang_includes_name_files() {
         erlang_include_files(true, "kernel/include/file.hrl", here, &files, &outside),
         outside
     );
-    assert!(
-        erlang_include_files(true, "stdlib/include/file.hrl", here, &files, &outside).is_empty()
+    assert_eq!(
+        erlang_include_files(true, "stdlib/include/file.hrl", here, &files, &outside),
+        [] as [PathBuf; 0]
     );
     assert_eq!(
         erlang_include(r#"-include_lib("kernel/include/file.hrl")."#, 16),

@@ -1,3 +1,4 @@
+#![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 
 #[test]
@@ -61,7 +62,7 @@ fn perl_symbols_are_subs_packages_classes_and_methods() {
     let picker = a.picker.as_mut().unwrap();
     picker.settle();
     let names: Vec<String> = (picker.window(20).0.into_iter())
-        .map(|r| r.item.label.split_whitespace().next().unwrap().to_string())
+        .map(|r| r.item.label.split_whitespace().next().unwrap().to_owned())
         .collect();
     assert_eq!(names, ["apply", "Shop::Coupon", "Shop::Order", "total"]);
     std::fs::remove_dir_all(&dir).unwrap();

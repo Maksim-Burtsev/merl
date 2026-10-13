@@ -1,4 +1,9 @@
-use super::*;
+#![expect(clippy::needless_pass_by_ref_mut, reason = "#858")]
+#![expect(clippy::needless_pass_by_value, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unused_self, reason = "#858")]
+use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, is_word, search};
 use std::ops::Range;
 
 struct PhpClass {
@@ -96,9 +101,10 @@ impl App {
                     name: short.to_owned(),
                     path: full.split('\\').map(str::to_owned).collect(),
                 }];
-                let (word, chain) = match member {
-                    true => (word, vec![short.to_owned()]),
-                    false => (short.to_owned(), Vec::new()),
+                let (word, chain) = if member {
+                    (word, vec![short.to_owned()])
+                } else {
+                    (short.to_owned(), Vec::new())
                 };
                 let found: Vec<Candidate> = self
                     .external_definitions(Kind::Php, &word, &chain, false, &imports, true)?
@@ -127,21 +133,20 @@ impl App {
             false if member || ns.is_empty() => Reason::Path(short.to_owned()),
             false => Reason::Path(ns.to_owned()),
         };
-        let found = match member {
-            false => vec![Hit {
+        let found = if member {
+            let re = Regex::new(&search::php_access_patterns(&word, access).join("|")).ok()?;
+            match self.php_walk(&path, &t, class, &re, 0, &mut Vec::new()) {
+                Walk::Found(hits) => hits,
+                Walk::Nowhere | Walk::NowhereOutside | Walk::Unread => return None,
+            }
+        } else {
+            vec![Hit {
                 deleted: None,
                 path: path.clone(),
                 line1: class + 1,
                 byte_col: None,
                 text: lines[class].to_owned(),
-            }],
-            true => {
-                let re = Regex::new(&search::php_access_patterns(&word, access).join("|")).ok()?;
-                match self.php_walk(&path, &t, class, &re, 0, &mut Vec::new()) {
-                    Walk::Found(hits) => hits,
-                    Walk::Nowhere | Walk::NowhereOutside | Walk::Unread => return None,
-                }
-            }
+            }]
         };
         Some(
             found
@@ -173,30 +178,27 @@ impl App {
             return None;
         }
         let re = Regex::new(&search::php_access_patterns(word, access).join("|")).ok()?;
-        let (reason, walk) = match link {
-            "parent" => {
-                let parent = parent?;
-                let reason = Reason::Receiver(format!("parent of {name}"));
-                (
-                    reason,
-                    self.php_walk_class(
-                        here,
-                        search::php_block(text, class),
-                        parent,
-                        &re,
-                        1,
-                        &mut Vec::new(),
-                    ),
-                )
-            }
-            _ => {
-                let reason = Reason::Receiver(format!(
-                    "{}: {name}",
-                    if link == "this" { "$this" } else { link }
-                ));
-                let mut seen = Vec::new();
-                (reason, self.php_walk(here, text, class, &re, 0, &mut seen))
-            }
+        let (reason, walk) = if link == "parent" {
+            let parent = parent?;
+            let reason = Reason::Receiver(format!("parent of {name}"));
+            (
+                reason,
+                self.php_walk_class(
+                    here,
+                    search::php_block(text, class),
+                    parent,
+                    &re,
+                    1,
+                    &mut Vec::new(),
+                ),
+            )
+        } else {
+            let reason = Reason::Receiver(format!(
+                "{}: {name}",
+                if link == "this" { "$this" } else { link }
+            ));
+            let mut seen = Vec::new();
+            (reason, self.php_walk(here, text, class, &re, 0, &mut seen))
         };
         match walk {
             Walk::Found(hits) => Some(
@@ -325,18 +327,15 @@ impl App {
         access: search::PhpAccess,
     ) -> Option<Vec<Candidate>> {
         let (head, fields) = chain.split_first().filter(|_| chain.len() <= 6)?;
-        let (mut class, mut links, rest) = match head.as_str() {
-            "this" => {
-                let (field, rest) = fields.split_first()?;
-                let own = self.php_self(here, text, self.line)?;
-                let class = self.php_property_type(&own, field)?;
-                let link = format!("$this->{field}: {}", self.php_class_name(&class)?);
-                (class, vec![link], rest)
-            }
-            _ => {
-                let ProvenClass { class, link } = self.php_variable_type(here, text, head)?;
-                (class, vec![link], fields)
-            }
+        let (mut class, mut links, rest) = if head.as_str() == "this" {
+            let (field, rest) = fields.split_first()?;
+            let own = self.php_self(here, text, self.line)?;
+            let class = self.php_property_type(&own, field)?;
+            let link = format!("$this->{field}: {}", self.php_class_name(&class)?);
+            (class, vec![link], rest)
+        } else {
+            let ProvenClass { class, link } = self.php_variable_type(here, text, head)?;
+            (class, vec![link], fields)
         };
         for field in rest {
             class = self.php_property_type(&class, field)?;
@@ -550,9 +549,10 @@ impl App {
                     }),
             );
         }
-        match hits.is_empty() {
-            true => Walk::NowhereOutside,
-            false => Walk::Found(hits),
+        if hits.is_empty() {
+            Walk::NowhereOutside
+        } else {
+            Walk::Found(hits)
         }
     }
 }

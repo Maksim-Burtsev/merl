@@ -1,4 +1,6 @@
-use super::*;
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
+use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, search};
 
 static ELIXIR_QUALIFIER: std::sync::LazyLock<Regex> =
     std::sync::LazyLock::new(|| Regex::new(r"(?:^|[^\w:]):([a-z]\w*)\.$").unwrap());
@@ -111,11 +113,11 @@ impl App {
     }
 
     fn candidate(&self, path: &Path, line: usize, reason: Reason) -> Candidate {
-        let text = match self.rel_current().as_deref() == Some(path) {
-            true => self.buf.lines.get(line - 1).cloned(),
-            false => self
-                .file_text(path)
-                .and_then(|t| t.lines().nth(line - 1).map(str::to_owned)),
+        let text = if self.rel_current().as_deref() == Some(path) {
+            self.buf.lines.get(line - 1).cloned()
+        } else {
+            self.file_text(path)
+                .and_then(|t| t.lines().nth(line - 1).map(str::to_owned))
         };
         Candidate {
             hit: Hit {
@@ -173,10 +175,7 @@ impl App {
     fn erlang_by_name(&mut self, here: &Path, pattern: &str, word: &str) -> Vec<Hit> {
         let hits = self.erlang_grep(pattern, word, search::erlang);
         let own: Vec<Hit> = hits.iter().filter(|h| h.path == here).cloned().collect();
-        match own.is_empty() {
-            true => hits,
-            false => own,
-        }
+        if own.is_empty() { hits } else { own }
     }
 
     fn erlang_field(&mut self, here: &Path, record: &str, field: &str) -> Vec<Candidate> {

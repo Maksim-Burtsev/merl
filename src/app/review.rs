@@ -1,12 +1,18 @@
+#![cfg_attr(test, expect(clippy::needless_collect, reason = "#858"))]
+#![expect(clippy::needless_pass_by_value, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use anyhow::Context as _;
 
-use super::*;
+use super::{
+    App, Focus, HashMap, HashSet, Instant, Mode, Path, PathBuf, TextLine, error_text, git, plural,
+};
 use crate::reviews::{Session, Spot, Stop};
 
 impl App {
     pub fn start_review(&mut self, mut review: git::Review) {
         let note = review.note.take();
-        self.viewed_branch = review.branch_name().map(str::to_string);
+        self.viewed_branch = review.branch_name().map(str::to_owned);
         self.review = Some(review);
         self.refresh_diff();
         if let Some(path) = self.buf.path.clone() {
@@ -191,9 +197,10 @@ impl App {
             return None;
         }
         let at = self.hunk_place(self.at());
-        match dir > 0 {
-            true => self.diff.hunks.iter().find(|&&h| h > at).copied(),
-            false => self.diff.hunks.iter().rev().find(|&&h| h < at).copied(),
+        if dir > 0 {
+            self.diff.hunks.iter().find(|&&h| h > at).copied()
+        } else {
+            self.diff.hunks.iter().rev().find(|&&h| h < at).copied()
         }
     }
 
@@ -282,7 +289,7 @@ impl App {
             old: false,
             path: Some(self.root.join(&f.path))
                 .filter(|p| p.is_file())
-                .ok_or_else(|| "not on disk".to_string()),
+                .ok_or_else(|| "not on disk".to_owned()),
         };
         Some(match f.status {
             'A' => vec![new()],
@@ -297,7 +304,7 @@ impl App {
         match &*memo {
             Some((k, got)) if *k == key => got.clone(),
             _ => {
-                let got = (r.base_file(&self.root, rel)).map_err(|e| super::error_text(&e));
+                let got = (r.base_file(&self.root, rel)).map_err(|e| error_text(&e));
                 *memo = Some((key, got.clone()));
                 got
             }
@@ -400,7 +407,7 @@ impl App {
             Ok(marks) => self.viewed = marks,
             Err(e) => {
                 self.viewed_branch = None;
-                self.message = format!("viewed marks not read: {}", super::error_text(&e));
+                self.message = format!("viewed marks not read: {}", error_text(&e));
             }
         }
         self.recheck_viewed();
@@ -410,7 +417,7 @@ impl App {
         let (Some(key), Some(r)) = (&self.viewed_branch, &self.review) else {
             return false;
         };
-        let Some(branch) = r.branch_name().filter(|b| b != key).map(str::to_string) else {
+        let Some(branch) = r.branch_name().filter(|b| b != key).map(str::to_owned) else {
             return false;
         };
         if self.viewed_store().is_none() {
@@ -429,7 +436,7 @@ impl App {
         };
         let marks = self.viewed.iter().chain(&self.hidden);
         if let Err(e) = write_viewed(&store, branch, &r.base, marks, crate::stats::utc_today()) {
-            self.message = format!("viewed marks not saved: {}", super::error_text(&e));
+            self.message = format!("viewed marks not saved: {}", error_text(&e));
         }
     }
 
@@ -649,7 +656,7 @@ mod tests {
     #[test]
     fn a_review_is_forgotten_on_its_thirtieth_day() {
         let dir = std::env::temp_dir().join(format!("merl-viewededge-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(&dir).unwrap();
         let store = dir.join("viewed");
         let today = 20_000;
@@ -664,13 +671,13 @@ mod tests {
         assert!(read("edge").is_empty() && read("stale").is_empty());
         write_viewed(&store, "feature", "main", std::iter::empty(), today).unwrap();
         assert_eq!(std::fs::read_to_string(&store).unwrap(), line(29, "recent"));
-        let _ = std::fs::remove_dir_all(dir);
+        drop(std::fs::remove_dir_all(dir));
     }
 
     #[test]
     fn a_path_with_a_tab_or_a_carriage_return_reads_back() {
         let dir = std::env::temp_dir().join(format!("merl-viewedtab-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(&dir).unwrap();
         let store = dir.join("viewed");
         let paths = [PathBuf::from("a\tb.rs"), PathBuf::from("Icon\r")];
@@ -679,6 +686,6 @@ mod tests {
         let read = read_viewed(&store, "feature", "main", 20_000).unwrap();
         assert_eq!(read.len(), 2);
         assert!(paths.iter().all(|p| read.get(p) == Some(&7)), "{read:?}");
-        let _ = std::fs::remove_dir_all(dir);
+        drop(std::fs::remove_dir_all(dir));
     }
 }

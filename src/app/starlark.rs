@@ -1,5 +1,6 @@
-use super::definition::resolution;
-use super::*;
+#![expect(clippy::string_slice, reason = "#858")]
+use super::resolution::resolution;
+use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, search};
 
 use search::StarlarkLabel;
 
@@ -24,7 +25,7 @@ impl App {
                 .flatten();
             match found {
                 Some((word, found)) if !found.is_empty() => {
-                    self.show_definitions(Kind::Starlark, &word, here, found, None)
+                    self.show_definitions(Kind::Starlark, &word, here, found, None);
                 }
                 _ => self.message = resolution(label, None, &[], None, false),
             }
@@ -59,9 +60,10 @@ impl App {
         let Some(loaded) = self.file_text(&file) else {
             return false;
         };
-        let via = match file.is_absolute() {
-            true => label,
-            false => file.display().to_string(),
+        let via = if file.is_absolute() {
+            label
+        } else {
+            file.display().to_string()
         };
         let found: Vec<Candidate> = search::starlark_declarations(&loaded, &taken)
             .into_iter()
@@ -151,7 +153,7 @@ impl App {
         let project = |r: &String| {
             ROOTS
                 .into_iter()
-                .flat_map(|f| read(&main.join(f)))
+                .filter_map(|f| read(&main.join(f)))
                 .any(|t| search::starlark_project_names(&t).contains(r))
         };
         let base = match repo {

@@ -1,4 +1,9 @@
-use super::*;
+#![expect(clippy::iter_on_single_items, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+use super::{
+    App, Buffer, Edit, Focus, HIST_MAX, HIST_NEAR, Mode, Path, PathBuf, PickItem, TextLine, Tree,
+    buffer, edit, git, lock_no_write,
+};
 
 impl App {
     pub(super) fn reveal(&mut self, path: &Path) {
@@ -201,7 +206,7 @@ impl App {
         }
         let mut buf = Buffer::from_bytes(path.clone(), &bytes);
         self.lock_unwritable(&mut buf);
-        let reading = self.deleted.map(|(_, i)| (self.line_str().to_string(), i));
+        let reading = self.deleted.map(|(_, i)| (self.line_str().to_owned(), i));
         let old = std::mem::replace(&mut self.buf, buf);
         self.carry_collapsed(&old.lines);
         if self.review.is_some() {
@@ -332,9 +337,10 @@ impl App {
 
     pub(super) fn jump_to_item(&mut self, item: &PickItem) {
         let path = self.root.join(&item.path);
-        match item.deleted {
-            true => self.jump_to_deleted(&path, item.line, item.col),
-            false => self.jump_to_col(&path, item.line, item.col),
+        if item.deleted {
+            self.jump_to_deleted(&path, item.line, item.col);
+        } else {
+            self.jump_to_col(&path, item.line, item.col);
         }
     }
 
@@ -460,7 +466,7 @@ pub(crate) fn error_text(e: &anyhow::Error) -> String {
 }
 
 pub(super) fn why_not(e: &anyhow::Error) -> String {
-    use std::io::ErrorKind::*;
+    use std::io::ErrorKind::{IsADirectory, NotFound, PermissionDenied};
     match e.downcast_ref::<std::io::Error>().map(std::io::Error::kind) {
         Some(PermissionDenied) => "permission denied".into(),
         Some(NotFound) => "no such file".into(),

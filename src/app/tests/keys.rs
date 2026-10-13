@@ -1,3 +1,4 @@
+#![expect(clippy::format_push_string, reason = "#858")]
 use super::*;
 
 #[test]
@@ -154,7 +155,7 @@ fn alt_letter_over_an_overlay_only_closes_it() {
         !press(&mut a, KeyCode::Char('q'), KeyModifiers::ALT),
         "Alt+q over a picker must not quit"
     );
-    assert!((a.picker.is_none(), a.mode) == (true, Mode::Normal));
+    assert_eq!((a.picker.is_none(), a.mode), (true, Mode::Normal));
     press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('d'), KeyModifiers::ALT);
     assert_eq!(

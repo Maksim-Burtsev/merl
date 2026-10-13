@@ -95,16 +95,16 @@ fn qualifier_is_the_chain_in_front_of_the_word() {
     assert_eq!(q("    return json.load(fp)", 16), ["json"]);
     assert_eq!(q("x = os.path.join(a)", 12), ["os", "path"]);
     assert_eq!(q("let s = fs::read_to_string(p)", 12), ["fs"]);
-    assert!(q("load(fp)", 0).is_empty());
-    assert!(q("x = load(fp)", 4).is_empty());
+    assert_eq!(q("load(fp)", 0), [] as [String; 0]);
+    assert_eq!(q("x = load(fp)", 4), [] as [String; 0]);
     assert_eq!(q("this.#root.insert(p)", 11), ["this", "#root"]);
     assert!(
         q("x = make_uow().users.delete_user()", 21).is_empty(),
         "a chain that hangs off a call, an index or `?.` has no name to start from"
     );
-    assert!(q("a[0].users.find()", 11).is_empty());
-    assert!(q("a?.users.find()", 9).is_empty());
-    assert!(q("  .users.find()", 9).is_empty());
+    assert_eq!(q("a[0].users.find()", 11), [] as [String; 0]);
+    assert_eq!(q("a?.users.find()", 9), [] as [String; 0]);
+    assert_eq!(q("  .users.find()", 9), [] as [String; 0]);
     assert_eq!(
         q("        super().store(item)", 16),
         ["super"],
@@ -115,7 +115,7 @@ fn qualifier_is_the_chain_in_front_of_the_word() {
         q("    my_super().store(item)", 15).is_empty(),
         "`my_super()` is a call"
     );
-    assert!(q("    a.super().store(item)", 14).is_empty());
+    assert_eq!(q("    a.super().store(item)", 14), [] as [String; 0]);
     assert_eq!(
         q("f(...this.repo.find())", 15),
         ["this", "repo"],
@@ -130,7 +130,7 @@ fn qualifier_is_the_chain_in_front_of_the_word() {
         q("    данные.load(x)", 17).is_empty(),
         "a character outside ASCII in front of the word is no name char"
     );
-    assert!(q("  café.load(x)", 8).is_empty());
+    assert_eq!(q("  café.load(x)", 8), [] as [String; 0]);
 }
 
 #[test]
@@ -333,7 +333,7 @@ fn a_field_is_reached_by_its_whole_name() {
 
 #[test]
 fn a_chain_broken_over_lines_reads_as_one() {
-    let lines = |ls: &[&str]| ls.iter().map(|l| l.to_string()).collect::<Vec<_>>();
+    let lines = |ls: &[&str]| ls.iter().map(ToString::to_string).collect::<Vec<_>>();
     let php = lines(&["$query", "    ->where("]);
     assert_eq!(
         unbroken(Kind::Php, &php, 1, 6),

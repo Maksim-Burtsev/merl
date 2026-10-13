@@ -1,8 +1,10 @@
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "#858"))]
+#![cfg_attr(test, expect(clippy::cast_sign_loss, reason = "#858"))]
 use super::*;
 
 fn dir(tag: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("merl-picture-{}-{tag}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(&dir).unwrap();
     dir
 }
@@ -70,7 +72,7 @@ fn a_png_decodes_whole_with_its_size() {
     assert!(drawn.frames[0].0.starts_with(b"\x89PNG"));
     assert_eq!(header(&path), Some(("PNG", 30, 12)));
     assert_eq!(not_shown_note(&path).unwrap(), "PNG 30\u{d7}12, not shown");
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -96,7 +98,7 @@ fn a_gif_keeps_every_frame_and_its_delay() {
         vec![200, 100],
         "a delay of 0 plays at 100 ms, as browsers do"
     );
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -109,7 +111,7 @@ fn a_file_merl_cannot_read_whole_says_why() {
     std::fs::write(&avif, b"\0\0\0\x20ftypavif\0\0\0\0avifmif1miaf").unwrap();
     assert_eq!(decode(&avif).err().unwrap(), "AVIF not drawn");
     assert_eq!(not_shown_note(&avif), None);
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -129,7 +131,7 @@ fn an_svg_draws_at_twice_its_size_unless_it_links_a_missing_file() {
     );
     png(&dir.join("gone.png"), 2, 2);
     assert!(decode(&path).is_ok());
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -155,7 +157,7 @@ fn a_markdown_image_is_found_beside_the_file_or_from_the_root_and_never_on_the_w
     assert_eq!(resolve(&root, &file, "//example.com/logo.png"), None);
     assert_eq!(resolve(&root, &file, "img/missing.png"), None);
     assert_eq!(resolve(&root, &file, "README.md"), None);
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 #[test]
@@ -169,7 +171,7 @@ fn a_gif_whose_canvas_passes_the_bound_is_not_drawn() {
     gif.extend([0x2c, 0, 0, 0, 0, 1, 0, 1, 0, 0, 2, 2, 0x44, 0x01, 0, 0x3b]);
     std::fs::write(&path, gif).unwrap();
     assert_eq!(decode(&path).err().unwrap(), "GIF not drawn: too large");
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -191,7 +193,7 @@ fn a_photo_turns_as_its_exif_says() {
     std::fs::write(&path, out).unwrap();
     assert_eq!(header(&path), Some(("JPEG", 2, 4)));
     assert_eq!(decode(&path).unwrap().natural, (2, 4));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -205,7 +207,7 @@ fn a_picture_past_the_size_bound_is_sent_shrunk_and_keeps_its_size() {
     let side = |at: usize| u32::from_be_bytes(png[at..at + 4].try_into().unwrap());
     assert_eq!(side(16), MAX_SIDE);
     assert_eq!(side(20), drawn.h);
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }
 
 #[test]
@@ -223,5 +225,5 @@ fn an_svg_draws_with_an_embedded_or_a_present_linked_image() {
         std::fs::write(&path, svg).unwrap();
         assert!(decode(&path).is_ok(), "{image}");
     }
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
 }

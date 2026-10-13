@@ -1,3 +1,4 @@
+#![expect(clippy::too_many_lines, reason = "#858")]
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 
@@ -179,9 +180,9 @@ fn a_module_lookup_says_which_module_or_that_it_went_by_name() {
     d_on(&mut a, "m.py", "jsonx.dumps_x");
     let row = |place: &str| {
         (
-            "dumps_x".to_string(),
-            "via import jsonx".to_string(),
-            place.to_string(),
+            "dumps_x".to_owned(),
+            "via import jsonx".to_owned(),
+            place.to_owned(),
         )
     };
     assert_eq!(

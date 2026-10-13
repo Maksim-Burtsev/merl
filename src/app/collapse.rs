@@ -1,4 +1,4 @@
-use super::*;
+use super::{App, Buffer, HashMap, Kind, Path, TextLine, open};
 
 mod braces;
 mod elixir;
@@ -6,6 +6,7 @@ mod spans;
 mod words;
 
 impl App {
+    #[expect(clippy::case_sensitive_file_extension_comparisons, reason = "#858")]
     fn shape(&self) -> Option<Folds<'_>> {
         let lines = &self.buf.lines;
         if self.kind() == Some(Kind::Python) {
@@ -127,10 +128,10 @@ impl App {
             return;
         };
         let moved = |(h, e): (usize, usize)| match () {
-            _ if (at..at + old).contains(&h) => None,
-            _ if e < at => Some((h, e)),
-            _ if h >= at + old => Some((h + new - old, e + new - old)),
-            _ => Some((h, shape.region(h)?)),
+            () if (at..at + old).contains(&h) => None,
+            () if e < at => Some((h, e)),
+            () if h >= at + old => Some((h + new - old, e + new - old)),
+            () => Some((h, shape.region(h)?)),
         };
         self.collapsed = self.collapsed.iter().filter_map(|&f| moved(f)).collect();
         self.nest_collapsed();
@@ -138,7 +139,7 @@ impl App {
 
     pub(super) fn carry_collapsed(&mut self, old: &[String]) {
         let heads: Vec<usize> = (self.collapsed.iter())
-            .map(|&(h, _)| (h, super::open::carried(old, &self.buf.lines, h)))
+            .map(|&(h, _)| (h, open::carried(old, &self.buf.lines, h)))
             .filter(|&(h, n)| self.buf.lines.get(n) == old.get(h))
             .map(|(_, n)| n)
             .collect();
@@ -212,7 +213,7 @@ enum Folds<'a> {
     Spans(Vec<(usize, usize)>),
 }
 
-impl<'a> Folds<'a> {
+impl Folds<'_> {
     fn target(&self, l: usize) -> Option<(usize, usize)> {
         match self {
             Folds::Indent(s) => s.target(l),
@@ -271,6 +272,7 @@ impl<'a> Shape<'a> {
         shape
     }
 
+    #[expect(clippy::excessive_nesting, reason = "#858")]
     pub(crate) fn python(lines: &'a [String]) -> Self {
         let mut shape = Shape::plain(lines);
         shape.python = true;
@@ -330,6 +332,7 @@ impl<'a> Shape<'a> {
         shape
     }
 
+    #[expect(clippy::string_slice, reason = "#858")]
     fn code(&self, l: usize) -> &str {
         let line = &self.lines[l];
         line[..self.code[l].min(line.len())].trim()
@@ -390,6 +393,7 @@ impl<'a> Shape<'a> {
         self.block(h).or_else(|| self.strings.get(&h).copied())
     }
 
+    #[expect(clippy::string_slice, reason = "#858")]
     fn compound(&self, l: usize) -> bool {
         if self.nested[l] {
             return false;
@@ -450,9 +454,10 @@ impl<'a> Shape<'a> {
             if indent(line) < ind {
                 break;
             }
-            let tail = match self.python {
-                true => t.starts_with([')', ']', '}']) && (t.ends_with([':', '{']) || !closes(t)),
-                false => t.starts_with(')') && !closes(t),
+            let tail = if self.python {
+                t.starts_with([')', ']', '}']) && (t.ends_with([':', '{']) || !closes(t))
+            } else {
+                t.starts_with(')') && !closes(t)
             };
             if header && (t == "{" || tail) {
                 end = Some(i);

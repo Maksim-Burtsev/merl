@@ -1,3 +1,6 @@
+#![expect(clippy::cast_possible_truncation, reason = "#858")]
+#![expect(clippy::cast_sign_loss, reason = "#858")]
+#![expect(clippy::format_collect, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use ratatui::Terminal;
@@ -17,7 +20,7 @@ use super::rows;
 
 fn dir(tag: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("merl-ui-picture-{}-{tag}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(&dir).unwrap();
     dir
 }
@@ -75,12 +78,8 @@ fn the_checkerboard_is_squares_two_cells_wide_and_one_row_high() {
         [CHECKER[0], CHECKER[0], CHECKER[1], CHECKER[1], CHECKER[0]]
     );
     assert_eq!([bg(1, 2), bg(3, 2)], [CHECKER[1], CHECKER[0]]);
-    assert_eq!(
-        bg(0, 1),
-        ratatui::style::Color::Reset,
-        "only under the picture"
-    );
-    assert_eq!(bg(6, 1), ratatui::style::Color::Reset);
+    assert_eq!(bg(0, 1), Color::Reset, "only under the picture");
+    assert_eq!(bg(6, 1), Color::Reset);
 }
 
 #[test]
@@ -121,7 +120,7 @@ fn an_image_file_is_its_picture_centred_with_its_size_in_the_status_bar() {
         !status.contains("read-only") && !status.contains("1:1"),
         "{status}"
     );
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 #[test]
@@ -132,12 +131,12 @@ fn without_pictures_the_note_names_the_image() {
     let terminal = paint(&mut app, 80, 24);
     let rows = rows(&terminal);
     assert!(
-        rows.contains(&"PNG 300\u{d7}120, not shown".to_string()),
+        rows.contains(&"PNG 300\u{d7}120, not shown".to_owned()),
         "{rows:#?}"
     );
     assert!(rows[23].contains("read-only"), "{}", rows[23]);
-    assert!(app.diagrams.want.is_empty());
-    let _ = std::fs::remove_dir_all(&root);
+    assert_eq!(app.diagrams.want, [] as [crate::mermaid::Place; 0]);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 #[test]
@@ -152,7 +151,7 @@ fn a_broken_image_stays_a_binary_file_and_the_status_bar_says_why() {
     let terminal = paint(&mut app, 80, 24);
     let rows = rows(&terminal);
     assert!(
-        rows.contains(&"binary file, not shown".to_string()),
+        rows.contains(&"binary file, not shown".to_owned()),
         "{rows:#?}"
     );
     assert!(
@@ -161,7 +160,7 @@ fn a_broken_image_stays_a_binary_file_and_the_status_bar_says_why() {
         rows[23]
     );
     assert!(!rows[23].contains("read-only"));
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 #[test]
@@ -173,8 +172,8 @@ fn an_overlay_over_the_picture_takes_it_away() {
     assert_eq!(app.diagrams.want.len(), 1);
     press(&mut app, '?');
     paint(&mut app, 80, 24);
-    assert!(app.diagrams.want.is_empty());
-    let _ = std::fs::remove_dir_all(&root);
+    assert_eq!(app.diagrams.want, [] as [crate::mermaid::Place; 0]);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 #[test]
@@ -196,7 +195,7 @@ fn a_gif_on_screen_asks_for_its_next_frame_and_one_off_it_asks_for_nothing() {
     press(&mut app, '?');
     paint(&mut app, 80, 24);
     assert_eq!(app.diagrams.wake, None);
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 #[test]
@@ -210,7 +209,7 @@ fn p_draws_an_svg_and_p_again_shows_its_source() {
         rows0.iter().any(|r| r.contains("<circle")),
         "opens as its source"
     );
-    assert!(app.diagrams.want.is_empty());
+    assert_eq!(app.diagrams.want, [] as [crate::mermaid::Place; 0]);
     press(&mut app, 'p');
     let rows1 = rows(&paint(&mut app, 80, 24));
     assert!(!rows1.iter().any(|r| r.contains("<circle")), "{rows1:#?}");
@@ -223,14 +222,14 @@ fn p_draws_an_svg_and_p_again_shows_its_source() {
     press(&mut app, 'p');
     let rows2 = rows(&paint(&mut app, 80, 24));
     assert_eq!(rows2, rows0);
-    assert!(app.diagrams.want.is_empty());
+    assert_eq!(app.diagrams.want, [] as [crate::mermaid::Place; 0]);
     let mut plain = open(&root, "logo.svg", false);
     press(&mut plain, 'p');
     assert_eq!(
         plain.message, "no preview for .svg",
         "a terminal without pictures: as before"
     );
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 #[test]
@@ -258,7 +257,7 @@ fn the_preview_draws_a_local_image_where_its_line_stands() {
         rows.iter().any(|r| r.contains("\u{25a3} shot")),
         "{rows:#?}"
     );
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 fn key(app: &mut App, code: KeyCode) {
@@ -284,7 +283,7 @@ fn keys_move_through_an_svg_whose_picture_failed() {
     key(&mut app, KeyCode::Down);
     key(&mut app, KeyCode::Down);
     assert_eq!(app.line, 2);
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 #[test]
@@ -303,7 +302,7 @@ fn a_theme_round_trip_keeps_each_code_block_its_own_colours() {
             "{theme}: {rows:#?}"
         );
     }
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 #[test]
@@ -325,7 +324,7 @@ fn a_centred_preview_image_stands_past_the_gutter_and_its_lead_without_a_tint() 
     let last = place.y + place.rows - 1;
     assert_eq!(buf[(79, last)].bg, theme.bg);
     assert_ne!(buf[(79, last)].bg, tint);
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 #[test]
@@ -341,7 +340,7 @@ fn the_preview_takes_the_variant_of_the_theme_it_is_drawn_in() {
     let dark = app.diagrams.want[0].cols;
     paint_in(&mut app, 80, 24, "github-light");
     assert_eq!(app.diagrams.want[0].cols, dark * 2);
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 #[test]
@@ -355,7 +354,7 @@ fn an_image_rewritten_on_disk_is_drawn_anew() {
     let rows = rows(&paint(&mut app, 80, 24));
     assert!(rows[23].contains("60\u{d7}12"), "{}", rows[23]);
     assert_eq!(app.diagrams.want[0].cols, before * 2);
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 fn picture_review(tag: &str) -> (PathBuf, App) {
@@ -439,7 +438,7 @@ fn a_changed_image_is_its_old_picture_in_red_beside_its_new_one_in_green() {
     assert!(under(old).starts_with("300\u{d7}120"), "{rows:#?}");
     assert!(under(new).ends_with("200\u{d7}100"), "{rows:#?}");
     assert!(!rows[29].contains("1:1"), "{}", rows[29]);
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 #[test]
@@ -454,7 +453,7 @@ fn an_added_image_stands_alone_in_green_and_a_deleted_one_in_red() {
         assert_eq!(place.x, (100 - place.cols) / 2, "{file}");
         assert_eq!(frame_colour(&terminal, place), colour, "{file}");
     }
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 #[test]
@@ -481,7 +480,7 @@ fn a_side_that_cannot_be_read_shows_the_note_in_its_frame_and_the_other_is_drawn
         "{}",
         rows[29]
     );
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 #[test]
@@ -540,7 +539,7 @@ fn only_an_image_whose_bytes_changed_is_a_stop_and_only_where_pictures_are_drawn
         app.diagrams.want.is_empty(),
         "an overlay hides both pictures"
     );
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }
 
 #[test]
@@ -557,5 +556,5 @@ fn a_side_git_cannot_give_says_why_in_the_status_bar() {
         "{rows:#?}"
     );
     assert!(rows[29].contains("fatal"), "{}", rows[29]);
-    let _ = std::fs::remove_dir_all(&root);
+    drop(std::fs::remove_dir_all(&root));
 }

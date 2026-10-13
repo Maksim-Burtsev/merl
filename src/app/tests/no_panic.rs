@@ -100,7 +100,7 @@ fn no_panic_on_d_u_or_shift_d_anywhere() {
     assert!(!jobs.is_empty(), "shard {shard}/{shards} holds no file");
     let jobs = std::sync::Mutex::new(jobs);
     let fails = std::sync::Mutex::new(Vec::new());
-    let threads = super::test_threads();
+    let threads = test_threads();
     std::thread::scope(|s| {
         for _ in 0..threads {
             s.spawn(|| {
@@ -122,7 +122,7 @@ fn no_panic_on_d_u_or_shift_d_anywhere() {
             });
         }
     });
-    let _ = std::fs::remove_dir_all(&dir);
+    drop(std::fs::remove_dir_all(&dir));
     let fails = fails.into_inner().unwrap();
     assert!(
         fails.is_empty(),

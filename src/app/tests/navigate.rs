@@ -1,3 +1,6 @@
+#![expect(clippy::match_wildcard_for_single_variants, reason = "#858")]
+#![expect(clippy::redundant_clone, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
 use super::*;
 
 #[test]
@@ -149,7 +152,7 @@ fn opening_a_file_walks_its_kind_outside_for_the_first_d() {
         "one walk per kind"
     );
     while !a.warming[&Kind::Php].as_ref().unwrap().is_finished() {
-        std::thread::sleep(std::time::Duration::from_millis(5));
+        std::thread::sleep(Duration::from_millis(5));
     }
     std::fs::remove_file(dir.join("vendor/acme/Client.php")).unwrap();
     assert_eq!(
@@ -181,7 +184,7 @@ fn roots_that_appear_after_the_file_opened_are_walked_by_the_first_d() {
     a.jump_to(&dir.join("main.py"), 1);
     a.warm_up();
     while !a.warming[&Kind::Python].as_ref().unwrap().is_finished() {
-        std::thread::sleep(std::time::Duration::from_millis(5));
+        std::thread::sleep(Duration::from_millis(5));
     }
     let site = dir.join(".venv/lib/python3.12/site-packages");
     std::fs::create_dir_all(&site).unwrap();
@@ -1250,7 +1253,7 @@ fn two_modules_an_import_may_mean_are_a_picker_of_modules() {
             ("views", "module scripts/views.py", "scripts/views.py:1"),
             ("views", "module tools/views.py", "tools/views.py:1"),
         ]
-        .map(|(n, r, p)| (n.to_string(), r.to_string(), p.to_string())),
+        .map(|(n, r, p)| (n.to_owned(), r.to_owned(), p.to_owned())),
         "each row named after the word and not read off the module's first line, which would make it `index.views`"
     );
     std::fs::remove_dir_all(&dir).unwrap();
@@ -1375,7 +1378,7 @@ fn markdown_links_outside_to_a_directory_and_to_a_spaced_name() {
         "a declaration in a README's code block is an example, not one of the project: {rows:?}"
     );
     assert!(rows.iter().any(|r| r.contains("serve")), "{rows:?}");
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -1732,18 +1735,19 @@ fn php_arrow_reaches_members_only() {
             "JoinClause::on",
             "laravel/framework/src/Illuminate/Database/Query/JoinClause.php:7",
         );
-        let (where_, on) = match vendor {
-            true => (
+        let (where_, on) = if vendor {
+            (
                 jump(
                     "where \u{2192} JoinClause::where (by name, 1 match)",
                     &format!("{vendored}:11"),
                 ),
                 picker("on: by name, 2 declarations", &[on, vendor_on]),
-            ),
-            false => (
+            )
+        } else {
+            (
                 none("where", 9),
                 jump("on \u{2192} Other::on (by name, 1 match)", on.1),
-            ),
+            )
         };
         assert_eq!(
             d("$join->where"),
@@ -1761,7 +1765,7 @@ fn php_arrow_reaches_members_only() {
             none("input", 12),
             "a call wants a method: the property `$input` is none: vendor: {vendor}"
         );
-        let _ = std::fs::remove_dir_all(dir);
+        drop(std::fs::remove_dir_all(dir));
     }
 }
 
@@ -1806,7 +1810,7 @@ fn php_this_walks_into_vendor_and_no_further() {
         jump("no definition for seal", "app/Crate.php:12"),
         "not `Rack::seal`"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]
@@ -1958,22 +1962,23 @@ fn php_names_resolve_through_use_namespace_and_psr4() {
             ),
             "with no `use`, through the file's `namespace`: vendor: {vendor}"
         );
-        let get = match vendor {
-            true => jump(
+        let get = if vendor {
+            jump(
                 "get \u{2192} Arr::get (via import Illuminate/Support/Arr)",
                 &format!("{vendored}:7"),
-            ),
-            false => jump(
+            )
+        } else {
+            jump(
                 "get \u{2192} SongRepository::get (by name, 1 match)",
                 "app/Repos/SongRepository.php:10",
-            ),
+            )
         };
         assert_eq!(
             d(repo, "Arr::get"),
             get,
             "a name the map does not cover is outside the project: `vendor/` first, before a namesake of the project's: vendor: {vendor}"
         );
-        let _ = std::fs::remove_dir_all(dir);
+        drop(std::fs::remove_dir_all(dir));
     }
 }
 
@@ -2148,7 +2153,7 @@ fn php_names_fall_back_where_nothing_proves_the_class() {
             ),
             "a `vendor/` hit of another namespace: vendor: {vendor}"
         );
-        let _ = std::fs::remove_dir_all(dir);
+        drop(std::fs::remove_dir_all(dir));
     }
     let repo = "<?php\nnamespace App;\n\nuse Illuminate\\Support\\Arr;\n\nclass Repo\n{\n    public function get(): void\n    {\n        Arr::get([], 'x');\n    }\n}\n";
     let (dir, mut a) = project_app(
@@ -2171,7 +2176,7 @@ fn php_names_fall_back_where_nothing_proves_the_class() {
         ),
         "no composer.json: the `use` reads as on master"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]

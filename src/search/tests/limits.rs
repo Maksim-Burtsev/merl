@@ -82,10 +82,13 @@ fn tsconfig_extends_is_followed_for_eight_hops() {
             })
             .collect();
         let texts: Vec<String> = (0..=hops)
-            .map(|i| match i == hops {
-                true => r#"{ "compilerOptions": { "paths": { "helpers": ["src/helpers.ts"] } } }"#
-                    .to_owned(),
-                false => format!(r#"{{ "extends": "./c{}" }}"#, i + 1),
+            .map(|i| {
+                if i == hops {
+                    r#"{ "compilerOptions": { "paths": { "helpers": ["src/helpers.ts"] } } }"#
+                        .to_owned()
+                } else {
+                    format!(r#"{{ "extends": "./c{}" }}"#, i + 1)
+                }
             })
             .collect();
         let mut files: Vec<(&str, &str)> = (names.iter().zip(&texts))

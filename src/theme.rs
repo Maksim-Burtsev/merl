@@ -1,3 +1,9 @@
+#![expect(clippy::cast_possible_truncation, reason = "#858")]
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::struct_excessive_bools, reason = "#858")]
+#![expect(clippy::suboptimal_flops, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "#858")]
 use std::collections::HashMap;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
@@ -136,7 +142,7 @@ pub fn user_dir() -> Option<PathBuf> {
 }
 
 pub fn entries_in(dir: Option<&Path>) -> Vec<String> {
-    let mut names: Vec<String> = names().map(str::to_string).collect();
+    let mut names: Vec<String> = names().map(str::to_owned).collect();
     let mut user = user_names(dir);
     user.sort();
     let extra: Vec<String> = user.into_iter().filter(|n| !names.contains(n)).collect();
@@ -255,17 +261,18 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
                 groups,
             )
         }
-        None => match THEMES.iter().find(|(n, _, _)| *n == name) {
-            Some((_, bytes, groups)) => (
-                bytes.to_vec(),
-                format!("theme `{name}`"),
-                groups.map_or_else(|| Ok(HashMap::new()), parse_groups)?,
-            ),
-            None => {
+        None => {
+            if let Some((_, bytes, groups)) = THEMES.iter().find(|(n, _, _)| *n == name) {
+                (
+                    bytes.to_vec(),
+                    format!("theme `{name}`"),
+                    groups.map_or_else(|| Ok(HashMap::new()), parse_groups)?,
+                )
+            } else {
                 let all = entries_in(dir);
                 bail!("unknown theme `{name}`; available: {}", all.join(", "));
             }
-        },
+        }
     };
     let syntect = ThemeSet::load_from_reader(&mut Cursor::new(&bytes[..])).with_context(|| ctx)?;
 
@@ -382,9 +389,10 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         syntect,
         groups,
     };
-    Ok(match own.groups.is_empty() {
-        true => own,
-        false => as_neovim_draws(own, normal),
+    Ok(if own.groups.is_empty() {
+        own
+    } else {
+        as_neovim_draws(own, normal)
     })
 }
 
@@ -417,9 +425,10 @@ fn drawn(
     (fg, bg): (Color, Color),
 ) -> Option<(Option<Color>, Color)> {
     let s = groups.get(name)?;
-    Some(match s.add_modifier.contains(Modifier::REVERSED) {
-        true => (Some(s.bg.unwrap_or(bg)), s.fg.unwrap_or(fg)),
-        false => (s.fg, s.bg.unwrap_or(bg)),
+    Some(if s.add_modifier.contains(Modifier::REVERSED) {
+        (Some(s.bg.unwrap_or(bg)), s.fg.unwrap_or(fg))
+    } else {
+        (s.fg, s.bg.unwrap_or(bg))
     })
 }
 
@@ -514,8 +523,8 @@ fn gutter_fg(start: SynColor, bg: SynColor, comment: Color, toward: SynColor) ->
     out
 }
 
-pub fn style(s: syntect::highlighting::Style) -> ratatui::style::Style {
-    let mut out = ratatui::style::Style::new().fg(rgb(s.foreground));
+pub fn style(s: syntect::highlighting::Style) -> Style {
+    let mut out = Style::new().fg(rgb(s.foreground));
     for (flag, modifier) in [
         (FontStyle::BOLD, Modifier::BOLD),
         (FontStyle::ITALIC, Modifier::ITALIC),
@@ -543,7 +552,7 @@ fn over_at_own_alpha(c: SynColor, bg: SynColor) -> SynColor {
     if c.a == 255 {
         return c;
     }
-    mix(c, bg, c.a as u32 * 100 / 255)
+    mix(c, bg, u32::from(c.a) * 100 / 255)
 }
 
 fn blend(fg: SynColor, bg: SynColor, percent: u32) -> Color {
@@ -560,7 +569,7 @@ const GUTTER_CONTRAST: f64 = 3.0;
 fn wcag_luminance(c: Color) -> f64 {
     let Color::Rgb(r, g, b) = c else { return 0.0 };
     let lin = |v: u8| {
-        let v = v as f64 / 255.0;
+        let v = f64::from(v) / 255.0;
         if v <= 0.03928 {
             v / 12.92
         } else {
@@ -576,7 +585,7 @@ fn wcag_contrast(a: Color, b: Color) -> f64 {
 }
 
 fn mix(fg: SynColor, bg: SynColor, percent: u32) -> SynColor {
-    let m = |f: u8, b: u8| ((f as u32 * percent + b as u32 * (100 - percent)) / 100) as u8;
+    let m = |f: u8, b: u8| ((u32::from(f) * percent + u32::from(b) * (100 - percent)) / 100) as u8;
     SynColor {
         r: m(fg.r, bg.r),
         g: m(fg.g, bg.g),
@@ -613,7 +622,7 @@ fn default_true() -> bool {
 }
 
 fn default_theme() -> String {
-    DEFAULT.to_string()
+    DEFAULT.to_owned()
 }
 
 impl Default for Config {
@@ -720,7 +729,7 @@ mod tests {
             .filter(|(_, rest)| rest.starts_with("skip\t"))
             .map(|(name, _)| name)
             .collect();
-        assert!(!skipped.is_empty());
+        assert_ne!(skipped, [] as [&str; 0]);
         for (name, _, groups) in THEMES {
             assert_eq!(groups.is_none(), skipped.contains(name), "{name}");
             let t = load(name).unwrap_or_else(|e| panic!("{name}: {e:#}"));
@@ -790,7 +799,7 @@ mod tests {
     #[test]
     fn a_user_theme_brings_its_groups_beside_it() {
         let dir = std::env::temp_dir().join(format!("merl-user-groups-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(&dir).unwrap();
         let tm = std::fs::read(format!(
             "{}/themes/nord.tmTheme",
@@ -859,7 +868,7 @@ mod tests {
     #[test]
     fn user_themes_are_listed_loaded_and_win_over_a_built_in() {
         let dir = std::env::temp_dir().join(format!("merl-user-themes-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(&dir).unwrap();
         let light = std::fs::read(format!(
             "{}/themes/dayfox.tmTheme",
@@ -905,7 +914,7 @@ mod tests {
     #[test]
     fn a_broken_configured_theme_names_the_config() {
         let dir = std::env::temp_dir().join(format!("merl-configured-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("zz-broken.tmTheme"), b"not a plist").unwrap();
         let config = dir.join("config.toml");
@@ -980,7 +989,7 @@ mod tests {
     #[test]
     fn a_missing_config_is_the_defaults_and_a_broken_one_an_error() {
         let dir = std::env::temp_dir().join(format!("merl-config-read-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("config.toml");
         assert_eq!(config_from(Some(&path)).unwrap().theme, DEFAULT);
@@ -1027,7 +1036,7 @@ mod tests {
     #[test]
     fn save_rewrites_only_the_theme_line() {
         let dir = std::env::temp_dir().join(format!("merl-config-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        drop(std::fs::remove_dir_all(&dir));
         let path = dir.join("merl/config.toml");
         let read = || std::fs::read_to_string(&path).unwrap();
 

@@ -1,8 +1,11 @@
+#![expect(clippy::or_fun_call, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
 
-use super::*;
+use super::{indent, lexical};
 
 macro_rules! dart_generics {
     () => {
@@ -178,7 +181,7 @@ pub fn dart_imports(text: &str) -> Vec<DartImport> {
     }
     out
 }
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct DartImport {
     pub name: String,
     pub uri_as_written: String,
@@ -273,15 +276,12 @@ fn percent_decode(s: &str) -> String {
             .then(|| s.get(i + 1..i + 3))
             .flatten()
             .and_then(|h| u8::from_str_radix(h, 16).ok());
-        match hex {
-            Some(v) => {
-                out.push(v);
-                i += 3;
-            }
-            None => {
-                out.push(b[i]);
-                i += 1;
-            }
+        if let Some(v) = hex {
+            out.push(v);
+            i += 3;
+        } else {
+            out.push(b[i]);
+            i += 1;
         }
     }
     String::from_utf8_lossy(&out).into_owned()
@@ -298,9 +298,10 @@ pub fn dart_sdk() -> Option<PathBuf> {
 pub(super) fn dart_sdk_of(dart: &Path) -> Option<PathBuf> {
     let bin = std::fs::canonicalize(dart).ok()?.parent()?.to_path_buf();
     let flutter = bin.join("cache/dart-sdk");
-    match flutter.is_dir() {
-        true => Some(flutter),
-        false => bin.parent().map(Path::to_path_buf),
+    if flutter.is_dir() {
+        Some(flutter)
+    } else {
+        bin.parent().map(Path::to_path_buf)
     }
 }
 

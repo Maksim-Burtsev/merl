@@ -180,7 +180,7 @@ fn the_cap_never_cuts_the_open_files_hits() {
 fn the_open_file_is_searched_even_when_the_walk_skipped_it() {
     let (dir, mut a) = files_app("hidden");
     let x = dir.join("a.rs");
-    assert!(a.files.is_empty());
+    assert_eq!(a.files, [] as [PathBuf; 0]);
     a.jump_to(&x, 1);
     press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
     assert_eq!(a.mode, Mode::Picker(PickerKind::Usages));

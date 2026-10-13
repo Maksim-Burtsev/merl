@@ -1,4 +1,6 @@
-use super::*;
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
+use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, search};
 
 impl App {
     pub(super) fn proto_definitions(

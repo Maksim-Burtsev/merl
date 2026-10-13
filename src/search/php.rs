@@ -1,3 +1,6 @@
+#![expect(clippy::cast_possible_wrap, reason = "#858")]
+#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -40,9 +43,10 @@ pub fn php_member_patterns(word: &str, call: bool) -> Vec<String> {
     let w = regex::escape(word);
     let [property, promoted] = php_properties(&w);
     let [property_tag, method_tag] = php_tags(&w);
-    match call {
-        true => vec![php_method(&w).replacen(r"^\s*", r"^\s+", 1), method_tag],
-        false => vec![property, promoted, property_tag],
+    if call {
+        vec![php_method(&w).replacen(r"^\s*", r"^\s+", 1), method_tag]
+    } else {
+        vec![property, promoted, property_tag]
     }
 }
 
@@ -225,7 +229,7 @@ pub fn php_block(text: &str, line: usize) -> &str {
     if declared.len() < 2 {
         return text;
     }
-    let literal = super::syntax::literal_lines(Kind::Php, text);
+    let literal = literal_lines(Kind::Php, text);
     let declared: Vec<usize> = declared
         .into_iter()
         .filter(|&l| literal.get(l) != Some(&true))
@@ -295,9 +299,12 @@ pub fn php_class_at(line: &str, range: Range<usize>) -> Option<PhpClassAt> {
                 .any(|m| pre.ends_with(m)));
     (is_class(at, &written)
         && (used || after.trim_start().starts_with("::") || AFTER.is_match(pre) || typed))
-        .then(|| match used && !written.starts_with('\\') {
-            true => format!("\\{written}"),
-            false => written,
+        .then(|| {
+            if used && !written.starts_with('\\') {
+                format!("\\{written}")
+            } else {
+                written
+            }
         })
         .map(|written| PhpClassAt {
             written,
@@ -428,9 +435,10 @@ pub fn php_psr4_file(
             return Psr4File::Found(file);
         }
     }
-    match covered {
-        true => Psr4File::Missing,
-        false => Psr4File::OutsideProject,
+    if covered {
+        Psr4File::Missing
+    } else {
+        Psr4File::OutsideProject
     }
 }
 
@@ -528,9 +536,10 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
     if let Some(c) = NEW.captures(value) {
         let class = c[1].to_owned();
         let rest = c.get(0)?.end();
-        match value[rest..].starts_with('(') {
-            true => call_ends_statement(rest)?,
-            false => value[rest..].starts_with(';').then_some(())?,
+        if value[rest..].starts_with('(') {
+            call_ends_statement(rest)?;
+        } else {
+            value[rest..].starts_with(';').then_some(())?;
         }
         let lower = class.to_ascii_lowercase();
         return (lower != "static" && lower != "class" && lower != "parent")
@@ -630,7 +639,7 @@ fn php_parameter_of_statement_ending_at(
     at: usize,
     var: &Regex,
 ) -> Option<usize> {
-    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    static HEAD: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?:^|[^\w$:>])(?:function|fn)\b([^{]*?)(?:\{|=>|$)").unwrap()
     });
     let mut top = at;
@@ -666,8 +675,8 @@ fn php_parameter_lines(header: &[String], brace_byte: usize, var: &Regex) -> Vec
     }
     out
 }
-static FUNCTION: std::sync::LazyLock<Regex> =
-    std::sync::LazyLock::new(|| Regex::new(r"(?:^|[^\w$:>])function\b").unwrap());
+static FUNCTION: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?:^|[^\w$:>])function\b").unwrap());
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PhpScope {
     TopOrNamespace,
@@ -679,9 +688,8 @@ enum PhpScope {
     },
 }
 fn php_scope(lines: &[String], literal: &[bool], at: usize) -> PhpScope {
-    static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:^|[^\w$:>])(?:class|interface|trait|enum)\b").unwrap()
-    });
+    static CLASS: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?:^|[^\w$:>])(?:class|interface|trait|enum)\b").unwrap());
     let mut depth = 0usize;
     for i in (0..at).rev().filter(|&i| !literal[i]) {
         for (pos, c) in lines[i]
