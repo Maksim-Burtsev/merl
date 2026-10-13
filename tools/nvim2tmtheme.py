@@ -19,7 +19,6 @@ import json
 import plistlib
 import sys
 
-# tmTheme global key <- (Neovim group, attribute).
 GLOBALS = [
     ("background", "Normal", "bg"),
     ("foreground", "Normal", "fg"),
@@ -31,9 +30,6 @@ GLOBALS = [
     ("gutterForeground", "LineNr", "fg"),
 ]
 
-# TextMate scopes <- Neovim groups, most specific first: the first group that sets a
-# foreground wins. bat's grammars hand out scopes differently from tree-sitter captures,
-# so this is where a group that lands on the wrong tokens gets fixed, for every theme.
 SCOPES = [
     ("comment", ["@comment", "Comment"]),
     ("keyword, storage", ["@keyword", "Keyword", "Statement"]),
@@ -56,9 +52,6 @@ SCOPES = [
     ("invalid", ["DiagnosticError", "@error", "Error"]),
 ]
 
-# The names infrastructure grammars emit (#16), which no code group reaches. Here a group painted
-# in the Normal foreground does not count, so the next candidate gets its turn: left in the text
-# colour, a TOML table or a Makefile variable reads as no highlighting at all.
 INFRA_SCOPES = [
     (
         "entity.name.tag.toml, variable.other.readwrite.terraform, "
@@ -85,19 +78,16 @@ INFRA_SCOPES = [
 
 
 def resolve(hl, name):
-    """The group's own attributes, following `link` chains. Missing or empty: {}."""
     seen = set()
     group = hl.get(name)
     while isinstance(group, dict) and "link" in group and name not in seen:
         seen.add(name)
         name = group["link"]
         group = hl.get(name)
-    # vim.json.encode writes an empty table as [].
     return group if isinstance(group, dict) else {}
 
 
 def colours(hl, name):
-    """(fg, bg) of a group as it is drawn: `reverse` swaps them, falling back to Normal."""
     group = resolve(hl, name)
     fg, bg = group.get("fg"), group.get("bg")
     if group.get("reverse"):

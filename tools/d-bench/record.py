@@ -199,7 +199,6 @@ SKIP_DIRS = {".git", "node_modules", "vendor", "third_party", "dist", "build", "
 
 
 def nix_mask(text):
-    """Blanks Nix's comments and strings, nested in `${}` included, keeping the code inside `${}`."""
     out, stack, i, n = list(text), [0], 0, len(text)
 
     def blank(a, b):
@@ -231,11 +230,10 @@ def nix_mask(text):
 
 
 def code_tokens(text, spec):
-    """(line1, col, word, before, after) for identifiers outside comments and strings."""
     if spec.get("nix"):
         text = nix_mask(text)
     out = []
-    state = None  # None | 'block' | ('str', closer)
+    state = None
     for n, line in enumerate(text.split("\n"), 1):
         i, L = 0, len(line)
         masked = list(line)
@@ -280,7 +278,7 @@ def code_tokens(text, spec):
                 masked[i:min(j, L)] = " " * (min(j, L) - i); i = j; continue
             if c in "\"'" and not ch:
                 if spec.get("rust") and c == "'" and not re.match(r"'(\\.|[^\\'])'", line[i:i + 4] if line[i + 1:i + 2] != "\\" else line[i:i + 5]):
-                    i += 1; continue  # a lifetime
+                    i += 1; continue
                 j = i + 1
                 while j < L and line[j] != c:
                     j += 2 if line[j] == "\\" else 1
@@ -372,7 +370,7 @@ def shape(before, after, lang):
         return "path"
     if after.lstrip().startswith("("):
         return "call"
-    return None  # decided by the word
+    return None
 
 
 CSS_SHAPES = [
@@ -384,8 +382,6 @@ CSS_SHAPES = [
 
 
 def sample_css(project, root, n, out, exclude=()):
-    """Stylesheet names in scss/ (variables, mixins, functions, imports, for the oracle) and the
-    classes of site/'s Astro templates (judged by reading the stylesheets)."""
     buckets = defaultdict(list)
     declared = set(re.findall(r"@function\s+([\w-]+)", subprocess.run(
         ["grep", "-rh", "@function", os.path.join(root, "scss")], capture_output=True, text=True).stdout))
@@ -541,7 +537,7 @@ class Lsp:
 
     def handle(self, m):
         meth = m.get("method")
-        if meth and "id" in m:  # a request from the server
+        if meth and "id" in m:
             res = None
             if meth == "workspace/configuration":
                 res = [self.section(it.get("section")) for it in m["params"]["items"]]
@@ -588,7 +584,6 @@ class Lsp:
                 self.handle(m)
 
     def settle(self, quiet=5, cap=900):
-        """Waits until no progress has run for `quiet` seconds (or `cap` passed)."""
         start = time.time()
         while time.time() - start < cap:
             self.pump(1)
@@ -705,7 +700,6 @@ def oracle(lang, root, cursors, out, warm=0):
 
 
 def short(p, root):
-    """Project-relative inside the project, ~/ under the home directory."""
     if p.startswith(root + "/"):
         return os.path.relpath(p, root)
     home = os.path.expanduser("~")
@@ -714,7 +708,6 @@ def short(p, root):
 
 def oracle_run(lang, root, rows, out, warm):
     s = server(lang, root)
-    # Open a few files first so servers that index lazily start their work.
     for r in rows[:5]:
         p = os.path.join(root, r[2]); s.open(p, LANG_ID.get(os.path.splitext(p)[1], lang))
     s.settle(quiet=8 if lang in ("rust", "c", "cpp", "objc", "swift", "php") else 3)

@@ -117,7 +117,6 @@ fn unbound_ctrl_letter_is_never_the_bare_letter() {
 #[test]
 fn aliases_reach_the_same_actions() {
     let mut a = app("foo bar\n");
-    // Not on disk: the grep for usages has nothing to read.
     std::fs::remove_file(a.buf.path.as_ref().unwrap()).unwrap();
     press(&mut a, KeyCode::F(12), KeyModifiers::NONE);
     assert_eq!(a.message, "no rules for .txt");

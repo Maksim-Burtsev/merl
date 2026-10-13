@@ -29,7 +29,6 @@ fn cell_at(terminal: &Terminal<TestBackend>, needle: &str) -> (u16, u16) {
         .unwrap_or_else(|| panic!("{needle:?} is not on screen"))
 }
 
-/// The first cell of `needle`, a char a cell, the first time it is on screen.
 fn cell(terminal: &Terminal<TestBackend>, needle: &str) -> Cell {
     let buf = terminal.backend().buffer();
     let n = needle.chars().count() as u16;
@@ -80,9 +79,6 @@ fn ignored_rows_are_dim_in_the_tree_and_in_the_file_picker() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Text a reader has to read is never `gutter_fg`: that is the line numbers' colour, under
-/// 2:1 against the background in most themes (#146). The `?` overlay's actions and the
-/// one-line welcome hint take the theme's readable grey instead.
 #[test]
 fn help_actions_and_the_narrow_hint_are_drawn_in_the_readable_grey() {
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
@@ -99,14 +95,22 @@ fn help_actions_and_the_narrow_hint_are_drawn_in_the_readable_grey() {
     app.mode = crate::app::Mode::Help;
     let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!(at(&terminal, "Open a file (fuzzy)"), theme.ghost_fg);
+    assert_eq!(
+        at(&terminal, "Open a file (fuzzy)"),
+        theme.ghost_fg,
+        "not gutter_fg, the line numbers' colour, under 2:1 against the background in most \
+         themes (#146)"
+    );
 
-    // Too short for the five key rows: the pane falls back to the single hint line.
     let mut app = mk();
     app.show_tree = false;
     let mut terminal = Terminal::new(TestBackend::new(40, 4)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!(at(&terminal, "o: open file"), theme.ghost_fg);
+    assert_eq!(
+        at(&terminal, "o: open file"),
+        theme.ghost_fg,
+        "too short for the five key rows, the pane falls back to the one hint line, also readable"
+    );
 }
 
 #[test]
@@ -139,7 +143,6 @@ fn picker_overlay_renders_border_prompt_and_items() {
     assert_eq!(text, SNAPSHOT);
 }
 
-/// `0 hits` is an answer. Until the grep for the query on screen is back the title says so.
 #[test]
 fn search_title_hides_the_count_until_the_grep_answers() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tutor");
@@ -194,7 +197,6 @@ fn symbol_title_says_the_list_is_cut_until_the_query_answers() {
     };
 
     app.key(KeyEvent::new(KeyCode::Char('D'), KeyModifiers::NONE));
-    // The event loop ticks an open picker before it draws it.
     app.picker.as_mut().unwrap().settle();
     assert_eq!(
         title(&mut app),
@@ -298,6 +300,30 @@ fn hit_picker_rows_keep_the_syntax_colours_of_their_line() {
 }
 
 #[test]
+fn a_hit_whose_line_has_changed_since_is_drawn_plain() {
+    let root = rust_file_opening_on_a_doc_comment();
+    let mut app = App::new(root, Tree::default(), Vec::new(), Buffer::empty(), None);
+    let hits = vec![crate::search::Hit {
+        path: PathBuf::from("src/wrap.rs"),
+        line1: 1,
+        byte_col: None,
+        text: "//! a line the file no longer has".into(),
+        deleted: None,
+    }];
+    app.show_picker(crate::app::PickerKind::Usages, App::hit_items(hits));
+    app.picker.as_mut().unwrap().settle();
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(80, 12)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let (x, y) = cell_at(&terminal, "1  //!");
+    assert_eq!(
+        terminal.backend().buffer()[(x + 3, y)].fg,
+        theme.fg,
+        "the colours of another text would paint the wrong words"
+    );
+}
+
+#[test]
 fn the_selected_hit_row_takes_the_themes_selected_text_colour() {
     let root = rust_file_opening_on_a_doc_comment();
     let mut app = App::new(root, Tree::default(), Vec::new(), Buffer::empty(), None);
@@ -359,14 +385,12 @@ fn hit_picker_rows_keep_their_colours_past_a_tab() {
 
     let buf = terminal.backend().buffer();
     let (hash, row) = cell_at(&terminal, "#define");
-    // The tab is drawn four wide, and `10` past it keeps the colour the code view gives it.
-    let ten = hash + "#define MAX".len() as u16 + 4;
+    let tab_w = 4;
+    let ten = hash + "#define MAX".len() as u16 + tab_w;
     assert_eq!(buf[(ten, row)].symbol(), "1");
     assert_ne!(buf[(ten, row)].fg, theme.fg);
 }
 
-/// The tree pane and the status bar frame the overlay; the overlay itself is the border,
-/// the `>` prompt and the two items.
 #[rustfmt::skip]
 const SNAPSHOT: [&str; 12] = [
     "┌demo────────────────────────┐ o: open file   ?: help",
@@ -503,7 +527,6 @@ fn review_panel_cuts_a_long_name_and_keeps_the_counts() {
     assert!(r[1].contains("\u{2026} bin\u{2502}"), "{}", r[1]);
 }
 
-/// A review of `files`, each `(path, status, added, deleted)`; `bin` for a binary file.
 fn review_app(files: &[(&str, char, usize, usize)]) -> App {
     let dir = PathBuf::from("/tmp");
     let paths: Vec<PathBuf> = files.iter().map(|f| f.0.into()).collect();
@@ -648,7 +671,6 @@ fn review_panel_drops_the_totals_that_do_not_fit() {
 
 #[test]
 fn review_panel_keeps_totals_that_just_fit_and_drops_them_one_column_short() {
-    // ` 1 file · +1234567 −7654321 `: 28 columns, the border of the 30-column panel.
     let mut app = review_app(&[("store.rs", 'M', 1_234_567, 7_654_321)]);
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut terminal = Terminal::new(TestBackend::new(60, 8)).unwrap();
@@ -657,7 +679,6 @@ fn review_panel_keeps_totals_that_just_fit_and_drops_them_one_column_short() {
     let fits = "\u{2514} 1 file \u{b7} +1234567 \u{2212}7654321 \u{2518}";
     assert!(r[r.len() - 2].starts_with(fits), "{r:#?}");
 
-    // A 30-column terminal leaves the panel 29 columns, its border 27.
     let mut terminal = Terminal::new(TestBackend::new(30, 8)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     let r = rows(&terminal);
@@ -679,11 +700,9 @@ fn review_panel_measures_a_non_ascii_name_in_columns() {
     let mut terminal = Terminal::new(TestBackend::new(40, 6)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     let buf = terminal.backend().buffer();
-    // Every row ends where the header's border does: the counts, then `│`.
     let edge = (0..buf.area.width)
         .find(|&x| buf[(x, 0)].symbol() == "\u{2510}")
         .unwrap();
-    // By name: `файл.rs`, the long one, `文件.rs`.
     for (y, counts) in [
         (1, "+1 \u{2212}0"),
         (2, "+3 \u{2212}0"),
@@ -774,7 +793,6 @@ fn the_lesson_panel_grows_to_its_text() {
         terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
         let r = rows(&terminal);
         let top = r.iter().position(|l| l.starts_with("Tutor ")).unwrap();
-        // The panel runs from its title to the status bar, the last row.
         let panel = r[top + 1..r.len() - 1].join(" ").trim_end().to_string();
         let last = crate::tutor::lesson(step)
             .unwrap()

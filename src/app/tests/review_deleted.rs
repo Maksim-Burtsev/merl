@@ -35,9 +35,6 @@ def show_all(orders):
     return [fmt(o) for o in orders]
 ";
 
-/// The issue's branch: the service stops calling `get_order_with_items`, the repository loses
-/// it, and `app/legacy.py`, which declared a `get` of its own, is deleted. The service's `fmt`
-/// moves to `app/format.py`. Nothing outside the project is searched.
 fn orders_review(tag: &str) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-440-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -387,8 +384,6 @@ class Service:
         return self.repo.fetch(key)
 ";
 
-/// A branch that moves `Repo.load` unchanged into `app/loading.py`, deletes `Repo.fetch`, and
-/// adds a `Cache.fetch` of its own; the service's two calls are rewritten.
 fn moves_review(tag: &str) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-440-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -465,8 +460,6 @@ fn d_on_a_deleted_call_follows_a_move_and_skips_a_namesake() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// A review of a branch made on a scratch repository: `base` is committed on `main`, then
-/// `branch` writes (`Some`) or deletes (`None`) files on `feature`, and its changes are committed.
 fn repo_review(
     tag: &str,
     base: &[(&str, &str)],
@@ -807,7 +800,6 @@ fn a_deleted_string_declares_nothing() {
 fn d_on_a_deleted_files_line_answers_from_the_base() {
     let (dir, mut a) = moves_review("d-deleted-file");
     let old = "from app.repo import Repo\n\n\ndef use(r: Repo):\n    return r.fetch(1)\n";
-    // The branch deletes a file that used `Repo.fetch`: a second commit on top of the review's.
     std::fs::write(dir.join("app/old.py"), old).unwrap();
     let git = |args: &[&str]| {
         let out = std::process::Command::new("git")

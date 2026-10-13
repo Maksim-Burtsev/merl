@@ -1,9 +1,4 @@
 #!/bin/sh
-# SessionStart hook (#542). Claude Code loads AGENTS.md from the checkout a session starts in,
-# and the main checkout's master is updated by nobody: all work happens in worktrees. This
-# fast-forwards a master that has nothing to lose, and tells the agent when the AGENTS.md it
-# loaded is older than origin's. What it prints goes into the session's context; it prints
-# nothing when the rules are current, and never fails a session (offline, no origin, local work).
 cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null || exit 0
 git rev-parse --git-dir >/dev/null 2>&1 || exit 0
 GIT_TERMINAL_PROMPT=0 git fetch -q origin master 2>/dev/null

@@ -611,7 +611,6 @@ impl App {
         }
     }
 
-    /// `find` in `ty`, then in the types it extends or embeds, nearest first: the first answer.
     pub(super) fn hierarchy<R>(
         &self,
         kind: Kind,
@@ -619,6 +618,9 @@ impl App {
         depth: usize,
         find: &mut dyn FnMut(&Typed) -> Option<R>,
     ) -> Option<R> {
+        if kind == Kind::Go {
+            return self.go_promoted(ty, find);
+        }
         if let Some(found) = find(ty) {
             return Some(found);
         }
@@ -630,6 +632,29 @@ impl App {
             .iter()
             .filter_map(|base| self.type_decl(kind, &ty.path, base))
             .find_map(|base| self.hierarchy(kind, &base, depth + 1, &mut *find))
+    }
+
+    fn go_promoted<R>(&self, ty: &Typed, find: &mut dyn FnMut(&Typed) -> Option<R>) -> Option<R> {
+        let mut level = vec![ty.clone()];
+        for _ in 0..=8 {
+            let mut found = level.iter().filter_map(&mut *find);
+            if let Some(first) = found.next() {
+                return found.next().is_none().then_some(first);
+            }
+            level = level
+                .iter()
+                .flat_map(|t| {
+                    let text = self.text_of(&t.path).unwrap_or_default();
+                    search::bases(Kind::Go, &text, t.line)
+                        .iter()
+                        .filter_map(|base| self.type_decl(Kind::Go, &t.path, base))
+                        .collect::<Vec<_>>()
+                })
+                .collect();
+            let mut seen = std::collections::HashSet::new();
+            level.retain(|t| seen.insert((t.path.clone(), t.line)));
+        }
+        None
     }
 }
 

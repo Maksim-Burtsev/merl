@@ -28,8 +28,8 @@ repeats (`b4ac10`: four in b, one in a, ten in c). A line is recorded when it is
 most MAXLEN columns, so both programs draw all of it. colors/THEME/chrome.tsv holds the
 highlight groups the chrome comes from, as Neovim draws them.
 
-The files: FILES per language from the projects of tools/d-bench/projects.tsv (cloned into
-$D_BENCH_CACHE or ~/.cache/merl-d-bench, as the other benches do), taken in the order of the hash
+The files: FILES per language from the projects of tools/d-bench/projects.tsv and THEME_ONLY
+(cloned into $D_BENCH_CACHE or ~/.cache/merl-d-bench, as the other benches do), taken in the order of the hash
 of their path, each with at least MINLINES recordable lines among its first LINES, or the
 language's own minimum where its projects hold no file that long (Lua).
 
@@ -43,9 +43,9 @@ sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 NVIM_TS = "1a4f47b03dfe92d28de7d5654c67327ef008c9e6"
-PARSERS = ["bash", "c", "diff", "html", "javascript", "jsdoc", "json", "lua", "luadoc", "luap", "markdown",
+PARSERS = ["bash", "c", "css", "diff", "html", "javascript", "jsdoc", "json", "lua", "luadoc", "luap", "markdown",
            "markdown_inline", "printf", "python", "query", "regex", "toml", "tsx", "typescript", "vim",
-           "vimdoc", "xml", "yaml", "rust", "go"]
+           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java", "c_sharp"]
 LANGS = {
     "python": (["paperless-ngx"], ["py"]),
     "rust": (["ripgrep"], ["rs"]),
@@ -60,6 +60,23 @@ LANGS = {
     "yaml": (["paperless-ngx", "eslint", "caddy", "redis"], ["yaml", "yml"]),
     "toml": (["ripgrep", "paperless-ngx", "eslint", "redis"], ["toml"]),
     "lua": (["redis"], ["lua"], 25),
+    "c": (["redis"], ["c"]),
+    "cpp": (["leveldb"], ["cc", "h"]),
+    "java": (["halo"], ["java"]),
+    "c_sharp": (["eShop"], ["cs"]),
+    "html": (["bootstrap", "caddy", "eslint", "outline", "redis"], ["html", "htm"]),
+    "css": (["gitea", "paperless-ngx", "caddy", "redis"], ["css"]),
+    "xml": (["koel", "paperless-ngx", "nowinandroid"], ["xml", "svg", "xsd", "xslt"]),
+    "diff": (["rules_go", "openzeppelin-contracts", "outline", "halo"], ["diff", "patch"]),
+    "query": (["nvim-treesitter"], ["scm"]),
+}
+NOT_HTML = re.compile(
+    r"@(if|for|defer|switch)|\*(ngIf|ngFor|ngSwitch|ngTemplateOutlet)|\bng-(template|content)|\bDTD[ \t]+XHTML[ \t]"
+    r"|(?i:\{%[ \t]*(autoescape|block|comment|csrf_token|cycle|debug|extends|filter|firstof|for|if|ifchanged|include"
+    r"|load|lorem|now|query_string|regroup|resetcycle|spaceless|templatetag|url|verbatim|widthratio|with)\b)"
+    r"|\{#[ \t]+|<extend|<super>")
+THEME_ONLY = {
+    "nvim-treesitter": ["nvim-treesitter", "query", "https://github.com/nvim-treesitter/nvim-treesitter.git", NVIM_TS, "-"],
 }
 SKIP_DIRS = ("migrations/", "vendor/", "testdata/", "node_modules/", "CHANGELOG")
 FILES, LINES, MINLINES, MAXLEN, WIDTH = 4, 200, 80, 140, 200
@@ -74,8 +91,6 @@ def tsv(path):
 
 
 def manifest():
-    """name -> (source, colorscheme, before, deps); a skipped theme has source `skip` and its
-    reason where the colorscheme would be."""
     return {r[0]: tuple(r[1:5]) for r in tsv(os.path.join(HERE, "themes.tsv"))}
 
 
@@ -84,7 +99,6 @@ def git(*args, cwd=None):
 
 
 def ensure(d, url, commit):
-    """A clone of url at commit in d, fetched once; one already there is only read."""
     if not os.path.isdir(os.path.join(d, ".git")):
         os.makedirs(d, exist_ok=True)
         subprocess.run(["git", "init", "-q"], cwd=d, check=True)
@@ -96,13 +110,12 @@ def ensure(d, url, commit):
 
 
 def repo(cache, source):
-    """`owner/repo@commit` cloned under the cache."""
     name, commit = source.split("@")
     return ensure(os.path.join(cache, "themes", name.replace("/", "__")), f"https://github.com/{name}.git", commit)
 
 
 def projects():
-    return {r[0]: r for r in tsv(os.path.join(ROOT, "tools/d-bench/projects.tsv"))}
+    return {**{r[0]: r for r in tsv(os.path.join(ROOT, "tools/d-bench/projects.tsv"))}, **THEME_ONLY}
 
 
 def project(name):
@@ -130,6 +143,14 @@ def pick(lang):
     every.sort(key=lambda p: hashlib.sha1(p[0].encode()).hexdigest())
     out = []
     for rel, path in every:
+        if lang == "html" and any(map(NOT_HTML.search, file_lines(path)[:40])):
+            continue
+        if lang == "xml" and any(re.search("<!DOCTYPE.*DocBook", l) or "docbook.org/ns/docbook" in l.lower() for l in file_lines(path)[:100]):
+            continue
+        if lang == "query" and "/queries/" not in f"/{rel}":
+            continue
+        if lang == "diff" and re.match(r"From [0-9a-fA-F]{40,} Mon Sep 17 00:00:00 2001$", file_lines(path)[0]):
+            continue
         if sum(map(bool, map(recordable, file_lines(path)))) >= (least or [MINLINES])[0]:
             out.append((rel, path))
         if len(out) == FILES:
@@ -138,7 +159,6 @@ def pick(lang):
 
 
 def parsers(cache):
-    """nvim-treesitter at NVIM_TS and PARSERS built into the cache's site/parser."""
     ts = ensure(os.path.join(cache, "nvim-treesitter"), "https://github.com/nvim-treesitter/nvim-treesitter.git",
                 NVIM_TS)
     site = os.path.join(cache, "site", "parser")
@@ -166,7 +186,6 @@ def parsers(cache):
 
 
 def init_lua(cache, name, ts, check=False):
-    """The Neovim config of one theme: the colorscheme and, unless check, the parsers."""
     source, colorscheme, before, deps = manifest()[name]
     dirs = [repo(cache, source)] + [repo(cache, d) for d in deps.split(",") if d != "-"]
     lines = [f"vim.opt.rtp:prepend({json.dumps(d)})" for d in dirs]
@@ -193,8 +212,6 @@ def xdg(cache, name):
 
 
 def groups(cache, name, init):
-    """GROUPS as Neovim draws them: group -> (fg, bg) as `#rrggbb`, a colour the group leaves
-    unset taken from Normal and `reverse` swapping the two; `-` where Normal sets none either."""
     out = tempfile.mktemp(suffix=".json")
     lua = ("local o = {} for _, g in ipairs(vim.split(" + json.dumps(",".join(GROUPS)) + ", ',')) do "
            "o[g] = vim.api.nvim_get_hl(0, {name = g, link = false}) end "
@@ -223,16 +240,11 @@ def tmux(*args):
 
 
 def server():
-    """The bench's tmux server, kept up by an idle session: without it the server exits with the
-    last session a job kills, under the next job starting one."""
     tmux("new-session", "-d", "-s", "idle", "-x", "10", "-y", "2", "sleep 86400")
     tmux("set-option", "-g", "remain-on-exit", "on")
 
 
 def capture(session, cmd, rows, env, ready, keys=()):
-    """Runs cmd in a detached tmux session WIDTH x rows and returns the screen as tools/cast.py's
-    grid once ready(grid) holds and three captures in a row agree; then each of keys is sent and
-    the settled screen after it is returned too."""
     sys.path.insert(0, os.path.join(ROOT, "tools"))
     import cast
     tmux("kill-session", "-t", session)
@@ -266,9 +278,6 @@ def capture(session, cmd, rows, env, ready, keys=()):
 
 
 def on_screen(grid, lines, styled=False):
-    """file line number -> the foreground of each non-blank character of that line, read from the
-    rows whose gutter number is followed by the line's text. The gutter is the column most such
-    numbers end at, so a number inside the tree or the code never claims a line."""
     hits = []
     for cells in grid:
         text = "".join(c[0] for c in cells)
@@ -307,8 +316,6 @@ def decode(runs, colours):
 
 
 def read_colors(path):
-    """colors/THEME/LANG.tsv -> {project/path: {line: [rrggbb per non-blank character]}}. A
-    recording drawn from other commits than tools/d-bench/projects.tsv pins now is refused."""
     rows = open(path).read().splitlines()
     pins = dict(p.split("@") for p in next(r for r in rows if r.startswith("# projects")).split()[2:])
     stale = [p for p, c in pins.items() if projects()[p][3] != c]
@@ -325,7 +332,6 @@ def read_colors(path):
 
 
 def write_colors(path, head, files):
-    """files: [(project/path, {line: [rrggbb ...]})], written as read_colors reads it."""
     count = {}
     for _, got in files:
         for fgs in got.values():
@@ -372,7 +378,7 @@ def record_fixtures(cache, ts, name, langs):
     for lang in langs:
         d = os.path.join(ROOT, "tests", "colors", lang)
         files = []
-        for f in sorted(os.listdir(d)):
+        for f in sorted(os.path.relpath(os.path.join(w, n), d) for w, _, ns in os.walk(d) for n in ns):
             if f.endswith(".tsv") or f == "NOTES.md":
                 continue
             path = os.path.join(d, f)

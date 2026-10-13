@@ -24,6 +24,31 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/bash/injections.scm"),
     ),
     (
+        "c",
+        include_str!("../queries/c/highlights.scm"),
+        include_str!("../queries/c/injections.scm"),
+    ),
+    (
+        "c_sharp",
+        include_str!("../queries/c_sharp/highlights.scm"),
+        include_str!("../queries/c_sharp/injections.scm"),
+    ),
+    (
+        "cpp",
+        include_str!("../queries/cpp/highlights.scm"),
+        include_str!("../queries/cpp/injections.scm"),
+    ),
+    (
+        "css",
+        include_str!("../queries/css/highlights.scm"),
+        include_str!("../queries/css/injections.scm"),
+    ),
+    (
+        "diff",
+        include_str!("../queries/diff/highlights.scm"),
+        include_str!("../queries/diff/injections.scm"),
+    ),
+    (
         "ecma",
         include_str!("../queries/ecma/highlights.scm"),
         include_str!("../queries/ecma/injections.scm"),
@@ -37,6 +62,21 @@ const QUERIES: &[(&str, &str, &str)] = &[
         "json",
         include_str!("../queries/json/highlights.scm"),
         include_str!("../queries/json/injections.scm"),
+    ),
+    (
+        "html",
+        include_str!("../queries/html/highlights.scm"),
+        include_str!("../queries/html/injections.scm"),
+    ),
+    (
+        "html_tags",
+        include_str!("../queries/html_tags/highlights.scm"),
+        include_str!("../queries/html_tags/injections.scm"),
+    ),
+    (
+        "java",
+        include_str!("../queries/java/highlights.scm"),
+        include_str!("../queries/java/injections.scm"),
     ),
     (
         "javascript",
@@ -76,6 +116,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         "",
     ),
     (
+        "query",
+        include_str!("../queries/query/highlights.scm"),
+        include_str!("../queries/query/injections.scm"),
+    ),
+    (
         "toml",
         include_str!("../queries/toml/highlights.scm"),
         include_str!("../queries/toml/injections.scm"),
@@ -89,6 +134,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         "typescript",
         include_str!("../queries/typescript/highlights.scm"),
         include_str!("../queries/typescript/injections.scm"),
+    ),
+    (
+        "xml",
+        include_str!("../queries/xml/highlights.scm"),
+        include_str!("../queries/xml/injections.scm"),
     ),
     (
         "yaml",
@@ -110,6 +160,7 @@ const QUERIES: &[(&str, &str, &str)] = &[
 const ALIASES: &[(&str, &str)] = &[
     ("sh", "bash"),
     ("jsonc", "json"),
+    ("csharp", "c_sharp"),
     ("py", "python"),
     ("gyp", "python"),
     ("pandoc", "markdown"),
@@ -120,6 +171,9 @@ const ALIASES: &[(&str, &str)] = &[
     ("js", "javascript"),
     ("typescriptreact", "tsx"),
     ("ts", "typescript"),
+    ("xsd", "xml"),
+    ("xslt", "xml"),
+    ("svg", "xml"),
 ];
 
 const PREDICATES: &[&str] = &[
@@ -137,8 +191,11 @@ const PREDICATES: &[&str] = &[
     "not-contains?",
     "has-parent?",
     "not-has-parent?",
+    "has-ancestor?",
+    "not-has-ancestor?",
     "set!",
     "offset!",
+    "gsub!",
 ];
 
 const HIGHLIGHT_KEYS: &[&str] = &["priority", "conceal", "conceal_lines"];
@@ -151,6 +208,7 @@ const INJECTION_KEYS: &[&str] = &[
 const CAPTURE_KEYS: &[&str] = &["url", "conceal", "bo.commentstring"];
 
 type Offset = (u32, [i64; 4]);
+type Rewrite = (u32, regex::bytes::Regex, Vec<u8>);
 
 struct Check {
     capture: u32,
@@ -162,6 +220,7 @@ enum Test {
     Match(regex::bytes::Regex),
     Contains(Vec<String>),
     HasParent(Vec<String>),
+    HasAncestor(Vec<String>),
 }
 
 impl Check {
@@ -182,6 +241,10 @@ impl Check {
                 n.parent()
                     .is_some_and(|p| kinds.iter().any(|k| k == p.kind()))
             }),
+            Test::HasAncestor(kinds) => nodes.any(|n| {
+                std::iter::successors(n.parent(), |p| p.parent())
+                    .any(|p| kinds.iter().any(|k| k == p.kind()))
+            }),
         };
         hit == self.positive
     }
@@ -191,6 +254,7 @@ struct Patterns {
     query: Query,
     checks: Vec<Vec<Check>>,
     offsets: Vec<Vec<Offset>>,
+    rewrites: Vec<Vec<Rewrite>>,
     settings: Vec<Vec<(String, Option<String>)>>,
 }
 
@@ -214,6 +278,16 @@ impl Patterns {
             .find(|(c, _)| *c == capture)
             .map(|(_, o)| *o)
     }
+
+    fn text<'a>(&self, pattern: usize, capture: u32, text: &'a [u8]) -> std::borrow::Cow<'a, [u8]> {
+        match self.rewrites[pattern]
+            .iter()
+            .find(|(c, _, _)| *c == capture)
+        {
+            Some((_, re, with)) => re.replace_all(text, with.as_slice()),
+            None => text.into(),
+        }
+    }
 }
 
 pub struct Lang {
@@ -224,11 +298,23 @@ pub struct Lang {
     injections: Option<Patterns>,
 }
 
-pub fn for_syntax(syntect_name: &str, path: Option<&Path>) -> Option<&'static Lang> {
+pub fn for_syntax(
+    syntect_name: &str,
+    path: Option<&Path>,
+    lines: &[String],
+) -> Option<&'static Lang> {
     let astro = path.is_some_and(|p| p.extension().is_some_and(|e| e == "astro"));
     match syntect_name {
         "Bourne Again Shell (bash)" if !path.is_some_and(zsh) => lang("bash"),
+        "C" => lang("c"),
+        "C#" => lang("c_sharp"),
+        "C++" if cpp(path, lines) => lang("cpp"),
+        "CSS" => lang("css"),
+        "Diff" if diff(path, lines) => lang("diff"),
+        "Lisp" if path.is_some_and(query) => lang("query"),
+        "HTML" | "XML" => html_or_xml(path?, lines),
         "Go" => lang("go"),
+        "Java" if !path.is_some_and(|p| p.extension().is_some_and(|e| e == "bsh")) => lang("java"),
         "JSON" => lang("json"),
         "TOML" => lang("toml"),
         "YAML" => lang("yaml"),
@@ -242,6 +328,134 @@ pub fn for_syntax(syntect_name: &str, path: Option<&Path>) -> Option<&'static La
         _ => None,
     }
 }
+
+fn html_variant(lines: &[String]) -> bool {
+    static VARIANT: OnceLock<regex::Regex> = OnceLock::new();
+    let re = VARIANT.get_or_init(|| {
+        regex::Regex::new(concat!(
+            r"@(if|for|defer|switch)|\*(ngIf|ngFor|ngSwitch|ngTemplateOutlet)|\bng-(template|content)",
+            r"|\bDTD[ \t]+XHTML[ \t]",
+            r"|(?i:\{%[ \t]*(autoescape|block|comment|csrf_token|cycle|debug|extends|filter|firstof|for|if",
+            r"|ifchanged|include|load|lorem|now|query_string|regroup|resetcycle|spaceless|templatetag|url",
+            r"|verbatim|widthratio|with)\b)|\{#[ \t]+|<extend|<super>",
+        ))
+        .expect("a valid regex")
+    });
+    lines.iter().take(40).any(|l| re.is_match(l))
+}
+
+fn cpp(path: Option<&Path>, lines: &[String]) -> bool {
+    match path.and_then(|p| p.extension()).and_then(|e| e.to_str()) {
+        Some("cp") => false,
+        Some("h") => !lines.iter().take(200).any(|l| {
+            let lower = l.to_lowercase();
+            ["@interface", "@end", "@class"]
+                .iter()
+                .any(|m| lower.starts_with(m))
+        }),
+        _ => true,
+    }
+}
+
+const XML_EXTENSIONS: &[&str] = &[
+    "svg", "xsd", "xsl", "xslt", "psc1", "tpm", "xliff", "atom", "xul", "cdxml", "mpd", "rss",
+    "fsproj", "ui", "vbproj", "xlf", "wsdl", "csproj", "wpl", "xmi", "xpr", "xpfm", "spfm", "bxml",
+    "mmi", "xcu", "xlb", "xlc", "xba", "slnx",
+];
+const XML_NAMES: &[&str] = &[
+    "fglrxrc",
+    "fonts.conf",
+    "Directory.Packages.props",
+    "Directory.Build.props",
+    "Directory.Build.targets",
+];
+const XML_PATH_ENDS: &[&str] = &[
+    "/etc/blkid.tab",
+    "/etc/blkid.tab.old",
+    ".csproj.user",
+    ".fsproj.user",
+    ".vbproj.user",
+];
+
+fn html_or_xml(path: &Path, lines: &[String]) -> Option<&'static Lang> {
+    static SMIL: OnceLock<regex::Regex> = OnceLock::new();
+    let smil = SMIL.get_or_init(|| regex::Regex::new(r"<\?\s*xml.*\?>").expect("a valid regex"));
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    let full = path.to_string_lossy();
+    let first = lines.first().map_or("", String::as_str);
+    let xml = match ext {
+        "cpt" | "dtml" | "htm" | "html" | "pt" | "shtml" | "stm" => {
+            return if html_variant(lines) {
+                None
+            } else {
+                lang("html")
+            };
+        }
+        "xml" => !docbook_or_xbl(lines),
+        "lpr" | "grc" | "ts" => first.contains("<?xml"),
+        "smil" => smil.is_match(first),
+        _ => {
+            XML_EXTENSIONS.contains(&ext)
+                || XML_NAMES.contains(&name)
+                || XML_PATH_ENDS.iter().any(|end| full.ends_with(end))
+                || (full.contains("/etc/xdg/menus/") && ext == "menu")
+        }
+    };
+    if xml { lang("xml") } else { None }
+}
+
+fn docbook_or_xbl(lines: &[String]) -> bool {
+    lines.iter().take(100).any(|l| {
+        let lower = l.to_lowercase();
+        l.find("<!DOCTYPE")
+            .is_some_and(|i| l[i..].contains("DocBook"))
+            || lower.contains(r#" xmlns="http://docbook.org/ns/docbook""#)
+            || lower.contains(r#"xmlns:xbl="http://www.mozilla.org/xbl""#)
+    })
+}
+
+fn query(path: &Path) -> bool {
+    path.extension().is_some_and(|e| e == "scm")
+        && path
+            .parent()
+            .is_some_and(|d| d.components().any(|c| c.as_os_str() == "queries"))
+}
+
+fn diff(path: Option<&Path>, lines: &[String]) -> bool {
+    static SEND_EMAIL: OnceLock<regex::Regex> = OnceLock::new();
+    let send_email = SEND_EMAIL.get_or_init(|| {
+        regex::Regex::new(r"^From [0-9a-fA-F]{40,} Mon Sep 17 00:00:00 2001$")
+            .expect("a valid regex")
+    });
+    let Some(path) = path else { return true };
+    let patch = path.extension().is_some_and(|e| e == "patch");
+    if patch && lines.first().is_some_and(|l| send_email.is_match(l)) {
+        return false;
+    }
+    let dep3 = path.to_string_lossy().contains("/debian/patches/")
+        && path.file_name().is_some_and(|n| n != "series")
+        && lines
+            .iter()
+            .take(100)
+            .take_while(|l| !l.starts_with("---"))
+            .any(|l| DEP3_HEADERS.iter().any(|h| l.starts_with(h)));
+    !dep3
+}
+
+const DEP3_HEADERS: &[&str] = &[
+    "Description:",
+    "Subject:",
+    "Origin:",
+    "Bug:",
+    "Forwarded:",
+    "Author:",
+    "From:",
+    "Reviewed-by:",
+    "Acked-by:",
+    "Last-Updated:",
+    "Applied-Upstream:",
+];
 
 fn zsh(path: &Path) -> bool {
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
@@ -258,6 +472,14 @@ fn zsh(path: &Path) -> bool {
 fn grammar(name: &str) -> Option<Language> {
     Some(match name {
         "bash" => tree_sitter_bash::LANGUAGE.into(),
+        "c" => tree_sitter_c::LANGUAGE.into(),
+        "cpp" => tree_sitter_cpp::LANGUAGE.into(),
+        "c_sharp" => tree_sitter_c_sharp::LANGUAGE.into(),
+        "css" => tree_sitter_css::LANGUAGE.into(),
+        "diff" => tree_sitter_diff::LANGUAGE.into(),
+        "query" => tree_sitter_tsquery::LANGUAGE.into(),
+        "html" => tree_sitter_html::LANGUAGE.into(),
+        "xml" => tree_sitter_xml::LANGUAGE_XML.into(),
         "json" => tree_sitter_json::LANGUAGE.into(),
         "toml" => tree_sitter_toml_ng::LANGUAGE.into(),
         "yaml" => tree_sitter_yaml::LANGUAGE.into(),
@@ -268,6 +490,7 @@ fn grammar(name: &str) -> Option<Language> {
         "markdown_inline" => tree_sitter_md::INLINE_LANGUAGE.into(),
         "regex" => tree_sitter_regex::LANGUAGE.into(),
         "printf" => tree_sitter_printf::LANGUAGE.into(),
+        "java" => tree_sitter_java::LANGUAGE.into(),
         "javascript" => tree_sitter_javascript::LANGUAGE.into(),
         "jsdoc" => tree_sitter_jsdoc::LANGUAGE.into(),
         "typescript" => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
@@ -309,7 +532,7 @@ pub fn resolve(alias: &str) -> Option<&'static Lang> {
         .map_or(alias.as_str(), |(_, n)| n);
     lang(name).or_else(|| {
         let syntax = crate::buffer::syntax_for_info(&alias)?;
-        for_syntax(&syntax.name, Some(Path::new(&format!("a.{alias}"))))
+        for_syntax(&syntax.name, Some(Path::new(&format!("a.{alias}"))), &[])
     })
 }
 
@@ -384,6 +607,7 @@ fn patterns(
     let query = Query::new(language, &text).map_err(|e| format!("{name}: {e}"))?;
     let mut checks = Vec::new();
     let mut offsets = Vec::new();
+    let mut rewrites = Vec::new();
     let mut settings = Vec::new();
     for p in 0..query.pattern_count() {
         let mut set = Vec::new();
@@ -402,8 +626,16 @@ fn patterns(
         settings.push(set);
         let mut preds = Vec::new();
         let mut offs = Vec::new();
+        let mut subs = Vec::new();
         for pred in query.general_predicates(p) {
             use tree_sitter::QueryPredicateArg::{Capture, String as Text};
+            if &*pred.operator == "gsub!" {
+                let [Capture(c), Text(pattern), Text(with)] = &*pred.args else {
+                    return Err(format!("{name}: #gsub! takes a capture and two strings"));
+                };
+                subs.push((*c, lua_pattern(pattern)?, lua_replacement(with)?));
+                continue;
+            }
             if &*pred.operator == "offset!" {
                 let [Capture(c), Text(a), Text(b), Text(d), Text(e)] = &*pred.args else {
                     return Err(format!("{name}: #offset! takes a capture and four numbers"));
@@ -437,6 +669,7 @@ fn patterns(
                 "vim-match?" if args.len() == 1 => Test::Match(vim_pattern(&args[0])?),
                 "contains?" => Test::Contains(args),
                 "has-parent?" => Test::HasParent(args),
+                "has-ancestor?" => Test::HasAncestor(args),
                 _ => return Err(format!("{name}: #{} is not implemented", pred.operator)),
             };
             preds.push(Check {
@@ -447,13 +680,60 @@ fn patterns(
         }
         checks.push(preds);
         offsets.push(offs);
+        rewrites.push(subs);
     }
     Ok(Patterns {
         query,
         checks,
         offsets,
+        rewrites,
         settings,
     })
+}
+
+type Found = std::collections::HashSet<(usize, Vec<(u32, usize, usize, usize)>)>;
+
+fn found(
+    patterns: &Patterns,
+    tree: &Tree,
+    range: std::ops::Range<usize>,
+    bytes: &[u8],
+    clip: usize,
+) -> Found {
+    let mut cursor = QueryCursor::new();
+    cursor.set_byte_range(range);
+    let mut out = Found::new();
+    let mut matches = cursor.matches(&patterns.query, tree.root_node(), bytes);
+    while let Some(m) = matches.next() {
+        if !patterns.matches(m, bytes) {
+            continue;
+        }
+        let captures: Vec<_> = m
+            .captures()
+            .iter()
+            .filter(|c| c.node.start_byte() < clip)
+            .map(|c| {
+                let r = c.node.byte_range();
+                (
+                    c.index,
+                    r.start,
+                    r.end.min(clip),
+                    c.node.start_position().row,
+                )
+            })
+            .collect();
+        if !captures.is_empty() {
+            out.insert((m.pattern_index, captures));
+        }
+    }
+    out
+}
+
+fn first_row(old: Found, new: &Found) -> usize {
+    old.symmetric_difference(new)
+        .flat_map(|(_, captures)| captures.iter().map(|c| c.3))
+        .min()
+        .unwrap_or(usize::MAX)
 }
 
 fn changed_match_row(
@@ -463,26 +743,57 @@ fn changed_match_row(
     range: std::ops::Range<usize>,
     bytes: &[u8],
 ) -> usize {
-    let found = |tree: &Tree| {
-        let mut cursor = QueryCursor::new();
-        cursor.set_byte_range(range.clone());
-        let mut out = std::collections::HashSet::new();
-        let mut matches = cursor.matches(&patterns.query, tree.root_node(), bytes);
-        while let Some(m) = matches.next() {
-            let captures: Vec<_> = m
-                .captures()
-                .iter()
-                .map(|c| (c.index, c.node.byte_range(), c.node.start_position().row))
-                .collect();
-            out.insert((m.pattern_index, captures));
+    let found = |tree| found(patterns, tree, range.clone(), bytes, usize::MAX);
+    first_row(found(old), &found(new))
+}
+
+fn changed_text_row(patterns: &Patterns, before: &(Tree, String), new: &Tree, text: &str) -> usize {
+    let (old, new_bytes) = (before.1.as_bytes(), text.as_bytes());
+    let (prefix, suffix) = common_ends(old, new_bytes);
+    let around = |len: usize| prefix.saturating_sub(1)..(len - suffix + 1).min(len);
+    first_row(
+        found(patterns, &before.0, around(old.len()), old, prefix),
+        &found(patterns, new, around(new_bytes.len()), new_bytes, prefix),
+    )
+}
+
+fn recovered_row(old: &Tree, new: &Tree, below: usize) -> usize {
+    if !old.root_node().has_error() && !new.root_node().has_error() {
+        return usize::MAX;
+    }
+    let (mut a, mut b) = (old.walk(), new.walk());
+    loop {
+        let (x, y) = (a.node(), b.node());
+        let row = x.start_position().row.min(y.start_position().row);
+        if row >= below {
+            return usize::MAX;
         }
-        out
-    };
-    found(old)
-        .symmetric_difference(&found(new))
-        .flat_map(|(_, captures)| captures.iter().map(|c| c.2))
-        .min()
-        .unwrap_or(usize::MAX)
+        if x.kind_id() != y.kind_id()
+            || x.byte_range() != y.byte_range()
+            || x.is_missing() != y.is_missing()
+            || a.field_id() != b.field_id()
+        {
+            return row;
+        }
+        if x.has_error() || y.has_error() {
+            match (a.goto_first_child(), b.goto_first_child()) {
+                (true, true) => continue,
+                (false, false) => {}
+                _ => return row,
+            }
+        }
+        loop {
+            match (a.goto_next_sibling(), b.goto_next_sibling()) {
+                (true, true) => break,
+                (false, false) => {}
+                (true, false) => return a.node().start_position().row,
+                (false, true) => return b.node().start_position().row,
+            }
+            if !a.goto_parent() || !b.goto_parent() {
+                return usize::MAX;
+            }
+        }
+    }
 }
 
 fn vim_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
@@ -521,6 +832,23 @@ fn vim_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
         out.push(c);
     }
     regex::bytes::Regex::new(&out).map_err(|e| format!("vim pattern {p:?}: {e}"))
+}
+
+fn lua_replacement(with: &str) -> Result<Vec<u8>, String> {
+    let mut out = Vec::new();
+    let mut chars = with.chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '%' => match chars.next() {
+                Some(d @ '0'..='9') => out.extend(format!("${{{d}}}").bytes()),
+                Some('%') => out.push(b'%'),
+                _ => return Err(format!("lua replacement {with:?}: invalid use of '%'")),
+            },
+            '$' => out.extend(b"$$"),
+            c => out.extend(c.to_string().bytes()),
+        }
+    }
+    Ok(out)
 }
 
 fn lua_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
@@ -616,6 +944,7 @@ pub struct Parsed {
     starts: Vec<usize>,
     repaint_from: Option<usize>,
     halted: bool,
+    before: Option<(Tree, String)>,
 }
 
 fn joined(lines: &[String]) -> (String, Vec<usize>) {
@@ -628,6 +957,19 @@ fn joined(lines: &[String]) -> (String, Vec<usize>) {
         starts.push(text.len());
     }
     (text, starts)
+}
+
+fn common_ends(old: &[u8], new: &[u8]) -> (usize, usize) {
+    let prefix = old.iter().zip(new).take_while(|(a, b)| a == b).count();
+    let room = old.len().min(new.len()) - prefix;
+    let suffix = old
+        .iter()
+        .rev()
+        .zip(new.iter().rev())
+        .take(room)
+        .take_while(|(a, b)| a == b)
+        .count();
+    (prefix, suffix)
 }
 
 fn point(starts: &[usize], byte: usize) -> Point {
@@ -649,6 +991,7 @@ impl Parsed {
             text,
             repaint_from: Some(0),
             halted: false,
+            before: None,
         })
     }
 
@@ -663,18 +1006,10 @@ impl Parsed {
     pub fn edit(&mut self, lines: &[String]) {
         let (text, starts) = joined(lines);
         let (old, new) = (self.text.as_bytes(), text.as_bytes());
-        let prefix = old.iter().zip(new).take_while(|(a, b)| a == b).count();
-        if prefix == old.len() && old.len() == new.len() {
+        if old == new {
             return;
         }
-        let room = old.len().min(new.len()) - prefix;
-        let suffix = old
-            .iter()
-            .rev()
-            .zip(new.iter().rev())
-            .take(room)
-            .take_while(|(a, b)| a == b)
-            .count();
+        let (prefix, suffix) = common_ends(old, new);
         let edit = InputEdit {
             start_byte: prefix,
             old_end_byte: old.len() - suffix,
@@ -684,6 +1019,9 @@ impl Parsed {
             new_end_position: point(&starts, new.len() - suffix),
         };
         if let Some(tree) = &mut self.tree {
+            if self.before.is_none() {
+                self.before = Some((tree.clone(), std::mem::take(&mut self.text)));
+            }
             tree.edit(&edit);
         }
         if std::mem::take(&mut self.halted) {
@@ -724,6 +1062,18 @@ impl Parsed {
                 })
                 .fold(from, usize::min),
             None => 0,
+        };
+        let from = match &self.tree {
+            Some(old) => from.min(recovered_row(old, &tree, from)),
+            None => from,
+        };
+        let from = match self.before.take() {
+            Some(before) => {
+                let row = |p: &Patterns| changed_text_row(p, &before, &tree, &self.text);
+                let injected = self.lang.injections.as_ref().map_or(usize::MAX, row);
+                from.min(row(&self.lang.highlights)).min(injected)
+            }
+            None => from,
         };
         let near = self.starts[from]..self.starts.get(from + 1).copied().unwrap_or(bytes.len());
         let doc = layers::Doc::new(bytes, &self.starts, near.start, near.end);
@@ -884,8 +1234,9 @@ impl<'a> Styles<'a> {
             return textmate(name, &self.highlighter);
         }
         let s = self.theme.group(&format!("@{name}.{lang}"))?;
+        let reversed = s.add_modifier.contains(ratatui::style::Modifier::REVERSED);
         Some(Style {
-            bg: None,
+            bg: s.bg.filter(|_| reversed),
             underline_color: None,
             ..s
         })

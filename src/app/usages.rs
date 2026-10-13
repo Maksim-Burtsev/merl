@@ -97,11 +97,7 @@ impl App {
         }
     }
 
-    /// Every whole-word, case-sensitive hit of `word` in `u`'s order from the file `here`. The
-    /// filter below can make a cut list short, and it is still cut.
     pub(super) fn usage_hits(&self, word: &str, here: Option<&Path>) -> UsageHits {
-        // A Ruby setter `name=` is called as `x.name = v`: the rows hold its bare name. On a Ruby
-        // `@x` they are every `x`, as on a bare `x`, and its assignment `@x =` declares it too.
         let ivar = word.starts_with('@').then_some(word);
         let word = word.trim_start_matches('@');
         let text = bare_name(word);
@@ -109,7 +105,6 @@ impl App {
             .grep(&regex::escape(text), true, false, |_| true)
             .unwrap_or_default();
         let cut = hits.len() >= search::MAX_HITS;
-        // A word past the matcher's size limit finds none, as the grep's does.
         let deleted = self.deleted_lines();
         if !deleted.is_empty()
             && let Ok(whole) = Regex::new(&format!(r"(?:^|\W)({})(?:$|\W)", regex::escape(text)))
@@ -128,11 +123,8 @@ impl App {
                     && (k != Some(Kind::Julia) || search::julia_whole(&h.text, text))
             }
         });
-        // What tells a declaration of the word from a use of it is `def_patterns`, and which
-        // ones apply is the hit file's own kind: one regex per kind met, built once.
         let mut rules: HashMap<Option<Kind>, Option<Regex>> = HashMap::new();
         let dialect = self.c_dialect();
-        // A deleted line is read in the file at the base, apart from the file on disk.
         let mut literal: HashMap<(PathBuf, bool), Vec<bool>> = HashMap::new();
         let mut lines: HashMap<(PathBuf, bool), Vec<String>> = HashMap::new();
         let mut marked: Vec<_> = hits
@@ -153,10 +145,6 @@ impl App {
                         .then(|| Regex::new(&patterns.join("|")).ok())
                         .flatten()
                 });
-                // A pattern that matched inside a docstring, a raw string or a block comment
-                // declares nothing, and neither does a line the lines around it make a use, as
-                // `d` reads them too; only a file with a match is read.
-                // A PowerShell line declares what the word's own spelling there allows (#420).
                 let declares = re.as_ref().is_some_and(|re| re.is_match(&h.text))
                     && (kind != Some(Kind::PowerShell)
                         || search::powershell_declares_here(&h.text, word))

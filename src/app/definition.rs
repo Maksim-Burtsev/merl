@@ -1,5 +1,3 @@
-//! `d` / F12: the word under the cursor, and where its declaration is looked for.
-
 use super::python::{enclosing_def_lines1, starts_by_assigning};
 use super::*;
 
@@ -29,21 +27,6 @@ impl App {
         Some((range, word))
     }
 
-    /// `d` / F12. A file of a known [`Kind`] gets its declaration patterns. A word or a qualifier
-    /// an import binds is looked for in the module the import names: the project's file or
-    /// package (`from app.repos import X` in `app/repos.py`, `store.Open` in the `store`
-    /// directory), else the standard library and the installed dependencies
-    /// ([`search::external_roots`]) narrowed to that module (`np.array` in `numpy`). Everything
-    /// else, and a project module that does not declare the word, is searched in the project where
-    /// such a definition can live (`.tsx` finds `.ts`, a Terraform variable stays in its module),
-    /// and nothing there sends the same patterns outside it.
-    ///
-    /// `x.word` on a value — a `.` qualifier no import binds, other than a bare `self` — is a
-    /// member whose type is not known: every member declaration of the name, in the project and
-    /// outside it, and every field of the name in the project, is a candidate. The status line
-    /// says how the target was found, and a single candidate found only by name says so too. An
-    /// enum variant outside Rust or a parameter has no declaration the rules know and gets "no
-    /// definition": `u` lists the uses.
     pub(super) fn goto_definition(&mut self) {
         let kind = self.kind();
         if kind == Some(Kind::Markdown)
@@ -189,8 +172,6 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // A named argument, a literal's key or a JSX attribute names a parameter of the callee
-        // or a field of the literal's type, and nothing else spelled so (#315, #316).
         if self.probe.is_none()
             && let java = here.extension().is_some_and(|e| e == "java")
             && let Some(label) = search::label_at(kind, java, &text, self.line, range.clone())
@@ -208,8 +189,6 @@ impl App {
         self.offer_only =
             kind == Kind::Python && search::names_a_parameter(&text, self.line + 1, &range);
         self.truncated.set(false);
-        // A PHP `$name` is a variable of its own function, never a function, a method or another
-        // function's local (#464). `self::$x` is a static property, and `$this` the object.
         let sigil = &self.line_str()[..range.start];
         if kind == Kind::Php
             && sigil.ends_with('$')
@@ -233,7 +212,6 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // A C or C++ member behind `->` or `.`, or in a constructor's initializer list (#359).
         if kind == Kind::C
             && let Some((found, broke)) = self.c_early(&here, &text, &word, range.clone())
         {
@@ -459,7 +437,6 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // A bare name inside a C++ method is a field of its class first (#378).
         if kind == Kind::C
             && !dotted
             && chain.is_empty()
@@ -473,9 +450,6 @@ impl App {
                 return;
             }
         }
-        // A bare Java or Kotlin name no local binds: a member of the classes around the cursor,
-        // innermost first, then of the class the innermost one extends (#376). Behind `new` it
-        // is a constructor, which a nested class's line is not.
         let constructed = before
             .trim_end()
             .strip_suffix("new")
@@ -492,7 +466,6 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // A Java or Kotlin name read through the file's imports and packages (#372).
         if kind == Kind::Jvm
             && locals.is_empty()
             && !(dotted && chain.is_empty())
@@ -502,8 +475,6 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // A Lua qualifier a `require` or a table constructor gives (#462). Standing on the one
-        // declaration it finds, the namesakes by name are offered, as before.
         if kind == Kind::Lua {
             let chain = match before.strip_suffix(':') {
                 Some(b) if !b.ends_with(':') => search::qualifier(&format!("{b}."), start),
@@ -538,8 +509,6 @@ impl App {
             return;
         }
         let own = matches!(chain.as_slice(), [s] if s == "self" || s == "cls" || s == "this");
-        // A Java or Kotlin receiver whose declaration writes its type (#388, #391): the member of
-        // that type, and nothing for a type outside the project. A string literal is a `String`.
         if kind == Kind::Jvm && (dotted || before.ends_with("::")) && !own {
             let literal = dotted && chain.is_empty() && before[..before.len() - 1].ends_with('"');
             let found = match literal {
@@ -559,8 +528,6 @@ impl App {
                 return;
             }
         }
-        // Java and Kotlin's `Type::m` names a member of `Type` as `Type.m` does (#362). `super::m`
-        // stays the search by name, and a bare `::m` has no chain.
         let referenced = kind == Kind::Jvm
             && before.ends_with("::")
             && chain.first().is_some_and(|f| f != "super");
@@ -602,10 +569,8 @@ impl App {
                 self.show_definitions(kind, &word, &here, found, None);
                 return;
             }
-            // A cut in a grep whose result is dropped says nothing about the list below.
             self.truncated.set(false);
         }
-        // An Elixir call is never a module attribute: `Shop.currency()` is no `@currency` (#459).
         if kind == Kind::Elixir && dotted {
             patterns.retain(|p| !p.starts_with(r"^\s*@"));
         }
@@ -615,7 +580,6 @@ impl App {
             return;
         }
         let pattern = patterns.join("|");
-        // PHP's `$this->`, `self::`, `static::`, `parent::`, typed receivers and class names.
         if kind == Kind::Php
             && let Some(found) = self.php_early(&here, &text, before, &chain, &word, range.clone())
         {
@@ -638,7 +602,6 @@ impl App {
                     return;
                 }
                 Ok(_) => {}
-                // With one name in front of the word, `by name` already says where.
                 Err(at) => rust_broke = (chain.len() > 1).then_some(at),
             }
         }
@@ -754,7 +717,6 @@ impl App {
                 Some(Err(at)) => broke = (chain.len() > 1).then_some(at),
                 None => {}
             }
-            // A bare name is the type's around it first, as C# resolves it (#360).
             if !dotted && chain.is_empty() && locals.is_empty() && !before.ends_with("::") {
                 match self.cs_class_first(&here, &word, cs_type) {
                     Ok(found) => {
@@ -773,7 +735,6 @@ impl App {
             && (head.is_some() || chain.first().is_some_and(|f| bound(&imports, f).is_none()))
         {
             match self.typed_definitions(kind, &here, &word, &chain, head.as_ref()) {
-                // `self.repo` that leads to this very line is the field's declaration.
                 Ok(found)
                     if own
                         && matches!(found.as_slice(), [c] if c.hit.line1 == self.line + 1 && c.hit.path == here) =>
@@ -793,7 +754,6 @@ impl App {
                         return;
                     }
                 }
-                // With one name in front of the word, `by name` already says where.
                 Err(at) => {
                     if let Some(via) = self.builtin_receiver(kind, &here, &chain, head.as_ref()) {
                         self.offer_only = false;
@@ -818,9 +778,6 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
-        // An import names where the word is declared: the project's module, else the one outside
-        // it. Only a module of the project that does not declare it (a re-export) leaves the word
-        // to the search by name.
         let import = (!on_value)
             .then(|| {
                 bound(
@@ -902,16 +859,12 @@ impl App {
                     if value.is_some() {
                         return Vec::new();
                     }
-                    // A workspace package linked in is the project's own: the search by
-                    // name in the project comes first, the one outside after it (below).
                     let found =
                         self.external_definitions(kind, &word, &chain, dotted, &imports, true);
                     outside = found.is_some();
                     import_is_linked_package_or_alias = found.is_none();
                     found.unwrap_or_default()
                 });
-                // `try: from a import pick` / `except ImportError: from b import pick` names
-                // two sources: both are offered, and which one ran is not for `d` to guess.
                 let others: Vec<Vec<String>> = imports
                     .iter()
                     .filter(|i| i.name == first && i.path != path)
@@ -980,8 +933,6 @@ impl App {
                 return;
             }
         }
-        // `this.m` and `this::m` in Java and Kotlin: `m` of the class around the cursor, which
-        // this file declares (#362). Nothing of it declares `m`: the search by name, as before.
         if kind == Kind::Jvm
             && own
             && (dotted || before.ends_with("::"))
@@ -1031,14 +982,12 @@ impl App {
             ),
             false => Vec::new(),
         };
-        // The `Type` the cursor sees, by the name its `impl` qualifies: `inner::Type` in a `mod`.
         let owners: Vec<String> = seen
             .iter()
             .map(|&l| search::qualified(kind, &text, l, &chain[0]).unwrap_or(chain[0].clone()))
             .collect();
         let mine = match owners.as_slice() {
             [owner, rest @ ..] if rest.iter().all(|o| o == owner) => {
-                // A cut in this grep says nothing about the list shown in the end.
                 let cut = self.truncated.get();
                 let pattern = search::def_patterns(kind, &chain[0]).join("|");
                 let elsewhere = self
@@ -1056,8 +1005,6 @@ impl App {
         let pathed = pathed
             && !chain.is_empty()
             && (sep == "." || mine.is_some() || {
-                // A glob, a `using` or a grouped `use` may bring the name in unread, and a PHP
-                // `\Vendor\Depot::open` spells out another namespace.
                 let owner = &chain[chain.len() - 1];
                 let brings = Regex::new(&format!(
                     r"^\s*(?:pub\s+)?us(?:e|ing)\b.*(?:\*|\bnamespace\b|\b{}\b)",
@@ -1077,8 +1024,6 @@ impl App {
                         .is_some_and(|b| b.ends_with('\\'));
                 let owners = search::def_patterns(kind, owner).join("|");
                 let mut declared = self.project_definitions(kind, &here, owner, &owners);
-                // A class is declared once, whatever its forward declarations and constructors
-                // (#368).
                 if kind == Kind::C {
                     declared = search::c_type_rows(
                         owner,
@@ -1087,7 +1032,6 @@ impl App {
                         search::CTypeWord::NAMED,
                     );
                 }
-                // A type of the same name in this file is the one its own scope sees.
                 if !outside
                     && declared.len() > 1
                     && kind == Kind::Rust
@@ -1097,12 +1041,9 @@ impl App {
                     let files = search::rust_use_files(&self.files, &here, &text, owner);
                     answer_files = (!files.is_empty()).then_some(files);
                 }
-                // A cut in this grep says nothing about the list shown in the end.
                 self.truncated.set(false);
                 !outside && (declared.len() == 1 || answer_files.is_some())
             });
-        // A constant in capitals holds a value, not a class: `REDIS_CONFIGURATION.cache`. An
-        // acronym module (`JSON.parse`) reads so too, and stays the search by name.
         let class_method = kind == Kind::Ruby
             && dotted
             && chain.last().is_some_and(|c| {
@@ -1219,10 +1160,7 @@ impl App {
                 self.show_definitions(kind, &asked, &here, found, None);
                 return;
             }
-            // A cut in a grep whose result is dropped says nothing about the list below.
             self.truncated.set(false);
-            // `Api::Fasp` that no declaration spells is no `::Fasp` elsewhere: what the name
-            // alone finds is offered, not jumped to.
             self.offer_only |= colons;
         }
         if kind == Kind::Elixir && dotted && !chain.is_empty() && locals.is_empty() {
@@ -1289,8 +1227,6 @@ impl App {
             self.show_definitions(kind, &word, &here, Vec::new(), None);
             return;
         }
-        // A parameter or a local in front of the word is a value for certain: it has members,
-        // and a function or a variable at the top of a module is not one of them.
         let hits = members
             .as_ref()
             .map(|m| self.members_by_name(kind, &here, &word, m))
@@ -1319,10 +1255,6 @@ impl App {
                         .text_of(&h.path)
                         .is_some_and(|t| search::python_method(&t, h.line1))
             });
-            // The one row left when its rivals went is jumped to, so the name must reach it
-            // from the cursor: at module level, or in a function around the cursor. Another
-            // function's nested `def` is no more the answer than the methods were, and the
-            // picker stays as it was.
             let around = enclosing_def_lines1(&text, self.line + 1);
             let unreachable = |h: &Hit| {
                 let inside = self
@@ -1404,8 +1336,6 @@ impl App {
             });
         }
         if kind == Kind::Swift {
-            // On the name a binding declares on the cursor's own line (`swift_binds_here`), the
-            // line joins the namesakes found by name, as a `let` line does by its pattern.
             let own = Hit {
                 path: here.clone(),
                 line1: self.line + 1,
@@ -1423,8 +1353,6 @@ impl App {
             let all = hits.len();
             let lines: Vec<&str> = text.lines().collect();
             let literal = search::literal_lines(kind, &text);
-            // The cursor's scope and the functions around it, innermost first; a header's scope
-            // lies above it, so the walk ends.
             let mut scopes =
                 vec![search::swift_scope(&lines, &literal, self.line + 1).header_line1];
             while let Some(&s @ 1..) = scopes.last() {
@@ -1452,7 +1380,6 @@ impl App {
             Kind::Jvm => {
                 let hits = self.jvm_seen(&here, hits, dotted || before.ends_with("::"));
                 let hits = self.jvm_use_fit(&here, &word, range.clone(), &chain, hits);
-                // `values()` found its enum: no namesake left out of sight makes it a guess.
                 if matches!(word.as_str(), "values" | "valueOf")
                     && matches!(hits.as_slice(), [h] if h.text.contains("enum "))
                 {
@@ -1462,10 +1389,6 @@ impl App {
             }
             _ => hits,
         };
-        // A C or C++ type is its body, not its forward declarations and constructors (#368).
-        // Behind `.` or `->` no type is meant. Then what the file on screen can see (#364): not
-        // another source file's statics and macros, not a `#define` that only stands in where
-        // nothing else declares the name, and one definition over its prototypes.
         let mut fallbacks = Vec::new();
         let mut aside = None;
         let hits = match kind == Kind::C && !dotted && !before.ends_with("->") {
@@ -1486,8 +1409,6 @@ impl App {
                     .filter(|h| !value || !Self::c_type_line(&word, h))
                     .collect();
                 let tag = ["struct", "union", "enum"].into_iter().any(keyword);
-                // What a raw string, a block comment or a macro's body holds declares nothing,
-                // and must not count as a second body or definition in the rules below.
                 let mut literal = HashMap::new();
                 let hits: Vec<Hit> = (hits.into_iter())
                     .filter(|h| self.c_code_line(&mut literal, h))
@@ -1537,11 +1458,9 @@ impl App {
                     self.text_of(&h.path)
                         .is_some_and(|t| search::c_fallback(&t, h.line1, &word))
                 });
-                // With nothing else in the project, the search outside runs first.
                 if hits.is_empty() {
                     fallbacks = fallback;
                 }
-                // On a candidate the others are offered, the prototype included.
                 let parameter = search::c_parameter(&text, self.line + 1, &word);
                 match search::c_one_definition(&word, &hits, |p| self.text_of(p))
                     .filter(|_| !on && !parameter)
@@ -1585,9 +1504,6 @@ impl App {
             }
         }
         if let Some(members) = &members {
-            // A value's type is unknown: its member may come from a dependency as well. Outside
-            // the project TypeScript is read from its declaration files, as VS Code lands on
-            // them: the `.d.ts` says what a type offers, the bundled JavaScript is noise.
             let all = self.external_files(kind);
             let files: Vec<PathBuf> = all
                 .iter()
@@ -1619,8 +1535,6 @@ impl App {
                 Some("self" | "cls" | "this")
             )
         {
-            // After the project, outside as the import names the module, every installed copy
-            // of it: what a workspace package linked in hands on from a dependency is there.
             found = match unbound && !search::PYTHON_BUILTINS.contains(&word.as_str()) {
                 true => self.star_imported(&word, &imports),
                 false => self
@@ -1634,8 +1548,6 @@ impl App {
             {
                 found.retain(|c| !Self::c_type_line(&word, &c.hit));
             }
-            // The module the import loads is the project's, searched already: nothing outside is
-            // proven to be what it hands on.
             if import_is_linked_package_or_alias {
                 for c in &mut found {
                     c.reason = Reason::ByName;
@@ -1672,15 +1584,11 @@ impl App {
             self.ruby_member_outside(&word, &pattern, &mut found);
         }
         self.show_definitions(kind, &word, &here, found, broke.as_deref());
-        // The status of the one definition says what was set aside: `1 definition, 1 prototype`.
         if let Some(note) = aside {
             self.message = self.message.replacen("1 match", &note, 1);
         }
     }
 
-    /// Where the label `word` lands (#316): `d` resolves the name at `line0` and `byte_col` as it
-    /// would there, and each declaration of it in the project gives the parameter or the field
-    /// the label names. Several are overloads; none leaves the label unresolved.
     fn label_targets(
         &mut self,
         kind: Kind,
@@ -1699,7 +1607,6 @@ impl App {
             .as_deref()
             .and_then(|n| search::own_type(kind, &text, line0, n))
         {
-            // `new self(…)`: the class the cursor is in.
             Some(decl) => vec![Candidate {
                 hit: Hit {
                     deleted: None,
@@ -1717,11 +1624,6 @@ impl App {
             }
         };
         (self.line, self.col, self.message) = (cursor_line, cursor_col, message);
-        // A callee found only by name, or one of whose candidates lies outside the project, where
-        // nothing is read, may be another namesake's: its parameter is offered, never jumped to.
-        // A callee whose receiver's type the project does not declare, or one of whose candidates
-        // lies outside the project, where nothing is read, may be a library's namesake: its
-        // parameter is offered, never jumped to. A typed chain that broke says so for Python.
         let reads_outside = kind == Kind::Rust && *owner == search::Owner::Typed;
         let offer = std::mem::take(&mut self.offer_only)
             || (!reads_outside && owners.iter().any(|c| c.hit.path.is_absolute()))
@@ -1739,8 +1641,6 @@ impl App {
         };
         let mut out: Vec<Candidate> = Vec::new();
         for c in owners {
-            // Outside the project nothing is read; the line under the cursor declares nothing
-            // it calls.
             if (c.hit.path.is_absolute() && !reads_outside)
                 || (c.hit.path == here && c.hit.line1 == cursor_line + 1)
             {
@@ -1755,8 +1655,6 @@ impl App {
                     .into_iter()
                     .map(|l| (c.hit.path.clone(), l, of.clone()))
                     .collect();
-            // `<Tag a={…}>` of `function Tag(p: Props)`: the key is `Props`'s, when the project
-            // declares one `Props`.
             if at.is_empty()
                 && let search::Owner::Object(n) = owner
                 && let Some(ty) = search::object_type(kind, &text, c.hit.line1, &name, *n)
@@ -1805,9 +1703,6 @@ impl App {
         out
     }
 
-    /// Whether the receiver of the call whose callee `name` ends at `byte_col` of `line0` has a
-    /// type written for it that the project does not declare: `client` of `client.get(`, declared
-    /// `client: HttpClient` or `HttpClient client` on a line above.
     fn receiver_outside(
         &self,
         kind: Kind,
@@ -1876,8 +1771,6 @@ impl App {
         ))
     }
 
-    /// The Go struct the type written as `written` in `file` is: itself, or what a defined
-    /// `type X Y` is over. `None` for a type that is no struct.
     pub(super) fn struct_decl(
         &self,
         kind: Kind,
@@ -1953,8 +1846,6 @@ impl App {
         )
     }
 
-    /// Whether `first` starts a path inside the project: `crate`, `self`, `super`, or a file or a
-    /// directory of the project called so.
     fn names_module(&self, first: &str) -> bool {
         matches!(first, "crate" | "self" | "super")
             || self.files.iter().any(|f| {
@@ -1963,8 +1854,6 @@ impl App {
             })
     }
 
-    /// Jumps to the one candidate, or opens the picker over several, and says how they were found
-    /// and at which name of the chain in front of the word the typed lookup `broke`, if it did.
     pub(super) fn show_definitions(
         &mut self,
         kind: Kind,
@@ -1973,11 +1862,6 @@ impl App {
         mut found: Vec<Candidate>,
         broke: Option<&str>,
     ) {
-        // Standing on one of the definitions is not a reason to go nowhere. But what is left are
-        // namesakes nothing ties to this one, so they are offered, never jumped to: a second `d`
-        // after a proven jump would walk out of the type it has just proven (#68).
-        // Past a few hundred candidates the picker is a list to filter, and reading every file
-        // is not worth what it would drop.
         if kind == Kind::TsJs {
             let head = search::ts_method_head(word);
             found.retain(|c| {
@@ -1999,8 +1883,6 @@ impl App {
                     && self
                         .text_of(&c.hit.path)
                         .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line1));
-                // A tag of a PHP class's docblock (#344) or of a JavaScript `@typedef` (#347)
-                // is a declaration inside a comment.
                 let literal = lines.get(c.hit.line1 - 1).copied().unwrap_or(false)
                     && !self.doc_tag(kind, &c.hit)
                     && !(c.reason == Reason::Local && search::component(&c.hit.path));
@@ -2037,8 +1919,6 @@ impl App {
         if all > 1 {
             found.retain(|c| c.hit.line1 != self.line + 1 || c.hit.path != here);
         }
-        // The line of an interface method is a declaration no pattern of `d` lists, so nothing
-        // was dropped above, and what is found is its namesakes all the same.
         let offer_only = std::mem::take(&mut self.offer_only);
         let truncated = self.truncated.take();
         let on_member = || {
@@ -2054,7 +1934,6 @@ impl App {
             && found.iter().all(|c| !c.reason.proven())
             && !found.is_empty()
             && (found.len() < all || on_member())
-            // Alone, the declaration under the cursor is its own answer.
             && found
                 .iter()
                 .any(|c| c.hit.line1 != self.line + 1 || c.hit.path != here)
@@ -2067,7 +1946,6 @@ impl App {
                 .is_some_and(|(r, _)| !self.line_str()[..r.start].ends_with('.'))
             && matches!(found.as_slice(), [c] if !c.reason.proven() && form(&c.hit.text) == form(self.line_str()));
         found.sort_by_cached_key(|c| search::rank(&c.hit.path, Some(here), true).tier);
-        // The project and the outside are each cut at MAX_HITS; the picker holds that many.
         found.truncate(search::MAX_HITS);
         if let Some(probe) = &mut self.probe {
             *probe = found;
@@ -2078,25 +1956,17 @@ impl App {
             [] => self.message = resolution(word, None, &found, broke, truncated),
             [one] if !namesakes && !offer_only && !truncated && !copy => {
                 let path = self.root.join(&one.hit.path);
-                // A module's first line declares nothing of the word, and a label's reason names
-                // what declares the parameter or the field already.
                 let name = super::jvm::declared_as(kind, word, &one.hit.text);
                 let target = self
                     .hit_text(&one.hit)
                     .filter(|_| !matches!(one.reason, Reason::Module(_) | Reason::Label(_)))
                     .and_then(|text| search::qualified(kind, &text, one.hit.line1, &name));
                 let status = resolution(word, target.as_deref(), &found, broke, false);
-                // The cursor lands on the word rather than at the start of the line, so a
-                // second `d` there asks the next question about the same name: what
-                // implements the declaration it just landed on (#68, step 6). A row of the
-                // picker below lands there too, the word read by the rules `d` read it with.
                 let col = word_col(&one.hit.text, &name, word_chars);
                 match one.hit.deleted {
                     Some(_) => self.jump_to_deleted(&path, one.hit.line1, col),
                     None => self.jump_to_col(&path, one.hit.line1, col),
                 }
-                // A refused jump (edits that cannot be saved) leaves its own reason, not a
-                // resolution nobody followed.
                 if self.buf.path.as_deref() == Some(path.as_path()) {
                     self.message = status;
                 }
@@ -2177,8 +2047,6 @@ impl App {
         !(r.start < first || member || (called(r.start) && !called(first)))
     }
 
-    /// The lines `pattern` matches where a definition of `word` in `here`, a file of `kind`, can
-    /// live in the project. Escaped or built-in patterns always compile.
     pub(super) fn project_definitions(
         &self,
         kind: Kind,
@@ -2245,7 +2113,6 @@ impl App {
                 true => search::sql_cte_sees(&text, h.line1, word, self.line + 1, self.col),
                 false => Some(false),
             };
-            // A CTE whose scope has no known end leaves the candidates as they are.
             let known = hits
                 .iter()
                 .filter(|h| cte.is_match(&h.text))
@@ -2260,12 +2127,6 @@ impl App {
     }
 }
 
-/// What the status line says after `d` on `word`: `word → Target.word (reason)` for a jump,
-/// `word: reason` when the target is not declared inside anything, `word: reason, N
-/// declarations` over a picker. A jump by name says it had one match, so a guess that happened to
-/// be unique never reads as a resolution. A chain in front of the word that `broke` says at which
-/// name: `(by name, 1 match, chain broke at users)`, `by name, 2 declarations (chain broke at
-/// users)`. A list that was `cut` short counts with a `+`, however few it holds.
 pub(super) fn resolution(
     word: &str,
     target: Option<&str>,
@@ -2291,7 +2152,6 @@ pub(super) fn resolution(
             None => format!("{word}: {why}"),
         };
     }
-    // The candidates stop at MAX_HITS, so that many is a lower bound.
     let n = match found.len() {
         n if cut || n >= search::MAX_HITS => format!("{n}+"),
         n => n.to_string(),
@@ -2299,7 +2159,6 @@ pub(super) fn resolution(
     if found.iter().all(|c| c.reason == *reason) {
         format!("{word}: {reason}, {n} declarations{note}")
     } else {
-        // Each row says its own reason.
         format!("{word}: {n} declarations{note}")
     }
 }

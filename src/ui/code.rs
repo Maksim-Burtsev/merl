@@ -1,5 +1,3 @@
-//! The code pane: the text, the gutter, the review's ghost rows and the cursor.
-
 use std::collections::HashMap;
 use std::ops::Range;
 use std::path::Path;
@@ -30,8 +28,6 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     app.clamp_scroll();
     let bottom = (app.top_line + app.view_h).max(app.bottom_line() + 1);
     app.buf.highlight_to(bottom, theme);
-    // Review: the ghosts on screen take their colours from the base file, highlighted as far as
-    // the last of them. Base lines grow with the keys, so the last key on screen reaches furthest.
     if let Some((_, b)) = &mut app.base
         && let Some((k, from)) = app.diff.ghost_from.range(..=bottom).next_back()
     {
@@ -62,28 +58,20 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         .selected(base)
         .add_modifier(theme.modifiers(&["Visual"]));
     let ellipsis = |bg: Style| Span::styled("\u{2026}", bg.fg(theme.gutter_fg));
-    // Selected lines above the selection's last line are selected through their newline, so
-    // their background runs to the right edge like VS Code's.
     let sel_lines = app.selection().map(|(start, end)| (start.0, end.0));
     let text_hl = app.selected_bytes(app.at()).is_none_or(|r| !r.is_empty());
 
     let nowrap = app.nowrap();
-    // Review paints the diff as GitHub does: the deleted and the added rows on a red and a green
-    // tint, the words that changed on a stronger one in `word_fg`. The tints come from the theme.
     let review = app.review.is_some();
     let ghost = base.bg(theme.del_bg);
-    // A changed word is drawn in `word_fg` alone: the syntax's bold and italic do not show through.
     let word = |bg| {
         Style::new()
             .bg(bg)
             .fg(theme.word_fg)
             .remove_modifier(Modifier::BOLD | Modifier::ITALIC | Modifier::UNDERLINED)
     };
-    // The added line each ghost was replaced by, for the ghost's side of the changed words.
     let partner: HashMap<(usize, usize), usize> =
         app.diff.pairs.iter().map(|(&l, &g)| (g, l)).collect();
-    // A ghost wraps exactly like a file line: its rows after the first start under its indent.
-    // Not wrapped, the one row is the columns from `left` on, as the text's are.
     let ghost_wrap = |raw: &str| -> Vec<(Range<usize>, usize)> {
         let text = shown_str(raw);
         if nowrap {
@@ -106,9 +94,6 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             l += 1;
             continue;
         }
-        // Review: the lines the branch deleted here, above the text, unnumbered. `skip` counts
-        // rows: the top of the view can sit inside a wrapped ghost, as it can sit on the lines
-        // deleted at the end of the file, under the last line.
         for (i, raw) in app.diff.ghosts.get(&l).into_iter().flatten().enumerate() {
             let line = TextLine::Deleted(l, i);
             let cursor_line = app.at() == line;
@@ -118,7 +103,6 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             };
             let g = if cursor_line { hl_gutter } else { gutter_style };
             let text = shown_str(raw);
-            // Its syntax colours are the base file's, as long as the base says the same line.
             let at = app.diff.ghost_from.get(&l).map(|from| from + i);
             let syntax = match (&app.base, at) {
                 (Some((_, b)), Some(at)) if b.lines.get(at) == Some(raw) => {
@@ -163,7 +147,6 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             let rows = ghost_wrap(raw);
             let last = rows.len() - 1;
             for (i, (r, lead)) in rows.into_iter().enumerate() {
-                // Not wrapped, a ghost has no `‹` or `›`.
                 let ell = Buffer::clips(raw)
                     && i == last
                     && (!nowrap || ellipsis_in_view(app, text, false, false));
@@ -174,7 +157,6 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 if lines.len() == area.height as usize {
                     break;
                 }
-                // The tint runs to the right edge, as a row's does on GitHub.
                 let pad = app
                     .view_w
                     .saturating_sub(lead + wrap::width(&text[r.clone()]) + usize::from(ell));
@@ -223,9 +205,6 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             .find_re
             .as_ref()
             .map_or_else(Vec::new, |re| matches(re, clipped));
-        // Changed words paint over the syntax colours and find matches over both, so they are
-        // merged into the span list. The selection wins over a changed word: the selected part
-        // of a row is drawn from the spans without them.
         let word_bg = if lit {
             theme.add_word_bg_hl
         } else {
@@ -302,7 +281,6 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             if before {
                 row.push(Span::styled("\u{2039}", g));
             }
-            // Rows after the first start under the text of the first.
             let lead = match (nowrap, i) {
                 (true, _) => cut_lead,
                 (false, 0) => 0,
@@ -343,7 +321,6 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 row.push(Span::styled(*tail, t));
             }
             if cursor_line || pad_selected || after || tint.is_some() {
-                // Pad so the line background reaches the right edge of the pane.
                 row.push(Span::styled(" ".repeat(pad), pad_style));
             }
             if after {
@@ -507,7 +484,6 @@ fn pinned_lines<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -
                     right_mark: false,
                 },
             };
-            // Only a first row is pinned: wrapped, the end of a cut line is never on it.
             let ell = app.nowrap()
                 && Buffer::clips(&app.buf.lines[p])
                 && ellipsis_in_view(app, text, before, after);
@@ -529,7 +505,6 @@ fn pinned_lines<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -
             if ell {
                 row.push(Span::styled("\u{2026}", g));
             }
-            // Pad so the band reaches the right edge of the pane.
             row.push(Span::styled(" ".repeat(pad), band));
             if after {
                 row.push(Span::styled("\u{203a}", g));
@@ -539,10 +514,6 @@ fn pinned_lines<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -
         .collect()
 }
 
-/// The one row of `text` shown when lines are not wrapped: the columns from `left` on, less a
-/// column at either edge that has text beyond it, where `‹` and `›` stand, so a cut line never
-/// reads as whole. `raw` is the whole line: one cut at [`Buffer::shown`] takes a column more,
-/// for its `…`.
 fn cut_unwrapped(app: &App, raw: &str) -> UnwrappedRow {
     let text = shown_str(raw);
     let w = wrap::width(text) + usize::from(Buffer::clips(raw));
@@ -568,15 +539,11 @@ struct UnwrappedRow {
     right_mark: bool,
 }
 
-/// Not wrapped: whether the column after `text`, where a cut line's `…` stands, is in view,
-/// between the columns `‹` and `›` take when they stand. Drawn right after the row's text and
-/// its lead, the `…` then lands on that column, even when no char of the line is in view.
 fn ellipsis_in_view(app: &App, text: &str, before: bool, after: bool) -> bool {
     let end = wrap::width(text);
     app.left + usize::from(before) <= end && end + usize::from(after) < app.left + app.view_w
 }
 
-/// Styled byte ranges of one line, sorted and disjoint, as [`row_spans`] reads them.
 type Spans = [(Style, Range<usize>)];
 
 fn selected_row<'a>(
@@ -604,8 +571,6 @@ fn selected_row<'a>(
     out
 }
 
-/// Cuts one wrapped row `r` of `text` into spans, taking colours from the line's highlighting
-/// and everything else from `base` (which carries the pane or cursor-line background).
 fn row_spans<'a>(
     text: &'a str,
     hl: &[(Style, std::ops::Range<usize>)],
@@ -635,7 +600,6 @@ fn row_spans<'a>(
     out
 }
 
-/// Non-empty match ranges of `re` in one file line.
 fn matches(re: &Regex, text: &str) -> Vec<Range<usize>> {
     re.find_iter(text)
         .map(|m| m.range())
@@ -661,7 +625,6 @@ pub(super) fn with_find(
     finds: &[Range<usize>],
     style: Style,
 ) -> Vec<(Style, Range<usize>)> {
-    // The gaps the highlighter left are spans of their own, so a match over one is cut there too.
     let mut filled = Vec::with_capacity(hl.len() * 2 + 1);
     let mut pos = 0;
     for (st, r) in hl {
@@ -696,7 +659,6 @@ pub(super) fn digits(n: usize) -> usize {
     n.max(1).ilog10() as usize + 1
 }
 
-/// Number of wrapped rows from `from` to `to`, or `None` when `to` is above `from`.
 fn rows_between(app: &App, from: (usize, usize), to: (usize, usize)) -> Option<usize> {
     (from <= to).then(|| app.rows_between(from, to))
 }
