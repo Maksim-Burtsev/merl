@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -20,6 +19,10 @@ use crate::wrap;
 use super::expand;
 use super::status::draw_prompt;
 
+#[expect(
+    clippy::string_slice,
+    reason = "row is a row of wrap_line over action, on cluster boundaries"
+)]
 pub(super) fn draw_help(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
     let keys = crate::app::KEYS;
     let key_w = keys.iter().map(|(k, _, _)| k.len()).max().unwrap_or(0);
@@ -75,6 +78,10 @@ pub(super) fn draw_help(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     );
 }
 
+#[expect(
+    clippy::string_slice,
+    reason = "fits is the range wrap::cut returns, on cluster boundaries"
+)]
 pub(super) fn draw_tree(
     frame: &mut Frame,
     app: &mut App,
@@ -618,17 +625,20 @@ fn places(rows: &[Row], width: usize, prefix_w: usize) -> Vec<Option<Place>> {
     rows.iter()
         .zip(paths)
         .map(|(r, split)| {
-            let Some((path, code_at)) = split else {
+            let label = &r.item.label;
+            let Some((path, code_at, text, head, code)) = split.and_then(|(path, code_at)| {
+                let text = label.get(path.clone())?;
+                let head = label.get(..path.start)?;
+                let code = label.get(code_at..)?;
+                Some((path, code_at, text, head, code))
+            }) else {
                 last = None;
                 return None;
             };
-            let label = &r.item.label;
-            let text = &label[path.clone()];
             let header = last != Some(text);
             last = Some(text);
-            let head_w = wrap::width(&label[..path.start]);
+            let head_w = wrap::width(head);
             let code_col = prefix_w + head_w + 2 + num_w + 2;
-            let code = &label[code_at..];
             let room = width.saturating_sub(code_col);
             let code_rows = if wrap::width(code) > room && room >= MIN_WRAP {
                 wrap::wrap_line(code, room)
@@ -670,7 +680,10 @@ fn code_hl<'a>(
     item: &PickItem,
     theme: &Theme,
 ) -> Option<(&'a Spans, usize)> {
-    let quoted = item.label[item.code_at?..].trim_end_matches('\u{2026}');
+    let quoted = item
+        .label
+        .get(item.code_at?..)?
+        .trim_end_matches('\u{2026}');
     let key = if item.deleted {
         item.path.join("\0base")
     } else {

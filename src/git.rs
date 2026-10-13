@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -95,10 +94,10 @@ fn parse(diff: &str, review: bool) -> Diff {
     let mut lines = diff.lines().peekable();
     let mut key_after_last_hunk = None;
     while let Some(line) = lines.next() {
-        if !line.starts_with("@@ ") {
+        let Some(hunk) = line.strip_prefix("@@ ") else {
             continue;
-        }
-        let Some((old, new)) = line[3..].split_once(" +") else {
+        };
+        let Some((old, new)) = hunk.split_once(" +") else {
             continue;
         };
         let (Some((old_start1, old_n)), Some((new_start1, new_n))) = (

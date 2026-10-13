@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::Path;
@@ -172,6 +171,10 @@ fn place_pictures(app: &mut App, area: Rect, gutter_w: usize, end: usize) {
     }
 }
 
+#[expect(
+    clippy::string_slice,
+    reason = "the cuts are the ends of the layers' spans, all on char boundaries of text"
+)]
 fn layered<'a>(
     text: &'a str,
     layers: &[&[(Style, Range<usize>)]],
