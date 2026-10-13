@@ -600,6 +600,8 @@ pub struct Config {
     pub review_open_files_first: bool,
     #[serde(default)]
     pub tree_sitter: bool,
+    #[serde(default)]
+    pub review_notes: bool,
 }
 
 fn default_autosave() -> u64 {
@@ -623,6 +625,7 @@ impl Default for Config {
             review_list_marks: true,
             review_open_files_first: true,
             tree_sitter: false,
+            review_notes: false,
         }
     }
 }
@@ -988,6 +991,9 @@ mod tests {
         assert!(!config_from(None).unwrap().tree_sitter);
         std::fs::write(&path, "tree_sitter = true\n").unwrap();
         assert!(config_from(Some(&path)).unwrap().tree_sitter);
+        assert!(!config_from(Some(&path)).unwrap().review_notes);
+        std::fs::write(&path, "review_notes = true\n").unwrap();
+        assert!(config_from(Some(&path)).unwrap().review_notes);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

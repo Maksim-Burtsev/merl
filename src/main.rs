@@ -222,6 +222,7 @@ fn run() -> Result<()> {
     app.review_panel_colours = config.review_panel_colours;
     app.review_list_marks = config.review_list_marks;
     app.review_open_files_first = config.review_open_files_first;
+    app.notes.on = config.review_notes;
     app.theme = name;
     app.config = theme::config_path();
     if cli.tutor || cli.drill.is_some() {
@@ -258,6 +259,9 @@ fn run() -> Result<()> {
     leave_terminal(keyboard);
     if let Some(t) = &app.tutor {
         remove_sample_project_and_print_drill(t);
+    }
+    if let Some(line) = app.notes_farewell() {
+        println!("{line}");
     }
     record_presses_and_reviews(&mut app);
     result

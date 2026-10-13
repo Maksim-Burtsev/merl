@@ -190,14 +190,41 @@ impl App {
 
     pub(super) fn move_rows(&mut self, n: isize) {
         let cur = self.cursor_at();
-        let to = if n < 0 {
-            self.back_rows(cur, n.unsigned_abs())
-        } else {
-            self.forward_rows(cur, n as usize)
+        let step = |from, k: usize| match n < 0 {
+            true => self.back_rows(from, k),
+            false => self.forward_rows(from, k),
         };
+        let mut to = step(cur, n.unsigned_abs());
+        while self.notes.focus.is_some() && self.note_at_row(to.0, to.1) == self.notes.focus {
+            let next = step(to, 1);
+            if next == to {
+                break;
+            }
+            to = next;
+        }
         if n > 0 && to == cur {
             return;
         }
+        while self.anchor.is_some() && self.note_at_row(to.0, to.1).is_some() {
+            let next = step(to, 1);
+            if next == to {
+                break;
+            }
+            to = next;
+        }
+        if let Some(idx) = self
+            .note_at_row(to.0, to.1)
+            .filter(|_| self.anchor.is_none())
+            && let Some(at) = self.notes.here.iter().find(|h| h.idx == idx).map(|h| h.at)
+        {
+            self.set_at(at);
+            self.notes.focus = Some(idx);
+            if self.mode == Mode::Edit {
+                self.start_note();
+            }
+            return;
+        }
+        self.notes.focus = None;
         self.land(to);
     }
 

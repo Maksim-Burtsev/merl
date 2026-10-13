@@ -230,6 +230,8 @@ impl App {
             if self.prompt.insert(line) {
                 self.refresh_find();
             }
+        } else if self.mode == Mode::Note {
+            self.prompt.insert(&text);
         } else if self.mode == Mode::New {
             self.prompt.insert(line);
         }
@@ -277,6 +279,7 @@ impl App {
             before,
             after: (self.line, self.col),
             format: None,
+            note: None,
         };
         let prev = self.edit_kind;
         let kind = match kind {
@@ -323,6 +326,14 @@ impl App {
         } else {
             (&edit.old, &edit.new, edit.after)
         };
+        self.notes.focus = None;
+        if let Some(change) = edit.note.clone() {
+            self.undo_note(&change, back);
+            self.undo_break = true;
+            self.edit_kind = Kind::Other;
+            (if back { &mut self.redo } else { &mut self.undo }).push(edit);
+            return;
+        }
         self.buf
             .lines
             .splice(edit.line..edit.line + from.len(), to.iter().cloned());

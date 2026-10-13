@@ -43,6 +43,8 @@ mod lisp;
 mod lua;
 mod members;
 mod missed;
+pub(crate) mod notes;
+pub use notes::Slot;
 mod ml;
 mod open;
 mod perl;
@@ -285,6 +287,7 @@ pub enum Mode {
     Picker(PickerKind),
     Help,
     Edit,
+    Note,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -384,6 +387,7 @@ pub struct App {
     pub base: Option<(String, Buffer)>,
     pub want_diff: bool,
     pub review: Option<git::Review>,
+    pub notes: notes::Notes,
     pub marks: HashMap<PathBuf, char>,
     pub viewed: HashMap<PathBuf, u64>,
     hidden: HashMap<PathBuf, u64>,
@@ -413,6 +417,7 @@ struct Edit {
     before: (usize, usize),
     after: (usize, usize),
     format: Option<(buffer::Format, buffer::Format)>,
+    note: Option<Box<notes::NoteEdit>>,
 }
 
 pub fn plural(n: usize) -> &'static str {
@@ -531,6 +536,7 @@ impl App {
             base: None,
             want_diff: true,
             review: None,
+            notes: notes::Notes::default(),
             marks: HashMap::new(),
             viewed: HashMap::new(),
             hidden: HashMap::new(),
@@ -727,7 +733,13 @@ impl App {
 
     pub fn ghost_rows(&self, l: usize) -> usize {
         self.diff.ghosts.get(&l).map_or(0, |ghosts| {
-            ghosts.iter().map(|g| self.text_rows(g).len()).sum()
+            ghosts
+                .iter()
+                .enumerate()
+                .map(|(i, g)| {
+                    self.text_rows(g).len() + self.note_rows_after(TextLine::Deleted(l, i))
+                })
+                .sum()
         })
     }
 
@@ -739,14 +751,24 @@ impl App {
             true => self.rows(l).len(),
             false => 0,
         };
-        self.ghost_rows(l) + text
+        let notes = match l < self.buf.lines.len() {
+            true => self.note_rows_after(TextLine::File(l)),
+            false => 0,
+        };
+        self.ghost_rows(l) + text + notes
     }
 
     pub fn cursor_row(&self) -> usize {
+        if let Some(r) = self.notes.focus.and_then(|i| self.note_row(i)) {
+            return r;
+        }
         let above = match self.deleted {
             Some((k, i)) => self.diff.ghosts[&k][..i]
                 .iter()
-                .map(|g| self.text_rows(g).len())
+                .enumerate()
+                .map(|(j, g)| {
+                    self.text_rows(g).len() + self.note_rows_after(TextLine::Deleted(k, j))
+                })
                 .sum(),
             None => self.ghost_rows(self.line),
         };
@@ -761,12 +783,15 @@ impl App {
         let ghosts = self.diff.ghosts.get(&key).map_or(&[][..], Vec::as_slice);
         for (i, g) in ghosts.iter().enumerate() {
             let n = self.text_rows(g).len();
+            let n = n + self.note_rows_after(TextLine::Deleted(key, i));
             if row < n || (i + 1 == ghosts.len() && key >= self.buf.lines.len()) {
-                return (TextLine::Deleted(key, i), row.min(n - 1));
+                let own = self.text_rows(g).len();
+                return (TextLine::Deleted(key, i), row.min(own - 1));
             }
             row -= n;
         }
-        (TextLine::File(key.min(self.buf.lines.len() - 1)), row)
+        let l = key.min(self.buf.lines.len() - 1);
+        (TextLine::File(l), row.min(self.rows(l).len() - 1))
     }
 
     pub fn cursor_x(&self) -> usize {

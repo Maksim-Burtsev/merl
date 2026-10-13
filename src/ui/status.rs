@@ -58,7 +58,7 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         return;
     }
     let pane = match (app.mode, app.focus) {
-        (Mode::Edit, _) => "edit",
+        (Mode::Edit | Mode::Note, _) => "edit",
         (_, Focus::Tree) => "tree",
         _ if app.previewing() => "preview",
         _ if app.preview_pending() => "parsing",
