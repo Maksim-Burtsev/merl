@@ -1,0 +1,260 @@
+diff --git a/src/app/review.rs b/src/app/review.rs
+index f4cffe61..a7cef746 100644
+--- a/src/app/review.rs
++++ b/src/app/review.rs
+@@ -343,6 +343,9 @@ impl App {
+         let mut any = false;
+         for rel in rels {
+             let hash = self.disk_hash(&rel);
++            if let (Some(r), Some(b)) = (&self.review, &self.viewed_branch) {
++                git::p823_tick(&self.root, b, &rel, &r.base);
++            }
+             self.hidden.remove(&rel);
+             self.viewed.insert(rel, hash);
+             any = true;
+@@ -483,8 +486,14 @@ impl App {
+         }
+         let at = self.hunk_place(self.at());
+         let hunk = self.diff.hunks.iter().filter(|&&h| h <= at).count();
++        let since = match &r.since {
++            Some(s) if s.delta.contains(&rel) => format!("since {}  ", s.short),
++            Some(s) if s.delta.is_empty() && s.whole.is_empty() => format!("since {}  ", s.short),
++            Some(_) => "whole  ".to_string(),
++            None => String::new(),
++        };
+         Some(format!(
+-            "hunk {hunk}/{}  file {}/{}",
++            "{since}hunk {hunk}/{}  file {}/{}",
+             self.diff.hunks.len(),
+             file + 1,
+             r.files.len()
+diff --git a/src/git.rs b/src/git.rs
+index 8981f4b0..f1711071 100644
+--- a/src/git.rs
++++ b/src/git.rs
+@@ -210,6 +210,148 @@ pub struct Review {
+     pub deleted: Arc<Vec<DeletedLine>>,
+     pub added: Arc<Vec<AddedRun>>,
+     pub note: Option<String>,
++    pub since: Option<Since>,
++}
++
++#[derive(Debug, Clone, PartialEq, Eq, Default)]
++pub struct Since {
++    pub short: String,
++    pub against: String,
++    pub delta: Vec<PathBuf>,
++    pub whole: Vec<PathBuf>,
++    pub left_out: usize,
++}
++
++fn p823_store(root: &Path) -> Option<PathBuf> {
++    Some(dirs(root)?.common_refs_dir.join("merl/p823"))
++}
++
++pub fn p823_tick(root: &Path, branch: &str, rel: &Path, base: &str) {
++    let Some(store) = p823_store(root) else { return };
++    let Ok(merge_base) = git(root, &["merge-base", base, "HEAD"]) else {
++        return;
++    };
++    let Ok(blob) = git(root, &["hash-object", "-w", "--", rel.to_str().unwrap_or("")]) else {
++        return;
++    };
++    let file = store.join("ticks").join(branch);
++    let _ = std::fs::create_dir_all(file.parent().unwrap());
++    let old = std::fs::read_to_string(&file).unwrap_or_default();
++    let mut out: String = old
++        .lines()
++        .filter(|l| l.split('\t').next() != rel.to_str())
++        .map(|l| format!("{l}\n"))
++        .collect();
++    out.push_str(&format!("{}\t{blob}\t{merge_base}\n", rel.display()));
++    let _ = std::fs::write(&file, out);
++}
++
++fn p823_since(root: &Path, base: &str, r: &Review) -> Option<Since> {
++    let store = p823_store(root)?;
++    let git = |args: &[&str]| git(root, args);
++    let head = git(&["rev-parse", "HEAD"]).ok()?;
++    let head_file = store.join("head").join(&r.branch);
++    if std::env::var("MERL_P823_SINCE").is_err() {
++        let _ = std::fs::create_dir_all(head_file.parent()?);
++        let _ = std::fs::write(&head_file, &head);
++        return None;
++    }
++    let mode = std::env::var("MERL_P823").unwrap_or_else(|_| "A".into());
++    if mode == "C" {
++        let old = std::fs::read_to_string(&head_file).ok()?.trim().to_string();
++        if old == head {
++            return None;
++        }
++        let old_mb = git(&["merge-base", base, &old]).ok()?;
++        if old_mb != r.merge_base {
++            return None;
++        }
++        let short = old[..7].to_string();
++        return Some(Since { short, against: old, ..Default::default() });
++    }
++    let ticks: HashMap<PathBuf, (String, String)> =
++        std::fs::read_to_string(store.join("ticks").join(&r.branch))
++            .unwrap_or_default()
++            .lines()
++            .filter_map(|l| {
++                let mut c = l.split('\t');
++                let (p, b, m) = (c.next()?, c.next()?, c.next()?);
++                Some((PathBuf::from(p), (b.to_string(), m.to_string())))
++            })
++            .collect();
++    if ticks.is_empty() {
++        return None;
++    }
++    let index = std::env::temp_dir().join(format!("merl-p823-{}", std::process::id()));
++    let run = |args: &[&str]| {
++        Command::new("git")
++            .arg("-C")
++            .arg(root)
++            .env("GIT_INDEX_FILE", &index)
++            .args(args)
++            .output()
++            .ok()
++            .filter(|o| o.status.success())
++            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
++    };
++    run(&["read-tree", &r.merge_base])?;
++    let mut since = Since::default();
++    let set = |p: &str, blob: &str| {
++        run(&["update-index", "--add", "--cacheinfo", &format!("100644,{blob},{p}")])
++    };
++    for f in &r.files {
++        let Some(p) = f.path.to_str() else { continue };
++        if f.status == 'D' || f.untracked {
++            continue;
++        }
++        let now = git(&["hash-object", "-w", "--", p]).ok()?;
++        match ticks.get(&f.path) {
++            Some((blob, _)) if *blob == now => {
++                set(p, &now)?;
++            }
++            Some((blob, mb)) if *mb == r.merge_base => {
++                set(p, blob)?;
++                since.delta.push(f.path.clone());
++            }
++            Some((blob, mb)) => {
++                let tmp = std::env::temp_dir().join(format!("merl-p823-m{}", std::process::id()));
++                let _ = std::fs::create_dir_all(&tmp);
++                let show = |spec: String, name: &str| {
++                    let out = Command::new("git").arg("-C").arg(root).args(["cat-file", "-p", &spec]).output().ok()?;
++                    let path = tmp.join(name);
++                    std::fs::write(&path, out.stdout).ok()?;
++                    Some(path)
++                };
++                let ours = show(blob.clone(), "ours")?;
++                let old = show(format!("{mb}:{p}"), "old")?;
++                let new = show(format!("{}:{p}", r.merge_base), "new")?;
++                let merged = Command::new("git")
++                    .args(["merge-file", "-p"])
++                    .arg(&ours)
++                    .arg(&old)
++                    .arg(&new)
++                    .output()
++                    .ok()?;
++                if merged.status.success() {
++                    std::fs::write(tmp.join("merged"), &merged.stdout).ok()?;
++                    let b = git(&["hash-object", "-w", tmp.join("merged").to_str()?]).ok()?;
++                    set(p, &b)?;
++                    since.delta.push(f.path.clone());
++                } else {
++                    since.whole.push(f.path.clone());
++                }
++            }
++            None if mode == "B" => {
++                set(p, &now)?;
++                since.left_out += 1;
++            }
++            None => since.whole.push(f.path.clone()),
++        }
++    }
++    since.against = run(&["write-tree"])?;
++    let _ = std::fs::remove_file(&index);
++    since.short = "viewed".into();
++    Some(since)
+ }
+ 
+ impl Review {
+@@ -223,7 +365,18 @@ impl Review {
+             Some(b) => checkout(&git, b, &base)?,
+             None => None,
+         };
+-        let r = Self::list(root, base)?;
++        let mut r = Self::list(root, base.clone(), None)?;
++        if let Some(since) = p823_since(root, &base, &r) {
++            let left_out = since.left_out;
++            let s = Self::list(root, base, Some(since))?;
++            if !s.files.is_empty() {
++                r = s;
++            }
++            if left_out > 0 {
++                let n = left_out;
++                return Ok(Self { note: Some(format!("{n} not viewed, left out")), ..r });
++            }
++        }
+         if r.files.is_empty() {
+             bail!("{} has no changes against {}", r.branch, r.base);
+         }
+@@ -240,18 +393,21 @@ impl Review {
+     }
+ 
+     pub fn refresh(&self, root: &Path) -> Result<Self> {
+-        Self::list(root, self.base.clone())
++        Self::list(root, self.base.clone(), self.since.clone())
+     }
+ 
+-    fn list(root: &Path, base: String) -> Result<Self> {
++    fn list(root: &Path, base: String, since: Option<Since>) -> Result<Self> {
+         let git = |args: &[&str]| git(root, args);
+         let head = git(&["symbolic-ref", "-q", "HEAD"]).or_else(|_| rebasing(&git, root));
+         let branch = (head.as_deref().ok())
+             .and_then(|h| h.strip_prefix("refs/heads/"))
+             .unwrap_or("HEAD")
+             .to_string();
+-        let merge_base = git(&["merge-base", &base, "HEAD"])
+-            .with_context(|| format!("no merge base between {base} and HEAD"))?;
++        let merge_base = match &since {
++            Some(s) => s.against.clone(),
++            None => git(&["merge-base", &base, "HEAD"])
++                .with_context(|| format!("no merge base between {base} and HEAD"))?,
++        };
+         let raw = ["diff", "--raw", "--no-abbrev", "-z", &merge_base];
+         let mut files = parse_name_status(&git(&raw)?);
+         let numstat = [
+@@ -317,6 +473,7 @@ impl Review {
+             deleted,
+             added,
+             note: None,
++            since,
+         })
+     }
+ 
+diff --git a/src/main.rs b/src/main.rs
+index b134e063..9e5c5b6c 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -114,6 +114,8 @@ struct Cli {
+     base: Option<String>,
+     #[arg(long, hide = true)]
+     for_agents: bool,
++    #[arg(long, requires = "review")]
++    since: bool,
+ }
+ 
+ fn main() {
+@@ -162,6 +164,9 @@ fn run() -> Result<()> {
+         resolve(cli.target.as_deref())?
+     };
+     let diagrams = mermaid::Diagrams::detect();
++    if cli.since {
++        unsafe { std::env::set_var("MERL_P823_SINCE", "1") };
++    }
+     let review = match &cli.review {
+         Some(branch) => {
+             root = git_toplevel(&root).context("--review needs a git repository")?;
