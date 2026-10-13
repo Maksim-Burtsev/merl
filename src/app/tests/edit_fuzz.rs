@@ -1041,6 +1041,22 @@ const JAVA: &[&str] = &[
     "\n\n",
 ];
 
+const KOTLIN: &[&str] = &[
+    "\"${x}\"",
+    "\"\"\"\n",
+    "/** ",
+    " */",
+    "@JvmStatic\n",
+    "when (x) {\n",
+    "<T : A>",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
 const CSHARP: &[&str] = &[
     "$\"{x,-10}\"",
     "@\"",
@@ -1144,6 +1160,11 @@ fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
         "F.java",
         include_bytes!("../../../tests/colors/java/Ledger.java"),
         JAVA,
+    );
+    fuzz_tree_sitter(
+        "F.kt",
+        include_bytes!("../../../tests/colors/kotlin/Ledger.kt"),
+        KOTLIN,
     );
     fuzz_tree_sitter(
         "F.cs",

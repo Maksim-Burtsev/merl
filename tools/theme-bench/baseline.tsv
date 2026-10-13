@@ -11,6 +11,7 @@ adwaita	java	15213	7338
 adwaita	javascript	13199	9626
 adwaita	json	7070	4381
 adwaita	jsx	14130	9164
+adwaita	kotlin	18781	13546
 adwaita	lua	4590	3786
 adwaita	markdown	18398	13485
 adwaita	python	19185	9995
@@ -33,6 +34,7 @@ adwaita-light	java	15213	7342
 adwaita-light	javascript	13199	9650
 adwaita-light	json	7070	4381
 adwaita-light	jsx	14130	9172
+adwaita-light	kotlin	18781	13551
 adwaita-light	lua	4590	3794
 adwaita-light	markdown	18398	13485
 adwaita-light	python	19185	10121
@@ -55,6 +57,7 @@ alabaster	java	15213	12997
 alabaster	javascript	13199	9133
 alabaster	json	7070	2897
 alabaster	jsx	14130	10426
+alabaster	kotlin	18781	17727
 alabaster	lua	4590	3711
 alabaster	markdown	18398	13494
 alabaster	python	19185	12297
@@ -77,6 +80,7 @@ alabaster-light	java	15213	13072
 alabaster-light	javascript	13199	9130
 alabaster-light	json	7070	2897
 alabaster-light	jsx	14130	10426
+alabaster-light	kotlin	18781	17727
 alabaster-light	lua	4590	3659
 alabaster-light	markdown	18398	13494
 alabaster-light	python	19185	12286
@@ -99,6 +103,7 @@ alucard	java	15213	7416
 alucard	javascript	13199	9395
 alucard	json	7070	4375
 alucard	jsx	14130	8202
+alucard	kotlin	18781	13521
 alucard	lua	4590	3731
 alucard	markdown	18398	13464
 alucard	python	19185	9182
@@ -121,6 +126,7 @@ ayu	java	15213	5589
 ayu	javascript	13199	8980
 ayu	json	7070	3747
 ayu	jsx	14130	7775
+ayu	kotlin	18781	6922
 ayu	lua	4590	3671
 ayu	markdown	18398	13191
 ayu	python	19185	6866
@@ -143,6 +149,7 @@ ayu-light	java	15213	5589
 ayu-light	javascript	13199	8980
 ayu-light	json	7070	3747
 ayu-light	jsx	14130	7775
+ayu-light	kotlin	18781	6922
 ayu-light	lua	4590	3671
 ayu-light	markdown	18398	13191
 ayu-light	python	19185	6866
@@ -165,6 +172,7 @@ ayu-mirage	java	15213	5589
 ayu-mirage	javascript	13199	8980
 ayu-mirage	json	7070	3747
 ayu-mirage	jsx	14130	7775
+ayu-mirage	kotlin	18781	6922
 ayu-mirage	lua	4590	3671
 ayu-mirage	markdown	18398	13191
 ayu-mirage	python	19185	6866
@@ -187,6 +195,7 @@ bamboo	java	15213	7226
 bamboo	javascript	13199	8474
 bamboo	json	7070	3747
 bamboo	jsx	14130	7361
+bamboo	kotlin	18781	12371
 bamboo	lua	4590	3549
 bamboo	markdown	18398	12337
 bamboo	python	19185	9267
@@ -209,6 +218,7 @@ bamboo-light	java	15213	7226
 bamboo-light	javascript	13199	8474
 bamboo-light	json	7070	3747
 bamboo-light	jsx	14130	7361
+bamboo-light	kotlin	18781	12371
 bamboo-light	lua	4590	3549
 bamboo-light	markdown	18398	12337
 bamboo-light	python	19185	9267
@@ -231,6 +241,7 @@ bluloco-light	java	15213	7410
 bluloco-light	javascript	13199	8736
 bluloco-light	json	7070	3747
 bluloco-light	jsx	14130	6785
+bluloco-light	kotlin	18781	12926
 bluloco-light	lua	4590	3781
 bluloco-light	markdown	18398	12634
 bluloco-light	python	19185	9231
@@ -253,6 +264,7 @@ catppuccin-frappe	java	15213	7064
 catppuccin-frappe	javascript	13199	8671
 catppuccin-frappe	json	7070	3747
 catppuccin-frappe	jsx	14130	7189
+catppuccin-frappe	kotlin	18781	12591
 catppuccin-frappe	lua	4590	3665
 catppuccin-frappe	markdown	18398	12345
 catppuccin-frappe	python	19185	9032
@@ -275,6 +287,7 @@ catppuccin-latte	java	15213	7064
 catppuccin-latte	javascript	13199	8671
 catppuccin-latte	json	7070	3747
 catppuccin-latte	jsx	14130	7189
+catppuccin-latte	kotlin	18781	12591
 catppuccin-latte	lua	4590	3665
 catppuccin-latte	markdown	18398	12345
 catppuccin-latte	python	19185	9032
@@ -297,6 +310,7 @@ catppuccin-macchiato	java	15213	7064
 catppuccin-macchiato	javascript	13199	8671
 catppuccin-macchiato	json	7070	3747
 catppuccin-macchiato	jsx	14130	7189
+catppuccin-macchiato	kotlin	18781	12591
 catppuccin-macchiato	lua	4590	3665
 catppuccin-macchiato	markdown	18398	12345
 catppuccin-macchiato	python	19185	9032
@@ -319,6 +333,7 @@ catppuccin-mocha	java	15213	7064
 catppuccin-mocha	javascript	13199	8671
 catppuccin-mocha	json	7070	3747
 catppuccin-mocha	jsx	14130	7189
+catppuccin-mocha	kotlin	18781	12591
 catppuccin-mocha	lua	4590	3665
 catppuccin-mocha	markdown	18398	12345
 catppuccin-mocha	python	19185	9032
@@ -341,6 +356,7 @@ cendre	java	15213	7284
 cendre	javascript	13199	8503
 cendre	json	7070	3747
 cendre	jsx	14130	7519
+cendre	kotlin	18781	12540
 cendre	lua	4590	3721
 cendre	markdown	18398	12493
 cendre	python	19185	9742
@@ -363,6 +379,7 @@ darkearth	java	15213	6630
 darkearth	javascript	13199	9469
 darkearth	json	7070	3466
 darkearth	jsx	14130	8086
+darkearth	kotlin	18781	13497
 darkearth	lua	4590	3612
 darkearth	markdown	18398	13310
 darkearth	python	19185	9091
@@ -385,6 +402,7 @@ dawnfox	java	15213	4996
 dawnfox	javascript	13199	8194
 dawnfox	json	7070	2897
 dawnfox	jsx	14130	6123
+dawnfox	kotlin	18781	12157
 dawnfox	lua	4590	2895
 dawnfox	markdown	18398	13155
 dawnfox	python	19185	7257
@@ -407,6 +425,7 @@ dayfox	java	15213	3279
 dayfox	javascript	13199	8194
 dayfox	json	7070	2897
 dayfox	jsx	14130	6123
+dayfox	kotlin	18781	6403
 dayfox	lua	4590	2895
 dayfox	markdown	18398	13082
 dayfox	python	19185	5132
@@ -429,6 +448,7 @@ dracula	java	15213	7416
 dracula	javascript	13199	9395
 dracula	json	7070	4375
 dracula	jsx	14130	8202
+dracula	kotlin	18781	13521
 dracula	lua	4590	3731
 dracula	markdown	18398	13464
 dracula	python	19185	9182
@@ -451,6 +471,7 @@ e-ink	java	15213	7356
 e-ink	javascript	13199	9779
 e-ink	json	7070	3466
 e-ink	jsx	14130	8737
+e-ink	kotlin	18781	7456
 e-ink	lua	4590	3674
 e-ink	markdown	18398	13279
 e-ink	python	19185	7774
@@ -473,6 +494,7 @@ e-ink-light	java	15213	7356
 e-ink-light	javascript	13199	9779
 e-ink-light	json	7070	3466
 e-ink-light	jsx	14130	8737
+e-ink-light	kotlin	18781	7456
 e-ink-light	lua	4590	3674
 e-ink-light	markdown	18398	13279
 e-ink-light	python	19185	7774
@@ -495,6 +517,7 @@ edge	java	15213	3967
 edge	javascript	13199	8369
 edge	json	7070	2897
 edge	jsx	14130	7044
+edge	kotlin	18781	6774
 edge	lua	4590	3370
 edge	markdown	18398	12313
 edge	python	19185	6475
@@ -517,6 +540,7 @@ edge-light	java	15213	3967
 edge-light	javascript	13199	8369
 edge-light	json	7070	2897
 edge-light	jsx	14130	7044
+edge-light	kotlin	18781	6774
 edge-light	lua	4590	3370
 edge-light	markdown	18398	12313
 edge-light	python	19185	6475
@@ -539,6 +563,7 @@ everforest-dark	java	15213	6420
 everforest-dark	javascript	13199	8874
 everforest-dark	json	7070	394
 everforest-dark	jsx	14130	6931
+everforest-dark	kotlin	18781	13135
 everforest-dark	lua	4590	3650
 everforest-dark	markdown	18398	13037
 everforest-dark	python	19185	9250
@@ -561,6 +586,7 @@ everforest-light	java	15213	6420
 everforest-light	javascript	13199	8874
 everforest-light	json	7070	394
 everforest-light	jsx	14130	6931
+everforest-light	kotlin	18781	13135
 everforest-light	lua	4590	3650
 everforest-light	markdown	18398	13037
 everforest-light	python	19185	9250
@@ -583,6 +609,7 @@ flexoki-dark	java	15213	5593
 flexoki-dark	javascript	13199	9059
 flexoki-dark	json	7070	3753
 flexoki-dark	jsx	14130	7909
+flexoki-dark	kotlin	18781	7225
 flexoki-dark	lua	4590	3713
 flexoki-dark	markdown	18398	13722
 flexoki-dark	python	19185	6930
@@ -605,6 +632,7 @@ flexoki-light	java	15213	5593
 flexoki-light	javascript	13199	9059
 flexoki-light	json	7070	3753
 flexoki-light	jsx	14130	7909
+flexoki-light	kotlin	18781	7225
 flexoki-light	lua	4590	3713
 flexoki-light	markdown	18398	13722
 flexoki-light	python	19185	6930
@@ -627,6 +655,7 @@ github-dark	java	15213	7349
 github-dark	javascript	13199	9266
 github-dark	json	7070	3753
 github-dark	jsx	14130	7366
+github-dark	kotlin	18781	13372
 github-dark	lua	4590	3759
 github-dark	markdown	18398	17208
 github-dark	python	19185	10467
@@ -649,6 +678,7 @@ github-light	java	15213	7349
 github-light	javascript	13199	9266
 github-light	json	7070	3753
 github-light	jsx	14130	7366
+github-light	kotlin	18781	13372
 github-light	lua	4590	3759
 github-light	markdown	18398	17208
 github-light	python	19185	10467
@@ -671,6 +701,7 @@ gotham	java	15213	5589
 gotham	javascript	13199	9077
 gotham	json	7070	3747
 gotham	jsx	14130	7965
+gotham	kotlin	18781	7157
 gotham	lua	4590	3685
 gotham	markdown	18398	13192
 gotham	python	19185	7204
@@ -693,6 +724,7 @@ gruvbox-dark	java	15213	6730
 gruvbox-dark	javascript	13199	8451
 gruvbox-dark	json	7070	3753
 gruvbox-dark	jsx	14130	6599
+gruvbox-dark	kotlin	18781	12140
 gruvbox-dark	lua	4590	3583
 gruvbox-dark	markdown	18398	13415
 gruvbox-dark	python	19185	9508
@@ -715,6 +747,7 @@ gruvbox-light	java	15213	6730
 gruvbox-light	javascript	13199	8451
 gruvbox-light	json	7070	3753
 gruvbox-light	jsx	14130	6599
+gruvbox-light	kotlin	18781	12140
 gruvbox-light	lua	4590	3583
 gruvbox-light	markdown	18398	13415
 gruvbox-light	python	19185	9508
@@ -737,6 +770,7 @@ gruvbox-material-dark	java	15213	6420
 gruvbox-material-dark	javascript	13199	8874
 gruvbox-material-dark	json	7070	3184
 gruvbox-material-dark	jsx	14130	6931
+gruvbox-material-dark	kotlin	18781	13135
 gruvbox-material-dark	lua	4590	3650
 gruvbox-material-dark	markdown	18398	12889
 gruvbox-material-dark	python	19185	9250
@@ -759,6 +793,7 @@ gruvbox-material-light	java	15213	6420
 gruvbox-material-light	javascript	13199	8874
 gruvbox-material-light	json	7070	3184
 gruvbox-material-light	jsx	14130	6931
+gruvbox-material-light	kotlin	18781	13135
 gruvbox-material-light	lua	4590	3650
 gruvbox-material-light	markdown	18398	12889
 gruvbox-material-light	python	19185	9250
@@ -781,6 +816,7 @@ hojicha	java	15213	6439
 hojicha	javascript	13199	8722
 hojicha	json	7070	3472
 hojicha	jsx	14130	7357
+hojicha	kotlin	18781	12590
 hojicha	lua	4590	3383
 hojicha	markdown	18398	13262
 hojicha	python	19185	8604
@@ -803,6 +839,7 @@ iceberg	java	15213	7460
 iceberg	javascript	13199	9668
 iceberg	json	7070	4375
 iceberg	jsx	14130	9228
+iceberg	kotlin	18781	13787
 iceberg	lua	4590	3806
 iceberg	markdown	18398	13486
 iceberg	python	19185	10177
@@ -825,6 +862,7 @@ iceberg-light	java	15213	7460
 iceberg-light	javascript	13199	9668
 iceberg-light	json	7070	4381
 iceberg-light	jsx	14130	9228
+iceberg-light	kotlin	18781	13787
 iceberg-light	lua	4590	3806
 iceberg-light	markdown	18398	13486
 iceberg-light	python	19185	10177
@@ -847,6 +885,7 @@ jellybeans	java	15213	4971
 jellybeans	javascript	13199	8115
 jellybeans	json	7070	2897
 jellybeans	jsx	14130	7590
+jellybeans	kotlin	18781	11897
 jellybeans	lua	4590	2893
 jellybeans	markdown	18398	12295
 jellybeans	python	19185	12527
@@ -869,6 +908,7 @@ jellybeans-light	java	15213	4971
 jellybeans-light	javascript	13199	8115
 jellybeans-light	json	7070	2897
 jellybeans-light	jsx	14130	7590
+jellybeans-light	kotlin	18781	11897
 jellybeans-light	lua	4590	2893
 jellybeans-light	markdown	18398	12295
 jellybeans-light	python	19185	12527
@@ -891,6 +931,7 @@ kanagawa-dragon	java	15213	6616
 kanagawa-dragon	javascript	13199	8500
 kanagawa-dragon	json	7070	3747
 kanagawa-dragon	jsx	14130	7419
+kanagawa-dragon	kotlin	18781	11939
 kanagawa-dragon	lua	4590	3651
 kanagawa-dragon	markdown	18398	13268
 kanagawa-dragon	python	19185	8355
@@ -913,6 +954,7 @@ kanagawa-lotus	java	15213	6616
 kanagawa-lotus	javascript	13199	8500
 kanagawa-lotus	json	7070	3747
 kanagawa-lotus	jsx	14130	6657
+kanagawa-lotus	kotlin	18781	11939
 kanagawa-lotus	lua	4590	3651
 kanagawa-lotus	markdown	18398	13268
 kanagawa-lotus	python	19185	8355
@@ -935,6 +977,7 @@ kanagawa-wave	java	15213	6616
 kanagawa-wave	javascript	13199	8500
 kanagawa-wave	json	7070	3747
 kanagawa-wave	jsx	14130	6657
+kanagawa-wave	kotlin	18781	11939
 kanagawa-wave	lua	4590	3651
 kanagawa-wave	markdown	18398	13268
 kanagawa-wave	python	19185	8355
@@ -957,6 +1000,7 @@ koda-dark	java	15213	6707
 koda-dark	javascript	13199	9480
 koda-dark	json	7070	3466
 koda-dark	jsx	14130	9108
+koda-dark	kotlin	18781	14154
 koda-dark	lua	4590	3632
 koda-dark	markdown	18398	13384
 koda-dark	python	19185	15375
@@ -979,6 +1023,7 @@ koda-light	java	15213	6626
 koda-light	javascript	13199	9400
 koda-light	json	7070	3466
 koda-light	jsx	14130	8110
+koda-light	kotlin	18781	13921
 koda-light	lua	4590	3618
 koda-light	markdown	18398	13384
 koda-light	python	19185	15303
@@ -1001,6 +1046,7 @@ lackluster	java	15213	7187
 lackluster	javascript	13199	8597
 lackluster	json	7070	4375
 lackluster	jsx	14130	6887
+lackluster	kotlin	18781	12716
 lackluster	lua	4590	3681
 lackluster	markdown	18398	13018
 lackluster	python	19185	9417
@@ -1023,6 +1069,7 @@ lightearth	java	15213	6630
 lightearth	javascript	13199	9469
 lightearth	json	7070	3466
 lightearth	jsx	14130	8086
+lightearth	kotlin	18781	13497
 lightearth	lua	4590	3612
 lightearth	markdown	18398	13310
 lightearth	python	19185	9091
@@ -1045,6 +1092,7 @@ material-dark	java	15213	5087
 material-dark	javascript	13199	8622
 material-dark	json	7070	2897
 material-dark	jsx	14130	8301
+material-dark	kotlin	18781	12616
 material-dark	lua	4590	3172
 material-dark	markdown	18398	13144
 material-dark	python	19185	13286
@@ -1067,6 +1115,7 @@ material-light	java	15213	5105
 material-light	javascript	13199	8663
 material-light	json	7070	2897
 material-light	jsx	14130	8301
+material-light	kotlin	18781	12616
 material-light	lua	4590	3172
 material-light	markdown	18398	13144
 material-light	python	19185	13286
@@ -1089,6 +1138,7 @@ melange-dark	java	15213	6089
 melange-dark	javascript	13199	8635
 melange-dark	json	7070	3184
 melange-dark	jsx	14130	8052
+melange-dark	kotlin	18781	12611
 melange-dark	lua	4590	3585
 melange-dark	markdown	18398	12962
 melange-dark	python	19185	10253
@@ -1111,6 +1161,7 @@ melange-light	java	15213	6089
 melange-light	javascript	13199	8635
 melange-light	json	7070	3184
 melange-light	jsx	14130	8052
+melange-light	kotlin	18781	12611
 melange-light	lua	4590	3585
 melange-light	markdown	18398	12962
 melange-light	python	19185	10253
@@ -1133,6 +1184,7 @@ mellifluous	java	15213	6243
 mellifluous	javascript	13199	6837
 mellifluous	json	7070	3747
 mellifluous	jsx	14130	7640
+mellifluous	kotlin	18781	11946
 mellifluous	lua	4590	3247
 mellifluous	markdown	18398	12763
 mellifluous	python	19185	9140
@@ -1155,6 +1207,7 @@ mellifluous-light	java	15213	6243
 mellifluous-light	javascript	13199	6837
 mellifluous-light	json	7070	3747
 mellifluous-light	jsx	14130	7640
+mellifluous-light	kotlin	18781	11946
 mellifluous-light	lua	4590	3247
 mellifluous-light	markdown	18398	12763
 mellifluous-light	python	19185	9140
@@ -1177,6 +1230,7 @@ mellow	java	15213	7292
 mellow	javascript	13199	8541
 mellow	json	7070	3747
 mellow	jsx	14130	6711
+mellow	kotlin	18781	12447
 mellow	lua	4590	3514
 mellow	markdown	18398	13391
 mellow	python	19185	9023
@@ -1199,6 +1253,7 @@ miasma	java	15213	7400
 miasma	javascript	13199	9821
 miasma	json	7070	4381
 miasma	jsx	14130	8636
+miasma	kotlin	18781	13958
 miasma	lua	4590	3832
 miasma	markdown	18398	13500
 miasma	python	19185	9651
@@ -1221,6 +1276,7 @@ minischeme	java	15213	7316
 minischeme	javascript	13199	8872
 minischeme	json	7070	3753
 minischeme	jsx	14130	7617
+minischeme	kotlin	18781	12945
 minischeme	lua	4590	3722
 minischeme	markdown	18398	12589
 minischeme	python	19185	9523
@@ -1243,6 +1299,7 @@ minischeme-light	java	15213	7316
 minischeme-light	javascript	13199	8872
 minischeme-light	json	7070	3753
 minischeme-light	jsx	14130	7617
+minischeme-light	kotlin	18781	12945
 minischeme-light	lua	4590	3722
 minischeme-light	markdown	18398	12589
 minischeme-light	python	19185	9523
@@ -1265,6 +1322,7 @@ moonfly	java	15213	6730
 moonfly	javascript	13199	9241
 moonfly	json	7070	963
 moonfly	jsx	14130	6596
+moonfly	kotlin	18781	12537
 moonfly	lua	4590	3655
 moonfly	markdown	18398	12323
 moonfly	python	19185	8651
@@ -1287,6 +1345,7 @@ neomodern-light	java	15213	6439
 neomodern-light	javascript	13199	8722
 neomodern-light	json	7070	3472
 neomodern-light	jsx	14130	7357
+neomodern-light	kotlin	18781	12590
 neomodern-light	lua	4590	3383
 neomodern-light	markdown	18398	13262
 neomodern-light	python	19185	8604
@@ -1309,6 +1368,7 @@ nightfly	java	15213	6730
 nightfly	javascript	13199	9241
 nightfly	json	7070	963
 nightfly	jsx	14130	6596
+nightfly	kotlin	18781	12537
 nightfly	lua	4590	3655
 nightfly	markdown	18398	12323
 nightfly	python	19185	8651
@@ -1331,6 +1391,7 @@ nightfox	java	15213	3279
 nightfox	javascript	13199	8194
 nightfox	json	7070	2897
 nightfox	jsx	14130	6123
+nightfox	kotlin	18781	6403
 nightfox	lua	4590	2895
 nightfox	markdown	18398	13082
 nightfox	python	19185	5132
@@ -1353,6 +1414,7 @@ nord	java	15213	7001
 nord	javascript	13199	8998
 nord	json	7070	3466
 nord	jsx	14130	8515
+nord	kotlin	18781	13225
 nord	lua	4590	3736
 nord	markdown	18398	12461
 nord	python	19185	10494
@@ -1375,6 +1437,7 @@ nordfox	java	15213	3279
 nordfox	javascript	13199	8194
 nordfox	json	7070	2897
 nordfox	jsx	14130	6123
+nordfox	kotlin	18781	6403
 nordfox	lua	4590	2895
 nordfox	markdown	18398	13082
 nordfox	python	19185	5132
@@ -1397,6 +1460,7 @@ onedark	java	15213	7226
 onedark	javascript	13199	8475
 onedark	json	7070	3753
 onedark	jsx	14130	7197
+onedark	kotlin	18781	12389
 onedark	lua	4590	3549
 onedark	markdown	18398	12674
 onedark	python	19185	9123
@@ -1419,6 +1483,7 @@ onedark-light	java	15213	7226
 onedark-light	javascript	13199	8475
 onedark-light	json	7070	3753
 onedark-light	jsx	14130	7197
+onedark-light	kotlin	18781	12389
 onedark-light	lua	4590	3549
 onedark-light	markdown	18398	12674
 onedark-light	python	19185	9123
@@ -1441,6 +1506,7 @@ oxocarbon-dark	java	15213	5756
 oxocarbon-dark	javascript	13199	8522
 oxocarbon-dark	json	7070	2897
 oxocarbon-dark	jsx	14130	7540
+oxocarbon-dark	kotlin	18781	13256
 oxocarbon-dark	lua	4590	3119
 oxocarbon-dark	markdown	18398	12465
 oxocarbon-dark	python	19185	8845
@@ -1463,6 +1529,7 @@ oxocarbon-light	java	15213	5756
 oxocarbon-light	javascript	13199	8522
 oxocarbon-light	json	7070	2897
 oxocarbon-light	jsx	14130	7540
+oxocarbon-light	kotlin	18781	13256
 oxocarbon-light	lua	4590	3119
 oxocarbon-light	markdown	18398	12465
 oxocarbon-light	python	19185	8845
@@ -1485,6 +1552,7 @@ papercolor	java	15213	7318
 papercolor	javascript	13199	8739
 papercolor	json	7070	3747
 papercolor	jsx	14130	7269
+papercolor	kotlin	18781	12890
 papercolor	lua	4590	3983
 papercolor	markdown	18398	15372
 papercolor	python	19185	10175
@@ -1507,6 +1575,7 @@ papercolor-light	java	15213	7289
 papercolor-light	javascript	13199	8660
 papercolor-light	json	7070	3747
 papercolor-light	jsx	14130	6907
+papercolor-light	kotlin	18781	12661
 papercolor-light	lua	4590	3969
 papercolor-light	markdown	18398	15372
 papercolor-light	python	19185	10108
@@ -1529,6 +1598,7 @@ pencil	java	15213	5599
 pencil	javascript	13199	8984
 pencil	json	7070	3747
 pencil	jsx	14130	8755
+pencil	kotlin	18781	6926
 pencil	lua	4590	3748
 pencil	markdown	18398	13718
 pencil	python	19185	6901
@@ -1551,6 +1621,7 @@ pencil-light	java	15213	5599
 pencil-light	javascript	13199	8984
 pencil-light	json	7070	3747
 pencil-light	jsx	14130	8755
+pencil-light	kotlin	18781	6926
 pencil-light	lua	4590	3748
 pencil-light	markdown	18398	13718
 pencil-light	python	19185	6901
@@ -1573,6 +1644,7 @@ rose-pine	java	15213	7318
 rose-pine	javascript	13199	8933
 rose-pine	json	7070	3747
 rose-pine	jsx	14130	6949
+rose-pine	kotlin	18781	12996
 rose-pine	lua	4590	3939
 rose-pine	markdown	18398	12872
 rose-pine	python	19185	10276
@@ -1595,6 +1667,7 @@ rose-pine-dawn	java	15213	7318
 rose-pine-dawn	javascript	13199	8933
 rose-pine-dawn	json	7070	3747
 rose-pine-dawn	jsx	14130	6949
+rose-pine-dawn	kotlin	18781	12996
 rose-pine-dawn	lua	4590	3939
 rose-pine-dawn	markdown	18398	12872
 rose-pine-dawn	python	19185	10276
@@ -1617,6 +1690,7 @@ rose-pine-moon	java	15213	7318
 rose-pine-moon	javascript	13199	8933
 rose-pine-moon	json	7070	3747
 rose-pine-moon	jsx	14130	6949
+rose-pine-moon	kotlin	18781	12996
 rose-pine-moon	lua	4590	3939
 rose-pine-moon	markdown	18398	12872
 rose-pine-moon	python	19185	10276
@@ -1639,6 +1713,7 @@ selenized	java	15213	7629
 selenized	javascript	13199	9267
 selenized	json	7070	3747
 selenized	jsx	14130	8554
+selenized	kotlin	18781	6392
 selenized	lua	4590	3959
 selenized	markdown	18398	13741
 selenized	python	19185	12218
@@ -1661,6 +1736,7 @@ selenized-light	java	15213	7629
 selenized-light	javascript	13199	9267
 selenized-light	json	7070	3747
 selenized-light	jsx	14130	8554
+selenized-light	kotlin	18781	6392
 selenized-light	lua	4590	3959
 selenized-light	markdown	18398	13741
 selenized-light	python	19185	12218
@@ -1683,6 +1759,7 @@ solarized-dark	java	15213	8055
 solarized-dark	javascript	13199	9911
 solarized-dark	json	7070	3747
 solarized-dark	jsx	14130	8832
+solarized-dark	kotlin	18781	7742
 solarized-dark	lua	4590	3782
 solarized-dark	markdown	18398	15085
 solarized-dark	python	19185	7949
@@ -1705,6 +1782,7 @@ solarized-light	java	15213	7559
 solarized-light	javascript	13199	9911
 solarized-light	json	7070	3747
 solarized-light	jsx	14130	9004
+solarized-light	kotlin	18781	7208
 solarized-light	lua	4590	3782
 solarized-light	markdown	18398	15076
 solarized-light	python	19185	7409
@@ -1727,6 +1805,7 @@ sonokai	java	15213	5729
 sonokai	javascript	13199	8393
 sonokai	json	7070	2897
 sonokai	jsx	14130	7052
+sonokai	kotlin	18781	12677
 sonokai	lua	4590	3374
 sonokai	markdown	18398	12492
 sonokai	python	19185	8726
@@ -1749,6 +1828,7 @@ soviet-dark	java	15213	5080
 soviet-dark	javascript	13199	8392
 soviet-dark	json	7070	2897
 soviet-dark	jsx	14130	5940
+soviet-dark	kotlin	18781	12199
 soviet-dark	lua	4590	3276
 soviet-dark	markdown	18398	12674
 soviet-dark	python	19185	7540
@@ -1771,6 +1851,7 @@ soviet-light	java	15213	5080
 soviet-light	javascript	13199	8392
 soviet-light	json	7070	2897
 soviet-light	jsx	14130	5940
+soviet-light	kotlin	18781	12199
 soviet-light	lua	4590	3276
 soviet-light	markdown	18398	12674
 soviet-light	python	19185	7540
@@ -1793,6 +1874,7 @@ srcery	java	15213	6563
 srcery	javascript	13199	8870
 srcery	json	7070	3747
 srcery	jsx	14130	6767
+srcery	kotlin	18781	12028
 srcery	lua	4590	3753
 srcery	markdown	18398	12810
 srcery	python	19185	8891
@@ -1815,6 +1897,7 @@ token	java	15213	6807
 token	javascript	13199	8878
 token	json	7070	3747
 token	jsx	14130	7617
+token	kotlin	18781	12051
 token	lua	4590	3780
 token	markdown	18398	12533
 token	python	19185	9364
@@ -1837,6 +1920,7 @@ token-light	java	15213	6807
 token-light	javascript	13199	8878
 token-light	json	7070	3747
 token-light	jsx	14130	7617
+token-light	kotlin	18781	12051
 token-light	lua	4590	3780
 token-light	markdown	18398	12533
 token-light	python	19185	9364
@@ -1859,6 +1943,7 @@ tokyonight-day	java	15213	5057
 tokyonight-day	javascript	13199	8214
 tokyonight-day	json	7070	2897
 tokyonight-day	jsx	14130	5895
+tokyonight-day	kotlin	18781	12087
 tokyonight-day	lua	4590	2727
 tokyonight-day	markdown	18398	12377
 tokyonight-day	python	19185	7146
@@ -1881,6 +1966,7 @@ tokyonight-moon	java	15213	6139
 tokyonight-moon	javascript	13199	10688
 tokyonight-moon	json	7070	3466
 tokyonight-moon	jsx	14130	8115
+tokyonight-moon	kotlin	18781	11787
 tokyonight-moon	lua	4590	3764
 tokyonight-moon	markdown	18398	668
 tokyonight-moon	python	19185	9103
@@ -1903,6 +1989,7 @@ tokyonight-night	java	15213	5057
 tokyonight-night	javascript	13199	8214
 tokyonight-night	json	7070	2897
 tokyonight-night	jsx	14130	5895
+tokyonight-night	kotlin	18781	12087
 tokyonight-night	lua	4590	2727
 tokyonight-night	markdown	18398	12377
 tokyonight-night	python	19185	7146
@@ -1925,6 +2012,7 @@ tokyonight-storm	java	15213	5057
 tokyonight-storm	javascript	13199	8214
 tokyonight-storm	json	7070	2897
 tokyonight-storm	jsx	14130	5895
+tokyonight-storm	kotlin	18781	12087
 tokyonight-storm	lua	4590	2727
 tokyonight-storm	markdown	18398	12377
 tokyonight-storm	python	19185	7146
@@ -1947,6 +2035,7 @@ vague	java	15213	7292
 vague	javascript	13199	9419
 vague	json	7070	3753
 vague	jsx	14130	7450
+vague	kotlin	18781	13204
 vague	lua	4590	3737
 vague	markdown	18398	13218
 vague	python	19185	9163
@@ -1969,6 +2058,7 @@ vesper	java	15213	4721
 vesper	javascript	13199	8898
 vesper	json	7070	3466
 vesper	jsx	14130	8624
+vesper	kotlin	18781	6656
 vesper	lua	4590	3616
 vesper	markdown	18398	13677
 vesper	python	19185	7287
@@ -1991,6 +2081,7 @@ vscode-dark	java	15213	5112
 vscode-dark	javascript	13199	9703
 vscode-dark	json	7070	3753
 vscode-dark	jsx	14130	8497
+vscode-dark	kotlin	18781	7428
 vscode-dark	lua	4590	3512
 vscode-dark	markdown	18398	15096
 vscode-dark	python	19185	6401
@@ -2013,6 +2104,7 @@ vscode-light	java	15213	5112
 vscode-light	javascript	13199	9703
 vscode-light	json	7070	3753
 vscode-light	jsx	14130	8497
+vscode-light	kotlin	18781	7428
 vscode-light	lua	4590	3512
 vscode-light	markdown	18398	15084
 vscode-light	python	19185	6401
