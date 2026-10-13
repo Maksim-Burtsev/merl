@@ -752,6 +752,10 @@ const GENERATED_ENDS: &[&str] = &[".min.js", ".min.css", ".js.map", ".css.map"];
 
 const GENERATED_DIRS: &[&str] = &["node_modules", "Godeps"];
 
+#[expect(
+    clippy::case_sensitive_file_extension_comparisons,
+    reason = "extensions match as written, as kind_of does; ignoring case would change which files merl recognises (#873)"
+)]
 fn generated(root: &Path, f: &ReviewFile) -> bool {
     use std::io::{BufRead, BufReader};
     let name = f.path.file_name().and_then(|n| n.to_str()).unwrap_or("");

@@ -966,6 +966,10 @@ struct TsConfig {
     path_targets: Vec<PathBuf>,
     base_url: Option<PathBuf>,
 }
+#[expect(
+    clippy::case_sensitive_file_extension_comparisons,
+    reason = "extensions match as written, as kind_of does; ignoring case would change which files merl recognises (#873)"
+)]
 fn ts_config(root: &Path, dir: &Path, spec: &str) -> TsConfig {
     static COMMENT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#""(?:[^"\\]|\\.)*"|//[^\n]*|/\*(?s:.*?)\*/"#).unwrap()

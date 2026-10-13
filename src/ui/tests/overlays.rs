@@ -1,3 +1,7 @@
+#![expect(
+    clippy::case_sensitive_file_extension_comparisons,
+    reason = "the rows and fixture names are text these tests wrote in lower case"
+)]
 #![expect(clippy::string_slice, reason = "#858")]
 use std::path::PathBuf;
 use std::sync::Arc;
