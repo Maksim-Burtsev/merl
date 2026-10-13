@@ -182,7 +182,7 @@ fn merge(into: &mut Vec<Injected>, from: Vec<Injected>) {
 
 pub fn injections(
     lang: &'static Lang,
-    tree: &Tree,
+    root: Node,
     parent: Option<&[Range]>,
     doc: &Doc,
 ) -> Vec<Injected> {
@@ -195,7 +195,7 @@ pub fn injections(
     let mut out: Vec<Injected> = Vec::new();
     let mut combined: Vec<(usize, usize, usize)> = Vec::new();
     let syntect = lang.name.starts_with("markdown");
-    let mut matches = cursor.matches(&inj.query, tree.root_node(), doc.bytes);
+    let mut matches = cursor.matches(&inj.query, root, doc.bytes);
     while let Some(m) = matches.next() {
         if !inj.matches(m, doc.bytes) {
             continue;
@@ -291,7 +291,10 @@ pub fn layer(lang: &'static Lang, trees: &[Tree], parent: bool, ctx: &mut Ctx, d
     for tree in trees {
         let ranges = tree.included_ranges();
         let clip_to = parent.then_some(&ranges[..]);
-        merge(&mut children, injections(lang, tree, clip_to, doc));
+        merge(
+            &mut children,
+            injections(lang, tree.root_node(), clip_to, doc),
+        );
     }
     for inj in &children {
         let regions = inj.regions.iter().filter(|r| doc.touches(r));

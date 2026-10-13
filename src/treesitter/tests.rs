@@ -984,3 +984,16 @@ fn an_edit_inside_a_name_repaints_a_capture_its_predicate_moves_on_an_earlier_li
         assert_eq!(b.hl, fresh.hl, "{value}");
     }
 }
+
+#[test]
+fn a_keystroke_in_a_wide_element_queries_the_child_it_falls_in() {
+    let lang = super::lang("html").unwrap();
+    let mut parser = tree_sitter::Parser::new();
+    parser.set_language(&lang.language).unwrap();
+    let text = format!("<body>\n{}</body>\n", "<b>x</b>\n".repeat(300));
+    let tree = parser.parse(&text, None).unwrap();
+    let at = text.len() / 2;
+    let root = super::below_wide(&tree, &(at..at + 1));
+    assert!(root.parent().unwrap().child_count() > 300);
+    assert!(root.byte_range().len() < 20);
+}

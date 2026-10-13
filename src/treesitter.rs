@@ -656,9 +656,10 @@ fn found(
     clip: usize,
 ) -> Found {
     let mut cursor = QueryCursor::new();
+    let root = below_wide(tree, &range);
     cursor.set_byte_range(range);
     let mut out = Found::new();
-    let mut matches = cursor.matches(&patterns.query, tree.root_node(), bytes);
+    let mut matches = cursor.matches(&patterns.query, root, bytes);
     while let Some(m) = matches.next() {
         if !patterns.matches(m, bytes) {
             continue;
@@ -682,6 +683,22 @@ fn found(
         }
     }
     out
+}
+
+const WIDE: u32 = 256;
+
+fn below_wide<'t>(tree: &'t Tree, range: &std::ops::Range<usize>) -> tree_sitter::Node<'t> {
+    let root = tree.root_node();
+    let mut node = root
+        .descendant_for_byte_range(range.start, range.end)
+        .unwrap_or(root);
+    while let Some(parent) = node.parent() {
+        if parent.child_count() > WIDE {
+            break;
+        }
+        node = parent;
+    }
+    node
 }
 
 fn first_row(old: Found, new: &Found) -> usize {
@@ -1032,7 +1049,10 @@ impl Parsed {
         };
         let near = self.starts[from]..self.starts.get(from + 1).copied().unwrap_or(bytes.len());
         let doc = layers::Doc::new(bytes, &self.starts, near.start, near.end);
-        let from = layers::region_start(&layers::injections(self.lang, &tree, None, &doc), from);
+        let from = layers::region_start(
+            &layers::injections(self.lang, below_wide(&tree, &near), None, &doc),
+            from,
+        );
         (self.tree, self.repaint_from, self.halted) = (Some(tree), None, false);
         Some(from)
     }
