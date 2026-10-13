@@ -993,6 +993,21 @@ const DIFF: &[&str] = &[
     "\n\n",
 ];
 
+const QUERY: &[&str] = &[
+    "(identifier) @variable",
+    "((a) @b (#eq? @b \"c\"))",
+    "[\"if\" \"else\"] @keyword",
+    "; ",
+    "\"",
+    "(",
+    ")",
+    "[",
+    "]",
+    "@",
+    "#",
+    "\n\n",
+];
+
 const CPP: &[&str] = &[
     "template <typename T>\n",
     "R\"x(",
@@ -1155,6 +1170,11 @@ fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
         include_bytes!("../../../tests/colors/diff/change.diff"),
         DIFF,
     );
+    fuzz_tree_sitter(
+        "queries/f.scm",
+        include_bytes!("../../../tests/colors/query/queries/highlights.scm"),
+        QUERY,
+    );
 }
 
 fn fuzz_tree_sitter(name: &str, start: &[u8], snippets: &[&str]) {
@@ -1164,8 +1184,8 @@ fn fuzz_tree_sitter(name: &str, start: &[u8], snippets: &[&str]) {
         .unwrap_or(40);
     let theme = crate::theme::load("tokyonight-moon").unwrap();
     let dir = std::env::temp_dir().join(format!("merl-ts-fuzz-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join(name);
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     for seed in 1..=sessions {
         let mut rng = Xorshift64::new(seed);
         std::fs::write(&path, start).unwrap();

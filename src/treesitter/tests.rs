@@ -290,6 +290,11 @@ fn diff_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn query_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("query");
+}
+
+#[test]
 fn a_capture_keeps_its_background_only_when_reversed() {
     let added = |name: &str| {
         let theme = theme::load(name).unwrap();
@@ -390,6 +395,15 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     let header = "From 6e8e2a6f9efd71dbe6917816343ed8415ad696c3 Mon Sep 17 00:00:00 2001\n";
     assert!(sexp("a.diff", format!("{header}{hunk}").as_bytes()).contains("(addition)"));
     assert_eq!(sexp("a.patch", format!("{header}{hunk}").as_bytes()), "");
+    let capture = b"(identifier) @variable\n";
+    for f in [
+        "/a/queries/rust/highlights.scm",
+        "queries/x.scm",
+        "/a/queries/b/c/d.scm",
+    ] {
+        assert!(sexp(f, capture).contains("(named_node "), "{f}");
+    }
+    assert_eq!(sexp("/a/scheme/x.scm", capture), "");
     let dep3 = format!("Description: fix\n{hunk}");
     assert_eq!(sexp("/src/debian/patches/fix.patch", dep3.as_bytes()), "");
     assert!(sexp("/src/fix.patch", dep3.as_bytes()).contains("(addition)"));

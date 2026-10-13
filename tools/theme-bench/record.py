@@ -28,8 +28,8 @@ repeats (`b4ac10`: four in b, one in a, ten in c). A line is recorded when it is
 most MAXLEN columns, so both programs draw all of it. colors/THEME/chrome.tsv holds the
 highlight groups the chrome comes from, as Neovim draws them.
 
-The files: FILES per language from the projects of tools/d-bench/projects.tsv (cloned into
-$D_BENCH_CACHE or ~/.cache/merl-d-bench, as the other benches do), taken in the order of the hash
+The files: FILES per language from the projects of tools/d-bench/projects.tsv and THEME_ONLY
+(cloned into $D_BENCH_CACHE or ~/.cache/merl-d-bench, as the other benches do), taken in the order of the hash
 of their path, each with at least MINLINES recordable lines among its first LINES, or the
 language's own minimum where its projects hold no file that long (Lua).
 
@@ -68,12 +68,16 @@ LANGS = {
     "css": (["gitea", "paperless-ngx", "caddy", "redis"], ["css"]),
     "xml": (["koel", "paperless-ngx", "nowinandroid"], ["xml", "svg", "xsd", "xslt"]),
     "diff": (["rules_go", "openzeppelin-contracts", "outline", "halo"], ["diff", "patch"]),
+    "query": (["nvim-treesitter"], ["scm"]),
 }
 NOT_HTML = re.compile(
     r"@(if|for|defer|switch)|\*(ngIf|ngFor|ngSwitch|ngTemplateOutlet)|\bng-(template|content)|\bDTD[ \t]+XHTML[ \t]"
     r"|(?i:\{%[ \t]*(autoescape|block|comment|csrf_token|cycle|debug|extends|filter|firstof|for|if|ifchanged|include"
     r"|load|lorem|now|query_string|regroup|resetcycle|spaceless|templatetag|url|verbatim|widthratio|with)\b)"
     r"|\{#[ \t]+|<extend|<super>")
+THEME_ONLY = {
+    "nvim-treesitter": ["nvim-treesitter", "query", "https://github.com/nvim-treesitter/nvim-treesitter.git", NVIM_TS, "-"],
+}
 SKIP_DIRS = ("migrations/", "vendor/", "testdata/", "node_modules/", "CHANGELOG")
 FILES, LINES, MINLINES, MAXLEN, WIDTH = 4, 200, 80, 140, 200
 LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -111,7 +115,7 @@ def repo(cache, source):
 
 
 def projects():
-    return {r[0]: r for r in tsv(os.path.join(ROOT, "tools/d-bench/projects.tsv"))}
+    return {**{r[0]: r for r in tsv(os.path.join(ROOT, "tools/d-bench/projects.tsv"))}, **THEME_ONLY}
 
 
 def project(name):
@@ -142,6 +146,8 @@ def pick(lang):
         if lang == "html" and any(map(NOT_HTML.search, file_lines(path)[:40])):
             continue
         if lang == "xml" and any(re.search("<!DOCTYPE.*DocBook", l) or "docbook.org/ns/docbook" in l.lower() for l in file_lines(path)[:100]):
+            continue
+        if lang == "query" and "/queries/" not in f"/{rel}":
             continue
         if lang == "diff" and re.match(r"From [0-9a-fA-F]{40,} Mon Sep 17 00:00:00 2001$", file_lines(path)[0]):
             continue
@@ -372,7 +378,7 @@ def record_fixtures(cache, ts, name, langs):
     for lang in langs:
         d = os.path.join(ROOT, "tests", "colors", lang)
         files = []
-        for f in sorted(os.listdir(d)):
+        for f in sorted(os.path.relpath(os.path.join(w, n), d) for w, _, ns in os.walk(d) for n in ns):
             if f.endswith(".tsv") or f == "NOTES.md":
                 continue
             path = os.path.join(d, f)

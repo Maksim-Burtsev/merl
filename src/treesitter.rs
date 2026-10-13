@@ -116,6 +116,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         "",
     ),
     (
+        "query",
+        include_str!("../queries/query/highlights.scm"),
+        include_str!("../queries/query/injections.scm"),
+    ),
+    (
         "toml",
         include_str!("../queries/toml/highlights.scm"),
         include_str!("../queries/toml/injections.scm"),
@@ -306,6 +311,7 @@ pub fn for_syntax(
         "C++" if cpp(path, lines) => lang("cpp"),
         "CSS" => lang("css"),
         "Diff" if diff(path, lines) => lang("diff"),
+        "Lisp" if path.is_some_and(query) => lang("query"),
         "HTML" if !html_variant(lines) => lang("html"),
         "XML" if xml(path, lines) => lang("xml"),
         "Go" => lang("go"),
@@ -364,6 +370,13 @@ fn xml(path: Option<&Path>, lines: &[String]) -> bool {
         })
 }
 
+fn query(path: &Path) -> bool {
+    path.extension().is_some_and(|e| e == "scm")
+        && path
+            .parent()
+            .is_some_and(|d| d.components().any(|c| c.as_os_str() == "queries"))
+}
+
 fn diff(path: Option<&Path>, lines: &[String]) -> bool {
     static SEND_EMAIL: OnceLock<regex::Regex> = OnceLock::new();
     let send_email = SEND_EMAIL.get_or_init(|| {
@@ -419,6 +432,7 @@ fn grammar(name: &str) -> Option<Language> {
         "c_sharp" => tree_sitter_c_sharp::LANGUAGE.into(),
         "css" => tree_sitter_css::LANGUAGE.into(),
         "diff" => tree_sitter_diff::LANGUAGE.into(),
+        "query" => tree_sitter_tsquery::LANGUAGE.into(),
         "html" => tree_sitter_html::LANGUAGE.into(),
         "xml" => tree_sitter_xml::LANGUAGE_XML.into(),
         "json" => tree_sitter_json::LANGUAGE.into(),

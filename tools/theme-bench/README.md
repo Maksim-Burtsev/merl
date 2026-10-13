@@ -160,6 +160,21 @@ others) draw it in LazyVim and not in merl (#845), which the bench, comparing fo
 |---|---|---|---|---|
 | Diff | 18,764 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 
+Query (#806), a `.scm` file under a `queries` directory as Neovim's `/queries/.*%.scm$` makes it
+`query` (any other `.scm` stays Scheme on syntect), and a Markdown block marked `query`; `regex` is
+injected into `#match?` and its kin, `#lua-match?` and `#gsub!` patterns are `luap` in Neovim and
+stay one string in merl (`tests/colors/query/NOTES.md`; none in the bench's files), `comment`
+stays plain. No d-bench project has query files, so the bench takes them from nvim-treesitter at
+`NVIM_TS` (`THEME_ONLY` in `record.py`):
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Query | 7,948 | 100.0 alabaster-light | 100.0 | 100.0 minischeme-light |
+
+Vim (#806) stays on syntect: the commit nvim-treesitter pins (039c8d0) has no `Cargo.toml`, so
+it cannot be a git dependency, and crates.io's only release, 0.4.0, has another `parser.c` and
+binds `tree_sitter::Language` through the pre-0.24 `extern "C"` API instead of `tree-sitter-language`. No d-bench project has a `.vim` file either.
+
 ## Files
 
 | file | what |
@@ -184,7 +199,7 @@ cache, so neither `~/.config/nvim` nor a system-wide `site` directory reaches it
 The files: four per language from the projects of `tools/d-bench/projects.tsv` at their pinned
 commits (Python from paperless-ngx, Rust from ripgrep, TypeScript and TSX from outline,
 JavaScript from eslint, JSX from mastodon, Go from caddy, Lua and C from redis, C++ from leveldb, Java from halo, C# from eShop, HTML from bootstrap, caddy, eslint, outline and redis, CSS from gitea,
-paperless-ngx, caddy and redis, XML from koel, paperless-ngx and nowinandroid, Diff from rules_go, openzeppelin-contracts, outline and halo, Markdown from ripgrep, caddy,
+paperless-ngx, caddy and redis, XML from koel, paperless-ngx and nowinandroid, Diff from rules_go, openzeppelin-contracts, outline and halo, Query from nvim-treesitter, Markdown from ripgrep, caddy,
 outline and paperless-ngx, Bash, JSON, YAML and TOML from redis, paperless-ngx, ripgrep, caddy and eslint
 as `LANGS` in `record.py` lists them), taken in the order of the hash of their path, each with at least 80
 lines among its first 200 that are ASCII and at most 140 columns: those are the lines recorded,
