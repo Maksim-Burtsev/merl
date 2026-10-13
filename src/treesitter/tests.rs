@@ -379,9 +379,32 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
         assert_eq!(sexp("a.html", text.as_bytes()), "", "{text}");
     }
     assert!(sexp("a.css", b"a { color: red; }\n").contains("(rule_set "));
-    for f in ["a.xml", "a.svg", "a.xsd", "a.xslt"] {
+    for f in ["a.xml", "a.svg", "a.xsd", "a.xslt", "a.rss"] {
         assert!(sexp(f, b"<a>b</a>\n").contains("(element "), "{f}");
     }
+    for f in ["a.xhtml", "a.rng", "a.xaml", "a.tld", "a.opml"] {
+        assert_eq!(sexp(f, b"<a>b</a>\n"), "", "{f}");
+    }
+    assert!(sexp("a.dtml", b"<p>a</p>\n").contains("(start_tag "));
+    let prolog = "<?xml version=\"1.0\"?>\n<a>b</a>\n";
+    for f in [
+        "a.csproj",
+        "a.xsl",
+        "a.lpr",
+        "a.grc",
+        "a.smil",
+        "Directory.Build.props",
+        "a.csproj.user",
+        "/etc/xdg/menus/a.menu",
+    ] {
+        assert!(sexp(f, prolog.as_bytes()).contains("(element "), "{f}");
+    }
+    for f in ["a.conf", "a.user", "a.menu", "a", "a.rng"] {
+        assert_eq!(sexp(f, prolog.as_bytes()), "", "{f}");
+    }
+    assert_eq!(sexp("a.lpr", b"<!DOCTYPE a>\n<a>b</a>\n"), "");
+    let docbook = "<book xmlns=\"http://docbook.org/ns/docbook\"/>\n";
+    assert!(sexp("a.svg", docbook.as_bytes()).contains("(element "));
     for text in [
         "<!DOCTYPE book PUBLIC \"-//OASIS//DTD DocBook XML V4.5//EN\">\n<book/>\n",
         "<book xmlns=\"http://docbook.org/ns/docbook\"/>\n",
