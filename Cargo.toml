@@ -47,6 +47,7 @@ tree-sitter-javascript = "=0.25.0"
 tree-sitter-kotlin = { version = "=0.4.0", git = "https://github.com/fwcd/tree-sitter-kotlin", rev = "1852ea17b7f60fb3f9d84e0b1555d56b46b39fb1" }
 tree-sitter-jsdoc = "=0.25.0"
 tree-sitter-md = "=0.5.3"
+tree-sitter-php = "=0.25.1"
 tree-sitter-printf = "=0.5.1"
 tree-sitter-python = "=0.25.0"
 tree-sitter-tsquery = { version = "=0.8.0", git = "https://github.com/tree-sitter-grammars/tree-sitter-query", rev = "8e9e223812ff30854fbc912adbec696ba5f0e023" }

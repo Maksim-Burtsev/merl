@@ -285,6 +285,11 @@ fn ruby_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn php_and_the_html_around_it_are_coloured_as_lazyvim() {
+    coloured_as_lazyvim("php");
+}
+
+#[test]
 fn html_and_the_css_and_javascript_in_it_are_coloured_as_lazyvim() {
     coloured_as_lazyvim("html");
 }
@@ -399,6 +404,10 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     for f in ["Dangerfile", "Podfile", "a.thor"] {
         assert_eq!(sexp(f, b"x = 1\n"), "", "{f}");
     }
+    for f in ["a.php", "a.phtml", "a.php5"] {
+        assert!(sexp(f, b"<?php echo 1;\n").contains("(program "), "{f}");
+    }
+    assert_eq!(sexp("a.blade.php", b"<?php echo 1;\n"), "");
     for f in ["a.html", "a.htm"] {
         assert!(sexp(f, b"<p>a</p>\n").contains("(element "), "{f}");
     }
@@ -669,6 +678,7 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
     assert_eq!(name("swift"), Some("swift"));
     assert_eq!(name("ruby"), Some("ruby"));
     assert_eq!(name("rb"), Some("ruby"));
+    assert_eq!(name("php"), Some("php"));
 }
 
 #[test]
