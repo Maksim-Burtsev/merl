@@ -42,11 +42,11 @@ fn plan_lays_out_at_40_columns_in_the_rows_its_tests_count() {
     assert_eq!(
         rows,
         [
-            "Plan",
+            "# Plan",
             &h1,
             "Intro line.",
             "",
-            "Steps",
+            "## Steps",
             &h2,
             "1. one",
             "2. two",
