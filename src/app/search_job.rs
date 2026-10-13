@@ -1,4 +1,3 @@
-#![expect(clippy::excessive_nesting, reason = "#858")]
 use super::{
     App, Arc, Duration, HashMap, Hit, Kind, Path, PathBuf, PickItem, Regex, RegexBuilder, git,
     search, symbols,
@@ -118,16 +117,7 @@ impl SearchJob {
             if let Some(k @ (Kind::Ocaml | Kind::Fsharp)) = *kind {
                 let mut texts: HashMap<PathBuf, String> = HashMap::new();
                 hits.retain(|h| {
-                    let text = texts.entry(h.path.clone()).or_insert_with(|| {
-                        match (&self.unsaved, &self.current) {
-                            (Some(t), Some(c)) if *c == h.path => {
-                                String::from_utf8_lossy(t).into_owned()
-                            }
-                            _ => {
-                                std::fs::read_to_string(self.root.join(&h.path)).unwrap_or_default()
-                            }
-                        }
-                    });
+                    let text = texts.entry(h.path.clone()).or_insert_with(|| read(&h.path));
                     let lines: Vec<&str> = text.lines().collect();
                     search::ml_symbol_kept(k, &h.path, &lines, h.line1)
                 });

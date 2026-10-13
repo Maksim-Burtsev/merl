@@ -1,6 +1,6 @@
-#![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
+use std::ops::ControlFlow;
+
 use super::{App, Focus, Instant, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, Mode, tutor};
 
 impl App {
@@ -52,6 +52,26 @@ impl App {
         if key.kind != KeyEventKind::Press {
             return false;
         }
+        let key = match self.plain_key(key) {
+            ControlFlow::Continue(key) => key,
+            ControlFlow::Break(quit) => return quit,
+        };
+        if self.modal_key(key) {
+            return false;
+        }
+        self.message.clear();
+        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+        let alt = key.modifiers.contains(KeyModifiers::ALT);
+        if self.mode == Mode::Edit && self.edit_key(key.code, ctrl, alt) {
+            self.keys_action_of_key_in_hand = named("Edit: ", key)
+                .or_else(|| named("", key).filter(|a| matches!(*a, "Esc" | "Ctrl+C")));
+            self.hist_note(false);
+            return false;
+        }
+        self.normal_key(key)
+    }
+
+    fn plain_key(&mut self, key: KeyEvent) -> ControlFlow<bool, KeyEvent> {
         let mut key = key;
         if key.modifiers == KeyModifiers::ALT {
             match key.code {
@@ -62,14 +82,14 @@ impl App {
         }
         if key.modifiers.contains(KeyModifiers::ALT) && matches!(key.code, KeyCode::Char(_)) {
             if matches!(self.mode, Mode::Edit | Mode::Note) {
-                return false;
+                return ControlFlow::Break(false);
             }
             key.modifiers.remove(KeyModifiers::ALT);
             let overlay = self.picker.is_some() || self.mode != Mode::Normal;
             let session = self.session.take();
             self.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
             self.session = session;
-            return !overlay && self.key(key);
+            return ControlFlow::Break(!overlay && self.key(key));
         }
         if let KeyCode::Char(c) = key.code
             && key.modifiers.contains(KeyModifiers::CONTROL)
@@ -78,7 +98,7 @@ impl App {
                 || self.letters_are_keys() && !self.binds(key))
         {
             self.message.clear();
-            return false;
+            return ControlFlow::Break(false);
         }
         if matches!(key.code, KeyCode::Char(_)) {
             key.modifiers.remove(KeyModifiers::SHIFT);
@@ -86,10 +106,11 @@ impl App {
         if key.modifiers == KeyModifiers::SUPER && matches!(key.code, KeyCode::Char('c' | 'x')) {
             key.modifiers = KeyModifiers::CONTROL;
         }
-        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-        let shift = key.modifiers.contains(KeyModifiers::SHIFT);
-        let alt = key.modifiers.contains(KeyModifiers::ALT);
+        ControlFlow::Continue(key)
+    }
 
+    fn modal_key(&mut self, key: KeyEvent) -> bool {
+        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         if ctrl && key.code == KeyCode::Char('c') && !matches!(self.mode, Mode::Edit | Mode::Note) {
             self.keys_action_of_key_in_hand = named("", key);
             let shown = !self.preview_blank() && !self.text_hidden();
@@ -99,56 +120,43 @@ impl App {
             } else if self.mode == Mode::Normal && self.picker.is_none() && shown {
                 self.copy();
             }
-            return false;
+            return true;
         }
         if self.picker.is_some() {
             self.keys_action_of_key_in_hand = named("Picker: ", key);
             self.picker_key(key);
-            return false;
+            return true;
         }
         if matches!(self.mode, Mode::Goto | Mode::Find | Mode::New | Mode::Note) {
             self.keys_action_of_key_in_hand = named("", key).filter(|a| *a == "Esc");
         }
         match self.mode {
-            Mode::Goto => {
-                self.goto_key(key);
-                return false;
+            Mode::Goto => self.goto_key(key),
+            Mode::Find => self.find_key(key),
+            Mode::New => self.new_key(key),
+            Mode::Note => self.note_key(key),
+            Mode::Help => self.help_key(key),
+            _ => return false,
+        }
+        true
+    }
+
+    fn help_key(&mut self, key: KeyEvent) {
+        self.keys_action_of_key_in_hand = named("Help: ", key)
+            .or_else(|| named("", key).filter(|a| matches!(*a, "Esc" | "?" | "q")));
+        match key.code {
+            KeyCode::Esc | KeyCode::Char('?' | 'q') => {
+                self.mode = Mode::Normal;
             }
-            Mode::Find => {
-                self.find_key(key);
-                return false;
-            }
-            Mode::New => {
-                self.new_key(key);
-                return false;
-            }
-            Mode::Note => {
-                self.note_key(key);
-                return false;
-            }
-            Mode::Help => {
-                self.keys_action_of_key_in_hand = named("Help: ", key)
-                    .or_else(|| named("", key).filter(|a| matches!(*a, "Esc" | "?" | "q")));
-                match key.code {
-                    KeyCode::Esc | KeyCode::Char('?' | 'q') => {
-                        self.mode = Mode::Normal;
-                    }
-                    KeyCode::Up => self.help_top = self.help_top.saturating_sub(1),
-                    KeyCode::Down => self.help_top += 1,
-                    _ => {}
-                }
-                return false;
-            }
+            KeyCode::Up => self.help_top = self.help_top.saturating_sub(1),
+            KeyCode::Down => self.help_top += 1,
             _ => {}
         }
+    }
 
-        self.message.clear();
-        if self.mode == Mode::Edit && self.edit_key(key.code, ctrl, alt) {
-            self.keys_action_of_key_in_hand = named("Edit: ", key)
-                .or_else(|| named("", key).filter(|a| matches!(*a, "Esc" | "Ctrl+C")));
-            self.hist_note(false);
-            return false;
-        }
+    fn settle_notes(&mut self, key: KeyEvent) {
+        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+        let shift = key.modifiers.contains(KeyModifiers::SHIFT);
         let keeps_focus = matches!(
             key.code,
             KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown | KeyCode::Enter
@@ -160,10 +168,13 @@ impl App {
         if !matches!(key.code, KeyCode::Char('v') | KeyCode::Enter) {
             self.notes.selected = false;
         }
-        let far = matches!(
-            key.code,
-            KeyCode::PageUp | KeyCode::PageDown | KeyCode::Home | KeyCode::End
-        );
+    }
+
+    fn normal_key(&mut self, key: KeyEvent) -> bool {
+        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+        let shift = key.modifiers.contains(KeyModifiers::SHIFT);
+        self.settle_notes(key);
+        let far = is_far(key.code);
         let extending = key.code == KeyCode::Char('v')
             || shift
                 && (far
@@ -184,6 +195,36 @@ impl App {
             .flatten()
             .or_else(|| fold.then(|| named("Fold: ", key)).flatten())
             .or_else(|| named("", key));
+        if self.command_key(key, fold, hidden) {
+            return true;
+        }
+        if !extending {
+            self.drop_selection_if_moved(before);
+        }
+        let moves = paging
+            || matches!(
+                key.code,
+                KeyCode::Up
+                    | KeyCode::Down
+                    | KeyCode::Left
+                    | KeyCode::Right
+                    | KeyCode::Home
+                    | KeyCode::End
+            );
+        if moves || (self.at(), self.col) != before {
+            self.undo_break = true;
+        }
+        if paging && let (Some(pos), Some(cur)) = (self.pos(), self.history.get_mut(self.hist_idx))
+        {
+            *cur = pos;
+        }
+        self.hist_note(false);
+        false
+    }
+
+    fn command_key(&mut self, key: KeyEvent, fold: bool, hidden: bool) -> bool {
+        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+        let shift = key.modifiers.contains(KeyModifiers::SHIFT);
         match key.code {
             _ if self.preview_key(key) => {}
             KeyCode::Char('q') => return true,
@@ -232,6 +273,14 @@ impl App {
             KeyCode::Char('d') | KeyCode::F(12) if !shift => self.goto_definition(),
             KeyCode::Char('u') | KeyCode::F(12) => self.usages(),
             KeyCode::Char('D') => self.symbols(),
+            _ => self.view_key(key),
+        }
+        false
+    }
+
+    fn view_key(&mut self, key: KeyEvent) {
+        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+        match key.code {
             KeyCode::Char('t') => {
                 self.show_tree = !self.show_tree;
                 if !self.show_tree {
@@ -261,6 +310,15 @@ impl App {
             _ if self.focus == Focus::Tree => self.tree_key(key.code),
             KeyCode::Enter if self.notes.focus.is_some() => self.start_note(),
             KeyCode::Enter => self.start_edit(),
+            _ => self.cursor_key(key),
+        }
+    }
+
+    fn cursor_key(&mut self, key: KeyEvent) {
+        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+        let shift = key.modifiers.contains(KeyModifiers::SHIFT);
+        let alt = key.modifiers.contains(KeyModifiers::ALT);
+        match key.code {
             KeyCode::Up if shift => self.extend(|s| s.move_rows(-1)),
             KeyCode::Down if shift => self.extend(|s| s.move_rows(1)),
             KeyCode::Up => self.move_rows(-1),
@@ -287,57 +345,36 @@ impl App {
             KeyCode::Right if alt => self.word_right(),
             KeyCode::Left => self.left(),
             KeyCode::Right => self.right(),
-            _ if far => {
-                if shift && self.anchor.is_none() {
-                    self.anchor = Some((self.at(), self.col));
-                }
-                match key.code {
-                    KeyCode::PageUp => {
-                        self.move_rows(
-                            -isize::try_from(self.page_rows(false)).unwrap_or(isize::MAX),
-                        );
-                    }
-                    KeyCode::PageDown => {
-                        self.move_rows(isize::try_from(self.page_rows(true)).unwrap_or(isize::MAX));
-                    }
-                    KeyCode::Home if ctrl => {
-                        self.set_at(self.first_line());
-                        self.col = 0;
-                        self.want_x = 0;
-                    }
-                    KeyCode::End if ctrl => {
-                        self.set_at(self.last_line());
-                        self.col = self.shown_len();
-                        self.sync_want_x();
-                    }
-                    KeyCode::Home => self.line_start(),
-                    _ => self.line_end(),
-                }
-            }
+            code if is_far(code) => self.far_key(key),
             _ => {}
         }
-        if !extending {
-            self.drop_selection_if_moved(before);
+    }
+
+    fn far_key(&mut self, key: KeyEvent) {
+        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+        if key.modifiers.contains(KeyModifiers::SHIFT) && self.anchor.is_none() {
+            self.anchor = Some((self.at(), self.col));
         }
-        let moves = paging
-            || matches!(
-                key.code,
-                KeyCode::Up
-                    | KeyCode::Down
-                    | KeyCode::Left
-                    | KeyCode::Right
-                    | KeyCode::Home
-                    | KeyCode::End
-            );
-        if moves || (self.at(), self.col) != before {
-            self.undo_break = true;
+        match key.code {
+            KeyCode::PageUp => {
+                self.move_rows(-isize::try_from(self.page_rows(false)).unwrap_or(isize::MAX));
+            }
+            KeyCode::PageDown => {
+                self.move_rows(isize::try_from(self.page_rows(true)).unwrap_or(isize::MAX));
+            }
+            KeyCode::Home if ctrl => {
+                self.set_at(self.first_line());
+                self.col = 0;
+                self.want_x = 0;
+            }
+            KeyCode::End if ctrl => {
+                self.set_at(self.last_line());
+                self.col = self.shown_len();
+                self.sync_want_x();
+            }
+            KeyCode::Home => self.line_start(),
+            _ => self.line_end(),
         }
-        if paging && let (Some(pos), Some(cur)) = (self.pos(), self.history.get_mut(self.hist_idx))
-        {
-            *cur = pos;
-        }
-        self.hist_note(false);
-        false
     }
 
     fn letters_are_keys(&self) -> bool {
@@ -373,6 +410,13 @@ impl App {
             }
         }
     }
+}
+
+fn is_far(code: KeyCode) -> bool {
+    matches!(
+        code,
+        KeyCode::PageUp | KeyCode::PageDown | KeyCode::Home | KeyCode::End
+    )
 }
 
 fn leaves_the_text(key: KeyEvent) -> bool {

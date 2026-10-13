@@ -965,8 +965,8 @@ fn detect_base(git: &dyn Fn(&[&str]) -> Result<String>) -> Result<String> {
     bail!("no base branch found: pass --base")
 }
 
-#[cfg(test)]
 #[expect(clippy::too_many_lines, reason = "test tables")]
+#[cfg(test)]
 mod tests {
     use super::*;
 

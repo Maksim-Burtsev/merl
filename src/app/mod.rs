@@ -441,7 +441,10 @@ fn lock_no_write(buf: &mut Buffer) {
 }
 
 impl App {
-    #[expect(clippy::too_many_lines, reason = "#858")]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "the literal holds every field of App"
+    )]
     pub fn new(
         root: PathBuf,
         tree: Tree,
