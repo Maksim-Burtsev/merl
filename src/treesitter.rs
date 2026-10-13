@@ -1048,6 +1048,16 @@ impl Parsed {
             self.halted = true;
             return None;
         };
+        let tree = match tree.root_node().end_byte() < bytes.len() {
+            true => {
+                self.parser.reset();
+                let input = &mut |i: usize, _| &bytes[i.min(bytes.len())..];
+                self.parser
+                    .parse_with_options(input, None, None)
+                    .unwrap_or(tree)
+            }
+            false => tree,
+        };
         let from = match &self.tree {
             Some(old) => old
                 .changed_ranges(&tree)
