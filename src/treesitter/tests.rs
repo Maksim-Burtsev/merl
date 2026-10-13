@@ -274,6 +274,11 @@ fn c_sharp_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn sql_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("sql");
+}
+
+#[test]
 fn cmake_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("cmake");
 }
@@ -421,6 +426,10 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
         assert!(sexp(f, b"set(A 1)\n").contains("(normal_command "), "{f}");
     }
     assert_eq!(sexp("CMakeCache.txt", b"A:BOOL=ON\n"), "");
+    assert!(sexp("a.sql", b"SELECT 1;\n").contains("(program "));
+    for f in ["a.psql", "a.pgsql", "a.mysql", "a.ddl"] {
+        assert_eq!(sexp(f, b"SELECT 1;\n"), "", "{f}");
+    }
     for f in ["A.kt", "build.gradle.kts"] {
         assert!(sexp(f, b"class A\n").contains("(source_file "), "{f}");
     }
@@ -732,6 +741,7 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
     assert_eq!(name("kt"), Some("kotlin"));
     assert_eq!(name("dockerfile"), Some("dockerfile"));
     assert_eq!(name("cmake"), Some("cmake"));
+    assert_eq!(name("sql"), Some("sql"));
     assert_eq!(name("swift"), Some("swift"));
     assert_eq!(name("ruby"), Some("ruby"));
     assert_eq!(name("rb"), Some("ruby"));

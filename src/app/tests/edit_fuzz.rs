@@ -1085,6 +1085,23 @@ const CMAKE: &[&str] = &[
     "\n\n",
 ];
 
+const SQL: &[&str] = &[
+    "SELECT ",
+    " FROM t",
+    " WHERE x = 1",
+    "'a''b'",
+    "$$",
+    "/* ",
+    " */",
+    "-- ",
+    "CASE WHEN x THEN 1 END",
+    "(",
+    ")",
+    "'",
+    ";",
+    "\n\n",
+];
+
 const ELIXIR: &[&str] = &[
     "\"#{x}\"",
     "\"\"\"\n",
@@ -1239,6 +1256,11 @@ const TREE_SITTER_SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "f.xml",
         include_bytes!("../../../tests/colors/xml/project.xml"),
         MARKUP,
+    ),
+    (
+        "f.sql",
+        include_bytes!("../../../tests/colors/sql/ledger.sql"),
+        SQL,
     ),
     (
         "CMakeLists.txt",

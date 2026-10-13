@@ -84,6 +84,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/cmake/injections.scm"),
     ),
     (
+        "sql",
+        include_str!("../queries/sql/highlights.scm"),
+        include_str!("../queries/sql/injections.scm"),
+    ),
+    (
         "dockerfile",
         include_str!("../queries/dockerfile/highlights.scm"),
         include_str!("../queries/dockerfile/injections.scm"),
@@ -368,6 +373,7 @@ pub fn for_syntax(
         "PHP" if path.is_none_or(php) => lang("php"),
         "Ruby" if path.is_none_or(ruby) => lang("ruby"),
         "Rust" => lang("rust"),
+        "SQL" if path.is_none_or(sql) => lang("sql"),
         "Swift" => lang("swift"),
         "Markdown" => lang("markdown"),
         "TypeScript" => lang("typescript"),
@@ -408,6 +414,15 @@ fn euphoria(path: Option<&Path>, lines: &[String]) -> bool {
 fn cmake(path: &Path) -> bool {
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
     name == "CMakeLists.txt" || path.extension().is_some_and(|e| e == "cmake")
+}
+
+fn sql(path: &Path) -> bool {
+    const EXTENSIONS: &[&str] = &["sql", "zsql", "tyc", "pkb", "tyb", "pks"];
+    path.file_name().is_some_and(|n| n == ".sqlite_history")
+        || path
+            .extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|e| EXTENSIONS.contains(&e))
 }
 
 fn php(path: &Path) -> bool {
@@ -591,6 +606,7 @@ fn grammar(name: &str) -> Option<Language> {
         "kotlin" => tree_sitter_kotlin::LANGUAGE.into(),
         "dockerfile" => tree_sitter_dockerfile_updated::language(),
         "cmake" => tree_sitter_cmake::LANGUAGE.into(),
+        "sql" => tree_sitter_sequel::LANGUAGE.into(),
         "swift" => tree_sitter_swift::LANGUAGE.into(),
         "ruby" => tree_sitter_ruby::LANGUAGE.into(),
         "elixir" => tree_sitter_elixir::LANGUAGE.into(),
