@@ -112,7 +112,8 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             };
             let words = partner
                 .get(&(l, i))
-                .map(|&n| intraline::changes(text, app.buf.shown(n)).0)
+                .and_then(|&n| app.buf.lines.get(n))
+                .map(|line| intraline::changes(text, shown_str(line)).0)
                 .unwrap_or_default();
             let finds = app
                 .find_re
