@@ -17,6 +17,7 @@ adwaita	markdown	18398	13485
 adwaita	python	19185	9995
 adwaita	query	7948	5727
 adwaita	rust	17576	12850
+adwaita	swift	22782	16831
 adwaita	toml	10487	7499
 adwaita	tsx	9700	7921
 adwaita	typescript	13701	12220
@@ -40,6 +41,7 @@ adwaita-light	markdown	18398	13485
 adwaita-light	python	19185	10121
 adwaita-light	query	7948	5727
 adwaita-light	rust	17576	12852
+adwaita-light	swift	22782	16657
 adwaita-light	toml	10487	7499
 adwaita-light	tsx	9700	7943
 adwaita-light	typescript	13701	12318
@@ -63,6 +65,7 @@ alabaster	markdown	18398	13494
 alabaster	python	19185	12297
 alabaster	query	7948	6660
 alabaster	rust	17576	14259
+alabaster	swift	22782	20762
 alabaster	toml	10487	6991
 alabaster	tsx	9700	8255
 alabaster	typescript	13701	11786
@@ -86,6 +89,7 @@ alabaster-light	markdown	18398	13494
 alabaster-light	python	19185	12286
 alabaster-light	query	7948	6658
 alabaster-light	rust	17576	13983
+alabaster-light	swift	22782	20774
 alabaster-light	toml	10487	6991
 alabaster-light	tsx	9700	8237
 alabaster-light	typescript	13701	11765
@@ -109,6 +113,7 @@ alucard	markdown	18398	13464
 alucard	python	19185	9182
 alucard	query	7948	5652
 alucard	rust	17576	12822
+alucard	swift	22782	12422
 alucard	toml	10487	7493
 alucard	tsx	9700	7388
 alucard	typescript	13701	11021
@@ -132,6 +137,7 @@ ayu	markdown	18398	13191
 ayu	python	19185	6866
 ayu	query	7948	5709
 ayu	rust	17576	11266
+ayu	swift	22782	8389
 ayu	toml	10487	8688
 ayu	tsx	9700	7285
 ayu	typescript	13701	11103
@@ -155,6 +161,7 @@ ayu-light	markdown	18398	13191
 ayu-light	python	19185	6866
 ayu-light	query	7948	5709
 ayu-light	rust	17576	11266
+ayu-light	swift	22782	8389
 ayu-light	toml	10487	8688
 ayu-light	tsx	9700	7285
 ayu-light	typescript	13701	11103
@@ -178,6 +185,7 @@ ayu-mirage	markdown	18398	13191
 ayu-mirage	python	19185	6866
 ayu-mirage	query	7948	5709
 ayu-mirage	rust	17576	11266
+ayu-mirage	swift	22782	8389
 ayu-mirage	toml	10487	8688
 ayu-mirage	tsx	9700	7285
 ayu-mirage	typescript	13701	11103
@@ -201,6 +209,7 @@ bamboo	markdown	18398	12337
 bamboo	python	19185	9267
 bamboo	query	7948	5555
 bamboo	rust	17576	12497
+bamboo	swift	22782	11287
 bamboo	toml	10487	8688
 bamboo	tsx	9700	7102
 bamboo	typescript	13701	10240
@@ -224,6 +233,7 @@ bamboo-light	markdown	18398	12337
 bamboo-light	python	19185	9267
 bamboo-light	query	7948	5555
 bamboo-light	rust	17576	12497
+bamboo-light	swift	22782	11287
 bamboo-light	toml	10487	8688
 bamboo-light	tsx	9700	7102
 bamboo-light	typescript	13701	10240
@@ -247,6 +257,7 @@ bluloco-light	markdown	18398	12634
 bluloco-light	python	19185	9231
 bluloco-light	query	7948	5555
 bluloco-light	rust	17576	12756
+bluloco-light	swift	22782	11942
 bluloco-light	toml	10487	8837
 bluloco-light	tsx	9700	7004
 bluloco-light	typescript	13701	10470
@@ -270,6 +281,7 @@ catppuccin-frappe	markdown	18398	12345
 catppuccin-frappe	python	19185	9032
 catppuccin-frappe	query	7948	5605
 catppuccin-frappe	rust	17576	12806
+catppuccin-frappe	swift	22782	11564
 catppuccin-frappe	toml	10487	8719
 catppuccin-frappe	tsx	9700	6893
 catppuccin-frappe	typescript	13701	10227
@@ -293,6 +305,7 @@ catppuccin-latte	markdown	18398	12345
 catppuccin-latte	python	19185	9032
 catppuccin-latte	query	7948	5605
 catppuccin-latte	rust	17576	12806
+catppuccin-latte	swift	22782	11564
 catppuccin-latte	toml	10487	8719
 catppuccin-latte	tsx	9700	6893
 catppuccin-latte	typescript	13701	10227
@@ -316,6 +329,7 @@ catppuccin-macchiato	markdown	18398	12345
 catppuccin-macchiato	python	19185	9032
 catppuccin-macchiato	query	7948	5605
 catppuccin-macchiato	rust	17576	12806
+catppuccin-macchiato	swift	22782	11564
 catppuccin-macchiato	toml	10487	8719
 catppuccin-macchiato	tsx	9700	6893
 catppuccin-macchiato	typescript	13701	10227
@@ -339,6 +353,7 @@ catppuccin-mocha	markdown	18398	12345
 catppuccin-mocha	python	19185	9032
 catppuccin-mocha	query	7948	5605
 catppuccin-mocha	rust	17576	12806
+catppuccin-mocha	swift	22782	11564
 catppuccin-mocha	toml	10487	8719
 catppuccin-mocha	tsx	9700	6893
 catppuccin-mocha	typescript	13701	10227
@@ -362,6 +377,7 @@ cendre	markdown	18398	12493
 cendre	python	19185	9742
 cendre	query	7948	5555
 cendre	rust	17576	12683
+cendre	swift	22782	11405
 cendre	toml	10487	9805
 cendre	tsx	9700	7102
 cendre	typescript	13701	10283
@@ -385,6 +401,7 @@ darkearth	markdown	18398	13310
 darkearth	python	19185	9091
 darkearth	query	7948	5191
 darkearth	rust	17576	11893
+darkearth	swift	22782	16114
 darkearth	toml	10487	9453
 darkearth	tsx	9700	7428
 darkearth	typescript	13701	12078
@@ -408,6 +425,7 @@ dawnfox	markdown	18398	13155
 dawnfox	python	19185	7257
 dawnfox	query	7948	5016
 dawnfox	rust	17576	10254
+dawnfox	swift	22782	10732
 dawnfox	toml	10487	8186
 dawnfox	tsx	9700	5712
 dawnfox	typescript	13701	8840
@@ -431,6 +449,7 @@ dayfox	markdown	18398	13082
 dayfox	python	19185	5132
 dayfox	query	7948	5016
 dayfox	rust	17576	8937
+dayfox	swift	22782	7794
 dayfox	toml	10487	8186
 dayfox	tsx	9700	5707
 dayfox	typescript	13701	8780
@@ -454,6 +473,7 @@ dracula	markdown	18398	13464
 dracula	python	19185	9182
 dracula	query	7948	5652
 dracula	rust	17576	12822
+dracula	swift	22782	12422
 dracula	toml	10487	7493
 dracula	tsx	9700	7388
 dracula	typescript	13701	11021
@@ -477,6 +497,7 @@ e-ink	markdown	18398	13279
 e-ink	python	19185	7774
 e-ink	query	7948	5161
 e-ink	rust	17576	10269
+e-ink	swift	22782	9062
 e-ink	toml	10487	8488
 e-ink	tsx	9700	7084
 e-ink	typescript	13701	11374
@@ -500,6 +521,7 @@ e-ink-light	markdown	18398	13279
 e-ink-light	python	19185	7774
 e-ink-light	query	7948	5161
 e-ink-light	rust	17576	10269
+e-ink-light	swift	22782	9062
 e-ink-light	toml	10487	8488
 e-ink-light	tsx	9700	7084
 e-ink-light	typescript	13701	11374
@@ -523,6 +545,7 @@ edge	markdown	18398	12313
 edge	python	19185	6475
 edge	query	7948	5022
 edge	rust	17576	9095
+edge	swift	22782	8208
 edge	toml	10487	8186
 edge	tsx	9700	6430
 edge	typescript	13701	9590
@@ -546,6 +569,7 @@ edge-light	markdown	18398	12313
 edge-light	python	19185	6475
 edge-light	query	7948	5022
 edge-light	rust	17576	9095
+edge-light	swift	22782	8208
 edge-light	toml	10487	8186
 edge-light	tsx	9700	6430
 edge-light	typescript	13701	9590
@@ -569,6 +593,7 @@ everforest-dark	markdown	18398	13037
 everforest-dark	python	19185	9250
 everforest-dark	query	7948	5613
 everforest-dark	rust	17576	11886
+everforest-dark	swift	22782	13705
 everforest-dark	toml	10487	2309
 everforest-dark	tsx	9700	6454
 everforest-dark	typescript	13701	10186
@@ -592,6 +617,7 @@ everforest-light	markdown	18398	13037
 everforest-light	python	19185	9250
 everforest-light	query	7948	5613
 everforest-light	rust	17576	11886
+everforest-light	swift	22782	13705
 everforest-light	toml	10487	2309
 everforest-light	tsx	9700	6454
 everforest-light	typescript	13701	10186
@@ -615,6 +641,7 @@ flexoki-dark	markdown	18398	13722
 flexoki-dark	python	19185	6930
 flexoki-dark	query	7948	5652
 flexoki-dark	rust	17576	11360
+flexoki-dark	swift	22782	8597
 flexoki-dark	toml	10487	9811
 flexoki-dark	tsx	9700	7301
 flexoki-dark	typescript	13701	11166
@@ -638,6 +665,7 @@ flexoki-light	markdown	18398	13722
 flexoki-light	python	19185	6930
 flexoki-light	query	7948	5652
 flexoki-light	rust	17576	11360
+flexoki-light	swift	22782	8597
 flexoki-light	toml	10487	9811
 flexoki-light	tsx	9700	7301
 flexoki-light	typescript	13701	11166
@@ -661,6 +689,7 @@ github-dark	markdown	18398	17208
 github-dark	python	19185	10467
 github-dark	query	7948	5781
 github-dark	rust	17576	13049
+github-dark	swift	22782	14216
 github-dark	toml	10487	9665
 github-dark	tsx	9700	6600
 github-dark	typescript	13701	10756
@@ -684,6 +713,7 @@ github-light	markdown	18398	17208
 github-light	python	19185	10467
 github-light	query	7948	5781
 github-light	rust	17576	13049
+github-light	swift	22782	14216
 github-light	toml	10487	9665
 github-light	tsx	9700	6600
 github-light	typescript	13701	10756
@@ -707,6 +737,7 @@ gotham	markdown	18398	13192
 gotham	python	19185	7204
 gotham	query	7948	5715
 gotham	rust	17576	11410
+gotham	swift	22782	8559
 gotham	toml	10487	8837
 gotham	tsx	9700	7398
 gotham	typescript	13701	11224
@@ -730,6 +761,7 @@ gruvbox-dark	markdown	18398	13415
 gruvbox-dark	python	19185	9508
 gruvbox-dark	query	7948	5560
 gruvbox-dark	rust	17576	12720
+gruvbox-dark	swift	22782	11188
 gruvbox-dark	toml	10487	8843
 gruvbox-dark	tsx	9700	6661
 gruvbox-dark	typescript	13701	9853
@@ -753,6 +785,7 @@ gruvbox-light	markdown	18398	13415
 gruvbox-light	python	19185	9508
 gruvbox-light	query	7948	5560
 gruvbox-light	rust	17576	12720
+gruvbox-light	swift	22782	11188
 gruvbox-light	toml	10487	8843
 gruvbox-light	tsx	9700	6661
 gruvbox-light	typescript	13701	9853
@@ -776,6 +809,7 @@ gruvbox-material-dark	markdown	18398	12889
 gruvbox-material-dark	python	19185	9250
 gruvbox-material-dark	query	7948	5613
 gruvbox-material-dark	rust	17576	11886
+gruvbox-material-dark	swift	22782	13705
 gruvbox-material-dark	toml	10487	8395
 gruvbox-material-dark	tsx	9700	6914
 gruvbox-material-dark	typescript	13701	10512
@@ -799,6 +833,7 @@ gruvbox-material-light	markdown	18398	12889
 gruvbox-material-light	python	19185	9250
 gruvbox-material-light	query	7948	5613
 gruvbox-material-light	rust	17576	11886
+gruvbox-material-light	swift	22782	13705
 gruvbox-material-light	toml	10487	8395
 gruvbox-material-light	tsx	9700	6914
 gruvbox-material-light	typescript	13701	10512
@@ -822,6 +857,7 @@ hojicha	markdown	18398	13262
 hojicha	python	19185	8604
 hojicha	query	7948	5037
 hojicha	rust	17576	11406
+hojicha	swift	22782	11476
 hojicha	toml	10487	8491
 hojicha	tsx	9700	6745
 hojicha	typescript	13701	9843
@@ -845,6 +881,7 @@ iceberg	markdown	18398	13486
 iceberg	python	19185	10177
 iceberg	query	7948	5726
 iceberg	rust	17576	13034
+iceberg	swift	22782	16937
 iceberg	toml	10487	7642
 iceberg	tsx	9700	7956
 iceberg	typescript	13701	12318
@@ -868,6 +905,7 @@ iceberg-light	markdown	18398	13486
 iceberg-light	python	19185	10177
 iceberg-light	query	7948	5728
 iceberg-light	rust	17576	13034
+iceberg-light	swift	22782	16937
 iceberg-light	toml	10487	7648
 iceberg-light	tsx	9700	7956
 iceberg-light	typescript	13701	12318
@@ -891,6 +929,7 @@ jellybeans	markdown	18398	12295
 jellybeans	python	19185	12527
 jellybeans	query	7948	5032
 jellybeans	rust	17576	10189
+jellybeans	swift	22782	10692
 jellybeans	toml	10487	6991
 jellybeans	tsx	9700	6131
 jellybeans	typescript	13701	8770
@@ -914,6 +953,7 @@ jellybeans-light	markdown	18398	12295
 jellybeans-light	python	19185	12527
 jellybeans-light	query	7948	5032
 jellybeans-light	rust	17576	10189
+jellybeans-light	swift	22782	10692
 jellybeans-light	toml	10487	6991
 jellybeans-light	tsx	9700	6131
 jellybeans-light	typescript	13701	8770
@@ -937,6 +977,7 @@ kanagawa-dragon	markdown	18398	13268
 kanagawa-dragon	python	19185	8355
 kanagawa-dragon	query	7948	5555
 kanagawa-dragon	rust	17576	12537
+kanagawa-dragon	swift	22782	10827
 kanagawa-dragon	toml	10487	8688
 kanagawa-dragon	tsx	9700	6562
 kanagawa-dragon	typescript	13701	9842
@@ -960,6 +1001,7 @@ kanagawa-lotus	markdown	18398	13268
 kanagawa-lotus	python	19185	8355
 kanagawa-lotus	query	7948	5555
 kanagawa-lotus	rust	17576	12535
+kanagawa-lotus	swift	22782	10827
 kanagawa-lotus	toml	10487	8688
 kanagawa-lotus	tsx	9700	6562
 kanagawa-lotus	typescript	13701	9842
@@ -983,6 +1025,7 @@ kanagawa-wave	markdown	18398	13268
 kanagawa-wave	python	19185	8355
 kanagawa-wave	query	7948	5555
 kanagawa-wave	rust	17576	12535
+kanagawa-wave	swift	22782	10827
 kanagawa-wave	toml	10487	8688
 kanagawa-wave	tsx	9700	6562
 kanagawa-wave	typescript	13701	9842
@@ -1006,6 +1049,7 @@ koda-dark	markdown	18398	13384
 koda-dark	python	19185	15375
 koda-dark	query	7948	5357
 koda-dark	rust	17576	11994
+koda-dark	swift	22782	15987
 koda-dark	toml	10487	7439
 koda-dark	tsx	9700	7717
 koda-dark	typescript	13701	12255
@@ -1029,6 +1073,7 @@ koda-light	markdown	18398	13384
 koda-light	python	19185	15303
 koda-light	query	7948	5351
 koda-light	rust	17576	11958
+koda-light	swift	22782	15816
 koda-light	toml	10487	7290
 koda-light	tsx	9700	7621
 koda-light	typescript	13701	12157
@@ -1052,6 +1097,7 @@ lackluster	markdown	18398	13018
 lackluster	python	19185	9417
 lackluster	query	7948	5555
 lackluster	rust	17576	11110
+lackluster	swift	22782	11039
 lackluster	toml	10487	7642
 lackluster	tsx	9700	6452
 lackluster	typescript	13701	8666
@@ -1075,6 +1121,7 @@ lightearth	markdown	18398	13310
 lightearth	python	19185	9091
 lightearth	query	7948	5191
 lightearth	rust	17576	11893
+lightearth	swift	22782	16114
 lightearth	toml	10487	9453
 lightearth	tsx	9700	7428
 lightearth	typescript	13701	12078
@@ -1098,6 +1145,7 @@ material-dark	markdown	18398	13144
 material-dark	python	19185	13286
 material-dark	query	7948	5111
 material-dark	rust	17576	10837
+material-dark	swift	22782	15074
 material-dark	toml	10487	6991
 material-dark	tsx	9700	6598
 material-dark	typescript	13701	10700
@@ -1121,6 +1169,7 @@ material-light	markdown	18398	13144
 material-light	python	19185	13286
 material-light	query	7948	5111
 material-light	rust	17576	10837
+material-light	swift	22782	15099
 material-light	toml	10487	6991
 material-light	tsx	9700	6598
 material-light	typescript	13701	10700
@@ -1144,6 +1193,7 @@ melange-dark	markdown	18398	12962
 melange-dark	python	19185	10253
 melange-dark	query	7948	5636
 melange-dark	rust	17576	12590
+melange-dark	swift	22782	15433
 melange-dark	toml	10487	7200
 melange-dark	tsx	9700	7152
 melange-dark	typescript	13701	11180
@@ -1167,6 +1217,7 @@ melange-light	markdown	18398	12962
 melange-light	python	19185	10253
 melange-light	query	7948	5636
 melange-light	rust	17576	12590
+melange-light	swift	22782	15433
 melange-light	toml	10487	7200
 melange-light	tsx	9700	7152
 melange-light	typescript	13701	11180
@@ -1190,6 +1241,7 @@ mellifluous	markdown	18398	12763
 mellifluous	python	19185	9140
 mellifluous	query	7948	5653
 mellifluous	rust	17576	10074
+mellifluous	swift	22782	13420
 mellifluous	toml	10487	7645
 mellifluous	tsx	9700	6540
 mellifluous	typescript	13701	10088
@@ -1213,6 +1265,7 @@ mellifluous-light	markdown	18398	12763
 mellifluous-light	python	19185	9140
 mellifluous-light	query	7948	5653
 mellifluous-light	rust	17576	10074
+mellifluous-light	swift	22782	13420
 mellifluous-light	toml	10487	7645
 mellifluous-light	tsx	9700	6540
 mellifluous-light	typescript	13701	10088
@@ -1236,6 +1289,7 @@ mellow	markdown	18398	13391
 mellow	python	19185	9023
 mellow	query	7948	5555
 mellow	rust	17576	12569
+mellow	swift	22782	11301
 mellow	toml	10487	8688
 mellow	tsx	9700	7070
 mellow	typescript	13701	10410
@@ -1259,6 +1313,7 @@ miasma	markdown	18398	13500
 miasma	python	19185	9651
 miasma	query	7948	5735
 miasma	rust	17576	13345
+miasma	swift	22782	16995
 miasma	toml	10487	7648
 miasma	tsx	9700	7811
 miasma	typescript	13701	12407
@@ -1282,6 +1337,7 @@ minischeme	markdown	18398	12589
 minischeme	python	19185	9523
 minischeme	query	7948	5642
 minischeme	rust	17576	12870
+minischeme	swift	22782	15283
 minischeme	toml	10487	8694
 minischeme	tsx	9700	7463
 minischeme	typescript	13701	11720
@@ -1305,6 +1361,7 @@ minischeme-light	markdown	18398	12589
 minischeme-light	python	19185	9523
 minischeme-light	query	7948	5642
 minischeme-light	rust	17576	12870
+minischeme-light	swift	22782	15283
 minischeme-light	toml	10487	8694
 minischeme-light	tsx	9700	7463
 minischeme-light	typescript	13701	11720
@@ -1328,6 +1385,7 @@ moonfly	markdown	18398	12323
 moonfly	python	19185	8651
 moonfly	query	7948	5632
 moonfly	rust	17576	11504
+moonfly	swift	22782	12206
 moonfly	toml	10487	8694
 moonfly	tsx	9700	6187
 moonfly	typescript	13701	10353
@@ -1351,6 +1409,7 @@ neomodern-light	markdown	18398	13262
 neomodern-light	python	19185	8604
 neomodern-light	query	7948	5037
 neomodern-light	rust	17576	11406
+neomodern-light	swift	22782	11476
 neomodern-light	toml	10487	8491
 neomodern-light	tsx	9700	6745
 neomodern-light	typescript	13701	9843
@@ -1374,6 +1433,7 @@ nightfly	markdown	18398	12323
 nightfly	python	19185	8651
 nightfly	query	7948	5632
 nightfly	rust	17576	11504
+nightfly	swift	22782	12206
 nightfly	toml	10487	8694
 nightfly	tsx	9700	6187
 nightfly	typescript	13701	10353
@@ -1397,6 +1457,7 @@ nightfox	markdown	18398	13082
 nightfox	python	19185	5132
 nightfox	query	7948	5016
 nightfox	rust	17576	8937
+nightfox	swift	22782	7794
 nightfox	toml	10487	8186
 nightfox	tsx	9700	5707
 nightfox	typescript	13701	8780
@@ -1420,6 +1481,7 @@ nord	markdown	18398	12461
 nord	python	19185	10494
 nord	query	7948	5136
 nord	rust	17576	12227
+nord	swift	22782	14126
 nord	toml	10487	7290
 nord	tsx	9700	7334
 nord	typescript	13701	11800
@@ -1443,6 +1505,7 @@ nordfox	markdown	18398	13082
 nordfox	python	19185	5132
 nordfox	query	7948	5016
 nordfox	rust	17576	8937
+nordfox	swift	22782	7794
 nordfox	toml	10487	8186
 nordfox	tsx	9700	5707
 nordfox	typescript	13701	8780
@@ -1466,6 +1529,7 @@ onedark	markdown	18398	12674
 onedark	python	19185	9123
 onedark	query	7948	5558
 onedark	rust	17576	12597
+onedark	swift	22782	11347
 onedark	toml	10487	8694
 onedark	tsx	9700	6858
 onedark	typescript	13701	10183
@@ -1489,6 +1553,7 @@ onedark-light	markdown	18398	12674
 onedark-light	python	19185	9123
 onedark-light	query	7948	5558
 onedark-light	rust	17576	12597
+onedark-light	swift	22782	11347
 onedark-light	toml	10487	8694
 onedark-light	tsx	9700	6858
 onedark-light	typescript	13701	10183
@@ -1512,6 +1577,7 @@ oxocarbon-dark	markdown	18398	12465
 oxocarbon-dark	python	19185	8845
 oxocarbon-dark	query	7948	5105
 oxocarbon-dark	rust	17576	10893
+oxocarbon-dark	swift	22782	15662
 oxocarbon-dark	toml	10487	8186
 oxocarbon-dark	tsx	9700	7054
 oxocarbon-dark	typescript	13701	10944
@@ -1535,6 +1601,7 @@ oxocarbon-light	markdown	18398	12465
 oxocarbon-light	python	19185	8845
 oxocarbon-light	query	7948	5105
 oxocarbon-light	rust	17576	10893
+oxocarbon-light	swift	22782	15662
 oxocarbon-light	toml	10487	8186
 oxocarbon-light	tsx	9700	7054
 oxocarbon-light	typescript	13701	10944
@@ -1558,6 +1625,7 @@ papercolor	markdown	18398	15372
 papercolor	python	19185	10175
 papercolor	query	7948	5558
 papercolor	rust	17576	13182
+papercolor	swift	22782	13599
 papercolor	toml	10487	8837
 papercolor	tsx	9700	7404
 papercolor	typescript	13701	10840
@@ -1581,6 +1649,7 @@ papercolor-light	markdown	18398	15372
 papercolor-light	python	19185	10108
 papercolor-light	query	7948	5558
 papercolor-light	rust	17576	13141
+papercolor-light	swift	22782	13417
 papercolor-light	toml	10487	8688
 papercolor-light	tsx	9700	7191
 papercolor-light	typescript	13701	10779
@@ -1604,6 +1673,7 @@ pencil	markdown	18398	13718
 pencil	python	19185	6901
 pencil	query	7948	5640
 pencil	rust	17576	11305
+pencil	swift	22782	8402
 pencil	toml	10487	9656
 pencil	tsx	9700	7579
 pencil	typescript	13701	11215
@@ -1627,6 +1697,7 @@ pencil-light	markdown	18398	13718
 pencil-light	python	19185	6901
 pencil-light	query	7948	5640
 pencil-light	rust	17576	11305
+pencil-light	swift	22782	8402
 pencil-light	toml	10487	9656
 pencil-light	tsx	9700	7579
 pencil-light	typescript	13701	11215
@@ -1650,6 +1721,7 @@ rose-pine	markdown	18398	12872
 rose-pine	python	19185	10276
 rose-pine	query	7948	5605
 rose-pine	rust	17576	13230
+rose-pine	swift	22782	11829
 rose-pine	toml	10487	9836
 rose-pine	tsx	9700	7207
 rose-pine	typescript	13701	9524
@@ -1673,6 +1745,7 @@ rose-pine-dawn	markdown	18398	12872
 rose-pine-dawn	python	19185	10276
 rose-pine-dawn	query	7948	5605
 rose-pine-dawn	rust	17576	13230
+rose-pine-dawn	swift	22782	11829
 rose-pine-dawn	toml	10487	9836
 rose-pine-dawn	tsx	9700	7207
 rose-pine-dawn	typescript	13701	9524
@@ -1696,6 +1769,7 @@ rose-pine-moon	markdown	18398	12872
 rose-pine-moon	python	19185	10276
 rose-pine-moon	query	7948	5605
 rose-pine-moon	rust	17576	13230
+rose-pine-moon	swift	22782	11829
 rose-pine-moon	toml	10487	9836
 rose-pine-moon	tsx	9700	7207
 rose-pine-moon	typescript	13701	9524
@@ -1719,6 +1793,7 @@ selenized	markdown	18398	13741
 selenized	python	19185	12218
 selenized	query	7948	5700
 selenized	rust	17576	11350
+selenized	swift	22782	8359
 selenized	toml	10487	8688
 selenized	tsx	9700	7118
 selenized	typescript	13701	10529
@@ -1742,6 +1817,7 @@ selenized-light	markdown	18398	13741
 selenized-light	python	19185	12218
 selenized-light	query	7948	5700
 selenized-light	rust	17576	11350
+selenized-light	swift	22782	8359
 selenized-light	toml	10487	8688
 selenized-light	tsx	9700	7118
 selenized-light	typescript	13701	10529
@@ -1765,6 +1841,7 @@ solarized-dark	markdown	18398	15085
 solarized-dark	python	19185	7949
 solarized-dark	query	7948	5694
 solarized-dark	rust	17576	11420
+solarized-dark	swift	22782	8885
 solarized-dark	toml	10487	9656
 solarized-dark	tsx	9700	7385
 solarized-dark	typescript	13701	11146
@@ -1788,6 +1865,7 @@ solarized-light	markdown	18398	15076
 solarized-light	python	19185	7409
 solarized-light	query	7948	5694
 solarized-light	rust	17576	11375
+solarized-light	swift	22782	8849
 solarized-light	toml	10487	8688
 solarized-light	tsx	9700	7099
 solarized-light	typescript	13701	10820
@@ -1811,6 +1889,7 @@ sonokai	markdown	18398	12492
 sonokai	python	19185	8726
 sonokai	query	7948	5022
 sonokai	rust	17576	10624
+sonokai	swift	22782	12959
 sonokai	toml	10487	8186
 sonokai	tsx	9700	6004
 sonokai	typescript	13701	9752
@@ -1834,6 +1913,7 @@ soviet-dark	markdown	18398	12674
 soviet-dark	python	19185	7540
 soviet-dark	query	7948	5016
 soviet-dark	rust	17576	10392
+soviet-dark	swift	22782	11542
 soviet-dark	toml	10487	8186
 soviet-dark	tsx	9700	5381
 soviet-dark	typescript	13701	9059
@@ -1857,6 +1937,7 @@ soviet-light	markdown	18398	12674
 soviet-light	python	19185	7540
 soviet-light	query	7948	5016
 soviet-light	rust	17576	10392
+soviet-light	swift	22782	11542
 soviet-light	toml	10487	8186
 soviet-light	tsx	9700	5381
 soviet-light	typescript	13701	9059
@@ -1880,6 +1961,7 @@ srcery	markdown	18398	12810
 srcery	python	19185	8891
 srcery	query	7948	5605
 srcery	rust	17576	12626
+srcery	swift	22782	13350
 srcery	toml	10487	8719
 srcery	tsx	9700	6842
 srcery	typescript	13701	10336
@@ -1903,6 +1985,7 @@ token	markdown	18398	12533
 token	python	19185	9364
 token	query	7948	5652
 token	rust	17576	12994
+token	swift	22782	13891
 token	toml	10487	7642
 token	tsx	9700	7126
 token	typescript	13701	11360
@@ -1926,6 +2009,7 @@ token-light	markdown	18398	12533
 token-light	python	19185	9364
 token-light	query	7948	5652
 token-light	rust	17576	12994
+token-light	swift	22782	13891
 token-light	toml	10487	7642
 token-light	tsx	9700	7126
 token-light	typescript	13701	11360
@@ -1949,6 +2033,7 @@ tokyonight-day	markdown	18398	12377
 tokyonight-day	python	19185	7146
 tokyonight-day	query	7948	5016
 tokyonight-day	rust	17576	10352
+tokyonight-day	swift	22782	10906
 tokyonight-day	toml	10487	8186
 tokyonight-day	tsx	9700	5323
 tokyonight-day	typescript	13701	8928
@@ -1972,6 +2057,7 @@ tokyonight-moon	markdown	18398	668
 tokyonight-moon	python	19185	9103
 tokyonight-moon	query	7948	2254
 tokyonight-moon	rust	17576	8287
+tokyonight-moon	swift	22782	10010
 tokyonight-moon	toml	10487	7470
 tokyonight-moon	tsx	9700	6145
 tokyonight-moon	typescript	13701	8779
@@ -1995,6 +2081,7 @@ tokyonight-night	markdown	18398	12377
 tokyonight-night	python	19185	7146
 tokyonight-night	query	7948	5016
 tokyonight-night	rust	17576	10352
+tokyonight-night	swift	22782	10906
 tokyonight-night	toml	10487	8186
 tokyonight-night	tsx	9700	5323
 tokyonight-night	typescript	13701	8928
@@ -2018,6 +2105,7 @@ tokyonight-storm	markdown	18398	12377
 tokyonight-storm	python	19185	7146
 tokyonight-storm	query	7948	5016
 tokyonight-storm	rust	17576	10352
+tokyonight-storm	swift	22782	10906
 tokyonight-storm	toml	10487	8186
 tokyonight-storm	tsx	9700	5323
 tokyonight-storm	typescript	13701	8928
@@ -2041,6 +2129,7 @@ vague	markdown	18398	13218
 vague	python	19185	9163
 vague	query	7948	5632
 vague	rust	17576	10933
+vague	swift	22782	12357
 vague	toml	10487	8694
 vague	tsx	9700	6692
 vague	typescript	13701	9139
@@ -2064,6 +2153,7 @@ vesper	markdown	18398	13677
 vesper	python	19185	7287
 vesper	query	7948	5120
 vesper	rust	17576	10112
+vesper	swift	22782	8306
 vesper	toml	10487	8485
 vesper	tsx	9700	6646
 vesper	typescript	13701	10983
@@ -2087,6 +2177,7 @@ vscode-dark	markdown	18398	15096
 vscode-dark	python	19185	6401
 vscode-dark	query	7948	5655
 vscode-dark	rust	17576	11349
+vscode-dark	swift	22782	9583
 vscode-dark	toml	10487	8843
 vscode-dark	tsx	9700	7043
 vscode-dark	typescript	13701	11279
@@ -2110,6 +2201,7 @@ vscode-light	markdown	18398	15084
 vscode-light	python	19185	6401
 vscode-light	query	7948	5655
 vscode-light	rust	17576	11349
+vscode-light	swift	22782	9583
 vscode-light	toml	10487	8843
 vscode-light	tsx	9700	7043
 vscode-light	typescript	13701	11279

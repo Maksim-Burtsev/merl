@@ -1057,6 +1057,22 @@ const KOTLIN: &[&str] = &[
     "\n\n",
 ];
 
+const SWIFT: &[&str] = &[
+    "\"\\(x)\"",
+    "\"\"\"\n",
+    "/// ",
+    "/[a-z]+/",
+    "@MainActor\n",
+    "switch x {\n",
+    "<T: A>",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
 const CSHARP: &[&str] = &[
     "$\"{x,-10}\"",
     "@\"",
@@ -1165,6 +1181,11 @@ fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
         "F.kt",
         include_bytes!("../../../tests/colors/kotlin/Ledger.kt"),
         KOTLIN,
+    );
+    fuzz_tree_sitter(
+        "F.swift",
+        include_bytes!("../../../tests/colors/swift/Ledger.swift"),
+        SWIFT,
     );
     fuzz_tree_sitter(
         "F.cs",

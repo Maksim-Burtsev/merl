@@ -275,6 +275,11 @@ fn kotlin_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn swift_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("swift");
+}
+
+#[test]
 fn html_and_the_css_and_javascript_in_it_are_coloured_as_lazyvim() {
     coloured_as_lazyvim("html");
 }
@@ -375,6 +380,7 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     for f in ["A.kt", "build.gradle.kts"] {
         assert!(sexp(f, b"class A\n").contains("(source_file "), "{f}");
     }
+    assert!(sexp("A.swift", b"class A {}\n").contains("(source_file "));
     for f in ["a.html", "a.htm"] {
         assert!(sexp(f, b"<p>a</p>\n").contains("(element "), "{f}");
     }
@@ -642,6 +648,7 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
     assert_eq!(name("csharp"), Some("c_sharp"));
     assert_eq!(name("kotlin"), Some("kotlin"));
     assert_eq!(name("kt"), Some("kotlin"));
+    assert_eq!(name("swift"), Some("swift"));
 }
 
 #[test]
