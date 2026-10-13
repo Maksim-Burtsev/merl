@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -32,6 +31,10 @@ pub static ACTIONS: LazyLock<Vec<Action>> = LazyLock::new(|| {
     actions
 });
 
+#[expect(
+    clippy::string_slice,
+    reason = "each cut is a found ASCII pattern plus its own length"
+)]
 fn sides(keys: &str) -> Vec<String> {
     let Some((first, second)) = keys.split_once(" / ") else {
         return vec![keys.to_owned()];

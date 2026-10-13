@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::{
     App, Candidate, HashMap, HashSet, Hit, Kind, Path, PathBuf, Reason, Regex, is_word, search,
@@ -513,7 +512,9 @@ impl App {
         hits: Vec<Hit>,
     ) -> Vec<Hit> {
         let line = self.line_str();
-        let (before, after) = (&line[..range.start], &line[range.end..]);
+        let (Some(before), Some(after)) = (line.get(..range.start), line.get(range.end..)) else {
+            return hits;
+        };
         let java = here.extension().is_some_and(|e| e == "java");
         let groovy = search::groovy(here);
         if !java && !groovy {
@@ -662,7 +663,7 @@ impl App {
                 })
                 .map_or(0, |(i, _)| i);
             let head: String = {
-                let t = b[..open].trim_end();
+                let t = b.split_at(open).0.trim_end();
                 let rev: String = t.chars().rev().take_while(|c| is_word(*c)).collect();
                 rev.chars().rev().collect()
             };

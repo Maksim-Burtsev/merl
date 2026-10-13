@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use std::collections::HashMap;
 use std::ops::Range;
@@ -259,6 +258,10 @@ impl<'a> Painter<'a> {
         (input, focused, bg, style)
     }
 
+    #[expect(
+        clippy::string_slice,
+        reason = "slot_layout cuts the rows at wrap_shown's clusters and the prompt's char boundaries"
+    )]
     fn slot_lines(&self, s: &crate::app::Slot) -> (Vec<Line<'static>>, Option<(usize, usize)>) {
         let (app, theme, base) = (self.app, self.theme, self.base);
         let (input, focused, bg, style) = self.slot_styles(s);
@@ -339,6 +342,10 @@ impl<'a> Painter<'a> {
         (spans, plain)
     }
 
+    #[expect(
+        clippy::string_slice,
+        reason = "r is a row of wrap_line, on cluster boundaries"
+    )]
     fn ghost(&self, out: &mut Rows<'a>, skip: &mut usize, l: usize, i: usize, raw: &'a str) {
         let (app, theme, base) = (self.app, self.theme, self.base);
         let line = TextLine::Deleted(l, i);
@@ -537,6 +544,10 @@ impl<'a> Painter<'a> {
         }
     }
 
+    #[expect(
+        clippy::string_slice,
+        reason = "r is a row of wrap_line over clipped, on cluster boundaries"
+    )]
     fn file_row(&self, f: &FileLine<'a>, i: usize, r: &Range<usize>) -> Line<'a> {
         let (app, theme) = (self.app, self.theme);
         let (before, after) = f.edges;
@@ -748,6 +759,10 @@ fn draw_note(frame: &mut Frame, area: Rect, base: Style, lines: Vec<Line>) {
     frame.render_widget(Paragraph::new(lines).style(base).centered(), rows);
 }
 
+#[expect(
+    clippy::string_slice,
+    reason = "r is a row of wrap_line, on cluster boundaries"
+)]
 fn pinned_lines<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -> Vec<Line<'a>> {
     let band = base.bg(theme.line_hl);
     let tag = Style::new().bg(theme.tag_bg).fg(theme.tag_fg);
@@ -857,6 +872,10 @@ fn selected_row<'a>(
     out
 }
 
+#[expect(
+    clippy::string_slice,
+    reason = "r is a row of wrap_line and the spans come from the highlighter's tokens, all on char boundaries"
+)]
 fn row_spans<'a>(
     text: &'a str,
     hl: &[(Style, Range<usize>)],

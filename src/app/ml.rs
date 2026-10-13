@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use super::{App, Candidate, HashMap, Hit, Kind, Path, PathBuf, Reason, Regex, search};
 
@@ -40,8 +39,10 @@ impl App {
             .filter(|m| m.starts_with(|c: char| c.is_ascii_uppercase()));
         let label = self.word_here(Some(kind)).is_some_and(|(r, _)| {
             let line = self.line_str();
-            let before = line[..r.start].trim_end();
-            let after = line[r.end..].trim_start();
+            let (Some(before), Some(after)) = (line.get(..r.start), line.get(r.end..)) else {
+                return false;
+            };
+            let (before, after) = (before.trim_end(), after.trim_start());
             (before.ends_with(['{', ';']) || before.ends_with(" with"))
                 && after.starts_with('=')
                 && !after.starts_with("==")

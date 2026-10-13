@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use ratatui::Frame;
 use ratatui::layout::Rect;
@@ -13,6 +12,10 @@ use crate::wrap;
 
 use super::picture::Status;
 
+#[expect(
+    clippy::string_slice,
+    reason = "LineEdit keeps its cursor and selection on char boundaries"
+)]
 pub(super) fn draw_prompt(
     frame: &mut Frame,
     prefix: &str,
@@ -182,7 +185,8 @@ pub(super) fn fit_path(path: &str, room: usize) -> String {
     let mut tails = path
         .trim_end_matches('/')
         .match_indices('/')
-        .map(|(i, _)| format!("\u{2026}{}", &path[i..]));
+        .filter_map(|(i, _)| path.get(i..))
+        .map(|tail| format!("\u{2026}{tail}"));
     let last = tails.next_back();
     tails
         .find(|t| wrap::width(t) <= room)

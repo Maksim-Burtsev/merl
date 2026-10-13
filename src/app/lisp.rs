@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::{App, Candidate, Kind, Reason, search};
 
 impl App {
@@ -31,7 +30,7 @@ impl App {
             let at = b
                 .rfind(|c: char| c.is_whitespace() || "()[]{}'`#@~^\"".contains(c))
                 .map_or(0, |i| i + 1);
-            let q = &b[at..];
+            let q = b.split_at(at).1;
             requires
                 .iter()
                 .find(|(n, _)| n == q)
@@ -39,7 +38,7 @@ impl App {
         };
         let target = after.strip_prefix('/').map(|a| {
             let end = a.find(|c: char| c.is_whitespace() || "()[]{}\"".contains(c));
-            &a[..end.unwrap_or(a.len())]
+            a.split_at(end.unwrap_or(a.len())).0
         });
         let (ns, name) = match (target.filter(|t| !t.is_empty()), before.strip_suffix('/')) {
             (Some(name), _) => {

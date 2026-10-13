@@ -563,11 +563,11 @@ fn draw(src: &str) -> Option<Drawn> {
     })
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
 fn view_box(svg: &str) -> Option<(f32, f32)> {
-    let at = svg.find("viewBox=\"")? + "viewBox=\"".len();
-    let rest = &svg[at..];
-    let nums: Vec<f32> = rest[..rest.find('"')?]
+    let (_, rest) = svg.split_once("viewBox=\"")?;
+    let nums: Vec<f32> = rest
+        .split_once('"')?
+        .0
         .split([' ', ','])
         .filter(|n| !n.is_empty())
         .filter_map(|n| n.parse().ok())

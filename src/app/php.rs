@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, is_word, search};
 use std::ops::Range;
 
@@ -48,7 +47,12 @@ impl App {
             }
             _ => None,
         };
-        let access = match self.line_str()[range.end..].trim_start().starts_with('(') {
+        let access = match self
+            .line_str()
+            .get(range.end..)?
+            .trim_start()
+            .starts_with('(')
+        {
             true => search::PhpAccess::Call,
             false if dotted || property.is_some() => search::PhpAccess::Property,
             false => search::PhpAccess::Constant,
@@ -77,7 +81,7 @@ impl App {
         access: search::PhpAccess,
     ) -> Option<Vec<Candidate>> {
         let line = self.line_str();
-        let word = line[range.clone()].to_owned();
+        let word = line.get(range.clone())?.to_owned();
         let search::PhpClassAt { written, member } = search::php_class_at(line, range)?;
         let map = search::php_psr4(&self.root, here.parent().unwrap_or_else(|| Path::new("")));
         if map.is_empty() {

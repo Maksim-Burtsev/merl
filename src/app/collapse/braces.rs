@@ -218,7 +218,10 @@ impl<'a> Lexer<'a> {
         self.lines[self.l].as_bytes()
     }
 
-    #[expect(clippy::string_slice, reason = "#858")]
+    #[expect(
+        clippy::string_slice,
+        reason = "a word runs between backquotes and punctuation is one ASCII byte"
+    )]
     fn emit(&mut self, line: usize, at: usize, len: usize, kind: K, end: usize) {
         let text = match kind {
             K::Str => "`",

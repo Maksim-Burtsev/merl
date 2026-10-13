@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::{App, Kind, Mode, TextLine, is_word, next_char, prev_char, search, shown_str, wrap};
 
@@ -7,6 +6,10 @@ impl App {
         self.want_x = self.cursor_x();
     }
 
+    #[expect(
+        clippy::string_slice,
+        reason = "r is a row of text_rows, on cluster boundaries"
+    )]
     pub(super) fn apply_want_x(&mut self, row: usize) {
         let rows = self.text_rows(self.line_str());
         let row = row.min(rows.len() - 1);
@@ -103,6 +106,10 @@ impl App {
         Some(from..to)
     }
 
+    #[expect(
+        clippy::string_slice,
+        reason = "selected_bytes and the shown cut are char boundaries of the line"
+    )]
     pub(super) fn selected_text(&self) -> Option<String> {
         let (start, end) = self.selection()?;
         let lines: Vec<&str> = std::iter::successors(Some(start.0), |&t| self.next_line(t))
@@ -386,6 +393,10 @@ pub(super) fn word_start(s: &str, i: usize) -> usize {
     i
 }
 
+#[expect(
+    clippy::string_slice,
+    reason = "callers pass a cursor column, on a char boundary"
+)]
 fn char_at(s: &str, i: usize) -> char {
     s[i..].chars().next().unwrap_or(' ')
 }

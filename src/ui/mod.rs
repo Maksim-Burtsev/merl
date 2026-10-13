@@ -176,17 +176,19 @@ pub(super) fn expand(s: &str) -> std::borrow::Cow<'_, str> {
     out.into()
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
 pub(super) fn tagged<'a>(out: &mut Vec<Span<'a>>, s: &'a str, style: Style, tag: Style) {
-    let mut pos = 0;
-    for (i, c) in s.char_indices().filter(|&(_, c)| wrap::hidden(c)) {
-        if pos < i {
-            out.push(Span::styled(expand(&s[pos..i]), style));
+    let mut rest = s;
+    while let Some((i, c)) = rest.char_indices().find(|&(_, c)| wrap::hidden(c)) {
+        let (before, after) = rest.split_at(i);
+        if !before.is_empty() {
+            out.push(Span::styled(expand(before), style));
         }
         out.push(Span::styled(wrap::tag(c), tag));
-        pos = i + c.len_utf8();
+        let mut tail = after.chars();
+        tail.next();
+        rest = tail.as_str();
     }
-    if pos < s.len() || pos == 0 {
-        out.push(Span::styled(expand(&s[pos..]), style));
+    if !rest.is_empty() || rest.len() == s.len() {
+        out.push(Span::styled(expand(rest), style));
     }
 }

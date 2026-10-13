@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::{
     App, Arc, Candidate, HashMap, HashSet, Hit, Kind, MAX_LABEL_TEXT, MAX_NAME_PAD, Path, PathBuf,
     PickItem, Reason, Regex, at_label, bound, clip, git, jvm, search, word_col, wrap,
@@ -1087,7 +1086,9 @@ fn package_dirs(root: &Path) -> usize {
     let name = root.file_name().unwrap_or_default().to_string_lossy();
     let versioned = |sep: &str| {
         name.match_indices(sep).any(|(i, _)| {
-            let v = &name[i + sep.len()..];
+            let Some(v) = name.get(i + sep.len()..) else {
+                return false;
+            };
             let rest = v.trim_start_matches(|c: char| c.is_ascii_digit());
             rest.len() < v.len() && rest.starts_with('.')
         })

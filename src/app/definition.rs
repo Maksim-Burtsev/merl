@@ -1,5 +1,4 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::python::{enclosing_def_lines1, starts_by_assigning};
@@ -21,15 +20,16 @@ impl App {
             line: written,
             word_start: start,
         } = self.written(kind, range.start);
-        let before = &written[..start];
-        let after = self.line_str()[range.end..].trim_start();
+        let before = written.get(..start)?;
+        let after = self.line_str().get(range.end..)?.trim_start();
         if kind == Some(Kind::Ruby)
             && before.ends_with('.')
             && !before.ends_with("..")
             && !before.trim_start().starts_with("def ")
             && !word.ends_with(['?', '!'])
-            && after.starts_with('=')
-            && !after[1..].starts_with(['=', '~', '>'])
+            && after
+                .strip_prefix('=')
+                .is_some_and(|a| !a.starts_with(['=', '~', '>']))
         {
             word.push('=');
         }
@@ -75,7 +75,14 @@ impl App {
             line: written,
             word_start: start,
         } = self.written(kind, range.start);
-        let before = &written[..start];
+        let (Some(before), Some(lead), Some(tail)) = (
+            written.get(..start),
+            self.line_str().get(..range.start).map(str::to_owned),
+            self.line_str().get(range.end..).map(str::to_owned),
+        ) else {
+            self.message = "no word".into();
+            return;
+        };
         let dotted = before.ends_with('.') && !before.ends_with("..");
         let chain = search::qualifier(&written, start);
         let here = self.rel_current();
@@ -93,12 +100,9 @@ impl App {
             return;
         }
         if (kind == Kind::Go && word == "_")
-            || (kind == Kind::Graphql && self.line_str()[..range.start].ends_with('$'))
-            || (kind == Kind::Jvm
-                && word == "class"
-                && self.line_str()[..range.start].ends_with("::"))
-            || (kind == Kind::PowerShell
-                && search::powershell_argument(&self.line_str()[..range.start]))
+            || (kind == Kind::Graphql && lead.ends_with('$'))
+            || (kind == Kind::Jvm && word == "class" && lead.ends_with("::"))
+            || (kind == Kind::PowerShell && search::powershell_argument(lead.as_str()))
             || (kind == Kind::R
                 && search::r_foreign_package(self.line_str(), range.start, &self.root))
         {
@@ -112,10 +116,7 @@ impl App {
             .map(|l| l.len() + 1)
             .sum::<usize>()
             + range.start;
-        let line = self.line_str();
-        let captured = line[..range.start].ends_with('{')
-            && !line[..range.start].ends_with("{{")
-            && line[range.end..].starts_with(['}', ':']);
+        let captured = lead.ends_with('{') && !lead.ends_with("{{") && tail.starts_with(['}', ':']);
         if !captured
             && search::in_string(kind, &text, at)
             && !search::rust_attribute_path(&self.buf.lines, self.line, range.start)
@@ -129,7 +130,7 @@ impl App {
         }
         if kind == Kind::Jvm
             && import_line(kind, self.line_str())
-            && !self.line_str()[..range.start].contains('{')
+            && !lead.contains('{')
             && let Some(found) = self.jvm_imported(&text, &chain, &word, range.clone(), true)
         {
             self.show_definitions(kind, &word, &here, found, None);
@@ -152,8 +153,7 @@ impl App {
             _ => chain,
         };
         if kind == Kind::Yaml
-            && let Some(lines) =
-                search::stage_entries(&self.line_str()[..range.start], &text, &word)
+            && let Some(lines) = search::stage_entries(lead.as_str(), &text, &word)
         {
             let found = lines
                 .into_iter()
@@ -172,7 +172,7 @@ impl App {
             return;
         }
         if kind == Kind::Proto
-            && let Some(found) = self.proto_definitions(&text, &written[..start], &word)
+            && let Some(found) = self.proto_definitions(&text, before, &word)
         {
             self.show_definitions(kind, &word, &here, found, None);
             return;
@@ -199,7 +199,7 @@ impl App {
         self.offer_only =
             kind == Kind::Python && search::names_a_parameter(&text, self.line + 1, &range);
         self.truncated.set(false);
-        let sigil = &self.line_str()[..range.start];
+        let sigil = lead.as_str();
         if kind == Kind::Php
             && sigil.ends_with('$')
             && !sigil.ends_with("::$")
@@ -269,7 +269,7 @@ impl App {
             search::GoKey::Unknown => self.offer_only = true,
             search::GoKey::No | search::GoKey::Value => {}
         }
-        let lead = &self.line_str()[..range.start];
+        let lead = lead.as_str();
         if kind == Kind::Ruby && lead.ends_with('@') {
             let sigil = if lead.ends_with("@@") { "@@" } else { "@" };
             let ivar = format!("{sigil}{word}");
@@ -278,8 +278,7 @@ impl App {
             return;
         }
         if kind == Kind::Clojure
-            && let Some(found) =
-                self.clojure_qualified(&text, before, &word, &self.line_str()[range.end..])
+            && let Some(found) = self.clojure_qualified(&text, before, &word, tail.as_str())
         {
             self.show_definitions(kind, &word, &here, found, None);
             return;
@@ -294,7 +293,7 @@ impl App {
         let key = kind == Kind::Lua
             && (search::table_key(&text, self.line + 1, &range)
                 || (before.ends_with(':') && !before.ends_with("::")));
-        let after = &self.line_str()[range.end..];
+        let after = tail.as_str();
         let call = kind == Kind::Elixir
             && !dotted
             && (after.starts_with('(')
@@ -307,7 +306,7 @@ impl App {
                 && !dotted
                 && (before.ends_with(':') || (after.starts_with(':') && !after.starts_with("::"))));
         let super_keyword = !dotted && word == "super" && kind != Kind::Lua;
-        let after = self.line_str()[range.end..].trim_start();
+        let after = tail.trim_start();
         let rust_path = kind == Kind::Rust
             && (before.ends_with("::")
                 || after.starts_with("::")
@@ -319,10 +318,7 @@ impl App {
             && !dotted
             && line.get(range.clone()) == Some(word.as_str())
             && search::swift_binds_on(line, &word)
-            && !search::swift_binds_on(
-                &format!("{}_{}", &line[..range.start], &line[range.end..]),
-                &word,
-            );
+            && !search::swift_binds_on(&format!("{lead}_{tail}"), &word);
         let declared = swift_binds_here
             || (chain.is_empty() && search::binds_at(kind, self.line_str(), range.start, &word));
         let bare = kind == Kind::TsJs && !dotted && chain.is_empty();
@@ -499,7 +495,7 @@ impl App {
         }
         if kind == Kind::Go
             && !dotted
-            && self.line_str()[range.end..].starts_with('.')
+            && tail.starts_with('.')
             && let Some(path) = bound(&imports, &word)
             && let Some(line) = search::go_import_line1(&text, &word)
             && !search::go_may_declare(&text, self.line + 1, &word)
@@ -520,7 +516,9 @@ impl App {
         }
         let own = matches!(chain.as_slice(), [s] if s == "self" || s == "cls" || s == "this");
         if kind == Kind::Jvm && (dotted || before.ends_with("::")) && !own {
-            let literal = dotted && chain.is_empty() && before[..before.len() - 1].ends_with('"');
+            let literal = dotted
+                && chain.is_empty()
+                && before.strip_suffix('.').is_some_and(|b| b.ends_with('"'));
             let found = if literal {
                 self.jvm_outside(&here, &word, "String").map(|hits| {
                     hits.into_iter()
@@ -543,7 +541,7 @@ impl App {
             && before.ends_with("::")
             && chain.first().is_some_and(|f| f != "super");
         let php_members = (kind == Kind::Php && dotted).then(|| {
-            let call = self.line_str()[range.end..].trim_start().starts_with('(');
+            let call = tail.trim_start().starts_with('(');
             search::php_member_patterns(&word, call).join("|")
         });
         let on_value = (dotted || referenced)
@@ -605,7 +603,7 @@ impl App {
             && chain.first().is_some_and(|f| bound(&imports, f).is_none())
             && !chain.iter().any(|n| rust::tuple_field(n))
         {
-            let after = &self.line_str()[range.end..];
+            let after = tail.as_str();
             let call = after.starts_with('(') || after.starts_with("::<");
             match self.rust_typed(&here, &text, &word, &chain, call) {
                 Ok(found) if !found.is_empty() => {
@@ -784,7 +782,7 @@ impl App {
             && !dotted
             && locals.is_empty()
             && let Some(found) = self.rust_crate_path(&here, &text, &word, &chain, {
-                rust::MacroUse::after_word(&self.line_str()[range.end..])
+                rust::MacroUse::after_word(tail.as_str())
             })
         {
             self.show_definitions(kind, &word, &here, found, None);
@@ -977,12 +975,12 @@ impl App {
         }
         let sep = search::separator(kind);
         let path = chain.join(sep);
-        let declared = !self.line_str()[range.end..].starts_with("::")
+        let declared = !tail.starts_with("::")
             && Regex::new(r"^\s*(?:class|module)\s+[\w:]*$").is_ok_and(|re| re.is_match(before));
         let colons = kind == Kind::Ruby && before.ends_with("::") && !declared;
         let pathed = match sep {
             "." => on_value || colons,
-            _ => self.line_str()[..range.start].ends_with(&format!("{path}{sep}")),
+            _ => lead.ends_with(&format!("{path}{sep}")),
         };
         let mut answer_files: Option<Vec<PathBuf>> = None;
         let seen = if kind == Kind::Rust && pathed && locals.is_empty() && chain.len() == 1 {
@@ -1029,7 +1027,7 @@ impl App {
                         .lines
                         .iter()
                         .any(|l| brings.is_match(l) && !inside(l))
-                    || self.line_str()[..range.start]
+                    || lead
                         .strip_suffix(&format!("{path}{sep}"))
                         .is_some_and(|b| b.ends_with('\\'));
                 let owners = search::def_patterns(kind, owner).join("|");
@@ -1280,8 +1278,12 @@ impl App {
                 hits = kept;
             }
         }
-        if kind == Kind::Swift && dotted && chain.is_empty() && word != "init" {
-            let dot = &written[..start - 1];
+        if kind == Kind::Swift
+            && dotted
+            && chain.is_empty()
+            && word != "init"
+            && let Some(dot) = before.strip_suffix('.')
+        {
             let lead = dot.trim_end();
             let implicit = lead.is_empty()
                 || lead.ends_with([
@@ -1406,7 +1408,7 @@ impl App {
         let mut fallbacks = Vec::new();
         let mut aside = None;
         let hits = if kind == Kind::C && !dotted && !before.ends_with("->") {
-            let (before, after) = (before.trim_end(), &self.line_str()[range.end..]);
+            let (before, after) = (before.trim_end(), tail.as_str());
             let keyword = |k: &str| {
                 before
                     .strip_suffix(k)
@@ -1553,7 +1555,7 @@ impl App {
                 self.external_definitions(kind, &word, &chain, dotted, &imports, false)
                     .unwrap_or_default()
             };
-            let after = self.line_str()[range.end..].trim_start();
+            let after = tail.trim_start();
             if kind == Kind::C
                 && locals.is_empty()
                 && (after.starts_with("->") || (after.starts_with('.') && !after.starts_with("..")))
@@ -1906,8 +1908,11 @@ impl App {
         let superclass = kind == Kind::Ruby
             && search::definition_word(Some(kind), self.line_str(), self.col).is_some_and(
                 |(r, _)| {
-                    Regex::new(r"^\s*class\s+[\w:]+\s*<\s*[\w:]*$")
-                        .is_ok_and(|re| re.is_match(&self.line_str()[..r.start]))
+                    Regex::new(r"^\s*class\s+[\w:]+\s*<\s*[\w:]*$").is_ok_and(|re| {
+                        self.line_str()
+                            .get(..r.start)
+                            .is_some_and(|b| re.is_match(b))
+                    })
                 },
             );
         if superclass {
@@ -1937,8 +1942,13 @@ impl App {
         let truncated = self.truncated.take();
         let on_member = || {
             let at = search::definition_word(Some(kind), self.line_str(), self.col);
-            let bare =
-                at.is_some_and(|(r, w)| w == word && !self.line_str()[..r.start].ends_with('.'));
+            let bare = at.is_some_and(|(r, w)| {
+                w == word
+                    && self
+                        .line_str()
+                        .get(..r.start)
+                        .is_some_and(|b| !b.ends_with('.'))
+            });
             bare && search::member_or_signature(kind, word)
                 .and_then(|p| Regex::new(&p.join("|")).ok())
                 .is_some_and(|re| re.is_match(self.line_str()))
@@ -1953,12 +1963,20 @@ impl App {
                 .any(|c| c.hit.line1 != self.line + 1 || c.hit.path != here)
             && self.on_declared_name(kind, word, false);
         let word_chars = search::word_chars(Some(kind), true);
-        let form = |t: &str| t[..word_col(t, word, word_chars)].trim().to_owned();
+        let form = |t: &str| {
+            t.get(..word_col(t, word, word_chars))
+                .map(|h| h.trim().to_owned())
+        };
         let copy = found.len() < all
             && !namesakes
-            && search::definition_word(Some(kind), self.line_str(), self.col)
-                .is_some_and(|(r, _)| !self.line_str()[..r.start].ends_with('.'))
-            && matches!(found.as_slice(), [c] if !c.reason.proven() && form(&c.hit.text) == form(self.line_str()));
+            && search::definition_word(Some(kind), self.line_str(), self.col).is_some_and(
+                |(r, _)| {
+                    self.line_str()
+                        .get(..r.start)
+                        .is_some_and(|b| !b.ends_with('.'))
+                },
+            )
+            && matches!(found.as_slice(), [c] if !c.reason.proven() && form(&c.hit.text).is_some_and(|f| Some(f) == form(self.line_str())));
         found.sort_by_cached_key(|c| search::rank(&c.hit.path, Some(here), true).tier);
         found.truncate(search::MAX_HITS);
         if let Some(probe) = &mut self.probe {
@@ -2002,63 +2020,6 @@ impl App {
                 self.message = status;
             }
         }
-    }
-
-    pub(super) fn on_declared_name(&self, kind: Kind, word: &str, exact: bool) -> bool {
-        let line = self.line_str();
-        let Some((r, _)) = search::definition_word(Some(kind), line, self.col) else {
-            return true;
-        };
-        let part = |c: char| is_word(c) || search::word_chars(Some(kind), true).contains(c);
-        let at: Vec<usize> = line
-            .match_indices(word)
-            .map(|(i, _)| i)
-            .filter(|&i| !line[..i].ends_with(part) && !line[i + word.len()..].starts_with(part))
-            .collect();
-        if !at.contains(&r.start) {
-            return true;
-        }
-        let mut patterns = search::def_patterns(kind, word);
-        patterns.extend(search::member_or_signature(kind, word).unwrap_or_default());
-        let re = Regex::new(&patterns.join("|"))
-            .ok()
-            .filter(|re| re.is_match(line));
-        let same_shape_word: String = word
-            .chars()
-            .map(|c| match c {
-                'q' => 'z',
-                'Q' => 'Z',
-                '0' => '1',
-                c if c.is_lowercase() => 'q',
-                c if c.is_uppercase() => 'Q',
-                c if c.is_numeric() => '0',
-                c => c,
-            })
-            .collect();
-        let declared: Vec<usize> = at
-            .iter()
-            .copied()
-            .filter(|&i| {
-                re.as_ref().is_some_and(|re| {
-                    !re.is_match(&format!(
-                        "{}{same_shape_word}{}",
-                        &line[..i],
-                        &line[i + word.len()..]
-                    ))
-                })
-            })
-            .collect();
-        let first = declared.first().copied().unwrap_or(at[0]);
-        if declared.contains(&r.start) || (declared.is_empty() && first == r.start) {
-            return true;
-        }
-        if exact {
-            return false;
-        }
-        let called = |i: usize| line[i + word.len()..].trim_start().starts_with('(');
-        let before = line[..r.start].trim_end();
-        let member = before.ends_with(['.', '>']) || before.ends_with("::");
-        !(r.start < first || member || (called(r.start) && !called(first)))
     }
 
     pub(super) fn project_definitions(

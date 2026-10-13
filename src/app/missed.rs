@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::cursor::{word_end, word_start};
 use super::keys::named;
 use super::review::Next;
@@ -373,7 +372,7 @@ impl App {
             return None;
         }
         let mut at = from;
-        for m in 1..=max_missed_presses(s[lo..hi].graphemes(true).count()) {
+        for m in 1..=max_missed_presses(s.get(lo..hi)?.graphemes(true).count()) {
             at = step(s, at);
             if at == to {
                 let key = KeyEvent::new(run.key.0, KeyModifiers::ALT);

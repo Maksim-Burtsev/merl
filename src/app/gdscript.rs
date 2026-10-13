@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::resolution::resolution;
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, search};
 
@@ -14,7 +13,7 @@ impl App {
             self.message = resolution(word, None, &[], None, false);
             return true;
         }
-        let dotted = self.line_str()[..range.start].ends_with('.');
+        let dotted = (self.line_str().get(..range.start)).is_some_and(|b| b.ends_with('.'));
         let (name, member) = match chain {
             [] if !dotted => (word, None),
             [first] => (first.as_str(), Some(word)),

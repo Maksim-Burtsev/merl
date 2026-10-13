@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, search};
 
@@ -377,7 +376,12 @@ fn python_import_line(text: &str, name: &str) -> Option<usize> {
     FROM.captures_iter(text).find_map(|c| {
         let names = c.get(1)?;
         let at = word.find(names.as_str())?;
-        Some(text[..names.start() + at.start()].matches('\n').count() + 1)
+        Some(
+            text.get(..names.start() + at.start())?
+                .matches('\n')
+                .count()
+                + 1,
+        )
     })
 }
 pub(super) fn starts_by_assigning(text: &str, word: &str) -> bool {

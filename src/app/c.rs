@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::{
     App, Arc, Candidate, Component, HashMap, HashSet, Hit, Kind, Path, PathBuf, Reason, Regex, cpp,
@@ -23,8 +22,8 @@ impl App {
         });
         let line = self.line_str();
         let (before, after) = (
-            line[..range.start].trim_end(),
-            line[range.end..].trim_start(),
+            line.get(..range.start)?.trim_end(),
+            line.get(range.end..)?.trim_start(),
         );
         let called = after.starts_with('(');
         let member = (before.ends_with("->") && !TRAILING.is_match(before))

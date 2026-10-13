@@ -1,5 +1,4 @@
 #![expect(clippy::too_many_lines, reason = "test tables")]
-#![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 
 fn go_rows(cases: Vec<(&str, &str, &str, Shown)>) {
@@ -689,7 +688,7 @@ fn a_second_d_on_the_declaration_a_jump_landed_on_lists_the_implementations() {
     );
     assert_eq!(format!("{}:{}", a.rel_path(), a.line + 1), "repos.py:18");
     assert_eq!(
-        &a.line_str()[a.col..a.col + 4],
+        a.line_str().get(a.col..a.col + 4).unwrap(),
         "send",
         "on the word: a jump that left the cursor at the start of the line would answer nothing"
     );

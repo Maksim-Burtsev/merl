@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::{
     App, HashMap, Hit, Kind, Path, PathBuf, PickerKind, Regex, Tier, deleted_hits, search,
     whole_at, word_col,
@@ -87,14 +86,14 @@ impl App {
                 | Kind::EmacsLisp
                 | Kind::Scheme
                 | Kind::CommonLisp,
-            ) => self.definition_word(k).map(|(r, w)| {
-                let lead = &self.line_str()[..r.start];
+            ) => self.definition_word(k).and_then(|(r, w)| {
+                let lead = self.line_str().get(..r.start)?;
                 let sigil = lead.len() - lead.trim_end_matches('@').len();
-                if k == Some(Kind::Ruby) && (1..=2).contains(&sigil) {
-                    format!("{}{w}", &lead[lead.len() - sigil..])
+                Some(if k == Some(Kind::Ruby) && (1..=2).contains(&sigil) {
+                    format!("{}{w}", "@".repeat(sigil))
                 } else {
                     w
-                }
+                })
             }),
             k => self
                 .css_word()
@@ -215,6 +214,10 @@ impl App {
         }
     }
 
+    #[expect(
+        clippy::string_slice,
+        reason = "definition_word returns a range of words of the line"
+    )]
     pub(super) fn make_recipe_rule<'a>(
         &'a self,
         here: Option<&Path>,

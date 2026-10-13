@@ -2,7 +2,6 @@
     clippy::case_sensitive_file_extension_comparisons,
     reason = "the rows and fixture names are text these tests wrote in lower case"
 )]
-#![expect(clippy::string_slice, reason = "#858")]
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -158,8 +157,8 @@ fn search_title_hides_the_count_until_the_grep_answers() {
     let mut title = |app: &mut App| {
         terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
         let text = rows(&terminal).join("\n");
-        let at = text.find("Search (").expect("the title");
-        text[at..].split_inclusive(')').next().unwrap().to_owned()
+        let (_, rest) = text.split_once("Search (").expect("the title");
+        format!("Search ({}", rest.split_inclusive(')').next().unwrap())
     };
 
     for c in "sqqzz".chars() {
@@ -198,8 +197,8 @@ fn symbol_title_says_the_list_is_cut_until_the_query_answers() {
     let mut title = |app: &mut App| {
         terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
         let text = rows(&terminal).join("\n");
-        let at = text.find("Symbols (").expect("the title");
-        text[at..].split_inclusive(')').next().unwrap().to_owned()
+        let (_, rest) = text.split_once("Symbols (").expect("the title");
+        format!("Symbols ({}", rest.split_inclusive(')').next().unwrap())
     };
 
     app.key(KeyEvent::new(KeyCode::Char('D'), KeyModifiers::NONE));

@@ -158,18 +158,19 @@ pub fn set_up(a: &mut App, task: &Task) {
     a.tutor = tutor;
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
 pub fn press(a: &mut App, notation: &str) {
     let mut rest = notation;
     while let Some(c) = rest.chars().next() {
-        let (code, mods, len) = match rest.find('>').filter(|_| c == '<') {
-            Some(end) => {
-                let (code, mods) = chord(&rest[1..end]);
-                (code, mods, end + 1)
-            }
-            None => (KeyCode::Char(c), KeyModifiers::NONE, c.len_utf8()),
-        };
-        rest = &rest[len..];
+        let (code, mods, after) =
+            if let Some((inner, after)) = rest.strip_prefix('<').and_then(|r| r.split_once('>')) {
+                let (code, mods) = chord(inner);
+                (code, mods, after)
+            } else {
+                let mut tail = rest.chars();
+                tail.next();
+                (KeyCode::Char(c), KeyModifiers::NONE, tail.as_str())
+            };
+        rest = after;
         if let Some(p) = &mut a.picker {
             p.settle();
         }
@@ -236,10 +237,9 @@ fn edited_since_unpacked(app: &App) -> bool {
         .is_some_and(|(_, text)| text.lines().ne(app.buf.lines.iter().map(String::as_str)))
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
 fn selected_on_one_line(a: &App) -> Option<&str> {
     let ((l1, c1), (l2, c2)) = a.selection()?;
-    (l1 == l2).then(|| &a.text(l1)[c1..c2])
+    (l1 == l2).then(|| a.text(l1).get(c1..c2)).flatten()
 }
 
 #[cfg(test)]
