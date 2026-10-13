@@ -1,8 +1,4 @@
-#![expect(clippy::case_sensitive_file_extension_comparisons, reason = "#858")]
-#![cfg_attr(test, expect(clippy::items_after_statements, reason = "#858"))]
-#![expect(clippy::naive_bytecount, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::struct_excessive_bools, reason = "#858")]
 #![cfg_attr(test, expect(clippy::too_many_lines, reason = "#858"))]
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
@@ -179,6 +175,10 @@ fn start_and_count(s: &str) -> Option<(usize, usize)> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is an independent fact about the file"
+)]
 pub struct ReviewFile {
     pub path: PathBuf,
     pub status: char,
@@ -815,6 +815,10 @@ fn generated_attrs(root: &Path, files: &[ReviewFile]) -> Result<HashMap<PathBuf,
     Ok(said)
 }
 
+#[expect(
+    clippy::naive_bytecount,
+    reason = "the bytecount crate would be a dependency for one count of newlines"
+)]
 fn count_lines(path: &Path) -> std::io::Result<(bool, usize)> {
     use std::io::Read;
     if !std::fs::metadata(path)?.is_file() {

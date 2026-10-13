@@ -1,4 +1,3 @@
-#![expect(clippy::needless_pass_by_value, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use anyhow::Context as _;
 

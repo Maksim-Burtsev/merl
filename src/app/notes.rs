@@ -1,4 +1,3 @@
-#![expect(clippy::option_option, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 use std::collections::HashMap;
 use std::fmt::Write as _;
@@ -50,6 +49,10 @@ pub struct NoteEdit {
 }
 
 #[derive(Default)]
+#[expect(
+    clippy::option_option,
+    reason = "`dirs` is None until looked up, then the lookup's own Option"
+)]
 pub struct Notes {
     pub on: bool,
     pub list: Vec<Note>,

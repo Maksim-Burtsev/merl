@@ -494,7 +494,6 @@ pub fn with_colours(src: &str, colours: &str) -> String {
     format!("{colours}\n{src}")
 }
 
-#[expect(clippy::needless_pass_by_value, reason = "#858")]
 pub fn render(job: Job) -> Done {
     let drawn = std::panic::catch_unwind(|| match &job.src {
         Src::Diagram(src) => draw(&with_colours(src, &job.colours)).ok_or_else(String::new),

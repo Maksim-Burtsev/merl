@@ -6,7 +6,6 @@ mod spans;
 mod words;
 
 impl App {
-    #[expect(clippy::case_sensitive_file_extension_comparisons, reason = "#858")]
     fn shape(&self) -> Option<Folds<'_>> {
         let lines = &self.buf.lines;
         if self.kind() == Some(Kind::Python) {

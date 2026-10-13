@@ -279,8 +279,11 @@ struct TableRow {
     cells: Vec<Inline>,
 }
 
-#[expect(clippy::struct_excessive_bools, reason = "#858")]
 #[derive(Default)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is an independent state of the layout"
+)]
 struct Lay<'a> {
     src: &'a str,
     fit: Option<Fit<'a>>,
@@ -759,8 +762,7 @@ impl Lay<'_> {
         (s, looks)
     }
 
-    #[expect(clippy::needless_pass_by_ref_mut, reason = "#858")]
-    fn avail(&mut self) -> usize {
+    fn avail(&self) -> usize {
         let w = self
             .stack
             .iter()
@@ -773,7 +775,6 @@ impl Lay<'_> {
         self.width.saturating_sub(w).max(1)
     }
 
-    #[expect(clippy::needless_pass_by_value, reason = "#858")]
     fn push(
         &mut self,
         text: String,
@@ -1099,7 +1100,6 @@ impl Lay<'_> {
     }
 
     #[expect(clippy::excessive_nesting, reason = "#858")]
-    #[expect(clippy::needless_pass_by_value, reason = "#858")]
     fn table(&mut self, t: Table) {
         let n = t
             .rows

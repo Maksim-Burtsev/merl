@@ -1,4 +1,3 @@
-#![expect(clippy::match_same_arms, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::{

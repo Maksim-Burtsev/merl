@@ -1,9 +1,8 @@
-#![expect(clippy::ignore_without_reason, reason = "#858")]
 use super::*;
 use std::fmt::Write as _;
 
 #[test]
-#[ignore]
+#[ignore = "plays the recorded cursors of real projects; tools/d-bench/run runs it"]
 fn d_bench() {
     let Ok(input) = std::env::var("BENCH_IN") else {
         return;

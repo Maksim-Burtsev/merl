@@ -1,4 +1,3 @@
-#![expect(clippy::needless_pass_by_value, reason = "#858")]
 use super::{
     App, Arc, Hit, Instant, Kind, LineEdit, MAX_LABEL_TEXT, Mode, Path, PathBuf, PickItem, Picker,
     PickerKind, SearchJob, clip, git, search, tutor,

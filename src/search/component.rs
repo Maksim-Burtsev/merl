@@ -1,4 +1,3 @@
-#![expect(clippy::items_after_statements, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::{Kind, file_literal_lines, literal_lines, word_at};

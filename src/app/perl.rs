@@ -1,5 +1,3 @@
-#![expect(clippy::needless_pass_by_ref_mut, reason = "#858")]
-#![expect(clippy::needless_pass_by_value, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 use super::{App, Candidate, HashSet, Hit, Kind, Path, PathBuf, Reason, Regex, search};
 
@@ -116,7 +114,7 @@ impl App {
         }
     }
 
-    fn perl_by_name(&mut self, here: &Path, word: &str, patterns: &[String]) -> Vec<Candidate> {
+    fn perl_by_name(&self, here: &Path, word: &str, patterns: &[String]) -> Vec<Candidate> {
         (self.project_definitions(Kind::Perl, here, word, &patterns.join("|")))
             .into_iter()
             .map(|hit| Candidate {

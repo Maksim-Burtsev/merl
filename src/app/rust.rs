@@ -1,4 +1,3 @@
-#![expect(clippy::match_same_arms, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use super::{

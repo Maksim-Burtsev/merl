@@ -1,7 +1,5 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
 #![expect(clippy::excessive_nesting, reason = "#858")]
-#![expect(clippy::fn_params_excessive_bools, reason = "#858")]
-#![expect(clippy::match_same_arms, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
@@ -62,6 +60,10 @@ impl<'a> Build<'a> {
         }
     }
 
+    #[expect(
+        clippy::fn_params_excessive_bools,
+        reason = "the three flags are independent facts about the opener, stored as they come"
+    )]
     fn open(&mut self, line: usize, word: &'static str, fold: bool, func: bool, armed: bool) {
         self.stack.push(Open {
             line,

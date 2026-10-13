@@ -1,5 +1,3 @@
-#![expect(clippy::case_sensitive_file_extension_comparisons, reason = "#858")]
-#![expect(clippy::items_after_statements, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};

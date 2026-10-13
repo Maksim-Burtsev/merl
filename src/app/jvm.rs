@@ -1,5 +1,4 @@
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unused_self, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::{
     App, Candidate, HashMap, HashSet, Hit, Kind, Path, PathBuf, Reason, Regex, is_word, search,
@@ -518,7 +517,7 @@ impl App {
         let java = here.extension().is_some_and(|e| e == "java");
         let groovy = search::groovy(here);
         if !java && !groovy {
-            return if self.kotlin_infix(before, after, word) {
+            return if Self::kotlin_infix(before, after, word) {
                 hits.into_iter()
                     .filter(|h| Regex::new(r"\binfix\b").is_ok_and(|re| re.is_match(&h.text)))
                     .collect()
@@ -630,7 +629,7 @@ impl App {
         }
     }
 
-    fn kotlin_infix(&self, before: &str, after: &str, word: &str) -> bool {
+    fn kotlin_infix(before: &str, after: &str, word: &str) -> bool {
         if KOTLIN_KEYWORDS.contains(&word) || after.starts_with('(') || before.ends_with('.') {
             return false;
         }

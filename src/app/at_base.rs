@@ -1,5 +1,3 @@
-#![expect(clippy::needless_pass_by_value, reason = "#858")]
-#![expect(clippy::suspicious_operation_groupings, reason = "#858")]
 use super::{
     App, Buffer, Candidate, FileLine, HashMap, Hit, Kind, Mode, Path, PathBuf, PickItem,
     PickerKind, Reason, Regex, at_label, git, search, search_job,
@@ -100,12 +98,12 @@ impl App {
     fn base_app(&mut self, r: &git::Review) -> Option<&mut Self> {
         let dir = r.base_tree(&self.root).ok()?;
         let branch_files_stamp = std::fs::read_to_string(dir.join(".merl-stamp")).ok()?;
-        if (self.base_app.as_ref()).is_none_or(|(s, _)| *s != branch_files_stamp) {
+        if (self.at_base.as_ref()).is_none_or(|(s, _)| *s != branch_files_stamp) {
             let (tree, files) = crate::tree::build(&dir, false);
             let app = Self::new(dir, tree, files, Buffer::empty(), None);
-            self.base_app = Some((branch_files_stamp, Box::new(app)));
+            self.at_base = Some((branch_files_stamp, Box::new(app)));
         }
-        self.base_app.as_mut().map(|(_, a)| a.as_mut())
+        self.at_base.as_mut().map(|(_, a)| a.as_mut())
     }
 
     fn item_to_review(&self, r: &git::Review, base: &Path, mut it: PickItem) -> PickItem {
@@ -145,6 +143,10 @@ impl App {
         it
     }
 
+    #[expect(
+        clippy::suspicious_operation_groupings,
+        reason = "a deleted line's `line` and a hit's `line1` are the same row, named apart"
+    )]
     fn to_review(&self, r: &git::Review, base: &Path, h: &mut Hit) {
         if let Ok(rel) = h.path.strip_prefix(base) {
             h.path = rel.to_path_buf();

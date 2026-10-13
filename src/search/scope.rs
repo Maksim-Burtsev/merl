@@ -1,6 +1,3 @@
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::needless_pass_by_value, reason = "#858")]
-#![expect(clippy::suspicious_operation_groupings, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
@@ -13,6 +10,10 @@ use super::{
     perl_roots, powershell_roots, ruby_roots, ts_alias,
 };
 
+#[expect(
+    clippy::suspicious_operation_groupings,
+    reason = "the kind is checked on `path` alone; `here` is compared by its folder or its dialect"
+)]
 pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
     match kind {
         Kind::Docker | Kind::Yaml | Kind::Markdown | Kind::Html => path == here,

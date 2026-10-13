@@ -1,4 +1,3 @@
-#![expect(clippy::needless_pass_by_value, reason = "#858")]
 use super::{App, Candidate, Hit, Kind, Path, Reason, Regex, search};
 
 struct WrittenType {

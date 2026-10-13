@@ -1,4 +1,3 @@
-#![cfg_attr(test, expect(clippy::unnecessary_wraps, reason = "#858"))]
 use super::*;
 
 fn env(pairs: &[(&str, &str)]) -> impl Fn(&str) -> Option<String> {
@@ -82,12 +81,12 @@ fn a_diagram_draws_and_a_broken_one_does_not() {
     assert!(render(job("graph TD\n  A[Start --> ")).drawn.is_err());
 }
 
-fn drawn() -> Result<Drawn, String> {
-    Ok(Drawn {
+fn drawn() -> Drawn {
+    Drawn {
         frames: vec![(vec![1, 2, 3], 0)],
         natural: (20, 10),
         h: 20,
-    })
+    }
 }
 
 fn flushed(d: &mut Diagrams) -> String {
@@ -105,7 +104,7 @@ fn a_picture_is_sent_once_and_placed_again_only_when_it_moves() {
     let mut d = on();
     d.done(Done {
         key: d.key("graph TD"),
-        drawn: drawn(),
+        drawn: Ok(drawn()),
     });
     let id = d.pic("graph TD").unwrap().id();
     let place = Place {
@@ -139,7 +138,7 @@ fn the_same_diagram_twice_is_placed_twice() {
     let mut d = on();
     d.done(Done {
         key: d.key("graph TD"),
-        drawn: drawn(),
+        drawn: Ok(drawn()),
     });
     let id = d.pic("graph TD").unwrap().id();
     let place = |placement, y| Place {
@@ -165,7 +164,7 @@ fn every_picture_gets_an_id_of_its_own() {
     for src in ["graph TD", "graph LR", "graph BT"] {
         d.done(Done {
             key: d.key(src),
-            drawn: drawn(),
+            drawn: Ok(drawn()),
         });
     }
     let ids: HashSet<u32> = ["graph TD", "graph LR", "graph BT"]
@@ -183,7 +182,7 @@ fn another_theme_drops_the_old_pictures_and_frees_the_sent_ones() {
     d.theme(&dark, dark.line_hl_dim);
     d.done(Done {
         key: d.key("graph TD"),
-        drawn: drawn(),
+        drawn: Ok(drawn()),
     });
     let id = d.pic("graph TD").unwrap().id();
     d.want = vec![Place {
@@ -228,7 +227,7 @@ fn a_render_that_answers_for_old_colours_is_not_kept() {
     d.theme(&theme, theme.line_hl_dim);
     d.done(Done {
         key,
-        drawn: drawn(),
+        drawn: Ok(drawn()),
     });
     assert!(d.pic("graph TD").is_none());
     assert!(d.fit("graph TD", 100).is_some());

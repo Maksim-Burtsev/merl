@@ -1,4 +1,3 @@
-#![expect(clippy::trivial_regex, reason = "#858")]
 use super::*;
 
 #[test]
@@ -361,7 +360,7 @@ fn shift_far_moves_extend_the_selection() {
 #[test]
 fn alt_shift_left_right_select_by_word_without_touching_find() {
     let mut a = app("foo bar_1 baz");
-    a.find_re = Some(Regex::new("foo").unwrap());
+    a.find_re = Some(Regex::new(&regex::escape("foo")).unwrap());
     let m = KeyModifiers::ALT | KeyModifiers::SHIFT;
     press(&mut a, KeyCode::Right, m);
     press(&mut a, KeyCode::Right, m);

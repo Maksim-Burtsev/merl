@@ -304,8 +304,10 @@ const HIST_MAX: usize = 50;
 type Paths = Arc<Vec<PathBuf>>;
 type CMode = (bool, bool);
 
-#[expect(clippy::struct_excessive_bools, reason = "#858")]
-#[expect(clippy::struct_field_names, reason = "#858")]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "the app's flags are independent switches of the screen"
+)]
 pub struct App {
     pub root: PathBuf,
     pub shallow: bool,
@@ -327,7 +329,7 @@ pub struct App {
     go_build: search::GoBuild,
     offer_only: bool,
     probe: Option<Vec<Candidate>>,
-    base_app: Option<(String, Box<Self>)>,
+    at_base: Option<(String, Box<Self>)>,
     truncated: std::cell::Cell<bool>,
     reading: std::cell::RefCell<Vec<(PathBuf, usize)>>,
     pub focus: Focus,
@@ -477,7 +479,7 @@ impl App {
             ),
             offer_only: false,
             probe: None,
-            base_app: None,
+            at_base: None,
             truncated: std::cell::Cell::default(),
             reading: std::cell::RefCell::default(),
             focus,

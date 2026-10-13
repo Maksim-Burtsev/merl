@@ -1,5 +1,4 @@
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::trivial_regex, reason = "#858")]
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
@@ -899,7 +898,7 @@ fn review_paints_the_word_that_changed_on_both_rows() {
         "a selection wins over a changed word"
     );
     app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
-    app.find_re = Some(regex::Regex::new(">").unwrap());
+    app.find_re = Some(regex::Regex::new(&regex::escape(">")).unwrap());
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(
         cell(&terminal, gt, 2).1,
@@ -1716,7 +1715,7 @@ fn selected_code_takes_the_themes_selected_text_colour_and_keeps_find_matches() 
         cell(&terminal, 6),
         ("1".into(), selected_fg, theme.selection)
     );
-    app.find_re = Some(regex::Regex::new("=").unwrap());
+    app.find_re = Some(regex::Regex::new(&regex::escape("=")).unwrap());
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(cell(&terminal, 4).2, theme.find_bg);
     assert_eq!(
@@ -1736,7 +1735,7 @@ fn a_find_match_carries_the_search_groups_underline_as_neovim_draws_it() {
         None,
     );
     app.show_tree = false;
-    app.find_re = Some(regex::Regex::new("=").unwrap());
+    app.find_re = Some(regex::Regex::new(&regex::escape("=")).unwrap());
     let theme = crate::theme::load("srcery").unwrap();
     let mut terminal = Terminal::new(TestBackend::new(12, 4)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();

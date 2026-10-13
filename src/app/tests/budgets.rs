@@ -1,4 +1,3 @@
-#![expect(clippy::ignore_without_reason, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use super::*;
 use ratatui::{Terminal, backend::TestBackend};
@@ -39,7 +38,7 @@ const D_CURSORS: &[(&str, usize, usize)] = &[
 ];
 
 #[test]
-#[ignore]
+#[ignore = "measures keys against their time budgets in release; the smoke test runs it"]
 fn time_budgets() {
     let root = generated();
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();

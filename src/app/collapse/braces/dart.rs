@@ -187,7 +187,7 @@ impl Model<'_, '_> {
             }
             let end = (k..n).find(|&j| self.punct(j, ";")).unwrap_or(n - 1);
             let last = self.toks[end].end;
-            run = self.join_run(run, (self.toks[k].line, last), lines);
+            run = Some(self.join_run(run, (self.toks[k].line, last), lines));
             if !lines[last].trim_end().ends_with(';') {
                 self.end_run(run.take());
             }

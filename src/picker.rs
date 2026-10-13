@@ -1,4 +1,3 @@
-#![expect(clippy::ref_option, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -61,7 +60,7 @@ enum Ref {
 
 fn nth<'a>(
     snap: &'a Snapshot<PickItem>,
-    order: &Option<Vec<Ref>>,
+    order: Option<&[Ref]>,
     n: u32,
 ) -> Option<(Item<'a, PickItem>, bool)> {
     match order {
@@ -253,7 +252,7 @@ impl Picker {
         let end = start.saturating_add(count).min(total);
         let pattern = snap.pattern().column_pattern(0);
         (start..end)
-            .filter_map(|n| nth(snap, order, u32::try_from(n).ok()?))
+            .filter_map(|n| nth(snap, order.as_deref(), u32::try_from(n).ok()?))
             .map(|(item, named)| {
                 let mut matched = Vec::new();
                 if named {
@@ -280,7 +279,12 @@ impl Picker {
 
     pub fn current(&self) -> Option<&PickItem> {
         let snap = self.nucleo.snapshot();
-        nth(snap, &self.order, u32::try_from(self.selected).ok()?).map(|(item, _)| item.data)
+        nth(
+            snap,
+            self.order.as_deref(),
+            u32::try_from(self.selected).ok()?,
+        )
+        .map(|(item, _)| item.data)
     }
 
     fn accept(&self) -> Pick {

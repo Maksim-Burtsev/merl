@@ -111,7 +111,7 @@ impl Model<'_, '_> {
             match t.text {
                 "import" => {
                     if let Some(from) = self.import_start(k) {
-                        imports = self.join_run(imports, (from, t.line), lines);
+                        imports = Some(self.join_run(imports, (from, t.line), lines));
                     }
                 }
                 "if" | "guard" | "for" | "while" | "switch" | "do"

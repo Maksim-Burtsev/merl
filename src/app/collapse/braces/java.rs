@@ -55,7 +55,7 @@ impl Model<'_, '_> {
             if self.tx(k) == "import" && self.first[k] && stack.is_empty() {
                 let end = (k..n).find(|&j| self.punct(j, ";")).unwrap_or(n - 1);
                 let span = (self.toks[k].line, self.toks[end].end);
-                imports = self.join_run(imports, span, lines);
+                imports = Some(self.join_run(imports, span, lines));
                 k = end + 1;
                 continue;
             }

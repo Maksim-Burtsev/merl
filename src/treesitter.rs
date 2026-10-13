@@ -290,7 +290,10 @@ struct Patterns {
 }
 
 impl Patterns {
-    #[expect(clippy::option_option, reason = "#858")]
+    #[expect(
+        clippy::option_option,
+        reason = "a key absent, a key set bare and a key with a value are three answers, as `#set!` has them"
+    )]
     fn setting(&self, pattern: usize, key: &str) -> Option<Option<&str>> {
         self.settings[pattern]
             .iter()
@@ -815,7 +818,6 @@ fn found(
     out
 }
 
-#[expect(clippy::needless_pass_by_value, reason = "#858")]
 fn first_row(old: Found, new: &Found) -> usize {
     old.symmetric_difference(new)
         .flat_map(|(_, captures)| captures.iter().map(|c| c.3))
@@ -883,7 +885,6 @@ fn recovered_row(old: &Tree, new: &Tree, below: usize) -> usize {
     }
 }
 
-#[expect(clippy::match_same_arms, reason = "#858")]
 #[expect(clippy::string_slice, reason = "#858")]
 fn vim_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
     let bad = || Err(format!("vim pattern {p:?} is not supported"));
@@ -940,7 +941,6 @@ fn lua_replacement(with: &str) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
-#[expect(clippy::match_same_arms, reason = "#858")]
 fn lua_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
     let class = |c: char| -> Option<&'static str> {
         Some(match c {

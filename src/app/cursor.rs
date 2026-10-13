@@ -1,4 +1,3 @@
-#![expect(clippy::items_after_statements, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::{App, Kind, Mode, TextLine, is_word, next_char, prev_char, search, shown_str, wrap};

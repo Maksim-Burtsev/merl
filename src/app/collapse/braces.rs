@@ -696,18 +696,17 @@ impl<'t, 'a> Model<'t, 'a> {
         self.pair[k].map(|c| self.end_of(c))
     }
 
-    #[expect(clippy::unnecessary_wraps, reason = "#858")]
     fn join_run(
         &mut self,
         run: Option<(usize, usize)>,
         (s, e): (usize, usize),
         lines: &[String],
-    ) -> Option<(usize, usize)> {
+    ) -> (usize, usize) {
         match run {
-            Some((rs, re)) if (re + 1..s).all(|i| lines[i].trim().is_empty()) => Some((rs, e)),
+            Some((rs, re)) if (re + 1..s).all(|i| lines[i].trim().is_empty()) => (rs, e),
             run => {
                 self.end_run(run);
-                Some((s, e))
+                (s, e)
             }
         }
     }

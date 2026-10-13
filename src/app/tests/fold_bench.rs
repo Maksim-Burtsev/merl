@@ -1,10 +1,9 @@
-#![expect(clippy::ignore_without_reason, reason = "#858")]
 use super::*;
 use crate::app::collapse::FOLD_EVERY_KIND;
 use std::fmt::Write as _;
 
 #[test]
-#[ignore]
+#[ignore = "folds real projects; tools/fold-bench/run runs it"]
 fn fold_bench() {
     let Ok(input) = std::env::var("BENCH_IN") else {
         return;

@@ -1,4 +1,3 @@
-#![expect(clippy::needless_pass_by_value, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 use super::links::in_project;
 use super::resolution::resolution;
