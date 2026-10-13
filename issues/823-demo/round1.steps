@@ -1,0 +1,7 @@
+# Round 1: c walks the branch and ticks each file it leaves; six of eight are viewed, then q.
+wait file 1/8
+key Escape
+key c c c c c c c
+sleep 0.5
+key q
+sleep 0.5
