@@ -1,0 +1,36 @@
+diff --git a/src/app.rs b/src/app.rs
+index 3f2a1b4..9c8d7e6 100644
+--- a/src/app.rs
++++ b/src/app.rs
+@@ -12,7 +12,8 @@ impl App {
+     fn open(&mut self, path: &Path) -> Result<()> {
+-        let text = fs::read_to_string(path)?;
++        let bytes = fs::read(path)?;
++        let text = String::from_utf8_lossy(&bytes);
+         self.buffers.push(Buffer::new(text));
+         Ok(())
+     }
+@@ -40,3 +41,3 @@ fn main() {
+-    run();
++    run().unwrap();
+ }
+\ No newline at end of file
+diff --git a/old.txt b/new.txt
+similarity index 87%
+rename from old.txt
+rename to new.txt
+diff --git a/run.sh b/run.sh
+old mode 100644
+new mode 100755
+diff --git a/logo.png b/logo.png
+new file mode 100644
+index 0000000..e69de29
+Binary files /dev/null and b/logo.png differ
+diff --git a/gone.txt b/gone.txt
+deleted file mode 100644
+index 5716ca5..0000000
+--- a/gone.txt
++++ /dev/null
+@@ -1,2 +0,0 @@
+-first
+-second

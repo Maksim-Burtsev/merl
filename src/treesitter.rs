@@ -44,6 +44,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/css/injections.scm"),
     ),
     (
+        "diff",
+        include_str!("../queries/diff/highlights.scm"),
+        include_str!("../queries/diff/injections.scm"),
+    ),
+    (
         "ecma",
         include_str!("../queries/ecma/highlights.scm"),
         include_str!("../queries/ecma/injections.scm"),
@@ -109,6 +114,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         "printf",
         include_str!("../queries/printf/highlights.scm"),
         "",
+    ),
+    (
+        "query",
+        include_str!("../queries/query/highlights.scm"),
+        include_str!("../queries/query/injections.scm"),
     ),
     (
         "toml",
@@ -300,6 +310,8 @@ pub fn for_syntax(
         "C#" => lang("c_sharp"),
         "C++" if cpp(path, lines) => lang("cpp"),
         "CSS" => lang("css"),
+        "Diff" if diff(path, lines) => lang("diff"),
+        "Lisp" if path.is_some_and(query) => lang("query"),
         "HTML" if !html_variant(lines) => lang("html"),
         "XML" if xml(path, lines) => lang("xml"),
         "Go" => lang("go"),
@@ -358,6 +370,48 @@ fn xml(path: Option<&Path>, lines: &[String]) -> bool {
         })
 }
 
+fn query(path: &Path) -> bool {
+    path.extension().is_some_and(|e| e == "scm")
+        && path
+            .parent()
+            .is_some_and(|d| d.components().any(|c| c.as_os_str() == "queries"))
+}
+
+fn diff(path: Option<&Path>, lines: &[String]) -> bool {
+    static SEND_EMAIL: OnceLock<regex::Regex> = OnceLock::new();
+    let send_email = SEND_EMAIL.get_or_init(|| {
+        regex::Regex::new(r"^From [0-9a-fA-F]{40,} Mon Sep 17 00:00:00 2001$")
+            .expect("a valid regex")
+    });
+    let Some(path) = path else { return true };
+    let patch = path.extension().is_some_and(|e| e == "patch");
+    if patch && lines.first().is_some_and(|l| send_email.is_match(l)) {
+        return false;
+    }
+    let dep3 = path.to_string_lossy().contains("/debian/patches/")
+        && path.file_name().is_some_and(|n| n != "series")
+        && lines
+            .iter()
+            .take(100)
+            .take_while(|l| !l.starts_with("---"))
+            .any(|l| DEP3_HEADERS.iter().any(|h| l.starts_with(h)));
+    !dep3
+}
+
+const DEP3_HEADERS: &[&str] = &[
+    "Description:",
+    "Subject:",
+    "Origin:",
+    "Bug:",
+    "Forwarded:",
+    "Author:",
+    "From:",
+    "Reviewed-by:",
+    "Acked-by:",
+    "Last-Updated:",
+    "Applied-Upstream:",
+];
+
 fn zsh(path: &Path) -> bool {
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
     let bare = name.strip_prefix('.').unwrap_or(name);
@@ -377,6 +431,8 @@ fn grammar(name: &str) -> Option<Language> {
         "cpp" => tree_sitter_cpp::LANGUAGE.into(),
         "c_sharp" => tree_sitter_c_sharp::LANGUAGE.into(),
         "css" => tree_sitter_css::LANGUAGE.into(),
+        "diff" => tree_sitter_diff::LANGUAGE.into(),
+        "query" => tree_sitter_tsquery::LANGUAGE.into(),
         "html" => tree_sitter_html::LANGUAGE.into(),
         "xml" => tree_sitter_xml::LANGUAGE_XML.into(),
         "json" => tree_sitter_json::LANGUAGE.into(),
@@ -1133,8 +1189,9 @@ impl<'a> Styles<'a> {
             return textmate(name, &self.highlighter);
         }
         let s = self.theme.group(&format!("@{name}.{lang}"))?;
+        let reversed = s.add_modifier.contains(ratatui::style::Modifier::REVERSED);
         Some(Style {
-            bg: None,
+            bg: s.bg.filter(|_| reversed),
             underline_color: None,
             ..s
         })
