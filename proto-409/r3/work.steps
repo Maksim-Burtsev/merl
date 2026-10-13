@@ -1,0 +1,15 @@
+wait shop
+sleep 0.4
+type merl -r 1234
+key Tab
+sleep 0.8
+key Tab
+sleep 2.0
+key C-u
+sleep 0.3
+type merl -r 2505
+key Tab
+sleep 1.6
+key Enter
+wait auth.py
+sleep 2.5

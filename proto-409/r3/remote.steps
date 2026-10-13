@@ -1,0 +1,16 @@
+wait shop
+sleep 0.4
+type merl -r 7777
+key Tab
+sleep 1.8
+key C-u
+sleep 0.3
+type git fetch -q
+key Enter
+sleep 1.0
+type merl -r 7777
+key Tab
+sleep 1.6
+key Enter
+wait auth.py
+sleep 2.5

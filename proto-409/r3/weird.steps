@@ -1,0 +1,20 @@
+wait shop
+sleep 0.4
+type merl -r café
+key Tab
+sleep 1.2
+key C-u
+type merl -r user@
+key Tab
+sleep 1.2
+key C-u
+type merl -r c#
+key Tab
+sleep 1.2
+key C-u
+type merl -r поиск
+key Tab
+sleep 1.2
+key Enter
+wait orders.py
+sleep 2.0

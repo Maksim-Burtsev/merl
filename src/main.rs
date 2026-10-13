@@ -137,15 +137,27 @@ fn run() -> Result<()> {
         clap_complete::generate(shell, &mut Cli::command(), "merl", &mut stdout());
         return Ok(());
     }
-    let zsh_script =
-        std::env::var_os("COMPLETE").is_some_and(|s| s == "zsh") && std::env::args_os().len() == 1;
+    let mut args = std::env::args_os();
+    let script_for = std::env::var("COMPLETE").ok().filter(|_| args.len() == 1);
+    if let Some(shell @ ("zsh" | "bash")) = script_for.as_deref() {
+        let arg0 = std::path::PathBuf::from(args.next().unwrap());
+        let completer = if arg0.components().count() > 1 {
+            std::env::current_dir()?.join(arg0)
+        } else {
+            arg0
+        };
+        let completer = completer.to_string_lossy();
+        if shell == "zsh" {
+            print!("{}", completion::zsh_script(&completer));
+        } else {
+            print!("{}", completion::bash_script(&completer));
+        }
+        return Ok(());
+    }
     let here = std::env::current_dir().ok();
     if clap_complete::CompleteEnv::with_factory(Cli::command)
         .try_complete(std::env::args_os(), here.as_deref())?
     {
-        if zsh_script {
-            println!("\n[[ $funcstack[1] == _merl ]] && _clap_dynamic_completer_merl \"$@\"");
-        }
         return Ok(());
     }
     let cli = Cli::parse();
