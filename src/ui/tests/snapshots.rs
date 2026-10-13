@@ -246,6 +246,9 @@ fn frame(state: &State, theme: &str, (w, h): (u16, u16)) -> Terminal<TestBackend
         p.settle();
     }
     draw(&mut terminal, &mut a);
+    while a.parsing() {
+        a.parse_more();
+    }
     draw(&mut terminal, &mut a);
     drop(std::fs::remove_dir_all(a.root.parent().unwrap()));
     terminal

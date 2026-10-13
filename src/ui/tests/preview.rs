@@ -118,6 +118,10 @@ fn a_long_code_block_is_highlighted_as_far_as_it_is_drawn() {
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut terminal = Terminal::new(TestBackend::new(40, 10)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    while app.parsing() {
+        app.parse_more();
+    }
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     let hl = app.preview.as_ref().unwrap().code[0].hl.len();
     assert!(
         (9..100).contains(&hl),
