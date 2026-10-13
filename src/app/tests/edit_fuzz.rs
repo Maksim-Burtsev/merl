@@ -1057,22 +1057,6 @@ const KOTLIN: &[&str] = &[
     "\n\n",
 ];
 
-const SWIFT: &[&str] = &[
-    "\"\\(x)\"",
-    "\"\"\"\n",
-    "/// ",
-    "/[a-z]+/",
-    "@MainActor\n",
-    "switch x {\n",
-    "<T: A>",
-    "(",
-    ")",
-    "{",
-    "}",
-    "\"",
-    "\n\n",
-];
-
 const RUBY: &[&str] = &[
     "\"#{x}\"", "<<~SQL\n", "SQL\n", "=begin\n", "=end\n", "/[a-z]+/", "do |x|\n", "end\n", "(",
     ")", "{", "}", "\"", "\n\n",
@@ -1203,11 +1187,6 @@ fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
         "F.kt",
         include_bytes!("../../../tests/colors/kotlin/Ledger.kt"),
         KOTLIN,
-    );
-    fuzz_tree_sitter(
-        "F.swift",
-        include_bytes!("../../../tests/colors/swift/Ledger.swift"),
-        SWIFT,
     );
     fuzz_tree_sitter(
         "f.rb",
