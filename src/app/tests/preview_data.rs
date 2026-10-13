@@ -109,7 +109,7 @@ fn a_csv_parsed_before_leaves_a_markdown_preview_alone() {
     a.jump_to(&dir.join("PLAN.md"), 1);
     p(&mut a);
     assert!(a.previewing());
-    assert_eq!(row(&a), "Plan");
+    assert_eq!(row(&a), "# Plan");
     let _ = std::fs::remove_dir_all(&dir);
 }
 

@@ -42,11 +42,11 @@ fn plan_lays_out_at_40_columns_in_the_rows_its_tests_count() {
     assert_eq!(
         rows,
         [
-            "Plan",
+            "# Plan",
             &h1,
             "Intro line.",
             "",
-            "Steps",
+            "## Steps",
             &h2,
             "1. one",
             "2. two",
@@ -235,7 +235,7 @@ fn the_preview_belongs_to_the_file_p_was_pressed_on() {
     key(&mut a, KeyCode::Char('['));
     assert!(a.previewing(), "the plan is still rendered");
     a.preview_sync();
-    assert_eq!(at_row(&a).2, "Plan");
+    assert_eq!(at_row(&a).2, "# Plan");
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -385,7 +385,7 @@ fn the_row_of_a_line_is_the_one_that_shows_it() {
     }
     key(&mut a, KeyCode::Enter);
     a.preview_sync();
-    assert_eq!(at_row(&a).2, "Steps");
+    assert_eq!(at_row(&a).2, "## Steps");
     for c in [':', '7'] {
         key(&mut a, KeyCode::Char(c));
     }
@@ -805,7 +805,7 @@ fn p_renders_a_file_of_the_review_as_it_stands_now() {
     key(&mut a, KeyCode::Char('p'));
     assert!(a.previewing(), "{}", a.message);
     assert!(
-        preview_text(&a).starts_with("Notes"),
+        preview_text(&a).starts_with("# Notes"),
         "a deleted file as it was: {}",
         preview_text(&a)
     );
@@ -826,7 +826,7 @@ fn a_file_that_joins_the_review_stays_rendered() {
     assert!(a.previewing());
     a.preview_sync();
     assert!(
-        preview_text(&a).starts_with("Changed"),
+        preview_text(&a).starts_with("# Changed"),
         "{}",
         preview_text(&a)
     );

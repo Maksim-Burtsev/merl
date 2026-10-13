@@ -1,7 +1,7 @@
 merl snapshot: preview
 
 ==== 80x24 tokyonight-moon text, cursor hidden
-┌notes───────────────────────┐   Plan: find notes by tag
+┌notes───────────────────────┐   # Plan: find notes by tag
 │▸ tests                     │   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 │  cli.py                    │   notes find reads only the text of a note. Tags
 │  config.py                 │   are stored, but nothing searches them. Goal:
@@ -9,7 +9,7 @@ merl snapshot: preview
 │  Makefile                  │   work, and words after it narrow the list
 │  models.py                 │   further.
 │  notes.json                │
-│  PLAN.md                   │   Steps
+│  PLAN.md                   │   ## Steps
 │  store.py                  │   ───────────────────────────────────────────────
 │                            │   1. NoteStore.find takes the tags to match
 │                            │   2. cli.py passes --tag to find, not only to add
@@ -17,7 +17,7 @@ merl snapshot: preview
 │                            │      ◦ no --tag keeps today's search
 │                            │   3. Tests for both
 │                            │
-│                            │   Status
+│                            │   ## Status
 │                            │   ───────────────────────────────────────────────
 │                            │   ☑ design agreed
 │                            │   ☐ implementation
@@ -27,7 +27,7 @@ merl snapshot: preview
 PLAN.md  1:1  [preview]                                                  ? help
 
 ==== 80x24 tokyonight-moon styles
-abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeee
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeee
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaafffggggggggggggggggggggggggggggggggggggggggggggggg
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffiiiiiiiiiihhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
@@ -35,7 +35,7 @@ ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffiiiiiiiiiiiiiiiiiiiiihhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffiiiihhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ajjjjjjjjjjjjjjjjjjjjjjjjjjjjafffbbbbbhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjafffbbbbbbbbhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffggggggggggggggggggggggggggggggggggggggggggggggg
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffaaaiiiiiiiiiiiiiihhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffaaaiiiiiihhhhhhhhiiiiihhhhiiiihhhhhhhhhhhhhhiii
@@ -43,7 +43,7 @@ ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhaahhhhhhhhiiiiihhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhaahhhiiiiihhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffaaahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffbbbbbbhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffbbbbbbbbbhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffggggggggggggggggggggggggggggggggggggggggggggggg
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffaahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffaahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
@@ -65,7 +65,7 @@ k fg #82aaff bg #1e2030 BOLD
 l fg #828bb8 bg #1e2030
 
 ==== 80x24 github-light styles
-abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeee
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeee
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaffffffffffffffffffffffffffffffffffffffffffffffffff
 aggggggggggggggggggggggggggggafffhhhhhhhhhhggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggg
@@ -73,7 +73,7 @@ aggggggggggggggggggggggggggggafffhhhhhhhhhhhhhhhhhhhhhgggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffhhhhggggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggg
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffiiiiigggggggggggggggggggggggggggggggggggggggggg
+ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffiiiiiiiiggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffff
 aggggggggggggggggggggggggggggafffaaahhhhhhhhhhhhhhgggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffaaahhhhhhgggggggghhhhhgggghhhhgggggggggggggghhh
@@ -81,7 +81,7 @@ aggggggggggggggggggggggggggggafffgggaagggggggghhhhhggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffgggaaggghhhhhgggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffaaagggggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggg
-aggggggggggggggggggggggggggggafffiiiiiiggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffiiiiiiiiigggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffff
 aggggggggggggggggggggggggggggafffaaggggggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffaaggggggggggggggggggggggggggggggggggggggggggggg
@@ -102,13 +102,13 @@ j fg #6639ba bg #5094e4 BOLD
 k fg #f6f8fa bg #5094e4
 
 ==== 120x33 tokyonight-moon text, cursor hidden
-┌notes───────────────────────┐   Plan: find notes by tag
+┌notes───────────────────────┐   # Plan: find notes by tag
 │▸ tests                     │   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 │  cli.py                    │   notes find reads only the text of a note. Tags are stored, but nothing searches them.
 │  config.py                 │   Goal: notes find --tag work lists the notes tagged work, and words after it narrow the
 │  export.csv                │   list further.
 │  Makefile                  │
-│  models.py                 │   Steps
+│  models.py                 │   ## Steps
 │  notes.json                │   ───────────────────────────────────────────────────────────────────────────────────────
 │  PLAN.md                   │   1. NoteStore.find takes the tags to match
 │  store.py                  │   2. cli.py passes --tag to find, not only to add
@@ -116,7 +116,7 @@ k fg #f6f8fa bg #5094e4
 │                            │      ◦ no --tag keeps today's search
 │                            │   3. Tests for both
 │                            │
-│                            │   Status
+│                            │   ## Status
 │                            │   ───────────────────────────────────────────────────────────────────────────────────────
 │                            │   ☑ design agreed
 │                            │   ☐ implementation
@@ -137,13 +137,13 @@ k fg #f6f8fa bg #5094e4
 PLAN.md  1:1  [preview]                                                                                          ? help
 
 ==== 120x33 tokyonight-moon styles
-abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaafffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffiiiiiiiiiihhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhiiiiiiiiiiiiiiiiiiiiihhhhhhhhhhhhhhhhhhhhhhhhiiiihhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffbbbbbhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffbbbbbbbbhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 ajjjjjjjjjjjjjjjjjjjjjjjjjjjjafffaaaiiiiiiiiiiiiiihhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffaaaiiiiiihhhhhhhhiiiiihhhhiiiihhhhhhhhhhhhhhiiihhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
@@ -151,7 +151,7 @@ ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhaahhhhhhhhiiiiihhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhaahhhiiiiihhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffaaahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffbbbbbbhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffbbbbbbbbbhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffaahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffaahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
@@ -194,13 +194,13 @@ u fg #82aaff bg #1e2030 BOLD
 v fg #828bb8 bg #1e2030
 
 ==== 120x33 github-light styles
-abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 aggggggggggggggggggggggggggggafffhhhhhhhhhhggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffgggggghhhhhhhhhhhhhhhhhhhhhgggggggggggggggggggggggghhhhgggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
-aggggggggggggggggggggggggggggafffiiiiigggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffiiiiiiiiggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffaaahhhhhhhhhhhhhhgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffaaahhhhhhgggggggghhhhhgggghhhhgggggggggggggghhhgggggggggggggggggggggggggggggggggggggggg
@@ -208,7 +208,7 @@ aggggggggggggggggggggggggggggafffgggaagggggggghhhhhggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffgggaaggghhhhhgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffaaagggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
-aggggggggggggggggggggggggggggafffiiiiiiggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffiiiiiiiiigggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 aggggggggggggggggggggggggggggafffaaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffaaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
@@ -247,12 +247,12 @@ q fg #6639ba bg #5094e4 BOLD
 r fg #f6f8fa bg #5094e4
 
 ==== 185x55 tokyonight-moon text, cursor hidden
-┌notes───────────────────────┐   Plan: find notes by tag
+┌notes───────────────────────┐   # Plan: find notes by tag
 │▸ tests                     │   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 │  cli.py                    │   notes find reads only the text of a note. Tags are stored, but nothing searches them. Goal: notes find --tag work lists the notes tagged work, and words
 │  config.py                 │   after it narrow the list further.
 │  export.csv                │
-│  Makefile                  │   Steps
+│  Makefile                  │   ## Steps
 │  models.py                 │   ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 │  notes.json                │   1. NoteStore.find takes the tags to match
 │  PLAN.md                   │   2. cli.py passes --tag to find, not only to add
@@ -260,7 +260,7 @@ r fg #f6f8fa bg #5094e4
 │                            │      ◦ no --tag keeps today's search
 │                            │   3. Tests for both
 │                            │
-│                            │   Status
+│                            │   ## Status
 │                            │   ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 │                            │   ☑ design agreed
 │                            │   ☐ implementation
@@ -304,12 +304,12 @@ r fg #f6f8fa bg #5094e4
 PLAN.md  1:1  [preview]                                                                                                                                                           ? help
 
 ==== 185x55 tokyonight-moon styles
-abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffiiiiiiiiiihhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhiiiiiiiiiiiiiiiiiiiiihhhhhhhhhhhhhhhhhhhhhhhhiiiihhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffbbbbbhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffbbbbbbbbhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffaaaiiiiiiiiiiiiiihhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ajjjjjjjjjjjjjjjjjjjjjjjjjjjjafffaaaiiiiiihhhhhhhhiiiiihhhhiiiihhhhhhhhhhhhhhiiihhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
@@ -317,7 +317,7 @@ ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhaahhhhhhhhiiiiihhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhaahhhiiiiihhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffaaahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffbbbbbbhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffbbbbbbbbbhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffaahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffaahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
@@ -385,12 +385,12 @@ w fg #82aaff bg #1e2030 BOLD
 x fg #828bb8 bg #1e2030
 
 ==== 185x55 github-light styles
-abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaafffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 aggggggggggggggggggggggggggggafffhhhhhhhhhhgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhgggggggggggggggggggggggghhhhggggggggggg
 aggggggggggggggggggggggggggggafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
-aggggggggggggggggggggggggggggafffiiiiiggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffiiiiiiiigggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 aggggggggggggggggggggggggggggafffaaahhhhhhhhhhhhhhggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffaaahhhhhhgggggggghhhhhgggghhhhgggggggggggggghhhggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
@@ -398,7 +398,7 @@ aggggggggggggggggggggggggggggafffgggaagggggggghhhhhggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffgggaaggghhhhhggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffaaaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
-aggggggggggggggggggggggggggggafffiiiiiigggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffiiiiiiiiiggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 aggggggggggggggggggggggggggggafffaagggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
 aggggggggggggggggggggggggggggafffaagggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg

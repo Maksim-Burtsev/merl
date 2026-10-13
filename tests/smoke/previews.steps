@@ -25,3 +25,10 @@ key Enter
 wait {"id":
 key p
 wait p: line 2 is not JSON
+# p on a Markdown file: every heading keeps its # marks in the heading's colour (#765).
+key o
+type notes.md
+key Enter
+wait docs/notes.md  1:1
+key p
+wait [preview]

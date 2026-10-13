@@ -1,5 +1,5 @@
 wait [preview]
-┌agent/page-size ← origin/mai┐  Paging
+┌agent/page-size ← origin/mai┐  # Paging
 │  ▾ app                     │  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 │✓   M config.py        +1 −1│  A page holds 100 orders unless PAGE_SIZE says otherwise.
 │  ▾ docs                    │

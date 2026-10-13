@@ -420,7 +420,14 @@ impl Lay<'_> {
             Tag::Heading { level, .. } => {
                 self.block_start(r.start);
                 self.heading = Some(level);
-                self.inline = Some(Inline::default());
+                let mut inline = Inline::default();
+                inline.push(
+                    &format!("{} ", "#".repeat(level as usize)),
+                    self.look(),
+                    "",
+                    r.start,
+                );
+                self.inline = Some(inline);
             }
             Tag::BlockQuote(kind) => {
                 self.block_start(r.start);
