@@ -1,4 +1,3 @@
-#![expect(clippy::iter_on_single_items, reason = "#858")]
 #![expect(clippy::redundant_clone, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
@@ -412,7 +411,7 @@ pub(super) fn draw_picker(
                         Span::styled(s.content.clone(), accent)
                     }
                 });
-            lines.push(padded([lead].into_iter().chain(path), width, base));
+            lines.push(padded(std::iter::once(lead).chain(path), width, base));
             headers.push(lines.len());
         }
         let code_at = place.code_at;
@@ -447,7 +446,7 @@ pub(super) fn draw_picker(
         lines.push(padded(first, width, style));
         for r in &place.code_rows[1..] {
             let lead = Span::styled(" ".repeat(place.code_col), style);
-            lines.push(padded([lead].into_iter().chain(in_row(r)), width, style));
+            lines.push(padded(std::iter::once(lead).chain(in_row(r)), width, style));
         }
     }
     lines.truncate(height);

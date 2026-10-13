@@ -1,7 +1,6 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
 #![expect(clippy::items_after_statements, reason = "#858")]
 #![expect(clippy::match_same_arms, reason = "#858")]
-#![expect(clippy::nonminimal_bool, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
@@ -287,7 +286,7 @@ fn elixir_binds(p: &str, name: &str) -> bool {
         let after = p[i + name.len()..].trim_start();
         !before.is_some_and(|c| word(c) || ".@:^&%".contains(c))
             && !p[i + name.len()..].starts_with(|c: char| word(c) || c == '?' || c == '!')
-            && !(after.starts_with(':') && !after.starts_with("::"))
+            && (!after.starts_with(':') || after.starts_with("::"))
             && !after.starts_with(['(', '.'])
     })
 }

@@ -1,4 +1,3 @@
-#![expect(clippy::useless_let_if_seq, reason = "#858")]
 use super::{K, Lexer, Model};
 
 const DECLS: &[&str] = &[
@@ -269,10 +268,12 @@ impl Model<'_, '_> {
             return;
         }
         let start = self.sw_chain_start(p);
-        let mut end = c;
-        if self.tx(k) == "(" && self.punct(c + 1, "{") && !quiet[c + 1] && !self.first[c + 1] {
-            end = self.trailing_end(c + 1);
-        }
+        let end =
+            if self.tx(k) == "(" && self.punct(c + 1, "{") && !quiet[c + 1] && !self.first[c + 1] {
+                self.trailing_end(c + 1)
+            } else {
+                c
+            };
         self.add(self.toks[start].line, Some(self.end_of(end)), false);
     }
 

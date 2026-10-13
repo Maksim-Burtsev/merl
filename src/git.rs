@@ -1,7 +1,6 @@
 #![expect(clippy::case_sensitive_file_extension_comparisons, reason = "#858")]
 #![cfg_attr(test, expect(clippy::items_after_statements, reason = "#858"))]
 #![expect(clippy::naive_bytecount, reason = "#858")]
-#![expect(clippy::needless_continue, reason = "#858")]
 #![cfg_attr(test, expect(clippy::redundant_clone, reason = "#858"))]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::struct_excessive_bools, reason = "#858")]
@@ -434,7 +433,7 @@ impl Review {
                 std::fs::create_dir_all(d)?;
             }
             match mode {
-                "160000" => continue,
+                "160000" => {}
                 "120000" => from_git.push((path.to_path_buf(), true)),
                 _ if changed.contains(path) => from_git.push((path.to_path_buf(), false)),
                 _ => {

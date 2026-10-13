@@ -1,9 +1,7 @@
 #![expect(clippy::naive_bytecount, reason = "#858")]
-#![expect(clippy::nonminimal_bool, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
-#![expect(clippy::useless_let_if_seq, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -214,7 +212,7 @@ fn tokens(code: &str) -> Vec<(Tok<'_>, usize)> {
         }
         let near = |j: usize| b.get(j).is_some_and(|c| b"=!<>".contains(c));
         match c {
-            b'=' if !near(i + 1) && !(i > 0 && near(i - 1)) => out.push((Tok::Eq, i)),
+            b'=' if !near(i + 1) && (i == 0 || !near(i - 1)) => out.push((Tok::Eq, i)),
             b'$' if b.get(i + 1) == Some(&b'{') => {
                 out.push((Tok::Punct(b'{'), i));
                 i += 1;
@@ -379,12 +377,13 @@ impl<'a> Parse<'a> {
             return None;
         }
         let open = self.matched[close]?;
-        let mut from = self.toks[open].1;
-        if open >= 2 && punct(open - 1, b'@') {
+        let from = if open >= 2 && punct(open - 1, b'@') {
             let alias = word(open - 2)?;
             binds.push(alias);
-            from = alias.1;
-        }
+            alias.1
+        } else {
+            self.toks[open].1
+        };
         let (mut k, mut item) = (open + 1, true);
         while k < close {
             match self.toks[k].0 {

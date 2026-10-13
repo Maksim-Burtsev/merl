@@ -1,5 +1,4 @@
 #![expect(clippy::format_collect, reason = "#858")]
-#![expect(clippy::match_wildcard_for_single_variants, reason = "#858")]
 #![expect(clippy::redundant_clone, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use super::*;
@@ -119,7 +118,7 @@ fn attributes_name_macros_and_fields_reach_outside() {
             Shown::Jump(status, place) => {
                 Shown::Jump(status, place.replace(&format!("{}/", std.display()), ""))
             }
-            other => other,
+            other @ Shown::Picker(..) => other,
         };
         assert_eq!(got, want, "{code}");
     }

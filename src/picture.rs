@@ -300,16 +300,13 @@ fn encode(img: &image::RgbaImage) -> Option<Vec<u8>> {
     Some(out)
 }
 
-#[expect(clippy::clone_on_ref_ptr, reason = "#858")]
 fn fonts() -> Arc<usvg::fontdb::Database> {
     static FONTS: OnceLock<Arc<usvg::fontdb::Database>> = OnceLock::new();
-    FONTS
-        .get_or_init(|| {
-            let mut db = usvg::fontdb::Database::new();
-            db.load_system_fonts();
-            Arc::new(db)
-        })
-        .clone()
+    Arc::clone(FONTS.get_or_init(|| {
+        let mut db = usvg::fontdb::Database::new();
+        db.load_system_fonts();
+        Arc::new(db)
+    }))
 }
 
 #[expect(clippy::string_slice, reason = "#858")]

@@ -1,5 +1,3 @@
-#![expect(clippy::assigning_clones, reason = "#858")]
-#![expect(clippy::clone_on_ref_ptr, reason = "#858")]
 #![expect(clippy::items_after_statements, reason = "#858")]
 #![expect(clippy::needless_collect, reason = "#858")]
 #![expect(clippy::needless_pass_by_ref_mut, reason = "#858")]
@@ -147,7 +145,7 @@ impl App {
                 file: body.path,
                 ty: next,
             };
-            prev = name.clone();
+            prev.clone_from(name);
         }
         Ok(None)
     }
@@ -466,7 +464,7 @@ impl App {
         let mut queue = vec![here.to_path_buf()];
         while let Some(file) = queue.pop() {
             let next = match self.c_includes.get(&(file.clone(), mode)) {
-                Some(next) if file.is_absolute() => next.clone(),
+                Some(next) if file.is_absolute() => Arc::clone(next),
                 _ => {
                     let text = if file.is_absolute() {
                         std::fs::read_to_string(&file).ok()
@@ -475,7 +473,7 @@ impl App {
                     };
                     let next = Arc::new(edges(&text.unwrap_or_default(), &file));
                     if file.is_absolute() {
-                        self.c_includes.insert((file, mode), next.clone());
+                        self.c_includes.insert((file, mode), Arc::clone(&next));
                     }
                     next
                 }

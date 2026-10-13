@@ -1,5 +1,4 @@
 #![expect(clippy::match_same_arms, reason = "#858")]
-#![expect(clippy::nonminimal_bool, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::{
@@ -897,8 +896,8 @@ fn hidden(kind: Kind, file: &Path, text: &str, line1: usize, name: &str) -> bool
     .expect("an escaped name keeps the pattern valid");
     search::bindings(kind, text, line1, name).iter().any(|b| {
         lines.get(b.line1 - 1).is_some_and(|l| {
-            !names_itself(kind, l, name)
-                && !(search::reads_jsdoc(kind, file) && required.is_match(l))
+            !(names_itself(kind, l, name)
+                || search::reads_jsdoc(kind, file) && required.is_match(l))
         })
     })
 }

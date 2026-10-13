@@ -671,7 +671,6 @@ fn compile_text(name: &'static str, language: Language, text: &str) -> Result<La
     })
 }
 
-#[expect(clippy::match_wildcard_for_single_variants, reason = "#858")]
 fn patterns(
     name: &str,
     language: &Language,
@@ -744,7 +743,7 @@ fn patterns(
                     rest.iter()
                         .map(|a| match a {
                             Text(s) => Ok(s.to_string()),
-                            _ => Err(format!("{name}: #{} takes strings", pred.operator)),
+                            Capture(_) => Err(format!("{name}: #{} takes strings", pred.operator)),
                         })
                         .collect::<Result<Vec<_>, _>>()?,
                 ),

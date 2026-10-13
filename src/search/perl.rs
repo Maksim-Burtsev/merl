@@ -1,4 +1,3 @@
-#![expect(clippy::default_trait_access, reason = "#858")]
 #![expect(clippy::items_after_statements, reason = "#858")]
 #![expect(clippy::needless_pass_by_value, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
@@ -227,7 +226,7 @@ fn perl_lex(text: &str) -> (Vec<bool>, Vec<String>) {
     let mut literal = Vec::new();
     let mut code = Vec::new();
     let mut state = State::Code;
-    let mut pending: std::collections::VecDeque<(String, bool)> = Default::default();
+    let mut pending: std::collections::VecDeque<(String, bool)> = std::collections::VecDeque::new();
     for line in text.split('\n') {
         match &state {
             State::Data => {

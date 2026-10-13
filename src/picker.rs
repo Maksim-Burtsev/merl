@@ -1,4 +1,3 @@
-#![expect(clippy::needless_for_each, reason = "#858")]
 #![expect(clippy::ref_option, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 use std::collections::HashMap;
@@ -263,7 +262,9 @@ impl Picker {
                     pattern.indices(Utf32Str::new(name, &mut buf), matcher, &mut matched);
                     let skip = u32::try_from(label[..label.len() - name.len()].chars().count())
                         .unwrap_or(u32::MAX);
-                    matched.iter_mut().for_each(|m| *m += skip);
+                    for m in &mut matched {
+                        *m += skip;
+                    }
                 } else {
                     pattern.indices(item.matcher_columns[0].slice(..), matcher, &mut matched);
                 }

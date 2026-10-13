@@ -1,4 +1,3 @@
-#![expect(clippy::nonminimal_bool, reason = "#858")]
 use super::{K, Model};
 
 const CONTROL: &[&str] = &[
@@ -222,10 +221,10 @@ impl Model<'_, '_> {
         }
         let after = self.pair[k].map_or("", |c| self.tx(c + 1));
         let declares = matches!(after, "{" | "throws" | ";" | "default");
-        !(declares
-            && !matches!(
+        !declares
+            || matches!(
                 q,
                 "." | "new" | "=" | "(" | "," | "->" | "?" | ":" | "return"
-            ))
+            )
     }
 }

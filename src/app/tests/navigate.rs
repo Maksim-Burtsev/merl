@@ -1,4 +1,3 @@
-#![expect(clippy::match_wildcard_for_single_variants, reason = "#858")]
 #![expect(clippy::redundant_clone, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use super::*;
@@ -1629,7 +1628,7 @@ fn c_includes_narrow_no_further_than_they_should() {
     use_roots(&mut a, Kind::C, std::slice::from_ref(&root));
     let place = |s: Shown| match s {
         Shown::Jump(_, place) => place,
-        picker => format!("{picker:?}"),
+        picker @ Shown::Picker(..) => format!("{picker:?}"),
     };
     d_on(&mut a, "a.c", "return use(&ctx");
     assert_eq!(

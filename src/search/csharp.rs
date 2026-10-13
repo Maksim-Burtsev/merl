@@ -1,7 +1,6 @@
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
-#![expect(clippy::useless_let_if_seq, reason = "#858")]
 use regex::Regex;
 
 use super::{
@@ -662,8 +661,7 @@ pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> 
     };
     let head = uncommented(Kind::CSharp, &prefix[..open]);
     let mut head = head.trim_end();
-    let mut args = false;
-    if head.ends_with(')') {
+    let args = if head.ends_with(')') {
         let mut depth = 0i32;
         let close = head.len() - 1;
         let open = (0..=close).rev().find(|&i| {
@@ -675,8 +673,10 @@ pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> 
             depth == 0
         })?;
         head = head[..open].trim_end();
-        args = true;
-    }
+        true
+    } else {
+        false
+    };
     if let Some(c) = NEW.captures(head) {
         return Some(c[1].to_owned());
     }

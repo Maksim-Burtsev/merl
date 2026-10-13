@@ -1309,7 +1309,6 @@ pub struct Palette {
 }
 
 impl Palette {
-    #[expect(clippy::unreadable_literal, reason = "#858")]
     pub fn new(theme: &Theme) -> Self {
         let h = Highlighter::new(&theme.syntect);
         let scoped = |scopes: &str, or: Color| {
@@ -1324,9 +1323,21 @@ impl Palette {
             crate::theme::style(style).fg.unwrap_or(or)
         };
         let alerts = if theme.light {
-            [0x0969da, 0x1a7f37, 0x8250df, 0x9a6700, 0xd1242f]
+            [
+                0x0009_69da,
+                0x001a_7f37,
+                0x0082_50df,
+                0x009a_6700,
+                0x00d1_242f,
+            ]
         } else {
-            [0x4493f8, 0x3fb950, 0xab7df8, 0xd29922, 0xf85149]
+            [
+                0x0044_93f8,
+                0x003f_b950,
+                0x00ab_7df8,
+                0x00d2_9922,
+                0x00f8_5149,
+            ]
         }
         .map(Color::from_u32);
         Self {

@@ -147,12 +147,11 @@ impl Diagrams {
         cells(natural, cell, room)
     }
 
-    #[expect(clippy::clone_on_ref_ptr, reason = "#858")]
     pub fn pic(&mut self, src: &str) -> Option<Arc<Pic>> {
         self.cell?;
         let key = self.key(src);
         if let Some(pic) = self.pics.get(&key) {
-            pic.as_ref().map(|frames| frames[0].clone())
+            pic.as_ref().map(|frames| Arc::clone(&frames[0]))
         } else {
             self.ask(key, Src::Diagram(src.to_owned()));
             None
@@ -183,7 +182,6 @@ impl Diagrams {
         self.why.get(&file_key(path)?.src).map(String::as_str)
     }
 
-    #[expect(clippy::clone_on_ref_ptr, reason = "#858")]
     pub fn file_pic(&mut self, path: &Path) -> Option<Arc<Pic>> {
         self.cell?;
         let key = file_key(path)?;
@@ -208,7 +206,7 @@ impl Diagrams {
         );
         let left = Duration::from_millis(left.max(10));
         self.wake = Some(self.wake.map_or(left, |w| w.min(left)));
-        Some(frames[i].clone())
+        Some(Arc::clone(&frames[i]))
     }
 
     pub fn begin(&mut self) {

@@ -1,5 +1,4 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::iter_on_single_items, reason = "#858")]
 #![expect(clippy::match_same_arms, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
@@ -154,7 +153,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
     let b = text.as_bytes();
     let ident = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
     let token_at = |at: usize, prefixes: &[&[u8]]| {
-        [&b""[..]].iter().chain(prefixes).any(|p| {
+        std::iter::once(&&b""[..]).chain(prefixes).any(|p| {
             at >= p.len()
                 && b[at - p.len()..at] == **p
                 && (at == p.len() || !ident(b[at - p.len() - 1]))

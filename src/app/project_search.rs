@@ -1,4 +1,3 @@
-#![expect(clippy::clone_on_ref_ptr, reason = "#858")]
 #![expect(clippy::needless_pass_by_value, reason = "#858")]
 use super::{
     App, Arc, Hit, Instant, Kind, LineEdit, MAX_LABEL_TEXT, Mode, Path, PathBuf, PickItem, Picker,
@@ -51,7 +50,7 @@ impl App {
     pub(super) fn deleted_lines(&self) -> Arc<Vec<git::DeletedLine>> {
         self.review
             .as_ref()
-            .map_or_else(Default::default, |r| r.deleted.clone())
+            .map_or_else(Default::default, |r| Arc::clone(&r.deleted))
     }
 
     pub(super) fn word_under(&self, word_chars: &str) -> Option<String> {

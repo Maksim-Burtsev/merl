@@ -439,7 +439,6 @@ fn lock_no_write(buf: &mut Buffer) {
 }
 
 impl App {
-    #[expect(clippy::default_trait_access, reason = "#858")]
     #[expect(clippy::too_many_lines, reason = "#858")]
     pub fn new(
         root: PathBuf,
@@ -466,7 +465,7 @@ impl App {
             ignored,
             external: HashMap::new(),
             walked_roots: HashMap::new(),
-            shaped: Default::default(),
+            shaped: search::ShapedFiles::default(),
             warming: HashMap::new(),
             node_modules_of: None,
             otp: None,
@@ -479,8 +478,8 @@ impl App {
             offer_only: false,
             probe: None,
             base_app: None,
-            truncated: Default::default(),
-            reading: Default::default(),
+            truncated: std::cell::Cell::default(),
+            reading: std::cell::RefCell::default(),
             focus,
             show_tree: true,
             tree_width: None,
@@ -506,9 +505,9 @@ impl App {
             wrap_opposite_of_kind: HashSet::new(),
             previewed: HashSet::new(),
             diagrams: crate::mermaid::Diagrams::default(),
-            old_picture: Default::default(),
+            old_picture: std::cell::RefCell::default(),
             preview: None,
-            parse: Default::default(),
+            parse: preview_data::Parse::default(),
             mode: Mode::Normal,
             prompt: LineEdit::default(),
             find_re: None,
@@ -558,7 +557,7 @@ impl App {
             keys_action_of_key_in_hand: None,
             pressed: HashMap::new(),
             missed: HashMap::new(),
-            watch: Default::default(),
+            watch: missed::Watch::default(),
         };
         lock_no_write(&mut buf);
         app.buf = buf;

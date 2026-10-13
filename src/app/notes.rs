@@ -1,5 +1,4 @@
 #![expect(clippy::format_push_string, reason = "#858")]
-#![expect(clippy::match_bool, reason = "#858")]
 #![expect(clippy::option_option, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 use std::collections::HashMap;
@@ -697,11 +696,8 @@ impl App {
             KeyCode::Esc => {
                 self.notes.focus = self.note_commit();
                 self.anchor = None;
-                if let Some(at) = (self.notes.focus)
-                    .and_then(|i| self.here_of(i))
-                    .map(|h| h.at)
-                {
-                    self.set_at(at);
+                if let Some(h) = self.notes.focus.and_then(|i| self.here_of(i)) {
+                    self.set_at(h.at);
                 }
                 self.mode = Mode::Normal;
             }
@@ -768,9 +764,10 @@ impl App {
                     return;
                 }
                 let mut t = self.prompt.to_string();
-                let gone = match end < t.len() {
-                    true => start..end + 1,
-                    false => start.saturating_sub(1)..end,
+                let gone = if end < t.len() {
+                    start..end + 1
+                } else {
+                    start.saturating_sub(1)..end
                 };
                 t.replace_range(gone.clone(), "");
                 self.prompt = LineEdit::typed(&t);

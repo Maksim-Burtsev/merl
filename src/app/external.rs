@@ -1,9 +1,6 @@
-#![expect(clippy::clone_on_ref_ptr, reason = "#858")]
 #![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::iter_on_single_items, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::useless_let_if_seq, reason = "#858")]
 use super::{
     App, Arc, Candidate, HashMap, HashSet, Hit, Kind, MAX_LABEL_TEXT, MAX_NAME_PAD, Path, PathBuf,
     PickItem, Reason, Regex, at_label, bound, clip, git, jvm, search, word_col, wrap,
@@ -99,8 +96,7 @@ impl App {
             None => bound_path,
         };
         let named = module.clone();
-        let mut files: Vec<PathBuf> = Vec::new();
-        if let Some(m) = module.as_mut().filter(|_| !alias) {
+        let files: Vec<PathBuf> = if let Some(m) = module.as_mut().filter(|_| !alias) {
             let found = match kind {
                 Kind::Elixir => self.elixir_module(&all, m, pattern),
                 Kind::Python => self.python_module_among(&all, m),
@@ -112,8 +108,10 @@ impl App {
                 return Some(Vec::new());
             };
             m.truncate(found.matched_parts);
-            files = found.files;
-        }
+            found.files
+        } else {
+            Vec::new()
+        };
         let by_name = |hits: Vec<Hit>| -> Vec<Candidate> {
             hits.into_iter()
                 .map(|hit| Candidate {
@@ -750,7 +748,7 @@ impl App {
             }
         }
         let files = if let Some((_, files)) = self.external.get(&kind) {
-            files.clone()
+            Arc::clone(files)
         } else {
             let roots = search::external_roots(kind, &self.root);
             let warm = self.warming.insert(kind, None).flatten();
@@ -760,7 +758,7 @@ impl App {
             };
             let files = Arc::new(files);
             if !roots.is_empty() {
-                self.external.insert(kind, (roots, files.clone()));
+                self.external.insert(kind, (roots, Arc::clone(&files)));
             }
             files
         };
@@ -771,7 +769,7 @@ impl App {
         if let Some((from, kept)) = self.c_files.get(&key)
             && Arc::ptr_eq(from, &files)
         {
-            return kept.clone();
+            return Arc::clone(kept);
         }
         let away: Vec<&PathBuf> = match self.external.get(&kind) {
             Some((roots, _)) if !key.1 => roots.iter().filter(|r| search::objc_root(r)).collect(),
@@ -784,7 +782,7 @@ impl App {
                 .cloned()
                 .collect(),
         );
-        self.c_files.insert(key, (files, kept.clone()));
+        self.c_files.insert(key, (files, Arc::clone(&kept)));
         kept
     }
 
@@ -902,8 +900,7 @@ impl App {
             .unwrap_or_default();
         let mut roots = match kind {
             Kind::TsJs => roots.last().into_iter().chain([&self.root]).collect(),
-            Kind::Elixir => [&self.root]
-                .into_iter()
+            Kind::Elixir => std::iter::once(&self.root)
                 .chain(roots.iter().filter(|r| !r.starts_with(&self.root)))
                 .collect(),
             _ => roots.iter().collect::<Vec<_>>(),

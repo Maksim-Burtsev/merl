@@ -1,4 +1,3 @@
-#![expect(clippy::assigning_clones, reason = "#858")]
 #![expect(clippy::items_after_statements, reason = "#858")]
 #![expect(clippy::match_same_arms, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
@@ -892,9 +891,9 @@ pub fn cargo_reach(lock: &str, from: &str) -> Option<CargoReach> {
             continue;
         };
         if let Some(v) = t.strip_prefix("name = ") {
-            p.0 = v.trim_matches('"').to_owned();
+            v.trim_matches('"').clone_into(&mut p.0);
         } else if let Some(v) = t.strip_prefix("version = ") {
-            p.1 = v.trim_matches('"').to_owned();
+            v.trim_matches('"').clone_into(&mut p.1);
         } else if let Some(v) = t.strip_prefix("dependencies = [") {
             in_deps = !v.contains(']');
             p.2.extend(quoted_names(v));

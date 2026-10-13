@@ -1,7 +1,5 @@
-#![expect(clippy::assigning_clones, reason = "#858")]
 #![expect(clippy::cognitive_complexity, reason = "#858")]
 #![expect(clippy::needless_collect, reason = "#858")]
-#![expect(clippy::nonminimal_bool, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
@@ -350,8 +348,8 @@ impl App {
                 .filter(|&n| {
                     let l = &self.buf.lines[n - 1];
                     !key && !super_keyword
-                        && !(import_line(kind, l)
-                            || (!bare && names_itself(kind, l, first) && !closure(n)))
+                        && (closure(n) || !names_itself(kind, l, first) || bare)
+                        && !import_line(kind, l)
                         && !rust_path
                         && (!rust_field || n == self.line + 1)
                 })
@@ -808,7 +806,7 @@ impl App {
             Some(package) => {
                 for i in &mut imports {
                     if i.name == first {
-                        i.path = package.clone();
+                        i.path.clone_from(&package);
                     }
                 }
                 Some(package)

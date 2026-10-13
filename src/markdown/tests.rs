@@ -1,5 +1,4 @@
 #![cfg_attr(test, expect(clippy::string_slice, reason = "#858"))]
-#![cfg_attr(test, expect(clippy::unreadable_literal, reason = "#858"))]
 use super::*;
 
 fn doc(text: &str, width: usize) -> Doc {
@@ -621,8 +620,8 @@ fn alerts_take_githubs_light_or_dark_colours_as_the_theme_is() {
         };
         Palette::new(&theme).style(look, false).fg
     };
-    assert_eq!(note("github-light"), Some(Color::from_u32(0x0969da)));
-    assert_eq!(note("tokyonight-moon"), Some(Color::from_u32(0x4493f8)));
+    assert_eq!(note("github-light"), Some(Color::from_u32(0x0009_69da)));
+    assert_eq!(note("tokyonight-moon"), Some(Color::from_u32(0x0044_93f8)));
 }
 
 fn with_pictures(text: &str, width: usize, size: (u16, u16)) -> (Doc, Vec<(String, usize)>) {

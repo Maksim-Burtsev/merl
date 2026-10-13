@@ -1,5 +1,4 @@
 #![expect(clippy::needless_collect, reason = "#858")]
-#![expect(clippy::nonminimal_bool, reason = "#858")]
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fs::FileType;
@@ -39,6 +38,10 @@ pub fn build(root: &Path, shallow: bool) -> (Tree, Vec<PathBuf>) {
     build_ordered(root, shallow, &Order::default())
 }
 
+#[expect(
+    clippy::nonminimal_bool,
+    reason = "each filter reads as a list of exclusions, `!a && !(b && c)`; De Morgan folds them into one negation"
+)]
 pub fn build_ordered(root: &Path, shallow: bool, order: &Order) -> (Tree, Vec<PathBuf>) {
     let walked: Vec<(PathBuf, bool)> = WalkBuilder::new(root)
         .hidden(false)
