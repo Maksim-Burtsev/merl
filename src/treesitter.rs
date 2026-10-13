@@ -136,6 +136,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/tsx/injections.scm"),
     ),
     (
+        "elixir",
+        include_str!("../queries/elixir/highlights.scm"),
+        include_str!("../queries/elixir/injections.scm"),
+    ),
+    (
         "php",
         include_str!("../queries/php/highlights.scm"),
         include_str!("../queries/php/injections.scm"),
@@ -338,6 +343,7 @@ pub fn for_syntax(
         "Diff" if diff(path, lines) => lang("diff"),
         "Lisp" if path.is_some_and(query) => lang("query"),
         "HTML" | "XML" => html_or_xml(path?, lines),
+        "Elixir" if !euphoria(path, lines) => lang("elixir"),
         "Go" => lang("go"),
         "Java" if !path.is_some_and(|p| p.extension().is_some_and(|e| e == "bsh")) => lang("java"),
         "JSON" => lang("json"),
@@ -371,6 +377,19 @@ fn html_variant(lines: &[String]) -> bool {
         .expect("a valid regex")
     });
     lines.iter().take(40).any(|l| re.is_match(l))
+}
+
+fn euphoria(path: Option<&Path>, lines: &[String]) -> bool {
+    path.is_some_and(|p| p.extension().is_some_and(|e| e == "ex"))
+        && lines.iter().take(100).any(|l| {
+            let lower = l.to_lowercase();
+            lower.starts_with("--")
+                || ["ifdef", "include"].iter().any(|w| {
+                    lower.strip_prefix(w).is_some_and(|rest| {
+                        !rest.starts_with(|c: char| c.is_alphanumeric() || c == '_')
+                    })
+                })
+        })
 }
 
 fn php(path: &Path) -> bool {
@@ -562,6 +581,7 @@ fn grammar(name: &str) -> Option<Language> {
         "kotlin" => tree_sitter_kotlin::LANGUAGE.into(),
         "swift" => tree_sitter_swift::LANGUAGE.into(),
         "ruby" => tree_sitter_ruby::LANGUAGE.into(),
+        "elixir" => tree_sitter_elixir::LANGUAGE.into(),
         "php" => tree_sitter_php::LANGUAGE_PHP.into(),
         "php_only" => tree_sitter_php::LANGUAGE_PHP_ONLY.into(),
         "jsdoc" => tree_sitter_jsdoc::LANGUAGE.into(),

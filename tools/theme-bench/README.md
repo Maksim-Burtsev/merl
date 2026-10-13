@@ -173,6 +173,19 @@ Neovim's cursor, PHP's ftplugin adds `<:>` to `matchpairs`, and matchparen draws
 `queries/php/highlights.scm` (#819), which paints a variable's `$` as `@operator` and `<?php` as
 `@tag`, costs the github themes up to 1.7 points.
 
+Elixir (#808), `.ex` and `.exs` (a `.ex` that Neovim's `detect.ex` takes for Euphoria from its first
+100 lines stays on syntect), with its injections (`markdown` in `@moduledoc` and `@doc` strings,
+`regex` in `~r` sigils, `json` in `~j`; `comment`, `heex`, `eex`, `surface` and `zig` stay plain, as
+LazyVim installs no parser for them). The bench's files come from phoenix, pinned in `THEME_ONLY`
+as `tools/d-bench/projects.tsv` has no Elixir project:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Elixir | 18,319 | 99.0 adwaita | 99.0 | 100.0 material-light |
+
+What is left is the ```` ```console ```` blocks of phoenix's docs, which merl colours as Bash while
+Neovim injects nothing into them (#851).
+
 HTML and CSS (#806). An HTML file is parsed as `html` unless Neovim's `detect.html` makes it
 `htmlangular`, `xhtml`, `htmldjango` or `superhtml` from its first 40 lines (merl leaves those to
 syntect, the bench skips them); `<style>` and `style="…"` are CSS, `<script>` and `on…="…"` are
@@ -242,7 +255,7 @@ cache, so neither `~/.config/nvim` nor a system-wide `site` directory reaches it
 
 The files: four per language from the projects of `tools/d-bench/projects.tsv` at their pinned
 commits (Python from paperless-ngx, Rust from ripgrep, TypeScript and TSX from outline,
-JavaScript from eslint, JSX from mastodon, Go from caddy, Lua and C from redis, C++ from leveldb, Java from halo, C# from eShop, Kotlin from nowinandroid, Swift from Alamofire, Ruby from mastodon, PHP from koel, HTML from bootstrap, caddy, eslint, outline and redis, CSS from gitea,
+JavaScript from eslint, JSX from mastodon, Go from caddy, Lua and C from redis, C++ from leveldb, Java from halo, C# from eShop, Kotlin from nowinandroid, Swift from Alamofire, Ruby from mastodon, PHP from koel, Elixir from phoenix, HTML from bootstrap, caddy, eslint, outline and redis, CSS from gitea,
 paperless-ngx, caddy and redis, XML from koel, paperless-ngx and nowinandroid, Diff from rules_go, openzeppelin-contracts, outline and halo, Query from nvim-treesitter, Markdown from ripgrep, caddy,
 outline and paperless-ngx, Bash, JSON, YAML and TOML from redis, paperless-ngx, ripgrep, caddy and eslint
 as `LANGS` in `record.py` lists them), taken in the order of the hash of their path, each with at least 80

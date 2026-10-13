@@ -290,6 +290,11 @@ fn php_and_the_html_around_it_are_coloured_as_lazyvim() {
 }
 
 #[test]
+fn elixir_and_the_markdown_in_its_docs_are_coloured_as_lazyvim() {
+    coloured_as_lazyvim("elixir");
+}
+
+#[test]
 fn html_and_the_css_and_javascript_in_it_are_coloured_as_lazyvim() {
     coloured_as_lazyvim("html");
 }
@@ -408,6 +413,10 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
         assert!(sexp(f, b"<?php echo 1;\n").contains("(program "), "{f}");
     }
     assert_eq!(sexp("a.blade.php", b"<?php echo 1;\n"), "");
+    for f in ["a.ex", "a.exs"] {
+        assert!(sexp(f, b"x = 1\n").contains("(source "), "{f}");
+    }
+    assert_eq!(sexp("a.ex", b"include std/io.e\nx = 1\n"), "");
     for f in ["a.html", "a.htm"] {
         assert!(sexp(f, b"<p>a</p>\n").contains("(element "), "{f}");
     }
@@ -679,6 +688,8 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
     assert_eq!(name("ruby"), Some("ruby"));
     assert_eq!(name("rb"), Some("ruby"));
     assert_eq!(name("php"), Some("php"));
+    assert_eq!(name("elixir"), Some("elixir"));
+    assert_eq!(name("ex"), Some("elixir"));
 }
 
 #[test]

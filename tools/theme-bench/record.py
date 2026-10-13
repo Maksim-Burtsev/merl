@@ -46,7 +46,7 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 NVIM_TS = "1a4f47b03dfe92d28de7d5654c67327ef008c9e6"
 PARSERS = ["bash", "c", "css", "diff", "html", "javascript", "jsdoc", "json", "lua", "luadoc", "luap", "markdown",
            "markdown_inline", "printf", "python", "query", "regex", "toml", "tsx", "typescript", "vim",
-           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java", "c_sharp", "kotlin", "swift", "ruby", "php", "php_only"]
+           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java", "c_sharp", "kotlin", "swift", "ruby", "php", "php_only", "elixir"]
 LANGS = {
     "python": (["paperless-ngx"], ["py"]),
     "rust": (["ripgrep"], ["rs"]),
@@ -69,6 +69,7 @@ LANGS = {
     "swift": (["Alamofire"], ["swift"]),
     "ruby": (["mastodon"], ["rb"]),
     "php": (["koel"], ["php"]),
+    "elixir": (["phoenix"], ["ex", "exs"]),
     "html": (["bootstrap", "caddy", "eslint", "outline", "redis"], ["html", "htm"]),
     "css": (["gitea", "paperless-ngx", "caddy", "redis"], ["css"]),
     "xml": (["koel", "paperless-ngx", "nowinandroid"], ["xml", "svg", "xsd", "xslt"]),
@@ -82,6 +83,8 @@ NOT_HTML = re.compile(
     r"|\{#[ \t]+|<extend|<super>")
 THEME_ONLY = {
     "nvim-treesitter": ["nvim-treesitter", "query", "https://github.com/nvim-treesitter/nvim-treesitter.git", NVIM_TS, "-"],
+    "phoenix": ["phoenix", "elixir", "https://github.com/phoenixframework/phoenix.git",
+                "e9eeba217bbc89635d8f26404a9471d49617f07f", "-"],
 }
 SKIP_DIRS = ("migrations/", "vendor/", "testdata/", "node_modules/", "CHANGELOG")
 FILES, LINES, MINLINES, MAXLEN, WIDTH = 4, 200, 80, 140, 200

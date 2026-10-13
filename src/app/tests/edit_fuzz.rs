@@ -1078,6 +1078,23 @@ const RUBY: &[&str] = &[
     ")", "{", "}", "\"", "\n\n",
 ];
 
+const ELIXIR: &[&str] = &[
+    "\"#{x}\"",
+    "\"\"\"\n",
+    "@doc \"\"\"\n",
+    "~r/[a-z]+/",
+    "do\n",
+    "end\n",
+    "fn x -> ",
+    "|> ",
+    "(",
+    ")",
+    "%{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
 const CSHARP: &[&str] = &[
     "$\"{x,-10}\"",
     "@\"",
@@ -1196,6 +1213,11 @@ fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
         "f.rb",
         include_bytes!("../../../tests/colors/ruby/ledger.rb"),
         RUBY,
+    );
+    fuzz_tree_sitter(
+        "f.ex",
+        include_bytes!("../../../tests/colors/elixir/ledger.ex"),
+        ELIXIR,
     );
     fuzz_tree_sitter(
         "F.cs",
