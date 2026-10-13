@@ -254,6 +254,10 @@ impl App {
             .collect()
     }
 
+    #[expect(
+        clippy::match_same_arms,
+        reason = "the visibility table reads row by row, in order of precedence"
+    )]
     pub(super) fn rust_methods(&mut self, here: &Path, word: &str) -> Vec<Candidate> {
         let kind = Kind::Rust;
         let pattern = search::rust_method_pattern(word);

@@ -281,6 +281,10 @@ pub(super) fn xml(lines: &[String]) -> Vec<(usize, usize)> {
     markup(lines, true)
 }
 
+#[expect(
+    clippy::match_same_arms,
+    reason = "the scan's arms are grouped by state, the quoted ones first; a merge would mix them"
+)]
 fn markup(lines: &[String], xml: bool) -> Vec<(usize, usize)> {
     let text = lines.join("\n");
     let b = text.as_bytes();

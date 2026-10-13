@@ -886,6 +886,10 @@ fn recovered_row(old: &Tree, new: &Tree, below: usize) -> usize {
 }
 
 #[expect(clippy::string_slice, reason = "#858")]
+#[expect(
+    clippy::match_same_arms,
+    reason = "the rows group Vim's specials by what they mean"
+)]
 fn vim_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
     let bad = || Err(format!("vim pattern {p:?} is not supported"));
     let body = match p.get(..2) {
@@ -967,9 +971,8 @@ fn lua_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
             '^' if i == 0 => out.push('^'),
             '$' if i == chars.len() - 1 => out.push('$'),
             '.' => out.push('.'),
-            '*' | '+' | '?' => out.push(c),
+            '*' | '+' | '?' | '(' | ')' => out.push(c),
             '-' => out.push_str("*?"),
-            '(' | ')' => out.push(c),
             '%' => {
                 i += 1;
                 let Some(&n) = chars.get(i) else { return bad() };

@@ -188,6 +188,10 @@ static PARAM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r"(?i)\bparam\s*\(|^\s*(?:function|filter)\s+[\w:-]+\s*\(").unwrap()
 });
 
+#[expect(
+    clippy::match_same_arms,
+    reason = "the scan's arms are grouped by state, the quoted ones first; a merge would mix them"
+)]
 fn brackets(s: &str) -> i32 {
     let (mut depth, mut quote) = (0, None);
     for c in s.bytes() {

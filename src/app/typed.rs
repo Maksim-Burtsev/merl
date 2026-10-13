@@ -1153,6 +1153,10 @@ impl App {
         self.swift_given_type(here, &row.path, &text, row.line1, given, hops)
     }
 
+    #[expect(
+        clippy::match_same_arms,
+        reason = "a guarded arm sits between the two; merging them would move one past it"
+    )]
     fn swift_type(&self, here: &Path, written: &str) -> Option<SwiftType> {
         let name = search::swift_type_name(written)?;
         let pattern = search::def_patterns(Kind::Swift, &name).join("|");

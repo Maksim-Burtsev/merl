@@ -50,6 +50,10 @@ pub fn opened_kind(path: &Path) -> Option<Kind> {
         _ => kind_of(path),
     }
 }
+#[expect(
+    clippy::match_same_arms,
+    reason = "one row per language family, its extensions apart from its file names"
+)]
 pub fn kind_of(path: &Path) -> Option<Kind> {
     let name = path.file_name()?.to_str()?;
     let ext = name.rsplit_once('.').map_or("", |(_, ext)| ext);
@@ -150,8 +154,7 @@ pub fn word_chars(kind: Option<Kind>, address: bool) -> &'static str {
         ) => "-",
         Some(Kind::Cmake) => "-.",
         Some(Kind::Nix) => "-'",
-        Some(Kind::Haskell) => "'",
-        Some(Kind::Ocaml | Kind::Fsharp) => "'",
+        Some(Kind::Haskell | Kind::Ocaml | Kind::Fsharp) => "'",
         Some(Kind::R) => ".",
         Some(Kind::Clojure) => "-?!*+<>=",
         Some(Kind::EmacsLisp) => "-?!*+<>=/",

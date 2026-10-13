@@ -689,6 +689,10 @@ fn past_generics(line: &str, at: usize) -> Option<usize> {
     })?;
     Some(at + end + 1)
 }
+#[expect(
+    clippy::match_same_arms,
+    reason = "a guarded arm sits between the two; merging them would move one past it"
+)]
 pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     const KEYWORDS: &[&str] = &[
         "self", "mut", "ref", "box", "crate", "super", "true", "false",

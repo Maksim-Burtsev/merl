@@ -51,6 +51,10 @@ pub fn shell_local_of(line: &str) -> Option<Vec<&str>> {
         .collect();
     Some(names)
 }
+#[expect(
+    clippy::match_same_arms,
+    reason = "the scan's arms are grouped by state, the quoted ones first; a merge would mix them"
+)]
 fn shell_words(s: &str) -> Vec<&str> {
     let (b, mut out, mut i) = (s.as_bytes(), Vec::new(), 0);
     while i < b.len() {

@@ -201,6 +201,10 @@ impl Quote {
     }
 }
 
+#[expect(
+    clippy::match_same_arms,
+    reason = "keywords that open a block and those that continue one are listed apart"
+)]
 pub(crate) fn ruby(lines: &[String]) -> Blocks {
     let mut b = Build::new(lines);
     let mut quote: Option<Quote> = None;

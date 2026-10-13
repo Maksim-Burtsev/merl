@@ -311,7 +311,6 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"(^|\s)&{w}(\s|$)"),
             format!(r"^\s*\.?{w}:\s*(#.*)?$"),
         ],
-        Kind::Markdown => Vec::new(),
         Kind::Graphql => vec![
             format!(
                 r"^(?:type|interface|input|enum|union|scalar|fragment|query|mutation|subscription)\s+{w}\b"
@@ -320,7 +319,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"^\s+{w}\s*(?:[:(@#,]|$)"),
         ],
         Kind::Css => css_patterns(word),
-        Kind::Html => Vec::new(),
+        Kind::Markdown | Kind::Html => Vec::new(),
     }
 }
 pub fn narrow_patterns(
@@ -843,10 +842,9 @@ fn terraform_patterns(address: &str) -> Vec<String> {
         ["module", x, ..] => format!(r#"^module\s+"{x}""#),
         ["local", x, ..] => format!(r"^\s+{x}\s*="),
         ["data", t, n, ..] => format!(r#"^data\s+"{t}"\s+"{n}""#),
-        ["each" | "count" | "self" | "path" | "terraform", ..] => return Vec::new(),
+        ["each" | "count" | "self" | "path" | "terraform", ..] | [] => return Vec::new(),
         [t, n, ..] => format!(r#"^resource\s+"{t}"\s+"{n}""#),
         [x] => format!(r#"^(variable|module|output)\s+"{x}"|^(resource|data)\s+"[^"]+"\s+"{x}""#),
-        [] => return Vec::new(),
     };
     vec![pattern]
 }

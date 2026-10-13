@@ -187,6 +187,10 @@ pub fn gdscript_autoloads(project: &str) -> Vec<(String, String)> {
     out
 }
 
+#[expect(
+    clippy::match_same_arms,
+    reason = "the scan's arms are grouped by state, the quoted ones first; a merge would mix them"
+)]
 pub fn gdscript_names_nothing(line: &str, start: usize) -> bool {
     let lead = &line[..start];
     let path = lead.trim_end_matches(|c: char| c == '_' || c == '/' || c.is_alphanumeric());

@@ -113,6 +113,10 @@ enum HeredocEnd {
     LabelLeadsLine,
     LabelAloneOnLine { may_indent: bool },
 }
+#[expect(
+    clippy::match_same_arms,
+    reason = "one row per language family of comment rules"
+)]
 fn scan(kind: Kind, text: &str, at: usize) -> Scan {
     let (triple_quotes, long_bracket, template, block_comment, line_comments): (
         _,

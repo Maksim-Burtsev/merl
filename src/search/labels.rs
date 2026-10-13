@@ -33,6 +33,10 @@ static TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
 
 const LINES_BACK_TO_THE_BRACKET: usize = 80;
 
+#[expect(
+    clippy::match_same_arms,
+    reason = "a guarded arm sits between the two; merging them would move one past it"
+)]
 pub fn label_at(
     kind: Kind,
     java: bool,

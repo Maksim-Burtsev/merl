@@ -32,6 +32,10 @@ pub(super) fn draw_prompt(
     frame.render_widget(Paragraph::new(line).style(style), area);
 }
 
+#[expect(
+    clippy::match_same_arms,
+    reason = "a guarded arm sits between the two; merging them would move one past it"
+)]
 pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
     let style = Style::new()
         .bg(theme.status_bg)

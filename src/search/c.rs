@@ -279,6 +279,10 @@ pub fn c_initialized_member(text: &str, line1: usize, byte_col: usize) -> Option
         _ => Some(ctor.to_owned()),
     }
 }
+#[expect(
+    clippy::match_same_arms,
+    reason = "each arm is one kind of byte the scan stops at"
+)]
 fn ctor_head_with_brackets_emptied(code: &str, at: usize) -> Option<String> {
     let b = code.as_bytes();
     let item_of_list = |close: usize| code[close + 1..].trim_start().starts_with(',');
@@ -318,6 +322,10 @@ fn line_starts(code: &str) -> Vec<usize> {
         .chain(code.match_indices('\n').map(|(i, _)| i + 1))
         .collect()
 }
+#[expect(
+    clippy::match_same_arms,
+    reason = "each arm is one kind of byte the scan stops at"
+)]
 fn c_head_start(code: &str, open: usize) -> usize {
     let b = code.as_bytes();
     let item_of_init_list = |close: usize| code[close + 1..].trim_start().starts_with([',', '{']);
@@ -541,6 +549,10 @@ fn parameter_at(params: &str, name: &str) -> Option<usize> {
     }
     None
 }
+#[expect(
+    clippy::match_same_arms,
+    reason = "a guarded arm sits between the two; merging them would move one past it"
+)]
 fn block_declarations(code: &str, from: usize, pos: usize, name: &str) -> Vec<usize> {
     let b = code.as_bytes();
     let (mut depth, mut start, mut out) = (0usize, from, Vec::new());
@@ -993,6 +1005,10 @@ const C_TYPE_KEYWORDS: &[&str] = &[
     "typedef",
     "__inline",
 ];
+#[expect(
+    clippy::match_same_arms,
+    reason = "each arm is one kind of byte the scan stops at"
+)]
 pub fn c_decl_type(code: &str, at: usize) -> Option<CType> {
     let b = code.as_bytes();
     let (mut depth, mut i) = (0usize, at);
@@ -1180,6 +1196,10 @@ pub fn c_place(code: &str, at: usize) -> CPlace {
 pub fn c_body_name(code: &str, open: usize) -> String {
     c_struct_head(c_back_to_stop(code, open).0).unwrap_or_default()
 }
+#[expect(
+    clippy::match_same_arms,
+    reason = "each arm is one kind of byte the scan stops at"
+)]
 pub fn cpp_type_at(code: &str, at: usize, len: usize) -> Option<Vec<String>> {
     static AUTO: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*=\s*(?:new\s+)?((?:::)?\s*\w+(?:\s*::\s*\w+)*)\s*(?:<[^;(){}]*>)?\s*[({]")
