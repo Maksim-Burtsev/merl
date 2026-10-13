@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::{App, Candidate, HashSet, Hit, Kind, Path, PathBuf, Reason, Regex, search};
 
 enum Target {
@@ -19,9 +18,17 @@ impl App {
             self.message = "no word".into();
             return;
         };
-        let name = line[range.clone()].to_owned();
+        let (Some(name), Some(before), Some(after)) = (
+            line.get(range.clone()),
+            line.get(..range.start),
+            line.get(range.end..),
+        ) else {
+            self.message = "no word".into();
+            return;
+        };
+        let name = name.to_owned();
         let text = self.buf.lines.join("\n");
-        if line[..range.start].ends_with('{') && line[range.end..].starts_with('}') {
+        if before.ends_with('{') && after.starts_with('}') {
             self.message = format!("no definition for {name}");
             return;
         }
@@ -219,6 +226,10 @@ impl App {
     }
 }
 
+#[expect(
+    clippy::string_slice,
+    reason = "range is the name perl_name found on this line"
+)]
 fn perl_target(line: &str, range: std::ops::Range<usize>, name: &str, col: usize) -> Target {
     let before = &line[..range.start];
     let after = line[range.end..].trim_start();
@@ -253,11 +264,10 @@ fn perl_target(line: &str, range: std::ops::Range<usize>, name: &str, col: usize
     match head.strip_suffix("->") {
         Some(receiver) => {
             let receiver = receiver.trim_end();
-            let start = receiver
-                .trim_end_matches(|c: char| c.is_alphanumeric() || c == '_' || c == ':')
-                .len();
-            let class = &receiver[start..];
-            let value = receiver[..start].ends_with(['$', '@', '%', '>', '}', ']', ')']);
+            let lead =
+                receiver.trim_end_matches(|c: char| c.is_alphanumeric() || c == '_' || c == ':');
+            let class = receiver.split_at(lead.len()).1;
+            let value = lead.ends_with(['$', '@', '%', '>', '}', ']', ')']);
             if class.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_') && !value {
                 Target::Method(class.to_owned(), last)
             } else {

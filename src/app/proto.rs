@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, search};
 
@@ -22,9 +21,9 @@ impl App {
             let path = path.as_str().to_owned();
             return Some(self.proto_import(&path));
         }
-        let qualifier = &before[before
-            .trim_end_matches(|c: char| c.is_ascii_alphanumeric() || c == '_' || c == '.')
-            .len()..];
+        let lead =
+            before.trim_end_matches(|c: char| c.is_ascii_alphanumeric() || c == '_' || c == '.');
+        let qualifier = before.split_at(lead.len()).1;
         let parts: Vec<&str> = qualifier.split('.').filter(|p| !p.is_empty()).collect();
         if !qualifier.ends_with('.') || parts.is_empty() {
             return None;

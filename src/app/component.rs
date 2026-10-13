@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::resolution::resolution;
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, search};
 
@@ -54,7 +53,10 @@ impl App {
             lines.extend(bound);
             lines
         } else if let Some(tag) = tag {
-            *word = search::component_name(&self.line_str()[tag]);
+            let Some(name) = self.line_str().get(tag).map(search::component_name) else {
+                return false;
+            };
+            *word = name;
             if search::imports(Kind::TsJs, &script)
                 .iter()
                 .any(|i| i.name == *word)
