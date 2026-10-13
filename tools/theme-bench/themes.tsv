@@ -38,7 +38,7 @@ edge	sainnhe/edge@7ec78c21bd8f0b2b0b47043bb1e730c561647c72	edge	set background=d
 gotham	whatyouhide/vim-gotham@7e7eff411fedada2b6cceb78059ed8a4a26d03ba	gotham	-	-
 hojicha	casedami/neomodern.nvim@d41469578922a23d75a0d9e8deef1e34837230a6	hojicha	-	-
 iceberg	cocopon/iceberg.vim@23835d5ed696436f716cbfdb56a93a7850fe3b18	iceberg	set background=dark	-
-jellybeans	WTFox/jellybeans.nvim@e732023eed419be0efb0bf47569cc12e7cdda6a1	jellybeans	-	-
+jellybeans	WTFox/jellybeans.nvim@e732023eed419be0efb0bf47569cc12e7cdda6a1	jellybeans	lua require('jellybeans').setup({on_highlights = function(hl, c) hl.Error = {bg = c.error} end})	-
 koda-dark	oskarnurm/koda.nvim@25a5c98ca2f6bb0b69f5e2654a78f0d7c7e0721d	koda-dark	-	-
 lackluster	slugbyte/lackluster.nvim@70dd682e564784893b984deb51dd5ddd263c8cc7	lackluster	-	-
 lucerna	skip	merl's own palette after atlas.vim (#775), no Neovim original	-	-
@@ -84,7 +84,7 @@ bamboo-light	ribru17/bamboo.nvim@1309bc88bffcf1bedc3e84e7fa9004de93da774a	bamboo
 e-ink-light	e-ink-colorscheme/e-ink.nvim@a0f003a0c6e2952abd9b73ef89d56c65e6c46f00	e-ink	set background=light	-
 edge-light	sainnhe/edge@7ec78c21bd8f0b2b0b47043bb1e730c561647c72	edge	set background=light	-
 iceberg-light	cocopon/iceberg.vim@23835d5ed696436f716cbfdb56a93a7850fe3b18	iceberg	set background=light	-
-jellybeans-light	WTFox/jellybeans.nvim@e732023eed419be0efb0bf47569cc12e7cdda6a1	jellybeans-light	-	-
+jellybeans-light	WTFox/jellybeans.nvim@e732023eed419be0efb0bf47569cc12e7cdda6a1	jellybeans-light	lua require('jellybeans').setup({on_highlights = function(hl, c) hl.Error = {bg = c.error} end})	-
 koda-light	oskarnurm/koda.nvim@25a5c98ca2f6bb0b69f5e2654a78f0d7c7e0721d	koda-light	-	-
 lightearth	ptdewey/darkearth-nvim@d894924296162bfb50c6ab753c30c479c100f0e6	lightearth	-	-
 mellifluous-light	ramojus/mellifluous.nvim@ec0575bdb63594c5e7fba6eb9607b009aa1fb74e	mellifluous	set background=light	-

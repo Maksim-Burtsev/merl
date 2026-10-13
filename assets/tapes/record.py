@@ -221,7 +221,7 @@ def main():
     steps = [l for l in steps if l.split()[0] != "project"]
     assert steps[0].split()[0] == "merl", "the first step is `merl [ARGS]`"
     project = f"{DEMO}/{name}"
-    clean = 'git checkout -q -- . && git clean -fdq && rm -f "$(git rev-parse --git-common-dir)/merl/viewed"'
+    clean = 'git checkout -q -- . && git clean -fdq && rm -f "$(git rev-parse --git-common-dir)/merl/viewed" "$(git rev-parse --git-dir)/merl/recent"'
     subprocess.run(clean, shell=True, cwd=project, check=True)
     cast, presses = take(steps, project)
     frames = render(cast, presses, gif, keys)

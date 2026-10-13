@@ -270,6 +270,31 @@ fn c_sharp_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn kotlin_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("kotlin");
+}
+
+#[test]
+fn swift_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("swift");
+}
+
+#[test]
+fn ruby_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("ruby");
+}
+
+#[test]
+fn php_and_the_html_around_it_are_coloured_as_lazyvim() {
+    coloured_as_lazyvim("php");
+}
+
+#[test]
+fn elixir_and_the_markdown_in_its_docs_are_coloured_as_lazyvim() {
+    coloured_as_lazyvim("elixir");
+}
+
+#[test]
 fn html_and_the_css_and_javascript_in_it_are_coloured_as_lazyvim() {
     coloured_as_lazyvim("html");
 }
@@ -367,6 +392,44 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
             "{f}"
         );
     }
+    for f in ["A.kt", "build.gradle.kts"] {
+        assert!(sexp(f, b"class A\n").contains("(source_file "), "{f}");
+    }
+    assert!(sexp("A.swift", b"class A {}\n").contains("(source_file "));
+    for f in [
+        "a.rb",
+        "a.rbi",
+        "a.rjs",
+        "a.gemspec",
+        "a.rake",
+        "Brewfile",
+        "Gemfile",
+        "irbrc",
+        "rakefile",
+        "Rakefile",
+        "rantfile",
+        "Rantfile",
+        "Vagrantfile",
+        "config.ru",
+    ] {
+        assert!(sexp(f, b"x = 1\n").contains("(program "), "{f}");
+    }
+    for f in ["Dangerfile", "Podfile", "a.thor"] {
+        assert_eq!(sexp(f, b"x = 1\n"), "", "{f}");
+    }
+    for f in [
+        "a.php", "a.phtml", "a.phpt", "a.php3", "a.php4", "a.php5", "a.php7",
+    ] {
+        assert!(sexp(f, b"<?php echo 1;\n").contains("(program "), "{f}");
+    }
+    assert_eq!(sexp("a.blade.php", b"<?php echo 1;\n"), "");
+    for f in ["a.ex", "a.exs"] {
+        assert!(sexp(f, b"x = 1\n").contains("(source "), "{f}");
+    }
+    assert_eq!(sexp("a.ex", b"include std/io.e\nx = 1\n"), "");
+    assert_eq!(sexp("a.ex", b"-- c\nx = 1\n"), "");
+    assert!(sexp("a.ex", b"includes = 1\n").contains("(source "));
+    assert!(sexp("a.exs", b"include std/io.e\nx = 1\n").contains("(source "));
     for f in ["a.html", "a.htm"] {
         assert!(sexp(f, b"<p>a</p>\n").contains("(element "), "{f}");
     }
@@ -632,6 +695,14 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
     assert_eq!(name("java"), Some("java"));
     assert_eq!(name("cs"), Some("c_sharp"));
     assert_eq!(name("csharp"), Some("c_sharp"));
+    assert_eq!(name("kotlin"), Some("kotlin"));
+    assert_eq!(name("kt"), Some("kotlin"));
+    assert_eq!(name("swift"), Some("swift"));
+    assert_eq!(name("ruby"), Some("ruby"));
+    assert_eq!(name("rb"), Some("ruby"));
+    assert_eq!(name("php"), Some("php"));
+    assert_eq!(name("elixir"), Some("elixir"));
+    assert_eq!(name("ex"), Some("elixir"));
 }
 
 #[test]
@@ -668,12 +739,50 @@ fn a_preview_code_block_is_coloured_as_the_same_code_in_a_file() {
         assert_eq!(block.hl, file.hl, "{token}");
         assert_ne!(block.hl, syntect, "{token}");
     }
-    let mut ruby = Buffer::block("ruby", vec!["x = 1".to_string()]);
-    ruby.start_block_tree_sitter("ruby");
-    ruby.highlight_to(0, &theme);
+    let dart = vec![
+        "void main() {".to_string(),
+        "  print('x');".to_string(),
+        "}".to_string(),
+    ];
+    let mut block = Buffer::block("dart", dart);
+    block.highlight_to(usize::MAX, &theme);
+    let syntect = block.hl.clone();
+    block.start_block_tree_sitter("dart");
+    block.parse_more(None);
+    block.paint_to(usize::MAX, &theme);
+    assert_eq!(block.hl, syntect);
+    let colours: std::collections::HashSet<_> =
+        syntect.iter().flatten().map(|(s, _)| s.fg).collect();
+    assert!(colours.len() > 2, "{colours:?}");
+}
+
+#[test]
+fn elixir_docs_are_coloured_as_markdown() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let style_at = |src: &str, word: &str| {
+        let lines = vec![src.to_string()];
+        let mut parsed = super::Parsed::new(super::lang("elixir").unwrap(), &lines).unwrap();
+        parsed.parse(None);
+        let mut styles = super::Styles::new(&theme);
+        let col = src.find(word).unwrap();
+        parsed.spans(&lines, 0, 0, &mut styles)[0]
+            .iter()
+            .find(|(_, r)| r.contains(&col))
+            .unwrap()
+            .0
+    };
+    let doc = "@doc \"Use `put` for *one*.\"";
+    let plain = "x = \"Use `put` for *one*.\"";
+    assert_eq!(
+        style_at(doc, "put").fg,
+        theme.group("@markup.raw.markdown_inline").unwrap().fg
+    );
+    assert_ne!(style_at(doc, "put").fg, style_at(plain, "put").fg);
+    assert!(style_at(doc, "one").add_modifier.contains(Modifier::ITALIC));
     assert!(
-        !ruby.hl.is_empty(),
-        "a language not on tree-sitter keeps syntect's colours"
+        !style_at(plain, "one")
+            .add_modifier
+            .contains(Modifier::ITALIC)
     );
 }
 

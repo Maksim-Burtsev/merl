@@ -1,7 +1,10 @@
 use super::*;
 
+const RECENT_MAX: usize = 200;
+
 impl App {
     pub fn open_files_picker(&mut self) {
+        self.read_recent();
         let order: HashMap<&PathBuf, usize> = match &self.review {
             Some(r) if self.review_open_files_first => r
                 .files
@@ -17,9 +20,11 @@ impl App {
             .chain(&self.ignored)
             .partition(|p| order.contains_key(p));
         review.sort_by_key(|p| order[p]);
-        let items = review
+        let listed: Vec<&PathBuf> = review.into_iter().chain(rest).collect();
+        let lead = Some(self.history_rows(&listed))
+            .filter(|(rows, _)| self.review.is_none() && self.tutor.is_none() && !rows.is_empty());
+        let items = listed
             .into_iter()
-            .chain(rest)
             .map(|p| PickItem {
                 label: p.display().to_string(),
                 path: p.clone(),
@@ -30,8 +35,56 @@ impl App {
                 deleted: false,
             })
             .collect();
-        self.picker = Some(Picker::new(PickerKind::Files.title(), items, true));
+        let mut picker = Picker::new(PickerKind::Files.title(), items, true);
+        if let Some((rows, current_first)) = lead {
+            picker.lead_with_history(rows, current_first);
+        }
+        self.picker = Some(picker);
         self.mode = Mode::Picker(PickerKind::Files);
+    }
+
+    fn history_rows(&self, listed: &[&PathBuf]) -> (Vec<u32>, bool) {
+        let row: HashMap<PathBuf, u32> = (listed.iter().enumerate())
+            .map(|(i, p)| (self.root.join(p), i as u32))
+            .collect();
+        let current = self.buf.path.as_ref().and_then(|p| row.get(p)).copied();
+        let rest = (self.recent.iter())
+            .filter_map(|p| row.get(p).copied())
+            .filter(|&i| Some(i) != current);
+        (current.into_iter().chain(rest).collect(), current.is_some())
+    }
+
+    fn read_recent(&mut self) {
+        if let Some(text) =
+            (self.recent_file.as_ref()).and_then(|f| std::fs::read_to_string(f).ok())
+        {
+            self.recent = text.lines().map(PathBuf::from).collect();
+        }
+    }
+
+    pub fn note_recent(&mut self) {
+        let Some(path) = self.buf.path.clone() else {
+            return;
+        };
+        self.read_recent();
+        self.recent.retain(|p| *p != path && p.is_file());
+        self.recent.insert(0, path);
+        self.recent.truncate(RECENT_MAX);
+        let Some(file) = &self.recent_file else {
+            return;
+        };
+        let text: String = self
+            .recent
+            .iter()
+            .map(|p| format!("{}\n", p.display()))
+            .collect();
+        let tmp = file.with_file_name(format!(".recent-{}", std::process::id()));
+        let written = (file.parent().map_or(Ok(()), std::fs::create_dir_all))
+            .and_then(|()| std::fs::write(&tmp, text))
+            .and_then(|()| std::fs::rename(&tmp, file));
+        if written.is_err() {
+            let _ = std::fs::remove_file(&tmp);
+        }
     }
 
     pub(crate) fn show_picker(&mut self, kind: PickerKind, items: Vec<PickItem>) {

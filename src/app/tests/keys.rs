@@ -78,6 +78,43 @@ fn ctrl_shift_letter_is_never_the_bare_letter() {
 }
 
 #[test]
+fn unbound_ctrl_letter_is_never_the_bare_letter() {
+    let mut a = app(&"x\n".repeat(200));
+    a.show_tree = false;
+    let ctrl = KeyModifiers::CONTROL;
+    for c in ['q', 't', 'w', 'p', 'o', 'k', 'x'] {
+        assert!(!press(&mut a, KeyCode::Char(c), ctrl), "Ctrl+{c}");
+        assert!(a.picker.is_none() && a.message.is_empty(), "Ctrl+{c}");
+        assert!(
+            !a.show_tree && a.wrap_opposite_of_kind.is_empty(),
+            "Ctrl+{c}"
+        );
+        assert_eq!((a.mode, a.line), (Mode::Normal, 0), "Ctrl+{c}");
+    }
+    press(&mut a, KeyCode::Char('?'), KeyModifiers::NONE);
+    assert!(!press(&mut a, KeyCode::Char('q'), ctrl));
+    assert_eq!(a.mode, Mode::Help);
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    for c in ['q', 't'] {
+        assert!(!press(&mut a, KeyCode::Char(c), ctrl), "Edit: Ctrl+{c}");
+        assert!(!a.show_tree && a.mode == Mode::Edit, "Edit: Ctrl+{c}");
+    }
+    press(&mut a, KeyCode::Char('x'), ctrl);
+    assert_eq!(a.buf.lines.len(), 199);
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+    for c in "ab cd".chars() {
+        press(&mut a, KeyCode::Char(c), KeyModifiers::NONE);
+    }
+    press(&mut a, KeyCode::Char('w'), ctrl);
+    assert_eq!(&*a.prompt, "ab ");
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('d'), ctrl);
+    assert_ne!(a.line, 0);
+}
+
+#[test]
 fn aliases_reach_the_same_actions() {
     let mut a = app("foo bar\n");
     std::fs::remove_file(a.buf.path.as_ref().unwrap()).unwrap();

@@ -37,6 +37,16 @@ const STATES: &[State] = &[
         press(a, "?");
     }),
     ("files", |a| press(a, "ost")),
+    ("files-recent", |a| {
+        at(a, "config.py", 18, "load_config");
+        on_call(a);
+        press(a, "o");
+    }),
+    ("files-recent-typed", |a| {
+        at(a, "config.py", 18, "load_config");
+        on_call(a);
+        press(a, "opy");
+    }),
     ("search", |a| {
         press(a, "sload_config");
         a.settle_search();
@@ -396,6 +406,8 @@ snapshots! {
     snapshot_tree: "tree",
     snapshot_help: "help",
     snapshot_files: "files",
+    snapshot_files_recent: "files-recent",
+    snapshot_files_recent_typed: "files-recent-typed",
     snapshot_search: "search",
     snapshot_symbols: "symbols",
     snapshot_usages: "usages",

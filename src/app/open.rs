@@ -57,6 +57,7 @@ impl App {
                     (self.top_line, self.top_row) = (0, 0);
                     self.diff = git::Diff::default();
                     self.refresh_diff();
+                    self.note_recent();
                 }
                 Err(e) => {
                     self.say_about(path, &format!(": {}", why_not(&e)));
