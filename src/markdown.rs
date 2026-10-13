@@ -409,7 +409,6 @@ impl Lay<'_> {
         }
     }
 
-    #[expect(clippy::too_many_lines, reason = "#858")]
     fn start(&mut self, tag: Tag, r: Range<usize>) {
         match tag {
             Tag::Paragraph => {
@@ -434,44 +433,8 @@ impl Lay<'_> {
                 );
                 self.inline = Some(inline);
             }
-            Tag::BlockQuote(kind) => {
-                self.block_start(r.start);
-                self.stack.push(Frame::Quote(kind));
-                if let Some(kind) = kind {
-                    let title = match kind {
-                        BlockQuoteKind::Note => "Note",
-                        BlockQuoteKind::Tip => "Tip",
-                        BlockQuoteKind::Important => "Important",
-                        BlockQuoteKind::Warning => "Warning",
-                        BlockQuoteKind::Caution => "Caution",
-                    };
-                    let look = Look {
-                        ink: Ink::Alert(kind),
-                        mods: Modifier::BOLD,
-                    };
-                    let at = self.line_and_byte_col(r.start);
-                    self.push(title, vec![(look, 0..title.len())], at, Kind::Text);
-                }
-            }
-            Tag::CodeBlock(kind) => {
-                self.block_start(r.start);
-                let info_first_word = match kind {
-                    CodeBlockKind::Fenced(info) => info
-                        .split(|c: char| c == ',' || c.is_whitespace())
-                        .next()
-                        .unwrap_or("")
-                        .into(),
-                    CodeBlockKind::Indented => String::new(),
-                };
-                let span = self.line_and_byte_col(r.start).0
-                    ..self.line_and_byte_col(r.end.saturating_sub(1)).0 + 1;
-                self.block = Some(Block {
-                    info_first_word,
-                    lines: Vec::new(),
-                    last_line_unended: false,
-                    span,
-                });
-            }
+            Tag::BlockQuote(kind) => self.start_quote(kind, &r),
+            Tag::CodeBlock(kind) => self.start_code_block(kind, &r),
             Tag::HtmlBlock => {
                 self.block_start(r.start);
                 self.html = Some(Vec::new());
@@ -483,36 +446,7 @@ impl Lay<'_> {
                     loose: false,
                 });
             }
-            Tag::Item => {
-                self.flush_implicit();
-                let loose = matches!(self.stack.last(), Some(Frame::List { loose: true, .. }));
-                self.gap_before_next_block &= loose;
-                self.block_start(r.start);
-                let depth = self
-                    .stack
-                    .iter()
-                    .filter(|f| matches!(f, Frame::List { .. }))
-                    .count();
-                let marker = match self.stack.last_mut() {
-                    Some(Frame::List {
-                        next_number: Some(n),
-                        ..
-                    }) => {
-                        *n += 1;
-                        format!("{}. ", *n - 1)
-                    }
-                    _ => match depth {
-                        1 => "\u{2022} ",
-                        2 => "\u{25e6} ",
-                        _ => "\u{25aa} ",
-                    }
-                    .into(),
-                };
-                self.stack.push(Frame::Item {
-                    marker_width: wrap::width(&marker),
-                    first_row_marker: Some((marker, Ink::Bullet.plain())),
-                });
-            }
+            Tag::Item => self.start_item(r.start),
             Tag::FootnoteDefinition(label) => {
                 self.block_start(r.start);
                 let n = self.number(&label);
@@ -568,6 +502,77 @@ impl Lay<'_> {
             | Tag::Superscript
             | Tag::Subscript => {}
         }
+    }
+
+    fn start_quote(&mut self, kind: Option<BlockQuoteKind>, r: &Range<usize>) {
+        self.block_start(r.start);
+        self.stack.push(Frame::Quote(kind));
+        if let Some(kind) = kind {
+            let title = match kind {
+                BlockQuoteKind::Note => "Note",
+                BlockQuoteKind::Tip => "Tip",
+                BlockQuoteKind::Important => "Important",
+                BlockQuoteKind::Warning => "Warning",
+                BlockQuoteKind::Caution => "Caution",
+            };
+            let look = Look {
+                ink: Ink::Alert(kind),
+                mods: Modifier::BOLD,
+            };
+            let at = self.line_and_byte_col(r.start);
+            self.push(title, vec![(look, 0..title.len())], at, Kind::Text);
+        }
+    }
+
+    fn start_code_block(&mut self, kind: CodeBlockKind, r: &Range<usize>) {
+        self.block_start(r.start);
+        let info_first_word = match kind {
+            CodeBlockKind::Fenced(info) => info
+                .split(|c: char| c == ',' || c.is_whitespace())
+                .next()
+                .unwrap_or("")
+                .into(),
+            CodeBlockKind::Indented => String::new(),
+        };
+        let span = self.line_and_byte_col(r.start).0
+            ..self.line_and_byte_col(r.end.saturating_sub(1)).0 + 1;
+        self.block = Some(Block {
+            info_first_word,
+            lines: Vec::new(),
+            last_line_unended: false,
+            span,
+        });
+    }
+
+    fn start_item(&mut self, start: usize) {
+        self.flush_implicit();
+        let loose = matches!(self.stack.last(), Some(Frame::List { loose: true, .. }));
+        self.gap_before_next_block &= loose;
+        self.block_start(start);
+        let depth = self
+            .stack
+            .iter()
+            .filter(|f| matches!(f, Frame::List { .. }))
+            .count();
+        let marker = match self.stack.last_mut() {
+            Some(Frame::List {
+                next_number: Some(n),
+                ..
+            }) => {
+                *n += 1;
+                format!("{}. ", *n - 1)
+            }
+            _ => match depth {
+                1 => "\u{2022} ",
+                2 => "\u{25e6} ",
+                _ => "\u{25aa} ",
+            }
+            .into(),
+        };
+        self.stack.push(Frame::Item {
+            marker_width: wrap::width(&marker),
+            first_row_marker: Some((marker, Ink::Bullet.plain())),
+        });
     }
 
     fn end(&mut self, tag: TagEnd, r: Range<usize>) {
@@ -1099,7 +1104,6 @@ impl Lay<'_> {
         }
     }
 
-    #[expect(clippy::excessive_nesting, reason = "#858")]
     fn table(&mut self, t: &Table) {
         let n = t
             .rows
@@ -1157,9 +1161,9 @@ impl Lay<'_> {
                     let r = wrapped[j].get(k).cloned().unwrap_or(0..0);
                     let (piece, mut piece_looks) = cut(&c.text, &c.looks, r);
                     if i == 0 {
-                        for (look, _) in &mut piece_looks {
-                            look.mods |= Modifier::BOLD;
-                        }
+                        piece_looks
+                            .iter_mut()
+                            .for_each(|(look, _)| look.mods |= Modifier::BOLD);
                     }
                     let pad = widths[j].saturating_sub(wrap::width(&piece));
                     let before = match t.aligns.get(j) {

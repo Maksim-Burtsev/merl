@@ -1,5 +1,4 @@
 #![expect(clippy::string_slice, reason = "#858")]
-#![cfg_attr(test, expect(clippy::too_many_lines, reason = "#858"))]
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -967,6 +966,7 @@ fn detect_base(git: &dyn Fn(&[&str]) -> Result<String>) -> Result<String> {
 }
 
 #[cfg(test)]
+#[expect(clippy::too_many_lines, reason = "test tables")]
 mod tests {
     use super::*;
 

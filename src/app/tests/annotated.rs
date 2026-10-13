@@ -1,4 +1,4 @@
-#![expect(clippy::cognitive_complexity, reason = "#858")]
+#![expect(clippy::cognitive_complexity, reason = "test tables")]
 #![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 

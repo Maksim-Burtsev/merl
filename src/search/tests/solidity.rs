@@ -1,4 +1,4 @@
-#![expect(clippy::cognitive_complexity, reason = "#858")]
+#![expect(clippy::cognitive_complexity, reason = "test tables")]
 use super::*;
 
 fn declares(line: &str, word: &str) -> bool {
